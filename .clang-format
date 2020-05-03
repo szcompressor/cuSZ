@@ -1,0 +1,12 @@
+﻿---
+BasedOnStyle: Chromium
+IndentWidth: '4'
+ColumnLimit: 150
+BreakConstructorInitializers: AfterColon
+AllowShortLoopsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignEscapedNewlines: true
+
