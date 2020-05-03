@@ -13,9 +13,8 @@ April, 2020
 - add concise and detailed help doc
 
 # Requirements
-- NVIDIA GPU with Kepler, Maxwell, Pascal, and Volta microarchitectures 
-- CUDA SDK 9.0+ and compatible GCC compiler
-
+- NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
+- CUDA 9.1+ and GCC 6+ (recommended: CUDA 10.1 + GCC 8)
 
 # Download
 ```bash
