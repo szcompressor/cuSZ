@@ -1,4 +1,4 @@
-cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
+cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor (v.0.1)
 ---
 
 # `changelog`
