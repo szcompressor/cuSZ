@@ -3,8 +3,7 @@ all: cusz
 
 CPP_STD = -std=c++11
 
-
-# Issue 1: UA PantaRrhei does not support compute_75
+# Issue 1: UA PantaRhei does not support compute_75
 DEPLOY=-gencode=arch=compute_61,code=sm_61 \
        -gencode=arch=compute_70,code=sm_70
 #       -gencode=arch=compute_75,code=sm_75 \

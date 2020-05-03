@@ -1,33 +1,23 @@
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor (v.0.1)
 ---
 
-# `changelog`
-May, 2020
-- add `--skip huffman` and `--verify huffman` feature
-- add binning support (merge from `exafel` branch)
-
-April, 2020
-- use `cuSparse` to deflate outlier array
-- add `argparse` to check and parse argument inputs
-- add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
-- add concise and detailed help doc
-
-# Requirements
+# set up
+## requirements
 - NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
 - CUDA 9.1+ and GCC 6+ (recommended: CUDA 10.1 + GCC 8)
 
-# Download
+## download
 ```bash
 git clone git@github.com:hipdac-lab/cuSZ.git
 ```
 
-# Compile
+## compile
 ```bash
 cd cuSZ/src
 make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
 ```
 
-# Run
+# run
 - `cusz` or `cusz -h` for detailed instruction
 
 ## Dual-Quantization with Huffman
@@ -35,10 +25,10 @@ make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
 ```bash
 ./cusz
     -f32                # specify data type
-    -m <abs|r2r>	# absolute error bound mode OR value-range-based relative error bound mode
+    -m <abs|r2r>	# absolute mode OR relative to value range
     -e <num>		# error bound
     -D <demo dataset>
-    -z -x		# for demonstration purpose, you can do both zip (compresss) and extract (decompress) in one execution
+    -z -x		# -z to compress, -x to decompress
     -i <input data>	# input data path
 ```
 and to execute
@@ -55,7 +45,7 @@ and to execute
     -f32                # specify datatype
     -m <abs|r2r>	# absolute mode OR relative to value range
     -e <num>		# error bound
-    -z -x		# for demonstration, we both archive (compresss) and extract (decompress)
+    -z -x		# -z to compress, -x to decompress
     -i <input data>	# input data path
     -2 nx ny		# dimension(s) with low-to-high order
 ```
@@ -78,6 +68,41 @@ and to execute
 - single archive
 - autoselect Huffman codeword representation
 
-# Reference
+# `changelog`
+May, 2020
+- `feature` add `--skip huffman` and `--verify huffman` options
+- `feature` add binning as preprocessing
+- `prototype` use `cuSparse` to transform `outlier` to dense format
+- `feature` add `argparse` to check and parse argument inputs
+- `refactor` add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
+
+April, 2020
+- `feature` add concise and detailed help doc
+- `deploy` `sm_61` (e.g., P1000) and `sm_70` (e.g., V100) binary
+- `feature` add dry-run mode
+- `refactor` merge cuSZ and Huffman codec in driver program
+- `perf` 1D PdQ (and reverse PdQ) `blockDim` set to 32, throughput changed from 2.7 GBps to 16.8 GBps
+- `deploy` histograming, 2013 algorithm supersedes naive 2007 algorithm by default
+- `feature` add communication of equivalance calculation
+- `feature` use cooperative groups (CUDA 9 required) for canonical Huffman codebook
+- `perf` faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
+- `feature` add Huffman inflating/decoding
+- `refactor` merge 1,2,3-D cuSZ
+- `feature` set 32- and 64-bit as internal Huffman codeword representation
+- `feature` now use arbitrary multiple-of-8-bit for quantization code
+- `feature` switch to canonical Huffman code for decoding
+
+March, 2020
+- `perf` tuning thread number for Huffman deflating and inflating
+- `feature` change freely to 32bit intermediate Huffman code representation
+- `demo` add EXAFEL demo
+- `feature` switch to faster histograming
+
+February, 2020
+- `demo` SDRB suite metadata in `SDRB.hh`
+- `feature` visualize histogram (`pSZ`)
+- `milestone` `PdQ` for compression, Huffman encoding and deflating
+
+# reference
  - [1] Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
  - [2] Barnett, Mark L. "Canonical Huffman encoded data decompression algorithm." U.S. Patent 6,657,569, issued December 2, 2003.
