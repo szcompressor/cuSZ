@@ -12,15 +12,19 @@ April, 2020
 - add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
 - add concise and detailed help doc
 
+# Requirements
+- NVIDIA GPU with Kepler, Maxwell, Pascal, and Volta microarchitectures 
+- CUDA SDK 9.0+ and compatible GCC compiler
+
+
 # Download
 ```bash
 git clone git@github.com:hipdac-lab/cuSZ.git
-cd cuSZ
 ```
 
 # Compile
 ```bash
-cd src
+cd cuSZ/src
 make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
 ```
 
