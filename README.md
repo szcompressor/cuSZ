@@ -12,13 +12,13 @@ April, 2020
 - add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
 - add concise and detailed help doc
 
-# Compile
-
+# Download
 ```bash
 git clone git@github.com:hipdac-lab/cuSZ.git
 cd cuSZ
 ```
 
+# Compile
 ```bash
 cd src
 make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
@@ -75,6 +75,6 @@ and to execute
 - single archive
 - autoselect Huffman codeword representation
 
-## Reference
+# Reference
  - [1] Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
  - [2] Barnett, Mark L. "Canonical Huffman encoded data decompression algorithm." U.S. Patent 6,657,569, issued December 2, 2003.
