@@ -1,13 +1,14 @@
 psz1d
 psz2d
 psz3d
+cusz
+huff
 
 cmake-build-debug
 cmake-build-release
 
 src/*.dylib
 src/*.o
-
 
 *.swp
 .DS_Store
