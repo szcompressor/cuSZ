@@ -8,7 +8,7 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 # set up
 ## requirements
 - NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
-- CUDA 9.1+ and GCC 6+ (recommended: CUDA 10.1 + GCC 8)
+- CUDA 9.1+ and GCC 7+ (recommended: CUDA 10.1 + GCC 8)
 
 ## download
 ```bash
