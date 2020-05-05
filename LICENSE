@@ -3,7 +3,7 @@ BSD 3-Clause License
 Copyright (c) 2020, Jiannan Tian, Dingwen Tao, Sheng Di, Franck Cappello
 All rights reserved.
 
-cuSZ - An Efficient GPU-Based Error-Bounded Lossy Compressor for Scientific Data
+cuSZ - A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 [Version 0.1]
 
 Redistribution and use in source and binary forms, with or without
