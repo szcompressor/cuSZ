@@ -24,7 +24,7 @@ make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
 # run
 - `cusz` or `cusz -h` for detailed instruction
 
-## Dual-Quantization with Huffman
+### Dual-Quantization with Huffman
 - To run a demo
 ```bash
 ./cusz
