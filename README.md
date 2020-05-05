@@ -9,6 +9,7 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 ## requirements
 - NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
 - CUDA 9.1+ and GCC 7+ (recommended: CUDA 10.1 + GCC 8)
+- CMake 3.11+ (for cmake compilation)
 
 ## download
 ```bash
@@ -19,6 +20,12 @@ git clone git@github.com:hipdac-lab/cuSZ.git
 ```bash
 cd cuSZ/src
 make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
+```
+or
+```bash
+cd cuSZ
+cmake CMakeLists.txt     # Using cmake to compile cusz for {1,2,3}-D, with Huffman codec
+make
 ```
 
 # run
