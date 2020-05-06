@@ -1,14 +1,16 @@
+![cuSZ logo small](https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg)
+
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 =
 
-* Major Authors: Jiannan Tian, Dingwen Tao, Sheng Di
-* Supervisor: Franck Cappello 
+* Major Developers: Jiannan Tian, Dingwen Tao, Sheng Di, Franck Cappello 
 * Other Contributors: Cody Rivera, Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
 # set up
 ## requirements
 - NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
 - CUDA 9.1+ and GCC 7+ (recommended: CUDA 10.1 + GCC 8)
+- CMake 3.11+ (for cmake compilation)
 
 ## download
 ```bash
@@ -20,11 +22,17 @@ git clone git@github.com:hipdac-lab/cuSZ.git
 cd cuSZ/src
 make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
 ```
+or
+```bash
+cd cuSZ
+cmake CMakeLists.txt     # Using cmake to compile cusz for {1,2,3}-D, with Huffman codec
+make
+```
 
 # run
 - `cusz` or `cusz -h` for detailed instruction
 
-## Dual-Quantization with Huffman
+### Dual-Quantization with Huffman
 - To run a demo
 ```bash
 ./cusz
