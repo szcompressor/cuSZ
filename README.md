@@ -10,7 +10,7 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 ## requirements
 - NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
 - CUDA 9.1+ and GCC 7+ (recommended: CUDA 10.1 + GCC 8)
-- CMake 3.11+ (for cmake compilation)
+- CMake 3.11+
 
 ## download
 ```bash
@@ -18,11 +18,6 @@ git clone git@github.com:hipdac-lab/cuSZ.git
 ```
 
 ## compile
-```bash
-cd cuSZ/src
-make cusz     # compile cusz for {1,2,3}-D, with Huffman codec
-```
-or
 ```bash
 cd cuSZ
 cmake CMakeLists.txt     # Using cmake to compile cusz for {1,2,3}-D, with Huffman codec
@@ -45,11 +40,11 @@ make
 ```
 and to execute
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -D cesm -i CLDHGH_sample -z -x
+./cusz -f32 -m r2r -e 1.23e-4.56 -D cesm -i ./data/sample-cesm-CLDHGH -z -x
 ```
 - We provide a dry-run mode to quickly get the summary of compression quality (without Huffman coding and decompression)
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -D cesm -i CLDHGH_sample -r
+./cusz -f32 -m r2r -e 1.23e-4.56 -D cesm -i ./data/sample-cesm-CLDHGH -r
 ```
 - To run cuSZ on any given data field with arbitrary input size(s)
 ```bash
@@ -63,7 +58,7 @@ and to execute
 ```
 and to execute
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -i CLDHGH_sample -2 3600 1800 -z -x
+./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/CLDHGH_sample -2 3600 1800 -z -x
 ```
 
 - Specify `--skip huffman` to skip Huffman encoding and decoding.
