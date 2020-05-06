@@ -58,7 +58,7 @@ and to execute
 ```
 and to execute
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/CLDHGH_sample -2 3600 1800 -z -x
+./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
 ```
 
 - Specify `--skip huffman` to skip Huffman encoding and decoding.
