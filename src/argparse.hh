@@ -48,6 +48,7 @@ typedef struct ArgPack {
     bool   to_verify      = false;
     bool   verify_huffman = false;
     bool   skip_huffman   = false;
+    bool   skip_writex    = false;
     bool   pre_binning    = false;
     bool   dry_run        = false;
 
@@ -174,6 +175,10 @@ typedef struct ArgPack {
             "        *-e* or *--eb* or *--error-bound* [num]\n"
             "                Specify error bound. e.g., _1.23_, _1e-4_, _1.23e-4.56_\n"
             "\n"
+            "        *-i* or *--input* [datum file]\n"
+            "        *-o* or *--output* [alternative decompressed file]\n"
+            "                Specify otherwise decompressed file name.\n"
+            "\n"
             "        *-d* or *--dict-size* [256|512|1024|...]\n"
             "                Specify dictionary size/quantization bin number.\n"
             "                Should be a power-of-2.\n"
@@ -186,6 +191,7 @@ typedef struct ArgPack {
             "        *-X* or *-S* or *--e*@x@*clude* or *--*@s@*kip* _module-1_,_module-2_,...,_module-n_,\n"
             "                Disable functionality modules. Supported module(s) include:\n"
             "                _huffman_  Huffman codec after prediction+quantization (p+q) and before reveresed p+q.\n"
+            "                _write.x_  Skip write decompression data.\n"
             "\n"
             "        *-p* or *--pre* _method-1_,_method-2_,...,_method-n_\n"
             "                Enable preprocessing. Supported preproessing method(s) include:\n"
@@ -324,6 +330,7 @@ typedef struct ArgPack {
                         if (i + 1 <= argc) {
                             string exclude(argv[++i]);
                             if (exclude.find("huffman") != std::string::npos) skip_huffman = true;
+                            if (exclude.find("write.x") != std::string::npos) skip_writex = true;
                         }
                         break;
                     // input dimensionality

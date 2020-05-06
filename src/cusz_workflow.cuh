@@ -556,6 +556,9 @@ void x(std::string const& fi,  //
                          archive_size,
                          ap->pre_binning ? 4 : 1);  // suppose binning is 2x2
 
+    if (!ap->skip_writex)
+        io::WriteBinaryFile(xdata, len, &f_extract);
+
     // clean up
     delete[] odata;
     delete[] xdata;
