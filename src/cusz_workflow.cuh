@@ -487,8 +487,8 @@ void x(std::string const& fi,  //
        size_t&            total_uInt,
        size_t&            huffman_metadata_size,
        argpack*           ap) {
-    string f_archive = fi + ".sza";
-    string f_extract = fi + ".szx";
+    //    string f_archive = fi + ".sza"; // TODO
+    string f_extract = ap->alt_xout_name.empty() ? fi + ".szx" : ap->alt_xout_name;
     string fi_bcode_base, fi_bcode_after_huffman, fi_outlier, fi_outlier_new;
 
     fi_bcode_base  = fi + ".b" + std::to_string(sizeof(Q) * 8);
@@ -556,8 +556,11 @@ void x(std::string const& fi,  //
                          archive_size,
                          ap->pre_binning ? 4 : 1);  // suppose binning is 2x2
 
-    if (!ap->skip_writex)
+    if (!ap->skip_writex) {
+        if (!ap->alt_xout_name.empty())
+            cout << log_info << "Default decompressed data is renamed from " << string(fi + ".szx") << " to " << f_extract << endl;
         io::WriteBinaryFile(xdata, len, &f_extract);
+    }
 
     // clean up
     delete[] odata;

@@ -29,6 +29,7 @@ typedef struct ArgPack {
     string fname;
     string mode;  // abs (absolute), r2r (relative to value range)
     string demo_dataset;
+    string alt_xout_name;
     string dtype;
     int    dict_size      = 1024;
     int    quant_rep      = 16;
@@ -302,6 +303,7 @@ typedef struct ArgPack {
                         if (string(argv[i]) == "--dry-run") goto _DRY_RUN;
                         if (string(argv[i]) == "--meta") goto _META;
                         if (string(argv[i]) == "--pre") goto _PRE;
+                        if (string(argv[i]) == "--output") goto _OUT;
                     // work
                     // ----------------------------------------------------------------
                     case 'a':
@@ -405,8 +407,15 @@ typedef struct ArgPack {
                     _INPUT_DATUM:
                         if (i + 1 <= argc) {
                             fname = string(argv[++i]);
-                            break;
                         }
+                        break;
+                        // alternative output
+                    case 'o':
+                    _OUT:
+                        if (i + 1 <= argc) {
+                            alt_xout_name = string(argv[++i]);
+                        }
+                        break;
                     // preprocess
                     case 'p':
                     _PRE:
