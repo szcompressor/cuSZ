@@ -51,7 +51,7 @@ __global__ void lorenzo_3d1l(T* data, size_t* dims_L16, double* ebs_L4) {
 namespace PdQ {
 
 template <typename T, typename Q, int B>
-__global__ void c_lorenzo_1d1l(T* data, T* outlier, Q* code, size_t* dims_L16, double* ebs_L4) {
+__global__ void c_lorenzo_1d1l(T* data, Q* code, size_t* dims_L16, double* ebs_L4) {
     size_t id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id >= dims_L16[DIM0]) return;
     // prequantization
@@ -62,13 +62,13 @@ __global__ void c_lorenzo_1d1l(T* data, T* outlier, Q* code, size_t* dims_L16, d
     T    posterror   = data[id] - pred;
     bool quantizable = fabs(posterror) < dims_L16[RADIUS];
     Q    _code       = static_cast<Q>(posterror + dims_L16[RADIUS]);
-    outlier[id]      = (1 - quantizable) * data[id];
-    code[id]         = quantizable * _code;
     __syncthreads();
+    data[id] = (1 - quantizable) * data[id];  // data array as outlier
+    code[id] = quantizable * _code;
 }
 
 template <typename T, typename Q, int B>
-__global__ void c_lorenzo_2d1l(T* data, T* outlier, Q* code, size_t* dims_L16, double* ebs_L4) {
+__global__ void c_lorenzo_2d1l(T* data, Q* code, size_t* dims_L16, double* ebs_L4) {
     int y = threadIdx.y;
     int x = threadIdx.x;
 
@@ -88,13 +88,13 @@ __global__ void c_lorenzo_2d1l(T* data, T* outlier, Q* code, size_t* dims_L16, d
     T    posterror   = __s2df[y + 1][x + 1] - pred;
     bool quantizable = fabs(posterror) < dims_L16[RADIUS];
     Q    _code       = static_cast<Q>(posterror + dims_L16[RADIUS]);
-    outlier[id]      = (1 - quantizable) * __s2df[y + 1][x + 1];
-    code[id]         = quantizable * _code;
     __syncthreads();
+    data[id] = (1 - quantizable) * __s2df[y + 1][x + 1];  // data array as outlier
+    code[id] = quantizable * _code;
 }
 
 template <typename T, typename Q, int B>
-__global__ void c_lorenzo_3d1l(T* data, T* outlier, Q* code, size_t* dims_L16, double* ebs_L4) {
+__global__ void c_lorenzo_3d1l(T* data, Q* code, size_t* dims_L16, double* ebs_L4) {
     int z = threadIdx.z;
     int y = threadIdx.y;
     int x = threadIdx.x;
@@ -127,9 +127,9 @@ __global__ void c_lorenzo_3d1l(T* data, T* outlier, Q* code, size_t* dims_L16, d
     T    posterror   = __s3df[z + 1][y + 1][x + 1] - pred;
     bool quantizable = fabs(posterror) < dims_L16[RADIUS];
     Q    _code       = static_cast<Q>(posterror + dims_L16[RADIUS]);
-    outlier[id]      = (1 - quantizable) * __s3df[z + 1][y + 1][x + 1];
-    code[id]         = quantizable * _code;
     __syncthreads();
+    data[id] = (1 - quantizable) * __s3df[z + 1][y + 1][x + 1];  // data array as outlier
+    code[id] = quantizable * _code;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
