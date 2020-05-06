@@ -4,6 +4,16 @@ psz3d
 cusz
 huff
 
+*.szx
+*.dh
+*.hmeta
+*.cHcb
+*outlier
+*outlier_new
+*.b8
+*.b16
+*.b32
+
 cmake-build-debug
 cmake-build-release
 
