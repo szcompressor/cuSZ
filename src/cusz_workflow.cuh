@@ -34,26 +34,28 @@ namespace cuSZ {
 namespace FineMassive {
 
 template <typename T, typename Q>
-void workflow_PdQ(T* d_data, Q* d_bcode, T* d_outlier, size_t* dims_L16, double* ebs_L4) {
+void workflow_PdQ(T* d_data, Q* d_bcode, size_t* dims_L16, double* ebs_L4) {
     auto d_dims_L16 = mem::CreateDeviceSpaceAndMemcpyFromHost(dims_L16, 16);
     auto d_ebs_L4   = mem::CreateDeviceSpaceAndMemcpyFromHost(ebs_L4, 4);
 
     if (dims_L16[nDIM] == 1) {
         dim3 blockNum(dims_L16[nBLK0]);
         dim3 threadNum(B_1d);
-        PdQ::c_lorenzo_1d1l<T, Q, B_1d><<<blockNum, threadNum>>>(d_data, d_outlier, d_bcode, d_dims_L16, d_ebs_L4);
+        PdQ::c_lorenzo_1d1l<T, Q, B_1d>  //
+            <<<blockNum, threadNum>>>    //
+            (d_data, d_bcode, d_dims_L16, d_ebs_L4);
     } else if (dims_L16[nDIM] == 2) {
         dim3 blockNum(dims_L16[nBLK0], dims_L16[nBLK1]);
         dim3 threadNum(B_2d, B_2d);
         PdQ::c_lorenzo_2d1l<T, Q, B_2d>                                     //
             <<<blockNum, threadNum, (B_2d + 1) * (B_2d + 1) * sizeof(T)>>>  //
-            (d_data, d_outlier, d_bcode, d_dims_L16, d_ebs_L4);
+            (d_data, d_bcode, d_dims_L16, d_ebs_L4);
     } else if (dims_L16[nDIM] == 3) {
         dim3 blockNum(dims_L16[nBLK0], dims_L16[nBLK1], dims_L16[nBLK2]);
         dim3 threadNum(B_3d, B_3d, B_3d);
         PdQ::c_lorenzo_3d1l<T, Q, B_3d>                                                  //
             <<<blockNum, threadNum, (B_3d + 1) * (B_3d + 1) * (B_3d + 1) * sizeof(T)>>>  //
-            (d_data, d_outlier, d_bcode, d_dims_L16, d_ebs_L4);
+            (d_data, d_bcode, d_dims_L16, d_ebs_L4);
     }
     cudaDeviceSynchronize();
 }
@@ -333,12 +335,10 @@ void workflow_verify_huffman(string const& fi, size_t len, Q* xbcode, int chunk_
     // TODO error handling from invalid read
     cout << log_info << "Redo PdQ just to get quantization dump." << endl;
 
-    auto veri_data   = io::ReadBinaryFile<T>(fi, len);
-    T*   veri_d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
-
-    auto veri_d_bcode   = mem::CreateCUDASpace<Q>(len);
-    auto veri_d_outlier = mem::CreateCUDASpace<T>(len);
-    workflow_PdQ(veri_d_data, veri_d_bcode, veri_d_outlier, dims_L16, ebs_L4);
+    auto veri_data    = io::ReadBinaryFile<T>(fi, len);
+    T*   veri_d_data  = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
+    auto veri_d_bcode = mem::CreateCUDASpace<Q>(len);
+    workflow_PdQ(veri_d_data, veri_d_bcode, dims_L16, ebs_L4);
 
     auto veri_bcode = mem::CreateHostSpaceAndMemcpyFromDevice(veri_d_bcode, len);
 
@@ -381,7 +381,6 @@ void workflow_verify_huffman(string const& fi, size_t len, Q* xbcode, int chunk_
 
     cudaFree(veri_d_bcode);
     cudaFree(veri_d_data);
-    cudaFree(veri_d_outlier);
     delete[] veri_bcode;
     delete[] veri_data;
     // end of if count
@@ -412,20 +411,18 @@ void a(std::string&  fi,
         workflow_DryRun(data, d_data, fi, dims_L16, ebs_L4);
         exit(0);
     }
-
     cout << "\n" << log_info << "Compression commencing..." << endl;
 
-    auto d_bcode   = mem::CreateCUDASpace<Q>(len);  // quant. code is not needed for dry-run
-    auto d_outlier = mem::CreateCUDASpace<T>(len);
+    auto d_bcode = mem::CreateCUDASpace<Q>(len);  // quant. code is not needed for dry-run
 
     // prediction-quantization
-    workflow_PdQ(d_data, d_bcode, d_outlier, dims_L16, ebs_L4);
+    workflow_PdQ(d_data, d_bcode, dims_L16, ebs_L4);
 
     // TODO remove file exchange
 
     // dealing with outlier
 #ifdef OLD_OUTLIER_METHOD
-    auto outlier = mem::CreateHostSpaceAndMemcpyFromDevice<T>(d_outlier, len);
+    auto outlier = mem::CreateHostSpaceAndMemcpyFromDevice<T>(d_data, len);
     for (auto i = 0; i < len; i++)
         if (outlier[i] != 0) num_outlier++;
     cout << log_info << "real num_outlier:\t" << num_outlier << endl;
@@ -436,7 +433,7 @@ void a(std::string&  fi,
     float* outlier_value_csrValC    = nullptr;  // outlier values; TODO template
     int    nnzC                     = 0;
 
-    DeflateOutlierUsingCuSparse(d_outlier, len, nnzC, &outlier_dummy_csrRowPtrC, &outlier_index_csrColIndC, &outlier_value_csrValC);
+    DeflateOutlierUsingCuSparse(d_data, len, nnzC, &outlier_dummy_csrRowPtrC, &outlier_index_csrColIndC, &outlier_value_csrValC);
 
     num_outlier      = nnzC;  // TODO temporarily nnzC is not archived because num_outlier is available out of this scope
     auto outlier_bin = new uint8_t[nnzC * (sizeof(int) + sizeof(float))];
@@ -465,17 +462,12 @@ void a(std::string&  fi,
 
     // clean up
     delete[] data;
-#ifdef OLD_OUTLIER_METHOD
-    delete[] outlier;
-#else
     delete[] outlier_index_csrColIndC;
     delete[] outlier_value_csrValC;
     delete[] outlier_dummy_csrRowPtrC;
     delete[] outlier_bin;
-#endif
 
     cudaFree(d_data);
-    cudaFree(d_outlier);
 }
 
 template <typename T, typename Q = uint16_t, typename H = uint32_t>
