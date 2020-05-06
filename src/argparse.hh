@@ -135,14 +135,14 @@ typedef struct ArgPack {
             "  \n"
             "EXAMPLES\n"
             "  CESM example:\n"
-            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-cesm-CLDHGH -D cesm -z -x\n"
-            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-cesm-CLDHGH -D cesm -r\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-cesm-CLDHGH -D cesm -z -x\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-cesm-CLDHGH -D cesm -r\n"
             "  Hurricane Isabel example:\n"
-            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-hurr-CLOUDf48 -D hurricane -z -x\n"
-            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-hurr-CLOUDf48 -D hurricane -r\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-hurr-CLOUDf48 -D hurricane -r\n"
             "  EXAFEL example:\n"
-            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
             "\n"
             "DOC:\n"
             "  Type \"cusz -h\" for details.\n";
@@ -227,16 +227,16 @@ typedef struct ArgPack {
             "*EXAMPLES*\n"
             "    *Demo Datasets*\n"
             "        *CESM* example:\n"
-            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-cesm-CLDHGH -D cesm -z -x\n"
-            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-cesm-CLDHGH -D cesm -r\n"
+            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-cesm-CLDHGH -D cesm -z -x\n"
+            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-cesm-CLDHGH -D cesm -r\n"
             "\n"
             "        *Hurricane Isabel* example:\n"
-            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-hurr-CLOUDf48 -D hurricane -z -x\n"
-            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-hurr-CLOUDf48 -D hurricane -r\n"
+            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-hurr-CLOUDf48 -D hurricane -r\n"
             "\n"
             "        *EXAFEL* example:\n"
-            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n";
+            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
+            "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ../data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n";
 
         cout << format(doc) << endl;
     }
