@@ -1,0 +1,91 @@
+\let\RM\rmfamily
+\let\TT\ttfamily
+\let\SF\sffamily
+\let\SC\scshape
+\let\IT\itshape
+\let\BF\bfseries
+
+
+\usepackage{amsmath, amsthm, amssymb}   % math
+\usepackage{mathtools}                  % mathclap
+    \newtheorem{theorem}{Theorem}
+\usepackage{graphicx}       % graphics
+\usepackage[table]{xcolor}  % graphics
+    \definecolor{B}    {HTML}{2b66d3}
+    \definecolor{B2}   {HTML}{003399}
+    \definecolor{R}    {HTML}{c9171e}
+    \definecolor{R2}   {HTML}{d7003a}
+    \definecolor{INK}  {HTML}{595857}
+    \definecolor{Y}    {HTML}{f1c40f}
+    \definecolor{G}    {HTML}{009a00}
+    \definecolor{GRAY} {HTML}{808080}
+    \definecolor{MAUVE}{HTML}{9400D1}
+\usepackage{url}                  			% hyperlink
+\usepackage[pdfencoding=auto,psdextra]{hyperref}
+    \hypersetup{pdfborder={0 0 0}}
+\usepackage{adjustbox}                      % box
+\usepackage{booktabs, multirow}             % table
+\usepackage{caption, subcaption}            % caption
+    \captionsetup[figure]   {font=small}
+    \captionsetup[table]    {font=small}
+    \captionsetup[subfigure]{font=footnotesize}
+    \captionsetup[subtable] {font=footnotesize}
+    \captionsetup[algorithm]{font=footnotesize}
+    \captionsetup{width=.8\linewidth, justification = raggedright}
+\usepackage{multicol}
+\usepackage{soul}
+\usepackage{enumitem}                       % enhanced items
+    \setlist{noitemsep, topsep=0.25ex}
+\usepackage{lipsum}                         % pseudo texts
+\usepackage{setspace}                       % spacing
+\usepackage{algorithm, algpseudocode}       % algorithm
+    \algrenewcommand{\alglinenumber}[1]{{\scriptsize\BF\TT\color{R}#1}}
+\usepackage{footnote}                       % enhanced footnote
+\usepackage[final]{listings}                % code listing; show in draft mode
+    \lstset{language=bash}
+    % string styles
+    \lstset{
+        basicstyle=\TT\small,
+        stringstyle=\color{R},
+        breaklines=true,
+        keywordstyle=\color{B}\BF,
+        commentstyle=\color{gray},
+        showspaces=false,
+        showstringspaces=false,
+        numberstyle=\BF\TT\scriptsize\color{R},
+        stepnumber=1, % the step between two line-numbers. If it's 1, each line will be numbered
+        tabsize=2,
+        numbers=none, % {none, left, right}; position of line number
+        numbersep=10pt, % how far the line-numbers are from the code
+        escapeinside={Ω}{≈},
+%       stepnumber=5, firstnumber=1, numberfirstline=false,
+        stepnumber=1, firstnumber=1, numberfirstline=true,
+    }
+    % string position
+    \lstset{
+        backgroundcolor=\color{black!2}, rulecolor=\color{black!25}
+    }
+    \lstset{
+        frame=tb,               % t for top, single-line
+        % framesep=0pt,
+        xleftmargin=6pt,        % text move away from left border by 6pt
+        framexleftmargin=6pt,   % frame move away from (right-hand) text by 6pt
+        framextopmargin=1pt,    %
+        framexbottommargin=1pt, %
+    }
+
+\usepackage{tikz}
+    \newcommand*\Circled[1]{% require `tikz`
+        \tikz[baseline=(char.base)]{%
+            \node[shape=circle, fill=black, inner sep=0.6pt] (char) {%
+                \textcolor{white}{\SF\BF#1}}; }}
+
+\usepackage{transparent}
+
+%%% macro
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+  
+\newcommand{\passthrough}[1]{\lstset{mathescape=false}#1\lstset{mathescape=true}}
