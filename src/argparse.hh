@@ -60,7 +60,7 @@ typedef struct ArgPack {
         std::string bf_text("\e[1m$1\e[0m");
         std::regex  ul(R"(_((\w|-|\d|\.)+?)_)");
         std::string ul_text("\e[4m$1\e[0m");
-        std::regex  red(R"(\^(.*?)\^)");
+        std::regex  red(R"(\^\^(.*?)\^\^)");
         std::string red_text("\e[31m$1\e[0m");
         auto        a = std::regex_replace(s, bful, bful_text);
         auto        b = std::regex_replace(a, bf, bf_text);
@@ -126,6 +126,12 @@ typedef struct ArgPack {
             "OVERVIEW: cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
             "\n"
             "USAGE:\n"
+            "  The basic use with demo datum is listed below,\n"
+            "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+            "             ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
+            "             |   mode   error bound         input datum file        demo   |  |\n"
+            "           dtype                                                   datum  zip unzip\n"
+            "\n"
             "  compress and extract, demo dataset:\n"
             "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z -x\n"
             "    (change \"-z -x\" to \"-r\" for dry run)\n"
@@ -157,6 +163,12 @@ typedef struct ArgPack {
             //"        cusz - a GPU-accelerated error-bounded lossy compressor for scientific data.\n"
             "\n"
             "*SYNOPSIS*\n"
+            "        The basic use is listed below,\n"
+            "        *cusz* *-f*32 *-m* r2r *-e* 1.23e-4.56 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z -x*\n"
+            "               ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~  ^  ^\n"
+            "               |   mode   error bound        input datum file        low-to-high  |  |\n"
+            "             dtype                                                   order       zip unzip\n"
+            "\n"
             "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z* *-x*\n"
             "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z* *-x*\n"
             "\n"
@@ -212,17 +224,17 @@ typedef struct ArgPack {
             "        *-Q* or *--*@q@*uant-rep* or *--bcode-bitwidth* <8|16|32>\n"
             "                Specify bincode/quantization code representation.\n"
             "                Options _8_, _16_, _32_ are for *uint8_t*, *uint16_t*, *uint32_t*, respectively.\n"
-            "                ^Manually specifying this may not result in optimal memory footprint.^\n"
+            "                ^^Manually specifying this may not result in optimal memory footprint.^^\n"
             "\n"
             "        *-H* or *--*@h@*uffman-rep* or *--hcode-bitwidth* <32|64>\n"
             "                Specify Huffman codeword representation.\n"
             "                Options _32_, _64_ are for *uint32_t*, *uint64_t*, respectively.\n"
-            "                ^Manually specifying this may not result in optimal memory footprint.^\n"
+            "                ^^Manually specifying this may not result in optimal memory footprint.^^\n"
             "\n"
             "        *-C* or *--huffman-*@c@*hunk* or *--hcode-chunk* [256|512|1024|...]\n"
             "                Specify chunk size for Huffman codec.\n"
             "                Should be a power-of-2 that is sufficiently large.\n"
-            "                ^This affects Huffman decoding performance significantly.^\n"
+            "                ^^This affects Huffman decoding performance significantly.^^\n"
             "\n"
             "*EXAMPLES*\n"
             "    *Demo Datasets*\n"
@@ -288,7 +300,7 @@ typedef struct ArgPack {
                         if (string(argv[i]) == "--version") goto _VERSION;
                         if (string(argv[i]) == "--verbose") goto _VERBOSE;
                         if (string(argv[i]) == "--mode") goto _MODE;
-                        if (string(argv[i]) == "--input-datum") goto _INPUT_DATUM;
+                        if (string(argv[i]) == "--input") goto _INPUT_DATUM;
                         if (string(argv[i]) == "--demo") goto _DEMO;
                         if (string(argv[i]) == "--quant-rep" or string(argv[i]) == "--bcode-bitwidth") goto _BINCODE;
                         if (string(argv[i]) == "--huffman-rep" or string(argv[i]) == "--hcode-bitwidth") goto _HUFFMANCODE;
