@@ -1,0 +1,20 @@
+\documentclass{scrartcl}
+\usepackage{geometry}
+    \geometry{margin=5mm, bottom=10mm, right=5mm, footskip=6mm}
+    
+\usepackage[lining]{ebgaramond}
+
+\usepackage{biolinum}
+
+\renewcommand*\ttdefault{txtt}
+
+\input{preamble}
+\input{metadata}
+
+\begin{document}
+\maketitle
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\input{content}
+\end{document}
