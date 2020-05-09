@@ -24,58 +24,114 @@ cmake CMakeLists.txt     # Using cmake to compile cusz for {1,2,3}-D, with Huffm
 make
 ```
 
-# run
-- `cusz` or `cusz -h` for detailed instruction
+Commands `cusz` or `cusz -h` are for instant instructions.
 
-### Dual-Quantization with Huffman
-- To run a demo
+## cuSZ as a compressor
+### basic use
+
+The basic use cuSZ is given below.
+
 ```bash
-./cusz
-    -f32                # specify data type
-    -m <abs|r2r>	# absolute mode OR relative to value range
-    -e <num>		# error bound
-    -D <demo dataset>
-    -z -x		# -z to compress, -x to decompress
-    -i <input data>	# input data path
+./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+         ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^ 
+         |   mode   error bound         input datum file        demo   |  |
+       dtype                                                   datum  zip unzip
 ```
-and to execute
-```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -D cesm -i ./data/sample-cesm-CLDHGH -z -x
-```
-- We provide a dry-run mode to quickly get the summary of compression quality (without Huffman coding and decompression)
-```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -D cesm -i ./data/sample-cesm-CLDHGH -r
-```
-- To run cuSZ on any given data field with arbitrary input size(s)
-```bash
-./cusz
-    -f32                # specify datatype
-    -m <abs|r2r>	# absolute mode OR relative to value range
-    -e <num>		# error bound
-    -z -x		# -z to compress, -x to decompress
-    -i <input data>	# input data path
-    -2 nx ny		# dimension(s) with low-to-high order
-```
-and to execute
+`-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
+
 ```bash
 ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
 ```
+To conduct compression, several input arguments are **necessary**,
 
-- Specify `--skip huffman` to skip Huffman encoding and decoding.
-- Specify `--verify huffman` to verify the correctness of Huffman codec in decompression (refer to `TODO`: autoselect Huffman codeword rep).
-- Specify `-p binning` or `--pre binning` to do binning *prior to* PdQ/compression or dry-run.
-- Specify `-Q <8|16|32>` for quantization code representation.
-- Specify `-H <32|64>` for Huffman codeword representation.
-- Specify `-C <power-of-2>` for Huffman chunk size. 
-    - Note that the chunk size significantly affects the throughput, and we estimate that it should match/be closed to some maximum hardware supported number of concurrent threads for optimal performance.
+- `-z` or `--zip` to compress
+- `-x` or `--unzip` to decompress
+- `-m` or `--mode` to speciry compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range).
+- `-e` or `--eb` to specify error bound
+- `-i` to specify input datum file
+- `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
+
+
+### tuning
+There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
+
+- `-Q` or `--quant-rep` or `--bcode-bitwidth <8|16|32>` to specify bincode/quant. code representation. Options 8, 16, 32 are for `uint8_t`, `uint16_t`, `uint32_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
+- `-H` or `--huffman-rep` or `--hcode-bitwidth <32|64>` to specify Huffman codeword representation. Options 32, 64 are for `uint32_t`, `uint64_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
+- `-C` or `--huffman-chunk` or `--hcode-chunk [256|512|1024|...]` to specify chunk size for Huffman codec. Should be a power-of-2 that is sufficiently large. (This affects Huffman decoding performance *significantly*.)
+
+
+### extension and use scenarios
+
+#### preprocess 
+Some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec.
+
+[^binning]: A current binning setting is to downsample a 4-by-4 cell to 1 point.
+
+
+#### disabling modules
+Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such cirumstances, `--skip huffman` can be used.
+
+Other module skipping for use scenarios are in development.
+
+## \textsc{cuSZ} as an analytical tool
+
+`--dry-run` or `-r` in place of `-a` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
+
+## example
+
+1. run a 2D CESM demo at 1e-4 relative to value range
+
+	```bash
+	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+	```
+2. alternatively, to use full option name,
+
+	```bash
+	./cusz -f32 --mode r2r --eb 1e-4 --input ./data/sample-cesm-CLDHGH \
+		--demo cesm --zip --unzip
+	```
+3. run a 3D Hurricane Isabel demo at 1e-4 relative to value range
+
+	```bash
+	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D huricanne -z -x
+	```
+4. run CESM demo with 1) `uint8_t`, 2) 256 quant. bins,
+
+	```bash
+	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+		-d 256 -Q 8
+	```
+5. in addition to the previous command, if skipping Huffman codec,
+
+	```bash
+	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+		-d 256 -Q 8 --skip huffman	# or `-X/-S huffman`
+	```
+6. some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec
+
+	```bash
+	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+		-d 256 -Q 8 --pre binning --skip huffman	# or `-p binning`
+	```
+7. dry-run to get PSNR and to skip real compression or decompression; `-r` also works alternatively to `--dry-run`
+
+	```bash
+	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
+	```
+
+## note
+
+- Note that the chunk size significantly affects the throughput, and we estimate that it should match/be closed to some maximum hardware supported number of concurrent threads for optimal performance.
 - The integrated Huffman codec runs with efficient histogramming [1], GPU-sequantial codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffamn decoding [2].
 
-# TODO List
-- `f64` support
-- single archive
-- autoselect Huffman codeword representation
+# project management
 
-# `changelog`
+## TODO List
+
+Please refere to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+
+## `changelog`
+
 May, 2020
 - `feature` add `--skip huffman` and `--verify huffman` options
 - `feature` add binning as preprocessing
@@ -111,8 +167,12 @@ February, 2020
 - `milestone` `PdQ` for compression, Huffman encoding and deflating
 
 # reference
- - [1] Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
- - [2] Barnett, Mark L. "Canonical Huffman encoded data decompression algorithm." U.S. Patent 6,657,569, issued December 2, 2003.
+
+[1] 
+: Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
+
+[2]
+: Barnett, Mark L. "Canonical Huffman encoded data decompression algorithm." U.S. Patent 6,657,569, issued December 2, 2003.
  
 # acknowledgement
 This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grant No. 1948447.
