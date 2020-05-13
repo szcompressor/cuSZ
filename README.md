@@ -6,6 +6,18 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 * Major Developers: Jiannan Tian, Dingwen Tao, Sheng Di, Franck Cappello 
 * Other Contributors: Cody Rivera, Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
+# progress
+
+## known issue
+Checked marker denotes issue resolved.
+- [x] (**major**) In Release 0.1, cuSZ exports fault file with binning preprocess.
+- [x] In Release 0.1, `-Q` argparse does not work.
+- [ ] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
+
+## TODO List
+
+Please refere to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+
 # set up
 ## requirements
 - NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
@@ -124,13 +136,8 @@ Other module skipping for use scenarios are in development.
 - Note that the chunk size significantly affects the throughput, and we estimate that it should match/be closed to some maximum hardware supported number of concurrent threads for optimal performance.
 - The integrated Huffman codec runs with efficient histogramming [1], GPU-sequantial codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffamn decoding [2].
 
-# project management
 
-## TODO List
-
-Please refere to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
-
-## `changelog`
+# `changelog`
 
 May, 2020
 - `feature` add `--skip huffman` and `--verify huffman` options
