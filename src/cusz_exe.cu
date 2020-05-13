@@ -65,11 +65,15 @@ int main(int argc, char** argv) {
     cout << log_dbg << "using uint" << ap->huffman_rep << "_t as Huffman codeword rep." << endl;
 
     if (ap->pre_binning) {
-        auto d    = io::ReadBinaryFile<float>(ap->fname, dims_L16[LEN]);
-        auto d_ds = pre_binning<float, 2, 32>(d, dims_L16);
-        auto ds   = mem::CreateHostSpaceAndMemcpyFromDevice(d_ds, dims_L16[LEN]);
-        ap->fname = ap->fname + "-binning";
-        io::WriteBinaryFile(d, dims_L16[LEN], &ap->fname);
+        auto data      = io::ReadBinaryFile<float>(ap->fname, dims_L16[LEN]);
+        auto d_binning = pre_binning<float, 2, 32>(data, dims_L16);
+        auto binning   = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dims_L16[LEN]);
+        ap->fname      = ap->fname + "-binning";
+        io::WriteBinaryFile(binning, dims_L16[LEN], &ap->fname);
+
+        cudaFree(d_binning);
+        delete[] data;
+        delete[] binning;
     }
 
     // TODO change to compress and decompress
