@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
+#include <cxxabi.h>
 #include <bitset>
 #include <cstdio>
 #include <cstdlib>
@@ -407,11 +408,11 @@ void a(std::string&  fi,
     T*     d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, len);
 
     if (ap->dry_run) {
-        cout << "\n" << log_info << "Dry-run commencing..." << endl;
+        cout << "\n" << log_info << "Commencing dry-run..." << endl;
         workflow_DryRun(data, d_data, fi, dims_L16, ebs_L4);
         exit(0);
     }
-    cout << "\n" << log_info << "Compression commencing..." << endl;
+    cout << "\n" << log_info << "Commencing compression..." << endl;
 
     auto d_bcode = mem::CreateCUDASpace<Q>(len);  // quant. code is not needed for dry-run
 
@@ -490,7 +491,7 @@ void x(std::string const& fi,  //
     auto dict_size = dims_L16[CAP];
     auto len       = dims_L16[LEN];
 
-    cout << log_info << "Decompression commencing..." << endl;
+    cout << log_info << "Commencing decompression..." << endl;
 
     Q* xbcode;
     // step 1: read from filesystem or do Huffman decoding to get quant code
@@ -523,7 +524,7 @@ void x(std::string const& fi,  //
     workflow_reversePdQ(d_xdata, d_bcode, d_outlier, dims_L16, ebs_L4[EBx2]);
     auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, len);
 
-    cout << log_info << "Decompression finished." << endl;
+    cout << log_info << "Decompression finished.\n\n";
 
     // TODO move CR out of VerifyData
     auto   odata        = io::ReadBinaryFile<T>(fi, len);
@@ -535,6 +536,26 @@ void x(std::string const& fi,  //
     else
         archive_size += len * sizeof(Q);
     archive_size += num_outlier * (sizeof(T) + sizeof(int));
+
+    // TODO g++ and clang++ use mangled type_id name, add macro
+    // https://stackoverflow.com/a/4541470/8740097
+    auto demangle = [](const char* name) {
+        int               status         = -4;
+        char*             res            = abi::__cxa_demangle(name, NULL, NULL, &status);
+        const char* const demangled_name = (status == 0) ? res : name;
+        string            ret_val(demangled_name);
+        free(res);
+        return ret_val;
+    };
+
+    if (ap->skip_huffman) {
+        cout << log_info << "dtype is \""         //
+             << demangle(typeid(T).name())        // demangle
+             << "\", and quant. code type is \""  //
+             << demangle(typeid(Q).name())        // demangle
+             << "\"; a CR of no greater than "    //
+             << (sizeof(T) / sizeof(Q)) << " is expected when Huffman codec is skipped." << endl;
+    }
 
     if (ap->pre_binning) cout << log_info << "Because of binning (2x2), we have a 4x CR as the normal case." << endl;
     if (not ap->skip_huffman) {
