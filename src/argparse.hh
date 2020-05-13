@@ -450,7 +450,7 @@ typedef struct ArgPack {
                         break;
                     // internal representation and size
                     // ----------------------------------------------------------------
-                    case 'B':
+                    case 'Q':
                     _BINCODE:
                         if (i + 1 <= argc) quant_rep = str2int(argv[++i]);
                         break;
