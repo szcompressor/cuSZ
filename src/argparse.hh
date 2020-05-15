@@ -476,7 +476,7 @@ typedef struct ArgPack {
                                 exponent = ::atof(eb.substr(eb.find(dlm) + dlm.length(), eb.length()).c_str());
                             } else {
                                 mantissa = ::atof(eb.c_str());
-                                exponent = 1.0;
+                                exponent = 0.0;
                             }
                         }
                         break;
