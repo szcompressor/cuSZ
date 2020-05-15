@@ -12,11 +12,13 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 Checked marker denotes issue resolved.
 - [x] (**major**) In Release 0.1, cuSZ exports fault file with binning preprocess.
 - [x] In Release 0.1, `-Q` argparse does not work.
+- [x] (**major**) off-by-ten error in argparse
 - [ ] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
+- [ ] (**major**) HACC `xx.f32` exposes Huffman codec bug
 
 ## TODO List
 
-Please refere to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
 
 # set up
 ## requirements
@@ -58,7 +60,7 @@ To conduct compression, several input arguments are **necessary**,
 
 - `-z` or `--zip` to compress
 - `-x` or `--unzip` to decompress
-- `-m` or `--mode` to speciry compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range).
+- `-m` or `--mode` to specify compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range).
 - `-e` or `--eb` to specify error bound
 - `-i` to specify input datum file
 - `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
@@ -81,11 +83,11 @@ Some application such as EXAFEL preprocesses with binning [^binning] in addition
 
 
 #### disabling modules
-Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such cirumstances, `--skip huffman` can be used.
+Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such circumstances, `--skip huffman` can be used.
 
 Other module skipping for use scenarios are in development.
 
-## \textsc{cuSZ} as an analytical tool
+## cuSZ as an analytical tool
 
 `--dry-run` or `-r` in place of `-a` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
 
@@ -134,7 +136,7 @@ Other module skipping for use scenarios are in development.
 ## note
 
 - Note that the chunk size significantly affects the throughput, and we estimate that it should match/be closed to some maximum hardware supported number of concurrent threads for optimal performance.
-- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequantial codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffamn decoding [2].
+- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffman decoding [2].
 
 
 # `changelog`
@@ -152,8 +154,8 @@ April, 2020
 - `feature` add dry-run mode
 - `refactor` merge cuSZ and Huffman codec in driver program
 - `perf` 1D PdQ (and reverse PdQ) `blockDim` set to 32, throughput changed from 2.7 GBps to 16.8 GBps
-- `deploy` histograming, 2013 algorithm supersedes naive 2007 algorithm by default
-- `feature` add communication of equivalance calculation
+- `deploy` histogramming, 2013 algorithm supersedes naive 2007 algorithm by default
+- `feature` add communication of equivalence calculation
 - `feature` use cooperative groups (CUDA 9 required) for canonical Huffman codebook
 - `perf` faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
 - `feature` add Huffman inflating/decoding
@@ -166,7 +168,7 @@ March, 2020
 - `perf` tuning thread number for Huffman deflating and inflating
 - `feature` change freely to 32bit intermediate Huffman code representation
 - `demo` add EXAFEL demo
-- `feature` switch to faster histograming
+- `feature` switch to faster histogramming
 
 February, 2020
 - `demo` SDRB suite metadata in `SDRB.hh`
