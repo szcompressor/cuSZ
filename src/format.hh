@@ -9,10 +9,10 @@
 
 using std::string;
 
-extern const string log_null = "       ";
-extern const string log_err  = "\e[31m[ERR]\e[0m  ";
-extern const string log_dbg  = "\e[34m[dbg]\e[0m  ";
-extern const string log_info = "\e[32m[info]\e[0m ";
-extern const string log_warn = "\e[31m[WARN]\e[0m ";
+extern const string log_null;
+extern const string log_err;
+extern const string log_dbg;
+extern const string log_info;
+extern const string log_warn;
 
 #endif  // FORMAT_HH

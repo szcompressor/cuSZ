@@ -20,9 +20,14 @@ string(APPEND CMAKE_CUDA_FLAGS " -gencode=arch=compute_61,code=compute_61")
 string(APPEND CMAKE_CUDA_FLAGS " -gencode=arch=compute_70,code=compute_70")
 
 add_executable(cusz
-	src/cusz_exe.cu 
-	src/cusz_workflow.cuh 
-	src/cusz_dualquant.cuh)
+		src/cusz.cu
+		src/cusz_workflow.cuh
+		src/cusz_dualquant.cuh)
+
+add_library(huffman_o
+		OBJECT
+		src/huffman_workflow.cu)
+target_link_libraries(cusz huffman_o)
 
 target_link_libraries(cusz ${CUDA_cusparse_LIBRARY} )
 set_target_properties(cusz PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

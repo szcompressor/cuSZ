@@ -9,17 +9,15 @@
 
 // jtian: 20-01-07, modified code for GPU
 
-#ifndef HUFFMAN_CUH
-#define HUFFMAN_CUH
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include "huffman.cuh"
 
 using namespace std;
-namespace prototype {
 template <typename T, typename Q>
-__global__ void GPU_Histogram(T* input_data, Q* output, size_t N, int symbols_per_thread) {
+__global__ void prototype::GPU_Histogram(T* input_data, Q* output, size_t N, int symbols_per_thread)
+{
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int j;
     if (i * symbols_per_thread < N) {  // if there is a symbol to count,
@@ -32,38 +30,18 @@ __global__ void GPU_Histogram(T* input_data, Q* output, size_t N, int symbols_pe
     }
 }
 
-}  // namespace prototype
-
-struct alignas(8) node_t {
-    struct node_t *left, *right;
-    size_t         freq;
-    char           t;  // in_node:0; otherwise:1
-    uint32_t       c;
-};
-
-typedef struct node_t* node_list;
-
-typedef struct alignas(8) HuffmanTree {
-    uint32_t       stateNum;
-    uint32_t       allNodes;
-    struct node_t* pool;
-    node_list *    qqq, *qq;  // the root node of the HuffmanTree is qq[1]
-    int            n_nodes;   // n_nodes is for compression
-    int            qend;
-    uint64_t**     code;
-    uint8_t*       cout;
-    int            n_inode;  // n_inode is for decompression
-} HuffmanTree;
-
-HuffmanTree* createHuffmanTree(int stateNum);
-
-__host__ __device__ node_list new_node(HuffmanTree* huffmanTree, size_t freq, uint32_t c, node_list a, node_list b);
-__host__ __device__ void      qinsert(HuffmanTree* ht, node_list n);
-__host__ __device__ node_list qremove(HuffmanTree* ht);
-__host__ __device__ void      build_code(HuffmanTree* ht, node_list n, int len, uint64_t out1, uint64_t out2);
+template <typename T, typename Q>
+__global__ void prototype::EncodeFixedLen(T* data, Q* hcoded, size_t data_len, Q* codebook)
+{
+    size_t gid = blockDim.x * blockIdx.x + threadIdx.x;
+    if (gid >= data_len) return;
+    hcoded[gid] = codebook[data[gid]];  // try to exploit cache?
+    __syncthreads();
+}
 
 // auxiliary functions done
-__host__ HuffmanTree* createHuffmanTreeCPU(int stateNum) {
+__host__ HuffmanTree* createHuffmanTreeCPU(int stateNum)
+{
     auto ht = (HuffmanTree*)malloc(sizeof(HuffmanTree));
     memset(ht, 0, sizeof(HuffmanTree));
     ht->stateNum = stateNum;
@@ -86,7 +64,8 @@ __host__ HuffmanTree* createHuffmanTreeCPU(int stateNum) {
     return ht;
 }
 
-__device__ HuffmanTree* createHuffmanTreeGPU(int stateNum) {
+__device__ HuffmanTree* createHuffmanTreeGPU(int stateNum)
+{
     auto ht = (HuffmanTree*)malloc(sizeof(HuffmanTree));
     memset(ht, 0, sizeof(HuffmanTree));
     ht->stateNum = stateNum;
@@ -109,13 +88,15 @@ __device__ HuffmanTree* createHuffmanTreeGPU(int stateNum) {
     return ht;
 }
 
-__host__ __device__ node_list new_node(HuffmanTree* huffmanTree, size_t freq, uint32_t c, node_list a, node_list b) {
+__host__ __device__ node_list new_node(HuffmanTree* huffmanTree, size_t freq, uint32_t c, node_list a, node_list b)
+{
     node_list n = huffmanTree->pool + huffmanTree->n_nodes++;
     if (freq) {
         n->c    = c;
         n->freq = freq;
         n->t    = 1;
-    } else {
+    }
+    else {
         n->left  = a;
         n->right = b;
         n->freq  = a->freq + b->freq;
@@ -126,7 +107,8 @@ __host__ __device__ node_list new_node(HuffmanTree* huffmanTree, size_t freq, ui
 }
 
 /* priority queue */
-__host__ __device__ void qinsert(HuffmanTree* ht, node_list n) {
+__host__ __device__ void qinsert(HuffmanTree* ht, node_list n)
+{
     int j, i = ht->qend++;
     while ((j = (i >> 1))) {  // j=i/2
         if (ht->qq[j]->freq <= n->freq) break;
@@ -135,7 +117,8 @@ __host__ __device__ void qinsert(HuffmanTree* ht, node_list n) {
     ht->qq[i] = n;
 }
 
-__host__ __device__ node_list qremove(HuffmanTree* ht) {
+__host__ __device__ node_list qremove(HuffmanTree* ht)
+{
     int       i, l;
     node_list n = ht->qq[i = 1];
 
@@ -155,13 +138,15 @@ __host__ __device__ node_list qremove(HuffmanTree* ht) {
  * @out2 should be 0 as well.
  * @index: the index of the byte
  * */
-__host__ __device__ void build_code(HuffmanTree* ht, node_list n, int len, uint64_t out1, uint64_t out2) {
+__host__ __device__ void build_code(HuffmanTree* ht, node_list n, int len, uint64_t out1, uint64_t out2)
+{
     if (n->t) {
         ht->code[n->c] = (uint64_t*)malloc(2 * sizeof(uint64_t));
         if (len <= 64) {
             (ht->code[n->c])[0] = out1 << (64 - len);
             (ht->code[n->c])[1] = out2;
-        } else {
+        }
+        else {
             (ht->code[n->c])[0] = out1;
             (ht->code[n->c])[1] = out2 << (128 - len);
         }
@@ -176,7 +161,8 @@ __host__ __device__ void build_code(HuffmanTree* ht, node_list n, int len, uint6
         build_code(ht, n->left, len + 1, out1, 0);
         out1 = out1 | 1;
         build_code(ht, n->right, len + 1, out1, 0);
-    } else {
+    }
+    else {
         if (len % 64 != 0) out2 = out2 << 1;
         out2 = out2 | 0;
         build_code(ht, n->left, len + 1, out1, out2);
@@ -189,48 +175,36 @@ __host__ __device__ void build_code(HuffmanTree* ht, node_list n, int len, uint6
 // internal functions
 ////////////////////////////////////////////////////////////////////////////////
 
-#define MAX_DEPTH 32
-
-typedef struct alignas(8) Stack {
-    node_list _a[MAX_DEPTH];
-    uint64_t  saved_path[MAX_DEPTH];
-    uint64_t  saved_length[MAX_DEPTH];
-    uint64_t  depth = 0;
-} internal_stack_t;
-
-__device__ __forceinline__ bool isEmpty(internal_stack_t* s);
-
-__device__ __forceinline__ node_list top(internal_stack_t* s) {
-    return s->_a[s->depth - 1];
-}
+__device__ __forceinline__ node_list top(internal_stack_t* s) { return s->_a[s->depth - 1]; }
 
 template <typename T>
-__device__ __forceinline__ void push_v2(internal_stack_t* s, node_list n, T path, T len) {
+__device__ __forceinline__ void push_v2(internal_stack_t* s, node_list n, T path, T len)
+{
     if (s->depth + 1 <= MAX_DEPTH) {
         s->depth += 1;
 
         s->_a[s->depth - 1]           = n;
         s->saved_path[s->depth - 1]   = path;
         s->saved_length[s->depth - 1] = len;
-
-    } else
+    }
+    else
         printf("Error: stack overflow\n");
 }
 
-__device__ __forceinline__ bool isEmpty(internal_stack_t* s) {
-    return (s->depth == 0);
-}
+__device__ __forceinline__ bool isEmpty(internal_stack_t* s) { return (s->depth == 0); }
 
 // TODO check with typing
 template <typename T>
-__device__ __forceinline__ node_list pop_v2(internal_stack_t* s, T* path_to_restore, T* length_to_restore) {
+__device__ __forceinline__ node_list pop_v2(internal_stack_t* s, T* path_to_restore, T* length_to_restore)
+{
     node_list n;
 
     if (isEmpty(s)) {
         printf("Error: stack underflow, exiting...\n");
         return nullptr;
         //        exit(0);
-    } else {
+    }
+    else {
         // TODO holding array -> __a
         n                   = s->_a[s->depth - 1];
         s->_a[s->depth - 1] = nullptr;
@@ -244,7 +218,8 @@ __device__ __forceinline__ node_list pop_v2(internal_stack_t* s, T* path_to_rest
 }
 
 template <typename Q>
-__device__ void InOrderTraverse_v2(HuffmanTree* ht, Q* codebook) {
+__device__ void InOrderTraverse_v2(HuffmanTree* ht, Q* codebook)
+{
     node_list root = ht->qq[1];
     auto      s    = new internal_stack_t();
 
@@ -258,7 +233,8 @@ __device__ void InOrderTraverse_v2(HuffmanTree* ht, Q* codebook) {
             out1 <<= 1u;
             out1 |= 0u;
             len += 1;
-        } else {
+        }
+        else {
             uint32_t bincode  = root->c;
             codebook[bincode] = out1 | ((len & (Q)0xffu) << (sizeof(Q) * 8 - 8));
             if (!isEmpty(s)) {
@@ -267,7 +243,8 @@ __device__ void InOrderTraverse_v2(HuffmanTree* ht, Q* codebook) {
                 out1 <<= 1u;
                 out1 |= 1u;
                 len += 1;
-            } else
+            }
+            else
                 done = true;
         }
     } /* end of while */
@@ -277,17 +254,9 @@ __device__ void InOrderTraverse_v2(HuffmanTree* ht, Q* codebook) {
 // global functions
 ////////////////////////////////////////////////////////////////////////////////
 
-__device__ HuffmanTree* global_gpuTree;
-
+/*
 __global__ void GPU_CreateHuffmanTree(int stateNum) {
-    if (threadIdx.x == 0) {
-        global_gpuTree = createHuffmanTreeGPU(stateNum);
-        /*
-                printf("tree.address\t%p\n", global_gpuTree);
-                printf("tree.stateNum\t%lu\n", (unsigned long)global_gpuTree->stateNum);
-                printf("tree.allNodes\t%lu\n", (unsigned long)global_gpuTree->allNodes);
-        */
-    }
+    if (threadIdx.x == 0) global_gpuTree = createHuffmanTreeGPU(stateNum);
 }
 
 template <typename T, typename Q>
@@ -299,5 +268,19 @@ __global__ void GPU_BuildTree_v2(T* freq, Q* codebook) {  // length known as huf
         InOrderTraverse_v2<Q>(global_gpuTree, codebook);
     }
 }
+ */
 
-#endif
+template <typename H>
+__global__ void InitHuffTreeAndGetCodebook(int stateNum, unsigned int* freq, H* codebook)
+{  // length known as huffmanTree->allNodes
+    if (threadIdx.x != 0) return;
+    global_gpuTree = createHuffmanTreeGPU(stateNum);
+    for (size_t i = 0; i < global_gpuTree->allNodes; i++)
+        if (freq[i]) qinsert(global_gpuTree, new_node(global_gpuTree, freq[i], i, 0, 0));
+    while (global_gpuTree->qend > 2) qinsert(global_gpuTree, new_node(global_gpuTree, 0, 0, qremove(global_gpuTree), qremove(global_gpuTree)));
+    InOrderTraverse_v2<H>(global_gpuTree, codebook);
+}
+
+// TODO `unsigned int` seems trivial to pick up
+template __global__ void InitHuffTreeAndGetCodebook<uint32_t>(int stateNum, unsigned int* freq, uint32_t* codebook);
+template __global__ void InitHuffTreeAndGetCodebook<uint64_t>(int stateNum, unsigned int* freq, uint64_t* codebook);
