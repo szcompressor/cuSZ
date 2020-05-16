@@ -7,8 +7,19 @@
 // printing functions
 ////////////////////////////////////////////////////////////////////////////////
 
+template <typename Q, int PART_SIZE>
+__global__ void print_deflated(Q* coded, size_t gid)
+{
+    if (blockIdx.x * blockDim.x + threadIdx.x != gid) return;
+    printf("print after deflating\n");
+    //    for_each(coded, coded + PART_SIZE, [](Q& i) { print_by_type(i, '_', '\n'); });
+    for (size_t i = 0; i < PART_SIZE; i++) { print_by_type(*(coded + i), '_', '\n'); }
+    printf("\n");
+}
+
 template <typename T>
-__global__ void print_histogram(T* freq, size_t size, size_t radius = 20) {
+__global__ void print_histogram(T* freq, size_t size, size_t radius = 20)
+{
     const int DICT_SIZE = size; /* Dynamic sizing */
     if (blockIdx.x * blockDim.x + threadIdx.x == 0) {
         for (size_t i = DICT_SIZE / 2 - radius; i < DICT_SIZE / 2 + radius; i++) {
@@ -20,7 +31,8 @@ __global__ void print_histogram(T* freq, size_t size, size_t radius = 20) {
 }
 
 template <typename T>
-__device__ __host__ void print_by_type(T num, char sep = '_', char ending = '\n') {
+__device__ __host__ void print_by_type(T num, char sep = '_', char ending = '\n')
+{
     for (size_t j = 0; j < sizeof(T) * CHAR_BIT; j++) {
         printf("%u", (num >> ((sizeof(T) * CHAR_BIT - 1) - j)) & 0x01u);
         if (j != 0 and j != sizeof(T) * CHAR_BIT - 1 and j % 8 == 7) printf("%c", sep);
@@ -30,7 +42,8 @@ __device__ __host__ void print_by_type(T num, char sep = '_', char ending = '\n'
 
 // MSB to LSB
 template <typename T>
-__device__ __host__ void print_code_only(T num, size_t bitwidth, char sep = '_', char ending = '\n') {
+__device__ __host__ void print_code_only(T num, size_t bitwidth, char sep = '_', char ending = '\n')
+{
     for (size_t j = 0; j < bitwidth; j++) {
         printf("%u", (num >> ((bitwidth - 1) - j)) & 0x01u);
         if (j != 0 and j != bitwidth - 1 and j % 8 == 7) printf("%c", sep);
@@ -39,7 +52,8 @@ __device__ __host__ void print_code_only(T num, size_t bitwidth, char sep = '_',
 }
 
 template <typename T>
-__device__ __host__ void snippet_print_bitset_full(T num) {
+__device__ __host__ void snippet_print_bitset_full(T num)
+{
     print_by_type(num, '_', '\t');
     size_t bitwidth = *((uint8_t*)&num + sizeof(T) - 1);
     //    size_t code_bitwidth = ((static_cast<T>(0xffu) << (sizeof(T) * 8 - 8)) & num) >> (sizeof(T) * 8 - 8);
@@ -48,7 +62,8 @@ __device__ __host__ void snippet_print_bitset_full(T num) {
 }
 
 template <typename T>
-__global__ void print_codebook(T* codebook, size_t len) {
+__global__ void print_codebook(T* codebook, size_t len)
+{
     if (blockIdx.x * blockDim.x + threadIdx.x != 0) return;
     printf("--------------------------------------------------------------------------------\n");
     printf("printing codebook\n");
@@ -66,11 +81,15 @@ __global__ void print_codebook(T* codebook, size_t len) {
 }
 
 template <typename T>
-__global__ void get_entropy(T* freq) {}
+__global__ void get_entropy(T* freq)
+{
+}
 
 // TODO real GPU version
 template <typename T, typename Q>
-__global__ void get_theoretical_dense_Huffman_coded_length(T* codebook, Q* freq, size_t codebook_len) {}
+__global__ void get_theoretical_dense_Huffman_coded_length(T* codebook, Q* freq, size_t codebook_len)
+{
+}
 
 // template <typename T>
 //__global__ void print_Huffman_coded_before_deflating(T* coded, size_t len=200) {
@@ -85,7 +104,8 @@ __global__ void get_theoretical_dense_Huffman_coded_length(T* codebook, Q* freq,
 //}
 
 template <typename T>
-__global__ void print_Huffman_coded_before_deflating(T* coded, size_t len) {
+__global__ void print_Huffman_coded_before_deflating(T* coded, size_t len)
+{
     if (blockIdx.x != 0) return;
     size_t gid = blockDim.x * blockIdx.x + threadIdx.x;
     if (coded[gid] == ~((T)0x0)) return;
