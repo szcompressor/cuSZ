@@ -12,11 +12,14 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 Checked marker denotes issue resolved.
 - [x] (**major**) In Release 0.1, cuSZ exports fault file with binning preprocess.
 - [x] In Release 0.1, `-Q` argparse does not work.
+- [x] (**major**) off-by-ten error in argparse.
 - [ ] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
+- [ ] (**major**) 1-GB HACC `xx.f32` exposes Huffman codec bug.
+- [ ] (**major**) `B_1d` of 64 and 256 do not work on 4-GB HACC `xx.f32`, 'yy.f32`, `zz.f32'. 
 
 ## TODO List
 
-Please refere to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
 
 # set up
 ## requirements
@@ -32,8 +35,10 @@ git clone git@github.com:hipdac-lab/cuSZ.git
 ## compile
 ```bash
 cd cuSZ
-cmake CMakeLists.txt     # Using cmake to compile cusz for {1,2,3}-D, with Huffman codec
+export CUSZ_ROOT=$(pwd)
 make
+sudo make install   # optional given that it's a sudo
+# otherwise, without `sudo make install`, `$(CUSZ_ROOT)/bin/cusz` to execute
 ```
 
 Commands `cusz` or `cusz -h` are for instant instructions.
@@ -44,21 +49,21 @@ Commands `cusz` or `cusz -h` are for instant instructions.
 The basic use cuSZ is given below.
 
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
-         ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^ 
-         |   mode   error bound         input datum file        demo   |  |
-       dtype                                                   datum  zip unzip
+cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+       ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^ 
+       |   mode   error bound         input datum file        demo   |  |
+     dtype                                                   datum  zip unzip
 ```
 `-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
 
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
+cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
 ```
 To conduct compression, several input arguments are **necessary**,
 
 - `-z` or `--zip` to compress
 - `-x` or `--unzip` to decompress
-- `-m` or `--mode` to speciry compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range).
+- `-m` or `--mode` to specify compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range).
 - `-e` or `--eb` to specify error bound
 - `-i` to specify input datum file
 - `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
@@ -81,11 +86,11 @@ Some application such as EXAFEL preprocesses with binning [^binning] in addition
 
 
 #### disabling modules
-Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such cirumstances, `--skip huffman` can be used.
+Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such circumstances, `--skip huffman` can be used.
 
 Other module skipping for use scenarios are in development.
 
-## \textsc{cuSZ} as an analytical tool
+## cuSZ as an analytical tool
 
 `--dry-run` or `-r` in place of `-a` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
 
@@ -94,47 +99,47 @@ Other module skipping for use scenarios are in development.
 1. run a 2D CESM demo at 1e-4 relative to value range
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
 	```
 2. alternatively, to use full option name,
 
 	```bash
-	./cusz -f32 --mode r2r --eb 1e-4 --input ./data/sample-cesm-CLDHGH \
+	cusz -f32 --mode r2r --eb 1e-4 --input ./data/sample-cesm-CLDHGH \
 		--demo cesm --zip --unzip
 	```
 3. run a 3D Hurricane Isabel demo at 1e-4 relative to value range
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D huricanne -z -x
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D huricanne -z -x
 	```
 4. run CESM demo with 1) `uint8_t`, 2) 256 quant. bins,
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8
 	```
 5. in addition to the previous command, if skipping Huffman codec,
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8 --skip huffman	# or `-X/-S huffman`
 	```
 6. some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8 --pre binning --skip huffman	# or `-p binning`
 	```
 7. dry-run to get PSNR and to skip real compression or decompression; `-r` also works alternatively to `--dry-run`
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
 	```
 
 ## note
 
 - Note that the chunk size significantly affects the throughput, and we estimate that it should match/be closed to some maximum hardware supported number of concurrent threads for optimal performance.
-- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequantial codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffamn decoding [2].
+- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffman decoding [2].
 
 
 # `changelog`
@@ -152,8 +157,8 @@ April, 2020
 - `feature` add dry-run mode
 - `refactor` merge cuSZ and Huffman codec in driver program
 - `perf` 1D PdQ (and reverse PdQ) `blockDim` set to 32, throughput changed from 2.7 GBps to 16.8 GBps
-- `deploy` histograming, 2013 algorithm supersedes naive 2007 algorithm by default
-- `feature` add communication of equivalance calculation
+- `deploy` histogramming, 2013 algorithm supersedes naive 2007 algorithm by default
+- `feature` add communication of equivalence calculation
 - `feature` use cooperative groups (CUDA 9 required) for canonical Huffman codebook
 - `perf` faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
 - `feature` add Huffman inflating/decoding
@@ -166,7 +171,7 @@ March, 2020
 - `perf` tuning thread number for Huffman deflating and inflating
 - `feature` change freely to 32bit intermediate Huffman code representation
 - `demo` add EXAFEL demo
-- `feature` switch to faster histograming
+- `feature` switch to faster histogramming
 
 February, 2020
 - `demo` SDRB suite metadata in `SDRB.hh`

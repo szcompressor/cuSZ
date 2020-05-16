@@ -101,12 +101,12 @@ void cx_sim(std::string&        finame,  //
     //    io::write_binary_file(code, len, new string("/Users/jtian/WorkSpace/cuSZ/src/CLDMED.bincode"));
 
     if (show_histo) {
-        Analysis::histogram<int>(std::string("bincode/quant.code"), code, len, 8);
+        analysis::histogram<int>(std::string("bincode/quant.code"), code, len, 8);
     }
-    Analysis::getEntropy(code, len, 1024);
+    analysis::getEntropy(code, len, 1024);
 #ifdef PRED_COMP_ERR
-    Analysis::histogram<T>(std::string("pred.error"), pred_err, len, 8);  // TODO when changing to 8, seg fault
-    Analysis::histogram<T>(std::string("comp.error"), comp_err, len, 16);
+    analysis::histogram<T>(std::string("pred.error"), pred_err, len, 8);  // TODO when changing to 8, seg fault
+    analysis::histogram<T>(std::string("comp.error"), comp_err, len, 16);
 #endif
 
     for_each(outlier, outlier + len, [&](T& n) { num_outlier += n == 0 ? 0 : 1; });
@@ -160,8 +160,8 @@ void cx_sim(std::string&        finame,  //
     }
 
     if (show_histo) {
-        Analysis::histogram(std::string("original datum"), data_cmp, len, 16);
-        Analysis::histogram(std::string("reconstructed datum"), xdata, len, 16);
+        analysis::histogram(std::string("original datum"), data_cmp, len, 16);
+        analysis::histogram(std::string("reconstructed datum"), xdata, len, 16);
     }
 
     cout << "\e[46mnum.outlier:\t" << num_outlier << "\e[0m" << endl;
@@ -176,7 +176,7 @@ void cx_sim(std::string&        finame,  //
         io::WriteBinaryFile(pred_err, len, new string(finame + ".psz.sz14.prederr"));
         io::WriteBinaryFile(comp_err, len, new string(finame + ".psz.sz14.xerr"));
     }
-    Analysis::VerifyData(xdata, data_cmp, len, 1);
+    analysis::VerifyData(xdata, data_cmp, len, 1);
 }
 
 }  // namespace FineMassiveSimulation
