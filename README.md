@@ -35,8 +35,10 @@ git clone git@github.com:hipdac-lab/cuSZ.git
 ## compile
 ```bash
 cd cuSZ
-cmake CMakeLists.txt     # Using cmake to compile cusz for {1,2,3}-D, with Huffman codec
+export CUSZ_ROOT=$(pwd)
 make
+sudo make install   # optional given that it's a sudo
+# otherwise, without `sudo make install`, `$(CUSZ_ROOT)/bin/cusz` to execute
 ```
 
 Commands `cusz` or `cusz -h` are for instant instructions.
@@ -47,15 +49,15 @@ Commands `cusz` or `cusz -h` are for instant instructions.
 The basic use cuSZ is given below.
 
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
-         ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^ 
-         |   mode   error bound         input datum file        demo   |  |
-       dtype                                                   datum  zip unzip
+cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+       ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^ 
+       |   mode   error bound         input datum file        demo   |  |
+     dtype                                                   datum  zip unzip
 ```
 `-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
 
 ```bash
-./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
+cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
 ```
 To conduct compression, several input arguments are **necessary**,
 
@@ -97,41 +99,41 @@ Other module skipping for use scenarios are in development.
 1. run a 2D CESM demo at 1e-4 relative to value range
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
 	```
 2. alternatively, to use full option name,
 
 	```bash
-	./cusz -f32 --mode r2r --eb 1e-4 --input ./data/sample-cesm-CLDHGH \
+	cusz -f32 --mode r2r --eb 1e-4 --input ./data/sample-cesm-CLDHGH \
 		--demo cesm --zip --unzip
 	```
 3. run a 3D Hurricane Isabel demo at 1e-4 relative to value range
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D huricanne -z -x
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D huricanne -z -x
 	```
 4. run CESM demo with 1) `uint8_t`, 2) 256 quant. bins,
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8
 	```
 5. in addition to the previous command, if skipping Huffman codec,
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8 --skip huffman	# or `-X/-S huffman`
 	```
 6. some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8 --pre binning --skip huffman	# or `-p binning`
 	```
 7. dry-run to get PSNR and to skip real compression or decompression; `-r` also works alternatively to `--dry-run`
 
 	```bash
-	./cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
 	```
 
 ## note
