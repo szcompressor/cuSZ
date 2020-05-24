@@ -4,6 +4,7 @@ all: gen1
 
 gen1: content.md 
 	pandoc content.md -r markdown-auto_identifiers -o content.tex --listings
+	pandoc dev.md -r markdown-auto_identifiers -o dev.tex --listings
 	pdflatex --interaction=batchmode doc.tex 2>&1 > /dev/null
 	pdflatex --interaction=batchmode doc.tex 2>&1 > /dev/null
 ifdef DUMMY
