@@ -2,15 +2,18 @@
 
 ## workflow
 
-![Error-control worflow.](fig/standalone_errorControl.png)
+\begin{figure}\centering
+\includegraphics[width=8in]{fig/standalone_errorControl.pdf}
+\caption{Error-control lossy compression workflow.}
+\end{figure}
+
 
 ## about compression ratio
 
 \begin{figure}\centering
-
 \begin{tikzpicture}
-\node[anchor=east]{\includegraphics{fig/standalone_demoQcode.png}};
-\node[anchor=west]{\includegraphics{fig/standalone_demoEb.png}};
+\node[anchor=east]{\includegraphics[width=2.5in]{fig/standalone_demoQcode.pdf}};
+\node[anchor=west]{\includegraphics[width=4.5in]{fig/standalone_demoEb.pdf}};
 \end{tikzpicture}
 \caption{(left) classification in prediction error distribution, (right) smaller error bound linear-scales the prediction error distribution.}
 \end{figure}
@@ -90,9 +93,6 @@ Also according to EXAFEL, given binning and `uint8_t` have already result in a c
 
 Other module skipping for use scenarios are in development.
 
-
-
-
 ## \textsc{cuSZ} as an analytical tool
 
 `--dry-run` or `-r` in place of `-a` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
@@ -143,7 +143,7 @@ Other module skipping for use scenarios are in development.
 
 ## TODO List
 
-Please refere to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
 
 ## `changelog`
 
