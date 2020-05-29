@@ -80,29 +80,29 @@ void cuSZ::workflow::PdQ(T* d_data, Q* d_bcode, size_t* dims_L16, double* ebs_L4
     else if (dims_L16[nDIM] == 2) {
         dim3 blockNum(dims_L16[nBLK0], dims_L16[nBLK1]);
         dim3 threadNum(gpu_B_2d, gpu_B_2d);
-        /*
         cudaLaunchKernel(
             (void*)cuSZ::PdQ::c_lorenzo_2d1l<T, Q, gpu_B_2d>,  //
             blockNum, threadNum, args, (gpu_B_2d + 1) * (gpu_B_2d + 1) * sizeof(T), nullptr);
-        */
+        /*
         cudaLaunchKernel(
             (void*)cuSZ::PdQ::c_lorenzo_2d1l<T, Q, gpu_B_2d>,  //
             blockNum, threadNum, args2, (gpu_B_2d) * (gpu_B_2d) * sizeof(T), nullptr);
+        */
     }
     else if (dims_L16[nDIM] == 3) {
         dim3 blockNum(dims_L16[nBLK0], dims_L16[nBLK1], dims_L16[nBLK2]);
         dim3 threadNum(gpu_B_3d, gpu_B_3d, gpu_B_3d);
-        /*
         cudaLaunchKernel(
             (void*)cuSZ::PdQ::c_lorenzo_3d1l<T, Q, gpu_B_3d>,  //
             blockNum, threadNum, args, (gpu_B_3d + 1) * (gpu_B_3d + 1) * (gpu_B_3d + 1) * sizeof(T), nullptr);
+        /*
         cudaLaunchKernel(
             (void*)cuSZ::PdQ::c_lorenzo_3d1l_new<T, Q, gpu_B_3d>,  //
             blockNum, threadNum, args2, (gpu_B_3d + 1) * (gpu_B_3d + 1) * (gpu_B_3d + 1) * sizeof(T), nullptr);
-        */
         cudaLaunchKernel(
             (void*)cuSZ::PdQ::c_lorenzo_3d1l<T, Q, gpu_B_3d>,  //
             blockNum, threadNum, args2, (gpu_B_3d) * (gpu_B_3d) * (gpu_B_3d) * sizeof(T), nullptr);
+        */
     }
     HANDLE_ERROR(cudaDeviceSynchronize());
 }

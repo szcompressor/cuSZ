@@ -10,12 +10,14 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 
 ## known issue
 Checked marker denotes issue resolved.
-- [x] (**major**) In Release 0.1, cuSZ exports fault file with binning preprocess.
-- [x] In Release 0.1, `-Q` argparse does not work.
-- [x] (**major**) off-by-ten error in argparse.
-- [ ] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
-- [ ] (**major**) 1-GB HACC `xx.f32` exposes Huffman codec bug.
-- [ ] (**major**) `B_1d` of 64 and 256 do not work on 4-GB HACC `xx.f32`, 'yy.f32`, `zz.f32'. 
+- [x] [20-05-xx] (**major**) In Release 0.1, cuSZ exports fault file with binning preprocess.
+- [x] [20-05-xx] In Release 0.1, `-Q` argparse does not work.
+- [x] [20-05-xx] (**major**) off-by-ten error in argparse.
+- [ ] [20-05-28] gcc 7.3 breaks anyway...
+- [ ] [20-05-28] revert to physically padded version
+- [ ] [20-05-xx] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
+- [ ] [20-05-xx] (**major**) 1-GB HACC `xx.f32` exposes Huffman codec bug.
+- [ ] [20-05-xx] (**major**) `B_1d` of 64 and 256 do not work on 4-GB HACC `xx.f32`, `yy.f32`, `zz.f32'. 
 
 ## TODO List
 
