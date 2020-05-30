@@ -5,8 +5,8 @@
 CXX       := g++
 NVCC      := nvcc
 STD       := -std=c++11
-CCFLAGS   := $(STD) -O3
-NVCCFLAGS := $(STD) -O3
+CCFLAGS   := $(STD) -O3 -g
+NVCCFLAGS := $(STD) -O3 -g
 SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
@@ -30,9 +30,9 @@ CUOBJS3   := $(CUFILES3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CUOBJS    := $(CUOBJS1) $(CUOBJS2) $(CUOBJS3)
 OBJS      := $(CCOBJS) $(CUOBJS)
 
-$(CUOBJS1): NVCCFLAGS :=
-$(CUOBJS2): NVCCFLAGS := -rdc=true
-$(CUOBJS3): NVCCFLAGS := $(DEPLOY) -rdc=true
+$(CUOBJS1): NVCCFLAGS +=
+$(CUOBJS2): NVCCFLAGS += -rdc=true
+$(CUOBJS3): NVCCFLAGS += $(DEPLOY) -rdc=true
 
 all: ; @$(MAKE) cusz -j
 
