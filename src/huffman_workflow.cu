@@ -27,6 +27,7 @@
 #include "huffman.cuh"
 #include "huffman_codec.cuh"
 #include "huffman_workflow.cuh"
+#include "par_huffman.cuh"
 #include "types.hh"
 
 int ht_state_num;
@@ -107,7 +108,11 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
 
     // wrapper::SetUpHuffmanTree<Q, H>(d_freq, d_plain_cb, dict_size);
     {
-        InitHuffTreeAndGetCodebook<<<1, 32>>>(2 * dict_size, d_freq, d_plain_cb);
+        #ifdef PAR_HUFFMAN
+            ParGetCodebook(dict_size, d_freq, d_plain_cb);
+        #else
+            InitHuffTreeAndGetCodebook<<<1, 32>>>(2 * dict_size, d_freq, d_plain_cb);
+        #endif
         cudaDeviceSynchronize();
     }
 
