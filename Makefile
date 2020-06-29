@@ -19,7 +19,7 @@ CCFILES   := $(wildcard $(SRC_DIR)/*.cc)
 
 MAIN      := $(SRC_DIR)/cusz.cu
 CUFILES2  := $(SRC_DIR)/cusz_workflow.cu $(SRC_DIR)/cusz_dualquant.cu
-CUFILES3  := $(SRC_DIR)/canonical.cu
+CUFILES3  := $(SRC_DIR)/canonical.cu $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
 CUFILES1  := $(filter-out $(MAIN) $(CUFILES3) $(CUFILES2), $(wildcard $(SRC_DIR)/*.cu))
 
 CCOBJS    := $(CCFILES:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
