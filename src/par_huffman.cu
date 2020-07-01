@@ -483,38 +483,29 @@ __global__ void GPU_FillArraySequence(T* array, unsigned int size) {
     }
 }
 
-// functional but slow fix
-__global__ void insertionSort(unsigned int* arrkey, int* arrval, int n)  
-{  
-    unsigned int key;
-    int i, val, j;  
-    for (i = 1; i < n; i++) 
-    {  
-        key = arrkey[i];
-        val = arrval[i];  
-        j = i - 1;  
-  
-        /* Move elements of arr[0..i-1], that are  
-        greater than key, to one position ahead  
-        of their current position */
-        while (j >= 0 && arrkey[j] > key) 
-        {  
-            arrkey[j + 1] = arrkey[j];
-            arrval[j + 1] = arrval[j];  
-            j = j - 1;  
-        }  
-        arrkey[j + 1] = key;
-        arrval[j + 1] = val;
-    }  
+// Temporary solution
+template <typename K, typename V>
+__global__ void GPU_InsertSortKeyValue(K* keyArray, V* valueArray, unsigned int size) {
+    for (int i = 0; i < size; ++i) {
+        for (int j = i; j > 0; --j) {
+            if (keyArray[j - 1] > keyArray[j]) {
+                K key = keyArray[j - 1];
+                V value = valueArray[j - 1];
+                keyArray[j - 1] = keyArray[j];
+                valueArray[j - 1] = valueArray[j];
+                keyArray[j] = key;
+                valueArray[j] = value;
+            }
+        }        
+    }
 }
 
-// Ugly -- Replace with atomics
+// Precondition -- Result is preset to be equal to size
 template <typename T>
 __global__ void GPU_GetFirstNonzeroIndex(T* array, unsigned int size, unsigned int* result) {
-    unsigned int i;
-    *result = size;
-    for (i = 0; i < size; ++i) {
-        if (array[i] != 0) { *result = i; return; }
+    unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (array[thread] != 0) {
+        atomicMin(result, thread);
     }
 }
 
@@ -547,12 +538,13 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
                         thrust::device_ptr<unsigned int>(_d_freq),
                         thrust::device_ptr<unsigned int>(_d_freq + dict_size), 
                         thrust::device_ptr<int>(_d_qcode));*/
-    insertionSort<<<1, 1>>>(_d_freq, _d_qcode, dict_size);
+    GPU_InsertSortKeyValue<<<1, 1>>>(_d_freq, _d_qcode, dict_size);
     cudaDeviceSynchronize();
 
     unsigned int* d_first_nonzero_index;
-    unsigned int first_nonzero_index;
+    unsigned int first_nonzero_index = dict_size;
     cudaMalloc(&d_first_nonzero_index, sizeof(unsigned int));
+    cudaMemcpy(d_first_nonzero_index, &first_nonzero_index, sizeof(unsigned int), cudaMemcpyHostToDevice);
     GPU_GetFirstNonzeroIndex<unsigned int><<<1, 1>>>(_d_freq, dict_size, d_first_nonzero_index);
     cudaMemcpy(&first_nonzero_index, d_first_nonzero_index, sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaFree(d_first_nonzero_index);
@@ -626,7 +618,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
                                                                     diagonal_path_intersections, mblocks, mthreads);
     */
     cudaDeviceSynchronize();
-  
+
     void* CW_Args[] = {
         (void *)&CL,
         (void *)&_nz_d_codebook,
