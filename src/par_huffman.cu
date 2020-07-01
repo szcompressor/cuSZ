@@ -545,7 +545,8 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
     unsigned int first_nonzero_index = dict_size;
     cudaMalloc(&d_first_nonzero_index, sizeof(unsigned int));
     cudaMemcpy(d_first_nonzero_index, &first_nonzero_index, sizeof(unsigned int), cudaMemcpyHostToDevice);
-    GPU_GetFirstNonzeroIndex<unsigned int><<<1, 1>>>(_d_freq, dict_size, d_first_nonzero_index);
+    GPU_GetFirstNonzeroIndex<unsigned int><<<nblocks, 1024>>>(_d_freq, dict_size, d_first_nonzero_index);
+    cudaDeviceSynchronize();
     cudaMemcpy(&first_nonzero_index, d_first_nonzero_index, sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaFree(d_first_nonzero_index);
 
@@ -575,7 +576,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
     // Merge configuration -- Change for V100
     int ELTS_PER_SEQ_MERGE = 16;
     
-    int mblocks = nz_dict_size / ELTS_PER_SEQ_MERGE;
+    int mblocks = (nz_dict_size / ELTS_PER_SEQ_MERGE) + 1;
     int mthreads = 32;
     uint32_t* diagonal_path_intersections;
     cudaMalloc(&diagonal_path_intersections, (2 * (mblocks + 1)) * sizeof(uint32_t));
