@@ -15,6 +15,8 @@
 #include <cstring>
 #include <cstdint>
 
+#include "cuda_mem.cuh"
+#include "cuda_error_handling.cuh"
 #include "par_merge.cuh"
 #include "par_huffman.cuh"
 #include "dbg_gpu_printing.cuh"
@@ -31,7 +33,7 @@
 extern __device__ long mergeProfile[2];
 extern __device__ long mergeProfileTotal[2];
 
-// #define DEBUG_PARHUFF
+//#define DEBUG_PARHUFF
 // Parallel huffman code generation
 template <typename F>
 __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
@@ -85,7 +87,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             printf("iNodes:\n");
             for (int i = iNodesFront; i != iNodesRear; i = MOD(i + 1, size))
             {
-                printf("%d\n", iNodesFreq[i]);
+                printf("%d %d\n", iNodesFreq[i], iNodesLeader[i]);
             }
         }
 #endif
@@ -178,7 +180,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             printf("mid:\n");
             for (int i = 0; i != 4; ++i)
             {
-                printf("%d\n", midFreq[i]);
+                printf("%d %d\n", midFreq[i], midIsLeaf[i]);
             }
 #endif
 
@@ -216,7 +218,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
 
             iNodesSize = MOD(iNodesRear - iNodesFront, size);
         }
-        current_grid.sync();
+
         if (thread == 0)
             s[0] = s[0] + (clock64() - st[0]);
 
@@ -226,6 +228,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             st[1] = clock64();
 
         curLeavesNum = 0;
+        current_grid.sync();
         if (i >= lNodesCur && i < size) {
             // Parallel component
             int threadCurLeavesNum;
@@ -278,7 +281,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             printf("adjusted iNodes:\n");
             for (int i = iNodesFront; i != iNodesRear; i = MOD(i + 1, size))
             {
-                printf("%d\n", iNodesFreq[i]);
+                printf("%d %d\n", iNodesFreq[i], iNodesLeader[i]);
             }
             printf("minfreq %d\n", minFreq);
             printf("curleavesnum %d\n", curLeavesNum);
@@ -287,7 +290,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             printf("copy:\n");
             for (int i = 0; i != curLeavesNum; ++i)
             {
-                printf("%d\n", copyFreq[i]);
+                printf("%d %d %d\n", copyFreq[i], copyIndex[i], copyIsLeaf[i]);
             }
 #endif
         }
@@ -391,6 +394,7 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
 // "Locals" for GenerateCW
 __device__ int CCL;
 __device__ int CDPI;
+__device__ int newCDPI;
 
 // Parallelized with atomic writes, but could replace with Jiannan's similar code
 template<typename F, typename H>
@@ -412,11 +416,13 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
         CCL = CL[0];
         CW[0] = 0;
         CDPI = 0;
+        newCDPI = size - 1;
     }
     current_grid.sync();
 
     while (CDPI < size - 1)
     {
+
         if (i < size) {
             // Parallel canonical codeword generation
             if (i > CDPI && CL[i] == CCL) {
@@ -424,13 +430,12 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
             }
 
             // CDPI update
-            CDPI = size - 1;
             if (i < size - 1 && CL[i + 1] > CCL) {
-                atomicMin(&CDPI, i);
+                atomicMin(&newCDPI, i);
             }
-
         }
         current_grid.sync();
+        CDPI = newCDPI;
 
         if (thread == 0) {
             if (CDPI < size - 1)
@@ -442,6 +447,7 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
                 ++CDPI;
             }
         }
+        newCDPI = size - 1;
         current_grid.sync();
     }
     current_grid.sync();
@@ -475,7 +481,31 @@ __global__ void GPU_FillArraySequence(T* array, unsigned int size) {
     if (thread < size) {
         array[thread] = thread;
     }
+}
 
+// functional but slow fix
+__global__ void insertionSort(unsigned int* arrkey, int* arrval, int n)  
+{  
+    unsigned int key;
+    int i, val, j;  
+    for (i = 1; i < n; i++) 
+    {  
+        key = arrkey[i];
+        val = arrval[i];  
+        j = i - 1;  
+  
+        /* Move elements of arr[0..i-1], that are  
+        greater than key, to one position ahead  
+        of their current position */
+        while (j >= 0 && arrkey[j] > key) 
+        {  
+            arrkey[j + 1] = arrkey[j];
+            arrval[j + 1] = arrval[j];  
+            j = j - 1;  
+        }  
+        arrkey[j + 1] = key;
+        arrval[j + 1] = val;
+    }  
 }
 
 // Ugly -- Replace with atomics
@@ -505,18 +535,19 @@ __global__ void GPU_ReorderByIndex(T* array, Q* index, unsigned int size) {
 // Parallel codebook generation wrapper
 template <typename H>
 void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
-    int* _d_qcode = nullptr;
-    cudaMalloc(&_d_qcode, dict_size * sizeof(int));
+    auto _d_qcode = mem::CreateCUDASpace<int>(dict_size);
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
     GPU_FillArraySequence<int><<<nblocks, 1024>>>(_d_qcode, (unsigned int) dict_size);
     cudaDeviceSynchronize();
 
-    using namespace thrust;
-    device_ptr<unsigned int> _d_freq_thrust = device_pointer_cast(_d_freq);
-    device_ptr<int> _d_qcode_thrust         = device_pointer_cast(_d_qcode);
-    sort_by_key(_d_freq_thrust, _d_freq_thrust + dict_size, _d_qcode_thrust);
+    /*
+    thrust::sort_by_key(thrust::device,
+                        thrust::device_ptr<unsigned int>(_d_freq),
+                        thrust::device_ptr<unsigned int>(_d_freq + dict_size), 
+                        thrust::device_ptr<int>(_d_qcode));*/
+    insertionSort<<<1, 1>>>(_d_freq, _d_qcode, dict_size);
     cudaDeviceSynchronize();
 
     unsigned int* d_first_nonzero_index;
