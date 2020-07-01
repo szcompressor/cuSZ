@@ -116,6 +116,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
         #endif
         cudaDeviceSynchronize();
     }
+    cout << "Here" << endl;
     //print_codebook<<<1, 1>>>(d_plain_cb, dict_size);
 
     // canonical Huffman; TODO should follow H to decide first and entry type
