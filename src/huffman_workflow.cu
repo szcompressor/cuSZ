@@ -106,6 +106,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     // get plain cb
     auto d_plain_cb = mem::CreateCUDASpace<H>(dict_size, 0xff);
 
+    #define PAR_HUFFMAN
     // wrapper::SetUpHuffmanTree<Q, H>(d_freq, d_plain_cb, dict_size);
     {
         #ifdef PAR_HUFFMAN
