@@ -63,7 +63,7 @@ void cuSZ::workflow::PdQ(T* d_data, Q* d_bcode, size_t* dims_L16, double* ebs_L4
     for (auto i = 0; i < 16; i++) dims_inttype[i] = dims_L16[i];
     cudaMemcpyToSymbol(symb_dims, dims_inttype, 16 * sizeof(int), 0, cudaMemcpyHostToDevice);
     cudaMemcpyToSymbol(symb_ebs, ebs_L4, 4 * sizeof(double), 0, cudaMemcpyHostToDevice);
-    void* args2[] = {&d_data, &d_bcode};
+    // void* args2[] = {&d_data, &d_bcode}; unreferenced
 
     if (dims_L16[nDIM] == 1) {
         dim3 blockNum(dims_L16[nBLK0]);
