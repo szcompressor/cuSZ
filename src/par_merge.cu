@@ -147,7 +147,6 @@ __device__ long mergeProfileTotal[2] = {0, 0};
      if (tempLength == 0) return;
  
      // Perform the global diagonal intersection serach to divide work among SMs
-     // Dynamic parallelism -- make more efficient -- incorporate into configuration
      if (threadIdx.x == 0 && blockIdx.x == 0)
          mergeProfile[0] = clock64();
      cudaWorkloadDiagonals<F>
