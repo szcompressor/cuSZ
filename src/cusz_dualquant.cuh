@@ -26,17 +26,13 @@ __global__ void c_lorenzo_3d1l(T* data, Q* code, size_t const* dims, double cons
 
 // use const memory
 template <typename T, typename Q, int B = 32>
-__global__ void c_lorenzo_1d1l_new2(T* data, Q* code);
+__global__ void c_lorenzo_1d1l_cmem(T* data, Q* code);
 
 template <typename T, typename Q, int B = 16>
-__global__ void c_lorenzo_2d1l_new(T* data, Q* code);
-template <typename T, typename Q, int B = 16>
-__global__ void c_lorenzo_2d1l_new2(T* data, Q* code);
+__global__ void c_lorenzo_2d1l_cmem(T* data, Q* code);
 
 template <typename T, typename Q, int B = 8>
-__global__ void c_lorenzo_3d1l_new(T* data, Q* code);
-template <typename T, typename Q, int B = 8>
-__global__ void c_lorenzo_3d1l_new2(T* data, Q* code);
+__global__ void c_lorenzo_3d1l_cmem(T* data, Q* code);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //   ^                 decompression |
