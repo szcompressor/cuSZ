@@ -21,11 +21,6 @@
 #include "par_huffman.cuh"
 #include "dbg_gpu_printing.cuh"
 
-// Thrust for sorting
-#include <thrust/device_vector.h>
-#include <thrust/sort.h>
-#include <thrust/copy.h>
-
 // Mathematically correct mod
 #define MOD(a,b) ((((a)%(b))+(b))%(b))
 
@@ -483,23 +478,6 @@ __global__ void GPU_FillArraySequence(T* array, unsigned int size) {
     }
 }
 
-// Temporary solution
-template <typename K, typename V>
-__global__ void GPU_InsertSortKeyValue(K* keyArray, V* valueArray, unsigned int size) {
-    for (int i = 0; i < size; ++i) {
-        for (int j = i; j > 0; --j) {
-            if (keyArray[j - 1] > keyArray[j]) {
-                K key = keyArray[j - 1];
-                V value = valueArray[j - 1];
-                keyArray[j - 1] = keyArray[j];
-                valueArray[j - 1] = valueArray[j];
-                keyArray[j] = key;
-                valueArray[j] = value;
-            }
-        }        
-    }
-}
-
 // Precondition -- Result is preset to be equal to size
 template <typename T>
 __global__ void GPU_GetFirstNonzeroIndex(T* array, unsigned int size, unsigned int* result) {
@@ -533,12 +511,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
     GPU_FillArraySequence<int><<<nblocks, 1024>>>(_d_qcode, (unsigned int) dict_size);
     cudaDeviceSynchronize();
 
-    /*
-    thrust::sort_by_key(thrust::device,
-                        thrust::device_ptr<unsigned int>(_d_freq),
-                        thrust::device_ptr<unsigned int>(_d_freq + dict_size), 
-                        thrust::device_ptr<int>(_d_qcode));*/
-    GPU_InsertSortKeyValue<<<1, 1>>>(_d_freq, _d_qcode, dict_size);
+    SortByFreq(_d_freq, _d_qcode, dict_size);
     cudaDeviceSynchronize();
 
     unsigned int* d_first_nonzero_index;
