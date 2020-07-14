@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <limits>
 
 #include "cuda_mem.cuh"
 #include "cuda_error_handling.cuh"
@@ -385,19 +386,14 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
     }
 }
 
-
-// "Locals" for GenerateCW
-__device__ int CCL;
-__device__ int CDPI;
-__device__ int newCDPI;
-
 // Parallelized with atomic writes, but could replace with Jiannan's similar code
 template<typename F, typename H>
-__global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
+__global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size)
 {
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i = thread; // Porting convenience
     auto current_grid = this_grid();
+    auto type_bw = sizeof(H) * 8;
 
     /* Reverse in place - Probably a more CUDA-appropriate way */
     if (thread < size / 2) {
@@ -415,9 +411,18 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
     }
     current_grid.sync();
 
-    while (CDPI < size - 1)
-    {
+    // Initialize first and entry arrays
+    if (thread < CCL) {
+        // Initialization of first to Max ensures that unused code
+        // lengths are skipped over in decoding.
+        first[i] = std::numeric_limits<H>::max();
+        entry[i] = 0;
+    }
+    // Initialize first element of entry
+    entry[CCL] = 0;
+    current_grid.sync();
 
+    while (CDPI < size - 1) {
         if (i < size) {
             // Parallel canonical codeword generation
             if (i > CDPI && CL[i] == CCL) {
@@ -430,12 +435,44 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
             }
         }
         current_grid.sync();
+
+        // Update entry and first arrays in O(1) time
+        // Last element to update
+        const int updateEnd = (newCDPI >= size - 1) ? type_bw : CL[newCDPI + 1];
+
+        // Fill base
+        const int curEntryVal = entry[CCL];
+        // Number of elements of length CCL
+        const int numCCL = (newCDPI - CDPI + 1);
+        current_grid.sync();
+
+        if (thread > CCL && thread < updateEnd) {
+            entry[i] = curEntryVal + numCCL;
+        }
+        // Add number of entries to next CCL
+        if (thread == 0) {
+            if (updateEnd < type_bw) {
+                entry[updateEnd] = curEntryVal + numCCL;
+            }
+        }
+        current_grid.sync();
+
+        // Update first array in O(1) time
+        if (thread == CCL) {
+            first[CCL] = CW[CDPI];
+        }
+        if (thread > CCL && thread < updateEnd) {
+            first[i] = std::numeric_limits<H>::max();
+        }
+        current_grid.sync();
+
+        // Update CDPI to index before codeword length increase
         CDPI = newCDPI;
 
         if (thread == 0) {
-            if (CDPI < size - 1)
-            {
+            if (CDPI < size - 1) {
                 int CLDiff = CL[CDPI + 1] - CL[CDPI];
+                // Add and shift -- Next canonical code
                 CW[CDPI + 1] = ((CW[CDPI] + 1) << CLDiff);
                 CCL = CL[CDPI + 1];
 
@@ -449,19 +486,11 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, int size)
 
     if (thread < size) {
         /* Make encoded codeword compatible with CUSZ */
-        //printf("%d: %d %x %x %x\n", i, CL[i], (((H)CL[i] & (H)0xffu) << ((sizeof(H) * 8) - 8)), CW[i], CW[i] | (((H)CL[i] & (H)0xffu) << ((sizeof(H) * 8) - 8)));
         CW[i] = CW[i] | (((H)CL[i] & (H)0xffu) << ((sizeof(H) * 8) - 8));
     }
     current_grid.sync();
 
-    /* Reverse in place - This is only needed for debug purposes */
-    if (thread < size / 2) {
-        F temp = CL[i];
-        CL[i] = CL[size - i - 1];
-        CL[size - i - 1] = temp;
-    }
-
-    /* Reverse in place */
+    /* Reverse partial codebook */
     if (thread < size / 2) {
         H temp = CW[i];
         CW[i] = CW[size - i - 1];
@@ -501,14 +530,30 @@ __global__ void GPU_ReorderByIndex(T* array, Q* index, unsigned int size) {
     }
 }
 
+// Reverses a given array.
+template <typename T>
+__global__ void GPU_ReverseArray(T* array, unsigned int size) {
+    unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (thread < size / 2) {
+        T temp = array[thread];
+        array[thread] = array[size - thread - 1];
+        array[size - thread - 1] = temp;
+    }
+}
+
+
 // Parallel codebook generation wrapper
-template <typename H>
-void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
-    auto _d_qcode = mem::CreateCUDASpace<int>(dict_size);
+template <typename Q, typename H>
+void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_t* _d_decode_meta) {
+    // Metadata
+    auto type_bw = sizeof(H) * 8;
+    auto _d_first = reinterpret_cast<H*>(_d_decode_meta);
+    auto _d_entry = reinterpret_cast<H*>(_d_decode_meta + (sizeof(H) * type_bw));
+    auto _d_qcode = reinterpret_cast<Q*>(_d_decode_meta + (sizeof(H) * 2 * type_bw));
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
-    GPU_FillArraySequence<int><<<nblocks, 1024>>>(_d_qcode, (unsigned int) dict_size);
+    GPU_FillArraySequence<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int) dict_size);
     cudaDeviceSynchronize();
 
     SortByFreq(_d_freq, _d_qcode, dict_size);
@@ -596,6 +641,8 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
     void* CW_Args[] = {
         (void *)&CL,
         (void *)&_nz_d_codebook,
+        (void *)&_d_first,
+        (void *)&_d_entry,
         (void *)&nz_dict_size
     };
 
@@ -604,6 +651,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
                                 nz_nblocks,
                                 1024,
                                 CW_Args);
+    
     /*
     parHuff::GPU_GenerateCW<unsigned int, H><<<nz_nblocks, 1024>>>(CL, _nz_d_codebook, nz_dict_size);
     */
@@ -614,7 +662,12 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
     cudaDeviceSynchronize();
     #endif
 
-    GPU_ReorderByIndex<H, int><<<nblocks, 1024>>>(_d_codebook, _d_qcode, (unsigned int) dict_size);
+    // Reverse _d_qcode and _d_codebook
+    GPU_ReverseArray<H><<<nblocks, 1024>>>(_d_codebook, (unsigned int) dict_size);
+    GPU_ReverseArray<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int) dict_size);
+    cudaDeviceSynchronize();
+
+    GPU_ReorderByIndex<H, Q><<<nblocks, 1024>>>(_d_codebook, _d_qcode, (unsigned int) dict_size);
     cudaDeviceSynchronize();
 
     // Cleanup    
@@ -628,7 +681,6 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
     cudaFree(copyFreq);                                                                    
     cudaFree(copyIsLeaf);                                                                
     cudaFree(copyIndex);
-    cudaFree(_d_qcode);
     cudaFree(diagonal_path_intersections);
     cudaDeviceSynchronize();
 
@@ -639,5 +691,9 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook) {
 }
 
 // Specialize wrapper
-template void ParGetCodebook<uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook);
-template void ParGetCodebook<uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook);
+template void ParGetCodebook<uint8_t, uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook, uint8_t* meta);
+template void ParGetCodebook<uint8_t, uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook, uint8_t* meta);
+template void ParGetCodebook<uint16_t, uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook, uint8_t* meta);
+template void ParGetCodebook<uint16_t, uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook, uint8_t* meta);
+template void ParGetCodebook<uint32_t, uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook, uint8_t* meta);
+template void ParGetCodebook<uint32_t, uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook, uint8_t* meta);
