@@ -6,7 +6,7 @@ CXX       := g++
 NVCC      := nvcc
 STD       := -std=c++11
 CCFLAGS   := $(STD) -O3 -g
-NVCCFLAGS := $(STD) -O3 -g
+NVCCFLAGS := $(STD) -O3 -g --expt-relaxed-constexpr
 SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
