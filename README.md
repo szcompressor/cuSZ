@@ -3,8 +3,8 @@
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
 =
 
-* Major Developers: Jiannan Tian, Dingwen Tao, Sheng Di, Franck Cappello 
-* Other Contributors: Cody Rivera, Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
+* Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello 
+* Other Contributors: Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
 # progress
 
