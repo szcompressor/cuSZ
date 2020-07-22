@@ -408,6 +408,7 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
         //CW[0] = 0;
         CDPI = 0;
         newCDPI = size - 1;
+        entry[CCL] = 0;
     }
     current_grid.sync();
 
@@ -419,7 +420,6 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
         entry[i] = 0;
     }
     // Initialize first element of entry
-    entry[CCL] = 0;
     current_grid.sync();
 
     while (CDPI < size - 1) {
@@ -428,6 +428,13 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
             atomicMin(&newCDPI, i);
         }
         current_grid.sync();
+
+        // Last element to update
+        const int updateEnd = (newCDPI >= size - 1) ? type_bw : CL[newCDPI + 1];
+        // Fill base
+        const int curEntryVal = entry[CCL];
+        // Number of elements of length CCL
+        const int numCCL = (newCDPI - CDPI + 1);
 
         // Get first codeword
         if (i == 0) {
@@ -445,18 +452,8 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
                 CW[i] = CW[newCDPI] + (newCDPI - i);
             }
         }
-        current_grid.sync();
 
         // Update entry and first arrays in O(1) time
-        // Last element to update
-        const int updateEnd = (newCDPI >= size - 1) ? type_bw : CL[newCDPI + 1];
-
-        // Fill base
-        const int curEntryVal = entry[CCL];
-        // Number of elements of length CCL
-        const int numCCL = (newCDPI - CDPI + 1);
-        current_grid.sync();
-
         if (thread > CCL && thread < updateEnd) {
             entry[i] = curEntryVal + numCCL;
         }
@@ -488,13 +485,12 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
                 ++newCDPI;
             }
 
-            // Update CDPI to index after codeword length increase
+            // Update CDPI to newCDPI after codeword length increase
             CDPI = newCDPI;
             newCDPI = size - 1;
         }
         current_grid.sync();
     }
-    current_grid.sync();
 
     if (thread < size) {
         /* Make encoded codeword compatible with CUSZ */
