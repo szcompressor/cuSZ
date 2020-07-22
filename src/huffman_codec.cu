@@ -72,21 +72,14 @@ __device__ void InflateChunkwise(H* in_huff, T* out_quant, size_t total_bw, uint
     H         v          = (in_huff[idx_byte] >> (sizeof(H) * 8 - 1)) & 0x1;  // get the first bit
     size_t    l          = 1;
     size_t    i          = 0;
-    const H   i_code_lb  = first[l];
-    const H   i_code_ub  = first[l] + (entry[l + 1] - entry[l]); // Will always be in-bounds
-    H         code_lb    = i_code_lb;
-    H         code_ub    = i_code_ub;
     while (i < total_bw) {
-        while (v < code_lb || v >= code_ub) {  // append next i_cb bit
+        while (v < first[l]) {  // append next i_cb bit
             ++i;
             idx_byte = i / (sizeof(H) * 8);
             idx_bit  = i % (sizeof(H) * 8);
             next_bit = ((in_huff[idx_byte] >> (sizeof(H) * 8 - 1 - idx_bit)) & 0x1);
             v        = (v << 1) | next_bit;
             ++l;
-            code_lb = first[l];
-            code_ub = (l < (sizeof(H) * 8)) ? first[l] + (entry[l + 1] - entry[l])
-                                            : std::numeric_limits<H>::max();
         }
         out_quant[idx_bcoded++] = keys[entry[l] + v - first[l]];
         {
@@ -97,8 +90,6 @@ __device__ void InflateChunkwise(H* in_huff, T* out_quant, size_t total_bw, uint
             v        = 0x0 | next_bit;
         }
         l = 1;
-        code_lb = i_code_lb;
-        code_ub = i_code_ub;
     }
 }
 

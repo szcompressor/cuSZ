@@ -405,7 +405,7 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
 
     if (thread == 0) {
         CCL = CL[0];
-        CW[0] = 0;
+        //CW[0] = 0;
         CDPI = 0;
         newCDPI = size - 1;
     }
@@ -423,15 +423,26 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
     current_grid.sync();
 
     while (CDPI < size - 1) {
+        // CDPI update
+        if (i < size - 1 && CL[i + 1] > CCL) {
+            atomicMin(&newCDPI, i);
+        }
+        current_grid.sync();
+
+        // Get first codeword
+        if (i == 0) {
+            if (CDPI == 0) {
+                CW[newCDPI] = 0;
+            } else {
+                CW[newCDPI] = CW[CDPI]; // Pre-stored
+            }
+        }
+        current_grid.sync();
+
         if (i < size) {
             // Parallel canonical codeword generation
-            if (i > CDPI && CL[i] == CCL) {
-                CW[i] = CW[CDPI] + (i - CDPI);
-            }
-
-            // CDPI update
-            if (i < size - 1 && CL[i + 1] > CCL) {
-                atomicMin(&newCDPI, i);
+            if (i >= CDPI && i < newCDPI) {
+                CW[i] = CW[newCDPI] + (newCDPI - i);
             }
         }
         current_grid.sync();
@@ -459,34 +470,36 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
 
         // Update first array in O(1) time
         if (thread == CCL) {
-            first[CCL] = CW[CDPI];
+            // Flip least significant CL[CDPI] bits      
+            first[CCL] = CW[CDPI] ^ (((H)1 << (H)CL[CDPI]) - 1);
         }
         if (thread > CCL && thread < updateEnd) {
             first[i] = std::numeric_limits<H>::max();
         }
         current_grid.sync();
 
-        // Update CDPI to index before codeword length increase
-        CDPI = newCDPI;
-
         if (thread == 0) {
-            if (CDPI < size - 1) {
-                int CLDiff = CL[CDPI + 1] - CL[CDPI];
+            if (newCDPI < size - 1) {
+                int CLDiff = CL[newCDPI + 1] - CL[newCDPI];
                 // Add and shift -- Next canonical code
-                CW[CDPI + 1] = ((CW[CDPI] + 1) << CLDiff);
-                CCL = CL[CDPI + 1];
+                CW[newCDPI + 1] = ((CW[CDPI] + 1) << CLDiff);
+                CCL = CL[newCDPI + 1];
 
-                ++CDPI;
+                ++newCDPI;
             }
+
+            // Update CDPI to index after codeword length increase
+            CDPI = newCDPI;
+            newCDPI = size - 1;
         }
-        newCDPI = size - 1;
         current_grid.sync();
     }
     current_grid.sync();
 
     if (thread < size) {
         /* Make encoded codeword compatible with CUSZ */
-        CW[i] = CW[i] | (((H)CL[i] & (H)0xffu) << ((sizeof(H) * 8) - 8));
+        CW[i] = (CW[i] | (((H)CL[i] & (H)0xffu) << ((sizeof(H) * 8) - 8)))
+              ^ (((H)1 << (H)CL[i]) - 1);
     }
     current_grid.sync();
 
