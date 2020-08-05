@@ -47,7 +47,9 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
     // fits to size
     int threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
     while (threadsPerBlock > 1024) {
-        if (RPerBlock <= 1) { threadsPerBlock = 1024; }
+        if (RPerBlock <= 1) {
+            threadsPerBlock = 1024;
+        }
         else {
             RPerBlock /= 2;
             numBlocks *= 2;
@@ -58,6 +60,19 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
         <<<numBlocks, threadsPerBlock, ((numBuckets + 1) * RPerBlock) * sizeof(int)>>>  //
         (d_bcode, d_freq, numValues, numBuckets, RPerBlock);
     cudaDeviceSynchronize();
+
+    // TODO make entropy optional
+    {
+        auto   freq    = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
+        double entropy = 0.0;
+        for (auto i = 0; i < dict_size; i++)
+            if (freq[i]) {
+                auto possibility = freq[i] / (1.0 * len);
+                entropy -= possibility * log(possibility);
+            }
+        cout << log_info << "entropy:\t\t" << entropy << endl;
+        delete[] freq;
+    }
 
 #ifdef DEBUG_PRINT
     print_histogram<unsigned int><<<1, 32>>>(d_freq, dict_size, dict_size / 2);
@@ -137,6 +152,13 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     // coding by memcpy
     auto d_hcode        = mem::CreateCUDASpace<H>(len);
     auto d_canonical_cb = reinterpret_cast<H*>(d_singleton) + dict_size;
+
+    // --------------------------------
+    //
+    auto cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
+    io::WriteBinaryFile(cb_dump, dict_size, new string(f_bcode + ".canonized"));
+
+    // --------------------------------
 
     // wrapper::EncodeByMemcpy(d_bcode, len, d_hcode, d_canonical_cb);
     {
