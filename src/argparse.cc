@@ -48,6 +48,58 @@ ArgPack::trap(int _status)
 }
 
 void  //
+ArgPack::HuffmanCheckArgs()
+{
+    bool to_abort = false;
+    if (fname.empty()) {
+        cerr << log_err << "Not specifying input file!" << endl;
+        to_abort = true;
+    }
+    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
+        cerr << log_err << "Wrong input size(s)!" << endl;
+        to_abort = true;
+    }
+    if (!to_encode and !to_decode and !dry_run) {
+        cerr << log_err << "Select encode (-a), decode (-x) or dry-run (-r)!" << endl;
+        to_abort = true;
+    }
+    // if (dtype != "f32" and dtype != "f64") {
+    //     cout << dtype << endl;
+    //     cerr << log_err << "Not specifying data type!" << endl;
+    //     to_abort = true;
+    // }
+
+    if (input_rep == 8) {  // TODO
+        assert(dict_size <= 256);
+    }
+    else if (input_rep == 16) {
+        assert(dict_size <= 65536);
+    }
+
+    if (dry_run and to_encode and to_decode) {
+        cerr << log_warn << "No need to dry-run, encode and decode at the same time!" << endl;
+        cerr << log_warn << "Will dry run only." << endl << endl;
+        to_encode = false;
+        to_decode = false;
+    }
+    else if (dry_run and to_encode) {
+        cerr << log_warn << "No need to dry-run and encode at the same time!" << endl;
+        cerr << log_warn << "Will dry run only." << endl << endl;
+        to_encode = false;
+    }
+    else if (dry_run and to_decode) {
+        cerr << log_warn << "No need to dry-run and decode at the same time!" << endl;
+        cerr << log_warn << "Will dry run only." << endl << endl;
+        to_decode = false;
+    }
+
+    if (to_abort) {
+        cuszDoc();
+        exit(-1);
+    }
+}
+
+void  //
 ArgPack::CheckArgs()
 {
     bool to_abort = false;
@@ -94,13 +146,39 @@ ArgPack::CheckArgs()
     }
 
     if (to_abort) {
-        PrintInstruction();
+        cuszDoc();
         exit(-1);
     }
 }
 
 void  //
-ArgPack::PrintInstruction()
+ArgPack::HuffmanDoc()
+{
+    string instruction =
+        "\n"
+        "OVERVIEW: Huffman submodule as standalone program\n"  // TODO from this line on
+        "\n"
+        "USAGE:\n"
+        "  The basic use with demo datum is listed below,\n"
+        "    ./huff --encode --decode --verify --input ./baryon_density.dat.b16 \\\n"
+        "        -3 512 512 512 --input-rep 16 --huffman-rep 32 --huffman-chunk 2048 --dict-size 1024\n"
+        "  or shorter\n"
+        "    ./huff -e -d -V -i ./baryon_density.dat.b16 -3 512 512 512 -R 16 -H 32 -C 2048 -c 1024\n"
+        "            ^  ^  ^ ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~ ~~~~~ ~~~~~~~ ~~~~~~~\n"
+        "            |  |  |       input datum file         dimension   input Huff. Huff.   codebook\n"
+        "          enc dec verify                                       rep.  rep.  chunk   size\n"
+        "\n"
+        "EXAMPLES\n"
+        "  Essential:\n"
+        "    ./bin/huff -e -d -i ./baryon_density.dat.b16 -3 512 512 512 -R 16 -c 1024\n"
+        "    have to input dimension, and higher dimension for a multiplication of each dim.,\n"
+        "    as default values input-rep=16 (bits), huff-rep=32 (bits), codebokk-size=1024 (symbols)\n"
+        "\n";
+    cout << instruction << endl;
+}
+
+void  //
+ArgPack::cuszDoc()
 {
     string instruction =
         "\n"
@@ -108,10 +186,10 @@ ArgPack::PrintInstruction()
         "\n"
         "USAGE:\n"
         "  The basic use with demo datum is listed below,\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "             ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
-        "             |   mode   error bound         input datum file        demo   |  |\n"
-        "           dtype                                                   datum  zip unzip\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "                 ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
+        "                 |   mode   error bound         input datum file        demo   |  |\n"
+        "               dtype                                                   datum  zip unzip\n"
         "\n"
         "  compress and extract, demo dataset:\n"
         "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z -x\n"
@@ -122,14 +200,14 @@ ArgPack::PrintInstruction()
         "  \n"
         "EXAMPLES\n"
         "  CESM example:\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
         "  Hurricane Isabel example:\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
         "  EXAFEL example:\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
         "\n"
         "DOC:\n"
         "  Type \"cusz -h\" for details.\n";
@@ -137,7 +215,7 @@ ArgPack::PrintInstruction()
 }
 
 void  //
-ArgPack::PrintHelpDoc()
+ArgPack::cuszFullDoc()
 {
     string doc =
         "*NAME*\n"
@@ -179,9 +257,9 @@ ArgPack::PrintHelpDoc()
         "                Specify dictionary size/quantization bin number.\n"
         "                Should be a power-of-2.\n"
         "\n"
-        "        *-1* [x]		Specify 1D datum/field size.\n"
-        "        *-2* [x] [y]	Specify 2D datum/field sizes, with dimensions from low to high.\n"
-        "        *-3* [x] [y] [z]	Specify 3D datum/field sizes, with dimensions from low to high.\n"
+        "        *-1* [x]       Specify 1D datum/field size.\n"
+        "        *-2* [x] [y]   Specify 2D datum/field sizes, with dimensions from low to high.\n"
+        "        *-3* [x] [y] [z]   Specify 3D datum/field sizes, with dimensions from low to high.\n"
         "\n"
         "    *Modules*\n"
         "        *-X* or *-S* or *--e*@x@*clude* or *--*@s@*kip* _module-1_,_module-2_,...,_module-n_,\n"
@@ -194,9 +272,9 @@ ArgPack::PrintHelpDoc()
         "                _binning_  Downsampling datum by 2x2 to 1.\n"
         "\n"
         "    *Demonstration*\n"
-        "        *-h* or *--help*	Get help documentation.\n"
+        "        *-h* or *--help*   Get help documentation.\n"
         "\n"
-        "        *-M* or *--meta*	Get archive metadata. (TODO)\n"
+        "        *-M* or *--meta*   Get archive metadata. (TODO)\n"
         "\n"
         "        *-D* or *--demo* [demo-dataset]\n"
         "                Use demo dataset, will omit given dimension(s). Supported datasets include:\n"
@@ -236,10 +314,209 @@ ArgPack::PrintHelpDoc()
     cout << format(doc) << endl;
 }
 
+ArgPack::ArgPack(int argc, char** argv, bool huffman)
+{
+    if (argc == 1) {
+        HuffmanDoc();
+        exit(0);
+    }
+    // default values
+    dict_size       = 1024;
+    input_rep       = 16;
+    huffman_datalen = -1;  // TODO argcheck
+    huffman_rep     = 32;
+    huffman_chunk   = 512;
+
+    n_dim = -1;
+    d0    = 1;
+    d1    = 1;
+    d2    = 1;
+    d3    = 1;
+
+    to_encode = false;
+    to_decode = false;
+
+    get_entropy = false;
+
+    dry_run = false;  // TODO dry run is meaningful differently for cuSZ and Huffman
+
+    auto str2int = [&](const char* s) {
+        char* end;
+        auto  res = std::strtol(s, &end, 10);
+        if (*end) {
+            const char* notif = "invalid option value, non-convertible part: ";
+            cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
+            cerr << string(log_null.length() + strlen(notif), ' ') << "\e[1m"  //
+                 << string(strlen(end), '~')                                   //
+                 << "\e[0m" << endl;
+            trap(-1);
+            return 0;  // just a placeholder
+        }
+        return (int)res;
+    };
+
+    auto str2fp = [&](const char* s) {
+        char* end;
+        auto  res = std::strtod(s, &end);
+        if (*end) {
+            const char* notif = "invalid option value, non-convertible part: ";
+            cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
+            cerr << string(log_null.length() + strlen(notif), ' ') << "\e[1m"  //
+                 << string(strlen(end), '~')                                   //
+                 << "\e[0m" << endl;
+            trap(-1);
+            return 0;  // just a placeholder
+        }
+        return (int)res;
+    };
+
+    int i = 1;
+    while (i < argc) {
+        if (argv[i][0] == '-') {
+            switch (argv[i][1]) {
+                // more readable args
+                // ----------------------------------------------------------------
+                case '-':
+                    if (string(argv[i]) == "--help") goto _HELP;
+                    // major features
+                    if (string(argv[i]) == "--enc" or string(argv[i]) == "--encode") goto _ENCODE;
+                    if (string(argv[i]) == "--dec" or string(argv[i]) == "--decode") goto _DECODE;
+                    if (string(argv[i]) == "--dry-run") goto _DRY_RUN;
+                    if (string(argv[i]) == "--verify") goto _VERIFY;
+                    if (string(argv[i]) == "--input") goto _INPUT_DATUM;
+                    if (string(argv[i]) == "--entropy") goto _ENTROPY;
+                    if (string(argv[i]) == "--input-rep" or string(argv[i]) == "--interpret") goto _REP;
+                    if (string(argv[i]) == "--huffman-rep") goto _HUFFMANCODE;
+                    if (string(argv[i]) == "--huffman-chunk") goto _HUFFMANCHUNKSIZE;
+                    if (string(argv[i]) == "--dict-size") goto _DICT;
+                // work
+                // ----------------------------------------------------------------
+                case 'e':
+                _ENCODE:
+                    to_encode = true;
+                    break;
+                case 'd':
+                _DECODE:
+                    to_decode = true;
+                    break;
+                case 'V':
+                _VERIFY:
+                    verify_huffman = true;  // TODO verify huffman in workflow
+                    break;
+                case 'r':
+                _DRY_RUN:
+                    // dry-run
+                    dry_run = true;
+                    break;
+                case 'E':
+                _ENTROPY:
+                    get_entropy = true;
+                    break;
+                // input dimensionality
+                // ----------------------------------------------------------------
+                case '1':
+                    n_dim = 1;
+                    if (i + 1 <= argc) {
+                        d0              = str2int(argv[++i]);
+                        huffman_datalen = d0;
+                    }
+                    break;
+                case '2':
+                    n_dim = 2;
+                    if (i + 2 <= argc) {
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                        huffman_datalen = d0 * d1;
+                    }
+                    break;
+                case '3':
+                    n_dim = 3;
+                    if (i + 3 <= argc) {
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]), d2 = str2int(argv[++i]);
+                        huffman_datalen = d0 * d1 * d2;
+                    }
+                    break;
+                case '4':
+                    n_dim = 4;
+                    if (i + 4 <= argc) {
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]), d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
+                        huffman_datalen = d0 * d1 * d2 * d3;
+                    }
+                    break;
+                // help document
+                // ----------------------------------------------------------------
+                case 'h':
+                _HELP:
+                    HuffmanDoc();
+                    exit(0);
+                    break;
+                // input datum file
+                // ----------------------------------------------------------------
+                case 'i':
+                _INPUT_DATUM:
+                    if (i + 1 <= argc) {
+                        fname = string(argv[++i]);
+                    }
+                    break;
+                case 'R':
+                _REP:
+                    if (i + 1 <= argc) input_rep = str2int(argv[++i]);
+                    break;
+                case 'H':
+                _HUFFMANCODE:
+                    if (i + 1 <= argc) huffman_rep = str2int(argv[++i]);
+                    break;
+                case 'C':
+                _HUFFMANCHUNKSIZE:
+                    if (i + 1 <= argc) huffman_chunk = str2int(argv[++i]);
+                    break;
+                case 'c':
+                _DICT:
+                    if (i + 1 <= argc) dict_size = str2int(argv[++i]);
+                    break;
+                default:
+                    const char* notif_prefix = "invalid option at position ";
+                    char*       notif;
+                    int         size = asprintf(&notif, "%d: %s", i, argv[i]);
+                    cerr << log_err << notif_prefix << "\e[1m" << notif << "\e[0m"
+                         << "\n";
+                    cerr << string(log_null.length() + strlen(notif_prefix), ' ');
+                    cerr << "\e[1m";
+                    cerr << string(strlen(notif), '~');
+                    cerr << "\e[0m\n";
+                    trap(-1);
+            }
+        }
+        else {
+            const char* notif_prefix = "invalid argument at position ";
+            char*       notif;
+            int         size = asprintf(&notif, "%d: %s", i, argv[i]);
+            cerr << log_err << notif_prefix << "\e[1m" << notif
+                 << "\e[0m"
+                    "\n"
+                 << string(log_null.length() + strlen(notif_prefix), ' ')  //
+                 << "\e[1m"                                                //
+                 << string(strlen(notif), '~')                             //
+                 << "\e[0m\n";
+            trap(-1);
+        }
+        i++;
+    }
+
+    // phase 1: check grammar
+    if (read_args_status != 0) {
+        cout << log_info << "Exiting..." << endl;
+        // after printing ALL argument errors
+        exit(-1);
+    }
+
+    // phase 2: check if meaningful
+    HuffmanCheckArgs();
+}
+
 ArgPack::ArgPack(int argc, char** argv)
 {
     if (argc == 1) {
-        PrintInstruction();
+        cuszDoc();
         exit(0);
     }
     // default values
@@ -303,6 +580,7 @@ ArgPack::ArgPack(int argc, char** argv)
                 // ----------------------------------------------------------------
                 case '-':
                     if (string(argv[i]) == "--help") goto _HELP;
+                    if (string(argv[i]) == "--entropy") goto _ENTROPY;
                     if (string(argv[i]) == "--version") goto _VERSION;
                     if (string(argv[i]) == "--verbose") goto _VERBOSE;
                     if (string(argv[i]) == "--mode") goto _MODE;
@@ -342,6 +620,11 @@ ArgPack::ArgPack(int argc, char** argv)
                 _MODE:
                     if (i + 1 <= argc) mode = string(argv[++i]);
                     break;
+                    // analysis
+                case 'E':
+                _ENTROPY:
+                    get_entropy = true;
+                    break;
                 // input dimensionality
                 // ----------------------------------------------------------------
                 case 'X':
@@ -357,7 +640,9 @@ ArgPack::ArgPack(int argc, char** argv)
                 // ----------------------------------------------------------------
                 case '1':
                     n_dim = 1;
-                    if (i + 1 <= argc) { d0 = str2int(argv[++i]); }
+                    if (i + 1 <= argc) {
+                        d0 = str2int(argv[++i]);
+                    }
                     break;
                 case '2':
                     n_dim = 2;
@@ -387,7 +672,7 @@ ArgPack::ArgPack(int argc, char** argv)
                 // ----------------------------------------------------------------
                 case 'h':
                 _HELP:
-                    PrintHelpDoc();
+                    cuszFullDoc();
                     exit(0);
                     break;
                 case 'v':
@@ -404,29 +689,33 @@ ArgPack::ArgPack(int argc, char** argv)
                 // input datum file
                 // ----------------------------------------------------------------
                 case 'i':
-                    if (string(argv[i]) == "-i8") {
-                        dtype = "i8";
-                        break;
-                    }
-                    if (string(argv[i]) == "-i16") {
-                        dtype = "i16";
-                        break;
-                    }
-                    if (string(argv[i]) == "-i32") {
-                        dtype = "i32";
-                        break;
-                    }
-                    if (string(argv[i]) == "-i64") {
-                        dtype = "i64";
-                        break;
-                    }
+                    //                    if (string(argv[i]) == "-i8") {
+                    //                        dtype = "i8";
+                    //                        break;
+                    //                    }
+                    //                    if (string(argv[i]) == "-i16") {
+                    //                        dtype = "i16";
+                    //                        break;
+                    //                    }
+                    //                    if (string(argv[i]) == "-i32") {
+                    //                        dtype = "i32";
+                    //                        break;
+                    //                    }
+                    //                    if (string(argv[i]) == "-i64") {
+                    //                        dtype = "i64";
+                    //                        break;
+                    //                    }
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) { fname = string(argv[++i]); }
+                    if (i + 1 <= argc) {
+                        fname = string(argv[++i]);
+                    }
                     break;
                     // alternative output
                 case 'o':
                 _OUT:
-                    if (i + 1 <= argc) { alt_xout_name = string(argv[++i]); }
+                    if (i + 1 <= argc) {
+                        alt_xout_name = string(argv[++i]);
+                    }
                     break;
                 // preprocess
                 case 'p':
