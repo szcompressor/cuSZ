@@ -154,7 +154,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     auto d_canonical_cb = reinterpret_cast<H*>(d_singleton) + dict_size;
 
     // --------------------------------
-    //
+    // this is for internal evaluation, not in sz archive
     auto cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
     io::WriteBinaryFile(cb_dump, dict_size, new string(f_bcode + ".canonized"));
 
