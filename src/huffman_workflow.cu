@@ -105,25 +105,35 @@ void PrintChunkHuffmanCoding(
 }
 
 template <typename Q, typename H, typename DATA>
-std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, size_t len, int chunk_size, int dict_size)
+std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t len, int chunk_size, int dict_size)
 {
-    // prepare bcode
-    //    auto bcode   = io::ReadBinaryFile<Q>(fname_bcode, len);
-    //    auto d_bcode = mem::CreateDeviceSpaceAndMemcpyFromHost(bcode, len);
-
-    // histogrammig
+    // histogram
     ht_state_num = 2 * dict_size;
     ht_all_nodes = 2 * ht_state_num;
     auto d_freq  = mem::CreateCUDASpace<unsigned int>(ht_all_nodes);
-    wrapper::GetFrequency(d_bcode, len, d_freq, dict_size);
+    wrapper::GetFrequency(d_in, len, d_freq, dict_size);
 
-    // get plain cb
+    // get plain cbs
     auto d_plain_cb = mem::CreateCUDASpace<H>(dict_size, 0xff);
 
-    // wrapper::SetUpHuffmanTree<Q, H>(d_freq, d_plain_cb, dict_size);
+    // set up Huffman tree
     {
         InitHuffTreeAndGetCodebook<<<1, 32>>>(2 * dict_size, d_freq, d_plain_cb);
         cudaDeviceSynchronize();
+    }
+
+    // get to know avg bitwidth
+    {
+        auto   plain_cb = mem::CreateHostSpaceAndMemcpyFromDevice(d_plain_cb, dict_size);
+        auto   freq     = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
+        auto   get_bw   = [](H& var) { return (int)*((uint8_t*)&var + sizeof(H) - 1); };
+        double avg_bw   = 0.0;
+        for (auto i = 0; i < dict_size; i++)
+            if (freq[i] != 0) {
+                avg_bw += get_bw(plain_cb[i]) * freq[i];
+//                cout << "idx:\t" << i << "bw:\t" << get_bw(plain_cb[i]) << "\tfreq:\t" << freq[i] << "\tratio:\t" << freq[i] * 1.0 / len << endl;
+            }
+        cout << log_info << "avg. bw:\t" << avg_bw / len << endl;
     }
 
     // canonical Huffman; TODO should follow H to decide first and entry type
@@ -133,7 +143,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
 
     auto d_singleton = mem::CreateCUDASpace<uint8_t>(total_bytes);
 
-    // wrapper::MakeCanonical<Q, H>(d_plain_cb, d_singleton, total_bytes, dict_size);
+    // canonize
     {
         auto d_input_cb = reinterpret_cast<H*>(d_singleton);
         cudaMemcpy(d_input_cb, d_plain_cb, sizeof(H) * dict_size, cudaMemcpyDeviceToDevice);
@@ -146,49 +156,46 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
         cudaDeviceSynchronize();
     }
     auto singleton = mem::CreateHostSpaceAndMemcpyFromDevice(d_singleton, total_bytes);
-
-    auto first = reinterpret_cast<int*>(singleton + sizeof(H) * (3 * dict_size)) + type_bw * 2;
+    auto first     = reinterpret_cast<int*>(singleton + sizeof(H) * (3 * dict_size)) + type_bw * 2;
 
     // coding by memcpy
-    auto d_hcode        = mem::CreateCUDASpace<H>(len);
+    auto d_h            = mem::CreateCUDASpace<H>(len);
     auto d_canonical_cb = reinterpret_cast<H*>(d_singleton) + dict_size;
 
     // --------------------------------
     // this is for internal evaluation, not in sz archive
     auto cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
-    io::WriteBinaryFile(cb_dump, dict_size, new string(f_bcode + ".canonized"));
+    io::WriteBinaryFile(cb_dump, dict_size, new string(f_in + ".canonized"));
 
     // --------------------------------
 
-    // wrapper::EncodeByMemcpy(d_bcode, len, d_hcode, d_canonical_cb);
+    // fix-length space
     {
         auto blockDim = tBLK_ENCODE;
         auto gridDim  = (len - 1) / blockDim + 1;
-        EncodeFixedLen<Q, H><<<gridDim, blockDim>>>(d_bcode, d_hcode, len, d_canonical_cb);
+        EncodeFixedLen<Q, H><<<gridDim, blockDim>>>(d_in, d_h, len, d_canonical_cb);
         cudaDeviceSynchronize();
     }
 
-    // deflating
-    auto n_chunk           = (len - 1) / chunk_size + 1;  // |
-    auto d_hcode_bitwidths = mem::CreateCUDASpace<size_t>(n_chunk);
+    // deflate
+    auto n_chunk       = (len - 1) / chunk_size + 1;  // |
+    auto d_h_bitwidths = mem::CreateCUDASpace<size_t>(n_chunk);
     cout << log_info << "chunk.size:\t" << chunk_size << endl;
     cout << log_dbg << "chunk.num:\t" << n_chunk << endl;
-
-    // wrapper::Deflate(d_hcode, len, chunk_size, n_chunk, d_hcode_bitwidths);
     {
         auto blockDim = tBLK_DEFLATE;
         auto gridDim  = (n_chunk - 1) / blockDim + 1;
-        Deflate<H><<<gridDim, blockDim>>>(d_hcode, len, d_hcode_bitwidths, chunk_size);
+        Deflate<H><<<gridDim, blockDim>>>(d_h, len, d_h_bitwidths, chunk_size);
         cudaDeviceSynchronize();
     }
 
     // dump TODO change to int
-    auto hcode_meta    = new size_t[n_chunk * 3]();
-    auto dH_uInt_meta  = hcode_meta;
-    auto dH_bit_meta   = hcode_meta + n_chunk;
-    auto dH_uInt_entry = hcode_meta + n_chunk * 2;
+    auto h_meta        = new size_t[n_chunk * 3]();
+    auto dH_uInt_meta  = h_meta;
+    auto dH_bit_meta   = h_meta + n_chunk;
+    auto dH_uInt_entry = h_meta + n_chunk * 2;
     // copy back densely Huffman code (dHcode)
-    cudaMemcpy(dH_bit_meta, d_hcode_bitwidths, n_chunk * sizeof(size_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(dH_bit_meta, d_h_bitwidths, n_chunk * sizeof(size_t), cudaMemcpyDeviceToHost);
     // transform in uInt
     memcpy(dH_uInt_meta, dH_bit_meta, n_chunk * sizeof(size_t));
     for_each(dH_uInt_meta, dH_uInt_meta + n_chunk, [&](size_t& i) { i = (i - 1) / (sizeof(H) * 8) + 1; });
@@ -207,35 +214,35 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
 
     // copy back densely Huffman code in units of uInt (regarding endianness)
-    auto hcode = new H[total_uInts]();
+    auto h = new H[total_uInts]();
     for (auto i = 0; i < n_chunk; i++) {
         cudaMemcpy(
-            hcode + dH_uInt_entry[i],     // dst
-            d_hcode + i * chunk_size,     // src
+            h + dH_uInt_entry[i],         // dst
+            d_h + i * chunk_size,         // src
             dH_uInt_meta[i] * sizeof(H),  // len in H-uint
             cudaMemcpyDeviceToHost);
     }
     // dump bit_meta and uInt_meta
-    io::WriteBinaryFile(hcode_meta + n_chunk, (2 * n_chunk), new string(f_bcode + ".hmeta"));
+    io::WriteBinaryFile(h_meta + n_chunk, (2 * n_chunk), new string(f_in + ".hmeta"));
     // write densely Huffman code and its metadata
-    io::WriteBinaryFile(hcode, total_uInts, new string(f_bcode + ".dh"));
+    io::WriteBinaryFile(h, total_uInts, new string(f_in + ".dh"));
     // to save first, entry and keys
     io::WriteBinaryFile(                                      //
         reinterpret_cast<uint8_t*>(first),                    //
         sizeof(int) * (2 * type_bw) + sizeof(Q) * dict_size,  // first, entry, reversed dict (keys)
-        new string(f_bcode + ".cHcb"));
+        new string(f_in + ".cHcb"));
 
-    size_t metadata_size = (2 * n_chunk) * sizeof(decltype(hcode_meta))            //
+    size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))                //
                            + sizeof(int) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
 
     //////// clean up
-    cudaFree(d_bcode);
+    cudaFree(d_in);
     cudaFree(d_freq);
     cudaFree(d_plain_cb);
-    cudaFree(d_hcode);
-    cudaFree(d_hcode_bitwidths);
-    delete[] hcode;
-    delete[] hcode_meta;
+    cudaFree(d_h);
+    cudaFree(d_h_bitwidths);
+    delete[] h;
+    delete[] h_meta;
 
     return std::make_tuple(total_bits, total_uInts, metadata_size);
 }
