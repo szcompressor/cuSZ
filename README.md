@@ -1,10 +1,10 @@
 ![cuSZ logo small](https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg)
 
-cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor
+cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 =
 
-* Major Developers: Jiannan Tian, Dingwen Tao, Sheng Di, Franck Cappello 
-* Other Contributors: Cody Rivera, Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
+* Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello 
+* Other Contributors: Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
 # progress
 
@@ -189,4 +189,4 @@ February, 2020
 : Barnett, Mark L. "Canonical Huffman encoded data decompression algorithm." U.S. Patent 6,657,569, issued December 2, 2003.
  
 # acknowledgement
-This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grant No. 1948447.
+This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants OAC-1948447 and OAC-2034169.

@@ -27,6 +27,8 @@ typedef struct ArgPack {
     string dtype;
     int    dict_size;
     int    quant_rep;
+    int    input_rep;        // for standalone huffman
+    int    huffman_datalen;  // for standalone huffman
     int    huffman_rep;
     int    huffman_chunk;
     int    n_dim;
@@ -38,6 +40,9 @@ typedef struct ArgPack {
     double exponent;
     bool   to_archive;
     bool   to_extract;
+    bool   to_encode;    // for standalone huffman
+    bool   to_decode;    // for standalone huffman
+    bool   get_entropy;  // for standalone huffman (not in use)
     bool   use_demo;
     bool   verbose;
     bool   to_verify;
@@ -53,11 +58,17 @@ typedef struct ArgPack {
 
     void CheckArgs();
 
-    static void PrintInstruction();
+    void HuffmanCheckArgs();
 
-    static void PrintHelpDoc();
+    static void cuszDoc();
+
+    static void HuffmanDoc();
+
+    static void cuszFullDoc();
 
     ArgPack(int argc, char** argv);
+
+    ArgPack(int argc, char** argv, bool standalone_huffman);
 
 } argpack;
 
