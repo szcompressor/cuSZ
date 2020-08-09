@@ -16,10 +16,10 @@ BIN_DIR   := bin
 
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
 GPU_TURING:= -gencode=arch=compute_75,code=sm_75
-DEPLOY    := $(GPU_VOLTA) #$(GPU_TURING)
+DEPLOY    := $(GPU_VOLTA) $(GPU_TURING)
 
 CCFLAGS   := $(STD) -O3
-NVCCFLAGS := $(STD) $(DEPLOY)
+NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr
 
 CCFILES   := $(wildcard $(SRC_DIR)/*.cc)
 
@@ -49,7 +49,7 @@ HUFF_DIR   := $(SRC_DIR)/huffre
 _DEPS_ARG  := $(SRC_DIR)/argparse.o
 _DEPS_MEM  := $(SRC_DIR)/cuda_mem.o
 _DEPS_HIST := $(SRC_DIR)/histogram.o $(SRC_DIR)/huffman_workflow.o $(SRC_DIR)/format.o $(SRC_DIR)/canonical.o $(SRC_DIR)/huffman.o -rdc=true
-_DEPS_OLDENC := $(SRC_DIR)/huffman_codec.o
+_DEPS_OLDENC := $(SRC_DIR)/huffman_codec.o $(SRC_DIR)/par_huffman.o $(SRC_DIR)/par_huffman_sortbyfreq.o $(SRC_DIR)/par_merge.o
 DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 
 huff: $(HUFF_DIR)/huff.cu $(SRC_DIR)/argparse.cc
