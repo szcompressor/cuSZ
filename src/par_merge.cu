@@ -64,10 +64,6 @@ using namespace cooperative_groups;
 // Mathematically correct modulo
 #define MOD(a,b) ((((a)%(b))+(b))%(b))
 
-// Profiling
-__device__ long mergeProfile[2] = {0, 0};
-__device__ long mergeProfileTotal[2] = {0, 0};
-
 /* POSITIVEINFINITY
  * Returns maximum value of a type
  */
@@ -147,28 +143,20 @@ __device__ long mergeProfileTotal[2] = {0, 0};
      if (tempLength == 0) return;
  
      // Perform the global diagonal intersection serach to divide work among SMs
-     if (threadIdx.x == 0 && blockIdx.x == 0)
-         mergeProfile[0] = clock64();
      cudaWorkloadDiagonals<F>
          (copyFreq, copyIndex, copyIsLeaf, cStart, cEnd,
           iNodesFreq, iStart, iEnd, iNodesCap,
           diagonal_path_intersections,
           x_top, y_top, x_bottom, y_bottom, found, oneorzero);
      current_grid.sync();
-     if (threadIdx.x == 0 && blockIdx.x == 0)
-         mergeProfileTotal[0] += clock64() - mergeProfile[0];
- 
+  
      // Merge between global diagonals independently on each block
-     if (threadIdx.x == 0 && blockIdx.x == 0)
-         mergeProfile[1] = clock64();
      cudaMergeSinglePath<F>
          (copyFreq, copyIndex, copyIsLeaf, cStart, cEnd,
           iNodesFreq, iStart, iEnd, iNodesCap,
           diagonal_path_intersections,
           tempFreq, tempIndex, tempIsLeaf, tempLength);
      current_grid.sync();
-     if (threadIdx.x == 0 && blockIdx.x == 0)
-         mergeProfileTotal[1] += clock64() - mergeProfile[1];
  }
  
  /* MERGEALLTYPES
