@@ -15,6 +15,7 @@ OBJ_DIR   := src
 BIN_DIR   := bin
 
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
+# CUDA versions prior to 10.0 require this to be commented out
 GPU_TURING:= -gencode=arch=compute_75,code=sm_75
 DEPLOY    := $(GPU_VOLTA) $(GPU_TURING)
 
