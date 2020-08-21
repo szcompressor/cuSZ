@@ -65,16 +65,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
     /* While there is not exactly one internal node */
     while (lNodesCur < size || iNodesSize > 1)
     {
-#ifdef DEBUG_PARHUFF
-        //printf("Thread %d\n", i);
-        if (thread == 0) {
-            printf("iNodes:\n");
-            for (int i = iNodesFront; i != iNodesRear; i = MOD(i + 1, size))
-            {
-                printf("%d %d\n", iNodesFreq[i], iNodesLeader[i]);
-            }
-        }
-#endif
         /* Combine two most frequent nodes on same level */
         if (thread == 0) {
             F midFreq[4];
@@ -156,15 +146,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
                     midIsLeaf[2] = tempIsLeaf;
                 }
             }
-
-
-#ifdef DEBUG_PARHUFF
-            printf("mid:\n");
-            for (int i = 0; i != 4; ++i)
-            {
-                printf("%d %d\n", midFreq[i], midIsLeaf[i]);
-            }
-#endif
 
             minFreq = midFreq[0];
             if (midFreq[1] < UINT_MAX)
@@ -248,23 +229,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
 
             lNodesCur = lNodesCur + curLeavesNum;
             iNodesRear = MOD(iNodesRear + 1, size);
-
-#ifdef DEBUG_PARHUFF
-            printf("adjusted iNodes:\n");
-            for (int i = iNodesFront; i != iNodesRear; i = MOD(i + 1, size))
-            {
-                printf("%d %d\n", iNodesFreq[i], iNodesLeader[i]);
-            }
-            printf("minfreq %d\n", minFreq);
-            printf("curleavesnum %d\n", curLeavesNum);
-            printf("lnodescur %d\n", lNodesCur);
-
-            printf("copy:\n");
-            for (int i = 0; i != curLeavesNum; ++i)
-            {
-                printf("%d %d %d\n", copyFreq[i], copyIndex[i], copyIsLeaf[i]);
-            }
-#endif
         }
         current_grid.sync();
 
@@ -281,16 +245,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
                     tempFreq, tempIndex, tempIsLeaf, tempLength,
                     diagonal_path_intersections, mblocks, mthreads,
                     x_top, y_top, x_bottom, y_bottom, found, oneorzero);
-        
-        if (thread == 0) {
-#ifdef DEBUG_PARHUFF
-            printf("temp:\n");
-            for (int i = 0; i != tempLength; ++i)
-            {
-                printf("%d %d %d\n", tempFreq[i], tempIndex[i], tempIsLeaf[i]);
-            }
-#endif
-        }
         current_grid.sync();
 
         /* Melding phase -- New */
@@ -597,14 +551,6 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
                                 mthreads,
                                 CL_Args,
                                 5 * sizeof(int32_t) + 32 * sizeof(int32_t));
-    /*
-    parHuff:GPU_GenerateCL<unsigned int><<<nz_nblocks, 1024>>>(_nz_d_freq, CL, nz_dict_size,
-                                                                    _nz_d_freq, lNodesLeader, 
-                                                                    iNodesFreq, iNodesLeader,
-                                                                    tempFreq, tempIsLeaf, tempIndex,
-                                                                    copyFreq, copyIsLeaf, copyIndex,                                                                
-                                                                    diagonal_path_intersections, mblocks, mthreads);
-    */
     cudaDeviceSynchronize();
 
     void* CW_Args[] = {
@@ -620,10 +566,6 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
                                 nz_nblocks,
                                 1024,
                                 CW_Args);
-    
-    /*
-    parHuff::GPU_GenerateCW<unsigned int, H><<<nz_nblocks, 1024>>>(CL, _nz_d_codebook, nz_dict_size);
-    */
     cudaDeviceSynchronize();
 
     #ifdef D_DEBUG_PRINT
