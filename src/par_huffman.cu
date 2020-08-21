@@ -25,11 +25,6 @@
 // Mathematically correct mod
 #define MOD(a,b) ((((a)%(b))+(b))%(b))
 
-// Profiling
-extern __device__ long mergeProfile[2];
-extern __device__ long mergeProfileTotal[2];
-
-//#define DEBUG_PARHUFF
 // Parallel huffman code generation
 template <typename F>
 __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
@@ -51,13 +46,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i = thread; // Adaptation for easier porting
     auto current_grid = this_grid();
-
-    // profiling
-    if (thread == 0) {
-        for (int i = 0; i < 10; ++i) {
-            s[i] = 0;
-        }
-    }
 
     /* Initialization */
     if (thread < size) {
@@ -87,8 +75,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             }
         }
 #endif
-        if (thread == 0)
-            st[0] = clock64();
         /* Combine two most frequent nodes on same level */
         if (thread == 0) {
             F midFreq[4];
@@ -215,14 +201,8 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             iNodesSize = MOD(iNodesRear - iNodesFront, size);
         }
 
-        if (thread == 0)
-            s[0] = s[0] + (clock64() - st[0]);
-
         //int curLeavesNum;
         /* Select elements to copy -- parallelized */
-        if (thread == 0)
-            st[1] = clock64();
-
         curLeavesNum = 0;
         current_grid.sync();
         if (i >= lNodesCur && i < size) {
@@ -242,12 +222,8 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
         }
 
         current_grid.sync();
-        if (thread == 0)
-            s[1] = s[1] + (clock64() - st[1]);
 
         /* Updates Iterators */
-        if (thread == 0)
-            st[2] = clock64();
         if (thread == 0) {
             mergeRear = iNodesRear;
             mergeFront = iNodesFront;
@@ -291,14 +267,8 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
 #endif
         }
         current_grid.sync();
-        if (thread == 0)
-            s[2] = s[2] + (clock64() - st[2]);
 
-        /* Parallelized */
-        if (thread == 0)
-            st[3] = clock64();
-        /* Merging phase */
-        
+        /* Parallelized Merging Phase */
         
         /*if (thread == 0) {
             merge(copyFreq, copyIndex, copyIsLeaf, 0, curLeavesNum,
@@ -322,8 +292,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
 #endif
         }
         current_grid.sync();
-        if (thread == 0)
-            s[3] = s[3] + (clock64() - st[3]);
 
         /* Melding phase -- New */
         if (thread < tempLength / 2) {
@@ -375,14 +343,6 @@ __global__ void parHuff::GPU_GenerateCL(F* histogram, F* CL, int size,
             iNodesSize = MOD(iNodesRear - iNodesFront, size);
         }
         current_grid.sync();
-    }
-    if (thread == 0) {
-        for (int i = 0; i < 4; ++i) {
-            printf("r%d: %lld\n", i, s[i]);
-        }
-        for (int i = 0; i < 2; ++i) {
-            printf("mr%d: %ld\n", i, mergeProfileTotal[i]);
-        }
     }
 }
 
