@@ -37,10 +37,19 @@ template <typename Q>
 void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dict_size)
 {
     // Parameters for thread and block count optimization
-    int maxbytes       = 98304;
+
+    // Initialize to device-specific values
+    int deviceId;
+    int maxbytes;
+    int numSMs;
+
+    cudaGetDevice(&deviceId);
+    cudaDeviceGetAttribute(&maxbytes, cudaDevAttrMaxSharedMemoryPerMultiprocessor, deviceId);
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, deviceId);
+
+    // Optimize launch
     int numBuckets     = dict_size;
     int numValues      = len;
-    int numSMs         = 84;  // set up parameters for V100
     int itemsPerThread = 1;
     int RPerBlock      = (maxbytes / (int)sizeof(int)) / (numBuckets + 1);
     int numBlocks      = numSMs;
