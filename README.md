@@ -1,4 +1,4 @@
-![cuSZ logo small](https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg)
+<img src="https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg" width="150">
 
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 =
