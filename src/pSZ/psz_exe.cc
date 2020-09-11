@@ -9,17 +9,18 @@
 
 namespace fm = pSZ::FineMassiveSimulation;
 
-// const size_t DICT_SIZE = 1024;
-const size_t DICT_SIZE = 4096;
-#if defined(_1D)
-const size_t BLK = 256;
-#elif defined(_2D)
-const size_t BLK = 16;
-#elif defined(_3D)
-const size_t BLK = 8;
-#endif
+const size_t DICT_SIZE = 1024;
+// const size_t DICT_SIZE = 4096;
+// #if defined(_1D)
+// const size_t BLK = 256;
+// #elif defined(_2D)
+// const size_t BLK = 16;
+// #elif defined(_3D)
+// const size_t BLK = 8;
+// #endif
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     std::string eb_mode, dataset, datum_path;
     bool        if_blocking, if_dualquant;
     double      mantissa, exponent;
@@ -41,7 +42,8 @@ int main(int argc, char** argv) {
                 "/path/to/CLOUDf48.bin.f32"
              << endl;
         exit(0);
-    } else {
+    }
+    else {
         eb_mode      = std::string(argv[1]);
         mantissa     = std::stod(argv[2]);
         exponent     = std::stod(argv[3]);
@@ -53,8 +55,8 @@ int main(int argc, char** argv) {
 
     for_each(argv, argv + 8, [](auto i) { cout << i << " "; });
     cout << endl;
-    auto eb_config  = new config_t(DICT_SIZE, mantissa, exponent);
-    auto dims_L16 = InitializeDims<BLK>(dataset, DICT_SIZE);
+    auto eb_config = new config_t(DICT_SIZE, mantissa, exponent);
+    auto dims_L16  = InitializeDemoDims(dataset, DICT_SIZE);
     printf("%-20s%s\n", "filename", datum_path.c_str());
     printf("%-20s%lu\n", "filesize", dims_L16[LEN] * sizeof(float));
     if (eb_mode == "r2r") {  // as of C++ 14, string is directly comparable?
@@ -65,7 +67,7 @@ int main(int argc, char** argv) {
     //    size_t c_byteSize;
     size_t num_outlier = 0;  // for calculating compression ratio
 
-    cout << "block size:\t" << BLK << endl;
+    // cout << "block size:\t" << BLK << endl;
     auto ebs_L4 = InitializeErrorBoundFamily(eb_config);
-    fm::cx_sim<float, int, BLK>(datum_path, dims_L16, ebs_L4, num_outlier, if_dualquant, if_blocking, true);
+    fm::cx_sim<float, int>(datum_path, dims_L16, ebs_L4, num_outlier, if_dualquant, if_blocking, true);
 }
