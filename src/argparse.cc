@@ -108,7 +108,7 @@ ArgPack::PrintInstruction()
         "\n"
         "USAGE:\n"
         "  The basic use with demo datum is listed below,\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
         "             ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
         "             |   mode   error bound         input datum file        demo   |  |\n"
         "           dtype                                                   datum  zip unzip\n"
@@ -122,14 +122,14 @@ ArgPack::PrintInstruction()
         "  \n"
         "EXAMPLES\n"
         "  CESM example:\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
         "  Hurricane Isabel example:\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
         "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
         "  EXAFEL example:\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
         "\n"
         "DOC:\n"
         "  Type \"cusz -h\" for details.\n";
@@ -357,7 +357,9 @@ ArgPack::ArgPack(int argc, char** argv)
                 // ----------------------------------------------------------------
                 case '1':
                     n_dim = 1;
-                    if (i + 1 <= argc) { d0 = str2int(argv[++i]); }
+                    if (i + 1 <= argc) {
+                        d0 = str2int(argv[++i]);
+                    }
                     break;
                 case '2':
                     n_dim = 2;
@@ -421,12 +423,16 @@ ArgPack::ArgPack(int argc, char** argv)
                         break;
                     }
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) { fname = string(argv[++i]); }
+                    if (i + 1 <= argc) {
+                        fname = string(argv[++i]);
+                    }
                     break;
                     // alternative output
                 case 'o':
                 _OUT:
-                    if (i + 1 <= argc) { alt_xout_name = string(argv[++i]); }
+                    if (i + 1 <= argc) {
+                        alt_xout_name = string(argv[++i]);
+                    }
                     break;
                 // preprocess
                 case 'p':
