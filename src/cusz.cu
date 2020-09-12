@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     }
     eb_config->debug();
     auto   ebs_L4      = InitializeErrorBoundFamily(eb_config);
-    size_t num_outlier = 0;
+    int    num_outlier = 0;
     size_t total_bits, total_uInt, huffman_metadata_size;
 
     cout << log_dbg << "data type:\t" << ap->dtype << endl;
