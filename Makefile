@@ -1,19 +1,24 @@
 #STRICT_CHECK=-Xcompiler -Wall
 #PTX_VERBOSE=-Xptxas -O3,-v
 
+
 #CXX       := clang++ -fPIE
 CXX       := g++
 NVCC      := nvcc
 STD       := -std=c++11
-CCFLAGS   := $(STD) -O3 -g
-NVCCFLAGS := $(STD) -O3 -g
+HOST_DBG  := -O0 -g
+CUDA_DBG  := -O0 -G -g
 SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
 
-GPU_P1000 := -gencode=arch=compute_61,code=sm_61
-GPU_V100  := -gencode=arch=compute_70,code=sm_70
-DEPLOY    := $(GPU_P1000) $(GPU_V100)
+GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
+GPU_TURING:= -gencode=arch=compute_75,code=sm_75
+GPU_AMPERE:= -gencode=arch=compute_80,code=sm_80
+DEPLOY    := $(GPU_VOLTA) $(GPU_TURING)
+
+CCFLAGS   := $(STD) -O3
+NVCCFLAGS := $(STD) $(DEPLOY)
 
 CCFILES   := $(wildcard $(SRC_DIR)/*.cc)
 
