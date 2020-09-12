@@ -1,6 +1,7 @@
 // 20-04-30
 
 #include <cuda_runtime.h>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include "cuda_mem.cuh"
@@ -12,6 +13,25 @@ inline T* mem::CreateCUDASpace(size_t l, uint8_t i)
     cudaMalloc(&d_var, l * sizeof(T));
     cudaMemset(d_var, i, l * sizeof(T));
     return d_var;
+}
+
+// enum MemcpyDirection { h2d, d2h };
+
+template <typename T>
+void mem::CopyBetweenSpaces(T* src, T* dst, size_t l, MemcpyDirection direct)
+{
+    assert(src != nullptr);
+    assert(dst != nullptr);
+    if (direct == h2d) {
+        cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyHostToDevice);
+    }
+    else if (direct == d2h) {
+        cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyDeviceToHost);
+    }
+    else {
+        // TODO log
+        exit(1);
+    }
 }
 
 template <typename T>
