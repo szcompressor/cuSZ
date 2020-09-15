@@ -17,7 +17,7 @@ Checked marker denotes issue resolved.
 
 ## TODO List
 
-Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2).
 
 # set up
 ## requirements
@@ -27,7 +27,7 @@ Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/p
 
 ## download
 ```bash
-git clone git@github.com:hipdac-lab/cuSZ.git
+git clone git@github.com:szcompressor/cuSZ.git
 ```
 
 ## compile
