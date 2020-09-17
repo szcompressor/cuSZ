@@ -21,6 +21,7 @@
 #include "par_merge.cuh"
 #include "par_huffman.cuh"
 #include "dbg_gpu_printing.cuh"
+#include "format.hh"
 
 // Mathematically correct mod
 #define MOD(a,b) ((((a)%(b))+(b))%(b))
@@ -429,7 +430,7 @@ __global__ void GPU_FillArraySequence(T* array, unsigned int size) {
         array[thread] = thread;
     }
 }
-
+ 
 // Precondition -- Result is preset to be equal to size
 template <typename T>
 __global__ void GPU_GetFirstNonzeroIndex(T* array, unsigned int size, unsigned int* result) {
@@ -438,6 +439,15 @@ __global__ void GPU_GetFirstNonzeroIndex(T* array, unsigned int size, unsigned i
         atomicMin(result, thread);
     }
 }
+
+__global__ void GPU_GetMaxCWLength(unsigned int* CL, unsigned int size, unsigned int* result) {
+    (void) size;
+    unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (thread == 0) {
+        *result = CL[0];
+    }
+}
+
 
 // Reorders given a set of indices. Programmer must ensure that all index[i]
 // are unique or else race conditions may occur
@@ -552,6 +562,29 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
                                 CL_Args,
                                 5 * sizeof(int32_t) + 32 * sizeof(int32_t));
     cudaDeviceSynchronize();
+
+    // Exits if the highest codeword length is greater than what
+    // the adaptive representation can handle
+    // TODO do  proper cleanup
+    
+    unsigned int* d_max_CL;
+    unsigned int max_CL;
+    cudaMalloc(&d_max_CL, sizeof(unsigned int));
+    GPU_GetMaxCWLength<<<1, 1>>>(CL, nz_dict_size, d_max_CL);
+    cudaDeviceSynchronize();
+    cudaMemcpy(&max_CL, d_max_CL, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+    cudaFree(d_first_nonzero_index);
+
+    int max_CW_bits = (sizeof(H) * 8) - 8;
+    if (max_CL > max_CW_bits) {
+        cout << log_err << "Cannot store all Huffman codewords in " << max_CW_bits + 8 
+             << "bit representation" << endl;
+        cout << log_err << "Huffman codeword representation requires at least " << max_CL + 8 
+             << "bits (longest codeword: " << max_CL << " bits)" << endl;
+        cout << "(Consider running with -H 64)" << endl << endl;
+        cout << log_err << "Exiting cuSZ ..." << endl;
+        exit(1);
+    }
 
     void* CW_Args[] = {
         (void *)&CL,
