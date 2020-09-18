@@ -3,26 +3,13 @@
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 =
 
-* Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello 
+* Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
 * Other Contributors: Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
-
-# progress
-
-## known issue
-Checked marker denotes issue resolved.
-- [x] [20-05] (**major**) watch out binning output and metadata.
-- [ ] [20-05] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
-- [ ] [20-05] (**major**) 1-GB HACC `xx.f32` exposes Huffman codec bug.
-- [ ] [20-05] (**major**) `B_1d` of 64 and 256 do not work on 4-GB HACC `xx.f32`, `yy.f32`, `zz.f32`. 
-
-## TODO List
-
-Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2).
 
 # set up
 ## requirements
-- NVIDIA GPU with Kepler, Maxwell, Pascal, Volta, or Turing microarchitectures 
-- CUDA 9.1+ and GCC 7+ (recommended: CUDA 10.1 + GCC 8)
+- NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
+- CUDA 9.2+ (recommended: CUDA 10.1+) and GCC 7+
 - CMake 3.11+
 
 ## download
@@ -134,10 +121,28 @@ Other module skipping for use scenarios are in development.
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
 	```
 
-## note
 
-- Note that the chunk size significantly affects the throughput, and we estimate that it should match/be closed to some maximum hardware supported number of concurrent threads for optimal performance.
-- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit concatenation, and corresponding canonical Huffman decoding [2].
+## tested datasets
+
+We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/):
+- CESM-ATM (Climate simulation)
+- Hurricane ISABEL (Weather simulation)
+- EXAALT (Molecular dynamics simulation)
+- HACC (Cosmology: particle simulation)
+- NYX (Cosmology: Adaptive mesh hydrodynamics + N-body cosmological simulation)
+
+## notes
+
+- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2].
+- We are woking on a faster, finer-grained Huffman codec for the next version. 
+- We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next version.
+- Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating the 32-/64-bit representation for different datasets. 
+- Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2) for more todos.  
+
+## known issue
+Checked marker denotes issue resolved.
+- [ ] [Sept 18, 2020] (**major**) 1-GB HACC `xx.f32` exposes a bug.
+- [ ] [Sept 18, 2020] (**major**) all variables in 1-GB HACC do not work with new `feature/gather-scatter` branch merge. 
 
 
 # `changelog`
