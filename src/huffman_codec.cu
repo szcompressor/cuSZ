@@ -1,5 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <cstdio>
+#include <limits>
 #include "huffman_codec.cuh"
 
 template <typename Q, typename H>
@@ -64,10 +66,10 @@ __device__ void InflateChunkwise(H* in_huff, T* out_quant, size_t total_bw, uint
     size_t    idx_bit;
     size_t    idx_byte   = 0;
     size_t    idx_bcoded = 0;
-    auto      first      = reinterpret_cast<int*>(singleton);
+    auto      first      = reinterpret_cast<H*>(singleton);
     auto      entry      = first + sizeof(H) * 8;
-    auto      keys       = reinterpret_cast<uint16_t*>(singleton + sizeof(int) * (2 * sizeof(H) * 8));
-    ptrdiff_t v          = (in_huff[idx_byte] >> (sizeof(H) * 8 - 1)) & 0x1;  // get the first bit
+    auto      keys       = reinterpret_cast<T*>(singleton + sizeof(H) * (2 * sizeof(H) * 8));
+    H         v          = (in_huff[idx_byte] >> (sizeof(H) * 8 - 1)) & 0x1;  // get the first bit
     size_t    l          = 1;
     size_t    i          = 0;
     while (i < total_bw) {
@@ -77,7 +79,7 @@ __device__ void InflateChunkwise(H* in_huff, T* out_quant, size_t total_bw, uint
             idx_bit  = i % (sizeof(H) * 8);
             next_bit = ((in_huff[idx_byte] >> (sizeof(H) * 8 - 1 - idx_bit)) & 0x1);
             v        = (v << 1) | next_bit;
-            l++;
+            ++l;
         }
         out_quant[idx_bcoded++] = keys[entry[l] + v - first[l]];
         {

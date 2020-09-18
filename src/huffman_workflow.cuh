@@ -10,6 +10,9 @@
 
 #include <cstdint>
 #include <tuple>
+#include <string>
+
+using std::string;
 
 // const int GB_unit = 1073741824;  // 1024^3
 
