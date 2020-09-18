@@ -7,7 +7,9 @@ huff
 *.szx
 *.dh
 *.hmeta
+*binning
 *.cHcb
+*.canonized
 *outlier
 *outlier_new
 *.b8
