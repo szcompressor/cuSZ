@@ -31,6 +31,7 @@
 
 int ht_state_num;
 int ht_all_nodes;
+using uint8__t = uint8_t;
 
 template <typename Q>
 void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dict_size)
@@ -47,7 +48,9 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
     // fits to size
     int threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
     while (threadsPerBlock > 1024) {
-        if (RPerBlock <= 1) { threadsPerBlock = 1024; }
+        if (RPerBlock <= 1) {
+            threadsPerBlock = 1024;
+        }
         else {
             RPerBlock /= 2;
             numBlocks *= 2;
@@ -116,7 +119,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     // input, output, canonical codebook; numl, iterators, first, entry, reversed codebook
     auto total_bytes = sizeof(H) * (3 * dict_size) + sizeof(int) * (4 * type_bw) + sizeof(Q) * dict_size;
 
-    auto d_singleton = mem::CreateCUDASpace<uint8_t>(total_bytes);
+    auto d_singleton = mem::CreateCUDASpace<uint8__t>(total_bytes);
 
     // wrapper::MakeCanonical<Q, H>(d_plain_cb, d_singleton, total_bytes, dict_size);
     {
@@ -138,8 +141,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     auto d_hcode        = mem::CreateCUDASpace<H>(len);
     auto d_canonical_cb = reinterpret_cast<H*>(d_singleton) + dict_size;
 
-    // wrapper::EncodeByMemcpy(d_bcode, len, d_hcode, d_canonical_cb);
-    {
+    {  // encode by memory copy of same-length code
         auto blockDim = tBLK_ENCODE;
         auto gridDim  = (len - 1) / blockDim + 1;
         EncodeFixedLen<Q, H><<<gridDim, blockDim>>>(d_bcode, d_hcode, len, d_canonical_cb);
@@ -147,13 +149,10 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     }
 
     // deflating
-    auto n_chunk           = (len - 1) / chunk_size + 1;  // |
+    auto n_chunk           = (len - 1) / chunk_size + 1;
     auto d_hcode_bitwidths = mem::CreateCUDASpace<size_t>(n_chunk);
-    cout << log_info << "chunk.size:\t" << chunk_size << endl;
-    cout << log_dbg << "chunk.num:\t" << n_chunk << endl;
 
-    // wrapper::Deflate(d_hcode, len, chunk_size, n_chunk, d_hcode_bitwidths);
-    {
+    {  // deflate
         auto blockDim = tBLK_DEFLATE;
         auto gridDim  = (n_chunk - 1) / blockDim + 1;
         Deflate<H><<<gridDim, blockDim>>>(d_hcode, len, d_hcode_bitwidths, chunk_size);
@@ -178,8 +177,8 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     auto total_bits  = std::accumulate(dH_bit_meta, dH_bit_meta + n_chunk, (size_t)0);
     auto total_uInts = std::accumulate(dH_uInt_meta, dH_uInt_meta + n_chunk, (size_t)0);
 
-    cout << log_info << "total.uInts:\t" << total_uInts << "\n";
-    cout << log_info << "total.bits:\t" << total_bits << "\n";
+    cout << log_dbg;
+    printf("Huffman bitstream: %lu chunks of size = %d, in %lu uint%lus or %lu bits\n", n_chunk, chunk_size, total_uInts, sizeof(H) * 8, total_bits);
 
     // print densely metadata
     PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
@@ -199,14 +198,13 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_bcode, Q* d_bcode, si
     io::WriteBinaryFile(hcode, total_uInts, new string(f_bcode + ".dh"));
     // to save first, entry and keys
     io::WriteBinaryFile(                                      //
-        reinterpret_cast<uint8_t*>(first),                    //
+        reinterpret_cast<uint8__t*>(first),                   //
         sizeof(int) * (2 * type_bw) + sizeof(Q) * dict_size,  // first, entry, reversed dict (keys)
         new string(f_bcode + ".cHcb"));
 
     size_t metadata_size = (2 * n_chunk) * sizeof(decltype(hcode_meta))            //
-                           + sizeof(int) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
+                           + sizeof(int) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8__t
 
-    //////// clean up
     cudaFree(d_bcode);
     cudaFree(d_freq);
     cudaFree(d_plain_cb);
@@ -228,7 +226,7 @@ Q* HuffmanDecode(
 {
     auto type_bw             = sizeof(H) * 8;
     auto canonical_meta      = sizeof(int) * (2 * type_bw) + sizeof(Q) * dict_size;
-    auto canonical_singleton = io::ReadBinaryFile<uint8_t>(f_bcode_base + ".cHcb", canonical_meta);
+    auto canonical_singleton = io::ReadBinaryFile<uint8__t>(f_bcode_base + ".cHcb", canonical_meta);
 
     auto n_chunk  = (len - 1) / chunk_size + 1;
     auto hcode    = io::ReadBinaryFile<H>(f_bcode_base + ".dh", total_uInts);
@@ -256,23 +254,24 @@ Q* HuffmanDecode(
     return xbcode;
 }
 
-template void wrapper::GetFrequency<uint8_t>(uint8_t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
+template void wrapper::GetFrequency<uint8__t>(uint8__t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
 template void wrapper::GetFrequency<uint16_t>(uint16_t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
 template void wrapper::GetFrequency<uint32_t>(uint32_t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
 
 template void PrintChunkHuffmanCoding<uint32_t>(size_t*, size_t*, size_t, int, size_t, size_t);
 template void PrintChunkHuffmanCoding<uint64_t>(size_t*, size_t*, size_t, int, size_t, size_t);
 
-template tuple3ul HuffmanEncode<uint8_t, uint32_t, float>(string&, uint8_t*, size_t, int, int);
+template tuple3ul HuffmanEncode<uint8__t, uint32_t, float>(string&, uint8__t*, size_t, int, int);
 template tuple3ul HuffmanEncode<uint16_t, uint32_t, float>(string&, uint16_t*, size_t, int, int);
 template tuple3ul HuffmanEncode<uint32_t, uint32_t, float>(string&, uint32_t*, size_t, int, int);
-template tuple3ul HuffmanEncode<uint8_t, uint64_t, float>(string&, uint8_t*, size_t, int, int);
+template tuple3ul HuffmanEncode<uint8__t, uint64_t, float>(string&, uint8__t*, size_t, int, int);
 template tuple3ul HuffmanEncode<uint16_t, uint64_t, float>(string&, uint16_t*, size_t, int, int);
 template tuple3ul HuffmanEncode<uint32_t, uint64_t, float>(string&, uint32_t*, size_t, int, int);
 
-template uint8_t*  HuffmanDecode<uint8_t, uint32_t, float>(std::string&, size_t, int, int, int);
+template uint8__t* HuffmanDecode<uint8__t, uint32_t, float>(std::string&, size_t, int, int, int);
 template uint16_t* HuffmanDecode<uint16_t, uint32_t, float>(std::string&, size_t, int, int, int);
 template uint32_t* HuffmanDecode<uint32_t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint8_t*  HuffmanDecode<uint8_t, uint64_t, float>(std::string&, size_t, int, int, int);
+template uint8__t* HuffmanDecode<uint8__t, uint64_t, float>(std::string&, size_t, int, int, int);
 template uint16_t* HuffmanDecode<uint16_t, uint64_t, float>(std::string&, size_t, int, int, int);
 template uint32_t* HuffmanDecode<uint32_t, uint64_t, float>(std::string&, size_t, int, int, int);
+// clang-format off
