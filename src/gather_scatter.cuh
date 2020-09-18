@@ -6,7 +6,7 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
-namespace cuSZ {
+namespace cusz {
 namespace impl {
 
 template <typename DType>
@@ -23,6 +23,6 @@ void PruneGatherAsCSR(
     std::string* fo);
 
 }  // namespace impl
-}  // namespace cuSZ
+}  // namespace cusz
 
 #endif

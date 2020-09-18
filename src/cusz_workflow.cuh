@@ -3,7 +3,7 @@
 
 #include "argparse.hh"
 
-namespace cuSZ {
+namespace cusz {
 namespace workflow {
 
 template <typename T, typename Q, typename H>
@@ -49,6 +49,6 @@ void VerifyHuffman(string const&, size_t, Q*, int, size_t*, double*);
 
 }  // namespace impl
 
-}  // namespace cuSZ
+}  // namespace cusz
 
 #endif
