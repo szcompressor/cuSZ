@@ -20,7 +20,7 @@ __global__ void prototype::GPU_Histogram(T* input_data, Q* output, size_t N, int
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int j;
-    if (i * symbols_per_thread < N) {  // if there is a symbol to count,
+    if (i * symbols_per_thread < N) {  // if there is a symbol to count
         for (j = i * symbols_per_thread; j < (i + 1) * symbols_per_thread; j++) {
             if (j < N) {
                 unsigned int item = input_data[j];  // Symbol to count
