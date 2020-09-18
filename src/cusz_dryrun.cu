@@ -37,7 +37,7 @@ const int B_2d = 16;
 const int B_3d = 8;
 
 template <typename T>
-__global__ void cuSZ::dryrun::lorenzo_1d1l(T* data, size_t* dims_L16, double* ebs_L4)
+__global__ void cusz::dryrun::lorenzo_1d1l(T* data, size_t* dims_L16, double* ebs_L4)
 {
     auto id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id >= dims_L16[DIM0]) return;
@@ -45,7 +45,7 @@ __global__ void cuSZ::dryrun::lorenzo_1d1l(T* data, size_t* dims_L16, double* eb
 }
 
 template <typename T>
-__global__ void cuSZ::dryrun::lorenzo_2d1l(T* data, size_t* dims_L16, double* ebs_L4)
+__global__ void cusz::dryrun::lorenzo_2d1l(T* data, size_t* dims_L16, double* ebs_L4)
 {
     auto   y   = threadIdx.y;
     auto   x   = threadIdx.x;
@@ -57,7 +57,7 @@ __global__ void cuSZ::dryrun::lorenzo_2d1l(T* data, size_t* dims_L16, double* eb
 }
 
 template <typename T>
-__global__ void cuSZ::dryrun::lorenzo_3d1l(T* data, size_t* dims_L16, double* ebs_L4)
+__global__ void cusz::dryrun::lorenzo_3d1l(T* data, size_t* dims_L16, double* ebs_L4)
 {
     auto   gi2 = blockIdx.z * blockDim.z + threadIdx.z;
     auto   gi1 = blockIdx.y * blockDim.y + threadIdx.y;
@@ -68,7 +68,7 @@ __global__ void cuSZ::dryrun::lorenzo_3d1l(T* data, size_t* dims_L16, double* eb
 }
 
 template <typename T>
-void cuSZ::workflow::DryRun(T* d, T* d_d, string fi, size_t* dims, double* ebs)
+void cusz::workflow::DryRun(T* d, T* d_d, string fi, size_t* dims, double* ebs)
 {
     cout << log_info << "Entering dry-run mode..." << endl;
     auto len        = dims[LEN];
@@ -78,17 +78,17 @@ void cuSZ::workflow::DryRun(T* d, T* d_d, string fi, size_t* dims, double* ebs)
     if (dims[nDIM] == 1) {
         dim3 blockNum(dims[nBLK0]);
         dim3 threadNum(B_1d);
-        cuSZ::dryrun::lorenzo_1d1l<T><<<blockNum, threadNum>>>(d_d, d_dims_L16, d_ebs_L4);
+        cusz::dryrun::lorenzo_1d1l<T><<<blockNum, threadNum>>>(d_d, d_dims_L16, d_ebs_L4);
     }
     else if (dims[nDIM] == 2) {
         dim3 blockNum(dims[nBLK0], dims[nBLK1]);
         dim3 threadNum(B_2d, B_2d);
-        cuSZ::dryrun::lorenzo_2d1l<T><<<blockNum, threadNum>>>(d_d, d_dims_L16, d_ebs_L4);
+        cusz::dryrun::lorenzo_2d1l<T><<<blockNum, threadNum>>>(d_d, d_dims_L16, d_ebs_L4);
     }
     else if (dims[nDIM] == 3) {
         dim3 blockNum(dims[nBLK0], dims[nBLK1], dims[nBLK2]);
         dim3 threadNum(B_3d, B_3d, B_3d);
-        cuSZ::dryrun::lorenzo_3d1l<T><<<blockNum, threadNum>>>(d_d, d_dims_L16, d_ebs_L4);
+        cusz::dryrun::lorenzo_3d1l<T><<<blockNum, threadNum>>>(d_d, d_dims_L16, d_ebs_L4);
     }
     cudaDeviceSynchronize();
     cudaMemcpy(d, d_d, len * sizeof(T), cudaMemcpyDeviceToHost);
@@ -104,16 +104,16 @@ void cuSZ::workflow::DryRun(T* d, T* d_d, string fi, size_t* dims, double* ebs)
     cudaFree(d_ebs_L4);
 }
 
-template __global__ void cuSZ::dryrun::lorenzo_1d1l<float>(float*, size_t*, double*);
-template __global__ void cuSZ::dryrun::lorenzo_2d1l<float>(float*, size_t*, double*);
-template __global__ void cuSZ::dryrun::lorenzo_3d1l<float>(float*, size_t*, double*);
+template __global__ void cusz::dryrun::lorenzo_1d1l<float>(float*, size_t*, double*);
+template __global__ void cusz::dryrun::lorenzo_2d1l<float>(float*, size_t*, double*);
+template __global__ void cusz::dryrun::lorenzo_3d1l<float>(float*, size_t*, double*);
 
-template void cuSZ::workflow::DryRun<float>(float* d, float* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<float>(float* d, float* d_d, string fi, size_t* dims, double* ebs);
 /*
-template void cuSZ::workflow::DryRun<double>(double* d, double* d_d, string fi, size_t* dims, double* ebs);
-template void cuSZ::workflow::DryRun<char>(char* d, char* d_d, string fi, size_t* dims, double* ebs);
-template void cuSZ::workflow::DryRun<short>(short* d, short* d_d, string fi, size_t* dims, double* ebs);
-template void cuSZ::workflow::DryRun<int>(int* d, int* d_d, string fi, size_t* dims, double* ebs);
-template void cuSZ::workflow::DryRun<long>(long* d, long* d_d, string fi, size_t* dims, double* ebs);
-template void cuSZ::workflow::DryRun<long long>(long long* d, long long* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<double>(double* d, double* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<char>(char* d, char* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<short>(short* d, short* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<int>(int* d, int* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<long>(long* d, long* d_d, string fi, size_t* dims, double* ebs);
+template void cusz::workflow::DryRun<long long>(long long* d, long long* d_d, string fi, size_t* dims, double* ebs);
  */

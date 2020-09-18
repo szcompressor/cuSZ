@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace cuSZ {
+namespace cusz {
 
 namespace dryrun {
 template <typename T>
@@ -22,4 +22,4 @@ template <typename T>
 void DryRun(T*, T*, std::string, size_t*, double*);
 
 }
-}  // namespace cuSZ
+}  // namespace cusz

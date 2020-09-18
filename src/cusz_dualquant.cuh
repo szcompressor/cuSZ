@@ -12,7 +12,7 @@ extern __shared__ char scratch[];
 // extern __shared__ float s2df[][16 + 1];  // TODO double type
 // extern __shared__ float s3df[][8+ 1][8+ 1];
 
-namespace cuSZ {
+namespace cusz {
 namespace PdQ {
 
 template <typename T, typename Q, int B = 32>
@@ -49,6 +49,6 @@ template <typename T, typename Q, int B = 8>
 __global__ void x_lorenzo_3d1l(T* xdata, T* outlier, Q* bcode, size_t const* dims, double val_2eb);
 
 }  // namespace PdQ
-}  // namespace cuSZ
+}  // namespace cusz
 
 #endif
