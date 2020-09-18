@@ -10,18 +10,14 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 
 ## known issue
 Checked marker denotes issue resolved.
-- [x] [20-05-xx] (**major**) In Release 0.1, cuSZ exports fault file with binning preprocess.
-- [x] [20-05-xx] In Release 0.1, `-Q` argparse does not work.
-- [x] [20-05-xx] (**major**) off-by-ten error in argparse.
-- [x] [20-05-28] gcc 7.3 breaks anyway...
-- [ ] [20-05-28] revert to physically padded version
-- [ ] [20-05-xx] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
-- [ ] [20-05-xx] (**major**) 1-GB HACC `xx.f32` exposes Huffman codec bug.
-- [ ] [20-05-xx] (**major**) `B_1d` of 64 and 256 do not work on 4-GB HACC `xx.f32`, `yy.f32`, `zz.f32'. 
+- [x] [20-05] (**major**) watch out binning output and metadata.
+- [ ] [20-05] (**major**) `-Q 8 -d 256` (or use `uint8_t` and #bin=256) without skipping Huffman codec does not work.
+- [ ] [20-05] (**major**) 1-GB HACC `xx.f32` exposes Huffman codec bug.
+- [ ] [20-05] (**major**) `B_1d` of 64 and 256 do not work on 4-GB HACC `xx.f32`, `yy.f32`, `zz.f32`. 
 
 ## TODO List
 
-Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/projects/2).
+Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2).
 
 # set up
 ## requirements
@@ -31,7 +27,7 @@ Please refer to [_Project Management page_](https://github.com/hipdac-lab/cuSZ/p
 
 ## download
 ```bash
-git clone git@github.com:hipdac-lab/cuSZ.git
+git clone git@github.com:szcompressor/cuSZ.git
 ```
 
 ## compile
@@ -145,6 +141,21 @@ Other module skipping for use scenarios are in development.
 
 
 # `changelog`
+
+September, 2020
+- `deploy` fix pSZ
+- `feature` integrate parallel build Huffman codebook
+- `doc` update help doc
+- `doc` update published paper
+- `doc` update acknowledgement
+
+August, 2020
+
+July, 2020
+- `doc` add a new NSF grant
+
+June, 2020
+- `fix` compile with CUDA 9 + gcc 7.3
 
 May, 2020
 - `feature` add `--skip huffman` and `--verify huffman` options

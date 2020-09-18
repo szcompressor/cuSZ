@@ -85,6 +85,8 @@ int main(int argc, char** argv)
     }
 
     // TODO change to compress and decompress
+    // NOTE -- Jiannan (or whoever else), this is just a temp. change for testing -- replace these changes with your changes
+    // when merging
     if (ap->to_archive or ap->dry_run) {  // including dry run
                                           //        if (ap->dtype == "f32") {
         if (ap->quant_rep == 8) {
