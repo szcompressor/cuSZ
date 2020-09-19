@@ -37,8 +37,11 @@ __global__ void p2013Histogram(T* input_data, Q* output, size_t N, int bins, int
     const unsigned int off_rep = (bins + 1) * (threadIdx.x % R);
 
     const unsigned int begin = (N / warps_block) * warpid + WARP_SIZE * blockIdx.x + lane;
-    const unsigned int end   = (N / warps_block) * (warpid + 1);
+    unsigned int end         = (N / warps_block) * (warpid + 1);
     const unsigned int step  = WARP_SIZE * gridDim.x;
+
+    // final warp handles data outside of the warps_block partitions
+    if (warpid >= warps_block - 1) end = N;
 
     for (unsigned int pos = threadIdx.x; pos < (bins + 1) * R; pos += blockDim.x) Hs[pos] = 0;
 
