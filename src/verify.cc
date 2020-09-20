@@ -1,3 +1,15 @@
+/**
+ * @file verify.cc
+ * @author Jiannan Tian
+ * @brief Verification of decompressed data.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2019-09-30
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <cstdio>
 #include <limits>
@@ -11,7 +23,14 @@
 using namespace std;
 
 template <typename T>
-void analysis::VerifyData(T* xData, T* oData, size_t _len, bool override_eb, double new_eb, size_t archive_byte_size, size_t binning_scale)
+void analysis::VerifyData(
+    T*     xData,
+    T*     oData,
+    size_t _len,
+    bool   override_eb,
+    double new_eb,
+    size_t archive_byte_size,
+    size_t binning_scale)
 {
     double _max = 0, _min = 0, max_abserr = 0;
     _max = oData[0], _min = oData[0];
@@ -84,7 +103,10 @@ void analysis::VerifyData(T* xData, T* oData, size_t _len, bool override_eb, dou
     left_border(), printf("%-20s%.20G", "NRMSE", NRMSE), right_border();
     left_border(), printf("%-20s%.20G", "correl.coeff", coeff), right_border();
     if (archive_byte_size) {
-        left_border(), printf("%-20s\e[31m%lf\e[0m", "compression.ratio", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size), right_border();
+        left_border(),
+            printf(
+                "%-20s\e[31m%lf\e[0m", "compression.ratio", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
+            right_border();
     }
     cout << log_info << "verification end -----------------------" << endl;
     cout << endl;
