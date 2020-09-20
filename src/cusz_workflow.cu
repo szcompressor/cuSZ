@@ -242,7 +242,7 @@ void cusz::workflow::Compress(
 
     // prediction-quantization
     ::cusz::impl::PdQ(d_data, d_bcode, dims_L16, ebs_L4);
-    ::cusz::impl::GatherAsCSR(d_data, (size_t)padded_len, padded_edge, &nnz_outlier, &fo_outlier);
+    ::cusz::impl::GatherAsCSR(d_data, (size_t)padded_len, padded_edge /*lda*/, padded_edge /*m*/, padded_edge /*n*/, &nnz_outlier, &fo_outlier);
     // ::cusz::impl::GatherOutlierUsingCusparse(d_data, (size_t)padded_len, padded_edge, nnz_outlier, &fo_outlier);
 
     cout << log_info << "nnz.outlier:\t" << nnz_outlier << "\t(" << (nnz_outlier / 1.0 / len * 100) << "%)" << endl;
@@ -305,7 +305,7 @@ void cusz::workflow::Decompress(
     auto d_bcode = mem::CreateDeviceSpaceAndMemcpyFromHost(xbcode, len);
 
     auto d_outlier = mem::CreateCUDASpace<T>(padded_len);
-    ::cusz::impl::ScatterFromCSR<T>(d_outlier, padded_len, padded_edge, &nnz_outlier, &fi_outlier_as_cuspm);
+    ::cusz::impl::ScatterFromCSR<T>(d_outlier, padded_len, padded_edge /*lda*/, padded_edge /*m*/, padded_edge /*n*/, &nnz_outlier, &fi_outlier_as_cuspm);
 
     // TODO merge d_outlier and d_data
     auto d_xdata = mem::CreateCUDASpace<T>(len);
