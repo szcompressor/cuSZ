@@ -18,21 +18,19 @@ using stream_t = cudaStream_t;
 using descr_t  = cusparseMatDescr_t;
 
 template <typename DType>
-void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, int* nnz, std::string* fo)
+void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo)
 {
     uint8_t* outbin;
     size_t   lrp, lci, lv, ltotal;
 
     {
-        handle_t  handle        = nullptr;
-        stream_t  stream        = nullptr;
-        descr_t   descr         = nullptr;
-        int*      d_nnz_per_row = nullptr;
-        int*      d_row_ptr     = nullptr;
-        int*      d_col_ind     = nullptr;
-        DType*    d_csr_val     = nullptr;
-        const int m             = ldA;
-        const int n             = ldA;
+        handle_t handle        = nullptr;
+        stream_t stream        = nullptr;
+        descr_t  descr         = nullptr;
+        int*     d_nnz_per_row = nullptr;
+        int*     d_row_ptr     = nullptr;
+        int*     d_col_ind     = nullptr;
+        DType*   d_csr_val     = nullptr;
 
         // clang-format off
         CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream, cudaStreamNonBlocking        )); // 1. create stream
@@ -86,10 +84,10 @@ void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, int* nnz, std:
     delete[] outbin;
 };
 
-template void cusz::impl::GatherAsCSR<float>(float* d_A, size_t lenA, size_t ldA, int* nnz, std::string* fo);
+template void cusz::impl::GatherAsCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo);
 
 template <typename DType>
-void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, int* nnz, std::string* fi)
+void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi)
 {
     // clang-format off
     auto lrp         = sizeof(int) * (ldA + 1);
@@ -103,14 +101,12 @@ void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, int* nnz, s
     // clang-format on
 
     {
-        handle_t  handle    = nullptr;
-        stream_t  stream    = nullptr;
-        descr_t   descr     = nullptr;
-        int*      d_row_ptr = nullptr;
-        int*      d_col_ind = nullptr;
-        DType*    d_csr_val = nullptr;
-        const int m         = ldA;
-        const int n         = m;
+        handle_t handle    = nullptr;
+        stream_t stream    = nullptr;
+        descr_t  descr     = nullptr;
+        int*     d_row_ptr = nullptr;
+        int*     d_col_ind = nullptr;
+        DType*   d_csr_val = nullptr;
 
         // clang-format off
         CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream, cudaStreamNonBlocking        )); // 1. create stream
@@ -144,26 +140,26 @@ void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, int* nnz, s
     delete[] outlier_bin;
 }
 
-template void cusz::impl::ScatterFromCSR<float>(float* d_A, size_t lenA, size_t ldA, int* nnz, std::string* fi);
+template void cusz::impl::ScatterFromCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi);
 
 void cusz::impl::PruneGatherAsCSR(
     float*       d_A,  //
     size_t       lenA,
+    const int    lda,
     const int    m,
+    const int    n,
     int&         nnzC,
     std::string* fo)
 {
-    handle_t  handle       = nullptr;
-    stream_t  stream       = nullptr;
-    descr_t   descr        = nullptr;
-    int*      d_row_ptr    = nullptr;
-    int*      d_col_ind    = nullptr;
-    float*    d_csr_val    = nullptr;
-    size_t    lworkInBytes = 0;
-    char*     d_work       = nullptr;
-    const int lda          = m;
-    const int n            = m;  // square
-    float     threshold    = 0;
+    handle_t handle       = nullptr;
+    stream_t stream       = nullptr;
+    descr_t  descr        = nullptr;
+    int*     d_row_ptr    = nullptr;
+    int*     d_col_ind    = nullptr;
+    float*   d_csr_val    = nullptr;
+    size_t   lworkInBytes = 0;
+    char*    d_work       = nullptr;
+    float    threshold    = 0;
 
     // clang-format off
     CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream, cudaStreamNonBlocking        )); // 1. create stream
