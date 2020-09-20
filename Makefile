@@ -5,7 +5,7 @@
 #CXX       := clang++ -fPIE
 CXX       := g++
 NVCC      := nvcc
-STD       := -std=c++11
+STD       := -std=c++14
 HOST_DBG  := -O0 -g
 CUDA_DBG  := -O0 -G -g
 SRC_DIR   := src
