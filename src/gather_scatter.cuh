@@ -1,10 +1,21 @@
-// 20-09-10
-
 #ifndef GATHER_SCATTER
 #define GATHER_SCATTER
 
 #include <cuda_runtime.h>
 #include <cusparse.h>
+
+/**
+ * @file gather_scatter.cu
+ * @author Jiannan Tian
+ * @brief Gather/scatter method to handle cuSZ prediction outlier (header).
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-09-10
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 namespace cusz {
 namespace impl {

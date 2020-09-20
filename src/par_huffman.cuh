@@ -1,15 +1,27 @@
-//
-// By Cody Rivera, 6/2020
-//
+/**
+ * @file par_huffman.cuh
+ * @author Cody Rivera (cjrivera1@crimson.ua.edu)
+ * @brief Parallel Huffman Construction to generates canonical forward codebook (header).
+ *        Based on [Ostadzadeh et al. 2007] (https://dblp.org/rec/conf/pdpta/OstadzadehEZMB07.bib)
+ *        "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes".
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2020-06
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #ifndef PAR_HUFFMAN_CUH
 #define PAR_HUFFMAN_CUH
+
+#include <cooperative_groups.h>
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cooperative_groups.h>
 
 using namespace std;
 using namespace cooperative_groups;
@@ -24,13 +36,12 @@ __global__ void GPU_ReorderByIndex(T* array, Q* index, unsigned int size);
 template <typename T>
 __global__ void GPU_ReverseArray(T* array, unsigned int size);
 
-
 // Parallel huffman global memory and kernels
 namespace parHuff {
 // GenerateCL Locals
 __device__ int iNodesFront = 0;
-__device__ int iNodesRear = 0;
-__device__ int lNodesCur = 0;
+__device__ int iNodesRear  = 0;
+__device__ int lNodesCur   = 0;
 
 __device__ int iNodesSize = 0;
 __device__ int curLeavesNum;
@@ -54,19 +65,22 @@ __device__ long long int s[10];
 __device__ long long int st[10];
 
 // Codeword length
+// clang-format off
 template <typename F>
-__global__ void GPU_GenerateCL(F* histogram, F* CL, int size,
+__global__ void GPU_GenerateCL(
+    F*  histogram, F*  CL, int size,
     /* Global Arrays */
-    F* lNodesFreq, int* lNodesLeader,
-    F* iNodesFreq, int* iNodesLeader,
-    F* tempFreq, int* tempIsLeaf, int* tempIndex,
-    F* copyFreq, int* copyIsLeaf, int* copyIndex,
-    uint32_t* diagonal_path_intersections, int mblocks, int mthreads);
+    F* lNodesFreq,  int* lNodesLeader,    
+    F* iNodesFreq,  int* iNodesLeader,
+    F* tempFreq,    int* tempIsLeaf,    int* tempIndex,
+    F* copyFreq,    int* copyIsLeaf,    int* copyIndex,
+    uint32_t* diagonal_path_intersections,  int mblocks,  int mthreads);
+// clang-format on
 
 // Forward Codebook
-template<typename F, typename H>
+template <typename F, typename H>
 __global__ void GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size);
-}
+}  // namespace parHuff
 
 // Thrust sort functionality implemented in separate file
 template <typename K, typename V>

@@ -1,5 +1,15 @@
-// Cody Rivera <cjrivera1@crimson.ua.edu>
-// Megan Hickman
+/**
+ * @file histogram.cuh
+ * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp (mlhickm@g.clemson.edu)
+ * @brief Fast histogramming from [Gómez-Luna et al. 2013] (header)
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-02-16
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #ifndef HISTOGRAM_CUH
 #define HISTOGRAM_CUH

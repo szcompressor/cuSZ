@@ -1,6 +1,15 @@
-//
-// Created by jtian on 4/24/20.
-//
+/**
+ * @file huffman_workflow.cu
+ * @author Jiannan Tian, Cody Rivera (cjrivera1@crimson.ua.edu)
+ * @brief Workflow of Huffman coding.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-04-24
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <cuda_runtime.h>
 
@@ -131,7 +140,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     // first, entry, reversed codebook
     // CHANGED first and entry to H type
     auto decode_meta_size = sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;
-    auto d_decode_meta = mem::CreateCUDASpace<uint8_t>(decode_meta_size);
+    auto d_decode_meta    = mem::CreateCUDASpace<uint8_t>(decode_meta_size);
 
     // Get codebooks
     ParGetCodebook<Q, H>(dict_size, d_freq, d_canonical_cb, d_decode_meta);
@@ -139,9 +148,8 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
 
     auto decode_meta = mem::CreateHostSpaceAndMemcpyFromDevice(d_decode_meta, decode_meta_size);
 
-
     // Non-deflated output
-    auto d_h         = mem::CreateCUDASpace<H>(len);
+    auto d_h = mem::CreateCUDASpace<H>(len);
 
     // --------------------------------
     // this is for internal evaluation, not in sz archive
@@ -189,7 +197,9 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     auto total_uInts = std::accumulate(dH_uInt_meta, dH_uInt_meta + n_chunk, (size_t)0);
 
     cout << log_dbg;
-    printf("Huffman bitstream: %lu chunks of size = %d, in %lu uint%lus or %lu bits\n", n_chunk, chunk_size, total_uInts, sizeof(H) * 8, total_bits);
+    printf(
+        "Huffman bitstream: %lu chunks of size = %d, in %lu uint%lus or %lu bits\n", n_chunk, chunk_size, total_uInts,
+        sizeof(H) * 8, total_bits);
 
     // print densely metadata
     PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
@@ -208,12 +218,12 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     // write densely Huffman code and its metadata
     io::WriteBinaryFile(h, total_uInts, new string(f_in + ".dh"));
     // to save first, entry and keys
-    io::WriteBinaryFile(                                      //
-        reinterpret_cast<uint8_t*>(decode_meta),              //
+    io::WriteBinaryFile(                                    //
+        reinterpret_cast<uint8_t*>(decode_meta),            //
         sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size,  // first, entry, reversed dict (keys)
         new string(f_in + ".cHcb"));
 
-    size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))            //
+    size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))              //
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
 
     //////// clean up
@@ -271,9 +281,9 @@ Q* HuffmanDecode(
     return xbcode;
 }
 
-template void wrapper::GetFrequency<uint8__t>(uint8__t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
-template void wrapper::GetFrequency<uint16_t>(uint16_t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
-template void wrapper::GetFrequency<uint32_t>(uint32_t* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
+template void wrapper::GetFrequency<uint8__t>(uint8__t*, size_t, unsigned int*, int);
+template void wrapper::GetFrequency<uint16_t>(uint16_t*, size_t, unsigned int*, int);
+template void wrapper::GetFrequency<uint32_t>(uint32_t*, size_t, unsigned int*, int);
 
 template void PrintChunkHuffmanCoding<uint32_t>(size_t*, size_t*, size_t, int, size_t, size_t);
 template void PrintChunkHuffmanCoding<uint64_t>(size_t*, size_t*, size_t, int, size_t, size_t);

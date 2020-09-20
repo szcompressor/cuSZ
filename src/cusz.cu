@@ -1,3 +1,16 @@
+/**
+ * @file cusz.cu
+ * @author Jiannan Tian
+ * @brief Driver program of cuSZ.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2019-12-30
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
+
 #include <string>
 #include <vector>
 
@@ -10,7 +23,6 @@
 #include "io.hh"
 #include "types.hh"
 
-// namespace fm = cusz::workflow;
 using std::string;
 
 template <typename T, int DS, int tBLK>
@@ -51,7 +63,8 @@ int main(int argc, char** argv)
 
     cout << log_info;
     printf(
-        "datum:\t\t%s (%lu bytes) of type %s\n", ap->fname.c_str(), dims_L16[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
+        "datum:\t\t%s (%lu bytes) of type %s\n", ap->fname.c_str(),
+        dims_L16[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
     auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
     if (ap->mode == "r2r") {  // TODO change to faster getting range
@@ -85,8 +98,8 @@ int main(int argc, char** argv)
     }
 
     // TODO change to compress and decompress
-    // NOTE -- Jiannan (or whoever else), this is just a temp. change for testing -- replace these changes with your changes
-    // when merging
+    // NOTE -- Jiannan (or whoever else), this is just a temp. change for testing -- replace these changes with your
+    // changes when merging
     if (ap->to_archive or ap->dry_run) {  // including dry run
                                           //        if (ap->dtype == "f32") {
         if (ap->quant_rep == 8) {

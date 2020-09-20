@@ -1,13 +1,14 @@
 /**
- *  @file Huffman.c
+ *  @file Huffman.cu
  *  @author Sheng Di
- *  @date Aug., 2016
- *  @brief Customized Huffman Encoding, Compression and Decompression functions
+ *  Modified by Jiannan Tian
+ *  @date Jan. 7, 2020
+ *  Created on Aug., 2016
+ *  @brief Customized Huffman Encoding, Compression and Decompression functions.
+ *         Also modified for GPU prototyping.
  *  (C) 2016 by Mathematics and Computer Science (MCS), Argonne National Laboratory.
  *      See COPYRIGHT in top-level directory.
  */
-
-// jtian: 20-01-07, modified code for GPU
 
 #include <cstdio>
 #include <cstdlib>
@@ -175,7 +176,10 @@ __host__ __device__ void build_code(HuffmanTree* ht, node_list n, int len, uint6
 // internal functions
 ////////////////////////////////////////////////////////////////////////////////
 
-__device__ __forceinline__ node_list top(internal_stack_t* s) { return s->_a[s->depth - 1]; }
+__device__ __forceinline__ node_list top(internal_stack_t* s)
+{
+    return s->_a[s->depth - 1];
+}
 
 template <typename T>
 __device__ __forceinline__ void push_v2(internal_stack_t* s, node_list n, T path, T len)
@@ -191,7 +195,10 @@ __device__ __forceinline__ void push_v2(internal_stack_t* s, node_list n, T path
         printf("Error: stack overflow\n");
 }
 
-__device__ __forceinline__ bool isEmpty(internal_stack_t* s) { return (s->depth == 0); }
+__device__ __forceinline__ bool isEmpty(internal_stack_t* s)
+{
+    return (s->depth == 0);
+}
 
 // TODO check with typing
 template <typename T>
@@ -250,26 +257,6 @@ __device__ void InOrderTraverse_v2(HuffmanTree* ht, Q* codebook)
     } /* end of while */
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// global functions
-////////////////////////////////////////////////////////////////////////////////
-
-/*
-__global__ void GPU_CreateHuffmanTree(int stateNum) {
-    if (threadIdx.x == 0) global_gpuTree = createHuffmanTreeGPU(stateNum);
-}
-
-template <typename T, typename Q>
-__global__ void GPU_BuildTree_v2(T* freq, Q* codebook) {  // length known as huffmanTree->allNodes
-    if (threadIdx.x == 0) {
-        for (size_t i = 0; i < global_gpuTree->allNodes; i++)
-            if (freq[i]) qinsert(global_gpuTree, new_node(global_gpuTree, freq[i], i, 0, 0));
-        while (global_gpuTree->qend > 2) qinsert(global_gpuTree, new_node(global_gpuTree, 0, 0, qremove(global_gpuTree), qremove(global_gpuTree)));
-        InOrderTraverse_v2<Q>(global_gpuTree, codebook);
-    }
-}
- */
-
 template <typename H>
 __global__ void InitHuffTreeAndGetCodebook(int stateNum, unsigned int* freq, H* codebook)
 {  // length known as huffmanTree->allNodes
@@ -277,7 +264,8 @@ __global__ void InitHuffTreeAndGetCodebook(int stateNum, unsigned int* freq, H* 
     global_gpuTree = createHuffmanTreeGPU(stateNum);
     for (size_t i = 0; i < global_gpuTree->allNodes; i++)
         if (freq[i]) qinsert(global_gpuTree, new_node(global_gpuTree, freq[i], i, 0, 0));
-    while (global_gpuTree->qend > 2) qinsert(global_gpuTree, new_node(global_gpuTree, 0, 0, qremove(global_gpuTree), qremove(global_gpuTree)));
+    while (global_gpuTree->qend > 2)
+        qinsert(global_gpuTree, new_node(global_gpuTree, 0, 0, qremove(global_gpuTree), qremove(global_gpuTree)));
     InOrderTraverse_v2<H>(global_gpuTree, codebook);
 }
 
