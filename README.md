@@ -6,6 +6,11 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 * Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
 * Other Contributors: Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
+# citation
+**Kindly note**: If you mention cuSZ in your paper, please cite the following reference which covers the whole design and implementation of the latest version of cuSZ.
+
+* Jiannan Tian, Sheng Di, Kai Zhao, Cody Rivera, Megan Hickman Fulp, Robert Underwood, Sian Jin, Xin Liang, Jon Calhoun, Dingwen Tao, Franck Cappello. "[cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data](https://arxiv.org/abs/2007.09625)", in Proceedings of the 29th International Conference on Parallel Architectures and Compilation Techniques (PACT), Atlanta, GA, USA, 2020.
+
 # set up
 ## requirements
 - NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
