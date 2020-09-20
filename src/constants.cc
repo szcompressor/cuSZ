@@ -1,9 +1,18 @@
-//  Created by JianNan Tian on 6/8/19.
-//  Copyright © 2019 JianNan Tian. All rights reserved.
-//
+/**
+ * @file constants.cc
+ * @author Jiannan Tian
+ * @brief Internal constants.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2019-06-08
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
-#include <cstddef>
 #include "constants.hh"
+#include <cstddef>
 
 const size_t DIM0   = 0;
 const size_t DIM1   = 1;

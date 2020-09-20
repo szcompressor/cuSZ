@@ -1,6 +1,19 @@
 #ifndef CUDA_ERROR_HANDLING
 #define CUDA_ERROR_HANDLING
 
+/**
+ * @file cuda_error_handling.cuh
+ * @author Jiannan Tian
+ * @brief CUDA runtime error handling macros.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2019-10-08
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
+
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
@@ -150,7 +163,9 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("cudaErrorUnknown                    -> %d\n", cudaErrorUnknown);
         printf("cudaErrorApiFailureBase (Deprecated)-> %d\n", cudaErrorApiFailureBase);
         printf("\n");
-        printf("CUDA API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n", file, line, cudaGetErrorString(status), status);
+        printf(
+            "CUDA API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n",  //
+            file, line, cudaGetErrorString(status), status);
         exit(EXIT_FAILURE);
     }
 }
@@ -178,7 +193,9 @@ static void check_cusparse_error(cusparseStatus_t status, const char* file, int 
 #endif
         printf("\n");
 #if (CUDART_VERSION == 1010)
-        printf("CUSPARSE API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n", file, line, cusparseGetErrorString(status), status);
+        printf(
+            "CUSPARSE API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n", file, line,
+            cusparseGetErrorString(status), status);
 #endif
         exit(EXIT_FAILURE);
     }

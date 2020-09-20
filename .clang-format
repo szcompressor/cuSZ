@@ -1,12 +1,12 @@
 ﻿---
 BasedOnStyle: Chromium
 IndentWidth: 4
-ColumnLimit: 160
+ColumnLimit: 120
 BreakConstructorInitializers: AfterColon
-#AllowShortBlocksOnASingleLine: Always
-#AllowShortFunctionsOnASingleLine: All
+AllowShortBlocksOnASingleLine: Always
+AllowShortFunctionsOnASingleLine: All
 AllowShortCaseLabelsOnASingleLine: true
-#AllowShortLambdasOnASingleLine: All
+AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true

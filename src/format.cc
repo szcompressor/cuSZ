@@ -1,6 +1,15 @@
-//
-// Created by jtian on 4/27/20.
-//
+/**
+ * @file format.cc
+ * @author Jiannan Tian
+ * @brief Formatting for log print.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-04-27
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include "format.hh"
 #include <iostream>

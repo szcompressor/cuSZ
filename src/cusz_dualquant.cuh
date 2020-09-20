@@ -1,6 +1,15 @@
-//
-// Created by JianNan Tian on 9/23/19.
-//
+/**
+ * @file cusz_dualquant.cuh
+ * @author Jiannan Tian
+ * @brief Dual-Quantization method of cuSZ (header).
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 19-09-23
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #ifndef CUSZ_DUALQUANT_CUH
 #define CUSZ_DUALQUANT_CUH

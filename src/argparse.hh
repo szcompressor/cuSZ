@@ -1,9 +1,18 @@
-//
-// Created by jtian on 4/24/20.
-//
-
 #ifndef ARGPARSE_HH
 #define ARGPARSE_HH
+
+/**
+ * @file argparse.hh
+ * @author Jiannan Tian
+ * @brief Argument parser (header).
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 20-04-24
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <cstdlib>
 #include <iostream>
