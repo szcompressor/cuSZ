@@ -1,4 +1,15 @@
-// 20-09-10
+/**
+ * @file gather_scatter.cu
+ * @author Jiannan Tian
+ * @brief Gather/scatter method to handle cuSZ prediction outlier.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-09-10
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <cuda_runtime.h>
 #include <cusparse.h>
@@ -84,7 +95,8 @@ void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size
     delete[] outbin;
 };
 
-template void cusz::impl::GatherAsCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo);
+template void
+cusz::impl::GatherAsCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo);
 
 template <typename DType>
 void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi)
@@ -140,7 +152,8 @@ void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, s
     delete[] outlier_bin;
 }
 
-template void cusz::impl::ScatterFromCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi);
+template void
+cusz::impl::ScatterFromCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi);
 
 void cusz::impl::PruneGatherAsCSR(
     float*       d_A,  //

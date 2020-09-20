@@ -1,7 +1,18 @@
-// 200209
-
 #ifndef ANALYSIS_HH
 #define ANALYSIS_HH
+
+/**
+ * @file analysis.hh
+ * @author Jiannan Tian
+ * @brief Analysis and visualization of datum.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-02-09
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <cmath>
 #include <cstdio>
@@ -128,7 +139,9 @@ void histogram(
 
     size_t longest     = *std::max_element(__viz.begin(), __viz.end());
     size_t bar_str_len = 64;  // scale according to the longest
-    std::for_each(__viz.begin(), __viz.end(), [&](size_t& n) { n = static_cast<size_t>(n / static_cast<double>(longest) * bar_str_len); });
+    std::for_each(__viz.begin(), __viz.end(), [&](size_t& n) {
+        n = static_cast<size_t>(n / static_cast<double>(longest) * bar_str_len);
+    });
 
     for (size_t i = 0; i < __bins; i++) {
         // normalize to width
@@ -136,7 +149,8 @@ void histogram(
              << "\33[43m";
 
         for (size_t j = 0; j < bar_str_len + 1; j++) {
-            if (j < __viz[i]) cout << "-";
+            if (j < __viz[i])
+                cout << "-";
             else if (j == __viz[i])
                 cout << "\33[0m"
                      << "+";

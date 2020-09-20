@@ -1,8 +1,23 @@
+/**
+ * @file huffman_codec.cu
+ * @author Jiannan Tian
+ * @brief Wrapper of Huffman codec.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-02-02
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
+
 #include <stddef.h>
 #include <stdint.h>
 #include <cstdio>
 #include <limits>
 #include "huffman_codec.cuh"
+
+using uint8__t = uint8_t;
 
 template <typename Q, typename H>
 __global__ void EncodeFixedLen(Q* data, H* hcoded, size_t data_len, H* codebook)
@@ -62,16 +77,16 @@ __global__ void Deflate(
 template <typename H, typename T>
 __device__ void InflateChunkwise(H* in_huff, T* out_quant, size_t total_bw, uint8_t* singleton)
 {
-    uint8_t   next_bit;
-    size_t    idx_bit;
-    size_t    idx_byte   = 0;
-    size_t    idx_bcoded = 0;
-    auto      first      = reinterpret_cast<H*>(singleton);
-    auto      entry      = first + sizeof(H) * 8;
-    auto      keys       = reinterpret_cast<T*>(singleton + sizeof(H) * (2 * sizeof(H) * 8));
-    H         v          = (in_huff[idx_byte] >> (sizeof(H) * 8 - 1)) & 0x1;  // get the first bit
-    size_t    l          = 1;
-    size_t    i          = 0;
+    uint8_t next_bit;
+    size_t  idx_bit;
+    size_t  idx_byte   = 0;
+    size_t  idx_bcoded = 0;
+    auto    first      = reinterpret_cast<H*>(singleton);
+    auto    entry      = first + sizeof(H) * 8;
+    auto    keys       = reinterpret_cast<T*>(singleton + sizeof(H) * (2 * sizeof(H) * 8));
+    H       v          = (in_huff[idx_byte] >> (sizeof(H) * 8 - 1)) & 0x1;  // get the first bit
+    size_t  l          = 1;
+    size_t  i          = 0;
     while (i < total_bw) {
         while (v < first[l]) {  // append next i_cb bit
             ++i;
@@ -123,8 +138,8 @@ __global__ void Decode(
     __syncthreads();
 };
 
-template __global__ void EncodeFixedLen<uint8_t, uint32_t>(uint8_t*, uint32_t*, size_t, uint32_t*);
-template __global__ void EncodeFixedLen<uint8_t, uint64_t>(uint8_t*, uint64_t*, size_t, uint64_t*);
+template __global__ void EncodeFixedLen<uint8__t, uint32_t>(uint8__t*, uint32_t*, size_t, uint32_t*);
+template __global__ void EncodeFixedLen<uint8__t, uint64_t>(uint8__t*, uint64_t*, size_t, uint64_t*);
 template __global__ void EncodeFixedLen<uint16_t, uint32_t>(uint16_t*, uint32_t*, size_t, uint32_t*);
 template __global__ void EncodeFixedLen<uint16_t, uint64_t>(uint16_t*, uint64_t*, size_t, uint64_t*);
 template __global__ void EncodeFixedLen<uint32_t, uint32_t>(uint32_t*, uint32_t*, size_t, uint32_t*);
@@ -135,16 +150,16 @@ template __global__ void Deflate<uint64_t>(uint64_t* hcoded, size_t len, size_t*
 
 // H for Huffman, uint{32,64}_t
 // T for quant code, uint{8,16,32}_t
-template __device__ void InflateChunkwise<uint32_t, uint8_t>(uint32_t* in_huff, uint8_t* out_quant, size_t total_bw, uint8_t* singleton);
-template __device__ void InflateChunkwise<uint32_t, uint16_t>(uint32_t* in_huff, uint16_t* out_quant, size_t total_bw, uint8_t* singleton);
-template __device__ void InflateChunkwise<uint32_t, uint32_t>(uint32_t* in_huff, uint32_t* out_quant, size_t total_bw, uint8_t* singleton);
-template __device__ void InflateChunkwise<uint64_t, uint8_t>(uint64_t* in_huff, uint8_t* out_quant, size_t total_bw, uint8_t* singleton);
-template __device__ void InflateChunkwise<uint64_t, uint16_t>(uint64_t* in_huff, uint16_t* out_quant, size_t total_bw, uint8_t* singleton);
-template __device__ void InflateChunkwise<uint64_t, uint32_t>(uint64_t* in_huff, uint32_t* out_quant, size_t total_bw, uint8_t* singleton);
+template __device__ void InflateChunkwise<uint32_t, uint8__t>(uint32_t*, uint8__t*, size_t, uint8__t*);
+template __device__ void InflateChunkwise<uint32_t, uint16_t>(uint32_t*, uint16_t*, size_t, uint8__t*);
+template __device__ void InflateChunkwise<uint32_t, uint32_t>(uint32_t*, uint32_t*, size_t, uint8__t*);
+template __device__ void InflateChunkwise<uint64_t, uint8__t>(uint64_t*, uint8__t*, size_t, uint8__t*);
+template __device__ void InflateChunkwise<uint64_t, uint16_t>(uint64_t*, uint16_t*, size_t, uint8__t*);
+template __device__ void InflateChunkwise<uint64_t, uint32_t>(uint64_t*, uint32_t*, size_t, uint8__t*);
 
-template __global__ void Decode<uint8_t, uint32_t>(uint32_t*, size_t*, uint8_t*, size_t, int, int, uint8_t*, size_t);
-template __global__ void Decode<uint8_t, uint64_t>(uint64_t*, size_t*, uint8_t*, size_t, int, int, uint8_t*, size_t);
-template __global__ void Decode<uint16_t, uint32_t>(uint32_t*, size_t*, uint16_t*, size_t, int, int, uint8_t*, size_t);
-template __global__ void Decode<uint16_t, uint64_t>(uint64_t*, size_t*, uint16_t*, size_t, int, int, uint8_t*, size_t);
-template __global__ void Decode<uint32_t, uint32_t>(uint32_t*, size_t*, uint32_t*, size_t, int, int, uint8_t*, size_t);
-template __global__ void Decode<uint32_t, uint64_t>(uint64_t*, size_t*, uint32_t*, size_t, int, int, uint8_t*, size_t);
+template __global__ void Decode<uint8__t, uint32_t>(uint32_t*, size_t*, uint8__t*, size_t, int, int, uint8__t*, size_t);
+template __global__ void Decode<uint8__t, uint64_t>(uint64_t*, size_t*, uint8__t*, size_t, int, int, uint8__t*, size_t);
+template __global__ void Decode<uint16_t, uint32_t>(uint32_t*, size_t*, uint16_t*, size_t, int, int, uint8__t*, size_t);
+template __global__ void Decode<uint16_t, uint64_t>(uint64_t*, size_t*, uint16_t*, size_t, int, int, uint8__t*, size_t);
+template __global__ void Decode<uint32_t, uint32_t>(uint32_t*, size_t*, uint32_t*, size_t, int, int, uint8__t*, size_t);
+template __global__ void Decode<uint32_t, uint64_t>(uint64_t*, size_t*, uint32_t*, size_t, int, int, uint8__t*, size_t);

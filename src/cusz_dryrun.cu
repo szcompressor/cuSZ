@@ -1,4 +1,15 @@
-// jtian 20-05-14
+/**
+ * @file cusz_dryrun.cu
+ * @author Jiannan Tian
+ * @brief cuSZ dryrun mode, checking data quality from lossy compression.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-05-14
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <iostream>
 #include <string>
@@ -62,7 +73,8 @@ __global__ void cusz::dryrun::lorenzo_3d1l(T* data, size_t* dims_L16, double* eb
     auto   gi2 = blockIdx.z * blockDim.z + threadIdx.z;
     auto   gi1 = blockIdx.y * blockDim.y + threadIdx.y;
     auto   gi0 = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t id  = gi0 + gi1 * dims_L16[DIM0] + gi2 * dims_L16[DIM0] * dims_L16[DIM1];  // low to high in dim, inner to outer
+    size_t id =
+        gi0 + gi1 * dims_L16[DIM0] + gi2 * dims_L16[DIM0] * dims_L16[DIM1];  // low to high in dim, inner to outer
     if (gi0 >= dims_L16[DIM0] or gi1 >= dims_L16[DIM1] or gi2 >= dims_L16[DIM2]) return;
     data[id] = round(data[id] * ebs_L4[EBx2_r]) * ebs_L4[EBx2];  // prequantization
 }

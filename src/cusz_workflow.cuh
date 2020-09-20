@@ -1,6 +1,19 @@
 #ifndef CUSZ_WORKFLOW_CUH
 #define CUSZ_WORKFLOW_CUH
 
+/**
+ * @file cusz_workflow.cuh
+ * @author Jiannan Tian
+ * @brief Workflow of cuSZ (header).
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2020-02-12
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
+
 #include "argparse.hh"
 
 namespace cusz {

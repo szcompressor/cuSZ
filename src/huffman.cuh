@@ -1,13 +1,14 @@
 /**
- *  @file Huffman.c
+ *  @file Huffman.cuh
  *  @author Sheng Di
- *  @date Aug., 2016
- *  @brief Customized Huffman Encoding, Compression and Decompression functions
+ *  Modified by Jiannan Tian
+ *  @date Jan. 7, 2020
+ *  Created on Aug., 2016
+ *  @brief Customized Huffman Encoding, Compression and Decompression functions.
+ *         Also modified for GPU prototyping (header).
  *  (C) 2016 by Mathematics and Computer Science (MCS), Argonne National Laboratory.
  *      See COPYRIGHT in top-level directory.
  */
-
-// jtian: 20-01-07, modified code for GPU
 
 #ifndef HUFFMAN_CUH
 #define HUFFMAN_CUH
