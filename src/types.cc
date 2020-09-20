@@ -1,10 +1,17 @@
-//
-//  types.hh
-//  waveSZ
-//
-//  Created by JianNan Tian on 6/8/19.
-//  Copyright © 2019 JianNan Tian. All rights reserved.
-//
+/**
+ * @file types.cc
+ * @author Jiannan Tian
+ * @brief
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2019-06-08
+ *
+ * @todo separate type definition and cuSZ configuration for driver program.
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <algorithm>
 #include <cmath>    // for FP32 bit representation
@@ -46,7 +53,8 @@ size_t* InitializeDims(size_t cap, size_t n_dims, size_t dim0, size_t dim1, size
     dims_L16[nDIM] = n_dims;
 
     int BLK;
-    if (dims_L16[nDIM] == 1) BLK = B_1d;
+    if (dims_L16[nDIM] == 1)
+        BLK = B_1d;
     else if (dims_L16[nDIM] == 2)
         BLK = B_2d;
     else if (dims_L16[nDIM] == 3)
@@ -68,7 +76,8 @@ void SetDims(size_t* dims_L16, size_t new_dims[4])
 {
     std::copy(new_dims, new_dims + 4, dims_L16);
     int BLK;
-    if (dims_L16[nDIM] == 1) BLK = B_1d;
+    if (dims_L16[nDIM] == 1)
+        BLK = B_1d;
     else if (dims_L16[nDIM] == 2)
         BLK = B_2d;
     else if (dims_L16[nDIM] == 3)
@@ -91,15 +100,17 @@ ErrorBoundConfigurator::ErrorBoundConfigurator(int _capacity, double _precision,
     radius   = capacity / 2;
     mode     = std::string("ABS");
 
-    if (_precision != 1 and _base == 2) { cerr << "tmp.ly we only support 1 x pow(2, \?\?)" << endl; }
+    if (_precision != 1 and _base == 2) {
+        cerr << "tmp.ly we only support 1 x pow(2, \?\?)" << endl;
+    }
     eb_final   = _precision * pow(_base, _exponent);
     base       = _base;
     exp_base10 = _base == 10 ? _exponent : log10(eb_final);
     exp_base2  = _base == 2 ? _exponent : log2(eb_final);
 
-    cout << log_info << "bin.cap:\t\t" << _capacity << endl;
+    cout << log_info << "quant.capacity:\t" << _capacity << endl;
     if (_base == 10) {
-        cout << log_info << "user-set eb:\t" << _precision;
+        cout << log_info << "input eb:\t" << _precision;
         cout << " x 10^(" << _exponent << ") = " << eb_final << endl;
     }
     else if (_base == 2) {
@@ -114,10 +125,11 @@ void ErrorBoundConfigurator::ChangeToRelativeMode(double value_range)
         cerr << log_err << "INVALID VALUE RANGE!" << endl;
         exit(1);
     }
-    cout << log_info << "change to r2r mode \e[2m(relative-to-value-range)\e[0m" << endl;
-    cout << log_null << "eb --> " << eb_final << " x " << value_range << " = ";
+    // cout << log_info << "change to r2r mode \e[2m(relative-to-value-range)\e[0m" << endl;
+    cout << log_info << "eb change:\t" << eb_final << " (input eb) x " << value_range << " (rng) = ";
     this->eb_final *= value_range;
-    cout << eb_final << endl;
+    cout << eb_final;
+    cout << " \e[2m(relative-to-value-range, r2r mode)\e[0m" << endl;
     mode = std::string("VRREL");
 }
 
@@ -134,9 +146,8 @@ void ErrorBoundConfigurator::ChangeToTightBase2()
 
 void ErrorBoundConfigurator::debug() const
 {
-    cout << log_dbg << "exp.base10:\t" << exp_base10 << endl;
-    cout << log_dbg << "exp.base2:\t" << exp_base2 << endl;
-    cout << log_dbg << "final.eb:\t" << eb_final << endl;
+    cout << log_dbg;
+    printf("exponent = %.3f (base10) (or) %.3f (base2)\n", exp_base10, exp_base2);
 }
 
 //} config_t;

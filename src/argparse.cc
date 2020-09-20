@@ -1,6 +1,15 @@
-//
-// Created by jtian on 4/24/20.
-//
+/**
+ * @file argparse.cc
+ * @author Jiannan Tian
+ * @brief Argument parser.
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 20-04-24
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include "argparse.hh"
 #include <cassert>
@@ -18,8 +27,8 @@ using std::string;
 // TODO update with default values
 
 // TODO check version
-const char* version_text  = "version: pre-alpha, build: 2020-04-30";
-const int   version       = 200430;
+const char* version_text  = "version: pre-alpha, build: 2020-09-20";
+const int   version       = 200920;
 const int   compatibility = 0;
 
 string  //
@@ -186,10 +195,10 @@ ArgPack::cuszDoc()
         "\n"
         "USAGE:\n"
         "  The basic use with demo datum is listed below,\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "             ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
-        "             |   mode   error bound         input datum file        demo   |  |\n"
-        "           dtype                                                   datum  zip unzip\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "                 ^  ~~~~~~ ~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
+        "                 |   mode   error         input datum file        demo   |  |\n"
+        "               dtype        bound                                 data  zip unzip\n"
         "\n"
         "  compress and extract, demo dataset:\n"
         "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z -x\n"
@@ -200,14 +209,15 @@ ArgPack::cuszDoc()
         "  \n"
         "EXAMPLES\n"
         "  CESM example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
         "  Hurricane Isabel example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
-        "    ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
         "  EXAFEL example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip "
+        "huffman\n"
         "\n"
         "DOC:\n"
         "  Type \"cusz -h\" for details.\n";
@@ -225,13 +235,15 @@ ArgPack::cuszFullDoc()
         "\n"
         "*SYNOPSIS*\n"
         "        The basic use is listed below,\n"
-        "        *cusz* *-f*32 *-m* r2r *-e* 1.23e-4.56 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z -x*\n"
-        "               ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~  ^  ^\n"
-        "               |   mode   error bound        input datum file        low-to-high  |  |\n"
-        "             dtype                                                   order       zip unzip\n"
+        "        *cusz* *-f*32 *-m* r2r *-e* 1e-4 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z -x*\n"
+        // "        cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x\n"
+        "               ^  ~~~~~~ ~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~  ^  ^\n"
+        "               |   mode   error        input datum file        low-to-high  |  |\n"
+        "             dtype        bound                                order       zip unzip\n"
         "\n"
         "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z* *-x*\n"
-        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z* *-x*\n"
+        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z* "
+        "*-x*\n"
         "\n"
         "*OPTIONS*\n"
         "    *Mandatory*\n"
@@ -278,7 +290,8 @@ ArgPack::cuszFullDoc()
         "\n"
         "        *-D* or *--demo* [demo-dataset]\n"
         "                Use demo dataset, will omit given dimension(s). Supported datasets include:\n"
-        "                1D: _hacc_    2D: _cesm_  _exafeldemo_\n"
+        "                1D: _hacc_  _hacc1g_  _hacc4g_\n"
+        "                2D: _cesm_  _exafeldemo_\n"
         "                3D: _hurricane_  _nyx_  _qmc_  _qmcpre_  _aramco_\n"
         "\n"
         "    *Internal* (will be automated with configuration when going public)\n"
@@ -300,16 +313,17 @@ ArgPack::cuszFullDoc()
         "*EXAMPLES*\n"
         "    *Demo Datasets*\n"
         "        *CESM* example:\n"
-        "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
         "\n"
         "        *Hurricane Isabel* example:\n"
-        "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
-        "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
         "\n"
         "        *EXAFEL* example:\n"
-        "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-        "        ./cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip huffman\n";
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning "
+        "--skip huffman\n";
 
     cout << format(doc) << endl;
 }
@@ -438,7 +452,8 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 case '4':
                     n_dim = 4;
                     if (i + 4 <= argc) {
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]), d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                        d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
                         huffman_datalen = d0 * d1 * d2 * d3;
                     }
                     break;
@@ -588,13 +603,16 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (string(argv[i]) == "--demo") goto _DEMO;
                     if (string(argv[i]) == "--quant-rep" or string(argv[i]) == "--bcode-bitwidth") goto _BINCODE;
                     if (string(argv[i]) == "--huffman-rep" or string(argv[i]) == "--hcode-bitwidth") goto _HUFFMANCODE;
-                    if (string(argv[i]) == "--huffman-chunk" or string(argv[i]) == "--hcode-chunk") goto _HUFFMANCHUNKSIZE;
+                    if (string(argv[i]) == "--huffman-chunk" or string(argv[i]) == "--hcode-chunk")
+                        goto _HUFFMANCHUNKSIZE;
                     if (string(argv[i]) == "--eb" or string(argv[i]) == "--error-bound") goto _ERROR_BOUND;
                     if (string(argv[i]) == "--error-bound") goto _ERROR_BOUND;
                     if (string(argv[i]) == "--verify") goto _VERIFY;
                     if (string(argv[i]) == "--dict-size") goto _DICT;
                     if (string(argv[i]) == "--compress" or string(argv[i]) == "--zip") goto _COMPRESS;
-                    if (string(argv[i]) == "--decompress" or string(argv[i]) == "--extract" or string(argv[i]) == "--unzip") goto _DECOMPRESS;
+                    if (string(argv[i]) == "--decompress" or string(argv[i]) == "--extract" or
+                        string(argv[i]) == "--unzip")
+                        goto _DECOMPRESS;
                     if (string(argv[i]) == "--exclude" or string(argv[i]) == "--skip") goto _EXCLUDE;
                     if (string(argv[i]) == "--dry-run") goto _DRY_RUN;
                     if (string(argv[i]) == "--meta") goto _META;

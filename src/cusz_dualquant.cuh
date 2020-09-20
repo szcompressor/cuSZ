@@ -1,6 +1,15 @@
-//
-// Created by JianNan Tian on 9/23/19.
-//
+/**
+ * @file cusz_dualquant.cuh
+ * @author Jiannan Tian
+ * @brief Dual-Quantization method of cuSZ (header).
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 19-09-23
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #ifndef CUSZ_DUALQUANT_CUH
 #define CUSZ_DUALQUANT_CUH
@@ -12,7 +21,7 @@ extern __shared__ char scratch[];
 // extern __shared__ float s2df[][16 + 1];  // TODO double type
 // extern __shared__ float s3df[][8+ 1][8+ 1];
 
-namespace cuSZ {
+namespace cusz {
 namespace PdQ {
 
 template <typename T, typename Q, int B = 32>
@@ -49,6 +58,6 @@ template <typename T, typename Q, int B = 8>
 __global__ void x_lorenzo_3d1l(T* xdata, T* outlier, Q* bcode, size_t const* dims, double val_2eb);
 
 }  // namespace PdQ
-}  // namespace cuSZ
+}  // namespace cusz
 
 #endif

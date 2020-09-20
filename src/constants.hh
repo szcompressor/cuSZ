@@ -1,12 +1,18 @@
-//
-//  types.hh
-//
-//  Created by JianNan Tian on 6/8/19.
-//  Copyright © 2019 JianNan Tian. All rights reserved.
-//
-
 #ifndef INTERNAL_CONST_HH
 #define INTERNAL_CONST_HH
+
+/**
+ * @file constants.hh
+ * @author Jiannan Tian
+ * @brief Internal constants (header).
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2019-06-08
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #include <cstddef>
 
