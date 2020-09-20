@@ -1,6 +1,6 @@
 ﻿---
 BasedOnStyle: Chromium
-IndentWidth: '4'
+IndentWidth: 4
 ColumnLimit: 160
 BreakConstructorInitializers: AfterColon
 #AllowShortBlocksOnASingleLine: Always
