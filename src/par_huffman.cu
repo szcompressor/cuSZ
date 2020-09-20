@@ -320,10 +320,14 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
 
     if (thread == 0) {
         CCL = CL[0];
-        //CW[0] = 0;
         CDPI = 0;
         newCDPI = size - 1;
         entry[CCL] = 0;
+
+        // Edge case -- only one input symbol
+        CW[CDPI] = 0;
+        first[CCL] = CW[CDPI] ^ (((H)1 << (H)CL[CDPI]) - 1);
+        entry[CCL + 1] = 1;
     }
     current_grid.sync();
 
