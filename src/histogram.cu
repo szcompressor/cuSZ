@@ -1,11 +1,25 @@
-// Cody Rivera <cjrivera1@crimson.ua.edu>
-// Megan Hickman
+/**
+ * @file histogram.cu
+ * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp (mlhickm@g.clemson.edu)
+ * @brief Fast histogramming from [Gómez-Luna et al. 2013]
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on 2020-02-16
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 // includes CUDA Runtime
 #include <cuda_runtime.h>
+
 #include <cstdint>
 #include <cstdio>
+
 #include "histogram.cuh"
+
+using uint8__t = uint8_t;
 
 __global__ void naiveHistogram(int input_data[], int output[], int N, int symbols_per_thread)
 {
@@ -37,7 +51,7 @@ __global__ void p2013Histogram(T* input_data, Q* output, size_t N, int bins, int
     const unsigned int off_rep = (bins + 1) * (threadIdx.x % R);
 
     const unsigned int begin = (N / warps_block) * warpid + WARP_SIZE * blockIdx.x + lane;
-    unsigned int end         = (N / warps_block) * (warpid + 1);
+    unsigned int       end   = (N / warps_block) * (warpid + 1);
     const unsigned int step  = WARP_SIZE * gridDim.x;
 
     // final warp handles data outside of the warps_block partitions
@@ -61,6 +75,9 @@ __global__ void p2013Histogram(T* input_data, Q* output, size_t N, int bins, int
     }
 }
 
-template __global__ void p2013Histogram<uint8_t, unsigned int>(uint8_t* input_data, unsigned int* output, size_t N, int bins, int R);
-template __global__ void p2013Histogram<uint16_t, unsigned int>(uint16_t* input_data, unsigned int* output, size_t N, int bins, int R);
-template __global__ void p2013Histogram<uint32_t, unsigned int>(uint32_t* input_data, unsigned int* output, size_t N, int bins, int R);
+template __global__ void
+p2013Histogram<uint8__t, unsigned int>(uint8__t* input_data, unsigned int* output, size_t N, int bins, int R);
+template __global__ void
+p2013Histogram<uint16_t, unsigned int>(uint16_t* input_data, unsigned int* output, size_t N, int bins, int R);
+template __global__ void
+p2013Histogram<uint32_t, unsigned int>(uint32_t* input_data, unsigned int* output, size_t N, int bins, int R);

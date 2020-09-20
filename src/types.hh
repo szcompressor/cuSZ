@@ -1,10 +1,17 @@
-//
-//  types.hh
-//  waveSZ
-//
-//  Created by JianNan Tian on 6/8/19.
-//  Copyright © 2019 JianNan Tian. All rights reserved.
-//
+/**
+ * @file types.cc
+ * @author Jiannan Tian
+ * @brief
+ * @version 0.1
+ * @date 2020-09-20
+ * Created on: 2019-06-08
+ *
+ * @todo separate type definition and cuSZ configuration for driver program (header).
+ *
+ * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
+ *
+ */
 
 #ifndef TYPES_HH
 #define TYPES_HH
