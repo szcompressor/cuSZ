@@ -299,7 +299,7 @@ void cusz::workflow::Decompress(
     string fi_bcode_base, fi_bcode_after_huffman, fi_outlier, fi_outlier_as_cuspm;
 
     fi_bcode_base       = fi + ".b" + std::to_string(sizeof(Q) * 8);
-    fi_outlier_as_cuspm = fi_bcode_base + "outlier";
+    fi_outlier_as_cuspm = fi_bcode_base + ".outlier";
 
     auto dict_size = dims_L16[CAP];
     auto len       = dims_L16[LEN];
