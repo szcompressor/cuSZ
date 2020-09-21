@@ -74,9 +74,9 @@ Some application such as EXAFEL preprocesses with binning [^binning] in addition
 [^binning]: A current binning setting is to downsample a 2-by-2 cell to 1 point.
 
 #### disabling modules
-Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such circumstances, `--skip huffman` can be used.
+For EXAFEL, given binning and `uint8_t` have already resulted in a compression ratio of up to 16, Huffman codec may not be needed in a real-world use scenario, so Huffman codec can be skipped with `--skip huffman`.
 
-Write decompressed data to filesystem can also be skipped with `--skip write.x`. Because decompression can give a full preview of the whole workflow and writing data of the orignal size to the filesystem is long. 
+Decompression can give a full preview of the whole workflow and writing data of the orignal size to the filesystem is long, so writing decompressed data to filesystem can be skipped with `--skip write.x`. 
 
 A combination of modules can be `--skip huffman,write.x`.
 
@@ -138,15 +138,14 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 - HACC (Cosmology: particle simulation)
 - NYX (Cosmology: Adaptive mesh hydrodynamics + N-body cosmological simulation)
 
-## notes (limitation)
+## limitations of this version
 
-- For this pre-release, cuSZ can only work for 1) compression, 2) dryrun, 3) decompression right after compression (i.e. put `-z -x` together). We will make decompression a standalone use ASAP.
-- The integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2].
-- We are woking on a faster, finer-grained Huffman codec for the next version. 
-- We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next version.
-- Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating the 32-/64-bit representation for different datasets. 
+- For this release, cuSZ can only work for 1) compression, 2) dryrun, 3) decompression right after compression (i.e. put `-z -x` together). We will make decompression standalone in the next release.
+- The current integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2], however, the chunkwise bit deflating is not optimal. We are woking on a faster, finer-grained Huffman codec for the next release. 
+- We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
+- Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 
+- You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on autotuning consistent performance.
 - Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2) for more todos.  
-- You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on tuning/autotuning for consistent performance.
 
 # `changelog`
 
