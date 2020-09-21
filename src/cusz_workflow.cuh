@@ -14,7 +14,10 @@
  *
  */
 
+#include <iostream>
 #include "argparse.hh"
+
+using namespace std;
 
 namespace cusz {
 namespace workflow {
@@ -45,11 +48,7 @@ void Decompress(
 
 namespace impl {
 
-inline size_t GetEdgeOfReinterpretedSquare(size_t l)
-{
-    auto sl = static_cast<size_t>(sqrt(l));
-    return ((sl - 1) / 2 + 1) * 2;
-};
+inline size_t GetEdgeOfReinterpretedSquare(size_t l) { return static_cast<size_t>(ceil(sqrt(l))); };
 
 template <typename T, typename Q>
 void PdQ(T*, Q*, size_t*, double*);
