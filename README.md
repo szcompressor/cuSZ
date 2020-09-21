@@ -1,10 +1,10 @@
 <img src="https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg" width="150">
 
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
-=
+---
 
 * Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
-* Other Contributors: Megan Hickman, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
+* Other Contributors: Megan Hickman Fulp, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
 # citation
 **Kindly note**: If you mention cuSZ in your paper, please cite the following reference which covers the whole design and implementation of the latest version of cuSZ.
@@ -15,7 +15,6 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 ## requirements
 - NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
 - CUDA 9.2+ (recommended: CUDA 10.1+) and GCC 7+
-- CMake 3.11+
 
 ## download
 ```bash
@@ -39,15 +38,15 @@ Commands `cusz` or `cusz -h` are for instant instructions.
 The basic use cuSZ is given below.
 
 ```bash
-cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
-       ^  ~~~~~~ ~~~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^ 
-       |   mode   error bound         input datum file        demo   |  |
-     dtype                                                   datum  zip unzip
+cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x
+       ^  ~~~~~~ ~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^
+       |   mode   error         input datum file        demo   |  |
+     dtype        bound                                 data  zip unzip
 ```
 `-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
 
 ```bash
-cusz -f32 -m r2r -e 1.23e-4.56 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
+cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x
 ```
 To conduct compression, several input arguments are **necessary**,
 
@@ -62,9 +61,9 @@ To conduct compression, several input arguments are **necessary**,
 ### tuning
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
 
-- `-Q` or `--quant-rep` or `--bcode-bitwidth <8|16|32>` to specify bincode/quant. code representation. Options 8, 16, 32 are for `uint8_t`, `uint16_t`, `uint32_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-H` or `--huffman-rep` or `--hcode-bitwidth <32|64>` to specify Huffman codeword representation. Options 32, 64 are for `uint32_t`, `uint64_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-C` or `--huffman-chunk` or `--hcode-chunk [256|512|1024|...]` to specify chunk size for Huffman codec. Should be a power-of-2 that is sufficiently large. (This affects Huffman decoding performance *significantly*.)
+- `-Q` or `--quant-rep`  to specify bincode/quant. code representation. Options `<8|16|32>` are for `uint8_t`, `uint16_t`, `uint32_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
+- `-H` or `--huffman-rep`  to specify Huffman codeword representation. Options `<32|64>` are for `uint32_t`, `uint64_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
+- `-C` or `--huffman-chunk`  to specify chunk size for Huffman codec. Should be a power-of-2 that is sufficiently large (`[256|512|1024|...]`). (This affects Huffman decoding performance *significantly*.)
 
 
 ### extension and use scenarios
@@ -72,11 +71,14 @@ There are also internal a) quant. code representation, b) Huffman codeword repre
 #### preprocess 
 Some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec.
 
-[^binning]: A current binning setting is to downsample a 4-by-4 cell to 1 point.
-
+[^binning]: A current binning setting is to downsample a 2-by-2 cell to 1 point.
 
 #### disabling modules
 Also according to EXAFEL, given binning and `uint8_t` have already result in a compression ratio of up to 16, Huffman codec may not be expected in a real-world use scenario. In such circumstances, `--skip huffman` can be used.
+
+Write decompressed data to filesystem can also be skipped with `--skip write.x`. Because decompression can give a full preview of the whole workflow and writing data of the orignal size to the filesystem is long. 
+
+A combination of modules can be `--skip huffman,write.x`.
 
 Other module skipping for use scenarios are in development.
 
@@ -136,23 +138,22 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 - HACC (Cosmology: particle simulation)
 - NYX (Cosmology: Adaptive mesh hydrodynamics + N-body cosmological simulation)
 
-## notes
+## notes (limitation)
 
+- For this pre-release, cuSZ can only work for 1) compression, 2) dryrun, 3) decompression right after compression (i.e. put `-z -x` together). We will make decompression a standalone use ASAP.
 - The integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2].
 - We are woking on a faster, finer-grained Huffman codec for the next version. 
 - We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next version.
 - Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating the 32-/64-bit representation for different datasets. 
 - Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2) for more todos.  
-
-## known issue
-Checked marker denotes issue resolved.
-- [ ] [Sept 18, 2020] (**major**) 1-GB HACC `xx.f32` exposes a bug.
-- [ ] [Sept 18, 2020] (**major**) all variables in 1-GB HACC do not work with new `feature/gather-scatter` branch merge. 
-
+- You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on tuning/autotuning for consistent performance.
 
 # `changelog`
 
 September, 2020
+- `feature` use cuSPARSE `prune2csr` and `csr2dense` to handle outlier
+- `fix` raise error when Huffman code is longer than 32 bits
+- `fix` histograming error
 - `deploy` fix pSZ
 - `feature` integrate parallel build Huffman codebook
 - `doc` update help doc
@@ -160,6 +161,7 @@ September, 2020
 - `doc` update acknowledgement
 
 August, 2020
+- `deploy` `sm_75` for Turing.
 
 July, 2020
 - `doc` add a new NSF grant
@@ -208,7 +210,7 @@ February, 2020
 
 [2]
 : Barnett, Mark L. "Canonical Huffman encoded data decompression algorithm." U.S. Patent 6,657,569, issued December 2, 2003.
- 
+
 # acknowledgement
 This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
 
