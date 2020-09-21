@@ -67,9 +67,7 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
     // fits to size
     int threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
     while (threadsPerBlock > 1024) {
-        if (RPerBlock <= 1) {
-            threadsPerBlock = 1024;
-        }
+        if (RPerBlock <= 1) { threadsPerBlock = 1024; }
         else {
             RPerBlock /= 2;
             numBlocks *= 2;
@@ -153,9 +151,8 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
 
     // --------------------------------
     // this is for internal evaluation, not in sz archive
-    auto cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
-    io::WriteBinaryFile(cb_dump, dict_size, new string(f_in + ".canonized"));
-
+    // auto cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
+    // io::WriteBinaryFile(cb_dump, dict_size, new string(f_in + ".canonized"));
     // --------------------------------
 
     // fix-length space

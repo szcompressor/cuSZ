@@ -239,7 +239,7 @@ void cusz::workflow::Compress(
     int    bw         = sizeof(Q) * 8;
     string fo_cdata   = fi + ".sza";
     string fo_bcode   = fi + ".b" + std::to_string(bw);
-    string fo_outlier = fi + ".b" + std::to_string(bw) + "outlier_new";
+    string fo_outlier = fi + ".b" + std::to_string(bw) + ".outlier";
 
     // TODO to use a struct
     size_t len = dims_L16[LEN];
@@ -299,7 +299,7 @@ void cusz::workflow::Decompress(
     string fi_bcode_base, fi_bcode_after_huffman, fi_outlier, fi_outlier_as_cuspm;
 
     fi_bcode_base       = fi + ".b" + std::to_string(sizeof(Q) * 8);
-    fi_outlier_as_cuspm = fi_bcode_base + "outlier_new";
+    fi_outlier_as_cuspm = fi_bcode_base + "outlier";
 
     auto dict_size = dims_L16[CAP];
     auto len       = dims_L16[LEN];
