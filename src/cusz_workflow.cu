@@ -301,10 +301,10 @@ void cusz::workflow::Decompress(
     fi_bcode_base       = fi + ".b" + std::to_string(sizeof(Q) * 8);
     fi_outlier_as_cuspm = fi_bcode_base + "outlier_new";
 
-    auto dict_size   = dims_L16[CAP];
-    auto len         = dims_L16[LEN];
-    auto padded_edge = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
-    auto padded_len  = padded_edge * padded_edge;
+    auto dict_size = dims_L16[CAP];
+    auto len       = dims_L16[LEN];
+    auto m         = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
+    auto mxm       = m * m;
 
     cout << log_info << "Commencing decompression..." << endl;
 
@@ -324,10 +324,8 @@ void cusz::workflow::Decompress(
     }
     auto d_bcode = mem::CreateDeviceSpaceAndMemcpyFromHost(xbcode, len);
 
-    auto d_outlier = mem::CreateCUDASpace<T>(padded_len);
-    ::cusz::impl::ScatterFromCSR<T>(
-        d_outlier, padded_len, padded_edge /*lda*/, padded_edge /*m*/, padded_edge /*n*/, &nnz_outlier,
-        &fi_outlier_as_cuspm);
+    auto d_outlier = mem::CreateCUDASpace<T>(mxm);
+    ::cusz::impl::ScatterFromCSR<T>(d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &fi_outlier_as_cuspm);
 
     // TODO merge d_outlier and d_data
     auto d_xdata = mem::CreateCUDASpace<T>(len);
@@ -345,7 +343,7 @@ void cusz::workflow::Decompress(
                         + huffman_metadata_size;  // chunking metadata and reverse codebook
     else
         archive_size += len * sizeof(Q);
-    archive_size += nnz_outlier * (sizeof(T) + sizeof(int));
+    archive_size += nnz_outlier * (sizeof(T) + sizeof(int)) + (m + 1) * sizeof(int);
 
     // TODO g++ and clang++ use mangled type_id name, add macro
     // https://stackoverflow.com/a/4541470/8740097
