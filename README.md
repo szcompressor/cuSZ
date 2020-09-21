@@ -143,10 +143,11 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 - EXAALT (Molecular dynamics simulation)
 - HACC (Cosmology: particle simulation)
 - NYX (Cosmology: Adaptive mesh hydrodynamics + N-body cosmological simulation)
+- EXAFEL (Images from the LCLS instrument)
 
 ## limitations of this version
 
-- For this release, cuSZ can only work for 1) compression, 2) dryrun, 3) decompression right after compression (i.e. put `-z -x` together). We will make decompression standalone in the next release.
+- For this release, cuSZ only works for three execution modes: 1) compression, 2) dryrun, 3) decompression right after compression (i.e. put `-z -x` together). We will make decompression standalone in the next release.
 - For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
 - For this release, compressed data is saved in four files, including `.cHcb` file for canonical codebook (for decompression), `.dh` file for Huffman bitstream, `.hmeata` file for chucked Huffman bitstream metadata, and `.outlier` file for unpredicted data with its metadata (in `CSR` format). Moreover, if you use `--skip huffman`, `uint<8|16|32>_t` quantization codes are saved in `.b<8|16|32>` file. We will change the compressed format in the next release. 
 - The current integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2], however, the chunkwise bit deflating is not optimal. We are woking on a faster, finer-grained Huffman codec for the future release. 
