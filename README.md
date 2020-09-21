@@ -3,6 +3,10 @@
 cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 ---
 
+cuSZ is a CUDA implementation of the world-widely used [SZ lossy compressor](https://github.com/szcompressor/SZ). It is the first error-bounded lossy compressor on GPUs for scientific data, which significantly improves SZ's throughput in GPU-based heterogeneous HPC systems. 
+
+(C) 2020 by Washington State University and Argonne National Laboratory. See COPYRIGHT in top-level directory.
+
 * Major Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
 * Other Contributors: Megan Hickman Fulp, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
 
@@ -10,6 +14,8 @@ cuSZ: A GPU Accelerated Error-Bounded Lossy Compressor for Scientific Data
 **Kindly note**: If you mention cuSZ in your paper, please cite the following reference which covers the whole design and implementation of the latest version of cuSZ.
 
 * Jiannan Tian, Sheng Di, Kai Zhao, Cody Rivera, Megan Hickman Fulp, Robert Underwood, Sian Jin, Xin Liang, Jon Calhoun, Dingwen Tao, Franck Cappello. "[cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data](https://arxiv.org/abs/2007.09625)", in Proceedings of the 29th International Conference on Parallel Architectures and Compilation Techniques (PACT), Atlanta, GA, USA, 2020.
+
+This document simply introduces how to install and use the cuSZ compressor on NVIDIA GPUs. More details can be found in doc/cusz-doc.pdf.
 
 # set up
 ## requirements
