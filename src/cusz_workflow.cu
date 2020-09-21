@@ -246,7 +246,7 @@ void cusz::workflow::Compress(
     auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
     auto   mxm = m * m;
 
-    // cout << log_dbg << "padded edge:\t" << m << "\tmxm:\t" << mxm<< endl;
+    cout << log_dbg << "original len: " << len << ", m the padded: " << m << ", mxm: " << mxm << endl;
 
     auto data = new T[mxm]();
     io::ReadBinaryFile<T>(fi, data, len);
