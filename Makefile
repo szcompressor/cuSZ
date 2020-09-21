@@ -13,10 +13,20 @@ OBJ_DIR   := src
 BIN_DIR   := bin
 
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
-# CUDA versions prior to 10.0 require this to be commented out
 GPU_TURING:= -gencode=arch=compute_75,code=sm_75
 GPU_AMPERE:= -gencode=arch=compute_80,code=sm_80
-DEPLOY    := $(GPU_VOLTA) $(GPU_TURING)
+DEPLOY    := $(GPU_VOLTA)
+
+CUDA_MAJV := $(shell nvcc --version | grep "release" | \
+               awk '{print $$6}' | cut -c2- | cut -d. -f1)
+
+ifeq ($(shell test $(CUDA_MAJV) -ge 10; echo $$?), 0)
+  DEPLOY += $(GPU_TURING)
+endif
+
+ifeq ($(shell test $(CUDA_MAJV) -ge 11; echo $$?), 0)
+  DEPLOY += $(GPU_AMPERE)
+endif
 
 CCFLAGS   := $(STD) -O3
 NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr
