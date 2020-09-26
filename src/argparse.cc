@@ -117,17 +117,21 @@ ArgPack::CheckArgs()
         to_abort = true;
     }
     if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
-        cerr << log_err << "Wrong input size(s)!" << endl;
-        to_abort = true;
+        if (this->to_archive or this->dry_run) {
+            cerr << log_err << "Wrong input size(s)!" << endl;
+            to_abort = true;
+        }
     }
     if (!to_archive and !to_extract and !dry_run) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
-        cout << dtype << endl;
-        cerr << log_err << "Not specifying data type!" << endl;
-        to_abort = true;
+        if (this->to_archive or this->dry_run) {
+            cout << dtype << endl;
+            cerr << log_err << "Not specifying data type!" << endl;
+            to_abort = true;
+        }
     }
 
     if (quant_rep == 8) {  // TODO
@@ -163,7 +167,7 @@ ArgPack::CheckArgs()
 void  //
 ArgPack::HuffmanDoc()
 {
-    string instruction =
+    const string instruction =
         "\n"
         "OVERVIEW: Huffman submodule as standalone program\n"  // TODO from this line on
         "\n"
@@ -189,61 +193,71 @@ ArgPack::HuffmanDoc()
 void  //
 ArgPack::cuszDoc()
 {
-    string instruction =
+    const string instruction =
         "\n"
-        "OVERVIEW: cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
+        "OVERVIEW: cuSZ: CUDA-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
         "\n"
         "USAGE:\n"
-        "  The basic use with demo datum is listed below,\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "                 ^  ~~~~~~ ~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~  ^  ^\n"
-        "                 |   mode   error         input datum file        demo   |  |\n"
-        "               dtype        bound                                 data  zip unzip\n"
+        "  The basic use with demo datum is listed below (zip and unzip),\n"
+        "    ./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z \n"
+        "                 |  ------ ----------- ---------------------------- -------  | \n"
+        "               dtype mode  error bound        input datum file        demo   zip \n"
+        //        "               dtype        bound                                 data  zip\n"
         "\n"
-        "  compress and extract, demo dataset:\n"
-        "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z -x\n"
-        "    (change \"-z -x\" to \"-r\" for dry run)\n"
-        "  compress and extract, arbitrary datum:\n"
-        "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -1|-2|-3 [nx [ny [nz]] -z -x\n"
-        "    (change \"-z -x\" to \"-r\" for dry run)\n"
-        "  \n"
+        "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
+        "               ----------------------------  |\n"
+        "               corresponding datum basename  unzip\n"
+        "\n"
+        "  compress a datum of demo dataset: \n"
+        "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z\n"
+        "  compress a datum by specifying dimensions: \n"
+        "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -1|-2|-3 [nx [ny [nz]] -z\n"
+        "  decompress:\n"
+        "    cusz -i [corresponding datum basename] -x\n"
+        "\n"
         "EXAMPLES\n"
         "  CESM example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
+        "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
         "  Hurricane Isabel example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z\n"
+        "    ./bin/cusz -i ./data/sample-hurr-CLOUDf48 -x\n"
         "  EXAFEL example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning --skip "
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z --pre binning\n"
+        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z --pre binning --skip "
         "huffman\n"
+        "    ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n"
         "\n"
         "DOC:\n"
-        "  Type \"cusz -h\" for details.\n";
+        "  Type \"cusz -h\" for details.\n"
+        "\n";
     cout << instruction << endl;
 }
 
 void  //
 ArgPack::cuszFullDoc()
 {
-    string doc =
+    const string doc =
         "*NAME*\n"
-        "        cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
+        "        cuSZ: CUDA-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
         "        Lowercased \"*cusz*\" is the command."
         //"        cusz - a GPU-accelerated error-bounded lossy compressor for scientific data.\n"
         "\n"
         "*SYNOPSIS*\n"
         "        The basic use is listed below,\n"
-        "        *cusz* *-f*32 *-m* r2r *-e* 1e-4 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z -x*\n"
-        // "        cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z -x\n"
-        "               ^  ~~~~~~ ~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~  ^  ^\n"
-        "               |   mode   error        input datum file        low-to-high  |  |\n"
-        "             dtype        bound                                order       zip unzip\n"
+        "        *cusz* *-f*32 *-m* r2r *-e* 1e-4 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z*\n"
+        "               ^  ------ ------- ---------------------------- ------------  ^ \n"
+        "               |   mode   error        input datum file        low-to-high  | \n"
+        "             dtype        bound                                  (x-y-z)   zip\n"
         "\n"
-        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z* *-x*\n"
-        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z* "
-        "*-x*\n"
+        "        *cusz* *-i* ./data/sample-cesm-CLDHGH *-x*\n"
+        "             ----------------------------  ^\n"
+        "             corresponding datum basename  unzip\n"
+        //"             dtype        bound                                order       zip unzip\n"
+        "\n"
+        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z*\n"
+        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z*\n"
+        "        *cusz* *-i* [datum basename] *-x*\n"
         "\n"
         "*OPTIONS*\n"
         "    *Mandatory*\n"
@@ -313,17 +327,21 @@ ArgPack::cuszFullDoc()
         "*EXAMPLES*\n"
         "    *Demo Datasets*\n"
         "        *CESM* example:\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
+        "        ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
         "\n"
         "        *Hurricane Isabel* example:\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z -x\n"
+        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z\n"
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
+        "        ./bin/cusz -i ./data/sample-hurr-CLOUDf48 -x\n"
         "\n"
         "        *EXAFEL* example:\n"
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning "
-        "--skip huffman\n";
+        "--skip huffman\n"
+        "        ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n"
+        "\n";
 
     cout << format(doc) << endl;
 }
@@ -468,9 +486,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // ----------------------------------------------------------------
                 case 'i':
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) {
-                        fname = string(argv[++i]);
-                    }
+                    if (i + 1 <= argc) { fname = string(argv[++i]); }
                     break;
                 case 'R':
                 _REP:
@@ -658,9 +674,7 @@ ArgPack::ArgPack(int argc, char** argv)
                 // ----------------------------------------------------------------
                 case '1':
                     n_dim = 1;
-                    if (i + 1 <= argc) {
-                        d0 = str2int(argv[++i]);
-                    }
+                    if (i + 1 <= argc) { d0 = str2int(argv[++i]); }
                     break;
                 case '2':
                     n_dim = 2;
@@ -724,16 +738,12 @@ ArgPack::ArgPack(int argc, char** argv)
                     //                        break;
                     //                    }
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) {
-                        fname = string(argv[++i]);
-                    }
+                    if (i + 1 <= argc) { fname = string(argv[++i]); }
                     break;
                     // alternative output
                 case 'o':
                 _OUT:
-                    if (i + 1 <= argc) {
-                        alt_xout_name = string(argv[++i]);
-                    }
+                    if (i + 1 <= argc) { alt_xout_name = string(argv[++i]); }
                     break;
                 // preprocess
                 case 'p':

@@ -202,6 +202,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
 
     // copy back densely Huffman code in units of uInt (regarding endianness)
+    // TODO reinterpret_cast
     auto h = new H[total_uInts]();
     for (auto i = 0; i < n_chunk; i++) {
         cudaMemcpy(
@@ -213,12 +214,12 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     // dump bit_meta and uInt_meta
     io::WriteBinaryFile(h_meta + n_chunk, (2 * n_chunk), new string(f_in + ".hmeta"));
     // write densely Huffman code and its metadata
-    io::WriteBinaryFile(h, total_uInts, new string(f_in + ".dh"));
+    io::WriteBinaryFile(h, total_uInts, new string(f_in + ".hbyte"));
     // to save first, entry and keys
     io::WriteBinaryFile(                                    //
         reinterpret_cast<uint8_t*>(decode_meta),            //
         sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size,  // first, entry, reversed dict (keys)
-        new string(f_in + ".cHcb"));
+        new string(f_in + ".canon"));
 
     size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))              //
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
@@ -247,11 +248,11 @@ Q* HuffmanDecode(
 {
     auto type_bw             = sizeof(H) * 8;
     auto canonical_meta      = sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;
-    auto canonical_singleton = io::ReadBinaryFile<uint8_t>(f_bcode_base + ".cHcb", canonical_meta);
+    auto canonical_singleton = io::ReadBinaryFile<uint8_t>(f_bcode_base + ".canon", canonical_meta);
     cudaDeviceSynchronize();
 
     auto n_chunk  = (len - 1) / chunk_size + 1;
-    auto hcode    = io::ReadBinaryFile<H>(f_bcode_base + ".dh", total_uInts);
+    auto hcode    = io::ReadBinaryFile<H>(f_bcode_base + ".hbyte", total_uInts);
     auto dH_meta  = io::ReadBinaryFile<size_t>(f_bcode_base + ".hmeta", 2 * n_chunk);
     auto blockDim = tBLK_DEFLATE;  // the same as deflating
     auto gridDim  = (n_chunk - 1) / blockDim + 1;
