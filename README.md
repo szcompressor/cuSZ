@@ -161,7 +161,7 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 - For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
 - The compression ratio of current cuSZ may be different from SZ on CPU. Unlike SZ, cuSZ so far does not include an LZ-based lossless compression as the last step for compression throughput consideration; in other words, the compression ratio is up to 32. We are working on an efficient LZ-based lossless compression to be integrated into cuSZ in the future release.
 - For this release, compressed data is saved in four files, including `.cHcb` file for canonical codebook (for decompression), `.dh` file for Huffman bitstream, `.hmeata` file for chucked Huffman bitstream metadata, and `.outlier` file for unpredicted data with its metadata (in `CSR` format). Moreover, if you use `--skip huffman`, `uint<8|16|32>_t` quantization codes are saved in `.b<8|16|32>` file. We will change the compressed format in the next release. 
-- The current integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2], however, the chunkwise bit deflating is not optimal. We are woking on a faster, finer-grained Huffman codec for the future release. 
+- The current integrated Huffman codec runs with efficient histogramming [1], parallel Huffman codebook building [2], memory-copy style encoding, chunkwise bit deflating, and efficient Huffman decoding using canonical codes [3]. However, the chunkwise bit deflating is not optimal, so we are woking on a faster, finer-grained Huffman codec for the future release. 
 - We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
 - Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 
 - You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on autotuning consistent performance.
@@ -170,10 +170,13 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 # references
 
 [1] 
-: Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
+Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
 
 [2]
-Schwartz, Eugene S., and Bruce Kallick. "Generating a canonical prefix encoding." Communications of the ACM 7, no. 3 (1964): 166-169.
+Ostadzadeh, S. Arash, B. Maryam Elahi, Zeinab Zeinalpour, M. Amir Moulavi, and Koen Bertels. "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes." In PDPTA, pp. 284-291. 2007.
+
+[3]
+Klein, Shmuel T. "Space-and time-efficient decoding with canonical huffman trees." In Annual Symposium on Combinatorial Pattern Matching, pp. 65-75. Springer, Berlin, Heidelberg, 1997.
 
 # acknowledgements
 This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
