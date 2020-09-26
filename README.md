@@ -21,17 +21,16 @@ This document simply introduces how to install and use the cuSZ compressor on NV
 ## requirements
 - NVIDIA GPU with Pascal (in progress), Volta, or Turing microarchitectures 
 - Minimum: CUDA 9.2+ and GCC 7+ (with C++14 support)
-  - See our tested compilations in the table below.
-  - Note that CUDA version is referred to as toolchain verion (e.g., activiated via `module load`), whereas CUDA runtime version can be lower than that (corresponding to SM).
-  - See more details about compilers [here](https://gist.github.com/ax3l/9489132).
-
-| GPU       | arch   | SM  | CUDA ver. | gcc ver. |
-| --------- | ------ | --- | --------- | -------- |
-| V100      | Volta  | 70  | 9.2       | 7.3      |
-|           |        |     | 10.2      | 7.3/8.4  |
-| RTX 5000  | Turing | 75  | 10.1      | 7.3/8.3  |
-| RTX 2060S | Turing | 75  | 11.0      | 9.3      |
-
+  - The below table shows our tested GPUs, CUDA versions, and compilers.
+  - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
+  - Please refer to [link](https://gist.github.com/ax3l/9489132) for more details about different CUDA versions and their required compilers.
+  
+| GPU       | microarch   | SM  | CUDA version | gcc version |
+| --------- | ----------- | --- | ------------ | ----------- |
+| V100      | Volta       | 70  | 9.2          | 7.3         |
+|           |             |     | 10.2         | 7.3/8.4     |
+| RTX 5000  | Turing      | 75  | 10.1         | 7.3/8.3     |
+| RTX 2060S | Turing      | 75  | 11.0         | 9.3         |
 
 
 ## download
