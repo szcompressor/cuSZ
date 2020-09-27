@@ -11,6 +11,7 @@
  *
  */
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -21,26 +22,27 @@
 #include "cusz_workflow.cuh"
 #include "filter.cuh"
 #include "io.hh"
+#include "pack.hh"
 #include "types.hh"
 
 using std::string;
 
 template <typename T, int DS, int tBLK>
-T* pre_binning(T* d, size_t* dims_L16)
+T* pre_binning(T* d, size_t* dim_array)
 {
-    auto d0      = dims_L16[DIM0];
-    auto d1      = dims_L16[DIM1];
-    auto d2      = dims_L16[DIM2];
-    auto d3      = dims_L16[DIM3];
+    auto d0      = dim_array[DIM0];
+    auto d1      = dim_array[DIM1];
+    auto d2      = dim_array[DIM2];
+    auto d3      = dim_array[DIM3];
     auto len     = d0 * d1 * d2 * d3;
-    auto new_d0  = (dims_L16[DIM0] - 1) / DS + 1;
-    auto new_d1  = (dims_L16[DIM1] - 1) / DS + 1;
-    auto new_d2  = (dims_L16[DIM2] - 1) / DS + 1;
-    auto new_d3  = (dims_L16[DIM3] - 1) / DS + 1;
+    auto new_d0  = (dim_array[DIM0] - 1) / DS + 1;
+    auto new_d1  = (dim_array[DIM1] - 1) / DS + 1;
+    auto new_d2  = (dim_array[DIM2] - 1) / DS + 1;
+    auto new_d3  = (dim_array[DIM3] - 1) / DS + 1;
     auto new_len = new_d0 * new_d1 * new_d2 * new_d3;
 
     size_t new_dims[] = {new_d0, new_d1, new_d2, new_d3};
-    SetDims(dims_L16, new_dims);
+    SetDims(dim_array, new_dims);
 
     auto d_d  = mem::CreateDeviceSpaceAndMemcpyFromHost(d, len);
     auto d_ds = mem::CreateCUDASpace<T>(new_len);
@@ -58,106 +60,112 @@ int main(int argc, char** argv)
 {
     auto ap = new argpack(argc, argv);
 
-    auto dims_L16 = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
+    size_t* dim_array   = nullptr;
+    double* eb_array    = nullptr;
+    int     nnz_outlier = 0;
+    size_t  total_bits, total_uInt, huff_meta_size;
+
+    if (ap->to_archive or ap->to_dryrun) {
+        dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
 
-    cout << log_info;
-    printf(
-        "datum:\t\t%s (%lu bytes) of type %s\n", ap->fname.c_str(),
-        dims_L16[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
+        cout << log_info;
+        printf(
+            "datum:\t\t%s (%lu bytes) of type %s\n", ap->cx_path2file.c_str(),
+            dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
-    auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
-    if (ap->mode == "r2r") {  // TODO change to faster getting range
-        auto valrng = GetDatumValueRange<float>(ap->fname, dims_L16[LEN]);
-        eb_config->ChangeToRelativeMode(valrng);
+        auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
+        if (ap->mode == "r2r")
+            eb_config->ChangeToRelativeMode(GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]));
+        // eb_config->debug();
+        eb_array = InitializeErrorBoundFamily(eb_config);
+
+        cout << log_dbg << "\e[1muint" << ap->quant_rep << "_t\e[0m to represent quant. code, \e[1muint"
+             << ap->huffman_rep << "_t\e[0m internal Huffman bitstream" << endl;
     }
-    eb_config->debug();
-    auto   ebs_L4      = InitializeErrorBoundFamily(eb_config);
-    int    num_outlier = 0;
-    size_t total_bits, total_uInt, huffman_metadata_size;
-
-    cout << log_dbg << "\e[1m"
-         << "uint" << ap->quant_rep << "_t"
-         << "\e[0m"
-         << " to represent quant. code, "
-         << "\e[1m"
-         << "uint" << ap->huffman_rep << "_t"
-         << "\e[0m"
-         << " internal Huffman bitstream" << endl;
 
     if (ap->pre_binning) {
-        auto data      = io::ReadBinaryFile<float>(ap->fname, dims_L16[LEN]);
-        auto d_binning = pre_binning<float, 2, 32>(data, dims_L16);
-        auto binning   = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dims_L16[LEN]);
-        ap->fname      = ap->fname + "-binning";
-        io::WriteBinaryFile(binning, dims_L16[LEN], &ap->fname);
+        auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
+        auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
+        auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
+        ap->cx_path2file = ap->cx_path2file + ".BN";
+        io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
 
         cudaFree(d_binning);
         delete[] data;
         delete[] binning;
     }
 
-    // TODO change to compress and decompress
-    // NOTE -- Jiannan (or whoever else), this is just a temp. change for testing -- replace these changes with your
-    // changes when merging
-    if (ap->to_archive or ap->dry_run) {  // including dry run
-                                          //        if (ap->dtype == "f32") {
+    if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
         if (ap->quant_rep == 8) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Compress<float, uint8_t, uint32_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint8_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Compress<float, uint8_t, uint64_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint8_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_rep == 16) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Compress<float, uint16_t, uint32_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint16_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Compress<float, uint16_t, uint64_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint16_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
-        else if (ap->quant_rep == 32) {
-            if (ap->huffman_rep == 32)
-                cusz::workflow::Compress<float, uint32_t, uint32_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-            else
-                cusz::workflow::Compress<float, uint32_t, uint64_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-        }
-        //        }
+
+        // pack metadata
+        auto mp = new metadata_pack();
+        PackMetadata(ap, mp, nnz_outlier, dim_array, eb_array);
+        mp->total_bits     = total_bits;
+        mp->total_uInt     = total_uInt;
+        mp->huff_meta_size = huff_meta_size;
+
+        auto mp_byte = reinterpret_cast<char*>(mp);
+        // yet another metadata package
+        io::WriteArrayToBinary(ap->c_fo_yamp, mp_byte, sizeof(metadata_pack));
+
+        delete mp;
     }
 
-    if (ap->to_extract) {
-        //        if (ap->dtype == "f32") {
+    {
+        // reset anyway
+        // TODO shared pointer
+        if (dim_array) memset(dim_array, 0, sizeof(size_t) * 16);
+        if (eb_array) memset(eb_array, 0, sizeof(double) * 4);
+    }
+
+    if (ap->to_extract) {  // fp32 only for now
+
+        // unpack metadata
+        auto mp_byte = io::ReadBinaryToNewArray<char>(ap->x_fi_yamp, sizeof(metadata_pack));
+        auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
+        if (not dim_array) dim_array = new size_t[16];
+        if (not eb_array) eb_array = new double[4];
+        UnpackMetadata(ap, mp, nnz_outlier, dim_array, eb_array);
+        total_bits     = mp->total_bits;
+        total_uInt     = mp->total_uInt;
+        huff_meta_size = mp->huff_meta_size;
+
         if (ap->quant_rep == 8) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Decompress<float, uint8_t, uint32_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint8_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Decompress<float, uint8_t, uint64_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint8_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_rep == 16) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Decompress<float, uint16_t, uint32_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint16_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Decompress<float, uint16_t, uint64_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-        }
-        else if (ap->quant_rep == 32) {
-            if (ap->huffman_rep == 32)
-                cusz::workflow::Decompress<float, uint32_t, uint32_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-            else
-                cusz::workflow::Decompress<float, uint32_t, uint64_t>  //
-                    (ap->fname, dims_L16, ebs_L4, num_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint16_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
     }
 
-    delete[] dims_L16;
-    delete[] ebs_L4;
-    delete eb_config;
+    delete[] dim_array;
+    delete[] eb_array;
+    // delete eb_config;
 }

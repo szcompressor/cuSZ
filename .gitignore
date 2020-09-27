@@ -4,22 +4,28 @@ psz3d
 cusz
 huff
 
+*.sza
 *.szx
-*.dh
-*.hmeta
-*binning
-*.cHcb
-*.canonized
-*outlier
-*outlier_new
 *.b8
 *.b16
 *.b32
+
+*.yamp
+*.hbyte
+*.hmeta
+*.canon
+*.outlier
+*.BN
+
+*.canonized
+
 
 data/4lossless
 
 cmake-build-debug
 cmake-build-release
+build/
+CMakeFiles
 
 src/*.dylib
 src/*.o
@@ -30,3 +36,8 @@ src/*.o
 .idea/
 .vs/
 .vscode/
+
+a.out
+tags
+*.o
+data/*.out
