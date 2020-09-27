@@ -30,6 +30,8 @@ typedef struct MetadataPackage {
     int huffman_rep;
     int huffman_chunk;
 
+    bool skip_huffman;
+
     DataType dtype;  // TODO f64 support
 
     int cb_bytesize;       // TODO for single binary
@@ -52,6 +54,7 @@ void PackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array, d
     mp->quant_rep     = ap->quant_rep;
     mp->huffman_rep   = ap->huffman_rep;
     mp->huffman_chunk = ap->huffman_chunk;
+    mp->skip_huffman  = ap->skip_huffman;
 
     // TODO type trait
 }
@@ -69,6 +72,7 @@ void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array,
     ap->quant_rep     = mp->quant_rep;
     ap->huffman_rep   = mp->huffman_rep;
     ap->huffman_chunk = mp->huffman_chunk;
+    ap->skip_huffman  = mp->skip_huffman;
 }
 
 #endif
