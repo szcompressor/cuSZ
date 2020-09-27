@@ -212,14 +212,15 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
             cudaMemcpyDeviceToHost);
     }
     // dump bit_meta and uInt_meta
-    io::WriteBinaryFile(h_meta + n_chunk, (2 * n_chunk), new string(f_in + ".hmeta"));
+    io::WriteArrayToBinary(f_in + ".hmeta", h_meta + n_chunk, (2 * n_chunk));
     // write densely Huffman code and its metadata
-    io::WriteBinaryFile(h, total_uInts, new string(f_in + ".hbyte"));
+    io::WriteArrayToBinary(f_in + ".hbyte", h, total_uInts);
     // to save first, entry and keys
-    io::WriteBinaryFile(                                    //
-        reinterpret_cast<uint8_t*>(decode_meta),            //
-        sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size,  // first, entry, reversed dict (keys)
-        new string(f_in + ".canon"));
+    io::WriteArrayToBinary(
+        f_in + ".canon",                                   //
+        reinterpret_cast<uint8_t*>(decode_meta),           //
+        sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size  // first, entry, reversed dict (keys)
+    );
 
     size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))              //
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t

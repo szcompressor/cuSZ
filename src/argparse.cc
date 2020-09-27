@@ -60,7 +60,7 @@ void  //
 ArgPack::HuffmanCheckArgs()
 {
     bool to_abort = false;
-    if (fname.empty()) {
+    if (cx_path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
@@ -68,7 +68,7 @@ ArgPack::HuffmanCheckArgs()
         cerr << log_err << "Wrong input size(s)!" << endl;
         to_abort = true;
     }
-    if (!to_encode and !to_decode and !dry_run) {
+    if (!to_encode and !to_decode and !to_dryrun) {
         cerr << log_err << "Select encode (-a), decode (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
@@ -85,18 +85,18 @@ ArgPack::HuffmanCheckArgs()
         assert(dict_size <= 65536);
     }
 
-    if (dry_run and to_encode and to_decode) {
+    if (to_dryrun and to_encode and to_decode) {
         cerr << log_warn << "No need to dry-run, encode and decode at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
         to_encode = false;
         to_decode = false;
     }
-    else if (dry_run and to_encode) {
+    else if (to_dryrun and to_encode) {
         cerr << log_warn << "No need to dry-run and encode at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
         to_encode = false;
     }
-    else if (dry_run and to_decode) {
+    else if (to_dryrun and to_decode) {
         cerr << log_warn << "No need to dry-run and decode at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
         to_decode = false;
@@ -112,22 +112,22 @@ void  //
 ArgPack::CheckArgs()
 {
     bool to_abort = false;
-    if (fname.empty()) {
+    if (cx_path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
     if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
-        if (this->to_archive or this->dry_run) {
+        if (this->to_archive or this->to_dryrun) {
             cerr << log_err << "Wrong input size(s)!" << endl;
             to_abort = true;
         }
     }
-    if (!to_archive and !to_extract and !dry_run) {
+    if (!to_archive and !to_extract and !to_dryrun) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
-        if (this->to_archive or this->dry_run) {
+        if (this->to_archive or this->to_dryrun) {
             cout << dtype << endl;
             cerr << log_err << "Not specifying data type!" << endl;
             to_abort = true;
@@ -141,18 +141,18 @@ ArgPack::CheckArgs()
         assert(dict_size <= 65536);
     }
 
-    if (dry_run and to_archive and to_extract) {
+    if (to_dryrun and to_archive and to_extract) {
         cerr << log_warn << "No need to dry-run, compress and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
         to_archive = false;
         to_extract = false;
     }
-    else if (dry_run and to_archive) {
+    else if (to_dryrun and to_archive) {
         cerr << log_warn << "No need to dry-run and compress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
         to_archive = false;
     }
-    else if (dry_run and to_extract) {
+    else if (to_dryrun and to_extract) {
         cerr << log_warn << "No need to dry-run and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
         to_extract = false;
@@ -195,7 +195,7 @@ ArgPack::cuszDoc()
 {
     const string instruction =
         "\n"
-        "OVERVIEW: cuSZ: CUDA-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
+        "OVERVIEW: cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data\n"
         "\n"
         "USAGE:\n"
         "  The basic use with demo datum is listed below (zip and unzip),\n"
@@ -206,14 +206,14 @@ ArgPack::cuszDoc()
         "\n"
         "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
         "               ----------------------------  |\n"
-        "               corresponding datum basename  unzip\n"
+        "               corresponding datum cx_basename  unzip\n"
         "\n"
         "  compress a datum of demo dataset: \n"
         "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z\n"
         "  compress a datum by specifying dimensions: \n"
         "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -1|-2|-3 [nx [ny [nz]] -z\n"
         "  decompress:\n"
-        "    cusz -i [corresponding datum basename] -x\n"
+        "    cusz -i [corresponding datum cx_basename] -x\n"
         "\n"
         "EXAMPLES\n"
         "  CESM example:\n"
@@ -239,7 +239,7 @@ ArgPack::cuszFullDoc()
 {
     const string doc =
         "*NAME*\n"
-        "        cuSZ: CUDA-Based Error-Bounded Lossy Compression Framework for Scientific Data\n"
+        "        cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data\n"
         "        Lowercased \"*cusz*\" is the command."
         //"        cusz - a GPU-accelerated error-bounded lossy compressor for scientific data.\n"
         "\n"
@@ -252,12 +252,12 @@ ArgPack::cuszFullDoc()
         "\n"
         "        *cusz* *-i* ./data/sample-cesm-CLDHGH *-x*\n"
         "             ----------------------------  ^\n"
-        "             corresponding datum basename  unzip\n"
+        "             corresponding datum cx_basename  unzip\n"
         //"             dtype        bound                                order       zip unzip\n"
         "\n"
         "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z*\n"
         "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z*\n"
-        "        *cusz* *-i* [datum basename] *-x*\n"
+        "        *cusz* *-i* [datum cx_basename] *-x*\n"
         "\n"
         "*OPTIONS*\n"
         "    *Mandatory*\n"
@@ -370,7 +370,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
 
     get_entropy = false;
 
-    dry_run = false;  // TODO dry run is meaningful differently for cuSZ and Huffman
+    to_dryrun = false;  // TODO dry run is meaningful differently for cuSZ and Huffman
 
     auto str2int = [&](const char* s) {
         char* end;
@@ -438,7 +438,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 case 'r':
                 _DRY_RUN:
                     // dry-run
-                    dry_run = true;
+                    to_dryrun = true;
                     break;
                 case 'E':
                 _ENTROPY:
@@ -486,7 +486,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // ----------------------------------------------------------------
                 case 'i':
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) { fname = string(argv[++i]); }
+                    if (i + 1 <= argc) { cx_path2file = string(argv[++i]); }
                     break;
                 case 'R':
                 _REP:
@@ -571,7 +571,9 @@ ArgPack::ArgPack(int argc, char** argv)
     skip_huffman   = false;
     skip_writex    = false;
     pre_binning    = false;
-    dry_run        = false;
+    to_dryrun      = false;
+
+    opath = "";
 
     auto str2int = [&](const char* s) {
         char* end;
@@ -633,7 +635,28 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (string(argv[i]) == "--dry-run") goto _DRY_RUN;
                     if (string(argv[i]) == "--meta") goto _META;
                     if (string(argv[i]) == "--pre") goto _PRE;
-                    if (string(argv[i]) == "--output") goto _OUT;
+                    if (string(argv[i]) == "--output") goto _XOUT;
+                    // TODO the followings has no single-letter options
+                    if (string(argv[i]) == "--opath") {
+                        // TODO does not apply for preprocessed such as binning
+                        if (i + 1 <= argc) this->opath = string(argv[++i]);
+                        break;
+                    }
+                    if (string(argv[i]) == "--origin") {
+                        if (i + 1 <= argc) this->x_fi_origin = string(argv[++i]);
+                        break;
+                    }
+                    // if (string(argv[i]) == "--coname") {
+                    //     // TODO does not apply for preprocessed such as binning
+                    //     if (i + 1 <= argc) ap->coname = string(argv[++i]);
+                    //     break;
+                    // }
+                    // if (string(argv[i]) == "--xoname") {
+                    //     // TODO does not apply for preprocessed such as binning
+                    //     if (i + 1 <= argc) ap->xoname = string(argv[++i]);
+                    //     break;
+                    // }
+
                 // work
                 // ----------------------------------------------------------------
                 case 'a':
@@ -648,7 +671,7 @@ ArgPack::ArgPack(int argc, char** argv)
                 case 'r':
                 _DRY_RUN:
                     // dry-run
-                    dry_run = true;
+                    to_dryrun = true;
                     break;
                 case 'm':  // mode
                 _MODE:
@@ -714,36 +737,25 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 // data type
                 // ----------------------------------------------------------------
-                case 'f':
+                case 'f':  // TODO fp under '-t'
                     if (string(argv[i]) == "-f32") dtype = "f32";
                     if (string(argv[i]) == "-f64") dtype = "f64";
                     break;
                 // input datum file
                 // ----------------------------------------------------------------
-                case 'i':
-                    //                    if (string(argv[i]) == "-i8") {
-                    //                        dtype = "i8";
-                    //                        break;
-                    //                    }
-                    //                    if (string(argv[i]) == "-i16") {
-                    //                        dtype = "i16";
-                    //                        break;
-                    //                    }
-                    //                    if (string(argv[i]) == "-i32") {
-                    //                        dtype = "i32";
-                    //                        break;
-                    //                    }
-                    //                    if (string(argv[i]) == "-i64") {
-                    //                        dtype = "i64";
-                    //                        break;
-                    //                    }
+                case 'i':  // TODO integer under '-t'
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) { fname = string(argv[++i]); }
+                    if (i + 1 <= argc) { cx_path2file = string(argv[++i]); }
                     break;
                     // alternative output
                 case 'o':
-                _OUT:
-                    if (i + 1 <= argc) { alt_xout_name = string(argv[++i]); }
+                _XOUT:
+                    cerr << log_err
+                         << "\"-o\" will be working in the (near) future release. Pleae use \"--opath [path]\" to "
+                            "specify output path."
+                         << endl;
+                    exit(1);
+                    // if (i + 1 <= argc) { alt_xout_name = string(argv[++i]); }
                     break;
                 // preprocess
                 case 'p':
@@ -852,4 +864,36 @@ ArgPack::ArgPack(int argc, char** argv)
 
     // phase 2: check if meaningful
     CheckArgs();
+    // phase 3: sort out filenames
+    SortOutFilenames();
+}
+
+void ArgPack::SortOutFilenames()
+{
+    // (1) "fname"          -> "", "fname"
+    // (2) "./fname"        -> "./" "fname"
+    // (3) "/path/to/fname" -> "/path/to", "fname"
+    auto cx_input_path = cx_path2file.substr(0, cx_path2file.rfind("/") + 1);
+    auto cx_basename   = cx_path2file.substr(cx_path2file.rfind("/") + 1);
+    // cout << "input path\t" << cx_input_path << endl;
+    // cout << "basename\t" << cx_basename << endl;
+
+    if (opath == "") opath = cx_input_path == "" ? opath = "" : opath = cx_input_path;
+    opath += "/";
+
+    // zip
+    c_huff_base  = opath + cx_basename;
+    c_fo_q       = opath + cx_basename + ".quant";
+    c_fo_outlier = opath + cx_basename + ".outlier";
+    c_fo_yamp    = opath + cx_basename + ".yamp";
+
+    // unzip
+    x_fi_yamp    = cx_path2file + ".yamp";
+    x_fi_q       = cx_path2file + ".quant";
+    x_fi_outlier = cx_path2file + ".outlier";
+    x_fo_xd      = opath + cx_basename + ".szx";
+    cout << "x_fi_yamp\t" << x_fi_yamp << endl;
+    cout << "x_fi_q\t" << x_fi_q << endl;
+    cout << "x_fi_outier\t" << x_fi_outlier << endl;
+    cout << "x_fo_xd\t" << x_fo_xd << endl;
 }

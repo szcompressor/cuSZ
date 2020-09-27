@@ -91,7 +91,7 @@ void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size
     }
 
     // cout << log_dbg << "outlier_bin byte length:\t" << ltotal << endl;
-    io::WriteBinaryFile(outbin, ltotal, fo);
+    io::WriteArrayToBinary(*fo, outbin, ltotal);
     delete[] outbin;
 };
 
@@ -221,7 +221,7 @@ void cusz::impl::PruneGatherAsCSR(
     CHECK_CUDA(cudaMemcpy(outbin + lrp + lci, d_csr_val, lv,  cudaMemcpyDeviceToHost));
     // clang-format on
 
-    io::WriteBinaryFile(outbin, ltotal, fo);
+    io::WriteArrayToBinary(*fo, outbin, ltotal);
 
     if (d_A) cudaFree(d_A);
     if (d_row_ptr) cudaFree(d_row_ptr);
