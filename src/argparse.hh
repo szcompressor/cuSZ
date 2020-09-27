@@ -29,37 +29,35 @@ extern const int   compatibility;
 typedef struct ArgPack {
     int read_args_status;
 
-    string fname;
+    string cx_path2file;
+    // string cx_basename;
+    string c_huff_base, c_fo_q, c_fo_outlier, c_fo_yamp;
+    string x_fi_q, x_fi_outlier, x_fi_yamp, x_fo_xd;
+    string x_fi_origin;
+
     string mode;  // abs (absolute), r2r (relative to value range)
     string demo_dataset;
-    string alt_xout_name;
+    string opath;
     string dtype;
     int    dict_size;
     int    quant_rep;
-    int    input_rep;        // for standalone huffman
-    int    huffman_datalen;  // for standalone huffman
     int    huffman_rep;
     int    huffman_chunk;
-    int    n_dim;
-    int    d0;
-    int    d1;
-    int    d2;
-    int    d3;
-    double mantissa;
-    double exponent;
-    bool   to_archive;
-    bool   to_extract;
-    bool   to_encode;    // for standalone huffman
-    bool   to_decode;    // for standalone huffman
-    bool   get_entropy;  // for standalone huffman (not in use)
+    int    n_dim, d0, d1, d2, d3;
+    double mantissa, exponent;
+    bool   to_archive, to_extract, to_dryrun;
     bool   use_demo;
     bool   verbose;
     bool   to_verify;
     bool   verify_huffman;
-    bool   skip_huffman;
-    bool   skip_writex;
+    bool   skip_huffman, skip_writex;
     bool   pre_binning;
-    bool   dry_run;
+
+    int  input_rep;        // for standalone huffman
+    int  huffman_datalen;  // for standalone huffman
+    bool to_encode;        // for standalone huffman
+    bool to_decode;        // for standalone huffman
+    bool get_entropy;      // for standalone huffman (not in use)
 
     static string format(const string& s);
 
@@ -78,6 +76,8 @@ typedef struct ArgPack {
     ArgPack(int argc, char** argv);
 
     ArgPack(int argc, char** argv, bool standalone_huffman);
+
+    void SortOutFilenames();
 
 } argpack;
 

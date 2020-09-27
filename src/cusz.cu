@@ -63,19 +63,20 @@ int main(int argc, char** argv)
     size_t* dim_array   = nullptr;
     double* eb_array    = nullptr;
     int     nnz_outlier = 0;
-    size_t  total_bits, total_uInt, huffman_metadata_size;
+    size_t  total_bits, total_uInt, huff_meta_size;
 
-    if (ap->to_archive or ap->dry_run) {
+    if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
 
         cout << log_info;
         printf(
-            "datum:\t\t%s (%lu bytes) of type %s\n", ap->fname.c_str(),
+            "datum:\t\t%s (%lu bytes) of type %s\n", ap->cx_path2file.c_str(),
             dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
-        if (ap->mode == "r2r") eb_config->ChangeToRelativeMode(GetDatumValueRange<float>(ap->fname, dim_array[LEN]));
+        if (ap->mode == "r2r")
+            eb_config->ChangeToRelativeMode(GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]));
         // eb_config->debug();
         eb_array = InitializeErrorBoundFamily(eb_config);
 
@@ -84,54 +85,45 @@ int main(int argc, char** argv)
     }
 
     if (ap->pre_binning) {
-        auto data      = io::ReadBinaryFile<float>(ap->fname, dim_array[LEN]);
-        auto d_binning = pre_binning<float, 2, 32>(data, dim_array);
-        auto binning   = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
-        ap->fname      = ap->fname + ".BN";
-        io::WriteBinaryFile(binning, dim_array[LEN], &ap->fname);
+        auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
+        auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
+        auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
+        ap->cx_path2file = ap->cx_path2file + ".BN";
+        io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
 
         cudaFree(d_binning);
         delete[] data;
         delete[] binning;
     }
 
-    if (ap->to_archive or ap->dry_run) {  // fp32 only for now
+    if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
         if (ap->quant_rep == 8) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Compress<float, uint8_t, uint32_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint8_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Compress<float, uint8_t, uint64_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint8_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_rep == 16) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Compress<float, uint16_t, uint32_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint16_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Compress<float, uint16_t, uint64_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-        }
-        else if (ap->quant_rep == 32) {
-            if (ap->huffman_rep == 32)
-                cusz::workflow::Compress<float, uint32_t, uint32_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-            else
-                cusz::workflow::Compress<float, uint32_t, uint64_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Compress<float, uint16_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
 
         // pack metadata
         auto mp = new metadata_pack();
         PackMetadata(ap, mp, nnz_outlier, dim_array, eb_array);
-        mp->total_bits            = total_bits;
-        mp->total_uInt            = total_uInt;
-        mp->huffman_metadata_size = huffman_metadata_size;
+        mp->total_bits     = total_bits;
+        mp->total_uInt     = total_uInt;
+        mp->huff_meta_size = huff_meta_size;
 
         auto mp_byte = reinterpret_cast<char*>(mp);
-        io::WriteArrayToBinary(
-            ap->fname + ".yamp",  // yet another metadata package
-            mp_byte, sizeof(metadata_pack));
+        // yet another metadata package
+        io::WriteArrayToBinary(ap->c_fo_yamp, mp_byte, sizeof(metadata_pack));
 
         delete mp;
     }
@@ -146,38 +138,30 @@ int main(int argc, char** argv)
     if (ap->to_extract) {  // fp32 only for now
 
         // unpack metadata
-        auto mp_byte = io::ReadBinaryToNewArray<char>(ap->fname + ".yamp", sizeof(metadata_pack));
+        auto mp_byte = io::ReadBinaryToNewArray<char>(ap->x_fi_yamp, sizeof(metadata_pack));
         auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
         if (not dim_array) dim_array = new size_t[16];
         if (not eb_array) eb_array = new double[4];
         UnpackMetadata(ap, mp, nnz_outlier, dim_array, eb_array);
-        total_bits            = mp->total_bits;
-        total_uInt            = mp->total_uInt;
-        huffman_metadata_size = mp->huffman_metadata_size;
+        total_bits     = mp->total_bits;
+        total_uInt     = mp->total_uInt;
+        huff_meta_size = mp->huff_meta_size;
 
         if (ap->quant_rep == 8) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Decompress<float, uint8_t, uint32_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint8_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Decompress<float, uint8_t, uint64_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint8_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_rep == 16) {
             if (ap->huffman_rep == 32)
-                cusz::workflow::Decompress<float, uint16_t, uint32_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint16_t, uint32_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Decompress<float, uint16_t, uint64_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-        }
-        else if (ap->quant_rep == 32) {
-            if (ap->huffman_rep == 32)
-                cusz::workflow::Decompress<float, uint32_t, uint32_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
-            else
-                cusz::workflow::Decompress<float, uint32_t, uint64_t>  //
-                    (ap->fname, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huffman_metadata_size, ap);
+                cusz::workflow::Decompress<float, uint16_t, uint64_t>(
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
     }
 
