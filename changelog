@@ -1,0 +1,54 @@
+September, 2020
+feature		decouple zip and unzip
+deploy		`sm_70`, `sm_75` (and `sm_80`)
+feature		use cuSPARSE `prune2csr` and `csr2dense` to handle outlier
+bugfix		raise error when Huffman code is longer than 32 bits
+bugfix		histograming error
+deploy		revive pSZ
+feature		integrate parallel build Huffman codebook
+document	update help doc
+document	update published paper
+document	update acknowledgement
+
+August, 2020
+deploy		`sm_75` for Turing.
+
+July, 2020
+document	add a new NSF grant
+
+June, 2020
+bugfix		compile with CUDA 9 + gcc 7.3
+
+May, 2020
+feature		add `--skip huffman` and `--verify huffman` options
+feature		add binning as preprocessing
+feature 	use `cuSparse` to transform `outlier` to dense format
+feature		add `argparse` to check and parse argument inputs
+refactor	add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
+
+April, 2020
+feature 	add concise and detailed help doc
+deploy		`sm_61` (e.g., P1000) and `sm_70` (e.g., V100) binary
+feature		add dry-run mode
+refactor	merge cuSZ and Huffman codec in driver program
+optimize	1D PdQ (and reverse PdQ) `blockDim` set to 32, throughput changed from 2.7 GBps to 16.8 GBps
+deploy		histogramming, 2013 algorithm supersedes naive 2007 algorithm by default
+feature		add communication of equivalence calculation
+feature		use cooperative groups (CUDA 9 required) for canonical Huffman codebook
+optimize	faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
+feature		add Huffman inflating/decoding
+refactor	merge 1,2,3-D cuSZ
+feature		set 32- and 64-bit as internal Huffman codeword representation
+feature		now use arbitrary multiple-of-8-bit for quantization code
+feature		switch to canonical Huffman code for decoding
+
+March, 2020
+optimize	tuning thread number for Huffman deflating and inflating
+feature		change freely to 32bit intermediate Huffman code representation
+demo		add EXAFEL demo
+feature		switch to faster histogramming
+
+February, 2020
+feature		SDRB suite metadata in `SDRB.hh`
+feature		visualize histogram (`pSZ`)
+milestone	`PdQ` for compression, Huffman encoding and deflating

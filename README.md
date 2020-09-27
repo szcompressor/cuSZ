@@ -19,8 +19,19 @@ This document simply introduces how to install and use the cuSZ compressor on NV
 
 # set up
 ## requirements
-- NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
-- CUDA 9.2+ (recommended: CUDA 10.1+) and GCC 7+
+- NVIDIA GPU with Pascal (in progress), Volta, or Turing microarchitectures 
+- Minimum: CUDA 9.2+ and GCC 7+ (with C++14 support)
+  - The below table shows our tested GPUs, CUDA versions, and compilers.
+  - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
+  - Please refer to [link](https://gist.github.com/ax3l/9489132) for more details about different CUDA versions and their required compilers.
+  
+| GPU       | microarch   | SM  | CUDA version | gcc version |
+| --------- | ----------- | --- | ------------ | ----------- |
+| V100      | Volta       | 70  | 9.2          | 7.3         |
+|           |             |     | 10.2         | 7.3/8.4     |
+| RTX 5000  | Turing      | 75  | 10.1         | 7.3/8.3     |
+| RTX 2060S | Turing      | 75  | 11.0         | 9.3         |
+
 
 ## download
 ```bash
@@ -38,8 +49,8 @@ sudo make install   # optional given that it's a sudo
 
 Commands `cusz` or `cusz -h` are for instant instructions.
 
-## cuSZ as a compressor
-### basic use
+# use
+## basic use
 
 The basic use cuSZ is given below.
 
@@ -64,7 +75,7 @@ To conduct compression, several input arguments are **necessary**,
 - `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
 
 
-### tuning
+## tuning
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
 
 - `-Q` or `--quant-rep`  to specify bincode/quant. code representation. Options `<8|16|32>` are for `uint8_t`, `uint16_t`, `uint32_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
@@ -72,14 +83,12 @@ There are also internal a) quant. code representation, b) Huffman codeword repre
 - `-C` or `--huffman-chunk`  to specify chunk size for Huffman codec. Should be a power-of-2 that is sufficiently large (`[256|512|1024|...]`). (This affects Huffman decoding performance *significantly*.)
 
 
-### extension and use scenarios
-
-#### preprocess 
+## with preprocessing
 Some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec.
 
 [^binning]: A current binning setting is to downsample a 2-by-2 cell to 1 point.
 
-#### disabling modules
+## disabling modules
 For EXAFEL, given binning and `uint8_t` have already resulted in a compression ratio of up to 16, Huffman codec may not be needed in a real-world use scenario, so Huffman codec can be skipped with `--skip huffman`.
 
 Decompression can give a full preview of the whole workflow and writing data of the orignal size to the filesystem is long, so writing decompressed data to filesystem can be skipped with `--skip write.x`. 
@@ -88,11 +97,11 @@ A combination of modules can be `--skip huffman,write.x`.
 
 Other module skipping for use scenarios are in development.
 
-## cuSZ as an analytical tool
+## use as an analytical tool
 
 `--dry-run` or `-r` in place of `-a` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
 
-## examples
+# hands-on examples
 
 1. run a 2D CESM demo at 1e-4 relative to value range
 
@@ -134,7 +143,7 @@ Other module skipping for use scenarios are in development.
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
 	```
 
-
+# tested by team
 ## tested datasets
 
 We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/):
@@ -149,75 +158,23 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 
 - For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
 - The compression ratio of current cuSZ may be different from SZ on CPU. Unlike SZ, cuSZ so far does not include an LZ-based lossless compression as the last step for compression throughput consideration; in other words, the compression ratio is up to 32. We are working on an efficient LZ-based lossless compression to be integrated into cuSZ in the future release.
-- For this release, compressed data is saved in five files, including `.canon` file for canonical codebook (for decompression), `.hbyte` file for Huffman bitstream, `.hmeata` file for chucked Huffman bitstream metadata, `.outlier` file for unpredicted data with its metadata (in `CSR` format), and yet anther metadata pack, `.yamp`. Moreover, if you use `--skip huffman`, `uint<8|16|32>_t` quantization codes are saved in `.b<8|16|32>` file. We will change the compressed format in the next release. 
-- The current integrated Huffman codec runs with efficient histogramming [1], GPU-sequential codebook building, memory-copy style encoding, chunkwise bit deflating, and corresponding canonical Huffman decoding [2], however, the chunkwise bit deflating is not optimal. We are woking on a faster, finer-grained Huffman codec for the future release. 
+- For this release, compressed data is saved in five files, including `.canon` file for canonical codebook (for decompression), `.hbyte` file for Huffman bitstream, `.hmeata` file for chucked Huffman bitstream metadata, `.outlier` file for unpredicted data with its metadata (in `CSR` format), and `.yamp` file for metadata pack of compressed data. Moreover, if you use `--skip huffman`, `uint<8|16|32>_t` quantization codes are saved in `.b<8|16|32>` file. We will change the compressed format in the next release. 
+- The current integrated Huffman codec runs with efficient histogramming [1], parallel Huffman codebook building [2], memory-copy style encoding, chunkwise bit deflating, and efficient Huffman decoding using canonical codes [3]. However, the chunkwise bit deflating is not optimal, so we are woking on a faster, finer-grained Huffman codec for the future release. 
 - We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
 - Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 
 - You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on autotuning consistent performance.
 - Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2) for more todos.  
 
-# `changelog`
-
-September, 2020
-- `feature` use cuSPARSE `prune2csr` and `csr2dense` to handle outlier
-- `fix` raise error when Huffman code is longer than 32 bits
-- `fix` histograming error
-- `deploy` fix pSZ
-- `feature` integrate parallel build Huffman codebook
-- `doc` update help doc
-- `doc` update published paper
-- `doc` update acknowledgement
-
-August, 2020
-- `deploy` `sm_75` for Turing.
-
-July, 2020
-- `doc` add a new NSF grant
-
-June, 2020
-- `fix` compile with CUDA 9 + gcc 7.3
-
-May, 2020
-- `feature` add `--skip huffman` and `--verify huffman` options
-- `feature` add binning as preprocessing
-- `prototype` use `cuSparse` to transform `outlier` to dense format
-- `feature` add `argparse` to check and parse argument inputs
-- `refactor` add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
-
-April, 2020
-- `feature` add concise and detailed help doc
-- `deploy` `sm_61` (e.g., P1000) and `sm_70` (e.g., V100) binary
-- `feature` add dry-run mode
-- `refactor` merge cuSZ and Huffman codec in driver program
-- `perf` 1D PdQ (and reverse PdQ) `blockDim` set to 32, throughput changed from 2.7 GBps to 16.8 GBps
-- `deploy` histogramming, 2013 algorithm supersedes naive 2007 algorithm by default
-- `feature` add communication of equivalence calculation
-- `feature` use cooperative groups (CUDA 9 required) for canonical Huffman codebook
-- `perf` faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
-- `feature` add Huffman inflating/decoding
-- `refactor` merge 1,2,3-D cuSZ
-- `feature` set 32- and 64-bit as internal Huffman codeword representation
-- `feature` now use arbitrary multiple-of-8-bit for quantization code
-- `feature` switch to canonical Huffman code for decoding
-
-March, 2020
-- `perf` tuning thread number for Huffman deflating and inflating
-- `feature` change freely to 32bit intermediate Huffman code representation
-- `demo` add EXAFEL demo
-- `feature` switch to faster histogramming
-
-February, 2020
-- `demo` SDRB suite metadata in `SDRB.hh`
-- `feature` visualize histogram (`pSZ`)
-- `milestone` `PdQ` for compression, Huffman encoding and deflating
-
 # references
 
 [1] 
-: Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
+Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
 
 [2]
-Schwartz, Eugene S., and Bruce Kallick. "Generating a canonical prefix encoding." Communications of the ACM 7, no. 3 (1964): 166-169.
+Ostadzadeh, S. Arash, B. Maryam Elahi, Zeinab Zeinalpour, M. Amir Moulavi, and Koen Bertels. "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes." In PDPTA, pp. 284-291. 2007.
+
+[3]
+Klein, Shmuel T. "Space-and time-efficient decoding with canonical huffman trees." In Annual Symposium on Combinatorial Pattern Matching, pp. 65-75. Springer, Berlin, Heidelberg, 1997.
 
 # acknowledgements
 This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
