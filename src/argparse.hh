@@ -30,7 +30,6 @@ typedef struct ArgPack {
     int read_args_status;
 
     string cx_path2file;
-    // string cx_basename;
     string c_huff_base, c_fo_q, c_fo_outlier, c_fo_yamp;
     string x_fi_q, x_fi_outlier, x_fi_yamp, x_fo_xd;
     string x_fi_origin;
