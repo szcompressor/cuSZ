@@ -199,27 +199,27 @@ ArgPack::cuszDoc()
         "\n"
         "USAGE:\n"
         "  The basic use with demo datum is listed below (zip and unzip),\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z \n"
-        "                 |  ------ ----------- ---------------------------- -------  | \n"
-        "               dtype mode  error bound        input datum file        demo   zip \n"
+        "    ./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
+        "                 |  ------ ----------- ---------------------------- -------  |\n"
+        "               dtype mode  error bound        input datum file        demo   zip\n"
         //        "               dtype        bound                                 data  zip\n"
         "\n"
         "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
         "               ----------------------------  |\n"
-        "               corresponding datum cx_basename  unzip\n"
+        "               corresponding datum basename  unzip\n"
         "\n"
         "  compress a datum of demo dataset: \n"
         "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z\n"
         "  compress a datum by specifying dimensions: \n"
         "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -1|-2|-3 [nx [ny [nz]] -z\n"
         "  decompress:\n"
-        "    cusz -i [corresponding datum cx_basename] -x\n"
+        "    cusz -i [corresponding datum _basename] -x\n"
         "\n"
         "EXAMPLES\n"
         "  CESM example:\n"
         "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
         "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
-        "  CESM example with alt. output path:\n"
+        "  CESM example with specified output path:\n"
         "    makdir data2 data3\n"
         "    (zip)     ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z --opath data2\n"
         "    (unzip 1) ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x && ls data2\n"
@@ -251,18 +251,18 @@ ArgPack::cuszFullDoc()
         "*SYNOPSIS*\n"
         "        The basic use is listed below,\n"
         "        *cusz* *-f*32 *-m* r2r *-e* 1e-4 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z*\n"
-        "               ^  ------ ------- ---------------------------- ------------  ^ \n"
-        "               |   mode   error        input datum file        low-to-high  | \n"
+        "               ^  ------ ------- ---------------------------- ------------  ^\n"
+        "               |   mode   error        input datum file        low-to-high  |\n"
         "             dtype        bound                                  (x-y-z)   zip\n"
         "\n"
         "        *cusz* *-i* ./data/sample-cesm-CLDHGH *-x*\n"
         "             ----------------------------  ^\n"
-        "             corresponding datum cx_basename  unzip\n"
+        "             corresponding datum basename  unzip\n"
         //"             dtype        bound                                order       zip unzip\n"
         "\n"
         "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z*\n"
         "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z*\n"
-        "        *cusz* *-i* [datum cx_basename] *-x*\n"
+        "        *cusz* *-i* [datum basename] *-x*\n"
         "\n"
         "*OPTIONS*\n"
         "    *Mandatory* (zip and dryrun)\n"
@@ -344,7 +344,7 @@ ArgPack::cuszFullDoc()
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
         "        ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
         "\n"
-        "        *CESM* example with alt. output path:\n"
+        "        *CESM* example with specified output path:\n"
         "        makdir data2 data3\n"
         "            # zip, output to `data2`\n"
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z --opath data2\n"
@@ -901,8 +901,6 @@ void ArgPack::SortOutFilenames()
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto cx_input_path = cx_path2file.substr(0, cx_path2file.rfind("/") + 1);
     auto cx_basename   = cx_path2file.substr(cx_path2file.rfind("/") + 1);
-    // cout << "input path\t" << cx_input_path << endl;
-    // cout << "basename\t" << cx_basename << endl;
 
     if (opath == "") opath = cx_input_path == "" ? opath = "" : opath = cx_input_path;
     opath += "/";
@@ -918,8 +916,4 @@ void ArgPack::SortOutFilenames()
     x_fi_q       = cx_path2file + ".quant";
     x_fi_outlier = cx_path2file + ".outlier";
     x_fo_xd      = opath + cx_basename + ".szx";
-    cout << "x_fi_yamp\t" << x_fi_yamp << endl;
-    cout << "x_fi_q\t" << x_fi_q << endl;
-    cout << "x_fi_outier\t" << x_fi_outlier << endl;
-    cout << "x_fo_xd\t" << x_fo_xd << endl;
 }
