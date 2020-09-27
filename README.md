@@ -27,8 +27,8 @@ This document simply introduces how to install and use the cuSZ compressor on NV
   
 | GPU       | microarch | SM  | CUDA version | gcc version |
 | --------- | --------- | --- | ------------ | ----------- |
-| V100      | Volta     | 70  | 9.2          | 7.3         |
-|           |           |     | 10.2         | 7.3/8.4     |
+| V100      | Volta     | 70  | 10.2         | 7.3/8.4     |
+|           |           |     | 9.2          | 7.3         |
 | RTX 5000  | Turing    | 75  | 10.1         | 7.3/8.3     |
 | RTX 2060S | Turing    | 75  | 11.0/11.1    | 9.3         |
 
@@ -165,6 +165,23 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 | EXAFEL           | 2D   | images from the LCLS instrument                                         |
 | Hurricane ISABEL | 3D   | weather simulation                                                      |
 | NYX              | 3D   | cosmology: adaptive mesh hydrodynamics + N-body cosmological simulation |
+
+## sample kernel performance 
+
+|                 |               | dual-quant | histo    | codebook | encode    | outlier  | zip (no c/b) | mem bw | memcpy (d2d) |
+| --------------- | ------------- | ---------- | -------- | -------- | --------- | -------- | ------------ | ------ | ------------ |
+| CESM (25.7 MiB) | **V100**      | 103.6us    | 45.54us  | 820.58us | 448.57us  | 140.32us | 738.0        |        |              |
+|                 | (GB/s)        | 260.1      | 591.8    |          | 60.1      | 192.0    | 36.5         | 900    | 713.1        |
+|                 | **RTX 5000**  | 409.69us   | 83.87us  | 681.53us | 870.20us  | 204.35us | 1379.44us    |        |              |
+|                 | (GB/s)        | 65.8       | 321.3    |          | 31.0      | 131.9    | 19.5         | 448    | 364.5        |
+|                 | **RTX 2060S** | 535.58us   | 111.97us | 601.54us | 1134.62us | 294.12us | 1543.21us    |        |              |
+|                 | (GB/s)        | 50.3       | 240.7    |          | 23.8      | 91.6     | 17.5         | 448    | 379.6        |
+| NYX (512 MiB)   | **V100**      | 2.69ms     | 1.34ms   | 676.07us | 8.37ms    | 2.00ms   | 14.4ms       |        |              |
+|                 | (GB/s)        | 199.6      | 400.6    |          | 64.1      | 268.4    | 37.3         | 900    | 713.1        |
+|                 | **RTX 5000**  | 10.15ms    | 3.58ms   | 548.13us | 14.48ms   | 5.20ms   | 33.41ms      |        |              |
+|                 | (GB/s)        | 52.9       | 150.0    |          | 37.1      | 103.2    | 16.1         | 448    | 364.5        |
+|                 | **RTX 2060S** | 13.53ms    | 5.58ms   | 473.63us | 18.13ms   | 7.01ms   | 44.25ms      |        |              |
+|                 | (GB/s)        | 39.7       | 96.2     |          | 29.6      | 76.6     | 12.1         | 448    | 379.6        |
 
 
 ## limitations of this version (0.1.1)

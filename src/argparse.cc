@@ -234,8 +234,7 @@ ArgPack::cuszDoc()
         "    ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n"
         "\n"
         "DOC:\n"
-        "  Type \"cusz -h\" for details.\n"
-        "\n";
+        "  Type \"cusz -h\" for details.\n";
     cout << instruction << endl;
 }
 
@@ -366,8 +365,7 @@ ArgPack::cuszFullDoc()
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
         "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning "
         "--skip huffman\n"
-        "        ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n"
-        "\n";
+        "        ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n";
 
     cout << format(doc) << endl;
 }
