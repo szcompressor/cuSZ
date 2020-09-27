@@ -24,7 +24,7 @@ typedef struct MetadataPackage {
     int    M, MxM;  // padded M
     int    nnz;
 
-    size_t total_bits, total_uInt, huffman_metadata_size;
+    size_t total_bits, total_uInt, huff_meta_size;
 
     int quant_rep;
     int huffman_rep;
