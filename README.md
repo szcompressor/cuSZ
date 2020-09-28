@@ -153,7 +153,71 @@ Other module skipping for use scenarios are in development.
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
 	```
 
-# tested by team
+# results
+## compression ratio
+
+To calculate compression ratio, please use *original data size* divided by *compressed data size* (including `.canon`, `.hbyte`, `.hmeata`, `.outlier`, and `.yamp` files). 
+
+## throughput
+
+To calculate (de)compression throughput, please:
+- use `nvprof --log-file [name_of_logfile.txt]` before `cusz` to dump the performance data when (de)compressing
+- use `bash parse_nvprof_log.sh [name_of_logfile.txt]` to filter out the unnecessary performance data
+- sum up all the numbers between `++++++++++` to get the overall (de)compression time in us
+- use the original data size divided by the (de)compression time to get the overall (de)compression throughput
+
+
+For example, below is the output from `bash parse_nvprof_log.sh` on the CESM variable `CLDHGH` (25 MiB).
+
+```
+zip, dual-quant kernel:
+103.81
+
+
+zip, Huffman codebook:
+47.232
+539.13
+224.54
+4.416
+4.384
+4.128
+4.128
+4.096
+3.968
+25.471
+4.384
+4.256
+
+
+zip, Huffman encoding:
+57.6
+431.26
+
+
+zip, gather outlier:
+5.504
+5.216
+4.864
+63.776
+61.44
+733.47
+
+unzip, Huffman decoding:
+757.89
+
+
+unzip, scatter outliers:
+52.96
+13.024
+
+
+unzip, reversed dual-quant kernel:
+384.32
+1208.194
+```
+The compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, respectively, so the compression and decompression throughputs are 31.4 GB/s and 20.7 GB/s, respectively. 
+
+# tests by team
 ## tested datasets
 
 We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/):
