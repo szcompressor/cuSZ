@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE=sample.txt
+LOG_FILE=cuSZ-0.1.1-HACC-on-Summit.txt
 AWK_CMD1="awk -F'(' '{print \$1}'"
 AWK_CMD2="awk -F'<' '{print \$1}'"
 AWK_CMD3="awk '{print \$6\"\t\"\$7\" \"\$8}'" 
@@ -14,7 +14,6 @@ echo
 echo "zip, Huffman codebook:"
 eval "cat ${LOG_FILE} | grep p2013Histogram |  ${SUPER_AWK}"
 # eval "cat ${LOG_FILE} | grep parHuff:: |  ${SUPER_AWK}"
-eval "cat ${LOG_FILE} | grep cub::DeviceRadixSortSingleTileKernel |  ${SUPER_AWK}"
 eval "cat ${LOG_FILE} | grep GPU_ |  ${SUPER_AWK}"
 eval "cat ${LOG_FILE} | grep thrust::cuda_cub:: |  ${SUPER_AWK}"
 echo
