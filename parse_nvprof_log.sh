@@ -1,43 +1,57 @@
 #!/bin/bash
 
-LOG_FILE=cuSZ-0.1.1-HACC-on-Summit.txt
+LOG_FILE=$1
 AWK_CMD1="awk -F'(' '{print \$1}'"
 AWK_CMD2="awk -F'<' '{print \$1}'"
-AWK_CMD3="awk '{print \$6\"\t\"\$7\" \"\$8}'" 
-SUPER_AWK="${AWK_CMD1} | ${AWK_CMD2} | ${AWK_CMD3}"
-#echo "${SUPER_AWK}"
+AWK_CMD3="awk -F'void' '{print \$1\"\t\"\$2}'"
+AWK_CMD4="awk '{print \$6\"\t\"\$7\" \"\$8}'" 
+AWK_CMD5_0="awk '{ gsub(\"ms\",\"*1000\",\$1); print \$1}'"
+AWK_CMD5_1="awk '{ gsub(\"us\",\"\",\$1); print \$1}'"
+SUPER_AWK_SHOWNAME="${AWK_CMD1} | ${AWK_CMD2} | ${AWK_CMD3} | ${AWK_CMD4}"
+SUPER_AWK_CALC="${AWK_CMD1} | ${AWK_CMD2} | ${AWK_CMD3} | ${AWK_CMD4} | ${AWK_CMD5_0} | ${AWK_CMD5_1} | bc"
 
+for awk_cmd in "${SUPER_AWK_SHOWNAME}" "${SUPER_AWK_CALC}"; do
 echo "zip, dual-quant kernel:"
-eval "cat ${LOG_FILE} | grep c_lorenzo_ | ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep c_lorenzo_ | ${awk_cmd}"
+echo
 echo
 
 echo "zip, Huffman codebook:"
-eval "cat ${LOG_FILE} | grep p2013Histogram |  ${SUPER_AWK}"
-# eval "cat ${LOG_FILE} | grep parHuff:: |  ${SUPER_AWK}"
-eval "cat ${LOG_FILE} | grep GPU_ |  ${SUPER_AWK}"
-eval "cat ${LOG_FILE} | grep thrust::cuda_cub:: |  ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep p2013Histogram |  ${awk_cmd}"
+eval "cat ${LOG_FILE} | grep GPU_ |  ${awk_cmd}"
+eval "cat ${LOG_FILE} | grep thrust::cuda_cub:: |  ${awk_cmd}"
+echo
 echo
 
 echo "zip, Huffman encoding:"
-eval "cat ${LOG_FILE} | grep EncodeFixedLen |  ${SUPER_AWK}"
-eval "cat ${LOG_FILE} | grep Deflate |  ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep EncodeFixedLen |  ${awk_cmd}"
+eval "cat ${LOG_FILE} | grep Deflate |  ${awk_cmd}"
+echo
 echo
 
 echo "zip, gather outlier:"
-eval "cat ${LOG_FILE} | grep cusparseIinclusive | ${SUPER_AWK}"
-eval "cat ${LOG_FILE} | grep prune_dense_core | ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep cusparseIinclusive | ${awk_cmd}"
+eval "cat ${LOG_FILE} | grep prune_dense_core | ${awk_cmd}"
+echo
 echo
 
 echo "unzip, Huffman decoding:"
-eval "cat ${LOG_FILE} | grep Decode | ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep Decode | ${awk_cmd}"
+echo
 echo
 
 echo "unzip, scatter outliers:"
-eval "cat ${LOG_FILE} | grep cusparseZeroOutForCSR_kernel | ${SUPER_AWK}"
-eval "cat ${LOG_FILE} | grep cusparseCsrToDense_kernel | ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep cusparseZeroOutForCSR_kernel | ${awk_cmd}"
+eval "cat ${LOG_FILE} | grep cusparseCsrToDense_kernel | ${awk_cmd}"
+echo 
 echo 
 
 echo "unzip, reversed dual-quant kernel:"
-eval "cat ${LOG_FILE} | grep x_lorenzo_ | ${SUPER_AWK}"
+eval "cat ${LOG_FILE} | grep x_lorenzo_ | ${awk_cmd}"
+echo
 echo
 
+echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+echo
+
+done
