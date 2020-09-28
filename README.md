@@ -20,7 +20,7 @@ This document simply introduces how to install and use the cuSZ compressor on NV
 # set up
 ## requirements
 - NVIDIA GPU with Pascal (in progress), Volta, or Turing microarchitectures 
-- Minimum: CUDA 9.2+ and GCC 7+ (with C++14 support)
+- Minimum: CUDA 9.2+ and GCC 7.3+ (with C++14 support)
   - The below table shows our tested GPUs, CUDA versions, and compilers.
   - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
   - Please refer to [link](https://gist.github.com/ax3l/9489132) for more details about different CUDA versions and their required compilers.
@@ -166,23 +166,23 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 | Hurricane ISABEL | 3D   | weather simulation                                                      |
 | NYX              | 3D   | cosmology: adaptive mesh hydrodynamics + N-body cosmological simulation |
 
-## sample kernel performance (zip)
+## sample kernel performance (compression/zip)
 
-|                    |               | dual-quant  | histo       | codebook    | encode       | outlier     | OVERALL zip (w/o c/b) | ref: mem bw | ref: memcpy (d2d) |
-| ------------------ | ------------- | ----------- | ----------- | ----------- | ------------ | ----------- | --------------------- | ----------- | ----------------- |
-| 2D CESM (25.7 MiB) | **V100**      | *103.6 us*  | *45.54 us*  | *820.58 us* | *448.57 us*  | *140.32 us* | *738.0 us*            |             |                   |
-|                    | (GB/s)        | 260.1       | 591.8       |             | 60.1         | 192.0       | 36.5                  | 900 (HBM2)  | 713.1             |
-|                    | **RTX 5000**  | *409.69 us* | *83.87 us*  | *681.53 us* | *870.20 us*  | *204.35 us* | *1379.44 us*          |             |                   |
-|                    | (GB/s)        | 65.8        | 321.3       |             | 31.0         | 131.9       | 19.5                  | 448 (GDDR6) | 364.5             |
-|                    | **RTX 2060S** | *535.58 us* | *111.97 us* | *601.54 us* | *1134.62 us* | *294.12 us* | *1543.21 us*          |             |                   |
-|                    | (GB/s)        | 50.3        | 240.7       |             | 23.8         | 91.6        | 17.5                  | 448 (GDDR6) | 379.6             |
-| 3D NYX (512 MiB)   | **V100**      | *2.69 ms*   | *1.34 ms*   | *676.07 us* | *8.37 ms*    | *2.00 ms*   | *14.4 ms*             |             |                   |
-|                    | (GB/s)        | 199.6       | 400.6       |             | 64.1         | 268.4       | 37.3                  | 900 (HBM2)  | 713.1             |
-|                    | **RTX 5000**  | *10.15 ms*  | *3.58 ms*   | *548.13 us* | *14.48 ms*   | *5.20 ms*   | *33.41 ms*            |             |                   |
-|                    | (GB/s)        | 52.9        | 150.0       |             | 37.1         | 103.2       | 16.1                  | 448 (GDDR6) | 364.5             |
-|                    | **RTX 2060S** | *13.53 ms*  | *5.58 ms*   | *473.63 us* | *18.13 ms*   | *7.01 ms*   | *44.25 ms*            |             |                   |
-|                    | (GB/s)        | 39.7        | 96.2        |             | 29.6         | 76.6        | 12.1                  | 448 (GDDR6) | 379.6             |
 
+|                    |               |               | dual-quant  | hist       | codebook    | encode       | outlier     | OVERALL (w/o c/b) | mem bw (ref)     | memcpy (ref) |
+| ------------------ | ------------- | ------------- | ----------- | ---------- | ----------- | ------------ | ----------- | ----------------- | ---------------- | ------------ |
+| 2D CESM (25.7 MiB) | **V100**      | *time* (us)      | 103.6  | 45.54  | 820.6 | 448.6  | 140.3 | 738.0           |                  |            |
+|                    |               | *throughput* (GB/s)      | 260.1  | 591.8  |        | 60.1    | 192.0  | 36.5             | 900 (HBM2)  | 713.1  |
+|                    | **RTX 5000**  | *time* (us)      | 409.7  | 83.9   | 681.5 | 870.2  | 204.4 | 1379.4          |                  |            |
+|                    |               | *throughput* (GB/s)      | 65.8   | 321.3  |        | 31.0    | 131.9  | 19.5             | 448 (GDDR6) | 364.5  |
+|                    | **RTX 2060S** | *time* (us)      | 535.58 | 112.0  | 601.5 | 1134.6 | 294.1 | 1543.2          |                  |            |
+|                    |               | *throughput* (GB/s)      | 50.3   | 240.7  |        | 23.8    | 91.6   | 17.5             | 448 (GDDR6) | 379.6  |
+| 3D NYX (512 MiB)   | **V100**      | *time* (ms)      | 2.69   | 1.34   | 0.68  | 8.37   | 2.00  | 14.4            |                  |            |
+|                    |               | *throughput* (GB/s)      | 199.6  | 400.6  |        | 64.1    | 268.4  | 37.3             | 900 (HBM2)  | 713.1  |
+|                    | **RTX 5000**  | *time* (ms)      | 10.15  | 3.58   | 0.55  | 14.48  | 5.20  | 33.4            |                  |            |
+|                    |               | *throughput* (GB/s)      | 52.9   | 150.0  |        | 37.1    | 103.2  | 16.1             | 448 (GDDR6) | 364.5  |
+|                    | **RTX 2060S** | *time* (ms)      | 13.53  | 5.58   | 0.47  | 18.13  | 7.01  | 44.25           |                  |            |
+|                    |               | *throughput* (GB/s)      | 39.7   | 96.2   |        | 29.6    | 76.6   | 12.1             | 448 (GDDR6) | 379.6  |
 
 ## limitations of this version (0.1.1)
 
