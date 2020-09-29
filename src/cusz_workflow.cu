@@ -45,7 +45,7 @@ using std::endl;
 using std::string;
 using uint8__t = uint8_t;
 
-const int gpu_B_1d = 32;
+const int gpu_B_1d = 256;
 const int gpu_B_2d = 16;
 const int gpu_B_3d = 8;
 
