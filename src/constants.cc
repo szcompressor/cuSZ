@@ -32,6 +32,6 @@ const size_t EBr    = 1;
 const size_t EBx2   = 2;
 const size_t EBx2_r = 3;
 
-const int B_1d = 32;
+const int B_1d = 256;
 const int B_2d = 16;
 const int B_3d = 8;
