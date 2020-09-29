@@ -373,6 +373,18 @@ template __global__ void
 cusz::PdQ::c_lorenzo_1d1l<float, uint16_t, 64>(float*, uint16_t*, size_t const*, double const*);
 template __global__ void
 cusz::PdQ::c_lorenzo_1d1l<float, uint32_t, 64>(float*, uint32_t*, size_t const*, double const*);
+template __global__ void
+cusz::PdQ::c_lorenzo_1d1l<float, uint8__t, 128>(float*, uint8__t*, size_t const*, double const*);
+template __global__ void
+cusz::PdQ::c_lorenzo_1d1l<float, uint16_t, 128>(float*, uint16_t*, size_t const*, double const*);
+template __global__ void
+cusz::PdQ::c_lorenzo_1d1l<float, uint32_t, 128>(float*, uint32_t*, size_t const*, double const*);
+template __global__ void
+cusz::PdQ::c_lorenzo_1d1l<float, uint8__t, 256>(float*, uint8__t*, size_t const*, double const*);
+template __global__ void
+cusz::PdQ::c_lorenzo_1d1l<float, uint16_t, 256>(float*, uint16_t*, size_t const*, double const*);
+template __global__ void
+cusz::PdQ::c_lorenzo_1d1l<float, uint32_t, 256>(float*, uint32_t*, size_t const*, double const*);
 // prototype 2D
 template __global__ void
 cusz::PdQ::c_lorenzo_2d1l<float, uint8__t, 16>(float*, uint8__t*, size_t const*, double const*);
@@ -398,6 +410,18 @@ template __global__ void
 cusz::PdQ::x_lorenzo_1d1l<float, uint16_t, 64>(float*, float*, uint16_t*, size_t const*, double);
 template __global__ void
 cusz::PdQ::x_lorenzo_1d1l<float, uint32_t, 64>(float*, float*, uint32_t*, size_t const*, double);
+template __global__ void
+cusz::PdQ::x_lorenzo_1d1l<float, uint8__t, 128>(float*, float*, uint8__t*, size_t const*, double);
+template __global__ void
+cusz::PdQ::x_lorenzo_1d1l<float, uint16_t, 128>(float*, float*, uint16_t*, size_t const*, double);
+template __global__ void
+cusz::PdQ::x_lorenzo_1d1l<float, uint32_t, 128>(float*, float*, uint32_t*, size_t const*, double);
+template __global__ void
+cusz::PdQ::x_lorenzo_1d1l<float, uint8__t, 256>(float*, float*, uint8__t*, size_t const*, double);
+template __global__ void
+cusz::PdQ::x_lorenzo_1d1l<float, uint16_t, 256>(float*, float*, uint16_t*, size_t const*, double);
+template __global__ void
+cusz::PdQ::x_lorenzo_1d1l<float, uint32_t, 256>(float*, float*, uint32_t*, size_t const*, double);
 // prototype 2D
 template __global__ void
 cusz::PdQ::x_lorenzo_2d1l<float, uint8__t, 16>(float*, float*, uint8__t*, size_t const*, double);
