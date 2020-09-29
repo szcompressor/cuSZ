@@ -83,7 +83,7 @@ There are also internal a) quant. code representation, b) Huffman codeword repre
 
 - `-Q` or `--quant-rep`  to specify bincode/quant. code representation. Options `<8|16|32>` are for `uint8_t`, `uint16_t`, `uint32_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
 - `-H` or `--huffman-rep`  to specify Huffman codeword representation. Options `<32|64>` are for `uint32_t`, `uint64_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-C` or `--huffman-chunk`  to specify chunk size for Huffman codec. Should be a power-of-2 that is sufficiently large (`[256|512|1024|...]`). (This affects Huffman decoding performance *significantly*.)
+- `-C` or `--huffman-chunk`  to specify chunk size for Huffman codec. This should be a sufficiently large number in power-of-2 (`[256|512|1024|...]`) and affects Huffman encoding/decoding performance *significantly*.
 
 
 ## with preprocessing
@@ -155,7 +155,7 @@ Other module skipping for use scenarios are in development.
 
 To calculate compression ratio, please use *original data size* divided by *compressed data size* (including `.canon`, `.hbyte`, `.hmeata`, `.outlier`, and `.yamp` files). 
 
-## throughput
+## compression throughput
 
 To calculate (de)compression throughput, please follow the below steps to use our bash script `cuSZ/script/parse_nvprof_log.sh`:
 - use `nvprof --log-file [name_of_logfile.txt]` before `cusz` to dump the performance data when (de)compressing
@@ -213,6 +213,8 @@ unzip, reversed dual-quant kernel:
 ```
 The compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, respectively, so the compression and decompression throughputs are 31.4 GB/s and 20.7 GB/s, respectively. 
 
+**Please note that cuSZ's performance might be dropped for a single large input file (e.g., in several Gigabytes) because of current coarse-grained deflating in Huffman codec mentioned in [limitations of this version](https://github.com/szcompressor/cuSZ#limitations-of-this-version-011).** 
+
 # tests by team
 ## tested datasets
 
@@ -233,7 +235,9 @@ We provide three small sample data in `cuSZ/data` directory. To download more SD
 
 |                    |               |               | dual-quant  | hist       | codebook    | encode       | outlier     | OVERALL (w/o c/b) | mem bw (ref)     | memcpy (ref) |
 | ------------------ | ------------- | ------------- | ----------- | ---------- | ----------- | ------------ | ----------- | ----------------- | ---------------- | ------------ |
-| 2D CESM (25.7 MiB) | **V100**      | *time* (us)      | 103.6  | 45.54  | 820.6 | 448.6  | 140.3 | 738.0           |                  |            |
+| 1D HACC (1.05 GiB) | **V100**      | *time* (ms)      | 3.6    | 2.8    | 0.1   | 19.5   | 4.0   | 30.0            |                  |            |
+|                    |               | *throughput* (GB/s)      | 312.0  | 400.0  |        | 57.6    | 278.8  | 37.4             | 900 (HBM2)  | 713.1  |
+| 2D CESM (25.7 MiB) | **V100**      | *time* (us)      | 103.6  | 45.5   | 820.6 | 448.6  | 140.3 | 738.0           |                  |            |
 |                    |               | *throughput* (GB/s)      | 260.1  | 591.8  |        | 60.1    | 192.0  | 36.5             | 900 (HBM2)  | 713.1  |
 |                    | **RTX 5000**  | *time* (us)      | 409.7  | 83.9   | 681.5 | 870.2  | 204.4 | 1379.4          |                  |            |
 |                    |               | *throughput* (GB/s)      | 65.8   | 321.3  |        | 31.0    | 131.9  | 19.5             | 448 (GDDR6) | 364.5  |
@@ -245,6 +249,8 @@ We provide three small sample data in `cuSZ/data` directory. To download more SD
 |                    |               | *throughput* (GB/s)      | 52.9   | 150.0  |        | 37.1    | 103.2  | 16.1             | 448 (GDDR6) | 364.5  |
 |                    | **RTX 2060S** | *time* (ms)      | 13.53  | 5.58   | 0.47  | 18.13  | 7.01  | 44.25           |                  |            |
 |                    |               | *throughput* (GB/s)      | 39.7   | 96.2   |        | 29.6    | 76.6   | 12.1             | 448 (GDDR6) | 379.6  |
+
+** Please note that if the performance you get is much lower than what we show above, please use `-C` option to change the chunk size for Huffman codec. For  example, we use `-C 16384` for 1D HACC data in the above test. 
 
 ## limitations of this version (0.1.1)
 
