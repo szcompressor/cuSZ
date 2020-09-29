@@ -78,9 +78,6 @@ To conduct compression, several input arguments are **necessary**,
 - `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
 - `--opath` to specify output path for both compression and decompresson.
 
-
-
-
 ## tuning
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
 
@@ -160,12 +157,11 @@ To calculate compression ratio, please use *original data size* divided by *comp
 
 ## throughput
 
-To calculate (de)compression throughput, please:
+To calculate (de)compression throughput, please follow the below steps to use our bash script `cuSZ/script/parse_nvprof_log.sh`:
 - use `nvprof --log-file [name_of_logfile.txt]` before `cusz` to dump the performance data when (de)compressing
 - use `bash parse_nvprof_log.sh [name_of_logfile.txt]` to filter out the unnecessary performance data
 - sum up all the numbers between `++++++++++` to get the overall (de)compression time in us
 - use the original data size divided by the (de)compression time to get the overall (de)compression throughput
-
 
 For example, below is the output from `bash parse_nvprof_log.sh` on the CESM variable `CLDHGH` (25 MiB).
 
@@ -220,7 +216,7 @@ The compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, 
 # tests by team
 ## tested datasets
 
-We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/):
+We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/) (SDRBench):
 | dataset          | dim. | description                                                             |
 | ---------------- | ---- | ----------------------------------------------------------------------- |
 | EXAALT           | 1D   | molecular dynamics simulation                                           |
@@ -229,6 +225,8 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 | EXAFEL           | 2D   | images from the LCLS instrument                                         |
 | Hurricane ISABEL | 3D   | weather simulation                                                      |
 | NYX              | 3D   | cosmology: adaptive mesh hydrodynamics + N-body cosmological simulation |
+
+We provide three small sample data in `cuSZ/data` directory. To download more SDRBench datasets, please use our bash script `cuSZ/script/download-sdrb-data.sh`. 
 
 ## sample kernel performance (compression/zip)
 
