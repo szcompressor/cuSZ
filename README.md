@@ -9,7 +9,7 @@ This document simply introduces how to install and use the cuSZ compressor on NV
 
 Our published paper covers the essential design and implementation, accessible via [ACM DL (open access)](https://dl.acm.org/doi/10.1145/3410463.3414624) or [arXiv](https://arxiv.org/abs/2007.09625).
 
-**Kindly note:** If you mention cuSZ in your paper, please cite using [this entry](https://github.com/szcompressor/cuSZ#citation).
+**Kindly note:** If you mention cuSZ in your paper, please cite using [this entry](https://github.com/szcompressor/cuSZ#citing-cusz).
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
