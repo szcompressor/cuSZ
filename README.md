@@ -34,26 +34,23 @@ Our published paper covers the essential design and implementation, accessible v
 | RTX 2060S | Turing    | 75  | 11.0/11.1    | 9.3         |
 
 
-## download
+## from GitHub
 ```bash
-git clone git@github.com:szcompressor/cuSZ.git
-```
-
-## compile
-```bash
-cd cuSZ
+git clone git@github.com:szcompressor/cuSZ.git cusz
+cd cusz
 export CUSZ_ROOT=$(pwd)
 make
-sudo make install   # optional given that it's a sudo
-# otherwise, without `sudo make install`, `./$(CUSZ_ROOT)/bin/cusz` to execute
+# optional, otherwise use $(CUSZ_ROOT)/bin/cusz` to execute
+sudo make install
 ```
+## from Spack
 
-Commands `cusz` or `cusz -h` are for instant instructions.
+Spack is a multi-platform package manager dedicated for HPC deployment, and it's non-destructive. Currently, deployment of cuSZ requies a workaround on many HPC cluster, see details in [here](./doc/spack-install.md).
 
 # use
 ## basic use
 
-The basic use cuSZ is given below.
+Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is given below.
 
 ```bash
 ./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z
@@ -154,67 +151,19 @@ Other module skipping for use scenarios are in development.
 # results
 ## compression ratio
 
-To calculate compression ratio, please use *original data size* divided by *compressed data size* (including `.canon`, `.hbyte`, `.hmeata`, `.outlier`, and `.yamp` files). 
+To calculate compression ratio, please use *original data size* divided by *compressed data size* (including `.canon`, `.hbyte`, `.hmeata`, `.outlier`, and `.yamp` files).
 
 ## compression throughput
 
-To calculate (de)compression throughput, please follow the below steps to use our bash script `cuSZ/script/parse_nvprof_log.sh`:
+To calculate (de)compression throughput, please follow the below steps to use our bash script [`cuSZ/script/parse_nvprof_log.sh`](./script/parse_nvprof_log.sh):
 - use `nvprof --log-file [name_of_logfile.txt]` before `cusz` to dump the performance data when (de)compressing
 - use `bash parse_nvprof_log.sh [name_of_logfile.txt]` to filter out the unnecessary performance data
 - sum up all the numbers between `++++++++++` to get the overall (de)compression time in us
 - use the original data size divided by the (de)compression time to get the overall (de)compression throughput
+- A sample outpput from `bash parse_nvprof_log.sh <log file>` on the CESM variable `CLDHGH` (25 MiB) is shown [here](./doc/sample-stat.txt).
+- From the [sample](./doc/sample-stat.txt), the compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, respectively. So, the compression and decompression throughputs are 31.4 GB/s and 20.7 GB/s, respectively.
 
-For example, below is the output from `bash parse_nvprof_log.sh` on the CESM variable `CLDHGH` (25 MiB).
-
-```
-zip, dual-quant kernel:
-103.81
-
-
-zip, Huffman codebook:
-47.232
-539.13
-224.54
-4.416
-4.384
-4.128
-4.128
-4.096
-3.968
-25.471
-4.384
-4.256
-
-
-zip, Huffman encoding:
-57.6
-431.26
-
-
-zip, gather outlier:
-5.504
-5.216
-4.864
-63.776
-61.44
-733.47
-
-unzip, Huffman decoding:
-757.89
-
-
-unzip, scatter outliers:
-52.96
-13.024
-
-
-unzip, reversed dual-quant kernel:
-384.32
-1208.194
-```
-The compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, respectively, so the compression and decompression throughputs are 31.4 GB/s and 20.7 GB/s, respectively. 
-
-**Please note that cuSZ's performance might be dropped for a single large input file (e.g., in several Gigabytes) because of current coarse-grained deflating in Huffman codec mentioned in [limitations of this version](https://github.com/szcompressor/cuSZ#limitations-of-this-version-011).** 
+**Please note that cuSZ's performance might be dropped for a single large input file (e.g., in several Gigabytes) because of current coarse-grained deflating in Huffman codec mentioned in [limitations of this version](https://github.com/szcompressor/cuSZ#limitations-of-this-version-011).**
 
 # tests by team
 ## tested datasets
@@ -234,22 +183,22 @@ We provide three small sample data in `cuSZ/data` directory. To download more SD
 ## sample kernel performance (compression/zip)
 
 
-|                    |               |               | dual-quant  | hist       | codebook    | encode       | outlier     | OVERALL (w/o c/b) | mem bw (ref)     | memcpy (ref) |
-| ------------------ | ------------- | ------------- | ----------- | ---------- | ----------- | ------------ | ----------- | ----------------- | ---------------- | ------------ |
-| 1D HACC (1.05 GiB) | **V100**      | *time* (ms)      | 3.6    | 2.8    | 0.1   | 19.5   | 4.0   | 30.0            |                  |            |
-|                    |               | *throughput* (GB/s)      | 312.0  | 400.0  |        | 57.6    | 278.8  | 37.4             | 900 (HBM2)  | 713.1  |
-| 2D CESM (25.7 MiB) | **V100**      | *time* (us)      | 103.6  | 45.5   | 820.6 | 448.6  | 140.3 | 738.0           |                  |            |
-|                    |               | *throughput* (GB/s)      | 260.1  | 591.8  |        | 60.1    | 192.0  | 36.5             | 900 (HBM2)  | 713.1  |
-|                    | **RTX 5000**  | *time* (us)      | 409.7  | 83.9   | 681.5 | 870.2  | 204.4 | 1379.4          |                  |            |
-|                    |               | *throughput* (GB/s)      | 65.8   | 321.3  |        | 31.0    | 131.9  | 19.5             | 448 (GDDR6) | 364.5  |
-|                    | **RTX 2060S** | *time* (us)      | 535.58 | 112.0  | 601.5 | 1134.6 | 294.1 | 1543.2          |                  |            |
-|                    |               | *throughput* (GB/s)      | 50.3   | 240.7  |        | 23.8    | 91.6   | 17.5             | 448 (GDDR6) | 379.6  |
-| 3D NYX (512 MiB)   | **V100**      | *time* (ms)      | 2.69   | 1.34   | 0.68  | 8.37   | 2.00  | 14.4            |                  |            |
-|                    |               | *throughput* (GB/s)      | 199.6  | 400.6  |        | 64.1    | 268.4  | 37.3             | 900 (HBM2)  | 713.1  |
-|                    | **RTX 5000**  | *time* (ms)      | 10.15  | 3.58   | 0.55  | 14.48  | 5.20  | 33.4            |                  |            |
-|                    |               | *throughput* (GB/s)      | 52.9   | 150.0  |        | 37.1    | 103.2  | 16.1             | 448 (GDDR6) | 364.5  |
-|                    | **RTX 2060S** | *time* (ms)      | 13.53  | 5.58   | 0.47  | 18.13  | 7.01  | 44.25           |                  |            |
-|                    |               | *throughput* (GB/s)      | 39.7   | 96.2   |        | 29.6    | 76.6   | 12.1             | 448 (GDDR6) | 379.6  |
+|                    |               |                     | dual-quant | hist  | codebook | encode | outlier | OVERALL (w/o c/b) | mem bw (ref) | memcpy (ref) |
+| ------------------ | ------------- | ------------------- | ---------- | ----- | -------- | ------ | ------- | ----------------- | ------------ | ------------ |
+| 1D HACC (1.05 GiB) | **V100**      | *time* (ms)         | 3.6        | 2.8   | 0.1      | 19.5   | 4.0     | 30.0              |              |              |
+|                    |               | *throughput* (GB/s) | 312.0      | 400.0 |          | 57.6   | 278.8   | 37.4              | 900 (HBM2)   | 713.1        |
+| 2D CESM (25.7 MiB) | **V100**      | *time* (us)         | 103.6      | 45.5  | 820.6    | 448.6  | 140.3   | 738.0             |              |              |
+|                    |               | *throughput* (GB/s) | 260.1      | 591.8 |          | 60.1   | 192.0   | 36.5              | 900 (HBM2)   | 713.1        |
+|                    | **RTX 5000**  | *time* (us)         | 409.7      | 83.9  | 681.5    | 870.2  | 204.4   | 1379.4            |              |              |
+|                    |               | *throughput* (GB/s) | 65.8       | 321.3 |          | 31.0   | 131.9   | 19.5              | 448 (GDDR6)  | 364.5        |
+|                    | **RTX 2060S** | *time* (us)         | 535.58     | 112.0 | 601.5    | 1134.6 | 294.1   | 1543.2            |              |              |
+|                    |               | *throughput* (GB/s) | 50.3       | 240.7 |          | 23.8   | 91.6    | 17.5              | 448 (GDDR6)  | 379.6        |
+| 3D NYX (512 MiB)   | **V100**      | *time* (ms)         | 2.69       | 1.34  | 0.68     | 8.37   | 2.00    | 14.4              |              |              |
+|                    |               | *throughput* (GB/s) | 199.6      | 400.6 |          | 64.1   | 268.4   | 37.3              | 900 (HBM2)   | 713.1        |
+|                    | **RTX 5000**  | *time* (ms)         | 10.15      | 3.58  | 0.55     | 14.48  | 5.20    | 33.4              |              |              |
+|                    |               | *throughput* (GB/s) | 52.9       | 150.0 |          | 37.1   | 103.2   | 16.1              | 448 (GDDR6)  | 364.5        |
+|                    | **RTX 2060S** | *time* (ms)         | 13.53      | 5.58  | 0.47     | 18.13  | 7.01    | 44.25             |              |              |
+|                    |               | *throughput* (GB/s) | 39.7       | 96.2  |          | 29.6   | 76.6    | 12.1              | 448 (GDDR6)  | 379.6        |
 
 **Please note that if the performance you get is much lower than what we show above, please use `-C` option to change the chunk size for Huffman codec. For  example, we use `-C 16384` for 1D HACC data in the above test.**
 
@@ -276,22 +225,22 @@ Ostadzadeh, S. Arash, B. Maryam Elahi, Zeinab Zeinalpour, M. Amir Moulavi, and K
 Klein, Shmuel T. "Space-and time-efficient decoding with canonical huffman trees." In Annual Symposium on Combinatorial Pattern Matching, pp. 65-75. Springer, Berlin, Heidelberg, 1997.
 
 # citing cuSZ
-```
-@inproceedings{10.1145/3410463.3414624,
-author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
-title = {cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data},
-year = {2020},
-isbn = {9781450380751},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-url = {https://doi.org/10.1145/3410463.3414624},
-doi = {10.1145/3410463.3414624},
-booktitle = {Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques},
-pages = {3–15},
-numpages = {13},
-keywords = {cuda, gpu, scientific data, lossy compression, performance},
-location = {Virtual Event, GA, USA},
-series = {PACT '20}
+```bibtex
+@inproceedings{cusz2020,
+     author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
+      title = {cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data},
+       year = {2020},
+       isbn = {9781450380751},
+  publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+        url = {https://doi.org/10.1145/3410463.3414624},
+        doi = {10.1145/3410463.3414624},
+  booktitle = {Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques},
+      pages = {3–15},
+   numpages = {13},
+   keywords = {cuda, gpu, scientific data, lossy compression, performance},
+   location = {Virtual Event, GA, USA},
+     series = {PACT '20}
 }
 ```
 
