@@ -1,0 +1,44 @@
+zip, dual-quant kernel:
+103.81
+
+
+zip, Huffman codebook:
+47.232
+539.13
+224.54
+4.416
+4.384
+4.128
+4.128
+4.096
+3.968
+25.471
+4.384
+4.256
+
+
+zip, Huffman encoding:
+57.6
+431.26
+
+
+zip, gather outlier:
+5.504
+5.216
+4.864
+63.776
+61.44
+733.47
+
+unzip, Huffman decoding:
+757.89
+
+
+unzip, scatter outliers:
+52.96
+13.024
+
+
+unzip, reversed dual-quant kernel:
+384.32
+1208.194
