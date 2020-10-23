@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <cstring>
 
 #include "SDRB.hh"
 #include "argparse.hh"
@@ -135,6 +136,19 @@ int main(int argc, char** argv)
         if (eb_array) memset(eb_array, 0, sizeof(double) * 4);
     }
 
+    //wenyu's modification
+    //invoke system() to untar archived files first before decompression
+    /*
+    if (ap->to_extract) {
+        string cmd_string="tar -xf "+ap->cx_path2file+".sz";
+        char* cmd=new char[cmd_string.length()];
+        strcpy(cmd,cmd_string.c_str());
+        system(cmd);
+        delete []cmd;
+    }
+    */
+    //wenyu's modification ends
+
     if (ap->to_extract) {  // fp32 only for now
 
         // unpack metadata
@@ -168,4 +182,36 @@ int main(int argc, char** argv)
     delete[] dim_array;
     delete[] eb_array;
     // delete eb_config;
+
+    //wenyu's modification starts
+    //invoke system() function to merge and compress the resulting 5 files after cusz compression
+    string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
+    if (ap->to_archive or ap->to_dryrun) {
+        //using tar command to encapsulate files with gzip
+        string cmd_string="tar -czf "+ap->opath+cx_basename+".sz "+ap->opath+cx_basename+".*";
+        char* cmd=new char[cmd_string.length()];
+        strcpy(cmd,cmd_string.c_str());
+        system(cmd);
+        //remove 5 subfiles
+        /*
+        cmd_string="rm "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
+        cmd=new char[cmd_string.length()];
+        strcpy(cmd,cmd_string.c_str());
+        system(cmd);
+        */
+        delete []cmd;
+    }
+
+    //if it's decompression, remove released subfiles at last.
+    /*
+    if (ap->to_extract) {
+        string cmd_string="rm "+ap->cx_path2file+".hbyte "+ap->cx_path2file+".outlier "+ap->cx_path2file+".canon "+ap->cx_path2file+".hmeta "+ap->cx_path2file+".yamp";
+        char* cmd=new char[cmd_string.length()];
+        strcpy(cmd,cmd_string.c_str());
+        system(cmd);
+        delete []cmd;
+    }
+    */
+    //wenyu's modification ends
+    
 }
