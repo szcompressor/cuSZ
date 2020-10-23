@@ -187,26 +187,32 @@ int main(int argc, char** argv)
     //invoke system() function to merge and compress the resulting 5 files after cusz compression
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
     if (ap->to_archive or ap->to_dryrun) {
-        //using tar command to encapsulate files with gzip
-        string cmd_string="tar -czf "+ap->opath+cx_basename+".sz "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
+        //remove *.sz if existing
+        string cmd_string="rm -rf "+ap->opath+cx_basename+".sz";
         char* cmd=new char[cmd_string.length()+1];
         strcpy(cmd,cmd_string.c_str());
         system(cmd);
-	delete []cmd;
-        //remove 5 subfiles
-        
-        cmd_string="rm "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
+        delete []cmd;
+
+        //using tar command to encapsulate files with gzip
+        cmd_string="tar -czf "+ap->opath+cx_basename+".sz "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
         cmd=new char[cmd_string.length()+1];
         strcpy(cmd,cmd_string.c_str());
         system(cmd);
-        
+	delete []cmd;
+
+        //remove 5 subfiles
+        cmd_string="rm -rf "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
+        cmd=new char[cmd_string.length()+1];
+        strcpy(cmd,cmd_string.c_str());
+        system(cmd);
         delete []cmd;
     }
 
     //if it's decompression, remove released subfiles at last.
     
     if (ap->to_extract) {
-        string cmd_string="rm "+ap->cx_path2file+".hbyte "+ap->cx_path2file+".outlier "+ap->cx_path2file+".canon "+ap->cx_path2file+".hmeta "+ap->cx_path2file+".yamp";
+        string cmd_string="rm -rf "+ap->cx_path2file+".hbyte "+ap->cx_path2file+".outlier "+ap->cx_path2file+".canon "+ap->cx_path2file+".hmeta "+ap->cx_path2file+".yamp";
         char* cmd=new char[cmd_string.length()+1];
         strcpy(cmd,cmd_string.c_str());
         system(cmd);
