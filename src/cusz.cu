@@ -188,7 +188,7 @@ int main(int argc, char** argv)
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
     if (ap->to_archive or ap->to_dryrun) {
         //using tar command to encapsulate files with gzip
-        string cmd_string="tar -czf "+ap->opath+cx_basename+".sz "+ap->opath+cx_basename+".*";
+        string cmd_string="tar -czf "+ap->opath+cx_basename+".sz "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
         char* cmd=new char[cmd_string.length()+1];
         strcpy(cmd,cmd_string.c_str());
         system(cmd);
