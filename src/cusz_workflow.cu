@@ -370,10 +370,9 @@ void cusz::workflow::Decompress(
     }
 
     // TODO move CR out of VerifyData
-    T* odata;
     if (ap->x_fi_origin != "") {
         cout << log_info << "To compare with the original datum" << endl;
-        odata = io::ReadBinaryFile<T>(ap->x_fi_origin, len);
+        auto odata = io::ReadBinaryFile<T>(ap->x_fi_origin, len);
         analysis::VerifyData(
             xdata, odata,
             len,         //
@@ -381,6 +380,7 @@ void cusz::workflow::Decompress(
             ebs_L4[EB],  //
             archive_size,
             ap->pre_binning ? 4 : 1);  // TODO use template rather than 2x2
+        delete[] odata;
     }
 
     if (!ap->skip_writex)
@@ -390,7 +390,6 @@ void cusz::workflow::Decompress(
     }
 
     // clean up
-    if (odata) delete[] odata;
     delete[] xdata;
     delete[] xbcode;
     cudaFree(d_xdata);
