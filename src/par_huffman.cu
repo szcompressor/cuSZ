@@ -528,7 +528,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
     GPU_GetMaxCWLength<<<1, 1>>>(CL, nz_dict_size, d_max_CL);
     cudaDeviceSynchronize();
     cudaMemcpy(&max_CL, d_max_CL, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-    cudaFree(d_first_nonzero_index);
+    cudaFree(d_max_CL);
 
     int max_CW_bits = (sizeof(H) * 8) - 8;
     if (max_CL > max_CW_bits) {
