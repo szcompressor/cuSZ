@@ -223,7 +223,6 @@ void cusz::impl::PruneGatherAsCSR(
 
     io::WriteArrayToBinary(*fo, outbin, ltotal);
 
-    if (d_A) cudaFree(d_A);
     if (d_row_ptr) cudaFree(d_row_ptr);
     if (d_col_ind) cudaFree(d_col_ind);
     if (d_csr_val) cudaFree(d_csr_val);
