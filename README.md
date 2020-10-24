@@ -20,7 +20,7 @@ Our published paper covers the essential design and implementation, accessible v
 
 # set up
 ## requirements
-- NVIDIA GPU with Pascal (in progress), Volta, or Turing microarchitectures 
+- NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
 - Minimum: CUDA 9.2+ and GCC 7.3+ (with C++14 support)
   - The below table shows our tested GPUs, CUDA versions, and compilers.
   - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
@@ -28,6 +28,8 @@ Our published paper covers the essential design and implementation, accessible v
   
 | GPU       | microarch | SM  | CUDA version | gcc version |
 | --------- | --------- | --- | ------------ | ----------- |
+| P100      | Pascal    | 60  | 10.1         | 7.3         |
+| P2000M    | Pascal    | 61  | 11.0         | 7.5         |
 | V100      | Volta     | 70  | 10.2         | 7.3/8.4     |
 |           |           |     | 9.2          | 7.3         |
 | RTX 5000  | Turing    | 75  | 10.1         | 7.3/8.3     |
