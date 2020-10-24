@@ -226,7 +226,6 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
 
     //////// clean up
-    cudaFree(d_in);
     cudaFree(d_freq);
     cudaFree(d_canonical_cb);
     cudaFree(d_decode_meta);
