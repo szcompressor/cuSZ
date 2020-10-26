@@ -83,7 +83,7 @@ void analysis::VerifyData(
     auto right_border = []() { printf("\n"); };
 
     cout << endl;
-    cout << log_info << "verification start ---------------------" << endl;
+    cout << log_info << "Verification start ---------------------" << endl;
     left_border(), printf("%-20s%.20G", "min.val", _min), right_border();
     left_border(), printf("%-20s%.20G", "max.val", _max), right_border();
     left_border(), printf("%-20s%.20G", "val.rng", rng), right_border();
@@ -105,10 +105,12 @@ void analysis::VerifyData(
     if (archive_byte_size) {
         left_border(),
             printf(
-                "%-20s\e[31m%lf\e[0m", "compression.ratio", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
+                "%-20s\e[31m%lf\e[0m", "compress.ratio (w/o gzip)", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
             right_border();
     }
-    cout << log_info << "verification end -----------------------" << endl;
+    cout << log_info << "Verification end -----------------------" << endl;
+    cout << endl;
+    cout << log_info << "Please use sizes of original data and compressed data (*.sz) to calculate final compression ratio (w/ gzip)" << endl;
     cout << endl;
 }
 
