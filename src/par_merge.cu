@@ -41,7 +41,7 @@
  * @author Oded Green (ogreen@gatech.edu), Rob McColl (robert.c.mccoll@gmail.com))
  * @brief Modified and adapted by Cody Rivera
  * @version 0.1
- * @date 2020-09-20
+ * @date 2020-10-24
  * Created on: 2020-06
  *
  */
@@ -167,8 +167,8 @@ __device__ void cudaWorkloadDiagonals(
             if (getfrom_y >= iNodesCap) getfrom_y -= iNodesCap;
 
             // Are we a '1' or '0' with respect to A[x] <= B[x]
-            if (current_x > A_length or current_y < 0) { oneorzero[threadIdx.x] = 0; }
-            else if (current_y >= B_length || current_x < 1) {
+            if (current_x > (int32_t) A_length or current_y < 0) { oneorzero[threadIdx.x] = 0; }
+            else if (current_y >= (int32_t) B_length || current_x < 1) {
                 oneorzero[threadIdx.x] = 1;
             }
             else {

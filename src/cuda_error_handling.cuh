@@ -33,6 +33,7 @@ static void HandleError(cudaError_t err, const char* file, int line)
 static void check_cuda_error(cudaError_t status, const char* file, int line)
 {
     if (cudaSuccess != status) {
+        /*
         printf("\nCUDA error/status reference (as of CUDA 11):\n");
         printf("cudaSuccess                         -> %d\n", cudaSuccess);
         printf("cudaErrorInvalidValue               -> %d\n", cudaErrorInvalidValue);
@@ -80,22 +81,22 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("cudaErrorInvalidDevice              -> %d\n", cudaErrorInvalidDevice);
         printf("cudaErrorStartupFailure             -> %d\n", cudaErrorStartupFailure);
         printf("cudaErrorInvalidKernelImage         -> %d\n", cudaErrorInvalidKernelImage);
-#if (CUDART_VERSION == 1100)
+    #if (CUDART_VERSION == 1100)
         printf("cudaErrorDeviceUninitialized        -> %d\n", cudaErrorDeviceUninitialized);
-#endif
+    #endif
         printf("cudaErrorMapBufferObjectFailed      -> %d\n", cudaErrorMapBufferObjectFailed);
         printf("cudaErrorUnmapBufferObjectFailed    -> %d\n", cudaErrorUnmapBufferObjectFailed);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorArrayIsMapped              -> %d\n", cudaErrorArrayIsMapped);
         printf("cudaErrorAlreadyMapped              -> %d\n", cudaErrorAlreadyMapped);
-#endif
+    #endif
         printf("cudaErrorNoKernelImageForDevice     -> %d\n", cudaErrorNoKernelImageForDevice);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorAlreadyAcquired            -> %d\n", cudaErrorAlreadyAcquired);
         printf("cudaErrorNotMapped                  -> %d\n", cudaErrorNotMapped);
         printf("cudaErrorNotMappedAsArray           -> %d\n", cudaErrorNotMappedAsArray);
         printf("cudaErrorNotMappedAsPointer         -> %d\n", cudaErrorNotMappedAsPointer);
-#endif
+    #endif
         printf("cudaErrorECCUncorrectable           -> %d\n", cudaErrorECCUncorrectable);
         printf("cudaErrorUnsupportedLimit           -> %d\n", cudaErrorUnsupportedLimit);
         printf("cudaErrorDeviceAlreadyInUse         -> %d\n", cudaErrorDeviceAlreadyInUse);
@@ -104,31 +105,31 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("cudaErrorInvalidGraphicsContext     -> %d\n", cudaErrorInvalidGraphicsContext);
         printf("cudaErrorNvlinkUncorrectable        -> %d\n", cudaErrorNvlinkUncorrectable);
         printf("cudaErrorJitCompilerNotFound        -> %d\n", cudaErrorJitCompilerNotFound);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorInvalidSource              -> %d\n", cudaErrorInvalidSource);
         printf("cudaErrorFileNotFound               -> %d\n", cudaErrorFileNotFound);
-#endif
+    #endif
         printf("cudaErrorSharedObjectSymbolNotFound -> %d\n", cudaErrorSharedObjectSymbolNotFound);
         printf("cudaErrorSharedObjectInitFailed     -> %d\n", cudaErrorSharedObjectInitFailed);
         printf("cudaErrorOperatingSystem            -> %d\n", cudaErrorOperatingSystem);
         printf("cudaErrorInvalidResourceHandle      -> %d\n", cudaErrorInvalidResourceHandle);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorIllegalState               -> %d\n", cudaErrorIllegalState);
         printf("cudaErrorSymbolNotFound             -> %d\n", cudaErrorSymbolNotFound);
-#endif
+    #endif
         printf("cudaErrorNotReady                   -> %d\n", cudaErrorNotReady);
         printf("cudaErrorIllegalAddress             -> %d\n", cudaErrorIllegalAddress);
         printf("cudaErrorLaunchOutOfResources       -> %d\n", cudaErrorLaunchOutOfResources);
         printf("cudaErrorLaunchTimeout              -> %d\n", cudaErrorLaunchTimeout);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorLaunchIncompatibleTexturing-> %d\n", cudaErrorLaunchIncompatibleTexturing);
-#endif
+    #endif
         printf("cudaErrorPeerAccessAlreadyEnabled   -> %d\n", cudaErrorPeerAccessAlreadyEnabled);
         printf("cudaErrorPeerAccessNotEnabled       -> %d\n", cudaErrorPeerAccessNotEnabled);
         printf("cudaErrorSetOnActiveProcess         -> %d\n", cudaErrorSetOnActiveProcess);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorContextIsDestroyed         -> %d\n", cudaErrorContextIsDestroyed);
-#endif
+    #endif
         printf("cudaErrorAssert                     -> %d\n", cudaErrorAssert);
         printf("cudaErrorTooManyPeers               -> %d\n", cudaErrorTooManyPeers);
         printf("cudaErrorHostMemoryAlreadyRegistered-> %d\n", cudaErrorHostMemoryAlreadyRegistered);
@@ -142,7 +143,7 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("cudaErrorCooperativeLaunchTooLarge  -> %d\n", cudaErrorCooperativeLaunchTooLarge);
         printf("cudaErrorNotPermitted               -> %d\n", cudaErrorNotPermitted);
         printf("cudaErrorNotSupported               -> %d\n", cudaErrorNotSupported);
-#if (CUDART_VERSION == 1010)
+    #if (CUDART_VERSION == 1010)
         printf("cudaErrorSystemNotReady             -> %d\n", cudaErrorSystemNotReady);
         printf("cudaErrorSystemDriverMismatch       -> %d\n", cudaErrorSystemDriverMismatch);
         printf("cudaErrorCompatNotSupportedOnDevice -> %d\n", cudaErrorCompatNotSupportedOnDevice);
@@ -155,13 +156,14 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("cudaErrorStreamCaptureImplicit      -> %d\n", cudaErrorStreamCaptureImplicit);
         printf("cudaErrorCapturedEvent              -> %d\n", cudaErrorCapturedEvent);
         printf("cudaErrorStreamCaptureWrongThread   -> %d\n", cudaErrorStreamCaptureWrongThread);
-#endif
-#if (CUDART_VERSION == 1100)
+    #endif
+    #if (CUDART_VERSION == 1100)
         printf("cudaErrorTimeout                    -> %d\n", cudaErrorTimeout);
         printf("cudaErrorGraphExecUpdateFailure     -> %d\n", cudaErrorGraphExecUpdateFailure);
-#endif
+    #endif
         printf("cudaErrorUnknown                    -> %d\n", cudaErrorUnknown);
         printf("cudaErrorApiFailureBase (Deprecated)-> %d\n", cudaErrorApiFailureBase);
+        */
         printf("\n");
         printf(
             "CUDA API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n",  //

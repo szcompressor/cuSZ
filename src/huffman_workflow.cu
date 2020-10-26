@@ -3,7 +3,7 @@
  * @author Jiannan Tian, Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Workflow of Huffman coding.
  * @version 0.1
- * @date 2020-09-20
+ * @date 2020-10-24
  * Created on 2020-04-24
  *
  * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
@@ -15,6 +15,7 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
+#include <algorithm>
 #include <bitset>
 #include <cassert>
 #include <cmath>
@@ -51,11 +52,16 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
     // Initialize to device-specific values
     int deviceId;
     int maxbytes;
+    int maxbytesOptIn;
     int numSMs;
 
     cudaGetDevice(&deviceId);
-    cudaDeviceGetAttribute(&maxbytes, cudaDevAttrMaxSharedMemoryPerMultiprocessor, deviceId);
+    cudaDeviceGetAttribute(&maxbytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, deviceId);
+    
+    // Account for opt-in extra shared memory on certain architectures
+    cudaDeviceGetAttribute(&maxbytesOptIn, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
+    maxbytes = std::max(maxbytes, maxbytesOptIn);
 
     // Optimize launch
     int numBuckets     = dict_size;
@@ -226,7 +232,6 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
 
     //////// clean up
-    cudaFree(d_in);
     cudaFree(d_freq);
     cudaFree(d_canonical_cb);
     cudaFree(d_decode_meta);
