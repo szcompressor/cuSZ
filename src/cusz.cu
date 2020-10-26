@@ -200,7 +200,8 @@ int main(int argc, char** argv)
         strcpy(cmd,cmd_string.c_str());
         system(cmd);
 	delete []cmd;
-
+        cout << log_info << "Compressed file is written to " << ap->opath << cx_basename << ".sz." << endl;
+        
         //remove 5 subfiles
         cmd_string="rm -rf "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
         cmd=new char[cmd_string.length()+1];
