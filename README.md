@@ -20,7 +20,7 @@ Our published paper covers the essential design and implementation, accessible v
 
 # set up
 ## requirements
-- NVIDIA GPU with Pascal (in progress), Volta, or Turing microarchitectures 
+- NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
 - Minimum: CUDA 9.2+ and GCC 7.3+ (with C++14 support)
   - The below table shows our tested GPUs, CUDA versions, and compilers.
   - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
@@ -28,6 +28,8 @@ Our published paper covers the essential design and implementation, accessible v
   
 | GPU       | microarch | SM  | CUDA version | gcc version |
 | --------- | --------- | --- | ------------ | ----------- |
+| P100      | Pascal    | 60  | 10.1         | 7.3         |
+| P2000M    | Pascal    | 61  | 11.0         | 7.5         |
 | V100      | Volta     | 70  | 10.2         | 7.3/8.4     |
 |           |           |     | 9.2          | 7.3         |
 | RTX 5000  | Turing    | 75  | 10.1         | 7.3/8.3     |
@@ -151,7 +153,7 @@ Other module skipping for use scenarios are in development.
 # results
 ## compression ratio
 
-To calculate compression ratio, please use *original data size* divided by *compressed data size* (including `.canon`, `.hbyte`, `.hmeata`, `.outlier`, and `.yamp` files).
+To calculate compression ratio, please use *size of original data* divided by *size of .sz compressed data*.
 
 ## compression throughput
 
@@ -202,11 +204,9 @@ We provide three small sample data in `cuSZ/data` directory. To download more SD
 
 **Please note that if the performance you get is much lower than what we show above, please use `-C` option to change the chunk size for Huffman codec. For  example, we use `-C 16384` for 1D HACC data in the above test.**
 
-## limitations of this version (0.1.1)
+## limitations of this version (0.1.3)
 
 - For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
-- The compression ratio of current cuSZ may be different from SZ on CPU. Unlike SZ, cuSZ so far does not include an LZ-based lossless compression as the last step for compression throughput consideration; in other words, the compression ratio is up to 32. We are working on an efficient LZ-based lossless compression to be integrated into cuSZ in the future release.
-- For this release, compressed data is saved in five files, including `.canon` file for canonical codebook (for decompression), `.hbyte` file for Huffman bitstream, `.hmeata` file for chucked Huffman bitstream metadata, `.outlier` file for unpredicted data with its metadata (in `CSR` format), and `.yamp` file for metadata pack of compressed data. Moreover, if you use `--skip huffman`, `uint<8|16|32>_t` quantization codes are saved in `.quant` file. We will change the compressed format in the next release. 
 - The current integrated Huffman codec runs with efficient histogramming [1], parallel Huffman codebook building [2], memory-copy style encoding, chunkwise bit deflating, and efficient Huffman decoding using canonical codes [3]. However, the chunkwise bit deflating is not optimal, so we are woking on a faster, finer-grained Huffman codec for the future release. 
 - We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
 - Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 

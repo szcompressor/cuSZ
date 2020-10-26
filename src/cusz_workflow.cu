@@ -282,6 +282,7 @@ void cusz::workflow::Compress(
 
     delete[] data;
     cudaFree(d_data);
+    cudaFree(d_bcode);
 }
 
 template <typename T, typename Q, typename H>
