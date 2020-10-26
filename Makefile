@@ -12,10 +12,11 @@ SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
 
+GPU_PASCAL:= -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
 GPU_TURING:= -gencode=arch=compute_75,code=sm_75
 GPU_AMPERE:= -gencode=arch=compute_80,code=sm_80
-DEPLOY    := $(GPU_VOLTA)
+DEPLOY    := $(GPU_PASCAL) $(GPU_VOLTA)
 
 CUDA_MAJV := $(shell nvcc --version | grep "release" | \
                awk '{print $$6}' | cut -c2- | cut -d. -f1)

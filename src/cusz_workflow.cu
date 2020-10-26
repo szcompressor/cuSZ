@@ -278,10 +278,11 @@ void cusz::workflow::Compress(
     std::tie(n_bits, n_uInt, huffman_metadata_size) =
         HuffmanEncode<Q, H>(ap->c_huff_base, d_bcode, len, ap->huffman_chunk, dims_L16[CAP]);
 
-    cout << log_info << "Compression finished, saved Huffman encoded quant.code.\n" << endl;
+    cout << log_info << "Compression finished, saved Huffman encoded quant.code.\n";
 
     delete[] data;
     cudaFree(d_data);
+    cudaFree(d_bcode);
 }
 
 template <typename T, typename Q, typename H>
@@ -370,10 +371,9 @@ void cusz::workflow::Decompress(
     }
 
     // TODO move CR out of VerifyData
-    T* odata;
     if (ap->x_fi_origin != "") {
         cout << log_info << "To compare with the original datum" << endl;
-        odata = io::ReadBinaryFile<T>(ap->x_fi_origin, len);
+        auto odata = io::ReadBinaryFile<T>(ap->x_fi_origin, len);
         analysis::VerifyData(
             xdata, odata,
             len,         //
@@ -381,6 +381,9 @@ void cusz::workflow::Decompress(
             ebs_L4[EB],  //
             archive_size,
             ap->pre_binning ? 4 : 1);  // TODO use template rather than 2x2
+        cout << log_info << "Decompressed file is written to " << ap->cx_path2file << ".szx." << endl;
+        cout << log_info << "Please use compressed data (*.sz) to calculate final comp ratio (w/ gzip)." << endl;        
+        delete[] odata;
     }
 
     if (!ap->skip_writex)
@@ -390,7 +393,6 @@ void cusz::workflow::Decompress(
     }
 
     // clean up
-    if (odata) delete[] odata;
     delete[] xdata;
     delete[] xbcode;
     cudaFree(d_xdata);
