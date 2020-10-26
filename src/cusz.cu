@@ -195,7 +195,7 @@ int main(int argc, char** argv)
         delete []cmd;
 
         //using tar command to encapsulate files with gzip
-        cmd_string="tar -czf "+ap->opath+cx_basename+".sz "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
+        cmd_string="cd "+ap->opath+";tar -czf "+cx_basename+".sz "+cx_basename+".hbyte "+cx_basename+".outlier "+cx_basename+".canon "+cx_basename+".hmeta "+cx_basename+".yamp";
         cmd=new char[cmd_string.length()+1];
         strcpy(cmd,cmd_string.c_str());
         system(cmd);
