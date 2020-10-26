@@ -105,12 +105,10 @@ void analysis::VerifyData(
     if (archive_byte_size) {
         left_border(),
             printf(
-                "%-20s\e[31m%lf\e[0m", "compress.ratio (w/o gzip)", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
+                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
             right_border();
     }
     cout << log_info << "Verification end -----------------------" << endl;
-    cout << endl;
-    cout << log_info << "Please use sizes of original data and compressed data (*.sz) to calculate final compression ratio (w/ gzip)" << endl;
     cout << endl;
 }
 
