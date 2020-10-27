@@ -15,6 +15,7 @@
 int main(int argc, char** argv)
 {
     GetMachineProperties();
+    GetDeviceProperty();
     return 0;
 }
 #endif
