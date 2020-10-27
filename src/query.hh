@@ -1,11 +1,11 @@
 /**
  * @file query.hh
  * @author Jiannan Tian
- * @brief
- * @version 0.1.2
+ * @brief query machine information
+ * @version 0.1.3
  * @date 2020-10-05
  *
- * (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * (C) 2020 by Washington State University, Argonne National Laboratory
  *
  */
 
