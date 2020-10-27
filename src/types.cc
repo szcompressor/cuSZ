@@ -100,23 +100,21 @@ ErrorBoundConfigurator::ErrorBoundConfigurator(int _capacity, double _precision,
     radius   = capacity / 2;
     mode     = std::string("ABS");
 
-    if (_precision != 1 and _base == 2) {
-        cerr << "tmp.ly we only support 1 x pow(2, \?\?)" << endl;
-    }
+    if (_precision != 1 and _base == 2) { cerr << "tmp.ly we only support 1 x pow(2, \?\?)" << endl; }
     eb_final   = _precision * pow(_base, _exponent);
     base       = _base;
     exp_base10 = _base == 10 ? _exponent : log10(eb_final);
     exp_base2  = _base == 2 ? _exponent : log2(eb_final);
 
-    cout << log_info << "quant.capacity:\t" << _capacity << endl;
-    if (_base == 10) {
-        cout << log_info << "input eb:\t" << _precision;
-        cout << " x 10^(" << _exponent << ") = " << eb_final << endl;
-    }
-    else if (_base == 2) {
-        cout << "eb.set.to:\t"
-             << "2^(" << _exponent << ") = " << eb_final << endl;
-    }
+    cout << log_info << "quant.cap:\t" << _capacity << "\tinput eb:\t" << eb_final << "\n";
+    // if (_base == 10) {
+    //     cout << log_info << "input eb:\t" << _precision;
+    //     cout << " x 10^(" << _exponent << ") = " << eb_final << endl;
+    // }
+    // else if (_base == 2) {
+    //     cout << "eb.set.to:\t"
+    //          << "2^(" << _exponent << ") = " << eb_final << endl;
+    // }
 }
 
 void ErrorBoundConfigurator::ChangeToRelativeMode(double value_range)
@@ -125,11 +123,10 @@ void ErrorBoundConfigurator::ChangeToRelativeMode(double value_range)
         cerr << log_err << "INVALID VALUE RANGE!" << endl;
         exit(1);
     }
-    // cout << log_info << "change to r2r mode \e[2m(relative-to-value-range)\e[0m" << endl;
-    cout << log_info << "eb change:\t" << eb_final << " (input eb) x " << value_range << " (rng) = ";
+    cout << log_info << "eb change:\t(input eb) x " << value_range << " (rng) = ";
     this->eb_final *= value_range;
     cout << eb_final;
-    cout << " \e[2m(relative-to-value-range, r2r mode)\e[0m" << endl;
+    cout << " \e[2m(relative-to-range)\e[0m" << endl;
     mode = std::string("VRREL");
 }
 
