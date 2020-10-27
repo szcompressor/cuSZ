@@ -8,7 +8,7 @@
  * @date 2020-10-24
  * Created on: 2020-05
  *
- * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
@@ -493,27 +493,28 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
     // clang-format on
 
     // Grid configuration for CL -- based on Cooperative Groups
-    int cg_mblocks;
-    int cg_blocks_sm;
-    int device_id;
-    int mthreads = 32; // 1 warp
+    int            cg_mblocks;
+    int            cg_blocks_sm;
+    int            device_id;
+    int            mthreads = 32;  // 1 warp
     cudaDeviceProp deviceProp;
     cudaGetDevice(&device_id);
     cudaGetDeviceProperties(&deviceProp, device_id);
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&cg_blocks_sm, parHuff::GPU_GenerateCL<unsigned int>,
-                                                  mthreads, 5 * sizeof(int32_t) + 32 * sizeof(int32_t));
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &cg_blocks_sm, parHuff::GPU_GenerateCL<unsigned int>, mthreads, 5 * sizeof(int32_t) + 32 * sizeof(int32_t));
     cg_mblocks = deviceProp.multiProcessorCount * cg_blocks_sm;
-    
+
     int ELTS_PER_SEQ_MERGE = 16;
     int mblocks            = std::min(cg_mblocks, (nz_dict_size / ELTS_PER_SEQ_MERGE) + 1);
 
     // Exit if not enough exposed parallelism -- TODO modify kernels so this is unneeded
     int tthreads = mthreads * mblocks;
     if (tthreads < nz_dict_size) {
-        cout << log_err << "Insufficient on-device parallelism to construct a "
-             << nz_dict_size << " non-zero item codebook" << endl;
-        cout << log_err << "Provided parallelism: " << mblocks << " blocks, " << mthreads << " threads, "
-             << tthreads << " total" << endl << endl;
+        cout << log_err << "Insufficient on-device parallelism to construct a " << nz_dict_size
+             << " non-zero item codebook" << endl;
+        cout << log_err << "Provided parallelism: " << mblocks << " blocks, " << mthreads << " threads, " << tthreads
+             << " total" << endl
+             << endl;
         cout << log_err << "Exiting cuSZ ..." << endl;
         exit(1);
     }
@@ -569,14 +570,15 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
     // Exit if not enough exposed parallelism -- TODO modify kernels so this is unneeded
     int cw_tthreads = cw_mblocks * 1024;
     if (cw_tthreads < nz_dict_size) {
-        cout << log_err << "Insufficient on-device parallelism to construct a "
-             << nz_dict_size << " non-zero item codebook" << endl;
-        cout << log_err << "Provided parallelism: " << cw_mblocks << " blocks, " << 1024 << " threads, "
-             << cw_tthreads << " total" << endl << endl;
+        cout << log_err << "Insufficient on-device parallelism to construct a " << nz_dict_size
+             << " non-zero item codebook" << endl;
+        cout << log_err << "Provided parallelism: " << cw_mblocks << " blocks, " << 1024 << " threads, " << cw_tthreads
+             << " total" << endl
+             << endl;
         cout << log_err << "Exiting cuSZ ..." << endl;
         exit(1);
     }
-    
+
     void* CW_Args[] = {
         (void*)&CL,              //
         (void*)&_nz_d_codebook,  //

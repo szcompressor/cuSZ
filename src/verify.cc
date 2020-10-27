@@ -6,7 +6,7 @@
  * @date 2020-09-20
  * Created on: 2019-09-30
  *
- * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
@@ -105,7 +105,8 @@ void analysis::VerifyData(
     if (archive_byte_size) {
         left_border(),
             printf(
-                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip", binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
+                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip",
+                binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
             right_border();
     }
     cout << log_info << "Verification end -----------------------" << endl;
