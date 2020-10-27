@@ -9,7 +9,7 @@
  * @date 2020-09-20
  * Created on: 2020-02-12
  *
- * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */

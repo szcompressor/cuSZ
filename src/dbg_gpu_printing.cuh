@@ -9,7 +9,7 @@
  * @date 2020-09-20
  * Created on 2020-03-17
  *
- * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
@@ -20,9 +20,7 @@ __global__ void print_deflated(Q* coded, size_t gid)
     if (blockIdx.x * blockDim.x + threadIdx.x != gid) return;
     printf("print after deflating\n");
     //    for_each(coded, coded + PART_SIZE, [](Q& i) { print_by_type(i, '_', '\n'); });
-    for (size_t i = 0; i < PART_SIZE; i++) {
-        print_by_type(*(coded + i), '_', '\n');
-    }
+    for (size_t i = 0; i < PART_SIZE; i++) { print_by_type(*(coded + i), '_', '\n'); }
     printf("\n");
 }
 

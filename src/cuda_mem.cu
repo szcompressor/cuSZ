@@ -6,7 +6,7 @@
  * @date 2020-09-20
  * Created on 2020-04-30
  *
- * @copyright Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
@@ -33,9 +33,7 @@ void mem::CopyBetweenSpaces(T* src, T* dst, size_t l, MemcpyDirection direct)
 {
     assert(src != nullptr);
     assert(dst != nullptr);
-    if (direct == h2d) {
-        cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyHostToDevice);
-    }
+    if (direct == h2d) { cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyHostToDevice); }
     else if (direct == d2h) {
         cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyDeviceToHost);
     }
