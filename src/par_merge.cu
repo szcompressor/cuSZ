@@ -8,7 +8,7 @@
  * ACM International Conference on Supercomputing 2012
  * June 25-29 2012, San Servolo, Venice, Italy
  *
- * Copyright (c) 2012 Georgia Institute of Technology
+ * (C) 2012 Georgia Institute of Technology
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -167,8 +167,8 @@ __device__ void cudaWorkloadDiagonals(
             if (getfrom_y >= iNodesCap) getfrom_y -= iNodesCap;
 
             // Are we a '1' or '0' with respect to A[x] <= B[x]
-            if (current_x > (int32_t) A_length or current_y < 0) { oneorzero[threadIdx.x] = 0; }
-            else if (current_y >= (int32_t) B_length || current_x < 1) {
+            if (current_x > (int32_t)A_length or current_y < 0) { oneorzero[threadIdx.x] = 0; }
+            else if (current_y >= (int32_t)B_length || current_x < 1) {
                 oneorzero[threadIdx.x] = 1;
             }
             else {
