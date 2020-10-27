@@ -72,11 +72,12 @@ To conduct compression, several input arguments are **necessary**,
 
 - `-z` or `--zip` to compress
 - `-x` or `--unzip` to decompress
-- `-m` or `--mode` to specify compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range).
+- `-m` or `--mode` to specify compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range)
 - `-e` or `--eb` to specify error bound
 - `-i` to specify input datum file
 - `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
-- `--opath` to specify output path for both compression and decompresson.
+- `--opath` to specify output path for both compression and decompresson
+- `-V` or `--verbose` to print host and device information
 
 ## tuning
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.

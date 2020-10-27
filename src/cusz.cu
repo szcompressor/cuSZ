@@ -12,9 +12,9 @@
  */
 
 #include <cstddef>
+#include <cstring>
 #include <string>
 #include <vector>
-#include <cstring>
 
 #include "SDRB.hh"
 #include "argparse.hh"
@@ -24,6 +24,7 @@
 #include "filter.cuh"
 #include "io.hh"
 #include "pack.hh"
+#include "query.hh"
 #include "types.hh"
 
 using std::string;
@@ -66,6 +67,11 @@ int main(int argc, char** argv)
     int     nnz_outlier = 0;
     size_t  total_bits, total_uInt, huff_meta_size;
 
+    if (ap->verbose) {
+        GetMachineProperties();
+        GetDeviceProperty();
+    }
+
     if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
@@ -81,8 +87,8 @@ int main(int argc, char** argv)
         // eb_config->debug();
         eb_array = InitializeErrorBoundFamily(eb_config);
 
-        cout << log_dbg << "\e[1muint" << ap->quant_rep << "_t\e[0m to represent quant. code, \e[1muint"
-             << ap->huffman_rep << "_t\e[0m internal Huffman bitstream" << endl;
+        cout << log_dbg << "\e[1m" << ap->quant_rep / 8 << "-byte\e[0m quant type, \e[1m" << ap->huffman_rep / 8
+             << "-byte\e[0m internal Huff type" << endl;
     }
 
     if (ap->pre_binning) {
@@ -136,18 +142,18 @@ int main(int argc, char** argv)
         if (eb_array) memset(eb_array, 0, sizeof(double) * 4);
     }
 
-    //wenyu's modification
-    //invoke system() to untar archived files first before decompression
-   
+    // wenyu's modification
+    // invoke system() to untar archived files first before decompression
+
     if (ap->to_extract) {
-        string cmd_string="tar -xf "+ap->cx_path2file+".sz";
-        char* cmd=new char[cmd_string.length()+1];
-        strcpy(cmd,cmd_string.c_str());
+        string cmd_string = "tar -xf " + ap->cx_path2file + ".sz";
+        char*  cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
         system(cmd);
-        delete []cmd;
+        delete[] cmd;
     }
-    
-    //wenyu's modification ends
+
+    // wenyu's modification ends
 
     if (ap->to_extract) {  // fp32 only for now
 
@@ -183,43 +189,46 @@ int main(int argc, char** argv)
     delete[] eb_array;
     // delete eb_config;
 
-    //wenyu's modification starts
-    //invoke system() function to merge and compress the resulting 5 files after cusz compression
+    // wenyu's modification starts
+    // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
     if (ap->to_archive or ap->to_dryrun) {
-        //remove *.sz if existing
-        string cmd_string="rm -rf "+ap->opath+cx_basename+".sz";
-        char* cmd=new char[cmd_string.length()+1];
-        strcpy(cmd,cmd_string.c_str());
+        // remove *.sz if existing
+        string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
+        char*  cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
         system(cmd);
-        delete []cmd;
+        delete[] cmd;
 
-        //using tar command to encapsulate files with gzip
-        cmd_string="cd "+ap->opath+";tar -czf "+cx_basename+".sz "+cx_basename+".hbyte "+cx_basename+".outlier "+cx_basename+".canon "+cx_basename+".hmeta "+cx_basename+".yamp";
-        cmd=new char[cmd_string.length()+1];
-        strcpy(cmd,cmd_string.c_str());
+        // using tar command to encapsulate files with gzip
+        cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
+                     ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
+        cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
         system(cmd);
-	delete []cmd;
-        cout << log_info << "Compressed file is written to " << ap->opath << cx_basename << ".sz." << endl;
-        
-        //remove 5 subfiles
-        cmd_string="rm -rf "+ap->opath+cx_basename+".hbyte "+ap->opath+cx_basename+".outlier "+ap->opath+cx_basename+".canon "+ap->opath+cx_basename+".hmeta "+ap->opath+cx_basename+".yamp";
-        cmd=new char[cmd_string.length()+1];
-        strcpy(cmd,cmd_string.c_str());
+        delete[] cmd;
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
+
+        // remove 5 subfiles
+        cmd_string = "rm -rf " + ap->opath + cx_basename + ".hbyte " + ap->opath + cx_basename + ".outlier " +
+                     ap->opath + cx_basename + ".canon " + ap->opath + cx_basename + ".hmeta " + ap->opath +
+                     cx_basename + ".yamp";
+        cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
         system(cmd);
-        delete []cmd;
+        delete[] cmd;
     }
 
-    //if it's decompression, remove released subfiles at last.
-    
+    // if it's decompression, remove released subfiles at last.
+
     if (ap->to_extract) {
-        string cmd_string="rm -rf "+ap->cx_path2file+".hbyte "+ap->cx_path2file+".outlier "+ap->cx_path2file+".canon "+ap->cx_path2file+".hmeta "+ap->cx_path2file+".yamp";
-        char* cmd=new char[cmd_string.length()+1];
-        strcpy(cmd,cmd_string.c_str());
+        string cmd_string = "rm -rf " + ap->cx_path2file + ".hbyte " + ap->cx_path2file + ".outlier " +
+                            ap->cx_path2file + ".canon " + ap->cx_path2file + ".hmeta " + ap->cx_path2file + ".yamp";
+        char* cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
         system(cmd);
-        delete []cmd;
+        delete[] cmd;
     }
-    
-    //wenyu's modification ends
-    
+
+    // wenyu's modification ends
 }

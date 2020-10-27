@@ -247,7 +247,7 @@ void cusz::workflow::Compress(
     auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
     auto   mxm = m * m;
 
-    cout << log_dbg << "original len: " << len << ", m the padded: " << m << ", mxm: " << mxm << endl;
+    cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
 
     auto data = new T[mxm]();
     io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
@@ -382,7 +382,7 @@ void cusz::workflow::Decompress(
             archive_size,
             ap->pre_binning ? 4 : 1);  // TODO use template rather than 2x2
         cout << log_info << "Decompressed file is written to " << ap->cx_path2file << ".szx." << endl;
-        cout << log_info << "Please use compressed data (*.sz) to calculate final comp ratio (w/ gzip)." << endl;        
+        cout << log_info << "Please use compressed data (*.sz) to calculate final comp ratio (w/ gzip)." << endl;
         delete[] odata;
     }
 
