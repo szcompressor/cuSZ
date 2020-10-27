@@ -58,7 +58,7 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
     cudaGetDevice(&deviceId);
     cudaDeviceGetAttribute(&maxbytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, deviceId);
-    
+
     // Account for opt-in extra shared memory on certain architectures
     cudaDeviceGetAttribute(&maxbytesOptIn, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
     maxbytes = std::max(maxbytes, maxbytesOptIn);
@@ -172,8 +172,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     // deflate
     auto n_chunk       = (len - 1) / chunk_size + 1;  // |
     auto d_h_bitwidths = mem::CreateCUDASpace<size_t>(n_chunk);
-    cout << log_info << "chunk.size:\t" << chunk_size << endl;
-    cout << log_dbg << "chunk.num:\t" << n_chunk << endl;
+    // cout << log_dbg << "Huff.chunk x #:\t" << chunk_size << " x " << n_chunk << endl;
     {
         auto blockDim = tBLK_DEFLATE;
         auto gridDim  = (n_chunk - 1) / blockDim + 1;
@@ -201,11 +200,11 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
 
     cout << log_dbg;
     printf(
-        "Huffman bitstream: %lu chunks of size = %d, in %lu uint%lus or %lu bits\n", n_chunk, chunk_size, total_uInts,
-        sizeof(H) * 8, total_bits);
+        "Huffman enc:\t#chunk=%lu, chunksze=%d => %lu %d-byte words/%lu bits\n", n_chunk, chunk_size, total_uInts,
+        (int)sizeof(H), total_bits);
 
     // print densely metadata
-    PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
+    // PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
 
     // copy back densely Huffman code in units of uInt (regarding endianness)
     // TODO reinterpret_cast
