@@ -57,7 +57,8 @@ typedef struct ArgPack {
     bool to_encode;        // for standalone huffman
     bool to_decode;        // for standalone huffman
     bool get_entropy;      // for standalone huffman (not in use)
-
+    bool to_gzip;          // wenyu: whether to do a gzip lossless compression on encoded data
+    
     static string format(const string& s);
 
     int trap(int _status);
