@@ -144,9 +144,15 @@ int main(int argc, char** argv)
 
     // wenyu's modification
     // invoke system() to untar archived files first before decompression
-
+    
+    string cx_directory = ap->cx_path2file.substr(0,ap->cx_path2file.rfind("/") + 1);
     if (ap->to_extract) {
-        string cmd_string = "tar -xf " + ap->cx_path2file + ".sz";
+        string cmd_string;
+	if(cx_directory.length()==0){
+	    cmd_string = "tar -xf " + ap->cx_path2file + ".sz";
+	} else {
+	    cmd_string = "tar -xf " + ap->cx_path2file + ".sz "+" -C "+cx_directory;
+	}
         char*  cmd        = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
@@ -200,9 +206,16 @@ int main(int argc, char** argv)
         system(cmd);
         delete[] cmd;
 
-        // using tar command to encapsulate files with gzip
-        cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
+        // using tar command to encapsulate files
+        
+        if(ap->to_gzip){
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
                      ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
+        } else {
+            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
+                     ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
+        }
+
         cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
