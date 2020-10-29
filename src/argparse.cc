@@ -450,6 +450,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                     if (string(argv[i]) == "--huffman-rep") goto _HUFFMANCODE;
                     if (string(argv[i]) == "--huffman-chunk") goto _HUFFMANCHUNKSIZE;
                     if (string(argv[i]) == "--dict-size") goto _DICT;
+                    if (string(argv[i]) == "--gzip") {to_gzip=true; break;}  //wenyu: if there is "--gzip", set member field to_gzip true
                 // work
                 // ----------------------------------------------------------------
                 case 'e':
@@ -674,6 +675,9 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (string(argv[i]) == "--origin") {
                         if (i + 1 <= argc) this->x_fi_origin = string(argv[++i]);
                         break;
+                    }
+                    if (string(argv[i]) == "--gzip") {
+                        to_gzip=true; break;  //wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     // if (string(argv[i]) == "--coname") {
                     //     // TODO does not apply for preprocessed such as binning
