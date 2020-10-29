@@ -16,7 +16,7 @@ Our published paper covers the essential design and implementation, accessible v
 (C) 2020 by Washington State University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
 * Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
-* Contributors: Megan Hickman Fulp, Robert Underwood, Kai Zhao, Xin Liang, Jon Calhoun
+* Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Wenyu Gai, Xin Liang, Robert Underwood, Kai Zhao
 
 # set up
 ## requirements
@@ -32,6 +32,7 @@ Our published paper covers the essential design and implementation, accessible v
 | P2000M    | Pascal    | 61  | 11.0         | 7.5         |
 | V100      | Volta     | 70  | 10.2         | 7.3/8.4     |
 |           |           |     | 9.2          | 7.3         |
+| RTX 8000  | Turing    | 75  | 10.1         | 7.4         |
 | RTX 5000  | Turing    | 75  | 10.1         | 7.3/8.3     |
 | RTX 2060S | Turing    | 75  | 11.0/11.1    | 9.3         |
 
@@ -39,11 +40,9 @@ Our published paper covers the essential design and implementation, accessible v
 ## from GitHub
 ```bash
 git clone git@github.com:szcompressor/cuSZ.git cusz
-cd cusz
-export CUSZ_ROOT=$(pwd)
-make
-# optional, otherwise use $(CUSZ_ROOT)/bin/cusz` to execute
-sudo make install
+cd cusz && export CUSZ_ROOT=$(pwd)
+make   # can use ${CUSZ_ROOT}/bin/cusz to execute
+sudo make install  # requires elevated permission
 ```
 ## from Spack
 
