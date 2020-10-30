@@ -149,9 +149,9 @@ int main(int argc, char** argv)
     if (ap->to_extract) {
         string cmd_string;
 	if(cx_directory.length()==0){
-	    cmd_string = "tar -xf " + ap->cx_path2file + ".sz";
+	    cmd_string = "tar -xf " + ap->cx_path2file+".sz";
 	} else {
-	    cmd_string = "tar -xf " + ap->cx_path2file + ".sz "+" -C "+cx_directory;
+	    cmd_string = "tar -xf " + ap->cx_path2file+".sz" +" -C "+cx_directory;
 	}
         char*  cmd        = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
