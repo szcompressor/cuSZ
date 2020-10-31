@@ -907,6 +907,8 @@ void ArgPack::SortOutFilenames()
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto cx_input_path = cx_path2file.substr(0, cx_path2file.rfind("/") + 1);
+    if(to_extract)
+        cx_path2file=cx_path2file.substr(0,cx_path2file.rfind("."));
     auto cx_basename   = cx_path2file.substr(cx_path2file.rfind("/") + 1);
 
     if (opath == "") opath = cx_input_path == "" ? opath = "" : opath = cx_input_path;
