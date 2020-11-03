@@ -45,6 +45,7 @@ typedef struct ArgPack {
     int    n_dim, d0, d1, d2, d3;
     double mantissa, exponent;
     bool   to_archive, to_extract, to_dryrun;
+    bool   autotune_huffman_chunk;
     bool   use_demo;
     bool   verbose;
     bool   to_verify;
@@ -58,7 +59,7 @@ typedef struct ArgPack {
     bool to_decode;        // for standalone huffman
     bool get_entropy;      // for standalone huffman (not in use)
     bool to_gzip;          // wenyu: whether to do a gzip lossless compression on encoded data
-    
+
     static string format(const string& s);
 
     int trap(int _status);

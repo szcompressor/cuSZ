@@ -323,7 +323,7 @@ ArgPack::cuszFullDoc()
         "                Use demo dataset, will omit given dimension(s). Supported datasets include:\n"
         "                1D: _hacc_  _hacc1g_  _hacc4g_\n"
         "                2D: _cesm_  _exafeldemo_\n"
-        "                3D: _hurricane_  _nyx_  _qmc_  _qmcpre_  _aramco_\n"
+        "                3D: _hurricane_  _nyx_  _qmc_  _qmcpre_  _aramco_  _parihaka_\n"
         "\n"
         "    *Internal* (will be automated with configuration when going public)\n"
         "        *-Q* or *--*@q@*uant-rep* or *--bcode-bitwidth* <8|16|32>\n"
@@ -450,7 +450,10 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                     if (string(argv[i]) == "--huffman-rep") goto _HUFFMANCODE;
                     if (string(argv[i]) == "--huffman-chunk") goto _HUFFMANCHUNKSIZE;
                     if (string(argv[i]) == "--dict-size") goto _DICT;
-                    if (string(argv[i]) == "--gzip") {to_gzip=true; break;}  //wenyu: if there is "--gzip", set member field to_gzip true
+                    if (string(argv[i]) == "--gzip") {
+                        to_gzip = true;
+                        break;
+                    }  // wenyu: if there is "--gzip", set member field to_gzip true
                 // work
                 // ----------------------------------------------------------------
                 case 'e':
@@ -581,27 +584,28 @@ ArgPack::ArgPack(int argc, char** argv)
         exit(0);
     }
     // default values
-    dict_size      = 1024;
-    quant_rep      = 16;
-    huffman_rep    = 32;
-    huffman_chunk  = 512;
-    n_dim          = -1;
-    d0             = 1;
-    d1             = 1;
-    d2             = 1;
-    d3             = 1;
-    mantissa       = 1.23;
-    exponent       = -4.56;
-    to_archive     = false;
-    to_extract     = false;
-    use_demo       = false;
-    verbose        = false;
-    to_verify      = false;
-    verify_huffman = false;
-    skip_huffman   = false;
-    skip_writex    = false;
-    pre_binning    = false;
-    to_dryrun      = false;
+    dict_size              = 1024;
+    quant_rep              = 16;
+    huffman_rep            = 32;
+    huffman_chunk          = 512;
+    n_dim                  = -1;
+    d0                     = 1;
+    d1                     = 1;
+    d2                     = 1;
+    d3                     = 1;
+    mantissa               = 1.23;
+    exponent               = -4.56;
+    to_archive             = false;
+    to_extract             = false;
+    use_demo               = false;
+    verbose                = false;
+    to_verify              = false;
+    verify_huffman         = false;
+    skip_huffman           = false;
+    skip_writex            = false;
+    pre_binning            = false;
+    to_dryrun              = false;
+    autotune_huffman_chunk = true;
 
     opath = "";
 
@@ -677,7 +681,8 @@ ArgPack::ArgPack(int argc, char** argv)
                         break;
                     }
                     if (string(argv[i]) == "--gzip") {
-                        to_gzip=true; break;  //wenyu: if there is "--gzip", set member field to_gzip true
+                        to_gzip = true;
+                        break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     // if (string(argv[i]) == "--coname") {
                     //     // TODO does not apply for preprocessed such as binning
@@ -822,7 +827,10 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 case 'C':
                 _HUFFMANCHUNKSIZE:
-                    if (i + 1 <= argc) huffman_chunk = str2int(argv[++i]);
+                    if (i + 1 <= argc) {  //
+                        huffman_chunk          = str2int(argv[++i]);
+                        autotune_huffman_chunk = false;
+                    }
                     break;
                 // error bound
                 // ----------------------------------------------------------------
@@ -907,9 +915,8 @@ void ArgPack::SortOutFilenames()
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto cx_input_path = cx_path2file.substr(0, cx_path2file.rfind("/") + 1);
-    if(to_extract)
-        cx_path2file=cx_path2file.substr(0,cx_path2file.rfind("."));
-    auto cx_basename   = cx_path2file.substr(cx_path2file.rfind("/") + 1);
+    if (to_extract) cx_path2file = cx_path2file.substr(0, cx_path2file.rfind("."));
+    auto cx_basename = cx_path2file.substr(cx_path2file.rfind("/") + 1);
 
     if (opath == "") opath = cx_input_path == "" ? opath = "" : opath = cx_input_path;
     opath += "/";
