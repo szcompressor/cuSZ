@@ -22,9 +22,11 @@
 #include "cuda_mem.cuh"
 #include "cusz_workflow.cuh"
 #include "filter.cuh"
+#include "format.hh"
 #include "io.hh"
 #include "pack.hh"
 #include "query.hh"
+#include "timer.hh"
 #include "types.hh"
 
 using std::string;
@@ -82,8 +84,13 @@ int main(int argc, char** argv)
             dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
-        if (ap->mode == "r2r")
-            eb_config->ChangeToRelativeMode(GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]));
+        if (ap->mode == "r2r") {
+            auto a   = hires::now();
+            auto rng = GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]);
+            auto z   = hires::now();
+            cout << log_dbg << "Time getting data range:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
+            eb_config->ChangeToRelativeMode(rng);
+        }
         // eb_config->debug();
         eb_array = InitializeErrorBoundFamily(eb_config);
 
@@ -144,16 +151,15 @@ int main(int argc, char** argv)
 
     // wenyu's modification
     // invoke system() to untar archived files first before decompression
-    
-    string cx_directory = ap->cx_path2file.substr(0,ap->cx_path2file.rfind("/") + 1);
+
+    string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/") + 1);
     if (ap->to_extract) {
         string cmd_string;
-	if(cx_directory.length()==0){
-	    cmd_string = "tar -xf " + ap->cx_path2file+".sz";
-	} else {
-	    cmd_string = "tar -xf " + ap->cx_path2file+".sz" +" -C "+cx_directory;
-	}
-        char*  cmd        = new char[cmd_string.length() + 1];
+        if (cx_directory.length() == 0) { cmd_string = "tar -xf " + ap->cx_path2file + ".sz"; }
+        else {
+            cmd_string = "tar -xf " + ap->cx_path2file + ".sz" + " -C " + cx_directory;
+        }
+        char* cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
         delete[] cmd;
@@ -207,13 +213,16 @@ int main(int argc, char** argv)
         delete[] cmd;
 
         // using tar command to encapsulate files
-        
-        if(ap->to_gzip){
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
-                     ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
-        } else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
-                     ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
+
+        if (ap->to_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " +
+                         cx_basename + ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename +
+                         ".yamp";
+        }
+        else {
+            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + cx_basename + ".hbyte " +
+                         cx_basename + ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename +
+                         ".yamp";
         }
 
         cmd = new char[cmd_string.length() + 1];
