@@ -230,6 +230,7 @@ void cusz::impl::VerifyHuffman(
 template <typename T, typename Q, typename H>
 void cusz::workflow::Compress(
     argpack* ap,
+    T*       d_data,
     size_t*  dims_L16,
     double*  ebs_L4,
     int&     nnz_outlier,
@@ -238,23 +239,24 @@ void cusz::workflow::Compress(
     size_t&  huffman_metadata_size)
 {
     // TODO to use a struct
+    // TODO already calculated outside in main()
     size_t len = dims_L16[LEN];
     auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
     auto   mxm = m * m;
 
-    cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
+    // hires_clock_t time_a, time_z;
+    // time_a = hires::now();  // load from disk
 
-    hires_clock_t time_a, time_z;
-
-    time_a = hires::now();  // load from disk
+    /* moved loading out to main() */
     // auto data = new T[mxm]();
     // change to pinned memory
-    T* data = nullptr;
-    CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
-    io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
-    T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
-    time_z    = hires::now();
-    cout << log_dbg << "Time loading from disk:\t" << static_cast<duration_t>(time_z - time_a).count() << "s" << endl;
+    // T* data = nullptr;
+    // CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
+    // io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
+    // T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+    // time_z    = hires::now();
+    // cout << log_dbg << "Time loading from disk:\t" << static_cast<duration_t>(time_z - time_a).count() << "s" <<
+    // endl;
 
     if (ap->to_dryrun) {
         cout << "\n" << log_info << "Commencing dry-run..." << endl;
@@ -298,7 +300,7 @@ void cusz::workflow::Compress(
 
     cout << log_info << "Compression finished, saved Huffman encoded quant.code.\n";
 
-    cudaFreeHost(data);
+    // cudaFreeHost(data);
     // delete[] data;
     cudaFree(d_bcode);
 }
