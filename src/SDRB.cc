@@ -27,6 +27,7 @@ size_t dims_QMCPACK1[]    = {288, 69, 7935, 1, 3};
 size_t dims_QMCPACK2[]    = {69, 69, 33120, 1, 3};
 size_t dims_EXAFEL_demo[] = {388, 59200, 1, 1, 2};
 size_t dims_ARAMCO[]      = {235, 849, 849, 1, 3};
+size_t dims_parihaka[]    = {1168, 1126, 922, 1, 3};
 
 size_t* InitializeDemoDims(
     std::string const& datum,
@@ -48,7 +49,9 @@ size_t* InitializeDemoDims(
             {std::string("qmc"), dims_QMCPACK1},
             {std::string("qmcpre"), dims_QMCPACK2},
             {std::string("exafeldemo"), dims_EXAFEL_demo},
-            {std::string("aramco"), dims_ARAMCO}};
+            {std::string("aramco"), dims_ARAMCO},
+            {std::string("parihaka"), dims_parihaka}  //
+        };
 
     auto dims_L16 = new size_t[16]();
     int  BLK;
