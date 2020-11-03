@@ -13,6 +13,7 @@
  *
  */
 
+#include <omp.h>
 #include <algorithm>
 #include <cmath>    // for FP32 bit representation
 #include <cstddef>  // size_t
@@ -31,14 +32,29 @@
 
 using namespace std;
 
+// TODO still redundant considering 2-time loading data
 template <typename T>
 double GetDatumValueRange(string fname, size_t l)
 {
-    auto d    = io::ReadBinaryFile<T>(fname, l);
-    T    max_ = *std::max_element(d, d + l);
-    T    min_ = *std::min_element(d, d + l);
+    auto d = io::ReadBinaryFile<T>(fname, l);
+    // T    max_ = *std::max_element(d, d + l);
+    // T    min_ = *std::min_element(d, d + l);
+    // T max_ = d[0], min_ = d[0];
+    // for (auto i = 1; i < l; i++) {
+    //     max_ = d[i] > max_ ? d[i] : max_;
+    //     min_ = d[i] < min_ ? d[i] : min_;
+    // }
+
+    int idx;
+    int max_val, min_val; /* = 0 not needed according to Jim Cownie comment */
+
+#pragma omp parallel for reduction(max : max_val)
+    for (idx = 0; idx < l; idx++) max_val = max_val > d[idx] ? max_val : d[idx];
+#pragma omp parallel for reduction(min : min_val)
+    for (idx = 0; idx < l; idx++) min_val = min_val < d[idx] ? min_val : d[idx];
+
     delete[] d;
-    return max_ - min_;
+    return max_val - min_val;
 }
 
 template double GetDatumValueRange<float>(string fname, size_t l);

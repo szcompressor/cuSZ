@@ -246,9 +246,11 @@ void cusz::workflow::Compress(
 
     hires_clock_t time_a, time_z;
 
-    time_a = hires::now();
-    // load from disk
-    auto data = new T[mxm]();
+    time_a = hires::now();  // load from disk
+    // auto data = new T[mxm]();
+    // change to pinned memory
+    T* data = nullptr;
+    CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
     io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
     T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
     time_z    = hires::now();
@@ -257,7 +259,7 @@ void cusz::workflow::Compress(
     if (ap->to_dryrun) {
         cout << "\n" << log_info << "Commencing dry-run..." << endl;
         DryRun(data, d_data, ap->cx_path2file, dims_L16, ebs_L4);
-        delete[] data;
+        cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
     }
@@ -296,7 +298,8 @@ void cusz::workflow::Compress(
 
     cout << log_info << "Compression finished, saved Huffman encoded quant.code.\n";
 
-    delete[] data;
+    cudaFreeHost(data);
+    // delete[] data;
     cudaFree(d_bcode);
 }
 
