@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "SDRB.hh"
+#include "analysis_utils.h"
 #include "argparse.hh"
 #include "constants.hh"
 #include "cuda_mem.cuh"
@@ -30,6 +31,8 @@
 #include "types.hh"
 
 using std::string;
+
+#if __cplusplus >= 201103L
 
 template <typename T, int DS, int tBLK>
 T* pre_binning(T* d, size_t* dim_array)
@@ -74,6 +77,10 @@ int main(int argc, char** argv)
         GetDeviceProperty();
     }
 
+    // TODO hardcode for float for now
+    using T = float;
+    T* data = nullptr;
+
     if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
@@ -83,11 +90,21 @@ int main(int argc, char** argv)
             "datum:\t\t%s (%lu bytes) of type %s\n", ap->cx_path2file.c_str(),
             dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
+        auto len = dims_array[LEN];
+        auto m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
+        auto mxm = m * m;
+        cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
+        CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
+        memset(data, mxm * sizeof(T), 0x00);
+        io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
+        T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
         if (ap->mode == "r2r") {
             auto a   = hires::now();
-            auto rng = GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]);
-            auto z   = hires::now();
+            auto rng = 0;
+            // auto rng = GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]);
+            auto z = hires::now();
             cout << log_dbg << "Time getting data range:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
             eb_config->ChangeToRelativeMode(rng);
         }
@@ -99,15 +116,20 @@ int main(int argc, char** argv)
     }
 
     if (ap->pre_binning) {
-        auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
-        auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
-        auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
-        ap->cx_path2file = ap->cx_path2file + ".BN";
-        io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
+        cerr << log_cerr
+             << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
+                "filesystem. (ver. 0.1.4)"
+             << endl;
+        exit(1);
+        // auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
+        // auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
+        // auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
+        // ap->cx_path2file = ap->cx_path2file + ".BN";
+        // io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
 
-        cudaFree(d_binning);
-        delete[] data;
-        delete[] binning;
+        // cudaFree(d_binning);
+        // delete[] data;
+        // delete[] binning;
     }
 
     if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
@@ -142,6 +164,12 @@ int main(int argc, char** argv)
         delete mp;
     }
 
+    if (data) {
+        cudaFreeHost(data);
+        data = nullptr;
+    }
+
+    // before running into decompression
     {
         // reset anyway
         // TODO shared pointer
@@ -254,3 +282,5 @@ int main(int argc, char** argv)
 
     // wenyu's modification ends
 }
+
+#endif
