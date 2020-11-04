@@ -32,7 +32,7 @@ endif
 CCFLAGS   := $(STD) -O3
 NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr
 
-CCFILES_OMP:=$(SRC_DIR)/types.cc
+CCFILES_OMP:=$(SRC_DIR)/analysis_utils.cc
 CCFILES   := $(filter-out $(CCFILES_OMP), $(wildcard $(SRC_DIR)/*.cc))
 
 MAIN      := $(SRC_DIR)/cusz.cu
