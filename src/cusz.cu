@@ -99,10 +99,13 @@ int main(int argc, char** argv)
         auto mxm = m * m;
 
         cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
+        auto a = hires::now();
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
         memset(data, mxm * sizeof(T), 0x00);
         io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
-        T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+        T*   d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+        auto z      = hires::now();
+        cout << log_dbg << "Time loading data:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
 
         adp = new AdHocDataPack<T>(data, d_data, len);
 
