@@ -382,11 +382,12 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
         exit(0);
     }
     // default values
-    dict_size       = 1024;
-    input_rep       = 16;
-    huffman_datalen = -1;  // TODO argcheck
-    huffman_rep     = 32;
-    huffman_chunk   = 512;
+    dict_size        = 1024;
+    input_rep        = 16;
+    huffman_datalen  = -1;  // TODO argcheck
+    huffman_rep      = 32;
+    huffman_chunk    = 512;
+    read_args_status = 0;
 
     n_dim = -1;
     d0    = 1;
@@ -606,6 +607,7 @@ ArgPack::ArgPack(int argc, char** argv)
     pre_binning            = false;
     to_dryrun              = false;
     autotune_huffman_chunk = true;
+    read_args_status       = 0;
 
     opath = "";
 
