@@ -15,6 +15,7 @@
  */
 
 #include <iostream>
+#include "analysis_utils.hh"
 #include "argparse.hh"
 
 using namespace std;
@@ -24,13 +25,14 @@ namespace workflow {
 
 template <typename T, typename Q, typename H>
 void Compress(
-    argpack* ap,
-    size_t*  dims_L16,
-    double*  ebs_L4,
-    int&     nnz_outlier,
-    size_t&  n_bits,
-    size_t&  n_uInt,
-    size_t&  huffman_metadata_size);
+    argpack*                 ap,
+    struct AdHocDataPack<T>* adp,
+    size_t*                  dims_L16,
+    double*                  ebs_L4,
+    int&                     nnz_outlier,
+    size_t&                  n_bits,
+    size_t&                  n_uInt,
+    size_t&                  huffman_metadata_size);
 
 template <typename T, typename Q, typename H>
 void Decompress(
@@ -45,8 +47,6 @@ void Decompress(
 }  // namespace workflow
 
 namespace impl {
-
-inline size_t GetEdgeOfReinterpretedSquare(size_t l) { return static_cast<size_t>(ceil(sqrt(l))); };
 
 template <typename T, typename Q>
 void PdQ(T*, Q*, size_t*, double*);

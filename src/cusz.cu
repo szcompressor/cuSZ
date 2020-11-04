@@ -11,15 +11,22 @@
  *
  */
 
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
 #include <cstddef>
 #include <cstring>
 #include <string>
 #include <vector>
 
+using std::string;
+
+#if __cplusplus >= 201103L
+
 #include "SDRB.hh"
-#include "analysis_utils.h"
+#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "constants.hh"
+#include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
 #include "cusz_workflow.cuh"
 #include "filter.cuh"
@@ -29,10 +36,6 @@
 #include "query.hh"
 #include "timer.hh"
 #include "types.hh"
-
-using std::string;
-
-#if __cplusplus >= 201103L
 
 template <typename T, int DS, int tBLK>
 T* pre_binning(T* d, size_t* dim_array)
@@ -78,8 +81,9 @@ int main(int argc, char** argv)
     }
 
     // TODO hardcode for float for now
-    using T = float;
-    T* data = nullptr;
+    using T                       = float;
+    struct AdHocDataPack<T>* adp  = nullptr;
+    T*                       data = nullptr;
 
     if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
@@ -90,22 +94,43 @@ int main(int argc, char** argv)
             "datum:\t\t%s (%lu bytes) of type %s\n", ap->cx_path2file.c_str(),
             dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
-        auto len = dims_array[LEN];
+        auto len = dim_array[LEN];
         auto m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
         auto mxm = m * m;
+
         cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
         memset(data, mxm * sizeof(T), 0x00);
         io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
         T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
 
+        adp = new AdHocDataPack<T>(data, d_data, len);
+
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
         if (ap->mode == "r2r") {
-            auto a   = hires::now();
-            auto rng = 0;
-            // auto rng = GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]);
-            auto z = hires::now();
-            cout << log_dbg << "Time getting data range:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
+            double        rng;
+            hires_clock_t a, z;
+            a = hires::now();
+            // ------------------------------------------------------------
+            thrust::device_ptr<float> g_ptr = thrust::device_pointer_cast(d_data);
+
+            size_t min_el_loc = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+            size_t max_el_loc = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+
+            double min_value = *(g_ptr + min_el_loc);
+            double max_value = *(g_ptr + max_el_loc);
+            rng              = max_value - min_value;
+            // ------------------------------------------------------------
+            z = hires::now();
+            cout << log_dbg << "Time inspecting data range:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
+            // a = hires::now();
+            // double max_value_host, min_value_host, rng_host;
+            // std::tie(max_value_host, min_value_host, rng_host) = GetDatumValueRange(data, len);
+            // z                                                  = hires::now();
+            // cout << log_dbg << "Time getting data range CPU:\t" << static_cast<duration_t>(z - a).count() << "s"
+            //      << endl;
+            // cout << "GPU gen'ed rng:\t" << rng << endl;
+            // cout << "CPU gen'ed rng:\t" << rng_host << endl;
             eb_config->ChangeToRelativeMode(rng);
         }
         // eb_config->debug();
@@ -116,7 +141,7 @@ int main(int argc, char** argv)
     }
 
     if (ap->pre_binning) {
-        cerr << log_cerr
+        cerr << log_err
              << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
                 "filesystem. (ver. 0.1.4)"
              << endl;
@@ -136,18 +161,18 @@ int main(int argc, char** argv)
         if (ap->quant_rep == 8) {
             if (ap->huffman_rep == 32)
                 cusz::workflow::Compress<float, uint8_t, uint32_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
                 cusz::workflow::Compress<float, uint8_t, uint64_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_rep == 16) {
             if (ap->huffman_rep == 32)
                 cusz::workflow::Compress<float, uint16_t, uint32_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
                 cusz::workflow::Compress<float, uint16_t, uint64_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
 
         // pack metadata
@@ -164,9 +189,10 @@ int main(int argc, char** argv)
         delete mp;
     }
 
-    if (data) {
-        cudaFreeHost(data);
+    if (data and adp) {
+        cudaFreeHost(data);  // really messy considering adp pointers are freed elsewhere
         data = nullptr;
+        delete adp;
     }
 
     // before running into decompression
