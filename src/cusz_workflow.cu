@@ -22,9 +22,12 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
-#include <type_traits>
 #include <typeinfo>
 
+// #if __cplusplus >= 201103L
+
+#include <type_traits>
+#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "autotune.h"
 #include "constants.hh"
@@ -229,20 +232,20 @@ void cusz::impl::VerifyHuffman(
 
 template <typename T, typename Q, typename H>
 void cusz::workflow::Compress(
-    argpack* ap,
-    T*       d_data,
-    size_t*  dims_L16,
-    double*  ebs_L4,
-    int&     nnz_outlier,
-    size_t&  n_bits,
-    size_t&  n_uInt,
-    size_t&  huffman_metadata_size)
+    argpack*                 ap,
+    struct AdHocDataPack<T>* adp,
+    size_t*                  dims_L16,
+    double*                  ebs_L4,
+    int&                     nnz_outlier,
+    size_t&                  n_bits,
+    size_t&                  n_uInt,
+    size_t&                  huffman_metadata_size)
 {
     // TODO to use a struct
     // TODO already calculated outside in main()
     size_t len = dims_L16[LEN];
-    auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
-    auto   mxm = m * m;
+    // auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
+    // auto   mxm = m * m;
 
     // hires_clock_t time_a, time_z;
     // time_a = hires::now();  // load from disk
@@ -257,6 +260,11 @@ void cusz::workflow::Compress(
     // time_z    = hires::now();
     // cout << log_dbg << "Time loading from disk:\t" << static_cast<duration_t>(time_z - time_a).count() << "s" <<
     // endl;
+
+    auto data   = adp->data;
+    auto d_data = adp->d_data;
+    auto m      = adp->m;
+    auto mxm    = adp->mxm;
 
     if (ap->to_dryrun) {
         cout << "\n" << log_info << "Commencing dry-run..." << endl;
@@ -420,14 +428,42 @@ void cusz::workflow::Decompress(
     cudaFree(d_bcode);
 }
 
-template void
-cusz::workflow::Compress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::workflow::Compress<float, uint8__t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::workflow::Compress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::workflow::Compress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+template void cusz::workflow::Compress<float, uint8__t, uint32_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
+template void cusz::workflow::Compress<float, uint8__t, uint64_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
+template void cusz::workflow::Compress<float, uint16_t, uint32_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
+template void cusz::workflow::Compress<float, uint16_t, uint64_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
 
 template void
 cusz::workflow::Decompress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
@@ -437,3 +473,5 @@ template void
 cusz::workflow::Decompress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 template void
 cusz::workflow::Decompress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+
+// #endif
