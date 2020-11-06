@@ -22,10 +22,14 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
-#include <type_traits>
 #include <typeinfo>
 
+// #if __cplusplus >= 201103L
+
+#include <type_traits>
+#include "analysis_utils.hh"
 #include "argparse.hh"
+#include "autotune.h"
 #include "constants.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
@@ -37,6 +41,7 @@
 #include "gather_scatter.cuh"
 #include "huffman_workflow.cuh"
 #include "io.hh"
+#include "timer.hh"
 #include "verify.hh"
 
 using std::cerr;
@@ -50,8 +55,8 @@ const int gpu_B_2d = 16;
 const int gpu_B_3d = 8;
 
 // moved to const_device.cuh
-__constant__ int    symb_dims[16];
-__constant__ double symb_ebs[4];
+// __constant__ int    symb_dims[16];
+// __constant__ double symb_ebs[4];
 
 typedef std::tuple<size_t, size_t, size_t> tuple3ul;
 
@@ -63,10 +68,10 @@ void cusz::impl::PdQ(T* d_data, Q* d_bcode, size_t* dims_L16, double* ebs_L4)
     void* args[]     = {&d_data, &d_bcode, &d_dims_L16, &d_ebs_L4};
 
     // testing constant memory
-    auto dims_inttype = new int[16];
-    for (auto i = 0; i < 16; i++) dims_inttype[i] = dims_L16[i];
-    cudaMemcpyToSymbol(symb_dims, dims_inttype, 16 * sizeof(int), 0, cudaMemcpyHostToDevice);
-    cudaMemcpyToSymbol(symb_ebs, ebs_L4, 4 * sizeof(double), 0, cudaMemcpyHostToDevice);
+    // auto dims_inttype = new int[16];
+    // for (auto i = 0; i < 16; i++) dims_inttype[i] = dims_L16[i];
+    // cudaMemcpyToSymbol(symb_dims, dims_inttype, 16 * sizeof(int), 0, cudaMemcpyHostToDevice);
+    // cudaMemcpyToSymbol(symb_ebs, ebs_L4, 4 * sizeof(double), 0, cudaMemcpyHostToDevice);
     // void* args2[] = {&d_data, &d_bcode}; unreferenced
 
     if (dims_L16[nDIM] == 1) {
@@ -227,35 +232,45 @@ void cusz::impl::VerifyHuffman(
 
 template <typename T, typename Q, typename H>
 void cusz::workflow::Compress(
-    argpack* ap,
-    size_t*  dims_L16,
-    double*  ebs_L4,
-    int&     nnz_outlier,
-    size_t&  n_bits,
-    size_t&  n_uInt,
-    size_t&  huffman_metadata_size)
+    argpack*                 ap,
+    struct AdHocDataPack<T>* adp,
+    size_t*                  dims_L16,
+    double*                  ebs_L4,
+    int&                     nnz_outlier,
+    size_t&                  n_bits,
+    size_t&                  n_uInt,
+    size_t&                  huffman_metadata_size)
 {
-    // int bw = sizeof(Q) * 8;
-    // string fo_cdata   = ap->opath + "/" + fi + ".sza";
-    // string fo_base    = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);  // token is "scott"
-    // string fo_bcode   = ap->opath + fo_base + ".b" + std::to_string(bw);
-    // string fo_outlier = ap->opath + fo_base + ".b" + std::to_string(bw) + ".outlier";
-    // cout << fo_outlier << endl;
-
     // TODO to use a struct
+    // TODO already calculated outside in main()
     size_t len = dims_L16[LEN];
-    auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
-    auto   mxm = m * m;
+    // auto   m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
+    // auto   mxm = m * m;
 
-    cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
+    // hires_clock_t time_a, time_z;
+    // time_a = hires::now();  // load from disk
 
-    auto data = new T[mxm]();
-    io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
-    T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+    /* moved loading out to main() */
+    // auto data = new T[mxm]();
+    // change to pinned memory
+    // T* data = nullptr;
+    // CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
+    // io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
+    // T* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+    // time_z    = hires::now();
+    // cout << log_dbg << "Time loading from disk:\t" << static_cast<duration_t>(time_z - time_a).count() << "s" <<
+    // endl;
+
+    auto data   = adp->data;
+    auto d_data = adp->d_data;
+    auto m      = adp->m;
+    auto mxm    = adp->mxm;
 
     if (ap->to_dryrun) {
         cout << "\n" << log_info << "Commencing dry-run..." << endl;
         DryRun(data, d_data, ap->cx_path2file, dims_L16, ebs_L4);
+        cudaFreeHost(data);
+        cudaFree(d_data);
         exit(0);
     }
     cout << "\n" << log_info << "Commencing compression..." << endl;
@@ -266,6 +281,7 @@ void cusz::workflow::Compress(
     ::cusz::impl::PdQ(d_data, d_bcode, dims_L16, ebs_L4);
     ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &ap->c_fo_outlier);
     cout << log_info << "nnz.outlier:\t" << nnz_outlier << "\t(" << (nnz_outlier / 1.0 / len * 100) << "%)" << endl;
+    cudaFree(d_data);  // ad-hoc, release memory for large dataset
 
     Q* bcode;
     if (ap->skip_huffman) {
@@ -275,13 +291,25 @@ void cusz::workflow::Compress(
         return;
     }
 
+    // autotuning Huffman chunksize
+    // subject to change, current `8*` is close to but may note deterministically optimal
+    if (ap->autotune_huffman_chunk) {  //
+        auto optimal_chunksize = 1;
+        auto cuda_core_num     = cusz::tune::GetCUDACoreNum();
+        auto cuda_thread_num   = 8 * cuda_core_num;  // empirical value
+
+        while (optimal_chunksize * cuda_thread_num < len) optimal_chunksize *= 2;
+        ap->huffman_chunk = optimal_chunksize;
+        cout << log_dbg << "Optimal Huffman deflating chunksize\t" << ap->huffman_chunk << endl;
+    }
+
     std::tie(n_bits, n_uInt, huffman_metadata_size) =
         HuffmanEncode<Q, H>(ap->c_huff_base, d_bcode, len, ap->huffman_chunk, dims_L16[CAP]);
 
     cout << log_info << "Compression finished, saved Huffman encoded quant.code.\n";
 
-    delete[] data;
-    cudaFree(d_data);
+    // cudaFreeHost(data);
+    // delete[] data;
     cudaFree(d_bcode);
 }
 
@@ -400,14 +428,42 @@ void cusz::workflow::Decompress(
     cudaFree(d_bcode);
 }
 
-template void
-cusz::workflow::Compress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::workflow::Compress<float, uint8__t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::workflow::Compress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::workflow::Compress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+template void cusz::workflow::Compress<float, uint8__t, uint32_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
+template void cusz::workflow::Compress<float, uint8__t, uint64_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
+template void cusz::workflow::Compress<float, uint16_t, uint32_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
+template void cusz::workflow::Compress<float, uint16_t, uint64_t>(
+    argpack*,
+    struct AdHocDataPack<float>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
 
 template void
 cusz::workflow::Decompress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
@@ -417,3 +473,5 @@ template void
 cusz::workflow::Decompress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 template void
 cusz::workflow::Decompress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+
+// #endif
