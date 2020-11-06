@@ -32,21 +32,24 @@ endif
 CCFLAGS   := $(STD) -O3
 NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr
 
-CCFILES   := $(wildcard $(SRC_DIR)/*.cc)
+CCFILES_OMP:=$(SRC_DIR)/analysis_utils.cc
+CCFILES   := $(filter-out $(CCFILES_OMP), $(wildcard $(SRC_DIR)/*.cc))
 
 MAIN      := $(SRC_DIR)/cusz.cu
 CUFILES2  := $(SRC_DIR)/cusz_workflow.cu $(SRC_DIR)/cusz_dualquant.cu
 CUFILES3  := $(SRC_DIR)/canonical.cu $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
 CUFILES1  := $(filter-out $(MAIN) $(CUFILES3) $(CUFILES2), $(wildcard $(SRC_DIR)/*.cu))
 
+CCOBJS_OMP:= $(CCFILES_OMP:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 CCOBJS    := $(CCFILES:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 CUOBJS1   := $(CUFILES1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CUOBJS2   := $(CUFILES2:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CUOBJS3   := $(CUFILES3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 
 CUOBJS    := $(CUOBJS1) $(CUOBJS2) $(CUOBJS3)
-OBJS      := $(CCOBJS) $(CUOBJS)
+OBJS      := $(CCOBJS) $(CCOBJS_OMP) $(CUOBJS)
 
+$(CCOBJS_OMP): CCFLAGS += -fopenmp
 # $(CUOBJS1): NVCCFLAGS +=
 $(CUOBJS2): NVCCFLAGS += -rdc=true
 $(CUOBJS3): NVCCFLAGS += -rdc=true
@@ -65,7 +68,7 @@ install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
 cusz: $(OBJS) | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
+	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
 

@@ -13,6 +13,7 @@
  *
  */
 
+#include <omp.h>
 #include <algorithm>
 #include <cmath>    // for FP32 bit representation
 #include <cstddef>  // size_t
@@ -30,19 +31,6 @@
 #include "types.hh"
 
 using namespace std;
-
-template <typename T>
-double GetDatumValueRange(string fname, size_t l)
-{
-    auto d    = io::ReadBinaryFile<T>(fname, l);
-    T    max_ = *std::max_element(d, d + l);
-    T    min_ = *std::min_element(d, d + l);
-    delete[] d;
-    return max_ - min_;
-}
-
-template double GetDatumValueRange<float>(string fname, size_t l);
-template double GetDatumValueRange<double>(string fname, size_t l);
 
 size_t* InitializeDims(size_t cap, size_t n_dims, size_t dim0, size_t dim1, size_t dim2, size_t dim3)
 {

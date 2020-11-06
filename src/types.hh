@@ -32,9 +32,6 @@
 
 using namespace std;
 
-template <typename T>
-double GetDatumValueRange(string fname, size_t l);
-
 size_t* InitializeDims(size_t cap, size_t n_dims, size_t dim0, size_t dim1 = 1, size_t dim2 = 1, size_t dim3 = 1);
 
 void SetDims(size_t* dims_L16, size_t new_dims[4]);
