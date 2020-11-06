@@ -262,6 +262,8 @@ int main(int argc, char** argv)
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
     if (ap->to_archive or ap->to_dryrun) {
+        auto tar_a = hires::now();
+
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
         char*  cmd        = new char[cmd_string.length() + 1];
@@ -284,9 +286,10 @@ int main(int argc, char** argv)
 
         cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
+
         system(cmd);
+
         delete[] cmd;
-        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
 
         // remove 5 subfiles
         cmd_string = "rm -rf " + ap->opath + cx_basename + ".hbyte " + ap->opath + cx_basename + ".outlier " +
@@ -295,6 +298,11 @@ int main(int argc, char** argv)
         cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
+
+        auto tar_z = hires::now();
+        cout << log_dbg << "Time tar'ing\t" << static_cast<duration_t>(tar_z - tar_a).count() << "s" << endl;
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
+
         delete[] cmd;
     }
 
