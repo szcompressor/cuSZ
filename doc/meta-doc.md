@@ -28,14 +28,14 @@ When we collect feedbacks from users, it is possible that an issue becomes a meg
 
 ### case study
 
-https://github.com/szcompressor/cuSZ/issues/6 exposes at least 6 subproblems,
+[This issue (#6)](https://github.com/szcompressor/cuSZ/issues/6) exposes at least 6 subproblems,
 
-1. Zip and unzip is not decoupled, resolved in (part of https://github.com/szcompressor/cuSZ/releases/tag/v0.1.1).
-2. Not able to specify output path, resolved (part of https://github.com/szcompressor/cuSZ/releases/tag/v0.1.1).
-3. Pascal GPU failed because of overestimated cache size, resolved in https://github.com/szcompressor/cuSZ/commit/037bf6e6afd01e684c40f439bc5e78f3b3b02cb3.
+1. Zip and unzip is not decoupled, resolved in (part of [v0.1.1](https://github.com/szcompressor/cuSZ/releases/tag/v0.1.1)).
+2. Not able to specify output path, resolved (part of [v0.1.1](https://github.com/szcompressor/cuSZ/releases/tag/v0.1.1)).
+3. Pascal GPU failed because of overestimated cache size, resolved in [037bf6e](https://github.com/szcompressor/cuSZ/commit/037bf6e6afd01e684c40f439bc5e78f3b3b02cb3).
 4. It is after a while that we found big-endian is input, as of 11/5/2020, there is no input addon to convert big-endian to little-endian.
-5. It is after a while that we determine the platform, so it would be convinient to attach machine information, resolved in https://github.com/szcompressor/cuSZ/commit/31a2962bf50685b275f751c3750e6c35e0b96695.
-6. Large Parihaka datum (5 GiB) runs out of GPU memory; although it's not exposed by 16-GiB P100 or other target devices, solved in https://github.com/szcompressor/cuSZ/commit/90b521b30925e42ede5a635111b123f6238b0e0e (not yet done given the target is to make it run one 8-GiB device/maintaining memory footprint of 1.5x the original data).
+5. It is after a while that we determine the platform, so it would be convinient to attach machine information, resolved in [31a2962](https://github.com/szcompressor/cuSZ/commit/31a2962bf50685b275f751c3750e6c35e0b96695).
+6. Large Parihaka datum (5 GiB) runs out of GPU memory; although it's not exposed by 16-GiB P100 or other target devices, solved in [90b521b](https://github.com/szcompressor/cuSZ/commit/90b521b30925e42ede5a635111b123f6238b0e0e) (refer to [issue #19](https://github.com/szcompressor/cuSZ/issues/19)).
 7. (This megaissue is still in development.)
 
 
