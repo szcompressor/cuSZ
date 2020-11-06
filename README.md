@@ -22,7 +22,7 @@ Our published paper covers the essential design and implementation, accessible v
 ## requirements
 - NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
 - Minimum: CUDA 9.2+ and GCC 7.3+ (with C++14 support)
-  - The below table shows our tested GPUs, CUDA versions, and compilers.
+  - The table below shows our tested GPUs, CUDA versions, and compilers.
   - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
   - Please refer to [link](https://gist.github.com/ax3l/9489132) for more details about different CUDA versions and their required compilers.
   
@@ -56,11 +56,11 @@ Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is giv
 ```bash
 ./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z
              |  ------ ----------- ---------------------------- -------  |
-           dtype mode  error bound        input datum file        demo   zip
+           dtype mode  error bound           input datum          demo   zip
 
-./bin/cusz -i ./data/sample-cesm-CLDHGH -x
-           ----------------------------  |
-           corresponding datum basename  unzip
+./bin/cusz -i ./data/sample-cesm-CLDHGH.sz -x
+           -------------------------------  |
+                     sz archive            unzip
 ```
 `-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
 
@@ -112,9 +112,9 @@ Other module skipping for use scenarios are in development.
 	# compress
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z
 	# decompress, use the datum to compress as basename
-	cusz -i ./data/sample-cesm-CLDHGH -x
+	cusz -i ./data/sample-cesm-CLDHGH.sz -x
 	# decompress, and compare with the original data
-	cusz -i ./data/sample-cesm-CLDHGH -x --origin ./data/sample-cesm-CLDHGH
+	cusz -i ./data/sample-cesm-CLDHGH.sz -x --origin ./data/sample-cesm-CLDHGH
 	```
 2. runa 2D CESM demo with specified output path
 
@@ -123,7 +123,7 @@ Other module skipping for use scenarios are in development.
 	# output compressed data to `data2`
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z --opath data2
 	# output decompressed data to `data3`
-	cusz -i ./data2/sample-cesm-CLDHGH -x --opath data3
+	cusz -i ./data2/sample-cesm-CLDHGH.sz -x --opath data3
 	```
 3. run CESM demo with `uint8_t` and 256 quant. bins
 
@@ -135,11 +135,12 @@ Other module skipping for use scenarios are in development.
 	```bash
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -d 256 -Q 8 \
 		--skip huffman  # or `-X huffman`
-	cusz -i ./data/sample-cesm-CLDHGH -x  # `-d`, `-Q`, `-X` is recorded
+	cusz -i ./data/sample-cesm-CLDHGH.sz -x  # `-d`, `-Q`, `-X` is recorded
 	```
 5. some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec
 
 	```bash
+	** cautious, may not be working as of 0.1.3
 	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
 		-d 256 -Q 8 --pre binning --skip huffman	# or `-p binning`
 	```
@@ -171,36 +172,26 @@ To calculate (de)compression throughput, please follow the below steps to use ou
 ## tested datasets
 
 We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/) (SDRBench):
-| dataset          | dim. | description                                                             |
-| ---------------- | ---- | ----------------------------------------------------------------------- |
-| EXAALT           | 1D   | molecular dynamics simulation                                           |
-| HACC             | 1D   | cosmology: particle simulation                                          |
-| CESM-ATM         | 2D   | climate simulation                                                      |
-| EXAFEL           | 2D   | images from the LCLS instrument                                         |
-| Hurricane ISABEL | 3D   | weather simulation                                                      |
-| NYX              | 3D   | cosmology: adaptive mesh hydrodynamics + N-body cosmological simulation |
+| dataset                                                                 | dim. | description                                                  |
+| ----------------------------------------------------------------------- | ---- | ------------------------------------------------------------ |
+| [EXAALT](https://gitlab.com/exaalt/exaalt/-/wikis/home)                 | 1D   | molecular dynamics simulation                                |
+| [HACC](https://www.alcf.anl.gov/files/theta_2017_workshop_heitmann.pdf) | 1D   | cosmology: particle simulation                               |
+| [CESM-ATM](https://www.cesm.ucar.edu)                                   | 2D   | climate simulation                                           |
+| [EXAFEL](https://lcls.slac.stanford.edu/exafel)                         | 2D   | images from the LCLS instrument                              |
+| [Hurricane ISABEL](http://vis.computer.org/vis2004contest/data.html)    | 3D   | weather simulation                                           |
+| [NYX](https://amrex-astro.github.io/Nyx/)                               | 3D   | adaptive mesh hydrodynamics + N-body cosmological simulation |
 
 We provide three small sample data in `cuSZ/data` directory. To download more SDRBench datasets, please use our bash script `cuSZ/script/download-sdrb-data.sh`. 
 
 ## sample kernel performance (compression/zip)
 
-
-|                    |               |                     | dual-quant | hist  | codebook | encode | outlier | OVERALL (w/o c/b) | mem bw (ref) | memcpy (ref) |
-| ------------------ | ------------- | ------------------- | ---------- | ----- | -------- | ------ | ------- | ----------------- | ------------ | ------------ |
-| 1D HACC (1.05 GiB) | **V100**      | *time* (ms)         | 3.6        | 2.8   | 0.1      | 19.5   | 4.0     | 30.0              |              |              |
-|                    |               | *throughput* (GB/s) | 312.0      | 400.0 |          | 57.6   | 278.8   | 37.4              | 900 (HBM2)   | 713.1        |
-| 2D CESM (25.7 MiB) | **V100**      | *time* (us)         | 103.6      | 45.5  | 820.6    | 448.6  | 140.3   | 738.0             |              |              |
-|                    |               | *throughput* (GB/s) | 260.1      | 591.8 |          | 60.1   | 192.0   | 36.5              | 900 (HBM2)   | 713.1        |
-|                    | **RTX 5000**  | *time* (us)         | 409.7      | 83.9  | 681.5    | 870.2  | 204.4   | 1379.4            |              |              |
-|                    |               | *throughput* (GB/s) | 65.8       | 321.3 |          | 31.0   | 131.9   | 19.5              | 448 (GDDR6)  | 364.5        |
-|                    | **RTX 2060S** | *time* (us)         | 535.58     | 112.0 | 601.5    | 1134.6 | 294.1   | 1543.2            |              |              |
-|                    |               | *throughput* (GB/s) | 50.3       | 240.7 |          | 23.8   | 91.6    | 17.5              | 448 (GDDR6)  | 379.6        |
-| 3D NYX (512 MiB)   | **V100**      | *time* (ms)         | 2.69       | 1.34  | 0.68     | 8.37   | 2.00    | 14.4              |              |              |
-|                    |               | *throughput* (GB/s) | 199.6      | 400.6 |          | 64.1   | 268.4   | 37.3              | 900 (HBM2)   | 713.1        |
-|                    | **RTX 5000**  | *time* (ms)         | 10.15      | 3.58  | 0.55     | 14.48  | 5.20    | 33.4              |              |              |
-|                    |               | *throughput* (GB/s) | 52.9       | 150.0 |          | 37.1   | 103.2   | 16.1              | 448 (GDDR6)  | 364.5        |
-|                    | **RTX 2060S** | *time* (ms)         | 13.53      | 5.58  | 0.47     | 18.13  | 7.01    | 44.25             |              |              |
-|                    |               | *throughput* (GB/s) | 39.7       | 96.2  |          | 29.6   | 76.6    | 12.1              | 448 (GDDR6)  | 379.6        |
+As of October 8, 2020, 
+|                    |          |                     | dual-quant | hist  | codebook | enc. | outlier | OVERALL (w/o c/b) | mem bw (ref) | memcpy (ref) |
+| ------------------ | -------- | ------------------- | ---------- | ----- | -------- | ---- | ------- | ----------------- | ------------ | ------------ |
+| 1D HACC (1.05 GiB) | **V100** | *throughput* (GB/s) | 312.0      | 400.0 | 0.1 ms   | 57.6 | 278.8   | 37.4              | 900 (HBM2)   | 713.1        |
+| 2D CESM (25.7 MiB) | **V100** | *throughput* (GB/s) | 260.1      | 591.8 | 0.82 us  | 60.1 | 192.0   | 36.5              | 900 (HBM2)   | 713.1        |
+| 3D NYX (512 MiB)   | **V100** | *throughput* (GB/s) | 199.6      | 400.6 | 0.68 us  | 64.1 | 268.4   | 37.3              | 900 (HBM2)   | 713.1        |
+A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
 **Please note that if the performance you get is much lower than what we show above, please use `-C` option to change the chunk size for Huffman codec. For  example, we use `-C 16384` for 1D HACC data in the above test.**
 
