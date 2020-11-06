@@ -11,23 +11,31 @@
  *
  */
 
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
 #include <cstddef>
 #include <cstring>
 #include <string>
 #include <vector>
 
+using std::string;
+
+#if __cplusplus >= 201103L
+
 #include "SDRB.hh"
+#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "constants.hh"
+#include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
 #include "cusz_workflow.cuh"
 #include "filter.cuh"
+#include "format.hh"
 #include "io.hh"
 #include "pack.hh"
 #include "query.hh"
+#include "timer.hh"
 #include "types.hh"
-
-using std::string;
 
 template <typename T, int DS, int tBLK>
 T* pre_binning(T* d, size_t* dim_array)
@@ -72,6 +80,11 @@ int main(int argc, char** argv)
         GetDeviceProperty();
     }
 
+    // TODO hardcode for float for now
+    using T                       = float;
+    struct AdHocDataPack<T>* adp  = nullptr;
+    T*                       data = nullptr;
+
     if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
@@ -81,9 +94,48 @@ int main(int argc, char** argv)
             "datum:\t\t%s (%lu bytes) of type %s\n", ap->cx_path2file.c_str(),
             dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
 
+        auto len = dim_array[LEN];
+        auto m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
+        auto mxm = m * m;
+
+        cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
+        auto a = hires::now();
+        CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
+        memset(data, mxm * sizeof(T), 0x00);
+        io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
+        T*   d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+        auto z      = hires::now();
+        cout << log_dbg << "Time loading data:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
+
+        adp = new AdHocDataPack<T>(data, d_data, len);
+
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
-        if (ap->mode == "r2r")
-            eb_config->ChangeToRelativeMode(GetDatumValueRange<float>(ap->cx_path2file, dim_array[LEN]));
+        if (ap->mode == "r2r") {
+            double        rng;
+            hires_clock_t a, z;
+            a = hires::now();
+            // ------------------------------------------------------------
+            thrust::device_ptr<float> g_ptr = thrust::device_pointer_cast(d_data);
+
+            size_t min_el_loc = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+            size_t max_el_loc = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+
+            double min_value = *(g_ptr + min_el_loc);
+            double max_value = *(g_ptr + max_el_loc);
+            rng              = max_value - min_value;
+            // ------------------------------------------------------------
+            z = hires::now();
+            cout << log_dbg << "Time inspecting data range:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
+            // a = hires::now();
+            // double max_value_host, min_value_host, rng_host;
+            // std::tie(max_value_host, min_value_host, rng_host) = GetDatumValueRange(data, len);
+            // z                                                  = hires::now();
+            // cout << log_dbg << "Time getting data range CPU:\t" << static_cast<duration_t>(z - a).count() << "s"
+            //      << endl;
+            // cout << "GPU gen'ed rng:\t" << rng << endl;
+            // cout << "CPU gen'ed rng:\t" << rng_host << endl;
+            eb_config->ChangeToRelativeMode(rng);
+        }
         // eb_config->debug();
         eb_array = InitializeErrorBoundFamily(eb_config);
 
@@ -92,33 +144,38 @@ int main(int argc, char** argv)
     }
 
     if (ap->pre_binning) {
-        auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
-        auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
-        auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
-        ap->cx_path2file = ap->cx_path2file + ".BN";
-        io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
+        cerr << log_err
+             << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
+                "filesystem. (ver. 0.1.4)"
+             << endl;
+        exit(1);
+        // auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
+        // auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
+        // auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
+        // ap->cx_path2file = ap->cx_path2file + ".BN";
+        // io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
 
-        cudaFree(d_binning);
-        delete[] data;
-        delete[] binning;
+        // cudaFree(d_binning);
+        // delete[] data;
+        // delete[] binning;
     }
 
     if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
         if (ap->quant_rep == 8) {
             if (ap->huffman_rep == 32)
                 cusz::workflow::Compress<float, uint8_t, uint32_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
                 cusz::workflow::Compress<float, uint8_t, uint64_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_rep == 16) {
             if (ap->huffman_rep == 32)
                 cusz::workflow::Compress<float, uint16_t, uint32_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
                 cusz::workflow::Compress<float, uint16_t, uint64_t>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
 
         // pack metadata
@@ -135,6 +192,13 @@ int main(int argc, char** argv)
         delete mp;
     }
 
+    if (data and adp) {
+        cudaFreeHost(data);  // really messy considering adp pointers are freed elsewhere
+        data = nullptr;
+        delete adp;
+    }
+
+    // before running into decompression
     {
         // reset anyway
         // TODO shared pointer
@@ -144,16 +208,15 @@ int main(int argc, char** argv)
 
     // wenyu's modification
     // invoke system() to untar archived files first before decompression
-    
-    string cx_directory = ap->cx_path2file.substr(0,ap->cx_path2file.rfind("/") + 1);
+
+    string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/") + 1);
     if (ap->to_extract) {
         string cmd_string;
-	if(cx_directory.length()==0){
-	    cmd_string = "tar -xf " + ap->cx_path2file+".sz";
-	} else {
-	    cmd_string = "tar -xf " + ap->cx_path2file+".sz" +" -C "+cx_directory;
-	}
-        char*  cmd        = new char[cmd_string.length() + 1];
+        if (cx_directory.length() == 0) { cmd_string = "tar -xf " + ap->cx_path2file + ".sz"; }
+        else {
+            cmd_string = "tar -xf " + ap->cx_path2file + ".sz" + " -C " + cx_directory;
+        }
+        char* cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
         delete[] cmd;
@@ -199,6 +262,8 @@ int main(int argc, char** argv)
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
     if (ap->to_archive or ap->to_dryrun) {
+        auto tar_a = hires::now();
+
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
         char*  cmd        = new char[cmd_string.length() + 1];
@@ -207,20 +272,24 @@ int main(int argc, char** argv)
         delete[] cmd;
 
         // using tar command to encapsulate files
-        
-        if(ap->to_gzip){
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
-                     ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
-        } else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + cx_basename + ".hbyte " + cx_basename +
-                     ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename + ".yamp";
+
+        if (ap->to_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " +
+                         cx_basename + ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename +
+                         ".yamp";
+        }
+        else {
+            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + cx_basename + ".hbyte " +
+                         cx_basename + ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename +
+                         ".yamp";
         }
 
         cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
+
         system(cmd);
+
         delete[] cmd;
-        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
 
         // remove 5 subfiles
         cmd_string = "rm -rf " + ap->opath + cx_basename + ".hbyte " + ap->opath + cx_basename + ".outlier " +
@@ -229,6 +298,11 @@ int main(int argc, char** argv)
         cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
+
+        auto tar_z = hires::now();
+        cout << log_dbg << "Time tar'ing\t" << static_cast<duration_t>(tar_z - tar_a).count() << "s" << endl;
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
+
         delete[] cmd;
     }
 
@@ -245,3 +319,5 @@ int main(int argc, char** argv)
 
     // wenyu's modification ends
 }
+
+#endif

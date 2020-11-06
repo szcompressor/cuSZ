@@ -38,6 +38,7 @@
 #include "huffman_codec.cuh"
 #include "huffman_workflow.cuh"
 #include "par_huffman.cuh"
+#include "timer.hh"
 #include "types.hh"
 
 int ht_state_num;
@@ -216,6 +217,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
             dH_uInt_meta[i] * sizeof(H),  // len in H-uint
             cudaMemcpyDeviceToHost);
     }
+    auto time_a = hires::now();
     // dump bit_meta and uInt_meta
     io::WriteArrayToBinary(f_in + ".hmeta", h_meta + n_chunk, (2 * n_chunk));
     // write densely Huffman code and its metadata
@@ -226,6 +228,9 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
         reinterpret_cast<uint8_t*>(decode_meta),           //
         sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size  // first, entry, reversed dict (keys)
     );
+    auto time_z = hires::now();
+    cout << log_dbg << "Time writing Huff. binary:\t" << static_cast<duration_t>(time_z - time_a).count() << "s"
+         << endl;
 
     size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))              //
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
