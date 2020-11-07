@@ -185,24 +185,24 @@ We provide three small sample data in `cuSZ/data` directory. To download more SD
 
 ## sample kernel performance (compression/zip)
 
-As of October 8, 2020, 
-|                    |          |                     | dual-quant | hist  | codebook | enc. | outlier | OVERALL (w/o c/b) | mem bw (ref) | memcpy (ref) |
-| ------------------ | -------- | ------------------- | ---------- | ----- | -------- | ---- | ------- | ----------------- | ------------ | ------------ |
-| 1D HACC (1.05 GiB) | **V100** | *throughput* (GB/s) | 312.0      | 400.0 | 0.1 ms   | 57.6 | 278.8   | 37.4              | 900 (HBM2)   | 713.1        |
-| 2D CESM (25.7 MiB) | **V100** | *throughput* (GB/s) | 260.1      | 591.8 | 0.82 us  | 60.1 | 192.0   | 36.5              | 900 (HBM2)   | 713.1        |
-| 3D NYX (512 MiB)   | **V100** | *throughput* (GB/s) | 199.6      | 400.6 | 0.68 us  | 64.1 | 268.4   | 37.3              | 900 (HBM2)   | 713.1        |
+Tested on October 8, 2020, on V100; throughput is in the unit of GB/s if not specified otherwise, 
+
+|                    | dual-quant | hist  | codebook | enc. | outlier | OVERALL (w/o c/b) | mem bw (ref) | memcpy (ref) |
+| ------------------ | ---------- | ----- | -------- | ---- | ------- | ----------------- | ------------ | ------------ |
+| 1D HACC (1.05 GiB) | 312.0      | 400.0 | 0.1 ms   | 57.6 | 278.8   | 37.4              | 900 (HBM2)   | 713.1        |
+| 2D CESM (25.7 MiB) | 260.1      | 591.8 | 0.82 us  | 60.1 | 192.0   | 36.5              | 900 (HBM2)   | 713.1        |
+| 3D NYX (512 MiB)   | 199.6      | 400.6 | 0.68 us  | 64.1 | 268.4   | 37.3              | 900 (HBM2)   | 713.1        |
+
 A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
-**Please note that if the performance you get is much lower than what we show above, please use `-C` option to change the chunk size for Huffman codec. For  example, we use `-C 16384` for 1D HACC data in the above test.**
-
-## limitations of this version (0.1.3)
+## limitations of this version (Nov. 6, 2020)
 
 - For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
 - The current integrated Huffman codec runs with efficient histogramming [1], parallel Huffman codebook building [2], memory-copy style encoding, chunkwise bit deflating, and efficient Huffman decoding using canonical codes [3]. However, the chunkwise bit deflating is not optimal, so we are woking on a faster, finer-grained Huffman codec for the future release. 
 - We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
 - Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 
 - You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on autotuning consistent performance.
-- Please refer to [_Project Management page_](https://github.com/szcompressor/cuSZ/projects/2) for more TODO details.  
+- Binning preprocessing is subject to change, and currently not available.
 
 # references
 
