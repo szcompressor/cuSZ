@@ -39,7 +39,6 @@ When we collect feedbacks from users, it is possible that an issue becomes a meg
 7. (This megaissue is still in development.)
 
 
-
 ### template
 title
 ```
