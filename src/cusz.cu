@@ -209,8 +209,9 @@ int main(int argc, char** argv)
     // wenyu's modification
     // invoke system() to untar archived files first before decompression
 
-    string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/") + 1);
-    if (ap->to_extract) {
+    
+    if (!ap->to_archive && ap->to_extract) {
+        string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/") + 1);
         string cmd_string;
         if (cx_directory.length() == 0) { cmd_string = "tar -xf " + ap->cx_path2file + ".sz"; }
         else {
@@ -261,7 +262,7 @@ int main(int argc, char** argv)
     // wenyu's modification starts
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
-    if (ap->to_archive or ap->to_dryrun) {
+    if (!ap->to_extract && ap->to_archive) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
@@ -272,16 +273,18 @@ int main(int argc, char** argv)
         delete[] cmd;
 
         // using tar command to encapsulate files
-
+        string files_for_merging;
+        if(ap->skip_huffman) {
+            files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
+        } else {
+            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " + 
+                                cx_basename + ".hmeta " +   cx_basename + ".yamp";
+        }
         if (ap->to_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + cx_basename + ".hbyte " +
-                         cx_basename + ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename +
-                         ".yamp";
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
         }
         else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + cx_basename + ".hbyte " +
-                         cx_basename + ".outlier " + cx_basename + ".canon " + cx_basename + ".hmeta " + cx_basename +
-                         ".yamp";
+            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
 
         cmd = new char[cmd_string.length() + 1];
@@ -292,9 +295,7 @@ int main(int argc, char** argv)
         delete[] cmd;
 
         // remove 5 subfiles
-        cmd_string = "rm -rf " + ap->opath + cx_basename + ".hbyte " + ap->opath + cx_basename + ".outlier " +
-                     ap->opath + cx_basename + ".canon " + ap->opath + cx_basename + ".hmeta " + ap->opath +
-                     cx_basename + ".yamp";
+        cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
         cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
@@ -308,12 +309,59 @@ int main(int argc, char** argv)
 
     // if it's decompression, remove released subfiles at last.
 
-    if (ap->to_extract) {
-        string cmd_string = "rm -rf " + ap->cx_path2file + ".hbyte " + ap->cx_path2file + ".outlier " +
-                            ap->cx_path2file + ".canon " + ap->cx_path2file + ".hmeta " + ap->cx_path2file + ".yamp";
+    if (!ap->to_archive && ap->to_extract) {
+        string files_for_deleting;
+        if(ap->skip_huffman){
+            files_for_deleting=cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
+        } else {
+            files_for_deleting=cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " + 
+                               cx_basename + ".hmeta " + cx_basename + ".yamp";
+        }
+        string cmd_string = "cd " + ap->cx_path2file.substr(0,ap->cx_path2file.rfind("/")) + ";rm -rf " + files_for_deleting;
         char* cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
+        delete[] cmd;
+    }
+
+    if(ap->to_archive && ap->to_extract){
+        // remove *.sz if existing
+        string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
+        char*  cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
+        delete[] cmd;
+
+        // using tar command to encapsulate files
+        string files_for_merging;
+        if(ap->skip_huffman) {
+            files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
+        } else {
+            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " + 
+                                cx_basename + ".hmeta " +   cx_basename + ".yamp";
+        }
+        if (ap->to_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
+        }
+        else {
+            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
+        }
+
+        cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+
+        system(cmd);
+
+        delete[] cmd;
+
+        // remove 5 subfiles
+        cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
+        cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
+
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".szx\e[0m" << endl;
         delete[] cmd;
     }
 
