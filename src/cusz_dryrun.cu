@@ -82,10 +82,12 @@ __global__ void cusz::dryrun::lorenzo_3d1l(T* data, size_t* dims_L16, double* eb
 template <typename T>
 void cusz::workflow::DryRun(T* d, T* d_d, string fi, size_t* dims, double* ebs)
 {
-    cout << log_info << "Entering dry-run mode..." << endl;
     auto len        = dims[LEN];
     auto d_dims_L16 = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
     auto d_ebs_L4   = mem::CreateDeviceSpaceAndMemcpyFromHost(ebs, 4);
+
+    auto d2 = new T[len]();
+    memcpy(d2, d, sizeof(T) * len);
 
     if (dims[nDIM] == 1) {
         dim3 blockNum(dims[nBLK0]);
@@ -105,11 +107,7 @@ void cusz::workflow::DryRun(T* d, T* d_d, string fi, size_t* dims, double* ebs)
     cudaDeviceSynchronize();
     cudaMemcpy(d, d_d, len * sizeof(T), cudaMemcpyDeviceToHost);
 
-    auto d2 = io::ReadBinaryFile<T>(fi, len);
-    // CR is not valid in dry run
     analysis::VerifyData<T>(d, d2, len, false, ebs[EB], 0);
-    cout << log_info << "Dry-run finished, exit..." << endl;
-    delete[] d;
     delete[] d2;
     cudaFree(d_d);
     cudaFree(d_dims_L16);
