@@ -79,11 +79,11 @@ void analysis::VerifyData(
     double PSNR  = 20 * log10(rng) - 10 * log10(MSE);
     double NRMSE = sqrt(MSE) / rng;
 
-    auto left_border  = []() { printf("| "); };
+    // auto left_border  = []() { printf("| "); };
+    auto left_border  = []() { printf("  "); };
     auto right_border = []() { printf("\n"); };
 
     cout << endl;
-    cout << log_info << "Verification start ---------------------" << endl;
     left_border(), printf("%-20s%.20G", "min.val", _min), right_border();
     left_border(), printf("%-20s%.20G", "max.val", _max), right_border();
     left_border(), printf("%-20s%.20G", "val.rng", rng), right_border();
@@ -109,7 +109,6 @@ void analysis::VerifyData(
                 binning_scale * 1.0 * _len * sizeof(T) / archive_byte_size),
             right_border();
     }
-    cout << log_info << "Verification end -----------------------" << endl;
     cout << endl;
 }
 

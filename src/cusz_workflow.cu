@@ -267,27 +267,31 @@ void cusz::workflow::Compress(
     auto mxm    = adp->mxm;
 
     if (ap->to_dryrun) {
-        cout << "\n" << log_info << "Commencing dry-run..." << endl;
+        logall(log_info, "invoke dry-run");
         DryRun(data, d_data, ap->cx_path2file, dims_L16, ebs_L4);
         cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
     }
-    cout << "\n" << log_info << "Commencing compression..." << endl;
+    logall(log_info, "invoke zipping");
 
     auto d_bcode = mem::CreateCUDASpace<Q>(len);  // quant. code is not needed for dry-run
 
     // prediction-quantization
     ::cusz::impl::PdQ(d_data, d_bcode, dims_L16, ebs_L4);
     ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &ap->c_fo_outlier);
-    cout << log_info << "nnz.outlier:\t" << nnz_outlier << "\t(" << (nnz_outlier / 1.0 / len * 100) << "%)" << endl;
+
+    auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
+    logall(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
 
     Q* bcode;
     if (ap->skip_huffman) {
         bcode = mem::CreateHostSpaceAndMemcpyFromDevice(d_bcode, len);
         io::WriteArrayToBinary(ap->c_fo_q, bcode, len);
-        cout << log_info << "Compression finished, saved quant.code (Huffman skipped).\n" << endl;
+
+        logall(log_info, "to store quant.code directly (Huffman enc skipped)");
+
         return;
     }
 
@@ -300,16 +304,13 @@ void cusz::workflow::Compress(
 
         while (optimal_chunksize * cuda_thread_num < len) optimal_chunksize *= 2;
         ap->huffman_chunk = optimal_chunksize;
-        cout << log_dbg << "Optimal Huffman deflating chunksize\t" << ap->huffman_chunk << endl;
     }
 
     std::tie(n_bits, n_uInt, huffman_metadata_size) =
         HuffmanEncode<Q, H>(ap->c_huff_base, d_bcode, len, ap->huffman_chunk, dims_L16[CAP]);
 
-    cout << log_info << "Compression finished, saved Huffman encoded quant.code.\n";
+    logall(log_dbg, "to store Huffman encoded quant.code (default)");
 
-    // cudaFreeHost(data);
-    // delete[] data;
     cudaFree(d_bcode);
 }
 
@@ -328,16 +329,16 @@ void cusz::workflow::Decompress(
     auto m         = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
     auto mxm       = m * m;
 
-    cout << log_info << "Commencing decompression..." << endl;
+    logall(log_info, "invoke unzip");
 
     Q* xbcode;
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (ap->skip_huffman) {
-        cout << log_info << "Getting quant.code from filesystem... (Huffman encoding was skipped.)" << endl;
+        logall(log_info, "load quant.code from filesystem");
         xbcode = io::ReadBinaryFile<Q>(ap->x_fi_q, len);
     }
     else {
-        cout << log_info << "Huffman decoding into quant.code." << endl;
+        logall(log_info, "Huffman decode -> quant.code");
         xbcode = HuffmanDecode<Q, H>(ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
         if (ap->verify_huffman) {
             // TODO check in argpack
@@ -359,7 +360,7 @@ void cusz::workflow::Decompress(
     ::cusz::impl::ReversedPdQ(d_xdata, d_bcode, d_outlier, dims_L16, ebs_L4[EBx2]);
     auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, len);
 
-    cout << log_info << "Decompression finished.\n\n";
+    logall(log_info, "reconstruct error-bounded datum");
 
     size_t archive_size = 0;
     // TODO huffman chunking metadata
@@ -392,15 +393,11 @@ void cusz::workflow::Decompress(
     }
 
     if (ap->pre_binning) cout << log_info << "Because of 2x2->1 binning, extra 4x CR is added." << endl;
-    if (not ap->skip_huffman) {
-        cout << log_info
-             << "Huffman metadata of chunking and reverse codebook size (in bytes): " << huffman_metadata_size << endl;
-        cout << log_info << "Huffman coded output size: " << total_uInt * sizeof(H) << endl;
-    }
 
     // TODO move CR out of VerifyData
     if (ap->x_fi_origin != "") {
-        cout << log_info << "To compare with the original datum" << endl;
+        logall(log_info, "load the original datum for comparison");
+
         auto odata = io::ReadBinaryFile<T>(ap->x_fi_origin, len);
         analysis::VerifyData(
             xdata, odata,
@@ -409,15 +406,16 @@ void cusz::workflow::Decompress(
             ebs_L4[EB],  //
             archive_size,
             ap->pre_binning ? 4 : 1);  // TODO use template rather than 2x2
-        cout << log_info << "Decompressed file is written to " << ap->cx_path2file << ".szx." << endl;
-        cout << log_info << "Please use compressed data (*.sz) to calculate final comp ratio (w/ gzip)." << endl;
+        // TODO
+        // cout << log_info << "Please use compressed data (*.sz) to calculate final comp ratio (w/ gzip)." << endl;
         delete[] odata;
     }
+    logall(log_info, "output:", ap->cx_path2file + ".szx");
 
     if (!ap->skip_writex)
         io::WriteArrayToBinary(ap->x_fo_xd, xdata, len);
     else {
-        cout << log_info << "Skipped writing unzipped to filesystem." << endl;
+        logall(log_dbg, "skipped writing unzipped to filesystem");
     }
 
     // clean up

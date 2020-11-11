@@ -89,23 +89,24 @@ int main(int argc, char** argv)
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
 
-        cout << log_info;
-        printf(
-            "datum:\t\t%s (%lu bytes) of type %s\n", ap->cx_path2file.c_str(),
-            dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), ap->dtype.c_str());
+        logall(
+            log_info, "load", ap->cx_path2file, dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
+            "bytes,", ap->dtype);
 
         auto len = dim_array[LEN];
         auto m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
         auto mxm = m * m;
 
-        cout << log_dbg << "original len:\t" << len << " (padding: " << m << ")" << endl;
+        logall(log_dbg, "add padding:", m, "units");
+
         auto a = hires::now();
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
         memset(data, mxm * sizeof(T), 0x00);
         io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
         T*   d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
         auto z      = hires::now();
-        cout << log_dbg << "Time loading data:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
+
+        logall(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
         adp = new AdHocDataPack<T>(data, d_data, len);
 
@@ -125,22 +126,18 @@ int main(int argc, char** argv)
             rng              = max_value - min_value;
             // ------------------------------------------------------------
             z = hires::now();
-            cout << log_dbg << "Time inspecting data range:\t" << static_cast<duration_t>(z - a).count() << "s" << endl;
-            // a = hires::now();
-            // double max_value_host, min_value_host, rng_host;
-            // std::tie(max_value_host, min_value_host, rng_host) = GetDatumValueRange(data, len);
-            // z                                                  = hires::now();
-            // cout << log_dbg << "Time getting data range CPU:\t" << static_cast<duration_t>(z - a).count() << "s"
-            //      << endl;
-            // cout << "GPU gen'ed rng:\t" << rng << endl;
-            // cout << "CPU gen'ed rng:\t" << rng_host << endl;
+
+            logall(log_dbg, "time scanning:", static_cast<duration_t>(z - a).count(), "sec");
+
             eb_config->ChangeToRelativeMode(rng);
         }
         // eb_config->debug();
         eb_array = InitializeErrorBoundFamily(eb_config);
 
-        cout << log_dbg << "\e[1m" << ap->quant_rep / 8 << "-byte\e[0m quant type, \e[1m" << ap->huffman_rep / 8
-             << "-byte\e[0m internal Huff type" << endl;
+        logall(
+            log_dbg,  //
+            std::to_string(ap->quant_rep / 8) + "-byte quant type,",
+            std::to_string(ap->huffman_rep / 8) + "-byte internal Huff type");
     }
 
     if (ap->pre_binning) {
@@ -149,15 +146,6 @@ int main(int argc, char** argv)
                 "filesystem. (ver. 0.1.4)"
              << endl;
         exit(1);
-        // auto data        = io::ReadBinaryFile<float>(ap->cx_path2file, dim_array[LEN]);
-        // auto d_binning   = pre_binning<float, 2, 32>(data, dim_array);
-        // auto binning     = mem::CreateHostSpaceAndMemcpyFromDevice(d_binning, dim_array[LEN]);
-        // ap->cx_path2file = ap->cx_path2file + ".BN";
-        // io::WriteArrayToBinary(ap->cx_path2file, binning, dim_array[LEN]);
-
-        // cudaFree(d_binning);
-        // delete[] data;
-        // delete[] binning;
     }
 
     if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
@@ -209,7 +197,6 @@ int main(int argc, char** argv)
     // wenyu's modification
     // invoke system() to untar archived files first before decompression
 
-    
     if (!ap->to_archive && ap->to_extract) {
         string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/") + 1);
         string cmd_string;
@@ -274,15 +261,14 @@ int main(int argc, char** argv)
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if(ap->skip_huffman) {
+        if (ap->skip_huffman) {
             files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
-        } else {
-            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " + 
-                                cx_basename + ".hmeta " +   cx_basename + ".yamp";
         }
-        if (ap->to_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
+        else {
+            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
+                                cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
+        if (ap->to_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging; }
         else {
             cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
@@ -296,13 +282,15 @@ int main(int argc, char** argv)
 
         // remove 5 subfiles
         cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
-        cmd = new char[cmd_string.length() + 1];
+        cmd        = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
 
         auto tar_z = hires::now();
-        cout << log_dbg << "Time tar'ing\t" << static_cast<duration_t>(tar_z - tar_a).count() << "s" << endl;
-        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
+
+        auto ad_hoc_fix = ap->opath.substr(0, ap->opath.size() - 1);
+        logall(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
+        logall(log_info, "output:", ad_hoc_fix + cx_basename + ".sz");
 
         delete[] cmd;
     }
@@ -311,20 +299,22 @@ int main(int argc, char** argv)
 
     if (!ap->to_archive && ap->to_extract) {
         string files_for_deleting;
-        if(ap->skip_huffman){
-            files_for_deleting=cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
-        } else {
-            files_for_deleting=cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " + 
-                               cx_basename + ".hmeta " + cx_basename + ".yamp";
+        if (ap->skip_huffman) {
+            files_for_deleting = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
         }
-        string cmd_string = "cd " + ap->cx_path2file.substr(0,ap->cx_path2file.rfind("/")) + ";rm -rf " + files_for_deleting;
+        else {
+            files_for_deleting = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
+                                 cx_basename + ".hmeta " + cx_basename + ".yamp";
+        }
+        string cmd_string =
+            "cd " + ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/")) + ";rm -rf " + files_for_deleting;
         char* cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
         delete[] cmd;
     }
 
-    if(ap->to_archive && ap->to_extract){
+    if (ap->to_archive && ap->to_extract) {
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
         char*  cmd        = new char[cmd_string.length() + 1];
@@ -334,15 +324,14 @@ int main(int argc, char** argv)
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if(ap->skip_huffman) {
+        if (ap->skip_huffman) {
             files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
-        } else {
-            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " + 
-                                cx_basename + ".hmeta " +   cx_basename + ".yamp";
         }
-        if (ap->to_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
+        else {
+            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
+                                cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
+        if (ap->to_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging; }
         else {
             cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
@@ -356,7 +345,7 @@ int main(int argc, char** argv)
 
         // remove 5 subfiles
         cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
-        cmd = new char[cmd_string.length() + 1];
+        cmd        = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);
 

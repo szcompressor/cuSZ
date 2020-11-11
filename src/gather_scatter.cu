@@ -147,7 +147,7 @@ void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, s
         // clang-format on
     }
 
-    cout << log_info << "Extracted outlier from CSR format." << endl;
+    logall(log_info, "load outlier");
 
     delete[] outlier_bin;
 }
