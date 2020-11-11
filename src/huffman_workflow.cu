@@ -95,7 +95,7 @@ void wrapper::GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dic
                 auto possibility = freq[i] / (1.0 * len);
                 entropy -= possibility * log(possibility);
             }
-        cout << log_info << "entropy:\t\t" << entropy << endl;
+        logall(log_dbg, "entropy:", entropy);
         delete[] freq;
     }
 
@@ -199,10 +199,10 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
     auto total_bits  = std::accumulate(dH_bit_meta, dH_bit_meta + n_chunk, (size_t)0);
     auto total_uInts = std::accumulate(dH_uInt_meta, dH_uInt_meta + n_chunk, (size_t)0);
 
-    cout << log_dbg;
-    printf(
-        "Huffman enc:\t#chunk=%lu, chunksze=%d => %lu %d-byte words/%lu bits\n", n_chunk, chunk_size, total_uInts,
-        (int)sizeof(H), total_bits);
+    auto fmt_enc1 = "Huffman enc: (#) " + std::to_string(n_chunk) + " x " + std::to_string(chunk_size);
+    auto fmt_enc2 = std::to_string(total_uInts) + " " + std::to_string(sizeof(H)) + "-byte words or " +
+                    std::to_string(total_bits) + " bits";
+    logall(log_dbg, fmt_enc1, "=>", fmt_enc2);
 
     // print densely metadata
     // PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
@@ -229,8 +229,7 @@ std::tuple<size_t, size_t, size_t> HuffmanEncode(string& f_in, Q* d_in, size_t l
         sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size  // first, entry, reversed dict (keys)
     );
     auto time_z = hires::now();
-    cout << log_dbg << "Time writing Huff. binary:\t" << static_cast<duration_t>(time_z - time_a).count() << "s"
-         << endl;
+    logall(log_dbg, "time writing Huff. binary:", static_cast<duration_t>(time_z - time_a).count(), "sec");
 
     size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))              //
                            + sizeof(H) * (2 * type_bw) + sizeof(Q) * dict_size;  // uint8_t
