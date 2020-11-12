@@ -1,6 +1,6 @@
 #include <iostream>
 #include "../src/cuda_mem.cuh"
-#include "../src/gather_scatter.cuh"
+#include "../src/thrust_gather_scatter.cuh"
 
 using std::cout;
 using std::endl;
