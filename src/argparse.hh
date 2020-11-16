@@ -39,8 +39,8 @@ typedef struct ArgPack {
     string opath;
     string dtype;
     int    dict_size;
-    int    quant_rep;
-    int    huffman_rep;
+    int    quant_byte;
+    int    huff_byte;
     int    huffman_chunk;
     int    n_dim, d0, d1, d2, d3;
     double mantissa, exponent;
