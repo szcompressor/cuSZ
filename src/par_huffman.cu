@@ -558,7 +558,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
         cout << log_err << "Cannot store all Huffman codewords in " << max_CW_bits + 8 << "-bit representation" << endl;
         cout << log_err << "Huffman codeword representation requires at least " << max_CL + 8
              << " bits (longest codeword: " << max_CL << " bits)" << endl;
-        cout << log_err << "(Consider running with -H 64)" << endl << endl;
+        cout << log_err << "(Consider running with -H 8 for 8-byte representation)" << endl << endl;
         cout << log_err << "Exiting cuSZ ..." << endl;
         exit(1);
     }

@@ -17,6 +17,7 @@
 #include <iostream>
 #include <regex>
 #include <string>
+#include "argument_parser/document.hh"
 #include "format.hh"
 
 using std::cerr;
@@ -78,10 +79,10 @@ ArgPack::HuffmanCheckArgs()
     //     to_abort = true;
     // }
 
-    if (input_rep == 8) {  // TODO
+    if (input_rep == 1) {  // TODO
         assert(dict_size <= 256);
     }
-    else if (input_rep == 16) {
+    else if (input_rep == 2) {
         assert(dict_size <= 65536);
     }
 
@@ -134,10 +135,10 @@ ArgPack::CheckArgs()
         }
     }
 
-    if (quant_rep == 8) {  // TODO
+    if (quant_byte == 1) {  // TODO
         assert(dict_size <= 256);
     }
-    else if (quant_rep == 16) {
+    else if (quant_byte == 2) {
         assert(dict_size <= 65536);
     }
 
@@ -193,186 +194,13 @@ ArgPack::HuffmanDoc()
 void  //
 ArgPack::cuszDoc()
 {
-    const string instruction =
-        "\n"
-        "OVERVIEW: cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data\n"
-        "\n"
-        "USAGE:\n"
-        "  The basic use with demo datum is listed below (zip and unzip),\n"
-        "    ./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
-        "                 |  ------ ----------- ---------------------------- -------  |\n"
-        "               dtype mode  error bound        input datum file        demo   zip\n"
-        //        "               dtype        bound                                 data  zip\n"
-        "\n"
-        "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
-        "               ----------------------------  |\n"
-        "               corresponding datum basename  unzip\n"
-        "\n"
-        "  compress a datum of demo dataset: \n"
-        "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -D [demo dataset] -z\n"
-        "  compress a datum by specifying dimensions: \n"
-        "    cusz -f32|-f64 -m [eb mode] -e [eb] -i [datum file] -1|-2|-3 [nx [ny [nz]] -z\n"
-        "  decompress:\n"
-        "    cusz -i [corresponding datum _basename] -x\n"
-        "\n"
-        "EXAMPLES\n"
-        "  CESM example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
-        "    ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
-        "  CESM example with specified output path:\n"
-        "    makdir data2 data3\n"
-        "    (zip)     ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z --opath data2\n"
-        "    (unzip 1) ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x && ls data2\n"
-        "    (unzip 2) ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x --opath data3 && ls data3\n"
-        "    (unzip 3) ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x --opath data3 --origin ./data/sample-cesm-CLDHGH && "
-        "ls data3\n"
-        "    ** Please create directory by hand before specifying (considering access permission control).\n"
-        "  EXAFEL example:\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z --pre binning\n"
-        "    ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z --pre binning --skip "
-        "huffman\n"
-        "    ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n"
-        "\n"
-        "DOC:\n"
-        "  Type \"cusz -h\" for details.\n";
-    cout << instruction << endl;
+    cout << cusz_short_doc << endl;
 }
 
 void  //
 ArgPack::cuszFullDoc()
 {
-    const string doc =
-        "*NAME*\n"
-        "        cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data\n"
-        "        Lowercased \"*cusz*\" is the command."
-        //"        cusz - a GPU-accelerated error-bounded lossy compressor for scientific data.\n"
-        "\n"
-        "*SYNOPSIS*\n"
-        "        The basic use is listed below,\n"
-        "        *cusz* *-f*32 *-m* r2r *-e* 1e-4 *-i* ./data/sample-cesm-CLDHGH *-2* 3600 1800 *-z*\n"
-        "               ^  ------ ------- ---------------------------- ------------  ^\n"
-        "               |   mode   error        input datum file        low-to-high  |\n"
-        "             dtype        bound                                  (x-y-z)   zip\n"
-        "\n"
-        "        *cusz* *-i* ./data/sample-cesm-CLDHGH *-x*\n"
-        "             ----------------------------  ^\n"
-        "             corresponding datum basename  unzip\n"
-        //"             dtype        bound                                order       zip unzip\n"
-        "\n"
-        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z*\n"
-        "        *cusz* *-f*32|*-f*64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z*\n"
-        "        *cusz* *-i* [datum basename] *-x*\n"
-        "\n"
-        "*OPTIONS*\n"
-        "    *Mandatory* (zip and dryrun)\n"
-        "        *-z* or *--compress* or *--*@z@*ip*\n"
-        "        *-r* or *--dry-*@r@*un*\n"
-        "                No lossless Huffman codec. Only to get data quality summary.\n"
-        "                In addition, quant. rep. and dict. size are retained\n"
-        "\n"
-        "        *-m* or *--*@m@*ode* <abs|r2r>\n"
-        "                Specify error-controling mode. Supported modes include:\n"
-        "                _abs_: absolute mode, eb = input eb\n"
-        "                _r2r_: relative-to-value-range mode, eb = input eb x value range\n"
-        "\n"
-        "        *-e* or *--eb* or *--error-bound* [num]\n"
-        "                Specify error bound. e.g., _1.23_, _1e-4_, _1.23e-4.56_\n"
-        "\n"
-        "        *-i* or *--*@i@*nput* [datum file]\n"
-        "\n"
-        "        *-d* or *--dict-size* [256|512|1024|...]\n"
-        "                Specify dictionary size/quantization bin number.\n"
-        "                Should be a power-of-2.\n"
-        "\n"
-        "        *-1* [x]       Specify 1D datum/field size.\n"
-        "        *-2* [x] [y]   Specify 2D datum/field sizes, with dimensions from low to high.\n"
-        "        *-3* [x] [y] [z]   Specify 3D datum/field sizes, with dimensions from low to high.\n"
-        "\n"
-        "    *Mandatory* (unzip)\n"
-        "        *-x* or *--e*@x@*tract* or *--decompress* or *--unzip*\n"
-        "\n"
-        "        *-i* or *--*@i@*nput* [corresponding datum basename (w/o extension)]\n"
-        "\n"
-        "    *Additional I/O*\n"
-        "        *--origin* /path/to/origin-datum\n"
-        "                For verification & get data quality evaluation.\n"
-        "        *--opath*  /path/to\n"
-        "                Specify alternative output path.\n"
-        "\n"
-        "    *Modules*\n"
-        "        *-X* or *-S* or *--e*@x@*clude* or *--*@s@*kip* _module-1_,_module-2_,...,_module-n_,\n"
-        "                Disable functionality modules. Supported module(s) include:\n"
-        "                _huffman_  Huffman codec after prediction+quantization (p+q) and before reveresed p+q.\n"
-        "                _write.x_  Skip write decompression data.\n"
-        "\n"
-        "        *-p* or *--pre* _method-1_,_method-2_,...,_method-n_\n"
-        "                Enable preprocessing. Supported preproessing method(s) include:\n"
-        "                _binning_  Downsampling datum by 2x2 to 1.\n"
-        "\n"
-        "    *Demonstration*\n"
-        "        *-h* or *--help*\n"
-        "                Get help documentation.\n"
-        "\n"
-        "        *-V* or *--verbose*\n"
-        "                Print host and device information for diagnostics.\n"
-        "\n"
-        "        *-M* or *--meta*\n"
-        "                Get archive metadata. (TODO)\n"
-        "\n"
-        "        *-D* or *--demo* [demo-dataset]\n"
-        "                Use demo dataset, will omit given dimension(s). Supported datasets include:\n"
-        "                1D: _hacc_  _hacc1g_  _hacc4g_\n"
-        "                2D: _cesm_  _exafeldemo_\n"
-        "                3D: _hurricane_  _nyx_  _qmc_  _qmcpre_  _aramco_  _parihaka_\n"
-        "\n"
-        "    *Internal* (will be automated with configuration when going public)\n"
-        "        *-Q* or *--*@q@*uant-rep* or *--bcode-bitwidth* <8|16|32>\n"
-        "                Specify bincode/quantization code representation.\n"
-        "                Options _8_, _16_, _32_ are for *uint8_t*, *uint16_t*, *uint32_t*, respectively.\n"
-        "                ^^Manually specifying this may not result in optimal memory footprint.^^\n"
-        "\n"
-        "        *-H* or *--*@h@*uffman-rep* or *--hcode-bitwidth* <32|64>\n"
-        "                Specify Huffman codeword representation.\n"
-        "                Options _32_, _64_ are for *uint32_t*, *uint64_t*, respectively.\n"
-        "                ^^Manually specifying this may not result in optimal memory footprint.^^\n"
-        "\n"
-        "        *-C* or *--huffman-*@c@*hunk* or *--hcode-chunk* [256|512|1024|...]\n"
-        "                Specify chunk size for Huffman codec.\n"
-        "                Should be a power-of-2 that is sufficiently large.\n"
-        "                ^^This affects Huffman decoding performance significantly.^^\n"
-        "\n"
-        "*EXAMPLES*\n"
-        "    *Demo Datasets*\n"
-        "        *CESM* example:\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -r\n"
-        "        ./bin/cusz -i ./data/sample-cesm-CLDHGH -x\n"
-        "\n"
-        "        *CESM* example with specified output path:\n"
-        "        makdir data2 data3\n"
-        "            # zip, output to `data2`\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z --opath data2\n"
-        "            # unzip, in situ\n"
-        "        ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x && ls data2\n"
-        "            # unzip, output to `data3`\n"
-        "        ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x --opath data3 && ls data3\n"
-        "            # unzip, output to `data3`, compare to the original datum\n"
-        "        ./bin/cusz -i ./data2/sample-cesm-CLDHGH -x --opath data3 --origin ./data/sample-cesm-CLDHGH && ls "
-        "data3\n"
-        "        ## Please create directory by hand before specifying (considering access permission control).\n"
-        "\n"
-        "        *Hurricane Isabel* example:\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -z\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-hurr-CLOUDf48 -D hurricane -r\n"
-        "        ./bin/cusz -i ./data/sample-hurr-CLOUDf48 -x\n"
-        "\n"
-        "        *EXAFEL* example:\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning\n"
-        "        ./bin/cusz -f32 -m r2r -e 1e-4 -i ./data/sample-exafel-59200x388 -D exafeldemo -z -x --pre binning "
-        "--skip huffman\n"
-        "        ./bin/cusz -i ./data/sample-exafel-59200x388.BN -x\n";
-
-    cout << format(doc) << endl;
+    cout << format(cusz_full_doc) << endl;
 }
 
 ArgPack::ArgPack(int argc, char** argv, bool huffman)
@@ -383,9 +211,9 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
     }
     // default values
     dict_size        = 1024;
-    input_rep        = 16;
+    input_rep        = 2;
     huffman_datalen  = -1;  // TODO argcheck
-    huffman_rep      = 32;
+    huff_byte        = 4;
     huffman_chunk    = 512;
     read_args_status = 0;
 
@@ -448,8 +276,8 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                     if (string(argv[i]) == "--input") goto _INPUT_DATUM;
                     if (string(argv[i]) == "--entropy") goto _ENTROPY;
                     if (string(argv[i]) == "--input-rep" or string(argv[i]) == "--interpret") goto _REP;
-                    if (string(argv[i]) == "--huffman-rep") goto _HUFFMANCODE;
-                    if (string(argv[i]) == "--huffman-chunk") goto _HUFFMANCHUNKSIZE;
+                    if (string(argv[i]) == "--huffman-rep") goto _HUFF_BYTE;
+                    if (string(argv[i]) == "--huffman-chunk") goto _HUFF_CHUNK;
                     if (string(argv[i]) == "--dict-size") goto _DICT;
                     if (string(argv[i]) == "--gzip") {
                         to_gzip = true;
@@ -527,11 +355,11 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                     if (i + 1 <= argc) input_rep = str2int(argv[++i]);
                     break;
                 case 'H':
-                _HUFFMANCODE:
-                    if (i + 1 <= argc) huffman_rep = str2int(argv[++i]);
+                _HUFF_BYTE:
+                    if (i + 1 <= argc) huff_byte = str2int(argv[++i]);
                     break;
                 case 'C':
-                _HUFFMANCHUNKSIZE:
+                _HUFF_CHUNK:
                     if (i + 1 <= argc) huffman_chunk = str2int(argv[++i]);
                     break;
                 case 'c':
@@ -586,8 +414,8 @@ ArgPack::ArgPack(int argc, char** argv)
     }
     // default values
     dict_size              = 1024;
-    quant_rep              = 16;
-    huffman_rep            = 32;
+    quant_byte             = 2;
+    huff_byte              = 4;
     huffman_chunk          = 512;
     n_dim                  = -1;
     d0                     = 1;
@@ -648,34 +476,34 @@ ArgPack::ArgPack(int argc, char** argv)
                 // more readable args
                 // ----------------------------------------------------------------
                 case '-':
-                    if (string(argv[i]) == "--help") goto _HELP;
-                    if (string(argv[i]) == "--entropy") goto _ENTROPY;
-                    if (string(argv[i]) == "--version") goto _VERSION;
-                    if (string(argv[i]) == "--verbose") goto _VERBOSE;
-                    if (string(argv[i]) == "--mode") goto _MODE;
-                    if (string(argv[i]) == "--input") goto _INPUT_DATUM;
-                    if (string(argv[i]) == "--demo") goto _DEMO;
-                    if (string(argv[i]) == "--quant-rep" or string(argv[i]) == "--bcode-bitwidth") goto _BINCODE;
-                    if (string(argv[i]) == "--huffman-rep" or string(argv[i]) == "--hcode-bitwidth") goto _HUFFMANCODE;
-                    if (string(argv[i]) == "--huffman-chunk" or string(argv[i]) == "--hcode-chunk")
-                        goto _HUFFMANCHUNKSIZE;
-                    if (string(argv[i]) == "--eb" or string(argv[i]) == "--error-bound") goto _ERROR_BOUND;
-                    if (string(argv[i]) == "--error-bound") goto _ERROR_BOUND;
-                    if (string(argv[i]) == "--verify") goto _VERIFY;
-                    if (string(argv[i]) == "--dict-size") goto _DICT;
-                    if (string(argv[i]) == "--compress" or string(argv[i]) == "--zip") goto _COMPRESS;
-                    if (string(argv[i]) == "--decompress" or string(argv[i]) == "--extract" or
-                        string(argv[i]) == "--unzip")
-                        goto _DECOMPRESS;
-                    if (string(argv[i]) == "--exclude" or string(argv[i]) == "--skip") goto _EXCLUDE;
-                    if (string(argv[i]) == "--dry-run") goto _DRY_RUN;
-                    if (string(argv[i]) == "--meta") goto _META;
-                    if (string(argv[i]) == "--pre") goto _PRE;
-                    if (string(argv[i]) == "--output") goto _XOUT;
-                    // TODO the followings has no single-letter options
-                    if (string(argv[i]) == "--opath") {
-                        // TODO does not apply for preprocessed such as binning
-                        if (i + 1 <= argc) this->opath = string(argv[++i]);
+                    if (string(argv[i]) == "--help") goto _HELP;              // DOCUMENT
+                    if (string(argv[i]) == "--version") goto _VERSION;        //
+                    if (string(argv[i]) == "--verbose") goto _VERBOSE;        //
+                    if (string(argv[i]) == "--entropy") goto _ENTROPY;        //
+                    if (string(argv[i]) == "--meta") goto _META;              //
+                    if (string(argv[i]) == "--mode") goto _MODE;              // COMPRESSION CONFIG
+                    if (string(argv[i]) == "--quant-byte") goto _QUANT_BYTE;  //
+                    if (string(argv[i]) == "--huff-byte") goto _HUFF_BYTE;    //
+                    if (string(argv[i]) == "--huff-chunk") goto _HUFF_CHUNK;  //
+                    if (string(argv[i]) == "--eb") goto _ERROR_BOUND;         //
+                    if (string(argv[i]) == "--dict-size") goto _DICT;         //
+                    if (string(argv[i]) == "--dtype") goto _TYPE;             //
+                    if (string(argv[i]) == "--input") goto _INPUT_DATUM;      // INPUT
+                    if (string(argv[i]) == "--demo") goto _DEMO;              //
+                    if (string(argv[i]) == "--verify") goto _VERIFY;          //
+                    if (string(argv[i]) == "--len") goto _LEN;                //
+                    if (string(argv[i]) == "--compress") goto _COMPRESS;      // WORKFLOW
+                    if (string(argv[i]) == "--zip") goto _COMPRESS;           //
+                    if (string(argv[i]) == "--decompress") goto _DECOMPRESS;  //
+                    if (string(argv[i]) == "--unzip") goto _DECOMPRESS;       //
+                    if (string(argv[i]) == "--dry-run") goto _DRY_RUN;        //
+                    if (string(argv[i]) == "--skip") goto _EXCLUDE;           //
+                    if (string(argv[i]) == "--exclude") goto _EXCLUDE;        //
+                    if (string(argv[i]) == "--pre") goto _PRE;                // IO
+                    if (string(argv[i]) == "--output") goto _XOUT;            //
+                    if (string(argv[i]) == "--opath") {  // TODO the followings has no single-letter options
+                        if (i + 1 <= argc)
+                            this->opath = string(argv[++i]);  // TODO does not apply for preprocessed such as binning
                         break;
                     }
                     if (string(argv[i]) == "--origin") {
@@ -696,10 +524,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     //     if (i + 1 <= argc) ap->xoname = string(argv[++i]);
                     //     break;
                     // }
-
-                // work
-                // ----------------------------------------------------------------
-                case 'a':
+                // WORKFLOW
                 case 'z':
                 _COMPRESS:
                     to_archive = true;
@@ -713,18 +538,17 @@ ArgPack::ArgPack(int argc, char** argv)
                     // dry-run
                     to_dryrun = true;
                     break;
+                // COMPRESSION CONFIG
                 case 'm':  // mode
                 _MODE:
                     if (i + 1 <= argc) mode = string(argv[++i]);
                     break;
-                    // analysis
+                // analysis
                 case 'E':
                 _ENTROPY:
                     get_entropy = true;
                     break;
-                // input dimensionality
-                // ----------------------------------------------------------------
-                case 'X':
+                // OTHER WORKFLOW
                 case 'S':
                 _EXCLUDE:
                     if (i + 1 <= argc) {
@@ -733,69 +557,73 @@ ArgPack::ArgPack(int argc, char** argv)
                         if (exclude.find("write.x") != std::string::npos) skip_writex = true;
                     }
                     break;
-                // input dimensionality
-                // ----------------------------------------------------------------
+                // INPUT
+                case 'l':
+                _LEN:
+                    if (i + 1 <= argc) {
+                        std::stringstream   datalen(argv[++i]);
+                        std::vector<string> dims;
+                        while (datalen.good()) {
+                            string substr;
+                            getline(datalen, substr, ',');
+                            dims.push_back(substr);
+                        }
+                        n_dim = dims.size();
+                        if (n_dim == 1) {  //
+                            d0 = str2int(dims[0].c_str());
+                        }
+                        if (n_dim == 2) {  //
+                            d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                        }
+                        if (n_dim == 3) {
+                            d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                            d2 = str2int(dims[2].c_str());
+                        }
+                        if (n_dim == 4) {
+                            d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                            d2 = str2int(dims[2].c_str()), d3 = str2int(dims[3].c_str());
+                        }
+                    }
+                    break;
                 case '1':
                     n_dim = 1;
-                    if (i + 1 <= argc) { d0 = str2int(argv[++i]); }
+                    if (i + 1 <= argc) {  //
+                        d0 = str2int(argv[++i]);
+                    }
                     break;
                 case '2':
                     n_dim = 2;
-                    if (i + 2 <= argc) {
-                        d0 = str2int(argv[++i]);
-                        d1 = str2int(argv[++i]);
+                    if (i + 2 <= argc) {  //
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
                     }
                     break;
                 case '3':
                     n_dim = 3;
                     if (i + 3 <= argc) {
-                        d0 = str2int(argv[++i]);
-                        d1 = str2int(argv[++i]);
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
                         d2 = str2int(argv[++i]);
                     }
                     break;
                 case '4':
                     n_dim = 4;
                     if (i + 4 <= argc) {
-                        d0 = str2int(argv[++i]);
-                        d1 = str2int(argv[++i]);
-                        d2 = str2int(argv[++i]);
-                        d3 = str2int(argv[++i]);
+                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                        d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
                     }
                     break;
-                // help document
-                // ----------------------------------------------------------------
-                case 'h':
-                _HELP:
-                    cuszFullDoc();
-                    exit(0);
-                    break;
-                case 'v':
-                _VERSION:
-                    // TODO
-                    cout << log_info << version_text << endl;
-                    break;
-                // data type
-                // ----------------------------------------------------------------
-                case 'f':  // TODO fp under '-t'
-                    if (string(argv[i]) == "-f32") dtype = "f32";
-                    if (string(argv[i]) == "-f64") dtype = "f64";
-                    break;
-                // input datum file
-                // ----------------------------------------------------------------
-                case 'i':  // TODO integer under '-t'
+                case 'i':
                 _INPUT_DATUM:
-                    if (i + 1 <= argc) { cx_path2file = string(argv[++i]); }
+                    if (i + 1 <= argc) cx_path2file = string(argv[++i]);
                     break;
                     // alternative output
                 case 'o':
                 _XOUT:
                     cerr << log_err
-                         << "\"-o\" will be working in the (near) future release. Pleae use \"--opath [path]\" to "
+                         << "\"-o\" will be working in the (near) future release. Pleae use \"--opath [path]\" "
+                            "to "
                             "specify output path."
                          << endl;
                     exit(1);
-                    // if (i + 1 <= argc) { alt_xout_name = string(argv[++i]); }
                     break;
                 // preprocess
                 case 'p':
@@ -806,7 +634,6 @@ ArgPack::ArgPack(int argc, char** argv)
                     }
                     break;
                 // demo datasets
-                // ----------------------------------------------------------------
                 case 'D':
                 _DEMO:
                     if (i + 1 <= argc) {
@@ -814,28 +641,50 @@ ArgPack::ArgPack(int argc, char** argv)
                         demo_dataset = string(argv[++i]);
                     }
                     break;
+                // DOCUMENT
+                case 'h':
+                _HELP:
+                    cuszFullDoc();
+                    exit(0);
+                    break;
+                case 'v':
+                _VERSION:
+                    // TODO
+                    cout << log_info << version_text << endl;
+                    break;
+                // COMPRESSION CONFIG
+                case 't':
+                _TYPE:
+                    if (i + 1 <= argc) {
+                        string s = string(string(argv[++i]));
+                        if (s == "f32" or s == "fp4")
+                            dtype = "f32";
+                        else if (s == "f64" or s == "fp8")
+                            dtype = "f64";
+                        // if (string(argv[++i]) == "i16") dtype = "i16";
+                        // if (string(argv[++i]) == "i32") dtype = "i32";
+                        // if (string(argv[++i]) == "i64") dtype = "i64";
+                    }
+                    break;
                 case 'M':
                 _META:  // TODO print .sz archive metadata
                     break;
                 // internal representation and size
-                // ----------------------------------------------------------------
                 case 'Q':
-                _BINCODE:
-                    if (i + 1 <= argc) quant_rep = str2int(argv[++i]);
+                _QUANT_BYTE:
+                    if (i + 1 <= argc) quant_byte = str2int(argv[++i]);
                     break;
                 case 'H':
-                _HUFFMANCODE:
-                    if (i + 1 <= argc) huffman_rep = str2int(argv[++i]);
+                _HUFF_BYTE:
+                    if (i + 1 <= argc) huff_byte = str2int(argv[++i]);
                     break;
                 case 'C':
-                _HUFFMANCHUNKSIZE:
+                _HUFF_CHUNK:
                     if (i + 1 <= argc) {  //
                         huffman_chunk          = str2int(argv[++i]);
                         autotune_huffman_chunk = false;
                     }
                     break;
-                // error bound
-                // ----------------------------------------------------------------
                 case 'e':
                 _ERROR_BOUND:
                     if (i + 1 <= argc) {
@@ -870,7 +719,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (i + 1 <= argc) dict_size = str2int(argv[++i]);
                     break;
                 default:
-                    const char* notif_prefix = "invalid option at position ";
+                    const char* notif_prefix = "invalid option value at position ";
                     char*       notif;
                     int         size = asprintf(&notif, "%d: %s", i, argv[i]);
                     cerr << log_err << notif_prefix << "\e[1m" << notif << "\e[0m"
@@ -883,7 +732,7 @@ ArgPack::ArgPack(int argc, char** argv)
             }
         }
         else {
-            const char* notif_prefix = "invalid argument at position ";
+            const char* notif_prefix = "invalid option at position ";
             char*       notif;
             int         size = asprintf(&notif, "%d: %s", i, argv[i]);
             cerr << log_err << notif_prefix << "\e[1m" << notif
