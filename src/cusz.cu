@@ -112,6 +112,7 @@ int main(int argc, char** argv)
         adp = new AdHocDataPack<T>(data, d_data, len);
 
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
+
         if (ap->mode == "r2r") {
             double        rng;
             hires_clock_t a, z;
@@ -137,8 +138,8 @@ int main(int argc, char** argv)
 
         logall(
             log_dbg,  //
-            std::to_string(ap->quant_rep / 8) + "-byte quant type,",
-            std::to_string(ap->huffman_rep / 8) + "-byte internal Huff type");
+            std::to_string(ap->quant_byte) + "-byte quant type,",
+            std::to_string(ap->huff_byte) + "-byte internal Huff type");
     }
 
     if (ap->pre_binning) {
@@ -150,16 +151,16 @@ int main(int argc, char** argv)
     }
 
     if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
-        if (ap->quant_rep == 8) {
-            if (ap->huffman_rep == 32)
+        if (ap->quant_byte == 1) {
+            if (ap->huff_byte == 4)
                 cusz::workflow::Compress<float, uint8_t, uint32_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
                 cusz::workflow::Compress<float, uint8_t, uint64_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
-        else if (ap->quant_rep == 16) {
-            if (ap->huffman_rep == 32)
+        else if (ap->quant_byte == 2) {
+            if (ap->huff_byte == 4)
                 cusz::workflow::Compress<float, uint16_t, uint32_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
@@ -225,16 +226,16 @@ int main(int argc, char** argv)
         total_uInt     = mp->total_uInt;
         huff_meta_size = mp->huff_meta_size;
 
-        if (ap->quant_rep == 8) {
-            if (ap->huffman_rep == 32)
+        if (ap->quant_byte == 1) {
+            if (ap->huff_byte == 4)
                 cusz::workflow::Decompress<float, uint8_t, uint32_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
                 cusz::workflow::Decompress<float, uint8_t, uint64_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
-        else if (ap->quant_rep == 16) {
-            if (ap->huffman_rep == 32)
+        else if (ap->quant_byte == 2) {
+            if (ap->huff_byte == 4)
                 cusz::workflow::Decompress<float, uint16_t, uint32_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
