@@ -58,9 +58,9 @@ Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is giv
            ------ ------ ----------- ------------------------ ------------  |
             dtype  mode  error bound      input datum file    low-to-high  zip
 
-./bin/cusz -i ./data/ex--cesm-CLDHGH.sz -x
-           ----------------------------  |
-                     sz archive         unzip
+./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x
+           ---------------------------  |
+                     sz archive        unzip
 ```
 `-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
 
