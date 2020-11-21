@@ -23,6 +23,8 @@ using std::string;
 // const string log_dbg  = "\e[34m[dbg]\e[0m  ";
 // const string log_info = "\e[32m[info]\e[0m ";
 // const string log_warn = "\e[31m[WARN]\e[0m ";
+
+// TODO change the following to const char[]
 const string log_null = "      ";
 const string log_err  = " ERR  ";
 const string log_dbg  = " dbg  ";

@@ -89,6 +89,7 @@ int main(int argc, char** argv)
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
 
+        // TODO change log_head to const char[]
         logall(
             log_info, "load", ap->cx_path2file, dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
             "bytes,", ap->dtype);
