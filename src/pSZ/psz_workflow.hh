@@ -69,9 +69,11 @@ void cx_sim(
 #pragma omp parallel for
             for (size_t b0 = 0; b0 < dims_L16[nBLK0]; b0++) {
                 if (fine_massive)
-                    PdQ::c_lorenzo_1d1l<T, Q, LOCAL_B_1d>(data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0);
+                    PdQ::c_lorenzo_1d1l<T, Q, LOCAL_B_1d>(
+                        data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0);
                 else
-                    PQRb::c_lorenzo_1d1l<T, Q, LOCAL_B_1d>(data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0);
+                    PQRb::c_lorenzo_1d1l<T, Q, LOCAL_B_1d>(
+                        data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0);
             }
         }
         else {
@@ -84,9 +86,11 @@ void cx_sim(
             for (size_t b1 = 0; b1 < dims_L16[nBLK1]; b1++) {
                 for (size_t b0 = 0; b0 < dims_L16[nBLK0]; b0++) {
                     if (fine_massive)
-                        PdQ::c_lorenzo_2d1l<T, Q, LOCAL_B_2d>(data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1);
+                        PdQ::c_lorenzo_2d1l<T, Q, LOCAL_B_2d>(
+                            data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1);
                     else
-                        PQRb::c_lorenzo_2d1l<T, Q, LOCAL_B_2d>(data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1);
+                        PQRb::c_lorenzo_2d1l<T, Q, LOCAL_B_2d>(
+                            data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1);
                 }
             }
         }
@@ -101,9 +105,11 @@ void cx_sim(
                 for (size_t b1 = 0; b1 < dims_L16[nBLK1]; b1++) {
                     for (size_t b0 = 0; b0 < dims_L16[nBLK0]; b0++) {
                         if (fine_massive)
-                            PdQ::c_lorenzo_3d1l<T, Q, LOCAL_B_3d>(data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1, b2);
+                            PdQ::c_lorenzo_3d1l<T, Q, LOCAL_B_3d>(
+                                data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1, b2);
                         else
-                            PQRb::c_lorenzo_3d1l<T, Q, LOCAL_B_3d>(data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1, b2);
+                            PQRb::c_lorenzo_3d1l<T, Q, LOCAL_B_3d>(
+                                data, outlier, code, dims_L16, ebs_L4, pred_err, comp_err, b0, b1, b2);
                     }
                 }
             }
@@ -115,9 +121,7 @@ void cx_sim(
 
     //    io::write_binary_file(code, len, new string("/Users/jtian/WorkSpace/cuSZ/src/CLDMED.bincode"));
 
-    if (show_histo) {
-        Analysis::histogram<int>(std::string("bincode/quant.code"), code, len, 8);
-    }
+    if (show_histo) { Analysis::histogram<int>(std::string("bincode/quant.code"), code, len, 8); }
     Analysis::getEntropy(code, len, 1024);
 #ifdef PRED_COMP_ERR
     Analysis::histogram<T>(std::string("pred.error"), pred_err, len, 8);  // TODO when changing to 8, seg fault
@@ -151,7 +155,8 @@ void cx_sim(
                     if (fine_massive)
                         PdQ::x_lorenzo_2d1l<T, Q, LOCAL_B_2d>(xdata, outlier, code, dims_L16, ebs_L4[EBx2], b0, b1);
                     else
-                        PQRb::x_lorenzo_2d1l<T, Q, LOCAL_B_2d>(xdata, outlier, code, dims_L16, ebs_L4, b0, b1);  // TODO __2EB
+                        PQRb::x_lorenzo_2d1l<T, Q, LOCAL_B_2d>(
+                            xdata, outlier, code, dims_L16, ebs_L4, b0, b1);  // TODO __2EB
                 }
             }
         }
@@ -166,9 +171,11 @@ void cx_sim(
                 for (size_t b1 = 0; b1 < dims_L16[nBLK1]; b1++) {
                     for (size_t b0 = 0; b0 < dims_L16[nBLK0]; b0++) {
                         if (fine_massive)
-                            PdQ::x_lorenzo_3d1l<T, Q, LOCAL_B_3d>(xdata, outlier, code, dims_L16, ebs_L4[EBx2], b0, b1, b2);
+                            PdQ::x_lorenzo_3d1l<T, Q, LOCAL_B_3d>(
+                                xdata, outlier, code, dims_L16, ebs_L4[EBx2], b0, b1, b2);
                         else
-                            PQRb::x_lorenzo_3d1l<T, Q, LOCAL_B_3d>(xdata, outlier, code, dims_L16, ebs_L4, b0, b1, b2);  // TODO __2EB
+                            PQRb::x_lorenzo_3d1l<T, Q, LOCAL_B_3d>(
+                                xdata, outlier, code, dims_L16, ebs_L4, b0, b1, b2);  // TODO __2EB
                     }
                 }
             }
@@ -186,16 +193,14 @@ void cx_sim(
     cout << "\e[46mnum.outlier:\t" << num_outlier << "\e[0m" << endl;
     cout << setprecision(5) << "error bound: " << ebs_L4[EB] << endl;
 
-    if (fine_massive) {
-        io::WriteBinaryFile(xdata, len, new string(finame + ".psz.cusz.out"));
-    }
+    if (fine_massive) { io::WriteArrayToBinary(finame + ".psz.cusz.out", xdata, len); }
     else if (blocked == true and fine_massive == false) {
-        io::WriteBinaryFile(xdata, len, new string(finame + ".psz.sz14blocked.out"));
+        io::WriteArrayToBinary(finame + ".psz.sz14blocked.out", xdata, len);
     }
     else if (blocked == false and fine_massive == false) {
-        io::WriteBinaryFile(xdata, len, new string(finame + ".psz.sz14.out"));
-        io::WriteBinaryFile(pred_err, len, new string(finame + ".psz.sz14.prederr"));
-        io::WriteBinaryFile(comp_err, len, new string(finame + ".psz.sz14.xerr"));
+        io::WriteArrayToBinary(finame + ".psz.sz14.out", xdata, len);
+        io::WriteArrayToBinary(finame + ".psz.sz14.prederr", pred_err, len);
+        io::WriteArrayToBinary(finame + ".psz.sz14.xerr", comp_err, len);
     }
     AnalysisNamespace::VerifyData(xdata, data_cmp, len, 1);
 }
