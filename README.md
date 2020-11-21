@@ -194,14 +194,14 @@ Tested on October 8, 2020, on V100; throughput is in the unit of GB/s if not spe
 
 A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
-## limitations of this version (Nov. 6, 2020)
+## limitations of this version (Nov. 19, 2020)
 
-- For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
-- The current integrated Huffman codec runs with efficient histogramming [1], parallel Huffman codebook building [2], memory-copy style encoding, chunkwise bit deflating, and efficient Huffman decoding using canonical codes [3]. However, the chunkwise bit deflating is not optimal, so we are woking on a faster, finer-grained Huffman codec for the future release. 
-- We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
-- Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 
-- You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on autotuning consistent performance.
-- Binning preprocessing is subject to change, and currently not available.
+- For this release, cuSZ only supports 4-byte `float` data type. We will support 8-byte `double` data type in the future release. 
+- The current Huffman codec consists of optimal (1) histogramming [1], (2) parallel Huffman codebook building [2] of canonical code [3], and suboptimal Huffman encoding. We are woking on a faster high-throughput finer-grained Huffman codec. 
+- We are working on host- and device-side API design.
+- Please use `-H 8` whenever there is reported error. (The default `-H 4` may not be working for all.) We are working on adapting 4- or 8-byte representation automatically. 
+- A performance degradation is expected when handling large-size dataset, e.g., 1-GB or 4-GB 1D HACC. We are working on tuning consistent performance.
+- Binning preprocessing is subject to change, currently not available.
 
 # references
 
