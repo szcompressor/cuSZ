@@ -101,7 +101,7 @@ Other module skipping for use scenarios are in development.
 
 # hands-on examples
 
-1. run a 2D CESM demo at 1e-4 relative to value range
+1. 2D CESM demo, at 1e-4 relative to value range
 
 	```bash
 	# compress
@@ -111,7 +111,7 @@ Other module skipping for use scenarios are in development.
 	# decompress, and compare with the original data
 	cusz -i ./data/ex-cesm-CLDHGH.sz -x --origin ./data/ex-cesm-CLDHGH
 	```
-2. runa 2D CESM demo with specified output path
+2. 2D CESM demo, specifying output path
 
 	```bash
 	mkdir data2 data3
@@ -120,24 +120,24 @@ Other module skipping for use scenarios are in development.
 	# output decompressed data to `data3`
 	cusz -i ./data2/ex-cesm-CLDHGH.sz -x --opath data3
 	```
-3. run CESM demo with `uint8_t` and 256 quant. bins
+3. 2D CESM demo, with 1-byte (`uint8_t`) and 256 quant. bins
 
 	```bash
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x -d 256 -Q 8
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x -d 256 -Q 1
 	```
-4. in addition to the previous command, if skipping Huffman codec,
+4. in addition to the previous command, skipping Huffman codec,
 
 	```bash
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -d 256 -Q 8 \
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -d 256 -Q 1 \
 		--skip huffman  # or `-X huffman`
 	cusz -i ./data/ex-cesm-CLDHGH.sz -x  # `-d`, `-Q`, `-X` is recorded
 	```
-5. some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec
+5. some application such as EXAFEL preprocessed with binning [^binning] in addition to skipping Huffman codec
 
 	```bash
 	** cautious, may not be working as of 0.1.3
 	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x \
-		-d 256 -Q 8 --pre binning --skip huffman	# or `-p binning`
+		-d 256 -Q 1 --pre binning --skip huffman	# or `-p binning`
 	```
 6. dry-run to get PSNR and to skip real compression or decompression; `-r` also works alternatively to `--dry-run`
 
