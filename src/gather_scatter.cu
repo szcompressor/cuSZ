@@ -102,8 +102,8 @@ template <typename Data>
 void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_t n, const int* nnz, std::string* fi)
 {
     // clang-format off
-    auto lrp         = sizeof(int) * (ldA + 1);
-    auto lci         = sizeof(int) * *nnz;
+    auto lrp         = sizeof(int)  * (ldA + 1);
+    auto lci         = sizeof(int)  * *nnz;
     auto lv          = sizeof(Data) * *nnz;
     auto l_total     = lrp + lci + lv;
     auto outlier_bin = io::ReadBinaryFile<uint8_t>(*fi, l_total);
@@ -130,7 +130,7 @@ void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, si
 
         CHECK_CUDA(cudaMalloc( (void**)&d_row_ptr,   lrp ));
         CHECK_CUDA(cudaMalloc( (void**)&d_col_ind,   lci ));
-        CHECK_CUDA(cudaMalloc( (void**)&d_csr_val,      lv    ));
+        CHECK_CUDA(cudaMalloc( (void**)&d_csr_val,   lv  ));
         CHECK_CUDA(cudaMemcpy( d_row_ptr, row_ptr, lrp, cudaMemcpyHostToDevice ));
         CHECK_CUDA(cudaMemcpy( d_col_ind, col_ind, lci, cudaMemcpyHostToDevice ));
         CHECK_CUDA(cudaMemcpy( d_csr_val, csr_val, lv,  cudaMemcpyHostToDevice ));

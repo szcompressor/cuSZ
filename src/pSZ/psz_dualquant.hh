@@ -8,7 +8,8 @@
  * @version 0.1.4
  * @date 2020-02-11
  *
- * (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * See LICENSE in top-level directory
  *
  */
 

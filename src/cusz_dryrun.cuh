@@ -27,7 +27,7 @@ __global__ void lorenzo_3d1l(Data*, const size_t*, const double*);
 
 }  // namespace dryrun
 
-namespace workflow {
+namespace interface {
 
 template <typename Data>
 void DryRun(Data*, Data*, const std::string&, size_t*, double*);

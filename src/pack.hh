@@ -8,10 +8,10 @@
  * @version 0.1.1
  * @date 2020-09-25
  *
- * (C) 2020 by Washington State University, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
+ * See LICENSE in top-level directory
  *
  */
-
 #include "argparse.hh"
 #include "constants.hh"
 #include "io.hh"

@@ -152,18 +152,18 @@ int main(int argc, char** argv)
     if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
-                cusz::workflow::Compress<float, uint8_t, uint32_t>(
+                cusz::interface::Compress<float, uint8_t, uint32_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Compress<float, uint8_t, uint64_t>(
+                cusz::interface::Compress<float, uint8_t, uint64_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
-                cusz::workflow::Compress<float, uint16_t, uint32_t>(
+                cusz::interface::Compress<float, uint16_t, uint32_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Compress<float, uint16_t, uint64_t>(
+                cusz::interface::Compress<float, uint16_t, uint64_t>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
 
@@ -227,18 +227,18 @@ int main(int argc, char** argv)
 
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
-                cusz::workflow::Decompress<float, uint8_t, uint32_t>(
+                cusz::interface::Decompress<float, uint8_t, uint32_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Decompress<float, uint8_t, uint64_t>(
+                cusz::interface::Decompress<float, uint8_t, uint64_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
-                cusz::workflow::Decompress<float, uint16_t, uint32_t>(
+                cusz::interface::Decompress<float, uint16_t, uint32_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::workflow::Decompress<float, uint16_t, uint64_t>(
+                cusz::interface::Decompress<float, uint16_t, uint64_t>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
     }
