@@ -1,14 +1,23 @@
-// 200211
+#ifndef CUSZ_PSZ_DUALQUANT_HH
+#define CUSZ_PSZ_DUALQUANT_HH
 
-#ifndef PSZ_DUALQUANT_HH
-#define PSZ_DUALQUANT_HH
+/**
+ * @file psz_dualquant.hh
+ * @author Jiannan Tian
+ * @brief
+ * @version 0.1.4
+ * @date 2020-02-11
+ *
+ * (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ *
+ */
 
 #include <cstddef>
 
-#include "types.hh"
+#include "../types.hh"
 
-namespace pSZ {
-namespace PredictionDualQuantization {
+namespace psz {
+namespace dualquant {
 
 template <typename Data, typename Quant, int B>
 void c_lorenzo_1d1l(
@@ -248,7 +257,7 @@ void x_lorenzo_3d1l(
     }
 }
 
-}  // namespace PredictionDualQuantization
-}  // namespace pSZ
+}  // namespace dualquant
+}  // namespace psz
 
 #endif
