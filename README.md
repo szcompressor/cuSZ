@@ -20,21 +20,17 @@ Our published paper covers the essential design and implementation, accessible v
 
 # set up
 ## requirements
-- NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
-- Minimum: CUDA 9.2+ and GCC 7.3+ (with C++14 support)
-  - The table below shows our tested GPUs, CUDA versions, and compilers.
-  - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
-  - Please refer to [link](https://gist.github.com/ax3l/9489132) for more details about different CUDA versions and their required compilers.
-  
-| GPU       | microarch | SM  | CUDA version | gcc version |
-| --------- | --------- | --- | ------------ | ----------- |
-| P100      | Pascal    | 60  | 10.1         | 7.3         |
-| P2000M    | Pascal    | 61  | 11.0         | 7.5         |
-| V100      | Volta     | 70  | 10.2         | 7.3/8.4     |
-|           |           |     | 9.2          | 7.3         |
-| RTX 8000  | Turing    | 75  | 10.1         | 7.4         |
-| RTX 5000  | Turing    | 75  | 10.1         | 7.3/8.3     |
-| RTX 2060S | Turing    | 75  | 11.0/11.1    | 9.3         |
+- {Pascal,Volta,Turing} NVIDIA GPU
+- C++14 enabled compiler, GCC 7.x+; CUDA 9.2+
+  - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md), and more detailed CUDA-compiler [compatiblity](https://gist.github.com/ax3l/9489132).
+  - Note that *CUDA version* is referred to as the *toolchain verion* (e.g., activiated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
+
+| setup |     |      |      |      |      |      |
+| ----- | --- | ---- | ---- | ---- | ---- | ---- |
+| gcc   | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
+|       |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
+|       |     |      |      |      | 9.x  | 9.x  |
+| CUDA  | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 |
 
 
 ## from GitHub
