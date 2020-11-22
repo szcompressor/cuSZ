@@ -1,3 +1,14 @@
+/**
+ * @file psz_exe.cc
+ * @author Jiannan Tian
+ * @brief
+ * @version 0.1.4
+ * @date 2020-02-13
+ *
+ * (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ *
+ */
+
 #include <cstring>
 #include <string>
 #include <vector>
@@ -5,10 +16,10 @@
 #include "../SDRB.hh"
 #include "../analysis_utils.hh"
 #include "../types.hh"
-#include "psz_workflow.hh"
 #include "../verify.hh"
+#include "psz_workflow.hh"
 
-namespace fm = pSZ::FineMassiveSimulation;
+namespace fm = psz::FineMassiveSimulation;
 
 const size_t DICT_SIZE = 1024;
 // const size_t DICT_SIZE = 4096;
