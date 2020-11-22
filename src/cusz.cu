@@ -37,29 +37,29 @@ using std::string;
 #include "timer.hh"
 #include "types.hh"
 
-template <typename T, int DS, int tBLK>
-T* pre_binning(T* d, size_t* dim_array)
+template <typename Data, int DownscaleFactor, int tBLK>
+Data* pre_binning(Data* d, size_t* dim_array)
 {
     auto d0      = dim_array[DIM0];
     auto d1      = dim_array[DIM1];
     auto d2      = dim_array[DIM2];
     auto d3      = dim_array[DIM3];
     auto len     = d0 * d1 * d2 * d3;
-    auto new_d0  = (dim_array[DIM0] - 1) / DS + 1;
-    auto new_d1  = (dim_array[DIM1] - 1) / DS + 1;
-    auto new_d2  = (dim_array[DIM2] - 1) / DS + 1;
-    auto new_d3  = (dim_array[DIM3] - 1) / DS + 1;
+    auto new_d0  = (dim_array[DIM0] - 1) / DownscaleFactor + 1;
+    auto new_d1  = (dim_array[DIM1] - 1) / DownscaleFactor + 1;
+    auto new_d2  = (dim_array[DIM2] - 1) / DownscaleFactor + 1;
+    auto new_d3  = (dim_array[DIM3] - 1) / DownscaleFactor + 1;
     auto new_len = new_d0 * new_d1 * new_d2 * new_d3;
 
     size_t new_dims[] = {new_d0, new_d1, new_d2, new_d3};
     SetDims(dim_array, new_dims);
 
     auto d_d  = mem::CreateDeviceSpaceAndMemcpyFromHost(d, len);
-    auto d_ds = mem::CreateCUDASpace<T>(new_len);
+    auto d_ds = mem::CreateCUDASpace<Data>(new_len);
 
-    dim3 blockDim_binning(tBLK, tBLK);
-    dim3 gridDim_binning((new_d0 - 1) / tBLK + 1, (new_d1 - 1) / tBLK + 1);
-    Prototype::binning2d<T, DS, tBLK><<<gridDim_binning, blockDim_binning>>>(d_d, d_ds, d0, d1, new_d0, new_d1);
+    dim3 block_dim(tBLK, tBLK);
+    dim3 grid_dim((new_d0 - 1) / tBLK + 1, (new_d1 - 1) / tBLK + 1);
+    Prototype::binning2d<Data, DownscaleFactor, tBLK><<<grid_dim, block_dim>>>(d_d, d_ds, d0, d1, new_d0, new_d1);
     cudaDeviceSynchronize();
 
     cudaFree(d_d);
@@ -81,9 +81,9 @@ int main(int argc, char** argv)
     }
 
     // TODO hardcode for float for now
-    using T                       = float;
-    struct AdHocDataPack<T>* adp  = nullptr;
-    T*                       data = nullptr;
+    using DataInUse                       = float;
+    struct AdHocDataPack<DataInUse>* adp  = nullptr;
+    DataInUse*                       data = nullptr;
 
     if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
@@ -101,22 +101,21 @@ int main(int argc, char** argv)
         logall(log_dbg, "add padding:", m, "units");
 
         auto a = hires::now();
-        CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(T)));
-        memset(data, mxm * sizeof(T), 0x00);
-        io::ReadBinaryFile<T>(ap->cx_path2file, data, len);
-        T*   d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
-        auto z      = hires::now();
+        CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(DataInUse)));
+        memset(data, 0x00, mxm * sizeof(DataInUse));
+        io::ReadBinaryFile<DataInUse>(ap->cx_path2file, data, len);
+        DataInUse* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
+        auto       z      = hires::now();
 
         logall(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
-        adp = new AdHocDataPack<T>(data, d_data, len);
+        adp = new AdHocDataPack<DataInUse>(data, d_data, len);
 
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
 
         if (ap->mode == "r2r") {
-            double        rng;
-            hires_clock_t a, z;
-            a = hires::now();
+            double rng;
+            auto   time_0 = hires::now();
             // ------------------------------------------------------------
             thrust::device_ptr<float> g_ptr = thrust::device_pointer_cast(d_data);
 
@@ -127,9 +126,9 @@ int main(int argc, char** argv)
             double max_value = *(g_ptr + max_el_loc);
             rng              = max_value - min_value;
             // ------------------------------------------------------------
-            z = hires::now();
+            auto time_1 = hires::now();
 
-            logall(log_dbg, "time scanning:", static_cast<duration_t>(z - a).count(), "sec");
+            logall(log_dbg, "time scanning:", static_cast<duration_t>(time_1 - time_0).count(), "sec");
 
             eb_config->ChangeToRelativeMode(rng);
         }
@@ -200,7 +199,7 @@ int main(int argc, char** argv)
     // invoke system() to untar archived files first before decompression
 
     if (!ap->to_archive && ap->to_extract) {
-        string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/") + 1);
+        string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0) { cmd_string = "tar -xf " + ap->cx_path2file + ".sz"; }
         else {
@@ -250,7 +249,7 @@ int main(int argc, char** argv)
 
     // wenyu's modification starts
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
-    string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind("/") + 1);
+    string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind('/') + 1);
     if (!ap->to_extract && ap->to_archive) {
         auto tar_a = hires::now();
 
@@ -309,7 +308,7 @@ int main(int argc, char** argv)
                                  cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
         string cmd_string =
-            "cd " + ap->cx_path2file.substr(0, ap->cx_path2file.rfind("/")) + ";rm -rf " + files_for_deleting;
+            "cd " + ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/')) + ";rm -rf " + files_for_deleting;
         char* cmd = new char[cmd_string.length() + 1];
         strcpy(cmd, cmd_string.c_str());
         system(cmd);

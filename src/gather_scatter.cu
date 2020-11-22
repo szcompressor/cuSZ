@@ -28,8 +28,8 @@ using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;
 using descr_t  = cusparseMatDescr_t;
 
-template <typename DType>
-void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo)
+template <typename Data>
+void cusz::impl::GatherAsCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo)
 {
     uint8_t* outbin;
     size_t   lrp, lci, lv, ltotal;
@@ -41,7 +41,7 @@ void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size
         int*     d_nnz_per_row = nullptr;
         int*     d_row_ptr     = nullptr;
         int*     d_col_ind     = nullptr;
-        DType*   d_csr_val     = nullptr;
+        Data*    d_csr_val     = nullptr;
 
         // clang-format off
         CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream, cudaStreamNonBlocking        )); // 1. create stream
@@ -61,7 +61,7 @@ void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size
 
         lrp    = sizeof(int)   * (m + 1);
         lci    = sizeof(int)   * *nnz;
-        lv     = sizeof(DType) * *nnz;
+        lv     = sizeof(Data) * *nnz;
         ltotal = lrp + lci + lv;
         outbin = new uint8_t[ltotal];
         CHECK_CUDA(cudaMalloc((void**)&d_row_ptr, lrp));
@@ -98,18 +98,18 @@ void cusz::impl::GatherAsCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size
 template void
 cusz::impl::GatherAsCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo);
 
-template <typename DType>
-void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi)
+template <typename Data>
+void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_t n, const int* nnz, std::string* fi)
 {
     // clang-format off
     auto lrp         = sizeof(int) * (ldA + 1);
     auto lci         = sizeof(int) * *nnz;
-    auto lv          = sizeof(DType) * *nnz;
+    auto lv          = sizeof(Data) * *nnz;
     auto l_total     = lrp + lci + lv;
     auto outlier_bin = io::ReadBinaryFile<uint8_t>(*fi, l_total);
     auto row_ptr     = reinterpret_cast<int*>(outlier_bin);
     auto col_ind     = reinterpret_cast<int*>(outlier_bin + lrp);
-    auto csr_val     = reinterpret_cast<DType*>(outlier_bin + lrp + lci);  // TODO template
+    auto csr_val     = reinterpret_cast<Data*>(outlier_bin + lrp + lci);  // TODO template
     // clang-format on
 
     {
@@ -118,7 +118,7 @@ void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, s
         descr_t  descr     = nullptr;
         int*     d_row_ptr = nullptr;
         int*     d_col_ind = nullptr;
-        DType*   d_csr_val = nullptr;
+        Data*    d_csr_val = nullptr;
 
         // clang-format off
         CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream, cudaStreamNonBlocking        )); // 1. create stream
@@ -152,8 +152,7 @@ void cusz::impl::ScatterFromCSR(DType* d_A, size_t lenA, size_t ldA, size_t m, s
     delete[] outlier_bin;
 }
 
-template void
-cusz::impl::ScatterFromCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fi);
+template void cusz::impl::ScatterFromCSR<float>(float*, size_t, size_t, size_t, size_t, const int*, std::string*);
 
 void cusz::impl::PruneGatherAsCSR(
     float*       d_A,  //
