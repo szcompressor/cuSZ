@@ -45,7 +45,7 @@ int ht_all_nodes;
 using uint8__t = uint8_t;
 
 template <typename UInt_Input>
-void wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
+void lossless::wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
 {
     // Parameters for thread and block count optimization
 
@@ -67,7 +67,8 @@ void wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, i
     int RPerBlock      = (maxbytes / (int)sizeof(int)) / (numBuckets + 1);
     int numBlocks      = numSMs;
     cudaFuncSetAttribute(
-        p2013Histogram<UInt_Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize, maxbytes);
+        data_process::reduce::p2013Histogram<UInt_Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize,
+        maxbytes);
     // fits to size
     int threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
     while (threadsPerBlock > 1024) {
@@ -78,7 +79,7 @@ void wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, i
             threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
         }
     }
-    p2013Histogram                                                                      //
+    data_process::reduce::p2013Histogram                                                //
         <<<numBlocks, threadsPerBlock, ((numBuckets + 1) * RPerBlock) * sizeof(int)>>>  //
         (d_in, d_freq, numValues, numBuckets, RPerBlock);
     cudaDeviceSynchronize();
@@ -103,7 +104,7 @@ void wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, i
 }
 
 template <typename Huff>
-void PrintChunkHuffmanCoding(
+void lossless::utils::PrintChunkHuffmanCoding(
     size_t* dH_bit_meta,  //
     size_t* dH_uInt_meta,
     size_t  len,
@@ -128,13 +129,13 @@ void PrintChunkHuffmanCoding(
 
 template <typename Quant, typename Huff, typename Data>
 std::tuple<size_t, size_t, size_t>
-HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size)
+lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size)
 {
     // histogram
     ht_state_num = 2 * dict_size;
     ht_all_nodes = 2 * ht_state_num;
     auto d_freq  = mem::CreateCUDASpace<unsigned int>(ht_all_nodes);
-    wrapper::GetFrequency(d_in, len, d_freq, dict_size);
+    lossless::wrapper::GetFrequency(d_in, len, d_freq, dict_size);
 
     // Allocate cb memory
     auto d_canonical_cb = mem::CreateCUDASpace<Huff>(dict_size, 0xff);
@@ -164,7 +165,7 @@ HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dic
     {
         auto block_dim = tBLK_ENCODE;
         auto grid_dim  = (len - 1) / block_dim + 1;
-        EncodeFixedLen<Quant, Huff><<<grid_dim, block_dim>>>(d_in, d_h, len, d_canonical_cb);
+        lossless::wrapper::EncodeFixedLen<Quant, Huff><<<grid_dim, block_dim>>>(d_in, d_h, len, d_canonical_cb);
         cudaDeviceSynchronize();
     }
 
@@ -175,7 +176,7 @@ HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dic
     {
         auto block_dim = tBLK_DEFLATE;
         auto grid_dim  = (n_chunk - 1) / block_dim + 1;
-        Deflate<Huff><<<grid_dim, block_dim>>>(d_h, len, d_h_bitwidths, chunk_size);
+        lossless::wrapper::Deflate<Huff><<<grid_dim, block_dim>>>(d_h, len, d_h_bitwidths, chunk_size);
         cudaDeviceSynchronize();
     }
 
@@ -246,7 +247,7 @@ HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dic
 }
 
 template <typename Quant, typename Huff, typename Data>
-Quant* HuffmanDecode(
+Quant* lossless::interface::HuffmanDecode(
     std::string& basename,  //
     size_t       len,
     int          chunk_size,
@@ -270,7 +271,7 @@ Quant* HuffmanDecode(
     auto d_canonical_byte  = mem::CreateDeviceSpaceAndMemcpyFromHost(canonical_byte, canonical_meta);
     cudaDeviceSynchronize();
 
-    Decode<<<grid_dim, block_dim, canonical_meta>>>(  //
+    lossless::wrapper::Decode<<<grid_dim, block_dim, canonical_meta>>>(  //
         d_huff_multibyte, d_huff_chunk_meta, d_xq, len, chunk_size, n_chunk, d_canonical_byte, (size_t)canonical_meta);
     cudaDeviceSynchronize();
 
@@ -286,24 +287,24 @@ Quant* HuffmanDecode(
     return xq;
 }
 
-template void wrapper::GetFrequency<uint8__t>(uint8__t*, size_t, unsigned int*, int);
-template void wrapper::GetFrequency<uint16_t>(uint16_t*, size_t, unsigned int*, int);
-template void wrapper::GetFrequency<uint32_t>(uint32_t*, size_t, unsigned int*, int);
+template void lossless::wrapper::GetFrequency<uint8__t>(uint8__t*, size_t, unsigned int*, int);
+template void lossless::wrapper::GetFrequency<uint16_t>(uint16_t*, size_t, unsigned int*, int);
+template void lossless::wrapper::GetFrequency<uint32_t>(uint32_t*, size_t, unsigned int*, int);
 
-template void PrintChunkHuffmanCoding<uint32_t>(size_t*, size_t*, size_t, int, size_t, size_t);
-template void PrintChunkHuffmanCoding<uint64_t>(size_t*, size_t*, size_t, int, size_t, size_t);
+template void lossless::utils::PrintChunkHuffmanCoding<uint32_t>(size_t*, size_t*, size_t, int, size_t, size_t);
+template void lossless::utils::PrintChunkHuffmanCoding<uint64_t>(size_t*, size_t*, size_t, int, size_t, size_t);
 
-template tuple3ul HuffmanEncode<uint8__t, uint32_t, float>(string&, uint8__t*, size_t, int, int);
-template tuple3ul HuffmanEncode<uint16_t, uint32_t, float>(string&, uint16_t*, size_t, int, int);
-template tuple3ul HuffmanEncode<uint32_t, uint32_t, float>(string&, uint32_t*, size_t, int, int);
-template tuple3ul HuffmanEncode<uint8__t, uint64_t, float>(string&, uint8__t*, size_t, int, int);
-template tuple3ul HuffmanEncode<uint16_t, uint64_t, float>(string&, uint16_t*, size_t, int, int);
-template tuple3ul HuffmanEncode<uint32_t, uint64_t, float>(string&, uint32_t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<uint8__t, uint32_t, float>(string&, uint8__t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<uint16_t, uint32_t, float>(string&, uint16_t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<uint32_t, uint32_t, float>(string&, uint32_t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<uint8__t, uint64_t, float>(string&, uint8__t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<uint16_t, uint64_t, float>(string&, uint16_t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<uint32_t, uint64_t, float>(string&, uint32_t*, size_t, int, int);
 
-template uint8__t* HuffmanDecode<uint8__t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint16_t* HuffmanDecode<uint16_t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint32_t* HuffmanDecode<uint32_t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint8__t* HuffmanDecode<uint8__t, uint64_t, float>(std::string&, size_t, int, int, int);
-template uint16_t* HuffmanDecode<uint16_t, uint64_t, float>(std::string&, size_t, int, int, int);
-template uint32_t* HuffmanDecode<uint32_t, uint64_t, float>(std::string&, size_t, int, int, int);
+template uint8__t* lossless::interface::HuffmanDecode<uint8__t, uint32_t, float>(std::string&, size_t, int, int, int);
+template uint16_t* lossless::interface::HuffmanDecode<uint16_t, uint32_t, float>(std::string&, size_t, int, int, int);
+template uint32_t* lossless::interface::HuffmanDecode<uint32_t, uint32_t, float>(std::string&, size_t, int, int, int);
+template uint8__t* lossless::interface::HuffmanDecode<uint8__t, uint64_t, float>(std::string&, size_t, int, int, int);
+template uint16_t* lossless::interface::HuffmanDecode<uint16_t, uint64_t, float>(std::string&, size_t, int, int, int);
+template uint32_t* lossless::interface::HuffmanDecode<uint32_t, uint64_t, float>(std::string&, size_t, int, int, int);
 // clang-format off

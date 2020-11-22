@@ -14,14 +14,14 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE STATIC)
 
-add_library(parhuffbook ${LIB_TYPE}
+add_library(parhuffman ${LIB_TYPE}
         src/par_huffman_sortbyfreq.cu
         src/par_merge.cuh
         src/par_merge.cu
         src/par_huffman.cuh
         src/par_huffman.cu)
-set_property(TARGET parhuffbook PROPERTY CUDA_ARCHITECTURES 75)
-set_target_properties(parhuffbook PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_property(TARGET parhuffman PROPERTY CUDA_ARCHITECTURES 75)
+set_target_properties(parhuffman PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(psz
         src/format.hh
@@ -47,8 +47,6 @@ add_executable(psz
 ## to link with parhuffman
 add_library(gpuhuffman ${LIB_TYPE}
         src/dbg_gpu_printing.cuh
-#        src/gather_scatter.cu
-#        src/gather_scatter.cuh
         src/histogram.cu
         src/histogram.cuh
         src/huffman.cu
@@ -104,20 +102,17 @@ add_executable(cusz_cmake
         src/timer.hh
         src/types.cc
         src/types.hh
-
         )
 
 set_property(TARGET cusz_cmake PROPERTY CUDA_ARCHITECTURES 70 75)
 set_target_properties(cusz_cmake
         PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-message(STATUS "cusparse: ${CUDA_cusparse_LIBRARY}")
-
 target_link_libraries(cusz_cmake
         -lcusparse
         filter
         utils
-        parhuffbook
+        parhuffman
         gpuhuffman
         )
 

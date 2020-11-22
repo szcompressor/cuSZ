@@ -21,7 +21,7 @@
 using namespace std;
 
 namespace cusz {
-namespace workflow {
+namespace interface {
 
 template <typename Data, typename Quant, typename Huff>
 void Compress(argpack*, struct AdHocDataPack<Data>*, size_t*, double*, int&, size_t&, size_t&, size_t&);
@@ -29,7 +29,7 @@ void Compress(argpack*, struct AdHocDataPack<Data>*, size_t*, double*, int&, siz
 template <typename Data, typename Quant, typename Huff>
 void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 
-}  // namespace workflow
+}  // namespace interface
 
 namespace impl {
 
