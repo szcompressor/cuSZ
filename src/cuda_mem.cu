@@ -18,11 +18,11 @@
 #include "cuda_mem.cuh"
 
 template <typename T>
-inline T* mem::CreateCUDASpace(size_t l, uint8_t i)
+inline T* mem::CreateCUDASpace(size_t len, uint8_t filling_val)
 {
     T* d_var;
-    cudaMalloc(&d_var, l * sizeof(T));
-    cudaMemset(d_var, i, l * sizeof(T));
+    cudaMalloc(&d_var, len * sizeof(T));
+    cudaMemset(d_var, filling_val, len * sizeof(T));
     return d_var;
 }
 
@@ -59,16 +59,16 @@ inline T* mem::CreateHostSpaceAndMemcpyFromDevice(T* d_var, size_t l)
     return var;
 }
 
-template uint8_t*  mem::CreateCUDASpace<uint8_t>(size_t l, uint8_t i);
-template uint16_t* mem::CreateCUDASpace<uint16_t>(size_t l, uint8_t i);
-template uint32_t* mem::CreateCUDASpace<uint32_t>(size_t l, uint8_t i);
-template uint64_t* mem::CreateCUDASpace<uint64_t>(size_t l, uint8_t i);
-template int8_t*   mem::CreateCUDASpace<int8_t>(size_t l, uint8_t i);
-template int16_t*  mem::CreateCUDASpace<int16_t>(size_t l, uint8_t i);
-template int32_t*  mem::CreateCUDASpace<int32_t>(size_t l, uint8_t i);
-template int64_t*  mem::CreateCUDASpace<int64_t>(size_t l, uint8_t i);
-template float*    mem::CreateCUDASpace<float>(size_t l, uint8_t i);
-template double*   mem::CreateCUDASpace<double>(size_t l, uint8_t i);
+template uint8_t*  mem::CreateCUDASpace<uint8_t>(size_t len, uint8_t filling_val);
+template uint16_t* mem::CreateCUDASpace<uint16_t>(size_t len, uint8_t filling_val);
+template uint32_t* mem::CreateCUDASpace<uint32_t>(size_t len, uint8_t filling_val);
+template uint64_t* mem::CreateCUDASpace<uint64_t>(size_t len, uint8_t filling_val);
+template int8_t*   mem::CreateCUDASpace<int8_t>(size_t len, uint8_t filling_val);
+template int16_t*  mem::CreateCUDASpace<int16_t>(size_t len, uint8_t filling_val);
+template int32_t*  mem::CreateCUDASpace<int32_t>(size_t len, uint8_t filling_val);
+template int64_t*  mem::CreateCUDASpace<int64_t>(size_t len, uint8_t filling_val);
+template float*    mem::CreateCUDASpace<float>(size_t len, uint8_t filling_val);
+template double*   mem::CreateCUDASpace<double>(size_t len, uint8_t filling_val);
 
 template int8_t*   mem::CreateDeviceSpaceAndMemcpyFromHost(int8_t* var, size_t l);
 template int16_t*  mem::CreateDeviceSpaceAndMemcpyFromHost(int16_t* var, size_t l);
