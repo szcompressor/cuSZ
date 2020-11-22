@@ -64,21 +64,21 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
         dim3 block_num(dims[nBLK0]);
         dim3 thread_num(gpu_B_1d);
         cudaLaunchKernel(
-            (void*)cusz::PdQ::c_lorenzo_1d1l<Data, Quant, gpu_B_1d>,  //
+            (void*)cusz::predictor_quantizer::c_lorenzo_1d1l<Data, Quant, gpu_B_1d>,  //
             block_num, thread_num, args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
         dim3 block_num(dims[nBLK0], dims[nBLK1]);
         dim3 thread_num(gpu_B_2d, gpu_B_2d);
         cudaLaunchKernel(
-            (void*)cusz::PdQ::c_lorenzo_2d1l<Data, Quant, gpu_B_2d>,  //
+            (void*)cusz::predictor_quantizer::c_lorenzo_2d1l<Data, Quant, gpu_B_2d>,  //
             block_num, thread_num, args, (gpu_B_2d + 1) * (gpu_B_2d + 1) * sizeof(Data), nullptr);
     }
     else if (dims[nDIM] == 3) {
         dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]);
         dim3 thread_num(gpu_B_3d, gpu_B_3d, gpu_B_3d);
         cudaLaunchKernel(
-            (void*)cusz::PdQ::c_lorenzo_3d1l<Data, Quant, gpu_B_3d>,  //
+            (void*)cusz::predictor_quantizer::c_lorenzo_3d1l<Data, Quant, gpu_B_3d>,  //
             block_num, thread_num, args, (gpu_B_3d + 1) * (gpu_B_3d + 1) * (gpu_B_3d + 1) * sizeof(Data), nullptr);
     }
     HANDLE_ERROR(cudaDeviceSynchronize());
@@ -99,7 +99,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
 
         dim3 thread_num(p);
         dim3 block_num((dims[nBLK0] - 1) / p + 1);
-        cudaLaunchKernel((void*)PdQ::x_lorenzo_1d1l<Data, Quant, gpu_B_1d>, block_num, thread_num, args, 0, nullptr);
+        cudaLaunchKernel((void*)cusz::predictor_quantizer::x_lorenzo_1d1l<Data, Quant, gpu_B_1d>, block_num, thread_num, args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
         const static size_t p = gpu_B_2d;
@@ -108,7 +108,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
         dim3 block_num(
             (dims[nBLK0] - 1) / p + 1,   //
             (dims[nBLK1] - 1) / p + 1);  //
-        cudaLaunchKernel((void*)PdQ::x_lorenzo_2d1l<Data, Quant, gpu_B_2d>, block_num, thread_num, args, 0, nullptr);
+        cudaLaunchKernel((void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant, gpu_B_2d>, block_num, thread_num, args, 0, nullptr);
     }
     else if (dims[nDIM] == 3) {
         const static size_t p = gpu_B_3d;
@@ -118,7 +118,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
             (dims[nBLK0] - 1) / p + 1,   //
             (dims[nBLK1] - 1) / p + 1,   //
             (dims[nBLK2] - 1) / p + 1);  //
-        cudaLaunchKernel((void*)PdQ::x_lorenzo_3d1l<Data, Quant, gpu_B_3d>, block_num, thread_num, args, 0, nullptr);
+        cudaLaunchKernel((void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant, gpu_B_3d>, block_num, thread_num, args, 0, nullptr);
     }
     else {
         cerr << log_err << "no 4D" << endl;
@@ -193,7 +193,7 @@ void cusz::impl::VerifyHuffman(
 }
 
 template <typename Data, typename Quant, typename Huff>
-void cusz::workflow::Compress(
+void cusz::interface::Compress(
     argpack*                    ap,
     struct AdHocDataPack<Data>* adp,
     size_t*                     dims,
@@ -253,7 +253,7 @@ void cusz::workflow::Compress(
     }
 
     std::tie(n_bits, n_uInt, huffman_metadata_size) =
-        HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, dims[CAP]);
+        lossless::interface::HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, dims[CAP]);
 
     logall(log_dbg, "to store Huffman encoded quant.code (default)");
 
@@ -261,7 +261,7 @@ void cusz::workflow::Compress(
 }
 
 template <typename Data, typename Quant, typename Huff>
-void cusz::workflow::Decompress(
+void cusz::interface::Decompress(
     argpack* ap,
     size_t*  dims,
     double*  eb_variants,
@@ -285,7 +285,7 @@ void cusz::workflow::Decompress(
     }
     else {
         logall(log_info, "Huffman decode -> quant.code");
-        xq = HuffmanDecode<Quant, Huff>(ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
+        xq = lossless::interface::HuffmanDecode<Quant, Huff>(ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
         if (ap->verify_huffman) {
             // TODO check in argpack
             if (ap->x_fi_origin == "") {
@@ -370,7 +370,7 @@ void cusz::workflow::Decompress(
     cudaFree(d_xq);
 }
 
-template void cusz::workflow::Compress<float, uint8__t, uint32_t>(
+template void cusz::interface::Compress<float, uint8__t, uint32_t>(
     argpack*,
     struct AdHocDataPack<float>*,
     size_t*,
@@ -379,7 +379,7 @@ template void cusz::workflow::Compress<float, uint8__t, uint32_t>(
     size_t&,
     size_t&,
     size_t&);
-template void cusz::workflow::Compress<float, uint8__t, uint64_t>(
+template void cusz::interface::Compress<float, uint8__t, uint64_t>(
     argpack*,
     struct AdHocDataPack<float>*,
     size_t*,
@@ -388,7 +388,7 @@ template void cusz::workflow::Compress<float, uint8__t, uint64_t>(
     size_t&,
     size_t&,
     size_t&);
-template void cusz::workflow::Compress<float, uint16_t, uint32_t>(
+template void cusz::interface::Compress<float, uint16_t, uint32_t>(
     argpack*,
     struct AdHocDataPack<float>*,
     size_t*,
@@ -397,7 +397,7 @@ template void cusz::workflow::Compress<float, uint16_t, uint32_t>(
     size_t&,
     size_t&,
     size_t&);
-template void cusz::workflow::Compress<float, uint16_t, uint64_t>(
+template void cusz::interface::Compress<float, uint16_t, uint64_t>(
     argpack*,
     struct AdHocDataPack<float>*,
     size_t*,
@@ -408,12 +408,12 @@ template void cusz::workflow::Compress<float, uint16_t, uint64_t>(
     size_t&);
 
 template void
-cusz::workflow::Decompress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+cusz::interface::Decompress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 template void
-cusz::workflow::Decompress<float, uint8__t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+cusz::interface::Decompress<float, uint8__t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 template void
-cusz::workflow::Decompress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+cusz::interface::Decompress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 template void
-cusz::workflow::Decompress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+cusz::interface::Decompress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 
 // #endif

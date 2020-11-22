@@ -5,7 +5,7 @@
  * @version 0.1.3
  * @date 2020-11-03
  *
- * (C) 2020 by Washington State University, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
  *
  */
 

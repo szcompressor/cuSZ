@@ -25,6 +25,7 @@
 #include "dbg_gpu_printing.cuh"
 #include "format.hh"
 #include "par_huffman.cuh"
+#include "par_huffman_sortbyfreq.cuh"
 #include "par_merge.cuh"
 
 // Mathematically correct mod
@@ -33,7 +34,7 @@
 // Parallel huffman code generation
 // clang-format off
 template <typename F>
-__global__ void parHuff::GPU_GenerateCL(
+__global__ void lossless::par_huffman::GPU_GenerateCL(
     F*  histogram,  F* CL,  int size,
     /* Global Arrays */
     F* lNodesFreq,  int* lNodesLeader,
@@ -279,7 +280,7 @@ __global__ void parHuff::GPU_GenerateCL(
 
 // Parallelized with atomic writes, but could replace with Jiannan's similar code
 template <typename F, typename H>
-__global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size)
+__global__ void lossless::par_huffman::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size)
 {
     unsigned int       thread       = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i            = thread;  // Porting convenience
@@ -392,7 +393,7 @@ __global__ void parHuff::GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int si
 
 // Helper implementations
 template <typename T>
-__global__ void GPU_FillArraySequence(T* array, unsigned int size)
+__global__ void lossless::par_huffman::helper::GPU_FillArraySequence(T* array, unsigned int size)
 {
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (thread < size) { array[thread] = thread; }
@@ -400,23 +401,30 @@ __global__ void GPU_FillArraySequence(T* array, unsigned int size)
 
 // Precondition -- Result is preset to be equal to size
 template <typename T>
-__global__ void GPU_GetFirstNonzeroIndex(T* array, unsigned int size, unsigned int* result)
+__global__ void
+lossless::par_huffman::helper::GPU_GetFirstNonzeroIndex(T* array, unsigned int size, unsigned int* result)
 {
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (array[thread] != 0) { atomicMin(result, thread); }
 }
 
+namespace lossless {
+namespace par_huffman {
+namespace helper {
 __global__ void GPU_GetMaxCWLength(unsigned int* CL, unsigned int size, unsigned int* result)
 {
     (void)size;
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (thread == 0) { *result = CL[0]; }
 }
+}  // namespace helper
+}  // namespace par_huffman
+}  // namespace lossless
 
 // Reorders given a set of indices. Programmer must ensure that all index[i]
 // are unique or else race conditions may occur
 template <typename T, typename Q>
-__global__ void GPU_ReorderByIndex(T* array, Q* index, unsigned int size)
+__global__ void lossless::par_huffman::helper::GPU_ReorderByIndex(T* array, Q* index, unsigned int size)
 {
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     T            temp;
@@ -430,7 +438,7 @@ __global__ void GPU_ReorderByIndex(T* array, Q* index, unsigned int size)
 
 // Reverses a given array.
 template <typename T>
-__global__ void GPU_ReverseArray(T* array, unsigned int size)
+__global__ void lossless::par_huffman::helper::GPU_ReverseArray(T* array, unsigned int size)
 {
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (thread < size / 2) {
@@ -452,17 +460,18 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
-    GPU_FillArraySequence<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
+    lossless::par_huffman::helper::GPU_FillArraySequence<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
     cudaDeviceSynchronize();
 
-    SortByFreq(_d_freq, _d_qcode, dict_size);
+    lossless::par_huffman::helper::SortByFreq(_d_freq, _d_qcode, dict_size);
     cudaDeviceSynchronize();
 
     unsigned int* d_first_nonzero_index;
     unsigned int  first_nonzero_index = dict_size;
     cudaMalloc(&d_first_nonzero_index, sizeof(unsigned int));
     cudaMemcpy(d_first_nonzero_index, &first_nonzero_index, sizeof(unsigned int), cudaMemcpyHostToDevice);
-    GPU_GetFirstNonzeroIndex<unsigned int><<<nblocks, 1024>>>(_d_freq, dict_size, d_first_nonzero_index);
+    lossless::par_huffman::helper::GPU_GetFirstNonzeroIndex<unsigned int>
+        <<<nblocks, 1024>>>(_d_freq, dict_size, d_first_nonzero_index);
     cudaDeviceSynchronize();
     cudaMemcpy(&first_nonzero_index, d_first_nonzero_index, sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaFree(d_first_nonzero_index);
@@ -501,7 +510,8 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
     cudaGetDevice(&device_id);
     cudaGetDeviceProperties(&deviceProp, device_id);
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &cg_blocks_sm, parHuff::GPU_GenerateCL<unsigned int>, mthreads, 5 * sizeof(int32_t) + 32 * sizeof(int32_t));
+        &cg_blocks_sm, lossless::par_huffman::GPU_GenerateCL<unsigned int>, mthreads,
+        5 * sizeof(int32_t) + 32 * sizeof(int32_t));
     cg_mblocks = deviceProp.multiProcessorCount * cg_blocks_sm;
 
     int ELTS_PER_SEQ_MERGE = 16;
@@ -537,7 +547,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
                        (void*)&mblocks,      (void*)&mthreads};
     // Cooperative Launch
     cudaLaunchCooperativeKernel(
-        (void*)parHuff::GPU_GenerateCL<unsigned int>, mblocks, mthreads, CL_Args,
+        (void*)lossless::par_huffman::GPU_GenerateCL<unsigned int>, mblocks, mthreads, CL_Args,
         5 * sizeof(int32_t) + 32 * sizeof(int32_t));
     cudaDeviceSynchronize();
 
@@ -548,7 +558,7 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
     unsigned int* d_max_CL;
     unsigned int  max_CL;
     cudaMalloc(&d_max_CL, sizeof(unsigned int));
-    GPU_GetMaxCWLength<<<1, 1>>>(CL, nz_dict_size, d_max_CL);
+    lossless::par_huffman::helper::GPU_GetMaxCWLength<<<1, 1>>>(CL, nz_dict_size, d_max_CL);
     cudaDeviceSynchronize();
     cudaMemcpy(&max_CL, d_max_CL, sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaFree(d_max_CL);
@@ -588,9 +598,9 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
 
     // Call second kernel
     cudaLaunchCooperativeKernel(
-        (void*)parHuff::GPU_GenerateCW<unsigned int, H>,  //
-        cw_mblocks,                                       //
-        1024,                                             //
+        (void*)lossless::par_huffman::GPU_GenerateCW<unsigned int, H>,  //
+        cw_mblocks,                                                     //
+        1024,                                                           //
         CW_Args);
     cudaDeviceSynchronize();
 
@@ -600,11 +610,12 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
 #endif
 
     // Reverse _d_qcode and _d_codebook
-    GPU_ReverseArray<H><<<nblocks, 1024>>>(_d_codebook, (unsigned int)dict_size);
-    GPU_ReverseArray<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
+    lossless::par_huffman::helper::GPU_ReverseArray<H><<<nblocks, 1024>>>(_d_codebook, (unsigned int)dict_size);
+    lossless::par_huffman::helper::GPU_ReverseArray<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
     cudaDeviceSynchronize();
 
-    GPU_ReorderByIndex<H, Q><<<nblocks, 1024>>>(_d_codebook, _d_qcode, (unsigned int)dict_size);
+    lossless::par_huffman::helper::GPU_ReorderByIndex<H, Q>
+        <<<nblocks, 1024>>>(_d_codebook, _d_qcode, (unsigned int)dict_size);
     cudaDeviceSynchronize();
 
     // Cleanup

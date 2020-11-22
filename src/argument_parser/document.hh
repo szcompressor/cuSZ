@@ -5,7 +5,8 @@
  * @version 0.1.1
  * @date 2020-09-22
  *
- * Copyright (c) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
+ * See LICENSE in top-level directory
  *
  */
 
@@ -152,8 +153,7 @@ static const char cusz_full_doc[] =
     "\n"
     "        *-D* or *--demo* [demo-dataset]\n"
     "                Use demo dataset, will omit given dimension(s). Supported datasets include:\n"
-    "                1D: _hacc_  _hacc1g_  _hacc4g_\n"
-    "                2D: _cesm_  _exafeldemo_\n"
+    "                1D: _hacc_  _hacc1g_  _hacc4g_    2D: _cesm_  _exafel_\n"
     "                3D: _hurricane_  _nyx_  _qmc_  _qmcpre_  _aramco_  _parihaka_\n"
     "\n"
     "    *Internal* (will be automated with configuration when going public)\n"

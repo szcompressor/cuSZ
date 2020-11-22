@@ -22,7 +22,7 @@ extern __shared__ char scratch[];
 // extern __shared__ float s3df[][8+ 1][8+ 1];
 
 namespace cusz {
-namespace PdQ {
+namespace predictor_quantizer {
 
 template <typename Data, typename Quant, int B = 32>
 __global__ void c_lorenzo_1d1l(Data*, Quant*, size_t const*, double const*);

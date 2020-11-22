@@ -16,6 +16,9 @@
 
 #include <stddef.h>
 
+namespace lossless {
+namespace wrapper {
+
 template <typename Input, typename Huff>
 __global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*);
 
@@ -27,5 +30,8 @@ __device__ void InflateChunkwise(Huff*, Output*, size_t, uint8_t*);
 
 template <typename Quant, typename Huff>
 __global__ void Decode(Huff*, size_t*, Quant*, size_t, int, int, uint8_t*, size_t);
+
+}  // namespace wrapper
+}  // namespace lossless
 
 #endif

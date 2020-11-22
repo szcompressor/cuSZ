@@ -34,40 +34,30 @@ const int tBLK_CANONICAL = 128;
 //    return (access(name.c_str(), F_OK) != -1);
 //}
 
+typedef std::tuple<size_t, size_t, size_t> tuple3ul;
+
+// clang-format off
+namespace lossless {
+
 namespace wrapper {
-
-template <typename UInt_Input>
-void GetFrequency(UInt_Input*, size_t, unsigned int*, int);
-
-// template <typename H>
-// void SetUpHuffmanTree(unsigned int* d_freq, H* d_codebook, int dict_size);
-//
-// template <typename Q, typename H>
-// void MakeCanonical(H* d_plain_cb, uint8_t* d_singleton, size_t total_bytes, int dict_size);
-//
-// template <typename Q, typename H>
-// void EncodeByMemcpy(Q* d_bcode, size_t len, H* d_hcode, H* d_canonical_cb);
-//
-// template <typename H>
-// void Deflate(H* d_hcode, size_t len, int chunk_size, int n_chunk, size_t* d_dH_bit_meta);
-
+template <typename UInt_Input> void GetFrequency(UInt_Input*, size_t, unsigned int*, int);
 }  // namespace wrapper
 
-template <typename H>
-void PrintChunkHuffmanCoding(
-    size_t* dH_bit_meta,
-    size_t* dH_uInt_meta,
-    size_t  len,
-    int     chunk_size,
-    size_t  total_bits,
-    size_t  total_uInts);
+namespace utils {
+template <typename H> void PrintChunkHuffmanCoding(size_t*, size_t*, size_t, int, size_t, size_t);
+}
 
-typedef std::tuple<size_t, size_t, size_t> tuple3ul;
+namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
 tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, int dict_size = 1024);
+
+}  // namespace interface
+}  // namespace lossless
+
+// clang-format on
 
 #endif

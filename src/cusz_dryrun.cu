@@ -79,7 +79,7 @@ __global__ void cusz::dryrun::lorenzo_3d1l(Data* d, const size_t* dims, const do
 }
 
 template <typename Data>
-void cusz::workflow::DryRun(Data* d, Data* d_d, const string& fi, size_t* dims, double* ebs)
+void cusz::interface::DryRun(Data* d, Data* d_d, const string& fi, size_t* dims, double* ebs)
 {
     auto len           = dims[LEN];
     auto d_dims        = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
@@ -117,4 +117,4 @@ template __global__ void cusz::dryrun::lorenzo_1d1l<float>(float*, const size_t*
 template __global__ void cusz::dryrun::lorenzo_2d1l<float>(float*, const size_t*, const double*);
 template __global__ void cusz::dryrun::lorenzo_3d1l<float>(float*, const size_t*, const double*);
 
-template void cusz::workflow::DryRun<float>(float* d, float* d_d, const string& fi, size_t* dims, double* ebs);
+template void cusz::interface::DryRun<float>(float* d, float* d_d, const string& fi, size_t* dims, double* ebs);
