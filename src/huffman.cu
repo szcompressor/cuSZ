@@ -16,27 +16,27 @@
 #include "huffman.cuh"
 
 using namespace std;
-template <typename T, typename Q>
-__global__ void prototype::GPU_Histogram(T* input_data, Q* output, size_t N, int symbols_per_thread)
+template <typename Input_UInt, typename Output_Uint>
+__global__ void prototype::GPU_Histogram(Input_UInt* in, Output_Uint* out, size_t N, int symbols_per_thread)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int j;
     if (i * symbols_per_thread < N) {  // if there is a symbol to count
         for (j = i * symbols_per_thread; j < (i + 1) * symbols_per_thread; j++) {
             if (j < N) {
-                unsigned int item = input_data[j];  // Symbol to count
-                atomicAdd(&output[item], 1);        // update bin count by 1
+                unsigned int item = in[j];  // Symbol to count
+                atomicAdd(&out[item], 1);   // update bin count by 1
             }
         }
     }
 }
 
-template <typename T, typename Q>
-__global__ void prototype::EncodeFixedLen(T* data, Q* hcoded, size_t data_len, Q* codebook)
+template <typename Input, typename Huff>
+__global__ void prototype::EncodeFixedLen(Input* d, Huff* h, size_t data_len, Huff* codebook)
 {
     size_t gid = blockDim.x * blockIdx.x + threadIdx.x;
     if (gid >= data_len) return;
-    hcoded[gid] = codebook[data[gid]];  // try to exploit cache?
+    h[gid] = codebook[d[gid]];  // try to exploit cache?
     __syncthreads();
 }
 
@@ -176,10 +176,7 @@ __host__ __device__ void build_code(HuffmanTree* ht, node_list n, int len, uint6
 // internal functions
 ////////////////////////////////////////////////////////////////////////////////
 
-__device__ __forceinline__ node_list top(internal_stack_t* s)
-{
-    return s->_a[s->depth - 1];
-}
+__device__ __forceinline__ node_list top(internal_stack_t* s) { return s->_a[s->depth - 1]; }
 
 template <typename T>
 __device__ __forceinline__ void push_v2(internal_stack_t* s, node_list n, T path, T len)
@@ -195,10 +192,7 @@ __device__ __forceinline__ void push_v2(internal_stack_t* s, node_list n, T path
         printf("Error: stack overflow\n");
 }
 
-__device__ __forceinline__ bool isEmpty(internal_stack_t* s)
-{
-    return (s->depth == 0);
-}
+__device__ __forceinline__ bool isEmpty(internal_stack_t* s) { return (s->depth == 0); }
 
 // TODO check with typing
 template <typename T>
