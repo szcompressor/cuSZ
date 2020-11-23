@@ -24,6 +24,7 @@
 // #if __cplusplus >= 201103L
 
 #include <type_traits>
+#include "ad_hoc_types.hh"
 #include "analysis_utils.hh"
 #include "argparse.hh"
 #include "autotune.h"
@@ -99,7 +100,9 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
 
         dim3 thread_num(p);
         dim3 block_num((dims[nBLK0] - 1) / p + 1);
-        cudaLaunchKernel((void*)cusz::predictor_quantizer::x_lorenzo_1d1l<Data, Quant, gpu_B_1d>, block_num, thread_num, args, 0, nullptr);
+        cudaLaunchKernel(
+            (void*)cusz::predictor_quantizer::x_lorenzo_1d1l<Data, Quant, gpu_B_1d>, block_num, thread_num, args, 0,
+            nullptr);
     }
     else if (dims[nDIM] == 2) {
         const static size_t p = gpu_B_2d;
@@ -108,7 +111,9 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
         dim3 block_num(
             (dims[nBLK0] - 1) / p + 1,   //
             (dims[nBLK1] - 1) / p + 1);  //
-        cudaLaunchKernel((void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant, gpu_B_2d>, block_num, thread_num, args, 0, nullptr);
+        cudaLaunchKernel(
+            (void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant, gpu_B_2d>, block_num, thread_num, args, 0,
+            nullptr);
     }
     else if (dims[nDIM] == 3) {
         const static size_t p = gpu_B_3d;
@@ -118,7 +123,9 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
             (dims[nBLK0] - 1) / p + 1,   //
             (dims[nBLK1] - 1) / p + 1,   //
             (dims[nBLK2] - 1) / p + 1);  //
-        cudaLaunchKernel((void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant, gpu_B_3d>, block_num, thread_num, args, 0, nullptr);
+        cudaLaunchKernel(
+            (void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant, gpu_B_3d>, block_num, thread_num, args, 0,
+            nullptr);
     }
     else {
         cerr << log_err << "no 4D" << endl;
@@ -285,7 +292,8 @@ void cusz::interface::Decompress(
     }
     else {
         logall(log_info, "Huffman decode -> quant.code");
-        xq = lossless::interface::HuffmanDecode<Quant, Huff>(ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
+        xq = lossless::interface::HuffmanDecode<Quant, Huff>(
+            ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
         if (ap->verify_huffman) {
             // TODO check in argpack
             if (ap->x_fi_origin == "") {
@@ -370,50 +378,21 @@ void cusz::interface::Decompress(
     cudaFree(d_xq);
 }
 
-template void cusz::interface::Compress<float, uint8__t, uint32_t>(
-    argpack*,
-    struct AdHocDataPack<float>*,
-    size_t*,
-    double*,
-    int&,
-    size_t&,
-    size_t&,
-    size_t&);
-template void cusz::interface::Compress<float, uint8__t, uint64_t>(
-    argpack*,
-    struct AdHocDataPack<float>*,
-    size_t*,
-    double*,
-    int&,
-    size_t&,
-    size_t&,
-    size_t&);
-template void cusz::interface::Compress<float, uint16_t, uint32_t>(
-    argpack*,
-    struct AdHocDataPack<float>*,
-    size_t*,
-    double*,
-    int&,
-    size_t&,
-    size_t&,
-    size_t&);
-template void cusz::interface::Compress<float, uint16_t, uint64_t>(
-    argpack*,
-    struct AdHocDataPack<float>*,
-    size_t*,
-    double*,
-    int&,
-    size_t&,
-    size_t&,
-    size_t&);
+typedef struct AdHocDataPack<float> adp_f32_t;
+namespace szin = cusz::interface;
 
-template void
-cusz::interface::Decompress<float, uint8__t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::interface::Decompress<float, uint8__t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::interface::Decompress<float, uint16_t, uint32_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
-template void
-cusz::interface::Decompress<float, uint16_t, uint64_t>(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, UI1, UI4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, UI1, UI8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, UI1, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, UI2, UI4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, UI2, UI8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, UI2, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+
+template void szin::Decompress<FP4, UI1, UI4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, UI1, UI8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, UI1, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, UI2, UI4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, UI2, UI8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, UI2, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
 
 // #endif

@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "ad_hoc_types.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
 #include "dbg_gpu_printing.cuh"
@@ -147,7 +148,7 @@ lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, in
     auto d_decode_meta    = mem::CreateCUDASpace<uint8_t>(decode_meta_size);
 
     // Get codebooks
-    ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canonical_cb, d_decode_meta);
+    lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canonical_cb, d_decode_meta);
     cudaDeviceSynchronize();
 
     auto decode_meta = mem::CreateHostSpaceAndMemcpyFromDevice(d_decode_meta, decode_meta_size);
@@ -287,24 +288,31 @@ Quant* lossless::interface::HuffmanDecode(
     return xq;
 }
 
-template void lossless::wrapper::GetFrequency<uint8__t>(uint8__t*, size_t, unsigned int*, int);
-template void lossless::wrapper::GetFrequency<uint16_t>(uint16_t*, size_t, unsigned int*, int);
-template void lossless::wrapper::GetFrequency<uint32_t>(uint32_t*, size_t, unsigned int*, int);
+template void lossless::wrapper::GetFrequency<UI1>(UI1*, size_t, unsigned int*, int);
+template void lossless::wrapper::GetFrequency<UI2>(UI2*, size_t, unsigned int*, int);
+template void lossless::wrapper::GetFrequency<UI4>(UI4*, size_t, unsigned int*, int);
 
-template void lossless::utils::PrintChunkHuffmanCoding<uint32_t>(size_t*, size_t*, size_t, int, size_t, size_t);
-template void lossless::utils::PrintChunkHuffmanCoding<uint64_t>(size_t*, size_t*, size_t, int, size_t, size_t);
+template void lossless::utils::PrintChunkHuffmanCoding<UI4>(size_t*, size_t*, size_t, int, size_t, size_t);
+template void lossless::utils::PrintChunkHuffmanCoding<UI8>(size_t*, size_t*, size_t, int, size_t, size_t);
+template void lossless::utils::PrintChunkHuffmanCoding<UI8_2>(size_t*, size_t*, size_t, int, size_t, size_t);
 
-template tuple3ul lossless::interface::HuffmanEncode<uint8__t, uint32_t, float>(string&, uint8__t*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<uint16_t, uint32_t, float>(string&, uint16_t*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<uint32_t, uint32_t, float>(string&, uint32_t*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<uint8__t, uint64_t, float>(string&, uint8__t*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<uint16_t, uint64_t, float>(string&, uint16_t*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<uint32_t, uint64_t, float>(string&, uint32_t*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI4, UI4, FP4>(string&, UI4*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8, FP4>(string&, UI4*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8_2, FP4>(string&, UI1*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8_2, FP4>(string&, UI2*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8_2, FP4>(string&, UI4*, size_t, int, int);
 
-template uint8__t* lossless::interface::HuffmanDecode<uint8__t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint16_t* lossless::interface::HuffmanDecode<uint16_t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint32_t* lossless::interface::HuffmanDecode<uint32_t, uint32_t, float>(std::string&, size_t, int, int, int);
-template uint8__t* lossless::interface::HuffmanDecode<uint8__t, uint64_t, float>(std::string&, size_t, int, int, int);
-template uint16_t* lossless::interface::HuffmanDecode<uint16_t, uint64_t, float>(std::string&, size_t, int, int, int);
-template uint32_t* lossless::interface::HuffmanDecode<uint32_t, uint64_t, float>(std::string&, size_t, int, int, int);
+template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, int, int);
+template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, int, int);
+template UI4* lossless::interface::HuffmanDecode<UI4, UI4, FP4>(std::string&, size_t, int, int, int);
+template UI1* lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, size_t, int, int, int);  // uint64_t
+template UI2* lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, size_t, int, int, int);
+template UI4* lossless::interface::HuffmanDecode<UI4, UI8, FP4>(std::string&, size_t, int, int, int);
+template UI1* lossless::interface::HuffmanDecode<UI1, UI8_2, FP4>(std::string&, size_t, int, int, int);  // uint64_t
+template UI2* lossless::interface::HuffmanDecode<UI2, UI8_2, FP4>(std::string&, size_t, int, int, int);
+template UI4* lossless::interface::HuffmanDecode<UI4, UI8_2, FP4>(std::string&, size_t, int, int, int);
 // clang-format off
