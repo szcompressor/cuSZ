@@ -17,9 +17,8 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "ad_hoc_types.hh"
 #include "histogram.cuh"
-
-using uint8__t = uint8_t;
 
 __global__ void data_process::reduce::NaiveHistogram(int input_data[], int output[], int N, int symbols_per_thread)
 {
@@ -76,9 +75,6 @@ __global__ void data_process::reduce::p2013Histogram(Input* input_data, Output_U
     }
 }
 
-template __global__ void
-data_process::reduce::p2013Histogram<uint8__t, unsigned int>(uint8__t*, unsigned int*, size_t, int, int);
-template __global__ void
-data_process::reduce::p2013Histogram<uint16_t, unsigned int>(uint16_t*, unsigned int*, size_t, int, int);
-template __global__ void
-data_process::reduce::p2013Histogram<uint32_t, unsigned int>(uint32_t*, unsigned int*, size_t, int, int);
+template __global__ void data_process::reduce::p2013Histogram<UI1, unsigned int>(UI1*, unsigned int*, size_t, int, int);
+template __global__ void data_process::reduce::p2013Histogram<UI2, unsigned int>(UI2*, unsigned int*, size_t, int, int);
+template __global__ void data_process::reduce::p2013Histogram<UI4, unsigned int>(UI4*, unsigned int*, size_t, int, int);

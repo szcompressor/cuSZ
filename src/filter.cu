@@ -14,6 +14,7 @@
 #include <iostream>
 #include "filter.cuh"
 #include "stdio.h"
+#include "ad_hoc_types.hh"
 
 using std::cout;
 using std::endl;
@@ -40,10 +41,10 @@ __global__ void Prototype::binning2d(Data* input, Data* output, size_t d0, size_
     output[yid * new_d0 + xid] = s[y][x] / static_cast<Data>(yblk * xblk);
 }
 
-template __global__ void Prototype::binning2d<float, 2, 32>(float*, float*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<double, 2, 32>(double*, double*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<char, 2, 32>(char*, char*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<short, 2, 32>(short*, short*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<int, 2, 32>(int*, int*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<long, 2, 32>(long*, long*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<long long, 2, 32>(long long*, long long*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<FP4, 2, 32>(FP4*, FP4*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<FP8, 2, 32>(FP8*, FP8*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<I1, 2, 32>(I1*, I1*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<I2, 2, 32>(I2*, I2*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<I4, 2, 32>(I4*, I4*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<I8, 2, 32>(I8*, I8*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<I8_2, 2, 32>(I8_2*, I8_2*, size_t, size_t, size_t, size_t);
