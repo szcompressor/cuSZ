@@ -20,6 +20,7 @@
 #include <cstring>
 #include <limits>
 
+#include "ad_hoc_types.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
 #include "dbg_gpu_printing.cuh"
@@ -450,7 +451,11 @@ __global__ void lossless::par_huffman::helper::GPU_ReverseArray(T* array, unsign
 
 // Parallel codebook generation wrapper
 template <typename Q, typename H>
-void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_t* _d_decode_meta)
+void lossless::par_huffman::ParGetCodebook(
+    int           dict_size,
+    unsigned int* _d_freq,
+    H*            _d_codebook,
+    uint8_t*      _d_decode_meta)
 {
     // Metadata
     auto type_bw  = sizeof(H) * 8;
@@ -639,9 +644,12 @@ void ParGetCodebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_
 }
 
 // Specialize wrapper
-template void ParGetCodebook<uint8_t, uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook, uint8_t* meta);
-template void ParGetCodebook<uint8_t, uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook, uint8_t* meta);
-template void ParGetCodebook<uint16_t, uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook, uint8_t* meta);
-template void ParGetCodebook<uint16_t, uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook, uint8_t* meta);
-template void ParGetCodebook<uint32_t, uint32_t>(int dict_size, unsigned int* freq, uint32_t* codebook, uint8_t* meta);
-template void ParGetCodebook<uint32_t, uint64_t>(int dict_size, unsigned int* freq, uint64_t* codebook, uint8_t* meta);
+template void lossless::par_huffman::ParGetCodebook<UI1, UI4>(int, unsigned int*, UI4*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI1, UI8>(int, unsigned int*, UI8*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI1, UI8_2>(int, unsigned int*, UI8_2*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI2, UI4>(int, unsigned int*, UI4*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI2, UI8>(int, unsigned int*, UI8*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI2, UI8_2>(int, unsigned int*, UI8_2*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI4, UI4>(int, unsigned int*, UI4*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI4, UI8>(int, unsigned int*, UI8*, UI1*);
+template void lossless::par_huffman::ParGetCodebook<UI4, UI8_2>(int, unsigned int*, UI8_2*, UI1*);
