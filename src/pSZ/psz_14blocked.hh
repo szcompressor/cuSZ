@@ -1,73 +1,59 @@
-#ifndef CUSZ_PSZ_SZ1_4_BLOCKED_HH
-#define CUSZ_PSZ_SZ1_4_BLOCKED_HH
+// 200213
 
-/**
- * @file psz_14blocked.hh
- * @author Jiannan Tian
- * @brief
- * @version 0.1.4
- * @date 2020-02-13
- *
- * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
- * See LICENSE in top-level directory
- *
- */
+#ifndef PSZ_DUALQUANT_CUH
+#define PSZ_DUALQUANT_CUH
 
 #include <cstddef>
 
-#include "../types.hh"
+#include "types.hh"
 
-namespace psz {
-namespace sz1_4_blocked {
+namespace pSZ {
+namespace PredictionQuantizationReconstructionBlocked {
 
-template <typename Data, typename Quant, int B>
-void c_lorenzo_1d1l(
-    Data*               data,
-    Data*               outlier,
-    Quant*              q,
-    size_t const* const dims,
-    double const* const eb_variants,
-    Data*               pred_err,
-    Data*               comp_err,
-    size_t              b0)
-{
-    auto   radius = static_cast<Quant>(dims[RADIUS]);
-    size_t _idx0  = b0 * B;
+template <typename T, typename Q, int B>
+void c_lorenzo_1d1l(T*                  data,
+                    T*                  outlier,
+                    Q*                  bincode,
+                    size_t const* const dims_L16,
+                    double const* const ebs_L4,
+                    T*                  pred_err,
+                    T*                  comp_err,
+                    size_t              b0) {
+    auto   radius = static_cast<Q>(dims_L16[RADIUS]);
+    size_t _idx0 = b0 * B;
     for (size_t i0 = 0; i0 < B; i0++) {
         size_t id = _idx0 + i0;
-        if (id >= dims[DIM0]) continue;
-        Data  pred        = id < _idx0 + 1 ? 0 : data[id - 1];
-        Data  err         = data[id] - pred;
-        Data  dup         = data[id];
-        Quant bin_count   = fabs(err) * eb_variants[EBr] + 1;
-        bool  quantizable = fabs(bin_count) < dims[CAP];
+        if (id >= dims_L16[DIM0]) continue;
+        T    pred        = id < _idx0 + 1 ? 0 : data[id - 1];
+        T    err         = data[id] - pred;
+        T    dup         = data[id];
+        Q    bin_count   = fabs(err) * ebs_L4[EBr] + 1;
+        bool quantizable = fabs(bin_count) < dims_L16[CAP];
         if (err < 0) bin_count = -bin_count;
-        auto _code = static_cast<Quant>(bin_count / 2) + radius;
-        data[id]   = pred + (_code - radius) * eb_variants[EBx2];
+        Q _code  = static_cast<Q>(bin_count / 2) + radius;
+        data[id] = pred + (_code - radius) * ebs_L4[EBx2];
 #ifdef PRED_COMP_ERR
         pred_err[id] = err;
         comp_err[id] = dup - data[id];  // origin - decompressed
 #endif
         outlier[id] = (1 - quantizable) * data[id];
-        q[id]       = quantizable * _code;
+        bincode[id] = quantizable * _code;
     }
 }
 
-template <typename Data, typename Quant, int B>
-void c_lorenzo_2d1l(
-    Data*               d,
-    Data*               outlier,
-    Quant*              q,
-    size_t const* const dims,
-    double const* const eb_variants,
-    Data*               pred_err,
-    Data*               comp_err,
-    size_t              b0,
-    size_t              b1)
-{
-    Data __s[B + 1][B + 1];
-    memset(__s, 0, (B + 1) * (B + 1) * sizeof(Data));
-    auto radius = static_cast<Quant>(dims[RADIUS]);
+template <typename T, typename Q, int B>
+void c_lorenzo_2d1l(T*                  data,
+                    T*                  outlier,
+                    Q*                  bincode,
+                    size_t const* const dims_L16,
+                    double const* const ebs_L4,
+                    T*                  pred_err,
+                    T*                  comp_err,
+                    size_t              b0,
+                    size_t              b1) {
+    T __s[B + 1][B + 1];
+    memset(__s, 0, (B + 1) * (B + 1) * sizeof(T));
+    auto radius = static_cast<Q>(dims_L16[RADIUS]);
 
     size_t _idx1 = b1 * B;
     size_t _idx0 = b0 * B;
@@ -77,44 +63,42 @@ void c_lorenzo_2d1l(
             size_t gi1 = _idx1 + i1;
             size_t gi0 = _idx0 + i0;
 
-            if (gi1 >= dims[DIM1] or gi0 >= dims[DIM0]) continue;
-            size_t id           = gi0 + gi1 * dims[DIM0];
-            __s[i1 + 1][i0 + 1] = d[id];
+            if (gi1 >= dims_L16[DIM1] or gi0 >= dims_L16[DIM0]) continue;
+            size_t id           = gi0 + gi1 * dims_L16[DIM0];
+            __s[i1 + 1][i0 + 1] = data[id];
 
-            Data  pred        = __s[i1 + 1][i0] + __s[i1][i0 + 1] - __s[i1][i0];
-            Data  err         = __s[i1 + 1][i0 + 1] - pred;
-            Quant bin_count   = fabs(err) * eb_variants[EBr] + 1;
-            bool  quantizable = fabs(bin_count) < dims[CAP];
+            T    pred        = __s[i1 + 1][i0] + __s[i1][i0 + 1] - __s[i1][i0];
+            T    err         = __s[i1 + 1][i0 + 1] - pred;
+            Q    bin_count   = fabs(err) * ebs_L4[EBr] + 1;
+            bool quantizable = fabs(bin_count) < dims_L16[CAP];
 
             if (err < 0) bin_count = -bin_count;
-            Quant _code         = static_cast<Quant>(bin_count / 2) + radius;
-            __s[i1 + 1][i0 + 1] = pred + (_code - radius) * eb_variants[EBx2];
+            Q _code             = static_cast<Q>(bin_count / 2) + radius;
+            __s[i1 + 1][i0 + 1] = pred + (_code - radius) * ebs_L4[EBx2];
 #ifdef PRED_COMP_ERR
             pred_err[id] = err;
             comp_err[id] = data[id] - __s[i1 + 1][i0 + 1];  // origin - decompressed
 #endif
             outlier[id] = (1 - quantizable) * __s[i1 + 1][i0 + 1];
-            q[id]       = quantizable * _code;
+            bincode[id] = quantizable * _code;
         }
     }
 }
 
-template <typename Data, typename Quant, int B>
-void c_lorenzo_3d1l(
-    Data*               d,
-    Data*               outlier,
-    Quant*              q,
-    size_t const* const dims,
-    double const* const eb_variants,
-    Data*               pred_err,
-    Data*               comp_err,
-    size_t              b0,
-    size_t              b1,
-    size_t              b2)
-{
-    Data __s[B + 1][B + 1][B + 1];
-    memset(__s, 0, (B + 1) * (B + 1) * (B + 1) * sizeof(Data));
-    auto radius = static_cast<Quant>(dims[RADIUS]);
+template <typename T, typename Q, int B>
+void c_lorenzo_3d1l(T*                  data,
+                    T*                  outlier,
+                    Q*                  bincode,
+                    size_t const* const dims_L16,
+                    double const* const ebs_L4,
+                    T*                  pred_err,
+                    T*                  comp_err,
+                    size_t              b0,
+                    size_t              b1,
+                    size_t              b2) {
+    T __s[B + 1][B + 1][B + 1];
+    memset(__s, 0, (B + 1) * (B + 1) * (B + 1) * sizeof(T));
+    auto radius = static_cast<Q>(dims_L16[RADIUS]);
 
     size_t _idx2 = b2 * B;
     size_t _idx1 = b1 * B;
@@ -127,64 +111,49 @@ void c_lorenzo_3d1l(
                 size_t gi1 = _idx1 + i1;
                 size_t gi0 = _idx0 + i0;
 
-                if (gi2 >= dims[DIM2] or gi1 >= dims[DIM1] or gi0 >= dims[DIM0]) continue;
-                size_t id                   = gi0 + gi1 * dims[DIM0] + gi2 * dims[DIM1] * dims[DIM0];
-                __s[i2 + 1][i1 + 1][i0 + 1] = d[id];
+                if (gi2 >= dims_L16[DIM2] or gi1 >= dims_L16[DIM1] or gi0 >= dims_L16[DIM0]) continue;
+                size_t id                   = gi0 + gi1 * dims_L16[DIM0] + gi2 * dims_L16[DIM1] * dims_L16[DIM0];
+                __s[i2 + 1][i1 + 1][i0 + 1] = data[id];
 
-                Data pred = __s[i2][i1][i0]                                                                //
-                            - __s[i2 + 1][i1][i0 + 1] - __s[i2 + 1][i1 + 1][i0] - __s[i2][i1 + 1][i0 + 1]  //
-                            + __s[i2 + 1][i1][i0] + __s[i2][i1 + 1][i0] + __s[i2][i1][i0 + 1];
-                Data  err         = __s[i2 + 1][i1 + 1][i0 + 1] - pred;
-                Quant bin_count   = fabs(err) * eb_variants[EBr] + 1;
-                bool  quantizable = fabs(bin_count) < dims[CAP];
+                T pred = __s[i2][i1][i0]                                                                //
+                         - __s[i2 + 1][i1][i0 + 1] - __s[i2 + 1][i1 + 1][i0] - __s[i2][i1 + 1][i0 + 1]  //
+                         + __s[i2 + 1][i1][i0] + __s[i2][i1 + 1][i0] + __s[i2][i1][i0 + 1];
+                T    err         = __s[i2 + 1][i1 + 1][i0 + 1] - pred;
+                Q    bin_count   = fabs(err) * ebs_L4[EBr] + 1;
+                bool quantizable = fabs(bin_count) < dims_L16[CAP];
 
                 if (err < 0) bin_count = -bin_count;
-                Quant _code = static_cast<Quant>(bin_count / 2) + radius;
+                Q _code = static_cast<Q>(bin_count / 2) + radius;
 
-                __s[i2 + 1][i1 + 1][i0 + 1] = pred + (_code - radius) * eb_variants[EBx2];
+                __s[i2 + 1][i1 + 1][i0 + 1] = pred + (_code - radius) * ebs_L4[EBx2];
 #ifdef PRED_COMP_ERR
                 pred_err[id] = err;
                 comp_err[id] = data[id] - __s[i2 + 1][i1 + 1][i0 + 1];  // origin - decompressed
 #endif
                 outlier[id] = (1 - quantizable) * __s[i2 + 1][i1 + 1][i0 + 1];
-                q[id]       = quantizable * _code;
+                bincode[id] = quantizable * _code;
             }
         }
     }
 }
 
-template <typename Data, typename Quant, int B>
-void x_lorenzo_1d1l(
-    Data*               xd,
-    Data*               outlier,
-    Quant*              q,
-    size_t const* const dims,
-    double const* const eb_variants,
-    size_t              b0)
-{
-    auto   radius = static_cast<Quant>(dims[RADIUS]);
-    size_t _idx0  = b0 * B;
+template <typename T, typename Q, int B>
+void x_lorenzo_1d1l(T* xdata, T* outlier, Q* bincode, size_t const* const dims_L16, double const* const ebs_L4, size_t b0) {
+    auto   radius = static_cast<Q>(dims_L16[RADIUS]);
+    size_t _idx0 = b0 * B;
     for (size_t i0 = 0; i0 < B; i0++) {
         size_t id = _idx0 + i0;
-        if (id >= dims[DIM0]) continue;
-        Data pred = id < _idx0 + 1 ? 0 : xd[id - 1];
-        xd[id]    = q[id] == 0 ? outlier[id] : static_cast<Data>(pred + (q[id] - radius) * eb_variants[EBx2]);
+        if (id >= dims_L16[DIM0]) continue;
+        T pred    = id < _idx0 + 1 ? 0 : xdata[id - 1];
+        xdata[id] = bincode[id] == 0 ? outlier[id] : static_cast<T>(pred + (bincode[id] - radius) * ebs_L4[EBx2]);
     }
 }
 
-template <typename Data, typename Quant, int B>
-void x_lorenzo_2d1l(
-    Data*               xd,
-    Data*               outlier,
-    Quant*              q,
-    size_t const* const dims,
-    double const* const eb_variants,
-    size_t              b0,
-    size_t              b1)
-{
-    Data __s[B + 1][B + 1];
-    memset(__s, 0, (B + 1) * (B + 1) * sizeof(Data));
-    auto radius = static_cast<Quant>(dims[RADIUS]);
+template <typename T, typename Q, int B>
+void x_lorenzo_2d1l(T* xdata, T* outlier, Q* bincode, size_t const* const dims_L16, double const* const ebs_L4, size_t b0, size_t b1) {
+    T __s[B + 1][B + 1];
+    memset(__s, 0, (B + 1) * (B + 1) * sizeof(T));
+    auto radius = static_cast<Q>(dims_L16[RADIUS]);
 
     size_t _idx1 = b1 * B;
     size_t _idx0 = b0 * B;
@@ -193,30 +162,27 @@ void x_lorenzo_2d1l(
         for (size_t i0 = 0; i0 < B; i0++) {
             size_t gi1 = _idx1 + i1;
             size_t gi0 = _idx0 + i0;
-            if (gi1 >= dims[DIM1] or gi0 >= dims[DIM0]) continue;
-            const size_t id   = gi0 + gi1 * dims[DIM0];
-            Data         pred = __s[i1][i0 + 1] + __s[i1 + 1][i0] - __s[i1][i0];
-            __s[i1 + 1][i0 + 1] =
-                q[id] == 0 ? outlier[id] : static_cast<Data>(pred + (q[id] - radius) * eb_variants[EBx2]);
-            xd[id] = __s[i1 + 1][i0 + 1];
+            if (gi1 >= dims_L16[DIM1] or gi0 >= dims_L16[DIM0]) continue;
+            const size_t id     = gi0 + gi1 * dims_L16[DIM0];
+            T            pred   = __s[i1][i0 + 1] + __s[i1 + 1][i0] - __s[i1][i0];
+            __s[i1 + 1][i0 + 1] = bincode[id] == 0 ? outlier[id] : static_cast<T>(pred + (bincode[id] - radius) * ebs_L4[EBx2]);
+            xdata[id]           = __s[i1 + 1][i0 + 1];
         }
     }
 }
 
-template <typename Data, typename Quant, int B>
-void x_lorenzo_3d1l(
-    Data*               xd,
-    Data*               outlier,
-    Quant*              q,
-    size_t const* const dims,
-    double const* const eb_variants,
-    size_t              b0,
-    size_t              b1,
-    size_t              b2)
-{
-    Data __s[B + 1][B + 1][B + 1];
-    memset(__s, 0, (B + 1) * (B + 1) * (B + 1) * sizeof(Data));
-    auto radius = static_cast<Quant>(dims[RADIUS]);
+template <typename T, typename Q, int B>
+void x_lorenzo_3d1l(T*                  xdata,
+                    T*                  outlier,
+                    Q*                  bincode,
+                    size_t const* const dims_L16,
+                    double const* const ebs_L4,
+                    size_t              b0,
+                    size_t              b1,
+                    size_t              b2) {
+    T __s[B + 1][B + 1][B + 1];
+    memset(__s, 0, (B + 1) * (B + 1) * (B + 1) * sizeof(T));
+    auto radius = static_cast<Q>(dims_L16[RADIUS]);
 
     size_t _idx2 = b2 * B;
     size_t _idx1 = b1 * B;
@@ -228,22 +194,21 @@ void x_lorenzo_3d1l(
                 size_t gi2 = _idx2 + i2;
                 size_t gi1 = _idx1 + i1;
                 size_t gi0 = _idx0 + i0;
-                if (gi2 >= dims[DIM2] or gi1 >= dims[DIM1] or gi0 >= dims[DIM0]) continue;
-                size_t id   = gi0 + gi1 * dims[DIM0] + gi2 * dims[DIM1] * dims[DIM0];
-                Data   pred = __s[i2][i1][i0]                                                              //
-                            - __s[i2 + 1][i1][i0 + 1] - __s[i2 + 1][i1 + 1][i0] - __s[i2][i1 + 1][i0 + 1]  //
-                            + __s[i2 + 1][i1][i0] + __s[i2][i1 + 1][i0] + __s[i2][i1][i0 + 1];
+                if (gi2 >= dims_L16[DIM2] or gi1 >= dims_L16[DIM1] or gi0 >= dims_L16[DIM0]) continue;
+                size_t id   = gi0 + gi1 * dims_L16[DIM0] + gi2 * dims_L16[DIM1] * dims_L16[DIM0];
+                T      pred = __s[i2][i1][i0]                                                           //
+                         - __s[i2 + 1][i1][i0 + 1] - __s[i2 + 1][i1 + 1][i0] - __s[i2][i1 + 1][i0 + 1]  //
+                         + __s[i2 + 1][i1][i0] + __s[i2][i1 + 1][i0] + __s[i2][i1][i0 + 1];
 
-                __s[i2 + 1][i1 + 1][i0 + 1] =
-                    q[id] == 0 ? outlier[id] : static_cast<Data>(pred + (q[id] - radius) * eb_variants[EBx2]);
+                __s[i2 + 1][i1 + 1][i0 + 1] = bincode[id] == 0 ? outlier[id] : static_cast<T>(pred + (bincode[id] - radius) * ebs_L4[EBx2]);
 
-                xd[id] = __s[i2 + 1][i1 + 1][i0 + 1];
+                xdata[id] = __s[i2 + 1][i1 + 1][i0 + 1];
             }
         }
     }
 }
 
-}  // namespace sz1_4_blocked
-}  // namespace psz
+}  // namespace PredictionQuantizationReconstructionBlocked
+}  // namespace pSZ
 
 #endif

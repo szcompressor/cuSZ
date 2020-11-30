@@ -14,37 +14,36 @@
 #include <iostream>
 #include "filter.cuh"
 #include "stdio.h"
-#include "ad_hoc_types.hh"
 
 using std::cout;
 using std::endl;
 
-template <typename Data, int DownscaleFactor, int tBLK>
-__global__ void Prototype::binning2d(Data* input, Data* output, size_t d0, size_t d1, size_t new_d0, size_t new_d1)
+template <typename T, int DS, int tBLK>
+__global__ void Prototype::binning2d(T* input, T* output, size_t d0, size_t d1, size_t new_d0, size_t new_d1)
 {
     auto y   = threadIdx.y;
     auto x   = threadIdx.x;
     auto yid = blockIdx.y * blockDim.y + y;
     auto xid = blockIdx.x * blockDim.x + x;
 
-    __shared__ Data s[tBLK][tBLK];
+    __shared__ T s[tBLK][tBLK];
 
     if (yid >= new_d1 or xid >= new_d0) return;
 
-    int xblk = (xid + 1) * DownscaleFactor >= d0 ? d0 - xid * DownscaleFactor : DownscaleFactor;
-    int yblk = (yid + 1) * DownscaleFactor >= d1 ? d1 - yid * DownscaleFactor : DownscaleFactor;
+    int xblk = (xid + 1) * DS >= d0 ? d0 - xid * DS : DS;
+    int yblk = (yid + 1) * DS >= d1 ? d1 - yid * DS : DS;
     s[y][x]  = 0;
 
     for (int j = 0; j < yblk; j++)
-        for (int i = 0; i < xblk; i++) s[y][x] += input[(yid * DownscaleFactor + j) * d0 + (xid * DownscaleFactor + i)];
+        for (int i = 0; i < xblk; i++) s[y][x] += input[(yid * DS + j) * d0 + (xid * DS + i)];
 
-    output[yid * new_d0 + xid] = s[y][x] / static_cast<Data>(yblk * xblk);
+    output[yid * new_d0 + xid] = s[y][x] / static_cast<T>(yblk * xblk);
 }
 
-template __global__ void Prototype::binning2d<FP4, 2, 32>(FP4*, FP4*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<FP8, 2, 32>(FP8*, FP8*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<I1, 2, 32>(I1*, I1*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<I2, 2, 32>(I2*, I2*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<I4, 2, 32>(I4*, I4*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<I8, 2, 32>(I8*, I8*, size_t, size_t, size_t, size_t);
-template __global__ void Prototype::binning2d<I8_2, 2, 32>(I8_2*, I8_2*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<float, 2, 32>(float*, float*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<double, 2, 32>(double*, double*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<char, 2, 32>(char*, char*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<short, 2, 32>(short*, short*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<int, 2, 32>(int*, int*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<long, 2, 32>(long*, long*, size_t, size_t, size_t, size_t);
+template __global__ void Prototype::binning2d<long long, 2, 32>(long long*, long long*, size_t, size_t, size_t, size_t);

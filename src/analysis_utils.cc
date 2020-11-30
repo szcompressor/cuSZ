@@ -5,8 +5,7 @@
  * @version 0.1.3
  * @date 2020-11-04
  *
- * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * (C) 2020 by Washington State University, Argonne National Laboratory
  *
  */
 

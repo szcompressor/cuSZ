@@ -17,10 +17,8 @@
 #include <thrust/sort.h>
 #include <cstdint>
 
-#include "par_huffman_sortbyfreq.cuh"
-
 template <typename K, typename V>
-void lossless::par_huffman::helper::SortByFreq(K* freq, V* qcode, int size)
+void SortByFreq(K* freq, V* qcode, int size)
 {
     using namespace thrust;
     sort_by_key(
@@ -29,6 +27,6 @@ void lossless::par_huffman::helper::SortByFreq(K* freq, V* qcode, int size)
         device_ptr<V>(qcode));
 }
 
-template void lossless::par_huffman::helper::SortByFreq<unsigned int, uint8_t>(unsigned int*, uint8_t*, int);
-template void lossless::par_huffman::helper::SortByFreq<unsigned int, uint16_t>(unsigned int*, uint16_t*, int);
-template void lossless::par_huffman::helper::SortByFreq<unsigned int, uint32_t>(unsigned int*, uint32_t*, int);
+template void SortByFreq<unsigned int, uint8_t>(unsigned int*, uint8_t*, int);
+template void SortByFreq<unsigned int, uint16_t>(unsigned int*, uint16_t*, int);
+template void SortByFreq<unsigned int, uint32_t>(unsigned int*, uint32_t*, int);

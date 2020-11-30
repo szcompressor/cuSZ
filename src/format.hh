@@ -41,7 +41,7 @@ void build(std::ostream& o, T t, Args... args)  // recursive variadic function
 }
 
 template <typename... Args>
-void logall(const string& log_head, Args... args)
+void logall(string log_head, Args... args)
 {
     std::ostringstream oss;
     oss << log_head;
@@ -54,12 +54,8 @@ void logall(const string& log_head, Args... args)
     if (log_head == log_dbg) std::cout << "\e[2m";
 
     // print progress
-    if (log_head == log_info) {
-        if (static_cast<int>(offset) + log_head.size() <= 80)
-            oss << std::string(80 - log_head.size() - offset, '.');  // +9, ad hoc for log_*
-        else
-            oss << std::string(8, '.');  // +9, ad hoc for log_*
-
+    if (static_cast<int>(offset) <= 80 and log_head == log_info) {
+        oss << std::string(80 - log_head.size() - offset, '.');  // +9, ad hoc for log_*
         oss << " [ok]";
     }
 

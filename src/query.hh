@@ -5,8 +5,7 @@
  * @version 0.1.3
  * @date 2020-10-05
  *
- * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * (C) 2020 by Washington State University, Argonne National Laboratory
  *
  */
 
@@ -44,7 +43,7 @@ std::string ExecShellCommand(const char* cmd)
 void GetMachineProperties()
 {
     std::vector<std::string> v;
-    cout << "host information: " << endl;
+    cout << "host informaton: " << endl;
 
     auto cpuinfo = ExecShellCommand(  //
         std::string("cat /proc/cpuinfo "

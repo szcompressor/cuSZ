@@ -15,15 +15,14 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include "ad_hoc_types.hh"
 #include "cuda_mem.cuh"
 
 template <typename T>
-inline T* mem::CreateCUDASpace(size_t len, uint8_t filling_val)
+inline T* mem::CreateCUDASpace(size_t l, uint8_t i)
 {
     T* d_var;
-    cudaMalloc(&d_var, len * sizeof(T));
-    cudaMemset(d_var, filling_val, len * sizeof(T));
+    cudaMalloc(&d_var, l * sizeof(T));
+    cudaMemset(d_var, i, l * sizeof(T));
     return d_var;
 }
 
@@ -60,44 +59,35 @@ inline T* mem::CreateHostSpaceAndMemcpyFromDevice(T* d_var, size_t l)
     return var;
 }
 
-template I1*  mem::CreateCUDASpace<I1>(size_t len, UI1 filling_val);
-template I2*  mem::CreateCUDASpace<I2>(size_t len, UI1 filling_val);
-template I4*  mem::CreateCUDASpace<I4>(size_t len, UI1 filling_val);
-template I8*  mem::CreateCUDASpace<I8>(size_t len, UI1 filling_val);
-template UI1* mem::CreateCUDASpace<UI1>(size_t len, UI1 filling_val);
-template UI2* mem::CreateCUDASpace<UI2>(size_t len, UI1 filling_val);
-template UI4* mem::CreateCUDASpace<UI4>(size_t len, UI1 filling_val);
-template UI8* mem::CreateCUDASpace<UI8>(size_t len, UI1 filling_val);
-template FP4* mem::CreateCUDASpace<FP4>(size_t len, UI1 filling_val);
-template FP8* mem::CreateCUDASpace<FP8>(size_t len, UI1 filling_val);
-//
-template I8_2*  mem::CreateCUDASpace<I8_2>(size_t len, UI1 filling_val);
-template UI8_2* mem::CreateCUDASpace<UI8_2>(size_t len, UI1 filling_val);
+template uint8_t*  mem::CreateCUDASpace<uint8_t>(size_t l, uint8_t i);
+template uint16_t* mem::CreateCUDASpace<uint16_t>(size_t l, uint8_t i);
+template uint32_t* mem::CreateCUDASpace<uint32_t>(size_t l, uint8_t i);
+template uint64_t* mem::CreateCUDASpace<uint64_t>(size_t l, uint8_t i);
+template int8_t*   mem::CreateCUDASpace<int8_t>(size_t l, uint8_t i);
+template int16_t*  mem::CreateCUDASpace<int16_t>(size_t l, uint8_t i);
+template int32_t*  mem::CreateCUDASpace<int32_t>(size_t l, uint8_t i);
+template int64_t*  mem::CreateCUDASpace<int64_t>(size_t l, uint8_t i);
+template float*    mem::CreateCUDASpace<float>(size_t l, uint8_t i);
+template double*   mem::CreateCUDASpace<double>(size_t l, uint8_t i);
 
-template I1*  mem::CreateDeviceSpaceAndMemcpyFromHost(I1* var, size_t l);
-template I2*  mem::CreateDeviceSpaceAndMemcpyFromHost(I2* var, size_t l);
-template I4*  mem::CreateDeviceSpaceAndMemcpyFromHost(I4* var, size_t l);
-template I8*  mem::CreateDeviceSpaceAndMemcpyFromHost(I8* var, size_t l);
-template UI1* mem::CreateDeviceSpaceAndMemcpyFromHost(UI1* var, size_t l);
-template UI2* mem::CreateDeviceSpaceAndMemcpyFromHost(UI2* var, size_t l);
-template UI4* mem::CreateDeviceSpaceAndMemcpyFromHost(UI4* var, size_t l);
-template UI8* mem::CreateDeviceSpaceAndMemcpyFromHost(UI8* var, size_t l);
-template FP4* mem::CreateDeviceSpaceAndMemcpyFromHost(FP4* var, size_t l);
-template FP8* mem::CreateDeviceSpaceAndMemcpyFromHost(FP8* var, size_t l);
-//
-template UI8_2* mem::CreateDeviceSpaceAndMemcpyFromHost(UI8_2* var, size_t l);
-template I8_2*  mem::CreateDeviceSpaceAndMemcpyFromHost(I8_2* var, size_t l);
+template int8_t*   mem::CreateDeviceSpaceAndMemcpyFromHost(int8_t* var, size_t l);
+template int16_t*  mem::CreateDeviceSpaceAndMemcpyFromHost(int16_t* var, size_t l);
+template int32_t*  mem::CreateDeviceSpaceAndMemcpyFromHost(int32_t* var, size_t l);
+template int64_t*  mem::CreateDeviceSpaceAndMemcpyFromHost(int64_t* var, size_t l);
+template uint8_t*  mem::CreateDeviceSpaceAndMemcpyFromHost(uint8_t* var, size_t l);
+template uint16_t* mem::CreateDeviceSpaceAndMemcpyFromHost(uint16_t* var, size_t l);
+template uint32_t* mem::CreateDeviceSpaceAndMemcpyFromHost(uint32_t* var, size_t l);
+template uint64_t* mem::CreateDeviceSpaceAndMemcpyFromHost(uint64_t* var, size_t l);
+template float*    mem::CreateDeviceSpaceAndMemcpyFromHost(float* var, size_t l);
+template double*   mem::CreateDeviceSpaceAndMemcpyFromHost(double* var, size_t l);
 
-template I1*  mem::CreateHostSpaceAndMemcpyFromDevice(I1* d_var, size_t l);
-template I2*  mem::CreateHostSpaceAndMemcpyFromDevice(I2* d_var, size_t l);
-template I4*  mem::CreateHostSpaceAndMemcpyFromDevice(I4* d_var, size_t l);
-template I8*  mem::CreateHostSpaceAndMemcpyFromDevice(I8* d_var, size_t l);
-template UI1* mem::CreateHostSpaceAndMemcpyFromDevice(UI1* d_var, size_t l);
-template UI2* mem::CreateHostSpaceAndMemcpyFromDevice(UI2* d_var, size_t l);
-template UI4* mem::CreateHostSpaceAndMemcpyFromDevice(UI4* d_var, size_t l);
-template UI8* mem::CreateHostSpaceAndMemcpyFromDevice(UI8* d_var, size_t l);
-template FP4* mem::CreateHostSpaceAndMemcpyFromDevice(FP4* d_var, size_t l);
-template FP8* mem::CreateHostSpaceAndMemcpyFromDevice(FP8* d_var, size_t l);
-//
-template I8_2*  mem::CreateHostSpaceAndMemcpyFromDevice(I8_2* d_var, size_t l);
-template UI8_2* mem::CreateHostSpaceAndMemcpyFromDevice(UI8_2* d_var, size_t l);
+template int8_t*   mem::CreateHostSpaceAndMemcpyFromDevice(int8_t* d_var, size_t l);
+template int16_t*  mem::CreateHostSpaceAndMemcpyFromDevice(int16_t* d_var, size_t l);
+template int32_t*  mem::CreateHostSpaceAndMemcpyFromDevice(int32_t* d_var, size_t l);
+template int64_t*  mem::CreateHostSpaceAndMemcpyFromDevice(int64_t* d_var, size_t l);
+template uint8_t*  mem::CreateHostSpaceAndMemcpyFromDevice(uint8_t* d_var, size_t l);
+template uint16_t* mem::CreateHostSpaceAndMemcpyFromDevice(uint16_t* d_var, size_t l);
+template uint32_t* mem::CreateHostSpaceAndMemcpyFromDevice(uint32_t* d_var, size_t l);
+template uint64_t* mem::CreateHostSpaceAndMemcpyFromDevice(uint64_t* d_var, size_t l);
+template float*    mem::CreateHostSpaceAndMemcpyFromDevice(float* d_var, size_t l);
+template double*   mem::CreateHostSpaceAndMemcpyFromDevice(double* d_var, size_t l);

@@ -16,21 +16,21 @@
 namespace cusz {
 
 namespace dryrun {
-template <typename Data>
-__global__ void lorenzo_1d1l(Data*, const size_t*, const double*);
+template <typename T>
+__global__ void lorenzo_1d1l(T*, size_t*, double*);
 
-template <typename Data>
-__global__ void lorenzo_2d1l(Data*, const size_t*, const double*);
+template <typename T>
+__global__ void lorenzo_2d1l(T*, size_t*, double*);
 
-template <typename Data>
-__global__ void lorenzo_3d1l(Data*, const size_t*, const double*);
+template <typename T>
+__global__ void lorenzo_3d1l(T*, size_t*, double*);
 
 }  // namespace dryrun
 
-namespace interface {
+namespace workflow {
 
-template <typename Data>
-void DryRun(Data*, Data*, const std::string&, size_t*, double*);
+template <typename T>
+void DryRun(T*, T*, std::string, size_t*, double*);
 
 }
 }  // namespace cusz

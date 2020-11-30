@@ -1,26 +1,13 @@
-/**
- * @file psz_exe.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.1.4
- * @date 2020-02-13
- *
- * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
- * See LICENSE in top-level directory
- *
- */
-
 #include <cstring>
 #include <string>
 #include <vector>
 
-#include "../SDRB.hh"
-#include "../analysis_utils.hh"
-#include "../types.hh"
-#include "../verify.hh"
+#include "SDRB.hh"
 #include "psz_workflow.hh"
+#include "types.hh"
+#include "verify.hh"
 
-namespace fm = psz::FineMassiveSimulation;
+namespace fm = pSZ::FineMassiveSimulation;
 
 const size_t DICT_SIZE = 1024;
 // const size_t DICT_SIZE = 4096;
@@ -47,9 +34,7 @@ int main(int argc, char** argv)
 #endif
 
     if (argc != 8) {
-        cout << "./<program> <abs|rel2range OR r2r> <mantissa> <exponent> <if blocking> <if dualquant> <dataset> "
-                "<datum_path path>"
-             << endl;
+        cout << "./<program> <abs|rel2range OR r2r> <mantissa> <exponent> <if blocking> <if dualquant> <dataset> <datum_path path>" << endl;
         cout << "supported dimension and datasets" << endl;
         cout << "\t1D\t./psz1d r2r 1.23 -4.56 <noblk|yesblk> <nodq|dq> <hacc> /path/to/vx.f32" << endl;
         cout << "\t2D\t./psz2d r2r 1.23 -4.56 <noblk|yesblk> <nodq|dq> <cesm> /path/to/CLDHGH_1_1800_3600.f32" << endl;

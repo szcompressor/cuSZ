@@ -48,7 +48,7 @@ size_t* InitializeDemoDims(
             {std::string("nyx"), dims_NYX},
             {std::string("qmc"), dims_QMCPACK1},
             {std::string("qmcpre"), dims_QMCPACK2},
-            {std::string("exafel"), dims_EXAFEL_demo},
+            {std::string("exafeldemo"), dims_EXAFEL_demo},
             {std::string("aramco"), dims_ARAMCO},
             {std::string("parihaka"), dims_parihaka}  //
         };

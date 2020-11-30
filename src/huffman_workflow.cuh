@@ -34,30 +34,40 @@ const int tBLK_CANONICAL = 128;
 //    return (access(name.c_str(), F_OK) != -1);
 //}
 
-typedef std::tuple<size_t, size_t, size_t> tuple3ul;
-
-// clang-format off
-namespace lossless {
-
 namespace wrapper {
-template <typename UInt_Input> void GetFrequency(UInt_Input*, size_t, unsigned int*, int);
+
+template <typename Q>
+void GetFrequency(Q* d_bcode, size_t len, unsigned int* d_freq, int dict_size);
+
+template <typename H>
+void SetUpHuffmanTree(unsigned int* d_freq, H* d_codebook, int dict_size);
+
+template <typename Q, typename H>
+void MakeCanonical(H* d_plain_cb, uint8_t* d_singleton, size_t total_bytes, int dict_size);
+
+template <typename Q, typename H>
+void EncodeByMemcpy(Q* d_bcode, size_t len, H* d_hcode, H* d_canonical_cb);
+
+template <typename H>
+void Deflate(H* d_hcode, size_t len, int chunk_size, int n_chunk, size_t* d_dH_bit_meta);
+
 }  // namespace wrapper
 
-namespace utils {
-template <typename H> void PrintChunkHuffmanCoding(size_t*, size_t*, size_t, int, size_t, size_t);
-}
+template <typename H>
+void PrintChunkHuffmanCoding(
+    size_t* dH_bit_meta,
+    size_t* dH_uInt_meta,
+    size_t  len,
+    int     chunk_size,
+    size_t  total_bits,
+    size_t  total_uInts);
 
-namespace interface {
+typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
 
-template <typename Quant, typename Huff, typename Data = float>
-tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size = 1024);
+template <typename Q, typename H, typename DATA = float>
+tuple3ul HuffmanEncode(string& f_bcode, Q* d_bcode, size_t len, int chunk_size, bool gzip_in_use, int dict_size = 1024);
 
-template <typename Quant, typename Huff, typename Data = float>
-Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, int dict_size = 1024);
-
-}  // namespace interface
-}  // namespace lossless
-
-// clang-format on
+template <typename Q, typename H, typename DATA = float>
+Q* HuffmanDecode(std::string& f_bcode_base, size_t len, int chunk_size, int total_uInts, bool nvcomp_in_use, int dict_size = 1024);
 
 #endif

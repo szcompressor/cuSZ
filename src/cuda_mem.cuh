@@ -22,7 +22,7 @@ namespace mem {
 enum MemcpyDirection { h2d, d2h };
 
 template <typename T>
-T* CreateCUDASpace(size_t len, uint8_t filling_val = 0x00);
+T* CreateCUDASpace(size_t l, uint8_t i = 0);
 
 template <typename T>
 void CopyBetweenSpaces(T* src, T* dst, MemcpyDirection direct);

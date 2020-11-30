@@ -21,26 +21,43 @@
 using namespace std;
 
 namespace cusz {
-namespace interface {
+namespace workflow {
 
-template <typename Data, typename Quant, typename Huff>
-void Compress(argpack*, struct AdHocDataPack<Data>*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+template <typename T, typename Q, typename H>
+void Compress(
+    argpack*                 ap,
+    struct AdHocDataPack<T>* adp,
+    size_t*                  dims_L16,
+    double*                  ebs_L4,
+    int&                     nnz_outlier,
+    size_t&                  n_bits,
+    size_t&                  n_uInt,
+    size_t&                  huffman_metadata_size,
+    bool&                    nvcomp_in_use);
 
-template <typename Data, typename Quant, typename Huff>
-void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+template <typename T, typename Q, typename H>
+void Decompress(
+    argpack* ap,
+    size_t*  dims_L16,
+    double*  ebs_L4,
+    int&     nnz_outlier,
+    size_t&  total_bits,
+    size_t&  total_uInt,
+    size_t&  huffman_metadata_size,
+    bool nvcomp_in_use);
 
-}  // namespace interface
+}  // namespace workflow
 
 namespace impl {
 
-template <typename Data, typename Quant>
-void PdQ(Data*, Quant*, size_t*, double*);
+template <typename T, typename Q>
+void PdQ(T*, Q*, size_t*, double*);
 
-template <typename Data, typename Quant>
-void ReversedPdQ(Data*, Quant*, Data*, size_t*, double);
+template <typename T, typename Q>
+void ReversedPdQ(T*, Q*, T*, size_t*, double);
 
-template <typename Data, typename Quant>
-void VerifyHuffman(string const&, size_t, Quant*, int, size_t*, double*);
+template <typename T, typename Q>
+void VerifyHuffman(string const&, size_t, Q*, int, size_t*, double*);
 
 }  // namespace impl
 

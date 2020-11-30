@@ -30,30 +30,32 @@ ifeq ($(shell test $(CUDA_MAJV) -ge 11; echo $$?), 0)
 endif
 
 CCFLAGS   := $(STD) -O3
-NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr --extended-lambda
+NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr
 
-CC_FILE_OMP:=$(SRC_DIR)/analysis_utils.cc
-CC_FILE   := $(filter-out $(CC_FILE_OMP), $(wildcard $(SRC_DIR)/*.cc))
+CCFILES_OMP:=$(SRC_DIR)/analysis_utils.cc
+CCFILES   := $(filter-out $(CCFILES_OMP), $(wildcard $(SRC_DIR)/*.cc))
 
 MAIN      := $(SRC_DIR)/cusz.cu
-CU_FILE_2 := $(SRC_DIR)/cusz_workflow.cu $(SRC_DIR)/cusz_dualquant.cu
-CU_FILE_3 := $(SRC_DIR)/canonical.cu $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
-CU_FILE_1 := $(filter-out $(MAIN) $(CU_FILE_3) $(CU_FILE_2), $(wildcard $(SRC_DIR)/*.cu))
+CUFILES2  := $(SRC_DIR)/cusz_workflow.cu $(SRC_DIR)/cusz_dualquant.cu
+CUFILES3  := $(SRC_DIR)/canonical.cu $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
+CUFILES4  := $(SRC_DIR)/huffman_workflow.cu
+CUFILES1  := $(filter-out $(MAIN) $(CUFILES3) $(CUFILES4) $(CUFILES2), $(wildcard $(SRC_DIR)/*.cu))
 
-CC_OBJ_OMP:= $(CC_FILE_OMP:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
-CC_OBJ    := $(CC_FILE:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+CCOBJS_OMP:= $(CCFILES_OMP:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+CCOBJS    := $(CCFILES:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+CUOBJS1   := $(CUFILES1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUOBJS2   := $(CUFILES2:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUOBJS3   := $(CUFILES3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUOBJS4   := $(CUFILES4:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 
-CU_OBJ_1  := $(CU_FILE_1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
-CU_OBJ_2  := $(CU_FILE_2:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
-CU_OBJ_3  := $(CU_FILE_3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUOBJS    := $(CUOBJS1) $(CUOBJS2) $(CUOBJS3) $(CUOBJS4)
+OBJS      := $(CCOBJS) $(CCOBJS_OMP) $(CUOBJS)
 
-CU_OBJ    := $(CU_OBJ_1) $(CU_OBJ_2) $(CU_OBJ_3)
-OBJ_ALL   := $(CC_OBJ) $(CC_OBJ_OMP) $(CU_OBJ)
-
-$(CC_OBJ_OMP): CCFLAGS += -fopenmp
-# $(CU_OBJ_1): NVCCFLAGS +=
-$(CU_OBJ_2): NVCCFLAGS += -rdc=true
-$(CU_OBJ_3): NVCCFLAGS += -rdc=true
+$(CCOBJS_OMP): CCFLAGS += -fopenmp
+# $(CUOBJS1): NVCCFLAGS +=
+$(CUOBJS2): NVCCFLAGS += -rdc=true
+$(CUOBJS3): NVCCFLAGS += -rdc=true
+$(CUOBJS4): NVCCFLAGS += -I/home/wenyuaoa/nvcomp-branch-1.1/build/include -L/home/wenyuaoa/nvcomp-branch-1.1/build/lib
 
 all: ; @$(MAKE) cusz -j
 
@@ -68,16 +70,16 @@ DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
-cusz: $(OBJ_ALL) | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
+cusz: $(OBJS) | $(BIN_DIR)
+	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) /home/wenyuaoa/nvcomp-branch-1.1/build/lib/libnvcomp.so -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
 	$(CXX)  $(CCFLAGS) -c $< -o $@
 
-$(CU_OBJ): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu | $(OBJ_DIR)
+$(CUOBJS): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu | $(OBJ_DIR)
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 clean:
-	$(RM) $(OBJ_ALL)
+	$(RM) $(OBJS)

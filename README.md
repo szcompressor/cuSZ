@@ -20,17 +20,21 @@ Our published paper covers the essential design and implementation, accessible v
 
 # set up
 ## requirements
-- {Pascal,Volta,Turing} NVIDIA GPU
-- C++14 enabled compiler, GCC 7.x+; CUDA 9.2+
-  - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md), and more detailed CUDA-compiler [compatiblity](https://gist.github.com/ax3l/9489132).
-  - Note that *CUDA version* is referred to as the *toolchain verion* (e.g., activiated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
-
-| setup |     |      |      |      |      |      |
-| ----- | --- | ---- | ---- | ---- | ---- | ---- |
-| gcc   | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
-|       |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
-|       |     |      |      |      | 9.x  | 9.x  |
-| CUDA  | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 |
+- NVIDIA GPU with Pascal, Volta, or Turing microarchitectures 
+- Minimum: CUDA 9.2+ and GCC 7.3+ (with C++14 support)
+  - The table below shows our tested GPUs, CUDA versions, and compilers.
+  - Note that CUDA version here refers to the toolchain verion (e.g., activiated CUDA via `module load`), whereas CUDA runtime version (according to SM) can be lower than that.
+  - Please refer to [link](https://gist.github.com/ax3l/9489132) for more details about different CUDA versions and their required compilers.
+  
+| GPU       | microarch | SM  | CUDA version | gcc version |
+| --------- | --------- | --- | ------------ | ----------- |
+| P100      | Pascal    | 60  | 10.1         | 7.3         |
+| P2000M    | Pascal    | 61  | 11.0         | 7.5         |
+| V100      | Volta     | 70  | 10.2         | 7.3/8.4     |
+|           |           |     | 9.2          | 7.3         |
+| RTX 8000  | Turing    | 75  | 10.1         | 7.4         |
+| RTX 5000  | Turing    | 75  | 10.1         | 7.3/8.3     |
+| RTX 2060S | Turing    | 75  | 11.0/11.1    | 9.3         |
 
 
 ## from GitHub
@@ -50,38 +54,39 @@ Spack is a multi-platform package manager dedicated for HPC deployment, and it's
 Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is given below.
 
 ```bash
-./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z
-           ------ ------ ----------- ------------------------ ------------  |
-            dtype  mode  error bound      input datum file    low-to-high  zip
+./bin/cusz -f32 -m r2r -e 1.0e-4.0 -i ./data/sample-cesm-CLDHGH -D cesm -z
+             |  ------ ----------- ---------------------------- -------  |
+           dtype mode  error bound           input datum          demo   zip
 
-./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x
-           ---------------------------  |
-                     sz archive        unzip
+./bin/cusz -i ./data/sample-cesm-CLDHGH.sz -x
+           -------------------------------  |
+                     sz archive            unzip
 ```
 `-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
 
 ```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z
+cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -2 3600 1800 -z
 ```
-The following **essential** arguments are required,
+To conduct compression, several input arguments are **necessary**,
 
-- WORKFLOW: `-z` to compress; `-x` to decompress.
-- CONFIG: `-m` to specify error control mode from `abs` (absolute) and `r2r` (relative to value range)
-- CONFIG: `-e` to specify error bound
-- INPUT: `-i` to specify input file
-- INPUT: `-D` to specify demo dataset name or `-{1,2,3}` to dimensions
-- OUTPUT: `--opath` to specify output path for both compression and decompression
-- LOG: `-V` or `--verbose` to print host and device information
+- `-z` or `--zip` to compress
+- `-x` or `--unzip` to decompress
+- `-m` or `--mode` to specify compression mode. Options include `abs` (absolute value) and `r2r` (relative to value range)
+- `-e` or `--eb` to specify error bound
+- `-i` to specify input datum file
+- `-D` to specify demo dataset name or `-{1,2,3}` to input dimensions
+- `--opath` to specify output path for both compression and decompresson
+- `-V` or `--verbose` to print host and device information
 
-## tuning by overriding
+## tuning
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
 
-- `-Q` or `--quant-byte`  to specify quant. code representation. Options 1, 2 are for 1- and 2-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-H` or `--huff-byte`  to specify Huffman codeword representation. Options 4, 8 are for 4- and 8-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-C` or `--huff-chunk`  to specify chunk size for Huffman codec. This should be a sufficiently large number in power-of-2 (`[256|512|1024|...]`) and affects Huffman encoding/decoding performance *significantly*.
+- `-Q` or `--quant-rep`  to specify bincode/quant. code representation. Options `<8|16|32>` are for `uint8_t`, `uint16_t`, `uint32_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
+- `-H` or `--huffman-rep`  to specify Huffman codeword representation. Options `<32|64>` are for `uint32_t`, `uint64_t`, respectively. (Manually specifying this may not result in optimal memory footprint.)
+- `-C` or `--huffman-chunk`  to specify chunk size for Huffman codec. This should be a sufficiently large number in power-of-2 (`[256|512|1024|...]`) and affects Huffman encoding/decoding performance *significantly*.
 
 
-## enabling preprocessing
+## with preprocessing
 Some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec.
 
 [^binning]: A current binning setting is to downsample a 2-by-2 cell to 1 point.
@@ -101,49 +106,49 @@ Other module skipping for use scenarios are in development.
 
 # hands-on examples
 
-1. 2D CESM demo, at 1e-4 relative to value range
+1. run a 2D CESM demo at 1e-4 relative to value range
 
 	```bash
 	# compress
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z
 	# decompress, use the datum to compress as basename
-	cusz -i ./data/ex-cesm-CLDHGH.sz -x
+	cusz -i ./data/sample-cesm-CLDHGH.sz -x
 	# decompress, and compare with the original data
-	cusz -i ./data/ex-cesm-CLDHGH.sz -x --origin ./data/ex-cesm-CLDHGH
+	cusz -i ./data/sample-cesm-CLDHGH.sz -x --origin ./data/sample-cesm-CLDHGH
 	```
-2. 2D CESM demo, specifying output path
+2. runa 2D CESM demo with specified output path
 
 	```bash
 	mkdir data2 data3
 	# output compressed data to `data2`
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z --opath data2
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z --opath data2
 	# output decompressed data to `data3`
-	cusz -i ./data2/ex-cesm-CLDHGH.sz -x --opath data3
+	cusz -i ./data2/sample-cesm-CLDHGH.sz -x --opath data3
 	```
-3. 2D CESM demo, with 1-byte (`uint8_t`) and 256 quant. bins
+3. run CESM demo with `uint8_t` and 256 quant. bins
 
 	```bash
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x -d 256 -Q 1
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x -d 256 -Q 8
 	```
-4. in addition to the previous command, skipping Huffman codec,
+4. in addition to the previous command, if skipping Huffman codec,
 
 	```bash
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -d 256 -Q 1 \
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -d 256 -Q 8 \
 		--skip huffman  # or `-X huffman`
-	cusz -i ./data/ex-cesm-CLDHGH.sz -x  # `-d`, `-Q`, `-X` is recorded
+	cusz -i ./data/sample-cesm-CLDHGH.sz -x  # `-d`, `-Q`, `-X` is recorded
 	```
-5. some application such as EXAFEL preprocessed with binning [^binning] in addition to skipping Huffman codec
+5. some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec
 
 	```bash
 	** cautious, may not be working as of 0.1.3
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x \
-		-d 256 -Q 1 --pre binning --skip huffman	# or `-p binning`
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm -z -x \
+		-d 256 -Q 8 --pre binning --skip huffman	# or `-p binning`
 	```
 6. dry-run to get PSNR and to skip real compression or decompression; `-r` also works alternatively to `--dry-run`
 
 	```bash
 	# This works equivalently to decompress with `--origin /path/to/origin-datum`
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm --dry-run	# or `-r`
+	cusz -f32 -m r2r -e 1e-4 -i ./data/sample-cesm-CLDHGH -D cesm --dry-run	# or `-r`
 	```
 
 # results
@@ -190,14 +195,14 @@ Tested on October 8, 2020, on V100; throughput is in the unit of GB/s if not spe
 
 A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
-## limitations of this version (Nov. 19, 2020)
+## limitations of this version (Nov. 6, 2020)
 
-- For this release, cuSZ only supports 4-byte `float` data type. We will support 8-byte `double` data type in the future release. 
-- The current Huffman codec consists of optimal (1) histogramming [1], (2) parallel Huffman codebook building [2] of canonical code [3], and suboptimal Huffman encoding. We are woking on a faster high-throughput finer-grained Huffman codec. 
-- We are working on host- and device-side API design.
-- Please use `-H 8` whenever there is reported error. (The default `-H 4` may not be working for all.) We are working on adapting 4- or 8-byte representation automatically. 
-- A performance degradation is expected when handling large-size dataset, e.g., 1-GB or 4-GB 1D HACC. We are working on tuning consistent performance.
-- Binning preprocessing is subject to change, currently not available.
+- For this release, cuSZ only supports 32-bit `float`-type datasets. We will support 64-bit `double`-type datasets in the future release. 
+- The current integrated Huffman codec runs with efficient histogramming [1], parallel Huffman codebook building [2], memory-copy style encoding, chunkwise bit deflating, and efficient Huffman decoding using canonical codes [3]. However, the chunkwise bit deflating is not optimal, so we are woking on a faster, finer-grained Huffman codec for the future release. 
+- We are working on refactoring to support more predictors, preprocessing methods, and compression modes. More functionalities will be released in the next release.
+- Please use `-H 64` for HACC dataset because 32-bit representation is not enough for multiple HACC variables. Using `-H 32` will make cuSZ report an error. We are working on automatically adpating 32- or 64-bit representation for different datasets. 
+- You may see a performance degradation when handling large-size dataset, such as 1-GB or 4-GB HACC. We are working on autotuning consistent performance.
+- Binning preprocessing is subject to change, and currently not available.
 
 # references
 

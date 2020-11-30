@@ -17,10 +17,11 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "ad_hoc_types.hh"
 #include "histogram.cuh"
 
-__global__ void data_process::reduce::NaiveHistogram(int input_data[], int output[], int N, int symbols_per_thread)
+using uint8__t = uint8_t;
+
+__global__ void naiveHistogram(int input_data[], int output[], int N, int symbols_per_thread)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int j;
@@ -38,10 +39,9 @@ __global__ void data_process::reduce::NaiveHistogram(int input_data[], int outpu
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
 
-template <typename Input, typename Output_UInt>
-__global__ void data_process::reduce::p2013Histogram(Input* input_data, Output_UInt* output, size_t N, int bins, int R)
+template <typename T, typename Q>
+__global__ void p2013Histogram(T* input_data, Q* output, size_t N, int bins, int R)
 {
-    // TODO compile time type-checking
     extern __shared__ int Hs[/*(bins + 1) * R*/];
 
     const unsigned int warpid      = (int)(threadIdx.x / WARP_SIZE);
@@ -75,6 +75,9 @@ __global__ void data_process::reduce::p2013Histogram(Input* input_data, Output_U
     }
 }
 
-template __global__ void data_process::reduce::p2013Histogram<UI1, unsigned int>(UI1*, unsigned int*, size_t, int, int);
-template __global__ void data_process::reduce::p2013Histogram<UI2, unsigned int>(UI2*, unsigned int*, size_t, int, int);
-template __global__ void data_process::reduce::p2013Histogram<UI4, unsigned int>(UI4*, unsigned int*, size_t, int, int);
+template __global__ void
+p2013Histogram<uint8__t, unsigned int>(uint8__t* input_data, unsigned int* output, size_t N, int bins, int R);
+template __global__ void
+p2013Histogram<uint16_t, unsigned int>(uint16_t* input_data, unsigned int* output, size_t N, int bins, int R);
+template __global__ void
+p2013Histogram<uint32_t, unsigned int>(uint32_t* input_data, unsigned int* output, size_t N, int bins, int R);

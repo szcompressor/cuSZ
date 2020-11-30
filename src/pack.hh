@@ -8,10 +8,10 @@
  * @version 0.1.1
  * @date 2020-09-25
  *
- * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * (C) 2020 by Washington State University, Argonne National Laboratory
  *
  */
+
 #include "argparse.hh"
 #include "constants.hh"
 #include "io.hh"
@@ -26,11 +26,12 @@ typedef struct MetadataPackage {
 
     size_t total_bits, total_uInt, huff_meta_size;
 
-    int quant_byte;
-    int huff_byte;
+    int quant_rep;
+    int huffman_rep;
     int huffman_chunk;
 
     bool skip_huffman;
+    bool nvcomp_in_use;
 
     DataType dtype;  // TODO f64 support
 
@@ -51,8 +52,8 @@ void PackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array, d
     if (ap->dtype == "f32") mp->dtype = DataType::kF32;
     if (ap->dtype == "f64") mp->dtype = DataType::kF64;
 
-    mp->quant_byte    = ap->quant_byte;
-    mp->huff_byte     = ap->huff_byte;
+    mp->quant_rep     = ap->quant_rep;
+    mp->huffman_rep   = ap->huffman_rep;
     mp->huffman_chunk = ap->huffman_chunk;
     mp->skip_huffman  = ap->skip_huffman;
 
@@ -69,8 +70,8 @@ void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array,
     if (mp->dtype == DataType::kF32) ap->dtype = "f32";
     if (mp->dtype == DataType::kF64) ap->dtype = "f64";
 
-    ap->quant_byte    = mp->quant_byte;
-    ap->huff_byte     = mp->huff_byte;
+    ap->quant_rep     = mp->quant_rep;
+    ap->huffman_rep   = mp->huffman_rep;
     ap->huffman_chunk = mp->huffman_chunk;
     ap->skip_huffman  = mp->skip_huffman;
 }

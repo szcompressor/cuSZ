@@ -20,11 +20,11 @@
 
 using namespace std;
 namespace prototype {
-template <typename Input_UInt, typename Output_UInt>
-__global__ void GPU_Histogram(Input_UInt*, Output_UInt*, size_t, int);
+template <typename T, typename Q>
+__global__ void GPU_Histogram(T* input_data, Q* output, size_t N, int symbols_per_thread);
 
-template <typename Input, typename Huff>
-__global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*);
+template <typename T, typename Q>
+__global__ void EncodeFixedLen(T* data, Q* hcoded, size_t data_len, Q* codebook);
 
 }  // namespace prototype
 
