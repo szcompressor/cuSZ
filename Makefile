@@ -30,14 +30,14 @@ ifeq ($(shell test $(CUDA_MAJV) -ge 11; echo $$?), 0)
 endif
 
 CCFLAGS   := $(STD) -O3
-NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr --extended-lambda
+NVCCFLAGS := $(STD) $(DEPLOY) --expt-relaxed-constexpr --expt-extended-lambda
 
 CC_FILE_OMP:=$(SRC_DIR)/analysis_utils.cc
 CC_FILE   := $(filter-out $(CC_FILE_OMP), $(wildcard $(SRC_DIR)/*.cc))
 
 MAIN      := $(SRC_DIR)/cusz.cu
 CU_FILE_2 := $(SRC_DIR)/cusz_workflow.cu $(SRC_DIR)/cusz_dualquant.cu
-CU_FILE_3 := $(SRC_DIR)/canonical.cu $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
+CU_FILE_3 := $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
 CU_FILE_1 := $(filter-out $(MAIN) $(CU_FILE_3) $(CU_FILE_2), $(wildcard $(SRC_DIR)/*.cu))
 
 CC_OBJ_OMP:= $(CC_FILE_OMP:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
