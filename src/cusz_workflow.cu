@@ -85,10 +85,6 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
     HANDLE_ERROR(cudaDeviceSynchronize());
 }
 
-template void cusz::impl::PdQ<float, uint8__t>(float*, uint8__t*, size_t*, double*);
-template void cusz::impl::PdQ<float, uint16_t>(float*, uint16_t*, size_t*, double*);
-template void cusz::impl::PdQ<float, uint32_t>(float*, uint32_t*, size_t*, double*);
-
 template <typename Data, typename Quant>
 void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* dims, double _2eb)
 {

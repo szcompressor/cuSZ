@@ -232,43 +232,39 @@ namespace kernel = cusz::predictor_quantizer;
 // prototype 1D
 // template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 32>(FP4*, UI1*, size_t const*, FP8 const*);
 // template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 32>(FP4*, UI2*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI4, 32>(FP4*, UI4*, size_t const*, FP8 const*);
 // template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 64>(FP4*, UI1*, size_t const*, FP8 const*);
 // template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 64>(FP4*, UI2*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI4, 64>(FP4*, UI4*, size_t const*, FP8 const*);
 // template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 128>(FP4*, UI1*, size_t const*, FP8 const*);
 // template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 128>(FP4*, UI2*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI4, 128>(FP4*, UI4*, size_t const*, FP8 const*);
 template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 256>(FP4*, UI1*, size_t const*, FP8 const*);
 template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 256>(FP4*, UI2*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI4, 256>(FP4*, UI4*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 512>(FP4*, UI1*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 512>(FP4*, UI2*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 1024>(FP4*, UI1*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 1024>(FP4*, UI2*, size_t const*, FP8 const*);
 // prototype 2D
 template __global__ void kernel::c_lorenzo_2d1l<FP4, UI1, 16>(FP4*, UI1*, size_t const*, FP8 const*);
 template __global__ void kernel::c_lorenzo_2d1l<FP4, UI2, 16>(FP4*, UI2*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_2d1l<FP4, UI4, 16>(FP4*, UI4*, size_t const*, FP8 const*);
 // prototype 3D
 template __global__ void kernel::c_lorenzo_3d1l<FP4, UI1, 8>(FP4*, UI1*, size_t const*, FP8 const*);
 template __global__ void kernel::c_lorenzo_3d1l<FP4, UI2, 8>(FP4*, UI2*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_3d1l<FP4, UI4, 8>(FP4*, UI4*, size_t const*, FP8 const*);
 // decompression
 // prototype 1D
 // template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 32>(FP4*, FP4*, UI1*, size_t const*, FP8);
 // template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 32>(FP4*, FP4*, UI2*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI4, 32>(FP4*, FP4*, UI4*, size_t const*, FP8);
 // template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 64>(FP4*, FP4*, UI1*, size_t const*, FP8);
 // template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 64>(FP4*, FP4*, UI2*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI4, 64>(FP4*, FP4*, UI4*, size_t const*, FP8);
 // template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 128>(FP4*, FP4*, UI1*, size_t const*, FP8);
 // template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 128>(FP4*, FP4*, UI2*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI4, 128>(FP4*, FP4*, UI4*, size_t const*, FP8);
 template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 256>(FP4*, FP4*, UI1*, size_t const*, FP8);
 template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 256>(FP4*, FP4*, UI2*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI4, 256>(FP4*, FP4*, UI4*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 512>(FP4*, FP4*, UI1*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 512>(FP4*, FP4*, UI2*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 1024>(FP4*, FP4*, UI1*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 1024>(FP4*, FP4*, UI2*, size_t const*, FP8);
 // prototype 2D
 template __global__ void kernel::x_lorenzo_2d1l<FP4, UI1, 16>(FP4*, FP4*, UI1*, size_t const*, FP8);
 template __global__ void kernel::x_lorenzo_2d1l<FP4, UI2, 16>(FP4*, FP4*, UI2*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_2d1l<FP4, UI4, 16>(FP4*, FP4*, UI4*, size_t const*, FP8);
 // prototype 3D
 template __global__ void kernel::x_lorenzo_3d1l<FP4, UI1, 8>(FP4*, FP4*, UI1*, size_t const*, FP8);
 template __global__ void kernel::x_lorenzo_3d1l<FP4, UI2, 8>(FP4*, FP4*, UI2*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_3d1l<FP4, UI4, 8>(FP4*, FP4*, UI4*, size_t const*, FP8);
