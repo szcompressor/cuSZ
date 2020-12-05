@@ -36,7 +36,7 @@ CC_FILE_OMP:=$(SRC_DIR)/analysis_utils.cc
 CC_FILE   := $(filter-out $(CC_FILE_OMP), $(wildcard $(SRC_DIR)/*.cc))
 
 MAIN      := $(SRC_DIR)/cusz.cu
-CU_FILE_2 := $(SRC_DIR)/cusz_workflow.cu $(SRC_DIR)/cusz_dualquant.cu
+CU_FILE_2 := $(SRC_DIR)/cusz_interface.cu $(SRC_DIR)/dualquant.cu
 CU_FILE_3 := $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
 CU_FILE_1 := $(filter-out $(MAIN) $(CU_FILE_3) $(CU_FILE_2), $(wildcard $(SRC_DIR)/*.cu))
 
