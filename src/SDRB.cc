@@ -16,6 +16,7 @@
 
 #include "SDRB.hh"
 #include "types.hh"
+#include "metadata.hh"
 
 size_t dims_HACC[]        = {280953867, 1, 1, 1, 1};  // for back compatibility
 size_t dims_HACC_1GB[]    = {280953867, 1, 1, 1, 1};
@@ -40,16 +41,11 @@ size_t* InitializeDemoDims(
 {
     std::unordered_map<std::string, size_t*>  //
         dataset_entries = {
-            {std::string("hacc"), dims_HACC},
-            {std::string("hacc1g"), dims_HACC},
-            {std::string("hacc4g"), dims_HACC},
-            {std::string("cesm"), dims_CESM},
-            {std::string("hurricane"), dims_Hurricane},
-            {std::string("nyx"), dims_NYX},
-            {std::string("qmc"), dims_QMCPACK1},
-            {std::string("qmcpre"), dims_QMCPACK2},
-            {std::string("exafel"), dims_EXAFEL_demo},
-            {std::string("aramco"), dims_ARAMCO},
+            {std::string("hacc"), dims_HACC},           {std::string("hacc1g"), dims_HACC},
+            {std::string("hacc4g"), dims_HACC},         {std::string("cesm"), dims_CESM},
+            {std::string("hurricane"), dims_Hurricane}, {std::string("nyx"), dims_NYX},
+            {std::string("qmc"), dims_QMCPACK1},        {std::string("qmcpre"), dims_QMCPACK2},
+            {std::string("exafel"), dims_EXAFEL_demo},  {std::string("aramco"), dims_ARAMCO},
             {std::string("parihaka"), dims_parihaka}  //
         };
 
@@ -68,11 +64,11 @@ size_t* InitializeDemoDims(
     }
 
     if (dims_L16[nDIM] == 1)
-        BLK = B_1d;
+        BLK = MetadataTrait<1>::Block;
     else if (dims_L16[nDIM] == 2)
-        BLK = B_2d;
+        BLK = MetadataTrait<2>::Block;
     else if (dims_L16[nDIM] == 3)
-        BLK = B_3d;
+        BLK = MetadataTrait<3>::Block;
 
     dims_L16[nBLK0]  = (dims_L16[DIM0] - 1) / (size_t)BLK + 1;
     dims_L16[nBLK1]  = (dims_L16[DIM1] - 1) / (size_t)BLK + 1;

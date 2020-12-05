@@ -31,14 +31,15 @@
 #include "constants.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
-#include "cusz_dryrun.cuh"
-#include "cusz_dualquant.cuh"
-#include "cusz_workflow.cuh"
+#include "cusz_interface.cuh"
+#include "dryrun.cuh"
+#include "dualquant.cuh"
 #include "filter.cuh"
 #include "format.hh"
 #include "gather_scatter.cuh"
 #include "huffman_workflow.cuh"
 #include "io.hh"
+#include "metadata.hh"
 #include "timer.hh"
 #include "type_aliasing.hh"
 #include "type_trait.hh"
@@ -48,11 +49,6 @@ using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
-using uint8__t = uint8_t;
-
-const int gpu_B_1d = 256;
-const int gpu_B_2d = 16;
-const int gpu_B_3d = 8;
 
 typedef std::tuple<size_t, size_t, size_t> tuple3ul;
 
@@ -64,25 +60,31 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
     void* args[]        = {&d_d, &d_q, &d_dims, &d_eb_variants};
 
     if (dims[nDIM] == 1) {
+        static const int B = MetadataTrait<1>::Block;
+
         dim3 block_num(dims[nBLK0]);
-        dim3 thread_num(gpu_B_1d);
+        dim3 thread_num(B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_1d1l<Data, Quant, gpu_B_1d>,  //
+            (void*)cusz::predictor_quantizer::c_lorenzo_1d1l<Data, Quant>,  //
             block_num, thread_num, args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
+        static const int B = MetadataTrait<2>::Block;
+
         dim3 block_num(dims[nBLK0], dims[nBLK1]);
-        dim3 thread_num(gpu_B_2d, gpu_B_2d);
+        dim3 thread_num(B, B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_2d1l<Data, Quant, gpu_B_2d>,  //
-            block_num, thread_num, args, (gpu_B_2d + 1) * (gpu_B_2d + 1) * sizeof(Data), nullptr);
+            (void*)cusz::predictor_quantizer::c_lorenzo_2d1l<Data, Quant>,  //
+            block_num, thread_num, args, (B + 1) * (B + 1) * sizeof(Data), nullptr);
     }
     else if (dims[nDIM] == 3) {
+        static const int B = MetadataTrait<3>::Block;
+
         dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]);
-        dim3 thread_num(gpu_B_3d, gpu_B_3d, gpu_B_3d);
+        dim3 thread_num(B, B, B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_3d1l<Data, Quant, gpu_B_3d>,  //
-            block_num, thread_num, args, (gpu_B_3d + 1) * (gpu_B_3d + 1) * (gpu_B_3d + 1) * sizeof(Data), nullptr);
+            (void*)cusz::predictor_quantizer::c_lorenzo_3d1l<Data, Quant>,  //
+            block_num, thread_num, args, (B + 1) * (B + 1) * (B + 1) * sizeof(Data), nullptr);
     }
     HANDLE_ERROR(cudaDeviceSynchronize());
 }
@@ -94,27 +96,25 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
     void* args[] = {&d_xd, &d_outlier, &d_q, &d_dims, &_2eb};
 
     if (dims[nDIM] == 1) {
-        const static size_t p = gpu_B_1d;
+        static const int p = MetadataTrait<1>::Block;
 
         dim3 thread_num(p);
         dim3 block_num((dims[nBLK0] - 1) / p + 1);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_1d1l<Data, Quant, gpu_B_1d>, block_num, thread_num, args, 0,
-            nullptr);
+            (void*)cusz::predictor_quantizer::x_lorenzo_1d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
-        const static size_t p = gpu_B_2d;
+        const static size_t p = MetadataTrait<2>::Block;
 
         dim3 thread_num(p, p);
         dim3 block_num(
             (dims[nBLK0] - 1) / p + 1,   //
             (dims[nBLK1] - 1) / p + 1);  //
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant, gpu_B_2d>, block_num, thread_num, args, 0,
-            nullptr);
+            (void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
     }
     else if (dims[nDIM] == 3) {
-        const static size_t p = gpu_B_3d;
+        const static size_t p = MetadataTrait<3>::Block;
 
         dim3 thread_num(p, p, p);
         dim3 block_num(
@@ -122,8 +122,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
             (dims[nBLK1] - 1) / p + 1,   //
             (dims[nBLK2] - 1) / p + 1);  //
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant, gpu_B_3d>, block_num, thread_num, args, 0,
-            nullptr);
+            (void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
     }
     else {
         cerr << log_err << "no 4D" << endl;

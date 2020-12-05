@@ -23,19 +23,20 @@ using std::string;
 #if __cplusplus >= 201103L
 
 #include "SDRB.hh"
-#include "type_aliasing.hh"
 #include "analysis_utils.hh"
 #include "argparse.hh"
 #include "constants.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
-#include "cusz_workflow.cuh"
+#include "cusz_interface.cuh"
 #include "filter.cuh"
 #include "format.hh"
 #include "io.hh"
+#include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
 #include "timer.hh"
+#include "type_aliasing.hh"
 #include "types.hh"
 
 template <typename Data, int DownscaleFactor, int tBLK>

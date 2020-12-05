@@ -27,6 +27,7 @@
 #include "constants.hh"
 #include "format.hh"
 #include "io.hh"
+#include "metadata.hh"
 #include "timer.hh"
 #include "types.hh"
 
@@ -42,11 +43,11 @@ size_t* InitializeDims(size_t cap, size_t n_dims, size_t dim0, size_t dim1, size
 
     int BLK;
     if (dims_L16[nDIM] == 1)
-        BLK = B_1d;
+        BLK = MetadataTrait<1>::Block;
     else if (dims_L16[nDIM] == 2)
-        BLK = B_2d;
+        BLK = MetadataTrait<2>::Block;
     else if (dims_L16[nDIM] == 3)
-        BLK = B_3d;
+        BLK = MetadataTrait<3>::Block;
 
     dims_L16[nBLK0]  = (dims_L16[DIM0] - 1) / (size_t)BLK + 1;
     dims_L16[nBLK1]  = (dims_L16[DIM1] - 1) / (size_t)BLK + 1;
@@ -65,11 +66,12 @@ void SetDims(size_t* dims_L16, size_t new_dims[4])
     std::copy(new_dims, new_dims + 4, dims_L16);
     int BLK;
     if (dims_L16[nDIM] == 1)
-        BLK = B_1d;
+        BLK = MetadataTrait<1>::Block;
     else if (dims_L16[nDIM] == 2)
-        BLK = B_2d;
+        BLK = MetadataTrait<2>::Block;
     else if (dims_L16[nDIM] == 3)
-        BLK = B_3d;
+        BLK = MetadataTrait<3>::Block;
+
     dims_L16[nBLK0] = (dims_L16[DIM0] - 1) / (size_t)BLK + 1;
     dims_L16[nBLK1] = (dims_L16[DIM1] - 1) / (size_t)BLK + 1;
     dims_L16[nBLK2] = (dims_L16[DIM2] - 1) / (size_t)BLK + 1;
