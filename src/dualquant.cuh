@@ -24,25 +24,25 @@ extern __shared__ char scratch[];
 namespace cusz {
 namespace predictor_quantizer {
 
-template <typename Data, typename Quant, int B = 32>
+template <typename Data, typename Quant>
 __global__ void c_lorenzo_1d1l(Data*, Quant*, size_t const*, double const*);
 
-template <typename Data, typename Quant, int B = 16>
+template <typename Data, typename Quant>
 __global__ void c_lorenzo_2d1l(Data*, Quant*, size_t const*, double const*);
 
-template <typename Data, typename Quant, int B = 8>
+template <typename Data, typename Quant>
 __global__ void c_lorenzo_3d1l(Data*, Quant*, size_t const*, double const*);
 
-template <typename Data, typename Quant, int B = 32>
+template <typename Data, typename Quant>
 __global__ void x_lorenzo_1d1l(Data*, Data*, Quant*, size_t const*, double);
 
-template <typename Data, typename Quant, int B = 16>
+template <typename Data, typename Quant>
 __global__ void x_lorenzo_2d1l(Data*, Data*, Quant*, size_t const*, double);
 
-template <typename Data, typename Quant, int B = 8>
+template <typename Data, typename Quant>
 __global__ void x_lorenzo_3d1l(Data*, Data*, Quant*, size_t const*, double);
 
-}  // namespace PdQ
+}  // namespace predictor_quantizer
 }  // namespace cusz
 
 #endif
