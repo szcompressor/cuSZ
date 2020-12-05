@@ -13,7 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "huffman.cuh"
+#include "serial_huff.cuh"
 
 using namespace std;
 template <typename Input_UInt, typename Output_Uint>

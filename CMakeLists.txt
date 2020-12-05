@@ -47,16 +47,14 @@ add_executable(psz
 ## to link with parhuffman
 add_library(gpuhuffman ${LIB_TYPE}
         src/dbg_gpu_printing.cuh
-        src/histogram.cu
-        src/histogram.cuh
-        src/huffman.cu
-        src/huffman.cuh
-        src/huffman_codec.cu
-        src/huffman_codec.cuh
-        src/huffman_workflow.cu
-        src/huffman_workflow.cuh
-        src/histogram.cu
-        src/histogram.cuh
+        src/hist.cu
+        src/hist.cuh
+        src/huff_codec.cu
+        src/huff_codec.cuh
+        src/huff_interface.cu
+        src/huff_interface.cuh
+        src/hist.cu
+        src/hist.cuh
         )
 add_library(utils ${LIB_TYPE}
         src/analysis.hh

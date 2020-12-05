@@ -37,7 +37,7 @@
 #include "filter.cuh"
 #include "format.hh"
 #include "gather_scatter.cuh"
-#include "huffman_workflow.cuh"
+#include "huff_interface.cuh"
 #include "io.hh"
 #include "metadata.hh"
 #include "timer.hh"
