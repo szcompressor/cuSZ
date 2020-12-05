@@ -61,8 +61,8 @@ all: ; @$(MAKE) cusz -j
 
 _DEPS_ARG  := $(SRC_DIR)/argparse.o
 _DEPS_MEM  := $(SRC_DIR)/cuda_mem.o
-_DEPS_HIST := $(SRC_DIR)/histogram.o $(SRC_DIR)/huffman_workflow.o $(SRC_DIR)/format.o $(SRC_DIR)/canonical.o $(SRC_DIR)/huffman.o -rdc=true
-_DEPS_OLDENC := $(SRC_DIR)/huffman_codec.o $(SRC_DIR)/par_huffman.o $(SRC_DIR)/par_huffman_sortbyfreq.o $(SRC_DIR)/par_merge.o
+_DEPS_HIST := $(SRC_DIR)/hist.o $(SRC_DIR)/huff_interface.o $(SRC_DIR)/format.o -rdc=true
+_DEPS_OLDENC := $(SRC_DIR)/huff_codec.o $(SRC_DIR)/par_huffman.o $(SRC_DIR)/par_huffman_sortbyfreq.o $(SRC_DIR)/par_merge.o
 DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 
 install: bin/cusz
