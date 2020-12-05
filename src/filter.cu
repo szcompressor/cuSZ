@@ -14,7 +14,7 @@
 #include <iostream>
 #include "filter.cuh"
 #include "stdio.h"
-#include "ad_hoc_types.hh"
+#include "type_aliasing.hh"
 
 using std::cout;
 using std::endl;

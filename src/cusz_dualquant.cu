@@ -16,8 +16,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "ad_hoc_types.hh"
 #include "cusz_dualquant.cuh"
+#include "type_aliasing.hh"
 
 const int DIM0 = 0;
 const int DIM1 = 1;

@@ -17,8 +17,8 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "ad_hoc_types.hh"
 #include "histogram.cuh"
+#include "type_aliasing.hh"
 
 __global__ void data_process::reduce::NaiveHistogram(int input_data[], int output[], int N, int symbols_per_thread)
 {

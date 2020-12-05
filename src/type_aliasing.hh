@@ -1,5 +1,5 @@
 /**
- * @file ad_hoc_types.hh
+ * @file type_aliasing.hh
  * @author Jiannan Tian
  * @brief To be superseded by type_trait.hh
  * @version 0.1.4
@@ -10,14 +10,11 @@
  *
  */
 
-#ifndef CUSZ_AD_HOC_TYPES_HH
-#define CUSZ_AD_HOC_TYPES_HH
+#ifndef CUSZ_TYPE_ALIASING_HH
+#define CUSZ_TYPE_ALIASING_HH
 
 #include <cstdint>
 
-// alias style 1
-//typedef int8_t  int8__t;
-//typedef uint8_t uint8__t;
 typedef float   f32;
 typedef double  f64;
 // alias style 2

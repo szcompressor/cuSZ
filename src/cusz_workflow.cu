@@ -24,7 +24,7 @@
 // #if __cplusplus >= 201103L
 
 #include <type_traits>
-#include "ad_hoc_types.hh"
+
 #include "analysis_utils.hh"
 #include "argparse.hh"
 #include "autotune.h"
@@ -40,6 +40,8 @@
 #include "huffman_workflow.cuh"
 #include "io.hh"
 #include "timer.hh"
+#include "type_aliasing.hh"
+#include "type_trait.hh"
 #include "verify.hh"
 
 using std::cerr;
@@ -195,7 +197,7 @@ void cusz::impl::VerifyHuffman(
     // end of if count
 }
 
-template <typename Data, typename Quant, typename Huff>
+template <typename Data, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
     argpack*                    ap,
     struct AdHocDataPack<Data>* adp,
@@ -206,6 +208,9 @@ void cusz::interface::Compress(
     size_t&                     n_uInt,
     size_t&                     huffman_metadata_size)
 {
+    using Quant = typename QuantTrait<QuantByte>::Quant;
+    using Huff  = typename HuffTrait<HuffByte>::Huff;
+
     // TODO to use a struct
     // TODO already calculated outside in main()
     size_t len = dims[LEN];
@@ -263,7 +268,7 @@ void cusz::interface::Compress(
     cudaFree(d_q);
 }
 
-template <typename Data, typename Quant, typename Huff>
+template <typename Data, int QuantByte, int HuffByte>
 void cusz::interface::Decompress(
     argpack* ap,
     size_t*  dims,
@@ -273,6 +278,9 @@ void cusz::interface::Decompress(
     size_t&  total_uInt,
     size_t&  huffman_metadata_size)
 {
+    using Quant = typename QuantTrait<QuantByte>::Quant;
+    using Huff  = typename HuffTrait<HuffByte>::Huff;
+
     auto dict_size = dims[CAP];
     auto len       = dims[LEN];
     auto m         = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
@@ -377,18 +385,18 @@ void cusz::interface::Decompress(
 typedef struct AdHocDataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
-template void szin::Compress<FP4, UI1, UI4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, UI1, UI8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, UI1, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, UI2, UI4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, UI2, UI8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, UI2, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+// template void szin::Compress<FP4, 1, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<FP4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+// template void szin::Compress<FP4, 2, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
 
-template void szin::Decompress<FP4, UI1, UI4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, UI1, UI8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, UI1, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, UI2, UI4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, UI2, UI8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, UI2, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+// template void szin::Decompress<FP4, 1, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, 2, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<FP4, 2, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+// template void szin::Decompress<FP4, UI2, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
 
 // #endif
