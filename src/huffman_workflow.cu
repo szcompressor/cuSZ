@@ -28,7 +28,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "ad_hoc_types.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
 #include "dbg_gpu_printing.cuh"
@@ -39,6 +38,7 @@
 #include "huffman_workflow.cuh"
 #include "par_huffman.cuh"
 #include "timer.hh"
+#include "type_aliasing.hh"
 #include "types.hh"
 
 int ht_state_num;

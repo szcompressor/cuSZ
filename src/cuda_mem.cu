@@ -15,8 +15,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include "ad_hoc_types.hh"
 #include "cuda_mem.cuh"
+#include "type_aliasing.hh"
 
 template <typename T>
 inline T* mem::CreateCUDASpace(size_t len, uint8_t filling_val)
