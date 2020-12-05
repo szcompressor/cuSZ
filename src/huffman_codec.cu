@@ -15,8 +15,8 @@
 #include <stdint.h>
 #include <cstdio>
 #include <limits>
-#include "ad_hoc_types.hh"
 #include "huffman_codec.cuh"
+#include "type_aliasing.hh"
 
 using uint8__t = uint8_t;
 

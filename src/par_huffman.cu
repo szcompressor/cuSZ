@@ -20,7 +20,6 @@
 #include <cstring>
 #include <limits>
 
-#include "ad_hoc_types.hh"
 #include "cuda_error_handling.cuh"
 #include "cuda_mem.cuh"
 #include "dbg_gpu_printing.cuh"
@@ -28,6 +27,7 @@
 #include "par_huffman.cuh"
 #include "par_huffman_sortbyfreq.cuh"
 #include "par_merge.cuh"
+#include "type_aliasing.hh"
 
 // Mathematically correct mod
 #define MOD(a, b) ((((a) % (b)) + (b)) % (b))

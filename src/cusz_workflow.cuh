@@ -23,10 +23,10 @@ using namespace std;
 namespace cusz {
 namespace interface {
 
-template <typename Data, typename Quant, typename Huff>
+template <typename Data, int QuantByte, int HuffByte>
 void Compress(argpack*, struct AdHocDataPack<Data>*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 
-template <typename Data, typename Quant, typename Huff>
+template <typename Data, int QuantByte, int HuffByte>
 void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 
 }  // namespace interface
