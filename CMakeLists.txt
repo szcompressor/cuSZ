@@ -85,12 +85,12 @@ add_executable(cusz_cmake
         src/argparse.hh
         src/constants.cc
         src/constants.hh
-        src/cusz_dryrun.cu
-        src/cusz_dryrun.cuh
-        src/cusz_dualquant.cu
-        src/cusz_dualquant.cuh
-        src/cusz_workflow.cu
-        src/cusz_workflow.cuh
+        src/dryrun.cu
+        src/dryrun.cuh
+        src/dualquant.cu
+        src/dualquant.cuh
+        src/cusz_interface.cu
+        src/cusz_interface.cuh
         src/gather_scatter.cu
         src/gather_scatter.cuh
         src/io.hh

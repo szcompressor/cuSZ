@@ -14,10 +14,11 @@
 #include <iostream>
 #include <string>
 #include "cuda_mem.cuh"
-#include "cusz_dryrun.cuh"
-#include "cusz_dualquant.cuh"
+#include "dryrun.cuh"
+#include "dualquant.cuh"
 #include "format.hh"
 #include "io.hh"
+#include "metadata.hh"
 #include "verify.hh"
 
 using std::cerr;
@@ -43,9 +44,9 @@ const size_t EB = 0;
 const size_t EBx2   = 2;
 const size_t EBx2_r = 3;
 
-const int B_1d = 32;
-const int B_2d = 16;
-const int B_3d = 8;
+// const int B_1d = 32;
+// const int B_2d = 16;
+// const int B_3d = 8;
 
 template <typename Data>
 __global__ void cusz::dryrun::lorenzo_1d1l(Data* d, const size_t* dims, const double* eb_variants)
@@ -89,18 +90,24 @@ void cusz::interface::DryRun(Data* d, Data* d_d, const string& fi, size_t* dims,
     memcpy(d2, d, sizeof(Data) * len);
 
     if (dims[nDIM] == 1) {
+        static const int B = MetadataTrait<1>::Block;
+
         dim3 block_num(dims[nBLK0]);
-        dim3 thread_num(B_1d);
+        dim3 thread_num(B);
         cusz::dryrun::lorenzo_1d1l<Data><<<block_num, thread_num>>>(d_d, d_dims, d_eb_variants);
     }
     else if (dims[nDIM] == 2) {
+        static const int B = MetadataTrait<2>::Block;
+
         dim3 block_num(dims[nBLK0], dims[nBLK1]);
-        dim3 thread_num(B_2d, B_2d);
+        dim3 thread_num(B, B);
         cusz::dryrun::lorenzo_2d1l<Data><<<block_num, thread_num>>>(d_d, d_dims, d_eb_variants);
     }
     else if (dims[nDIM] == 3) {
+        static const int B = MetadataTrait<2>::Block;
+
         dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]);
-        dim3 thread_num(B_3d, B_3d, B_3d);
+        dim3 thread_num(B, B, B);
         cusz::dryrun::lorenzo_3d1l<Data><<<block_num, thread_num>>>(d_d, d_dims, d_eb_variants);
     }
     cudaDeviceSynchronize();

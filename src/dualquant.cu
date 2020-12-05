@@ -16,7 +16,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "cusz_dualquant.cuh"
+#include "dualquant.cuh"
+#include "metadata.hh"
 #include "type_aliasing.hh"
 
 const int DIM0 = 0;
@@ -39,17 +40,27 @@ const size_t EBx2_r = 3;
 // extern __constant__ int    symb_dims[16];
 // extern __constant__ double symb_ebs[4];
 
-template <typename Data, typename Quant, int B>
+#define tix threadIdx.x
+#define tiy threadIdx.y
+#define tiz threadIdx.z
+#define bix blockIdx.x
+#define biy blockIdx.y
+#define biz blockIdx.z
+#define bdx blockDim.x
+#define bdy blockDim.y
+#define bdz blockDim.z
+
+template <typename Data, typename Quant>
 __global__ void
 cusz::predictor_quantizer::c_lorenzo_1d1l(Data* d, Quant* q, size_t const* dims, double const* precisions)
 {
-    size_t id = blockIdx.x * blockDim.x + threadIdx.x;
+    auto id = bix * bdx + tix;
     if (id >= dims[DIM0]) return;
     // prequant
     d[id] = round(d[id] * precisions[EBx2_r]);  // maintain fp representation
     __syncthreads();
     // postquant
-    Data pred        = threadIdx.x == 0 ? 0 : d[id - 1];
+    Data pred        = tix == 0 ? 0 : d[id - 1];
     Data delta       = d[id] - pred;
     bool quantizable = fabs(delta) < dims[RADIUS];
     auto _code       = static_cast<Quant>(delta + dims[RADIUS]);
@@ -58,16 +69,16 @@ cusz::predictor_quantizer::c_lorenzo_1d1l(Data* d, Quant* q, size_t const* dims,
     q[id] = quantizable * _code;
 }
 
-template <typename Data, typename Quant, int B>
+template <typename Data, typename Quant>
 __global__ void
 cusz::predictor_quantizer::c_lorenzo_2d1l(Data* d, Quant* q, size_t const* dims, double const* precisions)
 {
-    int y   = threadIdx.y;
-    int x   = threadIdx.x;
-    int gi1 = blockIdx.y * blockDim.y + y;
-    int gi0 = blockIdx.x * blockDim.x + x;
-
+    static const int B        = MetadataTrait<2>::Block;
     Data(&s2df)[B + 1][B + 1] = *reinterpret_cast<Data(*)[B + 1][B + 1]>(&scratch);
+
+    auto y = tiy, x = tix;
+    auto gi1 = biy * bdy + y, gi0 = bix * bdx + x;
+
     if (x < B + 1 and y < B + 1) s2df[y + 1][0] = 0, s2df[0][x + 1] = 0;
     if (x == 0 and y == 0) s2df[0][0] = 0;
     __syncthreads();
@@ -86,15 +97,15 @@ cusz::predictor_quantizer::c_lorenzo_2d1l(Data* d, Quant* q, size_t const* dims,
     q[id] = quantizable * _code;
 }
 
-template <typename Data, typename Quant, int B>
+template <typename Data, typename Quant>
 __global__ void
 cusz::predictor_quantizer::c_lorenzo_3d1l(Data* d, Quant* q, size_t const* dims, double const* precisions)
 {
-    int z = threadIdx.z;
-    int y = threadIdx.y;
-    int x = threadIdx.x;
+    static const int B = MetadataTrait<3>::Block;
 
     Data(&s3df)[B + 1][B + 1][B + 1] = *reinterpret_cast<Data(*)[B + 1][B + 1][B + 1]>(&scratch);
+
+    auto z = tiz, y = tiy, x = tix;
 
     if (x == 0) {
         s3df[z + 1][y + 1][0] = 0;
@@ -109,9 +120,8 @@ cusz::predictor_quantizer::c_lorenzo_3d1l(Data* d, Quant* q, size_t const* dims,
     if (x == 0 and y == 0 and z == 0) s3df[0][0][0] = 0;
     __syncthreads();
 
-    int gi2 = blockIdx.z * blockDim.z + z;
-    int gi1 = blockIdx.y * blockDim.y + y;
-    int gi0 = blockIdx.x * blockDim.x + x;
+    auto gi2 = biz * bdz + z, gi1 = biy * bdy + y, gi0 = bix * bdx + x;
+
     if (gi0 >= dims[DIM0] or gi1 >= dims[DIM1] or gi2 >= dims[DIM2]) return;
     size_t id = gi0 + gi1 * dims[DIM0] + gi2 * dims[DIM0] * dims[DIM1];  // low to high in dim, inner to outer
     // prequant
@@ -134,13 +144,15 @@ cusz::predictor_quantizer::c_lorenzo_3d1l(Data* d, Quant* q, size_t const* dims,
 //   |compression                    v
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <typename Data, typename Quant, int B>
+template <typename Data, typename Quant>
 __global__ void
 cusz::predictor_quantizer::x_lorenzo_1d1l(Data* xd, Data* outlier, Quant* q, size_t const* dims, double val_2eb)
 {
+    static const int B = MetadataTrait<1>::Block;
+
     auto radius = static_cast<Quant>(dims[RADIUS]);
 
-    size_t b0 = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t b0 = bdx * bix + tix;
     if (b0 >= dims[nBLK0]) return;
     size_t _idx0 = b0 * B;
 
@@ -158,16 +170,18 @@ cusz::predictor_quantizer::x_lorenzo_1d1l(Data* xd, Data* outlier, Quant* q, siz
     // end of body //
 }
 
-template <typename Data, typename Quant, int B>
+template <typename Data, typename Quant>
 __global__ void
 cusz::predictor_quantizer::x_lorenzo_2d1l(Data* xd, Data* outlier, Quant* q, size_t const* dims, double val_2eb)
 {
+    static const int B = MetadataTrait<2>::Block;
+
     Data s[B + 1][B + 1];  // try not use shared memory first
     memset(s, 0, (B + 1) * (B + 1) * sizeof(Data));
     auto radius = static_cast<Quant>(dims[RADIUS]);
 
-    size_t b1 = blockDim.y * blockIdx.y + threadIdx.y;
-    size_t b0 = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t b1 = bdy * biy + tiy;
+    size_t b0 = bdx * bix + tix;
 
     if (b1 >= dims[nBLK1] or b0 >= dims[nBLK0]) return;
 
@@ -188,17 +202,19 @@ cusz::predictor_quantizer::x_lorenzo_2d1l(Data* xd, Data* outlier, Quant* q, siz
     // end of body //
 }
 
-template <typename Data, typename Quant, int B>
+template <typename Data, typename Quant>
 __global__ void
 cusz::predictor_quantizer::x_lorenzo_3d1l(Data* xd, Data* outlier, Quant* q, size_t const* dims, double val_2eb)
 {
+    static const int B = MetadataTrait<3>::Block;
+
     Data s[B + 1][B + 1][B + 1];
     memset(s, 0, (B + 1) * (B + 1) * (B + 1) * sizeof(Data));
     auto radius = static_cast<Quant>(dims[RADIUS]);
 
-    size_t b2 = blockDim.z * blockIdx.z + threadIdx.z;
-    size_t b1 = blockDim.y * blockIdx.y + threadIdx.y;
-    size_t b0 = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t b2 = bdz * biz + tiz;
+    size_t b1 = bdy * biy + tiy;
+    size_t b0 = bdx * bix + tix;
 
     if (b2 >= dims[nBLK2] or b1 >= dims[nBLK1] or b0 >= dims[nBLK0]) return;
 
@@ -230,41 +246,21 @@ namespace kernel = cusz::predictor_quantizer;
 
 // compression
 // prototype 1D
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 32>(FP4*, UI1*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 32>(FP4*, UI2*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 64>(FP4*, UI1*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 64>(FP4*, UI2*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 128>(FP4*, UI1*, size_t const*, FP8 const*);
-// template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 128>(FP4*, UI2*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 256>(FP4*, UI1*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 256>(FP4*, UI2*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 512>(FP4*, UI1*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 512>(FP4*, UI2*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1, 1024>(FP4*, UI1*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2, 1024>(FP4*, UI2*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1>(FP4*, UI1*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_1d1l<FP4, UI2>(FP4*, UI2*, size_t const*, FP8 const*);
 // prototype 2D
-template __global__ void kernel::c_lorenzo_2d1l<FP4, UI1, 16>(FP4*, UI1*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_2d1l<FP4, UI2, 16>(FP4*, UI2*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_2d1l<FP4, UI1>(FP4*, UI1*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_2d1l<FP4, UI2>(FP4*, UI2*, size_t const*, FP8 const*);
 // prototype 3D
-template __global__ void kernel::c_lorenzo_3d1l<FP4, UI1, 8>(FP4*, UI1*, size_t const*, FP8 const*);
-template __global__ void kernel::c_lorenzo_3d1l<FP4, UI2, 8>(FP4*, UI2*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_3d1l<FP4, UI1>(FP4*, UI1*, size_t const*, FP8 const*);
+template __global__ void kernel::c_lorenzo_3d1l<FP4, UI2>(FP4*, UI2*, size_t const*, FP8 const*);
 // decompression
 // prototype 1D
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 32>(FP4*, FP4*, UI1*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 32>(FP4*, FP4*, UI2*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 64>(FP4*, FP4*, UI1*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 64>(FP4*, FP4*, UI2*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 128>(FP4*, FP4*, UI1*, size_t const*, FP8);
-// template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 128>(FP4*, FP4*, UI2*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 256>(FP4*, FP4*, UI1*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 256>(FP4*, FP4*, UI2*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 512>(FP4*, FP4*, UI1*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 512>(FP4*, FP4*, UI2*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1, 1024>(FP4*, FP4*, UI1*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2, 1024>(FP4*, FP4*, UI2*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1>(FP4*, FP4*, UI1*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2>(FP4*, FP4*, UI2*, size_t const*, FP8);
 // prototype 2D
-template __global__ void kernel::x_lorenzo_2d1l<FP4, UI1, 16>(FP4*, FP4*, UI1*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_2d1l<FP4, UI2, 16>(FP4*, FP4*, UI2*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_2d1l<FP4, UI1>(FP4*, FP4*, UI1*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_2d1l<FP4, UI2>(FP4*, FP4*, UI2*, size_t const*, FP8);
 // prototype 3D
-template __global__ void kernel::x_lorenzo_3d1l<FP4, UI1, 8>(FP4*, FP4*, UI1*, size_t const*, FP8);
-template __global__ void kernel::x_lorenzo_3d1l<FP4, UI2, 8>(FP4*, FP4*, UI2*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_3d1l<FP4, UI1>(FP4*, FP4*, UI1*, size_t const*, FP8);
+template __global__ void kernel::x_lorenzo_3d1l<FP4, UI2>(FP4*, FP4*, UI2*, size_t const*, FP8);

@@ -36,8 +36,5 @@ extern const size_t EBr;
 extern const size_t EBx2;
 extern const size_t EBx2_r;
 
-extern const int B_1d;
-extern const int B_2d;
-extern const int B_3d;
 
 #endif
