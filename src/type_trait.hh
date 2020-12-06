@@ -16,6 +16,16 @@
 #include "type_aliasing.hh"
 
 // clang-format off
+template <bool If_FP, int DataByte> struct DataTrait;
+//template <> struct DataTrait<true, 1> {typedef FP4 Data;}; // placeholder for Cartesian expansion
+//template <> struct DataTrait<true, 2> {typedef FP8 Data;};
+template <> struct DataTrait<true, 4> {typedef FP4 Data;};
+template <> struct DataTrait<true, 8> {typedef FP8 Data;};
+//template <> struct DataTrait<false, 1> {typedef FP4 Data;}; // future use
+//template <> struct DataTrait<false, 2> {typedef FP8 Data;};
+//template <> struct DataTrait<false, 4> {typedef FP4 Data;};
+//template <> struct DataTrait<false, 8> {typedef FP8 Data;};
+
 template <int QuantByte> struct QuantTrait;
 template <> struct QuantTrait<1> {typedef UI1 Quant;};
 template <> struct QuantTrait<2> {typedef UI2 Quant;};
@@ -29,8 +39,5 @@ template <int HuffByte> struct HuffTrait;
 template <> struct HuffTrait<4> {typedef UI4 Huff;};
 template <> struct HuffTrait<8> {typedef UI8 Huff;};
 // clang-format on
-
-typedef QuantTrait<1>::Quant q1_t;
-typedef QuantTrait<2>::Quant q2_t;
 
 #endif

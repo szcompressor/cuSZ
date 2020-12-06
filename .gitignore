@@ -19,6 +19,12 @@ huff
 
 *.canonized
 
+cmake-build-debug-t7600
+src/future/cusz-re.cu
+src/dryrun2.cu
+src/dryrun2.cuh
+src/dualquant2.cu
+src/dualquant2.cuh
 
 data/4lossless
 

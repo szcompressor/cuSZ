@@ -152,20 +152,21 @@ int main(int argc, char** argv)
     }
 
     if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
+
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
-                cusz::interface::Compress<FP4, 1, 4>(
+                cusz::interface::Compress<true, 4, 1, 4>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::interface::Compress<FP4, 1, 8>(
+                cusz::interface::Compress<true, 4, 1, 8>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
-                cusz::interface::Compress<FP4, 2, 4>(
+                cusz::interface::Compress<true, 4, 2, 4>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else
-                cusz::interface::Compress<FP4, 2, 8>(
+                cusz::interface::Compress<true, 4, 2, 8>(
                     ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
 
@@ -229,20 +230,21 @@ int main(int argc, char** argv)
 
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
-                cusz::interface::Decompress<float, 1, 4>(
+                cusz::interface::Decompress<true, 4, 1, 4>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else if (ap->huff_byte == 8)
-                cusz::interface::Decompress<float, 1, 8>(
+                cusz::interface::Decompress<true, 4, 1, 8>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
-                cusz::interface::Decompress<float, 2, 4>(
+                cusz::interface::Decompress<true, 4, 2, 4>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
             else if (ap->huff_byte == 8)
-                cusz::interface::Decompress<float, 2, 8>(
+                cusz::interface::Decompress<true, 4, 2, 8>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
+        
     }
 
     delete[] dim_array;
