@@ -196,17 +196,20 @@ void cusz::impl::VerifyHuffman(
     // end of if count
 }
 
-template <typename Data, int QuantByte, int HuffByte>
+// clang-format off
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
-    argpack*                    ap,
-    struct AdHocDataPack<Data>* adp,
-    size_t*                     dims,
-    double*                     eb_variants,
-    int&                        nnz_outlier,
-    size_t&                     n_bits,
-    size_t&                     n_uInt,
-    size_t&                     huffman_metadata_size)
+    argpack* ap,
+    struct AdHocDataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
+    size_t*  dims,
+    double*  eb_variants,
+    int&     nnz_outlier,
+    size_t&  n_bits,
+    size_t&  n_uInt,
+    size_t&  huffman_metadata_size)
 {
+// clang-format on
+    using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
@@ -267,7 +270,7 @@ void cusz::interface::Compress(
     cudaFree(d_q);
 }
 
-template <typename Data, int QuantByte, int HuffByte>
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Decompress(
     argpack* ap,
     size_t*  dims,
@@ -277,6 +280,7 @@ void cusz::interface::Decompress(
     size_t&  total_uInt,
     size_t&  huffman_metadata_size)
 {
+    using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
@@ -384,18 +388,12 @@ void cusz::interface::Decompress(
 typedef struct AdHocDataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
-template void szin::Compress<FP4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-// template void szin::Compress<FP4, 1, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<FP4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-// template void szin::Compress<FP4, 2, UI8_2>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
 
-template void szin::Decompress<FP4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-// template void szin::Decompress<FP4, 1, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, 2, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<FP4, 2, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-// template void szin::Decompress<FP4, UI2, UI8_2>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-
-// #endif
+template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 2, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 2, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);

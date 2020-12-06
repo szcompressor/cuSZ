@@ -17,16 +17,25 @@
 #include <iostream>
 #include "analysis_utils.hh"
 #include "argparse.hh"
+#include "type_trait.hh"
 
 using namespace std;
 
 namespace cusz {
 namespace interface {
 
-template <typename Data, int QuantByte, int HuffByte>
-void Compress(argpack*, struct AdHocDataPack<Data>*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
+void Compress(
+    argpack*,
+    struct AdHocDataPack<typename DataTrait<If_FP, DataByte>::Data>*,
+    size_t*,
+    double*,
+    int&,
+    size_t&,
+    size_t&,
+    size_t&);
 
-template <typename Data, int QuantByte, int HuffByte>
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
 
 }  // namespace interface
