@@ -21,6 +21,13 @@ Our published paper covers the essential design and implementation, accessible v
 # set up
 ## requirements
 - {Pascal,Volta,Turing} NVIDIA GPU
+- NVIDIA nvcomp library
+  - nvcomp is to enable lossless compression for higher compression ratio.
+  - We recommend the [nvcomp project website](https://github.com/NVIDIA/nvcomp) for the compilation information.
+  - After compilation, please add the nvcomp's shared library path to your environment, for example,
+  ```
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${CUSZ_ROOT}/nvcomp/build/lib
+  ```
 - C++14 enabled compiler, GCC 7.x+; CUDA 9.2+
   - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md), and more detailed CUDA-compiler [compatiblity](https://gist.github.com/ax3l/9489132).
   - Note that *CUDA version* is referred to as the *toolchain verion* (e.g., activiated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
