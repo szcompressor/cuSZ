@@ -21,13 +21,6 @@ Our published paper covers the essential design and implementation, accessible v
 # set up
 ## requirements
 - {Pascal,Volta,Turing} NVIDIA GPU
-- NVIDIA nvcomp library
-  - nvcomp is to enable lossless compression for higher compression ratio.
-  - We recommend the [nvcomp project website](https://github.com/NVIDIA/nvcomp) for the compilation information.
-  - After compilation, please add the nvcomp's shared library path to your environment, for example,
-  ```
-  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${CUSZ_ROOT}/nvcomp/build/lib
-  ```
 - C++14 enabled compiler, GCC 7.x+; CUDA 9.2+
   - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md), and more detailed CUDA-compiler [compatiblity](https://gist.github.com/ax3l/9489132).
   - Note that *CUDA version* is referred to as the *toolchain verion* (e.g., activiated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
@@ -41,15 +34,17 @@ Our published paper covers the essential design and implementation, accessible v
 
 
 ## from GitHub
+
 ```bash
 git clone git@github.com:szcompressor/cuSZ.git cusz
 cd cusz && export CUSZ_ROOT=$(pwd)
-make   # can use ${CUSZ_ROOT}/bin/cusz to execute
-sudo make install  # requires elevated permission
+cd nvcomp && mkdir build && cd build
+cmake -DCUB_DIR=${CUSZ_ROOT}/cub .. && make   # compile nvcomp
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${CUSZ_ROOT}/nvcomp/build/lib  # add nvcomp's shared library path
+cd ${CUSZ_ROOT} && make   # compile cusz and generate ${CUSZ_ROOT}/bin/cusz executable
+sudo make install   # requires elevated permission
 ```
-## from Spack
-
-Spack is a multi-platform package manager dedicated for HPC deployment, and it's non-destructive. Currently, deployment of cuSZ requies a workaround on many HPC cluster, see details in [here](./doc/spack-install.md).
+NVIDIA [nvcomp lossless compressor](https://github.com/NVIDIA/nvcomp) is enabled for higher compression ratio. We recommend its project website for more information.
 
 # use
 ## basic use
