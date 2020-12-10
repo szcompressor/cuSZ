@@ -50,7 +50,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
-typedef std::tuple<size_t, size_t, size_t> tuple3ul;
+typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
 
 template <typename Data, typename Quant>
 void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
@@ -206,7 +206,8 @@ void cusz::interface::Compress(
     int&     nnz_outlier,
     size_t&  n_bits,
     size_t&  n_uInt,
-    size_t&  huffman_metadata_size)
+    size_t&  huffman_metadata_size,
+    bool&    nvcomp_in_use)
 {
 // clang-format on
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
@@ -262,8 +263,8 @@ void cusz::interface::Compress(
         ap->huffman_chunk = optimal_chunksize;
     }
 
-    std::tie(n_bits, n_uInt, huffman_metadata_size) =
-        lossless::interface::HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, dims[CAP]);
+    std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) =
+        lossless::interface::HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_gzip, dims[CAP]);
 
     logall(log_dbg, "to store Huffman encoded quant.code (default)");
 
@@ -278,7 +279,8 @@ void cusz::interface::Decompress(
     int&     nnz_outlier,
     size_t&  total_bits,
     size_t&  total_uInt,
-    size_t&  huffman_metadata_size)
+    size_t&  huffman_metadata_size,
+    bool     nvcomp_in_use)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
@@ -300,7 +302,7 @@ void cusz::interface::Decompress(
     else {
         logall(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
+            ap->cx_path2file, len, ap->huffman_chunk, total_uInt, nvcomp_in_use, dict_size);
         if (ap->verify_huffman) {
             // TODO check in argpack
             if (ap->x_fi_origin == "") {
@@ -388,12 +390,12 @@ void cusz::interface::Decompress(
 typedef struct AdHocDataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
-template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
 
-template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<true, 4, 2, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
-template void szin::Decompress<true, 4, 2, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 2, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 2, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
