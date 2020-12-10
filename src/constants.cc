@@ -32,3 +32,4 @@ const size_t EBr    = 1;
 const size_t EBx2   = 2;
 const size_t EBx2_r = 3;
 
+const size_t nvcompTHLD = 30;
