@@ -36,5 +36,7 @@ extern const size_t EBr;
 extern const size_t EBx2;
 extern const size_t EBx2_r;
 
+// threshold to call nvcomp
+extern const size_t nvcompTHLD;
 
 #endif
