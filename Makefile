@@ -11,6 +11,7 @@ CUDA_DBG  := -O0 -G -g
 SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
+NVCOMP_DIR:= nvcomp
 
 GPU_PASCAL:= -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
@@ -38,7 +39,8 @@ CC_FILE   := $(filter-out $(CC_FILE_OMP), $(wildcard $(SRC_DIR)/*.cc))
 MAIN      := $(SRC_DIR)/cusz.cu
 CU_FILE_2 := $(SRC_DIR)/cusz_interface.cu $(SRC_DIR)/dualquant.cu
 CU_FILE_3 := $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
-CU_FILE_1 := $(filter-out $(MAIN) $(CU_FILE_3) $(CU_FILE_2), $(wildcard $(SRC_DIR)/*.cu))
+CU_FILE_4 := $(SRC_DIR)/huff_interface.cu
+CU_FILE_1 := $(filter-out $(MAIN) $(CU_FILE_3) $(CU_FILE_4) $(CU_FILE_2), $(wildcard $(SRC_DIR)/*.cu))
 
 CC_OBJ_OMP:= $(CC_FILE_OMP:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 CC_OBJ    := $(CC_FILE:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
@@ -46,14 +48,16 @@ CC_OBJ    := $(CC_FILE:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 CU_OBJ_1  := $(CU_FILE_1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CU_OBJ_2  := $(CU_FILE_2:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CU_OBJ_3  := $(CU_FILE_3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CU_OBJ_4  := $(CU_FILE_4:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 
-CU_OBJ    := $(CU_OBJ_1) $(CU_OBJ_2) $(CU_OBJ_3)
+CU_OBJ    := $(CU_OBJ_1) $(CU_OBJ_2) $(CU_OBJ_3) $(CU_OBJ_4)
 OBJ_ALL   := $(CC_OBJ) $(CC_OBJ_OMP) $(CU_OBJ)
 
 $(CC_OBJ_OMP): CCFLAGS += -fopenmp
 # $(CU_OBJ_1): NVCCFLAGS +=
 $(CU_OBJ_2): NVCCFLAGS += -rdc=true
 $(CU_OBJ_3): NVCCFLAGS += -rdc=true
+$(CU_OBJ_4): NVCCFLAGS += -I $(NVCOMP_DIR)/build/include -L $(NVCOMP_DIR)/build/lib
 
 all: ; @$(MAKE) cusz -j
 
@@ -69,7 +73,7 @@ install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
 cusz: $(OBJ_ALL) | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
+	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(NVCOMP_DIR)/build/lib/libnvcomp.so -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
 
