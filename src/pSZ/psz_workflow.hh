@@ -46,8 +46,8 @@ void cx_sim(
 {
     size_t len = dims[LEN];
 
-    auto data     = io::ReadBinaryFile<Data>(finame, len);
-    auto data_cmp = io::ReadBinaryFile<Data>(finame, len);
+    auto data     = io::ReadBinaryToNewArray<Data>(finame, len);
+    auto data_cmp = io::ReadBinaryToNewArray<Data>(finame, len);
 
     Data* pred_err = nullptr;
     Data* comp_err = nullptr;

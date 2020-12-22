@@ -83,9 +83,9 @@ int main(int argc, char** argv)
     }
 
     // TODO hardcode for float for now
-    using DataInUse                       = float;
-    struct AdHocDataPack<DataInUse>* adp  = nullptr;
-    DataInUse*                       data = nullptr;
+    using DataInUse                  = float;
+    struct DataPack<DataInUse>* adp  = nullptr;
+    DataInUse*                  data = nullptr;
 
     if (ap->to_archive or ap->to_dryrun) {
         dim_array = ap->use_demo ? InitializeDemoDims(ap->demo_dataset, ap->dict_size)  //
@@ -105,19 +105,20 @@ int main(int argc, char** argv)
         auto a = hires::now();
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(DataInUse)));
         memset(data, 0x00, mxm * sizeof(DataInUse));
-        io::ReadBinaryFile<DataInUse>(ap->cx_path2file, data, len);
+        io::ReadBinaryToArray<DataInUse>(ap->cx_path2file, data, len);
         DataInUse* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
         auto       z      = hires::now();
 
         logall(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
-        adp = new AdHocDataPack<DataInUse>(data, d_data, len);
+        adp = new DataPack<DataInUse>(data, d_data, len);
 
         auto eb_config = new config_t(ap->dict_size, ap->mantissa, ap->exponent);
 
         if (ap->mode == "r2r") {
             double rng;
             auto   time_0 = hires::now();
+            // TODO move to data analytics
             // ------------------------------------------------------------
             thrust::device_ptr<float> g_ptr = thrust::device_pointer_cast(d_data);
 
