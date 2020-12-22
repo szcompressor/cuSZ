@@ -12,6 +12,7 @@
  */
 
 #include <string>
+#include "argparse.hh"
 
 namespace cusz {
 
@@ -30,7 +31,7 @@ __global__ void lorenzo_3d1l(Data*, const size_t*, const double*);
 namespace interface {
 
 template <typename Data>
-void DryRun(Data*, Data*, const std::string&, size_t*, double*);
+void DryRun(argpack*, Data*, Data*, const std::string&, size_t*, double*);
 
 }
 }  // namespace cusz
