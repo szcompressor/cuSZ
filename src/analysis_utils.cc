@@ -18,7 +18,7 @@
 template <typename T>
 double GetDatumValueRange(std::string fname, size_t l)
 {
-    auto d = io::ReadBinaryFile<T>(fname, l);
+    auto d = io::ReadBinaryToNewArray<T>(fname, l);
 
     int idx;
     int max_val, min_val; /* = 0 not needed according to Jim Cownie comment */

@@ -256,12 +256,12 @@ Quant* lossless::interface::HuffmanDecode(
 {
     auto type_bw        = sizeof(Huff) * 8;
     auto canonical_meta = sizeof(Huff) * (2 * type_bw) + sizeof(Quant) * dict_size;
-    auto canonical_byte = io::ReadBinaryFile<uint8_t>(basename + ".canon", canonical_meta);
+    auto canonical_byte = io::ReadBinaryToNewArray<uint8_t>(basename + ".canon", canonical_meta);
     cudaDeviceSynchronize();
 
     auto n_chunk         = (len - 1) / chunk_size + 1;
-    auto huff_multibyte  = io::ReadBinaryFile<Huff>(basename + ".hbyte", total_uInts);
-    auto huff_chunk_meta = io::ReadBinaryFile<size_t>(basename + ".hmeta", 2 * n_chunk);
+    auto huff_multibyte  = io::ReadBinaryToNewArray<Huff>(basename + ".hbyte", total_uInts);
+    auto huff_chunk_meta = io::ReadBinaryToNewArray<size_t>(basename + ".hmeta", 2 * n_chunk);
     auto block_dim       = tBLK_DEFLATE;  // the same as deflating
     auto grid_dim        = (n_chunk - 1) / block_dim + 1;
 

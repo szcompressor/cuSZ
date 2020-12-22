@@ -27,7 +27,7 @@ namespace interface {
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void Compress(
     argpack*,
-    struct AdHocDataPack<typename DataTrait<If_FP, DataByte>::Data>*,
+    struct DataPack<typename DataTrait<If_FP, DataByte>::Data>*,
     size_t*,
     double*,
     int&,

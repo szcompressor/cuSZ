@@ -144,7 +144,7 @@ void cusz::impl::VerifyHuffman(
     // TODO error handling from invalid read
     cout << log_info << "Redo PdQ just to get quantization dump." << endl;
 
-    auto  veri_data   = io::ReadBinaryFile<Data>(fi, len);
+    auto  veri_data   = io::ReadBinaryToNewArray<Data>(fi, len);
     Data* veri_d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
     auto  veri_d_q    = mem::CreateCUDASpace<Quant>(len);
     PdQ(veri_d_data, veri_d_q, dims, eb_variants);
@@ -200,7 +200,7 @@ void cusz::impl::VerifyHuffman(
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
     argpack* ap,
-    struct AdHocDataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
+    struct DataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
     size_t*  dims,
     double*  eb_variants,
     int&     nnz_outlier,
@@ -295,7 +295,7 @@ void cusz::interface::Decompress(
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (ap->skip_huffman) {
         logall(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryFile<Quant>(ap->x_fi_q, len);
+        xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, len);
     }
     else {
         logall(log_info, "Huffman decode -> quant.code");
@@ -359,7 +359,7 @@ void cusz::interface::Decompress(
     if (ap->x_fi_origin != "") {
         logall(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryFile<Data>(ap->x_fi_origin, len);
+        auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, len);
         analysis::VerifyData(
             xdata, odata,
             len,              //
@@ -385,7 +385,7 @@ void cusz::interface::Decompress(
     cudaFree(d_xq);
 }
 
-typedef struct AdHocDataPack<float> adp_f32_t;
+typedef struct DataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
 template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&);
