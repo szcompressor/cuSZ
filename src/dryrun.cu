@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <string>
+#include "argparse.hh"
 #include "cuda_mem.cuh"
 #include "dryrun.cuh"
 #include "dualquant.cuh"
@@ -80,13 +81,12 @@ __global__ void cusz::dryrun::lorenzo_3d1l(Data* d, const size_t* dims, const do
 }
 
 template <typename Data>
-void cusz::interface::DryRun(Data* d, Data* d_d, const string& fi, size_t* dims, double* ebs)
+void cusz::interface::DryRun(argpack* ap, Data* d, Data* d_d, const string& fi, size_t* dims, double* ebs)
 {
     auto len           = dims[LEN];
     auto d_dims        = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
     auto d_eb_variants = mem::CreateDeviceSpaceAndMemcpyFromHost(ebs, 4);
-
-    auto d2 = new Data[len]();
+    auto d2            = new Data[len]();
     memcpy(d2, d, sizeof(Data) * len);
 
     if (dims[nDIM] == 1) {
@@ -113,7 +113,9 @@ void cusz::interface::DryRun(Data* d, Data* d_d, const string& fi, size_t* dims,
     cudaDeviceSynchronize();
     cudaMemcpy(d, d_d, len * sizeof(Data), cudaMemcpyDeviceToHost);
 
-    analysis::VerifyData<Data>(d, d2, len, false, ebs[EB], 0);
+    analysis::VerifyData<Data>(&ap->stat, d, d2, len);
+    analysis::PrintMetrics(&ap->stat, sizeof(Data), false, ebs[EB], 0);
+
     delete[] d2;
     cudaFree(d_d);
     cudaFree(d_dims);
@@ -124,4 +126,5 @@ template __global__ void cusz::dryrun::lorenzo_1d1l<float>(float*, const size_t*
 template __global__ void cusz::dryrun::lorenzo_2d1l<float>(float*, const size_t*, const double*);
 template __global__ void cusz::dryrun::lorenzo_3d1l<float>(float*, const size_t*, const double*);
 
-template void cusz::interface::DryRun<float>(float* d, float* d_d, const string& fi, size_t* dims, double* ebs);
+template void
+cusz::interface::DryRun<float>(argpack*, float* d, float* d_d, const string& fi, size_t* dims, double* ebs);
