@@ -19,6 +19,7 @@
 #include <regex>
 #include <string>
 #include "format.hh"
+#include "types.hh"
 
 using std::string;
 
@@ -27,6 +28,10 @@ extern const int   version;
 extern const int   compatibility;
 
 typedef struct ArgPack {
+    // TODO [ ] metadata
+    // TODO [x] metric/stat
+    stat_t stat;
+
     int read_args_status;
 
     string cx_path2file;
