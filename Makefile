@@ -11,6 +11,9 @@ CUDA_DBG  := -O0 -G -g
 SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
+GTEST_DIR := googletest
+GTEST_INCLUDE_DIR := $(GTEST_DIR)/googletest/include
+GTEST_LIB_DIR := $(GTEST_DIR)/build/lib
 
 GPU_PASCAL:= -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
@@ -69,7 +72,7 @@ install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
 cusz: $(OBJ_ALL) | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
+	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(GTEST_LIB_DIR)/libgtest.a -I $(GTEST_INCLUDE_DIR)/ -lpthread -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
 

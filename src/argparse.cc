@@ -159,6 +159,15 @@ ArgPack::CheckArgs()
         to_extract = false;
     }
 
+    if(to_gtest){
+        if(to_dryrun){
+            to_gtest=false;
+        } else {
+            if(!(to_archive && to_extract))to_gtest=false;
+            if(x_fi_origin=="")to_gtest=false;
+        }
+    }
+
     if (to_abort) {
         cuszDoc();
         exit(-1);
@@ -283,6 +292,10 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                         to_gzip = true;
                         break;
                     }  // wenyu: if there is "--gzip", set member field to_gzip true
+                    if (string(argv[i]) == "--gtest"){
+                        to_gtest = true;
+                        break;
+                    }
                 // work
                 // ----------------------------------------------------------------
                 case 'e':
@@ -513,6 +526,10 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (string(argv[i]) == "--gzip") {
                         to_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
+                    }
+                    if (string(argv[i]) == "--gtest"){
+                        to_gtest = true;
+                        break;
                     }
                     // if (string(argv[i]) == "--coname") {
                     //     // TODO does not apply for preprocessed such as binning

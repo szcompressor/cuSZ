@@ -17,6 +17,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <math.h>
 
 using std::string;
 
@@ -38,6 +39,17 @@ using std::string;
 #include "timer.hh"
 #include "type_aliasing.hh"
 #include "types.hh"
+#include "gtest/gtest.h"
+
+double expectedErr;
+double actualAbsErr;
+double actualRelErr;
+string z_mode;
+
+TEST(cuSZTest,TestMaxError){
+    double actualErr=(z_mode=="r2r")?actualRelErr:actualAbsErr;
+    ASSERT_LE(actualErr,expectedErr);
+}
 
 template <typename Data, int DownscaleFactor, int tBLK>
 Data* pre_binning(Data* d, size_t* dim_array)
@@ -358,6 +370,16 @@ int main(int argc, char** argv)
         cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
         cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".szx\e[0m" << endl;
         delete[] cmd;
+    }
+
+    if(ap->to_gtest){
+        expectedErr=ap->mantissa*pow(10,ap->exponent);
+        z_mode=ap->mode;
+        auto stat=ap->stat;
+        actualAbsErr=stat.max_abserr;
+        actualRelErr=stat.max_abserr_vs_range;
+        ::testing::InitGoogleTest(&argc, argv);
+        return RUN_ALL_TESTS();
     }
 
     // wenyu's modification ends
