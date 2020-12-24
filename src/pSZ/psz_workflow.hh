@@ -28,8 +28,6 @@ namespace PdQ  = psz::dualquant;
 namespace PQRs = psz::sz1_4;
 namespace PQRb = psz::sz1_4_blocked;
 
-namespace AnalysisNamespace = analysis;
-
 namespace psz {
 
 namespace FineMassiveSimulation {
@@ -46,8 +44,8 @@ void cx_sim(
 {
     size_t len = dims[LEN];
 
-    auto data     = io::ReadBinaryFile<Data>(finame, len);
-    auto data_cmp = io::ReadBinaryFile<Data>(finame, len);
+    auto data     = io::ReadBinaryToNewArray<Data>(finame, len);
+    auto data_cmp = io::ReadBinaryToNewArray<Data>(finame, len);
 
     Data* pred_err = nullptr;
     Data* comp_err = nullptr;
@@ -210,7 +208,10 @@ void cx_sim(
         io::WriteArrayToBinary(finame + ".psz.sz14.prederr", pred_err, len);
         io::WriteArrayToBinary(finame + ".psz.sz14.xerr", comp_err, len);
     }
-    AnalysisNamespace::VerifyData(xdata, data_cmp, len, 1);
+
+    stat_t stat;
+    analysis::VerifyData(&stat, xdata, data_cmp, len, 1);
+    analysis::PrintMetrics(&stat, sizeof(Data));
 }
 
 }  // namespace FineMassiveSimulation

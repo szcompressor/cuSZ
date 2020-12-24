@@ -16,18 +16,20 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "types.hh"
 
 namespace analysis {
 
 template <typename T>
-void VerifyData(
-    T*     xData,
-    T*     oData,
-    size_t _len,
-    bool   override_eb       = false,
-    double new_eb            = 0,
-    size_t archive_byte_size = 0,
-    size_t binning_scale     = 1);
+void VerifyData(stat_t* stat, T* xData, T* oData, size_t _len);
+
+void PrintMetrics(
+    stat_t* stat,
+    int     type_byte,
+    bool    override_eb  = false,
+    double  new_eb       = 0,
+    size_t  archive_byte = 0,
+    size_t  bin_scale    = 1);
 
 }  // namespace analysis
 
