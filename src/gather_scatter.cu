@@ -106,7 +106,7 @@ void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, si
     auto lci         = sizeof(int)  * *nnz;
     auto lv          = sizeof(Data) * *nnz;
     auto l_total     = lrp + lci + lv;
-    auto outlier_bin = io::ReadBinaryFile<uint8_t>(*fi, l_total);
+    auto outlier_bin = io::ReadBinaryToNewArray<uint8_t>(*fi, l_total);
     auto row_ptr     = reinterpret_cast<int*>(outlier_bin);
     auto col_ind     = reinterpret_cast<int*>(outlier_bin + lrp);
     auto csr_val     = reinterpret_cast<Data*>(outlier_bin + lrp + lci);  // TODO template

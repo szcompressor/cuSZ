@@ -144,7 +144,7 @@ void cusz::impl::VerifyHuffman(
     // TODO error handling from invalid read
     cout << log_info << "Redo PdQ just to get quantization dump." << endl;
 
-    auto  veri_data   = io::ReadBinaryFile<Data>(fi, len);
+    auto  veri_data   = io::ReadBinaryToNewArray<Data>(fi, len);
     Data* veri_d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
     auto  veri_d_q    = mem::CreateCUDASpace<Quant>(len);
     PdQ(veri_d_data, veri_d_q, dims, eb_variants);
@@ -200,7 +200,7 @@ void cusz::impl::VerifyHuffman(
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
     argpack* ap,
-    struct AdHocDataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
+    struct DataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
     size_t*  dims,
     double*  eb_variants,
     int&     nnz_outlier,
@@ -209,7 +209,7 @@ void cusz::interface::Compress(
     size_t&  huffman_metadata_size,
     bool&    nvcomp_in_use)
 {
-// clang-format on
+    // clang-format on
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
@@ -225,7 +225,7 @@ void cusz::interface::Compress(
 
     if (ap->to_dryrun) {
         logall(log_info, "invoke dry-run");
-        DryRun(data, d_data, ap->cx_path2file, dims, eb_variants);
+        DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
         cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
@@ -297,7 +297,7 @@ void cusz::interface::Decompress(
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (ap->skip_huffman) {
         logall(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryFile<Quant>(ap->x_fi_q, len);
+        xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, len);
     }
     else {
         logall(log_info, "Huffman decode -> quant.code");
@@ -325,14 +325,14 @@ void cusz::interface::Decompress(
 
     logall(log_info, "reconstruct error-bounded datum");
 
-    size_t archive_size = 0;
+    size_t archive_bytes = 0;
     // TODO huffman chunking metadata
     if (not ap->skip_huffman)
-        archive_size += total_uInt * sizeof(Huff)  // Huffman coded
-                        + huffman_metadata_size;   // chunking metadata and reverse codebook
+        archive_bytes += total_uInt * sizeof(Huff)  // Huffman coded
+                         + huffman_metadata_size;   // chunking metadata and reverse codebook
     else
-        archive_size += len * sizeof(Quant);
-    archive_size += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
+        archive_bytes += len * sizeof(Quant);
+    archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
 
     // TODO g++ and clang++ use mangled type_id name, add macro
     // https://stackoverflow.com/a/4541470/8740097
@@ -361,14 +361,10 @@ void cusz::interface::Decompress(
     if (ap->x_fi_origin != "") {
         logall(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryFile<Data>(ap->x_fi_origin, len);
-        analysis::VerifyData(
-            xdata, odata,
-            len,              //
-            false,            //
-            eb_variants[EB],  //
-            archive_size,
-            ap->pre_binning ? 4 : 1);  // TODO use template rather than 2x2
+        auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, len);
+        analysis::VerifyData(&ap->stat, xdata, odata, len);
+        analysis::PrintMetrics(&ap->stat, sizeof(Data), false, eb_variants[EB], archive_bytes, ap->pre_binning ? 4 : 1);
+
         delete[] odata;
     }
     logall(log_info, "output:", ap->cx_path2file + ".szx");
@@ -387,7 +383,7 @@ void cusz::interface::Decompress(
     cudaFree(d_xq);
 }
 
-typedef struct AdHocDataPack<float> adp_f32_t;
+typedef struct DataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
 template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);

@@ -34,15 +34,15 @@ inline size_t GetEdgeOfReinterpretedSquare(size_t l) { return static_cast<size_t
 }  // namespace impl
 }  // namespace cusz
 
+// TODO replace with mirrored data w/ metadata
 template <typename T>
-struct AdHocDataPack {
+struct DataPack {
     T*     data;
     T*     d_data;
     size_t len;
-    size_t m;    // padded len, single dimension
-    size_t mxm;  // 2d
+    size_t m{}, mxm{};  // m is the smallest possible integer that is larger than sqrt(len)
 
-    AdHocDataPack(T* data_, T* d_data_, size_t len_)
+    DataPack(T* data_, T* d_data_, size_t len_)
     {
         data      = data_;
         d_data    = d_data_;
@@ -51,14 +51,5 @@ struct AdHocDataPack {
         this->mxm = m * m;
     }
 };
-
-// namespace cusz {
-// namespace analysis {
-
-// template <typename T>
-// double GetDatumRange(T* d_data);
-
-// }  // namespace analysis
-// }  // namespace cusz
 
 #endif
