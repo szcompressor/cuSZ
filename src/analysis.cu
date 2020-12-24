@@ -99,8 +99,8 @@ int main()
     // auto   extract = io::ReadBinaryFile<float>("/home/jtian/Parihaka_PSTM_far_stack.f32.szx", len);
 
     auto a       = hires::now();
-    auto origin  = io::ReadBinaryFile<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH", len);
-    auto extract = io::ReadBinaryFile<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH.szx", len);
+    auto origin  = io::ReadBinaryToNewArray<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH", len);
+    auto extract = io::ReadBinaryToNewArray<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH.szx", len);
     auto z       = hires::now();
     std::cout << "time loading data:\t" << static_cast<duration_t>(z - a).count() << endl;
 

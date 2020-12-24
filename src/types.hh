@@ -36,6 +36,18 @@ size_t* InitializeDims(size_t cap, size_t n_dims, size_t dim0, size_t dim1 = 1, 
 
 void SetDims(size_t* dims_L16, size_t new_dims[4]);
 
+typedef struct Stat {
+    double minimum{}, maximum{}, range{};
+    double PSNR{}, MSE{}, NRMSE{};
+    double coeff{};
+    double user_set_eb{}, max_abserr_vs_range{}, max_pwr_rel_abserr{};
+
+    size_t len, max_abserr_index;
+    double max_abserr;
+
+//    Stat() {}
+} stat_t;
+
 typedef struct ErrorBoundConfigurator {
     int         capacity, radius;
     double      base, exp_base2, exp_base10;
