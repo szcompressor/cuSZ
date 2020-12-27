@@ -38,11 +38,8 @@ Our published paper covers the essential design and implementation, accessible v
 ```bash
 git clone git@github.com:szcompressor/cuSZ.git cusz
 cd cusz && export CUSZ_ROOT=$(pwd)
-cd nvcomp && mkdir build && cd build
-cmake -DCUB_DIR=${CUSZ_ROOT}/cub .. && make   # compile nvcomp
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${CUSZ_ROOT}/nvcomp/build/lib  # add nvcomp's shared library path
-cd ${CUSZ_ROOT} && make   # compile cusz and generate ${CUSZ_ROOT}/bin/cusz executable
-sudo make install   # requires elevated permission
+make   # can use ${CUSZ_ROOT}/bin/cusz to execute
+sudo make install  # requires elevated permission
 ```
 NVIDIA [nvcomp lossless compressor](https://github.com/NVIDIA/nvcomp) is enabled for higher compression ratio. We recommend its project website for more information.
 
