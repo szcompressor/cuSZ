@@ -1,0 +1,22 @@
+name: CI
+ 
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: [self-hosted,gpu]
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - run: module load gcc/7.3.0
+      - run: module load cuda/10.1
+      - run: module load cmake/3.17.0
+
+      - run: make
