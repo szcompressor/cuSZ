@@ -77,7 +77,7 @@ $(BIN_DIR):
 	mkdir $@
 $(GTEST_LIB_DIR)/libgtest.a:
 	cmake -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S googletest -B googletest/build  && \
-	make -C googltest/build
+	make -C googletest/build
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
 	$(CXX)  $(CCFLAGS) -c $< -o $@
 
