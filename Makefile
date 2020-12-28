@@ -71,11 +71,13 @@ DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
-cusz: $(OBJ_ALL) | $(BIN_DIR)
+cusz: $(OBJ_ALL) $(GTEST_LIB_DIR)/libgtest.a | $(BIN_DIR)
 	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(GTEST_LIB_DIR)/libgtest.a -I $(GTEST_INCLUDE_DIR)/ -lpthread -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
-
+$(GTEST_LIB_DIR)/libgtest.a:
+	cmake -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S googletest -B googletest/build  && \
+	make -C googltest/build
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
 	$(CXX)  $(CCFLAGS) -c $< -o $@
 

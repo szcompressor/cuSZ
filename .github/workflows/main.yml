@@ -16,7 +16,11 @@ jobs:
       - uses: actions/checkout@v2
       
       - run: module load gcc/7.3.0
+      - run: gcc -v
+      - run: g++ -v
       - run: module load cuda/10.1
+      - run: nvcc --version
       - run: module load cmake/3.17.0
+      - run: cmake -v
 
       - run: make
