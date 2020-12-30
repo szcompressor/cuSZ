@@ -22,4 +22,5 @@ jobs:
       # - run: nvcc --version
       # - run: module load cmake/3.17.0
       - run: make
-      - run: interact -p GPU-AI --gres=gpu:volta16:1 -t 00:05:00 && ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
+      #- run: interact -p GPU-AI --gres=gpu:volta16:1 -t 00:05:00 && ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
+      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
