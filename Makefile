@@ -3,6 +3,7 @@
 
 
 #CXX       := clang++ -fPIE
+PWD       := $(shell pwd)
 CXX       := g++
 NVCC      := nvcc
 STD       := -std=c++14
@@ -12,6 +13,8 @@ SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
 NVCOMP_DIR:= nvcomp
+NVCOMP_INCLUDE_DIR:= $(NVCOMP_DIR)/build/include
+NVCOMP_LIB_DIR:= $(NVCOMP_DIR)/build/lib
 
 GPU_PASCAL:= -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
@@ -57,7 +60,8 @@ $(CC_OBJ_OMP): CCFLAGS += -fopenmp
 # $(CU_OBJ_1): NVCCFLAGS +=
 $(CU_OBJ_2): NVCCFLAGS += -rdc=true
 $(CU_OBJ_3): NVCCFLAGS += -rdc=true
-$(CU_OBJ_4): NVCCFLAGS += -I $(NVCOMP_DIR)/build/include -L $(NVCOMP_DIR)/build/lib
+$(CU_OBJ_4): NVCCFLAGS += -I $(NVCOMP_INCLUDE_DIR)/ 
+	#-L $(NVCOMP_LIB_DIR)/
 
 all: ; @$(MAKE) cusz -j
 
@@ -72,15 +76,18 @@ DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
-cusz: $(OBJ_ALL) | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(NVCOMP_DIR)/build/lib/libnvcomp.so -rdc=true $^ -o $(BIN_DIR)/$@
+cusz: $(NVCOMP_LIB_DIR)/libnvcomp.a $(OBJ_ALL) | $(BIN_DIR)
+	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(NVCOMP_LIB_DIR)/libnvcomp.a -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
+$(NVCOMP_LIB_DIR)/libnvcomp.a:
+	cmake -DCUB_DIR=$(PWD)/cub -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S nvcomp -B nvcomp/build  && \
+	make -C nvcomp/build	
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(NVCOMP_LIB_DIR)/libnvcomp.a | $(OBJ_DIR)
 	$(CXX)  $(CCFLAGS) -c $< -o $@
 
-$(CU_OBJ): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu | $(OBJ_DIR)
+$(CU_OBJ): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu $(NVCOMP_LIB_DIR)/libnvcomp.a | $(OBJ_DIR)
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 clean:

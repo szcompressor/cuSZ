@@ -12,7 +12,7 @@ ENDIF(CUDA_VERSION_MAJOR GREATER 8)
 file(GLOB CUDA_SOURCES *.cu)
 file(GLOB CPP_SOURCES *.cpp)
 
-cuda_add_library(nvcomp SHARED ${CUDA_SOURCES} ${CPP_SOURCES})
+cuda_add_library(nvcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
 target_link_libraries(nvcomp)
 
 add_subdirectory("test")
