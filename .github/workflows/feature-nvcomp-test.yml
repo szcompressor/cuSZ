@@ -1,0 +1,27 @@
+name: CI-test for feature/nvcomp
+ 
+on:
+  push:
+    branches: [ feature/nvcomp ]
+  pull_request:
+    branches: [ feature/nvcomp ]
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: [self-hosted,gpu]
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      # - run: module load gcc/7.3.0
+      # - run: gcc -v
+      # - run: g++ -v
+      # - run: module load cuda/10.1
+      # - run: nvcc --version
+      # - run: module load cmake/3.17.0
+      - run: make
+      #- run: interact -p GPU-AI --gres=gpu:volta16:1 -t 00:05:00 && ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
+      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 
+      #--gtest
