@@ -41,7 +41,6 @@ cd cusz && export CUSZ_ROOT=$(pwd)
 make   # can use ${CUSZ_ROOT}/bin/cusz to execute
 sudo make install  # requires elevated permission
 ```
-NVIDIA [nvcomp lossless compressor](https://github.com/NVIDIA/nvcomp) is enabled for higher compression ratio. We recommend its project website for more information.
 
 # use
 ## basic use
@@ -72,6 +71,12 @@ The following **essential** arguments are required,
 - OUTPUT: `--opath` to specify output path for both compression and decompression
 - LOG: `-V` or `--verbose` to print host and device information
 
+## lossless compression
+
+[nvcomp](https://github.com/NVIDIA/nvcomp) lossless compression is enabled for higher compression ratio. We recommend its project website for more information. 
+
+Note that nvcomp will be automatically executed when the compression ratio provided by lossy compression is higher than 30. This threshold can be modified in `src/constants.cc`. We will provide users an option to pass this value as an argument in the future version. 
+
 ## tuning by overriding
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
 
@@ -97,6 +102,7 @@ Other module skipping for use scenarios are in development.
 ## use as an analytical tool
 
 `--dry-run` or `-r` in place of `-z` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
+
 
 # hands-on examples
 
