@@ -15,6 +15,9 @@ BIN_DIR   := bin
 NVCOMP_DIR:= nvcomp
 NVCOMP_INCLUDE_DIR:= $(NVCOMP_DIR)/build/include
 NVCOMP_LIB_DIR:= $(NVCOMP_DIR)/build/lib
+GTEST_DIR := googletest
+GTEST_INCLUDE_DIR := $(GTEST_DIR)/googletest/include
+GTEST_LIB_DIR := $(GTEST_DIR)/build/lib
 
 GPU_PASCAL:= -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
@@ -76,13 +79,16 @@ DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
-cusz: $(NVCOMP_LIB_DIR)/libnvcomp.a $(OBJ_ALL) | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(NVCOMP_LIB_DIR)/libnvcomp.a -rdc=true $^ -o $(BIN_DIR)/$@
+cusz: $(NVCOMP_LIB_DIR)/libnvcomp.a $(OBJ_ALL) $(GTEST_LIB_DIR)/libgtest.a | $(BIN_DIR)
+	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(NVCOMP_LIB_DIR)/libnvcomp.a $(GTEST_LIB_DIR)/libgtest.a -I $(GTEST_INCLUDE_DIR)/ -lpthread -rdc=true $^ -o $(BIN_DIR)/$@
 $(BIN_DIR):
 	mkdir $@
 $(NVCOMP_LIB_DIR)/libnvcomp.a:
 	cmake -DCUB_DIR=$(PWD)/cub -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S nvcomp -B nvcomp/build  && \
 	make -C nvcomp/build	
+$(GTEST_LIB_DIR)/libgtest.a:
+	cmake -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S googletest -B googletest/build  && \
+	make -C googletest/build
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(NVCOMP_LIB_DIR)/libnvcomp.a | $(OBJ_DIR)
 	$(CXX)  $(CCFLAGS) -c $< -o $@
