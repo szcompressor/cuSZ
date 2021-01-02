@@ -1,4 +1,4 @@
-name: CI-test for feature/nvcomp
+name: CI-feature/nvcomp
  
 on:
   push:
@@ -22,6 +22,6 @@ jobs:
       # - run: nvcc --version
       # - run: module load cmake/3.17.0
       - run: make
-      #- run: interact -p GPU-AI --gres=gpu:volta16:1 -t 00:05:00 && ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
-      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 
-      #--gtest
+      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 --gzip -z -x --origin ./data/ex-cesm-CLDHGH --gtest
+      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
+      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-hurr-CLOUDf48 -D hurricane --gzip -z -x --origin ./data/ex-hurr-CLOUDf48 --gtest
