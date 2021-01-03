@@ -264,7 +264,7 @@ void cusz::interface::Compress(
     }
 
     std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) =
-        lossless::interface::HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_gzip, dims[CAP]);
+        lossless::interface::HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_nvcomp, dims[CAP]);
 
     logall(log_dbg, "to store Huffman encoded quant.code (default)");
 

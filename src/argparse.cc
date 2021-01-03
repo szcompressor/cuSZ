@@ -239,6 +239,10 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
 
     to_dryrun = false;  // TODO dry run is meaningful differently for cuSZ and Huffman
 
+    to_gzip = false;
+    to_nvcomp = false;
+    to_gtest = false;
+
     auto str2int = [&](const char* s) {
         char* end;
         auto  res = std::strtol(s, &end, 10);
@@ -292,6 +296,10 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                         to_gzip = true;
                         break;
                     }  // wenyu: if there is "--gzip", set member field to_gzip true
+                    if (string(argv[i]) == "--nvcomp") {
+                        to_nvcomp = true;
+                        break;
+                    }
                     if (string(argv[i]) == "--gtest"){
                         to_gtest = true;
                         break;
@@ -450,6 +458,10 @@ ArgPack::ArgPack(int argc, char** argv)
     autotune_huffman_chunk = true;
     read_args_status       = 0;
 
+    to_gzip = false;
+    to_nvcomp = false;
+    to_gtest = false;
+
     opath = "";
 
     auto str2int = [&](const char* s) {
@@ -526,6 +538,10 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (string(argv[i]) == "--gzip") {
                         to_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
+                    }
+                    if (string(argv[i]) == "--nvcomp"){
+                        to_nvcomp = true;
+                        break;
                     }
                     if (string(argv[i]) == "--gtest"){
                         to_gtest = true;
