@@ -50,7 +50,7 @@ template <typename H> void PrintChunkHuffmanCoding(size_t*, size_t*, size_t, int
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, bool gzip_in_use, int dict_size = 1024);
+tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, bool to_nvcomp, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, bool nvcomp_in_use, int dict_size = 1024);

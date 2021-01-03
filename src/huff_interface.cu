@@ -45,7 +45,7 @@
 
 int ht_state_num;
 int ht_all_nodes;
-const int nvcompTHLD = 30;
+//const int nvcompTHLD = 30;
 using uint8__t = uint8_t;
 
 template <typename UInt_Input>
@@ -133,7 +133,7 @@ void lossless::utils::PrintChunkHuffmanCoding(
 
 template <typename Quant, typename Huff, typename Data>
 std::tuple<size_t, size_t, size_t, bool>
-lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, bool gzip_in_use, int dict_size)
+lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, bool to_nvcomp, int dict_size)
 {
     // histogram
     ht_state_num = 2 * dict_size;
@@ -222,7 +222,8 @@ lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, in
     }
 
     bool nvcomp_in_use=false;
-    if(!gzip_in_use && len*4/sizeof(Huff)/total_uInts>=nvcompTHLD){
+    //if(!gzip_in_use && len*4/sizeof(Huff)/total_uInts>=nvcompTHLD){
+    if(to_nvcomp){
         int* uncompressed_data;
         const size_t in_bytes = sizeof(Huff) * total_uInts;
         cudaMalloc(&uncompressed_data, in_bytes);

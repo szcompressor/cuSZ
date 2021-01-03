@@ -64,6 +64,7 @@ typedef struct ArgPack {
     bool to_decode;        // for standalone huffman
     bool get_entropy;      // for standalone huffman (not in use)
     bool to_gzip;          // wenyu: whether to do a gzip lossless compression on encoded data
+    bool to_nvcomp;        // whether or not to activate nvidia parallel cascading compression
     bool to_gtest;         // whether or not to activate unit test
 
     static string format(const string& s);
