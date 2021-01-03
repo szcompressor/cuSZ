@@ -15,8 +15,8 @@ Our published paper covers the essential design and implementation, accessible v
 
 (C) 2020 by Washington State University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
-* Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
-* Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Wenyu Gai, Xin Liang, Robert Underwood, Kai Zhao
+* Developers: Jiannan Tian, Cody Rivera, Wenyu Gai, Dingwen Tao, Sheng Di, Franck Cappello
+* Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Xin Liang, Robert Underwood, Kai Zhao
 
 # set up
 ## requirements
