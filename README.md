@@ -71,11 +71,17 @@ The following **essential** arguments are required,
 - OUTPUT: `--opath` to specify output path for both compression and decompression
 - LOG: `-V` or `--verbose` to print host and device information
 
-## lossless compression
+## lossless compression (optional)
 
-[nvcomp](https://github.com/NVIDIA/nvcomp) lossless compression is enabled for higher compression ratio. We recommend its project website for more information. 
+gzip (CPU) and/or [nvcomp](https://github.com/NVIDIA/nvcomp) (GPU) lossless compression can be enabled in cuSZ for higher compression ratio by adding ``--gzip`` and/or ``--nvcomp``. For example,
 
-Note that nvcomp will be automatically executed when the compression ratio provided by lossy compression is higher than 30. This threshold can be modified in `src/constants.cc`. We will provide users an option to pass this value as an argument in the future version. 
+```bash
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --gzip
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --nvcomp
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --gzip --nvcomp
+```
+
+We adopt nvcomp's Cascaded compression on GPU. We recommend its project website for more information.
 
 ## tuning by overriding
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
