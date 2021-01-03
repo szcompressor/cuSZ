@@ -3,8 +3,20 @@ name: CI-feature/nvcomp
 on:
   push:
     branches: [ feature/nvcomp ]
+    paths-ignore:
+      - '**.md'
+      - 'doc/**'
+      - 'data/**'
+      - 'LICENSE'
+      - 'changelog'
   pull_request:
     branches: [ feature/nvcomp ]
+    paths-ignore:
+      - '**.md'
+      - 'doc/**'
+      - 'data/**'
+      - 'LICENSE'
+      - 'changelog'
 
   workflow_dispatch:
 
@@ -21,7 +33,20 @@ jobs:
       # - run: module load cuda/10.1
       # - run: nvcc --version
       # - run: module load cmake/3.17.0
-      - run: make
-      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 --gzip -z -x --origin ./data/ex-cesm-CLDHGH --gtest
-      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
-      - run: ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-hurr-CLOUDf48 -D hurricane --gzip -z -x --origin ./data/ex-hurr-CLOUDf48 --gtest
+      - name: compilation
+        run: make
+      - name: test with gzip option activated 
+        run: |
+          ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 --gzip -z -x --origin ./data/ex-cesm-CLDHGH --gtest
+          ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip -z -x --origin ./data/ex-exafel-59200x388 --gtest
+          ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-hurr-CLOUDf48 -D hurricane --gzip -z -x --origin ./data/ex-hurr-CLOUDf48 --gtest
+      - name: test with nvcomp option activated
+        run: |
+          ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 --nvcomp -z -x --origin ./data/ex-cesm-CLDHGH --gtest
+          ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --nvcomp -z -x --origin ./data/ex-exafel-59200x388 --gtest
+          ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-hurr-CLOUDf48 -D hurricane --nvcomp -z -x --origin ./data/ex-hurr-CLOUDf48 --gtest
+      - name: test with gzip and nvcomp option both activated
+        run: |
+          ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 --gzip --nvcomp -z -x --origin ./data/ex-cesm-CLDHGH --gtest
+          ./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-exafel-59200x388 -2 59200 388 --gzip --nvcomp -z -x --origin ./data/ex-exafel-59200x388 --gtest
+          ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-hurr-CLOUDf48 -D hurricane --gzip --nvcomp -z -x --origin ./data/ex-hurr-CLOUDf48 --gtest
