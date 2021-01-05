@@ -1,11 +1,11 @@
-#ifndef CUDA_ERROR_HANDLING
-#define CUDA_ERROR_HANDLING
+#ifndef CUDA_ERR_CUH
+#define CUDA_ERR_CUH
 
 /**
- * @file cuda_error_handling.cuh
+ * @file cuda_err.cuh
  * @author Jiannan Tian
  * @brief CUDA runtime error handling macros.
- * @version 0.1
+ * @version 0.2
  * @date 2020-09-20
  * Created on: 2019-10-08
  *

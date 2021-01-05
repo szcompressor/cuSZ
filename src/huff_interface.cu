@@ -28,17 +28,17 @@
 #include <type_traits>
 #include <vector>
 
-#include "cuda_error_handling.cuh"
-#include "cuda_mem.cuh"
-#include "dbg_gpu_printing.cuh"
-#include "format.hh"
 #include "hist.cuh"
 #include "huff_codec.cuh"
 #include "huff_interface.cuh"
 #include "par_huffman.cuh"
-#include "timer.hh"
 #include "type_aliasing.hh"
 #include "types.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/cuda_mem.cuh"
+#include "utils/dbg_print.cuh"
+#include "utils/format.hh"
+#include "utils/timer.hh"
 
 int ht_state_num;
 int ht_all_nodes;

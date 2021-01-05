@@ -1,3 +1,6 @@
+#ifndef CUSZ_DRYRUN_CUH
+#define CUSZ_DRYRUN_CUH
+
 /**
  * @file cusz_dryrun.cuh
  * @author Jiannan Tian
@@ -35,3 +38,5 @@ void DryRun(argpack*, Data*, Data*, const std::string&, size_t*, double*);
 
 }
 }  // namespace cusz
+
+#endif

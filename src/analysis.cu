@@ -23,9 +23,7 @@
 #include <tuple>
 
 #include "analysis.cuh"
-#include "cuda_mem.cuh"
-#include "io.hh"
-#include "timer.hh"
+#include "utils/cuda_mem.cuh"
 
 #if __cplusplus >= 201402L
 

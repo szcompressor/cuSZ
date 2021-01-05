@@ -26,18 +26,18 @@ using std::string;
 #include "analysis_utils.hh"
 #include "argparse.hh"
 #include "constants.hh"
-#include "cuda_error_handling.cuh"
-#include "cuda_mem.cuh"
 #include "cusz_interface.cuh"
 #include "filter.cuh"
-#include "format.hh"
-#include "io.hh"
 #include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
-#include "timer.hh"
 #include "type_aliasing.hh"
 #include "types.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/cuda_mem.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
+#include "utils/timer.hh"
 
 template <typename Data, int DownscaleFactor, int tBLK>
 Data* pre_binning(Data* d, size_t* dim_array)
@@ -245,7 +245,6 @@ int main(int argc, char** argv)
                 cusz::interface::Decompress<true, 4, 2, 8>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
         }
-        
     }
 
     delete[] dim_array;
