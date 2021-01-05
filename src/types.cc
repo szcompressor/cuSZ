@@ -13,7 +13,7 @@
  *
  */
 
-#include <omp.h>
+// #include <omp.h>
 #include <algorithm>
 #include <cmath>    // for FP32 bit representation
 #include <cstddef>  // size_t
@@ -25,11 +25,9 @@
 #include <vector>
 
 #include "constants.hh"
-#include "format.hh"
-#include "io.hh"
 #include "metadata.hh"
-#include "timer.hh"
 #include "types.hh"
+#include "utils/format.hh"
 
 using namespace std;
 

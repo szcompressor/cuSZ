@@ -24,17 +24,15 @@ set_property(TARGET parhuffman PROPERTY CUDA_ARCHITECTURES 75)
 set_target_properties(parhuffman PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(psz
-        src/format.hh
-        src/format.cc
+        src/utils/format.hh
+        src/utils/io.hh
+        src/utils/verify.hh
         src/constants.hh
         src/constants.cc
         src/SDRB.hh
         src/SDRB.cc
-        src/verify.hh
-        src/verify.cc
         src/types.hh
         src/types.cc
-        src/io.hh
         src/analysis_utils.hh
         src/analysis_utils.cc
         src/pSZ/psz_14.hh
@@ -46,7 +44,6 @@ add_executable(psz
 
 ## to link with parhuffman
 add_library(gpuhuffman ${LIB_TYPE}
-        src/dbg_gpu_printing.cuh
         src/hist.cu
         src/hist.cuh
         src/huff_codec.cu
@@ -56,29 +53,21 @@ add_library(gpuhuffman ${LIB_TYPE}
         src/hist.cu
         src/hist.cuh
         )
+
 add_library(utils ${LIB_TYPE}
         src/analysis.hh
         src/analysis_utils.cc
         src/analysis_utils.hh
-        src/cuda_error_handling.cuh
-        src/cuda_mem.cu
-        src/cuda_mem.cuh
-        src/verify.cc
-        src/verify.hh
         src/autotune.cu
         src/autotune.h
-        src/format.cc
-        src/format.hh
-        )
-
-
-add_library(filter
-        src/filter.cu
-        src/filter.cuh
+        src/utils/verify.hh
+        src/utils/format.hh
         )
 
 add_executable(cusz_cmake
         src/cusz.cu
+        src/filter.cu
+        src/filter.cuh
         src/argparse.cc
         src/argparse.hh
         src/constants.cc
@@ -91,13 +80,13 @@ add_executable(cusz_cmake
         src/cusz_interface.cuh
         src/gather_scatter.cu
         src/gather_scatter.cuh
-        src/io.hh
         src/pack.hh
         src/query.hh
         src/query_dev.hh
         src/SDRB.cc
         src/SDRB.hh
-        src/timer.hh
+        src/utils/io.hh
+        src/utils/timer.hh
         src/types.cc
         src/types.hh
         )
@@ -108,7 +97,6 @@ set_target_properties(cusz_cmake
 
 target_link_libraries(cusz_cmake
         -lcusparse
-        filter
         utils
         parhuffman
         gpuhuffman

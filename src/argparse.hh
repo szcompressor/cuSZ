@@ -18,8 +18,9 @@
 #include <iostream>
 #include <regex>
 #include <string>
-#include "format.hh"
+
 #include "types.hh"
+#include "utils/format.hh"
 
 using std::string;
 

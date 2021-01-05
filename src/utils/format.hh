@@ -1,8 +1,11 @@
+#ifndef UTILS_FORMAT_HH
+#define UTILS_FORMAT_HH
+
 /**
  * @file format.hh
  * @author Jiannan Tian
  * @brief Formatting for log print (header).
- * @version 0.1
+ * @version 0.2
  * @date 2020-09-20
  * Created on 2020-04-27
  *
@@ -11,20 +14,17 @@
  *
  */
 
-#ifndef FORMAT_HH
-#define FORMAT_HH
-
 #include <iostream>
 #include <sstream>
 #include <string>
 
 using std::string;
 
-extern const string log_null;
-extern const string log_err;
-extern const string log_dbg;
-extern const string log_info;
-extern const string log_warn;
+const string log_null = "      ";
+const string log_err  = " ERR  ";
+const string log_dbg  = " dbg  ";
+const string log_info = "info  ";
+const string log_warn = "WARN  ";
 
 // https://stackoverflow.com/a/26080768/8740097  CC BY-SA 3.0
 template <typename T>

@@ -81,8 +81,7 @@ void ParGetCodebook(int stateNum, unsigned int* freq, H* codebook, uint8_t* meta
 }  // namespace lossless
 
 // Thrust sort functionality implemented in separate file
-//template <typename K, typename V>
-//void SortByFreq(K* freq, V* qcode, int size);
-
+// template <typename K, typename V>
+// void SortByFreq(K* freq, V* qcode, int size);
 
 #endif

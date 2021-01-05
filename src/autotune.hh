@@ -1,5 +1,5 @@
 /**
- * @file autotune.h
+ * @file autotune.hh
  * @author Jiannan Tian
  * @brief called as if a plain CPU function
  * @version 0.1.3
@@ -12,8 +12,7 @@
 #ifndef AUTOTUNE_H
 #define AUTOTUNE_H
 
-#include <stdint.h>
-#include <stdlib.h>
+#include <stddef.h>
 
 namespace cusz {
 namespace tune {

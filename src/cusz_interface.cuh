@@ -1,5 +1,5 @@
-#ifndef CUSZ_WORKFLOW_CUH
-#define CUSZ_WORKFLOW_CUH
+#ifndef CUSZ_INTERFACE_CUH
+#define CUSZ_INTERFACE_CUH
 
 /**
  * @file cusz_workflow.cuh

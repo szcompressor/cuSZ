@@ -14,7 +14,7 @@
  */
 #include "argparse.hh"
 #include "constants.hh"
-#include "io.hh"
+#include "utils/io.hh"
 
 enum DataType { kF32, kF64 };
 
