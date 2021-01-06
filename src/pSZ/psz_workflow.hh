@@ -1,5 +1,5 @@
-#ifndef CUSZ_PSZ_WORKFLOW_HH
-#define CUSZ_PSZ_WORKFLOW_HH
+#ifndef PSZ_WORKFLOW_HH
+#define PSZ_WORKFLOW_HH
 
 /**
  * @file psz_workflow.hh
@@ -14,8 +14,8 @@
  */
 
 #include "../analysis.hh"
-#include "../io.hh"
-#include "../verify.hh"
+#include "../utils/io.hh"
+#include "../utils/verify.hh"
 #include "psz_14.hh"
 #include "psz_14blocked.hh"
 #include "psz_dualquant.hh"
@@ -210,8 +210,8 @@ void cx_sim(
     }
 
     stat_t stat;
-    analysis::VerifyData(&stat, xdata, data_cmp, len, 1);
-    analysis::PrintMetrics(&stat, sizeof(Data));
+    analysis::VerifyData(&stat, xdata, data_cmp, len);
+    analysis::PrintMetrics<Data>(&stat);
 }
 
 }  // namespace FineMassiveSimulation
