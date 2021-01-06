@@ -36,7 +36,7 @@ Our published paper covers the essential design and implementation, accessible v
 ## from GitHub
 
 ```bash
-git clone git@github.com:szcompressor/cuSZ.git cusz
+git clone --recurse-submodules git@github.com:szcompressor/cuSZ.git cusz
 cd cusz && export CUSZ_ROOT=$(pwd)
 make   # can use ${CUSZ_ROOT}/bin/cusz to execute
 sudo make install  # requires elevated permission
