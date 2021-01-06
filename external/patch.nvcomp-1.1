@@ -1,0 +1,11 @@
+--- nvcomp/src/CMakeLists.txt	2021-01-05 21:38:42.000000000 -0600
++++ CMakeLists.txt	2021-01-05 21:29:51.000000000 -0600
+@@ -15,7 +15,7 @@
+ file(GLOB CUDA_SOURCES *.cu)
+ file(GLOB CPP_SOURCES *.cpp)
+ 
+-cuda_add_library(nvcomp SHARED ${CUDA_SOURCES} ${CPP_SOURCES})
++cuda_add_library(nvcomp STATIC ${CUDA_SOURCES} ${CPP_SOURCES})
+ target_link_libraries(nvcomp)
+ 
+ add_subdirectory("test")
