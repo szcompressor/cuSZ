@@ -15,7 +15,6 @@
 #include <unordered_map>
 
 #include "SDRB.hh"
-#include "types.hh"
 #include "metadata.hh"
 
 size_t dims_HACC[]        = {280953867, 1, 1, 1, 1};  // for back compatibility

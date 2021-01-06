@@ -11,13 +11,13 @@
  *
  */
 
+#include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <cstddef>
 #include <cstring>
 #include <string>
 #include <vector>
-#include <math.h>
 
 using std::string;
 
@@ -27,28 +27,29 @@ using std::string;
 #include "analysis_utils.hh"
 #include "argparse.hh"
 #include "constants.hh"
-#include "cuda_error_handling.cuh"
-#include "cuda_mem.cuh"
 #include "cusz_interface.cuh"
 #include "filter.cuh"
-#include "format.hh"
-#include "io.hh"
+#include "gtest/gtest.h"
 #include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
-#include "timer.hh"
 #include "type_aliasing.hh"
 #include "types.hh"
-#include "gtest/gtest.h"
+#include "utils/cuda_err.cuh"
+#include "utils/cuda_mem.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
+#include "utils/timer.hh"
 
 double expectedErr;
 double actualAbsErr;
 double actualRelErr;
 string z_mode;
 
-TEST(cuSZTest,TestMaxError){
-    double actualErr=(z_mode=="r2r")?actualRelErr:actualAbsErr;
-    ASSERT_LE(actualErr,expectedErr);
+TEST(cuSZTest, TestMaxError)
+{
+    double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
+    ASSERT_LE(actualErr, expectedErr);
 }
 
 template <typename Data, int DownscaleFactor, int tBLK>
@@ -88,7 +89,7 @@ int main(int argc, char** argv)
     double* eb_array    = nullptr;
     int     nnz_outlier = 0;
     size_t  total_bits, total_uInt, huff_meta_size;
-    bool nvcomp_in_use  = false;
+    bool    nvcomp_in_use = false;
 
     if (ap->verbose) {
         GetMachineProperties();
@@ -260,7 +261,6 @@ int main(int argc, char** argv)
                 cusz::interface::Decompress<true, 4, 2, 8>(
                     ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
-        
     }
 
     delete[] dim_array;
@@ -374,12 +374,12 @@ int main(int argc, char** argv)
         cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".szx\e[0m" << endl;
         delete[] cmd;
 
-        if(ap->to_gtest){
-            expectedErr=ap->mantissa*pow(10,ap->exponent);
-            z_mode=ap->mode;
-            auto stat=ap->stat;
-            actualAbsErr=stat.max_abserr;
-            actualRelErr=stat.max_abserr_vs_range;
+        if (ap->to_gtest) {
+            expectedErr  = ap->mantissa * pow(10, ap->exponent);
+            z_mode       = ap->mode;
+            auto stat    = ap->stat;
+            actualAbsErr = stat.max_abserr;
+            actualRelErr = stat.max_abserr_vs_range;
             ::testing::InitGoogleTest(&argc, argv);
             return RUN_ALL_TESTS();
         }
