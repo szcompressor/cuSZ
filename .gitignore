@@ -20,11 +20,8 @@ huff
 *.canonized
 
 cmake-build-debug-t7600
-src/future/cusz-re.cu
-src/dryrun2.cu
-src/dryrun2.cuh
-src/dualquant2.cu
-src/dualquant2.cuh
+src/future
+src/huffre
 
 data/4lossless
 
@@ -46,4 +43,5 @@ src/*.o
 a.out
 tags
 *.o
+data/*.sz
 data/*.out

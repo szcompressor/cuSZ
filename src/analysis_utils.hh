@@ -18,7 +18,7 @@
 #include <cstddef>
 #include <string>
 #include <tuple>
-#include "io.hh"
+#include "utils/io.hh"
 
 template <typename T>
 double GetDatumValueRange(std::string fname, size_t l);

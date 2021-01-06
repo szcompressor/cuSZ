@@ -24,7 +24,7 @@ using std::endl;
 
 #if __cplusplus >= 201402L
 
-#include "cuda_mem.cuh"
+#include "utils/cuda_mem.cuh"
 
 template <typename Data, typename Index>
 std::tuple<Data*, Index*> ThrustGatherDualQuantOutlier(Data* d_dense, const size_t len, unsigned int& nnz)
