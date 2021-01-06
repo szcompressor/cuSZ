@@ -15,7 +15,6 @@
 
 #include <regex>
 #include <string>
-#include "../format.hh"
 
 using std::regex;
 using std::string;

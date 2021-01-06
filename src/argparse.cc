@@ -18,7 +18,7 @@
 #include <regex>
 #include <string>
 #include "argument_parser/document.hh"
-#include "format.hh"
+#include "utils/format.hh"
 
 using std::cerr;
 using std::cout;

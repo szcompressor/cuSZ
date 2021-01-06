@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef HISTOGRAM_CUH
-#define HISTOGRAM_CUH
+#ifndef HIST_CUH
+#define HIST_CUH
 
 #include <cuda_runtime.h>
 #include <cstdio>
