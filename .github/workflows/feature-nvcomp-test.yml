@@ -26,15 +26,19 @@ jobs:
     
     steps:
       - uses: actions/checkout@v2
-        with:
-         submodules: 'recursive'
+#         with:
+#          submodules: 'recursive'
          
       # - run: module load gcc/7.3.0
       # - run: gcc -v
       # - run: g++ -v
       # - run: module load cuda/10.1
       # - run: nvcc --version
-      # - run: module load cmake/3.17.0
+      # - run: module load cmake/3.17.0 
+      - name: checkout submodule
+        run: |
+         git submodule init
+         git submodule update
       - name: compilation
         run: make
       - name: test with gzip option activated 
