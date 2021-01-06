@@ -1,0 +1,9 @@
+[submodule "external/cub"]
+	path = external/cub
+	url = https://github.com/NVIDIA/cub
+[submodule "external/nvcomp"]
+	path = external/nvcomp
+	url = https://github.com/NVIDIA/nvcomp
+[submodule "external/googletest"]
+	path = external/googletest
+	url = https://github.com/google/googletest

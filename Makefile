@@ -12,12 +12,16 @@ CUDA_DBG  := -O0 -G -g
 SRC_DIR   := src
 OBJ_DIR   := src
 BIN_DIR   := bin
-NVCOMP_DIR:= nvcomp
+
+NVCOMP_DIR        := external/nvcomp
 NVCOMP_INCLUDE_DIR:= $(NVCOMP_DIR)/build/include
-NVCOMP_LIB_DIR:= $(NVCOMP_DIR)/build/lib
-GTEST_DIR := googletest
+NVCOMP_LIB_DIR    := $(NVCOMP_DIR)/build/lib
+NVCOMP_STATIC_LIB := $(NVCOMP_LIB_DIR)/libnvcomp.a
+
+GTEST_DIR         := external/googletest
 GTEST_INCLUDE_DIR := $(GTEST_DIR)/googletest/include
-GTEST_LIB_DIR := $(GTEST_DIR)/build/lib
+GTEST_LIB_DIR     := $(GTEST_DIR)/build/lib
+GTEST_STATIC_LIB  := $(GTEST_LIB_DIR)/libgtest.a
 
 GPU_PASCAL:= -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61
 GPU_VOLTA := -gencode=arch=compute_70,code=sm_70
@@ -79,16 +83,37 @@ DEPS_HUFF := $(_DEPS_MEM) $(_DEPS_HIST) $(_DEPS_OLDENC) $(_DEPS_ARG)
 install: bin/cusz
 	cp bin/cusz /usr/local/bin
 
-cusz: $(NVCOMP_LIB_DIR)/libnvcomp.a $(OBJ_ALL) $(GTEST_LIB_DIR)/libgtest.a | $(BIN_DIR)
-	$(NVCC) $(NVCCFLAGS) -lgomp -lcusparse $(MAIN) $(NVCOMP_LIB_DIR)/libnvcomp.a $(GTEST_LIB_DIR)/libgtest.a -I $(GTEST_INCLUDE_DIR)/ -lpthread -rdc=true $^ -o $(BIN_DIR)/$@
+cusz: $(NVCOMP_STATIC_LIB) $(OBJ_ALL) $(GTEST_STATIC_LIB) | $(BIN_DIR)
+	$(NVCC) $(NVCCFLAGS) $(MAIN) \
+		-lgomp -lcusparse -lpthread \
+		-rdc=true \
+		$(NVCOMP_STATIC_LIB) \
+		$(GTEST_STATIC_LIB) -I$(GTEST_INCLUDE_DIR)/ \
+		$^ -o $(BIN_DIR)/$@
+
 $(BIN_DIR):
 	mkdir $@
-$(NVCOMP_LIB_DIR)/libnvcomp.a:
-	cmake -DCUB_DIR=$(PWD)/cub -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S nvcomp -B nvcomp/build  && \
-	make -C nvcomp/build	
-$(GTEST_LIB_DIR)/libgtest.a:
-	cmake -D CMAKE_C_COMPILER=$(shell which gcc) CMAKE_CXX_COMPILER=$(shell which g++) -S googletest -B googletest/build  && \
-	make -C googletest/build
+
+libnvcomp: $(NVCOMP_STATIC_LIB)
+libgtest:  $(GTEST_STATIC_LIB)
+
+patch_nvcomp:
+	patch external/nvcomp/src/CMakeLists.txt external/patch.nvcomp-1.1
+
+$(NVCOMP_STATIC_LIB): patch_nvcomp
+	cmake \
+	    -DCUB_DIR=$(PWD)/external/cub \
+	    -DCMAKE_C_COMPILER=$(shell which gcc) \
+	    -DCMAKE_CXX_COMPILER=$(shell which g++) \
+	    -S ${NVCOMP_DIR} -B ${NVCOMP_DIR}/build  && \
+	make -j -C ${NVCOMP_DIR}/build
+
+$(GTEST_STATIC_LIB):
+	cmake \
+	    -DCMAKE_C_COMPILER=$(shell which gcc) \
+	    -DCMAKE_CXX_COMPILER=$(shell which g++) \
+	    -S ${GTEST_DIR} -B ${GTEST_DIR}/build  && \
+	make -j -C ${GTEST_DIR}/build
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(NVCOMP_LIB_DIR)/libnvcomp.a | $(OBJ_DIR)
 	$(CXX)  $(CCFLAGS) -c $< -o $@
