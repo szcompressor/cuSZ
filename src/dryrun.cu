@@ -14,13 +14,13 @@
 #include <iostream>
 #include <string>
 #include "argparse.hh"
-#include "cuda_mem.cuh"
 #include "dryrun.cuh"
 #include "dualquant.cuh"
-#include "format.hh"
-#include "io.hh"
 #include "metadata.hh"
-#include "verify.hh"
+#include "utils/cuda_mem.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
+#include "utils/verify.hh"
 
 using std::cerr;
 using std::cout;
@@ -114,7 +114,7 @@ void cusz::interface::DryRun(argpack* ap, Data* d, Data* d_d, const string& fi, 
     cudaMemcpy(d, d_d, len * sizeof(Data), cudaMemcpyDeviceToHost);
 
     analysis::VerifyData<Data>(&ap->stat, d, d2, len);
-    analysis::PrintMetrics(&ap->stat, sizeof(Data), false, ebs[EB], 0);
+    analysis::PrintMetrics<Data>(&ap->stat, false, ebs[EB], 0);
 
     delete[] d2;
     cudaFree(d_d);

@@ -16,13 +16,14 @@
 
 #include <cassert>
 #include <iostream>
+
+#include "gather_scatter.cuh"
+#include "utils/cuda_err.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
+
 using std::cout;
 using std::endl;
-
-#include "cuda_error_handling.cuh"
-#include "format.hh"
-#include "gather_scatter.cuh"
-#include "io.hh"
 
 using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;
@@ -55,12 +56,12 @@ void cusz::impl::GatherAsCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_
 
         CHECK_CUSPARSE(cusparseSnnz(
             handle, CUSPARSE_DIRECTION_ROW, // parsed by row
-            m, n, descr, d_A, ldA,          // descrption of d_A
+            m, n, descr, d_A, ldA,          // description of d_A
             d_nnz_per_row, nnz)             // output
         );
 
-        lrp    = sizeof(int)   * (m + 1);
-        lci    = sizeof(int)   * *nnz;
+        lrp    = sizeof(int)  * (m + 1);
+        lci    = sizeof(int)  * *nnz;
         lv     = sizeof(Data) * *nnz;
         ltotal = lrp + lci + lv;
         outbin = new uint8_t[ltotal];
@@ -70,8 +71,8 @@ void cusz::impl::GatherAsCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_
 
         CHECK_CUSPARSE(cusparseSdense2csr(
             handle,                             //
-            m, n, descr, d_A, ldA,              // descritpion of d_A
-            d_nnz_per_row,                      // prefileld by nnz() func
+            m, n, descr, d_A, ldA,              // description of d_A
+            d_nnz_per_row,                      // prefilled by nnz() func
             d_csr_val, d_row_ptr, d_col_ind)    // output
         );
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -128,9 +129,9 @@ void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, si
         CHECK_CUSPARSE(cusparseSetMatIndexBase (  descr,  CUSPARSE_INDEX_BASE_ZERO     )); // zero based
         CHECK_CUSPARSE(cusparseSetMatType      (  descr,  CUSPARSE_MATRIX_TYPE_GENERAL )); // type
 
-        CHECK_CUDA(cudaMalloc( (void**)&d_row_ptr,   lrp ));
-        CHECK_CUDA(cudaMalloc( (void**)&d_col_ind,   lci ));
-        CHECK_CUDA(cudaMalloc( (void**)&d_csr_val,   lv  ));
+        CHECK_CUDA(cudaMalloc( (void**)&d_row_ptr, lrp ));
+        CHECK_CUDA(cudaMalloc( (void**)&d_col_ind, lci ));
+        CHECK_CUDA(cudaMalloc( (void**)&d_csr_val, lv  ));
         CHECK_CUDA(cudaMemcpy( d_row_ptr, row_ptr, lrp, cudaMemcpyHostToDevice ));
         CHECK_CUDA(cudaMemcpy( d_col_ind, col_ind, lci, cudaMemcpyHostToDevice ));
         CHECK_CUDA(cudaMemcpy( d_csr_val, csr_val, lv,  cudaMemcpyHostToDevice ));
@@ -208,8 +209,8 @@ void cusz::impl::PruneGatherAsCSR(
     CHECK_CUDA(cudaDeviceSynchronize());
 
     /* step 6: output C */
-    auto lrp    = sizeof(int) * (m + 1);
-    auto lci    = sizeof(int) * nnzC;
+    auto lrp    = sizeof(int)   * (m + 1);
+    auto lci    = sizeof(int)   * nnzC;
     auto lv     = sizeof(float) * nnzC;
     auto ltotal = lrp + lci + lv;
     auto outbin = new uint8_t[ltotal];

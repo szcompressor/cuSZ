@@ -17,7 +17,7 @@
 #include "../SDRB.hh"
 #include "../analysis_utils.hh"
 #include "../types.hh"
-#include "../verify.hh"
+#include "../utils/verify.hh"
 #include "psz_workflow.hh"
 
 namespace fm = psz::FineMassiveSimulation;

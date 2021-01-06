@@ -15,8 +15,8 @@
 
 #include <cstdint>
 
-typedef float   f32;
-typedef double  f64;
+typedef float  f32;
+typedef double f64;
 // alias style 2
 typedef int8_t             I1;
 typedef int16_t            I2;

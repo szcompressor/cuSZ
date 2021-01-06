@@ -37,8 +37,9 @@
 #include <cuda_runtime.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "autotune.h"
+#include "autotune.hh"
 
 // taken from `cuda-samples/Common/helper_cuda.h`
 // Beginning of GPU Architecture definitions
