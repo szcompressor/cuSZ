@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-         submodules: 'true'
+         submodules: 'recursive'
          
       # - run: module load gcc/7.3.0
       # - run: gcc -v
