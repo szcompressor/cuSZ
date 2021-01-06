@@ -26,9 +26,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "format.hh"
-#include "io.hh"
-#include "timer.hh"
+#include "utils/format.hh"
+#include "utils/io.hh"
 
 using namespace std;
 
@@ -45,7 +44,7 @@ typedef struct Stat {
     size_t len, max_abserr_index;
     double max_abserr;
 
-//    Stat() {}
+    //    Stat() {}
 } stat_t;
 
 typedef struct ErrorBoundConfigurator {

@@ -1,11 +1,11 @@
-#ifndef IO_HH
-#define IO_HH
+#ifndef UTILS_IO_HH
+#define UTILS_IO_HH
 
 /**
  * @file io.hh
  * @author Jiannan Tian
  * @brief Read and write binary.
- * @version 0.1
+ * @version 0.2
  * @date 2020-09-20
  * Created on 2019-08-27
  *

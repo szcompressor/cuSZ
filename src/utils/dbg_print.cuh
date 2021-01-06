@@ -1,11 +1,11 @@
-#ifndef __GPU_PRINTING
-#define __GPU_PRINTING
+#ifndef UTILS_DBG_PRINT_CUH
+#define UTILS_DBG_PRINT_CUH
 
 /**
- * @file dbg_gpu_printing.cuh
+ * @file dbg_print.cuh
  * @author Jiannan Tian
  * @brief
- * @version 0.1
+ * @version 0.2
  * @date 2020-09-20
  * Created on 2020-03-17
  *

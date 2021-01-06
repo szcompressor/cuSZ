@@ -27,23 +27,20 @@
 
 #include "analysis_utils.hh"
 #include "argparse.hh"
-#include "autotune.h"
+#include "autotune.hh"
 #include "constants.hh"
-#include "cuda_error_handling.cuh"
-#include "cuda_mem.cuh"
 #include "cusz_interface.cuh"
 #include "dryrun.cuh"
 #include "dualquant.cuh"
-#include "filter.cuh"
-#include "format.hh"
 #include "gather_scatter.cuh"
 #include "huff_interface.cuh"
-#include "io.hh"
 #include "metadata.hh"
-#include "timer.hh"
-#include "type_aliasing.hh"
 #include "type_trait.hh"
-#include "verify.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/cuda_mem.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
+#include "utils/verify.hh"
 
 using std::cerr;
 using std::cout;
@@ -363,7 +360,7 @@ void cusz::interface::Decompress(
 
         auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, len);
         analysis::VerifyData(&ap->stat, xdata, odata, len);
-        analysis::PrintMetrics(&ap->stat, sizeof(Data), false, eb_variants[EB], archive_bytes, ap->pre_binning ? 4 : 1);
+        analysis::PrintMetrics<Data>(&ap->stat, false, eb_variants[EB], archive_bytes, ap->pre_binning ? 4 : 1);
 
         delete[] odata;
     }

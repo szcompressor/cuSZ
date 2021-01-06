@@ -11,10 +11,7 @@
  *
  */
 
-// includes CUDA Runtime
 #include <cuda_runtime.h>
-
-#include <cstdint>
 #include <cstdio>
 
 #include "hist.cuh"

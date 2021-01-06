@@ -1,8 +1,11 @@
+#ifndef UTILS_VERIFY_HH
+#define UTILS_VERIFY_HH
+
 /**
  * @file verify.cc
  * @author Jiannan Tian
  * @brief Verification of decompressed data.
- * @version 0.1
+ * @version 0.2
  * @date 2020-09-20
  * Created on: 2019-09-30
  *
@@ -16,14 +19,15 @@
 #include <numeric>
 #include <vector>
 
+#include "../types.hh"
 #include "format.hh"
-#include "types.hh"
-#include "verify.hh"
 
 using namespace std;
 
+namespace analysis {
+
 template <typename T>
-void analysis::VerifyData(stat_t* stat, T* xData, T* oData, size_t _len)
+void VerifyData(stat_t* stat, T* xData, T* oData, size_t _len)
 {
     double _max = 0, _min = 0, max_abserr = 0;
     _max = oData[0], _min = oData[0];
@@ -69,15 +73,13 @@ void analysis::VerifyData(stat_t* stat, T* xData, T* oData, size_t _len)
     stat->PSNR                = 20 * log10(stat->range) - 10 * log10(stat->MSE);
 }
 
-template void analysis::VerifyData<float>(stat_t*, float*, float*, size_t);
-
-void analysis::PrintMetrics(
+template <typename Data>
+void PrintMetrics(
     stat_t* stat,
-    int     type_byte,
-    bool    override_eb,
-    double  new_eb,
-    size_t  archive_byte,
-    size_t  bin_scale)
+    bool    override_eb  = false,
+    double  new_eb       = 0,
+    size_t  archive_byte = 0,
+    size_t  bin_scale    = 1)
 {
     auto indent  = []() { printf("  "); };
     auto newline = []() { printf("\n"); };
@@ -103,8 +105,13 @@ void analysis::PrintMetrics(
     if (archive_byte) {
         indent(),
             printf(
-                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip", bin_scale * 1.0 * stat->len * type_byte / archive_byte),
+                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip",
+                bin_scale * 1.0 * stat->len * sizeof(Data) / archive_byte),
             newline();
     }
     cout << endl;
 };
+
+}  // namespace analysis
+
+#endif
