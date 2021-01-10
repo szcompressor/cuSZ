@@ -1,4 +1,13 @@
-#!/bin/bash
+#!/bin/bash -
+#title           :sh.parse-nvprof-log
+#description     :This script will parse nvprof log and extract kernel time.
+#author          :Jiannan Tian
+#copyright       :(C) 2020 by Washington State University, Argonne National Laboratory
+#license         :See LICENSE in top-level directory
+#date            :2020-09-28
+#version         :0.1
+#usage           :./sh.parse-nvprof-log <logfile>
+#==============================================================================
 
 LOG_FILE=$1
 AWK_CMD1="awk -F'(' '{print \$1}'"
