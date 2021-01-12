@@ -23,12 +23,6 @@
 
 using std::string;
 
-// const int GB_unit = 1073741824;  // 1024^3
-
-const int tBLK_ENCODE    = 256;
-const int tBLK_DEFLATE   = 128;
-const int tBLK_CANONICAL = 128;
-
 // https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
 // inline bool exists_test2(const std::string& name) {
 //    return (access(name.c_str(), F_OK) != -1);
@@ -50,7 +44,7 @@ template <typename H> void PrintChunkHuffmanCoding(size_t*, size_t*, size_t, int
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size = 1024);
+tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size = 1024, bool export_cb=false);
 
 template <typename Quant, typename Huff, typename Data = float>
 Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, int dict_size = 1024);
