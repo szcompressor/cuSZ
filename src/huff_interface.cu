@@ -33,6 +33,7 @@
 #include "huff_interface.cuh"
 #include "par_huffman.cuh"
 #include "type_aliasing.hh"
+#include "type_trait.hh"
 #include "types.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
@@ -128,8 +129,13 @@ void lossless::utils::PrintChunkHuffmanCoding(
 }
 
 template <typename Quant, typename Huff, typename Data>
-std::tuple<size_t, size_t, size_t>
-lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size)
+std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
+    string& basename,
+    Quant*  d_in,
+    size_t  len,
+    int     chunk_size,
+    int     dict_size,
+    bool    export_cb)
 {
     // histogram
     ht_state_num = 2 * dict_size;
@@ -155,15 +161,20 @@ lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, in
     // Non-deflated output
     auto d_h = mem::CreateCUDASpace<Huff>(len);
 
-    // --------------------------------
-    // this is for internal evaluation, not in sz archive
-    // auto cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
-    // io::WriteBinaryFile(cb_dump, dict_size, new string(f_in + ".canonized"));
-    // --------------------------------
+    if (export_cb) {
+        // internal evaluation, not stored in sz archive
+        auto              cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
+        std::stringstream s;
+        s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
+        logall(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
+        io::WriteArrayToBinary(s.str(), cb_dump, dict_size);
+        delete[] cb_dump;
+        cb_dump = nullptr;
+    }
 
     // fix-length space
     {
-        auto block_dim = tBLK_ENCODE;
+        auto block_dim = HuffConfig::Db_encode;
         auto grid_dim  = (len - 1) / block_dim + 1;
         lossless::wrapper::EncodeFixedLen<Quant, Huff><<<grid_dim, block_dim>>>(d_in, d_h, len, d_canonical_cb);
         cudaDeviceSynchronize();
@@ -174,7 +185,7 @@ lossless::interface::HuffmanEncode(string& basename, Quant* d_in, size_t len, in
     auto d_h_bitwidths = mem::CreateCUDASpace<size_t>(n_chunk);
     // cout << log_dbg << "Huff.chunk x #:\t" << chunk_size << " x " << n_chunk << endl;
     {
-        auto block_dim = tBLK_DEFLATE;
+        auto block_dim = HuffConfig::Db_deflate;
         auto grid_dim  = (n_chunk - 1) / block_dim + 1;
         lossless::wrapper::Deflate<Huff><<<grid_dim, block_dim>>>(d_h, len, d_h_bitwidths, chunk_size);
         cudaDeviceSynchronize();
@@ -262,7 +273,7 @@ Quant* lossless::interface::HuffmanDecode(
     auto n_chunk         = (len - 1) / chunk_size + 1;
     auto huff_multibyte  = io::ReadBinaryToNewArray<Huff>(basename + ".hbyte", total_uInts);
     auto huff_chunk_meta = io::ReadBinaryToNewArray<size_t>(basename + ".hmeta", 2 * n_chunk);
-    auto block_dim       = tBLK_DEFLATE;  // the same as deflating
+    auto block_dim       = HuffConfig::Db_deflate;  // the same as deflating
     auto grid_dim        = (n_chunk - 1) / block_dim + 1;
 
     auto d_xq              = mem::CreateCUDASpace<Quant>(len);
@@ -287,23 +298,15 @@ Quant* lossless::interface::HuffmanDecode(
     return xq;
 }
 
-template void lossless::wrapper::GetFrequency<UI1>(UI1*, size_t, unsigned int*, int);
-template void lossless::wrapper::GetFrequency<UI2>(UI2*, size_t, unsigned int*, int);
-template void lossless::wrapper::GetFrequency<UI4>(UI4*, size_t, unsigned int*, int);
-
-template void lossless::utils::PrintChunkHuffmanCoding<UI4>(size_t*, size_t*, size_t, int, size_t, size_t);
-template void lossless::utils::PrintChunkHuffmanCoding<UI8>(size_t*, size_t*, size_t, int, size_t, size_t);
-template void lossless::utils::PrintChunkHuffmanCoding<UI8_2>(size_t*, size_t*, size_t, int, size_t, size_t);
-
-template tuple3ul lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI4, UI4, FP4>(string&, UI4*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8, FP4>(string&, UI4*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8_2, FP4>(string&, UI1*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8_2, FP4>(string&, UI2*, size_t, int, int);
-template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8_2, FP4>(string&, UI4*, size_t, int, int);
+template tuple3ul lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI4, UI4, FP4>(string&, UI4*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8, FP4>(string&, UI4*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8_2, FP4>(string&, UI1*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8_2, FP4>(string&, UI2*, size_t, int, int, bool);
+template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8_2, FP4>(string&, UI4*, size_t, int, int, bool);
 
 template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, int, int);
 template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, int, int);

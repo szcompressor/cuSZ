@@ -412,30 +412,6 @@ ArgPack::ArgPack(int argc, char** argv)
         cuszDoc();
         exit(0);
     }
-    // default values
-    dict_size              = 1024;
-    quant_byte             = 2;
-    huff_byte              = 4;
-    huffman_chunk          = 512;
-    n_dim                  = -1;
-    d0                     = 1;
-    d1                     = 1;
-    d2                     = 1;
-    d3                     = 1;
-    mantissa               = 1.23;
-    exponent               = -4.56;
-    to_archive             = false;
-    to_extract             = false;
-    use_demo               = false;
-    verbose                = false;
-    to_verify              = false;
-    verify_huffman         = false;
-    skip_huffman           = false;
-    skip_writex            = false;
-    pre_binning            = false;
-    to_dryrun              = false;
-    autotune_huffman_chunk = true;
-    read_args_status       = 0;
 
     opath = "";
 
@@ -500,6 +476,9 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (string(argv[i]) == "--skip") goto _EXCLUDE;           //
                     if (string(argv[i]) == "--exclude") goto _EXCLUDE;        //
                     if (string(argv[i]) == "--pre") goto _PRE;                // IO
+                    if (string(argv[i]) == "--export-codebook") {             //
+                        export_codebook = true;                               //
+                    }                                                         //
                     if (string(argv[i]) == "--output") goto _XOUT;            //
                     if (string(argv[i]) == "--opath") {  // TODO the followings has no single-letter options
                         if (i + 1 <= argc)

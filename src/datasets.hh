@@ -1,7 +1,7 @@
-#ifndef SDRB_HH
-#define SDRB_HH
+#ifndef DATASETS_HH
+#define DATASETS_HH
 /**
- * @file SDRB.hh
+ * @file datasets.hh
  * @author Jiannan Tian
  * @brief Demonstrative datasets with prefilled dimensions from https://sdrbench.github.io (header)
  * @version 0.1
