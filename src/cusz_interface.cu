@@ -220,13 +220,13 @@ void cusz::interface::Compress(
     auto mxm    = adp->mxm;
 
     if (ap->to_dryrun) {
-        logall(log_info, "invoke dry-run");
+        LogAll(log_info, "invoke dry-run");
         DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
         cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
     }
-    logall(log_info, "invoke zipping");
+    LogAll(log_info, "invoke zipping");
 
     auto d_q = mem::CreateCUDASpace<Quant>(len);  // quant. code is not needed for dry-run
 
@@ -235,7 +235,7 @@ void cusz::interface::Compress(
     ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &ap->c_fo_outlier);
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
-    logall(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
+    LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
 
     Quant* q;
@@ -243,7 +243,7 @@ void cusz::interface::Compress(
         q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
         io::WriteArrayToBinary(ap->c_fo_q, q, len);
 
-        logall(log_info, "to store quant.code directly (Huffman enc skipped)");
+        LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
 
         return;
     }
@@ -262,7 +262,7 @@ void cusz::interface::Compress(
     std::tie(n_bits, n_uInt, huffman_metadata_size) = lossless::interface::HuffmanEncode<Quant, Huff>(
         ap->c_huff_base, d_q, len, ap->huffman_chunk, dims[CAP], ap->export_codebook);
 
-    logall(log_dbg, "to store Huffman encoded quant.code (default)");
+    LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
     cudaFree(d_q);
 }
@@ -286,16 +286,16 @@ void cusz::interface::Decompress(
     auto m         = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
     auto mxm       = m * m;
 
-    logall(log_info, "invoke unzip");
+    LogAll(log_info, "invoke unzip");
 
     Quant* xq;
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (ap->skip_huffman) {
-        logall(log_info, "load quant.code from filesystem");
+        LogAll(log_info, "load quant.code from filesystem");
         xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, len);
     }
     else {
-        logall(log_info, "Huffman decode -> quant.code");
+        LogAll(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
             ap->cx_path2file, len, ap->huffman_chunk, total_uInt, dict_size);
         if (ap->verify_huffman) {
@@ -318,7 +318,7 @@ void cusz::interface::Decompress(
     ::cusz::impl::ReversedPdQ(d_xdata, d_xq, d_outlier, dims, eb_variants[EBx2]);
     auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, len);
 
-    logall(log_info, "reconstruct error-bounded datum");
+    LogAll(log_info, "reconstruct error-bounded datum");
 
     size_t archive_bytes = 0;
     // TODO huffman chunking metadata
@@ -354,7 +354,7 @@ void cusz::interface::Decompress(
 
     // TODO move CR out of VerifyData
     if (ap->x_fi_origin != "") {
-        logall(log_info, "load the original datum for comparison");
+        LogAll(log_info, "load the original datum for comparison");
 
         auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, len);
         analysis::VerifyData(&ap->stat, xdata, odata, len);
@@ -362,12 +362,12 @@ void cusz::interface::Decompress(
 
         delete[] odata;
     }
-    logall(log_info, "output:", ap->cx_path2file + ".szx");
+    LogAll(log_info, "output:", ap->cx_path2file + ".szx");
 
     if (!ap->skip_writex)
         io::WriteArrayToBinary(ap->x_fo_xd, xdata, len);
     else {
-        logall(log_dbg, "skipped writing unzipped to filesystem");
+        LogAll(log_dbg, "skipped writing unzipped to filesystem");
     }
 
     // clean up

@@ -58,12 +58,12 @@ typedef struct ArgPack {
     bool   skip_huffman{false}, skip_writex{false};
     bool   pre_binning{false};
 
-    int  input_rep;        // for standalone huffman
-    int  huffman_datalen;  // for standalone huffman
-    bool to_encode;        // for standalone huffman
-    bool to_decode;        // for standalone huffman
-    bool get_entropy;      // for standalone huffman (not in use)
-    bool to_gzip;          // wenyu: whether to do a gzip lossless compression on encoded data
+    bool to_gzip;  // wenyu: whether to do a gzip lossless compression on encoded data
+    // for standalone Huffman
+    int  input_rep{2};
+    int  huffman_datalen{-1};
+    bool to_encode{false};
+    bool to_decode{false};
 
     static string format(const string& s);
 

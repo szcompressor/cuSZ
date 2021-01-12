@@ -41,7 +41,7 @@ void build(std::ostream& o, T t, Args... args)  // recursive variadic function
 }
 
 template <typename... Args>
-void logall(const string& log_head, Args... args)
+void LogAll(const string& log_head, Args... args)
 {
     std::ostringstream oss;
     oss << log_head;
@@ -49,9 +49,7 @@ void logall(const string& log_head, Args... args)
 
     oss.seekp(0, std::ios::end);
     std::stringstream::pos_type offset = oss.tellp();
-
-    // print dbg
-    if (log_head == log_dbg) std::cout << "\e[2m";
+    if (log_head == log_dbg) { std::cout << "\e[2m"; }  // dbg
 
     // print progress
     if (log_head == log_info) {
@@ -59,15 +57,10 @@ void logall(const string& log_head, Args... args)
             oss << std::string(80 - log_head.size() - offset, '.');  // +9, ad hoc for log_*
         else
             oss << std::string(8, '.');  // +9, ad hoc for log_*
-
         oss << " [ok]";
     }
-
-    // print content
-    std::cout << oss.str() << std::endl;
-
-    // finish priting dbg
-    if (log_head == log_dbg) std::cout << "\e[0m";
+    std::cout << oss.str() << std::endl;            // print content
+    if (log_head == log_dbg) std::cout << "\e[0m";  // finish printing dbg
 }
 
 #endif  // FORMAT_HH
