@@ -46,7 +46,7 @@ void CheckShellCall(string cmd_string)
     int status = system(cmd);
     delete[] cmd;
     cmd = nullptr;
-    if (status < 0) { logall(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
+    if (status < 0) { LogAll(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
 }
 
 template <typename Data, int DownscaleFactor, int tBLK>
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
                                  : InitializeDims(ap->dict_size, ap->n_dim, ap->d0, ap->d1, ap->d2, ap->d3);
 
         // TODO change log_head to const char[]
-        logall(
+        LogAll(
             log_info, "load", ap->cx_path2file, dim_array[LEN] * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
             "bytes,", ap->dtype);
 
@@ -110,7 +110,7 @@ int main(int argc, char** argv)
         auto m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
         auto mxm = m * m;
 
-        logall(log_dbg, "add padding:", m, "units");
+        LogAll(log_dbg, "add padding:", m, "units");
 
         auto a = hires::now();
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(DataInUse)));
@@ -119,7 +119,7 @@ int main(int argc, char** argv)
         DataInUse* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
         auto       z      = hires::now();
 
-        logall(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
+        LogAll(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
         adp = new DataPack<DataInUse>(data, d_data, len);
 
@@ -141,14 +141,14 @@ int main(int argc, char** argv)
             // ------------------------------------------------------------
             auto time_1 = hires::now();
 
-            logall(log_dbg, "time scanning:", static_cast<duration_t>(time_1 - time_0).count(), "sec");
+            LogAll(log_dbg, "time scanning:", static_cast<duration_t>(time_1 - time_0).count(), "sec");
 
             eb_config->ChangeToRelativeMode(rng);
         }
         // eb_config->debug();
         eb_array = InitializeErrorBoundFamily(eb_config);
 
-        logall(
+        LogAll(
             log_dbg,  //
             std::to_string(ap->quant_byte) + "-byte quant type,",
             std::to_string(ap->huff_byte) + "-byte internal Huff type");
@@ -290,8 +290,8 @@ int main(int argc, char** argv)
         auto tar_z = hires::now();
 
         auto ad_hoc_fix = ap->opath.substr(0, ap->opath.size() - 1);
-        logall(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
-        logall(log_info, "output:", ad_hoc_fix + cx_basename + ".sz");
+        LogAll(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
+        LogAll(log_info, "output:", ad_hoc_fix + cx_basename + ".sz");
     }
 
     // if it's decompression, remove released subfiles at last.
@@ -334,8 +334,8 @@ int main(int argc, char** argv)
         cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
         CheckShellCall(cmd_string);
 
-        logall(log_info, "write to: " + ap->opath + cx_basename + ".sz");
-        logall(log_info, "write to: " + ap->opath + cx_basename + ".szx");
+        LogAll(log_info, "write to: " + ap->opath + cx_basename + ".sz");
+        LogAll(log_info, "write to: " + ap->opath + cx_basename + ".szx");
     }
 
     // wenyu's modification ends

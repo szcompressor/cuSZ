@@ -209,26 +209,6 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
         HuffmanDoc();
         exit(0);
     }
-    // default values
-    dict_size        = 1024;
-    input_rep        = 2;
-    huffman_datalen  = -1;  // TODO argcheck
-    huff_byte        = 4;
-    huffman_chunk    = 512;
-    read_args_status = 0;
-
-    n_dim = -1;
-    d0    = 1;
-    d1    = 1;
-    d2    = 1;
-    d3    = 1;
-
-    to_encode = false;
-    to_decode = false;
-
-    get_entropy = false;
-
-    to_dryrun = false;  // TODO dry run is meaningful differently for cuSZ and Huffman
 
     auto str2int = [&](const char* s) {
         char* end;
@@ -267,18 +247,18 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // more readable args
                 // ----------------------------------------------------------------
                 case '-':
-                    if (string(argv[i]) == "--help") goto _HELP;
+                    if (string(argv[i]) == "--help") goto tag_help;
                     // major features
-                    if (string(argv[i]) == "--enc" or string(argv[i]) == "--encode") goto _ENCODE;
-                    if (string(argv[i]) == "--dec" or string(argv[i]) == "--decode") goto _DECODE;
-                    if (string(argv[i]) == "--dry-run") goto _DRY_RUN;
-                    if (string(argv[i]) == "--verify") goto _VERIFY;
-                    if (string(argv[i]) == "--input") goto _INPUT_DATUM;
-                    if (string(argv[i]) == "--entropy") goto _ENTROPY;
-                    if (string(argv[i]) == "--input-rep" or string(argv[i]) == "--interpret") goto _REP;
-                    if (string(argv[i]) == "--huffman-rep") goto _HUFF_BYTE;
-                    if (string(argv[i]) == "--huffman-chunk") goto _HUFF_CHUNK;
-                    if (string(argv[i]) == "--dict-size") goto _DICT;
+                    if (string(argv[i]) == "--enc" or string(argv[i]) == "--encode") goto tag_encode;
+                    if (string(argv[i]) == "--dec" or string(argv[i]) == "--decode") goto tag_decode;
+                    if (string(argv[i]) == "--dry-run") goto tag_dryrun;
+                    if (string(argv[i]) == "--verify") goto tag_verify;
+                    if (string(argv[i]) == "--input") goto tag_input;
+                    if (string(argv[i]) == "--entropy") goto tag_entropy;
+                    if (string(argv[i]) == "--input-rep" or string(argv[i]) == "--interpret") goto tag_rep;
+                    if (string(argv[i]) == "--huffman-rep") goto tag_huff_byte;
+                    if (string(argv[i]) == "--huffman-chunk") goto tag_huff_chunk;
+                    if (string(argv[i]) == "--dict-size") goto tag_dict;
                     if (string(argv[i]) == "--gzip") {
                         to_gzip = true;
                         break;
@@ -286,24 +266,24 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // work
                 // ----------------------------------------------------------------
                 case 'e':
-                _ENCODE:
+                tag_encode:
                     to_encode = true;
                     break;
                 case 'd':
-                _DECODE:
+                tag_decode:
                     to_decode = true;
                     break;
                 case 'V':
-                _VERIFY:
+                tag_verify:
                     verify_huffman = true;  // TODO verify huffman in workflow
                     break;
                 case 'r':
-                _DRY_RUN:
+                tag_dryrun:
                     // dry-run
                     to_dryrun = true;
                     break;
                 case 'E':
-                _ENTROPY:
+                tag_entropy:
                     get_entropy = true;
                     break;
                 // input dimensionality
@@ -340,30 +320,30 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // help document
                 // ----------------------------------------------------------------
                 case 'h':
-                _HELP:
+                tag_help:
                     HuffmanDoc();
                     exit(0);
                     break;
                 // input datum file
                 // ----------------------------------------------------------------
                 case 'i':
-                _INPUT_DATUM:
+                tag_input:
                     if (i + 1 <= argc) { cx_path2file = string(argv[++i]); }
                     break;
                 case 'R':
-                _REP:
+                tag_rep:
                     if (i + 1 <= argc) input_rep = str2int(argv[++i]);
                     break;
                 case 'H':
-                _HUFF_BYTE:
+                tag_huff_byte:
                     if (i + 1 <= argc) huff_byte = str2int(argv[++i]);
                     break;
                 case 'C':
-                _HUFF_CHUNK:
+                tag_huff_chunk:
                     if (i + 1 <= argc) huffman_chunk = str2int(argv[++i]);
                     break;
                 case 'c':
-                _DICT:
+                tag_dict:
                     if (i + 1 <= argc) dict_size = str2int(argv[++i]);
                     break;
                 default:
@@ -448,88 +428,88 @@ ArgPack::ArgPack(int argc, char** argv)
     int i = 1;
     while (i < argc) {
         if (argv[i][0] == '-') {
+            auto long_opt = string(argv[i]);
             switch (argv[i][1]) {
-                // more readable args
                 // ----------------------------------------------------------------
                 case '-':
-                    if (string(argv[i]) == "--help") goto _HELP;              // DOCUMENT
-                    if (string(argv[i]) == "--version") goto _VERSION;        //
-                    if (string(argv[i]) == "--verbose") goto _VERBOSE;        //
-                    if (string(argv[i]) == "--entropy") goto _ENTROPY;        //
-                    if (string(argv[i]) == "--meta") goto _META;              //
-                    if (string(argv[i]) == "--mode") goto _MODE;              // COMPRESSION CONFIG
-                    if (string(argv[i]) == "--quant-byte") goto _QUANT_BYTE;  //
-                    if (string(argv[i]) == "--huff-byte") goto _HUFF_BYTE;    //
-                    if (string(argv[i]) == "--huff-chunk") goto _HUFF_CHUNK;  //
-                    if (string(argv[i]) == "--eb") goto _ERROR_BOUND;         //
-                    if (string(argv[i]) == "--dict-size") goto _DICT;         //
-                    if (string(argv[i]) == "--dtype") goto _TYPE;             //
-                    if (string(argv[i]) == "--input") goto _INPUT_DATUM;      // INPUT
-                    if (string(argv[i]) == "--demo") goto _DEMO;              //
-                    if (string(argv[i]) == "--verify") goto _VERIFY;          //
-                    if (string(argv[i]) == "--len") goto _LEN;                //
-                    if (string(argv[i]) == "--compress") goto _COMPRESS;      // WORKFLOW
-                    if (string(argv[i]) == "--zip") goto _COMPRESS;           //
-                    if (string(argv[i]) == "--decompress") goto _DECOMPRESS;  //
-                    if (string(argv[i]) == "--unzip") goto _DECOMPRESS;       //
-                    if (string(argv[i]) == "--dry-run") goto _DRY_RUN;        //
-                    if (string(argv[i]) == "--skip") goto _EXCLUDE;           //
-                    if (string(argv[i]) == "--exclude") goto _EXCLUDE;        //
-                    if (string(argv[i]) == "--pre") goto _PRE;                // IO
-                    if (string(argv[i]) == "--export-codebook") {             //
-                        export_codebook = true;                               //
-                    }                                                         //
-                    if (string(argv[i]) == "--output") goto _XOUT;            //
-                    if (string(argv[i]) == "--opath") {  // TODO the followings has no single-letter options
+                    if (long_opt == "--help") goto tag_help;              // DOCUMENT
+                    if (long_opt == "--version") goto tag_version;        //
+                    if (long_opt == "--verbose") goto tag_verbose;        //
+                    if (long_opt == "--entropy") goto tag_entropy;        //
+                    if (long_opt == "--meta") goto tag_meta;              //
+                    if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
+                    if (long_opt == "--quant-byte") goto tag_quant_byte;  //
+                    if (long_opt == "--huff-byte") goto tag_huff_byte;    //
+                    if (long_opt == "--huff-chunk") goto tag_huff_chunk;  //
+                    if (long_opt == "--eb") goto tag_error_bound;         //
+                    if (long_opt == "--dict-size") goto tag_dict;         //
+                    if (long_opt == "--dtype") goto tag_type;             //
+                    if (long_opt == "--input") goto tag_input;            // INPUT
+                    if (long_opt == "--demo") goto tag_demo;              //
+                    if (long_opt == "--verify") goto tag_verify;          //
+                    if (long_opt == "--len") goto tag_len;                //
+                    if (long_opt == "--compress") goto tag_compress;      // WORKFLOW
+                    if (long_opt == "--zip") goto tag_compress;           //
+                    if (long_opt == "--decompress") goto tag_decompress;  //
+                    if (long_opt == "--unzip") goto tag_decompress;       //
+                    if (long_opt == "--dry-run") goto tag_dryrun;         //
+                    if (long_opt == "--skip") goto tag_excl;              //
+                    if (long_opt == "--exclude") goto tag_excl;           //
+                    if (long_opt == "--pre") goto tag_preproc;            // IO
+                    if (long_opt == "--export-codebook") {                //
+                        export_codebook = true;                           //
+                    }                                                     //
+                    if (long_opt == "--output") goto tag_x_out;           //
+                    if (long_opt == "--opath") {  // TODO the followings has no single-letter options
                         if (i + 1 <= argc)
                             this->opath = string(argv[++i]);  // TODO does not apply for preprocessed such as binning
                         break;
                     }
-                    if (string(argv[i]) == "--origin") {
+                    if (long_opt == "--origin") {
                         if (i + 1 <= argc) this->x_fi_origin = string(argv[++i]);
                         break;
                     }
-                    if (string(argv[i]) == "--gzip") {
+                    if (long_opt == "--gzip") {
                         to_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
-                    // if (string(argv[i]) == "--coname") {
+                    // if (long_opt == "--coname") {
                     //     // TODO does not apply for preprocessed such as binning
                     //     if (i + 1 <= argc) ap->coname = string(argv[++i]);
                     //     break;
                     // }
-                    // if (string(argv[i]) == "--xoname") {
+                    // if (long_opt == "--xoname") {
                     //     // TODO does not apply for preprocessed such as binning
                     //     if (i + 1 <= argc) ap->xoname = string(argv[++i]);
                     //     break;
                     // }
                 // WORKFLOW
                 case 'z':
-                _COMPRESS:
+                tag_compress:
                     to_archive = true;
                     break;
                 case 'x':
-                _DECOMPRESS:
+                tag_decompress:
                     to_extract = true;
                     break;
                 case 'r':
-                _DRY_RUN:
+                tag_dryrun:
                     // dry-run
                     to_dryrun = true;
                     break;
                 // COMPRESSION CONFIG
                 case 'm':  // mode
-                _MODE:
+                tag_mode:
                     if (i + 1 <= argc) mode = string(argv[++i]);
                     break;
                 // analysis
                 case 'E':
-                _ENTROPY:
+                tag_entropy:
                     get_entropy = true;
                     break;
                 // OTHER WORKFLOW
                 case 'S':
-                _EXCLUDE:
+                tag_excl:
                     if (i + 1 <= argc) {
                         string exclude(argv[++i]);
                         if (exclude.find("huffman") != std::string::npos) skip_huffman = true;
@@ -538,7 +518,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 // INPUT
                 case 'l':
-                _LEN:
+                tag_len:
                     if (i + 1 <= argc) {
                         std::stringstream   datalen(argv[++i]);
                         std::vector<string> dims;
@@ -591,12 +571,12 @@ ArgPack::ArgPack(int argc, char** argv)
                     }
                     break;
                 case 'i':
-                _INPUT_DATUM:
+                tag_input:
                     if (i + 1 <= argc) cx_path2file = string(argv[++i]);
                     break;
                     // alternative output
                 case 'o':
-                _XOUT:
+                tag_x_out:
                     cerr << log_err
                          << "\"-o\" will be working in the (near) future release. Pleae use \"--opath [path]\" "
                             "to "
@@ -606,7 +586,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 // preprocess
                 case 'p':
-                _PRE:
+                tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);
                         if (pre.find("binning") != std::string::npos) pre_binning = true;
@@ -614,7 +594,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 // demo datasets
                 case 'D':
-                _DEMO:
+                tag_demo:
                     if (i + 1 <= argc) {
                         use_demo     = true;  // for skipping checking dimension args
                         demo_dataset = string(argv[++i]);
@@ -622,18 +602,18 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 // DOCUMENT
                 case 'h':
-                _HELP:
+                tag_help:
                     cuszFullDoc();
                     exit(0);
                     break;
                 case 'v':
-                _VERSION:
+                tag_version:
                     // TODO
                     cout << log_info << version_text << endl;
                     break;
                 // COMPRESSION CONFIG
                 case 't':
-                _TYPE:
+                tag_type:
                     if (i + 1 <= argc) {
                         string s = string(string(argv[++i]));
                         if (s == "f32" or s == "fp4")
@@ -646,26 +626,26 @@ ArgPack::ArgPack(int argc, char** argv)
                     }
                     break;
                 case 'M':
-                _META:  // TODO print .sz archive metadata
+                tag_meta:  // TODO print .sz archive metadata
                     break;
                 // internal representation and size
                 case 'Q':
-                _QUANT_BYTE:
+                tag_quant_byte:
                     if (i + 1 <= argc) quant_byte = str2int(argv[++i]);
                     break;
                 case 'H':
-                _HUFF_BYTE:
+                tag_huff_byte:
                     if (i + 1 <= argc) huff_byte = str2int(argv[++i]);
                     break;
                 case 'C':
-                _HUFF_CHUNK:
+                tag_huff_chunk:
                     if (i + 1 <= argc) {  //
                         huffman_chunk          = str2int(argv[++i]);
                         autotune_huffman_chunk = false;
                     }
                     break;
                 case 'e':
-                _ERROR_BOUND:
+                tag_error_bound:
                     if (i + 1 <= argc) {
                         string eb(argv[++i]);
                         if (eb.find('e') != std::string::npos) {
@@ -682,7 +662,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     }
                     break;
                 case 'y':
-                _VERIFY:
+                tag_verify:
                     if (i + 1 <= argc) {
                         string veri(argv[++i]);
                         if (veri.find("huffman") != std::string::npos) verify_huffman = true;
@@ -690,11 +670,11 @@ ArgPack::ArgPack(int argc, char** argv)
                     }
                     break;
                 case 'V':
-                _VERBOSE:
+                tag_verbose:
                     verbose = true;
                     break;
                 case 'd':
-                _DICT:
+                tag_dict:
                     if (i + 1 <= argc) dict_size = str2int(argv[++i]);
                     break;
                 default:
