@@ -28,7 +28,8 @@ def figure_out_compatibility(cuda_ver):
         print("Error")
     elif cuda_ver == "9.2":
         max_compat = [
-            "-arch=sm_60", SMp_PASCAL_t, SMp_PASCAL_cp, SMp_VOLTA, compute_VOLTA
+            "-arch=sm_60", SMp_PASCAL_t, SMp_PASCAL_cp, SMp_VOLTA,
+            compute_VOLTA
         ]
     elif cuda_ver in ["10.0", "10.1", "10.2"]:
         max_compat = [
@@ -69,7 +70,8 @@ gpu.names:  p100  v100  a100
 cuda_ver = ""
 try:
     cuda_ver = sp.check_output(
-        """nvcc --version | grep "release" | awk '{print $5}' | cut -d, -f1""", shell=True).decode("UTF-8")
+        """nvcc --version | grep "release" | awk '{print $5}' | cut -d, -f1""",
+        shell=True).decode("UTF-8").strip()
 except:
     pass
 
@@ -121,17 +123,21 @@ if __name__ == "__main__":
         )
         makefile = makefile.replace(  #
             "CC_FLAGS  += ####",  #
-            "CC_FLAGS  += ####".replace("####", build_types["release"]["host"])  #
+            "CC_FLAGS  += ####".replace("####",
+                                        build_types["release"]["host"])  #
         )
         makefile = makefile.replace(  #
             "NV_FLAGS  += ####",  #
-            "NV_FLAGS  += ####".replace("####", build_types["release"]["cuda"])  #
+            "NV_FLAGS  += ####".replace("####",
+                                        build_types["release"]["cuda"])  #
         )
 
     if argc == 3:
-        if (argv[1] in build_target.keys()) and (argv[2] in build_types.keys()):
+        if (argv[1] in build_target.keys()) and (argv[2]
+                                                 in build_types.keys()):
             rule, opt_level = argv[1], argv[2]
-        elif (argv[2] in build_target.keys()) and (argv[1] in build_types.keys()):
+        elif (argv[2] in build_target.keys()) and (argv[1]
+                                                   in build_types.keys()):
             rule, opt_level = argv[2], argv[1]
         else:
             print(doc)
@@ -143,11 +149,13 @@ if __name__ == "__main__":
         )
         makefile = makefile.replace(  #
             "CC_FLAGS  += ####",  #
-            "CC_FLAGS  += ####".replace("####", build_types[opt_level]["host"])  #
+            "CC_FLAGS  += ####".replace("####",
+                                        build_types[opt_level]["host"])  #
         )
         makefile = makefile.replace(  #
             "NV_FLAGS  += ####",  #
-            "NV_FLAGS  += ####".replace("####", build_types[opt_level]["cuda"])  #
+            "NV_FLAGS  += ####".replace("####",
+                                        build_types[opt_level]["cuda"])  #
         )
 
     with open("Makefile", "w") as fo:
