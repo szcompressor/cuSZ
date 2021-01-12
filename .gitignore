@@ -18,6 +18,7 @@ huff
 *.BN
 
 *.canonized
+*.lean_cb
 
 cmake-build-debug-t7600
 src/future

@@ -14,8 +14,8 @@
 #include <string>
 #include <vector>
 
-#include "../SDRB.hh"
 #include "../analysis_utils.hh"
+#include "../datasets.hh"
 #include "../types.hh"
 #include "../utils/verify.hh"
 #include "psz_workflow.hh"
