@@ -148,7 +148,7 @@ void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, si
         // clang-format on
     }
 
-    logall(log_info, "load outlier");
+    LogAll(log_info, "load outlier");
 
     delete[] outlier_bin;
 }

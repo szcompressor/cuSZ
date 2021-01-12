@@ -92,9 +92,9 @@ void lossless::wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int*
         for (auto i = 0; i < dict_size; i++)
             if (freq[i]) {
                 auto possibility = freq[i] / (1.0 * len);
-                entropy -= possibility * log(possibility);
+                entropy -= possibility * log2(possibility);
             }
-        logall(log_dbg, "entropy:", entropy);
+        //        LogAll(log_dbg, "entropy:", entropy);
         delete[] freq;
     }
 
@@ -166,7 +166,7 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
         auto              cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canonical_cb, dict_size);
         std::stringstream s;
         s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
-        logall(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
+        LogAll(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
         io::WriteArrayToBinary(s.str(), cb_dump, dict_size);
         delete[] cb_dump;
         cb_dump = nullptr;
@@ -212,7 +212,7 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
     auto fmt_enc1 = "Huffman enc: (#) " + std::to_string(n_chunk) + " x " + std::to_string(chunk_size);
     auto fmt_enc2 = std::to_string(total_uInts) + " " + std::to_string(sizeof(Huff)) + "-byte words or " +
                     std::to_string(total_bits) + " bits";
-    logall(log_dbg, fmt_enc1, "=>", fmt_enc2);
+    LogAll(log_dbg, fmt_enc1, "=>", fmt_enc2);
 
     // print densely metadata
     // PrintChunkHuffmanCoding<H>(dH_bit_meta, dH_uInt_meta, len, chunk_size, total_bits, total_uInts);
@@ -239,7 +239,7 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
         sizeof(Huff) * (2 * type_bw) + sizeof(Quant) * dict_size  // first, entry, reversed dict (keys)
     );
     auto time_z = hires::now();
-    logall(log_dbg, "time writing Huff. binary:", static_cast<duration_t>(time_z - time_a).count(), "sec");
+    LogAll(log_dbg, "time writing Huff. binary:", static_cast<duration_t>(time_z - time_a).count(), "sec");
 
     size_t metadata_size = (2 * n_chunk) * sizeof(decltype(h_meta))                     //
                            + sizeof(Huff) * (2 * type_bw) + sizeof(Quant) * dict_size;  // uint8_t
@@ -298,9 +298,12 @@ Quant* lossless::interface::HuffmanDecode(
     return xq;
 }
 
+// TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
+// using Q1 = QuantTrait<1>::Quant;
+// using H4 = HuffTrait<4>::Huff;
+
 template tuple3ul lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, size_t, int, int, bool);
 template tuple3ul lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, int, bool);
-template tuple3ul lossless::interface::HuffmanEncode<UI4, UI4, FP4>(string&, UI4*, size_t, int, int, bool);
 template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, int, bool);
 template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, int, bool);
 template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8, FP4>(string&, UI4*, size_t, int, int, bool);
@@ -310,11 +313,5 @@ template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8_2, FP4>(string&, U
 
 template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, int, int);
 template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, int, int);
-template UI4* lossless::interface::HuffmanDecode<UI4, UI4, FP4>(std::string&, size_t, int, int, int);
-template UI1* lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, size_t, int, int, int);  // uint64_t
+template UI1* lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, size_t, int, int, int);
 template UI2* lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, size_t, int, int, int);
-template UI4* lossless::interface::HuffmanDecode<UI4, UI8, FP4>(std::string&, size_t, int, int, int);
-template UI1* lossless::interface::HuffmanDecode<UI1, UI8_2, FP4>(std::string&, size_t, int, int, int);  // uint64_t
-template UI2* lossless::interface::HuffmanDecode<UI2, UI8_2, FP4>(std::string&, size_t, int, int, int);
-template UI4* lossless::interface::HuffmanDecode<UI4, UI8_2, FP4>(std::string&, size_t, int, int, int);
-// clang-format off

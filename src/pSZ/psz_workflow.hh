@@ -126,7 +126,7 @@ void cx_sim(
     //    io::write_binary_file(code, len, new string("/Users/jtian/WorkSpace/cuSZ/src/CLDMED.bincode"));
 
     if (show_histo) { Analysis::histogram<int>(std::string("bincode/quant.code"), code, len, 8); }
-    Analysis::getEntropy(code, len, 1024);
+    Analysis::GetEntropy(code, len, 1024);
 #ifdef PRED_COMP_ERR
     Analysis::histogram<T>(std::string("pred.error"), pred_err, len, 8);  // TODO when changing to 8, seg fault
     Analysis::histogram<T>(std::string("comp.error"), comp_err, len, 16);
