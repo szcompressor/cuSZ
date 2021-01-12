@@ -14,7 +14,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <cstddef>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -39,28 +38,6 @@ using std::string;
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/timer.hh"
-
-void CheckShellCall(string& cmd_string)
-{
-    // logall(log_dbg, cmd_string);
-    char* cmd = new char[cmd_string.length() + 1];
-    strcpy(cmd, cmd_string.c_str());
-    delete[] cmd;
-    cmd        = nullptr;
-    int status = std::system(cmd);
-    // < 0 error, > 0 many cases, can be further checked with WIFEXITED(status)
-    // status is for "(std::)system", errno is for shell
-    if (status < 0) { logall(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
-    // https://stackoverflow.com/a/10931234/8740097, CC BY-SA 3.0
-    /*
-    else {
-        if (WIFEXITED(status))
-            logall(log_dbg, "Program returned normally, exit code ", WEXITSTATUS(status));
-        else
-            logall(log_dbg, "Program exited abnormaly");
-    }
-     */
-}
 
 template <typename Data, int DownscaleFactor, int tBLK>
 Data* pre_binning(Data* d, size_t* dim_array)
@@ -217,12 +194,13 @@ int main(int argc, char** argv)
     // before running into decompression
     {
         // reset anyway
+        // TODO shared pointer
         if (dim_array) memset(dim_array, 0, sizeof(size_t) * 16);
         if (eb_array) memset(eb_array, 0, sizeof(double) * 4);
     }
 
     // wenyu's modification
-    // invoke std::system() to untar archived files first before decompression
+    // invoke system() to untar archived files first before decompression
 
     if (!ap->to_archive && ap->to_extract) {
         string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/') + 1);
@@ -231,7 +209,10 @@ int main(int argc, char** argv)
         else {
             cmd_string = "tar -xf " + ap->cx_path2file + ".sz" + " -C " + cx_directory;
         }
-        CheckShellCall(cmd_string);
+        char* cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
+        delete[] cmd;
     }
 
     // wenyu's modification ends
@@ -277,8 +258,11 @@ int main(int argc, char** argv)
         auto tar_a = hires::now();
 
         // remove *.sz if existing
-        string cmd_string = "rm -f " + ap->opath + cx_basename + ".sz";
-        CheckShellCall(cmd_string);
+        string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
+        char*  cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
+        delete[] cmd;
 
         // using tar command to encapsulate files
         string files_for_merging;
@@ -294,17 +278,26 @@ int main(int argc, char** argv)
             cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
 
-        CheckShellCall(cmd_string);
+        cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+
+        system(cmd);
+
+        delete[] cmd;
 
         // remove 5 subfiles
-        cmd_string = "cd " + ap->opath + "; rm -f " + files_for_merging;
-        CheckShellCall(cmd_string);
+        cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
+        cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
 
         auto tar_z = hires::now();
 
         auto ad_hoc_fix = ap->opath.substr(0, ap->opath.size() - 1);
         logall(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
         logall(log_info, "output:", ad_hoc_fix + cx_basename + ".sz");
+
+        delete[] cmd;
     }
 
     // if it's decompression, remove released subfiles at last.
@@ -319,14 +312,20 @@ int main(int argc, char** argv)
                                  cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
         string cmd_string =
-            "cd " + ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/')) + "; rm -f " + files_for_deleting;
-        CheckShellCall(cmd_string);
+            "cd " + ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/')) + ";rm -rf " + files_for_deleting;
+        char* cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
+        delete[] cmd;
     }
 
     if (ap->to_archive && ap->to_extract) {
         // remove *.sz if existing
-        string cmd_string = "rm -f " + ap->opath + cx_basename + ".sz";
-        CheckShellCall(cmd_string);
+        string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
+        char*  cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
+        delete[] cmd;
 
         // using tar command to encapsulate files
         string files_for_merging;
@@ -342,14 +341,22 @@ int main(int argc, char** argv)
             cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
 
-        CheckShellCall(cmd_string);
+        cmd = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+
+        system(cmd);
+
+        delete[] cmd;
 
         // remove 5 subfiles
-        cmd_string = "cd " + ap->opath + "; rm -f " + files_for_merging;
-        CheckShellCall(cmd_string);
+        cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
+        cmd        = new char[cmd_string.length() + 1];
+        strcpy(cmd, cmd_string.c_str());
+        system(cmd);
 
-        logall(log_info, "write to: " + ap->opath + cx_basename + ".sz");
-        logall(log_info, "write to: " + ap->opath + cx_basename + ".szx");
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".sz\e[0m" << endl;
+        cout << log_info << "Written to:\t\e[1m" << ap->opath << cx_basename << ".szx\e[0m" << endl;
+        delete[] cmd;
     }
 
     // wenyu's modification ends
