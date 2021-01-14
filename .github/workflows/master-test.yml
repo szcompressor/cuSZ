@@ -1,8 +1,8 @@
-name: CI-feature/nvcomp
+name: CI-master
  
 on:
   push:
-    branches: [ feature/nvcomp ]
+    branches: [ master ]
     paths-ignore:
       - '**.md'
       - 'doc/**'
@@ -10,7 +10,7 @@ on:
       - 'LICENSE'
       - 'changelog'
   pull_request:
-    branches: [ feature/nvcomp ]
+    branches: [ master ]
     paths-ignore:
       - '**.md'
       - 'doc/**'
