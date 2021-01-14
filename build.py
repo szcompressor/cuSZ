@@ -161,6 +161,53 @@ if __name__ == "__main__":
     with open("Makefile", "w") as fo:
         fo.write(makefile)
 
+        
+    ############################################################
+    # submodules
+    ############################################################
+    NVCOMP_DIR         = "external/nvcomp"
+    NVCOMP_INCLUDE_DIR = NVCOMP_DIR + "/build/include"
+    NVCOMP_LIB_DIR     = NVCOMP_DIR + "/build/lib"
+    NVCOMP_STATIC_LIB  = NVCOMP_LIB_DIR + "/libnvcomp.a"
+
+    GTEST_DIR         = "external/googletest"
+    GTEST_INCLUDE_DIR = GTEST_DIR + "/googletest/include"
+    GTEST_LIB_DIR     = GTEST_DIR + "/build/lib"
+    GTEST_STATIC_LIB  = GTEST_LIB_DIR + "/libgtest.a"
+
+    cc = sp.check_output("which gcc", shell=True).decode("utf-8").strip()
+    cxx = sp.check_output("which g++", shell=True).decode("utf-8").strip()
+
+    patch_nvcomp = "patch {0}/src/CMakeLists.txt external/patch.nvcomp-1.1".format(NVCOMP_DIR)
+    cmake_nvcomp_pre_cuda11 = "cmake -DCUB_DIR=$(pwd)/external/cub -DCMAKE_C_COMPILER={1} -DCMAKE_CXX_COMPILER={2} -S {0} -B {0}/build  && make -j -C {0}/build".format(NVCOMP_DIR, cc, cxx)
+    cmake_nvcomp_cuda11_onward = "cmake -DCMAKE_C_COMPILER={1} -DCMAKE_CXX_COMPILER={2} -S {0} -B {0}/build  && make -j -C {0}/build".format(NVCOMP_DIR, cc, cxx)
+    cmake_nvcomp = cmake_nvcomp_cuda11_onward if cuda_ver in ["11.0", "11.1", "11.2"] else cmake_nvcomp_pre_cuda11
+    cmake_gtest  = "cmake -DCMAKE_C_COMPILER={1} -DCMAKE_CXX_COMPILER={2} -S {0} -B {0}/build  && make -j -C {0}/build""".format(GTEST_DIR, cc, cxx)
+
+    # print(patch_nvcomp)
+    # print(cmake_nvcomp_pre_cuda11)
+    # print(cmake_nvcomp_cuda11_onward)
+    # print(cmake_gtest)
+    # exit()
+
+    # TODO purge
+
+    compile_info = ""
+    if not os.path.exists("external/nvcomp/build/lib/libnvcomp.a"):
+        os.system(patch_nvcomp)
+        os.system(cmake_nvcomp)
+    if not os.path.exists("external/nvcomp/build/lib/libgtest.a"):
+        os.system(cmake_gtest)
+    
+    # double check
+    if os.path.exists(GTEST_STATIC_LIB):
+        print("gtest lib ready")
+    if os.path.exists(NVCOMP_STATIC_LIB):
+        print("nvcomp lib ready")
+
+    ############################################################
+    # compile cusz
+    ############################################################
     if cuda_ver == "":
         print("No nvcc is cound, skip compilation.")
         exit(1)

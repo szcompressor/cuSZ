@@ -49,6 +49,8 @@ int ht_state_num;
 int ht_all_nodes;
 // const int nvcompTHLD = 30;
 
+typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
+
 template <typename UInt_Input>
 void lossless::wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
 {
@@ -119,7 +121,7 @@ void lossless::utils::PrintChunkHuffmanCoding(
 }
 
 template <typename Quant, typename Huff, typename Data>
-std::tuple<size_t, size_t, size_t, bool> lossless::interface::HuffmanEncode(
+tuple_3ul_1bool lossless::interface::HuffmanEncode(
     string& basename,
     Quant*  d_in,
     size_t  len,
