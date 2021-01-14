@@ -30,7 +30,7 @@ using std::string;
 //    return (access(name.c_str(), F_OK) != -1);
 //}
 
-typedef std::tuple<size_t, size_t, size_t> tuple3ul;
+typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
 
 template <typename UInt>
 double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
@@ -57,10 +57,10 @@ template <typename H> void PrintChunkHuffmanCoding(size_t*, size_t*, size_t, int
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, int dict_size = 1024, bool export_cb=false);
+std::tuple<size_t, size_t, size_t, bool> HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size, bool to_nvcomp, int dict_size = 1024, bool export_cb=false);
 
 template <typename Quant, typename Huff, typename Data = float>
-Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, int dict_size = 1024);
+Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, bool nvcomp_in_use, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_q_in, size_t len, int dict_size);

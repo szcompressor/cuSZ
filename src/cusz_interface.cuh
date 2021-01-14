@@ -33,10 +33,11 @@ void Compress(
     int&,
     size_t&,
     size_t&,
-    size_t&);
+    size_t&, 
+    bool&);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&);
+void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&, bool);
 
 }  // namespace interface
 

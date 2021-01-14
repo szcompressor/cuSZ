@@ -11,6 +11,7 @@
  *
  */
 
+#include <math.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <cstddef>
@@ -28,6 +29,7 @@ using std::string;
 #include "cusz_interface.cuh"
 #include "datasets.hh"
 #include "filter.cuh"
+#include "gtest/gtest.h"
 #include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
@@ -39,6 +41,11 @@ using std::string;
 #include "utils/io.hh"
 #include "utils/timer.hh"
 
+double expectedErr;
+double actualAbsErr;
+double actualRelErr;
+string z_mode;
+
 void CheckShellCall(string cmd_string)
 {
     char* cmd = new char[cmd_string.length() + 1];
@@ -47,6 +54,12 @@ void CheckShellCall(string cmd_string)
     delete[] cmd;
     cmd = nullptr;
     if (status < 0) { LogAll(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
+}
+
+TEST(cuSZTest, TestMaxError)
+{
+    double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
+    ASSERT_LE(actualErr, expectedErr);
 }
 
 template <typename Data, int DownscaleFactor, int tBLK>
@@ -86,6 +99,7 @@ int main(int argc, char** argv)
     double* eb_array    = nullptr;
     int     nnz_outlier = 0;
     size_t  total_bits, total_uInt, huff_meta_size;
+    bool    nvcomp_in_use = false;
 
     if (ap->verbose) {
         GetMachineProperties();
@@ -167,18 +181,18 @@ int main(int argc, char** argv)
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
                 cusz::interface::Compress<true, 4, 1, 4>(
-                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
             else
                 cusz::interface::Compress<true, 4, 1, 8>(
-                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
                 cusz::interface::Compress<true, 4, 2, 4>(
-                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
             else
                 cusz::interface::Compress<true, 4, 2, 8>(
-                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, adp, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
 
         // pack metadata
@@ -187,6 +201,7 @@ int main(int argc, char** argv)
         mp->total_bits     = total_bits;
         mp->total_uInt     = total_uInt;
         mp->huff_meta_size = huff_meta_size;
+        mp->nvcomp_in_use  = nvcomp_in_use;
 
         auto mp_byte = reinterpret_cast<char*>(mp);
         // yet another metadata package
@@ -235,22 +250,23 @@ int main(int argc, char** argv)
         total_bits     = mp->total_bits;
         total_uInt     = mp->total_uInt;
         huff_meta_size = mp->huff_meta_size;
+        nvcomp_in_use  = mp->nvcomp_in_use;
 
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
                 cusz::interface::Decompress<true, 4, 1, 4>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
             else if (ap->huff_byte == 8)
                 cusz::interface::Decompress<true, 4, 1, 8>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
                 cusz::interface::Decompress<true, 4, 2, 4>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
             else if (ap->huff_byte == 8)
                 cusz::interface::Decompress<true, 4, 2, 8>(
-                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size);
+                    ap, dim_array, eb_array, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
     }
 
@@ -336,6 +352,16 @@ int main(int argc, char** argv)
 
         LogAll(log_info, "write to: " + ap->opath + cx_basename + ".sz");
         LogAll(log_info, "write to: " + ap->opath + cx_basename + ".szx");
+
+        if (ap->to_gtest) {
+            expectedErr  = ap->mantissa * pow(10, ap->exponent);
+            z_mode       = ap->mode;
+            auto stat    = ap->stat;
+            actualAbsErr = stat.max_abserr;
+            actualRelErr = stat.max_abserr_vs_range;
+            ::testing::InitGoogleTest(&argc, argv);
+            return RUN_ALL_TESTS();
+        }
     }
 
     // wenyu's modification ends

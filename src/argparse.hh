@@ -44,6 +44,7 @@ typedef struct ArgPack {
     string demo_dataset;
     string opath;
     string dtype;
+
     int    dict_size{1024};
     int    quant_byte{2}, huff_byte{4};
     int    huffman_chunk{512};
@@ -61,7 +62,9 @@ typedef struct ArgPack {
 
     bool conduct_partition_experiment{false};
 
-    bool to_gzip;  // wenyu: whether to do a gzip lossless compression on encoded data
+    bool to_gzip{false};    // wenyu: whether to do a gzip lossless compression on encoded data
+    bool to_nvcomp{false};  // whether or not to activate nvidia parallel cascading compression
+    bool to_gtest{false};   // whether or not to activate unit test
 
     bool get_huff_entropy{false};
     bool get_huff_avg_bitcount{false};
