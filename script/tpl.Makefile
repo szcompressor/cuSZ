@@ -23,10 +23,6 @@ CC_FLAGS :=
 NV_FLAGS := --expt-relaxed-constexpr --expt-extended-lambda
 
 CUDA_VER      := $(shell nvcc --version | grep "release" | awk '{print $$5}' | cut -d, -f1)
-# CUDA_VER_MAJ  := $(word 1, $(subst ., ,$(CUDA_VER)))
-# CUDA_VER_MIN  := $(word 2, $(subst ., ,$(CUDA_VER)))
-# CUDA_VER_STR  := $(CUDA_VER_MAJ)$(CUDA_VER_MIN)
-
 
 #### external libs
 NVCOMP_DIR        := external/nvcomp
@@ -39,27 +35,6 @@ GTEST_INCLUDE_DIR := $(GTEST_DIR)/googletest/include
 GTEST_LIB_DIR     := $(GTEST_DIR)/build/lib
 GTEST_STATIC_LIB  := $(GTEST_LIB_DIR)/libgtest.a
 
-libnvcomp: $(NVCOMP_STATIC_LIB)
-libgtest:  $(GTEST_STATIC_LIB)
-
-patch_nvcomp:
-	patch external/nvcomp/src/CMakeLists.txt external/patch.nvcomp-1.1
-
-$(NVCOMP_STATIC_LIB): patch_nvcomp
-	cmake \
-	    -DCUB_DIR=$(PWD)/external/cub \
-	    -DCMAKE_C_COMPILER=$(shell which gcc) \
-	    -DCMAKE_CXX_COMPILER=$(shell which g++) \
-	    -S ${NVCOMP_DIR} -B ${NVCOMP_DIR}/build  && \
-	make -j -C ${NVCOMP_DIR}/build
-
-$(GTEST_STATIC_LIB):
-	cmake \
-	    -DCMAKE_C_COMPILER=$(shell which gcc) \
-	    -DCMAKE_CXX_COMPILER=$(shell which g++) \
-	    -S ${GTEST_DIR} -B ${GTEST_DIR}/build  && \
-	make -j -C ${GTEST_DIR}/build
-
 #### filesystem
 SRC_DIR     := src
 OBJ_DIR     := src
@@ -71,6 +46,7 @@ CCsrc     := $(filter-out $(CCsrc_omp), $(wildcard $(SRC_DIR)/*.cc))
 
 MAIN      := $(SRC_DIR)/cusz.cu
 
+CUsrc4    := $(SRC_DIR)/huff_interface.cu
 CUsrc3    := $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
 CUsrc2    := $(SRC_DIR)/cusz_interface.cu $(SRC_DIR)/dualquant.cu
 CUsrc1    := $(filter-out $(MAIN) $(CUsrc3) $(CUsrc2), $(wildcard $(SRC_DIR)/*.cu))
@@ -81,6 +57,7 @@ CCo       := $(CCsrc:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 CUo1      := $(CUsrc1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CUo2      := $(CUsrc2:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CUo3      := $(CUsrc3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUo4      := $(CUsrc4:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 
 CUo       := $(CUo1) $(CUo2) $(CUo3)
 OBJ_all   := $(CCo) $(CCo_omp) $(CUo)
@@ -88,6 +65,7 @@ OBJ_all   := $(CCo) $(CCo_omp) $(CUo)
 $(CCo_omp): CC_FLAGS += -fopenmp
 $(CUo2): NV_FLAGS += -rdc=true
 $(CUo3): NV_FLAGS += -rdc=true
+$(CUo4): NV_FLAGS += -I $(NVCOMP_INCLUDE_DIR)/ 
 
 CC_FLAGS  += ####
 NV_FLAGS  += ####
@@ -104,7 +82,7 @@ all: target_proxy
 #cusz: $(OBJ_all) | $(BIN_DIR)
 #	$(NVCC) $(NV_FLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
 
-cusz: $(NVCOMP_STATIC_LIB) $(OBJ_all) $(GTEST_STATIC_LIB) | $(BIN_DIR)
+cusz: $(OBJ_all) $(NVCOMP_STATIC_LIB)  $(GTEST_STATIC_LIB) | $(BIN_DIR)
 	$(NVCC) $(NV_FLAGS) $(MAIN) \
 		-lgomp -lcusparse -lpthread \
 		-rdc=true \
@@ -112,10 +90,10 @@ cusz: $(NVCOMP_STATIC_LIB) $(OBJ_all) $(GTEST_STATIC_LIB) | $(BIN_DIR)
 		$(GTEST_STATIC_LIB) -I$(GTEST_INCLUDE_DIR)/ \
 		$^ -o $(BIN_DIR)/$@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc libnvcomp | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
 	$(CC) $(CC_FLAGS) -c $< -o $@
 
-$(CUo): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu libnvcomp | $(OBJ_DIR)
+$(CUo): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu $(NVCOMP_STATIC_LIB) | $(OBJ_DIR)
 	$(NVCC) $(NV_FLAGS) -c $< -o $@
 
 $(BIN_DIR):
