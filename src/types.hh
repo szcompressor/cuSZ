@@ -83,4 +83,15 @@ double* InitializeErrorBoundFamily(struct ErrorBoundConfigurator* eb_config);
 // static std::unordered_map<int8_t, int8_t> exp_dec2bin = {{-1, -4},  {-2, -7},  {-3, -10}, {-4, -14}, {-5, -17},
 //                                                         {-6, -20}, {-7, -24}, {-8, -27}, {-9, -30}, {-10, -34}};
 
+// clang-format off
+typedef struct Integer1  { int _0; }              Integer1;
+typedef struct Integer2  { int _0, _1; }          Integer2;
+typedef struct Integer3  { int _0, _1, _2; }      Integer3;
+typedef struct Integer4  { int _0, _1, _2, _3; }  Integer4;
+typedef struct UInteger1 { int _0; }             UInteger1;
+typedef struct UInteger2 { int _0, _1; }         UInteger2;
+typedef struct UInteger3 { int _0, _1, _2; }     UInteger3;
+typedef struct UInteger4 { int _0, _1, _2, _3; } UInteger4;
+// clang-format of
+
 #endif /* TYPES_HH */

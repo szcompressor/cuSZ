@@ -47,7 +47,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
-typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
+// typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
+typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
 
 template <typename Data, typename Quant>
 void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
@@ -193,6 +194,37 @@ void cusz::impl::VerifyHuffman(
     // end of if count
 }
 
+template <typename T>
+auto CopyToBuffer_3D(
+    T* __restrict buffer_dst,
+    T* __restrict origin_src,
+    size_t          portal,
+    Index<3>::idx_t part_dims,
+    Index<3>::idx_t block_stride,
+    Index<3>::idx_t global_stride)
+{
+    for (auto k = 0; k < part_dims._2; k++)
+        for (auto j = 0; j < part_dims._1; j++)
+            for (auto i = 0; i < part_dims._0; i++)
+                buffer_dst[i + j * block_stride._1 + k * block_stride._2] =
+                    origin_src[portal + (i + j * global_stride._1 + k * global_stride._2)];
+}
+
+template <typename T, int N = 3>
+auto PrintBuffer(T* data, size_t start, Integer3 strides)
+{
+    cout << "printing buffer\n";
+    for (auto k = 0; k < N; k++) {
+        for (auto j = 0; j < N; j++) {
+            for (auto i = 0; i < N; i++) {  //
+                cout << data[start + (i + j * strides._1 + k * strides._2)] << " ";
+            }
+            cout << "\n";
+        }
+    }
+    cout << endl;
+};
+
 // clang-format off
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
@@ -221,13 +253,13 @@ void cusz::interface::Compress(
     auto mxm    = adp->mxm;
 
     if (ap->to_dryrun) {
-        logall(log_info, "invoke dry-run");
+        LogAll(log_info, "invoke dry-run");
         DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
         cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
     }
-    logall(log_info, "invoke zipping");
+    LogAll(log_info, "invoke zipping");
 
     auto d_q = mem::CreateCUDASpace<Quant>(len);  // quant. code is not needed for dry-run
 
@@ -236,7 +268,7 @@ void cusz::interface::Compress(
     ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &ap->c_fo_outlier);
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
-    logall(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
+    LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
 
     Quant* q;
@@ -244,7 +276,7 @@ void cusz::interface::Compress(
         q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
         io::WriteArrayToBinary(ap->c_fo_q, q, len);
 
-        logall(log_info, "to store quant.code directly (Huffman enc skipped)");
+        LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
 
         return;
     }
@@ -260,10 +292,57 @@ void cusz::interface::Compress(
         ap->huffman_chunk = optimal_chunksize;
     }
 
-    std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) =
-        lossless::interface::HuffmanEncode<Quant, Huff>(ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_nvcomp, dims[CAP]);
+    if (ap->conduct_partition_experiment) {
+        // 3D only
+        auto part0     = ap->p0;
+        auto part1     = ap->p1;
+        auto part2     = ap->p2;
+        auto num_part0 = (ap->d0 - 1) / part0 + 1;
+        auto num_part1 = (ap->d1 - 1) / part1 + 1;
+        auto num_part2 = (ap->d2 - 1) / part2 + 1;
 
-    logall(log_dbg, "to store Huffman encoded quant.code (default)");
+        LogAll(log_dbg, "p0:", ap->p0, " p1:", ap->p1, " p2:", ap->p2);
+        LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
+
+        size_t stride1       = ap->d0;
+        size_t stride2       = stride1 * ap->d1;
+        size_t block_stride1 = ap->p0, block_stride2 = block_stride1 * ap->p1;
+
+        LogAll(log_dbg, "stride1:", stride1, " stride2:", stride2);
+        LogAll(log_dbg, "blockstride1:", block_stride1, " blockstride2:", block_stride2);
+
+        auto buffer_size = part0 * part1 * part2;
+        LogAll(log_dbg, "buffer size:", buffer_size);
+        auto quant_buffer = new Quant[buffer_size]();
+
+        q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
+
+        Index<3>::idx_t part_dims{part0, part1, part2};
+        Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
+        Index<3>::idx_t global_strides{1, (int)stride1, (int)stride2};
+
+        for (auto pk = 0; pk < num_part2; pk++) {
+            for (auto pj = 0; pj < num_part1; pj++) {
+                for (auto pi = 0; pi < num_part0; pi++) {
+                    auto start = pk * part2 * stride2 + pj * part1 * stride1 + pi * part0;
+                    CopyToBuffer_3D(quant_buffer, q, start, part_dims, block_strides, global_strides);
+                    lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
+                        Index<3>::idx_t{pi, pj, pk}, ap->c_huff_base, quant_buffer, buffer_size, ap->dict_size);
+                }
+            }
+        }
+
+        delete[] quant_buffer;
+        delete[] q;
+
+        cudaFree(d_q);
+        exit(0);
+    }
+
+    std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
+        ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_nvcomp, dims[CAP], ap->export_codebook);
+
+    LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
     cudaFree(d_q);
 }
@@ -288,16 +367,16 @@ void cusz::interface::Decompress(
     auto m         = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
     auto mxm       = m * m;
 
-    logall(log_info, "invoke unzip");
+    LogAll(log_info, "invoke unzip");
 
     Quant* xq;
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (ap->skip_huffman) {
-        logall(log_info, "load quant.code from filesystem");
+        LogAll(log_info, "load quant.code from filesystem");
         xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, len);
     }
     else {
-        logall(log_info, "Huffman decode -> quant.code");
+        LogAll(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
             ap->cx_path2file, len, ap->huffman_chunk, total_uInt, nvcomp_in_use, dict_size);
         if (ap->verify_huffman) {
@@ -320,7 +399,7 @@ void cusz::interface::Decompress(
     ::cusz::impl::ReversedPdQ(d_xdata, d_xq, d_outlier, dims, eb_variants[EBx2]);
     auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, len);
 
-    logall(log_info, "reconstruct error-bounded datum");
+    LogAll(log_info, "reconstruct error-bounded datum");
 
     size_t archive_bytes = 0;
     // TODO huffman chunking metadata
@@ -356,7 +435,7 @@ void cusz::interface::Decompress(
 
     // TODO move CR out of VerifyData
     if (ap->x_fi_origin != "") {
-        logall(log_info, "load the original datum for comparison");
+        LogAll(log_info, "load the original datum for comparison");
 
         auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, len);
         analysis::VerifyData(&ap->stat, xdata, odata, len);
@@ -364,12 +443,12 @@ void cusz::interface::Decompress(
 
         delete[] odata;
     }
-    logall(log_info, "output:", ap->cx_path2file + ".szx");
+    LogAll(log_info, "output:", ap->cx_path2file + ".szx");
 
     if (!ap->skip_writex)
         io::WriteArrayToBinary(ap->x_fo_xd, xdata, len);
     else {
-        logall(log_dbg, "skipped writing unzipped to filesystem");
+        LogAll(log_dbg, "skipped writing unzipped to filesystem");
     }
 
     // clean up
@@ -383,10 +462,15 @@ void cusz::interface::Decompress(
 typedef struct DataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
-template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+// TODO top-level instantiation really reduce compilation time?
+template void
+szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void
+szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void
+szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void
+szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
 
 template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
 template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);

@@ -29,8 +29,8 @@ add_executable(psz
         src/utils/verify.hh
         src/constants.hh
         src/constants.cc
-        src/SDRB.hh
-        src/SDRB.cc
+        src/datasets.hh
+        src/datasets.cc
         src/types.hh
         src/types.cc
         src/analysis_utils.hh
@@ -59,7 +59,7 @@ add_library(utils ${LIB_TYPE}
         src/analysis_utils.cc
         src/analysis_utils.hh
         src/autotune.cu
-        src/autotune.h
+        src/autotune.hh
         src/utils/verify.hh
         src/utils/format.hh
         )
@@ -83,8 +83,8 @@ add_executable(cusz_cmake
         src/pack.hh
         src/query.hh
         src/query_dev.hh
-        src/SDRB.cc
-        src/SDRB.hh
+        src/datasets.cc
+        src/datasets.hh
         src/utils/io.hh
         src/utils/timer.hh
         src/types.cc

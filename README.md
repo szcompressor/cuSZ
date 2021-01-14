@@ -20,27 +20,35 @@ Our published paper covers the essential design and implementation, accessible v
 
 # set up
 ## requirements
-- {Pascal,Volta,Turing} NVIDIA GPU
-- C++14 enabled compiler, GCC 7.x+; CUDA 9.2+
-  - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md), and more detailed CUDA-compiler [compatiblity](https://gist.github.com/ax3l/9489132).
-  - Note that *CUDA version* is referred to as the *toolchain verion* (e.g., activiated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
+- `{`Pascal, Volta, Turing, Ampere`}` NVIDIA GPU
+- C++14 enabled compiler, GCC 7 onward; CUDA 9.2 onward
+  - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
+  - More reference: 1) [CUDA compiler compatibility](https://gist.github.com/ax3l/9489132), 2) [compilation instruction](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
+  - Note that *CUDA version* is referred to as the *toolchain version* (e.g., activated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
 
-| setup |     |      |      |      |      |      |
-| ----- | --- | ---- | ---- | ---- | ---- | ---- |
-| gcc   | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
-|       |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
-|       |     |      |      |      | 9.x  | 9.x  |
-| CUDA  | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 |
+|      |     |      |      |      |      |      |      |
+| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- |
+| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
+|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
+|      |     |      |      |      | 9.x  | 9.x  | 9.x  |
+| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 |
 
 
 ## from GitHub
 
 ```bash
-git clone --recurse-submodules git@github.com:szcompressor/cuSZ.git cusz
-cd cusz && export CUSZ_ROOT=$(pwd)
-make   # can use ${CUSZ_ROOT}/bin/cusz to execute
-sudo make install  # requires elevated permission
+git clone --recursive git@github.com:szcompressor/cuSZ.git cusz && cd cusz
+chmod 755 ./build.py && ./build.py <target> <optional: build type>
 ```
+- For maximal compatibility, use `./build.py compat`. 
+- For optimal compilation, use `./build.py <target> <optional: build type>`. 
+  - Target names other than `compat` include `p100`, `v100`, `a100`, `pascal`, `turing`, `ampere`.
+  - Build types include `release`, `release-profile`, `debug`.
+`build.py` automatically builds `cusz`. `sudo make install` can be used to install to system path.
+
+## from Spack
+
+Spack is a multi-platform package manager dedicated for HPC deployment, and it's non-destructive. Currently, deployment of cuSZ requires a workaround on many HPC cluster, see details in [here](./doc/spack-install.md).
 
 # use
 ## basic use
@@ -164,12 +172,12 @@ To calculate compression ratio, please use *size of original data* divided by *s
 
 ## compression throughput
 
-To calculate (de)compression throughput, please follow the below steps to use our bash script [`cuSZ/script/parse_nvprof_log.sh`](./script/parse_nvprof_log.sh):
-- use `nvprof --log-file [name_of_logfile.txt]` before `cusz` to dump the performance data when (de)compressing
-- use `bash parse_nvprof_log.sh [name_of_logfile.txt]` to filter out the unnecessary performance data
-- sum up all the numbers between `++++++++++` to get the overall (de)compression time in us
+To calculate (de)compression throughput, please follow the below steps to use [`script/sh.parse-nvprof-log`](./script/parse_nvprof_log.sh):
+- use `nvprof --log-file <logfile> <cusz cmd>` to generate performance log when (de)compressing
+- use `./script/sh.parse-nvprof-log <logfile>` to extract kernel time performance data
+- sum up all the numbers between `++++++++` to get the overall (de)compression time in us
 - use the original data size divided by the (de)compression time to get the overall (de)compression throughput
-- A sample outpput from `bash parse_nvprof_log.sh <log file>` on the CESM variable `CLDHGH` (25 MiB) is shown [here](./doc/sample-stat.txt).
+- A sample output from on `CLDHGH` (25 MiB, CESM variable) is shown [here](./doc/sample-stat.txt).
 - From the [sample](./doc/sample-stat.txt), the compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, respectively. So, the compression and decompression throughputs are 31.4 GB/s and 20.7 GB/s, respectively.
 
 **Please note that cuSZ's performance might be dropped for a single large input file (e.g., in several Gigabytes) because of current coarse-grained deflating in Huffman codec mentioned in [limitations of this version](https://github.com/szcompressor/cuSZ#limitations-of-this-version-011).**
@@ -178,6 +186,7 @@ To calculate (de)compression throughput, please follow the below steps to use ou
 ## tested datasets
 
 We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/) (SDRBench):
+
 | dataset                                                                 | dim. | description                                                  |
 | ----------------------------------------------------------------------- | ---- | ------------------------------------------------------------ |
 | [EXAALT](https://gitlab.com/exaalt/exaalt/-/wikis/home)                 | 1D   | molecular dynamics simulation                                |
@@ -187,7 +196,7 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 | [Hurricane ISABEL](http://vis.computer.org/vis2004contest/data.html)    | 3D   | weather simulation                                           |
 | [NYX](https://amrex-astro.github.io/Nyx/)                               | 3D   | adaptive mesh hydrodynamics + N-body cosmological simulation |
 
-We provide three small sample data in `cuSZ/data` directory. To download more SDRBench datasets, please use our bash script `cuSZ/script/download-sdrb-data.sh`. 
+We provide three small sample data in `data`. To download more SDRBench datasets, please use [`script/sh.download-sdrb-data`](script/sh.download-sdrb-data). 
 
 ## sample kernel performance (compression/zip)
 
@@ -201,9 +210,9 @@ Tested on October 8, 2020, on V100; throughput is in the unit of GB/s if not spe
 
 A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
-## limitations of this version (Nov. 19, 2020)
+## limitations of this version (Jan. 10, 2021)
 
-- For this release, cuSZ only supports 4-byte `float` data type. We will support 8-byte `double` data type in the future release. 
+- cuSZ only supports 4-byte `float` data type. We will support 8-byte `double` data type in the future release. 
 - The current Huffman codec consists of optimal (1) histogramming [1], (2) parallel Huffman codebook building [2] of canonical code [3], and suboptimal Huffman encoding. We are woking on a faster high-throughput finer-grained Huffman codec. 
 - We are working on host- and device-side API design.
 - Please use `-H 8` whenever there is reported error. (The default `-H 4` may not be working for all.) We are working on adapting 4- or 8-byte representation automatically. 
@@ -219,7 +228,7 @@ Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and 
 Ostadzadeh, S. Arash, B. Maryam Elahi, Zeinab Zeinalpour, M. Amir Moulavi, and Koen Bertels. "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes." In PDPTA, pp. 284-291. 2007.
 
 [3]
-Klein, Shmuel T. "Space-and time-efficient decoding with canonical huffman trees." In Annual Symposium on Combinatorial Pattern Matching, pp. 65-75. Springer, Berlin, Heidelberg, 1997.
+Klein, Shmuel T. "Space- and Time-Efficient Decoding with Canonical Huffman Trees." In Annual Symposium on Combinatorial Pattern Matching, pp. 65-75. Springer, Berlin, Heidelberg, 1997.
 
 # citing cuSZ
 ```bibtex
