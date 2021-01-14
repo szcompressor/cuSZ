@@ -284,7 +284,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                     break;
                 case 'E':
                 tag_entropy:
-                    get_entropy = true;
+                    get_huff_entropy = true;
                     break;
                 // input dimensionality
                 // ----------------------------------------------------------------
@@ -435,7 +435,6 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (long_opt == "--help") goto tag_help;              // DOCUMENT
                     if (long_opt == "--version") goto tag_version;        //
                     if (long_opt == "--verbose") goto tag_verbose;        //
-                    if (long_opt == "--entropy") goto tag_entropy;        //
                     if (long_opt == "--meta") goto tag_meta;              //
                     if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
                     if (long_opt == "--quant-byte") goto tag_quant_byte;  //
@@ -448,6 +447,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (long_opt == "--demo") goto tag_demo;              //
                     if (long_opt == "--verify") goto tag_verify;          //
                     if (long_opt == "--len") goto tag_len;                //
+                    if (long_opt == "--part") goto tag_partition;         //
                     if (long_opt == "--compress") goto tag_compress;      // WORKFLOW
                     if (long_opt == "--zip") goto tag_compress;           //
                     if (long_opt == "--decompress") goto tag_decompress;  //
@@ -456,10 +456,9 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (long_opt == "--skip") goto tag_excl;              //
                     if (long_opt == "--exclude") goto tag_excl;           //
                     if (long_opt == "--pre") goto tag_preproc;            // IO
-                    if (long_opt == "--export-codebook") {                //
-                        export_codebook = true;                           //
-                    }                                                     //
+                    if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
+                    if (long_opt == "--partition-experiment") { conduct_partition_experiment = true; }
                     if (long_opt == "--opath") {  // TODO the followings has no single-letter options
                         if (i + 1 <= argc)
                             this->opath = string(argv[++i]);  // TODO does not apply for preprocessed such as binning
@@ -502,12 +501,16 @@ ArgPack::ArgPack(int argc, char** argv)
                 tag_mode:
                     if (i + 1 <= argc) mode = string(argv[++i]);
                     break;
-                // analysis
-                case 'E':
-                tag_entropy:
-                    get_entropy = true;
-                    break;
                 // OTHER WORKFLOW
+                case 'A':
+                tag_analysis:
+                    if (i + 1 <= argc) {
+                        string exclude(argv[++i]);
+                        if (exclude.find("export-codebook") != std::string::npos) export_codebook = true;
+                        if (exclude.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
+                        if (exclude.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
+                    }
+                    break;
                 case 'S':
                 tag_excl:
                     if (i + 1 <= argc) {
@@ -541,6 +544,33 @@ ArgPack::ArgPack(int argc, char** argv)
                         if (n_dim == 4) {
                             d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
                             d2 = str2int(dims[2].c_str()), d3 = str2int(dims[3].c_str());
+                        }
+                    }
+                    break;
+                case 'p':
+                tag_partition:
+                    if (i + 1 <= argc) {
+                        std::stringstream   datalen(argv[++i]);
+                        std::vector<string> parts;
+                        while (datalen.good()) {
+                            string substr;
+                            getline(datalen, substr, ',');
+                            parts.push_back(substr);
+                        }
+                        n_dim = parts.size();
+                        if (n_dim == 1) {  //
+                            p0 = str2int(parts[0].c_str());
+                        }
+                        if (n_dim == 2) {  //
+                            p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                        }
+                        if (n_dim == 3) {
+                            p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                            p2 = str2int(parts[2].c_str());
+                        }
+                        if (n_dim == 4) {
+                            p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                            p2 = str2int(parts[2].c_str()), p3 = str2int(parts[3].c_str());
                         }
                     }
                     break;
@@ -585,7 +615,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     exit(1);
                     break;
                 // preprocess
-                case 'p':
+                case 'P':
                 tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);

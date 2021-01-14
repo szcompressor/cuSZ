@@ -48,6 +48,7 @@ typedef struct ArgPack {
     int    quant_byte{2}, huff_byte{4};
     int    huffman_chunk{512};
     int    n_dim{-1}, d0{1}, d1{1}, d2{1}, d3{1};
+    int    p0{1}, p1{1}, p2{1}, p3{1};
     double mantissa{1.0}, exponent{-4.0};
     bool   to_archive{false}, to_extract{false}, to_dryrun{false};
     bool   autotune_huffman_chunk{true};
@@ -58,7 +59,13 @@ typedef struct ArgPack {
     bool   skip_huffman{false}, skip_writex{false};
     bool   pre_binning{false};
 
+    bool conduct_partition_experiment{false};
+
     bool to_gzip;  // wenyu: whether to do a gzip lossless compression on encoded data
+
+    bool get_huff_entropy{false};
+    bool get_huff_avg_bitcount{false};
+
     // for standalone Huffman
     int  input_rep{2};
     int  huffman_datalen{-1};
