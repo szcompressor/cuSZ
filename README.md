@@ -15,8 +15,8 @@ Our published paper covers the essential design and implementation, accessible v
 
 (C) 2020 by Washington State University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
-* Developers: Jiannan Tian, Cody Rivera, Dingwen Tao, Sheng Di, Franck Cappello
-* Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Wenyu Gai, Xin Liang, Robert Underwood, Kai Zhao
+* Developers: Jiannan Tian, Cody Rivera, Wenyu Gai, Dingwen Tao, Sheng Di, Franck Cappello
+* Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Xin Liang, Robert Underwood, Kai Zhao
 
 # set up
 ## requirements
@@ -35,8 +35,9 @@ Our published paper covers the essential design and implementation, accessible v
 
 
 ## from GitHub
+
 ```bash
-git clone git@github.com:szcompressor/cuSZ.git cusz && cd cusz
+git clone --recursive git@github.com:szcompressor/cuSZ.git cusz && cd cusz
 chmod 755 ./build.py && ./build.py <target> <optional: build type>
 ```
 - For maximal compatibility, use `./build.py compat`. 
@@ -78,6 +79,18 @@ The following **essential** arguments are required,
 - OUTPUT: `--opath` to specify output path for both compression and decompression
 - LOG: `-V` or `--verbose` to print host and device information
 
+## lossless compression (optional)
+
+gzip (CPU) and/or [nvcomp](https://github.com/NVIDIA/nvcomp) (GPU) lossless compression can be enabled in cuSZ for higher compression ratio by adding ``--gzip`` and/or ``--nvcomp``. For example,
+
+```bash
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --gzip
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --nvcomp
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --gzip --nvcomp
+```
+
+We adopt nvcomp's Cascaded compression on GPU. We recommend its project website for more information.
+
 ## tuning by overriding
 There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
 
@@ -103,6 +116,7 @@ Other module skipping for use scenarios are in development.
 ## use as an analytical tool
 
 `--dry-run` or `-r` in place of `-z` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
+
 
 # hands-on examples
 
@@ -237,6 +251,6 @@ Klein, Shmuel T. "Space- and Time-Efficient Decoding with Canonical Huffman Tree
 ```
 
 # acknowledgements
-This R&D was supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository was based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
+This R&D is supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository is based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
 
 ![acknowledgement](https://user-images.githubusercontent.com/5705572/93790911-6abd5980-fbe8-11ea-9c8d-c259260c6295.jpg)

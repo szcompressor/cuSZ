@@ -1,41 +1,36 @@
-psz1d
-psz2d
-psz3d
-cusz
-huff
-
-*.sza
 *.szx
-*.b8
-*.b16
-*.b32
-
 *.yamp
 *.hbyte
 *.hmeta
 *.canon
 *.outlier
 *.BN
-
-*.canonized
 *.lean_cb
 
+cusz
+
+data/*.sz
+data/*.out
+
+Makefile
+
 cmake-build-debug-t7600
-src/future
-src/huffre
-
-data/4lossless
-
 cmake-build-debug
 cmake-build-release
 build/
 CMakeFiles
+
+src/future
+src/huffre
+
+data/4lossless
 
 src/*.dylib
 src/*.o
 
 *.swp
 .DS_Store
+.cache
 
 .idea/
 .vs/
@@ -44,5 +39,3 @@ src/*.o
 a.out
 tags
 *.o
-data/*.sz
-data/*.out
