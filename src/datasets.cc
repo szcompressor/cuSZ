@@ -1,5 +1,5 @@
 /**
- * @file SDRB.cc
+ * @file datasets.cc
  * @author Jiannan Tian
  * @brief Demonstrative datasets with prefilled dimensions from https://sdrbench.github.io
  * @version 0.1
@@ -14,15 +14,16 @@
 #include <string>
 #include <unordered_map>
 
-#include "SDRB.hh"
+#include "datasets.hh"
 #include "metadata.hh"
 
-size_t dims_HACC[]        = {280953867, 1, 1, 1, 1};  // for back compatibility
+// TODO need new buffer for extremely large input dimension
 size_t dims_HACC_1GB[]    = {280953867, 1, 1, 1, 1};
-size_t dims_HACC_4GB[]    = {1073726487, 1, 1, 1, 1};
+size_t dims_HACC_1b[]     = {1073726487, 1, 1, 1, 1};  // 1-billion particles
 size_t dims_CESM[]        = {3600, 1800, 1, 1, 2};
 size_t dims_Hurricane[]   = {500, 500, 100, 1, 3};
-size_t dims_NYX[]         = {512, 512, 512, 1, 3};
+size_t dims_NYX_s[]       = {512, 512, 512, 1, 3};
+size_t dims_NYX_m[]       = {1024, 1024, 1024, 1, 3};
 size_t dims_QMCPACK1[]    = {288, 69, 7935, 1, 3};
 size_t dims_QMCPACK2[]    = {69, 69, 33120, 1, 3};
 size_t dims_EXAFEL_demo[] = {388, 59200, 1, 1, 2};
@@ -40,11 +41,11 @@ size_t* InitializeDemoDims(
 {
     std::unordered_map<std::string, size_t*>  //
         dataset_entries = {
-            {std::string("hacc"), dims_HACC},           {std::string("hacc1g"), dims_HACC},
-            {std::string("hacc4g"), dims_HACC},         {std::string("cesm"), dims_CESM},
-            {std::string("hurricane"), dims_Hurricane}, {std::string("nyx"), dims_NYX},
-            {std::string("qmc"), dims_QMCPACK1},        {std::string("qmcpre"), dims_QMCPACK2},
-            {std::string("exafel"), dims_EXAFEL_demo},  {std::string("aramco"), dims_ARAMCO},
+            {std::string("hacc"), dims_HACC_1GB},      {std::string("hacc1b"), dims_HACC_1b},
+            {std::string("cesm"), dims_CESM},          {std::string("hurricane"), dims_Hurricane},
+            {std::string("nyx-s"), dims_NYX_s},        {std::string("nyx-m"), dims_NYX_m},
+            {std::string("qmc"), dims_QMCPACK1},       {std::string("qmcpre"), dims_QMCPACK2},
+            {std::string("exafel"), dims_EXAFEL_demo}, {std::string("aramco"), dims_ARAMCO},
             {std::string("parihaka"), dims_parihaka}  //
         };
 

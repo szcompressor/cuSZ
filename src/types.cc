@@ -94,7 +94,7 @@ ErrorBoundConfigurator::ErrorBoundConfigurator(int _capacity, double _precision,
     exp_base10 = _base == 10 ? _exponent : log10(eb_final);
     exp_base2  = _base == 2 ? _exponent : log2(eb_final);
 
-    logall(log_dbg, "quant.cap:", std::to_string(_capacity) + ", input eb:", std::to_string(eb_final));
+    LogAll(log_dbg, "quant.cap:", std::to_string(_capacity) + ", input eb:", std::to_string(eb_final));
 }
 
 void ErrorBoundConfigurator::ChangeToRelativeMode(double value_range)
@@ -106,7 +106,7 @@ void ErrorBoundConfigurator::ChangeToRelativeMode(double value_range)
     const auto origin_eb = eb_final;
     this->eb_final *= value_range;
 
-    logall(log_info, "(eb)", origin_eb, "->", "(eb) x (rng)", value_range, "=", eb_final);
+    LogAll(log_info, "(eb)", origin_eb, "->", "(eb) x (rng)", value_range, "=", eb_final);
 
     mode = std::string("VRREL");
 }

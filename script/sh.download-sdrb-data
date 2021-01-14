@@ -1,7 +1,13 @@
-#!/bin/bash
-# by Cody Rivera
-
-# Data currently from SDRBench sources
+#!/bin/bash -
+#title           :sh.download-sdrb-data
+#description     :This script will download sample dataset from SDRBench.
+#author          :Cody Rivera
+#copyright       :(C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
+#license         :See LICENSE in top-level directory
+#date            :2020-09-28
+#version         :0.1
+#usage           :./sh.download-sdrb-data data-dir
+#==============================================================================
 
 banner()
 {
