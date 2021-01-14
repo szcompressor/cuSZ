@@ -33,7 +33,7 @@ typedef struct ArgPack {
     // TODO [x] metric/stat
     stat_t stat;
 
-    int read_args_status;
+    int read_args_status{0};
 
     string cx_path2file;
     string c_huff_base, c_fo_q, c_fo_outlier, c_fo_yamp;
@@ -44,29 +44,36 @@ typedef struct ArgPack {
     string demo_dataset;
     string opath;
     string dtype;
-    int    dict_size;
-    int    quant_byte;
-    int    huff_byte;
-    int    huffman_chunk;
-    int    n_dim, d0, d1, d2, d3;
-    double mantissa, exponent;
-    bool   to_archive, to_extract, to_dryrun;
-    bool   autotune_huffman_chunk;
-    bool   use_demo;
-    bool   verbose;
-    bool   to_verify;
-    bool   verify_huffman;
-    bool   skip_huffman, skip_writex;
-    bool   pre_binning;
 
-    int  input_rep;        // for standalone huffman
-    int  huffman_datalen;  // for standalone huffman
-    bool to_encode;        // for standalone huffman
-    bool to_decode;        // for standalone huffman
-    bool get_entropy;      // for standalone huffman (not in use)
-    bool to_gzip;          // wenyu: whether to do a gzip lossless compression on encoded data
-    bool to_nvcomp;        // whether or not to activate nvidia parallel cascading compression
-    bool to_gtest;         // whether or not to activate unit test
+    int    dict_size{1024};
+    int    quant_byte{2}, huff_byte{4};
+    int    huffman_chunk{512};
+    int    n_dim{-1}, d0{1}, d1{1}, d2{1}, d3{1};
+    int    p0{1}, p1{1}, p2{1}, p3{1};
+    double mantissa{1.0}, exponent{-4.0};
+    bool   to_archive{false}, to_extract{false}, to_dryrun{false};
+    bool   autotune_huffman_chunk{true};
+    bool   use_demo{false};
+    bool   verbose{false}, to_verify{false};
+    bool   export_codebook{false};
+    bool   verify_huffman{false};
+    bool   skip_huffman{false}, skip_writex{false};
+    bool   pre_binning{false};
+
+    bool conduct_partition_experiment{false};
+
+    bool to_gzip{false};    // wenyu: whether to do a gzip lossless compression on encoded data
+    bool to_nvcomp{false};  // whether or not to activate nvidia parallel cascading compression
+    bool to_gtest{false};   // whether or not to activate unit test
+
+    bool get_huff_entropy{false};
+    bool get_huff_avg_bitcount{false};
+
+    // for standalone Huffman
+    int  input_rep{2};
+    int  huffman_datalen{-1};
+    bool to_encode{false};
+    bool to_decode{false};
 
     static string format(const string& s);
 
