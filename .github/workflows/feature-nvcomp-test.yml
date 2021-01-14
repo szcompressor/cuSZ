@@ -36,7 +36,7 @@ jobs:
       # - run: nvcc --version
       # - run: module load cmake/3.17.0
       - name: compilation
-        run: make
+        run: chmod 755 ./build.py && ./build.py compat
       - name: test with gzip option activated 
         run: |
           ./bin/cusz -t f32 -m r2r -e 1.0e-3.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 --gzip -z -x --origin ./data/ex-cesm-CLDHGH --gtest
