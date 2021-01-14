@@ -14,8 +14,10 @@
  */
 
 #include "type_aliasing.hh"
+#include "types.hh"
 
 // clang-format off
+
 template <bool If_FP, int DataByte> struct DataTrait;
 //template <> struct DataTrait<true, 1> {typedef FP4 Data;}; // placeholder for Cartesian expansion
 //template <> struct DataTrait<true, 2> {typedef FP8 Data;};
@@ -25,6 +27,13 @@ template <> struct DataTrait<true, 8> {typedef FP8 Data;};
 //template <> struct DataTrait<false, 2> {typedef FP8 Data;};
 //template <> struct DataTrait<false, 4> {typedef FP4 Data;};
 //template <> struct DataTrait<false, 8> {typedef FP8 Data;};
+
+template <int ndim> struct Index;
+template <> struct Index<1> {typedef UInteger1 idx_t;};
+template <> struct Index<2> {typedef UInteger2 idx_t;};
+template <> struct Index<3> {typedef UInteger3 idx_t;};
+template <> struct Index<4> {typedef UInteger4 idx_t;};
+
 
 template <int QuantByte> struct QuantTrait;
 template <> struct QuantTrait<1> {typedef UI1 Quant;};
