@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cmath>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <numeric>
 #include <stdexcept>
@@ -43,13 +44,11 @@
 
 int ht_state_num;
 int ht_all_nodes;
-using uint8__t = uint8_t;
 
 template <typename UInt_Input>
 void lossless::wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
 {
     // Parameters for thread and block count optimization
-
     // Initialize to device-specific values
     int deviceId, maxbytes, maxbytesOptIn, numSMs;
 
@@ -84,19 +83,6 @@ void lossless::wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int*
         <<<numBlocks, threadsPerBlock, ((numBuckets + 1) * RPerBlock) * sizeof(int)>>>  //
         (d_in, d_freq, numValues, numBuckets, RPerBlock);
     cudaDeviceSynchronize();
-
-    // TODO make entropy optional
-    {
-        auto   freq    = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
-        double entropy = 0.0;
-        for (auto i = 0; i < dict_size; i++)
-            if (freq[i]) {
-                auto possibility = freq[i] / (1.0 * len);
-                entropy -= possibility * log2(possibility);
-            }
-        //        LogAll(log_dbg, "entropy:", entropy);
-        delete[] freq;
-    }
 
 #ifdef DEBUG_PRINT
     print_histogram<unsigned int><<<1, 32>>>(d_freq, dict_size, dict_size / 2);
@@ -257,6 +243,51 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
     return std::make_tuple(total_bits, total_uInts, metadata_size);
 }
 
+/**
+ * @brief experiment warpup; use after dual-quant; of anysize
+ * @todo experiment only, no decoding yet
+ */
+template <typename Quant, typename Huff, typename Data>
+void lossless::interface::HuffmanEncodeWithTree_3D(
+    Index<3>::idx_t idx,
+    string&         basename,
+    Quant*          h_q_in,
+    size_t          len,
+    int             dict_size)
+{
+    auto d_quant_in = mem::CreateDeviceSpaceAndMemcpyFromHost(h_q_in, len);
+
+    auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
+    lossless::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
+    auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
+
+    auto entropy = GetEntropyFromFrequency(h_freq, len, dict_size);
+
+    std::stringstream s;
+    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
+    auto h_cb = io::ReadBinaryToNewArray<Huff>(s.str(), dict_size);
+
+    auto GetBitcount = [&](Quant& q) { return (size_t) * ((uint8_t*)&h_cb[q] + sizeof(Huff) - 1); };
+
+    double total_bitcounts = 0;
+    for (auto i = 0; i < len; i++) { total_bitcounts += GetBitcount(h_q_in[i]); }
+    auto nbytes   = total_bitcounts / 8;
+    auto cr_quant = len * sizeof(Quant) / nbytes;
+    auto cr_data  = len * sizeof(Data) / nbytes;
+    LogAll(
+        log_exp,                                                //
+        idx._0, idx._1, idx._2, "\t",                           //
+        std::setprecision(4),                                   //
+        " entropy:", entropy,                                   //
+        " \e[1mavg bitcount:", total_bitcounts / len, "\e[0m",  //
+        " total bitcount:", total_bitcounts,                    //
+        " nbytes:", nbytes,                                     //
+        " CR against quant and data:", cr_quant, cr_data);
+
+    cudaFree(d_freq);
+    cudaFree(d_quant_in);
+}
+
 template <typename Quant, typename Huff, typename Data>
 Quant* lossless::interface::HuffmanDecode(
     std::string& basename,  //
@@ -306,10 +337,11 @@ template tuple3ul lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1
 template tuple3ul lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, int, bool);
 template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, int, bool);
 template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, int, bool);
-template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8, FP4>(string&, UI4*, size_t, int, int, bool);
-template tuple3ul lossless::interface::HuffmanEncode<UI1, UI8_2, FP4>(string&, UI1*, size_t, int, int, bool);
-template tuple3ul lossless::interface::HuffmanEncode<UI2, UI8_2, FP4>(string&, UI2*, size_t, int, int, bool);
-template tuple3ul lossless::interface::HuffmanEncode<UI4, UI8_2, FP4>(string&, UI4*, size_t, int, int, bool);
+
+template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI4>(Index<3>::idx_t, string&, UI1*, size_t, int);
+template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI8>(Index<3>::idx_t, string&, UI1*, size_t, int);
+template void lossless::interface::HuffmanEncodeWithTree_3D<UI2, UI4>(Index<3>::idx_t, string&, UI2*, size_t, int);
+template void lossless::interface::HuffmanEncodeWithTree_3D<UI2, UI8>(Index<3>::idx_t, string&, UI2*, size_t, int);
 
 template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, int, int);
 template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, int, int);

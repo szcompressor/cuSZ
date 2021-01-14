@@ -21,6 +21,8 @@
 #include <string>
 #include <tuple>
 
+#include "type_trait.hh"
+
 using std::string;
 
 // https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
@@ -29,6 +31,17 @@ using std::string;
 //}
 
 typedef std::tuple<size_t, size_t, size_t> tuple3ul;
+
+template <typename UInt>
+double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
+{
+    double entropy = 0.0;
+    for (auto i = 0; i < dict_size; i++) {
+        auto prob = freq[i] * 1.0 / len;
+        entropy += freq[i] != 0 ? -prob * log2(prob) : 0;
+    }
+    return entropy;
+}
 
 // clang-format off
 namespace lossless {
@@ -48,6 +61,9 @@ tuple3ul HuffmanEncode(string& basename, Quant* d_in, size_t len, int chunk_size
 
 template <typename Quant, typename Huff, typename Data = float>
 Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, int total_uInts, int dict_size = 1024);
+
+template <typename Quant, typename Huff, typename Data = float>
+void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_q_in, size_t len, int dict_size);
 
 }  // namespace interface
 }  // namespace lossless

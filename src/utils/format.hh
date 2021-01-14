@@ -25,6 +25,7 @@ const string log_err  = " ERR  ";
 const string log_dbg  = " dbg  ";
 const string log_info = "info  ";
 const string log_warn = "WARN  ";
+const string log_exp  = " exp  ";
 
 // https://stackoverflow.com/a/26080768/8740097  CC BY-SA 3.0
 template <typename T>

@@ -193,6 +193,37 @@ void cusz::impl::VerifyHuffman(
     // end of if count
 }
 
+template <typename T>
+auto CopyToBuffer_3D(
+    T* __restrict buffer_dst,
+    T* __restrict origin_src,
+    size_t          portal,
+    Index<3>::idx_t part_dims,
+    Index<3>::idx_t block_stride,
+    Index<3>::idx_t global_stride)
+{
+    for (auto k = 0; k < part_dims._2; k++)
+        for (auto j = 0; j < part_dims._1; j++)
+            for (auto i = 0; i < part_dims._0; i++)
+                buffer_dst[i + j * block_stride._1 + k * block_stride._2] =
+                    origin_src[portal + (i + j * global_stride._1 + k * global_stride._2)];
+}
+
+template <typename T, int N = 3>
+auto PrintBuffer(T* data, size_t start, Integer3 strides)
+{
+    cout << "printing buffer\n";
+    for (auto k = 0; k < N; k++) {
+        for (auto j = 0; j < N; j++) {
+            for (auto i = 0; i < N; i++) {  //
+                cout << data[start + (i + j * strides._1 + k * strides._2)] << " ";
+            }
+            cout << "\n";
+        }
+    }
+    cout << endl;
+};
+
 // clang-format off
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
@@ -257,6 +288,53 @@ void cusz::interface::Compress(
 
         while (optimal_chunksize * cuda_thread_num < len) optimal_chunksize *= 2;
         ap->huffman_chunk = optimal_chunksize;
+    }
+
+    if (ap->conduct_partition_experiment) {
+        // 3D only
+        auto part0     = ap->p0;
+        auto part1     = ap->p1;
+        auto part2     = ap->p2;
+        auto num_part0 = (ap->d0 - 1) / part0 + 1;
+        auto num_part1 = (ap->d1 - 1) / part1 + 1;
+        auto num_part2 = (ap->d2 - 1) / part2 + 1;
+
+        LogAll(log_dbg, "p0:", ap->p0, " p1:", ap->p1, " p2:", ap->p2);
+        LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
+
+        size_t stride1       = ap->d0;
+        size_t stride2       = stride1 * ap->d1;
+        size_t block_stride1 = ap->p0, block_stride2 = block_stride1 * ap->p1;
+
+        LogAll(log_dbg, "stride1:", stride1, " stride2:", stride2);
+        LogAll(log_dbg, "blockstride1:", block_stride1, " blockstride2:", block_stride2);
+
+        auto buffer_size = part0 * part1 * part2;
+        LogAll(log_dbg, "buffer size:", buffer_size);
+        auto quant_buffer = new Quant[buffer_size]();
+
+        q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
+
+        Index<3>::idx_t part_dims{part0, part1, part2};
+        Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
+        Index<3>::idx_t global_strides{1, (int)stride1, (int)stride2};
+
+        for (auto pk = 0; pk < num_part2; pk++) {
+            for (auto pj = 0; pj < num_part1; pj++) {
+                for (auto pi = 0; pi < num_part0; pi++) {
+                    auto start = pk * part2 * stride2 + pj * part1 * stride1 + pi * part0;
+                    CopyToBuffer_3D(quant_buffer, q, start, part_dims, block_strides, global_strides);
+                    lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
+                        Index<3>::idx_t{pi, pj, pk}, ap->c_huff_base, quant_buffer, buffer_size, ap->dict_size);
+                }
+            }
+        }
+
+        delete[] quant_buffer;
+        delete[] q;
+
+        cudaFree(d_q);
+        exit(0);
     }
 
     std::tie(n_bits, n_uInt, huffman_metadata_size) = lossless::interface::HuffmanEncode<Quant, Huff>(
