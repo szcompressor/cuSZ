@@ -44,6 +44,12 @@ template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_v2(loren
 template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l_v2(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_v2(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v2(lorenzo_unzip, Data*, Data*, Quant*);
+
+// version 3
+// 1D and unzip remain the same
+template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_v3(lorenzo_zip, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_v3(lorenzo_zip, Data*, Quant*);
+
 // clang-format on
 
 }  // namespace predictor_quantizer

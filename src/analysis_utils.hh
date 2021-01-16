@@ -35,6 +35,7 @@ inline size_t GetEdgeOfReinterpretedSquare(size_t l) { return static_cast<size_t
 }  // namespace cusz
 
 // TODO replace with mirrored data w/ metadata
+// TODO move elsewhere
 template <typename T>
 struct DataPack {
     T*     data;

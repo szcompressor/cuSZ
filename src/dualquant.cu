@@ -457,3 +457,69 @@ template __global__ void kernel::x_lorenzo_2d1l_v2<FP4, UI1>(lorenzo_unzip, FP4*
 template __global__ void kernel::x_lorenzo_2d1l_v2<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_3d1l_v2<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_3d1l_v2<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+
+// v3 ////////////////////////////////////////////////////////////
+
+template <typename Data, typename Quant>
+__global__ void cusz::predictor_quantizer::c_lorenzo_2d1l_v3(lorenzo_zip c, Data* d, Quant* q)
+{
+    static const int Block    = MetadataTrait<2>::Block;
+    Data(&s2df)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
+
+    auto y = tiy, x = tix;
+    auto gi1 = biy * bdy + y, gi0 = bix * bdx + x;
+
+    if (gi0 < c.d0 and gi1 < c.d1) {
+        size_t id = gi0 + gi1 * c.stride1;  // low to high dim, inner to outer
+
+        // prequant (fp presence)
+        s2df[y][x] = round(d[id] * c.ebx2_r);
+        __syncthreads();  // necessary to ensure correctness
+
+        Data delta = s2df[y][x] - ((x == 0 ? 0 : s2df[y][x - 1]) +               // dist=1
+                                   (y == 0 ? 0 : s2df[y - 1][x]) -               // dist=1
+                                   (x > 0 and y > 0 ? s2df[y - 1][x - 1] : 0));  // dist=2
+
+        bool quantizable = fabs(delta) < c.radius;
+        auto _code       = static_cast<Quant>(delta + c.radius);
+        d[id]            = (1 - quantizable) * s2df[y][x];  // output; reuse data for outlier
+        q[id]            = quantizable * _code;
+    }
+}
+
+template <typename Data, typename Quant>
+__global__ void cusz::predictor_quantizer::c_lorenzo_3d1l_v3(lorenzo_zip ctx, Data* d, Quant* q)
+{
+    static const int Block = MetadataTrait<3>::Block;
+
+    Data(&s3df)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
+
+    auto z = tiz, y = tiy, x = tix;
+    auto gi2 = biz * bdz + z, gi1 = biy * bdy + y, gi0 = bix * bdx + x;
+
+    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
+        size_t id = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
+
+        // prequant (fp presence)
+        s3df[z][y][x] = round(d[id] * ctx.ebx2_r);
+        __syncthreads();  // necessary to ensure correctness
+
+        Data delta = s3df[z][y][x] - ((z > 0 and y > 0 and x > 0 ? s3df[z - 1][y - 1][x - 1] : 0)  // dist=3
+                                      - (y > 0 and x > 0 ? s3df[z][y - 1][x - 1] : 0)              // dist=2
+                                      - (z > 0 and x > 0 ? s3df[z - 1][y][x - 1] : 0)              //
+                                      - (z > 0 and y > 0 ? s3df[z - 1][y - 1][x] : 0)              //
+                                      + (x > 0 ? s3df[z][y][x - 1] : 0)                            // dist=1
+                                      + (y > 0 ? s3df[z][y - 1][x] : 0)                            //
+                                      + (z > 0 ? s3df[z - 1][y][x] : 0));                          //
+
+        bool quantizable = fabs(delta) < ctx.radius;
+        auto _code       = static_cast<Quant>(delta + ctx.radius);
+        d[id]            = (1 - quantizable) * s3df[z][y][x];  // output; reuse data for outlier
+        q[id]            = quantizable * _code;
+    }
+}
+
+template __global__ void kernel::c_lorenzo_2d1l_v3<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
+template __global__ void kernel::c_lorenzo_2d1l_v3<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
+template __global__ void kernel::c_lorenzo_3d1l_v3<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
+template __global__ void kernel::c_lorenzo_3d1l_v3<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
