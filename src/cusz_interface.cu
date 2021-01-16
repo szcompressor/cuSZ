@@ -25,7 +25,7 @@
 
 #include <type_traits>
 
-#include "analysis_utils.hh"
+//#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "autotune.hh"
 #include "constants.hh"
@@ -53,12 +53,12 @@ typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
 template <typename Data, typename Quant>
 void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 {
-    auto  d_dims        = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
-    auto  d_eb_variants = mem::CreateDeviceSpaceAndMemcpyFromHost(eb_variants, 4);
-    void* args[]        = {&d_d, &d_q, &d_dims, &d_eb_variants};
+    auto d_dims        = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
+    auto d_eb_variants = mem::CreateDeviceSpaceAndMemcpyFromHost(eb_variants, 4);
+    // void* args[]        = {&d_d, &d_q, &d_dims, &d_eb_variants};
 
     lorenzo_zip ctx;
-    void*       args_v2[] = {&ctx, &d_d, &d_q};
+    void*       args_v2v3[] = {&ctx, &d_d, &d_q};
     {
         ctx.d0     = dims[DIM0];
         ctx.d1     = dims[DIM1];
@@ -78,9 +78,10 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
         // cudaLaunchKernel(
         //    (void*)cusz::predictor_quantizer::c_lorenzo_1d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
 
+        // for 1D, simply use v2
         cudaLaunchKernel(
             (void*)cusz::predictor_quantizer::c_lorenzo_1d1l_v2<Data, Quant>,  //
-            block_num, thread_num, args_v2, 0, nullptr);
+            block_num, thread_num, args_v2v3, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
         static const int B = MetadataTrait<2>::Block;
@@ -91,9 +92,13 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
         //    (void*)cusz::predictor_quantizer::c_lorenzo_2d1l<Data, Quant>, block_num, thread_num, args,
         //    (B + 1) * (B + 1) * sizeof(Data), nullptr);
 
+        // cudaLaunchKernel(
+        //     (void*)cusz::predictor_quantizer::c_lorenzo_2d1l_v2<Data, Quant>,  //
+        //     block_num, thread_num, args_v2v3, (B + 1) * (B + 1) * sizeof(Data), nullptr);
+
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_2d1l_v2<Data, Quant>,  //
-            block_num, thread_num, args_v2, (B + 1) * (B + 1) * sizeof(Data), nullptr);
+            (void*)cusz::predictor_quantizer::c_lorenzo_2d1l_v3<Data, Quant>,  //
+            block_num, thread_num, args_v2v3, B * B * sizeof(Data), nullptr);
     }
     else if (dims[nDIM] == 3) {
         static const int B = MetadataTrait<3>::Block;
@@ -104,9 +109,13 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
         //    (void*)cusz::predictor_quantizer::c_lorenzo_3d1l<Data, Quant>, block_num, thread_num, args,
         //    (B + 1) * (B + 1) * (B + 1) * sizeof(Data), nullptr);
 
+        // cudaLaunchKernel(
+        //     (void*)cusz::predictor_quantizer::c_lorenzo_3d1l_v2<Data, Quant>,  //
+        //     block_num, thread_num, args_v2v3, (B + 1) * (B + 1) * (B + 1) * sizeof(Data), nullptr);
+
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_3d1l_v2<Data, Quant>,  //
-            block_num, thread_num, args_v2, (B + 1) * (B + 1) * (B + 1) * sizeof(Data), nullptr);
+            (void*)cusz::predictor_quantizer::c_lorenzo_3d1l_v3<Data, Quant>,  //
+            block_num, thread_num, args_v2v3, B * B * B * sizeof(Data), nullptr);
     }
     HANDLE_ERROR(cudaDeviceSynchronize());
 }
@@ -115,7 +124,7 @@ template <typename Data, typename Quant>
 void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* dims, double _2eb)
 {
     auto  d_dims = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
-    void* args[] = {&d_xd, &d_outlier, &d_q, &d_dims, &_2eb};
+    // void* args[] = {&d_xd, &d_outlier, &d_q, &d_dims, &_2eb};
 
     lorenzo_unzip ctx;
     {
@@ -130,7 +139,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
         ctx.stride1 = ctx.d0;
         ctx.stride2 = ctx.d0 * ctx.d1;
     }
-    void* args_v2[] = {&ctx, &d_xd, &d_outlier, &d_q};
+    void* args_v2v3[] = {&ctx, &d_xd, &d_outlier, &d_q};
 
     if (dims[nDIM] == 1) {
         static const int p = MetadataTrait<1>::Block;
@@ -142,7 +151,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
 
         // v2
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_1d1l_v2<Data, Quant>, block_num, thread_num, args_v2, 0,
+            (void*)cusz::predictor_quantizer::x_lorenzo_1d1l_v2<Data, Quant>, block_num, thread_num, args_v2v3, 0,
             nullptr);
     }
     else if (dims[nDIM] == 2) {
@@ -156,7 +165,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
         // cudaLaunchKernel(
         // (void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_2d1l_v2<Data, Quant>, block_num, thread_num, args_v2, 0,
+            (void*)cusz::predictor_quantizer::x_lorenzo_2d1l_v2<Data, Quant>, block_num, thread_num, args_v2v3, 0,
             nullptr);
     }
     else if (dims[nDIM] == 3) {
@@ -171,7 +180,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
         // cudaLaunchKernel(
         // (void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_3d1l_v2<Data, Quant>, block_num, thread_num, args_v2, 0,
+            (void*)cusz::predictor_quantizer::x_lorenzo_3d1l_v2<Data, Quant>, block_num, thread_num, args_v2v3, 0,
             nullptr);
     }
     else {

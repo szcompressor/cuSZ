@@ -41,8 +41,9 @@ OBJ_DIR     := src
 BIN_DIR     := bin
 
 #### source code classification
-CCsrc_omp :=$(SRC_DIR)/analysis_utils.cc
-CCsrc     := $(filter-out $(CCsrc_omp), $(wildcard $(SRC_DIR)/*.cc))
+# CCsrc_omp :=$(SRC_DIR)/analysis_utils.cc
+# CCsrc     := $(filter-out $(CCsrc_omp), $(wildcard $(SRC_DIR)/*.cc))
+CCsrc     := $(wildcard $(SRC_DIR)/*.cc)
 
 MAIN      := $(SRC_DIR)/cusz.cu
 
@@ -51,7 +52,7 @@ CUsrc3    := $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
 CUsrc2    := $(SRC_DIR)/cusz_interface.cu $(SRC_DIR)/dualquant.cu
 CUsrc1    := $(filter-out $(MAIN) $(CUsrc3) $(CUsrc2), $(wildcard $(SRC_DIR)/*.cu))
 
-CCo_omp   := $(CCsrc_omp:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+# CCo_omp   := $(CCsrc_omp:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 CCo       := $(CCsrc:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
 
 CUo1      := $(CUsrc1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
@@ -60,9 +61,10 @@ CUo3      := $(CUsrc3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 CUo4      := $(CUsrc4:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
 
 CUo       := $(CUo1) $(CUo2) $(CUo3)
-OBJ_all   := $(CCo) $(CCo_omp) $(CUo)
+# OBJ_all   := $(CCo) $(CCo_omp) $(CUo)
+OBJ_all   := $(CCo) $(CUo)
 
-$(CCo_omp): CC_FLAGS += -fopenmp
+# $(CCo_omp): CC_FLAGS += -fopenmp
 $(CUo2): NV_FLAGS += -rdc=true
 $(CUo3): NV_FLAGS += -rdc=true
 $(CUo4): NV_FLAGS += -I $(NVCOMP_INCLUDE_DIR)/ 
@@ -84,7 +86,7 @@ all: target_proxy
 
 cusz: $(OBJ_all) $(NVCOMP_STATIC_LIB)  $(GTEST_STATIC_LIB) | $(BIN_DIR)
 	$(NVCC) $(NV_FLAGS) $(MAIN) \
-		-lgomp -lcusparse -lpthread \
+		-lcusparse -lpthread \
 		-rdc=true \
 		$(NVCOMP_STATIC_LIB) \
 		$(GTEST_STATIC_LIB) -I$(GTEST_INCLUDE_DIR)/ \
