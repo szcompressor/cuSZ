@@ -47,6 +47,9 @@ using std::cout;
 using std::endl;
 using std::string;
 
+namespace kernel_v2 = cusz::predictor_quantizer::v2;
+namespace kernel_v3 = cusz::predictor_quantizer::v3;
+
 template <typename Data, typename Quant>
 void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 {
@@ -63,7 +66,7 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 
         dim3 block_num(dims[nBLK0]), thread_num(B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v2::c_lorenzo_1d1l<Data, Quant>,  //
+            (void*)kernel_v2::c_lorenzo_1d1l<Data, Quant>,  //
             block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
@@ -71,7 +74,7 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 
         dim3 block_num(dims[nBLK0], dims[nBLK1]), thread_num(B, B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v3::c_lorenzo_2d1l<Data, Quant>,  //
+            (void*)kernel_v3::c_lorenzo_2d1l<Data, Quant>,  //
             block_num, thread_num, lorenzo_args, B * B * sizeof(Data), nullptr);
     }
     else if (dims[nDIM] == 3) {
@@ -79,7 +82,7 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 
         dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]), thread_num(B, B, B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v3::c_lorenzo_3d1l<Data, Quant>,  //
+            (void*)kernel_v3::c_lorenzo_3d1l<Data, Quant>,  //
             block_num, thread_num, lorenzo_args, B * B * B * sizeof(Data), nullptr);
     }
     HANDLE_ERROR(cudaDeviceSynchronize());
@@ -110,7 +113,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
 
         dim3 thread_num(p, p), block_num((dims[nBLK0] - 1) / p + 1, (dims[nBLK1] - 1) / p + 1);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v2::x_lorenzo_2d1l<Data, Quant>,  //
+            (void*)cusz::predictor_quantizer::v3::x_lorenzo_2d1l<Data, Quant>,  //
             block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else if (dims[nDIM] == 3) {
@@ -119,7 +122,7 @@ void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* di
         dim3 thread_num(p, p, p);
         dim3 block_num((dims[nBLK0] - 1) / p + 1, (dims[nBLK1] - 1) / p + 1, (dims[nBLK2] - 1) / p + 1);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v2::x_lorenzo_3d1l<Data, Quant>,  //
+            (void*)cusz::predictor_quantizer::v3::x_lorenzo_3d1l<Data, Quant>,  //
             block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else {
@@ -150,32 +153,28 @@ void cusz::impl::VerifyHuffman(
     for (auto i = 0; i < len; i++)
         if (xq[i] != veri_q[i]) count++;
     if (count != 0)
-        cerr << log_err << "percentage of not being equal: " << count / (1.0 * len) << "\n";
+        LogAll(log_err, "percentage of not being equal:", count / (1.0 * len));
     else
-        cout << log_info << "Decoded correctly." << endl;
+        LogAll(log_info, "Decoded correctly.");
 
     if (count != 0) {
-        // auto chunk_size = ap->huffman_chunk;
         auto n_chunk = (len - 1) / chunk_size + 1;
         for (auto c = 0; c < n_chunk; c++) {
-            auto chunk_id_printed   = false;
-            auto prev_point_printed = false;
+            auto chunk_id_printed = false, prev_point_printed = false;
             for (auto i = 0; i < chunk_size; i++) {
                 auto idx = i + c * chunk_size;
                 if (idx >= len) break;
                 if (xq[idx] != xq[idx]) {
                     if (not chunk_id_printed) {
-                        cerr << "chunk id: " << c << "\t";
-                        cerr << "start@ " << c * chunk_size << "\tend@ " << (c + 1) * chunk_size - 1 << endl;
+                        cerr << "chunk id: " << c << "\t"
+                             << "start@ " << c * chunk_size << "\tend@ " << (c + 1) * chunk_size - 1 << endl;
                         chunk_id_printed = true;
                     }
                     if (not prev_point_printed) {
-                        if (idx != c * chunk_size) {  // not first point
+                        if (idx != c * chunk_size)  // not first point
                             cerr << "PREV-idx:" << idx - 1 << "\t" << xq[idx - 1] << "\t" << xq[idx - 1] << endl;
-                        }
-                        else {
+                        else
                             cerr << "wrong at first point!" << endl;
-                        }
                         prev_point_printed = true;
                     }
                     cerr << "idx:" << idx << "\tdecoded: " << xq[idx] << "\tori: " << xq[idx] << endl;
@@ -188,7 +187,6 @@ void cusz::impl::VerifyHuffman(
     cudaFree(veri_d_data);
     delete[] veri_q;
     delete[] veri_data;
-    // end of if count
 }
 
 template <typename T>
@@ -460,14 +458,11 @@ typedef struct DataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
 // TODO top-level instantiation really reduce compilation time?
-template void
-szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void
-szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void
-szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void
-szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+// clang-format off
+template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
 
 template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
 template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);

@@ -79,77 +79,11 @@ __global__ void kernel_v2::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* xd, Data* out
     // end of body //
 }
 
-template <typename Data, typename Quant>
-__global__ void kernel_v2::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* xd, Data* outlier, Quant* q)
-{
-    static const auto Block = MetadataTrait<2>::Block;
-
-    Data s[Block + 1][Block + 1];  // try not use shared memory first
-    memset(s, 0, (Block + 1) * (Block + 1) * sizeof(Data));
-
-    auto b1 = bdy * biy + tiy, b0 = bdx * bix + tix;
-
-    if (b1 >= ctx.n_blk1 or b0 >= ctx.n_blk0) return;
-
-    auto _idx1 = b1 * Block, _idx0 = b0 * Block;
-
-    for (auto i1 = 0; i1 < Block; i1++) {
-        for (auto i0 = 0; i0 < Block; i0++) {
-            auto gi1 = _idx1 + i1, gi0 = _idx0 + i0;
-
-            if (gi1 >= ctx.d1 or gi0 >= ctx.d0) continue;
-            size_t id   = gi0 + gi1 * ctx.stride1;
-            Data   pred = s[i1][i0 + 1] + s[i1 + 1][i0] - s[i1][i0];
-            s[i1 + 1][i0 + 1] =
-                q[id] == 0 ? outlier[id] : pred + static_cast<Data>(q[id]) - static_cast<Data>(ctx.radius);
-            xd[id] = s[i1 + 1][i0 + 1] * ctx.ebx2;
-        }
-    }
-    // end of body //
-}
-
-template <typename Data, typename Quant>
-__global__ void kernel_v2::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* xd, Data* outlier, Quant* q)
-{
-    static const auto Block = MetadataTrait<3>::Block;
-
-    Data s[Block + 1][Block + 1][Block + 1];
-    memset(s, 0, (Block + 1) * (Block + 1) * (Block + 1) * sizeof(Data));
-
-    auto b2 = bdz * biz + tiz, b1 = bdy * biy + tiy, b0 = bdx * bix + tix;
-
-    if (b2 >= ctx.n_blk2 or b1 >= ctx.n_blk1 or b0 >= ctx.n_blk0) return;
-
-    auto _idx2 = b2 * Block, _idx1 = b1 * Block, _idx0 = b0 * Block;
-
-    for (auto i2 = 0; i2 < Block; i2++) {
-        for (auto i1 = 0; i1 < Block; i1++) {
-            for (auto i0 = 0; i0 < Block; i0++) {
-                auto gi2 = _idx2 + i2, gi1 = _idx1 + i1, gi0 = _idx0 + i0;
-
-                if (gi2 >= ctx.d2 or gi1 >= ctx.d1 or gi0 >= ctx.d0) continue;
-                size_t id = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;
-
-                Data pred = s[i2][i1][i0]                                                             // +, dist=3
-                            - s[i2 + 1][i1][i0] - s[i2][i1 + 1][i0] - s[i2][i1][i0 + 1]               // -, dist=2
-                            + s[i2 + 1][i1 + 1][i0] + s[i2 + 1][i1][i0 + 1] + s[i2][i1 + 1][i0 + 1];  // +, dist=1
-                s[i2 + 1][i1 + 1][i0 + 1] =
-                    q[id] == 0 ? outlier[id] : pred + static_cast<Data>(q[id]) - static_cast<Data>(ctx.radius);
-                xd[id] = s[i2 + 1][i1 + 1][i0 + 1] * ctx.ebx2;
-            }
-        }
-    }
-}
-
 template __global__ void kernel_v2::c_lorenzo_1d1l<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
 template __global__ void kernel_v2::c_lorenzo_1d1l<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
 
 template __global__ void kernel_v2::x_lorenzo_1d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel_v2::x_lorenzo_1d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel_v2::x_lorenzo_2d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel_v2::x_lorenzo_2d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel_v2::x_lorenzo_3d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel_v2::x_lorenzo_3d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 
 // v3 ////////////////////////////////////////////////////////////
 
