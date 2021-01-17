@@ -32,6 +32,22 @@ struct Metadata {
     size_t total_bits{}, total_uint{}, huff_metadata_size{};
 };
 
+typedef struct LorenzoZipContext {
+    int    d0, d1, d2;
+    int    stride1, stride2;
+    int    radius;
+    double ebx2_r;
+} lorenzo_zip;
+
+typedef struct LorenzoUnzipContext {
+    int    d0, d1, d2;
+    int    n_blk0, n_blk1, n_blk2;
+    int    stride1, stride2;
+    int    radius;
+    double ebx2;
+
+} lorenzo_unzip;
+
 template <int ndim>
 struct MetadataTrait;
 
