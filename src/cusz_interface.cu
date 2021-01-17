@@ -2,9 +2,9 @@
  * @file cusz_workflow.cu
  * @author Jiannan Tian
  * @brief Workflow of cuSZ.
- * @version 0.1
- * @date 2020-09-20
- * Created on: 2020-02-12
+ * @version 0.2
+ * @date 2021-01-16
+ * (create) 2020-02-12; (release) 2020-09-20; (rev1) 2021-01-16
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -25,7 +25,7 @@
 
 #include <type_traits>
 
-#include "analysis_utils.hh"
+//#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "autotune.hh"
 #include "constants.hh"
@@ -47,42 +47,43 @@ using std::cout;
 using std::endl;
 using std::string;
 
-// typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
-typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
+namespace kernel_v2 = cusz::predictor_quantizer::v2;
+namespace kernel_v3 = cusz::predictor_quantizer::v3;
 
 template <typename Data, typename Quant>
 void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 {
-    auto  d_dims        = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
-    auto  d_eb_variants = mem::CreateDeviceSpaceAndMemcpyFromHost(eb_variants, 4);
-    void* args[]        = {&d_d, &d_q, &d_dims, &d_eb_variants};
+    lorenzo_zip ctx;
+    void*       lorenzo_args[] = {&ctx, &d_d, &d_q};
+    {
+        ctx.d0 = dims[DIM0], ctx.d1 = dims[DIM1], ctx.d2 = dims[DIM2];
+        ctx.radius = dims[RADIUS], ctx.ebx2_r = eb_variants[EBx2_r];
+        ctx.stride1 = ctx.d0, ctx.stride2 = ctx.d0 * ctx.d1;
+    }
 
     if (dims[nDIM] == 1) {
         static const int B = MetadataTrait<1>::Block;
 
-        dim3 block_num(dims[nBLK0]);
-        dim3 thread_num(B);
+        dim3 block_num(dims[nBLK0]), thread_num(B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_1d1l<Data, Quant>,  //
-            block_num, thread_num, args, 0, nullptr);
+            (void*)kernel_v2::c_lorenzo_1d1l<Data, Quant>,  //
+            block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
         static const int B = MetadataTrait<2>::Block;
 
-        dim3 block_num(dims[nBLK0], dims[nBLK1]);
-        dim3 thread_num(B, B);
+        dim3 block_num(dims[nBLK0], dims[nBLK1]), thread_num(B, B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_2d1l<Data, Quant>,  //
-            block_num, thread_num, args, (B + 1) * (B + 1) * sizeof(Data), nullptr);
+            (void*)kernel_v3::c_lorenzo_2d1l<Data, Quant>,  //
+            block_num, thread_num, lorenzo_args, B * B * sizeof(Data), nullptr);
     }
     else if (dims[nDIM] == 3) {
         static const int B = MetadataTrait<3>::Block;
 
-        dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]);
-        dim3 thread_num(B, B, B);
+        dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]), thread_num(B, B, B);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::c_lorenzo_3d1l<Data, Quant>,  //
-            block_num, thread_num, args, (B + 1) * (B + 1) * (B + 1) * sizeof(Data), nullptr);
+            (void*)kernel_v3::c_lorenzo_3d1l<Data, Quant>,  //
+            block_num, thread_num, lorenzo_args, B * B * B * sizeof(Data), nullptr);
     }
     HANDLE_ERROR(cudaDeviceSynchronize());
 }
@@ -90,44 +91,44 @@ void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
 template <typename Data, typename Quant>
 void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* dims, double _2eb)
 {
-    auto  d_dims = mem::CreateDeviceSpaceAndMemcpyFromHost(dims, 16);
-    void* args[] = {&d_xd, &d_outlier, &d_q, &d_dims, &_2eb};
+    lorenzo_unzip ctx;
+    {
+        ctx.d0 = dims[DIM0], ctx.d1 = dims[DIM1], ctx.d2 = dims[DIM2];
+        ctx.n_blk0 = dims[nBLK0], ctx.n_blk1 = dims[nBLK1], ctx.n_blk2 = dims[nBLK2];
+        ctx.radius = dims[RADIUS], ctx.ebx2 = _2eb;
+        ctx.stride1 = ctx.d0, ctx.stride2 = ctx.d0 * ctx.d1;
+    }
+    void* lorenzo_args[] = {&ctx, &d_xd, &d_outlier, &d_q};
 
     if (dims[nDIM] == 1) {
         static const int p = MetadataTrait<1>::Block;
 
-        dim3 thread_num(p);
-        dim3 block_num((dims[nBLK0] - 1) / p + 1);
+        dim3 thread_num(p), block_num((dims[nBLK0] - 1) / p + 1);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_1d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
+            (void*)cusz::predictor_quantizer::v2::x_lorenzo_1d1l<Data, Quant>,  //
+            block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else if (dims[nDIM] == 2) {
         const static size_t p = MetadataTrait<2>::Block;
 
-        dim3 thread_num(p, p);
-        dim3 block_num(
-            (dims[nBLK0] - 1) / p + 1,   //
-            (dims[nBLK1] - 1) / p + 1);  //
+        dim3 thread_num(p, p), block_num((dims[nBLK0] - 1) / p + 1, (dims[nBLK1] - 1) / p + 1);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_2d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
+            (void*)cusz::predictor_quantizer::v3::x_lorenzo_2d1l<Data, Quant>,  //
+            block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else if (dims[nDIM] == 3) {
         const static size_t p = MetadataTrait<3>::Block;
 
         dim3 thread_num(p, p, p);
-        dim3 block_num(
-            (dims[nBLK0] - 1) / p + 1,   //
-            (dims[nBLK1] - 1) / p + 1,   //
-            (dims[nBLK2] - 1) / p + 1);  //
+        dim3 block_num((dims[nBLK0] - 1) / p + 1, (dims[nBLK1] - 1) / p + 1, (dims[nBLK2] - 1) / p + 1);
         cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::x_lorenzo_3d1l<Data, Quant>, block_num, thread_num, args, 0, nullptr);
+            (void*)cusz::predictor_quantizer::v3::x_lorenzo_3d1l<Data, Quant>,  //
+            block_num, thread_num, lorenzo_args, 0, nullptr);
     }
     else {
         cerr << log_err << "no 4D" << endl;
     }
     cudaDeviceSynchronize();
-
-    cudaFree(d_dims);
 }
 
 template <typename Data, typename Quant>
@@ -139,8 +140,7 @@ void cusz::impl::VerifyHuffman(
     size_t*       dims,
     double*       eb_variants)
 {
-    // TODO error handling from invalid read
-    cout << log_info << "Redo PdQ just to get quantization dump." << endl;
+    LogAll(log_info, "Redo PdQ just to get quant data.");
 
     auto  veri_data   = io::ReadBinaryToNewArray<Data>(fi, len);
     Data* veri_d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
@@ -153,32 +153,28 @@ void cusz::impl::VerifyHuffman(
     for (auto i = 0; i < len; i++)
         if (xq[i] != veri_q[i]) count++;
     if (count != 0)
-        cerr << log_err << "percentage of not being equal: " << count / (1.0 * len) << "\n";
+        LogAll(log_err, "percentage of not being equal:", count / (1.0 * len));
     else
-        cout << log_info << "Decoded correctly." << endl;
+        LogAll(log_info, "Decoded correctly.");
 
     if (count != 0) {
-        // auto chunk_size = ap->huffman_chunk;
         auto n_chunk = (len - 1) / chunk_size + 1;
         for (auto c = 0; c < n_chunk; c++) {
-            auto chunk_id_printed   = false;
-            auto prev_point_printed = false;
+            auto chunk_id_printed = false, prev_point_printed = false;
             for (auto i = 0; i < chunk_size; i++) {
                 auto idx = i + c * chunk_size;
                 if (idx >= len) break;
                 if (xq[idx] != xq[idx]) {
                     if (not chunk_id_printed) {
-                        cerr << "chunk id: " << c << "\t";
-                        cerr << "start@ " << c * chunk_size << "\tend@ " << (c + 1) * chunk_size - 1 << endl;
+                        cerr << "chunk id: " << c << "\t"
+                             << "start@ " << c * chunk_size << "\tend@ " << (c + 1) * chunk_size - 1 << endl;
                         chunk_id_printed = true;
                     }
                     if (not prev_point_printed) {
-                        if (idx != c * chunk_size) {  // not first point
+                        if (idx != c * chunk_size)  // not first point
                             cerr << "PREV-idx:" << idx - 1 << "\t" << xq[idx - 1] << "\t" << xq[idx - 1] << endl;
-                        }
-                        else {
+                        else
                             cerr << "wrong at first point!" << endl;
-                        }
                         prev_point_printed = true;
                     }
                     cerr << "idx:" << idx << "\tdecoded: " << xq[idx] << "\tori: " << xq[idx] << endl;
@@ -191,7 +187,6 @@ void cusz::impl::VerifyHuffman(
     cudaFree(veri_d_data);
     delete[] veri_q;
     delete[] veri_data;
-    // end of if count
 }
 
 template <typename T>
@@ -463,14 +458,11 @@ typedef struct DataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
 // TODO top-level instantiation really reduce compilation time?
-template void
-szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void
-szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void
-szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void
-szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+// clang-format off
+template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
 
 template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
 template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
