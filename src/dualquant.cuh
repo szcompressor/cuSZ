@@ -20,36 +20,18 @@
 #include "metadata.hh"
 
 extern __shared__ char scratch[];
-// extern __shared__ float s2df[][16 + 1];  // TODO double type
-// extern __shared__ float s3df[][8+ 1][8+ 1];
 
 namespace cusz {
 namespace predictor_quantizer {
-
 // clang-format off
-// version 1
-template <typename Data, typename Quant> __global__ void c_lorenzo_1d1l(Data*, Quant*, size_t const*, double const*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l(Data*, Quant*, size_t const*, double const*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(Data*, Quant*, size_t const*, double const*);
-
-template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l(Data*, Data*, Quant*, size_t const*, double);
-template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l(Data*, Data*, Quant*, size_t const*, double);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l(Data*, Data*, Quant*, size_t const*, double);
-
-// version 2
-template <typename Data, typename Quant> __global__ void c_lorenzo_1d1l_v2(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_v2(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_v2(lorenzo_zip, Data*, Quant*);
-
-template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l_v2(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_v2(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v2(lorenzo_unzip, Data*, Data*, Quant*);
-
-// version 3
-// 1D and unzip remain the same
-template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_v3(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_v3(lorenzo_zip, Data*, Quant*);
-
+namespace v2 { template <typename Data, typename Quant> __global__ void c_lorenzo_1d1l(lorenzo_zip, Data*, Quant*);
+               template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l(lorenzo_unzip, Data*, Data*, Quant*);
+               template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l(lorenzo_unzip, Data*, Data*, Quant*);
+               template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l(lorenzo_unzip, Data*, Data*, Quant*); }
+namespace v3 { template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l(lorenzo_zip, Data*, Quant*);
+               template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*); 
+               template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l(lorenzo_unzip, Data*, Data*, Quant*);
+               template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l(lorenzo_unzip, Data*, Data*, Quant*); }
 // clang-format on
 
 }  // namespace predictor_quantizer

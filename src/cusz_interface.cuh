@@ -21,6 +21,7 @@
 
 using namespace std;
 
+typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
 namespace cusz {
 namespace interface {
 
@@ -33,7 +34,7 @@ void Compress(
     int&,
     size_t&,
     size_t&,
-    size_t&, 
+    size_t&,
     bool&);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
