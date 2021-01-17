@@ -200,15 +200,15 @@ We provide three small sample data in `data`. To download more SDRBench datasets
 
 ## sample kernel performance (compression/zip)
 
-Tested on October 8, 2020, on V100; throughput is in the unit of GB/s if not specified otherwise, 
+Throughput is in the unit of GB/s if not otherwise specified, 
 
-|                    | dual-quant | hist  | codebook | enc. | outlier | OVERALL (w/o c/b) | mem bw (ref) | memcpy (ref) |
-| ------------------ | ---------- | ----- | -------- | ---- | ------- | ----------------- | ------------ | ------------ |
-| 1D HACC (1.05 GiB) | 312.0      | 400.0 | 0.1 ms   | 57.6 | 278.8   | 37.4              | 900 (HBM2)   | 713.1        |
-| 2D CESM (25.7 MiB) | 260.1      | 591.8 | 0.82 us  | 60.1 | 192.0   | 36.5              | 900 (HBM2)   | 713.1        |
-| 3D NYX (512 MiB)   | 199.6      | 400.6 | 0.68 us  | 64.1 | 268.4   | 37.3              | 900 (HBM2)   | 713.1        |
+|                    | dual-quant | hist  | codebook | enc. | outlier | OVERALL* | mem bw (ref) | memcpy (ref) |
+| ------------------ | ---------- | ----- | -------- | ---- | ------- | -------- | ------------ | ------------ |
+| 1D HACC (1.05 GiB) | 290.7      | 373.8 | 0.1 ms   | 53.7 | 261.7   | 35.0     | 900 (HBM2)   | 713.1        |
+| 2D CESM (25.7 MiB) | 269.4      | 569.7 | 0.82 us  | 57.8 | 184.7   | 35.8     | 900 (HBM2)   | 713.1        |
+| 3D NYX (512 MiB)   | 228.3      | 400.6 | 0.68 us  | 64.1 | 268.4   | 38.6     | 900 (HBM2)   | 713.1        |
 
-A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
+(*) OVERALL kernel throughput estimation is based on leaving out 1) codebook construction, considering a prebuilt tree could be in use, 2) kernel launching overhead. A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
 ## limitations of this version (Jan. 10, 2021)
 
