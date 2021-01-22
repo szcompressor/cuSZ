@@ -85,19 +85,18 @@ build_target = {
     "compat": figure_out_compatibility(cuda_ver)
 }
 
-# build_types = ["release", "release-profile", "debug"]
 build_types = {
     "release": {
         "host": "-O3",
         "cuda": "-O2"
     },
-    "debug": {  # TODO -g for profiling okay?
+    "release-profile": {
         "host": "-O3 -g",
         "cuda": "-O2 -pg -lineinfo"
     },
-    "release-profile": {
-        "host": "-O0 - g",
-        "cuda": "-G - lineinfo"
+    "debug": {
+        "host": "-O0 -g",
+        "cuda": "-G"
     }
 }
 
@@ -161,7 +160,6 @@ if __name__ == "__main__":
     with open("Makefile", "w") as fo:
         fo.write(makefile)
 
-        
     ############################################################
     # submodules
     ############################################################
@@ -198,7 +196,7 @@ if __name__ == "__main__":
         os.system(cmake_nvcomp)
     if not os.path.exists("external/nvcomp/build/lib/libgtest.a"):
         os.system(cmake_gtest)
-    
+
     # double check
     if os.path.exists(GTEST_STATIC_LIB):
         print("gtest lib ready")
