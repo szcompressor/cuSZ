@@ -223,17 +223,17 @@ void cusz::interface::Compress(
 
     if (ap->conduct_partition_experiment) {
         // 3D only
-        auto part0     = ap->p0;
-        auto part1     = ap->p1;
-        auto part2     = ap->p2;
+        auto part0     = ap->part4._0;
+        auto part1     = ap->part4._1;
+        auto part2     = ap->part4._2;
         auto num_part0 = (ap->dim4._0 - 1) / part0 + 1;
         auto num_part1 = (ap->dim4._1 - 1) / part1 + 1;
         auto num_part2 = (ap->dim4._2 - 1) / part2 + 1;
 
-        LogAll(log_dbg, "p0:", ap->p0, " p1:", ap->p1, " p2:", ap->p2);
+        LogAll(log_dbg, "p0:", ap->part4._0, " p1:", ap->part4._1, " p2:", ap->part4._2);
         LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
 
-        size_t block_stride1 = ap->p0, block_stride2 = block_stride1 * ap->p1;
+        size_t block_stride1 = ap->part4._0, block_stride2 = block_stride1 * ap->part4._0;
 
         LogAll(log_dbg, "stride1:", ap->stride4._1, " stride2:", ap->stride4._2);
         LogAll(log_dbg, "blockstride1:", block_stride1, " blockstride2:", block_stride2);

@@ -56,7 +56,7 @@ Spack is a multi-platform package manager dedicated for HPC deployment, and it's
 Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is given below.
 
 ```bash
-./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z
+./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z
            ------ ------ ----------- ------------------------ ------------  |
             dtype  mode  error bound      input datum file    low-to-high  zip
 
@@ -64,10 +64,10 @@ Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is giv
            ---------------------------  |
                      sz archive        unzip
 ```
-`-D cesm` specifies preset dataset for demonstration. In this case, it is CESM-ATM, whose dimension is 1800-by-3600, following y-x order. To otherwise specify datum file and input dimensions arbitrarily, we use `-2 3600 1800`, then it becomes
+In this case, 1800-by-3600 (y-x order) CESM-ATM is listed in the demo set. Use `-D cesm` to specify the preset for demonstration. Type `cusz` or `cusz -h` to look up the presets.
 
 ```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z
 ```
 The following **essential** arguments are required,
 

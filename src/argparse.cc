@@ -13,8 +13,8 @@
 
 #include "argparse.hh"
 #include <cassert>
-#include <cstdlib>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <regex>
 #include <string>
@@ -271,18 +271,6 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                     if (string(argv[i]) == "--huffman-rep") goto tag_huff_byte;
                     if (string(argv[i]) == "--huffman-chunk") goto tag_huff_chunk;
                     if (string(argv[i]) == "--dict-size") goto tag_dict;
-                    if (string(argv[i]) == "--gzip") {
-                        to_gzip = true;
-                        break;
-                    }  // wenyu: if there is "--gzip", set member field to_gzip true
-                    if (string(argv[i]) == "--nvcomp") {
-                        to_nvcomp = true;
-                        break;
-                    }
-                    if (string(argv[i]) == "--gtest") {
-                        to_gtest = true;
-                        break;
-                    }
                 // work
                 // ----------------------------------------------------------------
                 case 'e':
@@ -311,41 +299,9 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 case '1':
                 case '2':
                 case '3':
-                case '4':
-                    cout << "fix later" << endl;
-                    break;
-
-                    //                case '1':
-                    //                    ndim = 1;
-                    //                    if (i + 1 <= argc) {
-                    //                        d0              = str2int(argv[++i]);
-                    //                        huffman_datalen = d0;
-                    //                    }
-                    //                    break;
-                    //                case '2':
-                    //                    ndim = 2;
-                    //                    if (i + 2 <= argc) {
-                    //                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                    //                        huffman_datalen = d0 * d1;
-                    //                    }
-                    //                    break;
-                    //                case '3':
-                    //                    ndim = 3;
-                    //                    if (i + 3 <= argc) {
-                    //                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]), d2 = str2int(argv[++i]);
-                    //                        huffman_datalen = d0 * d1 * d2;
-                    //                    }
-                    //                    break;
-                    //                case '4':
-                    //                    ndim = 4;
-                    //                    if (i + 4 <= argc) {
-                    //                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                    //                        d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
-                    //                        huffman_datalen = d0 * d1 * d2 * d3;
-                    //                    }
-                    //                    break;
-                    // help document
-                    // ----------------------------------------------------------------
+                case '4': cout << "fix later" << endl; break;
+                // help document
+                // ----------------------------------------------------------------
                 case 'h':
                 tag_help:
                     HuffmanDoc();
@@ -419,10 +375,6 @@ ArgPack::ArgPack(int argc, char** argv)
         cuszDoc();
         exit(0);
     }
-
-    to_gzip   = false;
-    to_nvcomp = false;
-    to_gtest  = false;
 
     opath = "";
 
@@ -602,47 +554,25 @@ ArgPack::ArgPack(int argc, char** argv)
                         }
                         ndim = parts.size();
                         if (ndim == 1) {  //
-                            p0 = str2int(parts[0].c_str());
+                            auto p0 = str2int(parts[0].c_str());
+                            part4   = {p0, 1, 1, 1};
                         }
                         if (ndim == 2) {  //
-                            p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                            auto p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                            part4 = {p0, p1, 1, 1};
                         }
                         if (ndim == 3) {
-                            p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
-                            p2 = str2int(parts[2].c_str());
+                            auto p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                            auto p2 = str2int(parts[2].c_str());
+                            part4   = {p0, p1, p2, 1};
                         }
                         if (ndim == 4) {
-                            p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
-                            p2 = str2int(parts[2].c_str()), p3 = str2int(parts[3].c_str());
+                            auto p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
+                            auto p2 = str2int(parts[2].c_str()), p3 = str2int(parts[3].c_str());
+                            part4 = {p0, p1, p2, p3};
                         }
                     }
                     break;
-                // case '1':
-                //     ndim = 1;
-                //     if (i + 1 <= argc) {  //
-                //         d0 = str2int(argv[++i]);
-                //     }
-                //     break;
-                // case '2':
-                //     ndim = 2;
-                //     if (i + 2 <= argc) {  //
-                //         d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                //     }
-                //     break;
-                // case '3':
-                //     ndim = 3;
-                //     if (i + 3 <= argc) {
-                //         d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                //         d2 = str2int(argv[++i]);
-                //     }
-                //     break;
-                // case '4':
-                //     ndim = 4;
-                //     if (i + 4 <= argc) {
-                //         d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                //         d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
-                //     }
-                //     break;
                 case 'i':
                 tag_input:
                     if (i + 1 <= argc) cx_path2file = string(argv[++i]);
