@@ -14,10 +14,12 @@
 #include "argparse.hh"
 #include <cassert>
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <regex>
 #include <string>
 #include "argument_parser/document.hh"
+#include "metadata.hh"
 #include "utils/format.hh"
 
 using std::cerr;
@@ -65,10 +67,11 @@ ArgPack::HuffmanCheckArgs()
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
-        cerr << log_err << "Wrong input size(s)!" << endl;
-        to_abort = true;
-    }
+    // TODO
+    //    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
+    //        cerr << log_err << "Wrong input size(s)!" << endl;
+    //        to_abort = true;
+    //    }
     if (!to_encode and !to_decode and !to_dryrun) {
         cerr << log_err << "Select encode (-a), decode (-x) or dry-run (-r)!" << endl;
         to_abort = true;
@@ -117,12 +120,13 @@ ArgPack::CheckArgs()
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
-        if (this->to_archive or this->to_dryrun) {
-            cerr << log_err << "Wrong input size(s)!" << endl;
-            to_abort = true;
-        }
-    }
+    // TODO
+    //    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
+    //        if (this->to_archive or this->to_dryrun) {
+    //            cerr << log_err << "Wrong input size(s)!" << endl;
+    //            to_abort = true;
+    //        }
+    //    }
     if (!to_archive and !to_extract and !to_dryrun) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
@@ -305,36 +309,43 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // input dimensionality
                 // ----------------------------------------------------------------
                 case '1':
-                    n_dim = 1;
-                    if (i + 1 <= argc) {
-                        d0              = str2int(argv[++i]);
-                        huffman_datalen = d0;
-                    }
-                    break;
                 case '2':
-                    n_dim = 2;
-                    if (i + 2 <= argc) {
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                        huffman_datalen = d0 * d1;
-                    }
-                    break;
                 case '3':
-                    n_dim = 3;
-                    if (i + 3 <= argc) {
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]), d2 = str2int(argv[++i]);
-                        huffman_datalen = d0 * d1 * d2;
-                    }
-                    break;
                 case '4':
-                    n_dim = 4;
-                    if (i + 4 <= argc) {
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                        d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
-                        huffman_datalen = d0 * d1 * d2 * d3;
-                    }
+                    cout << "fix later" << endl;
                     break;
-                // help document
-                // ----------------------------------------------------------------
+
+                    //                case '1':
+                    //                    ndim = 1;
+                    //                    if (i + 1 <= argc) {
+                    //                        d0              = str2int(argv[++i]);
+                    //                        huffman_datalen = d0;
+                    //                    }
+                    //                    break;
+                    //                case '2':
+                    //                    ndim = 2;
+                    //                    if (i + 2 <= argc) {
+                    //                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                    //                        huffman_datalen = d0 * d1;
+                    //                    }
+                    //                    break;
+                    //                case '3':
+                    //                    ndim = 3;
+                    //                    if (i + 3 <= argc) {
+                    //                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]), d2 = str2int(argv[++i]);
+                    //                        huffman_datalen = d0 * d1 * d2;
+                    //                    }
+                    //                    break;
+                    //                case '4':
+                    //                    ndim = 4;
+                    //                    if (i + 4 <= argc) {
+                    //                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                    //                        d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
+                    //                        huffman_datalen = d0 * d1 * d2 * d3;
+                    //                    }
+                    //                    break;
+                    // help document
+                    // ----------------------------------------------------------------
                 case 'h':
                 tag_help:
                     HuffmanDoc();
@@ -558,20 +569,24 @@ ArgPack::ArgPack(int argc, char** argv)
                             getline(datalen, substr, ',');
                             dims.push_back(substr);
                         }
-                        n_dim = dims.size();
-                        if (n_dim == 1) {  //
-                            d0 = str2int(dims[0].c_str());
+                        ndim = dims.size();
+                        if (ndim == 1) {  //
+                            auto d0 = str2int(dims[0].c_str());
+                            dim4    = {d0, 1, 1, 1};
                         }
-                        if (n_dim == 2) {  //
-                            d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                        if (ndim == 2) {  //
+                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                            dim4 = {d0, d1, 1, 1};
                         }
-                        if (n_dim == 3) {
-                            d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            d2 = str2int(dims[2].c_str());
+                        if (ndim == 3) {
+                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                            auto d2 = str2int(dims[2].c_str());
+                            dim4    = {d0, d1, d2, 1};
                         }
-                        if (n_dim == 4) {
-                            d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            d2 = str2int(dims[2].c_str()), d3 = str2int(dims[3].c_str());
+                        if (ndim == 4) {
+                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
+                            auto d2 = str2int(dims[2].c_str()), d3 = str2int(dims[3].c_str());
+                            dim4 = {d0, d1, d2, d3};
                         }
                     }
                     break;
@@ -585,49 +600,49 @@ ArgPack::ArgPack(int argc, char** argv)
                             getline(datalen, substr, ',');
                             parts.push_back(substr);
                         }
-                        n_dim = parts.size();
-                        if (n_dim == 1) {  //
+                        ndim = parts.size();
+                        if (ndim == 1) {  //
                             p0 = str2int(parts[0].c_str());
                         }
-                        if (n_dim == 2) {  //
+                        if (ndim == 2) {  //
                             p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
                         }
-                        if (n_dim == 3) {
+                        if (ndim == 3) {
                             p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
                             p2 = str2int(parts[2].c_str());
                         }
-                        if (n_dim == 4) {
+                        if (ndim == 4) {
                             p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
                             p2 = str2int(parts[2].c_str()), p3 = str2int(parts[3].c_str());
                         }
                     }
                     break;
-                case '1':
-                    n_dim = 1;
-                    if (i + 1 <= argc) {  //
-                        d0 = str2int(argv[++i]);
-                    }
-                    break;
-                case '2':
-                    n_dim = 2;
-                    if (i + 2 <= argc) {  //
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                    }
-                    break;
-                case '3':
-                    n_dim = 3;
-                    if (i + 3 <= argc) {
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                        d2 = str2int(argv[++i]);
-                    }
-                    break;
-                case '4':
-                    n_dim = 4;
-                    if (i + 4 <= argc) {
-                        d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
-                        d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
-                    }
-                    break;
+                // case '1':
+                //     ndim = 1;
+                //     if (i + 1 <= argc) {  //
+                //         d0 = str2int(argv[++i]);
+                //     }
+                //     break;
+                // case '2':
+                //     ndim = 2;
+                //     if (i + 2 <= argc) {  //
+                //         d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                //     }
+                //     break;
+                // case '3':
+                //     ndim = 3;
+                //     if (i + 3 <= argc) {
+                //         d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                //         d2 = str2int(argv[++i]);
+                //     }
+                //     break;
+                // case '4':
+                //     ndim = 4;
+                //     if (i + 4 <= argc) {
+                //         d0 = str2int(argv[++i]), d1 = str2int(argv[++i]);
+                //         d2 = str2int(argv[++i]), d3 = str2int(argv[++i]);
+                //     }
+                //     break;
                 case 'i':
                 tag_input:
                     if (i + 1 <= argc) cx_path2file = string(argv[++i]);
@@ -717,6 +732,8 @@ ArgPack::ArgPack(int argc, char** argv)
                             mantissa = ::atof(eb.c_str());
                             exponent = 0.0;
                         }
+
+                        this->eb = mantissa * std::pow(10, exponent);
                     }
                     break;
                 case 'y':
@@ -733,7 +750,10 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 case 'd':
                 tag_dict:
-                    if (i + 1 <= argc) dict_size = str2int(argv[++i]);
+                    if (i + 1 <= argc) {
+                        dict_size = str2int(argv[++i]);
+                        radius    = dict_size / 2;
+                    }
                     break;
                 default:
                     const char* notif_prefix = "invalid option value at position ";

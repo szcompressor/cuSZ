@@ -29,8 +29,6 @@ template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void Compress(
     argpack*,
     struct DataPack<typename DataTrait<If_FP, DataByte>::Data>*,
-    size_t*,
-    double*,
     int&,
     size_t&,
     size_t&,
@@ -38,7 +36,7 @@ void Compress(
     bool&);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void Decompress(argpack*, size_t*, double*, int&, size_t&, size_t&, size_t&, bool);
+void Decompress(argpack*, int&, size_t&, size_t&, size_t&, bool);
 
 }  // namespace interface
 

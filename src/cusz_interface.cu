@@ -28,12 +28,12 @@
 //#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "autotune.hh"
-#include "constants.hh"
 #include "cusz_interface.cuh"
 #include "dryrun.cuh"
 #include "dualquant.cuh"
 #include "gather_scatter.cuh"
 #include "huff_interface.cuh"
+#include "lorenzo_trait.cuh"
 #include "metadata.hh"
 #include "type_trait.hh"
 #include "utils/cuda_err.cuh"
@@ -47,90 +47,10 @@ using std::cout;
 using std::endl;
 using std::string;
 
-namespace kernel_v2 = cusz::predictor_quantizer::v2;
-namespace kernel_v3 = cusz::predictor_quantizer::v3;
+using namespace cusz::predictor_quantizer::v2;
+using namespace cusz::predictor_quantizer::v3;
 
-template <typename Data, typename Quant>
-void cusz::impl::PdQ(Data* d_d, Quant* d_q, size_t* dims, double* eb_variants)
-{
-    lorenzo_zip ctx;
-    void*       lorenzo_args[] = {&ctx, &d_d, &d_q};
-    {
-        ctx.d0 = dims[DIM0], ctx.d1 = dims[DIM1], ctx.d2 = dims[DIM2];
-        ctx.radius = dims[RADIUS], ctx.ebx2_r = eb_variants[EBx2_r];
-        ctx.stride1 = ctx.d0, ctx.stride2 = ctx.d0 * ctx.d1;
-    }
-
-    if (dims[nDIM] == 1) {
-        static const int B = MetadataTrait<1>::Block;
-
-        dim3 block_num(dims[nBLK0]), thread_num(B);
-        cudaLaunchKernel(
-            (void*)kernel_v2::c_lorenzo_1d1l<Data, Quant>,  //
-            block_num, thread_num, lorenzo_args, 0, nullptr);
-    }
-    else if (dims[nDIM] == 2) {
-        static const int B = MetadataTrait<2>::Block;
-
-        dim3 block_num(dims[nBLK0], dims[nBLK1]), thread_num(B, B);
-        cudaLaunchKernel(
-            (void*)kernel_v3::c_lorenzo_2d1l<Data, Quant>,  //
-            block_num, thread_num, lorenzo_args, B * B * sizeof(Data), nullptr);
-    }
-    else if (dims[nDIM] == 3) {
-        static const int B = MetadataTrait<3>::Block;
-
-        dim3 block_num(dims[nBLK0], dims[nBLK1], dims[nBLK2]), thread_num(B, B, B);
-        cudaLaunchKernel(
-            (void*)kernel_v3::c_lorenzo_3d1l<Data, Quant>,  //
-            block_num, thread_num, lorenzo_args, B * B * B * sizeof(Data), nullptr);
-    }
-    HANDLE_ERROR(cudaDeviceSynchronize());
-}
-
-template <typename Data, typename Quant>
-void cusz::impl::ReversedPdQ(Data* d_xd, Quant* d_q, Data* d_outlier, size_t* dims, double _2eb)
-{
-    lorenzo_unzip ctx;
-    {
-        ctx.d0 = dims[DIM0], ctx.d1 = dims[DIM1], ctx.d2 = dims[DIM2];
-        ctx.n_blk0 = dims[nBLK0], ctx.n_blk1 = dims[nBLK1], ctx.n_blk2 = dims[nBLK2];
-        ctx.radius = dims[RADIUS], ctx.ebx2 = _2eb;
-        ctx.stride1 = ctx.d0, ctx.stride2 = ctx.d0 * ctx.d1;
-    }
-    void* lorenzo_args[] = {&ctx, &d_xd, &d_outlier, &d_q};
-
-    if (dims[nDIM] == 1) {
-        static const int p = MetadataTrait<1>::Block;
-
-        dim3 thread_num(p), block_num((dims[nBLK0] - 1) / p + 1);
-        cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v2::x_lorenzo_1d1l<Data, Quant>,  //
-            block_num, thread_num, lorenzo_args, 0, nullptr);
-    }
-    else if (dims[nDIM] == 2) {
-        const static size_t p = MetadataTrait<2>::Block;
-
-        dim3 thread_num(p, p), block_num((dims[nBLK0] - 1) / p + 1, (dims[nBLK1] - 1) / p + 1);
-        cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v3::x_lorenzo_2d1l<Data, Quant>,  //
-            block_num, thread_num, lorenzo_args, 0, nullptr);
-    }
-    else if (dims[nDIM] == 3) {
-        const static size_t p = MetadataTrait<3>::Block;
-
-        dim3 thread_num(p, p, p);
-        dim3 block_num((dims[nBLK0] - 1) / p + 1, (dims[nBLK1] - 1) / p + 1, (dims[nBLK2] - 1) / p + 1);
-        cudaLaunchKernel(
-            (void*)cusz::predictor_quantizer::v3::x_lorenzo_3d1l<Data, Quant>,  //
-            block_num, thread_num, lorenzo_args, 0, nullptr);
-    }
-    else {
-        cerr << log_err << "no 4D" << endl;
-    }
-    cudaDeviceSynchronize();
-}
-
+/*
 template <typename Data, typename Quant>
 void cusz::impl::VerifyHuffman(
     string const& fi,
@@ -145,6 +65,7 @@ void cusz::impl::VerifyHuffman(
     auto  veri_data   = io::ReadBinaryToNewArray<Data>(fi, len);
     Data* veri_d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
     auto  veri_d_q    = mem::CreateCUDASpace<Quant>(len);
+
     PdQ(veri_d_data, veri_d_q, dims, eb_variants);
 
     auto veri_q = mem::CreateHostSpaceAndMemcpyFromDevice(veri_d_q, len);
@@ -188,6 +109,7 @@ void cusz::impl::VerifyHuffman(
     delete[] veri_q;
     delete[] veri_data;
 }
+ */
 
 template <typename T>
 auto CopyToBuffer_3D(
@@ -225,8 +147,6 @@ template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
     argpack* ap,
     struct DataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
-    size_t*  dims,
-    double*  eb_variants,
     int&     nnz_outlier,
     size_t&  n_bits,
     size_t&  n_uInt,
@@ -238,9 +158,7 @@ void cusz::interface::Compress(
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    // TODO to use a struct
-    // TODO already calculated outside in main()
-    size_t len = dims[LEN];
+    size_t len = ap->len;
 
     auto data   = adp->data;
     auto d_data = adp->d_data;
@@ -248,8 +166,9 @@ void cusz::interface::Compress(
     auto mxm    = adp->mxm;
 
     if (ap->to_dryrun) {
-        LogAll(log_info, "invoke dry-run");
-        DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
+        LogAll(log_info, "dry-run temporarily not working");
+        //        LogAll(log_info, "invoke dry-run");
+        //        DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
         cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
@@ -259,7 +178,22 @@ void cusz::interface::Compress(
     auto d_q = mem::CreateCUDASpace<Quant>(len);  // quant. code is not needed for dry-run
 
     // prediction-quantization
-    ::cusz::impl::PdQ(d_data, d_q, dims, eb_variants);
+    {
+        if (ap->ndim == 1) {
+            LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+        }
+        if (ap->ndim == 2) {
+            LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+        }
+        else if (ap->ndim == 3) {
+            LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+        }
+        HANDLE_ERROR(cudaDeviceSynchronize());
+    }
+
     ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &ap->c_fo_outlier);
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
@@ -292,18 +226,16 @@ void cusz::interface::Compress(
         auto part0     = ap->p0;
         auto part1     = ap->p1;
         auto part2     = ap->p2;
-        auto num_part0 = (ap->d0 - 1) / part0 + 1;
-        auto num_part1 = (ap->d1 - 1) / part1 + 1;
-        auto num_part2 = (ap->d2 - 1) / part2 + 1;
+        auto num_part0 = (ap->dim4._0 - 1) / part0 + 1;
+        auto num_part1 = (ap->dim4._1 - 1) / part1 + 1;
+        auto num_part2 = (ap->dim4._2 - 1) / part2 + 1;
 
         LogAll(log_dbg, "p0:", ap->p0, " p1:", ap->p1, " p2:", ap->p2);
         LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
 
-        size_t stride1       = ap->d0;
-        size_t stride2       = stride1 * ap->d1;
         size_t block_stride1 = ap->p0, block_stride2 = block_stride1 * ap->p1;
 
-        LogAll(log_dbg, "stride1:", stride1, " stride2:", stride2);
+        LogAll(log_dbg, "stride1:", ap->stride4._1, " stride2:", ap->stride4._2);
         LogAll(log_dbg, "blockstride1:", block_stride1, " blockstride2:", block_stride2);
 
         auto buffer_size = part0 * part1 * part2;
@@ -314,12 +246,12 @@ void cusz::interface::Compress(
 
         Index<3>::idx_t part_dims{part0, part1, part2};
         Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
-        Index<3>::idx_t global_strides{1, (int)stride1, (int)stride2};
+        Index<3>::idx_t global_strides{1, (int)ap->stride4._1, (int)ap->stride4._2};
 
         for (auto pk = 0; pk < num_part2; pk++) {
             for (auto pj = 0; pj < num_part1; pj++) {
                 for (auto pi = 0; pi < num_part0; pi++) {
-                    auto start = pk * part2 * stride2 + pj * part1 * stride1 + pi * part0;
+                    auto start = pk * part2 * ap->stride4._2 + pj * part1 * ap->stride4._1 + pi * part0;
                     CopyToBuffer_3D(quant_buffer, q, start, part_dims, block_strides, global_strides);
                     lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
                         Index<3>::idx_t{pi, pj, pk}, ap->c_huff_base, quant_buffer, buffer_size, ap->dict_size);
@@ -335,7 +267,7 @@ void cusz::interface::Compress(
     }
 
     std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_nvcomp, dims[CAP], ap->export_codebook);
+        ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_nvcomp, ap->dict_size, ap->export_codebook);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
@@ -345,8 +277,6 @@ void cusz::interface::Compress(
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Decompress(
     argpack* ap,
-    size_t*  dims,
-    double*  eb_variants,
     int&     nnz_outlier,
     size_t&  total_bits,
     size_t&  total_uInt,
@@ -357,10 +287,10 @@ void cusz::interface::Decompress(
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    auto dict_size = dims[CAP];
-    auto len       = dims[LEN];
-    auto m         = ::cusz::impl::GetEdgeOfReinterpretedSquare(len);
-    auto mxm       = m * m;
+    cout << "test extract" << endl;
+
+    auto m   = ::cusz::impl::GetEdgeOfReinterpretedSquare(ap->len);
+    auto mxm = m * m;
 
     LogAll(log_info, "invoke unzip");
 
@@ -368,13 +298,15 @@ void cusz::interface::Decompress(
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (ap->skip_huffman) {
         LogAll(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, len);
+        xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, ap->len);
     }
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            ap->cx_path2file, len, ap->huffman_chunk, total_uInt, nvcomp_in_use, dict_size);
+            ap->cx_path2file, ap->len, ap->huffman_chunk, total_uInt, nvcomp_in_use, ap->dict_size);
         if (ap->verify_huffman) {
+            LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
+            /*
             // TODO check in argpack
             if (ap->x_fi_origin == "") {
                 cerr << log_err << "use \"--origin /path/to/origin_data\" to specify the original datum." << endl;
@@ -382,17 +314,38 @@ void cusz::interface::Decompress(
             }
             cout << log_info << "Verifying Huffman codec..." << endl;
             ::cusz::impl::VerifyHuffman<Data, Quant>(ap->x_fi_origin, len, xq, ap->huffman_chunk, dims, eb_variants);
+             */
         }
     }
-    auto d_xq = mem::CreateDeviceSpaceAndMemcpyFromHost(xq, len);
+    auto d_xq = mem::CreateDeviceSpaceAndMemcpyFromHost(xq, ap->len);
 
     auto d_outlier = mem::CreateCUDASpace<Data>(mxm);
     ::cusz::impl::ScatterFromCSR<Data>(d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &ap->x_fi_outlier);
 
     // TODO merge d_outlier and d_data
-    auto d_xdata = mem::CreateCUDASpace<Data>(len);
-    ::cusz::impl::ReversedPdQ(d_xdata, d_xq, d_outlier, dims, eb_variants[EBx2]);
-    auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, len);
+    auto d_xdata = mem::CreateCUDASpace<Data>(ap->len);
+
+    {
+        // temporary
+        if (ap->ndim == 1) {
+            LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            x_lorenzo_1d1l<Data, Quant>
+                <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+        }
+        if (ap->ndim == 2) {
+            LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            x_lorenzo_2d1l<Data, Quant>
+                <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+        }
+        else if (ap->ndim == 3) {
+            LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            x_lorenzo_3d1l<Data, Quant>
+                <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+        }
+        HANDLE_ERROR(cudaDeviceSynchronize());
+    }
+
+    auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, ap->len);
 
     LogAll(log_info, "reconstruct error-bounded datum");
 
@@ -402,7 +355,7 @@ void cusz::interface::Decompress(
         archive_bytes += total_uInt * sizeof(Huff)  // Huffman coded
                          + huffman_metadata_size;   // chunking metadata and reverse codebook
     else
-        archive_bytes += len * sizeof(Quant);
+        archive_bytes += ap->len * sizeof(Quant);
     archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
 
     // TODO g++ and clang++ use mangled type_id name, add macro
@@ -432,16 +385,16 @@ void cusz::interface::Decompress(
     if (ap->x_fi_origin != "") {
         LogAll(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, len);
-        analysis::VerifyData(&ap->stat, xdata, odata, len);
-        analysis::PrintMetrics<Data>(&ap->stat, false, eb_variants[EB], archive_bytes, ap->pre_binning ? 4 : 1);
+        auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, ap->len);
+        analysis::VerifyData(&ap->stat, xdata, odata, ap->len);
+        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, ap->pre_binning ? 4 : 1);
 
         delete[] odata;
     }
     LogAll(log_info, "output:", ap->cx_path2file + ".szx");
 
-    if (!ap->skip_writex)
-        io::WriteArrayToBinary(ap->x_fo_xd, xdata, len);
+    if (ap->skip_writex)
+        io::WriteArrayToBinary(ap->x_fo_xd, xdata, ap->len);
     else {
         LogAll(log_dbg, "skipped writing unzipped to filesystem");
     }
@@ -459,12 +412,12 @@ namespace szin = cusz::interface;
 
 // TODO top-level instantiation really reduce compilation time?
 // clang-format off
-template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
 
-template void szin::Decompress<true, 4, 1, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
-template void szin::Decompress<true, 4, 1, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
-template void szin::Decompress<true, 4, 2, 4>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
-template void szin::Decompress<true, 4, 2, 8>(argpack*, size_t*, FP8*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 1, 4>(argpack*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 1, 8>(argpack*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 2, 4>(argpack*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 2, 8>(argpack*, int&, size_t&, size_t&, size_t&, bool);

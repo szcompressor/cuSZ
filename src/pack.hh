@@ -5,24 +5,27 @@
  * @file pack.hh
  * @author Jiannan Tian
  * @brief
- * @version 0.1.1
- * @date 2020-09-25
+ * @version 0.2
+ * @date 2021-01-22
+ * (created) 2020-09-25, (rev.1) 2021-01-22
  *
  * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
 #include "argparse.hh"
-#include "constants.hh"
 #include "utils/io.hh"
 
 enum DataType { kF32, kF64 };
 
 typedef struct MetadataPackage {
-    size_t dim_array[16];
-    double eb_array[4];
-    int    M, MxM;  // padded M
-    int    nnz;
+    Integer4 dim4, stride4, nblk4;
+    int      ndim;
+    size_t   len;
+    double   eb;
+
+    int M, MxM;  // padded M
+    int nnz;
 
     size_t total_bits, total_uInt, huff_meta_size;
 
@@ -42,10 +45,14 @@ typedef struct MetadataPackage {
 
 } metadata_pack;
 
-void PackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array, double* eb_array)
+void PackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
 {
-    memcpy(mp->dim_array, dim_array, sizeof(size_t) * 16);
-    memcpy(mp->eb_array, eb_array, sizeof(double) * 4);
+    mp->dim4    = ap->dim4;
+    mp->stride4 = ap->stride4;
+    mp->nblk4   = ap->nblk4;
+    mp->ndim    = ap->ndim;
+    mp->eb      = ap->eb;
+    mp->len     = ap->len;
 
     mp->nnz = nnz;
 
@@ -56,14 +63,16 @@ void PackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array, d
     mp->huff_byte     = ap->huff_byte;
     mp->huffman_chunk = ap->huffman_chunk;
     mp->skip_huffman  = ap->skip_huffman;
-
-    // TODO type trait
 }
 
-void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz, size_t* dim_array, double* eb_array)
+void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
 {
-    memcpy(dim_array, mp->dim_array, sizeof(size_t) * 16);
-    memcpy(eb_array, mp->eb_array, sizeof(double) * 4);
+    ap->dim4    = mp->dim4;
+    ap->stride4 = mp->stride4;
+    ap->nblk4   = mp->nblk4;
+    ap->ndim    = mp->ndim;
+    ap->eb      = mp->eb;
+    ap->len     = mp->len;
 
     nnz = mp->nnz;
 

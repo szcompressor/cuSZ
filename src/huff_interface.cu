@@ -40,6 +40,7 @@
 #include "utils/cuda_mem.cuh"
 #include "utils/dbg_print.cuh"
 #include "utils/format.hh"
+#include "utils/io.hh"
 #include "utils/timer.hh"
 
 #include "cascaded.hpp"

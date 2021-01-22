@@ -27,7 +27,7 @@ struct Metadata {
     int cap{}, radius{};
     int nnz{};
 
-    double eb{}, ebx2{}, eb_r{}, ebx2_r{};
+    double eb{}, ebx2{}, ebx2_r{};
     // TODO caution! host-device sync
     size_t total_bits{}, total_uint{}, huff_metadata_size{};
 };
@@ -41,7 +41,7 @@ typedef struct LorenzoZipContext {
 
 typedef struct LorenzoUnzipContext {
     int    d0, d1, d2;
-    int    n_blk0, n_blk1, n_blk2;
+    int    nblk0, nblk1, nblk2;
     int    stride1, stride2;
     int    radius;
     double ebx2;
