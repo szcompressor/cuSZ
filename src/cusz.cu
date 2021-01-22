@@ -234,16 +234,11 @@ int main(int argc, char** argv)
         delete adp;
     }
 
-    // before running into decompression, reset for `-z -x`
-    {
-        //        delete ap;
-        //        ap = new ArgPack();
-    }
 
     // wenyu's modification
     // invoke system() to untar archived files first before decompression
 
-    if (not ap->to_archive && ap->to_extract) {
+    if (not ap->to_archive and ap->to_extract) {
         string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0)
@@ -289,7 +284,7 @@ int main(int argc, char** argv)
     // wenyu's modification starts
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind('/') + 1);
-    if (not ap->to_extract && ap->to_archive) {
+    if (not ap->to_extract and ap->to_archive) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
@@ -324,7 +319,7 @@ int main(int argc, char** argv)
 
     // if it's decompression, remove released subfiles at last.
 
-    if (not ap->to_archive && ap->to_extract) {
+    if (not ap->to_archive and ap->to_extract) {
         string files_for_deleting;
         if (ap->skip_huffman) {
             files_for_deleting = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
@@ -338,7 +333,7 @@ int main(int argc, char** argv)
         CheckShellCall(cmd_string);
     }
 
-    if (ap->to_archive && ap->to_extract) {
+    if (ap->to_archive and ap->to_extract) {
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
         CheckShellCall(cmd_string);

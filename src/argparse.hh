@@ -51,18 +51,17 @@ typedef struct ArgPack {
     int quant_byte{2}, huff_byte{4};
     int huffman_chunk{512};
     int ndim{-1};
-    //    int d0{1}, d1{1}, d2{1}, d3{1};
-    int p0{1}, p1{1}, p2{1}, p3{1};
 
+    // experiment
     Integer4 part4{1, 1, 1, 1};
 
     double eb{0.0};
 
-    size_t   len;
+    size_t   len{1};
     Integer4 dim4{1, 1, 1, 1};
     Integer4 nblk4{1, 1, 1, 1};
     Integer4 stride4{1, 1, 1, 1};
-    int      GPU_block_size;
+    int      GPU_block_size{1};
 
     double mantissa{1.0}, exponent{-4.0};
     bool   to_archive{false}, to_extract{false}, to_dryrun{false};

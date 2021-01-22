@@ -44,7 +44,7 @@ Format(const std::string& s)
 static const char cusz_short_doc[] =
     // "cusz, version [placeholder]\n"
     "\n"
-    "usage: cusz [-zxrhV] [-i file] [-t dtype] [-m mode] [-e eb] [-1|2|3 ...] ...\n"
+    "usage: cusz [-zxrhV] [-i file] [-t dtype] [-m mode] [-e eb] [-l x,y,z] ...\n"
     "\n"
     "  z : zip/compress\n"
     "  x : unzip/decompress\n"
@@ -68,7 +68,7 @@ static const char cusz_short_doc[] =
     "\n"
     "example:\n"
     "  zip 1: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z\n"
-    "  zip 2: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z\n"
+    "  zip 2: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z\n"
     "  unzip: ./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x\n"
     "\n"
     "\"cusz -h\" for details.\n";
@@ -80,8 +80,8 @@ static const char cusz_full_doc[] =
     "\n"
     "*SYNOPSIS*\n"
     "        The basic use is listed below,\n"
-    "        *cusz* *-t* f32 *-m* r2r *-e* 1.0e-4.0 *-i* ./data/ex-cesm-CLDHGH *-2* 3600 1800 *-z* \n"
-    //       cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z \n
+    "        *cusz* *-t* f32 *-m* r2r *-e* 1.0e-4.0 *-i* ./data/ex-cesm-CLDHGH *-l* 3600,1800 *-z* \n"
+    //       cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z \n
     "             ------ ------ ----------- ------------------------ ------------  | \n"
     "              dtype  mode  error bound      input datum file    low-to-high  zip \n"
     "\n"
@@ -91,7 +91,7 @@ static const char cusz_full_doc[] =
     "                       sz archive        unzip \n"
     "\n"
     "        *cusz* *-t* f32|64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-D* [demo dataset] *-z*\n"
-    "        *cusz* *-t* f32|64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-1*|*-2*|*-3* [nx [ny [nz]] *-z*\n"
+    "        *cusz* *-t* f32|64 *-m* [eb mode] *-e* [eb] *-i* [datum file] *-l* [nx[,ny[,nz]]] *-z*\n"
     "        *cusz* *-i* [datum basename].sz *-x*\n"
     "\n"
     "*OPTIONS*\n"
@@ -115,9 +115,7 @@ static const char cusz_full_doc[] =
     "                Specify dictionary size/quantization bin number.\n"
     "                Should be a power-of-2.\n"
     "\n"
-    "        *-1* [x]       Specify 1D datum/field size.\n"
-    "        *-2* [x] [y]   Specify 2D datum/field sizes, with dimensions from low to high.\n"
-    "        *-3* [x] [y] [z]   Specify 3D datum/field sizes, with dimensions from low to high.\n"
+    "        *-l* [x[,y[,z]]]   Specify (1|2|3)D datum/field sizes, with dimensions from low to high.\n"
     "\n"
     "    *Mandatory* (unzip)\n"
     "        *-x* or *--e*@x@*tract* or *--decompress* or *--unzip*\n"
@@ -152,8 +150,8 @@ static const char cusz_full_doc[] =
     "\n"
     "        *-D* or *--demo* [demo-dataset]\n"
     "                Use demo dataset, will omit given dimension(s). Supported datasets include:\n"
-    "                1D: _hacc_  _hacc1g_  _hacc4g_    2D: _cesm_  _exafel_\n"
-    "                3D: _hurricane_  _nyx_  _qmc_  _qmcpre_  _aramco_  _parihaka_\n"
+    "                1D: _hacc_  _hacc1b_    2D: _cesm_  _exafel_\n"
+    "                3D: _hurricane_  _nyx-s_  _nyx-m_  _qmc_  _qmcpre_  _aramco_  _parihaka_\n"
     "\n"
     "    *Internal* (will be automated with configuration when going public)\n"
     "        *-Q* or *--*@q@*uant-byte* <1|2>\n"
@@ -236,13 +234,13 @@ static const char doc_dim_order[] =
     "  |              CESM-ATM:    1800x3600 (y-x order)              |  | \n"
     "  |              datum name:  <field>_1800_3600                  |  y \n"
     "  |                                                              | 1800 \n"
-    "  |              input:       -2 3600 1800                       |  | \n"
-    "  |              input order: -2 [x] [y]                         |  | \n"
+    "  |              input:       -l 3600,1800                       |  | \n"
+    "  |              input order: -l [x,y]                           |  | \n"
     "  |                                                              |  | \n"
     "  |                                                              |  v \n"
     "  +--------------------------------------------------------------+  - \n"
     "\n"
     "  Taking 3D Hurricane as another example, whose dimensions are\n"
-    "  100x500x500, the input is \"-3 500 500 100\".\n";
+    "  100x500x500, the input is \"-l 500,500,100\".\n";
 
 #endif
