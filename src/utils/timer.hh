@@ -17,6 +17,10 @@
 #include <chrono>
 #include <utility>
 
+#ifdef __CUDACC__
+#include "../cuda_wrap.cuh"
+#endif
+
 using hires         = std::chrono::high_resolution_clock;
 using duration_t    = std::chrono::duration<double>;
 using hires_clock_t = std::chrono::time_point<hires>;
@@ -42,17 +46,17 @@ double TimeThisFunction(F func, Args&&... args)
 
 #ifdef __CUDACC__
 
-/**
- * @brief CUDA kernel config; pass by non-pointer value
- *
- */
-typedef struct CUDAKernelConfig {
-    dim3         Dg;  /**< dimension of grid */
-    dim3         Db;  // dimension of block
-    size_t       Ns;  // per-block shmem bytes
-    cudaStream_t S;   // stream
+// /**
+//  * @brief CUDA kernel config; pass by non-pointer value
+//  *
+//  */
+// typedef struct CUDAKernelConfig {
+//     dim3         Dg;  /**< dimension of grid */
+//     dim3         Db;  // dimension of block
+//     size_t       Ns;  // per-block shmem bytes
+//     cudaStream_t S;   // stream
 
-} kernel_cfg_t;
+// } kernel_cfg_t;
 
 // TODO use cudaEvent
 /**

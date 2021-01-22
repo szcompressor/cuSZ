@@ -45,11 +45,25 @@ typedef struct ArgPack {
     string opath;
     string dtype;
 
-    int    dict_size{1024};
-    int    quant_byte{2}, huff_byte{4};
-    int    huffman_chunk{512};
-    int    n_dim{-1}, d0{1}, d1{1}, d2{1}, d3{1};
-    int    p0{1}, p1{1}, p2{1}, p3{1};
+    int dict_size{1024};
+    int radius{512};
+
+    int quant_byte{2}, huff_byte{4};
+    int huffman_chunk{512};
+    int ndim{-1};
+    //    int d0{1}, d1{1}, d2{1}, d3{1};
+    int p0{1}, p1{1}, p2{1}, p3{1};
+
+    Integer4 part4{1, 1, 1, 1};
+
+    double eb{0.0};
+
+    size_t   len;
+    Integer4 dim4{1, 1, 1, 1};
+    Integer4 nblk4{1, 1, 1, 1};
+    Integer4 stride4{1, 1, 1, 1};
+    int      GPU_block_size;
+
     double mantissa{1.0}, exponent{-4.0};
     bool   to_archive{false}, to_extract{false}, to_dryrun{false};
     bool   autotune_huffman_chunk{true};
@@ -88,6 +102,8 @@ typedef struct ArgPack {
     static void HuffmanDoc();
 
     static void cuszFullDoc();
+
+    ArgPack() = default;
 
     ArgPack(int argc, char** argv);
 

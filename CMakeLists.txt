@@ -27,12 +27,7 @@ add_executable(psz
         src/utils/format.hh
         src/utils/io.hh
         src/utils/verify.hh
-        src/constants.hh
-        src/constants.cc
-        src/datasets.hh
-        src/datasets.cc
         src/types.hh
-        src/types.cc
         src/analysis_utils.hh
         src/analysis_utils.cc
         src/pSZ/psz_14.hh
@@ -65,13 +60,12 @@ add_library(utils ${LIB_TYPE}
         )
 
 add_executable(cusz_cmake
+        src/lorenzo_trait.cuh
         src/cusz.cu
         src/filter.cu
         src/filter.cuh
         src/argparse.cc
         src/argparse.hh
-        src/constants.cc
-        src/constants.hh
         src/dryrun.cu
         src/dryrun.cuh
         src/dualquant.cu
@@ -83,11 +77,8 @@ add_executable(cusz_cmake
         src/pack.hh
         src/query.hh
         src/query_dev.hh
-        src/datasets.cc
-        src/datasets.hh
         src/utils/io.hh
         src/utils/timer.hh
-        src/types.cc
         src/types.hh
         )
 

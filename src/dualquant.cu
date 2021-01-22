@@ -61,7 +61,7 @@ __global__ void kernel_v2::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* xd, Data* out
 
     auto b0 = bdx * bix + tix;
 
-    if (b0 >= ctx.n_blk0) return;
+    if (b0 >= ctx.nblk0) return;
 
     auto _idx0 = b0 * Block;
 
@@ -154,7 +154,7 @@ __global__ void kernel_v3::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* xd, Data* out
 
     auto b1 = bdy * biy + tiy, b0 = bdx * bix + tix;
 
-    if (b1 >= ctx.n_blk1 or b0 >= ctx.n_blk0) return;
+    if (b1 >= ctx.nblk1 or b0 >= ctx.nblk0) return;
 
     auto _idx1 = b1 * Block, _idx0 = b0 * Block;
 
@@ -184,7 +184,7 @@ __global__ void kernel_v3::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* xd, Data* out
 
     auto b2 = bdz * biz + tiz, b1 = bdy * biy + tiy, b0 = bdx * bix + tix;
 
-    if (b2 >= ctx.n_blk2 or b1 >= ctx.n_blk1 or b0 >= ctx.n_blk0) return;
+    if (b2 >= ctx.nblk2 or b1 >= ctx.nblk1 or b0 >= ctx.nblk0) return;
 
     auto _idx2 = b2 * Block, _idx1 = b1 * Block, _idx0 = b0 * Block;
 
