@@ -33,7 +33,7 @@ typedef struct MetadataPackage {
     int huff_byte;
     int huffman_chunk;
 
-    bool skip_huffman;
+    bool skip_huffman_enc;
     bool nvcomp_in_use;
 
     DataType dtype;  // TODO f64 support
@@ -59,10 +59,10 @@ void PackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
     if (ap->dtype == "f32") mp->dtype = DataType::kF32;
     if (ap->dtype == "f64") mp->dtype = DataType::kF64;
 
-    mp->quant_byte    = ap->quant_byte;
-    mp->huff_byte     = ap->huff_byte;
-    mp->huffman_chunk = ap->huffman_chunk;
-    mp->skip_huffman  = ap->skip_huffman;
+    mp->quant_byte       = ap->quant_byte;
+    mp->huff_byte        = ap->huff_byte;
+    mp->huffman_chunk    = ap->huffman_chunk;
+    mp->skip_huffman_enc = ap->szwf.skip_huffman_enc;
 }
 
 void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
@@ -79,10 +79,10 @@ void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
     if (mp->dtype == DataType::kF32) ap->dtype = "f32";
     if (mp->dtype == DataType::kF64) ap->dtype = "f64";
 
-    ap->quant_byte    = mp->quant_byte;
-    ap->huff_byte     = mp->huff_byte;
-    ap->huffman_chunk = mp->huffman_chunk;
-    ap->skip_huffman  = mp->skip_huffman;
+    ap->quant_byte            = mp->quant_byte;
+    ap->huff_byte             = mp->huff_byte;
+    ap->huffman_chunk         = mp->huffman_chunk;
+    ap->szwf.skip_huffman_enc = mp->skip_huffman_enc;
 }
 
 #endif
