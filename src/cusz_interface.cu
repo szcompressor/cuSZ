@@ -165,7 +165,10 @@ void cusz::interface::Compress(
     auto m      = adp->m;
     auto mxm    = adp->mxm;
 
-    if (ap->to_dryrun) {
+    auto& wf       = ap->szwf;
+    auto& subfiles = ap->subfiles;
+
+    if (wf.lossy_dryrun) {
         LogAll(log_info, "dry-run temporarily not working");
         //        LogAll(log_info, "invoke dry-run");
         //        DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
@@ -194,16 +197,16 @@ void cusz::interface::Compress(
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &ap->c_fo_outlier);
+    ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.c_fo_outlier);
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
 
     Quant* q;
-    if (ap->skip_huffman) {
+    if (wf.skip_huffman_enc) {
         q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
-        io::WriteArrayToBinary(ap->c_fo_q, q, len);
+        io::WriteArrayToBinary(subfiles.c_fo_q, q, len);
 
         LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
 
@@ -212,7 +215,7 @@ void cusz::interface::Compress(
 
     // autotuning Huffman chunksize
     // subject to change, current `8*` is close to but may note deterministically optimal
-    if (ap->autotune_huffman_chunk) {  //
+    if (wf.autotune_huffman_chunk) {  //
         auto optimal_chunksize = 1;
         auto cuda_core_num     = cusz::tune::GetCUDACoreNum();
         auto cuda_thread_num   = 8 * cuda_core_num;  // empirical value
@@ -221,7 +224,7 @@ void cusz::interface::Compress(
         ap->huffman_chunk = optimal_chunksize;
     }
 
-    if (ap->conduct_partition_experiment) {
+    if (wf.exp_partitioning_imbalance) {
         // 3D only
         auto part0     = ap->part4._0;
         auto part1     = ap->part4._1;
@@ -254,7 +257,7 @@ void cusz::interface::Compress(
                     auto start = pk * part2 * ap->stride4._2 + pj * part1 * ap->stride4._1 + pi * part0;
                     CopyToBuffer_3D(quant_buffer, q, start, part_dims, block_strides, global_strides);
                     lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
-                        Index<3>::idx_t{pi, pj, pk}, ap->c_huff_base, quant_buffer, buffer_size, ap->dict_size);
+                        Index<3>::idx_t{pi, pj, pk}, subfiles.c_huff_base, quant_buffer, buffer_size, ap->dict_size);
                 }
             }
         }
@@ -267,7 +270,8 @@ void cusz::interface::Compress(
     }
 
     std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        ap->c_huff_base, d_q, len, ap->huffman_chunk, ap->to_nvcomp, ap->dict_size, ap->export_codebook);
+        subfiles.c_huff_base, d_q, len, ap->huffman_chunk, wf.lossless_nvcomp_cascade, ap->dict_size,
+        wf.exp_export_codebook);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
@@ -287,7 +291,8 @@ void cusz::interface::Decompress(
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    cout << "test extract" << endl;
+    auto& wf       = ap->szwf;
+    auto& subfiles = ap->subfiles;
 
     auto m   = ::cusz::impl::GetEdgeOfReinterpretedSquare(ap->len);
     auto mxm = m * m;
@@ -296,31 +301,31 @@ void cusz::interface::Decompress(
 
     Quant* xq;
     // step 1: read from filesystem or do Huffman decoding to get quant code
-    if (ap->skip_huffman) {
+    if (wf.skip_huffman_enc) {
         LogAll(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryToNewArray<Quant>(ap->x_fi_q, ap->len);
+        xq = io::ReadBinaryToNewArray<Quant>(subfiles.x_fi_q, ap->len);
     }
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            ap->cx_path2file, ap->len, ap->huffman_chunk, total_uInt, nvcomp_in_use, ap->dict_size);
-        if (ap->verify_huffman) {
+            subfiles.cx_path2file, ap->len, ap->huffman_chunk, total_uInt, nvcomp_in_use, ap->dict_size);
+        if (wf.verify_huffman) {
             LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
             /*
             // TODO check in argpack
-            if (ap->x_fi_origin == "") {
+            if (subfiles.x_fi_origin == "") {
                 cerr << log_err << "use \"--origin /path/to/origin_data\" to specify the original datum." << endl;
                 exit(-1);
             }
             cout << log_info << "Verifying Huffman codec..." << endl;
-            ::cusz::impl::VerifyHuffman<Data, Quant>(ap->x_fi_origin, len, xq, ap->huffman_chunk, dims, eb_variants);
+            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.x_fi_origin, len, xq, ap->huffman_chunk, dims, eb_variants);
              */
         }
     }
     auto d_xq = mem::CreateDeviceSpaceAndMemcpyFromHost(xq, ap->len);
 
     auto d_outlier = mem::CreateCUDASpace<Data>(mxm);
-    ::cusz::impl::ScatterFromCSR<Data>(d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &ap->x_fi_outlier);
+    ::cusz::impl::ScatterFromCSR<Data>(d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.x_fi_outlier);
 
     // TODO merge d_outlier and d_data
     auto d_xdata = mem::CreateCUDASpace<Data>(ap->len);
@@ -351,7 +356,7 @@ void cusz::interface::Decompress(
 
     size_t archive_bytes = 0;
     // TODO huffman chunking metadata
-    if (not ap->skip_huffman)
+    if (not wf.skip_huffman_enc)
         archive_bytes += total_uInt * sizeof(Huff)  // Huffman coded
                          + huffman_metadata_size;   // chunking metadata and reverse codebook
     else
@@ -370,7 +375,7 @@ void cusz::interface::Decompress(
         return ret_val;
     };
 
-    if (ap->skip_huffman) {
+    if (wf.skip_huffman_enc) {
         cout << log_info << "dtype is \""         //
              << demangle(typeid(Data).name())     // demangle
              << "\", and quant. code type is \""  //
@@ -379,22 +384,22 @@ void cusz::interface::Decompress(
              << (sizeof(Data) / sizeof(Quant)) << " is expected when Huffman codec is skipped." << endl;
     }
 
-    if (ap->pre_binning) cout << log_info << "Because of 2x2->1 binning, extra 4x CR is added." << endl;
+    if (wf.pre_binning) cout << log_info << "Because of 2x2->1 binning, extra 4x CR is added." << endl;
 
     // TODO move CR out of VerifyData
-    if (ap->x_fi_origin != "") {
+    if (subfiles.x_fi_origin != "") {
         LogAll(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryToNewArray<Data>(ap->x_fi_origin, ap->len);
+        auto odata = io::ReadBinaryToNewArray<Data>(subfiles.x_fi_origin, ap->len);
         analysis::VerifyData(&ap->stat, xdata, odata, ap->len);
-        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, ap->pre_binning ? 4 : 1);
+        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, wf.pre_binning ? 4 : 1);
 
         delete[] odata;
     }
-    LogAll(log_info, "output:", ap->cx_path2file + ".szx");
+    LogAll(log_info, "output:", subfiles.cx_path2file + ".szx");
 
-    if (ap->skip_writex)
-        io::WriteArrayToBinary(ap->x_fo_xd, xdata, ap->len);
+    if (wf.skip_write_output)
+        io::WriteArrayToBinary(subfiles.x_fo_xd, xdata, ap->len);
     else {
         LogAll(log_dbg, "skipped writing unzipped to filesystem");
     }

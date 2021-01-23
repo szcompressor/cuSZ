@@ -116,7 +116,8 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-    auto ap = new argpack(argc, argv);
+    auto ap = new ArgPack();
+    ap->ParseCuszArgs(argc, argv);
 
     int    nnz_outlier = 0;
     size_t total_bits, total_uInt, huff_meta_size;
@@ -127,16 +128,19 @@ int main(int argc, char** argv)
         GetDeviceProperty();
     }
 
+    auto& wf       = ap->szwf;
+    auto& subfiles = ap->subfiles;
+
     // TODO hardcode for float for now
     using DataInUse                  = float;
     struct DataPack<DataInUse>* adp  = nullptr;
     DataInUse*                  data = nullptr;
 
-    if (ap->to_archive or ap->to_dryrun) {
+    if (wf.lossy_construct or wf.lossy_dryrun) {
         InitializeDims(ap);
 
         LogAll(
-            log_info, "load", ap->cx_path2file, ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
+            log_info, "load", subfiles.cx_path2file, ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
             "bytes,", ap->dtype);
 
         auto len = ap->len;
@@ -149,7 +153,7 @@ int main(int argc, char** argv)
         auto a = hires::now();
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(DataInUse)));
         memset(data, 0x00, mxm * sizeof(DataInUse));
-        io::ReadBinaryToArray<DataInUse>(ap->cx_path2file, data, len);
+        io::ReadBinaryToArray<DataInUse>(subfiles.cx_path2file, data, len);
         DataInUse* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
         auto       z      = hires::now();
 
@@ -186,7 +190,7 @@ int main(int argc, char** argv)
             std::to_string(ap->huff_byte) + "-byte internal Huff type");
     }
 
-    if (ap->pre_binning) {
+    if (wf.pre_binning) {
         cerr << log_err
              << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
                 "filesystem. (ver. 0.1.4)"
@@ -194,7 +198,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    if (ap->to_archive or ap->to_dryrun) {  // fp32 only for now
+    if (wf.lossy_construct or wf.lossy_dryrun) {  // fp32 only for now
 
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
@@ -223,7 +227,7 @@ int main(int argc, char** argv)
 
         auto mp_byte = reinterpret_cast<char*>(mp);
         // yet another metadata package
-        io::WriteArrayToBinary(ap->c_fo_yamp, mp_byte, sizeof(metadata_pack));
+        io::WriteArrayToBinary(subfiles.c_fo_yamp, mp_byte, sizeof(metadata_pack));
 
         delete mp;
     }
@@ -234,27 +238,22 @@ int main(int argc, char** argv)
         delete adp;
     }
 
-
-    // wenyu's modification
     // invoke system() to untar archived files first before decompression
-
-    if (not ap->to_archive and ap->to_extract) {
-        string cx_directory = ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/') + 1);
+    if (not wf.lossy_construct and wf.lossy_reconstruct) {
+        string cx_directory = subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0)
-            cmd_string = "tar -xf " + ap->cx_path2file + ".sz";
+            cmd_string = "tar -xf " + subfiles.cx_path2file + ".sz";
         else
-            cmd_string = "tar -xf " + ap->cx_path2file + ".sz" + " -C " + cx_directory;
+            cmd_string = "tar -xf " + subfiles.cx_path2file + ".sz" + " -C " + cx_directory;
 
         CheckShellCall(cmd_string);
     }
 
-    // wenyu's modification ends
-
-    if (ap->to_extract) {  // fp32 only for now
+    if (wf.lossy_reconstruct) {  // fp32 only for now
 
         // unpack metadata
-        auto mp_byte = io::ReadBinaryToNewArray<char>(ap->x_fi_yamp, sizeof(metadata_pack));
+        auto mp_byte = io::ReadBinaryToNewArray<char>(subfiles.x_fi_yamp, sizeof(metadata_pack));
         auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
 
         UnpackMetadata(ap, mp, nnz_outlier);
@@ -281,10 +280,9 @@ int main(int argc, char** argv)
         }
     }
 
-    // wenyu's modification starts
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
-    string cx_basename = ap->cx_path2file.substr(ap->cx_path2file.rfind('/') + 1);
-    if (not ap->to_extract and ap->to_archive) {
+    string cx_basename = subfiles.cx_path2file.substr(subfiles.cx_path2file.rfind('/') + 1);
+    if (not wf.lossy_reconstruct and wf.lossy_construct) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
@@ -293,14 +291,16 @@ int main(int argc, char** argv)
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if (ap->skip_huffman) {
+        if (wf.skip_huffman_enc) {
             files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
         }
         else {
             files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
                                 cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
-        if (ap->to_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging; }
+        if (wf.lossless_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
+        }
         else {
             cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
@@ -318,10 +318,9 @@ int main(int argc, char** argv)
     }
 
     // if it's decompression, remove released subfiles at last.
-
-    if (not ap->to_archive and ap->to_extract) {
+    if (not wf.lossy_construct and wf.lossy_reconstruct) {
         string files_for_deleting;
-        if (ap->skip_huffman) {
+        if (wf.skip_huffman_enc) {
             files_for_deleting = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
         }
         else {
@@ -329,25 +328,27 @@ int main(int argc, char** argv)
                                  cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
         string cmd_string =
-            "cd " + ap->cx_path2file.substr(0, ap->cx_path2file.rfind('/')) + ";rm -rf " + files_for_deleting;
+            "cd " + subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind('/')) + ";rm -rf " + files_for_deleting;
         CheckShellCall(cmd_string);
     }
 
-    if (ap->to_archive and ap->to_extract) {
+    if (wf.lossy_construct and wf.lossy_reconstruct) {
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
         CheckShellCall(cmd_string);
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if (ap->skip_huffman) {
+        if (wf.skip_huffman_enc) {
             files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
         }
         else {
             files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
                                 cx_basename + ".hmeta " + cx_basename + ".yamp";
         }
-        if (ap->to_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging; }
+        if (wf.lossless_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
+        }
         else {
             cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
         }
@@ -360,7 +361,7 @@ int main(int argc, char** argv)
         LogAll(log_info, "write to: " + ap->opath + cx_basename + ".sz");
         LogAll(log_info, "write to: " + ap->opath + cx_basename + ".szx");
 
-        if (ap->to_gtest) {
+        if (wf.gtest) {
             expectedErr  = ap->mantissa * std::pow(10, ap->exponent);
             z_mode       = ap->mode;
             auto stat    = ap->stat;
@@ -370,8 +371,6 @@ int main(int argc, char** argv)
             return RUN_ALL_TESTS();
         }
     }
-
-    // wenyu's modification ends
 }
 
 #endif

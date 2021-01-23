@@ -28,32 +28,81 @@ extern const char* version_text;
 extern const int   version;
 extern const int   compatibility;
 
-typedef struct ArgPack {
-    // TODO [ ] metadata
-    // TODO [x] metric/stat
-    stat_t stat;
+struct alignas(8) HuffmanWorkFlow {
+    bool dryrun;
+    bool encode;
+    bool decode;
+};
 
-    int read_args_status{0};
+struct alignas(8) SZWorkFlow {
+    bool input_use_demo{false};
 
+    bool    pre_binning{false};
+    /**/ bool pre_log_trans{false};
+
+    bool autotune_huffman_chunk{true};
+
+    bool lossy_construct{false};
+    bool lossy_reconstruct{false};
+    bool lossy_dryrun{false};
+
+    bool exp_export_codebook{false};
+    bool exp_partitioning_imbalance{false};
+
+    bool    verify_huffman{false};
+    /**/ bool verify_eb_quality{false};
+
+    bool skip_write_output{false};
+    bool skip_huffman_enc{false};
+
+    // bool    lossless_huffman{true};  // ????
+    bool lossless_nvcomp_cascade{false};
+    bool lossless_gzip{false};
+
+    bool gtest{false};
+};
+
+struct SZSubfiles {
     string cx_path2file;
     string c_huff_base, c_fo_q, c_fo_outlier, c_fo_yamp;
     string x_fi_q, x_fi_outlier, x_fi_yamp, x_fo_xd;
     string x_fi_origin;
+};
+
+struct alignas(8) SZDataRepresent {
+    int quant_byte;
+    int huff_byte;
+};
+
+class ArgPack {
+   public:
+    // TODO [ ] metadata
+    // TODO [x] metric/stat
+
+    // mega variable
+    struct SZWorkFlow      szwf;
+    struct HuffmanWorkFlow hwf;
+    struct SZSubfiles      subfiles;
+
+    stat_t stat;
+
+    int read_args_status{0};
+
+    /*
+        string cx_path2file;
+        string c_huff_base, c_fo_q, c_fo_outlier, c_fo_yamp;
+        string x_fi_q, x_fi_outlier, x_fi_yamp, x_fo_xd;
+        string x_fi_origin;
+    */
 
     string mode;  // abs (absolute), r2r (relative to value range)
     string demo_dataset;
     string opath;
     string dtype;
 
-    int dict_size{1024};
-    int radius{512};
-
     int quant_byte{2}, huff_byte{4};
     int huffman_chunk{512};
     int ndim{-1};
-
-    // experiment
-    Integer4 part4{1, 1, 1, 1};
 
     double eb{0.0};
 
@@ -62,31 +111,22 @@ typedef struct ArgPack {
     Integer4 nblk4{1, 1, 1, 1};
     Integer4 stride4{1, 1, 1, 1};
     int      GPU_block_size{1};
+    int      dict_size{1024};
+    int      radius{512};
+
+    // experiment
+    Integer4 part4{1, 1, 1, 1};
 
     double mantissa{1.0}, exponent{-4.0};
-    bool   to_archive{false}, to_extract{false}, to_dryrun{false};
-    bool   autotune_huffman_chunk{true};
-    bool   use_demo{false};
-    bool   verbose{false}, to_verify{false};
-    bool   export_codebook{false};
-    bool   verify_huffman{false};
-    bool   skip_huffman{false}, skip_writex{false};
-    bool   pre_binning{false};
-
-    bool conduct_partition_experiment{false};
-
-    bool to_gzip{false};    // wenyu: whether to do a gzip lossless compression on encoded data
-    bool to_nvcomp{false};  // whether or not to activate nvidia parallel cascading compression
-    bool to_gtest{false};   // whether or not to activate unit test
+    bool   verbose{false};
+    bool   to_verify{false};
 
     bool get_huff_entropy{false};
     bool get_huff_avg_bitcount{false};
 
     // for standalone Huffman
-    int  input_rep{2};
-    int  huffman_datalen{-1};
-    bool to_encode{false};
-    bool to_decode{false};
+    int input_rep{2};
+    int huffman_datalen{-1};
 
     static string format(const string& s);
 
@@ -104,12 +144,15 @@ typedef struct ArgPack {
 
     ArgPack() = default;
 
-    ArgPack(int argc, char** argv);
+    static int SelfMultiple4(Integer4 i) { return i._0 * i._1 * i._2 * i._3; }
 
-    ArgPack(int argc, char** argv, bool standalone_huffman);
+    void ParseCuszArgs(int argc, char** argv);
+
+    void ParseHuffmanArgs(int argc, char** argv);
 
     void SortOutFilenames();
+};
 
-} argpack;
+typedef ArgPack argpack;
 
 #endif  // ARGPARSE_HH

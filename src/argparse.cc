@@ -63,16 +63,15 @@ void  //
 ArgPack::HuffmanCheckArgs()
 {
     bool to_abort = false;
-    if (cx_path2file.empty()) {
+    if (subfiles.cx_path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    // TODO
-    //    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
-    //        cerr << log_err << "Wrong input size(s)!" << endl;
-    //        to_abort = true;
-    //    }
-    if (!to_encode and !to_decode and !to_dryrun) {
+    if (SelfMultiple4(dim4) == 1 and not szwf.input_use_demo) {
+        cerr << log_err << "Wrong input size(s)!" << endl;
+        to_abort = true;
+    }
+    if (not hwf.encode and not hwf.decode and not hwf.dryrun) {
         cerr << log_err << "Select encode (-a), decode (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
@@ -89,21 +88,21 @@ ArgPack::HuffmanCheckArgs()
         assert(dict_size <= 65536);
     }
 
-    if (to_dryrun and to_encode and to_decode) {
+    if (hwf.dryrun and hwf.encode and hwf.decode) {
         cerr << log_warn << "No need to dry-run, encode and decode at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        to_encode = false;
-        to_decode = false;
+        hwf.encode = false;
+        hwf.decode = false;
     }
-    else if (to_dryrun and to_encode) {
+    else if (hwf.dryrun and hwf.encode) {
         cerr << log_warn << "No need to dry-run and encode at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        to_encode = false;
+        hwf.encode = false;
     }
-    else if (to_dryrun and to_decode) {
+    else if (hwf.dryrun and hwf.decode) {
         cerr << log_warn << "No need to dry-run and decode at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        to_decode = false;
+        hwf.decode = false;
     }
 
     if (to_abort) {
@@ -116,23 +115,22 @@ void  //
 ArgPack::CheckArgs()
 {
     bool to_abort = false;
-    if (cx_path2file.empty()) {
+    if (subfiles.cx_path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    // TODO
-    //    if (d0 * d1 * d2 * d3 == 1 and not use_demo) {
-    //        if (this->to_archive or this->to_dryrun) {
-    //            cerr << log_err << "Wrong input size(s)!" << endl;
-    //            to_abort = true;
-    //        }
-    //    }
-    if (!to_archive and !to_extract and !to_dryrun) {
+    if (SelfMultiple4(dim4) == 1 and not szwf.input_use_demo) {
+        if (szwf.lossy_construct or szwf.lossy_dryrun) {
+            cerr << log_err << "Wrong input size(s)!" << endl;
+            to_abort = true;
+        }
+    }
+    if (not szwf.lossy_construct and not szwf.lossy_reconstruct and not szwf.lossy_dryrun) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
-        if (this->to_archive or this->to_dryrun) {
+        if (szwf.lossy_construct or szwf.lossy_dryrun) {
             cout << dtype << endl;
             cerr << log_err << "Not specifying data type!" << endl;
             to_abort = true;
@@ -146,28 +144,34 @@ ArgPack::CheckArgs()
         assert(dict_size <= 65536);
     }
 
-    if (to_dryrun and to_archive and to_extract) {
+    if (szwf.lossy_dryrun and szwf.lossy_construct and szwf.lossy_reconstruct) {
         cerr << log_warn << "No need to dry-run, compress and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        to_archive = false;
-        to_extract = false;
+        szwf.lossy_construct   = false;
+        szwf.lossy_reconstruct = false;
     }
-    else if (to_dryrun and to_archive) {
+    else if (szwf.lossy_dryrun and szwf.lossy_construct) {
         cerr << log_warn << "No need to dry-run and compress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        to_archive = false;
+        szwf.lossy_construct = false;
     }
-    else if (to_dryrun and to_extract) {
+    else if (szwf.lossy_dryrun and szwf.lossy_reconstruct) {
         cerr << log_warn << "No need to dry-run and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        to_extract = false;
+        szwf.lossy_reconstruct = false;
     }
 
-    if (to_gtest) {
-        if (to_dryrun) { to_gtest = false; }
+    if (szwf.gtest) {
+        if (szwf.lossy_dryrun) {
+            szwf.gtest = false;
+        }
         else {
-            if (!(to_archive && to_extract)) to_gtest = false;
-            if (x_fi_origin == "") to_gtest = false;
+            if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) {
+                szwf.gtest = false;
+            }
+            if (subfiles.x_fi_origin == "") {
+                szwf.gtest = false;
+            }
         }
     }
 
@@ -215,7 +219,7 @@ ArgPack::cuszFullDoc()
     cout << format(cusz_full_doc) << endl;
 }
 
-ArgPack::ArgPack(int argc, char** argv, bool huffman)
+void ArgPack::ParseHuffmanArgs(int argc, char** argv)
 {
     if (argc == 1) {
         HuffmanDoc();
@@ -275,20 +279,20 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // ----------------------------------------------------------------
                 case 'e':
                 tag_encode:
-                    to_encode = true;
+                    hwf.encode = true;
                     break;
                 case 'd':
                 tag_decode:
-                    to_decode = true;
+                    hwf.decode = true;
                     break;
                 case 'V':
                 tag_verify:
-                    verify_huffman = true;  // TODO verify huffman in workflow
+                    cout << "fix 'verify-huffman' later" << endl;
+                    // verify_huffman = true;  // TODO verify huffman in workflow
                     break;
                 case 'r':
                 tag_dryrun:
-                    // dry-run
-                    to_dryrun = true;
+                    hwf.dryrun = true;
                     break;
                 case 'E':
                 tag_entropy:
@@ -311,7 +315,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
                 // ----------------------------------------------------------------
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) { cx_path2file = string(argv[++i]); }
+                    if (i + 1 <= argc) { subfiles.cx_path2file = string(argv[++i]); }
                     break;
                 case 'R':
                 tag_rep:
@@ -369,7 +373,7 @@ ArgPack::ArgPack(int argc, char** argv, bool huffman)
     HuffmanCheckArgs();
 }
 
-ArgPack::ArgPack(int argc, char** argv)
+void ArgPack::ParseCuszArgs(int argc, char** argv)
 {
     if (argc == 1) {
         cuszDoc();
@@ -441,26 +445,26 @@ ArgPack::ArgPack(int argc, char** argv)
                     if (long_opt == "--pre") goto tag_preproc;            // IO
                     if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
-                    if (long_opt == "--partition-experiment") { conduct_partition_experiment = true; }
+                    if (long_opt == "--partition-experiment") { szwf.exp_partitioning_imbalance = true; }
                     if (long_opt == "--opath") {  // TODO the followings has no single-letter options
                         if (i + 1 <= argc)
                             this->opath = string(argv[++i]);  // TODO does not apply for preprocessed such as binning
                         break;
                     }
                     if (long_opt == "--origin") {
-                        if (i + 1 <= argc) this->x_fi_origin = string(argv[++i]);
+                        if (i + 1 <= argc) subfiles.x_fi_origin = string(argv[++i]);
                         break;
                     }
                     if (long_opt == "--gzip") {
-                        to_gzip = true;
+                        szwf.lossless_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     if (long_opt == "--nvcomp") {
-                        to_nvcomp = true;
+                        szwf.lossless_nvcomp_cascade = true;
                         break;
                     }
                     if (long_opt == "--gtest") {
-                        to_gtest = true;
+                        szwf.gtest = true;
                         break;
                     }
                     // if (long_opt == "--coname") {
@@ -476,16 +480,15 @@ ArgPack::ArgPack(int argc, char** argv)
                 // WORKFLOW
                 case 'z':
                 tag_compress:
-                    to_archive = true;
+                    szwf.lossy_construct = true;
                     break;
                 case 'x':
                 tag_decompress:
-                    to_extract = true;
+                    szwf.lossy_reconstruct = true;
                     break;
                 case 'r':
                 tag_dryrun:
-                    // dry-run
-                    to_dryrun = true;
+                    szwf.lossy_dryrun = true;
                     break;
                 // COMPRESSION CONFIG
                 case 'm':  // mode
@@ -497,7 +500,7 @@ ArgPack::ArgPack(int argc, char** argv)
                 tag_analysis:
                     if (i + 1 <= argc) {
                         string exclude(argv[++i]);
-                        if (exclude.find("export-codebook") != std::string::npos) export_codebook = true;
+                        if (exclude.find("export-codebook") != std::string::npos) { szwf.exp_export_codebook = true; }
                         if (exclude.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
                         if (exclude.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
                     }
@@ -506,8 +509,8 @@ ArgPack::ArgPack(int argc, char** argv)
                 tag_excl:
                     if (i + 1 <= argc) {
                         string exclude(argv[++i]);
-                        if (exclude.find("huffman") != std::string::npos) skip_huffman = true;
-                        if (exclude.find("write.x") != std::string::npos) skip_writex = true;
+                        if (exclude.find("huffman") != std::string::npos) { szwf.skip_huffman_enc = true; }
+                        if (exclude.find("write.x") != std::string::npos) { szwf.skip_write_output = true; }
                     }
                     break;
                 // INPUT
@@ -575,7 +578,7 @@ ArgPack::ArgPack(int argc, char** argv)
                     break;
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) cx_path2file = string(argv[++i]);
+                    if (i + 1 <= argc) subfiles.cx_path2file = string(argv[++i]);
                     break;
                     // alternative output
                 case 'o':
@@ -592,15 +595,15 @@ ArgPack::ArgPack(int argc, char** argv)
                 tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);
-                        if (pre.find("binning") != std::string::npos) pre_binning = true;
+                        if (pre.find("binning") != std::string::npos) { szwf.pre_binning = true; }
                     }
                     break;
                 // demo datasets
                 case 'D':
                 tag_demo:
                     if (i + 1 <= argc) {
-                        use_demo     = true;  // for skipping checking dimension args
-                        demo_dataset = string(argv[++i]);
+                        szwf.input_use_demo = true;
+                        demo_dataset        = string(argv[++i]);
                     }
                     break;
                 // DOCUMENT
@@ -643,8 +646,8 @@ ArgPack::ArgPack(int argc, char** argv)
                 case 'C':
                 tag_huff_chunk:
                     if (i + 1 <= argc) {  //
-                        huffman_chunk          = str2int(argv[++i]);
-                        autotune_huffman_chunk = false;
+                        huffman_chunk               = str2int(argv[++i]);
+                        szwf.autotune_huffman_chunk = false;
                     }
                     break;
                 case 'e':
@@ -670,7 +673,7 @@ ArgPack::ArgPack(int argc, char** argv)
                 tag_verify:
                     if (i + 1 <= argc) {
                         string veri(argv[++i]);
-                        if (veri.find("huffman") != std::string::npos) verify_huffman = true;
+                        if (veri.find("huffman") != std::string::npos) { szwf.verify_huffman = true; }
                         // TODO verify data quality
                     }
                     break;
@@ -732,22 +735,23 @@ void ArgPack::SortOutFilenames()
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
-    auto cx_input_path = cx_path2file.substr(0, cx_path2file.rfind("/") + 1);
-    if (!to_archive && to_extract) cx_path2file = cx_path2file.substr(0, cx_path2file.rfind("."));
-    auto cx_basename = cx_path2file.substr(cx_path2file.rfind("/") + 1);
+    auto cx_input_path = subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind("/") + 1);
+    if (not szwf.lossy_construct and szwf.lossy_reconstruct)
+        subfiles.cx_path2file = subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind("."));
+    auto cx_basename = subfiles.cx_path2file.substr(subfiles.cx_path2file.rfind("/") + 1);
 
     if (opath == "") opath = cx_input_path == "" ? opath = "" : opath = cx_input_path;
     opath += "/";
 
     // zip
-    c_huff_base  = opath + cx_basename;
-    c_fo_q       = opath + cx_basename + ".quant";
-    c_fo_outlier = opath + cx_basename + ".outlier";
-    c_fo_yamp    = opath + cx_basename + ".yamp";
+    subfiles.c_huff_base  = opath + cx_basename;
+    subfiles.c_fo_q       = opath + cx_basename + ".quant";
+    subfiles.c_fo_outlier = opath + cx_basename + ".outlier";
+    subfiles.c_fo_yamp    = opath + cx_basename + ".yamp";
 
     // unzip
-    x_fi_yamp    = cx_path2file + ".yamp";
-    x_fi_q       = cx_path2file + ".quant";
-    x_fi_outlier = cx_path2file + ".outlier";
-    x_fo_xd      = opath + cx_basename + ".szx";
+    subfiles.x_fi_yamp    = subfiles.cx_path2file + ".yamp";
+    subfiles.x_fi_q       = subfiles.cx_path2file + ".quant";
+    subfiles.x_fi_outlier = subfiles.cx_path2file + ".outlier";
+    subfiles.x_fo_xd      = opath + cx_basename + ".szx";
 }
