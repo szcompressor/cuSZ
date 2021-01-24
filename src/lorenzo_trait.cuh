@@ -53,7 +53,7 @@ struct LorenzoNdConfig {
             if CONSTEXPR (ndim == 1) {
                 cfg.Dg = dim3(nblks._0);
                 cfg.Db = dim3(B);
-                cfg.Ns = 0;
+                cfg.Ns = B * sizeof(Data);
             }
             else if CONSTEXPR (ndim == 2) {
                 cfg.Dg = dim3(nblks._0, nblks._1);
