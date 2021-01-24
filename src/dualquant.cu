@@ -42,15 +42,15 @@ __global__ void kernel_v2::c_lorenzo_1d1l(lorenzo_zip ctx, Data* d, Quant* q)
         // prequant (fp presence)
         d[id] = round(d[id] * ctx.ebx2_r);
         __syncthreads();  // necessary to ensure correctness
-
         // postquant
-        Data pred        = tix == 0 ? 0 : d[id - 1];
+        Data pred = tix == 0 ? 0 : d[id - 1];
+        __syncthreads();
+
         Data delta       = d[id] - pred;
         bool quantizable = fabs(delta) < ctx.radius;
-        auto _code       = static_cast<Quant>(delta + ctx.radius);
-        __syncthreads();                    // (!) somehow necessary to ensure correctness
-        d[id] = (1 - quantizable) * d[id];  // output; reuse data for outlier
-        q[id] = quantizable * _code;
+        Data candidate   = delta + ctx.radius;
+        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
+        q[id]            = quantizable * static_cast<Quant>(candidate);
     }
 }
 
@@ -69,7 +69,7 @@ __global__ void kernel_v2::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* xd, Data* out
         auto id = _idx0 + i0;
         if (id >= ctx.d0) continue;
         Data pred = id < _idx0 + 1 ? 0 : xd[id - 1];
-        xd[id]    = q[id] == 0 ? outlier[id] : pred + static_cast<Data>(q[id]) - static_cast<Data>(ctx.radius);
+        xd[id]    = (q[id] == 0 ? outlier[id] : static_cast<Data>(q[id])) + pred - static_cast<Data>(ctx.radius);
     }
     for (auto i0 = 0; i0 < Block; i0++) {
         size_t id = _idx0 + i0;
@@ -88,7 +88,7 @@ template __global__ void kernel_v2::x_lorenzo_1d1l<FP4, UI2>(lorenzo_unzip, FP4*
 // v3 ////////////////////////////////////////////////////////////
 
 template <typename Data, typename Quant>
-__global__ void kernel_v3::c_lorenzo_2d1l(lorenzo_zip c, Data* d, Quant* q)
+__global__ void kernel_v3::c_lorenzo_2d1l(lorenzo_zip ctx, Data* d, Quant* q)
 {
     static const auto Block   = MetadataTrait<2>::Block;
     Data(&s2df)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
@@ -96,21 +96,20 @@ __global__ void kernel_v3::c_lorenzo_2d1l(lorenzo_zip c, Data* d, Quant* q)
     auto y = tiy, x = tix;
     auto gi1 = biy * bdy + y, gi0 = bix * bdx + x;
 
-    if (gi0 < c.d0 and gi1 < c.d1) {
-        size_t id = gi0 + gi1 * c.stride1;  // low to high dim, inner to outer
+    if (gi0 < ctx.d0 and gi1 < ctx.d1) {
+        size_t id = gi0 + gi1 * ctx.stride1;  // low to high dim, inner to outer
 
         // prequant (fp presence)
-        s2df[y][x] = round(d[id] * c.ebx2_r);
+        s2df[y][x] = round(d[id] * ctx.ebx2_r);
         __syncthreads();  // necessary to ensure correctness
 
-        Data delta = s2df[y][x] - ((x > 0 ? s2df[y][x - 1] : 0) +                // dist=1
+        Data delta       = s2df[y][x] - ((x > 0 ? s2df[y][x - 1] : 0) +                // dist=1
                                    (y > 0 ? s2df[y - 1][x] : 0) -                // dist=1
                                    (x > 0 and y > 0 ? s2df[y - 1][x - 1] : 0));  // dist=2
-
-        bool quantizable = fabs(delta) < c.radius;
-        auto _code       = static_cast<Quant>(delta + c.radius);
-        d[id]            = (1 - quantizable) * s2df[y][x];  // output; reuse data for outlier
-        q[id]            = quantizable * _code;
+        bool quantizable = fabs(delta) < ctx.radius;
+        Data candidate   = delta + ctx.radius;
+        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
+        q[id]            = quantizable * static_cast<Quant>(candidate);
     }
 }
 
@@ -138,9 +137,9 @@ __global__ void kernel_v3::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
                                       + (y > 0 ? s3df[z][y - 1][x] : 0)                            //
                                       + (z > 0 ? s3df[z - 1][y][x] : 0));                          //
         bool quantizable = fabs(delta) < ctx.radius;
-        auto _code       = static_cast<Quant>(delta + ctx.radius);
-        d[id]            = (1 - quantizable) * s3df[z][y][x];  // output; reuse data for outlier
-        q[id]            = quantizable * _code;
+        Data candidate   = delta + ctx.radius;
+        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
+        q[id]            = quantizable * static_cast<Quant>(candidate);
     }
 }
 
@@ -167,7 +166,7 @@ __global__ void kernel_v3::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* xd, Data* out
             Data   pred = (i1 > 0 ? s[i1 - 1][i0] : 0)  //
                         + (i0 > 0 ? s[i1][i0 - 1] : 0)  //
                         - (i1 > 0 and i0 > 0 ? s[i1 - 1][i0 - 1] : 0);
-            s[i1][i0] = q[id] == 0 ? outlier[id] : pred + static_cast<Data>(q[id]) - static_cast<Data>(ctx.radius);
+            s[i1][i0] = (q[id] == 0 ? outlier[id] : static_cast<Data>(q[id])) + pred - static_cast<Data>(ctx.radius);
             xd[id]    = s[i1][i0] * ctx.ebx2;
         }
     }
@@ -204,7 +203,7 @@ __global__ void kernel_v3::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* xd, Data* out
                             + (i1 > 0 ? s[i2][i1 - 1][i0] : 0)                              //
                             + (i2 > 0 ? s[i2 - 1][i1][i0] : 0);                             //
                 s[i2][i1][i0] =
-                    q[id] == 0 ? outlier[id] : pred + static_cast<Data>(q[id]) - static_cast<Data>(ctx.radius);
+                    (q[id] == 0 ? outlier[id] : static_cast<Data>(q[id])) + pred - static_cast<Data>(ctx.radius);
                 xd[id] = s[i2][i1][i0] * ctx.ebx2;
             }
         }
