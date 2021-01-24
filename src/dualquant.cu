@@ -36,17 +36,20 @@ namespace kernel_v3 = cusz::predictor_quantizer::v3;
 template <typename Data, typename Quant>
 __global__ void kernel_v2::c_lorenzo_1d1l(lorenzo_zip ctx, Data* d, Quant* q)
 {
+    static const auto Block = MetadataTrait<1>::Block;
+    Data(&s1df)[Block]      = *reinterpret_cast<Data(*)[Block]>(&scratch);
+
     auto id = bix * bdx + tix;
 
     if (id < ctx.d0) {
         // prequant (fp presence)
-        d[id] = round(d[id] * ctx.ebx2_r);
+        s1df[tix] = round(d[id] * ctx.ebx2_r);
         __syncthreads();  // necessary to ensure correctness
         // postquant
-        Data pred = tix == 0 ? 0 : d[id - 1];
+        Data pred = tix == 0 ? 0 : s1df[tix - 1];
         __syncthreads();
 
-        Data delta       = d[id] - pred;
+        Data delta       = s1df[tix] - pred;
         bool quantizable = fabs(delta) < ctx.radius;
         Data candidate   = delta + ctx.radius;
         d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
