@@ -47,8 +47,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
-using namespace cusz::predictor_quantizer::v2;
-using namespace cusz::predictor_quantizer::v3;
+namespace v2 = cusz::predictor_quantizer::v2;
+namespace v3 = cusz::predictor_quantizer::v3;
 
 /*
 template <typename Data, typename Quant>
@@ -184,15 +184,15 @@ void cusz::interface::Compress(
     {
         if (ap->ndim == 1) {
             LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            v2::c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
         }
         if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            v3::c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            v3::c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
@@ -334,17 +334,17 @@ void cusz::interface::Decompress(
         // temporary
         if (ap->ndim == 1) {
             LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            x_lorenzo_1d1l<Data, Quant>
+            v2::x_lorenzo_1d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            x_lorenzo_2d1l<Data, Quant>
+            v3::x_lorenzo_2d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            x_lorenzo_3d1l<Data, Quant>
+            v3::x_lorenzo_3d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
