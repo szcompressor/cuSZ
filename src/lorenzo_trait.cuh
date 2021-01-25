@@ -35,6 +35,7 @@ struct LorenzoNdConfig {
     kernel_cfg_t     cfg;
     lorenzo_zip      z_ctx;
     lorenzo_unzip    x_ctx;
+    lorenzo_dryrun   r_ctx;
 
     LorenzoNdConfig(Integer4 dims, Integer4 strides, Integer4 nblks, int radius, double eb)
     {
@@ -42,6 +43,12 @@ struct LorenzoNdConfig {
         z_ctx.stride1 = strides._1, z_ctx.stride2 = strides._2;
         z_ctx.radius = radius;
         z_ctx.ebx2_r = 1 / (2 * eb);
+
+        r_ctx.d0 = dims._0, r_ctx.d1 = dims._1, r_ctx.d2 = dims._2;
+        r_ctx.stride1 = strides._1, r_ctx.stride2 = strides._2;
+        r_ctx.radius = radius;
+        r_ctx.ebx2_r = 1 / (2 * eb);
+        r_ctx.ebx2   = 2 * eb;
 
         x_ctx.d0 = dims._0, x_ctx.d1 = dims._1, x_ctx.d2 = dims._2;
         x_ctx.stride1 = strides._1, x_ctx.stride2 = strides._2;
