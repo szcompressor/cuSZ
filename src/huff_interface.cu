@@ -50,45 +50,79 @@ int ht_state_num;
 int ht_all_nodes;
 // const int nvcompTHLD = 30;
 
-typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
 
-template <typename UInt_Input>
-void lossless::wrapper::GetFrequency(UInt_Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
+typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
+namespace kernel = data_process::reduce;
+
+template <typename Input>
+void lossless::wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
 {
+    static_assert(
+        std::is_same<Input, UI1>::value         //
+            or std::is_same<Input, UI2>::value  //
+            or std::is_same<Input, I1>::value   //
+            or std::is_same<Input, I2>::value,
+        "To get frequency, input dtype must be uint/int{8,16}_t");
+
     // Parameters for thread and block count optimization
     // Initialize to device-specific values
-    int deviceId, maxbytes, maxbytesOptIn, numSMs;
+    int deviceId, max_bytes, max_bytes_opt_in, num_SMs;
 
     cudaGetDevice(&deviceId);
-    cudaDeviceGetAttribute(&maxbytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
-    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, deviceId);
+    cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
+    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, deviceId);
 
     // Account for opt-in extra shared memory on certain architectures
-    cudaDeviceGetAttribute(&maxbytesOptIn, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
-    maxbytes = std::max(maxbytes, maxbytesOptIn);
+    cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
+    max_bytes = std::max(max_bytes, max_bytes_opt_in);
 
     // Optimize launch
-    int numBuckets     = dict_size;
-    int numValues      = len;
-    int itemsPerThread = 1;
-    int RPerBlock      = (maxbytes / (int)sizeof(int)) / (numBuckets + 1);
-    int numBlocks      = numSMs;
-    cudaFuncSetAttribute(
-        data_process::reduce::p2013Histogram<UInt_Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize,
-        maxbytes);
+    int num_buckets      = dict_size;
+    int num_values       = len;
+    int items_per_thread = 1;
+    int r_per_block      = (max_bytes / (int)sizeof(int)) / (num_buckets + 1);
+    int num_blocks       = num_SMs;
     // fits to size
-    int threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
-    while (threadsPerBlock > 1024) {
-        if (RPerBlock <= 1) { threadsPerBlock = 1024; }
+    int threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
+    while (threads_per_block > 1024) {
+        if (r_per_block <= 1) { threads_per_block = 1024; }
         else {
-            RPerBlock /= 2;
-            numBlocks *= 2;
-            threadsPerBlock = ((((numValues / (numBlocks * itemsPerThread)) + 1) / 64) + 1) * 64;
+            r_per_block /= 2;
+            num_blocks *= 2;
+            threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
         }
     }
-    data_process::reduce::p2013Histogram                                                //
-        <<<numBlocks, threadsPerBlock, ((numBuckets + 1) * RPerBlock) * sizeof(int)>>>  //
-        (d_in, d_freq, numValues, numBuckets, RPerBlock);
+
+    if CONSTEXPR (
+        std::is_same<Input, UI1>::value     //
+        or std::is_same<Input, UI2>::value  //
+        or std::is_same<Input, UI4>::value) {
+        cudaFuncSetAttribute(
+            kernel::p2013Histogram<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
+        kernel::p2013Histogram                                                                    //
+            <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
+            (d_in, d_freq, num_values, num_buckets, r_per_block);
+    }
+    else if CONSTEXPR (
+        std::is_same<Input, I1>::value     //
+        or std::is_same<Input, I2>::value  //
+        or std::is_same<Input, I4>::value) {
+        cudaFuncSetAttribute(
+            kernel::p2013Histogram_int_input<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize,
+            max_bytes);
+        kernel::p2013Histogram_int_input                                                          //
+            <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
+            (d_in, d_freq, num_values, num_buckets, r_per_block, dict_size / 2);
+    }
+    else {
+        LogAll(log_err, "must be Signed or Unsigned integer as Input type");
+    }
+
     cudaDeviceSynchronize();
 
 #ifdef DEBUG_PRINT
@@ -168,9 +202,14 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
 
     // fix-length space
     {
-        auto block_dim = HuffConfig::Db_encode;
-        auto grid_dim  = (len - 1) / block_dim + 1;
-        lossless::wrapper::EncodeFixedLen<Quant, Huff><<<grid_dim, block_dim>>>(d_in, d_h, len, d_canonical_cb);
+        auto Db = HuffConfig::Db_encode;
+        auto Dg = (len - 1) / Db + 1;
+        if CONSTEXPR (std::is_same<Quant, UI1>::value or std::is_same<Quant, UI2>::value) {
+            lossless::wrapper::EncodeFixedLen<Quant, Huff><<<Dg, Db>>>(d_in, d_h, len, d_canonical_cb);
+        }
+        else if CONSTEXPR (std::is_same<Quant, I1>::value or std::is_same<Quant, I2>::value) {
+            lossless::wrapper::EncodeFixedLen<Quant, Huff><<<Dg, Db>>>(d_in, d_h, len, d_canonical_cb, dict_size / 2);
+        }
         cudaDeviceSynchronize();
     }
 
@@ -179,9 +218,9 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     auto d_h_bitwidths = mem::CreateCUDASpace<size_t>(n_chunk);
     // cout << log_dbg << "Huff.chunk x #:\t" << chunk_size << " x " << n_chunk << endl;
     {
-        auto block_dim = HuffConfig::Db_deflate;
-        auto grid_dim  = (n_chunk - 1) / block_dim + 1;
-        lossless::wrapper::Deflate<Huff><<<grid_dim, block_dim>>>(d_h, len, d_h_bitwidths, chunk_size);
+        auto Db = HuffConfig::Db_deflate;
+        auto Dg = (n_chunk - 1) / Db + 1;
+        lossless::wrapper::Deflate<Huff><<<Dg, Db>>>(d_h, len, d_h_bitwidths, chunk_size);
         cudaDeviceSynchronize();
     }
 
