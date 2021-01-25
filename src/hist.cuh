@@ -25,10 +25,12 @@ __global__ void NaiveHistogram(int input_data[], int output[], int N, int symbol
 const static unsigned int WARP_SIZE = 32;
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
 
-// Optimized 2013
 /* Copied from J. Gomez-Luna et al */
-template <typename Input, typename Output_UInt>
-__global__ void p2013Histogram(Input*, Output_UInt*, size_t, int, int);
+template <typename Input_UInt, typename Output_UInt>
+__global__ void p2013Histogram(Input_UInt*, Output_UInt*, size_t, int, int);
+
+template <typename Input_Int, typename Output_UInt>
+__global__ void p2013Histogram_int_input(Input_Int*, Output_UInt*, size_t, int, int, int);
 
 }  // namespace reduce
 }  // namespace data_process
