@@ -27,7 +27,7 @@
 namespace kernel_v2 = cusz::predictor_quantizer::v2;
 namespace kernel_v3 = cusz::predictor_quantizer::v3;
 
-enum class workflow { zip, unzip };
+enum class workflow { zip, unzip, fm_unzip };
 
 template <int ndim, typename Data, workflow w>
 struct LorenzoNdConfig {
@@ -56,7 +56,7 @@ struct LorenzoNdConfig {
         x_ctx.radius = radius;
         x_ctx.ebx2   = 2 * eb;
 
-        if CONSTEXPR (w == workflow::zip) {
+        if CONSTEXPR (w == workflow::zip or w == workflow::fm_unzip) {
             if CONSTEXPR (ndim == 1) {
                 cfg.Dg = dim3(nblks._0);
                 cfg.Db = dim3(B);
@@ -75,7 +75,6 @@ struct LorenzoNdConfig {
             cfg.S = nullptr;
         }
         else if CONSTEXPR (w == workflow::unzip) {  // unzip
-
             if CONSTEXPR (ndim == 1) {
                 cfg.Dg = dim3((nblks._0 + B - 1) / B);
                 cfg.Db = dim3(B);

@@ -222,3 +222,119 @@ template __global__ void kernel_v3::x_lorenzo_2d1l<FP4, UI1>(lorenzo_unzip, FP4*
 template __global__ void kernel_v3::x_lorenzo_2d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel_v3::x_lorenzo_3d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel_v3::x_lorenzo_3d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+
+namespace kernel_fm = cusz::predictor_quantizer::fine_massive;
+
+template <typename Data, typename Quant>
+__global__ void kernel_fm::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+{
+    static const auto Block = MetadataTrait<1>::Block;
+    Data(&buffer)[Block]    = *reinterpret_cast<Data(*)[Block]>(&scratch);
+
+    auto id     = bix * bdx + tix;
+    auto radius = static_cast<Data>(ctx.radius);
+
+    if (id < ctx.d0)
+        buffer[tix] = outlier[id] + static_cast<Data>(q[id]) - radius;  // fuse
+    else
+        buffer[tix] = 0;
+    __syncthreads();
+
+    for (auto d = 1; d < Block; d *= 2) {
+        Data n = 0;
+        if (tix >= d) n = buffer[tix - d];  // like __shfl_up_sync(0x1f, var, d); warp_sync
+        __syncthreads();
+        if (tix >= d) buffer[tix] += n;
+        __syncthreads();
+    }
+
+    if (id < ctx.d0) { data[id] = buffer[tix] * ctx.ebx2; }
+    __syncthreads();
+}
+
+template <typename Data, typename Quant>
+__global__ void kernel_fm::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+{
+    static const auto Block     = MetadataTrait<2>::Block;
+    Data(&buffer)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
+
+    auto   gi1 = biy * bdy + tiy, gi0 = bix * bdx + tix;
+    size_t id     = gi0 + gi1 * ctx.stride1;
+    auto   radius = static_cast<Data>(ctx.radius);
+
+    if (gi0 < ctx.d0 and gi1 < ctx.d1)
+        buffer[tiy][tix] = outlier[id] + static_cast<Data>(q[id]) - radius;  // fuse
+    else
+        buffer[tiy][tix] = 0;
+    __syncthreads();
+
+    for (auto d = 1; d < Block; d *= 2) {
+        Data n = 0;
+        if (tix >= d) n = buffer[tiy][tix - d];
+        __syncthreads();
+        if (tix >= d) buffer[tiy][tix] += n;
+        __syncthreads();
+    }
+
+    for (auto d = 1; d < Block; d *= 2) {
+        Data n = 0;
+        if (tiy >= d) n = buffer[tiy - d][tix];
+        __syncthreads();
+        if (tiy >= d) buffer[tiy][tix] += n;
+        __syncthreads();
+    }
+
+    if (gi0 < ctx.d0 and gi1 < ctx.d1) { data[id] = buffer[tiy][tix] * ctx.ebx2; }
+    __syncthreads();
+}
+
+template <typename Data, typename Quant>
+__global__ void kernel_fm::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+{
+    static const auto Block            = MetadataTrait<3>::Block;
+    Data(&buffer)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
+
+    auto   gi2 = biz * bdz + tiz, gi1 = biy * bdy + tiy, gi0 = bix * bdx + tix;
+    size_t id     = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
+    auto   radius = static_cast<Data>(ctx.radius);
+
+    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2)
+        buffer[tiz][tiy][tix] = outlier[id] + static_cast<Data>(q[id]) - radius;  // id
+    else
+        buffer[tiz][tiy][tix] = 0;
+    __syncthreads();
+
+    for (auto d = 1; d < Block; d *= 2) {
+        Data n = 0;
+        if (tix >= d) n = buffer[tiz][tiy][tix - d];
+        __syncthreads();
+        if (tix >= d) buffer[tiz][tiy][tix] += n;
+        __syncthreads();
+    }
+
+    for (auto d = 1; d < Block; d *= 2) {
+        Data n = 0;
+        if (tiy >= d) n = buffer[tiz][tiy - d][tix];
+        __syncthreads();
+        if (tiy >= d) buffer[tiz][tiy][tix] += n;
+        __syncthreads();
+    }
+
+    for (auto d = 1; d < Block; d *= 2) {
+        Data n = 0;
+        if (tiz >= d) n = buffer[tiz - d][tiy][tix];
+        __syncthreads();
+        if (tiz >= d) buffer[tiz][tiy][tix] += n;
+        __syncthreads();
+    }
+
+    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) { data[id] = buffer[tiz][tiy][tix] * ctx.ebx2; }
+    __syncthreads();
+}
+
+template __global__ void kernel_fm::x_lorenzo_1d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel_fm::x_lorenzo_1d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+template __global__ void kernel_fm::x_lorenzo_2d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel_fm::x_lorenzo_2d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+template __global__ void kernel_fm::x_lorenzo_3d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel_fm::x_lorenzo_3d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
