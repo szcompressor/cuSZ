@@ -1,5 +1,7 @@
 # kernel benchmark
 
+To be updated (January 27, 2021)
+
 `2dec57f` (January 16, 2021; TACC Longhorn)
 
 |               |                    |                     | dual-quant | hist  | codebook | enc.   | outlier | OVERALL* | mem bw (ref) | memcpy (ref) |
