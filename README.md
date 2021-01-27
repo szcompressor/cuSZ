@@ -202,11 +202,23 @@ We provide three small sample data in `data`. To download more SDRBench datasets
 
 Throughput is in the unit of GB/s if not otherwise specified, 
 
-|                    | dual-quant | hist  | codebook | enc. | outlier | OVERALL* | mem-bw (ref) | memcpy (ref) |
-| ------------------ | ---------- | ----- | -------- | ---- | ------- | -------- | ------------ | ------------ |
-| 1D HACC (1.05 GiB) | 290.7      | 373.8 | 0.1 ms   | 53.7 | 261.7   | 35.0     | 900 (HBM2)   | 713.1        |
-| 2D CESM (25.7 MiB) | 269.4      | 569.7 | 0.82 us  | 57.8 | 184.7   | 35.8     | 900 (HBM2)   | 713.1        |
-| 3D NYX (512 MiB)   | 247.5      | 400.6 | 0.68 us  | 64.1 | 268.4   | 39.1     | 900 (HBM2)   | 713.1        |
+|                       |  1D HACC |            |  2D CESM |            |   3D NYX |           |
+| --------------------: | -------: | ---------: | -------: | ---------: | -------: | --------: |
+|         length (size) | 2.81E+08 | (1.05 GiB) | 6.48E+06 | (24.7 MiB) | 1.34E+08 | (512 MiB) |
+|                       |    GiB/s |   time (s) |    GiB/s |   time (s) |    GiB/s |  time (s) |
+|       lossy-construct |    291.9 |   3.59E-03 |    269.4 |   8.96E-05 |    225.9 |  2.21E-03 |
+|             histogram |    810.0 |   1.29E-03 |    540.4 |   4.47E-05 |    372.5 |  1.34E-03 |
+|              codebook |          |   4.60E-06 |          |   8.21E-04 |          |  6.80E-04 |
+|      Huffman encoding |     53.7 |   1.95E-02 |     65.1 |   3.71E-04 |     59.6 |  8.37E-03 |
+|        gather outlier |    261.7 |   4.00E-03 |    191.7 |   1.26E-04 |    255.2 |  1.96E-03 |
+|   compression OVERALL |     36.9 |   2.84E-02 |     38.3 |   6.31E-04 |     36.0 |  1.39E-02 |
+|      memory bandwidth |      900 |            |        " |            |        " |           |
+|          d2d `memcpy` |      713 |            |        " |            |        " |           |
+|     lossy-reconstruct |    257.3 |   4.07E-03 |    203.7 |   1.18E-04 |    177.8 |  2.81E-03 |
+|      Huffman decoding |      TBD |            |      TBD |            |      TBD |           |
+|       scatter outlier |    249.8 |   4.19E-03 |    340.1 |   7.10E-05 |    354.8 |  1.41E-03 |
+| decompression OVERALL |      TBD |            |      TBD |            |      TBD |           |
+
 
 (*) OVERALL kernel throughput estimation is based on leaving out 1) codebook construction, considering a prebuilt tree could be in use, 2) kernel launching overhead. A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
 
