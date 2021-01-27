@@ -24,8 +24,7 @@
 #define CONSTEXPR
 #endif
 
-namespace kernel_v2 = cusz::predictor_quantizer::v2;
-namespace kernel_v3 = cusz::predictor_quantizer::v3;
+namespace fm = cusz::predictor_quantizer;
 
 enum class workflow { zip, unzip };
 
@@ -35,6 +34,7 @@ struct LorenzoNdConfig {
     kernel_cfg_t     cfg;
     lorenzo_zip      z_ctx;
     lorenzo_unzip    x_ctx;
+    lorenzo_dryrun   r_ctx;
 
     LorenzoNdConfig(Integer4 dims, Integer4 strides, Integer4 nblks, int radius, double eb)
     {
@@ -43,17 +43,23 @@ struct LorenzoNdConfig {
         z_ctx.radius = radius;
         z_ctx.ebx2_r = 1 / (2 * eb);
 
+        r_ctx.d0 = dims._0, r_ctx.d1 = dims._1, r_ctx.d2 = dims._2;
+        r_ctx.stride1 = strides._1, r_ctx.stride2 = strides._2;
+        r_ctx.radius = radius;
+        r_ctx.ebx2_r = 1 / (2 * eb);
+        r_ctx.ebx2   = 2 * eb;
+
         x_ctx.d0 = dims._0, x_ctx.d1 = dims._1, x_ctx.d2 = dims._2;
         x_ctx.stride1 = strides._1, x_ctx.stride2 = strides._2;
         x_ctx.nblk0 = nblks._0, x_ctx.nblk1 = nblks._1, x_ctx.nblk2 = nblks._2;
         x_ctx.radius = radius;
         x_ctx.ebx2   = 2 * eb;
 
-        if CONSTEXPR (w == workflow::zip) {
+        if CONSTEXPR (w == workflow::zip or w == workflow::unzip) {
             if CONSTEXPR (ndim == 1) {
                 cfg.Dg = dim3(nblks._0);
                 cfg.Db = dim3(B);
-                cfg.Ns = 0;
+                cfg.Ns = B * sizeof(Data);
             }
             else if CONSTEXPR (ndim == 2) {
                 cfg.Dg = dim3(nblks._0, nblks._1);
@@ -66,23 +72,6 @@ struct LorenzoNdConfig {
                 cfg.Ns = B * B * B * sizeof(Data);
             }
             cfg.S = nullptr;
-        }
-        else if CONSTEXPR (w == workflow::unzip) {  // unzip
-
-            if CONSTEXPR (ndim == 1) {
-                cfg.Dg = dim3((nblks._0 + B - 1) / B);
-                cfg.Db = dim3(B);
-            }
-            else if CONSTEXPR (ndim == 2) {
-                cfg.Dg = dim3((nblks._0 + B - 1) / B, (nblks._1 + B - 1) / B);
-                cfg.Db = dim3(B, B);
-            }
-            else if CONSTEXPR (ndim == 3) {
-                cfg.Dg = dim3((nblks._0 + B - 1) / B, (nblks._1 + B - 1) / B, (nblks._2 + B - 1) / B);
-                cfg.Db = dim3(B, B, B);
-            }
-            cfg.Ns = 0;
-            cfg.S  = nullptr;
         }
     }
 };
@@ -100,9 +89,9 @@ struct zip::Lorenzo_nd1l {
     template <typename Data, typename Quant>
     static void Call(lorenzo_zip ctx, Data* d, Quant* q)
     {
-        if CONSTEXPR (ndim == 1) kernel_v2::c_lorenzo_1d1l<Data, Quant>(ctx, d, q);
-        if CONSTEXPR (ndim == 2) kernel_v3::c_lorenzo_2d1l<Data, Quant>(ctx, d, q);
-        if CONSTEXPR (ndim == 3) kernel_v3::c_lorenzo_3d1l<Data, Quant>(ctx, d, q);
+        if CONSTEXPR (ndim == 1) fm::c_lorenzo_1d1l<Data, Quant>(ctx, d, q);
+        if CONSTEXPR (ndim == 2) fm::c_lorenzo_2d1l<Data, Quant>(ctx, d, q);
+        if CONSTEXPR (ndim == 3) fm::c_lorenzo_3d1l<Data, Quant>(ctx, d, q);
     }
 };
 
@@ -111,9 +100,9 @@ struct unzip::Lorenzo_nd1l {
     template <typename Data, typename Quant>
     static void Call(lorenzo_unzip ctx, Data* xd, Data* outlier, Quant* q)
     {
-        if CONSTEXPR (ndim == 1) kernel_v2::x_lorenzo_1d1l<Data, Quant>(ctx, xd, outlier, q);
-        if CONSTEXPR (ndim == 2) kernel_v3::x_lorenzo_2d1l<Data, Quant>(ctx, xd, outlier, q);
-        if CONSTEXPR (ndim == 3) kernel_v3::x_lorenzo_3d1l<Data, Quant>(ctx, xd, outlier, q);
+        if CONSTEXPR (ndim == 1) fm::x_lorenzo_1d1l<Data, Quant>(ctx, xd, outlier, q);
+        if CONSTEXPR (ndim == 2) fm::x_lorenzo_2d1l<Data, Quant>(ctx, xd, outlier, q);
+        if CONSTEXPR (ndim == 3) fm::x_lorenzo_3d1l<Data, Quant>(ctx, xd, outlier, q);
     }
 };
 

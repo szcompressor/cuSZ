@@ -47,8 +47,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
-using namespace cusz::predictor_quantizer::v2;
-using namespace cusz::predictor_quantizer::v3;
+namespace fm = cusz::predictor_quantizer;
+namespace dr = cusz::dryrun;
 
 /*
 template <typename Data, typename Quant>
@@ -169,9 +169,28 @@ void cusz::interface::Compress(
     auto& subfiles = ap->subfiles;
 
     if (wf.lossy_dryrun) {
-        LogAll(log_info, "dry-run temporarily not working");
-        //        LogAll(log_info, "invoke dry-run");
-        //        DryRun(ap, data, d_data, ap->cx_path2file, dims, eb_variants);
+        LogAll(log_info, "invoke dry-run");
+
+        if (ap->ndim == 1) {
+            LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            dr::lorenzo_1d1l<Data><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.r_ctx, d_data);
+        }
+        else if (ap->ndim == 2) {
+            LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            dr::lorenzo_2d1l<Data><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.r_ctx, d_data);
+        }
+        else if (ap->ndim == 3) {
+            LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            dr::lorenzo_3d1l<Data><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.r_ctx, d_data);
+        }
+        HANDLE_ERROR(cudaDeviceSynchronize());
+
+        auto data_lossy = new Data[len]();
+        cudaMemcpy(data_lossy, d_data, len * sizeof(Data), cudaMemcpyDeviceToHost);
+
+        analysis::VerifyData<Data>(&ap->stat, data_lossy, data, len);
+        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, 0);
+
         cudaFreeHost(data);
         cudaFree(d_data);
         exit(0);
@@ -184,15 +203,15 @@ void cusz::interface::Compress(
     {
         if (ap->ndim == 1) {
             LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            fm::c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
         }
-        if (ap->ndim == 2) {
+        else if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            fm::c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            fm::c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
@@ -318,14 +337,16 @@ void cusz::interface::Decompress(
                 exit(-1);
             }
             cout << log_info << "Verifying Huffman codec..." << endl;
-            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.x_fi_origin, len, xq, ap->huffman_chunk, dims, eb_variants);
+            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.x_fi_origin, len, xq, ap->huffman_chunk, dims,
+            eb_variants);
              */
         }
     }
     auto d_xq = mem::CreateDeviceSpaceAndMemcpyFromHost(xq, ap->len);
 
     auto d_outlier = mem::CreateCUDASpace<Data>(mxm);
-    ::cusz::impl::ScatterFromCSR<Data>(d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.x_fi_outlier);
+    ::cusz::impl::ScatterFromCSR<Data>(
+        d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.x_fi_outlier);
 
     // TODO merge d_outlier and d_data
     auto d_xdata = mem::CreateCUDASpace<Data>(ap->len);
@@ -334,17 +355,17 @@ void cusz::interface::Decompress(
         // temporary
         if (ap->ndim == 1) {
             LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            x_lorenzo_1d1l<Data, Quant>
+            fm::x_lorenzo_1d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
-        if (ap->ndim == 2) {
+        else if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            x_lorenzo_2d1l<Data, Quant>
+            fm::x_lorenzo_2d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            x_lorenzo_3d1l<Data, Quant>
+            fm::x_lorenzo_3d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());

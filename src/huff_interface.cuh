@@ -47,7 +47,7 @@ double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
 namespace lossless {
 
 namespace wrapper {
-template <typename UInt_Input> void GetFrequency(UInt_Input*, size_t, unsigned int*, int);
+template <typename Input> void GetFrequency(Input*, size_t, unsigned int*, int);
 }  // namespace wrapper
 
 namespace utils {
