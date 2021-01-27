@@ -392,6 +392,8 @@ __global__ void lossless::par_huffman::GPU_GenerateCW(F* CL, H* CW, H* first, H*
     }
 }
 
+
+// TODO forceinilne?
 // Helper implementations
 template <typename T>
 __global__ void lossless::par_huffman::helper::GPU_FillArraySequence(T* array, unsigned int size)

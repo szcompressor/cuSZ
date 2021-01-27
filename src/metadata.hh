@@ -39,13 +39,19 @@ typedef struct LorenzoZipContext {
     double ebx2_r;
 } lorenzo_zip;
 
+typedef struct LorenzoDryrunContext {
+    int    d0, d1, d2;
+    int    stride1, stride2;
+    int    radius;
+    double ebx2_r, ebx2;
+} lorenzo_dryrun;
+
 typedef struct LorenzoUnzipContext {
     int    d0, d1, d2;
     int    nblk0, nblk1, nblk2;
     int    stride1, stride2;
     int    radius;
     double ebx2;
-
 } lorenzo_unzip;
 
 template <int ndim>
