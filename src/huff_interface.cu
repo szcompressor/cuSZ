@@ -405,8 +405,8 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto total_uints_before_nvcomp = total_uints;
     //    draft::UseNvcompZip<Huff>(huff_sp, total_uints);
     //    auto total_uints_after_nvcomp = total_uints;
-    auto avg_bits = 1.0 * total_bits / len;
-    //    auto cr_before_nvcomp = 1.0 * len * sizeof(Data) / (total_uints_before_nvcomp * sizeof(Huff));
+    auto avg_bits         = 1.0 * total_bits / len;
+    auto cr_before_nvcomp = 1.0 * len * sizeof(Data) / (total_uints_before_nvcomp * sizeof(Huff));
     //    auto cr_after_nvcomp  = 1.0 * len * sizeof(Data) / (total_uints_after_nvcomp * sizeof(Huff));
 
     LogAll(
