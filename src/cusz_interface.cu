@@ -264,7 +264,11 @@ void cusz::interface::Compress(
         LogAll(log_dbg, "buffer size:", buffer_size);
         auto quant_buffer = new Quant[buffer_size]();
 
+        cudaFree(d_data);
+        cudaFreeHost(data);
+
         q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
+        cudaFree(d_q);
 
         Index<3>::idx_t part_dims{part0, part1, part2};
         Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
@@ -284,7 +288,6 @@ void cusz::interface::Compress(
         delete[] quant_buffer;
         delete[] q;
 
-        cudaFree(d_q);
         exit(0);
     }
 

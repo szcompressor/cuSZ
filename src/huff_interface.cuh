@@ -32,7 +32,7 @@ double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
 {
     double entropy = 0.0;
     for (auto i = 0; i < dict_size; i++) {
-        auto prob = freq[i] * 1.0 / len;
+        double prob = freq[i] * 1.0 / len;
         entropy += freq[i] != 0 ? -prob * log2(prob) : 0;
     }
     return entropy;

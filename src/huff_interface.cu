@@ -348,34 +348,75 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
 
     auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
     lossless::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
+    cudaFree(d_freq);
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
 
     auto entropy = GetEntropyFromFrequency(h_freq, len, dict_size);
 
     std::stringstream s;
     s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
-    auto h_cb = io::ReadBinaryToNewArray<Huff>(s.str(), dict_size);
+    auto h_cb       = io::ReadBinaryToNewArray<Huff>(s.str(), dict_size);
+    auto d_canon_cb = mem::CreateDeviceSpaceAndMemcpyFromHost(h_cb, dict_size);
 
-    auto GetBitcount = [&](Quant& q) { return (size_t) * ((uint8_t*)&h_cb[q] + sizeof(Huff) - 1); };
+    auto get_Dg = [](size_t problem_size, size_t Db) { return (problem_size + Db - 1) / Db; };
 
-    double total_bitcounts = 0;
-    for (auto i = 0; i < len; i++) { total_bitcounts += GetBitcount(h_q_in[i]); }
-    auto nbytes   = total_bitcounts / 8;
-    auto cr_quant = len * sizeof(Quant) / nbytes;
-    auto cr_data  = len * sizeof(Data) / nbytes;
+    // Huffman space in dense format (full of zeros), fix-length space
+    auto d_huff_dn = mem::CreateCUDASpace<Huff>(len);
+    {
+        auto Db = HuffConfig::Db_encode;
+        lossless::wrapper::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
+        cudaDeviceSynchronize();
+    }
+
+    const static int dn_chunk = 4096;
+    // deflate
+    auto nchunk    = (len + dn_chunk - 1) / dn_chunk;
+    auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
+    {
+        auto Db = HuffConfig::Db_deflate;
+        lossless::wrapper::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        cudaDeviceSynchronize();
+    }
+
+    // gather metadata (without write) before gathering huff as sp on GPU
+    auto   _counts    = new size_t[nchunk * 3]();
+    size_t total_bits = 0, total_uints = 0;
+    draft::GatherSpHuffMetadata<Huff>(_counts, d_sp_bits, nchunk, total_bits, total_uints);
+
+    // partially gather on GPU and copy back (TODO fully)
+    auto huff_sp = new Huff[total_uints]();
+    {
+        auto d_huff_sp = mem::CreateCUDASpace<Huff>(total_uints);
+        auto d_uints   = mem::CreateDeviceSpaceAndMemcpyFromHost(_counts, nchunk);               // sp_uints
+        auto d_entries = mem::CreateDeviceSpaceAndMemcpyFromHost(_counts + nchunk * 2, nchunk);  // sp_entries
+        draft::CopyHuffmanUintsDenseToSparse<<<nchunk, 128>>>(d_huff_dn, d_huff_sp, d_entries, d_uints, dn_chunk);
+        cudaDeviceSynchronize();
+        cudaMemcpy(huff_sp, d_huff_sp, total_uints * sizeof(Huff), cudaMemcpyDeviceToHost);
+        cudaFree(d_entries), cudaFree(d_uints), cudaFree(d_huff_sp);
+    }
+
+    cudaFree(d_huff_dn);
+
+    io::WriteArrayToBinary(
+        basename + "_huff_" + std::to_string(len) + "_part_" + std::to_string(idx._0) + std::to_string(idx._1) +
+            std::to_string(idx._2),
+        huff_sp, total_uints);
+
+    auto total_uints_before_nvcomp = total_uints;
+    //    draft::UseNvcompZip<Huff>(huff_sp, total_uints);
+    //    auto total_uints_after_nvcomp = total_uints;
+    auto avg_bits = 1.0 * total_bits / len;
+    //    auto cr_before_nvcomp = 1.0 * len * sizeof(Data) / (total_uints_before_nvcomp * sizeof(Huff));
+    //    auto cr_after_nvcomp  = 1.0 * len * sizeof(Data) / (total_uints_after_nvcomp * sizeof(Huff));
+
     LogAll(
-        log_exp,                                                //
-        idx._0, idx._1, idx._2, "\t",                           //
-        std::setprecision(4),                                   //
-        " entropy:", entropy,                                   //
-        " \e[1mavg bitcount:", total_bitcounts / len, "\e[0m",  //
-        " total bitcount:", total_bitcounts,                    //
-        " nbytes:", nbytes,                                     //
-        " CR against quant and data:", cr_quant, cr_data);
+        log_exp,                                   //
+        idx._0, idx._1, idx._2, "\t",              //
+        std::setprecision(4),                      //
+        " \e[1mavg bitcount:", avg_bits, "\e[0m",  //
+        " CR before nvcomp:", cr_before_nvcomp);
 
-    // nvcomp start
-    // draft::UseNvcompZip();
-    // nvcomp end
+    delete[] huff_sp;
 
     cudaFree(d_freq);
     cudaFree(d_quant_in);
