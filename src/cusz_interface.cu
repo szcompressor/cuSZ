@@ -148,9 +148,9 @@ void cusz::interface::Compress(
     argpack* ap,
     struct DataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
     int&     nnz_outlier,
-    size_t&  n_bits,
-    size_t&  n_uInt,
-    size_t&  huffman_metadata_size,
+    size_t&  num_bits,
+    size_t&  num_uints,
+    size_t&  huff_meta_size,
     bool&    nvcomp_in_use)
 {
     // clang-format on
@@ -288,7 +288,7 @@ void cusz::interface::Compress(
         exit(0);
     }
 
-    std::tie(n_bits, n_uInt, huffman_metadata_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
+    std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
         subfiles.c_huff_base, d_q, len, ap->huffman_chunk, wf.lossless_nvcomp_cascade, ap->dict_size,
         wf.exp_export_codebook);
 
@@ -302,7 +302,7 @@ void cusz::interface::Decompress(
     argpack* ap,
     int&     nnz_outlier,
     size_t&  total_bits,
-    size_t&  total_uInt,
+    size_t&  total_uint,
     size_t&  huffman_metadata_size,
     bool     nvcomp_in_use)
 {
@@ -327,7 +327,7 @@ void cusz::interface::Decompress(
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            subfiles.cx_path2file, ap->len, ap->huffman_chunk, total_uInt, nvcomp_in_use, ap->dict_size);
+            subfiles.cx_path2file, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
         if (wf.verify_huffman) {
             LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
             /*
@@ -378,7 +378,7 @@ void cusz::interface::Decompress(
     size_t archive_bytes = 0;
     // TODO huffman chunking metadata
     if (not wf.skip_huffman_enc)
-        archive_bytes += total_uInt * sizeof(Huff)  // Huffman coded
+        archive_bytes += total_uint * sizeof(Huff)  // Huffman coded
                          + huffman_metadata_size;   // chunking metadata and reverse codebook
     else
         archive_bytes += ap->len * sizeof(Quant);
