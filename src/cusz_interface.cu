@@ -423,9 +423,9 @@ void cusz::interface::Decompress(
     LogAll(log_info, "output:", subfiles.cx_path2file + ".szx");
 
     if (wf.skip_write_output)
-        io::WriteArrayToBinary(subfiles.x_fo_xd, xdata, ap->len);
+        LogAll(log_dbg, "skip writing unzipped to filesystem");
     else {
-        LogAll(log_dbg, "skipped writing unzipped to filesystem");
+        io::WriteArrayToBinary(subfiles.x_fo_xd, xdata, ap->len);
     }
 
     // clean up

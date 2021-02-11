@@ -88,6 +88,7 @@ void PrintMetrics(
     indent(), printf("%-20s%.20G", "max.val", stat->maximum), newline();
     indent(), printf("%-20s%.20G", "val.rng", stat->range), newline();
     indent(), printf("%-20s\e[31m%.20G\e[0m", "max.err.abs.val", stat->max_abserr), newline();
+    indent(), printf("%-20s%lu", "data.length", stat->len), newline();
     indent(), printf("%-20s%lu", "max.err.abs.idx", stat->max_abserr_index), newline();
     if (override_eb) {
         indent(), printf("----------------------------------------------------------------\n");
