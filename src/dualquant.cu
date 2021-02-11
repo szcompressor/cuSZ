@@ -11,6 +11,14 @@
  *
  */
 
+#if CUDART_VERSION >= 11000
+#pragma message("using CUDA 11 onward, using cub from system path")
+#include <cub/cub.cuh>
+#else
+#pragma message("using CUDA 10 or earlier , using cub from git submodule")
+#include "../external/cub/cub/cub.cuh"
+#endif
+
 #include <cuda_runtime.h>
 #include <cstddef>
 
@@ -140,6 +148,59 @@ __global__ void kernel::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* data, Data* outl
 }
 
 template <typename Data, typename Quant>
+__global__ void kernel::x_lorenzo_1d1l_cub(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+{
+    static const auto Block         = MetadataTrait<1>::Block;
+    static const auto Sequentiality = MetadataTrait<1>::Sequentiality;  // items per thread
+    static const auto Db            = Block / Sequentiality;            // dividable
+
+    // coalesce-load (warp-striped) and transpose in shmem (similar for store)
+    typedef cub::BlockLoad<Data, Db, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE>   BlockLoadT_outlier;
+    typedef cub::BlockLoad<Quant, Db, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_quant;
+    typedef cub::BlockStore<Data, Db, Sequentiality, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_xdata;
+    typedef cub::BlockScan<Data, Db, cub::BLOCK_SCAN_RAKING_MEMOIZE> BlockScanT_xdata;  // TODO autoselect algorithm
+
+    __shared__ union TempStorage {  // overlap shared memory space
+        typename BlockLoadT_outlier::TempStorage load_outlier;
+        typename BlockLoadT_quant::TempStorage   load_quant;
+        typename BlockStoreT_xdata::TempStorage  store_xdata;
+        typename BlockScanT_xdata::TempStorage   scan_xdata;
+    } temp_storage;
+
+    // thread-scope tiled data
+    union ThreadData {
+        Data xdata[Sequentiality];
+        Data outlier[Sequentiality];
+    } thread_scope;
+    Quant thread_scope_quant[Sequentiality];
+
+    // TODO pad for potential out-of-range access
+    // (bix * bdx * Sequentiality) denotes the start of the data chunk that belongs to this thread block
+    BlockLoadT_quant(temp_storage.load_quant).Load(quant + (bix * bdx) * Sequentiality, thread_scope_quant);
+    __syncthreads();  // barrier for shmem reuse
+    BlockLoadT_outlier(temp_storage.load_outlier).Load(outlier + (bix * bdx) * Sequentiality, thread_scope.outlier);
+    __syncthreads();  // barrier for shmem reuse
+
+    auto radius = static_cast<Data>(ctx.radius);
+#pragma unroll
+    for (auto i = 0; i < Sequentiality; i++) {
+        auto id = (bix * bdx + tix) * Sequentiality + i;
+        thread_scope.xdata[i] =
+            id < ctx.d0 ? thread_scope.outlier[i] + static_cast<Data>(thread_scope_quant[i]) - radius : 0;
+    }
+    __syncthreads();
+
+    BlockScanT_xdata(temp_storage.scan_xdata).InclusiveSum(thread_scope.xdata, thread_scope.xdata);
+    __syncthreads();  // barrier for shmem reuse
+
+#pragma unroll
+    for (auto i = 0; i < Sequentiality; i++) thread_scope.xdata[i] *= ctx.ebx2;
+    __syncthreads();  // barrier for shmem reuse
+
+    BlockStoreT_xdata(temp_storage.store_xdata).Store(xdata + (bix * bdx) * Sequentiality, thread_scope.xdata);
+}
+
+template <typename Data, typename Quant>
 __global__ void kernel::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
 {
     static const auto Block     = MetadataTrait<2>::Block;
@@ -228,6 +289,8 @@ template __global__ void kernel::c_lorenzo_3d1l<FP4, UI2>(lorenzo_zip, FP4*, UI2
 
 template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_2d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_2d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_3d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
