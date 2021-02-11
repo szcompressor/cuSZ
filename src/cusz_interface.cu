@@ -345,21 +345,27 @@ void cusz::interface::Decompress(
              */
         }
     }
-    auto d_xq = mem::CreateDeviceSpaceAndMemcpyFromHost(xq, ap->len);
 
-    auto d_outlier = mem::CreateCUDASpace<Data>(mxm);
+    // TODO ad-hoc; need padding
+    Quant* d_xq = nullptr;
+    cudaMalloc(&d_xq, (ap->len + MetadataTrait<1>::Block) * sizeof(Quant));  // one extra block as padding
+    cudaMemcpy(d_xq, xq, ap->len * sizeof(Quant), cudaMemcpyHostToDevice);
+
+    auto d_outlier = mem::CreateCUDASpace<Data>(mxm + MetadataTrait<1>::Block);
     ::cusz::impl::ScatterFromCSR<Data>(
         d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.x_fi_outlier);
 
-    // TODO merge d_outlier and d_data
-    auto d_xdata = mem::CreateCUDASpace<Data>(ap->len);
-
+    auto d_xdata = d_outlier;  // TODO maybe use union
     {
-        // temporary
-        if (ap->ndim == 1) {
+        if (ap->ndim == 1) { // TODO expose problem size and more clear binding with Dg/Db
             LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            /*
+            // old kernel of naive implementation for reference
             fm::x_lorenzo_1d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            */
+            fm::x_lorenzo_1d1l_cub<Data, Quant><<<lc.cfg.Dg.x, lc.cfg.Db.x / MetadataTrait<1>::Sequentiality>>>  //
+                (lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         else if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
@@ -431,7 +437,6 @@ void cusz::interface::Decompress(
     // clean up
     delete[] xdata;
     delete[] xq;
-    cudaFree(d_xdata);
     cudaFree(d_outlier);
     cudaFree(d_xq);
 }

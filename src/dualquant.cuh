@@ -27,6 +27,7 @@ template <typename Data, typename Quant> __global__ void c_lorenzo_1d1l(lorenzo_
 template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l(lorenzo_zip, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l_cub(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l(lorenzo_unzip, Data*, Data*, Quant*);
 }}
