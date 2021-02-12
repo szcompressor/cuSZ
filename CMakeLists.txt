@@ -53,8 +53,6 @@ add_library(utils ${LIB_TYPE}
         src/analysis.hh
         src/analysis_utils.cc
         src/analysis_utils.hh
-        src/autotune.cu
-        src/autotune.hh
         src/utils/verify.hh
         src/utils/format.hh
         )

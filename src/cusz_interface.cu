@@ -19,15 +19,10 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <type_traits>
 #include <typeinfo>
 
-// #if __cplusplus >= 201103L
-
-#include <type_traits>
-
-//#include "analysis_utils.hh"
 #include "argparse.hh"
-#include "autotune.hh"
 #include "cusz_interface.cuh"
 #include "dryrun.cuh"
 #include "dualquant.cuh"
@@ -233,15 +228,20 @@ void cusz::interface::Compress(
     }
 
     // autotuning Huffman chunksize
-    // subject to change, current `8*` is close to but may note deterministically optimal
-    if (wf.autotune_huffman_chunk) {  //
-        auto optimal_chunksize = 1;
-        auto cuda_core_num     = cusz::tune::GetCUDACoreNum();
-        auto cuda_thread_num   = 8 * cuda_core_num;  // empirical value
+    int current_dev = 0;
+    cudaSetDevice(current_dev);
+    cudaDeviceProp dev_prop{};
+    cudaGetDeviceProperties(&dev_prop, current_dev);
 
-        while (optimal_chunksize * cuda_thread_num < len) optimal_chunksize *= 2;
-        ap->huffman_chunk = optimal_chunksize;
-    }
+    auto nSM = dev_prop.multiProcessorCount;
+    // auto allowed_thread_per_SM    = dev_prop.maxThreadsPerMultiProcessor;
+    auto allowed_thread_per_block = dev_prop.maxThreadsPerBlock;
+    // allowed_thread_per_SM * nSM / (HuffConfig::deflate_constant * allowed_thread_per_SM / allowed_thread_per_block);
+    auto deflate_nthread    = allowed_thread_per_block * nSM / HuffConfig::deflate_constant;
+    auto optimal_chunk_size = (ap->len + deflate_nthread - 1) / deflate_nthread;
+    optimal_chunk_size      = ((optimal_chunk_size - 1) / HuffConfig::Db_deflate + 1) * HuffConfig::Db_deflate;
+    if (wf.autotune_huffman_chunk) ap->huffman_chunk = optimal_chunk_size;
+    LogAll(log_dbg, "Huffman chunk size:", ap->huffman_chunk, "thread num:", (ap->len - 1) / ap->huffman_chunk + 1);
 
     if (wf.exp_partitioning_imbalance) {
         // 3D only
@@ -357,7 +357,7 @@ void cusz::interface::Decompress(
 
     auto d_xdata = d_outlier;  // TODO maybe use union
     {
-        if (ap->ndim == 1) { // TODO expose problem size and more clear binding with Dg/Db
+        if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
             LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
             /*
             // old kernel of naive implementation for reference
