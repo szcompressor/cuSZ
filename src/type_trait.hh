@@ -51,7 +51,8 @@ template <> struct HuffTrait<8> {typedef UI8 Huff;};
 
 struct HuffConfig {
     static const int Db_encode  = 256;
-    static const int Db_deflate = 128;
+    static const int Db_deflate = 256;
+    static const int deflate_constant = 4;
 };
 
 #endif
