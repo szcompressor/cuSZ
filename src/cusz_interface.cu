@@ -190,23 +190,24 @@ void cusz::interface::Compress(
         cudaFree(d_data);
         exit(0);
     }
-    LogAll(log_info, "invoke zipping");
+    LogAll(log_info, "invoke lossy-construction");
 
-    auto d_q = mem::CreateCUDASpace<Quant>(len);  // quant. code is not needed for dry-run
+    // TODO add hoc padding
+    auto d_quant = mem::CreateCUDASpace<Quant>(len + HuffConfig::Db_encode);  // quant. code is not needed for dry-run
 
     // prediction-quantization
     {
         if (ap->ndim == 1) {
             LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            fm::c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
         }
         else if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            fm::c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_q);
+            fm::c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
@@ -217,10 +218,10 @@ void cusz::interface::Compress(
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
 
-    Quant* q;
+    Quant* quant;
     if (wf.skip_huffman_enc) {
-        q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
-        io::WriteArrayToBinary(subfiles.c_fo_q, q, len);
+        quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
+        io::WriteArrayToBinary(subfiles.c_fo_q, quant, len);
 
         LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
 
@@ -267,8 +268,8 @@ void cusz::interface::Compress(
         cudaFree(d_data);
         cudaFreeHost(data);
 
-        q = mem::CreateHostSpaceAndMemcpyFromDevice(d_q, len);
-        cudaFree(d_q);
+        quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
+        cudaFree(d_quant);
 
         Index<3>::idx_t part_dims{part0, part1, part2};
         Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
@@ -278,7 +279,7 @@ void cusz::interface::Compress(
             for (auto pj = 0; pj < num_part1; pj++) {
                 for (auto pi = 0; pi < num_part0; pi++) {
                     auto start = pk * part2 * ap->stride4._2 + pj * part1 * ap->stride4._1 + pi * part0;
-                    CopyToBuffer_3D(quant_buffer, q, start, part_dims, block_strides, global_strides);
+                    CopyToBuffer_3D(quant_buffer, quant, start, part_dims, block_strides, global_strides);
                     lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
                         Index<3>::idx_t{pi, pj, pk}, subfiles.c_huff_base, quant_buffer, buffer_size, ap->dict_size);
                 }
@@ -286,18 +287,18 @@ void cusz::interface::Compress(
         }
 
         delete[] quant_buffer;
-        delete[] q;
+        delete[] quant;
 
         exit(0);
     }
 
     std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.c_huff_base, d_q, len, ap->huffman_chunk, wf.lossless_nvcomp_cascade, ap->dict_size,
+        subfiles.c_huff_base, d_quant, len, ap->huffman_chunk, wf.lossless_nvcomp_cascade, ap->dict_size,
         wf.exp_export_codebook);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
-    cudaFree(d_q);
+    cudaFree(d_quant);
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
@@ -319,7 +320,7 @@ void cusz::interface::Decompress(
     auto m   = ::cusz::impl::GetEdgeOfReinterpretedSquare(ap->len);
     auto mxm = m * m;
 
-    LogAll(log_info, "invoke unzip");
+    LogAll(log_info, "invoke lossy-reconstruction");
 
     Quant* xq;
     // step 1: read from filesystem or do Huffman decoding to get quant code

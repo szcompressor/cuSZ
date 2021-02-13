@@ -16,11 +16,16 @@
 
 #include <stddef.h>
 
+#include "type_trait.hh"
+
 namespace lossless {
 namespace wrapper {
 
 template <typename Input, typename Huff>
-__global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*, int offset=0);
+__global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*, int offset = 0);
+
+template <typename Input, typename Huff, int Sequentiality = HuffConfig::enc_sequentiality>
+__global__ void EncodeFixedLen_cub(Input*, Huff*, size_t, Huff*, int offset = 0);
 
 template <typename Huff>
 __global__ void Deflate(Huff*, size_t, size_t*, int);
