@@ -278,10 +278,13 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     if (export_cb) draft::ExportCodebook(d_canon_cb, basename, dict_size);
 
     // Huffman space in dense format (full of zeros), fix-length space
-    auto d_huff_dn = mem::CreateCUDASpace<Huff>(len);
+    // auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + HuffConfig::Db_encode); // origin
+    // auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + HuffConfig::Db_encode); // prev small padding
+    auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + dn_chunk + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
     {
         auto Db = HuffConfig::Db_encode;
-        lossless::wrapper::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_input, d_huff_dn, len, d_canon_cb);
+        lossless::wrapper::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
+            <<<get_Dg(len, Db), Db / HuffConfig::enc_sequentiality>>>(d_input, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
 

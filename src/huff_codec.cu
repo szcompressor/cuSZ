@@ -15,18 +15,67 @@
 #include <stdint.h>
 #include <cstdio>
 #include <limits>
+
 #include "huff_codec.cuh"
 #include "type_aliasing.hh"
+#include "type_trait.hh"
 
-using uint8__t = uint8_t;
+#define tix threadIdx.x
+#define tiy threadIdx.y
+#define tiz threadIdx.z
+#define bix blockIdx.x
+#define biy blockIdx.y
+#define biz blockIdx.z
+#define bdx blockDim.x
+#define bdy blockDim.y
+#define bdz blockDim.z
+
+#if CUDART_VERSION >= 11000
+#pragma message(__FILE__ ": (CUDA 11 onward), cub from system path")
+#include <cub/cub.cuh>
+#else
+#pragma message(__FILE__ ": (CUDA 10 or earlier), cub from git submodule")
+#include "../external/cub/cub/cub.cuh"
+#endif
 
 template <typename Input, typename Huff>
-__global__ void lossless::wrapper::EncodeFixedLen(Input* d, Huff* h, size_t dlen, Huff* codebook, int offset)
+__global__ void lossless::wrapper::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {
     size_t gid = blockDim.x * blockIdx.x + threadIdx.x;
-    if (gid >= dlen) return;
-    h[gid] = codebook[d[gid] + offset];  // try to exploit cache?
+    if (gid >= len) return;
+    huff[gid] = codebook[data[gid] + offset];  // try to exploit cache?
     __syncthreads();
+}
+
+template <typename Input, typename Huff, int Sequentiality>
+__global__ void lossless::wrapper::EncodeFixedLen_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
+{
+    static const auto Db = HuffConfig::Db_encode;
+    // coalesce-load (warp-striped) and transpose in shmem (similar for store)
+    typedef cub::BlockLoad<Input, Db, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_input;
+    typedef cub::BlockStore<Huff, Db, Sequentiality, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_huff;
+
+    __shared__ union TempStorage {  // overlap shared memory space
+        typename BlockLoadT_input::TempStorage load_input;
+        typename BlockStoreT_huff::TempStorage store_huff;
+    } temp_storage;
+
+    Input thread_scope_data[Sequentiality];
+    Huff  thread_scope_huff[Sequentiality];
+
+    // TODO pad for potential out-of-range access
+    // (bix * bdx * Sequentiality) denotes the start of the data chunk that belongs to this thread block
+    BlockLoadT_input(temp_storage.load_input).Load(data + (bix * bdx) * Sequentiality, thread_scope_data);
+    __syncthreads();  // barrier for shmem reuse
+
+#pragma unroll
+    for (auto i = 0; i < Sequentiality; i++) {
+        auto id              = (bix * bdx + tix) * Sequentiality + i;
+        thread_scope_huff[i] = id < len ? codebook[thread_scope_data[i] + offset] : 0;
+    }
+    __syncthreads();
+
+    BlockStoreT_huff(temp_storage.store_huff).Store(huff + (bix * bdx) * Sequentiality, thread_scope_huff);
 }
 
 template <typename Huff>
@@ -149,6 +198,15 @@ template __global__ void lossless::wrapper::EncodeFixedLen<I1, UI4>(I1*, UI4*, s
 template __global__ void lossless::wrapper::EncodeFixedLen<I1, UI8>(I1*, UI8*, size_t, UI8*, int);
 template __global__ void lossless::wrapper::EncodeFixedLen<I2, UI4>(I2*, UI4*, size_t, UI4*, int);
 template __global__ void lossless::wrapper::EncodeFixedLen<I2, UI8>(I2*, UI8*, size_t, UI8*, int);
+
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI1, UI4>(UI1*, UI4*, size_t, UI4*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI1, UI8>(UI1*, UI8*, size_t, UI8*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI2, UI4>(UI2*, UI4*, size_t, UI4*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI2, UI8>(UI2*, UI8*, size_t, UI8*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<I1, UI4>(I1*, UI4*, size_t, UI4*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<I1, UI8>(I1*, UI8*, size_t, UI8*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<I2, UI4>(I2*, UI4*, size_t, UI4*, int);
+template __global__ void lossless::wrapper::EncodeFixedLen_cub<I2, UI8>(I2*, UI8*, size_t, UI8*, int);
 
 template __global__ void lossless::wrapper::Deflate<UI4>(UI4*, size_t, size_t*, int);
 template __global__ void lossless::wrapper::Deflate<UI8>(UI8*, size_t, size_t*, int);

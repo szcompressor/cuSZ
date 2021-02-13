@@ -52,7 +52,9 @@ template <> struct HuffTrait<8> {typedef UI8 Huff;};
 struct HuffConfig {
     static const int Db_encode  = 256;
     static const int Db_deflate = 256;
-    static const int deflate_constant = 4;
+
+    static const int enc_sequentiality = 4;  // empirical
+    static const int deflate_constant  = 4;  // TODO -> deflate_chunk_constant
 };
 
 #endif
