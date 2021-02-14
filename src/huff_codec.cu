@@ -149,34 +149,48 @@ __global__ void lossless::wrapper::Deflate(Huff* huff, size_t len, size_t* sp_me
 
 // TODO change size_t to unsigned int
 template <typename Huff, typename Output>
-__device__ void
-lossless::wrapper::InflateChunkwise(Huff* in_huff, Output* out_quant, size_t total_bw, uint8_t* singleton)
+__device__ void lossless::wrapper::InflateChunkwise(Huff* input, Output* out, size_t total_bw, uint8_t* singleton)
 {
+    static const auto dtype_width = sizeof(Huff) * 8;
+
     uint8_t next_bit;
-    size_t  idx_bit;
-    size_t  idx_byte   = 0;
-    size_t  idx_bcoded = 0;
-    auto    first      = reinterpret_cast<Huff*>(singleton);
-    auto    entry      = first + sizeof(Huff) * 8;
-    auto    keys       = reinterpret_cast<Output*>(singleton + sizeof(Huff) * (2 * sizeof(Huff) * 8));
-    Huff    v          = (in_huff[idx_byte] >> (sizeof(Huff) * 8 - 1)) & 0x1;  // get the first bit
-    size_t  l          = 1;
-    size_t  i          = 0;
+    auto    idx_bit  = 0;
+    auto    idx_byte = 0;
+    auto    idx_out  = 0;
+
+    Huff bufr = input[idx_byte];
+
+    auto first = reinterpret_cast<Huff*>(singleton);
+    auto entry = first + dtype_width;
+    auto keys  = reinterpret_cast<Output*>(singleton + sizeof(Huff) * (2 * dtype_width));
+    Huff v     = (bufr >> (dtype_width - 1)) & 0x1;  // get the first bit
+    auto l     = 1;
+    auto i     = 0;
     while (i < total_bw) {
         while (v < first[l]) {  // append next i_cb bit
             ++i;
-            idx_byte = i / (sizeof(Huff) * 8);
-            idx_bit  = i % (sizeof(Huff) * 8);
-            next_bit = ((in_huff[idx_byte] >> (sizeof(Huff) * 8 - 1 - idx_bit)) & 0x1);
+            idx_byte = i / dtype_width;  // [1:exclusive]
+            idx_bit  = i % dtype_width;
+            if (idx_bit == 0) {
+                // idx_byte += 1; // [1:exclusive]
+                bufr = input[idx_byte];
+            }
+
+            next_bit = ((bufr >> (dtype_width - 1 - idx_bit)) & 0x1);
             v        = (v << 1) | next_bit;
             ++l;
         }
-        out_quant[idx_bcoded++] = keys[entry[l] + v - first[l]];
+        out[idx_out++] = keys[entry[l] + v - first[l]];
         {
             ++i;
-            idx_byte = i / (sizeof(Huff) * 8);
-            idx_bit  = i % (sizeof(Huff) * 8);
-            next_bit = ((in_huff[idx_byte] >> (sizeof(Huff) * 8 - 1 - idx_bit)) & 0x1);
+            idx_byte = i / dtype_width;  // [2:exclusive]
+            idx_bit  = i % dtype_width;
+            if (idx_bit == 0) {
+                // idx_byte += 1; // [2:exclusive]
+                bufr = input[idx_byte];
+            }
+
+            next_bit = ((bufr >> (dtype_width - 1 - idx_bit)) & 0x1);
             v        = 0x0 | next_bit;
         }
         l = 1;
@@ -185,31 +199,31 @@ lossless::wrapper::InflateChunkwise(Huff* in_huff, Output* out_quant, size_t tot
 
 template <typename Quant, typename Huff>
 __global__ void lossless::wrapper::Decode(
-    Huff*    densely,     //
-    size_t*  dH_meta,     //
-    Quant*   q_out,       //
-    size_t   len,         //
-    int      chunk_size,  //
+    Huff*    sp_huff,
+    size_t*  sp_meta,
+    Quant*   quant_out,
+    size_t   len,
+    int      chunk_size,
     int      n_chunk,
     uint8_t* singleton,
     size_t   singleton_size)
 {
     extern __shared__ uint8_t _s_singleton[];
-    if (threadIdx.x == 0) memcpy(_s_singleton, singleton, singleton_size);
+    static const auto         Db = HuffConfig::Db_deflate;
+
+    for (auto i = 0; i < (singleton_size - 1 + Db) / Db; i++) {
+        if (tix + i * Db < singleton_size) _s_singleton[tix + i * Db] = singleton[tix + i * Db];
+    }
     __syncthreads();
 
-    auto dH_bit_meta   = dH_meta;
-    auto dH_uInt_entry = dH_meta + n_chunk;
+    auto bits         = sp_meta;
+    auto UInt_entries = sp_meta + n_chunk;
 
-    size_t chunk_id = blockIdx.x * blockDim.x + threadIdx.x;
-    // if (chunk_id == 0) printf("n_chunk: %lu\n", n_chunk);
+    auto chunk_id = bix * bdx + tix;
+
     if (chunk_id >= n_chunk) return;
 
-    InflateChunkwise(                       //
-        densely + dH_uInt_entry[chunk_id],  //
-        q_out + chunk_size * chunk_id,      //
-        dH_bit_meta[chunk_id],              //
-        _s_singleton);
+    InflateChunkwise(sp_huff + UInt_entries[chunk_id], quant_out + chunk_size * chunk_id, bits[chunk_id], _s_singleton);
     __syncthreads();
 };
 
