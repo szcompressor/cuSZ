@@ -78,50 +78,73 @@ __global__ void lossless::wrapper::EncodeFixedLen_cub(Input* data, Huff* huff, s
     BlockStoreT_huff(temp_storage.store_huff).Store(huff + (bix * bdx) * Sequentiality, thread_scope_huff);
 }
 
-template <typename Huff>
-__global__ void lossless::wrapper::Deflate(
-    Huff*   h_in_out,  //
-    size_t  len,
-    size_t* densely_meta,
-    int     PART_SIZE)
-{
-    size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (gid >= (len - 1) / PART_SIZE + 1) return;
-    uint8_t bitwidth;
-    size_t  densely_coded_lsb_pos = sizeof(Huff) * 8, total_bitwidth = 0;
-    size_t  ending = (gid + 1) * PART_SIZE <= len ? PART_SIZE : len - gid * PART_SIZE;
-    //    if ((gid + 1) * PART_SIZE > len) printf("\n\ngid %lu\tending %lu\n\n", gid, ending);
-    Huff  msb_bw_word_lsb, _1, _2;
-    Huff* current = h_in_out + gid * PART_SIZE;
-    for (size_t i = 0; i < ending; i++) {
-        msb_bw_word_lsb = h_in_out[gid * PART_SIZE + i];
-        bitwidth        = *((uint8_t*)&msb_bw_word_lsb + (sizeof(Huff) - 1));
+template <typename T>
+struct PackedWord;
 
-        *((uint8_t*)&msb_bw_word_lsb + sizeof(Huff) - 1) = 0x0;
-        if (densely_coded_lsb_pos == sizeof(Huff) * 8) *current = 0x0;  // a new unit of data type
-        if (bitwidth <= densely_coded_lsb_pos) {
-            densely_coded_lsb_pos -= bitwidth;
-            *current |= msb_bw_word_lsb << densely_coded_lsb_pos;
-            if (densely_coded_lsb_pos == 0) {
-                densely_coded_lsb_pos = sizeof(Huff) * 8;
-                ++current;
+template <>
+struct PackedWord<UI4> {
+    UI4 word : 24;
+    UI4 bits : 8;
+};
+
+template <>
+struct PackedWord<UI8> {
+    UI8 word : 56;
+    UI8 bits : 8;
+};
+
+template <typename Huff>
+__global__ void lossless::wrapper::Deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
+{
+    // TODO static check with Huff and UI4/8
+    static const auto dtype_width = sizeof(Huff) * 8;
+
+    auto gid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (gid >= ((len + chunk_size - 1) / chunk_size)) return;
+
+    size_t  residue_bits = sizeof(Huff) * 8, total_bits = 0;
+    Huff*   ptr = huff + gid * chunk_size;
+    Huff    packed_word, bufr;
+    uint8_t word_width;
+
+    for (auto i = 0; i < chunk_size; i++) {
+        packed_word    = huff[gid * chunk_size + i];
+        auto word_ptr  = reinterpret_cast<struct PackedWord<Huff>*>(&packed_word);
+        word_width     = word_ptr->bits;
+        word_ptr->bits = (uint8_t)0x0;
+
+        if (residue_bits == dtype_width) {  // a new unit of compact format
+            bufr = 0x0;
+        }
+        ////////////////////////////////////////////////////////////////
+
+        if (word_width <= residue_bits) {
+            residue_bits -= word_width;
+            bufr |= packed_word << residue_bits;
+
+            if (residue_bits == 0) {
+                residue_bits = dtype_width;
+                *(ptr++)     = bufr;
             }
         }
         else {
-            // example: we have 5-bit code 11111 but 3 bits left for (*current)
-            // we put first 3 bits of 11111 to the last 3 bits of (*current)
-            // and put last 2 bits from MSB of (*(++current))
-            // the comment continues with the example
-            _1 = msb_bw_word_lsb >> (bitwidth - densely_coded_lsb_pos);
-            _2 = msb_bw_word_lsb << (sizeof(Huff) * 8 - (bitwidth - densely_coded_lsb_pos));
-            *current |= _1;
-            *(++current) = 0x0;
-            *current |= _2;
-            densely_coded_lsb_pos = sizeof(Huff) * 8 - (bitwidth - densely_coded_lsb_pos);
+            // example: we have 5-bit code 11111 but 3 bits available in (*ptr)
+            // 11111 for the residue 3 bits in (*ptr); 11111 for 2 bits of (*(++ptr)), starting with MSB
+            // ^^^                                        ^^
+            auto l_bits = word_width - residue_bits;
+            auto r_bits = dtype_width - l_bits;
+
+            bufr |= packed_word >> l_bits;
+            *(ptr++) = bufr;
+            bufr     = packed_word << r_bits;
+
+            residue_bits = r_bits;
         }
-        total_bitwidth += bitwidth;
+        total_bits += word_width;
     }
-    *(densely_meta + gid) = total_bitwidth;
+    *ptr = bufr;  // manage the last unit
+
+    *(sp_meta + gid) = total_bits;
 }
 
 // TODO change size_t to unsigned int
