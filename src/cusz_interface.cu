@@ -370,8 +370,15 @@ void cusz::interface::Decompress(
         }
         else if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            /*
             fm::x_lorenzo_2d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            */
+            /*
+            fm::x_lorenzo_2d1l_16x16_v0<Data, Quant>
+                <<<lc.cfg.Dg, dim3(16, 1, 1)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            */
+            fm::x_lorenzo_2d1l_16x16_v1<Data, Quant><<<lc.cfg.Dg, dim3(16, 2)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);

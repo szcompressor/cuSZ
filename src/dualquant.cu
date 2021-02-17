@@ -237,6 +237,129 @@ __global__ void kernel::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* data, Data* outl
 }
 
 template <typename Data, typename Quant>
+__global__ void kernel::x_lorenzo_2d1l_16x16_v0(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+{
+    static const auto Block = MetadataTrait<2>::Block;
+    static_assert(Block == 16, "In one case, we need Block for 2D == 16");
+
+    Data thread_scope[Block];
+    //     ------> gi0 (x)
+    //  |   t0    t1    t2    t3
+    //  |  ts0_0 ts0_0 ts0_0 ts0_0
+    //  |  ts0_1 ts0_1 ts0_1 ts0_1
+    // gi1 ts0_2 ts0_2 ts0_2 ts0_2
+    // (y)  |     |     |     |
+    //     ts0_f ts0_f ts0_f ts0_f
+
+    auto gi0      = bix * bdx + tix;
+    auto gi1_base = biy * Block;  // bdy: 16 -> 1
+    auto radius   = static_cast<Data>(ctx.radius);
+
+    auto get_gid = [&](auto i) { return (gi1_base + i) * ctx.stride1 + gi0; };
+
+#pragma unroll
+    for (auto i = 0; i < Block; i++) {
+        auto gid = get_gid(i);
+
+        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1)
+            thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
+        else
+            thread_scope[i] = 0;
+        __syncthreads();
+    }
+
+    // sequential partial-sum
+    for (auto i = 1; i < Block; i++) thread_scope[i] += thread_scope[i - 1];
+    __syncthreads();
+
+    // shuffle
+#pragma unroll
+    for (auto& i : thread_scope) {
+        for (auto d = 1; d < Block; d *= 2) {
+            Data n = __shfl_up_sync(0xf, i, d);
+            if (tix >= d) i += n;
+        }
+        i *= ctx.ebx2;
+    }
+
+#pragma unroll
+    for (auto i = 0; i < Block; i++) {
+        auto gid = get_gid(i);
+        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) xdata[gid] = thread_scope[i];
+    }
+    __syncthreads();
+}
+
+template <typename Data, typename Quant>
+__global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+{
+    static const auto Block          = MetadataTrait<2>::Block;
+    static const auto YSequentiality = Block / 2;  // sequentiality in y direction
+    static_assert(Block == 16, "In one case, we need Block for 2D == 16");
+
+    __shared__ Data intermediate[Block];
+    Data            thread_scope[YSequentiality];
+    //     ------> gi0 (x)
+    //  |  t00    t01    t02    t03   ... t0f
+    //  |  ts00_0 ts00_0 ts00_0 ts00_0
+    // gi1 ts00_1 ts00_1 ts00_1 ts00_1
+    // (y)  |     |     |     |
+    //     ts00_7 ts00_7 ts00_7 ts00_7
+    //
+    //  |  t10    t11    t12    t13   ... t1f
+    //  |  ts00_0 ts00_0 ts00_0 ts00_0
+    // gi1 ts00_1 ts00_1 ts00_1 ts00_1
+    // (y)  |     |     |     |
+    //     ts00_7 ts00_7 ts00_7 ts00_7
+
+    auto gi0      = bix * bdx + tix;                     // bdx == 16
+    auto gi1_base = biy * Block + tiy * YSequentiality;  // bdy * YSequentiality = Block == 16
+    auto radius   = static_cast<Data>(ctx.radius);
+
+    auto get_gid = [&](auto i) { return (gi1_base + i) * ctx.stride1 + gi0; };
+
+#pragma unroll
+    for (auto i = 0; i < YSequentiality; i++) {
+        auto gid = get_gid(i);
+
+        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1)
+            thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
+        else
+            thread_scope[i] = 0;
+        __syncthreads();
+    }
+
+    // sequential partial-sum
+    for (auto i = 1; i < YSequentiality; i++) thread_scope[i] += thread_scope[i - 1];
+    __syncthreads();
+    if (tiy == 0) intermediate[tix] = thread_scope[YSequentiality - 1];
+    __syncthreads();
+    if (tiy == 1) {
+        auto tmp = intermediate[tix];
+#pragma unroll
+        for (auto& i : thread_scope) i += tmp;
+    }
+    __syncthreads();
+
+    // shuffle
+#pragma unroll
+    for (auto& i : thread_scope) {
+        for (auto d = 1; d < Block; d *= 2) {
+            Data n = __shfl_up_sync(0xf, i, d);
+            if (tix >= d) i += n;
+        }
+        i *= ctx.ebx2;
+    }
+
+#pragma unroll
+    for (auto i = 0; i < YSequentiality; i++) {
+        auto gid = get_gid(i);
+        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) xdata[gid] = thread_scope[i];
+    }
+    __syncthreads();
+}
+
+template <typename Data, typename Quant>
 __global__ void kernel::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
 {
     static const auto Block            = MetadataTrait<3>::Block;
@@ -293,5 +416,9 @@ template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI1>(lorenzo_unzip, FP4
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_2d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_2d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+template __global__ void kernel::x_lorenzo_2d1l_16x16_v0<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel::x_lorenzo_2d1l_16x16_v0<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+template __global__ void kernel::x_lorenzo_2d1l_16x16_v1<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel::x_lorenzo_2d1l_16x16_v1<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_3d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_3d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
