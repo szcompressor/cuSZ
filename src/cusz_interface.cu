@@ -382,8 +382,13 @@ void cusz::interface::Decompress(
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
+            /*
             fm::x_lorenzo_3d1l<Data, Quant>
                 <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            fm::x_lorenzo_3d1l_8x8x8_v0<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            fm::x_lorenzo_3d1l_8x8x8_v1_slow<Data, Quant><<<lc.cfg.Dg, dim3(8, 2, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+                */
+            fm::x_lorenzo_3d1l_8x8x8_v0_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
