@@ -32,6 +32,9 @@ template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l(lorenzo_
 template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_16x16_v0(lorenzo_unzip, Data*xdata, Data*outlier, Quant*quant);
 template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_16x16_v1(lorenzo_unzip, Data*xdata, Data*outlier, Quant*quant);
 template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v0(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v1_slow(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v0_v2(lorenzo_unzip, Data*, Data*, Quant*);
 }}
 // clang-format on
 #endif
