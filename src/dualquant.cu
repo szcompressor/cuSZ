@@ -320,30 +320,24 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         auto gid = get_gid(i);
-
+        // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1)
             thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
         else
             thread_scope[i] = 0;
-        __syncthreads();
     }
-
     // sequential partial-sum
     for (auto i = 1; i < YSequentiality; i++) thread_scope[i] += thread_scope[i - 1];
-    __syncthreads();
-
     // store for cross-thread update
     if (tiy == 0) intermediate[tix] = thread_scope[YSequentiality - 1];
-    __syncthreads();
+    __syncthreads();  // somehow deletable
     // load and update
     if (tiy == 1) {
         auto tmp = intermediate[tix];
 #pragma unroll
         for (auto& i : thread_scope) i += tmp;
     }
-    __syncthreads();
-
-    // shuffle
+    // partial-sum
 #pragma unroll
     for (auto& i : thread_scope) {
         for (auto d = 1; d < Block; d *= 2) {
@@ -352,13 +346,11 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
         }
         i *= ctx.ebx2;
     }
-
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         auto gid = get_gid(i);
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) xdata[gid] = thread_scope[i];
     }
-    __syncthreads();
 }
 
 template <typename Data, typename Quant>
@@ -535,19 +527,15 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v1_slow(lorenzo_unzip ctx, Data* da
             Data n = __shfl_up_sync(0x7, i, d);
             if (tix >= d) i += n;
         }
-        // xz transpose
-        intermediate[tiz + y * BlockStride1 + tix * BlockStride2] = i;
-        __syncthreads();
-        i = intermediate[tix + y * BlockStride1 + tiz * BlockStride2];
         i *= ctx.ebx2;
-        __syncthreads();
     }
 
+    gi0 = bix * bdx + tiz;
+    gi2 = biz * bdz + tix;
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1 and gi2 < ctx.d2) { data[get_gid(i)] = thread_scope[i]; }
     }
-    __syncthreads();
 }
 
 template <typename Data, typename Quant>
@@ -568,6 +556,7 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2(lorenzo_unzip ctx, Data* data
     auto radius   = static_cast<Data>(ctx.radius);
     auto get_gid  = [&](auto i) { return gi2 * ctx.stride2 + (gi1_base + i) * ctx.stride1 + gi0; };
 
+    // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         auto gid = get_gid(i);
@@ -576,13 +565,10 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2(lorenzo_unzip ctx, Data* data
         else
             thread_scope[i] = 0;
     }
-    __syncthreads();
-    
     // sequential partial-sum
     for (auto i = 1; i < YSequentiality; i++) thread_scope[i] += thread_scope[i - 1];
-    __syncthreads();
 
-    // shuffle
+        // shuffle
 #pragma unroll
     for (auto& i : thread_scope) {
         // partial-sum
@@ -594,15 +580,14 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2(lorenzo_unzip ctx, Data* data
         auto y = &i - thread_scope;
         // xz transpose
         intermediate[tiz + y * BlockStride1 + tix * BlockStride2] = i;
-        __syncthreads();
+        __syncthreads();  // necessary barrier
         i = intermediate[tix + y * BlockStride1 + tiz * BlockStride2];
-//        __syncthreads();
+
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
             Data n = __shfl_up_sync(0x7, i, d);
             if (tix >= d) i += n;
         }
-//        __syncthreads();
         // scale by eb*2
         i *= ctx.ebx2;
     }
@@ -613,7 +598,6 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2(lorenzo_unzip ctx, Data* data
     for (auto i = 0; i < YSequentiality; i++) {
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1 and gi2 < ctx.d2) { data[get_gid(i)] = thread_scope[i]; }
     }
-//    __syncthreads();
 }
 
 template __global__ void kernel::c_lorenzo_1d1l<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
