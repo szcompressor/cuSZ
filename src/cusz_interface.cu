@@ -360,35 +360,16 @@ void cusz::interface::Decompress(
     {
         if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
             LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            /*
-            // old kernel of naive implementation for reference
-            fm::x_lorenzo_1d1l<Data, Quant>
-                <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
-            */
             fm::x_lorenzo_1d1l_cub<Data, Quant><<<lc.cfg.Dg.x, lc.cfg.Db.x / MetadataTrait<1>::Sequentiality>>>  //
                 (lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
-        else if (ap->ndim == 2) {
+        else if (ap->ndim == 2) {  // y-sequentiality == 8
             LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            /*
-            fm::x_lorenzo_2d1l<Data, Quant>
-                <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
-            */
-            /*
-            fm::x_lorenzo_2d1l_16x16_v0<Data, Quant>
-                <<<lc.cfg.Dg, dim3(16, 1, 1)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
-            */
             fm::x_lorenzo_2d1l_16x16_v1<Data, Quant><<<lc.cfg.Dg, dim3(16, 2)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
-        else if (ap->ndim == 3) {
+        else if (ap->ndim == 3) {  // y-sequentiality == 8
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            /*
-            fm::x_lorenzo_3d1l<Data, Quant>
-                <<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
-            fm::x_lorenzo_3d1l_8x8x8_v0<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
-            fm::x_lorenzo_3d1l_8x8x8_v1_slow<Data, Quant><<<lc.cfg.Dg, dim3(8, 2, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
-                */
-            fm::x_lorenzo_3d1l_8x8x8_v0_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }

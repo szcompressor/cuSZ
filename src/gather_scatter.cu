@@ -30,7 +30,7 @@ using stream_t = cudaStream_t;
 using descr_t  = cusparseMatDescr_t;
 
 template <typename Data>
-void cusz::impl::GatherAsCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo)
+void cusz::impl::GatherAsCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* p_nnz, std::string* fo)
 {
     uint8_t* outbin;
     size_t   lrp, lci, lv, ltotal;
@@ -57,12 +57,12 @@ void cusz::impl::GatherAsCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_
         CHECK_CUSPARSE(cusparseSnnz(
             handle, CUSPARSE_DIRECTION_ROW, // parsed by row
             m, n, descr, d_A, ldA,          // description of d_A
-            d_nnz_per_row, nnz)             // output
+            d_nnz_per_row, p_nnz)             // output
         );
 
         lrp    = sizeof(int)  * (m + 1);
-        lci    = sizeof(int)  * *nnz;
-        lv     = sizeof(Data) * *nnz;
+        lci    = sizeof(int)  * (*p_nnz);
+        lv     = sizeof(Data) * (*p_nnz);
         ltotal = lrp + lci + lv;
         outbin = new uint8_t[ltotal];
         CHECK_CUDA(cudaMalloc((void**)&d_row_ptr, lrp));
@@ -100,12 +100,19 @@ template void
 cusz::impl::GatherAsCSR<float>(float* d_A, size_t lenA, size_t ldA, size_t m, size_t n, int* nnz, std::string* fo);
 
 template <typename Data>
-void cusz::impl::ScatterFromCSR(Data* d_A, size_t lenA, size_t ldA, size_t m, size_t n, const int* nnz, std::string* fi)
+void cusz::impl::ScatterFromCSR(
+    Data*        d_A,
+    size_t       lenA,
+    size_t       ldA,
+    size_t       m,
+    size_t       n,
+    const int*   p_nnz,
+    std::string* fi)
 {
     // clang-format off
     auto lrp         = sizeof(int)  * (ldA + 1);
-    auto lci         = sizeof(int)  * *nnz;
-    auto lv          = sizeof(Data) * *nnz;
+    auto lci         = sizeof(int)  * (*p_nnz);
+    auto lv          = sizeof(Data) * (*p_nnz);
     auto l_total     = lrp + lci + lv;
     auto outlier_bin = io::ReadBinaryToNewArray<uint8_t>(*fi, l_total);
     auto row_ptr     = reinterpret_cast<int*>(outlier_bin);
@@ -209,8 +216,8 @@ void cusz::impl::PruneGatherAsCSR(
     CHECK_CUDA(cudaDeviceSynchronize());
 
     /* step 6: output C */
-    auto lrp    = sizeof(int)   * (m + 1);
-    auto lci    = sizeof(int)   * nnzC;
+    auto lrp    = sizeof(int) * (m + 1);
+    auto lci    = sizeof(int) * nnzC;
     auto lv     = sizeof(float) * nnzC;
     auto ltotal = lrp + lci + lv;
     auto outbin = new uint8_t[ltotal];
