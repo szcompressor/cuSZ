@@ -100,9 +100,9 @@ struct unzip::Lorenzo_nd1l {
     template <typename Data, typename Quant>
     static void Call(lorenzo_unzip ctx, Data* xd, Data* outlier, Quant* q)
     {
-        if CONSTEXPR (ndim == 1) fm::x_lorenzo_1d1l<Data, Quant>(ctx, xd, outlier, q);
-        if CONSTEXPR (ndim == 2) fm::x_lorenzo_2d1l<Data, Quant>(ctx, xd, outlier, q);
-        if CONSTEXPR (ndim == 3) fm::x_lorenzo_3d1l<Data, Quant>(ctx, xd, outlier, q);
+        if CONSTEXPR (ndim == 1) fm::x_lorenzo_1d1l_cub<Data, Quant>(ctx, xd, outlier, q);
+        if CONSTEXPR (ndim == 2) fm::x_lorenzo_2d1l_16x16_v1<Data, Quant>(ctx, xd, outlier, q);
+        if CONSTEXPR (ndim == 3) fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant>(ctx, xd, outlier, q);
     }
 };
 

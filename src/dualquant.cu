@@ -121,7 +121,7 @@ __global__ void kernel::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+__global__ void kernel::prototype::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
 {
     static const auto Block = MetadataTrait<1>::Block;
     Data(&buffer)[Block]    = *reinterpret_cast<Data(*)[Block]>(&scratch);
@@ -201,7 +201,7 @@ __global__ void kernel::x_lorenzo_1d1l_cub(lorenzo_unzip ctx, Data* xdata, Data*
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+__global__ void kernel::prototype::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
 {
     static const auto Block     = MetadataTrait<2>::Block;
     Data(&buffer)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
@@ -237,7 +237,7 @@ __global__ void kernel::x_lorenzo_2d1l(lorenzo_unzip ctx, Data* data, Data* outl
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_2d1l_16x16_v0(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+__global__ void kernel::legacy::x_lorenzo_2d1l_16x16_v0(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
 {
     static const auto Block = MetadataTrait<2>::Block;
     static_assert(Block == 16, "In one case, we need Block for 2D == 16");
@@ -354,7 +354,7 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+__global__ void kernel::prototype::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
 {
     static const auto Block            = MetadataTrait<3>::Block;
     Data(&buffer)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
@@ -398,7 +398,7 @@ __global__ void kernel::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* data, Data* outl
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_3d1l_8x8x8_v0(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+__global__ void kernel::legacy::x_lorenzo_3d1l_8x8x8_v0(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
     static const auto Block          = MetadataTrait<3>::Block;
     static const auto BlockStride1   = Block;
@@ -465,7 +465,7 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0(lorenzo_unzip ctx, Data* data, D
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_3d1l_8x8x8_v1_slow(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+__global__ void kernel::legacy::x_lorenzo_3d1l_8x8x8_v1(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
     static const auto Block          = MetadataTrait<3>::Block;
     static const auto BlockStride1   = Block;
@@ -539,7 +539,7 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v1_slow(lorenzo_unzip ctx, Data* da
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+__global__ void kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
     static const auto Block          = MetadataTrait<3>::Block;
     static const auto BlockStride1   = Block;
@@ -607,21 +607,9 @@ template __global__ void kernel::c_lorenzo_2d1l<FP4, UI2>(lorenzo_zip, FP4*, UI2
 template __global__ void kernel::c_lorenzo_3d1l<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
 template __global__ void kernel::c_lorenzo_3d1l<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
 
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_1d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel::x_lorenzo_2d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_2d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel::x_lorenzo_2d1l_16x16_v0<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_2d1l_16x16_v0<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
 template __global__ void kernel::x_lorenzo_2d1l_16x16_v1<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_2d1l_16x16_v1<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel::x_lorenzo_3d1l<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_3d1l<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v1_slow<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v1_slow<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
-template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
-template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v0_v2<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
+template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v2<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
+template __global__ void kernel::x_lorenzo_3d1l_8x8x8_v2<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
