@@ -1,0 +1,79 @@
+#!/bin/bash
+
+HACC=1d-hacc-small
+CESM=2d-cesm  
+HURR=3d-hurr  
+NYXS=3d-nyx-small  
+QMCP=3d-qmcpack
+
+HACC_DIR=${HOME}/datasets/${HACC}
+CESM_DIR=${HOME}/datasets/${CESM}
+HURR_DIR=${HOME}/datasets/${HURR}
+NYXS_DIR=${HOME}/datasets/${NYXS}
+QMCP_DIR=${HOME}/datasets/${QMCP}
+
+CUSZ=${HOME}/cusz-latest/bin/cusz
+
+for datum in ${HACC_DIR}/*.f32; do
+	DATASET=${HACC}
+	NAME="hacc"
+	tmp=$(basename -- "$datum")
+	FILENAME="${tmp%.*}"
+	CMD="nsys profile --stats=true --output ${DATASET}-c-${FILENAME} ${CUSZ} -t f32 -m r2r -e 1e-4 -i ${datum} -D ${NAME} -z"
+	eval ${CMD}
+	CMD="nsys profile --stats=true --output ${DATASET}-x-${FILENAME} ${CUSZ} -i ${datum}.sz -x --origin ${datum} --skip write.x"
+	eval ${CMD}
+done
+
+for datum in ${CESM_DIR}/*.dat; do
+	DATASET=${CESM}
+	NAME="cesm"
+	tmp=$(basename -- "$datum")
+	FILENAME="${tmp%.*}"
+	CMD="nsys profile --stats=true --output ${DATASET}-c-${FILENAME} ${CUSZ} -t f32 -m r2r -e 1e-4 -i ${datum} -D ${NAME} -z"
+	eval ${CMD}
+	CMD="nsys profile --stats=true --output ${DATASET}-x-${FILENAME} ${CUSZ} -i ${datum}.sz -x --origin ${datum} --skip write.x"
+	eval ${CMD}
+done
+
+for datum in ${HURR_DIR}/*.f32; do
+	DATASET=${HURR}
+	NAME="hurricane"
+	tmp=$(basename -- "$datum")
+	FILENAME="${tmp%.*}"
+	CMD="nsys profile --stats=true --output ${DATASET}-c-${FILENAME} ${CUSZ} -t f32 -m r2r -e 1e-4 -i ${datum} -D ${NAME} -z"
+	eval ${CMD}
+	CMD="nsys profile --stats=true --output ${DATASET}-x-${FILENAME} ${CUSZ} -i ${datum}.sz -x --origin ${datum} --skip write.x"
+	eval ${CMD}
+done
+	
+for datum in ${NYXS_DIR}/*.dat; do
+	DATASET=${NYXS}
+	NAME="nyx-s"
+	tmp=$(basename -- "$datum")
+	FILENAME="${tmp%.*}"
+	CMD="nsys profile --stats=true --output ${DATASET}-c-${FILENAME} ${CUSZ} -t f32 -m r2r -e 1e-4 -i ${datum} -D ${NAME} -z"
+	eval ${CMD}
+	CMD="nsys profile --stats=true --output ${DATASET}-x-${FILENAME} ${CUSZ} -i ${datum}.sz -x --origin ${datum} --skip write.x"
+	eval ${CMD}
+done
+
+datum=${QMCP_DIR}/einspline_115_69_69_288.f32
+DATASET=${QMCP}
+NAME="qmc"
+tmp=$(basename -- "$datum")
+FILENAME="${tmp%.*}"
+CMD="nsys profile --stats=true --output ${DATASET}-c-${FILENAME} ${CUSZ} -t f32 -m r2r -e 1e-4 -i ${datum} -D ${NAME} -z"
+eval ${CMD}
+CMD="nsys profile --stats=true --output ${DATASET}-x-${FILENAME} ${CUSZ} -i ${datum}.sz -x --origin ${datum} --skip write.x"
+eval ${CMD}
+
+datum=${QMCP_DIR}/einspline_288_115_69_69.pre.f32
+DATASET=${QMCP}
+NAME="qmcpre"
+tmp=$(basename -- "$datum")
+FILENAME="${tmp%.*}"
+CMD="nsys profile --stats=true --output ${DATASET}-c-${FILENAME} ${CUSZ} -t f32 -m r2r -e 1e-4 -i ${datum} -D ${NAME} -z"
+eval ${CMD}
+CMD="nsys profile --stats=true --output ${DATASET}-x-${FILENAME} ${CUSZ} -i ${datum}.sz -x --origin ${datum} --skip write.x"
+eval ${CMD}
