@@ -64,6 +64,70 @@ __global__ void kernel::c_lorenzo_1d1l(lorenzo_zip ctx, Data* d, Quant* q)
     }
 }
 
+template <typename Data, typename Quant, int Sequentiality>
+__global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
+{
+    static const auto Block = MetadataTrait<1>::Block;
+
+    static const auto nThreads = Block / Sequentiality;
+
+    __shared__ union ShareMem {
+        uint8_t  uninitialized[Block * (sizeof(Data) + sizeof(Quant))];
+        Data     data[Block];
+        uint32_t outlier_loc[Block];
+    } shmem;
+
+    auto id_base = bix * Block;
+
+    //    tix ->>>>>>>>>
+    //  0
+    //  1
+    //  2
+    //  4
+
+    Data thread_scope[Sequentiality];
+    Data from_last_stripe{0};
+
+#pragma unroll
+    for (auto i = 0; i < Sequentiality; i++) {
+        auto id = id_base + tix + i * nThreads;
+        if (id < ctx.d0) { shmem.data[tix + i * nThreads] = round(d[id] * ctx.ebx2_r); }
+    }
+    __syncthreads();
+    for (auto i = 0; i < Sequentiality; i++) thread_scope[i] = shmem.data[tix * Sequentiality + i];
+    if (tix > 0) from_last_stripe = shmem.data[tix * Sequentiality - 1];
+    __syncthreads();
+
+    auto shmem_quant = reinterpret_cast<Quant*>(shmem.uninitialized + sizeof(Data) * Block);
+
+    // i == 0
+    {
+        Data delta                           = thread_scope[0] - from_last_stripe;
+        bool quantizable                     = fabs(delta) < ctx.radius;
+        Data candidate                       = delta + ctx.radius;
+        shmem.data[0 + tix * Sequentiality]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+        shmem_quant[0 + tix * Sequentiality] = quantizable * static_cast<Quant>(candidate);
+    }
+#pragma unroll
+    for (auto i = 1; i < Sequentiality; i++) {
+        Data delta                           = thread_scope[i] - thread_scope[i - 1];
+        bool quantizable                     = fabs(delta) < ctx.radius;
+        Data candidate                       = delta + ctx.radius;
+        shmem.data[i + tix * Sequentiality]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+        shmem_quant[i + tix * Sequentiality] = quantizable * static_cast<Quant>(candidate);
+    }
+    __syncthreads();
+
+#pragma unroll
+    for (auto i = 0; i < Sequentiality; i++) {
+        auto id = id_base + tix + i * nThreads;
+        if (id < ctx.d0) {  //
+            q[id] = shmem_quant[tix + i * nThreads];
+            d[id] = shmem.data[tix + i * nThreads];
+        }
+    }
+}
+
 template <typename Data, typename Quant>
 __global__ void kernel::c_lorenzo_2d1l(lorenzo_zip ctx, Data* d, Quant* q)
 {
@@ -606,6 +670,15 @@ template __global__ void kernel::c_lorenzo_2d1l<FP4, UI1>(lorenzo_zip, FP4*, UI1
 template __global__ void kernel::c_lorenzo_2d1l<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
 template __global__ void kernel::c_lorenzo_3d1l<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
 template __global__ void kernel::c_lorenzo_3d1l<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
+
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI1, 2>(lorenzo_zip, FP4*, UI1*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI2, 2>(lorenzo_zip, FP4*, UI2*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI1, 4>(lorenzo_zip, FP4*, UI1*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI2, 4>(lorenzo_zip, FP4*, UI2*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI1, 8>(lorenzo_zip, FP4*, UI1*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI2, 8>(lorenzo_zip, FP4*, UI2*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI1, 16>(lorenzo_zip, FP4*, UI1*);
+template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI2, 16>(lorenzo_zip, FP4*, UI2*);
 
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
