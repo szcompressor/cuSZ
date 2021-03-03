@@ -79,12 +79,6 @@ __global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
 
     auto id_base = bix * Block;
 
-    //    tix ->>>>>>>>>
-    //  0
-    //  1
-    //  2
-    //  4
-
     Data thread_scope[Sequentiality];
     Data from_last_stripe{0};
 
@@ -151,6 +145,54 @@ __global__ void kernel::c_lorenzo_2d1l(lorenzo_zip ctx, Data* d, Quant* q)
         Data candidate   = delta + ctx.radius;
         d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
         q[id]            = quantizable * static_cast<Quant>(candidate);
+    }
+}
+
+template <typename Data, typename Quant>
+__global__ void kernel::c_lorenzo_2d1l_16x2(lorenzo_zip ctx, Data* d, Quant* q)
+{
+    static const auto Block          = MetadataTrait<2>::Block;
+    static const auto YSequentiality = 8;
+
+    Data center[YSequentiality + 1] = {0};  //   nw  north
+                                            //    Data west[YSequentiality + 1]   = {0};  // west  center
+
+    auto gi0      = bix * bdx + tix;                     // bdx == 16
+    auto gi1_base = biy * Block + tiy * YSequentiality;  // bdy * YSequentiality = Block == 16
+    auto radius   = static_cast<Data>(ctx.radius);
+    auto get_gid  = [&](auto i) { return (gi1_base + i) * ctx.stride1 + gi0; };
+
+    // read from global memory
+#pragma unroll
+    for (auto i = 0; i < YSequentiality; i++) {
+        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) center[i + 1] = round(d[get_gid(i)] * ctx.ebx2_r);
+    }
+
+    auto tmp = __shfl_up_sync(0x1f, center[YSequentiality], 16);  // ???
+    if (tiy == 1) center[0] = tmp;
+
+#pragma unroll
+    for (auto i = YSequentiality; i > 0; i--) {
+        center[i] -= center[i - 1];
+        auto west = __shfl_up_sync(0xf, center[i], 1);
+        if (tix > 0) center[i] -= west;
+    }
+    __syncthreads();
+
+    // original form
+    // Data delta = center[i] - center[i - 1] + west[i] - west[i - 1];
+    // short form
+    // Data delta = center[i] - west[i];
+
+#pragma unroll
+    for (auto i = 1; i < YSequentiality + 1; i++) {
+        auto gid         = get_gid(i - 1);
+        bool quantizable = fabs(center[i]) < ctx.radius;
+        Data candidate   = center[i] + ctx.radius;
+        if (gi0 < ctx.d0 and gi1_base + i - 1 < ctx.d1) {
+            d[gid] = (1 - quantizable) * candidate;  // output; reuse data for outlier
+            q[gid] = quantizable * static_cast<Quant>(candidate);
+        }
     }
 }
 
@@ -361,7 +403,7 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
     static const auto YSequentiality = Block / 2;  // sequentiality in y direction
     static_assert(Block == 16, "In one case, we need Block for 2D == 16");
 
-    __shared__ Data intermediate[Block];
+    __shared__ Data intermediate[Block];  // TODO use warp shuffle to eliminate this
     Data            thread_scope[YSequentiality];
     //     ------> gi0 (x)
     //  |  t00    t01    t02    t03   ... t0f
@@ -388,7 +430,7 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1)
             thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
         else
-            thread_scope[i] = 0;
+            thread_scope[i] = 0;  // TODO set as init state?
     }
     // sequential partial-sum
     for (auto i = 1; i < YSequentiality; i++) thread_scope[i] += thread_scope[i - 1];
@@ -679,6 +721,9 @@ template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI1, 8>(lorenzo_zip, FP4
 template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI2, 8>(lorenzo_zip, FP4*, UI2*);
 template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI1, 16>(lorenzo_zip, FP4*, UI1*);
 template __global__ void kernel::c_lorenzo_1d1l_v2<FP4, UI2, 16>(lorenzo_zip, FP4*, UI2*);
+
+template __global__ void kernel::c_lorenzo_2d1l_16x2<FP4, UI2>(lorenzo_zip, FP4*, UI2*);
+template __global__ void kernel::c_lorenzo_2d1l_16x2<FP4, UI1>(lorenzo_zip, FP4*, UI1*);
 
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI1>(lorenzo_unzip, FP4*, FP4*, UI1*);
 template __global__ void kernel::x_lorenzo_1d1l_cub<FP4, UI2>(lorenzo_unzip, FP4*, FP4*, UI2*);
