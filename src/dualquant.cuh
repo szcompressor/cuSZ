@@ -28,6 +28,7 @@ template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l(lorenzo_
 template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*);
 
 template <typename Data, typename Quant, int Sequentiality=8> __global__ void c_lorenzo_1d1l_v2(lorenzo_zip, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_16x2(lorenzo_zip, Data*, Quant*);
 
 namespace prototype { // easy for algorithmic description
 template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l(lorenzo_unzip, Data*, Data*, Quant*);

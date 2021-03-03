@@ -199,15 +199,14 @@ void cusz::interface::Compress(
     {
         if (ap->ndim == 1) {
             LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            //            fm::c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx,
-            //            d_data, d_quant);
             // seq = 4 for A100
             fm::c_lorenzo_1d1l_v2<Data, Quant, 4>
                 <<<lc.cfg.Dg, lc.cfg.Db.x / 4, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
         }
         else if (ap->ndim == 2) {
             LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
+            fm::c_lorenzo_2d1l_16x2<Data, Quant>
+                <<<lc.cfg.Dg, dim3(16, 2, 1), lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
         }
         else if (ap->ndim == 3) {
             LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
