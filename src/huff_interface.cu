@@ -32,7 +32,6 @@
 #include "hist.cuh"
 #include "huff_codec.cuh"
 #include "huff_interface.cuh"
-#include "par_huffman.cuh"
 #include "type_aliasing.hh"
 #include "type_trait.hh"
 #include "types.hh"
@@ -73,18 +72,6 @@ __global__ void draft::CopyHuffmanUintsDenseToSparse(
         if (_tid < len) *(output_sp + sp_entry + _tid) = *(input_dn + dn_entry + _tid);
         __syncthreads();
     }
-}
-
-template <typename Huff>
-void draft::ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
-{
-    auto              cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canon_cb, dict_size);
-    std::stringstream s;
-    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
-    LogAll(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
-    io::WriteArrayToBinary(s.str(), cb_dump, dict_size);
-    delete[] cb_dump;
-    cb_dump = nullptr;
 }
 
 template <typename Huff>
@@ -244,42 +231,27 @@ void lossless::wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_fr
 
 template <typename Quant, typename Huff, typename Data>
 tuple_3ul_1bool lossless::interface::HuffmanEncode(
-    string& basename,
-    Quant*  d_input,
-    size_t  len,
-    int     dn_chunk,
-    bool    to_nvcomp,
-    int     dict_size,
-    bool    export_cb)
+    string&  basename,
+    Quant*   d_input,
+    Huff*    d_canon_cb,
+    uint8_t* d_reverse_cb,
+    size_t   _nbyte,
+    size_t   len,
+    int      dn_chunk,
+    bool     to_nvcomp,
+    int      dict_size)
 {
     static const auto type_bitcount = sizeof(Huff) * 8;  // canonical Huffman; follows H to decide first and entry type
 
     auto get_Dg = [](size_t problem_size, size_t Db) { return (problem_size + Db - 1) / Db; };
 
-    // histogram
-    auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
-    lossless::wrapper::GetFrequency(d_input, len, d_freq, dict_size);
-
-    // get codebooks
-    auto d_canon_cb = mem::CreateCUDASpace<Huff>(dict_size, 0xff);
-    // first, entry, reversed codebook; TODO CHANGED first and entry to H type
-    auto _nbyte          = sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
-    auto d_dec_ancillary = mem::CreateCUDASpace<uint8_t>(_nbyte);
-    lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_dec_ancillary);
-    cudaDeviceSynchronize();
-
-    auto decode_meta = mem::CreateHostSpaceAndMemcpyFromDevice(d_dec_ancillary, _nbyte);
+    auto decode_meta = mem::CreateHostSpaceAndMemcpyFromDevice(d_reverse_cb, _nbyte);
     io::WriteArrayToBinary(
         basename + ".canon", reinterpret_cast<uint8_t*>(decode_meta),
         sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size);
     delete[] decode_meta;
 
-    // internal evaluation, not stored in sz archive
-    if (export_cb) draft::ExportCodebook(d_canon_cb, basename, dict_size);
-
     // Huffman space in dense format (full of zeros), fix-length space
-    // auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + HuffConfig::Db_encode); // origin
-    // auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + HuffConfig::Db_encode); // prev small padding
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + dn_chunk + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
     {
         auto Db = HuffConfig::Db_encode;
@@ -329,7 +301,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
         (2 * nchunk) * sizeof(decltype(_counts)) + sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
 
     // clean up
-    cudaFree(d_freq), cudaFree(d_canon_cb), cudaFree(d_dec_ancillary), cudaFree(d_huff_dn), cudaFree(d_sp_bits);
+    cudaFree(d_huff_dn), cudaFree(d_sp_bits);
     delete[] huff_sp, delete[] _counts;
 
     return std::make_tuple(total_bits, total_uints, metadata_size, status_nvcomp_in_use);
@@ -474,10 +446,10 @@ Quant* lossless::interface::HuffmanDecode(
 // using H4 = HuffTrait<4>::Huff;
 
 // clang-format off
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, size_t, int, bool, int, bool);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, bool, int, bool);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, bool, int, bool);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, bool, int, bool);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, bool, int);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, bool, int);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
 
 template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, size_t, bool, int);
 template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, size_t, bool, int);
