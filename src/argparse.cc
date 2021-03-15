@@ -162,16 +162,10 @@ ArgPack::CheckArgs()
     }
 
     if (szwf.gtest) {
-        if (szwf.lossy_dryrun) {
-            szwf.gtest = false;
-        }
+        if (szwf.lossy_dryrun) { szwf.gtest = false; }
         else {
-            if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) {
-                szwf.gtest = false;
-            }
-            if (subfiles.x_fi_origin == "") {
-                szwf.gtest = false;
-            }
+            if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) { szwf.gtest = false; }
+            if (subfiles.x_fi_origin == "") { szwf.gtest = false; }
         }
     }
 
@@ -653,20 +647,8 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                 case 'e':
                 tag_error_bound:
                     if (i + 1 <= argc) {
-                        string eb(argv[++i]);
-                        if (eb.find('e') != std::string::npos) {
-                            string dlm = "e";
-                            // mantissa   = str2fp(eb.substr(0, eb.find(dlm)).c_str());
-                            // exponent   = str2fp(eb.substr(eb.find(dlm) + dlm.length(), eb.length()).c_str());
-                            mantissa = ::atof(eb.substr(0, eb.find(dlm)).c_str());
-                            exponent = ::atof(eb.substr(eb.find(dlm) + dlm.length(), eb.length()).c_str());
-                        }
-                        else {
-                            mantissa = ::atof(eb.c_str());
-                            exponent = 0.0;
-                        }
-
-                        this->eb = mantissa * std::pow(10, exponent);
+                        char* end;
+                        this->eb = std::strtod(argv[++i], &end);
                     }
                     break;
                 case 'y':
