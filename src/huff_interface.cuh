@@ -44,9 +44,6 @@ template <typename Huff>
 void GatherSpHuffMetadata(size_t* _counts, size_t* d_sp_bits, size_t nchunk, size_t& total_bits, size_t& total_uints);
 
 template <typename Huff>
-void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size);
-
-template <typename Huff>
 __global__ void CopyHuffmanUintsDenseToSparse(Huff*, Huff*, size_t*, size_t*, size_t);
 
 template <typename T>
@@ -68,7 +65,7 @@ template <typename Input> void GetFrequency(Input*, size_t, unsigned int*, int);
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-std::tuple<size_t, size_t, size_t, bool> HuffmanEncode(string& basename, Quant* d_input, size_t len, int dn_chunk, bool to_nvcomp, int dict_size = 1024, bool export_cb=false);
+std::tuple<size_t, size_t, size_t, bool> HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, bool, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, size_t total_uInts, bool nvcomp_in_use, int dict_size = 1024);

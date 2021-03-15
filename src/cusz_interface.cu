@@ -30,6 +30,7 @@
 #include "huff_interface.cuh"
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
+#include "par_huffman.cuh"
 #include "type_trait.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
@@ -44,6 +45,20 @@ using std::string;
 
 namespace fm = cusz::predictor_quantizer;
 namespace dr = cusz::dryrun;
+
+namespace draft {
+template <typename Huff>
+void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
+{
+    auto              cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canon_cb, dict_size);
+    std::stringstream s;
+    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
+    LogAll(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
+    io::WriteArrayToBinary(s.str(), cb_dump, dict_size);
+    delete[] cb_dump;
+    cb_dump = nullptr;
+}
+}  // namespace draft
 
 /*
 template <typename Data, typename Quant>
@@ -295,13 +310,36 @@ void cusz::interface::Compress(
         exit(0);
     }
 
+    // histogram
+    auto dict_size = ap->dict_size;
+    auto d_freq    = mem::CreateCUDASpace<unsigned int>(dict_size);
+    lossless::wrapper::GetFrequency(d_quant, len, d_freq, dict_size);
+
+    auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
+
+    // get codebooks
+    static const auto type_bitcount = sizeof(Huff) * 8;
+    auto              d_canon_cb    = mem::CreateCUDASpace<Huff>(dict_size, 0xff);
+    // first, entry, reversed codebook; TODO CHANGED first and entry to H type
+    auto _nbyte       = sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
+    auto d_reverse_cb = mem::CreateCUDASpace<uint8_t>(_nbyte);
+    lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_reverse_cb);
+    cudaDeviceSynchronize();
+
+    // internal evaluation, not stored in sz archive
+    if (wf.exp_export_codebook) draft::ExportCodebook(d_canon_cb, subfiles.c_huff_base, dict_size);
+
+    delete[] h_freq;
+
     std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.c_huff_base, d_quant, len, ap->huffman_chunk, wf.lossless_nvcomp_cascade, ap->dict_size,
-        wf.exp_export_codebook);
+        subfiles.c_huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk,
+        wf.lossless_nvcomp_cascade, ap->dict_size);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
     cudaFree(d_quant);
+    cudaFree(d_freq), cudaFree(d_canon_cb);
+    cudaFree(d_reverse_cb);
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
