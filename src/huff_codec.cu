@@ -78,21 +78,6 @@ __global__ void lossless::wrapper::EncodeFixedLen_cub(Input* data, Huff* huff, s
     BlockStoreT_huff(temp_storage.store_huff).Store(huff + (bix * bdx) * Sequentiality, thread_scope_huff);
 }
 
-template <typename T>
-struct PackedWord;
-
-template <>
-struct PackedWord<UI4> {
-    UI4 word : 24;
-    UI4 bits : 8;
-};
-
-template <>
-struct PackedWord<UI8> {
-    UI8 word : 56;
-    UI8 bits : 8;
-};
-
 template <typename Huff>
 __global__ void lossless::wrapper::Deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
 {
