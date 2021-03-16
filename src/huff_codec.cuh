@@ -18,6 +18,21 @@
 
 #include "type_trait.hh"
 
+template <typename T>
+struct PackedWord;
+
+template <>
+struct PackedWord<UI4> {
+    UI4 word : 24;
+    UI4 bits : 8;
+};
+
+template <>
+struct PackedWord<UI8> {
+    UI8 word : 56;
+    UI8 bits : 8;
+};
+
 namespace lossless {
 namespace wrapper {
 
