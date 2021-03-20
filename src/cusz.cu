@@ -168,11 +168,11 @@ int main(int argc, char** argv)
             // ------------------------------------------------------------
             thrust::device_ptr<float> g_ptr = thrust::device_pointer_cast(d_data);
 
-            size_t min_el_loc = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
-            size_t max_el_loc = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+            auto min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
+            auto max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
 
-            double min_value = *(g_ptr + min_el_loc);
-            double max_value = *(g_ptr + max_el_loc);
+            double min_value = *min_el_loc;
+            double max_value = *max_el_loc;
             rng              = max_value - min_value;
             // ------------------------------------------------------------
             auto time_1 = hires::now();
