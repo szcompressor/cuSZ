@@ -34,22 +34,32 @@ inline size_t GetEdgeOfReinterpretedSquare(size_t l) { return static_cast<size_t
 }  // namespace impl
 }  // namespace cusz
 
-// TODO replace with mirrored data w/ metadata
 // TODO move elsewhere
 template <typename T>
-struct DataPack {
-    T*     data;
-    T*     d_data;
-    size_t len;
-    size_t m{}, mxm{};  // m is the smallest possible integer that is larger than sqrt(len)
+class DataPack {
+   public:
+    T*     h;
+    T*     d;
+    size_t len{}, sqrt_ceil{}, pseudo_matrix_size{};
 
-    DataPack(T* data_, T* d_data_, size_t len_)
+    DataPack() = default;
+
+    DataPack<T>& SetHostSpace(T* h_)
     {
-        data      = data_;
-        d_data    = d_data_;
-        len       = len_;
-        this->m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
-        this->mxm = m * m;
+        h = h_;
+        return *this;
+    }
+    DataPack<T>& SetDeviceSpace(T* d_)
+    {
+        d = d_;
+        return *this;
+    }
+    DataPack<T>& SetLen(size_t len_)
+    {
+        this->len                = len_;
+        this->sqrt_ceil          = static_cast<size_t>(ceil(sqrt(len)));  // row-major mxn matrix
+        this->pseudo_matrix_size = sqrt_ceil * sqrt_ceil;
+        return *this;
     }
 };
 

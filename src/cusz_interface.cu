@@ -141,7 +141,7 @@ auto PrintBuffer(T* data, size_t start, Integer3 strides)
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz::interface::Compress(
     argpack* ap,
-    struct DataPack<typename DataTrait<If_FP, DataByte>::Data>* adp,
+    DataPack<typename DataTrait<If_FP, DataByte>::Data>* datapack,
     int&     nnz_outlier,
     size_t&  num_bits,
     size_t&  num_uints,
@@ -155,10 +155,10 @@ void cusz::interface::Compress(
 
     size_t len = ap->len;
 
-    auto data   = adp->data;
-    auto d_data = adp->d_data;
-    auto m      = adp->m;
-    auto mxm    = adp->mxm;
+    auto h_data = datapack->h;
+    auto d_data = datapack->d;
+    auto m      = datapack->sqrt_ceil;
+    auto mxm    = datapack->pseudo_matrix_size;
 
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
@@ -183,10 +183,10 @@ void cusz::interface::Compress(
         auto data_lossy = new Data[len]();
         cudaMemcpy(data_lossy, d_data, len * sizeof(Data), cudaMemcpyDeviceToHost);
 
-        analysis::VerifyData<Data>(&ap->stat, data_lossy, data, len);
+        analysis::VerifyData<Data>(&ap->stat, data_lossy, h_data, len);
         analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, 0);
 
-        cudaFreeHost(data);
+        cudaFreeHost(h_data);
         cudaFree(d_data);
         exit(0);
     }
@@ -266,7 +266,7 @@ void cusz::interface::Compress(
         auto quant_buffer = new Quant[buffer_size]();
 
         cudaFree(d_data);
-        cudaFreeHost(data);
+        cudaFreeHost(h_data);
 
         quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
         cudaFree(d_quant);
@@ -435,15 +435,14 @@ void cusz::interface::Decompress(
     cudaFree(d_xq);
 }
 
-typedef struct DataPack<float> adp_f32_t;
 namespace szin = cusz::interface;
 
 // TODO top-level instantiation really reduce compilation time?
 // clang-format off
-template void szin::Compress<true, 4, 1, 4>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 1, 8>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 4>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 8>(argpack*, adp_f32_t*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 4>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
 
 template void szin::Decompress<true, 4, 1, 4>(argpack*, int&, size_t&, size_t&, size_t&, bool);
 template void szin::Decompress<true, 4, 1, 8>(argpack*, int&, size_t&, size_t&, size_t&, bool);
