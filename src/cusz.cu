@@ -132,9 +132,9 @@ int main(int argc, char** argv)
     auto& subfiles = ap->subfiles;
 
     // TODO hardcode for float for now
-    using DataInUse                  = float;
-    struct DataPack<DataInUse>* adp  = nullptr;
-    DataInUse*                  data = nullptr;
+    using DataInUse = float;
+    DataPack<DataInUse> datapack{};
+    DataInUse*          data = nullptr;
 
     if (wf.lossy_construct or wf.lossy_dryrun) {
         InitializeDims(ap);
@@ -159,7 +159,7 @@ int main(int argc, char** argv)
 
         LogAll(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
-        adp = new DataPack<DataInUse>(data, d_data, len);
+        datapack.SetHostSpace(data).SetDeviceSpace(d_data).SetLen(len);
 
         if (ap->mode == "r2r") {
             double rng;
@@ -200,18 +200,18 @@ int main(int argc, char** argv)
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
                 cusz::interface::Compress<true, 4, 1, 4>(
-                    ap, adp, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
             else
                 cusz::interface::Compress<true, 4, 1, 8>(
-                    ap, adp, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
                 cusz::interface::Compress<true, 4, 2, 4>(
-                    ap, adp, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
             else
                 cusz::interface::Compress<true, 4, 2, 8>(
-                    ap, adp, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
         }
 
         // pack metadata
@@ -229,10 +229,9 @@ int main(int argc, char** argv)
         delete mp;
     }
 
-    if (data and adp) {
+    if (data) {
         cudaFreeHost(data);  // really messy considering adp pointers are freed elsewhere
         data = nullptr;
-        delete adp;
     }
 
     // invoke system() to untar archived files first before decompression
