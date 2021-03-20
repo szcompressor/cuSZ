@@ -117,9 +117,8 @@ class ArgPack {
     // experiment
     Integer4 part4{1, 1, 1, 1};
 
-    double mantissa{1.0}, exponent{-4.0};
-    bool   verbose{false};
-    bool   to_verify{false};
+    bool verbose{false};
+    bool to_verify{false};
 
     bool get_huff_entropy{false};
     bool get_huff_avg_bitcount{false};

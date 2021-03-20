@@ -161,9 +161,6 @@ int main(int argc, char** argv)
 
         adp = new DataPack<DataInUse>(data, d_data, len);
 
-        // TODO parse input directly
-        ap->eb = ap->mantissa * std::pow(10, ap->exponent);
-
         if (ap->mode == "r2r") {
             double rng;
             auto   time_0 = hires::now();
@@ -362,7 +359,7 @@ int main(int argc, char** argv)
         LogAll(log_info, "write to: " + ap->opath + cx_basename + ".szx");
 
         if (wf.gtest) {
-            expectedErr  = ap->mantissa * std::pow(10, ap->exponent);
+            expectedErr  = ap->eb;
             z_mode       = ap->mode;
             auto stat    = ap->stat;
             actualAbsErr = stat.max_abserr;
