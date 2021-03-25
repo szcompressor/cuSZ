@@ -27,9 +27,9 @@ using std::string;
 
 #if __cplusplus >= 201103L
 
-#include "analysis_utils.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
+#include "datapack.hh"
 #include "filter.cuh"
 #include "gtest/gtest.h"
 #include "metadata.hh"
@@ -145,7 +145,7 @@ int main(int argc, char** argv)
 
         auto len = ap->len;
 
-        auto m   = cusz::impl::GetEdgeOfReinterpretedSquare(len);  // row-major mxn matrix
+        auto m   = static_cast<size_t>(ceil(sqrt(len)));
         auto mxm = m * m;
 
         LogAll(log_dbg, "add padding:", m, "units");
@@ -159,7 +159,7 @@ int main(int argc, char** argv)
 
         LogAll(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
-        datapack.SetHostSpace(data).SetDeviceSpace(d_data).SetLen(len);
+        datapack.SetHostSpace(data).SetDeviceSpace(d_data).SetLen(len, true);
 
         if (ap->mode == "r2r") {
             double rng;

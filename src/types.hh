@@ -16,6 +16,8 @@
 
 using namespace std;
 
+enum class placeholder { length_unknown, alloc_in_called_func, alloc_with_caution };
+
 typedef struct Stat {
     double minimum{}, maximum{}, range{};
     double PSNR{}, MSE{}, NRMSE{};

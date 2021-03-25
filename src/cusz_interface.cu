@@ -170,8 +170,8 @@ void cusz::interface::Compress(
 
     size_t len = ap->len;
 
-    auto h_data = datapack->h;
-    auto d_data = datapack->d;
+    auto h_data = datapack->hptr();
+    auto d_data = datapack->dptr();
     auto m      = datapack->sqrt_ceil;
     auto mxm    = datapack->pseudo_matrix_size;
 
@@ -358,7 +358,7 @@ void cusz::interface::Decompress(
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
 
-    auto m   = ::cusz::impl::GetEdgeOfReinterpretedSquare(ap->len);
+    auto m   = static_cast<size_t>(ceil(sqrt(ap->len)));
     auto mxm = m * m;
 
     LogAll(log_info, "invoke lossy-reconstruction");
