@@ -28,8 +28,7 @@ add_executable(psz
         src/utils/io.hh
         src/utils/verify.hh
         src/types.hh
-        src/analysis_utils.hh
-        src/analysis_utils.cc
+        src/datapack.hh
         src/pSZ/psz_14.hh
         src/pSZ/psz_14blocked.hh
         src/pSZ/psz_dualquant.hh
@@ -51,8 +50,7 @@ add_library(gpuhuffman ${LIB_TYPE}
 
 add_library(utils ${LIB_TYPE}
         src/analysis.hh
-        src/analysis_utils.cc
-        src/analysis_utils.hh
+        src/datapack.hh
         src/utils/verify.hh
         src/utils/format.hh
         )
