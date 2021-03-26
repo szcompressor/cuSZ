@@ -76,7 +76,7 @@ void InitializeDims(argpack* ap)
     else if (ap->ndim == 3)
         ap->GPU_block_size = MetadataTrait<3>::Block;
 
-    auto get_nblk = [&](int d) { return (d + ap->GPU_block_size - 1) / ap->GPU_block_size; };
+    auto get_nblk = [&](auto d) { return (d + ap->GPU_block_size - 1) / ap->GPU_block_size; };
 
     ap->nblk4._0 = get_nblk(ap->dim4._0);
     ap->nblk4._1 = get_nblk(ap->dim4._1);
@@ -140,8 +140,8 @@ int main(int argc, char** argv)
         InitializeDims(ap);
 
         LogAll(
-            log_info, "load", subfiles.path2file,
-            ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), "bytes,", ap->dtype);
+            log_info, "load", subfiles.path2file, ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
+            "bytes,", ap->dtype);
 
         auto len = ap->len;
 

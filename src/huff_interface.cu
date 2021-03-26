@@ -398,13 +398,14 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
 }
 
 template <typename Quant, typename Huff, typename Data>
-Quant* lossless::interface::HuffmanDecode(
-    std::string& basename,  //
-    size_t       len,
-    int          chunk_size,
-    size_t       total_uints,
-    bool         nvcomp_in_use,
-    int          dict_size)
+void lossless::interface::HuffmanDecode(
+    std::string&     basename,  //
+    DataPack<Quant>* quant,
+    size_t           len,
+    int              chunk_size,
+    size_t           total_uints,
+    bool             nvcomp_in_use,
+    int              dict_size)
 {
     auto type_bw    = sizeof(Huff) * 8;
     auto canon_meta = sizeof(Huff) * (2 * type_bw) + sizeof(Quant) * dict_size;
@@ -416,7 +417,6 @@ Quant* lossless::interface::HuffmanDecode(
     auto Db           = HuffConfig::Db_deflate;  // the same as deflating
     auto Dg           = (nchunk - 1) / Db + 1;
 
-    auto d_xq      = mem::CreateCUDASpace<Quant>(len);
     auto d_huff_sp = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
 
     if (nvcomp_in_use) draft::UseNvcompUnzip(&d_huff_sp, total_uints);
@@ -426,19 +426,17 @@ Quant* lossless::interface::HuffmanDecode(
     cudaDeviceSynchronize();
 
     lossless::wrapper::Decode<<<Dg, Db, canon_meta>>>(  //
-        d_huff_sp, d_huff_sp_meta, d_xq, len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
+        d_huff_sp, d_huff_sp_meta, quant->dptr(), len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
     cudaDeviceSynchronize();
 
-    auto xq = mem::CreateHostSpaceAndMemcpyFromDevice(d_xq, len);
-    cudaFree(d_xq);
+    // quant->template Move<transfer::d2h>(); // unnecessary if no Huffman decoding verification
+
     cudaFree(d_huff_sp);
     cudaFree(d_huff_sp_meta);
     cudaFree(d_canon_byte);
     delete[] huff_sp;
     delete[] huff_sp_meta;
     delete[] canon_byte;
-
-    return xq;
 }
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
@@ -451,10 +449,10 @@ template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI4, FP4>(strin
 template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
 template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
 
-template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, size_t, bool, int);
-template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, size_t, bool, int);
-template UI1* lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, size_t, int, size_t, bool, int);
-template UI2* lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, bool, int);
 
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI4>(Index<3>::idx_t, string&, UI1*, size_t, int);
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI8>(Index<3>::idx_t, string&, UI1*, size_t, int);

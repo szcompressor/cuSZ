@@ -48,15 +48,43 @@ add_library(gpuhuffman ${LIB_TYPE}
         src/hist.cuh
         )
 
-add_library(utils ${LIB_TYPE}
-        src/analysis.hh
-        src/datapack.hh
-        src/utils/verify.hh
-        src/utils/format.hh
-        )
+#add_library(utils ${LIB_TYPE}
+#        src/analysis.hh
+#        src/datapack.hh
+#        src/utils/verify.hh
+#        src/utils/format.hh
+#        )
+
+
+add_executable(cusz_ood
+        src/ood/compressor.hh
+        src/ood/sparse_op.hh
+        src/lorenzo_trait.cuh
+        src/snippets.cc
+        src/cusz.cu
+        src/filter.cu
+        src/filter.cuh
+        src/argparse.cc
+        src/argparse.hh
+        src/dryrun.cu
+        src/dryrun.cuh
+        src/dualquant.cu
+        src/dualquant.cuh
+        src/cusz_interface.cu
+        src/cusz_interface.cuh
+        src/gather_scatter.cu
+        src/gather_scatter.cuh
+        src/pack.hh
+        src/query.hh
+        src/query_dev.hh
+        src/utils/io.hh
+        src/utils/timer.hh
+        src/types.hh
+        test/test_sparse_op.cu)
 
 add_executable(cusz_cmake
         src/lorenzo_trait.cuh
+        src/snippets.cc
         src/cusz.cu
         src/filter.cu
         src/filter.cuh

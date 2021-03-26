@@ -22,6 +22,7 @@
 #include <tuple>
 
 #include "type_trait.hh"
+#include "datapack.hh"
 
 using std::string;
 
@@ -54,28 +55,27 @@ void UseNvcompUnzip(T** space, size_t& len);
 
 }  // namespace draft
 
-// clang-format off
 namespace lossless {
 
 namespace wrapper {
-template <typename Input> void GetFrequency(Input*, size_t, unsigned int*, int);
+template <typename Input>
+void GetFrequency(Input*, size_t, unsigned int*, int);
 
 }  // namespace wrapper
 
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-std::tuple<size_t, size_t, size_t, bool> HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, bool, int dict_size = 1024);
+std::tuple<size_t, size_t, size_t, bool>
+HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, bool, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
-Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, size_t total_uInts, bool nvcomp_in_use, int dict_size = 1024);
+void HuffmanDecode(std::string&, DataPack<Quant>*, size_t, int, size_t, bool, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_quant_in, size_t len, int dict_size);
 
 }  // namespace interface
 }  // namespace lossless
-
-// clang-format on
 
 #endif
