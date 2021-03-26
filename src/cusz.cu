@@ -140,8 +140,8 @@ int main(int argc, char** argv)
         InitializeDims(ap);
 
         LogAll(
-            log_info, "load", subfiles.cx_path2file, ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
-            "bytes,", ap->dtype);
+            log_info, "load", subfiles.path2file,
+            ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)), "bytes,", ap->dtype);
 
         auto len = ap->len;
 
@@ -153,7 +153,7 @@ int main(int argc, char** argv)
         auto a = hires::now();
         CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(DataInUse)));
         memset(data, 0x00, mxm * sizeof(DataInUse));
-        io::ReadBinaryToArray<DataInUse>(subfiles.cx_path2file, data, len);
+        io::ReadBinaryToArray<DataInUse>(subfiles.path2file, data, len);
         DataInUse* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
         auto       z      = hires::now();
 
@@ -224,7 +224,7 @@ int main(int argc, char** argv)
 
         auto mp_byte = reinterpret_cast<char*>(mp);
         // yet another metadata package
-        io::WriteArrayToBinary(subfiles.c_fo_yamp, mp_byte, sizeof(metadata_pack));
+        io::WriteArrayToBinary(subfiles.compress.out_yamp, mp_byte, sizeof(metadata_pack));
 
         delete mp;
     }
@@ -236,12 +236,12 @@ int main(int argc, char** argv)
 
     // invoke system() to untar archived files first before decompression
     if (not wf.lossy_construct and wf.lossy_reconstruct) {
-        string cx_directory = subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind('/') + 1);
+        string cx_directory = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0)
-            cmd_string = "tar -xf " + subfiles.cx_path2file + ".sz";
+            cmd_string = "tar -xf " + subfiles.path2file + ".sz";
         else
-            cmd_string = "tar -xf " + subfiles.cx_path2file + ".sz" + " -C " + cx_directory;
+            cmd_string = "tar -xf " + subfiles.path2file + ".sz" + " -C " + cx_directory;
 
         CheckShellCall(cmd_string);
     }
@@ -249,7 +249,7 @@ int main(int argc, char** argv)
     if (wf.lossy_reconstruct) {  // fp32 only for now
 
         // unpack metadata
-        auto mp_byte = io::ReadBinaryToNewArray<char>(subfiles.x_fi_yamp, sizeof(metadata_pack));
+        auto mp_byte = io::ReadBinaryToNewArray<char>(subfiles.decompress.in_yamp, sizeof(metadata_pack));
         auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
 
         UnpackMetadata(ap, mp, nnz_outlier);
@@ -277,76 +277,72 @@ int main(int argc, char** argv)
     }
 
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
-    string cx_basename = subfiles.cx_path2file.substr(subfiles.cx_path2file.rfind('/') + 1);
+    string basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
     if (not wf.lossy_reconstruct and wf.lossy_construct) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
-        string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
+        string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
         CheckShellCall(cmd_string);
 
         // using tar command to encapsulate files
-        string files_for_merging;
+        string files_to_merge;
         if (wf.skip_huffman_enc) {
-            files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
+            files_to_merge = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
-            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
-                                cx_basename + ".hmeta " + cx_basename + ".yamp";
+            files_to_merge = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
+                             ".hmeta " + basename + ".yamp";
         }
-        if (wf.lossless_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
-        }
+        if (wf.lossless_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_to_merge; }
         else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
+            cmd_string = "cd " + ap->opath + ";tar -cf " + basename + ".sz " + files_to_merge;
         }
         CheckShellCall(cmd_string);
 
         // remove 5 subfiles
-        cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
+        cmd_string = "cd " + ap->opath + ";rm -rf " + files_to_merge;
         CheckShellCall(cmd_string);
 
         auto tar_z = hires::now();
 
         auto ad_hoc_fix = ap->opath.substr(0, ap->opath.size() - 1);
         LogAll(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
-        LogAll(log_info, "output:", ad_hoc_fix + cx_basename + ".sz");
+        LogAll(log_info, "output:", ad_hoc_fix + basename + ".sz");
     }
 
     // if it's decompression, remove released subfiles at last.
     if (not wf.lossy_construct and wf.lossy_reconstruct) {
-        string files_for_deleting;
+        string files_to_delete;
         if (wf.skip_huffman_enc) {
-            files_for_deleting = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
+            files_to_delete = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
-            files_for_deleting = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
-                                 cx_basename + ".hmeta " + cx_basename + ".yamp";
+            files_to_delete = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
+                              ".hmeta " + basename + ".yamp";
         }
         string cmd_string =
-            "cd " + subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind('/')) + ";rm -rf " + files_for_deleting;
+            "cd " + subfiles.path2file.substr(0, subfiles.path2file.rfind('/')) + ";rm -rf " + files_to_delete;
         CheckShellCall(cmd_string);
     }
 
     if (wf.lossy_construct and wf.lossy_reconstruct) {
         // remove *.sz if existing
-        string cmd_string = "rm -rf " + ap->opath + cx_basename + ".sz";
+        string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
         CheckShellCall(cmd_string);
 
         // using tar command to encapsulate files
         string files_for_merging;
         if (wf.skip_huffman_enc) {
-            files_for_merging = cx_basename + ".outlier " + cx_basename + ".quant " + cx_basename + ".yamp";
+            files_for_merging = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
-            files_for_merging = cx_basename + ".hbyte " + cx_basename + ".outlier " + cx_basename + ".canon " +
-                                cx_basename + ".hmeta " + cx_basename + ".yamp";
+            files_for_merging = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
+                                ".hmeta " + basename + ".yamp";
         }
-        if (wf.lossless_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + cx_basename + ".sz " + files_for_merging;
-        }
+        if (wf.lossless_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_for_merging; }
         else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + cx_basename + ".sz " + files_for_merging;
+            cmd_string = "cd " + ap->opath + ";tar -cf " + basename + ".sz " + files_for_merging;
         }
         CheckShellCall(cmd_string);
 
@@ -354,8 +350,8 @@ int main(int argc, char** argv)
         cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
         CheckShellCall(cmd_string);
 
-        LogAll(log_info, "write to: " + ap->opath + cx_basename + ".sz");
-        LogAll(log_info, "write to: " + ap->opath + cx_basename + ".szx");
+        LogAll(log_info, "write to: " + ap->opath + basename + ".sz");
+        LogAll(log_info, "write to: " + ap->opath + basename + ".szx");
 
         if (wf.gtest) {
             expectedErr  = ap->eb;

@@ -19,7 +19,7 @@
 enum DataType { kF32, kF64 };
 
 typedef struct MetadataPackage {
-    Integer4 dim4, stride4, nblk4;
+    UInteger4 dim4, stride4, nblk4;
     int      ndim;
     size_t   len;
     double   eb;
