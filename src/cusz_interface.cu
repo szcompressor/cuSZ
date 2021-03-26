@@ -239,7 +239,7 @@ void cusz::interface::Compress(
     Quant* quant;
     if (wf.skip_huffman_enc) {
         quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
-        io::WriteArrayToBinary(subfiles.c_fo_q, quant, len);
+        io::WriteArrayToBinary(subfiles.compress.out_quant, quant, len);
 
         LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
 
@@ -264,17 +264,17 @@ void cusz::interface::Compress(
 
     if (wf.exp_partitioning_imbalance) {
         // 3D only
-        auto part0     = ap->part4._0;
-        auto part1     = ap->part4._1;
-        auto part2     = ap->part4._2;
-        auto num_part0 = (ap->dim4._0 - 1) / part0 + 1;
-        auto num_part1 = (ap->dim4._1 - 1) / part1 + 1;
-        auto num_part2 = (ap->dim4._2 - 1) / part2 + 1;
+        unsigned int part0     = ap->part4._0;
+        unsigned int part1     = ap->part4._1;
+        unsigned int part2     = ap->part4._2;
+        unsigned int num_part0 = (ap->dim4._0 - 1) / part0 + 1;
+        unsigned int num_part1 = (ap->dim4._1 - 1) / part1 + 1;
+        unsigned int num_part2 = (ap->dim4._2 - 1) / part2 + 1;
 
         LogAll(log_dbg, "p0:", ap->part4._0, " p1:", ap->part4._1, " p2:", ap->part4._2);
         LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
 
-        size_t block_stride1 = ap->part4._0, block_stride2 = block_stride1 * ap->part4._0;
+        unsigned int block_stride1 = ap->part4._0, block_stride2 = block_stride1 * ap->part4._0;
 
         LogAll(log_dbg, "stride1:", ap->stride4._1, " stride2:", ap->stride4._2);
         LogAll(log_dbg, "blockstride1:", block_stride1, " blockstride2:", block_stride2);
@@ -290,16 +290,17 @@ void cusz::interface::Compress(
         cudaFree(d_quant);
 
         Index<3>::idx_t part_dims{part0, part1, part2};
-        Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
-        Index<3>::idx_t global_strides{1, (int)ap->stride4._1, (int)ap->stride4._2};
+        Index<3>::idx_t block_strides{1, block_stride1, block_stride2};
+        Index<3>::idx_t global_strides{1, ap->stride4._1, ap->stride4._2};
 
-        for (auto pk = 0; pk < num_part2; pk++) {
-            for (auto pj = 0; pj < num_part1; pj++) {
-                for (auto pi = 0; pi < num_part0; pi++) {
+        for (auto pk = 0U; pk < num_part2; pk++) {
+            for (auto pj = 0U; pj < num_part1; pj++) {
+                for (auto pi = 0U; pi < num_part0; pi++) {
                     auto start = pk * part2 * ap->stride4._2 + pj * part1 * ap->stride4._1 + pi * part0;
                     CopyToBuffer_3D(quant_buffer, quant, start, part_dims, block_strides, global_strides);
                     lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
-                        Index<3>::idx_t{pi, pj, pk}, subfiles.c_huff_base, quant_buffer, buffer_size, ap->dict_size);
+                        Index<3>::idx_t{pi, pj, pk}, subfiles.compress.huff_base, quant_buffer, buffer_size,
+                        ap->dict_size);
                 }
             }
         }
@@ -327,12 +328,12 @@ void cusz::interface::Compress(
     cudaDeviceSynchronize();
 
     // internal evaluation, not stored in sz archive
-    if (wf.exp_export_codebook) draft::ExportCodebook(d_canon_cb, subfiles.c_huff_base, dict_size);
+    if (wf.exp_export_codebook) draft::ExportCodebook(d_canon_cb, subfiles.compress.huff_base, dict_size);
 
     delete[] h_freq;
 
     std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.c_huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk,
+        subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk,
         wf.lossless_nvcomp_cascade, ap->dict_size);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
@@ -367,22 +368,22 @@ void cusz::interface::Decompress(
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (wf.skip_huffman_enc) {
         LogAll(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryToNewArray<Quant>(subfiles.x_fi_q, ap->len);
+        xq = io::ReadBinaryToNewArray<Quant>(subfiles.decompress.in_quant, ap->len);
     }
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
         xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            subfiles.cx_path2file, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
+            subfiles.path2file, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
         if (wf.verify_huffman) {
             LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
             /*
             // TODO check in argpack
-            if (subfiles.x_fi_origin == "") {
+            if (subfiles.decompress.in_origin == "") {
                 cerr << log_err << "use \"--origin /path/to/origin_data\" to specify the original datum." << endl;
                 exit(-1);
             }
             cout << log_info << "Verifying Huffman codec..." << endl;
-            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.x_fi_origin, len, xq, ap->huffman_chunk, dims,
+            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.decompress.in_origin, len, xq, ap->huffman_chunk, dims,
             eb_variants);
              */
         }
@@ -395,7 +396,7 @@ void cusz::interface::Decompress(
 
     auto d_outlier = mem::CreateCUDASpace<Data>(mxm + MetadataTrait<1>::Block);
     ::cusz::impl::ScatterFromCSR<Data>(
-        d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.x_fi_outlier);
+        d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
 
     auto d_xdata = d_outlier;  // TODO maybe use union
     {
@@ -452,21 +453,21 @@ void cusz::interface::Decompress(
     if (wf.pre_binning) cout << log_info << "Because of 2x2->1 binning, extra 4x CR is added." << endl;
 
     // TODO move CR out of VerifyData
-    if (subfiles.x_fi_origin != "") {
+    if (subfiles.decompress.in_origin != "") {
         LogAll(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryToNewArray<Data>(subfiles.x_fi_origin, ap->len);
+        auto odata = io::ReadBinaryToNewArray<Data>(subfiles.decompress.in_origin, ap->len);
         analysis::VerifyData(&ap->stat, xdata, odata, ap->len);
         analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, wf.pre_binning ? 4 : 1);
 
         delete[] odata;
     }
-    LogAll(log_info, "output:", subfiles.cx_path2file + ".szx");
+    LogAll(log_info, "output:", subfiles.path2file + ".szx");
 
     if (wf.skip_write_output)
         LogAll(log_dbg, "skip writing unzipped to filesystem");
     else {
-        io::WriteArrayToBinary(subfiles.x_fo_xd, xdata, ap->len);
+        io::WriteArrayToBinary(subfiles.decompress.out_xdata, xdata, ap->len);
     }
 
     // clean up

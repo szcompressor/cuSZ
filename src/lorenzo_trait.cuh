@@ -36,7 +36,7 @@ struct LorenzoNdConfig {
     lorenzo_unzip    x_ctx;
     lorenzo_dryrun   r_ctx;
 
-    LorenzoNdConfig(Integer4 dims, Integer4 strides, Integer4 nblks, int radius, double eb)
+    LorenzoNdConfig(UInteger4 dims, UInteger4 strides, UInteger4 nblks, int radius, double eb)
     {
         z_ctx.d0 = dims._0, z_ctx.d1 = dims._1, z_ctx.d2 = dims._2;
         z_ctx.stride1 = strides._1, z_ctx.stride2 = strides._2;

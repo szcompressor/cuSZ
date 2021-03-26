@@ -34,10 +34,10 @@ typedef struct Integer1  { int _0; }              Integer1;
 typedef struct Integer2  { int _0, _1; }          Integer2;
 typedef struct Integer3  { int _0, _1, _2; }      Integer3;
 typedef struct Integer4  { int _0, _1, _2, _3; }  Integer4;
-typedef struct UInteger1 { int _0; }             UInteger1;
-typedef struct UInteger2 { int _0, _1; }         UInteger2;
-typedef struct UInteger3 { int _0, _1, _2; }     UInteger3;
-typedef struct UInteger4 { int _0, _1, _2, _3; } UInteger4;
+typedef struct UInteger1 { unsigned int _0; }             UInteger1;
+typedef struct UInteger2 { unsigned int _0, _1; }         UInteger2;
+typedef struct UInteger3 { unsigned int _0, _1, _2; }     UInteger3;
+typedef struct UInteger4 { unsigned int _0, _1, _2, _3; } UInteger4;
 // clang-format on
 
 #endif /* TYPES_HH */

@@ -63,7 +63,7 @@ void  //
 ArgPack::HuffmanCheckArgs()
 {
     bool to_abort = false;
-    if (subfiles.cx_path2file.empty()) {
+    if (subfiles.path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
@@ -115,7 +115,7 @@ void  //
 ArgPack::CheckArgs()
 {
     bool to_abort = false;
-    if (subfiles.cx_path2file.empty()) {
+    if (subfiles.path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
@@ -165,7 +165,7 @@ ArgPack::CheckArgs()
         if (szwf.lossy_dryrun) { szwf.gtest = false; }
         else {
             if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) { szwf.gtest = false; }
-            if (subfiles.x_fi_origin == "") { szwf.gtest = false; }
+            if (subfiles.decompress.in_origin == "") { szwf.gtest = false; }
         }
     }
 
@@ -309,7 +309,7 @@ void ArgPack::ParseHuffmanArgs(int argc, char** argv)
                 // ----------------------------------------------------------------
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) { subfiles.cx_path2file = string(argv[++i]); }
+                    if (i + 1 <= argc) { subfiles.path2file = string(argv[++i]); }
                     break;
                 case 'R':
                 tag_rep:
@@ -386,9 +386,9 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                  << string(strlen(end), '~')                                   //
                  << "\e[0m" << endl;
             trap(-1);
-            return 0;  // just a placeholder
+            return 0U;  // just a placeholder
         }
-        return (int)res;
+        return (unsigned int)res;
     };
 
     auto str2fp = [&](const char* s) {
@@ -446,7 +446,7 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--origin") {
-                        if (i + 1 <= argc) subfiles.x_fi_origin = string(argv[++i]);
+                        if (i + 1 <= argc) subfiles.decompress.in_origin = string(argv[++i]);
                         break;
                     }
                     if (long_opt == "--gzip") {
@@ -572,7 +572,7 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                     break;
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) subfiles.cx_path2file = string(argv[++i]);
+                    if (i + 1 <= argc) subfiles.path2file = string(argv[++i]);
                     break;
                     // alternative output
                 case 'o':
@@ -717,23 +717,23 @@ void ArgPack::SortOutFilenames()
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
-    auto cx_input_path = subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind("/") + 1);
+    auto input_path = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
     if (not szwf.lossy_construct and szwf.lossy_reconstruct)
-        subfiles.cx_path2file = subfiles.cx_path2file.substr(0, subfiles.cx_path2file.rfind("."));
-    auto cx_basename = subfiles.cx_path2file.substr(subfiles.cx_path2file.rfind("/") + 1);
+        subfiles.path2file = subfiles.path2file.substr(0, subfiles.path2file.rfind('.'));
+    auto basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
 
-    if (opath == "") opath = cx_input_path == "" ? opath = "" : opath = cx_input_path;
+    if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";
 
     // zip
-    subfiles.c_huff_base  = opath + cx_basename;
-    subfiles.c_fo_q       = opath + cx_basename + ".quant";
-    subfiles.c_fo_outlier = opath + cx_basename + ".outlier";
-    subfiles.c_fo_yamp    = opath + cx_basename + ".yamp";
+    subfiles.compress.huff_base   = opath + basename;
+    subfiles.compress.out_quant   = opath + basename + ".quant";
+    subfiles.compress.out_outlier = opath + basename + ".outlier";
+    subfiles.compress.out_yamp    = opath + basename + ".yamp";
 
     // unzip
-    subfiles.x_fi_yamp    = subfiles.cx_path2file + ".yamp";
-    subfiles.x_fi_q       = subfiles.cx_path2file + ".quant";
-    subfiles.x_fi_outlier = subfiles.cx_path2file + ".outlier";
-    subfiles.x_fo_xd      = opath + cx_basename + ".szx";
+    subfiles.decompress.in_yamp    = subfiles.path2file + ".yamp";
+    subfiles.decompress.in_quant   = subfiles.path2file + ".quant";
+    subfiles.decompress.in_outlier = subfiles.path2file + ".outlier";
+    subfiles.decompress.out_xdata  = opath + basename + ".szx";
 }
