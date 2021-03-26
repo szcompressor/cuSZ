@@ -14,7 +14,6 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
-#include <cxxabi.h>
 #include <bitset>
 #include <cstdlib>
 #include <exception>
@@ -31,6 +30,7 @@
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
 #include "par_huffman.cuh"
+#include "snippets.hh"
 #include "type_trait.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
@@ -173,7 +173,6 @@ void cusz::interface::Compress(
     auto h_data = datapack->hptr();
     auto d_data = datapack->dptr();
     auto m      = datapack->sqrt_ceil;
-    auto mxm    = datapack->pseudo_matrix_size;
 
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
@@ -230,7 +229,12 @@ void cusz::interface::Compress(
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.c_fo_outlier);
+    // CUDA 10 or earlier
+    {
+        auto mxm = datapack->pseudo_matrix_size;
+        ::cusz::impl::PruneGatherAsCSR(
+            d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.compress.out_outlier);
+    }
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
@@ -364,16 +368,18 @@ void cusz::interface::Decompress(
 
     LogAll(log_info, "invoke lossy-reconstruction");
 
-    Quant* xq;
+    DataPack<Quant> quant("quant code");
+    quant.SetLen(ap->len).AllocHostSpace().AllocDeviceSpace();
+
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (wf.skip_huffman_enc) {
         LogAll(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryToNewArray<Quant>(subfiles.decompress.in_quant, ap->len);
+        quant.template Move<transfer::fs2h>(subfiles.decompress.in_quant).template Move<transfer::h2d>();
     }
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
-        xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            subfiles.path2file, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
+        lossless::interface::HuffmanDecode<Quant, Huff>(
+            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
         if (wf.verify_huffman) {
             LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
             /*
@@ -389,34 +395,37 @@ void cusz::interface::Decompress(
         }
     }
 
-    // TODO ad-hoc; need padding
-    Quant* d_xq = nullptr;
-    cudaMalloc(&d_xq, (ap->len + MetadataTrait<1>::Block) * sizeof(Quant));  // one extra block as padding
-    cudaMemcpy(d_xq, xq, ap->len * sizeof(Quant), cudaMemcpyHostToDevice);
+    DataPack<Data> _data("xdata and outlier");
+    auto           xdata   = &_data;
+    auto           outlier = &_data;
 
-    auto d_outlier = mem::CreateCUDASpace<Data>(mxm + MetadataTrait<1>::Block);
+    // need more padding more than pseudo-matrix (for failsafe in reconstruction kernels)
+    outlier->SetLen(ap->len).AllocDeviceSpace(mxm + MetadataTrait<1>::Block - ap->len);
+
+    // CUDA 10 or earlier //
     ::cusz::impl::ScatterFromCSR<Data>(
-        d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
+        outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
 
-    auto d_xdata = d_outlier;  // TODO maybe use union
     {
         if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
             LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
             fm::x_lorenzo_1d1l_cub<Data, Quant><<<lc.cfg.Dg.x, lc.cfg.Db.x / MetadataTrait<1>::Sequentiality>>>  //
-                (lc.x_ctx, d_xdata, d_outlier, d_xq);
+                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
         }
         else if (ap->ndim == 2) {  // y-sequentiality == 8
             LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::x_lorenzo_2d1l_16x16_v1<Data, Quant><<<lc.cfg.Dg, dim3(16, 2)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            fm::x_lorenzo_2d1l_16x16_v1<Data, Quant><<<lc.cfg.Dg, dim3(16, 2)>>>  //
+                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
         }
         else if (ap->ndim == 3) {  // y-sequentiality == 8
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+            fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>  //
+                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, ap->len);
+    xdata->AllocHostSpace().template Move<transfer::d2h>();
 
     LogAll(log_info, "reconstruct error-bounded datum");
 
@@ -428,18 +437,6 @@ void cusz::interface::Decompress(
     else
         archive_bytes += ap->len * sizeof(Quant);
     archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
-
-    // TODO g++ and clang++ use mangled type_id name, add macro
-    // https://stackoverflow.com/a/4541470/8740097
-    auto demangle = [](const char* name) {
-        int   status = -4;
-        char* res    = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-
-        const char* const demangled_name = (status == 0) ? res : name;
-        string            ret_val(demangled_name);
-        free(res);
-        return ret_val;
-    };
 
     if (wf.skip_huffman_enc) {
         cout << log_info << "dtype is \""         //
@@ -453,14 +450,14 @@ void cusz::interface::Decompress(
     if (wf.pre_binning) cout << log_info << "Because of 2x2->1 binning, extra 4x CR is added." << endl;
 
     // TODO move CR out of VerifyData
-    if (subfiles.decompress.in_origin != "") {
+    if (!subfiles.decompress.in_origin.empty()) {
         LogAll(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryToNewArray<Data>(subfiles.decompress.in_origin, ap->len);
-        analysis::VerifyData(&ap->stat, xdata, odata, ap->len);
-        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, wf.pre_binning ? 4 : 1);
+        DataPack<Data> odata("original data");
+        odata.SetLen(ap->len).AllocHostSpace().template Move<transfer::fs2h>(subfiles.decompress.in_origin);
 
-        delete[] odata;
+        analysis::VerifyData(&ap->stat, xdata->hptr(), odata.hptr(), ap->len);
+        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, wf.pre_binning ? 4 : 1);
     }
     LogAll(log_info, "output:", subfiles.path2file + ".szx");
 
@@ -469,12 +466,6 @@ void cusz::interface::Decompress(
     else {
         io::WriteArrayToBinary(subfiles.decompress.out_xdata, xdata, ap->len);
     }
-
-    // clean up
-    delete[] xdata;
-    delete[] xq;
-    cudaFree(d_outlier);
-    cudaFree(d_xq);
 }
 
 namespace szin = cusz::interface;
