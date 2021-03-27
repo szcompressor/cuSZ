@@ -28,6 +28,15 @@ using std::string;
 
 typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
 
+/**
+ *
+ * @tparam UInt unsigned type
+ * @param freq frequency
+ * @param len data length
+ * @param dict_size dictionary size
+ * @deprecated merge into Analyzer
+ * @return entropy
+ */
 template <typename UInt>
 double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
 {

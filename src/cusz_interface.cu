@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
 #include "dryrun.cuh"
@@ -177,6 +178,10 @@ void cusz::interface::Compress(
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
 
+    // --------------------------------------------------------------------------------
+    // dryrun
+    // --------------------------------------------------------------------------------
+
     if (wf.lossy_dryrun) {
         LogAll(log_info, "invoke dry-run");
 
@@ -206,6 +211,11 @@ void cusz::interface::Compress(
     }
     LogAll(log_info, "invoke lossy-construction");
 
+    // --------------------------------------------------------------------------------
+    // constructing quant code
+    // --------------------------------------------------------------------------------
+
+    Quant* quant;
     // TODO add hoc padding
     auto d_quant = mem::CreateCUDASpace<Quant>(len + HuffConfig::Db_encode);  // quant. code is not needed for dry-run
 
@@ -229,7 +239,11 @@ void cusz::interface::Compress(
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    // CUDA 10 or earlier
+    // --------------------------------------------------------------------------------
+    // gather outlier
+    // --------------------------------------------------------------------------------
+
+    // CUDA 10 or earlier //
     {
         auto mxm = datapack->pseudo_matrix_size;
         ::cusz::impl::PruneGatherAsCSR(
@@ -239,16 +253,6 @@ void cusz::interface::Compress(
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
-
-    Quant* quant;
-    if (wf.skip_huffman_enc) {
-        quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
-        io::WriteArrayToBinary(subfiles.compress.out_quant, quant, len);
-
-        LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
-
-        return;
-    }
 
     // autotuning Huffman chunksize
     int current_dev = 0;
@@ -315,9 +319,16 @@ void cusz::interface::Compress(
         exit(0);
     }
 
+    // --------------------------------------------------------------------------------
+    // analyze compressibility
+    // --------------------------------------------------------------------------------
+    // TODO merge this Analyzer instance
+    Analyzer analyzer{};
+
     // histogram
     auto dict_size = ap->dict_size;
     auto d_freq    = mem::CreateCUDASpace<unsigned int>(dict_size);
+    // TODO substitute with Analyzer method
     lossless::wrapper::GetFrequency(d_quant, len, d_freq, dict_size);
 
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
@@ -331,10 +342,32 @@ void cusz::interface::Compress(
     lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_reverse_cb);
     cudaDeviceSynchronize();
 
+    // analysis
+    {
+        auto h_canon_cb = mem::CreateHostSpaceAndMemcpyFromDevice(d_canon_cb, dict_size);
+        analyzer  //
+            .EstimateFromHistogram(h_freq, dict_size)
+            .template GetHuffmanCodebookStat<Huff>(h_freq, h_canon_cb, len, dict_size)
+            .PrintCompressibilityInfo(true);
+    }
+
     // internal evaluation, not stored in sz archive
     if (wf.exp_export_codebook) draft::ExportCodebook(d_canon_cb, subfiles.compress.huff_base, dict_size);
 
     delete[] h_freq;
+
+    // --------------------------------------------------------------------------------
+    // decide if skipping Huffman coding
+    // --------------------------------------------------------------------------------
+    if (wf.skip_huffman_enc) {
+        quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
+        io::WriteArrayToBinary(subfiles.compress.out_quant, quant, len);
+
+        LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
+
+        return;
+    }
+    // --------------------------------------------------------------------------------
 
     std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
         subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk,
@@ -403,8 +436,10 @@ void cusz::interface::Decompress(
     outlier->SetLen(ap->len).AllocDeviceSpace(mxm + MetadataTrait<1>::Block - ap->len);
 
     // CUDA 10 or earlier //
-    ::cusz::impl::ScatterFromCSR<Data>(
-        outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
+    {
+        ::cusz::impl::ScatterFromCSR<Data>(
+            outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
+    }
 
     {
         if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
