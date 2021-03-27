@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include "argparse.hh"
+#include "ood/sparse_op.hh"
 #include "datapack.hh"
 #include "type_trait.hh"
 

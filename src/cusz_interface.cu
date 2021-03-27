@@ -30,6 +30,7 @@
 #include "huff_interface.cuh"
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
+#include "ood/sparse_op.hh"
 #include "par_huffman.cuh"
 #include "snippets.hh"
 #include "type_trait.hh"
@@ -250,6 +251,35 @@ void cusz::interface::Compress(
             d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.compress.out_outlier);
     }
 
+// CUDA 11 onward (hopefully) //
+#ifdef TO_REPLACE
+    {
+        DataPack<Data> sp_csr_val("csr vals");
+        DataPack<int>  sp_csr_cols("csr cols");
+        DataPack<int>  sp_csr_offsets("csr offsets");
+
+        struct CompressedSparseRow<Data> csr(m, m);  // squarified
+        struct DenseMatrix<Data>         mat(m, m);
+
+        sp_csr_offsets.SetLen(csr.num_offsets()).AllocDeviceSpace();  // set sp_csr_offsets size after creating `csr`
+        sp_csr_cols.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
+        sp_csr_val.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
+
+        // set csr and mat afterward
+        csr.offsets = sp_csr_offsets.dptr();
+        mat.mat     = datapack->dptr();
+
+        SparseOps<Data> op(&mat, &csr);
+        op.template Gather<cuSPARSEver::cuda11_onward>();
+        auto total_bytelen = op.get_total_bytelen();
+        auto outbin        = new u_int8_t[total_bytelen]();
+        op.ExportCSR(outbin);
+        io::WriteArrayToBinary(subfiles.compress.out_outlier, outbin, total_bytelen);
+        delete[] outbin;
+        nnz_outlier = csr.sp_size.nnz;
+    }
+#endif
+
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
@@ -440,6 +470,51 @@ void cusz::interface::Decompress(
         ::cusz::impl::ScatterFromCSR<Data>(
             outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
     }
+
+// CUDA 11 onward //
+#ifdef TO_REPLACE
+    {
+        struct CompressedSparseRow<Data> csr(m, m, nnz_outlier);
+        struct DenseMatrix<Data>         mat(m, m);
+        mat.mat = outlier->dptr();
+
+        Index<3>::idx_t trio{
+            static_cast<unsigned int>(csr.num_offsets() * sizeof(int)),
+            static_cast<unsigned int>(csr.sp_size.columns * sizeof(int)),
+            static_cast<unsigned int>(csr.sp_size.values * sizeof(Data))};
+
+        DataPack<uint8_t> _csr_bytes("csr bytes");
+        DataPack<int>     sp_csr_offsets("csr_offsets");
+        DataPack<int>     sp_csr_cols("csr cols");
+        DataPack<Data>    sp_csr_vals("csr vals");
+
+        _csr_bytes.SetLen(trio._0 + trio._1 + trio._2)
+            .AllocHostSpace()
+            .template Move<transfer::fs2h>(subfiles.decompress.in_outlier);
+        sp_csr_offsets  //
+            .SetLen(csr.num_offsets())
+            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr()))
+            .AllocDeviceSpace()
+            .template Move<transfer::h2d>();
+        sp_csr_cols  //
+            .SetLen(csr.sp_size.columns)
+            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr() + trio._0))
+            .AllocDeviceSpace()
+            .template Move<transfer::h2d>();
+        sp_csr_vals  //
+            .SetLen(csr.sp_size.values)
+            .SetHostSpace(reinterpret_cast<Data*>(_csr_bytes.hptr() + trio._0 + trio._1))
+            .AllocDeviceSpace()
+            .template Move<transfer::h2d>();
+
+        csr.offsets = sp_csr_offsets.dptr();
+        csr.columns = sp_csr_cols.dptr();
+        csr.values  = sp_csr_vals.dptr();
+
+        SparseOps<Data> op(&mat, &csr);
+        op.template Scatter<cuSPARSEver::cuda11_onward>();
+    }
+#endif
 
     {
         if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
