@@ -10,6 +10,7 @@
  */
 
 #ifndef CUDA_WRAP_HH
+#define CUDA_WRAP_HH
 
 /**
  * @brief CUDA kernel config; pass by non-pointer value

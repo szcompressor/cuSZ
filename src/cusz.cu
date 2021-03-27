@@ -27,6 +27,7 @@ using std::string;
 
 #if __cplusplus >= 201103L
 
+#include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
 #include "datapack.hh"
@@ -162,24 +163,14 @@ int main(int argc, char** argv)
         datapack.SetHostSpace(data).SetDeviceSpace(d_data).SetLen(len, true);
 
         if (ap->mode == "r2r") {
-            double rng;
-            auto   time_0 = hires::now();
-            // TODO move to data analytics
-            // ------------------------------------------------------------
-            thrust::device_ptr<float> g_ptr = thrust::device_pointer_cast(d_data);
+            Analyzer analyzer;
+            auto     result =
+                analyzer.GetMaxMinRng<DataInUse, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>(
+                    d_data, len);
 
-            auto min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
-            auto max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
+            LogAll(log_dbg, "time scanning:", result.seconds, "sec");
 
-            double min_value = *min_el_loc;
-            double max_value = *max_el_loc;
-            rng              = max_value - min_value;
-            // ------------------------------------------------------------
-            auto time_1 = hires::now();
-
-            LogAll(log_dbg, "time scanning:", static_cast<duration_t>(time_1 - time_0).count(), "sec");
-
-            ap->eb *= rng;
+            ap->eb *= result.rng;
         }
 
         LogAll(

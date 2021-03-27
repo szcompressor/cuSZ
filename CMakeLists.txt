@@ -84,6 +84,7 @@ add_executable(cusz_ood
 
 add_executable(cusz_cmake
         src/lorenzo_trait.cuh
+        src/analysis/analyzer.hh
         src/snippets.cc
         src/cusz.cu
         src/filter.cu
