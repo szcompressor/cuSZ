@@ -14,6 +14,12 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE STATIC)
 
+
+################################################################################
+add_executable(test_rle test/test_rle.cu)
+################################################################################
+
+
 add_library(parhuffman ${LIB_TYPE}
         src/par_huffman_sortbyfreq.cu
         src/par_merge.cuh
@@ -84,6 +90,7 @@ add_executable(cusz_ood
 
 add_executable(cusz_cmake
         src/lorenzo_trait.cuh
+        src/kernel/rle.cuh
         src/analysis/analyzer.hh
         src/snippets.cc
         src/cusz.cu
