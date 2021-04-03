@@ -14,10 +14,19 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE STATIC)
 
-
+## tests
 ################################################################################
 add_executable(test_rle test/test_rle.cu)
+add_executable(test_huff test/test_huff_class.cu)
+add_executable(test_dropout test/test_dropout.cu)
+add_executable(test_lorenzodq test/test_lorenzodq.cu)
 ################################################################################
+
+## standalone driver programs
+################################################################################
+add_executable(rle src/standalone/run_rle.cu)
+################################################################################
+
 
 
 add_library(parhuffman ${LIB_TYPE}
@@ -53,14 +62,6 @@ add_library(gpuhuffman ${LIB_TYPE}
         src/hist.cu
         src/hist.cuh
         )
-
-#add_library(utils ${LIB_TYPE}
-#        src/analysis.hh
-#        src/datapack.hh
-#        src/utils/verify.hh
-#        src/utils/format.hh
-#        )
-
 
 add_executable(cusz_ood
         src/ood/compressor.hh
