@@ -9,3 +9,14 @@ newgs: test_thrustgs.cu
 
 rle: test_rle.cu
 	nvcc -std=c++14 test_rle.cu -o test_rle
+
+huff: test_huff_class.cu
+	nvcc -std=c++14 -G \
+ 		-arch=sm_75 -gencode=arch=compute_75,code=sm_75 \
+ 		-gencode=arch=compute_75,code=compute_75 \
+		test_huff_class.cu \
+		../src/par_merge.o \
+		../src/huff_codec.o \
+		../src/par_huffman_sortbyfreq.o \
+		../src/par_huffman.o \
+		-o test_huff_class
