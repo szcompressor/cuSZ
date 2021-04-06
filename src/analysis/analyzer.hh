@@ -25,6 +25,7 @@
 
 #include "../huff_codec.cuh"
 #include "../huff_interface.cuh"
+#include "../ood/sc21_hist_huff.hh"
 #include "../utils/timer.hh"
 
 #if __cplusplus >= 201703L
@@ -100,7 +101,7 @@ class Analyzer {
     {
         // TODO static check UInt
         if CONSTEXPR (policy == AnalyzerExecutionPolicy::cuda_device and method == AnalyzerMethod::cuda_native) {
-            lossless::wrapper::GetFrequency(data, data_len, freq, num_bins);
+            sc21::GetFrequency(data, data_len, freq, num_bins);
         }
         else {
             // TODO static check
@@ -173,7 +174,10 @@ class Analyzer {
         return *this;
     }
 
-    Analyzer& PrintCompressibilityInfo(bool print_huffman_stat=false, bool print_dropout=false, double equiv_origin_bitlen=32)
+    Analyzer& PrintCompressibilityInfo(
+        bool   print_huffman_stat  = false,
+        bool   print_dropout       = false,
+        double equiv_origin_bitlen = 32)
     {
         cout << "\n\e[31m";  // extra linebreak on start
 
