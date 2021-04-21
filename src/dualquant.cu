@@ -447,7 +447,7 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
 #pragma unroll
     for (auto& i : thread_scope) {
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xf, i, d);
+            Data n = __shfl_up_sync(0xffff, i, d);  // 0b1111'1111'1111'1111
             if (tix >= d) i += n;
         }
         i *= ctx.ebx2;
@@ -538,7 +538,7 @@ __global__ void kernel::legacy::x_lorenzo_3d1l_8x8x8_v0(lorenzo_unzip ctx, Data*
 #pragma unroll
     for (auto& i : thread_scope) {
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0x7, i, d);
+            Data n = __shfl_up_sync(0xff, i, d);  // 0b1111'1111
             if (tix >= d) i += n;
         }
 
@@ -551,7 +551,7 @@ __global__ void kernel::legacy::x_lorenzo_3d1l_8x8x8_v0(lorenzo_unzip ctx, Data*
         __syncthreads();
 
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0x7, i, d);
+            Data n = __shfl_up_sync(0xff, i, d);  // 0b1111'1111
             if (tix >= d) i += n;
         }
 
@@ -618,7 +618,7 @@ __global__ void kernel::legacy::x_lorenzo_3d1l_8x8x8_v1(lorenzo_unzip ctx, Data*
     for (auto& i : thread_scope) {
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0x7, i, d);
+            Data n = __shfl_up_sync(0xff, i, d);
             if (tix >= d) i += n;
         }
         // y-index
@@ -630,7 +630,7 @@ __global__ void kernel::legacy::x_lorenzo_3d1l_8x8x8_v1(lorenzo_unzip ctx, Data*
         __syncthreads();
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0x7, i, d);
+            Data n = __shfl_up_sync(0xff, i, d);
             if (tix >= d) i += n;
         }
         i *= ctx.ebx2;
@@ -679,7 +679,7 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* data, D
     for (auto& i : thread_scope) {
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0x7, i, d);
+            Data n = __shfl_up_sync(0xff, i, d);
             if (tix >= d) i += n;
         }
         // y-index
@@ -691,7 +691,7 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* data, D
 
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0x7, i, d);
+            Data n = __shfl_up_sync(0xff, i, d);
             if (tix >= d) i += n;
         }
         // scale by eb*2
