@@ -47,16 +47,12 @@ __global__ void kernel::c_lorenzo_1d1l(lorenzo_zip ctx, Data* d, Quant* q)
     Data(&s1df)[Block]      = *reinterpret_cast<Data(*)[Block]>(&scratch);
 
     auto id = bix * bdx + tix;
-
     if (id < ctx.d0) {
-        // prequant (fp presence)
-        s1df[tix] = round(d[id] * ctx.ebx2_r);
-        __syncthreads();  // necessary to ensure correctness
-        // postquant
-        Data pred = tix == 0 ? 0 : s1df[tix - 1];
-        __syncthreads();
-
-        Data delta       = s1df[tix] - pred;
+        s1df[tix] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    }
+    __syncthreads();    // necessary to ensure correctness
+    if (id < ctx.d0) {  // postquant
+        Data delta       = s1df[tix] - (tix == 0 ? 0 : s1df[tix - 1]);
         bool quantizable = fabs(delta) < ctx.radius;
         Data candidate   = delta + ctx.radius;
         d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
@@ -131,13 +127,12 @@ __global__ void kernel::c_lorenzo_2d1l(lorenzo_zip ctx, Data* d, Quant* q)
     auto y = tiy, x = tix;
     auto gi1 = biy * bdy + y, gi0 = bix * bdx + x;
 
+    auto id = gi0 + gi1 * ctx.stride1;  // low to high dim, inner to outer
     if (gi0 < ctx.d0 and gi1 < ctx.d1) {
-        size_t id = gi0 + gi1 * ctx.stride1;  // low to high dim, inner to outer
-
-        // prequant (fp presence)
-        s2df[y][x] = round(d[id] * ctx.ebx2_r);
-        __syncthreads();  // necessary to ensure correctness
-
+        s2df[y][x] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    }
+    __syncthreads();  // necessary to ensure correctness
+    if (gi0 < ctx.d0 and gi1 < ctx.d1) {
         Data delta       = s2df[y][x] - ((x > 0 ? s2df[y][x - 1] : 0) +                // dist=1
                                    (y > 0 ? s2df[y - 1][x] : 0) -                // dist=1
                                    (x > 0 and y > 0 ? s2df[y - 1][x - 1] : 0));  // dist=2
@@ -205,13 +200,12 @@ __global__ void kernel::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
     auto z = tiz, y = tiy, x = tix;
     auto gi2 = biz * bdz + z, gi1 = biy * bdy + y, gi0 = bix * bdx + x;
 
+    auto id = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
     if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
-        size_t id = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
-
-        // prequant (fp presence)
-        s3df[z][y][x] = round(d[id] * ctx.ebx2_r);
-        __syncthreads();  // necessary to ensure correctness
-
+        s3df[z][y][x] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    }
+    __syncthreads();  // necessary to ensure correctness
+    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
         Data delta       = s3df[z][y][x] - ((z > 0 and y > 0 and x > 0 ? s3df[z - 1][y - 1][x - 1] : 0)  // dist=3
                                       - (y > 0 and x > 0 ? s3df[z][y - 1][x - 1] : 0)              // dist=2
                                       - (z > 0 and x > 0 ? s3df[z - 1][y][x - 1] : 0)              //
