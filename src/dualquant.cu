@@ -545,12 +545,9 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* data, D
             Data n = __shfl_up_sync(0xff, i, d);
             if (tix >= d) i += n;
         }
-        // scale by eb*2
-        i *= ctx.ebx2;
+        i *= ctx.ebx2;  // scale by eb*2
     }
-
-    gi0 = bix * Block + tiz;
-    gi2 = biz * Block + tix;
+    gi0 = bix * Block + tiz, gi2 = biz * Block + tix;
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1 and gi2 < ctx.d2) { data[get_gid(i)] = thread_scope[i]; }
@@ -567,53 +564,35 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip ctx, Data* data, D
     __shared__ Data intermediate[Block][Block];
     Data            thread_scope[YSequentiality];
 
-    auto gi0      = bix * bdx + tix;
-    auto gi1_base = biy * Block;
-    auto gi2      = biz * bdz + tiz;
-    auto radius   = static_cast<Data>(ctx.radius);
-    auto get_gid  = [&](auto i) { return gi2 * ctx.stride2 + (gi1_base + i) * ctx.stride1 + gi0; };
+    auto gi0 = bix * Block + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
+    auto get_gid = [&](auto i) { return gi2 * ctx.stride2 + (gi1_base + i) * ctx.stride1 + gi0; };
 
     // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         auto gid = get_gid(i);
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1 and gi2 < ctx.d2)
-            thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
+            thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(ctx.radius);  // fuse
         else
             thread_scope[i] = 0;
     }
     // sequential partial-sum
     for (auto i = 1; i < YSequentiality; i++) thread_scope[i] += thread_scope[i - 1];
 
-        // shuffle
+        // shuffle, ND partial-sums
 #pragma unroll
     for (auto& i : thread_scope) {
-        // partial-sum
-        for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xff, i, d);
-            if (tix >= d) i += n;
-        }
-
-        __syncthreads();  // necessary barrier
-
-        // xz transpose
-        intermediate[tiz][tix] = i;
-        __syncthreads();  // necessary barrier
-        i = intermediate[tix][tiz];
-
-        __syncthreads();  // necessary barrier
-
-        // partial-sum
-        for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xff, i, d);
-            if (tix >= d) i += n;
-        }
-        // scale by eb*2
-        i *= ctx.ebx2;
+        // clang-format off
+        for (auto d = 1; d < Block; d *= 2) { Data n = __shfl_up_sync(0xff, i, d); if (tix >= d) i += n; }
+        __syncthreads(); 
+        intermediate[tiz][tix] = i; __syncthreads(); i = intermediate[tix][tiz]; // xz transpose
+        __syncthreads();  
+        for (auto d = 1; d < Block; d *= 2) { Data n = __shfl_up_sync(0xff, i, d); if (tix >= d) i += n; }
+        // clang-format on
+        i *= ctx.ebx2;  // scale by eb*2
     }
 
-    gi0 = bix * bdx + tiz;
-    gi2 = biz * bdz + tix;
+    gi0 = bix * Block + tiz, gi2 = biz * Block + tix;
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1 and gi2 < ctx.d2) { data[get_gid(i)] = thread_scope[i]; }
