@@ -30,7 +30,6 @@
 #include "huff_interface.cuh"
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
-#include "ood/sparse_op.hh"
 #include "par_huffman.cuh"
 #include "snippets.hh"
 #include "type_trait.hh"
