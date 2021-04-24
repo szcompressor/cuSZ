@@ -529,7 +529,7 @@ void cusz::interface::Decompress(
         }
         else if (ap->ndim == 3) {  // y-sequentiality == 8
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>  //
+            fm::x_lorenzo_3d1l_8x8x8_v3<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>  //
                 (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
