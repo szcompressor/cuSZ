@@ -1,3 +1,5 @@
+#!/usr/bin/printenv python3
+
 import os
 import re
 import subprocess as sp
