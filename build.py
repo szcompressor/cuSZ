@@ -36,7 +36,7 @@ def figure_out_compatibility(cuda_ver):
             "-arch=sm_60", SMp_PASCAL_t, SMp_PASCAL_cp, SMp_VOLTA, SMp_TURING,
             compute_TURING
         ]
-    elif cuda_ver in ["11.0", "11.1", "11.2"]:
+    elif cuda_ver in ["11.0", "11.1", "11.2", "11.3"]:
         max_compat = [
             "-arch=sm_60", SMp_PASCAL_t, SMp_PASCAL_cp, SMp_VOLTA, SMp_TURING,
             SMp_AMPERE_t, SMp_AMPERE_cp, compute_AMPERE_cp
@@ -132,11 +132,9 @@ if __name__ == "__main__":
         )
 
     if argc == 3:
-        if (argv[1] in build_target.keys()) and (argv[2]
-                                                 in build_types.keys()):
+        if (argv[1] in build_target.keys()) and (argv[2] in build_types.keys()):
             rule, opt_level = argv[1], argv[2]
-        elif (argv[2] in build_target.keys()) and (argv[1]
-                                                   in build_types.keys()):
+        elif (argv[2] in build_target.keys()) and (argv[1] in build_types.keys()):
             rule, opt_level = argv[2], argv[1]
         else:
             print(doc)
@@ -179,7 +177,7 @@ if __name__ == "__main__":
     patch_nvcomp = "patch {0}/src/CMakeLists.txt external/patch.nvcomp-1.1".format(NVCOMP_DIR)
     cmake_nvcomp_pre_cuda11 = "cmake -DCUB_DIR=$(pwd)/external/cub -DCMAKE_C_COMPILER={1} -DCMAKE_CXX_COMPILER={2} -S {0} -B {0}/build  && make -j -C {0}/build".format(NVCOMP_DIR, cc, cxx)
     cmake_nvcomp_cuda11_onward = "cmake -DCMAKE_C_COMPILER={1} -DCMAKE_CXX_COMPILER={2} -S {0} -B {0}/build  && make -j -C {0}/build".format(NVCOMP_DIR, cc, cxx)
-    cmake_nvcomp = cmake_nvcomp_cuda11_onward if cuda_ver in ["11.0", "11.1", "11.2"] else cmake_nvcomp_pre_cuda11
+    cmake_nvcomp = cmake_nvcomp_cuda11_onward if cuda_ver in ["11.0", "11.1", "11.2", "11.3"] else cmake_nvcomp_pre_cuda11
     cmake_gtest  = "cmake -DCMAKE_C_COMPILER={1} -DCMAKE_CXX_COMPILER={2} -S {0} -B {0}/build  && make -j -C {0}/build""".format(GTEST_DIR, cc, cxx)
 
     # print(patch_nvcomp)
