@@ -359,7 +359,7 @@ void cusz::interface::Compress(
     auto dict_size = ap->dict_size;
     auto d_freq    = mem::CreateCUDASpace<unsigned int>(dict_size);
     // TODO substitute with Analyzer method
-    lossless::wrapper::GetFrequency(d_quant, len, d_freq, dict_size);
+    wrapper::GetFrequency(d_quant, len, d_freq, dict_size);
 
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
 

@@ -25,7 +25,7 @@
 
 #include "../huff_codec.cuh"
 #include "../huff_interface.cuh"
-#include "../ood/sc21_hist_huff.hh"
+#include "../kernel/hist.cuh"
 #include "../utils/timer.hh"
 
 #if __cplusplus >= 201703L
@@ -101,7 +101,7 @@ class Analyzer {
     {
         // TODO static check UInt
         if CONSTEXPR (policy == AnalyzerExecutionPolicy::cuda_device and method == AnalyzerMethod::cuda_native) {
-            sc21::GetFrequency(data, data_len, freq, num_bins);
+            wrapper::GetFrequency(data, data_len, freq, num_bins);
         }
         else {
             // TODO static check
