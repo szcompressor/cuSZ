@@ -22,7 +22,7 @@
 #include <cub/cub.cuh>
 #else
 #pragma message(__FILE__ ": (CUDA 10 or earlier), cub from git submodule")
-#include "../external/cub/cub/cub.cuh"
+#include "../../external/cub/cub/cub.cuh"
 #endif
 
 #include <cuda_runtime.h>
