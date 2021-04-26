@@ -53,14 +53,11 @@ add_executable(psz
 
 ## to link with parhuffman
 add_library(gpuhuffman ${LIB_TYPE}
-        src/hist.cu
-        src/hist.cuh
         src/huff_codec.cu
         src/huff_codec.cuh
         src/huff_interface.cu
         src/huff_interface.cuh
-        src/hist.cu
-        src/hist.cuh
+        src/kernel/hist.cuh
         )
 
 add_executable(cusz_ood

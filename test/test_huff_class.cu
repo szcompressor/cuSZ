@@ -3,8 +3,8 @@
 using std::string;
 
 //#include "../src/huff_interface.cuh"
+#include "../src/kernel/hist.cuh"
 #include "../src/ood/codec_huffman.hh"
-#include "../src/ood/sc21_hist_huff.hh"
 #include "../src/par_huffman.cuh"
 
 string filename = "/home/jtian/sdrb-cesm/FLDS.dat.quant";
@@ -34,7 +34,7 @@ int TestEncoding(string filename)
         .template Move<transfer::h2d>();
     freq.SetLen(num_syms).AllocDeviceSpace();
 
-    sc21::GetFrequency<Data, false>(data.dptr(), data.Len(), freq.dptr(), freq.Len());
+    wrapper::GetFrequency<Data, false>(data.dptr(), data.Len(), freq.dptr(), freq.Len());
 
     ////////////////////////////////////////////////////////////////////////////////
     //  ^                                  | Huffman
@@ -68,7 +68,7 @@ int TestEncoding(string filename)
     bits_of_chunks.AllocDeviceSpace().AllocHostSpace();
     enc_space.AllocDeviceSpace();
 
-//    cout << "bits of chunks dptr allocated?\t" << bits_of_chunks.DptrAllocated() << endl;
+    //    cout << "bits of chunks dptr allocated?\t" << bits_of_chunks.DptrAllocated() << endl;
 
     // to export to host
     // -----------------

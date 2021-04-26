@@ -29,9 +29,9 @@
 #include <type_traits>
 #include <vector>
 
-#include "hist.cuh"
 #include "huff_codec.cuh"
 #include "huff_interface.cuh"
+#include "kernel/hist.cuh"
 #include "type_aliasing.hh"
 #include "type_trait.hh"
 #include "types.hh"
@@ -51,7 +51,6 @@
 #endif
 
 typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
-namespace kernel = data_process::reduce;
 
 #define nworker blockDim.x
 
@@ -162,73 +161,6 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
     cudaFree(temp_space);
 }
 
-template <typename Input>
-void lossless::wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
-{
-    static_assert(
-        std::is_same<Input, UI1>::value         //
-            or std::is_same<Input, UI2>::value  //
-            or std::is_same<Input, I1>::value   //
-            or std::is_same<Input, I2>::value,
-        "To get frequency, input dtype must be uint/int{8,16}_t");
-
-    // Parameters for thread and block count optimization
-    // Initialize to device-specific values
-    int deviceId, max_bytes, max_bytes_opt_in, num_SMs;
-
-    cudaGetDevice(&deviceId);
-    cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
-    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, deviceId);
-
-    // Account for opt-in extra shared memory on certain architectures
-    cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
-    max_bytes = std::max(max_bytes, max_bytes_opt_in);
-
-    // Optimize launch
-    int num_buckets      = dict_size;
-    int num_values       = len;
-    int items_per_thread = 1;
-    int r_per_block      = (max_bytes / (int)sizeof(int)) / (num_buckets + 1);
-    int num_blocks       = num_SMs;
-    // fits to size
-    int threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
-    while (threads_per_block > 1024) {
-        if (r_per_block <= 1) { threads_per_block = 1024; }
-        else {
-            r_per_block /= 2;
-            num_blocks *= 2;
-            threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
-        }
-    }
-
-    if CONSTEXPR (
-        std::is_same<Input, UI1>::value     //
-        or std::is_same<Input, UI2>::value  //
-        or std::is_same<Input, UI4>::value) {
-        cudaFuncSetAttribute(
-            kernel::p2013Histogram<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
-        kernel::p2013Histogram                                                                    //
-            <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
-            (d_in, d_freq, num_values, num_buckets, r_per_block);
-    }
-    else if CONSTEXPR (
-        std::is_same<Input, I1>::value     //
-        or std::is_same<Input, I2>::value  //
-        or std::is_same<Input, I4>::value) {
-        cudaFuncSetAttribute(
-            kernel::p2013Histogram_int_input<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize,
-            max_bytes);
-        kernel::p2013Histogram_int_input                                                          //
-            <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
-            (d_in, d_freq, num_values, num_buckets, r_per_block, dict_size / 2);
-    }
-    else {
-        LogAll(log_err, "must be Signed or Unsigned integer as Input type");
-    }
-
-    cudaDeviceSynchronize();
-}
-
 template <typename Quant, typename Huff, typename Data>
 tuple_3ul_1bool lossless::interface::HuffmanEncode(
     string&  basename,
@@ -322,7 +254,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_quant_in = mem::CreateDeviceSpaceAndMemcpyFromHost(h_quant_in, len);
 
     auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
-    lossless::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
+    ::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
     cudaFree(d_freq);
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
 

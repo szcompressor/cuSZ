@@ -21,8 +21,8 @@
 #include <string>
 #include <tuple>
 
-#include "type_trait.hh"
 #include "datapack.hh"
+#include "type_trait.hh"
 
 using std::string;
 
@@ -65,13 +65,6 @@ void UseNvcompUnzip(T** space, size_t& len);
 }  // namespace draft
 
 namespace lossless {
-
-namespace wrapper {
-template <typename Input>
-void GetFrequency(Input*, size_t, unsigned int*, int);
-
-}  // namespace wrapper
-
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
