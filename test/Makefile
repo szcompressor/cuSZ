@@ -20,3 +20,8 @@ huff: test_huff_class.cu
 		../src/par_huffman_sortbyfreq.o \
 		../src/par_huffman.o \
 		-o test_huff_class
+
+
+proflorenzo: dummy_xlorenzo3d.cu dummy_xlorenzo2d.cu
+	nvcc -lineinfo dummy_xlorenzo2d.cu -o dummy_xlorenzo2d
+	nvcc -lineinfo dummy_xlorenzo3d.cu -o dummy_xlorenzo3d
