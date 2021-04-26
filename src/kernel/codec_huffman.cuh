@@ -1,5 +1,5 @@
 /**
- * @file huffman_codec.cu
+ * @file codec_huffman.cuh
  * @author Jiannan Tian
  * @brief Wrapper of Huffman codec.
  * @version 0.1
@@ -11,14 +11,16 @@
  *
  */
 
+#ifndef KERNEL_HUFF_CODEC
+#define KERNEL_HUFF_CODEC
+
 #include <stddef.h>
 #include <stdint.h>
 #include <cstdio>
 #include <limits>
 
-#include "huff_codec.cuh"
-#include "type_aliasing.hh"
-#include "type_trait.hh"
+#include "../type_aliasing.hh"
+#include "../type_trait.hh"
 
 #define tix threadIdx.x
 #define tiy threadIdx.y
@@ -35,11 +37,45 @@
 #include <cub/cub.cuh>
 #else
 #pragma message(__FILE__ ": (CUDA 10 or earlier), cub from git submodule")
-#include "../external/cub/cub/cub.cuh"
+#include "../../external/cub/cub/cub.cuh"
 #endif
 
+template <typename T>
+struct PackedWord;
+
+template <>
+struct PackedWord<UI4> {
+    UI4 word : 24;
+    UI4 bits : 8;
+};
+
+template <>
+struct PackedWord<UI8> {
+    UI8 word : 56;
+    UI8 bits : 8;
+};
+
+namespace kernel {
+
 template <typename Input, typename Huff>
-__global__ void lossless::wrapper::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
+__global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*, int offset = 0);
+
+template <typename Input, typename Huff, int Sequentiality = HuffConfig::enc_sequentiality>
+__global__ void EncodeFixedLen_cub(Input*, Huff*, size_t, Huff*, int offset = 0);
+
+template <typename Huff>
+__global__ void Deflate(Huff*, size_t, size_t*, int);
+
+template <typename Huff, typename Output>
+__device__ void InflateChunkwise(Huff*, Output*, size_t, uint8_t*);
+
+template <typename Quant, typename Huff>
+__global__ void Decode(Huff*, size_t*, Quant*, size_t, int, int, uint8_t*, size_t);
+
+}  // namespace kernel
+
+template <typename Input, typename Huff>
+__global__ void kernel::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {
     size_t gid = blockDim.x * blockIdx.x + threadIdx.x;
     if (gid >= len) return;
@@ -48,7 +84,7 @@ __global__ void lossless::wrapper::EncodeFixedLen(Input* data, Huff* huff, size_
 }
 
 template <typename Input, typename Huff, int Sequentiality>
-__global__ void lossless::wrapper::EncodeFixedLen_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
+__global__ void kernel::EncodeFixedLen_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {
     static const auto Db = HuffConfig::Db_encode;
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
@@ -79,7 +115,7 @@ __global__ void lossless::wrapper::EncodeFixedLen_cub(Input* data, Huff* huff, s
 }
 
 template <typename Huff>
-__global__ void lossless::wrapper::Deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
+__global__ void kernel::Deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
 {
     // TODO static check with Huff and UI4/8
     static const auto dtype_width = sizeof(Huff) * 8;
@@ -134,7 +170,7 @@ __global__ void lossless::wrapper::Deflate(Huff* huff, size_t len, size_t* sp_me
 
 // TODO change size_t to unsigned int
 template <typename Huff, typename Output>
-__device__ void lossless::wrapper::InflateChunkwise(Huff* input, Output* out, size_t total_bw, uint8_t* singleton)
+__device__ void kernel::InflateChunkwise(Huff* input, Output* out, size_t total_bw, uint8_t* singleton)
 {
     static const auto dtype_width = sizeof(Huff) * 8;
 
@@ -183,7 +219,7 @@ __device__ void lossless::wrapper::InflateChunkwise(Huff* input, Output* out, si
 }
 
 template <typename Quant, typename Huff>
-__global__ void lossless::wrapper::Decode(
+__global__ void kernel::Decode(
     Huff*    sp_huff,
     size_t*  sp_meta,
     Quant*   quant_out,
@@ -212,34 +248,4 @@ __global__ void lossless::wrapper::Decode(
     __syncthreads();
 };
 
-template __global__ void lossless::wrapper::EncodeFixedLen<UI1, UI4>(UI1*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<UI1, UI8>(UI1*, UI8*, size_t, UI8*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<UI2, UI4>(UI2*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<UI2, UI8>(UI2*, UI8*, size_t, UI8*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<I1, UI4>(I1*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<I1, UI8>(I1*, UI8*, size_t, UI8*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<I2, UI4>(I2*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen<I2, UI8>(I2*, UI8*, size_t, UI8*, int);
-
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI1, UI4>(UI1*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI1, UI8>(UI1*, UI8*, size_t, UI8*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI2, UI4>(UI2*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<UI2, UI8>(UI2*, UI8*, size_t, UI8*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<I1, UI4>(I1*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<I1, UI8>(I1*, UI8*, size_t, UI8*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<I2, UI4>(I2*, UI4*, size_t, UI4*, int);
-template __global__ void lossless::wrapper::EncodeFixedLen_cub<I2, UI8>(I2*, UI8*, size_t, UI8*, int);
-
-template __global__ void lossless::wrapper::Deflate<UI4>(UI4*, size_t, size_t*, int);
-template __global__ void lossless::wrapper::Deflate<UI8>(UI8*, size_t, size_t*, int);
-
-template __device__ void lossless::wrapper::InflateChunkwise<UI4, UI1>(UI4*, UI1*, size_t, UI1*);
-template __device__ void lossless::wrapper::InflateChunkwise<UI4, UI2>(UI4*, UI2*, size_t, UI1*);
-template __device__ void lossless::wrapper::InflateChunkwise<UI8, UI1>(UI8*, UI1*, size_t, UI1*);
-template __device__ void lossless::wrapper::InflateChunkwise<UI8, UI2>(UI8*, UI2*, size_t, UI1*);
-
-template __global__ void lossless::wrapper::Decode<UI1, UI4>(UI4*, size_t*, UI1*, size_t, int, int, UI1*, size_t);
-template __global__ void lossless::wrapper::Decode<UI1, UI8>(UI8*, size_t*, UI1*, size_t, int, int, UI1*, size_t);
-
-template __global__ void lossless::wrapper::Decode<UI2, UI4>(UI4*, size_t*, UI2*, size_t, int, int, UI1*, size_t);
-template __global__ void lossless::wrapper::Decode<UI2, UI8>(UI8*, size_t*, UI2*, size_t, int, int, UI1*, size_t);
+#endif

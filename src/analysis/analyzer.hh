@@ -23,8 +23,8 @@
 #include <algorithm>
 #include <numeric>
 
-#include "../huff_codec.cuh"
 #include "../huff_interface.cuh"
+#include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
 #include "../utils/timer.hh"
 

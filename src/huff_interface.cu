@@ -29,8 +29,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "huff_codec.cuh"
 #include "huff_interface.cuh"
+#include "kernel/codec_huffman.cuh"
 #include "kernel/hist.cuh"
 #include "type_aliasing.hh"
 #include "type_trait.hh"
@@ -187,7 +187,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + dn_chunk + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
     {
         auto Db = HuffConfig::Db_encode;
-        lossless::wrapper::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
+        kernel::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
             <<<get_Dg(len, Db), Db / HuffConfig::enc_sequentiality>>>(d_input, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
@@ -197,7 +197,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
-        lossless::wrapper::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        kernel::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
         cudaDeviceSynchronize();
     }
 
@@ -271,7 +271,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len);
     {
         auto Db = HuffConfig::Db_encode;
-        lossless::wrapper::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
+        kernel::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
 
@@ -281,7 +281,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
-        lossless::wrapper::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        kernel::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
         cudaDeviceSynchronize();
     }
 
@@ -357,7 +357,7 @@ void lossless::interface::HuffmanDecode(
     auto d_canon_byte   = mem::CreateDeviceSpaceAndMemcpyFromHost(canon_byte, canon_meta);
     cudaDeviceSynchronize();
 
-    lossless::wrapper::Decode<<<Dg, Db, canon_meta>>>(  //
+    kernel::Decode<<<Dg, Db, canon_meta>>>(  //
         d_huff_sp, d_huff_sp_meta, quant->dptr(), len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
     cudaDeviceSynchronize();
 
