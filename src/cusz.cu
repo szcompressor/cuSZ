@@ -117,6 +117,8 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
+    cout << "\n>>>>  cusz build: 2020-04-27.3\n\n";
+
     auto ap = new ArgPack();
     ap->ParseCuszArgs(argc, argv);
 
