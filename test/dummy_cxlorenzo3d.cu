@@ -42,9 +42,9 @@ int main()
                 <<<dim3(512 / 8, 512 / 8, 512 / 8), dim3(8, 8, 8), 8 * 8 * 8 * sizeof(float)>>>(zip_ctx, data, quant);
             HANDLE_ERROR(cudaDeviceSynchronize());
 
-            kernel::x_lorenzo_3d1l_8x8x8_v3<Data, Quant>
-                <<<dim3(512 / 8, 512 / 8, 512 / 8), dim3(8, 1, 8)>>>(unzip_ctx, data, outlier, quant);
-            HANDLE_ERROR(cudaDeviceSynchronize());
+            // kernel::x_lorenzo_3d1l_8x8x8_v3<Data, Quant>
+            //     <<<dim3(512 / 8, 512 / 8, 512 / 8), dim3(8, 1, 8)>>>(unzip_ctx, data, outlier, quant);
+            // HANDLE_ERROR(cudaDeviceSynchronize());
         }
 
         // 4 (8x8x8) block
@@ -53,9 +53,9 @@ int main()
                 <<<dim3(512 / 32, 512 / 8, 512 / 8), dim3(32, 1, 8)>>>(zip_ctx, data, quant);
             HANDLE_ERROR(cudaDeviceSynchronize());
 
-            kernel::x_lorenzo_3d1l_32x8x8_mapto_32x1x8_v3<Data, Quant>
-                <<<dim3(512 / 32, 512 / 8, 512 / 8), dim3(32, 1, 8)>>>(unzip_ctx, data, outlier, quant);
-            HANDLE_ERROR(cudaDeviceSynchronize());
+            // kernel::x_lorenzo_3d1l_32x8x8_mapto_32x1x8_v3<Data, Quant>
+            //     <<<dim3(512 / 32, 512 / 8, 512 / 8), dim3(32, 1, 8)>>>(unzip_ctx, data, outlier, quant);
+            // HANDLE_ERROR(cudaDeviceSynchronize());
         }
     }
 

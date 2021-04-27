@@ -204,40 +204,41 @@ __global__ void kernel::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
 template <typename Data, typename Quant>
 __global__ void kernel::c_lorenzo_3d1l_32x8x8data_mapto_32x1x8(lorenzo_zip ctx, Data* d, Quant* q)
 {
-    static const auto Block = MetadataTrait<3>::Block;
+    static const auto Block = 8;
     __shared__ Data   shmem[Block][Block][4 * Block];
 
-    auto gi2      = biz * Block + tiz;
+    auto z = tiz;
+
+    auto gi0      = bix * (Block * 4) + tix;
     auto gi1_base = biy * Block;
-    auto gi0      = bix * Block + tix;
-    // auto part_id  = tix / 8;
-    auto seg_tix = tix % 8;
+    auto gi2      = biz * Block + z;
 
-    auto base_id = gi0 + gi1_base * ctx.stride1 + gi2 * ctx.stride2;
-
-    for (auto y = 0; y < Block; y++) {
-        auto id = base_id + y * ctx.stride1;  // low to high in dim, inner to outer
-        if (gi0 < ctx.d0 and (gi1_base + y) < ctx.d1 and gi2 < ctx.d2) {
-            shmem[tiz][y][tix] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    if (gi0 < ctx.d0 and gi2 < ctx.d2) {
+        auto base_id = gi0 + gi1_base * ctx.stride1 + gi2 * ctx.stride2;
+        for (auto y = 0; y < Block; y++) {
+            if (gi1_base + y < ctx.d1) {
+                shmem[z][y][tix] = round(d[base_id + y * ctx.stride1] * ctx.ebx2_r);  // prequant (fp presence)
+            }
         }
     }
     __syncthreads();  // necessary to ensure correctness
 
+    auto x = tix % 8;
+
     for (auto y = 0; y < Block; y++) {
         Data delta;
-        delta =
-            shmem[tiz][y][tix] - ((tiz > 0 and y > 0 and seg_tix > 0 ? shmem[tiz - 1][y - 1][tix - 1] : 0)  // dist=3
-                                  - (y > 0 and seg_tix > 0 ? shmem[tiz][y - 1][tix - 1] : 0)                // dist=2
-                                  - (tiz > 0 and seg_tix > 0 ? shmem[tiz - 1][y][tix - 1] : 0)              //
-                                  - (tiz > 0 and y > 0 ? shmem[tiz - 1][y - 1][tix] : 0)                    //
-                                  + (seg_tix > 0 ? shmem[tiz][y][tix - 1] : 0)                              // dist=1
-                                  + (y > 0 ? shmem[tiz][y - 1][tix] : 0)                                    //
-                                  + (tiz > 0 ? shmem[tiz - 1][y][tix] : 0));                                //
+        delta = shmem[z][y][tix] - ((z > 0 and y > 0 and x > 0 ? shmem[z - 1][y - 1][tix - 1] : 0)  // dist=3
+                                    - (y > 0 and x > 0 ? shmem[z][y - 1][tix - 1] : 0)              // dist=2
+                                    - (z > 0 and x > 0 ? shmem[z - 1][y][tix - 1] : 0)              //
+                                    - (z > 0 and y > 0 ? shmem[z - 1][y - 1][tix] : 0)              //
+                                    + (x > 0 ? shmem[z][y][tix - 1] : 0)                            // dist=1
+                                    + (y > 0 ? shmem[z][y - 1][tix] : 0)                            //
+                                    + (z > 0 ? shmem[z - 1][y][tix] : 0));                          //
 
         bool quantizable = fabs(delta) < ctx.radius;
         Data candidate   = delta + ctx.radius;
 
-        auto id = base_id + y * ctx.stride1;  // low to high in dim, inner to outer
+        auto id = gi0 + (gi1_base + y) * ctx.stride1 + gi2 * ctx.stride2;
         if (gi0 < ctx.d0 and (gi1_base + y) < ctx.d1 and gi2 < ctx.d2) {
             d[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
             q[id] = quantizable * static_cast<Quant>(candidate);
