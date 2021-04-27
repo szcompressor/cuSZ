@@ -350,7 +350,7 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
 #pragma unroll
     for (auto& i : thread_scope) {
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xffff, i, d);  // 0b1111'1111'1111'1111
+            Data n = __shfl_up_sync(0xffffffff, i, d, 16);
             if (tix >= d) i += n;
         }
         i *= ctx.ebx2;
@@ -395,7 +395,7 @@ __global__ void legacy_kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* 
     for (auto& i : thread_scope) {
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xff, i, d);
+            Data n = __shfl_up_sync(0xffffffff, i, d, 8);
             if (tix >= d) i += n;
         }
         // y-index
@@ -407,7 +407,7 @@ __global__ void legacy_kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* 
 
         // partial-sum
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xff, i, d);
+            Data n = __shfl_up_sync(0xffffffff, i, d, 8);
             if (tix >= d) i += n;
         }
         i *= ctx.ebx2;  // scale by eb*2
@@ -453,11 +453,11 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip ctx, Data* data, D
 #pragma unroll
     for (auto& val : thread_scope) {
         // clang-format off
-        for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xff, val, dist); if (tix >= dist) val += addend; }
+        for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xffffffff, val, dist, 8); if (tix >= dist) val += addend; }
         __syncthreads(); 
         intermediate[tiz][tix] = val; __syncthreads(); val = intermediate[tix][tiz]; // xz transpose
         __syncthreads();  
-        for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xff, val, dist); if (tix >= dist) val += addend; }
+        for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xffffffff, val, dist, 8); if (tix >= dist) val += addend; }
         // clang-format on
     }
 
