@@ -508,7 +508,6 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip ctx, Data* data, D
     for (auto& val : thread_scope) {
         // clang-format off
         for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xffffffff, val, dist, 8); if (tix >= dist) val += addend; }
-        __syncthreads(); 
         intermediate[tiz][tix] = val; __syncthreads(); val = intermediate[tix][tiz]; // xz transpose
         __syncthreads();  
         for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xffffffff, val, dist, 8); if (tix >= dist) val += addend; }
