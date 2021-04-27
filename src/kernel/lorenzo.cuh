@@ -28,6 +28,12 @@
 #include "../metadata.hh"
 #include "../type_aliasing.hh"
 
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
+
 #define tix threadIdx.x
 #define tiy threadIdx.y
 #define tiz threadIdx.z
@@ -42,13 +48,16 @@ extern __shared__ char scratch[];
 
 // clang-format off
 namespace kernel {
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*);
 template <typename Data, typename Quant, int Sequentiality=8> __global__ void c_lorenzo_1d1l_v2(lorenzo_zip, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_16x2(lorenzo_zip, Data*, Quant*);
+
+template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_32x8x8data_mapto_32x1x8(lorenzo_zip, Data*, Quant*);
 
 template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l_cub(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_16x16_v1(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_32x8x8_mapto_32x1x8_v3(lorenzo_unzip, Data*, Data*, Quant*);
 }
 
 namespace legacy_kernel { 
@@ -189,6 +198,50 @@ __global__ void kernel::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
         Data candidate   = delta + ctx.radius;
         d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
         q[id]            = quantizable * static_cast<Quant>(candidate);
+    }
+}
+
+template <typename Data, typename Quant>
+__global__ void kernel::c_lorenzo_3d1l_32x8x8data_mapto_32x1x8(lorenzo_zip ctx, Data* d, Quant* q)
+{
+    static const auto Block = MetadataTrait<3>::Block;
+    __shared__ Data   shmem[Block][Block][4 * Block];
+
+    auto gi2      = biz * Block + tiz;
+    auto gi1_base = biy * Block;
+    auto gi0      = bix * Block + tix;
+    // auto part_id  = tix / 8;
+    auto seg_tix = tix % 8;
+
+    auto base_id = gi0 + gi1_base * ctx.stride1 + gi2 * ctx.stride2;
+
+    for (auto y = 0; y < Block; y++) {
+        auto id = base_id + y * ctx.stride1;  // low to high in dim, inner to outer
+        if (gi0 < ctx.d0 and (gi1_base + y) < ctx.d1 and gi2 < ctx.d2) {
+            shmem[tiz][y][tix] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+        }
+    }
+    __syncthreads();  // necessary to ensure correctness
+
+    for (auto y = 0; y < Block; y++) {
+        Data delta;
+        delta =
+            shmem[tiz][y][tix] - ((tiz > 0 and y > 0 and seg_tix > 0 ? shmem[tiz - 1][y - 1][tix - 1] : 0)  // dist=3
+                                  - (y > 0 and seg_tix > 0 ? shmem[tiz][y - 1][tix - 1] : 0)                // dist=2
+                                  - (tiz > 0 and seg_tix > 0 ? shmem[tiz - 1][y][tix - 1] : 0)              //
+                                  - (tiz > 0 and y > 0 ? shmem[tiz - 1][y - 1][tix] : 0)                    //
+                                  + (seg_tix > 0 ? shmem[tiz][y][tix - 1] : 0)                              // dist=1
+                                  + (y > 0 ? shmem[tiz][y - 1][tix] : 0)                                    //
+                                  + (tiz > 0 ? shmem[tiz - 1][y][tix] : 0));                                //
+
+        bool quantizable = fabs(delta) < ctx.radius;
+        Data candidate   = delta + ctx.radius;
+
+        auto id = base_id + y * ctx.stride1;  // low to high in dim, inner to outer
+        if (gi0 < ctx.d0 and (gi1_base + y) < ctx.d1 and gi2 < ctx.d2) {
+            d[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
+            q[id] = quantizable * static_cast<Quant>(candidate);
+        }
     }
 }
 
@@ -459,6 +512,68 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip ctx, Data* data, D
         __syncthreads();  
         for (dist = 1; dist < Block; dist *= 2) { addend = __shfl_up_sync(0xffffffff, val, dist, 8); if (tix >= dist) val += addend; }
         // clang-format on
+    }
+
+    gi0 = bix * Block + tiz, gi2 = biz * Block + tix;
+#pragma unroll
+    for (y = 0; y < YSequentiality; y++) {
+        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2) { data[get_gid(y)] = thread_scope[y] * ctx.ebx2; }
+    }
+}
+
+template <typename Data, typename Quant>
+__global__ void
+kernel::x_lorenzo_3d1l_32x8x8_mapto_32x1x8_v3(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+{
+    static const auto Block          = MetadataTrait<3>::Block;
+    static const auto YSequentiality = Block;
+    static_assert(Block == 8, "In one case, we need Block for 3D == 8");
+
+    __shared__ Data intermediate[4][Block][Block];
+    Data            thread_scope[YSequentiality];
+
+    auto seg_id  = tix / 8;
+    auto seg_tix = tix % 8;
+
+    auto gi0 = bix * Block + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
+    auto get_gid = [&](auto y) { return gi2 * ctx.stride2 + (gi1_base + y) * ctx.stride1 + gi0; };
+
+    auto y = 0;
+
+    // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
+#pragma unroll
+    for (y = 0; y < YSequentiality; y++) {
+        auto gid = get_gid(y);
+        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2)
+            thread_scope[y] = outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(ctx.radius);  // fuse
+        else
+            thread_scope[y] = 0;
+    }
+    // sequential partial-sum
+    for (y = 1; y < YSequentiality; y++) thread_scope[y] += thread_scope[y - 1];
+
+    // shuffle, ND partial-sums
+    auto dist = 1;
+    Data addend;
+
+#pragma unroll
+    for (auto& val : thread_scope) {
+        for (dist = 1; dist < Block; dist *= 2) {
+            addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            if (tix >= dist) val += addend;
+        }
+        __syncthreads();
+
+        // x-z transpose
+        intermediate[seg_id][tiz][seg_tix] = val;
+        __syncthreads();
+        val = intermediate[seg_id][seg_tix][tiz];
+        __syncthreads();
+
+        for (dist = 1; dist < Block; dist *= 2) {
+            addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            if (tix >= dist) val += addend;
+        }
     }
 
     gi0 = bix * Block + tiz, gi2 = biz * Block + tix;
