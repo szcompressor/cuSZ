@@ -135,13 +135,13 @@ __global__ void kernel::c_lorenzo_2d1l_16x2(lorenzo_zip ctx, Data* d, Quant* q)
         if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) center[i + 1] = round(d[get_gid(i)] * ctx.ebx2_r);
     }
 
-    auto tmp = __shfl_up_sync(0x1f, center[YSequentiality], 16);  // ???
+    auto tmp = __shfl_up_sync(0xffffffff, center[YSequentiality], 16);  // same-warp, next-16
     if (tiy == 1) center[0] = tmp;
 
 #pragma unroll
     for (auto i = YSequentiality; i > 0; i--) {
         center[i] -= center[i - 1];
-        auto west = __shfl_up_sync(0xf, center[i], 1);
+        auto west = __shfl_up_sync(0xffffffff, center[i], 1, 16);
         if (tix > 0) center[i] -= west;
     }
     __syncthreads();
@@ -285,7 +285,7 @@ __global__ void legacy_kernel::x_lorenzo_2d1l_16x16_v0(lorenzo_unzip ctx, Data* 
 #pragma unroll
     for (auto& i : thread_scope) {
         for (auto d = 1; d < Block; d *= 2) {
-            Data n = __shfl_up_sync(0xf, i, d);
+            Data n = __shfl_up_sync(0xffffffff, i, d, 16);
             if (tix >= d) i += n;
         }
         i *= ctx.ebx2;
