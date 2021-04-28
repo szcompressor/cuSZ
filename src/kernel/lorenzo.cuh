@@ -56,6 +56,7 @@ template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_v1_16x16
 
 template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v4_8x8x8data_mapto_8x1x8(lorenzo_unzip, Data*, Data*, Quant*);
 template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v6_32x8x8data_mapto_32x1x8(lorenzo_unzip, Data*, Data*, Quant*);
 }
 
 namespace legacy_kernel { 
@@ -626,6 +627,64 @@ kernel::x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data,
 #pragma unroll
     for (y = 0; y < YSequentiality; y++) {
         if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2) { data[get_gid(y)] = thread_scope[y] * ctx.ebx2; }
+    }
+}
+
+template <typename Data, typename Quant>
+__global__ void
+kernel::x_lorenzo_3d1l_v6_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+{
+    static const auto Block          = 8;
+    static const auto YSequentiality = Block;
+    static_assert(Block == 8, "In one case, we need Block for 3D == 8");
+
+    __shared__ Data intermediate[4][Block][Block];
+    // Data            thread_scope[YSequentiality];
+    Data thread_scope = 0;
+
+    auto seg_id  = tix / 8;
+    auto seg_tix = tix % 8;
+
+    auto gi0 = bix * (4 * Block) + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
+    auto get_gid = [&](auto y) { return gi2 * ctx.stride2 + (gi1_base + y) * ctx.stride1 + gi0; };
+
+    auto y = 0;
+
+    // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
+#pragma unroll
+    for (y = 0; y < YSequentiality; y++) {
+        auto gid = get_gid(y);
+        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2)
+            thread_scope += outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(ctx.radius);  // fuse
+
+        // shuffle, ND partial-sums
+
+        Data val = thread_scope;
+
+        for (auto dist = 1; dist < Block; dist *= 2) {
+            Data addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            if (seg_tix >= dist) val += addend;
+        }
+
+        // x-z transpose
+        intermediate[seg_id][tiz][seg_tix] = val;
+        __syncthreads();
+        val = intermediate[seg_id][seg_tix][tiz];
+        __syncthreads();
+
+        for (auto dist = 1; dist < Block; dist *= 2) {
+            Data addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            if (seg_tix >= dist) val += addend;
+        }
+
+        intermediate[seg_id][tiz][seg_tix] = val;
+        __syncthreads();
+        val = intermediate[seg_id][seg_tix][tiz];
+        __syncthreads();
+
+        // thread_scope += val;
+
+        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2) { data[get_gid(y)] = val * ctx.ebx2; }
     }
 }
 

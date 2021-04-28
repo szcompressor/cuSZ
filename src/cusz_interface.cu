@@ -529,13 +529,13 @@ void cusz::interface::Decompress(
         }
         else if (ap->ndim == 3) {  // y-sequentiality == 8
             LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            kernel::x_lorenzo_3d1l_v4_8x8x8data_mapto_8x1x8<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>  //
-                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
-
-            // kernel::x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8                                    //
-            //     <<<dim3((ap->dim4._0 + 32) / 32, (ap->dim4._1 + 8) / 8, (ap->dim4._2 + 8) / 8),  //
-            //        dim3(32, 1, 8)>>>                                                             //
+            // kernel::x_lorenzo_3d1l_v4_8x8x8data_mapto_8x1x8<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>  //
             //     (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
+
+            // kernel::x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8                                                      //
+            kernel::x_lorenzo_3d1l_v6_32x8x8data_mapto_32x1x8                                                      //
+                <<<dim3((ap->dim4._0 + 32) / 32, (ap->dim4._1 + 8) / 8, (ap->dim4._2 + 8) / 8), dim3(32, 1, 8)>>>  //
+                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
