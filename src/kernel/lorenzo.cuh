@@ -574,7 +574,7 @@ kernel::x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data,
     auto seg_id  = tix / 8;
     auto seg_tix = tix % 8;
 
-    auto gi0 = bix * Block + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
+    auto gi0 = bix * (4 * Block) + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
     auto get_gid = [&](auto y) { return gi2 * ctx.stride2 + (gi1_base + y) * ctx.stride1 + gi0; };
 
     auto y = 0;
@@ -623,7 +623,6 @@ kernel::x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data,
         thread_scope[i] = val;
     }
 
-    gi0 = bix * Block + tix, gi2 = biz * Block + tiz;
 #pragma unroll
     for (y = 0; y < YSequentiality; y++) {
         if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2) { data[get_gid(y)] = thread_scope[y] * ctx.ebx2; }
