@@ -11,10 +11,9 @@
  *
  */
 
-#ifndef CUSZ_DUALQUANT_CUH
-#define CUSZ_DUALQUANT_CUH
+#ifndef KERNEL_LORENZO_CUH
+#define KERNEL_LORENZO_CUH
 
-#include <cuda_runtime.h>
 #include <cstddef>
 
 #if CUDART_VERSION >= 11000
@@ -48,22 +47,21 @@ extern __shared__ char scratch[];
 
 // clang-format off
 namespace kernel {
-template <typename Data, typename Quant, int Sequentiality=8> __global__ void c_lorenzo_1d1l_v2(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_16x2(lorenzo_zip, Data*, Quant*);
-
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_32x8x8data_mapto_32x1x8(lorenzo_zip, Data*, Quant*);
+template <typename Data, typename Quant, int Sequentiality = 8> __global__ void c_lorenzo_1d1l_v2(lorenzo_zip, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_zip, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(lorenzo_zip, Data*, Quant*);
 
 template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l_cub(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_16x16_v1(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v4(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_32x8x8_mapto_32x1x8_v4(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_unzip, Data*, Data*, Quant*);
+
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v4_8x8x8data_mapto_8x1x8(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8(lorenzo_unzip, Data*, Data*, Quant*);
 }
 
 namespace legacy_kernel { 
-template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_16x16_v0(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_v0_16x16data_mapto_16x1(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v2_8x8x8data_mapto_8x1x8(lorenzo_unzip, Data*, Data*, Quant*);
+template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v3_8x8x8data_mapto_8x1x8(lorenzo_unzip, Data*, Data*, Quant*);
 }
 // clang-format on
 
@@ -126,9 +124,9 @@ __global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::c_lorenzo_2d1l_16x2(lorenzo_zip ctx, Data* d, Quant* q)
+__global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_zip ctx, Data* d, Quant* q)
 {
-    static const auto Block          = MetadataTrait<2>::Block;
+    static const auto Block          = 16;
     static const auto YSequentiality = 8;
 
     Data center[YSequentiality + 1] = {0};  //   nw  north
@@ -174,36 +172,7 @@ __global__ void kernel::c_lorenzo_2d1l_16x2(lorenzo_zip ctx, Data* d, Quant* q)
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
-{
-    static const auto Block          = MetadataTrait<3>::Block;
-    Data(&s3df)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
-
-    auto z = tiz, y = tiy, x = tix;
-    auto gi2 = biz * bdz + z, gi1 = biy * bdy + y, gi0 = bix * bdx + x;
-
-    auto id = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
-    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
-        s3df[z][y][x] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
-    }
-    __syncthreads();  // necessary to ensure correctness
-    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
-        Data delta       = s3df[z][y][x] - ((z > 0 and y > 0 and x > 0 ? s3df[z - 1][y - 1][x - 1] : 0)  // dist=3
-                                      - (y > 0 and x > 0 ? s3df[z][y - 1][x - 1] : 0)              // dist=2
-                                      - (z > 0 and x > 0 ? s3df[z - 1][y][x - 1] : 0)              //
-                                      - (z > 0 and y > 0 ? s3df[z - 1][y - 1][x] : 0)              //
-                                      + (x > 0 ? s3df[z][y][x - 1] : 0)                            // dist=1
-                                      + (y > 0 ? s3df[z][y - 1][x] : 0)                            //
-                                      + (z > 0 ? s3df[z - 1][y][x] : 0));                          //
-        bool quantizable = fabs(delta) < ctx.radius;
-        Data candidate   = delta + ctx.radius;
-        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        q[id]            = quantizable * static_cast<Quant>(candidate);
-    }
-}
-
-template <typename Data, typename Quant>
-__global__ void kernel::c_lorenzo_3d1l_32x8x8data_mapto_32x1x8(lorenzo_zip ctx, Data* d, Quant* q)
+__global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(lorenzo_zip ctx, Data* d, Quant* q)
 {
     static const auto Block = 8;
     __shared__ Data   shmem[Block][Block][4 * Block];
@@ -301,9 +270,10 @@ __global__ void kernel::x_lorenzo_1d1l_cub(lorenzo_unzip ctx, Data* xdata, Data*
 }
 
 template <typename Data, typename Quant>
-__global__ void legacy_kernel::x_lorenzo_2d1l_16x16_v0(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+__global__ void
+legacy_kernel::x_lorenzo_2d1l_v0_16x16data_mapto_16x1(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
 {
-    static const auto Block = MetadataTrait<2>::Block;
+    static const auto Block = 16;
     static_assert(Block == 16, "In one case, we need Block for 2D == 16");
 
     Data thread_scope[Block];
@@ -355,9 +325,10 @@ __global__ void legacy_kernel::x_lorenzo_2d1l_16x16_v0(lorenzo_unzip ctx, Data* 
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+__global__ void
+kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
 {
-    static const auto Block          = MetadataTrait<2>::Block;
+    static const auto Block          = 16;
     static const auto YSequentiality = Block / 2;  // sequentiality in y direction
     static_assert(Block == 16, "In one case, we need Block for 2D == 16");
 
@@ -418,9 +389,10 @@ __global__ void kernel::x_lorenzo_2d1l_16x16_v1(lorenzo_unzip ctx, Data* xdata, 
 }
 
 template <typename Data, typename Quant>
-__global__ void legacy_kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+__global__ void
+legacy_kernel::x_lorenzo_3d1l_v2_8x8x8data_mapto_8x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
-    static const auto Block          = MetadataTrait<3>::Block;
+    static const auto Block          = 8;
     static const auto YSequentiality = Block;
     static_assert(Block == 8, "In one case, we need Block for 3D == 8");
 
@@ -475,9 +447,10 @@ __global__ void legacy_kernel::x_lorenzo_3d1l_8x8x8_v2(lorenzo_unzip ctx, Data* 
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+__global__ void
+legacy_kernel::x_lorenzo_3d1l_v3_8x8x8data_mapto_8x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
-    static const auto Block          = MetadataTrait<3>::Block;
+    static const auto Block          = 8;
     static const auto YSequentiality = Block;
     static_assert(Block == 8, "In one case, we need Block for 3D == 8");
 
@@ -523,9 +496,10 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v3(lorenzo_unzip ctx, Data* data, D
 }
 
 template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_3d1l_8x8x8_v4(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+__global__ void
+kernel::x_lorenzo_3d1l_v4_8x8x8data_mapto_8x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
-    static const auto Block          = MetadataTrait<3>::Block;
+    static const auto Block          = 8;
     static const auto YSequentiality = Block;
     static_assert(Block == 8, "In one case, we need Block for 3D == 8");
 
@@ -588,9 +562,9 @@ __global__ void kernel::x_lorenzo_3d1l_8x8x8_v4(lorenzo_unzip ctx, Data* data, D
 
 template <typename Data, typename Quant>
 __global__ void
-kernel::x_lorenzo_3d1l_32x8x8_mapto_32x1x8_v4(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+kernel::x_lorenzo_3d1l_v5_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
 {
-    static const auto Block          = MetadataTrait<3>::Block;
+    static const auto Block          = 8;
     static const auto YSequentiality = Block;
     static_assert(Block == 8, "In one case, we need Block for 3D == 8");
 

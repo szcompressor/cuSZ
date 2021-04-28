@@ -11,11 +11,8 @@
  *
  */
 
-#ifndef CUSZ_DUALQUANT_CUH
-#define CUSZ_DUALQUANT_CUH
-
-#include <cuda_runtime.h>
-#include <cstddef>
+#ifndef KERNEL_PROTOTYPE_LORENZO_CUH
+#define KERNEL_PROTOTYPE_LORENZO_CUH
 
 #if CUDART_VERSION >= 11000
 #pragma message(__FILE__ ": (CUDA 11 onward), cub from system path")
