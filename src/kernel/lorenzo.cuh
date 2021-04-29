@@ -24,9 +24,6 @@
 #include "../../external/cub/cub/cub.cuh"
 #endif
 
-#include "../metadata.hh"
-#include "../type_aliasing.hh"
-
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
 #else
@@ -45,24 +42,40 @@
 
 extern __shared__ char scratch[];
 
-// clang-format off
-namespace kernel {
-template <typename Data, typename Quant, int Sequentiality = 8> __global__ void c_lorenzo_1d1l_v2(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l_cub(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(lorenzo_unzip, Data*, Data*, Quant*);
-}
+using DIM    = unsigned int;
+using STRIDE = unsigned int;
 
+namespace kernel {
+
+// clang-format off
+template <typename Data, typename Quant, typename FP = float, int Block = 256, int Sequentiality = 4> __global__ void c_lorenzo_1d1l_v2
+(Data*, Quant*, DIM, int, FP);
+template <typename Data, typename Quant, typename FP = float, int Block = 256, int Sequentiality = 8> __global__ void x_lorenzo_1d1l_cub
+(Data*, Data*, Quant*, DIM, int, FP);
+
+template <typename Data, typename Quant, typename FP = float> __global__ void c_lorenzo_2d1l_v1_16x16data_mapto_16x2
+(Data*, Quant*, DIM, DIM, STRIDE, int, FP);
+template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_2d1l_v1_16x16data_mapto_16x2
+(Data*, Data*, Quant*, DIM, DIM, STRIDE, int, FP);
+
+template <typename Data, typename Quant, typename FP = float> __global__ void c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8
+(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
+template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8
+(Data*, Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
+template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8
+(Data*, Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
 // clang-format on
 
-template <typename Data, typename Quant, int Sequentiality>
-__global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
-{
-    static const auto Block = MetadataTrait<1>::Block;
+}  // namespace kernel
 
+template <typename Data, typename Quant, typename FP, int Block, int Sequentiality>
+__global__ void kernel::c_lorenzo_1d1l_v2(  //
+    Data*  d,
+    Quant* q,
+    DIM    dimx,
+    int    radius,
+    FP     ebx2_r)
+{
     static const auto nThreads = Block / Sequentiality;
 
     __shared__ union ShareMem {
@@ -79,7 +92,7 @@ __global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
 #pragma unroll
     for (auto i = 0; i < Sequentiality; i++) {
         auto id = id_base + tix + i * nThreads;
-        if (id < ctx.d0) { shmem.data[tix + i * nThreads] = round(d[id] * ctx.ebx2_r); }
+        if (id < dimx) { shmem.data[tix + i * nThreads] = round(d[id] * ebx2_r); }
     }
     __syncthreads();
     for (auto i = 0; i < Sequentiality; i++) thread_scope[i] = shmem.data[tix * Sequentiality + i];
@@ -91,16 +104,16 @@ __global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
     // i == 0
     {
         Data delta                           = thread_scope[0] - from_last_stripe;
-        bool quantizable                     = fabs(delta) < ctx.radius;
-        Data candidate                       = delta + ctx.radius;
+        bool quantizable                     = fabs(delta) < radius;
+        Data candidate                       = delta + radius;
         shmem.data[0 + tix * Sequentiality]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
         shmem_quant[0 + tix * Sequentiality] = quantizable * static_cast<Quant>(candidate);
     }
 #pragma unroll
     for (auto i = 1; i < Sequentiality; i++) {
         Data delta                           = thread_scope[i] - thread_scope[i - 1];
-        bool quantizable                     = fabs(delta) < ctx.radius;
-        Data candidate                       = delta + ctx.radius;
+        bool quantizable                     = fabs(delta) < radius;
+        Data candidate                       = delta + radius;
         shmem.data[i + tix * Sequentiality]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
         shmem_quant[i + tix * Sequentiality] = quantizable * static_cast<Quant>(candidate);
     }
@@ -109,15 +122,22 @@ __global__ void kernel::c_lorenzo_1d1l_v2(lorenzo_zip ctx, Data* d, Quant* q)
 #pragma unroll
     for (auto i = 0; i < Sequentiality; i++) {
         auto id = id_base + tix + i * nThreads;
-        if (id < ctx.d0) {  //
+        if (id < dimx) {  //
             q[id] = shmem_quant[tix + i * nThreads];
             d[id] = shmem.data[tix + i * nThreads];
         }
     }
 }
 
-template <typename Data, typename Quant>
-__global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_zip ctx, Data* d, Quant* q)
+template <typename Data, typename Quant, typename FP>
+__global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(
+    Data*  d,
+    Quant* q,
+    DIM    dimx,
+    DIM    dimy,
+    STRIDE stridey,
+    int    radius,
+    FP     ebx2_r)
 {
     static const auto Block          = 16;
     static const auto YSequentiality = 8;
@@ -127,13 +147,12 @@ __global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_zip ctx, 
 
     auto gi0      = bix * bdx + tix;                     // bdx == 16
     auto gi1_base = biy * Block + tiy * YSequentiality;  // bdy * YSequentiality = Block == 16
-    auto radius   = static_cast<Data>(ctx.radius);
-    auto get_gid  = [&](auto i) { return (gi1_base + i) * ctx.stride1 + gi0; };
+    auto get_gid  = [&](auto i) { return (gi1_base + i) * stridey + gi0; };
 
     // read from global memory
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
-        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) center[i + 1] = round(d[get_gid(i)] * ctx.ebx2_r);
+        if (gi0 < dimx and gi1_base + i < dimy) center[i + 1] = round(d[get_gid(i)] * ebx2_r);
     }
 
     auto tmp = __shfl_up_sync(0xffffffff, center[YSequentiality], 16);  // same-warp, next-16
@@ -155,17 +174,26 @@ __global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_zip ctx, 
 #pragma unroll
     for (auto i = 1; i < YSequentiality + 1; i++) {
         auto gid         = get_gid(i - 1);
-        bool quantizable = fabs(center[i]) < ctx.radius;
-        Data candidate   = center[i] + ctx.radius;
-        if (gi0 < ctx.d0 and gi1_base + i - 1 < ctx.d1) {
+        bool quantizable = fabs(center[i]) < radius;
+        Data candidate   = center[i] + radius;
+        if (gi0 < dimx and gi1_base + i - 1 < dimy) {
             d[gid] = (1 - quantizable) * candidate;  // output; reuse data for outlier
             q[gid] = quantizable * static_cast<Quant>(candidate);
         }
     }
 }
 
-template <typename Data, typename Quant>
-__global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(lorenzo_zip ctx, Data* d, Quant* q)
+template <typename Data, typename Quant, typename FP>
+__global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(
+    Data*  d,
+    Quant* q,
+    DIM    dimx,
+    DIM    dimy,
+    DIM    dimz,
+    STRIDE stridey,
+    STRIDE stridez,
+    int    radius,
+    FP     ebx2_r)
 {
     static const auto Block = 8;
     __shared__ Data   shmem[Block][Block][4 * Block];
@@ -176,11 +204,11 @@ __global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(lorenzo_zip ct
     auto gi1_base = biy * Block;
     auto gi2      = biz * Block + z;
 
-    if (gi0 < ctx.d0 and gi2 < ctx.d2) {
-        auto base_id = gi0 + gi1_base * ctx.stride1 + gi2 * ctx.stride2;
+    if (gi0 < dimx and gi2 < dimz) {
+        auto base_id = gi0 + gi1_base * stridey + gi2 * stridez;
         for (auto y = 0; y < Block; y++) {
-            if (gi1_base + y < ctx.d1) {
-                shmem[z][y][tix] = round(d[base_id + y * ctx.stride1] * ctx.ebx2_r);  // prequant (fp presence)
+            if (gi1_base + y < dimy) {
+                shmem[z][y][tix] = round(d[base_id + y * stridey] * ebx2_r);  // prequant (fp presence)
             }
         }
     }
@@ -198,23 +226,27 @@ __global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(lorenzo_zip ct
                                     + (y > 0 ? shmem[z][y - 1][tix] : 0)                            //
                                     + (z > 0 ? shmem[z - 1][y][tix] : 0));                          //
 
-        bool quantizable = fabs(delta) < ctx.radius;
-        Data candidate   = delta + ctx.radius;
+        bool quantizable = fabs(delta) < radius;
+        Data candidate   = delta + radius;
 
-        auto id = gi0 + (gi1_base + y) * ctx.stride1 + gi2 * ctx.stride2;
-        if (gi0 < ctx.d0 and (gi1_base + y) < ctx.d1 and gi2 < ctx.d2) {
+        auto id = gi0 + (gi1_base + y) * stridey + gi2 * stridez;
+        if (gi0 < dimx and (gi1_base + y) < dimy and gi2 < dimz) {
             d[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
             q[id] = quantizable * static_cast<Quant>(candidate);
         }
     }
 }
 
-template <typename Data, typename Quant>
-__global__ void kernel::x_lorenzo_1d1l_cub(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+template <typename Data, typename Quant, typename FP, int Block, int Sequentiality>
+__global__ void kernel::x_lorenzo_1d1l_cub(  //
+    Data*  xdata,
+    Data*  outlier,
+    Quant* quant,
+    DIM    dimx,
+    int    radius,
+    FP     ebx2)
 {
-    static const auto Block         = MetadataTrait<1>::Block;
-    static const auto Sequentiality = MetadataTrait<1>::Sequentiality;  // items per thread
-    static const auto Db            = Block / Sequentiality;            // dividable
+    static const auto Db = Block / Sequentiality;  // dividable
 
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
     typedef cub::BlockLoad<Data, Db, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE>   BlockLoadT_outlier;
@@ -243,12 +275,11 @@ __global__ void kernel::x_lorenzo_1d1l_cub(lorenzo_unzip ctx, Data* xdata, Data*
     BlockLoadT_outlier(temp_storage.load_outlier).Load(outlier + (bix * bdx) * Sequentiality, thread_scope.outlier);
     __syncthreads();  // barrier for shmem reuse
 
-    auto radius = static_cast<Data>(ctx.radius);
 #pragma unroll
     for (auto i = 0; i < Sequentiality; i++) {
         auto id = (bix * bdx + tix) * Sequentiality + i;
         thread_scope.xdata[i] =
-            id < ctx.d0 ? thread_scope.outlier[i] + static_cast<Data>(thread_scope_quant[i]) - radius : 0;
+            id < dimx ? thread_scope.outlier[i] + static_cast<Data>(thread_scope_quant[i]) - radius : 0;
     }
     __syncthreads();
 
@@ -256,15 +287,22 @@ __global__ void kernel::x_lorenzo_1d1l_cub(lorenzo_unzip ctx, Data* xdata, Data*
     __syncthreads();  // barrier for shmem reuse
 
 #pragma unroll
-    for (auto i = 0; i < Sequentiality; i++) thread_scope.xdata[i] *= ctx.ebx2;
+    for (auto i = 0; i < Sequentiality; i++) thread_scope.xdata[i] *= ebx2;
     __syncthreads();  // barrier for shmem reuse
 
     BlockStoreT_xdata(temp_storage.store_xdata).Store(xdata + (bix * bdx) * Sequentiality, thread_scope.xdata);
 }
 
-template <typename Data, typename Quant>
-__global__ void
-kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quant)
+template <typename Data, typename Quant, typename FP>
+__global__ void kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(
+    Data*    xdata,
+    Data*    outlier,
+    Quant*   quant,
+    DIM      dimx,
+    unsigned dimy,
+    unsigned stridey,
+    int      radius,
+    FP       ebx2)
 {
     static const auto Block          = 16;
     static const auto YSequentiality = Block / 2;  // sequentiality in y direction
@@ -287,14 +325,13 @@ kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_unzip ctx, Data* xdata, D
 
     auto gi0      = bix * Block + tix;
     auto gi1_base = biy * Block + tiy * YSequentiality;  // bdy * YSequentiality = Block == 16
-    auto radius   = static_cast<Data>(ctx.radius);
-    auto get_gid  = [&](auto i) { return (gi1_base + i) * ctx.stride1 + gi0; };
+    auto get_gid  = [&](auto i) { return (gi1_base + i) * stridey + gi0; };
 
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         auto gid = get_gid(i);
         // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
-        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1)
+        if (gi0 < dimx and gi1_base + i < dimy)
             thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
         else
             thread_scope[i] = 0;  // TODO set as init state?
@@ -317,18 +354,27 @@ kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(lorenzo_unzip ctx, Data* xdata, D
             Data n = __shfl_up_sync(0xffffffff, i, d, 16);
             if (tix >= d) i += n;
         }
-        i *= ctx.ebx2;
+        i *= ebx2;
     }
 #pragma unroll
     for (auto i = 0; i < YSequentiality; i++) {
         auto gid = get_gid(i);
-        if (gi0 < ctx.d0 and gi1_base + i < ctx.d1) xdata[gid] = thread_scope[i];
+        if (gi0 < dimx and gi1_base + i < dimy) xdata[gid] = thread_scope[i];
     }
 }
 
-template <typename Data, typename Quant>
-__global__ void
-kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+template <typename Data, typename Quant, typename FP>
+__global__ void kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(
+    Data*  data,
+    Data*  outlier,
+    Quant* quant,
+    DIM    dimx,
+    DIM    dimy,
+    DIM    dimz,
+    STRIDE stridey,
+    STRIDE stridez,
+    int    radius,
+    FP     ebx2)
 {
     static const auto Block          = 8;
     static const auto YSequentiality = Block;
@@ -341,7 +387,7 @@ kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* d
     auto seg_tix = tix % 8;
 
     auto gi0 = bix * (4 * Block) + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
-    auto get_gid = [&](auto y) { return gi2 * ctx.stride2 + (gi1_base + y) * ctx.stride1 + gi0; };
+    auto get_gid = [&](auto y) { return gi2 * stridez + (gi1_base + y) * stridey + gi0; };
 
     auto y = 0;
 
@@ -349,8 +395,8 @@ kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* d
 #pragma unroll
     for (y = 0; y < YSequentiality; y++) {
         auto gid = get_gid(y);
-        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2)
-            thread_scope[y] = outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(ctx.radius);  // fuse
+        if (gi0 < dimx and gi1_base + y < dimy and gi2 < dimz)
+            thread_scope[y] = outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(radius);  // fuse
         else
             thread_scope[y] = 0;
     }
@@ -391,13 +437,22 @@ kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* d
 
 #pragma unroll
     for (y = 0; y < YSequentiality; y++) {
-        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2) { data[get_gid(y)] = thread_scope[y] * ctx.ebx2; }
+        if (gi0 < dimx and gi1_base + y < dimy and gi2 < dimz) { data[get_gid(y)] = thread_scope[y] * ebx2; }
     }
 }
 
-template <typename Data, typename Quant>
-__global__ void
-kernel::x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* quant)
+template <typename Data, typename Quant, typename FP>
+__global__ void kernel::x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(
+    Data*  data,
+    Data*  outlier,
+    Quant* quant,
+    DIM    dimx,
+    DIM    dimy,
+    DIM    dimz,
+    STRIDE stridey,
+    STRIDE stridez,
+    int    radius,
+    FP     ebx2)
 {
     static const auto Block          = 8;
     static const auto YSequentiality = Block;
@@ -410,7 +465,7 @@ kernel::x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* d
     auto seg_tix = tix % 8;
 
     auto gi0 = bix * (4 * Block) + tix, gi1_base = biy * Block, gi2 = biz * Block + tiz;
-    auto get_gid = [&](auto y) { return gi2 * ctx.stride2 + (gi1_base + y) * ctx.stride1 + gi0; };
+    auto get_gid = [&](auto y) { return gi2 * stridez + (gi1_base + y) * stridey + gi0; };
 
     auto y = 0;
 
@@ -418,13 +473,12 @@ kernel::x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* d
 #pragma unroll
     for (y = 0; y < YSequentiality; y++) {
         auto gid = get_gid(y);
-        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2)
-            thread_scope += outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(ctx.radius);  // fuse
-
-        // shuffle, ND partial-sums
+        if (gi0 < dimx and gi1_base + y < dimy and gi2 < dimz)
+            thread_scope += outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(radius);  // fuse
 
         Data val = thread_scope;
 
+        // shuffle, ND partial-sums
         for (auto dist = 1; dist < Block; dist *= 2) {
             Data addend = __shfl_up_sync(0xffffffff, val, dist, 8);
             if (seg_tix >= dist) val += addend;
@@ -448,7 +502,7 @@ kernel::x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(lorenzo_unzip ctx, Data* d
 
         // thread_scope += val;
 
-        if (gi0 < ctx.d0 and gi1_base + y < ctx.d1 and gi2 < ctx.d2) { data[get_gid(y)] = val * ctx.ebx2; }
+        if (gi0 < dimx and gi1_base + y < dimy and gi2 < dimz) { data[get_gid(y)] = val * ebx2; }
     }
 }
 
