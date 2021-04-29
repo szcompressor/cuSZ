@@ -219,23 +219,52 @@ void cusz::interface::Compress(
     // TODO add hoc padding
     auto d_quant = mem::CreateCUDASpace<Quant>(len + HuffConfig::Db_encode);  // quant. code is not needed for dry-run
 
+    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
+    auto dimx    = tuple_dim4._0;
+    auto dimy    = tuple_dim4._1;
+    auto dimz    = tuple_dim4._2;
+    auto stridey = tuple_stride4._1;
+    auto stridez = tuple_stride4._2;
+
+    auto radius = ap->radius;
+    auto eb     = ap->eb;
+    auto ebx2_r = 1 / (eb * 2);
+
+    auto num_partitions = [&](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+
     // prediction-quantization
     {
-        if (ap->ndim == 1) {
-            LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            // seq = 4 for A100
-            kernel::c_lorenzo_1d1l_v2<Data, Quant, 4><<<lc.cfg.Dg, lc.cfg.Db.x / 4>>>(lc.z_ctx, d_data, d_quant);
+        if (ap->ndim == 1) {  // y-sequentiality == 4 (A100) or 8
+
+            static const auto Sequentiality = 4;
+            static const auto DataSubsize   = MetadataTrait<1>::Block;
+            auto              dim_block     = DataSubsize / Sequentiality;
+            auto              dim_grid      = num_partitions(dimx, DataSubsize);
+
+            kernel::c_lorenzo_1d1l_v2<Data, Quant, float, DataSubsize, Sequentiality><<<dim_grid, dim_block>>>  //
+                (d_data, d_quant, dimx, radius, ebx2_r);
         }
-        else if (ap->ndim == 2) {
-            LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant>
-                <<<lc.cfg.Dg, dim3(16, 2, 1)>>>(lc.z_ctx, d_data, d_quant);
+        else if (ap->ndim == 2) {  // y-sequentiality == 8
+
+            auto dim_block = dim3(16, 2);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 16),  //
+                num_partitions(dimy, 16));
+
+            kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
+                (d_data, d_quant, dimx, dimy, stridey, radius, ebx2_r);
         }
-        else if (ap->ndim == 3) {
-            LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant>
-                <<<dim3((ap->dim4._0 + 32) / 32, (ap->dim4._1 + 8) / 8, (ap->dim4._2 + 8) / 8), dim3(32, 1, 8)>>>  //
-                (lc.z_ctx, d_data, d_quant);
+        else if (ap->ndim == 3) {  // y-sequentiality == 8
+
+            auto dim_block = dim3(32, 1, 8);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 32),  //
+                num_partitions(dimy, 8),   //
+                num_partitions(dimz, 8)    //
+            );
+
+            kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
+                (d_data, d_quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
@@ -516,26 +545,50 @@ void cusz::interface::Decompress(
     }
 #endif
 
+    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
+    auto dimx    = tuple_dim4._0;
+    auto dimy    = tuple_dim4._1;
+    auto dimz    = tuple_dim4._2;
+    auto stridey = tuple_stride4._1;
+    auto stridez = tuple_stride4._2;
+
+    auto radius = ap->radius;
+    auto eb     = ap->eb;
+    auto ebx2   = (eb * 2);
+
+    auto num_partitions = [&](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+
     {
-        if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
-            LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            kernel::x_lorenzo_1d1l_cub<Data, Quant><<<lc.cfg.Dg.x, lc.cfg.Db.x / MetadataTrait<1>::Sequentiality>>>  //
-                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
+        if (ap->ndim == 1) {  // y-sequentiality == 8
+            static const auto Sequentiality = 8;
+            static const auto DataSubsize   = MetadataTrait<1>::Block;
+            auto              dim_block     = DataSubsize / Sequentiality;
+            auto              dim_grid      = num_partitions(dimx, DataSubsize);
+
+            kernel::x_lorenzo_1d1l_cub<Data, Quant><<<dim_grid, dim_block>>>  //
+                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, radius, ebx2);
         }
         else if (ap->ndim == 2) {  // y-sequentiality == 8
-            LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant><<<lc.cfg.Dg, dim3(16, 2)>>>  //
-                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
+
+            auto dim_block = dim3(16, 2);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 16),  //
+                num_partitions(dimy, 16));
+
+            kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant><<<dim_grid, dim_block>>>  //
+                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
         }
         else if (ap->ndim == 3) {  // y-sequentiality == 8
-            LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            // kernel::x_lorenzo_3d1l_v4_8x8x8data_mapto_8x1x8<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>  //
-            //     (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
 
-            // kernel::x_lorenzo_3d1l_v6_32x8x8data_mapto_32x1x8 //
-            kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8                                                  //
-                <<<dim3((ap->dim4._0 + 32) / 32, (ap->dim4._1 + 8) / 8, (ap->dim4._2 + 8) / 8), dim3(32, 1, 8)>>>  //
-                (lc.x_ctx, xdata->dptr(), outlier->dptr(), quant.dptr());
+            auto dim_block = dim3(32, 1, 8);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 32),  //
+                num_partitions(dimy, 8),   //
+                num_partitions(dimz, 8)    //
+            );
+
+            kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8<<<dim_grid, dim_block>>>  //
+                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
