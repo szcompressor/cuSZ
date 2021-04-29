@@ -102,7 +102,8 @@ $(BIN_DIR):
 	mkdir $@
 
 install: bin/cusz
-	cp bin/cusz /usr/local/bin
+	mkdir -p $(HOME)/bin
+	cp bin/cusz $(HOME)/bin
 
 .PHONY: clean
 clean:
