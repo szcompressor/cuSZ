@@ -4,7 +4,8 @@
  * @brief (prototype) Dual-Quant Lorenzo method.
  * @version 0.2
  * @date 2021-01-16
- * (create) 19-09-23; (release) 2020-09-20; (rev1) 2021-01-16; (rev2) 2021-02-20; (rev3) 2021-04-11
+ * (create) 2019-09-23; (release) 2020-09-20; (rev1) 2021-01-16; (rev2) 2021-02-20; (rev3) 2021-04-11
+ * (rev4) 2021-04-30
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -22,11 +23,7 @@
 #include "../../external/cub/cub/cub.cuh"
 #endif
 
-#include <cuda_runtime.h>
 #include <cstddef>
-
-#include "../metadata.hh"
-#include "../type_aliasing.hh"
 
 #define tix threadIdx.x
 #define tiy threadIdx.y
@@ -38,161 +35,295 @@
 #define bdy blockDim.y
 #define bdz blockDim.z
 
+// TODO disabling dynamic shmem alloction results in wrong number
 extern __shared__ char scratch[];
 
+using DIM    = unsigned int;
+using STRIDE = unsigned int;
+
+namespace prototype_kernel {  // easy algorithmic description
+
 // clang-format off
-namespace prototype_kernel { // easy algorithmic description
-template <typename Data, typename Quant> __global__ void c_lorenzo_1d1l(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_2d1l(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void c_lorenzo_3d1l(lorenzo_zip, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_1d1l(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_2d1l(lorenzo_unzip, Data*, Data*, Quant*);
-template <typename Data, typename Quant> __global__ void x_lorenzo_3d1l(lorenzo_unzip, Data*, Data*, Quant*); 
-}
+template <typename Data, typename Quant, typename FP, int Block = 256, bool ProbePredError = true> __global__ void c_lorenzo_1d1l
+(Data*, Quant*, DIM, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
+template <typename Data, typename Quant, typename FP, int Block = 256> __global__ void x_lorenzo_1d1l
+(Data*, Data*, Quant*, DIM, int, FP);
+
+template <typename Data, typename Quant, typename FP, int Block = 16, bool ProbePredError = true> __global__ void c_lorenzo_2d1l
+(Data*, Quant*, DIM, DIM, STRIDE, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
+template <typename Data, typename Quant, typename FP, int Block = 16> __global__ void x_lorenzo_2d1l
+(Data*, Data*, Quant*, DIM, DIM, STRIDE, int, FP);
+
+template <typename Data, typename Quant, typename FP, int Block = 8, bool ProbePredError = true> __global__ void c_lorenzo_3d1l
+(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
+template <typename Data, typename Quant, typename FP, int Block = 8> __global__ void x_lorenzo_3d1l
+(Data*, Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
 // clang-format on
 
-template <typename Data, typename Quant>
-__global__ void prototype_kernel::c_lorenzo_1d1l(lorenzo_zip ctx, Data* d, Quant* q)
+}  // namespace prototype_kernel
+
+template <typename Data, typename Quant, typename FP, int Block = 256, bool ProbePredError = true>
+__global__ void prototype_kernel::c_lorenzo_1d1l(  //
+    Data*  data,
+    Quant* quant,
+    DIM    dimx,
+    int    radius,
+    FP     ebx2_r,
+    int*   integer_error,
+    Data*  raw_error,
+    FP     ebx2)
 {
-    static const auto Block = MetadataTrait<1>::Block;
-    Data(&s1df)[Block]      = *reinterpret_cast<Data(*)[Block]>(&scratch);
+    Data(&shmem)[Block] = *reinterpret_cast<Data(*)[Block]>(&scratch);
 
     auto id = bix * bdx + tix;
-    if (id < ctx.d0) {
-        s1df[tix] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    if (id < dimx) {
+        shmem[tix] = round(data[id] * ebx2_r);  // prequant (fp presence)
     }
-    __syncthreads();    // necessary to ensure correctness
-    if (id < ctx.d0) {  // postquant
-        Data delta       = s1df[tix] - (tix == 0 ? 0 : s1df[tix - 1]);
-        bool quantizable = fabs(delta) < ctx.radius;
-        Data candidate   = delta + ctx.radius;
-        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        q[id]            = quantizable * static_cast<Quant>(candidate);
+    __syncthreads();  // necessary to ensure correctness
+
+    Data delta = shmem[tix] - (tix == 0 ? 0 : shmem[tix - 1]);
+
+    if CONSTEXPR (ProbePredError) {
+        if (id < dimx) {  // postquant
+            integer_error[id] = delta;
+            raw_error[id]     = delta * ebx2;
+        }
+        return;
     }
+
+    {
+        bool quantizable = fabs(delta) < radius;
+        Data candidate   = delta + radius;
+        if (id < dimx) {                                // postquant
+            data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+            quant[id] = quantizable * static_cast<Quant>(candidate);
+        }
+    }
+    // EOF
 }
 
-template <typename Data, typename Quant>
-__global__ void prototype_kernel::c_lorenzo_2d1l(lorenzo_zip ctx, Data* d, Quant* q)
+template <typename Data, typename Quant, typename FP, int Block = 16, bool ProbePredError = true>
+__global__ void prototype_kernel::c_lorenzo_2d1l(  //
+    Data*  data,
+    Quant* quant,
+    DIM    dimx,
+    DIM    dimy,
+    STRIDE stridey,
+    int    radius,
+    FP     ebx2_r,
+    int*   integer_error,
+    Data*  raw_error,
+    FP     ebx2)
 {
-    static const auto Block   = MetadataTrait<2>::Block;
-    Data(&s2df)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
+    Data(&shmem)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
 
     auto y = tiy, x = tix;
-    auto gi1 = biy * bdy + y, gi0 = bix * bdx + x;
+    auto giy = biy * bdy + y, gix = bix * bdx + x;
 
-    auto id = gi0 + gi1 * ctx.stride1;  // low to high dim, inner to outer
-    if (gi0 < ctx.d0 and gi1 < ctx.d1) {
-        s2df[y][x] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    auto id = gix + giy * stridey;  // low to high dim, inner to outer
+    if (gix < dimx and giy < dimy) {
+        shmem[y][x] = round(data[id] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();  // necessary to ensure correctness
-    if (gi0 < ctx.d0 and gi1 < ctx.d1) {
-        Data delta       = s2df[y][x] - ((x > 0 ? s2df[y][x - 1] : 0) +                // dist=1
-                                   (y > 0 ? s2df[y - 1][x] : 0) -                // dist=1
-                                   (x > 0 and y > 0 ? s2df[y - 1][x - 1] : 0));  // dist=2
-        bool quantizable = fabs(delta) < ctx.radius;
-        Data candidate   = delta + ctx.radius;
-        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        q[id]            = quantizable * static_cast<Quant>(candidate);
+
+    Data delta = shmem[y][x] - ((x > 0 ? shmem[y][x - 1] : 0) +                // dist=1
+                                (y > 0 ? shmem[y - 1][x] : 0) -                // dist=1
+                                (x > 0 and y > 0 ? shmem[y - 1][x - 1] : 0));  // dist=2
+
+    if CONSTEXPR (ProbePredError) {
+        if (gix < dimx and giy < dimy) {
+            integer_error[id] = static_cast<int>(delta);
+            raw_error[id]     = delta * ebx2;
+        }
+        return;
     }
+
+    {
+        bool quantizable = fabs(delta) < radius;
+        Data candidate   = delta + radius;
+        if (gix < dimx and giy < dimy) {
+            data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+            quant[id] = quantizable * static_cast<Quant>(candidate);
+        }
+    }
+    // EOF
 }
 
-template <typename Data, typename Quant>
-__global__ void prototype_kernel::c_lorenzo_3d1l(lorenzo_zip ctx, Data* d, Quant* q)
+template <typename Data, typename Quant, typename FP, int Block = 8, bool ProbePredError = true>
+__global__ void prototype_kernel::c_lorenzo_3d1l(  //
+    Data*  data,
+    Quant* quant,
+    DIM    dimx,
+    DIM    dimy,
+    DIM    dimz,
+    STRIDE stridey,
+    STRIDE stridez,
+    int    radius,
+    FP     ebx2_r,
+    int*   integer_error,
+    Data*  raw_error,
+    FP     ebx2)
 {
-    static const auto Block          = MetadataTrait<3>::Block;
-    Data(&s3df)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
+    Data(&shmem)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
 
     auto z = tiz, y = tiy, x = tix;
-    auto gi2 = biz * bdz + z, gi1 = biy * bdy + y, gi0 = bix * bdx + x;
+    auto giz = biz * bdz + z, giy = biy * bdy + y, gix = bix * bdx + x;
 
-    auto id = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
-    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
-        s3df[z][y][x] = round(d[id] * ctx.ebx2_r);  // prequant (fp presence)
+    auto id = gix + giy * stridey + giz * stridez;  // low to high in dim, inner to outer
+    if (gix < dimx and giy < dimy and giz < dimz) {
+        shmem[z][y][x] = round(data[id] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();  // necessary to ensure correctness
-    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) {
-        Data delta       = s3df[z][y][x] - ((z > 0 and y > 0 and x > 0 ? s3df[z - 1][y - 1][x - 1] : 0)  // dist=3
-                                      - (y > 0 and x > 0 ? s3df[z][y - 1][x - 1] : 0)              // dist=2
-                                      - (z > 0 and x > 0 ? s3df[z - 1][y][x - 1] : 0)              //
-                                      - (z > 0 and y > 0 ? s3df[z - 1][y - 1][x] : 0)              //
-                                      + (x > 0 ? s3df[z][y][x - 1] : 0)                            // dist=1
-                                      + (y > 0 ? s3df[z][y - 1][x] : 0)                            //
-                                      + (z > 0 ? s3df[z - 1][y][x] : 0));                          //
-        bool quantizable = fabs(delta) < ctx.radius;
-        Data candidate   = delta + ctx.radius;
-        d[id]            = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        q[id]            = quantizable * static_cast<Quant>(candidate);
+
+    Data delta = shmem[z][y][x] - ((z > 0 and y > 0 and x > 0 ? shmem[z - 1][y - 1][x - 1] : 0)  // dist=3
+                                   - (y > 0 and x > 0 ? shmem[z][y - 1][x - 1] : 0)              // dist=2
+                                   - (z > 0 and x > 0 ? shmem[z - 1][y][x - 1] : 0)              //
+                                   - (z > 0 and y > 0 ? shmem[z - 1][y - 1][x] : 0)              //
+                                   + (x > 0 ? shmem[z][y][x - 1] : 0)                            // dist=1
+                                   + (y > 0 ? shmem[z][y - 1][x] : 0)                            //
+                                   + (z > 0 ? shmem[z - 1][y][x] : 0));                          //
+
+    if CONSTEXPR (ProbePredError) {
+        if (gix < dimx and giy < dimy and giz < dimz) {
+            integer_error[id] = static_cast<int>(delta);
+            raw_error[id]     = delta * ebx2;
+        }
+        return;
     }
+
+    {
+        bool quantizable = fabs(delta) < radius;
+        Data candidate   = delta + radius;
+        if (gix < dimx and giy < dimy and giz < dimz) {
+            data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+            quant[id] = quantizable * static_cast<Quant>(candidate);
+        }
+    }
+    // EOF
 }
 
-template <typename Data, typename Quant>
-__global__ void prototype_kernel::x_lorenzo_1d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+template <typename Data, typename Quant, typename FP, int Block>
+__global__ void prototype_kernel::x_lorenzo_1d1l(  //
+    Data*  data,
+    Data*  outlier,
+    Quant* quant,
+    DIM    dimx,
+    int    radius,
+    FP     ebx2)
 {
-    static const auto Block = MetadataTrait<1>::Block;
-    Data(&buffer)[Block]    = *reinterpret_cast<Data(*)[Block]>(&scratch);
+    Data(&shmem)[Block] = *reinterpret_cast<Data(*)[Block]>(&scratch);
 
-    auto id     = bix * bdx + tix;
-    auto radius = static_cast<Data>(ctx.radius);
+    auto id = bix * bdx + tix;
 
-    if (id < ctx.d0)
-        buffer[tix] = outlier[id] + static_cast<Data>(q[id]) - radius;  // fuse
+    if (id < dimx)
+        shmem[tix] = outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
     else
-        buffer[tix] = 0;
+        shmem[tix] = 0;
     __syncthreads();
 
     for (auto d = 1; d < Block; d *= 2) {
         Data n = 0;
-        if (tix >= d) n = buffer[tix - d];  // like __shfl_up_sync(0x1f, var, d); warp_sync
+        if (tix >= d) n = shmem[tix - d];  // like __shfl_up_sync(0x1f, var, d); warp_sync
         __syncthreads();
-        if (tix >= d) buffer[tix] += n;
+        if (tix >= d) shmem[tix] += n;
         __syncthreads();
     }
 
-    if (id < ctx.d0) { data[id] = buffer[tix] * ctx.ebx2; }
+    if (id < dimx) { data[id] = shmem[tix] * ebx2; }
     __syncthreads();
 }
 
-template <typename Data, typename Quant>
-__global__ void prototype_kernel::x_lorenzo_3d1l(lorenzo_unzip ctx, Data* data, Data* outlier, Quant* q)
+template <typename Data, typename Quant, typename FP, int Block>
+__global__ void prototype_kernel::x_lorenzo_2d1l(  //
+    Data*  data,
+    Data*  outlier,
+    Quant* quant,
+    DIM    dimx,
+    DIM    dimy,
+    STRIDE stridey,
+    int    radius,
+    FP     ebx2)
 {
-    static const auto Block            = MetadataTrait<3>::Block;
-    Data(&buffer)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
+    Data(&shmem)[Block][Block] = *reinterpret_cast<Data(*)[Block][Block]>(&scratch);
 
-    auto   gi2 = biz * Block + tiz, gi1 = biy * Block + tiy, gi0 = bix * Block + tix;
-    size_t id     = gi0 + gi1 * ctx.stride1 + gi2 * ctx.stride2;  // low to high in dim, inner to outer
-    auto   radius = static_cast<Data>(ctx.radius);
+    auto   giy = biy * bdy + tiy, gix = bix * bdx + tix;
+    size_t id = gix + giy * stridey;
 
-    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2)
-        buffer[tiz][tiy][tix] = outlier[id] + static_cast<Data>(q[id]) - radius;  // id
+    if (gix < dimx and giy < dimy)
+        shmem[tiy][tix] = outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
     else
-        buffer[tiz][tiy][tix] = 0;
+        shmem[tiy][tix] = 0;
     __syncthreads();
 
     for (auto d = 1; d < Block; d *= 2) {
         Data n = 0;
-        if (tix >= d) n = buffer[tiz][tiy][tix - d];
+        if (tix >= d) n = shmem[tiy][tix - d];
         __syncthreads();
-        if (tix >= d) buffer[tiz][tiy][tix] += n;
-        __syncthreads();
-    }
-
-    for (auto d = 1; d < Block; d *= 2) {
-        Data n = 0;
-        if (tiy >= d) n = buffer[tiz][tiy - d][tix];
-        __syncthreads();
-        if (tiy >= d) buffer[tiz][tiy][tix] += n;
+        if (tix >= d) shmem[tiy][tix] += n;
         __syncthreads();
     }
 
     for (auto d = 1; d < Block; d *= 2) {
         Data n = 0;
-        if (tiz >= d) n = buffer[tiz - d][tiy][tix];
+        if (tiy >= d) n = shmem[tiy - d][tix];
         __syncthreads();
-        if (tiz >= d) buffer[tiz][tiy][tix] += n;
+        if (tiy >= d) shmem[tiy][tix] += n;
         __syncthreads();
     }
 
-    if (gi0 < ctx.d0 and gi1 < ctx.d1 and gi2 < ctx.d2) { data[id] = buffer[tiz][tiy][tix] * ctx.ebx2; }
+    if (gix < dimx and giy < dimy) { data[id] = shmem[tiy][tix] * ebx2; }
+    __syncthreads();
+}
+
+template <typename Data, typename Quant, typename FP, int Block>
+__global__ void prototype_kernel::x_lorenzo_3d1l(  //
+    Data*  data,
+    Data*  outlier,
+    Quant* quant,
+    DIM    dimx,
+    DIM    dimy,
+    DIM    dimz,
+    STRIDE stridey,
+    STRIDE stridez,
+    int    radius,
+    FP     ebx2)
+{
+    Data(&shmem)[Block][Block][Block] = *reinterpret_cast<Data(*)[Block][Block][Block]>(&scratch);
+
+    auto   giz = biz * Block + tiz, giy = biy * Block + tiy, gix = bix * Block + tix;
+    size_t id = gix + giy * stridey + giz * stridez;  // low to high in dim, inner to outer
+
+    if (gix < dimx and giy < dimy and giz < dimz)
+        shmem[tiz][tiy][tix] = outlier[id] + static_cast<Data>(quant[id]) - radius;  // id
+    else
+        shmem[tiz][tiy][tix] = 0;
+    __syncthreads();
+
+    for (auto dist = 1; dist < Block; dist *= 2) {
+        Data addend = 0;
+        if (tix >= dist) addend = shmem[tiz][tiy][tix - dist];
+        __syncthreads();
+        if (tix >= dist) shmem[tiz][tiy][tix] += addend;
+        __syncthreads();
+    }
+
+    for (auto dist = 1; dist < Block; dist *= 2) {
+        Data addend = 0;
+        if (tiy >= dist) addend = shmem[tiz][tiy - dist][tix];
+        __syncthreads();
+        if (tiy >= dist) shmem[tiz][tiy][tix] += addend;
+        __syncthreads();
+    }
+
+    for (auto dist = 1; dist < Block; dist *= 2) {
+        Data addend = 0;
+        if (tiz >= dist) addend = shmem[tiz - dist][tiy][tix];
+        __syncthreads();
+        if (tiz >= dist) shmem[tiz][tiy][tix] += addend;
+        __syncthreads();
+    }
+
+    if (gix < dimx and giy < dimy and giz < dimz) { data[id] = shmem[tiz][tiy][tix] * ebx2; }
     __syncthreads();
 }
 
