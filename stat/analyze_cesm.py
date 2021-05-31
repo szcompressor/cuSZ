@@ -9,17 +9,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-plt.style.use('ggplot')
-mpl.rcParams['figure.dpi'] = 100
+# plt.style.use('ggplot')
+mpl.rcParams['figure.dpi'] = 300
 
 from smoothness import *
 from vis import *
 
-eb_str = "1e-4"
-eb = 1e-4
+import matplotlib.pyplot as plt
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Helvetica"]})
+# for Palatino and other serif fonts use:
 
-quant_folder = os.path.join(os.getenv("HOME"), "sdrb-cesm", "eb234", eb_str, "qg")
-data_folder = os.path.join(os.getenv("HOME"), "sdrb-cesm", "data")
+
+eb_str = "1e-4"
+eb = 1e-2
+
+quant_folder = os.path.join(os.getenv("HOME"), "sdrb-cesm", "single")
+data_folder = os.path.join(os.getenv("HOME"), "sdrb-cesm", "single")
 cesm_constant = datasets.Constant(**datasets.cesm)
 cesm_block = datasets.Block(cesm_constant)
 
@@ -59,10 +67,10 @@ for _i, (name_ori, name_qua) in enumerate(list(zip(origin_fields, quant_fields))
 
     max_dist = ana_ori.max_dist
 
-    fig_output_path = os.path.join(f"{data_folder}", "..", "vis", eb_str)
+    fig_output_path = os.path.join(f"{data_folder}")
     # debug
     # print(os.path.join(fig_output_path, name))
 
-    process_plot_5fig(ana_ori, ana_qua, max_dist, fig_output_path, name)
+    process_plot_new3fig(ana_ori, ana_qua, max_dist, fig_output_path, name)
     # break  # test the first iteration
 print()
