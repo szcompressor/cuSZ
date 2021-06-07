@@ -14,15 +14,21 @@
 
 using std::cout;
 
-using Input  = float;
-using Output = unsigned short;
+using Data  = float;
+using Quant = unsigned short;
 
-Input*  data;
-Output* error_control;
+Data*  data;
+Data*  xdata;
+Data*  anchor;
+Quant* error_control;
 
-unsigned int   dimx, dimy, dimz, dimx_pad, dimy_pad, dimz_pad;
-unsigned int   len, len_padded;
-dim3           dim3d, dim3d_pad, stride3d, stride3d_pad;
+unsigned int   dimx, dimy, dimz;
+unsigned int   dimx_pad, dimy_pad, dimz_pad;
+unsigned int   nblockx, nblocky, nblockz;
+unsigned int   in_range_nanchorx, in_range_nanchory, in_range_nanchorz;
+unsigned int   nanchorx, nanchory, nanchorz;
+unsigned int   len, len_padded, len_anchor;
+dim3           dim3d, dim3d_pad, stride3d, stride3d_pad, dim3d_anchor, stride3d_anchor;
 constexpr auto Block = 8;
 
 auto eb             = 1.0f;
@@ -30,7 +36,8 @@ auto eb_r           = 1.0f;
 auto ebx2           = 2.0f;
 auto ebx2_r         = 0.5f;
 auto radius         = 512;
-auto get_npartition = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+auto get_npart      = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+auto get_npart_pad1 = [](auto size, auto subsize) { return (size + subsize - 2) / subsize; };
 
 std::string fname;
 
@@ -41,17 +48,17 @@ std::string fname;
 
 //     auto dim_block = dim3(32, 1, 8);
 //     auto dim_grid  = dim3(
-//         get_npartition(dimx, 32),  //
-//         get_npartition(dimy, 8),   //
-//         get_npartition(dimz, 8)    //
+//         get_npart(dimx, 32),  //
+//         get_npart(dimy, 8),   //
+//         get_npart(dimz, 8)    //
 //     );
 
-//     cudaMallocManaged((void**)&error_control, len * sizeof(Input));
-//     cudaMemset(data, 0x00, len * sizeof(Input));
+//     cudaMallocManaged((void**)&error_control, len * sizeof(Data));
+//     cudaMemset(data, 0x00, len * sizeof(Data));
 
 //     // for (auto i = 0; i < n; i++) {
 //     // cout << "3Dc " << i << '\n';
-//     kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Input, Output><<<dim_grid, dim_block>>>  //
+//     kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
 //         (data, error_control, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
 //     cudaDeviceSynchronize();
 
@@ -99,38 +106,107 @@ void print_block_from_CPU(T* data, int radius = 512)
 void test_spline3dc()
 {
     cout << "testing spline3d\n";
-    auto nblockx = get_npartition(dimx, Block * 4);
-    auto nblocky = get_npartition(dimy, Block);
-    auto nblockz = get_npartition(dimz, Block);
 
-    dimx_pad = nblockx * Block * 4;
-    dimy_pad = nblocky * Block;
-    dimz_pad = nblockz * Block;
+    {  //
+        nblockx    = get_npart(dimx, Block * 4);
+        nblocky    = get_npart(dimy, Block);
+        nblockz    = get_npart(dimz, Block);
+        dimx_pad   = nblockx * 32;  // 235 -> 256
+        dimy_pad   = nblocky * 8;   // 449 -> 456
+        dimz_pad   = nblockz * 8;   // 449 -> 456
+        len_padded = dimx_pad * dimy_pad * dimz_pad;
 
-    auto len_padded = dimx_pad * dimy_pad * dimz_pad;
-    // +(nblockx + 1) * (nblocky + 1) * (nblockz + 1);
+        // TODO: an alternative
+        // auto nblockx = get_npart_pad1(dimx, Block * 4);
+        // auto nblocky = get_npart_pad1(dimy, Block);
+        // auto nblockz = get_npart_pad1(dimz, Block);
 
-    std::cout << "len padded: " << len_padded << '\n';
-    std::cout << "len: " << len << '\n';
-    std::cout << "len padded/len: " << 1.0 * len_padded / len << '\n';
-    printf("dim and dimpad: (%d, %d, %d), (%d, %d, %d)\n", dimx, dimy, dimz, dimx_pad, dimy_pad, dimz_pad);
+        dim3d        = dim3(dimx, dimy, dimz);
+        stride3d     = dim3(1, dimx, dimx * dimy);
+        dim3d_pad    = dim3(dimx_pad, dimy_pad, dimz_pad);
+        stride3d_pad = dim3(1, dimx_pad, dimx_pad * dimy_pad);
 
-    dim3d        = dim3(dimx, dimy, dimz);
-    stride3d     = dim3(1, dimx, dimx * dimy);
-    dim3d_pad    = dim3(dimx_pad, dimy_pad, dimz_pad);
-    stride3d_pad = dim3(1, dimx_pad, dimx_pad * dimy_pad);
+        std::cout << "len: " << len << '\n';
+        std::cout << "len padded: " << len_padded << '\n';
+        std::cout << "len padded/len: " << 1.0 * len_padded / len << '\n';
+        printf("dim and dimpad: (%d, %d, %d), (%d, %d, %d)\n", dimx, dimy, dimz, dimx_pad, dimy_pad, dimz_pad);
+    }
 
-    cudaMallocManaged((void**)&error_control, len_padded * sizeof(Output));
-    cudaMemset(error_control, 0x00, len_padded * sizeof(Output));
+    {  // anchor point
 
-    kernel::spline3d_infprecis_32x8x8data<Input*, Output*, float, 256, false, false>
-        <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-        // <<<dim3(1, 1, 1), dim3(256, 1, 1)>>>  //
-        (data, dim3d, stride3d, error_control, dim3d_pad, stride3d_pad, eb_r, ebx2, radius);
-    cudaDeviceSynchronize();
+        in_range_nanchorx = int(dimx / Block);
+        in_range_nanchory = int(dimy / Block);
+        in_range_nanchorz = int(dimz / Block);
+        nanchorx          = in_range_nanchorx + 1;
+        nanchory          = in_range_nanchory + 1;
+        nanchorz          = in_range_nanchorz + 1;
+        len_anchor        = nanchorx * nanchory * nanchorz;
 
-    // print_block_from_CPU<Input, true>(data);
-    print_block_from_CPU<Output, false, true>(error_control);
+        dim3d_anchor    = dim3(nanchorx, nanchory, nanchorz);
+        stride3d_anchor = dim3(1, nanchorx, nanchorx * nanchory);
+
+        std::cout << "len anchor: " << len_anchor << '\n';
+        printf("len anchor xyz: (%d, %d, %d)\n", nanchorx, nanchory, nanchorz);
+        std::cout << "len anchor: " << len_anchor << '\n';
+
+        // end of block
+    }
+
+    // launch kernel of handling anchor
+
+    cudaMallocManaged((void**)&anchor, len_anchor * sizeof(Data));
+    cudaMemset(anchor, 0x00, len_anchor * sizeof(Data));
+    {  //
+
+        // TODO spline3d_handle_4x1x1anchors
+        // kernel::spline3d_handle_4x1x1anchors<Data, 128, 8, 8, 8, Gather>
+        //     <<<dim3(get_npart(nblockx + 1, 8), get_npart(nblocky + 1, 8), get_npart(nblockz + 1, 8)),  //
+        //        dim3(128, 1, 1)>>>                                                                      //
+        //     (data, dim3d, stride3d, anchor,                                                            //
+        //      dim3(nblockx + 1, nblocky + 1, nblockz + 1),                                              //
+        //      dim3(1, nblockx + 1, (nblockx + 1) * (nblocky + 1))                                       //
+        //     );
+
+        for (auto iz = 0, z = 0; z < dimz; iz++, z += 8) {
+            for (auto iy = 0, y = 0; y < dimy; iy++, y += 8) {
+                for (auto ix = 0, x = 0; x < dimx; ix++, x += 8) {
+                    auto data_id      = x + y * stride3d.y + z * stride3d.z;
+                    auto anchor_id    = ix + iy * stride3d_anchor.y + iz * stride3d_anchor.z;
+                    anchor[anchor_id] = data[data_id];
+                }
+            }
+        }
+        /*
+        // print
+        for (auto z = 0; z < nanchorz; z++) {
+            for (auto y = 0; y < nanchory; y++) {
+                for (auto x = 0; x < nanchorx; x++) {
+                    auto anchor_id = x + y * stride3d_anchor.y + z * stride3d_anchor.z;
+                    printf("(%d,%d,%d): %4.2e\t", x * 8, y * 8, z * 8, anchor[anchor_id]);
+                }
+                cout << '\n';
+            }
+            cout << "\n\n";
+        }
+         */
+        // end of block
+    }
+
+    cudaMallocManaged((void**)&error_control, len_padded * sizeof(Quant));
+    cudaMemset(error_control, 0x00, len_padded * sizeof(Quant));
+    {  // launch kernel of pred-quant
+
+        kernel::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
+            <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
+            // <<<dim3(1, 1, 1), dim3(256, 1, 1)>>>  //
+            (data, dim3d, stride3d, error_control, dim3d_pad, stride3d_pad, eb_r, ebx2, radius);
+        cudaDeviceSynchronize();
+    }
+
+    {  // verification
+       // print_block_from_CPU<Data, true>(data);
+       // print_block_from_CPU<Quant, false, true>(error_control);
+    }
 
     auto hist = new int[radius * 2]();
 
@@ -141,34 +217,61 @@ void test_spline3dc()
 
     io::WriteArrayToBinary(fname + ".spline", error_control, len_padded);
 
+    cudaMallocManaged((void**)&xdata, len * sizeof(Data));
+    cudaMemset(xdata, 0x00, len * sizeof(Data));
+    {
+        kernel::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
+            <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
+            (error_control, dim3d_pad, stride3d_pad, xdata, dim3d, stride3d, eb_r, ebx2, radius);
+        cudaDeviceSynchronize();
+    }
+
+    {  // verification
+        for (auto i = 0; i < len; i++) {
+            auto err = fabs(data[i] - xdata[i]);
+
+            if (err > eb) {
+                printf("overbound at idx: %d, data:%4.2e, xdata: %4.2e, exiting\n", i, data[i], xdata[i]);
+                break;
+            }
+        }
+    }
+
     cudaFree(error_control);
+    cudaFree(anchor);
 }
 
 int main(int argc, char** argv)
 {
     // auto           dimx = 512, dimy = 512, dimz = 512;
     dimz = 449, dimy = 449, dimx = 235;
-    len = dimx * dimy * dimz;
+    len     = dimx * dimy * dimz;
+    auto eb = 1e-2;
 
-    if (argc < 2) {
+    if (argc < 3) {
+        std::cout << "<prog> <file> <eb>" << '\n';
+        std::cout << "e.g., ./spline ${HOME}/rtm-data/snapshot-2815.f32 1e-2" << '\n';
+        std::cout << '\n';
         struct passwd* pw      = getpwuid(getuid());
         const char*    homedir = pw->pw_dir;
         fname                  = std::string(homedir) + std::string("/rtm-data/snapshot-2815.f32");
     }
-    else if (argc == 2)
+    else if (argc == 3) {
         fname = std::string(argv[1]);
+        eb    = atof(argv[2]);
+    }
 
     cudaDeviceReset();
 
-    cudaMallocManaged((void**)&data, len * sizeof(Input));
-    cudaMemset(data, 0x00, len * sizeof(Input));
+    cudaMallocManaged((void**)&data, len * sizeof(Data));
+    cudaMemset(data, 0x00, len * sizeof(Data));
 
     std::cout << "opening " << fname << std::endl;
     io::ReadBinaryToArray(fname, data, len);
 
-    thrust::device_ptr<Input> g_ptr      = thrust::device_pointer_cast(data);
-    auto                      max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
-    auto                      min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
+    thrust::device_ptr<Data> g_ptr      = thrust::device_pointer_cast(data);
+    auto                     max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
+    auto                     min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
     // auto   max_el_loc = std::max_element(data, data + len);
     // auto   min_el_loc = std::min_element(data, data + len);
     double max_value = *max_el_loc;
@@ -176,8 +279,8 @@ int main(int argc, char** argv)
     double rng       = max_value - min_value;
 
     std::cout << "range: " << rng << '\n';
+    std::cout << "input eb: " << eb << '\n';
 
-    auto eb = 1e-2;
     eb *= rng;
     eb_r   = 1 / eb;
     ebx2   = eb * 2;
