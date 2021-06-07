@@ -52,7 +52,7 @@ __forceinline__ __device__ Data infprecis_quantcode(Data err, FP eb_r, int radiu
 {
     Data code = fabs(err) * eb_r + 1;
     code      = err < 0 ? -code : code;
-    code      = round(code / 2) + radius;
+    code      = int(code / 2) + radius;
     return code;
 }
 
@@ -66,27 +66,39 @@ __forceinline__ __device__ Data infprecis_quantcode(Data err, FP eb_r, int radiu
 namespace kernel {
 namespace internal {
 
-template <typename T, bool PrintValue = true>
-__device__ void spline3d_print_buffer(T volatile a[9][9][33])
+// control block_id3 in function call
+template <typename T, bool PrintFP = false, int Xend = 33, int Yend = 9, int Zend = 9>
+__device__ void spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512)
 {
-    for (auto z = 0; z < 9; z++) {
-        printf("\nGPU z:%d\n", z);
-        for (auto y = 0; y < 9; y++) {
-            printf("y:%d\t", y);
-            for (auto x = 0; x < 33; x++) {  //
-                if CONSTEXPR (PrintValue) {  //
-                    printf("%d\t", (int)a[z][y][x]);
+    for (auto z = 0; z < Zend; z++) {
+        printf("\nprint from GPU, z=%d\n", z);
+        printf("    ");
+        for (auto i = 0; i < 33; i++) printf("%3d", i);
+        printf("\n");
+
+        for (auto y = 0; y < Yend; y++) {
+            printf("y=%d ", y);
+
+            for (auto x = 0; x < Xend; x++) {  //
+                if CONSTEXPR (PrintFP) {       //
+                    printf("%.2e\t", (float)a[z][y][x]);
                 }
-                else {  //
-                    printf("%d\t", a[z][y][x] == 0.0);
-                    if (x == 15) printf("\n\t");
+                else {
+                    auto c = (int)a[z][y][x] - radius;
+                    if (c == 0)
+                        printf("%3c", '.');
+                    else {
+                        if (abs(c) >= 10)
+                            printf("%3c", '*');
+                        else
+                            printf("%3d", c);
+                    }
                 }
             }
             printf("\n");
         }
-        printf("\n");
     }
-    printf("end\n");
+    printf("\nGPU print end\n\n");
 }
 
 }  // namespace internal

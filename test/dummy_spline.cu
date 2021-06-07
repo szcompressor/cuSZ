@@ -62,27 +62,38 @@ std::string fname;
 // }
 
 template <typename T, bool PrintFP = false, bool Padding = true>
-void print_block(T* data)
+void print_block_from_CPU(T* data, int radius = 512)
 {
     cout << "dimxpad: " << dimx_pad << "\tdimypad: " << dimy_pad << '\n';
 
     for (auto z = 0; z < (Block + (int)Padding); z++) {
-        printf("\nCPU z:%d\n", z);
+        printf("\nprint from CPU, z=%d\n", z);
+        printf("    ");
+        for (auto i = 0; i < 33; i++) printf("%3d", i);
+        printf("\n");
 
         for (auto y = 0; y < (Block + (int)Padding); y++) {
-            printf("y:%d\t", y);
+            printf("y=%d ", y);
 
             for (auto x = 0; x < (4 * Block + (int)Padding); x++) {  //
                 auto gid = x + y * dimx_pad + z * dimx_pad * dimy_pad;
-                if CONSTEXPR (PrintFP)
-                    printf("%.2e\t", data[gid]);
-                else
-                    printf("%d\t", (int)data[gid]);
+                if CONSTEXPR (PrintFP) { printf("%.2e\t", data[gid]); }
+                else {
+                    auto c = (int)data[gid] - radius;
+                    if (c == 0)
+                        printf("%3c", '.');
+                    else {
+                        if (abs(c) >= 10)
+                            printf("%3c", '*');
+                        else
+                            printf("%3d", c);
+                    }
+                }
             }
             printf("\n");
         }
-        printf("cpu end\n\n\n");
     }
+    printf("\nCPU print end\n\n");
 }
 
 void test_spline3dc()
@@ -96,7 +107,8 @@ void test_spline3dc()
     dimy_pad = nblocky * Block;
     dimz_pad = nblockz * Block;
 
-    auto len_padded = dimx_pad * dimy_pad * dimz_pad + (nblockx + 1) * (nblocky + 1) * (nblockz + 1);
+    auto len_padded = dimx_pad * dimy_pad * dimz_pad;
+    // +(nblockx + 1) * (nblocky + 1) * (nblockz + 1);
 
     std::cout << "len padded: " << len_padded << '\n';
     std::cout << "len: " << len << '\n';
@@ -117,8 +129,15 @@ void test_spline3dc()
         (data, dim3d, stride3d, error_control, dim3d_pad, stride3d_pad, eb_r, ebx2, radius);
     cudaDeviceSynchronize();
 
-    // print_block<Input, true>(data);
-    // print_block<Output, false>(error_control);
+    // print_block_from_CPU<Input, true>(data);
+    print_block_from_CPU<Output, false, true>(error_control);
+
+    auto hist = new int[radius * 2]();
+
+    for (auto i = 0; i < len_padded; i++) { hist[error_control[i]]++; }
+    for (auto i = 0; i < radius * 2; i++) {
+        if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
+    }
 
     io::WriteArrayToBinary(fname + ".spline", error_control, len_padded);
 

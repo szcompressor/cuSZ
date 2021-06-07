@@ -65,7 +65,7 @@ __global__ void spline3d_infprecis_32x8x8data(
     InputIter  data_first,
     DIM3       dim,
     STRIDE3    stride,
-    OutputIter err_control_first,  // TODO change to err_control
+    OutputIter err_control_first,
     DIM3       dim_pad,
     STRIDE3    stride_pad,
     FP         eb_r              = 1.0,
@@ -90,10 +90,10 @@ __device__ void spline3d_layout2_interpolate(
 }
 }  // namespace kernel
 
-template <bool inclusive = true>
+template <bool Inclusive = true>
 __forceinline__ __device__ bool xyz33x9x9_predicate(unsigned int x, unsigned int y, unsigned int z)
 {
-    if CONSTEXPR (inclusive) {  //
+    if CONSTEXPR (Inclusive) {  //
         return x <= 32 and y <= 8 and z <= 8;
     }
     else {
@@ -186,7 +186,7 @@ __forceinline__ __device__ void interpolate_stage(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// interpolation for layout1
+// interpolation for layout2
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T1, typename T2, typename FP, int NumThreads, bool ProbPredError>
@@ -264,7 +264,6 @@ __device__ void kernel::internal::spline3d_layout2_interpolate(
     //     T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
     //     false, false, true, NumThreads, 33, 4, Coarsen, 9, BorderInclusive>(
     //     shm_data, shm_err_control, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
-    // if (tix == 0 and bix == 0 and biy == 0 and biz == 0) { spline3d_print_buffer(shm_err_control); }
     /******************************************************************************
      production
      ******************************************************************************/
@@ -272,6 +271,11 @@ __device__ void kernel::internal::spline3d_layout2_interpolate(
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, NumThreads, 32, 4, Coarsen, 8, BorderExclusive>(
         shm_data, shm_err_control, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+
+    /******************************************************************************
+     test only: print a block
+     ******************************************************************************/
+    // if (tix == 0 and bix == 0 and biy == 0 and biz == 0) { spline3d_print_block_from_GPU(shm_err_control); }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -289,7 +293,7 @@ __global__ void kernel::spline3d_infprecis_32x8x8data(
     InputIter  data_first,
     DIM3       dim3d,
     STRIDE3    stride3d,
-    OutputIter err_control_first,  // TODO change to err_control
+    OutputIter err_control_first,
     DIM3       dim3d_pad,
     STRIDE3    stride3d_pad,
     FP         eb_r,
