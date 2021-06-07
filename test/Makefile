@@ -1,3 +1,10 @@
+spline: dummy_spline.cu ../src/kernel/prototype_spline2.cuh ../src/kernel/utils_spline.cuh ../src/utils/io.hh
+	nvcc dummy_spline.cu -std=c++14 --extended-lambda -o spline
+
+splineprof: dummy_spline.cu ../src/kernel/prototype_spline2.cuh ../src/kernel/utils_spline.cuh ../src/utils/io.hh
+	nvcc dummy_spline.cu -lineinfo -std=c++14 --extended-lambda -o splineprof
+
+
 
 query: test_query.cc ../src/query.hh
 	nvcc  -x c++ -I../src/ -DMAIN test_query.cc -o query
