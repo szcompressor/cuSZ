@@ -41,6 +41,67 @@ auto get_npart_pad1 = [](auto size, auto subsize) { return (size + subsize - 2) 
 
 std::string fname;
 
+template <typename Data>
+std::tuple<Data, Data, Data, Data> GetMinMaxRng_duplicated_adhoc(thrust::device_ptr<Data> g_ptr, size_t len)
+{
+    size_t min_el_loc = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+    size_t max_el_loc = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
+    Data   min_val    = *(g_ptr + min_el_loc);
+    Data   max_val    = *(g_ptr + max_el_loc);
+    Data   rng        = max_val - min_val;
+
+    Data sum  = thrust::reduce(g_ptr, g_ptr + len, (Data)0.0, thrust::plus<Data>());
+    Data mean = sum / len;
+
+    std::cout << min_val << std::endl;
+    std::cout << max_val << std::endl;
+    std::cout << rng << std::endl;
+    std::cout << mean << std::endl;
+    // TODO redundant types
+    return std::make_tuple<Data, Data, Data, Data>((Data)min_val, (Data)max_val, (Data)rng, (Data)mean);
+}
+
+template <typename Data>
+void GetPSNR_duplicated_adhoc(Data* x, Data* y, size_t len)
+{
+    using tup = thrust::tuple<Data, Data>;
+
+    thrust::device_ptr<Data> x_ptr = thrust::device_pointer_cast(x);  // origin
+    thrust::device_ptr<Data> y_ptr = thrust::device_pointer_cast(y);
+
+    Data x_min_val, x_max_val, x_rng, mean_x;
+    Data y_min_val, y_max_val, y_rng, mean_y;
+    std::tie(x_min_val, x_max_val, x_rng, mean_x) = GetMinMaxRng_duplicated_adhoc(x_ptr, len);
+    std::tie(y_min_val, y_max_val, y_rng, mean_y) = GetMinMaxRng_duplicated_adhoc(y_ptr, len);
+
+    auto begin = thrust::make_zip_iterator(thrust::make_tuple(x_ptr, y_ptr));
+    auto end   = thrust::make_zip_iterator(thrust::make_tuple(x_ptr + len, y_ptr + len));
+
+    // clang-format off
+    auto corr = [=] __host__ __device__(tup t)  { return (thrust::get<0>(t) - mean_x) * (thrust::get<1>(t) - mean_y); };
+    auto err2 = []  __host__ __device__(tup t)  { Data f = thrust::get<0>(t) - thrust::get<1>(t); return f * f; };
+    auto varx = [=] __host__ __device__(Data a) { Data f = a - mean_x; return f * f; };
+    auto vary = [=] __host__ __device__(Data a) { Data f = a - mean_y; return f * f; };
+
+    auto sum_err2 = thrust::transform_reduce(begin, end, err2, 0.0f, thrust::plus<Data>());
+    auto sum_corr = thrust::transform_reduce(begin, end, corr, 0.0f, thrust::plus<Data>());
+    auto sum_varx = thrust::transform_reduce(y_ptr, y_ptr + len, varx, 0.0f, thrust::plus<Data>());
+    auto sum_vary = thrust::transform_reduce(y_ptr, y_ptr + len, vary, 0.0f, thrust::plus<Data>());
+    // clang-format on
+
+    double stdx = sqrt(sum_varx / len),                 //
+        stdy    = sqrt(sum_vary / len),                 //
+        ee      = sum_corr / len,                       //
+        coeff   = ee / stdx / stdy,                     //
+        MSE     = sum_err2 / len,                       //
+        PSNR    = 20 * log10(x_rng) - 10 * log10(MSE),  //
+        NRMSE   = sqrt(MSE) / x_rng;
+
+    std::cout << "PSNR:\t" << PSNR << std::endl;
+    std::cout << "coeff:\t" << coeff << std::endl;
+    std::cout << "NRMSE:\t" << NRMSE << std::endl;
+}
+
 // void test_lorenzo3dc(int n = 1)
 // {
 //     cout << "testing lorenzo3d\n";
@@ -100,7 +161,20 @@ void print_block_from_CPU(T* data, int radius = 512)
             printf("\n");
         }
     }
-    printf("\nCPU print end\n\n");
+    printf("\nCPU print end\n\n\n");
+
+    printf("print *sv: \"x y z val\"\n");
+
+    for (auto z = 0; z < (Block + (int)Padding); z++) {
+        for (auto y = 0; y < (Block + (int)Padding); y++) {
+            for (auto x = 0; x < (4 * Block + (int)Padding); x++) {  //
+                auto gid = x + y * dimx_pad + z * dimx_pad * dimy_pad;
+                auto c   = (int)data[gid] - radius;
+                if (c != 0) printf("%d %d %d %d\n", x, y, z, c);
+            }
+        }
+    }
+    printf("\n");
 }
 
 void test_spline3dc()
@@ -233,8 +307,7 @@ void test_spline3dc()
 
     {  // verification
 
-        auto verified_okay  = true;
-        int  first_breaking = 0;
+        auto verified_okay = true;
         for (auto i = 0; i < len; i++) {
             auto err = fabs(data[i] - xdata[i]);
 
@@ -248,6 +321,8 @@ void test_spline3dc()
             cout << "pass in-bound checking.\n";
         else
             printf("failed to pass in-bound checking.\n.");
+
+        GetPSNR_duplicated_adhoc(data, xdata, len);
     }
 
     cudaFree(err_ctrl);

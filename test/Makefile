@@ -1,3 +1,5 @@
+
+
 spline: dummy_spline.cu ../src/kernel/prototype_spline2.cuh ../src/kernel/utils_spline.cuh ../src/utils/io.hh
 	nvcc dummy_spline.cu -std=c++14 --extended-lambda -o spline
 
