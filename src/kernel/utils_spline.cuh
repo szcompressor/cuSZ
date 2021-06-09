@@ -68,7 +68,7 @@ namespace internal {
 
 // control block_id3 in function call
 template <typename T, bool PrintFP = false, int Xend = 33, int Yend = 9, int Zend = 9>
-__device__ void spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512)
+__device__ void spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool if_compress = true)
 {
     for (auto z = 0; z < Zend; z++) {
         printf("\nprint from GPU, z=%d\n", z);
@@ -85,13 +85,18 @@ __device__ void spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius
                 }
                 else {
                     auto c = (int)a[z][y][x] - radius;
-                    if (c == 0)
-                        printf("%3c", '.');
+                    if CONSTEXPR (if_compress) {
+                        if (c == 0)
+                            printf("%3c", '.');
+                        else {
+                            if (abs(c) >= 10)
+                                printf("%3c", '*');
+                            else
+                                printf("%3d", c);
+                        }
+                    }
                     else {
-                        if (abs(c) >= 10)
-                            printf("%3c", '*');
-                        else
-                            printf("%3d", c);
+                        printf("%5d", c);
                     }
                 }
             }

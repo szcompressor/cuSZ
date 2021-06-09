@@ -170,13 +170,20 @@ __forceinline__ __device__ void interpolate_stage(
             }
 
             if CONSTEXPR (Workflow == Compress) {
-                auto err                 = shm_data[z][y][x] - pred;
-                auto code                = kernel::internal::infprecis_quantcode(err, eb_r, radius);
-                shm_err_control[z][y][x] = err + radius;  // TODO double check if unsigned type works
+                auto err = shm_data[z][y][x] - pred;
+                // auto code                = kernel::internal::infprecis_quantcode(err, eb_r, radius);
+                decltype(err) code;
+                {
+                    code = fabs(err) * eb_r + 1;
+                    code = err < 0 ? -code : code;
+                    code = int(code / 2) + radius;
+                }
+                shm_err_control[z][y][x] = code;  // TODO double check if unsigned type works
                 shm_data[z][y][x]        = pred + (code - radius) * ebx2;
             }
             else {
-                shm_data[z][y][x] = pred + (shm_err_control[z][y][x] - radius) * ebx2;
+                auto code         = shm_err_control[z][y][x];
+                shm_data[z][y][x] = pred + (code - radius) * ebx2;
             }
         }
     };
@@ -379,8 +386,8 @@ __global__ void kernel::x_spline3d_infprecis_32x8x8data(
         Output data[9][9][33];
     } shmem;
 
-    kernel::internal::memops::spline3d_reset_scratch_33x9x9data<Input, Output, NumThreads>(
-        shmem.err_control, shmem.data);
+    kernel::internal::memops::spline3d_reset_scratch_33x9x9data<Output, Input, NumThreads>(
+        shmem.data, shmem.err_control);
     kernel::internal::memops::spline3d_global2shmem_33x9x9data<Input, NumThreads>(
         err_control_first, shmem.err_control, dim3d_pad, stride3d_pad);
     kernel::internal::spline3d_layout2_interpolate<Output, Input, FP, NumThreads, Decompress, false>(
