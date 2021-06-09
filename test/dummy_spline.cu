@@ -20,7 +20,7 @@ using Quant = unsigned short;
 Data*  data;
 Data*  xdata;
 Data*  anchor;
-Quant* error_control;
+Quant* err_ctrl;
 
 unsigned int   dimx, dimy, dimz;
 unsigned int   dimx_pad, dimy_pad, dimz_pad;
@@ -53,18 +53,18 @@ std::string fname;
 //         get_npart(dimz, 8)    //
 //     );
 
-//     cudaMallocManaged((void**)&error_control, len * sizeof(Data));
+//     cudaMallocManaged((void**)&err_ctrl, len * sizeof(Data));
 //     cudaMemset(data, 0x00, len * sizeof(Data));
 
 //     // for (auto i = 0; i < n; i++) {
 //     // cout << "3Dc " << i << '\n';
 //     kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
-//         (data, error_control, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
+//         (data, err_ctrl, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
 //     cudaDeviceSynchronize();
 
-//     io::WriteArrayToBinary(fname + ".lorenzo", error_control, len);
+//     io::WriteArrayToBinary(fname + ".lorenzo", err_ctrl, len);
 
-//     cudaFree(error_control);
+//     cudaFree(err_ctrl);
 //     // }
 // }
 
@@ -192,52 +192,65 @@ void test_spline3dc()
         // end of block
     }
 
-    cudaMallocManaged((void**)&error_control, len_padded * sizeof(Quant));
-    cudaMemset(error_control, 0x00, len_padded * sizeof(Quant));
+    cudaMallocManaged((void**)&err_ctrl, len_padded * sizeof(Quant));
+    cudaMemset(err_ctrl, 0x00, len_padded * sizeof(Quant));
     {  // launch kernel of pred-quant
 
         kernel::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
             <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-            // <<<dim3(1, 1, 1), dim3(256, 1, 1)>>>  //
-            (data, dim3d, stride3d, error_control, dim3d_pad, stride3d_pad, eb_r, ebx2, radius);
+            (data, dim3d, stride3d,                                 //
+             err_ctrl, dim3d_pad, stride3d_pad,                     //
+             eb_r, ebx2, radius);
         cudaDeviceSynchronize();
     }
 
     {  // verification
        // print_block_from_CPU<Data, true>(data);
-       // print_block_from_CPU<Quant, false, true>(error_control);
+
+        // print_block_from_CPU<Quant, false, true>(err_ctrl);
     }
 
     auto hist = new int[radius * 2]();
 
-    for (auto i = 0; i < len_padded; i++) { hist[error_control[i]]++; }
+    for (auto i = 0; i < len_padded; i++) { hist[err_ctrl[i]]++; }
     for (auto i = 0; i < radius * 2; i++) {
         if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
     }
 
-    io::WriteArrayToBinary(fname + ".spline", error_control, len_padded);
+    io::WriteArrayToBinary(fname + ".spline", err_ctrl, len_padded);
 
     cudaMallocManaged((void**)&xdata, len * sizeof(Data));
     cudaMemset(xdata, 0x00, len * sizeof(Data));
     {
         kernel::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
             <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-            (error_control, dim3d_pad, stride3d_pad, xdata, dim3d, stride3d, eb_r, ebx2, radius);
+            (err_ctrl, dim3d_pad, stride3d_pad,                     //
+             anchor, dim3d_anchor, stride3d_anchor,                 //
+             xdata, dim3d, stride3d,                                //
+             eb_r, ebx2, radius);
         cudaDeviceSynchronize();
     }
 
     {  // verification
+
+        auto verified_okay  = true;
+        int  first_breaking = 0;
         for (auto i = 0; i < len; i++) {
             auto err = fabs(data[i] - xdata[i]);
 
             if (err > eb) {
-                printf("overbound at idx: %d, data:%4.2e, xdata: %4.2e, exiting\n", i, data[i], xdata[i]);
+                printf("overbound first at idx: %d, data:%4.2e, xdata: %4.2e, exiting\n", i, data[i], xdata[i]);
                 break;
             }
         }
+
+        if (verified_okay)
+            cout << "pass in-bound checking.\n";
+        else
+            printf("failed to pass in-bound checking.\n.");
     }
 
-    cudaFree(error_control);
+    cudaFree(err_ctrl);
     cudaFree(anchor);
 }
 
