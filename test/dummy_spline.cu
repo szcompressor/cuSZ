@@ -11,6 +11,7 @@
 
 #include "../src/kernel/prototype_spline2.cuh"
 #include "../src/utils/io.hh"
+#include "../src/utils/verify.hh"
 
 using std::cout;
 
@@ -20,7 +21,7 @@ using Quant = unsigned short;
 Data*  data;
 Data*  xdata;
 Data*  anchor;
-Quant* err_ctrl;
+Quant* errctrl;
 
 unsigned int   dimx, dimy, dimz;
 unsigned int   dimx_pad, dimy_pad, dimz_pad;
@@ -28,7 +29,7 @@ unsigned int   nblockx, nblocky, nblockz;
 unsigned int   in_range_nanchorx, in_range_nanchory, in_range_nanchorz;
 unsigned int   nanchorx, nanchory, nanchorz;
 unsigned int   len, len_padded, len_anchor;
-dim3           dim3d, dim3d_pad, stride3d, stride3d_pad, dim3d_anchor, stride3d_anchor;
+dim3           dim3d, dim3d_pad, stride3d, stride3d_pad, anchor_dim3, anchor_stride3;
 constexpr auto Block = 8;
 
 auto eb             = 1.0f;
@@ -114,18 +115,18 @@ void GetPSNR_duplicated_adhoc(Data* x, Data* y, size_t len)
 //         get_npart(dimz, 8)    //
 //     );
 
-//     cudaMallocManaged((void**)&err_ctrl, len * sizeof(Data));
+//     cudaMallocManaged((void**)&errctrl, len * sizeof(Data));
 //     cudaMemset(data, 0x00, len * sizeof(Data));
 
 //     // for (auto i = 0; i < n; i++) {
 //     // cout << "3Dc " << i << '\n';
 //     kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
-//         (data, err_ctrl, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
+//         (data, errctrl, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
 //     cudaDeviceSynchronize();
 
-//     io::WriteArrayToBinary(fname + ".lorenzo", err_ctrl, len);
+//     io::WriteArrayToBinary(fname + ".lorenzo", errctrl, len);
 
-//     cudaFree(err_ctrl);
+//     cudaFree(errctrl);
 //     // }
 // }
 
@@ -216,8 +217,8 @@ void test_spline3dc()
         nanchorz          = in_range_nanchorz + 1;
         len_anchor        = nanchorx * nanchory * nanchorz;
 
-        dim3d_anchor    = dim3(nanchorx, nanchory, nanchorz);
-        stride3d_anchor = dim3(1, nanchorx, nanchorx * nanchory);
+        anchor_dim3    = dim3(nanchorx, nanchory, nanchorz);
+        anchor_stride3 = dim3(1, nanchorx, nanchorx * nanchory);
 
         std::cout << "len anchor: " << len_anchor << '\n';
         printf("len anchor xyz: (%d, %d, %d)\n", nanchorx, nanchory, nanchorz);
@@ -245,7 +246,7 @@ void test_spline3dc()
             for (auto iy = 0, y = 0; y < dimy; iy++, y += 8) {
                 for (auto ix = 0, x = 0; x < dimx; ix++, x += 8) {
                     auto data_id      = x + y * stride3d.y + z * stride3d.z;
-                    auto anchor_id    = ix + iy * stride3d_anchor.y + iz * stride3d_anchor.z;
+                    auto anchor_id    = ix + iy * anchor_stride3.y + iz * anchor_stride3.z;
                     anchor[anchor_id] = data[data_id];
                 }
             }
@@ -255,7 +256,7 @@ void test_spline3dc()
         for (auto z = 0; z < nanchorz; z++) {
             for (auto y = 0; y < nanchory; y++) {
                 for (auto x = 0; x < nanchorx; x++) {
-                    auto anchor_id = x + y * stride3d_anchor.y + z * stride3d_anchor.z;
+                    auto anchor_id = x + y * anchor_stride3.y + z * anchor_stride3.z;
                     printf("(%d,%d,%d): %4.2e\t", x * 8, y * 8, z * 8, anchor[anchor_id]);
                 }
                 cout << '\n';
@@ -266,40 +267,42 @@ void test_spline3dc()
         // end of block
     }
 
-    cudaMallocManaged((void**)&err_ctrl, len_padded * sizeof(Quant));
-    cudaMemset(err_ctrl, 0x00, len_padded * sizeof(Quant));
+    cudaMallocManaged((void**)&errctrl, len_padded * sizeof(Quant));
+    cudaMemset(errctrl, 0x00, len_padded * sizeof(Quant));
     {  // launch kernel of pred-quant
 
-        kernel::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
-            <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-            (data, dim3d, stride3d,                                 //
-             err_ctrl, dim3d_pad, stride3d_pad,                     //
-             eb_r, ebx2, radius);
-        cudaDeviceSynchronize();
+        for (auto i = 0; i < 100; i++) {
+            kernel::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
+                <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
+                (data, dim3d, stride3d,                                 //
+                 errctrl, dim3d_pad, stride3d_pad,                      //
+                 eb_r, ebx2, radius);
+            cudaDeviceSynchronize();
+        }
     }
 
     {  // verification
        // print_block_from_CPU<Data, true>(data);
 
-        // print_block_from_CPU<Quant, false, true>(err_ctrl);
+        // print_block_from_CPU<Quant, false, true>(errctrl);
     }
 
     auto hist = new int[radius * 2]();
 
-    for (auto i = 0; i < len_padded; i++) { hist[err_ctrl[i]]++; }
+    for (auto i = 0; i < len_padded; i++) { hist[errctrl[i]]++; }
     for (auto i = 0; i < radius * 2; i++) {
         if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
     }
 
-    io::WriteArrayToBinary(fname + ".spline", err_ctrl, len_padded);
+    io::WriteArrayToBinary(fname + ".spline", errctrl, len_padded);
 
     cudaMallocManaged((void**)&xdata, len * sizeof(Data));
     cudaMemset(xdata, 0x00, len * sizeof(Data));
     {
         kernel::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
             <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-            (err_ctrl, dim3d_pad, stride3d_pad,                     //
-             anchor, dim3d_anchor, stride3d_anchor,                 //
+            (errctrl, dim3d_pad, stride3d_pad,                      //
+             anchor, anchor_dim3, anchor_stride3,                   //
              xdata, dim3d, stride3d,                                //
              eb_r, ebx2, radius);
         cudaDeviceSynchronize();
@@ -323,9 +326,15 @@ void test_spline3dc()
             printf("failed to pass in-bound checking.\n.");
 
         GetPSNR_duplicated_adhoc(data, xdata, len);
+
+        stat_t stat;
+        analysis::VerifyData<Data>(&stat, xdata, data, len);
+        analysis::PrintMetrics<Data>(&stat, false, eb, 0);
+        printf("data[max-err-idx]: %f", data[stat.max_abserr_index]);
+        printf("xdata[max-err-idx]: %f", xdata[stat.max_abserr_index]);
     }
 
-    cudaFree(err_ctrl);
+    cudaFree(errctrl);
     cudaFree(anchor);
 }
 

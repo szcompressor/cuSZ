@@ -46,7 +46,7 @@ using STRIDE  = unsigned int;
 using DIM3    = dim3;
 using STRIDE3 = dim3;
 
-#define SHM_ERROR shm_err_ctrl
+#define SHM_ERROR shm_errctrl
 
 ////////////////////////////////////////////////////////////////////////////////
 // definition
@@ -63,11 +63,11 @@ template <
     bool ProbePredError = false>
 __global__ void c_spline3d_infprecis_32x8x8data(
     DataIter  data_first,
-    DIM3      dim3d,
-    STRIDE3   stride3d,
-    QuantIter err_ctrl_first,
-    DIM3      dim3d_pad,
-    STRIDE3   stride3d_pad,
+    DIM3      data_dim3,
+    STRIDE3   data_stride3,
+    QuantIter errctrl_first,
+    DIM3      errctrl_dim3,
+    STRIDE3   errctrl_stride3,
     FP        eb_r              = 1.0,
     FP        ebx2              = 2.0,
     int       radius            = 512,
@@ -81,15 +81,15 @@ template <
     int  NumThreads     = 256,
     bool DelayPostQuant = false>
 __global__ void x_spline3d_infprecis_32x8x8data(
-    QuantIter err_ctrl_first,   // input 1
-    DIM3      dim3d_pad,        //
-    STRIDE3   stride3d_pad,     //
+    QuantIter errctrl_first,    // input 1
+    DIM3      errctrl_dim3,     //
+    STRIDE3   errctrl_stride3,  //
     DataIter  anchor,           // input 2
-    DIM3      dim3d_anchor,     //
-    STRIDE3   stride3d_anchor,  //
+    DIM3      anchor_dim3,      //
+    STRIDE3   anchor_stride3,   //
     DataIter  data_first,       // output
-    DIM3      dim3d,            //
-    STRIDE3   stride3d,         //
+    DIM3      data_dim3,        //
+    STRIDE3   data_stride3,     //
     FP        eb_r   = 1.0,
     FP        ebx2   = 2.0,
     int       radius = 512);
@@ -105,7 +105,7 @@ namespace internal {
 template <typename T1, typename T2, typename FP, int NumThreads, bool Workflow = Compress, bool ProbPredError = false>
 __device__ void spline3d_layout2_interpolate(
     volatile T1 shm_data[9][9][33],
-    volatile T2 shm_err_ctrl[9][9][33],
+    volatile T2 shm_errctrl[9][9][33],
     FP          eb_r   = 1.0,
     FP          ebx2   = 2.0,
     int         radius = 512);
@@ -143,7 +143,7 @@ template <
     bool Workflow        = Compress>
 __forceinline__ __device__ void interpolate_stage(
     volatile T1 shm_data[9][9][33],
-    volatile T2 shm_err_ctrl[9][9][33],
+    volatile T2 shm_errctrl[9][9][33],
     LambdaX     xmap,
     LambdaY     ymap,
     LambdaZ     zmap,
@@ -181,11 +181,11 @@ __forceinline__ __device__ void interpolate_stage(
                     code = err < 0 ? -code : code;
                     code = int(code / 2) + radius;
                 }
-                shm_err_ctrl[z][y][x] = code;  // TODO double check if unsigned type works
-                shm_data[z][y][x]     = pred + (code - radius) * ebx2;
+                shm_errctrl[z][y][x] = code;  // TODO double check if unsigned type works
+                shm_data[z][y][x]    = pred + (code - radius) * ebx2;
             }
             else {
-                auto code         = shm_err_ctrl[z][y][x];
+                auto code         = shm_errctrl[z][y][x];
                 shm_data[z][y][x] = pred + (code - radius) * ebx2;
             }
         }
@@ -228,7 +228,7 @@ __forceinline__ __device__ void interpolate_stage(
 template <typename T1, typename T2, typename FP, int NumThreads, bool Workflow, bool ProbPredError>
 __device__ void kernel::internal::spline3d_layout2_interpolate(
     volatile T1 shm_data[9][9][33],
-    volatile T2 shm_err_ctrl[9][9][33],
+    volatile T2 shm_errctrl[9][9][33],
     FP          eb_r,
     FP          ebx2,
     int         radius)
@@ -256,15 +256,15 @@ __device__ void kernel::internal::spline3d_layout2_interpolate(
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, NumThreads, 5, 2, NoCoarsen, 1, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, NumThreads, 4, 2, NoCoarsen, 3, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, NumThreads, 9, 1, NoCoarsen, 3, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     unit = 2;
 
@@ -272,15 +272,15 @@ __device__ void kernel::internal::spline3d_layout2_interpolate(
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, NumThreads, 9, 3, NoCoarsen, 2, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, NumThreads, 8, 3, NoCoarsen, 5, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, NumThreads, 17, 2, NoCoarsen, 5, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     unit = 1;
 
@@ -288,30 +288,30 @@ __device__ void kernel::internal::spline3d_layout2_interpolate(
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, NumThreads, 17, 5, Coarsen, 4, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, NumThreads, 16, 5, Coarsen, 9, BorderInclusive, Workflow>(
-        shm_data, shm_err_ctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
     /******************************************************************************
      test only: last step inclusive
      ******************************************************************************/
     // interpolate_stage<
     //     T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
     //     false, false, true, NumThreads, 33, 4, Coarsen, 9, BorderInclusive, Workflow>(
-    //     shm_data, shm_err_ctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+    //     shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
     /******************************************************************************
      production
      ******************************************************************************/
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, NumThreads, 32, 4, Coarsen, 8, BorderExclusive, Workflow>(
-        shm_data, shm_err_ctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+        shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     /******************************************************************************
      test only: print a block
      ******************************************************************************/
-    // if (tix == 0 and bix == 0 and biy == 0 and biz == 0) { spline3d_print_block_from_GPU(shm_err_ctrl); }
+    // if (tix == 0 and bix == 0 and biy == 0 and biz == 0) { spline3d_print_block_from_GPU(shm_errctrl); }
     // if (tix == 0 and bix == 0 and biy == 0 and biz == 0) { spline3d_print_block_from_GPU(shm_data); }
 }
 
@@ -328,11 +328,11 @@ template <
     bool ProbePredError>
 __global__ void kernel::c_spline3d_infprecis_32x8x8data(
     DataIter  data_first,
-    DIM3      dim3d,
-    STRIDE3   stride3d,
-    QuantIter err_ctrl_first,
-    DIM3      dim3d_pad,
-    STRIDE3   stride3d_pad,
+    DIM3      data_dim3,
+    STRIDE3   data_stride3,
+    QuantIter errctrl_first,
+    DIM3      errctrl_dim3,
+    STRIDE3   errctrl_stride3,
     FP        eb_r,
     FP        ebx2,
     int       radius,
@@ -349,17 +349,17 @@ __global__ void kernel::c_spline3d_infprecis_32x8x8data(
     else {
         __shared__ struct {
             Data  data[9][9][33];
-            Quant err_ctrl[9][9][33];
+            Quant errctrl[9][9][33];
         } shmem;
 
         kernel::internal::memops::c_spline3d_reset_scratch_33x9x9data<Data, Quant, NumThreads>(
-            shmem.data, shmem.err_ctrl);
+            shmem.data, shmem.errctrl);
         kernel::internal::memops::spline3d_global2shmem_33x9x9data<Data, NumThreads>(
-            data_first, shmem.data, dim3d, stride3d);
+            data_first, shmem.data, data_dim3, data_stride3);
         kernel::internal::spline3d_layout2_interpolate<Data, Quant, FP, NumThreads, Compress, false>(
-            shmem.data, shmem.err_ctrl, eb_r, ebx2, radius);
+            shmem.data, shmem.errctrl, eb_r, ebx2, radius);
         kernel::internal::memops::spline3d_shmem2global_32x8x8data<Quant, NumThreads>(
-            shmem.err_ctrl, err_ctrl_first, dim3d_pad, stride3d_pad);
+            shmem.errctrl, errctrl_first, errctrl_dim3, errctrl_stride3);
     }
 }
 
@@ -370,15 +370,15 @@ template <
     int  NumThreads,
     bool DelayPostQuant>
 __global__ void kernel::x_spline3d_infprecis_32x8x8data(
-    QuantIter err_ctrl_first,   // input 1
-    DIM3      dim3d_pad,        //
-    STRIDE3   stride3d_pad,     //
+    QuantIter errctrl_first,    // input 1
+    DIM3      errctrl_dim3,     //
+    STRIDE3   errctrl_stride3,  //
     DataIter  anchor,           // input 2
-    DIM3      dim3d_anchor,     //
-    STRIDE3   stride3d_anchor,  //
+    DIM3      anchor_dim3,      //
+    STRIDE3   anchor_stride3,   //
     DataIter  data_first,       // output
-    DIM3      dim3d,            //
-    STRIDE3   stride3d,         //
+    DIM3      data_dim3,        //
+    STRIDE3   data_stride3,     //
     FP        eb_r,
     FP        ebx2,
     int       radius)
@@ -388,18 +388,18 @@ __global__ void kernel::x_spline3d_infprecis_32x8x8data(
     using Data  = typename std::remove_pointer<DataIter>::type;
 
     __shared__ struct {
-        Quant err_ctrl[9][9][33];
+        Quant errctrl[9][9][33];
         Data  data[9][9][33];
     } shmem;
 
     kernel::internal::memops::x_spline3d_reset_scratch_33x9x9data<Data, Quant, NumThreads>(
-        shmem.data, shmem.err_ctrl, anchor, dim3d_anchor, stride3d_anchor, radius);
+        shmem.data, shmem.errctrl, anchor, anchor_dim3, anchor_stride3, radius);
     kernel::internal::memops::spline3d_global2shmem_33x9x9data<Quant, NumThreads>(
-        err_ctrl_first, shmem.err_ctrl, dim3d_pad, stride3d_pad);
+        errctrl_first, shmem.errctrl, errctrl_dim3, errctrl_stride3);
     kernel::internal::spline3d_layout2_interpolate<Data, Quant, FP, NumThreads, Decompress, false>(
-        shmem.data, shmem.err_ctrl, eb_r, ebx2, radius);
+        shmem.data, shmem.errctrl, eb_r, ebx2, radius);
     kernel::internal::memops::spline3d_shmem2global_32x8x8data<Data, NumThreads>(
-        shmem.data, data_first, dim3d, stride3d);
+        shmem.data, data_first, data_dim3, data_stride3);
 }
 
 #endif
