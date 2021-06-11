@@ -185,9 +185,9 @@ __device__ void x_spline3d_reset_scratch_33x9x9data(
             if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) {
                 shm_xdata[z][y][x] = 0;
 
-                auto aid = (x / 8) + bix * 4 +                 //
-                           (y / 8) * anchor_stride3.y + biy +  //
-                           (z / 8) * anchor_stride3.z + biz;   // TODO recheck
+                auto aid = ((x / 8) + bix * 4) +                 //
+                           ((y / 8) + biy) * anchor_stride3.y +  //
+                           ((z / 8) + biz) * anchor_stride3.z;   //
                 shm_xdata[z][y][x] = anchor[aid];
             }
             /*****************************************************************************
