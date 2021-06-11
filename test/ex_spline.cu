@@ -1,3 +1,14 @@
+/**
+ * @file ex_spline.cu
+ * @author Jiannan Tian
+ * @brief
+ * @version 0.2
+ * @date 2021-06-06
+ *
+ * (C) 2021 by Washington State University, Argonne National Laboratory
+ *
+ */
+
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <algorithm>
@@ -12,6 +23,7 @@
 #include "../src/kernel/prototype_spline2.cuh"
 #include "../src/utils/io.hh"
 #include "../src/utils/verify.hh"
+#include "../src/utils/verify_gpu.cuh"
 
 using std::cout;
 
@@ -22,6 +34,8 @@ Data*  data;
 Data*  xdata;
 Data*  anchor;
 Quant* errctrl;
+
+bool print_hist = false;
 
 unsigned int   dimx, dimy, dimz;
 unsigned int   dimx_pad, dimy_pad, dimz_pad;
@@ -41,67 +55,6 @@ auto get_npart      = [](auto size, auto subsize) { return (size + subsize - 1) 
 auto get_npart_pad1 = [](auto size, auto subsize) { return (size + subsize - 2) / subsize; };
 
 std::string fname;
-
-template <typename Data>
-std::tuple<Data, Data, Data, Data> GetMinMaxRng_duplicated_adhoc(thrust::device_ptr<Data> g_ptr, size_t len)
-{
-    size_t min_el_loc = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
-    size_t max_el_loc = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;  // excluding padded
-    Data   min_val    = *(g_ptr + min_el_loc);
-    Data   max_val    = *(g_ptr + max_el_loc);
-    Data   rng        = max_val - min_val;
-
-    Data sum  = thrust::reduce(g_ptr, g_ptr + len, (Data)0.0, thrust::plus<Data>());
-    Data mean = sum / len;
-
-    std::cout << min_val << std::endl;
-    std::cout << max_val << std::endl;
-    std::cout << rng << std::endl;
-    std::cout << mean << std::endl;
-    // TODO redundant types
-    return std::make_tuple<Data, Data, Data, Data>((Data)min_val, (Data)max_val, (Data)rng, (Data)mean);
-}
-
-template <typename Data>
-void GetPSNR_duplicated_adhoc(Data* x, Data* y, size_t len)
-{
-    using tup = thrust::tuple<Data, Data>;
-
-    thrust::device_ptr<Data> x_ptr = thrust::device_pointer_cast(x);  // origin
-    thrust::device_ptr<Data> y_ptr = thrust::device_pointer_cast(y);
-
-    Data x_min_val, x_max_val, x_rng, mean_x;
-    Data y_min_val, y_max_val, y_rng, mean_y;
-    std::tie(x_min_val, x_max_val, x_rng, mean_x) = GetMinMaxRng_duplicated_adhoc(x_ptr, len);
-    std::tie(y_min_val, y_max_val, y_rng, mean_y) = GetMinMaxRng_duplicated_adhoc(y_ptr, len);
-
-    auto begin = thrust::make_zip_iterator(thrust::make_tuple(x_ptr, y_ptr));
-    auto end   = thrust::make_zip_iterator(thrust::make_tuple(x_ptr + len, y_ptr + len));
-
-    // clang-format off
-    auto corr = [=] __host__ __device__(tup t)  { return (thrust::get<0>(t) - mean_x) * (thrust::get<1>(t) - mean_y); };
-    auto err2 = []  __host__ __device__(tup t)  { Data f = thrust::get<0>(t) - thrust::get<1>(t); return f * f; };
-    auto varx = [=] __host__ __device__(Data a) { Data f = a - mean_x; return f * f; };
-    auto vary = [=] __host__ __device__(Data a) { Data f = a - mean_y; return f * f; };
-
-    auto sum_err2 = thrust::transform_reduce(begin, end, err2, 0.0f, thrust::plus<Data>());
-    auto sum_corr = thrust::transform_reduce(begin, end, corr, 0.0f, thrust::plus<Data>());
-    auto sum_varx = thrust::transform_reduce(y_ptr, y_ptr + len, varx, 0.0f, thrust::plus<Data>());
-    auto sum_vary = thrust::transform_reduce(y_ptr, y_ptr + len, vary, 0.0f, thrust::plus<Data>());
-    // clang-format on
-
-    double stdx = sqrt(sum_varx / len),                 //
-        stdy    = sqrt(sum_vary / len),                 //
-        ee      = sum_corr / len,                       //
-        coeff   = ee / stdx / stdy,                     //
-        MSE     = sum_err2 / len,                       //
-        PSNR    = 20 * log10(x_rng) - 10 * log10(MSE),  //
-        NRMSE   = sqrt(MSE) / x_rng;
-
-    std::cout << "PSNR:\t" << PSNR << std::endl;
-    std::cout << "coeff:\t" << coeff << std::endl;
-    std::cout << "NRMSE:\t" << NRMSE << std::endl;
-}
 
 // void test_lorenzo3dc(int n = 1)
 // {
@@ -271,7 +224,7 @@ void test_spline3dc()
     cudaMemset(errctrl, 0x00, len_padded * sizeof(Quant));
     {  // launch kernel of pred-quant
 
-        for (auto i = 0; i < 100; i++) {
+        for (auto i = 0; i < 20; i++) {
             kernel::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (data, dim3d, stride3d,                                 //
@@ -289,9 +242,11 @@ void test_spline3dc()
 
     auto hist = new int[radius * 2]();
 
-    for (auto i = 0; i < len_padded; i++) { hist[errctrl[i]]++; }
-    for (auto i = 0; i < radius * 2; i++) {
-        if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
+    if (print_hist) {
+        for (auto i = 0; i < len_padded; i++) { hist[errctrl[i]]++; }
+        for (auto i = 0; i < radius * 2; i++) {
+            if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
+        }
     }
 
     io::WriteArrayToBinary(fname + ".spline", errctrl, len_padded);
@@ -299,17 +254,18 @@ void test_spline3dc()
     cudaMallocManaged((void**)&xdata, len * sizeof(Data));
     cudaMemset(xdata, 0x00, len * sizeof(Data));
     {
-        kernel::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
-            <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-            (errctrl, dim3d_pad, stride3d_pad,                      //
-             anchor, anchor_dim3, anchor_stride3,                   //
-             xdata, dim3d, stride3d,                                //
-             eb_r, ebx2, radius);
-        cudaDeviceSynchronize();
+        for (auto i = 0; i < 20; i++) {
+            kernel::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
+                <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
+                (errctrl, dim3d_pad, stride3d_pad,                      //
+                 anchor, anchor_dim3, anchor_stride3,                   //
+                 xdata, dim3d, stride3d,                                //
+                 eb_r, ebx2, radius);
+            cudaDeviceSynchronize();
+        }
     }
 
     {  // verification
-
         auto verified_okay = true;
         for (auto i = 0; i < len; i++) {
             auto err = fabs(data[i] - xdata[i]);
@@ -320,18 +276,21 @@ void test_spline3dc()
             }
         }
 
+        cout << '\n';
         if (verified_okay)
-            cout << "pass in-bound checking.\n";
+            printf(">> PASSED error boundness check.\n");
         else
-            printf("failed to pass in-bound checking.\n.");
+            printf("** FAILED error boundness check.\n.");
 
-        GetPSNR_duplicated_adhoc(data, xdata, len);
+        stat_t stat_gpu;
+        VerifyDataGPU(&stat_gpu, xdata, data, len);
+        analysis::PrintMetrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
 
         stat_t stat;
         analysis::VerifyData<Data>(&stat, xdata, data, len);
-        analysis::PrintMetrics<Data>(&stat, false, eb, 0);
-        printf("data[max-err-idx]: %f", data[stat.max_abserr_index]);
-        printf("xdata[max-err-idx]: %f", xdata[stat.max_abserr_index]);
+        analysis::PrintMetrics<Data>(&stat, false, eb, 0, 1, true, false);
+        // printf("data[max-err-idx]: %f\n", data[stat.max_abserr_index]);
+        // printf("xdata[max-err-idx]: %f\n", xdata[stat.max_abserr_index]);
     }
 
     cudaFree(errctrl);
@@ -346,8 +305,8 @@ int main(int argc, char** argv)
     auto eb = 1e-2;
 
     if (argc < 3) {
-        std::cout << "<prog> <file> <eb>" << '\n';
-        std::cout << "e.g., ./spline ${HOME}/rtm-data/snapshot-2815.f32 1e-2" << '\n';
+        std::cout << "<prog> <file> <eb> <hist>" << '\n';
+        std::cout << "e.g. \"./spline ${HOME}/rtm-data/snapshot-2815.f32 1e-2\"" << '\n';
         std::cout << '\n';
         struct passwd* pw      = getpwuid(getuid());
         const char*    homedir = pw->pw_dir;
@@ -356,6 +315,11 @@ int main(int argc, char** argv)
     else if (argc == 3) {
         fname = std::string(argv[1]);
         eb    = atof(argv[2]);
+    }
+    else if (argc == 4) {
+        fname      = std::string(argv[1]);
+        eb         = atof(argv[2]);
+        print_hist = std::string(argv[3]) == "hist";
     }
 
     cudaDeviceReset();
