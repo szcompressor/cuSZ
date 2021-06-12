@@ -27,50 +27,60 @@ using namespace std;
 namespace analysis {
 
 template <typename T>
-void VerifyData(stat_t* stat, T* xData, T* oData, size_t _len)
+void VerifyData(stat_t* stat, T* xdata, T* odata, size_t len)
 {
-    double _max = 0, _min = 0, max_abserr = 0;
-    _max = oData[0], _min = oData[0];
-    max_abserr = xData[0] > oData[0] ? xData[0] - oData[0] : oData[0] - xData[0];
+    double max_odata = odata[0], min_odata = odata[0];
+    double max_xdata = xdata[0], min_xdata = xdata[0];
+    double max_abserr = max_abserr = fabs(xdata[0] - odata[0]);
 
     double sum_0 = 0, sum_x = 0;
-    for (size_t i = 0; i < _len; i++) sum_0 += oData[i], sum_x += xData[i];
+    for (size_t i = 0; i < len; i++) sum_0 += odata[i], sum_x += xdata[i];
 
-    double mean_0 = sum_0 / _len, mean_x = sum_x / _len;
-    double sum_var_0 = 0, sum_var_x = 0, sum_sq_err = 0, sum_corre = 0, rel_abserr = 0;
+    double mean_odata = sum_0 / len, mean_xdata = sum_x / len;
+    double sum_var_odata = 0, sum_var_xdata = 0, sum_err2 = 0, sum_corr = 0, rel_abserr = 0;
 
-    double max_pwr_rel_abserr = 0;
-    size_t max_abserr_index   = 0;
-    for (size_t i = 0; i < _len; i++) {
-        _max = _max < oData[i] ? oData[i] : _max, _min = _min > oData[i] ? oData[i] : _min;
-        float abserr = fabs(xData[i] - oData[i]);
-        if (oData[i] != 0) {
-            rel_abserr         = abserr / fabs(oData[i]);
-            max_pwr_rel_abserr = max_pwr_rel_abserr < rel_abserr ? rel_abserr : max_pwr_rel_abserr;
+    double max_pwrrel_abserr = 0;
+    size_t max_abserr_index  = 0;
+    for (size_t i = 0; i < len; i++) {
+        max_odata = max_odata < odata[i] ? odata[i] : max_odata;
+        min_odata = min_odata > odata[i] ? odata[i] : min_odata;
+
+        max_xdata = max_xdata < odata[i] ? odata[i] : max_xdata;
+        min_xdata = min_xdata > xdata[i] ? xdata[i] : min_xdata;
+
+        float abserr = fabs(xdata[i] - odata[i]);
+        if (odata[i] != 0) {
+            rel_abserr        = abserr / fabs(odata[i]);
+            max_pwrrel_abserr = max_pwrrel_abserr < rel_abserr ? rel_abserr : max_pwrrel_abserr;
         }
         max_abserr_index = max_abserr < abserr ? i : max_abserr_index;
         max_abserr       = max_abserr < abserr ? abserr : max_abserr;
-        sum_corre += (oData[i] - mean_0) * (xData[i] - mean_x);
-        sum_var_0 += (oData[i] - mean_0) * (oData[i] - mean_0);
-        sum_var_x += (xData[i] - mean_x) * (xData[i] - mean_x);
-        sum_sq_err += abserr * abserr;
+        sum_corr += (odata[i] - mean_odata) * (xdata[i] - mean_xdata);
+        sum_var_odata += (odata[i] - mean_odata) * (odata[i] - mean_odata);
+        sum_var_xdata += (xdata[i] - mean_xdata) * (xdata[i] - mean_xdata);
+        sum_err2 += abserr * abserr;
     }
-    double std_0 = sqrt(sum_var_0 / _len);
-    double std_x = sqrt(sum_var_x / _len);
-    double ee    = sum_corre / _len;
+    double std_odata = sqrt(sum_var_odata / len);
+    double std_xdata = sqrt(sum_var_xdata / len);
+    double ee        = sum_corr / len;
 
-    stat->len                 = _len;
-    stat->coeff               = ee / std_0 / std_x;
-    stat->maximum             = _max;
-    stat->minimum             = _min;
-    stat->range               = _max - _min;
-    stat->max_abserr_index    = max_abserr_index;
-    stat->max_abserr          = max_abserr;
-    stat->max_abserr_vs_range = max_abserr / stat->range;
-    stat->max_pwr_rel_abserr  = max_pwr_rel_abserr;
-    stat->MSE                 = sum_sq_err / _len;
-    stat->NRMSE               = sqrt(stat->MSE) / stat->range;
-    stat->PSNR                = 20 * log10(stat->range) - 10 * log10(stat->MSE);
+    stat->len               = len;
+    stat->max_odata         = max_odata;
+    stat->min_odata         = min_odata;
+    stat->rng_odata         = max_odata - min_odata;
+    stat->std_odata         = std_odata;
+    stat->max_xdata         = max_xdata;
+    stat->min_xdata         = min_xdata;
+    stat->rng_xdata         = max_xdata - min_xdata;
+    stat->std_xdata         = std_xdata;
+    stat->coeff             = ee / std_odata / std_xdata;
+    stat->max_abserr_index  = max_abserr_index;
+    stat->max_abserr        = max_abserr;
+    stat->max_abserr_vs_rng = max_abserr / stat->rng_odata;
+    stat->max_pwrrel_abserr = max_pwrrel_abserr;
+    stat->MSE               = sum_err2 / len;
+    stat->NRMSE             = sqrt(stat->MSE) / stat->rng_odata;
+    stat->PSNR              = 20 * log10(stat->rng_odata) - 10 * log10(stat->MSE);
 }
 
 template <typename Data>
@@ -79,30 +89,52 @@ void PrintMetrics(
     bool    override_eb  = false,
     double  new_eb       = 0,
     size_t  archive_byte = 0,
-    size_t  bin_scale    = 1)
+    size_t  bin_scale    = 1,
+    bool    locate_err   = false,
+    bool    gpu_checker  = false)
 {
-    auto indent  = []() { printf("  "); };
-    auto newline = []() { printf("\n"); };
-    cout << "\n";
-    indent(), printf("%-20s%.20G", "min.val", stat->minimum), newline();
-    indent(), printf("%-20s%.20G", "max.val", stat->maximum), newline();
-    indent(), printf("%-20s%.20G", "val.rng", stat->range), newline();
-    indent(), printf("%-20s\e[31m%.20G\e[0m", "max.err.abs.val", stat->max_abserr), newline();
-    indent(), printf("%-20s%lu", "data.length", stat->len), newline();
-    indent(), printf("%-20s%lu", "max.err.abs.idx", stat->max_abserr_index), newline();
-    if (override_eb) {
-        indent(), printf("----------------------------------------------------------------\n");
-        indent(), printf("OVERRODE eb (because of, for example, binning) to:\t%.6G", new_eb), newline();
-        indent(), printf("max.err.abs.val/OVERRIDEN eb:\t%.6G", stat->max_abserr / new_eb), newline();
-        indent(), printf("----------------------------------------------------------------\n");
+    auto indent   = []() {};  //{ printf("  "); };
+    auto linkline = []() { printf("|\n"); };
+    auto newline  = []() { printf("\n"); };
+
+    if (not gpu_checker)
+        cout << ">> CPU checker\n\n";
+    else
+        cout << ">> GPU checker\n\n";
+
+    indent(), printf("%-20s%15lu", "data.len", stat->len), newline();
+    linkline();
+    indent(), printf("%-20s%15.8g", "min.odata", stat->min_odata), newline();
+    indent(), printf("%-20s%15.8g", "max.odata", stat->max_odata), newline();
+    indent(), printf("%-20s%15.8g", "rng.odata", stat->rng_odata), newline();
+    indent(), printf("%-20s%15.8g", "std.odata", stat->std_odata), newline();
+    linkline();
+    indent(), printf("%-20s%15.8g", "min.xdata", stat->min_xdata), newline();
+    indent(), printf("%-20s%15.8g", "max.xdata", stat->max_xdata), newline();
+    indent(), printf("%-20s%15.8g", "rng.xdata", stat->rng_xdata), newline();
+    indent(), printf("%-20s%15.8g", "std.xdata", stat->std_xdata), newline();
+
+    if (locate_err) {
+        linkline();
+        indent(), printf("%-20s\e[31m%15.8g\e[0m", "max.err.abs.val", stat->max_abserr), newline();
+        indent(), printf("%-20s%15lu", "max.err.abs.idx", stat->max_abserr_index), newline();
+        if (override_eb) {
+            indent(), printf("----------------------------------------------------------------\n");
+            indent(), printf("OVERRODE eb (because of, for example, binning) to:\t%.6G", new_eb), newline();
+            indent(), printf("max.err.abs.val/OVERRIDEN eb:\t%.6G", stat->max_abserr / new_eb), newline();
+            indent(), printf("----------------------------------------------------------------\n");
+        }
+        else {
+            indent(), printf("%-20s\e[31m%15.8e\e[0m", "max.err.vs.rng", stat->max_abserr_vs_rng), newline();
+        }
+        indent(), printf("%-20s%15.8g", "max.pw.rel.err", stat->max_pwrrel_abserr), newline();
     }
-    else {
-        indent(), printf("%-20s\e[31m%.20G\e[0m", "max.err.vs.rng", stat->max_abserr_vs_range), newline();
-    }
-    indent(), printf("%-20s%.20G", "max.pw.rel.err", stat->max_pwr_rel_abserr), newline();
-    indent(), printf("%-20s\e[31m%.20G\e[0m", "PSNR", stat->PSNR), newline();
-    indent(), printf("%-20s%.20G", "NRMSE", stat->NRMSE), newline();
-    indent(), printf("%-20s%.20G", "correl.coeff", stat->coeff), newline();
+
+    linkline();
+    indent(), printf("%-20s\e[31m%15.4f\e[0m", "PSNR", stat->PSNR), newline();
+    indent(), printf("%-20s%15.8g", "NRMSE", stat->NRMSE), newline();
+    indent(), printf("%-20s%15.8g", "corr.coeff", stat->coeff), newline();
+
     if (archive_byte) {
         indent(),
             printf(

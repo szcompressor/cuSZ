@@ -19,10 +19,11 @@ using namespace std;
 enum class placeholder { length_unknown, alloc_in_called_func, alloc_with_caution };
 
 typedef struct Stat {
-    double minimum{}, maximum{}, range{};
+    double min_odata{}, max_odata{}, rng_odata{}, std_odata{};
+    double min_xdata{}, max_xdata{}, rng_xdata{}, std_xdata{};
     double PSNR{}, MSE{}, NRMSE{};
     double coeff{};
-    double user_set_eb{}, max_abserr_vs_range{}, max_pwr_rel_abserr{};
+    double user_set_eb{}, max_abserr_vs_rng{}, max_pwrrel_abserr{};
 
     size_t len{}, max_abserr_index{};
     double max_abserr{};
