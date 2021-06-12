@@ -62,7 +62,7 @@ void RunLengthDecoding(T* d_fullfmt_data, const size_t N, T* d_compact_data, int
     // compute input index for each output element
     thrust::device_vector<int> indices(N);
     thrust::lower_bound(
-        lengths, lengths + 6,        //
+        lengths, lengths + N,        //
         counter(1), counter(N + 1),  //
         indices.begin());
 

@@ -351,7 +351,7 @@ int main(int argc, char** argv)
             z_mode       = ap->mode;
             auto stat    = ap->stat;
             actualAbsErr = stat.max_abserr;
-            actualRelErr = stat.max_abserr_vs_range;
+            actualRelErr = stat.max_abserr_vs_rng;
             ::testing::InitGoogleTest(&argc, argv);
             return RUN_ALL_TESTS();
         }
