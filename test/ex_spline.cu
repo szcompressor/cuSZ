@@ -20,7 +20,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "../src/kernel/prototype_spline2.cuh"
+#include "../src/kernel/spline.h"
 #include "../src/utils/io.hh"
 #include "../src/utils/verify.hh"
 #include "../src/utils/verify_gpu.cuh"
@@ -225,7 +225,7 @@ void test_spline3dc()
     {  // launch kernel of pred-quant
 
         for (auto i = 0; i < 20; i++) {
-            kernel::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
+            c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (data, dim3d, stride3d,                                 //
                  errctrl, dim3d_pad, stride3d_pad,                      //
@@ -255,10 +255,10 @@ void test_spline3dc()
     cudaMemset(xdata, 0x00, len * sizeof(Data));
     {
         for (auto i = 0; i < 20; i++) {
-            kernel::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
+            x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (errctrl, dim3d_pad, stride3d_pad,                      //
-                 anchor, anchor_dim3, anchor_stride3,                   //
+                 anchor, anchor_stride3,                                //
                  xdata, dim3d, stride3d,                                //
                  eb_r, ebx2, radius);
             cudaDeviceSynchronize();
