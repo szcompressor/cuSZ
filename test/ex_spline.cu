@@ -73,7 +73,7 @@ std::string fname;
 
 //     // for (auto i = 0; i < n; i++) {
 //     // cout << "3Dc " << i << '\n';
-//     kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
+//     cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
 //         (data, errctrl, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
 //     cudaDeviceSynchronize();
 
@@ -187,7 +187,7 @@ void test_spline3dc()
     {  //
 
         // TODO spline3d_handle_4x1x1anchors
-        // kernel::spline3d_handle_4x1x1anchors<Data, 128, 8, 8, 8, Gather>
+        // cusz::spline3d_handle_4x1x1anchors<Data, 128, 8, 8, 8, Gather>
         //     <<<dim3(get_npart(nblockx + 1, 8), get_npart(nblocky + 1, 8), get_npart(nblockz + 1, 8)),  //
         //        dim3(128, 1, 1)>>>                                                                      //
         //     (data, dim3d, stride3d, anchor,                                                            //
@@ -204,19 +204,6 @@ void test_spline3dc()
                 }
             }
         }
-        /*
-        // print
-        for (auto z = 0; z < nanchorz; z++) {
-            for (auto y = 0; y < nanchory; y++) {
-                for (auto x = 0; x < nanchorx; x++) {
-                    auto anchor_id = x + y * anchor_stride3.y + z * anchor_stride3.z;
-                    printf("(%d,%d,%d): %4.2e\t", x * 8, y * 8, z * 8, anchor[anchor_id]);
-                }
-                cout << '\n';
-            }
-            cout << "\n\n";
-        }
-         */
         // end of block
     }
 
@@ -225,7 +212,7 @@ void test_spline3dc()
     {  // launch kernel of pred-quant
 
         for (auto i = 0; i < 20; i++) {
-            c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
+            cusz::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (data, dim3d, stride3d,                                 //
                  errctrl, dim3d_pad, stride3d_pad,                      //
@@ -236,8 +223,7 @@ void test_spline3dc()
 
     {  // verification
        // print_block_from_CPU<Data, true>(data);
-
-        // print_block_from_CPU<Quant, false, true>(errctrl);
+       // print_block_from_CPU<Quant, false, true>(errctrl);
     }
 
     auto hist = new int[radius * 2]();
@@ -255,7 +241,7 @@ void test_spline3dc()
     cudaMemset(xdata, 0x00, len * sizeof(Data));
     {
         for (auto i = 0; i < 20; i++) {
-            x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
+            cusz::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (errctrl, dim3d_pad, stride3d_pad,                      //
                  anchor, anchor_stride3,                                //

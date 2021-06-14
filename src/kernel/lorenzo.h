@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef KERNEL_LORENZO_CUH
-#define KERNEL_LORENZO_CUH
+#ifndef CUSZ_KERNEL_LORENZO_H
+#define CUSZ_KERNEL_LORENZO_H
 
 #include <cstddef>
 
@@ -46,31 +46,31 @@ extern __shared__ char scratch[];
 using DIM    = unsigned int;
 using STRIDE = unsigned int;
 
-namespace kernel {
+namespace cusz {
 
 // clang-format off
-template <typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 4, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_1d1l_v2
+template <typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 4, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_1d1l
 (Data*, Quant*, DIM, int, FP);
-template <typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 8> __global__ void x_lorenzo_1d1l_cub
+template <typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 8> __global__ void x_lorenzo_1d1l
 (Data*, Data*, Quant*, DIM, int, FP);
 
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_2d1l_v1_16x16data_mapto_16x2
+template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_2d1l_16x16data_mapto16x2
 (Data*, Quant*, DIM, DIM, STRIDE, int, FP);
-template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_2d1l_v1_16x16data_mapto_16x2
+template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_2d1l_16x16data_mapto16x2
 (Data*, Data*, Quant*, DIM, DIM, STRIDE, int, FP);
 
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8
+template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_3d1l_32x8x8data_mapto32x1x8
 (Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
-template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8
+template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_3d1l_32x8x8data_mapto32x1x8
 (Data*, Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
-template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8
+template <typename Data, typename Quant, typename FP = float> __global__ void x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8
 (Data*, Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
 // clang-format on
 
-}  // namespace kernel
+}  // namespace cusz
 
 template <typename Data, typename Quant, typename FP, int BLOCK, int SEQ, bool DELAY_POSTQUANT>
-__global__ void kernel::c_lorenzo_1d1l_v2(  //
+__global__ void cusz::c_lorenzo_1d1l(  //
     Data*  d,
     Quant* q,
     DIM    dimx,
@@ -161,14 +161,8 @@ __global__ void kernel::c_lorenzo_1d1l_v2(  //
 }
 
 template <typename Data, typename Quant, typename FP, bool DELAY_POSTQUANT>
-__global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(
-    Data*  d,
-    Quant* q,
-    DIM    dimx,
-    DIM    dimy,
-    STRIDE stridey,
-    int    radius,
-    FP     ebx2_r)
+__global__ void
+cusz::c_lorenzo_2d1l_16x16data_mapto16x2(Data* d, Quant* q, DIM dimx, DIM dimy, STRIDE stridey, int radius, FP ebx2_r)
 {
     static const auto BLOCK = 16;
     static const auto YSEQ  = 8;
@@ -228,7 +222,7 @@ __global__ void kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2(
 }
 
 template <typename Data, typename Quant, typename FP, bool DELAY_POSTQUANT>
-__global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(
+__global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     Data*  d,
     Quant* q,
     DIM    dimx,
@@ -288,7 +282,7 @@ __global__ void kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8(
 }
 
 template <typename Data, typename Quant, typename FP, int BLOCK, int SEQ>
-__global__ void kernel::x_lorenzo_1d1l_cub(  //
+__global__ void cusz::x_lorenzo_1d1l(  //
     Data*  xdata,
     Data*  outlier,
     Quant* quant,
@@ -344,7 +338,7 @@ __global__ void kernel::x_lorenzo_1d1l_cub(  //
 }
 
 template <typename Data, typename Quant, typename FP>
-__global__ void kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(
+__global__ void cusz::x_lorenzo_2d1l_16x16data_mapto16x2(
     Data*  xdata,
     Data*  outlier,
     Quant* quant,
@@ -414,7 +408,7 @@ __global__ void kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2(
 }
 
 template <typename Data, typename Quant, typename FP>
-__global__ void kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(
+__global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     Data*  data,
     Data*  outlier,
     Quant* quant,
@@ -492,7 +486,7 @@ __global__ void kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8(
 }
 
 template <typename Data, typename Quant, typename FP>
-__global__ void kernel::x_lorenzo_3d1l_v6var1_32x8x8data_mapto_32x1x8(
+__global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
     Data*  data,
     Data*  outlier,
     Quant* quant,

@@ -27,7 +27,7 @@ int main()
     cudaMallocManaged(&array.data, length * sizeof(Data));
     cudaMallocManaged(&quant, length * sizeof(Quant));
 
-    kernel::x_lorenzo_3d1l_8x8x8_v3<Data, Quant>
+    cusz::x_lorenzo_3d1l_8x8x8_v3<Data, Quant>
         <<<dim3(ctx.d0 / 8, ctx.d1 / 8, ctx.d2 / 8), dim3(8, 1, 8)>>>(ctx, array.data, array.outlier, quant);
 
     cudaDeviceSynchronize();

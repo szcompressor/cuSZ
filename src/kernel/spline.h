@@ -53,10 +53,11 @@ constexpr int BLOCK32 = 32;
 
 #define SHM_ERROR shm_errctrl
 
-////////////////////////////////////////////////////////////////////////////////
-// definition
-////////////////////////////////////////////////////////////////////////////////
+namespace cusz {
 
+/********************************************************************************
+ * host API
+ ********************************************************************************/
 template <
     typename DataIter      = float*,
     typename QuantIter     = float*,
@@ -97,6 +98,7 @@ __global__ void x_spline3d_infprecis_32x8x8data(
     FP        ebx2,
     int       radius);
 
+namespace device_api {
 /********************************************************************************
  * device API
  ********************************************************************************/
@@ -113,38 +115,9 @@ __device__ void spline3d_layout2_interpolate(
     FP          eb_r,
     FP          ebx2,
     int         radius);
+}  // namespace device_api
 
-// template <
-//     typename T1,
-//     typename T2,
-//     typename FP,
-//     typename LambdaX,
-//     typename LambdaY,
-//     typename LambdaZ,
-//     bool Blue,
-//     bool Yellow,
-//     bool Hollow,
-//     int  LinearBlockSize,
-//     int  BlockDimX,
-//     int  BlockDimY,
-//     bool Coarsen         = false,
-//     int  BlockDimZ       = 1,
-//     bool BorderInclusive = true,
-//     bool WORKFLOW        = COMPRESS>
-// __forceinline__ __device__ void interpolate_stage(
-//     volatile T1 shm_data[9][9][33],
-//     volatile T2 shm_errctrl[9][9][33],
-//     LambdaX     xmap,
-//     LambdaY     ymap,
-//     LambdaZ     zmap,
-//     int         unit,
-//     FP          eb_r,
-//     FP          ebx2,
-//     int         radius);
-
-////////////////////////////////////////////////////////////////////////////////
-// interpolation for layout2
-////////////////////////////////////////////////////////////////////////////////
+}  // namespace cusz
 
 /********************************************************************************
  * helper function
@@ -211,7 +184,7 @@ __device__ void spline3d_print_block_from_GPU(
 
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
 __device__ void
-c_spline3d_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errctrl[9][9][33], int radius)
+c_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errctrl[9][9][33], int radius)
 {
     constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
     // alternatively, reinterprete cast volatile T?[][][] to 1D
@@ -238,7 +211,7 @@ c_spline3d_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 
 }
 
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
-__device__ void x_spline3d_reset_scratch_33x9x9data(
+__device__ void x_reset_scratch_33x9x9data(
     volatile T1 shm_xdata[9][9][33],
     volatile T2 shm_errctrl[9][9][33],
     T1*         anchor,  // DIM3        anchor_dim3,  // unused
@@ -276,8 +249,7 @@ __device__ void x_spline3d_reset_scratch_33x9x9data(
 }
 
 template <typename Input, int LINEAR_BLOCK_SIZE = 256>
-__device__ void
-spline3d_global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][9][33], DIM3 dim3d, STRIDE3 stride3d)
+__device__ void global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][9][33], DIM3 dim3d, STRIDE3 stride3d)
 {
     constexpr auto TOTAL     = 33 * 9 * 9;
     constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
@@ -301,8 +273,7 @@ spline3d_global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][9][33],
 }
 
 template <typename Output, int LINEAR_BLOCK_SIZE = 256>
-__device__ void
-spline3d_shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 dim3d, STRIDE3 stride3d)
+__device__ void shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 dim3d, STRIDE3 stride3d)
 {
     constexpr auto TOTAL     = 32 * 8 * 8;
     constexpr auto NUM_ITERS = TOTAL / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
@@ -374,8 +345,7 @@ __forceinline__ __device__ void interpolate_stage(
             }
 
             if CONSTEXPR (WORKFLOW == COMPRESS) {
-                auto err = shm_data[z][y][x] - pred;
-                // auto code                = kernel::internal::infprecis_quantcode(err, eb_r, radius);
+                auto          err = shm_data[z][y][x] - pred;
                 decltype(err) code;
                 {
                     code = fabs(err) * eb_r + 1;
@@ -426,8 +396,8 @@ __forceinline__ __device__ void interpolate_stage(
 
 /********************************************************************************/
 
-template <typename T1, typename T2, typename FP, int LINEAR_BLOCK_SIZE, bool WORKFLOW, bool ProbPredError>
-__device__ void spline3d_layout2_interpolate(
+template <typename T1, typename T2, typename FP, int LINEAR_BLOCK_SIZE, bool WORKFLOW, bool PROBE_PRED_ERROR>
+__device__ void cusz::device_api::spline3d_layout2_interpolate(
     volatile T1 shm_data[9][9][33],
     volatile T2 shm_errctrl[9][9][33],
     FP          eb_r,
@@ -449,7 +419,7 @@ __device__ void spline3d_layout2_interpolate(
     constexpr auto COARSEN          = true;
     constexpr auto NO_COARSEN       = false;
     constexpr auto BORDER_INCLUSIVE = true;
-    constexpr auto BorderExclusive  = false;
+    constexpr auto BORDER_EXCLUSIVE = false;
 
     int unit = 4;
 
@@ -506,7 +476,7 @@ __device__ void spline3d_layout2_interpolate(
      ******************************************************************************/
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
-        false, false, true, LINEAR_BLOCK_SIZE, 32, 4, COARSEN, 8, BorderExclusive, WORKFLOW>(
+        false, false, true, LINEAR_BLOCK_SIZE, 32, 4, COARSEN, 8, BORDER_EXCLUSIVE, WORKFLOW>(
         shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     /******************************************************************************
@@ -526,7 +496,7 @@ template <
     int  LINEAR_BLOCK_SIZE,
     bool DELAY_POSTQUANT,
     bool ProbePredError>
-__global__ void c_spline3d_infprecis_32x8x8data(
+__global__ void cusz::c_spline3d_infprecis_32x8x8data(
     DataIter  data_first,
     DIM3      data_dim3,
     STRIDE3   data_stride3,
@@ -552,12 +522,11 @@ __global__ void c_spline3d_infprecis_32x8x8data(
             Quant errctrl[9][9][33];
         } shmem;
 
-        c_spline3d_reset_scratch_33x9x9data<Data, Quant, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, radius);
-        spline3d_global2shmem_33x9x9data<Data, LINEAR_BLOCK_SIZE>(data_first, shmem.data, data_dim3, data_stride3);
-        spline3d_layout2_interpolate<Data, Quant, FP, LINEAR_BLOCK_SIZE, COMPRESS, false>(
+        c_reset_scratch_33x9x9data<Data, Quant, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, radius);
+        global2shmem_33x9x9data<Data, LINEAR_BLOCK_SIZE>(data_first, shmem.data, data_dim3, data_stride3);
+        cusz::device_api::spline3d_layout2_interpolate<Data, Quant, FP, LINEAR_BLOCK_SIZE, COMPRESS, false>(
             shmem.data, shmem.errctrl, eb_r, ebx2, radius);
-        spline3d_shmem2global_32x8x8data<Quant, LINEAR_BLOCK_SIZE>(
-            shmem.errctrl, errctrl_first, errctrl_dim3, errctrl_stride3);
+        shmem2global_32x8x8data<Quant, LINEAR_BLOCK_SIZE>(shmem.errctrl, errctrl_first, errctrl_dim3, errctrl_stride3);
     }
 }
 
@@ -567,7 +536,7 @@ template <
     typename FP,
     int  LINEAR_BLOCK_SIZE,
     bool DELAY_POSTQUANT>
-__global__ void x_spline3d_infprecis_32x8x8data(
+__global__ void cusz::x_spline3d_infprecis_32x8x8data(
     QuantIter errctrl_first,    // input 1
     DIM3      errctrl_dim3,     //
     STRIDE3   errctrl_stride3,  //
@@ -589,13 +558,11 @@ __global__ void x_spline3d_infprecis_32x8x8data(
         Data  data[9][9][33];
     } shmem;
 
-    x_spline3d_reset_scratch_33x9x9data<Data, Quant, LINEAR_BLOCK_SIZE>(
-        shmem.data, shmem.errctrl, anchor, anchor_stride3);
-    spline3d_global2shmem_33x9x9data<Quant, LINEAR_BLOCK_SIZE>(
-        errctrl_first, shmem.errctrl, errctrl_dim3, errctrl_stride3);
-    spline3d_layout2_interpolate<Data, Quant, FP, LINEAR_BLOCK_SIZE, DECOMPRESS, false>(
+    x_reset_scratch_33x9x9data<Data, Quant, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, anchor, anchor_stride3);
+    global2shmem_33x9x9data<Quant, LINEAR_BLOCK_SIZE>(errctrl_first, shmem.errctrl, errctrl_dim3, errctrl_stride3);
+    cusz::device_api::spline3d_layout2_interpolate<Data, Quant, FP, LINEAR_BLOCK_SIZE, DECOMPRESS, false>(
         shmem.data, shmem.errctrl, eb_r, ebx2, radius);
-    spline3d_shmem2global_32x8x8data<Data, LINEAR_BLOCK_SIZE>(shmem.data, data_first, data_dim3, data_stride3);
+    shmem2global_32x8x8data<Data, LINEAR_BLOCK_SIZE>(shmem.data, data_first, data_dim3, data_stride3);
 }
 
 #endif
