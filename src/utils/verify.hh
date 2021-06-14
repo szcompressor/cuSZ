@@ -137,9 +137,7 @@ void PrintMetrics(
 
     if (archive_byte) {
         indent(),
-            printf(
-                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip",
-                bin_scale * 1.0 * stat->len * sizeof(Data) / archive_byte),
+            printf("%-20s\e[31m%15.8lf\e[0m", "CR.no.gzip", bin_scale * 1.0 * stat->len * sizeof(Data) / archive_byte),
             newline();
     }
     cout << endl;

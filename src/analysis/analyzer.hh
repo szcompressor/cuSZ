@@ -23,9 +23,9 @@
 #include <algorithm>
 #include <numeric>
 
-#include "../huff_interface.cuh"
-#include "../kernel/codec_huffman.cuh"
-#include "../kernel/hist.cuh"
+#include "../huff_interface.h"
+#include "../kernel/hist.h"
+#include "../kernel/huffman_codec.h"
 #include "../utils/timer.hh"
 
 #if __cplusplus >= 201703L
