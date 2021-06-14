@@ -1,5 +1,5 @@
 /**
- * @file prototype_lorenzo.cuh
+ * @file lorenzo_prototype.h
  * @author Jiannan Tian
  * @brief (prototype) Dual-Quant Lorenzo method.
  * @version 0.2
