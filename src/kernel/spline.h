@@ -58,12 +58,12 @@ namespace cusz {
 /********************************************************************************
  * host API
  ********************************************************************************/
+
 template <
-    typename DataIter      = float*,
-    typename QuantIter     = float*,
+    typename DataIter,
+    typename QuantIter,
     typename FP            = float,
     int  LINEAR_BLOCK_SIZE = 256,
-    bool DELAY_POSTQUANT   = false,
     bool PROBE_PRED_ERROR  = false>
 __global__ void c_spline3d_infprecis_32x8x8data(
     DataIter  data_first,
@@ -72,18 +72,17 @@ __global__ void c_spline3d_infprecis_32x8x8data(
     QuantIter errctrl_first,
     DIM3      errctrl_dim3,
     STRIDE3   errctrl_stride3,
-    FP        eb_r              = 1.0,
-    FP        ebx2              = 2.0,
-    int       radius            = 512,
+    FP        eb_r,
+    FP        ebx2,
+    int       radius,
     DataIter  pred_error        = nullptr,
     DataIter  compression_error = nullptr);
 
 template <
-    typename QuantIter     = float*,
-    typename DataIter      = float*,
-    typename FP            = float,
-    int  LINEAR_BLOCK_SIZE = 256,
-    bool DELAY_POSTQUANT   = false>
+    typename QuantIter,
+    typename DataIter,
+    typename FP           = float,
+    int LINEAR_BLOCK_SIZE = 256>
 __global__ void x_spline3d_infprecis_32x8x8data(
     QuantIter errctrl_first,    // input 1
     DIM3      errctrl_dim3,     //
@@ -489,13 +488,7 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
 /********************************************************************************
  * host API/kernel
  ********************************************************************************/
-template <
-    typename DataIter,  //
-    typename QuantIter,
-    typename FP,
-    int  LINEAR_BLOCK_SIZE,
-    bool DELAY_POSTQUANT,
-    bool ProbePredError>
+template <typename DataIter, typename QuantIter, typename FP, int LINEAR_BLOCK_SIZE, bool PROBE_PRED_ERROR>
 __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     DataIter  data_first,
     DIM3      data_dim3,
@@ -513,7 +506,7 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     using Data  = typename std::remove_pointer<DataIter>::type;
     using Quant = typename std::remove_pointer<QuantIter>::type;
 
-    if CONSTEXPR (ProbePredError) {
+    if CONSTEXPR (PROBE_PRED_ERROR) {
         // TODO
     }
     else {
@@ -534,8 +527,7 @@ template <
     typename QuantIter,
     typename DataIter,
     typename FP,
-    int  LINEAR_BLOCK_SIZE,
-    bool DELAY_POSTQUANT>
+    int LINEAR_BLOCK_SIZE>
 __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     QuantIter errctrl_first,    // input 1
     DIM3      errctrl_dim3,     //

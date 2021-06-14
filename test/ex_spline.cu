@@ -35,7 +35,8 @@ Data*  xdata;
 Data*  anchor;
 Quant* errctrl;
 
-bool print_hist = false;
+bool print_fullhist = false;
+bool write_quant    = false;
 
 unsigned int   dimx, dimy, dimz;
 unsigned int   dimx_pad, dimy_pad, dimz_pad;
@@ -44,7 +45,7 @@ unsigned int   in_range_nanchorx, in_range_nanchory, in_range_nanchorz;
 unsigned int   nanchorx, nanchory, nanchorz;
 unsigned int   len, len_padded, len_anchor;
 dim3           dim3d, dim3d_pad, stride3d, stride3d_pad, anchor_dim3, anchor_stride3;
-constexpr auto Block = 8;
+constexpr auto BLOCK = 8;
 
 auto eb             = 1.0f;
 auto eb_r           = 1.0f;
@@ -83,23 +84,23 @@ std::string fname;
 //     // }
 // }
 
-template <typename T, bool PrintFP = false, bool Padding = true>
+template <typename T, bool PRINT_FP = false, bool PADDING = true>
 void print_block_from_CPU(T* data, int radius = 512)
 {
     cout << "dimxpad: " << dimx_pad << "\tdimypad: " << dimy_pad << '\n';
 
-    for (auto z = 0; z < (Block + (int)Padding); z++) {
+    for (auto z = 0; z < (BLOCK + (int)PADDING); z++) {
         printf("\nprint from CPU, z=%d\n", z);
         printf("    ");
         for (auto i = 0; i < 33; i++) printf("%3d", i);
         printf("\n");
 
-        for (auto y = 0; y < (Block + (int)Padding); y++) {
+        for (auto y = 0; y < (BLOCK + (int)PADDING); y++) {
             printf("y=%d ", y);
 
-            for (auto x = 0; x < (4 * Block + (int)Padding); x++) {  //
+            for (auto x = 0; x < (4 * BLOCK + (int)PADDING); x++) {  //
                 auto gid = x + y * dimx_pad + z * dimx_pad * dimy_pad;
-                if CONSTEXPR (PrintFP) { printf("%.2e\t", data[gid]); }
+                if CONSTEXPR (PRINT_FP) { printf("%.2e\t", data[gid]); }
                 else {
                     auto c = (int)data[gid] - radius;
                     if (c == 0)
@@ -119,9 +120,9 @@ void print_block_from_CPU(T* data, int radius = 512)
 
     printf("print *sv: \"x y z val\"\n");
 
-    for (auto z = 0; z < (Block + (int)Padding); z++) {
-        for (auto y = 0; y < (Block + (int)Padding); y++) {
-            for (auto x = 0; x < (4 * Block + (int)Padding); x++) {  //
+    for (auto z = 0; z < (BLOCK + (int)PADDING); z++) {
+        for (auto y = 0; y < (BLOCK + (int)PADDING); y++) {
+            for (auto x = 0; x < (4 * BLOCK + (int)PADDING); x++) {  //
                 auto gid = x + y * dimx_pad + z * dimx_pad * dimy_pad;
                 auto c   = (int)data[gid] - radius;
                 if (c != 0) printf("%d %d %d %d\n", x, y, z, c);
@@ -136,18 +137,18 @@ void test_spline3dc()
     cout << "testing spline3d\n";
 
     {  //
-        nblockx    = get_npart(dimx, Block * 4);
-        nblocky    = get_npart(dimy, Block);
-        nblockz    = get_npart(dimz, Block);
+        nblockx    = get_npart(dimx, BLOCK * 4);
+        nblocky    = get_npart(dimy, BLOCK);
+        nblockz    = get_npart(dimz, BLOCK);
         dimx_pad   = nblockx * 32;  // 235 -> 256
         dimy_pad   = nblocky * 8;   // 449 -> 456
         dimz_pad   = nblockz * 8;   // 449 -> 456
         len_padded = dimx_pad * dimy_pad * dimz_pad;
 
         // TODO: an alternative
-        // auto nblockx = get_npart_pad1(dimx, Block * 4);
-        // auto nblocky = get_npart_pad1(dimy, Block);
-        // auto nblockz = get_npart_pad1(dimz, Block);
+        // auto nblockx = get_npart_pad1(dimx, BLOCK * 4);
+        // auto nblocky = get_npart_pad1(dimy, BLOCK);
+        // auto nblockz = get_npart_pad1(dimz, BLOCK);
 
         dim3d        = dim3(dimx, dimy, dimz);
         stride3d     = dim3(1, dimx, dimx * dimy);
@@ -162,9 +163,9 @@ void test_spline3dc()
 
     {  // anchor point
 
-        in_range_nanchorx = int(dimx / Block);
-        in_range_nanchory = int(dimy / Block);
-        in_range_nanchorz = int(dimz / Block);
+        in_range_nanchorx = int(dimx / BLOCK);
+        in_range_nanchory = int(dimy / BLOCK);
+        in_range_nanchorz = int(dimz / BLOCK);
         nanchorx          = in_range_nanchorx + 1;
         nanchory          = in_range_nanchory + 1;
         nanchorz          = in_range_nanchorz + 1;
@@ -212,7 +213,7 @@ void test_spline3dc()
     {  // launch kernel of pred-quant
 
         for (auto i = 0; i < 20; i++) {
-            cusz::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false, false>
+            cusz::c_spline3d_infprecis_32x8x8data<Data*, Quant*, float, 256, false>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (data, dim3d, stride3d,                                 //
                  errctrl, dim3d_pad, stride3d_pad,                      //
@@ -228,20 +229,32 @@ void test_spline3dc()
 
     auto hist = new int[radius * 2]();
 
-    if (print_hist) {
+    {
+        std::cout << "calculating sparsity part\n";
+        auto count = 0;
+        for (auto i = 0; i < len_padded; i++) {
+            auto code = errctrl[i];
+            if (code != radius) count++;
+        }
+        double percent     = 1 - (count * 1.0) / len_padded;
+        double sparsity_cr = 1 / (1 - percent) / 2;
+        printf("non-zero offset count:\t%d\tpercentage:\t%.8lf%%\tCR:\t%.4lf\n", count, percent * 100, sparsity_cr);
+    }
+
+    if (print_fullhist) {
         for (auto i = 0; i < len_padded; i++) { hist[errctrl[i]]++; }
         for (auto i = 0; i < radius * 2; i++) {
             if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
         }
     }
 
-    io::WriteArrayToBinary(fname + ".spline", errctrl, len_padded);
+    if (write_quant) io::WriteArrayToBinary(fname + ".spline", errctrl, len_padded);
 
     cudaMallocManaged((void**)&xdata, len * sizeof(Data));
     cudaMemset(xdata, 0x00, len * sizeof(Data));
     {
         for (auto i = 0; i < 20; i++) {
-            cusz::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256, false>
+            cusz::x_spline3d_infprecis_32x8x8data<Quant*, Data*, float, 256>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (errctrl, dim3d_pad, stride3d_pad,                      //
                  anchor, anchor_stride3,                                //
@@ -272,9 +285,10 @@ void test_spline3dc()
         VerifyDataGPU(&stat_gpu, xdata, data, len);
         analysis::PrintMetrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
 
-        stat_t stat;
-        analysis::VerifyData<Data>(&stat, xdata, data, len);
-        analysis::PrintMetrics<Data>(&stat, false, eb, 0, 1, true, false);
+        // stat_t stat;
+        // analysis::VerifyData<Data>(&stat, xdata, data, len);
+        // analysis::PrintMetrics<Data>(&stat, false, eb, 0, 1, true, false);
+
         // printf("data[max-err-idx]: %f\n", data[stat.max_abserr_index]);
         // printf("xdata[max-err-idx]: %f\n", xdata[stat.max_abserr_index]);
     }
@@ -303,9 +317,15 @@ int main(int argc, char** argv)
         eb    = atof(argv[2]);
     }
     else if (argc == 4) {
-        fname      = std::string(argv[1]);
-        eb         = atof(argv[2]);
-        print_hist = std::string(argv[3]) == "hist";
+        fname          = std::string(argv[1]);
+        eb             = atof(argv[2]);
+        print_fullhist = std::string(argv[3]) == "hist";
+    }
+    else if (argc == 5) {
+        fname          = std::string(argv[1]);
+        eb             = atof(argv[2]);
+        print_fullhist = std::string(argv[3]) == "hist";
+        write_quant    = std::string(argv[4]) == "write.quant";
     }
 
     cudaDeviceReset();
