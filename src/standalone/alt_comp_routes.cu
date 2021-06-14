@@ -13,7 +13,7 @@
 #include <string>
 
 #include "../analysis/analyzer.hh"
-#include "../kernel/lorenzo.cuh"
+#include "../kernel/lorenzo.h"
 #include "../ood/codec_runlength.hh"
 #include "../utils/io.hh"
 

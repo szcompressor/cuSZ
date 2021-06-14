@@ -72,7 +72,7 @@ add_executable(cusz_ood
         src/argparse.hh
         src/dryrun.cu
         src/dryrun.cuh
-        src/kernel/lorenzo.cuh
+        src/kernel/lorenzo.h
         src/cusz_interface.cu
         src/cusz_interface.cuh
         src/gather_scatter.cu
@@ -97,7 +97,7 @@ add_executable(cusz_cmake
         src/argparse.hh
         src/dryrun.cu
         src/dryrun.cuh
-        src/kernel/lorenzo.cuh
+        src/kernel/lorenzo.h
         src/cusz_interface.cu
         src/cusz_interface.cuh
         src/gather_scatter.cu

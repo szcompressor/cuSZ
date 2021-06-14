@@ -1,5 +1,5 @@
 
-#include "../src/kernel/lorenzo.cuh"
+#include "../src/kernel/lorenzo.h"
 #include "../src/metadata.hh"
 
 using Data  = float;

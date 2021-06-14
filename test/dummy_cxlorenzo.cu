@@ -1,6 +1,6 @@
 
 #include <iostream>
-#include "../src/kernel/lorenzo.cuh"
+#include "../src/kernel/lorenzo.h"
 #include "../src/kernel/prototype_lorenzo.cuh"
 #include "../src/metadata.hh"
 #include "../src/utils/cuda_err.cuh"

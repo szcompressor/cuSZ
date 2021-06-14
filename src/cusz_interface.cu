@@ -27,7 +27,7 @@
 #include "dryrun.cuh"
 #include "gather_scatter.cuh"
 #include "huff_interface.cuh"
-#include "kernel/lorenzo.cuh"
+#include "kernel/lorenzo.h"
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
 #include "par_huffman.cuh"
