@@ -69,7 +69,7 @@ static const char cusz_short_doc[] =
     "example:\n"
     "  zip 1: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z\n"
     "  zip 2: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z\n"
-    "  unzip: ./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x\n"
+    "  unzip: ./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x --origin ./data/ex-cesm-CLDHGH\n"
     "\n"
     "\"cusz -h\" for details.\n";
 
