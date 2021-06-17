@@ -570,7 +570,7 @@ void cusz::interface::Decompress(
             auto              dim_grid      = num_partitions(dimx, DataSubsize);
 
             cusz::x_lorenzo_1d1l<Data, Quant><<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, radius, ebx2);
+                (xdata->dptr(), quant.dptr(), dimx, radius, ebx2);
         }
         else if (ap->ndim == 2) {  // y-sequentiality == 8
 
@@ -580,7 +580,7 @@ void cusz::interface::Decompress(
                 num_partitions(dimy, 16));
 
             cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant><<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
+                (xdata->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
         }
         else if (ap->ndim == 3) {  // y-sequentiality == 8
 
@@ -592,7 +592,7 @@ void cusz::interface::Decompress(
             );
 
             cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
+                (xdata->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
