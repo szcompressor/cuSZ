@@ -245,4 +245,31 @@ __global__ void cusz::Decode(
     __syncthreads();
 };
 
+template <typename Output, typename Huff, typename MetadataT>
+__global__ void huffman_decode_kernel(
+    Huff*        bitstream,
+    MetadataT*   seg_entries,
+    MetadataT*   seg_bits,
+    Output*      output,
+    unsigned int chunk_size,
+    unsigned int nchunk,
+    BYTE*        revbook,
+    unsigned int revbook_len)
+{
+    extern __shared__ BYTE shmem[];
+    constexpr auto         dim_block = 256;
+
+    auto n = (revbook_len - 1 + dim_block) / dim_block;
+    for (auto i = 0; i < n; i++) {
+        if (TIX + i * dim_block < revbook_len) shmem[TIX + i * dim_block] = revbook[TIX + i * dim_block];
+    }
+    __syncthreads();
+
+    auto id = BIX * BDX + TIX;
+    if (id < nchunk) {
+        InflateChunkwise(bitstream + seg_entries[id], output + chunk_size * id, seg_bits[id], shmem);
+        __syncthreads();
+    }
+};
+
 #endif
