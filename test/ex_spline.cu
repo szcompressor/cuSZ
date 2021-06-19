@@ -187,15 +187,6 @@ void test_spline3dc()
     cudaMemset(anchor, 0x00, len_anchor * sizeof(Data));
     {  //
 
-        // TODO spline3d_handle_4x1x1anchors
-        // cusz::spline3d_handle_4x1x1anchors<Data, 128, 8, 8, 8, Gather>
-        //     <<<dim3(get_npart(nblockx + 1, 8), get_npart(nblocky + 1, 8), get_npart(nblockz + 1, 8)),  //
-        //        dim3(128, 1, 1)>>>                                                                      //
-        //     (data, dim3d, stride3d, anchor,                                                            //
-        //      dim3(nblockx + 1, nblocky + 1, nblockz + 1),                                              //
-        //      dim3(1, nblockx + 1, (nblockx + 1) * (nblocky + 1))                                       //
-        //     );
-
         for (auto iz = 0, z = 0; z < dimz; iz++, z += 8) {
             for (auto iy = 0, y = 0; y < dimy; iy++, y += 8) {
                 for (auto ix = 0, x = 0; x < dimx; ix++, x += 8) {
