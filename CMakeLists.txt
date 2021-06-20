@@ -4,6 +4,7 @@ project(cusz_asap CUDA CXX)
 
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CUDA_ARCHITECTURES 75)
 
 enable_language(CUDA)
 
@@ -24,9 +25,8 @@ add_executable(test_lorenzodq test/test_lorenzodq.cu)
 
 ## standalone driver programs
 ################################################################################
-add_executable(rle src/standalone/run_rle.cu)
+add_executable(rle src/standalone/alt_comp_routes.cu)
 ################################################################################
-
 
 
 add_library(parhuffman ${LIB_TYPE}
@@ -35,7 +35,6 @@ add_library(parhuffman ${LIB_TYPE}
         src/par_merge.cu
         src/par_huffman.cuh
         src/par_huffman.cu)
-set_property(TARGET parhuffman PROPERTY CUDA_ARCHITECTURES 75)
 set_target_properties(parhuffman PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(psz
@@ -51,39 +50,27 @@ add_executable(psz
         src/pSZ/psz_workflow.hh
         )
 
+
+## new for 0.3
+add_library(
+        lossless ${LIB_TYPE}
+        src/wrapper/lossless_huffman.cu
+        src/wrapper/handle_sparsity.cu
+)
+
+add_library(
+        predictor ${LIB_TYPE}
+        src/wrapper/extrap_lorenzo.cu
+        # src/wrapper/interp_spline.cu
+)
+
+
 ## to link with parhuffman
 add_library(gpuhuffman ${LIB_TYPE}
-        src/huff_codec.cu
-        src/huff_codec.cuh
         src/huff_interface.cu
-        src/huff_interface.cuh
-        src/kernel/hist.cuh
+        src/huff_interface.h
+        src/kernel/hist.h
         )
-
-add_executable(cusz_ood
-        src/ood/compressor.hh
-        src/ood/sparse_op.hh
-        src/lorenzo_trait.cuh
-        src/snippets.cc
-        src/cusz.cu
-        src/filter.cu
-        src/filter.cuh
-        src/argparse.cc
-        src/argparse.hh
-        src/dryrun.cu
-        src/dryrun.cuh
-        src/kernel/lorenzo.h
-        src/cusz_interface.cu
-        src/cusz_interface.cuh
-        src/gather_scatter.cu
-        src/gather_scatter.cuh
-        src/pack.hh
-        src/query.hh
-        src/query_dev.hh
-        src/utils/io.hh
-        src/utils/timer.hh
-        src/types.hh
-        test/test_sparse_op.cu)
 
 add_executable(cusz_cmake
         src/lorenzo_trait.cuh
@@ -110,7 +97,6 @@ add_executable(cusz_cmake
         src/types.hh
         )
 
-set_property(TARGET cusz_cmake PROPERTY CUDA_ARCHITECTURES 70 75)
 set_target_properties(cusz_cmake
         PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 

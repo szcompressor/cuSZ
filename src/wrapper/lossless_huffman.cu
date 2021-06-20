@@ -51,7 +51,7 @@ inline void process_huffman_metadata(
     size_t&      num_uints)
 {
     constexpr auto bitlen = sizeof(Huff) * 8;
-    cudaMemcpy(h_seg_bits, d_seg_bits, nchunk * sizeof(MetadataT), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_seg_bits, d_seg_bits, nchunk * sizeof(MetadataT), D2H);
     memcpy(h_seg_uints, h_seg_bits, nchunk * sizeof(MetadataT));
     for_each(h_seg_uints, h_seg_uints + nchunk, [&](MetadataT& i) { i = (i + bitlen - 1) / bitlen; });
     memcpy(h_seg_entries + 1, h_seg_uints, (nchunk - 1) * sizeof(MetadataT));

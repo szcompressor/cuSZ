@@ -11,7 +11,6 @@
 
 #include <numeric>
 #include <stdexcept>
-#include "../gather_scatter.cuh"
 #include "../kernel/lorenzo.h"
 #include "extrap_lorenzo.h"
 
@@ -83,9 +82,18 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
 }
 
 /* specialize */
-template <>
-void compress_lorenzo_construct<float, unsigned short, float, false>  //
-    (float*, unsigned short*, dim3, int, float, int);
+#define INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(Data, Quant, FP) \
+    template <>                                                 \
+    void compress_lorenzo_construct(Data*, Quant*, dim3, int, FP, int);
+
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, float)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, double)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, float)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, double)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint8_t, float)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint8_t, double)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, float)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, double)
 
 /********************************************************************************
  * decompression
@@ -125,6 +133,15 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     cudaDeviceSynchronize();
 }
 
-template <>
-void decompress_lorenzo_reconstruct<float, unsigned short, float, false>  //
-    (float*, unsigned short*, dim3, int, float, int);
+#define INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(Data, Quant, FP) \
+    template <>                                                     \
+    void decompress_lorenzo_reconstruct(Data*, Quant*, dim3, int, FP, int);
+
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint8_t, float)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint8_t, double)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint16_t, float)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint16_t, double)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint8_t, float)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint8_t, double)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint16_t, float)
+INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint16_t, double)
