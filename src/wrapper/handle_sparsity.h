@@ -36,11 +36,7 @@ struct OutlierDescriptor {
     unsigned int bytelen_values{0};
     unsigned int bytelen_total{0};
 
-    OutlierDescriptor(auto size)
-    {
-        static_assert(std::numeric_limits<decltype(size)>::is_integer, "[matrixify] must be plain interger types.");
-        this->m = static_cast<size_t>(ceil(sqrt(len)));
-    }
+    OutlierDescriptor(unsigned int _len) { this->m = static_cast<size_t>(ceil(sqrt(_len))); }
 
     /********************************************************************************
      * use after nnz is known
