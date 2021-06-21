@@ -189,7 +189,7 @@ void decompress_huffman_decode(DEC_CTX* ctx, Output* d_output, size_t len, int c
         auto dim_block = 256;  // the same as deflate
         auto dim_grid  = get_npart(nchunk, dim_block);
         huffman_decode_kernel<<<dim_grid, dim_block, ctx->len.revbook>>>(
-            ctx->space.d_bitstream, ctx->space.d_seg_entries, ctx->space.d_seg_uints, d_output, chunk_size, nchunk,
+            ctx->space.d_bitstream, ctx->space.d_seg_entries, ctx->space.d_seg_bits, d_output, chunk_size, nchunk,
             ctx->space.d_revbook, ctx->len.revbook);
         cudaDeviceSynchronize();
     }
@@ -197,8 +197,7 @@ void decompress_huffman_decode(DEC_CTX* ctx, Output* d_output, size_t len, int c
 }
 
 #define INSTANTIATE_DECOMPRESS_HUFFMAN_DECODE(Output, Huff, MetadataT) \
-    template <>                                                        \
-    void decompress_huffman_decode<Output, Huff, MetadataT>(           \
+    template void decompress_huffman_decode<Output, Huff, MetadataT>(  \
         HuffmanDecodingDescriptor<Output, Huff, MetadataT>*, Output*, size_t, int);
 
 INSTANTIATE_DECOMPRESS_HUFFMAN_DECODE(uint8_t, uint32_t, size_t)

@@ -180,22 +180,25 @@ struct HuffmanDecodingDescriptor {
 
     unsigned int num_uints;
     unsigned int nchunk;
+
+    // Listed variables follow the order in memory layout.
     struct {
-        MetadataT* d_seg_uints;    // .len() == nchunk
+        MetadataT* d_seg_bits;     // .len() == nchunk
         MetadataT* d_seg_entries;  // .len() == nchunk
         BYTE*      d_revbook;      // .len() == ... (see constructor)
         Huff*      d_bitstream;    // .len() == num_uints
 
-        MetadataT* h_seg_uints;    // .len() == nchunk
+        MetadataT* h_seg_bits;     // .len() == nchunk
         MetadataT* h_seg_entries;  // .len() == nchunk
         BYTE*      h_revbook;      // .len() == ... (see constructor)
         Huff*      h_bitstream;    // .len() == num_uints
     } space;
 
+    // Listed variables follow the order in memory layout.
     struct {
-        BYTE*      h_revbook;      // .len() = ... (see constructor)
-        MetadataT* h_seg_uints;    // .len() == nchunk
+        MetadataT* h_seg_bits;     // .len() == nchunk
         MetadataT* h_seg_entries;  // .len() == nchunk
+        BYTE*      h_revbook;      // .len() = ... (see constructor)
         Huff*      h_bitstream;    // .len() == num_uints
     } archive;
 
