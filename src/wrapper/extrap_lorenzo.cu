@@ -54,16 +54,16 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
     FP   ebx2_r  = 1 / (eb * 2);
     auto stride3 = get_stride3(size3);
 
-    if (DELAY_POSTQUANT == (quant == nullptr)) {
+    if (DELAY_POSTQUANT != (quant == nullptr)) {
         throw std::runtime_error("[compress_lorenzo_construct] delaying postquant <=> (var quant is null)");
     }
 
     if (ndim == 1) {
-        constexpr auto SEQ       = 4;
-        constexpr auto SUBSIZE   = 256;
-        auto           dim_block = SUBSIZE / SEQ;
-        auto           dim_grid  = get_npart(size3.x, SUBSIZE);
-        cusz::c_lorenzo_1d1l<Data, Quant, FP, SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
+        constexpr auto SEQ          = 4;
+        constexpr auto DATA_SUBSIZE = 256;
+        auto           dim_block    = DATA_SUBSIZE / SEQ;
+        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        cusz::c_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (data, quant, size3.x, radius, ebx2_r);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
@@ -81,20 +81,6 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
     cudaDeviceSynchronize();
 }
 
-/* specialize */
-#define INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(Data, Quant, FP) \
-    template <>                                                 \
-    void compress_lorenzo_construct(Data*, Quant*, dim3, int, FP, int);
-
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, float)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, double)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, float)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, double)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint8_t, float)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint8_t, double)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, float)
-INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, double)
-
 /********************************************************************************
  * decompression
  ********************************************************************************/
@@ -106,12 +92,12 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     auto ebx2    = eb * 2;
 
     if (ndim == 1) {  // y-sequentiality == 8
-        constexpr auto SEQ       = 8;
-        constexpr auto SUBSIZE   = 256;
-        auto           dim_block = SUBSIZE / SEQ;
-        auto           dim_grid  = get_npart(size3.x, SUBSIZE);
+        constexpr auto SEQ          = 8;
+        constexpr auto DATA_SUBSIZE = 256;
+        auto           dim_block    = DATA_SUBSIZE / SEQ;
+        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
 
-        cusz::x_lorenzo_1d1l<Data, Quant, FP, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
+        cusz::x_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, radius, ebx2);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
@@ -133,15 +119,27 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     cudaDeviceSynchronize();
 }
 
+/* instantiate */
+#define INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(Data, Quant, FP) \
+    template void compress_lorenzo_construct<Data, Quant, FP, false>(Data*, Quant*, dim3, int, FP, int);
+
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, float)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, double)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, float)
+INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, double)
+// INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint8_t, float)
+// INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint8_t, double)
+// INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, float)
+// INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, double)
+
 #define INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(Data, Quant, FP) \
-    template <>                                                     \
-    void decompress_lorenzo_reconstruct(Data*, Quant*, dim3, int, FP, int);
+    template void decompress_lorenzo_reconstruct<Data, Quant, FP, false>(Data*, Quant*, dim3, int, FP, int);
 
 INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint8_t, float)
 INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint8_t, double)
 INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint16_t, float)
 INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint16_t, double)
-INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint8_t, float)
-INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint8_t, double)
-INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint16_t, float)
-INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint16_t, double)
+// INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint8_t, float)
+// INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint8_t, double)
+// INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint16_t, float)
+// INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(double, uint16_t, double)
