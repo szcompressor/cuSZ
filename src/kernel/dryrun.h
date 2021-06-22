@@ -25,10 +25,10 @@
 #define BDZ blockDim.z
 
 #if CUDART_VERSION >= 11000
-#pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
+// #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
 #include <cub/cub.cuh>
 #else
-#pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
+// #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
 #include "../../external/cub/cub/cub.cuh"
 #endif
 

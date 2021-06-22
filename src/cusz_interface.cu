@@ -14,6 +14,7 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
+#include <cxxabi.h>
 #include <bitset>
 #include <cstdlib>
 #include <exception>
@@ -24,24 +25,33 @@
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
-#include "gather_scatter.cuh"
-#include "huff_interface.h"
 #include "kernel/dryrun.h"
 #include "kernel/lorenzo.h"
 #include "metadata.hh"
-#include "par_huffman.h"
-#include "snippets.hh"
 #include "type_trait.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/verify.hh"
+#include "wrapper/deprecated_lossless_huffman.h"
+#include "wrapper/deprecated_sparsity.h"
+#include "wrapper/par_huffman.h"
 
 using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
+
+auto demangle = [](const char* name) -> string {
+    int   status = -4;
+    char* res    = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+
+    const char* const demangled_name = (status == 0) ? res : name;
+    string            ret_val(demangled_name);
+    free(res);
+    return ret_val;
+};
 
 namespace draft {
 template <typename Huff>

@@ -1,8 +1,8 @@
 #if CUDART_VERSION >= 11000
-#pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
+// #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
 #include <cub/cub.cuh>
 #else
-#pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
+// #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
 #include "../external/cub/cub/cub.cuh"
 #endif
 
@@ -37,8 +37,8 @@ struct data_t {
 using Data  = float;
 using Quant = uint16_t;
 
-static const auto ProblemSize = 8;
-static const auto MultiBlock  = 1;
+static const auto ProblemSize   = 8;
+static const auto MultiBlock    = 1;
 static const auto Sequentiality = 2;  // items per thread
 
 template <typename Data, typename Quant>
