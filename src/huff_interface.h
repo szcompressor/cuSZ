@@ -58,11 +58,13 @@ __global__ void CopyHuffmanUintsDenseToSparse(Huff*, Huff*, size_t*, size_t*, si
 
 namespace draft {
 
+#ifdef MODULAR_ELSEWHERE
 template <typename T>
 void UseNvcompZip(T* space, size_t& len);
 
 template <typename T>
 void UseNvcompUnzip(T** space, size_t& len);
+#endif
 
 }  // namespace draft
 

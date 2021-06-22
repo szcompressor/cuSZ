@@ -41,8 +41,10 @@
 #include "utils/io.hh"
 #include "utils/timer.hh"
 
+#ifdef MODULAR_ELSEWHERE
 #include "cascaded.hpp"
 #include "nvcomp.hpp"
+#endif
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
@@ -100,6 +102,7 @@ void cusz::GatherSpHuffMetadata(
     //    LogAll(log_dbg, fmt_enc1, "=>", fmt_enc2);
 }
 
+#ifdef MODULAR_ELSEWHERE
 template <typename T>
 void draft::UseNvcompZip(T* space, size_t& len)
 {
@@ -161,6 +164,8 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
     cudaFree(temp_space);
 }
 
+#endif
+
 template <typename Quant, typename Huff, typename Data>
 tuple_3ul_1bool lossless::interface::HuffmanEncode(
     string&  basename,
@@ -220,10 +225,12 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
 
     // use nvcomp, which changes metadata to write to fs
     bool status_nvcomp_in_use = false;
+#ifdef MODULAR_ELSEWHERE
     if (to_nvcomp) {
         draft::UseNvcompZip<Huff>(huff_sp, total_uints);
         status_nvcomp_in_use = true;
     }
+#endif
 
     // write metadata to fs
     io::WriteArrayToBinary(basename + ".hmeta", _counts + nchunk, 2 * nchunk);
@@ -351,7 +358,9 @@ void lossless::interface::HuffmanDecode(
 
     auto d_huff_sp = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
 
+#ifdef MODULAR_ELSEWHERE
     if (nvcomp_in_use) draft::UseNvcompUnzip(&d_huff_sp, total_uints);
+#endif
 
     auto d_huff_sp_meta = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp_meta, 2 * nchunk);
     auto d_canon_byte   = mem::CreateDeviceSpaceAndMemcpyFromHost(canon_byte, canon_meta);
