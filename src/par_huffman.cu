@@ -6,29 +6,31 @@
  *        "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes".
  * @version 0.1
  * @date 2020-10-24
- * Created on: 2020-05
+ * (created) 2020-05 (rev) 2021-06-21
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
 
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sort.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <type_traits>
 
-#include "par_huffman.cuh"
-#include "par_huffman_sortbyfreq.cuh"
-#include "par_merge.cuh"
+#include "par_huffman.h"
+#include "par_merge.h"
 #include "type_aliasing.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
 #include "utils/dbg_print.cuh"
 #include "utils/format.hh"
-
 
 // GenerateCL Locals
 __device__ int iNodesFront = 0;
@@ -55,7 +57,6 @@ __device__ int newCDPI;
 // Profiling
 __device__ long long int s[10];
 __device__ long long int st[10];
-
 
 // Mathematically correct mod
 #define MOD(a, b) ((((a) % (b)) + (b)) % (b))
@@ -420,7 +421,6 @@ __global__ void lossless::par_huffman::GPU_GenerateCW(F* CL, H* CW, H* first, H*
     }
 }
 
-
 // TODO forceinilne?
 // Helper implementations
 template <typename T>
@@ -498,7 +498,22 @@ void lossless::par_huffman::ParGetCodebook(
     lossless::par_huffman::helper::GPU_FillArraySequence<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
     cudaDeviceSynchronize();
 
-    lossless::par_huffman::helper::SortByFreq(_d_freq, _d_qcode, dict_size);
+    /**
+     * Originally from  par_huffman_sortbyfreq.cu by Cody Rivera (cjrivera1@crimson.ua.edu)
+     * Sorts quantization codes by frequency, using a key-value sort. This functionality is placed in a separate
+     * compilation unit as thrust calls fail in par_huffman.cu.
+     *
+     * Resolved by
+     * 1) inlining function
+     * 2) using `thrust::device_pointer_cast(var)` instead of `thrust::device_pointer<T>(var)`
+     */
+    auto lambda_sort_by_freq = [] __host__(auto freq, auto len, auto qcode) {
+        thrust::sort_by_key(
+            thrust::device_pointer_cast(freq), thrust::device_pointer_cast(freq + len),
+            thrust::device_pointer_cast(qcode));
+    };
+
+    lambda_sort_by_freq(_d_freq, dict_size, _d_qcode);
     cudaDeviceSynchronize();
 
     unsigned int* d_first_nonzero_index;
@@ -673,7 +688,8 @@ void lossless::par_huffman::ParGetCodebook(
 #endif
 }
 
-// Specialize wrapper
+/********************************************************************************/
+// instantiate wrapper
 template void lossless::par_huffman::ParGetCodebook<UI1, UI4>(int, unsigned int*, UI4*, UI1*);
 template void lossless::par_huffman::ParGetCodebook<UI1, UI8>(int, unsigned int*, UI8*, UI1*);
 template void lossless::par_huffman::ParGetCodebook<UI1, UI8_2>(int, unsigned int*, UI8_2*, UI1*);

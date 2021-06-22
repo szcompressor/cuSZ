@@ -48,7 +48,7 @@ CCsrc     := $(wildcard $(SRC_DIR)/*.cc)
 MAIN      := $(SRC_DIR)/cusz.cu
 
 CUsrc4    := $(SRC_DIR)/huff_interface.cu
-CUsrc3    := $(SRC_DIR)/par_merge.cu $(SRC_DIR)/par_huffman.cu
+CUsrc3    := $(SRC_DIR)/par_huffman.cu
 CUsrc2    := $(SRC_DIR)/cusz_interface.cu
 CUsrc1    := $(filter-out $(MAIN) $(CUsrc3) $(CUsrc2), $(wildcard $(SRC_DIR)/*.cu))
 

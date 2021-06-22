@@ -30,7 +30,7 @@
 #include "kernel/lorenzo.h"
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
-#include "par_huffman.cuh"
+#include "par_huffman.h"
 #include "snippets.hh"
 #include "type_trait.hh"
 #include "utils/cuda_err.cuh"

@@ -13,8 +13,8 @@
  *
  */
 
-#ifndef PAR_HUFFMAN_CUH
-#define PAR_HUFFMAN_CUH
+#ifndef PAR_HUFFMAN_H
+#define PAR_HUFFMAN_H
 
 #include <cooperative_groups.h>
 
@@ -53,9 +53,5 @@ void ParGetCodebook(int stateNum, unsigned int* freq, H* codebook, uint8_t* meta
 
 }  // namespace par_huffman
 }  // namespace lossless
-
-// Thrust sort functionality implemented in separate file
-// template <typename K, typename V>
-// void SortByFreq(K* freq, V* qcode, int size);
 
 #endif
