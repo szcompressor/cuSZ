@@ -84,12 +84,11 @@ all: target_proxy
 #cusz: $(OBJ_all) | $(BIN_DIR)
 #	$(NVCC) $(NV_FLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
 
-cusz: $(OBJ_all) $(NVCOMP_STATIC_LIB)  $(GTEST_STATIC_LIB) | $(BIN_DIR)
+cusz: $(OBJ_all) $(NVCOMP_STATIC_LIB) | $(BIN_DIR)
 	$(NVCC) $(NV_FLAGS) $(MAIN) \
 		-lcusparse -lpthread \
 		-rdc=true \
 		$(NVCOMP_STATIC_LIB) \
-		$(GTEST_STATIC_LIB) -I$(GTEST_INCLUDE_DIR)/ \
 		$^ -o $(BIN_DIR)/$@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
