@@ -25,14 +25,11 @@
 
 using std::string;
 
-#if __cplusplus >= 201103L
-
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
 #include "datapack.hh"
-#include "filter.cuh"
-// #include "gtest/gtest.h"
+#include "kernel/preprocess.h"
 #include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
@@ -119,7 +116,7 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-    cout << "\n>>>>  cusz build: 2021-06-22.0\n";
+    cout << "\n>>>>  cusz build: 2021-06-22.1\n";
 
     auto ap = new ArgPack();
     ap->ParseCuszArgs(argc, argv);
@@ -360,5 +357,3 @@ int main(int argc, char** argv)
         // }
     }
 }
-
-#endif
