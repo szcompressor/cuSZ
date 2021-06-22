@@ -24,11 +24,10 @@
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
-#include "dryrun.cuh"
 #include "gather_scatter.cuh"
 #include "huff_interface.h"
+#include "kernel/dryrun.h"
 #include "kernel/lorenzo.h"
-#include "lorenzo_trait.cuh"
 #include "metadata.hh"
 #include "par_huffman.h"
 #include "snippets.hh"
@@ -44,13 +43,6 @@ using std::cout;
 using std::endl;
 using std::string;
 
-// namespace fm = cusz::predictor_quantizer;
-namespace dr = cusz::dryrun;
-
-namespace {
-auto calc_stride = [](dim3 d3) -> dim3 { return dim3(1, d3.x, d3.x * d3.y); };
-}
-
 namespace draft {
 template <typename Huff>
 void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
@@ -64,6 +56,10 @@ void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
     cb_dump = nullptr;
 }
 }  // namespace draft
+
+namespace {
+auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+}
 
 /*
 template <typename Data, typename Quant>
@@ -182,6 +178,11 @@ void cusz::interface::Compress(
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
 
+    auto radius = ap->radius;
+    auto eb     = ap->eb;
+    auto ebx2   = eb * 2;
+    auto ebx2_r = 1 / (eb * 2);
+
     // --------------------------------------------------------------------------------
     // dryrun
     // --------------------------------------------------------------------------------
@@ -189,18 +190,14 @@ void cusz::interface::Compress(
     if (wf.lossy_dryrun) {
         LogAll(log_info, "invoke dry-run");
 
-        if (ap->ndim == 1) {
-            LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            dr::lorenzo_1d1l<Data><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.r_ctx, d_data);
-        }
-        else if (ap->ndim == 2) {
-            LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            dr::lorenzo_2d1l<Data><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.r_ctx, d_data);
-        }
-        else if (ap->ndim == 3) {
-            LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            dr::lorenzo_3d1l<Data><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.r_ctx, d_data);
-        }
+        constexpr auto SEQ          = 4;
+        constexpr auto DATA_SUBSIZE = 256;
+        auto           dim_block    = DATA_SUBSIZE / SEQ;
+        auto           dim_grid     = get_npart(len, DATA_SUBSIZE);
+
+        cusz::dual_quant_dryrun<Data, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
+            (d_data, len, ebx2_r, ebx2);
+        // }
         HANDLE_ERROR(cudaDeviceSynchronize());
 
         auto data_lossy = new Data[len]();
@@ -230,30 +227,22 @@ void cusz::interface::Compress(
     auto stridey = tuple_stride4._1;
     auto stridez = tuple_stride4._2;
 
-    auto radius = ap->radius;
-    auto eb     = ap->eb;
-    auto ebx2_r = 1 / (eb * 2);
-
-    auto num_partitions = [&](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
-
     // prediction-quantization
     {
         if (ap->ndim == 1) {  // y-sequentiality == 4 (A100) or 8
 
-            static const auto Sequentiality = 4;
-            static const auto DataSubsize   = MetadataTrait<1>::Block;
-            auto              dim_block     = DataSubsize / Sequentiality;
-            auto              dim_grid      = num_partitions(dimx, DataSubsize);
+            static const auto SEQ          = 4;
+            static const auto DATA_SUBSIZE = MetadataTrait<1>::Block;
+            auto              dim_block    = DATA_SUBSIZE / SEQ;
+            auto              dim_grid     = get_npart(dimx, DATA_SUBSIZE);
 
-            cusz::c_lorenzo_1d1l<Data, Quant, float, DataSubsize, Sequentiality><<<dim_grid, dim_block>>>  //
+            cusz::c_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
                 (d_data, d_quant, dimx, radius, ebx2_r);
         }
         else if (ap->ndim == 2) {  // y-sequentiality == 8
 
             auto dim_block = dim3(16, 2);
-            auto dim_grid  = dim3(
-                num_partitions(dimx, 16),  //
-                num_partitions(dimy, 16));
+            auto dim_grid  = dim3(get_npart(dimx, 16), get_npart(dimy, 16));
 
             cusz::c_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
                 (d_data, d_quant, dimx, dimy, stridey, radius, ebx2_r);
@@ -261,11 +250,7 @@ void cusz::interface::Compress(
         else if (ap->ndim == 3) {  // y-sequentiality == 8
 
             auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(
-                num_partitions(dimx, 32),  //
-                num_partitions(dimy, 8),   //
-                num_partitions(dimz, 8)    //
-            );
+            auto dim_grid  = dim3(get_npart(dimx, 32), get_npart(dimy, 8), get_npart(dimz, 8));
 
             cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
                 (d_data, d_quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
@@ -560,24 +545,20 @@ void cusz::interface::Decompress(
     auto eb     = ap->eb;
     auto ebx2   = (eb * 2);
 
-    auto num_partitions = [&](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
-
     {
         if (ap->ndim == 1) {  // y-sequentiality == 8
-            static const auto Sequentiality = 8;
-            static const auto DataSubsize   = MetadataTrait<1>::Block;
-            auto              dim_block     = DataSubsize / Sequentiality;
-            auto              dim_grid      = num_partitions(dimx, DataSubsize);
+            static const auto SEQ          = 8;
+            static const auto DATA_SUBSIZE = MetadataTrait<1>::Block;
+            auto              dim_block    = DATA_SUBSIZE / SEQ;
+            auto              dim_grid     = get_npart(dimx, DATA_SUBSIZE);
 
-            cusz::x_lorenzo_1d1l<Data, Quant><<<dim_grid, dim_block>>>  //
+            cusz::x_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
                 (xdata->dptr(), quant.dptr(), dimx, radius, ebx2);
         }
         else if (ap->ndim == 2) {  // y-sequentiality == 8
 
             auto dim_block = dim3(16, 2);
-            auto dim_grid  = dim3(
-                num_partitions(dimx, 16),  //
-                num_partitions(dimy, 16));
+            auto dim_grid  = dim3(get_npart(dimx, 16), get_npart(dimy, 16));
 
             cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant><<<dim_grid, dim_block>>>  //
                 (xdata->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
@@ -585,11 +566,7 @@ void cusz::interface::Decompress(
         else if (ap->ndim == 3) {  // y-sequentiality == 8
 
             auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(
-                num_partitions(dimx, 32),  //
-                num_partitions(dimy, 8),   //
-                num_partitions(dimz, 8)    //
-            );
+            auto dim_grid  = dim3(get_npart(dimx, 32), get_npart(dimy, 8), get_npart(dimz, 8));
 
             cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<<<dim_grid, dim_block>>>  //
                 (xdata->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
