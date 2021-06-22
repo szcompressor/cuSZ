@@ -454,7 +454,9 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     if (long_opt == "--nvcomp") {
-                        szwf.lossless_nvcomp_cascade = true;
+                        throw std::runtime_error(
+                            "[argparse] nvcomp is disabled temporarily in favor of code refactoring.");
+                        szwf.lossless_nvcomp_cascade = false;
                         break;
                     }
                     if (long_opt == "--gtest") {
