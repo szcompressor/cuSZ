@@ -26,13 +26,13 @@
 #include <limits>
 #include <type_traits>
 
-#include "kernel/par_merge.h"
+#include "../kernel/par_merge.h"
+#include "../type_aliasing.hh"
+#include "../utils/cuda_err.cuh"
+#include "../utils/cuda_mem.cuh"
+#include "../utils/dbg_print.cuh"
+#include "../utils/format.hh"
 #include "par_huffman.h"
-#include "type_aliasing.hh"
-#include "utils/cuda_err.cuh"
-#include "utils/cuda_mem.cuh"
-#include "utils/dbg_print.cuh"
-#include "utils/format.hh"
 
 using std::cout;
 using std::endl;

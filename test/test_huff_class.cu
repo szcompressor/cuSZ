@@ -3,7 +3,7 @@
 using std::string;
 
 //#include "../src/huff_interface.cuh"
-#include "../src/kernel/hist.cuh"
+#include "../src/kernel/hist.h"
 #include "../src/ood/codec_huffman.hh"
 #include "../src/par_huffman.cuh"
 

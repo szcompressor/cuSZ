@@ -1,5 +1,5 @@
 /**
- * @file gather_scatter.cu
+ * @file gather_scatter.h
  * @author Jiannan Tian
  * @brief Gather/scatter method to handle cuSZ prediction outlier (header).
  * @version 0.1
@@ -10,8 +10,8 @@
  * See LICENSE in top-level directory
  *
  */
-#ifndef GATHER_SCATTER_CUH
-#define GATHER_SCATTER_CUH
+#ifndef OLD_SPARSITY_H
+#define OLD_SPARSITY_H
 
 #include <cuda_runtime.h>
 #include <cusparse.h>

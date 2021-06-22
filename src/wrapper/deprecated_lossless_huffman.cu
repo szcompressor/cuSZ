@@ -29,17 +29,17 @@
 #include <type_traits>
 #include <vector>
 
-#include "huff_interface.h"
-#include "kernel/hist.h"
-#include "kernel/huffman_codec.h"
-#include "type_aliasing.hh"
-#include "type_trait.hh"
-#include "types.hh"
-#include "utils/cuda_err.cuh"
-#include "utils/cuda_mem.cuh"
-#include "utils/format.hh"
-#include "utils/io.hh"
-#include "utils/timer.hh"
+#include "../kernel/hist.h"
+#include "../kernel/huffman_codec.h"
+#include "../type_aliasing.hh"
+#include "../type_trait.hh"
+#include "../types.hh"
+#include "../utils/cuda_err.cuh"
+#include "../utils/cuda_mem.cuh"
+#include "../utils/format.hh"
+#include "../utils/io.hh"
+#include "../utils/timer.hh"
+#include "deprecated_lossless_huffman.h"
 
 #ifdef MODULAR_ELSEWHERE
 #include "cascaded.hpp"

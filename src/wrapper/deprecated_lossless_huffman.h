@@ -21,8 +21,8 @@
 #include <string>
 #include <tuple>
 
-#include "datapack.hh"
-#include "type_trait.hh"
+#include "../datapack.hh"
+#include "../type_trait.hh"
 
 using std::string;
 
