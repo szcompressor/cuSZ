@@ -40,9 +40,9 @@
  * @file par_merge.h
  * @author Oded Green (ogreen@gatech.edu), Rob McColl (robert.c.mccoll@gmail.com))
  * @brief Modified and adapted by Cody Rivera
- * @version 0.1
+ * @version 0.3
  * @date 2020-10-24
- * Created on: 2020-06
+ * (created) 2020-06 (rev) 2021-06-21
  *
  */
 
@@ -56,8 +56,7 @@
 #include <stdlib.h>
 
 #include <cooperative_groups.h>
-
-using namespace cooperative_groups;
+namespace cg = cooperative_groups;
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -172,7 +171,7 @@ __device__ void parMerge(
     int32_t& found, int32_t* oneorzero)
     {
     // clang-format on
-    auto current_grid = this_grid();
+    auto current_grid = cg::this_grid();
     current_grid.sync();
     tempLength = (cEnd - cStart) + MOD(iEnd - iStart, iNodesCap);
 

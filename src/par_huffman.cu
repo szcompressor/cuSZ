@@ -13,6 +13,7 @@
  *
  */
 
+#include <cooperative_groups.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
@@ -21,16 +22,21 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <limits>
 #include <type_traits>
 
+#include "kernel/par_merge.h"
 #include "par_huffman.h"
-#include "par_merge.h"
 #include "type_aliasing.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
 #include "utils/dbg_print.cuh"
 #include "utils/format.hh"
+
+using std::cout;
+using std::endl;
+namespace cg = cooperative_groups;
 
 // GenerateCL Locals
 __device__ int iNodesFront = 0;
@@ -61,6 +67,35 @@ __device__ long long int st[10];
 // Mathematically correct mod
 #define MOD(a, b) ((((a) % (b)) + (b)) % (b))
 
+namespace lossless {
+namespace par_huffman {
+namespace helper {
+
+// clang-format off
+template <typename T>             __global__ void GPU_FillArraySequence(T*, unsigned int);
+template <typename T>             __global__ void GPU_GetFirstNonzeroIndex(T*, unsigned int, unsigned int*);
+template <typename T>             __global__ void GPU_ReverseArray(T*, unsigned int);
+template <typename T, typename Q> __global__ void GPU_ReorderByIndex(T*, Q*, unsigned int);
+// clang-format on
+
+}  // namespace helper
+}  // namespace par_huffman
+}  // namespace lossless
+
+namespace lossless {
+namespace par_huffman {
+
+// Codeword length
+template <typename F>
+__global__ void GPU_GenerateCL(F*, F*, int, F*, int*, F*, int*, F*, int*, int*, F*, int*, int*, uint32_t*, int, int);
+
+// Forward Codebook
+template <typename F, typename H>
+__global__ void GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size);
+
+}  // namespace par_huffman
+}  // namespace lossless
+
 // Parallel huffman code generation
 // clang-format off
 template <typename F>
@@ -86,7 +121,7 @@ __global__ void lossless::par_huffman::GPU_GenerateCL(
 
     unsigned int       thread       = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i            = thread;  // Adaptation for easier porting
-    auto               current_grid = this_grid();
+    auto               current_grid = cg::this_grid();
 
     /* Initialization */
     if (thread < size) {
@@ -314,7 +349,7 @@ __global__ void lossless::par_huffman::GPU_GenerateCW(F* CL, H* CW, H* first, H*
 {
     unsigned int       thread       = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i            = thread;  // Porting convenience
-    auto               current_grid = this_grid();
+    auto               current_grid = cg::this_grid();
     auto               type_bw      = sizeof(H) * 8;
 
     /* Reverse in place - Probably a more CUDA-appropriate way */
