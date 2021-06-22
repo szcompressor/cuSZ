@@ -22,7 +22,7 @@ int main()
     auto t1 = TimeThisFunction(hf, 2.0, 3.0);
     cout << t1 << endl;
 
-    auto t2 = TimeThisCUDAFunction(df, kernel_cfg_t{dim3(1), dim3(64), 0, nullptr}, 2.0, 3.0);
+    auto t2 = TimeThisCUDAFunction(df, kernelcfg{dim3(1), dim3(64), 0, nullptr}, 2.0, 3.0);
     cout << t2 << endl;
 
     return 0;
