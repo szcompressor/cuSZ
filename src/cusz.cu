@@ -32,7 +32,7 @@ using std::string;
 #include "cusz_interface.cuh"
 #include "datapack.hh"
 #include "filter.cuh"
-#include "gtest/gtest.h"
+// #include "gtest/gtest.h"
 #include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
@@ -103,21 +103,23 @@ void CheckShellCall(string cmd_string)
     if (status < 0) { LogAll(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
 }
 
-TEST(cuSZTest, TestMaxError)
-{
-    double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
-    ASSERT_LE(actualErr, expectedErr);
-}
+/* gtest disabled in favor of code refactoring */
+// TEST(cuSZTest, TestMaxError)
+// {
+//     double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
+//     ASSERT_LE(actualErr, expectedErr);
+// }
 
 template <typename Data, int DownscaleFactor, int tBLK>
 Data* pre_binning(Data* d, size_t* dim_array)
 {
+    throw std::runtime_error("[pre_binning] disabled temporarily, will be part of preprocessing.");
     return nullptr;
 }
 
 int main(int argc, char** argv)
 {
-    cout << "\n>>>>  cusz build: 2020-06-14.0\n";
+    cout << "\n>>>>  cusz build: 2020-06-21.0\n";
 
     auto ap = new ArgPack();
     ap->ParseCuszArgs(argc, argv);
@@ -346,15 +348,16 @@ int main(int argc, char** argv)
         LogAll(log_info, "write to: " + ap->opath + basename + ".sz");
         LogAll(log_info, "write to: " + ap->opath + basename + ".szx");
 
-        if (wf.gtest) {
-            expectedErr  = ap->eb;
-            z_mode       = ap->mode;
-            auto stat    = ap->stat;
-            actualAbsErr = stat.max_abserr;
-            actualRelErr = stat.max_abserr_vs_rng;
-            ::testing::InitGoogleTest(&argc, argv);
-            return RUN_ALL_TESTS();
-        }
+        /* gtest disabled in favor of code refactoring */
+        // if (wf.gtest) {
+        //     expectedErr  = ap->eb;
+        //     z_mode       = ap->mode;
+        //     auto stat    = ap->stat;
+        //     actualAbsErr = stat.max_abserr;
+        //     actualRelErr = stat.max_abserr_vs_rng;
+        //     ::testing::InitGoogleTest(&argc, argv);
+        //     return RUN_ALL_TESTS();
+        // }
     }
 }
 

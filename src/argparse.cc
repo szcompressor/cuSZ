@@ -161,13 +161,13 @@ ArgPack::CheckArgs()
         szwf.lossy_reconstruct = false;
     }
 
-    if (szwf.gtest) {
-        if (szwf.lossy_dryrun) { szwf.gtest = false; }
-        else {
-            if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) { szwf.gtest = false; }
-            if (subfiles.decompress.in_origin == "") { szwf.gtest = false; }
-        }
-    }
+    // if (szwf.gtest) {
+    //     if (szwf.lossy_dryrun) { szwf.gtest = false; }
+    //     else {
+    //         if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) { szwf.gtest = false; }
+    //         if (subfiles.decompress.in_origin == "") { szwf.gtest = false; }
+    //     }
+    // }
 
     if (to_abort) {
         cuszDoc();
@@ -458,7 +458,9 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--gtest") {
-                        szwf.gtest = true;
+                        throw std::runtime_error(
+                            "[argparse] gtest is disabled temporarily in favor of code refactoring.");
+                        szwf.gtest = false;
                         break;
                     }
                     // if (long_opt == "--coname") {
