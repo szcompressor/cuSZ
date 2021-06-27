@@ -30,17 +30,17 @@ namespace prototype {  // easy algorithmic description
 template <typename Data, typename Quant, typename FP, int BLOCK = 256, bool PROBE_PRED_ERROR = false> __global__ void c_lorenzo_1d1l
 (Data*, Quant*, DIM, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
 template <typename Data, typename Quant, typename FP, int BLOCK = 256> __global__ void x_lorenzo_1d1l
-(Data*, Data*, Quant*, DIM, int, FP);
+(Data*, Quant*, DIM, int, FP);
 
 template <typename Data, typename Quant, typename FP, int BLOCK = 16, bool PROBE_PRED_ERROR = false> __global__ void c_lorenzo_2d1l
 (Data*, Quant*, DIM, DIM, STRIDE, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
 template <typename Data, typename Quant, typename FP, int BLOCK = 16> __global__ void x_lorenzo_2d1l
-(Data*, Data*, Quant*, DIM, DIM, STRIDE, int, FP);
+(Data*, Quant*, DIM, DIM, STRIDE, int, FP);
 
 template <typename Data, typename Quant, typename FP, int BLOCK = 8, bool PROBE_PRED_ERROR = false> __global__ void c_lorenzo_3d1l
 (Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
 template <typename Data, typename Quant, typename FP, int BLOCK = 8> __global__ void x_lorenzo_3d1l
-(Data*, Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
+(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
 // clang-format on
 
 }  // namespace prototype
@@ -57,7 +57,6 @@ __global__ void cusz::prototype::c_lorenzo_1d1l(  //
     Data*  raw_error,
     FP     ebx2)
 {
-    // Data(&shmem)[BLOCK] = *reinterpret_cast<Data(*)[BLOCK]>(&scratch);
     __shared__ Data shmem[BLOCK];
 
     auto id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -102,7 +101,6 @@ __global__ void cusz::prototype::c_lorenzo_2d1l(  //
     Data*  raw_error,
     FP     ebx2)
 {
-    // Data(&shmem)[BLOCK][BLOCK] = *reinterpret_cast<Data(*)[BLOCK][BLOCK]>(&scratch);
     __shared__ Data shmem[BLOCK][BLOCK];
 
     auto y = threadIdx.y, x = threadIdx.x;
@@ -154,7 +152,6 @@ __global__ void cusz::prototype::c_lorenzo_3d1l(  //
     Data*  raw_error,
     FP     ebx2)
 {
-    // Data(&shmem)[BLOCK][BLOCK][BLOCK] = *reinterpret_cast<Data(*)[BLOCK][BLOCK][BLOCK]>(&scratch);
     __shared__ Data shmem[BLOCK][BLOCK][BLOCK];
 
     auto z = threadIdx.z, y = threadIdx.y, x = threadIdx.x;
@@ -197,20 +194,18 @@ __global__ void cusz::prototype::c_lorenzo_3d1l(  //
 
 template <typename Data, typename Quant, typename FP, int BLOCK>
 __global__ void cusz::prototype::x_lorenzo_1d1l(  //
-    Data*  data,
-    Data*  outlier,
+    Data*  xdata_outlier,
     Quant* quant,
     DIM    dimx,
     int    radius,
     FP     ebx2)
 {
-    // Data(&shmem)[BLOCK] = *reinterpret_cast<Data(*)[BLOCK]>(&scratch);
     __shared__ Data shmem[BLOCK];
 
     auto id = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (id < dimx)
-        shmem[threadIdx.x] = outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
+        shmem[threadIdx.x] = xdata_outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
     else
         shmem[threadIdx.x] = 0;
     __syncthreads();
@@ -223,14 +218,12 @@ __global__ void cusz::prototype::x_lorenzo_1d1l(  //
         __syncthreads();
     }
 
-    if (id < dimx) { data[id] = shmem[threadIdx.x] * ebx2; }
-    __syncthreads();
+    if (id < dimx) { xdata_outlier[id] = shmem[threadIdx.x] * ebx2; }
 }
 
 template <typename Data, typename Quant, typename FP, int BLOCK>
 __global__ void cusz::prototype::x_lorenzo_2d1l(  //
-    Data*  data,
-    Data*  outlier,
+    Data*  xdata_outlier,
     Quant* quant,
     DIM    dimx,
     DIM    dimy,
@@ -238,14 +231,13 @@ __global__ void cusz::prototype::x_lorenzo_2d1l(  //
     int    radius,
     FP     ebx2)
 {
-    // Data(&shmem)[BLOCK][BLOCK] = *reinterpret_cast<Data(*)[BLOCK][BLOCK]>(&scratch);
     __shared__ Data shmem[BLOCK][BLOCK];
 
     auto   giy = blockIdx.y * blockDim.y + threadIdx.y, gix = blockIdx.x * blockDim.x + threadIdx.x;
     size_t id = gix + giy * stridey;
 
     if (gix < dimx and giy < dimy)
-        shmem[threadIdx.y][threadIdx.x] = outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
+        shmem[threadIdx.y][threadIdx.x] = xdata_outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
     else
         shmem[threadIdx.y][threadIdx.x] = 0;
     __syncthreads();
@@ -266,14 +258,12 @@ __global__ void cusz::prototype::x_lorenzo_2d1l(  //
         __syncthreads();
     }
 
-    if (gix < dimx and giy < dimy) { data[id] = shmem[threadIdx.y][threadIdx.x] * ebx2; }
-    __syncthreads();
+    if (gix < dimx and giy < dimy) { xdata_outlier[id] = shmem[threadIdx.y][threadIdx.x] * ebx2; }
 }
 
 template <typename Data, typename Quant, typename FP, int BLOCK>
 __global__ void cusz::prototype::x_lorenzo_3d1l(  //
-    Data*  data,
-    Data*  outlier,
+    Data*  xdata_outlier,
     Quant* quant,
     DIM    dimx,
     DIM    dimy,
@@ -283,7 +273,6 @@ __global__ void cusz::prototype::x_lorenzo_3d1l(  //
     int    radius,
     FP     ebx2)
 {
-    // Data(&shmem)[BLOCK][BLOCK][BLOCK] = *reinterpret_cast<Data(*)[BLOCK][BLOCK][BLOCK]>(&scratch);
     __shared__ Data shmem[BLOCK][BLOCK][BLOCK];
 
     auto giz = blockIdx.z * BLOCK + threadIdx.z, giy = blockIdx.y * BLOCK + threadIdx.y,
@@ -291,7 +280,7 @@ __global__ void cusz::prototype::x_lorenzo_3d1l(  //
     size_t id = gix + giy * stridey + giz * stridez;  // low to high in dim, inner to outer
 
     if (gix < dimx and giy < dimy and giz < dimz)
-        shmem[threadIdx.z][threadIdx.y][threadIdx.x] = outlier[id] + static_cast<Data>(quant[id]) - radius;  // id
+        shmem[threadIdx.z][threadIdx.y][threadIdx.x] = xdata_outlier[id] + static_cast<Data>(quant[id]) - radius;  // id
     else
         shmem[threadIdx.z][threadIdx.y][threadIdx.x] = 0;
     __syncthreads();
@@ -320,8 +309,9 @@ __global__ void cusz::prototype::x_lorenzo_3d1l(  //
         __syncthreads();
     }
 
-    if (gix < dimx and giy < dimy and giz < dimz) { data[id] = shmem[threadIdx.z][threadIdx.y][threadIdx.x] * ebx2; }
-    __syncthreads();
+    if (gix < dimx and giy < dimy and giz < dimz) {
+        xdata_outlier[id] = shmem[threadIdx.z][threadIdx.y][threadIdx.x] * ebx2;
+    }
 }
 
 #endif

@@ -147,14 +147,14 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
         auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
         // TODO delete outlier-data
         x_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
-            (xdata, xdata, quant, size3.x, radius, ebx2);
+            (xdata, quant, size3.x, radius, ebx2);
     }
     else if (ndim == 2) {
         constexpr auto DATA_SUBSIZE = 16;
         auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE);
         auto           dim_grid     = dim3(get_npart(size3.x, DATA_SUBSIZE), get_npart(size3.y, DATA_SUBSIZE));
         x_lorenzo_2d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
-            (xdata, xdata, quant, size3.x, size3.y, size3.x, radius, ebx2);
+            (xdata, quant, size3.x, size3.y, size3.x, radius, ebx2);
     }
     else if (ndim == 3) {
         constexpr auto DATA_SUBSIZE = 8;
@@ -164,7 +164,7 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
             get_npart(size3.y, DATA_SUBSIZE),  //
             get_npart(size3.z, DATA_SUBSIZE));
         x_lorenzo_3d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
-            (xdata, xdata, quant, size3.x, size3.y, size3.z, size3.x, size3.x * size3.y, radius, ebx2);
+            (xdata, quant, size3.x, size3.y, size3.z, size3.x, size3.x * size3.y, radius, ebx2);
     }
 
 #else
