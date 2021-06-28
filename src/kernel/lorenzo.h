@@ -41,8 +41,6 @@
 #define BDY blockDim.y
 #define BDZ blockDim.z
 
-extern __shared__ char scratch[];
-
 using DIM    = unsigned int;
 using STRIDE = unsigned int;
 
