@@ -9,10 +9,25 @@
  *
  */
 
+#include <iostream>
+#include <limits>
 #include <numeric>
 #include <stdexcept>
-#include "../kernel/lorenzo.h"
 #include "extrap_lorenzo.h"
+
+#ifdef DPCPP_SHOWCASE
+#include "../kernel/lorenzo_prototype.h"
+
+using cusz::prototype::c_lorenzo_1d1l;
+using cusz::prototype::c_lorenzo_2d1l;
+using cusz::prototype::c_lorenzo_3d1l;
+using cusz::prototype::x_lorenzo_1d1l;
+using cusz::prototype::x_lorenzo_2d1l;
+using cusz::prototype::x_lorenzo_3d1l;
+
+#else
+#include "../kernel/lorenzo.h"
+#endif
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
@@ -58,6 +73,36 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
         throw std::runtime_error("[compress_lorenzo_construct] delaying postquant <=> (var quant is null)");
     }
 
+#ifdef DPCPP_SHOWCASE
+
+    std::cout << "DPCPP compression showcase, revert to prototype ND kernel(s)\n";
+    if (ndim == 1) {
+        constexpr auto DATA_SUBSIZE = 256;
+        auto           dim_block    = DATA_SUBSIZE;
+        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        c_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
+            (data, quant, size3.x, radius, ebx2_r, nullptr, nullptr, 1.0);
+    }
+    else if (ndim == 2) {
+        constexpr auto DATA_SUBSIZE = 16;
+        auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE);
+        auto           dim_grid     = dim3(get_npart(size3.x, DATA_SUBSIZE), get_npart(size3.y, DATA_SUBSIZE));
+        c_lorenzo_2d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
+            (data, quant, size3.x, size3.y, size3.x, radius, ebx2_r, nullptr, nullptr, 1.0);
+    }
+    else if (ndim == 3) {
+        constexpr auto DATA_SUBSIZE = 8;
+        auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE, DATA_SUBSIZE);
+        auto           dim_grid     = dim3(
+            get_npart(size3.x, DATA_SUBSIZE),  //
+            get_npart(size3.y, DATA_SUBSIZE),  //
+            get_npart(size3.z, DATA_SUBSIZE));
+        c_lorenzo_3d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
+            (data, quant, size3.x, size3.y, size3.z, size3.x, size3.x * size3.y, radius, ebx2_r, nullptr, nullptr, 1.0);
+    }
+
+#else
+
     if (ndim == 1) {
         constexpr auto SEQ          = 4;
         constexpr auto DATA_SUBSIZE = 256;
@@ -78,6 +123,8 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
         cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant, FP>
             <<<dim_grid, dim_block>>>(data, quant, size3.x, size3.y, size3.z, stride3.y, stride3.z, radius, ebx2_r);
     }
+#endif
+
     cudaDeviceSynchronize();
 }
 
@@ -91,12 +138,42 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     auto stride3 = get_stride3(size3);
     auto ebx2    = eb * 2;
 
+#ifdef DPCPP_SHOWCASE
+
+    std::cout << "DPCPP decompression showcase, revert to prototype ND kernel(s)\n";
+    if (ndim == 1) {  // y-sequentiality == 8
+        constexpr auto DATA_SUBSIZE = 256;
+        auto           dim_block    = DATA_SUBSIZE;
+        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        // TODO delete outlier-data
+        x_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
+            (xdata, quant, size3.x, radius, ebx2);
+    }
+    else if (ndim == 2) {
+        constexpr auto DATA_SUBSIZE = 16;
+        auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE);
+        auto           dim_grid     = dim3(get_npart(size3.x, DATA_SUBSIZE), get_npart(size3.y, DATA_SUBSIZE));
+        x_lorenzo_2d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
+            (xdata, quant, size3.x, size3.y, size3.x, radius, ebx2);
+    }
+    else if (ndim == 3) {
+        constexpr auto DATA_SUBSIZE = 8;
+        auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE, DATA_SUBSIZE);
+        auto           dim_grid     = dim3(
+            get_npart(size3.x, DATA_SUBSIZE),  //
+            get_npart(size3.y, DATA_SUBSIZE),  //
+            get_npart(size3.z, DATA_SUBSIZE));
+        x_lorenzo_3d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
+            (xdata, quant, size3.x, size3.y, size3.z, size3.x, size3.x * size3.y, radius, ebx2);
+    }
+
+#else
+
     if (ndim == 1) {  // y-sequentiality == 8
         constexpr auto SEQ          = 8;
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE / SEQ;
         auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
-
         cusz::x_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, radius, ebx2);
     }
@@ -116,6 +193,8 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
         cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant, FP, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, size3.y, size3.z, stride3.y, stride3.z, radius, ebx2);
     }
+#endif
+
     cudaDeviceSynchronize();
 }
 
