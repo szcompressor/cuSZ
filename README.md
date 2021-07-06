@@ -3,53 +3,72 @@
 cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data
 ---
 
-cuSZ is a CUDA implementation of the world-widely used [SZ lossy compressor](https://github.com/szcompressor/SZ). It is the first error-bounded lossy compressor on GPUs for scientific data, which significantly improves SZ's throughput in GPU-based heterogeneous HPC systems. 
+cuSZ is a CUDA implementation of the world-widely used [SZ lossy compressor](https://github.com/szcompressor/SZ). It is the *first* error-bounded lossy compressor on GPUs for scientific data, which significantly improves SZ's throughput in GPU-based heterogeneous HPC systems. 
+This document introduces installation and use of cuSZ on NVIDIA GPUs. 
 
-This document simply introduces how to install and use the cuSZ compressor on NVIDIA GPUs. More details can be found in [doc/cusz-doc.pdf](https://github.com/szcompressor/cuSZ/blob/master/doc/cusz-doc.pdf) [in progress].
+Our published papers cover the essential design and implementation, accessible via 
+- **PACT '20**, via [ACM DL (open access)](https://dl.acm.org/doi/10.1145/3410463.3414624), or [arXiv-2007.09625](https://arxiv.org/abs/2007.09625).
+- **CLUSTER '21**, via [arXiv-2105.12912](https://arxiv.org/abs/2105.12912) (We are working on integrating the sparsity-aware compression.)
 
-Our published paper covers the essential design and implementation, accessible via [ACM DL (open access)](https://dl.acm.org/doi/10.1145/3410463.3414624) or [arXiv](https://arxiv.org/abs/2007.09625).
-
-**Kindly note:** If you mention cuSZ in your paper, please cite using [this entry](https://github.com/szcompressor/cuSZ#citing-cusz).
+*Kindly note:* If you mention cuSZ in your paper, please cite using [these entries](https://github.com/szcompressor/cuSZ#citing-cusz).
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 (C) 2020 by Washington State University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
-* Developers: Jiannan Tian, Cody Rivera, Wenyu Gai, Dingwen Tao, Sheng Di, Franck Cappello
-* Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Xin Liang, Robert Underwood, Kai Zhao
+* developers: Jiannan Tian, Cody Rivera, Wenyu Gai, Dingwen Tao, Sheng Di, Franck Cappello
+* contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Xin Liang, Robert Underwood, Kai Zhao
 * Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021!
+
+- [set up](#set-up)
+	- [requirements](#requirements)
+	- [compile from source code](#compile-from-source-code)
+- [use](#use)
+	- [basic use](#basic-use)
+	- [advanced use](#advanced-use)
+- [hands-on examples](#hands-on-examples)
+- [FAQ](#faq)
+	- [How does SZ/cuSZ work?](#how-does-szcusz-work)
+	- [Why is there multibyte symbol for Huffman?](#why-is-there-multibyte-symbol-for-huffman)
+	- [What differs CPU-SZ and cuSZ in data quality and compression ratio?](#what-differs-cpu-sz-and-cusz-in-data-quality-and-compression-ratio)
+	- [How to know compression ratio?](#how-to-know-compression-ratio)
+	- [How to know the performance?](#how-to-know-the-performance)
+- [tested by our team](#tested-by-our-team)
+	- [datasets](#datasets)
+	- [limitations (build 2021-07-13.2)](#limitations-build-2021-07-132)
+- [citing cuSZ](#citing-cusz)
+	- [PACT '20, cuSZ](#pact-20-cusz)
+	- [CLUSTER '21, cuSZ+](#cluster-21-cusz)
+- [acknowledgements](#acknowledgements)
 
 # set up
 ## requirements
 - `{`Pascal, Volta, Turing, Ampere`}` NVIDIA GPU
-- C++14 enabled compiler, GCC 7 onward; CUDA 9.2 onward
+- C++14 enabled compiler, GCC 7 onward; CUDA 9.2 onward (11.x is recommended)
   - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
   - More reference: 1) [CUDA compiler compatibility](https://gist.github.com/ax3l/9489132), 2) [compilation instruction](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
   - Note that *CUDA version* is referred to as the *toolchain version* (e.g., activated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
 
-|      |     |      |      |      |      |      |      |      |
-| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
-|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
-|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  |
-| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 |
+|      |     |      |      |      |      |      |      |      |      |
+| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |
+|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |      |
+|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
+| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 |
 
 
-## from GitHub
+## compile from source code
 
 ```bash
-git clone --recursive https://github.com/szcompressor/cuSZ.git cusz && cd cusz
+git clone https://github.com/szcompressor/cuSZ.git cusz && cd cusz
 chmod 755 ./build.py && ./build.py <target> <optional: build type>
 ```
 - For maximal compatibility, use `./build.py compat`. 
 - For optimal compilation, use `./build.py <target> <optional: build type>`. 
-  - Target names other than `compat` include `p100`, `v100`, `a100`, `pascal`, `turing`, `ampere`.
-  - Build types include `release`, `release-profile` (enabling `-lineinfo`), `debug` (enabling `-G`).
-`build.py` automatically builds `cusz`. `make install` would install to `${HOME}/bin`.
+  - Target names other than `compat` include `p100`, `v100`, `a100` and general `pascal`, `turing`, `ampere`.
+  - Build types include `release` (default), `release-profile` (enabling `-lineinfo`) and `debug` (enabling `-G`).
+- `build.py` automatically builds. `make install` would install to `${HOME}/bin`.
 
-## from Spack
-
-Spack is a multi-platform package manager dedicated for HPC deployment, and it's non-destructive. Currently, deployment of cuSZ requires a workaround on many HPC cluster, see details in [here](./doc/spack-install.md).
 
 # use
 ## basic use
@@ -57,67 +76,49 @@ Spack is a multi-platform package manager dedicated for HPC deployment, and it's
 Type `cusz` or `cusz -h` for instant instructions. Also, a basic use cuSZ is given below.
 
 ```bash
-./bin/cusz -t f32 -m r2r -e 1.0e-4.0 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z
-           ------ ------ ----------- ------------------------ ------------  |
-            dtype  mode  error bound      input datum file    low-to-high  zip
-
+## cusz -t <dtype> -m <mode> -e <error bound> -i <input> -l <size> -z (compression) --report time[,quality[,...]]
+./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z --report time
+## cusz -i <cusz archive> -x [--compare -i <origin>] (decompresion)
 ./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x
-           ---------------------------  |
-                     sz archive        unzip
+./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x --compare ./data/ex-cesm-CLDHGH.sz --report time,quality
 ```
-In this case, 1800-by-3600 (y-x order) CESM-ATM is listed in the demo set. Use `-D cesm` to specify the preset for demonstration. Type `cusz` or `cusz -h` to look up the presets.
+We use 1800-by-3600 (y-x order) CESM-ATM CLDHGH for demonstration, which is in preset and `-D cesm` can be alternatively used . Type `cusz` or `cusz -h` to look up the presets.
 
 ```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -z
 ```
 The following **essential** arguments are required,
 
-- WORKFLOW: `-z` to compress; `-x` to decompress.
-- CONFIG: `-m` to specify error control mode from `abs` (absolute) and `r2r` (relative to value range)
-- CONFIG: `-e` to specify error bound
-- INPUT: `-i` to specify input file
-- INPUT: `-D` to specify demo dataset name or `-{1,2,3}` to dimensions
-- OUTPUT: `--opath` to specify output path for both compression and decompression
-- LOG: `-V` or `--verbose` to print host and device information
+- `-z` to compress; `-x` to decompress.
+- `-m` to specify error control mode from `abs` (absolute) and `r2r` (relative to value range)
+- `-e` to specify error bound
+- `-i` to specify input file
+- `-l <size>` to specify dimensions; alternatively `--demo <dataset>` to load predefined size
 
-## lossless compression (optional)
+## advanced use
 
-gzip (CPU) and/or [nvcomp](https://github.com/NVIDIA/nvcomp) (GPU) lossless compression can be enabled in cuSZ for higher compression ratio by adding ``--gzip`` and/or ``--nvcomp``. For example,
+**disabling modules**
+
+- (in progress) To export quant-code, use `--skip huffman`
+- For non-IO use, we can skip writing to disk during decompression using `--skip write2disk`. 
+- A combination of modules can be `--skip huffman,write2disk`.
+
+**additional lossless compression**
 
 ```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --gzip
-cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --nvcomp
-cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -2 3600 1800 -z --gzip --nvcomp
+cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -l 3600,1800 -z --gzip
 ```
+**changing internal parameter**
 
-We adopt nvcomp's Cascaded compression on GPU. We recommend its project website for more information.
+syntax: `-c` or `--config quantbyte=(1|2),huffbyte=(4|8)`
 
-## tuning by overriding
-There are also internal a) quant. code representation, b) Huffman codeword representation, and c) chunk size for Huffman coding exposed. Each can be specified with argument options.
-
-- `-Q` or `--quant-byte`  to specify quant. code representation. Options 1, 2 are for 1- and 2-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-H` or `--huff-byte`  to specify Huffman codeword representation. Options 4, 8 are for 4- and 8-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
-- `-C` or `--huff-chunk`  to specify chunk size for Huffman codec. This should be a sufficiently large number in power-of-2 (`[256|512|1024|...]`) and affects Huffman encoding/decoding performance *significantly*.
+- `quantbyte` to specify quant. code representation. Options `{1,2}` are for 1- and 2-byte, respectively. 
+- `huffbyte` to specify Huffman codeword representation. Options `{4,8}` are for 4- and 8-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
 
 
-## enabling preprocessing
-Some application such as EXAFEL preprocesses with binning [^binning] in addition to skipping Huffman codec.
-
-[^binning]: A current binning setting is to downsample a 2-by-2 cell to 1 point.
-
-## disabling modules
-For EXAFEL, given binning and `uint8_t` have already resulted in a compression ratio of up to 16, Huffman codec may not be needed in a real-world use scenario, so Huffman codec can be skipped with `--skip huffman`.
-
-Decompression can give a full preview of the whole workflow and writing data of the orignal size to the filesystem is long, so writing decompressed data to filesystem can be skipped with `--skip write.x`. 
-
-A combination of modules can be `--skip huffman,write.x`.
-
-Other module skipping for use scenarios are in development.
-
-## use as an analytical tool
+**`dry-run` mode**
 
 `--dry-run` or `-r` in place of `-z` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same with prequantized data.
-
 
 # hands-on examples
 
@@ -125,66 +126,99 @@ Other module skipping for use scenarios are in development.
 
 	```bash
 	# compress
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z
-	# decompress, use the datum to compress as basename
-	cusz -i ./data/ex-cesm-CLDHGH.sz -x
-	# decompress, and compare with the original data
-	cusz -i ./data/ex-cesm-CLDHGH.sz -x --origin ./data/ex-cesm-CLDHGH
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -z \
+		--report time
+	# decompress
+	cusz -i ./data/ex-cesm-CLDHGH.sz -x --report time
+	# decompress and compare with the original data
+	cusz -i ./data/ex-cesm-CLDHGH.sz -x --compare ./data/ex-cesm-CLDHGH \
+		--report time,quality
 	```
 2. 2D CESM demo, specifying output path
 
 	```bash
 	mkdir data2 data3
 	# output compressed data to `data2`
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z --opath data2
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -z --opath data2
 	# output decompressed data to `data3`
 	cusz -i ./data2/ex-cesm-CLDHGH.sz -x --opath data3
 	```
 3. 2D CESM demo, with 1-byte (`uint8_t`) and 256 quant. bins
 
 	```bash
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x -d 256 -Q 1
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -z \
+		--config cap=256,quantbyte=1 \
+		--report time
 	```
 4. in addition to the previous command, skipping Huffman codec,
 
 	```bash
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -d 256 -Q 1 \
-		--skip huffman  # or `-X huffman`
-	cusz -i ./data/ex-cesm-CLDHGH.sz -x  # `-d`, `-Q`, `-X` is recorded
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -z \
+		--config cap=256,quantbyte=1 \
+		--skip huffman
+	cusz -i ./data/ex-cesm-CLDHGH.sz -x
 	```
-5. some application such as EXAFEL preprocessed with binning [^binning] in addition to skipping Huffman codec
-
-	```bash
-	** cautious, may not be working as of 0.1.3
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm -z -x \
-		-d 256 -Q 1 --pre binning --skip huffman	# or `-p binning`
-	```
-6. dry-run to get PSNR and to skip real compression or decompression; `-r` also works alternatively to `--dry-run`
+5. dry-run to get PSNR and to skip real compression or decompression; `-r` or `--dry-run`
 
 	```bash
 	# This works equivalently to decompress with `--origin /path/to/origin-datum`
-	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH -D cesm --dry-run	# or `-r`
+	cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -r
 	```
 
-# results
-## compression ratio
+# FAQ
 
-To calculate compression ratio, please use *size of original data* divided by *size of .sz compressed data*.
+`*` There are implementation differences between CPU-SZ and cuSZ. Some techinical detail is introduced according to cuSZ for simplicity.   
+## How does SZ/cuSZ work?
 
-## compression throughput
+Prediction-based SZ algorithm comprises of 4 major parts
 
-To calculate (de)compression throughput, please follow the below steps to use [`script/sh.parse-nvprof-log`](./script/parse_nvprof_log.sh):
-- use `nvprof --log-file <logfile> <cusz cmd>` to generate performance log when (de)compressing
-- use `./script/sh.parse-nvprof-log <logfile>` to extract kernel time performance data
-- sum up all the numbers between `++++++++` to get the overall (de)compression time in us
-- use the original data size divided by the (de)compression time to get the overall (de)compression throughput
-- A sample output from on `CLDHGH` (25 MiB, CESM variable) is shown [here](./doc/sample-stat.txt).
-- From the [sample](./doc/sample-stat.txt), the compression and decompression times are 733.47 us (w/o c/b) and 1208.19 us, respectively. So, the compression and decompression throughputs are 31.4 GB/s and 20.7 GB/s, respectively.
+0. User specifies error-mode (e.g., abolute value (`abs`), or relative to data value magnitude (`r2r`) and error-bound.
+1. Prediction errors are quantized/integerized in units of input error-bound (*quant-code*). A selected range of quant-codes are stored, whereas the out-of-range codes otherwise gathered as *outlier*.
+3. The in-range quant-codes are fed into Huffman encoder. A Huffman symbol may be represented in multiple bytes.
+4. (CPU-only) additional DEFLATE mehod is applied to exploit repeated pattern. As of CLUSTER '21 cuSZ+ work, an RLE method is applied to approach the similar pattern-exploiting.
 
-**Please note that cuSZ's performance might be dropped for a single large input file (e.g., in several Gigabytes) because of current coarse-grained deflating in Huffman codec mentioned in [limitations of this version](https://github.com/szcompressor/cuSZ#limitations-of-this-version-011).**
+## Why is there multibyte symbol for Huffman?
 
-# tests by team
-## tested datasets
+The principle of Huffman coding is to guarantee high-frequency symbols with fewer bits. To be specific, given arbitray pairs of (symbol, frequency)-s, (*s<sub>i</sub>*, *f<sub>i</sub>*) and 
+(*s<sub>j</sub>*, *f<sub>j</sub>*), the assigned codeword *c<sub>i</sub>* and *c<sub>j</sub>*, respectively, are guaranteed to have len(*c<sub>i</sub>*) is no greater than len(*c<sub>j</sub>*) if *f<sub>i</sub>* is no less than *f<sub>j</sub>*.
+
+The combination of *n* single-byte does not reflect the fact that that quant-code that represents the `+/-1` error-bound should be of the highest-frequency. For example, a enumeration with 1024 symbols can cover 99.8% error-control code (the rest 0.2% can result in much more bits in codewords), among which the most frequeny symbol can dominate at over 90%. If single-byte symbol were used, `0x00` from bytes near MSB makes
+
+1. the highest-frequency is not properly represented, and
+2. the pattern-exploiting is harder. For example, `0x00ff,0x00ff` is otherwise interpreted as `0x00,0xff,0x00,0xff`.  
+
+
+## What differs CPU-SZ and cuSZ in data quality and compression ratio?
+
+CPU-SZ offers a rich set of compression features and far more mature than cuSZ in (1) having preprocess, more compression mode (e.g., point-wise) and autotuning, and (2) having Lorenzo predictor and Linear Regression, whereas cuSZ has Lorenzo (we are working on new predictors).
+
+1. They share the same Lorenzo predictor. However, there are many factors that affect data quality as quality optimizer.
+   1. preprocessing such as log transform and point-wise transform
+   2. PSNR as a goal to autotune eb
+   3.  initial values from which we predict border values (as if padding). cuSZ predicts from zeros while SZ determines optimal values for e.g. application-specific metrics. Also note cuSZ compression can result in a significant higher PSNR than SZ (with the same eb, see Table 8 on page 10 of PACT '20 paper), but it is not necessarily better when it comes to applications.
+   5.  The PSNR as a generic metric can be used this way: SZ guarantees a lower-bound of PSNR when the eb is relative to the data range, e.g. 64 for 1e-3, 84 for 1e-4.
+2. The linear scaling can be the same. SZ has extra optimizer to decide the linear scaling range $[-r, +r]$; out-of-range quantization values are outliers. This is to optimize compression ratio.
+3. Currently, the Huffman encoding is the same except cuSZ partitions data (therefore it has overhead in padding bits and partitioning metadata).
+
+
+|        | preprcess | Lorenzo predictor | other predictors | Huffman | DEFLATE     |
+| ------ | --------- | ----------------- | ---------------- | ------- | ----------- |
+| CPU-SZ | x         | x                 | x                | x       | x           |
+| cuSZ   | TBD       | x, dual-quant     | TBD              | x       | alternative |
+## How to know compression ratio?
+
+Expected to be known at compression time. TBD. 
+
+## How to know the performance?
+
+
+1. prior to CUDA 11: `nvprof <cusz command>`
+2. CUDA 11 onward: `nsys profile --stat true <cusz command>`
+3. enable `--report time` in CLI
+4. A sample benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md). To be updated.
+
+# tested by our team
+## datasets
 
 We have successfully tested cuSZ on the following datasets from [Scientific Data Reduction Benchmarks](https://sdrbench.github.io/) (SDRBench):
 
@@ -199,51 +233,19 @@ We have successfully tested cuSZ on the following datasets from [Scientific Data
 
 We provide three small sample data in `data`. To download more SDRBench datasets, please use [`script/sh.download-sdrb-data`](script/sh.download-sdrb-data). 
 
-## sample kernel performance (compression/zip)
+## limitations (build 2021-07-13.2)
 
-Throughput is in the unit of GB/s if not otherwise specified, 
-
-|                       |  1D HACC |            |  2D CESM |            |   3D NYX |           |
-| --------------------: | -------: | ---------: | -------: | ---------: | -------: | --------: |
-|         length (size) | 2.81E+08 | (1.05 GiB) | 6.48E+06 | (24.7 MiB) | 1.34E+08 | (512 MiB) |
-|                       |    GiB/s |   time (s) |    GiB/s |   time (s) |    GiB/s |  time (s) |
-|       lossy-construct |    291.9 |   3.59E-03 |    269.4 |   8.96E-05 |    225.9 |  2.21E-03 |
-|             histogram |    810.0 |   1.29E-03 |    540.4 |   4.47E-05 |    372.5 |  1.34E-03 |
-|              codebook |          |   4.60E-06 |          |   8.21E-04 |          |  6.80E-04 |
-|      Huffman encoding |     53.7 |   1.95E-02 |     65.1 |   3.71E-04 |     59.6 |  8.37E-03 |
-|        gather outlier |    261.7 |   4.00E-03 |    191.7 |   1.26E-04 |    255.2 |  1.96E-03 |
-|   compression OVERALL |     36.9 |   2.84E-02 |     38.3 |   6.31E-04 |     36.0 |  1.39E-02 |
-|      memory bandwidth |      900 |            |        " |            |        " |           |
-|          d2d `memcpy` |      713 |            |        " |            |        " |           |
-|     lossy-reconstruct |    257.3 |   4.07E-03 |    203.7 |   1.18E-04 |    177.8 |  2.81E-03 |
-|      Huffman decoding |      TBD |            |      TBD |            |      TBD |           |
-|       scatter outlier |    249.8 |   4.19E-03 |    340.1 |   7.10E-05 |    354.8 |  1.41E-03 |
-| decompression OVERALL |      TBD |            |      TBD |            |      TBD |           |
-
-
-(*) OVERALL kernel throughput estimation is based on leaving out 1) codebook construction, considering a prebuilt tree could be in use, 2) kernel launching overhead. A more detailed benchmark can be found at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md).
-
-## limitations of this version (Jan. 10, 2021)
-
-- cuSZ only supports 4-byte `float` data type. We will support 8-byte `double` data type in the future release. 
-- The current Huffman codec consists of optimal (1) histogramming [1], (2) parallel Huffman codebook building [2] of canonical code [3], and suboptimal Huffman encoding. We are woking on a faster high-throughput finer-grained Huffman codec. 
-- We are working on host- and device-side API design.
-- Please use `-H 8` whenever there is reported error. (The default `-H 4` may not be working for all.) We are working on adapting 4- or 8-byte representation automatically. 
+- cuSZ supports 4-byte `float` data type. We will support 8-byte `double` data type in the future release. 
+- To integrate faster Huffman codec.
+- To release API.
+- The default 4-byte Huffman symbol representation may break; `--config huffbyte=8` is needed.
 - A performance degradation is expected when handling large-size dataset, e.g., 1-GB or 4-GB 1D HACC. We are working on tuning consistent performance.
-- Binning preprocessing is subject to change, currently not available.
+- To update with preprocessing such as binning and log-transform.
 
-# references
-
-[1] 
-Gómez-Luna, Juan, José María González-Linares, José Ignacio Benavides, and Nicolás Guil. "An optimized approach to histogram computation on GPU." Machine Vision and Applications 24, no. 5 (2013): 899-908.
-
-[2]
-Ostadzadeh, S. Arash, B. Maryam Elahi, Zeinab Zeinalpour, M. Amir Moulavi, and Koen Bertels. "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes." In PDPTA, pp. 284-291. 2007.
-
-[3]
-Klein, Shmuel T. "Space- and Time-Efficient Decoding with Canonical Huffman Trees." In Annual Symposium on Combinatorial Pattern Matching, pp. 65-75. Springer, Berlin, Heidelberg, 1997.
 
 # citing cuSZ
+
+## PACT '20, cuSZ
 ```bibtex
 @inproceedings{cusz2020,
      author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
@@ -262,6 +264,9 @@ Klein, Shmuel T. "Space- and Time-Efficient Decoding with Canonical Huffman Tree
      series = {PACT '20}
 }
 ```
+
+## CLUSTER '21, cuSZ+
+`doi` to be updated.
 
 # acknowledgements
 This R&D is supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository is based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
