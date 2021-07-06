@@ -23,10 +23,10 @@
 #include <algorithm>
 #include <numeric>
 
-#include "../huff_interface.cuh"
-#include "../kernel/codec_huffman.cuh"
-#include "../kernel/hist.cuh"
+#include "../kernel/hist.h"
+#include "../kernel/huffman_codec.h"
 #include "../utils/timer.hh"
+#include "../wrapper/deprecated_lossless_huffman.h"
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr

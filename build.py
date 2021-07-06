@@ -3,6 +3,12 @@ import os
 import sys
 import subprocess as sp
 
+__author__ = "Jiannan Tian"
+__copyright__ = "(C) 2021 by Washington State University, Argonne National Laboratory"
+__license__ = "BSD 3-Clause"
+__version__ = "0.3"
+__date__ = "2021-01-12"
+
 # current support and backward compatibility; t=Tesla, cp=consumer,professional
 SMp_PASCAL_t = "-gencode=arch=compute_60,code=sm_60"
 SMp_PASCAL_cp = "-gencode=arch=compute_61,code=sm_61"

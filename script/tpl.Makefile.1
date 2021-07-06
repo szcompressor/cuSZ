@@ -39,11 +39,35 @@ GTEST_STATIC_LIB  := $(GTEST_LIB_DIR)/libgtest.a
 SRC_DIR     := src
 OBJ_DIR     := src
 BIN_DIR     := bin
-API_DIR     := src/wrapper
 
-MAIN        := $(SRC_DIR)/cusz.cu
+#### source code classification
+# CCsrc_omp :=$(SRC_DIR)/analysis_utils.cc
+# CCsrc     := $(filter-out $(CCsrc_omp), $(wildcard $(SRC_DIR)/*.cc))
+CCsrc     := $(wildcard $(SRC_DIR)/*.cc)
 
-ALL_OBJ  = $(SRC_DIR)/argparse.o $(SRC_DIR)/cusz_interface.o $(API_DIR)/deprecated_sparsity.o $(API_DIR)/deprecated_lossless_huffman.o $(API_DIR)/par_huffman.o
+MAIN      := $(SRC_DIR)/cusz.cu
+
+CUsrc4    := $(SRC_DIR)/huff_interface.cu
+CUsrc3    := $(SRC_DIR)/par_huffman.cu
+CUsrc2    := $(SRC_DIR)/cusz_interface.cu
+CUsrc1    := $(filter-out $(MAIN) $(CUsrc3) $(CUsrc2), $(wildcard $(SRC_DIR)/*.cu))
+
+# CCo_omp   := $(CCsrc_omp:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+CCo       := $(CCsrc:$(SRC_DIR)/%.cc=$(OBJ_DIR)/%.o)
+
+CUo1      := $(CUsrc1:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUo2      := $(CUsrc2:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUo3      := $(CUsrc3:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+CUo4      := $(CUsrc4:$(SRC_DIR)/%.cu=$(OBJ_DIR)/%.o)
+
+CUo       := $(CUo1) $(CUo2) $(CUo3)
+# OBJ_all   := $(CCo) $(CCo_omp) $(CUo)
+OBJ_all   := $(CCo) $(CUo)
+
+# $(CCo_omp): CC_FLAGS += -fopenmp
+$(CUo2): NV_FLAGS += -rdc=true
+$(CUo3): NV_FLAGS += -rdc=true
+$(CUo4): NV_FLAGS += -I $(NVCOMP_INCLUDE_DIR)/ 
 
 CC_FLAGS  += ####
 NV_FLAGS  += ####
@@ -51,38 +75,35 @@ HW_TARGET += ####
 
 $(info CUDA $(CUDA_VER) is in use.)
 
-all: target_proxy
-
 target_proxy: $(eval NV_FLAGS = $(NV_FLAGS) $(HW_TARGET))
 target_proxy: ; @$(MAKE) cusz -j
 
-argparse: $(SRC_DIR)/argparse.cc
-	$(CC) $(CC_FLAGS) $(SRC_DIR)/argparse.cc -c -o $(SRC_DIR)/argparse.o
+#### compilation commands
+all: target_proxy
 
-submain: $(SRC_DIR)/cusz_interface.cu
-	$(NVCC) $(NV_FLAGS) -c $< -o $(SRC_DIR)/cusz_interface.o
+#cusz: $(OBJ_all) | $(BIN_DIR)
+#	$(NVCC) $(NV_FLAGS) -lgomp -lcusparse $(MAIN) -rdc=true $^ -o $(BIN_DIR)/$@
 
-api_huffman: $(API_DIR)/deprecated_lossless_huffman.cu
-	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/deprecated_lossless_huffman.o -rdc=true
+cusz: $(OBJ_all) $(NVCOMP_STATIC_LIB) | $(BIN_DIR)
+	$(NVCC) $(NV_FLAGS) $(MAIN) \
+		-lcusparse -lpthread \
+		-rdc=true \
+		$(NVCOMP_STATIC_LIB) \
+		$^ -o $(BIN_DIR)/$@
 
-api_sparsity: $(API_DIR)/deprecated_sparsity.cu
-	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/deprecated_sparsity.o -Wno-deprecated-declarations
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc | $(OBJ_DIR)
+	$(CC) $(CC_FLAGS) -c $< -o $@
 
-api_par_huff: $(API_DIR)/par_huffman.cu
-	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/par_huffman.o -rdc=true
-
-objs: submain api_huffman api_sparsity api_par_huff argparse 
-
-cusz: objs | $(BIN_DIR)
-	$(NVCC) $(NV_FLAGS) $(MAIN) -lcusparse -lpthread -rdc=true $(ALL_OBJ) -o $(BIN_DIR)/cusz
+$(CUo): $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu $(NVCOMP_STATIC_LIB) | $(OBJ_DIR)
+	$(NVCC) $(NV_FLAGS) -c $< -o $@
 
 $(BIN_DIR):
 	mkdir $@
 
 install: bin/cusz
-	mkdir $(HOME)/bin
+	mkdir -p $(HOME)/bin
 	cp bin/cusz $(HOME)/bin
 
 .PHONY: clean
 clean:
-	$(RM) $(ALL_OBJ)
+	$(RM) $(OBJ_all)

@@ -1,8 +1,8 @@
-#ifndef HUFFMAN_WORKFLOW
-#define HUFFMAN_WORKFLOW
+#ifndef CUSZ_HUFF_INTERFACE_H
+#define CUSZ_HUFF_INTERFACE_H
 
 /**
- * @file huffman_workflow.cuh
+ * @file huff_interface.h
  * @author Jiannan Tian, Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Workflow of Huffman coding (header).
  * @version 0.1
@@ -21,8 +21,8 @@
 #include <string>
 #include <tuple>
 
-#include "datapack.hh"
-#include "type_trait.hh"
+#include "../datapack.hh"
+#include "../type_trait.hh"
 
 using std::string;
 
@@ -48,19 +48,23 @@ double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
     return entropy;
 }
 
-namespace draft {
-
+namespace cusz {
 template <typename Huff>
 void GatherSpHuffMetadata(size_t* _counts, size_t* d_sp_bits, size_t nchunk, size_t& total_bits, size_t& total_uints);
 
 template <typename Huff>
 __global__ void CopyHuffmanUintsDenseToSparse(Huff*, Huff*, size_t*, size_t*, size_t);
+}  // namespace cusz
 
+namespace draft {
+
+#ifdef MODULAR_ELSEWHERE
 template <typename T>
 void UseNvcompZip(T* space, size_t& len);
 
 template <typename T>
 void UseNvcompUnzip(T** space, size_t& len);
+#endif
 
 }  // namespace draft
 

@@ -13,7 +13,7 @@
 #include <string>
 
 #include "../analysis/analyzer.hh"
-#include "../kernel/lorenzo.cuh"
+#include "../kernel/lorenzo.h"
 #include "../ood/codec_runlength.hh"
 #include "../utils/io.hh"
 
@@ -63,7 +63,7 @@ void clorenzo_alternative_rle()
     auto ebx2_r = 1 / (eb * 2);
 
     for (auto i = 0; i < 10; i++) {
-        kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant, float, true, Key>  //
+        cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant, float, true, Key>  //
             <<<lorenzo_dim_grid, lorenzo_dim_block>>>(
                 data, quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r, error_control);
         cudaDeviceSynchronize();
