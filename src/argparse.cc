@@ -158,8 +158,6 @@ void set_report(argpack* ap, const char* in_str)
     parse_strlist(in_str, opts);
 
     for (auto o : opts) {
-        cout << "option: " << o << endl;
-
         if (is_kv_pair(o)) {
             auto kv = parse_kv_onoff(o);
 

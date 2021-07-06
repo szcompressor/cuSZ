@@ -1,3 +1,37 @@
+June, 2021
+
+feature		spline3d kernel for seismic RTM data
+
+May, 2021
+
+feature		alternative compression path: RLE and sparsity-gather
+
+April, 2021
+
+optimize	Lorenzo construction and reconstruction; scale to A100
+optmize		fast mode, using all `float32`
+
+March, 2021
+
+optmize		coarsen thread-block use
+
+February, 2021
+
+feature		partial-sum based Lorenzo decompression
+optmize		Huffman encoding output inverse-proportional to compression ratio
+
+January, 2021
+
+document 	update benchmark
+
+December, 2020
+
+feature		add `nvcomp`
+
+November, 2020
+
+October, 2020
+
 September, 2020
 feature		decouple zip and unzip
 deploy		`sm_70`, `sm_75` (and `sm_80`)
@@ -7,7 +41,7 @@ bugfix		histograming error
 deploy		revive pSZ
 feature		integrate parallel build Huffman codebook
 document	update help doc
-document	update published paper
+document	update published paper, "cuSZ"
 document	update acknowledgement
 
 August, 2020
@@ -31,8 +65,8 @@ feature 	add concise and detailed help doc
 deploy		`sm_61` (e.g., P1000) and `sm_70` (e.g., V100) binary
 feature		add dry-run mode
 refactor	merge cuSZ and Huffman codec in driver program
-optimize	1D PdQ (and reverse PdQ) `blockDim` set to 32, throughput changed from 2.7 GBps to 16.8 GBps
-deploy		histogramming, 2013 algorithm supersedes naive 2007 algorithm by default
+optimize	tune `blockDim` for 1D Lonrenzo, 2.7 GBps -> 16.8 GBps
+deploy		p2013histogram supersedes naive 2007 algorithm by default
 feature		add communication of equivalence calculation
 feature		use cooperative groups (CUDA 9 required) for canonical Huffman codebook
 optimize	faster initializing shared memory for PdQ, from 150 GBps to 200 GBps
