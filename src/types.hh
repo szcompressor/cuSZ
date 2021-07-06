@@ -16,11 +16,14 @@
 
 using namespace std;
 
+enum class placeholder { length_unknown, alloc_in_called_func, alloc_with_caution };
+
 typedef struct Stat {
-    double minimum{}, maximum{}, range{};
+    double min_odata{}, max_odata{}, rng_odata{}, std_odata{};
+    double min_xdata{}, max_xdata{}, rng_xdata{}, std_xdata{};
     double PSNR{}, MSE{}, NRMSE{};
     double coeff{};
-    double user_set_eb{}, max_abserr_vs_range{}, max_pwr_rel_abserr{};
+    double user_set_eb{}, max_abserr_vs_rng{}, max_pwrrel_abserr{};
 
     size_t len{}, max_abserr_index{};
     double max_abserr{};
@@ -32,10 +35,10 @@ typedef struct Integer1  { int _0; }              Integer1;
 typedef struct Integer2  { int _0, _1; }          Integer2;
 typedef struct Integer3  { int _0, _1, _2; }      Integer3;
 typedef struct Integer4  { int _0, _1, _2, _3; }  Integer4;
-typedef struct UInteger1 { int _0; }             UInteger1;
-typedef struct UInteger2 { int _0, _1; }         UInteger2;
-typedef struct UInteger3 { int _0, _1, _2; }     UInteger3;
-typedef struct UInteger4 { int _0, _1, _2, _3; } UInteger4;
+typedef struct UInteger1 { unsigned int _0; }             UInteger1;
+typedef struct UInteger2 { unsigned int _0, _1; }         UInteger2;
+typedef struct UInteger3 { unsigned int _0, _1, _2; }     UInteger3;
+typedef struct UInteger4 { unsigned int _0, _1, _2, _3; } UInteger4;
 // clang-format on
 
 #endif /* TYPES_HH */

@@ -1,0 +1,47 @@
+#!/usr/bin/printenv python3
+
+import os
+import re
+import subprocess as sp
+
+
+def find_key_line(report, keyword="c_lorenzo"):
+    for line in report.split("\n"):
+        if keyword in line:
+            return line
+
+
+path_head = r"${HOME}/datafields"
+
+fields = {
+    "hacc": "vx",
+    "cesm": "CLDHGH",
+    "hurricane": "CLOUDf48",
+    "nyx-s": "baryon_density",
+}
+
+cusz_bin = r"${HOME}/bin/cusz"
+
+key_lines = []
+
+for k, v in sorted(fields.items()):
+    print(k, v)
+
+    datum = os.path.join(path_head, v)
+    cmd_comp = f"{cusz_bin} -t f32 -m r2r -e 1e-4 -i {datum} -D {k} -z"
+    cmd_decomp = f"{cusz_bin} -i {datum}.sz -x --origin {datum} --skip write.x"
+    nsys_prof = "nsys profile --stat true"
+
+    print(cmd_comp)
+    print(cmd_decomp)
+
+    report_comp = sp.check_output(f"{nsys_prof} {cmd_comp}",
+                                  shell=True,
+                                  stderr=sp.STDOUT)
+    report_decomp = sp.check_output(f"{nsys_prof} {cmd_decomp}",
+                                    shell=True,
+                                    stderr=sp.STDOUT)
+    key_lines.append(k + find_key_line(report_comp.decode(), "c_lorenzo"))
+    key_lines.append(k + find_key_line(report_decomp.decode(), "x_lorenzo"))
+
+open("txt.exp-apr-res", 'w').write("\n".join(key_lines))

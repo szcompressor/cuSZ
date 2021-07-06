@@ -29,6 +29,34 @@
 #include "utils/dbg_print.cuh"
 #include "utils/format.hh"
 
+
+// GenerateCL Locals
+__device__ int iNodesFront = 0;
+__device__ int iNodesRear  = 0;
+__device__ int lNodesCur   = 0;
+
+__device__ int iNodesSize = 0;
+__device__ int curLeavesNum;
+
+__device__ int minFreq;
+
+__device__ int tempLength;
+
+__device__ int mergeFront;
+__device__ int mergeRear;
+
+__device__ int lNodesIndex;
+
+// GenerateCW Locals
+__device__ int CCL;
+__device__ int CDPI;
+__device__ int newCDPI;
+
+// Profiling
+__device__ long long int s[10];
+__device__ long long int st[10];
+
+
 // Mathematically correct mod
 #define MOD(a, b) ((((a) % (b)) + (b)) % (b))
 

@@ -14,7 +14,6 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
-#include <cxxabi.h>
 #include <bitset>
 #include <cstdlib>
 #include <exception>
@@ -22,14 +21,17 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "cusz_interface.cuh"
 #include "dryrun.cuh"
-#include "dualquant.cuh"
 #include "gather_scatter.cuh"
 #include "huff_interface.cuh"
+#include "kernel/lorenzo.cuh"
 #include "lorenzo_trait.cuh"
 #include "metadata.hh"
+#include "par_huffman.cuh"
+#include "snippets.hh"
 #include "type_trait.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
@@ -42,8 +44,22 @@ using std::cout;
 using std::endl;
 using std::string;
 
-namespace fm = cusz::predictor_quantizer;
+// namespace fm = cusz::predictor_quantizer;
 namespace dr = cusz::dryrun;
+
+namespace draft {
+template <typename Huff>
+void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
+{
+    auto              cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canon_cb, dict_size);
+    std::stringstream s;
+    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
+    LogAll(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
+    io::WriteArrayToBinary(s.str(), cb_dump, dict_size);
+    delete[] cb_dump;
+    cb_dump = nullptr;
+}
+}  // namespace draft
 
 /*
 template <typename Data, typename Quant>
@@ -155,13 +171,16 @@ void cusz::interface::Compress(
 
     size_t len = ap->len;
 
-    auto h_data = datapack->h;
-    auto d_data = datapack->d;
+    auto h_data = datapack->hptr();
+    auto d_data = datapack->dptr();
     auto m      = datapack->sqrt_ceil;
-    auto mxm    = datapack->pseudo_matrix_size;
 
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
+
+    // --------------------------------------------------------------------------------
+    // dryrun
+    // --------------------------------------------------------------------------------
 
     if (wf.lossy_dryrun) {
         LogAll(log_info, "invoke dry-run");
@@ -192,41 +211,107 @@ void cusz::interface::Compress(
     }
     LogAll(log_info, "invoke lossy-construction");
 
+    // --------------------------------------------------------------------------------
+    // constructing quant code
+    // --------------------------------------------------------------------------------
+
+    Quant* quant;
     // TODO add hoc padding
     auto d_quant = mem::CreateCUDASpace<Quant>(len + HuffConfig::Db_encode);  // quant. code is not needed for dry-run
 
+    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
+    auto dimx    = tuple_dim4._0;
+    auto dimy    = tuple_dim4._1;
+    auto dimz    = tuple_dim4._2;
+    auto stridey = tuple_stride4._1;
+    auto stridez = tuple_stride4._2;
+
+    auto radius = ap->radius;
+    auto eb     = ap->eb;
+    auto ebx2_r = 1 / (eb * 2);
+
+    auto num_partitions = [&](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+
     // prediction-quantization
     {
-        if (ap->ndim == 1) {
-            LorenzoNdConfig<1, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_1d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
+        if (ap->ndim == 1) {  // y-sequentiality == 4 (A100) or 8
+
+            static const auto Sequentiality = 4;
+            static const auto DataSubsize   = MetadataTrait<1>::Block;
+            auto              dim_block     = DataSubsize / Sequentiality;
+            auto              dim_grid      = num_partitions(dimx, DataSubsize);
+
+            kernel::c_lorenzo_1d1l_v2<Data, Quant, float, DataSubsize, Sequentiality><<<dim_grid, dim_block>>>  //
+                (d_data, d_quant, dimx, radius, ebx2_r);
         }
-        else if (ap->ndim == 2) {
-            LorenzoNdConfig<2, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_2d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
+        else if (ap->ndim == 2) {  // y-sequentiality == 8
+
+            auto dim_block = dim3(16, 2);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 16),  //
+                num_partitions(dimy, 16));
+
+            kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
+                (d_data, d_quant, dimx, dimy, stridey, radius, ebx2_r);
         }
-        else if (ap->ndim == 3) {
-            LorenzoNdConfig<3, Data, workflow::zip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::c_lorenzo_3d1l<Data, Quant><<<lc.cfg.Dg, lc.cfg.Db, lc.cfg.Ns, lc.cfg.S>>>(lc.z_ctx, d_data, d_quant);
+        else if (ap->ndim == 3) {  // y-sequentiality == 8
+
+            auto dim_block = dim3(32, 1, 8);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 32),  //
+                num_partitions(dimy, 8),   //
+                num_partitions(dimz, 8)    //
+            );
+
+            kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
+                (d_data, d_quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    ::cusz::impl::PruneGatherAsCSR(d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.c_fo_outlier);
+    // --------------------------------------------------------------------------------
+    // gather outlier
+    // --------------------------------------------------------------------------------
+
+    // CUDA 10 or earlier //
+    {
+        auto mxm = datapack->pseudo_matrix_size;
+        ::cusz::impl::PruneGatherAsCSR(
+            d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.compress.out_outlier);
+    }
+
+// CUDA 11 onward (hopefully) //
+#ifdef TO_REPLACE
+    {
+        DataPack<Data> sp_csr_val("csr vals");
+        DataPack<int>  sp_csr_cols("csr cols");
+        DataPack<int>  sp_csr_offsets("csr offsets");
+
+        struct CompressedSparseRow<Data> csr(m, m);  // squarified
+        struct DenseMatrix<Data>         mat(m, m);
+
+        sp_csr_offsets.SetLen(csr.num_offsets()).AllocDeviceSpace();  // set sp_csr_offsets size after creating `csr`
+        sp_csr_cols.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
+        sp_csr_val.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
+
+        // set csr and mat afterward
+        csr.offsets = sp_csr_offsets.dptr();
+        mat.mat     = datapack->dptr();
+
+        SparseOps<Data> op(&mat, &csr);
+        op.template Gather<cuSPARSEver::cuda11_onward>();
+        auto total_bytelen = op.get_total_bytelen();
+        auto outbin        = new u_int8_t[total_bytelen]();
+        op.ExportCSR(outbin);
+        io::WriteArrayToBinary(subfiles.compress.out_outlier, outbin, total_bytelen);
+        delete[] outbin;
+        nnz_outlier = csr.sp_size.nnz;
+    }
+#endif
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
     cudaFree(d_data);  // ad-hoc, release memory for large dataset
-
-    Quant* quant;
-    if (wf.skip_huffman_enc) {
-        quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
-        io::WriteArrayToBinary(subfiles.c_fo_q, quant, len);
-
-        LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
-
-        return;
-    }
 
     // autotuning Huffman chunksize
     int current_dev = 0;
@@ -246,17 +331,17 @@ void cusz::interface::Compress(
 
     if (wf.exp_partitioning_imbalance) {
         // 3D only
-        auto part0     = ap->part4._0;
-        auto part1     = ap->part4._1;
-        auto part2     = ap->part4._2;
-        auto num_part0 = (ap->dim4._0 - 1) / part0 + 1;
-        auto num_part1 = (ap->dim4._1 - 1) / part1 + 1;
-        auto num_part2 = (ap->dim4._2 - 1) / part2 + 1;
+        unsigned int part0     = ap->part4._0;
+        unsigned int part1     = ap->part4._1;
+        unsigned int part2     = ap->part4._2;
+        unsigned int num_part0 = (ap->dim4._0 - 1) / part0 + 1;
+        unsigned int num_part1 = (ap->dim4._1 - 1) / part1 + 1;
+        unsigned int num_part2 = (ap->dim4._2 - 1) / part2 + 1;
 
         LogAll(log_dbg, "p0:", ap->part4._0, " p1:", ap->part4._1, " p2:", ap->part4._2);
         LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
 
-        size_t block_stride1 = ap->part4._0, block_stride2 = block_stride1 * ap->part4._0;
+        unsigned int block_stride1 = ap->part4._0, block_stride2 = block_stride1 * ap->part4._0;
 
         LogAll(log_dbg, "stride1:", ap->stride4._1, " stride2:", ap->stride4._2);
         LogAll(log_dbg, "blockstride1:", block_stride1, " blockstride2:", block_stride2);
@@ -272,16 +357,17 @@ void cusz::interface::Compress(
         cudaFree(d_quant);
 
         Index<3>::idx_t part_dims{part0, part1, part2};
-        Index<3>::idx_t block_strides{1, (int)block_stride1, (int)block_stride2};
-        Index<3>::idx_t global_strides{1, (int)ap->stride4._1, (int)ap->stride4._2};
+        Index<3>::idx_t block_strides{1, block_stride1, block_stride2};
+        Index<3>::idx_t global_strides{1, ap->stride4._1, ap->stride4._2};
 
-        for (auto pk = 0; pk < num_part2; pk++) {
-            for (auto pj = 0; pj < num_part1; pj++) {
-                for (auto pi = 0; pi < num_part0; pi++) {
+        for (auto pk = 0U; pk < num_part2; pk++) {
+            for (auto pj = 0U; pj < num_part1; pj++) {
+                for (auto pi = 0U; pi < num_part0; pi++) {
                     auto start = pk * part2 * ap->stride4._2 + pj * part1 * ap->stride4._1 + pi * part0;
                     CopyToBuffer_3D(quant_buffer, quant, start, part_dims, block_strides, global_strides);
                     lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
-                        Index<3>::idx_t{pi, pj, pk}, subfiles.c_huff_base, quant_buffer, buffer_size, ap->dict_size);
+                        Index<3>::idx_t{pi, pj, pk}, subfiles.compress.huff_base, quant_buffer, buffer_size,
+                        ap->dict_size);
                 }
             }
         }
@@ -292,13 +378,65 @@ void cusz::interface::Compress(
         exit(0);
     }
 
+    // --------------------------------------------------------------------------------
+    // analyze compressibility
+    // --------------------------------------------------------------------------------
+    // TODO merge this Analyzer instance
+    Analyzer analyzer{};
+
+    // histogram
+    auto dict_size = ap->dict_size;
+    auto d_freq    = mem::CreateCUDASpace<unsigned int>(dict_size);
+    // TODO substitute with Analyzer method
+    wrapper::GetFrequency(d_quant, len, d_freq, dict_size);
+
+    auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
+
+    // get codebooks
+    static const auto type_bitcount = sizeof(Huff) * 8;
+    auto              d_canon_cb    = mem::CreateCUDASpace<Huff>(dict_size, 0xff);
+    // first, entry, reversed codebook; TODO CHANGED first and entry to H type
+    auto _nbyte       = sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
+    auto d_reverse_cb = mem::CreateCUDASpace<uint8_t>(_nbyte);
+    lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_reverse_cb);
+    cudaDeviceSynchronize();
+
+    // analysis
+    {
+        auto h_canon_cb = mem::CreateHostSpaceAndMemcpyFromDevice(d_canon_cb, dict_size);
+        analyzer  //
+            .EstimateFromHistogram(h_freq, dict_size)
+            .template GetHuffmanCodebookStat<Huff>(h_freq, h_canon_cb, len, dict_size)
+            .PrintCompressibilityInfo(true);
+    }
+
+    // internal evaluation, not stored in sz archive
+    if (wf.exp_export_codebook) draft::ExportCodebook(d_canon_cb, subfiles.compress.huff_base, dict_size);
+
+    delete[] h_freq;
+
+    // --------------------------------------------------------------------------------
+    // decide if skipping Huffman coding
+    // --------------------------------------------------------------------------------
+    if (wf.skip_huffman_enc) {
+        quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
+        io::WriteArrayToBinary(subfiles.compress.out_quant, quant, len);
+
+        LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
+
+        return;
+    }
+    // --------------------------------------------------------------------------------
+
     std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.c_huff_base, d_quant, len, ap->huffman_chunk, wf.lossless_nvcomp_cascade, ap->dict_size,
-        wf.exp_export_codebook);
+        subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk,
+        wf.lossless_nvcomp_cascade, ap->dict_size);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
     cudaFree(d_quant);
+    cudaFree(d_freq), cudaFree(d_canon_cb);
+    cudaFree(d_reverse_cb);
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
@@ -317,64 +455,145 @@ void cusz::interface::Decompress(
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
 
-    auto m   = ::cusz::impl::GetEdgeOfReinterpretedSquare(ap->len);
+    auto m   = static_cast<size_t>(ceil(sqrt(ap->len)));
     auto mxm = m * m;
 
     LogAll(log_info, "invoke lossy-reconstruction");
 
-    Quant* xq;
+    DataPack<Quant> quant("quant code");
+    quant.SetLen(ap->len).AllocHostSpace().AllocDeviceSpace();
+
     // step 1: read from filesystem or do Huffman decoding to get quant code
     if (wf.skip_huffman_enc) {
         LogAll(log_info, "load quant.code from filesystem");
-        xq = io::ReadBinaryToNewArray<Quant>(subfiles.x_fi_q, ap->len);
+        quant.template Move<transfer::fs2h>(subfiles.decompress.in_quant).template Move<transfer::h2d>();
     }
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
-        xq = lossless::interface::HuffmanDecode<Quant, Huff>(
-            subfiles.cx_path2file, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
+        lossless::interface::HuffmanDecode<Quant, Huff>(
+            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
         if (wf.verify_huffman) {
             LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
             /*
             // TODO check in argpack
-            if (subfiles.x_fi_origin == "") {
+            if (subfiles.decompress.in_origin == "") {
                 cerr << log_err << "use \"--origin /path/to/origin_data\" to specify the original datum." << endl;
                 exit(-1);
             }
             cout << log_info << "Verifying Huffman codec..." << endl;
-            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.x_fi_origin, len, xq, ap->huffman_chunk, dims,
+            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.decompress.in_origin, len, xq, ap->huffman_chunk, dims,
             eb_variants);
              */
         }
     }
 
-    // TODO ad-hoc; need padding
-    Quant* d_xq = nullptr;
-    cudaMalloc(&d_xq, (ap->len + MetadataTrait<1>::Block) * sizeof(Quant));  // one extra block as padding
-    cudaMemcpy(d_xq, xq, ap->len * sizeof(Quant), cudaMemcpyHostToDevice);
+    DataPack<Data> _data("xdata and outlier");
+    auto           xdata   = &_data;
+    auto           outlier = &_data;
 
-    auto d_outlier = mem::CreateCUDASpace<Data>(mxm + MetadataTrait<1>::Block);
-    ::cusz::impl::ScatterFromCSR<Data>(
-        d_outlier, mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.x_fi_outlier);
+    // need more padding more than pseudo-matrix (for failsafe in reconstruction kernels)
+    outlier->SetLen(ap->len).AllocDeviceSpace(mxm + MetadataTrait<1>::Block - ap->len);
 
-    auto d_xdata = d_outlier;  // TODO maybe use union
+    // CUDA 10 or earlier //
     {
-        if (ap->ndim == 1) {  // TODO expose problem size and more clear binding with Dg/Db
-            LorenzoNdConfig<1, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::x_lorenzo_1d1l_cub<Data, Quant><<<lc.cfg.Dg.x, lc.cfg.Db.x / MetadataTrait<1>::Sequentiality>>>  //
-                (lc.x_ctx, d_xdata, d_outlier, d_xq);
+        ::cusz::impl::ScatterFromCSR<Data>(
+            outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
+    }
+
+// CUDA 11 onward //
+#ifdef TO_REPLACE
+    {
+        struct CompressedSparseRow<Data> csr(m, m, nnz_outlier);
+        struct DenseMatrix<Data>         mat(m, m);
+        mat.mat = outlier->dptr();
+
+        Index<3>::idx_t trio{
+            static_cast<unsigned int>(csr.num_offsets() * sizeof(int)),
+            static_cast<unsigned int>(csr.sp_size.columns * sizeof(int)),
+            static_cast<unsigned int>(csr.sp_size.values * sizeof(Data))};
+
+        DataPack<uint8_t> _csr_bytes("csr bytes");
+        DataPack<int>     sp_csr_offsets("csr_offsets");
+        DataPack<int>     sp_csr_cols("csr cols");
+        DataPack<Data>    sp_csr_vals("csr vals");
+
+        _csr_bytes.SetLen(trio._0 + trio._1 + trio._2)
+            .AllocHostSpace()
+            .template Move<transfer::fs2h>(subfiles.decompress.in_outlier);
+        sp_csr_offsets  //
+            .SetLen(csr.num_offsets())
+            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr()))
+            .AllocDeviceSpace()
+            .template Move<transfer::h2d>();
+        sp_csr_cols  //
+            .SetLen(csr.sp_size.columns)
+            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr() + trio._0))
+            .AllocDeviceSpace()
+            .template Move<transfer::h2d>();
+        sp_csr_vals  //
+            .SetLen(csr.sp_size.values)
+            .SetHostSpace(reinterpret_cast<Data*>(_csr_bytes.hptr() + trio._0 + trio._1))
+            .AllocDeviceSpace()
+            .template Move<transfer::h2d>();
+
+        csr.offsets = sp_csr_offsets.dptr();
+        csr.columns = sp_csr_cols.dptr();
+        csr.values  = sp_csr_vals.dptr();
+
+        SparseOps<Data> op(&mat, &csr);
+        op.template Scatter<cuSPARSEver::cuda11_onward>();
+    }
+#endif
+
+    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
+    auto dimx    = tuple_dim4._0;
+    auto dimy    = tuple_dim4._1;
+    auto dimz    = tuple_dim4._2;
+    auto stridey = tuple_stride4._1;
+    auto stridez = tuple_stride4._2;
+
+    auto radius = ap->radius;
+    auto eb     = ap->eb;
+    auto ebx2   = (eb * 2);
+
+    auto num_partitions = [&](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
+
+    {
+        if (ap->ndim == 1) {  // y-sequentiality == 8
+            static const auto Sequentiality = 8;
+            static const auto DataSubsize   = MetadataTrait<1>::Block;
+            auto              dim_block     = DataSubsize / Sequentiality;
+            auto              dim_grid      = num_partitions(dimx, DataSubsize);
+
+            kernel::x_lorenzo_1d1l_cub<Data, Quant><<<dim_grid, dim_block>>>  //
+                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, radius, ebx2);
         }
         else if (ap->ndim == 2) {  // y-sequentiality == 8
-            LorenzoNdConfig<2, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::x_lorenzo_2d1l_16x16_v1<Data, Quant><<<lc.cfg.Dg, dim3(16, 2)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+
+            auto dim_block = dim3(16, 2);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 16),  //
+                num_partitions(dimy, 16));
+
+            kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant><<<dim_grid, dim_block>>>  //
+                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
         }
         else if (ap->ndim == 3) {  // y-sequentiality == 8
-            LorenzoNdConfig<3, Data, workflow::unzip> lc(ap->dim4, ap->stride4, ap->nblk4, ap->radius, ap->eb);
-            fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant><<<lc.cfg.Dg, dim3(8, 1, 8)>>>(lc.x_ctx, d_xdata, d_outlier, d_xq);
+
+            auto dim_block = dim3(32, 1, 8);
+            auto dim_grid  = dim3(
+                num_partitions(dimx, 32),  //
+                num_partitions(dimy, 8),   //
+                num_partitions(dimz, 8)    //
+            );
+
+            kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8<<<dim_grid, dim_block>>>  //
+                (xdata->dptr(), outlier->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
         }
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    auto xdata = mem::CreateHostSpaceAndMemcpyFromDevice(d_xdata, ap->len);
+    xdata->AllocHostSpace().template Move<transfer::d2h>();
 
     LogAll(log_info, "reconstruct error-bounded datum");
 
@@ -386,18 +605,6 @@ void cusz::interface::Decompress(
     else
         archive_bytes += ap->len * sizeof(Quant);
     archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
-
-    // TODO g++ and clang++ use mangled type_id name, add macro
-    // https://stackoverflow.com/a/4541470/8740097
-    auto demangle = [](const char* name) {
-        int   status = -4;
-        char* res    = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-
-        const char* const demangled_name = (status == 0) ? res : name;
-        string            ret_val(demangled_name);
-        free(res);
-        return ret_val;
-    };
 
     if (wf.skip_huffman_enc) {
         cout << log_info << "dtype is \""         //
@@ -411,28 +618,22 @@ void cusz::interface::Decompress(
     if (wf.pre_binning) cout << log_info << "Because of 2x2->1 binning, extra 4x CR is added." << endl;
 
     // TODO move CR out of VerifyData
-    if (subfiles.x_fi_origin != "") {
+    if (!subfiles.decompress.in_origin.empty()) {
         LogAll(log_info, "load the original datum for comparison");
 
-        auto odata = io::ReadBinaryToNewArray<Data>(subfiles.x_fi_origin, ap->len);
-        analysis::VerifyData(&ap->stat, xdata, odata, ap->len);
-        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, wf.pre_binning ? 4 : 1);
+        DataPack<Data> odata("original data");
+        odata.SetLen(ap->len).AllocHostSpace().template Move<transfer::fs2h>(subfiles.decompress.in_origin);
 
-        delete[] odata;
+        analysis::VerifyData(&ap->stat, xdata->hptr(), odata.hptr(), ap->len);
+        analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, archive_bytes, wf.pre_binning ? 4 : 1);
     }
-    LogAll(log_info, "output:", subfiles.cx_path2file + ".szx");
+    LogAll(log_info, "output:", subfiles.path2file + ".szx");
 
     if (wf.skip_write_output)
         LogAll(log_dbg, "skip writing unzipped to filesystem");
     else {
-        io::WriteArrayToBinary(subfiles.x_fo_xd, xdata, ap->len);
+        io::WriteArrayToBinary(subfiles.decompress.out_xdata, xdata, ap->len);
     }
-
-    // clean up
-    delete[] xdata;
-    delete[] xq;
-    cudaFree(d_outlier);
-    cudaFree(d_xq);
 }
 
 namespace szin = cusz::interface;
