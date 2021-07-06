@@ -15,7 +15,6 @@
 
 #include "cuda_wrap.cuh"
 #include "dryrun.cuh"
-#include "dualquant.cuh"
 #include "metadata.hh"
 
 #if __cplusplus >= 201703L
@@ -23,8 +22,6 @@
 #else
 #define CONSTEXPR
 #endif
-
-namespace fm = cusz::predictor_quantizer;
 
 enum class workflow { zip, unzip };
 
@@ -36,7 +33,7 @@ struct LorenzoNdConfig {
     lorenzo_unzip    x_ctx;
     lorenzo_dryrun   r_ctx;
 
-    LorenzoNdConfig(Integer4 dims, Integer4 strides, Integer4 nblks, int radius, double eb)
+    LorenzoNdConfig(UInteger4 dims, UInteger4 strides, UInteger4 nblks, int radius, double eb)
     {
         z_ctx.d0 = dims._0, z_ctx.d1 = dims._1, z_ctx.d2 = dims._2;
         z_ctx.stride1 = strides._1, z_ctx.stride2 = strides._2;
@@ -75,46 +72,5 @@ struct LorenzoNdConfig {
         }
     }
 };
-
-/////////
-
-// clang-format off
-namespace zip    { template <int ndim> struct Lorenzo_nd1l; }
-namespace dryrun { template <int ndim> struct Lorenzo_nd1l; }
-namespace unzip  { template <int ndim> struct Lorenzo_nd1l; }
-// clang-format on
-
-template <int ndim>
-struct zip::Lorenzo_nd1l {
-    template <typename Data, typename Quant>
-    static void Call(lorenzo_zip ctx, Data* d, Quant* q)
-    {
-        if CONSTEXPR (ndim == 1) fm::c_lorenzo_1d1l<Data, Quant>(ctx, d, q);
-        if CONSTEXPR (ndim == 2) fm::c_lorenzo_2d1l<Data, Quant>(ctx, d, q);
-        if CONSTEXPR (ndim == 3) fm::c_lorenzo_3d1l<Data, Quant>(ctx, d, q);
-    }
-};
-
-template <int ndim>
-struct unzip::Lorenzo_nd1l {
-    template <typename Data, typename Quant>
-    static void Call(lorenzo_unzip ctx, Data* xd, Data* outlier, Quant* q)
-    {
-        if CONSTEXPR (ndim == 1) fm::x_lorenzo_1d1l_cub<Data, Quant>(ctx, xd, outlier, q);
-        if CONSTEXPR (ndim == 2) fm::x_lorenzo_2d1l_16x16_v1<Data, Quant>(ctx, xd, outlier, q);
-        if CONSTEXPR (ndim == 3) fm::x_lorenzo_3d1l_8x8x8_v2<Data, Quant>(ctx, xd, outlier, q);
-    }
-};
-
-// template <int ndim>
-// struct dryrun::Lorenzo_nd1l {
-//    template <typename Data>
-//    static void Call(struct Metadata* m, Data* d)
-//    {
-//        if CONSTEXPR (ndim == 1) cusz::dryrun::lorenzo_1d1l(m, d);
-//        if CONSTEXPR (ndim == 2) cusz::dryrun::lorenzo_2d1l(m, d);
-//        if CONSTEXPR (ndim == 3) cusz::dryrun::lorenzo_3d1l(m, d);
-//    }
-//};
 
 #endif

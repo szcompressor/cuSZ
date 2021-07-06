@@ -39,3 +39,6 @@ src/*.o
 a.out
 tags
 *.o
+stat/.ipynb_checkpoints/
+stat/__pycache__
+src/pySZ/__pycache__

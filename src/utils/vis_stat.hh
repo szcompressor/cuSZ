@@ -1,8 +1,8 @@
-#ifndef ANALYSIS_HH
-#define ANALYSIS_HH
+#ifndef UTILS_VIS_STAT_HH
+#define UTILS_VIS_STAT_HH
 
 /**
- * @file analysis.hh
+ * @file vis_stat.hh
  * @author Jiannan Tian
  * @brief Analysis and visualization of datum.
  * @version 0.1
@@ -28,41 +28,6 @@ using std::cout;
 using std::endl;
 using std::tuple;
 
-namespace Analysis {
-template <typename T>
-tuple<double, double, double> GetStat(T* _d, size_t l, bool print = false)
-{
-    double Min = *std::min_element(_d, _d + l);
-    double Max = *std::max_element(_d, _d + l);
-    double sum = std::accumulate(_d, _d + l, 0);
-    double rng = Max - Min;
-    double avg = sum / l;
-    if (print) {
-        cout << "rng: " << rng << endl;
-        cout << "min: " << Min << endl;
-        cout << "max: " << Max << endl;
-        cout << "avg: " << avg << endl;
-    }
-    return std::make_tuple(Max, Min, rng);
-}
-
-template <typename T>
-tuple<double, double, double> GetStat(std::vector<T> _d, bool print = false)
-{
-    double Min = *std::min_element(_d.begin(), _d.end());
-    double Max = *std::max_element(_d.begin(), _d.end());
-    double sum = std::accumulate(_d.begin(), _d.end(), 0);
-    double rng = Max - Min;
-    double avg = sum / _d.size();
-    if (print) {
-        cout << "rng: " << rng << endl;
-        cout << "min: " << Min << endl;
-        cout << "max: " << Max << endl;
-        cout << "avg: " << avg << endl;
-    }
-    return std::make_tuple(Max, Min, rng);
-}
-
 template <typename T>
 double GetEntropy(T* code, size_t l, size_t cap = 1024)
 {
@@ -85,7 +50,7 @@ double GetEntropy(T* code, size_t l, size_t cap = 1024)
 
 // TODO automatically omit bins that are less than 1%
 template <typename T>
-void histogram(
+void VisualizeHistogram(
     const std::string& tag,
     T*                 _d_POD,
     size_t             l,
@@ -168,7 +133,5 @@ void histogram(
     cout << endl;
     //    delete[] arr;
 }
-
-}  // namespace Analysis
 
 #endif

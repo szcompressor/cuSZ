@@ -21,12 +21,22 @@
 #include <string>
 #include <tuple>
 
+#include "datapack.hh"
 #include "type_trait.hh"
 
 using std::string;
 
 typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
 
+/**
+ *
+ * @tparam UInt unsigned type
+ * @param freq frequency
+ * @param len data length
+ * @param dict_size dictionary size
+ * @deprecated merge into Analyzer
+ * @return entropy
+ */
 template <typename UInt>
 double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
 {
@@ -44,9 +54,6 @@ template <typename Huff>
 void GatherSpHuffMetadata(size_t* _counts, size_t* d_sp_bits, size_t nchunk, size_t& total_bits, size_t& total_uints);
 
 template <typename Huff>
-void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size);
-
-template <typename Huff>
 __global__ void CopyHuffmanUintsDenseToSparse(Huff*, Huff*, size_t*, size_t*, size_t);
 
 template <typename T>
@@ -57,28 +64,20 @@ void UseNvcompUnzip(T** space, size_t& len);
 
 }  // namespace draft
 
-// clang-format off
 namespace lossless {
-
-namespace wrapper {
-template <typename Input> void GetFrequency(Input*, size_t, unsigned int*, int);
-
-}  // namespace wrapper
-
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-std::tuple<size_t, size_t, size_t, bool> HuffmanEncode(string& basename, Quant* d_input, size_t len, int dn_chunk, bool to_nvcomp, int dict_size = 1024, bool export_cb=false);
+std::tuple<size_t, size_t, size_t, bool>
+HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, bool, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
-Quant* HuffmanDecode(std::string& basename, size_t len, int chunk_size, size_t total_uInts, bool nvcomp_in_use, int dict_size = 1024);
+void HuffmanDecode(std::string&, DataPack<Quant>*, size_t, int, size_t, bool, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_quant_in, size_t len, int dict_size);
 
 }  // namespace interface
 }  // namespace lossless
-
-// clang-format on
 
 #endif

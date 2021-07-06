@@ -29,10 +29,9 @@
 #include <type_traits>
 #include <vector>
 
-#include "hist.cuh"
-#include "huff_codec.cuh"
 #include "huff_interface.cuh"
-#include "par_huffman.cuh"
+#include "kernel/codec_huffman.cuh"
+#include "kernel/hist.cuh"
 #include "type_aliasing.hh"
 #include "type_trait.hh"
 #include "types.hh"
@@ -52,7 +51,6 @@
 #endif
 
 typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
-namespace kernel = data_process::reduce;
 
 #define nworker blockDim.x
 
@@ -73,18 +71,6 @@ __global__ void draft::CopyHuffmanUintsDenseToSparse(
         if (_tid < len) *(output_sp + sp_entry + _tid) = *(input_dn + dn_entry + _tid);
         __syncthreads();
     }
-}
-
-template <typename Huff>
-void draft::ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
-{
-    auto              cb_dump = mem::CreateHostSpaceAndMemcpyFromDevice(d_canon_cb, dict_size);
-    std::stringstream s;
-    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
-    LogAll(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
-    io::WriteArrayToBinary(s.str(), cb_dump, dict_size);
-    delete[] cb_dump;
-    cb_dump = nullptr;
 }
 
 template <typename Huff>
@@ -175,115 +161,33 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
     cudaFree(temp_space);
 }
 
-template <typename Input>
-void lossless::wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
-{
-    static_assert(
-        std::is_same<Input, UI1>::value         //
-            or std::is_same<Input, UI2>::value  //
-            or std::is_same<Input, I1>::value   //
-            or std::is_same<Input, I2>::value,
-        "To get frequency, input dtype must be uint/int{8,16}_t");
-
-    // Parameters for thread and block count optimization
-    // Initialize to device-specific values
-    int deviceId, max_bytes, max_bytes_opt_in, num_SMs;
-
-    cudaGetDevice(&deviceId);
-    cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
-    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, deviceId);
-
-    // Account for opt-in extra shared memory on certain architectures
-    cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
-    max_bytes = std::max(max_bytes, max_bytes_opt_in);
-
-    // Optimize launch
-    int num_buckets      = dict_size;
-    int num_values       = len;
-    int items_per_thread = 1;
-    int r_per_block      = (max_bytes / (int)sizeof(int)) / (num_buckets + 1);
-    int num_blocks       = num_SMs;
-    // fits to size
-    int threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
-    while (threads_per_block > 1024) {
-        if (r_per_block <= 1) { threads_per_block = 1024; }
-        else {
-            r_per_block /= 2;
-            num_blocks *= 2;
-            threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
-        }
-    }
-
-    if CONSTEXPR (
-        std::is_same<Input, UI1>::value     //
-        or std::is_same<Input, UI2>::value  //
-        or std::is_same<Input, UI4>::value) {
-        cudaFuncSetAttribute(
-            kernel::p2013Histogram<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
-        kernel::p2013Histogram                                                                    //
-            <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
-            (d_in, d_freq, num_values, num_buckets, r_per_block);
-    }
-    else if CONSTEXPR (
-        std::is_same<Input, I1>::value     //
-        or std::is_same<Input, I2>::value  //
-        or std::is_same<Input, I4>::value) {
-        cudaFuncSetAttribute(
-            kernel::p2013Histogram_int_input<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize,
-            max_bytes);
-        kernel::p2013Histogram_int_input                                                          //
-            <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
-            (d_in, d_freq, num_values, num_buckets, r_per_block, dict_size / 2);
-    }
-    else {
-        LogAll(log_err, "must be Signed or Unsigned integer as Input type");
-    }
-
-    cudaDeviceSynchronize();
-}
-
 template <typename Quant, typename Huff, typename Data>
 tuple_3ul_1bool lossless::interface::HuffmanEncode(
-    string& basename,
-    Quant*  d_input,
-    size_t  len,
-    int     dn_chunk,
-    bool    to_nvcomp,
-    int     dict_size,
-    bool    export_cb)
+    string&  basename,
+    Quant*   d_input,
+    Huff*    d_canon_cb,
+    uint8_t* d_reverse_cb,
+    size_t   _nbyte,
+    size_t   len,
+    int      dn_chunk,
+    bool     to_nvcomp,
+    int      dict_size)
 {
     static const auto type_bitcount = sizeof(Huff) * 8;  // canonical Huffman; follows H to decide first and entry type
 
     auto get_Dg = [](size_t problem_size, size_t Db) { return (problem_size + Db - 1) / Db; };
 
-    // histogram
-    auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
-    lossless::wrapper::GetFrequency(d_input, len, d_freq, dict_size);
-
-    // get codebooks
-    auto d_canon_cb = mem::CreateCUDASpace<Huff>(dict_size, 0xff);
-    // first, entry, reversed codebook; TODO CHANGED first and entry to H type
-    auto _nbyte          = sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
-    auto d_dec_ancillary = mem::CreateCUDASpace<uint8_t>(_nbyte);
-    lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_dec_ancillary);
-    cudaDeviceSynchronize();
-
-    auto decode_meta = mem::CreateHostSpaceAndMemcpyFromDevice(d_dec_ancillary, _nbyte);
+    auto decode_meta = mem::CreateHostSpaceAndMemcpyFromDevice(d_reverse_cb, _nbyte);
     io::WriteArrayToBinary(
         basename + ".canon", reinterpret_cast<uint8_t*>(decode_meta),
         sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size);
     delete[] decode_meta;
 
-    // internal evaluation, not stored in sz archive
-    if (export_cb) draft::ExportCodebook(d_canon_cb, basename, dict_size);
-
     // Huffman space in dense format (full of zeros), fix-length space
-    // auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + HuffConfig::Db_encode); // origin
-    // auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + HuffConfig::Db_encode); // prev small padding
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + dn_chunk + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
     {
         auto Db = HuffConfig::Db_encode;
-        lossless::wrapper::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
+        kernel::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
             <<<get_Dg(len, Db), Db / HuffConfig::enc_sequentiality>>>(d_input, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
@@ -293,7 +197,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
-        lossless::wrapper::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        kernel::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
         cudaDeviceSynchronize();
     }
 
@@ -329,7 +233,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
         (2 * nchunk) * sizeof(decltype(_counts)) + sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
 
     // clean up
-    cudaFree(d_freq), cudaFree(d_canon_cb), cudaFree(d_dec_ancillary), cudaFree(d_huff_dn), cudaFree(d_sp_bits);
+    cudaFree(d_huff_dn), cudaFree(d_sp_bits);
     delete[] huff_sp, delete[] _counts;
 
     return std::make_tuple(total_bits, total_uints, metadata_size, status_nvcomp_in_use);
@@ -350,7 +254,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_quant_in = mem::CreateDeviceSpaceAndMemcpyFromHost(h_quant_in, len);
 
     auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
-    lossless::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
+    ::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
     cudaFree(d_freq);
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
 
@@ -367,7 +271,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len);
     {
         auto Db = HuffConfig::Db_encode;
-        lossless::wrapper::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
+        kernel::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
 
@@ -377,7 +281,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
-        lossless::wrapper::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        kernel::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
         cudaDeviceSynchronize();
     }
 
@@ -426,13 +330,14 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
 }
 
 template <typename Quant, typename Huff, typename Data>
-Quant* lossless::interface::HuffmanDecode(
-    std::string& basename,  //
-    size_t       len,
-    int          chunk_size,
-    size_t       total_uints,
-    bool         nvcomp_in_use,
-    int          dict_size)
+void lossless::interface::HuffmanDecode(
+    std::string&     basename,  //
+    DataPack<Quant>* quant,
+    size_t           len,
+    int              chunk_size,
+    size_t           total_uints,
+    bool             nvcomp_in_use,
+    int              dict_size)
 {
     auto type_bw    = sizeof(Huff) * 8;
     auto canon_meta = sizeof(Huff) * (2 * type_bw) + sizeof(Quant) * dict_size;
@@ -444,7 +349,6 @@ Quant* lossless::interface::HuffmanDecode(
     auto Db           = HuffConfig::Db_deflate;  // the same as deflating
     auto Dg           = (nchunk - 1) / Db + 1;
 
-    auto d_xq      = mem::CreateCUDASpace<Quant>(len);
     auto d_huff_sp = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
 
     if (nvcomp_in_use) draft::UseNvcompUnzip(&d_huff_sp, total_uints);
@@ -453,20 +357,18 @@ Quant* lossless::interface::HuffmanDecode(
     auto d_canon_byte   = mem::CreateDeviceSpaceAndMemcpyFromHost(canon_byte, canon_meta);
     cudaDeviceSynchronize();
 
-    lossless::wrapper::Decode<<<Dg, Db, canon_meta>>>(  //
-        d_huff_sp, d_huff_sp_meta, d_xq, len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
+    kernel::Decode<<<Dg, Db, canon_meta>>>(  //
+        d_huff_sp, d_huff_sp_meta, quant->dptr(), len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
     cudaDeviceSynchronize();
 
-    auto xq = mem::CreateHostSpaceAndMemcpyFromDevice(d_xq, len);
-    cudaFree(d_xq);
+    // quant->template Move<transfer::d2h>(); // unnecessary if no Huffman decoding verification
+
     cudaFree(d_huff_sp);
     cudaFree(d_huff_sp_meta);
     cudaFree(d_canon_byte);
     delete[] huff_sp;
     delete[] huff_sp_meta;
     delete[] canon_byte;
-
-    return xq;
 }
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
@@ -474,15 +376,15 @@ Quant* lossless::interface::HuffmanDecode(
 // using H4 = HuffTrait<4>::Huff;
 
 // clang-format off
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, size_t, int, bool, int, bool);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, size_t, int, bool, int, bool);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, size_t, int, bool, int, bool);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, size_t, int, bool, int, bool);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, bool, int);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, bool, int);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
+template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
 
-template UI1* lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, size_t, int, size_t, bool, int);
-template UI2* lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, size_t, int, size_t, bool, int);
-template UI1* lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, size_t, int, size_t, bool, int);
-template UI2* lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, bool, int);
 
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI4>(Index<3>::idx_t, string&, UI1*, size_t, int);
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI8>(Index<3>::idx_t, string&, UI1*, size_t, int);

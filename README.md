@@ -17,6 +17,7 @@ Our published paper covers the essential design and implementation, accessible v
 
 * Developers: Jiannan Tian, Cody Rivera, Wenyu Gai, Dingwen Tao, Sheng Di, Franck Cappello
 * Contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Xin Liang, Robert Underwood, Kai Zhao
+* Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021!
 
 # set up
 ## requirements
@@ -26,25 +27,25 @@ Our published paper covers the essential design and implementation, accessible v
   - More reference: 1) [CUDA compiler compatibility](https://gist.github.com/ax3l/9489132), 2) [compilation instruction](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
   - Note that *CUDA version* is referred to as the *toolchain version* (e.g., activated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
 
-|      |     |      |      |      |      |      |      |
-| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- |
-| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
-|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
-|      |     |      |      |      | 9.x  | 9.x  | 9.x  |
-| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 |
+|      |     |      |      |      |      |      |      |      |
+| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
+|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
+|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  |
+| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 |
 
 
 ## from GitHub
 
 ```bash
-git clone --recursive git@github.com:szcompressor/cuSZ.git cusz && cd cusz
+git clone --recursive https://github.com/szcompressor/cuSZ.git cusz && cd cusz
 chmod 755 ./build.py && ./build.py <target> <optional: build type>
 ```
 - For maximal compatibility, use `./build.py compat`. 
 - For optimal compilation, use `./build.py <target> <optional: build type>`. 
   - Target names other than `compat` include `p100`, `v100`, `a100`, `pascal`, `turing`, `ampere`.
-  - Build types include `release`, `release-profile`, `debug`.
-`build.py` automatically builds `cusz`. `sudo make install` can be used to install to system path.
+  - Build types include `release`, `release-profile` (enabling `-lineinfo`), `debug` (enabling `-G`).
+`build.py` automatically builds `cusz`. `make install` would install to `${HOME}/bin`.
 
 ## from Spack
 

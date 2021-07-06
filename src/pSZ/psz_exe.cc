@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "../analysis_utils.hh"
+#include "../datapack.hh"
 #include "../datasets.hh"
 #include "../types.hh"
 #include "../utils/verify.hh"
