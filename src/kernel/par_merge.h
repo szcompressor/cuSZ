@@ -37,14 +37,17 @@
  */
 
 /**
- * @file par_merge.cu
+ * @file par_merge.h
  * @author Oded Green (ogreen@gatech.edu), Rob McColl (robert.c.mccoll@gmail.com))
  * @brief Modified and adapted by Cody Rivera
- * @version 0.1
+ * @version 0.3
  * @date 2020-10-24
- * Created on: 2020-06
+ * (created) 2020-06 (rev) 2021-06-21
  *
  */
+
+#ifndef PAR_MERGE_H
+#define PAR_MERGE_H
 
 #include <float.h>
 #include <limits.h>
@@ -53,9 +56,7 @@
 #include <stdlib.h>
 
 #include <cooperative_groups.h>
-#include "par_merge.cuh"
-
-using namespace cooperative_groups;
+namespace cg = cooperative_groups;
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -69,6 +70,95 @@ using namespace cooperative_groups;
  */
 #define PADDING 1024
 
+/********************************************************************************
+ * signature
+ ********************************************************************************/
+
+// Partition array
+template <typename F>
+__device__ void cudaWorkloadDiagonals(
+    F*        copyFreq,
+    int*      copyIndex,
+    int*      copyIsLeaf,
+    int       cStart,
+    int       cEnd,
+    F*        iNodesFreq,
+    int       iStart,
+    int       iEnd,
+    int       iNodesCap,
+    uint32_t* diagonal_path_intersections,
+    /* Shared Memory */
+    int32_t& x_top,
+    int32_t& y_top,
+    int32_t& x_bottom,
+    int32_t& y_bottom,
+    int32_t& found,
+    int32_t* oneorzero);
+
+// Merge partitions
+template <typename F>
+__device__ void cudaMergeSinglePath(
+    F*        copyFreq,
+    int*      copyIndex,
+    int*      copyIsLeaf,
+    int       cStart,
+    int       cEnd,
+    F*        iNodesFreq,
+    int       iStart,
+    int       iEnd,
+    int       iNodesCap,
+    uint32_t* diagonal_path_intersections,
+    F*        tempFreq,
+    int*      tempIndex,
+    int*      tempIsLeaf,
+    int       tempLength);
+
+template <typename F>
+__device__ void parMerge(
+    F*        copyFreq,
+    int*      copyIndex,
+    int*      copyIsLeaf,
+    int       cStart,
+    int       cEnd,
+    F*        iNodesFreq,
+    int       iStart,
+    int       iEnd,
+    int       iNodesCap,
+    F*        tempFreq,
+    int*      tempIndex,
+    int*      tempIsLeaf,
+    int&      tempLength,
+    uint32_t* diagonal_path_intersections,
+    int       blocks,
+    int       threads,
+    /* Shared Memory */
+    int32_t& x_top,
+    int32_t& y_top,
+    int32_t& x_bottom,
+    int32_t& y_bottom,
+    int32_t& found,
+    int32_t* oneorzero);
+
+template <typename F>
+__device__ void merge(
+    F*   copyFreq,
+    int* copyIndex,
+    int* copyIsLeaf,
+    int  cStart,
+    int  cEnd,
+    F*   iNodesFreq,
+    int  iStart,
+    int  iEnd,
+    int  iNodesCap,
+    F*   tempFreq,
+    int* tempIndex,
+    int* tempIsLeaf,
+    int& tempLength);
+
+/********************************************************************************
+ * definition
+ ********************************************************************************/
+
 // clang-format off
 template <typename F>
 __device__ void parMerge(
@@ -79,9 +169,9 @@ __device__ void parMerge(
     /* Shared Memory */
     int32_t& x_top, int32_t& y_top,  int32_t& x_bottom, int32_t& y_bottom,
     int32_t& found, int32_t* oneorzero)
-{
+    {
     // clang-format on
-    auto current_grid = this_grid();
+    auto current_grid = cg::this_grid();
     current_grid.sync();
     tempLength = (cEnd - cStart) + MOD(iEnd - iStart, iNodesCap);
 
@@ -350,3 +440,5 @@ template __device__ void merge<unsigned int>(
     int*          tempIndex,
     int*          tempIsLeaf,
     int&          tempLength);
+
+#endif

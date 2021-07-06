@@ -1,5 +1,5 @@
 /**
- * @file gather_scatter.cu
+ * @file deprecated_sparsity.cu
  * @author Jiannan Tian
  * @brief Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.1
@@ -17,10 +17,10 @@
 #include <cassert>
 #include <iostream>
 
-#include "gather_scatter.cuh"
-#include "utils/cuda_err.cuh"
-#include "utils/format.hh"
-#include "utils/io.hh"
+#include "../utils/cuda_err.cuh"
+#include "../utils/format.hh"
+#include "../utils/io.hh"
+#include "deprecated_sparsity.h"
 
 using std::cout;
 using std::endl;

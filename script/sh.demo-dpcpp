@@ -1,0 +1,19 @@
+#!/bin/bash
+
+cd ..
+
+echo $(pwd)
+
+eval "rm -fr demo_dpcpp"
+eval "cp script/demo.dpcpp.1.Makefile ./Makefile"
+eval "intercept-build make"
+eval "dpct -p compile_commands.json --in-root=. --out-root=demo_dpcpp"
+eval "cp script/demo.dpcpp.2.Makefile ./demo_dpcpp/Makefile"
+
+cd demo_dpcpp
+
+echo $(pwd)
+eval "make"
+
+echo ""
+echo "navigate using \"cd ../demo_dpcpp\" to execute \"dpcpp_demo_lorenzo\""

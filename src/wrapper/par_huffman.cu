@@ -6,29 +6,37 @@
  *        "A Two-phase Practical Parallel Algorithm for Construction of Huffman Codes".
  * @version 0.1
  * @date 2020-10-24
- * Created on: 2020-05
+ * (created) 2020-05 (rev) 2021-06-21
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
 
+#include <cooperative_groups.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sort.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <limits>
+#include <type_traits>
 
-#include "par_huffman.cuh"
-#include "par_huffman_sortbyfreq.cuh"
-#include "par_merge.cuh"
-#include "type_aliasing.hh"
-#include "utils/cuda_err.cuh"
-#include "utils/cuda_mem.cuh"
-#include "utils/dbg_print.cuh"
-#include "utils/format.hh"
+#include "../kernel/par_merge.h"
+#include "../type_aliasing.hh"
+#include "../utils/cuda_err.cuh"
+#include "../utils/cuda_mem.cuh"
+#include "../utils/dbg_print.cuh"
+#include "../utils/format.hh"
+#include "par_huffman.h"
 
+using std::cout;
+using std::endl;
+namespace cg = cooperative_groups;
 
 // GenerateCL Locals
 __device__ int iNodesFront = 0;
@@ -56,9 +64,37 @@ __device__ int newCDPI;
 __device__ long long int s[10];
 __device__ long long int st[10];
 
-
 // Mathematically correct mod
 #define MOD(a, b) ((((a) % (b)) + (b)) % (b))
+
+namespace lossless {
+namespace par_huffman {
+namespace helper {
+
+// clang-format off
+template <typename T>             __global__ void GPU_FillArraySequence(T*, unsigned int);
+template <typename T>             __global__ void GPU_GetFirstNonzeroIndex(T*, unsigned int, unsigned int*);
+template <typename T>             __global__ void GPU_ReverseArray(T*, unsigned int);
+template <typename T, typename Q> __global__ void GPU_ReorderByIndex(T*, Q*, unsigned int);
+// clang-format on
+
+}  // namespace helper
+}  // namespace par_huffman
+}  // namespace lossless
+
+namespace lossless {
+namespace par_huffman {
+
+// Codeword length
+template <typename F>
+__global__ void GPU_GenerateCL(F*, F*, int, F*, int*, F*, int*, F*, int*, int*, F*, int*, int*, uint32_t*, int, int);
+
+// Forward Codebook
+template <typename F, typename H>
+__global__ void GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size);
+
+}  // namespace par_huffman
+}  // namespace lossless
 
 // Parallel huffman code generation
 // clang-format off
@@ -85,7 +121,7 @@ __global__ void lossless::par_huffman::GPU_GenerateCL(
 
     unsigned int       thread       = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i            = thread;  // Adaptation for easier porting
-    auto               current_grid = this_grid();
+    auto               current_grid = cg::this_grid();
 
     /* Initialization */
     if (thread < size) {
@@ -313,7 +349,7 @@ __global__ void lossless::par_huffman::GPU_GenerateCW(F* CL, H* CW, H* first, H*
 {
     unsigned int       thread       = (blockIdx.x * blockDim.x) + threadIdx.x;
     const unsigned int i            = thread;  // Porting convenience
-    auto               current_grid = this_grid();
+    auto               current_grid = cg::this_grid();
     auto               type_bw      = sizeof(H) * 8;
 
     /* Reverse in place - Probably a more CUDA-appropriate way */
@@ -420,7 +456,6 @@ __global__ void lossless::par_huffman::GPU_GenerateCW(F* CL, H* CW, H* first, H*
     }
 }
 
-
 // TODO forceinilne?
 // Helper implementations
 template <typename T>
@@ -498,7 +533,22 @@ void lossless::par_huffman::ParGetCodebook(
     lossless::par_huffman::helper::GPU_FillArraySequence<Q><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
     cudaDeviceSynchronize();
 
-    lossless::par_huffman::helper::SortByFreq(_d_freq, _d_qcode, dict_size);
+    /**
+     * Originally from  par_huffman_sortbyfreq.cu by Cody Rivera (cjrivera1@crimson.ua.edu)
+     * Sorts quantization codes by frequency, using a key-value sort. This functionality is placed in a separate
+     * compilation unit as thrust calls fail in par_huffman.cu.
+     *
+     * Resolved by
+     * 1) inlining function
+     * 2) using `thrust::device_pointer_cast(var)` instead of `thrust::device_pointer<T>(var)`
+     */
+    auto lambda_sort_by_freq = [] __host__(auto freq, auto len, auto qcode) {
+        thrust::sort_by_key(
+            thrust::device_pointer_cast(freq), thrust::device_pointer_cast(freq + len),
+            thrust::device_pointer_cast(qcode));
+    };
+
+    lambda_sort_by_freq(_d_freq, dict_size, _d_qcode);
     cudaDeviceSynchronize();
 
     unsigned int* d_first_nonzero_index;
@@ -673,7 +723,8 @@ void lossless::par_huffman::ParGetCodebook(
 #endif
 }
 
-// Specialize wrapper
+/********************************************************************************/
+// instantiate wrapper
 template void lossless::par_huffman::ParGetCodebook<UI1, UI4>(int, unsigned int*, UI4*, UI1*);
 template void lossless::par_huffman::ParGetCodebook<UI1, UI8>(int, unsigned int*, UI8*, UI1*);
 template void lossless::par_huffman::ParGetCodebook<UI1, UI8_2>(int, unsigned int*, UI8_2*, UI1*);

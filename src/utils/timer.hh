@@ -1,6 +1,3 @@
-#ifndef UTILS_TIMER_HH
-#define UTILS_TIMER_HH
-
 /**
  * @file timer.hh
  * @author Jiannan Tian
@@ -14,12 +11,11 @@
  *
  */
 
+#ifndef UTILS_TIMER_HH
+#define UTILS_TIMER_HH
+
 #include <chrono>
 #include <utility>
-
-#ifdef __CUDACC__
-#include "../cuda_wrap.cuh"
-#endif
 
 using hires         = std::chrono::high_resolution_clock;
 using duration_t    = std::chrono::duration<double>;
@@ -44,19 +40,13 @@ double TimeThisFunction(F func, Args&&... args)
     return static_cast<duration_t>(hires::now() - t0).count();
 }
 
-#ifdef __CUDACC__
+typedef struct CUDAKernelConfig {
+    dim3         dim_grid;
+    dim3         dim_block;
+    size_t       num_shmem_bytes{0};
+    cudaStream_t stream;
 
-// /**
-//  * @brief CUDA kernel config; pass by non-pointer value
-//  *
-//  */
-// typedef struct CUDAKernelConfig {
-//     dim3         Dg;  /**< dimension of grid */
-//     dim3         Db;  // dimension of block
-//     size_t       Ns;  // per-block shmem bytes
-//     cudaStream_t S;   // stream
-
-// } kernel_cfg_t;
+} kernelcfg;
 
 // TODO use cudaEvent
 /**
@@ -70,17 +60,15 @@ double TimeThisFunction(F func, Args&&... args)
  * @return double time in seconds
  */
 template <typename F, typename... Args>
-double TimeThisCUDAFunction(F func, kernel_cfg_t cfg, Args&&... args)
+double TimeThisCUDAFunction(F func, kernelcfg cfg, Args&&... args)
 {
     auto t0 = hires::now();
-    func<<<cfg.Dg, cfg.Db, cfg.Ns, cfg.S>>>(  //
+    func<<<cfg.dim_grid, cfg.dim_block, cfg.num_shmem_bytes, cfg.stream>>>(  //
         args...
         // std::forward<Args>(args)... // also works
     );
     cudaDeviceSynchronize();
     return static_cast<duration_t>(hires::now() - t0).count();
 }
-
-#endif  // CUDACC
 
 #endif  // UTILS_TIMER_HH

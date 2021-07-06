@@ -29,20 +29,22 @@
 #include <type_traits>
 #include <vector>
 
-#include "huff_interface.cuh"
-#include "kernel/codec_huffman.cuh"
-#include "kernel/hist.cuh"
-#include "type_aliasing.hh"
-#include "type_trait.hh"
-#include "types.hh"
-#include "utils/cuda_err.cuh"
-#include "utils/cuda_mem.cuh"
-#include "utils/format.hh"
-#include "utils/io.hh"
-#include "utils/timer.hh"
+#include "../kernel/hist.h"
+#include "../kernel/huffman_codec.h"
+#include "../type_aliasing.hh"
+#include "../type_trait.hh"
+#include "../types.hh"
+#include "../utils/cuda_err.cuh"
+#include "../utils/cuda_mem.cuh"
+#include "../utils/format.hh"
+#include "../utils/io.hh"
+#include "../utils/timer.hh"
+#include "deprecated_lossless_huffman.h"
 
+#ifdef MODULAR_ELSEWHERE
 #include "cascaded.hpp"
 #include "nvcomp.hpp"
+#endif
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
@@ -55,7 +57,7 @@ typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
 #define nworker blockDim.x
 
 template <typename Huff>
-__global__ void draft::CopyHuffmanUintsDenseToSparse(
+__global__ void cusz::CopyHuffmanUintsDenseToSparse(
     Huff*   input_dn,
     Huff*   output_sp,
     size_t* sp_entries,
@@ -74,7 +76,7 @@ __global__ void draft::CopyHuffmanUintsDenseToSparse(
 }
 
 template <typename Huff>
-void draft::GatherSpHuffMetadata(
+void cusz::GatherSpHuffMetadata(
     size_t* _counts,
     size_t* d_sp_bits,
     size_t  nchunk,
@@ -100,6 +102,7 @@ void draft::GatherSpHuffMetadata(
     //    LogAll(log_dbg, fmt_enc1, "=>", fmt_enc2);
 }
 
+#ifdef MODULAR_ELSEWHERE
 template <typename T>
 void draft::UseNvcompZip(T* space, size_t& len)
 {
@@ -161,6 +164,8 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
     cudaFree(temp_space);
 }
 
+#endif
+
 template <typename Quant, typename Huff, typename Data>
 tuple_3ul_1bool lossless::interface::HuffmanEncode(
     string&  basename,
@@ -187,7 +192,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + dn_chunk + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
     {
         auto Db = HuffConfig::Db_encode;
-        kernel::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
+        cusz::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
             <<<get_Dg(len, Db), Db / HuffConfig::enc_sequentiality>>>(d_input, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
@@ -197,14 +202,14 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
-        kernel::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        cusz::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
         cudaDeviceSynchronize();
     }
 
     // gather metadata (without write) before gathering huff as sp on GPU
     auto   _counts    = new size_t[nchunk * 3]();
     size_t total_bits = 0, total_uints = 0;
-    draft::GatherSpHuffMetadata<Huff>(_counts, d_sp_bits, nchunk, total_bits, total_uints);
+    cusz::GatherSpHuffMetadata<Huff>(_counts, d_sp_bits, nchunk, total_bits, total_uints);
 
     // partially gather on GPU and copy back (TODO fully)
     auto huff_sp = new Huff[total_uints]();
@@ -212,7 +217,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
         auto d_huff_sp = mem::CreateCUDASpace<Huff>(total_uints);
         auto d_uints   = mem::CreateDeviceSpaceAndMemcpyFromHost(_counts, nchunk);               // sp_uints
         auto d_entries = mem::CreateDeviceSpaceAndMemcpyFromHost(_counts + nchunk * 2, nchunk);  // sp_entries
-        draft::CopyHuffmanUintsDenseToSparse<<<nchunk, 128>>>(d_huff_dn, d_huff_sp, d_entries, d_uints, dn_chunk);
+        cusz::CopyHuffmanUintsDenseToSparse<<<nchunk, 128>>>(d_huff_dn, d_huff_sp, d_entries, d_uints, dn_chunk);
         cudaDeviceSynchronize();
         cudaMemcpy(huff_sp, d_huff_sp, total_uints * sizeof(Huff), cudaMemcpyDeviceToHost);
         cudaFree(d_entries), cudaFree(d_uints), cudaFree(d_huff_sp);
@@ -220,10 +225,12 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
 
     // use nvcomp, which changes metadata to write to fs
     bool status_nvcomp_in_use = false;
+#ifdef MODULAR_ELSEWHERE
     if (to_nvcomp) {
         draft::UseNvcompZip<Huff>(huff_sp, total_uints);
         status_nvcomp_in_use = true;
     }
+#endif
 
     // write metadata to fs
     io::WriteArrayToBinary(basename + ".hmeta", _counts + nchunk, 2 * nchunk);
@@ -271,7 +278,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len);
     {
         auto Db = HuffConfig::Db_encode;
-        kernel::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
+        cusz::EncodeFixedLen<Quant, Huff><<<get_Dg(len, Db), Db>>>(d_quant_in, d_huff_dn, len, d_canon_cb);
         cudaDeviceSynchronize();
     }
 
@@ -281,14 +288,14 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
-        kernel::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+        cusz::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
         cudaDeviceSynchronize();
     }
 
     // gather metadata (without write) before gathering huff as sp on GPU
     auto   _counts    = new size_t[nchunk * 3]();
     size_t total_bits = 0, total_uints = 0;
-    draft::GatherSpHuffMetadata<Huff>(_counts, d_sp_bits, nchunk, total_bits, total_uints);
+    cusz::GatherSpHuffMetadata<Huff>(_counts, d_sp_bits, nchunk, total_bits, total_uints);
 
     // partially gather on GPU and copy back (TODO fully)
     auto huff_sp = new Huff[total_uints]();
@@ -296,7 +303,7 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
         auto d_huff_sp = mem::CreateCUDASpace<Huff>(total_uints);
         auto d_uints   = mem::CreateDeviceSpaceAndMemcpyFromHost(_counts, nchunk);               // sp_uints
         auto d_entries = mem::CreateDeviceSpaceAndMemcpyFromHost(_counts + nchunk * 2, nchunk);  // sp_entries
-        draft::CopyHuffmanUintsDenseToSparse<<<nchunk, 128>>>(d_huff_dn, d_huff_sp, d_entries, d_uints, dn_chunk);
+        cusz::CopyHuffmanUintsDenseToSparse<<<nchunk, 128>>>(d_huff_dn, d_huff_sp, d_entries, d_uints, dn_chunk);
         cudaDeviceSynchronize();
         cudaMemcpy(huff_sp, d_huff_sp, total_uints * sizeof(Huff), cudaMemcpyDeviceToHost);
         cudaFree(d_entries), cudaFree(d_uints), cudaFree(d_huff_sp);
@@ -351,13 +358,15 @@ void lossless::interface::HuffmanDecode(
 
     auto d_huff_sp = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
 
+#ifdef MODULAR_ELSEWHERE
     if (nvcomp_in_use) draft::UseNvcompUnzip(&d_huff_sp, total_uints);
+#endif
 
     auto d_huff_sp_meta = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp_meta, 2 * nchunk);
     auto d_canon_byte   = mem::CreateDeviceSpaceAndMemcpyFromHost(canon_byte, canon_meta);
     cudaDeviceSynchronize();
 
-    kernel::Decode<<<Dg, Db, canon_meta>>>(  //
+    cusz::Decode<<<Dg, Db, canon_meta>>>(  //
         d_huff_sp, d_huff_sp_meta, quant->dptr(), len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
     cudaDeviceSynchronize();
 

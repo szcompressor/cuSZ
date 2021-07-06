@@ -118,17 +118,17 @@ void PrintMetrics(
         linkline();
         indent(), printf("%-20s\e[31m%15.8g\e[0m", "max.err.abs.val", stat->max_abserr), newline();
         indent(), printf("%-20s%15lu", "max.err.abs.idx", stat->max_abserr_index), newline();
-        if (override_eb) {
-            indent(), printf("----------------------------------------------------------------\n");
-            indent(), printf("OVERRODE eb (because of, for example, binning) to:\t%.6G", new_eb), newline();
-            indent(), printf("max.err.abs.val/OVERRIDEN eb:\t%.6G", stat->max_abserr / new_eb), newline();
-            indent(), printf("----------------------------------------------------------------\n");
-        }
-        else {
-            indent(), printf("%-20s\e[31m%15.8e\e[0m", "max.err.vs.rng", stat->max_abserr_vs_rng), newline();
-        }
-        indent(), printf("%-20s%15.8g", "max.pw.rel.err", stat->max_pwrrel_abserr), newline();
     }
+    if (override_eb) {
+        indent(), printf("----------------------------------------------------------------\n");
+        indent(), printf("OVERRODE eb (because of, for example, binning) to:\t%.6G", new_eb), newline();
+        indent(), printf("max.err.abs.val/OVERRIDEN eb:\t%.6G", stat->max_abserr / new_eb), newline();
+        indent(), printf("----------------------------------------------------------------\n");
+    }
+    else {
+        indent(), printf("%-20s\e[31m%15.8e\e[0m", "max.err.vs.rng", stat->max_abserr_vs_rng), newline();
+    }
+    indent(), printf("%-20s%15.8g", "max.pw.rel.err", stat->max_pwrrel_abserr), newline();
 
     linkline();
     indent(), printf("%-20s\e[31m%15.4f\e[0m", "PSNR", stat->PSNR), newline();
@@ -137,9 +137,7 @@ void PrintMetrics(
 
     if (archive_byte) {
         indent(),
-            printf(
-                "%-20s\e[31m%lf\e[0m", "comp.ratio.w/o.gzip",
-                bin_scale * 1.0 * stat->len * sizeof(Data) / archive_byte),
+            printf("%-20s\e[31m%15.8lf\e[0m", "CR.no.gzip", bin_scale * 1.0 * stat->len * sizeof(Data) / archive_byte),
             newline();
     }
     cout << endl;
