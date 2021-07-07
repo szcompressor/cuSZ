@@ -36,6 +36,7 @@
 #include "utils/verify.hh"
 #include "wrapper/deprecated_lossless_huffman.h"
 #include "wrapper/deprecated_sparsity.h"
+#include "wrapper/extrap_lorenzo.h"
 #include "wrapper/par_huffman.h"
 
 using std::cerr;
@@ -226,46 +227,15 @@ void cusz::interface::Compress(
     // TODO add hoc padding
     auto d_quant = mem::CreateCUDASpace<Quant>(len + HuffConfig::Db_encode);  // quant. code is not needed for dry-run
 
-    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
-    auto dimx    = tuple_dim4._0;
-    auto dimy    = tuple_dim4._1;
-    auto dimz    = tuple_dim4._2;
-    auto stridey = tuple_stride4._1;
-    auto stridez = tuple_stride4._2;
+    auto tuple_dim4 = ap->dim4;
+    auto dimx       = tuple_dim4._0;
+    auto dimy       = tuple_dim4._1;
+    auto dimz       = tuple_dim4._2;
 
-    {  // prediction-quantization
-        dim3 dim_block, dim_grid;
-        if (ap->ndim == 1) {
-            constexpr auto SEQ          = 4;  // y-sequentiality == 4 (A100) or 8
-            constexpr auto DATA_SUBSIZE = MetadataTrait<1>::Block;
-            dim_block                   = DATA_SUBSIZE / SEQ;
-            dim_grid                    = get_npart(dimx, DATA_SUBSIZE);
-        }
-        else if (ap->ndim == 2) {
-            dim_block = dim3(16, 2);  // y-sequentiality == 8
-            dim_grid  = dim3(get_npart(dimx, 16), get_npart(dimy, 16));
-        }
-        else if (ap->ndim == 3) {
-            dim_block = dim3(32, 1, 8);  // y-sequentiality == 8
-            dim_grid  = dim3(get_npart(dimx, 32), get_npart(dimy, 8), get_npart(dimz, 8));
-        }
-
-
-        if (ap->ndim == 1) {
-            constexpr auto SEQ          = 4;  // y-sequentiality == 4 (A100) or 8
-            constexpr auto DATA_SUBSIZE = MetadataTrait<1>::Block;
-            cusz::c_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
-                (d_data, d_quant, dimx, radius, ebx2_r);
-        }
-        else if (ap->ndim == 2) {
-            cusz::c_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
-                (d_data, d_quant, dimx, dimy, stridey, radius, ebx2_r);
-        }
-        else if (ap->ndim == 3) {
-            cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
-                (d_data, d_quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
-        }
-        HANDLE_ERROR(cudaDeviceSynchronize());
+    {
+        float milliseconds = 0;
+        compress_lorenzo_construct<Data, Quant, float>(
+            d_data, d_quant, dim3(dimx, dimy, dimz), ap->ndim, eb, radius, milliseconds);
     }
 
     // --------------------------------------------------------------------------------
@@ -278,35 +248,6 @@ void cusz::interface::Compress(
         ::cusz::impl::PruneGatherAsCSR(
             d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.compress.out_outlier);
     }
-
-    // CUDA 11 onward (hopefully) //
-    // #ifdef TO_REPLACE
-    //     {
-    //         DataPack<Data> sp_csr_val("csr vals");
-    //         DataPack<int>  sp_csr_cols("csr cols");
-    //         DataPack<int>  sp_csr_offsets("csr offsets");
-
-    //         struct CompressedSparseRow<Data> csr(m, m);  // squarified
-    //         struct DenseMatrix<Data>         mat(m, m);
-
-    //         sp_csr_offsets.SetLen(csr.num_offsets()).AllocDeviceSpace();  // set sp_csr_offsets size after creating
-    //         `csr` sp_csr_cols.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
-    //         sp_csr_val.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
-
-    //         // set csr and mat afterward
-    //         csr.offsets = sp_csr_offsets.dptr();
-    //         mat.mat     = datapack->dptr();
-
-    //         SparseOps<Data> op(&mat, &csr);
-    //         op.template Gather<cuSPARSEver::cuda11_onward>();
-    //         auto total_bytelen = op.get_total_bytelen();
-    //         auto outbin        = new u_int8_t[total_bytelen]();
-    //         op.ExportCSR(outbin);
-    //         io::WriteArrayToBinary(subfiles.compress.out_outlier, outbin, total_bytelen);
-    //         delete[] outbin;
-    //         nnz_outlier = csr.sp_size.nnz;
-    //     }
-    // #endif
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
@@ -494,89 +435,19 @@ void cusz::interface::Decompress(
             outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
     }
 
-// CUDA 11 onward //
-#ifdef TO_REPLACE
-    {
-        struct CompressedSparseRow<Data> csr(m, m, nnz_outlier);
-        struct DenseMatrix<Data>         mat(m, m);
-        mat.mat = outlier->dptr();
-
-        Index<3>::idx_t trio{
-            static_cast<unsigned int>(csr.num_offsets() * sizeof(int)),
-            static_cast<unsigned int>(csr.sp_size.columns * sizeof(int)),
-            static_cast<unsigned int>(csr.sp_size.values * sizeof(Data))};
-
-        DataPack<uint8_t> _csr_bytes("csr bytes");
-        DataPack<int>     sp_csr_offsets("csr_offsets");
-        DataPack<int>     sp_csr_cols("csr cols");
-        DataPack<Data>    sp_csr_vals("csr vals");
-
-        _csr_bytes.SetLen(trio._0 + trio._1 + trio._2)
-            .AllocHostSpace()
-            .template Move<transfer::fs2h>(subfiles.decompress.in_outlier);
-        sp_csr_offsets  //
-            .SetLen(csr.num_offsets())
-            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr()))
-            .AllocDeviceSpace()
-            .template Move<transfer::h2d>();
-        sp_csr_cols  //
-            .SetLen(csr.sp_size.columns)
-            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr() + trio._0))
-            .AllocDeviceSpace()
-            .template Move<transfer::h2d>();
-        sp_csr_vals  //
-            .SetLen(csr.sp_size.values)
-            .SetHostSpace(reinterpret_cast<Data*>(_csr_bytes.hptr() + trio._0 + trio._1))
-            .AllocDeviceSpace()
-            .template Move<transfer::h2d>();
-
-        csr.offsets = sp_csr_offsets.dptr();
-        csr.columns = sp_csr_cols.dptr();
-        csr.values  = sp_csr_vals.dptr();
-
-        SparseOps<Data> op(&mat, &csr);
-        op.template Scatter<cuSPARSEver::cuda11_onward>();
-    }
-#endif
-
-    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
-    auto dimx    = tuple_dim4._0;
-    auto dimy    = tuple_dim4._1;
-    auto dimz    = tuple_dim4._2;
-    auto stridey = tuple_stride4._1;
-    auto stridez = tuple_stride4._2;
+    auto tuple_dim4 = ap->dim4;
+    auto dimx       = tuple_dim4._0;
+    auto dimy       = tuple_dim4._1;
+    auto dimz       = tuple_dim4._2;
 
     auto radius = ap->radius;
     auto eb     = ap->eb;
     auto ebx2   = (eb * 2);
 
     {
-        if (ap->ndim == 1) {  // y-sequentiality == 8
-            static const auto SEQ          = 8;
-            static const auto DATA_SUBSIZE = MetadataTrait<1>::Block;
-            auto              dim_block    = DATA_SUBSIZE / SEQ;
-            auto              dim_grid     = get_npart(dimx, DATA_SUBSIZE);
-
-            cusz::x_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), quant.dptr(), dimx, radius, ebx2);
-        }
-        else if (ap->ndim == 2) {  // y-sequentiality == 8
-
-            auto dim_block = dim3(16, 2);
-            auto dim_grid  = dim3(get_npart(dimx, 16), get_npart(dimy, 16));
-
-            cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant><<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
-        }
-        else if (ap->ndim == 3) {  // y-sequentiality == 8
-
-            auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(get_npart(dimx, 32), get_npart(dimy, 8), get_npart(dimz, 8));
-
-            cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
-        }
-        HANDLE_ERROR(cudaDeviceSynchronize());
+        float milliseconds;
+        decompress_lorenzo_reconstruct(
+            xdata->dptr(), quant.dptr(), dim3(dimx, dimy, dimz), ap->ndim, eb, radius, milliseconds);
     }
 
     xdata->AllocHostSpace().template Move<transfer::d2h>();

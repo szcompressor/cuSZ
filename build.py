@@ -195,17 +195,20 @@ if __name__ == "__main__":
     # TODO purge
 
     compile_info = ""
-    if not os.path.exists("external/nvcomp/build/lib/libnvcomp.a"):
-        os.system(patch_nvcomp)
-        os.system(cmake_nvcomp)
-    if not os.path.exists("external/nvcomp/build/lib/libgtest.a"):
-        os.system(cmake_gtest)
 
-    # double check
-    if os.path.exists(GTEST_STATIC_LIB):
-        print("gtest lib ready")
-    if os.path.exists(NVCOMP_STATIC_LIB):
-        print("nvcomp lib ready")
+    ## disabled for modular design and refactoring
+
+    # if not os.path.exists("external/nvcomp/build/lib/libnvcomp.a"):
+    #     os.system(patch_nvcomp)
+    #     os.system(cmake_nvcomp)
+    # if not os.path.exists("external/nvcomp/build/lib/libgtest.a"):
+    #     os.system(cmake_gtest)
+
+    # # double check
+    # if os.path.exists(GTEST_STATIC_LIB):
+    #     print("gtest lib ready")
+    # if os.path.exists(NVCOMP_STATIC_LIB):
+    #     print("nvcomp lib ready")
 
     ############################################################
     # compile cusz
