@@ -52,8 +52,6 @@
 #define CONSTEXPR
 #endif
 
-typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
-
 #define nworker blockDim.x
 
 template <typename Huff>
@@ -167,7 +165,7 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
 #endif
 
 template <typename Quant, typename Huff, typename Data>
-tuple_3ul_1bool lossless::interface::HuffmanEncode(
+std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
     string&  basename,
     Quant*   d_input,
     Huff*    d_canon_cb,
@@ -175,7 +173,6 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     size_t   _nbyte,
     size_t   len,
     int      dn_chunk,
-    bool     to_nvcomp,
     int      dict_size)
 {
     static const auto type_bitcount = sizeof(Huff) * 8;  // canonical Huffman; follows H to decide first and entry type
@@ -223,15 +220,6 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
         cudaFree(d_entries), cudaFree(d_uints), cudaFree(d_huff_sp);
     }
 
-    // use nvcomp, which changes metadata to write to fs
-    bool status_nvcomp_in_use = false;
-#ifdef MODULAR_ELSEWHERE
-    if (to_nvcomp) {
-        draft::UseNvcompZip<Huff>(huff_sp, total_uints);
-        status_nvcomp_in_use = true;
-    }
-#endif
-
     // write metadata to fs
     io::WriteArrayToBinary(basename + ".hmeta", _counts + nchunk, 2 * nchunk);
     io::WriteArrayToBinary(basename + ".hbyte", huff_sp, total_uints);
@@ -243,7 +231,7 @@ tuple_3ul_1bool lossless::interface::HuffmanEncode(
     cudaFree(d_huff_dn), cudaFree(d_sp_bits);
     delete[] huff_sp, delete[] _counts;
 
-    return std::make_tuple(total_bits, total_uints, metadata_size, status_nvcomp_in_use);
+    return std::make_tuple(total_bits, total_uints, metadata_size);
 }
 
 /**
@@ -316,19 +304,15 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
             std::to_string(idx._2),
         huff_sp, total_uints);
 
-    auto total_uints_before_nvcomp = total_uints;
-    //    draft::UseNvcompZip<Huff>(huff_sp, total_uints);
-    //    auto total_uints_after_nvcomp = total_uints;
-    auto avg_bits         = 1.0 * total_bits / len;
-    auto cr_before_nvcomp = 1.0 * len * sizeof(Data) / (total_uints_before_nvcomp * sizeof(Huff));
-    //    auto cr_after_nvcomp  = 1.0 * len * sizeof(Data) / (total_uints_after_nvcomp * sizeof(Huff));
+    auto avg_bits = 1.0 * total_bits / len;
+    auto cr       = 1.0 * len * sizeof(Data) / (total_uints * sizeof(Huff));
 
     LogAll(
         log_exp,                                   //
         idx._0, idx._1, idx._2, "\t",              //
         std::setprecision(4),                      //
         " \e[1mavg bitcount:", avg_bits, "\e[0m",  //
-        " CR before nvcomp:", cr_before_nvcomp);
+        " CR:", cr);
 
     delete[] huff_sp;
 
@@ -343,7 +327,6 @@ void lossless::interface::HuffmanDecode(
     size_t           len,
     int              chunk_size,
     size_t           total_uints,
-    bool             nvcomp_in_use,
     int              dict_size)
 {
     auto type_bw    = sizeof(Huff) * 8;
@@ -357,10 +340,6 @@ void lossless::interface::HuffmanDecode(
     auto Dg           = (nchunk - 1) / Db + 1;
 
     auto d_huff_sp = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
-
-#ifdef MODULAR_ELSEWHERE
-    if (nvcomp_in_use) draft::UseNvcompUnzip(&d_huff_sp, total_uints);
-#endif
 
     auto d_huff_sp_meta = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp_meta, 2 * nchunk);
     auto d_canon_byte   = mem::CreateDeviceSpaceAndMemcpyFromHost(canon_byte, canon_meta);
@@ -385,15 +364,15 @@ void lossless::interface::HuffmanDecode(
 // using H4 = HuffTrait<4>::Huff;
 
 // clang-format off
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, bool, int);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, bool, int);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
-template tuple_3ul_1bool lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, bool, int);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, int);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, int);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, int);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, int);
 
-template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, bool, int);
-template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, bool, int);
-template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, bool, int);
-template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, bool, int);
+template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, int);
+template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, int);
+template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, int);
+template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, int);
 
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI4>(Index<3>::idx_t, string&, UI1*, size_t, int);
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI8>(Index<3>::idx_t, string&, UI1*, size_t, int);
