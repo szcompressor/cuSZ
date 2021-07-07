@@ -26,33 +26,12 @@ namespace cusz {
 namespace interface {
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void Compress(
-    argpack*,
-    struct DataPack<typename DataTrait<If_FP, DataByte>::Data>*,
-    int&,
-    size_t&,
-    size_t&,
-    size_t&,
-    bool&);
+void Compress(argpack*, struct DataPack<typename DataTrait<If_FP, DataByte>::Data>*, int&, size_t&, size_t&, size_t&);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void Decompress(argpack*, int&, size_t&, size_t&, size_t&, bool);
+void Decompress(argpack*, int&, size_t&, size_t&, size_t&);
 
 }  // namespace interface
-
-namespace impl {
-
-template <typename Data, typename Quant>
-void PdQ(Data*, Quant*, size_t*, double*);
-
-template <typename Data, typename Quant>
-void ReversedPdQ(Data*, Quant*, Data*, size_t*, double);
-
-template <typename Data, typename Quant>
-void VerifyHuffman(string const&, size_t, Quant*, int, size_t*, double*);
-
-}  // namespace impl
-
 }  // namespace cusz
 
 #endif
