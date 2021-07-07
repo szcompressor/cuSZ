@@ -36,6 +36,7 @@
 #include "utils/verify.hh"
 #include "wrapper/deprecated_lossless_huffman.h"
 #include "wrapper/deprecated_sparsity.h"
+#include "wrapper/extrap_lorenzo.h"
 #include "wrapper/par_huffman.h"
 
 using std::cerr;
@@ -133,7 +134,7 @@ void cusz::impl::VerifyHuffman(
  */
 
 template <typename T>
-auto CopyToBuffer_3D(
+auto copy2buffer3d(
     T* __restrict buffer_dst,
     T* __restrict origin_src,
     size_t          portal,
@@ -141,25 +142,22 @@ auto CopyToBuffer_3D(
     Index<3>::idx_t block_stride,
     Index<3>::idx_t global_stride)
 {
-    for (auto k = 0; k < part_dims._2; k++)
-        for (auto j = 0; j < part_dims._1; j++)
-            for (auto i = 0; i < part_dims._0; i++)
-                buffer_dst[i + j * block_stride._1 + k * block_stride._2] =
-                    origin_src[portal + (i + j * global_stride._1 + k * global_stride._2)];
+    // clang-format off
+    for (auto k = 0; k < part_dims._2; k++) for (auto j = 0; j < part_dims._1; j++) for (auto i = 0; i < part_dims._0; i++)
+        buffer_dst[i + j * block_stride._1 + k * block_stride._2] = origin_src[portal + (i + j * global_stride._1 + k * global_stride._2)];
+    // clang-format on
 }
 
 template <typename T, int N = 3>
-auto PrintBuffer(T* data, size_t start, Integer3 strides)
+auto print_buffer3d(T* data, size_t start, Integer3 strides)
 {
     cout << "printing buffer\n";
-    for (auto k = 0; k < N; k++) {
-        for (auto j = 0; j < N; j++) {
-            for (auto i = 0; i < N; i++) {  //
-                cout << data[start + (i + j * strides._1 + k * strides._2)] << " ";
-            }
+    // clang-format off
+    for (auto k = 0; k < N; k++) { for (auto j = 0; j < N; j++) { for (auto i = 0; i < N; i++) {  //
+                cout << data[start + (i + j * strides._1 + k * strides._2)] << " "; }
             cout << "\n";
-        }
-    }
+    }}
+    // clang-format on
     cout << endl;
 };
 
@@ -171,8 +169,8 @@ void cusz::interface::Compress(
     int&     nnz_outlier,
     size_t&  num_bits,
     size_t&  num_uints,
-    size_t&  huff_meta_size,
-    bool&    nvcomp_in_use)
+    size_t&  huff_meta_size
+    )
 {
     // clang-format on
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
@@ -207,7 +205,6 @@ void cusz::interface::Compress(
 
         cusz::dual_quant_dryrun<Data, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
             (d_data, len, ebx2_r, ebx2);
-        // }
         HANDLE_ERROR(cudaDeviceSynchronize());
 
         auto data_lossy = new Data[len]();
@@ -230,42 +227,15 @@ void cusz::interface::Compress(
     // TODO add hoc padding
     auto d_quant = mem::CreateCUDASpace<Quant>(len + HuffConfig::Db_encode);  // quant. code is not needed for dry-run
 
-    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
-    auto dimx    = tuple_dim4._0;
-    auto dimy    = tuple_dim4._1;
-    auto dimz    = tuple_dim4._2;
-    auto stridey = tuple_stride4._1;
-    auto stridez = tuple_stride4._2;
+    auto tuple_dim4 = ap->dim4;
+    auto dimx       = tuple_dim4._0;
+    auto dimy       = tuple_dim4._1;
+    auto dimz       = tuple_dim4._2;
 
-    // prediction-quantization
     {
-        if (ap->ndim == 1) {  // y-sequentiality == 4 (A100) or 8
-
-            static const auto SEQ          = 4;
-            static const auto DATA_SUBSIZE = MetadataTrait<1>::Block;
-            auto              dim_block    = DATA_SUBSIZE / SEQ;
-            auto              dim_grid     = get_npart(dimx, DATA_SUBSIZE);
-
-            cusz::c_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
-                (d_data, d_quant, dimx, radius, ebx2_r);
-        }
-        else if (ap->ndim == 2) {  // y-sequentiality == 8
-
-            auto dim_block = dim3(16, 2);
-            auto dim_grid  = dim3(get_npart(dimx, 16), get_npart(dimy, 16));
-
-            cusz::c_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
-                (d_data, d_quant, dimx, dimy, stridey, radius, ebx2_r);
-        }
-        else if (ap->ndim == 3) {  // y-sequentiality == 8
-
-            auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(get_npart(dimx, 32), get_npart(dimy, 8), get_npart(dimz, 8));
-
-            cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
-                (d_data, d_quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
-        }
-        HANDLE_ERROR(cudaDeviceSynchronize());
+        float milliseconds = 0;
+        compress_lorenzo_construct<Data, Quant, float>(
+            d_data, d_quant, dim3(dimx, dimy, dimz), ap->ndim, eb, radius, milliseconds);
     }
 
     // --------------------------------------------------------------------------------
@@ -278,35 +248,6 @@ void cusz::interface::Compress(
         ::cusz::impl::PruneGatherAsCSR(
             d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.compress.out_outlier);
     }
-
-// CUDA 11 onward (hopefully) //
-#ifdef TO_REPLACE
-    {
-        DataPack<Data> sp_csr_val("csr vals");
-        DataPack<int>  sp_csr_cols("csr cols");
-        DataPack<int>  sp_csr_offsets("csr offsets");
-
-        struct CompressedSparseRow<Data> csr(m, m);  // squarified
-        struct DenseMatrix<Data>         mat(m, m);
-
-        sp_csr_offsets.SetLen(csr.num_offsets()).AllocDeviceSpace();  // set sp_csr_offsets size after creating `csr`
-        sp_csr_cols.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
-        sp_csr_val.Note(placeholder::length_unknown).Note(placeholder::alloc_in_called_func);
-
-        // set csr and mat afterward
-        csr.offsets = sp_csr_offsets.dptr();
-        mat.mat     = datapack->dptr();
-
-        SparseOps<Data> op(&mat, &csr);
-        op.template Gather<cuSPARSEver::cuda11_onward>();
-        auto total_bytelen = op.get_total_bytelen();
-        auto outbin        = new u_int8_t[total_bytelen]();
-        op.ExportCSR(outbin);
-        io::WriteArrayToBinary(subfiles.compress.out_outlier, outbin, total_bytelen);
-        delete[] outbin;
-        nnz_outlier = csr.sp_size.nnz;
-    }
-#endif
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
     LogAll(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
@@ -330,12 +271,9 @@ void cusz::interface::Compress(
 
     if (wf.exp_partitioning_imbalance) {
         // 3D only
-        unsigned int part0     = ap->part4._0;
-        unsigned int part1     = ap->part4._1;
-        unsigned int part2     = ap->part4._2;
-        unsigned int num_part0 = (ap->dim4._0 - 1) / part0 + 1;
-        unsigned int num_part1 = (ap->dim4._1 - 1) / part1 + 1;
-        unsigned int num_part2 = (ap->dim4._2 - 1) / part2 + 1;
+        unsigned int part0 = ap->part4._0, part1 = ap->part4._1, part2 = ap->part4._2;
+        unsigned int num_part0 = get_npart(ap->dim4._0, part0), num_part1 = get_npart(ap->dim4._1, part1),
+                     num_part2 = get_npart(ap->dim4._2, part2);
 
         LogAll(log_dbg, "p0:", ap->part4._0, " p1:", ap->part4._1, " p2:", ap->part4._2);
         LogAll(log_dbg, "num_part0:", num_part0, " num_part1:", num_part1, " num_part2:", num_part2);
@@ -363,7 +301,7 @@ void cusz::interface::Compress(
             for (auto pj = 0U; pj < num_part1; pj++) {
                 for (auto pi = 0U; pi < num_part0; pi++) {
                     auto start = pk * part2 * ap->stride4._2 + pj * part1 * ap->stride4._1 + pi * part0;
-                    CopyToBuffer_3D(quant_buffer, quant, start, part_dims, block_strides, global_strides);
+                    copy2buffer3d(quant_buffer, quant, start, part_dims, block_strides, global_strides);
                     lossless::interface::HuffmanEncodeWithTree_3D<Quant, Huff>(
                         Index<3>::idx_t{pi, pj, pk}, subfiles.compress.huff_base, quant_buffer, buffer_size,
                         ap->dict_size);
@@ -427,9 +365,8 @@ void cusz::interface::Compress(
     }
     // --------------------------------------------------------------------------------
 
-    std::tie(num_bits, num_uints, huff_meta_size, nvcomp_in_use) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk,
-        wf.lossless_nvcomp_cascade, ap->dict_size);
+    std::tie(num_bits, num_uints, huff_meta_size) = lossless::interface::HuffmanEncode<Quant, Huff>(
+        subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk, ap->dict_size);
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
@@ -444,8 +381,7 @@ void cusz::interface::Decompress(
     int&     nnz_outlier,
     size_t&  total_bits,
     size_t&  total_uint,
-    size_t&  huffman_metadata_size,
-    bool     nvcomp_in_use)
+    size_t&  huffman_metadata_size)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
@@ -470,9 +406,9 @@ void cusz::interface::Decompress(
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
         lossless::interface::HuffmanDecode<Quant, Huff>(
-            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, nvcomp_in_use, ap->dict_size);
+            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, ap->dict_size);
         if (wf.verify_huffman) {
-            LogAll(log_warn, "Verifying Huffman is temporarily disabled in this version (2021 Week 3");
+            LogAll(log_warn, "Verifying Huffman is disabled in this version (2021 July");
             /*
             // TODO check in argpack
             if (subfiles.decompress.in_origin == "") {
@@ -499,89 +435,19 @@ void cusz::interface::Decompress(
             outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
     }
 
-// CUDA 11 onward //
-#ifdef TO_REPLACE
-    {
-        struct CompressedSparseRow<Data> csr(m, m, nnz_outlier);
-        struct DenseMatrix<Data>         mat(m, m);
-        mat.mat = outlier->dptr();
-
-        Index<3>::idx_t trio{
-            static_cast<unsigned int>(csr.num_offsets() * sizeof(int)),
-            static_cast<unsigned int>(csr.sp_size.columns * sizeof(int)),
-            static_cast<unsigned int>(csr.sp_size.values * sizeof(Data))};
-
-        DataPack<uint8_t> _csr_bytes("csr bytes");
-        DataPack<int>     sp_csr_offsets("csr_offsets");
-        DataPack<int>     sp_csr_cols("csr cols");
-        DataPack<Data>    sp_csr_vals("csr vals");
-
-        _csr_bytes.SetLen(trio._0 + trio._1 + trio._2)
-            .AllocHostSpace()
-            .template Move<transfer::fs2h>(subfiles.decompress.in_outlier);
-        sp_csr_offsets  //
-            .SetLen(csr.num_offsets())
-            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr()))
-            .AllocDeviceSpace()
-            .template Move<transfer::h2d>();
-        sp_csr_cols  //
-            .SetLen(csr.sp_size.columns)
-            .SetHostSpace(reinterpret_cast<int*>(_csr_bytes.hptr() + trio._0))
-            .AllocDeviceSpace()
-            .template Move<transfer::h2d>();
-        sp_csr_vals  //
-            .SetLen(csr.sp_size.values)
-            .SetHostSpace(reinterpret_cast<Data*>(_csr_bytes.hptr() + trio._0 + trio._1))
-            .AllocDeviceSpace()
-            .template Move<transfer::h2d>();
-
-        csr.offsets = sp_csr_offsets.dptr();
-        csr.columns = sp_csr_cols.dptr();
-        csr.values  = sp_csr_vals.dptr();
-
-        SparseOps<Data> op(&mat, &csr);
-        op.template Scatter<cuSPARSEver::cuda11_onward>();
-    }
-#endif
-
-    auto tuple_dim4 = ap->dim4, tuple_stride4 = ap->stride4;
-    auto dimx    = tuple_dim4._0;
-    auto dimy    = tuple_dim4._1;
-    auto dimz    = tuple_dim4._2;
-    auto stridey = tuple_stride4._1;
-    auto stridez = tuple_stride4._2;
+    auto tuple_dim4 = ap->dim4;
+    auto dimx       = tuple_dim4._0;
+    auto dimy       = tuple_dim4._1;
+    auto dimz       = tuple_dim4._2;
 
     auto radius = ap->radius;
     auto eb     = ap->eb;
     auto ebx2   = (eb * 2);
 
     {
-        if (ap->ndim == 1) {  // y-sequentiality == 8
-            static const auto SEQ          = 8;
-            static const auto DATA_SUBSIZE = MetadataTrait<1>::Block;
-            auto              dim_block    = DATA_SUBSIZE / SEQ;
-            auto              dim_grid     = get_npart(dimx, DATA_SUBSIZE);
-
-            cusz::x_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), quant.dptr(), dimx, radius, ebx2);
-        }
-        else if (ap->ndim == 2) {  // y-sequentiality == 8
-
-            auto dim_block = dim3(16, 2);
-            auto dim_grid  = dim3(get_npart(dimx, 16), get_npart(dimy, 16));
-
-            cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant><<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), quant.dptr(), dimx, dimy, stridey, radius, ebx2);
-        }
-        else if (ap->ndim == 3) {  // y-sequentiality == 8
-
-            auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(get_npart(dimx, 32), get_npart(dimy, 8), get_npart(dimz, 8));
-
-            cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<<<dim_grid, dim_block>>>  //
-                (xdata->dptr(), quant.dptr(), dimx, dimy, dimz, stridey, stridez, radius, ebx2);
-        }
-        HANDLE_ERROR(cudaDeviceSynchronize());
+        float milliseconds;
+        decompress_lorenzo_reconstruct(
+            xdata->dptr(), quant.dptr(), dim3(dimx, dimy, dimz), ap->ndim, eb, radius, milliseconds);
     }
 
     xdata->AllocHostSpace().template Move<transfer::d2h>();
@@ -631,12 +497,12 @@ namespace szin = cusz::interface;
 
 // TODO top-level instantiation really reduce compilation time?
 // clang-format off
-template void szin::Compress<true, 4, 1, 4>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 1, 8>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 4>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
-template void szin::Compress<true, 4, 2, 8>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&, bool&);
+template void szin::Compress<true, 4, 1, 4>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 1, 8>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 2, 4>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&);
+template void szin::Compress<true, 4, 2, 8>(argpack*, DataPack<float>*, int&, size_t&, size_t&, size_t&);
 
-template void szin::Decompress<true, 4, 1, 4>(argpack*, int&, size_t&, size_t&, size_t&, bool);
-template void szin::Decompress<true, 4, 1, 8>(argpack*, int&, size_t&, size_t&, size_t&, bool);
-template void szin::Decompress<true, 4, 2, 4>(argpack*, int&, size_t&, size_t&, size_t&, bool);
-template void szin::Decompress<true, 4, 2, 8>(argpack*, int&, size_t&, size_t&, size_t&, bool);
+template void szin::Decompress<true, 4, 1, 4>(argpack*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 1, 8>(argpack*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 2, 4>(argpack*, int&, size_t&, size_t&, size_t&);
+template void szin::Decompress<true, 4, 2, 8>(argpack*, int&, size_t&, size_t&, size_t&);

@@ -52,8 +52,7 @@ auto get_npart = [](auto size, auto subsize) {
         "[get_npart] must be plain interger types.");
     return (size + subsize - 1) / subsize;
 };
-auto get_len_from_dim3 = [](dim3 size) { return size.x * size.y * size.z; };
-auto get_stride3       = [](dim3 size) -> dim3 { return dim3(1, size.x, size.x * size.y); };
+auto get_stride3 = [](dim3 size) -> dim3 { return dim3(1, size.x, size.x * size.y); };
 
 }  // namespace
 
@@ -64,7 +63,7 @@ void dryrun_lorenzo(Data* data, dim3 size3, int ndim, FP eb)
 }
 
 template <typename Data, typename Quant, typename FP, bool DELAY_POSTQUANT>
-void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius)
+void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms)
 {
     FP   ebx2_r  = 1 / (eb * 2);
     auto stride3 = get_stride3(size3);
@@ -133,7 +132,7 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
  ********************************************************************************/
 
 template <typename Data, typename Quant, typename FP, bool DELAY_POSTQUANT>
-void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int ndim, FP eb, int radius)
+void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms)
 {
     auto stride3 = get_stride3(size3);
     auto ebx2    = eb * 2;
@@ -200,7 +199,7 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
 
 /* instantiate */
 #define INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(Data, Quant, FP) \
-    template void compress_lorenzo_construct<Data, Quant, FP, false>(Data*, Quant*, dim3, int, FP, int);
+    template void compress_lorenzo_construct<Data, Quant, FP, false>(Data*, Quant*, dim3, int, FP, int, float&);
 
 INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, float)
 INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint8_t, double)
@@ -212,7 +211,7 @@ INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(float, uint16_t, double)
 // INSTANTIATE_COMPRESS_LORENZO_CONSTRUCT(double, uint16_t, double)
 
 #define INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(Data, Quant, FP) \
-    template void decompress_lorenzo_reconstruct<Data, Quant, FP, false>(Data*, Quant*, dim3, int, FP, int);
+    template void decompress_lorenzo_reconstruct<Data, Quant, FP, false>(Data*, Quant*, dim3, int, FP, int, float&);
 
 INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint8_t, float)
 INSTANTIATE_DECOMPRESS_LORENZO_RECONSTRUCT(float, uint8_t, double)

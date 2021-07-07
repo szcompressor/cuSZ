@@ -13,12 +13,12 @@
 #define CUSZ_WRAPPER_EXTRAP_LORENZO_H
 
 template <typename Data = float, typename Quant = float, typename FP = float>
-void lorenzo_dryrun(Data* data, dim3 size3, int ndim, FP eb);
+void tbd_lorenzo_dryrun(Data* data, dim3 size3, int ndim, FP eb);
 
 template <typename Data = float, typename Quant = float, typename FP = float, bool DELAY_POSTQUANT = false>
-void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius);
+void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
 
 template <typename Data = float, typename Quant = float, typename FP = float, bool DELAY_POSTQUANT = false>
-void decompress_lorenzo_reconstruct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius);
+void decompress_lorenzo_reconstruct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
 
 #endif

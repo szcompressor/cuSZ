@@ -26,8 +26,6 @@
 
 using std::string;
 
-typedef std::tuple<size_t, size_t, size_t, bool> tuple3ul;
-
 /**
  *
  * @tparam UInt unsigned type
@@ -72,11 +70,11 @@ namespace lossless {
 namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-std::tuple<size_t, size_t, size_t, bool>
-HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, bool, int dict_size = 1024);
+std::tuple<size_t, size_t, size_t>
+HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
-void HuffmanDecode(std::string&, DataPack<Quant>*, size_t, int, size_t, bool, int dict_size = 1024);
+void HuffmanDecode(std::string&, DataPack<Quant>*, size_t, int, size_t, int dict_size = 1024);
 
 template <typename Quant, typename Huff, typename Data = float>
 void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_quant_in, size_t len, int dict_size);
