@@ -43,7 +43,7 @@ API_DIR     := src/wrapper
 
 MAIN        := $(SRC_DIR)/cusz.cu
 
-ALL_OBJ  = $(SRC_DIR)/argparse.o $(SRC_DIR)/cusz_interface.o $(API_DIR)/deprecated_sparsity.o $(API_DIR)/deprecated_lossless_huffman.o $(API_DIR)/par_huffman.o $(API_DIR)/extrap_lorenzo.o
+ALL_OBJ  = $(SRC_DIR)/argparse.o $(SRC_DIR)/cusz_interface.o $(API_DIR)/deprecated_lossless_huffman.o $(API_DIR)/par_huffman.o $(API_DIR)/extrap_lorenzo.o $(API_DIR)/handle_sparsity.o
 CC_FLAGS  += ####
 NV_FLAGS  += ####
 HW_TARGET += ####
@@ -61,19 +61,19 @@ argparse: $(SRC_DIR)/argparse.cc
 submain: $(SRC_DIR)/cusz_interface.cu
 	$(NVCC) $(NV_FLAGS) -c $< -o $(SRC_DIR)/cusz_interface.o
 
+api_sparsity: $(API_DIR)/handle_sparsity.cu
+	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/handle_sparsity.o
+
 extrap_lorenzo: $(API_DIR)/extrap_lorenzo.cu
 	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/extrap_lorenzo.o
 
 api_huffman: $(API_DIR)/deprecated_lossless_huffman.cu
 	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/deprecated_lossless_huffman.o -rdc=true
 
-api_sparsity: $(API_DIR)/deprecated_sparsity.cu
-	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/deprecated_sparsity.o -Wno-deprecated-declarations
-
 api_par_huff: $(API_DIR)/par_huffman.cu
 	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/par_huffman.o -rdc=true
 
-objs: submain api_huffman api_sparsity api_par_huff argparse extrap_lorenzo
+objs: submain api_huffman api_sparsity api_par_huff argparse extrap_lorenzo 
 
 cusz: objs | $(BIN_DIR)
 	$(NVCC) $(NV_FLAGS) $(MAIN) -lcusparse -lpthread -rdc=true $(ALL_OBJ) -o $(BIN_DIR)/cusz
