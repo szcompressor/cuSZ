@@ -93,6 +93,98 @@ __global__ void x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(Data*, Quant*, DIM, DIM
 
 }  // namespace cusz
 
+namespace {
+
+template <typename Data, int SEQ, bool FIRST_POINT>
+__forceinline__ __device__ void
+pred1d_delay_postquant(Data thread_scope[SEQ], volatile Data* shmem_data, Data from_last_stripe = 0)
+{
+    if CONSTEXPR (FIRST_POINT) {
+        Data delta                = thread_scope[0] - from_last_stripe;
+        shmem_data[0 + TIX * SEQ] = delta;
+    }
+    else {
+#pragma unroll
+        for (auto i = 1; i < SEQ; i++) {
+            Data delta                = thread_scope[i] - thread_scope[i - 1];
+            shmem_data[i + TIX * SEQ] = delta;
+        }
+        __syncthreads();
+    }
+}
+
+template <typename Data, typename Quant, int SEQ, bool FIRST_POINT>
+__forceinline__ __device__ void pred1d_default(
+    Data            thread_scope[SEQ],
+    volatile Data*  shmem_data,
+    volatile Quant* shmem_quant,
+    int             radius,
+    Data            from_last_stripe = 0)
+{
+    if CONSTEXPR (FIRST_POINT) {  // i == 0
+        Data delta                 = thread_scope[0] - from_last_stripe;
+        bool quantizable           = fabs(delta) < radius;
+        Data candidate             = delta + radius;
+        shmem_data[0 + TIX * SEQ]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+        shmem_quant[0 + TIX * SEQ] = quantizable * static_cast<Quant>(candidate);
+    }
+    else {
+#pragma unroll
+        for (auto i = 1; i < SEQ; i++) {
+            Data delta                 = thread_scope[i] - thread_scope[i - 1];
+            bool quantizable           = fabs(delta) < radius;
+            Data candidate             = delta + radius;
+            shmem_data[i + TIX * SEQ]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+            shmem_quant[i + TIX * SEQ] = quantizable * static_cast<Quant>(candidate);
+        }
+        __syncthreads();
+    }
+}
+
+template <typename Data, typename FP, int NTHREAD, int SEQ>
+__forceinline__ __device__ void load1d(
+    Data*          data,
+    unsigned int   dimx,
+    unsigned int   id_base,
+    volatile Data* shmem_data,
+    Data           thread_scope[SEQ],
+    Data&          from_last_stripe,
+    FP             ebx2_r)
+{
+#pragma unroll
+    for (auto i = 0; i < SEQ; i++) {
+        auto id = id_base + TIX + i * NTHREAD;
+        if (id < dimx) { shmem_data[TIX + i * NTHREAD] = round(data[id] * ebx2_r); }
+    }
+    __syncthreads();
+
+    for (auto i = 0; i < SEQ; i++) thread_scope[i] = shmem_data[TIX * SEQ + i];
+
+    if (TIX > 0) from_last_stripe = shmem_data[TIX * SEQ - 1];
+    __syncthreads();
+}
+
+template <typename Data, typename Quant, int NTHREAD, int SEQ, bool DELAY_POSTQUANT>
+__forceinline__ __device__ void write1d(
+    volatile Data*  shmem_data,
+    Data*           data,
+    unsigned int    dimx,
+    unsigned int    id_base,
+    volatile Quant* shmem_quant = nullptr,
+    Quant*          quant       = nullptr)
+{
+#pragma unroll
+    for (auto i = 0; i < SEQ; i++) {
+        auto id = id_base + TIX + i * NTHREAD;
+        if (id < dimx) {  //
+            data[id] = shmem_data[TIX + i * NTHREAD];
+            if CONSTEXPR (not DELAY_POSTQUANT) quant[id] = shmem_quant[TIX + i * NTHREAD];
+        }
+    }
+}
+
+}  // namespace
+
 template <
     typename Data,
     typename Quant,
@@ -103,8 +195,8 @@ template <
     bool COUNT_NON1ST,
     bool DELAY_POSTQUANT>
 __global__ void cusz::c_lorenzo_1d1l(  //
-    Data*         d,
-    Quant*        q,
+    Data*         data,
+    Quant*        quant,
     DIM           dimx,
     int           radius,
     FP            ebx2_r,
@@ -127,15 +219,7 @@ __global__ void cusz::c_lorenzo_1d1l(  //
     /********************************************************************************
      * load from DRAM using striped layout, perform prequant
      ********************************************************************************/
-#pragma unroll
-    for (auto i = 0; i < SEQ; i++) {
-        auto id = id_base + TIX + i * NTHREAD;
-        if (id < dimx) { shmem.data[TIX + i * NTHREAD] = round(d[id] * ebx2_r); }
-    }
-    __syncthreads();
-    for (auto i = 0; i < SEQ; i++) thread_scope[i] = shmem.data[TIX * SEQ + i];
-    if (TIX > 0) from_last_stripe = shmem.data[TIX * SEQ - 1];
-    __syncthreads();
+    load1d<Data, FP, NTHREAD, SEQ>(data, dimx, id_base, shmem.data, thread_scope, from_last_stripe, ebx2_r);
 
     auto shmem_quant = reinterpret_cast<Quant*>(shmem.uninitialized + sizeof(Data) * BLOCK);
 
@@ -144,69 +228,15 @@ __global__ void cusz::c_lorenzo_1d1l(  //
      * data-type outlier and uint-type quantcode when writing to DRAM (or not).
      ********************************************************************************/
     if CONSTEXPR (DELAY_POSTQUANT) {
-        {      // prediction
-            {  // i == 0
-                Data delta                = thread_scope[0] - from_last_stripe;
-                shmem.data[0 + TIX * SEQ] = delta;
-            }
-#pragma unroll
-            for (auto i = 1; i < SEQ; i++) {
-                Data delta                = thread_scope[i] - thread_scope[i - 1];
-                shmem.data[i + TIX * SEQ] = delta;
-            }
-            __syncthreads();
-        }
-
-        {  // write
-#pragma unroll
-            for (auto i = 0; i < SEQ; i++) {
-                auto id = id_base + TIX + i * NTHREAD;
-                if (id < dimx) d[id] = shmem.data[TIX + i * NTHREAD];
-            }
-        }
-        // end of branch
+        pred1d_delay_postquant<Data, SEQ, true>(thread_scope, shmem.data, from_last_stripe);
+        pred1d_delay_postquant<Data, SEQ, false>(thread_scope, shmem.data);
+        write1d<Data, Quant, NTHREAD, SEQ, true>(shmem.data, data, dimx, id_base);
     }
-    else { /* DELAY_POSTQUANT == false, the original SZ/cuSZ design */
-
-        /********************************************************************************
-         * prediction
-         ********************************************************************************/
-        {
-            {  // i == 0
-                Data delta                 = thread_scope[0] - from_last_stripe;
-                bool quantizable           = fabs(delta) < radius;
-                Data candidate             = delta + radius;
-                shmem.data[0 + TIX * SEQ]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
-                shmem_quant[0 + TIX * SEQ] = quantizable * static_cast<Quant>(candidate);
-            }
-
-#pragma unroll
-            for (auto i = 1; i < SEQ; i++) {
-                Data delta                 = thread_scope[i] - thread_scope[i - 1];
-                bool quantizable           = fabs(delta) < radius;
-                Data candidate             = delta + radius;
-                shmem.data[i + TIX * SEQ]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
-                shmem_quant[i + TIX * SEQ] = quantizable * static_cast<Quant>(candidate);
-            }
-            __syncthreads();
-        }
-
-        /********************************************************************************
-         * write to DRAM
-         ********************************************************************************/
-        {
-#pragma unroll
-            for (auto i = 0; i < SEQ; i++) {
-                auto id = id_base + TIX + i * NTHREAD;
-                if (id < dimx) {  //
-                    q[id] = shmem_quant[TIX + i * NTHREAD];
-                    d[id] = shmem.data[TIX + i * NTHREAD];
-                }
-            }
-        }
-        // end of branch
+    else {  // the original SZ/cuSZ design
+        pred1d_default<Data, Quant, SEQ, true>(thread_scope, shmem.data, shmem_quant, radius, from_last_stripe);
+        pred1d_default<Data, Quant, SEQ, false>(thread_scope, shmem.data, shmem_quant, radius);
+        write1d<Data, Quant, NTHREAD, SEQ, false>(shmem.data, data, dimx, id_base, shmem_quant, quant);
     }
-    /* EOF */
 }
 
 template <typename Data, typename Quant, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
