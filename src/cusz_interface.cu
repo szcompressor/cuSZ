@@ -35,8 +35,8 @@
 #include "utils/io.hh"
 #include "utils/verify.hh"
 #include "wrapper/deprecated_lossless_huffman.h"
-#include "wrapper/deprecated_sparsity.h"
 #include "wrapper/extrap_lorenzo.h"
+#include "wrapper/handle_sparsity.h"
 #include "wrapper/par_huffman.h"
 
 using std::cerr;
@@ -69,69 +69,9 @@ void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
 }  // namespace draft
 
 namespace {
+
 auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
 }
-
-/*
-template <typename Data, typename Quant>
-void cusz::impl::VerifyHuffman(
-    string const& fi,
-    size_t        len,
-    Quant*        xq,
-    int           chunk_size,
-    size_t*       dims,
-    double*       eb_variants)
-{
-    LogAll(log_info, "Redo PdQ just to get quant data.");
-
-    auto  veri_data   = io::ReadBinaryToNewArray<Data>(fi, len);
-    Data* veri_d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(veri_data, len);
-    auto  veri_d_q    = mem::CreateCUDASpace<Quant>(len);
-
-    PdQ(veri_d_data, veri_d_q, dims, eb_variants);
-
-    auto veri_q = mem::CreateHostSpaceAndMemcpyFromDevice(veri_d_q, len);
-
-    auto count = 0;
-    for (auto i = 0; i < len; i++)
-        if (xq[i] != veri_q[i]) count++;
-    if (count != 0)
-        LogAll(log_err, "percentage of not being equal:", count / (1.0 * len));
-    else
-        LogAll(log_info, "Decoded correctly.");
-
-    if (count != 0) {
-        auto n_chunk = (len - 1) / chunk_size + 1;
-        for (auto c = 0; c < n_chunk; c++) {
-            auto chunk_id_printed = false, prev_point_printed = false;
-            for (auto i = 0; i < chunk_size; i++) {
-                auto idx = i + c * chunk_size;
-                if (idx >= len) break;
-                if (xq[idx] != xq[idx]) {
-                    if (not chunk_id_printed) {
-                        cerr << "chunk id: " << c << "\t"
-                             << "start@ " << c * chunk_size << "\tend@ " << (c + 1) * chunk_size - 1 << endl;
-                        chunk_id_printed = true;
-                    }
-                    if (not prev_point_printed) {
-                        if (idx != c * chunk_size)  // not first point
-                            cerr << "PREV-idx:" << idx - 1 << "\t" << xq[idx - 1] << "\t" << xq[idx - 1] << endl;
-                        else
-                            cerr << "wrong at first point!" << endl;
-                        prev_point_printed = true;
-                    }
-                    cerr << "idx:" << idx << "\tdecoded: " << xq[idx] << "\tori: " << xq[idx] << endl;
-                }
-            }
-        }
-    }
-
-    cudaFree(veri_d_q);
-    cudaFree(veri_d_data);
-    delete[] veri_q;
-    delete[] veri_data;
-}
- */
 
 template <typename T>
 auto copy2buffer3d(
@@ -181,7 +121,7 @@ void cusz::interface::Compress(
 
     auto h_data = datapack->hptr();
     auto d_data = datapack->dptr();
-    auto m      = datapack->sqrt_ceil;
+    // auto m      = datapack->sqrt_ceil;
 
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
@@ -241,12 +181,29 @@ void cusz::interface::Compress(
     // --------------------------------------------------------------------------------
     // gather outlier
     // --------------------------------------------------------------------------------
-
-    // CUDA 10 or earlier //
     {
-        auto mxm = datapack->pseudo_matrix_size;
-        ::cusz::impl::PruneGatherAsCSR(
-            d_data, mxm, m /*lda*/, m /*m*/, m /*n*/, nnz_outlier, &subfiles.compress.out_outlier);
+        struct OutlierDescriptor<Data> csr(len);
+
+        auto dummy_nnz    = len / 10;
+        auto pool_bytelen = csr.compress_query_pool_bytelen(dummy_nnz);
+
+        uint8_t* pool;
+        cudaMalloc((void**)&pool, pool_bytelen);
+        csr.compress_configure_pool(pool, dummy_nnz);
+
+        compress_gather_CUDA10(&csr, d_data);
+
+        auto     dump_bytelen = csr.compress_query_csr_bytelen();
+        uint8_t* dump;
+
+        cudaMallocHost((void**)&dump, dump_bytelen);
+
+        csr.compress_archive_outlier(dump, nnz_outlier);
+
+        io::WriteArrayToBinary(subfiles.compress.out_outlier, dump, dump_bytelen);
+
+        cudaFree(pool);
+        cudaFreeHost(dump);
     }
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
@@ -407,19 +364,7 @@ void cusz::interface::Decompress(
         LogAll(log_info, "Huffman decode -> quant.code");
         lossless::interface::HuffmanDecode<Quant, Huff>(
             subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, ap->dict_size);
-        if (wf.verify_huffman) {
-            LogAll(log_warn, "Verifying Huffman is disabled in this version (2021 July");
-            /*
-            // TODO check in argpack
-            if (subfiles.decompress.in_origin == "") {
-                cerr << log_err << "use \"--origin /path/to/origin_data\" to specify the original datum." << endl;
-                exit(-1);
-            }
-            cout << log_info << "Verifying Huffman codec..." << endl;
-            ::cusz::impl::VerifyHuffman<Data, Quant>(subfiles.decompress.in_origin, len, xq, ap->huffman_chunk, dims,
-            eb_variants);
-             */
-        }
+        if (wf.verify_huffman) { LogAll(log_warn, "Verifying Huffman is disabled in this version (2021 July"); }
     }
 
     DataPack<Data> _data("xdata and outlier");
@@ -429,10 +374,19 @@ void cusz::interface::Decompress(
     // need more padding more than pseudo-matrix (for failsafe in reconstruction kernels)
     outlier->SetLen(ap->len).AllocDeviceSpace(mxm + MetadataTrait<1>::Block - ap->len);
 
-    // CUDA 10 or earlier //
     {
-        ::cusz::impl::ScatterFromCSR<Data>(
-            outlier->dptr(), mxm, m /*lda*/, m /*m*/, m /*n*/, &nnz_outlier, &subfiles.decompress.in_outlier);
+        struct OutlierDescriptor<Data> csr(ap->len, nnz_outlier);
+
+        uint8_t *h_csr_file, *d_csr_file;
+        cudaMallocHost((void**)&h_csr_file, csr.bytelen.total);
+        cudaMalloc((void**)&d_csr_file, csr.bytelen.total);
+
+        io::ReadBinaryToArray<uint8_t>(subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
+        cudaMemcpy(d_csr_file, h_csr_file, csr.bytelen.total, cudaMemcpyHostToDevice);
+
+        csr.decompress_extract_outlier(d_csr_file);
+
+        decompress_scatter_CUDA10(&csr, outlier->dptr());
     }
 
     auto tuple_dim4 = ap->dim4;

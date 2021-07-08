@@ -310,8 +310,8 @@ __global__ void cusz::c_lorenzo_1d1l(  //
         write1d<Data, Quant, NTHREAD, SEQ, true>(shmem.space.data, data, dimx, id_base);
     }
     else {  // the original SZ/cuSZ design
-        unsigned int local_nnz;
-        auto         shmem_quant = reinterpret_cast<Quant*>(shmem.space.uninitialized + sizeof(Data) * BLOCK);
+        // unsigned int local_nnz;
+        auto shmem_quant = reinterpret_cast<Quant*>(shmem.space.uninitialized + sizeof(Data) * BLOCK);
         pred1d_postquant<Data, Quant, SEQ, true>(thread_scope, shmem.space.data, shmem_quant, radius, from_last_stripe);
         pred1d_postquant<Data, Quant, SEQ, false>(thread_scope, shmem.space.data, shmem_quant, radius);
         write1d<Data, Quant, NTHREAD, SEQ, false>(shmem.space.data, data, dimx, id_base, shmem_quant, quant);
