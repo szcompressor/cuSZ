@@ -47,33 +47,69 @@ using STRIDE = unsigned int;
 namespace cusz {
 
 // clang-format off
-template <typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 4, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_1d1l
-(Data*, Quant*, DIM, int, FP);
-template <typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 8, bool DELAY_POSTQUANT = false> __global__ void x_lorenzo_1d1l
-(Data*, Quant*, DIM, int, FP);
 
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_2d1l_16x16data_mapto16x2
-(Data*, Quant*, DIM, DIM, STRIDE, int, FP);
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void x_lorenzo_2d1l_16x16data_mapto16x2
-(Data*, Quant*, DIM, DIM, STRIDE, int, FP);
+template <
+    typename Data,
+    typename Quant,
+    typename FP          = float,
+    int  BLOCK           = 256,
+    int  SEQ             = 4,
+    bool COUNT_NNZ       = false,
+    bool COUNT_NON1ST    = false,
+    bool DELAY_POSTQUANT = false>
+__global__ void c_lorenzo_1d1l(Data*, Quant*, DIM, int, FP, unsigned int* = nullptr, unsigned int* = nullptr);
 
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void c_lorenzo_3d1l_32x8x8data_mapto32x1x8
-(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void x_lorenzo_3d1l_32x8x8data_mapto32x1x8
-(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
-template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false> __global__ void x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8
-(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
+template <
+    typename Data,
+    typename Quant,
+    typename FP          = float,
+    bool COUNT_NNZ       = false,
+    bool COUNT_NON1ST    = false,
+    bool DELAY_POSTQUANT = false>
+__global__ void c_lorenzo_2d1l_16x16data_mapto16x2(Data*, Quant*, DIM, DIM, STRIDE, int, FP, unsigned int* = nullptr, unsigned int* = nullptr);
+
+template <
+    typename Data,
+    typename Quant,
+    typename FP          = float,
+    bool COUNT_NNZ       = false,
+    bool COUNT_NON1ST    = false,
+    bool DELAY_POSTQUANT = false>
+__global__ void c_lorenzo_3d1l_32x8x8data_mapto32x1x8(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP, unsigned int* = nullptr, unsigned int* = nullptr);
+
+template < typename Data, typename Quant, typename FP = float, int BLOCK = 256, int SEQ = 8, bool DELAY_POSTQUANT = false>
+__global__ void x_lorenzo_1d1l(Data*, Quant*, DIM, int, FP);
+
+template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false>
+__global__ void x_lorenzo_2d1l_16x16data_mapto16x2(Data*, Quant*, DIM, DIM, STRIDE, int, FP);
+
+template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false>
+__global__ void x_lorenzo_3d1l_32x8x8data_mapto32x1x8(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
+
+template <typename Data, typename Quant, typename FP = float, bool DELAY_POSTQUANT = false>
+__global__ void x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
+
 // clang-format on
 
 }  // namespace cusz
 
-template <typename Data, typename Quant, typename FP, int BLOCK, int SEQ, bool DELAY_POSTQUANT>
+template <
+    typename Data,
+    typename Quant,
+    typename FP,
+    int  BLOCK,
+    int  SEQ,
+    bool COUNT_NNZ,
+    bool COUNT_NON1ST,
+    bool DELAY_POSTQUANT>
 __global__ void cusz::c_lorenzo_1d1l(  //
-    Data*  d,
-    Quant* q,
-    DIM    dimx,
-    int    radius,
-    FP     ebx2_r)
+    Data*         d,
+    Quant*        q,
+    DIM           dimx,
+    int           radius,
+    FP            ebx2_r,
+    unsigned int* nnz,
+    unsigned int* non1st)
 {
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -173,9 +209,17 @@ __global__ void cusz::c_lorenzo_1d1l(  //
     /* EOF */
 }
 
-template <typename Data, typename Quant, typename FP, bool DELAY_POSTQUANT>
-__global__ void
-cusz::c_lorenzo_2d1l_16x16data_mapto16x2(Data* d, Quant* q, DIM dimx, DIM dimy, STRIDE stridey, int radius, FP ebx2_r)
+template <typename Data, typename Quant, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
+__global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
+    Data*         d,
+    Quant*        q,
+    DIM           dimx,
+    DIM           dimy,
+    STRIDE        stridey,
+    int           radius,
+    FP            ebx2_r,
+    unsigned int* nnz,
+    unsigned int* non1st)
 {
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -240,17 +284,19 @@ cusz::c_lorenzo_2d1l_16x16data_mapto16x2(Data* d, Quant* q, DIM dimx, DIM dimy, 
     /* EOF */
 }
 
-template <typename Data, typename Quant, typename FP, bool DELAY_POSTQUANT>
+template <typename Data, typename Quant, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
 __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
-    Data*  d,
-    Quant* q,
-    DIM    dimx,
-    DIM    dimy,
-    DIM    dimz,
-    STRIDE stridey,
-    STRIDE stridez,
-    int    radius,
-    FP     ebx2_r)
+    Data*         d,
+    Quant*        q,
+    DIM           dimx,
+    DIM           dimy,
+    DIM           dimz,
+    STRIDE        stridey,
+    STRIDE        stridez,
+    int           radius,
+    FP            ebx2_r,
+    unsigned int* nnz,
+    unsigned int* non1st)
 {
     constexpr auto  BLOCK = 8;
     __shared__ Data shmem[8][8][32];
