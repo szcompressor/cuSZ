@@ -183,6 +183,79 @@ __forceinline__ __device__ void write1d(
     }
 }
 
+template <typename Data, typename FP, int YSEQ>
+__forceinline__ __device__ void load2d_prequant(
+    Data*        data,
+    Data         center[YSEQ + 1],
+    unsigned int dimx,
+    unsigned int dimy,
+    unsigned int stridey,
+    unsigned int gix,
+    unsigned int giy_base,
+    FP           ebx2_r)
+{
+    auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
+
+#pragma unroll
+    for (auto i = 0; i < YSEQ; i++) {
+        if (gix < dimx and giy_base + i < dimy) center[i + 1] = round(data[get_gid(i)] * ebx2_r);
+    }
+    auto tmp = __shfl_up_sync(0xffffffff, center[YSEQ], 16);  // same-warp, next-16
+    if (TIY == 1) center[0] = tmp;
+}
+
+template <typename Data, typename FP, int YSEQ>
+__forceinline__ __device__ void pred2d(Data center[YSEQ + 1])
+{
+    /* prediction
+         original form:  Data delta = center[i] - center[i - 1] + west[i] - west[i - 1];
+            short form:  Data delta = center[i] - west[i];
+       */
+#pragma unroll
+    for (auto i = YSEQ; i > 0; i--) {
+        center[i] -= center[i - 1];
+        auto west = __shfl_up_sync(0xffffffff, center[i], 1, 16);
+        if (TIX > 0) center[i] -= west;
+    }
+    __syncthreads();
+}
+
+template <typename Data, typename Quant, int YSEQ, bool DELAY_POSTQUANT = false>
+__forceinline__ __device__ void quant_write2d(
+    Data         center[YSEQ + 1],
+    Data*        data,
+    Quant*       quant,
+    unsigned int dimx,
+    unsigned int dimy,
+    unsigned int stridey,
+    int          radius,
+    unsigned int gix,
+    unsigned int giy_base)
+{
+    /********************************************************************************
+     * Depending on whether postquant is delayed in compression, deside separating
+     * data-type outlier and uint-type quantcode when writing to DRAM (or not).
+     ********************************************************************************/
+    auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
+
+#pragma unroll
+    for (auto i = 1; i < YSEQ + 1; i++) {
+        auto gid = get_gid(i - 1);
+
+        if (gix < dimx and giy_base + i - 1 < dimy) {
+            if CONSTEXPR (DELAY_POSTQUANT) {  //
+                data[gid] = center[i];
+            }
+            else {
+                bool quantizable = fabs(center[i]) < radius;
+                Data candidate   = center[i] + radius;
+                data[gid]        = (1 - quantizable) * candidate;  // output; reuse data for outlier
+                quant[gid]       = quantizable * static_cast<Quant>(candidate);
+            }
+        }
+    }
+}
+
 }  // namespace
 
 template <
@@ -241,8 +314,8 @@ __global__ void cusz::c_lorenzo_1d1l(  //
 
 template <typename Data, typename Quant, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
 __global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
-    Data*         d,
-    Quant*        q,
+    Data*         data,
+    Quant*        quant,
     DIM           dimx,
     DIM           dimy,
     STRIDE        stridey,
@@ -254,70 +327,21 @@ __global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
 
-    Data center[YSEQ + 1] = {0};  //   nw  north
-                                  // west  center
+    Data center[YSEQ + 1] = {0};  // nw  n
+                                  //  w  center
 
     auto gix      = BIX * BDX + TIX;           // BDX == 16
     auto giy_base = BIY * BLOCK + TIY * YSEQ;  // BDY * YSEQ = BLOCK == 16
-    auto get_gid  = [&](auto i) { return (giy_base + i) * stridey + gix; };
 
-    /********************************************************************************
-     * load from DRAM, perform prequant
-     ********************************************************************************/
-    {
-#pragma unroll
-        for (auto i = 0; i < YSEQ; i++) {
-            if (gix < dimx and giy_base + i < dimy) center[i + 1] = round(d[get_gid(i)] * ebx2_r);
-        }
-        auto tmp = __shfl_up_sync(0xffffffff, center[YSEQ], 16);  // same-warp, next-16
-        if (TIY == 1) center[0] = tmp;
-    }
-
-    { /* prediction
-         original form:  Data delta = center[i] - center[i - 1] + west[i] - west[i - 1];
-            short form:  Data delta = center[i] - west[i];
-       */
-#pragma unroll
-        for (auto i = YSEQ; i > 0; i--) {
-            center[i] -= center[i - 1];
-            auto west = __shfl_up_sync(0xffffffff, center[i], 1, 16);
-            if (TIX > 0) center[i] -= west;
-        }
-        __syncthreads();
-    }
-
-    /********************************************************************************
-     * Depending on whether postquant is delayed in compression, deside separating
-     * data-type outlier and uint-type quantcode when writing to DRAM (or not).
-     ********************************************************************************/
-    if CONSTEXPR (DELAY_POSTQUANT) {
-#pragma unroll
-        for (auto i = 1; i < YSEQ + 1; i++) {
-            auto gid = get_gid(i - 1);
-            if (gix < dimx and giy_base + i - 1 < dimy) d[gid] = center[i];
-        }
-        // end of branch
-    }
-    else { /* DELAY_POSTQUANT == false, the original SZ/cuSZ design */
-#pragma unroll
-        for (auto i = 1; i < YSEQ + 1; i++) {
-            auto gid         = get_gid(i - 1);
-            bool quantizable = fabs(center[i]) < radius;
-            Data candidate   = center[i] + radius;
-            if (gix < dimx and giy_base + i - 1 < dimy) {
-                d[gid] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-                q[gid] = quantizable * static_cast<Quant>(candidate);
-            }
-        }
-        // end of branch
-    }
-    /* EOF */
+    load2d_prequant<Data, FP, YSEQ>(data, center, dimx, dimy, stridey, gix, giy_base, ebx2_r);
+    pred2d<Data, FP, YSEQ>(center);
+    quant_write2d<Data, Quant, YSEQ, DELAY_POSTQUANT>(center, data, quant, dimx, dimy, stridey, radius, gix, giy_base);
 }
 
 template <typename Data, typename Quant, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
 __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
-    Data*         d,
-    Quant*        q,
+    Data*         data,
+    Quant*        quant,
     DIM           dimx,
     DIM           dimy,
     DIM           dimz,
@@ -344,7 +368,7 @@ __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     if (gix < dimx and giz < dimz) {
         for (auto y = 0; y < BLOCK; y++) {
             if (giy_base + y < dimy) {
-                shmem[z][y][TIX] = round(d[base_id + y * stridey] * ebx2_r);  // prequant (fp presence)
+                shmem[z][y][TIX] = round(data[base_id + y * stridey] * ebx2_r);  // prequant (fp presence)
             }
         }
     }
@@ -373,15 +397,15 @@ __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
          * data-type outlier and uint-type quantcode when writing to DRAM (or not).
          ********************************************************************************/
         if CONSTEXPR (DELAY_POSTQUANT) {
-            if (gix < dimx and (giy_base + y) < dimy and giz < dimz) d[id] = delta;
+            if (gix < dimx and (giy_base + y) < dimy and giz < dimz) data[id] = delta;
             // end of branch
         }
         else { /* DELAY_POSTQUANT == false, the original SZ/cuSZ design */
             bool quantizable = fabs(delta) < radius;
             Data candidate   = delta + radius;
             if (gix < dimx and (giy_base + y) < dimy and giz < dimz) {
-                d[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-                q[id] = quantizable * static_cast<Quant>(candidate);
+                data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
+                quant[id] = quantizable * static_cast<Quant>(candidate);
             }
             // end of branch
         }
