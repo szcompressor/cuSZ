@@ -114,7 +114,7 @@ pred1d_delay_postquant(Data thread_scope[SEQ], volatile Data* shmem_data, Data f
 }
 
 template <typename Data, typename Quant, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void pred1d_default(
+__forceinline__ __device__ void pred1d_postquant(
     Data            thread_scope[SEQ],
     volatile Data*  shmem_data,
     volatile Quant* shmem_quant,
@@ -221,7 +221,7 @@ __forceinline__ __device__ void pred2d(Data center[YSEQ + 1])
 }
 
 template <typename Data, typename Quant, int YSEQ, bool DELAY_POSTQUANT = false>
-__forceinline__ __device__ void quant_write2d(
+__forceinline__ __device__ void postquant_write2d(
     Data         center[YSEQ + 1],
     Data*        data,
     Quant*       quant,
@@ -273,15 +273,21 @@ __global__ void cusz::c_lorenzo_1d1l(  //
     DIM           dimx,
     int           radius,
     FP            ebx2_r,
-    unsigned int* nnz,
-    unsigned int* non1st)
+    unsigned int* num_non1st,
+    unsigned int* nnz_array)
 {
     constexpr auto NTHREAD = BLOCK / SEQ;
 
-    __shared__ union {
-        uint8_t  uninitialized[BLOCK * (sizeof(Data) + sizeof(Quant))];
-        Data     data[BLOCK];
-        uint32_t outlier_loc[BLOCK];
+    __shared__ struct {
+        union {
+            uint8_t uninitialized[BLOCK * sizeof(Data) + (1 - DELAY_POSTQUANT) * BLOCK * sizeof(Quant)];
+            Data    data[BLOCK];
+        } space;
+        struct {
+            unsigned int num_non1st;
+            unsigned int nnz_array[COUNT_NNZ * BLOCK / 4];
+            unsigned int nnz;
+        } query;
     } shmem;
 
     auto id_base = BIX * BLOCK;
@@ -292,23 +298,23 @@ __global__ void cusz::c_lorenzo_1d1l(  //
     /********************************************************************************
      * load from DRAM using striped layout, perform prequant
      ********************************************************************************/
-    load1d<Data, FP, NTHREAD, SEQ>(data, dimx, id_base, shmem.data, thread_scope, from_last_stripe, ebx2_r);
-
-    auto shmem_quant = reinterpret_cast<Quant*>(shmem.uninitialized + sizeof(Data) * BLOCK);
+    load1d<Data, FP, NTHREAD, SEQ>(data, dimx, id_base, shmem.space.data, thread_scope, from_last_stripe, ebx2_r);
 
     /********************************************************************************
      * Depending on whether postquant is delayed in compression, deside separating
      * data-type outlier and uint-type quantcode when writing to DRAM (or not).
      ********************************************************************************/
     if CONSTEXPR (DELAY_POSTQUANT) {
-        pred1d_delay_postquant<Data, SEQ, true>(thread_scope, shmem.data, from_last_stripe);
-        pred1d_delay_postquant<Data, SEQ, false>(thread_scope, shmem.data);
-        write1d<Data, Quant, NTHREAD, SEQ, true>(shmem.data, data, dimx, id_base);
+        pred1d_delay_postquant<Data, SEQ, true>(thread_scope, shmem.space.data, from_last_stripe);
+        pred1d_delay_postquant<Data, SEQ, false>(thread_scope, shmem.space.data);
+        write1d<Data, Quant, NTHREAD, SEQ, true>(shmem.space.data, data, dimx, id_base);
     }
     else {  // the original SZ/cuSZ design
-        pred1d_default<Data, Quant, SEQ, true>(thread_scope, shmem.data, shmem_quant, radius, from_last_stripe);
-        pred1d_default<Data, Quant, SEQ, false>(thread_scope, shmem.data, shmem_quant, radius);
-        write1d<Data, Quant, NTHREAD, SEQ, false>(shmem.data, data, dimx, id_base, shmem_quant, quant);
+        unsigned int local_nnz;
+        auto         shmem_quant = reinterpret_cast<Quant*>(shmem.space.uninitialized + sizeof(Data) * BLOCK);
+        pred1d_postquant<Data, Quant, SEQ, true>(thread_scope, shmem.space.data, shmem_quant, radius, from_last_stripe);
+        pred1d_postquant<Data, Quant, SEQ, false>(thread_scope, shmem.space.data, shmem_quant, radius);
+        write1d<Data, Quant, NTHREAD, SEQ, false>(shmem.space.data, data, dimx, id_base, shmem_quant, quant);
     }
 }
 
@@ -321,8 +327,8 @@ __global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
     STRIDE        stridey,
     int           radius,
     FP            ebx2_r,
-    unsigned int* nnz,
-    unsigned int* non1st)
+    unsigned int* num_non1st,
+    unsigned int* nnz_array)
 {
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -332,10 +338,11 @@ __global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
 
     auto gix      = BIX * BDX + TIX;           // BDX == 16
     auto giy_base = BIY * BLOCK + TIY * YSEQ;  // BDY * YSEQ = BLOCK == 16
-
+                                               // clang-format off
     load2d_prequant<Data, FP, YSEQ>(data, center, dimx, dimy, stridey, gix, giy_base, ebx2_r);
     pred2d<Data, FP, YSEQ>(center);
-    quant_write2d<Data, Quant, YSEQ, DELAY_POSTQUANT>(center, data, quant, dimx, dimy, stridey, radius, gix, giy_base);
+    postquant_write2d<Data, Quant, YSEQ, DELAY_POSTQUANT>(center, data, quant, dimx, dimy, stridey, radius, gix, giy_base);
+    // clang-format on
 }
 
 template <typename Data, typename Quant, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
@@ -349,8 +356,8 @@ __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     STRIDE        stridez,
     int           radius,
     FP            ebx2_r,
-    unsigned int* nnz,
-    unsigned int* non1st)
+    unsigned int* non1st,
+    unsigned int* nnz_array)
 {
     constexpr auto  BLOCK = 8;
     __shared__ Data shmem[8][8][32];
