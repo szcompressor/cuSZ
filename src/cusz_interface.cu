@@ -54,6 +54,12 @@ auto demangle = [](const char* name) -> string {
     return ret_val;
 };
 
+auto display_throughput(float time, size_t nbyte)
+{
+    auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
+    cout << throughput << "GiB/s\n";
+}
+
 namespace draft {
 template <typename Huff>
 void ExportCodebook(Huff* d_canon_cb, const string& basename, size_t dict_size)
@@ -131,37 +137,22 @@ void cusz::interface::Compress(
     auto ebx2   = eb * 2;
     auto ebx2_r = 1 / (eb * 2);
 
-    // --------------------------------------------------------------------------------
     // dryrun
-    // --------------------------------------------------------------------------------
-
     if (wf.lossy_dryrun) {
         LogAll(log_info, "invoke dry-run");
-
         constexpr auto SEQ          = 4;
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE / SEQ;
         auto           dim_grid     = get_npart(len, DATA_SUBSIZE);
-
-        cusz::dual_quant_dryrun<Data, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
-            (d_data, len, ebx2_r, ebx2);
+        cusz::dual_quant_dryrun<Data, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block>>>(d_data, len, ebx2_r, ebx2);
         HANDLE_ERROR(cudaDeviceSynchronize());
-
         auto data_lossy = new Data[len]();
         cudaMemcpy(data_lossy, d_data, len * sizeof(Data), cudaMemcpyDeviceToHost);
-
         analysis::VerifyData<Data>(&ap->stat, data_lossy, h_data, len);
         analysis::PrintMetrics<Data>(&ap->stat, false, ap->eb, 0);
-
-        cudaFreeHost(h_data);
-        cudaFree(d_data);
-        exit(0);
+        cudaFreeHost(h_data), cudaFree(d_data), exit(0);
     }
     LogAll(log_info, "invoke lossy-construction");
-
-    // --------------------------------------------------------------------------------
-    // constructing quant code
-    // --------------------------------------------------------------------------------
 
     Quant* quant;
     // TODO add hoc padding
@@ -172,38 +163,34 @@ void cusz::interface::Compress(
     auto dimy       = tuple_dim4._1;
     auto dimz       = tuple_dim4._2;
 
+    float time_lossy{0}, time_outlier{0}, time_hist{0}, time_book{0}, time_lossless{0};
+
+    // constructing quant code
     {
-        float milliseconds = 0;
         compress_lorenzo_construct<Data, Quant, float>(
-            d_data, d_quant, dim3(dimx, dimy, dimz), ap->ndim, eb, radius, milliseconds);
+            d_data, d_quant, dim3(dimx, dimy, dimz), ap->ndim, eb, radius, time_lossy);
     }
 
-    // --------------------------------------------------------------------------------
     // gather outlier
-    // --------------------------------------------------------------------------------
     {
         struct OutlierDescriptor<Data> csr(len);
 
+        uint8_t *pool, *dump;
+
         auto dummy_nnz    = len / 10;
         auto pool_bytelen = csr.compress_query_pool_bytelen(dummy_nnz);
-
-        uint8_t* pool;
         cudaMalloc((void**)&pool, pool_bytelen);
         csr.compress_configure_pool(pool, dummy_nnz);
 
-        compress_gather_CUDA10(&csr, d_data);
+        compress_gather_CUDA10(&csr, d_data, time_outlier);
 
-        auto     dump_bytelen = csr.compress_query_csr_bytelen();
-        uint8_t* dump;
-
+        auto dump_bytelen = csr.compress_query_csr_bytelen();
         cudaMallocHost((void**)&dump, dump_bytelen);
 
         csr.compress_archive_outlier(dump, nnz_outlier);
-
         io::WriteArrayToBinary(subfiles.compress.out_outlier, dump, dump_bytelen);
 
-        cudaFree(pool);
-        cudaFreeHost(dump);
+        cudaFree(pool), cudaFreeHost(dump);
     }
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
@@ -272,9 +259,7 @@ void cusz::interface::Compress(
         exit(0);
     }
 
-    // --------------------------------------------------------------------------------
     // analyze compressibility
-    // --------------------------------------------------------------------------------
     // TODO merge this Analyzer instance
     Analyzer analyzer{};
 
@@ -282,7 +267,7 @@ void cusz::interface::Compress(
     auto dict_size = ap->dict_size;
     auto d_freq    = mem::CreateCUDASpace<unsigned int>(dict_size);
     // TODO substitute with Analyzer method
-    wrapper::GetFrequency(d_quant, len, d_freq, dict_size);
+    wrapper::GetFrequency(d_quant, len, d_freq, dict_size, time_hist);
 
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
 
@@ -292,8 +277,15 @@ void cusz::interface::Compress(
     // first, entry, reversed codebook; TODO CHANGED first and entry to H type
     auto _nbyte       = sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
     auto d_reverse_cb = mem::CreateCUDASpace<uint8_t>(_nbyte);
-    lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_reverse_cb);
-    cudaDeviceSynchronize();
+
+    {
+        auto t = new cuda_timer_t;
+        t->timer_start();
+        lossless::par_huffman::ParGetCodebook<Quant, Huff>(dict_size, d_freq, d_canon_cb, d_reverse_cb);
+        time_book = t->timer_end_get_elapsed_time();
+        cudaDeviceSynchronize();
+        delete t;
+    }
 
     // analysis
     {
@@ -309,21 +301,35 @@ void cusz::interface::Compress(
 
     delete[] h_freq;
 
-    // --------------------------------------------------------------------------------
     // decide if skipping Huffman coding
-    // --------------------------------------------------------------------------------
     if (wf.skip_huffman_enc) {
         quant = mem::CreateHostSpaceAndMemcpyFromDevice(d_quant, len);
         io::WriteArrayToBinary(subfiles.compress.out_quant, quant, len);
-
         LogAll(log_info, "to store quant.code directly (Huffman enc skipped)");
-
-        return;
+        exit(0);
     }
     // --------------------------------------------------------------------------------
 
     std::tie(num_bits, num_uints, huff_meta_size) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk, ap->dict_size);
+        subfiles.compress.huff_base, d_quant, d_canon_cb, d_reverse_cb, _nbyte, len, ap->huffman_chunk, ap->dict_size,
+        time_lossless);
+
+    cout << "\nTIME in milliseconds\t================================================================\n";
+    float time_nonbook = time_lossy + time_outlier + time_hist + time_lossless;
+
+    printf("TIME\tconstruct:\t%f\t", time_lossy), display_throughput(time_lossy, len * sizeof(Data));
+    printf("TIME\toutlier:\t%f\t", time_outlier), display_throughput(time_outlier, len * sizeof(Data));
+    printf("TIME\thistogram:\t%f\t", time_hist), display_throughput(time_hist, len * sizeof(Data));
+    printf("TIME\tencode:\t%f\t", time_lossless), display_throughput(time_lossless, len * sizeof(Data));
+
+    cout << "TIME\t--------------------------------------------------------------------------------\n";
+    printf("TIME\tnon-book kernels (sum):\t%f\t", time_nonbook), display_throughput(time_nonbook, len * sizeof(Data));
+    cout << "TIME\t================================================================================\n";
+    printf("TIME\tbuild book (not counted in prev section):\t%f\t", time_book),
+        display_throughput(time_book, len * sizeof(Data));
+    printf("TIME\t*all* kernels (sum, count book time):\t%f\t", time_nonbook + time_book),
+        display_throughput(time_nonbook + time_book, len * sizeof(Data));
+    cout << "TIME\t================================================================================\n\n";
 
     LogAll(log_dbg, "to store Huffman encoded quant.code (default)");
 
@@ -344,6 +350,9 @@ void cusz::interface::Decompress(
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
+    float time_lossy{0}, time_outlier{0}, time_lossless{0};
+
+    auto  len      = ap->len;
     auto& wf       = ap->szwf;
     auto& subfiles = ap->subfiles;
 
@@ -363,7 +372,7 @@ void cusz::interface::Decompress(
     else {
         LogAll(log_info, "Huffman decode -> quant.code");
         lossless::interface::HuffmanDecode<Quant, Huff>(
-            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, ap->dict_size);
+            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, total_uint, ap->dict_size, time_lossless);
         if (wf.verify_huffman) { LogAll(log_warn, "Verifying Huffman is disabled in this version (2021 July"); }
     }
 
@@ -386,7 +395,7 @@ void cusz::interface::Decompress(
 
         csr.decompress_extract_outlier(d_csr_file);
 
-        decompress_scatter_CUDA10(&csr, outlier->dptr());
+        decompress_scatter_CUDA10(&csr, outlier->dptr(), time_outlier);
     }
 
     auto tuple_dim4 = ap->dim4;
@@ -399,10 +408,22 @@ void cusz::interface::Decompress(
     auto ebx2   = (eb * 2);
 
     {
-        float milliseconds;
         decompress_lorenzo_reconstruct(
-            xdata->dptr(), quant.dptr(), dim3(dimx, dimy, dimz), ap->ndim, eb, radius, milliseconds);
+            xdata->dptr(), quant.dptr(), dim3(dimx, dimy, dimz), ap->ndim, eb, radius, time_lossy);
     }
+
+    cout << "\nTIME in milliseconds\t================================================================\n";
+    float time_all = time_lossy + time_outlier + time_lossless;
+
+    printf("TIME\tscatter outlier:\t%f\t", time_outlier), display_throughput(time_outlier, len * sizeof(Data));
+    printf("TIME\tHuffman decode:\t%f\t", time_lossless), display_throughput(time_lossless, len * sizeof(Data));
+    printf("TIME\treconstruct:\t%f\t", time_lossy), display_throughput(time_lossy, len * sizeof(Data));
+
+    cout << "TIME\t--------------------------------------------------------------------------------\n";
+
+    printf("TIME\tdecompress (sum):\t%f\t", time_all), display_throughput(time_all, len * sizeof(Data));
+
+    cout << "TIME\t================================================================================\n\n";
 
     xdata->AllocHostSpace().template Move<transfer::d2h>();
 

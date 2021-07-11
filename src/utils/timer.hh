@@ -21,6 +21,27 @@ using hires         = std::chrono::high_resolution_clock;
 using duration_t    = std::chrono::duration<double>;
 using hires_clock_t = std::chrono::time_point<hires>;
 
+typedef struct CUDATimer {
+    cudaEvent_t start, stop;
+    float       milliseconds;
+
+    void timer_start()
+    {
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+        cudaEventRecord(start);
+    }
+
+    float timer_end_get_elapsed_time()
+    {
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        return milliseconds;
+    }
+
+} cuda_timer_t;
+
 // TODO handle return; testing
 /**
  * @brief A timer wrapper for arbitrary function (no handling return for now);

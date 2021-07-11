@@ -34,7 +34,8 @@ int TestEncoding(string filename)
         .template Move<transfer::h2d>();
     freq.SetLen(num_syms).AllocDeviceSpace();
 
-    wrapper::GetFrequency<Data, false>(data.dptr(), data.Len(), freq.dptr(), freq.Len());
+    float dummy;
+    wrapper::GetFrequency<Data, false>(data.dptr(), data.Len(), freq.dptr(), freq.Len(), dummy);
 
     ////////////////////////////////////////////////////////////////////////////////
     //  ^                                  | Huffman

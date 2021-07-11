@@ -148,7 +148,7 @@ struct OutlierDescriptor {
     };
 };
 
-void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* ondev_outlier);
-void decompress_scatter_CUDA10(struct OutlierDescriptor<float>* csr, float* ondev_outlier);
+void compress_gather_CUDA10(struct OutlierDescriptor<float>*, float*, float&);
+void decompress_scatter_CUDA10(struct OutlierDescriptor<float>*, float*, float&);
 
 #endif
