@@ -18,6 +18,7 @@
 #include <cstdio>
 
 #include "../type_aliasing.hh"
+#include "../utils/timer.hh"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
 const static unsigned int WARP_SIZE = 32;
@@ -48,7 +49,7 @@ __global__ void p2013Histogram_int_input(Input_Int*, Output_UInt*, size_t, int, 
 
 namespace wrapper {
 template <typename Input>
-void GetFrequency(Input*, size_t, unsigned int*, int);
+void GetFrequency(Input*, size_t, unsigned int*, int, float&);
 
 }  // namespace wrapper
 
@@ -106,7 +107,7 @@ __global__ void kernel::p2013Histogram(Input_UInt* input_data, Output_UInt* outp
 }
 
 template <typename Input>
-void wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size)
+void wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size, float& milliseconds)
 {
     static_assert(
         std::is_same<Input, UI1>::value         //
@@ -146,10 +147,13 @@ void wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int di
 
     cudaFuncSetAttribute(
         kernel::p2013Histogram<Input, unsigned int>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
+
+    auto t = new cuda_timer_t;
+    t->timer_start();
     kernel::p2013Histogram                                                                    //
         <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
         (d_in, d_freq, num_values, num_buckets, r_per_block);
-
+    milliseconds += t->timer_end_get_elapsed_time();
     cudaDeviceSynchronize();
 }
 

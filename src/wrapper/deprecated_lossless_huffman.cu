@@ -173,7 +173,8 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
     size_t   _nbyte,
     size_t   len,
     int      dn_chunk,
-    int      dict_size)
+    int      dict_size,
+    float&   milliseconds)
 {
     static const auto type_bitcount = sizeof(Huff) * 8;  // canonical Huffman; follows H to decide first and entry type
 
@@ -189,9 +190,18 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
     auto d_huff_dn = mem::CreateCUDASpace<Huff>(len + dn_chunk + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
     {
         auto Db = HuffConfig::Db_encode;
+
+        auto huffenc_fixlen = new cuda_timer_t;
+        huffenc_fixlen->timer_start();
+
         cusz::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
             <<<get_Dg(len, Db), Db / HuffConfig::enc_sequentiality>>>(d_input, d_huff_dn, len, d_canon_cb);
+
+        milliseconds += huffenc_fixlen->timer_end_get_elapsed_time();
+
         cudaDeviceSynchronize();
+
+        delete huffenc_fixlen;
     }
 
     // deflate
@@ -199,8 +209,17 @@ std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode(
     auto d_sp_bits = mem::CreateCUDASpace<size_t>(nchunk);
     {
         auto Db = HuffConfig::Db_deflate;
+
+        auto huffenc_deflate = new cuda_timer_t;
+        huffenc_deflate->timer_start();
+
         cusz::Deflate<Huff><<<get_Dg(nchunk, Db), Db>>>(d_huff_dn, len, d_sp_bits, dn_chunk);
+
+        milliseconds += huffenc_deflate->timer_end_get_elapsed_time();
+
         cudaDeviceSynchronize();
+
+        delete huffenc_deflate;
     }
 
     // gather metadata (without write) before gathering huff as sp on GPU
@@ -249,7 +268,8 @@ void lossless::interface::HuffmanEncodeWithTree_3D(
     auto d_quant_in = mem::CreateDeviceSpaceAndMemcpyFromHost(h_quant_in, len);
 
     auto d_freq = mem::CreateCUDASpace<unsigned int>(dict_size);
-    ::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size);
+    float dummy;
+    ::wrapper::GetFrequency(d_quant_in, len, d_freq, dict_size, dummy);
     cudaFree(d_freq);
     auto h_freq = mem::CreateHostSpaceAndMemcpyFromDevice(d_freq, dict_size);
 
@@ -327,7 +347,8 @@ void lossless::interface::HuffmanDecode(
     size_t           len,
     int              chunk_size,
     size_t           total_uints,
-    int              dict_size)
+    int              dict_size,
+    float&           milliseconds)
 {
     auto type_bw    = sizeof(Huff) * 8;
     auto canon_meta = sizeof(Huff) * (2 * type_bw) + sizeof(Quant) * dict_size;
@@ -339,14 +360,19 @@ void lossless::interface::HuffmanDecode(
     auto Db           = HuffConfig::Db_deflate;  // the same as deflating
     auto Dg           = (nchunk - 1) / Db + 1;
 
-    auto d_huff_sp = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
-
+    auto d_huff_sp      = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp, total_uints);
     auto d_huff_sp_meta = mem::CreateDeviceSpaceAndMemcpyFromHost(huff_sp_meta, 2 * nchunk);
     auto d_canon_byte   = mem::CreateDeviceSpaceAndMemcpyFromHost(canon_byte, canon_meta);
     cudaDeviceSynchronize();
 
+    auto timer_huffdec = new cuda_timer_t;
+    timer_huffdec->timer_start();
+
     cusz::Decode<<<Dg, Db, canon_meta>>>(  //
         d_huff_sp, d_huff_sp_meta, quant->dptr(), len, chunk_size, nchunk, d_canon_byte, (size_t)canon_meta);
+
+    milliseconds += timer_huffdec->timer_end_get_elapsed_time();
+
     cudaDeviceSynchronize();
 
     // quant->template Move<transfer::d2h>(); // unnecessary if no Huffman decoding verification
@@ -364,15 +390,15 @@ void lossless::interface::HuffmanDecode(
 // using H4 = HuffTrait<4>::Huff;
 
 // clang-format off
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, int);
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, int);
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, int);
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, int);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, int, float&);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, int, float&);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, int, float&);
+template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, int, float&);
 
-template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, int);
-template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, int);
-template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, int);
-template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, int);
+template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, int, float&);
+template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, int, float&);
+template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, DataPack<UI1>*, size_t, int, size_t, int, float&);
+template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, DataPack<UI2>*, size_t, int, size_t, int, float&);
 
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI4>(Index<3>::idx_t, string&, UI1*, size_t, int);
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI8>(Index<3>::idx_t, string&, UI1*, size_t, int);

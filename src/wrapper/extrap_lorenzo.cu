@@ -13,6 +13,7 @@
 #include <limits>
 #include <numeric>
 #include <stdexcept>
+#include "../utils/timer.hh"
 #include "extrap_lorenzo.h"
 
 #ifdef DPCPP_SHOWCASE
@@ -102,6 +103,10 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
 
 #else
 
+    // TODO put into conditional compile
+    auto timer_lorenzo = new cuda_timer_t;
+    timer_lorenzo->timer_start();
+
     if (ndim == 1) {
         constexpr auto SEQ          = 4;
         constexpr auto DATA_SUBSIZE = 256;
@@ -124,7 +129,10 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
     }
 #endif
 
+    ms = timer_lorenzo->timer_end_get_elapsed_time();
     cudaDeviceSynchronize();
+
+    delete timer_lorenzo;
 }
 
 /********************************************************************************
@@ -168,6 +176,9 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
 
 #else
 
+    auto timer_lorenzo = new cuda_timer_t;
+    timer_lorenzo->timer_start();
+
     if (ndim == 1) {  // y-sequentiality == 8
         constexpr auto SEQ          = 8;
         constexpr auto DATA_SUBSIZE = 256;
@@ -194,7 +205,9 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     }
 #endif
 
+    ms = timer_lorenzo->timer_end_get_elapsed_time();
     cudaDeviceSynchronize();
+    delete timer_lorenzo;
 }
 
 /* instantiate */
