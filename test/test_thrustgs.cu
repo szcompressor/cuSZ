@@ -15,7 +15,7 @@ int main()
     auto h_dense         = new Data[len]();
     h_dense[1]           = 1.1;
     h_dense[10]          = 2.2;
-    auto         d_dense = mem::CreateDeviceSpaceAndMemcpyFromHost(h_dense, len);
+    auto         d_dense = mem::create_devspace_memcpy_h2d(h_dense, len);
     unsigned int nnz;
 
     // gather
@@ -27,8 +27,8 @@ int main()
 
     // scatter
     cudaMemset(d_dense, 0x00, len * sizeof(Data));
-    auto d_idxmap = mem::CreateDeviceSpaceAndMemcpyFromHost(h_idxmap, nnz);
-    auto d_sparse = mem::CreateDeviceSpaceAndMemcpyFromHost(h_sparse, nnz);
+    auto d_idxmap = mem::create_devspace_memcpy_h2d(h_idxmap, nnz);
+    auto d_sparse = mem::create_devspace_memcpy_h2d(h_sparse, nnz);
     ThrustScatterDualQuantOutlier<Data, Index>(d_dense, len, nnz, d_sparse, d_idxmap);
     cudaMemcpy(h_dense, d_dense, len * sizeof(Data), cudaMemcpyDeviceToHost);
     cout << "\nscatter" << endl;

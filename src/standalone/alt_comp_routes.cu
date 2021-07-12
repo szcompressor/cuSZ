@@ -71,7 +71,7 @@ void clorenzo_alternative_rle()
 
     // cout << "analyzing error_control" << endl;
     // auto res1 = analyzer.GetMaxMinRng                                                  //
-    //             <Count, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+    //             <Count, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
     //             (error_control, len);
     // cout << '\n\n';
 
@@ -82,7 +82,7 @@ void clorenzo_alternative_rle()
 
     cout << "analyzing rle_lens" << endl;
     auto res2 = analyzer.GetMaxMinRng                                                  //
-                <Count, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+                <Count, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                 (rle_lens, len);
 
     cout << "file:\t" << fname << '\n';
@@ -133,9 +133,9 @@ int main(int argc, char** argv)
     }
 
     cudaMallocManaged(&data, len * sizeof(Data));
-    io::ReadBinaryToArray(fname, data, len);
+    io::read_binary_to_array(fname, data, len);
     auto res = analyzer.GetMaxMinRng                                                 //
-               <Data, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+               <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                (data, len);
     eb *= res.rng;
 

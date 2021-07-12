@@ -42,7 +42,7 @@ void build(std::ostream& o, T t, Args... args)  // recursive variadic function
 }
 
 template <typename... Args>
-void LogAll(const string& log_head, Args... args)
+void logging(const string& log_head, Args... args)
 {
     std::ostringstream oss;
     oss << log_head;

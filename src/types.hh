@@ -26,7 +26,7 @@ typedef struct Timing {
             float build_book_stage1;
             float build_book_stage2;
             float fixed_len;
-            float deflate;
+            float encode_deflate;
         } huffman;
     } compress;
     struct {
