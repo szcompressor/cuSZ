@@ -73,7 +73,7 @@ template <typename Quant, typename Huff, typename Data = float>
 std::tuple<size_t, size_t, size_t> HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, int, float&);
 
 template <typename Quant, typename Huff, typename Data = float>
-void HuffmanDecode(std::string&, DataPack<Quant>*, size_t, int, size_t, int, float&);
+void HuffmanDecode(std::string&, struct PartialData<Quant>*, size_t, int, size_t, int, float&);
 
 template <typename Quant, typename Huff, typename Data = float>
 void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_quant_in, size_t len, int dict_size);

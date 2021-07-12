@@ -67,7 +67,7 @@ class ArgPack {
     // TODO [x] metric/stat
 
     // mega variable
-    struct SZWorkFlow {
+    struct {
         bool input_use_demo{false};
 
         bool    pre_binning{false};
@@ -93,7 +93,7 @@ class ArgPack {
         bool lossless_gzip{false};
 
         bool gtest{false};
-    } szwf;
+    } sz_workflow;
 
     struct HuffmanWorkFlow {
         bool dryrun;

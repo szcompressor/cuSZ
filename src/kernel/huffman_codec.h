@@ -111,10 +111,10 @@ template <typename Input, typename Huff>
 __global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*, int offset = 0);
 
 template <typename Input, typename Huff, int SEQ = HuffConfig::enc_sequentiality>
-__global__ void EncodeFixedLen_cub(Input*, Huff*, size_t, Huff*, int offset = 0);
+__global__ void encode_fixedlen_space_cub(Input*, Huff*, size_t, Huff*, int offset = 0);
 
 template <typename Huff>
-__global__ void Deflate(Huff*, size_t, size_t*, int);
+__global__ void encode_deflate(Huff*, size_t, size_t*, int);
 
 template <typename Quant, typename Huff>
 __global__ void Decode(Huff*, size_t*, Quant*, size_t, int, int, BYTE*, size_t);
@@ -131,7 +131,7 @@ __global__ void cusz::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* 
 }
 
 template <typename Input, typename Huff, int SEQ>
-__global__ void cusz::EncodeFixedLen_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
+__global__ void cusz::encode_fixedlen_space_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {
     static const auto Db = HuffConfig::Db_encode;
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
@@ -162,7 +162,7 @@ __global__ void cusz::EncodeFixedLen_cub(Input* data, Huff* huff, size_t len, Hu
 }
 
 template <typename Huff>
-__global__ void cusz::Deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
+__global__ void cusz::encode_deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
 {
     // TODO static check with Huff and UI4/8
     static const auto dtype_width = sizeof(Huff) * 8;

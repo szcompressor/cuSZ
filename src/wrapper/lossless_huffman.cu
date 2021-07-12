@@ -117,18 +117,18 @@ void compress_huffman_encode(ENC_CTX* ctx, Input* d_input, size_t len)
     {
         auto dim_block = 256;
         auto dim_grid  = get_npart(len, dim_block);
-        cusz::EncodeFixedLen_cub                                       //
+        cusz::encode_fixedlen_space_cub                                       //
             <Input, Huff, ENC_SEQ><<<dim_grid, dim_block / ENC_SEQ>>>  //
             (d_input, ctx->space.fixed_len.dptr, len, ctx->space.non_archive.book.dptr);
         cudaDeviceSynchronize();
     }
     /********************************************************************************
-     * deflate
+     * encode_deflate
      ********************************************************************************/
     {
         auto dim_block = 256;
         auto dim_grid  = get_npart(nchunk, dim_block);
-        cusz::Deflate<Huff><<<dim_grid, dim_block>>>  //
+        cusz::encode_deflate<Huff><<<dim_grid, dim_block>>>  //
             (ctx->space.fixed_len.dptr, len, ctx->space.archive.seg_bits.dptr, chunk_size);
         cudaDeviceSynchronize();
     }
@@ -190,7 +190,7 @@ void decompress_huffman_decode(DEC_CTX* ctx, Output* d_output, size_t len, int c
 
     auto nchunk = get_npart(len, chunk_size);
     {
-        auto dim_block = 256;  // the same as deflate
+        auto dim_block = 256;  // the same as encode_deflate
         auto dim_grid  = get_npart(nchunk, dim_block);
         huffman_decode_kernel<<<dim_grid, dim_block, ctx->len.revbook>>>(
             ctx->space.bitstream.dptr, ctx->space.seg_entries.dptr, ctx->space.seg_bits.dptr, d_output, chunk_size,

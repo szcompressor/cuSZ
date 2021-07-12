@@ -17,16 +17,8 @@
 #define UNINITIALIZED unsigned char
 #define BYTE unsigned char
 
-template <typename T>
-struct PartialData {
-    using type = T;
-    T*           dptr;
-    T*           hptr;
-    unsigned int len;
-    unsigned int nbyte() const {return len * sizeof(T)};
-    void         h2d() { cudaMemcpy(dptr, hptr, nbytes(), cudaMemcpyHostToDevice); }
-    void         d2h() { cudaMemcpy(hptr, dptr, nbytes(), cudaMemcpyDeviceToHost); }
-};
+#include "../datapack.hh"
+
 
 template <typename Input, typename Huff, typename MetadataT = size_t>
 struct HuffmanEncodingDescriptor {

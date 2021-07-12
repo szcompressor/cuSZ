@@ -21,7 +21,7 @@ namespace lossless {
 namespace par_huffman {
 
 template <typename Q, typename H>
-void ParGetCodebook(int stateNum, unsigned int* freq, H* codebook, uint8_t* meta);
+void par_get_codebook(int stateNum, unsigned int* freq, H* codebook, uint8_t* meta);
 
 }  // namespace par_huffman
 }  // namespace lossless

@@ -49,7 +49,7 @@ __global__ void p2013Histogram_int_input(Input_Int*, Output_UInt*, size_t, int, 
 
 namespace wrapper {
 template <typename Input>
-void GetFrequency(Input*, size_t, unsigned int*, int, float&);
+void get_frequency(Input*, size_t, unsigned int*, int, float&);
 
 }  // namespace wrapper
 
@@ -107,7 +107,7 @@ __global__ void kernel::p2013Histogram(Input_UInt* input_data, Output_UInt* outp
 }
 
 template <typename Input>
-void wrapper::GetFrequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size, float& milliseconds)
+void wrapper::get_frequency(Input* d_in, size_t len, unsigned int* d_freq, int dict_size, float& milliseconds)
 {
     static_assert(
         std::is_same<Input, UI1>::value         //

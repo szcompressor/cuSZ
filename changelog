@@ -24,7 +24,7 @@ feature		add `--skip huffman` and `--verify huffman` options
 feature		add binning as preprocessing
 feature 	use `cuSparse` to transform `outlier` to dense format
 feature		add `argparse` to check and parse argument inputs
-refactor	add CUDA wrappers (e.g., `mem::CreateCUDASpace`)
+refactor	add CUDA wrappers (e.g., `mem::create_CUDA_space`)
 
 April, 2020
 feature 	add concise and detailed help doc
