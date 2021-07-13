@@ -52,7 +52,7 @@ void load_demo_sizes(argpack* ap)
         {std::string("cesm"), {3600, 1800, 1, 1, 2}},      {std::string("hurricane"), {500, 500, 100, 1, 3}},
         {std::string("nyx-s"), {512, 512, 512, 1, 3}},     {std::string("nyx-m"), {1024, 1024, 1024, 1, 3}},
         {std::string("qmc"), {288, 69, 7935, 1, 3}},       {std::string("qmcpre"), {69, 69, 33120, 1, 3}},
-        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("aramco"), {235, 849, 849, 1, 3}},
+        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("rtm"), {235, 849, 849, 1, 3}},
         {std::string("parihaka"), {1168, 1126, 922, 1, 3}}};
 
     if (not ap->demo_dataset.empty()) {
