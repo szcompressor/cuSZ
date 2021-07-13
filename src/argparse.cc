@@ -188,13 +188,13 @@ void set_config(argpack* ap, char* in_str)
 
     for (auto kv : opts) {
         // clang-format off
-        if (kv.first == "mode")             { ap->mode = std::string(kv.second); }
-        else if (kv.first == "eb")          { ap->eb = str2fp(kv.second); }
-        else if (kv.first == "capacity")    { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
-        else if (kv.first == "huffbyte")    { ap->huff_byte = str2int(kv.second); }
-        else if (kv.first == "quantbyte")   { ap->quant_byte = str2int(kv.second); }
-        else if (kv.first == "quantbyte")   { ap->huffman_chunk = str2int(kv.second), ap->sz_workflow.autotune_huffchunk = false; }
-        else if (kv.first == "demo")        { ap->sz_workflow.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
+        if (kv.first == "mode")         { ap->mode = std::string(kv.second); }
+        else if (kv.first == "eb")      { ap->eb = str2fp(kv.second); }
+        else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
+        else if (kv.first == "huffbyte"){ ap->huff_byte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->quant_byte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->sz_workflow.autotune_huffchunk = false; }
+        else if (kv.first == "demo")    { ap->sz_workflow.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
         // clang-format on
     }
 }
@@ -204,6 +204,9 @@ void set_config(argpack* ap, char* in_str)
 string  //
 ArgPack::format(const string& s)
 {
+    std::regex  gray("%(.*?)%");
+    std::string gray_text("\e[37m$1\e[0m");
+
     std::regex  bful("@(.*?)@");
     std::string bful_text("\e[1m\e[4m$1\e[0m");
     std::regex  bf("\\*(.*?)\\*");
@@ -216,7 +219,8 @@ ArgPack::format(const string& s)
     auto        b = std::regex_replace(a, bf, bf_text);
     auto        c = std::regex_replace(b, ul, ul_text);
     auto        d = std::regex_replace(c, red, red_text);
-    return d;
+    auto        e = std::regex_replace(d, gray, gray_text);
+    return e;
 }
 
 int  //
