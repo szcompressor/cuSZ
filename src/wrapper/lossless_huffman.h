@@ -3,8 +3,10 @@
  * @author Jiannan Tian
  * @brief
  * @version 0.3
- * @date 2021-06-16
+ * @date 2021-07-10
+ * (created) 2020-04-24 (rev.1) 2020-10-24 (rev.2) 2021-07-10
  *
+ * (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
  */
@@ -15,111 +17,107 @@
 #define UNINITIALIZED unsigned char
 #define BYTE unsigned char
 
+#include "../datapack.hh"
+
+
 template <typename Input, typename Huff, typename MetadataT = size_t>
 struct HuffmanEncodingDescriptor {
     /****************************************************************************************************
-     *                                         device  host
-     *             type        length          space   space   archive description
+     *                                         device  host   host
+     *             type        length          space   space  archive description
      *
-     * freq        uint32      len.dict        x       x               histogram frequency
-     * book        Huff        len.dict        x       x               book for encoding
-     * seg_uints   MetadataT   nchunk          x       x               segmental uint numbers (derived from seg_bits)
-     * seg_bits    MetadataT   nchunk          x       x       x       segmental bit numbers
-     * seg_entries MetadataT   nchunk          x       x       x       segmental entries (derived from seg_uints)
-     * revbook     BYTE        len.revbook     x       x       x       reverse book for decoding
-     * bitstream   BYTE        sum(seg_uints)  x       x       x       output bitsteram
+     * freq        uint32      len.dict        x       x              histogram frequency
+     * book        Huff        len.dict        x       x              book for encoding
+     * seg_uints   MetadataT   nchunk          x       x              segmental uint numbers (derived from seg_bits)
+     * seg_bits    MetadataT   nchunk          x       x      x       segmental bit numbers
+     * seg_entries MetadataT   nchunk          x       x      x       segmental entries (derived from seg_uints)
+     * revbook     BYTE        len.revbook     x       x      x       reverse book for decoding
+     * bitstream   uint32/64   sum(seg_uints)  x       x      x       output bitsteram
      ****************************************************************************************************/
     static const size_t type_bitcount = sizeof(Huff) * 8;
 
     size_t       num_bits;   // analysis only
     unsigned int num_uints;  // part of metadata
     unsigned int nchunk;
+    unsigned int dict_size;
 
-    /********************************************************************************
-     * pointer as accessor
-     ********************************************************************************/
     struct {
-        // codebook
-        unsigned int* d_freq;     // .len() == dict_size
-        Huff*         d_book;     // .len() == dict_size
-        BYTE*         d_revbook;  // .len() == ... (see constructor)
-        // encoding metadata
-        MetadataT* d_seg_bits;     // .len() == nchunk
-        MetadataT* d_seg_uints;    // .len() == nchunk
-        MetadataT* d_seg_entries;  // .len() == nchunk
-        // encoding (old method)
-        Huff* fixed_len;    // .len() == original datalen; alloc otherwise
-        Huff* d_bitstream;  // .len() == num_uints
+        struct {
+            struct PartialData<BYTE> uninitialized;
 
-        // codebook
-        unsigned int* h_freq;     // .len() == dict_size (optional internal use)
-        Huff*         h_book;     // .len() == dict_size (optional internal use)
-        BYTE*         h_revbook;  // .len() == ... (see constructor)
-        // encoding metadata
-        MetadataT* h_seg_bits;     // .len() == nchunk
-        MetadataT* h_seg_uints;    // .len() == nchunk
-        MetadataT* h_seg_entries;  // .len() == nchunk
-        // encoding (old method)
-        Huff* h_bitstream;  // .len() == num_uints
+            struct PartialData<unsigned int> freq;
+            struct PartialData<Huff>         book;
+            struct PartialData<MetadataT>    seg_uints;
+        } non_archive;
+
+        struct {
+            struct PartialData<BYTE> uninitialized;
+
+            struct PartialData<MetadataT> seg_bits;
+            struct PartialData<MetadataT> seg_entries;
+            struct PartialData<BYTE>      revbook;
+            struct PartialData<Huff>      bitstream;
+        } archive;
+
+        struct PartialData<input> input;
+        struct PartialData<Huff>  fixed_len;
+
+        //        size_t maximum_possible(bool nbyte) const {}
+        //        size_t archive_size(bool nbyte) const {}
     } space;
 
-    /********************************************************************************
-     * length and offset in numbers of byte ("raw")
-     ********************************************************************************/
-    struct {
-        size_t freq, book, seg_uints;                      // host and dev space
-        size_t seg_bits, seg_entries, revbook, bitstream;  // archive
-    } rawlen;
+    unsigned int query_revbook_len() const { return sizeof(Huff) * (2 * type_bitcount) + sizeof(Input) * dict_size; }
 
-    /********************************************************************************
-     * `archive` is a subset of `space`
-     ********************************************************************************/
-    struct {
-        BYTE*      h_revbook;      // .len() == ... (see constructor)
-        MetadataT* h_seg_bits;     // .len() == nchunk
-        MetadataT* h_seg_entries;  // .len() == nchunk
+    unsigned int query_non_archive_nbyte() const
+    {
+        return space.non_archive.seg_uints.nbyte() +  //
+               space.non_archive.book.nbyte() +       //
+               space.non_archive.freq.nbyte();        //
+    }
 
-        /* According to expected CR, 1/2 original data is okay. */
-        Huff* h_bitstream;  // .len() == num_uints
-    } archive;
+    unsigned int query_archive_nbyte() const
+    {
+        return space.archive.seg_bits.nbyte() +     //
+               space.archive.seg_entries.nbyte() +  //
+               space.archive.revbook.nbyte() +      //
+               space.archive.bitstream.nbyte();
+    }
 
-    /********************************************************************************
-     * typed len
-     ********************************************************************************/
-    struct {
-        unsigned int book;     // T = Huff
-        unsigned int revbook;  // T = BYTE
-        unsigned int freq;     // T = unsigned int
-        unsigned int seg_;     // T = MetadataT
-    } len;
+    size_t query_pool_nbyte() const { return query_non_archive_nbyte() + query_archive_nbyte(); }
+
+    unsigned int update_bitstream_size() { space.archive.bitstream.len = num_bits; }
 
     BYTE* d_space;
+    BYTE* d_non_archive;
     BYTE* d_archive;  // reserved for GDS (gpu direct storage)
     BYTE* h_space;    //
     BYTE* h_archive;  // h_space + nbyte(seg_uints)
 
-    HuffmanEncodingDescriptor(
-        UNINITIALIZED* _d_space,
-        UNINITIALIZED* _h_space,
-        UNINITIALIZED* _h_archive,
-        size_t         _dict_size,
-        size_t         _nchunk) :
-        d_space(_d_space), h_space(_h_space), h_archive(_h_archive), nchunk(_nchunk)
+    HuffmanEncodingDescriptor(unsigned int _input_size, unsigned int _dict_size, unsigned int _nchunk)
     {
-        len.book    = _dict_size;
-        len.freq    = _dict_size;
-        len.revbook = sizeof(Huff) * (2 * this->type_bitcount) + sizeof(Input) * _dict_size;
-        len.seg_    = nchunk;
-
         auto get_nbyte = [](auto ptr, size_t len) { return sizeof(std::remove_pointer<decltype(ptr)>::type) * len; };
 
-        rawlen.freq        = _get_nbyte(space.d_freq, len.freq);
-        rawlen.book        = _get_nbyte(space.d_book, len.book);
-        rawlen.seg_uints   = _get_nbyte(space.d_seg_uints, len.seg_);
-        rawlen.seg_bits    = _get_nbyte(space.d_seg_bitss, len.seg_);
-        rawlen.seg_entries = _get_nbyte(space.d_seg_entries, len.seg_);
-        rawlen.revbook     = _get_nbyte(space.d_revbook, len.revbook);
-        rawlen.bitstream   = 0;  // set in process_huffman_metadata
+        nchunk = _nchunk;
+
+        space.input         = {nullptr, nullptr, _input_size};
+        space.fixed_len.len = _input_size;
+
+        space.non_archive.freq.len      = _dict_size;
+        space.non_archive.book.len      = _dict_size;
+        space.non_archive.seg_uints.len = nchunk;
+        space.archive.seg_bits.len      = nchunk;
+        space.archive.seg_entries.len   = nchunk;
+        space.archive.revbook.len       = query_revbook_len();
+        space.archive.bitstream.len     = 0;
+    }
+
+    void configure(UNINITIALIZED* _d_space, UNINITIALIZED* _h_space)
+    {
+        d_space = _d_space;
+        h_space = _h_space;
+
+        d_archive = d_space;
+        // h_archive = _h_archive;
 
         auto typify = [](auto ptr, auto raw_ptr, size_t raw_offset) {
             ptr = reinterpret_cast<decltype(ptr)>(raw_ptr + raw_offset);
@@ -135,6 +133,7 @@ struct HuffmanEncodingDescriptor {
         typify_dspace(space.d_seg_bits,    rawlen.freq + rawlen.book + rawlen.seg_uints);
         typify_dspace(space.d_seg_entries, rawlen.freq + rawlen.book + rawlen.seg_uints + rawlen.seg_bits);
         typify_dspace(space.d_revbook,     rawlen.freq + rawlen.book + rawlen.seg_uints + rawlen.seg_bits + rawlen.seg_entries);
+        typify_dspace(space.d_fixed_len,   rawlen.freq + rawlen.book + rawlen.seg_uints + rawlen.seg_bits + rawlen.seg_entries + rawlen.revbook);
         typify_dspace(space.d_bitstream,   rawlen.freq + rawlen.book + rawlen.seg_uints + rawlen.seg_bits + rawlen.seg_entries + rawlen.revbook);
 
         typify_hspace(space.h_freq,        0);
@@ -149,19 +148,17 @@ struct HuffmanEncodingDescriptor {
     }
 
     void save_metadata(
-        unsigned int& _rawlen_seg_bits,
-        unsigned int& _rawlen_seg_entries,
-        unsigned int& _rawlen_revbook,
-        unsigned int& _rawlen_bitstream)
+        unsigned int& len_seg_bits,
+        unsigned int& len_seg_entries,
+        unsigned int& nbyte_revbook,
+        unsigned int& len_bitstream)
     {
         if (num_uints == 0) throw std::runtime_error("[ENC_CTX::save_metadata] num_units must not be 0.");
 
-        rawlen.bitstream = num_uints * sizeof(Huff);
-
-        _rawlen_seg_bits    = rawlen.seg_bits;
-        _rawlen_seg_entries = rawlen.seg_entries;
-        _rawlen_revbook     = rawlen.revbook;
-        _rawlen_bitstream   = rawlen.bitstream;
+        len_seg_bits    = space.archive.seg_bits.len;
+        len_seg_entries = space.archive.seg_entries.len;
+        nbyte_revbook   = space.archive.revbook.len;
+        len_bitstream   = space.archive.bitstream.len;
     }
 };
 
@@ -169,70 +166,42 @@ template <typename Input, typename Huff, typename MetadataT = size_t>
 struct HuffmanDecodingDescriptor {
     /****************************************************************************************************
      *                                         device  host
-     *             type        length          space   space   archive description
+     *             type        length          space   space  description
      *
-     * seg_bits    MetadataT   nchunk          x       x       x       segmental bit numbers
-     * seg_entries MetadataT   nchunk          x       x       x       segmental entries
-     * revbook     BYTE        len.revbook     x       x       x       reverse book for decoding
-     * bitstream   BYTE        sum(seg_uints)  x       x       x       output bitsteram
+     * seg_bits    MetadataT   nchunk          x       x      segmental bit numbers
+     * seg_entries MetadataT   nchunk          x       x      segmental entries
+     * revbook     BYTE        len.revbook     x       x      reverse book for decoding
+     * bitstream   uint32/64   sum(seg_uints)  x       x      output bitsteram
      ****************************************************************************************************/
     static const size_t type_bitcount = sizeof(Huff) * 8;
 
     unsigned int num_uints;
     unsigned int nchunk;
+    unsigned int dict_size;
 
     // Listed variables follow the order in memory layout.
     struct {
-        MetadataT* d_seg_bits;     // .len() == nchunk
-        MetadataT* d_seg_entries;  // .len() == nchunk
-        BYTE*      d_revbook;      // .len() == ... (see constructor)
-        Huff*      d_bitstream;    // .len() == num_uints
+        struct PartialData<BYTE> uninitialized;
 
-        MetadataT* h_seg_bits;     // .len() == nchunk
-        MetadataT* h_seg_entries;  // .len() == nchunk
-        BYTE*      h_revbook;      // .len() == ... (see constructor)
-        Huff*      h_bitstream;    // .len() == num_uints
+        struct PartialData<MetadataT> seg_bits;
+        struct PartialData<MetadataT> seg_entries;
+        struct PartialData<BYTE>      revbook;
+        struct PartialData<Huff>      bitstream;
+
     } space;
-
-    // Listed variables follow the order in memory layout.
-    struct {
-        MetadataT* h_seg_bits;     // .len() == nchunk
-        MetadataT* h_seg_entries;  // .len() == nchunk
-        BYTE*      h_revbook;      // .len() = ... (see constructor)
-        Huff*      h_bitstream;    // .len() == num_uints
-    } archive;
-
-    struct {
-        size_t freq, book, seg_uints;                      // host and dev space
-        size_t seg_bits, seg_entries, revbook, bitstream;  // archive
-    } rawlen;
-    struct {
-        unsigned int book;     // T = Huff
-        unsigned int revbook;  // T = BYTE
-    } len;
 
     BYTE* d_archive;
     BYTE* h_archive;
 
-    HuffmanDecodingDescriptor(
-        BYTE*         _h_archive,
-        size_t        _dict_size,
-        size_t        _nchunk,
-        unsigned int& _rawlen_bitstream,
-        unsigned int& _rawlen_seg_bits,
-        unsigned int& _rawlen_seg_entries,
-        unsigned int& _rawlen_revbook
+    unsigned int query_revbook_len() const { return sizeof(Huff) * (2 * type_bitcount) + sizeof(Input) * dict_size; }
 
-        ) :
+    HuffmanDecodingDescriptor(BYTE* _h_archive, size_t _dict_size, size_t _nchunk, unsigned int num_uints) :
         h_archive(_h_archive), nchunk(_nchunk)
     {
-        this->len.cb      = _dict_size;
-        this->len.revbook = sizeof(Huff) * (2 * this->type_bitcount) + sizeof(Input) * _dict_size;
-
-        rawlen.seg_bits    = _rawlen_seg_bits;
-        rawlen.seg_entries = _rawlen_seg_entries;
-        rawlen.revbook     = _rawlen_revbook;
-        rawlen.bitstream   = _rawlen_bitstream;
+        space.seg_bits    = {nullptr, nullptr, nchunk};
+        space.seg_entries = {nullptr, nullptr, nchunk};
+        space.revbook     = {nullptr, nullptr, query_revbook_len()};
+        space.bitstream   = {nullptr, nullptr, num_uints};
     }
 };
 

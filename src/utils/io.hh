@@ -20,13 +20,12 @@
 namespace io {
 
 template <typename T>
-T* ReadBinaryToNewArray(const std::string& name_on_fs, size_t dtype_len)
+T* read_binary_to_new_array(const std::string& fname, size_t dtype_len)
 {
-    std::ifstream ifs(name_on_fs.c_str(), std::ios::binary | std::ios::in);
+    std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
     if (not ifs.is_open()) {
-        std::cerr << "fail to open " << name_on_fs << std::endl;
+        std::cerr << "fail to open " << fname << std::endl;
         exit(1);
-        // return;
     }
     auto _a = new T[dtype_len]();
     ifs.read(reinterpret_cast<char*>(_a), std::streamsize(dtype_len * sizeof(T)));
@@ -35,23 +34,21 @@ T* ReadBinaryToNewArray(const std::string& name_on_fs, size_t dtype_len)
 }
 
 template <typename T>
-void ReadBinaryToArray(const std::string& name_on_fs, T* _a, size_t dtype_len)
+void read_binary_to_array(const std::string& fname, T* _a, size_t dtype_len)
 {
-    std::ifstream ifs(name_on_fs.c_str(), std::ios::binary | std::ios::in);
+    std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
     if (not ifs.is_open()) {
-        std::cerr << "fail to open " << name_on_fs << std::endl;
+        std::cerr << "fail to open " << fname << std::endl;
         exit(1);
-        // return;
     }
-    // auto _a = new T[dtype_len]();
     ifs.read(reinterpret_cast<char*>(_a), std::streamsize(dtype_len * sizeof(T)));
     ifs.close();
 }
 
 template <typename T>
-void WriteArrayToBinary(const std::string& name_on_fs, T* const _a, size_t const dtype_len)
+void write_array_to_binary(const std::string& fname, T* const _a, size_t const dtype_len)
 {
-    std::ofstream ofs(name_on_fs.c_str(), std::ios::binary | std::ios::out);
+    std::ofstream ofs(fname.c_str(), std::ios::binary | std::ios::out);
     if (not ofs.is_open()) return;
     ofs.write(reinterpret_cast<const char*>(_a), std::streamsize(dtype_len * sizeof(T)));
     ofs.close();

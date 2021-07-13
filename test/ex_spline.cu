@@ -78,7 +78,7 @@ std::string fname;
 //         (data, errctrl, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
 //     cudaDeviceSynchronize();
 
-//     io::WriteArrayToBinary(fname + ".lorenzo", errctrl, len);
+//     io::write_array_to_binary(fname + ".lorenzo", errctrl, len);
 
 //     cudaFree(errctrl);
 //     // }
@@ -239,7 +239,7 @@ void test_spline3dc()
         }
     }
 
-    if (write_quant) io::WriteArrayToBinary(fname + ".spline", errctrl, len_padded);
+    if (write_quant) io::write_array_to_binary(fname + ".spline", errctrl, len_padded);
 
     cudaMallocManaged((void**)&xdata, len * sizeof(Data));
     cudaMemset(xdata, 0x00, len * sizeof(Data));
@@ -273,12 +273,12 @@ void test_spline3dc()
             printf("** FAILED error boundness check.\n.");
 
         stat_t stat_gpu;
-        VerifyDataGPU(&stat_gpu, xdata, data, len);
-        analysis::PrintMetrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
+        verify_data_GPU(&stat_gpu, xdata, data, len);
+        analysis::print_data_quality_metrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
 
         // stat_t stat;
-        // analysis::VerifyData<Data>(&stat, xdata, data, len);
-        // analysis::PrintMetrics<Data>(&stat, false, eb, 0, 1, true, false);
+        // analysis::verify_data<Data>(&stat, xdata, data, len);
+        // analysis::print_data_quality_metrics<Data>(&stat, false, eb, 0, 1, true, false);
 
         // printf("data[max-err-idx]: %f\n", data[stat.max_abserr_index]);
         // printf("xdata[max-err-idx]: %f\n", xdata[stat.max_abserr_index]);
@@ -325,7 +325,7 @@ int main(int argc, char** argv)
     cudaMemset(data, 0x00, len * sizeof(Data));
 
     std::cout << "opening " << fname << std::endl;
-    io::ReadBinaryToArray(fname, data, len);
+    io::read_binary_to_array(fname, data, len);
 
     thrust::device_ptr<Data> g_ptr      = thrust::device_pointer_cast(data);
     auto                     max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded

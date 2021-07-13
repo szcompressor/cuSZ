@@ -34,7 +34,7 @@
 #define CONSTEXPR
 #endif
 
-enum class AnalyzerExecutionPolicy { host, cuda_device };
+enum class ExecutionPolicy { host, cuda_device };
 enum class AnalyzerMethod { thrust, cuda_native, stl };
 
 class Analyzer {
@@ -72,10 +72,10 @@ class Analyzer {
     Analyzer()  = default;
     ~Analyzer() = default;
 
-    template <typename Data, AnalyzerExecutionPolicy policy, AnalyzerMethod method>
+    template <typename Data, ExecutionPolicy policy, AnalyzerMethod method>
     extrema_result_t GetMaxMinRng(Data* d_data, size_t len)
     {
-        if CONSTEXPR (policy == AnalyzerExecutionPolicy::cuda_device and method == AnalyzerMethod::thrust) {
+        if CONSTEXPR (policy == ExecutionPolicy::cuda_device and method == AnalyzerMethod::thrust) {
             auto time_0 = hires::now();
             // ------------------------------------------------------------
             thrust::device_ptr<Data> g_ptr = thrust::device_pointer_cast(d_data);
@@ -96,12 +96,13 @@ class Analyzer {
         }
     }
 
-    template <typename UInt, AnalyzerExecutionPolicy policy, AnalyzerMethod method>
+    template <typename UInt, ExecutionPolicy policy, AnalyzerMethod method>
     Analyzer& Histogram(UInt* data, size_t data_len, unsigned int* freq, size_t num_bins)
     {
         // TODO static check UInt
-        if CONSTEXPR (policy == AnalyzerExecutionPolicy::cuda_device and method == AnalyzerMethod::cuda_native) {
-            wrapper::GetFrequency(data, data_len, freq, num_bins);
+        if CONSTEXPR (policy == ExecutionPolicy::cuda_device and method == AnalyzerMethod::cuda_native) {
+            float dummy;
+            wrapper::get_frequency(data, data_len, freq, num_bins, dummy);
         }
         else {
             // TODO static check

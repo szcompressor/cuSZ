@@ -36,8 +36,8 @@ std::tuple<Data*, Index*> ThrustGatherDualQuantOutlier(Data* d_dense, const size
     nnz = thrust::count_if(thrust::device, p_dense, p_dense + len, [] __device__(const Data& a) { return a != 0.0f; });
 
     // TODO thrust copy to host, https://stackoverflow.com/a/43983021/8740097
-    auto d_sparse = mem::CreateCUDASpace<Data>(nnz);
-    auto d_idxmap = mem::CreateCUDASpace<Index>(nnz);
+    auto d_sparse = mem::create_CUDA_space<Data>(nnz);
+    auto d_idxmap = mem::create_CUDA_space<Index>(nnz);
 
     thrust::device_ptr<Data>  p_sparse = thrust::device_pointer_cast(d_sparse);
     thrust::device_ptr<Index> p_idxmap = thrust::device_pointer_cast(d_idxmap);
@@ -54,8 +54,8 @@ std::tuple<Data*, Index*> ThrustGatherDualQuantOutlier(Data* d_dense, const size
     thrust::copy_if(
         thrust::device, in_begin, in_end, out_begin, [] __device__(const tup& t) { return thrust::get<0>(t) != 0.0f; });
 
-    auto h_sparse = mem::CreateHostSpaceAndMemcpyFromDevice(d_sparse, nnz);
-    auto h_idxmap = mem::CreateHostSpaceAndMemcpyFromDevice(d_idxmap, nnz);
+    auto h_sparse = mem::create_devspace_memcpy_d2h(d_sparse, nnz);
+    auto h_idxmap = mem::create_devspace_memcpy_d2h(d_idxmap, nnz);
 
     return std::make_pair(h_sparse, h_idxmap);
 }

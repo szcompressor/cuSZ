@@ -1,9 +1,10 @@
 /**
  * @file handle_sparsity.h
  * @author Jiannan Tian
- * @brief (header) A high-level sparsity handling wrapper.
+ * @brief (header) A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.3
- * @date 2021-06-17
+ * @date 2021-07-08
+ * (created) 2020-09-10 (rev1) 2021-06-17 (rev2) 2021-07-08
  *
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
@@ -15,94 +16,139 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-
-// put it where functions are called
-
-// auto matrixified_len1  = [](auto size) {
-//     static_assert(std::numeric_limits<decltype(size)>::is_integer, "[matrixify] must be plain interger types.");
-//     return = static_cast<size_t>(ceil(sqrt(len)));
-// }
+#include <stdexcept>
 
 template <typename Data = float>
 struct OutlierDescriptor {
-    int*  ondev_row_ptr{nullptr};
-    int*  ondev_col_idx{nullptr};
-    Data* ondev_csr_val{nullptr};
+    struct {
+        uint8_t* ptr;
+
+        struct {
+            int*  rowptr;
+            int*  colidx;
+            Data* values;
+        } entry;
+
+        struct {
+            unsigned int rowptr;
+            unsigned int colidx;
+            unsigned int values;
+        } offset;
+
+    } pool;
+
+    struct {
+        unsigned int rowptr;
+        unsigned int colidx;
+        unsigned int values;
+        unsigned int total;
+    } bytelen;
 
     unsigned int m{0};
+    unsigned int dummy_nnz{0};
     unsigned int nnz{0};
-    unsigned int bytelen_rowptr{0};
-    unsigned int bytelen_colidx{0};
-    unsigned int bytelen_values{0};
-    unsigned int bytelen_total{0};
-
-    OutlierDescriptor(unsigned int _len) { this->m = static_cast<size_t>(ceil(sqrt(_len))); }
 
     /********************************************************************************
-     * use after nnz is known
+     * compression use
      ********************************************************************************/
-    void configure(int nnz)
+    OutlierDescriptor(unsigned int _len)
+    {  //
+        this->m = static_cast<size_t>(ceil(sqrt(_len)));
+    }
+
+    /**
+     * @brief nnz is not necessarity the real one.
+     *
+     * @param try_nnz
+     * @return unsigned int
+     */
+    unsigned int compress_query_pool_bytelen(unsigned int try_nnz)
+    {
+        pool.offset.rowptr = 0;
+        pool.offset.colidx = sizeof(int) * (m + 1);
+        pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * try_nnz;
+
+        return sizeof(int) * (m + 1)      // rowptr
+               + sizeof(int) * try_nnz    // colidx
+               + sizeof(Data) * try_nnz;  // values
+    }
+
+    /**
+     * @brief set up memory pool
+     *
+     * @param _pool
+     * @param try_nnz
+     */
+    void compress_configure_pool(uint8_t* _pool, unsigned int try_nnz)
+    {
+        if (not _pool) throw std::runtime_error("Memory pool is no allocated.");
+        pool.ptr          = _pool;
+        pool.entry.rowptr = reinterpret_cast<int*>(pool.ptr + pool.offset.rowptr);
+        pool.entry.colidx = reinterpret_cast<int*>(pool.ptr + pool.offset.colidx);
+        pool.entry.values = reinterpret_cast<Data*>(pool.ptr + pool.offset.values);
+    }
+
+    // TODO handle nnz == 0 otherwise
+    unsigned int compress_query_csr_bytelen() const
+    {
+        return sizeof(int) * (m + 1)  // rowptr
+               + sizeof(int) * nnz    // colidx
+               + sizeof(Data) * nnz;  // values
+    }
+
+    /**
+     * @brief use when the real nnz is known
+     *
+     * @param nnz
+     */
+    void compress_configure_with_nnz(int nnz)
     {
         this->nnz      = nnz;
-        bytelen_rowptr = sizeof(unsigned int) * (m + 1);
-        bytelen_colidx = sizeof(unsigned int) * nnz;
-        bytelen_values = sizeof(Data) * nnz;
-        bytelen_total  = bytelen_rowptr + bytelen_colidx + bytelen_values;
+        bytelen.rowptr = sizeof(int) * (m + 1);
+        bytelen.colidx = sizeof(int) * nnz;
+        bytelen.values = sizeof(Data) * nnz;
+        bytelen.total  = bytelen.rowptr + bytelen.colidx + bytelen.values;
+    }
+
+    void compress_archive_outlier(uint8_t* archive, int& nnz)
+    {
+        nnz = this->nnz;
+
+        // clang-format off
+        cudaMemcpy(archive + 0,                               pool.entry.rowptr, bytelen.rowptr, cudaMemcpyDeviceToHost);
+        cudaMemcpy(archive + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, cudaMemcpyDeviceToHost);
+        cudaMemcpy(archive + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, cudaMemcpyDeviceToHost);
+        // clang-format on
     }
 
     /********************************************************************************
-     * so many input args just to decouple from ANY header arrangement
+     * decompression use
      ********************************************************************************/
-    void compress_archive(
-        uint8_t*      start,
-        unsigned int& nnz,
-        unsigned int& bytelen_rowptr,
-        unsigned int& bytelen_colidx,
-        unsigned int& bytelen_values,
-        unsigned int& bytelen_total)
-    {
-        nnz            = this->nnz;
-        bytelen_rowptr = this->bytelen_rowptr;
-        bytelen_colidx = this->bytelen_colidx;
-        bytelen_values = this->bytelen_values;
-        bytelen_total  = this->bytelen_total;
+    OutlierDescriptor(unsigned int _len, unsigned int _nnz)
+    {  //
+        this->m   = static_cast<size_t>(ceil(sqrt(_len)));
+        this->nnz = _nnz;
 
-        cudaMemcpy(
-            start,  //
-            this->ondev_row_ptr, bytelen_rowptr, cudaMemcpyDeviceToHost);
-        cudaMemcpy(
-            start + bytelen_rowptr,  //
-            this->ondev_col_idx, bytelen_colidx, cudaMemcpyDeviceToHost);
-        cudaMemcpy(
-            start + bytelen_rowptr + bytelen_colidx,  //
-            this->ondev_csr_val, bytelen_values, cudaMemcpyDeviceToHost);
+        bytelen.rowptr = sizeof(int) * (this->m + 1);
+        bytelen.colidx = sizeof(int) * this->nnz;
+        bytelen.values = sizeof(Data) * this->nnz;
+        bytelen.total  = bytelen.rowptr + bytelen.colidx + bytelen.values;
     }
 
-    void decompress_extract(
-        uint8_t*     onhost_start,
-        uint8_t*     ondev_start,
-        unsigned int nnz,
-        unsigned int bytelen_rowptr,
-        unsigned int bytelen_colidx,
-        unsigned int bytelen_values,
-        unsigned int bytelen_total,
-        bool         memcpy_h2d)
+    void decompress_extract_outlier(uint8_t* _pool)
     {
-        if (memcpy_h2d) cudaMemcpy(ondev_start, onhost_start, bytelen_total, cudaMemcpyHostToDevice);
-        this->ondev_row_ptr = reinterpret_cast<int*>(ondev_start);
-        this->ondev_col_idx = reinterpret_cast<int*>(ondev_start + bytelen_rowptr);
-        this->ondev_csr_val = reinterpret_cast<Data*>(ondev_start + bytelen_rowptr + bytelen_colidx);
+        pool.offset.rowptr = 0;
+        pool.offset.colidx = bytelen.rowptr;
+        pool.offset.values = bytelen.rowptr + bytelen.colidx;
+
+        pool.ptr          = _pool;
+        pool.entry.rowptr = reinterpret_cast<int*>(pool.ptr + pool.offset.rowptr);
+        pool.entry.colidx = reinterpret_cast<int*>(pool.ptr + pool.offset.colidx);
+        pool.entry.values = reinterpret_cast<Data*>(pool.ptr + pool.offset.values);
     };
-
-    void destroy_devspace()
-    {
-        if (this->ondev_row_ptr) cudaFree(this->ondev_row_ptr);
-        if (this->ondev_col_idx) cudaFree(this->ondev_col_idx);
-        if (this->ondev_csr_val) cudaFree(this->ondev_csr_val);
-    }
 };
 
-void compress_gather_CUDA10(struct OutlierDescriptor<float>* outlier_desc, float* ondev_outlier);
-void decompress_scatter_CUDA10(struct OutlierDescriptor<float>* outlier_desc, float* ondev_outlier);
+void compress_gather_CUDA10(struct OutlierDescriptor<float>*, float*, float&);
+void decompress_scatter_CUDA10(struct OutlierDescriptor<float>*, float*, float&);
 
 #endif

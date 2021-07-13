@@ -71,7 +71,7 @@ void test_lorenzo(std::string fname, int ndim, dim3 size3)
     cout << "len1 from dim3: " << len1 << endl;
 
     cudaMallocHost(&h_data, len1 * sizeof(Data));
-    io::ReadBinaryToArray(fname, h_data, len1);
+    io::read_binary_to_array(fname, h_data, len1);
     cudaMallocHost(&h2_data, len1 * sizeof(Data));
     memcpy(h2_data, h_data, len1 * sizeof(Data));
 
@@ -91,13 +91,13 @@ void test_lorenzo(std::string fname, int ndim, dim3 size3)
     // TODO GPU verification does not print
     // {
     //     stat_t stat_gpu;
-    //     VerifyDataGPU(&stat_gpu, h_data, h2_data, len1);
-    //     analysis::PrintMetrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
+    //     verify_data_GPU(&stat_gpu, h_data, h2_data, len1);
+    //     analysis::print_data_quality_metrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
     // }
     {
         stat_t stat;
-        analysis::VerifyData(&stat, h_data, h2_data, len1);
-        analysis::PrintMetrics<Data>(&stat, false, eb, 0, 1, false, false);
+        analysis::verify_data(&stat, h_data, h2_data, len1);
+        analysis::print_data_quality_metrics<Data>(&stat, false, eb, 0, 1, false, false);
     }
 
     // clear up

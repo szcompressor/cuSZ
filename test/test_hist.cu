@@ -5,15 +5,15 @@
 int main()
 {
     auto len  = (unsigned int)512 * 512 * 512;
-    auto data = io::ReadBinaryToNewArray<float>("/home/jtian/sdrb-nyx/baryon_density.dat", len);
+    auto data = io::read_binary_to_new_array<float>("/home/jtian/sdrb-nyx/baryon_density.dat", len);
 
     auto nbin = 128u;
     auto keys = new unsigned int[nbin]();
     auto hist = new unsigned int[nbin]();
 
-    auto d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, nbin);
-    auto d_keys = mem::CreateDeviceSpaceAndMemcpyFromHost(keys, nbin);
-    auto d_hist = mem::CreateDeviceSpaceAndMemcpyFromHost(hist, nbin);
+    auto d_data = mem::create_devspace_memcpy_h2d(data, nbin);
+    auto d_keys = mem::create_devspace_memcpy_h2d(keys, nbin);
+    auto d_hist = mem::create_devspace_memcpy_h2d(hist, nbin);
 
     float* min_val = nullptr;
     float* max_val = nullptr;

@@ -3,8 +3,10 @@
  * @author Jiannan Tian
  * @brief A high-level Huffman wrapper. Allocations are explicitly out of called functions.
  * @version 0.3
- * @date 2021-06-17
+ * @date 2021-07-10
+ * (created) 2020-04-24 (rev.1) 2020-10-24 (rev.2) 2021-07-10
  *
+ * (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
  */
@@ -40,6 +42,9 @@ size_t get_nbyte(T*, size_t len)
 }
 
 // TODO add __restrict__ to each
+/**
+ * A helper function that carries no ctx
+ */
 template <typename Huff, typename MetadataT = size_t>
 inline void process_huffman_metadata(
     MetadataT*   d_seg_bits,     // on-device space
@@ -60,6 +65,9 @@ inline void process_huffman_metadata(
     num_uints = std::accumulate(h_seg_uints, h_seg_uints + nchunk, (size_t)0);
 }
 
+/**
+ * A helper function that carries no ctx
+ */
 template <typename Huff, typename MetadataT = size_t>
 __global__ void concatenate_huffman_segments(
     Huff* __restrict__ input_dn,
@@ -85,10 +93,13 @@ __global__ void concatenate_huffman_segments(
 /********************************************************************************
  * high-level API
  ********************************************************************************/
-#define ENC_CTX HuffmanEncodingDescriptor<Input, Huff, MetadataT>
+#define ENC_CTX struct HuffmanEncodingDescriptor<Input, Huff, MetadataT>
 
+/*
+ * A compressing driver program that carries a lot of context.
+ */
 template <typename Input, typename Huff, typename MetadataT, bool NSYMBOL_RESTRICT>
-void compress_huffman_encode(ENC_CTX* ctx, Input* d_input, size_t len, int chunk_size)
+void compress_huffman_encode(ENC_CTX* ctx, Input* d_input, size_t len)
 {
     constexpr auto ENC_SEQ = 4;
     static_assert(
@@ -98,7 +109,7 @@ void compress_huffman_encode(ENC_CTX* ctx, Input* d_input, size_t len, int chunk
         throw std::runtime_error("[compress_huffman_encode] branch(NSYMBOL_RESTRICT) not implemented.");
     }
 
-    auto nchunk = get_npart(len, chunk_size);
+    auto nchunk = ctx->nchunk;
 
     /********************************************************************************
      * encoding in a fixed-length space
@@ -106,18 +117,19 @@ void compress_huffman_encode(ENC_CTX* ctx, Input* d_input, size_t len, int chunk
     {
         auto dim_block = 256;
         auto dim_grid  = get_npart(len, dim_block);
-        cusz::EncodeFixedLen_cub                                       //
+        cusz::encode_fixedlen_space_cub                                       //
             <Input, Huff, ENC_SEQ><<<dim_grid, dim_block / ENC_SEQ>>>  //
-            (d_input, ctx->space.fixed_len, len, ctx->space.d_book);
+            (d_input, ctx->space.fixed_len.dptr, len, ctx->space.non_archive.book.dptr);
         cudaDeviceSynchronize();
     }
     /********************************************************************************
-     * deflate
+     * encode_deflate
      ********************************************************************************/
     {
         auto dim_block = 256;
         auto dim_grid  = get_npart(nchunk, dim_block);
-        cusz::Deflate<Huff><<<dim_grid, dim_block>>>(ctx->space.fixed_len, len, ctx->space.d_seg_bits, chunk_size);
+        cusz::encode_deflate<Huff><<<dim_grid, dim_block>>>  //
+            (ctx->space.fixed_len.dptr, len, ctx->space.archive.seg_bits.dptr, chunk_size);
         cudaDeviceSynchronize();
     }
     /********************************************************************************
@@ -125,27 +137,25 @@ void compress_huffman_encode(ENC_CTX* ctx, Input* d_input, size_t len, int chunk
      ********************************************************************************/
     {
         process_huffman_metadata<Huff>(
-            ctx->space.d_seg_bits, ctx->space.h_seg_bits, ctx->space.h_seg_uints, ctx->space.h_seg_entries, nchunk,
-            ctx->num_bits, ctx->num_uints);
+            ctx->space.archive.seg_bits.dptr, ctx->space.archive.seg_bits.hptr, ctx->space.non_archive.seg_uints.hptr,
+            ctx->space.archive.seg_entries.hptr, nchunk, ctx->num_bits, ctx->num_uints);
 
-        cudaMemcpy(
-            ctx->space.d_seg_bits, ctx->space.h_seg_bits,  //
-            get_nbyte(ctx->space.h_seg_uints, ctx->nchunk), H2D);
-        cudaMemcpy(
-            ctx->space.d_seg_entries, ctx->space.h_seg_entries,  //
-            get_nbyte(ctx->space.h_seg_entries, ctx->nchunk), H2D);
+        ctx->update_bitstream_size();
+
+        ctx->space.archive.seg_bits.h2d();
+        ctx->space.archive.seg_entries.h2d();
     }
     /********************************************************************************
      * concatenate segments
      ********************************************************************************/
     {
         concatenate_huffman_segments<<<nchunk, 128>>>(
-            ctx->space.fixed_len, ctx->space.d_bitstream, ctx->space.d_seg_entries, ctx->space.d_seg_uints, chunk_size);
+            ctx->space.fixed_len.dptr,              //
+            ctx->space.archive.bitstream.dptr,      //
+            ctx->space.archive.seg_entries.dptr,    //
+            ctx->space.non_archive.seg_uints.dptr,  //
+            chunk_size);
         cudaDeviceSynchronize();
-
-        cudaMemcpy(
-            ctx->space.h_bitstream, ctx->space.d_bitstream,  //
-            get_nbyte(ctx->ctx->space.h_bitstream, ctx->num_uints), D2H);
     }
     /* EOF */
 }
@@ -166,7 +176,7 @@ INSTANTIATE_COMPRESS_HUFFMAN_ENCODE(uint16_t, uint64_t, unsigned int)
 
 /****************************************************************************************************/
 
-#define DEC_CTX HuffmanDecodingDescriptor<Output, Huff, MetadataT>
+#define DEC_CTX struct HuffmanDecodingDescriptor<Output, Huff, MetadataT>
 
 template <typename Output, typename Huff, typename MetadataT, bool NSYMBOL_RESTRICT>
 void decompress_huffman_decode(DEC_CTX* ctx, Output* d_output, size_t len, int chunk_size)
@@ -179,18 +189,12 @@ void decompress_huffman_decode(DEC_CTX* ctx, Output* d_output, size_t len, int c
     }
 
     auto nchunk = get_npart(len, chunk_size);
-    // clang-format off
-    cudaMemcpy(ctx->space.d_bitstream,   ctx->space.h_bitstream,   get_nbyte(ctx->space.h_bitstream,   ctx->num_uints),   H2D);
-    cudaMemcpy(ctx->space.d_seg_bits,    ctx->space.h_seg_bits,    get_nbyte(ctx->space.h_seg_bits,    ctx->nchunk),      H2D);
-    cudaMemcpy(ctx->space.d_seg_entries, ctx->space.h_seg_entries, get_nbyte(ctx->space.h_seg_entries, ctx->nchunk),      H2D);
-    cudaMemcpy(ctx->space.d_revbook,     ctx->space.h_revbook,     get_nbyte(ctx->space.h_revbook,     ctx->len.revbook), H2D);
-    // clang-format on
     {
-        auto dim_block = 256;  // the same as deflate
+        auto dim_block = 256;  // the same as encode_deflate
         auto dim_grid  = get_npart(nchunk, dim_block);
         huffman_decode_kernel<<<dim_grid, dim_block, ctx->len.revbook>>>(
-            ctx->space.d_bitstream, ctx->space.d_seg_entries, ctx->space.d_seg_bits, d_output, chunk_size, nchunk,
-            ctx->space.d_revbook, ctx->len.revbook);
+            ctx->space.bitstream.dptr, ctx->space.seg_entries.dptr, ctx->space.seg_bits.dptr, d_output, chunk_size,
+            nchunk, ctx->space.revbook.dptr, ctx->space.revbook.len);
         cudaDeviceSynchronize();
     }
     /* EOF */

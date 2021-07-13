@@ -1,13 +1,13 @@
-#ifndef CUSZ_INTERFACE_CUH
-#define CUSZ_INTERFACE_CUH
+#ifndef CUSZ_INTERFACE_H
+#define CUSZ_INTERFACE_H
 
 /**
- * @file cusz_workflow.cuh
+ * @file cusz_interface.h
  * @author Jiannan Tian
  * @brief Workflow of cuSZ (header).
- * @version 0.1
- * @date 2020-09-20
- * Created on: 2020-02-12
+ * @version 0.3
+ * @date 2021-07-12
+ * (created) 2020-02-12 (rev.1) 2020-09-20 (rev.2) 2021-07-12
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -17,21 +17,20 @@
 #include <iostream>
 #include "argparse.hh"
 #include "datapack.hh"
+#include "pack.hh"
 #include "type_trait.hh"
 
 using namespace std;
 
-typedef std::tuple<size_t, size_t, size_t, bool> tuple_3ul_1bool;
-namespace cusz {
-namespace interface {
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
+void cusz_compress(
+    argpack*,
+    struct PartialData<typename DataTrait<If_FP, DataByte>::Data>*,
+    dim3,
+    metadata_pack* mp,
+    unsigned int = 1);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void Compress(argpack*, struct DataPack<typename DataTrait<If_FP, DataByte>::Data>*, int&, size_t&, size_t&, size_t&);
-
-template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void Decompress(argpack*, int&, size_t&, size_t&, size_t&);
-
-}  // namespace interface
-}  // namespace cusz
+void cusz_decompress(argpack*, metadata_pack* mp);
 
 #endif
