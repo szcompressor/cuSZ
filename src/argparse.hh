@@ -60,7 +60,7 @@ class ArgPack {
     } sz_workflow;
 
     struct {
-        bool quality{false};
+        bool quality{true};
         bool time{false};
         bool cr{false};
         bool compressibility{false};

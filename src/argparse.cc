@@ -24,11 +24,9 @@ using std::cout;
 using std::endl;
 using std::string;
 
-// TODO update with default values
-
 // TODO check version
-const char* version_text  = "version: pre-alpha, build: 2020-09-20";
-const int   version       = 200920;
+const char* version_text  = "2021-07-13.2";
+const int   version       = 202107132;
 const int   compatibility = 0;
 
 namespace {
@@ -103,7 +101,7 @@ auto parse_strlist_as_kv = [](char* in_str, map_t& kv_list) {
     }
 };
 
-auto parse_strlist = [](char* in_str, str_list& list) {
+auto parse_strlist = [](const char* in_str, str_list& list) {
     ss_t ss(in_str);
     while (ss.good()) {
         std::string tmp;
@@ -112,7 +110,7 @@ auto parse_strlist = [](char* in_str, str_list& list) {
     }
 };
 
-void set_preprocess(argpack* ap, char* in_str)
+void set_preprocess(argpack* ap, const char* in_str)
 {
     str_list opts;
     parse_strlist(in_str, opts);
@@ -122,18 +120,64 @@ void set_preprocess(argpack* ap, char* in_str)
     }
 }
 
-void set_report(argpack* ap, char* in_str)
+std::pair<std::string, bool> parse_kv_onoff(std::string in_str)
 {
+    auto       kv_literal = "(.*?)=(on|ON|off|OFF)";
+    std::regex kv_pattern(kv_literal);
+    std::regex onoff_pattern("on|ON|off|OFF");
+
+    bool        onoff = false;
+    std::string k, v;
+
+    std::smatch kv_match;
+    if (std::regex_match(in_str, kv_match, kv_pattern)) {
+        // the 1st match: whole string
+        // the 2nd: k, the 3rd: v
+        if (kv_match.size() == 3) {
+            k = kv_match[1].str();
+            v = kv_match[2].str();
+
+            std::smatch v_match;
+            if (std::regex_match(v, v_match, onoff_pattern)) {  //
+                onoff = (v == "on") or (v == "ON");
+            }
+            else {
+                throw std::runtime_error("not (k=v)-syntax");
+            }
+        }
+    }
+
+    return std::make_pair(k, onoff);
+}
+
+void set_report(argpack* ap, const char* in_str)
+{
+    auto is_kv_pair = [](std::string s) { return s.find("=") != std::string::npos; };
+
     str_list opts;
     parse_strlist(in_str, opts);
 
-    for (auto k : opts) {
-        if (k == "quality")
-            ap->report.quality = true;
-        else if (k == "cr")
-            ap->report.cr = true;
-        else if (k == "time")
-            ap->report.time = true;
+    for (auto o : opts) {
+        cout << "option: " << o << endl;
+
+        if (is_kv_pair(o)) {
+            auto kv = parse_kv_onoff(o);
+
+            // clang-format off
+            if (kv.first == "quality")      ap->report.quality = kv.second;
+            else if (kv.first == "cr")      ap->report.cr = kv.second;
+            else if (kv.first == "compressibility") ap->report.compressibility = kv.second;
+            else if (kv.first == "time")    ap->report.time = kv.second;
+            // clang-format on
+        }
+        else {
+            // clang-format off
+            if (o == "quality")             ap->report.quality = true;
+            else if (o == "cr")             ap->report.cr = true;
+            else if (o == "compressibility")ap->report.compressibility = true;
+            else if (o == "time")           ap->report.time = true;
+            // clang-format on
+        }
     }
 }
 
@@ -143,31 +187,15 @@ void set_config(argpack* ap, char* in_str)
     parse_strlist_as_kv(in_str, opts);
 
     for (auto kv : opts) {
-        if (kv.first == "mode") {  //
-            ap->mode = std::string(kv.second);
-        }
-        else if (kv.first == "eb") {
-            char* end;
-            ap->eb = str2fp(kv.second);
-        }
-        else if (kv.first == "capacity") {
-            ap->dict_size = str2int(kv.second);
-            ap->radius    = ap->dict_size / 2;
-        }
-        else if (kv.first == "huffbyte") {
-            ap->huff_byte = str2int(kv.second);
-        }
-        else if (kv.first == "quantbyte") {
-            ap->quant_byte = str2int(kv.second);
-        }
-        else if (kv.first == "quantbyte") {
-            ap->huffman_chunk                  = str2int(kv.second);
-            ap->sz_workflow.autotune_huffchunk = false;
-        }
-        else if (kv.first == "demo") {
-            ap->sz_workflow.use_demo_dataset = true;
-            ap->demo_dataset                 = string(kv.second);
-        }
+        // clang-format off
+        if (kv.first == "mode")             { ap->mode = std::string(kv.second); }
+        else if (kv.first == "eb")          { ap->eb = str2fp(kv.second); }
+        else if (kv.first == "capacity")    { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
+        else if (kv.first == "huffbyte")    { ap->huff_byte = str2int(kv.second); }
+        else if (kv.first == "quantbyte")   { ap->quant_byte = str2int(kv.second); }
+        else if (kv.first == "quantbyte")   { ap->huffman_chunk = str2int(kv.second), ap->sz_workflow.autotune_huffchunk = false; }
+        else if (kv.first == "demo")        { ap->sz_workflow.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
+        // clang-format on
     }
 }
 
@@ -265,12 +293,14 @@ ArgPack::check_args()
 void  //
 ArgPack::print_cusz_short_doc()
 {
+    cout << "\n>>>>  cusz build: " << version_text << "\n";
     cout << cusz_short_doc << endl;
 }
 
 void  //
 ArgPack::print_cusz_full_doc()
 {
+    cout << "\n>>>>  cusz build: " << version_text << "\n";
     cout << format(cusz_full_doc) << endl;
 }
 
@@ -292,6 +322,7 @@ void ArgPack::parse_args(int argc, char** argv)
                 case '-':
                     // string list
                     if (long_opt == "--config") goto tag_config;
+                    if (long_opt == "--report") goto tag_report;
                     if (long_opt == "--skip") {
                         if (i + 1 <= argc) {
                             string exclude(argv[++i]);
@@ -447,18 +478,17 @@ void ArgPack::parse_args(int argc, char** argv)
                 // report
                 case 'R':
                 tag_report:
+                    if (i + 1 <= argc) set_report(this, argv[++i]);
                     break;
                 // DOCUMENT
                 case 'h':
                 tag_help:
                     print_cusz_full_doc();
                     exit(0);
-                    break;
                 case 'v':
                 tag_version:
-                    // TODO
-                    cout << log_info << version_text << endl;
-                    break;
+                    cout << ">>>>  cusz build: " << version_text << "\n";
+                    exit(0);
                 // COMPRESSION CONFIG
                 case 't':
                 tag_type:
