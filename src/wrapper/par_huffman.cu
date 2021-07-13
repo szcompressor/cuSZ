@@ -725,12 +725,12 @@ void lossless::par_huffman::par_get_codebook(
 
 /********************************************************************************/
 // instantiate wrapper
-template void lossless::par_huffman::par_get_codebook<UI1, UI4>(int, unsigned int*, UI4*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI1, UI8>(int, unsigned int*, UI8*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI1, UI8_2>(int, unsigned int*, UI8_2*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI2, UI4>(int, unsigned int*, UI4*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI2, UI8>(int, unsigned int*, UI8*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI2, UI8_2>(int, unsigned int*, UI8_2*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI4, UI4>(int, unsigned int*, UI4*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI4, UI8>(int, unsigned int*, UI8*, UI1*);
-template void lossless::par_huffman::par_get_codebook<UI4, UI8_2>(int, unsigned int*, UI8_2*, UI1*);
+
+#define PAR_HUFFMAN(Q, H) template void lossless::par_huffman::par_get_codebook<Q, H>(int, unsigned int*, H*, uint8_t*);
+
+PAR_HUFFMAN(UI1, UI4)
+PAR_HUFFMAN(UI1, UI8)
+PAR_HUFFMAN(UI1, UI8_2)
+PAR_HUFFMAN(UI2, UI4)
+PAR_HUFFMAN(UI2, UI8)
+PAR_HUFFMAN(UI2, UI8_2)
