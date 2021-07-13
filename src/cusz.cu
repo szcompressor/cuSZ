@@ -126,10 +126,10 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-    cout << "\n>>>>  cusz build: 2021-07-12.1\n";
+    cout << "\n>>>>  cusz build: 2021-07-13.1\n";
 
     auto ap = new ArgPack();
-    ap->ParseCuszArgs(argc, argv);
+    ap->parse_args(argc, argv);
     load_demo_sizes(ap);
 
     if (ap->verbose) {
@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 
     struct PartialData<Data> in_data(mxm);
 
-    if (workflow.lossy_construct or workflow.lossy_dryrun) {
+    if (workflow.construct or workflow.dryrun) {
         logging(log_dbg, "add padding:", m, "units");
 
         cudaMalloc(&in_data.dptr, in_data.nbyte());
@@ -187,7 +187,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    if (workflow.lossy_construct or workflow.lossy_dryrun) {  // fp32 only for now
+    if (workflow.construct or workflow.dryrun) {  // fp32 only for now
 
         auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
         auto mp  = new metadata_pack();
@@ -220,7 +220,7 @@ int main(int argc, char** argv)
     }
 
     // invoke system() to untar archived files first before decompression
-    if (not workflow.lossy_construct and workflow.lossy_reconstruct) {
+    if (not workflow.construct and workflow.reconstruct) {
         string cx_directory = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0)
@@ -231,7 +231,7 @@ int main(int argc, char** argv)
         check_shell_calls(cmd_string);
     }
 
-    if (workflow.lossy_reconstruct) {  // fp32 only for now
+    if (workflow.reconstruct) {  // fp32 only for now
 
         // unpack metadata
         auto mp_byte = io::read_binary_to_new_array<char>(subfiles.decompress.in_yamp, sizeof(metadata_pack));
@@ -253,7 +253,7 @@ int main(int argc, char** argv)
 
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
-    if (not workflow.lossy_reconstruct and workflow.lossy_construct) {
+    if (not workflow.reconstruct and workflow.construct) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
@@ -262,7 +262,7 @@ int main(int argc, char** argv)
 
         // using tar command to encapsulate files
         string files_to_merge;
-        if (workflow.skip_huffman_enc) {
+        if (workflow.skip_huffman) {
             files_to_merge = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
@@ -289,9 +289,9 @@ int main(int argc, char** argv)
     }
 
     // if it's decompression, remove released subfiles at last.
-    if (not workflow.lossy_construct and workflow.lossy_reconstruct) {
+    if (not workflow.construct and workflow.reconstruct) {
         string files_to_delete;
-        if (workflow.skip_huffman_enc) {
+        if (workflow.skip_huffman) {
             files_to_delete = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
@@ -303,14 +303,14 @@ int main(int argc, char** argv)
         check_shell_calls(cmd_string);
     }
 
-    if (workflow.lossy_construct and workflow.lossy_reconstruct) {
+    if (workflow.construct and workflow.reconstruct) {
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
         check_shell_calls(cmd_string);
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if (workflow.skip_huffman_enc) {
+        if (workflow.skip_huffman) {
             files_for_merging = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {

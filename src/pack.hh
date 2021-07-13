@@ -33,7 +33,7 @@ typedef struct MetadataPackage {
     int huff_byte;
     int huffman_chunk;
 
-    bool skip_huffman_enc;
+    bool skip_huffman;
     bool nvcomp_in_use;
 
     DataType dtype;  // TODO f64 support

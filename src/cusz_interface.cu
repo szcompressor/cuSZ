@@ -150,7 +150,7 @@ void PackMetadata(argpack* ap, metadata_pack* mp, const int nnz)
     mp->quant_byte       = ap->quant_byte;
     mp->huff_byte        = ap->huff_byte;
     mp->huffman_chunk    = ap->huffman_chunk;
-    mp->skip_huffman_enc = ap->sz_workflow.skip_huffman_enc;
+    mp->skip_huffman = ap->sz_workflow.skip_huffman;
 }
 
 void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
@@ -170,7 +170,7 @@ void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
     ap->quant_byte                   = mp->quant_byte;
     ap->huff_byte                    = mp->huff_byte;
     ap->huffman_chunk                = mp->huffman_chunk;
-    ap->sz_workflow.skip_huffman_enc = mp->skip_huffman_enc;
+    ap->sz_workflow.skip_huffman = mp->skip_huffman;
 }
 
 }  // namespace
@@ -198,7 +198,7 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     auto ebx2_r = 1 / (eb * 2);
 
     // dryrun
-    if (workflow.lossy_dryrun) {
+    if (workflow.dryrun) {
         logging(log_info, "invoke dry-run");
         constexpr auto SEQ       = 4;
         constexpr auto SUBSIZE   = 256;
@@ -260,7 +260,7 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     /********************************************************************************
      * autotuning Huffman chunksize
      ********************************************************************************/
-    if (workflow.autotune_huffman_chunk) ap->huffman_chunk = tune_deflate_chunksize(len);
+    if (workflow.autotune_huffchunk) ap->huffman_chunk = tune_deflate_chunksize(len);
     // logging(log_dbg, "Huffman chunk size:", ap->huffman_chunk, "thread num:", (len - 1) / ap->huffman_chunk + 1);
 
     auto dict_size = ap->dict_size;
@@ -308,7 +308,7 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     }
 
     // decide if skipping Huffman coding
-    if (workflow.skip_huffman_enc) {
+    if (workflow.skip_huffman) {
         cudaMallocHost(&quant.hptr, quant.nbyte());
         quant.d2h();
 
@@ -375,7 +375,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     auto outlier = _data.dptr;
 
     // step 1: read from filesystem or do Huffman decoding to get quant code
-    if (workflow.skip_huffman_enc) {
+    if (workflow.skip_huffman) {
         logging(log_info, "load quant.code from filesystem");
         io::read_binary_to_array(subfiles.decompress.in_quant, quant.hptr, quant.len);
         quant.h2d();
@@ -384,7 +384,6 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
         logging(log_info, "Huffman decode -> quant.code");
         lossless::interface::HuffmanDecode<Quant, Huff>(
             subfiles.path2file, &quant, ap->len, ap->huffman_chunk, num_uints, ap->dict_size, time_lossless);
-        if (workflow.verify_huffman) { logging(log_warn, "Verifying Huffman is disabled in this version (2021 July"); }
     }
 
     {
@@ -419,14 +418,14 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
 
     size_t archive_bytes = 0;
     // TODO huffman chunking metadata
-    if (not workflow.skip_huffman_enc)
+    if (not workflow.skip_huffman)
         archive_bytes += num_uints * sizeof(Huff)  // Huffman coded
                          + huff_meta_size;         // chunking metadata and reverse codebook
     else
         archive_bytes += ap->len * sizeof(Quant);
     archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
 
-    if (workflow.skip_huffman_enc) {
+    if (workflow.skip_huffman) {
         logging(
             log_info, "dtype is \"", demangle(typeid(Data).name()), "\", and quant. code type is \"",
             demangle(typeid(Quant).name()), "\"; a CR of no greater than ", (sizeof(Data) / sizeof(Quant)),
@@ -447,7 +446,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     }
     logging(log_info, "output:", subfiles.path2file + ".szx");
 
-    if (workflow.skip_write_output)
+    if (workflow.skip_write2disk)
         logging(log_dbg, "skip writing unzipped to filesystem");
     else {
         io::write_array_to_binary(subfiles.decompress.out_xdata, xdata, ap->len);
