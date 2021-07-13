@@ -454,13 +454,19 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     }
 }
 
-// clang-format off
-template void cusz_compress<true, 4, 1, 4>(argpack*, struct PartialData<float>*, dim3, metadata_pack*, unsigned int);
-template void cusz_compress<true, 4, 1, 8>(argpack*, struct PartialData<float>*, dim3, metadata_pack*, unsigned int);
-template void cusz_compress<true, 4, 2, 4>(argpack*, struct PartialData<float>*, dim3, metadata_pack*, unsigned int);
-template void cusz_compress<true, 4, 2, 8>(argpack*, struct PartialData<float>*, dim3, metadata_pack*, unsigned int);
+#define CUSZ_COMPRESS(DBYTE, QBYTE, HBYTE)                  \
+    template void cusz_compress<true, DBYTE, QBYTE, HBYTE>( \
+        argpack*, struct PartialData<float>*, dim3, metadata_pack*, unsigned int);
 
-template void cusz_decompress<true, 4, 1, 4>(argpack*, metadata_pack*);
-template void cusz_decompress<true, 4, 1, 8>(argpack*, metadata_pack*);
-template void cusz_decompress<true, 4, 2, 4>(argpack*, metadata_pack*);
-template void cusz_decompress<true, 4, 2, 8>(argpack*, metadata_pack*);
+CUSZ_COMPRESS(4, 1, 4)
+CUSZ_COMPRESS(4, 1, 8)
+CUSZ_COMPRESS(4, 2, 4)
+CUSZ_COMPRESS(4, 2, 8)
+
+#define CUSZ_DECOMPRESS(DBYTE, QBYTE, HBYTE) \
+    template void cusz_decompress<true, DBYTE, QBYTE, HBYTE>(argpack*, metadata_pack*);
+
+CUSZ_DECOMPRESS(4, 1, 4)
+CUSZ_DECOMPRESS(4, 1, 8)
+CUSZ_DECOMPRESS(4, 2, 4)
+CUSZ_DECOMPRESS(4, 2, 8)

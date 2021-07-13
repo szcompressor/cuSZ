@@ -34,11 +34,7 @@
 #include "../type_aliasing.hh"
 #include "../type_trait.hh"
 #include "../types.hh"
-#include "../utils/cuda_err.cuh"
-#include "../utils/cuda_mem.cuh"
-#include "../utils/format.hh"
-#include "../utils/io.hh"
-#include "../utils/timer.hh"
+#include "../utils.hh"
 #include "deprecated_lossless_huffman.h"
 
 #ifdef MODULAR_ELSEWHERE
@@ -384,20 +380,26 @@ void lossless::interface::HuffmanDecode(
 }
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
-// using Q1 = QuantTrait<1>::Quant;
-// using H4 = HuffTrait<4>::Huff;
 
-// clang-format off
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI4, FP4>(string&, UI1*, UI4*, uint8_t*, size_t, size_t, int, int, float&);
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI4, FP4>(string&, UI2*, UI4*, uint8_t*, size_t, size_t, int, int, float&);
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI1, UI8, FP4>(string&, UI1*, UI8*, uint8_t*, size_t, size_t, int, int, float&);
-template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<UI2, UI8, FP4>(string&, UI2*, UI8*, uint8_t*, size_t, size_t, int, int, float&);
+#define HUFFMAN_ENCODE(Q, H, D)                                                              \
+    template std::tuple<size_t, size_t, size_t> lossless::interface::HuffmanEncode<Q, H, D>( \
+        string&, Q*, H*, uint8_t*, size_t, size_t, int, int, float&);
 
-template void lossless::interface::HuffmanDecode<UI1, UI4, FP4>(std::string&, struct PartialData<UI1>*, size_t, int, size_t, int, float&);
-template void lossless::interface::HuffmanDecode<UI2, UI4, FP4>(std::string&, struct PartialData<UI2>*, size_t, int, size_t, int, float&);
-template void lossless::interface::HuffmanDecode<UI1, UI8, FP4>(std::string&, struct PartialData<UI1>*, size_t, int, size_t, int, float&);
-template void lossless::interface::HuffmanDecode<UI2, UI8, FP4>(std::string&, struct PartialData<UI2>*, size_t, int, size_t, int, float&);
+HUFFMAN_ENCODE(UI1, UI4, FP4)
+HUFFMAN_ENCODE(UI2, UI4, FP4)
+HUFFMAN_ENCODE(UI1, UI8, FP4)
+HUFFMAN_ENCODE(UI2, UI8, FP4)
 
+#define HUFFMAN_DECODE(Q, H, D)                                \
+    template void lossless::interface::HuffmanDecode<Q, H, D>( \
+        std::string&, struct PartialData<Q>*, size_t, int, size_t, int, float&);
+
+HUFFMAN_DECODE(UI1, UI4, FP4)
+HUFFMAN_DECODE(UI2, UI4, FP4)
+HUFFMAN_DECODE(UI1, UI8, FP4)
+HUFFMAN_DECODE(UI2, UI8, FP4)
+
+// TODO remove
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI4>(Index<3>::idx_t, string&, UI1*, size_t, int);
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI1, UI8>(Index<3>::idx_t, string&, UI1*, size_t, int);
 template void lossless::interface::HuffmanEncodeWithTree_3D<UI2, UI4>(Index<3>::idx_t, string&, UI2*, size_t, int);
