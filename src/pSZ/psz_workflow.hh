@@ -44,8 +44,8 @@ void cx_sim(
 {
     size_t len = dims[LEN];
 
-    auto data     = io::ReadBinaryToNewArray<Data>(finame, len);
-    auto data_cmp = io::ReadBinaryToNewArray<Data>(finame, len);
+    auto data     = io::read_binary_to_new_array<Data>(finame, len);
+    auto data_cmp = io::read_binary_to_new_array<Data>(finame, len);
 
     Data* pred_err = nullptr;
     Data* comp_err = nullptr;
@@ -199,19 +199,19 @@ void cx_sim(
     cout << "\e[46mnum.outlier:\t" << num_outlier << "\e[0m" << endl;
     cout << setprecision(5) << "error bound: " << eb_variants[EB] << endl;
 
-    if (fine_massive) { io::WriteArrayToBinary(finame + ".psz.cusz.out", xdata, len); }
+    if (fine_massive) { io::write_array_to_binary(finame + ".psz.cusz.out", xdata, len); }
     else if (blocked and (not fine_massive)) {
-        io::WriteArrayToBinary(finame + ".psz.sz14blocked.out", xdata, len);
+        io::write_array_to_binary(finame + ".psz.sz14blocked.out", xdata, len);
     }
     else if (!blocked and (not fine_massive)) {
-        io::WriteArrayToBinary(finame + ".psz.sz14.out", xdata, len);
-        io::WriteArrayToBinary(finame + ".psz.sz14.prederr", pred_err, len);
-        io::WriteArrayToBinary(finame + ".psz.sz14.xerr", comp_err, len);
+        io::write_array_to_binary(finame + ".psz.sz14.out", xdata, len);
+        io::write_array_to_binary(finame + ".psz.sz14.prederr", pred_err, len);
+        io::write_array_to_binary(finame + ".psz.sz14.xerr", comp_err, len);
     }
 
     stat_t stat;
-    analysis::VerifyData(&stat, xdata, data_cmp, len);
-    analysis::PrintMetrics<Data>(&stat);
+    analysis::verify_data(&stat, xdata, data_cmp, len);
+    analysis::print_data_quality_metrics<Data>(&stat);
 }
 
 }  // namespace FineMassiveSimulation

@@ -14,12 +14,9 @@
 #include "argparse.hh"
 #include <cassert>
 #include <cmath>
-#include <cstdlib>
-#include <iostream>
-#include <regex>
-#include <string>
+#include <set>
+#include <unordered_map>
 #include "argument_parser/document.hh"
-#include "metadata.hh"
 #include "utils/format.hh"
 
 using std::cerr;
@@ -27,16 +24,189 @@ using std::cout;
 using std::endl;
 using std::string;
 
-// TODO update with default values
-
 // TODO check version
-const char* version_text  = "version: pre-alpha, build: 2020-09-20";
-const int   version       = 200920;
+const char* version_text  = "2021-07-13.2";
+const int   version       = 202107132;
 const int   compatibility = 0;
+
+namespace {
+
+unsigned int str2int(std::string s)
+{
+    char* end;
+    auto  res = std::strtol(s.c_str(), &end, 10);
+    if (*end) {
+        const char* notif = "invalid option value, non-convertible part: ";
+        cerr << log_err << notif << "\e[1m" << s << "\e[0m" << endl;
+    }
+    return res;
+};
+
+unsigned int str2int(const char* s)
+{
+    char* end;
+    auto  res = std::strtol(s, &end, 10);
+    if (*end) {
+        const char* notif = "invalid option value, non-convertible part: ";
+        cerr << log_err << notif << "\e[1m" << s << "\e[0m" << endl;
+    }
+    return res;
+};
+
+double str2fp(std::string s)
+{
+    char* end;
+    auto  res = std::strtod(s.c_str(), &end);
+    if (*end) {
+        const char* notif = "invalid option value, non-convertible part: ";
+        cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
+    }
+    return res;
+}
+
+double str2fp(const char* s)
+{
+    char* end;
+    auto  res = std::strtod(s, &end);
+    if (*end) {
+        const char* notif = "invalid option value, non-convertible part: ";
+        cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
+    }
+    return res;
+};
+
+std::pair<std::string, std::string> separate_kv(std::string& s)
+{
+    std::string delimiter = "=";
+
+    if (s.find(delimiter) == std::string::npos)
+        throw std::runtime_error("\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
+
+    std::string k = s.substr(0, s.find(delimiter));
+    std::string v = s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
+
+    return std::make_pair(k, v);
+}
+
+using ss_t     = std::stringstream;
+using map_t    = std::unordered_map<std::string, std::string>;
+using str_list = std::vector<std::string>;
+
+auto parse_strlist_as_kv = [](char* in_str, map_t& kv_list) {
+    ss_t ss(in_str);
+    while (ss.good()) {
+        std::string tmp;
+        std::getline(ss, tmp, ',');
+        kv_list.insert(separate_kv(tmp));
+    }
+};
+
+auto parse_strlist = [](const char* in_str, str_list& list) {
+    ss_t ss(in_str);
+    while (ss.good()) {
+        std::string tmp;
+        std::getline(ss, tmp, ',');
+        list.push_back(tmp);
+    }
+};
+
+void set_preprocess(argpack* ap, const char* in_str)
+{
+    str_list opts;
+    parse_strlist(in_str, opts);
+
+    for (auto k : opts) {
+        // TODO
+    }
+}
+
+std::pair<std::string, bool> parse_kv_onoff(std::string in_str)
+{
+    auto       kv_literal = "(.*?)=(on|ON|off|OFF)";
+    std::regex kv_pattern(kv_literal);
+    std::regex onoff_pattern("on|ON|off|OFF");
+
+    bool        onoff = false;
+    std::string k, v;
+
+    std::smatch kv_match;
+    if (std::regex_match(in_str, kv_match, kv_pattern)) {
+        // the 1st match: whole string
+        // the 2nd: k, the 3rd: v
+        if (kv_match.size() == 3) {
+            k = kv_match[1].str();
+            v = kv_match[2].str();
+
+            std::smatch v_match;
+            if (std::regex_match(v, v_match, onoff_pattern)) {  //
+                onoff = (v == "on") or (v == "ON");
+            }
+            else {
+                throw std::runtime_error("not (k=v)-syntax");
+            }
+        }
+    }
+
+    return std::make_pair(k, onoff);
+}
+
+void set_report(argpack* ap, const char* in_str)
+{
+    auto is_kv_pair = [](std::string s) { return s.find("=") != std::string::npos; };
+
+    str_list opts;
+    parse_strlist(in_str, opts);
+
+    for (auto o : opts) {
+        cout << "option: " << o << endl;
+
+        if (is_kv_pair(o)) {
+            auto kv = parse_kv_onoff(o);
+
+            // clang-format off
+            if (kv.first == "quality")      ap->report.quality = kv.second;
+            else if (kv.first == "cr")      ap->report.cr = kv.second;
+            else if (kv.first == "compressibility") ap->report.compressibility = kv.second;
+            else if (kv.first == "time")    ap->report.time = kv.second;
+            // clang-format on
+        }
+        else {
+            // clang-format off
+            if (o == "quality")             ap->report.quality = true;
+            else if (o == "cr")             ap->report.cr = true;
+            else if (o == "compressibility")ap->report.compressibility = true;
+            else if (o == "time")           ap->report.time = true;
+            // clang-format on
+        }
+    }
+}
+
+void set_config(argpack* ap, char* in_str)
+{
+    map_t opts;
+    parse_strlist_as_kv(in_str, opts);
+
+    for (auto kv : opts) {
+        // clang-format off
+        if (kv.first == "mode")         { ap->mode = std::string(kv.second); }
+        else if (kv.first == "eb")      { ap->eb = str2fp(kv.second); }
+        else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
+        else if (kv.first == "huffbyte"){ ap->huff_byte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->quant_byte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->sz_workflow.autotune_huffchunk = false; }
+        else if (kv.first == "demo")    { ap->sz_workflow.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
+        // clang-format on
+    }
+}
+
+}  // namespace
 
 string  //
 ArgPack::format(const string& s)
 {
+    std::regex  gray("%(.*?)%");
+    std::string gray_text("\e[37m$1\e[0m");
+
     std::regex  bful("@(.*?)@");
     std::string bful_text("\e[1m\e[4m$1\e[0m");
     std::regex  bf("\\*(.*?)\\*");
@@ -49,7 +219,8 @@ ArgPack::format(const string& s)
     auto        b = std::regex_replace(a, bf, bf_text);
     auto        c = std::regex_replace(b, ul, ul_text);
     auto        d = std::regex_replace(c, red, red_text);
-    return d;
+    auto        e = std::regex_replace(d, gray, gray_text);
+    return e;
 }
 
 int  //
@@ -60,77 +231,25 @@ ArgPack::trap(int _status)
 }
 
 void  //
-ArgPack::HuffmanCheckArgs()
+ArgPack::check_args()
 {
     bool to_abort = false;
     if (subfiles.path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    if (SelfMultiple4(dim4) == 1 and not szwf.input_use_demo) {
-        cerr << log_err << "Wrong input size(s)!" << endl;
-        to_abort = true;
-    }
-    if (not hwf.encode and not hwf.decode and not hwf.dryrun) {
-        cerr << log_err << "Select encode (-a), decode (-x) or dry-run (-r)!" << endl;
-        to_abort = true;
-    }
-    // if (dtype != "f32" and dtype != "f64") {
-    //     cout << dtype << endl;
-    //     cerr << log_err << "Not specifying data type!" << endl;
-    //     to_abort = true;
-    // }
-
-    if (input_rep == 1) {  // TODO
-        assert(dict_size <= 256);
-    }
-    else if (input_rep == 2) {
-        assert(dict_size <= 65536);
-    }
-
-    if (hwf.dryrun and hwf.encode and hwf.decode) {
-        cerr << log_warn << "No need to dry-run, encode and decode at the same time!" << endl;
-        cerr << log_warn << "Will dry run only." << endl << endl;
-        hwf.encode = false;
-        hwf.decode = false;
-    }
-    else if (hwf.dryrun and hwf.encode) {
-        cerr << log_warn << "No need to dry-run and encode at the same time!" << endl;
-        cerr << log_warn << "Will dry run only." << endl << endl;
-        hwf.encode = false;
-    }
-    else if (hwf.dryrun and hwf.decode) {
-        cerr << log_warn << "No need to dry-run and decode at the same time!" << endl;
-        cerr << log_warn << "Will dry run only." << endl << endl;
-        hwf.decode = false;
-    }
-
-    if (to_abort) {
-        cuszDoc();
-        exit(-1);
-    }
-}
-
-void  //
-ArgPack::CheckArgs()
-{
-    bool to_abort = false;
-    if (subfiles.path2file.empty()) {
-        cerr << log_err << "Not specifying input file!" << endl;
-        to_abort = true;
-    }
-    if (SelfMultiple4(dim4) == 1 and not szwf.input_use_demo) {
-        if (szwf.lossy_construct or szwf.lossy_dryrun) {
+    if (self_multiply4(dim4) == 1 and not sz_workflow.use_demo_dataset) {
+        if (sz_workflow.construct or sz_workflow.dryrun) {
             cerr << log_err << "Wrong input size(s)!" << endl;
             to_abort = true;
         }
     }
-    if (not szwf.lossy_construct and not szwf.lossy_reconstruct and not szwf.lossy_dryrun) {
+    if (not sz_workflow.construct and not sz_workflow.reconstruct and not sz_workflow.dryrun) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
-        if (szwf.lossy_construct or szwf.lossy_dryrun) {
+        if (sz_workflow.construct or sz_workflow.dryrun) {
             cout << dtype << endl;
             cerr << log_err << "Not specifying data type!" << endl;
             to_abort = true;
@@ -144,267 +263,59 @@ ArgPack::CheckArgs()
         assert(dict_size <= 65536);
     }
 
-    if (szwf.lossy_dryrun and szwf.lossy_construct and szwf.lossy_reconstruct) {
+    if (sz_workflow.dryrun and sz_workflow.construct and sz_workflow.reconstruct) {
         cerr << log_warn << "No need to dry-run, compress and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        szwf.lossy_construct   = false;
-        szwf.lossy_reconstruct = false;
+        sz_workflow.construct   = false;
+        sz_workflow.reconstruct = false;
     }
-    else if (szwf.lossy_dryrun and szwf.lossy_construct) {
+    else if (sz_workflow.dryrun and sz_workflow.construct) {
         cerr << log_warn << "No need to dry-run and compress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        szwf.lossy_construct = false;
+        sz_workflow.construct = false;
     }
-    else if (szwf.lossy_dryrun and szwf.lossy_reconstruct) {
+    else if (sz_workflow.dryrun and sz_workflow.reconstruct) {
         cerr << log_warn << "No need to dry-run and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        szwf.lossy_reconstruct = false;
+        sz_workflow.reconstruct = false;
     }
 
-    // if (szwf.gtest) {
-    //     if (szwf.lossy_dryrun) { szwf.gtest = false; }
+    // if (sz_workflow.gtest) {
+    //     if (sz_workflow.dryrun) { sz_workflow.gtest = false; }
     //     else {
-    //         if (not(szwf.lossy_construct and szwf.lossy_reconstruct)) { szwf.gtest = false; }
-    //         if (subfiles.decompress.in_origin == "") { szwf.gtest = false; }
+    //         if (not(sz_workflow.construct and sz_workflow.reconstruct)) { sz_workflow.gtest = false; }
+    //         if (subfiles.decompress.in_origin == "") { sz_workflow.gtest = false; }
     //     }
     // }
 
     if (to_abort) {
-        cuszDoc();
+        print_cusz_short_doc();
         exit(-1);
     }
 }
 
 void  //
-ArgPack::HuffmanDoc()
+ArgPack::print_cusz_short_doc()
 {
-    const string instruction =
-        "\n"
-        "OVERVIEW: Huffman submodule as standalone program\n"  // TODO from this line on
-        "\n"
-        "USAGE:\n"
-        "  The basic use with demo datum is listed below,\n"
-        "    ./huff --encode --decode --verify --input ./baryon_density.dat.b16 \\\n"
-        "        -3 512 512 512 --input-rep 16 --huffman-rep 32 --huffman-chunk 2048 --dict-size 1024\n"
-        "  or shorter\n"
-        "    ./huff -e -d -V -i ./baryon_density.dat.b16 -3 512 512 512 -R 16 -H 32 -C 2048 -c 1024\n"
-        "            ^  ^  ^ ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~~~~~~~~~~~~~~ ~~~~~ ~~~~~ ~~~~~~~ ~~~~~~~\n"
-        "            |  |  |       input datum file         dimension   input Huff. Huff.   codebook\n"
-        "          enc dec verify                                       rep.  rep.  chunk   size\n"
-        "\n"
-        "EXAMPLES\n"
-        "  Essential:\n"
-        "    ./bin/huff -e -d -i ./baryon_density.dat.b16 -3 512 512 512 -R 16 -c 1024\n"
-        "    have to input dimension, and higher dimension for a multiplication of each dim.,\n"
-        "    as default values input-rep=16 (bits), huff-rep=32 (bits), codebokk-size=1024 (symbols)\n"
-        "\n";
-    cout << instruction << endl;
-}
-
-void  //
-ArgPack::cuszDoc()
-{
+    cout << "\n>>>>  cusz build: " << version_text << "\n";
     cout << cusz_short_doc << endl;
 }
 
 void  //
-ArgPack::cuszFullDoc()
+ArgPack::print_cusz_full_doc()
 {
+    cout << "\n>>>>  cusz build: " << version_text << "\n";
     cout << format(cusz_full_doc) << endl;
 }
 
-void ArgPack::ParseHuffmanArgs(int argc, char** argv)
+void ArgPack::parse_args(int argc, char** argv)
 {
     if (argc == 1) {
-        HuffmanDoc();
-        exit(0);
-    }
-
-    auto str2int = [&](const char* s) {
-        char* end;
-        auto  res = std::strtol(s, &end, 10);
-        if (*end) {
-            const char* notif = "invalid option value, non-convertible part: ";
-            cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
-            cerr << string(log_null.length() + strlen(notif), ' ') << "\e[1m"  //
-                 << string(strlen(end), '~')                                   //
-                 << "\e[0m" << endl;
-            trap(-1);
-            return 0;  // just a placeholder
-        }
-        return (int)res;
-    };
-
-    auto str2fp = [&](const char* s) {
-        char* end;
-        auto  res = std::strtod(s, &end);
-        if (*end) {
-            const char* notif = "invalid option value, non-convertible part: ";
-            cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
-            cerr << string(log_null.length() + strlen(notif), ' ') << "\e[1m"  //
-                 << string(strlen(end), '~')                                   //
-                 << "\e[0m" << endl;
-            trap(-1);
-            return 0;  // just a placeholder
-        }
-        return (int)res;
-    };
-
-    int i = 1;
-    while (i < argc) {
-        if (argv[i][0] == '-') {
-            switch (argv[i][1]) {
-                // more readable args
-                // ----------------------------------------------------------------
-                case '-':
-                    if (string(argv[i]) == "--help") goto tag_help;
-                    // major features
-                    if (string(argv[i]) == "--enc" or string(argv[i]) == "--encode") goto tag_encode;
-                    if (string(argv[i]) == "--dec" or string(argv[i]) == "--decode") goto tag_decode;
-                    if (string(argv[i]) == "--dry-run") goto tag_dryrun;
-                    if (string(argv[i]) == "--verify") goto tag_verify;
-                    if (string(argv[i]) == "--input") goto tag_input;
-                    if (string(argv[i]) == "--entropy") goto tag_entropy;
-                    if (string(argv[i]) == "--input-rep" or string(argv[i]) == "--interpret") goto tag_rep;
-                    if (string(argv[i]) == "--huffman-rep") goto tag_huff_byte;
-                    if (string(argv[i]) == "--huffman-chunk") goto tag_huff_chunk;
-                    if (string(argv[i]) == "--dict-size") goto tag_dict;
-                // work
-                // ----------------------------------------------------------------
-                case 'e':
-                tag_encode:
-                    hwf.encode = true;
-                    break;
-                case 'd':
-                tag_decode:
-                    hwf.decode = true;
-                    break;
-                case 'V':
-                tag_verify:
-                    cout << "fix 'verify-huffman' later" << endl;
-                    // verify_huffman = true;  // TODO verify huffman in workflow
-                    break;
-                case 'r':
-                tag_dryrun:
-                    hwf.dryrun = true;
-                    break;
-                case 'E':
-                tag_entropy:
-                    get_huff_entropy = true;
-                    break;
-                // input dimensionality
-                // ----------------------------------------------------------------
-                case '1':
-                case '2':
-                case '3':
-                case '4': cout << "fix later" << endl; break;
-                // help document
-                // ----------------------------------------------------------------
-                case 'h':
-                tag_help:
-                    HuffmanDoc();
-                    exit(0);
-                    break;
-                // input datum file
-                // ----------------------------------------------------------------
-                case 'i':
-                tag_input:
-                    if (i + 1 <= argc) { subfiles.path2file = string(argv[++i]); }
-                    break;
-                case 'R':
-                tag_rep:
-                    if (i + 1 <= argc) input_rep = str2int(argv[++i]);
-                    break;
-                case 'H':
-                tag_huff_byte:
-                    if (i + 1 <= argc) huff_byte = str2int(argv[++i]);
-                    break;
-                case 'C':
-                tag_huff_chunk:
-                    if (i + 1 <= argc) huffman_chunk = str2int(argv[++i]);
-                    break;
-                case 'c':
-                tag_dict:
-                    if (i + 1 <= argc) dict_size = str2int(argv[++i]);
-                    break;
-                default:
-                    const char* notif_prefix = "invalid option at position ";
-                    char*       notif;
-                    int         size = asprintf(&notif, "%d: %s", i, argv[i]);
-                    cerr << log_err << notif_prefix << "\e[1m" << notif << "\e[0m"
-                         << "\n";
-                    cerr << string(log_null.length() + strlen(notif_prefix), ' ');
-                    cerr << "\e[1m";
-                    cerr << string(strlen(notif), '~');
-                    cerr << "\e[0m\n";
-                    trap(-1);
-            }
-        }
-        else {
-            const char* notif_prefix = "invalid argument at position ";
-            char*       notif;
-            int         size = asprintf(&notif, "%d: %s", i, argv[i]);
-            cerr << log_err << notif_prefix << "\e[1m" << notif
-                 << "\e[0m"
-                    "\n"
-                 << string(log_null.length() + strlen(notif_prefix), ' ')  //
-                 << "\e[1m"                                                //
-                 << string(strlen(notif), '~')                             //
-                 << "\e[0m\n";
-            trap(-1);
-        }
-        i++;
-    }
-
-    // phase 1: check grammar
-    if (read_args_status != 0) {
-        cout << log_info << "Exiting..." << endl;
-        // after printing ALL argument errors
-        exit(-1);
-    }
-
-    // phase 2: check if meaningful
-    HuffmanCheckArgs();
-}
-
-void ArgPack::ParseCuszArgs(int argc, char** argv)
-{
-    if (argc == 1) {
-        cuszDoc();
+        print_cusz_short_doc();
         exit(0);
     }
 
     opath = "";
-
-    auto str2int = [&](const char* s) {
-        char* end;
-        auto  res = std::strtol(s, &end, 10);
-        if (*end) {
-            const char* notif = "invalid option value, non-convertible part: ";
-            cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
-            cerr << string(log_null.length() + strlen(notif), ' ') << "\e[1m"  //
-                 << string(strlen(end), '~')                                   //
-                 << "\e[0m" << endl;
-            trap(-1);
-            return 0U;  // just a placeholder
-        }
-        return (unsigned int)res;
-    };
-
-    auto str2fp = [&](const char* s) {
-        char* end;
-        auto  res = std::strtod(s, &end);
-        if (*end) {
-            const char* notif = "invalid option value, non-convertible part: ";
-            cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
-            cerr << string(log_null.length() + strlen(notif), ' ') << "\e[1m"  //
-                 << string(strlen(end), '~')                                   //
-                 << "\e[0m" << endl;
-            trap(-1);
-            return 0;  // just a placeholder
-        }
-        return (int)res;
-    };
 
     int i = 1;
     while (i < argc) {
@@ -413,80 +324,81 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
             switch (argv[i][1]) {
                 // ----------------------------------------------------------------
                 case '-':
+                    // string list
+                    if (long_opt == "--config") goto tag_config;
+                    if (long_opt == "--report") goto tag_report;
+                    if (long_opt == "--skip") {
+                        if (i + 1 <= argc) {
+                            string exclude(argv[++i]);
+                            if (exclude.find("huffman") != std::string::npos) { sz_workflow.skip_huffman = true; }
+                            if (exclude.find("write2disk") != std::string::npos) { sz_workflow.skip_write2disk = true; }
+                        }
+                        break;
+                    }
+
                     if (long_opt == "--help") goto tag_help;              // DOCUMENT
                     if (long_opt == "--version") goto tag_version;        //
-                    if (long_opt == "--verbose") goto tag_verbose;        //
                     if (long_opt == "--meta") goto tag_meta;              //
                     if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
-                    if (long_opt == "--quant-byte") goto tag_quant_byte;  //
-                    if (long_opt == "--huff-byte") goto tag_huff_byte;    //
-                    if (long_opt == "--huff-chunk") goto tag_huff_chunk;  //
                     if (long_opt == "--eb") goto tag_error_bound;         //
-                    if (long_opt == "--dict-size") goto tag_dict;         //
                     if (long_opt == "--dtype") goto tag_type;             //
                     if (long_opt == "--input") goto tag_input;            // INPUT
-                    if (long_opt == "--demo") goto tag_demo;              //
-                    if (long_opt == "--verify") goto tag_verify;          //
                     if (long_opt == "--len") goto tag_len;                //
-                    if (long_opt == "--part") goto tag_partition;         //
                     if (long_opt == "--compress") goto tag_compress;      // WORKFLOW
                     if (long_opt == "--zip") goto tag_compress;           //
                     if (long_opt == "--decompress") goto tag_decompress;  //
                     if (long_opt == "--unzip") goto tag_decompress;       //
                     if (long_opt == "--dry-run") goto tag_dryrun;         //
-                    if (long_opt == "--skip") goto tag_excl;              //
-                    if (long_opt == "--exclude") goto tag_excl;           //
                     if (long_opt == "--pre") goto tag_preproc;            // IO
                     if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
-                    if (long_opt == "--partition-experiment") { szwf.exp_partitioning_imbalance = true; }
+                    if (long_opt == "--partition-experiment") { sz_workflow.exp_partitioning_imbalance = true; }
+
+                    if (long_opt == "--demo") {
+                        if (i + 1 <= argc) {
+                            sz_workflow.use_demo_dataset = true;
+                            demo_dataset                 = string(argv[++i]);
+                        }
+                        break;
+                    }
+
                     if (long_opt == "--opath") {  // TODO the followings has no single-letter options
                         if (i + 1 <= argc)
                             this->opath = string(argv[++i]);  // TODO does not apply for preprocessed such as binning
                         break;
                     }
-                    if (long_opt == "--origin") {
+                    if (long_opt == "--origin" or long_opt == "--compare") {
                         if (i + 1 <= argc) subfiles.decompress.in_origin = string(argv[++i]);
                         break;
                     }
                     if (long_opt == "--gzip") {
-                        szwf.lossless_gzip = true;
+                        sz_workflow.lossless_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     if (long_opt == "--nvcomp") {
                         throw std::runtime_error(
                             "[argparse] nvcomp is disabled temporarily in favor of code refactoring.");
-                        szwf.lossless_nvcomp_cascade = false;
+                        sz_workflow.lossless_nvcomp_cascade = false;
                         break;
                     }
                     if (long_opt == "--gtest") {
                         throw std::runtime_error(
                             "[argparse] gtest is disabled temporarily in favor of code refactoring.");
-                        szwf.gtest = false;
+                        sz_workflow.gtest = false;
                         break;
                     }
-                    // if (long_opt == "--coname") {
-                    //     // TODO does not apply for preprocessed such as binning
-                    //     if (i + 1 <= argc) ap->coname = string(argv[++i]);
-                    //     break;
-                    // }
-                    // if (long_opt == "--xoname") {
-                    //     // TODO does not apply for preprocessed such as binning
-                    //     if (i + 1 <= argc) ap->xoname = string(argv[++i]);
-                    //     break;
-                    // }
                 // WORKFLOW
                 case 'z':
                 tag_compress:
-                    szwf.lossy_construct = true;
+                    sz_workflow.construct = true;
                     break;
                 case 'x':
                 tag_decompress:
-                    szwf.lossy_reconstruct = true;
+                    sz_workflow.reconstruct = true;
                     break;
                 case 'r':
                 tag_dryrun:
-                    szwf.lossy_dryrun = true;
+                    sz_workflow.dryrun = true;
                     break;
                 // COMPRESSION CONFIG
                 case 'm':  // mode
@@ -497,18 +409,12 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                 case 'A':
                 tag_analysis:
                     if (i + 1 <= argc) {
-                        string exclude(argv[++i]);
-                        if (exclude.find("export-codebook") != std::string::npos) { szwf.exp_export_codebook = true; }
-                        if (exclude.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
-                        if (exclude.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
-                    }
-                    break;
-                case 'S':
-                tag_excl:
-                    if (i + 1 <= argc) {
-                        string exclude(argv[++i]);
-                        if (exclude.find("huffman") != std::string::npos) { szwf.skip_huffman_enc = true; }
-                        if (exclude.find("write.x") != std::string::npos) { szwf.skip_write_output = true; }
+                        string analysis(argv[++i]);
+                        if (analysis.find("export-codebook") != std::string::npos) {
+                            sz_workflow.exp_export_codebook = true;
+                        }
+                        if (analysis.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
+                        if (analysis.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
                     }
                     break;
                 // INPUT
@@ -543,37 +449,6 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                         }
                     }
                     break;
-                case 'p':
-                tag_partition:
-                    if (i + 1 <= argc) {
-                        std::stringstream   datalen(argv[++i]);
-                        std::vector<string> parts;
-                        while (datalen.good()) {
-                            string substr;
-                            getline(datalen, substr, ',');
-                            parts.push_back(substr);
-                        }
-                        ndim = parts.size();
-                        if (ndim == 1) {  //
-                            auto p0 = str2int(parts[0].c_str());
-                            part4   = {p0, 1, 1, 1};
-                        }
-                        if (ndim == 2) {  //
-                            auto p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
-                            part4 = {p0, p1, 1, 1};
-                        }
-                        if (ndim == 3) {
-                            auto p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
-                            auto p2 = str2int(parts[2].c_str());
-                            part4   = {p0, p1, p2, 1};
-                        }
-                        if (ndim == 4) {
-                            auto p0 = str2int(parts[0].c_str()), p1 = str2int(parts[1].c_str());
-                            auto p2 = str2int(parts[2].c_str()), p3 = str2int(parts[3].c_str());
-                            part4 = {p0, p1, p2, p3};
-                        }
-                    }
-                    break;
                 case 'i':
                 tag_input:
                     if (i + 1 <= argc) subfiles.path2file = string(argv[++i]);
@@ -593,28 +468,31 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                 tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);
-                        if (pre.find("binning") != std::string::npos) { szwf.pre_binning = true; }
+                        if (pre.find("binning") != std::string::npos) { sz_workflow.pre_binning = true; }
                     }
                     break;
-                // demo datasets
-                case 'D':
-                tag_demo:
-                    if (i + 1 <= argc) {
-                        szwf.input_use_demo = true;
-                        demo_dataset        = string(argv[++i]);
-                    }
+                // interactive mode
+                case 'I':
+                tag_interactive:
+                    break;
+                case 'c':
+                tag_config:
+                    if (i + 1 <= argc) set_config(this, argv[++i]);
+                    break;
+                // report
+                case 'R':
+                tag_report:
+                    if (i + 1 <= argc) set_report(this, argv[++i]);
                     break;
                 // DOCUMENT
                 case 'h':
                 tag_help:
-                    cuszFullDoc();
+                    print_cusz_full_doc();
                     exit(0);
-                    break;
                 case 'v':
                 tag_version:
-                    // TODO
-                    cout << log_info << version_text << endl;
-                    break;
+                    cout << ">>>>  cusz build: " << version_text << "\n";
+                    exit(0);
                 // COMPRESSION CONFIG
                 case 't':
                 tag_type:
@@ -624,54 +502,16 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
                             dtype = "f32";
                         else if (s == "f64" or s == "fp8")
                             dtype = "f64";
-                        // if (string(argv[++i]) == "i16") dtype = "i16";
-                        // if (string(argv[++i]) == "i32") dtype = "i32";
-                        // if (string(argv[++i]) == "i64") dtype = "i64";
                     }
                     break;
                 case 'M':
-                tag_meta:  // TODO print .sz archive metadata
-                    break;
-                // internal representation and size
-                case 'Q':
-                tag_quant_byte:
-                    if (i + 1 <= argc) quant_byte = str2int(argv[++i]);
-                    break;
-                case 'H':
-                tag_huff_byte:
-                    if (i + 1 <= argc) huff_byte = str2int(argv[++i]);
-                    break;
-                case 'C':
-                tag_huff_chunk:
-                    if (i + 1 <= argc) {  //
-                        huffman_chunk               = str2int(argv[++i]);
-                        szwf.autotune_huffman_chunk = false;
-                    }
+                tag_meta:  // TODO print .sz archive metadat
                     break;
                 case 'e':
                 tag_error_bound:
                     if (i + 1 <= argc) {
                         char* end;
                         this->eb = std::strtod(argv[++i], &end);
-                    }
-                    break;
-                case 'y':
-                tag_verify:
-                    if (i + 1 <= argc) {
-                        string veri(argv[++i]);
-                        if (veri.find("huffman") != std::string::npos) { szwf.verify_huffman = true; }
-                        // TODO verify data quality
-                    }
-                    break;
-                case 'V':
-                tag_verbose:
-                    verbose = true;
-                    break;
-                case 'd':
-                tag_dict:
-                    if (i + 1 <= argc) {
-                        dict_size = str2int(argv[++i]);
-                        radius    = dict_size / 2;
                     }
                     break;
                 default:
@@ -711,18 +551,18 @@ void ArgPack::ParseCuszArgs(int argc, char** argv)
     }
 
     // phase 2: check if meaningful
-    CheckArgs();
+    check_args();
     // phase 3: sort out filenames
-    SortOutFilenames();
+    sort_out_fnames();
 }
 
-void ArgPack::SortOutFilenames()
+void ArgPack::sort_out_fnames()
 {
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto input_path = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
-    if (not szwf.lossy_construct and szwf.lossy_reconstruct)
+    if (not sz_workflow.construct and sz_workflow.reconstruct)
         subfiles.path2file = subfiles.path2file.substr(0, subfiles.path2file.rfind('.'));
     auto basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
 

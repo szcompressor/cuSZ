@@ -131,27 +131,27 @@ void lossless::interface::HuffmanEncode(
 
     auto get_Dg = [](size_t problem_size, size_t Db) { return (problem_size + Db - 1) / Db; };
 
-    // auto h__reverse_book = mem::CreateHostSpaceAndMemcpyFromDevice(d__reverse_book, nbyte_reverse_book);
-    // io::WriteArrayToBinary(
+    // auto h__reverse_book = mem::create_devspace_memcpy_d2h(d__reverse_book, nbyte_reverse_book);
+    // io::write_array_to_binary(
     //     basename + ".canon", reinterpret_cast<uint8_t*>(h__reverse_book),
     //     sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * book_len);
     // delete[] h__reverse_book;
 
     // Huffman space in dense format (full of zeros), fix-length space; TODO ad hoc (big) padding
-    auto d__enc_space = mem::CreateCUDASpace<Huff>(len + chunk_size + HuffConfig::Db_encode);
+    auto d__enc_space = mem::create_CUDA_space<Huff>(len + chunk_size + HuffConfig::Db_encode);
     {
         auto Db = HuffConfig::Db_encode;
-        lossless::wrapper::EncodeFixedLen_cub<Quant, Huff, HuffConfig::enc_sequentiality>
+        lossless::wrapper::encode_fixedlen_space_cub<Quant, Huff, HuffConfig::enc_sequentiality>
             <<<get_Dg(len, Db), Db / HuffConfig::enc_sequentiality>>>(d__input, d__enc_space, len, d__book);
         cudaDeviceSynchronize();
     }
 
-    // deflate
+    // encode_deflate
     auto num_chunks        = (len + chunk_size - 1) / chunk_size;
-    auto d__bits_of_chunks = mem::CreateCUDASpace<size_t>(num_chunks);
+    auto d__bits_of_chunks = mem::create_CUDA_space<size_t>(num_chunks);
     {
         auto Db = HuffConfig::Db_deflate;
-        lossless::wrapper::Deflate<Huff>
+        lossless::wrapper::encode_deflate<Huff>
             <<<get_Dg(num_chunks, Db), Db>>>(d__enc_space, len, d__bits_of_chunks, chunk_size);
         cudaDeviceSynchronize();
     }
@@ -166,9 +166,9 @@ void lossless::interface::HuffmanEncode(
     // partially gather on GPU and copy back (TODO fully)
     auto h__compact_huff = new Huff[num_units]();
     {
-        auto d__compact_huff = mem::CreateCUDASpace<Huff>(num_units);
-        auto d__units        = mem::CreateDeviceSpaceAndMemcpyFromHost(h__uninitialized, /*            */ num_chunks);
-        auto d__entries      = mem::CreateDeviceSpaceAndMemcpyFromHost(h__uninitialized + num_chunks * 2, num_chunks);
+        auto d__compact_huff = mem::create_CUDA_space<Huff>(num_units);
+        auto d__units        = mem::create_devspace_memcpy_h2d(h__uninitialized, /*            */ num_chunks);
+        auto d__entries      = mem::create_devspace_memcpy_h2d(h__uninitialized + num_chunks * 2, num_chunks);
 
         GatherEncodedChunks<<<num_chunks, 128>>>(d__enc_space, d__compact_huff, d__entries, d__units, chunk_size);
         cudaDeviceSynchronize();
@@ -179,8 +179,8 @@ void lossless::interface::HuffmanEncode(
     }
 
     // write metadata to fs
-    io::WriteArrayToBinary(basename + ".hmeta", h__uninitialized + num_chunks, 2 * num_chunks);
-    io::WriteArrayToBinary(basename + ".hbyte", h__compact_huff, num_units);
+    io::write_array_to_binary(basename + ".hmeta", h__uninitialized + num_chunks, 2 * num_chunks);
+    io::write_array_to_binary(basename + ".hbyte", h__compact_huff, num_units);
 
     // metadata_size = (2 * num_chunks) * sizeof(decltype(h__uninitialized))             // hmeta
     //                 + sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * book_len;  // reversebook

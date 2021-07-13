@@ -27,7 +27,7 @@ using namespace std;
 namespace analysis {
 
 template <typename T>
-void VerifyData(stat_t* stat, T* xdata, T* odata, size_t len)
+void verify_data(stat_t* stat, T* xdata, T* odata, size_t len)
 {
     double max_odata = odata[0], min_odata = odata[0];
     double max_xdata = xdata[0], min_xdata = xdata[0];
@@ -84,7 +84,7 @@ void VerifyData(stat_t* stat, T* xdata, T* odata, size_t len)
 }
 
 template <typename Data>
-void PrintMetrics(
+void print_data_quality_metrics(
     stat_t* stat,
     bool    override_eb  = false,
     double  new_eb       = 0,

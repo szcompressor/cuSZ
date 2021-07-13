@@ -54,7 +54,7 @@ std::tuple<Data, Data, Data, Data> GetMinMaxRng(thrust::device_ptr<Data> g_ptr, 
 }
 
 template <typename Data>
-void VerifyDataGPU(stat_t* stat, Data* xdata, Data* odata, size_t len)
+void verify_data_GPU(stat_t* stat, Data* xdata, Data* odata, size_t len)
 {
     using tup = thrust::tuple<Data, Data>;
 
@@ -113,13 +113,13 @@ int main()
     // auto   extract = io::ReadBinaryFile<float>("/home/jtian/Parihaka_PSTM_far_stack.f32.szx", len);
 
     auto a       = hires::now();
-    auto origin  = io::ReadBinaryToNewArray<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH", len);
-    auto extract = io::ReadBinaryToNewArray<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH.szx", len);
+    auto origin  = io::read_binary_to_new_array<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH", len);
+    auto extract = io::read_binary_to_new_array<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH.szx", len);
     auto z       = hires::now();
     std::cout << "time loading data:\t" << static_cast<duration_t>(z - a).count() << endl;
 
-    auto d_origin  = mem::CreateDeviceSpaceAndMemcpyFromHost(origin, len);
-    auto d_extract = mem::CreateDeviceSpaceAndMemcpyFromHost(extract, len);
+    auto d_origin  = mem::create_devspace_memcpy_h2d(origin, len);
+    auto d_extract = mem::create_devspace_memcpy_h2d(extract, len);
 
     // thrust::device_ptr<float> origin_ptr  = thrust::device_pointer_cast(d_origin);   // origin
     // thrust::device_ptr<float> extract_ptr = thrust::device_pointer_cast(d_extract);  // origin
@@ -128,8 +128,8 @@ int main()
 
     auto   aa = hires::now();
     stat_t stat_gpu;
-    VerifyDataGPU<float>(&stat_gpu, d_origin, d_extract, len);
-    analysis::PrintMetrics<Data>(&stat_gpu, false, 1e-4 /*a default value*/, 0, 1, false, true);
+    verify_data_GPU<float>(&stat_gpu, d_origin, d_extract, len);
+    analysis::print_data_quality_metrics<Data>(&stat_gpu, false, 1e-4 /*a default value*/, 0, 1, false, true);
     auto zz = hires::now();
     std::cout << "time kernel:\t" << static_cast<duration_t>(zz - aa).count() << endl;
 
