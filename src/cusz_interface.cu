@@ -147,10 +147,10 @@ void PackMetadata(argpack* ap, metadata_pack* mp, const int nnz)
     if (ap->dtype == "f32") mp->dtype = DataType::kF32;
     if (ap->dtype == "f64") mp->dtype = DataType::kF64;
 
-    mp->quant_byte       = ap->quant_byte;
-    mp->huff_byte        = ap->huff_byte;
-    mp->huffman_chunk    = ap->huffman_chunk;
-    mp->skip_huffman = ap->sz_workflow.skip_huffman;
+    mp->quant_byte    = ap->quant_byte;
+    mp->huff_byte     = ap->huff_byte;
+    mp->huffman_chunk = ap->huffman_chunk;
+    mp->skip_huffman  = ap->sz_workflow.skip_huffman;
 }
 
 void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
@@ -167,9 +167,9 @@ void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
     if (mp->dtype == DataType::kF32) ap->dtype = "f32";
     if (mp->dtype == DataType::kF64) ap->dtype = "f64";
 
-    ap->quant_byte                   = mp->quant_byte;
-    ap->huff_byte                    = mp->huff_byte;
-    ap->huffman_chunk                = mp->huffman_chunk;
+    ap->quant_byte               = mp->quant_byte;
+    ap->huff_byte                = mp->huff_byte;
+    ap->huffman_chunk            = mp->huffman_chunk;
     ap->sz_workflow.skip_huffman = mp->skip_huffman;
 }
 
@@ -287,8 +287,10 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
         delete t;
     }
 
-    // analyze compressibility
-    {
+    /********************************************************************************
+     * analyze compressibility
+     ********************************************************************************/
+    if (ap->report.compressibility) {
         cudaMallocHost(&freq.hptr, freq.nbyte()), freq.d2h();
         cudaMallocHost(&book.hptr, book.nbyte()), book.d2h();
 
@@ -325,7 +327,8 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     /********************************************************************************
      * report time
      ********************************************************************************/
-    report_compression_time<Data>(len, time_lossy, time_outlier, time_hist, time_book, time_lossless);
+    if (ap->report.time)
+        report_compression_time<Data>(len, time_lossy, time_outlier, time_hist, time_book, time_lossless);
 
     cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
 
@@ -409,7 +412,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     /********************************************************************************
      * report time
      ********************************************************************************/
-    report_decompression_time<Data>(len, time_lossy, time_outlier, time_lossless);
+    if (ap->report.time) report_decompression_time<Data>(len, time_lossy, time_outlier, time_lossless);
 
     // copy decompressed data to host
     _data.d2h();
@@ -435,7 +438,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     if (workflow.pre_binning) logging(log_info, "Because of 2x2->1 binning, extra 4x CR is added.");
 
     // TODO move CR out of verify_data
-    if (not subfiles.decompress.in_origin.empty()) {
+    if (not subfiles.decompress.in_origin.empty() and ap->report.quality) {
         logging(log_info, "load the original datum for comparison");
 
         auto odata = io::read_binary_to_new_array<Data>(subfiles.decompress.in_origin, len);

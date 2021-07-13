@@ -126,7 +126,6 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-    cout << "\n>>>>  cusz build: 2021-07-13.1\n";
 
     auto ap = new ArgPack();
     ap->parse_args(argc, argv);
