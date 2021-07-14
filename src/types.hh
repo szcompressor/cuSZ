@@ -18,6 +18,23 @@ using namespace std;
 
 enum class placeholder { length_unknown, alloc_in_called_func, alloc_with_caution };
 
+typedef struct Timing {
+    struct {
+        float pred_quant;
+        float gather;
+        struct {
+            float build_book_stage1;
+            float build_book_stage2;
+            float fixed_len;
+            float encode_deflate;
+        } huffman;
+    } compress;
+    struct {
+        float reverse_pred_quant;
+        float scatter;
+    } decompress;
+} timing_t;
+
 typedef struct Stat {
     double min_odata{}, max_odata{}, rng_odata{}, std_odata{};
     double min_xdata{}, max_xdata{}, rng_xdata{}, std_xdata{};

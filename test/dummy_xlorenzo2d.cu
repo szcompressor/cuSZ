@@ -1,4 +1,4 @@
-#include "../src/kernel/lorenzo.cuh"
+#include "../src/kernel/lorenzo.h"
 #include "../src/metadata.hh"
 
 using Data  = float;
@@ -24,7 +24,7 @@ int main()
     cudaMallocManaged(&array.data, length * sizeof(Data));
     cudaMallocManaged(&quant, length * sizeof(Quant));
 
-    kernel::x_lorenzo_2d1l_16x16_v1<Data, Quant>
+    cusz::x_lorenzo_2d1l_16x16_v1<Data, Quant>
         <<<dim3(ctx.d0 / 16, ctx.d1 / 16), dim3(16, 2)>>>(ctx, array.data, array.outlier, quant);
     cudaDeviceSynchronize();
 

@@ -13,7 +13,7 @@
 #include <string>
 
 #include "../analysis/analyzer.hh"
-#include "../kernel/lorenzo.cuh"
+#include "../kernel/lorenzo.h"
 #include "../ood/codec_runlength.hh"
 #include "../utils/io.hh"
 
@@ -63,7 +63,7 @@ void clorenzo_alternative_rle()
     auto ebx2_r = 1 / (eb * 2);
 
     for (auto i = 0; i < 10; i++) {
-        kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant, float, true, Key>  //
+        cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant, float, true, Key>  //
             <<<lorenzo_dim_grid, lorenzo_dim_block>>>(
                 data, quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r, error_control);
         cudaDeviceSynchronize();
@@ -71,7 +71,7 @@ void clorenzo_alternative_rle()
 
     // cout << "analyzing error_control" << endl;
     // auto res1 = analyzer.GetMaxMinRng                                                  //
-    //             <Count, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+    //             <Count, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
     //             (error_control, len);
     // cout << '\n\n';
 
@@ -82,7 +82,7 @@ void clorenzo_alternative_rle()
 
     cout << "analyzing rle_lens" << endl;
     auto res2 = analyzer.GetMaxMinRng                                                  //
-                <Count, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+                <Count, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                 (rle_lens, len);
 
     cout << "file:\t" << fname << '\n';
@@ -133,9 +133,9 @@ int main(int argc, char** argv)
     }
 
     cudaMallocManaged(&data, len * sizeof(Data));
-    io::ReadBinaryToArray(fname, data, len);
+    io::read_binary_to_array(fname, data, len);
     auto res = analyzer.GetMaxMinRng                                                 //
-               <Data, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+               <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                (data, len);
     eb *= res.rng;
 
