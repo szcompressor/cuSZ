@@ -1,15 +1,20 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 
 project(cusz_asap CUDA CXX)
-
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CUDA_ARCHITECTURES 75)
+
+## This is a feature as of cmake 3.18.
+## check `cmake --help-policy CMP0104` for more detail.
+## The maximum possible in compatibility can be set in CMakeLists.txt using
+## `set(CMAKE_CUDA_ARCHITECTURES 60 61 62 70 72 75 80 86)`.
+## For command line, use, for example `cmake -DCMAKE_CUDA_ARCHITECTURES="75" ..` 
+## to specify CUDA arch.
 
 enable_language(CUDA)
 
-include_directories(src)
-include_directories(src/pSZ)
+#include_directories(src)
+#include_directories(src/pSZ)
 
 ## TODO flag only add to a specific library, e.g. suppressing deprecation on CUDA10 cuSPARSE
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations")
@@ -17,43 +22,16 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 set(LIB_TYPE STATIC)
 
 ## new for 0.3
-add_library(newlossless ${LIB_TYPE}
-        src/wrapper/lossless_huffman.cu
-        src/wrapper/handle_sparsity.cu
-        )
-set_target_properties(newlossless PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+#add_library(_0_3_huff ${LIB_TYPE} src/wrapper/par_huffman.cu src/wrapper/lossless_huffman.cu)
+#set_target_properties(_0_3_huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(newpredictor ${LIB_TYPE}
-        src/wrapper/extrap_lorenzo.cu
-        # src/wrapper/interp_spline.cu
-        )
+add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu)
+add_library(argp ${LIB_TYPE} src/argparse.cc)
+add_library(sp ${LIB_TYPE} src/wrapper/handle_sparsity.cu)
+target_link_libraries(sp -lcusparse)
+add_library(huff ${LIB_TYPE} src/wrapper/par_huffman.cu src/wrapper/deprecated_lossless_huffman.cu)
+set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_library(cudasz ${LIB_TYPE} src/cusz_interface.cu)
 
-add_library(argparse ${LIB_TYPE}
-        src/argparse.cc
-        src/argparse.hh
-        )
-
-## to link with parhuffman
-add_library(oldlossless ${LIB_TYPE}
-        src/wrapper/deprecated_lossless_huffman.cu
-        src/wrapper/deprecated_sparsity.cu
-        src/wrapper/par_huffman.cu
-        )
-target_link_libraries(oldlossless
-        -lcusparse
-        )
-set_target_properties(oldlossless PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-
-add_executable(cusz_cmake
-        src/cusz.cu
-        src/cusz_interface.cu
-        )
-
-set_target_properties(cusz_cmake
-        PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-
-target_link_libraries(cusz_cmake
-        -lcusparse
-        argparse
-        oldlossless
-        )
+add_executable(cusz src/cusz.cu)
+target_link_libraries(cusz cudasz argp huff sp pq)
