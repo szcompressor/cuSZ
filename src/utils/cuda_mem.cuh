@@ -24,7 +24,7 @@ namespace mem {
 enum MemcpyDirection { h2d, d2h };
 
 template <typename T>
-inline T* CreateCUDASpace(size_t len, uint8_t filling_val = 0x00)
+inline T* create_CUDA_space(size_t len, uint8_t filling_val = 0x00)
 {
     T* d_var;
     cudaMalloc(&d_var, len * sizeof(T));
@@ -32,25 +32,8 @@ inline T* CreateCUDASpace(size_t len, uint8_t filling_val = 0x00)
     return d_var;
 }
 
-// enum MemcpyDirection { h2d, d2h };
-
 template <typename T>
-void CopyBetweenSpaces(T* src, T* dst, size_t l, MemcpyDirection direct)
-{
-    assert(src != nullptr);
-    assert(dst != nullptr);
-    if (direct == h2d) { cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyHostToDevice); }
-    else if (direct == d2h) {
-        cudaMemcpy(dst, src, sizeof(T) * l, cudaMemcpyDeviceToHost);
-    }
-    else {
-        // TODO log
-        exit(1);
-    }
-}
-
-template <typename T>
-inline T* CreateDeviceSpaceAndMemcpyFromHost(T* var, size_t l)
+inline T* create_devspace_memcpy_h2d(T* var, size_t l)
 {
     T* d_var;
     cudaMalloc(&d_var, l * sizeof(T));
@@ -58,7 +41,7 @@ inline T* CreateDeviceSpaceAndMemcpyFromHost(T* var, size_t l)
     return d_var;
 }
 template <typename T>
-inline T* CreateHostSpaceAndMemcpyFromDevice(T* d_var, size_t l)
+inline T* create_devspace_memcpy_d2h(T* d_var, size_t l)
 {
     auto var = new T[l];
     cudaMemcpy(var, d_var, l * sizeof(T), cudaMemcpyDeviceToHost);

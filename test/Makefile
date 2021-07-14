@@ -1,10 +1,9 @@
-spline: ex_spline.cu ../src/utils/verify.hh ../src/kernel/prototype_spline2.cuh ../src/kernel/utils_spline.cuh ../src/utils/io.hh
+spline: ex_spline.cu ../src/utils/verify.hh ../src/kernel/spline.h ../src/utils/io.hh
 	nvcc ex_spline.cu -std=c++14 --extended-lambda -o spline
 
-splinedbg: ex_spline.cu ../src/utils/verify.hh ../src/kernel/prototype_spline2.cuh ../src/kernel/utils_spline.cuh ../src/utils/io.hh
+splinedbg: ex_spline.cu ../src/utils/verify.hh ../src/kernel/spline.h ../src/utils/io.hh
 	nvcc ex_spline.cu -std=c++14 --extended-lambda -G -o spline
 	nvcc ex_spline.cu -lineinfo -std=c++14 --extended-lambda -o splineprof
-
 
 query: test_query.cc ../src/query.hh
 	nvcc  -x c++ -I../src/ -DMAIN test_query.cc -o query

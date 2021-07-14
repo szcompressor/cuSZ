@@ -20,43 +20,39 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
 using std::string;
 
-#if __cplusplus >= 201103L
-
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
-#include "cusz_interface.cuh"
+#include "cusz_interface.h"
 #include "datapack.hh"
-#include "filter.cuh"
-#include "gtest/gtest.h"
+#include "kernel/preprocess.h"
 #include "metadata.hh"
 #include "pack.hh"
 #include "query.hh"
 #include "type_aliasing.hh"
 #include "types.hh"
-#include "utils/cuda_err.cuh"
-#include "utils/cuda_mem.cuh"
-#include "utils/format.hh"
-#include "utils/io.hh"
-#include "utils/timer.hh"
+#include "utils.hh"
 
 double expectedErr;
 double actualAbsErr;
 double actualRelErr;
 string z_mode;
 
-void InitializeDims(argpack* ap)
+namespace {
+
+void load_demo_sizes(argpack* ap)
 {
     std::unordered_map<std::string, std::vector<int>> dataset_entries = {
         {std::string("hacc"), {280953867, 1, 1, 1, 1}},    {std::string("hacc1b"), {1073726487, 1, 1, 1, 1}},
         {std::string("cesm"), {3600, 1800, 1, 1, 2}},      {std::string("hurricane"), {500, 500, 100, 1, 3}},
         {std::string("nyx-s"), {512, 512, 512, 1, 3}},     {std::string("nyx-m"), {1024, 1024, 1024, 1, 3}},
         {std::string("qmc"), {288, 69, 7935, 1, 3}},       {std::string("qmcpre"), {69, 69, 33120, 1, 3}},
-        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("aramco"), {235, 849, 849, 1, 3}},
+        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("rtm"), {235, 849, 849, 1, 3}},
         {std::string("parihaka"), {1168, 1126, 922, 1, 3}}};
 
     if (not ap->demo_dataset.empty()) {
@@ -93,94 +89,96 @@ void InitializeDims(argpack* ap)
         ap->dim4._0 * ap->dim4._1 * ap->dim4._2};
 }
 
-void CheckShellCall(string cmd_string)
+void check_shell_calls(string cmd_string)
 {
     char* cmd = new char[cmd_string.length() + 1];
     strcpy(cmd, cmd_string.c_str());
     int status = system(cmd);
     delete[] cmd;
     cmd = nullptr;
-    if (status < 0) { LogAll(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
+    if (status < 0) { logging(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
 }
 
-TEST(cuSZTest, TestMaxError)
+template <typename Quant, typename Huff>
+unsigned int get_revbook_nbyte(unsigned dict_size)
 {
-    double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
-    ASSERT_LE(actualErr, expectedErr);
+    constexpr auto type_bitcount = sizeof(Huff) * 8;
+    return sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
 }
+
+}  // namespace
+
+/* gtest disabled in favor of code refactoring */
+// TEST(cuSZTest, TestMaxError)
+// {
+//     double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
+//     ASSERT_LE(actualErr, expectedErr);
+// }
 
 template <typename Data, int DownscaleFactor, int tBLK>
 Data* pre_binning(Data* d, size_t* dim_array)
 {
+    throw std::runtime_error("[pre_binning] disabled temporarily, will be part of preprocessing.");
     return nullptr;
 }
 
+#define NONPTR_TYPE(VAR) std::remove_pointer<decltype(VAR)>::type
+
 int main(int argc, char** argv)
 {
-    cout << "\n>>>>  cusz build: 2020-04-29.0\n\n";
 
     auto ap = new ArgPack();
-    ap->ParseCuszArgs(argc, argv);
-
-    int    nnz_outlier = 0;
-    size_t total_bits, total_uInt, huff_meta_size;
-    bool   nvcomp_in_use = false;
+    ap->parse_args(argc, argv);
+    load_demo_sizes(ap);
 
     if (ap->verbose) {
         GetMachineProperties();
         GetDeviceProperty();
     }
 
-    auto& wf       = ap->szwf;
+    auto& workflow = ap->sz_workflow;
     auto& subfiles = ap->subfiles;
 
     // TODO hardcode for float for now
-    using DataInUse = float;
-    DataPack<DataInUse> datapack{};
-    DataInUse*          data = nullptr;
+    using Data = float;
 
-    if (wf.lossy_construct or wf.lossy_dryrun) {
-        InitializeDims(ap);
+    auto len = ap->len;
+    auto m   = static_cast<size_t>(ceil(sqrt(len)));
+    auto mxm = m * m;
 
-        LogAll(
-            log_info, "load", subfiles.path2file, ap->len * (ap->dtype == "f32" ? sizeof(float) : sizeof(double)),
-            "bytes,", ap->dtype);
+    struct PartialData<Data> in_data(mxm);
 
-        auto len = ap->len;
+    if (workflow.construct or workflow.dryrun) {
+        logging(log_dbg, "add padding:", m, "units");
 
-        auto m   = static_cast<size_t>(ceil(sqrt(len)));
-        auto mxm = m * m;
+        cudaMalloc(&in_data.dptr, in_data.nbyte());
+        cudaMallocHost(&in_data.hptr, in_data.nbyte());
 
-        LogAll(log_dbg, "add padding:", m, "units");
+        {
+            auto a = hires::now();
+            io::read_binary_to_array<Data>(subfiles.path2file, in_data.hptr, len);
+            auto z = hires::now();
+            logging(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
+            logging(log_info, "load", subfiles.path2file, len * sizeof(Data), "bytes");
+        }
 
-        auto a = hires::now();
-        CHECK_CUDA(cudaMallocHost(&data, mxm * sizeof(DataInUse)));
-        memset(data, 0x00, mxm * sizeof(DataInUse));
-        io::ReadBinaryToArray<DataInUse>(subfiles.path2file, data, len);
-        DataInUse* d_data = mem::CreateDeviceSpaceAndMemcpyFromHost(data, mxm);
-        auto       z      = hires::now();
-
-        LogAll(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
-
-        datapack.SetHostSpace(data).SetDeviceSpace(d_data).SetLen(len, true);
+        in_data.h2d();
 
         if (ap->mode == "r2r") {
             Analyzer analyzer;
-            auto     result =
-                analyzer.GetMaxMinRng<DataInUse, AnalyzerExecutionPolicy::cuda_device, AnalyzerMethod::thrust>(
-                    d_data, len);
-
-            LogAll(log_dbg, "time scanning:", result.seconds, "sec");
-
+            auto     result = analyzer.GetMaxMinRng                                     //
+                          <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+                          (in_data.dptr, len);
+            logging(log_dbg, "time scanning:", result.seconds, "sec");
             ap->eb *= result.rng;
         }
 
-        LogAll(
+        logging(
             log_dbg, std::to_string(ap->quant_byte) + "-byte quant type,",
             std::to_string(ap->huff_byte) + "-byte internal Huff type");
     }
 
-    if (wf.pre_binning) {
+    if (workflow.pre_binning) {
         cerr << log_err
              << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
                 "filesystem. (ver. 0.1.4)"
@@ -188,47 +186,40 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    if (wf.lossy_construct or wf.lossy_dryrun) {  // fp32 only for now
+    if (workflow.construct or workflow.dryrun) {  // fp32 only for now
+
+        auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
+        auto mp  = new metadata_pack();
 
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
-                cusz::interface::Compress<true, 4, 1, 4>(
-                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_compress<true, 4, 1, 4>(ap, &in_data, xyz, mp);
             else
-                cusz::interface::Compress<true, 4, 1, 8>(
-                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_compress<true, 4, 1, 8>(ap, &in_data, xyz, mp);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
-                cusz::interface::Compress<true, 4, 2, 4>(
-                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_compress<true, 4, 2, 4>(ap, &in_data, xyz, mp);
             else
-                cusz::interface::Compress<true, 4, 2, 8>(
-                    ap, &datapack, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_compress<true, 4, 2, 8>(ap, &in_data, xyz, mp);
         }
-
-        // pack metadata
-        auto mp = new metadata_pack();
-        PackMetadata(ap, mp, nnz_outlier);
-        mp->total_bits     = total_bits;
-        mp->total_uInt     = total_uInt;
-        mp->huff_meta_size = huff_meta_size;
-        mp->nvcomp_in_use  = nvcomp_in_use;
 
         auto mp_byte = reinterpret_cast<char*>(mp);
         // yet another metadata package
-        io::WriteArrayToBinary(subfiles.compress.out_yamp, mp_byte, sizeof(metadata_pack));
+        io::write_array_to_binary(subfiles.compress.out_yamp, mp_byte, sizeof(metadata_pack));
 
         delete mp;
+
+        // release memory
+        cudaFree(in_data.dptr), cudaFreeHost(in_data.hptr);
     }
 
-    if (data) {
-        cudaFreeHost(data);  // really messy considering adp pointers are freed elsewhere
-        data = nullptr;
+    if (in_data.dptr) {
+        cudaFreeHost(in_data.dptr);  // really messy considering adp pointers are freed elsewhere
     }
 
     // invoke system() to untar archived files first before decompression
-    if (not wf.lossy_construct and wf.lossy_reconstruct) {
+    if (not workflow.construct and workflow.reconstruct) {
         string cx_directory = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0)
@@ -236,78 +227,70 @@ int main(int argc, char** argv)
         else
             cmd_string = "tar -xf " + subfiles.path2file + ".sz" + " -C " + cx_directory;
 
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
     }
 
-    if (wf.lossy_reconstruct) {  // fp32 only for now
+    if (workflow.reconstruct) {  // fp32 only for now
 
         // unpack metadata
-        auto mp_byte = io::ReadBinaryToNewArray<char>(subfiles.decompress.in_yamp, sizeof(metadata_pack));
+        auto mp_byte = io::read_binary_to_new_array<char>(subfiles.decompress.in_yamp, sizeof(metadata_pack));
         auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
-
-        UnpackMetadata(ap, mp, nnz_outlier);
-        total_bits     = mp->total_bits;
-        total_uInt     = mp->total_uInt;
-        huff_meta_size = mp->huff_meta_size;
-        nvcomp_in_use  = mp->nvcomp_in_use;
 
         if (ap->quant_byte == 1) {
             if (ap->huff_byte == 4)
-                cusz::interface::Decompress<true, 4, 1, 4>(
-                    ap, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_decompress<true, 4, 1, 4>(ap, mp);
             else if (ap->huff_byte == 8)
-                cusz::interface::Decompress<true, 4, 1, 8>(
-                    ap, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_decompress<true, 4, 1, 8>(ap, mp);
         }
         else if (ap->quant_byte == 2) {
             if (ap->huff_byte == 4)
-                cusz::interface::Decompress<true, 4, 2, 4>(
-                    ap, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_decompress<true, 4, 2, 4>(ap, mp);
             else if (ap->huff_byte == 8)
-                cusz::interface::Decompress<true, 4, 2, 8>(
-                    ap, nnz_outlier, total_bits, total_uInt, huff_meta_size, nvcomp_in_use);
+                cusz_decompress<true, 4, 2, 8>(ap, mp);
         }
     }
 
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
-    if (not wf.lossy_reconstruct and wf.lossy_construct) {
+    if (not workflow.reconstruct and workflow.construct) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
 
         // using tar command to encapsulate files
         string files_to_merge;
-        if (wf.skip_huffman_enc) {
+        if (workflow.skip_huffman) {
             files_to_merge = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
             files_to_merge = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
                              ".hmeta " + basename + ".yamp";
         }
-        if (wf.lossless_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_to_merge; }
+        if (workflow.lossless_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_to_merge;
+        }
         else {
             cmd_string = "cd " + ap->opath + ";tar -cf " + basename + ".sz " + files_to_merge;
         }
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
 
         // remove 5 subfiles
         cmd_string = "cd " + ap->opath + ";rm -rf " + files_to_merge;
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
 
         auto tar_z = hires::now();
 
         auto ad_hoc_fix = ap->opath.substr(0, ap->opath.size() - 1);
-        LogAll(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
-        LogAll(log_info, "output:", ad_hoc_fix + basename + ".sz");
+        logging(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
+        logging(log_info, "output:", ad_hoc_fix + basename + ".sz");
     }
 
     // if it's decompression, remove released subfiles at last.
-    if (not wf.lossy_construct and wf.lossy_reconstruct) {
+    if (not workflow.construct and workflow.reconstruct) {
         string files_to_delete;
-        if (wf.skip_huffman_enc) {
+        if (workflow.skip_huffman) {
             files_to_delete = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
@@ -316,46 +299,47 @@ int main(int argc, char** argv)
         }
         string cmd_string =
             "cd " + subfiles.path2file.substr(0, subfiles.path2file.rfind('/')) + ";rm -rf " + files_to_delete;
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
     }
 
-    if (wf.lossy_construct and wf.lossy_reconstruct) {
+    if (workflow.construct and workflow.reconstruct) {
         // remove *.sz if existing
         string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if (wf.skip_huffman_enc) {
+        if (workflow.skip_huffman) {
             files_for_merging = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
             files_for_merging = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
                                 ".hmeta " + basename + ".yamp";
         }
-        if (wf.lossless_gzip) { cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_for_merging; }
+        if (workflow.lossless_gzip) {
+            cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_for_merging;
+        }
         else {
             cmd_string = "cd " + ap->opath + ";tar -cf " + basename + ".sz " + files_for_merging;
         }
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
 
         // remove 5 subfiles
         cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
-        CheckShellCall(cmd_string);
+        check_shell_calls(cmd_string);
 
-        LogAll(log_info, "write to: " + ap->opath + basename + ".sz");
-        LogAll(log_info, "write to: " + ap->opath + basename + ".szx");
+        logging(log_info, "write to: " + ap->opath + basename + ".sz");
+        logging(log_info, "write to: " + ap->opath + basename + ".szx");
 
-        if (wf.gtest) {
-            expectedErr  = ap->eb;
-            z_mode       = ap->mode;
-            auto stat    = ap->stat;
-            actualAbsErr = stat.max_abserr;
-            actualRelErr = stat.max_abserr_vs_rng;
-            ::testing::InitGoogleTest(&argc, argv);
-            return RUN_ALL_TESTS();
-        }
+        /* gtest disabled in favor of code refactoring */
+        // if (workflow.gtest) {
+        //     expectedErr  = ap->eb;
+        //     z_mode       = ap->mode;
+        //     auto stat    = ap->stat;
+        //     actualAbsErr = stat.max_abserr;
+        //     actualRelErr = stat.max_abserr_vs_rng;
+        //     ::testing::InitGoogleTest(&argc, argv);
+        //     return RUN_ALL_TESTS();
+        // }
     }
 }
-
-#endif

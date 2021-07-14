@@ -1,6 +1,6 @@
 
 #include <iostream>
-#include "../src/kernel/lorenzo.cuh"
+#include "../src/kernel/lorenzo.h"
 #include "../src/kernel/prototype_lorenzo.cuh"
 #include "../src/metadata.hh"
 #include "../src/utils/cuda_err.cuh"
@@ -31,14 +31,14 @@ void Test1D(int n = 1)
 
     for (auto i = 0; i < n; i++) {
         cout << "1Dc " << i << '\n';
-        kernel::c_lorenzo_1d1l_v2<Data, Quant, float, DataSubsize, Sequentiality><<<dim_grid, dim_block>>>  //
+        cusz::c_lorenzo_1d1l<Data, Quant, float, DataSubsize, Sequentiality><<<dim_grid, dim_block>>>  //
             (data, quant, dimx, radius, ebx2_r);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
     for (auto i = 0; i < n; i++) {
         cout << "1Dx " << i << '\n';
-        kernel::x_lorenzo_1d1l_cub<Data, Quant><<<dim_grid, dim_block>>>  //
+        cusz::x_lorenzo_1d1l<Data, Quant><<<dim_grid, dim_block>>>  //
             (data, outlier, quant, dimx, radius, ebx2);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
@@ -56,14 +56,14 @@ void Test2D(int n = 1)
 
     for (auto i = 0; i < n; i++) {
         cout << "2Dc " << i << '\n';
-        kernel::c_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
+        cusz::c_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, float><<<dim_grid, dim_block>>>  //
             (data, quant, dimx, dimy, stridey, radius, ebx2_r);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
     for (auto i = 0; i < n; i++) {
         cout << "2Dx " << i << '\n';
-        kernel::x_lorenzo_2d1l_v1_16x16data_mapto_16x2<Data, Quant><<<dim_grid, dim_block>>>  //
+        cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant><<<dim_grid, dim_block>>>  //
             (data, outlier, quant, dimx, dimy, stridey, radius, ebx2);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
@@ -83,14 +83,14 @@ void Test3D(int n = 1)
 
     for (auto i = 0; i < n; i++) {
         cout << "3Dc " << i << '\n';
-        kernel::c_lorenzo_3d1l_v1_32x8x8data_mapto_32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
+        cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant><<<dim_grid, dim_block>>>  //
             (data, quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
     for (auto i = 0; i < n; i++) {
         cout << "3Dx " << i << '\n';
-        kernel::x_lorenzo_3d1l_v5var1_32x8x8data_mapto_32x1x8<<<dim_grid, dim_block>>>  //
+        cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<<<dim_grid, dim_block>>>  //
             (data, outlier, quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }

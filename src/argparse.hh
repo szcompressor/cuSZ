@@ -28,34 +28,6 @@ extern const char* version_text;
 extern const int   version;
 extern const int   compatibility;
 
-struct alignas(8) SZWorkFlow {
-    bool input_use_demo{false};
-
-    bool    pre_binning{false};
-    /**/ bool pre_log_trans{false};
-
-    bool autotune_huffman_chunk{true};
-
-    bool lossy_construct{false};
-    bool lossy_reconstruct{false};
-    bool lossy_dryrun{false};
-
-    bool exp_export_codebook{false};
-    bool exp_partitioning_imbalance{false};
-
-    bool    verify_huffman{false};
-    /**/ bool verify_eb_quality{false};
-
-    bool skip_write_output{false};
-    bool skip_huffman_enc{false};
-
-    // bool    lossless_huffman{true};  // ????
-    bool lossless_nvcomp_cascade{false};
-    bool lossless_gzip{false};
-
-    bool gtest{false};
-};
-
 struct alignas(8) SZDataRepresent {
     int quant_byte;
     int huff_byte;
@@ -63,43 +35,36 @@ struct alignas(8) SZDataRepresent {
 
 class ArgPack {
    public:
-    // TODO [ ] metadata
-    // TODO [x] metric/stat
+    struct {
+        bool use_demo_dataset{false};
 
-    // mega variable
-    struct SZWorkFlow {
-        bool input_use_demo{false};
+        bool pre_binning{false};
+        bool pre_log_trans{false};
 
-        bool    pre_binning{false};
-        /**/ bool pre_log_trans{false};
+        bool autotune_huffchunk{true};
 
-        bool autotune_huffman_chunk{true};
-
-        bool lossy_construct{false};
-        bool lossy_reconstruct{false};
-        bool lossy_dryrun{false};
+        bool construct{false};
+        bool reconstruct{false};
+        bool dryrun{false};
 
         bool exp_export_codebook{false};
         bool exp_partitioning_imbalance{false};
 
-        bool    verify_huffman{false};
-        /**/ bool verify_eb_quality{false};
+        bool skip_write2disk{false};
+        bool skip_huffman{false};
 
-        bool skip_write_output{false};
-        bool skip_huffman_enc{false};
-
-        // bool    lossless_huffman{true};  // ????
         bool lossless_nvcomp_cascade{false};
         bool lossless_gzip{false};
 
         bool gtest{false};
-    } szwf;
+    } sz_workflow;
 
-    struct HuffmanWorkFlow {
-        bool dryrun;
-        bool encode;
-        bool decode;
-    } hwf;
+    struct {
+        bool quality{true};
+        bool time{false};
+        bool cr{false};
+        bool compressibility{false};
+    } report;
 
     struct {
         string path2file;
@@ -134,9 +99,6 @@ class ArgPack {
     int       dict_size{1024};
     int       radius{512};
 
-    // experiment
-    UInteger4 part4{1, 1, 1, 1};
-
     bool verbose{false};
     bool to_verify{false};
 
@@ -151,26 +113,20 @@ class ArgPack {
 
     int trap(int _status);
 
-    void CheckArgs();
+    void check_args();
 
-    void HuffmanCheckArgs();
+    static void print_cusz_short_doc();
 
-    static void cuszDoc();
-
-    static void HuffmanDoc();
-
-    static void cuszFullDoc();
+    static void print_cusz_full_doc();
 
     ArgPack() = default;
 
-    static int          SelfMultiple4(Integer4 i) { return i._0 * i._1 * i._2 * i._3; }
-    static unsigned int SelfMultiple4(UInteger4 i) { return i._0 * i._1 * i._2 * i._3; }
+    static int          self_multiply4(Integer4 i) { return i._0 * i._1 * i._2 * i._3; }
+    static unsigned int self_multiply4(UInteger4 i) { return i._0 * i._1 * i._2 * i._3; }
 
-    void ParseCuszArgs(int argc, char** argv);
+    void parse_args(int argc, char** argv);
 
-    void ParseHuffmanArgs(int argc, char** argv);
-
-    void SortOutFilenames();
+    void sort_out_fnames();
 };
 
 typedef ArgPack argpack;

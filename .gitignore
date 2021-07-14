@@ -1,3 +1,8 @@
+# intermediate data
+cusz
+rle
+
+*.sz
 *.szx
 *.yamp
 *.hbyte
@@ -6,39 +11,53 @@
 *.outlier
 *.BN
 *.lean_cb
+*.huff
+*.out
 
-cusz
-
-data/*.sz
-data/*.out
-
-Makefile
-
-cmake-build-debug-t7600
-cmake-build-debug
-cmake-build-release
-build/
-CMakeFiles
-
-src/future
-src/huffre
-
-data/4lossless
-
-src/*.dylib
-src/*.o
-
+# general
+*.dylib
+*.so
+*.tsv
+*.o
 *.swp
 .DS_Store
 .cache
-
-.idea/
-.vs/
-.vscode/
-
-a.out
+.idea
+.vs
+.vscode
 tags
-*.o
-stat/.ipynb_checkpoints/
-stat/__pycache__
-src/pySZ/__pycache__
+.ipynb_checkpoints
+__pycache__
+.clangd
+compile_commands.json
+Makefile
+cmake-build-debug
+cmake-build-release
+build
+
+# profiling and analysis
+*.ncu-rep
+*.qdrep
+*.sqlite
+*.qdstrm
+# *.ipynb
+
+
+# intermediate and binary
+dummy_cxlorenzo
+dummy_xlorenzo2d
+dummy_xlorenzo3d
+spline
+splineprof
+cmake-build-debug-t7600
+
+CLDLOW.dat
+
+# folder
+demo_dpcpp/
+test/experimental/
+src/pySZ/
+src/ood
+src/future
+src/huffre
+data/4lossless

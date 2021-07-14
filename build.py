@@ -3,6 +3,12 @@ import os
 import sys
 import subprocess as sp
 
+__author__ = "Jiannan Tian"
+__copyright__ = "(C) 2021 by Washington State University, Argonne National Laboratory"
+__license__ = "BSD 3-Clause"
+__version__ = "0.3"
+__date__ = "2021-01-12"
+
 # current support and backward compatibility; t=Tesla, cp=consumer,professional
 SMp_PASCAL_t = "-gencode=arch=compute_60,code=sm_60"
 SMp_PASCAL_cp = "-gencode=arch=compute_61,code=sm_61"
@@ -189,17 +195,20 @@ if __name__ == "__main__":
     # TODO purge
 
     compile_info = ""
-    if not os.path.exists("external/nvcomp/build/lib/libnvcomp.a"):
-        os.system(patch_nvcomp)
-        os.system(cmake_nvcomp)
-    if not os.path.exists("external/nvcomp/build/lib/libgtest.a"):
-        os.system(cmake_gtest)
 
-    # double check
-    if os.path.exists(GTEST_STATIC_LIB):
-        print("gtest lib ready")
-    if os.path.exists(NVCOMP_STATIC_LIB):
-        print("nvcomp lib ready")
+    ## disabled for modular design and refactoring
+
+    # if not os.path.exists("external/nvcomp/build/lib/libnvcomp.a"):
+    #     os.system(patch_nvcomp)
+    #     os.system(cmake_nvcomp)
+    # if not os.path.exists("external/nvcomp/build/lib/libgtest.a"):
+    #     os.system(cmake_gtest)
+
+    # # double check
+    # if os.path.exists(GTEST_STATIC_LIB):
+    #     print("gtest lib ready")
+    # if os.path.exists(NVCOMP_STATIC_LIB):
+    #     print("nvcomp lib ready")
 
     ############################################################
     # compile cusz
