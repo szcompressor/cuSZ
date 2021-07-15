@@ -44,10 +44,10 @@ Our published papers cover the essential design and implementation, accessible v
 # set up
 ## requirements
 - `{`Pascal, Volta, Turing, Ampere`}` NVIDIA GPU
+- cmake 3.18 onward
 - C++14 enabled compiler, GCC 7 onward; CUDA 9.2 onward (11.x is recommended)
   - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
-  - More reference: 1) [CUDA compiler compatibility](https://gist.github.com/ax3l/9489132), 2) [compilation instruction](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
-  - Note that *CUDA version* is referred to as the *toolchain version* (e.g., activated via `module load cuda/<version>`), whereas CUDA *runtime* version can be lower than that.
+  - more reference: 1) [CUDA compilers](https://gist.github.com/ax3l/9489132), 2) [CUDA archs](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
 
 |      |     |      |      |      |      |      |      |      |      |
 | ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
@@ -63,11 +63,11 @@ Our published papers cover the essential design and implementation, accessible v
 git clone https://github.com/szcompressor/cuSZ.git cusz && cd cusz
 chmod 755 ./build.py && ./build.py <target> <optional: build type>
 ```
-- For maximal compatibility, use `./build.py compat`. 
+- For the maximum compatibility, use `./build.py compat`. 
 - For optimal compilation, use `./build.py <target> <optional: build type>`. 
   - Target names other than `compat` include `p100`, `v100`, `a100` and general `pascal`, `turing`, `ampere`.
   - Build types include `release` (default), `release-profile` (enabling `-lineinfo`) and `debug` (enabling `-G`).
-- `build.py` automatically builds. `make install` would install to `${HOME}/bin`.
+- `build.py` automatically builds and installs `cusz` binary to `<workspace>/bin`.
 
 
 # use
