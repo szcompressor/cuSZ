@@ -106,6 +106,6 @@ if __name__ == "__main__":
         exit(1)
     else:
         os.system(cmake_cmd)
-        os.system("cd {0} && make".format(build_type))
+        os.system("cd {0} && make -j".format(build_type))
         print("copying binary to ./bin/")
         os.system("cp {0}/cusz bin/cusz".format(build_type))
