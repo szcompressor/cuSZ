@@ -8,23 +8,19 @@ Our software supports GPUs with the following compute capabilities:
 
 The toolchain combination is non-exhaustible. We listed our experienced testbed below. Number in GPU-(GCC,CUDA) combination denotes major version of compiler ever tested.
 
-| setup     | arch.  | SM  |     |      |      |      |      |      |      |      |
-| --------- | ------ | --- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| GCC       |        |     | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
-|           |        |     |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
-|           |        |     |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  |
-| CUDA      |        |     | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 |
-|           |        |     |     |      |      |      |      |      |      |      |
-| P2000M    | Pascal | 61  |     |      |      |      | 7    |      |      |      |
-| RTX 2060S | Turing | 75  | 7   | 7    | 7    | 7    | 9    | 9    | 9    | 9    |
-| RTX 5000  | Turing | 75  |     |      | 7/8  |      |      |      |      |      |
-| RTX 8000  | Turing | 75  |     |      | 7    |      |      |      |      |      |
-| RTX 3080  | Ampere | 86  |     |      | 7    |      |      | 9    | 9    |      |
-|           |        |     |     |      |      |      |      |      |      |      |
-| P100      | Pascal | 60  |     |      | 7    |      |      |      |      |      |
-| V100      | Volta  | 70  | 7   |      |      | 7/8  |      | 7    |      |      |
-| A100      | Ampere | 80  |     |      |      |      | 7    | 7    |      |      |
-
-
-
-
+| setup     | arch.  | SM  |     |      |      |      |      |      |      |      |      |
+| --------- | ------ | --- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| GCC       |        |     | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |
+|           |        |     |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |      |
+|           |        |     |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
+| CUDA      |        |     | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 |
+|           |        |     |     |      |      |      |      |      |      |      |      |
+| P2000M    | Pascal | 61  |     |      |      |      | 7    |      |      |      |      |
+| RTX 2060S | Turing | 75  | 7   | 7    | 7    | 7    | 9    | 9    | 9    | 9    | 9    |
+| RTX 5000  | Turing | 75  |     |      | 7/8  |      |      |      |      |      |      |
+| RTX 8000  | Turing | 75  |     |      | 7    |      |      |      |      |      |      |
+| RTX 3080  | Ampere | 86  |     |      | 7    |      |      | 9    | 9    |      |      |
+|           |        |     |     |      |      |      |      |      |      |      |      |
+| P100      | Pascal | 60  |     |      | 7    |      |      |      |      |      |      |
+| V100      | Volta  | 70  | 7   |      |      | 7/8  |      | 7    |      |      |      |
+| A100      | Ampere | 80  |     |      |      |      | 7-9  | 7-9  | 7-9  |      |      |
