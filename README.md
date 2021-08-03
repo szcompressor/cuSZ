@@ -33,6 +33,8 @@ Our published papers cover the essential design and implementation, accessible v
 	- [How does SZ/cuSZ work?](#how-does-szcusz-work)
 	- [Why is there multibyte symbol for Huffman?](#why-is-there-multibyte-symbol-for-huffman)
 	- [What differs CPU-SZ and cuSZ in data quality and compression ratio?](#what-differs-cpu-sz-and-cusz-in-data-quality-and-compression-ratio)
+	- [What is cuSZ+?](#what-is-cusz)
+	- [What is the future plan/road map of cuSZ?](#what-is-the-future-planroad-map-of-cusz)
 	- [How to know compression ratio?](#how-to-know-compression-ratio)
 	- [How to know the performance?](#how-to-know-the-performance)
 - [tested by our team](#tested-by-our-team)
@@ -58,7 +60,6 @@ Our published papers cover the essential design and implementation, accessible v
 |      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
 | CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 |
 
-
 ## compile from source code
 
 ```bash
@@ -70,7 +71,6 @@ chmod 755 ./build.py && ./build.py <target> <optional: build type>
   - Target names other than `compat` include `p100`, `v100`, `a100` and general `pascal`, `turing`, `ampere`.
   - Build types include `release` (default), `release-profile` (enabling `-lineinfo`) and `debug` (enabling `-G`).
 - `build.py` automatically builds and installs `cusz` binary to `<workspace>/bin`.
-
 
 # use
 ## basic use
@@ -116,7 +116,6 @@ syntax: `-c` or `--config quantbyte=(1|2),huffbyte=(4|8)`
 
 - `quantbyte` to specify quant. code representation. Options `{1,2}` are for 1- and 2-byte, respectively. 
 - `huffbyte` to specify Huffman codeword representation. Options `{4,8}` are for 4- and 8-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
-
 
 **`dry-run` mode**
 
@@ -189,7 +188,6 @@ The combination of *n* single-byte does not reflect the fact that that quant-cod
 1. the highest frequency not properly represented, and
 2. the pattern-exploiting harder. For example, `0x00ff,0x00ff` is otherwise interpreted as `0x00,0xff,0x00,0xff`.  
 
-
 ## What differs CPU-SZ and cuSZ in data quality and compression ratio?
 
 CPU-SZ offers a rich set of compression features and is far more mature than cuSZ. (1) CPU-SZ has preprocessing, more compression mode (e.g., point-wise) and autotuning. (2) CPU-SZ has Lorenzo predictor and Linear Regression, whereas cuSZ has Lorenzo (we are working on new predictors).
@@ -197,22 +195,34 @@ CPU-SZ offers a rich set of compression features and is far more mature than cuS
 1. They share the same Lorenzo predictor. However, many factors affect data quality (and can be quality optimizers).
    1. preprocessing such as log transform and point-wise transform
    2. PSNR as a goal to autotune eb
-   3.  initial values from which we predict border values (as if padding). cuSZ predicts from zeros while SZ determines optimal values for, e.g., application-specific metrics. Also note that cuSZ compression can result in a significantly higher PSNR than SZ (with the same eb, see Table 8 on page 10 of PACT '20 paper), but it is not necessarily better when it comes to applications.
-   5.  The PSNR serves as a generic metric: SZ guarantees a lower bound of PSNR when the eb is relative to the data range, e.g., 64 for 1e-3, 84 for 1e-4.
+   3. initial values from which we predict border values (as if padding). cuSZ predicts from zeros while SZ determines optimal values for, e.g., application-specific metrics. Also note that cuSZ compression can result in a significantly higher PSNR than SZ (with the same eb, see Table 8 on page 10 of PACT '20 paper), but it is not necessarily better when it comes to applications.
+   4. The PSNR serves as a generic metric: SZ guarantees a lower bound of PSNR when the eb is relative to the data range, e.g., 64 for 1e-3, 84 for 1e-4.
 2. The linear scaling can be the same. SZ has an extra optimizer to decide the linear scaling range $[-r, +r]$; out-of-range quantization values are outliers. This is to optimize the compression ratio.
 3. Currently, the Huffman encoding is the same except cuSZ partitions data (therefore, it has overhead in padding bits and partitioning metadata).
-
 
 |        | preprocess | Lorenzo predictor | other predictors | Huffman | DEFLATE     |
 | ------ | ---------- | ----------------- | ---------------- | ------- | ----------- |
 | CPU-SZ | x          | x                 | x                | x       | x           |
 | cuSZ   | TBD        | x, dual-quant     | TBD              | x       | alternative |
+
+## What is cuSZ+?
+
+cuSZ+ is referred to as the peer-reviewed work in 2021, on top of the original 2020 work.
+cuSZ+ mixes the improvements in decompression throughput (by 4.3x to 18.6x) and the use of data patterns that are the source of compressibility. 
+There will not be, however, standalone software or version for cuSZ+. We are gradually rolling out the production-ready functionality that is mentioned in the published paper.
+
+## What is the future plan/road map of cuSZ?
+
+1. more predictors
+2. more compression mode
+3. both more modularized and more tight coupled in components
+4. APIs (soon)
+
 ## How to know compression ratio?
 
 Expected to be known at compression time. TBD. 
 
 ## How to know the performance?
-
 
 1. prior to CUDA 11: `nvprof <cusz command>`
 2. CUDA 11 onward: `nsys profile --stat true <cusz command>`
@@ -244,14 +254,13 @@ We provide three small sample data in `data`. To download more SDRBench datasets
 - A performance degradation is expected when handling large-size datasets, e.g., 1-GB or 4-GB 1D HACC. We are working on tuning consistent performance.
 - To update with preprocessing such as binning and log-transform.
 
-
 # citing cuSZ
 
 ## PACT '20, cuSZ
 ```bibtex
 @inproceedings{cusz2020,
-     author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
       title = {cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data},
+     author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
        year = {2020},
        isbn = {9781450380751},
   publisher = {Association for Computing Machinery},
@@ -273,9 +282,9 @@ We provide three small sample data in `data`. To download more SDRBench datasets
 @misc{cuszplus2021,
       title = {cuSZ+: Optimizing Error-Bounded Lossy Compression for Scientific Data on GPUs}, 
      author = {Jiannan Tian and Sheng Di and Xiaodong Yu and Cody Rivera and Kai Zhao and Sian Jin and Yunhe Feng and Xin Liang and Dingwen Tao and Franck Cappello},
-      year = {2021},
-    eprint = {2105.12912},
-	  note = {accepted by IEEE CLUSTER '21}
+       year = {2021},
+     eprint = {2105.12912},
+       note = {accepted by IEEE CLUSTER '21},
 archivePrefix = {arXiv},
  primaryClass = {cs.DC}
 }
