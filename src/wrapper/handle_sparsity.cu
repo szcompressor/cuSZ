@@ -23,9 +23,44 @@ using stream_t = cudaStream_t;
 using descr_t  = cusparseMatDescr_t;
 
 /********************************************************************************
+ * compression use
+ ********************************************************************************/
+template <typename Data>
+OutlierHandler<Data>::OutlierHandler(unsigned int _len)
+{  //
+    this->m = static_cast<size_t>(ceil(sqrt(_len)));
+}
+
+template <typename Data>
+OutlierHandler<Data>& OutlierHandler<Data>::configure(uint8_t* _pool, unsigned int try_nnz)
+{
+    if (not _pool) throw std::runtime_error("Memory pool is no allocated.");
+    pool.ptr          = _pool;
+    pool.entry.rowptr = reinterpret_cast<int*>(pool.ptr + pool.offset.rowptr);
+    pool.entry.colidx = reinterpret_cast<int*>(pool.ptr + pool.offset.colidx);
+    pool.entry.values = reinterpret_cast<Data*>(pool.ptr + pool.offset.values);
+
+    return *this;
+}
+
+template <typename Data>
+OutlierHandler<Data>& OutlierHandler<Data>::configure_with_nnz(int nnz)
+{
+    this->nnz      = nnz;
+    bytelen.rowptr = sizeof(int) * (m + 1);
+    bytelen.colidx = sizeof(int) * nnz;
+    bytelen.values = sizeof(Data) * nnz;
+    bytelen.total  = bytelen.rowptr + bytelen.colidx + bytelen.values;
+
+    return *this;
+}
+
+/********************************************************************************
  * "S" (for "single-precision") is used; can't generalize
  ********************************************************************************/
-void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outlier, float& milliseconds)
+
+template <typename Data>
+OutlierHandler<Data>& OutlierHandler<Data>::gather_CUDA10(float* in_outlier, float& milliseconds)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -33,9 +68,8 @@ void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outl
     size_t   lworkInBytes = 0;
     char*    d_work       = nullptr;
     float    threshold    = 0;
-    auto     m            = csr->m;
-    auto     n            = csr->m;
-    auto     lda          = csr->m;
+    auto     n            = m;
+    auto     lda          = m;
 
     // clang-format off
     CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream,    cudaStreamNonBlocking        )); // 1. create stream
@@ -51,8 +85,8 @@ void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outl
         timer_step3->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr_bufferSizeExt(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, csr->pool.entry.values, csr->pool.entry.rowptr,
-            csr->pool.entry.colidx, &lworkInBytes));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, pool.entry.values, pool.entry.rowptr,
+            pool.entry.colidx, &lworkInBytes));
 
         milliseconds += timer_step3->timer_end_get_elapsed_time();
         delete timer_step3;
@@ -69,18 +103,18 @@ void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outl
         timer_step4->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csrNnz(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, csr->pool.entry.rowptr, &nnz, d_work));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, pool.entry.rowptr, &nnz, d_work));
 
         milliseconds += timer_step4->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
         delete timer_step4;
     }
 
-    csr->compress_configure_with_nnz(nnz);
+    this->configure_with_nnz(nnz);
 
     if (nnz == 0) {
         std::cout << "nnz == 0, exiting gather.\n";
-        return;
+        return *this;
     }
 
     /* step 5: compute col_ind and values */
@@ -89,8 +123,8 @@ void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outl
         timer_step5->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, csr->pool.entry.values, csr->pool.entry.rowptr,
-            csr->pool.entry.colidx, d_work));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, pool.entry.values, pool.entry.rowptr,
+            pool.entry.colidx, d_work));
 
         milliseconds += timer_step5->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -100,17 +134,65 @@ void compress_gather_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outl
     if (handle) cusparseDestroy(handle);
     if (stream) cudaStreamDestroy(stream);
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
+
+    /********************************************************************************/
+    return *this;
 }
 
-void decompress_scatter_CUDA10(struct OutlierDescriptor<float>* csr, float* in_outlier, float& milliseconds)
+template <typename Data>
+OutlierHandler<Data>& OutlierHandler<Data>::archive(uint8_t* archive, int& export_nnz)
+{
+    export_nnz = this->nnz;
+
+    // clang-format off
+    cudaMemcpy(archive + 0,                               pool.entry.rowptr, bytelen.rowptr, cudaMemcpyDeviceToHost);
+    cudaMemcpy(archive + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, cudaMemcpyDeviceToHost);
+    cudaMemcpy(archive + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, cudaMemcpyDeviceToHost);
+    // clang-format on
+
+    return *this;
+}
+
+/********************************************************************************
+ * decompression use
+ ********************************************************************************/
+
+template <typename Data>
+OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int _nnz)
+{  //
+    this->m   = static_cast<size_t>(ceil(sqrt(_len)));
+    this->nnz = _nnz;
+
+    bytelen.rowptr = sizeof(int) * (this->m + 1);
+    bytelen.colidx = sizeof(int) * this->nnz;
+    bytelen.values = sizeof(Data) * this->nnz;
+    bytelen.total  = bytelen.rowptr + bytelen.colidx + bytelen.values;
+}
+
+template <typename Data>
+OutlierHandler<Data>& OutlierHandler<Data>::extract(uint8_t* _pool)
+{
+    pool.offset.rowptr = 0;
+    pool.offset.colidx = bytelen.rowptr;
+    pool.offset.values = bytelen.rowptr + bytelen.colidx;
+
+    pool.ptr          = _pool;
+    pool.entry.rowptr = reinterpret_cast<int*>(pool.ptr + pool.offset.rowptr);
+    pool.entry.colidx = reinterpret_cast<int*>(pool.ptr + pool.offset.colidx);
+    pool.entry.values = reinterpret_cast<Data*>(pool.ptr + pool.offset.values);
+
+    return *this;
+};
+
+template <typename Data>
+OutlierHandler<Data>& OutlierHandler<Data>::scatter_CUDA10(float* in_outlier, float& milliseconds)
 {
     //     throw std::runtime_error("[decompress_scatter] not implemented");
     handle_t handle   = nullptr;
     stream_t stream   = nullptr;
     descr_t  mat_desc = nullptr;
-    auto     m        = csr->m;
-    auto     n        = csr->m;
-    auto     lda      = csr->m;
+    auto     n        = m;
+    auto     lda      = m;
 
     // clang-format off
     CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream,   cudaStreamNonBlocking        )); // 1. create stream
@@ -126,8 +208,7 @@ void decompress_scatter_CUDA10(struct OutlierDescriptor<float>* csr, float* in_o
         timer_scatter->timer_start();
 
         CHECK_CUSPARSE(cusparseScsr2dense(
-            handle, m, n, mat_desc, csr->pool.entry.values, csr->pool.entry.rowptr, csr->pool.entry.colidx, in_outlier,
-            lda));
+            handle, m, n, mat_desc, pool.entry.values, pool.entry.rowptr, pool.entry.colidx, in_outlier, lda));
 
         milliseconds += timer_scatter->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -137,4 +218,8 @@ void decompress_scatter_CUDA10(struct OutlierDescriptor<float>* csr, float* in_o
     if (handle) cusparseDestroy(handle);
     if (stream) cudaStreamDestroy(stream);
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
+
+    return *this;
 }
+
+template class OutlierHandler<float>;
