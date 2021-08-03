@@ -233,21 +233,19 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
      * gather outlier
      ********************************************************************************/
     {
-        struct OutlierDescriptor<Data> csr(len);
+        OutlierHandler<Data> csr(len);
 
         uint8_t *pool, *dump;
-
-        auto dummy_nnz    = len / 10;
-        auto pool_bytelen = csr.compress_query_pool_bytelen(dummy_nnz);
+        auto     dummy_nnz    = len / 10;
+        auto     pool_bytelen = csr.query_pool_size(dummy_nnz);
         cudaMalloc((void**)&pool, pool_bytelen);
-        csr.compress_configure_pool(pool, dummy_nnz);
 
-        compress_gather_CUDA10(&csr, in_data->dptr, time_outlier);
+        csr.configure(pool, dummy_nnz).gather_CUDA10(in_data->dptr, time_outlier);
 
-        auto dump_bytelen = csr.compress_query_csr_bytelen();
+        auto dump_bytelen = csr.query_csr_bytelen();
         cudaMallocHost((void**)&dump, dump_bytelen);
 
-        csr.compress_archive_outlier(dump, nnz_outlier);
+        csr.archive(dump, nnz_outlier);
         io::write_array_to_binary(subfiles.compress.out_outlier, dump, dump_bytelen);
 
         cudaFree(pool), cudaFreeHost(dump);
@@ -390,7 +388,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     }
 
     {
-        struct OutlierDescriptor<Data> csr(ap->len, nnz_outlier);
+        OutlierHandler<Data> csr(ap->len, nnz_outlier);
 
         uint8_t *h_csr_file, *d_csr_file;
         cudaMallocHost((void**)&h_csr_file, csr.bytelen.total);
@@ -399,9 +397,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
         io::read_binary_to_array<uint8_t>(subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
         cudaMemcpy(d_csr_file, h_csr_file, csr.bytelen.total, cudaMemcpyHostToDevice);
 
-        csr.decompress_extract_outlier(d_csr_file);
-
-        decompress_scatter_CUDA10(&csr, outlier, time_outlier);
+        csr.extract(d_csr_file).scatter_CUDA10(outlier, time_outlier);
     }
 
     /********************************************************************************
