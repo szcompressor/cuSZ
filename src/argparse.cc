@@ -567,7 +567,7 @@ void ArgPack::sort_out_fnames()
     opath += "/";
 
     // experiment
-    subfiles.compress.raw_quant = opath + basename + ".raw-quant";
+    subfiles.compress.raw_quant = opath + basename + ".lean-quant";
 
     // zip
     subfiles.compress.huff_base   = opath + basename;
