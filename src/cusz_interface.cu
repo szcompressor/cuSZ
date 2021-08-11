@@ -303,8 +303,17 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     }
 
     // internal evaluation, not stored in sz archive
-    if (workflow.exp_export_codebook) {  //
+    if (workflow.export_book) {  //
         draft::export_codebook(book.dptr, subfiles.compress.huff_base, dict_size);
+    }
+
+    if (workflow.export_quant) {  //
+        cudaMallocHost(&quant.hptr, quant.nbyte());
+        quant.d2h();
+
+        io::write_array_to_binary(subfiles.compress.raw_quant, quant.hptr, len);
+        logging(log_info, "exporting quant as binary; suffix: \".quant\"");
+        exit(0);
     }
 
     // decide if skipping Huffman coding
