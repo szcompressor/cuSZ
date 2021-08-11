@@ -47,7 +47,8 @@ class ArgPack {
         bool reconstruct{false};
         bool dryrun{false};
 
-        bool exp_export_codebook{false};
+        bool export_book{false};
+        bool export_quant{false};
         bool exp_partitioning_imbalance{false};
 
         bool skip_write2disk{false};
@@ -70,6 +71,7 @@ class ArgPack {
         string path2file;
         struct {
             string huff_base, out_quant, out_outlier, out_yamp;
+            string raw_quant;
         } compress;
         struct {
             string in_quant, in_outlier, in_yamp, in_origin, out_xdata;

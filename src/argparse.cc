@@ -25,7 +25,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* version_text  = "2021-08-06.0";
+const char* version_text  = "2021-08-11.0";
 const int   version       = 202107132;
 const int   compatibility = 0;
 
@@ -408,9 +408,8 @@ void ArgPack::parse_args(int argc, char** argv)
                 tag_analysis:
                     if (i + 1 <= argc) {
                         string analysis(argv[++i]);
-                        if (analysis.find("export-codebook") != std::string::npos) {
-                            sz_workflow.exp_export_codebook = true;
-                        }
+                        if (analysis.find("export-codebook") != std::string::npos) { sz_workflow.export_book = true; }
+                        if (analysis.find("export-quant") != std::string::npos) { sz_workflow.export_quant = true; }
                         if (analysis.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
                         if (analysis.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
                     }
@@ -566,6 +565,9 @@ void ArgPack::sort_out_fnames()
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";
+
+    // experiment
+    subfiles.compress.raw_quant = opath + basename + ".lean-quant";
 
     // zip
     subfiles.compress.huff_base   = opath + basename;

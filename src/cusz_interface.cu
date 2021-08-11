@@ -69,7 +69,7 @@ void export_codebook(Huff* d_book, const string& basename, size_t dict_size)
 {
     auto              h_book = mem::create_devspace_memcpy_d2h(d_book, dict_size);
     std::stringstream s;
-    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean_cb";
+    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean-book";
     logging(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
     io::write_array_to_binary(s.str(), h_book, dict_size);
     delete[] h_book;
@@ -303,8 +303,19 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     }
 
     // internal evaluation, not stored in sz archive
-    if (workflow.exp_export_codebook) {  //
+    if (workflow.export_book) {  //
         draft::export_codebook(book.dptr, subfiles.compress.huff_base, dict_size);
+        logging(log_info, "exporting codebook as binary; suffix: \".lean-book\"");
+    }
+
+    if (workflow.export_quant) {  //
+        cudaMallocHost(&quant.hptr, quant.nbyte());
+        quant.d2h();
+
+        io::write_array_to_binary(subfiles.compress.raw_quant, quant.hptr, len);
+        logging(log_info, "exporting quant as binary; suffix: \".lean-quant\"");
+        logging(log_info, "exiting");
+        exit(0);
     }
 
     // decide if skipping Huffman coding
