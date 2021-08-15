@@ -452,7 +452,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
 
         analysis::verify_data(&ap->stat, _data.hptr, odata, len);
         analysis::print_data_quality_metrics<Data>(
-            &ap->stat, false, ap->eb, archive_bytes, workflow.pre_binning ? 4 : 1);
+            &ap->stat, false, ap->eb, archive_bytes, workflow.pre_binning ? 4 : 1, true);
     }
     logging(log_info, "output:", subfiles.path2file + ".szx");
 
