@@ -25,14 +25,24 @@ using descr_t  = cusparseMatDescr_t;
 /********************************************************************************
  * compression use
  ********************************************************************************/
+
 template <typename Data>
 OutlierHandler<Data>::OutlierHandler(unsigned int _len)
-{  //
+{
     this->m = static_cast<size_t>(ceil(sqrt(_len)));
+
+    // TODO merge to configure?
+    auto initial_nnz = _len / 10;
+    // set up pool
+    pool.offset.rowptr = 0;
+    pool.offset.colidx = sizeof(int) * (m + 1);
+    pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+
+    ;
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::configure(uint8_t* _pool, unsigned int try_nnz)
+OutlierHandler<Data>& OutlierHandler<Data>::configure(uint8_t* _pool)
 {
     if (not _pool) throw std::runtime_error("Memory pool is no allocated.");
     pool.ptr          = _pool;
@@ -60,7 +70,8 @@ OutlierHandler<Data>& OutlierHandler<Data>::configure_with_nnz(int nnz)
  ********************************************************************************/
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::gather_CUDA10(float* in_outlier, float& milliseconds)
+OutlierHandler<Data>&
+OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize, float& milliseconds)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -135,6 +146,9 @@ OutlierHandler<Data>& OutlierHandler<Data>::gather_CUDA10(float* in_outlier, flo
     if (stream) cudaStreamDestroy(stream);
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
 
+    /********************************************************************************/
+    dump_nbyte     = query_csr_bytelen();
+    _dump_poolsize = dump_nbyte;
     /********************************************************************************/
     return *this;
 }

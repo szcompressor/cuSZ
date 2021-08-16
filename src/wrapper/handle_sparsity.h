@@ -19,6 +19,17 @@
 #include <cstdlib>
 #include <stdexcept>
 
+template <typename Data>
+unsigned int get_compression_workspace_nbyte(unsigned int len)
+{
+    auto m        = static_cast<size_t>(ceil(sqrt(len)));
+    auto init_nnz = len / 10;
+
+    return sizeof(int) * (m + 1) +   // rowptr
+           sizeof(int) * init_nnz +  // colidx
+           sizeof(Data) * init_nnz;  // values
+}
+
 template <typename Data = float>
 class OutlierHandler {
    public:
@@ -36,6 +47,9 @@ class OutlierHandler {
 
     } pool;
 
+    unsigned int workspace_nbyte;
+    unsigned int dump_nbyte;
+
     struct {
         unsigned int rowptr, colidx, values, total;
     } bytelen;
@@ -50,29 +64,12 @@ class OutlierHandler {
     OutlierHandler(unsigned int _len);
 
     /**
-     * @brief nnz is not necessarity the real one.
-     *
-     * @param try_nnz
-     * @return unsigned int
-     */
-    unsigned int query_pool_size(unsigned int try_nnz)
-    {
-        pool.offset.rowptr = 0;
-        pool.offset.colidx = sizeof(int) * (m + 1);
-        pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * try_nnz;
-
-        return sizeof(int) * (m + 1)      // rowptr
-               + sizeof(int) * try_nnz    // colidx
-               + sizeof(Data) * try_nnz;  // values
-    }
-
-    /**
      * @brief set up memory pool
      *
      * @param _pool
      * @param try_nnz
      */
-    OutlierHandler& configure(uint8_t* _pool, unsigned int try_nnz);
+    OutlierHandler& configure(uint8_t* _pool);
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
@@ -89,7 +86,7 @@ class OutlierHandler {
      */
     OutlierHandler& configure_with_nnz(int nnz);
 
-    OutlierHandler& gather_CUDA10(float*, float&);
+    OutlierHandler& gather_CUDA10(float* in, unsigned int& dump_nbyte, float& ms_timer);
 
     OutlierHandler& archive(uint8_t* archive, int& nnz);
 

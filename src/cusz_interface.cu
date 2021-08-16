@@ -233,22 +233,19 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
      * gather outlier
      ********************************************************************************/
     {
+        unsigned int workspace_nbyte, dump_nbyte;
+        uint8_t *    workspace, *dump;
+        workspace_nbyte = get_compression_workspace_nbyte<Data>(len);
+        cudaMalloc((void**)&workspace, workspace_nbyte);
+        cudaMallocHost((void**)&dump, workspace_nbyte);
+
         OutlierHandler<Data> csr(len);
+        csr.configure(workspace)  //
+            .gather_CUDA10(in_data->dptr, dump_nbyte, time_outlier)
+            .archive(dump, nnz_outlier);
+        io::write_array_to_binary(subfiles.compress.out_outlier, dump, dump_nbyte);
 
-        uint8_t *pool, *dump;
-        auto     dummy_nnz    = len / 10;
-        auto     pool_bytelen = csr.query_pool_size(dummy_nnz);
-        cudaMalloc((void**)&pool, pool_bytelen);
-
-        csr.configure(pool, dummy_nnz).gather_CUDA10(in_data->dptr, time_outlier);
-
-        auto dump_bytelen = csr.query_csr_bytelen();
-        cudaMallocHost((void**)&dump, dump_bytelen);
-
-        csr.archive(dump, nnz_outlier);
-        io::write_array_to_binary(subfiles.compress.out_outlier, dump, dump_bytelen);
-
-        cudaFree(pool), cudaFreeHost(dump);
+        cudaFree(workspace), cudaFreeHost(dump);
     }
 
     auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
