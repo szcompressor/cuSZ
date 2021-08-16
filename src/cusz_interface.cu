@@ -227,7 +227,19 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     /********************************************************************************
      * constructing quant code
      ********************************************************************************/
-    compress_lorenzo_construct<Data, Quant, float>(in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+    if (workflow.predictor == "lorenzo") {
+        compress_lorenzo_construct<Data, Quant, float>(
+            in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+    }
+    else if (workflow.predictor == "spline3d") {
+        throw std::runtime_error("spline not impl'ed");
+        if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
+        // compress_spline3d_construct<Data, Quant, float>(
+        //     in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+    }
+    else {
+        throw std::runtime_error("need to specify predcitor");
+    }
 
     /********************************************************************************
      * gather outlier
@@ -411,7 +423,17 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     /********************************************************************************
      * lorenzo reconstruction
      ********************************************************************************/
-    decompress_lorenzo_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+    if (workflow.predictor == "lorenzo") {
+        decompress_lorenzo_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+    }
+    else if (workflow.predictor == "spline3d") {
+        throw std::runtime_error("spline not impl'ed");
+        if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
+        // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+    }
+    else {
+        throw std::runtime_error("need to specify predcitor");
+    }
 
     /********************************************************************************
      * report time

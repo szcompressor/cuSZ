@@ -57,6 +57,7 @@ static const char cusz_short_doc[] =
     "  m mode  : compression mode; abs, r2r\n"
     "  e eb    : error bound; default 1e-4\n"
     "  l size  : \"-l x\" for 1D; \"-l x,y\" for 2D; \"-l x,y,z\" for 3D\n"
+    "  p pred  : select predictor from \"lorenzo\" and \"spline3d\"\n"
     "\n"
     "  config list:\n"
     "      syntax: opt=v, \"kw1=val1,kw1=val2[,...]\"\n"
@@ -134,7 +135,9 @@ static const char cusz_full_doc[] =
     "\n"
     "        *-i* or *--*@i@*nput* [corresponding datum basename (w/o extension)]\n"
     "\n"
-    "    *Additional I/O*\n"
+    "    *Additional*\n"
+    "        *-p* or *--*@p@*redictor*\n"
+    "                Select predictor from \"lorenzo\" (default) or \"spline3d\" (3D only).\n"
     "        *--origin* or *--compare* /path/to/origin-datum\n"
     "                For verification & get data quality evaluation.\n"
     "        *--opath*  /path/to\n"
@@ -197,7 +200,8 @@ static const char cusz_full_doc[] =
     "        *CESM* example:\n"
     "        ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -z --report time\n"
     "        ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-cesm-CLDHGH --demo cesm -r\n"
-    "        ./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x --report time,quality --compare ./data/ex-cesm-CLDHGH --skip write2disk\n"
+    "        ./bin/cusz -i ./data/ex-cesm-CLDHGH.sz -x --report time,quality --compare ./data/ex-cesm-CLDHGH --skip "
+    "write2disk\n"
     "\n"
     "        *CESM* example with specified output path:\n"
     "        mkdir data2 data3\n"
@@ -216,7 +220,6 @@ static const char cusz_full_doc[] =
     "        ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/ex-hurr-CLOUDf48 --demo hurricane -r\n"
     "        ./bin/cusz -i ./data/ex-hurr-CLOUDf48.sz -x\n"
     "\n";
-
 
 // TODO
 // "        *EXAFEL* example:\n"

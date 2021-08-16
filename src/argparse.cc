@@ -336,6 +336,7 @@ void ArgPack::parse_args(int argc, char** argv)
 
                     if (long_opt == "--help") goto tag_help;              // DOCUMENT
                     if (long_opt == "--version") goto tag_version;        //
+                    if (long_opt == "--predictor") goto tag_predictor;    //
                     if (long_opt == "--meta") goto tag_meta;              //
                     if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
                     if (long_opt == "--eb") goto tag_error_bound;         //
@@ -450,7 +451,10 @@ void ArgPack::parse_args(int argc, char** argv)
                 tag_input:
                     if (i + 1 <= argc) subfiles.path2file = string(argv[++i]);
                     break;
-                    // alternative output
+                case 'p':
+                tag_predictor:
+                    if (i + 1 <= argc) { sz_workflow.predictor = string(argv[++i]); }
+                // alternative output
                 case 'o':
                 tag_x_out:
                     cerr << log_err

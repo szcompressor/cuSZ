@@ -58,6 +58,8 @@ class ArgPack {
         bool lossless_gzip{false};
 
         bool gtest{false};
+
+        string predictor = string("lorenzo");
     } sz_workflow;
 
     struct {
