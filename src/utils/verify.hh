@@ -14,6 +14,7 @@
  *
  */
 
+#include <cmath>
 #include <cstdio>
 #include <limits>
 #include <numeric>

@@ -21,6 +21,7 @@ using hires         = std::chrono::high_resolution_clock;
 using duration_t    = std::chrono::duration<double>;
 using hires_clock_t = std::chrono::time_point<hires>;
 
+#ifdef __CUDACC__
 typedef struct CUDATimer {
     cudaEvent_t start, stop;
     float       milliseconds;
@@ -42,6 +43,8 @@ typedef struct CUDATimer {
 
 } cuda_timer_t;
 
+#endif
+
 // TODO handle return; testing
 /**
  * @brief A timer wrapper for arbitrary function (no handling return for now);
@@ -61,6 +64,7 @@ double TimeThisFunction(F func, Args&&... args)
     return static_cast<duration_t>(hires::now() - t0).count();
 }
 
+#ifdef __CUDACC__
 typedef struct CUDAKernelConfig {
     dim3         dim_grid;
     dim3         dim_block;
@@ -91,5 +95,7 @@ double TimeThisCUDAFunction(F func, kernelcfg cfg, Args&&... args)
     cudaDeviceSynchronize();
     return static_cast<duration_t>(hires::now() - t0).count();
 }
+
+#endif
 
 #endif  // UTILS_TIMER_HH
