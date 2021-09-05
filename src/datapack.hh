@@ -37,6 +37,12 @@ struct PartialData {
 
     PartialData(unsigned int _len) : len(_len) {}
 
+    struct PartialData& set_len(unsigned int _len)
+    {
+        len = _len;
+        return *this;
+    }
+
     unsigned int nbyte() const { return len * sizeof(T); }
 
     // TODO really useful?
