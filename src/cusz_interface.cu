@@ -40,50 +40,6 @@ using std::cout;
 using std::endl;
 using std::string;
 
-namespace {
-
-void PackMetadata(argpack* ap, metadata_pack* mp, const int nnz)
-{
-    mp->dim4    = ap->dim4;
-    mp->stride4 = ap->stride4;
-    mp->nblk4   = ap->nblk4;
-    mp->ndim    = ap->ndim;
-    mp->eb      = ap->eb;
-    mp->len     = ap->len;
-
-    mp->nnz = nnz;
-
-    if (ap->dtype == "f32") mp->dtype = DataType::kF32;
-    if (ap->dtype == "f64") mp->dtype = DataType::kF64;
-
-    mp->quant_byte    = ap->quant_byte;
-    mp->huff_byte     = ap->huff_byte;
-    mp->huffman_chunk = ap->huffman_chunk;
-    mp->skip_huffman  = ap->sz_workflow.skip_huffman;
-}
-
-void UnpackMetadata(argpack* ap, metadata_pack* mp, int& nnz)
-{
-    ap->dim4    = mp->dim4;
-    ap->stride4 = mp->stride4;
-    ap->nblk4   = mp->nblk4;
-    ap->ndim    = mp->ndim;
-    ap->eb      = mp->eb;
-    ap->len     = mp->len;
-
-    nnz = mp->nnz;
-
-    if (mp->dtype == DataType::kF32) ap->dtype = "f32";
-    if (mp->dtype == DataType::kF64) ap->dtype = "f64";
-
-    ap->quant_byte               = mp->quant_byte;
-    ap->huff_byte                = mp->huff_byte;
-    ap->huffman_chunk            = mp->huffman_chunk;
-    ap->sz_workflow.skip_huffman = mp->skip_huffman;
-}
-
-}  // namespace
-
 #define DATATYPE struct PartialData<typename DataTrait<If_FP, DataByte>::Data>
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
@@ -124,14 +80,10 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
         .internal_eval_try_export_quant(&quant)
         .export_revbook(&revbook)
         .huffman_encode(&quant, &book)
-        .try_report_time();
+        .try_report_time()
+        .pack_metadata(mp);
 
     cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
-
-    PackMetadata(ap, mp, cuszc.length.nnz_outlier);
-    mp->num_bits      = cuszc.huffman_meta.num_bits;
-    mp->num_uints     = cuszc.huffman_meta.num_uints;
-    mp->revbook_nbyte = cuszc.huffman_meta.revbook_nbyte;
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
@@ -141,18 +93,9 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    int nnz_outlier;
-    UnpackMetadata(ap, mp, nnz_outlier);
-
-    Decompressor<Data, Quant, Huff, float> cuszd(ap, ap->len, ap->eb);
-    cuszd.length.nnz_outlier = nnz_outlier;
-
-    cuszd.huffman_meta.num_uints     = mp->num_uints;
-    cuszd.huffman_meta.revbook_nbyte = mp->revbook_nbyte;
+    Decompressor<Data, Quant, Huff, float> cuszd(mp, ap);
 
     auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
-
-    logging(log_info, "invoke lossy-reconstruction");
 
     struct PartialData<Quant> quant(cuszd.length.quant);
     cudaMalloc(&quant.dptr, quant.nbyte());
@@ -161,8 +104,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     struct PartialData<Data> _data(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
     cudaMalloc(&_data.dptr, _data.nbyte());
     cudaMallocHost(&_data.hptr, _data.nbyte());
-    auto xdata   = _data.dptr;
-    auto outlier = _data.dptr;
+    auto xdata = _data.dptr, outlier = _data.dptr;
 
     cuszd.huffman_decode(&quant)
         .scatter_outlier(outlier)

@@ -337,6 +337,31 @@ class Compressor {
         return *this;
     }
 
+    Compressor& pack_metadata(metadata_pack* mp)
+    {
+        mp->dim4    = ap->dim4;
+        mp->stride4 = ap->stride4;
+        mp->nblk4   = ap->nblk4;
+        mp->ndim    = ap->ndim;
+        mp->eb      = ap->eb;
+        mp->len     = ap->len;
+
+        mp->nnz = length.nnz_outlier;
+
+        if (ap->dtype == "f32") mp->dtype = DataType::kF32;
+        if (ap->dtype == "f64") mp->dtype = DataType::kF64;
+
+        mp->quant_byte    = ap->quant_byte;
+        mp->huff_byte     = ap->huff_byte;
+        mp->huffman_chunk = ap->huffman_chunk;
+        mp->skip_huffman  = ap->sz_workflow.skip_huffman;
+
+        mp->num_bits      = huffman_meta.num_bits;
+        mp->num_uints     = huffman_meta.num_uints;
+        mp->revbook_nbyte = huffman_meta.revbook_nbyte;
+
+        return *this;
+    }
     //
 };
 
@@ -371,6 +396,24 @@ class Decompressor {
         cout << "TIME\t================================================================================\n\n";
     }
 
+    void unpack_metadata(metadata_pack* mp, argpack* ap)
+    {
+        ap->dim4    = mp->dim4;
+        ap->stride4 = mp->stride4;
+        ap->nblk4   = mp->nblk4;
+        ap->ndim    = mp->ndim;
+        ap->eb      = mp->eb;
+        ap->len     = mp->len;
+
+        if (mp->dtype == DataType::kF32) ap->dtype = "f32";
+        if (mp->dtype == DataType::kF64) ap->dtype = "f64";
+
+        ap->quant_byte               = mp->quant_byte;
+        ap->huff_byte                = mp->huff_byte;
+        ap->huffman_chunk            = mp->huffman_chunk;
+        ap->sz_workflow.skip_huffman = mp->skip_huffman;
+    }
+
    public:
     size_t archive_bytes;
     struct {
@@ -400,16 +443,24 @@ class Decompressor {
 
     argpack* ap;
 
-    Decompressor(argpack* _ap, unsigned int _data_len, double _eb)
+    Decompressor(metadata_pack* _mp, argpack* _ap)
     {
+        logging(log_info, "invoke lossy-reconstruction");
+
+        unpack_metadata(_mp, _ap);
+
+        length.nnz_outlier         = _mp->nnz;
+        huffman_meta.num_uints     = _mp->num_uints;
+        huffman_meta.revbook_nbyte = _mp->revbook_nbyte;
+
         ap           = _ap;
-        length.data  = _data_len;
+        length.data  = ap->len;
         length.quant = length.data;  // TODO if lorenzo
 
-        config.eb     = _eb;
-        config.ebx2   = _eb * 2;
-        config.ebx2_r = 1 / (_eb * 2);
-        config.eb_r   = 1 / _eb;
+        config.eb     = ap->eb;
+        config.ebx2   = config.eb * 2;
+        config.ebx2_r = 1 / (config.eb * 2);
+        config.eb_r   = 1 / config.eb;
 
         m   = static_cast<size_t>(ceil(sqrt(length.data)));
         mxm = m * m;
