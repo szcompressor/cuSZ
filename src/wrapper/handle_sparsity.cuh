@@ -1,5 +1,5 @@
 /**
- * @file handle_sparsity.h
+ * @file handle_sparsity.cuh
  * @author Jiannan Tian
  * @brief (header) A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.3
@@ -10,8 +10,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY_H
-#define CUSZ_WRAPPER_HANDLE_SPARSITY_H
+#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
+#define CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
 
 #include <cmath>
 #include <cstddef>

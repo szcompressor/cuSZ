@@ -16,7 +16,7 @@
 #include <iostream>
 #include "../utils/cuda_err.cuh"
 #include "../utils/timer.hh"
-#include "handle_sparsity.h"
+#include "handle_sparsity.cuh"
 
 using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;

@@ -14,7 +14,7 @@
 #include <numeric>
 #include <stdexcept>
 #include "../utils/timer.hh"
-#include "extrap_lorenzo.h"
+#include "extrap_lorenzo.cuh"
 
 #ifdef DPCPP_SHOWCASE
 #include "../kernel/lorenzo_prototype.h"

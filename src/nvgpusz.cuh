@@ -23,8 +23,8 @@
 #include "pack.hh"
 #include "type_trait.hh"
 #include "utils.hh"
-#include "wrapper/extrap_lorenzo.h"
-#include "wrapper/handle_sparsity.h"
+#include "wrapper/extrap_lorenzo.cuh"
+#include "wrapper/handle_sparsity.cuh"
 #include "wrapper/huffman_enc_dec.cuh"
 #include "wrapper/huffman_parbook.cuh"
 
