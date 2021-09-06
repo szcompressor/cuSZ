@@ -155,4 +155,15 @@ class Decompressor {
     Decompressor& try_write2disk(Data* host_xdata);
 };
 
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
+void cusz_compress(
+    argpack*                                                       ctx,
+    struct PartialData<typename DataTrait<If_FP, DataByte>::Data>* in_data,
+    dim3                                                           xyz,
+    metadata_pack*                                                 header,
+    unsigned int                                                   optional_w);
+
+template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
+void cusz_decompress(argpack* ctx, metadata_pack* header);
+
 #endif
