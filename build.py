@@ -49,11 +49,9 @@ gpu.names:  p100  v100  a100
 
 cuda_ver = ""
 try:
-    cuda_ver = (
-        sp.check_output("""nvcc --version | grep "release" | awk '{print $5}' | cut -d, -f1""", shell=True)
-        .decode("UTF-8")
-        .strip()
-    )
+    cuda_ver = (sp.check_output(
+        """nvcc --version | grep "release" | awk '{print $5}' | cut -d, -f1""",
+        shell=True).decode("UTF-8").strip())
 except:
     pass
 
@@ -67,7 +65,11 @@ targets = {
     "compat": figure_out_compatibility(cuda_ver),
 }
 
-types = {"release": "Release", "release-profile": "RelWithDebInfo", "debug": "Debug"}
+types = {
+    "release": "Release",
+    "release-profile": "RelWithDebInfo",
+    "debug": "Debug"
+}
 
 if __name__ == "__main__":
     argc, argv = len(sys.argv), sys.argv
@@ -77,7 +79,7 @@ if __name__ == "__main__":
         exit(1)
 
     cmake_cmd = ""
-    target, build_type = "", "Release"
+    target, build_type = "", "release"
 
     if argc == 2:  # modify target
         target = argv[1]
@@ -96,9 +98,10 @@ if __name__ == "__main__":
             print(doc)
             exit(1)
 
+    build_type_str = types[build_type]
+
     cmake_cmd = 'cmake -DCMAKE_CUDA_ARCHITECTURES="{0}" -DCMAKE_BUILD_TYPE={1} -B {1}'.format(
-        targets[target], build_type
-    )
+        targets[target], build_type_str)
 
     # compile cusz
     if cuda_ver == "":
@@ -106,8 +109,8 @@ if __name__ == "__main__":
         exit(1)
     else:
         os.system(cmake_cmd)
-        os.system("cd {0} && make -j".format(build_type))
+        os.system("cd {0} && make -j".format(build_type_str))
         print("copying binary to ./bin/")
         if not os.path.isdir("./bin"):
             os.mkdir("./bin")
-        os.system("cp {0}/cusz ./bin/cusz".format(build_type))
+        os.system("cp {0}/cusz ./bin/cusz".format(build_type_str))
