@@ -165,11 +165,8 @@ void lossless::HuffmanEncode(
     int     dict_size,
     size_t& out_num_bits,
     size_t& out_num_uints,
-    size_t& out_metadata_size,
     float&  milliseconds)
 {
-    constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;  // canonical Huffman; follows H to decide first and entry type
-
     auto get_grid_dim = [](size_t problem_size, size_t block_dim) {
         return (problem_size + block_dim - 1) / block_dim;
     };
@@ -205,12 +202,16 @@ void lossless::HuffmanEncode(
     }
 
     // gather metadata (without write) before gathering huff as sp on GPU
-    auto   _counts  = new size_t[nchunk * 3]();
+    size_t* _counts;
+    cudaMallocHost(&_counts, nchunk * 3 * sizeof(size_t));
+
     size_t num_bits = 0, num_uints = 0;
     cusz::huffman_process_metadata<Huff>(_counts, dev_bits, nchunk, num_bits, num_uints);
 
     // partially gather on GPU and copy back (TODO fully)
-    auto host_out_bitstream = new Huff[num_uints]();
+    Huff* host_out_bitstream;
+    cudaMallocHost(&host_out_bitstream, num_uints * sizeof(Huff));
+
     {
         auto dev_out_bitstream = mem::create_CUDA_space<Huff>(num_uints);
         auto dev_uints         = mem::create_devspace_memcpy_h2d(_counts, nchunk);               // sp_uints
@@ -226,16 +227,12 @@ void lossless::HuffmanEncode(
     io::write_array_to_binary(basename + ".hmeta", _counts + nchunk, 2 * nchunk);
     io::write_array_to_binary(basename + ".hbyte", host_out_bitstream, num_uints);
 
-    size_t metadata_size =
-        (2 * nchunk) * sizeof(decltype(_counts)) + sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * dict_size;
-
     // clean up
     cudaFree(dev_enc_space), cudaFree(dev_bits);
-    delete[] host_out_bitstream, delete[] _counts;
+    cudaFreeHost(host_out_bitstream), cudaFreeHost(_counts);
 
-    out_num_bits      = num_bits;
-    out_num_uints     = num_uints;
-    out_metadata_size = metadata_size;
+    out_num_bits  = num_bits;
+    out_num_uints = num_uints;
 }
 
 template <typename Quant, typename Huff, typename Data>
@@ -284,20 +281,23 @@ void lossless::HuffmanDecode(
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
 
-#define HUFFMAN_ENCODE(Q, H, D)                     \
-    template void lossless::HuffmanEncode<Q, H, D>( \
-        string&, Q*, H*, size_t, int, int, size_t&, size_t&, size_t&, float&);
+#define HUFFMAN_ENCODE(Q, H, D) \
+    template void lossless::HuffmanEncode<Q, H, D>(string&, Q*, H*, size_t, int, int, size_t&, size_t&, float&);
 
 HUFFMAN_ENCODE(UI1, UI4, FP4)
-HUFFMAN_ENCODE(UI2, UI4, FP4)
 HUFFMAN_ENCODE(UI1, UI8, FP4)
+HUFFMAN_ENCODE(UI2, UI4, FP4)
 HUFFMAN_ENCODE(UI2, UI8, FP4)
+HUFFMAN_ENCODE(UI4, UI4, FP4)
+HUFFMAN_ENCODE(UI4, UI8, FP4)
 
 #define HUFFMAN_DECODE(Q, H, D)                     \
     template void lossless::HuffmanDecode<Q, H, D>( \
         std::string&, struct PartialData<Q>*, size_t, int, size_t, int, float&);
 
 HUFFMAN_DECODE(UI1, UI4, FP4)
-HUFFMAN_DECODE(UI2, UI4, FP4)
 HUFFMAN_DECODE(UI1, UI8, FP4)
+HUFFMAN_DECODE(UI2, UI4, FP4)
 HUFFMAN_DECODE(UI2, UI8, FP4)
+HUFFMAN_DECODE(UI4, UI4, FP4)
+HUFFMAN_DECODE(UI4, UI8, FP4)

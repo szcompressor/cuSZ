@@ -50,59 +50,16 @@ auto demangle = [](const char* name) -> string {
     return ret_val;
 };
 
-auto display_throughput(float time, size_t nbyte)
-{
-    auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
-    cout << throughput << "GiB/s\n";
-}
-
-template <typename Quant, typename Huff>
-unsigned int get_revbook_nbyte(unsigned dict_size)
-{
-    constexpr auto type_bitcount = sizeof(Huff) * 8;
-    return sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
-}
-
-namespace draft {
-template <typename Huff>
-void export_codebook(Huff* d_book, const string& basename, size_t dict_size)
-{
-    auto              h_book = mem::create_devspace_memcpy_d2h(d_book, dict_size);
-    std::stringstream s;
-    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean-book";
-    logging(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
-    io::write_array_to_binary(s.str(), h_book, dict_size);
-    delete[] h_book;
-    h_book = nullptr;
-}
-}  // namespace draft
-
 namespace {
-auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
-
-template <typename Data>
-void report_compression_time(size_t len, float lossy, float outlier, float hist, float book, float lossless)
-{
-    cout << "\nTIME in milliseconds\t================================================================\n";
-    float nonbook = lossy + outlier + hist + lossless;
-
-    printf("TIME\tconstruct:\t%f\t", lossy), display_throughput(lossy, len * sizeof(Data));
-    printf("TIME\toutlier:\t%f\t", outlier), display_throughput(outlier, len * sizeof(Data));
-    printf("TIME\thistogram:\t%f\t", hist), display_throughput(hist, len * sizeof(Data));
-    printf("TIME\tencode:\t%f\t", lossless), display_throughput(lossless, len * sizeof(Data));
-
-    cout << "TIME\t--------------------------------------------------------------------------------\n";
-    printf("TIME\tnon-book kernels (sum):\t%f\t", nonbook), display_throughput(nonbook, len * sizeof(Data));
-    cout << "TIME\t================================================================================\n";
-    printf("TIME\tbuild book (not counted in prev section):\t%f\t", book), display_throughput(book, len * sizeof(Data));
-    printf("TIME\t*all* kernels (sum, count book time):\t%f\t", nonbook + book),
-        display_throughput(nonbook + book, len * sizeof(Data));
-    cout << "TIME\t================================================================================\n\n";
-}
 
 template <typename Data>
 void report_decompression_time(size_t len, float lossy, float outlier, float lossless)
 {
+    auto display_throughput = [](float time, size_t nbyte) {
+        auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
+        cout << throughput << "GiB/s\n";
+    };
+    //
     cout << "\nTIME in milliseconds\t================================================================\n";
     float all = lossy + outlier + lossless;
 
@@ -115,22 +72,6 @@ void report_decompression_time(size_t len, float lossy, float outlier, float los
     printf("TIME\tdecompress (sum):\t%f\t", all), display_throughput(all, len * sizeof(Data));
 
     cout << "TIME\t================================================================================\n\n";
-}
-
-unsigned int tune_deflate_chunksize(size_t len)
-{
-    int current_dev = 0;
-    cudaSetDevice(current_dev);
-    cudaDeviceProp dev_prop{};
-    cudaGetDeviceProperties(&dev_prop, current_dev);
-
-    auto nSM                = dev_prop.multiProcessorCount;
-    auto allowed_block_dim  = dev_prop.maxThreadsPerBlock;
-    auto deflate_nthread    = allowed_block_dim * nSM / HuffConfig::deflate_constant;
-    auto optimal_chunk_size = (len + deflate_nthread - 1) / deflate_nthread;
-    optimal_chunk_size      = ((optimal_chunk_size - 1) / HuffConfig::Db_deflate + 1) * HuffConfig::Db_deflate;
-
-    return optimal_chunk_size;
 }
 
 void PackMetadata(argpack* ap, metadata_pack* mp, const int nnz)
@@ -184,183 +125,45 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    size_t len = ap->len;
+    Compressor<Data, Quant, Huff, float> cuszc(ap, ap->len, ap->eb);
 
-    int    nnz_outlier = 0;
-    size_t num_bits, num_uints, huff_meta_size;
+    cuszc.lorenzo_dryrun(in_data);  // subject to change
 
-    auto& workflow = ap->sz_workflow;
-    auto& subfiles = ap->subfiles;
-
-    auto radius = ap->radius;
-    auto eb     = ap->eb;
-    auto ebx2   = eb * 2;
-    auto ebx2_r = 1 / (eb * 2);
-
-    // dryrun
-    if (workflow.dryrun) {
-        logging(log_info, "invoke dry-run");
-        constexpr auto SEQ       = 4;
-        constexpr auto SUBSIZE   = 256;
-        auto           dim_block = SUBSIZE / SEQ;
-        auto           dim_grid  = get_npart(len, SUBSIZE);
-
-        cusz::dual_quant_dryrun<Data, float, SUBSIZE, SEQ><<<dim_grid, dim_block>>>(in_data->dptr, len, ebx2_r, ebx2);
-        HANDLE_ERROR(cudaDeviceSynchronize());
-
-        Data* dryrun_result;
-        cudaMallocHost(&dryrun_result, len * sizeof(Data));
-        cudaMemcpy(dryrun_result, in_data->dptr, len * sizeof(Data), cudaMemcpyDeviceToHost);
-
-        analysis::verify_data<Data>(&ap->stat, dryrun_result, in_data->hptr, len);
-        analysis::print_data_quality_metrics<Data>(&ap->stat, false, ap->eb, 0);
-
-        return;
-    }
-    logging(log_info, "invoke lossy-construction");
-
-    struct PartialData<Quant> quant(len + HuffConfig::Db_encode);
+    struct PartialData<Quant> quant(ap->len + HuffConfig::Db_encode);
     cudaMalloc(&quant.dptr, quant.nbyte());
 
-    float time_lossy{0}, time_outlier{0}, time_hist{0}, time_book{0}, time_lossless{0};
-
-    /********************************************************************************
-     * constructing quant code
-     ********************************************************************************/
-    if (workflow.predictor == "lorenzo") {
-        compress_lorenzo_construct<Data, Quant, float>(
-            in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
-    }
-    else if (workflow.predictor == "spline3d") {
-        throw std::runtime_error("spline not impl'ed");
-        if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-        // compress_spline3d_construct<Data, Quant, float>(
-        //     in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
-    }
-    else {
-        throw std::runtime_error("need to specify predcitor");
-    }
-
-    /********************************************************************************
-     * gather outlier
-     ********************************************************************************/
-    {
-        unsigned int workspace_nbyte, dump_nbyte;
-        uint8_t *    workspace, *dump;
-        workspace_nbyte = get_compress_sparse_workspace<Data>(len);
-        cudaMalloc((void**)&workspace, workspace_nbyte);
-        cudaMallocHost((void**)&dump, workspace_nbyte);
-
-        OutlierHandler<Data> csr(len);
-        csr.configure(workspace)  //
-            .gather_CUDA10(in_data->dptr, dump_nbyte, time_outlier)
-            .archive(dump, nnz_outlier);
-        io::write_array_to_binary(subfiles.compress.out_outlier, dump, dump_nbyte);
-
-        cudaFree(workspace), cudaFreeHost(dump);
-    }
-
-    auto fmt_nnz = "(" + std::to_string(nnz_outlier / 1.0 / len * 100) + "%)";
-    logging(log_info, "nnz/#outlier:", nnz_outlier, fmt_nnz, "saved");
-    cudaFree(in_data->dptr);  // ad-hoc, release memory for large dataset
-
-    /********************************************************************************
-     * autotuning Huffman chunksize
-     ********************************************************************************/
-    if (workflow.autotune_huffchunk) ap->huffman_chunk = tune_deflate_chunksize(len);
-    // logging(log_dbg, "Huffman chunk size:", ap->huffman_chunk, "thread num:", (len - 1) / ap->huffman_chunk + 1);
-
-    auto dict_size = ap->dict_size;
-
-    struct PartialData<unsigned int> freq(dict_size);
+    struct PartialData<unsigned int> freq(ap->dict_size);
     cudaMalloc(&freq.dptr, freq.nbyte());
 
-    struct PartialData<Huff> book(dict_size);
+    struct PartialData<Huff> book(ap->dict_size);
     cudaMalloc(&book.dptr, book.nbyte()), book.memset(0xff);
 
-    auto                        revbook_nbyte = get_revbook_nbyte<Quant, Huff>(dict_size);
-    struct PartialData<uint8_t> revbook(revbook_nbyte);
+    struct PartialData<uint8_t> revbook(cuszc.get_revbook_nbyte());
     cudaMalloc(&revbook.dptr, revbook.nbyte());
+    cudaMallocHost(&revbook.hptr, revbook.nbyte());  // to write to disk later
 
-    // histogram, TODO substitute with Analyzer method
-    wrapper::get_frequency(quant.dptr, len, freq.dptr, dict_size, time_hist);
+    cuszc  //
+        .predict_quantize(in_data, xyz, &quant)
+        .gather_outlier(in_data)
+        .try_skip_huffman(&quant);
 
-    {  // This is end-to-end time for parbook.
-        auto t = new cuda_timer_t;
-        t->timer_start();
-        lossless::par_get_codebook<Quant, Huff>(dict_size, freq.dptr, book.dptr, revbook.dptr);
-        time_book = t->timer_end_get_elapsed_time();
-        cudaDeviceSynchronize();
-        delete t;
-    }
+    // release in_data; subject to change
+    cudaFree(in_data->dptr);
 
-    /********************************************************************************
-     * analyze compressibility
-     ********************************************************************************/
-    if (ap->report.compressibility) {
-        cudaMallocHost(&freq.hptr, freq.nbyte()), freq.d2h();
-        cudaMallocHost(&book.hptr, book.nbyte()), book.d2h();
-
-        Analyzer analyzer{};
-        analyzer  //
-            .EstimateFromHistogram(freq.hptr, dict_size)
-            .template GetHuffmanCodebookStat<Huff>(freq.hptr, book.hptr, len, dict_size)
-            .PrintCompressibilityInfo(true);
-
-        cudaFreeHost(freq.hptr);
-        cudaFreeHost(book.hptr);
-    }
-
-    // internal evaluation, not stored in sz archive
-    if (workflow.export_book) {  //
-        draft::export_codebook(book.dptr, subfiles.compress.huff_base, dict_size);
-        logging(log_info, "exporting codebook as binary; suffix: \".lean-book\"");
-    }
-
-    if (workflow.export_quant) {  //
-        cudaMallocHost(&quant.hptr, quant.nbyte());
-        quant.d2h();
-
-        io::write_array_to_binary(subfiles.compress.raw_quant, quant.hptr, len);
-        logging(log_info, "exporting quant as binary; suffix: \".lean-quant\"");
-        logging(log_info, "exiting");
-        exit(0);
-    }
-
-    // decide if skipping Huffman coding
-    if (workflow.skip_huffman) {
-        cudaMallocHost(&quant.hptr, quant.nbyte());
-        quant.d2h();
-
-        io::write_array_to_binary(subfiles.compress.out_quant, quant.hptr, len);
-        logging(log_info, "to store quant.code directly (Huffman enc skipped)");
-        exit(0);
-    }
-    // --------------------------------------------------------------------------------
-
-    constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
-    auto           host_revbook  = mem::create_devspace_memcpy_d2h(revbook.dptr, revbook_nbyte);
-    io::write_array_to_binary(
-        subfiles.compress.huff_base + ".canon", reinterpret_cast<uint8_t*>(host_revbook),
-        sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * dict_size);
-    delete[] host_revbook;
-
-    lossless::HuffmanEncode<Quant, Huff>(
-        subfiles.compress.huff_base, quant.dptr, book.dptr, len, ap->huffman_chunk, ap->dict_size, num_bits, num_uints,
-        huff_meta_size, time_lossless);
-
-    /********************************************************************************
-     * report time
-     ********************************************************************************/
-    if (ap->report.time)
-        report_compression_time<Data>(len, time_lossy, time_outlier, time_hist, time_book, time_lossless);
+    cuszc.get_freq_and_codebook(&quant, &freq, &book, &revbook)
+        .analyze_compressibility(&freq, &book)
+        .internal_eval_try_export_book(&book)
+        .internal_eval_try_export_quant(&quant)
+        .export_revbook(&revbook)
+        .huffman_encode(&quant, &book)
+        .try_report_time();
 
     cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
 
-    PackMetadata(ap, mp, nnz_outlier);
-    mp->num_bits       = num_bits;
-    mp->num_uints      = num_uints;
-    mp->huff_meta_size = huff_meta_size;
+    PackMetadata(ap, mp, cuszc.length.nnz_outlier);
+    mp->num_bits      = cuszc.huffman_meta.num_bits;
+    mp->num_uints     = cuszc.huffman_meta.num_uints;
+    mp->revbook_nbyte = cuszc.huffman_meta.revbook_nbyte;
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
@@ -372,8 +175,8 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
 
     int nnz_outlier = 0;
     UnpackMetadata(ap, mp, nnz_outlier);
-    auto num_uints      = mp->num_uints;
-    auto huff_meta_size = mp->huff_meta_size;
+    auto num_uints     = mp->num_uints;
+    auto revbook_nbyte = mp->revbook_nbyte;
 
     auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
 
@@ -456,7 +259,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     // TODO huffman chunking metadata
     if (not workflow.skip_huffman)
         archive_bytes += num_uints * sizeof(Huff)  // Huffman coded
-                         + huff_meta_size;         // chunking metadata and reverse codebook
+                         + revbook_nbyte;          // chunking metadata and reverse codebook
     else
         archive_bytes += ap->len * sizeof(Quant);
     archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);

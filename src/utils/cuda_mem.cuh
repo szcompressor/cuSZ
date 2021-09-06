@@ -43,7 +43,9 @@ inline T* create_devspace_memcpy_h2d(T* var, size_t l)
 template <typename T>
 inline T* create_devspace_memcpy_d2h(T* d_var, size_t l)
 {
-    auto var = new T[l];
+    // auto var = new T[l];
+    T* var;
+    cudaMallocHost(&var, l * sizeof(T));
     cudaMemcpy(var, d_var, l * sizeof(T), cudaMemcpyDeviceToHost);
     return var;
 }

@@ -112,8 +112,10 @@ void wrapper::get_frequency(Input* d_in, size_t len, unsigned int* d_freq, int d
     static_assert(
         std::is_same<Input, UI1>::value         //
             or std::is_same<Input, UI2>::value  //
+            or std::is_same<Input, UI4>::value  //
             or std::is_same<Input, I1>::value   //
-            or std::is_same<Input, I2>::value,
+            or std::is_same<Input, I2>::value   //
+            or std::is_same<Input, I4>::value,
         "To get frequency, input dtype must be uint/int{8,16}_t");
 
     // Parameters for thread and block count optimization

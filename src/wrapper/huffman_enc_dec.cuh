@@ -78,14 +78,11 @@ void HuffmanEncode(
     string& basename,
     Quant*  dev_input,
     Huff*   dev_book,
-    // uint8_t* dev_revbook,
-    // size_t   _nbyte,
     size_t  len,
     int     chunk_size,
     int     dict_size,
     size_t& out_num_bits,
     size_t& out_num_uints,
-    size_t& out_metadata_size,
     float&  milliseconds);
 
 template <typename Quant, typename Huff, typename Data = float>

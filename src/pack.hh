@@ -27,7 +27,7 @@ typedef struct MetadataPackage {
     int M, MxM;  // padded M
     int nnz;
 
-    size_t num_bits, num_uints, huff_meta_size;
+    size_t num_bits, num_uints, revbook_nbyte;
 
     int quant_byte;
     int huff_byte;
@@ -44,6 +44,5 @@ typedef struct MetadataPackage {
     int outlier_bytesize;  // TODO for single binary
 
 } metadata_pack;
-
 
 #endif
