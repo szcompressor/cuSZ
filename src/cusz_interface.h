@@ -14,7 +14,9 @@
  *
  */
 
+#include <cxxabi.h>
 #include <iostream>
+
 #include "argparse.hh"
 #include "datapack.hh"
 #include "kernel/dryrun.h"
@@ -345,9 +347,201 @@ template class Compressor<float, uint8_t, unsigned long long, float>;
 template class Compressor<float, uint16_t, unsigned long long, float>;
 template class Compressor<float, uint32_t, unsigned long long, float>;
 
+template <typename Data, typename Quant, typename Huff, typename FP>
 class Decompressor {
+   private:
+    void report_decompression_time(size_t len, float lossy, float outlier, float lossless)
+    {
+        auto display_throughput = [](float time, size_t nbyte) {
+            auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
+            cout << throughput << "GiB/s\n";
+        };
+        //
+        cout << "\nTIME in milliseconds\t================================================================\n";
+        float all = lossy + outlier + lossless;
+
+        printf("TIME\tscatter outlier:\t%f\t", outlier), display_throughput(outlier, len * sizeof(Data));
+        printf("TIME\tHuffman decode:\t%f\t", lossless), display_throughput(lossless, len * sizeof(Data));
+        printf("TIME\treconstruct:\t%f\t", lossy), display_throughput(lossy, len * sizeof(Data));
+
+        cout << "TIME\t--------------------------------------------------------------------------------\n";
+
+        printf("TIME\tdecompress (sum):\t%f\t", all), display_throughput(all, len * sizeof(Data));
+
+        cout << "TIME\t================================================================================\n\n";
+    }
+
    public:
+    size_t archive_bytes;
+    struct {
+        float lossy, outlier, lossless;
+    } time;
+    struct {
+        unsigned int data;
+        unsigned int quant;
+        unsigned int anchor;
+        int          nnz_outlier;  // TODO modify the type correspondingly
+        unsigned int dict_size;
+    } length;
+
+    struct {
+        int    radius;
+        double eb;
+        FP     ebx2;
+        FP     ebx2_r;
+        FP     eb_r;
+    } config;
+
+    size_t m, mxm;
+
+    struct {
+        size_t num_bits, num_uints, revbook_nbyte;
+    } huffman_meta;
+
     argpack* ap;
+
+    Decompressor(argpack* _ap, unsigned int _data_len, double _eb)
+    {
+        ap           = _ap;
+        length.data  = _data_len;
+        length.quant = length.data;  // TODO if lorenzo
+
+        config.eb     = _eb;
+        config.ebx2   = _eb * 2;
+        config.ebx2_r = 1 / (_eb * 2);
+        config.eb_r   = 1 / _eb;
+
+        m   = static_cast<size_t>(ceil(sqrt(length.data)));
+        mxm = m * m;
+    }
+
+    Decompressor& huffman_decode(struct PartialData<Quant>* quant)
+    {
+        if (ap->sz_workflow.skip_huffman) {
+            logging(log_info, "load quant.code from filesystem");
+            io::read_binary_to_array(ap->subfiles.decompress.in_quant, quant->hptr, quant->len);
+            quant->h2d();
+        }
+        else {
+            logging(log_info, "Huffman decode -> quant.code");
+            lossless::HuffmanDecode<Quant, Huff>(
+                ap->subfiles.path2file, quant, ap->len, ap->huffman_chunk, huffman_meta.num_uints, ap->dict_size,
+                time.lossless);
+        }
+        return *this;
+    }
+
+    Decompressor& scatter_outlier(Data* outlier)
+    {
+        OutlierHandler<Data> csr(length.data, length.nnz_outlier);
+
+        uint8_t *h_csr_file, *d_csr_file;
+        cudaMallocHost((void**)&h_csr_file, csr.bytelen.total);
+        cudaMalloc((void**)&d_csr_file, csr.bytelen.total);
+
+        io::read_binary_to_array<uint8_t>(ap->subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
+        cudaMemcpy(d_csr_file, h_csr_file, csr.bytelen.total, cudaMemcpyHostToDevice);
+
+        csr.extract(d_csr_file).scatter_CUDA10(outlier, time.outlier);
+
+        cudaFreeHost(h_csr_file);
+        cudaFree(d_csr_file);
+
+        return *this;
+    }
+
+    Decompressor& reversed_predict_quantize(Data* xdata, Quant* quant, dim3 xyz)
+    {
+        if (ap->sz_workflow.predictor == "lorenzo") {
+            decompress_lorenzo_reconstruct<Data, Quant, FP>(
+                xdata, quant, xyz, ap->ndim, config.eb, ap->radius, time.lossy);
+        }
+        else if (ap->sz_workflow.predictor == "spline3d") {
+            throw std::runtime_error("spline not impl'ed");
+            if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
+            // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+        }
+        else {
+            throw std::runtime_error("need to specify predcitor");
+        }
+
+        return *this;
+    }
+
+    Decompressor& calculate_archive_nbyte()
+    {
+        auto demangle = [](const char* name) -> string {
+            int   status = -4;
+            char* res    = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+
+            const char* const demangled_name = (status == 0) ? res : name;
+            string            ret_val(demangled_name);
+            free(res);
+            return ret_val;
+        };
+
+        if (not ap->sz_workflow.skip_huffman)
+            archive_bytes += huffman_meta.num_uints * sizeof(Huff)  // Huffman coded
+                             + huffman_meta.revbook_nbyte;          // chunking metadata and reverse codebook
+        else
+            archive_bytes += length.quant * sizeof(Quant);
+        archive_bytes += length.nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
+
+        if (ap->sz_workflow.skip_huffman) {
+            logging(
+                log_info, "dtype is \"", demangle(typeid(Data).name()), "\", and quant. code type is \"",
+                demangle(typeid(Quant).name()), "\"; a CR of no greater than ", (sizeof(Data) / sizeof(Quant)),
+                " is expected when Huffman codec is skipped.");
+        }
+
+        if (ap->sz_workflow.pre_binning) logging(log_info, "Because of 2x2->1 binning, extra 4x CR is added.");
+
+        return *this;
+    }
+
+    Decompressor& try_report_time()
+    {
+        if (ap->report.time) report_decompression_time(length.data, time.lossy, time.outlier, time.lossless);
+
+        return *this;
+    }
+
+    Decompressor& try_compare(Data* xdata)
+    {
+        // TODO move CR out of verify_data
+        if (not ap->subfiles.decompress.in_origin.empty() and ap->report.quality) {
+            logging(log_info, "load the original datum for comparison");
+
+            auto odata = io::read_binary_to_new_array<Data>(ap->subfiles.decompress.in_origin, length.data);
+
+            analysis::verify_data(&ap->stat, xdata, odata, length.data);
+            analysis::print_data_quality_metrics<Data>(
+                &ap->stat, false, ap->eb, archive_bytes, ap->sz_workflow.pre_binning ? 4 : 1, true);
+
+            delete[] odata;
+        }
+        return *this;
+    }
+
+    Decompressor& try_write2disk(Data* host_xdata)
+    {
+        logging(log_info, "output:", ap->subfiles.path2file + ".szx");
+
+        if (ap->sz_workflow.skip_write2disk)
+            logging(log_dbg, "skip writing unzipped to filesystem");
+        else {
+            io::write_array_to_binary(ap->subfiles.decompress.out_xdata, host_xdata, ap->len);
+        }
+
+        return *this;
+    }
 };
+
+template class Decompressor<float, uint8_t, uint32_t, float>;
+template class Decompressor<float, uint16_t, uint32_t, float>;
+template class Decompressor<float, uint32_t, uint32_t, float>;
+template class Decompressor<float, uint8_t, unsigned long long, float>;
+template class Decompressor<float, uint16_t, unsigned long long, float>;
+template class Decompressor<float, uint32_t, unsigned long long, float>;
 
 #endif

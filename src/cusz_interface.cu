@@ -40,39 +40,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
-auto demangle = [](const char* name) -> string {
-    int   status = -4;
-    char* res    = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-
-    const char* const demangled_name = (status == 0) ? res : name;
-    string            ret_val(demangled_name);
-    free(res);
-    return ret_val;
-};
-
 namespace {
-
-template <typename Data>
-void report_decompression_time(size_t len, float lossy, float outlier, float lossless)
-{
-    auto display_throughput = [](float time, size_t nbyte) {
-        auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
-        cout << throughput << "GiB/s\n";
-    };
-    //
-    cout << "\nTIME in milliseconds\t================================================================\n";
-    float all = lossy + outlier + lossless;
-
-    printf("TIME\tscatter outlier:\t%f\t", outlier), display_throughput(outlier, len * sizeof(Data));
-    printf("TIME\tHuffman decode:\t%f\t", lossless), display_throughput(lossless, len * sizeof(Data));
-    printf("TIME\treconstruct:\t%f\t", lossy), display_throughput(lossy, len * sizeof(Data));
-
-    cout << "TIME\t--------------------------------------------------------------------------------\n";
-
-    printf("TIME\tdecompress (sum):\t%f\t", all), display_throughput(all, len * sizeof(Data));
-
-    cout << "TIME\t================================================================================\n\n";
-}
 
 void PackMetadata(argpack* ap, metadata_pack* mp, const int nnz)
 {
@@ -173,123 +141,41 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    int nnz_outlier = 0;
+    int nnz_outlier;
     UnpackMetadata(ap, mp, nnz_outlier);
-    auto num_uints     = mp->num_uints;
-    auto revbook_nbyte = mp->revbook_nbyte;
+
+    Decompressor<Data, Quant, Huff, float> cuszd(ap, ap->len, ap->eb);
+    cuszd.length.nnz_outlier = nnz_outlier;
+
+    cuszd.huffman_meta.num_uints     = mp->num_uints;
+    cuszd.huffman_meta.revbook_nbyte = mp->revbook_nbyte;
 
     auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
 
-    float time_lossy{0}, time_outlier{0}, time_lossless{0};
-
-    auto  len      = ap->len;
-    auto& workflow = ap->sz_workflow;
-    auto& subfiles = ap->subfiles;
-
-    auto m   = static_cast<size_t>(ceil(sqrt(ap->len)));
-    auto mxm = m * m;
-
-    auto radius = ap->radius;
-    auto eb     = ap->eb;
-    auto ebx2   = (eb * 2);
-
     logging(log_info, "invoke lossy-reconstruction");
 
-    struct PartialData<Quant> quant(len);
+    struct PartialData<Quant> quant(cuszd.length.quant);
     cudaMalloc(&quant.dptr, quant.nbyte());
     cudaMallocHost(&quant.hptr, quant.nbyte());
 
-    struct PartialData<Data> _data(mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
+    struct PartialData<Data> _data(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
     cudaMalloc(&_data.dptr, _data.nbyte());
     cudaMallocHost(&_data.hptr, _data.nbyte());
     auto xdata   = _data.dptr;
     auto outlier = _data.dptr;
 
-    // step 1: read from filesystem or do Huffman decoding to get quant code
-    if (workflow.skip_huffman) {
-        logging(log_info, "load quant.code from filesystem");
-        io::read_binary_to_array(subfiles.decompress.in_quant, quant.hptr, quant.len);
-        quant.h2d();
-    }
-    else {
-        logging(log_info, "Huffman decode -> quant.code");
-        lossless::HuffmanDecode<Quant, Huff>(
-            subfiles.path2file, &quant, ap->len, ap->huffman_chunk, num_uints, ap->dict_size, time_lossless);
-    }
-
-    {
-        OutlierHandler<Data> csr(ap->len, nnz_outlier);
-
-        uint8_t *h_csr_file, *d_csr_file;
-        cudaMallocHost((void**)&h_csr_file, csr.bytelen.total);
-        cudaMalloc((void**)&d_csr_file, csr.bytelen.total);
-
-        io::read_binary_to_array<uint8_t>(subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
-        cudaMemcpy(d_csr_file, h_csr_file, csr.bytelen.total, cudaMemcpyHostToDevice);
-
-        csr.extract(d_csr_file).scatter_CUDA10(outlier, time_outlier);
-    }
-
-    /********************************************************************************
-     * lorenzo reconstruction
-     ********************************************************************************/
-    if (workflow.predictor == "lorenzo") {
-        decompress_lorenzo_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
-    }
-    else if (workflow.predictor == "spline3d") {
-        throw std::runtime_error("spline not impl'ed");
-        if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-        // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
-    }
-    else {
-        throw std::runtime_error("need to specify predcitor");
-    }
-
-    /********************************************************************************
-     * report time
-     ********************************************************************************/
-    if (ap->report.time) report_decompression_time<Data>(len, time_lossy, time_outlier, time_lossless);
+    cuszd.huffman_decode(&quant)
+        .scatter_outlier(outlier)
+        .reversed_predict_quantize(xdata, quant.dptr, xyz)
+        .try_report_time();
 
     // copy decompressed data to host
     _data.d2h();
 
-    logging(log_info, "reconstruct error-bounded datum");
-
-    size_t archive_bytes = 0;
-    // TODO huffman chunking metadata
-    if (not workflow.skip_huffman)
-        archive_bytes += num_uints * sizeof(Huff)  // Huffman coded
-                         + revbook_nbyte;          // chunking metadata and reverse codebook
-    else
-        archive_bytes += ap->len * sizeof(Quant);
-    archive_bytes += nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
-
-    if (workflow.skip_huffman) {
-        logging(
-            log_info, "dtype is \"", demangle(typeid(Data).name()), "\", and quant. code type is \"",
-            demangle(typeid(Quant).name()), "\"; a CR of no greater than ", (sizeof(Data) / sizeof(Quant)),
-            " is expected when Huffman codec is skipped.");
-    }
-
-    if (workflow.pre_binning) logging(log_info, "Because of 2x2->1 binning, extra 4x CR is added.");
-
-    // TODO move CR out of verify_data
-    if (not subfiles.decompress.in_origin.empty() and ap->report.quality) {
-        logging(log_info, "load the original datum for comparison");
-
-        auto odata = io::read_binary_to_new_array<Data>(subfiles.decompress.in_origin, len);
-
-        analysis::verify_data(&ap->stat, _data.hptr, odata, len);
-        analysis::print_data_quality_metrics<Data>(
-            &ap->stat, false, ap->eb, archive_bytes, workflow.pre_binning ? 4 : 1, true);
-    }
-    logging(log_info, "output:", subfiles.path2file + ".szx");
-
-    if (workflow.skip_write2disk)
-        logging(log_dbg, "skip writing unzipped to filesystem");
-    else {
-        io::write_array_to_binary(subfiles.decompress.out_xdata, xdata, ap->len);
-    }
+    cuszd
+        .calculate_archive_nbyte()  //
+        .try_compare(_data.hptr)
+        .try_write2disk(_data.hptr);
 }
 
 #define CUSZ_COMPRESS(DBYTE, QBYTE, HBYTE)                  \
