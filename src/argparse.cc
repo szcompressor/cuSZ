@@ -191,8 +191,8 @@ void set_config(argpack* ap, char* in_str)
         else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
         else if (kv.first == "huffbyte"){ ap->huff_byte = str2int(kv.second); }
         else if (kv.first == "quantbyte"){ ap->quant_byte = str2int(kv.second); }
-        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->sz_workflow.autotune_huffchunk = false; }
-        else if (kv.first == "demo")    { ap->sz_workflow.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->task_is.autotune_huffchunk = false; }
+        else if (kv.first == "demo")    { ap->task_is.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
         // clang-format on
     }
 }
@@ -236,18 +236,18 @@ ArgPack::check_args()
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    if (self_multiply4(dim4) == 1 and not sz_workflow.use_demo_dataset) {
-        if (sz_workflow.construct or sz_workflow.dryrun) {
+    if (self_multiply4(dim4) == 1 and not task_is.use_demo_dataset) {
+        if (task_is.construct or task_is.dryrun) {
             cerr << log_err << "Wrong input size(s)!" << endl;
             to_abort = true;
         }
     }
-    if (not sz_workflow.construct and not sz_workflow.reconstruct and not sz_workflow.dryrun) {
+    if (not task_is.construct and not task_is.reconstruct and not task_is.dryrun) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
-        if (sz_workflow.construct or sz_workflow.dryrun) {
+        if (task_is.construct or task_is.dryrun) {
             cout << dtype << endl;
             cerr << log_err << "Not specifying data type!" << endl;
             to_abort = true;
@@ -261,28 +261,28 @@ ArgPack::check_args()
         assert(dict_size <= 65536);
     }
 
-    if (sz_workflow.dryrun and sz_workflow.construct and sz_workflow.reconstruct) {
+    if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
         cerr << log_warn << "No need to dry-run, compress and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        sz_workflow.construct   = false;
-        sz_workflow.reconstruct = false;
+        task_is.construct   = false;
+        task_is.reconstruct = false;
     }
-    else if (sz_workflow.dryrun and sz_workflow.construct) {
+    else if (task_is.dryrun and task_is.construct) {
         cerr << log_warn << "No need to dry-run and compress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        sz_workflow.construct = false;
+        task_is.construct = false;
     }
-    else if (sz_workflow.dryrun and sz_workflow.reconstruct) {
+    else if (task_is.dryrun and task_is.reconstruct) {
         cerr << log_warn << "No need to dry-run and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        sz_workflow.reconstruct = false;
+        task_is.reconstruct = false;
     }
 
-    // if (sz_workflow.gtest) {
-    //     if (sz_workflow.dryrun) { sz_workflow.gtest = false; }
+    // if (task_is.gtest) {
+    //     if (task_is.dryrun) { task_is.gtest = false; }
     //     else {
-    //         if (not(sz_workflow.construct and sz_workflow.reconstruct)) { sz_workflow.gtest = false; }
-    //         if (subfiles.decompress.in_origin == "") { sz_workflow.gtest = false; }
+    //         if (not(task_is.construct and task_is.reconstruct)) { task_is.gtest = false; }
+    //         if (subfiles.decompress.in_origin == "") { task_is.gtest = false; }
     //     }
     // }
 
@@ -328,8 +328,8 @@ void ArgPack::parse_args(int argc, char** argv)
                     if (long_opt == "--skip") {
                         if (i + 1 <= argc) {
                             string exclude(argv[++i]);
-                            if (exclude.find("huffman") != std::string::npos) { sz_workflow.skip_huffman = true; }
-                            if (exclude.find("write2disk") != std::string::npos) { sz_workflow.skip_write2disk = true; }
+                            if (exclude.find("huffman") != std::string::npos) { task_is.skip_huffman = true; }
+                            if (exclude.find("write2disk") != std::string::npos) { task_is.skip_write2disk = true; }
                         }
                         break;
                     }
@@ -351,12 +351,11 @@ void ArgPack::parse_args(int argc, char** argv)
                     if (long_opt == "--pre") goto tag_preproc;            // IO
                     if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
-                    if (long_opt == "--partition-experiment") { sz_workflow.exp_partitioning_imbalance = true; }
 
                     if (long_opt == "--demo") {
                         if (i + 1 <= argc) {
-                            sz_workflow.use_demo_dataset = true;
-                            demo_dataset                 = string(argv[++i]);
+                            task_is.use_demo_dataset = true;
+                            demo_dataset             = string(argv[++i]);
                         }
                         break;
                     }
@@ -371,33 +370,33 @@ void ArgPack::parse_args(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--gzip") {
-                        sz_workflow.lossless_gzip = true;
+                        task_is.lossless_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     if (long_opt == "--nvcomp") {
                         throw std::runtime_error(
                             "[argparse] nvcomp is disabled temporarily in favor of code refactoring.");
-                        sz_workflow.lossless_nvcomp_cascade = false;
+                        task_is.lossless_nvcomp_cascade = false;
                         break;
                     }
                     if (long_opt == "--gtest") {
                         throw std::runtime_error(
                             "[argparse] gtest is disabled temporarily in favor of code refactoring.");
-                        sz_workflow.gtest = false;
+                        task_is.gtest = false;
                         break;
                     }
                 // WORKFLOW
                 case 'z':
                 tag_compress:
-                    sz_workflow.construct = true;
+                    task_is.construct = true;
                     break;
                 case 'x':
                 tag_decompress:
-                    sz_workflow.reconstruct = true;
+                    task_is.reconstruct = true;
                     break;
                 case 'r':
                 tag_dryrun:
-                    sz_workflow.dryrun = true;
+                    task_is.dryrun = true;
                     break;
                 // COMPRESSION CONFIG
                 case 'm':  // mode
@@ -409,8 +408,8 @@ void ArgPack::parse_args(int argc, char** argv)
                 tag_analysis:
                     if (i + 1 <= argc) {
                         string analysis(argv[++i]);
-                        if (analysis.find("export-codebook") != std::string::npos) { sz_workflow.export_book = true; }
-                        if (analysis.find("export-quant") != std::string::npos) { sz_workflow.export_quant = true; }
+                        if (analysis.find("export-codebook") != std::string::npos) { task_is.export_book = true; }
+                        if (analysis.find("export-quant") != std::string::npos) { task_is.export_quant = true; }
                         if (analysis.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
                         if (analysis.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
                     }
@@ -453,7 +452,7 @@ void ArgPack::parse_args(int argc, char** argv)
                     break;
                 case 'p':
                 tag_predictor:
-                    if (i + 1 <= argc) { sz_workflow.predictor = string(argv[++i]); }
+                    if (i + 1 <= argc) { task_is.predictor = string(argv[++i]); }
                 // alternative output
                 case 'o':
                 tag_x_out:
@@ -469,7 +468,7 @@ void ArgPack::parse_args(int argc, char** argv)
                 tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);
-                        if (pre.find("binning") != std::string::npos) { sz_workflow.pre_binning = true; }
+                        if (pre.find("binning") != std::string::npos) { task_is.pre_binning = true; }
                     }
                     break;
                 // interactive mode
@@ -563,7 +562,7 @@ void ArgPack::sort_out_fnames()
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto input_path = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
-    if (not sz_workflow.construct and sz_workflow.reconstruct)
+    if (not task_is.construct and task_is.reconstruct)
         subfiles.path2file = subfiles.path2file.substr(0, subfiles.path2file.rfind('.'));
     auto basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
 

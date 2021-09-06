@@ -135,7 +135,7 @@ int main(int argc, char** argv)
         GetDeviceProperty();
     }
 
-    auto& workflow = ap->sz_workflow;
+    auto& workflow = ap->task_is;
     auto& subfiles = ap->subfiles;
 
     // TODO hardcode for float for now

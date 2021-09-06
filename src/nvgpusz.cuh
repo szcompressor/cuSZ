@@ -70,7 +70,7 @@ class Compressor {
         size_t num_bits, num_uints, revbook_nbyte;
     } huffman_meta;
 
-    argpack* ap;
+    argpack* ctx;
 
     unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
 
@@ -136,7 +136,7 @@ class Decompressor {
         size_t num_bits, num_uints, revbook_nbyte;
     } huffman_meta;
 
-    argpack* ap;
+    argpack* ctx;
 
     Decompressor(metadata_pack* _mp, argpack* _ap);
 

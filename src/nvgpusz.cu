@@ -104,22 +104,22 @@ void COMPRESSOR::export_codebook(Huff* d_book, const string& basename, size_t di
 COMPR_TYPE
 COMPRESSOR::Compressor(argpack* _ap, unsigned int _data_len, double _eb)
 {
-    ap = _ap;
+    ctx = _ap;
 
-    ndim = ap->ndim;
+    ndim = ctx->ndim;
 
-    config.radius = ap->radius;
+    config.radius = ctx->radius;
 
     length.data      = _data_len;
     length.quant     = length.data;  // TODO if lorenzo
-    length.dict_size = ap->dict_size;
+    length.dict_size = ctx->dict_size;
 
     config.eb     = _eb;
     config.ebx2   = _eb * 2;
     config.ebx2_r = 1 / (_eb * 2);
     config.eb_r   = 1 / _eb;
 
-    if (ap->sz_workflow.autotune_huffchunk) ap->huffman_chunk = tune_deflate_chunksize(length.data);
+    if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(length.data);
 }
 
 COMPR_TYPE
@@ -127,7 +127,7 @@ void COMPRESSOR::lorenzo_dryrun(struct PartialData<Data>* in_data)
 {
     auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
 
-    if (ap->sz_workflow.dryrun) {
+    if (ctx->task_is.dryrun) {
         auto len    = length.data;
         auto eb     = config.eb;
         auto ebx2_r = config.ebx2_r;
@@ -146,8 +146,8 @@ void COMPRESSOR::lorenzo_dryrun(struct PartialData<Data>* in_data)
         cudaMallocHost(&dryrun_result, len * sizeof(Data));
         cudaMemcpy(dryrun_result, in_data->dptr, len * sizeof(Data), cudaMemcpyDeviceToHost);
 
-        analysis::verify_data<Data>(&ap->stat, dryrun_result, in_data->hptr, len);
-        analysis::print_data_quality_metrics<Data>(&ap->stat, false, eb, 0);
+        analysis::verify_data<Data>(&ctx->stat, dryrun_result, in_data->hptr, len);
+        analysis::print_data_quality_metrics<Data>(&ctx->stat, false, eb, 0);
 
         cudaFreeHost(dryrun_result);
 
@@ -159,15 +159,15 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::predict_quantize(struct PartialData<Data>* data, dim3 xyz, struct PartialData<Quant>* quant)
 {
     logging(log_info, "invoke lossy-construction");
-    if (ap->sz_workflow.predictor == "lorenzo") {
+    if (ctx->task_is.predictor == "lorenzo") {
         compress_lorenzo_construct<Data, Quant, float>(
-            data->dptr, quant->dptr, xyz, ap->ndim, config.eb, config.radius, time.lossy);
+            data->dptr, quant->dptr, xyz, ctx->ndim, config.eb, config.radius, time.lossy);
     }
-    else if (ap->sz_workflow.predictor == "spline3d") {
+    else if (ctx->task_is.predictor == "spline3d") {
         throw std::runtime_error("spline not impl'ed");
-        if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
+        if (ctx->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
         // compress_spline3d_construct<Data, Quant, float>(
-        //     in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+        //     in_data->dptr, quant.dptr, xyz, ctx->ndim, eb, radius, time_lossy);
     }
     else {
         throw std::runtime_error("need to specify predcitor");
@@ -189,7 +189,7 @@ COMPRESSOR& COMPRESSOR::gather_outlier(struct PartialData<Data>* in_data)
     csr.configure(workspace)  //
         .gather_CUDA10(in_data->dptr, dump_nbyte, time.outlier)
         .archive(dump, length.nnz_outlier);
-    io::write_array_to_binary(ap->subfiles.compress.out_outlier, dump, dump_nbyte);
+    io::write_array_to_binary(ctx->subfiles.compress.out_outlier, dump, dump_nbyte);
 
     cudaFree(workspace), cudaFreeHost(dump);
 
@@ -225,7 +225,7 @@ COMPRESSOR& COMPRESSOR::analyze_compressibility(
     struct PartialData<unsigned int>* freq,  //
     struct PartialData<Huff>*         book)
 {
-    if (ap->report.compressibility) {
+    if (ctx->report.compressibility) {
         cudaMallocHost(&freq->hptr, freq->nbyte()), freq->d2h();
         cudaMallocHost(&book->hptr, book->nbyte()), book->d2h();
 
@@ -246,8 +246,8 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(struct PartialData<Huff>* book)
 {
     // internal evaluation, not stored in sz archive
-    if (ap->sz_workflow.export_book) {  //
-        export_codebook(book->dptr, ap->subfiles.compress.huff_base, length.dict_size);
+    if (ctx->task_is.export_book) {  //
+        export_codebook(book->dptr, ctx->subfiles.compress.huff_base, length.dict_size);
         logging(log_info, "exporting codebook as binary; suffix: \".lean-book\"");
     }
     return *this;
@@ -257,11 +257,11 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(struct PartialData<Quant>* quant)
 {
     // internal_eval
-    if (ap->sz_workflow.export_quant) {  //
+    if (ctx->task_is.export_quant) {  //
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
-        io::write_array_to_binary(ap->subfiles.compress.raw_quant, quant->hptr, length.quant);
+        io::write_array_to_binary(ctx->subfiles.compress.raw_quant, quant->hptr, length.quant);
         logging(log_info, "exporting quant as binary; suffix: \".lean-quant\"");
         logging(log_info, "exiting");
         exit(0);
@@ -273,11 +273,11 @@ COMPR_TYPE
 void COMPRESSOR::try_skip_huffman(struct PartialData<Quant>* quant)
 {
     // decide if skipping Huffman coding
-    if (ap->sz_workflow.skip_huffman) {
+    if (ctx->task_is.skip_huffman) {
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
-        io::write_array_to_binary(ap->subfiles.compress.out_quant, quant->hptr, length.quant);
+        io::write_array_to_binary(ctx->subfiles.compress.out_quant, quant->hptr, length.quant);
         logging(log_info, "to store quant.code directly (Huffman enc skipped)");
         exit(0);
     }
@@ -286,7 +286,7 @@ void COMPRESSOR::try_skip_huffman(struct PartialData<Quant>* quant)
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::try_report_time()
 {
-    if (ap->report.time)
+    if (ctx->report.time)
         report_compression_time(length.data, time.lossy, time.outlier, time.hist, time.book, time.lossless);
     return *this;
 }
@@ -295,7 +295,7 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::export_revbook(struct PartialData<uint8_t>* revbook)
 {
     revbook->d2h();
-    io::write_array_to_binary(ap->subfiles.compress.huff_base + ".canon", revbook->hptr, get_revbook_nbyte());
+    io::write_array_to_binary(ctx->subfiles.compress.huff_base + ".canon", revbook->hptr, get_revbook_nbyte());
     cudaFreeHost(revbook->hptr);
 
     return *this;
@@ -307,7 +307,7 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
     struct PartialData<Huff>*  book)
 {
     lossless::HuffmanEncode<Quant, Huff>(
-        ap->subfiles.compress.huff_base, quant->dptr, book->dptr, length.quant, ap->huffman_chunk, ap->dict_size,
+        ctx->subfiles.compress.huff_base, quant->dptr, book->dptr, length.quant, ctx->huffman_chunk, ctx->dict_size,
         huffman_meta.num_bits, huffman_meta.num_uints, time.lossless);
 
     huffman_meta.revbook_nbyte = get_revbook_nbyte();
@@ -318,22 +318,22 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::pack_metadata(metadata_pack* mp)
 {
-    mp->dim4    = ap->dim4;
-    mp->stride4 = ap->stride4;
-    mp->nblk4   = ap->nblk4;
-    mp->ndim    = ap->ndim;
-    mp->eb      = ap->eb;
-    mp->len     = ap->len;
+    mp->dim4    = ctx->dim4;
+    mp->stride4 = ctx->stride4;
+    mp->nblk4   = ctx->nblk4;
+    mp->ndim    = ctx->ndim;
+    mp->eb      = ctx->eb;
+    mp->len     = ctx->len;
 
     mp->nnz = length.nnz_outlier;
 
-    if (ap->dtype == "f32") mp->dtype = DataType::kF32;
-    if (ap->dtype == "f64") mp->dtype = DataType::kF64;
+    if (ctx->dtype == "f32") mp->dtype = DataType::kF32;
+    if (ctx->dtype == "f64") mp->dtype = DataType::kF64;
 
-    mp->quant_byte    = ap->quant_byte;
-    mp->huff_byte     = ap->huff_byte;
-    mp->huffman_chunk = ap->huffman_chunk;
-    mp->skip_huffman  = ap->sz_workflow.skip_huffman;
+    mp->quant_byte    = ctx->quant_byte;
+    mp->huff_byte     = ctx->huff_byte;
+    mp->huffman_chunk = ctx->huffman_chunk;
+    mp->skip_huffman  = ctx->task_is.skip_huffman;
 
     mp->num_bits      = huffman_meta.num_bits;
     mp->num_uints     = huffman_meta.num_uints;
@@ -360,10 +360,10 @@ void DECOMPRESSOR::unpack_metadata(metadata_pack* mp, argpack* ap)
     if (mp->dtype == DataType::kF32) ap->dtype = "f32";
     if (mp->dtype == DataType::kF64) ap->dtype = "f64";
 
-    ap->quant_byte               = mp->quant_byte;
-    ap->huff_byte                = mp->huff_byte;
-    ap->huffman_chunk            = mp->huffman_chunk;
-    ap->sz_workflow.skip_huffman = mp->skip_huffman;
+    ap->quant_byte           = mp->quant_byte;
+    ap->huff_byte            = mp->huff_byte;
+    ap->huffman_chunk        = mp->huffman_chunk;
+    ap->task_is.skip_huffman = mp->skip_huffman;
 }
 
 DECOMPR_TYPE
@@ -399,11 +399,11 @@ DECOMPRESSOR::Decompressor(metadata_pack* _mp, argpack* _ap)
     huffman_meta.num_uints     = _mp->num_uints;
     huffman_meta.revbook_nbyte = _mp->revbook_nbyte;
 
-    ap           = _ap;
-    length.data  = ap->len;
+    ctx          = _ap;
+    length.data  = ctx->len;
     length.quant = length.data;  // TODO if lorenzo
 
-    config.eb     = ap->eb;
+    config.eb     = ctx->eb;
     config.ebx2   = config.eb * 2;
     config.ebx2_r = 1 / (config.eb * 2);
     config.eb_r   = 1 / config.eb;
@@ -415,15 +415,15 @@ DECOMPRESSOR::Decompressor(metadata_pack* _mp, argpack* _ap)
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::huffman_decode(struct PartialData<Quant>* quant)
 {
-    if (ap->sz_workflow.skip_huffman) {
+    if (ctx->task_is.skip_huffman) {
         logging(log_info, "load quant.code from filesystem");
-        io::read_binary_to_array(ap->subfiles.decompress.in_quant, quant->hptr, quant->len);
+        io::read_binary_to_array(ctx->subfiles.decompress.in_quant, quant->hptr, quant->len);
         quant->h2d();
     }
     else {
         logging(log_info, "Huffman decode -> quant.code");
         lossless::HuffmanDecode<Quant, Huff>(
-            ap->subfiles.path2file, quant, ap->len, ap->huffman_chunk, huffman_meta.num_uints, ap->dict_size,
+            ctx->subfiles.path2file, quant, ctx->len, ctx->huffman_chunk, huffman_meta.num_uints, ctx->dict_size,
             time.lossless);
     }
     return *this;
@@ -438,7 +438,7 @@ DECOMPRESSOR& DECOMPRESSOR::scatter_outlier(Data* outlier)
     cudaMallocHost((void**)&h_csr_file, csr.bytelen.total);
     cudaMalloc((void**)&d_csr_file, csr.bytelen.total);
 
-    io::read_binary_to_array<uint8_t>(ap->subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
+    io::read_binary_to_array<uint8_t>(ctx->subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
     cudaMemcpy(d_csr_file, h_csr_file, csr.bytelen.total, cudaMemcpyHostToDevice);
 
     csr.extract(d_csr_file).scatter_CUDA10(outlier, time.outlier);
@@ -452,13 +452,14 @@ DECOMPRESSOR& DECOMPRESSOR::scatter_outlier(Data* outlier)
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::reversed_predict_quantize(Data* xdata, Quant* quant, dim3 xyz)
 {
-    if (ap->sz_workflow.predictor == "lorenzo") {
-        decompress_lorenzo_reconstruct<Data, Quant, FP>(xdata, quant, xyz, ap->ndim, config.eb, ap->radius, time.lossy);
+    if (ctx->task_is.predictor == "lorenzo") {
+        decompress_lorenzo_reconstruct<Data, Quant, FP>(
+            xdata, quant, xyz, ctx->ndim, config.eb, ctx->radius, time.lossy);
     }
-    else if (ap->sz_workflow.predictor == "spline3d") {
+    else if (ctx->task_is.predictor == "spline3d") {
         throw std::runtime_error("spline not impl'ed");
-        if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-        // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
+        if (ctx->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
+        // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ctx->ndim, eb, radius, time_lossy);
     }
     else {
         throw std::runtime_error("need to specify predcitor");
@@ -480,21 +481,21 @@ DECOMPRESSOR& DECOMPRESSOR::calculate_archive_nbyte()
         return ret_val;
     };
 
-    if (not ap->sz_workflow.skip_huffman)
+    if (not ctx->task_is.skip_huffman)
         archive_bytes += huffman_meta.num_uints * sizeof(Huff)  // Huffman coded
                          + huffman_meta.revbook_nbyte;          // chunking metadata and reverse codebook
     else
         archive_bytes += length.quant * sizeof(Quant);
     archive_bytes += length.nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
 
-    if (ap->sz_workflow.skip_huffman) {
+    if (ctx->task_is.skip_huffman) {
         logging(
             log_info, "dtype is \"", demangle(typeid(Data).name()), "\", and quant. code type is \"",
             demangle(typeid(Quant).name()), "\"; a CR of no greater than ", (sizeof(Data) / sizeof(Quant)),
             " is expected when Huffman codec is skipped.");
     }
 
-    if (ap->sz_workflow.pre_binning) logging(log_info, "Because of 2x2->1 binning, extra 4x CR is added.");
+    if (ctx->task_is.pre_binning) logging(log_info, "Because of 2x2->1 binning, extra 4x CR is added.");
 
     return *this;
 }
@@ -502,7 +503,7 @@ DECOMPRESSOR& DECOMPRESSOR::calculate_archive_nbyte()
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_report_time()
 {
-    if (ap->report.time) report_decompression_time(length.data, time.lossy, time.outlier, time.lossless);
+    if (ctx->report.time) report_decompression_time(length.data, time.lossy, time.outlier, time.lossless);
 
     return *this;
 }
@@ -511,14 +512,14 @@ DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
 {
     // TODO move CR out of verify_data
-    if (not ap->subfiles.decompress.in_origin.empty() and ap->report.quality) {
+    if (not ctx->subfiles.decompress.in_origin.empty() and ctx->report.quality) {
         logging(log_info, "load the original datum for comparison");
 
-        auto odata = io::read_binary_to_new_array<Data>(ap->subfiles.decompress.in_origin, length.data);
+        auto odata = io::read_binary_to_new_array<Data>(ctx->subfiles.decompress.in_origin, length.data);
 
-        analysis::verify_data(&ap->stat, xdata, odata, length.data);
+        analysis::verify_data(&ctx->stat, xdata, odata, length.data);
         analysis::print_data_quality_metrics<Data>(
-            &ap->stat, false, ap->eb, archive_bytes, ap->sz_workflow.pre_binning ? 4 : 1, true);
+            &ctx->stat, false, ctx->eb, archive_bytes, ctx->task_is.pre_binning ? 4 : 1, true);
 
         delete[] odata;
     }
@@ -528,12 +529,12 @@ DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 {
-    logging(log_info, "output:", ap->subfiles.path2file + ".szx");
+    logging(log_info, "output:", ctx->subfiles.path2file + ".szx");
 
-    if (ap->sz_workflow.skip_write2disk)
+    if (ctx->task_is.skip_write2disk)
         logging(log_dbg, "skip writing unzipped to filesystem");
     else {
-        io::write_array_to_binary(ap->subfiles.decompress.out_xdata, host_xdata, ap->len);
+        io::write_array_to_binary(ctx->subfiles.decompress.out_xdata, host_xdata, ctx->len);
     }
 
     return *this;
@@ -544,23 +545,23 @@ DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 #define DATATYPE struct PartialData<typename DataTrait<If_FP, DataByte>::Data>
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, unsigned int optional_w)
+void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, metadata_pack* header, unsigned int optional_w)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    Compressor<Data, Quant, Huff, float> cuszc(ap, ap->len, ap->eb);
+    Compressor<Data, Quant, Huff, float> cuszc(ctx, ctx->len, ctx->eb);
 
     cuszc.lorenzo_dryrun(in_data);  // subject to change
 
-    struct PartialData<Quant> quant(ap->len + HuffConfig::Db_encode);
+    struct PartialData<Quant> quant(ctx->len + HuffConfig::Db_encode);
     cudaMalloc(&quant.dptr, quant.nbyte());
 
-    struct PartialData<unsigned int> freq(ap->dict_size);
+    struct PartialData<unsigned int> freq(ctx->dict_size);
     cudaMalloc(&freq.dptr, freq.nbyte());
 
-    struct PartialData<Huff> book(ap->dict_size);
+    struct PartialData<Huff> book(ctx->dict_size);
     cudaMalloc(&book.dptr, book.nbyte()), book.memset(0xff);
 
     struct PartialData<uint8_t> revbook(cuszc.get_revbook_nbyte());
@@ -582,21 +583,21 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
         .export_revbook(&revbook)
         .huffman_encode(&quant, &book)
         .try_report_time()
-        .pack_metadata(mp);
+        .pack_metadata(header);
 
     cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack* ap, metadata_pack* mp)
+void cusz_decompress(argpack* ctx, metadata_pack* header)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    Decompressor<Data, Quant, Huff, float> cuszd(mp, ap);
+    Decompressor<Data, Quant, Huff, float> cuszd(header, ctx);
 
-    auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
+    auto xyz = dim3(ctx->dim4._0, ctx->dim4._1, ctx->dim4._2);
 
     struct PartialData<Quant> quant(cuszd.length.quant);
     cudaMalloc(&quant.dptr, quant.nbyte());

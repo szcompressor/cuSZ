@@ -49,7 +49,6 @@ class ArgPack {
 
         bool export_book{false};
         bool export_quant{false};
-        bool exp_partitioning_imbalance{false};
 
         bool skip_write2disk{false};
         bool skip_huffman{false};
@@ -60,7 +59,7 @@ class ArgPack {
         bool gtest{false};
 
         string predictor = string("lorenzo");
-    } sz_workflow;
+    } task_is;
 
     struct {
         bool quality{true};
