@@ -1,5 +1,5 @@
 /**
- * @file hist.h
+ * @file hist.cuh
  * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp (mlhickm@g.clemson.edu)
  * @brief Fast histogramming from [Gómez-Luna et al. 2013]
  * @version 0.1
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_HIST_H
-#define CUSZ_KERNEL_HIST_H
+#ifndef CUSZ_KERNEL_HIST_CUH
+#define CUSZ_KERNEL_HIST_CUH
 
 #include <cuda_runtime.h>
 #include <cstdio>

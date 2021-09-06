@@ -17,7 +17,7 @@
 #include "extrap_lorenzo.cuh"
 
 #ifdef DPCPP_SHOWCASE
-#include "../kernel/lorenzo_prototype.h"
+#include "../kernel/lorenzo_prototype.cuh"
 
 using cusz::prototype::c_lorenzo_1d1l;
 using cusz::prototype::c_lorenzo_2d1l;
@@ -27,7 +27,7 @@ using cusz::prototype::x_lorenzo_2d1l;
 using cusz::prototype::x_lorenzo_3d1l;
 
 #else
-#include "../kernel/lorenzo.h"
+#include "../kernel/lorenzo.cuh"
 #endif
 
 #if __cplusplus >= 201703L

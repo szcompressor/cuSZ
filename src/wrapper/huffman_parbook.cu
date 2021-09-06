@@ -26,7 +26,7 @@
 #include <limits>
 #include <type_traits>
 
-#include "../kernel/par_merge.h"
+#include "../kernel/par_merge.cuh"
 #include "../type_aliasing.hh"
 #include "../utils/cuda_err.cuh"
 #include "../utils/cuda_mem.cuh"

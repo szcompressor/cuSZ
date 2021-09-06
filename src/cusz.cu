@@ -29,7 +29,7 @@ using std::string;
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "datapack.hh"
-#include "kernel/preprocess.h"
+#include "kernel/preprocess.cuh"
 #include "metadata.hh"
 #include "nvgpusz.cuh"
 #include "pack.hh"

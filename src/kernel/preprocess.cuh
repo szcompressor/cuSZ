@@ -1,5 +1,5 @@
 /**
- * @file filter.cu
+ * @file preprocess.cuh
  * @author Jiannan Tian
  * @brief Filters for preprocessing of cuSZ.
  * @version 0.3
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_FILTER_H
-#define CUSZ_KERNEL_FILTER_H
+#ifndef CUSZ_KERNEL_PREPROCESS_CUH
+#define CUSZ_KERNEL_PREPROCESS_CUH
 
 #include <iostream>
 

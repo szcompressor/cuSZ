@@ -1,5 +1,5 @@
 /**
- * @file cusz_dryrun.h
+ * @file dryrun.cuh
  * @author Jiannan Tian
  * @brief cuSZ dryrun mode, checking data quality from lossy compression.
  * @version 0.3
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef KERNEL_DRYRUN_H
-#define KERNEL_DRYRUN_H
+#ifndef CUSZ_KERNEL_DRYRUN_CUH
+#define CUSZ_KERNEL_DRYRUN_CUH
 
 #define TIX threadIdx.x
 #define TIY threadIdx.y

@@ -24,8 +24,8 @@
 
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
-#include "kernel/dryrun.h"
-#include "kernel/lorenzo.h"
+#include "kernel/dryrun.cuh"
+#include "kernel/lorenzo.cuh"
 #include "metadata.hh"
 #include "nvgpusz.cuh"
 #include "type_trait.hh"

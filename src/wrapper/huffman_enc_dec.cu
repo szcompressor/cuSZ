@@ -29,8 +29,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "../kernel/hist.h"
-#include "../kernel/huffman_codec.h"
+#include "../kernel/codec_huffman.cuh"
+#include "../kernel/hist.cuh"
 #include "../type_aliasing.hh"
 #include "../type_trait.hh"
 #include "../types.hh"
