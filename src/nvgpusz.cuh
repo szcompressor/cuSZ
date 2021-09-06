@@ -1,8 +1,8 @@
-#ifndef CUSZ_INTERFACE_H
-#define CUSZ_INTERFACE_H
+#ifndef CUSZ_NVGPUSZ_CUH
+#define CUSZ_NVGPUSZ_CUH
 
 /**
- * @file cusz_interface.h
+ * @file nvgpusz.cuh
  * @author Jiannan Tian
  * @brief Workflow of cuSZ (header).
  * @version 0.3

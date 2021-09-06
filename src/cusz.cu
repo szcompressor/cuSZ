@@ -28,10 +28,10 @@ using std::string;
 
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
-#include "cusz_interface.h"
 #include "datapack.hh"
 #include "kernel/preprocess.h"
 #include "metadata.hh"
+#include "nvgpusz.cuh"
 #include "pack.hh"
 #include "query.hh"
 #include "type_aliasing.hh"
@@ -126,7 +126,6 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-
     auto ap = new ArgPack();
     ap->parse_args(argc, argv);
     load_demo_sizes(ap);

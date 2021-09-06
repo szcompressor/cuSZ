@@ -1,5 +1,5 @@
 /**
- * @file cusz_workflow.cu
+ * @file nvgpusz.cu
  * @author Jiannan Tian
  * @brief Workflow of cuSZ.
  * @version 0.3
@@ -24,10 +24,10 @@
 
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
-#include "cusz_interface.h"
 #include "kernel/dryrun.h"
 #include "kernel/lorenzo.h"
 #include "metadata.hh"
+#include "nvgpusz.cuh"
 #include "type_trait.hh"
 #include "utils.hh"
 #include "wrapper/extrap_lorenzo.h"
