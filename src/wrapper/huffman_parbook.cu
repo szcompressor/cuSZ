@@ -1,5 +1,5 @@
 /**
- * @file par_huffman.cu
+ * @file huffman_parbook.cu
  * @author Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Parallel Huffman Construction to generates canonical forward codebook.
  *        Based on [Ostadzadeh et al. 2007] (https://dblp.org/rec/conf/pdpta/OstadzadehEZMB07.bib)
@@ -32,7 +32,7 @@
 #include "../utils/cuda_mem.cuh"
 #include "../utils/dbg_print.cuh"
 #include "../utils/format.hh"
-#include "par_huffman.h"
+#include "huffman_parbook.cuh"
 
 using std::cout;
 using std::endl;
@@ -516,11 +516,7 @@ __global__ void lossless::par_huffman::helper::GPU_ReverseArray(T* array, unsign
 
 // Parallel codebook generation wrapper
 template <typename Q, typename H>
-void lossless::par_huffman::par_get_codebook(
-    int           dict_size,
-    unsigned int* _d_freq,
-    H*            _d_codebook,
-    uint8_t*      _d_decode_meta)
+void lossless::par_get_codebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_t* _d_decode_meta)
 {
     // Metadata
     auto type_bw  = sizeof(H) * 8;
@@ -726,7 +722,7 @@ void lossless::par_huffman::par_get_codebook(
 /********************************************************************************/
 // instantiate wrapper
 
-#define PAR_HUFFMAN(Q, H) template void lossless::par_huffman::par_get_codebook<Q, H>(int, unsigned int*, H*, uint8_t*);
+#define PAR_HUFFMAN(Q, H) template void lossless::par_get_codebook<Q, H>(int, unsigned int*, H*, uint8_t*);
 
 PAR_HUFFMAN(UI1, UI4)
 PAR_HUFFMAN(UI1, UI8)

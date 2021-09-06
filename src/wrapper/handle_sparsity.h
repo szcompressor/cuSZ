@@ -20,7 +20,7 @@
 #include <stdexcept>
 
 template <typename Data>
-unsigned int get_compression_workspace_nbyte(unsigned int len)
+unsigned int get_compress_sparse_workspace(unsigned int len)
 {
     auto m        = static_cast<size_t>(ceil(sqrt(len)));
     auto init_nnz = len / 10;

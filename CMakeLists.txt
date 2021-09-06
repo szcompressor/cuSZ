@@ -21,17 +21,13 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE STATIC)
 
-## new for 0.3
-#add_library(_0_3_huff ${LIB_TYPE} src/wrapper/par_huffman.cu src/wrapper/lossless_huffman.cu)
-#set_target_properties(_0_3_huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-
-add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu src/wrapper/interp_spline.cu)
+add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu)
 add_library(argp ${LIB_TYPE} src/argparse.cc)
 add_library(sp ${LIB_TYPE} src/wrapper/handle_sparsity.cu)
 target_link_libraries(sp -lcusparse)
-add_library(huff ${LIB_TYPE} src/wrapper/par_huffman.cu src/wrapper/deprecated_lossless_huffman.cu)
+add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_enc_dec.cu)
 set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-add_library(nvgpusz ${LIB_TYPE} src/cusz_interface.cu)
+add_library(cudasz ${LIB_TYPE} src/cusz_interface.cu)
 
 add_executable(cusz src/cusz.cu)
-target_link_libraries(cusz nvgpusz argp huff sp pq)
+target_link_libraries(cusz cudasz argp huff sp pq)

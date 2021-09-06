@@ -30,11 +30,10 @@
 #include "metadata.hh"
 #include "type_trait.hh"
 #include "utils.hh"
-#include "wrapper/deprecated_lossless_huffman.h"
 #include "wrapper/extrap_lorenzo.h"
 #include "wrapper/handle_sparsity.h"
-#include "wrapper/interp_spline.h"
-#include "wrapper/par_huffman.h"
+#include "wrapper/huffman_enc_dec.cuh"
+#include "wrapper/huffman_parbook.cuh"
 
 using std::cerr;
 using std::cout;
@@ -220,13 +219,8 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     }
     logging(log_info, "invoke lossy-construction");
 
-    struct PartialData<Quant> quant;  // TODO -> lorenzo_quant
-
-    struct PartialData<Data> spline3_anchor;
-    unsigned int             len_spline3_anchor;
-
-    struct PartialData<Quant> spline3_errctrl;
-    unsigned int              len_spline3_errctrl;
+    struct PartialData<Quant> quant(len + HuffConfig::Db_encode);
+    cudaMalloc(&quant.dptr, quant.nbyte());
 
     float time_lossy{0}, time_outlier{0}, time_hist{0}, time_book{0}, time_lossless{0};
 
@@ -234,30 +228,14 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
      * constructing quant code
      ********************************************************************************/
     if (workflow.predictor == "lorenzo") {
-        // set length of quant and malloc
-        quant.set_len(len + HuffConfig::Db_encode);
-        cudaMalloc(&quant.dptr, quant.nbyte());
-
-        //
         compress_lorenzo_construct<Data, Quant, float>(
             in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
     }
     else if (workflow.predictor == "spline3d") {
         throw std::runtime_error("spline not impl'ed");
         if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-
-        Spline3<Data*, Quant*, float> s3(xyz, ap->eb, len_spline3_anchor, len_spline3_errctrl);
-
-        spline3_anchor.set_len(len_spline3_anchor);
-        spline3_errctrl.set_len(len_spline3_errctrl);
-
-        cudaMalloc(&spline3_anchor.dptr, spline3_anchor.nbyte());
-        cudaMalloc(&spline3_errctrl.dptr, spline3_errctrl.nbyte());
-
-        s3.predict_quantize(in_data->dptr, spline3_anchor.dptr, spline3_errctrl.dptr, radius);
-
-        // TODO unsafe, change len
-        len = len_spline3_errctrl;
+        // compress_spline3d_construct<Data, Quant, float>(
+        //     in_data->dptr, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
     }
     else {
         throw std::runtime_error("need to specify predcitor");
@@ -266,10 +244,10 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     /********************************************************************************
      * gather outlier
      ********************************************************************************/
-    if (workflow.predictor == "lorenzo") {
+    {
         unsigned int workspace_nbyte, dump_nbyte;
         uint8_t *    workspace, *dump;
-        workspace_nbyte = get_compression_workspace_nbyte<Data>(len);
+        workspace_nbyte = get_compress_sparse_workspace<Data>(len);
         cudaMalloc((void**)&workspace, workspace_nbyte);
         cudaMallocHost((void**)&dump, workspace_nbyte);
 
@@ -307,10 +285,10 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     // histogram, TODO substitute with Analyzer method
     wrapper::get_frequency(quant.dptr, len, freq.dptr, dict_size, time_hist);
 
-    {
+    {  // This is end-to-end time for parbook.
         auto t = new cuda_timer_t;
         t->timer_start();
-        lossless::par_huffman::par_get_codebook<Quant, Huff>(dict_size, freq.dptr, book.dptr, revbook.dptr);
+        lossless::par_get_codebook<Quant, Huff>(dict_size, freq.dptr, book.dptr, revbook.dptr);
         time_book = t->timer_end_get_elapsed_time();
         cudaDeviceSynchronize();
         delete t;
@@ -360,9 +338,16 @@ void cusz_compress(argpack* ap, DATATYPE* in_data, dim3 xyz, metadata_pack* mp, 
     }
     // --------------------------------------------------------------------------------
 
-    std::tie(num_bits, num_uints, huff_meta_size) = lossless::interface::HuffmanEncode<Quant, Huff>(
-        subfiles.compress.huff_base, quant.dptr, book.dptr, revbook.dptr, revbook_nbyte, len, ap->huffman_chunk,
-        ap->dict_size, time_lossless);
+    constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
+    auto           host_revbook  = mem::create_devspace_memcpy_d2h(revbook.dptr, revbook_nbyte);
+    io::write_array_to_binary(
+        subfiles.compress.huff_base + ".canon", reinterpret_cast<uint8_t*>(host_revbook),
+        sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * dict_size);
+    delete[] host_revbook;
+
+    lossless::HuffmanEncode<Quant, Huff>(
+        subfiles.compress.huff_base, quant.dptr, book.dptr, len, ap->huffman_chunk, ap->dict_size, num_bits, num_uints,
+        huff_meta_size, time_lossless);
 
     /********************************************************************************
      * report time
@@ -425,11 +410,11 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     }
     else {
         logging(log_info, "Huffman decode -> quant.code");
-        lossless::interface::HuffmanDecode<Quant, Huff>(
+        lossless::HuffmanDecode<Quant, Huff>(
             subfiles.path2file, &quant, ap->len, ap->huffman_chunk, num_uints, ap->dict_size, time_lossless);
     }
 
-    if (workflow.predictor == "lorenzo") {
+    {
         OutlierHandler<Data> csr(ap->len, nnz_outlier);
 
         uint8_t *h_csr_file, *d_csr_file;
@@ -442,13 +427,6 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
         csr.extract(d_csr_file).scatter_CUDA10(outlier, time_outlier);
     }
 
-    // still in draft
-    struct PartialData<Data> spline3_anchor;
-    unsigned int             len_spline3_anchor;
-
-    struct PartialData<Quant> spline3_errctrl;
-    unsigned int              len_spline3_errctrl;
-
     /********************************************************************************
      * lorenzo reconstruction
      ********************************************************************************/
@@ -458,12 +436,7 @@ void cusz_decompress(argpack* ap, metadata_pack* mp)
     else if (workflow.predictor == "spline3d") {
         throw std::runtime_error("spline not impl'ed");
         if (ap->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-
-        Spline3<Data*, Quant*, float> s3(xyz, eb, len_spline3_anchor, len_spline3_errctrl);
-
-        // TODO anchor and errctrl
-
-        s3.reversed_predict_quantize(xdata, spline3_anchor.dptr, spline3_errctrl.dptr, radius);
+        // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ap->ndim, eb, radius, time_lossy);
     }
     else {
         throw std::runtime_error("need to specify predcitor");

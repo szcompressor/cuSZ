@@ -1,13 +1,13 @@
-#ifndef CUSZ_HUFF_INTERFACE_H
-#define CUSZ_HUFF_INTERFACE_H
+#ifndef CUSZ_WRAPPER_HUFFMAN_ENC_DEC_CUH
+#define CUSZ_WRAPPER_HUFFMAN_ENC_DEC_CUH
 
 /**
- * @file huff_interface.h
+ * @file huffman_enc_dec.cuh
  * @author Jiannan Tian, Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Workflow of Huffman coding (header).
  * @version 0.1
  * @date 2020-09-20
- * Created on 2020-04-24
+ * (created) 2020-04-24 (rev) 2021-09-05
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -15,8 +15,6 @@
  */
 
 #include <cuda_runtime.h>
-//#include <sys/stat.h>
-
 #include <cstdint>
 #include <string>
 #include <tuple>
@@ -36,7 +34,7 @@ using std::string;
  * @return entropy
  */
 template <typename UInt>
-double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
+double get_entropy_from_frequency(UInt* freq, size_t len, size_t dict_size = 1024)
 {
     double entropy = 0.0;
     for (auto i = 0; i < dict_size; i++) {
@@ -47,11 +45,18 @@ double GetEntropyFromFrequency(UInt* freq, size_t len, size_t dict_size = 1024)
 }
 
 namespace cusz {
-template <typename Huff>
-void GatherSpHuffMetadata(size_t* _counts, size_t* d_sp_bits, size_t nchunk, size_t& total_bits, size_t& total_uints);
 
 template <typename Huff>
-__global__ void CopyHuffmanUintsDenseToSparse(Huff*, Huff*, size_t*, size_t*, size_t);
+void huffman_process_metadata(size_t* _counts, size_t* dev_bits, size_t nchunk, size_t& num_bits, size_t& num_uints);
+
+template <typename Huff>
+__global__ void huffman_enc_concatenate(
+    Huff*   in_enc_space,
+    Huff*   out_bitstream,
+    size_t* sp_entries,
+    size_t* sp_uints,
+    size_t  chunk_size);
+
 }  // namespace cusz
 
 namespace draft {
@@ -67,18 +72,25 @@ void UseNvcompUnzip(T** space, size_t& len);
 }  // namespace draft
 
 namespace lossless {
-namespace interface {
 
 template <typename Quant, typename Huff, typename Data = float>
-std::tuple<size_t, size_t, size_t> HuffmanEncode(string&, Quant*, Huff*, uint8_t*, size_t, size_t, int, int, float&);
+void HuffmanEncode(
+    string& basename,
+    Quant*  dev_input,
+    Huff*   dev_book,
+    // uint8_t* dev_revbook,
+    // size_t   _nbyte,
+    size_t  len,
+    int     chunk_size,
+    int     dict_size,
+    size_t& out_num_bits,
+    size_t& out_num_uints,
+    size_t& out_metadata_size,
+    float&  milliseconds);
 
 template <typename Quant, typename Huff, typename Data = float>
 void HuffmanDecode(std::string&, struct PartialData<Quant>*, size_t, int, size_t, int, float&);
 
-template <typename Quant, typename Huff, typename Data = float>
-void HuffmanEncodeWithTree_3D(Index<3>::idx_t idx, string& basename, Quant* h_quant_in, size_t len, int dict_size);
-
-}  // namespace interface
 }  // namespace lossless
 
 #endif

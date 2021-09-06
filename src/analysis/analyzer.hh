@@ -26,7 +26,7 @@
 #include "../kernel/hist.h"
 #include "../kernel/huffman_codec.h"
 #include "../utils/timer.hh"
-#include "../wrapper/deprecated_lossless_huffman.h"
+#include "../wrapper/huffman_enc_dec.cuh"
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
