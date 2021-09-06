@@ -99,13 +99,6 @@ void check_shell_calls(string cmd_string)
     if (status < 0) { logging(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
 }
 
-template <typename Quant, typename Huff>
-unsigned int get_revbook_nbyte(unsigned dict_size)
-{
-    constexpr auto type_bitcount = sizeof(Huff) * 8;
-    return sizeof(Huff) * (2 * type_bitcount) + sizeof(Quant) * dict_size;
-}
-
 }  // namespace
 
 /* gtest disabled in favor of code refactoring */
@@ -126,28 +119,27 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-    auto ap = new ArgPack();
-    ap->parse_args(argc, argv);
-    load_demo_sizes(ap);
+    auto ctx = new ArgPack();
+    ctx->parse_args(argc, argv);
+    load_demo_sizes(ctx);
 
-    if (ap->verbose) {
+    if (ctx->verbose) {
         GetMachineProperties();
         GetDeviceProperty();
     }
 
-    auto& workflow = ap->task_is;
-    auto& subfiles = ap->subfiles;
+    auto& subfiles = ctx->subfiles;
 
     // TODO hardcode for float for now
     using Data = float;
 
-    auto len = ap->len;
+    auto len = ctx->len;
     auto m   = static_cast<size_t>(ceil(sqrt(len)));
     auto mxm = m * m;
 
     struct PartialData<Data> in_data(mxm);
 
-    if (workflow.construct or workflow.dryrun) {
+    if (ctx->task_is.construct or ctx->task_is.dryrun) {
         logging(log_dbg, "add padding:", m, "units");
 
         cudaMalloc(&in_data.dptr, in_data.nbyte());
@@ -163,21 +155,21 @@ int main(int argc, char** argv)
 
         in_data.h2d();
 
-        if (ap->mode == "r2r") {
+        if (ctx->mode == "r2r") {
             Analyzer analyzer;
             auto     result = analyzer.GetMaxMinRng                                     //
                           <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                           (in_data.dptr, len);
             logging(log_dbg, "time scanning:", result.seconds, "sec");
-            ap->eb *= result.rng;
+            ctx->eb *= result.rng;
         }
 
         logging(
-            log_dbg, std::to_string(ap->quant_byte) + "-byte quant type,",
-            std::to_string(ap->huff_byte) + "-byte internal Huff type");
+            log_dbg, std::to_string(ctx->quant_byte) + "-byte quant type,",
+            std::to_string(ctx->huff_byte) + "-byte internal Huff type");
     }
 
-    if (workflow.pre_binning) {
+    if (ctx->task_is.pre_binning) {
         cerr << log_err
              << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
                 "filesystem. (ver. 0.1.4)"
@@ -185,22 +177,22 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    if (workflow.construct or workflow.dryrun) {  // fp32 only for now
+    if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
-        auto xyz = dim3(ap->dim4._0, ap->dim4._1, ap->dim4._2);
+        auto xyz = dim3(ctx->dim4._0, ctx->dim4._1, ctx->dim4._2);
         auto mp  = new metadata_pack();
 
-        if (ap->quant_byte == 1) {
-            if (ap->huff_byte == 4)
-                cusz_compress<true, 4, 1, 4>(ap, &in_data, xyz, mp);
+        if (ctx->quant_byte == 1) {
+            if (ctx->huff_byte == 4)
+                cusz_compress<true, 4, 1, 4>(ctx, &in_data, xyz, mp);
             else
-                cusz_compress<true, 4, 1, 8>(ap, &in_data, xyz, mp);
+                cusz_compress<true, 4, 1, 8>(ctx, &in_data, xyz, mp);
         }
-        else if (ap->quant_byte == 2) {
-            if (ap->huff_byte == 4)
-                cusz_compress<true, 4, 2, 4>(ap, &in_data, xyz, mp);
+        else if (ctx->quant_byte == 2) {
+            if (ctx->huff_byte == 4)
+                cusz_compress<true, 4, 2, 4>(ctx, &in_data, xyz, mp);
             else
-                cusz_compress<true, 4, 2, 8>(ap, &in_data, xyz, mp);
+                cusz_compress<true, 4, 2, 8>(ctx, &in_data, xyz, mp);
         }
 
         auto mp_byte = reinterpret_cast<char*>(mp);
@@ -218,7 +210,7 @@ int main(int argc, char** argv)
     }
 
     // invoke system() to untar archived files first before decompression
-    if (not workflow.construct and workflow.reconstruct) {
+    if (not ctx->task_is.construct and ctx->task_is.reconstruct) {
         string cx_directory = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
         string cmd_string;
         if (cx_directory.length() == 0)
@@ -229,67 +221,67 @@ int main(int argc, char** argv)
         check_shell_calls(cmd_string);
     }
 
-    if (workflow.reconstruct) {  // fp32 only for now
+    if (ctx->task_is.reconstruct) {  // fp32 only for now
 
         // unpack metadata
         auto mp_byte = io::read_binary_to_new_array<char>(subfiles.decompress.in_yamp, sizeof(metadata_pack));
         auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
 
-        if (ap->quant_byte == 1) {
-            if (ap->huff_byte == 4)
-                cusz_decompress<true, 4, 1, 4>(ap, mp);
-            else if (ap->huff_byte == 8)
-                cusz_decompress<true, 4, 1, 8>(ap, mp);
+        if (ctx->quant_byte == 1) {
+            if (ctx->huff_byte == 4)
+                cusz_decompress<true, 4, 1, 4>(ctx, mp);
+            else if (ctx->huff_byte == 8)
+                cusz_decompress<true, 4, 1, 8>(ctx, mp);
         }
-        else if (ap->quant_byte == 2) {
-            if (ap->huff_byte == 4)
-                cusz_decompress<true, 4, 2, 4>(ap, mp);
-            else if (ap->huff_byte == 8)
-                cusz_decompress<true, 4, 2, 8>(ap, mp);
+        else if (ctx->quant_byte == 2) {
+            if (ctx->huff_byte == 4)
+                cusz_decompress<true, 4, 2, 4>(ctx, mp);
+            else if (ctx->huff_byte == 8)
+                cusz_decompress<true, 4, 2, 8>(ctx, mp);
         }
     }
 
     // invoke system() function to merge and compress the resulting 5 files after cusz compression
     string basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
-    if (not workflow.reconstruct and workflow.construct) {
+    if (not ctx->task_is.reconstruct and ctx->task_is.construct) {
         auto tar_a = hires::now();
 
         // remove *.sz if existing
-        string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
+        string cmd_string = "rm -rf " + ctx->opath + basename + ".sz";
         check_shell_calls(cmd_string);
 
         // using tar command to encapsulate files
         string files_to_merge;
-        if (workflow.skip_huffman) {
+        if (ctx->task_is.skip_huffman) {
             files_to_merge = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
             files_to_merge = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
                              ".hmeta " + basename + ".yamp";
         }
-        if (workflow.lossless_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_to_merge;
+        if (ctx->task_is.lossless_gzip) {
+            cmd_string = "cd " + ctx->opath + ";tar -czf " + basename + ".sz " + files_to_merge;
         }
         else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + basename + ".sz " + files_to_merge;
+            cmd_string = "cd " + ctx->opath + ";tar -cf " + basename + ".sz " + files_to_merge;
         }
         check_shell_calls(cmd_string);
 
         // remove 5 subfiles
-        cmd_string = "cd " + ap->opath + ";rm -rf " + files_to_merge;
+        cmd_string = "cd " + ctx->opath + ";rm -rf " + files_to_merge;
         check_shell_calls(cmd_string);
 
         auto tar_z = hires::now();
 
-        auto ad_hoc_fix = ap->opath.substr(0, ap->opath.size() - 1);
+        auto ad_hoc_fix = ctx->opath.substr(0, ctx->opath.size() - 1);
         logging(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
         logging(log_info, "output:", ad_hoc_fix + basename + ".sz");
     }
 
     // if it's decompression, remove released subfiles at last.
-    if (not workflow.construct and workflow.reconstruct) {
+    if (not ctx->task_is.construct and ctx->task_is.reconstruct) {
         string files_to_delete;
-        if (workflow.skip_huffman) {
+        if (ctx->task_is.skip_huffman) {
             files_to_delete = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
@@ -301,37 +293,37 @@ int main(int argc, char** argv)
         check_shell_calls(cmd_string);
     }
 
-    if (workflow.construct and workflow.reconstruct) {
+    if (ctx->task_is.construct and ctx->task_is.reconstruct) {
         // remove *.sz if existing
-        string cmd_string = "rm -rf " + ap->opath + basename + ".sz";
+        string cmd_string = "rm -rf " + ctx->opath + basename + ".sz";
         check_shell_calls(cmd_string);
 
         // using tar command to encapsulate files
         string files_for_merging;
-        if (workflow.skip_huffman) {
+        if (ctx->task_is.skip_huffman) {
             files_for_merging = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
         }
         else {
             files_for_merging = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
                                 ".hmeta " + basename + ".yamp";
         }
-        if (workflow.lossless_gzip) {
-            cmd_string = "cd " + ap->opath + ";tar -czf " + basename + ".sz " + files_for_merging;
+        if (ctx->task_is.lossless_gzip) {
+            cmd_string = "cd " + ctx->opath + ";tar -czf " + basename + ".sz " + files_for_merging;
         }
         else {
-            cmd_string = "cd " + ap->opath + ";tar -cf " + basename + ".sz " + files_for_merging;
+            cmd_string = "cd " + ctx->opath + ";tar -cf " + basename + ".sz " + files_for_merging;
         }
         check_shell_calls(cmd_string);
 
         // remove 5 subfiles
-        cmd_string = "cd " + ap->opath + ";rm -rf " + files_for_merging;
+        cmd_string = "cd " + ctx->opath + ";rm -rf " + files_for_merging;
         check_shell_calls(cmd_string);
 
-        logging(log_info, "write to: " + ap->opath + basename + ".sz");
-        logging(log_info, "write to: " + ap->opath + basename + ".szx");
+        logging(log_info, "write to: " + ctx->opath + basename + ".sz");
+        logging(log_info, "write to: " + ctx->opath + basename + ".szx");
 
         /* gtest disabled in favor of code refactoring */
-        // if (workflow.gtest) {
+        // if (ap->task_is.gtest) {
         //     expectedErr  = ap->eb;
         //     z_mode       = ap->mode;
         //     auto stat    = ap->stat;
