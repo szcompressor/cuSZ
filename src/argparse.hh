@@ -79,6 +79,8 @@ class ArgPack {
         } decompress;
     } subfiles;
 
+    string basename;
+
     stat_t stat;
 
     int read_args_status{0};

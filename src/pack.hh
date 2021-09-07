@@ -43,6 +43,6 @@ typedef struct MetadataPackage {
     int h_meta_bytesize;   // TODO for single binary
     int outlier_bytesize;  // TODO for single binary
 
-} metadata_pack;
+} cusz_header;
 
 #endif

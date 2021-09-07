@@ -180,7 +180,7 @@ int main(int argc, char** argv)
     if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
         auto xyz = dim3(ctx->dim4._0, ctx->dim4._1, ctx->dim4._2);
-        auto mp  = new metadata_pack();
+        auto mp  = new cusz_header();
 
         if (ctx->quant_byte == 1) {
             if (ctx->huff_byte == 4)
@@ -197,7 +197,7 @@ int main(int argc, char** argv)
 
         auto mp_byte = reinterpret_cast<char*>(mp);
         // yet another metadata package
-        io::write_array_to_binary(subfiles.compress.out_yamp, mp_byte, sizeof(metadata_pack));
+        io::write_array_to_binary(subfiles.compress.out_yamp, mp_byte, sizeof(cusz_header));
 
         delete mp;
 
@@ -224,8 +224,8 @@ int main(int argc, char** argv)
     if (ctx->task_is.reconstruct) {  // fp32 only for now
 
         // unpack metadata
-        auto mp_byte = io::read_binary_to_new_array<char>(subfiles.decompress.in_yamp, sizeof(metadata_pack));
-        auto mp      = reinterpret_cast<metadata_pack*>(mp_byte);
+        auto mp_byte = io::read_binary_to_new_array<char>(subfiles.decompress.in_yamp, sizeof(cusz_header));
+        auto mp      = reinterpret_cast<cusz_header*>(mp_byte);
 
         if (ctx->quant_byte == 1) {
             if (ctx->huff_byte == 4)

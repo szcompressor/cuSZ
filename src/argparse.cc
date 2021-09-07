@@ -564,7 +564,7 @@ void ArgPack::sort_out_fnames()
     auto input_path = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
     if (not task_is.construct and task_is.reconstruct)
         subfiles.path2file = subfiles.path2file.substr(0, subfiles.path2file.rfind('.'));
-    auto basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
+    basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";

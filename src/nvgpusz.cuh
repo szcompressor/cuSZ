@@ -31,11 +31,11 @@ void cusz_compress(
     argpack*,
     struct PartialData<typename DataTrait<If_FP, DataByte>::Data>*,
     dim3,
-    metadata_pack* mp,
+    cusz_header* mp,
     unsigned int = 1);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack*, metadata_pack* mp);
+void cusz_decompress(argpack*, cusz_header* mp);
 
 template <typename Data, typename Quant, typename Huff, typename FP>
 class Compressor {
@@ -111,7 +111,7 @@ class Compressor {
 
     Compressor& huffman_encode(struct PartialData<Quant>* quant, struct PartialData<Huff>* book);
 
-    Compressor& pack_metadata(metadata_pack* mp);
+    Compressor& pack_metadata(cusz_header* mp);
 };
 
 template <typename Data, typename Quant, typename Huff, typename FP>
@@ -119,7 +119,7 @@ class Decompressor {
    private:
     void report_decompression_time(size_t len, float lossy, float outlier, float lossless);
 
-    void unpack_metadata(metadata_pack* mp, argpack* ap);
+    void unpack_metadata(cusz_header* mp, argpack* ap);
 
     Spline3<Data*, Quant*, FP>* spline3;
 
@@ -150,7 +150,7 @@ class Decompressor {
 
     argpack* ctx;
 
-    Decompressor(metadata_pack* _mp, argpack* _ap);
+    Decompressor(cusz_header* _mp, argpack* _ap);
 
     Decompressor& huffman_decode(struct PartialData<Quant>* quant);
 
@@ -172,10 +172,10 @@ void cusz_compress(
     argpack*                                                       ctx,
     struct PartialData<typename DataTrait<If_FP, DataByte>::Data>* in_data,
     dim3                                                           xyz,
-    metadata_pack*                                                 header,
+    cusz_header*                                                   header,
     unsigned int                                                   optional_w);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack* ctx, metadata_pack* header);
+void cusz_decompress(argpack* ctx, cusz_header* header);
 
 #endif

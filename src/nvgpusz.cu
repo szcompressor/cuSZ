@@ -321,28 +321,28 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::pack_metadata(metadata_pack* mp)
+COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
 {
-    mp->dim4    = ctx->dim4;
-    mp->stride4 = ctx->stride4;
-    mp->nblk4   = ctx->nblk4;
-    mp->ndim    = ctx->ndim;
-    mp->eb      = ctx->eb;
-    mp->len     = ctx->len;
+    header->dim4    = ctx->dim4;
+    header->stride4 = ctx->stride4;
+    header->nblk4   = ctx->nblk4;
+    header->ndim    = ctx->ndim;
+    header->eb      = ctx->eb;
+    header->len     = ctx->len;
 
-    mp->nnz = length.nnz_outlier;
+    header->nnz = length.nnz_outlier;
 
-    if (ctx->dtype == "f32") mp->dtype = DataType::kF32;
-    if (ctx->dtype == "f64") mp->dtype = DataType::kF64;
+    if (ctx->dtype == "f32") header->dtype = DataType::kF32;
+    if (ctx->dtype == "f64") header->dtype = DataType::kF64;
 
-    mp->quant_byte    = ctx->quant_byte;
-    mp->huff_byte     = ctx->huff_byte;
-    mp->huffman_chunk = ctx->huffman_chunk;
-    mp->skip_huffman  = ctx->task_is.skip_huffman;
+    header->quant_byte    = ctx->quant_byte;
+    header->huff_byte     = ctx->huff_byte;
+    header->huffman_chunk = ctx->huffman_chunk;
+    header->skip_huffman  = ctx->task_is.skip_huffman;
 
-    mp->num_bits      = huffman_meta.num_bits;
-    mp->num_uints     = huffman_meta.num_uints;
-    mp->revbook_nbyte = huffman_meta.revbook_nbyte;
+    header->num_bits      = huffman_meta.num_bits;
+    header->num_uints     = huffman_meta.num_uints;
+    header->revbook_nbyte = huffman_meta.revbook_nbyte;
 
     return *this;
 }
@@ -353,22 +353,22 @@ COMPRESSOR& COMPRESSOR::pack_metadata(metadata_pack* mp)
 #define DECOMPRESSOR Decompressor<Data, Quant, Huff, FP>
 
 DECOMPR_TYPE
-void DECOMPRESSOR::unpack_metadata(metadata_pack* mp, argpack* ap)
+void DECOMPRESSOR::unpack_metadata(cusz_header* header, argpack* ctx)
 {
-    ap->dim4    = mp->dim4;
-    ap->stride4 = mp->stride4;
-    ap->nblk4   = mp->nblk4;
-    ap->ndim    = mp->ndim;
-    ap->eb      = mp->eb;
-    ap->len     = mp->len;
+    ctx->dim4    = header->dim4;
+    ctx->stride4 = header->stride4;
+    ctx->nblk4   = header->nblk4;
+    ctx->ndim    = header->ndim;
+    ctx->eb      = header->eb;
+    ctx->len     = header->len;
 
-    if (mp->dtype == DataType::kF32) ap->dtype = "f32";
-    if (mp->dtype == DataType::kF64) ap->dtype = "f64";
+    if (header->dtype == DataType::kF32) ctx->dtype = "f32";
+    if (header->dtype == DataType::kF64) ctx->dtype = "f64";
 
-    ap->quant_byte           = mp->quant_byte;
-    ap->huff_byte            = mp->huff_byte;
-    ap->huffman_chunk        = mp->huffman_chunk;
-    ap->task_is.skip_huffman = mp->skip_huffman;
+    ctx->quant_byte           = header->quant_byte;
+    ctx->huff_byte            = header->huff_byte;
+    ctx->huffman_chunk        = header->huffman_chunk;
+    ctx->task_is.skip_huffman = header->skip_huffman;
 }
 
 DECOMPR_TYPE
@@ -394,15 +394,15 @@ void DECOMPRESSOR::report_decompression_time(size_t len, float lossy, float outl
 }
 
 DECOMPR_TYPE
-DECOMPRESSOR::Decompressor(metadata_pack* _mp, argpack* _ap)
+DECOMPRESSOR::Decompressor(cusz_header* header, argpack* _ap)
 {
     logging(log_info, "invoke lossy-reconstruction");
 
-    unpack_metadata(_mp, _ap);
+    unpack_metadata(header, _ap);
 
-    length.nnz_outlier         = _mp->nnz;
-    huffman_meta.num_uints     = _mp->num_uints;
-    huffman_meta.revbook_nbyte = _mp->revbook_nbyte;
+    length.nnz_outlier         = header->nnz;
+    huffman_meta.num_uints     = header->num_uints;
+    huffman_meta.revbook_nbyte = header->revbook_nbyte;
 
     ctx          = _ap;
     length.data  = ctx->len;
@@ -552,7 +552,7 @@ DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 #define DATATYPE struct PartialData<typename DataTrait<If_FP, DataByte>::Data>
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, metadata_pack* header, unsigned int optional_w)
+void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* header, unsigned int optional_w)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
@@ -611,7 +611,7 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, metadata_pack* hea
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack* ctx, metadata_pack* header)
+void cusz_decompress(argpack* ctx, cusz_header* header)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
@@ -684,7 +684,7 @@ template class Decompressor<float, uint32_t, unsigned long long, float>;
 
 #define CUSZ_COMPRESS(DBYTE, QBYTE, HBYTE)                  \
     template void cusz_compress<true, DBYTE, QBYTE, HBYTE>( \
-        argpack*, struct PartialData<float>*, dim3, metadata_pack*, unsigned int);
+        argpack*, struct PartialData<float>*, dim3, cusz_header*, unsigned int);
 
 CUSZ_COMPRESS(4, 1, 4)
 CUSZ_COMPRESS(4, 1, 8)
@@ -692,7 +692,7 @@ CUSZ_COMPRESS(4, 2, 4)
 CUSZ_COMPRESS(4, 2, 8)
 
 #define CUSZ_DECOMPRESS(DBYTE, QBYTE, HBYTE) \
-    template void cusz_decompress<true, DBYTE, QBYTE, HBYTE>(argpack*, metadata_pack*);
+    template void cusz_decompress<true, DBYTE, QBYTE, HBYTE>(argpack*, cusz_header*);
 
 CUSZ_DECOMPRESS(4, 1, 4)
 CUSZ_DECOMPRESS(4, 1, 8)
