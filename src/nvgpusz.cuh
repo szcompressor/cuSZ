@@ -22,6 +22,7 @@
 #include "pack.hh"
 #include "type_trait.hh"
 #include "utils.hh"
+#include "wrapper/interp_spline.h"
 
 using namespace std;
 
@@ -48,6 +49,9 @@ class Compressor {
     void export_codebook(Huff* d_book, const string& basename, size_t dict_size);
 
    public:
+    Spline3<Data*, Quant*, float>* spline3;
+
+    void register_spline3(Spline3<Data*, Quant*, float>* _spline3) { spline3 = _spline3; }
     struct {
         unsigned int data, quant, anchor;
         int          nnz_outlier;  // TODO modify the type correspondingly
@@ -78,7 +82,11 @@ class Compressor {
 
     void lorenzo_dryrun(struct PartialData<Data>* in_data);
 
-    Compressor& predict_quantize(struct PartialData<Data>* data, dim3 xyz, struct PartialData<Quant>* quant);
+    Compressor& predict_quantize(
+        struct PartialData<Data>*  data,
+        dim3                       xyz,
+        struct PartialData<Data>*  anchor,
+        struct PartialData<Quant>* quant);
 
     Compressor& gather_outlier(struct PartialData<Data>* in_data);
 
@@ -113,7 +121,11 @@ class Decompressor {
 
     void unpack_metadata(metadata_pack* mp, argpack* ap);
 
+    Spline3<Data*, Quant*, FP>* spline3;
+
    public:
+    void register_spline3(Spline3<Data*, Quant*, float>* _spline3) { spline3 = _spline3; }
+
     size_t archive_bytes;
     struct {
         float lossy, outlier, lossless;
@@ -144,7 +156,7 @@ class Decompressor {
 
     Decompressor& scatter_outlier(Data* outlier);
 
-    Decompressor& reversed_predict_quantize(Data* xdata, Quant* quant, dim3 xyz);
+    Decompressor& reversed_predict_quantize(Data* xdata, dim3 xyz, Data* anchor, Quant* quant);
 
     Decompressor& calculate_archive_nbyte();
 

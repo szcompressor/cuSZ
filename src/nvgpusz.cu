@@ -156,21 +156,26 @@ void COMPRESSOR::lorenzo_dryrun(struct PartialData<Data>* in_data)
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::predict_quantize(struct PartialData<Data>* data, dim3 xyz, struct PartialData<Quant>* quant)
+COMPRESSOR& COMPRESSOR::predict_quantize(
+    struct PartialData<Data>*  data,
+    dim3                       xyz,
+    struct PartialData<Data>*  anchor,
+    struct PartialData<Quant>* quant)
 {
     logging(log_info, "invoke lossy-construction");
+    // TODO "predictor" -> "prediction"
     if (ctx->task_is.predictor == "lorenzo") {
+        // TODO class lorenzo
         compress_lorenzo_construct<Data, Quant, float>(
             data->dptr, quant->dptr, xyz, ctx->ndim, config.eb, config.radius, time.lossy);
     }
     else if (ctx->task_is.predictor == "spline3d") {
-        throw std::runtime_error("spline not impl'ed");
-        if (ctx->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-        // compress_spline3d_construct<Data, Quant, float>(
-        //     in_data->dptr, quant.dptr, xyz, ctx->ndim, eb, radius, time_lossy);
+        if (ctx->ndim != 3) throw std::runtime_error("must be 3D data.");
+        // TODO timer
+        spline3->predict_quantize(data->dptr, anchor->dptr, quant->dptr, config.radius);
     }
     else {
-        throw std::runtime_error("need to specify predcitor");
+        throw std::runtime_error("must be \"lorenzo\" or \"spline3d\"");
     }
 
     return *this;
@@ -450,16 +455,18 @@ DECOMPRESSOR& DECOMPRESSOR::scatter_outlier(Data* outlier)
 }
 
 DECOMPR_TYPE
-DECOMPRESSOR& DECOMPRESSOR::reversed_predict_quantize(Data* xdata, Quant* quant, dim3 xyz)
+DECOMPRESSOR& DECOMPRESSOR::reversed_predict_quantize(Data* xdata, dim3 xyz, Data* anchor, Quant* quant)
 {
     if (ctx->task_is.predictor == "lorenzo") {
+        // TODO lorenzo class
         decompress_lorenzo_reconstruct<Data, Quant, FP>(
             xdata, quant, xyz, ctx->ndim, config.eb, ctx->radius, time.lossy);
     }
     else if (ctx->task_is.predictor == "spline3d") {
         throw std::runtime_error("spline not impl'ed");
         if (ctx->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-        // decompress_spline3d_reconstruct(xdata, quant.dptr, xyz, ctx->ndim, eb, radius, time_lossy);
+        // TODO
+        spline3->reversed_predict_quantize(xdata, anchor, quant, ctx->radius);
     }
     else {
         throw std::runtime_error("need to specify predcitor");
@@ -551,12 +558,27 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, metadata_pack* hea
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
+    Spline3<Data*, Quant*, float>        spline3(xyz, ctx->eb);
     Compressor<Data, Quant, Huff, float> cuszc(ctx, ctx->len, ctx->eb);
+    cuszc.register_spline3(&spline3);
+
+    // TODO lorenzo class::get_len_quant
+    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->len + HuffConfig::Db_encode; };
+
+    unsigned int len_quant = ctx->task_is.predictor == "spline3"  //
+                                 ? spline3.get_len_quant()
+                                 : lorenzo_get_len_quant();
 
     cuszc.lorenzo_dryrun(in_data);  // subject to change
 
-    struct PartialData<Quant> quant(ctx->len + HuffConfig::Db_encode);
+    struct PartialData<Quant> quant(len_quant);
     cudaMalloc(&quant.dptr, quant.nbyte());
+
+    struct PartialData<Data>* anchor = nullptr;
+    if (ctx->task_is.predictor == "spline3") {
+        anchor = new struct PartialData<Data>(spline3.get_len_anchor());
+        cudaMalloc(&anchor->dptr, anchor->nbyte());
+    }
 
     struct PartialData<unsigned int> freq(ctx->dict_size);
     cudaMalloc(&freq.dptr, freq.nbyte());
@@ -569,7 +591,7 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, metadata_pack* hea
     cudaMallocHost(&revbook.hptr, revbook.nbyte());  // to write to disk later
 
     cuszc  //
-        .predict_quantize(in_data, xyz, &quant)
+        .predict_quantize(in_data, xyz, anchor, &quant)
         .gather_outlier(in_data)
         .try_skip_huffman(&quant);
 
@@ -595,14 +617,36 @@ void cusz_decompress(argpack* ctx, metadata_pack* header)
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
+    // TODO "header, ctx" -> "ctx, header"
+    // TODO float -> another parameter FP
     Decompressor<Data, Quant, Huff, float> cuszd(header, ctx);
 
     auto xyz = dim3(ctx->dim4._0, ctx->dim4._1, ctx->dim4._2);
 
-    struct PartialData<Quant> quant(cuszd.length.quant);
+    Spline3<Data*, Quant*, float> spline3(xyz, ctx->eb);
+    cuszd.register_spline3(&spline3);
+
+    // TODO lorenzo class::get_len_quant
+    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->len; };
+
+    unsigned int len_quant = ctx->task_is.predictor == "spline3"  //
+                                 ? spline3.get_len_quant()
+                                 : lorenzo_get_len_quant();
+
+    struct PartialData<Data>* anchor =
+        new struct PartialData<Data>(spline3.get_len_anchor());  // TODO this .dptr is nullable, error-prone
+    if (ctx->task_is.predictor == "spline3") {
+        cudaMalloc(&anchor->dptr, anchor->nbyte());
+        cudaMallocHost(&anchor->hptr, anchor->nbyte());
+
+        // TODO dummy, need source
+    }
+
+    struct PartialData<Quant> quant(len_quant);
     cudaMalloc(&quant.dptr, quant.nbyte());
     cudaMallocHost(&quant.hptr, quant.nbyte());
 
+    // TODO cuszd.get_len_data_space()
     struct PartialData<Data> _data(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
     cudaMalloc(&_data.dptr, _data.nbyte());
     cudaMallocHost(&_data.hptr, _data.nbyte());
@@ -610,7 +654,7 @@ void cusz_decompress(argpack* ctx, metadata_pack* header)
 
     cuszd.huffman_decode(&quant)
         .scatter_outlier(outlier)
-        .reversed_predict_quantize(xdata, quant.dptr, xyz)
+        .reversed_predict_quantize(xdata, xyz, anchor->dptr, quant.dptr)
         .try_report_time();
 
     // copy decompressed data to host
