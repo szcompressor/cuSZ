@@ -71,9 +71,19 @@ class Compressor {
     } time;
 
     struct {
-        size_t num_bits, num_uints, revbook_nbyte;
-    } huffman_meta;
+        struct {
+            size_t num_bits, num_uints, revbook_nbyte;
+        } meta;
 
+        struct {
+            size_t *h_counts, *d_counts;
+            Huff *  h_bitstream, *d_bitstream, *d_encspace;
+        } array;
+    } huffman;
+
+    // huffman arrays
+
+    // context
     argpack* ctx;
 
     unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
@@ -145,8 +155,10 @@ class Decompressor {
     size_t m, mxm;
 
     struct {
-        size_t num_bits, num_uints, revbook_nbyte;
-    } huffman_meta;
+        struct {
+            size_t num_bits, num_uints, revbook_nbyte;
+        } meta;
+    } huffman;
 
     argpack* ctx;
 

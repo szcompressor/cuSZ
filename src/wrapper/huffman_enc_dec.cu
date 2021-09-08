@@ -155,84 +155,67 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
 
 */
 
-template <typename Quant, typename Huff, typename Data>
+template <typename Quant, typename Huff, bool UINTS_KNOWN>
 void lossless::HuffmanEncode(
-    string& basename,
+    Huff*   dev_enc_space,
+    size_t* dev_bits,
+    size_t* dev_uints,
+    size_t* dev_entries,
+    size_t* host_counts,
+    //
+    Huff* dev_out_bitstream,
+    //
     Quant*  dev_input,
     Huff*   dev_book,
     size_t  len,
     int     chunk_size,
     int     dict_size,
-    size_t& out_num_bits,
-    size_t& out_num_uints,
+    size_t* ptr_num_bits,
+    size_t* ptr_num_uints,
     float&  milliseconds)
 {
     auto get_grid_dim = [](size_t problem_size, size_t block_dim) {
         return (problem_size + block_dim - 1) / block_dim;
     };
-
-    // Huffman space in dense format (full of zeros), fix-length space
-    auto dev_enc_space =
-        mem::create_CUDA_space<Huff>(len + chunk_size + HuffConfig::Db_encode);  // TODO ad hoc (big) padding
-    {
-        auto block_dim = HuffConfig::Db_encode;
-        auto t         = new cuda_timer_t;
-        t->timer_start();
-        cusz::encode_fixedlen_space_cub<Quant, Huff, HuffConfig::enc_sequentiality>
-            <<<get_grid_dim(len, block_dim), block_dim / HuffConfig::enc_sequentiality>>>(
-                dev_input, dev_enc_space, len, dev_book);
-
-        milliseconds += t->timer_end_get_elapsed_time();
-        cudaDeviceSynchronize();
-        delete t;
-    }
-
     // encode_deflate
-    auto nchunk   = (len + chunk_size - 1) / chunk_size;
-    auto dev_bits = mem::create_CUDA_space<size_t>(nchunk);
-    {
-        auto block_dim = HuffConfig::Db_deflate;
-        auto t         = new cuda_timer_t;
-        t->timer_start();
-        cusz::encode_deflate<Huff>
-            <<<get_grid_dim(nchunk, block_dim), block_dim>>>(dev_enc_space, len, dev_bits, chunk_size);
-        milliseconds += t->timer_end_get_elapsed_time();
-        cudaDeviceSynchronize();
-        delete t;
+    auto nchunk = (len + chunk_size - 1) / chunk_size;
+
+    if CONSTEXPR (UINTS_KNOWN == false) {
+        {
+            auto block_dim = HuffConfig::Db_encode;
+            auto grid_dim  = get_grid_dim(len, block_dim);
+            auto t         = new cuda_timer_t;
+            t->timer_start();
+            cusz::encode_fixedlen_space_cub<Quant, Huff, HuffConfig::enc_sequentiality>
+                <<<grid_dim, block_dim / HuffConfig::enc_sequentiality>>>(dev_input, dev_enc_space, len, dev_book);
+            milliseconds += t->timer_end_get_elapsed_time();
+            cudaDeviceSynchronize();
+            delete t;
+        }
+
+        {
+            auto block_dim = HuffConfig::Db_deflate;
+            auto grid_dim  = get_grid_dim(nchunk, block_dim);
+            auto t         = new cuda_timer_t;
+            t->timer_start();
+            cusz::encode_deflate<Huff><<<grid_dim, block_dim>>>(dev_enc_space, len, dev_bits, chunk_size);
+            milliseconds += t->timer_end_get_elapsed_time();
+            cudaDeviceSynchronize();
+            delete t;
+        }
+
+        cusz::huffman_process_metadata<Huff>(host_counts, dev_bits, nchunk, *ptr_num_bits, *ptr_num_uints);
+        cudaMemcpy(dev_uints, host_counts, nchunk * sizeof(size_t), cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_entries, (host_counts + nchunk * 2), nchunk * sizeof(size_t), cudaMemcpyHostToDevice);
     }
-
-    // gather metadata (without write) before gathering huff as sp on GPU
-    size_t* _counts;
-    cudaMallocHost(&_counts, nchunk * 3 * sizeof(size_t));
-
-    size_t num_bits = 0, num_uints = 0;
-    cusz::huffman_process_metadata<Huff>(_counts, dev_bits, nchunk, num_bits, num_uints);
-
-    // partially gather on GPU and copy back (TODO fully)
-    Huff* host_out_bitstream;
-    cudaMallocHost(&host_out_bitstream, num_uints * sizeof(Huff));
-
-    {
-        auto dev_out_bitstream = mem::create_CUDA_space<Huff>(num_uints);
-        auto dev_uints         = mem::create_devspace_memcpy_h2d(_counts, nchunk);               // sp_uints
-        auto dev_entries       = mem::create_devspace_memcpy_h2d(_counts + nchunk * 2, nchunk);  // sp_entries
+    else {
+        auto t = new cuda_timer_t;
+        t->timer_start();
         cusz::huffman_enc_concatenate<<<nchunk, 128>>>(
             dev_enc_space, dev_out_bitstream, dev_entries, dev_uints, chunk_size);
+        milliseconds += t->timer_end_get_elapsed_time();
         cudaDeviceSynchronize();
-        cudaMemcpy(host_out_bitstream, dev_out_bitstream, num_uints * sizeof(Huff), cudaMemcpyDeviceToHost);
-        cudaFree(dev_entries), cudaFree(dev_uints), cudaFree(dev_out_bitstream);
     }
-
-    // write metadata to fs
-    io::write_array_to_binary(basename + ".hmeta", _counts + nchunk, 2 * nchunk);
-    io::write_array_to_binary(basename + ".hbyte", host_out_bitstream, num_uints);
-
-    // clean up
-    cudaFree(dev_enc_space), cudaFree(dev_bits);
-    cudaFreeHost(host_out_bitstream), cudaFreeHost(_counts);
-
-    out_num_bits  = num_bits;
-    out_num_uints = num_uints;
 }
 
 template <typename Quant, typename Huff, typename Data>
@@ -281,15 +264,23 @@ void lossless::HuffmanDecode(
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
 
-#define HUFFMAN_ENCODE(Q, H, D) \
-    template void lossless::HuffmanEncode<Q, H, D>(string&, Q*, H*, size_t, int, int, size_t&, size_t&, float&);
+#define HUFFMAN_ENCODE(Q, H, BOOL)                     \
+    template void lossless::HuffmanEncode<Q, H, BOOL>( \
+        H*, size_t*, size_t*, size_t*, size_t*, H*, Q*, H*, size_t, int, int, size_t*, size_t*, float&);
 
-HUFFMAN_ENCODE(UI1, UI4, FP4)
-HUFFMAN_ENCODE(UI1, UI8, FP4)
-HUFFMAN_ENCODE(UI2, UI4, FP4)
-HUFFMAN_ENCODE(UI2, UI8, FP4)
-HUFFMAN_ENCODE(UI4, UI4, FP4)
-HUFFMAN_ENCODE(UI4, UI8, FP4)
+HUFFMAN_ENCODE(UI1, UI4, false)
+HUFFMAN_ENCODE(UI1, UI8, false)
+HUFFMAN_ENCODE(UI2, UI4, false)
+HUFFMAN_ENCODE(UI2, UI8, false)
+HUFFMAN_ENCODE(UI4, UI4, false)
+HUFFMAN_ENCODE(UI4, UI8, false)
+
+HUFFMAN_ENCODE(UI1, UI4, true)
+HUFFMAN_ENCODE(UI1, UI8, true)
+HUFFMAN_ENCODE(UI2, UI4, true)
+HUFFMAN_ENCODE(UI2, UI8, true)
+HUFFMAN_ENCODE(UI4, UI4, true)
+HUFFMAN_ENCODE(UI4, UI8, true)
 
 #define HUFFMAN_DECODE(Q, H, D)                     \
     template void lossless::HuffmanDecode<Q, H, D>( \

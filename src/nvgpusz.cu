@@ -311,11 +311,54 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
     struct PartialData<Quant>* quant,  //
     struct PartialData<Huff>*  book)
 {
-    lossless::HuffmanEncode<Quant, Huff>(
-        ctx->subfiles.compress.huff_base, quant->dptr, book->dptr, length.quant, ctx->huffman_chunk, ctx->dict_size,
-        huffman_meta.num_bits, huffman_meta.num_uints, time.lossless);
+    // fix-length space, padding improvised
+    cudaMalloc(&huffman.array.d_encspace, sizeof(Huff) * (length.quant + ctx->huffman_chunk + HuffConfig::Db_encode));
 
-    huffman_meta.revbook_nbyte = get_revbook_nbyte();
+    auto nchunk = (length.quant + ctx->huffman_chunk - 1) / ctx->huffman_chunk;
+
+    // gather metadata (without write) before gathering huff as sp on GPU
+    cudaMallocHost(&huffman.array.h_counts, nchunk * 3 * sizeof(size_t));
+    cudaMalloc(&huffman.array.d_counts, nchunk * 3 * sizeof(size_t));
+
+    auto dev_bits    = huffman.array.d_counts;
+    auto dev_uints   = huffman.array.d_counts + nchunk;
+    auto dev_entries = huffman.array.d_counts + nchunk * 2;
+
+    lossless::HuffmanEncode<Quant, Huff, false>(
+        huffman.array.d_encspace, dev_bits, dev_uints, dev_entries, huffman.array.h_counts,
+        //
+        nullptr,
+        //
+        quant->dptr, book->dptr, length.quant, ctx->huffman_chunk, ctx->dict_size, &huffman.meta.num_bits,
+        &huffman.meta.num_uints, time.lossless);
+
+    // --------------------------------------------------------------------------------
+    cudaMallocHost(&huffman.array.h_bitstream, huffman.meta.num_uints * sizeof(Huff));
+    cudaMalloc(&huffman.array.d_bitstream, huffman.meta.num_uints * sizeof(Huff));
+
+    lossless::HuffmanEncode<Quant, Huff, true>(
+        huffman.array.d_encspace, nullptr, dev_uints, dev_entries, nullptr,
+        //
+        huffman.array.d_bitstream,
+        //
+        nullptr, nullptr, length.quant, ctx->huffman_chunk, 0, nullptr, nullptr, time.lossless);
+
+    cudaMemcpy(
+        huffman.array.h_bitstream, huffman.array.d_bitstream, huffman.meta.num_uints * sizeof(Huff),
+        cudaMemcpyDeviceToHost);
+    io::write_array_to_binary(
+        ctx->subfiles.compress.huff_base + ".hbyte", huffman.array.h_bitstream, huffman.meta.num_uints);
+
+    io::write_array_to_binary(ctx->subfiles.compress.huff_base + ".hmeta", huffman.array.h_counts + nchunk, 2 * nchunk);
+
+    cudaFree(huffman.array.d_encspace);
+    cudaFree(huffman.array.d_counts);
+    cudaFree(huffman.array.d_bitstream);
+
+    cudaFreeHost(huffman.array.h_bitstream);
+    cudaFreeHost(huffman.array.h_counts);
+
+    huffman.meta.revbook_nbyte = get_revbook_nbyte();
 
     return *this;
 }
@@ -340,9 +383,9 @@ COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
     header->huffman_chunk = ctx->huffman_chunk;
     header->skip_huffman  = ctx->task_is.skip_huffman;
 
-    header->num_bits      = huffman_meta.num_bits;
-    header->num_uints     = huffman_meta.num_uints;
-    header->revbook_nbyte = huffman_meta.revbook_nbyte;
+    header->num_bits      = huffman.meta.num_bits;
+    header->num_uints     = huffman.meta.num_uints;
+    header->revbook_nbyte = huffman.meta.revbook_nbyte;
 
     return *this;
 }
@@ -401,8 +444,8 @@ DECOMPRESSOR::Decompressor(cusz_header* header, argpack* _ap)
     unpack_metadata(header, _ap);
 
     length.nnz_outlier         = header->nnz;
-    huffman_meta.num_uints     = header->num_uints;
-    huffman_meta.revbook_nbyte = header->revbook_nbyte;
+    huffman.meta.num_uints     = header->num_uints;
+    huffman.meta.revbook_nbyte = header->revbook_nbyte;
 
     ctx          = _ap;
     length.data  = ctx->len;
@@ -428,7 +471,7 @@ DECOMPRESSOR& DECOMPRESSOR::huffman_decode(struct PartialData<Quant>* quant)
     else {
         logging(log_info, "Huffman decode -> quant.code");
         lossless::HuffmanDecode<Quant, Huff>(
-            ctx->subfiles.path2file, quant, ctx->len, ctx->huffman_chunk, huffman_meta.num_uints, ctx->dict_size,
+            ctx->subfiles.path2file, quant, ctx->len, ctx->huffman_chunk, huffman.meta.num_uints, ctx->dict_size,
             time.lossless);
     }
     return *this;
@@ -489,8 +532,8 @@ DECOMPRESSOR& DECOMPRESSOR::calculate_archive_nbyte()
     };
 
     if (not ctx->task_is.skip_huffman)
-        archive_bytes += huffman_meta.num_uints * sizeof(Huff)  // Huffman coded
-                         + huffman_meta.revbook_nbyte;          // chunking metadata and reverse codebook
+        archive_bytes += huffman.meta.num_uints * sizeof(Huff)  // Huffman coded
+                         + huffman.meta.revbook_nbyte;          // chunking metadata and reverse codebook
     else
         archive_bytes += length.quant * sizeof(Quant);
     archive_bytes += length.nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);

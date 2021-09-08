@@ -73,16 +73,23 @@ void UseNvcompUnzip(T** space, size_t& len);
 
 namespace lossless {
 
-template <typename Quant, typename Huff, typename Data = float>
+template <typename Quant, typename Huff, bool UINTS_KNOWN>
 void HuffmanEncode(
-    string& basename,
+    Huff*   dev_enc_space,
+    size_t* dev_bits,
+    size_t* dev_uints,
+    size_t* dev_entries,
+    size_t* host_counts,
+    //
+    Huff* dev_out_bitstream,
+    //
     Quant*  dev_input,
     Huff*   dev_book,
     size_t  len,
     int     chunk_size,
     int     dict_size,
-    size_t& out_num_bits,
-    size_t& out_num_uints,
+    size_t* ptr_num_bits,
+    size_t* ptr_num_uints,
     float&  milliseconds);
 
 template <typename Quant, typename Huff, typename Data = float>
