@@ -123,7 +123,7 @@ COMPRESSOR::Compressor(argpack* _ap, unsigned int _data_len, double _eb)
 }
 
 COMPR_TYPE
-void COMPRESSOR::lorenzo_dryrun(struct PartialData<Data>* in_data)
+void COMPRESSOR::lorenzo_dryrun(Capsule<Data>* in_data)
 {
     auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
 
@@ -156,11 +156,7 @@ void COMPRESSOR::lorenzo_dryrun(struct PartialData<Data>* in_data)
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::predict_quantize(
-    struct PartialData<Data>*  data,
-    dim3                       xyz,
-    struct PartialData<Data>*  anchor,
-    struct PartialData<Quant>* quant)
+COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<Data>* anchor, Capsule<Quant>* quant)
 {
     logging(log_info, "invoke lossy-construction");
     // TODO "predictor" -> "prediction"
@@ -182,7 +178,7 @@ COMPRESSOR& COMPRESSOR::predict_quantize(
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::gather_outlier(struct PartialData<Data>* in_data)
+COMPRESSOR& COMPRESSOR::gather_outlier(Capsule<Data>* in_data)
 {
     unsigned int workspace_nbyte, dump_nbyte;
     uint8_t *    workspace, *dump;
@@ -206,10 +202,10 @@ COMPRESSOR& COMPRESSOR::gather_outlier(struct PartialData<Data>* in_data)
 
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::get_freq_and_codebook(
-    struct PartialData<Quant>*        quant,
-    struct PartialData<unsigned int>* freq,
-    struct PartialData<Huff>*         book,
-    struct PartialData<uint8_t>*      revbook)
+    Capsule<Quant>*        quant,
+    Capsule<unsigned int>* freq,
+    Capsule<Huff>*         book,
+    Capsule<uint8_t>*      revbook)
 {
     wrapper::get_frequency<Quant>(quant->dptr, length.quant, freq->dptr, length.dict_size, time.hist);
 
@@ -227,8 +223,8 @@ COMPRESSOR& COMPRESSOR::get_freq_and_codebook(
 
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::analyze_compressibility(
-    struct PartialData<unsigned int>* freq,  //
-    struct PartialData<Huff>*         book)
+    Capsule<unsigned int>* freq,  //
+    Capsule<Huff>*         book)
 {
     if (ctx->report.compressibility) {
         cudaMallocHost(&freq->hptr, freq->nbyte()), freq->d2h();
@@ -248,7 +244,7 @@ COMPRESSOR& COMPRESSOR::analyze_compressibility(
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(struct PartialData<Huff>* book)
+COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(Capsule<Huff>* book)
 {
     // internal evaluation, not stored in sz archive
     if (ctx->task_is.export_book) {  //
@@ -259,7 +255,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(struct PartialData<Huff>* 
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(struct PartialData<Quant>* quant)
+COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<Quant>* quant)
 {
     // internal_eval
     if (ctx->task_is.export_quant) {  //
@@ -275,7 +271,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(struct PartialData<Quant>
 }
 
 COMPR_TYPE
-void COMPRESSOR::try_skip_huffman(struct PartialData<Quant>* quant)
+void COMPRESSOR::try_skip_huffman(Capsule<Quant>* quant)
 {
     // decide if skipping Huffman coding
     if (ctx->task_is.skip_huffman) {
@@ -297,7 +293,7 @@ COMPRESSOR& COMPRESSOR::try_report_time()
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::export_revbook(struct PartialData<uint8_t>* revbook)
+COMPRESSOR& COMPRESSOR::export_revbook(Capsule<uint8_t>* revbook)
 {
     revbook->d2h();
     io::write_array_to_binary(ctx->subfiles.compress.huff_base + ".canon", revbook->hptr, get_revbook_nbyte());
@@ -308,8 +304,8 @@ COMPRESSOR& COMPRESSOR::export_revbook(struct PartialData<uint8_t>* revbook)
 
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::huffman_encode(
-    struct PartialData<Quant>* quant,  //
-    struct PartialData<Huff>*  book)
+    Capsule<Quant>* quant,  //
+    Capsule<Huff>*  book)
 {
     // fix-length space, padding improvised
     cudaMalloc(&huffman.array.d_encspace, sizeof(Huff) * (length.quant + ctx->huffman_chunk + HuffConfig::Db_encode));
@@ -461,7 +457,7 @@ DECOMPRESSOR::Decompressor(cusz_header* header, argpack* _ap)
 }
 
 DECOMPR_TYPE
-DECOMPRESSOR& DECOMPRESSOR::huffman_decode(struct PartialData<Quant>* quant)
+DECOMPRESSOR& DECOMPRESSOR::huffman_decode(Capsule<Quant>* quant)
 {
     if (ctx->task_is.skip_huffman) {
         logging(log_info, "load quant.code from filesystem");
@@ -592,7 +588,7 @@ DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#define DATATYPE struct PartialData<typename DataTrait<If_FP, DataByte>::Data>
+#define DATATYPE Capsule<typename DataTrait<If_FP, DataByte>::Data>
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* header, unsigned int optional_w)
@@ -614,22 +610,22 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* heade
 
     cuszc.lorenzo_dryrun(in_data);  // subject to change
 
-    struct PartialData<Quant> quant(len_quant);
+    Capsule<Quant> quant(len_quant);
     cudaMalloc(&quant.dptr, quant.nbyte());
 
-    struct PartialData<Data>* anchor = nullptr;
+    Capsule<Data>* anchor = nullptr;
     if (ctx->task_is.predictor == "spline3") {
-        anchor = new struct PartialData<Data>(spline3.get_len_anchor());
+        anchor = new Capsule<Data>(spline3.get_len_anchor());
         cudaMalloc(&anchor->dptr, anchor->nbyte());
     }
 
-    struct PartialData<unsigned int> freq(ctx->dict_size);
+    Capsule<unsigned int> freq(ctx->dict_size);
     cudaMalloc(&freq.dptr, freq.nbyte());
 
-    struct PartialData<Huff> book(ctx->dict_size);
+    Capsule<Huff> book(ctx->dict_size);
     cudaMalloc(&book.dptr, book.nbyte()), book.memset(0xff);
 
-    struct PartialData<uint8_t> revbook(cuszc.get_revbook_nbyte());
+    Capsule<uint8_t> revbook(cuszc.get_revbook_nbyte());
     cudaMalloc(&revbook.dptr, revbook.nbyte());
     cudaMallocHost(&revbook.hptr, revbook.nbyte());  // to write to disk later
 
@@ -676,8 +672,7 @@ void cusz_decompress(argpack* ctx, cusz_header* header)
                                  ? spline3.get_len_quant()
                                  : lorenzo_get_len_quant();
 
-    struct PartialData<Data>* anchor =
-        new struct PartialData<Data>(spline3.get_len_anchor());  // TODO this .dptr is nullable, error-prone
+    Capsule<Data>* anchor = new Capsule<Data>(spline3.get_len_anchor());  // TODO this .dptr is nullable, error-prone
     if (ctx->task_is.predictor == "spline3") {
         cudaMalloc(&anchor->dptr, anchor->nbyte());
         cudaMallocHost(&anchor->hptr, anchor->nbyte());
@@ -685,12 +680,12 @@ void cusz_decompress(argpack* ctx, cusz_header* header)
         // TODO dummy, need source
     }
 
-    struct PartialData<Quant> quant(len_quant);
+    Capsule<Quant> quant(len_quant);
     cudaMalloc(&quant.dptr, quant.nbyte());
     cudaMallocHost(&quant.hptr, quant.nbyte());
 
     // TODO cuszd.get_len_data_space()
-    struct PartialData<Data> _data(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
+    Capsule<Data> _data(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
     cudaMalloc(&_data.dptr, _data.nbyte());
     cudaMallocHost(&_data.hptr, _data.nbyte());
     auto xdata = _data.dptr, outlier = _data.dptr;
@@ -725,9 +720,8 @@ template class Decompressor<float, uint8_t, unsigned long long, float>;
 template class Decompressor<float, uint16_t, unsigned long long, float>;
 template class Decompressor<float, uint32_t, unsigned long long, float>;
 
-#define CUSZ_COMPRESS(DBYTE, QBYTE, HBYTE)                  \
-    template void cusz_compress<true, DBYTE, QBYTE, HBYTE>( \
-        argpack*, struct PartialData<float>*, dim3, cusz_header*, unsigned int);
+#define CUSZ_COMPRESS(DBYTE, QBYTE, HBYTE) \
+    template void cusz_compress<true, DBYTE, QBYTE, HBYTE>(argpack*, Capsule<float>*, dim3, cusz_header*, unsigned int);
 
 CUSZ_COMPRESS(4, 1, 4)
 CUSZ_COMPRESS(4, 1, 8)

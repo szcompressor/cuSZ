@@ -220,13 +220,13 @@ void lossless::HuffmanEncode(
 
 template <typename Quant, typename Huff, typename Data>
 void lossless::HuffmanDecode(
-    std::string&               basename,  //
-    struct PartialData<Quant>* quant,
-    size_t                     len,
-    int                        chunk_size,
-    size_t                     num_uints,
-    int                        dict_size,
-    float&                     milliseconds)
+    std::string&    basename,  //
+    Capsule<Quant>* quant,
+    size_t          len,
+    int             chunk_size,
+    size_t          num_uints,
+    int             dict_size,
+    float&          milliseconds)
 {
     constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
     auto           revbook_nbyte = sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * dict_size;
@@ -282,9 +282,8 @@ HUFFMAN_ENCODE(UI2, UI8, true)
 HUFFMAN_ENCODE(UI4, UI4, true)
 HUFFMAN_ENCODE(UI4, UI8, true)
 
-#define HUFFMAN_DECODE(Q, H, D)                     \
-    template void lossless::HuffmanDecode<Q, H, D>( \
-        std::string&, struct PartialData<Q>*, size_t, int, size_t, int, float&);
+#define HUFFMAN_DECODE(Q, H, D) \
+    template void lossless::HuffmanDecode<Q, H, D>(std::string&, Capsule<Q>*, size_t, int, size_t, int, float&);
 
 HUFFMAN_DECODE(UI1, UI4, FP4)
 HUFFMAN_DECODE(UI1, UI8, FP4)

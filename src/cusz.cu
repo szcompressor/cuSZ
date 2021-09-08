@@ -28,7 +28,7 @@ using std::string;
 
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
-#include "datapack.hh"
+#include "capsule.hh"
 #include "kernel/preprocess.cuh"
 #include "metadata.hh"
 #include "nvgpusz.cuh"
@@ -137,7 +137,7 @@ int main(int argc, char** argv)
     auto m   = static_cast<size_t>(ceil(sqrt(len)));
     auto mxm = m * m;
 
-    struct PartialData<Data> in_data(mxm);
+    Capsule<Data> in_data(mxm);
 
     if (ctx->task_is.construct or ctx->task_is.dryrun) {
         logging(log_dbg, "add padding:", m, "units");

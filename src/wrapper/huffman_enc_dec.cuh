@@ -19,7 +19,7 @@
 #include <string>
 #include <tuple>
 
-#include "../datapack.hh"
+#include "../capsule.hh"
 #include "../type_trait.hh"
 
 using std::string;
@@ -93,7 +93,7 @@ void HuffmanEncode(
     float&  milliseconds);
 
 template <typename Quant, typename Huff, typename Data = float>
-void HuffmanDecode(std::string&, struct PartialData<Quant>*, size_t, int, size_t, int, float&);
+void HuffmanDecode(std::string&, Capsule<Quant>*, size_t, int, size_t, int, float&);
 
 }  // namespace lossless
 

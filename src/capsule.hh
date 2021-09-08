@@ -1,18 +1,18 @@
 /**
- * @file analysis_utils.hh
+ * @file capsule.hh
  * @author Jiannan Tian
  * @brief Simple data analysis (header)
  * @version 0.2.3
  * @date 2020-11-03
- * (create) 2020-11-03 (rev1) 2021-03-24
+ * (create) 2020-11-03 (rev1) 2021-03-24 (rev2) 2021-09-08
  *
  * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
  * See LICENSE in top-level directory
  *
  */
 
-#ifndef DATAPACK_H
-#define DATAPACK_H
+#ifndef CAPSULE_HH
+#define CAPSULE_HH
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
@@ -27,17 +27,18 @@ enum class MODE { TEST, RELEASE };
 enum class WHERE { HOST, DEVICE, BOTH };
 
 template <typename T>
-struct PartialData {
+class Capsule {
+   public:
     using type = T;
     unsigned int len;
     T*           dptr;
     T*           hptr;
 
-    PartialData() = default;
+    Capsule() = default;
 
-    PartialData(unsigned int _len) : len(_len) {}
+    Capsule(unsigned int _len) : len(_len) {}
 
-    struct PartialData& set_len(unsigned int _len)
+    Capsule& set_len(unsigned int _len)
     {
         len = _len;
         return *this;
@@ -46,24 +47,24 @@ struct PartialData {
     unsigned int nbyte() const { return len * sizeof(T); }
 
     // TODO really useful?
-    struct PartialData& memset(unsigned char init = 0x0u)
+    Capsule& memset(unsigned char init = 0x0u)
     {
         cudaMemset(dptr, init, nbyte());
         return *this;
     }
 
-    struct PartialData& h2d()
+    Capsule& h2d()
     {
         cudaMemcpy(dptr, hptr, nbyte(), cudaMemcpyHostToDevice);
         return *this;
     }
-    struct PartialData& d2h()
+    Capsule& d2h()
     {
         cudaMemcpy(hptr, dptr, nbyte(), cudaMemcpyDeviceToHost);
         return *this;
     }
     template <MODE m, WHERE w>
-    struct PartialData& alloc()
+    Capsule& alloc()
     {
         if (m != MODE::TEST) throw std::runtime_error("Impromptu allocation should only used when MODE::TEST.");
 
@@ -88,7 +89,7 @@ struct PartialData {
         return *this;
     }
     template <MODE m, WHERE w>
-    struct PartialData& free()
+    Capsule& free()
     {
         if (m != MODE::TEST) throw std::runtime_error("Impromptu allocation should only used when MODE::TEST.");
 

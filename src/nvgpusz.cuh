@@ -18,7 +18,7 @@
 #include <iostream>
 
 #include "argparse.hh"
-#include "datapack.hh"
+#include "capsule.hh"
 #include "pack.hh"
 #include "type_trait.hh"
 #include "utils.hh"
@@ -29,7 +29,7 @@ using namespace std;
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz_compress(
     argpack*,
-    struct PartialData<typename DataTrait<If_FP, DataByte>::Data>*,
+    Capsule<typename DataTrait<If_FP, DataByte>::Data>*,
     dim3,
     cusz_header* mp,
     unsigned int = 1);
@@ -90,36 +90,32 @@ class Compressor {
 
     Compressor(argpack* _ap, unsigned int _data_len, double _eb);
 
-    void lorenzo_dryrun(struct PartialData<Data>* in_data);
+    void lorenzo_dryrun(Capsule<Data>* in_data);
 
-    Compressor& predict_quantize(
-        struct PartialData<Data>*  data,
-        dim3                       xyz,
-        struct PartialData<Data>*  anchor,
-        struct PartialData<Quant>* quant);
+    Compressor& predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<Data>* anchor, Capsule<Quant>* quant);
 
-    Compressor& gather_outlier(struct PartialData<Data>* in_data);
+    Compressor& gather_outlier(Capsule<Data>* in_data);
 
     Compressor& get_freq_and_codebook(
-        struct PartialData<Quant>*        quant,
-        struct PartialData<unsigned int>* freq,
-        struct PartialData<Huff>*         book,
-        struct PartialData<uint8_t>*      revbook);
+        Capsule<Quant>*        quant,
+        Capsule<unsigned int>* freq,
+        Capsule<Huff>*         book,
+        Capsule<uint8_t>*      revbook);
 
-    Compressor& analyze_compressibility(struct PartialData<unsigned int>* freq, struct PartialData<Huff>* book);
+    Compressor& analyze_compressibility(Capsule<unsigned int>* freq, Capsule<Huff>* book);
 
-    Compressor& internal_eval_try_export_book(struct PartialData<Huff>* book);
+    Compressor& internal_eval_try_export_book(Capsule<Huff>* book);
 
-    Compressor& internal_eval_try_export_quant(struct PartialData<Quant>* quant);
+    Compressor& internal_eval_try_export_quant(Capsule<Quant>* quant);
 
     // TODO make it return *this
-    void try_skip_huffman(struct PartialData<Quant>* quant);
+    void try_skip_huffman(Capsule<Quant>* quant);
 
     Compressor& try_report_time();
 
-    Compressor& export_revbook(struct PartialData<uint8_t>* revbook);
+    Compressor& export_revbook(Capsule<uint8_t>* revbook);
 
-    Compressor& huffman_encode(struct PartialData<Quant>* quant, struct PartialData<Huff>* book);
+    Compressor& huffman_encode(Capsule<Quant>* quant, Capsule<Huff>* book);
 
     Compressor& pack_metadata(cusz_header* mp);
 };
@@ -164,7 +160,7 @@ class Decompressor {
 
     Decompressor(cusz_header* _mp, argpack* _ap);
 
-    Decompressor& huffman_decode(struct PartialData<Quant>* quant);
+    Decompressor& huffman_decode(Capsule<Quant>* quant);
 
     Decompressor& scatter_outlier(Data* outlier);
 
@@ -181,11 +177,11 @@ class Decompressor {
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz_compress(
-    argpack*                                                       ctx,
-    struct PartialData<typename DataTrait<If_FP, DataByte>::Data>* in_data,
-    dim3                                                           xyz,
-    cusz_header*                                                   header,
-    unsigned int                                                   optional_w);
+    argpack*                                            ctx,
+    Capsule<typename DataTrait<If_FP, DataByte>::Data>* in_data,
+    dim3                                                xyz,
+    cusz_header*                                        header,
+    unsigned int                                        optional_w);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
 void cusz_decompress(argpack* ctx, cusz_header* header);
