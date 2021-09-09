@@ -29,10 +29,10 @@ using std::string;
 #include "analysis/analyzer.hh"
 #include "argparse.hh"
 #include "capsule.hh"
+#include "header.hh"
 #include "kernel/preprocess.cuh"
 #include "metadata.hh"
 #include "nvgpusz.cuh"
-#include "pack.hh"
 #include "query.hh"
 #include "type_aliasing.hh"
 #include "types.hh"
@@ -44,50 +44,6 @@ double actualRelErr;
 string z_mode;
 
 namespace {
-
-void load_demo_sizes(argpack* ap)
-{
-    std::unordered_map<std::string, std::vector<int>> dataset_entries = {
-        {std::string("hacc"), {280953867, 1, 1, 1, 1}},    {std::string("hacc1b"), {1073726487, 1, 1, 1, 1}},
-        {std::string("cesm"), {3600, 1800, 1, 1, 2}},      {std::string("hurricane"), {500, 500, 100, 1, 3}},
-        {std::string("nyx-s"), {512, 512, 512, 1, 3}},     {std::string("nyx-m"), {1024, 1024, 1024, 1, 3}},
-        {std::string("qmc"), {288, 69, 7935, 1, 3}},       {std::string("qmcpre"), {69, 69, 33120, 1, 3}},
-        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("rtm"), {235, 849, 849, 1, 3}},
-        {std::string("parihaka"), {1168, 1126, 922, 1, 3}}};
-
-    if (not ap->demo_dataset.empty()) {
-        // TODO try-catch
-        auto dim4_datum = dataset_entries.at(ap->demo_dataset);
-
-        ap->dim4._0 = (int)dim4_datum[0];
-        ap->dim4._1 = (int)dim4_datum[1];
-        ap->dim4._2 = (int)dim4_datum[2];
-        ap->dim4._3 = (int)dim4_datum[3];
-        ap->ndim    = (int)dim4_datum[4];
-    }
-
-    if (ap->ndim == 1)
-        ap->GPU_block_size = MetadataTrait<1>::Block;
-    else if (ap->ndim == 2)
-        ap->GPU_block_size = MetadataTrait<2>::Block;
-    else if (ap->ndim == 3)
-        ap->GPU_block_size = MetadataTrait<3>::Block;
-
-    auto get_nblk = [&](auto d) { return (d + ap->GPU_block_size - 1) / ap->GPU_block_size; };
-
-    ap->nblk4._0 = get_nblk(ap->dim4._0);
-    ap->nblk4._1 = get_nblk(ap->dim4._1);
-    ap->nblk4._2 = get_nblk(ap->dim4._2);
-    ap->nblk4._3 = get_nblk(ap->dim4._3);
-
-    ap->len = ap->dim4._0 * ap->dim4._1 * ap->dim4._2 * ap->dim4._3;
-
-    ap->stride4 = {
-        1,                          //
-        ap->dim4._0,                //
-        ap->dim4._0 * ap->dim4._1,  //
-        ap->dim4._0 * ap->dim4._1 * ap->dim4._2};
-}
 
 void check_shell_calls(string cmd_string)
 {
@@ -121,7 +77,6 @@ int main(int argc, char** argv)
 {
     auto ctx = new ArgPack();
     ctx->parse_args(argc, argv);
-    load_demo_sizes(ctx);
 
     if (ctx->verbose) {
         GetMachineProperties();
@@ -133,7 +88,7 @@ int main(int argc, char** argv)
     // TODO hardcode for float for now
     using Data = float;
 
-    auto len = ctx->len;
+    auto len = ctx->data_len;
     auto m   = static_cast<size_t>(ceil(sqrt(len)));
     auto mxm = m * m;
 
@@ -179,8 +134,9 @@ int main(int argc, char** argv)
 
     if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
-        auto xyz = dim3(ctx->dim4._0, ctx->dim4._1, ctx->dim4._2);
-        auto mp  = new cusz_header();
+        auto xyz = dim3(ctx->x, ctx->y, ctx->z);
+
+        auto mp = new cusz_header();
 
         if (ctx->quant_byte == 1) {
             if (ctx->huff_byte == 4)

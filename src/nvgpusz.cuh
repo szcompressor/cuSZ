@@ -19,7 +19,7 @@
 
 #include "argparse.hh"
 #include "capsule.hh"
-#include "pack.hh"
+#include "header.hh"
 #include "type_trait.hh"
 #include "utils.hh"
 #include "wrapper/interp_spline.h"
@@ -39,6 +39,8 @@ void cusz_decompress(argpack*, cusz_header* mp);
 
 template <typename Data, typename Quant, typename Huff, typename FP>
 class Compressor {
+    using BYTE = uint8_t;
+
    private:
     static const auto TYPE_BITCOUNT = sizeof(Huff) * 8;
 
@@ -88,7 +90,7 @@ class Compressor {
 
     unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
 
-    Compressor(argpack* _ap, unsigned int _data_len, double _eb);
+    Compressor(argpack* _ctx);
 
     void lorenzo_dryrun(Capsule<Data>* in_data);
 

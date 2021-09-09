@@ -11,11 +11,13 @@
  *
  */
 
-#include "argparse.hh"
 #include <cassert>
 #include <cmath>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
+
+#include "argparse.hh"
 #include "argument_parser/document.hh"
 #include "utils/format.hh"
 
@@ -25,7 +27,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* version_text  = "2021-09-08.1";
+const char* version_text  = "2021-09-08.2";
 const int   version       = 202107132;
 const int   compatibility = 0;
 
@@ -199,6 +201,32 @@ void set_config(argpack* ap, char* in_str)
 
 }  // namespace
 
+void ArgPack::load_demo_sizes()
+{
+    const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
+        {std::string("hacc"), {280953867, 1, 1, 1, 1}},    {std::string("hacc1b"), {1073726487, 1, 1, 1, 1}},
+        {std::string("cesm"), {3600, 1800, 1, 1, 2}},      {std::string("hurricane"), {500, 500, 100, 1, 3}},
+        {std::string("nyx-s"), {512, 512, 512, 1, 3}},     {std::string("nyx-m"), {1024, 1024, 1024, 1, 3}},
+        {std::string("qmc"), {288, 69, 7935, 1, 3}},       {std::string("qmcpre"), {69, 69, 33120, 1, 3}},
+        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("rtm"), {235, 849, 849, 1, 3}},
+        {std::string("parihaka"), {1168, 1126, 922, 1, 3}}};
+
+    if (not demo_dataset.empty()) {
+        auto f = dataset_entries.find(demo_dataset);
+        if (f == dataset_entries.end()) throw std::runtime_error("no such dataset as" + demo_dataset);
+        auto demo_xyzw = f->second;
+
+        x = demo_xyzw[0];
+        y = demo_xyzw[1];
+        z = demo_xyzw[2];
+        w = demo_xyzw[3];
+
+        ndim = demo_xyzw[4];
+    }
+
+    data_len = x * y * z * w;
+}
+
 string  //
 ArgPack::format(const string& s)
 {
@@ -236,7 +264,8 @@ ArgPack::check_args()
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    if (self_multiply4(dim4) == 1 and not task_is.use_demo_dataset) {
+
+    if (self_multiply4() == 1 and not task_is.use_demo_dataset) {
         if (task_is.construct or task_is.dryrun) {
             cerr << log_err << "Wrong input size(s)!" << endl;
             to_abort = true;
@@ -356,6 +385,7 @@ void ArgPack::parse_args(int argc, char** argv)
                         if (i + 1 <= argc) {
                             task_is.use_demo_dataset = true;
                             demo_dataset             = string(argv[++i]);
+                            load_demo_sizes();
                         }
                         break;
                     }
@@ -410,8 +440,6 @@ void ArgPack::parse_args(int argc, char** argv)
                         string analysis(argv[++i]);
                         if (analysis.find("export-codebook") != std::string::npos) { task_is.export_book = true; }
                         if (analysis.find("export-quant") != std::string::npos) { task_is.export_quant = true; }
-                        if (analysis.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
-                        if (analysis.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
                     }
                     break;
                 // INPUT
@@ -426,24 +454,26 @@ void ArgPack::parse_args(int argc, char** argv)
                             dims.push_back(substr);
                         }
                         ndim = dims.size();
+                        x = y = z = w = 1;
                         if (ndim == 1) {  //
-                            auto d0 = str2int(dims[0].c_str());
-                            dim4    = {d0, 1, 1, 1};
+                            x = str2int(dims[0].c_str());
                         }
                         if (ndim == 2) {  //
-                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            dim4 = {d0, d1, 1, 1};
+                            x = str2int(dims[0].c_str());
+                            y = str2int(dims[1].c_str());
                         }
                         if (ndim == 3) {
-                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            auto d2 = str2int(dims[2].c_str());
-                            dim4    = {d0, d1, d2, 1};
+                            x = str2int(dims[0].c_str());
+                            y = str2int(dims[1].c_str());
+                            z = str2int(dims[2].c_str());
                         }
                         if (ndim == 4) {
-                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            auto d2 = str2int(dims[2].c_str()), d3 = str2int(dims[3].c_str());
-                            dim4 = {d0, d1, d2, d3};
+                            x = str2int(dims[0].c_str());
+                            y = str2int(dims[1].c_str());
+                            z = str2int(dims[2].c_str());
+                            w = str2int(dims[3].c_str());
                         }
+                        data_len = x * y * z * w;
                     }
                     break;
                 case 'i':

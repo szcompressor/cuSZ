@@ -28,43 +28,30 @@ extern const char* version_text;
 extern const int   version;
 extern const int   compatibility;
 
-struct alignas(8) SZDataRepresent {
-    int quant_byte;
-    int huff_byte;
-};
+// struct alignas(8) SZDataRepresent {
+//     int quant_byte;
+//     int huff_byte;
+// };
 
 class ArgPack {
+   private:
+    void load_demo_sizes();
+
    public:
     struct {
-        bool use_demo_dataset{false};
-
-        bool pre_binning{false};
-        bool pre_log_trans{false};
-
-        bool autotune_huffchunk{true};
-
-        bool construct{false};
-        bool reconstruct{false};
-        bool dryrun{false};
-
-        bool export_book{false};
-        bool export_quant{false};
-
-        bool skip_write2disk{false};
-        bool skip_huffman{false};
-
-        bool lossless_nvcomp_cascade{false};
-        bool lossless_gzip{false};
-
-        bool gtest{false};
-
+        bool   use_demo_dataset{false};
+        bool   pre_binning{false}, pre_log_trans{false};
+        bool   autotune_huffchunk{true};
+        bool   construct{false}, reconstruct{false}, dryrun{false};
+        bool   export_book{false}, export_quant{false};
+        bool   skip_write2disk{false}, skip_huffman{false};
+        bool   lossless_nvcomp_cascade{false}, lossless_gzip{false};
+        bool   gtest{false};
         string predictor = string("lorenzo");
     } task_is;
 
     struct {
-        bool quality{true};
-        bool time{false};
-        bool cr{false};
+        bool quality{true}, time{false}, cr{false};
         bool compressibility{false};
     } report;
 
@@ -96,19 +83,12 @@ class ArgPack {
 
     double eb{0.0};
 
-    size_t    len{1};
-    UInteger4 dim4{1, 1, 1, 1};
-    UInteger4 nblk4{1, 1, 1, 1};
-    UInteger4 stride4{1, 1, 1, 1};
-    int       GPU_block_size{1};
-    int       dict_size{1024};
-    int       radius{512};
+    size_t       data_len{1};
+    unsigned int x, y, z, w;
+
+    int dict_size{1024}, radius{512};
 
     bool verbose{false};
-    bool to_verify{false};
-
-    bool get_huff_entropy{false};
-    bool get_huff_avg_bitcount{false};
 
     // for standalone Huffman
     int input_rep{2};
@@ -126,8 +106,7 @@ class ArgPack {
 
     ArgPack() = default;
 
-    static int          self_multiply4(Integer4 i) { return i._0 * i._1 * i._2 * i._3; }
-    static unsigned int self_multiply4(UInteger4 i) { return i._0 * i._1 * i._2 * i._3; }
+    size_t self_multiply4() { return x * y * z * w; };
 
     void parse_args(int argc, char** argv);
 

@@ -17,43 +17,6 @@
 #include <string>
 #include <unordered_map>
 
-struct Metadata {
-    int block{};
-    int ndim{};
-    int len = 1;
-    int d0{1}, d1{1}, d2{1}, d3{1};
-    int stride0{}, stride1{}, stride2{}, stride3{};
-    int nb0{}, nb1{}, nb2{}, nb3{};  // nb3 not usable in dim
-    int cap{}, radius{};
-    int nnz{};
-
-    double eb{}, ebx2{}, ebx2_r{};
-    // TODO caution! host-device sync
-    size_t total_bits{}, total_uint{}, huff_metadata_size{};
-};
-
-typedef struct LorenzoZipContext {
-    int   d0, d1, d2;
-    int   stride1, stride2;
-    int   radius;
-    float ebx2_r;
-} lorenzo_zip;
-
-typedef struct LorenzoDryrunContext {
-    int   d0, d1, d2;
-    int   stride1, stride2;
-    int   radius;
-    float ebx2_r, ebx2;
-} lorenzo_dryrun;
-
-typedef struct LorenzoUnzipContext {
-    int   d0, d1, d2;
-    int   nblk0, nblk1, nblk2;
-    int   stride1, stride2;
-    int   radius;
-    float ebx2;
-} lorenzo_unzip;
-
 template <int ndim>
 struct MetadataTrait;
 

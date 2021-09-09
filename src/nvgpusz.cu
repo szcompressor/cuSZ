@@ -67,8 +67,10 @@ unsigned int COMPRESSOR::tune_deflate_chunksize(size_t len)
 COMPR_TYPE
 void COMPRESSOR::report_compression_time(size_t len, float lossy, float outlier, float hist, float book, float lossless)
 {
-    auto display_throughput = [](float time, size_t nbyte) {
-        auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
+    auto display_throughput = [](float milliseconds, size_t nbyte) {
+        auto GiB        = 1.0 * 1024 * 1024 * 1024;
+        auto seconds    = milliseconds * 1e-3;
+        auto throughput = nbyte / GiB / seconds;
         cout << throughput << "GiB/s\n";
     };
     //
@@ -102,22 +104,22 @@ void COMPRESSOR::export_codebook(Huff* d_book, const string& basename, size_t di
 }
 
 COMPR_TYPE
-COMPRESSOR::Compressor(argpack* _ap, unsigned int _data_len, double _eb)
+COMPRESSOR::Compressor(argpack* _ctx)
 {
-    ctx = _ap;
+    ctx = _ctx;
 
     ndim = ctx->ndim;
 
     config.radius = ctx->radius;
 
-    length.data      = _data_len;
+    length.data      = ctx->data_len;
     length.quant     = length.data;  // TODO if lorenzo
     length.dict_size = ctx->dict_size;
 
-    config.eb     = _eb;
-    config.ebx2   = _eb * 2;
-    config.ebx2_r = 1 / (_eb * 2);
-    config.eb_r   = 1 / _eb;
+    config.eb     = ctx->eb;
+    config.ebx2   = ctx->eb * 2;
+    config.ebx2_r = 1 / (ctx->eb * 2);
+    config.eb_r   = 1 / ctx->eb;
 
     if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(length.data);
 }
@@ -362,14 +364,15 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
 {
-    header->dim4    = ctx->dim4;
-    header->stride4 = ctx->stride4;
-    header->nblk4   = ctx->nblk4;
-    header->ndim    = ctx->ndim;
-    header->eb      = ctx->eb;
-    header->len     = ctx->len;
+    header->x    = ctx->x;
+    header->y    = ctx->y;
+    header->z    = ctx->z;
+    header->w    = ctx->w;
+    header->ndim = ctx->ndim;
+    header->eb   = ctx->eb;
+    header->nnz  = length.nnz_outlier;
 
-    header->nnz = length.nnz_outlier;
+    header->data_len = ctx->data_len;
 
     if (ctx->dtype == "f32") header->dtype = DataType::kF32;
     if (ctx->dtype == "f64") header->dtype = DataType::kF64;
@@ -394,12 +397,14 @@ COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
 DECOMPR_TYPE
 void DECOMPRESSOR::unpack_metadata(cusz_header* header, argpack* ctx)
 {
-    ctx->dim4    = header->dim4;
-    ctx->stride4 = header->stride4;
-    ctx->nblk4   = header->nblk4;
-    ctx->ndim    = header->ndim;
-    ctx->eb      = header->eb;
-    ctx->len     = header->len;
+    ctx->x    = header->x;
+    ctx->y    = header->y;
+    ctx->z    = header->z;
+    ctx->w    = header->w;
+    ctx->ndim = header->ndim;
+    ctx->eb   = header->eb;
+
+    ctx->data_len = header->data_len;
 
     if (header->dtype == DataType::kF32) ctx->dtype = "f32";
     if (header->dtype == DataType::kF64) ctx->dtype = "f64";
@@ -433,18 +438,18 @@ void DECOMPRESSOR::report_decompression_time(size_t len, float lossy, float outl
 }
 
 DECOMPR_TYPE
-DECOMPRESSOR::Decompressor(cusz_header* header, argpack* _ap)
+DECOMPRESSOR::Decompressor(cusz_header* header, argpack* _ctx)
 {
     logging(log_info, "invoke lossy-reconstruction");
 
-    unpack_metadata(header, _ap);
+    unpack_metadata(header, _ctx);
 
     length.nnz_outlier         = header->nnz;
     huffman.meta.num_uints     = header->num_uints;
     huffman.meta.revbook_nbyte = header->revbook_nbyte;
 
-    ctx          = _ap;
-    length.data  = ctx->len;
+    ctx          = _ctx;
+    length.data  = ctx->data_len;
     length.quant = length.data;  // TODO if lorenzo
 
     config.eb     = ctx->eb;
@@ -467,7 +472,7 @@ DECOMPRESSOR& DECOMPRESSOR::huffman_decode(Capsule<Quant>* quant)
     else {
         logging(log_info, "Huffman decode -> quant.code");
         lossless::HuffmanDecode<Quant, Huff>(
-            ctx->subfiles.path2file, quant, ctx->len, ctx->huffman_chunk, huffman.meta.num_uints, ctx->dict_size,
+            ctx->subfiles.path2file, quant, ctx->data_len, ctx->huffman_chunk, huffman.meta.num_uints, ctx->dict_size,
             time.lossless);
     }
     return *this;
@@ -580,7 +585,7 @@ DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
     if (ctx->task_is.skip_write2disk)
         logging(log_dbg, "skip writing unzipped to filesystem");
     else {
-        io::write_array_to_binary(ctx->subfiles.decompress.out_xdata, host_xdata, ctx->len);
+        io::write_array_to_binary(ctx->subfiles.decompress.out_xdata, host_xdata, ctx->data_len);
     }
 
     return *this;
@@ -598,11 +603,11 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* heade
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
     Spline3<Data*, Quant*, float>        spline3(xyz, ctx->eb);
-    Compressor<Data, Quant, Huff, float> cuszc(ctx, ctx->len, ctx->eb);
+    Compressor<Data, Quant, Huff, float> cuszc(ctx);
     cuszc.register_spline3(&spline3);
 
     // TODO lorenzo class::get_len_quant
-    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->len + HuffConfig::Db_encode; };
+    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->data_len + HuffConfig::Db_encode; };
 
     unsigned int len_quant = ctx->task_is.predictor == "spline3"  //
                                  ? spline3.get_len_quant()
@@ -660,13 +665,13 @@ void cusz_decompress(argpack* ctx, cusz_header* header)
     // TODO float -> another parameter FP
     Decompressor<Data, Quant, Huff, float> cuszd(header, ctx);
 
-    auto xyz = dim3(ctx->dim4._0, ctx->dim4._1, ctx->dim4._2);
+    auto xyz = dim3(ctx->x, ctx->y, ctx->z);
 
     Spline3<Data*, Quant*, float> spline3(xyz, ctx->eb);
     cuszd.register_spline3(&spline3);
 
     // TODO lorenzo class::get_len_quant
-    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->len; };
+    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->data_len; };
 
     unsigned int len_quant = ctx->task_is.predictor == "spline3"  //
                                  ? spline3.get_len_quant()
