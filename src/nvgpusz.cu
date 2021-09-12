@@ -157,7 +157,7 @@ COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<
     else if (ctx->task_is.predictor == "spline3d") {
         if (ctx->ndim != 3) throw std::runtime_error("must be 3D data.");
         // TODO timer
-        spline3->predict_quantize(data->dptr, anchor->dptr, quant->dptr, config.radius);
+        spline3->predict_quantize();
     }
     else {
         throw std::runtime_error("must be \"lorenzo\" or \"spline3d\"");
@@ -456,7 +456,7 @@ DECOMPRESSOR::Decompressor(cusz_header* _header, argpack* _ctx) : header(_header
     xyz = dim3(header->x, header->y, header->z);
 
     csr     = new OutlierHandler<Data>(length.data, length.nnz_outlier);
-    spline3 = new Spline3<Data*, Quant*, float>(xyz, header->eb);
+    spline3 = new Spline3<Data*, Quant*, float>();
 }
 
 DECOMPR_TYPE
@@ -527,7 +527,7 @@ DECOMPRESSOR& DECOMPRESSOR::reversed_predict_quantize(Data* xdata, dim3 xyz, Dat
         throw std::runtime_error("spline not impl'ed");
         if (ctx->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
         // TODO
-        spline3->reversed_predict_quantize(xdata, anchor, quant, ctx->radius);
+        spline3->reversed_predict_quantize();
     }
     else {
         throw std::runtime_error("need to specify predcitor");
@@ -621,16 +621,14 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data)
 
     auto xyz = dim3(ctx->x, ctx->y, ctx->z);
 
-    Spline3<Data*, Quant*, float>        spline3(xyz, ctx->eb);
     Compressor<Data, Quant, Huff, float> cuszc(ctx);
     cuszc.header = new cusz_header();
-    cuszc.register_spline3(&spline3);
 
     // TODO lorenzo class::get_len_quant
     auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->data_len + HuffConfig::Db_encode; };
 
     unsigned int len_quant = ctx->task_is.predictor == "spline3"  //
-                                 ? spline3.get_len_quant()
+                                 ? 1
                                  : lorenzo_get_len_quant();
 
     cuszc.lorenzo_dryrun(in_data);  // subject to change
@@ -640,8 +638,7 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data)
 
     Capsule<Data>* anchor = nullptr;
     if (ctx->task_is.predictor == "spline3") {
-        anchor = new Capsule<Data>(spline3.get_len_anchor());
-        cudaMalloc(&anchor->dptr, anchor->nbyte());
+        // TODO
     }
 
     Capsule<unsigned int> freq(ctx->dict_size);

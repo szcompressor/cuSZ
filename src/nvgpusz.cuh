@@ -25,7 +25,7 @@
 #include "type_trait.hh"
 #include "utils.hh"
 #include "wrapper/handle_sparsity.cuh"
-#include "wrapper/interp_spline.h"
+#include "wrapper/interp_spline_.h"
 
 using namespace std;
 
