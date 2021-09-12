@@ -602,7 +602,7 @@ DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
     if (ctx->task_is.skip_write2disk)
         logging(log_dbg, "skip writing unzipped to filesystem");
     else {
-        io::write_array_to_binary(ctx->fnames.path_basename + "cuszx", host_xdata, ctx->data_len);
+        io::write_array_to_binary(ctx->fnames.path_basename + ".cuszx", host_xdata, ctx->data_len);
     }
 
     return *this;

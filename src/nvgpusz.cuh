@@ -87,7 +87,7 @@ class Compressor {
     } config;
 
     struct {
-        float lossy, outlier, hist, book, lossless;
+        float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0};
     } time;
 
     struct {
@@ -341,7 +341,7 @@ class Decompressor {
 
     size_t archive_bytes;
     struct {
-        float lossy, outlier, lossless;
+        float lossy{0.0}, outlier{0.0}, lossless{0.0};
     } time;
     struct {
         unsigned int data, quant, anchor;
