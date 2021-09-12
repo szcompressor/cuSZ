@@ -712,7 +712,7 @@ void cusz_decompress(argpack* ctx)
                                  : lorenzo_get_len_quant();
 
     Capsule<Data>* anchor =
-        new Capsule<Data>(cuszd.spline3->get_len_anchor());  // TODO this .dptr is nullable, error-prone
+        new Capsule<Data>(cuszd.spline3->get_len_helper());  // TODO this .dptr is nullable, error-prone
     if (ctx->task_is.predictor == "spline3") {
         cudaMalloc(&anchor->dptr, anchor->nbyte());
         cudaMallocHost(&anchor->hptr, anchor->nbyte());
