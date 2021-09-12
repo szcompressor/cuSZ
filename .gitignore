@@ -61,3 +61,8 @@ src/ood
 src/future
 src/huffre
 data/4lossless
+spline.h
+interp_spline.cu
+interp_spline.h
+interp_spline.cuh
+ex_spline.cu
