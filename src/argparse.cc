@@ -535,7 +535,7 @@ void ArgPack::parse_args(int argc, char** argv)
                     }
                     break;
                 case 'M':
-                tag_meta:  // TODO print .sz archive metadat
+                tag_meta:  // TODO print .cusza archive metadat
                     break;
                 case 'e':
                 tag_error_bound:
