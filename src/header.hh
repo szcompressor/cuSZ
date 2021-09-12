@@ -16,31 +16,41 @@
 
 #include "argparse.hh"
 
-enum DataType { kF32, kF64 };
-
 typedef struct alignas(128) cuszHEADER {
     uint32_t x, y, z, w, ndim;
     uint32_t data_len;
     double   eb;
 
-    int M, MxM;  // padded M
-    int nnz;
+    struct {
+        uint32_t dtype : 8;        // (1) fp32, (2) fp64
+        uint32_t quant_nbyte : 4;  //
+        uint32_t huff_nbyte : 4;   //
+    } config;
 
-    size_t   num_bits, num_uints;
-    uint16_t revbook_nbyte;
-    uint8_t  quant_byte, huff_byte;
-    uint32_t huffman_chunk;
+    struct {
+        int nnz;
+    } outlier;
+
+    struct {
+        // uint32_t num_bits;
+        uint32_t num_uints;
+        uint32_t chunk;
+    } huffman;
 
     bool skip_huffman;
 
-    DataType dtype;  // TODO f64 support
+    // stat
+    float maximum, minimum;
 
     struct {
-        uint32_t huffman_revbook;
-        uint32_t huffman_bitstream;
-        uint32_t huffman_uints_entries;
-        uint32_t outlier;
-    } nbytes;
+        /* 0 header */
+        /* 1 */ uint32_t book;
+        /* 2 */ uint32_t quant;
+        /* 3 */ uint32_t revbook;
+        /* 4 */ uint32_t outlier;
+        /* 5 */ uint32_t huff_meta;
+        /* 6 */ uint32_t huff_bitstream;
+    } nbyte;
 
 } cusz_header;
 

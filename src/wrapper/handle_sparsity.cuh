@@ -13,22 +13,12 @@
 #ifndef CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
 #define CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
 
+#include <driver_types.h>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <stdexcept>
-
-template <typename Data>
-unsigned int get_compress_sparse_workspace(unsigned int len)
-{
-    auto m        = static_cast<size_t>(ceil(sqrt(len)));
-    auto init_nnz = len / 10;
-
-    return sizeof(int) * (m + 1) +   // rowptr
-           sizeof(int) * init_nnz +  // colidx
-           sizeof(Data) * init_nnz;  // values
-}
 
 template <typename Data = float>
 class OutlierHandler {
@@ -61,7 +51,7 @@ class OutlierHandler {
     /********************************************************************************
      * compression use
      ********************************************************************************/
-    OutlierHandler(unsigned int _len);
+    OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte);
 
     /**
      * @brief set up memory pool
@@ -88,7 +78,7 @@ class OutlierHandler {
 
     OutlierHandler& gather_CUDA10(float* in, unsigned int& dump_nbyte, float& ms_timer);
 
-    OutlierHandler& archive(uint8_t* archive, int& nnz);
+    OutlierHandler& archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
 
     /********************************************************************************
      * decompression use

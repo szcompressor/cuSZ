@@ -218,9 +218,11 @@ void lossless::HuffmanEncode(
     }
 }
 
-template <typename Quant, typename Huff, typename Data>
+template <typename Quant, typename Huff>
 void lossless::HuffmanDecode(
-    std::string&    basename,  //
+    Huff*           dev_out_bitstream,
+    size_t*         dev_bits_entries,
+    uint8_t*        dev_revbook,
     Capsule<Quant>* quant,
     size_t          len,
     int             chunk_size,
@@ -230,18 +232,10 @@ void lossless::HuffmanDecode(
 {
     constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
     auto           revbook_nbyte = sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * dict_size;
-    auto           host_revbook  = io::read_binary_to_new_array<uint8_t>(basename + ".canon", revbook_nbyte);
 
-    auto nchunk            = (len - 1) / chunk_size + 1;
-    auto host_in_bitstream = io::read_binary_to_new_array<Huff>(basename + ".hbyte", num_uints);
-    auto host_bits_entries = io::read_binary_to_new_array<size_t>(basename + ".hmeta", 2 * nchunk);
-    auto block_dim         = HuffConfig::Db_deflate;  // the same as deflating
-    auto grid_dim          = (nchunk - 1) / block_dim + 1;
-
-    auto dev_out_bitstream = mem::create_devspace_memcpy_h2d(host_in_bitstream, num_uints);
-    auto dev_bits_entries  = mem::create_devspace_memcpy_h2d(host_bits_entries, 2 * nchunk);
-    auto dev_revbook       = mem::create_devspace_memcpy_h2d(host_revbook, revbook_nbyte);
-    cudaDeviceSynchronize();
+    auto nchunk    = (len - 1) / chunk_size + 1;
+    auto block_dim = HuffConfig::Db_deflate;  // the same as deflating
+    auto grid_dim  = (nchunk - 1) / block_dim + 1;
 
     {
         auto t = new cuda_timer_t;
@@ -253,13 +247,6 @@ void lossless::HuffmanDecode(
         cudaDeviceSynchronize();
         delete t;
     }
-
-    cudaFree(dev_out_bitstream);
-    cudaFree(dev_bits_entries);
-    cudaFree(dev_revbook);
-    delete[] host_in_bitstream;
-    delete[] host_bits_entries;
-    delete[] host_revbook;
 }
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
@@ -282,12 +269,12 @@ HUFFMAN_ENCODE(UI2, UI8, true)
 HUFFMAN_ENCODE(UI4, UI4, true)
 HUFFMAN_ENCODE(UI4, UI8, true)
 
-#define HUFFMAN_DECODE(Q, H, D) \
-    template void lossless::HuffmanDecode<Q, H, D>(std::string&, Capsule<Q>*, size_t, int, size_t, int, float&);
+#define HUFFMAN_DECODE(Q, H) \
+    template void lossless::HuffmanDecode<Q, H>(H*, size_t*, uint8_t*, Capsule<Q>*, size_t, int, size_t, int, float&);
 
-HUFFMAN_DECODE(UI1, UI4, FP4)
-HUFFMAN_DECODE(UI1, UI8, FP4)
-HUFFMAN_DECODE(UI2, UI4, FP4)
-HUFFMAN_DECODE(UI2, UI8, FP4)
-HUFFMAN_DECODE(UI4, UI4, FP4)
-HUFFMAN_DECODE(UI4, UI8, FP4)
+HUFFMAN_DECODE(UI1, UI4)
+HUFFMAN_DECODE(UI1, UI8)
+HUFFMAN_DECODE(UI2, UI4)
+HUFFMAN_DECODE(UI2, UI8)
+HUFFMAN_DECODE(UI4, UI4)
+HUFFMAN_DECODE(UI4, UI8)

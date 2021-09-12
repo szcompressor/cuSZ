@@ -15,13 +15,16 @@
  */
 
 #include <cxxabi.h>
+#include <clocale>
 #include <iostream>
+#include <unordered_map>
 
 #include "argparse.hh"
 #include "capsule.hh"
 #include "header.hh"
 #include "type_trait.hh"
 #include "utils.hh"
+#include "wrapper/handle_sparsity.cuh"
 #include "wrapper/interp_spline.h"
 
 using namespace std;
@@ -42,13 +45,28 @@ class Compressor {
     using BYTE = uint8_t;
 
    private:
+    struct {
+        std::unordered_map<int, std::string> order2name = {
+            {0, "header"},  {1, "book"},      {2, "quant"},         {3, "revbook"},
+            {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
+        };
+
+        std::unordered_map<std::string, uint32_t> nbyte_raw = {
+            {"header", sizeof(cusz_header)},
+            {"book", 0U},            //
+            {"quant", 0U},           //
+            {"revbook", 0U},         //
+            {"outlier", 0U},         //
+            {"huff-meta", 0U},       //
+            {"huff-bitstream", 0U},  //
+        };
+    } data_seg;
+
     static const auto TYPE_BITCOUNT = sizeof(Huff) * 8;
 
     unsigned int tune_deflate_chunksize(size_t len);
 
     void report_compression_time(size_t len, float lossy, float outlier, float hist, float book, float lossless);
-
-    void export_codebook(Huff* d_book, const string& basename, size_t dict_size);
 
    public:
     Spline3<Data*, Quant*, float>* spline3;
@@ -78,19 +96,144 @@ class Compressor {
         } meta;
 
         struct {
+            BYTE*   h_revbook;
             size_t *h_counts, *d_counts;
             Huff *  h_bitstream, *d_bitstream, *d_encspace;
         } array;
     } huffman;
 
-    // huffman arrays
+    struct {
+        unsigned int workspace_nbyte;
+        uint32_t     dump_nbyte;
+        uint8_t*     workspace;
+        uint8_t*     dump;
+    } sp;
 
-    // context
+    OutlierHandler<Data>* csr;
+
+    // context, configuration
     argpack* ctx;
+    //
+    cusz_header* header;
 
     unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
 
     Compressor(argpack* _ctx);
+
+    ~Compressor()
+    {
+        // release small-size arrays
+        cudaFree(huffman.array.d_counts);
+        cudaFree(huffman.array.d_bitstream);
+
+        cudaFreeHost(huffman.array.h_bitstream);
+        cudaFreeHost(huffman.array.h_counts);
+
+        cudaFreeHost(sp.dump);
+
+        delete csr;
+    };
+
+    void consolidate(bool on_cpu = true, bool on_gpu = false)
+    {
+        // put in header
+        header->nbyte.book           = data_seg.nbyte_raw.at("book");
+        header->nbyte.revbook        = data_seg.nbyte_raw.at("revbook");
+        header->nbyte.outlier        = data_seg.nbyte_raw.at("outlier");
+        header->nbyte.huff_meta      = data_seg.nbyte_raw.at("huff-meta");
+        header->nbyte.huff_bitstream = data_seg.nbyte_raw.at("huff-bitstream");
+
+        // consolidate
+        std::vector<uint32_t> offsets = {0};
+
+        printf(
+            "\ndata segments:\n  %-18s\t%12s\t%15s\t%15s\n",  //
+            const_cast<char*>("name"),                        //
+            const_cast<char*>("nbyte"),                       //
+            const_cast<char*>("start"),                       //
+            const_cast<char*>("end"));
+
+        // print long numbers with thousand separator
+        // https://stackoverflow.com/a/7455282
+        // https://stackoverflow.com/a/11695246
+        setlocale(LC_ALL, "");
+
+        for (auto i = 0; i < 7; i++) {
+            const auto& name = data_seg.order2name.at(i);
+
+            auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(data_seg.nbyte_raw.at(name));
+            offsets.push_back(o);
+
+            printf(
+                "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), data_seg.nbyte_raw.at(name), offsets.at(i),
+                offsets.back());
+        }
+
+        auto total_nbyte = offsets.back();
+
+        printf("\ncompression ratio:\t%.4f\n", ctx->data_len * sizeof(Data) * 1.0 / total_nbyte);
+
+        BYTE *h_dump = nullptr, *d_dump = nullptr;
+
+        cout << "dump on CPU\t" << on_cpu << '\n';
+        cout << "dump on GPU\t" << on_gpu << '\n';
+
+        auto both = on_cpu and on_gpu;
+        if (both) {
+            //
+            throw runtime_error("[consolidate on both] not implemented");
+        }
+        else {
+            if (on_cpu) {
+                //
+                cudaMallocHost(&h_dump, total_nbyte);
+
+                /* 0 */  // header
+                cudaMemcpy(
+                    h_dump + offsets.at(0),           //
+                    reinterpret_cast<BYTE*>(header),  //
+                    data_seg.nbyte_raw.at("header"),  //
+                    cudaMemcpyHostToHost);
+                /* 1 */  // book
+                /* 2 */  // quant
+                /* 3 */  // revbook
+                cudaMemcpy(
+                    h_dump + offsets.at(3),                            //
+                    reinterpret_cast<BYTE*>(huffman.array.h_revbook),  //
+                    data_seg.nbyte_raw.at("revbook"),                  //
+                    cudaMemcpyHostToHost);
+                /* 4 */  // outlier
+                cudaMemcpy(
+                    h_dump + offsets.at(4),            //
+                    reinterpret_cast<BYTE*>(sp.dump),  //
+                    data_seg.nbyte_raw.at("outlier"),  //
+                    cudaMemcpyHostToHost);
+                /* 5 */  // huff_meta
+                cudaMemcpy(
+                    h_dump + offsets.at(5),                                         //
+                    reinterpret_cast<BYTE*>(huffman.array.h_counts + ctx->nchunk),  //
+                    data_seg.nbyte_raw.at("huff-meta"),                             //
+                    cudaMemcpyHostToHost);
+                /* 6 */  // huff_bitstream
+                cudaMemcpy(
+                    h_dump + offsets.at(6),                              //
+                    reinterpret_cast<BYTE*>(huffman.array.h_bitstream),  //
+                    data_seg.nbyte_raw.at("huff-bitstream"),             //
+                    cudaMemcpyHostToHost);
+
+                cout << "basename_out\t" << ctx->fnames.path_basename << '\n';
+
+                io::write_array_to_binary(ctx->fnames.path_basename + ".cusza", h_dump, total_nbyte);
+
+                cudaFreeHost(h_dump);
+            }
+            else {
+                throw runtime_error("[consolidate on both] not implemented");
+            }
+        }
+
+        //
+    };
 
     void lorenzo_dryrun(Capsule<Data>* in_data);
 
@@ -119,7 +262,7 @@ class Compressor {
 
     Compressor& huffman_encode(Capsule<Quant>* quant, Capsule<Huff>* book);
 
-    Compressor& pack_metadata(cusz_header* mp);
+    Compressor& pack_metadata();
 };
 
 template <typename Data, typename Quant, typename Huff, typename FP>
@@ -127,12 +270,74 @@ class Decompressor {
    private:
     void report_decompression_time(size_t len, float lossy, float outlier, float lossless);
 
-    void unpack_metadata(cusz_header* mp, argpack* ap);
+    void unpack_metadata();
 
-    Spline3<Data*, Quant*, FP>* spline3;
+    struct {
+        std::unordered_map<std::string, int> name2order = {
+            {"header", 0},  {"book", 1},      {"quant", 2},         {"revbook", 3},
+            {"outlier", 4}, {"huff-meta", 5}, {"huff-bitstream", 6}  //
+        };
+
+        std::unordered_map<int, std::string> order2name = {
+            {0, "header"},  {1, "book"},      {2, "quant"},         {3, "revbook"},
+            {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
+        };
+
+        std::unordered_map<std::string, uint32_t> nbyte_raw = {
+            {"header", sizeof(cusz_header)},
+            {"book", 0U},            //
+            {"quant", 0U},           //
+            {"revbook", 0U},         //
+            {"outlier", 0U},         //
+            {"huff-meta", 0U},       //
+            {"huff-bitstream", 0U},  //
+        };
+    } data_seg;
 
    public:
     void register_spline3(Spline3<Data*, Quant*, float>* _spline3) { spline3 = _spline3; }
+
+    Spline3<Data*, Quant*, FP>* spline3;
+
+    dim3 xyz;
+
+    struct {
+        BYTE* whole;
+        // cusz_header* header;
+    } consolidated_dump;
+
+    void read_array_nbyte_from_header()
+    {
+        data_seg.nbyte_raw.at("book")           = header->nbyte.book;
+        data_seg.nbyte_raw.at("revbook")        = header->nbyte.revbook;
+        data_seg.nbyte_raw.at("outlier")        = header->nbyte.outlier;
+        data_seg.nbyte_raw.at("huff-meta")      = header->nbyte.huff_meta;
+        data_seg.nbyte_raw.at("huff-bitstream") = header->nbyte.huff_bitstream;
+
+        // cout << "nbyte_raw.at(book)           = " << header->nbyte.book << '\n';
+        // cout << "nbyte_raw.at(revbook)        = " << header->nbyte.revbook << '\n';
+        // cout << "nbyte_raw.at(outlier)        = " << header->nbyte.outlier << '\n';
+        // cout << "nbyte_raw.at(huff-meta)      = " << header->nbyte.huff_meta << '\n';
+        // cout << "nbyte_raw.at(huff-bitstream) = " << header->nbyte.huff_bitstream << '\n';
+    }
+
+    std::vector<uint32_t> offsets;
+
+    void get_data_seg_offsets()
+    {
+        /* 0 header */ offsets.push_back(0);
+
+        for (auto i = 0; i < 7; i++) {
+            const auto& name  = data_seg.order2name.at(i);
+            auto        nbyte = data_seg.nbyte_raw.at(name);
+            auto        o     = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(nbyte);
+            offsets.push_back(o);
+
+            printf(
+                "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), data_seg.nbyte_raw.at(name), offsets.at(i),
+                offsets.back());
+        }
+    }
 
     size_t archive_bytes;
     struct {
@@ -158,9 +363,20 @@ class Decompressor {
         } meta;
     } huffman;
 
-    argpack* ctx;
+    struct {
+        uint8_t *host, *dev;
+    } csr_file;
+    OutlierHandler<Data>* csr;
 
-    Decompressor(cusz_header* _mp, argpack* _ap);
+    argpack*     ctx;
+    cusz_header* header;
+    BYTE*        header_byte;  // to use
+
+    Decompressor(cusz_header* header, argpack* ctx);
+
+    Decompressor(BYTE* in_dump);
+
+    ~Decompressor() { delete csr; }
 
     Decompressor& huffman_decode(Capsule<Quant>* quant);
 
@@ -178,14 +394,9 @@ class Decompressor {
 };
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(
-    argpack*                                            ctx,
-    Capsule<typename DataTrait<If_FP, DataByte>::Data>* in_data,
-    dim3                                                xyz,
-    cusz_header*                                        header,
-    unsigned int                                        optional_w);
+void cusz_compress(argpack* ctx, Capsule<typename DataTrait<If_FP, DataByte>::Data>* in_data);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack* ctx, cusz_header* header);
+void cusz_decompress(argpack* ctx);
 
 #endif

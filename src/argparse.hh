@@ -28,11 +28,6 @@ extern const char* version_text;
 extern const int   version;
 extern const int   compatibility;
 
-// struct alignas(8) SZDataRepresent {
-//     int quant_byte;
-//     int huff_byte;
-// };
-
 class ArgPack {
    private:
     void load_demo_sizes();
@@ -57,16 +52,10 @@ class ArgPack {
 
     struct {
         string path2file;
-        struct {
-            string huff_base, out_quant, out_outlier, out_yamp;
-            string raw_quant;
-        } compress;
-        struct {
-            string in_quant, in_outlier, in_yamp, in_origin, out_xdata;
-        } decompress;
-    } subfiles;
-
-    string basename;
+        string origin_cmp;
+        string path_basename;
+        string basename;
+    } fnames;
 
     stat_t stat;
 
@@ -77,8 +66,9 @@ class ArgPack {
     string opath;
     string dtype;
 
-    int quant_byte{2}, huff_byte{4};
+    int quant_nbyte{2}, huff_nbyte{4};
     int huffman_chunk{512};
+    int nchunk{-1};
     int ndim{-1};
 
     double eb{0.0};

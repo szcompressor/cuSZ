@@ -38,13 +38,14 @@ using std::string;
 #include "types.hh"
 #include "utils.hh"
 
-double expectedErr;
-double actualAbsErr;
-double actualRelErr;
-string z_mode;
+// double expectedErr;
+// double actualAbsErr;
+// double actualRelErr;
+// string z_mode;
 
 namespace {
 
+template <typename Data>
 void check_shell_calls(string cmd_string)
 {
     char* cmd = new char[cmd_string.length() + 1];
@@ -83,9 +84,7 @@ int main(int argc, char** argv)
         GetDeviceProperty();
     }
 
-    auto& subfiles = ctx->subfiles;
-
-    // TODO hardcode for float for now
+    // TODO remove hardcode for float for now
     using Data = float;
 
     auto len = ctx->data_len;
@@ -95,17 +94,19 @@ int main(int argc, char** argv)
     Capsule<Data> in_data(mxm);
 
     if (ctx->task_is.construct or ctx->task_is.dryrun) {
-        logging(log_dbg, "add padding:", m, "units");
+        // logging(log_dbg, "add padding:", m, "units");
 
         cudaMalloc(&in_data.dptr, in_data.nbyte());
         cudaMallocHost(&in_data.hptr, in_data.nbyte());
 
         {
             auto a = hires::now();
-            io::read_binary_to_array<Data>(subfiles.path2file, in_data.hptr, len);
+            io::read_binary_to_array<Data>(ctx->fnames.path2file, in_data.hptr, len);
             auto z = hires::now();
-            logging(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
-            logging(log_info, "load", subfiles.path2file, len * sizeof(Data), "bytes");
+
+            if (ctx->verbose) logging(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
+
+            logging(log_info, "load", ctx->fnames.path2file, len * sizeof(Data), "bytes");
         }
 
         in_data.h2d();
@@ -115,13 +116,14 @@ int main(int argc, char** argv)
             auto     result = analyzer.GetMaxMinRng                                     //
                           <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                           (in_data.dptr, len);
-            logging(log_dbg, "time scanning:", result.seconds, "sec");
+            if (ctx->verbose) logging(log_dbg, "time scanning:", result.seconds, "sec");
             ctx->eb *= result.rng;
         }
 
-        logging(
-            log_dbg, std::to_string(ctx->quant_byte) + "-byte quant type,",
-            std::to_string(ctx->huff_byte) + "-byte internal Huff type");
+        if (ctx->verbose)
+            logging(
+                log_dbg, std::to_string(ctx->quant_nbyte) + "-byte quant type,",
+                std::to_string(ctx->huff_nbyte) + "-byte internal Huff type");
     }
 
     if (ctx->task_is.pre_binning) {
@@ -134,159 +136,42 @@ int main(int argc, char** argv)
 
     if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
-        auto xyz = dim3(ctx->x, ctx->y, ctx->z);
-
-        auto mp = new cusz_header();
-
-        if (ctx->quant_byte == 1) {
-            if (ctx->huff_byte == 4)
-                cusz_compress<true, 4, 1, 4>(ctx, &in_data, xyz, mp);
+        if (ctx->quant_nbyte == 1) {
+            if (ctx->huff_nbyte == 4)
+                cusz_compress<true, 4, 1, 4>(ctx, &in_data);
             else
-                cusz_compress<true, 4, 1, 8>(ctx, &in_data, xyz, mp);
+                cusz_compress<true, 4, 1, 8>(ctx, &in_data);
         }
-        else if (ctx->quant_byte == 2) {
-            if (ctx->huff_byte == 4)
-                cusz_compress<true, 4, 2, 4>(ctx, &in_data, xyz, mp);
+        else if (ctx->quant_nbyte == 2) {
+            if (ctx->huff_nbyte == 4)
+                cusz_compress<true, 4, 2, 4>(ctx, &in_data);
             else
-                cusz_compress<true, 4, 2, 8>(ctx, &in_data, xyz, mp);
+                cusz_compress<true, 4, 2, 8>(ctx, &in_data);
         }
-
-        auto mp_byte = reinterpret_cast<char*>(mp);
-        // yet another metadata package
-        io::write_array_to_binary(subfiles.compress.out_yamp, mp_byte, sizeof(cusz_header));
-
-        delete mp;
 
         // release memory
         cudaFree(in_data.dptr), cudaFreeHost(in_data.hptr);
     }
 
     if (in_data.dptr) {
-        cudaFreeHost(in_data.dptr);  // really messy considering adp pointers are freed elsewhere
-    }
-
-    // invoke system() to untar archived files first before decompression
-    if (not ctx->task_is.construct and ctx->task_is.reconstruct) {
-        string cx_directory = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
-        string cmd_string;
-        if (cx_directory.length() == 0)
-            cmd_string = "tar -xf " + subfiles.path2file + ".sz";
-        else
-            cmd_string = "tar -xf " + subfiles.path2file + ".sz" + " -C " + cx_directory;
-
-        check_shell_calls(cmd_string);
+        cudaFreeHost(in_data.dptr);  // TODO messy
     }
 
     if (ctx->task_is.reconstruct) {  // fp32 only for now
 
-        // unpack metadata
-        auto mp_byte = io::read_binary_to_new_array<char>(subfiles.decompress.in_yamp, sizeof(cusz_header));
-        auto mp      = reinterpret_cast<cusz_header*>(mp_byte);
+        // TODO data ready outside Decompressor?
 
-        if (ctx->quant_byte == 1) {
-            if (ctx->huff_byte == 4)
-                cusz_decompress<true, 4, 1, 4>(ctx, mp);
-            else if (ctx->huff_byte == 8)
-                cusz_decompress<true, 4, 1, 8>(ctx, mp);
+        if (ctx->quant_nbyte == 1) {
+            if (ctx->huff_nbyte == 4)
+                cusz_decompress<true, 4, 1, 4>(ctx);
+            else if (ctx->huff_nbyte == 8)
+                cusz_decompress<true, 4, 1, 8>(ctx);
         }
-        else if (ctx->quant_byte == 2) {
-            if (ctx->huff_byte == 4)
-                cusz_decompress<true, 4, 2, 4>(ctx, mp);
-            else if (ctx->huff_byte == 8)
-                cusz_decompress<true, 4, 2, 8>(ctx, mp);
+        else if (ctx->quant_nbyte == 2) {
+            if (ctx->huff_nbyte == 4)
+                cusz_decompress<true, 4, 2, 4>(ctx);
+            else if (ctx->huff_nbyte == 8)
+                cusz_decompress<true, 4, 2, 8>(ctx);
         }
-    }
-
-    // invoke system() function to merge and compress the resulting 5 files after cusz compression
-    string basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
-    if (not ctx->task_is.reconstruct and ctx->task_is.construct) {
-        auto tar_a = hires::now();
-
-        // remove *.sz if existing
-        string cmd_string = "rm -rf " + ctx->opath + basename + ".sz";
-        check_shell_calls(cmd_string);
-
-        // using tar command to encapsulate files
-        string files_to_merge;
-        if (ctx->task_is.skip_huffman) {
-            files_to_merge = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
-        }
-        else {
-            files_to_merge = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
-                             ".hmeta " + basename + ".yamp";
-        }
-        if (ctx->task_is.lossless_gzip) {
-            cmd_string = "cd " + ctx->opath + ";tar -czf " + basename + ".sz " + files_to_merge;
-        }
-        else {
-            cmd_string = "cd " + ctx->opath + ";tar -cf " + basename + ".sz " + files_to_merge;
-        }
-        check_shell_calls(cmd_string);
-
-        // remove 5 subfiles
-        cmd_string = "cd " + ctx->opath + ";rm -rf " + files_to_merge;
-        check_shell_calls(cmd_string);
-
-        auto tar_z = hires::now();
-
-        auto ad_hoc_fix = ctx->opath.substr(0, ctx->opath.size() - 1);
-        logging(log_dbg, "time tar'ing:", static_cast<duration_t>(tar_z - tar_a).count(), "sec");
-        logging(log_info, "output:", ad_hoc_fix + basename + ".sz");
-    }
-
-    // if it's decompression, remove released subfiles at last.
-    if (not ctx->task_is.construct and ctx->task_is.reconstruct) {
-        string files_to_delete;
-        if (ctx->task_is.skip_huffman) {
-            files_to_delete = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
-        }
-        else {
-            files_to_delete = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
-                              ".hmeta " + basename + ".yamp";
-        }
-        string cmd_string =
-            "cd " + subfiles.path2file.substr(0, subfiles.path2file.rfind('/')) + ";rm -rf " + files_to_delete;
-        check_shell_calls(cmd_string);
-    }
-
-    if (ctx->task_is.construct and ctx->task_is.reconstruct) {
-        // remove *.sz if existing
-        string cmd_string = "rm -rf " + ctx->opath + basename + ".sz";
-        check_shell_calls(cmd_string);
-
-        // using tar command to encapsulate files
-        string files_for_merging;
-        if (ctx->task_is.skip_huffman) {
-            files_for_merging = basename + ".outlier " + basename + ".quant " + basename + ".yamp";
-        }
-        else {
-            files_for_merging = basename + ".hbyte " + basename + ".outlier " + basename + ".canon " + basename +
-                                ".hmeta " + basename + ".yamp";
-        }
-        if (ctx->task_is.lossless_gzip) {
-            cmd_string = "cd " + ctx->opath + ";tar -czf " + basename + ".sz " + files_for_merging;
-        }
-        else {
-            cmd_string = "cd " + ctx->opath + ";tar -cf " + basename + ".sz " + files_for_merging;
-        }
-        check_shell_calls(cmd_string);
-
-        // remove 5 subfiles
-        cmd_string = "cd " + ctx->opath + ";rm -rf " + files_for_merging;
-        check_shell_calls(cmd_string);
-
-        logging(log_info, "write to: " + ctx->opath + basename + ".sz");
-        logging(log_info, "write to: " + ctx->opath + basename + ".szx");
-
-        /* gtest disabled in favor of code refactoring */
-        // if (ap->task_is.gtest) {
-        //     expectedErr  = ap->eb;
-        //     z_mode       = ap->mode;
-        //     auto stat    = ap->stat;
-        //     actualAbsErr = stat.max_abserr;
-        //     actualRelErr = stat.max_abserr_vs_rng;
-        //     ::testing::InitGoogleTest(&argc, argv);
-        //     return RUN_ALL_TESTS();
-        // }
     }
 }

@@ -18,6 +18,7 @@
 #include <bitset>
 #include <cstdlib>
 #include <exception>
+#include <fstream>
 #include <iostream>
 #include <type_traits>
 #include <typeinfo>
@@ -48,8 +49,6 @@ using std::string;
 COMPR_TYPE
 unsigned int COMPRESSOR::tune_deflate_chunksize(size_t len)
 {
-    cout << "autotuning deflate chunksize\n";
-
     int current_dev = 0;
     cudaSetDevice(current_dev);
     cudaDeviceProp dev_prop{};
@@ -92,22 +91,8 @@ void COMPRESSOR::report_compression_time(size_t len, float lossy, float outlier,
 }
 
 COMPR_TYPE
-void COMPRESSOR::export_codebook(Huff* d_book, const string& basename, size_t dict_size)
+COMPRESSOR::Compressor(argpack* _ctx) : ctx(_ctx)
 {
-    auto              h_book = mem::create_devspace_memcpy_d2h(d_book, dict_size);
-    std::stringstream s;
-    s << basename + "-" << dict_size << "-ui" << sizeof(Huff) << ".lean-book";
-    logging(log_dbg, "export \"lean\" codebook (of dict_size) as", s.str());
-    io::write_array_to_binary(s.str(), h_book, dict_size);
-    cudaFreeHost(h_book);
-    h_book = nullptr;
-}
-
-COMPR_TYPE
-COMPRESSOR::Compressor(argpack* _ctx)
-{
-    ctx = _ctx;
-
     ndim = ctx->ndim;
 
     config.radius = ctx->radius;
@@ -122,6 +107,8 @@ COMPRESSOR::Compressor(argpack* _ctx)
     config.eb_r   = 1 / ctx->eb;
 
     if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(length.data);
+
+    csr = new OutlierHandler<Data>(length.data, &sp.workspace_nbyte);
 }
 
 COMPR_TYPE
@@ -160,7 +147,7 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<Data>* in_data)
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<Data>* anchor, Capsule<Quant>* quant)
 {
-    logging(log_info, "invoke lossy-construction");
+    logging(log_info, "compressing...");
     // TODO "predictor" -> "prediction"
     if (ctx->task_is.predictor == "lorenzo") {
         // TODO class lorenzo
@@ -182,22 +169,20 @@ COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::gather_outlier(Capsule<Data>* in_data)
 {
-    unsigned int workspace_nbyte, dump_nbyte;
-    uint8_t *    workspace, *dump;
-    workspace_nbyte = get_compress_sparse_workspace<Data>(length.data);
-    cudaMalloc((void**)&workspace, workspace_nbyte);
-    cudaMallocHost((void**)&dump, workspace_nbyte);
+    // can be known on Compressor init
+    cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
+    cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
 
-    OutlierHandler<Data> csr(length.data);
-    csr.configure(workspace)  //
-        .gather_CUDA10(in_data->dptr, dump_nbyte, time.outlier)
-        .archive(dump, length.nnz_outlier);
-    io::write_array_to_binary(ctx->subfiles.compress.out_outlier, dump, dump_nbyte);
+    csr->configure(sp.workspace)  //
+        .gather_CUDA10(in_data->dptr, sp.dump_nbyte, time.outlier)
+        .archive(sp.dump, length.nnz_outlier);
 
-    cudaFree(workspace), cudaFreeHost(dump);
+    data_seg.nbyte_raw.at("outlier") = sp.dump_nbyte;
+
+    cudaFree(sp.workspace);
 
     auto fmt_nnz = "(" + std::to_string(length.nnz_outlier / 1.0 / length.data * 100) + "%)";
-    logging(log_info, "nnz/#outlier:", length.nnz_outlier, fmt_nnz, "saved");
+    logging(log_info, "#outlier = ", length.nnz_outlier, fmt_nnz);
 
     return *this;
 }
@@ -249,9 +234,22 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(Capsule<Huff>* book)
 {
     // internal evaluation, not stored in sz archive
-    if (ctx->task_is.export_book) {  //
-        export_codebook(book->dptr, ctx->subfiles.compress.huff_base, length.dict_size);
+    if (ctx->task_is.export_book) {
+        cudaMallocHost(&book->hptr, length.dict_size * sizeof(decltype(book->hptr)));
+        book->d2h();
+
+        std::stringstream s;
+        s << ctx->fnames.path_basename + "-" << length.dict_size << "-ui" << sizeof(Huff) << ".lean-book";
+
+        // TODO as part of dump
+        io::write_array_to_binary(s.str(), book->hptr, length.dict_size);
+
+        cudaFreeHost(book->hptr);
+        book->hptr = nullptr;
+
         logging(log_info, "exporting codebook as binary; suffix: \".lean-book\"");
+
+        data_seg.nbyte_raw.at("book") = length.dict_size * sizeof(Huff);
     }
     return *this;
 }
@@ -264,7 +262,10 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<Quant>* quant)
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
-        io::write_array_to_binary(ctx->subfiles.compress.raw_quant, quant->hptr, length.quant);
+        data_seg.nbyte_raw.at("quant") = quant->nbyte();
+
+        // TODO as part of dump
+        io::write_array_to_binary(ctx->fnames.path_basename + ".lean-quant", quant->hptr, length.quant);
         logging(log_info, "exporting quant as binary; suffix: \".lean-quant\"");
         logging(log_info, "exiting");
         exit(0);
@@ -280,7 +281,8 @@ void COMPRESSOR::try_skip_huffman(Capsule<Quant>* quant)
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
-        io::write_array_to_binary(ctx->subfiles.compress.out_quant, quant->hptr, length.quant);
+        // TODO: as part of cusza
+        io::write_array_to_binary(ctx->fnames.path_basename + ".quant", quant->hptr, length.quant);
         logging(log_info, "to store quant.code directly (Huffman enc skipped)");
         exit(0);
     }
@@ -298,8 +300,7 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::export_revbook(Capsule<uint8_t>* revbook)
 {
     revbook->d2h();
-    io::write_array_to_binary(ctx->subfiles.compress.huff_base + ".canon", revbook->hptr, get_revbook_nbyte());
-    cudaFreeHost(revbook->hptr);
+    data_seg.nbyte_raw.at("revbook") = get_revbook_nbyte();
 
     return *this;
 }
@@ -313,6 +314,7 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
     cudaMalloc(&huffman.array.d_encspace, sizeof(Huff) * (length.quant + ctx->huffman_chunk + HuffConfig::Db_encode));
 
     auto nchunk = (length.quant + ctx->huffman_chunk - 1) / ctx->huffman_chunk;
+    ctx->nchunk = nchunk;
 
     // gather metadata (without write) before gathering huff as sp on GPU
     cudaMallocHost(&huffman.array.h_counts, nchunk * 3 * sizeof(size_t));
@@ -341,20 +343,16 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
         //
         nullptr, nullptr, length.quant, ctx->huffman_chunk, 0, nullptr, nullptr, time.lossless);
 
+    // --------------------------------------------------------------------------------
     cudaMemcpy(
         huffman.array.h_bitstream, huffman.array.d_bitstream, huffman.meta.num_uints * sizeof(Huff),
         cudaMemcpyDeviceToHost);
-    io::write_array_to_binary(
-        ctx->subfiles.compress.huff_base + ".hbyte", huffman.array.h_bitstream, huffman.meta.num_uints);
 
-    io::write_array_to_binary(ctx->subfiles.compress.huff_base + ".hmeta", huffman.array.h_counts + nchunk, 2 * nchunk);
+    // TODO size_t -> MetadataT
+    data_seg.nbyte_raw.at("huff-meta")      = sizeof(size_t) * (2 * nchunk);
+    data_seg.nbyte_raw.at("huff-bitstream") = sizeof(Huff) * huffman.meta.num_uints;
 
     cudaFree(huffman.array.d_encspace);
-    cudaFree(huffman.array.d_counts);
-    cudaFree(huffman.array.d_bitstream);
-
-    cudaFreeHost(huffman.array.h_bitstream);
-    cudaFreeHost(huffman.array.h_counts);
 
     huffman.meta.revbook_nbyte = get_revbook_nbyte();
 
@@ -362,7 +360,7 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
+COMPRESSOR& COMPRESSOR::pack_metadata()
 {
     header->x    = ctx->x;
     header->y    = ctx->y;
@@ -370,21 +368,18 @@ COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
     header->w    = ctx->w;
     header->ndim = ctx->ndim;
     header->eb   = ctx->eb;
-    header->nnz  = length.nnz_outlier;
 
-    header->data_len = ctx->data_len;
+    header->outlier.nnz        = length.nnz_outlier;
+    header->data_len           = ctx->data_len;
+    header->config.quant_nbyte = ctx->quant_nbyte;
+    header->config.huff_nbyte  = ctx->huff_nbyte;
+    header->huffman.chunk      = ctx->huffman_chunk;
+    header->skip_huffman       = ctx->task_is.skip_huffman;
 
-    if (ctx->dtype == "f32") header->dtype = DataType::kF32;
-    if (ctx->dtype == "f64") header->dtype = DataType::kF64;
+    // header->outlier.num_bits  = huffman.meta.num_bits;
+    header->huffman.num_uints = huffman.meta.num_uints;
 
-    header->quant_byte    = ctx->quant_byte;
-    header->huff_byte     = ctx->huff_byte;
-    header->huffman_chunk = ctx->huffman_chunk;
-    header->skip_huffman  = ctx->task_is.skip_huffman;
-
-    header->num_bits      = huffman.meta.num_bits;
-    header->num_uints     = huffman.meta.num_uints;
-    header->revbook_nbyte = huffman.meta.revbook_nbyte;
+    header->nbyte.revbook = huffman.meta.revbook_nbyte;
 
     return *this;
 }
@@ -395,7 +390,7 @@ COMPRESSOR& COMPRESSOR::pack_metadata(cusz_header* header)
 #define DECOMPRESSOR Decompressor<Data, Quant, Huff, FP>
 
 DECOMPR_TYPE
-void DECOMPRESSOR::unpack_metadata(cusz_header* header, argpack* ctx)
+void DECOMPRESSOR::unpack_metadata()
 {
     ctx->x    = header->x;
     ctx->y    = header->y;
@@ -406,13 +401,23 @@ void DECOMPRESSOR::unpack_metadata(cusz_header* header, argpack* ctx)
 
     ctx->data_len = header->data_len;
 
-    if (header->dtype == DataType::kF32) ctx->dtype = "f32";
-    if (header->dtype == DataType::kF64) ctx->dtype = "f64";
-
-    ctx->quant_byte           = header->quant_byte;
-    ctx->huff_byte            = header->huff_byte;
-    ctx->huffman_chunk        = header->huffman_chunk;
+    ctx->quant_nbyte          = header->config.quant_nbyte;
+    ctx->huff_nbyte           = header->config.huff_nbyte;
+    ctx->huffman_chunk        = header->huffman.chunk;
     ctx->task_is.skip_huffman = header->skip_huffman;
+
+    //
+    length.nnz_outlier         = header->outlier.nnz;
+    huffman.meta.num_uints     = header->huffman.num_uints;
+    huffman.meta.revbook_nbyte = header->nbyte.revbook;
+
+    length.data  = ctx->data_len;
+    length.quant = length.data;  // TODO if lorenzo
+
+    config.eb     = ctx->eb;
+    config.ebx2   = config.eb * 2;
+    config.ebx2_r = 1 / (config.eb * 2);
+    config.eb_r   = 1 / config.eb;
 }
 
 DECOMPR_TYPE
@@ -438,42 +443,59 @@ void DECOMPRESSOR::report_decompression_time(size_t len, float lossy, float outl
 }
 
 DECOMPR_TYPE
-DECOMPRESSOR::Decompressor(cusz_header* header, argpack* _ctx)
+DECOMPRESSOR::Decompressor(cusz_header* _header, argpack* _ctx) : header(_header), ctx(_ctx)
 {
-    logging(log_info, "invoke lossy-reconstruction");
+    logging(log_info, "decompressing...");
 
-    unpack_metadata(header, _ctx);
-
-    length.nnz_outlier         = header->nnz;
-    huffman.meta.num_uints     = header->num_uints;
-    huffman.meta.revbook_nbyte = header->revbook_nbyte;
-
-    ctx          = _ctx;
-    length.data  = ctx->data_len;
-    length.quant = length.data;  // TODO if lorenzo
-
-    config.eb     = ctx->eb;
-    config.ebx2   = config.eb * 2;
-    config.ebx2_r = 1 / (config.eb * 2);
-    config.eb_r   = 1 / config.eb;
+    unpack_metadata();
 
     m   = static_cast<size_t>(ceil(sqrt(length.data)));
     mxm = m * m;
+
+    // TODO is ctx still needed?
+    xyz = dim3(header->x, header->y, header->z);
+
+    csr     = new OutlierHandler<Data>(length.data, length.nnz_outlier);
+    spline3 = new Spline3<Data*, Quant*, float>(xyz, header->eb);
 }
 
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::huffman_decode(Capsule<Quant>* quant)
 {
     if (ctx->task_is.skip_huffman) {
-        logging(log_info, "load quant.code from filesystem");
-        io::read_binary_to_array(ctx->subfiles.decompress.in_quant, quant->hptr, quant->len);
+        // logging(log_info, "load quant.code from filesystem");
+        io::read_binary_to_array(ctx->fnames.path_basename + ".quant", quant->hptr, quant->len);
         quant->h2d();
     }
     else {
-        logging(log_info, "Huffman decode -> quant.code");
+        // logging(log_info, "Huffman decode -> quant.code");
+
+        auto basename      = ctx->fnames.path2file;
+        auto nchunk        = (ctx->data_len - 1) / ctx->huffman_chunk + 1;
+        auto num_uints     = header->huffman.num_uints;
+        auto revbook_nbyte = data_seg.nbyte_raw.at("revbook");
+
+        auto host_revbook =
+            reinterpret_cast<BYTE*>(consolidated_dump.whole + offsets.at(data_seg.name2order.at("revbook")));
+
+        auto host_in_bitstream =
+            reinterpret_cast<Huff*>(consolidated_dump.whole + offsets.at(data_seg.name2order.at("huff-bitstream")));
+
+        auto host_bits_entries =
+            reinterpret_cast<size_t*>(consolidated_dump.whole + offsets.at(data_seg.name2order.at("huff-meta")));
+
+        auto dev_out_bitstream = mem::create_devspace_memcpy_h2d(host_in_bitstream, num_uints);
+        auto dev_bits_entries  = mem::create_devspace_memcpy_h2d(host_bits_entries, 2 * nchunk);
+        auto dev_revbook       = mem::create_devspace_memcpy_h2d(host_revbook, revbook_nbyte);
+
         lossless::HuffmanDecode<Quant, Huff>(
-            ctx->subfiles.path2file, quant, ctx->data_len, ctx->huffman_chunk, huffman.meta.num_uints, ctx->dict_size,
-            time.lossless);
+            dev_out_bitstream, dev_bits_entries, dev_revbook,
+            //
+            quant, ctx->data_len, ctx->huffman_chunk, huffman.meta.num_uints, ctx->dict_size, time.lossless);
+
+        cudaFree(dev_out_bitstream);
+        cudaFree(dev_bits_entries);
+        cudaFree(dev_revbook);
     }
     return *this;
 }
@@ -481,19 +503,14 @@ DECOMPRESSOR& DECOMPRESSOR::huffman_decode(Capsule<Quant>* quant)
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::scatter_outlier(Data* outlier)
 {
-    OutlierHandler<Data> csr(length.data, length.nnz_outlier);
+    csr_file.host = reinterpret_cast<BYTE*>(consolidated_dump.whole + offsets.at(data_seg.name2order.at("outlier")));
+    cudaMalloc((void**)&csr_file.dev, csr->bytelen.total);
 
-    uint8_t *h_csr_file, *d_csr_file;
-    cudaMallocHost((void**)&h_csr_file, csr.bytelen.total);
-    cudaMalloc((void**)&d_csr_file, csr.bytelen.total);
+    cudaMemcpy(csr_file.dev, csr_file.host, csr->bytelen.total, cudaMemcpyHostToDevice);
 
-    io::read_binary_to_array<uint8_t>(ctx->subfiles.decompress.in_outlier, h_csr_file, csr.bytelen.total);
-    cudaMemcpy(d_csr_file, h_csr_file, csr.bytelen.total, cudaMemcpyHostToDevice);
+    csr->extract(csr_file.dev).scatter_CUDA10(outlier, time.outlier);
 
-    csr.extract(d_csr_file).scatter_CUDA10(outlier, time.outlier);
-
-    cudaFreeHost(h_csr_file);
-    cudaFree(d_csr_file);
+    cudaFree(csr_file.dev);
 
     return *this;
 }
@@ -563,10 +580,10 @@ DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
 {
     // TODO move CR out of verify_data
-    if (not ctx->subfiles.decompress.in_origin.empty() and ctx->report.quality) {
-        logging(log_info, "load the original datum for comparison");
+    if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
+        logging(log_info, "compare to the original");
 
-        auto odata = io::read_binary_to_new_array<Data>(ctx->subfiles.decompress.in_origin, length.data);
+        auto odata = io::read_binary_to_new_array<Data>(ctx->fnames.origin_cmp, length.data);
 
         analysis::verify_data(&ctx->stat, xdata, odata, length.data);
         analysis::print_data_quality_metrics<Data>(
@@ -580,12 +597,12 @@ DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 {
-    logging(log_info, "output:", ctx->subfiles.path2file + ".szx");
+    logging(log_info, "output:", ctx->fnames.path_basename + ".cuszx");
 
     if (ctx->task_is.skip_write2disk)
         logging(log_dbg, "skip writing unzipped to filesystem");
     else {
-        io::write_array_to_binary(ctx->subfiles.decompress.out_xdata, host_xdata, ctx->data_len);
+        io::write_array_to_binary(ctx->fnames.path_basename + "cuszx", host_xdata, ctx->data_len);
     }
 
     return *this;
@@ -596,14 +613,17 @@ DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 #define DATATYPE Capsule<typename DataTrait<If_FP, DataByte>::Data>
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* header, unsigned int optional_w)
+void cusz_compress(argpack* ctx, DATATYPE* in_data)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
+    auto xyz = dim3(ctx->x, ctx->y, ctx->z);
+
     Spline3<Data*, Quant*, float>        spline3(xyz, ctx->eb);
     Compressor<Data, Quant, Huff, float> cuszc(ctx);
+    cuszc.header = new cusz_header();
     cuszc.register_spline3(&spline3);
 
     // TODO lorenzo class::get_len_quant
@@ -634,6 +654,8 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* heade
     cudaMalloc(&revbook.dptr, revbook.nbyte());
     cudaMallocHost(&revbook.hptr, revbook.nbyte());  // to write to disk later
 
+    cuszc.huffman.array.h_revbook = revbook.hptr;
+
     cuszc  //
         .predict_quantize(in_data, xyz, anchor, &quant)
         .gather_outlier(in_data)
@@ -649,35 +671,51 @@ void cusz_compress(argpack* ctx, DATATYPE* in_data, dim3 xyz, cusz_header* heade
         .export_revbook(&revbook)
         .huffman_encode(&quant, &book)
         .try_report_time()
-        .pack_metadata(header);
+        .pack_metadata()
+        .consolidate();
 
     cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
+    cudaFreeHost(revbook.hptr);
+    delete cuszc.header;
 }
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack* ctx, cusz_header* header)
+void cusz_decompress(argpack* ctx)
 {
     using Data  = typename DataTrait<If_FP, DataByte>::Data;
     using Quant = typename QuantTrait<QuantByte>::Quant;
     using Huff  = typename HuffTrait<HuffByte>::Huff;
 
-    // TODO "header, ctx" -> "ctx, header"
+    auto __cusz_get_filesize = [](std::string fname) -> size_t {
+        std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
+        return in.tellg();
+    };
+
+    auto fname_dump = ctx->fnames.path2file + ".cusza";
+    auto dump_nbyte = __cusz_get_filesize(fname_dump);
+    auto h_dump     = io::read_binary_to_new_array<BYTE>(fname_dump, dump_nbyte);
+
+    // cout << "dump-nbyte by tellg()\t" << dump_nbyte << '\n';
+    auto header = reinterpret_cast<cusz_header*>(h_dump);
+
+    // TODO Decompressor encapsulate dump
     // TODO float -> another parameter FP
     Decompressor<Data, Quant, Huff, float> cuszd(header, ctx);
 
-    auto xyz = dim3(ctx->x, ctx->y, ctx->z);
+    cuszd.consolidated_dump.whole = h_dump;
 
-    Spline3<Data*, Quant*, float> spline3(xyz, ctx->eb);
-    cuszd.register_spline3(&spline3);
+    cuszd.read_array_nbyte_from_header();
+    cuszd.get_data_seg_offsets();
 
     // TODO lorenzo class::get_len_quant
     auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->data_len; };
 
     unsigned int len_quant = ctx->task_is.predictor == "spline3"  //
-                                 ? spline3.get_len_quant()
+                                 ? cuszd.spline3->get_len_quant()
                                  : lorenzo_get_len_quant();
 
-    Capsule<Data>* anchor = new Capsule<Data>(spline3.get_len_anchor());  // TODO this .dptr is nullable, error-prone
+    Capsule<Data>* anchor =
+        new Capsule<Data>(cuszd.spline3->get_len_anchor());  // TODO this .dptr is nullable, error-prone
     if (ctx->task_is.predictor == "spline3") {
         cudaMalloc(&anchor->dptr, anchor->nbyte());
         cudaMallocHost(&anchor->hptr, anchor->nbyte());
@@ -690,23 +728,23 @@ void cusz_decompress(argpack* ctx, cusz_header* header)
     cudaMallocHost(&quant.hptr, quant.nbyte());
 
     // TODO cuszd.get_len_data_space()
-    Capsule<Data> _data(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
-    cudaMalloc(&_data.dptr, _data.nbyte());
-    cudaMallocHost(&_data.hptr, _data.nbyte());
-    auto xdata = _data.dptr, outlier = _data.dptr;
+    Capsule<Data> decomp_space(cuszd.mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
+    cudaMalloc(&decomp_space.dptr, decomp_space.nbyte());
+    cudaMallocHost(&decomp_space.hptr, decomp_space.nbyte());
+    auto xdata = decomp_space.dptr, outlier = decomp_space.dptr;
 
     cuszd.huffman_decode(&quant)
         .scatter_outlier(outlier)
-        .reversed_predict_quantize(xdata, xyz, anchor->dptr, quant.dptr)
+        .reversed_predict_quantize(xdata, cuszd.xyz, anchor->dptr, quant.dptr)
         .try_report_time();
 
     // copy decompressed data to host
-    _data.d2h();
+    decomp_space.d2h();
 
     cuszd
         .calculate_archive_nbyte()  //
-        .try_compare(_data.hptr)
-        .try_write2disk(_data.hptr);
+        .try_compare(decomp_space.hptr)
+        .try_write2disk(decomp_space.hptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -726,15 +764,14 @@ template class Decompressor<float, uint16_t, unsigned long long, float>;
 template class Decompressor<float, uint32_t, unsigned long long, float>;
 
 #define CUSZ_COMPRESS(DBYTE, QBYTE, HBYTE) \
-    template void cusz_compress<true, DBYTE, QBYTE, HBYTE>(argpack*, Capsule<float>*, dim3, cusz_header*, unsigned int);
+    template void cusz_compress<true, DBYTE, QBYTE, HBYTE>(argpack*, Capsule<float>*);
 
 CUSZ_COMPRESS(4, 1, 4)
 CUSZ_COMPRESS(4, 1, 8)
 CUSZ_COMPRESS(4, 2, 4)
 CUSZ_COMPRESS(4, 2, 8)
 
-#define CUSZ_DECOMPRESS(DBYTE, QBYTE, HBYTE) \
-    template void cusz_decompress<true, DBYTE, QBYTE, HBYTE>(argpack*, cusz_header*);
+#define CUSZ_DECOMPRESS(DBYTE, QBYTE, HBYTE) template void cusz_decompress<true, DBYTE, QBYTE, HBYTE>(argpack*);
 
 CUSZ_DECOMPRESS(4, 1, 4)
 CUSZ_DECOMPRESS(4, 1, 8)

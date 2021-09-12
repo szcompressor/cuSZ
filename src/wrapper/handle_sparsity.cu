@@ -27,9 +27,12 @@ using descr_t  = cusparseMatDescr_t;
  ********************************************************************************/
 
 template <typename Data>
-OutlierHandler<Data>::OutlierHandler(unsigned int _len)
+OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
-    this->m = static_cast<size_t>(ceil(sqrt(_len)));
+    if (init_workspace_nbyte == nullptr)
+        throw std::runtime_error("[OutlierHandler::constructor] init_workspace_nbyte must not be null.");
+
+    m = static_cast<size_t>(ceil(sqrt(_len)));
 
     // TODO merge to configure?
     auto initial_nnz = _len / 10;
@@ -38,7 +41,9 @@ OutlierHandler<Data>::OutlierHandler(unsigned int _len)
     pool.offset.colidx = sizeof(int) * (m + 1);
     pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
 
-    ;
+    *init_workspace_nbyte = sizeof(int) * (m + 1) +      // rowptr
+                            sizeof(int) * initial_nnz +  // colidx
+                            sizeof(Data) * initial_nnz;  // values
 }
 
 template <typename Data>
@@ -154,15 +159,18 @@ OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_pools
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::archive(uint8_t* archive, int& export_nnz)
+OutlierHandler<Data>& OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
 {
     export_nnz = this->nnz;
 
     // clang-format off
-    cudaMemcpy(archive + 0,                               pool.entry.rowptr, bytelen.rowptr, cudaMemcpyDeviceToHost);
-    cudaMemcpy(archive + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, cudaMemcpyDeviceToHost);
-    cudaMemcpy(archive + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, cudaMemcpyDeviceToHost);
+    cudaMemcpy(dst + 0,                               pool.entry.rowptr, bytelen.rowptr, direction);
+    cudaMemcpy(dst + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, direction);
+    cudaMemcpy(dst + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, direction);
     // clang-format on
+
+    // TODO not working, alignment issue?
+    // cudaMemcpy(dst, pool.entry.rowptr, bytelen.total, direction);
 
     return *this;
 }

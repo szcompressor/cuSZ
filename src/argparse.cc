@@ -191,8 +191,8 @@ void set_config(argpack* ap, char* in_str)
         if (kv.first == "mode")         { ap->mode = std::string(kv.second); }
         else if (kv.first == "eb")      { ap->eb = str2fp(kv.second); }
         else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
-        else if (kv.first == "huffbyte"){ ap->huff_byte = str2int(kv.second); }
-        else if (kv.first == "quantbyte"){ ap->quant_byte = str2int(kv.second); }
+        else if (kv.first == "huffbyte"){ ap->huff_nbyte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->quant_nbyte = str2int(kv.second); }
         else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->task_is.autotune_huffchunk = false; }
         else if (kv.first == "demo")    { ap->task_is.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
         // clang-format on
@@ -260,7 +260,7 @@ void  //
 ArgPack::check_args()
 {
     bool to_abort = false;
-    if (subfiles.path2file.empty()) {
+    if (fnames.path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
@@ -283,10 +283,10 @@ ArgPack::check_args()
         }
     }
 
-    if (quant_byte == 1) {  // TODO
+    if (quant_nbyte == 1) {  // TODO
         assert(dict_size <= 256);
     }
-    else if (quant_byte == 2) {
+    else if (quant_nbyte == 2) {
         assert(dict_size <= 65536);
     }
 
@@ -311,7 +311,7 @@ ArgPack::check_args()
     //     if (task_is.dryrun) { task_is.gtest = false; }
     //     else {
     //         if (not(task_is.construct and task_is.reconstruct)) { task_is.gtest = false; }
-    //         if (subfiles.decompress.in_origin == "") { task_is.gtest = false; }
+    //         if (fnames.origin_cmp == "") { task_is.gtest = false; }
     //     }
     // }
 
@@ -396,7 +396,7 @@ void ArgPack::parse_args(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--origin" or long_opt == "--compare") {
-                        if (i + 1 <= argc) subfiles.decompress.in_origin = string(argv[++i]);
+                        if (i + 1 <= argc) fnames.origin_cmp = string(argv[++i]);
                         break;
                     }
                     if (long_opt == "--gzip") {
@@ -478,7 +478,7 @@ void ArgPack::parse_args(int argc, char** argv)
                     break;
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) subfiles.path2file = string(argv[++i]);
+                    if (i + 1 <= argc) fnames.path2file = string(argv[++i]);
                     break;
                 case 'p':
                 tag_predictor:
@@ -591,26 +591,13 @@ void ArgPack::sort_out_fnames()
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
-    auto input_path = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
+    auto input_path = fnames.path2file.substr(0, fnames.path2file.rfind('/') + 1);
     if (not task_is.construct and task_is.reconstruct)
-        subfiles.path2file = subfiles.path2file.substr(0, subfiles.path2file.rfind('.'));
-    basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
+        fnames.path2file = fnames.path2file.substr(0, fnames.path2file.rfind('.'));
+    fnames.basename = fnames.path2file.substr(fnames.path2file.rfind('/') + 1);
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";
 
-    // experiment
-    subfiles.compress.raw_quant = opath + basename + ".lean-quant";
-
-    // zip
-    subfiles.compress.huff_base   = opath + basename;
-    subfiles.compress.out_quant   = opath + basename + ".quant";
-    subfiles.compress.out_outlier = opath + basename + ".outlier";
-    subfiles.compress.out_yamp    = opath + basename + ".yamp";
-
-    // unzip
-    subfiles.decompress.in_yamp    = subfiles.path2file + ".yamp";
-    subfiles.decompress.in_quant   = subfiles.path2file + ".quant";
-    subfiles.decompress.in_outlier = subfiles.path2file + ".outlier";
-    subfiles.decompress.out_xdata  = opath + basename + ".szx";
+    fnames.path_basename = opath + fnames.basename;
 }

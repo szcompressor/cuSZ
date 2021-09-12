@@ -19,6 +19,49 @@
 #include <cstddef>
 #include <cstdint>
 
+template <int NUM>
+static inline bool __is_aligned_at(const void* ptr)
+{  //
+    return reinterpret_cast<uintptr_t>(ptr) % NUM == 0;
+};
+
+template <typename T, int NUM>
+static size_t __cusz_get_alignable_len(size_t len)
+{
+    return ((sizeof(T) * len - 1) / NUM + 1) * NUM;
+}
+
+static const int CUSZ_ALIGN_NUM = 128;
+
+/**
+ * @brief when using memory pool, alignment at 128 is necessary
+ *
+ * @tparam SRC
+ * @tparam DST
+ * @param src
+ * @return DST*
+ */
+template <typename DST, typename SRC = uint8_t>
+DST* designate(SRC* src)
+{
+    // TODO check alignment
+    auto aligned = __is_aligned_at<CUSZ_ALIGN_NUM>(src);
+    if (not aligned) throw std::runtime_error("not aligned at " + std::to_string(CUSZ_ALIGN_NUM) + " bytes");
+
+    return reinterpret_cast<DST*>(src);
+}
+
+template <typename DST, typename SRC>
+DST* free_repurpose(SRC* src)
+{
+    // aligning at 4 byte; does not raise misalignment
+    // may not result in optimal performance considering coalescing
+    auto aligned = __is_aligned_at<4>(src);
+    if (not aligned) throw std::runtime_error("not aligned at 4 bytes");
+
+    return reinterpret_cast<DST*>(src);
+}
+
 namespace mem {
 
 enum MemcpyDirection { h2d, d2h };

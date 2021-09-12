@@ -92,8 +92,18 @@ void HuffmanEncode(
     size_t* ptr_num_uints,
     float&  milliseconds);
 
-template <typename Quant, typename Huff, typename Data = float>
-void HuffmanDecode(std::string&, Capsule<Quant>*, size_t, int, size_t, int, float&);
+// new, IO eliminated
+template <typename Quant, typename Huff>
+void HuffmanDecode(
+    Huff*           dev_out_bitstream,
+    size_t*         dev_bits_entries,
+    uint8_t*        dev_revbook,
+    Capsule<Quant>* quant,
+    size_t          len,
+    int             chunk_size,
+    size_t          num_uints,
+    int             dict_size,
+    float&          milliseconds);
 
 }  // namespace lossless
 
