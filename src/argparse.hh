@@ -30,9 +30,8 @@ extern const int   compatibility;
 
 class ArgPack {
    private:
-    void load_demo_sizes();
-
    public:
+    void load_demo_sizes();
     struct {
         bool   use_demo_dataset{false};
         bool   pre_binning{false}, pre_log_trans{false};
