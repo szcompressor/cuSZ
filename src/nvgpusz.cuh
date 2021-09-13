@@ -147,10 +147,10 @@ class Compressor {
         std::vector<uint32_t> offsets = {0};
 
         printf(
-            "\ndata segments:\n  %-18s\t%12s\t%15s\t%15s\n",  //
-            const_cast<char*>("name"),                        //
-            const_cast<char*>("nbyte"),                       //
-            const_cast<char*>("start"),                       //
+            "\ndata segments:\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
+            const_cast<char*>("name"),                                        //
+            const_cast<char*>("nbyte"),                                       //
+            const_cast<char*>("start"),                                       //
             const_cast<char*>("end"));
 
         // print long numbers with thousand separator
@@ -173,7 +173,8 @@ class Compressor {
 
         printf("\ncompression ratio:\t%.4f\n", ctx->data_len * sizeof(Data) * 1.0 / total_nbyte);
 
-        BYTE *h_dump = nullptr, *d_dump = nullptr;
+        BYTE* h_dump = nullptr;
+        // BYTE* d_dump = nullptr;
 
         cout << "dump on CPU\t" << on_cpu << '\n';
         cout << "dump on GPU\t" << on_gpu << '\n';
@@ -221,9 +222,10 @@ class Compressor {
                     data_seg.nbyte_raw.at("huff-bitstream"),             //
                     cudaMemcpyHostToHost);
 
-                cout << "basename_out\t" << ctx->fnames.path_basename << '\n';
+                auto output_name = ctx->fnames.path_basename + ".cusza";
+                cout << "output:\t" << output_name << '\n';
 
-                io::write_array_to_binary(ctx->fnames.path_basename + ".cusza", h_dump, total_nbyte);
+                io::write_array_to_binary(output_name, h_dump, total_nbyte);
 
                 cudaFreeHost(h_dump);
             }
@@ -327,19 +329,33 @@ class Decompressor {
     {
         /* 0 header */ offsets.push_back(0);
 
+        if (ctx->verbose) {
+            printf(
+                "\ndata segments (verification):\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
+                const_cast<char*>("name"),                                                       //
+                const_cast<char*>("nbyte"),                                                      //
+                const_cast<char*>("start"),                                                      //
+                const_cast<char*>("end"));
+
+            setlocale(LC_ALL, "");
+        }
+
         for (auto i = 0; i < 7; i++) {
             const auto& name  = data_seg.order2name.at(i);
             auto        nbyte = data_seg.nbyte_raw.at(name);
             auto        o     = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(nbyte);
             offsets.push_back(o);
 
-            printf(
-                "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), data_seg.nbyte_raw.at(name), offsets.at(i),
-                offsets.back());
+            if (ctx->verbose) {
+                printf(
+                    "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), data_seg.nbyte_raw.at(name), offsets.at(i),
+                    offsets.back());
+            }
         }
     }
 
-    size_t archive_bytes;
+    size_t cusza_nbyte;
+
     struct {
         float lossy{0.0}, outlier{0.0}, lossless{0.0};
     } time;

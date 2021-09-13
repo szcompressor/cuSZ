@@ -66,28 +66,37 @@ unsigned int COMPRESSOR::tune_deflate_chunksize(size_t len)
 COMPR_TYPE
 void COMPRESSOR::report_compression_time(size_t len, float lossy, float outlier, float hist, float book, float lossless)
 {
-    auto display_throughput = [](float milliseconds, size_t nbyte) {
-        auto GiB        = 1.0 * 1024 * 1024 * 1024;
-        auto seconds    = milliseconds * 1e-3;
-        auto throughput = nbyte / GiB / seconds;
-        cout << throughput << "GiB/s\n";
+    auto get_throughput = [](float milliseconds, size_t nbyte) -> float {
+        auto GiB     = 1.0 * 1024 * 1024 * 1024;
+        auto seconds = milliseconds * 1e-3;
+        return nbyte / GiB / seconds;
     };
-    //
-    cout << "\nTIME in milliseconds\t================================================================\n";
+
+    auto print_throughput_line = [&](const char* s, float timer, size_t _nbyte) {
+        auto t = get_throughput(timer, _nbyte);
+        printf("  %-18s\t%'12f\t%'15f\n", s, timer, t);
+    };
+
+    auto  nbyte   = len * sizeof(Data);
     float nonbook = lossy + outlier + hist + lossless;
 
-    printf("TIME\tconstruct:\t%f\t", lossy), display_throughput(lossy, len * sizeof(Data));
-    printf("TIME\toutlier:\t%f\t", outlier), display_throughput(outlier, len * sizeof(Data));
-    printf("TIME\thistogram:\t%f\t", hist), display_throughput(hist, len * sizeof(Data));
-    printf("TIME\tencode:\t%f\t", lossless), display_throughput(lossless, len * sizeof(Data));
+    printf(
+        "\ncompression throughput report (ms, 1e-3)):\n"
+        "  \e[1m\e[31m%-18s\t%12s\t%15s\e[0m\n",  //
+        const_cast<char*>("kernel"),              //
+        const_cast<char*>("milliseconds"),        //
+        const_cast<char*>("GiB/s")                //
+    );
 
-    cout << "TIME\t--------------------------------------------------------------------------------\n";
-    printf("TIME\tnon-book kernels (sum):\t%f\t", nonbook), display_throughput(nonbook, len * sizeof(Data));
-    cout << "TIME\t================================================================================\n";
-    printf("TIME\tbuild book (not counted in prev section):\t%f\t", book), display_throughput(book, len * sizeof(Data));
-    printf("TIME\t*all* kernels (sum, count book time):\t%f\t", nonbook + book),
-        display_throughput(nonbook + book, len * sizeof(Data));
-    cout << "TIME\t================================================================================\n\n";
+    print_throughput_line("construct", lossy, nbyte);
+    print_throughput_line("gather-outlier", outlier, nbyte);
+    print_throughput_line("histogram", hist, nbyte);
+    print_throughput_line("Huff-encode", lossless, nbyte);
+    print_throughput_line("(subtotal)", nonbook, nbyte);
+    printf("\e[2m");
+    print_throughput_line("book", book, nbyte);
+    print_throughput_line("(total)", nonbook + book, nbyte);
+    printf("\e[0m");
 }
 
 COMPR_TYPE
@@ -117,8 +126,8 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<Data>* in_data)
     auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
 
     if (ctx->task_is.dryrun) {
-        auto len    = length.data;
-        auto eb     = config.eb;
+        auto len = length.data;
+        // auto eb     = config.eb;
         auto ebx2_r = config.ebx2_r;
         auto ebx2   = config.ebx2;
 
@@ -136,7 +145,7 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<Data>* in_data)
         cudaMemcpy(dryrun_result, in_data->dptr, len * sizeof(Data), cudaMemcpyDeviceToHost);
 
         analysis::verify_data<Data>(&ctx->stat, dryrun_result, in_data->hptr, len);
-        analysis::print_data_quality_metrics<Data>(&ctx->stat, false, eb, 0);
+        analysis::print_data_quality_metrics<Data>(&ctx->stat, 0, false);
 
         cudaFreeHost(dryrun_result);
 
@@ -423,23 +432,34 @@ void DECOMPRESSOR::unpack_metadata()
 DECOMPR_TYPE
 void DECOMPRESSOR::report_decompression_time(size_t len, float lossy, float outlier, float lossless)
 {
-    auto display_throughput = [](float time, size_t nbyte) {
-        auto throughput = nbyte * 1.0 / (1024 * 1024 * 1024) / (time * 1e-3);
-        cout << throughput << "GiB/s\n";
+    auto get_throughput = [](float milliseconds, size_t nbyte) -> float {
+        auto GiB     = 1.0 * 1024 * 1024 * 1024;
+        auto seconds = milliseconds * 1e-3;
+        return nbyte / GiB / seconds;
     };
-    //
-    cout << "\nTIME in milliseconds\t================================================================\n";
-    float all = lossy + outlier + lossless;
 
-    printf("TIME\tscatter outlier:\t%f\t", outlier), display_throughput(outlier, len * sizeof(Data));
-    printf("TIME\tHuffman decode:\t%f\t", lossless), display_throughput(lossless, len * sizeof(Data));
-    printf("TIME\treconstruct:\t%f\t", lossy), display_throughput(lossy, len * sizeof(Data));
+    auto print_throughput_line = [&](const char* s, float timer, size_t _nbyte) {
+        auto t = get_throughput(timer, _nbyte);
+        printf("  %-18s\t%'12f\t%'15f\n", s, timer, t);
+    };
 
-    cout << "TIME\t--------------------------------------------------------------------------------\n";
+    auto  nbyte = len * sizeof(Data);
+    float all   = lossy + outlier + lossless;
 
-    printf("TIME\tdecompress (sum):\t%f\t", all), display_throughput(all, len * sizeof(Data));
+    printf(
+        "\ndecompression throughput report (ms, 1e-3)):\n"
+        "  \e[1m\e[31m%-18s\t%12s\t%15s\e[0m\n",  //
+        const_cast<char*>("kernel"),              //
+        const_cast<char*>("milliseconds"),        //
+        const_cast<char*>("GiB/s")                //
+    );
 
-    cout << "TIME\t================================================================================\n\n";
+    print_throughput_line("scatter-outlier", outlier, nbyte);
+    print_throughput_line("Huff-decode", lossless, nbyte);
+    print_throughput_line("reconstruct", lossy, nbyte);
+    print_throughput_line("(total)", all, nbyte);
+
+    printf("\n");
 }
 
 DECOMPR_TYPE
@@ -549,12 +569,12 @@ DECOMPRESSOR& DECOMPRESSOR::calculate_archive_nbyte()
         return ret_val;
     };
 
-    if (not ctx->task_is.skip_huffman)
-        archive_bytes += huffman.meta.num_uints * sizeof(Huff)  // Huffman coded
-                         + huffman.meta.revbook_nbyte;          // chunking metadata and reverse codebook
-    else
-        archive_bytes += length.quant * sizeof(Quant);
-    archive_bytes += length.nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
+    // if (not ctx->task_is.skip_huffman)
+    //     archive_bytes += huffman.meta.num_uints * sizeof(Huff)  // Huffman coded
+    //                      + huffman.meta.revbook_nbyte;          // chunking metadata and reverse codebook
+    // else
+    //     archive_bytes += length.quant * sizeof(Quant);
+    // archive_bytes += length.nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
 
     if (ctx->task_is.skip_huffman) {
         logging(
@@ -586,8 +606,7 @@ DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
         auto odata = io::read_binary_to_new_array<Data>(ctx->fnames.origin_cmp, length.data);
 
         analysis::verify_data(&ctx->stat, xdata, odata, length.data);
-        analysis::print_data_quality_metrics<Data>(
-            &ctx->stat, false, ctx->eb, archive_bytes, ctx->task_is.pre_binning ? 4 : 1, true);
+        analysis::print_data_quality_metrics<Data>(&ctx->stat, cusza_nbyte, false);
 
         delete[] odata;
     }
@@ -597,11 +616,10 @@ DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
 DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 {
-    logging(log_info, "output:", ctx->fnames.path_basename + ".cuszx");
-
     if (ctx->task_is.skip_write2disk)
-        logging(log_dbg, "skip writing unzipped to filesystem");
+        logging(log_info, "output: skipped");
     else {
+        logging(log_info, "output:", ctx->fnames.path_basename + ".cuszx");
         io::write_array_to_binary(ctx->fnames.path_basename + ".cuszx", host_xdata, ctx->data_len);
     }
 
@@ -698,6 +716,7 @@ void cusz_decompress(argpack* ctx)
     // TODO Decompressor encapsulate dump
     // TODO float -> another parameter FP
     Decompressor<Data, Quant, Huff, float> cuszd(header, ctx);
+    cuszd.cusza_nbyte = dump_nbyte;  // TODO redundant
 
     cuszd.consolidated_dump.whole = h_dump;
 

@@ -380,6 +380,7 @@ void ArgPack::parse_args(int argc, char** argv)
                     if (long_opt == "--pre") goto tag_preproc;            // IO
                     if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
+                    if (long_opt == "--verbose") goto tag_verbose;        //
 
                     if (long_opt == "--demo") {
                         if (i + 1 <= argc) {
@@ -513,6 +514,10 @@ void ArgPack::parse_args(int argc, char** argv)
                 case 'R':
                 tag_report:
                     if (i + 1 <= argc) set_report(this, argv[++i]);
+                    break;
+                case 'V':
+                tag_verbose:
+                    verbose = true;
                     break;
                 // DOCUMENT
                 case 'h':

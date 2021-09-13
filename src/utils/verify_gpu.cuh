@@ -129,7 +129,7 @@ int main()
     auto   aa = hires::now();
     stat_t stat_gpu;
     verify_data_GPU<float>(&stat_gpu, d_origin, d_extract, len);
-    analysis::print_data_quality_metrics<Data>(&stat_gpu, false, 1e-4 /*a default value*/, 0, 1, false, true);
+    analysis::print_data_quality_metrics<Data>(&stat_gpu, 0, false );
     auto zz = hires::now();
     std::cout << "time kernel:\t" << static_cast<duration_t>(zz - aa).count() << endl;
 

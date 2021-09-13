@@ -96,7 +96,7 @@ void f(bool r2r = false)
     stat_t stat;
 
     analysis::verify_data(&stat, compute, input_dup, len);
-    analysis::print_data_quality_metrics<double>(&stat, false, 0, 0, 1, true);
+    analysis::print_data_quality_metrics<double>(&stat, 0, false);
 }
 
 int main(int argc, char** argv)
