@@ -1,5 +1,5 @@
 /**
- * @file extrap_lorenzo.cu
+ * @file extrap_lorenzo.cuh
  * @author Jiannan Tian
  * @brief
  * @version 0.2
@@ -9,8 +9,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_EXTRAP_LORENZO_H
-#define CUSZ_WRAPPER_EXTRAP_LORENZO_H
+#ifndef CUSZ_WRAPPER_EXTRAP_LORENZO_CUH
+#define CUSZ_WRAPPER_EXTRAP_LORENZO_CUH
 
 template <typename Data = float, typename Quant = float, typename FP = float>
 void tbd_lorenzo_dryrun(Data* data, dim3 size3, int ndim, FP eb);

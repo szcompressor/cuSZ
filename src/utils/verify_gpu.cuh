@@ -110,11 +110,11 @@ int main()
     // size_t len = 1168 * 1126 * 922;
     size_t len = 3600 * 1800;
     // auto   origin  = io::ReadBinaryFile<float>("/home/jtian/Parihaka_PSTM_far_stack.f32", len);
-    // auto   extract = io::ReadBinaryFile<float>("/home/jtian/Parihaka_PSTM_far_stack.f32.szx", len);
+    // auto   extract = io::ReadBinaryFile<float>("/home/jtian/Parihaka_PSTM_far_stack.f32.cuszx", len);
 
     auto a       = hires::now();
     auto origin  = io::read_binary_to_new_array<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH", len);
-    auto extract = io::read_binary_to_new_array<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH.szx", len);
+    auto extract = io::read_binary_to_new_array<float>("/home/jtian/cusz-rolling/data/sample-cesm-CLDHGH-3600x1800.cuszx", len);
     auto z       = hires::now();
     std::cout << "time loading data:\t" << static_cast<duration_t>(z - a).count() << endl;
 
@@ -129,7 +129,7 @@ int main()
     auto   aa = hires::now();
     stat_t stat_gpu;
     verify_data_GPU<float>(&stat_gpu, d_origin, d_extract, len);
-    analysis::print_data_quality_metrics<Data>(&stat_gpu, false, 1e-4 /*a default value*/, 0, 1, false, true);
+    analysis::print_data_quality_metrics<Data>(&stat_gpu, 0, false );
     auto zz = hires::now();
     std::cout << "time kernel:\t" << static_cast<duration_t>(zz - aa).count() << endl;
 

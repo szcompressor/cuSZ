@@ -1,5 +1,5 @@
 /**
- * @file hist.h
+ * @file hist.cuh
  * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp (mlhickm@g.clemson.edu)
  * @brief Fast histogramming from [Gómez-Luna et al. 2013]
  * @version 0.1
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_HIST_H
-#define CUSZ_KERNEL_HIST_H
+#ifndef CUSZ_KERNEL_HIST_CUH
+#define CUSZ_KERNEL_HIST_CUH
 
 #include <cuda_runtime.h>
 #include <cstdio>
@@ -112,8 +112,10 @@ void wrapper::get_frequency(Input* d_in, size_t len, unsigned int* d_freq, int d
     static_assert(
         std::is_same<Input, UI1>::value         //
             or std::is_same<Input, UI2>::value  //
+            or std::is_same<Input, UI4>::value  //
             or std::is_same<Input, I1>::value   //
-            or std::is_same<Input, I2>::value,
+            or std::is_same<Input, I2>::value   //
+            or std::is_same<Input, I4>::value,
         "To get frequency, input dtype must be uint/int{8,16}_t");
 
     // Parameters for thread and block count optimization

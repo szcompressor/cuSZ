@@ -7,7 +7,7 @@
 using std::cout;
 using std::endl;
 
-#include "../src/datapack.hh"
+#include "../src/capsule.hh"
 #include "../src/ood/sparse_op.hh"
 
 void TestSp2Dn()
@@ -96,7 +96,7 @@ void TestDn2Sp()
     csr.offsets = sp_csr_offsets.dptr();  // must be after csr.AllocDeviceSpace
 
     struct DenseMatrix<float> mat(num_rows, num_cols);
-    mat.mat      = dn.dptr();
+    mat.mat = dn.dptr();
 
     SparseOps<float> op(&mat, &csr);
 
@@ -131,8 +131,6 @@ void TestDn2Sp()
         printf("dense2sparse test PASSED\n");
     else
         printf("dense2sparse test FAILED: wrong result\n");
-
-
 }
 
 int main()

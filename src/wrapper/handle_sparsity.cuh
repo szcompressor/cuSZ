@@ -1,5 +1,5 @@
 /**
- * @file handle_sparsity.h
+ * @file handle_sparsity.cuh
  * @author Jiannan Tian
  * @brief (header) A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.3
@@ -10,9 +10,10 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY_H
-#define CUSZ_WRAPPER_HANDLE_SPARSITY_H
+#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
+#define CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
 
+#include <driver_types.h>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -36,6 +37,9 @@ class OutlierHandler {
 
     } pool;
 
+    unsigned int workspace_nbyte;
+    unsigned int dump_nbyte;
+
     struct {
         unsigned int rowptr, colidx, values, total;
     } bytelen;
@@ -47,24 +51,7 @@ class OutlierHandler {
     /********************************************************************************
      * compression use
      ********************************************************************************/
-    OutlierHandler(unsigned int _len);
-
-    /**
-     * @brief nnz is not necessarity the real one.
-     *
-     * @param try_nnz
-     * @return unsigned int
-     */
-    unsigned int query_pool_size(unsigned int try_nnz)
-    {
-        pool.offset.rowptr = 0;
-        pool.offset.colidx = sizeof(int) * (m + 1);
-        pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * try_nnz;
-
-        return sizeof(int) * (m + 1)      // rowptr
-               + sizeof(int) * try_nnz    // colidx
-               + sizeof(Data) * try_nnz;  // values
-    }
+    OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte);
 
     /**
      * @brief set up memory pool
@@ -72,7 +59,7 @@ class OutlierHandler {
      * @param _pool
      * @param try_nnz
      */
-    OutlierHandler& configure(uint8_t* _pool, unsigned int try_nnz);
+    OutlierHandler& configure(uint8_t* _pool);
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
@@ -89,9 +76,9 @@ class OutlierHandler {
      */
     OutlierHandler& configure_with_nnz(int nnz);
 
-    OutlierHandler& gather_CUDA10(float*, float&);
+    OutlierHandler& gather_CUDA10(float* in, unsigned int& dump_nbyte, float& ms_timer);
 
-    OutlierHandler& archive(uint8_t* archive, int& nnz);
+    OutlierHandler& archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
 
     /********************************************************************************
      * decompression use

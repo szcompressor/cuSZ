@@ -1,5 +1,5 @@
 /**
- * @file par_huffman.cuh
+ * @file huffman_parbook.cuh
  * @author Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Parallel Huffman Construction to generates canonical forward codebook (header).
  *        Based on [Ostadzadeh et al. 2007] (https://dblp.org/rec/conf/pdpta/OstadzadehEZMB07.bib)
@@ -18,12 +18,10 @@
 
 // Parallel huffman global memory and kernels
 namespace lossless {
-namespace par_huffman {
 
 template <typename Q, typename H>
 void par_get_codebook(int stateNum, unsigned int* freq, H* codebook, uint8_t* meta);
 
-}  // namespace par_huffman
 }  // namespace lossless
 
 #endif

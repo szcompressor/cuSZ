@@ -10,7 +10,7 @@ For a quick checking if cuSZ works, only two commands are needed; for zip,
 ./bin/cusz -f32 -m r2r -e 1e-4 -i ~/Parihaka_PSTM_far_stack.f32 -D parihaka -z
 ```
 ```
-./bin/cusz -i ~/Parihaka_PSTM_far_stack.f32.sz -x --origin ~/Parihaka_PSTM_far_stack.f32 --skip write.x
+./bin/cusz -i ~/Parihaka_PSTM_far_stack.f32.cusza -x --origin ~/Parihaka_PSTM_far_stack.f32 --skip write.x
 ```
 
 By using `--skip write.x`, we can still check compresion quality without output touching filesystem (to save time).

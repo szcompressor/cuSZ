@@ -1,5 +1,5 @@
 /**
- * @file lorenzo.h
+ * @file lorenzo.cuh
  * @author Jiannan Tian
  * @brief Dual-Quant Lorenzo method.
  * @version 0.2
@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_LORENZO_H
-#define CUSZ_KERNEL_LORENZO_H
+#ifndef CUSZ_KERNEL_LORENZO_CUH
+#define CUSZ_KERNEL_LORENZO_CUH
 
 #include <cstddef>
 

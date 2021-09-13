@@ -46,8 +46,8 @@
  *
  */
 
-#ifndef PAR_MERGE_H
-#define PAR_MERGE_H
+#ifndef CUSZ_KERNEL_PAR_MERGE_CUH
+#define CUSZ_KERNEL_PAR_MERGE_CUH
 
 #include <float.h>
 #include <limits.h>

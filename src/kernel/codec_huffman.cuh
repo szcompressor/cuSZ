@@ -1,5 +1,5 @@
 /**
- * @file huffman_codec.h
+ * @file codec_huffman.cuh
  * @author Jiannan Tian
  * @brief Wrapper of Huffman codec.
  * @version 0.2
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_HUFFMAN_CODEC_H
-#define CUSZ_KERNEL_HUFFMAN_CODEC_H
+#ifndef CUSZ_KERNEL_CODEC_HUFFMAN_CUH
+#define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
 #include <stddef.h>
 #include <stdint.h>

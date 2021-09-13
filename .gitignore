@@ -4,15 +4,18 @@ rle
 
 *.sz
 *.szx
+*.cusza
+*.cuszx
 *.yamp
 *.hbyte
 *.hmeta
 *.canon
 *.outlier
 *.BN
-*.lean_cb
 *.huff
 *.out
+*.lean-book
+*.lean-quant
 
 # general
 *.dylib
@@ -42,6 +45,10 @@ build
 *.qdstrm
 # *.ipynb
 
+# build
+Release/
+Debug/
+RelWithDebInfo/
 
 # intermediate and binary
 dummy_cxlorenzo
@@ -61,8 +68,10 @@ src/ood
 src/future
 src/huffre
 data/4lossless
-spline.h
-interp_spline.cu
-interp_spline.h
-interp_spline.cuh
-ex_spline.cu
+
+data/cesm-CLDHGH-3600x1800
+data/cesm-CLDHGH-3600x1800.tgz
+data/exafel-59200x388
+data/exafel-59200x388.tgz
+data/hurr-CLOUDf48-500x500x100
+data/hurr-CLOUDf48-500x500x100.tgz

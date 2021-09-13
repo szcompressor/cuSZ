@@ -11,11 +11,13 @@
  *
  */
 
-#include "argparse.hh"
 #include <cassert>
 #include <cmath>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
+
+#include "argparse.hh"
 #include "argument_parser/document.hh"
 #include "utils/format.hh"
 
@@ -25,7 +27,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* version_text  = "2021-08-11.0";
+const char* version_text  = "2021-09-08.2";
 const int   version       = 202107132;
 const int   compatibility = 0;
 
@@ -189,15 +191,41 @@ void set_config(argpack* ap, char* in_str)
         if (kv.first == "mode")         { ap->mode = std::string(kv.second); }
         else if (kv.first == "eb")      { ap->eb = str2fp(kv.second); }
         else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
-        else if (kv.first == "huffbyte"){ ap->huff_byte = str2int(kv.second); }
-        else if (kv.first == "quantbyte"){ ap->quant_byte = str2int(kv.second); }
-        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->sz_workflow.autotune_huffchunk = false; }
-        else if (kv.first == "demo")    { ap->sz_workflow.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
+        else if (kv.first == "huffbyte"){ ap->huff_nbyte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->quant_nbyte = str2int(kv.second); }
+        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->task_is.autotune_huffchunk = false; }
+        else if (kv.first == "demo")    { ap->task_is.use_demo_dataset = true, ap->demo_dataset = string(kv.second); }
         // clang-format on
     }
 }
 
 }  // namespace
+
+void ArgPack::load_demo_sizes()
+{
+    const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
+        {std::string("hacc"), {280953867, 1, 1, 1, 1}},    {std::string("hacc1b"), {1073726487, 1, 1, 1, 1}},
+        {std::string("cesm"), {3600, 1800, 1, 1, 2}},      {std::string("hurricane"), {500, 500, 100, 1, 3}},
+        {std::string("nyx-s"), {512, 512, 512, 1, 3}},     {std::string("nyx-m"), {1024, 1024, 1024, 1, 3}},
+        {std::string("qmc"), {288, 69, 7935, 1, 3}},       {std::string("qmcpre"), {69, 69, 33120, 1, 3}},
+        {std::string("exafel"), {388, 59200, 1, 1, 2}},    {std::string("rtm"), {235, 849, 849, 1, 3}},
+        {std::string("parihaka"), {1168, 1126, 922, 1, 3}}};
+
+    if (not demo_dataset.empty()) {
+        auto f = dataset_entries.find(demo_dataset);
+        if (f == dataset_entries.end()) throw std::runtime_error("no such dataset as" + demo_dataset);
+        auto demo_xyzw = f->second;
+
+        x = demo_xyzw[0];
+        y = demo_xyzw[1];
+        z = demo_xyzw[2];
+        w = demo_xyzw[3];
+
+        ndim = demo_xyzw[4];
+    }
+
+    data_len = x * y * z * w;
+}
 
 string  //
 ArgPack::format(const string& s)
@@ -232,57 +260,58 @@ void  //
 ArgPack::check_args()
 {
     bool to_abort = false;
-    if (subfiles.path2file.empty()) {
+    if (fnames.path2file.empty()) {
         cerr << log_err << "Not specifying input file!" << endl;
         to_abort = true;
     }
-    if (self_multiply4(dim4) == 1 and not sz_workflow.use_demo_dataset) {
-        if (sz_workflow.construct or sz_workflow.dryrun) {
+
+    if (self_multiply4() == 1 and not task_is.use_demo_dataset) {
+        if (task_is.construct or task_is.dryrun) {
             cerr << log_err << "Wrong input size(s)!" << endl;
             to_abort = true;
         }
     }
-    if (not sz_workflow.construct and not sz_workflow.reconstruct and not sz_workflow.dryrun) {
+    if (not task_is.construct and not task_is.reconstruct and not task_is.dryrun) {
         cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
-        if (sz_workflow.construct or sz_workflow.dryrun) {
+        if (task_is.construct or task_is.dryrun) {
             cout << dtype << endl;
             cerr << log_err << "Not specifying data type!" << endl;
             to_abort = true;
         }
     }
 
-    if (quant_byte == 1) {  // TODO
+    if (quant_nbyte == 1) {  // TODO
         assert(dict_size <= 256);
     }
-    else if (quant_byte == 2) {
+    else if (quant_nbyte == 2) {
         assert(dict_size <= 65536);
     }
 
-    if (sz_workflow.dryrun and sz_workflow.construct and sz_workflow.reconstruct) {
+    if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
         cerr << log_warn << "No need to dry-run, compress and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        sz_workflow.construct   = false;
-        sz_workflow.reconstruct = false;
+        task_is.construct   = false;
+        task_is.reconstruct = false;
     }
-    else if (sz_workflow.dryrun and sz_workflow.construct) {
+    else if (task_is.dryrun and task_is.construct) {
         cerr << log_warn << "No need to dry-run and compress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        sz_workflow.construct = false;
+        task_is.construct = false;
     }
-    else if (sz_workflow.dryrun and sz_workflow.reconstruct) {
+    else if (task_is.dryrun and task_is.reconstruct) {
         cerr << log_warn << "No need to dry-run and decompress at the same time!" << endl;
         cerr << log_warn << "Will dry run only." << endl << endl;
-        sz_workflow.reconstruct = false;
+        task_is.reconstruct = false;
     }
 
-    // if (sz_workflow.gtest) {
-    //     if (sz_workflow.dryrun) { sz_workflow.gtest = false; }
+    // if (task_is.gtest) {
+    //     if (task_is.dryrun) { task_is.gtest = false; }
     //     else {
-    //         if (not(sz_workflow.construct and sz_workflow.reconstruct)) { sz_workflow.gtest = false; }
-    //         if (subfiles.decompress.in_origin == "") { sz_workflow.gtest = false; }
+    //         if (not(task_is.construct and task_is.reconstruct)) { task_is.gtest = false; }
+    //         if (fnames.origin_cmp == "") { task_is.gtest = false; }
     //     }
     // }
 
@@ -328,14 +357,15 @@ void ArgPack::parse_args(int argc, char** argv)
                     if (long_opt == "--skip") {
                         if (i + 1 <= argc) {
                             string exclude(argv[++i]);
-                            if (exclude.find("huffman") != std::string::npos) { sz_workflow.skip_huffman = true; }
-                            if (exclude.find("write2disk") != std::string::npos) { sz_workflow.skip_write2disk = true; }
+                            if (exclude.find("huffman") != std::string::npos) { task_is.skip_huffman = true; }
+                            if (exclude.find("write2disk") != std::string::npos) { task_is.skip_write2disk = true; }
                         }
                         break;
                     }
 
                     if (long_opt == "--help") goto tag_help;              // DOCUMENT
                     if (long_opt == "--version") goto tag_version;        //
+                    if (long_opt == "--predictor") goto tag_predictor;    //
                     if (long_opt == "--meta") goto tag_meta;              //
                     if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
                     if (long_opt == "--eb") goto tag_error_bound;         //
@@ -350,12 +380,13 @@ void ArgPack::parse_args(int argc, char** argv)
                     if (long_opt == "--pre") goto tag_preproc;            // IO
                     if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
-                    if (long_opt == "--partition-experiment") { sz_workflow.exp_partitioning_imbalance = true; }
+                    if (long_opt == "--verbose") goto tag_verbose;        //
 
                     if (long_opt == "--demo") {
                         if (i + 1 <= argc) {
-                            sz_workflow.use_demo_dataset = true;
-                            demo_dataset                 = string(argv[++i]);
+                            task_is.use_demo_dataset = true;
+                            demo_dataset             = string(argv[++i]);
+                            load_demo_sizes();
                         }
                         break;
                     }
@@ -366,37 +397,37 @@ void ArgPack::parse_args(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--origin" or long_opt == "--compare") {
-                        if (i + 1 <= argc) subfiles.decompress.in_origin = string(argv[++i]);
+                        if (i + 1 <= argc) fnames.origin_cmp = string(argv[++i]);
                         break;
                     }
                     if (long_opt == "--gzip") {
-                        sz_workflow.lossless_gzip = true;
+                        task_is.lossless_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     if (long_opt == "--nvcomp") {
                         throw std::runtime_error(
                             "[argparse] nvcomp is disabled temporarily in favor of code refactoring.");
-                        sz_workflow.lossless_nvcomp_cascade = false;
+                        task_is.lossless_nvcomp_cascade = false;
                         break;
                     }
                     if (long_opt == "--gtest") {
                         throw std::runtime_error(
                             "[argparse] gtest is disabled temporarily in favor of code refactoring.");
-                        sz_workflow.gtest = false;
+                        task_is.gtest = false;
                         break;
                     }
                 // WORKFLOW
                 case 'z':
                 tag_compress:
-                    sz_workflow.construct = true;
+                    task_is.construct = true;
                     break;
                 case 'x':
                 tag_decompress:
-                    sz_workflow.reconstruct = true;
+                    task_is.reconstruct = true;
                     break;
                 case 'r':
                 tag_dryrun:
-                    sz_workflow.dryrun = true;
+                    task_is.dryrun = true;
                     break;
                 // COMPRESSION CONFIG
                 case 'm':  // mode
@@ -408,10 +439,8 @@ void ArgPack::parse_args(int argc, char** argv)
                 tag_analysis:
                     if (i + 1 <= argc) {
                         string analysis(argv[++i]);
-                        if (analysis.find("export-codebook") != std::string::npos) { sz_workflow.export_book = true; }
-                        if (analysis.find("export-quant") != std::string::npos) { sz_workflow.export_quant = true; }
-                        if (analysis.find("huff-entropy") != std::string::npos) get_huff_entropy = true;
-                        if (analysis.find("huff-avg-bitcount") != std::string::npos) get_huff_avg_bitcount = true;
+                        if (analysis.find("export-codebook") != std::string::npos) { task_is.export_book = true; }
+                        if (analysis.find("export-quant") != std::string::npos) { task_is.export_quant = true; }
                     }
                     break;
                 // INPUT
@@ -426,31 +455,36 @@ void ArgPack::parse_args(int argc, char** argv)
                             dims.push_back(substr);
                         }
                         ndim = dims.size();
+                        x = y = z = w = 1;
                         if (ndim == 1) {  //
-                            auto d0 = str2int(dims[0].c_str());
-                            dim4    = {d0, 1, 1, 1};
+                            x = str2int(dims[0].c_str());
                         }
                         if (ndim == 2) {  //
-                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            dim4 = {d0, d1, 1, 1};
+                            x = str2int(dims[0].c_str());
+                            y = str2int(dims[1].c_str());
                         }
                         if (ndim == 3) {
-                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            auto d2 = str2int(dims[2].c_str());
-                            dim4    = {d0, d1, d2, 1};
+                            x = str2int(dims[0].c_str());
+                            y = str2int(dims[1].c_str());
+                            z = str2int(dims[2].c_str());
                         }
                         if (ndim == 4) {
-                            auto d0 = str2int(dims[0].c_str()), d1 = str2int(dims[1].c_str());
-                            auto d2 = str2int(dims[2].c_str()), d3 = str2int(dims[3].c_str());
-                            dim4 = {d0, d1, d2, d3};
+                            x = str2int(dims[0].c_str());
+                            y = str2int(dims[1].c_str());
+                            z = str2int(dims[2].c_str());
+                            w = str2int(dims[3].c_str());
                         }
+                        data_len = x * y * z * w;
                     }
                     break;
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) subfiles.path2file = string(argv[++i]);
+                    if (i + 1 <= argc) fnames.path2file = string(argv[++i]);
                     break;
-                    // alternative output
+                case 'p':
+                tag_predictor:
+                    if (i + 1 <= argc) { task_is.predictor = string(argv[++i]); }
+                // alternative output
                 case 'o':
                 tag_x_out:
                     cerr << log_err
@@ -465,7 +499,7 @@ void ArgPack::parse_args(int argc, char** argv)
                 tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);
-                        if (pre.find("binning") != std::string::npos) { sz_workflow.pre_binning = true; }
+                        if (pre.find("binning") != std::string::npos) { task_is.pre_binning = true; }
                     }
                     break;
                 // interactive mode
@@ -480,6 +514,10 @@ void ArgPack::parse_args(int argc, char** argv)
                 case 'R':
                 tag_report:
                     if (i + 1 <= argc) set_report(this, argv[++i]);
+                    break;
+                case 'V':
+                tag_verbose:
+                    verbose = true;
                     break;
                 // DOCUMENT
                 case 'h':
@@ -502,7 +540,7 @@ void ArgPack::parse_args(int argc, char** argv)
                     }
                     break;
                 case 'M':
-                tag_meta:  // TODO print .sz archive metadat
+                tag_meta:  // TODO print .cusza archive metadat
                     break;
                 case 'e':
                 tag_error_bound:
@@ -558,26 +596,13 @@ void ArgPack::sort_out_fnames()
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
-    auto input_path = subfiles.path2file.substr(0, subfiles.path2file.rfind('/') + 1);
-    if (not sz_workflow.construct and sz_workflow.reconstruct)
-        subfiles.path2file = subfiles.path2file.substr(0, subfiles.path2file.rfind('.'));
-    auto basename = subfiles.path2file.substr(subfiles.path2file.rfind('/') + 1);
+    auto input_path = fnames.path2file.substr(0, fnames.path2file.rfind('/') + 1);
+    if (not task_is.construct and task_is.reconstruct)
+        fnames.path2file = fnames.path2file.substr(0, fnames.path2file.rfind('.'));
+    fnames.basename = fnames.path2file.substr(fnames.path2file.rfind('/') + 1);
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";
 
-    // experiment
-    subfiles.compress.raw_quant = opath + basename + ".lean-quant";
-
-    // zip
-    subfiles.compress.huff_base   = opath + basename;
-    subfiles.compress.out_quant   = opath + basename + ".quant";
-    subfiles.compress.out_outlier = opath + basename + ".outlier";
-    subfiles.compress.out_yamp    = opath + basename + ".yamp";
-
-    // unzip
-    subfiles.decompress.in_yamp    = subfiles.path2file + ".yamp";
-    subfiles.decompress.in_quant   = subfiles.path2file + ".quant";
-    subfiles.decompress.in_outlier = subfiles.path2file + ".outlier";
-    subfiles.decompress.out_xdata  = opath + basename + ".szx";
+    fnames.path_basename = opath + fnames.basename;
 }

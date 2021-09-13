@@ -16,7 +16,7 @@
 #include <iostream>
 #include "../utils/cuda_err.cuh"
 #include "../utils/timer.hh"
-#include "handle_sparsity.h"
+#include "handle_sparsity.cuh"
 
 using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;
@@ -25,14 +25,29 @@ using descr_t  = cusparseMatDescr_t;
 /********************************************************************************
  * compression use
  ********************************************************************************/
+
 template <typename Data>
-OutlierHandler<Data>::OutlierHandler(unsigned int _len)
-{  //
-    this->m = static_cast<size_t>(ceil(sqrt(_len)));
+OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte)
+{
+    if (init_workspace_nbyte == nullptr)
+        throw std::runtime_error("[OutlierHandler::constructor] init_workspace_nbyte must not be null.");
+
+    m = static_cast<size_t>(ceil(sqrt(_len)));
+
+    // TODO merge to configure?
+    auto initial_nnz = _len / 10;
+    // set up pool
+    pool.offset.rowptr = 0;
+    pool.offset.colidx = sizeof(int) * (m + 1);
+    pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+
+    *init_workspace_nbyte = sizeof(int) * (m + 1) +      // rowptr
+                            sizeof(int) * initial_nnz +  // colidx
+                            sizeof(Data) * initial_nnz;  // values
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::configure(uint8_t* _pool, unsigned int try_nnz)
+OutlierHandler<Data>& OutlierHandler<Data>::configure(uint8_t* _pool)
 {
     if (not _pool) throw std::runtime_error("Memory pool is no allocated.");
     pool.ptr          = _pool;
@@ -60,7 +75,8 @@ OutlierHandler<Data>& OutlierHandler<Data>::configure_with_nnz(int nnz)
  ********************************************************************************/
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::gather_CUDA10(float* in_outlier, float& milliseconds)
+OutlierHandler<Data>&
+OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize, float& milliseconds)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -136,19 +152,25 @@ OutlierHandler<Data>& OutlierHandler<Data>::gather_CUDA10(float* in_outlier, flo
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
 
     /********************************************************************************/
+    dump_nbyte     = query_csr_bytelen();
+    _dump_poolsize = dump_nbyte;
+    /********************************************************************************/
     return *this;
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::archive(uint8_t* archive, int& export_nnz)
+OutlierHandler<Data>& OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
 {
     export_nnz = this->nnz;
 
     // clang-format off
-    cudaMemcpy(archive + 0,                               pool.entry.rowptr, bytelen.rowptr, cudaMemcpyDeviceToHost);
-    cudaMemcpy(archive + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, cudaMemcpyDeviceToHost);
-    cudaMemcpy(archive + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, cudaMemcpyDeviceToHost);
+    cudaMemcpy(dst + 0,                               pool.entry.rowptr, bytelen.rowptr, direction);
+    cudaMemcpy(dst + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, direction);
+    cudaMemcpy(dst + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, direction);
     // clang-format on
+
+    // TODO not working, alignment issue?
+    // cudaMemcpy(dst, pool.entry.rowptr, bytelen.total, direction);
 
     return *this;
 }

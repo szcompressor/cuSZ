@@ -14,6 +14,7 @@
  *
  */
 
+#include <cmath>
 #include <cstdio>
 #include <limits>
 #include <numeric>
@@ -86,61 +87,37 @@ void verify_data(stat_t* stat, T* xdata, T* odata, size_t len)
 template <typename Data>
 void print_data_quality_metrics(
     stat_t* stat,
-    bool    override_eb  = false,
-    double  new_eb       = 0,
-    size_t  archive_byte = 0,
-    size_t  bin_scale    = 1,
-    bool    locate_err   = false,
-    bool    gpu_checker  = false)
+    size_t  archive_nbyte = 0,
+    bool    gpu_checker   = false
+    // size_t  bin_scale    = 1 // TODO
+)
 {
-    auto indent   = []() {};  //{ printf("  "); };
-    auto linkline = []() { printf("|\n"); };
-    auto newline  = []() { printf("\n"); };
+    auto checker = (not gpu_checker) ? string("(using CPU checker)") : string("(using GPU checker)");
+    auto nbyte   = (stat->len * sizeof(Data) * 1.0);
 
-    if (not gpu_checker)
-        cout << ">> CPU checker\n\n";
-    else
-        cout << ">> GPU checker\n\n";
+    auto print_ln = [](const char* s, double n1, double n2, double n3, double n4) {
+        printf("  %-12s\t%15.8g\t%15.8g\t%15.8g\t%15.8g\n", s, n1, n2, n3, n4);
+    };
+    auto print_head = [](const char* s1, const char* s2, const char* s3, const char* s4, const char* s5) {
+        printf("  \e[1m\e[31m%-12s\t%15s\t%15s\t%15s\t%15s\e[0m\n", s1, s2, s3, s4, s5);
+    };
 
-    indent(), printf("%-20s%15lu", "data.len", stat->len), newline();
-    linkline();
-    indent(), printf("%-20s%15.8g", "min.odata", stat->min_odata), newline();
-    indent(), printf("%-20s%15.8g", "max.odata", stat->max_odata), newline();
-    indent(), printf("%-20s%15.8g", "rng.odata", stat->rng_odata), newline();
-    indent(), printf("%-20s%15.8g", "std.odata", stat->std_odata), newline();
-    linkline();
-    indent(), printf("%-20s%15.8g", "min.xdata", stat->min_xdata), newline();
-    indent(), printf("%-20s%15.8g", "max.xdata", stat->max_xdata), newline();
-    indent(), printf("%-20s%15.8g", "rng.xdata", stat->rng_xdata), newline();
-    indent(), printf("%-20s%15.8g", "std.xdata", stat->std_xdata), newline();
+    printf("\nquality metrics %s:\n", checker.c_str());
+    printf(
+        "  %-12s\t%15lu\t%15s\t%15lu\n",  //
+        const_cast<char*>("data-len"), stat->len, const_cast<char*>("data-byte"), sizeof(Data));
 
-    if (locate_err) {
-        linkline();
-        indent(), printf("%-20s\e[31m%15.8g\e[0m", "max.err.abs.val", stat->max_abserr), newline();
-        indent(), printf("%-20s%15lu", "max.err.abs.idx", stat->max_abserr_index), newline();
-    }
-    if (override_eb) {
-        indent(), printf("----------------------------------------------------------------\n");
-        indent(), printf("OVERRODE eb (because of, for example, binning) to:\t%.6G", new_eb), newline();
-        indent(), printf("max.err.abs.val/OVERRIDEN eb:\t%.6G", stat->max_abserr / new_eb), newline();
-        indent(), printf("----------------------------------------------------------------\n");
-    }
-    else {
-        indent(), printf("%-20s\e[31m%15.8e\e[0m", "max.err.vs.rng", stat->max_abserr_vs_rng), newline();
-    }
-    indent(), printf("%-20s%15.8g", "max.pw.rel.err", stat->max_pwrrel_abserr), newline();
+    print_head("", "min", "max", "rng", "std");
+    print_ln("origin", stat->min_odata, stat->max_odata, stat->rng_odata, stat->std_odata);
+    print_ln("eb-lossy", stat->min_xdata, stat->max_xdata, stat->rng_xdata, stat->std_xdata);
 
-    linkline();
-    indent(), printf("%-20s\e[31m%15.4f\e[0m", "PSNR", stat->PSNR), newline();
-    indent(), printf("%-20s%15.8g", "NRMSE", stat->NRMSE), newline();
-    indent(), printf("%-20s%15.8g", "corr.coeff", stat->coeff), newline();
+    print_head("", "abs-val", "abs-idx", "pw-rel", "VS-RNG");
+    print_ln("max-error", stat->max_abserr, stat->max_abserr_index, stat->max_pwrrel_abserr, stat->max_abserr_vs_rng);
 
-    if (archive_byte) {
-        indent(),
-            printf("%-20s\e[31m%15.8lf\e[0m", "CR.no.gzip", bin_scale * 1.0 * stat->len * sizeof(Data) / archive_byte),
-            newline();
-    }
-    cout << endl;
+    print_head("", "CR", "NRMSE", "corr-coeff", "PSNR");
+    print_ln("metrics", nbyte / archive_nbyte, stat->NRMSE, stat->coeff, stat->PSNR);
+
+    printf("\n");
 };
 
 }  // namespace analysis
