@@ -137,16 +137,21 @@ int main(int argc, char** argv)
     if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
         if (ctx->quant_nbyte == 1) {
-            if (ctx->huff_nbyte == 4)
-                cusz_compress<true, 4, 1, 4>(ctx, &in_data);
-            else
-                cusz_compress<true, 4, 1, 8>(ctx, &in_data);
+            throw runtime_error("Quant=1-byte temporarily disabled.");
+            if (ctx->huff_nbyte == 4) {
+                // cusz_compress<true, 4, 1, 4>(ctx, &in_data);
+            }
+            else {
+                // cusz_compress<true, 4, 1, 8>(ctx, &in_data);
+            }
         }
         else if (ctx->quant_nbyte == 2) {
-            if (ctx->huff_nbyte == 4)
+            if (ctx->huff_nbyte == 4) {  //
                 cusz_compress<true, 4, 2, 4>(ctx, &in_data);
-            else
+            }
+            else {
                 cusz_compress<true, 4, 2, 8>(ctx, &in_data);
+            }
         }
 
         // release memory
@@ -162,10 +167,13 @@ int main(int argc, char** argv)
         // TODO data ready outside Decompressor?
 
         if (ctx->quant_nbyte == 1) {
-            if (ctx->huff_nbyte == 4)
-                cusz_decompress<true, 4, 1, 4>(ctx);
-            else if (ctx->huff_nbyte == 8)
-                cusz_decompress<true, 4, 1, 8>(ctx);
+            throw runtime_error("Quant=1-byte temporarily disabled.");
+            if (ctx->huff_nbyte == 4) {
+                // cusz_decompress<true, 4, 1, 4>(ctx);
+            }
+            else if (ctx->huff_nbyte == 8) {
+                // cusz_decompress<true, 4, 1, 8>(ctx);
+            }
         }
         else if (ctx->quant_nbyte == 2) {
             if (ctx->huff_nbyte == 4)

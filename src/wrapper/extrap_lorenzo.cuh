@@ -12,6 +12,8 @@
 #ifndef CUSZ_WRAPPER_EXTRAP_LORENZO_CUH
 #define CUSZ_WRAPPER_EXTRAP_LORENZO_CUH
 
+#include "../../include/predictor.hh"
+
 template <typename Data = float, typename Quant = float, typename FP = float>
 void tbd_lorenzo_dryrun(Data* data, dim3 size3, int ndim, FP eb);
 
@@ -20,5 +22,51 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
 
 template <typename Data = float, typename Quant = float, typename FP = float, bool DELAY_POSTQUANT = false>
 void decompress_lorenzo_reconstruct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
+
+namespace cusz {
+
+template <typename T, typename E, typename FP>
+class PredictorLorenzo : public PredictorAbstraction<T, E> {
+   private:
+    int    radius;
+    double eb;
+    FP     ebx2_r;
+    FP     ebx2;
+
+    dim3     size;  // size.x, size.y, size.z
+    dim3     leap;  // leap.y, leap.z
+    int      ndim;
+    uint32_t len_data;
+    uint32_t len_quant;  // may differ from `len_data`
+    bool     delay_postquant;
+
+    float time_elapsed;
+
+    struct {
+        bool count_nnz;
+        // bool blockwide_gather; // future use
+    } on_off;
+
+    template <bool DELAY_POSTQUANT>
+    void construct_proxy(T* in_data, E* out);
+
+    template <bool DELAY_POSTQUANT>
+    void reconstruct_proxy(E* in_errctrl, T* out);
+
+   public:
+    PredictorLorenzo(dim3 xyz, double eb, int radius, bool delay_postquant);
+
+    uint32_t get_quant_len() const { return len_quant; }
+
+    uint32_t get_time_elapsed() const { return time_elapsed; }
+
+    void dryrun(T* in_out);
+
+    void construct(T* in_data, E* out_errctrl);
+
+    void reconstruct(E* in_errctrl, T* out_xdata);
+};
+
+}  // namespace cusz
 
 #endif

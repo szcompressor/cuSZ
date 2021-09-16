@@ -193,9 +193,9 @@ void set_config(argpack* ap, char* in_str)
         else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
         else if (kv.first == "huffbyte"){ ap->huff_nbyte = str2int(kv.second); }
         else if (kv.first == "quantbyte"){ ap->quant_nbyte = str2int(kv.second); }
-        else if (kv.first == "quantbyte"){ ap->huffman_chunk = str2int(kv.second), ap->task_is.autotune_huffchunk = false; }
-        else if (kv.first == "demo")    { ap->task_is.use_demo_dataset = true, ap->demo_dataset = string(kv.second); ap->load_demo_sizes();
-        }
+        else if (kv.first == "huffchunk"){ ap->huffman_chunk = str2int(kv.second), ap->task_is.autotune_huffchunk = false; }
+        else if (kv.first == "demo")    { ap->task_is.use_demo_dataset = true, ap->demo_dataset = string(kv.second); ap->load_demo_sizes(); }
+        else if (kv.first == "predictor") { ap->task_is.predictor = string(kv.second); }
         // clang-format on
     }
 }

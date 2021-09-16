@@ -21,7 +21,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE STATIC)
 
-add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu)
+add_library(pq ${LIB_TYPE} src/wrapper/deprecated_extrap_lorenzo.cu)
 add_library(argp ${LIB_TYPE} src/argparse.cc)
 add_library(sp ${LIB_TYPE} src/wrapper/handle_sparsity.cu)
 target_link_libraries(sp -lcusparse)
