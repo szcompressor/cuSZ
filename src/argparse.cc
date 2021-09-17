@@ -39,7 +39,7 @@ unsigned int str2int(std::string s)
     auto  res = std::strtol(s.c_str(), &end, 10);
     if (*end) {
         const char* notif = "invalid option value, non-convertible part: ";
-        cerr << log_err << notif << "\e[1m" << s << "\e[0m" << endl;
+        cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
     }
     return res;
 };
@@ -50,7 +50,7 @@ unsigned int str2int(const char* s)
     auto  res = std::strtol(s, &end, 10);
     if (*end) {
         const char* notif = "invalid option value, non-convertible part: ";
-        cerr << log_err << notif << "\e[1m" << s << "\e[0m" << endl;
+        cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
     }
     return res;
 };
@@ -61,7 +61,7 @@ double str2fp(std::string s)
     auto  res = std::strtod(s.c_str(), &end);
     if (*end) {
         const char* notif = "invalid option value, non-convertible part: ";
-        cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
+        cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
     }
     return res;
 }
@@ -72,7 +72,7 @@ double str2fp(const char* s)
     auto  res = std::strtod(s, &end);
     if (*end) {
         const char* notif = "invalid option value, non-convertible part: ";
-        cerr << log_err << notif << "\e[1m" << end << "\e[0m" << endl;
+        cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
     }
     return res;
 };
@@ -112,7 +112,7 @@ auto parse_strlist = [](const char* in_str, str_list& list) {
     }
 };
 
-void set_preprocess(argpack* ap, const char* in_str)
+void set_preprocess(cuszCTX* ctx, const char* in_str)
 {
     str_list opts;
     parse_strlist(in_str, opts);
@@ -152,7 +152,7 @@ std::pair<std::string, bool> parse_kv_onoff(std::string in_str)
     return std::make_pair(k, onoff);
 }
 
-void set_report(argpack* ap, const char* in_str)
+void set_report(cuszCTX* ctx, const char* in_str)
 {
     auto is_kv_pair = [](std::string s) { return s.find("=") != std::string::npos; };
 
@@ -163,46 +163,66 @@ void set_report(argpack* ap, const char* in_str)
         if (is_kv_pair(o)) {
             auto kv = parse_kv_onoff(o);
 
-            // clang-format off
-            if (kv.first == "quality")      ap->report.quality = kv.second;
-            else if (kv.first == "cr")      ap->report.cr = kv.second;
-            else if (kv.first == "compressibility") ap->report.compressibility = kv.second;
-            else if (kv.first == "time")    ap->report.time = kv.second;
-            // clang-format on
+            if (kv.first == "quality")
+                ctx->report.quality = kv.second;
+            else if (kv.first == "cr")
+                ctx->report.cr = kv.second;
+            else if (kv.first == "compressibility")
+                ctx->report.compressibility = kv.second;
+            else if (kv.first == "time")
+                ctx->report.time = kv.second;
         }
         else {
-            // clang-format off
-            if (o == "quality")             ap->report.quality = true;
-            else if (o == "cr")             ap->report.cr = true;
-            else if (o == "compressibility")ap->report.compressibility = true;
-            else if (o == "time")           ap->report.time = true;
-            // clang-format on
+            if (o == "quality")
+                ctx->report.quality = true;
+            else if (o == "cr")
+                ctx->report.cr = true;
+            else if (o == "compressibility")
+                ctx->report.compressibility = true;
+            else if (o == "time")
+                ctx->report.time = true;
         }
     }
 }
 
-void set_config(argpack* ap, char* in_str)
+void set_config(cuszCTX* ctx, char* in_str)
 {
     map_t opts;
     parse_strlist_as_kv(in_str, opts);
 
     for (auto kv : opts) {
-        // clang-format off
-        if (kv.first == "mode")         { ap->mode = std::string(kv.second); }
-        else if (kv.first == "eb")      { ap->eb = str2fp(kv.second); }
-        else if (kv.first == "cap")     { ap->dict_size = str2int(kv.second), ap->radius = ap->dict_size / 2; }
-        else if (kv.first == "huffbyte"){ ap->huff_nbyte = str2int(kv.second); }
-        else if (kv.first == "quantbyte"){ ap->quant_nbyte = str2int(kv.second); }
-        else if (kv.first == "huffchunk"){ ap->huffman_chunk = str2int(kv.second), ap->task_is.autotune_huffchunk = false; }
-        else if (kv.first == "demo")    { ap->task_is.use_demo_dataset = true, ap->demo_dataset = string(kv.second); ap->load_demo_sizes(); }
-        else if (kv.first == "predictor") { ap->task_is.predictor = string(kv.second); }
-        // clang-format on
+        if (kv.first == "mode") { ctx->mode = std::string(kv.second); }
+        else if (kv.first == "eb") {
+            ctx->eb = str2fp(kv.second);
+        }
+        else if (kv.first == "cap") {
+            ctx->dict_size = str2int(kv.second);
+            ctx->radius    = ctx->dict_size / 2;
+        }
+        else if (kv.first == "huffbyte") {
+            ctx->huff_nbyte = str2int(kv.second);
+        }
+        else if (kv.first == "quantbyte") {
+            ctx->quant_nbyte = str2int(kv.second);
+        }
+        else if (kv.first == "huffchunk") {
+            ctx->huffman_chunk              = str2int(kv.second);
+            ctx->task_is.autotune_huffchunk = false;
+        }
+        else if (kv.first == "demo") {
+            ctx->task_is.use_demo_dataset = true;
+            ctx->demo_dataset             = string(kv.second);
+            ctx->load_demo_sizes();
+        }
+        else if (kv.first == "predictor") {
+            ctx->task_is.predictor = string(kv.second);
+        }
     }
 }
 
 }  // namespace
 
-void ArgPack::load_demo_sizes()
+void cuszCTX::load_demo_sizes()
 {
     const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
         {std::string("hacc"), {280953867, 1, 1, 1, 1}},    {std::string("hacc1b"), {1073726487, 1, 1, 1, 1}},
@@ -228,8 +248,7 @@ void ArgPack::load_demo_sizes()
     data_len = x * y * z * w;
 }
 
-string  //
-ArgPack::format(const string& s)
+string cuszCTX::format(const string& s)
 {
     std::regex  gray("%(.*?)%");
     std::string gray_text("\e[37m$1\e[0m");
@@ -242,44 +261,40 @@ ArgPack::format(const string& s)
     std::string ul_text("\e[4m$1\e[0m");
     std::regex  red(R"(\^\^(.*?)\^\^)");
     std::string red_text("\e[31m$1\e[0m");
-    auto        a = std::regex_replace(s, bful, bful_text);
-    auto        b = std::regex_replace(a, bf, bf_text);
-    auto        c = std::regex_replace(b, ul, ul_text);
-    auto        d = std::regex_replace(c, red, red_text);
-    auto        e = std::regex_replace(d, gray, gray_text);
+
+    auto a = std::regex_replace(s, bful, bful_text);
+    auto b = std::regex_replace(a, bf, bf_text);
+    auto c = std::regex_replace(b, ul, ul_text);
+    auto d = std::regex_replace(c, red, red_text);
+    auto e = std::regex_replace(d, gray, gray_text);
+
     return e;
 }
 
-int  //
-ArgPack::trap(int _status)
-{
-    this->read_args_status = _status;
-    return read_args_status;
-}
+void cuszCTX::trap(int _status) { this->read_args_status = _status; }
 
-void  //
-ArgPack::check_args()
+void cuszCTX::check_args()
 {
     bool to_abort = false;
     if (fnames.path2file.empty()) {
-        cerr << log_err << "Not specifying input file!" << endl;
+        cerr << LOG_ERR << "must specify input file" << endl;
         to_abort = true;
     }
 
     if (self_multiply4() == 1 and not task_is.use_demo_dataset) {
         if (task_is.construct or task_is.dryrun) {
-            cerr << log_err << "Wrong input size(s)!" << endl;
+            cerr << LOG_ERR << "wrong input size" << endl;
             to_abort = true;
         }
     }
     if (not task_is.construct and not task_is.reconstruct and not task_is.dryrun) {
-        cerr << log_err << "Select compress (-a), decompress (-x) or dry-run (-r)!" << endl;
+        cerr << LOG_ERR << "select compress (-z), decompress (-x) or dry-run (-r)" << endl;
         to_abort = true;
     }
     if (dtype != "f32" and dtype != "f64") {
         if (task_is.construct or task_is.dryrun) {
             cout << dtype << endl;
-            cerr << log_err << "Not specifying data type!" << endl;
+            cerr << LOG_ERR << "must specify data type" << endl;
             to_abort = true;
         }
     }
@@ -292,19 +307,19 @@ ArgPack::check_args()
     }
 
     if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
-        cerr << log_warn << "No need to dry-run, compress and decompress at the same time!" << endl;
-        cerr << log_warn << "Will dry run only." << endl << endl;
+        cerr << LOG_WARN << "no need to dry-run, compress and decompress at the same time" << endl;
+        cerr << LOG_WARN << "dryrun only" << endl << endl;
         task_is.construct   = false;
         task_is.reconstruct = false;
     }
     else if (task_is.dryrun and task_is.construct) {
-        cerr << log_warn << "No need to dry-run and compress at the same time!" << endl;
-        cerr << log_warn << "Will dry run only." << endl << endl;
+        cerr << LOG_WARN << "no need to dry-run and compress at the same time" << endl;
+        cerr << LOG_WARN << "dryrun only" << endl << endl;
         task_is.construct = false;
     }
     else if (task_is.dryrun and task_is.reconstruct) {
-        cerr << log_warn << "No need to dry-run and decompress at the same time!" << endl;
-        cerr << log_warn << "Will dry run only." << endl << endl;
+        cerr << LOG_WARN << "no need to dry-run and decompress at the same time" << endl;
+        cerr << LOG_WARN << "will dryrun only" << endl << endl;
         task_is.reconstruct = false;
     }
 
@@ -317,29 +332,27 @@ ArgPack::check_args()
     // }
 
     if (to_abort) {
-        print_cusz_short_doc();
+        print_short_doc();
         exit(-1);
     }
 }
 
-void  //
-ArgPack::print_cusz_short_doc()
+void cuszCTX::print_short_doc()
 {
     cout << "\n>>>>  cusz build: " << version_text << "\n";
     cout << cusz_short_doc << endl;
 }
 
-void  //
-ArgPack::print_cusz_full_doc()
+void cuszCTX::print_full_doc()
 {
     cout << "\n>>>>  cusz build: " << version_text << "\n";
     cout << format(cusz_full_doc) << endl;
 }
 
-void ArgPack::parse_args(int argc, char** argv)
+cuszCTX::cuszCTX(int argc, char** argv)
 {
     if (argc == 1) {
-        print_cusz_short_doc();
+        print_short_doc();
         exit(0);
     }
 
@@ -488,7 +501,7 @@ void ArgPack::parse_args(int argc, char** argv)
                 // alternative output
                 case 'o':
                 tag_x_out:
-                    cerr << log_err
+                    cerr << LOG_ERR
                          << "\"-o\" will be working in the (near) future release. Pleae use \"--opath [path]\" "
                             "to "
                             "specify output path."
@@ -523,7 +536,7 @@ void ArgPack::parse_args(int argc, char** argv)
                 // DOCUMENT
                 case 'h':
                 tag_help:
-                    print_cusz_full_doc();
+                    print_full_doc();
                     exit(0);
                 case 'v':
                 tag_version:
@@ -554,9 +567,9 @@ void ArgPack::parse_args(int argc, char** argv)
                     const char* notif_prefix = "invalid option value at position ";
                     char*       notif;
                     int         size = asprintf(&notif, "%d: %s", i, argv[i]);
-                    cerr << log_err << notif_prefix << "\e[1m" << notif << "\e[0m"
+                    cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m"
                          << "\n";
-                    cerr << string(log_null.length() + strlen(notif_prefix), ' ');
+                    cerr << string(LOG_NULL.length() + strlen(notif_prefix), ' ');
                     cerr << "\e[1m";
                     cerr << string(strlen(notif), '~');
                     cerr << "\e[0m\n";
@@ -567,10 +580,10 @@ void ArgPack::parse_args(int argc, char** argv)
             const char* notif_prefix = "invalid option at position ";
             char*       notif;
             int         size = asprintf(&notif, "%d: %s", i, argv[i]);
-            cerr << log_err << notif_prefix << "\e[1m" << notif
+            cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
                  << "\e[0m"
                     "\n"
-                 << string(log_null.length() + strlen(notif_prefix), ' ')  //
+                 << string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
                  << "\e[1m"                                                //
                  << string(strlen(notif), '~')                             //
                  << "\e[0m\n";
@@ -581,7 +594,7 @@ void ArgPack::parse_args(int argc, char** argv)
 
     // phase 1: check grammar
     if (read_args_status != 0) {
-        cout << log_info << "Exiting..." << endl;
+        cout << LOG_INFO << "Exiting..." << endl;
         // after printing ALL argument errors
         exit(-1);
     }
@@ -592,7 +605,7 @@ void ArgPack::parse_args(int argc, char** argv)
     sort_out_fnames();
 }
 
-void ArgPack::sort_out_fnames()
+void cuszCTX::sort_out_fnames()
 {
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"

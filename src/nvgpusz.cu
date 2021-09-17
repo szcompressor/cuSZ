@@ -81,7 +81,7 @@ void COMPRESSOR::report_compression_time()
     float nonbook = time.lossy + time.outlier + time.hist + time.lossless;
 
     printf(
-        "\ncompression throughput report (ms, 1e-3)):\n"
+        "\ncompression throughput report (ms, 1e-3):\n"
         "  \e[1m\e[31m%-18s\t%12s\t%15s\e[0m\n",  //
         const_cast<char*>("kernel"),              //
         const_cast<char*>("milliseconds"),        //
@@ -100,7 +100,7 @@ void COMPRESSOR::report_compression_time()
 }
 
 COMPR_TYPE
-COMPRESSOR::Compressor(argpack* _ctx) : ctx(_ctx)
+COMPRESSOR::Compressor(cuszCTX* _ctx) : ctx(_ctx)
 {
     header = new cusz_header();
 
@@ -144,7 +144,7 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<Data>* in_data)
         auto ebx2_r = config.ebx2_r;
         auto ebx2   = config.ebx2;
 
-        logging(log_info, "invoke dry-run");
+        LOGGING(LOG_INFO, "invoke dry-run");
         constexpr auto SEQ       = 4;
         constexpr auto SUBSIZE   = 256;
         auto           dim_block = SUBSIZE / SEQ;
@@ -169,7 +169,7 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<Data>* in_data)
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<Data>* anchor, Capsule<Quant>* quant)
 {
-    logging(log_info, "compressing...");
+    LOGGING(LOG_INFO, "compressing...");
     // TODO "predictor" -> "prediction"
     if (ctx->task_is.predictor == "lorenzo") {
         // TODO class lorenzo
@@ -204,7 +204,7 @@ COMPRESSOR& COMPRESSOR::gather_outlier(Capsule<Data>* in_data)
     cudaFree(sp.workspace);
 
     auto fmt_nnz = "(" + std::to_string(length.nnz_outlier / 1.0 / length.data * 100) + "%)";
-    logging(log_info, "#outlier = ", length.nnz_outlier, fmt_nnz);
+    LOGGING(LOG_INFO, "#outlier = ", length.nnz_outlier, fmt_nnz);
 
     return *this;
 }
@@ -269,7 +269,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(Capsule<Huff>* book)
         cudaFreeHost(book->hptr);
         book->hptr = nullptr;
 
-        logging(log_info, "exporting codebook as binary; suffix: \".lean-book\"");
+        LOGGING(LOG_INFO, "exporting codebook as binary; suffix: \".lean-book\"");
 
         data_seg.nbyte_raw.at("book") = length.dict_size * sizeof(Huff);
     }
@@ -288,8 +288,8 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<Quant>* quant)
 
         // TODO as part of dump
         io::write_array_to_binary(ctx->fnames.path_basename + ".lean-quant", quant->hptr, length.quant);
-        logging(log_info, "exporting quant as binary; suffix: \".lean-quant\"");
-        logging(log_info, "exiting");
+        LOGGING(LOG_INFO, "exporting quant as binary; suffix: \".lean-quant\"");
+        LOGGING(LOG_INFO, "exiting");
         exit(0);
     }
     return *this;
@@ -305,7 +305,7 @@ void COMPRESSOR::try_skip_huffman(Capsule<Quant>* quant)
 
         // TODO: as part of cusza
         io::write_array_to_binary(ctx->fnames.path_basename + ".quant", quant->hptr, length.quant);
-        logging(log_info, "to store quant.code directly (Huffman enc skipped)");
+        LOGGING(LOG_INFO, "to store quant.code directly (Huffman enc skipped)");
         exit(0);
     }
 }
@@ -599,7 +599,7 @@ void DECOMPRESSOR::report_decompression_time(size_t len, float lossy, float outl
     float all   = lossy + outlier + lossless;
 
     printf(
-        "\ndecompression throughput report (ms, 1e-3)):\n"
+        "\ndecompression throughput report (ms, 1e-3):\n"
         "  \e[1m\e[31m%-18s\t%12s\t%15s\e[0m\n",  //
         const_cast<char*>("kernel"),              //
         const_cast<char*>("milliseconds"),        //
@@ -655,7 +655,7 @@ void DECOMPRESSOR::get_data_seg_offsets()
 }
 
 DECOMPR_TYPE
-DECOMPRESSOR::Decompressor(argpack* _ctx) : ctx(_ctx)
+DECOMPRESSOR::Decompressor(cuszCTX* _ctx) : ctx(_ctx)
 {
     auto __cusz_get_filesize = [](std::string fname) -> size_t {
         std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
@@ -674,7 +674,7 @@ DECOMPRESSOR::Decompressor(argpack* _ctx) : ctx(_ctx)
     read_array_nbyte_from_header();
     get_data_seg_offsets();
 
-    logging(log_info, "decompressing...");
+    LOGGING(LOG_INFO, "decompressing...");
 
     unpack_metadata();
 
@@ -692,12 +692,12 @@ DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::huffman_decode(Capsule<Quant>* quant)
 {
     if (ctx->task_is.skip_huffman) {
-        // logging(log_info, "load quant.code from filesystem");
+        // LOGGING(LOG_INFO, "load quant.code from filesystem");
         io::read_binary_to_array(ctx->fnames.path_basename + ".quant", quant->hptr, quant->len);
         quant->h2d();
     }
     else {
-        // logging(log_info, "Huffman decode -> quant.code");
+        // LOGGING(LOG_INFO, "Huffman decode -> quant.code");
 
         auto basename      = ctx->fnames.path2file;
         auto nchunk        = (ctx->data_len - 1) / ctx->huffman_chunk + 1;
@@ -786,13 +786,13 @@ DECOMPRESSOR& DECOMPRESSOR::calculate_archive_nbyte()
     // archive_bytes += length.nnz_outlier * (sizeof(Data) + sizeof(int)) + (m + 1) * sizeof(int);
 
     if (ctx->task_is.skip_huffman) {
-        logging(
-            log_info, "dtype is \"", demangle(typeid(Data).name()), "\", and quant. code type is \"",
+        LOGGING(
+            LOG_INFO, "dtype is \"", demangle(typeid(Data).name()), "\", and quant. code type is \"",
             demangle(typeid(Quant).name()), "\"; a CR of no greater than ", (sizeof(Data) / sizeof(Quant)),
             " is expected when Huffman codec is skipped.");
     }
 
-    if (ctx->task_is.pre_binning) logging(log_info, "Because of 2x2->1 binning, extra 4x CR is added.");
+    if (ctx->task_is.pre_binning) LOGGING(LOG_INFO, "Because of 2x2->1 binning, extra 4x CR is added.");
 
     return *this;
 }
@@ -810,7 +810,7 @@ DECOMPRESSOR& DECOMPRESSOR::try_compare(Data* xdata)
 {
     // TODO move CR out of verify_data
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
-        logging(log_info, "compare to the original");
+        LOGGING(LOG_INFO, "compare to the original");
 
         auto odata = io::read_binary_to_new_array<Data>(ctx->fnames.origin_cmp, length.data);
 
@@ -826,9 +826,9 @@ DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::try_write2disk(Data* host_xdata)
 {
     if (ctx->task_is.skip_write2disk)
-        logging(log_info, "output: skipped");
+        LOGGING(LOG_INFO, "output: skipped");
     else {
-        logging(log_info, "output:", ctx->fnames.path_basename + ".cuszx");
+        LOGGING(LOG_INFO, "output:", ctx->fnames.path_basename + ".cuszx");
         io::write_array_to_binary(ctx->fnames.path_basename + ".cuszx", host_xdata, ctx->data_len);
     }
 

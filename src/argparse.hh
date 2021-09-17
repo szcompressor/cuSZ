@@ -28,15 +28,14 @@ extern const char* version_text;
 extern const int   version;
 extern const int   compatibility;
 
-class ArgPack {
-   private:
+class cuszCTX {
    public:
     void load_demo_sizes();
     struct {
         bool   use_demo_dataset{false};
         bool   pre_binning{false}, pre_log_trans{false};
         bool   autotune_huffchunk{true};
-        bool   construct{false}, reconstruct{false}, dryrun{false};
+        bool   construct{false}, reconstruct{false}, dryrun{false}, experiment{false};
         bool   export_book{false}, export_quant{false};
         bool   skip_write2disk{false}, skip_huffman{false};
         bool   lossless_nvcomp_cascade{false}, lossless_gzip{false};
@@ -79,29 +78,23 @@ class ArgPack {
 
     bool verbose{false};
 
-    // for standalone Huffman
-    int input_rep{2};
-    int huffman_datalen{-1};
+   private:
+    size_t self_multiply4() { return x * y * z * w; };
 
-    static string format(const string& s);
+    void sort_out_fnames();
 
-    int trap(int _status);
+    void trap(int _status);
 
     void check_args();
 
-    static void print_cusz_short_doc();
+    static string format(const string& s);
 
-    static void print_cusz_full_doc();
+    static void print_short_doc();
 
-    ArgPack() = default;
+    static void print_full_doc();
 
-    size_t self_multiply4() { return x * y * z * w; };
-
-    void parse_args(int argc, char** argv);
-
-    void sort_out_fnames();
+   public:
+    cuszCTX(int argc, char** argv);
 };
-
-typedef ArgPack argpack;
 
 #endif  // ARGPARSE_HH

@@ -48,7 +48,7 @@ void check_shell_calls(string cmd_string)
     int status = system(cmd);
     delete[] cmd;
     cmd = nullptr;
-    if (status < 0) { logging(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
+    if (status < 0) { LOGGING(LOG_ERR, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
 }
 
 }  // namespace
@@ -64,8 +64,7 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 int main(int argc, char** argv)
 {
-    auto ctx = new ArgPack();
-    ctx->parse_args(argc, argv);
+    auto ctx = new cuszCTX(argc, argv);
 
     if (ctx->verbose) {
         GetMachineProperties();
@@ -82,7 +81,7 @@ int main(int argc, char** argv)
 
     Capsule<Data> in_data(mxm);
 
-    if (ctx->task_is.construct or ctx->task_is.dryrun) {
+    if (ctx->task_is.construct or ctx->task_is.experiment or ctx->task_is.dryrun) {
         cudaMalloc(&in_data.dptr, in_data.nbyte());
         cudaMallocHost(&in_data.hptr, in_data.nbyte());
 
@@ -91,9 +90,9 @@ int main(int argc, char** argv)
             io::read_binary_to_array<Data>(ctx->fnames.path2file, in_data.hptr, len);
             auto z = hires::now();
 
-            if (ctx->verbose) logging(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
+            if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
 
-            logging(log_info, "load", ctx->fnames.path2file, len * sizeof(Data), "bytes");
+            LOGGING(LOG_INFO, "load", ctx->fnames.path2file, len * sizeof(Data), "bytes");
         }
 
         in_data.h2d();
@@ -103,21 +102,21 @@ int main(int argc, char** argv)
             auto     result = analyzer.GetMaxMinRng                                     //
                           <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                           (in_data.dptr, len);
-            if (ctx->verbose) logging(log_dbg, "time scanning:", result.seconds, "sec");
+            if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
             ctx->eb *= result.rng;
         }
 
         if (ctx->verbose)
-            logging(
-                log_dbg, std::to_string(ctx->quant_nbyte) + "-byte quant type,",
+            LOGGING(
+                LOG_DBG, std::to_string(ctx->quant_nbyte) + "-byte quant type,",
                 std::to_string(ctx->huff_nbyte) + "-byte internal Huff type");
     }
 
     if (ctx->task_is.pre_binning) {
-        cerr << log_err
-             << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
-                "filesystem. (ver. 0.1.4)"
-             << endl;
+        LOGGING(
+            LOG_ERR,
+            "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching filesystem. "
+            "(ver. 0.2.9)");
         exit(1);
     }
 

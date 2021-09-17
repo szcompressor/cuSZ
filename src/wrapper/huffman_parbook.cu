@@ -601,12 +601,12 @@ void lossless::par_get_codebook(int dict_size, unsigned int* _d_freq, H* _d_code
     // Exit if not enough exposed parallelism -- TODO modify kernels so this is unneeded
     int tthreads = mthreads * mblocks;
     if (tthreads < nz_dict_size) {
-        cout << log_err << "Insufficient on-device parallelism to construct a " << nz_dict_size
+        cout << LOG_ERR << "Insufficient on-device parallelism to construct a " << nz_dict_size
              << " non-zero item codebook" << endl;
-        cout << log_err << "Provided parallelism: " << mblocks << " blocks, " << mthreads << " threads, " << tthreads
+        cout << LOG_ERR << "Provided parallelism: " << mblocks << " blocks, " << mthreads << " threads, " << tthreads
              << " total" << endl
              << endl;
-        cout << log_err << "Exiting cuSZ ..." << endl;
+        cout << LOG_ERR << "Exiting cuSZ ..." << endl;
         exit(1);
     }
 
@@ -646,11 +646,11 @@ void lossless::par_get_codebook(int dict_size, unsigned int* _d_freq, H* _d_code
 
     int max_CW_bits = (sizeof(H) * 8) - 8;
     if (max_CL > max_CW_bits) {
-        cout << log_err << "Cannot store all Huffman codewords in " << max_CW_bits + 8 << "-bit representation" << endl;
-        cout << log_err << "Huffman codeword representation requires at least " << max_CL + 8
+        cout << LOG_ERR << "Cannot store all Huffman codewords in " << max_CW_bits + 8 << "-bit representation" << endl;
+        cout << LOG_ERR << "Huffman codeword representation requires at least " << max_CL + 8
              << " bits (longest codeword: " << max_CL << " bits)" << endl;
-        cout << log_err << "(Consider running with -H 8 for 8-byte representation)" << endl << endl;
-        cout << log_err << "Exiting cuSZ ..." << endl;
+        cout << LOG_ERR << "(Consider running with -H 8 for 8-byte representation)" << endl << endl;
+        cout << LOG_ERR << "Exiting cuSZ ..." << endl;
         exit(1);
     }
 
@@ -661,12 +661,12 @@ void lossless::par_get_codebook(int dict_size, unsigned int* _d_freq, H* _d_code
     // Exit if not enough exposed parallelism -- TODO modify kernels so this is unneeded
     int cw_tthreads = cw_mblocks * 1024;
     if (cw_tthreads < nz_dict_size) {
-        cout << log_err << "Insufficient on-device parallelism to construct a " << nz_dict_size
+        cout << LOG_ERR << "Insufficient on-device parallelism to construct a " << nz_dict_size
              << " non-zero item codebook" << endl;
-        cout << log_err << "Provided parallelism: " << cw_mblocks << " blocks, " << 1024 << " threads, " << cw_tthreads
+        cout << LOG_ERR << "Provided parallelism: " << cw_mblocks << " blocks, " << 1024 << " threads, " << cw_tthreads
              << " total" << endl
              << endl;
-        cout << log_err << "Exiting cuSZ ..." << endl;
+        cout << LOG_ERR << "Exiting cuSZ ..." << endl;
         exit(1);
     }
 

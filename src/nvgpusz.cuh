@@ -101,7 +101,7 @@ class Compressor {
     OutlierHandler<Data>* csr;
 
     // context, configuration
-    argpack* ctx;
+    cuszCTX* ctx;
     //
     cusz_header* header;
 
@@ -111,7 +111,7 @@ class Compressor {
 
     unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
 
-    Compressor(argpack* _ctx);
+    Compressor(cuszCTX* _ctx);
 
     ~Compressor()
     {
@@ -209,7 +209,7 @@ class Decompressor {
 
     std::vector<uint32_t> offsets;
 
-     size_t cusza_nbyte;
+    size_t cusza_nbyte;
 
     struct {
         float lossy{0.0}, outlier{0.0}, lossless{0.0};
@@ -239,15 +239,15 @@ class Decompressor {
     } csr_file;
     OutlierHandler<Data>* csr;
 
-    argpack*     ctx;
+    cuszCTX*     ctx;
     cusz_header* header;
     BYTE*        header_byte;  // to use
 
-    Decompressor(cusz_header* header, argpack* ctx);
+    Decompressor(cusz_header* header, cuszCTX* ctx);
 
-    Decompressor(argpack* ctx);
+    Decompressor(cuszCTX* ctx);
 
-    Decompressor(argpack* ctx, uint8_t* in_dump);
+    Decompressor(cuszCTX* ctx, uint8_t* in_dump);
 
     Decompressor(BYTE* in_dump);
 
@@ -269,9 +269,9 @@ class Decompressor {
 };
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(argpack* ctx, Capsule<typename DataTrait<If_FP, DataByte>::Data>* in_data);
+void cusz_compress(cuszCTX* ctx, Capsule<typename DataTrait<If_FP, DataByte>::Data>* in_data);
 
 template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack* ctx);
+void cusz_decompress(cuszCTX* ctx);
 
 #endif
