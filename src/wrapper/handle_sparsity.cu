@@ -37,9 +37,9 @@ OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_works
     // TODO merge to configure?
     auto initial_nnz = _len / 10;
     // set up pool
-    pool.offset.rowptr = 0;
-    pool.offset.colidx = sizeof(int) * (m + 1);
-    pool.offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+    offset.rowptr = 0;
+    offset.colidx = sizeof(int) * (m + 1);
+    offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
 
     *init_workspace_nbyte = sizeof(int) * (m + 1) +      // rowptr
                             sizeof(int) * initial_nnz +  // colidx
@@ -47,27 +47,23 @@ OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_works
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::configure(uint8_t* _pool)
+void OutlierHandler<Data>::configure_workspace(uint8_t* _pool)
 {
-    if (not _pool) throw std::runtime_error("Memory pool is no allocated.");
-    pool.ptr          = _pool;
-    pool.entry.rowptr = reinterpret_cast<int*>(pool.ptr + pool.offset.rowptr);
-    pool.entry.colidx = reinterpret_cast<int*>(pool.ptr + pool.offset.colidx);
-    pool.entry.values = reinterpret_cast<Data*>(pool.ptr + pool.offset.values);
-
-    return *this;
+    if (not _pool) throw std::runtime_error("Memory is no allocated.");
+    pool_ptr     = _pool;
+    entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
+    entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
+    entry.values = reinterpret_cast<Data*>(pool_ptr + offset.values);
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::configure_with_nnz(int nnz)
+void OutlierHandler<Data>::reconfigure_with_precise_nnz(int nnz)
 {
-    this->nnz      = nnz;
-    bytelen.rowptr = sizeof(int) * (m + 1);
-    bytelen.colidx = sizeof(int) * nnz;
-    bytelen.values = sizeof(Data) * nnz;
-    bytelen.total  = bytelen.rowptr + bytelen.colidx + bytelen.values;
-
-    return *this;
+    this->nnz    = nnz;
+    nbyte.rowptr = sizeof(int) * (m + 1);
+    nbyte.colidx = sizeof(int) * nnz;
+    nbyte.values = sizeof(Data) * nnz;
+    nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
 /********************************************************************************
@@ -75,8 +71,7 @@ OutlierHandler<Data>& OutlierHandler<Data>::configure_with_nnz(int nnz)
  ********************************************************************************/
 
 template <typename Data>
-OutlierHandler<Data>&
-OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize, float& milliseconds)
+void OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -101,8 +96,8 @@ OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_pools
         timer_step3->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr_bufferSizeExt(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, pool.entry.values, pool.entry.rowptr,
-            pool.entry.colidx, &lworkInBytes));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, entry.values, entry.rowptr, entry.colidx,
+            &lworkInBytes));
 
         milliseconds += timer_step3->timer_end_get_elapsed_time();
         delete timer_step3;
@@ -119,18 +114,19 @@ OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_pools
         timer_step4->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csrNnz(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, pool.entry.rowptr, &nnz, d_work));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, entry.rowptr, &nnz, d_work));
 
         milliseconds += timer_step4->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
         delete timer_step4;
     }
 
-    this->configure_with_nnz(nnz);
+    reconfigure_with_precise_nnz(nnz);
 
     if (nnz == 0) {
         std::cout << "nnz == 0, exiting gather.\n";
-        return *this;
+        // return *this;
+        return;
     }
 
     /* step 5: compute col_ind and values */
@@ -139,8 +135,7 @@ OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_pools
         timer_step5->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, pool.entry.values, pool.entry.rowptr,
-            pool.entry.colidx, d_work));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, entry.values, entry.rowptr, entry.colidx, d_work));
 
         milliseconds += timer_step5->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -155,24 +150,21 @@ OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_pools
     dump_nbyte     = query_csr_bytelen();
     _dump_poolsize = dump_nbyte;
     /********************************************************************************/
-    return *this;
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
+void OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
 {
     export_nnz = this->nnz;
 
     // clang-format off
-    cudaMemcpy(dst + 0,                               pool.entry.rowptr, bytelen.rowptr, direction);
-    cudaMemcpy(dst + bytelen.rowptr,                  pool.entry.colidx, bytelen.colidx, direction);
-    cudaMemcpy(dst + bytelen.rowptr + bytelen.colidx, pool.entry.values, bytelen.values, direction);
+    cudaMemcpy(dst + 0,                               entry.rowptr, nbyte.rowptr, direction);
+    cudaMemcpy(dst + nbyte.rowptr,                  entry.colidx, nbyte.colidx, direction);
+    cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, entry.values, nbyte.values, direction);
     // clang-format on
 
     // TODO not working, alignment issue?
-    // cudaMemcpy(dst, pool.entry.rowptr, bytelen.total, direction);
-
-    return *this;
+    // cudaMemcpy(dst, entry.rowptr, bytelen.total, direction);
 }
 
 /********************************************************************************
@@ -185,29 +177,27 @@ OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int _nnz)
     this->m   = static_cast<size_t>(ceil(sqrt(_len)));
     this->nnz = _nnz;
 
-    bytelen.rowptr = sizeof(int) * (this->m + 1);
-    bytelen.colidx = sizeof(int) * this->nnz;
-    bytelen.values = sizeof(Data) * this->nnz;
-    bytelen.total  = bytelen.rowptr + bytelen.colidx + bytelen.values;
+    nbyte.rowptr = sizeof(int) * (this->m + 1);
+    nbyte.colidx = sizeof(int) * this->nnz;
+    nbyte.values = sizeof(Data) * this->nnz;
+    nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::extract(uint8_t* _pool)
+void OutlierHandler<Data>::extract(uint8_t* _pool)
 {
-    pool.offset.rowptr = 0;
-    pool.offset.colidx = bytelen.rowptr;
-    pool.offset.values = bytelen.rowptr + bytelen.colidx;
+    offset.rowptr = 0;
+    offset.colidx = nbyte.rowptr;
+    offset.values = nbyte.rowptr + nbyte.colidx;
 
-    pool.ptr          = _pool;
-    pool.entry.rowptr = reinterpret_cast<int*>(pool.ptr + pool.offset.rowptr);
-    pool.entry.colidx = reinterpret_cast<int*>(pool.ptr + pool.offset.colidx);
-    pool.entry.values = reinterpret_cast<Data*>(pool.ptr + pool.offset.values);
-
-    return *this;
+    pool_ptr     = _pool;
+    entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
+    entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
+    entry.values = reinterpret_cast<Data*>(pool_ptr + offset.values);
 };
 
 template <typename Data>
-OutlierHandler<Data>& OutlierHandler<Data>::scatter_CUDA10(float* in_outlier, float& milliseconds)
+void OutlierHandler<Data>::scatter_CUDA10(float* in_outlier)
 {
     //     throw std::runtime_error("[decompress_scatter] not implemented");
     handle_t handle   = nullptr;
@@ -229,8 +219,8 @@ OutlierHandler<Data>& OutlierHandler<Data>::scatter_CUDA10(float* in_outlier, fl
         auto timer_scatter = new cuda_timer_t;
         timer_scatter->timer_start();
 
-        CHECK_CUSPARSE(cusparseScsr2dense(
-            handle, m, n, mat_desc, pool.entry.values, pool.entry.rowptr, pool.entry.colidx, in_outlier, lda));
+        CHECK_CUSPARSE(
+            cusparseScsr2dense(handle, m, n, mat_desc, entry.values, entry.rowptr, entry.colidx, in_outlier, lda));
 
         milliseconds += timer_scatter->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -240,8 +230,6 @@ OutlierHandler<Data>& OutlierHandler<Data>::scatter_CUDA10(float* in_outlier, fl
     if (handle) cusparseDestroy(handle);
     if (stream) cudaStreamDestroy(stream);
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
-
-    return *this;
 }
 
 template class OutlierHandler<float>;

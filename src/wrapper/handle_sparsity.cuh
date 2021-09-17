@@ -20,46 +20,30 @@
 #include <cstdlib>
 #include <stdexcept>
 
+#include "../../include/reducer.hh"
+
 template <typename Data = float>
-class OutlierHandler {
-   public:
-    struct {
-        uint8_t* ptr;
+class OutlierHandler : public cusz::OneCallGatherScatter {
+   private:
+    // clang-format off
+    uint8_t* pool_ptr;
+    struct { int * rowptr, *colidx; Data* values; } entry;
+    struct { unsigned int rowptr, colidx, values; } offset;
+    struct { unsigned int rowptr, colidx, values, total; } nbyte;
+    unsigned int workspace_nbyte, dump_nbyte;
+    unsigned int m{0}, dummy_nnz{0}, nnz{0};
+    float milliseconds{0.0};
+    // clang-format on
 
-        struct {
-            int * rowptr, *colidx;
-            Data* values;
-        } entry;
+    // set up memory pool
+    void configure_workspace(uint8_t* _pool);
 
-        struct {
-            unsigned int rowptr, colidx, values;
-        } offset;
+    // use when the real nnz is known
+    void reconfigure_with_precise_nnz(int nnz);
 
-    } pool;
+    void gather_CUDA10(float* in, unsigned int& dump_nbyte);
 
-    unsigned int workspace_nbyte;
-    unsigned int dump_nbyte;
-
-    struct {
-        unsigned int rowptr, colidx, values, total;
-    } bytelen;
-
-    unsigned int m{0};
-    unsigned int dummy_nnz{0};
-    unsigned int nnz{0};
-
-    /********************************************************************************
-     * compression use
-     ********************************************************************************/
-    OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte);
-
-    /**
-     * @brief set up memory pool
-     *
-     * @param _pool
-     * @param try_nnz
-     */
-    OutlierHandler& configure(uint8_t* _pool);
+    void scatter_CUDA10(float* in_outlier);
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
@@ -69,25 +53,38 @@ class OutlierHandler {
                + sizeof(Data) * nnz;  // values
     }
 
-    /**
-     * @brief use when the real nnz is known
-     *
-     * @param nnz
-     */
-    OutlierHandler& configure_with_nnz(int nnz);
+    void archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
 
-    OutlierHandler& gather_CUDA10(float* in, unsigned int& dump_nbyte, float& ms_timer);
+    void extract(uint8_t* _pool);
 
-    OutlierHandler& archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
+   public:
+    // helper
+    uint32_t get_total_nbyte() const { return nbyte.total; }
 
-    /********************************************************************************
-     * decompression use
-     ********************************************************************************/
+    float get_milliseconds() const { return milliseconds; }
+
+    // compression use
+    OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte);
+
+    void gather(Data* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
+    {
+        configure_workspace(workspace);
+        gather_CUDA10(in, dump_nbyte);
+        archive(dump, out_nnz);
+    }
+
+    // decompression use
     OutlierHandler(unsigned int _len, unsigned int _nnz);
 
-    OutlierHandler& extract(uint8_t* _pool);
+    // only placehoding
+    void scatter() {}
+    void gather() {}
 
-    OutlierHandler& scatter_CUDA10(float*, float&);
+    void scatter(uint8_t* _pool, Data* in_outlier)
+    {
+        extract(_pool);
+        scatter_CUDA10(in_outlier);
+    }
 };
 
 #endif

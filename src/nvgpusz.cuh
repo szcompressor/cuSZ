@@ -154,8 +154,6 @@ class Compressor {
 
     Compressor& try_report_time();
 
-    Compressor& export_revbook(Capsule<uint8_t>* revbook);
-
     Compressor& huffman_encode(Capsule<Quant>* quant, Capsule<Huff>* book);
 
     Compressor& pack_metadata();

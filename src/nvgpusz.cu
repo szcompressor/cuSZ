@@ -120,6 +120,9 @@ COMPRESSOR::Compressor(cuszCTX* _ctx) : ctx(_ctx)
     if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(length.data);
 
     csr = new OutlierHandler<Data>(length.data, &sp.workspace_nbyte);
+    // can be known on Compressor init
+    cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
+    cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
 
     xyz_v2 = dim3(ctx->x, ctx->y, ctx->z);
 
@@ -191,13 +194,9 @@ COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::gather_outlier(Capsule<Data>* in_data)
 {
-    // can be known on Compressor init
-    cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
-    cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
+    csr->gather(in_data->dptr, sp.workspace, sp.dump, sp.dump_nbyte, length.nnz_outlier);
 
-    csr->configure(sp.workspace)  //
-        .gather_CUDA10(in_data->dptr, sp.dump_nbyte, time.outlier)
-        .archive(sp.dump, length.nnz_outlier);
+    time.outlier = csr->get_milliseconds();
 
     data_seg.nbyte_raw.at("outlier") = sp.dump_nbyte;
 
@@ -226,6 +225,13 @@ COMPRESSOR& COMPRESSOR::get_freq_and_codebook(
         cudaDeviceSynchronize();
         delete t;
     }
+
+    this->analyze_compressibility(freq, book)  //
+        .internal_eval_try_export_book(book)
+        .internal_eval_try_export_quant(quant);
+
+    revbook->d2h();  // need processing on CPU
+    data_seg.nbyte_raw.at("revbook") = get_revbook_nbyte();
 
     return *this;
 }
@@ -314,15 +320,6 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::try_report_time()
 {
     if (ctx->report.time) report_compression_time();
-    return *this;
-}
-
-COMPR_TYPE
-COMPRESSOR& COMPRESSOR::export_revbook(Capsule<uint8_t>* revbook)
-{
-    revbook->d2h();
-    data_seg.nbyte_raw.at("revbook") = get_revbook_nbyte();
-
     return *this;
 }
 
@@ -531,10 +528,6 @@ void COMPRESSOR::compress(Capsule<Data>* in_data)
     cudaFree(in_data->dptr);
 
     this->get_freq_and_codebook(&quant, &freq, &book, &revbook)
-        .analyze_compressibility(&freq, &book)
-        .internal_eval_try_export_book(&book)
-        .internal_eval_try_export_quant(&quant)
-        .export_revbook(&revbook)
         .huffman_encode(&quant, &book)
         .try_report_time()
         .pack_metadata()
@@ -693,13 +686,13 @@ DECOMPRESSOR& DECOMPRESSOR::huffman_decode(Capsule<Quant>* quant)
 {
     if (ctx->task_is.skip_huffman) {
         // LOGGING(LOG_INFO, "load quant.code from filesystem");
-        io::read_binary_to_array(ctx->fnames.path_basename + ".quant", quant->hptr, quant->len);
-        quant->h2d();
+        // io::read_binary_to_array(ctx->fnames.path_basename + ".quant", quant->hptr, quant->len);
+        // quant->h2d();
     }
     else {
         // LOGGING(LOG_INFO, "Huffman decode -> quant.code");
 
-        auto basename      = ctx->fnames.path2file;
+        // auto basename      = ctx->fnames.path2file;
         auto nchunk        = (ctx->data_len - 1) / ctx->huffman_chunk + 1;
         auto num_uints     = header->huffman.num_uints;
         auto revbook_nbyte = data_seg.nbyte_raw.at("revbook");
@@ -733,11 +726,13 @@ DECOMPR_TYPE
 DECOMPRESSOR& DECOMPRESSOR::scatter_outlier(Data* outlier)
 {
     csr_file.host = reinterpret_cast<BYTE*>(consolidated_dump.whole + offsets.at(data_seg.name2order.at("outlier")));
-    cudaMalloc((void**)&csr_file.dev, csr->bytelen.total);
+    cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
 
-    cudaMemcpy(csr_file.dev, csr_file.host, csr->bytelen.total, cudaMemcpyHostToDevice);
+    cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
 
-    csr->extract(csr_file.dev).scatter_CUDA10(outlier, time.outlier);
+    csr->scatter(csr_file.dev, outlier);
+
+    time.outlier = csr->get_milliseconds();
 
     cudaFree(csr_file.dev);
 
