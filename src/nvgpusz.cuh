@@ -29,17 +29,6 @@
 
 using namespace std;
 
-template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(
-    argpack*,
-    Capsule<typename DataTrait<If_FP, DataByte>::Data>*,
-    dim3,
-    cusz_header* mp,
-    unsigned int = 1);
-
-template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(argpack*, cusz_header* mp);
-
 template <typename Data, typename Quant, typename Huff, typename FP>
 class Compressor {
     using BYTE = uint8_t;
@@ -66,7 +55,7 @@ class Compressor {
 
     unsigned int tune_deflate_chunksize(size_t len);
 
-    void report_compression_time(size_t len, float lossy, float outlier, float hist, float book, float lossless);
+    void report_compression_time();
 
    public:
     Spline3<Data*, Quant*, float>* spline3;
@@ -116,6 +105,10 @@ class Compressor {
     //
     cusz_header* header;
 
+    // OOD, indicated by v2
+    cusz_header header_v2;
+    dim3        xyz_v2;
+
     unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
 
     Compressor(argpack* _ctx);
@@ -134,108 +127,9 @@ class Compressor {
         delete csr;
     };
 
-    void consolidate(bool on_cpu = true, bool on_gpu = false)
-    {
-        // put in header
-        header->nbyte.book           = data_seg.nbyte_raw.at("book");
-        header->nbyte.revbook        = data_seg.nbyte_raw.at("revbook");
-        header->nbyte.outlier        = data_seg.nbyte_raw.at("outlier");
-        header->nbyte.huff_meta      = data_seg.nbyte_raw.at("huff-meta");
-        header->nbyte.huff_bitstream = data_seg.nbyte_raw.at("huff-bitstream");
+    void compress(Capsule<Data>* in_data);
 
-        // consolidate
-        std::vector<uint32_t> offsets = {0};
-
-        printf(
-            "\ndata segments:\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
-            const_cast<char*>("name"),                                        //
-            const_cast<char*>("nbyte"),                                       //
-            const_cast<char*>("start"),                                       //
-            const_cast<char*>("end"));
-
-        // print long numbers with thousand separator
-        // https://stackoverflow.com/a/7455282
-        // https://stackoverflow.com/a/11695246
-        setlocale(LC_ALL, "");
-
-        for (auto i = 0; i < 7; i++) {
-            const auto& name = data_seg.order2name.at(i);
-
-            auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(data_seg.nbyte_raw.at(name));
-            offsets.push_back(o);
-
-            printf(
-                "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), data_seg.nbyte_raw.at(name), offsets.at(i),
-                offsets.back());
-        }
-
-        auto total_nbyte = offsets.back();
-
-        printf("\ncompression ratio:\t%.4f\n", ctx->data_len * sizeof(Data) * 1.0 / total_nbyte);
-
-        BYTE* h_dump = nullptr;
-        // BYTE* d_dump = nullptr;
-
-        cout << "dump on CPU\t" << on_cpu << '\n';
-        cout << "dump on GPU\t" << on_gpu << '\n';
-
-        auto both = on_cpu and on_gpu;
-        if (both) {
-            //
-            throw runtime_error("[consolidate on both] not implemented");
-        }
-        else {
-            if (on_cpu) {
-                //
-                cudaMallocHost(&h_dump, total_nbyte);
-
-                /* 0 */  // header
-                cudaMemcpy(
-                    h_dump + offsets.at(0),           //
-                    reinterpret_cast<BYTE*>(header),  //
-                    data_seg.nbyte_raw.at("header"),  //
-                    cudaMemcpyHostToHost);
-                /* 1 */  // book
-                /* 2 */  // quant
-                /* 3 */  // revbook
-                cudaMemcpy(
-                    h_dump + offsets.at(3),                            //
-                    reinterpret_cast<BYTE*>(huffman.array.h_revbook),  //
-                    data_seg.nbyte_raw.at("revbook"),                  //
-                    cudaMemcpyHostToHost);
-                /* 4 */  // outlier
-                cudaMemcpy(
-                    h_dump + offsets.at(4),            //
-                    reinterpret_cast<BYTE*>(sp.dump),  //
-                    data_seg.nbyte_raw.at("outlier"),  //
-                    cudaMemcpyHostToHost);
-                /* 5 */  // huff_meta
-                cudaMemcpy(
-                    h_dump + offsets.at(5),                                         //
-                    reinterpret_cast<BYTE*>(huffman.array.h_counts + ctx->nchunk),  //
-                    data_seg.nbyte_raw.at("huff-meta"),                             //
-                    cudaMemcpyHostToHost);
-                /* 6 */  // huff_bitstream
-                cudaMemcpy(
-                    h_dump + offsets.at(6),                              //
-                    reinterpret_cast<BYTE*>(huffman.array.h_bitstream),  //
-                    data_seg.nbyte_raw.at("huff-bitstream"),             //
-                    cudaMemcpyHostToHost);
-
-                auto output_name = ctx->fnames.path_basename + ".cusza";
-                cout << "output:\t" << output_name << '\n';
-
-                io::write_array_to_binary(output_name, h_dump, total_nbyte);
-
-                cudaFreeHost(h_dump);
-            }
-            else {
-                throw runtime_error("[consolidate on both] not implemented");
-            }
-        }
-
-        //
-    };
+    void consolidate(bool on_cpu = true, bool on_gpu = false);
 
     void lorenzo_dryrun(Capsule<Data>* in_data);
 
@@ -296,6 +190,10 @@ class Decompressor {
         };
     } data_seg;
 
+    void read_array_nbyte_from_header();
+
+    void get_data_seg_offsets();
+
    public:
     void register_spline3(Spline3<Data*, Quant*, float>* _spline3) { spline3 = _spline3; }
 
@@ -303,58 +201,15 @@ class Decompressor {
 
     dim3 xyz;
 
+    void decompress();
+
     struct {
         BYTE* whole;
-        // cusz_header* header;
     } consolidated_dump;
-
-    void read_array_nbyte_from_header()
-    {
-        data_seg.nbyte_raw.at("book")           = header->nbyte.book;
-        data_seg.nbyte_raw.at("revbook")        = header->nbyte.revbook;
-        data_seg.nbyte_raw.at("outlier")        = header->nbyte.outlier;
-        data_seg.nbyte_raw.at("huff-meta")      = header->nbyte.huff_meta;
-        data_seg.nbyte_raw.at("huff-bitstream") = header->nbyte.huff_bitstream;
-
-        // cout << "nbyte_raw.at(book)           = " << header->nbyte.book << '\n';
-        // cout << "nbyte_raw.at(revbook)        = " << header->nbyte.revbook << '\n';
-        // cout << "nbyte_raw.at(outlier)        = " << header->nbyte.outlier << '\n';
-        // cout << "nbyte_raw.at(huff-meta)      = " << header->nbyte.huff_meta << '\n';
-        // cout << "nbyte_raw.at(huff-bitstream) = " << header->nbyte.huff_bitstream << '\n';
-    }
 
     std::vector<uint32_t> offsets;
 
-    void get_data_seg_offsets()
-    {
-        /* 0 header */ offsets.push_back(0);
-
-        if (ctx->verbose) {
-            printf(
-                "\ndata segments (verification):\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
-                const_cast<char*>("name"),                                                       //
-                const_cast<char*>("nbyte"),                                                      //
-                const_cast<char*>("start"),                                                      //
-                const_cast<char*>("end"));
-
-            setlocale(LC_ALL, "");
-        }
-
-        for (auto i = 0; i < 7; i++) {
-            const auto& name  = data_seg.order2name.at(i);
-            auto        nbyte = data_seg.nbyte_raw.at(name);
-            auto        o     = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(nbyte);
-            offsets.push_back(o);
-
-            if (ctx->verbose) {
-                printf(
-                    "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), data_seg.nbyte_raw.at(name), offsets.at(i),
-                    offsets.back());
-            }
-        }
-    }
-
-    size_t cusza_nbyte;
+     size_t cusza_nbyte;
 
     struct {
         float lossy{0.0}, outlier{0.0}, lossless{0.0};
@@ -389,6 +244,10 @@ class Decompressor {
     BYTE*        header_byte;  // to use
 
     Decompressor(cusz_header* header, argpack* ctx);
+
+    Decompressor(argpack* ctx);
+
+    Decompressor(argpack* ctx, uint8_t* in_dump);
 
     Decompressor(BYTE* in_dump);
 

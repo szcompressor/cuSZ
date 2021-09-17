@@ -38,11 +38,6 @@ using std::string;
 #include "types.hh"
 #include "utils.hh"
 
-// double expectedErr;
-// double actualAbsErr;
-// double actualRelErr;
-// string z_mode;
-
 namespace {
 
 template <typename Data>
@@ -57,13 +52,6 @@ void check_shell_calls(string cmd_string)
 }
 
 }  // namespace
-
-/* gtest disabled in favor of code refactoring */
-// TEST(cuSZTest, TestMaxError)
-// {
-//     double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
-//     ASSERT_LE(actualErr, expectedErr);
-// }
 
 template <typename Data, int DownscaleFactor, int tBLK>
 Data* pre_binning(Data* d, size_t* dim_array)
@@ -87,6 +75,7 @@ int main(int argc, char** argv)
     // TODO remove hardcode for float for now
     using Data = float;
 
+    // TODO align to 128 unconditionally
     auto len = ctx->data_len;
     auto m   = static_cast<size_t>(ceil(sqrt(len)));
     auto mxm = m * m;
@@ -94,8 +83,6 @@ int main(int argc, char** argv)
     Capsule<Data> in_data(mxm);
 
     if (ctx->task_is.construct or ctx->task_is.dryrun) {
-        // logging(log_dbg, "add padding:", m, "units");
-
         cudaMalloc(&in_data.dptr, in_data.nbyte());
         cudaMallocHost(&in_data.hptr, in_data.nbyte());
 
@@ -136,22 +123,13 @@ int main(int argc, char** argv)
 
     if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
-        if (ctx->quant_nbyte == 1) {
-            throw runtime_error("Quant=1-byte temporarily disabled.");
-            if (ctx->huff_nbyte == 4) {
-                // cusz_compress<true, 4, 1, 4>(ctx, &in_data);
-            }
-            else {
-                // cusz_compress<true, 4, 1, 8>(ctx, &in_data);
-            }
+        if (ctx->huff_nbyte == 4) {
+            Compressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszc(ctx);
+            cuszc.compress(&in_data);
         }
-        else if (ctx->quant_nbyte == 2) {
-            if (ctx->huff_nbyte == 4) {  //
-                cusz_compress<true, 4, 2, 4>(ctx, &in_data);
-            }
-            else {
-                cusz_compress<true, 4, 2, 8>(ctx, &in_data);
-            }
+        else {
+            Compressor<Data, QuantTrait<2>::type, HuffTrait<8>::type, float> cuszc(ctx);
+            cuszc.compress(&in_data);
         }
 
         // release memory
@@ -166,20 +144,14 @@ int main(int argc, char** argv)
 
         // TODO data ready outside Decompressor?
 
-        if (ctx->quant_nbyte == 1) {
-            throw runtime_error("Quant=1-byte temporarily disabled.");
-            if (ctx->huff_nbyte == 4) {
-                // cusz_decompress<true, 4, 1, 4>(ctx);
-            }
-            else if (ctx->huff_nbyte == 8) {
-                // cusz_decompress<true, 4, 1, 8>(ctx);
-            }
+        if (ctx->huff_nbyte == 4) {
+            Decompressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszd(ctx);
+            cuszd.decompress();
         }
-        else if (ctx->quant_nbyte == 2) {
-            if (ctx->huff_nbyte == 4)
-                cusz_decompress<true, 4, 2, 4>(ctx);
-            else if (ctx->huff_nbyte == 8)
-                cusz_decompress<true, 4, 2, 8>(ctx);
+        else if (ctx->huff_nbyte == 8) {
+            Decompressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszd(ctx);
+            cuszd.decompress();
         }
+        // }
     }
 }
