@@ -97,14 +97,11 @@ COMPRESSOR::Compressor(cuszCTX* _ctx) : ctx(_ctx)
     cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
     cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
 
-    xyz_v2 = dim3(ctx->x, ctx->y, ctx->z);
+    xyz = dim3(ctx->x, ctx->y, ctx->z);
 
-    // TODO encapsulation
-    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->data_len + HuffmanHelper::BLOCK_DIM_ENCODE; };
+    predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
 
-    ctx->quant_len = ctx->task_is.predictor == "spline3"  //
-                         ? 1
-                         : lorenzo_get_len_quant();
+    ctx->quant_len = predictor->get_quant_len();
 }
 
 COMPR_TYPE
@@ -134,28 +131,6 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<T>* in_data)
 
         exit(0);
     }
-}
-
-COMPR_TYPE
-COMPRESSOR& COMPRESSOR::predict_quantize(Capsule<T>* data, dim3 xyz, Capsule<T>* anchor, Capsule<E>* quant)
-{
-    LOGGING(LOG_INFO, "compressing...");
-    // TODO "predictor" -> "prediction"
-    if (ctx->task_is.predictor == "lorenzo") {
-        // TODO class lorenzo
-        compress_lorenzo_construct<T, E, float>(
-            data->dptr, quant->dptr, xyz, ctx->ndim, ctx->eb, ctx->radius, time.lossy);
-    }
-    else if (ctx->task_is.predictor == "spline3d") {
-        if (ctx->ndim != 3) throw std::runtime_error("must be 3D data.");
-        // TODO timer
-        spline3->predict_quantize();
-    }
-    else {
-        throw std::runtime_error("must be \"lorenzo\" or \"spline3d\"");
-    }
-
-    return *this;
 }
 
 COMPR_TYPE
@@ -460,9 +435,13 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
 
     huffman.h_revbook = revbook.hptr;
 
-    this->predict_quantize(in_data, xyz_v2, nullptr, &quant)  //
-        .gather_outlier(in_data)
-        .try_skip_huffman(&quant);
+    LOGGING(LOG_INFO, "compressing...");
+
+    predictor->construct(in_data->dptr, nullptr, quant.dptr);
+    time.lossy = predictor->get_time_elapsed();
+
+    this->gather_outlier(in_data);
+    this->try_skip_huffman(&quant);
 
     // release in_data; subject to change
     cudaFree(in_data->dptr);
@@ -552,7 +531,9 @@ DECOMPRESSOR::Decompressor(cuszCTX* _ctx) : ctx(_ctx)
     cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
     cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
 
-    spline3 = new Spline3<T*, E*, float>();
+    // spline3 = new Spline3<T*, E*, float>();
+
+    predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
 
     LOGGING(LOG_INFO, "decompressing...");
 }
@@ -592,24 +573,6 @@ void DECOMPRESSOR::huffman_decode(Capsule<E>* quant)
 }
 
 DECOMPR_TYPE
-void DECOMPRESSOR::reversed_predict_quantize(T* xdata, dim3 xyz, T* anchor, E* quant)
-{
-    if (ctx->task_is.predictor == "lorenzo") {
-        // TODO lorenzo class
-        decompress_lorenzo_reconstruct<T, E, FP>(xdata, quant, xyz, ctx->ndim, config.eb, ctx->radius, time.lossy);
-    }
-    else if (ctx->task_is.predictor == "spline3d") {
-        throw std::runtime_error("spline not impl'ed");
-        if (ctx->ndim != 3) throw std::runtime_error("Spline3D must be for 3D data.");
-        // TODO
-        spline3->reversed_predict_quantize();
-    }
-    else {
-        throw std::runtime_error("need to specify predictor");
-    }
-}
-
-DECOMPR_TYPE
 void DECOMPRESSOR::try_compare_with_origin(T* xdata)
 {
     // TODO move CR out of verify_data
@@ -639,12 +602,7 @@ void DECOMPRESSOR::try_write2disk(T* host_xdata)
 DECOMPR_TYPE
 void DECOMPRESSOR::decompress()
 {
-    // TODO lorenzo class::get_len_quant
-    auto lorenzo_get_len_quant = [&]() -> unsigned int { return ctx->data_len; };
-
-    ctx->quant_len = ctx->task_is.predictor == "spline3"  //
-                         ? spline3->get_len_quant()
-                         : lorenzo_get_len_quant();
+    ctx->quant_len = predictor->get_quant_len();
 
     Capsule<E> quant(ctx->quant_len);
     cudaMalloc(&quant.dptr, quant.nbyte());
@@ -661,7 +619,8 @@ void DECOMPRESSOR::decompress()
     csr->scatter(csr_file.dev, outlier);
     time.outlier = csr->get_milliseconds();
 
-    reversed_predict_quantize(xdata, xyz, nullptr, quant.dptr);
+    predictor->reconstruct(nullptr, quant.dptr, xdata);
+    time.lossy = predictor->get_time_elapsed();
 
     try_report_decompression_time();
 

@@ -40,6 +40,7 @@ class cuszCTX {
         bool   skip_write2disk{false}, skip_huffman{false};
         bool   lossless_nvcomp_cascade{false}, lossless_gzip{false};
         bool   gtest{false};
+        bool   use_anchor{false};
         string predictor = string("lorenzo");
     } task_is;
 

@@ -4,6 +4,7 @@
  * @brief A high-level LorenzoND wrapper. Allocations are explicitly out of called functions.
  * @version 0.3
  * @date 2021-06-16
+ * (rev.1) 2021-09-18
  *
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
@@ -15,6 +16,7 @@
 #include <stdexcept>
 
 #include "../type_trait.hh"
+#include "../utils/cuda_err.cuh"
 #include "../utils/timer.hh"
 #include "extrap_lorenzo.cuh"
 
@@ -52,7 +54,7 @@ using dim3 = __dim3_compat;
 }  // namespace
 
 template <typename T, typename E, typename FP>
-cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, double _eb, int radius, bool _delay_postquant)
+cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, double _eb, int _radius, bool _delay_postquant)
 {
     // error bound
     eb     = _eb;
@@ -64,6 +66,11 @@ cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, double _eb, int rad
     leap      = dim3(1, size.x, size.x * size.y);
     len_data  = size.x * size.y * size.z;
     len_quant = len_data;
+    radius    = _radius;
+
+    ndim = 3;
+    if (size.z == 1) ndim = 2;
+    if (size.z == 1 and size.y == 1) ndim = 1;
 
     // on off
     delay_postquant = _delay_postquant;
@@ -71,12 +78,8 @@ cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, double _eb, int rad
 
 template <typename T, typename E, typename FP>
 template <bool DELAY_POSTQUANT>
-void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, E* errctrl)
+void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, T* anchor, E* errctrl)
 {
-    if (DELAY_POSTQUANT != (errctrl == nullptr)) {
-        throw std::runtime_error("[compress_lorenzo_construct] delaying postquant <=> (var errctrl is null)");
-    }
-
     // TODO put into conditional compile
     auto timer = new cuda_timer_t;
     timer->timer_start();
@@ -103,15 +106,18 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, E* errctrl)
         cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
             <<<dim_grid, dim_block>>>(data, errctrl, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2_r);
     }
+    else {
+        throw std::runtime_error("Lorenzo only works for 123-D.");
+    }
 
     time_elapsed = timer->timer_end_get_elapsed_time();
-    cudaDeviceSynchronize();
+    CHECK_CUDA(cudaDeviceSynchronize());
     delete timer;
 }
 
 template <typename T, typename E, typename FP>
 template <bool DELAY_POSTQUANT>
-void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(E* errctrl, T* xdata)
+void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(T* anchor, E* errctrl, T* xdata)
 {
     auto timer = new cuda_timer_t;
     timer->timer_start();
@@ -142,24 +148,24 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(E* errctrl, T* xdata)
     }
 
     time_elapsed = timer->timer_end_get_elapsed_time();
-    cudaDeviceSynchronize();
+    CHECK_CUDA(cudaDeviceSynchronize());
     delete timer;
 }
 
 template <typename T, typename E, typename FP>
-void cusz::PredictorLorenzo<T, E, FP>::construct(T* in_data, E* out_errctrl)
+void cusz::PredictorLorenzo<T, E, FP>::construct(T* in_data, T* out_anchor, E* out_errctrl)
 {
     if (not delay_postquant)
-        construct_proxy<false>(in_data, out_errctrl);
+        construct_proxy<false>(in_data, out_anchor, out_errctrl);
     else
         throw std::runtime_error("construct_proxy<delay_postquant==true> not implemented.");
 }
 
 template <typename T, typename E, typename FP>
-void cusz::PredictorLorenzo<T, E, FP>::reconstruct(E* in_errctrl, T* out_xdata)
+void cusz::PredictorLorenzo<T, E, FP>::reconstruct(T* in_anchor, E* in_errctrl, T* out_xdata)
 {
     if (not delay_postquant)
-        reconstruct_proxy<false>(in_errctrl, out_xdata);
+        reconstruct_proxy<false>(in_anchor, in_errctrl, out_xdata);
     else
         throw std::runtime_error("construct_proxy<delay_postquant==true> not implemented.");
 }

@@ -90,6 +90,9 @@ struct HuffmanHelper {
     static const int DEFLATE_CONSTANT  = 4;  // TODO -> deflate_chunk_constant
 };
 
+struct StringHelper {
+};
+
 struct ConfigHelper {
     template <typename CONFIG>
     static void set_eb_series(double eb, CONFIG& config)
@@ -136,6 +139,13 @@ struct ConfigHelper {
             "[get_npart] must be plain interger types.");
 
         return (size + subsize - 1) / subsize;
+    };
+};
+
+struct CompareHelper {
+    static bool eq(dim3 a, dim3 b)
+    {  //
+        return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
     };
 };
 

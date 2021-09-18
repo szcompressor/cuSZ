@@ -48,24 +48,26 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     } on_off;
 
     template <bool DELAY_POSTQUANT>
-    void construct_proxy(T* in_data, E* out);
+    void construct_proxy(T* in_data, T* out_anchor, E* out_errctrl);
 
     template <bool DELAY_POSTQUANT>
-    void reconstruct_proxy(E* in_errctrl, T* out);
+    void reconstruct_proxy(T* in_anchor, E* in_errctrl, T* out_xdata);
 
    public:
+    // context free
     PredictorLorenzo(dim3 xyz, double eb, int radius, bool delay_postquant);
 
     // helper
     uint32_t get_quant_len() const { return len_quant; }
-    uint32_t get_time_elapsed() const { return time_elapsed; }
+    float    get_time_elapsed() const { return time_elapsed; }
+    uint32_t get_workspace_nbyte() const { return 0; };
 
     // methods
     void dryrun(T* in_out);
 
-    void construct(T* in_data, E* out_errctrl);
+    void construct(T* in_data, T* out_anchor, E* out_errctrl);
 
-    void reconstruct(E* in_errctrl, T* out_xdata);
+    void reconstruct(T* in_anchor, E* in_errctrl, T* out_xdata);
 };
 
 }  // namespace cusz

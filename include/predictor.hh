@@ -28,13 +28,9 @@ class PredictorAbstraction {
     virtual float    get_time_elapsed() const    = 0;
 
     // "real" methods
-    virtual ~PredictorAbstraction() = default;
-
-    virtual void construct(T*, E*)   = 0;
-    virtual void reconstruct(E*, T*) = 0;
-
-    // virtual void construct(T*, E*, T*)   = 0;
-    // virtual void reconstruct(E*, T*, T*) = 0;
+    virtual ~PredictorAbstraction()      = default;
+    virtual void construct(T*, T*, E*)   = 0;
+    virtual void reconstruct(T*, E*, T*) = 0;
 };
 
 }  // namespace cusz

@@ -217,6 +217,12 @@ void set_config(cuszCTX* ctx, char* in_str)
         else if (kv.first == "predictor") {
             ctx->task_is.predictor = string(kv.second);
         }
+
+        // when to enable anchor
+        if (ctx->task_is.predictor == "spline3") ctx->task_is.use_anchor = true;
+        if ((kv.first == "anchor") and  //
+            (string(kv.second) == "on" or string(kv.second) == "ON"))
+            ctx->task_is.use_anchor = true;
     }
 }
 

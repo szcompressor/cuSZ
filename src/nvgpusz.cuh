@@ -19,13 +19,14 @@
 #include <iostream>
 #include <unordered_map>
 
-#include "context.hh"
 #include "capsule.hh"
+#include "context.hh"
 #include "header.hh"
 #include "type_trait.hh"
 #include "utils.hh"
+#include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/handle_sparsity.cuh"
-#include "wrapper/interp_spline_.h"
+// #include "wrapper/interp_spline_.h"
 
 using namespace std;
 
@@ -51,8 +52,6 @@ class Compressor {
         };
     } data_seg;
 
-    Spline3<T*, E*, float>* spline3;
-
     // clang-format off
     struct { double eb; FP ebx2, ebx2_r, eb_r; } config;
     struct { float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
@@ -71,7 +70,8 @@ class Compressor {
         uint8_t*     dump;
     } sp;
 
-    OutlierHandler<T>* csr;
+    cusz::PredictorLorenzo<T, E, FP>* predictor;
+    OutlierHandler<T>*                csr;
 
     // context, configuration
     cuszCTX* ctx;
@@ -79,17 +79,14 @@ class Compressor {
     cusz_header* header;
 
     // OOD, indicated by v2
-    dim3 xyz_v2;
+    dim3 xyz;
 
     unsigned int tune_deflate_chunksize(size_t len);
     void         report_compression_time();
-    void         register_spline3(Spline3<T*, E*, float>* _spline3) { spline3 = _spline3; }
 
     void consolidate(bool on_cpu = true, bool on_gpu = false);
 
     void lorenzo_dryrun(Capsule<T>* in_data);
-
-    Compressor& predict_quantize(Capsule<T>* data, dim3 xyz, Capsule<T>* anchor, Capsule<E>* quant);
 
     Compressor& gather_outlier(Capsule<T>* in_data);
 
@@ -167,8 +164,10 @@ class Decompressor {
 
     struct { uint8_t *host, *dev; } csr_file;
     size_t m, mxm;
-    OutlierHandler<T>* csr;
     // clang-format on
+
+    OutlierHandler<T>*                csr;
+    cusz::PredictorLorenzo<T, E, FP>* predictor;
 
     dim3         xyz;
     cuszCTX*     ctx;
@@ -182,15 +181,9 @@ class Decompressor {
 
     void huffman_decode(Capsule<E>* quant);
 
-    void reversed_predict_quantize(T* xdata, dim3 xyz, T* anchor, E* quant);
-
     void unpack_metadata();
 
    public:
-    void register_spline3(Spline3<T*, E*, float>* _spline3) { spline3 = _spline3; }
-
-    Spline3<T*, E*, FP>* spline3;
-
     Decompressor(cuszCTX* ctx);
 
     ~Decompressor()
