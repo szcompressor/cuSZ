@@ -27,6 +27,8 @@ using descr_t  = cusparseMatDescr_t;
  * compression use
  ********************************************************************************/
 
+namespace cusz {
+
 template <typename Data>
 OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
@@ -233,4 +235,7 @@ void OutlierHandler<Data>::scatter_CUDA10(float* in_outlier)
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
 }
 
-template class OutlierHandler<float>;
+//
+}  // namespace cusz
+
+template class cusz::OutlierHandler<float>;

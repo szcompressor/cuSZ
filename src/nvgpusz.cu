@@ -92,7 +92,7 @@ COMPRESSOR::Compressor(cuszCTX* _ctx) : ctx(_ctx)
 
     if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
 
-    csr = new OutlierHandler<T>(ctx->data_len, &sp.workspace_nbyte);
+    csr = new cusz::OutlierHandler<T>(ctx->data_len, &sp.workspace_nbyte);
     // can be known on Compressor init
     cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
     cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
@@ -131,23 +131,6 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<T>* in_data)
 
         exit(0);
     }
-}
-
-COMPR_TYPE
-COMPRESSOR& COMPRESSOR::gather_outlier(Capsule<T>* in_data)
-{
-    csr->gather(in_data->dptr, sp.workspace, sp.dump, sp.dump_nbyte, ctx->nnz_outlier);
-
-    time.outlier = csr->get_milliseconds();
-
-    data_seg.nbyte.at("outlier") = sp.dump_nbyte;
-
-    cudaFree(sp.workspace);
-
-    auto fmt_nnz = "(" + std::to_string(ctx->nnz_outlier / 1.0 / ctx->data_len * 100) + "%)";
-    LOGGING(LOG_INFO, "#outlier = ", ctx->nnz_outlier, fmt_nnz);
-
-    return *this;
 }
 
 COMPR_TYPE
@@ -423,10 +406,10 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
 {
     lorenzo_dryrun(in_data);  // subject to change
 
-    Capsule<E>            quant(ctx->quant_len);
-    Capsule<unsigned int> freq(ctx->dict_size);
-    Capsule<H>            book(ctx->dict_size);
-    Capsule<uint8_t>      revbook(HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size));
+    Capsule<E>        quant(ctx->quant_len);
+    Capsule<uint32_t> freq(ctx->dict_size);
+    Capsule<H>        book(ctx->dict_size);
+    Capsule<uint8_t>  revbook(HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size));
     cudaMalloc(&quant.dptr, quant.nbyte());
     cudaMalloc(&freq.dptr, freq.nbyte());
     cudaMalloc(&book.dptr, book.nbyte()), book.memset(0xff);
@@ -438,10 +421,16 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
     LOGGING(LOG_INFO, "compressing...");
 
     predictor->construct(in_data->dptr, nullptr, quant.dptr);
-    time.lossy = predictor->get_time_elapsed();
+    csr->gather(in_data->dptr, sp.workspace, sp.dump, sp.dump_nbyte, ctx->nnz_outlier);
 
-    this->gather_outlier(in_data);
-    this->try_skip_huffman(&quant);
+    time.lossy   = predictor->get_time_elapsed();
+    time.outlier = csr->get_time_elapsed();
+
+    data_seg.nbyte.at("outlier") = sp.dump_nbyte;  // do before consolidate
+
+    LOGGING(LOG_INFO, "#outlier = ", ctx->nnz_outlier, StringHelper::nnz_percentage(ctx->nnz_outlier, ctx->data_len));
+
+    try_skip_huffman(&quant);
 
     // release in_data; subject to change
     cudaFree(in_data->dptr);
@@ -471,7 +460,6 @@ void DECOMPRESSOR::try_report_decompression_time()
     float all   = time.lossy + time.outlier + time.lossless;
 
     ReportHelper::print_throughput_tablehead("decompression");
-
     ReportHelper::print_throughput_line("scatter-outlier", time.outlier, nbyte);
     ReportHelper::print_throughput_line("Huff-decode", time.lossless, nbyte);
     ReportHelper::print_throughput_line("reconstruct", time.lossy, nbyte);
@@ -526,7 +514,7 @@ DECOMPRESSOR::Decompressor(cuszCTX* _ctx) : ctx(_ctx)
     // TODO is ctx still needed?
     xyz = dim3(header->x, header->y, header->z);
 
-    csr           = new OutlierHandler<T>(ctx->data_len, ctx->nnz_outlier);
+    csr           = new cusz::OutlierHandler<T>(ctx->data_len, ctx->nnz_outlier);
     csr_file.host = reinterpret_cast<BYTE*>(consolidated_dump + offsets.at(data_seg.name2order.at("outlier")));
     cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
     cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
@@ -617,7 +605,7 @@ void DECOMPRESSOR::decompress()
     huffman_decode(&quant);
 
     csr->scatter(csr_file.dev, outlier);
-    time.outlier = csr->get_milliseconds();
+    time.outlier = csr->get_time_elapsed();
 
     predictor->reconstruct(nullptr, quant.dptr, xdata);
     time.lossy = predictor->get_time_elapsed();

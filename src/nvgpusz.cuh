@@ -71,7 +71,7 @@ class Compressor {
     } sp;
 
     cusz::PredictorLorenzo<T, E, FP>* predictor;
-    OutlierHandler<T>*                csr;
+    cusz::OutlierHandler<T>*          csr;
 
     // context, configuration
     cuszCTX* ctx;
@@ -87,8 +87,6 @@ class Compressor {
     void consolidate(bool on_cpu = true, bool on_gpu = false);
 
     void lorenzo_dryrun(Capsule<T>* in_data);
-
-    Compressor& gather_outlier(Capsule<T>* in_data);
 
     Compressor&
     get_freq_and_codebook(Capsule<E>* quant, Capsule<unsigned int>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
@@ -120,9 +118,11 @@ class Compressor {
         cudaFreeHost(huffman.h_bitstream);
         cudaFreeHost(huffman.h_counts);
 
+        cudaFree(sp.workspace);
         cudaFreeHost(sp.dump);
 
         delete csr;
+        delete predictor;
     };
 
     void compress(Capsule<T>* in_data);
@@ -166,7 +166,7 @@ class Decompressor {
     size_t m, mxm;
     // clang-format on
 
-    OutlierHandler<T>*                csr;
+    cusz::OutlierHandler<T>*          csr;
     cusz::PredictorLorenzo<T, E, FP>* predictor;
 
     dim3         xyz;
@@ -190,6 +190,7 @@ class Decompressor {
     {
         cudaFree(csr_file.dev);
         delete csr;
+        delete predictor;
     }
 
     void decompress();

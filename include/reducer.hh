@@ -29,8 +29,9 @@ class OneCallAbstraction {
 
 class OneCallGatherScatter {
    public:
-    virtual void gather()  = 0;
-    virtual void scatter() = 0;
+    virtual float get_time_elapsed() const = 0;
+    virtual void  gather()                 = 0;
+    virtual void  scatter()                = 0;
 };
 
 template <typename T>
@@ -40,23 +41,26 @@ class SecondPassOnlyAbstraction {
     virtual void __decompress_time()                  = 0;
 };
 
-template <typename T>
+template <typename T1, typename T2>
 class TwoPassAbstraction {
    public:
-    virtual void __compress_time_pass1(T* in, uint32_t& precise_nbyte) = 0;
-    virtual void __compress_time_pass2(T* in)                          = 0;
-    virtual void __decompress_time()                                   = 0;
+    virtual float get_time_elapsed() const = 0;
+
+    virtual void __compress_time_pass1(T1* in, uint32_t& precise_nbyte) = 0;
+    virtual void __compress_time_pass2(T1* in, T2* out)                 = 0;
+    virtual void __decompress_time(T2* in, T1* out)                     = 0;
 };
 
-template <typename T>
-class TwoPassCodec : TwoPassAbstraction<T> {
+template <typename T1, typename T2>
+class TwoPassCodec : TwoPassAbstraction<T1, T2> {
    public:
     // just a renaming
-    virtual void encode_pass1(T* in, uint32_t& precise_nbyte) = 0;
-    virtual void encode_pass2(T* in)                          = 0;
-    virtual void decode()                                     = 0;
+    virtual void encode_pass1(T1* in, uint32_t& precise_nbyte) = 0;
+    virtual void encode_pass2(T1* in, T2* out)                 = 0;
+    virtual void decode(T2* in, T1* out)                       = 0;
 };
 
+/*
 template <typename T>
 class TwoPassGatherScatter : TwoPassAbstraction<T> {
    public:
@@ -65,6 +69,7 @@ class TwoPassGatherScatter : TwoPassAbstraction<T> {
     virtual void gather_pass2(T* in)                          = 0;
     virtual void scatter()                                    = 0;
 };
+*/
 
 }  // namespace cusz
 

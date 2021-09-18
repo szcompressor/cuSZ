@@ -91,6 +91,10 @@ struct HuffmanHelper {
 };
 
 struct StringHelper {
+    static std::string nnz_percentage(uint32_t nnz, uint32_t data_len)
+    {
+        return "(" + std::to_string(nnz / 1.0 / data_len * 100) + "%)";
+    }
 };
 
 struct ConfigHelper {
@@ -106,13 +110,16 @@ struct ConfigHelper {
     template <typename DST, typename SRC>
     static void deep_copy_config_items(DST* c1, SRC* c2)
     {
-        c1->x        = c2->x;
-        c1->y        = c2->y;
-        c1->z        = c2->z;
-        c1->w        = c2->w;
-        c1->ndim     = c2->ndim;
-        c1->eb       = c2->eb;
-        c1->data_len = c2->data_len;
+        c1->x         = c2->x;
+        c1->y         = c2->y;
+        c1->z         = c2->z;
+        c1->w         = c2->w;
+        c1->ndim      = c2->ndim;
+        c1->eb        = c2->eb;
+        c1->data_len  = c2->data_len;
+        c1->quant_len = c2->quant_len;
+        c1->radius    = c2->radius;
+        c1->dict_size = c2->dict_size;
 
         c1->quant_nbyte = c2->quant_nbyte;
         c1->huff_nbyte  = c2->huff_nbyte;

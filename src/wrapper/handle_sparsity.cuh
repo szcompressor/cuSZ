@@ -22,8 +22,10 @@
 
 #include "../../include/reducer.hh"
 
+namespace cusz {
+
 template <typename Data = float>
-class OutlierHandler : public cusz::OneCallGatherScatter {
+class OutlierHandler : public OneCallGatherScatter {
    private:
     // clang-format off
     uint8_t* pool_ptr;
@@ -61,7 +63,7 @@ class OutlierHandler : public cusz::OneCallGatherScatter {
     // helper
     uint32_t get_total_nbyte() const { return nbyte.total; }
 
-    float get_milliseconds() const { return milliseconds; }
+    float get_time_elapsed() const { return milliseconds; }
 
     // compression use
     OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte);
@@ -86,5 +88,8 @@ class OutlierHandler : public cusz::OneCallGatherScatter {
         scatter_CUDA10(in_outlier);
     }
 };
+
+//
+}  // namespace cusz
 
 #endif
