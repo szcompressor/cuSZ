@@ -14,14 +14,14 @@
 
 #include "../../include/predictor.hh"
 
-template <typename Data = float, typename Quant = float, typename FP = float>
-void tbd_lorenzo_dryrun(Data* data, dim3 size3, int ndim, FP eb);
+template <typename T = float, typename E = float, typename FP = float>
+void tbd_lorenzo_dryrun(T* data, dim3 size3, int ndim, FP eb);
 
-template <typename Data = float, typename Quant = float, typename FP = float, bool DELAY_POSTQUANT = false>
-void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
+template <typename T = float, typename E = float, typename FP = float, bool DELAY_POSTQUANT = false>
+void compress_lorenzo_construct(T* data, E* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
 
-template <typename Data = float, typename Quant = float, typename FP = float, bool DELAY_POSTQUANT = false>
-void decompress_lorenzo_reconstruct(Data* data, Quant* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
+template <typename T = float, typename E = float, typename FP = float, bool DELAY_POSTQUANT = false>
+void decompress_lorenzo_reconstruct(T* data, E* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
 
 namespace cusz {
 
@@ -56,10 +56,11 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
    public:
     PredictorLorenzo(dim3 xyz, double eb, int radius, bool delay_postquant);
 
+    // helper
     uint32_t get_quant_len() const { return len_quant; }
-
     uint32_t get_time_elapsed() const { return time_elapsed; }
 
+    // methods
     void dryrun(T* in_out);
 
     void construct(T* in_data, E* out_errctrl);

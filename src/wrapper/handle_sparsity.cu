@@ -14,6 +14,7 @@
 #include <cusparse.h>
 #include <cstddef>
 #include <iostream>
+#include "../type_trait.hh"
 #include "../utils/cuda_err.cuh"
 #include "../utils/timer.hh"
 #include "handle_sparsity.cuh"
@@ -32,10 +33,10 @@ OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_works
     if (init_workspace_nbyte == nullptr)
         throw std::runtime_error("[OutlierHandler::constructor] init_workspace_nbyte must not be null.");
 
-    m = static_cast<size_t>(ceil(sqrt(_len)));
+    m = Reinterpret1DTo2D::get_square_size(_len);
 
     // TODO merge to configure?
-    auto initial_nnz = _len / 10;
+    auto initial_nnz = _len / SparseMethodSetup::factor;
     // set up pool
     offset.rowptr = 0;
     offset.colidx = sizeof(int) * (m + 1);
@@ -174,7 +175,7 @@ void OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind
 template <typename Data>
 OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int _nnz)
 {  //
-    this->m   = static_cast<size_t>(ceil(sqrt(_len)));
+    this->m   = Reinterpret1DTo2D::get_square_size(_len);
     this->nnz = _nnz;
 
     nbyte.rowptr = sizeof(int) * (this->m + 1);

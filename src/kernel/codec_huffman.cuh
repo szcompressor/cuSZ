@@ -110,7 +110,7 @@ namespace cusz {
 template <typename Input, typename Huff>
 __global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*, int offset = 0);
 
-template <typename Input, typename Huff, int SEQ = HuffConfig::enc_sequentiality>
+template <typename Input, typename Huff, int SEQ = HuffmanHelper::ENC_SEQUENTIALITY>
 __global__ void encode_fixedlen_space_cub(Input*, Huff*, size_t, Huff*, int offset = 0);
 
 template <typename Huff>
@@ -133,10 +133,10 @@ __global__ void cusz::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* 
 template <typename Input, typename Huff, int SEQ>
 __global__ void cusz::encode_fixedlen_space_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {
-    static const auto Db = HuffConfig::Db_encode;
+    static const auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
-    typedef cub::BlockLoad<Input, Db, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_input;
-    typedef cub::BlockStore<Huff, Db, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_huff;
+    typedef cub::BlockLoad<Input, block_dim, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_input;
+    typedef cub::BlockStore<Huff, block_dim, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_huff;
 
     __shared__ union TempStorage {  // overlap shared memory space
         typename BlockLoadT_input::TempStorage load_input;
@@ -227,10 +227,10 @@ __global__ void cusz::Decode(
     size_t  singleton_size)
 {
     extern __shared__ BYTE _s_singleton[];
-    static const auto      Db = HuffConfig::Db_deflate;
+    static const auto      block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
 
-    for (auto i = 0; i < (singleton_size - 1 + Db) / Db; i++) {
-        if (TIX + i * Db < singleton_size) _s_singleton[TIX + i * Db] = singleton[TIX + i * Db];
+    for (auto i = 0; i < (singleton_size - 1 + block_dim) / block_dim; i++) {
+        if (TIX + i * block_dim < singleton_size) _s_singleton[TIX + i * block_dim] = singleton[TIX + i * block_dim];
     }
     __syncthreads();
 

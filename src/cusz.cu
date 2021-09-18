@@ -27,11 +27,11 @@
 using std::string;
 
 #include "analysis/analyzer.hh"
-#include "argparse.hh"
+#include "context.hh"
 #include "capsule.hh"
 #include "header.hh"
 #include "kernel/preprocess.cuh"
-#include "metadata.hh"
+#include "type_trait.hh"
 #include "nvgpusz.cuh"
 #include "query.hh"
 #include "type_aliasing.hh"
@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 
     // TODO align to 128 unconditionally
     auto len = ctx->data_len;
-    auto m   = static_cast<size_t>(ceil(sqrt(len)));
+    auto m = Reinterpret1DTo2D::get_square_size(len);
     auto mxm = m * m;
 
     Capsule<Data> in_data(mxm);

@@ -10,11 +10,11 @@
  */
 
 #include <iostream>
-#include <limits>
-#include <numeric>
 #include <stdexcept>
-#include "../utils/timer.hh"
 #include "extrap_lorenzo.cuh"
+
+#include "../type_trait.hh"
+#include "../utils/timer.hh"
 
 #ifdef DPCPP_SHOWCASE
 #include "../kernel/lorenzo_prototype.cuh"
@@ -47,12 +47,6 @@ struct __dim3_compat {
 using dim3 = __dim3_compat;
 #endif
 
-auto get_npart = [](auto size, auto subsize) {
-    static_assert(
-        std::numeric_limits<decltype(size)>::is_integer and std::numeric_limits<decltype(subsize)>::is_integer,
-        "[get_npart] must be plain interger types.");
-    return (size + subsize - 1) / subsize;
-};
 auto get_stride3 = [](dim3 size) -> dim3 { return dim3(1, size.x, size.x * size.y); };
 
 }  // namespace
@@ -79,14 +73,15 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
     if (ndim == 1) {
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE;
-        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        auto           dim_grid     = ConfigHelper::get_npart(size3.x, DATA_SUBSIZE);
         c_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
             (data, quant, size3.x, radius, ebx2_r, nullptr, nullptr, 1.0);
     }
     else if (ndim == 2) {
         constexpr auto DATA_SUBSIZE = 16;
         auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE);
-        auto           dim_grid     = dim3(get_npart(size3.x, DATA_SUBSIZE), get_npart(size3.y, DATA_SUBSIZE));
+        auto           dim_grid =
+            dim3(ConfigHelper::get_npart(size3.x, DATA_SUBSIZE), ConfigHelper::get_npart(size3.y, DATA_SUBSIZE));
         c_lorenzo_2d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
             (data, quant, size3.x, size3.y, size3.x, radius, ebx2_r, nullptr, nullptr, 1.0);
     }
@@ -94,9 +89,9 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
         constexpr auto DATA_SUBSIZE = 8;
         auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE, DATA_SUBSIZE);
         auto           dim_grid     = dim3(
-            get_npart(size3.x, DATA_SUBSIZE),  //
-            get_npart(size3.y, DATA_SUBSIZE),  //
-            get_npart(size3.z, DATA_SUBSIZE));
+            ConfigHelper::get_npart(size3.x, DATA_SUBSIZE),  //
+            ConfigHelper::get_npart(size3.y, DATA_SUBSIZE),  //
+            ConfigHelper::get_npart(size3.z, DATA_SUBSIZE));
         c_lorenzo_3d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
             (data, quant, size3.x, size3.y, size3.z, size3.x, size3.x * size3.y, radius, ebx2_r, nullptr, nullptr, 1.0);
     }
@@ -111,19 +106,21 @@ void compress_lorenzo_construct(Data* data, Quant* quant, dim3 size3, int ndim, 
         constexpr auto SEQ          = 4;
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE / SEQ;
-        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        auto           dim_grid     = ConfigHelper::get_npart(size3.x, DATA_SUBSIZE);
         cusz::c_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (data, quant, size3.x, radius, ebx2_r);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
-        auto dim_grid  = dim3(get_npart(size3.x, 16), get_npart(size3.y, 16));
+        auto dim_grid  = dim3(ConfigHelper::get_npart(size3.x, 16), ConfigHelper::get_npart(size3.y, 16));
         cusz::c_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, FP><<<dim_grid, dim_block>>>  //
             (data, quant, size3.x, size3.y, stride3.y, radius, ebx2_r);
     }
     else if (ndim == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
-        auto dim_grid  = dim3(get_npart(size3.x, 32), get_npart(size3.y, 8), get_npart(size3.z, 8));
+        auto dim_grid  = dim3(
+            ConfigHelper::get_npart(size3.x, 32), ConfigHelper::get_npart(size3.y, 8),
+            ConfigHelper::get_npart(size3.z, 8));
         cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant, FP>
             <<<dim_grid, dim_block>>>(data, quant, size3.x, size3.y, size3.z, stride3.y, stride3.z, radius, ebx2_r);
     }
@@ -151,7 +148,7 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     if (ndim == 1) {  // y-sequentiality == 8
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE;
-        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        auto           dim_grid     = ConfigHelper::get_npart(size3.x, DATA_SUBSIZE);
         // TODO delete outlier-data
         x_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, radius, ebx2);
@@ -159,7 +156,8 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     else if (ndim == 2) {
         constexpr auto DATA_SUBSIZE = 16;
         auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE);
-        auto           dim_grid     = dim3(get_npart(size3.x, DATA_SUBSIZE), get_npart(size3.y, DATA_SUBSIZE));
+        auto           dim_grid =
+            dim3(ConfigHelper::get_npart(size3.x, DATA_SUBSIZE), ConfigHelper::get_npart(size3.y, DATA_SUBSIZE));
         x_lorenzo_2d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, size3.y, size3.x, radius, ebx2);
     }
@@ -167,9 +165,9 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
         constexpr auto DATA_SUBSIZE = 8;
         auto           dim_block    = dim3(DATA_SUBSIZE, DATA_SUBSIZE, DATA_SUBSIZE);
         auto           dim_grid     = dim3(
-            get_npart(size3.x, DATA_SUBSIZE),  //
-            get_npart(size3.y, DATA_SUBSIZE),  //
-            get_npart(size3.z, DATA_SUBSIZE));
+            ConfigHelper::get_npart(size3.x, DATA_SUBSIZE),  //
+            ConfigHelper::get_npart(size3.y, DATA_SUBSIZE),  //
+            ConfigHelper::get_npart(size3.z, DATA_SUBSIZE));
         x_lorenzo_3d1l<Data, Quant, FP, DATA_SUBSIZE><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, size3.y, size3.z, size3.x, size3.x * size3.y, radius, ebx2);
     }
@@ -183,14 +181,14 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
         constexpr auto SEQ          = 8;
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE / SEQ;
-        auto           dim_grid     = get_npart(size3.x, DATA_SUBSIZE);
+        auto           dim_grid     = ConfigHelper::get_npart(size3.x, DATA_SUBSIZE);
         cusz::x_lorenzo_1d1l<Data, Quant, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, radius, ebx2);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
 
         auto dim_block = dim3(16, 2);
-        auto dim_grid  = dim3(get_npart(size3.x, 16), get_npart(size3.y, 16));
+        auto dim_grid  = dim3(ConfigHelper::get_npart(size3.x, 16), ConfigHelper::get_npart(size3.y, 16));
 
         cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, FP, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, size3.y, stride3.y, radius, ebx2);
@@ -198,7 +196,9 @@ void decompress_lorenzo_reconstruct(Data* xdata, Quant* quant, dim3 size3, int n
     else if (ndim == 3) {  // y-sequentiality == 8
 
         auto dim_block = dim3(32, 1, 8);
-        auto dim_grid  = dim3(get_npart(size3.x, 32), get_npart(size3.y, 8), get_npart(size3.z, 8));
+        auto dim_grid  = dim3(
+            ConfigHelper::get_npart(size3.x, 32), ConfigHelper::get_npart(size3.y, 8),
+            ConfigHelper::get_npart(size3.z, 8));
 
         cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant, FP, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, quant, size3.x, size3.y, size3.z, stride3.y, stride3.z, radius, ebx2);

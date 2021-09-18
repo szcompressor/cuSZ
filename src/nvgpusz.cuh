@@ -19,7 +19,7 @@
 #include <iostream>
 #include <unordered_map>
 
-#include "argparse.hh"
+#include "context.hh"
 #include "capsule.hh"
 #include "header.hh"
 #include "type_trait.hh"
@@ -29,7 +29,7 @@
 
 using namespace std;
 
-template <typename Data, typename Quant, typename Huff, typename FP>
+template <typename T, typename E, typename H, typename FP>
 class Compressor {
     using BYTE = uint8_t;
 
@@ -40,7 +40,7 @@ class Compressor {
             {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
         };
 
-        std::unordered_map<std::string, uint32_t> nbyte_raw = {
+        std::unordered_map<std::string, uint32_t> nbyte = {
             {"header", sizeof(cusz_header)},
             {"book", 0U},            //
             {"quant", 0U},           //
@@ -51,44 +51,17 @@ class Compressor {
         };
     } data_seg;
 
-    static const auto TYPE_BITCOUNT = sizeof(Huff) * 8;
+    Spline3<T*, E*, float>* spline3;
 
-    unsigned int tune_deflate_chunksize(size_t len);
-
-    void report_compression_time();
-
-   public:
-    Spline3<Data*, Quant*, float>* spline3;
-
-    void register_spline3(Spline3<Data*, Quant*, float>* _spline3) { spline3 = _spline3; }
-    struct {
-        unsigned int data, quant, anchor;
-        int          nnz_outlier;  // TODO modify the type correspondingly
-        unsigned int dict_size;
-    } length;
-
-    int ndim;
+    // clang-format off
+    struct { double eb; FP ebx2, ebx2_r, eb_r; } config;
+    struct { float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
+    // clang-format on
 
     struct {
-        int    radius;
-        double eb;
-        FP     ebx2, ebx2_r, eb_r;
-    } config;
-
-    struct {
-        float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0};
-    } time;
-
-    struct {
-        struct {
-            size_t num_bits, num_uints, revbook_nbyte;
-        } meta;
-
-        struct {
-            BYTE*   h_revbook;
-            size_t *h_counts, *d_counts;
-            Huff *  h_bitstream, *d_bitstream, *d_encspace;
-        } array;
+        BYTE*   h_revbook;
+        size_t *h_counts, *d_counts;
+        H *     h_bitstream, *d_bitstream, *d_encspace;
     } huffman;
 
     struct {
@@ -98,7 +71,7 @@ class Compressor {
         uint8_t*     dump;
     } sp;
 
-    OutlierHandler<Data>* csr;
+    OutlierHandler<T>* csr;
 
     // context, configuration
     cuszCTX* ctx;
@@ -106,66 +79,61 @@ class Compressor {
     cusz_header* header;
 
     // OOD, indicated by v2
-    cusz_header header_v2;
-    dim3        xyz_v2;
+    dim3 xyz_v2;
 
-    unsigned int get_revbook_nbyte() { return sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * length.dict_size; }
+    unsigned int tune_deflate_chunksize(size_t len);
+    void         report_compression_time();
+    void         register_spline3(Spline3<T*, E*, float>* _spline3) { spline3 = _spline3; }
 
+    void consolidate(bool on_cpu = true, bool on_gpu = false);
+
+    void lorenzo_dryrun(Capsule<T>* in_data);
+
+    Compressor& predict_quantize(Capsule<T>* data, dim3 xyz, Capsule<T>* anchor, Capsule<E>* quant);
+
+    Compressor& gather_outlier(Capsule<T>* in_data);
+
+    Compressor&
+    get_freq_and_codebook(Capsule<E>* quant, Capsule<unsigned int>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
+
+    Compressor& analyze_compressibility(Capsule<unsigned int>* freq, Capsule<H>* book);
+
+    Compressor& internal_eval_try_export_book(Capsule<H>* book);
+
+    Compressor& internal_eval_try_export_quant(Capsule<E>* quant);
+
+    // TODO make it return *this
+    void try_skip_huffman(Capsule<E>* quant);
+
+    Compressor& try_report_time();
+
+    Compressor& huffman_encode(Capsule<E>* quant, Capsule<H>* book);
+
+    Compressor& pack_metadata();
+
+   public:
     Compressor(cuszCTX* _ctx);
 
     ~Compressor()
     {
         // release small-size arrays
-        cudaFree(huffman.array.d_counts);
-        cudaFree(huffman.array.d_bitstream);
+        cudaFree(huffman.d_counts);
+        cudaFree(huffman.d_bitstream);
 
-        cudaFreeHost(huffman.array.h_bitstream);
-        cudaFreeHost(huffman.array.h_counts);
+        cudaFreeHost(huffman.h_bitstream);
+        cudaFreeHost(huffman.h_counts);
 
         cudaFreeHost(sp.dump);
 
         delete csr;
     };
 
-    void compress(Capsule<Data>* in_data);
-
-    void consolidate(bool on_cpu = true, bool on_gpu = false);
-
-    void lorenzo_dryrun(Capsule<Data>* in_data);
-
-    Compressor& predict_quantize(Capsule<Data>* data, dim3 xyz, Capsule<Data>* anchor, Capsule<Quant>* quant);
-
-    Compressor& gather_outlier(Capsule<Data>* in_data);
-
-    Compressor& get_freq_and_codebook(
-        Capsule<Quant>*        quant,
-        Capsule<unsigned int>* freq,
-        Capsule<Huff>*         book,
-        Capsule<uint8_t>*      revbook);
-
-    Compressor& analyze_compressibility(Capsule<unsigned int>* freq, Capsule<Huff>* book);
-
-    Compressor& internal_eval_try_export_book(Capsule<Huff>* book);
-
-    Compressor& internal_eval_try_export_quant(Capsule<Quant>* quant);
-
-    // TODO make it return *this
-    void try_skip_huffman(Capsule<Quant>* quant);
-
-    Compressor& try_report_time();
-
-    Compressor& huffman_encode(Capsule<Quant>* quant, Capsule<Huff>* book);
-
-    Compressor& pack_metadata();
+    void compress(Capsule<T>* in_data);
 };
 
-template <typename Data, typename Quant, typename Huff, typename FP>
+template <typename T, typename E, typename H, typename FP>
 class Decompressor {
    private:
-    void report_decompression_time(size_t len, float lossy, float outlier, float lossless);
-
-    void unpack_metadata();
-
     struct {
         std::unordered_map<std::string, int> name2order = {
             {"header", 0},  {"book", 1},      {"quant", 2},         {"revbook", 3},
@@ -177,7 +145,7 @@ class Decompressor {
             {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
         };
 
-        std::unordered_map<std::string, uint32_t> nbyte_raw = {
+        std::unordered_map<std::string, uint32_t> nbyte = {
             {"header", sizeof(cusz_header)},
             {"book", 0U},            //
             {"quant", 0U},           //
@@ -188,88 +156,50 @@ class Decompressor {
         };
     } data_seg;
 
-    void read_array_nbyte_from_header();
-
-    void get_data_seg_offsets();
-
-   public:
-    void register_spline3(Spline3<Data*, Quant*, float>* _spline3) { spline3 = _spline3; }
-
-    Spline3<Data*, Quant*, FP>* spline3;
-
-    dim3 xyz;
-
-    void decompress();
-
-    struct {
-        BYTE* whole;
-    } consolidated_dump;
-
     std::vector<uint32_t> offsets;
 
+    BYTE*  consolidated_dump;
     size_t cusza_nbyte;
 
-    struct {
-        float lossy{0.0}, outlier{0.0}, lossless{0.0};
-    } time;
-    struct {
-        unsigned int data, quant, anchor;
-        int          nnz_outlier;  // TODO modify the type correspondingly
-        unsigned int dict_size;
-    } length;
+    // clang-format off
+    struct { float lossy{0.0}, outlier{0.0}, lossless{0.0}; } time;
+    struct { double eb; FP ebx2, ebx2_r, eb_r; } config;
 
-    struct {
-        int    radius;
-        double eb;
-        FP     ebx2, ebx2_r, eb_r;
-    } config;
-
+    struct { uint8_t *host, *dev; } csr_file;
     size_t m, mxm;
+    OutlierHandler<T>* csr;
+    // clang-format on
 
-    struct {
-        struct {
-            size_t num_bits, num_uints, revbook_nbyte;
-        } meta;
-    } huffman;
-
-    struct {
-        uint8_t *host, *dev;
-    } csr_file;
-    OutlierHandler<Data>* csr;
-
+    dim3         xyz;
     cuszCTX*     ctx;
     cusz_header* header;
-    BYTE*        header_byte;  // to use
 
-    Decompressor(cusz_header* header, cuszCTX* ctx);
+    void try_report_decompression_time();
+
+    void try_compare_with_origin(T* xdata);
+
+    void try_write2disk(T* host_xdata);
+
+    void huffman_decode(Capsule<E>* quant);
+
+    void reversed_predict_quantize(T* xdata, dim3 xyz, T* anchor, E* quant);
+
+    void unpack_metadata();
+
+   public:
+    void register_spline3(Spline3<T*, E*, float>* _spline3) { spline3 = _spline3; }
+
+    Spline3<T*, E*, FP>* spline3;
 
     Decompressor(cuszCTX* ctx);
 
-    Decompressor(cuszCTX* ctx, uint8_t* in_dump);
+    ~Decompressor()
+    {
+        cudaFree(csr_file.dev);
+        delete csr;
+    }
 
-    Decompressor(BYTE* in_dump);
-
-    ~Decompressor() { delete csr; }
-
-    Decompressor& huffman_decode(Capsule<Quant>* quant);
-
-    Decompressor& scatter_outlier(Data* outlier);
-
-    Decompressor& reversed_predict_quantize(Data* xdata, dim3 xyz, Data* anchor, Quant* quant);
-
-    Decompressor& calculate_archive_nbyte();
-
-    Decompressor& try_report_time();
-
-    Decompressor& try_compare(Data* xdata);
-
-    Decompressor& try_write2disk(Data* host_xdata);
+    void decompress();
 };
-
-template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_compress(cuszCTX* ctx, Capsule<typename DataTrait<If_FP, DataByte>::Data>* in_data);
-
-template <bool If_FP, int DataByte, int QuantByte, int HuffByte>
-void cusz_decompress(cuszCTX* ctx);
 
 #endif

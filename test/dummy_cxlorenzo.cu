@@ -3,6 +3,7 @@
 #include "../src/kernel/lorenzo.h"
 #include "../src/kernel/prototype_lorenzo.cuh"
 #include "../src/metadata.hh"
+#include "../src/type_trait.hh"
 #include "../src/utils/cuda_err.cuh"
 using std::cerr;
 using std::cout;
@@ -16,7 +17,6 @@ auto   radius = 0;
 auto   ebx2 = 1.0, ebx2_r = 1.0;
 auto   unified_size = 512 * 512 * 512;
 
-auto num_partitions = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
 
 __global__ void dummy() { float data = threadIdx.x; }
 
@@ -27,7 +27,7 @@ void Test1D(int n = 1)
     static const auto Sequentiality = 8;
     static const auto DataSubsize   = MetadataTrait<1>::Block;
     auto              dim_block     = DataSubsize / Sequentiality;
-    auto              dim_grid      = num_partitions(dimx, DataSubsize);
+    auto              dim_grid      = ConfigHelper::get_npart(dimx, DataSubsize);
 
     for (auto i = 0; i < n; i++) {
         cout << "1Dc " << i << '\n';

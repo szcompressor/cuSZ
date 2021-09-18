@@ -13,6 +13,8 @@
 #include <limits>
 #include <numeric>
 #include <stdexcept>
+
+#include "../type_trait.hh"
 #include "../utils/timer.hh"
 #include "extrap_lorenzo.cuh"
 
@@ -46,13 +48,6 @@ struct __dim3_compat {
 
 using dim3 = __dim3_compat;
 #endif
-
-auto get_npart = [](auto size, auto subsize) {
-    static_assert(
-        std::numeric_limits<decltype(size)>::is_integer and std::numeric_limits<decltype(subsize)>::is_integer,
-        "[get_npart] must be plain interger types.");
-    return (size + subsize - 1) / subsize;
-};
 
 }  // namespace
 
@@ -90,19 +85,21 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, E* errctrl)
         constexpr auto SEQ          = 4;
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE / SEQ;
-        auto           dim_grid     = get_npart(size.x, DATA_SUBSIZE);
+        auto           dim_grid     = ConfigHelper::get_npart(size.x, DATA_SUBSIZE);
         cusz::c_lorenzo_1d1l<T, E, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (data, errctrl, size.x, radius, ebx2_r);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
-        auto dim_grid  = dim3(get_npart(size.x, 16), get_npart(size.y, 16));
+        auto dim_grid  = dim3(ConfigHelper::get_npart(size.x, 16), ConfigHelper::get_npart(size.y, 16));
         cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP><<<dim_grid, dim_block>>>  //
             (data, errctrl, size.x, size.y, leap.y, radius, ebx2_r);
     }
     else if (ndim == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
-        auto dim_grid  = dim3(get_npart(size.x, 32), get_npart(size.y, 8), get_npart(size.z, 8));
+        auto dim_grid  = dim3(
+            ConfigHelper::get_npart(size.x, 32), ConfigHelper::get_npart(size.y, 8),
+            ConfigHelper::get_npart(size.z, 8));
         cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
             <<<dim_grid, dim_block>>>(data, errctrl, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2_r);
     }
@@ -123,20 +120,22 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(E* errctrl, T* xdata)
         constexpr auto SEQ          = 8;
         constexpr auto DATA_SUBSIZE = 256;
         auto           dim_block    = DATA_SUBSIZE / SEQ;
-        auto           dim_grid     = get_npart(size.x, DATA_SUBSIZE);
+        auto           dim_grid     = ConfigHelper::get_npart(size.x, DATA_SUBSIZE);
         cusz::x_lorenzo_1d1l<T, E, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, errctrl, size.x, radius, ebx2);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
-        auto dim_grid  = dim3(get_npart(size.x, 16), get_npart(size.y, 16));
+        auto dim_grid  = dim3(ConfigHelper::get_npart(size.x, 16), ConfigHelper::get_npart(size.y, 16));
 
         cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, errctrl, size.x, size.y, leap.y, radius, ebx2);
     }
     else if (ndim == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
-        auto dim_grid  = dim3(get_npart(size.x, 32), get_npart(size.y, 8), get_npart(size.z, 8));
+        auto dim_grid  = dim3(
+            ConfigHelper::get_npart(size.x, 32), ConfigHelper::get_npart(size.y, 8),
+            ConfigHelper::get_npart(size.z, 8));
 
         cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP, DELAY_POSTQUANT><<<dim_grid, dim_block>>>  //
             (xdata, errctrl, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2);

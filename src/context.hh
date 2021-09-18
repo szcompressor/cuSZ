@@ -24,7 +24,7 @@
 
 using std::string;
 
-extern const char* version_text;
+extern const char* VERSION_TEXT;
 extern const int   version;
 extern const int   compatibility;
 
@@ -43,16 +43,14 @@ class cuszCTX {
         string predictor = string("lorenzo");
     } task_is;
 
+    bool verbose{false};
+
     struct {
-        bool quality{true}, time{false}, cr{false};
-        bool compressibility{false};
+        bool quality{true}, time{false}, cr{false}, compressibility{false}, dataseg{false};
     } report;
 
     struct {
-        string path2file;
-        string origin_cmp;
-        string path_basename;
-        string basename;
+        string path2file, origin_cmp, path_basename, basename;
     } fnames;
 
     stat_t stat;
@@ -64,19 +62,20 @@ class cuszCTX {
     string opath;
     string dtype;
 
-    int quant_nbyte{2}, huff_nbyte{4};
-    int huffman_chunk{512};
-    int nchunk{-1};
-    int ndim{-1};
+    uint32_t quant_nbyte{2}, huff_nbyte{4};
+
+    int nnz_outlier;
+
+    size_t huffman_num_uints, huffman_num_bits;
+    int    huffman_chunk{512};
+    int    nchunk{-1};
+
+    size_t       data_len{1}, quant_len{1}, anchor_len{1};
+    unsigned int x, y, z, w;
+    int          ndim{-1};
 
     double eb{0.0};
-
-    size_t       data_len{1};
-    unsigned int x, y, z, w;
-
-    int dict_size{1024}, radius{512};
-
-    bool verbose{false};
+    int    dict_size{1024}, radius{512};
 
    private:
     size_t self_multiply4() { return x * y * z * w; };

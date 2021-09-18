@@ -174,28 +174,24 @@ void lossless::HuffmanEncode(
     size_t* ptr_num_uints,
     float&  milliseconds)
 {
-    auto get_grid_dim = [](size_t problem_size, size_t block_dim) {
-        return (problem_size + block_dim - 1) / block_dim;
-    };
-    // encode_deflate
-    auto nchunk = (len + chunk_size - 1) / chunk_size;
+    auto nchunk = ConfigHelper::get_npart(len, chunk_size);
 
     if CONSTEXPR (UINTS_KNOWN == false) {
         {
-            auto block_dim = HuffConfig::Db_encode;
-            auto grid_dim  = get_grid_dim(len, block_dim);
+            auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
+            auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
             auto t         = new cuda_timer_t;
             t->timer_start();
-            cusz::encode_fixedlen_space_cub<Quant, Huff, HuffConfig::enc_sequentiality>
-                <<<grid_dim, block_dim / HuffConfig::enc_sequentiality>>>(dev_input, dev_enc_space, len, dev_book);
+            cusz::encode_fixedlen_space_cub<Quant, Huff, HuffmanHelper::ENC_SEQUENTIALITY>
+                <<<grid_dim, block_dim / HuffmanHelper::ENC_SEQUENTIALITY>>>(dev_input, dev_enc_space, len, dev_book);
             milliseconds += t->timer_end_get_elapsed_time();
             cudaDeviceSynchronize();
             delete t;
         }
 
         {
-            auto block_dim = HuffConfig::Db_deflate;
-            auto grid_dim  = get_grid_dim(nchunk, block_dim);
+            auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+            auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);
             auto t         = new cuda_timer_t;
             t->timer_start();
             cusz::encode_deflate<Huff><<<grid_dim, block_dim>>>(dev_enc_space, len, dev_bits, chunk_size);
@@ -230,12 +226,11 @@ void lossless::HuffmanDecode(
     int             dict_size,
     float&          milliseconds)
 {
-    constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
-    auto           revbook_nbyte = sizeof(Huff) * (2 * TYPE_BITCOUNT) + sizeof(Quant) * dict_size;
-
-    auto nchunk    = (len - 1) / chunk_size + 1;
-    auto block_dim = HuffConfig::Db_deflate;  // the same as deflating
-    auto grid_dim  = (nchunk - 1) / block_dim + 1;
+    // constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
+    auto revbook_nbyte = HuffmanHelper::get_revbook_nbyte<Quant, Huff>(dict_size);
+    auto nchunk        = ConfigHelper::get_npart(len, chunk_size);
+    auto block_dim     = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
+    auto grid_dim      = ConfigHelper::get_npart(nchunk, block_dim);
 
     {
         auto t = new cuda_timer_t;
@@ -255,15 +250,15 @@ void lossless::HuffmanDecode(
     template void lossless::HuffmanEncode<Q, H, BOOL>( \
         H*, size_t*, size_t*, size_t*, size_t*, H*, Q*, H*, size_t, int, int, size_t*, size_t*, float&);
 
-HUFFMAN_ENCODE(UI1, UI4, false)
-HUFFMAN_ENCODE(UI1, UI8, false)
+// HUFFMAN_ENCODE(UI1, UI4, false)
+// HUFFMAN_ENCODE(UI1, UI8, false)
 HUFFMAN_ENCODE(UI2, UI4, false)
 HUFFMAN_ENCODE(UI2, UI8, false)
 HUFFMAN_ENCODE(UI4, UI4, false)
 HUFFMAN_ENCODE(UI4, UI8, false)
 
-HUFFMAN_ENCODE(UI1, UI4, true)
-HUFFMAN_ENCODE(UI1, UI8, true)
+// HUFFMAN_ENCODE(UI1, UI4, true)
+// HUFFMAN_ENCODE(UI1, UI8, true)
 HUFFMAN_ENCODE(UI2, UI4, true)
 HUFFMAN_ENCODE(UI2, UI8, true)
 HUFFMAN_ENCODE(UI4, UI4, true)
@@ -272,8 +267,8 @@ HUFFMAN_ENCODE(UI4, UI8, true)
 #define HUFFMAN_DECODE(Q, H) \
     template void lossless::HuffmanDecode<Q, H>(H*, size_t*, uint8_t*, Capsule<Q>*, size_t, int, size_t, int, float&);
 
-HUFFMAN_DECODE(UI1, UI4)
-HUFFMAN_DECODE(UI1, UI8)
+// HUFFMAN_DECODE(UI1, UI4)
+// HUFFMAN_DECODE(UI1, UI8)
 HUFFMAN_DECODE(UI2, UI4)
 HUFFMAN_DECODE(UI2, UI8)
 HUFFMAN_DECODE(UI4, UI4)

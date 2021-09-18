@@ -17,8 +17,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include "argparse.hh"
 #include "argument_parser/document.hh"
+#include "context.hh"
 #include "utils/format.hh"
 
 using std::cerr;
@@ -27,9 +27,9 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* version_text  = "2021-09-08.2";
-const int   version       = 202107132;
-const int   compatibility = 0;
+const char* VERSION_TEXT  = "2021-09-18.1";
+const int   VERSION       = 202107132;
+const int   COMPATIBILITY = 0;
 
 namespace {
 
@@ -339,13 +339,13 @@ void cuszCTX::check_args()
 
 void cuszCTX::print_short_doc()
 {
-    cout << "\n>>>>  cusz build: " << version_text << "\n";
+    cout << "\n>>>>  cusz build: " << VERSION_TEXT << "\n";
     cout << cusz_short_doc << endl;
 }
 
 void cuszCTX::print_full_doc()
 {
-    cout << "\n>>>>  cusz build: " << version_text << "\n";
+    cout << "\n>>>>  cusz build: " << VERSION_TEXT << "\n";
     cout << format(cusz_full_doc) << endl;
 }
 
@@ -540,7 +540,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     exit(0);
                 case 'v':
                 tag_version:
-                    cout << ">>>>  cusz build: " << version_text << "\n";
+                    cout << ">>>>  cusz build: " << VERSION_TEXT << "\n";
                     exit(0);
                 // COMPRESSION CONFIG
                 case 't':

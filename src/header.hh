@@ -14,30 +14,27 @@
  *
  */
 
-#include "argparse.hh"
+#include "context.hh"
 
 typedef struct alignas(128) cuszHEADER {
-    uint32_t x, y, z, w, ndim;
+    uint32_t x, y, z, w;
     uint32_t data_len;
     double   eb;
 
-    struct {
-        uint32_t dtype : 8;        // (1) fp32, (2) fp64
-        uint32_t quant_nbyte : 4;  //
-        uint32_t huff_nbyte : 4;   //
-    } config;
+    uint32_t ndim : 2;
+    uint32_t dtype : 8;        // (1) fp32, (2) fp64
+    uint32_t quant_nbyte : 4;  //
+    uint32_t huff_nbyte : 4;   //
+
+    int nnz_outlier;
+
+    // uint32_t huffman_num_bits;
+    uint32_t huffman_chunk;
+    uint32_t huffman_num_uints;
 
     struct {
-        int nnz;
-    } outlier;
-
-    struct {
-        // uint32_t num_bits;
-        uint32_t num_uints;
-        uint32_t chunk;
-    } huffman;
-
-    bool skip_huffman;
+        bool skip_huffman;
+    } task_is;
 
     // stat
     float maximum, minimum;

@@ -46,13 +46,13 @@ __global__ void cub2d(lorenzo_unzip ctx, Data* xdata, Data* outlier, Quant* quan
 {
     static const auto Block = ProblemSize;
 
-    static const auto Db = Block / Sequentiality;  // dividable
+    static const auto block_dim = Block / Sequentiality;  // dividable
 
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
-    typedef cub::BlockLoad<Data, Db, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE, Block>   BlockLoadT_outlier;
-    typedef cub::BlockLoad<Quant, Db, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE, Block>  BlockLoadT_quant;
-    typedef cub::BlockStore<Data, Db, Sequentiality, cub::BLOCK_STORE_WARP_TRANSPOSE, Block> BlockStoreT_xdata;
-    typedef cub::BlockScan<Data, Db, cub::BLOCK_SCAN_RAKING_MEMOIZE, Block>                  BlockScanT_xdata;
+    typedef cub::BlockLoad<Data, block_dim, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE, Block>   BlockLoadT_outlier;
+    typedef cub::BlockLoad<Quant, block_dim, Sequentiality, cub::BLOCK_LOAD_WARP_TRANSPOSE, Block>  BlockLoadT_quant;
+    typedef cub::BlockStore<Data, block_dim, Sequentiality, cub::BLOCK_STORE_WARP_TRANSPOSE, Block> BlockStoreT_xdata;
+    typedef cub::BlockScan<Data, block_dim, cub::BLOCK_SCAN_RAKING_MEMOIZE, Block>                  BlockScanT_xdata;
 
     __shared__ union TempStorage {  // overlap shared memory space
         typename BlockLoadT_outlier::TempStorage load_outlier;
