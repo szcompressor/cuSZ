@@ -17,7 +17,7 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 
-#include "../type_aliasing.hh"
+#include "../types.hh"
 #include "../utils/timer.hh"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)

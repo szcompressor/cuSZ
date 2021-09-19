@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#include "../type_aliasing.hh"
+#include "../types.hh"
 
 using std::cout;
 using std::endl;

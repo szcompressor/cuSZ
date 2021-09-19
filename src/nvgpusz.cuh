@@ -26,7 +26,6 @@
 #include "utils.hh"
 #include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/handle_sparsity.cuh"
-// #include "wrapper/interp_spline_.h"
 
 using namespace std;
 
@@ -107,7 +106,27 @@ class Compressor {
     Compressor& pack_metadata();
 
    public:
-    Compressor(cuszCTX* _ctx);
+    Compressor(cuszCTX* _ctx) : ctx(_ctx)
+    {
+        header = new cusz_header();
+
+        ctx->quant_len = ctx->data_len;  // TODO if lorenzo
+
+        ConfigHelper::set_eb_series(ctx->eb, config);
+
+        if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
+
+        csr = new cusz::OutlierHandler<T>(ctx->data_len, &sp.workspace_nbyte);
+        // can be known on Compressor init
+        cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
+        cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
+
+        xyz = dim3(ctx->x, ctx->y, ctx->z);
+
+        predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+
+        ctx->quant_len = predictor->get_quant_len();
+    }
 
     ~Compressor()
     {
@@ -184,7 +203,30 @@ class Decompressor {
     void unpack_metadata();
 
    public:
-    Decompressor(cuszCTX* ctx);
+    Decompressor(cuszCTX* _ctx) : ctx(_ctx)
+    {
+        auto fname_dump   = ctx->fnames.path2file + ".cusza";
+        cusza_nbyte       = ConfigHelper::get_filesize(fname_dump);
+        consolidated_dump = io::read_binary_to_new_array<BYTE>(fname_dump, cusza_nbyte);
+        header            = reinterpret_cast<cusz_header*>(consolidated_dump);
+
+        unpack_metadata();
+
+        m   = Reinterpret1DTo2D::get_square_size(ctx->data_len);
+        mxm = m * m;
+
+        // TODO is ctx still needed?
+        xyz = dim3(header->x, header->y, header->z);
+
+        csr           = new cusz::OutlierHandler<T>(ctx->data_len, ctx->nnz_outlier);
+        csr_file.host = reinterpret_cast<BYTE*>(consolidated_dump + offsets.at(data_seg.name2order.at("outlier")));
+        cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
+        cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
+
+        predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+
+        LOGGING(LOG_INFO, "decompressing...");
+    }
 
     ~Decompressor()
     {

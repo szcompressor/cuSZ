@@ -31,9 +31,8 @@
 
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
-#include "../type_aliasing.hh"
-#include "../type_trait.hh"
 #include "../types.hh"
+#include "../type_trait.hh"
 #include "../utils.hh"
 #include "huffman_enc_dec.cuh"
 
@@ -226,7 +225,6 @@ void lossless::HuffmanDecode(
     int             dict_size,
     float&          milliseconds)
 {
-    // constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
     auto revbook_nbyte = HuffmanHelper::get_revbook_nbyte<Quant, Huff>(dict_size);
     auto nchunk        = ConfigHelper::get_npart(len, chunk_size);
     auto block_dim     = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating

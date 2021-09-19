@@ -28,6 +28,8 @@
 #include "../utils/timer.hh"
 #include "../wrapper/huffman_enc_dec.cuh"
 
+using std::cout;
+
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
 #else

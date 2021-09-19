@@ -19,7 +19,7 @@
 #include <cstdio>
 #include <limits>
 
-#include "../type_aliasing.hh"
+#include "../types.hh"
 #include "../type_trait.hh"
 
 #define TIX threadIdx.x
@@ -118,6 +118,9 @@ __global__ void encode_deflate(Huff*, size_t, size_t*, int);
 
 template <typename Quant, typename Huff>
 __global__ void Decode(Huff*, size_t*, Quant*, size_t, int, int, BYTE*, size_t);
+
+template <typename Quant, typename Huff, typename M = size_t>
+__global__ void decode_newtype(Huff*, M*, Quant*, size_t, int, int, BYTE*, size_t);
 
 }  // namespace cusz
 
@@ -225,6 +228,36 @@ __global__ void cusz::Decode(
     int     n_chunk,
     BYTE*   singleton,
     size_t  singleton_size)
+{
+    extern __shared__ BYTE _s_singleton[];
+    static const auto      block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+    for (auto i = 0; i < (singleton_size - 1 + block_dim) / block_dim; i++) {
+        if (TIX + i * block_dim < singleton_size) _s_singleton[TIX + i * block_dim] = singleton[TIX + i * block_dim];
+    }
+    __syncthreads();
+
+    auto bits         = sp_meta;
+    auto UInt_entries = sp_meta + n_chunk;
+
+    auto chunk_id = BIX * BDX + TIX;
+
+    if (chunk_id >= n_chunk) return;
+
+    InflateChunkwise(sp_huff + UInt_entries[chunk_id], quant_out + chunk_size * chunk_id, bits[chunk_id], _s_singleton);
+    __syncthreads();
+};
+
+template <typename Quant, typename Huff, typename M>
+__global__ void cusz::decode_newtype(
+    Huff*  sp_huff,
+    M*     sp_meta,
+    Quant* quant_out,
+    size_t len,
+    int    chunk_size,
+    int    n_chunk,
+    BYTE*  singleton,
+    size_t singleton_size)
 {
     extern __shared__ BYTE _s_singleton[];
     static const auto      block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;

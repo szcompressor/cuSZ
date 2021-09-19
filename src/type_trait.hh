@@ -17,7 +17,7 @@
 #include <fstream>
 #include <limits>
 #include <numeric>
-#include "type_aliasing.hh"
+#include <string>
 #include "types.hh"
 
 // clang-format off
@@ -198,7 +198,7 @@ struct ReportHelper {
         char* res    = abi::__cxa_demangle(name, nullptr, nullptr, &status);
 
         const char* const demangled_name = (status == 0) ? res : name;
-        string            ret_val(demangled_name);
+        std::string       ret_val(demangled_name);
         free(res);
         return ret_val;
     };

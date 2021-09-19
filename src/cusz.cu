@@ -34,7 +34,6 @@ using std::string;
 #include "type_trait.hh"
 #include "nvgpusz.cuh"
 #include "query.hh"
-#include "type_aliasing.hh"
 #include "types.hh"
 #include "utils.hh"
 

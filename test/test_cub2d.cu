@@ -13,7 +13,7 @@ using std::cout;
 using std::endl;
 //#include "../src/dualquant.cuh"
 #include "../src/metadata.hh"
-#include "../src/type_aliasing.hh"
+#include "../src/types.hh"
 
 #define tix threadIdx.x
 #define tiy threadIdx.y
