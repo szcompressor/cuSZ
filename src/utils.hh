@@ -16,6 +16,7 @@
 #include "utils/cuda_mem.cuh"
 #include "utils/format.hh"
 #include "utils/io.hh"
+#include "utils/strhelper.hh"
 #include "utils/timer.hh"
 #include "utils/verify.hh"
 

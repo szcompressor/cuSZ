@@ -18,8 +18,7 @@
 
 typedef struct alignas(128) cuszHEADER {
     uint32_t x, y, z, w;
-    uint32_t data_len;
-    uint32_t quant_len;  // TODO
+    uint32_t data_len, quant_len;
     double   eb;
 
     uint32_t ndim : 2;
@@ -28,12 +27,9 @@ typedef struct alignas(128) cuszHEADER {
     uint32_t huff_nbyte : 4;   //
 
     int nnz_outlier;
-    int radius;
-    int dict_size;
-
+    int radius, dict_size;
     // uint32_t huffman_num_bits;
-    uint32_t huffman_chunk;
-    uint32_t huffman_num_uints;
+    uint32_t huffman_chunk, huffman_num_uints;
 
     struct {
         bool skip_huffman;

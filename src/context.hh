@@ -19,6 +19,7 @@
 #include <regex>
 #include <string>
 
+#include "type_trait.hh"
 #include "types.hh"
 #include "utils/format.hh"
 
@@ -30,7 +31,6 @@ extern const int   compatibility;
 
 class cuszCTX {
    public:
-    void load_demo_sizes();
     struct {
         bool   use_demo_dataset{false};
         bool   pre_binning{false}, pre_log_trans{false};
@@ -78,16 +78,14 @@ class cuszCTX {
     double eb{0.0};
     int    dict_size{1024}, radius{512};
 
-   private:
-    size_t self_multiply4() { return x * y * z * w; };
+    void load_demo_sizes();
 
+   private:
     void sort_out_fnames();
 
     void trap(int _status);
 
     void check_args();
-
-    static string format(const string& s);
 
     static void print_short_doc();
 

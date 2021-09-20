@@ -20,6 +20,7 @@
 #include "argument_parser/document.hh"
 #include "context.hh"
 #include "utils/format.hh"
+#include "utils/strhelper.hh"
 
 using std::cerr;
 using std::cout;
@@ -27,141 +28,30 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2021-09-18.1";
+const char* VERSION_TEXT  = "2021-09-19.1";
 const int   VERSION       = 202107132;
 const int   COMPATIBILITY = 0;
 
 namespace {
 
-unsigned int str2int(std::string s)
-{
-    char* end;
-    auto  res = std::strtol(s.c_str(), &end, 10);
-    if (*end) {
-        const char* notif = "invalid option value, non-convertible part: ";
-        cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
-    }
-    return res;
-};
-
-unsigned int str2int(const char* s)
-{
-    char* end;
-    auto  res = std::strtol(s, &end, 10);
-    if (*end) {
-        const char* notif = "invalid option value, non-convertible part: ";
-        cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
-    }
-    return res;
-};
-
-double str2fp(std::string s)
-{
-    char* end;
-    auto  res = std::strtod(s.c_str(), &end);
-    if (*end) {
-        const char* notif = "invalid option value, non-convertible part: ";
-        cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
-    }
-    return res;
-}
-
-double str2fp(const char* s)
-{
-    char* end;
-    auto  res = std::strtod(s, &end);
-    if (*end) {
-        const char* notif = "invalid option value, non-convertible part: ";
-        cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
-    }
-    return res;
-};
-
-std::pair<std::string, std::string> separate_kv(std::string& s)
-{
-    std::string delimiter = "=";
-
-    if (s.find(delimiter) == std::string::npos)
-        throw std::runtime_error("\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
-
-    std::string k = s.substr(0, s.find(delimiter));
-    std::string v = s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
-
-    return std::make_pair(k, v);
-}
-
-using ss_t     = std::stringstream;
-using map_t    = std::unordered_map<std::string, std::string>;
-using str_list = std::vector<std::string>;
-
-auto parse_strlist_as_kv = [](char* in_str, map_t& kv_list) {
-    ss_t ss(in_str);
-    while (ss.good()) {
-        std::string tmp;
-        std::getline(ss, tmp, ',');
-        kv_list.insert(separate_kv(tmp));
-    }
-};
-
-auto parse_strlist = [](const char* in_str, str_list& list) {
-    ss_t ss(in_str);
-    while (ss.good()) {
-        std::string tmp;
-        std::getline(ss, tmp, ',');
-        list.push_back(tmp);
-    }
-};
-
 void set_preprocess(cuszCTX* ctx, const char* in_str)
 {
     str_list opts;
-    parse_strlist(in_str, opts);
+    StrHelper::parse_strlist(in_str, opts);
 
     for (auto k : opts) {
         // TODO
     }
 }
 
-std::pair<std::string, bool> parse_kv_onoff(std::string in_str)
-{
-    auto       kv_literal = "(.*?)=(on|ON|off|OFF)";
-    std::regex kv_pattern(kv_literal);
-    std::regex onoff_pattern("on|ON|off|OFF");
-
-    bool        onoff = false;
-    std::string k, v;
-
-    std::smatch kv_match;
-    if (std::regex_match(in_str, kv_match, kv_pattern)) {
-        // the 1st match: whole string
-        // the 2nd: k, the 3rd: v
-        if (kv_match.size() == 3) {
-            k = kv_match[1].str();
-            v = kv_match[2].str();
-
-            std::smatch v_match;
-            if (std::regex_match(v, v_match, onoff_pattern)) {  //
-                onoff = (v == "on") or (v == "ON");
-            }
-            else {
-                throw std::runtime_error("not (k=v)-syntax");
-            }
-        }
-    }
-
-    return std::make_pair(k, onoff);
-}
-
 void set_report(cuszCTX* ctx, const char* in_str)
 {
-    auto is_kv_pair = [](std::string s) { return s.find("=") != std::string::npos; };
-
     str_list opts;
-    parse_strlist(in_str, opts);
+    StrHelper::parse_strlist(in_str, opts);
 
     for (auto o : opts) {
-        if (is_kv_pair(o)) {
-            auto kv = parse_kv_onoff(o);
+        if (StrHelper::is_kv_pair(o)) {
+            auto kv = StrHelper::parse_kv_onoff(o);
 
             if (kv.first == "quality")
                 ctx->report.quality = kv.second;
@@ -185,28 +75,28 @@ void set_report(cuszCTX* ctx, const char* in_str)
     }
 }
 
-void set_config(cuszCTX* ctx, char* in_str)
+void set_config(cuszCTX* ctx, const char* in_str)
 {
     map_t opts;
-    parse_strlist_as_kv(in_str, opts);
+    StrHelper::parse_strlist_as_kv(in_str, opts);
 
     for (auto kv : opts) {
         if (kv.first == "mode") { ctx->mode = std::string(kv.second); }
         else if (kv.first == "eb") {
-            ctx->eb = str2fp(kv.second);
+            ctx->eb = StrHelper::str2fp(kv.second);
         }
         else if (kv.first == "cap") {
-            ctx->dict_size = str2int(kv.second);
+            ctx->dict_size = StrHelper::str2int(kv.second);
             ctx->radius    = ctx->dict_size / 2;
         }
         else if (kv.first == "huffbyte") {
-            ctx->huff_nbyte = str2int(kv.second);
+            ctx->huff_nbyte = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "quantbyte") {
-            ctx->quant_nbyte = str2int(kv.second);
+            ctx->quant_nbyte = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->huffman_chunk              = str2int(kv.second);
+            ctx->huffman_chunk              = StrHelper::str2int(kv.second);
             ctx->task_is.autotune_huffchunk = false;
         }
         else if (kv.first == "demo") {
@@ -254,29 +144,6 @@ void cuszCTX::load_demo_sizes()
     data_len = x * y * z * w;
 }
 
-string cuszCTX::format(const string& s)
-{
-    std::regex  gray("%(.*?)%");
-    std::string gray_text("\e[37m$1\e[0m");
-
-    std::regex  bful("@(.*?)@");
-    std::string bful_text("\e[1m\e[4m$1\e[0m");
-    std::regex  bf("\\*(.*?)\\*");
-    std::string bf_text("\e[1m$1\e[0m");
-    std::regex  ul(R"(_((\w|-|\d|\.)+?)_)");
-    std::string ul_text("\e[4m$1\e[0m");
-    std::regex  red(R"(\^\^(.*?)\^\^)");
-    std::string red_text("\e[31m$1\e[0m");
-
-    auto a = std::regex_replace(s, bful, bful_text);
-    auto b = std::regex_replace(a, bf, bf_text);
-    auto c = std::regex_replace(b, ul, ul_text);
-    auto d = std::regex_replace(c, red, red_text);
-    auto e = std::regex_replace(d, gray, gray_text);
-
-    return e;
-}
-
 void cuszCTX::trap(int _status) { this->read_args_status = _status; }
 
 void cuszCTX::check_args()
@@ -287,7 +154,7 @@ void cuszCTX::check_args()
         to_abort = true;
     }
 
-    if (self_multiply4() == 1 and not task_is.use_demo_dataset) {
+    if (data_len == 1 and not task_is.use_demo_dataset) {
         if (task_is.construct or task_is.dryrun) {
             cerr << LOG_ERR << "wrong input size" << endl;
             to_abort = true;
@@ -352,7 +219,7 @@ void cuszCTX::print_short_doc()
 void cuszCTX::print_full_doc()
 {
     cout << "\n>>>>  cusz build: " << VERSION_TEXT << "\n";
-    cout << format(cusz_full_doc) << endl;
+    cout << StrHelper::doc_format(cusz_full_doc) << endl;
 }
 
 cuszCTX::cuszCTX(int argc, char** argv)
@@ -467,33 +334,14 @@ cuszCTX::cuszCTX(int argc, char** argv)
                 case 'l':
                 tag_len:
                     if (i + 1 <= argc) {
-                        std::stringstream   datalen(argv[++i]);
                         std::vector<string> dims;
-                        while (datalen.good()) {
-                            string substr;
-                            getline(datalen, substr, ',');
-                            dims.push_back(substr);
-                        }
+                        ConfigHelper::parse_length_literal(argv[++i], dims);
                         ndim = dims.size();
-                        x = y = z = w = 1;
-                        if (ndim == 1) {  //
-                            x = str2int(dims[0].c_str());
-                        }
-                        if (ndim == 2) {  //
-                            x = str2int(dims[0].c_str());
-                            y = str2int(dims[1].c_str());
-                        }
-                        if (ndim == 3) {
-                            x = str2int(dims[0].c_str());
-                            y = str2int(dims[1].c_str());
-                            z = str2int(dims[2].c_str());
-                        }
-                        if (ndim == 4) {
-                            x = str2int(dims[0].c_str());
-                            y = str2int(dims[1].c_str());
-                            z = str2int(dims[2].c_str());
-                            w = str2int(dims[3].c_str());
-                        }
+                        y = z = w = 1;
+                        x         = StrHelper::str2int(dims[0].c_str());
+                        if (ndim >= 2) y = StrHelper::str2int(dims[1].c_str());
+                        if (ndim >= 3) z = StrHelper::str2int(dims[2].c_str());
+                        if (ndim >= 4) w = StrHelper::str2int(dims[3].c_str());
                         data_len = x * y * z * w;
                     }
                     break;

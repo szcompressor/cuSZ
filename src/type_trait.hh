@@ -7,6 +7,7 @@
  * @brief
  * @version 0.1.1
  * @date 2020-09-23
+ * (create) 2020-09-23, (rev) 2021-09-17
  *
  * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -17,7 +18,9 @@
 #include <fstream>
 #include <limits>
 #include <numeric>
+#include <sstream>
 #include <string>
+#include <vector>
 #include "types.hh"
 
 // clang-format off
@@ -132,6 +135,87 @@ struct ConfigHelper {
         c1->task_is.skip_huffman = c2->task_is.skip_huffman;
     }
 
+    static std::string get_default_predictor() { return "lorenzo"; }
+    static std::string get_default_reducer() { return "huffman"; }
+    static std::string get_default_cuszmode() { return "r2r"; }
+    static std::string get_default_dtype() { return "f32"; }
+
+    static bool check_predictor(const std::string& val, bool fatal = false)
+    {
+        auto legal = (val == "lorenzo") or (val == "spline3");
+        if (not legal) {
+            if (fatal)
+                throw std::runtime_error("`predictor` must be \"lorenzo\" or \"spline3\".");
+            else
+                printf("fallback to the default \"%s\".", get_default_predictor().c_str());
+        }
+        return legal;
+    }
+
+    static bool check_reducer(const std::string& val, bool fatal = false)
+    {
+        auto legal = (val == "huffman") or (val == "csr") or (val == "rle");
+        if (not legal) {
+            if (fatal)
+                throw std::runtime_error("`reducer` must be \"huffman\", \"csr\" or \"rle\".");
+            else
+                printf("fallback to the default \"%s\".", get_default_reducer().c_str());
+        }
+        return legal;
+    }
+
+    static bool check_cuszmode(const std::string& val, bool fatal = false)
+    {
+        auto legal = (val == "r2r") or (val == "abs");
+        if (not legal) {
+            if (fatal)
+                throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
+            else
+                printf("fallback to the default \"%s\".", get_default_cuszmode().c_str());
+        }
+        return legal;
+    }
+
+    static bool check_dtype(const std::string& val, bool fatal = false)
+    {
+        auto legal = (val == "f32");
+        // auto legal = (val == "f32") or (val == "f64");
+        if (not legal) {
+            if (fatal)
+                throw std::runtime_error("`dtype` must be \"f32\".");
+            else
+                printf("fallback to the default \"%s\".", get_default_dtype().c_str());
+        }
+        return legal;
+    }
+
+    static void parse_length_literal(const char* str, std::vector<std::string>& dims)
+    {
+        std::stringstream data_len_ss(str);
+        auto              data_len_literal = data_len_ss.str();
+        char              delimiter        = ',';
+
+        bool use_charx = data_len_literal.find('x') != std::string::npos;
+        bool use_comma = data_len_literal.find(',') != std::string::npos;
+        bool delim_ok  = use_comma or use_charx;
+
+        if (use_charx)
+            delimiter = 'x';
+        else if (use_comma)
+            delimiter = ',';
+
+        while (data_len_ss.good()) {
+            std::string substr;
+            std::getline(data_len_ss, substr, delimiter);
+            dims.push_back(substr);
+        }
+
+        if (dims.size() != 1 and (not delim_ok))
+            throw std::runtime_error("data-size literal must be delimited by \'x\' or \',\'.");
+
+        // TODO check if a good number (size==1) using regex
+    }
+
     static size_t get_filesize(std::string fname)
     {
         std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
@@ -150,7 +234,8 @@ struct ConfigHelper {
 };
 
 struct CompareHelper {
-    static bool eq(dim3 a, dim3 b)
+    template <typename TRIO>
+    static bool eq(TRIO a, TRIO b)
     {  //
         return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
     };

@@ -97,11 +97,12 @@ int main(int argc, char** argv)
         in_data.h2d();
 
         if (ctx->mode == "r2r") {
+            // TODO prescan can be issued independently from "r2r"
             auto result = Analyzer::get_maxmin_rng                            //
                 <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                 (in_data.dptr, len);
             if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
-            ctx->eb *= result.rng;
+            if (ctx->mode == "r2r") ctx->eb *= result.rng;
         }
 
         if (ctx->verbose)
