@@ -22,9 +22,11 @@ typedef struct alignas(128) cuszHEADER {
     double   eb;
 
     uint32_t ndim : 2;
-    uint32_t dtype : 8;        // (1) fp32, (2) fp64
+    uint32_t dtype : 8;        // (1) fp32, (2) fp64; TODO placeholder for now
     uint32_t quant_nbyte : 4;  //
     uint32_t huff_nbyte : 4;   //
+    uint32_t predictor : 4;
+    uint32_t reducer : 4;
 
     int nnz_outlier;
     int radius, dict_size;

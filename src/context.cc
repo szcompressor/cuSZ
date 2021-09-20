@@ -443,6 +443,88 @@ cuszCTX::cuszCTX(int argc, char** argv)
     sort_out_fnames();
 }
 
+cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
+{
+    /**
+     **  >>> syntax
+     **  comma-separated key-pairs
+     **  "key1=val1,key2=val2[,...]"
+     **
+     **  >>> example
+     **  "predictor=lorenzo,size="
+     **
+     **  >>> notation
+     **  (x)    parentheses are NOT parts of the symbol
+     **  "x"    string literal
+     **  [x]    must format as indicated by x
+     **   |     LOGIC OR; select one of the candidates
+     **
+     **  >>> mandatory with defaults
+     **
+     **  must set |         key    value                   default
+     **  ======== + ==============================================
+     **           |       dtype    f32                     f32
+     **  -------- + ----------------------------------------------
+     **           |   predictor    lorenzo|spline3         lorenzo
+     **  -------- + ----------------------------------------------
+     **           |     reducer    huffman|csr|rle
+     **  -------- + ----------------------------------------------
+     **           |  errorbound    [scientific notation]   1e-4
+     **           |                "eb" as shorthand
+     **  -------- + ----------------------------------------------
+     **           |        mode    abs|r2r
+     **           |                "r2r": relative to eb
+     **  -------- + ----------------------------------------------
+     **       YES |        size    (x)x(y)x(z)
+     **  -------- + ----------------------------------------------
+     **           |      radius    [integer]               512
+     **  -------- + ----------------------------------------------
+     **
+     **/
+
+    const char* ex_config = "dtype=f32,predictor=spline3,reducer=huffman,eb=1e-2,radius=512,size=3600x1800";
+
+    using config_map_t = map_t;
+
+    config_map_t opts;
+    StrHelper::parse_strlist_as_kv(config_str, opts);
+
+
+    for (auto kv : opts) {
+        auto  k = kv.first;
+        auto  v = kv.second;
+        char* end;
+
+        // compress-mandatory
+        if (k == "dtype" and ConfigHelper::check_dtype(v, false)) this->dtype = v;
+        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) this->predictor = v;
+        if (k == "reducer" and ConfigHelper::check_reducer(v, true)) this->reducer = v;
+        if (k == "errorbound" or k == "eb") eb = std::strtod(v.c_str(), &end);
+        if (k == "mode" and ConfigHelper::check_cuszmode(v, true)) this->mode = v;
+        if (k == "size") {
+            std::vector<string> dims;
+            ConfigHelper::parse_length_literal(v.c_str(), dims);
+            ndim = dims.size();
+            y = z = w = 1;
+            x         = StrHelper::str2int(dims[0].c_str());
+            if (ndim >= 2) y = StrHelper::str2int(dims[1].c_str());
+            if (ndim >= 3) z = StrHelper::str2int(dims[2].c_str());
+            if (ndim >= 4) w = StrHelper::str2int(dims[3].c_str());
+            data_len = x * y * z * w;
+        }
+        if (k == "radius") { radius = StrHelper::str2int(v), dict_size = radius * 2; }
+        if (k == "dictsize") { dict_size = StrHelper::str2int(v), radius = dict_size / 2; }
+
+        // decompress-mandatory
+    }
+
+    if (dbg_print) {
+        printf("input config string:\n");
+        printf("%s\n", ex_config);
+        printf(">>>");
+    }
+}
+
 void cuszCTX::sort_out_fnames()
 {
     // (1) "fname"          -> "", "fname"

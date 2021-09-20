@@ -20,6 +20,7 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "types.hh"
 
@@ -101,6 +102,22 @@ struct StringHelper {
 };
 
 struct ConfigHelper {
+    static uint32_t predictor_lookup(std::string name)
+    {
+        const std::unordered_map<std::string, uint32_t> lut =  //
+            {{"lorenzo", 0}, {"lorenzoii", 1}, {"spline3", 2}};
+        if (lut.find(name) != lut.end()) throw std::runtime_error("no such predictor as " + name);
+        return lut.at(name);
+    }
+
+    static uint32_t reducer_lookup(std::string name)
+    {
+        const std::unordered_map<std::string, uint32_t> lut =  //
+            {{"huffman", 0}, {"csr", 1}, {"rle", 2}};
+        if (lut.find(name) != lut.end()) throw std::runtime_error("no such reducer as " + name);
+        return lut.at(name);
+    }
+
     template <typename CONFIG>
     static void set_eb_series(double eb, CONFIG& config)
     {

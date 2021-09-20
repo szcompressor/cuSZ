@@ -90,6 +90,8 @@ class cuszCTX {
 
    public:
     cuszCTX(int argc, char** argv);
+
+    cuszCTX(const char*, bool to_compress, bool dbg_print = false);
 };
 
 #endif  // ARGPARSE_HH
