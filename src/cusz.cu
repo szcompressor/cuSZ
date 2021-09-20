@@ -111,7 +111,7 @@ int main(int argc, char** argv)
                 std::to_string(ctx->huff_nbyte) + "-byte (internal) Huff type");
     }
 
-    if (ctx->task_is.pre_binning) {
+    if (ctx->preprocess.binning) {
         LOGGING(
             LOG_ERR,
             "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching filesystem. "

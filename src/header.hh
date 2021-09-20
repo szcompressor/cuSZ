@@ -31,9 +31,9 @@ typedef struct alignas(128) cuszHEADER {
     // uint32_t huffman_num_bits;
     uint32_t huffman_chunk, huffman_num_uints;
 
-    struct {
-        bool skip_huffman;
-    } task_is;
+    // clang-format off
+    struct { bool huffman; } to_skip;
+    // clang-format on
 
     // stat
     float maximum, minimum;

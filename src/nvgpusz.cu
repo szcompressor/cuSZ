@@ -164,7 +164,7 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(Capsule<H>* book)
 {
     // internal evaluation, not stored in sz archive
-    if (ctx->task_is.export_book) {
+    if (ctx->export_raw.book) {
         cudaMallocHost(&book->hptr, ctx->dict_size * sizeof(decltype(book->hptr)));
         book->d2h();
 
@@ -188,7 +188,7 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<E>* quant)
 {
     // internal_eval
-    if (ctx->task_is.export_quant) {  //
+    if (ctx->export_raw.quant) {  //
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
@@ -207,7 +207,7 @@ COMPR_TYPE
 void COMPRESSOR::try_skip_huffman(Capsule<E>* quant)
 {
     // decide if skipping Huffman coding
-    if (ctx->task_is.skip_huffman) {
+    if (ctx->to_skip.huffman) {
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
@@ -478,7 +478,7 @@ void DECOMPRESSOR::unpack_metadata()
 DECOMPR_TYPE
 void DECOMPRESSOR::huffman_decode(Capsule<E>* quant)
 {
-    if (ctx->task_is.skip_huffman) {  //
+    if (ctx->to_skip.huffman) {  //
         throw std::runtime_error("not implemented when huffman is skipped");
     }
     else {
@@ -528,7 +528,7 @@ void DECOMPRESSOR::try_compare_with_origin(T* xdata)
 DECOMPR_TYPE
 void DECOMPRESSOR::try_write2disk(T* host_xdata)
 {
-    if (ctx->task_is.skip_write2disk)
+    if (ctx->to_skip.write2disk)
         LOGGING(LOG_INFO, "output: skipped");
     else {
         LOGGING(LOG_INFO, "output:", ctx->fnames.path_basename + ".cuszx");

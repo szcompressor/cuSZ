@@ -96,23 +96,23 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->quant_nbyte = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->huffman_chunk              = StrHelper::str2int(kv.second);
-            ctx->task_is.autotune_huffchunk = false;
+            ctx->huffman_chunk             = StrHelper::str2int(kv.second);
+            ctx->on_off.autotune_huffchunk = false;
         }
         else if (kv.first == "demo") {
-            ctx->task_is.use_demo_dataset = true;
-            ctx->demo_dataset             = string(kv.second);
+            ctx->on_off.use_demo = true;
+            ctx->demo_dataset    = string(kv.second);
             ctx->load_demo_sizes();
         }
         else if (kv.first == "predictor") {
-            ctx->task_is.predictor = string(kv.second);
+            ctx->predictor = string(kv.second);
         }
 
         // when to enable anchor
-        if (ctx->task_is.predictor == "spline3") ctx->task_is.use_anchor = true;
+        if (ctx->predictor == "spline3") ctx->on_off.use_anchor = true;
         if ((kv.first == "anchor") and  //
             (string(kv.second) == "on" or string(kv.second) == "ON"))
-            ctx->task_is.use_anchor = true;
+            ctx->on_off.use_anchor = true;
     }
 }
 
@@ -133,20 +133,15 @@ void cuszCTX::load_demo_sizes()
         if (f == dataset_entries.end()) throw std::runtime_error("no such dataset as" + demo_dataset);
         auto demo_xyzw = f->second;
 
-        x = demo_xyzw[0];
-        y = demo_xyzw[1];
-        z = demo_xyzw[2];
-        w = demo_xyzw[3];
-
+        x = demo_xyzw[0], y = demo_xyzw[1], z = demo_xyzw[2], w = demo_xyzw[3];
         ndim = demo_xyzw[4];
     }
-
     data_len = x * y * z * w;
 }
 
 void cuszCTX::trap(int _status) { this->read_args_status = _status; }
 
-void cuszCTX::check_args()
+void cuszCTX::check_args_when_cli()
 {
     bool to_abort = false;
     if (fnames.path2file.empty()) {
@@ -154,7 +149,7 @@ void cuszCTX::check_args()
         to_abort = true;
     }
 
-    if (data_len == 1 and not task_is.use_demo_dataset) {
+    if (data_len == 1 and not on_off.use_demo) {
         if (task_is.construct or task_is.dryrun) {
             cerr << LOG_ERR << "wrong input size" << endl;
             to_abort = true;
@@ -164,7 +159,7 @@ void cuszCTX::check_args()
         cerr << LOG_ERR << "select compress (-z), decompress (-x) or dry-run (-r)" << endl;
         to_abort = true;
     }
-    if (dtype != "f32" and dtype != "f64") {
+    if (false == ConfigHelper::check_dtype(dtype, false)) {
         if (task_is.construct or task_is.dryrun) {
             cout << dtype << endl;
             cerr << LOG_ERR << "must specify data type" << endl;
@@ -172,12 +167,10 @@ void cuszCTX::check_args()
         }
     }
 
-    if (quant_nbyte == 1) {  // TODO
+    if (quant_nbyte == 1)
         assert(dict_size <= 256);
-    }
-    else if (quant_nbyte == 2) {
+    else if (quant_nbyte == 2)
         assert(dict_size <= 65536);
-    }
 
     if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
         cerr << LOG_WARN << "no need to dry-run, compress and decompress at the same time" << endl;
@@ -195,14 +188,6 @@ void cuszCTX::check_args()
         cerr << LOG_WARN << "will dryrun only" << endl << endl;
         task_is.reconstruct = false;
     }
-
-    // if (task_is.gtest) {
-    //     if (task_is.dryrun) { task_is.gtest = false; }
-    //     else {
-    //         if (not(task_is.construct and task_is.reconstruct)) { task_is.gtest = false; }
-    //         if (fnames.origin_cmp == "") { task_is.gtest = false; }
-    //     }
-    // }
 
     if (to_abort) {
         print_short_doc();
@@ -241,15 +226,6 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     // string list
                     if (long_opt == "--config") goto tag_config;
                     if (long_opt == "--report") goto tag_report;
-                    if (long_opt == "--skip") {
-                        if (i + 1 <= argc) {
-                            string exclude(argv[++i]);
-                            if (exclude.find("huffman") != std::string::npos) { task_is.skip_huffman = true; }
-                            if (exclude.find("write2disk") != std::string::npos) { task_is.skip_write2disk = true; }
-                        }
-                        break;
-                    }
-
                     if (long_opt == "--help") goto tag_help;              // DOCUMENT
                     if (long_opt == "--version") goto tag_version;        //
                     if (long_opt == "--predictor") goto tag_predictor;    //
@@ -265,17 +241,31 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     if (long_opt == "--unzip") goto tag_decompress;       //
                     if (long_opt == "--dry-run") goto tag_dryrun;         //
                     if (long_opt == "--pre") goto tag_preproc;            // IO
-                    if (long_opt == "--analysis") goto tag_analysis;      //
                     if (long_opt == "--output") goto tag_x_out;           //
                     if (long_opt == "--verbose") goto tag_verbose;        //
 
                     if (long_opt == "--demo") {
                         if (i + 1 <= argc) {
-                            task_is.use_demo_dataset = true;
-                            demo_dataset             = string(argv[++i]);
+                            on_off.use_demo = true;
+                            demo_dataset    = string(argv[++i]);
                             load_demo_sizes();
                         }
                         break;
+                    }
+
+                    if (long_opt == "--skip") {
+                        if (i + 1 <= argc) {
+                            string exclude(argv[++i]);
+                            if (exclude.find("huffman") != std::string::npos) { to_skip.huffman = true; }
+                            if (exclude.find("write2disk") != std::string::npos) { to_skip.write2disk = true; }
+                        }
+                        break;
+                    }
+                    if (long_opt == "--export") {
+                        // TODO
+                        string extra_export(argv[++i]);
+                        if (extra_export.find("codebook") != std::string::npos) { export_raw.book = true; }
+                        if (extra_export.find("quant") != std::string::npos) { export_raw.quant = true; }
                     }
 
                     if (long_opt == "--opath") {  // TODO the followings has no single-letter options
@@ -288,13 +278,13 @@ cuszCTX::cuszCTX(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--gzip") {
-                        task_is.lossless_gzip = true;
+                        postcompress.cpu_gzip = true;
                         break;  // wenyu: if there is "--gzip", set member field to_gzip true
                     }
                     if (long_opt == "--nvcomp") {
                         throw std::runtime_error(
                             "[argparse] nvcomp is disabled temporarily in favor of code refactoring.");
-                        task_is.lossless_nvcomp_cascade = false;
+                        postcompress.gpu_nvcomp_cascade = false;
                         break;
                     }
                     if (long_opt == "--gtest") {
@@ -319,15 +309,9 @@ cuszCTX::cuszCTX(int argc, char** argv)
                 // COMPRESSION CONFIG
                 case 'm':  // mode
                 tag_mode:
-                    if (i + 1 <= argc) mode = string(argv[++i]);
-                    break;
-                // OTHER WORKFLOW
-                case 'A':
-                tag_analysis:
                     if (i + 1 <= argc) {
-                        string analysis(argv[++i]);
-                        if (analysis.find("export-codebook") != std::string::npos) { task_is.export_book = true; }
-                        if (analysis.find("export-quant") != std::string::npos) { task_is.export_quant = true; }
+                        mode = string(argv[++i]);
+                        if (mode == "r2r") preprocess.prescan = true;
                     }
                     break;
                 // INPUT
@@ -351,7 +335,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     break;
                 case 'p':
                 tag_predictor:
-                    if (i + 1 <= argc) { task_is.predictor = string(argv[++i]); }
+                    if (i + 1 <= argc) { predictor = string(argv[++i]); }
                 // alternative output
                 case 'o':
                 tag_x_out:
@@ -367,7 +351,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                 tag_preproc:
                     if (i + 1 <= argc) {
                         string pre(argv[++i]);
-                        if (pre.find("binning") != std::string::npos) { task_is.pre_binning = true; }
+                        if (pre.find("binning") != std::string::npos) { preprocess.binning = true; }
                     }
                     break;
                 // interactive mode
@@ -446,15 +430,15 @@ cuszCTX::cuszCTX(int argc, char** argv)
         i++;
     }
 
-    // phase 1: check grammar
+    // phase 1: check syntax
     if (read_args_status != 0) {
         cout << LOG_INFO << "Exiting..." << endl;
         // after printing ALL argument errors
         exit(-1);
     }
 
-    // phase 2: check if meaningful
-    check_args();
+    // phase 2: check if legal
+    check_args_when_cli();
     // phase 3: sort out filenames
     sort_out_fnames();
 }

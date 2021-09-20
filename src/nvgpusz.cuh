@@ -114,7 +114,7 @@ class Compressor {
 
         ConfigHelper::set_eb_series(ctx->eb, config);
 
-        if (ctx->task_is.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
+        if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
 
         csr = new cusz::OutlierHandler<T>(ctx->data_len, &sp.workspace_nbyte);
         // can be known on Compressor init

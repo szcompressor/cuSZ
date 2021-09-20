@@ -132,7 +132,7 @@ struct ConfigHelper {
         c1->huffman_chunk     = c2->huffman_chunk;
         c1->huffman_num_uints = c2->huffman_num_uints;
 
-        c1->task_is.skip_huffman = c2->task_is.skip_huffman;
+        c1->to_skip.huffman = c2->to_skip.huffman;
     }
 
     static std::string get_default_predictor() { return "lorenzo"; }
