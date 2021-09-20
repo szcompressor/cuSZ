@@ -70,7 +70,7 @@ void clorenzo_alternative_rle()
     }
 
     // cout << "analyzing error_control" << endl;
-    // auto res1 = analyzer.GetMaxMinRng                                                  //
+    // auto res1 = analyzer.get_maxmin_rng                                                  //
     //             <Count, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
     //             (error_control, len);
     // cout << '\n\n';
@@ -81,7 +81,7 @@ void clorenzo_alternative_rle()
     cout << "num runs:\t" << num_runs << endl;
 
     cout << "analyzing rle_lens" << endl;
-    auto res2 = analyzer.GetMaxMinRng                                                  //
+    auto res2 = analyzer.get_maxmin_rng                                                  //
                 <Count, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                 (rle_lens, len);
 
@@ -101,7 +101,7 @@ void clorenzo_alternative_rle()
     auto h_c2 = reinterpret_cast<uint8_t*>(rle_keys);
     for (auto i = 0; i < num_runs * sizeof(Key); i++) { h_freq[h_c2[i]] += 1; }
 
-    analyzer.EstimateFromHistogram(h_freq, 256).PrintCompressibilityInfo(false, false, 8);
+    analyzer.estimate_compressibility_from_histogram(h_freq, 256).print_compressibility(false, false, 8);
 
     cout << "reduction rate (uint32_t):\t" << (1.0 * ori_len) / compact1 << '\n';
     cout << "reduction rate (uint16, if possible):\t" << (1.0 * ori_len) / compact2 << '\n';
@@ -134,7 +134,7 @@ int main(int argc, char** argv)
 
     cudaMallocManaged(&data, len * sizeof(Data));
     io::read_binary_to_array(fname, data, len);
-    auto res = analyzer.GetMaxMinRng                                                 //
+    auto res = analyzer.get_maxmin_rng                                                 //
                <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
                (data, len);
     eb *= res.rng;

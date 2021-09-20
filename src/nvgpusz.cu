@@ -149,9 +149,9 @@ COMPRESSOR& COMPRESSOR::analyze_compressibility(
 
         Analyzer analyzer{};
         analyzer  //
-            .EstimateFromHistogram(freq->hptr, ctx->dict_size)
-            .template GetHuffmanCodebookStat<H>(freq->hptr, book->hptr, ctx->data_len, ctx->dict_size)
-            .PrintCompressibilityInfo(true);
+            .estimate_compressibility_from_histogram(freq->hptr, ctx->dict_size)
+            .template get_stat_from_huffman_book<H>(freq->hptr, book->hptr, ctx->data_len, ctx->dict_size)
+            .print_compressibility(true);
 
         cudaFreeHost(freq->hptr);
         cudaFreeHost(book->hptr);

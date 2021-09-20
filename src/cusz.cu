@@ -27,13 +27,13 @@
 using std::string;
 
 #include "analysis/analyzer.hh"
-#include "context.hh"
 #include "capsule.hh"
+#include "context.hh"
 #include "header.hh"
 #include "kernel/preprocess.cuh"
-#include "type_trait.hh"
 #include "nvgpusz.cuh"
 #include "query.hh"
+#include "type_trait.hh"
 #include "types.hh"
 #include "utils.hh"
 
@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 
     // TODO align to 128 unconditionally
     auto len = ctx->data_len;
-    auto m = Reinterpret1DTo2D::get_square_size(len);
+    auto m   = Reinterpret1DTo2D::get_square_size(len);
     auto mxm = m * m;
 
     Capsule<Data> in_data(mxm);
@@ -97,10 +97,9 @@ int main(int argc, char** argv)
         in_data.h2d();
 
         if (ctx->mode == "r2r") {
-            Analyzer analyzer;
-            auto     result = analyzer.GetMaxMinRng                                     //
-                          <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
-                          (in_data.dptr, len);
+            auto result = Analyzer::get_maxmin_rng                            //
+                <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+                (in_data.dptr, len);
             if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
             ctx->eb *= result.rng;
         }
@@ -108,7 +107,7 @@ int main(int argc, char** argv)
         if (ctx->verbose)
             LOGGING(
                 LOG_DBG, std::to_string(ctx->quant_nbyte) + "-byte quant type,",
-                std::to_string(ctx->huff_nbyte) + "-byte internal Huff type");
+                std::to_string(ctx->huff_nbyte) + "-byte (internal) Huff type");
     }
 
     if (ctx->task_is.pre_binning) {
