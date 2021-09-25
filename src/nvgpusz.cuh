@@ -72,7 +72,7 @@ class Compressor {
     struct {
         BYTE*   h_revbook;
         size_t *h_counts, *d_counts;
-        H *     h_bitstream, *d_bitstream, *d_encspace;
+        H *     h_bitstream, *d_bitstream;
     } huffman;
 
     struct {

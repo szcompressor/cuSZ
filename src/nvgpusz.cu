@@ -231,47 +231,61 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
     Capsule<H>* book)
 {
     // fix-length space, padding improvised
-    cudaMalloc(
-        &huffman.d_encspace, sizeof(H) * (ctx->quant_len + ctx->huffman_chunk + HuffmanHelper::BLOCK_DIM_ENCODE));
 
-    auto nchunk = ConfigHelper::get_npart(ctx->quant_len, ctx->huffman_chunk);
-    ctx->nchunk = nchunk;
+    H*    tmp_space;
+    auto  in_len     = ctx->quant_len;
+    auto  chunk_size = ctx->huffman_chunk;
+    auto  dict_size  = ctx->dict_size;
+    auto& num_bits   = ctx->huffman_num_bits;
+    auto& num_uints  = ctx->huffman_num_uints;
+
+    ctx->nchunk = ConfigHelper::get_npart(in_len, chunk_size);
+    auto nchunk = ctx->nchunk;
+
+    auto& h_counts = huffman.h_counts;
+    auto& d_counts = huffman.d_counts;
+
+    auto& h_bitstream = huffman.h_bitstream;
+    auto& d_bitstream = huffman.d_bitstream;
+
+    // arguments above
+
+    cudaMalloc(&tmp_space, sizeof(H) * (in_len + chunk_size + HuffmanHelper::BLOCK_DIM_ENCODE));
 
     // gather metadata (without write) before gathering huff as sp on GPU
-    cudaMallocHost(&huffman.h_counts, nchunk * 3 * sizeof(size_t));
-    cudaMalloc(&huffman.d_counts, nchunk * 3 * sizeof(size_t));
+    cudaMallocHost(&h_counts, nchunk * 3 * sizeof(size_t));
+    cudaMalloc(&d_counts, nchunk * 3 * sizeof(size_t));
 
-    auto dev_bits    = huffman.d_counts;
-    auto dev_uints   = huffman.d_counts + nchunk;
-    auto dev_entries = huffman.d_counts + nchunk * 2;
+    auto d_bits    = d_counts;
+    auto d_uints   = d_counts + nchunk;
+    auto d_entries = d_counts + nchunk * 2;
 
     lossless::HuffmanEncode<E, H, false>(
-        huffman.d_encspace, dev_bits, dev_uints, dev_entries, huffman.h_counts,
+        tmp_space, d_bits, d_uints, d_entries, h_counts,
         //
         nullptr,
         //
-        quant->dptr, book->dptr, ctx->quant_len, ctx->huffman_chunk, ctx->dict_size, &ctx->huffman_num_bits,
-        &ctx->huffman_num_uints, time.lossless);
+        quant->dptr, book->dptr, in_len, chunk_size, dict_size, &num_bits, &num_uints, time.lossless);
 
     // --------------------------------------------------------------------------------
-    cudaMallocHost(&huffman.h_bitstream, ctx->huffman_num_uints * sizeof(H));
-    cudaMalloc(&huffman.d_bitstream, ctx->huffman_num_uints * sizeof(H));
+    cudaMallocHost(&h_bitstream, num_uints * sizeof(H));
+    cudaMalloc(&d_bitstream, num_uints * sizeof(H));
 
     lossless::HuffmanEncode<E, H, true>(
-        huffman.d_encspace, nullptr, dev_uints, dev_entries, nullptr,
+        tmp_space, nullptr, d_uints, d_entries, nullptr,
         //
-        huffman.d_bitstream,
+        d_bitstream,
         //
-        nullptr, nullptr, ctx->quant_len, ctx->huffman_chunk, 0, nullptr, nullptr, time.lossless);
+        nullptr, nullptr, in_len, chunk_size, 0, nullptr, nullptr, time.lossless);
 
     // --------------------------------------------------------------------------------
-    cudaMemcpy(huffman.h_bitstream, huffman.d_bitstream, ctx->huffman_num_uints * sizeof(H), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_bitstream, d_bitstream, num_uints * sizeof(H), cudaMemcpyDeviceToHost);
 
     // TODO size_t -> MetadataT
     dataseg.nbyte.at("huff-meta")      = sizeof(size_t) * (2 * nchunk);
-    dataseg.nbyte.at("huff-bitstream") = sizeof(H) * ctx->huffman_num_uints;
+    dataseg.nbyte.at("huff-bitstream") = sizeof(H) * num_uints;
 
-    cudaFree(huffman.d_encspace);
+    cudaFree(tmp_space);
 
     return *this;
 }
