@@ -30,39 +30,44 @@
 
 using namespace std;
 
+typedef struct DataSegmentDescription {
+    std::unordered_map<std::string, int> name2order = {
+        {"header", 0},  {"book", 1},      {"quant", 2},         {"revbook", 3},
+        {"outlier", 4}, {"huff-meta", 5}, {"huff-bitstream", 6}  //
+    };
+
+    std::unordered_map<int, std::string> order2name = {
+        {0, "header"},  {1, "book"},      {2, "quant"},         {3, "revbook"},
+        {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
+    };
+
+    std::unordered_map<std::string, uint32_t> nbyte = {
+        {"header", sizeof(cusz_header)},
+        {"book", 0U},            //
+        {"quant", 0U},           //
+        {"revbook", 0U},         //
+        {"outlier", 0U},         //
+        {"huff-meta", 0U},       //
+        {"huff-bitstream", 0U},  //
+    };
+
+    std::vector<uint32_t> offset;
+
+    uint32_t get_offset(std::string name) { return offset.at(name2order.at(name)); }
+
+} DataSeg;
+
 template <typename T, typename E, typename H, typename FP>
 class Compressor {
     using BYTE = uint8_t;
 
    private:
-    struct {
-        std::unordered_map<std::string, int> name2order = {
-            {"header", 0},  {"book", 1},      {"quant", 2},         {"revbook", 3},
-            {"outlier", 4}, {"huff-meta", 5}, {"huff-bitstream", 6}  //
-        };
-
-        std::unordered_map<int, std::string> order2name = {
-            {0, "header"},  {1, "book"},      {2, "quant"},         {3, "revbook"},
-            {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
-        };
-
-        std::unordered_map<std::string, uint32_t> nbyte = {
-            {"header", sizeof(cusz_header)},
-            {"book", 0U},            //
-            {"quant", 0U},           //
-            {"revbook", 0U},         //
-            {"outlier", 0U},         //
-            {"huff-meta", 0U},       //
-            {"huff-bitstream", 0U},  //
-        };
-    } data_seg;
+    DataSeg dataseg;
 
     // clang-format off
     struct { double eb; FP ebx2, ebx2_r, eb_r; } config;
     struct { float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
     // clang-format on
-
-    std::vector<uint32_t> offsets;
 
     struct {
         BYTE*   h_revbook;
@@ -93,7 +98,7 @@ class Compressor {
         uint8_t *host, *dev;
     } csr_file;
 
-    BYTE* consolidated_dump;
+    BYTE* dump;
 
     // OOD, indicated by v2
     dim3 xyz;
@@ -161,10 +166,10 @@ class Compressor {
             ctx->quant_len = predictor->get_quant_len();
         }
         else if (timing == cusz::WHEN::DECOMPRESS) {
-            auto fname_dump   = ctx->fnames.path2file + ".cusza";
-            cusza_nbyte       = ConfigHelper::get_filesize(fname_dump);
-            consolidated_dump = io::read_binary_to_new_array<BYTE>(fname_dump, cusza_nbyte);
-            header            = reinterpret_cast<cusz_header*>(consolidated_dump);
+            auto fname_dump = ctx->fnames.path2file + ".cusza";
+            cusza_nbyte     = ConfigHelper::get_filesize(fname_dump);
+            dump            = io::read_binary_to_new_array<BYTE>(fname_dump, cusza_nbyte);
+            header          = reinterpret_cast<cusz_header*>(dump);
 
             unpack_metadata();
 
@@ -174,14 +179,14 @@ class Compressor {
             xyz = dim3(header->x, header->y, header->z);
 
             csr           = new cusz::OutlierHandler<T>(ctx->data_len, ctx->nnz_outlier);
-            csr_file.host = reinterpret_cast<BYTE*>(consolidated_dump + offsets.at(data_seg.name2order.at("outlier")));
+            csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset("outlier"));
             cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
             cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
 
             predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
 
             reducer = new cusz::HuffmanWork<E, H>(
-                header->quant_len, consolidated_dump,  //
+                header->quant_len, dump,  //
                 header->huffman_chunk, header->huffman_num_uints, header->dict_size);
 
             LOGGING(LOG_INFO, "decompressing...");
