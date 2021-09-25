@@ -426,7 +426,7 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
 ////////////////////////////////////////////////////////////////////////////////
 
 #define DECOMPR_TYPE template <typename T, typename E, typename H, typename FP>
-#define DECOMPRESSOR Decompressor<T, E, H, FP>
+#define DECOMPRESSOR Compressor<T, E, H, FP>
 
 DECOMPR_TYPE
 void DECOMPRESSOR::try_report_decompression_time()
@@ -576,10 +576,3 @@ template class Compressor<float, uint16_t, uint32_t, float>;
 // template class Compressor<float, uint8_t, unsigned long long, float>;
 template class Compressor<float, uint16_t, unsigned long long, float>;
 // template class Compressor<float, uint32_t, unsigned long long, float>;
-
-// template class Decompressor<float, uint8_t, uint32_t, float>;
-template class Decompressor<float, uint16_t, uint32_t, float>;
-// template class Decompressor<float, uint32_t, uint32_t, float>;
-// template class Decompressor<float, uint8_t, unsigned long long, float>;
-template class Decompressor<float, uint16_t, unsigned long long, float>;
-// template class Decompressor<float, uint32_t, unsigned long long, float>;

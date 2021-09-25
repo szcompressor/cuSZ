@@ -122,11 +122,11 @@ int main(int argc, char** argv)
     if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
 
         if (ctx->huff_nbyte == 4) {
-            Compressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszc(ctx);
+            Compressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszc(ctx, cusz::WHEN::COMPRESS);
             cuszc.compress(&in_data);
         }
         else {
-            Compressor<Data, QuantTrait<2>::type, HuffTrait<8>::type, float> cuszc(ctx);
+            Compressor<Data, QuantTrait<2>::type, HuffTrait<8>::type, float> cuszc(ctx, cusz::WHEN::COMPRESS);
             cuszc.compress(&in_data);
         }
 
@@ -143,11 +143,11 @@ int main(int argc, char** argv)
         // TODO data ready outside Decompressor?
 
         if (ctx->huff_nbyte == 4) {
-            Decompressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszd(ctx);
+            Compressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszd(ctx, cusz::WHEN::DECOMPRESS);
             cuszd.decompress();
         }
         else if (ctx->huff_nbyte == 8) {
-            Decompressor<Data, QuantTrait<2>::type, HuffTrait<4>::type, float> cuszd(ctx);
+            Compressor<Data, QuantTrait<2>::type, HuffTrait<8>::type, float> cuszd(ctx, cusz::WHEN::DECOMPRESS);
             cuszd.decompress();
         }
         // }

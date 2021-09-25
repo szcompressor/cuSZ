@@ -22,9 +22,10 @@
 
 #include <cuda_runtime.h>
 #include <stdexcept>
+#include "common/definition.hh"
 
-enum class MODE { TEST, RELEASE };
-enum class WHERE { HOST, DEVICE, BOTH };
+using cusz::MODE;
+using cusz::WHERE;
 
 template <typename T>
 class Capsule {
