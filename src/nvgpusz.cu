@@ -476,40 +476,6 @@ void DECOMPRESSOR::unpack_metadata()
 }
 
 DECOMPR_TYPE
-void DECOMPRESSOR::huffman_decode(Capsule<E>* quant)
-{
-    if (ctx->to_skip.huffman) {  //
-        throw std::runtime_error("not implemented when huffman is skipped");
-    }
-    else {
-        auto nchunk        = ConfigHelper::get_npart(ctx->data_len, ctx->huffman_chunk);
-        auto num_uints     = header->huffman_num_uints;
-        auto revbook_nbyte = data_seg.nbyte.at("revbook");
-
-        auto host_revbook = reinterpret_cast<BYTE*>(consolidated_dump + offsets.at(data_seg.name2order.at("revbook")));
-
-        auto host_in_bitstream =
-            reinterpret_cast<H*>(consolidated_dump + offsets.at(data_seg.name2order.at("huff-bitstream")));
-
-        auto host_bits_entries =
-            reinterpret_cast<size_t*>(consolidated_dump + offsets.at(data_seg.name2order.at("huff-meta")));
-
-        auto dev_out_bitstream = mem::create_devspace_memcpy_h2d(host_in_bitstream, num_uints);
-        auto dev_bits_entries  = mem::create_devspace_memcpy_h2d(host_bits_entries, 2 * nchunk);
-        auto dev_revbook       = mem::create_devspace_memcpy_h2d(host_revbook, revbook_nbyte);
-
-        lossless::HuffmanDecode<E, H>(
-            dev_out_bitstream, dev_bits_entries, dev_revbook,
-            //
-            quant, ctx->data_len, ctx->huffman_chunk, ctx->huffman_num_uints, ctx->dict_size, time.lossless);
-
-        cudaFree(dev_out_bitstream);
-        cudaFree(dev_bits_entries);
-        cudaFree(dev_revbook);
-    }
-}
-
-DECOMPR_TYPE
 void DECOMPRESSOR::try_compare_with_origin(T* xdata)
 {
     // TODO move CR out of verify_data
@@ -539,29 +505,33 @@ void DECOMPRESSOR::try_write2disk(T* host_xdata)
 DECOMPR_TYPE
 void DECOMPRESSOR::decompress()
 {
-    ctx->quant_len = predictor->get_quant_len();
-
     Capsule<E> quant(ctx->quant_len);
     cudaMalloc(&quant.dptr, quant.nbyte());
     cudaMallocHost(&quant.hptr, quant.nbyte());
 
-    // TODO cuszd.get_len_data_space()
     Capsule<T> decomp_space(mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
     cudaMalloc(&decomp_space.dptr, decomp_space.nbyte());
     cudaMallocHost(&decomp_space.hptr, decomp_space.nbyte());
     auto xdata = decomp_space.dptr, outlier = decomp_space.dptr;
 
-    huffman_decode(&quant);
+    // reducer->decode(nullptr, quant.dptr);
+    reducer->decode(
+        cusz::WHERE::HOST,                                                                               //
+        reinterpret_cast<H*>(consolidated_dump + offsets.at(data_seg.name2order.at("huff-bitstream"))),  //
+        reinterpret_cast<typename cusz::HuffmanWork<E, H>::Mtype*>(
+            consolidated_dump + offsets.at(data_seg.name2order.at("huff-meta"))),                    //
+        reinterpret_cast<BYTE*>(consolidated_dump + offsets.at(data_seg.name2order.at("revbook"))),  //
+        quant.dptr);
 
     csr->scatter(csr_file.dev, outlier);
-    time.outlier = csr->get_time_elapsed();
-
     predictor->reconstruct(nullptr, quant.dptr, xdata);
-    time.lossy = predictor->get_time_elapsed();
+
+    time.lossless = reducer->get_time_elapsed();
+    time.outlier  = csr->get_time_elapsed();
+    time.lossy    = predictor->get_time_elapsed();
 
     try_report_decompression_time();
 
-    // copy decompressed data to host
     decomp_space.d2h();
 
     try_compare_with_origin(decomp_space.hptr);

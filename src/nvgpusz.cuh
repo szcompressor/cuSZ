@@ -26,6 +26,7 @@
 #include "utils.hh"
 #include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/handle_sparsity.cuh"
+#include "wrapper/huffman_coarse.cuh"
 
 using namespace std;
 
@@ -78,10 +79,9 @@ class Compressor {
 
     cusz::PredictorLorenzo<T, E, FP>* predictor;
     cusz::OutlierHandler<T>*          csr;
+    cusz::HuffmanWork<E, H>*          reducer;
 
-    // context, configuration
-    cuszCTX* ctx;
-    //
+    cuszCTX*     ctx;
     cusz_header* header;
 
     cusz::WHEN timing;
@@ -179,6 +179,10 @@ class Compressor {
             cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
 
             predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+
+            reducer = new cusz::HuffmanWork<E, H>(
+                header->quant_len, consolidated_dump,  //
+                header->huffman_chunk, header->huffman_num_uints, header->dict_size);
 
             LOGGING(LOG_INFO, "decompressing...");
         }

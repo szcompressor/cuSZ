@@ -31,8 +31,8 @@
 
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
-#include "../types.hh"
 #include "../type_trait.hh"
+#include "../types.hh"
 #include "../utils.hh"
 #include "huffman_enc_dec.cuh"
 
@@ -213,35 +213,6 @@ void lossless::HuffmanEncode(
     }
 }
 
-template <typename Quant, typename Huff>
-void lossless::HuffmanDecode(
-    Huff*           dev_out_bitstream,
-    size_t*         dev_bits_entries,
-    uint8_t*        dev_revbook,
-    Capsule<Quant>* quant,
-    size_t          len,
-    int             chunk_size,
-    size_t          num_uints,
-    int             dict_size,
-    float&          milliseconds)
-{
-    auto revbook_nbyte = HuffmanHelper::get_revbook_nbyte<Quant, Huff>(dict_size);
-    auto nchunk        = ConfigHelper::get_npart(len, chunk_size);
-    auto block_dim     = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
-    auto grid_dim      = ConfigHelper::get_npart(nchunk, block_dim);
-
-    {
-        auto t = new cuda_timer_t;
-        t->timer_start();
-        cusz::Decode<<<grid_dim, block_dim, revbook_nbyte>>>(  //
-            dev_out_bitstream, dev_bits_entries, quant->dptr, len, chunk_size, nchunk, dev_revbook,
-            (size_t)revbook_nbyte);
-        milliseconds += t->timer_end_get_elapsed_time();
-        cudaDeviceSynchronize();
-        delete t;
-    }
-}
-
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
 
 #define HUFFMAN_ENCODE(Q, H, BOOL)                     \
@@ -261,13 +232,3 @@ HUFFMAN_ENCODE(UI2, UI4, true)
 HUFFMAN_ENCODE(UI2, UI8, true)
 HUFFMAN_ENCODE(UI4, UI4, true)
 HUFFMAN_ENCODE(UI4, UI8, true)
-
-#define HUFFMAN_DECODE(Q, H) \
-    template void lossless::HuffmanDecode<Q, H>(H*, size_t*, uint8_t*, Capsule<Q>*, size_t, int, size_t, int, float&);
-
-// HUFFMAN_DECODE(UI1, UI4)
-// HUFFMAN_DECODE(UI1, UI8)
-HUFFMAN_DECODE(UI2, UI4)
-HUFFMAN_DECODE(UI2, UI8)
-HUFFMAN_DECODE(UI4, UI4)
-HUFFMAN_DECODE(UI4, UI8)
