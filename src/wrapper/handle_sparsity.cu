@@ -14,9 +14,10 @@
 #include <cusparse.h>
 #include <cstddef>
 #include <iostream>
-#include "../type_trait.hh"
-#include "../utils/cuda_err.cuh"
-#include "../utils/timer.hh"
+
+#include "../common.hh"
+#include "../utils.hh"
+
 #include "handle_sparsity.cuh"
 
 using handle_t = cusparseHandle_t;

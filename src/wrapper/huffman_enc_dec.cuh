@@ -19,8 +19,8 @@
 #include <string>
 #include <tuple>
 
-#include "../capsule.hh"
-#include "../type_trait.hh"
+#include "../common/capsule.hh"
+#include "../common/type_traits.hh"
 
 using std::string;
 

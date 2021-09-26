@@ -19,10 +19,10 @@
 #include <iostream>
 #include <unordered_map>
 
-#include "capsule.hh"
+#include "common/capsule.hh"
+#include "common/type_traits.hh"
 #include "context.hh"
 #include "header.hh"
-#include "type_trait.hh"
 #include "utils.hh"
 #include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/handle_sparsity.cuh"
@@ -30,7 +30,9 @@
 
 using namespace std;
 
-typedef struct DataSegmentDescription {
+// TODO when to use ADDR8?
+class DataSeg {
+   public:
     std::unordered_map<std::string, int> name2order = {
         {"header", 0},  {"book", 1},      {"quant", 2},         {"revbook", 3},
         {"outlier", 4}, {"huff-meta", 5}, {"huff-bitstream", 6}  //
@@ -54,8 +56,7 @@ typedef struct DataSegmentDescription {
     std::vector<uint32_t> offset;
 
     uint32_t get_offset(std::string name) { return offset.at(name2order.at(name)); }
-
-} DataSeg;
+};
 
 template <typename T, typename E, typename H, typename FP>
 class Compressor {
@@ -111,7 +112,7 @@ class Compressor {
     void lorenzo_dryrun(Capsule<T>* in_data);
 
     Compressor&
-    get_freq_and_codebook(Capsule<E>* quant, Capsule<unsigned int>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
+    get_freq_and_codebook(Capsule<E>* quant, Capsule<cusz::FREQ>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
 
     Compressor& analyze_compressibility(Capsule<unsigned int>* freq, Capsule<H>* book);
 

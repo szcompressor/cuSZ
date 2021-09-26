@@ -31,8 +31,7 @@
 
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
-#include "../type_trait.hh"
-#include "../types.hh"
+#include "../common.hh"
 #include "../utils.hh"
 #include "huffman_enc_dec.cuh"
 
@@ -219,16 +218,12 @@ void lossless::HuffmanEncode(
     template void lossless::HuffmanEncode<Q, H, BOOL>( \
         H*, size_t*, size_t*, size_t*, size_t*, H*, Q*, H*, size_t, int, int, size_t*, size_t*, float&);
 
-// HUFFMAN_ENCODE(UI1, UI4, false)
-// HUFFMAN_ENCODE(UI1, UI8, false)
-HUFFMAN_ENCODE(UI2, UI4, false)
-HUFFMAN_ENCODE(UI2, UI8, false)
-HUFFMAN_ENCODE(UI4, UI4, false)
-HUFFMAN_ENCODE(UI4, UI8, false)
+HUFFMAN_ENCODE(ErrCtrlTrait<2>::type, HuffTrait<4>::type, false)
+HUFFMAN_ENCODE(ErrCtrlTrait<2>::type, HuffTrait<8>::type, false)
+HUFFMAN_ENCODE(ErrCtrlTrait<4>::type, HuffTrait<4>::type, false)
+HUFFMAN_ENCODE(ErrCtrlTrait<4>::type, HuffTrait<8>::type, false)
 
-// HUFFMAN_ENCODE(UI1, UI4, true)
-// HUFFMAN_ENCODE(UI1, UI8, true)
-HUFFMAN_ENCODE(UI2, UI4, true)
-HUFFMAN_ENCODE(UI2, UI8, true)
-HUFFMAN_ENCODE(UI4, UI4, true)
-HUFFMAN_ENCODE(UI4, UI8, true)
+HUFFMAN_ENCODE(ErrCtrlTrait<2>::type, HuffTrait<4>::type, true)
+HUFFMAN_ENCODE(ErrCtrlTrait<2>::type, HuffTrait<8>::type, true)
+HUFFMAN_ENCODE(ErrCtrlTrait<4>::type, HuffTrait<4>::type, true)
+HUFFMAN_ENCODE(ErrCtrlTrait<4>::type, HuffTrait<8>::type, true)

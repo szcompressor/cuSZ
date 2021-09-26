@@ -22,7 +22,7 @@
 
 #include <cuda_runtime.h>
 #include <stdexcept>
-#include "common/definition.hh"
+#include "definition.hh"
 
 using cusz::MODE;
 using cusz::WHERE;

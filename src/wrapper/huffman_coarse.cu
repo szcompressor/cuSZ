@@ -10,7 +10,7 @@
  */
 
 #include "../kernel/codec_huffman.cuh"
-#include "../type_trait.hh"
+#include "../common/type_traits.hh"
 #include "../utils.hh"
 #include "huffman_coarse.cuh"
 

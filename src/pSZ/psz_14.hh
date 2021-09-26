@@ -14,7 +14,7 @@
  */
 
 #include <cstddef>
-#include "../types.hh"
+#include "../common.hh"
 
 namespace psz {
 namespace sz1_4 {

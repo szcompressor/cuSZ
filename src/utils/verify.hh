@@ -20,7 +20,7 @@
 #include <numeric>
 #include <vector>
 
-#include "../types.hh"
+#include "../common.hh"
 #include "format.hh"
 
 using namespace std;

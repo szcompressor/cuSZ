@@ -1,18 +1,16 @@
-#ifndef TYPE_TRAIT_HH
-#define TYPE_TRAIT_HH
-
 /**
- * @file type_trait.hh
+ * @file configs.hh
  * @author Jiannan Tian
  * @brief
- * @version 0.1.1
- * @date 2020-09-23
- * (create) 2020-09-23, (rev) 2021-09-17
+ * @version 0.3
+ * @date 2021-09-26
  *
- * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * (C) 2021 by Washington State University, Argonne National Laboratory
  *
  */
+
+#ifndef CUSZ_COMMON_CONFIGS_HH
+#define CUSZ_COMMON_CONFIGS_HH
 
 #include <cxxabi.h>
 #include <fstream>
@@ -22,55 +20,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "types.hh"
-
-// clang-format off
-
-template <bool FP, int DWIDTH> struct DataTrait;
-//template <> struct DataTrait<true, 1> {typedef FP4 type;}; // placeholder for Cartesian expansion
-//template <> struct DataTrait<true, 2> {typedef FP8 type;};
-template <> struct DataTrait<true, 4> { typedef FP4 type; };
-template <> struct DataTrait<true, 8> { typedef FP8 type; };
-//template <> struct DataTrait<false, 1> {typedef FP4 type;}; // future use
-//template <> struct DataTrait<false, 2> {typedef FP8 type;};
-//template <> struct DataTrait<false, 4> {typedef FP4 type;};
-//template <> struct DataTrait<false, 8> {typedef FP8 type;};
-
-template <int ndim> struct MetadataTrait;
-template <> struct MetadataTrait<1>     { static const int Block = 256; static const int Sequentiality = 8; };
-template <> struct MetadataTrait<0x101> { static const int Block = 128; };
-template <> struct MetadataTrait<0x201> { static const int Block = 64;  };
-template <> struct MetadataTrait<2>     { static const int Block = 16; static const int YSequentiality = 8;};
-template <> struct MetadataTrait<3>     { static const int Block = 8;  static const int YSequentiality = 8;};
-
-template <int QWIDTH> struct QuantTrait;
-template <> struct QuantTrait<1> { typedef UI1 type; };
-template <> struct QuantTrait<2> { typedef UI2 type; };
-template <> struct QuantTrait<4> { typedef UI4 type; };
-
-template <int EWIDTH> struct ErrCtrlTrait;
-template <> struct ErrCtrlTrait<1> { typedef UI1 type; };
-template <> struct ErrCtrlTrait<2> { typedef UI2 type; };
-template <> struct ErrCtrlTrait<4> { typedef UI4 type; };
-
-// TODO where there is atomicOps should be with static<unsigned long long int>(some_uint64_array)
-
-template <int HWIDTH> struct HuffTrait;
-template <> struct HuffTrait<4> { typedef UI4 type; };
-template <> struct HuffTrait<8> { typedef UI8 type; };
-
-template <int RWIDTH> struct ReducerTrait;
-template <> struct ReducerTrait<4> { typedef UI4 type; };
-template <> struct ReducerTrait<8> { typedef UI8 type; };
-
-template <int MWIDTH> struct MetadataTrait;
-template <> struct MetadataTrait<4> { typedef uint32_t type; };
-template <> struct MetadataTrait<8> { typedef size_t   type; };
-
-// sparsity rate is less that 5%
-struct SparseMethodSetup { static const int factor = 20; };
-
-// clang-format on
 
 struct Reinterpret1DTo2D {
     static uint32_t get_square_size(uint32_t len)

@@ -19,8 +19,7 @@
 #include <cstdio>
 #include <limits>
 
-#include "../types.hh"
-#include "../type_trait.hh"
+#include "../common.hh"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x
@@ -38,20 +37,21 @@ using BYTE = uint8_t;
 
 namespace {
 
-template <typename T>
-struct PackedWord;
+// clang-format off
 
-template <>
-struct PackedWord<UI4> {
-    UI4 word : 24;
-    UI4 bits : 8;
+template <int WIDTH> struct PackedWordByWidth;
+
+template <> struct PackedWordByWidth<4> {
+    uint32_t word : 24;
+    uint32_t bits : 8;
 };
 
-template <>
-struct PackedWord<UI8> {
-    UI8 word : 56;
-    UI8 bits : 8;
+template <> struct PackedWordByWidth<8> {
+    uint64_t word : 56;
+    uint64_t bits : 8;
 };
+
+// clang-format on
 
 // TODO change size_t to unsigned int
 template <typename Huff, typename Output>
@@ -167,7 +167,6 @@ __global__ void cusz::encode_fixedlen_space_cub(Input* data, Huff* huff, size_t 
 template <typename Huff>
 __global__ void cusz::encode_deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
 {
-    // TODO static check with Huff and UI4/8
     static const auto dtype_width = sizeof(Huff) * 8;
 
     auto gid = BIX * BDX + TIX;
@@ -180,7 +179,7 @@ __global__ void cusz::encode_deflate(Huff* huff, size_t len, size_t* sp_meta, in
 
     for (auto i = 0; i < chunk_size; i++) {
         packed_word    = huff[gid * chunk_size + i];
-        auto word_ptr  = reinterpret_cast<struct PackedWord<Huff>*>(&packed_word);
+        auto word_ptr  = reinterpret_cast<struct PackedWordByWidth<sizeof(Huff)>*>(&packed_word);
         word_width     = word_ptr->bits;
         word_ptr->bits = (uint8_t)0x0;
 

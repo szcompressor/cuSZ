@@ -26,12 +26,9 @@
 #include <limits>
 #include <type_traits>
 
+#include "../common.hh"
 #include "../kernel/par_merge.cuh"
-#include "../types.hh"
-#include "../utils/cuda_err.cuh"
-#include "../utils/cuda_mem.cuh"
-#include "../utils/dbg_print.cuh"
-#include "../utils/format.hh"
+#include "../utils.hh"
 #include "huffman_parbook.cuh"
 
 using std::cout;
@@ -516,7 +513,7 @@ __global__ void lossless::par_huffman::helper::GPU_ReverseArray(T* array, unsign
 
 // Parallel codebook generation wrapper
 template <typename Q, typename H>
-void lossless::par_get_codebook(int dict_size, unsigned int* _d_freq, H* _d_codebook, uint8_t* _d_decode_meta)
+void lossless::par_get_codebook(int dict_size, cusz::FREQ* _d_freq, H* _d_codebook, uint8_t* _d_decode_meta)
 {
     // Metadata
     auto type_bw  = sizeof(H) * 8;
@@ -722,14 +719,11 @@ void lossless::par_get_codebook(int dict_size, unsigned int* _d_freq, H* _d_code
 /********************************************************************************/
 // instantiate wrapper
 
-#define PAR_HUFFMAN(Q, H) template void lossless::par_get_codebook<Q, H>(int, unsigned int*, H*, uint8_t*);
+#define PAR_HUFFMAN(E, H) template void lossless::par_get_codebook<E, H>(int, cusz::FREQ*, H*, uint8_t*);
 
-PAR_HUFFMAN(UI1, UI4)
-PAR_HUFFMAN(UI1, UI8)
-PAR_HUFFMAN(UI1, UI8_2)
-PAR_HUFFMAN(UI2, UI4)
-PAR_HUFFMAN(UI2, UI8)
-PAR_HUFFMAN(UI2, UI8_2)
-PAR_HUFFMAN(UI4, UI4)
-PAR_HUFFMAN(UI4, UI8)
-PAR_HUFFMAN(UI4, UI8_2)
+PAR_HUFFMAN(ErrCtrlTrait<1>::type, HuffTrait<4>::type)
+PAR_HUFFMAN(ErrCtrlTrait<1>::type, HuffTrait<8>::type)
+PAR_HUFFMAN(ErrCtrlTrait<2>::type, HuffTrait<4>::type)
+PAR_HUFFMAN(ErrCtrlTrait<2>::type, HuffTrait<8>::type)
+PAR_HUFFMAN(ErrCtrlTrait<4>::type, HuffTrait<4>::type)
+PAR_HUFFMAN(ErrCtrlTrait<4>::type, HuffTrait<8>::type)

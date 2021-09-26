@@ -19,8 +19,7 @@
 #include <regex>
 #include <string>
 
-#include "type_trait.hh"
-#include "types.hh"
+#include "common.hh"
 #include "utils/format.hh"
 
 using std::string;

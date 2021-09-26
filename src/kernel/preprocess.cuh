@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#include "../types.hh"
+#include "../common.hh"
 
 using std::cout;
 using std::endl;
@@ -55,12 +55,11 @@ __global__ void binning2d(Data* input, Data* output, size_t d0, size_t d1, size_
 }
 }  // namespace cusz
 
-template __global__ void cusz::binning2d<FP4, 2, 32>(FP4*, FP4*, size_t, size_t, size_t, size_t);
-template __global__ void cusz::binning2d<FP8, 2, 32>(FP8*, FP8*, size_t, size_t, size_t, size_t);
-template __global__ void cusz::binning2d<I1, 2, 32>(I1*, I1*, size_t, size_t, size_t, size_t);
-template __global__ void cusz::binning2d<I2, 2, 32>(I2*, I2*, size_t, size_t, size_t, size_t);
-template __global__ void cusz::binning2d<I4, 2, 32>(I4*, I4*, size_t, size_t, size_t, size_t);
-template __global__ void cusz::binning2d<I8, 2, 32>(I8*, I8*, size_t, size_t, size_t, size_t);
-template __global__ void cusz::binning2d<I8_2, 2, 32>(I8_2*, I8_2*, size_t, size_t, size_t, size_t);
+template __global__ void cusz::binning2d<float, 2, 32>(float*, float*, size_t, size_t, size_t, size_t);
+template __global__ void cusz::binning2d<double, 2, 32>(double*, double*, size_t, size_t, size_t, size_t);
+// template __global__ void cusz::binning2d<I1, 2, 32>(I1*, I1*, size_t, size_t, size_t, size_t);
+// template __global__ void cusz::binning2d<I2, 2, 32>(I2*, I2*, size_t, size_t, size_t, size_t);
+// template __global__ void cusz::binning2d<I4, 2, 32>(I4*, I4*, size_t, size_t, size_t, size_t);
+// template __global__ void cusz::binning2d<I8, 2, 32>(I8*, I8*, size_t, size_t, size_t, size_t);
 
 #endif

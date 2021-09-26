@@ -15,9 +15,9 @@
 #include <numeric>
 #include <stdexcept>
 
-#include "../type_trait.hh"
-#include "../utils/cuda_err.cuh"
-#include "../utils/timer.hh"
+#include "../common.hh"
+#include "../utils.hh"
+
 #include "extrap_lorenzo.cuh"
 
 #ifdef DPCPP_SHOWCASE

@@ -23,11 +23,11 @@
 #include <typeinfo>
 
 #include "analysis/analyzer.hh"
+#include "common/type_traits.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "kernel/lorenzo.cuh"
 #include "nvgpusz.cuh"
-#include "type_trait.hh"
 #include "utils.hh"
 #include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/handle_sparsity.cuh"
@@ -112,10 +112,10 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<T>* in_data)
 
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::get_freq_and_codebook(
-    Capsule<E>*        quant,
-    Capsule<uint32_t>* freq,
-    Capsule<H>*        book,
-    Capsule<uint8_t>*  revbook)
+    Capsule<E>*          quant,
+    Capsule<cusz::FREQ>* freq,
+    Capsule<H>*          book,
+    Capsule<uint8_t>*    revbook)
 {
     wrapper::get_frequency<E>(quant->dptr, ctx->quant_len, freq->dptr, ctx->dict_size, time.hist);
 
@@ -323,7 +323,9 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
         auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(dataseg.nbyte.at(name));
         offsets.push_back(o);
 
-        printf("  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), dataseg.nbyte.at(name), offsets.at(i), offsets.back());
+        printf(
+            "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", name.c_str(),  //
+            (size_t)dataseg.nbyte.at(name), (size_t)offsets.at(i), (size_t)offsets.back());
     }
 
     auto total_nbyte = offsets.back();
@@ -439,11 +441,8 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#define DECOMPR_TYPE template <typename T, typename E, typename H, typename FP>
-#define DECOMPRESSOR Compressor<T, E, H, FP>
-
-DECOMPR_TYPE
-void DECOMPRESSOR::try_report_decompression_time()
+COMPR_TYPE
+void COMPRESSOR::try_report_decompression_time()
 {
     if (not ctx->report.time) return;
 
@@ -459,8 +458,8 @@ void DECOMPRESSOR::try_report_decompression_time()
     printf("\n");
 }
 
-DECOMPR_TYPE
-void DECOMPRESSOR::unpack_metadata()
+COMPR_TYPE
+void COMPRESSOR::unpack_metadata()
 {
     dataseg.nbyte.at("book")           = header->nbyte.book;
     dataseg.nbyte.at("revbook")        = header->nbyte.revbook;
@@ -480,8 +479,8 @@ void DECOMPRESSOR::unpack_metadata()
 
         if (ctx->verbose) {
             printf(
-                "  %-18s\t%'12u\t%'15u\t%'15u\n", name.c_str(), dataseg.nbyte.at(name), dataseg.offset.at(i),
-                dataseg.offset.back());
+                "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", name.c_str(), (size_t)dataseg.nbyte.at(name),
+                (size_t)dataseg.offset.at(i), (size_t)dataseg.offset.back());
         }
     }
     if (ctx->verbose) printf("\n");
@@ -490,8 +489,8 @@ void DECOMPRESSOR::unpack_metadata()
     ConfigHelper::set_eb_series(ctx->eb, config);
 }
 
-DECOMPR_TYPE
-void DECOMPRESSOR::try_compare_with_origin(T* xdata)
+COMPR_TYPE
+void COMPRESSOR::try_compare_with_origin(T* xdata)
 {
     // TODO move CR out of verify_data
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
@@ -506,8 +505,8 @@ void DECOMPRESSOR::try_compare_with_origin(T* xdata)
     }
 }
 
-DECOMPR_TYPE
-void DECOMPRESSOR::try_write2disk(T* host_xdata)
+COMPR_TYPE
+void COMPRESSOR::try_write2disk(T* host_xdata)
 {
     if (ctx->to_skip.write2disk)
         LOGGING(LOG_INFO, "output: skipped");
@@ -517,8 +516,8 @@ void DECOMPRESSOR::try_write2disk(T* host_xdata)
     }
 }
 
-DECOMPR_TYPE
-void DECOMPRESSOR::decompress()
+COMPR_TYPE
+void COMPRESSOR::decompress()
 {
     Capsule<E> quant(ctx->quant_len);
     cudaMalloc(&quant.dptr, quant.nbyte());
@@ -564,9 +563,5 @@ void DECOMPRESSOR::decompress()
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// template class Compressor<float, uint8_t, uint32_t, float>;
-template class Compressor<float, uint16_t, uint32_t, float>;
-// template class Compressor<float, uint32_t, uint32_t, float>;
-// template class Compressor<float, uint8_t, unsigned long long, float>;
-template class Compressor<float, uint16_t, unsigned long long, float>;
-// template class Compressor<float, uint32_t, unsigned long long, float>;
+template class Compressor<float, ErrCtrlTrait<2>::type, HuffTrait<4>::type, FastLowPrecisionTrait<true>::type>;
+template class Compressor<float, ErrCtrlTrait<2>::type, HuffTrait<8>::type, FastLowPrecisionTrait<true>::type>;

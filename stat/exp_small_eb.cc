@@ -19,10 +19,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "../src/types.hh"
-#include "../src/utils/io.hh"
-#include "../src/utils/timer.hh"
-#include "../src/utils/verify.hh"
+#include "../src/common.hh"
+#include "../src/utils.hh"
 
 std::string fname;
 size_t      len;

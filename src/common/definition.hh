@@ -28,6 +28,11 @@ struct OK {
     }
 };
 
+using ADDR4 = uint32_t;
+using ADDR8 = size_t;
+
+using FREQ = uint32_t;
+
 };  // namespace cusz
 
 #endif

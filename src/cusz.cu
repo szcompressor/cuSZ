@@ -27,14 +27,12 @@
 using std::string;
 
 #include "analysis/analyzer.hh"
-#include "capsule.hh"
+#include "common.hh"
 #include "context.hh"
 #include "header.hh"
 #include "kernel/preprocess.cuh"
 #include "nvgpusz.cuh"
 #include "query.hh"
-#include "type_trait.hh"
-#include "types.hh"
 #include "utils.hh"
 
 namespace {

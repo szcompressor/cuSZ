@@ -3,7 +3,7 @@
 #include "../src/kernel/lorenzo.h"
 #include "../src/kernel/prototype_lorenzo.cuh"
 #include "../src/metadata.hh"
-#include "../src/type_trait.hh"
+#include "../src/common/type_traits.hh"
 #include "../src/utils/cuda_err.cuh"
 using std::cerr;
 using std::cout;

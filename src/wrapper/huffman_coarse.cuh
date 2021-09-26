@@ -12,14 +12,16 @@
 #ifndef CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
 #define CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
 
+#include <cstdint>
+
 #include "../../include/reducer.hh"
 #include "../common/definition.hh"
 #include "../header.hh"
-#include "../type_trait.hh"
+#include "../common/type_traits.hh"
 
 namespace cusz {
 
-template <typename T, typename H, typename M = size_t>
+template <typename T, typename H, typename M = uint64_t>
 class HuffmanWork {
    public:
     using Mtype = M;
