@@ -162,8 +162,8 @@ void OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind
     export_nnz = this->nnz;
 
     // clang-format off
-    cudaMemcpy(dst + 0,                               entry.rowptr, nbyte.rowptr, direction);
-    cudaMemcpy(dst + nbyte.rowptr,                  entry.colidx, nbyte.colidx, direction);
+    cudaMemcpy(dst + 0,                           entry.rowptr, nbyte.rowptr, direction);
+    cudaMemcpy(dst + nbyte.rowptr,                entry.colidx, nbyte.colidx, direction);
     cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, entry.values, nbyte.values, direction);
     // clang-format on
 

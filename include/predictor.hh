@@ -25,6 +25,7 @@ class PredictorAbstraction {
     // helper functions
     virtual uint32_t get_workspace_nbyte() const = 0;
     virtual uint32_t get_quant_len() const       = 0;
+    virtual uint32_t get_anchor_len() const      = 0;
     virtual float    get_time_elapsed() const    = 0;
 
     // "real" methods

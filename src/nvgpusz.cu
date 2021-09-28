@@ -279,6 +279,7 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
         nullptr, nullptr, in_len, chunk_size, 0, nullptr, nullptr, time.lossless);
 
     // --------------------------------------------------------------------------------
+    // TODO change to `d2h()`
     cudaMemcpy(h_bitstream, d_bitstream, num_uints * sizeof(H), cudaMemcpyDeviceToHost);
 
     // TODO size_t -> MetadataT
@@ -356,30 +357,42 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
                 cudaMemcpyHostToHost);
             /* 1 */  // book
             /* 2 */  // quant
+
+            if (dataseg.nbyte.at("anchor") != 0) /* a */  // anchor
+                cudaMemcpy(
+                    h_dump + offsets.at(0xa),                    //
+                    reinterpret_cast<BYTE*>(huffman.h_revbook),  //
+                    dataseg.nbyte.at("anchor"),                  //
+                    cudaMemcpyHostToHost);
+
             /* 3 */  // revbook
-            cudaMemcpy(
-                h_dump + offsets.at(3),                      //
-                reinterpret_cast<BYTE*>(huffman.h_revbook),  //
-                dataseg.nbyte.at("revbook"),                 //
-                cudaMemcpyHostToHost);
+            if (dataseg.nbyte.at("revbook") != 0)
+                cudaMemcpy(
+                    h_dump + offsets.at(3),                      //
+                    reinterpret_cast<BYTE*>(huffman.h_revbook),  //
+                    dataseg.nbyte.at("revbook"),                 //
+                    cudaMemcpyHostToHost);
             /* 4 */  // outlier
-            cudaMemcpy(
-                h_dump + offsets.at(4),            //
-                reinterpret_cast<BYTE*>(sp.dump),  //
-                dataseg.nbyte.at("outlier"),       //
-                cudaMemcpyHostToHost);
+            if (dataseg.nbyte.at("outlier") != 0)
+                cudaMemcpy(
+                    h_dump + offsets.at(4),            //
+                    reinterpret_cast<BYTE*>(sp.dump),  //
+                    dataseg.nbyte.at("outlier"),       //
+                    cudaMemcpyHostToHost);
             /* 5 */  // huff_meta
-            cudaMemcpy(
-                h_dump + offsets.at(5),                                   //
-                reinterpret_cast<BYTE*>(huffman.h_counts + ctx->nchunk),  //
-                dataseg.nbyte.at("huff-meta"),                            //
-                cudaMemcpyHostToHost);
+            if (dataseg.nbyte.at("huff-meta") != 0)
+                cudaMemcpy(
+                    h_dump + offsets.at(5),                                   //
+                    reinterpret_cast<BYTE*>(huffman.h_counts + ctx->nchunk),  //
+                    dataseg.nbyte.at("huff-meta"),                            //
+                    cudaMemcpyHostToHost);
             /* 6 */  // huff_bitstream
-            cudaMemcpy(
-                h_dump + offsets.at(6),                        //
-                reinterpret_cast<BYTE*>(huffman.h_bitstream),  //
-                dataseg.nbyte.at("huff-bitstream"),            //
-                cudaMemcpyHostToHost);
+            if (dataseg.nbyte.at("huff-bitstream") != 0)
+                cudaMemcpy(
+                    h_dump + offsets.at(6),                        //
+                    reinterpret_cast<BYTE*>(huffman.h_bitstream),  //
+                    dataseg.nbyte.at("huff-bitstream"),            //
+                    cudaMemcpyHostToHost);
 
             auto output_name = ctx->fnames.path_basename + ".cusza";
             cout << "output:\t" << output_name << '\n';
@@ -410,8 +423,6 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
     cudaMallocHost(&revbook.hptr, revbook.nbyte());  // to write to disk later
 
     huffman.h_revbook = revbook.hptr;
-
-    LOGGING(LOG_INFO, "compressing...");
 
     predictor->construct(in_data->dptr, nullptr, quant.dptr);
     csr->gather(in_data->dptr, sp.workspace, sp.dump, sp.dump_nbyte, ctx->nnz_outlier);

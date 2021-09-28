@@ -31,16 +31,16 @@
 using namespace std;
 
 // TODO when to use ADDR8?
+// TODO change to `enum class`
 class DataSeg {
    public:
-    std::unordered_map<std::string, int> name2order = {
-        {"header", 0},  {"book", 1},      {"quant", 2},         {"revbook", 3},
-        {"outlier", 4}, {"huff-meta", 5}, {"huff-bitstream", 6}  //
-    };
+    std::unordered_map<std::string, int> name2order = {                     //
+        {"header", 0},   {"book", 1},    {"quant", 2},     {"revbook", 3},  //
+        {"anchor", 0xa}, {"outlier", 4}, {"huff-meta", 5}, {"huff-bitstream", 6}};
 
     std::unordered_map<int, std::string> order2name = {
-        {0, "header"},  {1, "book"},      {2, "quant"},         {3, "revbook"},
-        {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
+        {0, "header"},   {1, "book"},    {2, "quant"},     {3, "revbook"},        //
+        {0xa, "anchor"}, {4, "outlier"}, {5, "huff-meta"}, {6, "huff-bitstream"}  //
     };
 
     std::unordered_map<std::string, uint32_t> nbyte = {
@@ -48,6 +48,7 @@ class DataSeg {
         {"book", 0U},            //
         {"quant", 0U},           //
         {"revbook", 0U},         //
+        {"anchor", 0U},          //
         {"outlier", 0U},         //
         {"huff-meta", 0U},       //
         {"huff-bitstream", 0U},  //
@@ -149,8 +150,6 @@ class Compressor {
             timing == cusz::WHEN::COMPRESS_DRYRUN) {
             header = new cusz_header();
 
-            ctx->quant_len = ctx->data_len;  // TODO if lorenzo
-
             ConfigHelper::set_eb_series(ctx->eb, config);
 
             if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
@@ -164,7 +163,10 @@ class Compressor {
 
             predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
 
-            ctx->quant_len = predictor->get_quant_len();
+            ctx->quant_len  = predictor->get_quant_len();
+            ctx->anchor_len = predictor->get_anchor_len();
+
+            LOGGING(LOG_INFO, "compressing...");
         }
         else if (timing == cusz::WHEN::DECOMPRESS) {
             auto fname_dump = ctx->fnames.path2file + ".cusza";

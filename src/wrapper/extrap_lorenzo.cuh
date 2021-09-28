@@ -59,6 +59,7 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
 
     // helper
     uint32_t get_quant_len() const { return len_quant; }
+    uint32_t get_anchor_len() const { return 0; }
     float    get_time_elapsed() const { return time_elapsed; }
     uint32_t get_workspace_nbyte() const { return 0; };
 
