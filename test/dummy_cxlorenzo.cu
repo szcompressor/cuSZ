@@ -1,9 +1,9 @@
 
 #include <iostream>
+#include "../src/common/type_traits.hh"
 #include "../src/kernel/lorenzo.h"
 #include "../src/kernel/prototype_lorenzo.cuh"
 #include "../src/metadata.hh"
-#include "../src/common/type_traits.hh"
 #include "../src/utils/cuda_err.cuh"
 using std::cerr;
 using std::cout;
@@ -17,21 +17,20 @@ auto   radius = 0;
 auto   ebx2 = 1.0, ebx2_r = 1.0;
 auto   unified_size = 512 * 512 * 512;
 
-
 __global__ void dummy() { float data = threadIdx.x; }
 
 void Test1D(int n = 1)
 {
     auto dimx = 512 * 512 * 512;
 
-    static const auto Sequentiality = 8;
-    static const auto DataSubsize   = MetadataTrait<1>::Block;
-    auto              dim_block     = DataSubsize / Sequentiality;
-    auto              dim_grid      = ConfigHelper::get_npart(dimx, DataSubsize);
+    static const auto SEQ       = ChunkingTrait<1>::SEQ;
+    static const auto SUBSIZE   = ChunkingTrait<1>::BLOCK;
+    auto              dim_block = DataSubsize / SEQ;
+    auto              dim_grid  = ConfigHelper::get_npart(dimx, SUBSIZE);
 
     for (auto i = 0; i < n; i++) {
         cout << "1Dc " << i << '\n';
-        cusz::c_lorenzo_1d1l<Data, Quant, float, DataSubsize, Sequentiality><<<dim_grid, dim_block>>>  //
+        cusz::c_lorenzo_1d1l<Data, Quant, float, SUBSIZE, SEQ><<<dim_grid, dim_block>>>  //
             (data, quant, dimx, radius, ebx2_r);
         HANDLE_ERROR(cudaDeviceSynchronize());
     }

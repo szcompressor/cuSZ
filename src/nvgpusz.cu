@@ -534,7 +534,7 @@ void COMPRESSOR::decompress()
     cudaMalloc(&quant.dptr, quant.nbyte());
     cudaMallocHost(&quant.hptr, quant.nbyte());
 
-    Capsule<T> decomp_space(mxm + MetadataTrait<1>::Block);  // TODO ad hoc size
+    Capsule<T> decomp_space(mxm + ChunkingTrait<1>::BLOCK);  // TODO ad hoc size
     cudaMalloc(&decomp_space.dptr, decomp_space.nbyte());
     cudaMallocHost(&decomp_space.hptr, decomp_space.nbyte());
     auto xdata = decomp_space.dptr, outlier = decomp_space.dptr;
