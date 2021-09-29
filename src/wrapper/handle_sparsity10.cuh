@@ -1,5 +1,5 @@
 /**
- * @file handle_sparsity.cuh
+ * @file handle_sparsity10.cuh
  * @author Jiannan Tian
  * @brief (header) A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.3
@@ -10,8 +10,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
-#define CUSZ_WRAPPER_HANDLE_SPARSITY_CUH
+#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY10_CUH
+#define CUSZ_WRAPPER_HANDLE_SPARSITY10_CUH
 
 #include <driver_types.h>
 #include <cmath>
@@ -25,7 +25,7 @@
 namespace cusz {
 
 template <typename Data = float>
-class OutlierHandler : public OneCallGatherScatter {
+class OutlierHandler10 : public OneCallGatherScatter {
    private:
     // clang-format off
     uint8_t* pool_ptr;
@@ -66,7 +66,7 @@ class OutlierHandler : public OneCallGatherScatter {
     float get_time_elapsed() const { return milliseconds; }
 
     // compression use
-    OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte);
+    OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte);
 
     void gather(Data* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
     {
@@ -76,7 +76,7 @@ class OutlierHandler : public OneCallGatherScatter {
     }
 
     // decompression use
-    OutlierHandler(unsigned int _len, unsigned int _nnz);
+    OutlierHandler10(unsigned int _len, unsigned int _nnz);
 
     // only placehoding
     void scatter() {}

@@ -25,7 +25,8 @@
 #include "header.hh"
 #include "utils.hh"
 #include "wrapper/extrap_lorenzo.cuh"
-#include "wrapper/handle_sparsity.cuh"
+#include "wrapper/handle_sparsity10.cuh"
+#include "wrapper/handle_sparsity11.cuh"
 #include "wrapper/huffman_coarse.cuh"
 
 using namespace std;
@@ -85,7 +86,7 @@ class Compressor {
     } sp;
 
     cusz::PredictorLorenzo<T, E, FP>* predictor;
-    cusz::OutlierHandler<T>*          csr;
+    cusz::OutlierHandler10<T>*        csr;
     cusz::HuffmanWork<E, H>*          reducer;
 
     cuszCTX*     ctx;
@@ -154,7 +155,7 @@ class Compressor {
 
             if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
 
-            csr = new cusz::OutlierHandler<T>(ctx->data_len, &sp.workspace_nbyte);
+            csr = new cusz::OutlierHandler10<T>(ctx->data_len, &sp.workspace_nbyte);
             // can be known on Compressor init
             cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
             cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
@@ -181,7 +182,7 @@ class Compressor {
 
             xyz = dim3(header->x, header->y, header->z);
 
-            csr           = new cusz::OutlierHandler<T>(ctx->data_len, ctx->nnz_outlier);
+            csr           = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
             csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset("outlier"));
             cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
             cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);

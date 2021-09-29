@@ -23,7 +23,7 @@ set(LIB_TYPE STATIC)
 
 add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu)
 add_library(argp ${LIB_TYPE} src/context.cc)
-add_library(sp ${LIB_TYPE} src/wrapper/handle_sparsity.cu)
+add_library(sp ${LIB_TYPE} src/wrapper/handle_sparsity10.cu src/wrapper/handle_sparsity11.cu)
 target_link_libraries(sp -lcusparse)
 add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_enc_dec.cu src/wrapper/huffman_coarse.cu)
 set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

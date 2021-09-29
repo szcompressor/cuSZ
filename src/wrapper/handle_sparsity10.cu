@@ -1,5 +1,5 @@
 /**
- * @file handle_sparsity.cu
+ * @file handle_sparsity10.cu
  * @author Jiannan Tian
  * @brief A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.3
@@ -18,7 +18,7 @@
 #include "../common.hh"
 #include "../utils.hh"
 
-#include "handle_sparsity.cuh"
+#include "handle_sparsity10.cuh"
 
 using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;
@@ -30,11 +30,11 @@ using descr_t  = cusparseMatDescr_t;
 
 namespace cusz {
 
-template <typename Data>
-OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_workspace_nbyte)
+template <typename T>
+OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
     if (init_workspace_nbyte == nullptr)
-        throw std::runtime_error("[OutlierHandler::constructor] init_workspace_nbyte must not be null.");
+        throw std::runtime_error("[OutlierHandler10::constructor] init_workspace_nbyte must not be null.");
 
     m = Reinterpret1DTo2D::get_square_size(_len);
 
@@ -47,26 +47,26 @@ OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int* init_works
 
     *init_workspace_nbyte = sizeof(int) * (m + 1) +      // rowptr
                             sizeof(int) * initial_nnz +  // colidx
-                            sizeof(Data) * initial_nnz;  // values
+                            sizeof(T) * initial_nnz;     // values
 }
 
-template <typename Data>
-void OutlierHandler<Data>::configure_workspace(uint8_t* _pool)
+template <typename T>
+void OutlierHandler10<T>::configure_workspace(uint8_t* _pool)
 {
     if (not _pool) throw std::runtime_error("Memory is no allocated.");
     pool_ptr     = _pool;
     entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
     entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-    entry.values = reinterpret_cast<Data*>(pool_ptr + offset.values);
+    entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
 }
 
-template <typename Data>
-void OutlierHandler<Data>::reconfigure_with_precise_nnz(int nnz)
+template <typename T>
+void OutlierHandler10<T>::reconfigure_with_precise_nnz(int nnz)
 {
     this->nnz    = nnz;
     nbyte.rowptr = sizeof(int) * (m + 1);
     nbyte.colidx = sizeof(int) * nnz;
-    nbyte.values = sizeof(Data) * nnz;
+    nbyte.values = sizeof(T) * nnz;
     nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
@@ -74,8 +74,8 @@ void OutlierHandler<Data>::reconfigure_with_precise_nnz(int nnz)
  * "S" (for "single-precision") is used; can't generalize
  ********************************************************************************/
 
-template <typename Data>
-void OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize)
+template <typename T>
+void OutlierHandler10<T>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -156,8 +156,8 @@ void OutlierHandler<Data>::gather_CUDA10(float* in_outlier, unsigned int& _dump_
     /********************************************************************************/
 }
 
-template <typename Data>
-void OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
+template <typename T>
+void OutlierHandler10<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
 {
     export_nnz = this->nnz;
 
@@ -175,20 +175,20 @@ void OutlierHandler<Data>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind
  * decompression use
  ********************************************************************************/
 
-template <typename Data>
-OutlierHandler<Data>::OutlierHandler(unsigned int _len, unsigned int _nnz)
+template <typename T>
+OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int _nnz)
 {  //
     this->m   = Reinterpret1DTo2D::get_square_size(_len);
     this->nnz = _nnz;
 
     nbyte.rowptr = sizeof(int) * (this->m + 1);
     nbyte.colidx = sizeof(int) * this->nnz;
-    nbyte.values = sizeof(Data) * this->nnz;
+    nbyte.values = sizeof(T) * this->nnz;
     nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
-template <typename Data>
-void OutlierHandler<Data>::extract(uint8_t* _pool)
+template <typename T>
+void OutlierHandler10<T>::extract(uint8_t* _pool)
 {
     offset.rowptr = 0;
     offset.colidx = nbyte.rowptr;
@@ -197,11 +197,11 @@ void OutlierHandler<Data>::extract(uint8_t* _pool)
     pool_ptr     = _pool;
     entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
     entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-    entry.values = reinterpret_cast<Data*>(pool_ptr + offset.values);
+    entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
 };
 
-template <typename Data>
-void OutlierHandler<Data>::scatter_CUDA10(float* in_outlier)
+template <typename T>
+void OutlierHandler10<T>::scatter_CUDA10(float* in_outlier)
 {
     //     throw std::runtime_error("[decompress_scatter] not implemented");
     handle_t handle   = nullptr;
@@ -239,4 +239,4 @@ void OutlierHandler<Data>::scatter_CUDA10(float* in_outlier)
 //
 }  // namespace cusz
 
-template class cusz::OutlierHandler<float>;
+template class cusz::OutlierHandler10<float>;
