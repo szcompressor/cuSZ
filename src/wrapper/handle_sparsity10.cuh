@@ -24,12 +24,12 @@
 
 namespace cusz {
 
-template <typename Data = float>
+template <typename T = float>
 class OutlierHandler10 : public OneCallGatherScatter {
    private:
     // clang-format off
     uint8_t* pool_ptr;
-    struct { int * rowptr, *colidx; Data* values; } entry;
+    struct { int * rowptr, *colidx; T* values; } entry;
     struct { unsigned int rowptr, colidx, values; } offset;
     struct { unsigned int rowptr, colidx, values, total; } nbyte;
     unsigned int workspace_nbyte, dump_nbyte;
@@ -43,16 +43,16 @@ class OutlierHandler10 : public OneCallGatherScatter {
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
 
-    void gather_CUDA10(float* in, unsigned int& dump_nbyte);
+    void gather_CUDA10(T* in, unsigned int& dump_nbyte);
 
-    void scatter_CUDA10(float* in_outlier);
+    void scatter_CUDA10(T* out);
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
     {
         return sizeof(int) * (m + 1)  // rowptr
                + sizeof(int) * nnz    // colidx
-               + sizeof(Data) * nnz;  // values
+               + sizeof(T) * nnz;     // values
     }
 
     void archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
@@ -68,7 +68,7 @@ class OutlierHandler10 : public OneCallGatherScatter {
     // compression use
     OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte);
 
-    void gather(Data* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
+    void gather(T* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
     {
         configure_workspace(workspace);
         gather_CUDA10(in, dump_nbyte);
@@ -82,7 +82,7 @@ class OutlierHandler10 : public OneCallGatherScatter {
     void scatter() {}
     void gather() {}
 
-    void scatter(uint8_t* _pool, Data* in_outlier)
+    void scatter(uint8_t* _pool, T* in_outlier)
     {
         extract(_pool);
         scatter_CUDA10(in_outlier);

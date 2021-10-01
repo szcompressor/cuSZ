@@ -75,7 +75,7 @@ void OutlierHandler10<T>::reconfigure_with_precise_nnz(int nnz)
  ********************************************************************************/
 
 template <typename T>
-void OutlierHandler10<T>::gather_CUDA10(float* in_outlier, unsigned int& _dump_poolsize)
+void OutlierHandler10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -201,7 +201,7 @@ void OutlierHandler10<T>::extract(uint8_t* _pool)
 };
 
 template <typename T>
-void OutlierHandler10<T>::scatter_CUDA10(float* in_outlier)
+void OutlierHandler10<T>::scatter_CUDA10(T* in_outlier)
 {
     //     throw std::runtime_error("[decompress_scatter] not implemented");
     handle_t handle   = nullptr;

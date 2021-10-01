@@ -21,6 +21,12 @@
 
 #include "../../include/reducer.hh"
 
+// clang-format off
+template <typename F> struct cuszCUSPARSE;
+template <> struct cuszCUSPARSE<float>  { const static cudaDataType type = CUDA_R_32F; };
+template <> struct cuszCUSPARSE<double> { const static cudaDataType type = CUDA_R_64F; };
+// clang-format on
+
 namespace cusz {
 
 template <typename T = float>
@@ -42,9 +48,9 @@ class OutlierHandler11 : public OneCallGatherScatter {
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
 
-    void gather_CUDA11(float* in, unsigned int& dump_nbyte);
+    void gather_CUDA11(T* in, unsigned int& dump_nbyte);
 
-    void scatter_CUDA11(float* in_outlier);
+    void scatter_CUDA11(T* out);
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
@@ -81,10 +87,10 @@ class OutlierHandler11 : public OneCallGatherScatter {
     void scatter() {}
     void gather() {}
 
-    void scatter(uint8_t* _pool, T* in_outlier)
+    void scatter(uint8_t* _pool, T* out)
     {
         extract(_pool);
-        scatter_CUDA11(in_outlier);
+        scatter_CUDA11(out);
     }
 };
 

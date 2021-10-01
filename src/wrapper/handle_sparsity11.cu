@@ -70,7 +70,7 @@ void OutlierHandler11<T>::reconfigure_with_precise_nnz(int nnz)
 }
 
 template <typename T>
-void OutlierHandler11<T>::gather_CUDA11(float* in_data, unsigned int& _dump_poolsize)
+void OutlierHandler11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
 {
     cusparseHandle_t     handle = nullptr;
     cusparseSpMatDescr_t matB;  // sparse
@@ -87,13 +87,14 @@ void OutlierHandler11<T>::gather_CUDA11(float* in_data, unsigned int& _dump_pool
     auto ld       = m;
 
     // Create dense matrix A
-    CHECK_CUSPARSE(cusparseCreateDnMat(&matA, num_rows, num_cols, ld, d_dense, CUDA_R_32F, CUSPARSE_ORDER_ROW));
+    CHECK_CUSPARSE(
+        cusparseCreateDnMat(&matA, num_rows, num_cols, ld, d_dense, cuszCUSPARSE<T>::type, CUSPARSE_ORDER_ROW));
 
     // Create sparse matrix B in CSR format
     auto d_csr_offsets = entry.rowptr;
     CHECK_CUSPARSE(cusparseCreateCsr(
         &matB, num_rows, num_cols, 0, d_csr_offsets, nullptr, nullptr, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
+        CUSPARSE_INDEX_BASE_ZERO, cuszCUSPARSE<T>::type));
 
     // allocate an external buffer if needed
     {
@@ -197,7 +198,7 @@ void OutlierHandler11<T>::extract(uint8_t* _pool)
 };
 
 template <typename T>
-void OutlierHandler11<T>::scatter_CUDA11(float* out_dn)
+void OutlierHandler11<T>::scatter_CUDA11(T* out_dn)
 {
     auto d_csr_offsets = entry.rowptr;
     auto d_csr_columns = entry.colidx;
@@ -222,9 +223,10 @@ void OutlierHandler11<T>::scatter_CUDA11(float* out_dn)
     // Create sparse matrix A in CSR format
     CHECK_CUSPARSE(cusparseCreateCsr(
         &matA, num_rows, num_cols, nnz, d_csr_offsets, d_csr_columns, d_csr_values, CUSPARSE_INDEX_32I,
-        CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
+        CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, cuszCUSPARSE<T>::type));
     // Create dense matrix B
-    CHECK_CUSPARSE(cusparseCreateDnMat(&matB, num_rows, num_cols, ld, d_dense, CUDA_R_32F, CUSPARSE_ORDER_ROW));
+    CHECK_CUSPARSE(
+        cusparseCreateDnMat(&matB, num_rows, num_cols, ld, d_dense, cuszCUSPARSE<T>::type, CUSPARSE_ORDER_ROW));
 
     {
         auto t = new cuda_timer_t;
