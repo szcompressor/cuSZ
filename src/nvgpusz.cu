@@ -38,10 +38,90 @@ using std::cout;
 using std::endl;
 using std::string;
 
-////////////////////////////////////////////////////////////////////////////////
-
 #define COMPR_TYPE template <typename T, typename E, typename H, typename FP>
 #define COMPRESSOR Compressor<T, E, H, FP>
+
+//// constructor
+////////////////////////////////////////////////////////////////////////////////
+
+COMPR_TYPE
+COMPRESSOR::Compressor(cuszCTX* _ctx, cusz::WHEN _timing) : ctx(_ctx)
+{
+    timing = _timing;
+
+    if (timing == cusz::WHEN::COMPRESS or    //
+        timing == cusz::WHEN::EXPERIMENT or  //
+        timing == cusz::WHEN::COMPRESS_DRYRUN) {
+        header = new cusz_header();
+
+        ConfigHelper::set_eb_series(ctx->eb, config);
+
+        if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
+
+        csr = new cusz::OutlierHandler10<T>(ctx->data_len, &sp.workspace_nbyte);
+        // can be known on Compressor init
+        cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
+        cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
+
+        xyz = dim3(ctx->x, ctx->y, ctx->z);
+
+        predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+
+        ctx->quant_len  = predictor->get_quant_len();
+        ctx->anchor_len = predictor->get_anchor_len();
+
+        LOGGING(LOG_INFO, "compressing...");
+    }
+    else if (timing == cusz::WHEN::DECOMPRESS) {
+        auto fname_dump = ctx->fnames.path2file + ".cusza";
+        cusza_nbyte     = ConfigHelper::get_filesize(fname_dump);
+        dump            = io::read_binary_to_new_array<BYTE>(fname_dump, cusza_nbyte);
+        header          = reinterpret_cast<cusz_header*>(dump);
+
+        unpack_metadata();
+
+        m   = Reinterpret1DTo2D::get_square_size(ctx->data_len);
+        mxm = m * m;
+
+        xyz = dim3(header->x, header->y, header->z);
+
+        csr           = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
+        csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset("outlier"));
+        cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
+        cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
+
+        predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+
+        reducer = new cusz::HuffmanWork<E, H>(
+            header->quant_len, dump,  //
+            header->huffman_chunk, header->huffman_num_uints, header->dict_size);
+
+        LOGGING(LOG_INFO, "decompressing...");
+    }
+}
+
+COMPR_TYPE
+COMPRESSOR::~Compressor()
+{
+    if (timing == cusz::WHEN::COMPRESS) {  // release small-size arrays
+        cudaFree(huffman.d_counts);
+        cudaFree(huffman.d_bitstream);
+
+        cudaFreeHost(huffman.h_bitstream);
+        cudaFreeHost(huffman.h_counts);
+
+        cudaFree(sp.workspace);
+        cudaFreeHost(sp.dump);
+    }
+    else {
+        cudaFree(csr_file.dev);
+    }
+
+    delete csr;
+    delete predictor;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 COMPR_TYPE
 unsigned int COMPRESSOR::tune_deflate_chunksize(size_t len)
