@@ -37,36 +37,28 @@ enum class cuszSEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, OUTLIER, HUFF_META, H
 
 class DataSeg {
    public:
-    std::unordered_map<cuszSEG, int> name2order = {                                                     //
-        {cuszSEG::HEADER, 0},   {cuszSEG::BOOK, 1},    {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},  //
+    std::unordered_map<cuszSEG, int> name2order = {
+        {cuszSEG::HEADER, 0},   {cuszSEG::BOOK, 1},    {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
         {cuszSEG::ANCHOR, 0xa}, {cuszSEG::OUTLIER, 4}, {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6}};
 
     std::unordered_map<int, cuszSEG> order2name = {
-        {0, cuszSEG::HEADER},   {1, cuszSEG::BOOK},    {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},   //
-        {0xa, cuszSEG::ANCHOR}, {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA}  //
-    };
+        {0, cuszSEG::HEADER},   {1, cuszSEG::BOOK},    {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
+        {0xa, cuszSEG::ANCHOR}, {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA}};
 
     std::unordered_map<cuszSEG, uint32_t> nbyte = {
         {cuszSEG::HEADER, sizeof(cusz_header)},
-        {cuszSEG::BOOK, 0U},       //
-        {cuszSEG::QUANT, 0U},      //
-        {cuszSEG::REVBOOK, 0U},    //
-        {cuszSEG::ANCHOR, 0U},     //
-        {cuszSEG::OUTLIER, 0U},    //
-        {cuszSEG::HUFF_META, 0U},  //
-        {cuszSEG::HUFF_DATA, 0U},  //
-    };
+        {cuszSEG::BOOK, 0U},
+        {cuszSEG::QUANT, 0U},
+        {cuszSEG::REVBOOK, 0U},
+        {cuszSEG::ANCHOR, 0U},
+        {cuszSEG::OUTLIER, 0U},
+        {cuszSEG::HUFF_META, 0U},
+        {cuszSEG::HUFF_DATA, 0U}};
 
     std::unordered_map<cuszSEG, std::string> name2str{
-        {cuszSEG::HEADER, "HEADER"},        //
-        {cuszSEG::BOOK, "BOOK"},            //
-        {cuszSEG::QUANT, "QUANT"},          //
-        {cuszSEG::REVBOOK, "REVBOOK"},      //
-        {cuszSEG::ANCHOR, "ANCHOR"},        //
-        {cuszSEG::OUTLIER, "OUTLIER"},      //
-        {cuszSEG::HUFF_META, "HUFF_META"},  //
-        {cuszSEG::HUFF_DATA, "HUFF_DATA"},  //
-    };
+        {cuszSEG::HEADER, "HEADER"},       {cuszSEG::BOOK, "BOOK"},          {cuszSEG::QUANT, "QUANT"},
+        {cuszSEG::REVBOOK, "REVBOOK"},     {cuszSEG::ANCHOR, "ANCHOR"},      {cuszSEG::OUTLIER, "OUTLIER"},
+        {cuszSEG::HUFF_META, "HUFF_META"}, {cuszSEG::HUFF_DATA, "HUFF_DATA"}};
 
     std::vector<uint32_t> offset;
 
@@ -92,6 +84,8 @@ class Compressor {
         H *     h_bitstream, *d_bitstream;
     } huffman;
 
+    T *h_anchor, *d_anchor;
+
     struct {
         unsigned int workspace_nbyte;
         uint32_t     dump_nbyte;
@@ -106,7 +100,11 @@ class Compressor {
     cuszCTX*     ctx;
     cusz_header* header;
 
-    cusz::WHEN timing;
+    Capsule<T>*    in_data;  // compress-time, TODO rename
+    Capsule<BYTE>* in_dump;  // decompress-time, TODO rename
+    // BYTE*          dump;
+
+    cuszWHEN timing;
 
     size_t cusza_nbyte;
     size_t m, mxm;
@@ -114,8 +112,6 @@ class Compressor {
     struct {
         uint8_t *host, *dev;
     } csr_file;
-
-    BYTE* dump;
 
     dim3 xyz;
 
@@ -153,12 +149,22 @@ class Compressor {
 
     void unpack_metadata();
 
-   public:
-    Compressor(cuszCTX* _ctx, cusz::WHEN _timing);
+    void prescan();
 
+   public:
     ~Compressor();
 
-    void compress(Capsule<T>* in_data);
+    // v0; decompress-time in use
+    Compressor(cuszCTX* _ctx, cuszWHEN _timing);
+    // v0
+    // void compress(Capsule<T>* in_data);
+
+    // v1
+    Compressor(cuszCTX* _ctx, Capsule<T>* _in_data);  // okay
+    // v1
+    Compressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump);  // TODO excl. T == BYTE
+    // v1
+    void compress();
 
     void decompress();
 };

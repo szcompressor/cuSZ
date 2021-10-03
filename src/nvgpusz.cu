@@ -23,7 +23,7 @@
 #include <typeinfo>
 
 #include "analysis/analyzer.hh"
-#include "common/type_traits.hh"
+#include "common.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "kernel/lorenzo.cuh"
@@ -44,66 +44,68 @@ using std::string;
 //// constructor
 ////////////////////////////////////////////////////////////////////////////////
 
+// v0
 COMPR_TYPE
-COMPRESSOR::Compressor(cuszCTX* _ctx, cusz::WHEN _timing) : ctx(_ctx)
+COMPRESSOR::Compressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump) : ctx(_ctx), in_dump(_in_dump)
 {
-    timing = _timing;
+    timing    = cuszWHEN::DECOMPRESS;
+    auto dump = in_dump->hptr;
 
-    if (timing == cusz::WHEN::COMPRESS or    //
-        timing == cusz::WHEN::EXPERIMENT or  //
-        timing == cusz::WHEN::COMPRESS_DRYRUN) {
-        header = new cusz_header();
+    header = reinterpret_cast<cusz_header*>(dump);
 
-        ConfigHelper::set_eb_series(ctx->eb, config);
+    unpack_metadata();
 
-        if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
+    m   = Reinterpret1DTo2D::get_square_size(ctx->data_len);
+    mxm = m * m;
 
-        csr = new cusz::OutlierHandler10<T>(ctx->data_len, &sp.workspace_nbyte);
-        // can be known on Compressor init
-        cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
-        cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
+    xyz = dim3(header->x, header->y, header->z);
 
-        xyz = dim3(ctx->x, ctx->y, ctx->z);
+    csr           = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
+    csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::OUTLIER));
+    cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
+    cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
 
-        predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+    predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
 
-        ctx->quant_len  = predictor->get_quant_len();
-        ctx->anchor_len = predictor->get_anchor_len();
+    reducer = new cusz::HuffmanWork<E, H>(
+        header->quant_len, dump,  //
+        header->huffman_chunk, header->huffman_num_uints, header->dict_size);
 
-        LOGGING(LOG_INFO, "compressing...");
-    }
-    else if (timing == cusz::WHEN::DECOMPRESS) {
-        auto fname_dump = ctx->fnames.path2file + ".cusza";
-        cusza_nbyte     = ConfigHelper::get_filesize(fname_dump);
-        dump            = io::read_binary_to_new_array<BYTE>(fname_dump, cusza_nbyte);
-        header          = reinterpret_cast<cusz_header*>(dump);
+    LOGGING(LOG_INFO, "decompressing...");
+}
 
-        unpack_metadata();
+// v0
+COMPR_TYPE
+COMPRESSOR::Compressor(cuszCTX* _ctx, Capsule<T>* _in_data) : ctx(_ctx), in_data(_in_data)
+{
+    timing = cuszWHEN::COMPRESS;
+    header = new cusz_header();
 
-        m   = Reinterpret1DTo2D::get_square_size(ctx->data_len);
-        mxm = m * m;
+    prescan();  // internally change eb (regarding value range)
 
-        xyz = dim3(header->x, header->y, header->z);
+    ConfigHelper::set_eb_series(ctx->eb, config);
 
-        csr           = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
-        csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::OUTLIER));
-        cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
-        cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
+    if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
 
-        predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+    csr = new cusz::OutlierHandler10<T>(ctx->data_len, &sp.workspace_nbyte);
+    // can be known on Compressor init
+    cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
+    cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
 
-        reducer = new cusz::HuffmanWork<E, H>(
-            header->quant_len, dump,  //
-            header->huffman_chunk, header->huffman_num_uints, header->dict_size);
+    xyz = dim3(ctx->x, ctx->y, ctx->z);
 
-        LOGGING(LOG_INFO, "decompressing...");
-    }
+    predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
+
+    ctx->quant_len  = predictor->get_quant_len();
+    ctx->anchor_len = predictor->get_anchor_len();
+
+    LOGGING(LOG_INFO, "compressing...");
 }
 
 COMPR_TYPE
 COMPRESSOR::~Compressor()
 {
-    if (timing == cusz::WHEN::COMPRESS) {  // release small-size arrays
+    if (timing == cuszWHEN::COMPRESS) {  // release small-size arrays
         cudaFree(huffman.d_counts);
         cudaFree(huffman.d_bitstream);
 
@@ -211,7 +213,7 @@ COMPRESSOR& COMPRESSOR::get_freq_and_codebook(
         .internal_eval_try_export_book(book)
         .internal_eval_try_export_quant(quant);
 
-    revbook->d2h();  // need processing on CPU
+    revbook->device2host();  // need processing on CPU
     dataseg.nbyte.at(cuszSEG::REVBOOK) = HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size);
 
     return *this;
@@ -223,8 +225,8 @@ COMPRESSOR& COMPRESSOR::analyze_compressibility(
     Capsule<H>*            book)
 {
     if (ctx->report.compressibility) {
-        cudaMallocHost(&freq->hptr, freq->nbyte()), freq->d2h();
-        cudaMallocHost(&book->hptr, book->nbyte()), book->d2h();
+        cudaMallocHost(&freq->hptr, freq->nbyte()), freq->device2host();
+        cudaMallocHost(&book->hptr, book->nbyte()), book->device2host();
 
         Analyzer analyzer{};
         analyzer  //
@@ -245,7 +247,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(Capsule<H>* book)
     // internal evaluation, not stored in sz archive
     if (ctx->export_raw.book) {
         cudaMallocHost(&book->hptr, ctx->dict_size * sizeof(decltype(book->hptr)));
-        book->d2h();
+        book->device2host();
 
         std::stringstream s;
         s << ctx->fnames.path_basename + "-" << ctx->dict_size << "-ui" << sizeof(H) << ".lean-book";
@@ -269,7 +271,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<E>* quant)
     // internal_eval
     if (ctx->export_raw.quant) {  //
         cudaMallocHost(&quant->hptr, quant->nbyte());
-        quant->d2h();
+        quant->device2host();
 
         dataseg.nbyte.at(cuszSEG::QUANT) = quant->nbyte();
 
@@ -288,7 +290,7 @@ void COMPRESSOR::try_skip_huffman(Capsule<E>* quant)
     // decide if skipping Huffman coding
     if (ctx->to_skip.huffman) {
         cudaMallocHost(&quant->hptr, quant->nbyte());
-        quant->d2h();
+        quant->device2host();
 
         // TODO: as part of cusza
         io::write_array_to_binary(ctx->fnames.path_basename + ".quant", quant->hptr, ctx->quant_len);
@@ -358,7 +360,7 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
         nullptr, nullptr, in_len, chunk_size, 0, nullptr, nullptr, time.lossless);
 
     // --------------------------------------------------------------------------------
-    // TODO change to `d2h()`
+    // TODO change to `device2host()`
     cudaMemcpy(h_bitstream, d_bitstream, num_uints * sizeof(H), cudaMemcpyDeviceToHost);
 
     // TODO size_t -> MetadataT
@@ -419,6 +421,9 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
     cout << "dump on GPU\t" << on_gpu << '\n';
 
     auto both = on_cpu and on_gpu;
+
+    auto REINTERP = [](auto* ptr) { return reinterpret_cast<BYTE*>(ptr); };
+
     if (both) {
         //
         throw runtime_error("[consolidate on both] not implemented");
@@ -427,51 +432,24 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
         if (on_cpu) {
             //
             cudaMallocHost(&h_dump, total_nbyte);
+            auto           ADDR      = [&](int seg_id) { return h_dump + offsets.at(seg_id); };
+            constexpr auto Host2Host = cudaMemcpyHostToHost;
 
             /* 0 */  // header
-            cudaMemcpy(
-                h_dump + offsets.at(0),             //
-                reinterpret_cast<BYTE*>(header),    //
-                dataseg.nbyte.at(cuszSEG::HEADER),  //
-                cudaMemcpyHostToHost);
-            /* 1 */  // book
-            /* 2 */  // quant
-
+            cudaMemcpy(ADDR(0), REINTERP(header), dataseg.nbyte.at(cuszSEG::HEADER), Host2Host);
+            /* 1 */                                              // book
+            /* 2 */                                              // quant
             if (dataseg.nbyte.at(cuszSEG::ANCHOR) != 0) /* a */  // anchor
-                cudaMemcpy(
-                    h_dump + offsets.at(0xa),                    //
-                    reinterpret_cast<BYTE*>(huffman.h_revbook),  //
-                    dataseg.nbyte.at(cuszSEG::ANCHOR),           //
-                    cudaMemcpyHostToHost);
-
-            /* 3 */  // revbook
-            if (dataseg.nbyte.at(cuszSEG::REVBOOK) != 0)
-                cudaMemcpy(
-                    h_dump + offsets.at(3),                      //
-                    reinterpret_cast<BYTE*>(huffman.h_revbook),  //
-                    dataseg.nbyte.at(cuszSEG::REVBOOK),          //
-                    cudaMemcpyHostToHost);
-            /* 4 */  // outlier
-            if (dataseg.nbyte.at(cuszSEG::OUTLIER) != 0)
-                cudaMemcpy(
-                    h_dump + offsets.at(4),              //
-                    reinterpret_cast<BYTE*>(sp.dump),    //
-                    dataseg.nbyte.at(cuszSEG::OUTLIER),  //
-                    cudaMemcpyHostToHost);
-            /* 5 */  // huff_meta
-            if (dataseg.nbyte.at(cuszSEG::HUFF_META) != 0)
-                cudaMemcpy(
-                    h_dump + offsets.at(5),                                   //
-                    reinterpret_cast<BYTE*>(huffman.h_counts + ctx->nchunk),  //
-                    dataseg.nbyte.at(cuszSEG::HUFF_META),                     //
-                    cudaMemcpyHostToHost);
-            /* 6 */  // huff_bitstream
-            if (dataseg.nbyte.at(cuszSEG::HUFF_DATA) != 0)
-                cudaMemcpy(
-                    h_dump + offsets.at(6),                        //
-                    reinterpret_cast<BYTE*>(huffman.h_bitstream),  //
-                    dataseg.nbyte.at(cuszSEG::HUFF_DATA),          //
-                    cudaMemcpyHostToHost);
+                cudaMemcpy(ADDR(0xa), REINTERP(h_anchor), dataseg.nbyte.at(cuszSEG::ANCHOR), Host2Host);
+            if (dataseg.nbyte.at(cuszSEG::REVBOOK) != 0) /* 3 */  // revbook
+                cudaMemcpy(ADDR(3), REINTERP(huffman.h_revbook), dataseg.nbyte.at(cuszSEG::REVBOOK), Host2Host);
+            if (dataseg.nbyte.at(cuszSEG::OUTLIER) != 0) /* 4 */  // outlier
+                cudaMemcpy(ADDR(4), REINTERP(sp.dump), dataseg.nbyte.at(cuszSEG::OUTLIER), Host2Host);
+            auto meta_addr = huffman.h_counts + ctx->nchunk;
+            if (dataseg.nbyte.at(cuszSEG::HUFF_META) != 0) /* 5 */  // huff_meta
+                cudaMemcpy(ADDR(5), REINTERP(meta_addr), dataseg.nbyte.at(cuszSEG::HUFF_META), Host2Host);
+            if (dataseg.nbyte.at(cuszSEG::HUFF_DATA) != 0) /* 6 */  // huff_bitstream
+                cudaMemcpy(ADDR(6), REINTERP(huffman.h_bitstream), dataseg.nbyte.at(cuszSEG::HUFF_DATA), Host2Host);
 
             auto output_name = ctx->fnames.path_basename + ".cusza";
             cout << "output:\t" << output_name << '\n';
@@ -487,7 +465,26 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
 }
 
 COMPR_TYPE
-void COMPRESSOR::compress(Capsule<T>* in_data)
+void COMPRESSOR::prescan()
+{
+    if (ctx->mode == "r2r") {
+        auto result = Analyzer::get_maxmin_rng                         //
+            <T, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
+            (in_data->dptr, in_data->len);
+        if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
+        if (ctx->mode == "r2r") ctx->eb *= result.rng;
+    }
+
+    // TODO data "policy": (non-)destructive
+    if (ctx->preprocess.binning) {
+        LOGGING(LOG_ERR, "Binning is not working temporarily  (ver. 0.2.9)");
+        exit(1);
+    }
+}
+
+COMPR_TYPE
+// void COMPRESSOR::compress(Capsule<T>* in_data)
+void COMPRESSOR::compress()
 {
     lorenzo_dryrun(in_data);  // subject to change
 
@@ -610,15 +607,15 @@ COMPR_TYPE
 void COMPRESSOR::decompress()
 {
     Capsule<E> quant(ctx->quant_len);
+    // quant.alloc<cuszDEV::DEV, cuszLOC::DEVICE>(); // does not work????
     cudaMalloc(&quant.dptr, quant.nbyte());
-    cudaMallocHost(&quant.hptr, quant.nbyte());
 
-    Capsule<T> decomp_space(mxm + ChunkingTrait<1>::BLOCK);  // TODO ad hoc size
+    Capsule<T> decomp_space(mxm + ChunkingTrait<1>::BLOCK);  // TODO ad hoc padding
+    // decomp_space.alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>(); // does not work???
     cudaMalloc(&decomp_space.dptr, decomp_space.nbyte());
     cudaMallocHost(&decomp_space.hptr, decomp_space.nbyte());
     auto xdata = decomp_space.dptr, outlier = decomp_space.dptr;
 
-    // reducer->decode(nullptr, quant.dptr);
     using Mtype = typename cusz::HuffmanWork<E, H>::Mtype;
 
     // TODO pass dump and dataseg description
@@ -630,10 +627,10 @@ void COMPRESSOR::decompress()
     // decode(WHERE, FROM_DUMP, dump, offset, output)
 
     reducer->decode(
-        cusz::WHERE::HOST,                                                        //
-        reinterpret_cast<H*>(dump + dataseg.get_offset(cuszSEG::HUFF_DATA)),      //
-        reinterpret_cast<Mtype*>(dump + dataseg.get_offset(cuszSEG::HUFF_META)),  //
-        reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::REVBOOK)),     //
+        cuszLOC::HOST,                                                                     //
+        reinterpret_cast<H*>(in_dump->hptr + dataseg.get_offset(cuszSEG::HUFF_DATA)),      //
+        reinterpret_cast<Mtype*>(in_dump->hptr + dataseg.get_offset(cuszSEG::HUFF_META)),  //
+        reinterpret_cast<BYTE*>(in_dump->hptr + dataseg.get_offset(cuszSEG::REVBOOK)),     //
         quant.dptr);
 
     csr->scatter(csr_file.dev, outlier);
@@ -645,7 +642,7 @@ void COMPRESSOR::decompress()
 
     try_report_decompression_time();
 
-    decomp_space.d2h();
+    decomp_space.device2host();
 
     try_compare_with_origin(decomp_space.hptr);
     try_write2disk(decomp_space.hptr);

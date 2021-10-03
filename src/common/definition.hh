@@ -12,19 +12,26 @@
 #ifndef CUSZ_COMMON_DEFINITION_HH
 #define CUSZ_COMMON_DEFINITION_HH
 
-namespace cusz {
+enum class cuszTASK { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
+enum class cuszDEV { TEST, DEV, RELEASE };
+enum class cuszLOC { HOST, DEVICE, HOST_DEVICE, FS, NONE, __BUFFER };
+enum class cuszWHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 
-enum class MODE { TEST, DEV, RELEASE };
-enum class WHERE { HOST, DEVICE, BOTH, FS };
+namespace cusz {
 enum class execution { cuda, serial };
 enum class method { native, thrust };
-enum class WHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 
 struct OK {
-    template <MODE m>
-    constexpr bool ALLOCATE()
+    template <cuszDEV m>
+    static constexpr bool ALLOC()
     {
-        return m == MODE::TEST or m == MODE::DEV;
+        return m == cuszDEV::TEST or m == cuszDEV::DEV;
+    }
+
+    template <cuszDEV m>
+    static constexpr bool FREE()
+    {
+        return m == cuszDEV::TEST or m == cuszDEV::DEV;
     }
 };
 

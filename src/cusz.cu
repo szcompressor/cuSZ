@@ -61,89 +61,62 @@ T* pre_binning(T* d, size_t* dim_array)
 
 void normal_path_lorenzo(cuszCTX* ctx)
 {
-    // TODO remove hardcode for float for now
     using T = float;
-    using E = QuantTrait<2>::type;
+    using E = ErrCtrlTrait<2>::type;
     using P = FastLowPrecisionTrait<true>::type;
 
-    // TODO align to 128 unconditionally
-    auto len = ctx->data_len;
-    auto m   = Reinterpret1DTo2D::get_square_size(len);
-    auto mxm = m * m;
+    // TODO be part of the other two tasks without touching FS
+    // if (ctx->task_is.experiment) {}
 
-    Capsule<T> in_data(mxm);
+    if (ctx->task_is.construct or ctx->task_is.dryrun) {
+        // TODO align to 128 unconditionally
+        auto   m   = Reinterpret1DTo2D::get_square_size(ctx->data_len);
+        auto   mxm = m * m;
+        double time_loading{0.0};
 
-    if (ctx->task_is.construct or ctx->task_is.experiment or ctx->task_is.dryrun) {
-        cudaMalloc(&in_data.dptr, in_data.nbyte());
-        cudaMallocHost(&in_data.hptr, in_data.nbyte());
+        Capsule<T> in_data(mxm);
+        in_data.alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>()
+            .from_fs_to<cuszLOC::HOST>(ctx->fnames.path2file, &time_loading)
+            .host2device();
 
-        {
-            auto a = hires::now();
-            io::read_binary_to_array<T>(ctx->fnames.path2file, in_data.hptr, len);
-            auto z = hires::now();
-
-            if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
-
-            LOGGING(LOG_INFO, "load", ctx->fnames.path2file, len * sizeof(T), "bytes");
-        }
-
-        in_data.h2d();
-
-        if (ctx->mode == "r2r") {
-            // TODO prescan can be issued independently from "r2r"
-            auto result = Analyzer::get_maxmin_rng                         //
-                <T, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
-                (in_data.dptr, len);
-            if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
-            if (ctx->mode == "r2r") ctx->eb *= result.rng;
-        }
-
-        if (ctx->verbose)
-            LOGGING(
-                LOG_DBG, std::to_string(ctx->quant_nbyte) + "-byte quant type,",
-                std::to_string(ctx->huff_nbyte) + "-byte (internal) Huff type");
-    }
-
-    if (ctx->preprocess.binning) {
-        LOGGING(
-            LOG_ERR,
-            "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching filesystem. "
-            "(ver. 0.2.9)");
-        exit(1);
-    }
-
-    if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
+        if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
+        LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
 
         if (ctx->huff_nbyte == 4) {
-            Compressor<T, E, HuffTrait<4>::type, P> cuszc(ctx, cusz::WHEN::COMPRESS);
-            cuszc.compress(&in_data);
+            Compressor<T, E, HuffTrait<4>::type, P> cuszc(ctx, &in_data);
+            cuszc.compress();
+        }
+        else if (ctx->huff_nbyte == 8) {
+            Compressor<T, E, HuffTrait<8>::type, P> cuszc(ctx, &in_data);
+            cuszc.compress();
         }
         else {
-            Compressor<T, E, HuffTrait<8>::type, P> cuszc(ctx, cusz::WHEN::COMPRESS);
-            cuszc.compress(&in_data);
+            throw std::runtime_error("huff nbyte illegal");
         }
 
         // release memory
-        cudaFree(in_data.dptr), cudaFreeHost(in_data.hptr);
-    }
-
-    if (in_data.dptr) {
-        cudaFreeHost(in_data.dptr);  // TODO messy
+        in_data.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
     }
 
     if (ctx->task_is.reconstruct) {  // fp32 only for now
 
-        // TODO data ready outside Decompressor?
+        auto fname_dump  = ctx->fnames.path2file + ".cusza";
+        auto cusza_nbyte = ConfigHelper::get_filesize(fname_dump);
 
+        Capsule<BYTE> in_dump(cusza_nbyte);
+        in_dump
+            .alloc<cuszDEV::DEV, cuszLOC::HOST>()  //
+            .from_fs_to<cuszLOC::HOST>(fname_dump);
+
+        // TODO data ready outside Decompressor?
         if (ctx->huff_nbyte == 4) {
-            Compressor<T, E, HuffTrait<4>::type, P> cuszd(ctx, cusz::WHEN::DECOMPRESS);
+            Compressor<T, E, HuffTrait<4>::type, P> cuszd(ctx, &in_dump);  // TODO v0 -> v1
             cuszd.decompress();
         }
         else if (ctx->huff_nbyte == 8) {
-            Compressor<T, E, HuffTrait<8>::type, P> cuszd(ctx, cusz::WHEN::DECOMPRESS);
+            Compressor<T, E, HuffTrait<8>::type, P> cuszd(ctx, &in_dump);  // TODO v0 -> v1
             cuszd.decompress();
         }
-        // }
     }
 }
 

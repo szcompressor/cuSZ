@@ -65,7 +65,7 @@ class HuffmanWork {
 
     void decode(H* in, T* out);
 
-    void decode(WHERE w, H* bitstream, M* bits_entries, BYTE* revbook, T* out);
+    void decode(cuszLOC loc, H* bitstream, M* bits_entries, BYTE* revbook, T* out);
 };
 
 }  // namespace cusz
