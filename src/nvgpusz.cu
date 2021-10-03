@@ -86,7 +86,7 @@ COMPRESSOR::Compressor(cuszCTX* _ctx, cusz::WHEN _timing) : ctx(_ctx)
         xyz = dim3(header->x, header->y, header->z);
 
         csr           = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
-        csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset("outlier"));
+        csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::OUTLIER));
         cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
         cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
 
@@ -212,7 +212,7 @@ COMPRESSOR& COMPRESSOR::get_freq_and_codebook(
         .internal_eval_try_export_quant(quant);
 
     revbook->d2h();  // need processing on CPU
-    dataseg.nbyte.at("revbook") = HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size);
+    dataseg.nbyte.at(cuszSEG::REVBOOK) = HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size);
 
     return *this;
 }
@@ -258,7 +258,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_book(Capsule<H>* book)
 
         LOGGING(LOG_INFO, "exporting codebook as binary; suffix: \".lean-book\"");
 
-        dataseg.nbyte.at("book") = ctx->dict_size * sizeof(H);
+        dataseg.nbyte.at(cuszSEG::BOOK) = ctx->dict_size * sizeof(H);
     }
     return *this;
 }
@@ -271,7 +271,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<E>* quant)
         cudaMallocHost(&quant->hptr, quant->nbyte());
         quant->d2h();
 
-        dataseg.nbyte.at("quant") = quant->nbyte();
+        dataseg.nbyte.at(cuszSEG::QUANT) = quant->nbyte();
 
         // TODO as part of dump
         io::write_array_to_binary(ctx->fnames.path_basename + ".lean-quant", quant->hptr, ctx->quant_len);
@@ -362,8 +362,8 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
     cudaMemcpy(h_bitstream, d_bitstream, num_uints * sizeof(H), cudaMemcpyDeviceToHost);
 
     // TODO size_t -> MetadataT
-    dataseg.nbyte.at("huff-meta")      = sizeof(size_t) * (2 * nchunk);
-    dataseg.nbyte.at("huff-bitstream") = sizeof(H) * num_uints;
+    dataseg.nbyte.at(cuszSEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
+    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = sizeof(H) * num_uints;
 
     cudaFree(tmp_space);
 
@@ -381,11 +381,11 @@ COMPR_TYPE
 void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
 {
     // put in header
-    header->nbyte.book           = dataseg.nbyte.at("book");
-    header->nbyte.revbook        = dataseg.nbyte.at("revbook");
-    header->nbyte.outlier        = dataseg.nbyte.at("outlier");
-    header->nbyte.huff_meta      = dataseg.nbyte.at("huff-meta");
-    header->nbyte.huff_bitstream = dataseg.nbyte.at("huff-bitstream");
+    header->nbyte.book           = dataseg.nbyte.at(cuszSEG::BOOK);
+    header->nbyte.revbook        = dataseg.nbyte.at(cuszSEG::REVBOOK);
+    header->nbyte.outlier        = dataseg.nbyte.at(cuszSEG::OUTLIER);
+    header->nbyte.huff_meta      = dataseg.nbyte.at(cuszSEG::HUFF_META);
+    header->nbyte.huff_bitstream = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
 
     // consolidate
     std::vector<uint32_t> offsets = {0};
@@ -404,7 +404,7 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
         offsets.push_back(o);
 
         printf(
-            "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", name.c_str(),  //
+            "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", dataseg.get_namestr(name).c_str(),  //
             (size_t)dataseg.nbyte.at(name), (size_t)offsets.at(i), (size_t)offsets.back());
     }
 
@@ -430,47 +430,47 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
 
             /* 0 */  // header
             cudaMemcpy(
-                h_dump + offsets.at(0),           //
-                reinterpret_cast<BYTE*>(header),  //
-                dataseg.nbyte.at("header"),       //
+                h_dump + offsets.at(0),             //
+                reinterpret_cast<BYTE*>(header),    //
+                dataseg.nbyte.at(cuszSEG::HEADER),  //
                 cudaMemcpyHostToHost);
             /* 1 */  // book
             /* 2 */  // quant
 
-            if (dataseg.nbyte.at("anchor") != 0) /* a */  // anchor
+            if (dataseg.nbyte.at(cuszSEG::ANCHOR) != 0) /* a */  // anchor
                 cudaMemcpy(
                     h_dump + offsets.at(0xa),                    //
                     reinterpret_cast<BYTE*>(huffman.h_revbook),  //
-                    dataseg.nbyte.at("anchor"),                  //
+                    dataseg.nbyte.at(cuszSEG::ANCHOR),           //
                     cudaMemcpyHostToHost);
 
             /* 3 */  // revbook
-            if (dataseg.nbyte.at("revbook") != 0)
+            if (dataseg.nbyte.at(cuszSEG::REVBOOK) != 0)
                 cudaMemcpy(
                     h_dump + offsets.at(3),                      //
                     reinterpret_cast<BYTE*>(huffman.h_revbook),  //
-                    dataseg.nbyte.at("revbook"),                 //
+                    dataseg.nbyte.at(cuszSEG::REVBOOK),          //
                     cudaMemcpyHostToHost);
             /* 4 */  // outlier
-            if (dataseg.nbyte.at("outlier") != 0)
+            if (dataseg.nbyte.at(cuszSEG::OUTLIER) != 0)
                 cudaMemcpy(
-                    h_dump + offsets.at(4),            //
-                    reinterpret_cast<BYTE*>(sp.dump),  //
-                    dataseg.nbyte.at("outlier"),       //
+                    h_dump + offsets.at(4),              //
+                    reinterpret_cast<BYTE*>(sp.dump),    //
+                    dataseg.nbyte.at(cuszSEG::OUTLIER),  //
                     cudaMemcpyHostToHost);
             /* 5 */  // huff_meta
-            if (dataseg.nbyte.at("huff-meta") != 0)
+            if (dataseg.nbyte.at(cuszSEG::HUFF_META) != 0)
                 cudaMemcpy(
                     h_dump + offsets.at(5),                                   //
                     reinterpret_cast<BYTE*>(huffman.h_counts + ctx->nchunk),  //
-                    dataseg.nbyte.at("huff-meta"),                            //
+                    dataseg.nbyte.at(cuszSEG::HUFF_META),                     //
                     cudaMemcpyHostToHost);
             /* 6 */  // huff_bitstream
-            if (dataseg.nbyte.at("huff-bitstream") != 0)
+            if (dataseg.nbyte.at(cuszSEG::HUFF_DATA) != 0)
                 cudaMemcpy(
                     h_dump + offsets.at(6),                        //
                     reinterpret_cast<BYTE*>(huffman.h_bitstream),  //
-                    dataseg.nbyte.at("huff-bitstream"),            //
+                    dataseg.nbyte.at(cuszSEG::HUFF_DATA),          //
                     cudaMemcpyHostToHost);
 
             auto output_name = ctx->fnames.path_basename + ".cusza";
@@ -509,7 +509,7 @@ void COMPRESSOR::compress(Capsule<T>* in_data)
     time.lossy   = predictor->get_time_elapsed();
     time.outlier = csr->get_time_elapsed();
 
-    dataseg.nbyte.at("outlier") = sp.dump_nbyte;  // do before consolidate
+    dataseg.nbyte.at(cuszSEG::OUTLIER) = sp.dump_nbyte;  // do before consolidate
 
     LOGGING(LOG_INFO, "#outlier = ", ctx->nnz_outlier, StringHelper::nnz_percentage(ctx->nnz_outlier, ctx->data_len));
 
@@ -551,11 +551,11 @@ void COMPRESSOR::try_report_decompression_time()
 COMPR_TYPE
 void COMPRESSOR::unpack_metadata()
 {
-    dataseg.nbyte.at("book")           = header->nbyte.book;
-    dataseg.nbyte.at("revbook")        = header->nbyte.revbook;
-    dataseg.nbyte.at("outlier")        = header->nbyte.outlier;
-    dataseg.nbyte.at("huff-meta")      = header->nbyte.huff_meta;
-    dataseg.nbyte.at("huff-bitstream") = header->nbyte.huff_bitstream;
+    dataseg.nbyte.at(cuszSEG::BOOK)      = header->nbyte.book;
+    dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
+    dataseg.nbyte.at(cuszSEG::OUTLIER)   = header->nbyte.outlier;
+    dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
+    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_bitstream;
 
     /* 0 header */ dataseg.offset.push_back(0);
 
@@ -569,7 +569,7 @@ void COMPRESSOR::unpack_metadata()
 
         if (ctx->verbose) {
             printf(
-                "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", name.c_str(), (size_t)dataseg.nbyte.at(name),
+                "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", dataseg.get_namestr(name).c_str(), (size_t)dataseg.nbyte.at(name),
                 (size_t)dataseg.offset.at(i), (size_t)dataseg.offset.back());
         }
     }
@@ -630,10 +630,10 @@ void COMPRESSOR::decompress()
     // decode(WHERE, FROM_DUMP, dump, offset, output)
 
     reducer->decode(
-        cusz::WHERE::HOST,                                                  //
-        reinterpret_cast<H*>(dump + dataseg.get_offset("huff-bitstream")),  //
-        reinterpret_cast<Mtype*>(dump + dataseg.get_offset("huff-meta")),   //
-        reinterpret_cast<BYTE*>(dump + dataseg.get_offset("revbook")),      //
+        cusz::WHERE::HOST,                                                        //
+        reinterpret_cast<H*>(dump + dataseg.get_offset(cuszSEG::HUFF_DATA)),      //
+        reinterpret_cast<Mtype*>(dump + dataseg.get_offset(cuszSEG::HUFF_META)),  //
+        reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::REVBOOK)),     //
         quant.dptr);
 
     csr->scatter(csr_file.dev, outlier);
