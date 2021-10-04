@@ -38,12 +38,15 @@ enum class cuszSEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, OUTLIER, HUFF_META, H
 class DataSeg {
    public:
     std::unordered_map<cuszSEG, int> name2order = {
-        {cuszSEG::HEADER, 0},   {cuszSEG::BOOK, 1},    {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
-        {cuszSEG::ANCHOR, 0xa}, {cuszSEG::OUTLIER, 4}, {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6}};
+        {cuszSEG::HEADER, 0},  {cuszSEG::BOOK, 1},      {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
+        {cuszSEG::OUTLIER, 4}, {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6},  //
+        {cuszSEG::ANCHOR, 7}};
 
     std::unordered_map<int, cuszSEG> order2name = {
-        {0, cuszSEG::HEADER},   {1, cuszSEG::BOOK},    {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
-        {0xa, cuszSEG::ANCHOR}, {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA}};
+        {0, cuszSEG::HEADER},  {1, cuszSEG::BOOK},      {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
+        {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA},  //
+        {7, cuszSEG::ANCHOR},
+    };
 
     std::unordered_map<cuszSEG, uint32_t> nbyte = {
         {cuszSEG::HEADER, sizeof(cusz_header)},

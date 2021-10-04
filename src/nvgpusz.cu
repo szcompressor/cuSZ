@@ -413,7 +413,7 @@ void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& of
     // https://stackoverflow.com/a/11695246
     setlocale(LC_ALL, "");
 
-    for (auto i = 0; i < 7; i++) {
+    for (auto i = 0; i < 8; i++) {
         const auto& name = dataseg.order2name.at(i);
 
         auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(dataseg.nbyte.at(name));
@@ -453,7 +453,7 @@ COMPRESSOR& COMPRESSOR::consolidate(BYTE** dump_ptr)
         throw std::runtime_error("[COMPRESSOR::consolidate] undefined behavior");
 
     COPY(cuszSEG::HEADER, header);
-    // COPY(cuszSEG::ANCHOR, h_anchor);
+    COPY(cuszSEG::ANCHOR, h_anchor);
     COPY(cuszSEG::REVBOOK, huffman.h_revbook);
     COPY(cuszSEG::OUTLIER, sp.dump);
     COPY(cuszSEG::HUFF_META, huffman.h_counts + ctx->nchunk);
@@ -544,7 +544,7 @@ void COMPRESSOR::unpack_metadata()
 
     if (ctx->verbose) { printf("(verification)"), ReportHelper::print_datasegment_tablehead(), setlocale(LC_ALL, ""); }
 
-    for (auto i = 0; i < 7; i++) {
+    for (auto i = 0; i < 8; i++) {
         const auto& name  = dataseg.order2name.at(i);
         auto        nbyte = dataseg.nbyte.at(name);
         auto        o     = dataseg.offset.back() + __cusz_get_alignable_len<BYTE, 128>(nbyte);
@@ -593,9 +593,6 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::decompress(Capsule<T>* decomp_space)
 {
     quant.set_len(ctx->quant_len).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
-
-    // Capsule<T> decomp_space(mxm + ChunkingTrait<1>::BLOCK);  // TODO ad hoc padding
-    // decomp_space.template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
     auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
 
     using Mtype = typename cusz::HuffmanWork<E, H>::Mtype;
@@ -619,16 +616,6 @@ COMPRESSOR& COMPRESSOR::decompress(Capsule<T>* decomp_space)
     predictor->reconstruct(nullptr, quant.dptr, xdata);
 
     return *this;
-
-    // decomp_space.device2host();
-
-    // time.lossless = reducer->get_time_elapsed();
-    // time.outlier  = csr->get_time_elapsed();
-    // time.lossy    = predictor->get_time_elapsed();
-    // try_report_decompression_time();
-
-    // try_compare_with_origin(decomp_space.hptr);
-    // try_write2disk(decomp_space.hptr);
 }
 
 COMPR_TYPE
