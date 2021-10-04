@@ -66,7 +66,7 @@ class OutlierHandler10 : public OneCallGatherScatter {
     float get_time_elapsed() const { return milliseconds; }
 
     // compression use
-    OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte);
+    OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
 
     void gather(T* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
     {

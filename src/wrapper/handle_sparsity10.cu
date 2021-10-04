@@ -33,9 +33,6 @@ namespace cusz {
 template <typename T>
 OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
-    if (init_workspace_nbyte == nullptr)
-        throw std::runtime_error("[OutlierHandler10::constructor] init_workspace_nbyte must not be null.");
-
     m = Reinterpret1DTo2D::get_square_size(_len);
 
     // TODO merge to configure?
@@ -45,9 +42,7 @@ OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int* init_work
     offset.colidx = sizeof(int) * (m + 1);
     offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
 
-    *init_workspace_nbyte = sizeof(int) * (m + 1) +      // rowptr
-                            sizeof(int) * initial_nnz +  // colidx
-                            sizeof(T) * initial_nnz;     // values
+    if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_init_csr_nbyte<T, int>(_len);
 }
 
 template <typename T>

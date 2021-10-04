@@ -14,6 +14,7 @@
 #ifndef TYPE_TRAITS_HH
 #define TYPE_TRAITS_HH
 
+#include "configs.hh"
 #include "definition.hh"
 #include "types.hh"
 
@@ -75,13 +76,8 @@ template <bool FAST> struct FastLowPrecisionTrait;
 template <> struct FastLowPrecisionTrait<true>  { typedef float  type; };
 template <> struct FastLowPrecisionTrait<false> { typedef double type; };
 
-// sparsity rate is less that 5%
-struct SparseMethodSetup { static const int factor = 20; };
-
 
 #ifdef __CUDACC__
-
-
 #include <driver_types.h>
 
 template <cuszLOC FROM, cuszLOC TO> struct CopyDirection;

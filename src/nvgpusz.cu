@@ -80,10 +80,14 @@ COMPRESSOR::Compressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump) : ctx(_ctx), in_d
 
     xyz = dim3(header->x, header->y, header->z);
 
-    csr           = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
-    csr_file.host = reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::OUTLIER));
-    cudaMalloc((void**)&csr_file.dev, csr->get_total_nbyte());
-    cudaMemcpy(csr_file.dev, csr_file.host, csr->get_total_nbyte(), cudaMemcpyHostToDevice);
+    csr = new cusz::OutlierHandler10<T>(ctx->data_len, ctx->nnz_outlier);
+
+    sp_use  //
+        .set_len(csr->get_total_nbyte())
+        .from_existing_on<cuszLOC::HOST>(  //
+            reinterpret_cast<BYTE*>(dump + dataseg.get_offset(cuszSEG::OUTLIER)))
+        .alloc<cuszDEV::DEV, cuszLOC::DEVICE>()
+        .host2device();
 
     predictor = new cusz::PredictorLorenzo<T, E, FP>(xyz, ctx->eb, ctx->radius, false);
 
@@ -107,10 +111,12 @@ COMPRESSOR::Compressor(cuszCTX* _ctx, Capsule<T>* _in_data) : ctx(_ctx), in_data
 
     if (ctx->on_off.autotune_huffchunk) ctx->huffman_chunk = tune_deflate_chunksize(ctx->data_len);
 
-    csr = new cusz::OutlierHandler10<T>(ctx->data_len, &sp.workspace_nbyte);
-    // can be known on Compressor init
-    cudaMalloc((void**)&sp.workspace, sp.workspace_nbyte);
-    cudaMallocHost((void**)&sp.dump, sp.workspace_nbyte);
+    csr = new cusz::OutlierHandler10<T>(ctx->data_len);
+
+    sp_use
+        .set_len(  //
+            SparseMethodSetup::get_init_csr_nbyte<T, int>(ctx->data_len))
+        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
     xyz = dim3(ctx->x, ctx->y, ctx->z);
 
@@ -126,21 +132,19 @@ COMPR_TYPE
 COMPRESSOR::~Compressor()
 {
     if (timing == cuszWHEN::COMPRESS) {  // release small-size arrays
-        cudaFree(huffman.d_counts);
-        cudaFree(huffman.d_bitstream);
 
-        cudaFreeHost(huffman.h_bitstream);
-        cudaFreeHost(huffman.h_counts);
+        huff_data.template free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        huff_counts.template free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        sp_use.template free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        quant.template free<cuszDEV::DEV, cuszLOC::DEVICE>();
+        freq.template free<cuszDEV::DEV, cuszLOC::DEVICE>();
+        book.template free<cuszDEV::DEV, cuszLOC::DEVICE>();
+        revbook.template free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
-        cudaFree(sp.workspace);
-        cudaFreeHost(sp.dump);
-
-        cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
-        cudaFreeHost(revbook.hptr);
         delete header;
     }
     else {
-        cudaFree(csr_file.dev);
+        cudaFree(sp_use.dptr);
     }
 
     delete csr;
@@ -347,45 +351,40 @@ COMPRESSOR& COMPRESSOR::huffman_encode(
     ctx->nchunk = ConfigHelper::get_npart(in_len, chunk_size);
     auto nchunk = ctx->nchunk;
 
-    auto& h_counts = huffman.h_counts;
-    auto& d_counts = huffman.d_counts;
-
-    auto& h_bitstream = huffman.h_bitstream;
-    auto& d_bitstream = huffman.d_bitstream;
-
     // arguments above
 
     cudaMalloc(&tmp_space, sizeof(H) * (in_len + chunk_size + HuffmanHelper::BLOCK_DIM_ENCODE));
 
     // gather metadata (without write) before gathering huff as sp on GPU
-    cudaMallocHost(&h_counts, nchunk * 3 * sizeof(size_t));
-    cudaMalloc(&d_counts, nchunk * 3 * sizeof(size_t));
+    huff_counts  //
+        .set_len(nchunk * 3)
+        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
-    auto d_bits    = d_counts;
-    auto d_uints   = d_counts + nchunk;
-    auto d_entries = d_counts + nchunk * 2;
+    auto d_bits    = huff_counts.dptr;
+    auto d_uints   = huff_counts.dptr + nchunk;
+    auto d_entries = huff_counts.dptr + nchunk * 2;
 
     lossless::HuffmanEncode<E, H, false>(
-        tmp_space, d_bits, d_uints, d_entries, h_counts,
+        tmp_space, d_bits, d_uints, d_entries, huff_counts.hptr,
         //
         nullptr,
         //
         quant->dptr, book->dptr, in_len, chunk_size, dict_size, &num_bits, &num_uints, time.lossless);
 
     // --------------------------------------------------------------------------------
-    cudaMallocHost(&h_bitstream, num_uints * sizeof(H));
-    cudaMalloc(&d_bitstream, num_uints * sizeof(H));
+    huff_data  //
+        .set_len(num_uints)
+        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
     lossless::HuffmanEncode<E, H, true>(
         tmp_space, nullptr, d_uints, d_entries, nullptr,
         //
-        d_bitstream,
+        huff_data.dptr,
         //
         nullptr, nullptr, in_len, chunk_size, 0, nullptr, nullptr, time.lossless);
 
     // --------------------------------------------------------------------------------
-    // TODO change to `device2host()`
-    cudaMemcpy(h_bitstream, d_bitstream, num_uints * sizeof(H), cudaMemcpyDeviceToHost);
+    huff_data.device2host();
 
     // TODO size_t -> MetadataT
     dataseg.nbyte.at(cuszSEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
@@ -453,11 +452,11 @@ COMPRESSOR& COMPRESSOR::consolidate(BYTE** dump_ptr)
         throw std::runtime_error("[COMPRESSOR::consolidate] undefined behavior");
 
     COPY(cuszSEG::HEADER, header);
-    COPY(cuszSEG::ANCHOR, h_anchor);
-    COPY(cuszSEG::REVBOOK, huffman.h_revbook);
-    COPY(cuszSEG::OUTLIER, sp.dump);
-    COPY(cuszSEG::HUFF_META, huffman.h_counts + ctx->nchunk);
-    COPY(cuszSEG::HUFF_DATA, huffman.h_bitstream);
+    COPY(cuszSEG::ANCHOR, anchor.template get<FROM>());
+    COPY(cuszSEG::REVBOOK, revbook.template get<FROM>());
+    COPY(cuszSEG::OUTLIER, sp_use.template get<FROM>());
+    COPY(cuszSEG::HUFF_META, huff_counts.template get<FROM>() + ctx->nchunk);
+    COPY(cuszSEG::HUFF_DATA, huff_data.template get<FROM>());
 
     return *this;
 }
@@ -488,18 +487,18 @@ COMPRESSOR& COMPRESSOR::compress()
     quant.set_len(ctx->quant_len).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
     freq.set_len(ctx->dict_size).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
     book.set_len(ctx->dict_size).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
-    revbook.set_len(HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size))
+    revbook
+        .set_len(  //
+            HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size))
         .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
-    huffman.h_revbook = revbook.hptr;
-
     predictor->construct(in_data->dptr, nullptr, quant.dptr);
-    csr->gather(in_data->dptr, sp.workspace, sp.dump, sp.dump_nbyte, ctx->nnz_outlier);
+    csr->gather(in_data->dptr, sp_use.dptr, sp_use.hptr, sp_dump_nbyte, ctx->nnz_outlier);
 
     time.lossy   = predictor->get_time_elapsed();
     time.outlier = csr->get_time_elapsed();
 
-    dataseg.nbyte.at(cuszSEG::OUTLIER) = sp.dump_nbyte;  // do before consolidate
+    dataseg.nbyte.at(cuszSEG::OUTLIER) = sp_dump_nbyte;  // do before consolidate
 
     LOGGING(LOG_INFO, "#outlier = ", ctx->nnz_outlier, StringHelper::nnz_percentage(ctx->nnz_outlier, ctx->data_len));
 
@@ -612,7 +611,7 @@ COMPRESSOR& COMPRESSOR::decompress(Capsule<T>* decomp_space)
         reinterpret_cast<BYTE*>(in_dump->hptr + dataseg.get_offset(cuszSEG::REVBOOK)),     //
         quant.dptr);
 
-    csr->scatter(csr_file.dev, outlier);
+    csr->scatter(sp_use.dptr, outlier);
     predictor->reconstruct(nullptr, quant.dptr, xdata);
 
     return *this;

@@ -81,20 +81,7 @@ class Compressor {
     struct { float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
     // clang-format on
 
-    struct {
-        BYTE*   h_revbook;
-        size_t *h_counts, *d_counts;
-        H *     h_bitstream, *d_bitstream;
-    } huffman;
-
-    T *h_anchor, *d_anchor;
-
-    struct {
-        unsigned int workspace_nbyte;
-        uint32_t     dump_nbyte;
-        uint8_t*     workspace;
-        uint8_t*     dump;
-    } sp;
+    uint32_t sp_dump_nbyte;
 
     // worker
     cusz::PredictorLorenzo<T, E, FP>* predictor;
@@ -102,31 +89,32 @@ class Compressor {
     cusz::HuffmanWork<E, H>*          reducer;
 
     // data fields
+    Capsule<T>          anchor;
     Capsule<E>          quant;
     Capsule<cusz::FREQ> freq;
     Capsule<H>          book;
+    Capsule<H>          huff_data;
+    Capsule<size_t>     huff_counts;
     Capsule<BYTE>       revbook;
+    Capsule<BYTE>       sp_use;
 
     cuszCTX*     ctx;
     cusz_header* header;
 
     Capsule<T>*    in_data;  // compress-time, TODO rename
     Capsule<BYTE>* in_dump;  // decompress-time, TODO rename
-    // BYTE*          dump;
 
     cuszWHEN timing;
 
+    // TODO MetadataT
     size_t cusza_nbyte;
     size_t m, mxm;
 
-    struct {
-        uint8_t *host, *dev;
-    } csr_file;
-
     dim3 xyz;
 
-    unsigned int tune_deflate_chunksize(size_t len);
-    void         report_compression_time();
+    uint32_t tune_deflate_chunksize(size_t len);
+
+    void report_compression_time();
 
     void lorenzo_dryrun(Capsule<T>* in_data);
 
