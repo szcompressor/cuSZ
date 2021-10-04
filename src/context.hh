@@ -43,7 +43,7 @@ class cuszCTX {
     struct { bool quality{true}, time{false}, cr{false}, compressibility{false}, dataseg{false}; } report;
 
     // filenames
-    struct { string path2file, origin_cmp, path_basename, basename; } fnames;
+    struct { string path2file, origin_cmp, path_basename, basename, compress_output; } fnames;
     // clang-format on
 
     bool verbose{false};

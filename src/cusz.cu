@@ -82,19 +82,24 @@ void normal_path_lorenzo(cuszCTX* ctx)
         if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
         LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
 
+        Capsule<BYTE> out_dump;
+
         if (ctx->huff_nbyte == 4) {
             Compressor<T, E, HuffTrait<4>::type, P> cuszc(ctx, &in_data);
-            cuszc.compress();
+            cuszc.compress().consolidate<cuszLOC::HOST, cuszLOC::HOST>(&out_dump.get<cuszLOC::HOST>());
+            cout << "output:\t" << ctx->fnames.compress_output << '\n';
+            out_dump.to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output).free<cuszDEV::DEV, cuszLOC::HOST>();
         }
         else if (ctx->huff_nbyte == 8) {
             Compressor<T, E, HuffTrait<8>::type, P> cuszc(ctx, &in_data);
-            cuszc.compress();
+            cuszc.compress().consolidate<cuszLOC::HOST, cuszLOC::HOST>(&out_dump.get<cuszLOC::HOST>());
+            cout << "output:\t" << ctx->fnames.compress_output << '\n';
+            out_dump.to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output).free<cuszDEV::DEV, cuszLOC::HOST>();
         }
         else {
             throw std::runtime_error("huff nbyte illegal");
         }
 
-        // release memory
         in_data.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
     }
 
@@ -104,18 +109,30 @@ void normal_path_lorenzo(cuszCTX* ctx)
         auto cusza_nbyte = ConfigHelper::get_filesize(fname_dump);
 
         Capsule<BYTE> in_dump(cusza_nbyte);
-        in_dump
-            .alloc<cuszDEV::DEV, cuszLOC::HOST>()  //
-            .from_fs_to<cuszLOC::HOST>(fname_dump);
+        in_dump.alloc<cuszDEV::DEV, cuszLOC::HOST>().from_fs_to<cuszLOC::HOST>(fname_dump);
 
-        // TODO data ready outside Decompressor?
+        Capsule<T> out_xdata;
+
+        // TODO try_writeback vs out_xdata.to_fs_from()
         if (ctx->huff_nbyte == 4) {
-            Compressor<T, E, HuffTrait<4>::type, P> cuszd(ctx, &in_dump);  // TODO v0 -> v1
-            cuszd.decompress();
+            Compressor<T, E, HuffTrait<4>::type, P> cuszd(ctx, &in_dump);
+            out_xdata  //
+                .set_len(cuszd.get_decompress_space_len())
+                .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+            cuszd  //
+                .decompress(&out_xdata)
+                .backmatter(&out_xdata);
+            out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
         }
         else if (ctx->huff_nbyte == 8) {
-            Compressor<T, E, HuffTrait<8>::type, P> cuszd(ctx, &in_dump);  // TODO v0 -> v1
-            cuszd.decompress();
+            Compressor<T, E, HuffTrait<8>::type, P> cuszd(ctx, &in_dump);
+            out_xdata  //
+                .set_len(cuszd.get_decompress_space_len())
+                .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+            cuszd  //
+                .decompress(&out_xdata)
+                .backmatter(&out_xdata);
+            out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
         }
     }
 }

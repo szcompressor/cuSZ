@@ -489,7 +489,6 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
     config_map_t opts;
     StrHelper::parse_strlist_as_kv(config_str, opts);
 
-
     for (auto kv : opts) {
         auto  k = kv.first;
         auto  v = kv.second;
@@ -538,5 +537,6 @@ void cuszCTX::sort_out_fnames()
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";
 
-    fnames.path_basename = opath + fnames.basename;
+    fnames.path_basename   = opath + fnames.basename;
+    fnames.compress_output = fnames.path_basename + ".cusza";
 }

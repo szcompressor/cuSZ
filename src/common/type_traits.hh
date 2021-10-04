@@ -78,6 +78,20 @@ template <> struct FastLowPrecisionTrait<false> { typedef double type; };
 // sparsity rate is less that 5%
 struct SparseMethodSetup { static const int factor = 20; };
 
+
+#ifdef __CUDACC__
+
+
+#include <driver_types.h>
+
+template <cuszLOC FROM, cuszLOC TO> struct CopyDirection;
+template <> struct CopyDirection<cuszLOC::HOST,   cuszLOC::HOST>   { static const cudaMemcpyKind direction = cudaMemcpyHostToHost;     };
+template <> struct CopyDirection<cuszLOC::HOST,   cuszLOC::DEVICE> { static const cudaMemcpyKind direction = cudaMemcpyHostToDevice;   };
+template <> struct CopyDirection<cuszLOC::DEVICE, cuszLOC::HOST>   { static const cudaMemcpyKind direction = cudaMemcpyDeviceToHost;   };
+template <> struct CopyDirection<cuszLOC::DEVICE, cuszLOC::DEVICE> { static const cudaMemcpyKind direction = cudaMemcpyDeviceToDevice; };
+
+#endif
+
 // clang-format on
 
 #endif

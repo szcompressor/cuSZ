@@ -24,6 +24,7 @@
 
 #include "analysis/analyzer.hh"
 #include "common.hh"
+#include "common/capsule.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "kernel/lorenzo.cuh"
@@ -41,8 +42,27 @@ using std::string;
 #define COMPR_TYPE template <typename T, typename E, typename H, typename FP>
 #define COMPRESSOR Compressor<T, E, H, FP>
 
-//// constructor
-////////////////////////////////////////////////////////////////////////////////
+namespace {
+
+void header_nbyte_from_dataseg(cuszHEADER* header, DataSeg& dataseg)
+{
+    header->nbyte.book           = dataseg.nbyte.at(cuszSEG::BOOK);
+    header->nbyte.revbook        = dataseg.nbyte.at(cuszSEG::REVBOOK);
+    header->nbyte.outlier        = dataseg.nbyte.at(cuszSEG::OUTLIER);
+    header->nbyte.huff_meta      = dataseg.nbyte.at(cuszSEG::HUFF_META);
+    header->nbyte.huff_bitstream = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
+}
+
+void dataseg_nbyte_from_header(cuszHEADER* header, DataSeg& dataseg)
+{
+    dataseg.nbyte.at(cuszSEG::BOOK)      = header->nbyte.book;
+    dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
+    dataseg.nbyte.at(cuszSEG::OUTLIER)   = header->nbyte.outlier;
+    dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
+    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_bitstream;
+}
+
+}  // namespace
 
 // v0
 COMPR_TYPE
@@ -114,6 +134,10 @@ COMPRESSOR::~Compressor()
 
         cudaFree(sp.workspace);
         cudaFreeHost(sp.dump);
+
+        cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
+        cudaFreeHost(revbook.hptr);
+        delete header;
     }
     else {
         cudaFree(csr_file.dev);
@@ -376,22 +400,12 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::pack_metadata()
 {
     ConfigHelper::deep_copy_config_items(/* dst */ header, /* src */ ctx);
+    header_nbyte_from_dataseg(header, dataseg);
     return *this;
 }
 
-COMPR_TYPE
-void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
+void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& offsets)
 {
-    // put in header
-    header->nbyte.book           = dataseg.nbyte.at(cuszSEG::BOOK);
-    header->nbyte.revbook        = dataseg.nbyte.at(cuszSEG::REVBOOK);
-    header->nbyte.outlier        = dataseg.nbyte.at(cuszSEG::OUTLIER);
-    header->nbyte.huff_meta      = dataseg.nbyte.at(cuszSEG::HUFF_META);
-    header->nbyte.huff_bitstream = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
-
-    // consolidate
-    std::vector<uint32_t> offsets = {0};
-
     ReportHelper::print_datasegment_tablehead();
 
     // print long numbers with thousand separator
@@ -409,59 +423,43 @@ void COMPRESSOR::consolidate(bool on_cpu, bool on_gpu)
             "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", dataseg.get_namestr(name).c_str(),  //
             (size_t)dataseg.nbyte.at(name), (size_t)offsets.at(i), (size_t)offsets.back());
     }
+}
 
-    auto total_nbyte = offsets.back();
-
-    printf("\ncompression ratio:\t%.4f\n", ctx->data_len * sizeof(T) * 1.0 / total_nbyte);
-
-    BYTE* h_dump = nullptr;
-    // BYTE* d_dump = nullptr;
-
-    cout << "dump on CPU\t" << on_cpu << '\n';
-    cout << "dump on GPU\t" << on_gpu << '\n';
-
-    auto both = on_cpu and on_gpu;
+COMPR_TYPE
+template <cuszLOC FROM, cuszLOC TO>
+COMPRESSOR& COMPRESSOR::consolidate(BYTE** dump_ptr)
+{
+    constexpr auto        DIRECTION = CopyDirection<FROM, TO>::direction;
+    std::vector<uint32_t> offsets   = {0};
 
     auto REINTERP = [](auto* ptr) { return reinterpret_cast<BYTE*>(ptr); };
+    auto ADDR     = [&](int seg_id) { return *dump_ptr + offsets.at(seg_id); };
+    auto COPY     = [&](cuszSEG seg, auto src) {
+        auto dst      = ADDR(dataseg.name2order.at(seg));
+        auto src_byte = REINTERP(src);
+        auto len      = dataseg.nbyte.at(seg);
+        if (len != 0) cudaMemcpy(dst, src_byte, len, DIRECTION);
+    };
 
-    if (both) {
-        //
-        throw runtime_error("[consolidate on both] not implemented");
-    }
-    else {
-        if (on_cpu) {
-            //
-            cudaMallocHost(&h_dump, total_nbyte);
-            auto           ADDR      = [&](int seg_id) { return h_dump + offsets.at(seg_id); };
-            constexpr auto Host2Host = cudaMemcpyHostToHost;
+    compress_time_conslidate_report(dataseg, offsets);
+    auto total_nbyte = offsets.back();
+    printf("\ncompression ratio:\t%.4f\n", ctx->data_len * sizeof(T) * 1.0 / total_nbyte);
 
-            /* 0 */  // header
-            cudaMemcpy(ADDR(0), REINTERP(header), dataseg.nbyte.at(cuszSEG::HEADER), Host2Host);
-            /* 1 */                                              // book
-            /* 2 */                                              // quant
-            if (dataseg.nbyte.at(cuszSEG::ANCHOR) != 0) /* a */  // anchor
-                cudaMemcpy(ADDR(0xa), REINTERP(h_anchor), dataseg.nbyte.at(cuszSEG::ANCHOR), Host2Host);
-            if (dataseg.nbyte.at(cuszSEG::REVBOOK) != 0) /* 3 */  // revbook
-                cudaMemcpy(ADDR(3), REINTERP(huffman.h_revbook), dataseg.nbyte.at(cuszSEG::REVBOOK), Host2Host);
-            if (dataseg.nbyte.at(cuszSEG::OUTLIER) != 0) /* 4 */  // outlier
-                cudaMemcpy(ADDR(4), REINTERP(sp.dump), dataseg.nbyte.at(cuszSEG::OUTLIER), Host2Host);
-            auto meta_addr = huffman.h_counts + ctx->nchunk;
-            if (dataseg.nbyte.at(cuszSEG::HUFF_META) != 0) /* 5 */  // huff_meta
-                cudaMemcpy(ADDR(5), REINTERP(meta_addr), dataseg.nbyte.at(cuszSEG::HUFF_META), Host2Host);
-            if (dataseg.nbyte.at(cuszSEG::HUFF_DATA) != 0) /* 6 */  // huff_bitstream
-                cudaMemcpy(ADDR(6), REINTERP(huffman.h_bitstream), dataseg.nbyte.at(cuszSEG::HUFF_DATA), Host2Host);
+    if CONSTEXPR (TO == cuszLOC::HOST)
+        cudaMallocHost(dump_ptr, total_nbyte);
+    else if (TO == cuszLOC::DEVICE)
+        cudaMalloc(dump_ptr, total_nbyte);
+    else
+        throw std::runtime_error("[COMPRESSOR::consolidate] undefined behavior");
 
-            auto output_name = ctx->fnames.path_basename + ".cusza";
-            cout << "output:\t" << output_name << '\n';
+    COPY(cuszSEG::HEADER, header);
+    // COPY(cuszSEG::ANCHOR, h_anchor);
+    COPY(cuszSEG::REVBOOK, huffman.h_revbook);
+    COPY(cuszSEG::OUTLIER, sp.dump);
+    COPY(cuszSEG::HUFF_META, huffman.h_counts + ctx->nchunk);
+    COPY(cuszSEG::HUFF_DATA, huffman.h_bitstream);
 
-            io::write_array_to_binary(output_name, h_dump, total_nbyte);
-
-            cudaFreeHost(h_dump);
-        }
-        else {
-            throw runtime_error("[consolidate on both] not implemented");
-        }
-    }
+    return *this;
 }
 
 COMPR_TYPE
@@ -483,20 +481,15 @@ void COMPRESSOR::prescan()
 }
 
 COMPR_TYPE
-// void COMPRESSOR::compress(Capsule<T>* in_data)
-void COMPRESSOR::compress()
+COMPRESSOR& COMPRESSOR::compress()
 {
     lorenzo_dryrun(in_data);  // subject to change
 
-    Capsule<E>        quant(ctx->quant_len);
-    Capsule<uint32_t> freq(ctx->dict_size);
-    Capsule<H>        book(ctx->dict_size);
-    Capsule<uint8_t>  revbook(HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size));
-    cudaMalloc(&quant.dptr, quant.nbyte());
-    cudaMalloc(&freq.dptr, freq.nbyte());
-    cudaMalloc(&book.dptr, book.nbyte()), book.memset(0xff);
-    cudaMalloc(&revbook.dptr, revbook.nbyte());
-    cudaMallocHost(&revbook.hptr, revbook.nbyte());  // to write to disk later
+    quant.set_len(ctx->quant_len).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
+    freq.set_len(ctx->dict_size).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
+    book.set_len(ctx->dict_size).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
+    revbook.set_len(HuffmanHelper::get_revbook_nbyte<E, H>(ctx->dict_size))
+        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
     huffman.h_revbook = revbook.hptr;
 
@@ -518,12 +511,9 @@ void COMPRESSOR::compress()
     this->get_freq_and_codebook(&quant, &freq, &book, &revbook)
         .huffman_encode(&quant, &book)
         .try_report_time()
-        .pack_metadata()
-        .consolidate();
+        .pack_metadata();
 
-    cudaFree(quant.dptr), cudaFree(freq.dptr), cudaFree(book.dptr), cudaFree(revbook.dptr);
-    cudaFreeHost(revbook.hptr);
-    delete header;
+    return *this;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -548,11 +538,7 @@ void COMPRESSOR::try_report_decompression_time()
 COMPR_TYPE
 void COMPRESSOR::unpack_metadata()
 {
-    dataseg.nbyte.at(cuszSEG::BOOK)      = header->nbyte.book;
-    dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
-    dataseg.nbyte.at(cuszSEG::OUTLIER)   = header->nbyte.outlier;
-    dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
-    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_bitstream;
+    dataseg_nbyte_from_header(header, dataseg);
 
     /* 0 header */ dataseg.offset.push_back(0);
 
@@ -604,17 +590,13 @@ void COMPRESSOR::try_write2disk(T* host_xdata)
 }
 
 COMPR_TYPE
-void COMPRESSOR::decompress()
+COMPRESSOR& COMPRESSOR::decompress(Capsule<T>* decomp_space)
 {
-    Capsule<E> quant(ctx->quant_len);
-    // quant.alloc<cuszDEV::DEV, cuszLOC::DEVICE>(); // does not work????
-    cudaMalloc(&quant.dptr, quant.nbyte());
+    quant.set_len(ctx->quant_len).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
 
-    Capsule<T> decomp_space(mxm + ChunkingTrait<1>::BLOCK);  // TODO ad hoc padding
-    // decomp_space.alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>(); // does not work???
-    cudaMalloc(&decomp_space.dptr, decomp_space.nbyte());
-    cudaMallocHost(&decomp_space.hptr, decomp_space.nbyte());
-    auto xdata = decomp_space.dptr, outlier = decomp_space.dptr;
+    // Capsule<T> decomp_space(mxm + ChunkingTrait<1>::BLOCK);  // TODO ad hoc padding
+    // decomp_space.template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+    auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
 
     using Mtype = typename cusz::HuffmanWork<E, H>::Mtype;
 
@@ -636,19 +618,53 @@ void COMPRESSOR::decompress()
     csr->scatter(csr_file.dev, outlier);
     predictor->reconstruct(nullptr, quant.dptr, xdata);
 
+    return *this;
+
+    // decomp_space.device2host();
+
+    // time.lossless = reducer->get_time_elapsed();
+    // time.outlier  = csr->get_time_elapsed();
+    // time.lossy    = predictor->get_time_elapsed();
+    // try_report_decompression_time();
+
+    // try_compare_with_origin(decomp_space.hptr);
+    // try_write2disk(decomp_space.hptr);
+}
+
+COMPR_TYPE
+COMPRESSOR& COMPRESSOR::backmatter(Capsule<T>* decomp_space)
+{
+    decomp_space->device2host();
+
     time.lossless = reducer->get_time_elapsed();
     time.outlier  = csr->get_time_elapsed();
     time.lossy    = predictor->get_time_elapsed();
-
     try_report_decompression_time();
 
-    decomp_space.device2host();
+    try_compare_with_origin(decomp_space->hptr);
+    try_write2disk(decomp_space->hptr);
 
-    try_compare_with_origin(decomp_space.hptr);
-    try_write2disk(decomp_space.hptr);
+    return *this;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template class Compressor<float, ErrCtrlTrait<2>::type, HuffTrait<4>::type, FastLowPrecisionTrait<true>::type>;
-template class Compressor<float, ErrCtrlTrait<2>::type, HuffTrait<8>::type, FastLowPrecisionTrait<true>::type>;
+#define Compressor424fast \
+    Compressor<float, ErrCtrlTrait<2>::type, HuffTrait<4>::type, FastLowPrecisionTrait<true>::type>
+
+template class Compressor424fast;
+
+template Compressor424fast& Compressor424fast::consolidate<cuszLOC::HOST, cuszLOC::HOST>(BYTE**);
+template Compressor424fast& Compressor424fast::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(BYTE**);
+template Compressor424fast& Compressor424fast::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(BYTE**);
+template Compressor424fast& Compressor424fast::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(BYTE**);
+
+#define Compressor428fast \
+    Compressor<float, ErrCtrlTrait<2>::type, HuffTrait<8>::type, FastLowPrecisionTrait<true>::type>
+
+template class Compressor428fast;
+
+template Compressor428fast& Compressor428fast::consolidate<cuszLOC::HOST, cuszLOC::HOST>(BYTE**);
+template Compressor428fast& Compressor428fast::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(BYTE**);
+template Compressor428fast& Compressor428fast::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(BYTE**);
+template Compressor428fast& Compressor428fast::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(BYTE**);

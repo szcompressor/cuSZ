@@ -37,6 +37,28 @@ class Capsule {
     T* dptr;
     T* hptr;
 
+    template <cuszLOC LOC>
+    T*& get()
+    {
+        if CONSTEXPR (LOC == cuszLOC::HOST)
+            return hptr;
+        else if (LOC == cuszLOC::DEVICE)
+            return dptr;
+        else
+            throw std::runtime_error("[Capsule::get] undefined behavior");
+    }
+
+    template <cuszLOC LOC>
+    T* set(T* ptr)
+    {
+        if CONSTEXPR (LOC == cuszLOC::HOST)
+            hptr = ptr;
+        else if (LOC == cuszLOC::DEVICE)
+            dptr = ptr;
+        else
+            throw std::runtime_error("[Capsule::set] undefined behavior");
+    }
+
     Capsule() = default;
 
     Capsule(unsigned int _len) : len(_len) {}

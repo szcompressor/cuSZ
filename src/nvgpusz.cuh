@@ -93,9 +93,16 @@ class Compressor {
         uint8_t*     dump;
     } sp;
 
+    // worker
     cusz::PredictorLorenzo<T, E, FP>* predictor;
     cusz::OutlierHandler10<T>*        csr;
     cusz::HuffmanWork<E, H>*          reducer;
+
+    // data fields
+    Capsule<E>          quant;
+    Capsule<cusz::FREQ> freq;
+    Capsule<H>          book;
+    Capsule<BYTE>       revbook;
 
     cuszCTX*     ctx;
     cusz_header* header;
@@ -117,8 +124,6 @@ class Compressor {
 
     unsigned int tune_deflate_chunksize(size_t len);
     void         report_compression_time();
-
-    void consolidate(bool on_cpu = true, bool on_gpu = false);
 
     void lorenzo_dryrun(Capsule<T>* in_data);
 
@@ -152,21 +157,23 @@ class Compressor {
     void prescan();
 
    public:
+    uint32_t get_decompress_space_len() { return mxm + ChunkingTrait<1>::BLOCK; }
+
+   public:
+    Compressor(cuszCTX* _ctx, Capsule<T>* _in_data);
+
+    Compressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump);  // TODO excl. T == BYTE
+
     ~Compressor();
 
-    // v0; decompress-time in use
-    Compressor(cuszCTX* _ctx, cuszWHEN _timing);
-    // v0
-    // void compress(Capsule<T>* in_data);
+    template <cuszLOC SRC, cuszLOC DST>
+    Compressor& consolidate(BYTE** dump);
 
-    // v1
-    Compressor(cuszCTX* _ctx, Capsule<T>* _in_data);  // okay
-    // v1
-    Compressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump);  // TODO excl. T == BYTE
-    // v1
-    void compress();
+    Compressor& compress();
 
-    void decompress();
+    Compressor& decompress(Capsule<T>* out_xdata);
+
+    Compressor& backmatter(Capsule<T>* out_xdata);
 };
 
 #endif
