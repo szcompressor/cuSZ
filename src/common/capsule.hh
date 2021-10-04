@@ -137,7 +137,8 @@ class Capsule {
             // (VIA == cuszLOC::NONE)
         }
         else if (DST == cuszLOC::UNIFIED) {
-            throw std::runtime_error("[Capsule::from_fs_to] to UNIFIED not implemented");
+            if (not uniptr) throw std::runtime_error("[Capsule::from_fs_to] uniptr not set");
+            io::read_binary_to_array<T>(fname, uniptr, len);
         }
         else {
             throw std::runtime_error("[Capsule::from_fs_to] undefined behavior");
@@ -155,6 +156,10 @@ class Capsule {
         if (SRC == cuszLOC::HOST) {
             if (not hptr) throw std::runtime_error("[Capsule::to_fs_from] hptr not set");
             io::write_array_to_binary<T>(fname, hptr, len);
+        }
+        else if (SRC == cuszLOC::UNIFIED) {
+            if (not uniptr) throw std::runtime_error("[Capsule::from_fs_to] uniptr not set");
+            io::write_array_to_binary<T>(fname, uniptr, len);
         }
         else {
             throw std::runtime_error("[Capsule::to_fs_from] undefined behavior");
