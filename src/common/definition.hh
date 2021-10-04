@@ -14,7 +14,7 @@
 
 enum class cuszTASK { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 enum class cuszDEV { TEST, DEV, RELEASE };
-enum class cuszLOC { HOST, DEVICE, HOST_DEVICE, FS, NONE, __BUFFER };
+enum class cuszLOC { HOST, DEVICE, HOST_DEVICE, UNIFIED, FS, NONE, __BUFFER };
 enum class cuszWHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 
 namespace cusz {
@@ -23,15 +23,19 @@ enum class method { native, thrust };
 
 struct OK {
     template <cuszDEV m>
-    static constexpr bool ALLOC()
+    static void ALLOC()
     {
-        return m == cuszDEV::TEST or m == cuszDEV::DEV;
+        static_assert(
+            m == cuszDEV::TEST or m == cuszDEV::DEV,  //
+            "muse be cuszDEV::TEST or cuszDEV::DEV; use with caution");
     }
 
     template <cuszDEV m>
-    static constexpr bool FREE()
+    static void FREE()
     {
-        return m == cuszDEV::TEST or m == cuszDEV::DEV;
+        static_assert(
+            m == cuszDEV::TEST or m == cuszDEV::DEV,  //
+            "muse be cuszDEV::TEST or cuszDEV::DEV; use with caution");
     }
 };
 

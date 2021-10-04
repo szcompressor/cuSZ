@@ -21,29 +21,47 @@
 #endif
 
 #include <cuda_runtime.h>
+#include <driver_types.h>
+
 #include <stdexcept>
 
 #include "../utils/io.hh"
+#include "../utils/timer.hh"
 #include "definition.hh"
 
 using cusz::OK;
 
-template <typename T>
+template <typename T, bool USE_UNIFIED = false>
 class Capsule {
+   private:
+    template <cuszLOC LOC>
+    void raise_error_if_misuse_unified()
+    {
+        static_assert(
+            (LOC == cuszLOC::UNIFIED and USE_UNIFIED == true)           //
+                or (LOC != cuszLOC::UNIFIED and USE_UNIFIED == false),  //
+            "[Capsule] misused unified memory API");
+    }
+
    public:
     using type = T;
     unsigned int len;
 
     T* dptr;
     T* hptr;
+    T* uniptr;
 
     template <cuszLOC LOC>
     T*& get()
     {
+        raise_error_if_misuse_unified<LOC>();
+
         if CONSTEXPR (LOC == cuszLOC::HOST)
             return hptr;
         else if (LOC == cuszLOC::DEVICE)
             return dptr;
+        else if (LOC == cuszLOC::UNIFIED)
+            return uniptr;
         else
             throw std::runtime_error("[Capsule::get] undefined behavior");
     }
@@ -51,10 +69,14 @@ class Capsule {
     template <cuszLOC LOC>
     T* set(T* ptr)
     {
+        raise_error_if_misuse_unified<LOC>();
+
         if CONSTEXPR (LOC == cuszLOC::HOST)
             hptr = ptr;
         else if (LOC == cuszLOC::DEVICE)
             dptr = ptr;
+        else if (LOC == cuszLOC::UNIFIED)  // rare
+            uniptr = ptr;
         else
             throw std::runtime_error("[Capsule::set] undefined behavior");
     }
@@ -74,10 +96,14 @@ class Capsule {
     template <cuszLOC LOC>
     Capsule& from_existing_on(T* in)
     {
+        raise_error_if_misuse_unified<LOC>();
+
         if (LOC == cuszLOC::HOST)
             hptr = in;
         else if (LOC == cuszLOC::DEVICE)
             dptr = in;
+        else if (LOC == cuszLOC::UNIFIED)
+            uniptr = in;
         else
             throw std::runtime_error("[Capsule::from_existing_on] undefined behavior");
 
@@ -109,6 +135,9 @@ class Capsule {
             throw std::runtime_error("[Capsule::from_fs_to] to DEVICE not implemented");
             // (VIA == cuszLOC::HOST)
             // (VIA == cuszLOC::NONE)
+        }
+        else if (DST == cuszLOC::UNIFIED) {
+            throw std::runtime_error("[Capsule::from_fs_to] to UNIFIED not implemented");
         }
         else {
             throw std::runtime_error("[Capsule::from_fs_to] undefined behavior");
@@ -157,7 +186,8 @@ class Capsule {
     template <cuszDEV M, cuszLOC LOC>
     Capsule& alloc()
     {
-        if (not OK::ALLOC<M>()) throw std::runtime_error("only cuszDEV::TEST or cuszDEV::DEV");
+        OK::ALLOC<M>();
+        raise_error_if_misuse_unified<LOC>();
 
         if (LOC == cuszLOC::HOST) {
             cudaMallocHost(&hptr, nbyte());
@@ -173,6 +203,10 @@ class Capsule {
             cudaMalloc(&dptr, nbyte());
             cudaMemset(dptr, 0x00, nbyte());
         }
+        else if (LOC == cuszLOC::UNIFIED) {
+            cudaMallocManaged(&uniptr, nbyte());
+            cudaMemset(uniptr, 0x00, nbyte());
+        }
         else {
             throw std::runtime_error("[Capsule::alloc] undefined behavior");
         }
@@ -183,21 +217,21 @@ class Capsule {
     template <cuszDEV M, cuszLOC LOC>
     Capsule& free()
     {
-        if (not OK::FREE<M>()) throw std::runtime_error("only cuszDEV::TEST or cuszDEV::DEV");
+        OK::FREE<M>();
+        raise_error_if_misuse_unified<LOC>();
 
-        if (LOC == cuszLOC::HOST) {  //
+        if (LOC == cuszLOC::HOST)
             cudaFreeHost(hptr);
-        }
-        else if (LOC == cuszLOC::DEVICE) {
+        else if (LOC == cuszLOC::DEVICE)
             cudaFree(dptr);
-        }
         else if (LOC == cuszLOC::HOST_DEVICE) {
             cudaFreeHost(hptr);
             cudaFree(dptr);
         }
-        else {
+        else if (LOC == cuszLOC::UNIFIED)
+            cudaFree(uniptr);
+        else
             throw std::runtime_error("[Capsule::free] undefined behavior");
-        }
 
         return *this;
     }

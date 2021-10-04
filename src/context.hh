@@ -19,7 +19,8 @@
 #include <regex>
 #include <string>
 
-#include "common.hh"
+#include "common/configs.hh"
+#include "common/types.hh"
 #include "utils/format.hh"
 
 using std::string;

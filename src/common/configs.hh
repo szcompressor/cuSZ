@@ -13,6 +13,7 @@
 #define CUSZ_COMMON_CONFIGS_HH
 
 #include <cxxabi.h>
+#include <cmath>
 #include <fstream>
 #include <limits>
 #include <numeric>
