@@ -69,14 +69,9 @@ __global__ void kernel::NaiveHistogram(Input in_data[], int out_freq[], int N, i
 template <typename Input, typename Output>
 __global__ void kernel::p2013Histogram(Input* in_data, Output* out_freq, size_t N, int nbin, int R)
 {
-    constexpr bool cond1 = std::numeric_limits<Input>::is_integer            //
-                           and (not std::numeric_limits<Input>::is_signed);  //
-    constexpr bool cond2 = std::is_floating_point<Input>::value;
-
     static_assert(
-        cond1 or cond2, "To get frequency, `Input` must be uint{8,16,32}_t; alternatively, DUMMY_FOR_FLOAT to skip");
-
-    if CONSTEXPR (cond2) return;
+        std::numeric_limits<Input>::is_integer and (not std::numeric_limits<Input>::is_signed),
+        "Input Must be Unsigned Integer type of {1,2,4} bytes");
 
     extern __shared__ int Hs[/*(nbin + 1) * R*/];
 
@@ -110,14 +105,9 @@ __global__ void kernel::p2013Histogram(Input* in_data, Output* out_freq, size_t 
 template <typename Input>
 void wrapper::get_frequency(Input* d_in, size_t len, cusz::FREQ* d_freq, int nbin, float& milliseconds)
 {
-    constexpr bool cond1 = std::numeric_limits<Input>::is_integer            //
-                           and (not std::numeric_limits<Input>::is_signed);  //
-    constexpr bool cond2 = std::is_floating_point<Input>::value;
-
     static_assert(
-        cond1 or cond2, "To get frequency, `Input` must be uint{8,16,32}_t; alternatively, DUMMY_FOR_FLOAT to skip");
-
-    if CONSTEXPR (cond2) return;
+        std::numeric_limits<Input>::is_integer and (not std::numeric_limits<Input>::is_signed),
+        "To get frequency, `Input` must be unsigned integer type of {1,2,4} bytes");
 
     // Parameters for thread and block count optimization
     // Initialize to device-specific values

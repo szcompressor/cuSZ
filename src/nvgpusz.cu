@@ -46,12 +46,11 @@ namespace {
 
 void header_nbyte_from_dataseg(cuszHEADER* header, DataSeg& dataseg)
 {
-    header->nbyte.book      = dataseg.nbyte.at(cuszSEG::BOOK);
-    header->nbyte.revbook   = dataseg.nbyte.at(cuszSEG::REVBOOK);
-    header->nbyte.outlier   = dataseg.nbyte.at(cuszSEG::OUTLIER);
-    header->nbyte.huff_meta = dataseg.nbyte.at(cuszSEG::HUFF_META);
-    header->nbyte.huff_data = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
-    header->nbyte.anchor    = dataseg.nbyte.at(cuszSEG::ANCHOR);
+    header->nbyte.book           = dataseg.nbyte.at(cuszSEG::BOOK);
+    header->nbyte.revbook        = dataseg.nbyte.at(cuszSEG::REVBOOK);
+    header->nbyte.outlier        = dataseg.nbyte.at(cuszSEG::OUTLIER);
+    header->nbyte.huff_meta      = dataseg.nbyte.at(cuszSEG::HUFF_META);
+    header->nbyte.huff_bitstream = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
 }
 
 void dataseg_nbyte_from_header(cuszHEADER* header, DataSeg& dataseg)
@@ -60,8 +59,7 @@ void dataseg_nbyte_from_header(cuszHEADER* header, DataSeg& dataseg)
     dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
     dataseg.nbyte.at(cuszSEG::OUTLIER)   = header->nbyte.outlier;
     dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
-    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_data;
-    dataseg.nbyte.at(cuszSEG::ANCHOR)    = header->nbyte.anchor;
+    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_bitstream;
 }
 
 void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& offsets)
@@ -659,13 +657,3 @@ template Compressor428fast& Compressor428fast::consolidate<cuszLOC::HOST, cuszLO
 template Compressor428fast& Compressor428fast::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(BYTE**);
 template Compressor428fast& Compressor428fast::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(BYTE**);
 template Compressor428fast& Compressor428fast::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(BYTE**);
-
-#define DUMMY_FLOAT_ERRCTRL \
-    Compressor<float, ErrCtrlTrait<4, true>::type, HuffTrait<4>::type, FastLowPrecisionTrait<true>::type>
-
-template class DUMMY_FLOAT_ERRCTRL;
-
-template DUMMY_FLOAT_ERRCTRL& DUMMY_FLOAT_ERRCTRL::consolidate<cuszLOC::HOST, cuszLOC::HOST>(BYTE**);
-template DUMMY_FLOAT_ERRCTRL& DUMMY_FLOAT_ERRCTRL::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(BYTE**);
-template DUMMY_FLOAT_ERRCTRL& DUMMY_FLOAT_ERRCTRL::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(BYTE**);
-template DUMMY_FLOAT_ERRCTRL& DUMMY_FLOAT_ERRCTRL::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(BYTE**);
