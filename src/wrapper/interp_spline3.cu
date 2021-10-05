@@ -11,8 +11,8 @@
 
 #include <limits>
 #include <numeric>
-#include "../kernel/spline3.cuh"
 #include "../common.hh"
+#include "../kernel/spline3.cuh"
 #include "interp_spline3.cuh"
 
 namespace {
@@ -31,16 +31,16 @@ using dim3 = __size_compat;
 #define SPLINE3 cusz::Spline3<T, E, FP>
 
 template <typename T, typename E, typename FP>
-SPLINE3::Spline3(dim3 xyz, double _eb, int _radius, bool _delay_postquant_dummy)
+SPLINE3::Spline3(dim3 xyz, double _eb, int _radius, bool _delay_postquant_dummy) : size(xyz)
 {
     eb     = _eb;
     ebx2   = eb * 2;
     eb_r   = 1 / eb;
     radius = _radius;
 
-    dimx = xyz.x;
-    dimy = xyz.y;
-    dimz = xyz.z;
+    dimx = size.x;
+    dimy = size.y;
+    dimz = size.z;
 
     delay_postquant_dummy = _delay_postquant_dummy;
 
@@ -94,3 +94,4 @@ void SPLINE3::reconstruct(TITER anchor, EITER errctrl, TITER xdata)
 
 template class cusz::Spline3<float, unsigned short, float>;
 template class cusz::Spline3<float, unsigned int, float>;
+template class cusz::Spline3<float, float, float>;

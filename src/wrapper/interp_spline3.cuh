@@ -36,6 +36,8 @@ class Spline3 : public PredictorAbstraction<T, E> {
 
     bool delay_postquant_dummy;
 
+    float time_elapsed;
+
     int radius;
 
    public:
@@ -46,6 +48,8 @@ class Spline3 : public PredictorAbstraction<T, E> {
         auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
         return m * m;
     }
+    float    get_time_elapsed() const { return time_elapsed; }
+    uint32_t get_workspace_nbyte() const { return 0; };
 
     Spline3(dim3 xyz, double _eb, int _radius, bool _delay_postquant_dummy = true);
 
