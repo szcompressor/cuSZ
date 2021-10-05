@@ -31,8 +31,6 @@
 
 using namespace std;
 
-
-
 template <typename T, typename E, typename H, typename FP>
 class Compressor {
     using BYTE = uint8_t;

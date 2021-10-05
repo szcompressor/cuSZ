@@ -240,6 +240,8 @@ struct ReportHelper {
 
     static void print_throughput_line(const char* s, float timer, size_t _nbyte)
     {
+        if (timer == 0.0) return;
+
         auto t = get_throughput(timer, _nbyte);
         printf("  %-18s\t%'12f\t%'15f\n", s, timer, t);
     };

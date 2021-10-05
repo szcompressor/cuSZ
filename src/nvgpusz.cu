@@ -24,7 +24,6 @@
 
 #include "analysis/analyzer.hh"
 #include "common.hh"
-#include "common/capsule.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "kernel/lorenzo.cuh"
@@ -41,54 +40,6 @@ using std::string;
 
 #define COMPR_TYPE template <typename T, typename E, typename H, typename FP>
 #define COMPRESSOR Compressor<T, E, H, FP>
-
-namespace {
-
-void header_nbyte_from_dataseg(cuszHEADER* header, DataSeg& dataseg)
-{
-    header->nbyte.book           = dataseg.nbyte.at(cuszSEG::BOOK);
-    header->nbyte.revbook        = dataseg.nbyte.at(cuszSEG::REVBOOK);
-    header->nbyte.outlier        = dataseg.nbyte.at(cuszSEG::OUTLIER);
-    header->nbyte.huff_meta      = dataseg.nbyte.at(cuszSEG::HUFF_META);
-    header->nbyte.huff_bitstream = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
-}
-
-void dataseg_nbyte_from_header(cuszHEADER* header, DataSeg& dataseg)
-{
-    dataseg.nbyte.at(cuszSEG::BOOK)      = header->nbyte.book;
-    dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
-    dataseg.nbyte.at(cuszSEG::OUTLIER)   = header->nbyte.outlier;
-    dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
-    dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_bitstream;
-}
-
-void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& offsets)
-{
-    ReportHelper::print_datasegment_tablehead();
-
-    // print long numbers with thousand separator
-    // https://stackoverflow.com/a/7455282
-    // https://stackoverflow.com/a/11695246
-    setlocale(LC_ALL, "");
-
-    for (auto i = 0; i < 8; i++) {
-        const auto& name       = dataseg.order2name.at(i);
-        auto        this_nbyte = dataseg.nbyte.at(name);
-
-        auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(this_nbyte);
-        offsets.push_back(o);
-
-        if (this_nbyte != 0)
-            printf(
-                "  %-18s\t%'12lu\t%'15lu\t%'15lu\n",  //
-                dataseg.get_namestr(name).c_str(),    //
-                (size_t)this_nbyte,                   //
-                (size_t)offsets.at(i),                //
-                (size_t)offsets.back());
-    }
-}
-
-}  // namespace
 
 COMPR_TYPE
 unsigned int COMPRESSOR::tune_deflate_chunksize(size_t len)
@@ -397,14 +348,14 @@ COMPR_TYPE
 COMPRESSOR& COMPRESSOR::pack_metadata()
 {
     ConfigHelper::deep_copy_config_items(/* dst */ header, /* src */ ctx);
-    header_nbyte_from_dataseg(header, dataseg);
+    DatasegHelper::header_nbyte_from_dataseg(header, dataseg);
     return *this;
 }
 
 COMPR_TYPE
 COMPRESSOR& COMPRESSOR::unpack_metadata()
 {
-    dataseg_nbyte_from_header(header, dataseg);
+    DatasegHelper::dataseg_nbyte_from_header(header, dataseg);
 
     /* 0 header */ dataseg.offset.push_back(0);
 
@@ -570,7 +521,7 @@ COMPRESSOR& COMPRESSOR::consolidate(BYTE** dump_ptr)
         if (len != 0) cudaMemcpy(dst, src_byte, len, DIRECTION);
     };
 
-    compress_time_conslidate_report(dataseg, offsets);
+    DatasegHelper::compress_time_conslidate_report(dataseg, offsets);
     auto total_nbyte = offsets.back();
     printf("\ncompression ratio:\t%.4f\n", ctx->data_len * sizeof(T) * 1.0 / total_nbyte);
 
