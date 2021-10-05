@@ -45,9 +45,10 @@ typedef struct alignas(128) cuszHEADER {
         /* 1 */ uint32_t book;
         /* 2 */ uint32_t quant;
         /* 3 */ uint32_t revbook;
-        /* 4 */ uint32_t outlier;  // TODO -> ancillary
+        /* 4 */ uint32_t outlier;
         /* 5 */ uint32_t huff_meta;
-        /* 6 */ uint32_t huff_bitstream;
+        /* 6 */ uint32_t huff_data;
+        /* 7 */ uint32_t anchor;
     } nbyte;
 
 } cusz_header;

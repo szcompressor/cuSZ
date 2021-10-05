@@ -45,8 +45,7 @@ class DataSeg {
     std::unordered_map<int, cuszSEG> order2name = {
         {0, cuszSEG::HEADER},  {1, cuszSEG::BOOK},      {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
         {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA},  //
-        {7, cuszSEG::ANCHOR},
-    };
+        {7, cuszSEG::ANCHOR}};
 
     std::unordered_map<cuszSEG, uint32_t> nbyte = {
         {cuszSEG::HEADER, sizeof(cusz_header)},
