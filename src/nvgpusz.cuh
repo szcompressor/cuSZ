@@ -31,43 +31,7 @@
 
 using namespace std;
 
-// TODO when to use ADDR8?
-// TODO change to `enum class`
-enum class cuszSEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, OUTLIER, HUFF_META, HUFF_DATA };
 
-class DataSeg {
-   public:
-    std::unordered_map<cuszSEG, int> name2order = {
-        {cuszSEG::HEADER, 0},  {cuszSEG::BOOK, 1},      {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
-        {cuszSEG::OUTLIER, 4}, {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6},  //
-        {cuszSEG::ANCHOR, 7}};
-
-    std::unordered_map<int, cuszSEG> order2name = {
-        {0, cuszSEG::HEADER},  {1, cuszSEG::BOOK},      {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
-        {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA},  //
-        {7, cuszSEG::ANCHOR},
-    };
-
-    std::unordered_map<cuszSEG, uint32_t> nbyte = {
-        {cuszSEG::HEADER, sizeof(cusz_header)},
-        {cuszSEG::BOOK, 0U},
-        {cuszSEG::QUANT, 0U},
-        {cuszSEG::REVBOOK, 0U},
-        {cuszSEG::ANCHOR, 0U},
-        {cuszSEG::OUTLIER, 0U},
-        {cuszSEG::HUFF_META, 0U},
-        {cuszSEG::HUFF_DATA, 0U}};
-
-    std::unordered_map<cuszSEG, std::string> name2str{
-        {cuszSEG::HEADER, "HEADER"},       {cuszSEG::BOOK, "BOOK"},          {cuszSEG::QUANT, "QUANT"},
-        {cuszSEG::REVBOOK, "REVBOOK"},     {cuszSEG::ANCHOR, "ANCHOR"},      {cuszSEG::OUTLIER, "OUTLIER"},
-        {cuszSEG::HUFF_META, "HUFF_META"}, {cuszSEG::HUFF_DATA, "HUFF_DATA"}};
-
-    std::vector<uint32_t> offset;
-
-    uint32_t    get_offset(cuszSEG name) { return offset.at(name2order.at(name)); }
-    std::string get_namestr(cuszSEG name) { return name2str.at(name); }
-};
 
 template <typename T, typename E, typename H, typename FP>
 class Compressor {
