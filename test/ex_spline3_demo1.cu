@@ -1,5 +1,5 @@
 /**
- * @file ex_spline3.cu
+ * @file ex_spline3_demo1.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.2
@@ -20,70 +20,30 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "../src/common.hh"
 #include "../src/kernel/spline3.cuh"
-#include "../src/utils/io.hh"
-#include "../src/utils/verify.hh"
-#include "../src/utils/verify_gpu.cuh"
+#include "../src/utils.hh"
+#include "../src/wrapper/interp_spline3.cuh"
 
 using std::cout;
 
 using T = float;
-using E = unsigned short;
-
-T* data;
-T* xdata;
-T* anchor;
-E* errctrl;
+// using E = unsigned short;
+using E = float;
 
 bool print_fullhist = false;
 bool write_quant    = false;
 
-unsigned int   dimx, dimy, dimz;
-unsigned int   dimx_aligned, dimy_aligned, dimz_aligned;
-unsigned int   nblockx, nblocky, nblockz;
-unsigned int   in_range_nanchorx, in_range_nanchory, in_range_nanchorz;
-unsigned int   nanchorx, nanchory, nanchorz;
-unsigned int   len, len_aligned, len_anchor;
-dim3           size, size_aligned, leap, leap_aligned, anchor_size, anchor_leap;
-constexpr auto BLOCK = 8;
+constexpr unsigned int dimz = 449, dimy = 449, dimx = 235;
+constexpr unsigned int len    = dimx * dimy * dimz;
+constexpr auto         BLOCK  = 8;
+constexpr auto         radius = 512;
 
-auto eb                 = 1.0f;
-auto eb_r               = 1.0f;
-auto ebx2               = 2.0f;
-auto ebx2_r             = 0.5f;
-auto radius             = 512;
-auto get_npart          = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
-auto get_npart_aligned1 = [](auto size, auto subsize) { return (size + subsize - 2) / subsize; };
+auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
 
 std::string fname;
 
-// void test_lorenzo3dc(int n = 1)
-// {
-//     cout << "testing lorenzo3d\n";
-//     auto stridey = dimx, stridez = dimx * dimy;
-
-//     auto dim_block = dim3(32, 1, 8);
-//     auto dim_grid  = dim3(
-//         get_npart(dimx, 32),  //
-//         get_npart(dimy, 8),   //
-//         get_npart(dimz, 8)    //
-//     );
-
-//     cudaMallocManaged((void**)&errctrl, len * sizeof(T));
-//     cudaMemset(data, 0x00, len * sizeof(T));
-
-//     // for (auto i = 0; i < n; i++) {
-//     // cout << "3Dc " << i << '\n';
-//     cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E><<<dim_grid, dim_block>>>  //
-//         (data, errctrl, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
-//     cudaDeviceSynchronize();
-
-//     io::write_array_to_binary(fname + ".lorenzo", errctrl, len);
-
-//     cudaFree(errctrl);
-//     // }
-// }
-
+/*
 template <typename T>
 void c_gather_anchor_cpu(
     T*           data,
@@ -152,10 +112,114 @@ void print_block_from_CPU(T* data, int radius = 512)
     }
     printf("\n");
 }
+*/
 
-void test_spline3dc()
+void prescan(T* data, unsigned int len, double& max_value, double& min_value, double& rng)
 {
-    cout << "testing spline3d\n";
+    thrust::device_ptr<T> g_ptr      = thrust::device_pointer_cast(data);
+    auto                  max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
+    auto                  min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
+
+    max_value = *max_el_loc;
+    min_value = *min_el_loc;
+    rng       = max_value - min_value;
+}
+
+void test_spline3d_wrapped(double _eb)
+{
+    constexpr auto MODE = cuszDEV::TEST;
+    constexpr auto LOC  = cuszLOC::UNIFIED;
+
+    Capsule<T, true> data(len);
+    Capsule<T, true> xdata(len);
+
+    data.alloc<MODE, LOC>();
+    xdata.alloc<MODE, LOC>();
+
+    data.from_fs_to<LOC>(fname);
+
+    double max_value, min_value, rng;
+    prescan(data.get<LOC>(), len, max_value, min_value, rng);
+
+    double eb     = _eb * rng;
+    double eb_r   = 1 / eb;
+    double ebx2   = eb * 2;
+    double ebx2_r = 1 / ebx2;
+
+    std::cout << "wrapped:\n";
+    std::cout << "opening " << fname << std::endl;
+    std::cout << "input eb: " << _eb << '\n';
+    std::cout << "range: " << rng << '\n';
+    std::cout << "r2r eb: " << eb << '\n';
+
+    cusz::Spline3<T, E, float> predictor(dim3(dimx, dimy, dimz), eb, 512);
+
+    std::cout << "predictor.get_anchor_len() = " << predictor.get_anchor_len() << '\n';
+    std::cout << "predictor.get_quant_len() = " << predictor.get_quant_len() << '\n';
+
+    Capsule<T, true> anchor(predictor.get_anchor_len());
+    Capsule<E, true> errctrl(predictor.get_quant_len());
+    anchor.alloc<MODE, LOC>();
+    errctrl.alloc<MODE, LOC>();
+
+    predictor.construct(data.get<LOC>(), anchor.get<LOC>(), errctrl.get<LOC>());
+
+    {
+        auto hist = new int[radius * 2]();
+        for (auto i = 0; i < predictor.get_quant_len(); i++) hist[(int)errctrl.get<LOC>()[i]]++;
+        for (auto i = 0; i < radius * 2; i++)
+            if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
+
+        delete[] hist;
+    }
+
+    predictor.reconstruct(anchor.get<LOC>(), errctrl.get<LOC>(), xdata.get<LOC>());
+
+    data.from_fs_to<LOC>(fname);
+    stat_t stat;
+    analysis::verify_data<T>(&stat, xdata.get<LOC>(), data.get<LOC>(), len);
+    analysis::print_data_quality_metrics<T>(&stat, 0, false);
+
+    errctrl.free<cuszDEV::DEV, LOC>();
+    anchor.free<MODE, LOC>();
+    data.free<MODE, LOC>();
+    xdata.free<MODE, LOC>();
+}
+
+void test_spline3d_proto(double _eb)
+{
+    std::cout << "prototype:\n";
+    std::cout << "input eb: " << _eb << '\n';
+
+    T* data;
+    T* xdata;
+    T* anchor;
+    E* errctrl;
+
+    unsigned int dimx_aligned, dimy_aligned, dimz_aligned;
+    unsigned int nblockx, nblocky, nblockz;
+    unsigned int in_range_nanchorx, in_range_nanchory, in_range_nanchorz;
+    unsigned int nanchorx, nanchory, nanchorz;
+    unsigned int len_aligned, len_anchor;
+    dim3         size, size_aligned, leap, leap_aligned, anchor_size, anchor_leap;
+
+    double max_value, min_value, rng;
+
+    cudaMallocManaged((void**)&data, len * sizeof(T));
+    cudaMemset(data, 0x00, len * sizeof(T));
+
+    std::cout << "opening " << fname << std::endl;
+    io::read_binary_to_array(fname, data, len);
+
+    prescan(data, len, max_value, min_value, rng);
+
+    auto eb     = _eb *= rng;
+    auto eb_r   = 1 / eb;
+    auto ebx2   = eb * 2;
+    auto ebx2_r = 1 / ebx2;
+
+    std::cout << "range: " << rng << '\n';
+    std::cout << "r2r eb: " << eb << '\n';
 
     {  //
         nblockx      = get_npart(dimx, BLOCK * 4);
@@ -180,7 +244,8 @@ void test_spline3dc()
         std::cout << "len padded: " << len_aligned << '\n';
         std::cout << "len padded/len: " << 1.0 * len_aligned / len << '\n';
         printf(
-            "dim and dimpad: (%d, %d, %d), (%d, %d, %d)\n", dimx, dimy, dimz, dimx_aligned, dimy_aligned, dimz_aligned);
+            "dim and dim-aligned: (%d, %d, %d), (%d, %d, %d)\n", dimx, dimy, dimz, dimx_aligned, dimy_aligned,
+            dimz_aligned);
     }
 
     {  // anchor point
@@ -198,7 +263,6 @@ void test_spline3dc()
 
         std::cout << "len anchor: " << len_anchor << '\n';
         printf("len anchor xyz: (%d, %d, %d)\n", nanchorx, nanchory, nanchorz);
-        std::cout << "len anchor: " << len_anchor << '\n';
 
         // end of block
     }
@@ -228,8 +292,6 @@ void test_spline3dc()
        // print_block_from_CPU<E, false, true>(errctrl);
     }
 
-    auto hist = new int[radius * 2]();
-
     {
         std::cout << "calculating sparsity part\n";
         auto count = 0;
@@ -242,8 +304,9 @@ void test_spline3dc()
         printf("non-zero offset count:\t%d\tpercentage:\t%.8lf%%\tCR:\t%.4lf\n", count, percent * 100, sparsity_cr);
     }
 
+    auto hist = new int[radius * 2]();
     if (print_fullhist) {
-        for (auto i = 0; i < len_aligned; i++) { hist[errctrl[i]]++; }
+        for (auto i = 0; i < len_aligned; i++) { hist[(int)errctrl[i]]++; }
         for (auto i = 0; i < radius * 2; i++) {
             if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
         }
@@ -271,6 +334,7 @@ void test_spline3dc()
             auto err = fabs(data[i] - xdata[i]);
 
             if (err > eb) {
+                verified_okay = false;
                 printf("overbound first at idx: %d, data:%4.2e, xdata: %4.2e, exiting\n", i, data[i], xdata[i]);
                 break;
             }
@@ -296,14 +360,12 @@ void test_spline3dc()
 
     cudaFree(errctrl);
     cudaFree(anchor);
+    cudaFree(data);
 }
 
 int main(int argc, char** argv)
 {
-    // auto           dimx = 512, dimy = 512, dimz = 512;
-    dimz = 449, dimy = 449, dimx = 235;
-    len     = dimx * dimy * dimz;
-    auto eb = 1e-2;
+    double eb = 1e-2;
 
     if (argc < 3) {
         std::cout << "<prog> <file> <eb> <hist>" << '\n';
@@ -331,33 +393,9 @@ int main(int argc, char** argv)
 
     cudaDeviceReset();
 
-    cudaMallocManaged((void**)&data, len * sizeof(T));
-    cudaMemset(data, 0x00, len * sizeof(T));
+    test_spline3d_proto(eb);
 
-    std::cout << "opening " << fname << std::endl;
-    io::read_binary_to_array(fname, data, len);
-
-    thrust::device_ptr<T> g_ptr      = thrust::device_pointer_cast(data);
-    auto                  max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
-    auto                  min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
-    // auto   max_el_loc = std::max_element(data, data + len);
-    // auto   min_el_loc = std::min_element(data, data + len);
-    double max_value = *max_el_loc;
-    double min_value = *min_el_loc;
-    double rng       = max_value - min_value;
-
-    std::cout << "range: " << rng << '\n';
-    std::cout << "input eb: " << eb << '\n';
-
-    eb *= rng;
-    eb_r   = 1 / eb;
-    ebx2   = eb * 2;
-    ebx2_r = 1 / ebx2;
-
-    test_spline3dc();
-    // test_lorenzo3dc();
-
-    cudaFree(data);
+    test_spline3d_wrapped(eb);
 
     return 0;
 }

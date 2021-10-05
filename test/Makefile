@@ -1,9 +1,41 @@
-spline: ex_spline3.cu ../src/utils/verify.hh ../src/kernel/spline3.cuh ../src/utils/io.hh
-	nvcc ex_spline3.cu -std=c++14 --extended-lambda -o spline
+all: splinedemo1 splinedemo2
 
-splinedbg: ex_spline3.cu ../src/utils/verify.hh ../src/kernel/spline3.cuh ../src/utils/io.hh
-	nvcc ex_spline3.cu -std=c++14 --extended-lambda -G -o spline
-	nvcc ex_spline3.cu -lineinfo -std=c++14 --extended-lambda -o splineprof
+interp_spline3.o: ../src/wrapper/interp_spline3.cu
+	@echo :: resolving spline3 dependency-1...
+	nvcc ../src/wrapper/interp_spline3.cu -c --extended-lambda
+
+handle_sparsity10.o: ../src/wrapper/handle_sparsity10.cu
+	@echo :: resolving spline3 dependency-2...
+	nvcc ../src/wrapper/handle_sparsity10.cu -c --extended-lambda
+
+handle_sparsity11.o: ../src/wrapper/handle_sparsity11.cu
+	@echo :: resolving spline3 dependency-3...
+	nvcc ../src/wrapper/handle_sparsity11.cu -c --extended-lambda
+
+splinedemo1: ex_spline3_demo1.cu interp_spline3.o 
+	@echo :: creating spline3 demo-1...
+	nvcc \
+		interp_spline3.o \
+		ex_spline3_demo1.cu \
+		-std=c++14 --extended-lambda \
+		-lcusparse \
+		-o spline-demo1 
+
+splinedemo2: ex_spline3_demo2.cu interp_spline3.o handle_sparsity10.o handle_sparsity11.o 
+	@echo :: creating spline3 demo-2...
+	nvcc \
+		interp_spline3.o \
+		handle_sparsity10.o \
+		handle_sparsity11.o \
+		ex_spline3_demo2.cu \
+		-std=c++14 --extended-lambda \
+		-lcusparse \
+		-o spline-demo2
+
+
+# splinedbg: ex_spline3_demo1.cu ../src/utils.hh
+# 	nvcc ex_spline3_demo1.cu -std=c++14 --extended-lambda -G -o spline
+# 	nvcc ex_spline3_demo1.cu -lineinfo -std=c++14 --extended-lambda -o splineprof
 
 query: test_query.cc ../src/query.hh
 	nvcc  -x c++ -I../src/ -DMAIN test_query.cc -o query
@@ -35,3 +67,10 @@ testtypebinding: ../src/binding.hh test_type_binding.cu
 proflorenzo: dummy_xlorenzo3d.cu dummy_xlorenzo2d.cu
 	nvcc -lineinfo dummy_xlorenzo2d.cu -o dummy_xlorenzo2d
 	nvcc -lineinfo dummy_xlorenzo3d.cu -o dummy_xlorenzo3d
+
+
+clean:
+	rm -f spline3-demo1 spline3-demo2
+
+purge:
+	rm -f spline3-demo1 spline3-demo2 interp_spline3.o
