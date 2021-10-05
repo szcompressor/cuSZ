@@ -116,25 +116,23 @@ class Compressor {
 
     Compressor& lorenzo_dryrun(Capsule<T>* in_data);
 
-    Compressor&
-    get_freq_and_codebook(Capsule<E>* quant, Capsule<cusz::FREQ>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
-
     Compressor& prescan();
 
-    Compressor& analyze_compressibility(Capsule<unsigned int>* freq, Capsule<H>* book);
+    Compressor& analyze_compressibility(Capsule<cusz::FREQ>* freq, Capsule<H>* book);
     Compressor& internal_eval_try_export_book(Capsule<H>* book);
     Compressor& internal_eval_try_export_quant(Capsule<E>* quant);
-
-    Compressor& try_skip_huffman(Capsule<E>* quant);
 
     Compressor& try_report_compress_time();
     Compressor& try_report_decompress_time();
 
+    Compressor& try_skip_huffman(Capsule<E>* quant);
     Compressor& try_compare_with_origin(T* xdata);
     Compressor& try_write2disk(T* host_xdata);
 
+    Compressor&
+    get_freq_codebook(Capsule<E>* quant, Capsule<cusz::FREQ>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
     Compressor& huffman_encode(Capsule<E>* quant, Capsule<H>* book);
-    Compressor& huffman_decode(Capsule<E>* quant);
+    // Compressor& huffman_decode(Capsule<E>* quant); // done encapsulation
 
     Compressor& pack_metadata();
     Compressor& unpack_metadata();
