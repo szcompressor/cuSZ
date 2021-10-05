@@ -107,45 +107,37 @@ class Compressor {
     cuszWHEN timing;
 
     // TODO MetadataT
-    size_t cusza_nbyte;
+    // size_t cusza_nbyte;
     size_t m, mxm;
 
     dim3 xyz;
 
     uint32_t tune_deflate_chunksize(size_t len);
 
-    void report_compression_time();
-
-    void lorenzo_dryrun(Capsule<T>* in_data);
+    Compressor& lorenzo_dryrun(Capsule<T>* in_data);
 
     Compressor&
     get_freq_and_codebook(Capsule<E>* quant, Capsule<cusz::FREQ>* freq, Capsule<H>* book, Capsule<uint8_t>* revbook);
 
+    Compressor& prescan();
+
     Compressor& analyze_compressibility(Capsule<unsigned int>* freq, Capsule<H>* book);
-
     Compressor& internal_eval_try_export_book(Capsule<H>* book);
-
     Compressor& internal_eval_try_export_quant(Capsule<E>* quant);
 
-    void try_skip_huffman(Capsule<E>* quant);
+    Compressor& try_skip_huffman(Capsule<E>* quant);
 
-    Compressor& try_report_time();
+    Compressor& try_report_compress_time();
+    Compressor& try_report_decompress_time();
+
+    Compressor& try_compare_with_origin(T* xdata);
+    Compressor& try_write2disk(T* host_xdata);
 
     Compressor& huffman_encode(Capsule<E>* quant, Capsule<H>* book);
+    Compressor& huffman_decode(Capsule<E>* quant);
 
     Compressor& pack_metadata();
-
-    void try_report_decompression_time();
-
-    void try_compare_with_origin(T* xdata);
-
-    void try_write2disk(T* host_xdata);
-
-    void huffman_decode(Capsule<E>* quant);
-
-    void unpack_metadata();
-
-    void prescan();
+    Compressor& unpack_metadata();
 
    public:
     uint32_t get_decompress_space_len() { return mxm + ChunkingTrait<1>::BLOCK; }
@@ -157,13 +149,12 @@ class Compressor {
 
     ~Compressor();
 
+    Compressor& compress();
+
     template <cuszLOC SRC, cuszLOC DST>
     Compressor& consolidate(BYTE** dump);
 
-    Compressor& compress();
-
     Compressor& decompress(Capsule<T>* out_xdata);
-
     Compressor& backmatter(Capsule<T>* out_xdata);
 };
 

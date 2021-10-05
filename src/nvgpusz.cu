@@ -75,8 +75,7 @@ COMPRESSOR::Compressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump) : ctx(_ctx), in_d
 
     unpack_metadata();
 
-    m   = Reinterpret1DTo2D::get_square_size(ctx->data_len);
-    mxm = m * m;
+    m = Reinterpret1DTo2D::get_square_size(ctx->data_len), mxm = m * m;
 
     xyz = dim3(header->x, header->y, header->z);
 
@@ -172,8 +171,10 @@ unsigned int COMPRESSOR::tune_deflate_chunksize(size_t len)
 }
 
 COMPR_TYPE
-void COMPRESSOR::report_compression_time()
+COMPRESSOR& COMPRESSOR::try_report_compress_time()
 {
+    if (not ctx->report.time) return *this;
+
     auto  nbyte   = ctx->data_len * sizeof(T);
     float nonbook = time.lossy + time.outlier + time.hist + time.lossless;
 
@@ -188,10 +189,12 @@ void COMPRESSOR::report_compression_time()
     ReportHelper::print_throughput_line("book", time.book, nbyte);
     ReportHelper::print_throughput_line("(total)", nonbook + time.book, nbyte);
     printf("\e[0m");
+
+    return *this;
 }
 
 COMPR_TYPE
-void COMPRESSOR::lorenzo_dryrun(Capsule<T>* in_data)
+COMPRESSOR& COMPRESSOR::lorenzo_dryrun(Capsule<T>* in_data)
 {
     if (ctx->task_is.dryrun) {
         auto len = ctx->data_len;
@@ -217,6 +220,7 @@ void COMPRESSOR::lorenzo_dryrun(Capsule<T>* in_data)
 
         exit(0);
     }
+    return *this;
 }
 
 COMPR_TYPE
@@ -313,7 +317,7 @@ COMPRESSOR& COMPRESSOR::internal_eval_try_export_quant(Capsule<E>* quant)
 }
 
 COMPR_TYPE
-void COMPRESSOR::try_skip_huffman(Capsule<E>* quant)
+COMPRESSOR& COMPRESSOR::try_skip_huffman(Capsule<E>* quant)
 {
     // decide if skipping Huffman coding
     if (ctx->to_skip.huffman) {
@@ -325,19 +329,12 @@ void COMPRESSOR::try_skip_huffman(Capsule<E>* quant)
         LOGGING(LOG_INFO, "to store quant.code directly (Huffman enc skipped)");
         exit(0);
     }
-}
 
-COMPR_TYPE
-COMPRESSOR& COMPRESSOR::try_report_time()
-{
-    if (ctx->report.time) report_compression_time();
     return *this;
 }
 
 COMPR_TYPE
-COMPRESSOR& COMPRESSOR::huffman_encode(
-    Capsule<E>* quant,  //
-    Capsule<H>* book)
+COMPRESSOR& COMPRESSOR::huffman_encode(Capsule<E>* quant, Capsule<H>* book)
 {
     // fix-length space, padding improvised
 
@@ -413,14 +410,19 @@ void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& of
     setlocale(LC_ALL, "");
 
     for (auto i = 0; i < 8; i++) {
-        const auto& name = dataseg.order2name.at(i);
+        const auto& name       = dataseg.order2name.at(i);
+        auto        this_nbyte = dataseg.nbyte.at(name);
 
-        auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(dataseg.nbyte.at(name));
+        auto o = offsets.back() + __cusz_get_alignable_len<BYTE, 128>(this_nbyte);
         offsets.push_back(o);
 
-        printf(
-            "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", dataseg.get_namestr(name).c_str(),  //
-            (size_t)dataseg.nbyte.at(name), (size_t)offsets.at(i), (size_t)offsets.back());
+        if (this_nbyte != 0)
+            printf(
+                "  %-18s\t%'12lu\t%'15lu\t%'15lu\n",  //
+                dataseg.get_namestr(name).c_str(),    //
+                (size_t)this_nbyte,                   //
+                (size_t)offsets.at(i),                //
+                (size_t)offsets.back());
     }
 }
 
@@ -462,7 +464,7 @@ COMPRESSOR& COMPRESSOR::consolidate(BYTE** dump_ptr)
 }
 
 COMPR_TYPE
-void COMPRESSOR::prescan()
+COMPRESSOR& COMPRESSOR::prescan()
 {
     if (ctx->mode == "r2r") {
         auto result = Analyzer::get_maxmin_rng                         //
@@ -477,6 +479,8 @@ void COMPRESSOR::prescan()
         LOGGING(LOG_ERR, "Binning is not working temporarily  (ver. 0.2.9)");
         exit(1);
     }
+
+    return *this;
 }
 
 COMPR_TYPE
@@ -509,7 +513,7 @@ COMPRESSOR& COMPRESSOR::compress()
 
     this->get_freq_and_codebook(&quant, &freq, &book, &revbook)
         .huffman_encode(&quant, &book)
-        .try_report_time()
+        .try_report_compress_time()
         .pack_metadata();
 
     return *this;
@@ -518,9 +522,9 @@ COMPRESSOR& COMPRESSOR::compress()
 ////////////////////////////////////////////////////////////////////////////////
 
 COMPR_TYPE
-void COMPRESSOR::try_report_decompression_time()
+COMPRESSOR& COMPRESSOR::try_report_decompress_time()
 {
-    if (not ctx->report.time) return;
+    if (not ctx->report.time) return *this;
 
     auto  nbyte = ctx->data_len * sizeof(T);
     float all   = time.lossy + time.outlier + time.lossless;
@@ -530,12 +534,13 @@ void COMPRESSOR::try_report_decompression_time()
     ReportHelper::print_throughput_line("Huff-decode", time.lossless, nbyte);
     ReportHelper::print_throughput_line("reconstruct", time.lossy, nbyte);
     ReportHelper::print_throughput_line("(total)", all, nbyte);
-
     printf("\n");
+
+    return *this;
 }
 
 COMPR_TYPE
-void COMPRESSOR::unpack_metadata()
+COMPRESSOR& COMPRESSOR::unpack_metadata()
 {
     dataseg_nbyte_from_header(header, dataseg);
 
@@ -544,25 +549,31 @@ void COMPRESSOR::unpack_metadata()
     if (ctx->verbose) { printf("(verification)"), ReportHelper::print_datasegment_tablehead(), setlocale(LC_ALL, ""); }
 
     for (auto i = 0; i < 8; i++) {
-        const auto& name  = dataseg.order2name.at(i);
-        auto        nbyte = dataseg.nbyte.at(name);
-        auto        o     = dataseg.offset.back() + __cusz_get_alignable_len<BYTE, 128>(nbyte);
+        const auto& name       = dataseg.order2name.at(i);
+        auto        this_nbyte = dataseg.nbyte.at(name);
+        auto        o          = dataseg.offset.back() + __cusz_get_alignable_len<BYTE, 128>(this_nbyte);
         dataseg.offset.push_back(o);
 
         if (ctx->verbose) {
-            printf(
-                "  %-18s\t%'12lu\t%'15lu\t%'15lu\n", dataseg.get_namestr(name).c_str(), (size_t)dataseg.nbyte.at(name),
-                (size_t)dataseg.offset.at(i), (size_t)dataseg.offset.back());
+            if (this_nbyte != 0)
+                printf(
+                    "  %-18s\t%'12lu\t%'15lu\t%'15lu\n",  //
+                    dataseg.get_namestr(name).c_str(),    //
+                    (size_t)this_nbyte,                   //
+                    (size_t)dataseg.offset.at(i),         //
+                    (size_t)dataseg.offset.back());
         }
     }
     if (ctx->verbose) printf("\n");
 
     ConfigHelper::deep_copy_config_items(/* dst */ ctx, /* src */ header);
     ConfigHelper::set_eb_series(ctx->eb, config);
+
+    return *this;
 }
 
 COMPR_TYPE
-void COMPRESSOR::try_compare_with_origin(T* xdata)
+COMPRESSOR& COMPRESSOR::try_compare_with_origin(T* xdata)
 {
     // TODO move CR out of verify_data
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
@@ -571,14 +582,16 @@ void COMPRESSOR::try_compare_with_origin(T* xdata)
         auto odata = io::read_binary_to_new_array<T>(ctx->fnames.origin_cmp, ctx->data_len);
 
         analysis::verify_data(&ctx->stat, xdata, odata, ctx->data_len);
-        analysis::print_data_quality_metrics<T>(&ctx->stat, cusza_nbyte, false);
+        analysis::print_data_quality_metrics<T>(&ctx->stat, in_dump->nbyte(), false);
 
         delete[] odata;
     }
+
+    return *this;
 }
 
 COMPR_TYPE
-void COMPRESSOR::try_write2disk(T* host_xdata)
+COMPRESSOR& COMPRESSOR::try_write2disk(T* host_xdata)
 {
     if (ctx->to_skip.write2disk)
         LOGGING(LOG_INFO, "output: skipped");
@@ -586,6 +599,8 @@ void COMPRESSOR::try_write2disk(T* host_xdata)
         LOGGING(LOG_INFO, "output:", ctx->fnames.path_basename + ".cuszx");
         io::write_array_to_binary(ctx->fnames.path_basename + ".cuszx", host_xdata, ctx->data_len);
     }
+
+    return *this;
 }
 
 COMPR_TYPE
@@ -625,7 +640,7 @@ COMPRESSOR& COMPRESSOR::backmatter(Capsule<T>* decomp_space)
     time.lossless = reducer->get_time_elapsed();
     time.outlier  = csr->get_time_elapsed();
     time.lossy    = predictor->get_time_elapsed();
-    try_report_decompression_time();
+    try_report_decompress_time();
 
     try_compare_with_origin(decomp_space->hptr);
     try_write2disk(decomp_space->hptr);

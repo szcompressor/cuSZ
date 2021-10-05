@@ -43,7 +43,7 @@ struct SparseMethodSetup {
     }
 
     template <typename T, typename M = int>
-    static uint32_t get_init_csr_nbyte(uint32_t len, uint32_t nnz)
+    static uint32_t get_exact_csr_nbyte(uint32_t len, uint32_t nnz)
     {
         auto m     = Reinterpret1DTo2D::get_square_size(len);
         auto nbyte = sizeof(M) * (m + 1) + sizeof(M) * nnz + sizeof(T) * nnz;
