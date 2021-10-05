@@ -19,6 +19,10 @@ namespace cusz {
 
 template <typename T, typename E, typename FP>
 class Spline3 : public PredictorAbstraction<T, E> {
+   public:
+    using Precision = FP;
+
+   private:
     static const auto BLOCK = 8;
 
     using TITER = T*;
@@ -42,7 +46,11 @@ class Spline3 : public PredictorAbstraction<T, E> {
 
    public:
     unsigned int get_anchor_len() const { return len_anchor; }
-    unsigned int get_quant_len() const { return len_aligned; }
+    unsigned int get_quant_len() const
+    {
+        auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
+        return m * m;
+    }
     unsigned int get_quant_footprint() const
     {
         auto m = Reinterpret1DTo2D::get_square_size(len_aligned);

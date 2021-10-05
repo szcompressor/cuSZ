@@ -171,3 +171,4 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct(T* in_anchor, E* in_errctrl, 
 }
 
 template class cusz::PredictorLorenzo<float, uint16_t, float>;
+template class cusz::PredictorLorenzo<float, float, float>;

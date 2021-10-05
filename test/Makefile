@@ -4,13 +4,13 @@ interp_spline3.o: ../src/wrapper/interp_spline3.cu
 	@echo :: resolving spline3 dependency-1...
 	nvcc ../src/wrapper/interp_spline3.cu -c --extended-lambda
 
-handle_sparsity10.o: ../src/wrapper/handle_sparsity10.cu
+csr10.o: ../src/wrapper/csr10.cu
 	@echo :: resolving spline3 dependency-2...
-	nvcc ../src/wrapper/handle_sparsity10.cu -c --extended-lambda
+	nvcc ../src/wrapper/csr10.cu -c --extended-lambda
 
-handle_sparsity11.o: ../src/wrapper/handle_sparsity11.cu
+csr11.o: ../src/wrapper/csr11.cu
 	@echo :: resolving spline3 dependency-3...
-	nvcc ../src/wrapper/handle_sparsity11.cu -c --extended-lambda
+	nvcc ../src/wrapper/csr11.cu -c --extended-lambda
 
 splinedemo1: ex_spline3_demo1.cu interp_spline3.o 
 	@echo :: creating spline3 demo-1...
@@ -21,12 +21,12 @@ splinedemo1: ex_spline3_demo1.cu interp_spline3.o
 		-lcusparse \
 		-o spline-demo1 
 
-splinedemo2: ex_spline3_demo2.cu interp_spline3.o handle_sparsity10.o handle_sparsity11.o 
+splinedemo2: ex_spline3_demo2.cu interp_spline3.o csr10.o csr11.o 
 	@echo :: creating spline3 demo-2...
 	nvcc \
 		interp_spline3.o \
-		handle_sparsity10.o \
-		handle_sparsity11.o \
+		csr10.o \
+		csr11.o \
 		ex_spline3_demo2.cu \
 		-std=c++14 --extended-lambda \
 		-lcusparse \

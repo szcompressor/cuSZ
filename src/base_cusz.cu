@@ -152,3 +152,18 @@ template class BaseCompressor<cusz::PredictorLorenzo<  //
     DataTrait<4>::type,
     ErrCtrlTrait<2>::type,
     FastLowPrecisionTrait<true>::type>>;
+
+template class BaseCompressor<cusz::PredictorLorenzo<  //
+    DataTrait<4>::type,
+    ErrCtrlTrait<4, true>::type,
+    FastLowPrecisionTrait<true>::type>>;
+
+template class BaseCompressor<cusz::Spline3<  //
+    DataTrait<4>::type,
+    ErrCtrlTrait<2>::type,
+    FastLowPrecisionTrait<true>::type>>;
+
+template class BaseCompressor<cusz::Spline3<  //
+    DataTrait<4>::type,
+    ErrCtrlTrait<4, true>::type,
+    FastLowPrecisionTrait<true>::type>>;

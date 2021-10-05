@@ -23,8 +23,8 @@
 #include "../src/common.hh"
 #include "../src/kernel/spline3.cuh"
 #include "../src/utils.hh"
-#include "../src/wrapper/handle_sparsity10.cuh"
-#include "../src/wrapper/handle_sparsity11.cuh"
+#include "../src/wrapper/csr10.cuh"
+#include "../src/wrapper/csr11.cuh"
 #include "../src/wrapper/interp_spline3.cuh"
 
 using std::cout;

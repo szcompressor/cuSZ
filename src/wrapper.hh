@@ -18,5 +18,6 @@
 #include "wrapper/huffman_coarse.cuh"
 #include "wrapper/huffman_enc_dec.cuh"
 #include "wrapper/huffman_parbook.cuh"
+#include "wrapper/interp_spline3.cuh"
 
 #endif
