@@ -27,6 +27,9 @@ namespace cusz {
 
 template <typename T, typename E, typename FP>
 class PredictorLorenzo : public PredictorAbstraction<T, E> {
+   public:
+    using Precision = FP;
+
    private:
     int    radius;
     double eb;

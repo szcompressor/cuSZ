@@ -27,6 +27,10 @@ huff: test_huff_class.cu
 		../src/par_huffman.o \
 		-o test_huff_class
 
+testtypebinding: ../src/binding.hh test_type_binding.cu
+	clang++ test_type_binding.cu -std=c++14 --cuda-gpu-arch=sm_75 -L/usr/local/cuda/lib64 -lcudart_static -ldl -lrt -pthread
+	nvcc test_type_binding.cu
+
 
 proflorenzo: dummy_xlorenzo3d.cu dummy_xlorenzo2d.cu
 	nvcc -lineinfo dummy_xlorenzo2d.cu -o dummy_xlorenzo2d

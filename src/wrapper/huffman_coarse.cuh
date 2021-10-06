@@ -24,6 +24,8 @@ namespace cusz {
 template <typename T, typename H, typename M = uint64_t>
 class HuffmanWork {
    public:
+    using Origin = T;
+    using Encoded = H;
     using Mtype = M;
 
    private:

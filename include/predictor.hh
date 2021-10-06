@@ -18,6 +18,11 @@ namespace cusz {
 
 template <typename T, typename E>
 class PredictorAbstraction {
+   public:
+    using Origin  = T;
+    using Anchor  = T;
+    using ErrCtrl = E;
+
    private:
     void partition_workspace();
 

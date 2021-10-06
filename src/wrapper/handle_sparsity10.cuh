@@ -26,6 +26,9 @@ namespace cusz {
 
 template <typename T = float>
 class OutlierHandler10 : public OneCallGatherScatter {
+   public:
+    using Origin = T;
+
    private:
     // clang-format off
     uint8_t* pool_ptr;
