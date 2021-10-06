@@ -26,7 +26,8 @@ typedef struct alignas(128) cuszHEADER {
     uint32_t quant_nbyte : 4;  //
     uint32_t huff_nbyte : 4;   //
     uint32_t predictor : 4;
-    uint32_t reducer : 4;
+    uint32_t codec : 4;
+    uint32_t spreducer : 4;
 
     int nnz_outlier;
     int radius, dict_size;

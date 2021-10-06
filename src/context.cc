@@ -467,7 +467,9 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
      **  -------- + ----------------------------------------------
      **           |   predictor    lorenzo|spline3         lorenzo
      **  -------- + ----------------------------------------------
-     **           |     reducer    huffman|csr|rle
+     **           |       codec    huffman-coarse
+     **  -------- + ----------------------------------------------
+     **           |   spreducer    csr|rle
      **  -------- + ----------------------------------------------
      **           |  errorbound    [scientific notation]   1e-4
      **           |                "eb" as shorthand
@@ -482,7 +484,7 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
      **
      **/
 
-    const char* ex_config = "dtype=f32,predictor=spline3,reducer=huffman,eb=1e-2,radius=512,size=3600x1800";
+    const char* ex_config = "dtype=f32,predictor=spline3,spreducer=csr,eb=1e-2,radius=512,size=3600x1800";
 
     using config_map_t = map_t;
 
@@ -497,7 +499,8 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
         // compress-mandatory
         if (k == "dtype" and ConfigHelper::check_dtype(v, false)) this->dtype = v;
         if (k == "predictor" and ConfigHelper::check_predictor(v, true)) this->predictor = v;
-        if (k == "reducer" and ConfigHelper::check_reducer(v, true)) this->reducer = v;
+        if (k == "codec" and ConfigHelper::check_codec(v, true)) this->codec = v;          // TODO
+        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) this->spreducer = v;  // TODO
         if (k == "errorbound" or k == "eb") eb = std::strtod(v.c_str(), &end);
         if (k == "mode" and ConfigHelper::check_cuszmode(v, true)) this->mode = v;
         if (k == "size") {

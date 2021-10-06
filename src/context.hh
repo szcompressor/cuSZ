@@ -59,7 +59,8 @@ class cuszCTX {
     string dtype     = ConfigHelper::get_default_dtype();      // "f32"
     string mode      = ConfigHelper::get_default_cuszmode();   // "r2r"
     string predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
-    string reducer   = ConfigHelper::get_default_reducer();    // "huffman"
+    string codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
+    string spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
 
     uint32_t quant_nbyte{2}, huff_nbyte{4};
 

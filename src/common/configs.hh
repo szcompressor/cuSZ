@@ -86,7 +86,7 @@ struct ConfigHelper {
     {
         const std::unordered_map<std::string, uint32_t> lut =  //
             {{"huffman", 0}, {"csr", 1}, {"rle", 2}};
-        if (lut.find(name) != lut.end()) throw std::runtime_error("no such reducer as " + name);
+        if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);
     }
 
@@ -125,7 +125,8 @@ struct ConfigHelper {
     }
 
     static std::string get_default_predictor() { return "lorenzo"; }
-    static std::string get_default_reducer() { return "huffman"; }
+    static std::string get_default_spreducer() { return "cusparse-csr"; }
+    static std::string get_default_codec() { return "huffman-coarse"; }
     static std::string get_default_cuszmode() { return "r2r"; }
     static std::string get_default_dtype() { return "f32"; }
 
@@ -141,14 +142,14 @@ struct ConfigHelper {
         return legal;
     }
 
-    static bool check_reducer(const std::string& val, bool fatal = false)
+    static bool check_codec(const std::string& val, bool fatal = false)
     {
         auto legal = (val == "huffman") or (val == "csr") or (val == "rle");
         if (not legal) {
             if (fatal)
-                throw std::runtime_error("`reducer` must be \"huffman\", \"csr\" or \"rle\".");
+                throw std::runtime_error("`codec` must be \"huffman\", \"csr\" or \"rle\".");
             else
-                printf("fallback to the default \"%s\".", get_default_reducer().c_str());
+                printf("fallback to the default \"%s\".", get_default_codec().c_str());
         }
         return legal;
     }

@@ -34,7 +34,7 @@ struct PredictorReducerEncoderBinding {
     using T1 = typename Predictor::Origin;
     using T2 = typename Predictor::Anchor;
     using E1 = typename Predictor::ErrCtrl;
-    using T3 = typename SpReducer::Origin;  // SpRecuder -> BYTE, omit
+    using T3 = typename SpReducer::Origin;  // SpReducer -> BYTE, omit
     using E2 = typename Encoder::Origin;
     using H  = typename Encoder::Encoded;
 
