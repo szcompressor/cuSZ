@@ -29,9 +29,8 @@ using std::string;
 #include "analysis/analyzer.hh"
 #include "common.hh"
 #include "context.hh"
+#include "default_path.cuh"
 #include "header.hh"
-#include "kernel/preprocess.cuh"
-#include "nvgpusz.cuh"
 #include "query.hh"
 #include "utils.hh"
 
@@ -85,13 +84,15 @@ void normal_path_lorenzo(cuszCTX* ctx)
         Capsule<BYTE> out_dump;
 
         if (ctx->huff_nbyte == 4) {
-            Compressor<T, E, HuffTrait<4>::type, P> cuszc(ctx, &in_data);
+            DefaultPath::DefaultCompressor cuszc(ctx, &in_data);
+
             cuszc.compress().consolidate<cuszLOC::HOST, cuszLOC::HOST>(&out_dump.get<cuszLOC::HOST>());
             cout << "output:\t" << ctx->fnames.compress_output << '\n';
             out_dump.to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output).free<cuszDEV::DEV, cuszLOC::HOST>();
         }
         else if (ctx->huff_nbyte == 8) {
-            Compressor<T, E, HuffTrait<8>::type, P> cuszc(ctx, &in_data);
+            DefaultPath::FallbackCompressor cuszc(ctx, &in_data);
+
             cuszc.compress().consolidate<cuszLOC::HOST, cuszLOC::HOST>(&out_dump.get<cuszLOC::HOST>());
             cout << "output:\t" << ctx->fnames.compress_output << '\n';
             out_dump.to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output).free<cuszDEV::DEV, cuszLOC::HOST>();
@@ -115,7 +116,8 @@ void normal_path_lorenzo(cuszCTX* ctx)
 
         // TODO try_writeback vs out_xdata.to_fs_from()
         if (ctx->huff_nbyte == 4) {
-            Compressor<T, E, HuffTrait<4>::type, P> cuszd(ctx, &in_dump);
+            DefaultPath::DefaultCompressor cuszd(ctx, &in_dump);
+
             out_xdata  //
                 .set_len(cuszd.get_decompress_space_len())
                 .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
@@ -125,7 +127,8 @@ void normal_path_lorenzo(cuszCTX* ctx)
             out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
         }
         else if (ctx->huff_nbyte == 8) {
-            Compressor<T, E, HuffTrait<8>::type, P> cuszd(ctx, &in_dump);
+            DefaultPath::FallbackCompressor cuszd(ctx, &in_dump);
+
             out_xdata  //
                 .set_len(cuszd.get_decompress_space_len())
                 .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
