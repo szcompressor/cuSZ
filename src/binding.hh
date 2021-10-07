@@ -61,6 +61,18 @@ struct PredictorReducerEncoderBinding {
             std::numeric_limits<H>::is_integer and std::is_unsigned<H>::value,
             "Encoder::Encoded must be unsigned integer.");
     }
+
+    template <class Context>
+    static size_t get_spreducer_input_len(Context* ctx)
+    {
+        return ctx->data_len;
+    }
+
+    template <class Context>
+    static size_t get_encoder_input_len(Context* ctx)
+    {
+        return ctx->quant_len;
+    }
 };
 
 /**
@@ -98,6 +110,12 @@ struct PredictorReducerBinding {
 
         // TODO this is the restriction for now.
         static_assert(std::is_floating_point<E1>::value, "Predictor::ErrCtrl must be floating-point type.");
+    }
+
+    template <class Context>
+    static size_t get_spreducer_input_len(Context* ctx)
+    {
+        return ctx->quant_len;
     }
 };
 

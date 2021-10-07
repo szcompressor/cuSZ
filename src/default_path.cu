@@ -207,8 +207,34 @@ DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
 }
 
 DPCOMPRESSOR_TYPE
+DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
+{
+    this->ctx     = _ctx;
+    this->in_data = _in_data;
+    this->timing  = cuszWHEN::COMPRESS;
+    this->header  = new cusz_header();
+    this->xyz     = dim3(this->ctx->x, this->ctx->y, this->ctx->z);
+
+    this->prescan();  // internally change eb (regarding value range)
+    ConfigHelper::set_eb_series(this->ctx->eb, this->config);
+
+    if (this->ctx->on_off.autotune_huffchunk) this->ctx->huffman_chunk = tune_deflate_chunksize(this->ctx->data_len);
+
+    predictor             = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
+    this->ctx->quant_len  = predictor->get_quant_len();
+    this->ctx->anchor_len = predictor->get_anchor_len();
+
+    csr = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    sp_use
+        .set_len(  //
+            SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
+        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+
+    LOGGING(LOG_INFO, "compressing...");
+}
+
+DPCOMPRESSOR_TYPE
 DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
-// : this->ctx(_ctx), this->in_dump(_in_dump)
 {
     this->ctx     = _ctx;
     this->in_dump = _in_dump;
@@ -223,8 +249,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
-    // csr = new cusz::OutlierHandler10<T>(this->ctx->data_len, this->ctx->nnz_outlier);
-    csr = new SpReducer(this->ctx->data_len, this->ctx->nnz_outlier);
+    csr = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
 
     sp_use  //
         .set_len(csr->get_total_nbyte())
@@ -233,46 +258,13 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
         .template alloc<cuszDEV::DEV, cuszLOC::DEVICE>()
         .host2device();
 
-    // predictor = new cusz::PredictorLorenzo<T, E, FP>(this->xyz, this->ctx->eb, this->ctx->radius, false);
     predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
 
-    codec = new cusz::HuffmanWork<E, H>(
-        this->header->quant_len, dump, this->header->huffman_chunk, this->header->huffman_num_uints,
-        this->header->dict_size);
+    codec = new Encoder(
+        BINDING::template get_encoder_input_len(this->ctx), dump, this->header->huffman_chunk,
+        this->header->huffman_num_uints, this->header->dict_size);
 
     LOGGING(LOG_INFO, "decompressing...");
-}
-
-DPCOMPRESSOR_TYPE
-DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
-// : this->ctx(_ctx), this->in_data(_in_data)
-{
-    this->ctx     = _ctx;
-    this->in_data = _in_data;
-    this->timing  = cuszWHEN::COMPRESS;
-    this->header  = new cusz_header();
-
-    this->prescan();  // internally change eb (regarding value range)
-
-    ConfigHelper::set_eb_series(this->ctx->eb, this->config);
-
-    if (this->ctx->on_off.autotune_huffchunk) this->ctx->huffman_chunk = tune_deflate_chunksize(this->ctx->data_len);
-
-    csr = new cusz::OutlierHandler10<T>(this->ctx->data_len);
-
-    sp_use
-        .set_len(  //
-            SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
-        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
-
-    this->xyz = dim3(this->ctx->x, this->ctx->y, this->ctx->z);
-
-    predictor = new cusz::PredictorLorenzo<T, E, FP>(this->xyz, this->ctx->eb, this->ctx->radius, false);
-
-    this->ctx->quant_len  = predictor->get_quant_len();
-    this->ctx->anchor_len = predictor->get_anchor_len();
-
-    LOGGING(LOG_INFO, "compressing...");
 }
 
 DPCOMPRESSOR_TYPE
@@ -342,7 +334,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     this->quant.set_len(this->ctx->quant_len).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
     auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
 
-    using Mtype = typename cusz::HuffmanWork<E, H>::Mtype;
+    using Mtype = typename Encoder::Mtype;
 
     // TODO pass dump and this->dataseg description
     // problem statement:
