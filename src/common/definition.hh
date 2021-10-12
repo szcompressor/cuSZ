@@ -21,6 +21,34 @@ enum class cuszTASK { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 enum class cuszDEV { TEST, DEV, RELEASE };
 enum class cuszLOC { HOST, DEVICE, HOST_DEVICE, UNIFIED, FS, NONE, __BUFFER };
 enum class cuszWHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
+enum class ALIGNDATA { NONE, SQUARE_MATRIX, POWEROF2, NEXT_EVEN };
+enum class ALIGNMEM { NONE, WARP32B, WARP64B, WARP128B };
+
+struct Align {
+    template <ALIGNDATA ad = ALIGNDATA::NONE>
+    static size_t get_aligned_datalen(size_t len)
+    {
+        if CONSTEXPR (ad == ALIGNDATA::NONE) return len;
+        if CONSTEXPR (ad == ALIGNDATA::SQUARE_MATRIX) {
+            auto m = Reinterpret1DTo2D::get_square_size(len);
+            return m * m;
+        }
+    }
+
+    static const int DEFAULT_ALIGN_NBYTE = 128;
+
+    template <int NUM>
+    static inline bool is_aligned_at(const void* ptr)
+    {  //
+        return reinterpret_cast<uintptr_t>(ptr) % NUM == 0;
+    };
+
+    template <typename T, int NUM = DEFAULT_ALIGN_NBYTE>
+    static size_t get_aligned_nbyte(size_t len)
+    {
+        return ((sizeof(T) * len - 1) / NUM + 1) * NUM;
+    }
+};
 
 // TODO when to use ADDR8?
 // TODO change to `enum class`

@@ -33,6 +33,7 @@ namespace cusz {
 template <typename T>
 CSR10<T>::CSR10(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
+    // TODO check _len == m * m
     m = Reinterpret1DTo2D::get_square_size(_len);
 
     // TODO merge to configure?

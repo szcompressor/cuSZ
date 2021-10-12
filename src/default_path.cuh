@@ -60,9 +60,6 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     DefaultPathCompressor& huffman_encode();
 
    public:
-    uint32_t get_decompress_space_len() { return mxm + ChunkingTrait<1>::BLOCK; }
-
-   public:
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data);
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump);
     ~DefaultPathCompressor();

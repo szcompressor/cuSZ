@@ -93,6 +93,12 @@ class Capsule {
         return *this;
     }
 
+    template <ALIGNDATA AD = ALIGNDATA::NONE>
+    Capsule& get_len()
+    {
+        return Align::get_aligned_datalen<AD>(len);
+    }
+
     template <cuszLOC LOC>
     Capsule& from_existing_on(T* in)
     {
@@ -188,29 +194,41 @@ class Capsule {
         return *this;
     }
 
-    template <cuszDEV M, cuszLOC LOC>
+    /**
+     * @brief
+     *
+     * @tparam M mode, use with caution; expected not to use in final release
+     * @tparam LOC where to allocate: HOST, DEVICE, HOST_DEVICE, UNIFIED
+     * @tparam AD alignment of data length; not reflecting the real datalen
+     * @tparam AM alignment of underlying memory; not reflecting the real datalen
+     * @return Capsule& return *this for chained call
+     */
+    template <cuszDEV M, cuszLOC LOC, ALIGNDATA AD = ALIGNDATA::NONE, ALIGNMEM AM = ALIGNMEM::WARP128B>
     Capsule& alloc()
     {
         OK::ALLOC<M>();
         raise_error_if_misuse_unified<LOC>();
 
+        auto aligned_datalen    = Align::get_aligned_datalen<AD>(len);
+        auto __memory_footprint = Align::get_aligned_nbyte<T>(aligned_datalen);
+
         if (LOC == cuszLOC::HOST) {
-            cudaMallocHost(&hptr, nbyte());
-            cudaMemset(hptr, 0x00, nbyte());
+            cudaMallocHost(&hptr, __memory_footprint);
+            cudaMemset(hptr, 0x00, __memory_footprint);
         }
         else if (LOC == cuszLOC::DEVICE) {
-            cudaMalloc(&dptr, nbyte());
-            cudaMemset(dptr, 0x00, nbyte());
+            cudaMalloc(&dptr, __memory_footprint);
+            cudaMemset(dptr, 0x00, __memory_footprint);
         }
         else if (LOC == cuszLOC::HOST_DEVICE) {
-            cudaMallocHost(&hptr, nbyte());
-            cudaMemset(hptr, 0x00, nbyte());
-            cudaMalloc(&dptr, nbyte());
-            cudaMemset(dptr, 0x00, nbyte());
+            cudaMallocHost(&hptr, __memory_footprint);
+            cudaMemset(hptr, 0x00, __memory_footprint);
+            cudaMalloc(&dptr, __memory_footprint);
+            cudaMemset(dptr, 0x00, __memory_footprint);
         }
         else if (LOC == cuszLOC::UNIFIED) {
-            cudaMallocManaged(&uniptr, nbyte());
-            cudaMemset(uniptr, 0x00, nbyte());
+            cudaMallocManaged(&uniptr, __memory_footprint);
+            cudaMemset(uniptr, 0x00, __memory_footprint);
         }
         else {
             throw std::runtime_error("[Capsule::alloc] undefined behavior");

@@ -225,9 +225,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     this->ctx->anchor_len = predictor->get_anchor_len();
 
     csr = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
-    sp_use
-        .set_len(  //
-            SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
+    sp_use.set_len(SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
         .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
     LOGGING(LOG_INFO, "compressing...");
@@ -242,18 +240,12 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     auto dump     = this->in_dump->hptr;
 
     this->header = reinterpret_cast<cusz_header*>(dump);
-
     this->unpack_metadata();
-
-    m = Reinterpret1DTo2D::get_square_size(this->ctx->data_len), mxm = m * m;
-
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
     csr = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
-
-    sp_use  //
-        .set_len(csr->get_total_nbyte())
-        .template from_existing_on<cuszLOC::HOST>(  //
+    sp_use.set_len(csr->get_total_nbyte())
+        .template from_existing_on<cuszLOC::HOST>(
             reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::OUTLIER)))
         .template alloc<cuszDEV::DEV, cuszLOC::DEVICE>()
         .host2device();
