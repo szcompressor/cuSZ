@@ -1,5 +1,5 @@
 /**
- * @file handle_sparsity10.cu
+ * @file csr10.cu
  * @author Jiannan Tian
  * @brief A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
  * @version 0.3
@@ -18,7 +18,7 @@
 #include "../common.hh"
 #include "../utils.hh"
 
-#include "handle_sparsity10.cuh"
+#include "csr10.cuh"
 
 using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;
@@ -31,7 +31,7 @@ using descr_t  = cusparseMatDescr_t;
 namespace cusz {
 
 template <typename T>
-OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte)
+CSR10<T>::CSR10(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
     m = Reinterpret1DTo2D::get_square_size(_len);
 
@@ -46,7 +46,7 @@ OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int* init_work
 }
 
 template <typename T>
-void OutlierHandler10<T>::configure_workspace(uint8_t* _pool)
+void CSR10<T>::configure_workspace(uint8_t* _pool)
 {
     if (not _pool) throw std::runtime_error("Memory is no allocated.");
     pool_ptr     = _pool;
@@ -56,7 +56,7 @@ void OutlierHandler10<T>::configure_workspace(uint8_t* _pool)
 }
 
 template <typename T>
-void OutlierHandler10<T>::reconfigure_with_precise_nnz(int nnz)
+void CSR10<T>::reconfigure_with_precise_nnz(int nnz)
 {
     this->nnz    = nnz;
     nbyte.rowptr = sizeof(int) * (m + 1);
@@ -70,7 +70,7 @@ void OutlierHandler10<T>::reconfigure_with_precise_nnz(int nnz)
  ********************************************************************************/
 
 template <typename T>
-void OutlierHandler10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
+void CSR10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
 {
     handle_t handle       = nullptr;
     stream_t stream       = nullptr;
@@ -152,7 +152,7 @@ void OutlierHandler10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_pools
 }
 
 template <typename T>
-void OutlierHandler10<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
+void CSR10<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
 {
     export_nnz = this->nnz;
 
@@ -171,7 +171,7 @@ void OutlierHandler10<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind 
  ********************************************************************************/
 
 template <typename T>
-OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int _nnz)
+CSR10<T>::CSR10(unsigned int _len, unsigned int _nnz)
 {  //
     this->m   = Reinterpret1DTo2D::get_square_size(_len);
     this->nnz = _nnz;
@@ -183,7 +183,7 @@ OutlierHandler10<T>::OutlierHandler10(unsigned int _len, unsigned int _nnz)
 }
 
 template <typename T>
-void OutlierHandler10<T>::extract(uint8_t* _pool)
+void CSR10<T>::extract(uint8_t* _pool)
 {
     offset.rowptr = 0;
     offset.colidx = nbyte.rowptr;
@@ -196,7 +196,7 @@ void OutlierHandler10<T>::extract(uint8_t* _pool)
 };
 
 template <typename T>
-void OutlierHandler10<T>::scatter_CUDA10(T* in_outlier)
+void CSR10<T>::scatter_CUDA10(T* in_outlier)
 {
     //     throw std::runtime_error("[decompress_scatter] not implemented");
     handle_t handle   = nullptr;
@@ -234,4 +234,4 @@ void OutlierHandler10<T>::scatter_CUDA10(T* in_outlier)
 //
 }  // namespace cusz
 
-template class cusz::OutlierHandler10<float>;
+template class cusz::CSR10<float>;

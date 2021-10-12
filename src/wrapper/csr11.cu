@@ -1,5 +1,5 @@
 /**
- * @file handle_sparsity11.cu
+ * @file csr11.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -17,7 +17,7 @@
 #include "../common.hh"
 #include "../utils.hh"
 
-#include "handle_sparsity11.cuh"
+#include "csr11.cuh"
 
 using handle_t = cusparseHandle_t;
 using stream_t = cudaStream_t;
@@ -30,7 +30,7 @@ using stream_t = cudaStream_t;
 namespace cusz {
 
 template <typename T>
-OutlierHandler11<T>::OutlierHandler11(unsigned int _len, unsigned int* init_workspace_nbyte)
+CSR11<T>::CSR11(unsigned int _len, unsigned int* init_workspace_nbyte)
 {
     m = Reinterpret1DTo2D::get_square_size(_len);
 
@@ -45,7 +45,7 @@ OutlierHandler11<T>::OutlierHandler11(unsigned int _len, unsigned int* init_work
 }
 
 template <typename T>
-void OutlierHandler11<T>::configure_workspace(uint8_t* _pool)
+void CSR11<T>::configure_workspace(uint8_t* _pool)
 {
     if (not _pool) throw std::runtime_error("Memory is no allocated.");
     pool_ptr     = _pool;
@@ -55,7 +55,7 @@ void OutlierHandler11<T>::configure_workspace(uint8_t* _pool)
 }
 
 template <typename T>
-void OutlierHandler11<T>::reconfigure_with_precise_nnz(int nnz)
+void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
 {
     this->nnz    = nnz;
     nbyte.rowptr = sizeof(int) * (m + 1);
@@ -65,7 +65,7 @@ void OutlierHandler11<T>::reconfigure_with_precise_nnz(int nnz)
 }
 
 template <typename T>
-void OutlierHandler11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
+void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
 {
     cusparseHandle_t     handle = nullptr;
     cusparseSpMatDescr_t matB;  // sparse
@@ -152,7 +152,7 @@ void OutlierHandler11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize
 }
 
 template <typename T>
-void OutlierHandler11<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
+void CSR11<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
 {
     export_nnz = this->nnz;
 
@@ -168,7 +168,7 @@ void OutlierHandler11<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind 
  ********************************************************************************/
 
 template <typename T>
-OutlierHandler11<T>::OutlierHandler11(unsigned int _len, unsigned int _nnz)
+CSR11<T>::CSR11(unsigned int _len, unsigned int _nnz)
 {  //
     this->m   = Reinterpret1DTo2D::get_square_size(_len);
     this->nnz = _nnz;
@@ -180,7 +180,7 @@ OutlierHandler11<T>::OutlierHandler11(unsigned int _len, unsigned int _nnz)
 }
 
 template <typename T>
-void OutlierHandler11<T>::extract(uint8_t* _pool)
+void CSR11<T>::extract(uint8_t* _pool)
 {
     offset.rowptr = 0;
     offset.colidx = nbyte.rowptr;
@@ -193,7 +193,7 @@ void OutlierHandler11<T>::extract(uint8_t* _pool)
 };
 
 template <typename T>
-void OutlierHandler11<T>::scatter_CUDA11(T* out_dn)
+void CSR11<T>::scatter_CUDA11(T* out_dn)
 {
     auto d_csr_offsets = entry.rowptr;
     auto d_csr_columns = entry.colidx;
@@ -256,4 +256,4 @@ void OutlierHandler11<T>::scatter_CUDA11(T* out_dn)
 //
 }  // namespace cusz
 
-template class cusz::OutlierHandler11<float>;
+template class cusz::CSR11<float>;

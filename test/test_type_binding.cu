@@ -25,7 +25,7 @@ int main()
     cout << typeid(Predictor::Precision).name() << endl;
 
     using binding1 = struct PredictorReducerEncoderBinding<
-        cusz::PredictorLorenzo<float, uint32_t, float>, cusz::OutlierHandler10<float>,
+        cusz::PredictorLorenzo<float, uint32_t, float>, cusz::CSR10<float>,
         cusz::HuffmanWork<uint32_t, uint32_t>>;
 
     binding1::type_matching();
@@ -34,7 +34,7 @@ int main()
     cout << typeid(binding1::PREDICTOR::Origin).name() << endl;
 
     using binding2 = struct PredictorReducerBinding<  //
-        cusz::PredictorLorenzo<float, float, float>, cusz::OutlierHandler10<float>>;
+        cusz::PredictorLorenzo<float, float, float>, cusz::CSR10<float>>;
 
     binding2::type_matching();
 

@@ -1,17 +1,16 @@
 /**
- * @file handle_sparsity10.cuh
+ * @file csr11.cuh
  * @author Jiannan Tian
- * @brief (header) A high-level sparsity handling wrapper. Gather/scatter method to handle cuSZ prediction outlier.
+ * @brief
  * @version 0.3
- * @date 2021-07-08
- * (created) 2020-09-10 (rev1) 2021-06-17 (rev2) 2021-07-08
+ * @date 2021-09-28
  *
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
  */
 
-#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY10_CUH
-#define CUSZ_WRAPPER_HANDLE_SPARSITY10_CUH
+#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
+#define CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
 
 #include <driver_types.h>
 #include <cmath>
@@ -22,10 +21,16 @@
 
 #include "../../include/reducer.hh"
 
+// clang-format off
+template <typename F> struct cuszCUSPARSE;
+template <> struct cuszCUSPARSE<float>  { const static cudaDataType type = CUDA_R_32F; };
+template <> struct cuszCUSPARSE<double> { const static cudaDataType type = CUDA_R_64F; };
+// clang-format on
+
 namespace cusz {
 
 template <typename T = float>
-class OutlierHandler10 : public OneCallGatherScatter {
+class CSR11 : public VirtualGatherScatter {
    public:
     using Origin = T;
 
@@ -46,9 +51,9 @@ class OutlierHandler10 : public OneCallGatherScatter {
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
 
-    void gather_CUDA10(T* in, unsigned int& dump_nbyte);
+    void gather_CUDA11(T* in, unsigned int& dump_nbyte);
 
-    void scatter_CUDA10(T* out);
+    void scatter_CUDA11(T* out);
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
@@ -69,26 +74,26 @@ class OutlierHandler10 : public OneCallGatherScatter {
     float get_time_elapsed() const { return milliseconds; }
 
     // compression use
-    OutlierHandler10(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
+    CSR11(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
 
     void gather(T* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
     {
         configure_workspace(workspace);
-        gather_CUDA10(in, dump_nbyte);
+        gather_CUDA11(in, dump_nbyte);
         archive(dump, out_nnz);
     }
 
     // decompression use
-    OutlierHandler10(unsigned int _len, unsigned int _nnz);
+    CSR11(unsigned int _len, unsigned int _nnz);
 
     // only placehoding
     void scatter() {}
     void gather() {}
 
-    void scatter(uint8_t* _pool, T* in_outlier)
+    void scatter(uint8_t* _pool, T* out)
     {
         extract(_pool);
-        scatter_CUDA10(in_outlier);
+        scatter_CUDA11(out);
     }
 };
 

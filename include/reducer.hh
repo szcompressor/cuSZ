@@ -14,7 +14,7 @@
 
 namespace cusz {
 
-class OneCallGatherScatter {
+class VirtualGatherScatter {
    public:
     virtual float get_time_elapsed() const = 0;
     virtual void  gather()                 = 0;
