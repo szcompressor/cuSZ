@@ -20,8 +20,8 @@
 
 using namespace std;
 namespace prototype {
-template <typename Input_UInt, typename Output_UInt>
-__global__ void GPU_Histogram(Input_UInt*, Output_UInt*, size_t, int);
+template <typename Input, typename Output>
+__global__ void GPU_Histogram(Input*, Output*, size_t, int);
 
 template <typename Input, typename Huff>
 __global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*);

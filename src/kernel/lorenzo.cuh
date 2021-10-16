@@ -428,13 +428,13 @@ __global__ void cusz::x_lorenzo_1d1l(  //
     int    radius,
     FP     ebx2)
 {
-    constexpr auto Db = BLOCK / SEQ;  // dividable
+    constexpr auto block_dim = BLOCK / SEQ;  // dividable
 
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
-    typedef cub::BlockLoad<Data, Db, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>   BlockLoadT_outlier;
-    typedef cub::BlockLoad<Quant, Db, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_quant;
-    typedef cub::BlockStore<Data, Db, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_xdata;
-    typedef cub::BlockScan<Data, Db, cub::BLOCK_SCAN_RAKING_MEMOIZE> BlockScanT_xdata;  // TODO autoselect algorithm
+    typedef cub::BlockLoad<Data, block_dim, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>   BlockLoadT_outlier;
+    typedef cub::BlockLoad<Quant, block_dim, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_quant;
+    typedef cub::BlockStore<Data, block_dim, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_xdata;
+    typedef cub::BlockScan<Data, block_dim, cub::BLOCK_SCAN_RAKING_MEMOIZE> BlockScanT_xdata;  // TODO autoselect algorithm
 
     __shared__ union TempStorage {  // overlap shared memory space
         typename BlockLoadT_outlier::TempStorage load_outlier;

@@ -27,25 +27,16 @@
 using std::string;
 
 #include "analysis/analyzer.hh"
-#include "argparse.hh"
-#include "capsule.hh"
+#include "common.hh"
+#include "context.hh"
+#include "default_path.cuh"
 #include "header.hh"
-#include "kernel/preprocess.cuh"
-#include "metadata.hh"
-#include "nvgpusz.cuh"
 #include "query.hh"
-#include "type_aliasing.hh"
-#include "types.hh"
 #include "utils.hh"
-
-// double expectedErr;
-// double actualAbsErr;
-// double actualRelErr;
-// string z_mode;
 
 namespace {
 
-template <typename Data>
+template <typename T>
 void check_shell_calls(string cmd_string)
 {
     char* cmd = new char[cmd_string.length() + 1];
@@ -53,20 +44,13 @@ void check_shell_calls(string cmd_string)
     int status = system(cmd);
     delete[] cmd;
     cmd = nullptr;
-    if (status < 0) { logging(log_err, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
+    if (status < 0) { LOGGING(LOG_ERR, "Shell command call failed, exit code: ", errno, "->", strerror(errno)); }
 }
 
 }  // namespace
 
-/* gtest disabled in favor of code refactoring */
-// TEST(cuSZTest, TestMaxError)
-// {
-//     double actualErr = (z_mode == "r2r") ? actualRelErr : actualAbsErr;
-//     ASSERT_LE(actualErr, expectedErr);
-// }
-
-template <typename Data, int DownscaleFactor, int tBLK>
-Data* pre_binning(Data* d, size_t* dim_array)
+template <typename T, int DownscaleFactor, int tBLK>
+T* pre_binning(T* d, size_t* dim_array)
 {
     throw std::runtime_error("[pre_binning] disabled temporarily, will be part of preprocessing.");
     return nullptr;
@@ -74,104 +58,109 @@ Data* pre_binning(Data* d, size_t* dim_array)
 
 #define NONPTR_TYPE(VAR) std::remove_pointer<decltype(VAR)>::type
 
+void normal_path_lorenzo(cuszCTX* ctx)
+{
+    using T = float;
+    using E = ErrCtrlTrait<2>::type;
+    using P = FastLowPrecisionTrait<true>::type;
+
+    // TODO be part of the other two tasks without touching FS
+    // if (ctx->task_is.experiment) {}
+
+    if (ctx->task_is.construct or ctx->task_is.dryrun) {
+        double time_loading{0.0};
+
+        Capsule<T> in_data(ctx->data_len);
+        in_data.alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>()
+            .from_fs_to<cuszLOC::HOST>(ctx->fnames.path2file, &time_loading)
+            .host2device();
+
+        if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
+        LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
+
+        Capsule<BYTE> out_dump;
+
+        if (ctx->huff_nbyte == 4) {
+            DefaultPath::DefaultCompressor cuszc(ctx, &in_data);
+
+            cuszc  //
+                .compress()
+                .consolidate<cuszLOC::HOST, cuszLOC::HOST>(&out_dump.get<cuszLOC::HOST>());
+            cout << "output:\t" << ctx->fnames.compress_output << '\n';
+            out_dump  //
+                .to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output)
+                .free<cuszDEV::DEV, cuszLOC::HOST>();
+        }
+        else if (ctx->huff_nbyte == 8) {
+            DefaultPath::FallbackCompressor cuszc(ctx, &in_data);
+
+            cuszc  //
+                .compress()
+                .consolidate<cuszLOC::HOST, cuszLOC::HOST>(&out_dump.get<cuszLOC::HOST>());
+            cout << "output:\t" << ctx->fnames.compress_output << '\n';
+            out_dump  //
+                .to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output)
+                .free<cuszDEV::DEV, cuszLOC::HOST>();
+        }
+        else {
+            throw std::runtime_error("huff nbyte illegal");
+        }
+
+        in_data.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+    }
+
+    if (ctx->task_is.reconstruct) {  // fp32 only for now
+
+        auto fname_dump  = ctx->fnames.path2file + ".cusza";
+        auto cusza_nbyte = ConfigHelper::get_filesize(fname_dump);
+
+        Capsule<BYTE> in_dump(cusza_nbyte);
+        in_dump  //
+            .alloc<cuszDEV::DEV, cuszLOC::HOST>()
+            .from_fs_to<cuszLOC::HOST>(fname_dump);
+
+        Capsule<T> out_xdata;
+
+        // TODO try_writeback vs out_xdata.to_fs_from()
+        if (ctx->huff_nbyte == 4) {
+            DefaultPath::DefaultCompressor cuszd(ctx, &in_dump);
+
+            out_xdata  //
+                .set_len(ctx->data_len)
+                .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>();
+            cuszd  //
+                .decompress(&out_xdata)
+                .backmatter(&out_xdata);
+            out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        }
+        else if (ctx->huff_nbyte == 8) {
+            DefaultPath::FallbackCompressor cuszd(ctx, &in_dump);
+
+            out_xdata  //
+                .set_len(ctx->data_len)
+                .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>();
+            cuszd  //
+                .decompress(&out_xdata)
+                .backmatter(&out_xdata);
+            out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        }
+    }
+}
+
+void special_path_spline3(cuszCTX* ctx)
+{
+    //
+}
+
 int main(int argc, char** argv)
 {
-    auto ctx = new ArgPack();
-    ctx->parse_args(argc, argv);
+    auto ctx = new cuszCTX(argc, argv);
 
     if (ctx->verbose) {
         GetMachineProperties();
         GetDeviceProperty();
     }
 
-    // TODO remove hardcode for float for now
-    using Data = float;
-
-    auto len = ctx->data_len;
-    auto m   = static_cast<size_t>(ceil(sqrt(len)));
-    auto mxm = m * m;
-
-    Capsule<Data> in_data(mxm);
-
-    if (ctx->task_is.construct or ctx->task_is.dryrun) {
-        // logging(log_dbg, "add padding:", m, "units");
-
-        cudaMalloc(&in_data.dptr, in_data.nbyte());
-        cudaMallocHost(&in_data.hptr, in_data.nbyte());
-
-        {
-            auto a = hires::now();
-            io::read_binary_to_array<Data>(ctx->fnames.path2file, in_data.hptr, len);
-            auto z = hires::now();
-
-            if (ctx->verbose) logging(log_dbg, "time loading datum:", static_cast<duration_t>(z - a).count(), "sec");
-
-            logging(log_info, "load", ctx->fnames.path2file, len * sizeof(Data), "bytes");
-        }
-
-        in_data.h2d();
-
-        if (ctx->mode == "r2r") {
-            Analyzer analyzer;
-            auto     result = analyzer.GetMaxMinRng                                     //
-                          <Data, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
-                          (in_data.dptr, len);
-            if (ctx->verbose) logging(log_dbg, "time scanning:", result.seconds, "sec");
-            ctx->eb *= result.rng;
-        }
-
-        if (ctx->verbose)
-            logging(
-                log_dbg, std::to_string(ctx->quant_nbyte) + "-byte quant type,",
-                std::to_string(ctx->huff_nbyte) + "-byte internal Huff type");
-    }
-
-    if (ctx->task_is.pre_binning) {
-        cerr << log_err
-             << "Binning is not working temporarily; we are improving end-to-end throughput by NOT touching "
-                "filesystem. (ver. 0.1.4)"
-             << endl;
-        exit(1);
-    }
-
-    if (ctx->task_is.construct or ctx->task_is.dryrun) {  // fp32 only for now
-
-        if (ctx->quant_nbyte == 1) {
-            if (ctx->huff_nbyte == 4)
-                cusz_compress<true, 4, 1, 4>(ctx, &in_data);
-            else
-                cusz_compress<true, 4, 1, 8>(ctx, &in_data);
-        }
-        else if (ctx->quant_nbyte == 2) {
-            if (ctx->huff_nbyte == 4)
-                cusz_compress<true, 4, 2, 4>(ctx, &in_data);
-            else
-                cusz_compress<true, 4, 2, 8>(ctx, &in_data);
-        }
-
-        // release memory
-        cudaFree(in_data.dptr), cudaFreeHost(in_data.hptr);
-    }
-
-    if (in_data.dptr) {
-        cudaFreeHost(in_data.dptr);  // TODO messy
-    }
-
-    if (ctx->task_is.reconstruct) {  // fp32 only for now
-
-        // TODO data ready outside Decompressor?
-
-        if (ctx->quant_nbyte == 1) {
-            if (ctx->huff_nbyte == 4)
-                cusz_decompress<true, 4, 1, 4>(ctx);
-            else if (ctx->huff_nbyte == 8)
-                cusz_decompress<true, 4, 1, 8>(ctx);
-        }
-        else if (ctx->quant_nbyte == 2) {
-            if (ctx->huff_nbyte == 4)
-                cusz_decompress<true, 4, 2, 4>(ctx);
-            else if (ctx->huff_nbyte == 8)
-                cusz_decompress<true, 4, 2, 8>(ctx);
-        }
-    }
+    if (ctx->predictor == "lorenzo") normal_path_lorenzo(ctx);
+    if (ctx->predictor == "spline3") special_path_spline3(ctx);
 }

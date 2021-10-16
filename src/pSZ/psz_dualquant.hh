@@ -15,7 +15,7 @@
 
 #include <cstddef>
 
-#include "../types.hh"
+#include "../common.hh"
 
 namespace psz {
 namespace dualquant {

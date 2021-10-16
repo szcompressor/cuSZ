@@ -19,8 +19,8 @@
 #include <string>
 #include <tuple>
 
-#include "../capsule.hh"
-#include "../type_trait.hh"
+#include "../common/capsule.hh"
+#include "../common/type_traits.hh"
 
 using std::string;
 
@@ -91,19 +91,6 @@ void HuffmanEncode(
     size_t* ptr_num_bits,
     size_t* ptr_num_uints,
     float&  milliseconds);
-
-// new, IO eliminated
-template <typename Quant, typename Huff>
-void HuffmanDecode(
-    Huff*           dev_out_bitstream,
-    size_t*         dev_bits_entries,
-    uint8_t*        dev_revbook,
-    Capsule<Quant>* quant,
-    size_t          len,
-    int             chunk_size,
-    size_t          num_uints,
-    int             dict_size,
-    float&          milliseconds);
 
 }  // namespace lossless
 

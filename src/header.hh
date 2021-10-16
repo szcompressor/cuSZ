@@ -14,30 +14,29 @@
  *
  */
 
-#include "argparse.hh"
+#include "context.hh"
 
 typedef struct alignas(128) cuszHEADER {
-    uint32_t x, y, z, w, ndim;
-    uint32_t data_len;
+    uint32_t x, y, z, w;
+    uint32_t data_len, quant_len;
     double   eb;
 
-    struct {
-        uint32_t dtype : 8;        // (1) fp32, (2) fp64
-        uint32_t quant_nbyte : 4;  //
-        uint32_t huff_nbyte : 4;   //
-    } config;
+    uint32_t ndim : 2;
+    uint32_t dtype : 8;        // (1) fp32, (2) fp64; TODO placeholder for now
+    uint32_t quant_nbyte : 4;  //
+    uint32_t huff_nbyte : 4;   //
+    uint32_t predictor : 4;
+    uint32_t codec : 4;
+    uint32_t spreducer : 4;
 
-    struct {
-        int nnz;
-    } outlier;
+    int nnz_outlier;
+    int radius, dict_size;
+    // uint32_t huffman_num_bits;
+    uint32_t huffman_chunk, huffman_num_uints;
 
-    struct {
-        // uint32_t num_bits;
-        uint32_t num_uints;
-        uint32_t chunk;
-    } huffman;
-
-    bool skip_huffman;
+    // clang-format off
+    struct { bool huffman; } to_skip;
+    // clang-format on
 
     // stat
     float maximum, minimum;
@@ -47,7 +46,7 @@ typedef struct alignas(128) cuszHEADER {
         /* 1 */ uint32_t book;
         /* 2 */ uint32_t quant;
         /* 3 */ uint32_t revbook;
-        /* 4 */ uint32_t outlier;
+        /* 4 */ uint32_t outlier;  // TODO -> ancillary
         /* 5 */ uint32_t huff_meta;
         /* 6 */ uint32_t huff_bitstream;
     } nbyte;

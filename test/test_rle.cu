@@ -9,7 +9,7 @@
  *
  */
 
-#include "../src/capsule.hh"
+#include "../src/common/capsule.hh"
 #include "../src/kernel/rle.cuh"
 #include "../src/ood/codec_runlength.hh"
 

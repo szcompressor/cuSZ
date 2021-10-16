@@ -194,7 +194,8 @@ static void check_cusparse_error(cusparseStatus_t status, const char* file, int 
         printf("CUSPARSE_STATUS_INSUFFICIENT_RESOURCES    -> %d\n", CUSPARSE_STATUS_INSUFFICIENT_RESOURCES);
 #endif
         printf("\n");
-#if (CUDART_VERSION == 1010)
+
+#if (CUDART_VERSION >= 1010)
         printf(
             "CUSPARSE API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n", file, line,
             cusparseGetErrorString(status), status);

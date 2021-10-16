@@ -16,8 +16,8 @@
 #include "serial_huff.cuh"
 
 using namespace std;
-template <typename Input_UInt, typename Output_Uint>
-__global__ void prototype::GPU_Histogram(Input_UInt* in, Output_Uint* out, size_t N, int symbols_per_thread)
+template <typename Input, typename Output>
+__global__ void prototype::GPU_Histogram(Input* in, Output* out, size_t N, int symbols_per_thread)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int j;

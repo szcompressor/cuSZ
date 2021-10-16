@@ -14,9 +14,8 @@
 #include <string>
 #include <vector>
 
-#include "../capsule.hh"
+#include "../common.hh"
 #include "../datasets.hh"
-#include "../types.hh"
 #include "../utils/verify.hh"
 #include "psz_workflow.hh"
 

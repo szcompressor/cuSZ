@@ -19,8 +19,7 @@
 #include <cstdio>
 #include <limits>
 
-#include "../type_aliasing.hh"
-#include "../type_trait.hh"
+#include "../common.hh"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x
@@ -38,20 +37,21 @@ using BYTE = uint8_t;
 
 namespace {
 
-template <typename T>
-struct PackedWord;
+// clang-format off
 
-template <>
-struct PackedWord<UI4> {
-    UI4 word : 24;
-    UI4 bits : 8;
+template <int WIDTH> struct PackedWordByWidth;
+
+template <> struct PackedWordByWidth<4> {
+    uint32_t word : 24;
+    uint32_t bits : 8;
 };
 
-template <>
-struct PackedWord<UI8> {
-    UI8 word : 56;
-    UI8 bits : 8;
+template <> struct PackedWordByWidth<8> {
+    uint64_t word : 56;
+    uint64_t bits : 8;
 };
+
+// clang-format on
 
 // TODO change size_t to unsigned int
 template <typename Huff, typename Output>
@@ -110,7 +110,7 @@ namespace cusz {
 template <typename Input, typename Huff>
 __global__ void EncodeFixedLen(Input*, Huff*, size_t, Huff*, int offset = 0);
 
-template <typename Input, typename Huff, int SEQ = HuffConfig::enc_sequentiality>
+template <typename Input, typename Huff, int SEQ = HuffmanHelper::ENC_SEQUENTIALITY>
 __global__ void encode_fixedlen_space_cub(Input*, Huff*, size_t, Huff*, int offset = 0);
 
 template <typename Huff>
@@ -118,6 +118,9 @@ __global__ void encode_deflate(Huff*, size_t, size_t*, int);
 
 template <typename Quant, typename Huff>
 __global__ void Decode(Huff*, size_t*, Quant*, size_t, int, int, BYTE*, size_t);
+
+template <typename Quant, typename Huff, typename M = size_t>
+__global__ void decode_newtype(Huff*, M*, Quant*, size_t, int, int, BYTE*, size_t);
 
 }  // namespace cusz
 
@@ -133,10 +136,10 @@ __global__ void cusz::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* 
 template <typename Input, typename Huff, int SEQ>
 __global__ void cusz::encode_fixedlen_space_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {
-    static const auto Db = HuffConfig::Db_encode;
+    static const auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
-    typedef cub::BlockLoad<Input, Db, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_input;
-    typedef cub::BlockStore<Huff, Db, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_huff;
+    typedef cub::BlockLoad<Input, block_dim, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>  BlockLoadT_input;
+    typedef cub::BlockStore<Huff, block_dim, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE> BlockStoreT_huff;
 
     __shared__ union TempStorage {  // overlap shared memory space
         typename BlockLoadT_input::TempStorage load_input;
@@ -164,7 +167,6 @@ __global__ void cusz::encode_fixedlen_space_cub(Input* data, Huff* huff, size_t 
 template <typename Huff>
 __global__ void cusz::encode_deflate(Huff* huff, size_t len, size_t* sp_meta, int chunk_size)
 {
-    // TODO static check with Huff and UI4/8
     static const auto dtype_width = sizeof(Huff) * 8;
 
     auto gid = BIX * BDX + TIX;
@@ -177,7 +179,7 @@ __global__ void cusz::encode_deflate(Huff* huff, size_t len, size_t* sp_meta, in
 
     for (auto i = 0; i < chunk_size; i++) {
         packed_word    = huff[gid * chunk_size + i];
-        auto word_ptr  = reinterpret_cast<struct PackedWord<Huff>*>(&packed_word);
+        auto word_ptr  = reinterpret_cast<struct PackedWordByWidth<sizeof(Huff)>*>(&packed_word);
         word_width     = word_ptr->bits;
         word_ptr->bits = (uint8_t)0x0;
 
@@ -227,10 +229,40 @@ __global__ void cusz::Decode(
     size_t  singleton_size)
 {
     extern __shared__ BYTE _s_singleton[];
-    static const auto      Db = HuffConfig::Db_deflate;
+    static const auto      block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
 
-    for (auto i = 0; i < (singleton_size - 1 + Db) / Db; i++) {
-        if (TIX + i * Db < singleton_size) _s_singleton[TIX + i * Db] = singleton[TIX + i * Db];
+    for (auto i = 0; i < (singleton_size - 1 + block_dim) / block_dim; i++) {
+        if (TIX + i * block_dim < singleton_size) _s_singleton[TIX + i * block_dim] = singleton[TIX + i * block_dim];
+    }
+    __syncthreads();
+
+    auto bits         = sp_meta;
+    auto UInt_entries = sp_meta + n_chunk;
+
+    auto chunk_id = BIX * BDX + TIX;
+
+    if (chunk_id >= n_chunk) return;
+
+    InflateChunkwise(sp_huff + UInt_entries[chunk_id], quant_out + chunk_size * chunk_id, bits[chunk_id], _s_singleton);
+    __syncthreads();
+};
+
+template <typename Quant, typename Huff, typename M>
+__global__ void cusz::decode_newtype(
+    Huff*  sp_huff,
+    M*     sp_meta,
+    Quant* quant_out,
+    size_t len,
+    int    chunk_size,
+    int    n_chunk,
+    BYTE*  singleton,
+    size_t singleton_size)
+{
+    extern __shared__ BYTE _s_singleton[];
+    static const auto      block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+    for (auto i = 0; i < (singleton_size - 1 + block_dim) / block_dim; i++) {
+        if (TIX + i * block_dim < singleton_size) _s_singleton[TIX + i * block_dim] = singleton[TIX + i * block_dim];
     }
     __syncthreads();
 

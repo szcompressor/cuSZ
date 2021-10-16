@@ -25,7 +25,7 @@
 #include <string>
 #include <tuple>
 
-#include "../types.hh"
+#include "../common.hh"
 
 #ifdef MAIN
 #include "verify.hh"

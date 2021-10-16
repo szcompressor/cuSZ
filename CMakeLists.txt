@@ -22,12 +22,12 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 set(LIB_TYPE STATIC)
 
 add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu)
-add_library(argp ${LIB_TYPE} src/argparse.cc)
-add_library(sp ${LIB_TYPE} src/wrapper/handle_sparsity.cu)
+add_library(argp ${LIB_TYPE} src/context.cc)
+add_library(sp ${LIB_TYPE} src/wrapper/csr10.cu src/wrapper/csr11.cu)
 target_link_libraries(sp -lcusparse)
-add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_enc_dec.cu)
+add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_enc_dec.cu src/wrapper/huffman_coarse.cu)
 set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-add_library(nvgpusz ${LIB_TYPE} src/nvgpusz.cu)
+add_library(nvgpusz ${LIB_TYPE} src/default_path.cu src/base_cusz.cu)
 
 add_executable(cusz src/cusz.cu)
 target_link_libraries(cusz nvgpusz argp huff sp pq)
