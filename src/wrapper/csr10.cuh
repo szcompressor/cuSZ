@@ -29,10 +29,12 @@ class CSR10 : public VirtualGatherScatter {
    public:
     using Origin = T;
 
+    static const auto DEFAULT_LOC = cuszLOC::DEVICE;
+
    private:
     // clang-format off
     uint8_t* pool_ptr;
-    struct { int * rowptr, *colidx; T* values; } entry;
+    // struct { int * rowptr, *colidx; T* values; } entry;
     struct { unsigned int rowptr, colidx, values; } offset;
     struct { unsigned int rowptr, colidx, values, total; } nbyte;
     unsigned int workspace_nbyte, dump_nbyte;
@@ -40,8 +42,12 @@ class CSR10 : public VirtualGatherScatter {
     float milliseconds{0.0};
     // clang-format on
 
+    Capsule<int> rowptr;
+    Capsule<int> colidx;
+    Capsule<T>   values;
+
     // set up memory pool
-    void configure_workspace(uint8_t* _pool);
+    // void configure_workspace(uint8_t* _pool);
 
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
@@ -73,7 +79,7 @@ class CSR10 : public VirtualGatherScatter {
 
     void gather(T* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
     {
-        configure_workspace(workspace);
+        // configure_workspace(workspace);
         gather_CUDA10(in, dump_nbyte);
         archive(dump, out_nnz);
     }

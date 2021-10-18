@@ -80,14 +80,14 @@ struct DefaultPath {
 
     using DefaultBinding = PredictorReducerEncoderBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        cusz::CSR10<DATA>,
+        cusz::CSR11<DATA>,
         cusz::HuffmanWork<ERRCTRL, HuffTrait<4>::type>>;
 
     using DefaultCompressor = class DefaultPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerEncoderBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        cusz::CSR10<DATA>,
+        cusz::CSR11<DATA>,
         cusz::HuffmanWork<ERRCTRL, HuffTrait<8>::type>>;
 
     using FallbackCompressor = class DefaultPathCompressor<FallbackBinding>;

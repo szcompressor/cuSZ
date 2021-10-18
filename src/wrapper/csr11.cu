@@ -37,22 +37,26 @@ CSR11<T>::CSR11(unsigned int _len, unsigned int* init_workspace_nbyte)
     // TODO merge to configure?
     auto initial_nnz = _len / SparseMethodSetup::factor;
     // set up pool
-    offset.rowptr = 0;
-    offset.colidx = sizeof(int) * (m + 1);
-    offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+    // offset.rowptr = 0;
+    // offset.colidx = sizeof(int) * (m + 1);
+    // offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+
+    rowptr.set_len(m + 1).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
+    colidx.set_len(initial_nnz).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
+    values.set_len(initial_nnz).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
 
     if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_init_csr_nbyte<T, int>(_len);
 }
 
-template <typename T>
-void CSR11<T>::configure_workspace(uint8_t* _pool)
-{
-    if (not _pool) throw std::runtime_error("Memory is no allocated.");
-    pool_ptr     = _pool;
-    entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
-    entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-    entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
-}
+// template <typename T>
+// void CSR11<T>::configure_workspace(uint8_t* _pool)
+// {
+//     if (not _pool) throw std::runtime_error("Memory is no allocated.");
+//     pool_ptr     = _pool;
+//     entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
+//     entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
+//     entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
+// }
 
 template <typename T>
 void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
@@ -86,7 +90,7 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
         cusparseCreateDnMat(&matA, num_rows, num_cols, ld, d_dense, cuszCUSPARSE<T>::type, CUSPARSE_ORDER_ROW));
 
     // Create sparse matrix B in CSR format
-    auto d_csr_offsets = entry.rowptr;
+    auto d_csr_offsets = rowptr.template get<DEFAULT_LOC>();
     CHECK_CUSPARSE(cusparseCreateCsr(
         &matB, num_rows, num_cols, 0, d_csr_offsets, nullptr, nullptr, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
         CUSPARSE_INDEX_BASE_ZERO, cuszCUSPARSE<T>::type));
@@ -121,8 +125,8 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
     /**  this is all HOST, skip timing **/
     CHECK_CUSPARSE(cusparseSpMatGetSize(matB, &num_rows_tmp, &num_cols_tmp, &__nnz));
 
-    auto d_csr_columns = entry.colidx;
-    auto d_csr_values  = entry.values;
+    auto d_csr_columns = colidx.template get<DEFAULT_LOC>();
+    auto d_csr_values  = values.template get<DEFAULT_LOC>();
 
     // allocate CSR column indices and values (skipped in customiztion)
 
@@ -157,9 +161,9 @@ void CSR11<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
     export_nnz = this->nnz;
 
     // clang-format off
-    cudaMemcpy(dst + 0,                           entry.rowptr, nbyte.rowptr, direction);
-    cudaMemcpy(dst + nbyte.rowptr,                entry.colidx, nbyte.colidx, direction);
-    cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, entry.values, nbyte.values, direction);
+    cudaMemcpy(dst + 0,                           rowptr.template get<DEFAULT_LOC>(), nbyte.rowptr, direction);
+    cudaMemcpy(dst + nbyte.rowptr,                colidx.template get<DEFAULT_LOC>(), nbyte.colidx, direction);
+    cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, values.template get<DEFAULT_LOC>(), nbyte.values, direction);
     // clang-format on
 }
 
@@ -186,18 +190,18 @@ void CSR11<T>::extract(uint8_t* _pool)
     offset.colidx = nbyte.rowptr;
     offset.values = nbyte.rowptr + nbyte.colidx;
 
-    pool_ptr     = _pool;
-    entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
-    entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-    entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
+    pool_ptr                           = _pool;
+    rowptr.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
+    colidx.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.colidx);
+    values.template get<DEFAULT_LOC>() = reinterpret_cast<T*>(pool_ptr + offset.values);
 };
 
 template <typename T>
 void CSR11<T>::scatter_CUDA11(T* out_dn)
 {
-    auto d_csr_offsets = entry.rowptr;
-    auto d_csr_columns = entry.colidx;
-    auto d_csr_values  = entry.values;
+    auto d_csr_offsets = rowptr.template get<DEFAULT_LOC>();
+    auto d_csr_columns = colidx.template get<DEFAULT_LOC>();
+    auto d_csr_values  = values.template get<DEFAULT_LOC>();
 
     /********************************************************************************/
 

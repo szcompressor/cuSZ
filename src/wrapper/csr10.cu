@@ -39,22 +39,26 @@ CSR10<T>::CSR10(unsigned int _len, unsigned int* init_workspace_nbyte)
     // TODO merge to configure?
     auto initial_nnz = _len / SparseMethodSetup::factor;
     // set up pool
-    offset.rowptr = 0;
-    offset.colidx = sizeof(int) * (m + 1);
-    offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+    // offset.rowptr = 0;
+    // offset.colidx = sizeof(int) * (m + 1);
+    // offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
+
+    rowptr.set_len(m + 1).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
+    colidx.set_len(initial_nnz).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
+    values.set_len(initial_nnz).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
 
     if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_init_csr_nbyte<T, int>(_len);
 }
 
-template <typename T>
-void CSR10<T>::configure_workspace(uint8_t* _pool)
-{
-    if (not _pool) throw std::runtime_error("Memory is no allocated.");
-    pool_ptr     = _pool;
-    entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
-    entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-    entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
-}
+// template <typename T>
+// void CSR10<T>::configure_workspace(uint8_t* _pool)
+// {
+//     if (not _pool) throw std::runtime_error("Memory is no allocated.");
+//     pool_ptr     = _pool;
+//     rowptr.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
+//     colidx.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.colidx);
+//     values.template get<DEFAULT_LOC>() = reinterpret_cast<T*>(pool_ptr + offset.values);
+// }
 
 template <typename T>
 void CSR10<T>::reconfigure_with_precise_nnz(int nnz)
@@ -96,8 +100,8 @@ void CSR10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
         timer_step3->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr_bufferSizeExt(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, entry.values, entry.rowptr, entry.colidx,
-            &lworkInBytes));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
+            rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), &lworkInBytes));
 
         milliseconds += timer_step3->timer_end_get_elapsed_time();
         delete timer_step3;
@@ -114,7 +118,7 @@ void CSR10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
         timer_step4->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csrNnz(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, entry.rowptr, &nnz, d_work));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, rowptr.template get<DEFAULT_LOC>(), &nnz, d_work));
 
         milliseconds += timer_step4->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -135,7 +139,8 @@ void CSR10<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
         timer_step5->timer_start();
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr(  //
-            handle, m, n, in_outlier, lda, &threshold, mat_desc, entry.values, entry.rowptr, entry.colidx, d_work));
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
+            rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), d_work));
 
         milliseconds += timer_step5->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -158,13 +163,13 @@ void CSR10<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
     export_nnz = this->nnz;
 
     // clang-format off
-    cudaMemcpy(dst + 0,                           entry.rowptr, nbyte.rowptr, direction);
-    cudaMemcpy(dst + nbyte.rowptr,                entry.colidx, nbyte.colidx, direction);
-    cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, entry.values, nbyte.values, direction);
+    cudaMemcpy(dst + 0,                           rowptr.template get<DEFAULT_LOC>(), nbyte.rowptr, direction);
+    cudaMemcpy(dst + nbyte.rowptr,                colidx.template get<DEFAULT_LOC>(), nbyte.colidx, direction);
+    cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, values.template get<DEFAULT_LOC>(), nbyte.values, direction);
     // clang-format on
 
     // TODO not working, alignment issue?
-    // cudaMemcpy(dst, entry.rowptr, bytelen.total, direction);
+    // cudaMemcpy(dst, rowptr.template get<DEFAULT_LOC>(), bytelen.total, direction);
 }
 
 /********************************************************************************
@@ -190,11 +195,11 @@ void CSR10<T>::extract(uint8_t* _pool)
     offset.colidx = nbyte.rowptr;
     offset.values = nbyte.rowptr + nbyte.colidx;
 
-    pool_ptr     = _pool;
-    entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
-    entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-    entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
-};
+    pool_ptr                           = _pool;
+    rowptr.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
+    colidx.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.colidx);
+    values.template get<DEFAULT_LOC>() = reinterpret_cast<T*>(pool_ptr + offset.values);
+}
 
 template <typename T>
 void CSR10<T>::scatter_CUDA10(T* in_outlier)
@@ -219,8 +224,9 @@ void CSR10<T>::scatter_CUDA10(T* in_outlier)
         auto timer_scatter = new cuda_timer_t;
         timer_scatter->timer_start();
 
-        CHECK_CUSPARSE(
-            cusparseScsr2dense(handle, m, n, mat_desc, entry.values, entry.rowptr, entry.colidx, in_outlier, lda));
+        CHECK_CUSPARSE(cusparseScsr2dense(
+            handle, m, n, mat_desc, values.template get<DEFAULT_LOC>(), rowptr.template get<DEFAULT_LOC>(),
+            colidx.template get<DEFAULT_LOC>(), in_outlier, lda));
 
         milliseconds += timer_scatter->timer_end_get_elapsed_time();
         CHECK_CUDA(cudaDeviceSynchronize());
