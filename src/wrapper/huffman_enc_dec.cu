@@ -29,9 +29,9 @@
 #include <type_traits>
 #include <vector>
 
+#include "../common.hh"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
-#include "../common.hh"
 #include "../utils.hh"
 #include "huffman_enc_dec.cuh"
 
@@ -178,12 +178,24 @@ void lossless::HuffmanEncode(
         {
             auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
             auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
-            auto t         = new cuda_timer_t;
+
+            int numSMs;
+            cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+
+            LOGGING(LOG_WARN, "#SM: ", numSMs);
+            LOGGING(LOG_WARN, "len: ", len);
+
+            auto t = new cuda_timer_t;
             t->timer_start();
-            cusz::encode_fixedlen_space_cub<Quant, Huff, HuffmanHelper::ENC_SEQUENTIALITY>
-                <<<grid_dim, block_dim / HuffmanHelper::ENC_SEQUENTIALITY>>>(dev_input, dev_enc_space, len, dev_book);
+            // cusz::encode_fixedlen_space_cub<Quant, Huff, HuffmanHelper::ENC_SEQUENTIALITY>
+            //     <<<grid_dim, block_dim / HuffmanHelper::ENC_SEQUENTIALITY>>>(dev_input, dev_enc_space, len,
+            //     dev_book);
+
+            cusz::encode_fixedlen_gridstride        //
+                <Quant, Huff><<<8 * numSMs, 256>>>  //
+                (dev_input, dev_enc_space, len, dev_book, dict_size);
             milliseconds += t->timer_end_get_elapsed_time();
-            cudaDeviceSynchronize();
+            CHECK_CUDA(cudaDeviceSynchronize());
             delete t;
         }
 
