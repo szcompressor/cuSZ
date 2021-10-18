@@ -6,11 +6,14 @@ cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data
 cuSZ is a CUDA implementation of the world-widely used [SZ lossy compressor](https://github.com/szcompressor/SZ). It is the *first* error-bounded lossy compressor on GPUs for scientific data, which significantly improves SZ's throughput in GPU-based heterogeneous HPC systems. 
 This document introduces the installation and use of cuSZ on NVIDIA GPUs. 
 
-Our published papers cover the essential design and implementation, accessible via 
-- **PACT '20 cuSZ**, ([local copy](doc/PACT'20-cusz.pdf)), ([ACM open access](https://dl.acm.org/doi/10.1145/3410463.3414624)), or ([arXiv-2007.09625](https://arxiv.org/abs/2007.09625))
-- **CLUSTER '21 cuSZ+**, ([local copy](doc/CLUSTER'21-cusz+.pdf)), or ([arXiv-2105.12912](https://arxiv.org/abs/2105.12912)) 
-  - `doi` will be ready along with the inproceedings.
+Our published papers cover the essential design and implementation.
+- **PACT '20 cuSZ** 
+  - framework: fully parallelized prediction & error quantization ("construction"), GPU Huffman codec
+  - [local copy](doc/PACT'20-cusz.pdf), [ACM open access](https://dl.acm.org/doi/10.1145/3410463.3414624), [arXiv-2007.09625](https://arxiv.org/abs/2007.09625)
+- **CLUSTER '21 cuSZ+**
+  - enhancement: fully parallelized "reconstruction" of $N$-D partial-sum, sparsity-aware data reduction
   - We are working on integrating the sparsity-aware compression.
+  - [IEEEXplore](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}), open accesses to be updated
 
 *Kindly note:* If you mention cuSZ in your paper, please cite using [these entries](https://github.com/szcompressor/cuSZ#citing-cusz).
 
@@ -406,17 +409,19 @@ PACT '20, cuSZ
 CLUSTER '21, cuSZ+
 </summary>
 
-`doi` to be updated; a *temporary* entry is listed below.
-
 ```bibtex
-@misc{cuszplus2021,
-      title = {cuSZ+: Optimizing Error-Bounded Lossy Compression for Scientific Data on GPUs}, 
-     author = {Jiannan Tian and Sheng Di and Xiaodong Yu and Cody Rivera and Kai Zhao and Sian Jin and Yunhe Feng and Xin Liang and Dingwen Tao and Franck Cappello},
+@INPROCEEDINGS {cuszplus2021,
+     author = {J. Tian and S. Di and X. Yu and C. Rivera and K. Zhao and S. Jin and Y. Feng and X. Liang and D. Tao and F. Cappello},
+  booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
+      title = {Optimizing Error-Bounded Lossy Compression for Scientific Data on GPUs},
        year = {2021},
-     eprint = {2105.12912},
-       note = {accepted by IEEE CLUSTER '21},
-archivePrefix = {arXiv},
- primaryClass = {cs.DC}
+      pages = {283-293},
+   keywords = {conferences;graphics processing units;computer architecture;cluster computing;reconstruction algorithms;throughput;encoding},
+        doi = {10.1109/Cluster48925.2021.00047},
+        url = {https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047},
+  publisher = {IEEE Computer Society},
+    address = {Los Alamitos, CA, USA},
+      month = {sep}
 }
 ```
 
