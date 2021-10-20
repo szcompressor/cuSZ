@@ -138,11 +138,8 @@ __forceinline__ __device__ bool xyz33x9x9_predicate(unsigned int x, unsigned int
 
 // control block_id3 in function call
 template <typename T, bool PRINT_FP = false, int XEND = 33, int YEND = 9, int ZEND = 9>
-__device__ void spline3d_print_block_from_GPU(
-    T volatile a[9][9][33],
-    int  radius        = 512,
-    bool compress      = true,
-    bool print_errctrl = true)
+__device__ void
+spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool compress = true, bool print_errctrl = true)
 {
     for (auto z = 0; z < ZEND; z++) {
         printf("\nprint from GPU, z=%d\n", z);
@@ -186,26 +183,21 @@ template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
 __device__ void
 c_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errctrl[9][9][33], int radius)
 {
-    constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
     // alternatively, reinterprete cast volatile T?[][][] to 1D
-    for (auto i = 0; i < NUM_ITERS; i++) {
-        auto _tix = i * LINEAR_BLOCK_SIZE + TIX;
+    for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
+        auto x = (_tix % 33);
+        auto y = (_tix / 33) % 9;
+        auto z = (_tix / 33) / 9;
 
-        if (_tix < 33 * 9 * 9) {
-            auto x = (_tix % 33);
-            auto y = (_tix / 33) % 9;
-            auto z = (_tix / 33) / 9;
-
-            shm_data[z][y][x] = 0;
-            /*****************************************************************************
-             okay to use
-             ******************************************************************************/
-            if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) shm_errctrl[z][y][x] = radius;
-            /*****************************************************************************
-             alternatively
-             ******************************************************************************/
-            // shm_errctrl[z][y][x] = radius;
-        }
+        shm_data[z][y][x] = 0;
+        /*****************************************************************************
+         okay to use
+         ******************************************************************************/
+        if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) shm_errctrl[z][y][x] = radius;
+        /*****************************************************************************
+         alternatively
+         ******************************************************************************/
+        // shm_errctrl[z][y][x] = radius;
     }
     __syncthreads();
 }
@@ -261,34 +253,29 @@ __device__ void x_reset_scratch_33x9x9data(
     T1*         anchor,  // DIM3        anchor_size,  // unused
     STRIDE3     anchor_leap)
 {
-    constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
-    // alternatively, reinterprete cast volatile T?[][][] to 1D
-    for (auto i = 0; i < NUM_ITERS; i++) {
-        auto _tix = i * LINEAR_BLOCK_SIZE + TIX;
+    for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
+        auto x = (_tix % 33);
+        auto y = (_tix / 33) % 9;
+        auto z = (_tix / 33) / 9;
 
-        if (_tix < 33 * 9 * 9) {
-            auto x = (_tix % 33);
-            auto y = (_tix / 33) % 9;
-            auto z = (_tix / 33) / 9;
+        shm_errctrl[z][y][x] = 0;  // TODO explicitly handle zero-padding
+        /*****************************************************************************
+         okay to use
+         ******************************************************************************/
+        if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) {
+            shm_xdata[z][y][x] = 0;
 
-            shm_errctrl[z][y][x] = 0;  // TODO explicitly handle zero-padding
-            /*****************************************************************************
-             okay to use
-             ******************************************************************************/
-            if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) {
-                shm_xdata[z][y][x] = 0;
-
-                auto aid = ((x / 8) + BIX * 4) +              //
-                           ((y / 8) + BIY) * anchor_leap.y +  //
-                           ((z / 8) + BIZ) * anchor_leap.z;   //
-                shm_xdata[z][y][x] = anchor[aid];
-            }
-            /*****************************************************************************
-             alternatively
-             ******************************************************************************/
-            // shm_errctrl[z][y][x] = radius;
+            auto aid = ((x / 8) + BIX * 4) +              //
+                       ((y / 8) + BIY) * anchor_leap.y +  //
+                       ((z / 8) + BIZ) * anchor_leap.z;   //
+            shm_xdata[z][y][x] = anchor[aid];
         }
+        /*****************************************************************************
+         alternatively
+         ******************************************************************************/
+        // shm_errctrl[z][y][x] = radius;
     }
+
     __syncthreads();
 }
 
