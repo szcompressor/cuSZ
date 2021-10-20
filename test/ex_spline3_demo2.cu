@@ -34,7 +34,7 @@ using T = float;
 using BYTE = uint8_t;
 using E    = float;
 
-using REDUCER = cusz::OutlierHandler11<E>;
+using REDUCER = cusz::CSR11<E>;
 
 bool print_fullhist = false;
 bool write_quant    = false;
@@ -114,7 +114,7 @@ void test_spline3d_predictor_reducer(double _eb)
         }
      */
 
-    Capsule<BYTE, false> sp_use;  // TODO compatibility issue
+    Capsule<BYTE, false> exact_sp_use;
 
     REDUCER csr_comp(predictor.get_quant_footprint());
 
@@ -126,32 +126,24 @@ void test_spline3d_predictor_reducer(double _eb)
                 predictor.get_quant_footprint())            //
          << '\n';
 
-    sp_use
+    exact_sp_use
         .set_len(                                           //
             SparseMethodSetup::get_init_csr_nbyte<E, int>(  //
                 predictor.get_quant_footprint()))
         .alloc<MODE, cuszLOC::HOST_DEVICE>();
 
-    auto init_sp_use  = sp_use.dptr;
-    auto exact_sp_use = sp_use.hptr;
-
-    csr_comp.gather(         //
-        errctrl.get<LOC>(),  //
-        // sp_use.get<cuszLOC::DEVICE>(),  //
-        // sp_use.get<cuszLOC::HOST>(),    //
-        init_sp_use, exact_sp_use,
-        sp_dump_nbyte,  //
-        nnz);
+    csr_comp.gather(errctrl.get<LOC>(), sp_dump_nbyte, nnz);
+    csr_comp.consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(exact_sp_use.get<cuszLOC::DEVICE>());
 
     // need to change
-    sp_use.host2device();
+    // exact_sp_use.host2device();
 
     cudaMemset(errctrl.get<LOC>(), 0x00, errctrl.nbyte());
 
     REDUCER csr_decomp(predictor.get_quant_footprint(), nnz);
 
-    csr_decomp.scatter(exact_sp_use, errctrl.get<LOC>());
-    sp_use.free<MODE, cuszLOC::HOST_DEVICE>();
+    csr_decomp.scatter(exact_sp_use.dptr, errctrl.get<LOC>());
+    exact_sp_use.free<MODE, cuszLOC::HOST_DEVICE>();
     // =============================================================================
     // start of decompression
     // =============================================================================

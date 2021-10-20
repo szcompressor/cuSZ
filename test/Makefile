@@ -1,6 +1,6 @@
-all: splinedemo1 splinedemo2
+all: splinedemo1 
 
-interp_spline3.o: ../src/wrapper/interp_spline3.cu
+interp_spline3.o: ../src/wrapper/interp_spline3.cu ../src/kernel/spline3.cuh
 	@echo :: resolving spline3 dependency-1...
 	nvcc ../src/wrapper/interp_spline3.cu -c --extended-lambda
 
@@ -70,7 +70,7 @@ proflorenzo: dummy_xlorenzo3d.cu dummy_xlorenzo2d.cu
 
 
 clean:
-	rm -f spline3-demo1 spline3-demo2
+	rm -f *.o spline3-demo1 spline3-demo2
 
 purge:
-	rm -f spline3-demo1 spline3-demo2 interp_spline3.o
+	rm -f *.o spline3-demo1 spline3-demo2
