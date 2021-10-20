@@ -90,6 +90,7 @@ __global__ void x_spline3d_infprecis_32x8x8data(
     DIM3    errctrl_size,  //
     STRIDE3 errctrl_leap,  //
     TITER   anchor,        // input 2
+    DIM3    anchor_size,   //
     STRIDE3 anchor_leap,   //
     TITER   data,          // output
     DIM3    data_size,     //
@@ -250,7 +251,8 @@ template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
 __device__ void x_reset_scratch_33x9x9data(
     volatile T1 shm_xdata[9][9][33],
     volatile T2 shm_errctrl[9][9][33],
-    T1*         anchor,  // DIM3        anchor_size,  // unused
+    T1*         anchor,       //
+    DIM3        anchor_size,  //
     STRIDE3     anchor_leap)
 {
     for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
@@ -265,10 +267,12 @@ __device__ void x_reset_scratch_33x9x9data(
         if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) {
             shm_xdata[z][y][x] = 0;
 
-            auto aid = ((x / 8) + BIX * 4) +              //
-                       ((y / 8) + BIY) * anchor_leap.y +  //
-                       ((z / 8) + BIZ) * anchor_leap.z;   //
-            shm_xdata[z][y][x] = anchor[aid];
+            auto ax = ((x / 8) + BIX * 4);
+            auto ay = ((y / 8) + BIY);
+            auto az = ((z / 8) + BIZ);
+
+            if (ax < anchor_size.x and ay < anchor_size.y and az < anchor_size.z)
+                shm_xdata[z][y][x] = anchor[ax + ay * anchor_leap.y + az * anchor_leap.z];
         }
         /*****************************************************************************
          alternatively
@@ -575,6 +579,7 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     DIM3    errctrl_size,  //
     STRIDE3 errctrl_leap,  //
     TITER   anchor,        // input 2
+    DIM3    anchor_size,   //
     STRIDE3 anchor_leap,   //
     TITER   data,          // output
     DIM3    data_size,     //
@@ -592,7 +597,7 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
         T data[9][9][33];
     } shmem;
 
-    x_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, anchor, anchor_leap);
+    x_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, anchor, anchor_size, anchor_leap);
     global2shmem_33x9x9data<E, LINEAR_BLOCK_SIZE>(errctrl, shmem.errctrl, errctrl_size, errctrl_leap);
     cusz::device_api::spline3d_layout2_interpolate<T, E, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
         shmem.data, shmem.errctrl, eb_r, ebx2, radius);

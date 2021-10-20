@@ -86,7 +86,7 @@ void SPLINE3::reconstruct(TITER anchor, EITER errctrl, TITER xdata)
     cusz::x_spline3d_infprecis_32x8x8data<EITER, TITER, float, 256>
         <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
         (errctrl, size_aligned, leap_aligned,                   //
-         anchor, anchor_leap,                                   //
+         anchor, anchor_size, anchor_leap,                      //
          xdata, size, leap,                                     //
          eb_r, ebx2, radius);
     cudaDeviceSynchronize();

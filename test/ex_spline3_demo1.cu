@@ -164,14 +164,14 @@ void test_spline3d_wrapped(double _eb)
 
     predictor.construct(data.get<LOC>(), anchor.get<LOC>(), errctrl.get<LOC>());
 
-    {
-        auto hist = new int[radius * 2]();
-        for (auto i = 0; i < predictor.get_quant_len(); i++) hist[(int)errctrl.get<LOC>()[i]]++;
-        for (auto i = 0; i < radius * 2; i++)
-            if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
+    // {
+    //     auto hist = new int[radius * 2]();
+    //     for (auto i = 0; i < predictor.get_quant_len(); i++) hist[(int)errctrl.get<LOC>()[i]]++;
+    //     for (auto i = 0; i < radius * 2; i++)
+    //         if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
 
-        delete[] hist;
-    }
+    //     delete[] hist;
+    // }
 
     predictor.reconstruct(anchor.get<LOC>(), errctrl.get<LOC>(), xdata.get<LOC>());
 
@@ -287,9 +287,10 @@ void test_spline3d_proto(double _eb)
         }
     }
 
-    {  // verification
-       // print_block_from_CPU<T, true>(data);
-       // print_block_from_CPU<E, false, true>(errctrl);
+    {
+        // verification
+        // print_block_from_CPU<T, true>(data);
+        // print_block_from_CPU<E, false, true>(errctrl);
     }
 
     {
@@ -304,13 +305,13 @@ void test_spline3d_proto(double _eb)
         printf("non-zero offset count:\t%d\tpercentage:\t%.8lf%%\tCR:\t%.4lf\n", count, percent * 100, sparsity_cr);
     }
 
-    auto hist = new int[radius * 2]();
-    if (print_fullhist) {
-        for (auto i = 0; i < len_aligned; i++) { hist[(int)errctrl[i]]++; }
-        for (auto i = 0; i < radius * 2; i++) {
-            if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
-        }
-    }
+    // auto hist = new int[radius * 2]();
+    // if (print_fullhist) {
+    //     for (auto i = 0; i < len_aligned; i++) { hist[(int)errctrl[i]]++; }
+    //     for (auto i = 0; i < radius * 2; i++) {
+    //         if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
+    //     }
+    // }
 
     if (write_quant) io::write_array_to_binary(fname + ".spline", errctrl, len_aligned);
 
@@ -321,7 +322,7 @@ void test_spline3d_proto(double _eb)
             cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>
                 <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
                 (errctrl, size_aligned, leap_aligned,                   //
-                 anchor, anchor_leap,                                   //
+                 anchor, anchor_size, anchor_leap,                      //
                  xdata, size, leap,                                     //
                  eb_r, ebx2, radius);
             cudaDeviceSynchronize();
