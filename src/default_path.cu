@@ -296,7 +296,8 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
         .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
 
     predictor->construct(this->in_data->dptr, nullptr, this->quant.dptr);
-    csr->gather(this->in_data->dptr, sp_use.dptr, sp_use.hptr, sp_dump_nbyte, this->ctx->nnz_outlier);
+    csr->gather(this->in_data->dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
+    csr->template consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(sp_use.hptr);
 
     this->time.lossy   = predictor->get_time_elapsed();
     this->time.outlier = csr->get_time_elapsed();

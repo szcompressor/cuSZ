@@ -68,8 +68,6 @@ class CSR11 : public VirtualGatherScatter {
                + sizeof(T) * nnz;     // values
     }
 
-    void archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
-
     void extract(uint8_t* _pool);
 
    public:
@@ -81,17 +79,20 @@ class CSR11 : public VirtualGatherScatter {
     // compression use
     CSR11(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
 
-    void gather(T* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
+    template <cuszLOC FROM = cuszLOC::DEVICE, cuszLOC TO = cuszLOC::HOST>
+    CSR11& consolidate(uint8_t* dst);  //, cudaMemcpyKind direction = cudaMemcpyDeviceToHost);
+
+    void gather(T* in, unsigned int& dump_nbyte, int& out_nnz)
     {
-        // configure_workspace(workspace);
+        // removed memory pool
         gather_CUDA11(in, dump_nbyte);
-        archive(dump, out_nnz);
+        out_nnz = this->nnz;
     }
 
     // decompression use
     CSR11(unsigned int _len, unsigned int _nnz);
 
-    // only placehoding
+    // only placeholding
     void scatter() {}
     void gather() {}
 

@@ -156,15 +156,16 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
 }
 
 template <typename T>
-void CSR11<T>::archive(uint8_t* dst, int& export_nnz, cudaMemcpyKind direction)
+template <cuszLOC FROM, cuszLOC TO>
+CSR11<T>& CSR11<T>::consolidate(uint8_t* dst)
 {
-    export_nnz = this->nnz;
-
+    constexpr auto direction = CopyDirection<FROM, TO>::direction;
     // clang-format off
     cudaMemcpy(dst + 0,                           rowptr.template get<DEFAULT_LOC>(), nbyte.rowptr, direction);
     cudaMemcpy(dst + nbyte.rowptr,                colidx.template get<DEFAULT_LOC>(), nbyte.colidx, direction);
     cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, values.template get<DEFAULT_LOC>(), nbyte.values, direction);
     // clang-format on
+    return *this;
 }
 
 /********************************************************************************
@@ -260,4 +261,11 @@ void CSR11<T>::scatter_CUDA11(T* out_dn)
 //
 }  // namespace cusz
 
-template class cusz::CSR11<float>;
+#define CSR11_TYPE cusz::CSR11<float>
+
+template class CSR11_TYPE;
+
+template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::HOST, cuszLOC::HOST>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(uint8_t*);
