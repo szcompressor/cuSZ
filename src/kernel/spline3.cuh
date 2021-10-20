@@ -286,23 +286,18 @@ __device__ void x_reset_scratch_33x9x9data(
 template <typename Input, int LINEAR_BLOCK_SIZE = 256>
 __device__ void global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][9][33], DIM3 dim3d, STRIDE3 leapd)
 {
-    constexpr auto TOTAL     = 33 * 9 * 9;
-    constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
+    constexpr auto TOTAL = 33 * 9 * 9;
 
-    for (auto i = 0; i < NUM_ITERS; i++) {
-        auto _tix = i * LINEAR_BLOCK_SIZE + TIX;
+    for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+        auto x   = (_tix % 33);
+        auto y   = (_tix / 33) % 9;
+        auto z   = (_tix / 33) / 9;
+        auto gx  = (x + BIX * BLOCK32);
+        auto gy  = (y + BIY * BLOCK8);
+        auto gz  = (z + BIZ * BLOCK8);
+        auto gid = gx + gy * leapd.y + gz * leapd.z;
 
-        if (_tix < TOTAL) {
-            auto x   = (_tix % 33);
-            auto y   = (_tix / 33) % 9;
-            auto z   = (_tix / 33) / 9;
-            auto gx  = (x + BIX * BLOCK32);
-            auto gy  = (y + BIY * BLOCK8);
-            auto gz  = (z + BIZ * BLOCK8);
-            auto gid = gx + gy * leapd.y + gz * leapd.z;
-
-            if (gx < dim3d.x and gy < dim3d.y and gz < dim3d.z) { shm_data[z][y][x] = data[gid]; }
-        }
+        if (gx < dim3d.x and gy < dim3d.y and gz < dim3d.z) shm_data[z][y][x] = data[gid];
     }
     __syncthreads();
 }
@@ -310,23 +305,18 @@ __device__ void global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][
 template <typename Output, int LINEAR_BLOCK_SIZE = 256>
 __device__ void shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 dim3d, STRIDE3 leapd)
 {
-    constexpr auto TOTAL     = 32 * 8 * 8;
-    constexpr auto NUM_ITERS = TOTAL / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
+    constexpr auto TOTAL = 32 * 8 * 8;
 
-    for (auto i = 0; i < NUM_ITERS; i++) {
-        auto _tix = i * LINEAR_BLOCK_SIZE + TIX;
+    for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+        auto x   = (_tix % 32);
+        auto y   = (_tix / 32) % 8;
+        auto z   = (_tix / 32) / 8;
+        auto gx  = (x + BIX * BLOCK32);
+        auto gy  = (y + BIY * BLOCK8);
+        auto gz  = (z + BIZ * BLOCK8);
+        auto gid = (x + BIX * BLOCK32) + (y + BIY * BLOCK8) * leapd.y + (z + BIZ * BLOCK8) * leapd.z;
 
-        if (_tix < TOTAL) {
-            auto x   = (_tix % 32);
-            auto y   = (_tix / 32) % 8;
-            auto z   = (_tix / 32) / 8;
-            auto gx  = (x + BIX * BLOCK32);
-            auto gy  = (y + BIY * BLOCK8);
-            auto gz  = (z + BIZ * BLOCK8);
-            auto gid = (x + BIX * BLOCK32) + (y + BIY * BLOCK8) * leapd.y + (z + BIZ * BLOCK8) * leapd.z;
-
-            if (gx < dim3d.x and gy < dim3d.y and gz < dim3d.z) { data[gid] = shm_data[z][y][x]; }
-        }
+        if (gx < dim3d.x and gy < dim3d.y and gz < dim3d.z) data[gid] = shm_data[z][y][x];
     }
     __syncthreads();
 }
@@ -400,20 +390,15 @@ __forceinline__ __device__ void interpolate_stage(
     // -------------------------------------------------------------------------------- //
 
     if CONSTEXPR (COARSEN) {
-        constexpr auto TOTAL     = BLOCK_DIMX * BLOCK_DIMY * BLOCK_DIMZ;
-        constexpr auto NUM_ITERS = TOTAL / LINEAR_BLOCK_SIZE + 1;
-
-        for (auto i = 0; i < NUM_ITERS; i++) {
-            auto _tix = i * LINEAR_BLOCK_SIZE + TIX;
-            if (_tix < TOTAL) {
-                auto itix = (_tix % BLOCK_DIMX);
-                auto itiy = (_tix / BLOCK_DIMX) % BLOCK_DIMY;
-                auto itiz = (_tix / BLOCK_DIMX) / BLOCK_DIMY;
-                auto x    = xmap(itix, unit);
-                auto y    = ymap(itiy, unit);
-                auto z    = zmap(itiz, unit);
-                run(x, y, z);
-            }
+        constexpr auto TOTAL = BLOCK_DIMX * BLOCK_DIMY * BLOCK_DIMZ;
+        for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+            auto itix = (_tix % BLOCK_DIMX);
+            auto itiy = (_tix / BLOCK_DIMX) % BLOCK_DIMY;
+            auto itiz = (_tix / BLOCK_DIMX) / BLOCK_DIMY;
+            auto x    = xmap(itix, unit);
+            auto y    = ymap(itiy, unit);
+            auto z    = zmap(itiz, unit);
+            run(x, y, z);
         }
     }
     else {
