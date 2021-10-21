@@ -71,7 +71,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
         double time_loading{0.0};
 
         Capsule<T> in_data(ctx->data_len);
-        in_data.alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>()
+        in_data.alloc<cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>()
             .from_fs_to<cuszLOC::HOST>(ctx->fnames.path2file, &time_loading)
             .host2device();
 
@@ -89,7 +89,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
             cout << "output:\t" << ctx->fnames.compress_output << '\n';
             out_dump  //
                 .to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output)
-                .free<cuszDEV::DEV, cuszLOC::HOST>();
+                .free<cuszLOC::HOST>();
         }
         else if (ctx->huff_nbyte == 8) {
             DefaultPath::FallbackCompressor cuszc(ctx, &in_data);
@@ -100,13 +100,13 @@ void normal_path_lorenzo(cuszCTX* ctx)
             cout << "output:\t" << ctx->fnames.compress_output << '\n';
             out_dump  //
                 .to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output)
-                .free<cuszDEV::DEV, cuszLOC::HOST>();
+                .free<cuszLOC::HOST>();
         }
         else {
             throw std::runtime_error("huff nbyte illegal");
         }
 
-        in_data.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        in_data.free<cuszLOC::HOST_DEVICE>();
     }
 
     if (ctx->task_is.reconstruct) {  // fp32 only for now
@@ -116,7 +116,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
 
         Capsule<BYTE> in_dump(cusza_nbyte);
         in_dump  //
-            .alloc<cuszDEV::DEV, cuszLOC::HOST>()
+            .alloc<cuszLOC::HOST>()
             .from_fs_to<cuszLOC::HOST>(fname_dump);
 
         Capsule<T> out_xdata;
@@ -127,22 +127,22 @@ void normal_path_lorenzo(cuszCTX* ctx)
 
             out_xdata  //
                 .set_len(ctx->data_len)
-                .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>();
+                .alloc<cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>();
             cuszd  //
                 .decompress(&out_xdata)
                 .backmatter(&out_xdata);
-            out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+            out_xdata.free<cuszLOC::HOST_DEVICE>();
         }
         else if (ctx->huff_nbyte == 8) {
             DefaultPath::FallbackCompressor cuszd(ctx, &in_dump);
 
             out_xdata  //
                 .set_len(ctx->data_len)
-                .alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>();
+                .alloc<cuszLOC::HOST_DEVICE, ALIGNDATA::SQUARE_MATRIX>();
             cuszd  //
                 .decompress(&out_xdata)
                 .backmatter(&out_xdata);
-            out_xdata.free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+            out_xdata.free<cuszLOC::HOST_DEVICE>();
         }
     }
 }

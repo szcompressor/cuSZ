@@ -43,18 +43,37 @@ class Capsule {
             "[Capsule] misused unified memory API");
     }
 
+    template <cuszLOC LOC>
+    void hostdevice_not_allowed()
+    {
+        static_assert(LOC != cuszLOC::HOST_DEVICE, "[Capsule] LOC at HOST_DEVICE not allowed");
+    }
+
+    std::string ERRSTR_BUILDER(std::string func, std::string msg)
+    {  //
+        return "[Capsule(\"" + name + "\")::" + func + "] " + msg;
+    }
+
+    std::string ERROR_UNDEFINED_BEHAVIOR(std::string func, std::string msg = "undefined behavior")
+    {  //
+        return ERRSTR_BUILDER(func, "undefined behavior");
+    }
+
    public:
     using type = T;
     unsigned int len;
+
+    std::string name;
 
     T* dptr;
     T* hptr;
     T* uniptr;
 
-    template <cuszLOC LOC>
+    template <cuszLOC LOC = cuszLOC::UNIFIED>
     T*& get()
     {
         raise_error_if_misuse_unified<LOC>();
+        hostdevice_not_allowed<LOC>();
 
         if CONSTEXPR (LOC == cuszLOC::HOST)
             return hptr;
@@ -63,13 +82,14 @@ class Capsule {
         else if (LOC == cuszLOC::UNIFIED)
             return uniptr;
         else
-            throw std::runtime_error("[Capsule::get] undefined behavior");
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("get"));
     }
 
-    template <cuszLOC LOC>
+    template <cuszLOC LOC = cuszLOC::UNIFIED>
     T* set(T* ptr)
     {
         raise_error_if_misuse_unified<LOC>();
+        hostdevice_not_allowed<LOC>();
 
         if CONSTEXPR (LOC == cuszLOC::HOST)
             hptr = ptr;
@@ -78,14 +98,22 @@ class Capsule {
         else if (LOC == cuszLOC::UNIFIED)  // rare
             uniptr = ptr;
         else
-            throw std::runtime_error("[Capsule::set] undefined behavior");
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("set"));
     }
 
     Capsule() = default;
 
-    Capsule(unsigned int _len) : len(_len) {}
+    Capsule(unsigned int _len, const std::string _str = std::string("<unnamed>")) : len(_len), name(_str) {}
+
+    Capsule(const string _str) : name(_str){};
 
     Capsule(T* _h_in, T* _d_in, unsigned int _len) : hptr(_h_in), dptr(_d_in), len(_len) {}
+
+    Capsule& set_name(std::string _str)
+    {
+        name = _str;
+        return *this;
+    }
 
     Capsule& set_len(unsigned int _len)
     {
@@ -103,6 +131,7 @@ class Capsule {
     Capsule& from_existing_on(T* in)
     {
         raise_error_if_misuse_unified<LOC>();
+        hostdevice_not_allowed<LOC>();
 
         if (LOC == cuszLOC::HOST)
             hptr = in;
@@ -111,7 +140,7 @@ class Capsule {
         else if (LOC == cuszLOC::UNIFIED)
             uniptr = in;
         else
-            throw std::runtime_error("[Capsule::from_existing_on] undefined behavior");
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_existing_on"));
 
         return *this;
     }
@@ -131,23 +160,28 @@ class Capsule {
 
         if (DST == cuszLOC::HOST) {
             if (VIA == cuszLOC::NONE) {
-                if (not hptr) throw std::runtime_error("[Capsule::from_fs_to] hptr not set");
+                if (not hptr) {  //
+                    throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "hptr not set"));
+                }
                 io::read_binary_to_array<T>(fname, hptr, len);
             }
-            else
-                throw std::runtime_error("[Capsule::from_fs_to] undefined behavior");
+            else {
+                throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_fs_to"));
+            }
         }
         else if (DST == cuszLOC::DEVICE) {
-            throw std::runtime_error("[Capsule::from_fs_to] to DEVICE not implemented");
+            throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "to DEVICE not implemented"));
             // (VIA == cuszLOC::HOST)
             // (VIA == cuszLOC::NONE)
         }
         else if (DST == cuszLOC::UNIFIED) {
-            if (not uniptr) throw std::runtime_error("[Capsule::from_fs_to] uniptr not set");
+            if (not uniptr) {  //
+                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
+            }
             io::read_binary_to_array<T>(fname, uniptr, len);
         }
         else {
-            throw std::runtime_error("[Capsule::from_fs_to] undefined behavior");
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_fs_to"));
         }
 
         auto z = hires::now();
@@ -160,15 +194,19 @@ class Capsule {
     Capsule& to_fs_from(std::string fname)
     {
         if (SRC == cuszLOC::HOST) {
-            if (not hptr) throw std::runtime_error("[Capsule::to_fs_from] hptr not set");
+            if (not hptr) {  //
+                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "hptr not set"));
+            }
             io::write_array_to_binary<T>(fname, hptr, len);
         }
         else if (SRC == cuszLOC::UNIFIED) {
-            if (not uniptr) throw std::runtime_error("[Capsule::from_fs_to] uniptr not set");
+            if (not uniptr) {  //
+                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
+            }
             io::write_array_to_binary<T>(fname, uniptr, len);
         }
         else {
-            throw std::runtime_error("[Capsule::to_fs_from] undefined behavior");
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("to_fs_from"));
         }
         return *this;
     }
@@ -197,13 +235,17 @@ class Capsule {
     /**
      * @brief
      *
-     * @tparam M mode, use with caution; expected not to use in final release
      * @tparam LOC where to allocate: HOST, DEVICE, HOST_DEVICE, UNIFIED
      * @tparam AD alignment of data length; not reflecting the real datalen
      * @tparam AM alignment of underlying memory; not reflecting the real datalen
+     * @tparam M mode, use with caution (easy to disable repo-wide)
      * @return Capsule& return *this for chained call
      */
-    template <cuszDEV M, cuszLOC LOC, ALIGNDATA AD = ALIGNDATA::NONE, ALIGNMEM AM = ALIGNMEM::WARP128B>
+    template <
+        cuszLOC   LOC,  //
+        ALIGNDATA AD = ALIGNDATA::NONE,
+        ALIGNMEM  AM = ALIGNMEM::WARP128B,
+        cuszDEV   M  = cuszDEV::DEV>
     Capsule& alloc()
     {
         OK::ALLOC<M>();
@@ -231,13 +273,13 @@ class Capsule {
             cudaMemset(uniptr, 0x00, __memory_footprint);
         }
         else {
-            throw std::runtime_error("[Capsule::alloc] undefined behavior");
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("alloc"));
         }
 
         return *this;
     }
 
-    template <cuszDEV M, cuszLOC LOC>
+    template <cuszLOC LOC, cuszDEV M = cuszDEV::DEV>
     Capsule& free()
     {
         OK::FREE<M>();
@@ -251,10 +293,12 @@ class Capsule {
             cudaFreeHost(hptr);
             cudaFree(dptr);
         }
-        else if (LOC == cuszLOC::UNIFIED)
+        else if (LOC == cuszLOC::UNIFIED) {
             cudaFree(uniptr);
-        else
-            throw std::runtime_error("[Capsule::free] undefined behavior");
+        }
+        else {
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("free"));
+        }
 
         return *this;
     }
