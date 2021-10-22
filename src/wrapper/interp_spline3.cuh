@@ -42,7 +42,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
 
     float time_elapsed;
 
-    int radius;
+    int radius{0};
 
    public:
     unsigned int get_anchor_len() const { return len_anchor; }
@@ -59,7 +59,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
     float    get_time_elapsed() const { return time_elapsed; }
     uint32_t get_workspace_nbyte() const { return 0; };
 
-    Spline3(dim3 xyz, double _eb, int _radius, bool _delay_postquant_dummy = true);
+    Spline3(dim3 xyz, double _eb, int _radius = 0, bool _delay_postquant_dummy = true);
 
     void construct(TITER in_data, TITER out_anchor, EITER out_errctrl);
 

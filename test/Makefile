@@ -1,4 +1,4 @@
-all: splinedemo1 
+all: splinedemo1
 
 interp_spline3.o: ../src/wrapper/interp_spline3.cu ../src/kernel/spline3.cuh
 	@echo :: resolving spline3 dependency-1...
@@ -12,20 +12,21 @@ csr11.o: ../src/wrapper/csr11.cu
 	@echo :: resolving spline3 dependency-3...
 	nvcc ../src/wrapper/csr11.cu -c --extended-lambda
 
-splinedemo1: ex_spline3_demo1.cu interp_spline3.o 
+splinedemo1: ex_spline3_demo1.cu interp_spline3.o csr11.o
 	@echo :: creating spline3 demo-1...
 	nvcc \
+		-g \
 		interp_spline3.o \
 		ex_spline3_demo1.cu \
+		csr11.o \
 		-std=c++14 --extended-lambda \
 		-lcusparse \
 		-o spline-demo1 
 
-splinedemo2: ex_spline3_demo2.cu interp_spline3.o csr10.o csr11.o 
+splinedemo2: ex_spline3_demo2.cu interp_spline3.o csr11.o 
 	@echo :: creating spline3 demo-2...
 	nvcc \
 		interp_spline3.o \
-		csr10.o \
 		csr11.o \
 		ex_spline3_demo2.cu \
 		-std=c++14 --extended-lambda \
