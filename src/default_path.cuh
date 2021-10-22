@@ -24,13 +24,13 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
    public:
     using Predictor = typename BINDING::PREDICTOR;
     using SpReducer = typename BINDING::SPREDUCER;
-    using Encoder   = typename BINDING::ENCODER;
+    using Codec     = typename BINDING::CODEC;
 
     using BYTE = uint8_t;
     using T    = typename Predictor::Origin;
     using FP   = typename Predictor::Precision;
     using E    = typename Predictor::ErrCtrl;
-    using H    = typename Encoder::Encoded;
+    using H    = typename Codec::Encoded;
 
    private:
     // --------------------
@@ -43,8 +43,8 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     Capsule<BYTE>   sp_use;
 
     Predictor* predictor;
-    SpReducer* csr;
-    Encoder*   codec;
+    SpReducer* spreducer;
+    Codec*     codec;
 
     size_t   m, mxm;
     uint32_t sp_dump_nbyte;
@@ -78,14 +78,14 @@ struct DefaultPath {
     using ERRCTRL = ErrCtrlTrait<2>::type;
     using FP      = FastLowPrecisionTrait<true>::type;
 
-    using DefaultBinding = PredictorReducerEncoderBinding<
+    using DefaultBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
         cusz::HuffmanWork<ERRCTRL, HuffTrait<4>::type>>;
 
     using DefaultCompressor = class DefaultPathCompressor<DefaultBinding>;
 
-    using FallbackBinding = PredictorReducerEncoderBinding<
+    using FallbackBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
         cusz::HuffmanWork<ERRCTRL, HuffTrait<8>::type>>;

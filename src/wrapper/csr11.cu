@@ -41,9 +41,9 @@ CSR11<T>::CSR11(unsigned int _len, unsigned int* init_workspace_nbyte)
     // offset.colidx = sizeof(int) * (m + 1);
     // offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
 
-    rowptr.set_len(m + 1).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
-    colidx.set_len(initial_nnz).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
-    values.set_len(initial_nnz).template alloc<cuszDEV::DEV, DEFAULT_LOC>();
+    rowptr.set_len(m + 1).template alloc<DEFAULT_LOC>();
+    colidx.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
+    values.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
 
     if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_init_csr_nbyte<T, int>(_len);
 }

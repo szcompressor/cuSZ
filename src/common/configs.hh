@@ -125,7 +125,7 @@ struct ConfigHelper {
     }
 
     static std::string get_default_predictor() { return "lorenzo"; }
-    static std::string get_default_spreducer() { return "cusparse-csr"; }
+    static std::string get_default_spreducer() { return "csr11"; }
     static std::string get_default_codec() { return "huffman-coarse"; }
     static std::string get_default_cuszmode() { return "r2r"; }
     static std::string get_default_dtype() { return "f32"; }
@@ -144,10 +144,22 @@ struct ConfigHelper {
 
     static bool check_codec(const std::string& val, bool fatal = false)
     {
-        auto legal = (val == "huffman") or (val == "csr") or (val == "rle");
+        auto legal = (val == "huffman-coarse");
         if (not legal) {
             if (fatal)
-                throw std::runtime_error("`codec` must be \"huffman\", \"csr\" or \"rle\".");
+                throw std::runtime_error("`codec` must be \"huffman-coarse\".");
+            else
+                printf("fallback to the default \"%s\".", get_default_codec().c_str());
+        }
+        return legal;
+    }
+
+    static bool check_spreducer(const std::string& val, bool fatal = false)
+    {
+        auto legal = (val == "csr11") or (val == "rle");
+        if (not legal) {
+            if (fatal)
+                throw std::runtime_error("`codec` must be \"csr11\" or \"rle\".");
             else
                 printf("fallback to the default \"%s\".", get_default_codec().c_str());
         }
