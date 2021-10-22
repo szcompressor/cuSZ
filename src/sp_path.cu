@@ -32,13 +32,13 @@ SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
 
     this->anchor  //
         .set_len(this->ctx->anchor_len)
-        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        .template alloc<cuszLOC::HOST_DEVICE>();
 
     auto sp_inlen = BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx);
-    csr           = new SpReducer(sp_inlen);
+    spreducer     = new SpReducer(sp_inlen);
     sp_use  //
         .set_len(sp_inlen)
-        .template alloc<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        .template alloc<cuszLOC::HOST_DEVICE>();
 
     LOGGING(LOG_INFO, "compressing...");
 }
@@ -65,16 +65,16 @@ SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
         .set_len(this->ctx->anchor_len)
         .template from_existing_on<cuszLOC::HOST>(  //
             reinterpret_cast<E*>(dump + this->dataseg.get_offset(cuszSEG::ANCHOR)))
-        .template alloc<cuszDEV::DEV, cuszLOC::DEVICE>()
+        .template alloc<cuszLOC::DEVICE>()
         .host2device();
 
-    csr = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
+    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
 
     sp_use  //
-        .set_len(csr->get_total_nbyte())
+        .set_len(spreducer->get_total_nbyte())
         .template from_existing_on<cuszLOC::HOST>(  //
             reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::OUTLIER)))
-        .template alloc<cuszDEV::DEV, cuszLOC::DEVICE>()
+        .template alloc<cuszLOC::DEVICE>()
         .host2device();
 
     LOGGING(LOG_INFO, "decompressing...");
@@ -85,9 +85,9 @@ SPCOMPRESSOR::~SpPathCompressor()
 {
     if (this->timing == cuszWHEN::COMPRESS) {  // release small-size arrays
 
-        this->quant.template free<cuszDEV::DEV, cuszLOC::DEVICE>();
-        this->freq.template free<cuszDEV::DEV, cuszLOC::DEVICE>();
-        this->anchor.template free<cuszDEV::DEV, cuszLOC::HOST_DEVICE>();
+        this->quant.template free<cuszLOC::DEVICE>();
+        this->freq.template free<cuszLOC::DEVICE>();
+        this->anchor.template free<cuszLOC::HOST_DEVICE>();
 
         delete this->header;
     }
@@ -95,7 +95,7 @@ SPCOMPRESSOR::~SpPathCompressor()
         cudaFree(sp_use.dptr);
     }
 
-    delete csr;
+    delete spreducer;
     delete predictor;
 }
 
@@ -106,16 +106,17 @@ SPCOMPRESSOR& SPCOMPRESSOR::compress()
 
     this->quant  //
         .set_len(this->ctx->quant_len)
-        .template alloc<cuszDEV::DEV, cuszLOC::DEVICE, ALIGNDATA::SQUARE_MATRIX>();
+        .template alloc<cuszLOC::DEVICE, ALIGNDATA::SQUARE_MATRIX>();
 
     predictor->construct(this->in_data->dptr, this->anchor.dptr, this->quant.dptr);
     this->anchor.device2host();
 
-    csr->gather(this->in_data->dptr, sp_use.dptr, sp_use.hptr, sp_dump_nbyte, this->ctx->nnz_outlier);
+    spreducer->gather(this->in_data->dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
+    spreducer->template consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(sp_use.hptr);
 
     this->time.lossy = predictor->get_time_elapsed();
     cout << this->time.lossy << endl;
-    this->time.outlier = csr->get_time_elapsed();
+    this->time.outlier = spreducer->get_time_elapsed();
 
     this->dataseg.nbyte.at(cuszSEG::OUTLIER) = sp_dump_nbyte;  // do before consolidate
 
@@ -135,10 +136,10 @@ SPCOMPRESSOR& SPCOMPRESSOR::compress()
 SPCOMPRESSOR_TYPE
 SPCOMPRESSOR& SPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
 {
-    this->quant.set_len(this->ctx->quant_len).template alloc<cuszDEV::DEV, cuszLOC::DEVICE>();
+    this->quant.set_len(this->ctx->quant_len).template alloc<cuszLOC::DEVICE>();
     auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
 
-    csr->scatter(sp_use.dptr, outlier);
+    spreducer->scatter(sp_use.dptr, outlier);
     predictor->reconstruct(this->anchor.dptr, this->quant.dptr, xdata);
 
     return *this;
@@ -149,7 +150,7 @@ SPCOMPRESSOR& SPCOMPRESSOR::backmatter(Capsule<T>* decomp_space)
 {
     decomp_space->device2host();
 
-    this->time.outlier = csr->get_time_elapsed();
+    this->time.outlier = spreducer->get_time_elapsed();
     this->time.lossy   = predictor->get_time_elapsed();
     this->try_report_decompress_time();
 

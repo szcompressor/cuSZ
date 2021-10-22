@@ -35,7 +35,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     Capsule<BYTE> sp_use;
 
     Predictor* predictor;
-    SpReducer* csr;
+    SpReducer* spreducer;
 
     size_t   m, mxm;
     uint32_t sp_dump_nbyte;
@@ -62,13 +62,13 @@ struct SparsityAwarePath {
 
     using DefaultBinding = PredictorReducerBinding<  //
         cusz::Spline3<DATA, ERRCTRL, FP>,
-        cusz::CSR10<ERRCTRL>>;
+        cusz::CSR11<ERRCTRL>>;
 
     using DefaultCompressor = class SpPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerBinding<  //
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        cusz::CSR10<ERRCTRL>>;
+        cusz::CSR11<ERRCTRL>>;
 
     using FallbackCompressor = class SpPathCompressor<FallbackBinding>;
 };
