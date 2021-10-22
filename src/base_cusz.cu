@@ -19,12 +19,16 @@
 
 BASE_COMPRESSOR_TYPE BASE_COMPRESSOR& BASE_COMPRESSOR::prescan()
 {
+    // if (ctx->mode == "r2r")
+    //     auto result = Analyzer::get_maxmin_rng<T, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>(
+    //         in_data->dptr, in_data->len);
+    // if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
+    // if (ctx->mode == "r2r") ctx->eb *= result.rng;
+
     if (ctx->mode == "r2r") {
-        auto result = Analyzer::get_maxmin_rng                         //
-            <T, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>  //
-            (in_data->dptr, in_data->len);
-        if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
-        if (ctx->mode == "r2r") ctx->eb *= result.rng;
+        auto rng = in_data->prescan().get_rng();
+        ctx->eb *= rng;
+        // LOGGING(LOG_DBG, "data range:", rng);
     }
 
     // TODO data "policy": (non-)destructive

@@ -22,6 +22,8 @@
 
 #include <cuda_runtime.h>
 #include <driver_types.h>
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
 
 #include <stdexcept>
 
@@ -34,6 +36,8 @@ using cusz::OK;
 template <typename T, bool USE_UNIFIED = false>
 class Capsule {
    private:
+    static const bool use_unified = USE_UNIFIED;
+
     template <cuszLOC LOC>
     void raise_error_if_misuse_unified()
     {
@@ -300,6 +304,40 @@ class Capsule {
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("free"));
         }
 
+        return *this;
+    }
+
+   private:
+    double maxval, minval, rng;
+
+   public:
+    double get_maxval() { return maxval; }
+    double get_minval() { return minval; }
+    double get_rng() { return rng; }
+
+    Capsule& prescan(double& max_value, double& min_value, double& rng)
+    {
+        thrust::device_ptr<T> g_ptr;
+
+        if (use_unified)
+            g_ptr = thrust::device_pointer_cast(uniptr);
+        else
+            g_ptr = thrust::device_pointer_cast(dptr);
+
+        // excluding padded
+        auto max_el_loc = thrust::max_element(g_ptr, g_ptr + len);
+        auto min_el_loc = thrust::min_element(g_ptr, g_ptr + len);
+
+        max_value = *max_el_loc;
+        min_value = *min_el_loc;
+        rng       = max_value - min_value;
+
+        return *this;
+    }
+
+    Capsule& prescan()
+    {
+        prescan(maxval, minval, rng);
         return *this;
     }
 };
