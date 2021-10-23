@@ -24,20 +24,22 @@ struct DatasegHelper {
 
     static void header_nbyte_from_dataseg(cuszHEADER* header, DataSeg& dataseg)
     {
-        header->nbyte.book           = dataseg.nbyte.at(cuszSEG::BOOK);
-        header->nbyte.revbook        = dataseg.nbyte.at(cuszSEG::REVBOOK);
-        header->nbyte.outlier        = dataseg.nbyte.at(cuszSEG::OUTLIER);
-        header->nbyte.huff_meta      = dataseg.nbyte.at(cuszSEG::HUFF_META);
-        header->nbyte.huff_bitstream = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
+        header->nbyte.book      = dataseg.nbyte.at(cuszSEG::BOOK);
+        header->nbyte.revbook   = dataseg.nbyte.at(cuszSEG::REVBOOK);
+        header->nbyte.spfmt     = dataseg.nbyte.at(cuszSEG::SPFMT);
+        header->nbyte.huff_meta = dataseg.nbyte.at(cuszSEG::HUFF_META);
+        header->nbyte.huff_data = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
+        header->nbyte.anchor    = dataseg.nbyte.at(cuszSEG::ANCHOR);
     }
 
     static void dataseg_nbyte_from_header(cuszHEADER* header, DataSeg& dataseg)
     {
         dataseg.nbyte.at(cuszSEG::BOOK)      = header->nbyte.book;
         dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
-        dataseg.nbyte.at(cuszSEG::OUTLIER)   = header->nbyte.outlier;
+        dataseg.nbyte.at(cuszSEG::SPFMT)     = header->nbyte.spfmt;
         dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
-        dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_bitstream;
+        dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_data;
+        dataseg.nbyte.at(cuszSEG::ANCHOR)    = header->nbyte.anchor;
     }
 
     static void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& offsets)

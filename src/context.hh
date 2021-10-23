@@ -62,7 +62,7 @@ class cuszCTX {
     string codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
     string spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
 
-    uint32_t quant_nbyte{2}, huff_nbyte{4};
+    uint32_t quant_bytewidth{2}, huff_bytewidth{4};
 
     int nnz_outlier;
 

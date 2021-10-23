@@ -90,10 +90,10 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->radius    = ctx->dict_size / 2;
         }
         else if (kv.first == "huffbyte") {
-            ctx->huff_nbyte = StrHelper::str2int(kv.second);
+            ctx->huff_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "quantbyte") {
-            ctx->quant_nbyte = StrHelper::str2int(kv.second);
+            ctx->quant_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
             ctx->huffman_chunk             = StrHelper::str2int(kv.second);
@@ -167,9 +167,9 @@ void cuszCTX::check_args_when_cli()
         }
     }
 
-    if (quant_nbyte == 1)
+    if (quant_bytewidth == 1)
         assert(dict_size <= 256);
-    else if (quant_nbyte == 2)
+    else if (quant_bytewidth == 2)
         assert(dict_size <= 65536);
 
     if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
