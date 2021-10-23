@@ -284,7 +284,8 @@ __device__ void x_reset_scratch_33x9x9data(
 }
 
 template <typename Input, int LINEAR_BLOCK_SIZE = 256>
-__device__ void global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][9][33], DIM3 dim3d, STRIDE3 leapd)
+__device__ void
+global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 data_leap, volatile Input shm_data[9][9][33])
 {
     constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -295,15 +296,16 @@ __device__ void global2shmem_33x9x9data(Input* data, volatile Input shm_data[9][
         auto gx  = (x + BIX * BLOCK32);
         auto gy  = (y + BIY * BLOCK8);
         auto gz  = (z + BIZ * BLOCK8);
-        auto gid = gx + gy * leapd.y + gz * leapd.z;
+        auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
-        if (gx < dim3d.x and gy < dim3d.y and gz < dim3d.z) shm_data[z][y][x] = data[gid];
+        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) shm_data[z][y][x] = data[gid];
     }
     __syncthreads();
 }
 
 template <typename Output, int LINEAR_BLOCK_SIZE = 256>
-__device__ void shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 dim3d, STRIDE3 leapd)
+__device__ void
+shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 data_size, STRIDE3 data_leap)
 {
     constexpr auto TOTAL = 32 * 8 * 8;
 
@@ -314,9 +316,9 @@ __device__ void shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Outp
         auto gx  = (x + BIX * BLOCK32);
         auto gy  = (y + BIY * BLOCK8);
         auto gz  = (z + BIZ * BLOCK8);
-        auto gid = (x + BIX * BLOCK32) + (y + BIY * BLOCK8) * leapd.y + (z + BIZ * BLOCK8) * leapd.z;
+        auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
-        if (gx < dim3d.x and gy < dim3d.y and gz < dim3d.z) data[gid] = shm_data[z][y][x];
+        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) data[gid] = shm_data[z][y][x];
     }
     __syncthreads();
 }
@@ -541,7 +543,7 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
         } shmem;
 
         c_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, radius);
-        global2shmem_33x9x9data<T, LINEAR_BLOCK_SIZE>(data, shmem.data, data_size, data_leap);
+        global2shmem_33x9x9data<T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, shmem.data);
 
         // version 1, use shmem, erroneous
         // c_gather_anchor<T>(shmem.data, anchor, anchor_leap);
@@ -583,7 +585,7 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     } shmem;
 
     x_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, anchor, anchor_size, anchor_leap);
-    global2shmem_33x9x9data<E, LINEAR_BLOCK_SIZE>(errctrl, shmem.errctrl, errctrl_size, errctrl_leap);
+    global2shmem_33x9x9data<E, LINEAR_BLOCK_SIZE>(errctrl, errctrl_size, errctrl_leap, shmem.errctrl);
     cusz::device_api::spline3d_layout2_interpolate<T, E, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
         shmem.data, shmem.errctrl, eb_r, ebx2, radius);
     shmem2global_32x8x8data<T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
