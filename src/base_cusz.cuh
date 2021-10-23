@@ -57,7 +57,7 @@ class BaseCompressor {
    protected:
     BaseCompressor& dryrun()
     {
-        if (ctx->task_is.dryrun and ctx->predictor == "lorenzo") {
+        if (ctx->task_is.dryrun and ctx->str_predictor == "lorenzo") {
             auto len = ctx->data_len;
 
             LOGGING(LOG_INFO, "invoke dry-run");

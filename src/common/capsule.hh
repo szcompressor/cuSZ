@@ -26,12 +26,15 @@
 #include <thrust/extrema.h>
 
 #include <stdexcept>
+#include <string>
 
 #include "../utils/io.hh"
 #include "../utils/timer.hh"
+#include "configs.hh"
 #include "definition.hh"
 
 using cusz::OK;
+using std::string;
 
 template <typename T, bool USE_UNIFIED = false>
 class Capsule {

@@ -22,10 +22,44 @@
 #include <unordered_map>
 #include <vector>
 
+#include "definition.hh"
+
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
+
 struct Reinterpret1DTo2D {
     static uint32_t get_square_size(uint32_t len)
     {  //
         return static_cast<uint32_t>(ceil(sqrt(len)));
+    }
+};
+
+struct Align {
+    template <ALIGNDATA ad = ALIGNDATA::NONE>
+    static size_t get_aligned_datalen(size_t len)
+    {
+        if CONSTEXPR (ad == ALIGNDATA::NONE) return len;
+        if CONSTEXPR (ad == ALIGNDATA::SQUARE_MATRIX) {
+            auto m = Reinterpret1DTo2D::get_square_size(len);
+            return m * m;
+        }
+    }
+
+    static const int DEFAULT_ALIGN_NBYTE = 128;
+
+    template <int NUM>
+    static inline bool is_aligned_at(const void* ptr)
+    {  //
+        return reinterpret_cast<uintptr_t>(ptr) % NUM == 0;
+    };
+
+    template <typename T, int NUM = DEFAULT_ALIGN_NBYTE>
+    static size_t get_aligned_nbyte(size_t len)
+    {
+        return ((sizeof(T) * len - 1) / NUM + 1) * NUM;
     }
 };
 
@@ -76,16 +110,29 @@ struct StringHelper {
 struct ConfigHelper {
     static uint32_t predictor_lookup(std::string name)
     {
-        const std::unordered_map<std::string, uint32_t> lut =  //
-            {{"lorenzo", 0}, {"lorenzoii", 1}, {"spline3", 2}};
+        const std::unordered_map<std::string, uint32_t> lut = {
+            {"lorenzo", cuszCOMPONENTS::PREDICTOR::LORENZO},
+            {"lorenzoii", cuszCOMPONENTS::PREDICTOR::LORENZOII},
+            {"spline3", cuszCOMPONENTS::PREDICTOR::SPLINE3}  //
+        };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such predictor as " + name);
         return lut.at(name);
     }
 
-    static uint32_t reducer_lookup(std::string name)
+    static uint32_t codec_lookup(std::string name)
     {
-        const std::unordered_map<std::string, uint32_t> lut =  //
-            {{"huffman", 0}, {"csr", 1}, {"rle", 2}};
+        const std::unordered_map<std::string, uint32_t> lut = {
+            {"huffman-coarse", cuszCOMPONENTS::CODEC::HUFFMAN_COARSE}  //
+        };
+        if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
+        return lut.at(name);
+    }
+
+    static uint32_t spreducer_lookup(std::string name)
+    {
+        const std::unordered_map<std::string, uint32_t> lut = {
+            {"csr11", cuszCOMPONENTS::SPREDUCER::CSR11}  //
+        };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);
     }
@@ -115,6 +162,10 @@ struct ConfigHelper {
 
         c1->quant_bytewidth = c2->quant_bytewidth;
         c1->huff_bytewidth  = c2->huff_bytewidth;
+
+        c1->predictor = c2->predictor;
+        c1->codec     = c2->codec;
+        c1->spreducer = c2->spreducer;
 
         c1->nnz_outlier = c2->nnz_outlier;
 

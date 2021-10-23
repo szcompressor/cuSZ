@@ -105,11 +105,11 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->load_demo_sizes();
         }
         else if (kv.first == "predictor") {
-            ctx->predictor = string(kv.second);
+            ctx->str_predictor = string(kv.second);
         }
 
         // when to enable anchor
-        if (ctx->predictor == "spline3") ctx->on_off.use_anchor = true;
+        if (ctx->str_predictor == "spline3") ctx->on_off.use_anchor = true;
         if ((kv.first == "anchor") and  //
             (string(kv.second) == "on" or string(kv.second) == "ON"))
             ctx->on_off.use_anchor = true;
@@ -335,7 +335,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     break;
                 case 'p':
                 tag_predictor:
-                    if (i + 1 <= argc) { predictor = string(argv[++i]); }
+                    if (i + 1 <= argc) { str_predictor = string(argv[++i]); }
                 // alternative output
                 case 'o':
                 tag_x_out:
@@ -498,9 +498,18 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
 
         // compress-mandatory
         if (k == "dtype" and ConfigHelper::check_dtype(v, false)) this->dtype = v;
-        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) this->predictor = v;
-        if (k == "codec" and ConfigHelper::check_codec(v, true)) this->codec = v;          // TODO
-        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) this->spreducer = v;  // TODO
+        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) {
+            this->str_predictor = v;
+            this->predictor     = ConfigHelper::predictor_lookup(v);
+        }
+        if (k == "codec" and ConfigHelper::check_codec(v, true)) {
+            this->str_codec = v;  // TODO
+            this->codec     = ConfigHelper::codec_lookup(v);
+        }
+        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) {
+            this->str_spreducer = v;  // TODO
+            this->spreducer     = ConfigHelper::spreducer_lookup(v);
+        }
         if (k == "errorbound" or k == "eb") eb = std::strtod(v.c_str(), &end);
         if (k == "mode" and ConfigHelper::check_cuszmode(v, true)) this->mode = v;
         if (k == "size") {
