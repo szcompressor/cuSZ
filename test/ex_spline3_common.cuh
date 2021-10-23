@@ -327,6 +327,9 @@ class TestSpline3Wrapped {
     cusz::CSR11<E>*             spreducer1;
     cusz::CSR11<E>*             spreducer2;
 
+    uint32_t sp_dump_nbyte;
+    int      nnz{0};
+
    public:
     TestSpline3Wrapped(std::string _fname, double _eb)
     {
@@ -357,7 +360,7 @@ class TestSpline3Wrapped {
 
         spreducer1 = new cusz::CSR11<E>(predictor->get_quant_len());
 
-        xdata.set_len(len).alloc<ANALYSIS_SPACE>();
+        xdata.set_len(len).alloc<BOTH>();
         anchor.set_len(predictor->get_anchor_len()).alloc<EXEC_SPACE>();
         errctrl.set_len(predictor->get_quant_len()).alloc<BOTH, ALIGNDATA::SQUARE_MATRIX>();
 
@@ -369,22 +372,16 @@ class TestSpline3Wrapped {
     {
         predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
         predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
+        xdata.device2host();
 
         data.from_fs_to<ANALYSIS_SPACE>(fname);
-        analysis::verify_data<T>(&stat, xdata.get<EXEC_SPACE>(), data.get<EXEC_SPACE>(), len);
+        analysis::verify_data<T>(&stat, xdata.get<ANALYSIS_SPACE>(), data.get<ANALYSIS_SPACE>(), len);
         analysis::print_data_quality_metrics<T>(&stat, 0, false);
     }
 
     void run_test2()
     {
         predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
-
-        errctrl.device2host();
-
-        for (auto i = 0; i < 10; i++) cout << i << "\t" << errctrl.get<cuszLOC::HOST>()[i] << endl;
-
-        uint32_t sp_dump_nbyte;
-        int      nnz{0};
 
         spreducer1->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
         sp_use1.set_len(sp_dump_nbyte).alloc<EXEC_SPACE>();
@@ -401,9 +398,10 @@ class TestSpline3Wrapped {
 
         // 1) anchor unchanged (fine), 2)
         predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
+        xdata.device2host();
 
         data.from_fs_to<ANALYSIS_SPACE>(fname);
-        analysis::verify_data<T>(&stat, xdata.get<EXEC_SPACE>(), data.get<EXEC_SPACE>(), len);
+        analysis::verify_data<T>(&stat, xdata.get<ANALYSIS_SPACE>(), data.get<ANALYSIS_SPACE>(), len);
         analysis::print_data_quality_metrics<T>(&stat, 0, false);
     }
 

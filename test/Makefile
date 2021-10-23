@@ -1,4 +1,4 @@
-all: splinedemo1
+all: splinedemo
 
 interp_spline3.o: ../src/wrapper/interp_spline3.cu ../src/kernel/spline3.cuh
 	@echo :: resolving spline3 dependency-1...
@@ -12,31 +12,17 @@ csr11.o: ../src/wrapper/csr11.cu
 	@echo :: resolving spline3 dependency-3...
 	nvcc ../src/wrapper/csr11.cu -c --extended-lambda
 
-splinedemo1: ex_spline3_demo1.cu interp_spline3.o csr11.o
+splinedemo: ex_spline3_demo.cu interp_spline3.o csr11.o
 	@echo :: creating spline3 demo-1...
 	nvcc \
 		-g \
 		interp_spline3.o \
-		ex_spline3_demo1.cu \
+		ex_spline3_demo.cu \
 		csr11.o \
 		-std=c++14 --extended-lambda \
 		-lcusparse \
-		-o spline-demo1 
+		-o spline-demo
 
-splinedemo2: ex_spline3_demo2.cu interp_spline3.o csr11.o 
-	@echo :: creating spline3 demo-2...
-	nvcc \
-		interp_spline3.o \
-		csr11.o \
-		ex_spline3_demo2.cu \
-		-std=c++14 --extended-lambda \
-		-lcusparse \
-		-o spline-demo2
-
-
-# splinedbg: ex_spline3_demo1.cu ../src/utils.hh
-# 	nvcc ex_spline3_demo1.cu -std=c++14 --extended-lambda -G -o spline
-# 	nvcc ex_spline3_demo1.cu -lineinfo -std=c++14 --extended-lambda -o splineprof
 
 query: test_query.cc ../src/query.hh
 	nvcc  -x c++ -I../src/ -DMAIN test_query.cc -o query
@@ -71,7 +57,7 @@ proflorenzo: dummy_xlorenzo3d.cu dummy_xlorenzo2d.cu
 
 
 clean:
-	rm -f *.o spline3-demo1 spline3-demo2
+	rm -f *.o spline3-demo
 
 purge:
-	rm -f *.o spline3-demo1 spline3-demo2
+	rm -f *.o spline3-demo

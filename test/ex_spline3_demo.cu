@@ -120,13 +120,25 @@ int main(int argc, char** argv)
 
     cudaDeviceReset();
 
-    // test_spline3d_proto(fname, eb);
+    cout << "--------------------------------------------------------------------------------" << endl;
+    cout << "                              everything POD                                    " << endl;
+    cout << "--------------------------------------------------------------------------------" << endl;
+    test_spline3d_proto(fname, eb);
 
-    // test_spline3d_wrapped(eb);
+    cout << "--------------------------------------------------------------------------------" << endl;
+    cout << "                              using Capsule<T>, OOD                            " << endl;
+    cout << "--------------------------------------------------------------------------------" << endl;
+    test_spline3d_wrapped(eb);
 
-    // TestSpline3Wrapped t1(fname, eb);
-    // t1.run_test();
+    cout << "--------------------------------------------------------------------------------" << endl;
+    cout << "                              without SpReducer, OOD                            " << endl;
+    cout << "--------------------------------------------------------------------------------" << endl;
+    TestSpline3Wrapped t1(fname, eb);
+    t1.run_test();
 
+    cout << "--------------------------------------------------------------------------------" << endl;
+    cout << "                              with SpReducer, OOD                               " << endl;
+    cout << "--------------------------------------------------------------------------------" << endl;
     TestSpline3Wrapped t2(fname, eb);
     t2.run_test2();
 
