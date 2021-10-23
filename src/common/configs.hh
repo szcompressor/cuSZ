@@ -113,8 +113,8 @@ struct ConfigHelper {
         c1->radius    = c2->radius;
         c1->dict_size = c2->dict_size;
 
-        c1->quant_nbyte = c2->quant_nbyte;
-        c1->huff_nbyte  = c2->huff_nbyte;
+        c1->quant_bytewidth = c2->quant_bytewidth;
+        c1->huff_bytewidth  = c2->huff_bytewidth;
 
         c1->nnz_outlier = c2->nnz_outlier;
 

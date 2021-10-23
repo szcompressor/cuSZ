@@ -52,18 +52,18 @@ struct Align {
 
 // TODO when to use ADDR8?
 // TODO change to `enum class`
-enum class cuszSEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, OUTLIER, HUFF_META, HUFF_DATA };
+enum class cuszSEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, SPFMT, HUFF_META, HUFF_DATA };
 
 class DataSeg {
    public:
     std::unordered_map<cuszSEG, int> name2order = {
-        {cuszSEG::HEADER, 0},  {cuszSEG::BOOK, 1},      {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
-        {cuszSEG::OUTLIER, 4}, {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6},  //
+        {cuszSEG::HEADER, 0}, {cuszSEG::BOOK, 1},      {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
+        {cuszSEG::SPFMT, 4},  {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6},  //
         {cuszSEG::ANCHOR, 7}};
 
     std::unordered_map<int, cuszSEG> order2name = {
-        {0, cuszSEG::HEADER},  {1, cuszSEG::BOOK},      {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
-        {4, cuszSEG::OUTLIER}, {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA},  //
+        {0, cuszSEG::HEADER}, {1, cuszSEG::BOOK},      {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
+        {4, cuszSEG::SPFMT},  {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA},  //
         {7, cuszSEG::ANCHOR}};
 
     std::unordered_map<cuszSEG, uint32_t> nbyte = {
@@ -72,13 +72,13 @@ class DataSeg {
         {cuszSEG::QUANT, 0U},
         {cuszSEG::REVBOOK, 0U},
         {cuszSEG::ANCHOR, 0U},
-        {cuszSEG::OUTLIER, 0U},
+        {cuszSEG::SPFMT, 0U},
         {cuszSEG::HUFF_META, 0U},
         {cuszSEG::HUFF_DATA, 0U}};
 
     std::unordered_map<cuszSEG, std::string> name2str{
         {cuszSEG::HEADER, "HEADER"},       {cuszSEG::BOOK, "BOOK"},          {cuszSEG::QUANT, "QUANT"},
-        {cuszSEG::REVBOOK, "REVBOOK"},     {cuszSEG::ANCHOR, "ANCHOR"},      {cuszSEG::OUTLIER, "OUTLIER"},
+        {cuszSEG::REVBOOK, "REVBOOK"},     {cuszSEG::ANCHOR, "ANCHOR"},      {cuszSEG::SPFMT, "SPFMT"},
         {cuszSEG::HUFF_META, "HUFF_META"}, {cuszSEG::HUFF_DATA, "HUFF_DATA"}};
 
     std::vector<uint32_t> offset;

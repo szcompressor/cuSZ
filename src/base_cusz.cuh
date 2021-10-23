@@ -38,7 +38,7 @@ class BaseCompressor {
 
     // clang-format off
     struct { double eb; FP ebx2, ebx2_r, eb_r; } config;
-    struct { float lossy{0.0}, outlier{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
+    struct { float lossy{0.0}, sparsity{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
     // clang-format on
 
     // data fields

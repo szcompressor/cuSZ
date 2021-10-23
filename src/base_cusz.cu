@@ -46,12 +46,12 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_compress_time()
     if (not ctx->report.time) return *this;
 
     auto  nbyte   = ctx->data_len * sizeof(T);
-    float nonbook = time.lossy + time.outlier + time.hist + time.lossless;
+    float nonbook = time.lossy + time.sparsity + time.hist + time.lossless;
 
     ReportHelper::print_throughput_tablehead("compression");
 
     ReportHelper::print_throughput_line("construct", time.lossy, nbyte);
-    ReportHelper::print_throughput_line("gather-outlier", time.outlier, nbyte);
+    ReportHelper::print_throughput_line("gather-outlier", time.sparsity, nbyte);
     ReportHelper::print_throughput_line("histogram", time.hist, nbyte);
     ReportHelper::print_throughput_line("Huff-encode", time.lossless, nbyte);
     ReportHelper::print_throughput_line("(subtotal)", nonbook, nbyte);
@@ -69,10 +69,10 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_decompress_time()
     if (not ctx->report.time) return *this;
 
     auto  nbyte = ctx->data_len * sizeof(T);
-    float all   = time.lossy + time.outlier + time.lossless;
+    float all   = time.lossy + time.sparsity + time.lossless;
 
     ReportHelper::print_throughput_tablehead("decompression");
-    ReportHelper::print_throughput_line("scatter-outlier", time.outlier, nbyte);
+    ReportHelper::print_throughput_line("scatter-outlier", time.sparsity, nbyte);
     ReportHelper::print_throughput_line("Huff-decode", time.lossless, nbyte);
     ReportHelper::print_throughput_line("reconstruct", time.lossy, nbyte);
     ReportHelper::print_throughput_line("(total)", all, nbyte);

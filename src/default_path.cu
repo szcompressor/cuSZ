@@ -246,7 +246,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
     sp_use.set_len(spreducer->get_total_nbyte())
         .template from_existing_on<cuszLOC::HOST>(
-            reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::OUTLIER)))
+            reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::SPFMT)))
         .template alloc<cuszLOC::DEVICE>()
         .host2device();
 
@@ -299,10 +299,10 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
     spreducer->gather(this->in_data->dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
     spreducer->template consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(sp_use.hptr);
 
-    this->time.lossy   = predictor->get_time_elapsed();
-    this->time.outlier = spreducer->get_time_elapsed();
+    this->time.lossy    = predictor->get_time_elapsed();
+    this->time.sparsity = spreducer->get_time_elapsed();
 
-    this->dataseg.nbyte.at(cuszSEG::OUTLIER) = sp_dump_nbyte;  // do before consolidate
+    this->dataseg.nbyte.at(cuszSEG::SPFMT) = sp_dump_nbyte;  // do before consolidate
 
     LOGGING(
         LOG_INFO, "#outlier = ", this->ctx->nnz_outlier,
@@ -356,7 +356,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::backmatter(Capsule<T>* decomp_space)
     decomp_space->device2host();
 
     this->time.lossless = codec->get_time_elapsed();
-    this->time.outlier  = spreducer->get_time_elapsed();
+    this->time.sparsity = spreducer->get_time_elapsed();
     this->time.lossy    = predictor->get_time_elapsed();
     this->try_report_decompress_time();
 
@@ -396,7 +396,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::consolidate(BYTE** dump_ptr)
     COPY(cuszSEG::HEADER, this->header);
     COPY(cuszSEG::ANCHOR, this->anchor.template get<FROM>());
     COPY(cuszSEG::REVBOOK, revbook.template get<FROM>());
-    COPY(cuszSEG::OUTLIER, sp_use.template get<FROM>());
+    COPY(cuszSEG::SPFMT, sp_use.template get<FROM>());
     COPY(cuszSEG::HUFF_META, huff_counts.template get<FROM>() + this->ctx->nchunk);
     COPY(cuszSEG::HUFF_DATA, huff_data.template get<FROM>());
 

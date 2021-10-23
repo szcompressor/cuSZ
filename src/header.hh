@@ -22,9 +22,9 @@ typedef struct alignas(128) cuszHEADER {
     double   eb;
 
     uint32_t ndim : 2;
-    uint32_t dtype : 8;        // (1) fp32, (2) fp64; TODO placeholder for now
-    uint32_t quant_nbyte : 4;  //
-    uint32_t huff_nbyte : 4;   //
+    uint32_t dtype : 8;            // (1) fp32, (2) fp64; TODO placeholder for now
+    uint32_t quant_bytewidth : 4;  //
+    uint32_t huff_bytewidth : 4;   //
     uint32_t predictor : 4;
     uint32_t codec : 4;
     uint32_t spreducer : 4;
@@ -46,9 +46,10 @@ typedef struct alignas(128) cuszHEADER {
         /* 1 */ uint32_t book;
         /* 2 */ uint32_t quant;
         /* 3 */ uint32_t revbook;
-        /* 4 */ uint32_t outlier;  // TODO -> ancillary
+        /* 4 */ uint32_t spfmt;  // sparse format
         /* 5 */ uint32_t huff_meta;
-        /* 6 */ uint32_t huff_bitstream;
+        /* 6 */ uint32_t huff_data;
+        /* 7 */ uint32_t anchor;
     } nbyte;
 
 } cusz_header;

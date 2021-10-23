@@ -81,7 +81,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
 
         Capsule<BYTE> out_dump;
 
-        if (ctx->huff_nbyte == 4) {
+        if (ctx->huff_bytewidth == 4) {
             DefaultPath::DefaultCompressor cuszc(ctx, &in_data);
 
             cuszc  //
@@ -92,7 +92,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
                 .to_fs_from<cuszLOC::HOST>(ctx->fnames.compress_output)
                 .free<cuszLOC::HOST>();
         }
-        else if (ctx->huff_nbyte == 8) {
+        else if (ctx->huff_bytewidth == 8) {
             DefaultPath::FallbackCompressor cuszc(ctx, &in_data);
 
             cuszc  //
@@ -123,7 +123,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
         Capsule<T> out_xdata;
 
         // TODO try_writeback vs out_xdata.to_fs_from()
-        if (ctx->huff_nbyte == 4) {
+        if (ctx->huff_bytewidth == 4) {
             DefaultPath::DefaultCompressor cuszd(ctx, &in_dump);
 
             out_xdata  //
@@ -134,7 +134,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
                 .backmatter(&out_xdata);
             out_xdata.free<cuszLOC::HOST_DEVICE>();
         }
-        else if (ctx->huff_nbyte == 8) {
+        else if (ctx->huff_bytewidth == 8) {
             DefaultPath::FallbackCompressor cuszd(ctx, &in_dump);
 
             out_xdata  //
