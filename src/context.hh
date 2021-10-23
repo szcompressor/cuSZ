@@ -20,6 +20,7 @@
 #include <string>
 
 #include "common/configs.hh"
+// #include "common/definition.hh"
 #include "common/types.hh"
 #include "utils/format.hh"
 
@@ -56,11 +57,16 @@ class cuszCTX {
     string opath;
 
     string demo_dataset;
-    string dtype     = ConfigHelper::get_default_dtype();      // "f32"
-    string mode      = ConfigHelper::get_default_cuszmode();   // "r2r"
-    string predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
-    string codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
-    string spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
+    string dtype = ConfigHelper::get_default_dtype();     // "f32"
+    string mode  = ConfigHelper::get_default_cuszmode();  // "r2r"
+
+    string str_predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
+    string str_codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
+    string str_spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
+
+    uint32_t predictor = cuszCOMPONENTS::PREDICTOR::LORENZO;
+    uint32_t codec     = cuszCOMPONENTS::CODEC::HUFFMAN_COARSE;
+    uint32_t spreducer = cuszCOMPONENTS::SPREDUCER::CSR11;
 
     uint32_t quant_bytewidth{2}, huff_bytewidth{4};
 

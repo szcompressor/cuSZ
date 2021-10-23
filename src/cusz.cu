@@ -216,6 +216,6 @@ int main(int argc, char** argv)
         GetDeviceProperty();
     }
 
-    if (ctx->predictor == "lorenzo") normal_path_lorenzo(ctx);
-    if (ctx->predictor == "spline3") special_path_spline3(ctx);
+    if (ctx->str_predictor == "lorenzo") normal_path_lorenzo(ctx);
+    if (ctx->str_predictor == "spline3") special_path_spline3(ctx);
 }
