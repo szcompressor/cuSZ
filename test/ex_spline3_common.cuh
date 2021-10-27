@@ -317,15 +317,15 @@ class TestSpline3Wrapped {
     Capsule<T, USE_UNFIED>       xdata;
     Capsule<T, USE_UNFIED>       anchor;
     Capsule<E, USE_UNFIED>       errctrl;
-    Capsule<uint8_t, USE_UNFIED> sp_use1;
+    Capsule<uint8_t, USE_UNFIED> compress_dump;
     Capsule<uint8_t, USE_UNFIED> sp_use2;
 
     std::string fname;
     stat_t      stat;
 
     cusz::Spline3<T, E, float>* predictor;
-    cusz::CSR11<E>*             spreducer1;
-    cusz::CSR11<E>*             spreducer2;
+    cusz::CSR11<E>*             spreducer_c;
+    cusz::CSR11<E>*             spreducer_d;
 
     uint32_t sp_dump_nbyte;
     int      nnz{0};
@@ -358,14 +358,11 @@ class TestSpline3Wrapped {
         std::cout << "predictor.anchor_len() = " << predictor->get_anchor_len() << '\n';
         std::cout << "predictor.quant_len() = " << predictor->get_quant_len() << '\n';
 
-        spreducer1 = new cusz::CSR11<E>(predictor->get_quant_len());
+        spreducer_c = new cusz::CSR11<E>(predictor->get_quant_len());
 
         xdata.set_len(len).alloc<BOTH>();
         anchor.set_len(predictor->get_anchor_len()).alloc<EXEC_SPACE>();
         errctrl.set_len(predictor->get_quant_len()).alloc<BOTH, ALIGNDATA::SQUARE_MATRIX>();
-
-        // sp_use1.set_len(SparseMethodSetup::get_init_csr_nbyte<E,
-        // int>(predictor->get_anchor_len())).alloc<EXEC_SPACE>();
     }
 
     void run_test()
@@ -383,26 +380,40 @@ class TestSpline3Wrapped {
     {
         predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
 
-        spreducer1->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
-        sp_use1.set_len(sp_dump_nbyte).alloc<EXEC_SPACE>();
-        spreducer1->template consolidate<EXEC_SPACE, EXEC_SPACE>(sp_use1.get<EXEC_SPACE>());
+        spreducer_c->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
+
+        cout << "predictor time: " << predictor->get_time_elapsed() << endl;
+        cout << "spreducer time: " << spreducer_c->get_time_elapsed() << endl;
+
+        compress_dump.set_len(sp_dump_nbyte).alloc<EXEC_SPACE>();
+
+        spreducer_c->template consolidate<EXEC_SPACE, EXEC_SPACE>(compress_dump.get<EXEC_SPACE>());
 
         // -----------------------------------------------------------------------------
-        spreducer2 = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
+        spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
 
         LOGGING(LOG_DBG, "nnz:", nnz);
-        LOGGING(LOG_DBG, "spdumpbyte:", sp_dump_nbyte);
+        // LOGGING(LOG_DBG, "nbyte of the only dump:", sp_dump_nbyte);
 
-        cudaMemset(errctrl.get<EXEC_SPACE>(), 0x0, errctrl.nbyte());
-        spreducer2->scatter(sp_use1.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
+        // LOGGING(LOG_DBG, "to show there are non zeros in errctrl");
+        // errctrl.free<EXEC_SPACE>().alloc<EXEC_SPACE>();
+
+        Capsule<E> errctrl2(predictor->get_quant_len());
+        errctrl2.alloc<EXEC_SPACE, ALIGNDATA::SQUARE_MATRIX>();
+
+        spreducer_d->scatter(compress_dump.get<EXEC_SPACE>(), errctrl2.get<EXEC_SPACE>());
 
         // 1) anchor unchanged (fine), 2)
-        predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
+        predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl2.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
         xdata.device2host();
 
         data.from_fs_to<ANALYSIS_SPACE>(fname);
         analysis::verify_data<T>(&stat, xdata.get<ANALYSIS_SPACE>(), data.get<ANALYSIS_SPACE>(), len);
         analysis::print_data_quality_metrics<T>(&stat, 0, false);
+
+        auto compressed_size = sp_dump_nbyte + predictor->get_anchor_len() * sizeof(T);
+        auto original_size   = (data.get_len()) * sizeof(T);
+        LOGGING(LOG_INFO, "compression ratio: ", 1.0 * original_size / compressed_size);
     }
 
     ~TestSpline3Wrapped()

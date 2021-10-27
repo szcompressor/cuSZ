@@ -94,32 +94,29 @@ int main(int argc, char** argv)
 {
     double eb = 1e-2;
 
-    if (argc < 3) {
-        std::cout << "<prog> <file> <eb> <hist>" << '\n';
+    if (argc < 2) {
+        // not specifying file or eb
+        std::cout << "<prog> <file> <eb>" << '\n';
         std::cout << "e.g. \"./spline ${HOME}/Develop/dev-env-cusz/rtm-data/snapshot-2815.f32 1e-2\"" << '\n';
         std::cout << '\n';
+
         struct passwd* pw      = getpwuid(getuid());
         const char*    homedir = pw->pw_dir;
-        fname                  = std::string(homedir) + std::string("/Develop/dev-env-cusz/rtm-data/snapshot-2815.f32");
+        cout << homedir << endl;
+        fname = std::string(homedir) + std::string("/Develop/dev-env-cusz/rtm-data/snapshot-2815.f32");
+    }
+    else if (argc < 3) {
+        // specified file but not eb
+        fname = std::string(argv[1]);
     }
     else if (argc == 3) {
         fname = std::string(argv[1]);
         eb    = atof(argv[2]);
     }
-    else if (argc == 4) {
-        fname          = std::string(argv[1]);
-        eb             = atof(argv[2]);
-        print_fullhist = std::string(argv[3]) == "hist";
-    }
-    else if (argc == 5) {
-        fname          = std::string(argv[1]);
-        eb             = atof(argv[2]);
-        print_fullhist = std::string(argv[3]) == "hist";
-        write_quant    = std::string(argv[4]) == "write.quant";
-    }
 
     cudaDeviceReset();
 
+    /*
     cout << "--------------------------------------------------------------------------------" << endl;
     cout << "                              everything POD                                    " << endl;
     cout << "--------------------------------------------------------------------------------" << endl;
@@ -139,6 +136,8 @@ int main(int argc, char** argv)
     cout << "--------------------------------------------------------------------------------" << endl;
     cout << "                              with SpReducer, OOD                               " << endl;
     cout << "--------------------------------------------------------------------------------" << endl;
+    */
+
     TestSpline3Wrapped t2(fname, eb);
     t2.run_test2();
 
