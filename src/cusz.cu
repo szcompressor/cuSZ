@@ -162,13 +162,14 @@ void special_path_spline3(cuszCTX* ctx)
 
         Capsule<T> in_data(ctx->data_len);
         in_data.alloc<cuszLOC::HOST_DEVICE>()
+            .set_name("in_data")
             .from_fs_to<cuszLOC::HOST>(ctx->fnames.path2file, &time_loading)
             .host2device();
 
         if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
         LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
 
-        Capsule<BYTE> out_dump;
+        Capsule<BYTE> out_dump("out_dump");
 
         SparsityAwarePath::DefaultCompressor cuszc(ctx, &in_data);
         cuszc  //

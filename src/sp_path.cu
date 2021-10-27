@@ -26,21 +26,60 @@ SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     this->prescan();  // internally change eb (regarding value range)
     ConfigHelper::set_eb_series(this->ctx->eb, this->config);
 
-    predictor             = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
+    predictor             = new Predictor(this->xyz, this->ctx->eb, 0 /* pseudo radius */, false);
     this->ctx->quant_len  = predictor->get_quant_len();
     this->ctx->anchor_len = predictor->get_anchor_len();
 
+    this->quant  //
+        .set_name("quant")
+        .set_len(this->ctx->quant_len)
+        .template alloc<EXEC_SPACE, ALIGNDATA::SQUARE_MATRIX>();
+
     this->anchor  //
+        .set_name("anchor")
         .set_len(this->ctx->anchor_len)
         .template alloc<cuszLOC::HOST_DEVICE>();
 
     auto sp_inlen = BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx);
     spreducer     = new SpReducer(sp_inlen);
     sp_use  //
+        .set_name("sp_use")
         .set_len(sp_inlen)
         .template alloc<cuszLOC::HOST_DEVICE>();
 
     LOGGING(LOG_INFO, "compressing...");
+}
+
+SPCOMPRESSOR_TYPE
+SPCOMPRESSOR& SPCOMPRESSOR::compress()
+{
+    // this->dryrun();  // TODO
+
+    predictor->construct(this->in_data->dptr, this->anchor.dptr, this->quant.dptr);
+
+    spreducer->gather(this->quant.dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
+    sp_use.set_len(sp_dump_nbyte).template alloc<FALLBACK_SPACE>();
+    spreducer->template consolidate<EXEC_SPACE, FALLBACK_SPACE>(sp_use.template get<FALLBACK_SPACE>());
+
+    // time
+    this->time.lossy    = predictor->get_time_elapsed();
+    this->time.sparsity = spreducer->get_time_elapsed();
+
+    // record metadata
+    this->dataseg.nbyte.at(cuszSEG::ANCHOR) = this->anchor.device2host().nbyte();
+    this->dataseg.nbyte.at(cuszSEG::SPFMT)  = sp_dump_nbyte;  // do before consolidate
+
+    LOGGING(
+        LOG_INFO, "#outlier = ", this->ctx->nnz_outlier,
+        StringHelper::nnz_percentage(this->ctx->nnz_outlier, this->ctx->data_len));
+
+    // release in_data; subject to change
+    cudaFree(this->in_data->dptr);
+
+    this->try_report_compress_time();
+    this->pack_metadata();
+
+    return *this;
 }
 
 SPCOMPRESSOR_TYPE
@@ -60,9 +99,9 @@ SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
     // predictor comes first to determine sp-input size
-    predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
+    predictor = new Predictor(this->xyz, this->ctx->eb, 0 /* pseudo radius*/, false);
     this->anchor  //
-        .set_len(this->ctx->anchor_len)
+        .set_len(predictor->get_anchor_len())
         .template from_existing_on<cuszLOC::HOST>(  //
             reinterpret_cast<E*>(dump + this->dataseg.get_offset(cuszSEG::ANCHOR)))
         .template alloc<cuszLOC::DEVICE>()
@@ -73,7 +112,7 @@ SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     sp_use  //
         .set_len(spreducer->get_total_nbyte())
         .template from_existing_on<cuszLOC::HOST>(  //
-            reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::OUTLIER)))
+            reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::SPFMT)))
         .template alloc<cuszLOC::DEVICE>()
         .host2device();
 
@@ -81,66 +120,15 @@ SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 }
 
 SPCOMPRESSOR_TYPE
-SPCOMPRESSOR::~SpPathCompressor()
-{
-    if (this->timing == cuszWHEN::COMPRESS) {  // release small-size arrays
-
-        this->quant.template free<cuszLOC::DEVICE>();
-        this->freq.template free<cuszLOC::DEVICE>();
-        this->anchor.template free<cuszLOC::HOST_DEVICE>();
-
-        delete this->header;
-    }
-    else {
-        cudaFree(sp_use.dptr);
-    }
-
-    delete spreducer;
-    delete predictor;
-}
-
-SPCOMPRESSOR_TYPE
-SPCOMPRESSOR& SPCOMPRESSOR::compress()
-{
-    // this->dryrun();  // TODO
-
-    this->quant  //
-        .set_len(this->ctx->quant_len)
-        .template alloc<cuszLOC::DEVICE, ALIGNDATA::SQUARE_MATRIX>();
-
-    predictor->construct(this->in_data->dptr, this->anchor.dptr, this->quant.dptr);
-    this->anchor.device2host();
-
-    spreducer->gather(this->in_data->dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
-    spreducer->template consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(sp_use.hptr);
-
-    this->time.lossy = predictor->get_time_elapsed();
-    cout << this->time.lossy << endl;
-    this->time.outlier = spreducer->get_time_elapsed();
-
-    this->dataseg.nbyte.at(cuszSEG::OUTLIER) = sp_dump_nbyte;  // do before consolidate
-
-    LOGGING(
-        LOG_INFO, "#outlier = ", this->ctx->nnz_outlier,
-        StringHelper::nnz_percentage(this->ctx->nnz_outlier, this->ctx->data_len));
-
-    // release in_data; subject to change
-    cudaFree(this->in_data->dptr);
-
-    this->try_report_compress_time();
-    this->pack_metadata();
-
-    return *this;
-}
-
-SPCOMPRESSOR_TYPE
 SPCOMPRESSOR& SPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
 {
-    this->quant.set_len(this->ctx->quant_len).template alloc<cuszLOC::DEVICE>();
-    auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
+    this->quant  //
+        .set_len(this->ctx->quant_len)
+        .template alloc<cuszLOC::DEVICE>();
+    auto xdata = decomp_space;
 
-    spreducer->scatter(sp_use.dptr, outlier);
-    predictor->reconstruct(this->anchor.dptr, this->quant.dptr, xdata);
+    spreducer->scatter(sp_use.dptr, this->quant.dptr);
+    predictor->reconstruct(this->anchor.dptr, this->quant.dptr, xdata->dptr);
 
     return *this;
 }
@@ -150,8 +138,8 @@ SPCOMPRESSOR& SPCOMPRESSOR::backmatter(Capsule<T>* decomp_space)
 {
     decomp_space->device2host();
 
-    this->time.outlier = spreducer->get_time_elapsed();
-    this->time.lossy   = predictor->get_time_elapsed();
+    this->time.sparsity = spreducer->get_time_elapsed();
+    this->time.lossy    = predictor->get_time_elapsed();
     this->try_report_decompress_time();
 
     this->try_compare_with_origin(decomp_space->hptr);
@@ -189,12 +177,28 @@ SPCOMPRESSOR& SPCOMPRESSOR::consolidate(BYTE** dump_ptr)
 
     COPY(cuszSEG::HEADER, this->header);
     COPY(cuszSEG::ANCHOR, this->anchor.template get<FROM>());
-    // COPY(cuszSEG::REVBOOK, revbook.template get<FROM>());
-    COPY(cuszSEG::OUTLIER, sp_use.template get<FROM>());
-    // COPY(cuszSEG::HUFF_META, huff_counts.template get<FROM>() + this->ctx->nchunk);
-    // COPY(cuszSEG::HUFF_DATA, huff_data.template get<FROM>());
+    COPY(cuszSEG::SPFMT, sp_use.template get<FROM>());
 
     return *this;
+}
+
+SPCOMPRESSOR_TYPE
+SPCOMPRESSOR::~SpPathCompressor()
+{
+    if (this->timing == cuszWHEN::COMPRESS) {  // release small-size arrays
+
+        this->quant.template free<cuszLOC::DEVICE>();
+        this->freq.template free<cuszLOC::DEVICE>();
+        this->anchor.template free<cuszLOC::HOST_DEVICE>();
+
+        delete this->header;
+    }
+    else {
+        cudaFree(sp_use.dptr);
+    }
+
+    delete spreducer;
+    delete predictor;
 }
 
 #define SP_DC SpPathCompressor<SparsityAwarePath::DefaultBinding>

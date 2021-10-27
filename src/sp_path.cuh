@@ -40,6 +40,10 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     size_t   m, mxm;
     uint32_t sp_dump_nbyte;
 
+    static const auto EXEC_SPACE     = cuszLOC::DEVICE;
+    static const auto FALLBACK_SPACE = cuszLOC::HOST;
+    static const auto BOTH           = cuszLOC::HOST_DEVICE;
+
    private:
    public:
     SpPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data);
