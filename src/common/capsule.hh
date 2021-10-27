@@ -129,7 +129,7 @@ class Capsule {
     }
 
     template <ALIGNDATA AD = ALIGNDATA::NONE>
-    Capsule& get_len()
+    unsigned int get_len()
     {
         return Align::get_aligned_datalen<AD>(len);
     }
