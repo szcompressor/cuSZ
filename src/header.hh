@@ -53,6 +53,6 @@ typedef struct alignas(128) cuszHEADER {
         /* 7 */ uint32_t anchor;
     } nbyte;
 
-} cusz_header;
+} cuszHEADER;
 
 #endif

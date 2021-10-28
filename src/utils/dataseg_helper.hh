@@ -21,35 +21,35 @@
 
 class DataSeg {
    public:
-    std::unordered_map<cuszSEG, int> name2order = {
-        {cuszSEG::HEADER, 0}, {cuszSEG::BOOK, 1},      {cuszSEG::QUANT, 2},     {cuszSEG::REVBOOK, 3},
-        {cuszSEG::SPFMT, 4},  {cuszSEG::HUFF_META, 5}, {cuszSEG::HUFF_DATA, 6},  //
-        {cuszSEG::ANCHOR, 7}};
+    std::unordered_map<cusz::SEG, int> name2order = {
+        {cusz::SEG::HEADER, 0}, {cusz::SEG::BOOK, 1},      {cusz::SEG::QUANT, 2},     {cusz::SEG::REVBOOK, 3},
+        {cusz::SEG::SPFMT, 4},  {cusz::SEG::HUFF_META, 5}, {cusz::SEG::HUFF_DATA, 6},  //
+        {cusz::SEG::ANCHOR, 7}};
 
-    std::unordered_map<int, cuszSEG> order2name = {
-        {0, cuszSEG::HEADER}, {1, cuszSEG::BOOK},      {2, cuszSEG::QUANT},     {3, cuszSEG::REVBOOK},
-        {4, cuszSEG::SPFMT},  {5, cuszSEG::HUFF_META}, {6, cuszSEG::HUFF_DATA},  //
-        {7, cuszSEG::ANCHOR}};
+    std::unordered_map<int, cusz::SEG> order2name = {
+        {0, cusz::SEG::HEADER}, {1, cusz::SEG::BOOK},      {2, cusz::SEG::QUANT},     {3, cusz::SEG::REVBOOK},
+        {4, cusz::SEG::SPFMT},  {5, cusz::SEG::HUFF_META}, {6, cusz::SEG::HUFF_DATA},  //
+        {7, cusz::SEG::ANCHOR}};
 
-    std::unordered_map<cuszSEG, uint32_t> nbyte = {
-        {cuszSEG::HEADER, sizeof(cusz_header)},
-        {cuszSEG::BOOK, 0U},
-        {cuszSEG::QUANT, 0U},
-        {cuszSEG::REVBOOK, 0U},
-        {cuszSEG::ANCHOR, 0U},
-        {cuszSEG::SPFMT, 0U},
-        {cuszSEG::HUFF_META, 0U},
-        {cuszSEG::HUFF_DATA, 0U}};
+    std::unordered_map<cusz::SEG, uint32_t> nbyte = {
+        {cusz::SEG::HEADER, sizeof(cuszHEADER)},
+        {cusz::SEG::BOOK, 0U},
+        {cusz::SEG::QUANT, 0U},
+        {cusz::SEG::REVBOOK, 0U},
+        {cusz::SEG::ANCHOR, 0U},
+        {cusz::SEG::SPFMT, 0U},
+        {cusz::SEG::HUFF_META, 0U},
+        {cusz::SEG::HUFF_DATA, 0U}};
 
-    std::unordered_map<cuszSEG, std::string> name2str{
-        {cuszSEG::HEADER, "HEADER"},       {cuszSEG::BOOK, "BOOK"},          {cuszSEG::QUANT, "QUANT"},
-        {cuszSEG::REVBOOK, "REVBOOK"},     {cuszSEG::ANCHOR, "ANCHOR"},      {cuszSEG::SPFMT, "SPFMT"},
-        {cuszSEG::HUFF_META, "HUFF_META"}, {cuszSEG::HUFF_DATA, "HUFF_DATA"}};
+    std::unordered_map<cusz::SEG, std::string> name2str{
+        {cusz::SEG::HEADER, "HEADER"},       {cusz::SEG::BOOK, "BOOK"},          {cusz::SEG::QUANT, "QUANT"},
+        {cusz::SEG::REVBOOK, "REVBOOK"},     {cusz::SEG::ANCHOR, "ANCHOR"},      {cusz::SEG::SPFMT, "SPFMT"},
+        {cusz::SEG::HUFF_META, "HUFF_META"}, {cusz::SEG::HUFF_DATA, "HUFF_DATA"}};
 
     std::vector<uint32_t> offset;
 
-    uint32_t    get_offset(cuszSEG name) { return offset.at(name2order.at(name)); }
-    std::string get_namestr(cuszSEG name) { return name2str.at(name); }
+    uint32_t    get_offset(cusz::SEG name) { return offset.at(name2order.at(name)); }
+    std::string get_namestr(cusz::SEG name) { return name2str.at(name); }
 };
 
 struct DatasegHelper {
@@ -57,22 +57,22 @@ struct DatasegHelper {
 
     static void header_nbyte_from_dataseg(cuszHEADER* header, DataSeg& dataseg)
     {
-        header->nbyte.book      = dataseg.nbyte.at(cuszSEG::BOOK);
-        header->nbyte.revbook   = dataseg.nbyte.at(cuszSEG::REVBOOK);
-        header->nbyte.spfmt     = dataseg.nbyte.at(cuszSEG::SPFMT);
-        header->nbyte.huff_meta = dataseg.nbyte.at(cuszSEG::HUFF_META);
-        header->nbyte.huff_data = dataseg.nbyte.at(cuszSEG::HUFF_DATA);
-        header->nbyte.anchor    = dataseg.nbyte.at(cuszSEG::ANCHOR);
+        header->nbyte.book      = dataseg.nbyte.at(cusz::SEG::BOOK);
+        header->nbyte.revbook   = dataseg.nbyte.at(cusz::SEG::REVBOOK);
+        header->nbyte.spfmt     = dataseg.nbyte.at(cusz::SEG::SPFMT);
+        header->nbyte.huff_meta = dataseg.nbyte.at(cusz::SEG::HUFF_META);
+        header->nbyte.huff_data = dataseg.nbyte.at(cusz::SEG::HUFF_DATA);
+        header->nbyte.anchor    = dataseg.nbyte.at(cusz::SEG::ANCHOR);
     }
 
     static void dataseg_nbyte_from_header(cuszHEADER* header, DataSeg& dataseg)
     {
-        dataseg.nbyte.at(cuszSEG::BOOK)      = header->nbyte.book;
-        dataseg.nbyte.at(cuszSEG::REVBOOK)   = header->nbyte.revbook;
-        dataseg.nbyte.at(cuszSEG::SPFMT)     = header->nbyte.spfmt;
-        dataseg.nbyte.at(cuszSEG::HUFF_META) = header->nbyte.huff_meta;
-        dataseg.nbyte.at(cuszSEG::HUFF_DATA) = header->nbyte.huff_data;
-        dataseg.nbyte.at(cuszSEG::ANCHOR)    = header->nbyte.anchor;
+        dataseg.nbyte.at(cusz::SEG::BOOK)      = header->nbyte.book;
+        dataseg.nbyte.at(cusz::SEG::REVBOOK)   = header->nbyte.revbook;
+        dataseg.nbyte.at(cusz::SEG::SPFMT)     = header->nbyte.spfmt;
+        dataseg.nbyte.at(cusz::SEG::HUFF_META) = header->nbyte.huff_meta;
+        dataseg.nbyte.at(cusz::SEG::HUFF_DATA) = header->nbyte.huff_data;
+        dataseg.nbyte.at(cusz::SEG::ANCHOR)    = header->nbyte.anchor;
     }
 
     static void compress_time_conslidate_report(DataSeg& dataseg, std::vector<uint32_t>& offsets)

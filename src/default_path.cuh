@@ -66,7 +66,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
     DefaultPathCompressor& compress();
 
-    template <cuszLOC SRC, cuszLOC DST>
+    template <cusz::LOC SRC, cusz::LOC DST>
     DefaultPathCompressor& consolidate(BYTE** dump);
 
     DefaultPathCompressor& decompress(Capsule<T>* out_xdata);

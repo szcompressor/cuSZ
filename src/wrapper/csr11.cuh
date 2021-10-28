@@ -33,7 +33,7 @@ template <typename T = float>
 class CSR11 : public VirtualGatherScatter {
    public:
     using Origin                  = T;
-    static const auto DEFAULT_LOC = cuszLOC::DEVICE;
+    static const auto DEFAULT_LOC = cusz::LOC::DEVICE;
 
    private:
     // clang-format off
@@ -79,7 +79,7 @@ class CSR11 : public VirtualGatherScatter {
     // compression use
     CSR11(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
 
-    template <cuszLOC FROM = cuszLOC::DEVICE, cuszLOC TO = cuszLOC::HOST>
+    template <cusz::LOC FROM = cusz::LOC::DEVICE, cusz::LOC TO = cusz::LOC::HOST>
     CSR11& consolidate(uint8_t* dst);  //, cudaMemcpyKind direction = cudaMemcpyDeviceToHost);
 
     void gather(T* in, unsigned int& dump_nbyte, int& out_nnz)

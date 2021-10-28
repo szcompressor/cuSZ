@@ -9,26 +9,26 @@
  *
  */
 
-#include "../kernel/codec_huffman.cuh"
 #include "../common/type_traits.hh"
+#include "../kernel/codec_huffman.cuh"
 #include "../utils.hh"
 #include "huffman_coarse.cuh"
 
 namespace cusz {
 
 template <typename T, typename H, typename M>
-void HuffmanWork<T, H, M>::decode(cuszLOC loc, H* in_bitstream, M* chunkwise_metadata, BYTE* revbook, T* out_decoded)
+void HuffmanWork<T, H, M>::decode(cusz::LOC loc, H* in_bitstream, M* chunkwise_metadata, BYTE* revbook, T* out_decoded)
 {
     H*    d_in_bitstream;
     M*    d_chunkwise_metadata;
     BYTE* d_revbook;
 
-    if (loc == cuszLOC::HOST) {
+    if (loc == cusz::LOC::HOST) {
         d_in_bitstream       = mem::create_devspace_memcpy_h2d(in_bitstream, num_uints);
         d_chunkwise_metadata = mem::create_devspace_memcpy_h2d(chunkwise_metadata, 2 * nchunk);
         d_revbook            = mem::create_devspace_memcpy_h2d(revbook, revbook_nbyte);
     }
-    else if (loc == cuszLOC::DEVICE) {
+    else if (loc == cusz::LOC::DEVICE) {
         d_in_bitstream       = in_bitstream;
         d_chunkwise_metadata = chunkwise_metadata;
         d_revbook            = revbook;

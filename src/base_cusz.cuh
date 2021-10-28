@@ -48,9 +48,9 @@ class BaseCompressor {
     Capsule<T>          anchor;   // for compressor
     Capsule<cusz::FREQ> freq;     // for compressibility
 
-    cuszCTX*     ctx;
-    cusz_header* header;
-    cuszWHEN     timing;
+    cuszCTX*    ctx;
+    cuszHEADER* header;
+    cusz::WHEN  timing;
 
     dim3 xyz;
 
@@ -94,7 +94,7 @@ class BaseCompressor {
     BaseCompressor& pack_metadata();
     BaseCompressor& unpack_metadata();
 
-    template <cuszLOC SRC, cuszLOC DST>
+    template <cusz::LOC SRC, cusz::LOC DST>
     BaseCompressor& consolidate(BYTE** dump)
     {  // no impl temporarily
         return *this;

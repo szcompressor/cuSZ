@@ -41,19 +41,19 @@ class Capsule {
    private:
     static const bool use_unified = USE_UNIFIED;
 
-    template <cuszLOC LOC>
+    template <cusz::LOC LOC>
     void raise_error_if_misuse_unified()
     {
         static_assert(
-            (LOC == cuszLOC::UNIFIED and USE_UNIFIED == true)           //
-                or (LOC != cuszLOC::UNIFIED and USE_UNIFIED == false),  //
+            (LOC == cusz::LOC::UNIFIED and USE_UNIFIED == true)           //
+                or (LOC != cusz::LOC::UNIFIED and USE_UNIFIED == false),  //
             "[Capsule] misused unified memory API");
     }
 
-    template <cuszLOC LOC>
+    template <cusz::LOC LOC>
     void hostdevice_not_allowed()
     {
-        static_assert(LOC != cuszLOC::HOST_DEVICE, "[Capsule] LOC at HOST_DEVICE not allowed");
+        static_assert(LOC != cusz::LOC::HOST_DEVICE, "[Capsule] LOC at HOST_DEVICE not allowed");
     }
 
     std::string ERRSTR_BUILDER(std::string func, std::string msg)
@@ -76,33 +76,33 @@ class Capsule {
     T* hptr;
     T* uniptr;
 
-    template <cuszLOC LOC = cuszLOC::UNIFIED>
+    template <cusz::LOC LOC = cusz::LOC::UNIFIED>
     T*& get()
     {
         raise_error_if_misuse_unified<LOC>();
         hostdevice_not_allowed<LOC>();
 
-        if CONSTEXPR (LOC == cuszLOC::HOST)
+        if CONSTEXPR (LOC == cusz::LOC::HOST)
             return hptr;
-        else if (LOC == cuszLOC::DEVICE)
+        else if (LOC == cusz::LOC::DEVICE)
             return dptr;
-        else if (LOC == cuszLOC::UNIFIED)
+        else if (LOC == cusz::LOC::UNIFIED)
             return uniptr;
         else
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("get"));
     }
 
-    template <cuszLOC LOC = cuszLOC::UNIFIED>
+    template <cusz::LOC LOC = cusz::LOC::UNIFIED>
     T* set(T* ptr)
     {
         raise_error_if_misuse_unified<LOC>();
         hostdevice_not_allowed<LOC>();
 
-        if CONSTEXPR (LOC == cuszLOC::HOST)
+        if CONSTEXPR (LOC == cusz::LOC::HOST)
             hptr = ptr;
-        else if (LOC == cuszLOC::DEVICE)
+        else if (LOC == cusz::LOC::DEVICE)
             dptr = ptr;
-        else if (LOC == cuszLOC::UNIFIED)  // rare
+        else if (LOC == cusz::LOC::UNIFIED)  // rare
             uniptr = ptr;
         else
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("set"));
@@ -128,23 +128,23 @@ class Capsule {
         return *this;
     }
 
-    template <ALIGNDATA AD = ALIGNDATA::NONE>
+    template <cusz::ALIGNDATA AD = cusz::ALIGNDATA::NONE>
     unsigned int get_len()
     {
         return Align::get_aligned_datalen<AD>(len);
     }
 
-    template <cuszLOC LOC>
+    template <cusz::LOC LOC>
     Capsule& from_existing_on(T* in)
     {
         raise_error_if_misuse_unified<LOC>();
         hostdevice_not_allowed<LOC>();
 
-        if (LOC == cuszLOC::HOST)
+        if (LOC == cusz::LOC::HOST)
             hptr = in;
-        else if (LOC == cuszLOC::DEVICE)
+        else if (LOC == cusz::LOC::DEVICE)
             dptr = in;
-        else if (LOC == cuszLOC::UNIFIED)
+        else if (LOC == cusz::LOC::UNIFIED)
             uniptr = in;
         else
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_existing_on"));
@@ -160,13 +160,13 @@ class Capsule {
      * @param fname
      * @return Capsule&
      */
-    template <cuszLOC DST, cuszLOC VIA = cuszLOC::NONE>
+    template <cusz::LOC DST, cusz::LOC VIA = cusz::LOC::NONE>
     Capsule& from_fs_to(std::string fname, double* time = nullptr)
     {
         auto a = hires::now();
 
-        if (DST == cuszLOC::HOST) {
-            if (VIA == cuszLOC::NONE) {
+        if (DST == cusz::LOC::HOST) {
+            if (VIA == cusz::LOC::NONE) {
                 if (not hptr) {  //
                     throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "hptr not set"));
                 }
@@ -176,12 +176,12 @@ class Capsule {
                 throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_fs_to"));
             }
         }
-        else if (DST == cuszLOC::DEVICE) {
+        else if (DST == cusz::LOC::DEVICE) {
             throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "to DEVICE not implemented"));
-            // (VIA == cuszLOC::HOST)
-            // (VIA == cuszLOC::NONE)
+            // (VIA == cusz::LOC::HOST)
+            // (VIA == cusz::LOC::NONE)
         }
-        else if (DST == cuszLOC::UNIFIED) {
+        else if (DST == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
                 throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
             }
@@ -197,16 +197,16 @@ class Capsule {
         return *this;
     }
 
-    template <cuszLOC SRC, cuszLOC VIA = cuszLOC::NONE>
+    template <cusz::LOC SRC, cusz::LOC VIA = cusz::LOC::NONE>
     Capsule& to_fs_from(std::string fname)
     {
-        if (SRC == cuszLOC::HOST) {
+        if (SRC == cusz::LOC::HOST) {
             if (not hptr) {  //
                 throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "hptr not set"));
             }
             io::write_array_to_binary<T>(fname, hptr, len);
         }
-        else if (SRC == cuszLOC::UNIFIED) {
+        else if (SRC == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
                 throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
             }
@@ -249,10 +249,10 @@ class Capsule {
      * @return Capsule& return *this for chained call
      */
     template <
-        cuszLOC   LOC,  //
-        ALIGNDATA AD = ALIGNDATA::NONE,
-        ALIGNMEM  AM = ALIGNMEM::WARP128B,
-        cuszDEV   M  = cuszDEV::DEV>
+        cusz::LOC       LOC,  //
+        cusz::ALIGNDATA AD = cusz::ALIGNDATA::NONE,
+        cusz::ALIGNMEM  AM = cusz::ALIGNMEM::WARP128B,
+        cusz::DEV       M  = cusz::DEV::DEV>
     Capsule& alloc()
     {
         OK::ALLOC<M>();
@@ -261,21 +261,21 @@ class Capsule {
         auto aligned_datalen    = Align::get_aligned_datalen<AD>(len);
         auto __memory_footprint = Align::get_aligned_nbyte<T>(aligned_datalen);
 
-        if (LOC == cuszLOC::HOST) {
+        if (LOC == cusz::LOC::HOST) {
             cudaMallocHost(&hptr, __memory_footprint);
             cudaMemset(hptr, 0x00, __memory_footprint);
         }
-        else if (LOC == cuszLOC::DEVICE) {
+        else if (LOC == cusz::LOC::DEVICE) {
             cudaMalloc(&dptr, __memory_footprint);
             cudaMemset(dptr, 0x00, __memory_footprint);
         }
-        else if (LOC == cuszLOC::HOST_DEVICE) {
+        else if (LOC == cusz::LOC::HOST_DEVICE) {
             cudaMallocHost(&hptr, __memory_footprint);
             cudaMemset(hptr, 0x00, __memory_footprint);
             cudaMalloc(&dptr, __memory_footprint);
             cudaMemset(dptr, 0x00, __memory_footprint);
         }
-        else if (LOC == cuszLOC::UNIFIED) {
+        else if (LOC == cusz::LOC::UNIFIED) {
             cudaMallocManaged(&uniptr, __memory_footprint);
             cudaMemset(uniptr, 0x00, __memory_footprint);
         }
@@ -286,21 +286,21 @@ class Capsule {
         return *this;
     }
 
-    template <cuszLOC LOC, cuszDEV M = cuszDEV::DEV>
+    template <cusz::LOC LOC, cusz::DEV M = cusz::DEV::DEV>
     Capsule& free()
     {
         OK::FREE<M>();
         raise_error_if_misuse_unified<LOC>();
 
-        if (LOC == cuszLOC::HOST)
+        if (LOC == cusz::LOC::HOST)
             cudaFreeHost(hptr);
-        else if (LOC == cuszLOC::DEVICE)
+        else if (LOC == cusz::LOC::DEVICE)
             cudaFree(dptr);
-        else if (LOC == cuszLOC::HOST_DEVICE) {
+        else if (LOC == cusz::LOC::HOST_DEVICE) {
             cudaFreeHost(hptr);
             cudaFree(dptr);
         }
-        else if (LOC == cuszLOC::UNIFIED) {
+        else if (LOC == cusz::LOC::UNIFIED) {
             cudaFree(uniptr);
         }
         else {

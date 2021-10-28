@@ -156,7 +156,7 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
 }
 
 template <typename T>
-template <cuszLOC FROM, cuszLOC TO>
+template <cusz::LOC FROM, cusz::LOC TO>
 CSR11<T>& CSR11<T>::consolidate(uint8_t* dst)
 {
     constexpr auto direction = CopyDirection<FROM, TO>::direction;
@@ -265,7 +265,7 @@ void CSR11<T>::scatter_CUDA11(T* out_dn)
 
 template class CSR11_TYPE;
 
-template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::HOST, cuszLOC::HOST>(uint8_t*);
-template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(uint8_t*);
-template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(uint8_t*);
-template CSR11_TYPE& CSR11_TYPE::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::HOST, cusz::LOC::DEVICE>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(uint8_t*);
+template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::DEVICE, cusz::LOC::DEVICE>(uint8_t*);

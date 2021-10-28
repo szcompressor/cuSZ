@@ -80,11 +80,11 @@ template <> struct FastLowPrecisionTrait<false> { typedef double type; };
 #ifdef __CUDACC__
 #include <driver_types.h>
 
-template <cuszLOC FROM, cuszLOC TO> struct CopyDirection;
-template <> struct CopyDirection<cuszLOC::HOST,   cuszLOC::HOST>   { static const cudaMemcpyKind direction = cudaMemcpyHostToHost;     };
-template <> struct CopyDirection<cuszLOC::HOST,   cuszLOC::DEVICE> { static const cudaMemcpyKind direction = cudaMemcpyHostToDevice;   };
-template <> struct CopyDirection<cuszLOC::DEVICE, cuszLOC::HOST>   { static const cudaMemcpyKind direction = cudaMemcpyDeviceToHost;   };
-template <> struct CopyDirection<cuszLOC::DEVICE, cuszLOC::DEVICE> { static const cudaMemcpyKind direction = cudaMemcpyDeviceToDevice; };
+template <cusz::LOC FROM, cusz::LOC TO> struct CopyDirection;
+template <> struct CopyDirection<cusz::LOC::HOST,   cusz::LOC::HOST>   { static const cudaMemcpyKind direction = cudaMemcpyHostToHost;     };
+template <> struct CopyDirection<cusz::LOC::HOST,   cusz::LOC::DEVICE> { static const cudaMemcpyKind direction = cudaMemcpyHostToDevice;   };
+template <> struct CopyDirection<cusz::LOC::DEVICE, cusz::LOC::HOST>   { static const cudaMemcpyKind direction = cudaMemcpyDeviceToHost;   };
+template <> struct CopyDirection<cusz::LOC::DEVICE, cusz::LOC::DEVICE> { static const cudaMemcpyKind direction = cudaMemcpyDeviceToDevice; };
 
 #endif
 

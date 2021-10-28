@@ -16,14 +16,16 @@
 #include <unordered_map>
 #include <vector>
 
-enum class cuszTASK { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
-enum class cuszDEV { TEST, DEV, RELEASE };
-enum class cuszLOC { HOST, DEVICE, HOST_DEVICE, UNIFIED, FS, NONE, __BUFFER };
-enum class cuszWHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
+namespace cusz {
+
+enum class TASK { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
+enum class DEV { TEST, DEV, RELEASE };
+enum class LOC { HOST, DEVICE, HOST_DEVICE, UNIFIED, FS, NONE, __BUFFER };
+enum class WHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 enum class ALIGNDATA { NONE, SQUARE_MATRIX, POWEROF2, NEXT_EVEN };
 enum class ALIGNMEM { NONE, WARP32B, WARP64B, WARP128B };
 
-struct cuszCOMPONENTS {
+struct COMPONENTS {
     struct PREDICTOR {
         static const uint32_t LORENZO   = 0;
         static const uint32_t LORENZOII = 1;
@@ -39,27 +41,26 @@ struct cuszCOMPONENTS {
 
 // TODO when to use ADDR8?
 // TODO change to `enum class`
-enum class cuszSEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, SPFMT, HUFF_META, HUFF_DATA };
+enum class SEG { HEADER, BOOK, QUANT, REVBOOK, ANCHOR, SPFMT, HUFF_META, HUFF_DATA };
 
-namespace cusz {
 enum class execution { cuda, serial };
 enum class method { native, thrust };
 
 struct OK {
-    template <cuszDEV m>
+    template <cusz::DEV m>
     static void ALLOC()
     {
         static_assert(
-            m == cuszDEV::TEST or m == cuszDEV::DEV,  //
-            "muse be cuszDEV::TEST or cuszDEV::DEV; use with caution");
+            m == cusz::DEV::TEST or m == cusz::DEV::DEV,  //
+            "muse be cusz::DEV::TEST or cusz::DEV::DEV; use with caution");
     }
 
-    template <cuszDEV m>
+    template <cusz::DEV m>
     static void FREE()
     {
         static_assert(
-            m == cuszDEV::TEST or m == cuszDEV::DEV,  //
-            "muse be cuszDEV::TEST or cuszDEV::DEV; use with caution");
+            m == cusz::DEV::TEST or m == cusz::DEV::DEV,  //
+            "muse be cusz::DEV::TEST or cusz::DEV::DEV; use with caution");
     }
 };
 
