@@ -295,7 +295,6 @@ void test_spline3d_proto(std::string fname, double _eb)
 
 class TestSpline3Wrapped {
     using T = float;
-    // using E = unsigned short;
     using E = float;
 
     static const bool USE_UNFIED = false;
@@ -305,12 +304,12 @@ class TestSpline3Wrapped {
     static const auto         BLOCK  = 8;
     static const auto         radius = 0;
 
-    static const auto MODE           = cuszDEV::TEST;
+    static const auto MODE           = cusz::DEV::TEST;
     static const auto BOTH           = cusz::LOC::HOST_DEVICE;
     static const auto EXEC_SPACE     = cusz::LOC::DEVICE;
     static const auto ANALYSIS_SPACE = cusz::LOC::HOST;
 
-    double eb, eb_r, ebx2, ebx2_r;
+    double in_eb, eb, eb_r, ebx2, ebx2_r;
     double max_value, min_value, rng;
 
     Capsule<T, USE_UNFIED>       data;
@@ -319,6 +318,14 @@ class TestSpline3Wrapped {
     Capsule<E, USE_UNFIED>       errctrl;
     Capsule<uint8_t, USE_UNFIED> compress_dump;
     Capsule<uint8_t, USE_UNFIED> sp_use2;
+
+    static const auto SP_FACTOR = 10;
+    int               m;  // nrow of reinterpreted matrix
+    int*              ext_rowptr;
+    int*              ext_colidx;
+    T*                ext_values;
+
+    bool use_outer_space = false;
 
     std::string fname;
     stat_t      stat;
@@ -331,83 +338,85 @@ class TestSpline3Wrapped {
     int      nnz{0};
 
    public:
-    TestSpline3Wrapped(std::string _fname, double _eb)
+    uint32_t get_exact_spdump_nbyte() { return sp_dump_nbyte; }
+    uint32_t get_anchor_len() { return predictor->get_anchor_len(); }
+    uint32_t get_nnz() { return nnz; }
+
+   private:
+    void init_set_constant_spspace_based_on_predictor(
+        int* outer_ext_rowptr = nullptr,
+        int* outer_ext_colidx = nullptr,
+        T*   outer_ext_values = nullptr)
     {
-        fname = _fname;
+        if (outer_ext_rowptr and outer_ext_colidx and outer_ext_values) {
+            use_outer_space = true;
+            ext_rowptr      = outer_ext_rowptr;
+            ext_colidx      = outer_ext_colidx;
+            ext_values      = outer_ext_values;
+        }
+        else {
+            cudaMalloc(&ext_rowptr, sizeof(int) * (m + 1));
+            cudaMalloc(&ext_colidx, sizeof(int) * (len / SP_FACTOR));
+            cudaMalloc(&ext_values, sizeof(T) * (len / SP_FACTOR));
+        }
+    }
 
-        data  //
-            .set_len(len)
-            .alloc<BOTH>()
-            .from_fs_to<ANALYSIS_SPACE>(fname)
-            .host2device();
-
-        // cout << data.len << endl;
-        auto rng = data.prescan().get_rng();
-        eb       = _eb * rng;
-        eb_r     = 1 / eb;
-        ebx2     = eb * 2;
-        ebx2_r   = 1 / ebx2;
-
-        std::cout << "wrapped:\n";
-        std::cout << "opening " << fname << std::endl;
-        std::cout << "input eb: " << _eb << '\n';
-        std::cout << "range: " << rng << '\n';
-        std::cout << "r2r eb: " << eb << '\n';
-
+    void init_allocate_constant_space(
+        int* outer_ext_rowptr = nullptr,
+        int* outer_ext_colidx = nullptr,
+        T*   outer_ext_values = nullptr)
+    {
         predictor = new cusz::Spline3<T, E, float>(dim3(dimx, dimy, dimz), eb, radius);
-        std::cout << "predictor.anchor_len() = " << predictor->get_anchor_len() << '\n';
-        std::cout << "predictor.quant_len() = " << predictor->get_quant_len() << '\n';
+        m         = Reinterpret1DTo2D::get_square_size(predictor->get_quant_len());
+        // This call creates 3 spaces;
+        init_set_constant_spspace_based_on_predictor(outer_ext_rowptr, outer_ext_colidx, outer_ext_values);
 
-        spreducer_c = new cusz::CSR11<E>(predictor->get_quant_len());
+        spreducer_c = new cusz::CSR11<E>(predictor->get_quant_len(), ext_rowptr, ext_colidx, ext_values);
 
         xdata.set_len(len).alloc<BOTH>();
         anchor.set_len(predictor->get_anchor_len()).alloc<EXEC_SPACE>();
         errctrl.set_len(predictor->get_quant_len()).alloc<BOTH, cusz::ALIGNDATA::SQUARE_MATRIX>();
     }
 
-    void run_test()
+    void init_set_eb(double _eb, bool range_based = true)
     {
-        predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
-        predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
-        xdata.device2host();
-
-        data.from_fs_to<ANALYSIS_SPACE>(fname);
-        analysis::verify_data<T>(&stat, xdata.get<ANALYSIS_SPACE>(), data.get<ANALYSIS_SPACE>(), len);
-        analysis::print_data_quality_metrics<T>(&stat, 0, false);
+        if (range_based) {
+            auto rng = data.prescan().get_rng();
+            eb       = _eb * rng;
+        }
+        else {
+            eb = _eb;
+        }
+        eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
     }
 
-    void run_test2()
+    void init_print_dbg()
     {
-        predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
+        if (fname != "") std::cout << "opening " << fname << std::endl;
+        std::cout << "input eb: " << in_eb << '\n';
+        std::cout << "range: " << rng << '\n';
+        std::cout << "r2r eb: " << eb << '\n';
+        std::cout << "predictor.anchor_len() = " << predictor->get_anchor_len() << '\n';
+        std::cout << "predictor.quant_len() = " << predictor->get_quant_len() << '\n';
+    }
 
-        spreducer_c->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
+   public:
+    /**
+     * @brief
+     *
+     * @param ext_data device pointer to the original data
+     */
+    void data_analysis(T* ext_data = nullptr)
+    {
+        if (fname != "")
+            data.from_fs_to<ANALYSIS_SPACE>(fname);
+        else {
+            if (ext_data)
+                data.from_existing_on<EXEC_SPACE>(ext_data);
+            else
+                throw std::runtime_error("need to specify data source");
+        }
 
-        cout << "predictor time: " << predictor->get_time_elapsed() << endl;
-        cout << "spreducer time: " << spreducer_c->get_time_elapsed() << endl;
-
-        compress_dump.set_len(sp_dump_nbyte).alloc<EXEC_SPACE>();
-
-        spreducer_c->template consolidate<EXEC_SPACE, EXEC_SPACE>(compress_dump.get<EXEC_SPACE>());
-
-        // -----------------------------------------------------------------------------
-        spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
-
-        LOGGING(LOG_DBG, "nnz:", nnz);
-        // LOGGING(LOG_DBG, "nbyte of the only dump:", sp_dump_nbyte);
-
-        // LOGGING(LOG_DBG, "to show there are non zeros in errctrl");
-        // errctrl.free<EXEC_SPACE>().alloc<EXEC_SPACE>();
-
-        Capsule<E> errctrl2(predictor->get_quant_len());
-        errctrl2.alloc<EXEC_SPACE, cusz::ALIGNDATA::SQUARE_MATRIX>();
-
-        spreducer_d->scatter(compress_dump.get<EXEC_SPACE>(), errctrl2.get<EXEC_SPACE>());
-
-        // 1) anchor unchanged (fine), 2)
-        predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl2.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
-        xdata.device2host();
-
-        data.from_fs_to<ANALYSIS_SPACE>(fname);
         analysis::verify_data<T>(&stat, xdata.get<ANALYSIS_SPACE>(), data.get<ANALYSIS_SPACE>(), len);
         analysis::print_data_quality_metrics<T>(&stat, 0, false);
 
@@ -416,11 +425,101 @@ class TestSpline3Wrapped {
         LOGGING(LOG_INFO, "compression ratio: ", 1.0 * original_size / compressed_size);
     }
 
+   public:
+    TestSpline3Wrapped(std::string _fname, double _eb, bool range_based = true, bool verbose = false)
+    {
+        fname = _fname;
+        data  //
+            .set_len(len)
+            .alloc<BOTH>()
+            .from_fs_to<ANALYSIS_SPACE>(fname)
+            .host2device();
+
+        in_eb = _eb;
+        init_set_eb(_eb, range_based);
+
+        init_allocate_constant_space();
+        if (verbose) init_print_dbg();
+    }
+
+    TestSpline3Wrapped(T* ext_data, double _eb, bool range_based = true, bool verbose = false)
+    {
+        data  //
+            .set_len(len)
+            .from_existing_on<EXEC_SPACE>(ext_data)
+            .host2device();
+
+        in_eb = _eb;
+        init_set_eb(_eb, range_based);
+
+        init_allocate_constant_space();
+        if (verbose) init_print_dbg();
+    }
+
+    void compress()
+    {
+        predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
+        spreducer_c->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
+
+        compress_dump.set_len(sp_dump_nbyte).alloc<EXEC_SPACE>();
+        spreducer_c->template consolidate<EXEC_SPACE, EXEC_SPACE>(compress_dump.get<EXEC_SPACE>());
+
+        errctrl.memset();
+    }
+
+    void decompress(int _nnz)
+    {
+        nnz         = _nnz;
+        spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
+
+        spreducer_d->scatter(compress_dump.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
+        predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
+        xdata.device2host();
+    }
+
+    void compress2()
+    {
+        predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
+        spreducer_c->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
+
+        errctrl.memset();
+    }
+
+    void export_after_compress2(uint8_t* d_spdump, T* d_anchordump)
+    {
+        // a memory copy
+        spreducer_c->template consolidate<EXEC_SPACE, EXEC_SPACE>(d_spdump);
+        // a memory copy
+        cudaMemcpy(d_anchordump, anchor.get<EXEC_SPACE>(), anchor.nbyte(), cudaMemcpyDeviceToDevice);
+    }
+
+    void decompress2(int _nnz, uint8_t* d_spdump, T* d_anchordump)
+    {
+        nnz         = _nnz;
+        spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
+        LOGGING(LOG_DBG, "nnz:", nnz);
+
+        spreducer_d->scatter(d_spdump, errctrl.get<EXEC_SPACE>());
+        predictor->reconstruct(d_anchordump, errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
+        xdata.device2host();
+    }
+
+    void export_decompressed_data(T* d_xdatadump)
+    {
+        cudaMemcpy(d_xdatadump, xdata.get<EXEC_SPACE>(), xdata.nbyte(), cudaMemcpyDeviceToDevice);
+    }
+
     ~TestSpline3Wrapped()
     {
         errctrl.free<EXEC_SPACE>();
         anchor.free<EXEC_SPACE>();
         data.free<EXEC_SPACE>();
         xdata.free<EXEC_SPACE>();
+
+        if (not use_outer_space) {
+            cudaFree(ext_rowptr);
+            cudaFree(ext_colidx);
+            cudaFree(ext_values);
+        }
     }
 };
