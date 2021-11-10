@@ -306,9 +306,9 @@ class TestSpline3Wrapped {
     static const auto         radius = 0;
 
     static const auto MODE           = cuszDEV::TEST;
-    static const auto BOTH           = cuszLOC::HOST_DEVICE;
-    static const auto EXEC_SPACE     = cuszLOC::DEVICE;
-    static const auto ANALYSIS_SPACE = cuszLOC::HOST;
+    static const auto BOTH           = cusz::LOC::HOST_DEVICE;
+    static const auto EXEC_SPACE     = cusz::LOC::DEVICE;
+    static const auto ANALYSIS_SPACE = cusz::LOC::HOST;
 
     double eb, eb_r, ebx2, ebx2_r;
     double max_value, min_value, rng;
@@ -362,7 +362,7 @@ class TestSpline3Wrapped {
 
         xdata.set_len(len).alloc<BOTH>();
         anchor.set_len(predictor->get_anchor_len()).alloc<EXEC_SPACE>();
-        errctrl.set_len(predictor->get_quant_len()).alloc<BOTH, ALIGNDATA::SQUARE_MATRIX>();
+        errctrl.set_len(predictor->get_quant_len()).alloc<BOTH, cusz::ALIGNDATA::SQUARE_MATRIX>();
     }
 
     void run_test()
@@ -399,7 +399,7 @@ class TestSpline3Wrapped {
         // errctrl.free<EXEC_SPACE>().alloc<EXEC_SPACE>();
 
         Capsule<E> errctrl2(predictor->get_quant_len());
-        errctrl2.alloc<EXEC_SPACE, ALIGNDATA::SQUARE_MATRIX>();
+        errctrl2.alloc<EXEC_SPACE, cusz::ALIGNDATA::SQUARE_MATRIX>();
 
         spreducer_d->scatter(compress_dump.get<EXEC_SPACE>(), errctrl2.get<EXEC_SPACE>());
 

@@ -34,7 +34,7 @@ std::string fname;
 void test_spline3d_wrapped(double _eb)
 {
     // constexpr auto MODE = cuszDEV::TEST;
-    constexpr auto LOC = cuszLOC::UNIFIED;
+    constexpr auto LOC = cusz::LOC::UNIFIED;
 
     Capsule<T, true> data(len);
     Capsule<T, true> xdata(len);
