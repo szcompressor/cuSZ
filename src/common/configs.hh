@@ -38,11 +38,11 @@ struct Reinterpret1DTo2D {
 };
 
 struct Align {
-    template <ALIGNDATA ad = ALIGNDATA::NONE>
+    template <cusz::ALIGNDATA ad = cusz::ALIGNDATA::NONE>
     static size_t get_aligned_datalen(size_t len)
     {
-        if CONSTEXPR (ad == ALIGNDATA::NONE) return len;
-        if CONSTEXPR (ad == ALIGNDATA::SQUARE_MATRIX) {
+        if CONSTEXPR (ad == cusz::ALIGNDATA::NONE) return len;
+        if CONSTEXPR (ad == cusz::ALIGNDATA::SQUARE_MATRIX) {
             auto m = Reinterpret1DTo2D::get_square_size(len);
             return m * m;
         }
@@ -111,9 +111,9 @@ struct ConfigHelper {
     static uint32_t predictor_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"lorenzo", cuszCOMPONENTS::PREDICTOR::LORENZO},
-            {"lorenzoii", cuszCOMPONENTS::PREDICTOR::LORENZOII},
-            {"spline3", cuszCOMPONENTS::PREDICTOR::SPLINE3}  //
+            {"lorenzo", cusz::COMPONENTS::PREDICTOR::LORENZO},
+            {"lorenzoii", cusz::COMPONENTS::PREDICTOR::LORENZOII},
+            {"spline3", cusz::COMPONENTS::PREDICTOR::SPLINE3}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such predictor as " + name);
         return lut.at(name);
@@ -122,7 +122,7 @@ struct ConfigHelper {
     static uint32_t codec_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"huffman-coarse", cuszCOMPONENTS::CODEC::HUFFMAN_COARSE}  //
+            {"huffman-coarse", cusz::COMPONENTS::CODEC::HUFFMAN_COARSE}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);
@@ -131,7 +131,7 @@ struct ConfigHelper {
     static uint32_t spreducer_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"csr11", cuszCOMPONENTS::SPREDUCER::CSR11}  //
+            {"csr11", cusz::COMPONENTS::SPREDUCER::CSR11}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);

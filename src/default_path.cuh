@@ -42,6 +42,11 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     Capsule<BYTE>   revbook;
     Capsule<BYTE>   sp_use;
 
+    // tmp, device only
+    Capsule<int> ext_rowptr;
+    Capsule<int> ext_colidx;
+    Capsule<T>   ext_values;
+
     Predictor* predictor;
     SpReducer* spreducer;
     Codec*     codec;
@@ -66,7 +71,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
     DefaultPathCompressor& compress();
 
-    template <cuszLOC SRC, cuszLOC DST>
+    template <cusz::LOC SRC, cusz::LOC DST>
     DefaultPathCompressor& consolidate(BYTE** dump);
 
     DefaultPathCompressor& decompress(Capsule<T>* out_xdata);

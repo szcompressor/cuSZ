@@ -43,8 +43,8 @@ DPCOMPRESSOR& DPCOMPRESSOR::analyze_compressibility()
     if (this->ctx->report.compressibility) {
         // cudaMallocHost(&this->freq.hptr, this->freq.nbyte()), this->freq.device2host();
         // cudaMallocHost(&book.hptr, book.nbyte()), book.device2host();
-        this->freq.template alloc<cuszLOC::HOST>().device2host();
-        book.template alloc<cuszLOC::HOST>().device2host();
+        this->freq.template alloc<cusz::LOC::HOST>().device2host();
+        book.template alloc<cusz::LOC::HOST>().device2host();
 
         Analyzer analyzer{};
         analyzer  //
@@ -79,7 +79,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::internal_eval_try_export_book()
 
         LOGGING(LOG_INFO, "exporting codebook as binary; suffix: \".lean-book\"");
 
-        this->dataseg.nbyte.at(cuszSEG::BOOK) = this->ctx->dict_size * sizeof(H);
+        this->dataseg.nbyte.at(cusz::SEG::BOOK) = this->ctx->dict_size * sizeof(H);
     }
     return *this;
 }
@@ -88,10 +88,10 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::internal_eval_try_export_quant()
 {
     // internal_eval
     if (this->ctx->export_raw.quant) {  //
-        this->quant.template alloc<cuszLOC::HOST>();
+        this->quant.template alloc<cusz::LOC::HOST>();
         this->quant.device2host();
 
-        this->dataseg.nbyte.at(cuszSEG::QUANT) = this->quant.nbyte();
+        this->dataseg.nbyte.at(cusz::SEG::QUANT) = this->quant.nbyte();
 
         // TODO as part of dump
         io::write_array_to_binary(
@@ -109,7 +109,7 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::try_skip_huffman()
     if (this->ctx->to_skip.huffman) {
         // cudaMallocHost(&this->quant.hptr, this->quant.nbyte());
         this->quant  //
-            .template alloc<cuszLOC::HOST>()
+            .template alloc<cusz::LOC::HOST>()
             .device2host();
 
         // TODO: as part of cusza
@@ -142,7 +142,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::get_freq_codebook()
         .internal_eval_try_export_quant();
 
     revbook.device2host();  // need processing on CPU
-    this->dataseg.nbyte.at(cuszSEG::REVBOOK) = HuffmanHelper::get_revbook_nbyte<E, H>(this->ctx->dict_size);
+    this->dataseg.nbyte.at(cusz::SEG::REVBOOK) = HuffmanHelper::get_revbook_nbyte<E, H>(this->ctx->dict_size);
 
     return *this;
 }
@@ -169,7 +169,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
     // gather metadata (without write) before gathering huff as sp on GPU
     huff_counts  //
         .set_len(nchunk * 3)
-        .template alloc<cuszLOC::HOST_DEVICE>();
+        .template alloc<cusz::LOC::HOST_DEVICE>();
 
     auto d_bits    = huff_counts.dptr;
     auto d_uints   = huff_counts.dptr + nchunk;
@@ -185,7 +185,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
     // --------------------------------------------------------------------------------
     huff_data  //
         .set_len(num_uints)
-        .template alloc<cuszLOC::HOST_DEVICE>();
+        .template alloc<cusz::LOC::HOST_DEVICE>();
 
     lossless::HuffmanEncode<E, H, true>(
         tmp_space, nullptr, d_uints, d_entries, nullptr,
@@ -198,8 +198,8 @@ DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
     huff_data.device2host();
 
     // TODO size_t -> MetadataT
-    this->dataseg.nbyte.at(cuszSEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
-    this->dataseg.nbyte.at(cuszSEG::HUFF_DATA) = sizeof(H) * num_uints;
+    this->dataseg.nbyte.at(cusz::SEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
+    this->dataseg.nbyte.at(cusz::SEG::HUFF_DATA) = sizeof(H) * num_uints;
 
     cudaFree(tmp_space);
 
@@ -211,8 +211,8 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
 {
     this->ctx     = _ctx;
     this->in_data = _in_data;
-    this->timing  = cuszWHEN::COMPRESS;
-    this->header  = new cusz_header();
+    this->timing  = cusz::WHEN::COMPRESS;
+    this->header  = new cuszHEADER();
     this->xyz     = dim3(this->ctx->x, this->ctx->y, this->ctx->z);
 
     this->prescan();  // internally change eb (regarding value range)
@@ -224,9 +224,26 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     this->ctx->quant_len  = predictor->get_quant_len();
     this->ctx->anchor_len = predictor->get_anchor_len();
 
-    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    // spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    constexpr auto SP_FACTOR = 10;
+    auto           init_nnz  = this->ctx->data_len / SP_FACTOR;
+
+    auto m = Reinterpret1DTo2D::get_square_size(this->ctx->data_len);
+    ext_rowptr  //
+        .set_len(m + 1)
+        .template alloc<cusz::LOC::DEVICE>();
+    ext_colidx  //
+        .set_len(init_nnz)
+        .template alloc<cusz::LOC::DEVICE>();
+    ext_values  //
+        .set_len(init_nnz)
+        .template alloc<cusz::LOC::DEVICE>();
+
+    spreducer = new SpReducer(
+        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  //
+        ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
     sp_use.set_len(SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
-        .template alloc<cuszLOC::HOST_DEVICE>();
+        .template alloc<cusz::LOC::HOST_DEVICE>();
 
     LOGGING(LOG_INFO, "compressing...");
 }
@@ -236,18 +253,18 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 {
     this->ctx     = _ctx;
     this->in_dump = _in_dump;
-    this->timing  = cuszWHEN::DECOMPRESS;
+    this->timing  = cusz::WHEN::DECOMPRESS;
     auto dump     = this->in_dump->hptr;
 
-    this->header = reinterpret_cast<cusz_header*>(dump);
+    this->header = reinterpret_cast<cuszHEADER*>(dump);
     this->unpack_metadata();
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
     spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
     sp_use.set_len(spreducer->get_total_nbyte())
-        .template from_existing_on<cuszLOC::HOST>(
-            reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cuszSEG::SPFMT)))
-        .template alloc<cuszLOC::DEVICE>()
+        .template from_existing_on<cusz::LOC::HOST>(
+            reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cusz::SEG::SPFMT)))
+        .template alloc<cusz::LOC::DEVICE>()
         .host2device();
 
     predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
@@ -262,15 +279,19 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 DPCOMPRESSOR_TYPE
 DPCOMPRESSOR::~DefaultPathCompressor()
 {
-    if (this->timing == cuszWHEN::COMPRESS) {  // release small-size arrays
+    if (this->timing == cusz::WHEN::COMPRESS) {  // release small-size arrays
 
-        this->quant.template free<cuszLOC::DEVICE>();
-        this->freq.template free<cuszLOC::DEVICE>();
-        huff_data.template free<cuszLOC::HOST_DEVICE>();
-        huff_counts.template free<cuszLOC::HOST_DEVICE>();
-        sp_use.template free<cuszLOC::HOST_DEVICE>();
-        book.template free<cuszLOC::DEVICE>();
-        revbook.template free<cuszLOC::HOST_DEVICE>();
+        this->quant.template free<cusz::LOC::DEVICE>();
+        this->freq.template free<cusz::LOC::DEVICE>();
+        huff_data.template free<cusz::LOC::HOST_DEVICE>();
+        huff_counts.template free<cusz::LOC::HOST_DEVICE>();
+        sp_use.template free<cusz::LOC::HOST_DEVICE>();
+        book.template free<cusz::LOC::DEVICE>();
+        revbook.template free<cusz::LOC::HOST_DEVICE>();
+
+        ext_rowptr.template free<cusz::LOC::DEVICE>();
+        ext_colidx.template free<cusz::LOC::DEVICE>();
+        ext_values.template free<cusz::LOC::DEVICE>();
 
         delete this->header;
     }
@@ -287,22 +308,22 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
 {
     this->dryrun();  // TODO
 
-    this->quant.set_len(this->ctx->quant_len).template alloc<cuszLOC::DEVICE>();
-    this->freq.set_len(this->ctx->dict_size).template alloc<cuszLOC::DEVICE>();
-    book.set_len(this->ctx->dict_size).template alloc<cuszLOC::DEVICE>();
+    this->quant.set_len(this->ctx->quant_len).template alloc<cusz::LOC::DEVICE>();
+    this->freq.set_len(this->ctx->dict_size).template alloc<cusz::LOC::DEVICE>();
+    book.set_len(this->ctx->dict_size).template alloc<cusz::LOC::DEVICE>();
     revbook
         .set_len(  //
             HuffmanHelper::get_revbook_nbyte<E, H>(this->ctx->dict_size))
-        .template alloc<cuszLOC::HOST_DEVICE>();
+        .template alloc<cusz::LOC::HOST_DEVICE>();
 
     predictor->construct(this->in_data->dptr, nullptr, this->quant.dptr);
     spreducer->gather(this->in_data->dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
-    spreducer->template consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(sp_use.hptr);
+    spreducer->template consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(sp_use.hptr);
 
     this->time.lossy    = predictor->get_time_elapsed();
     this->time.sparsity = spreducer->get_time_elapsed();
 
-    this->dataseg.nbyte.at(cuszSEG::SPFMT) = sp_dump_nbyte;  // do before consolidate
+    this->dataseg.nbyte.at(cusz::SEG::SPFMT) = sp_dump_nbyte;  // do before consolidate
 
     LOGGING(
         LOG_INFO, "#outlier = ", this->ctx->nnz_outlier,
@@ -324,7 +345,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
 DPCOMPRESSOR_TYPE
 DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
 {
-    this->quant.set_len(this->ctx->quant_len).template alloc<cuszLOC::DEVICE>();
+    this->quant.set_len(this->ctx->quant_len).template alloc<cusz::LOC::DEVICE>();
     auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
 
     using Mtype = typename Codec::Mtype;
@@ -338,10 +359,10 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     // decode(WHERE, FROM_DUMP, dump, offset, output)
 
     codec->decode(
-        cuszLOC::HOST,                                                                                 //
-        reinterpret_cast<H*>(this->in_dump->hptr + this->dataseg.get_offset(cuszSEG::HUFF_DATA)),      //
-        reinterpret_cast<Mtype*>(this->in_dump->hptr + this->dataseg.get_offset(cuszSEG::HUFF_META)),  //
-        reinterpret_cast<BYTE*>(this->in_dump->hptr + this->dataseg.get_offset(cuszSEG::REVBOOK)),     //
+        cusz::LOC::HOST,                                                                                 //
+        reinterpret_cast<H*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_DATA)),      //
+        reinterpret_cast<Mtype*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META)),  //
+        reinterpret_cast<BYTE*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK)),     //
         this->quant.dptr);
 
     spreducer->scatter(sp_use.dptr, outlier);
@@ -367,7 +388,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::backmatter(Capsule<T>* decomp_space)
 }
 
 DPCOMPRESSOR_TYPE
-template <cuszLOC FROM, cuszLOC TO>
+template <cusz::LOC FROM, cusz::LOC TO>
 DPCOMPRESSOR& DPCOMPRESSOR::consolidate(BYTE** dump_ptr)
 {
     constexpr auto        DIRECTION = CopyDirection<FROM, TO>::direction;
@@ -375,7 +396,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::consolidate(BYTE** dump_ptr)
 
     auto REINTERP = [](auto* ptr) { return reinterpret_cast<BYTE*>(ptr); };
     auto ADDR     = [&](int seg_id) { return *dump_ptr + offsets.at(seg_id); };
-    auto COPY     = [&](cuszSEG seg, auto src) {
+    auto COPY     = [&](cusz::SEG seg, auto src) {
         auto dst      = ADDR(this->dataseg.name2order.at(seg));
         auto src_byte = REINTERP(src);
         auto len      = this->dataseg.nbyte.at(seg);
@@ -386,19 +407,19 @@ DPCOMPRESSOR& DPCOMPRESSOR::consolidate(BYTE** dump_ptr)
     auto total_nbyte = offsets.back();
     printf("\ncompression ratio:\t%.4f\n", this->ctx->data_len * sizeof(T) * 1.0 / total_nbyte);
 
-    if CONSTEXPR (TO == cuszLOC::HOST)
+    if CONSTEXPR (TO == cusz::LOC::HOST)
         cudaMallocHost(dump_ptr, total_nbyte);
-    else if (TO == cuszLOC::DEVICE)
+    else if (TO == cusz::LOC::DEVICE)
         cudaMalloc(dump_ptr, total_nbyte);
     else
         throw std::runtime_error("[COMPRESSOR::consolidate] undefined behavior");
 
-    COPY(cuszSEG::HEADER, this->header);
-    COPY(cuszSEG::ANCHOR, this->anchor.template get<FROM>());
-    COPY(cuszSEG::REVBOOK, revbook.template get<FROM>());
-    COPY(cuszSEG::SPFMT, sp_use.template get<FROM>());
-    COPY(cuszSEG::HUFF_META, huff_counts.template get<FROM>() + this->ctx->nchunk);
-    COPY(cuszSEG::HUFF_DATA, huff_data.template get<FROM>());
+    COPY(cusz::SEG::HEADER, this->header);
+    COPY(cusz::SEG::ANCHOR, this->anchor.template get<FROM>());
+    COPY(cusz::SEG::REVBOOK, revbook.template get<FROM>());
+    COPY(cusz::SEG::SPFMT, sp_use.template get<FROM>());
+    COPY(cusz::SEG::HUFF_META, huff_counts.template get<FROM>() + this->ctx->nchunk);
+    COPY(cusz::SEG::HUFF_DATA, huff_data.template get<FROM>());
 
     return *this;
 }
@@ -407,16 +428,16 @@ DPCOMPRESSOR& DPCOMPRESSOR::consolidate(BYTE** dump_ptr)
 
 template class DPC_DC;
 
-template DPC_DC& DPC_DC::consolidate<cuszLOC::HOST, cuszLOC::HOST>(BYTE**);
-template DPC_DC& DPC_DC::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(BYTE**);
-template DPC_DC& DPC_DC::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(BYTE**);
-template DPC_DC& DPC_DC::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(BYTE**);
+template DPC_DC& DPC_DC::consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(BYTE**);
+template DPC_DC& DPC_DC::consolidate<cusz::LOC::HOST, cusz::LOC::DEVICE>(BYTE**);
+template DPC_DC& DPC_DC::consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(BYTE**);
+template DPC_DC& DPC_DC::consolidate<cusz::LOC::DEVICE, cusz::LOC::DEVICE>(BYTE**);
 
 #define DPC_FC DefaultPathCompressor<DefaultPath::FallbackBinding>
 
 template class DPC_FC;
 
-template DPC_FC& DPC_FC::consolidate<cuszLOC::HOST, cuszLOC::HOST>(BYTE**);
-template DPC_FC& DPC_FC::consolidate<cuszLOC::HOST, cuszLOC::DEVICE>(BYTE**);
-template DPC_FC& DPC_FC::consolidate<cuszLOC::DEVICE, cuszLOC::HOST>(BYTE**);
-template DPC_FC& DPC_FC::consolidate<cuszLOC::DEVICE, cuszLOC::DEVICE>(BYTE**);
+template DPC_FC& DPC_FC::consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(BYTE**);
+template DPC_FC& DPC_FC::consolidate<cusz::LOC::HOST, cusz::LOC::DEVICE>(BYTE**);
+template DPC_FC& DPC_FC::consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(BYTE**);
+template DPC_FC& DPC_FC::consolidate<cusz::LOC::DEVICE, cusz::LOC::DEVICE>(BYTE**);

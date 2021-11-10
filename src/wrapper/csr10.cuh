@@ -29,7 +29,7 @@ class CSR10 : public VirtualGatherScatter {
    public:
     using Origin = T;
 
-    static const auto DEFAULT_LOC = cuszLOC::DEVICE;
+    static const auto DEFAULT_LOC = cusz::LOC::DEVICE;
 
    private:
     // clang-format off

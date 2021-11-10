@@ -16,17 +16,17 @@
 
 #include "../../include/reducer.hh"
 #include "../common/definition.hh"
-#include "../header.hh"
 #include "../common/type_traits.hh"
+#include "../header.hh"
 
 namespace cusz {
 
 template <typename T, typename H, typename M = uint64_t>
 class HuffmanWork {
    public:
-    using Origin = T;
+    using Origin  = T;
     using Encoded = H;
-    using Mtype = M;
+    using Mtype   = M;
 
    private:
     using BYTE      = uint8_t;
@@ -67,7 +67,7 @@ class HuffmanWork {
 
     void decode(H* in, T* out);
 
-    void decode(cuszLOC loc, H* bitstream, M* bits_entries, BYTE* revbook, T* out);
+    void decode(cusz::LOC loc, H* bitstream, M* bits_entries, BYTE* revbook, T* out);
 };
 
 }  // namespace cusz
