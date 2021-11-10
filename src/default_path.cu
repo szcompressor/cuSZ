@@ -224,7 +224,24 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     this->ctx->quant_len  = predictor->get_quant_len();
     this->ctx->anchor_len = predictor->get_anchor_len();
 
-    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    // spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    constexpr auto SP_FACTOR = 10;
+    auto           init_nnz  = this->ctx->data_len / SP_FACTOR;
+
+    auto m = Reinterpret1DTo2D::get_square_size(this->ctx->data_len);
+    ext_rowptr  //
+        .set_len(m + 1)
+        .template alloc<cusz::LOC::DEVICE>();
+    ext_colidx  //
+        .set_len(init_nnz)
+        .template alloc<cusz::LOC::DEVICE>();
+    ext_values  //
+        .set_len(init_nnz)
+        .template alloc<cusz::LOC::DEVICE>();
+
+    spreducer = new SpReducer(
+        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  //
+        ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
     sp_use.set_len(SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
         .template alloc<cusz::LOC::HOST_DEVICE>();
 
@@ -271,6 +288,10 @@ DPCOMPRESSOR::~DefaultPathCompressor()
         sp_use.template free<cusz::LOC::HOST_DEVICE>();
         book.template free<cusz::LOC::DEVICE>();
         revbook.template free<cusz::LOC::HOST_DEVICE>();
+
+        ext_rowptr.template free<cusz::LOC::DEVICE>();
+        ext_colidx.template free<cusz::LOC::DEVICE>();
+        ext_values.template free<cusz::LOC::DEVICE>();
 
         delete this->header;
     }

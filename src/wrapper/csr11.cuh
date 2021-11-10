@@ -77,7 +77,17 @@ class CSR11 : public VirtualGatherScatter {
     float get_time_elapsed() const { return milliseconds; }
 
     // compression use
-    CSR11(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
+    CSR11(unsigned int _len);
+
+    /**
+     * @brief Construct a new CSR11 object; use externally set device arrays (size not checked) for gather
+     *
+     * @param _len input data length
+     * @param ext_rowptr non-nullable external device pointer for rowptr; allocated size not guarateed or checked
+     * @param ext_colidx non-nullable external device pointer for colidx; allocated size not guarateed or checked
+     * @param ext_values non-nullable external device pointer for values; allocated size not guarateed or checked
+     */
+    CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values);
 
     template <cusz::LOC FROM = cusz::LOC::DEVICE, cusz::LOC TO = cusz::LOC::HOST>
     CSR11& consolidate(uint8_t* dst);  //, cudaMemcpyKind direction = cudaMemcpyDeviceToHost);

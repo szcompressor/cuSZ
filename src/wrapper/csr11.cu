@@ -30,33 +30,25 @@ using stream_t = cudaStream_t;
 namespace cusz {
 
 template <typename T>
-CSR11<T>::CSR11(unsigned int _len, unsigned int* init_workspace_nbyte)
+CSR11<T>::CSR11(unsigned int _len)
 {
     m = Reinterpret1DTo2D::get_square_size(_len);
 
-    // TODO merge to configure?
     auto initial_nnz = _len / SparseMethodSetup::factor;
-    // set up pool
-    // offset.rowptr = 0;
-    // offset.colidx = sizeof(int) * (m + 1);
-    // offset.values = sizeof(int) * (m + 1) + sizeof(int) * initial_nnz;
 
     rowptr.set_len(m + 1).template alloc<DEFAULT_LOC>();
     colidx.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
     values.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
-
-    if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_init_csr_nbyte<T, int>(_len);
 }
 
-// template <typename T>
-// void CSR11<T>::configure_workspace(uint8_t* _pool)
-// {
-//     if (not _pool) throw std::runtime_error("Memory is no allocated.");
-//     pool_ptr     = _pool;
-//     entry.rowptr = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
-//     entry.colidx = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-//     entry.values = reinterpret_cast<T*>(pool_ptr + offset.values);
-// }
+template <typename T>
+CSR11<T>::CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
+{
+    m = Reinterpret1DTo2D::get_square_size(_len);
+    rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
+    colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
+    values.template from_existing_on<DEFAULT_LOC>(ext_values);
+}
 
 template <typename T>
 void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
