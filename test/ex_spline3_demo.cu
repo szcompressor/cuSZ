@@ -18,7 +18,6 @@
 using std::cout;
 
 using T = float;
-// using E = unsigned short;
 using E = float;
 
 bool print_fullhist = false;
@@ -26,104 +25,43 @@ bool write_quant    = false;
 
 constexpr unsigned int dimz = 449, dimy = 449, dimx = 235;
 constexpr unsigned int len = dimx * dimy * dimz;
-// constexpr auto         BLOCK  = 8;
-// constexpr auto         radius = 512;
 
 std::string fname;
 
-void test_spline3d_wrapped(double _eb)
+void demo(double eb)
 {
-    // constexpr auto MODE = cuszDEV::TEST;
-    constexpr auto LOC = cusz::LOC::UNIFIED;
+    // data preparation
+    Capsule<T> data(len, "original data");
+    data  //
+        .alloc<cusz::LOC::HOST_DEVICE>()
+        .from_fs_to<cusz::LOC::HOST>(fname)
+        .host2device();
+    auto rng = data.prescan().get_rng();
 
-    Capsule<T, true> data(len);
-    Capsule<T, true> xdata(len);
-
-    data.alloc<LOC>().from_fs_to<LOC>(fname);
-    xdata.alloc<LOC>();
-
-    double max_value, min_value, rng;
-    prescan(data.get<LOC>(), len, max_value, min_value, rng);
-
-    double eb     = _eb * rng;
-    double eb_r   = 1 / eb;
-    double ebx2   = eb * 2;
-    double ebx2_r = 1 / ebx2;
-
-    std::cout << "wrapped:\n";
-    std::cout << "opening " << fname << std::endl;
-    std::cout << "input eb: " << _eb << '\n';
-    std::cout << "range: " << rng << '\n';
-    std::cout << "r2r eb: " << eb << '\n';
-
-    cusz::Spline3<T, E, float> predictor(dim3(dimx, dimy, dimz), eb, 512);
-
-    std::cout << "predictor.get_anchor_len() = " << predictor.get_anchor_len() << '\n';
-    std::cout << "predictor.get_quant_len() = " << predictor.get_quant_len() << '\n';
-
-    Capsule<T, true> anchor(predictor.get_anchor_len());
-    Capsule<E, true> errctrl(predictor.get_quant_len());
-    anchor.alloc<LOC>();
-    errctrl.alloc<LOC>();
-
-    predictor.construct(data.get<LOC>(), anchor.get<LOC>(), errctrl.get<LOC>());
-
-    // {
-    //     auto hist = new int[radius * 2]();
-    //     for (auto i = 0; i < predictor.get_quant_len(); i++) hist[(int)errctrl.get<LOC>()[i]]++;
-    //     for (auto i = 0; i < radius * 2; i++)
-    //         if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
-
-    //     delete[] hist;
-    // }
-
-    predictor.reconstruct(anchor.get<LOC>(), errctrl.get<LOC>(), xdata.get<LOC>());
-
-    data.from_fs_to<LOC>(fname);
-    stat_t stat;
-    analysis::verify_data<T>(&stat, xdata.get<LOC>(), data.get<LOC>(), len);
-    analysis::print_data_quality_metrics<T>(&stat, 0, false);
-
-    errctrl.free<LOC>();
-    anchor.free<LOC>();
-    data.free<LOC>();
-    xdata.free<LOC>();
-}
-
-void demo1(double eb)
-{
-    TestSpline3Wrapped t2(fname, eb);
-
-    // do compression
-    t2.compress();
-    auto nnz = t2.get_nnz();
-    t2.decompress(nnz);
-
-    t2.data_analysis();
-}
-
-void demo2(double eb)
-{
-    TestSpline3Wrapped t2(fname, eb);
+    TestSpline3Wrapped<10> compressor(data.dptr, dim3(dimx, dimy, dimz), eb * rng);
 
     // set external space
-    Capsule<uint8_t> spdump;  // specify length after .compress()
-    Capsule<float>   anchordump(t2.get_anchor_len());
+    Capsule<uint8_t> spdump;                                  // specify length after .compress() use some init size
+    spdump.set_len(len * 4).alloc<cusz::LOC::HOST_DEVICE>();  // or from_existing_on<EXEC_SPACE>(...);
+    Capsule<float> anchordump(compressor.get_anchor_len());
     anchordump.alloc<cusz::LOC::HOST_DEVICE>();
 
-    // do compression
-    t2.compress2();
-    auto nnz = t2.get_nnz();
-    spdump  //
-        .set_len(t2.get_exact_spdump_nbyte())
-        .alloc<cusz::LOC::HOST_DEVICE>();  // or from_existing_on<EXEC_SPACE>(...);
-    t2.export_after_compress2(spdump.dptr, anchordump.dptr);
+    // compression
+    // ----------------------------------------
+    compressor.compress2();
+    auto nnz = compressor.get_nnz();
+    spdump.set_len(compressor.get_exact_spdump_nbyte());
+    compressor.export_after_compress2(spdump.dptr, anchordump.dptr);
+    // ----------------------------------------
 
-    anchordump.device2host();
+    Capsule<T> xdata(len, "decompressed data");
+    xdata.alloc<cusz::LOC::DEVICE>();
 
-    t2.decompress2(nnz, spdump.dptr, anchordump.dptr);
-
-    t2.data_analysis();
+    // decompression
+    // ----------------------------------------
+    compressor.decompress2(xdata.dptr, spdump.dptr, nnz, anchordump.dptr);
+    compressor.data_analysis(data.hptr);
+    // ----------------------------------------
 }
 
 int main(int argc, char** argv)
@@ -152,8 +90,7 @@ int main(int argc, char** argv)
 
     cudaDeviceReset();
 
-    demo1(eb);
-    demo2(eb);
+    demo(eb);
 
     return 0;
 }

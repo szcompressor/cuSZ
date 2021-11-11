@@ -15,7 +15,6 @@ csr11.o: ../src/wrapper/csr11.cu
 splinedemo: ex_spline3_demo.cu interp_spline3.o csr11.o
 	@echo :: creating spline3 demo-1...
 	nvcc \
-		-g \
 		interp_spline3.o \
 		ex_spline3_demo.cu \
 		csr11.o \

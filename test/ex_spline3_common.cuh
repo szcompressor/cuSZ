@@ -92,302 +92,82 @@ void print_block_from_CPU(T* data, int radius = 512)
 }
 */
 
-template <typename T>
-void prescan(T* data, unsigned int len, double& max_value, double& min_value, double& rng)
-{
-    thrust::device_ptr<T> g_ptr      = thrust::device_pointer_cast(data);
-    auto                  max_el_loc = thrust::max_element(g_ptr, g_ptr + len);  // excluding padded
-    auto                  min_el_loc = thrust::min_element(g_ptr, g_ptr + len);  // excluding padded
-
-    max_value = *max_el_loc;
-    min_value = *min_el_loc;
-    rng       = max_value - min_value;
-}
-
-void test_spline3d_proto(std::string fname, double _eb)
-{
-    constexpr unsigned int dimz = 449, dimy = 449, dimx = 235;
-    constexpr unsigned int len    = dimx * dimy * dimz;
-    constexpr auto         BLOCK  = 8;
-    constexpr auto         radius = 512;
-
-    auto get_npart = [](auto size, auto subsize) { return (size + subsize - 1) / subsize; };
-
-    using T = float;
-    // using E = unsigned short;
-    using E = float;
-
-    std::cout << "prototype:\n";
-    std::cout << "input eb: " << _eb << '\n';
-
-    T* data;
-    T* xdata;
-    T* anchor;
-    E* errctrl;
-
-    unsigned int dimx_aligned, dimy_aligned, dimz_aligned;
-    unsigned int nblockx, nblocky, nblockz;
-    unsigned int in_range_nanchorx, in_range_nanchory, in_range_nanchorz;
-    unsigned int nanchorx, nanchory, nanchorz;
-    unsigned int len_aligned, len_anchor;
-    dim3         size, size_aligned, leap, leap_aligned, anchor_size, anchor_leap;
-
-    double max_value, min_value, rng;
-
-    cudaMallocManaged((void**)&data, len * sizeof(T));
-    cudaMemset(data, 0x00, len * sizeof(T));
-
-    std::cout << "opening " << fname << std::endl;
-    io::read_binary_to_array(fname, data, len);
-
-    prescan(data, len, max_value, min_value, rng);
-
-    auto eb     = _eb *= rng;
-    auto eb_r   = 1 / eb;
-    auto ebx2   = eb * 2;
-    auto ebx2_r = 1 / ebx2;
-
-    std::cout << "range: " << rng << '\n';
-    std::cout << "r2r eb: " << eb << '\n';
-
-    {  //
-        nblockx      = get_npart(dimx, BLOCK * 4);
-        nblocky      = get_npart(dimy, BLOCK);
-        nblockz      = get_npart(dimz, BLOCK);
-        dimx_aligned = nblockx * 32;  // 235 -> 256
-        dimy_aligned = nblocky * 8;   // 449 -> 456
-        dimz_aligned = nblockz * 8;   // 449 -> 456
-        len_aligned  = dimx_aligned * dimy_aligned * dimz_aligned;
-
-        // TODO: an alternative
-        // auto nblockx = get_npart_aligned1(dimx, BLOCK * 4);
-        // auto nblocky = get_npart_aligned1(dimy, BLOCK);
-        // auto nblockz = get_npart_aligned1(dimz, BLOCK);
-
-        size         = dim3(dimx, dimy, dimz);
-        leap         = dim3(1, dimx, dimx * dimy);
-        size_aligned = dim3(dimx_aligned, dimy_aligned, dimz_aligned);
-        leap_aligned = dim3(1, dimx_aligned, dimx_aligned * dimy_aligned);
-
-        std::cout << "len: " << len << '\n';
-        std::cout << "len padded: " << len_aligned << '\n';
-        std::cout << "len padded/len: " << 1.0 * len_aligned / len << '\n';
-        printf(
-            "dim and dim-aligned: (%d, %d, %d), (%d, %d, %d)\n", dimx, dimy, dimz, dimx_aligned, dimy_aligned,
-            dimz_aligned);
-    }
-
-    {  // anchor point
-
-        in_range_nanchorx = int(dimx / BLOCK);
-        in_range_nanchory = int(dimy / BLOCK);
-        in_range_nanchorz = int(dimz / BLOCK);
-        nanchorx          = in_range_nanchorx + 1;
-        nanchory          = in_range_nanchory + 1;
-        nanchorz          = in_range_nanchorz + 1;
-        len_anchor        = nanchorx * nanchory * nanchorz;
-
-        anchor_size = dim3(nanchorx, nanchory, nanchorz);
-        anchor_leap = dim3(1, nanchorx, nanchorx * nanchory);
-
-        std::cout << "len anchor: " << len_anchor << '\n';
-        printf("len anchor xyz: (%d, %d, %d)\n", nanchorx, nanchory, nanchorz);
-
-        // end of block
-    }
-
-    // launch kernel of handling anchor
-
-    cudaMallocManaged((void**)&anchor, len_anchor * sizeof(T));
-    cudaMemset(anchor, 0x00, len_anchor * sizeof(T));
-
-    cudaMallocManaged((void**)&errctrl, len_aligned * sizeof(E));
-    cudaMemset(errctrl, 0x00, len_aligned * sizeof(E));
-    {  // launch kernel of pred-quant
-
-        for (auto i = 0; i < 20; i++) {
-            cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256, false>
-                <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-                (data, size, leap,                                      //
-                 errctrl, size_aligned, leap_aligned,                   //
-                 anchor, anchor_leap,                                   //
-                 eb_r, ebx2, radius);
-            cudaDeviceSynchronize();
-        }
-    }
-
-    {
-        // verification
-        // print_block_from_CPU<T, true>(data);
-        // print_block_from_CPU<E, false, true>(errctrl);
-    }
-
-    {
-        std::cout << "calculating sparsity part\n";
-        auto count = 0;
-        for (auto i = 0; i < len_aligned; i++) {
-            auto code = errctrl[i];
-            if (code != radius) count++;
-        }
-        double percent     = 1 - (count * 1.0) / len_aligned;
-        double sparsity_cr = 1 / (1 - percent) / 2;
-        printf("non-zero offset count:\t%d\tpercentage:\t%.8lf%%\tCR:\t%.4lf\n", count, percent * 100, sparsity_cr);
-    }
-
-    // auto hist = new int[radius * 2]();
-    // if (print_fullhist) {
-    //     for (auto i = 0; i < len_aligned; i++) { hist[(int)errctrl[i]]++; }
-    //     for (auto i = 0; i < radius * 2; i++) {
-    //         if (hist[i] != 0) std::cout << i << '\t' << hist[i] << '\n';
-    //     }
-    // }
-
-    // if (write_quant) io::write_array_to_binary(fname + ".spline", errctrl, len_aligned);
-
-    cudaMallocManaged((void**)&xdata, len * sizeof(T));
-    cudaMemset(xdata, 0x00, len * sizeof(T));
-    {
-        for (auto i = 0; i < 20; i++) {
-            cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>
-                <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-                (errctrl, size_aligned, leap_aligned,                   //
-                 anchor, anchor_size, anchor_leap,                      //
-                 xdata, size, leap,                                     //
-                 eb_r, ebx2, radius);
-            cudaDeviceSynchronize();
-        }
-    }
-
-    {  // verification
-        auto verified_okay = true;
-        for (auto i = 0; i < len; i++) {
-            auto err = fabs(data[i] - xdata[i]);
-
-            if (err > eb) {
-                verified_okay = false;
-                printf("overbound first at idx: %d, data:%4.2e, xdata: %4.2e, exiting\n", i, data[i], xdata[i]);
-                break;
-            }
-        }
-
-        cout << '\n';
-        if (verified_okay)
-            printf(">> PASSED error boundness check.\n");
-        else
-            printf("** FAILED error boundness check.\n.");
-
-        // stat_t stat_gpu;
-        // verify_data_GPU(&stat_gpu, xdata, data, len);
-        // analysis::print_data_quality_metrics<T>(&stat_gpu, false, eb, 0, 1, false, true);
-
-        stat_t stat;
-        analysis::verify_data<T>(&stat, xdata, data, len);
-        analysis::print_data_quality_metrics<T>(&stat, 0, false);
-
-        // printf("data[max-err-idx]: %f\n", data[stat.max_abserr_index]);
-        // printf("xdata[max-err-idx]: %f\n", xdata[stat.max_abserr_index]);
-    }
-
-    cudaFree(errctrl);
-    cudaFree(anchor);
-    cudaFree(data);
-}
-
+/**
+ * @brief
+ *
+ * @tparam SP_FACTOR presumed outlier percentage, default to 1/10
+ */
+template <int SP_FACTOR = 10>
 class TestSpline3Wrapped {
-    using T = float;
-    using E = float;
+    using T    = float;    // single-precision original data
+    using E    = float;    // error-control code is in float
+    using P    = float;    // internal precision
+    using BYTE = uint8_t;  // non-interpreted type; bytestream
 
-    static const bool USE_UNFIED = false;
+    static const bool USE_UNFIED = false;  // disable unified memory
 
-    static const unsigned int dimz = 449, dimy = 449, dimx = 235;
-    static const unsigned int len    = dimx * dimy * dimz;
-    static const auto         BLOCK  = 8;
-    static const auto         radius = 0;
+    unsigned int len;
+    dim3         data_size;
 
-    static const auto MODE           = cusz::DEV::TEST;
-    static const auto BOTH           = cusz::LOC::HOST_DEVICE;
-    static const auto EXEC_SPACE     = cusz::LOC::DEVICE;
-    static const auto ANALYSIS_SPACE = cusz::LOC::HOST;
+    static const auto BLOCK  = 8;
+    static const auto radius = 0;
+
+    static const auto MODE       = cusz::DEV::TEST;
+    static const auto BOTH       = cusz::LOC::HOST_DEVICE;
+    static const auto EXEC_SPACE = cusz::LOC::DEVICE;
+    static const auto ALT_SPACE  = cusz::LOC::HOST;
 
     double in_eb, eb, eb_r, ebx2, ebx2_r;
     double max_value, min_value, rng;
 
-    Capsule<T, USE_UNFIED>       data;
-    Capsule<T, USE_UNFIED>       xdata;
-    Capsule<T, USE_UNFIED>       anchor;
-    Capsule<E, USE_UNFIED>       errctrl;
-    Capsule<uint8_t, USE_UNFIED> compress_dump;
-    Capsule<uint8_t, USE_UNFIED> sp_use2;
+    Capsule<T, USE_UNFIED> data;   // may need .prescan() to determine the range
+    Capsule<T, USE_UNFIED> xdata;  // may need .device2host()
+    Capsule<T, USE_UNFIED> anchor;
+    Capsule<E, USE_UNFIED> errctrl;
 
-    static const auto SP_FACTOR = 10;
-    int               m;  // nrow of reinterpreted matrix
-    int*              ext_rowptr;
-    int*              ext_colidx;
-    T*                ext_values;
+    Capsule<BYTE, USE_UNFIED> compress_dump;
+    Capsule<BYTE, USE_UNFIED> sp_use2;
+
+    int  m;       // nrow of reinterpreted matrix
+    int* rowptr;  // outside allocated CSR-rowptr
+    int* colidx;  // outside allocated CSR-colidx
+    T*   values;  // outside allocated CSR-values
 
     bool use_outer_space = false;
 
     std::string fname;
     stat_t      stat;
 
-    cusz::Spline3<T, E, float>* predictor;
-    cusz::CSR11<E>*             spreducer_c;
-    cusz::CSR11<E>*             spreducer_d;
+    cusz::Spline3<T, E, P>* predictor;
+    cusz::CSR11<E>*         spreducer_c;
+    cusz::CSR11<E>*         spreducer_d;
 
     uint32_t sp_dump_nbyte;
     int      nnz{0};
 
    public:
+    uint32_t get_data_len() { return data_size.x * data_size.y * data_size.z; }
     uint32_t get_exact_spdump_nbyte() { return sp_dump_nbyte; }
     uint32_t get_anchor_len() { return predictor->get_anchor_len(); }
     uint32_t get_nnz() { return nnz; }
 
    private:
-    void init_set_constant_spspace_based_on_predictor(
-        int* outer_ext_rowptr = nullptr,
-        int* outer_ext_colidx = nullptr,
-        T*   outer_ext_values = nullptr)
+    void init_space()
     {
-        if (outer_ext_rowptr and outer_ext_colidx and outer_ext_values) {
-            use_outer_space = true;
-            ext_rowptr      = outer_ext_rowptr;
-            ext_colidx      = outer_ext_colidx;
-            ext_values      = outer_ext_values;
-        }
-        else {
-            cudaMalloc(&ext_rowptr, sizeof(int) * (m + 1));
-            cudaMalloc(&ext_colidx, sizeof(int) * (len / SP_FACTOR));
-            cudaMalloc(&ext_values, sizeof(T) * (len / SP_FACTOR));
-        }
+        m = Reinterpret1DTo2D::get_square_size(predictor->get_quant_len());
+        cudaMalloc(&rowptr, sizeof(int) * (m + 1));
+        cudaMalloc(&colidx, sizeof(int) * (len / SP_FACTOR));
+        cudaMalloc(&values, sizeof(T) * (len / SP_FACTOR));
     }
 
-    void init_allocate_constant_space(
-        int* outer_ext_rowptr = nullptr,
-        int* outer_ext_colidx = nullptr,
-        T*   outer_ext_values = nullptr)
+    void init_space(int*& outer_rowptr, int*& outer_colidx, T*& outer_values)
     {
-        predictor = new cusz::Spline3<T, E, float>(dim3(dimx, dimy, dimz), eb, radius);
-        m         = Reinterpret1DTo2D::get_square_size(predictor->get_quant_len());
-        // This call creates 3 spaces;
-        init_set_constant_spspace_based_on_predictor(outer_ext_rowptr, outer_ext_colidx, outer_ext_values);
+        use_outer_space = true;
 
-        spreducer_c = new cusz::CSR11<E>(predictor->get_quant_len(), ext_rowptr, ext_colidx, ext_values);
-
-        xdata.set_len(len).alloc<BOTH>();
-        anchor.set_len(predictor->get_anchor_len()).alloc<EXEC_SPACE>();
-        errctrl.set_len(predictor->get_quant_len()).alloc<BOTH, cusz::ALIGNDATA::SQUARE_MATRIX>();
-    }
-
-    void init_set_eb(double _eb, bool range_based = true)
-    {
-        if (range_based) {
-            auto rng = data.prescan().get_rng();
-            eb       = _eb * rng;
-        }
-        else {
-            eb = _eb;
-        }
-        eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+        m      = Reinterpret1DTo2D::get_square_size(predictor->get_quant_len());
+        rowptr = outer_rowptr;
+        colidx = outer_colidx;
+        values = outer_values;
     }
 
     void init_print_dbg()
@@ -401,23 +181,15 @@ class TestSpline3Wrapped {
     }
 
    public:
-    /**
-     * @brief
-     *
-     * @param ext_data device pointer to the original data
-     */
-    void data_analysis(T* ext_data = nullptr)
+    void data_analysis(std::string _fname)
     {
-        if (fname != "")
-            data.from_fs_to<ANALYSIS_SPACE>(fname);
+        if (_fname != "")
+            data.from_fs_to<ALT_SPACE>(_fname);
         else {
-            if (ext_data)
-                data.from_existing_on<EXEC_SPACE>(ext_data);
-            else
-                throw std::runtime_error("need to specify data source");
+            throw std::runtime_error("need to specify data source");
         }
 
-        analysis::verify_data<T>(&stat, xdata.get<ANALYSIS_SPACE>(), data.get<ANALYSIS_SPACE>(), len);
+        analysis::verify_data<T>(&stat, xdata.get<ALT_SPACE>(), data.get<ALT_SPACE>(), len);
         analysis::print_data_quality_metrics<T>(&stat, 0, false);
 
         auto compressed_size = sp_dump_nbyte + predictor->get_anchor_len() * sizeof(T);
@@ -425,56 +197,71 @@ class TestSpline3Wrapped {
         LOGGING(LOG_INFO, "compression ratio: ", 1.0 * original_size / compressed_size);
     }
 
+    void data_analysis(T*& h_ext_data)
+    {
+        data.from_existing_on<ALT_SPACE>(h_ext_data);
+        xdata.template alloc<ALT_SPACE>().device2host();
+
+        analysis::verify_data<T>(&stat, xdata.get<ALT_SPACE>(), data.get<ALT_SPACE>(), len);
+        analysis::print_data_quality_metrics<T>(&stat, 0, false);
+
+        auto compressed_size = sp_dump_nbyte + predictor->get_anchor_len() * sizeof(T);
+        auto original_size   = (data.get_len()) * sizeof(T);
+        LOGGING(LOG_INFO, "compression ratio: ", 1.0 * original_size / compressed_size);
+
+        xdata.template free<ALT_SPACE>();
+    }
+
    public:
-    TestSpline3Wrapped(std::string _fname, double _eb, bool range_based = true, bool verbose = false)
+    TestSpline3Wrapped(
+        T*     _data,
+        dim3   _size,
+        double _eb,
+        int*   outer_rowptr = nullptr,
+        int*   outer_colidx = nullptr,
+        T*     outer_values = nullptr,
+        bool   verbose      = false)
     {
-        fname = _fname;
+        data_size = _size;
+        len       = get_data_len();
+
         data  //
             .set_len(len)
-            .alloc<BOTH>()
-            .from_fs_to<ANALYSIS_SPACE>(fname)
-            .host2device();
+            .from_existing_on<EXEC_SPACE>(_data);
+        xdata.set_len(len);
 
-        in_eb = _eb;
-        init_set_eb(_eb, range_based);
+        // set eb
+        in_eb = _eb, eb = _eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-        init_allocate_constant_space();
+        predictor = new cusz::Spline3<T, E, P>(data_size, eb, radius);
+
+        if (outer_rowptr and outer_colidx and outer_values)
+            init_space(outer_rowptr, outer_colidx, outer_values);
+        else
+            init_space();
+
+        spreducer_c = new cusz::CSR11<E>(predictor->get_quant_len(), rowptr, colidx, values);
+
+        anchor  //
+            .set_len(predictor->get_anchor_len())
+            .alloc<EXEC_SPACE>();
+        errctrl  //
+            .set_len(predictor->get_quant_len())
+            .alloc<EXEC_SPACE, cusz::ALIGNDATA::SQUARE_MATRIX>();
+
         if (verbose) init_print_dbg();
     }
 
-    TestSpline3Wrapped(T* ext_data, double _eb, bool range_based = true, bool verbose = false)
+    void iterative_stacking()
     {
-        data  //
-            .set_len(len)
-            .from_existing_on<EXEC_SPACE>(ext_data)
-            .host2device();
+        Capsule<T, USE_UNFIED> stack_img(xdata.get_len());
+        stack_img.alloc<cusz::LOC::HOST_DEVICE>();
 
-        in_eb = _eb;
-        init_set_eb(_eb, range_based);
-
-        init_allocate_constant_space();
-        if (verbose) init_print_dbg();
-    }
-
-    void compress()
-    {
         predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
-        spreducer_c->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
-
-        compress_dump.set_len(sp_dump_nbyte).alloc<EXEC_SPACE>();
-        spreducer_c->template consolidate<EXEC_SPACE, EXEC_SPACE>(compress_dump.get<EXEC_SPACE>());
-
-        errctrl.memset();
-    }
-
-    void decompress(int _nnz)
-    {
-        nnz         = _nnz;
-        spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
-
-        spreducer_d->scatter(compress_dump.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
         predictor->reconstruct(anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
-        xdata.device2host();
+
+        thrust::transform(
+            xdata.dptr, xdata.dptr + xdata.get_len(), stack_img.dptr, stack_img.dptr, thrust::plus<float>());
     }
 
     void compress2()
@@ -493,20 +280,15 @@ class TestSpline3Wrapped {
         cudaMemcpy(d_anchordump, anchor.get<EXEC_SPACE>(), anchor.nbyte(), cudaMemcpyDeviceToDevice);
     }
 
-    void decompress2(int _nnz, uint8_t* d_spdump, T* d_anchordump)
+    void decompress2(T* d_xdata, uint8_t* d_spdump, int _nnz, T* d_anchordump)
     {
+        xdata.template from_existing_on<EXEC_SPACE>(d_xdata);
         nnz         = _nnz;
         spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
-        LOGGING(LOG_DBG, "nnz:", nnz);
+        LOGGING(LOG_INFO, "nnz:", nnz);
 
         spreducer_d->scatter(d_spdump, errctrl.get<EXEC_SPACE>());
         predictor->reconstruct(d_anchordump, errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
-        xdata.device2host();
-    }
-
-    void export_decompressed_data(T* d_xdatadump)
-    {
-        cudaMemcpy(d_xdatadump, xdata.get<EXEC_SPACE>(), xdata.nbyte(), cudaMemcpyDeviceToDevice);
     }
 
     ~TestSpline3Wrapped()
@@ -517,9 +299,9 @@ class TestSpline3Wrapped {
         xdata.free<EXEC_SPACE>();
 
         if (not use_outer_space) {
-            cudaFree(ext_rowptr);
-            cudaFree(ext_colidx);
-            cudaFree(ext_values);
+            cudaFree(rowptr);
+            cudaFree(colidx);
+            cudaFree(values);
         }
     }
 };
