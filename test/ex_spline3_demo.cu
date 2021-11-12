@@ -41,17 +41,21 @@ void demo(double eb)
     TestSpline3Wrapped<10> compressor(data.dptr, dim3(dimx, dimy, dimz), eb * rng);
 
     // set external space
-    Capsule<uint8_t> spdump;                                  // specify length after .compress() use some init size
-    spdump.set_len(len * 4).alloc<cusz::LOC::HOST_DEVICE>();  // or from_existing_on<EXEC_SPACE>(...);
+    Capsule<uint8_t> spdump;  // specify length after .compress() use some init size
+
+    spdump
+        .set_len(  //
+            SparseMethodSetup::get_init_csr_nbyte<T, int>(len))
+        .alloc<cusz::LOC::HOST_DEVICE>();  // or from_existing_on<EXEC_SPACE>(...);
     Capsule<float> anchordump(compressor.get_anchor_len());
     anchordump.alloc<cusz::LOC::HOST_DEVICE>();
 
     // compression
     // ----------------------------------------
-    compressor.compress2();
+    compressor.compress();
     auto nnz = compressor.get_nnz();
     spdump.set_len(compressor.get_exact_spdump_nbyte());
-    compressor.export_after_compress2(spdump.dptr, anchordump.dptr);
+    compressor.export_after_compress(spdump.dptr, anchordump.dptr);
     // ----------------------------------------
 
     Capsule<T> xdata(len, "decompressed data");
@@ -59,9 +63,13 @@ void demo(double eb)
 
     // decompression
     // ----------------------------------------
-    compressor.decompress2(xdata.dptr, spdump.dptr, nnz, anchordump.dptr);
+    compressor.decompress(xdata.dptr, spdump.dptr, nnz, anchordump.dptr);
     compressor.data_analysis(data.hptr);
     // ----------------------------------------
+
+    // clean up
+    data.free<cusz::LOC::HOST_DEVICE>();
+    xdata.free<cusz::LOC::DEVICE>();
 }
 
 int main(int argc, char** argv)

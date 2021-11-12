@@ -141,6 +141,7 @@ class TestSpline3Wrapped {
     cusz::Spline3<T, E, P>* predictor;
     cusz::CSR11<E>*         spreducer_c;
     cusz::CSR11<E>*         spreducer_d;
+    cusz::CSR11<E>*         spreducer;
 
     uint32_t sp_dump_nbyte;
     int      nnz{0};
@@ -240,7 +241,8 @@ class TestSpline3Wrapped {
         else
             init_space();
 
-        spreducer_c = new cusz::CSR11<E>(predictor->get_quant_len(), rowptr, colidx, values);
+        spreducer = new cusz::CSR11<E>(predictor->get_quant_len());
+        spreducer->compress_set_space(rowptr, colidx, values);
 
         anchor  //
             .set_len(predictor->get_anchor_len())
@@ -264,30 +266,30 @@ class TestSpline3Wrapped {
             xdata.dptr, xdata.dptr + xdata.get_len(), stack_img.dptr, stack_img.dptr, thrust::plus<float>());
     }
 
-    void compress2()
+    void compress()
     {
         predictor->construct(data.get<EXEC_SPACE>(), anchor.get<EXEC_SPACE>(), errctrl.get<EXEC_SPACE>());
-        spreducer_c->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
+        spreducer->gather(errctrl.get<EXEC_SPACE>(), sp_dump_nbyte, nnz);
 
         errctrl.memset();
     }
 
-    void export_after_compress2(uint8_t* d_spdump, T* d_anchordump)
+    // TODO consolidate
+    void export_after_compress(uint8_t* d_spdump, T* d_anchordump)
     {
         // a memory copy
-        spreducer_c->template consolidate<EXEC_SPACE, EXEC_SPACE>(d_spdump);
+        spreducer->template consolidate<EXEC_SPACE, EXEC_SPACE>(d_spdump);
         // a memory copy
         cudaMemcpy(d_anchordump, anchor.get<EXEC_SPACE>(), anchor.nbyte(), cudaMemcpyDeviceToDevice);
     }
 
-    void decompress2(T* d_xdata, uint8_t* d_spdump, int _nnz, T* d_anchordump)
+    void decompress(T* d_xdata, uint8_t* d_spdump, int _nnz, T* d_anchordump)
     {
         xdata.template from_existing_on<EXEC_SPACE>(d_xdata);
-        nnz         = _nnz;
-        spreducer_d = new cusz::CSR11<E>(predictor->get_quant_len(), nnz);
-        LOGGING(LOG_INFO, "nnz:", nnz);
+        spreducer->decompress_set_nnz(nnz);
+        LOGGING(LOG_INFO, "nnz:", _nnz);
 
-        spreducer_d->scatter(d_spdump, errctrl.get<EXEC_SPACE>());
+        spreducer->scatter(d_spdump, errctrl.get<EXEC_SPACE>());
         predictor->reconstruct(d_anchordump, errctrl.get<EXEC_SPACE>(), xdata.get<EXEC_SPACE>());
     }
 
@@ -295,8 +297,6 @@ class TestSpline3Wrapped {
     {
         errctrl.free<EXEC_SPACE>();
         anchor.free<EXEC_SPACE>();
-        data.free<EXEC_SPACE>();
-        xdata.free<EXEC_SPACE>();
 
         if (not use_outer_space) {
             cudaFree(rowptr);
