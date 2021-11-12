@@ -224,9 +224,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     this->ctx->quant_len  = predictor->get_quant_len();
     this->ctx->anchor_len = predictor->get_anchor_len();
 
-    // spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
-    constexpr auto SP_FACTOR = 10;
-    auto           init_nnz  = this->ctx->data_len / SP_FACTOR;
+    auto init_nnz = this->ctx->data_len / SparseMethodSetup::factor;
 
     auto m = Reinterpret1DTo2D::get_square_size(this->ctx->data_len);
     ext_rowptr  //
@@ -239,9 +237,12 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
         .set_len(init_nnz)
         .template alloc<cusz::LOC::DEVICE>();
 
-    spreducer = new SpReducer(
-        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  //
-        ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
+    // spreducer = new SpReducer(
+    //     BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  //
+    //     ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
+    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    spreducer->compress_set_space(ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
+
     sp_use.set_len(SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
         .template alloc<cusz::LOC::HOST_DEVICE>();
 
@@ -260,7 +261,11 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     this->unpack_metadata();
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
-    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
+    // spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
+
+    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+    spreducer->decompress_set_nnz(this->ctx->nnz_outlier);
+
     sp_use.set_len(spreducer->get_total_nbyte())
         .template from_existing_on<cusz::LOC::HOST>(
             reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cusz::SEG::SPFMT)))

@@ -86,11 +86,15 @@ class CSR11 : public VirtualGatherScatter {
      * @param ext_rowptr non-nullable external device pointer for rowptr; allocated size not guarateed or checked
      * @param ext_colidx non-nullable external device pointer for colidx; allocated size not guarateed or checked
      * @param ext_values non-nullable external device pointer for values; allocated size not guarateed or checked
+     * @deprecated use split constructor
      */
     CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values);
 
     template <cusz::LOC FROM = cusz::LOC::DEVICE, cusz::LOC TO = cusz::LOC::HOST>
     CSR11& consolidate(uint8_t* dst);  //, cudaMemcpyKind direction = cudaMemcpyDeviceToHost);
+
+    CSR11& compress_set_space(int*& ext_rowptr, int*& ext_colidx, T*& ext_values);
+    CSR11& decompress_set_nnz(unsigned int _nnz);
 
     void gather(T* in, unsigned int& dump_nbyte, int& out_nnz)
     {
