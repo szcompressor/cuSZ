@@ -33,12 +33,6 @@ template <typename T>
 CSR11<T>::CSR11(unsigned int _len)
 {
     m = Reinterpret1DTo2D::get_square_size(_len);
-
-    auto initial_nnz = _len / SparseMethodSetup::factor;
-
-    rowptr.set_len(m + 1).template alloc<DEFAULT_LOC>();
-    colidx.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
-    values.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
 }
 
 template <typename T>
@@ -48,6 +42,16 @@ CSR11<T>::CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_v
     rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
     colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
     values.template from_existing_on<DEFAULT_LOC>(ext_values);
+}
+
+template <typename T>
+CSR11<T>& CSR11<T>::compress_set_space(int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
+{
+    rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
+    colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
+    values.template from_existing_on<DEFAULT_LOC>(ext_values);
+
+    return *this;
 }
 
 template <typename T>
@@ -174,6 +178,19 @@ CSR11<T>::CSR11(unsigned int _len, unsigned int _nnz)
     nbyte.colidx = sizeof(int) * this->nnz;
     nbyte.values = sizeof(T) * this->nnz;
     nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
+}
+
+template <typename T>
+CSR11<T>& CSR11<T>::decompress_set_nnz(unsigned int _nnz)
+{  //
+    this->nnz = _nnz;
+
+    nbyte.rowptr = sizeof(int) * (this->m + 1);
+    nbyte.colidx = sizeof(int) * this->nnz;
+    nbyte.values = sizeof(T) * this->nnz;
+    nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
+
+    return *this;
 }
 
 template <typename T>

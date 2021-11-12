@@ -65,7 +65,7 @@ struct Align {
 
 // sparsity rate is less that 5%
 struct SparseMethodSetup {
-    static const int factor = 20;
+    static const int factor = 10;
 
     template <typename T, typename M = int>
     static uint32_t get_init_csr_nbyte(uint32_t len)
