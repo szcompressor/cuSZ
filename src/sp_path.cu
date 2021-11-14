@@ -12,10 +12,10 @@
 #include "sp_path.cuh"
 
 #define SPCOMPRESSOR_TYPE template <class BINDING>
-#define SPCOMPRESSOR SpPathCompressor<BINDING>
+#define SPCOMPRESSOR SpPathCompressorOld<BINDING>
 
 SPCOMPRESSOR_TYPE
-SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
+SPCOMPRESSOR::SpPathCompressorOld(cuszCTX* _ctx, Capsule<T>* _in_data)
 {
     this->ctx     = _ctx;
     this->in_data = _in_data;
@@ -83,7 +83,7 @@ SPCOMPRESSOR& SPCOMPRESSOR::compress()
 }
 
 SPCOMPRESSOR_TYPE
-SPCOMPRESSOR::SpPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
+SPCOMPRESSOR::SpPathCompressorOld(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 {
     this->ctx     = _ctx;
     this->in_dump = _in_dump;
@@ -183,7 +183,7 @@ SPCOMPRESSOR& SPCOMPRESSOR::consolidate(BYTE** dump_ptr)
 }
 
 SPCOMPRESSOR_TYPE
-SPCOMPRESSOR::~SpPathCompressor()
+SPCOMPRESSOR::~SpPathCompressorOld()
 {
     if (this->timing == cusz::WHEN::COMPRESS) {  // release small-size arrays
 
@@ -201,7 +201,7 @@ SPCOMPRESSOR::~SpPathCompressor()
     delete predictor;
 }
 
-#define SP_DC SpPathCompressor<SparsityAwarePath::DefaultBinding>
+#define SP_DC SpPathCompressorOld<SparsityAwarePath::DefaultBinding>
 
 template class SP_DC;
 
@@ -210,7 +210,7 @@ template SP_DC& SP_DC::consolidate<cusz::LOC::HOST, cusz::LOC::DEVICE>(BYTE**);
 template SP_DC& SP_DC::consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(BYTE**);
 template SP_DC& SP_DC::consolidate<cusz::LOC::DEVICE, cusz::LOC::DEVICE>(BYTE**);
 
-#define SP_FC SpPathCompressor<SparsityAwarePath::FallbackBinding>
+#define SP_FC SpPathCompressorOld<SparsityAwarePath::FallbackBinding>
 
 template class SP_FC;
 

@@ -171,7 +171,7 @@ void special_path_spline3(cuszCTX* ctx)
 
         Capsule<BYTE> out_dump("out_dump");
 
-        SparsityAwarePath::DefaultCompressor cuszc(ctx, &in_data);
+        SparsityAwarePathOld::DefaultCompressor cuszc(ctx, &in_data);
         cuszc  //
             .compress()
             .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_dump.get<cusz::LOC::HOST>());

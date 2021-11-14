@@ -20,7 +20,7 @@ splinedemo: ex_spline3_demo.cu interp_spline3.o csr11.o
 		csr11.o \
 		-std=c++14 --extended-lambda \
 		-lcusparse \
-		-o spline-demo
+		-o splinedemo
 
 
 query: test_query.cc ../src/query.hh
@@ -56,7 +56,7 @@ proflorenzo: dummy_xlorenzo3d.cu dummy_xlorenzo2d.cu
 
 
 clean:
-	rm -f *.o spline3-demo
+	rm -f *.o spline3demo
 
 purge:
-	rm -f *.o spline3-demo
+	rm -f *.o spline3demo

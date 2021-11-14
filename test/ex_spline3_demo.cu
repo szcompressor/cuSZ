@@ -9,7 +9,7 @@
  *
  */
 
-#include "ex_spline3_common.cuh"
+#include "../src/sp_path.cuh"
 
 #include <pwd.h>
 #include <sys/types.h>
@@ -30,46 +30,51 @@ std::string fname;
 
 void demo(double eb)
 {
-    // data preparation
-    Capsule<T> data(len, "original data");
-    data  //
+    /********/  // data preparation
+    /********/ Capsule<T> data(len, "original data");
+    /********/ data  //
         .alloc<cusz::LOC::HOST_DEVICE>()
         .from_fs_to<cusz::LOC::HOST>(fname)
         .host2device();
-    auto rng = data.prescan().get_rng();
+    /********/ auto rng = data.prescan().get_rng();
 
-    TestSpline3Wrapped<10> compressor(data.dptr, dim3(dimx, dimy, dimz), eb * rng);
+    // declare ancillary structs
+    auto header         = new cuszHEADER;
+    auto resuable_space = new SpArchive(header, len, 10);  // assume 1/10 sparse
 
-    // set external space
-    Capsule<uint8_t> spdump;  // specify length after .compress() use some init size
-
-    spdump
-        .set_len(  //
-            SparseMethodSetup::get_init_csr_nbyte<T, int>(len))
-        .alloc<cusz::LOC::HOST_DEVICE>();  // or from_existing_on<EXEC_SPACE>(...);
-    Capsule<float> anchordump(compressor.get_anchor_len());
-    anchordump.alloc<cusz::LOC::HOST_DEVICE>();
+    // declare reusable_compressor
+    SparsityAwarePath::DefaultCompressor compressor(data.dptr, dim3(dimx, dimy, dimz), eb * rng);
 
     // compression
     // ----------------------------------------
     compressor.compress();
-    auto nnz = compressor.get_nnz();
-    spdump.set_len(compressor.get_exact_spdump_nbyte());
-    compressor.export_after_compress(spdump.dptr, anchordump.dptr);
+
+    (*resuable_space)  //
+        .set_nnz(compressor.get_nnz())
+        .set_anchor_len(compressor.get_anchor_len());
+    compressor.export_after_compress(  //
+        resuable_space->get_spdump(),  //
+        resuable_space->get_anchor());
     // ----------------------------------------
 
-    Capsule<T> xdata(len, "decompressed data");
-    xdata.alloc<cusz::LOC::DEVICE>();
+    /********/  // on-demand setup of decompressed data
+    /********/ Capsule<T> xdata(len, "decompressed data");
+    /********/ xdata.alloc<cusz::LOC::DEVICE>();
 
     // decompression
     // ----------------------------------------
-    compressor.decompress(xdata.dptr, spdump.dptr, nnz, anchordump.dptr);
+    compressor.decompress(
+        xdata.dptr,                    //
+        resuable_space->get_spdump(),  //
+        resuable_space->get_nnz(),     //
+        resuable_space->get_anchor()   //
+    );
     compressor.data_analysis(data.hptr);
     // ----------------------------------------
 
-    // clean up
-    data.free<cusz::LOC::HOST_DEVICE>();
-    xdata.free<cusz::LOC::DEVICE>();
+    /********/  // clean up
+    /********/ data.free<cusz::LOC::HOST_DEVICE>();
+    /********/ xdata.free<cusz::LOC::DEVICE>();
 }
 
 int main(int argc, char** argv)
@@ -79,7 +84,7 @@ int main(int argc, char** argv)
     if (argc < 2) {
         // not specifying file or eb
         std::cout << "<prog> <file> <eb>" << '\n';
-        std::cout << "e.g. \"./spline ${HOME}/nvme/dev-env-cusz/rtm-data/snapshot-2815.f32 1e-2\"" << '\n';
+        std::cout << "e.g. \"./splinedemo ${HOME}/nvme/dev-env-cusz/rtm-data/snapshot-2815.f32 1e-2\"" << '\n';
         std::cout << '\n';
 
         struct passwd* pw      = getpwuid(getuid());
