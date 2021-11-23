@@ -135,7 +135,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     using E    = typename Predictor::ErrCtrl;  // wrong in type inference
     using BYTE = uint8_t;                      // non-interpreted type; bytestream
 
-    static const bool USE_UNFIED = false;  // disable unified memory
+    // static const bool USE_UNFIED = false;  // disable unified memory
 
     unsigned int len;
     dim3         data_size;
@@ -151,13 +151,13 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     double in_eb, eb, eb_r, ebx2, ebx2_r;
     double max_value, min_value, rng;
 
-    Capsule<T, USE_UNFIED> data;   // may need .prescan() to determine the range
-    Capsule<T, USE_UNFIED> xdata;  // may need .device2host()
-    Capsule<T, USE_UNFIED> anchor;
-    Capsule<E, USE_UNFIED> errctrl;
+    Capsule<T> data;   // may need .prescan() to determine the range
+    Capsule<T> xdata;  // may need .device2host()
+    Capsule<T> anchor;
+    Capsule<E> errctrl;
 
-    Capsule<BYTE, USE_UNFIED> compress_dump;
-    Capsule<BYTE, USE_UNFIED> sp_use2;
+    Capsule<BYTE> compress_dump;
+    Capsule<BYTE> sp_use2;
 
     int  m;       // nrow of reinterpreted matrix
     int* rowptr;  // outside allocated CSR-rowptr
@@ -283,7 +283,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
     void iterative_stacking()
     {
-        Capsule<T, USE_UNFIED> stack_img(xdata.get_len());
+        Capsule<T> stack_img(xdata.get_len());
         stack_img.template alloc<cusz::LOC::HOST_DEVICE>();
 
         predictor->construct(
