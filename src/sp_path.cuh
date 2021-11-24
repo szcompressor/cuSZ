@@ -281,18 +281,102 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         if (verbose) init_print_dbg();
     }
 
-    void iterative_stacking()
+    SpPathCompressor(dim3 _size)
     {
-        Capsule<T> stack_img(xdata.get_len());
-        stack_img.template alloc<cusz::LOC::HOST_DEVICE>();
+        data_size = _size;
+        len       = get_data_len();
 
-        predictor->construct(
-            data.template get<DEVICE>(), anchor.template get<DEVICE>(), errctrl.template get<DEVICE>());
-        predictor->reconstruct(
-            anchor.template get<DEVICE>(), errctrl.template get<DEVICE>(), xdata.template get<DEVICE>());
+        data.set_len(len);
+        xdata.set_len(len);
+    }
 
+    void exp_stack_absmode(
+        std::vector<std::string> filelist,
+        double                   _eb,
+        std::string              out_prefix,
+        bool                     range_based    = false,
+        bool                     each_analysis  = false,
+        bool                     stack_analysis = false)
+    {
+        predictor = new Predictor(data_size, _eb * rng, radius);
+
+        anchor  //
+            .set_len(predictor->get_anchor_len())
+            .template alloc<DEVICE>();
+        errctrl  //
+            .set_len(predictor->get_quant_len())
+            .template alloc<DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
+
+        struct {
+            Capsule<T> ori;
+            Capsule<T> rec;
+        } img;
+
+        delete predictor;
+
+        img.ori.set_len(len).template alloc<BOTH>();
+        img.rec.set_len(len).template alloc<BOTH>();
+        data.template alloc<BOTH>();
+        xdata.template alloc<BOTH>();
+
+        for (auto f : filelist) {
+            cout << "processing " << f << "\n";
+
+            data.template from_fs_to<HOST>(f).host2device();
+
+            auto rng = 1.0;
+            if (range_based) rng = data.prescan().get_rng();
+
+            predictor = new Predictor(data_size, _eb * rng, radius);
+
+            // reconstruct data
+            predictor->construct(
+                data.template get<DEVICE>(), anchor.template get<DEVICE>(), errctrl.template get<DEVICE>());
+            predictor->reconstruct(
+                anchor.template get<DEVICE>(), errctrl.template get<DEVICE>(), xdata.template get<DEVICE>());
+
+            xdata.device2host();
+
+            if (each_analysis) {
+                analysis::verify_data<T>(&stat, data.template get<HOST>(), xdata.template get<HOST>(), len);
+                analysis::print_data_quality_metrics<T>(&stat, 0, false);
+            }
+
+            // stack original data
+            thrust::plus<T> op;
+            thrust::transform(
+                thrust::device,                                                        //
+                img.ori.template get<DEVICE>(), img.ori.template get<DEVICE>() + len,  // input 1
+                data.template get<DEVICE>(),                                           // input 2
+                img.ori.template get<DEVICE>(),                                        // output
+                op);
+
+            // stack reconstructed data
+            thrust::transform(
+                thrust::device,                                                        //
+                img.rec.template get<DEVICE>(), img.rec.template get<DEVICE>() + len,  // input 1
+                xdata.template get<DEVICE>(),                                          // input 2
+                img.rec.template get<DEVICE>(),                                        // output
+                op);
+        }
+
+        img.ori.device2host().template to_fs_from<HOST>(out_prefix + "stack_ori.raw");
+        img.rec.device2host().template to_fs_from<HOST>(out_prefix + "stack_rec.raw");
+
+        if (stack_analysis) {
+            analysis::verify_data<T>(&stat, img.ori.template get<HOST>(), img.rec.template get<HOST>(), len);
+            analysis::print_data_quality_metrics<T>(&stat, 0, false);
+        }
+
+        thrust::minus<T> op_diff;
+        // do diff of stack images
         thrust::transform(
-            xdata.dptr, xdata.dptr + xdata.get_len(), stack_img.dptr, stack_img.dptr, thrust::plus<float>());
+            thrust::device,                                                        //
+            img.rec.template get<DEVICE>(), img.rec.template get<DEVICE>() + len,  // input 1
+            img.ori.template get<DEVICE>(),                                        // input 2
+            img.rec.template get<DEVICE>(),                                        // output
+            op_diff);
+        img.rec.device2host().template to_fs_from<HOST>(out_prefix + "stack_diff.raw");
     }
 
     void compress()

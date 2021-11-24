@@ -12,7 +12,7 @@ csr11.o: ../src/wrapper/csr11.cu
 	@echo :: resolving spline3 dependency-3...
 	nvcc ../src/wrapper/csr11.cu -c --extended-lambda
 
-splinedemo: ex_spline3_demo.cu interp_spline3.o csr11.o
+splinedemo: ex_spline3_demo.cu ../src/sp_path.cuh interp_spline3.o csr11.o
 	@echo :: creating spline3 demo-1...
 	nvcc \
 		interp_spline3.o \
@@ -21,6 +21,16 @@ splinedemo: ex_spline3_demo.cu interp_spline3.o csr11.o
 		-std=c++14 --extended-lambda \
 		-lcusparse \
 		-o splinedemo
+
+splinestack: ex_spline3_stack.cu ../src/sp_path.cuh interp_spline3.o csr11.o
+	@echo :: creating spline3 stack imaging...
+	nvcc \
+		interp_spline3.o \
+		ex_spline3_stack.cu \
+		csr11.o \
+		-std=c++14 --extended-lambda \
+		-lcusparse \
+		-o splinestack
 
 
 query: test_query.cc ../src/query.hh
