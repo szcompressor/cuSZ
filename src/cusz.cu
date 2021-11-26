@@ -78,7 +78,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
         if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
         LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
 
-        Capsule<BYTE> out_dump;
+        Capsule<BYTE> out_dump("out dump");
 
         if (ctx->huff_bytewidth == 4) {
             DefaultPath::DefaultCompressor cuszc(ctx, &in_data);

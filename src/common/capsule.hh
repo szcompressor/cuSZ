@@ -177,13 +177,13 @@ class Capsule {
             }
         }
         else if (DST == cusz::LOC::DEVICE) {
-            throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "to DEVICE not implemented"));
+            throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "to DEVICE not implemented"));
             // (VIA == cusz::LOC::HOST)
             // (VIA == cusz::LOC::NONE)
         }
         else if (DST == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
+                throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "uniptr not set"));
             }
             io::read_binary_to_array<T>(fname, uniptr, len);
         }
