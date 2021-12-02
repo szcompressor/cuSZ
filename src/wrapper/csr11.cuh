@@ -50,9 +50,6 @@ class CSR11 : public VirtualGatherScatter {
     Capsule<int> colidx;
     Capsule<T>   values;
 
-    // set up memory pool
-    // void configure_workspace(uint8_t* _pool);
-
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
 
@@ -72,28 +69,20 @@ class CSR11 : public VirtualGatherScatter {
 
    public:
     // helper
-    uint32_t get_total_nbyte() const { return nbyte.total; }
+
+    static uint32_t get_total_nbyte(uint32_t len, int nnz)
+    {
+        auto m = Reinterpret1DTo2D::get_square_size(len);
+        return sizeof(int) * (m + 1) + sizeof(int) * nnz + sizeof(T) * nnz;
+    }
 
     float get_time_elapsed() const { return milliseconds; }
 
-    // compression use
-    CSR11(unsigned int _len);
-
-    /**
-     * @brief Construct a new CSR11 object; use externally set device arrays (size not checked) for gather
-     *
-     * @param _len input data length
-     * @param ext_rowptr non-nullable external device pointer for rowptr; allocated size not guarateed or checked
-     * @param ext_colidx non-nullable external device pointer for colidx; allocated size not guarateed or checked
-     * @param ext_values non-nullable external device pointer for values; allocated size not guarateed or checked
-     * @deprecated use split constructor
-     */
-    CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values);
+    CSR11() = default;
 
     template <cusz::LOC FROM = cusz::LOC::DEVICE, cusz::LOC TO = cusz::LOC::HOST>
     CSR11& consolidate(uint8_t* dst);  //, cudaMemcpyKind direction = cudaMemcpyDeviceToHost);
 
-    CSR11& compress_set_space(int*& ext_rowptr, int*& ext_colidx, T*& ext_values);
     CSR11& decompress_set_nnz(unsigned int _nnz);
 
     void gather(T* in, unsigned int& dump_nbyte, int& out_nnz)
@@ -103,15 +92,37 @@ class CSR11 : public VirtualGatherScatter {
         out_nnz = this->nnz;
     }
 
-    // decompression use
-    CSR11(unsigned int _len, unsigned int _nnz);
+    /**
+     * @brief
+     *
+     * @param in
+     * @param in_len
+     * @param out_ptr nullable depending on impl.;
+     * @param out_idx
+     * @param out_val
+     * @param nnz
+     */
+    void
+    gather(T* in, uint32_t in_len, int* out_rowptr, int*& out_colidx, T*& out_val, int& out_nnz, uint32_t& nbyte_dump)
+    {
+        m = Reinterpret1DTo2D::get_square_size(in_len);
+
+        if (out_rowptr) rowptr.template from_existing_on<DEFAULT_LOC>(out_rowptr);
+        colidx.template from_existing_on<DEFAULT_LOC>(out_colidx);
+        values.template from_existing_on<DEFAULT_LOC>(out_val);
+
+        gather_CUDA11(in, nbyte_dump);
+        out_nnz = this->nnz;
+    }
 
     // only placeholding
     void scatter() {}
     void gather() {}
 
-    void scatter(uint8_t* _pool, T* out)
+    void scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len)
     {
+        m = Reinterpret1DTo2D::get_square_size(out_len);
+        decompress_set_nnz(nnz);
         extract(_pool);
         scatter_CUDA11(out);
     }

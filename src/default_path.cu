@@ -237,8 +237,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
         .set_len(init_nnz)
         .template alloc<cusz::LOC::DEVICE>();
 
-    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
-    spreducer->compress_set_space(ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
+    spreducer = new SpReducer;
 
     sp_use.set_len(SparseMethodSetup::get_csr_nbyte<T, int>(this->ctx->data_len, init_nnz))
         .template alloc<cusz::LOC::HOST_DEVICE>();
@@ -258,10 +257,12 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     this->unpack_metadata();
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
-    spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
-    spreducer->decompress_set_nnz(this->ctx->nnz_outlier);
+    spreducer = new SpReducer;
 
-    sp_use.set_len(spreducer->get_total_nbyte())
+    // TODO use a compressor method instead of spreducer's
+    sp_use
+        .set_len(spreducer->get_total_nbyte(
+            BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier))
         .template shallow_copy<cusz::LOC::HOST>(
             reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cusz::SEG::SPFMT)))
         .template alloc<cusz::LOC::DEVICE>()
@@ -317,7 +318,15 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
         .template alloc<cusz::LOC::HOST_DEVICE>();
 
     predictor->construct(this->in_data->dptr, nullptr, this->quant.dptr);
-    spreducer->gather(this->in_data->dptr, sp_dump_nbyte, this->ctx->nnz_outlier);
+    spreducer->gather(
+        this->in_data->dptr,                                            // in data
+        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  // in len
+        ext_rowptr.dptr,                                                // space 1
+        ext_colidx.dptr,                                                // space 2
+        ext_values.dptr,                                                // space 3
+        this->ctx->nnz_outlier,                                         // out 1
+        sp_dump_nbyte                                                   // out 2
+    );
     spreducer->template consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(sp_use.hptr);
 
     this->time.lossy    = predictor->get_time_elapsed();
@@ -365,7 +374,11 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
         reinterpret_cast<BYTE*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK)),     //
         this->quant.dptr);
 
-    spreducer->scatter(sp_use.dptr, outlier);
+    spreducer->scatter(
+        sp_use.dptr,             //
+        this->ctx->nnz_outlier,  //
+        outlier,                 //
+        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
     predictor->reconstruct(nullptr, this->quant.dptr, xdata);
 
     return *this;

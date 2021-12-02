@@ -30,31 +30,6 @@ using stream_t = cudaStream_t;
 namespace cusz {
 
 template <typename T>
-CSR11<T>::CSR11(unsigned int _len)
-{
-    m = Reinterpret1DTo2D::get_square_size(_len);
-}
-
-template <typename T>
-CSR11<T>::CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
-{
-    m = Reinterpret1DTo2D::get_square_size(_len);
-    rowptr.template shallow_copy<DEFAULT_LOC>(ext_rowptr);
-    colidx.template shallow_copy<DEFAULT_LOC>(ext_colidx);
-    values.template shallow_copy<DEFAULT_LOC>(ext_values);
-}
-
-template <typename T>
-CSR11<T>& CSR11<T>::compress_set_space(int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
-{
-    rowptr.template shallow_copy<DEFAULT_LOC>(ext_rowptr);
-    colidx.template shallow_copy<DEFAULT_LOC>(ext_colidx);
-    values.template shallow_copy<DEFAULT_LOC>(ext_values);
-
-    return *this;
-}
-
-template <typename T>
 void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
 {
     this->nnz    = nnz;
@@ -162,22 +137,6 @@ CSR11<T>& CSR11<T>::consolidate(uint8_t* dst)
     cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, values.template get<DEFAULT_LOC>(), nbyte.values, direction);
     // clang-format on
     return *this;
-}
-
-/********************************************************************************
- * decompression use
- ********************************************************************************/
-
-template <typename T>
-CSR11<T>::CSR11(unsigned int _len, unsigned int _nnz)
-{  //
-    this->m   = Reinterpret1DTo2D::get_square_size(_len);
-    this->nnz = _nnz;
-
-    nbyte.rowptr = sizeof(int) * (this->m + 1);
-    nbyte.colidx = sizeof(int) * this->nnz;
-    nbyte.values = sizeof(T) * this->nnz;
-    nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
 template <typename T>
