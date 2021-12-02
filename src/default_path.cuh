@@ -18,6 +18,7 @@
 #include "base_cusz.cuh"
 #include "binding.hh"
 #include "wrapper.hh"
+#include "wrapper/spgs.cuh"
 
 template <class BINDING>
 class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
@@ -85,14 +86,16 @@ struct DefaultPath {
 
     using DefaultBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        cusz::CSR11<DATA>,
+        // cusz::CSR11<DATA>,
+        cusz::spGS<DATA>,
         cusz::HuffmanWork<ERRCTRL, HuffTrait<4>::type>>;
 
     using DefaultCompressor = class DefaultPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        cusz::CSR11<DATA>,
+        // cusz::CSR11<DATA>,
+        cusz::spGS<DATA>,
         cusz::HuffmanWork<ERRCTRL, HuffTrait<8>::type>>;
 
     using FallbackCompressor = class DefaultPathCompressor<FallbackBinding>;

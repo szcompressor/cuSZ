@@ -182,8 +182,8 @@ void lossless::HuffmanEncode(
             int numSMs;
             cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-            LOGGING(LOG_WARN, "#SM: ", numSMs);
-            LOGGING(LOG_WARN, "len: ", len);
+            // LOGGING(LOG_WARN, "#SM: ", numSMs);
+            // LOGGING(LOG_WARN, "len: ", len);
 
             auto t = new cuda_timer_t;
             t->timer_start();
