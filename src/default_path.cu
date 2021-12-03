@@ -337,7 +337,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
     try_skip_huffman();
 
     // release in_data; subject to change
-    cudaFree(this->in_data->dptr);
+    if (this->ctx->on_off.release_input) this->in_data->template free<cusz::LOC::DEVICE>();
 
     this->get_freq_codebook()  //
         .huffman_encode()

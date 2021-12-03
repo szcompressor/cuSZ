@@ -107,6 +107,9 @@ void set_config(cuszCTX* ctx, const char* in_str)
         else if (kv.first == "predictor") {
             ctx->str_predictor = string(kv.second);
         }
+        else if (kv.first == "releaseinput" and (kv.second == "on" or kv.second == "ON")) {
+            ctx->on_off.release_input = true;
+        }
 
         // when to enable anchor
         if (ctx->str_predictor == "spline3") ctx->on_off.use_anchor = true;

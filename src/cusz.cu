@@ -105,8 +105,10 @@ void normal_path_lorenzo(cuszCTX* ctx)
         else {
             throw std::runtime_error("huff nbyte illegal");
         }
-
-        in_data.free<cusz::LOC::HOST_DEVICE>();
+        if (ctx->on_off.release_input)
+            in_data.free<cusz::LOC::HOST>();
+        else
+            in_data.free<cusz::LOC::HOST_DEVICE>();
     }
 
     if (ctx->task_is.reconstruct) {  // fp32 only for now
@@ -131,7 +133,6 @@ void normal_path_lorenzo(cuszCTX* ctx)
             cuszd  //
                 .decompress(&out_xdata)
                 .backmatter(&out_xdata);
-            out_xdata.free<cusz::LOC::HOST_DEVICE>();
         }
         else if (ctx->huff_bytewidth == 8) {
             DefaultPath::FallbackCompressor cuszd(ctx, &in_dump);
@@ -142,8 +143,8 @@ void normal_path_lorenzo(cuszCTX* ctx)
             cuszd  //
                 .decompress(&out_xdata)
                 .backmatter(&out_xdata);
-            out_xdata.free<cusz::LOC::HOST_DEVICE>();
         }
+        out_xdata.free<cusz::LOC::HOST_DEVICE>();
     }
 }
 
