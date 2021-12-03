@@ -34,7 +34,7 @@ def figure_out_compatibility(cuda_ver):
         max_compat += pascal + volta + turing + ampere
     else:
         max_compat += pascal + volta + turing + ampere
-    return " ".join(max_compat)
+    return ";".join(max_compat)
 
 
 doc = """./build.py <gpu.name> <optional: build type>
@@ -56,12 +56,12 @@ except:
     pass
 
 targets = {
-    "pascal": " ".join(pascal),
-    "turing": " ".join(turing),
-    "ampere": " ".join(ampere),
-    "p100": " ".join(p100),
-    "v100": " ".join(v100),
-    "a100": " ".join(a100),
+    "pascal": ";".join(pascal),
+    "turing": ";".join(turing),
+    "ampere": ";".join(ampere),
+    "p100": ";".join(p100),
+    "v100": ";".join(v100),
+    "a100": ";".join(a100),
     "compat": figure_out_compatibility(cuda_ver),
 }
 
