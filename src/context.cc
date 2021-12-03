@@ -110,6 +110,9 @@ void set_config(cuszCTX* ctx, const char* in_str)
         else if (kv.first == "releaseinput" and (kv.second == "on" or kv.second == "ON")) {
             ctx->on_off.release_input = true;
         }
+        else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
+            ctx->nz_density = StrHelper::str2fp(kv.second);
+        }
 
         // when to enable anchor
         if (ctx->str_predictor == "spline3") ctx->on_off.use_anchor = true;

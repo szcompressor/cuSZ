@@ -224,7 +224,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     this->ctx->quant_len  = predictor->get_quant_len();
     this->ctx->anchor_len = predictor->get_anchor_len();
 
-    auto init_nnz = this->ctx->data_len / SparseMethodSetup::factor;
+    uint32_t init_nnz = this->ctx->data_len * this->ctx->nz_density;
 
     auto m = Reinterpret1DTo2D::get_square_size(this->ctx->data_len);
     ext_rowptr  //
@@ -237,13 +237,10 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
         .set_len(init_nnz)
         .template alloc<cusz::LOC::DEVICE>();
 
-    // spreducer = new SpReducer(
-    //     BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  //
-    //     ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
     spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
     spreducer->compress_set_space(ext_rowptr.dptr, ext_colidx.dptr, ext_values.dptr);
 
-    sp_use.set_len(SparseMethodSetup::get_init_csr_nbyte<T, int>(this->ctx->data_len))
+    sp_use.set_len(SparseMethodSetup::get_csr_nbyte<T, int>(this->ctx->data_len, init_nnz))
         .template alloc<cusz::LOC::HOST_DEVICE>();
 
     LOGGING(LOG_INFO, "compressing...");
@@ -260,8 +257,6 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     this->header = reinterpret_cast<cuszHEADER*>(dump);
     this->unpack_metadata();
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
-
-    // spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier);
 
     spreducer = new SpReducer(BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
     spreducer->decompress_set_nnz(this->ctx->nnz_outlier);

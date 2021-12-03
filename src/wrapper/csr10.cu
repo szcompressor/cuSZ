@@ -37,7 +37,7 @@ CSR10<T>::CSR10(unsigned int _len, unsigned int* init_workspace_nbyte)
     m = Reinterpret1DTo2D::get_square_size(_len);
 
     // TODO merge to configure?
-    auto initial_nnz = _len / SparseMethodSetup::factor;
+    auto initial_nnz = _len * SparseMethodSetup::default_density;
     // set up pool
     // offset.rowptr = 0;
     // offset.colidx = sizeof(int) * (m + 1);
@@ -47,7 +47,7 @@ CSR10<T>::CSR10(unsigned int _len, unsigned int* init_workspace_nbyte)
     colidx.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
     values.set_len(initial_nnz).template alloc<DEFAULT_LOC>();
 
-    if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_init_csr_nbyte<T, int>(_len);
+    if (init_workspace_nbyte) *init_workspace_nbyte = SparseMethodSetup::get_csr_nbyte<T, int>(_len, initial_nnz);
 }
 
 // template <typename T>

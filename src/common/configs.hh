@@ -65,19 +65,11 @@ struct Align {
 
 // sparsity rate is less that 5%
 struct SparseMethodSetup {
-    static const int factor = 10;
+    static constexpr float default_density  = 0.05;                 // ratio of nonzeros (R_nz)
+    static constexpr float default_sparsity = 1 - default_density;  // ratio of zeros, 1 - R_nz
 
     template <typename T, typename M = int>
-    static uint32_t get_init_csr_nbyte(uint32_t len)
-    {
-        auto m        = Reinterpret1DTo2D::get_square_size(len);
-        auto init_nnz = len / factor;
-        auto nbyte    = sizeof(M) * (m + 1) + sizeof(M) * init_nnz + sizeof(T) * init_nnz;
-        return nbyte;
-    }
-
-    template <typename T, typename M = int>
-    static uint32_t get_exact_csr_nbyte(uint32_t len, uint32_t nnz)
+    static uint32_t get_csr_nbyte(uint32_t len, uint32_t nnz)
     {
         auto m     = Reinterpret1DTo2D::get_square_size(len);
         auto nbyte = sizeof(M) * (m + 1) + sizeof(M) * nnz + sizeof(T) * nnz;

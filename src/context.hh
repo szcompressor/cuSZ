@@ -48,6 +48,9 @@ class cuszCTX {
     struct { string path2file, origin_cmp, path_basename, basename, compress_output; } fnames;
     // clang-format on
 
+    // sparsity related: init_nnz when setting up SpReducer
+    float nz_density = SparseMethodSetup::default_density;
+
     bool verbose{false};
 
     stat_t stat;
