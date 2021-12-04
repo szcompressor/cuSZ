@@ -79,7 +79,7 @@ static const char cusz_short_doc[] =
     "  zip 1: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 "
     "--config demo=cesm -z --report time\n"
     "  zip 2: ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l "
-    "3600,1800 -z --report time\n"
+    "3600x1800 -z --report time\n"
     "  unzip: ./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --report time,quality "
     "--compare "
     "./data/cesm-CLDHGH-3600x1800\n"

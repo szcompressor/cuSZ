@@ -28,7 +28,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2021-10-05.1";
+const char* VERSION_TEXT  = "2021-12-04.1";
 const int   VERSION       = 2021100501;
 const int   COMPATIBILITY = 0;
 

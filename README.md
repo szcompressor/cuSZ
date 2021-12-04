@@ -62,19 +62,18 @@ more details about build tools
 - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
 - more reference: 1) [CUDA compilers](https://gist.github.com/ax3l/9489132), 2) [CUDA archs](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
 
-|      |     |      |      |      |      |      |      |      |      |
-| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |
-|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |      |
-|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
-| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 |
+|      |     |      |      |      |      |      |      |      |      |      |
+| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |      |
+|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |      |      |
+|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
+| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 | 11.5 |
 
 </details>
 
 <br/>
 
-The instruction of compiling from source code are listed below.
-
+For CUDA 11.x, to compile,
 ```bash
 git clone https://github.com/szcompressor/cuSZ.git cusz && cd cusz
 chmod 755 ./build.py && ./build.py <target> <optional: build type>
@@ -86,6 +85,9 @@ chmod 755 ./build.py && ./build.py <target> <optional: build type>
   - Build types include `release` (default), `release-profile` (enabling `-lineinfo`) and `debug` (enabling `-G`).
 - `build.py` automatically builds and installs `cusz` binary to `<workspace>/bin`.
 
+Caveat: CUDA 10 or earlier, `cub` of a historical version becomes dependency. After `git clone`, please use `git submodule update --init` to patch.
+
+
 <br/>
 
 # use
@@ -95,7 +97,7 @@ Type `cusz` or `cusz -h` for instant instructions. We give a basic use below.
 
 ```bash
 ## cusz -t <dtype> -m <mode> -e <error bound> -i <input> -l <size> -z (compression) --report time[,quality[,...]]
-./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600,1800 -z --report time
+./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z --report time
 ## cusz -i <cusz archive> -x [--compare -i <origin>] (decompresion)
 ./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x
 ./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --compare ./data/cesm-CLDHGH-3600x1800 --report time,quality
@@ -378,10 +380,7 @@ limitations
 
 # citing cuSZ
 
-<details>
-<summary>
 PACT '20, cuSZ
-</summary>
 
 ```bibtex
 @inproceedings{cusz2020,
@@ -402,12 +401,7 @@ PACT '20, cuSZ
 }
 ```
 
-</details>
-
-<details>
-<summary>
 CLUSTER '21, cuSZ+
-</summary>
 
 ```bibtex
 @INPROCEEDINGS {cuszplus2021,
@@ -425,7 +419,6 @@ CLUSTER '21, cuSZ+
 }
 ```
 
-</details>
 <br/>
 
 # acknowledgements
