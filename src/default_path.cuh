@@ -86,16 +86,16 @@ struct DefaultPath {
 
     using DefaultBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        // cusz::CSR11<DATA>,
-        cusz::spGS<DATA>,
+        cusz::CSR11<DATA>,
+        // cusz::spGS<DATA>, // TODO not woking for CUDA 10.2
         cusz::HuffmanWork<ERRCTRL, HuffTrait<4>::type>>;
 
     using DefaultCompressor = class DefaultPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        // cusz::CSR11<DATA>,
-        cusz::spGS<DATA>,
+        cusz::CSR11<DATA>,
+        // cusz::spGS<DATA>, // TODO not woking for CUDA 10.2
         cusz::HuffmanWork<ERRCTRL, HuffTrait<8>::type>>;
 
     using FallbackCompressor = class DefaultPathCompressor<FallbackBinding>;
