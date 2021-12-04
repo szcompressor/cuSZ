@@ -12,7 +12,6 @@
 #ifndef CUSZ_WRAPPER_HH
 #define CUSZ_WRAPPER_HH
 
-#include "wrapper/csr10.cuh"
 #include "wrapper/csr11.cuh"
 #include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/huffman_coarse.cuh"
