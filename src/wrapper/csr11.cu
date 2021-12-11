@@ -39,7 +39,7 @@ void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
     nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
 
 template <typename T>
 void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
@@ -256,7 +256,7 @@ void CSR11<T>::extract(uint8_t* _pool)
     values.template get<DEFAULT_LOC>() = reinterpret_cast<T*>(pool_ptr + offset.values);
 };
 
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
 
 template <typename T>
 void CSR11<T>::scatter_CUDA11(T* out_dn)

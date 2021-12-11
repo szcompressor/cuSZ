@@ -12,6 +12,8 @@
 #ifndef CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
 #define CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
 
+// caveat: CUDA 11.2 starts introduce new cuSAPARSE API, which cannot be used prior to 11.2.
+
 #include <driver_types.h>
 #include <cmath>
 #include <cstddef>
@@ -52,7 +54,7 @@ class CSR11 : public VirtualGatherScatter {
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
 
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
     void gather_CUDA11(T* in, unsigned int& dump_nbyte);
 #elif CUDART_VERSION >= 10000
     void gather_CUDA10(T* in, unsigned int& dump_nbyte);
@@ -60,7 +62,7 @@ class CSR11 : public VirtualGatherScatter {
 #error CUDART_VERSION must be no less than 10.0!
 #endif
 
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
     void scatter_CUDA11(T* out);
 #elif CUDART_VERSION >= 10000
     void scatter_CUDA10(T* out);
@@ -98,7 +100,7 @@ class CSR11 : public VirtualGatherScatter {
 
     void gather(T* in, unsigned int& nbyte_dump, int& out_nnz)  // removed memory pool
     {
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
         gather_CUDA11(in, nbyte_dump);
 #elif CUDART_VERSION >= 10000
         gather_CUDA10(in, nbyte_dump);
@@ -127,7 +129,7 @@ class CSR11 : public VirtualGatherScatter {
         colidx.template shallow_copy<DEFAULT_LOC>(out_colidx);
         values.template shallow_copy<DEFAULT_LOC>(out_val);
 
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
         // #pragma message("using gather-cuda11")
         gather_CUDA11(in, nbyte_dump);
 #elif CUDART_VERSION >= 10000
@@ -149,7 +151,7 @@ class CSR11 : public VirtualGatherScatter {
         decompress_set_nnz(nnz);
         extract(_pool);
 
-#if CUDART_VERSION >= 11000
+#if CUDART_VERSION >= 11020
         // #pragma message("using scatter-cuda11")
         scatter_CUDA11(out);
 #elif CUDART_VERSION >= 10000
