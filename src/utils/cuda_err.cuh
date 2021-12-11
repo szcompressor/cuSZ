@@ -172,6 +172,11 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
     }
 }
 
+#define CHECK_CUDA(err) (check_cuda_error(err, __FILE__, __LINE__))
+
+// block cusparse for generic testing
+#ifndef noCUSPARSE
+
 static void check_cusparse_error(cusparseStatus_t status, const char* file, int line)
 {
     if (CUSPARSE_STATUS_SUCCESS != status) {
@@ -204,7 +209,8 @@ static void check_cusparse_error(cusparseStatus_t status, const char* file, int 
     }
 }
 
-#define CHECK_CUDA(err) (check_cuda_error(err, __FILE__, __LINE__))
 #define CHECK_CUSPARSE(err) (check_cusparse_error(err, __FILE__, __LINE__))
+
+#endif
 
 #endif
