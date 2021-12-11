@@ -123,9 +123,9 @@ class CSR11 : public VirtualGatherScatter {
     {
         m = Reinterpret1DTo2D::get_square_size(in_len);
 
-        if (out_rowptr) rowptr.template from_existing_on<DEFAULT_LOC>(out_rowptr);
-        colidx.template from_existing_on<DEFAULT_LOC>(out_colidx);
-        values.template from_existing_on<DEFAULT_LOC>(out_val);
+        if (out_rowptr) rowptr.template shallow_copy<DEFAULT_LOC>(out_rowptr);
+        colidx.template shallow_copy<DEFAULT_LOC>(out_colidx);
+        values.template shallow_copy<DEFAULT_LOC>(out_val);
 
 #if CUDART_VERSION >= 11000
         // #pragma message("using gather-cuda11")
