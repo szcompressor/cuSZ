@@ -130,6 +130,8 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::try_skip_huffman()
 DPCOMPRESSOR_TYPE
 DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
 {
+    static_assert(not std::is_same<BYTE, T>::value, "[DefaultPathCompressor constructor] T must not be BYTE.");
+
     this->ctx     = _ctx;
     this->in_data = _in_data;
     this->timing  = cusz::WHEN::COMPRESS;
