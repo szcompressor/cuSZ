@@ -39,17 +39,17 @@ template <typename T>
 CSR11<T>::CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
 {
     m = Reinterpret1DTo2D::get_square_size(_len);
-    rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
-    colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
-    values.template from_existing_on<DEFAULT_LOC>(ext_values);
+    rowptr.template shallow_copy<DEFAULT_LOC>(ext_rowptr);
+    colidx.template shallow_copy<DEFAULT_LOC>(ext_colidx);
+    values.template shallow_copy<DEFAULT_LOC>(ext_values);
 }
 
 template <typename T>
 CSR11<T>& CSR11<T>::compress_set_space(int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
 {
-    rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
-    colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
-    values.template from_existing_on<DEFAULT_LOC>(ext_values);
+    rowptr.template shallow_copy<DEFAULT_LOC>(ext_rowptr);
+    colidx.template shallow_copy<DEFAULT_LOC>(ext_colidx);
+    values.template shallow_copy<DEFAULT_LOC>(ext_values);
 
     return *this;
 }

@@ -135,7 +135,7 @@ class Capsule {
     }
 
     template <cusz::LOC LOC>
-    Capsule& from_existing_on(T* in)
+    Capsule& shallow_copy(T* in)
     {
         raise_error_if_misuse_unified<LOC>();
         hostdevice_not_allowed<LOC>();
@@ -147,7 +147,7 @@ class Capsule {
         else if (LOC == cusz::LOC::UNIFIED)
             uniptr = in;
         else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_existing_on"));
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("shallow_copy"));
 
         return *this;
     }

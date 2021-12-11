@@ -262,7 +262,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     spreducer->decompress_set_nnz(this->ctx->nnz_outlier);
 
     sp_use.set_len(spreducer->get_total_nbyte())
-        .template from_existing_on<cusz::LOC::HOST>(
+        .template shallow_copy<cusz::LOC::HOST>(
             reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cusz::SEG::SPFMT)))
         .template alloc<cusz::LOC::DEVICE>()
         .host2device();
