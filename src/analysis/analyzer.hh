@@ -20,6 +20,7 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
+
 #include <algorithm>
 #include <numeric>
 
@@ -71,6 +72,36 @@ class Analyzer {
    public:
     Analyzer()  = default;
     ~Analyzer() = default;
+
+    // TODO execution policy
+    template <typename T, ExecutionPolicy policy = ExecutionPolicy::host>
+    static std::vector<T> percentile100(T* in, size_t len)
+    {
+        std::vector<T> res;
+        auto           step = int(ceil(len / 100));
+
+        if CONSTEXPR (policy == ExecutionPolicy::cuda_device) {
+            // caveat: no residence check
+            thrust::sort(thrust::device, in, in + len);
+            T* htmp;
+            cudaMallocHost(&htmp, sizeof(T) * len);
+            cudaMemcpy(htmp, in, sizeof(T) * len, cudaMemcpyDeviceToHost);
+            for (auto i = 0; i < len; i += step) {  //
+                res.push_back(htmp[i]);
+            }
+            res.push_back(htmp[len - 1]);
+            cudaFreeHost(htmp);
+        }
+        else {  // fallback
+            std::sort(in, in + len);
+            for (auto i = 0; i < len; i += step) {  //
+                res.push_back(in[i]);
+            }
+            res.push_back(in[len - 1]);
+        }
+
+        return res;
+    }
 
     template <typename Data, ExecutionPolicy policy, AnalyzerMethod method>
     static extrema_result_t get_maxmin_rng(Data* d_data, size_t len)

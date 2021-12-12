@@ -1,0 +1,36 @@
+__author__ = "Jiannan Tian"
+__copyright__ = "(C) 2021 by Washington State University, Argonne National Laboratory"
+__license__ = "BSD 3-Clause"
+__version__ = "0.3"
+__date__ = "2021-12-11"
+
+import shutil
+import datetime
+import subprocess as sp
+
+cmd_exists = lambda name: shutil.which(name) is not None
+
+cmd_list = [("cmake", "cmake --version | grep version"),
+            ("nvcc", "nvcc --version | grep release"),
+            ("nvidia-smi", "nvidia-smi | grep Driver"),
+            ("gcc", "gcc --version | grep gcc"),
+            ("clang", "clang --version | grep version")]
+msg = ['']
+
+for (cmd, cmd_arg) in cmd_list:
+    # s = ">>>> {}\n".format(cmd)
+    if cmd_exists(cmd):
+        s = sp.check_output("{}".format(cmd_arg), shell=True).decode('utf8')
+        s = s.replace("\n\n", "\n").replace("|", "").strip(" ")
+        # print("\"" + s + "\"")
+    else:
+        pass
+    msg.append("{}:\t".format(cmd) + s)
+
+t = datetime.datetime.now()
+fname = "{}{}{}".format(t.year, t.month, t.day)
+ostr = "{}\n\n".format(t) + "".join(msg)
+print(ostr)
+
+with open("cusz-checkenv-{}.txt".format(fname), 'w') as fo:
+    fo.write(ostr)

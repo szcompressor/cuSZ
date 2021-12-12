@@ -20,10 +20,12 @@
 #define CONSTEXPR
 #endif
 
+#ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <driver_types.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
+#endif
 
 #include <stdexcept>
 #include <string>
