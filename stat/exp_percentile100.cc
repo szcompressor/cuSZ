@@ -15,7 +15,7 @@
 int main(int argc, char** argv)
 {
     if (argc < 4) {
-        cout << "./<prog> <filename> <len> <where>\n";
+        cout << "./<prog> <filename> <len> <host|device>\n";
         return 0;
     }
 

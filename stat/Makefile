@@ -1,3 +1,6 @@
+percentile: exp_percentile100.cc
+	nvcc $< -x cu -o $(basename $<)
+
 smalleb-macos:
 	clang++ -Xpreprocessor -fopenmp -lomp exp_small_eb.cc -std=c++17 -I"$(brew --prefix libomp)/include" -L"$(brew --prefix libomp)/lib" -O3
 
