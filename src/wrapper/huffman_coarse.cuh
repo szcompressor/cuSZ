@@ -41,7 +41,7 @@ __global__ void huffman_enc_concatenate(
 namespace cusz {
 
 template <typename T, typename H, typename M = uint64_t>
-class HuffmanWork {
+class HuffmanCoarse {
    public:
     using Origin  = T;
     using Encoded = H;
@@ -73,9 +73,9 @@ class HuffmanWork {
     float get_time_lossless() const { return time_lossless; }
 
     // 21-12-17 toward static method
-    HuffmanWork() = default;
+    HuffmanCoarse() = default;
 
-    ~HuffmanWork() {}
+    ~HuffmanCoarse() {}
 
    private:
     void

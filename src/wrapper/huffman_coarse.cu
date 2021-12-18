@@ -63,7 +63,7 @@ void cusz::huffman_process_metadata(
 }
 
 template <typename T, typename H, typename M>
-void cusz::HuffmanWork<T, H, M>::huffman_encode_proxy1(
+void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy1(
     H*      dev_enc_space,
     size_t* dev_bits,
     size_t* dev_uints,
@@ -115,7 +115,7 @@ void cusz::HuffmanWork<T, H, M>::huffman_encode_proxy1(
 }
 
 template <typename T, typename H, typename M>
-void cusz::HuffmanWork<T, H, M>::huffman_encode_proxy2(
+void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy2(
     H*      dev_enc_space,
     size_t* dev_uints,
     size_t* dev_entries,
@@ -135,7 +135,7 @@ void cusz::HuffmanWork<T, H, M>::huffman_encode_proxy2(
 }
 
 template <typename T, typename H, typename M>
-void cusz::HuffmanWork<T, H, M>::encode(
+void cusz::HuffmanCoarse<T, H, M>::encode(
     T*               in,           // input 1
     size_t           in_len,       // input 1 size
     uint32_t*        freq,         // input 2
@@ -196,7 +196,7 @@ void cusz::HuffmanWork<T, H, M>::encode(
 }
 
 template <typename T, typename H, typename M>
-void cusz::HuffmanWork<T, H, M>::decode(
+void cusz::HuffmanCoarse<T, H, M>::decode(
     uint32_t  _orilen,
     BYTE*     _dump,
     uint32_t  _chunk_size,
@@ -247,7 +247,7 @@ void cusz::HuffmanWork<T, H, M>::decode(
     cudaFree(d_revbook);
 }
 
-template class cusz::HuffmanWork<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<4>::type>;
-template class cusz::HuffmanWork<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<8>::type>;
-template class cusz::HuffmanWork<ErrCtrlTrait<2>::type, HuffTrait<8>::type, MetadataTrait<4>::type>;
-template class cusz::HuffmanWork<ErrCtrlTrait<2>::type, HuffTrait<8>::type, MetadataTrait<8>::type>;
+template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<4>::type>;
+template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<8>::type>;
+template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<8>::type, MetadataTrait<4>::type>;
+template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<8>::type, MetadataTrait<8>::type>;
