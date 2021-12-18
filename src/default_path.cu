@@ -175,7 +175,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
     auto d_uints   = huff_counts.dptr + nchunk;
     auto d_entries = huff_counts.dptr + nchunk * 2;
 
-    lossless::HuffmanEncode<E, H, false>(
+    lossless::huffman_encode_proxy<E, H, false>(
         tmp_space, d_bits, d_uints, d_entries, huff_counts.hptr,
         //
         nullptr,
@@ -187,7 +187,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
         .set_len(num_uints)
         .template alloc<cusz::LOC::HOST_DEVICE>();
 
-    lossless::HuffmanEncode<E, H, true>(
+    lossless::huffman_encode_proxy<E, H, true>(
         tmp_space, nullptr, d_uints, d_entries, nullptr,
         //
         huff_data.dptr,

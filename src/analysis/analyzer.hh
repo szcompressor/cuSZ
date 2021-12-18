@@ -26,7 +26,7 @@
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
 #include "../utils/timer.hh"
-#include "../wrapper/huffman_enc_dec.cuh"
+#include "../wrapper/huffman_proxy.cuh"
 
 using std::cout;
 

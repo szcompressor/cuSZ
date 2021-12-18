@@ -1,8 +1,8 @@
-#ifndef CUSZ_WRAPPER_HUFFMAN_ENC_DEC_CUH
-#define CUSZ_WRAPPER_HUFFMAN_ENC_DEC_CUH
+#ifndef CUSZ_WRAPPER_HUFFMAN_PROXY_CUH
+#define CUSZ_WRAPPER_HUFFMAN_PROXY_CUH
 
 /**
- * @file huffman_enc_dec.cuh
+ * @file huffman_proxy.cuh
  * @author Jiannan Tian, Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Workflow of Huffman coding (header).
  * @version 0.1
@@ -74,7 +74,7 @@ void UseNvcompUnzip(T** space, size_t& len);
 namespace lossless {
 
 template <typename Quant, typename Huff, bool UINTS_KNOWN>
-void HuffmanEncode(
+void huffman_encode_proxy(
     Huff*   dev_enc_space,
     size_t* dev_bits,
     size_t* dev_uints,

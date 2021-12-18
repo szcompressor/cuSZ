@@ -15,7 +15,7 @@
 #include "wrapper/csr11.cuh"
 #include "wrapper/extrap_lorenzo.cuh"
 #include "wrapper/huffman_coarse.cuh"
-#include "wrapper/huffman_enc_dec.cuh"
 #include "wrapper/huffman_parbook.cuh"
+#include "wrapper/huffman_proxy.cuh"
 
 #endif

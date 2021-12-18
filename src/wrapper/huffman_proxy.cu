@@ -1,5 +1,5 @@
 /**
- * @file huffman_enc_dec.cu
+ * @file huffman_proxy.cu
  * @author Jiannan Tian, Cody Rivera (cjrivera1@crimson.ua.edu)
  * @brief Workflow of Huffman coding.
  * @version 0.1
@@ -33,7 +33,7 @@
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
 #include "../utils.hh"
-#include "huffman_enc_dec.cuh"
+#include "huffman_proxy.cuh"
 
 #ifdef MODULAR_ELSEWHERE
 #include "cascaded.hpp"
@@ -154,7 +154,7 @@ void draft::UseNvcompUnzip(T** d_space, size_t& len)
 */
 
 template <typename Quant, typename Huff, bool UINTS_KNOWN>
-void lossless::HuffmanEncode(
+void lossless::huffman_encode_proxy(
     Huff*   dev_enc_space,
     size_t* dev_bits,
     size_t* dev_uints,
@@ -226,8 +226,8 @@ void lossless::HuffmanEncode(
 
 // TODO mark types using Q/H-byte binding; internally resolve UI8-UI8_2 issue
 
-#define HUFFMAN_ENCODE(Q, H, BOOL)                     \
-    template void lossless::HuffmanEncode<Q, H, BOOL>( \
+#define HUFFMAN_ENCODE(Q, H, BOOL)                            \
+    template void lossless::huffman_encode_proxy<Q, H, BOOL>( \
         H*, size_t*, size_t*, size_t*, size_t*, H*, Q*, H*, size_t, int, int, size_t*, size_t*, float&);
 
 HUFFMAN_ENCODE(ErrCtrlTrait<2>::type, HuffTrait<4>::type, false)
