@@ -122,89 +122,10 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::try_skip_huffman()
     return *this;
 }
 
-DPCOMPRESSOR_TYPE
-DPCOMPRESSOR& DPCOMPRESSOR::get_freq_codebook()
-{
-    wrapper::get_frequency<E>(
-        this->quant.dptr, this->ctx->quant_len, this->freq.dptr, this->ctx->dict_size, this->time.hist);
-
-    {  // This is end-to-end time for parbook.
-        auto t = new cuda_timer_t;
-        t->timer_start();
-        lossless::par_get_codebook<E, H>(this->ctx->dict_size, this->freq.dptr, book.dptr, revbook.dptr);
-        this->time.book = t->timer_end_get_elapsed_time();
-        cudaDeviceSynchronize();
-        delete t;
-    }
-
-    this->analyze_compressibility()  //
-        .internal_eval_try_export_book()
-        .internal_eval_try_export_quant();
-
-    revbook.device2host();  // need processing on CPU
-    this->dataseg.nbyte.at(cusz::SEG::REVBOOK) = HuffmanHelper::get_revbook_nbyte<E, H>(this->ctx->dict_size);
-
-    return *this;
-}
-
-DPCOMPRESSOR_TYPE
-DPCOMPRESSOR& DPCOMPRESSOR::huffman_encode()
-{
-    // fix-length space, padding improvised
-
-    H*    tmp_space;
-    auto  in_len     = this->ctx->quant_len;
-    auto  chunk_size = this->ctx->huffman_chunk;
-    auto  dict_size  = this->ctx->dict_size;
-    auto& num_bits   = this->ctx->huffman_num_bits;
-    auto& num_uints  = this->ctx->huffman_num_uints;
-
-    this->ctx->nchunk = ConfigHelper::get_npart(in_len, chunk_size);
-    auto nchunk       = this->ctx->nchunk;
-
-    // arguments above
-
-    cudaMalloc(&tmp_space, sizeof(H) * (in_len + chunk_size + HuffmanHelper::BLOCK_DIM_ENCODE));
-
-    // gather metadata (without write) before gathering huff as sp on GPU
-    huff_counts  //
-        .set_len(nchunk * 3)
-        .template alloc<cusz::LOC::HOST_DEVICE>();
-
-    auto d_bits    = huff_counts.dptr;
-    auto d_uints   = huff_counts.dptr + nchunk;
-    auto d_entries = huff_counts.dptr + nchunk * 2;
-
-    lossless::huffman_encode_proxy<E, H, false>(
-        tmp_space, d_bits, d_uints, d_entries, huff_counts.hptr,
-        //
-        nullptr,
-        //
-        this->quant.dptr, book.dptr, in_len, chunk_size, dict_size, &num_bits, &num_uints, this->time.lossless);
-
-    // --------------------------------------------------------------------------------
-    huff_data  //
-        .set_len(num_uints)
-        .template alloc<cusz::LOC::HOST_DEVICE>();
-
-    lossless::huffman_encode_proxy<E, H, true>(
-        tmp_space, nullptr, d_uints, d_entries, nullptr,
-        //
-        huff_data.dptr,
-        //
-        nullptr, nullptr, in_len, chunk_size, 0, nullptr, nullptr, this->time.lossless);
-
-    // --------------------------------------------------------------------------------
-    huff_data.device2host();
-
-    // TODO size_t -> MetadataT
-    this->dataseg.nbyte.at(cusz::SEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
-    this->dataseg.nbyte.at(cusz::SEG::HUFF_DATA) = sizeof(H) * num_uints;
-
-    cudaFree(tmp_space);
-
-    return *this;
-}
+// TODO the experiments left out
+// this->analyze_compressibility()  //
+//     .internal_eval_try_export_book()
+//     .internal_eval_try_export_quant();
 
 DPCOMPRESSOR_TYPE
 DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
@@ -236,6 +157,9 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     ext_values  //
         .set_len(init_nnz)
         .template alloc<cusz::LOC::DEVICE>();
+
+    // TODO 21-12-17 toward static method
+    codec = new Codec;
 
     spreducer = new SpReducer;
 
@@ -270,9 +194,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 
     predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
 
-    codec = new Codec(
-        BINDING::template get_encoder_input_len(this->ctx), dump, this->header->huffman_chunk,
-        this->header->huffman_num_uints, this->header->dict_size);
+    codec = new Codec;
 
     LOGGING(LOG_INFO, "decompressing...");
 }
@@ -343,9 +265,42 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
     // release in_data; subject to change
     if (this->ctx->on_off.release_input) this->in_data->template free<cusz::LOC::DEVICE>();
 
-    this->get_freq_codebook()  //
-        .huffman_encode()
-        .try_report_compress_time();
+#ifdef __NOT_DEPRECATED__
+    this->old_huffman_encode();
+#else
+
+    auto const chunk_size = this->ctx->huffman_chunk;
+
+    auto in_len = this->ctx->quant_len;
+
+    this->ctx->nchunk = ConfigHelper::get_npart(in_len, chunk_size);
+    auto const nchunk = this->ctx->nchunk;
+
+    auto& num_bits  = this->ctx->huffman_num_bits;
+    auto& num_uints = this->ctx->huffman_num_uints;
+
+    {
+        codec->encode(
+            this->quant.dptr, in_len,                          //
+            this->freq.dptr, book.dptr, this->ctx->dict_size,  //
+            revbook.dptr,                                      //
+            huff_data, huff_counts, chunk_size,                //
+            num_bits, num_uints);
+
+        this->time.hist     = codec->get_time_hist();
+        this->time.book     = codec->get_time_book();
+        this->time.lossless = codec->get_time_lossless();
+
+        revbook.device2host();  // need processing on CPU
+        this->dataseg.nbyte.at(cusz::SEG::REVBOOK) = HuffmanHelper::get_revbook_nbyte<E, H>(this->ctx->dict_size);
+
+        huff_data.device2host();
+        this->dataseg.nbyte.at(cusz::SEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
+        this->dataseg.nbyte.at(cusz::SEG::HUFF_DATA) = sizeof(H) * num_uints;
+    }
+#endif
+
+    this->try_report_compress_time();
     this->pack_metadata();
 
     return *this;
@@ -367,7 +322,12 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     // Therefore, codec::decode() should be
     // decode(WHERE, FROM_DUMP, dump, offset, output)
 
+    auto dump = this->in_dump->hptr;
+
     codec->decode(
+        BINDING::template get_encoder_input_len(this->ctx), dump, this->header->huffman_chunk,
+        this->header->huffman_num_uints, this->header->dict_size,
+        //
         cusz::LOC::HOST,                                                                                 //
         reinterpret_cast<H*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_DATA)),      //
         reinterpret_cast<Mtype*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META)),  //

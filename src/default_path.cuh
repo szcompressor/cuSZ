@@ -62,8 +62,8 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     DefaultPathCompressor& internal_eval_try_export_book();
     DefaultPathCompressor& internal_eval_try_export_quant();
     DefaultPathCompressor& try_skip_huffman();
-    DefaultPathCompressor& get_freq_codebook();
-    DefaultPathCompressor& huffman_encode();
+    // DefaultPathCompressor& get_freq_codebook();
+    DefaultPathCompressor& old_huffman_encode();
 
    public:
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data);
