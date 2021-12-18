@@ -136,6 +136,7 @@ void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy2(
 
 template <typename T, typename H, typename M>
 void cusz::HuffmanCoarse<T, H, M>::encode(
+    H*               workspace,    //  intermediate
     T*               in,           // input 1
     size_t           in_len,       // input 1 size
     uint32_t*        freq,         // input 2
@@ -166,30 +167,24 @@ void cusz::HuffmanCoarse<T, H, M>::encode(
         auto const nchunk = ConfigHelper::get_npart(in_len, chunk_size);
 
         // fix-length space, padding improvised
-        H* tmp_space;
-        cudaMalloc(&tmp_space, sizeof(H) * (in_len + chunk_size + HuffmanHelper::BLOCK_DIM_ENCODE));
-
-        // gather metadata (without write) before gathering huff as sp on GPU
-        huff_counts  //
-            .set_len(nchunk * 3)
-            .template alloc<cusz::LOC::HOST_DEVICE>();
+        // H* workspace;
+        // cudaMalloc(&workspace, sizeof(H) * in_len);
 
         auto d_bits    = huff_counts.dptr;
         auto d_uints   = huff_counts.dptr + nchunk;
         auto d_entries = huff_counts.dptr + nchunk * 2;
 
         huffman_encode_proxy1(
-            tmp_space, d_bits, d_uints, d_entries, huff_counts.hptr, in, book, in_len, chunk_size, dict_size, &num_bits,
+            workspace, d_bits, d_uints, d_entries, huff_counts.hptr, in, book, in_len, chunk_size, dict_size, &num_bits,
             &num_uints, time_lossless);
 
         // --------------------------------------------------------------------------------
-        huff_data  //
-            .set_len(num_uints)
-            .template alloc<cusz::LOC::HOST_DEVICE>();
+        // update with the exact length
+        huff_data.set_len(num_uints);
 
-        huffman_encode_proxy2(tmp_space, d_uints, d_entries, huff_data.dptr, in_len, chunk_size, time_lossless);
+        huffman_encode_proxy2(workspace, d_uints, d_entries, huff_data.dptr, in_len, chunk_size, time_lossless);
 
-        cudaFree(tmp_space);
+        // cudaFree(workspace);
 
         // return *this;
     }
@@ -197,16 +192,15 @@ void cusz::HuffmanCoarse<T, H, M>::encode(
 
 template <typename T, typename H, typename M>
 void cusz::HuffmanCoarse<T, H, M>::decode(
-    uint32_t  _orilen,
-    BYTE*     _dump,
-    uint32_t  _chunk_size,
-    uint32_t  _num_uints,
-    uint32_t  _dict_size,
-    cusz::LOC loc,
-    H*        in_bitstream,
-    M*        chunkwise_metadata,
-    BYTE*     revbook,
-    T*        out_decoded)
+    uint32_t _orilen,
+    BYTE*    _dump,
+    uint32_t _chunk_size,
+    uint32_t _num_uints,
+    uint32_t _dict_size,
+    H*       d_in_bitstream,
+    M*       d_chunkwise_metadata,
+    BYTE*    d_revbook,
+    T*       out_decoded)
 {
     dump          = _dump;
     orilen        = _orilen;
@@ -214,21 +208,6 @@ void cusz::HuffmanCoarse<T, H, M>::decode(
     nchunk        = ConfigHelper::get_npart(orilen, chunk_size);
     num_uints     = _num_uints;
     revbook_nbyte = HuffmanHelper::get_revbook_nbyte<T, H>(_dict_size);
-
-    H*    d_in_bitstream;
-    M*    d_chunkwise_metadata;
-    BYTE* d_revbook;
-
-    if (loc == cusz::LOC::HOST) {
-        d_in_bitstream       = mem::create_devspace_memcpy_h2d(in_bitstream, num_uints);
-        d_chunkwise_metadata = mem::create_devspace_memcpy_h2d(chunkwise_metadata, 2 * nchunk);
-        d_revbook            = mem::create_devspace_memcpy_h2d(revbook, revbook_nbyte);
-    }
-    else if (loc == cusz::LOC::DEVICE) {
-        d_in_bitstream       = in_bitstream;
-        d_chunkwise_metadata = chunkwise_metadata;
-        d_revbook            = revbook;
-    }
 
     auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
     auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);
@@ -241,10 +220,6 @@ void cusz::HuffmanCoarse<T, H, M>::decode(
     milliseconds += t->timer_end_get_elapsed_time();
     CHECK_CUDA(cudaDeviceSynchronize());
     delete t;
-
-    cudaFree(d_in_bitstream);
-    cudaFree(d_chunkwise_metadata);
-    cudaFree(d_revbook);
 }
 
 template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<4>::type>;

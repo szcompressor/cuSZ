@@ -48,6 +48,14 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     Capsule<int> ext_colidx;
     Capsule<T>   ext_values;
 
+    H* huff_workspace;  // compress
+
+    struct {
+        Capsule<H>      in;
+        Capsule<size_t> meta;
+        Capsule<BYTE>   revbook;
+    } xhuff;
+
     Predictor* predictor;
     SpReducer* spreducer;
     Codec*     codec;

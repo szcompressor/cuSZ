@@ -41,7 +41,7 @@ __global__ void huffman_enc_concatenate(
 namespace cusz {
 
 template <typename T, typename H, typename M = uint64_t>
-class HuffmanCoarse {
+class HuffmanCoarse : public cusz::VariableRate {
    public:
     using Origin  = T;
     using Encoded = H;
@@ -72,6 +72,11 @@ class HuffmanCoarse {
     float get_time_book() const { return time_book; }
     float get_time_lossless() const { return time_lossless; }
 
+    // TODO this kind of space will be overlapping with quant-codes
+    size_t get_workspace_nbyte(size_t comp_in_len) const { return sizeof(H) * comp_in_len; }
+    size_t get_max_output_nbyte(size_t comp_in_len) const { return sizeof(H) * comp_in_len / 2; }
+
+   public:
     // 21-12-17 toward static method
     HuffmanCoarse() = default;
 
@@ -107,18 +112,18 @@ class HuffmanCoarse {
 
    public:
     void decode(
-        uint32_t  _orilen,
-        BYTE*     _dump,
-        uint32_t  _chunk_size,
-        uint32_t  _num_uints,
-        uint32_t  _dict_size,
-        cusz::LOC loc,
-        H*        bitstream,
-        M*        bits_entries,
-        BYTE*     revbook,
-        T*        out);
+        uint32_t _orilen,
+        BYTE*    _dump,
+        uint32_t _chunk_size,
+        uint32_t _num_uints,
+        uint32_t _dict_size,
+        H*       bitstream,
+        M*       bits_entries,
+        BYTE*    revbook,
+        T*       out);
 
     void encode(
+        H*               workspace,    // intermediate
         T*               in,           // input 1
         size_t           in_len,       // input 1 size
         uint32_t*        freq,         // input 2
