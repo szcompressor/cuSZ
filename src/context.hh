@@ -39,7 +39,7 @@ class cuszCTX {
     struct { bool binning{false}, logtransform{false}, prescan{false}; } preprocess;
     struct { bool gpu_nvcomp_cascade{false}, cpu_gzip{false}; } postcompress;
 
-    struct { bool use_demo{false}, use_anchor{false}, autotune_huffchunk{true}, release_input{false}; } on_off;
+    struct { bool use_demo{false}, use_anchor{false}, autotune_huffchunk{true}, release_input{false}, use_gpu_verify{false}; } on_off;
     struct { bool write2disk{false}, huffman{false}; } to_skip;
     struct { bool book{false}, quant{false}; } export_raw;
     struct { bool quality{true}, time{false}, cr{false}, compressibility{false}, dataseg{false}; } report;

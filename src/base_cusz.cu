@@ -82,15 +82,31 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_decompress_time()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_compare_with_origin(T* xdata)
+BASE_COMPRESSOR& BASE_COMPRESSOR::try_compare_with_origin(T* xdata, bool use_gpu)
 {
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
         LOGGING(LOG_INFO, "compare to the original");
 
         auto odata = io::read_binary_to_new_array<T>(ctx->fnames.origin_cmp, ctx->data_len);
 
-        analysis::verify_data(&ctx->stat, xdata, odata, ctx->data_len);
-        analysis::print_data_quality_metrics<T>(&ctx->stat, in_dump->nbyte(), false);
+        if (use_gpu) {
+            // TODO redundant memory use
+            T *_xdata, *_odata;
+            cudaMalloc(&_xdata, sizeof(T) * ctx->data_len);
+            cudaMalloc(&_odata, sizeof(T) * ctx->data_len);
+
+            cudaMemcpy(_xdata, xdata, sizeof(T) * ctx->data_len, cudaMemcpyHostToDevice);
+            cudaMemcpy(_odata, odata, sizeof(T) * ctx->data_len, cudaMemcpyHostToDevice);
+
+            verify_data_GPU<T>(&ctx->stat, _xdata, _odata, ctx->data_len);
+
+            cudaFree(_xdata);
+            cudaFree(_odata);
+        }
+        else
+            analysis::verify_data(&ctx->stat, xdata, odata, ctx->data_len);
+
+        analysis::print_data_quality_metrics<T>(&ctx->stat, in_dump->nbyte(), use_gpu);
 
         delete[] odata;
     }
