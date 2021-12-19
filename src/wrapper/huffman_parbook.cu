@@ -719,11 +719,13 @@ void lossless::par_get_codebook(int dict_size, cusz::FREQ* _d_freq, H* _d_codebo
 /********************************************************************************/
 // instantiate wrapper
 
-#define PAR_HUFFMAN(E, H) template void lossless::par_get_codebook<E, H>(int, cusz::FREQ*, H*, uint8_t*);
+#define PAR_HUFFMAN(E, H)                                                                \
+    template void lossless::par_get_codebook<ErrCtrlTrait<E>::type, HuffTrait<H>::type>( \
+        int, cusz::FREQ*, HuffTrait<H>::type*, uint8_t*);
 
-PAR_HUFFMAN(ErrCtrlTrait<1>::type, HuffTrait<4>::type)
-PAR_HUFFMAN(ErrCtrlTrait<1>::type, HuffTrait<8>::type)
-PAR_HUFFMAN(ErrCtrlTrait<2>::type, HuffTrait<4>::type)
-PAR_HUFFMAN(ErrCtrlTrait<2>::type, HuffTrait<8>::type)
-PAR_HUFFMAN(ErrCtrlTrait<4>::type, HuffTrait<4>::type)
-PAR_HUFFMAN(ErrCtrlTrait<4>::type, HuffTrait<8>::type)
+PAR_HUFFMAN(1, 4)
+PAR_HUFFMAN(1, 8)
+PAR_HUFFMAN(2, 4)
+PAR_HUFFMAN(2, 8)
+PAR_HUFFMAN(4, 4)
+PAR_HUFFMAN(4, 8)
