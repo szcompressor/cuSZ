@@ -22,6 +22,17 @@ using duration_t    = std::chrono::duration<double>;
 using hires_clock_t = std::chrono::time_point<hires>;
 
 #ifdef __CUDACC__
+
+/**
+ * @brief CUDA event based timer. Synopsis:
+ * cuda_timer_t t;
+ * t.timer_start();
+ * kernel<<<grid_dim, block_dim, nbytes, stream>>>(...);
+ * t.timer_end();
+ * cudaStreamSynchronize(stream);
+ * auto ms = t.get_time_elapsed();
+ *
+ */
 typedef struct CUDATimer {
     cudaEvent_t start, stop;
     float       milliseconds;
@@ -37,6 +48,18 @@ typedef struct CUDATimer {
     {
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        return milliseconds;
+    }
+
+    void timer_end()
+    {
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+    }
+
+    float get_time_elapsed()
+    {
         cudaEventElapsedTime(&milliseconds, start, stop);
         return milliseconds;
     }
