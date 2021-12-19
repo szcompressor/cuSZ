@@ -33,7 +33,7 @@ typedef struct alignas(128) cuszHEADER {
     int nnz_outlier;
     int radius, dict_size;
     // uint32_t huffman_num_bits;
-    uint32_t huffman_chunk, huffman_num_uints;
+    uint32_t huffman_chunksize, huffman_num_uints;
 
     // clang-format off
     struct { bool huffman; } to_skip;

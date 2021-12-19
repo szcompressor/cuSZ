@@ -161,7 +161,7 @@ struct ConfigHelper {
 
         c1->nnz_outlier = c2->nnz_outlier;
 
-        c1->huffman_chunk     = c2->huffman_chunk;
+        c1->huffman_chunksize = c2->huffman_chunksize;
         c1->huffman_num_uints = c2->huffman_num_uints;
 
         c1->to_skip.huffman = c2->to_skip.huffman;

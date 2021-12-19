@@ -34,6 +34,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     using H    = typename Codec::Encoded;
 
    private:
+   private:
     // --------------------
     // not in base class
     // --------------------

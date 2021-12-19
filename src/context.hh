@@ -76,7 +76,7 @@ class cuszCTX {
     int nnz_outlier;
 
     size_t huffman_num_uints, huffman_num_bits;
-    int    huffman_chunk{512}, nchunk{-1};
+    int    huffman_chunksize{512}, nchunk{-1};
 
     size_t       data_len{1}, quant_len{1}, anchor_len{1};
     unsigned int x, y, z, w;

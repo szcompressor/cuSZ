@@ -96,7 +96,7 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->quant_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->huffman_chunk             = StrHelper::str2int(kv.second);
+            ctx->huffman_chunksize         = StrHelper::str2int(kv.second);
             ctx->on_off.autotune_huffchunk = false;
         }
         else if (kv.first == "demo") {

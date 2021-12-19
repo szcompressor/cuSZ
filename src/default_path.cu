@@ -145,7 +145,8 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
 
     // -----------------------------------------------------------------------------
 
-    if (this->ctx->on_off.autotune_huffchunk) this->ctx->huffman_chunk = tune_deflate_chunksize(this->ctx->data_len);
+    if (this->ctx->on_off.autotune_huffchunk)
+        this->ctx->huffman_chunksize = tune_deflate_chunksize(this->ctx->data_len);
 
     // TODO 21-12-17 toward static method
     codec = new Codec;
@@ -156,7 +157,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
     huff_data.set_len(codec->get_max_output_nbyte(this->ctx->quant_len)).template alloc<cusz::LOC::HOST_DEVICE>();
 
     // TODO change to codec-input-len (2)
-    this->ctx->nchunk = ConfigHelper::get_npart(this->ctx->quant_len, this->ctx->huffman_chunk);
+    this->ctx->nchunk = ConfigHelper::get_npart(this->ctx->quant_len, this->ctx->huffman_chunksize);
 
     // gather metadata (without write) before gathering huff as sp on GPU
     huff_counts.set_len(this->ctx->nchunk * 3).template alloc<cusz::LOC::HOST_DEVICE>();
@@ -211,8 +212,8 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 
     codec = new Codec;
     {
-        auto nchunk =
-            ConfigHelper::get_npart(BINDING::template get_encoder_input_len(this->ctx), this->header->huffman_chunk);
+        auto nchunk = ConfigHelper::get_npart(
+            BINDING::template get_encoder_input_len(this->ctx), this->header->huffman_chunksize);
 
         auto _h_data = reinterpret_cast<H*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_DATA));
         auto _h_meta = reinterpret_cast<size_t*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META));
@@ -315,7 +316,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
     this->old_huffman_encode();
 #else
 
-    auto const chunk_size = this->ctx->huffman_chunk;
+    auto const chunk_size = this->ctx->huffman_chunksize;
     auto const nchunk     = this->ctx->nchunk;
 
     auto huff_in_len = this->ctx->quant_len;
@@ -374,10 +375,10 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     auto _h_rev  = reinterpret_cast<BYTE*>(this->in_dump->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK));
 
     auto nchunk =
-        ConfigHelper::get_npart(BINDING::template get_encoder_input_len(this->ctx), this->header->huffman_chunk);
+        ConfigHelper::get_npart(BINDING::template get_encoder_input_len(this->ctx), this->header->huffman_chunksize);
 
     codec->decode(
-        BINDING::template get_encoder_input_len(this->ctx), dump, this->header->huffman_chunk,
+        BINDING::template get_encoder_input_len(this->ctx), dump, this->header->huffman_chunksize,
         this->header->huffman_num_uints, this->header->dict_size,  //
         xhuff.in.dptr, xhuff.meta.dptr, xhuff.revbook.dptr, this->quant.dptr);
 
