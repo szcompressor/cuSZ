@@ -222,7 +222,15 @@ void cusz::HuffmanCoarse<T, H, M>::decode(
     delete t;
 }
 
-template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<4>::type>;
-template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<4>::type, MetadataTrait<8>::type>;
-template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<8>::type, MetadataTrait<4>::type>;
-template class cusz::HuffmanCoarse<ErrCtrlTrait<2>::type, HuffTrait<8>::type, MetadataTrait<8>::type>;
+#define HUFFCOARSE(E, H, M) \
+    template class cusz::HuffmanCoarse<ErrCtrlTrait<E>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
+
+HUFFCOARSE(2, 4, 4)
+HUFFCOARSE(2, 4, 8)
+HUFFCOARSE(2, 8, 4)
+HUFFCOARSE(2, 8, 8)
+
+HUFFCOARSE(4, 4, 4)
+HUFFCOARSE(4, 4, 8)
+HUFFCOARSE(4, 8, 4)
+HUFFCOARSE(4, 8, 8)
