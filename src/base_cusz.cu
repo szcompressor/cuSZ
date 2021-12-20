@@ -82,7 +82,7 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__report_decompress_time(
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__compare_with_original(T* xdata)
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__compare_with_original(T* xdata, bool use_gpu)
 {
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
         LOGGING(LOG_INFO, "compare to the original");

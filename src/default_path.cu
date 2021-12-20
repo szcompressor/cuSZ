@@ -404,7 +404,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::backmatter(Capsule<T>* decomp_space)
     this->time.lossy    = predictor->get_time_elapsed();
     this->noncritical__optional__report_decompress_time();
 
-    this->noncritical__optional__compare_with_original(decomp_space->hptr);
+    this->noncritical__optional__compare_with_original(decomp_space->hptr, this->ctx->on_off.use_gpu_verify);
     this->noncritical__optional__write2disk(decomp_space->hptr);
 
     return *this;

@@ -88,7 +88,7 @@ class BaseCompressor {
     BaseCompressor& prescan();
     BaseCompressor& noncritical__optional__report_compress_time();
     BaseCompressor& noncritical__optional__report_decompress_time();
-    BaseCompressor& noncritical__optional__compare_with_original(T* xdata);
+    BaseCompressor& noncritical__optional__compare_with_original(T* xdata, bool use_gpu = true);
     BaseCompressor& noncritical__optional__write2disk(T* host_xdata);
 
     BaseCompressor& pack_metadata();
