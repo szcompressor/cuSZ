@@ -80,11 +80,22 @@ void normal_path_lorenzo(cuszCTX* ctx)
 
         Capsule<BYTE> out_dump("out dump");
 
+        // TODO This does not cover the output size for *all* predictors.
+        if (ctx->on_off.autotune_huffchunk) {
+            DefaultPath::DefaultBinding::CODEC::get_coarse_parallelism(
+                ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
+        }
+        else {
+            ctx->nchunk = ConfigHelper::get_npart(ctx->data_len, ctx->huffman_chunksize);
+        }
+
+        uint3 xyz{ctx->x, ctx->y, ctx->z};
+
         if (ctx->huff_bytewidth == 4) {
-            DefaultPath::DefaultCompressor cuszc(ctx, &in_data);
+            DefaultPath::DefaultCompressor cuszc(ctx, &in_data, xyz, ctx->dict_size);
 
             cuszc  //
-                .compress()
+                .compress(ctx->on_off.release_input)
                 .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_dump.get<cusz::LOC::HOST>());
             cout << "output:\t" << ctx->fnames.compress_output << '\n';
             out_dump  //
@@ -92,10 +103,10 @@ void normal_path_lorenzo(cuszCTX* ctx)
                 .free<cusz::LOC::HOST>();
         }
         else if (ctx->huff_bytewidth == 8) {
-            DefaultPath::FallbackCompressor cuszc(ctx, &in_data);
+            DefaultPath::FallbackCompressor cuszc(ctx, &in_data, xyz, ctx->dict_size);
 
             cuszc  //
-                .compress()
+                .compress(ctx->on_off.release_input)
                 .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_dump.get<cusz::LOC::HOST>());
             cout << "output:\t" << ctx->fnames.compress_output << '\n';
             out_dump  //

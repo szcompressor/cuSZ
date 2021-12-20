@@ -76,6 +76,38 @@ class HuffmanCoarse : public cusz::VariableRate {
     size_t get_workspace_nbyte(size_t comp_in_len) const { return sizeof(H) * comp_in_len; }
     size_t get_max_output_nbyte(size_t comp_in_len) const { return sizeof(H) * comp_in_len / 2; }
 
+    static uint32_t get_revbook_nbyte(int dict_size)
+    {
+        using BOOK = H;
+        using SYM  = T;
+
+        constexpr auto TYPE_BITCOUNT = sizeof(BOOK) * 8;
+        return sizeof(BOOK) * (2 * TYPE_BITCOUNT) + sizeof(SYM) * dict_size;
+    }
+
+    static size_t tune_coarse_huffman_chunksize(size_t len)
+    {
+        int current_dev = 0;
+        cudaSetDevice(current_dev);
+        cudaDeviceProp dev_prop{};
+        cudaGetDeviceProperties(&dev_prop, current_dev);
+
+        auto nSM                = dev_prop.multiProcessorCount;
+        auto allowed_block_dim  = dev_prop.maxThreadsPerBlock;
+        auto deflate_nthread    = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
+        auto optimal_chunk_size = ConfigHelper::get_npart(len, deflate_nthread);
+        optimal_chunk_size      = ConfigHelper::get_npart(optimal_chunk_size, HuffmanHelper::BLOCK_DIM_DEFLATE) *
+                             HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+        return optimal_chunk_size;
+    }
+
+    static void get_coarse_parallelism(size_t len, int& chunksize, int& nchunk)
+    {
+        chunksize = HuffmanCoarse::tune_coarse_huffman_chunksize(len);
+        nchunk    = ConfigHelper::get_npart(len, chunksize);
+    }
+
    public:
     // 21-12-17 toward static method
     HuffmanCoarse() = default;

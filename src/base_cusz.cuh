@@ -54,6 +54,9 @@ class BaseCompressor {
     cuszHEADER* header;
     cusz::WHEN  timing;
 
+    int dict_size;
+    double eb;
+
     dim3 xyz;
 
    protected:

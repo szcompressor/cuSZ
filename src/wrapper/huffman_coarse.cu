@@ -207,7 +207,7 @@ void cusz::HuffmanCoarse<T, H, M>::decode(
     chunk_size    = _chunk_size;
     nchunk        = ConfigHelper::get_npart(orilen, chunk_size);
     num_uints     = _num_uints;
-    revbook_nbyte = HuffmanHelper::get_revbook_nbyte<T, H>(_dict_size);
+    revbook_nbyte = get_revbook_nbyte(_dict_size);
 
     auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
     auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);

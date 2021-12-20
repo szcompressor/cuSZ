@@ -65,7 +65,6 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     uint32_t sp_dump_nbyte;
 
    private:
-    uint32_t tune_deflate_chunksize(size_t len);
     // TODO better move to base compressor
     DefaultPathCompressor& analyze_compressibility();
     DefaultPathCompressor& internal_eval_try_export_book();
@@ -75,11 +74,11 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     DefaultPathCompressor& old_huffman_encode();
 
    public:
-    DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data);
+    DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data, uint3 xyz, int dict_size);
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump);
     ~DefaultPathCompressor();
 
-    DefaultPathCompressor& compress();
+    DefaultPathCompressor& compress(bool optional_release_input = false);
 
     template <cusz::LOC SRC, cusz::LOC DST>
     DefaultPathCompressor& consolidate(BYTE** dump);

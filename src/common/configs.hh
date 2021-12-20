@@ -78,12 +78,13 @@ struct SparseMethodSetup {
 };
 
 struct HuffmanHelper {
-    template <typename SYM, typename BOOK>
-    static uint32_t get_revbook_nbyte(int dict_size)
-    {
-        constexpr auto TYPE_BITCOUNT = sizeof(BOOK) * 8;
-        return sizeof(BOOK) * (2 * TYPE_BITCOUNT) + sizeof(SYM) * dict_size;
-    }
+    // deprecated
+    // template <typename SYM, typename BOOK>
+    // static uint32_t get_revbook_nbyte(int dict_size)
+    // {
+    //     constexpr auto TYPE_BITCOUNT = sizeof(BOOK) * 8;
+    //     return sizeof(BOOK) * (2 * TYPE_BITCOUNT) + sizeof(SYM) * dict_size;
+    // }
 
     static const int BLOCK_DIM_ENCODE  = 256;
     static const int BLOCK_DIM_DEFLATE = 256;
@@ -275,7 +276,7 @@ struct ConfigHelper {
             "[get_npart] must be plain interger types.");
 
         return (size + subsize - 1) / subsize;
-    };
+    }
 };
 
 struct CompareHelper {
