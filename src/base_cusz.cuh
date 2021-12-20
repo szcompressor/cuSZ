@@ -86,10 +86,10 @@ class BaseCompressor {
         return *this;
     }
     BaseCompressor& prescan();
-    BaseCompressor& try_report_compress_time();
-    BaseCompressor& try_report_decompress_time();
-    BaseCompressor& try_compare_with_origin(T* xdata);
-    BaseCompressor& try_write2disk(T* host_xdata);
+    BaseCompressor& noncritical__optional__report_compress_time();
+    BaseCompressor& noncritical__optional__report_decompress_time();
+    BaseCompressor& noncritical__optional__compare_with_original(T* xdata);
+    BaseCompressor& noncritical__optional__write2disk(T* host_xdata);
 
     BaseCompressor& pack_metadata();
     BaseCompressor& unpack_metadata();

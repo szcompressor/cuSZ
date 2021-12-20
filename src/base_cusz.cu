@@ -41,7 +41,7 @@ BASE_COMPRESSOR_TYPE BASE_COMPRESSOR& BASE_COMPRESSOR::prescan()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_compress_time()
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__report_compress_time()
 {
     if (not ctx->report.time) return *this;
 
@@ -64,7 +64,7 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_compress_time()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_decompress_time()
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__report_decompress_time()
 {
     if (not ctx->report.time) return *this;
 
@@ -82,7 +82,7 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_decompress_time()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_compare_with_origin(T* xdata)
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__compare_with_original(T* xdata)
 {
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
         LOGGING(LOG_INFO, "compare to the original");
@@ -99,7 +99,7 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_compare_with_origin(T* xdata)
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_write2disk(T* host_xdata)
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__write2disk(T* host_xdata)
 {
     if (ctx->to_skip.write2disk)
         LOGGING(LOG_INFO, "output: skipped");

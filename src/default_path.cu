@@ -348,7 +348,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
     }
 #endif
 
-    this->try_report_compress_time();
+    this->noncritical__optional__report_compress_time();
     this->pack_metadata();
 
     return *this;
@@ -402,10 +402,10 @@ DPCOMPRESSOR& DPCOMPRESSOR::backmatter(Capsule<T>* decomp_space)
     this->time.lossless = codec->get_time_elapsed();
     this->time.sparsity = spreducer->get_time_elapsed();
     this->time.lossy    = predictor->get_time_elapsed();
-    this->try_report_decompress_time();
+    this->noncritical__optional__report_decompress_time();
 
-    this->try_compare_with_origin(decomp_space->hptr);
-    this->try_write2disk(decomp_space->hptr);
+    this->noncritical__optional__compare_with_original(decomp_space->hptr);
+    this->noncritical__optional__write2disk(decomp_space->hptr);
 
     return *this;
 }
