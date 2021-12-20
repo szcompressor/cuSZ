@@ -201,22 +201,22 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     this->unpack_metadata();
     this->xyz = dim3(this->header->x, this->header->y, this->header->z);
 
-    spreducer = new SpReducer;
+    spreducer = new SpReducer;  // TODO resume SpReducer::constructor(uncompressed_len)
 
+    predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
     // TODO use a compressor method instead of spreducer's
     sp_use
-        .set_len(spreducer->get_total_nbyte(
-            BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx), this->ctx->nnz_outlier))
+        .set_len(spreducer->get_total_nbyte(                               //
+            BINDING::template get_uncompressed_len(predictor, spreducer),  //
+            this->ctx->nnz_outlier))
         .template shallow_copy<kHOST>(reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cusz::SEG::SPFMT)))
         .template alloc<kDEVICE>()
         .host2device();
 
-    predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
-
     codec = new Codec;
     {
         auto nchunk = ConfigHelper::get_npart(
-            BINDING::template get_encoder_input_len(this->ctx), this->header->huffman_chunksize);
+            BINDING::template get_uncompressed_len(predictor, codec), this->header->huffman_chunksize);
 
         auto _h_data = reinterpret_cast<H*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_DATA));
         auto _h_meta =
@@ -292,13 +292,13 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress()
 
     predictor->construct(this->original->dptr, nullptr, this->quant.dptr);
     spreducer->gather(
-        this->original->dptr,                                           // in data
-        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx),  // in len
-        ext_rowptr.dptr,                                                // space 1
-        ext_colidx.dptr,                                                // space 2
-        ext_values.dptr,                                                // space 3
-        this->ctx->nnz_outlier,                                         // out 1
-        sp_dump_nbyte                                                   // out 2
+        this->original->dptr,                                          // in data
+        BINDING::template get_uncompressed_len(predictor, spreducer),  //
+        ext_rowptr.dptr,                                               // space 1
+        ext_colidx.dptr,                                               // space 2
+        ext_values.dptr,                                               // space 3
+        this->ctx->nnz_outlier,                                        // out 1
+        sp_dump_nbyte                                                  // out 2
     );
     spreducer->template consolidate<kDEVICE, kHOST>(sp_use.hptr);
 
@@ -378,19 +378,20 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     auto _h_meta = reinterpret_cast<Mtype*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META));
     auto _h_rev  = reinterpret_cast<BYTE*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK));
 
-    auto nchunk =
-        ConfigHelper::get_npart(BINDING::template get_encoder_input_len(this->ctx), this->header->huffman_chunksize);
+    auto nchunk = ConfigHelper::get_npart(
+        BINDING::template get_uncompressed_len(predictor, codec), this->header->huffman_chunksize);
 
     codec->decode(
-        BINDING::template get_encoder_input_len(this->ctx), dump, this->header->huffman_chunksize,
+        BINDING::template get_uncompressed_len(predictor, codec), dump, this->header->huffman_chunksize,
         this->header->huffman_num_uints, this->header->dict_size,  //
         xhuff.in.dptr, xhuff.meta.dptr, xhuff.revbook.dptr, this->quant.dptr);
 
     spreducer->scatter(
-        sp_use.dptr,             //
-        this->ctx->nnz_outlier,  //
-        outlier,                 //
-        BINDING::template get_spreducer_input_len<cuszCTX>(this->ctx));
+        sp_use.dptr,                                                  //
+        this->ctx->nnz_outlier,                                       //
+        outlier,                                                      //
+        BINDING::template get_uncompressed_len(predictor, spreducer)  //
+    );
     predictor->reconstruct(nullptr, this->quant.dptr, xdata);
 
     return *this;
