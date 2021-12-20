@@ -42,11 +42,13 @@ class BaseCompressor {
     // clang-format on
 
     // data fields
-    Capsule<T>*         in_data;  // compress-time, TODO rename
-    Capsule<BYTE>*      in_dump;  // decompress-time, TODO rename
-    Capsule<E>          quant;    // for compressor
-    Capsule<T>          anchor;   // for compressor
-    Capsule<cusz::FREQ> freq;     // for compressibility
+    Capsule<T>*    original;
+    Capsule<BYTE>* compressed;
+    Capsule<T>*    reconstructed;
+
+    Capsule<E>          quant;   // for compressor
+    Capsule<T>          anchor;  // for compressor
+    Capsule<cusz::FREQ> freq;    // for compressibility
 
     cuszCTX*    ctx;
     cuszHEADER* header;
@@ -67,14 +69,14 @@ class BaseCompressor {
             auto           dim_grid  = ConfigHelper::get_npart(len, SUBSIZE);
 
             cusz::dual_quant_dryrun<T, float, SUBSIZE, SEQ>
-                <<<dim_grid, dim_block>>>(in_data->dptr, len, config.ebx2_r, config.ebx2);
+                <<<dim_grid, dim_block>>>(original->dptr, len, config.ebx2_r, config.ebx2);
             HANDLE_ERROR(cudaDeviceSynchronize());
 
             T* dryrun_result;
             cudaMallocHost(&dryrun_result, len * sizeof(T));
-            cudaMemcpy(dryrun_result, in_data->dptr, len * sizeof(T), cudaMemcpyDeviceToHost);
+            cudaMemcpy(dryrun_result, original->dptr, len * sizeof(T), cudaMemcpyDeviceToHost);
 
-            analysis::verify_data<T>(&ctx->stat, dryrun_result, in_data->hptr, len);
+            analysis::verify_data<T>(&ctx->stat, dryrun_result, original->hptr, len);
             analysis::print_data_quality_metrics<T>(&ctx->stat, 0, false);
 
             cudaFreeHost(dryrun_result);
@@ -82,9 +84,8 @@ class BaseCompressor {
             exit(0);
         }
         return *this;
-
-        return *this;
     }
+
     BaseCompressor& prescan();
     BaseCompressor& noncritical__optional__report_compress_time();
     BaseCompressor& noncritical__optional__report_decompress_time();
