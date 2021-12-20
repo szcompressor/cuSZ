@@ -113,6 +113,9 @@ void set_config(cuszCTX* ctx, const char* in_str)
         else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
             ctx->nz_density = StrHelper::str2fp(kv.second);
         }
+        else if (kv.first == "gpuverify" and (kv.second == "on" or kv.second == "ON")) {
+            ctx->on_off.use_gpu_verify = true;
+        }
 
         // when to enable anchor
         if (ctx->str_predictor == "spline3") ctx->on_off.use_anchor = true;
