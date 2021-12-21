@@ -10,6 +10,7 @@
  */
 
 #include "../src/sp_path.cuh"
+#include "ex_common.cuh"
 
 #include <pwd.h>
 #include <sys/types.h>
@@ -28,6 +29,7 @@ constexpr unsigned int len = dimx * dimy * dimz;
 
 std::string fname;
 
+template <class Compressor = SparsityAwarePath::DefaultCompressor>
 void demo(double eb)
 {
     /********/  // data preparation
@@ -43,7 +45,7 @@ void demo(double eb)
     auto resuable_space = new SpArchive(header, len, 10);  // assume 1/10 sparse
 
     // declare reusable_compressor
-    SparsityAwarePath::DefaultCompressor compressor(data.dptr, dim3(dimx, dimy, dimz), eb * rng);
+    Compressor compressor(data.dptr, dim3(dimx, dimy, dimz), eb * rng);
 
     // compression
     // ----------------------------------------
@@ -103,7 +105,11 @@ int main(int argc, char** argv)
 
     cudaDeviceReset();
 
-    demo(eb);
+    cout << "SparsityAwarePath::DefaultCompressor" << endl;
+    demo<SparsityAwarePath::DefaultCompressor>(eb);
+
+    cout << "Lorenzo (dryrun)" << endl;
+    exp_sppath_lorenzo_quality(len, fname, eb);
 
     return 0;
 }

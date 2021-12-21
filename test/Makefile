@@ -1,8 +1,12 @@
 all: splinedemo
 
 interp_spline3.o: ../src/wrapper/interp_spline3.cu ../src/kernel/spline3.cuh
-	@echo :: resolving spline3 dependency-1...
+	@echo :: resolving dependency of Sp::DefaultCompressor, spline3...
 	nvcc ../src/wrapper/interp_spline3.cu -c --extended-lambda
+
+extrap_lorenzo.o: ../src/wrapper/extrap_lorenzo.cu ../src/kernel/lorenzo.cuh
+	@echo :: resolving dependency of Sp::FallbackCompressor, lorenzo...
+	nvcc ../src/wrapper/extrap_lorenzo.cu -c --extended-lambda
 
 csr10.o: ../src/wrapper/csr10.cu
 	@echo :: resolving spline3 dependency-2...
@@ -12,7 +16,7 @@ csr11.o: ../src/wrapper/csr11.cu
 	@echo :: resolving spline3 dependency-3...
 	nvcc ../src/wrapper/csr11.cu -c --extended-lambda
 
-splinedemo: ex_spline3_demo.cu ../src/sp_path.cuh interp_spline3.o csr11.o
+splinedemo: ex_spline3_demo.cu ../src/sp_path.cuh ex_common.cuh interp_spline3.o csr11.o
 	@echo :: creating spline3 demo-1...
 	nvcc \
 		interp_spline3.o \
@@ -22,7 +26,7 @@ splinedemo: ex_spline3_demo.cu ../src/sp_path.cuh interp_spline3.o csr11.o
 		-lcusparse \
 		-o splinedemo
 
-splinestack: ex_spline3_stack.cu ../src/sp_path.cuh interp_spline3.o csr11.o
+splinestack: ex_spline3_stack.cu ../src/sp_path.cuh ex_common.cuh interp_spline3.o csr11.o
 	@echo :: creating spline3 stack imaging...
 	nvcc \
 		interp_spline3.o \
