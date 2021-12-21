@@ -69,9 +69,9 @@ class Spline3 : public PredictorAbstraction<T, E> {
 
     Spline3(dim3 xyz, double _eb, int _radius = 0, bool _delay_postquant_dummy = true);
 
-    void construct(TITER in_data, TITER out_anchor, EITER out_errctrl);
+    void construct(TITER in_data, TITER out_anchor, EITER out_errctrl, cudaStream_t = nullptr);
 
-    void reconstruct(TITER in_anchor, EITER in_errctrl, TITER out_data);
+    void reconstruct(TITER in_anchor, EITER in_errctrl, TITER out_data, cudaStream_t = nullptr);
 };
 
 }  // namespace cusz

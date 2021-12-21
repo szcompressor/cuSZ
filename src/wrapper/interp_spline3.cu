@@ -13,6 +13,7 @@
 #include <numeric>
 #include "../common.hh"
 #include "../kernel/spline3.cuh"
+#include "../utils.hh"
 #include "interp_spline3.cuh"
 
 namespace {
@@ -69,27 +70,49 @@ SPLINE3::Spline3(dim3 xyz, double _eb, int _radius, bool _delay_postquant_dummy)
 }
 
 template <typename T, typename E, typename FP>
-void SPLINE3::construct(TITER data, TITER anchor, EITER errctrl)
+void SPLINE3::construct(TITER data, TITER anchor, EITER errctrl, cudaStream_t stream)
 {
+    cuda_timer_t timer;
+    timer.timer_start();
+
     cusz::c_spline3d_infprecis_32x8x8data<TITER, EITER, float, 256, false>
-        <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-        (data, size, leap,                                      //
-         errctrl, size_aligned, leap_aligned,                   //
-         anchor, anchor_leap,                                   //
+        <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1), 0, stream>>>  //
+        (data, size, leap,                                                 //
+         errctrl, size_aligned, leap_aligned,                              //
+         anchor, anchor_leap,                                              //
          eb_r, ebx2, radius);
-    cudaDeviceSynchronize();
+
+    timer.timer_end();
+
+    if (stream)
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+    else
+        CHECK_CUDA(cudaDeviceSynchronize());
+
+    time_elapsed = timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP>
-void SPLINE3::reconstruct(TITER anchor, EITER errctrl, TITER xdata)
+void SPLINE3::reconstruct(TITER anchor, EITER errctrl, TITER xdata, cudaStream_t stream)
 {
+    cuda_timer_t timer;
+    timer.timer_start();
+
     cusz::x_spline3d_infprecis_32x8x8data<EITER, TITER, float, 256>
-        <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1)>>>  //
-        (errctrl, size_aligned, leap_aligned,                   //
-         anchor, anchor_size, anchor_leap,                      //
-         xdata, size, leap,                                     //
+        <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1), 0, stream>>>  //
+        (errctrl, size_aligned, leap_aligned,                              //
+         anchor, anchor_size, anchor_leap,                                 //
+         xdata, size, leap,                                                //
          eb_r, ebx2, radius);
-    cudaDeviceSynchronize();
+
+    timer.timer_end();
+
+    if (stream)
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+    else
+        CHECK_CUDA(cudaDeviceSynchronize());
+
+    time_elapsed = timer.get_time_elapsed();
 }
 
 template class cusz::Spline3<float, unsigned short, float>;

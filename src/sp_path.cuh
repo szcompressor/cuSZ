@@ -380,8 +380,12 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
     void compress()
     {
+        cudaStream_t s1;
+        cudaStreamCreate(&s1);
+
         predictor->construct(
-            data.template get<DEVICE>(), anchor.template get<DEVICE>(), errctrl.template get<DEVICE>());
+            data.template get<DEVICE>(), anchor.template get<DEVICE>(), errctrl.template get<DEVICE>(), s1);
+
         spreducer->gather(
             errctrl.template get<DEVICE>(),  // in data
             predictor->get_quant_len(),      //
@@ -389,8 +393,13 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             colidx,                          // space 2
             values,                          // space 3
             nnz,                             // out 1
-            sp_dump_nbyte                    // out 2
-        );
+            sp_dump_nbyte,                   // out 2
+            s1);
+
+        cudaStreamDestroy(s1);
+
+        cout << "(c) predictor time: " << predictor->get_time_elapsed() << " ms\n";
+        cout << "(c) spreducer time: " << spreducer->get_time_elapsed() << " ms\n";
 
         errctrl.memset();
     }
@@ -406,12 +415,25 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
     void decompress(T* d_xdata, uint8_t* d_spdump, int _nnz, T* d_anchordump)
     {
+        // known bug from encapsulation
+        // Resuing spreducer does not reset timer.
+        auto prev_ms = spreducer->get_time_elapsed();
+
         xdata.template shallow_copy<DEVICE>(d_xdata);
         spreducer->decompress_set_nnz(nnz);
         LOGGING(LOG_INFO, "nnz:", _nnz);
 
-        spreducer->scatter(d_spdump, _nnz, errctrl.template get<DEVICE>(), predictor->get_quant_len());
-        predictor->reconstruct(d_anchordump, errctrl.template get<DEVICE>(), xdata.template get<DEVICE>());
+        cudaStream_t s1;
+        cudaStreamCreate(&s1);
+
+        spreducer->scatter(d_spdump, _nnz, errctrl.template get<DEVICE>(), predictor->get_quant_len(), s1);
+
+        predictor->reconstruct(d_anchordump, errctrl.template get<DEVICE>(), xdata.template get<DEVICE>(), s1);
+
+        cudaStreamDestroy(s1);
+
+        cout << "(x) spreducer time: " << spreducer->get_time_elapsed() - prev_ms << " ms\n";
+        cout << "(x) predictor time: " << predictor->get_time_elapsed() << " ms\n";
     }
 
     ~SpPathCompressor()
