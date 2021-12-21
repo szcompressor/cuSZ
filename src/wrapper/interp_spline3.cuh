@@ -51,6 +51,14 @@ class Spline3 : public PredictorAbstraction<T, E> {
         auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
         return m * m;
     }
+
+    // TODO this is just a placehodler
+    unsigned int get_outlier_len() const
+    {
+        throw std::runtime_error("spline3::get_outlier_len() not implemented");
+        return 0;
+    }
+
     unsigned int get_quant_footprint() const
     {
         auto m = Reinterpret1DTo2D::get_square_size(len_aligned);

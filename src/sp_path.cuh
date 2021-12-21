@@ -268,8 +268,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         else
             init_space();
 
-        spreducer = new SpReducer(predictor->get_quant_len());
-        spreducer->compress_set_space(rowptr, colidx, values);
+        spreducer = new SpReducer;
 
         anchor  //
             .set_len(predictor->get_anchor_len())
@@ -383,7 +382,15 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     {
         predictor->construct(
             data.template get<DEVICE>(), anchor.template get<DEVICE>(), errctrl.template get<DEVICE>());
-        spreducer->gather(errctrl.template get<DEVICE>(), sp_dump_nbyte, nnz);
+        spreducer->gather(
+            errctrl.template get<DEVICE>(),  // in data
+            predictor->get_quant_len(),      //
+            rowptr,                          // space 1
+            colidx,                          // space 2
+            values,                          // space 3
+            nnz,                             // out 1
+            sp_dump_nbyte                    // out 2
+        );
 
         errctrl.memset();
     }
@@ -403,7 +410,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         spreducer->decompress_set_nnz(nnz);
         LOGGING(LOG_INFO, "nnz:", _nnz);
 
-        spreducer->scatter(d_spdump, errctrl.template get<DEVICE>());
+        spreducer->scatter(d_spdump, _nnz, errctrl.template get<DEVICE>(), predictor->get_quant_len());
         predictor->reconstruct(d_anchordump, errctrl.template get<DEVICE>(), xdata.template get<DEVICE>());
     }
 
