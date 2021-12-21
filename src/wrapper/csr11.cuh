@@ -55,17 +55,17 @@ class CSR11 : public VirtualGatherScatter {
     void reconfigure_with_precise_nnz(int nnz);
 
 #if CUDART_VERSION >= 11020
-    void gather_CUDA11(T* in, unsigned int& dump_nbyte);
+    void gather_CUDA11(T* in, unsigned int& dump_nbyte, cudaStream_t = nullptr);
 #elif CUDART_VERSION >= 10000
-    void gather_CUDA10(T* in, unsigned int& dump_nbyte);
+    void gather_CUDA10(T* in, unsigned int& dump_nbyte, cudaStream_t = nullptr);
 #else
 #error CUDART_VERSION must be no less than 10.0!
 #endif
 
 #if CUDART_VERSION >= 11020
-    void scatter_CUDA11(T* out);
+    void scatter_CUDA11(T* out, cudaStream_t stream = nullptr);
 #elif CUDART_VERSION >= 10000
-    void scatter_CUDA10(T* out);
+    void scatter_CUDA10(T* out, cudaStream_t stream = nullptr);
 #else
 #error CUDART_VERSION must be no less than 10.0!
 #endif
@@ -98,18 +98,6 @@ class CSR11 : public VirtualGatherScatter {
 
     CSR11& decompress_set_nnz(unsigned int _nnz);
 
-    void gather(T* in, unsigned int& nbyte_dump, int& out_nnz)  // removed memory pool
-    {
-#if CUDART_VERSION >= 11020
-        gather_CUDA11(in, nbyte_dump);
-#elif CUDART_VERSION >= 10000
-        gather_CUDA10(in, nbyte_dump);
-#else
-#error CUDART_VERSION must be no less than 10.0!
-#endif
-        out_nnz = this->nnz;
-    }
-
     /**
      * @brief
      *
@@ -120,8 +108,15 @@ class CSR11 : public VirtualGatherScatter {
      * @param out_val
      * @param nnz
      */
-    void
-    gather(T* in, uint32_t in_len, int* out_rowptr, int*& out_colidx, T*& out_val, int& out_nnz, uint32_t& nbyte_dump)
+    void gather(
+        T*           in,
+        uint32_t     in_len,
+        int*         out_rowptr,
+        int*&        out_colidx,
+        T*&          out_val,
+        int&         out_nnz,
+        uint32_t&    nbyte_dump,
+        cudaStream_t stream = nullptr)
     {
         m = Reinterpret1DTo2D::get_square_size(in_len);
 
@@ -130,11 +125,9 @@ class CSR11 : public VirtualGatherScatter {
         values.template shallow_copy<DEFAULT_LOC>(out_val);
 
 #if CUDART_VERSION >= 11020
-        // #pragma message("using gather-cuda11")
-        gather_CUDA11(in, nbyte_dump);
+        gather_CUDA11(in, nbyte_dump, stream);
 #elif CUDART_VERSION >= 10000
-        // #pragma message("using gather-cuda10")
-        gather_CUDA10(in, nbyte_dump);
+        gather_CUDA10(in, nbyte_dump, stream);
 #else
 #error CUDART_VERSION must be no less than 10.0!
 #endif
@@ -145,18 +138,16 @@ class CSR11 : public VirtualGatherScatter {
     void scatter() {}
     void gather() {}
 
-    void scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len)
+    void scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len, cudaStream_t stream = nullptr)
     {
         m = Reinterpret1DTo2D::get_square_size(out_len);
         decompress_set_nnz(nnz);
         extract(_pool);
 
 #if CUDART_VERSION >= 11020
-        // #pragma message("using scatter-cuda11")
-        scatter_CUDA11(out);
+        scatter_CUDA11(out, stream);
 #elif CUDART_VERSION >= 10000
-        // #pragma message("using scatter-cuda10")
-        scatter_CUDA10(out);
+        scatter_CUDA10(out, stream);
 #else
 #error CUDART_VERSION must be no less than 10.0!
 #endif

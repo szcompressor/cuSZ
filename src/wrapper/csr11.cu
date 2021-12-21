@@ -19,10 +19,6 @@
 
 #include "csr11.cuh"
 
-using handle_t = cusparseHandle_t;
-using stream_t = cudaStream_t;
-// using descr_t  = cusparseMatDescr_t;
-
 /********************************************************************************
  * compression use
  ********************************************************************************/
@@ -42,7 +38,7 @@ void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
 #if CUDART_VERSION >= 11020
 
 template <typename T>
-void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
+void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize, cudaStream_t stream)
 {
     cusparseHandle_t     handle = nullptr;
     cusparseSpMatDescr_t matB;  // sparse
@@ -53,6 +49,8 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
     auto d_dense = in_data;
 
     CHECK_CUSPARSE(cusparseCreate(&handle));
+
+    if (stream) CHECK_CUSPARSE(cusparseSetStream(handle, stream));
 
     auto num_rows = m;
     auto num_cols = m;
@@ -131,7 +129,7 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
 #elif CUDART_VERSION >= 10000
 
 template <typename T>
-void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
+void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize, cudaStream_t ext_stream)
 {
     cusparseHandle_t   handle       = nullptr;
     cudaStream_t       stream       = nullptr;
@@ -142,8 +140,17 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
     auto               n            = m;
     auto               lda          = m;
 
+    auto has_ext_stream = false;
+
+    if (ext_stream) {
+        has_ext_stream = true;
+        stream         = ext_stream;
+    }
+    else {
+        CHECK_CUDA(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));  // 1. create stream
+    }
+
     // clang-format off
-    CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream,    cudaStreamNonBlocking        )); // 1. create stream
     CHECK_CUSPARSE(cusparseCreate          ( &handle                                  )); // 2. create handle
     CHECK_CUSPARSE(cusparseSetStream       (  handle,    stream                       )); // 3. bind stream
     CHECK_CUSPARSE(cusparseCreateMatDescr  ( &mat_desc                                )); // 4. create mat_desc
@@ -177,7 +184,8 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
             handle, m, n, in_outlier, lda, &threshold, mat_desc, rowptr.template get<DEFAULT_LOC>(), &nnz, d_work));
 
         milliseconds += timer_step4->timer_end_get_elapsed_time();
-        CHECK_CUDA(cudaDeviceSynchronize());
+        // CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(cudaStreamSynchronize(stream));
         delete timer_step4;
     }
 
@@ -199,13 +207,15 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
             rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), d_work));
 
         milliseconds += timer_step5->timer_end_get_elapsed_time();
-        CHECK_CUDA(cudaDeviceSynchronize());
+        // CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(cudaStreamSynchronize(stream));
         delete timer_step5;
     }
 
     if (handle) cusparseDestroy(handle);
-    if (stream) cudaStreamDestroy(stream);
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
+
+    if ((not has_ext_stream) and stream) cudaStreamDestroy(stream);
 
     /********************************************************************************/
     dump_nbyte     = query_csr_bytelen();
@@ -259,7 +269,7 @@ void CSR11<T>::extract(uint8_t* _pool)
 #if CUDART_VERSION >= 11020
 
 template <typename T>
-void CSR11<T>::scatter_CUDA11(T* out_dn)
+void CSR11<T>::scatter_CUDA11(T* out_dn, cudaStream_t stream)
 {
     auto d_csr_offsets = rowptr.template get<DEFAULT_LOC>();
     auto d_csr_columns = colidx.template get<DEFAULT_LOC>();
@@ -280,6 +290,8 @@ void CSR11<T>::scatter_CUDA11(T* out_dn)
     auto d_dense = out_dn;
 
     CHECK_CUSPARSE(cusparseCreate(&handle));
+
+    if (stream) CHECK_CUSPARSE(cusparseSetStream(handle, stream));
 
     // Create sparse matrix A in CSR format
     CHECK_CUSPARSE(cusparseCreateCsr(
@@ -322,17 +334,25 @@ void CSR11<T>::scatter_CUDA11(T* out_dn)
 #elif CUDART_VERSION >= 10000
 
 template <typename T>
-void CSR11<T>::scatter_CUDA10(T* out_dn)
+void CSR11<T>::scatter_CUDA10(T* out_dn, cudaStream_t ext_stream)
 {
-    //     throw std::runtime_error("[decompress_scatter] not implemented");
-    cusparseHandle_t   handle   = nullptr;
+    cusparseHandle_t   handle   = nullptr;  // TODO move cusparse handle outside
     cudaStream_t       stream   = nullptr;
     cusparseMatDescr_t mat_desc = nullptr;
     auto               n        = m;
     auto               lda      = m;
 
+    auto has_external_stream = false;
+
+    if (ext_stream) {
+        has_external_stream = true;
+        stream              = ext_stream;
+    }
+    else {
+        CHECK_CUDA(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));  // 1. create stream
+    }
+
     // clang-format off
-    CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream,   cudaStreamNonBlocking        )); // 1. create stream
     CHECK_CUSPARSE(cusparseCreate          ( &handle                                 )); // 2. create handle
     CHECK_CUSPARSE(cusparseSetStream       (  handle,   stream                       )); // 3. bind stream
     CHECK_CUSPARSE(cusparseCreateMatDescr  ( &mat_desc                               )); // 4. create descr
@@ -349,13 +369,17 @@ void CSR11<T>::scatter_CUDA10(T* out_dn)
             colidx.template get<DEFAULT_LOC>(), out_dn, lda));
 
         milliseconds += timer_scatter->timer_end_get_elapsed_time();
-        CHECK_CUDA(cudaDeviceSynchronize());
+        // CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(cudaStreamSynchronize(stream));
         delete timer_scatter;
     }
 
+    // TODO move cusparse handle outside
     if (handle) cusparseDestroy(handle);
-    if (stream) cudaStreamDestroy(stream);
+
     if (mat_desc) cusparseDestroyMatDescr(mat_desc);
+
+    if ((not has_external_stream) and stream) cudaStreamDestroy(stream);
 }
 
 #else

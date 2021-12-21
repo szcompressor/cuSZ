@@ -30,16 +30,16 @@ class PredictorAbstraction {
     // helper functions
     virtual uint32_t get_workspace_nbyte() const = 0;
 
-    virtual uint32_t get_quant_len() const       = 0;
-    virtual uint32_t get_anchor_len() const      = 0;
-    virtual uint32_t get_outlier_len() const     = 0;
+    virtual uint32_t get_quant_len() const   = 0;
+    virtual uint32_t get_anchor_len() const  = 0;
+    virtual uint32_t get_outlier_len() const = 0;
 
     virtual float get_time_elapsed() const = 0;
 
     // "real" methods
-    virtual ~PredictorAbstraction()      = default;
-    virtual void construct(T*, T*, E*)   = 0;
-    virtual void reconstruct(T*, E*, T*) = 0;
+    virtual ~PredictorAbstraction()                    = default;
+    virtual void construct(T*, T*, E*, cudaStream_t)   = 0;
+    virtual void reconstruct(T*, E*, T*, cudaStream_t) = 0;
 };
 
 }  // namespace cusz

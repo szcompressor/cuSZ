@@ -260,17 +260,28 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
     book.set_len(this->dict_size).template alloc<kDEVICE>();
     revbook.set_len(Codec::get_revbook_nbyte(this->dict_size)).template alloc<kHOST_DEVICE>();
 
-    predictor->construct(this->original->dptr, nullptr, this->quant.dptr);
-    spreducer->gather(
-        this->original->dptr,                                          // in data
-        BINDING::template get_uncompressed_len(predictor, spreducer),  //
-        ext_rowptr.dptr,                                               // space 1
-        ext_colidx.dptr,                                               // space 2
-        ext_values.dptr,                                               // space 3
-        nnz,                                                           // out 1
-        sp_dump_nbyte                                                  // out 2
-    );
+    cudaStream_t stream_predictor;
+    cudaStreamCreate(&stream_predictor);
+    {
+        predictor->construct(this->original->dptr, nullptr, this->quant.dptr, stream_predictor);
+    }
+    cudaStreamDestroy(stream_predictor);
+
+    cudaStream_t stream_spreducer;
+    CHECK_CUDA(cudaStreamCreate(&stream_spreducer));
+    {
+        spreducer->gather(
+            this->original->dptr,                                          // in data
+            BINDING::template get_uncompressed_len(predictor, spreducer),  //
+            ext_rowptr.dptr,                                               // space 1
+            ext_colidx.dptr,                                               // space 2
+            ext_values.dptr,                                               // space 3
+            nnz,                                                           // out 1
+            sp_dump_nbyte,                                                 // out 2
+            stream_spreducer);
+    }
     spreducer->template consolidate<kDEVICE, kHOST>(sp_use.hptr);
+    if (stream_spreducer) cudaStreamDestroy(stream_spreducer);
 
     this->time.lossy    = predictor->get_time_elapsed();
     this->time.sparsity = spreducer->get_time_elapsed();
@@ -346,13 +357,24 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
         this->header->huffman_num_uints, this->header->dict_size,  //
         xhuff.in.dptr, xhuff.meta.dptr, xhuff.revbook.dptr, this->quant.dptr);
 
-    spreducer->scatter(
-        sp_use.dptr,                                                  //
-        this->ctx->nnz_outlier,                                       //
-        outlier,                                                      //
-        BINDING::template get_uncompressed_len(predictor, spreducer)  //
-    );
-    predictor->reconstruct(nullptr, this->quant.dptr, xdata);
+    cudaStream_t stream_spreducer;
+    CHECK_CUDA(cudaStreamCreate(&stream_spreducer));
+    {
+        spreducer->scatter(
+            sp_use.dptr,                                                   //
+            this->ctx->nnz_outlier,                                        //
+            outlier,                                                       //
+            BINDING::template get_uncompressed_len(predictor, spreducer),  //
+            stream_spreducer);
+    }
+    if (stream_spreducer) cudaStreamDestroy(stream_spreducer);
+
+    cudaStream_t stream_predictor;
+    CHECK_CUDA(cudaStreamCreate(&stream_predictor));
+    {
+        predictor->reconstruct(nullptr, this->quant.dptr, xdata, stream_predictor);
+    }
+    if (stream_predictor) cudaStreamDestroy(stream_predictor);
 
     return *this;
 }

@@ -52,10 +52,10 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     } on_off;
 
     template <bool DELAY_POSTQUANT>
-    void construct_proxy(T* in_data, T* out_anchor, E* out_errctrl);
+    void construct_proxy(T* in_data, T* out_anchor, E* out_errctrl, cudaStream_t = nullptr);
 
     template <bool DELAY_POSTQUANT>
-    void reconstruct_proxy(T* in_anchor, E* in_errctrl, T* out_xdata);
+    void reconstruct_proxy(T* in_anchor, E* in_errctrl, T* out_xdata, cudaStream_t = nullptr);
 
    public:
     // context free
@@ -72,9 +72,9 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     // methods
     void dryrun(T* in_out);
 
-    void construct(T* in_data, T* out_anchor, E* out_errctrl);
+    void construct(T* in_data, T* out_anchor, E* out_errctrl, cudaStream_t = nullptr);
 
-    void reconstruct(T* in_anchor, E* in_errctrl, T* out_xdata);
+    void reconstruct(T* in_anchor, E* in_errctrl, T* out_xdata, cudaStream_t = nullptr);
 };
 
 }  // namespace cusz

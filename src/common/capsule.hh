@@ -241,6 +241,18 @@ class Capsule {
         return *this;
     }
 
+    Capsule& host2device_async(cudaStream_t stream)
+    {
+        cudaMemcpyAsync(dptr, hptr, nbyte(), cudaMemcpyHostToDevice, stream);
+        return *this;
+    }
+
+    Capsule& device2host_async(cudaStream_t stream)
+    {
+        cudaMemcpyAsync(hptr, dptr, nbyte(), cudaMemcpyDeviceToHost, stream);
+        return *this;
+    }
+
     /**
      * @brief
      *
