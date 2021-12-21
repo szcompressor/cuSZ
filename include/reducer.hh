@@ -21,13 +21,13 @@ class VirtualGatherScatter {
     virtual void  scatter()                = 0;
 };
 
-class OneCallTwoPassCodec {
+class VariableRate {
    public:
     virtual float get_time_elapsed() const = 0;
-    virtual void  encode_pass1()           = 0;
-    virtual void  encode_pass2()           = 0;
-    virtual void  encode()                 = 0;
-    virtual void  decode()                 = 0;
+
+   public:
+    virtual size_t get_workspace_nbyte(size_t based_inlen) const  = 0;
+    virtual size_t get_max_output_nbyte(size_t based_inlen) const = 0;
 };
 
 }  // namespace cusz

@@ -21,12 +21,12 @@ BASE_COMPRESSOR_TYPE BASE_COMPRESSOR& BASE_COMPRESSOR::prescan()
 {
     // if (ctx->mode == "r2r")
     //     auto result = Analyzer::get_maxmin_rng<T, ExecutionPolicy::cuda_device, AnalyzerMethod::thrust>(
-    //         in_data->dptr, in_data->len);
+    //         original->dptr, original->len);
     // if (ctx->verbose) LOGGING(LOG_DBG, "time scanning:", result.seconds, "sec");
     // if (ctx->mode == "r2r") ctx->eb *= result.rng;
 
     if (ctx->mode == "r2r") {
-        auto rng = in_data->prescan().get_rng();
+        auto rng = original->prescan().get_rng();
         ctx->eb *= rng;
         // LOGGING(LOG_DBG, "data range:", rng);
     }
@@ -41,7 +41,7 @@ BASE_COMPRESSOR_TYPE BASE_COMPRESSOR& BASE_COMPRESSOR::prescan()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_compress_time()
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__report_compress_time()
 {
     if (not ctx->report.time) return *this;
 
@@ -64,7 +64,7 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_compress_time()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_decompress_time()
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__report_decompress_time()
 {
     if (not ctx->report.time) return *this;
 
@@ -82,15 +82,31 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_report_decompress_time()
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_compare_with_origin(T* xdata)
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__compare_with_original(T* xdata, bool use_gpu)
 {
     if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
         LOGGING(LOG_INFO, "compare to the original");
 
         auto odata = io::read_binary_to_new_array<T>(ctx->fnames.origin_cmp, ctx->data_len);
 
-        analysis::verify_data(&ctx->stat, xdata, odata, ctx->data_len);
-        analysis::print_data_quality_metrics<T>(&ctx->stat, in_dump->nbyte(), false);
+        if (use_gpu) {
+            // TODO redundant memory use
+            T *_xdata, *_odata;
+            cudaMalloc(&_xdata, sizeof(T) * ctx->data_len);
+            cudaMalloc(&_odata, sizeof(T) * ctx->data_len);
+
+            cudaMemcpy(_xdata, xdata, sizeof(T) * ctx->data_len, cudaMemcpyHostToDevice);
+            cudaMemcpy(_odata, odata, sizeof(T) * ctx->data_len, cudaMemcpyHostToDevice);
+
+            verify_data_GPU<T>(&ctx->stat, _xdata, _odata, ctx->data_len);
+
+            cudaFree(_xdata);
+            cudaFree(_odata);
+        }
+        else
+            analysis::verify_data(&ctx->stat, xdata, odata, ctx->data_len);
+
+        analysis::print_data_quality_metrics<T>(&ctx->stat, compressed->nbyte(), use_gpu);
 
         delete[] odata;
     }
@@ -99,7 +115,7 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::try_compare_with_origin(T* xdata)
 }
 
 BASE_COMPRESSOR_TYPE
-BASE_COMPRESSOR& BASE_COMPRESSOR::try_write2disk(T* host_xdata)
+BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__write2disk(T* host_xdata)
 {
     if (ctx->to_skip.write2disk)
         LOGGING(LOG_INFO, "output: skipped");

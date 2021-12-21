@@ -28,7 +28,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2021-10-05.1";
+const char* VERSION_TEXT  = "2021-12-04.1";
 const int   VERSION       = 2021100501;
 const int   COMPATIBILITY = 0;
 
@@ -96,7 +96,7 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->quant_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->huffman_chunk             = StrHelper::str2int(kv.second);
+            ctx->huffman_chunksize         = StrHelper::str2int(kv.second);
             ctx->on_off.autotune_huffchunk = false;
         }
         else if (kv.first == "demo") {
@@ -106,6 +106,15 @@ void set_config(cuszCTX* ctx, const char* in_str)
         }
         else if (kv.first == "predictor") {
             ctx->str_predictor = string(kv.second);
+        }
+        else if (kv.first == "releaseinput" and (kv.second == "on" or kv.second == "ON")) {
+            ctx->on_off.release_input = true;
+        }
+        else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
+            ctx->nz_density = StrHelper::str2fp(kv.second);
+        }
+        else if (kv.first == "gpuverify" and (kv.second == "on" or kv.second == "ON")) {
+            ctx->on_off.use_gpu_verify = true;
         }
 
         // when to enable anchor

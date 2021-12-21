@@ -18,6 +18,7 @@
 #include "base_cusz.cuh"
 #include "binding.hh"
 #include "wrapper.hh"
+#include "wrapper/spgs.cuh"
 
 template <class BINDING>
 class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
@@ -33,6 +34,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     using H    = typename Codec::Encoded;
 
    private:
+   private:
     // --------------------
     // not in base class
     // --------------------
@@ -47,6 +49,14 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     Capsule<int> ext_colidx;
     Capsule<T>   ext_values;
 
+    H* huff_workspace;  // compress
+
+    struct {
+        Capsule<H>      in;
+        Capsule<size_t> meta;
+        Capsule<BYTE>   revbook;
+    } xhuff;
+
     Predictor* predictor;
     SpReducer* spreducer;
     Codec*     codec;
@@ -55,21 +65,20 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     uint32_t sp_dump_nbyte;
 
    private:
-    uint32_t tune_deflate_chunksize(size_t len);
     // TODO better move to base compressor
     DefaultPathCompressor& analyze_compressibility();
     DefaultPathCompressor& internal_eval_try_export_book();
     DefaultPathCompressor& internal_eval_try_export_quant();
     DefaultPathCompressor& try_skip_huffman();
-    DefaultPathCompressor& get_freq_codebook();
-    DefaultPathCompressor& huffman_encode();
+    // DefaultPathCompressor& get_freq_codebook();
+    DefaultPathCompressor& old_huffman_encode();
 
    public:
-    DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data);
+    DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data, uint3 xyz, int dict_size);
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump);
     ~DefaultPathCompressor();
 
-    DefaultPathCompressor& compress();
+    DefaultPathCompressor& compress(bool optional_release_input = false);
 
     template <cusz::LOC SRC, cusz::LOC DST>
     DefaultPathCompressor& consolidate(BYTE** dump);
@@ -86,14 +95,16 @@ struct DefaultPath {
     using DefaultBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
-        cusz::HuffmanWork<ERRCTRL, HuffTrait<4>::type>>;
+        // cusz::spGS<DATA>,  //  not woking for CUDA 10.2 on ppc
+        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type>>;
 
     using DefaultCompressor = class DefaultPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
-        cusz::HuffmanWork<ERRCTRL, HuffTrait<8>::type>>;
+        // cusz::spGS<DATA>,  //  not woking for CUDA 10.2 ppc
+        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type>>;
 
     using FallbackCompressor = class DefaultPathCompressor<FallbackBinding>;
 };

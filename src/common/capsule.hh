@@ -20,10 +20,12 @@
 #define CONSTEXPR
 #endif
 
+#ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <driver_types.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
+#endif
 
 #include <stdexcept>
 #include <string>
@@ -135,7 +137,7 @@ class Capsule {
     }
 
     template <cusz::LOC LOC>
-    Capsule& from_existing_on(T* in)
+    Capsule& shallow_copy(T* in)
     {
         raise_error_if_misuse_unified<LOC>();
         hostdevice_not_allowed<LOC>();
@@ -147,7 +149,7 @@ class Capsule {
         else if (LOC == cusz::LOC::UNIFIED)
             uniptr = in;
         else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_existing_on"));
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("shallow_copy"));
 
         return *this;
     }
@@ -177,13 +179,13 @@ class Capsule {
             }
         }
         else if (DST == cusz::LOC::DEVICE) {
-            throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "to DEVICE not implemented"));
+            throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "to DEVICE not implemented"));
             // (VIA == cusz::LOC::HOST)
             // (VIA == cusz::LOC::NONE)
         }
         else if (DST == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
+                throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "uniptr not set"));
             }
             io::read_binary_to_array<T>(fname, uniptr, len);
         }

@@ -62,16 +62,16 @@ struct PredictorReducerCodecBinding {
             "Codec::Encoded must be unsigned integer.");
     }
 
-    template <class Context>
-    static size_t get_spreducer_input_len(Context* ctx)
+    template <class Stage1, class Stage2>
+    static size_t get_uncompressed_len(Stage1* s, Stage2*)
     {
-        return ctx->data_len;
-    }
+        // !! The compiler does not support/generate constexpr properly
+        // !! just put combinations
+        if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, SpReducer>::value)
+            return s->get_outlier_len();
 
-    template <class Context>
-    static size_t get_encoder_input_len(Context* ctx)
-    {
-        return ctx->quant_len;
+        if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, Codec>::value)  //
+            return s->get_quant_len();
     }
 };
 

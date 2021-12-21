@@ -30,31 +30,6 @@ using stream_t = cudaStream_t;
 namespace cusz {
 
 template <typename T>
-CSR11<T>::CSR11(unsigned int _len)
-{
-    m = Reinterpret1DTo2D::get_square_size(_len);
-}
-
-template <typename T>
-CSR11<T>::CSR11(unsigned int _len, int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
-{
-    m = Reinterpret1DTo2D::get_square_size(_len);
-    rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
-    colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
-    values.template from_existing_on<DEFAULT_LOC>(ext_values);
-}
-
-template <typename T>
-CSR11<T>& CSR11<T>::compress_set_space(int*& ext_rowptr, int*& ext_colidx, T*& ext_values)
-{
-    rowptr.template from_existing_on<DEFAULT_LOC>(ext_rowptr);
-    colidx.template from_existing_on<DEFAULT_LOC>(ext_colidx);
-    values.template from_existing_on<DEFAULT_LOC>(ext_values);
-
-    return *this;
-}
-
-template <typename T>
 void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
 {
     this->nnz    = nnz;
@@ -63,6 +38,8 @@ void CSR11<T>::reconfigure_with_precise_nnz(int nnz)
     nbyte.values = sizeof(T) * nnz;
     nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
+
+#if CUDART_VERSION >= 11020
 
 template <typename T>
 void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
@@ -151,6 +128,95 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize)
     _dump_poolsize = dump_nbyte;
 }
 
+#elif CUDART_VERSION >= 10000
+
+template <typename T>
+void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize)
+{
+    cusparseHandle_t   handle       = nullptr;
+    cudaStream_t       stream       = nullptr;
+    cusparseMatDescr_t mat_desc     = nullptr;
+    size_t             lworkInBytes = 0;
+    char*              d_work       = nullptr;
+    float              threshold    = 0;
+    auto               n            = m;
+    auto               lda          = m;
+
+    // clang-format off
+    CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream,    cudaStreamNonBlocking        )); // 1. create stream
+    CHECK_CUSPARSE(cusparseCreate          ( &handle                                  )); // 2. create handle
+    CHECK_CUSPARSE(cusparseSetStream       (  handle,    stream                       )); // 3. bind stream
+    CHECK_CUSPARSE(cusparseCreateMatDescr  ( &mat_desc                                )); // 4. create mat_desc
+    CHECK_CUSPARSE(cusparseSetMatIndexBase (  mat_desc,  CUSPARSE_INDEX_BASE_ZERO     )); // zero based
+    CHECK_CUSPARSE(cusparseSetMatType      (  mat_desc,  CUSPARSE_MATRIX_TYPE_GENERAL )); // type
+    // clang-format on
+
+    {
+        auto timer_step3 = new cuda_timer_t;
+        timer_step3->timer_start();
+
+        CHECK_CUSPARSE(cusparseSpruneDense2csr_bufferSizeExt(  //
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
+            rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), &lworkInBytes));
+
+        milliseconds += timer_step3->timer_end_get_elapsed_time();
+        delete timer_step3;
+    }
+
+    if (nullptr != d_work) cudaFree(d_work);
+    CHECK_CUDA(cudaMalloc((void**)&d_work, lworkInBytes));  // TODO where to release d_work?
+
+    auto nnz = 0;
+
+    /* step 4: compute rowptr and nnz */
+    {
+        auto timer_step4 = new cuda_timer_t;
+        timer_step4->timer_start();
+
+        CHECK_CUSPARSE(cusparseSpruneDense2csrNnz(  //
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, rowptr.template get<DEFAULT_LOC>(), &nnz, d_work));
+
+        milliseconds += timer_step4->timer_end_get_elapsed_time();
+        CHECK_CUDA(cudaDeviceSynchronize());
+        delete timer_step4;
+    }
+
+    reconfigure_with_precise_nnz(nnz);
+
+    if (nnz == 0) {
+        std::cout << "nnz == 0, exiting gather.\n";
+        // return *this;
+        return;
+    }
+
+    /* step 5: compute col_ind and values */
+    {
+        auto timer_step5 = new cuda_timer_t;
+        timer_step5->timer_start();
+
+        CHECK_CUSPARSE(cusparseSpruneDense2csr(  //
+            handle, m, n, in_outlier, lda, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
+            rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), d_work));
+
+        milliseconds += timer_step5->timer_end_get_elapsed_time();
+        CHECK_CUDA(cudaDeviceSynchronize());
+        delete timer_step5;
+    }
+
+    if (handle) cusparseDestroy(handle);
+    if (stream) cudaStreamDestroy(stream);
+    if (mat_desc) cusparseDestroyMatDescr(mat_desc);
+
+    /********************************************************************************/
+    dump_nbyte     = query_csr_bytelen();
+    _dump_poolsize = dump_nbyte;
+    /********************************************************************************/
+}
+
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
+
 template <typename T>
 template <cusz::LOC FROM, cusz::LOC TO>
 CSR11<T>& CSR11<T>::consolidate(uint8_t* dst)
@@ -162,22 +228,6 @@ CSR11<T>& CSR11<T>::consolidate(uint8_t* dst)
     cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, values.template get<DEFAULT_LOC>(), nbyte.values, direction);
     // clang-format on
     return *this;
-}
-
-/********************************************************************************
- * decompression use
- ********************************************************************************/
-
-template <typename T>
-CSR11<T>::CSR11(unsigned int _len, unsigned int _nnz)
-{  //
-    this->m   = Reinterpret1DTo2D::get_square_size(_len);
-    this->nnz = _nnz;
-
-    nbyte.rowptr = sizeof(int) * (this->m + 1);
-    nbyte.colidx = sizeof(int) * this->nnz;
-    nbyte.values = sizeof(T) * this->nnz;
-    nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
 }
 
 template <typename T>
@@ -205,6 +255,8 @@ void CSR11<T>::extract(uint8_t* _pool)
     colidx.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.colidx);
     values.template get<DEFAULT_LOC>() = reinterpret_cast<T*>(pool_ptr + offset.values);
 };
+
+#if CUDART_VERSION >= 11020
 
 template <typename T>
 void CSR11<T>::scatter_CUDA11(T* out_dn)
@@ -266,6 +318,49 @@ void CSR11<T>::scatter_CUDA11(T* out_dn)
     CHECK_CUSPARSE(cusparseDestroyDnMat(matB));
     CHECK_CUSPARSE(cusparseDestroy(handle));
 }
+
+#elif CUDART_VERSION >= 10000
+
+template <typename T>
+void CSR11<T>::scatter_CUDA10(T* out_dn)
+{
+    //     throw std::runtime_error("[decompress_scatter] not implemented");
+    cusparseHandle_t   handle   = nullptr;
+    cudaStream_t       stream   = nullptr;
+    cusparseMatDescr_t mat_desc = nullptr;
+    auto               n        = m;
+    auto               lda      = m;
+
+    // clang-format off
+    CHECK_CUDA(cudaStreamCreateWithFlags   ( &stream,   cudaStreamNonBlocking        )); // 1. create stream
+    CHECK_CUSPARSE(cusparseCreate          ( &handle                                 )); // 2. create handle
+    CHECK_CUSPARSE(cusparseSetStream       (  handle,   stream                       )); // 3. bind stream
+    CHECK_CUSPARSE(cusparseCreateMatDescr  ( &mat_desc                               )); // 4. create descr
+    CHECK_CUSPARSE(cusparseSetMatIndexBase (  mat_desc, CUSPARSE_INDEX_BASE_ZERO     )); // zero based
+    CHECK_CUSPARSE(cusparseSetMatType      (  mat_desc, CUSPARSE_MATRIX_TYPE_GENERAL )); // type
+    // clang-format on
+
+    {
+        auto timer_scatter = new cuda_timer_t;
+        timer_scatter->timer_start();
+
+        CHECK_CUSPARSE(cusparseScsr2dense(
+            handle, m, n, mat_desc, values.template get<DEFAULT_LOC>(), rowptr.template get<DEFAULT_LOC>(),
+            colidx.template get<DEFAULT_LOC>(), out_dn, lda));
+
+        milliseconds += timer_scatter->timer_end_get_elapsed_time();
+        CHECK_CUDA(cudaDeviceSynchronize());
+        delete timer_scatter;
+    }
+
+    if (handle) cusparseDestroy(handle);
+    if (stream) cudaStreamDestroy(stream);
+    if (mat_desc) cusparseDestroyMatDescr(mat_desc);
+}
+
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
 
 //
 }  // namespace cusz

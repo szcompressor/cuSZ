@@ -1,0 +1,110 @@
+__author__ = "Jiannan Tian"
+__copyright__ = "(C) 2021 by Washington State University, Argonne National Laboratory"
+__license__ = "BSD 3-Clause"
+__version__ = "0.3"
+__date__ = "2021-12-11"
+
+import shutil
+import re
+import datetime
+import subprocess as sp
+from os.path import exists as fileexists
+
+cmd_exists = lambda name: shutil.which(name) is not None
+msg = ['']
+
+### detect environment
+
+machineinfo = [
+    (  #
+        "/proc/cpuinfo",
+        True,
+        "CPU model",
+        "cat /proc/cpuinfo | grep 'model name' | head -n 1 | awk -F': ' '{print $NF}'"  #
+    ),
+    (  #
+        "/proc/cpuinfo",
+        True,
+        "byte order",
+        "lscpu | grep Endian | awk -F'  ' '{print $NF}'"  #
+    ),
+]
+
+for el, is_sysfile, alias, cmd_arg in machineinfo:
+    if is_sysfile:
+        if fileexists(el):
+            s = sp.check_output(cmd_arg, shell=True).decode("utf8")
+            msg.append("- {}:\t".format(alias) + s)
+        else:
+            msg.append("- !! could not find {}.".format(alias))
+
+msg.append("\n")
+
+### GPU information
+
+gpu_arch = "nvidia-smi --query | grep -e Architecture -e architecture | awk '{print $NF}'"
+gpu_model = "nvidia-smi --format=csv,noheader --query-gpu=gpu_name,memory.total"
+
+str_gpu_arch = sp.check_output(gpu_arch, shell=True).decode("utf8")
+str_gpu_model = sp.check_output(gpu_model,
+                                shell=True).decode("utf8").rstrip('\n')
+
+msg.append(str_gpu_model + ", " + str_gpu_arch + "\n")
+
+### detect environmental variables
+
+env_list = [("LD_LIBRARY_PATH", "echo $LD_LIBRARY_PATH"),
+            ("PATH", "echo $PATH")]
+
+for alias, cmd_arg in env_list:
+    s = sp.check_output(cmd_arg, shell=True).decode("utf8")
+    s_list = s.split(":")
+    tmp = []
+    for el in s_list:
+        if "cuda" in el:
+            tmp.append(el)
+    msg.append("- {}:\t".format(alias) + ":".join(tmp))
+
+msg.append("\n\n")
+
+### detect toolchain versions
+
+cmd_list = [
+    ("cmake", "cmake", "cmake --version | grep version"),
+    ("nvcc", "nvcc", "nvcc --version | grep release"),
+    ("nvidia-smi", "driver", "nvidia-smi | grep Driver"),
+    ("gcc", "gcc", "gcc --version | grep gcc"),
+    ("clang", "clang", "clang --version | grep version"),
+]
+
+for (cmd, alias, cmd_arg) in cmd_list:
+    # s = ">>>> {}\n".format(cmd)
+    if cmd_exists(cmd):
+        s = sp.check_output(cmd_arg, shell=True).decode('utf8')
+        s = s.replace("\n\n", "\n").replace("|", "").strip(" ")
+
+        w = sp.check_output("which {}".format(cmd), shell=True).decode('utf8')
+
+        msg.append("- found {}:\n\t{}\t{}".format(alias, s, w))
+    else:
+        msg.append("- !! could not find {}.".format(alias))
+
+### output
+
+
+def anonymize(msg_as_list):
+    for i, m in enumerate(msg_as_list):
+        msg_as_list[i] = re.sub(r"(/home/.*?)/", r'<some user>/', m)
+
+
+anonymize(msg)
+
+t = datetime.datetime.now()
+fname = "{}{}{}".format(t.year, t.month, t.day)
+# ostr = "{}\n\n".format(t) + "".join(msg)
+ostr = "".join(msg)
+
+print(ostr)
+
+with open("cusz-checkenv-{}.txt".format(fname), 'w') as fo:
+    fo.write(ostr)

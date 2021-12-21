@@ -36,6 +36,9 @@ splinestack: ex_spline3_stack.cu ../src/sp_path.cuh ex_common.cuh interp_spline3
 		-lcusparse \
 		-o splinestack
 
+dummylorenzo:
+	nvcc dummy_cxlorenzo.cu -DnoCUSPARSE -o run.dummy_cxlorenzo
+
 
 query: test_query.cc ../src/query.hh
 	nvcc  -x c++ -I../src/ -DMAIN test_query.cc -o query
