@@ -65,23 +65,27 @@ void verify_data(stat_t* stat, T* xdata, T* odata, size_t len)
     double std_xdata = sqrt(sum_var_xdata / len);
     double ee        = sum_corr / len;
 
-    stat->len               = len;
-    stat->max_odata         = max_odata;
-    stat->min_odata         = min_odata;
-    stat->rng_odata         = max_odata - min_odata;
-    stat->std_odata         = std_odata;
-    stat->max_xdata         = max_xdata;
-    stat->min_xdata         = min_xdata;
-    stat->rng_xdata         = max_xdata - min_xdata;
-    stat->std_xdata         = std_xdata;
-    stat->coeff             = ee / std_odata / std_xdata;
+    stat->len = len;
+
+    stat->max_odata = max_odata;
+    stat->min_odata = min_odata;
+    stat->rng_odata = max_odata - min_odata;
+    stat->std_odata = std_odata;
+
+    stat->max_xdata = max_xdata;
+    stat->min_xdata = min_xdata;
+    stat->rng_xdata = max_xdata - min_xdata;
+    stat->std_xdata = std_xdata;
+
     stat->max_abserr_index  = max_abserr_index;
     stat->max_abserr        = max_abserr;
     stat->max_abserr_vs_rng = max_abserr / stat->rng_odata;
     stat->max_pwrrel_abserr = max_pwrrel_abserr;
-    stat->MSE               = sum_err2 / len;
-    stat->NRMSE             = sqrt(stat->MSE) / stat->rng_odata;
-    stat->PSNR              = 20 * log10(stat->rng_odata) - 10 * log10(stat->MSE);
+
+    stat->coeff = ee / std_odata / std_xdata;
+    stat->MSE   = sum_err2 / len;
+    stat->NRMSE = sqrt(stat->MSE) / stat->rng_odata;
+    stat->PSNR  = 20 * log10(stat->rng_odata) - 10 * log10(stat->MSE);
 }
 
 template <typename Data>

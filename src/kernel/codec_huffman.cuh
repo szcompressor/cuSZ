@@ -133,6 +133,48 @@ __global__ void cusz::EncodeFixedLen(Input* data, Huff* huff, size_t len, Huff* 
     __syncthreads();
 }
 
+// TODO change to lambda
+// __host__ __device__
+
+struct __helper {
+    __device__ static unsigned int local_tid_1() { return threadIdx.x; }
+    __device__ static unsigned int global_tid_1() { return blockIdx.x * blockDim.x + threadIdx.x; }
+    __device__ static unsigned int block_stride_1() { return blockDim.x; }
+    __device__ static unsigned int grid_stride_1() { return blockDim.x * gridDim.x; }
+    template <int SEQ>
+    static unsigned int global_tid()
+    {
+        return blockIdx.x * blockDim.x * SEQ + threadIdx.x;
+    }
+    template <int SEQ>
+    static unsigned int grid_stride()
+    {
+        return blockDim.x * gridDim.x * SEQ;
+    }
+};
+
+namespace cusz {
+template <typename Input, typename Huff>
+__global__ void encode_fixedlen_gridstride(Input* data, Huff* huff, size_t data_len, Huff* codebook, int codebook_len)
+{
+    __shared__ Huff shmem_cb[1024];
+
+    // load from global memory
+    for (auto idx = __helper::local_tid_1();  //
+         idx < codebook_len;                  //
+         idx += __helper::block_stride_1())
+        shmem_cb[idx] = codebook[idx];
+
+    __syncthreads();
+
+    for (auto idx = __helper::global_tid_1();  //
+         idx < data_len;                       //
+         idx += __helper::grid_stride_1()      //
+    )
+        huff[idx] = shmem_cb[data[idx]];
+}
+}  // namespace cusz
+
 template <typename Input, typename Huff, int SEQ>
 __global__ void cusz::encode_fixedlen_space_cub(Input* data, Huff* huff, size_t len, Huff* codebook, int offset)
 {

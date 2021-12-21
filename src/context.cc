@@ -28,7 +28,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2021-10-05.1";
+const char* VERSION_TEXT  = "2021-12-04.1";
 const int   VERSION       = 2021100501;
 const int   COMPATIBILITY = 0;
 
@@ -90,13 +90,13 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->radius    = ctx->dict_size / 2;
         }
         else if (kv.first == "huffbyte") {
-            ctx->huff_nbyte = StrHelper::str2int(kv.second);
+            ctx->huff_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "quantbyte") {
-            ctx->quant_nbyte = StrHelper::str2int(kv.second);
+            ctx->quant_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->huffman_chunk             = StrHelper::str2int(kv.second);
+            ctx->huffman_chunksize         = StrHelper::str2int(kv.second);
             ctx->on_off.autotune_huffchunk = false;
         }
         else if (kv.first == "demo") {
@@ -105,11 +105,20 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->load_demo_sizes();
         }
         else if (kv.first == "predictor") {
-            ctx->predictor = string(kv.second);
+            ctx->str_predictor = string(kv.second);
+        }
+        else if (kv.first == "releaseinput" and (kv.second == "on" or kv.second == "ON")) {
+            ctx->on_off.release_input = true;
+        }
+        else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
+            ctx->nz_density = StrHelper::str2fp(kv.second);
+        }
+        else if (kv.first == "gpuverify" and (kv.second == "on" or kv.second == "ON")) {
+            ctx->on_off.use_gpu_verify = true;
         }
 
         // when to enable anchor
-        if (ctx->predictor == "spline3") ctx->on_off.use_anchor = true;
+        if (ctx->str_predictor == "spline3") ctx->on_off.use_anchor = true;
         if ((kv.first == "anchor") and  //
             (string(kv.second) == "on" or string(kv.second) == "ON"))
             ctx->on_off.use_anchor = true;
@@ -167,9 +176,9 @@ void cuszCTX::check_args_when_cli()
         }
     }
 
-    if (quant_nbyte == 1)
+    if (quant_bytewidth == 1)
         assert(dict_size <= 256);
-    else if (quant_nbyte == 2)
+    else if (quant_bytewidth == 2)
         assert(dict_size <= 65536);
 
     if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
@@ -335,7 +344,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     break;
                 case 'p':
                 tag_predictor:
-                    if (i + 1 <= argc) { predictor = string(argv[++i]); }
+                    if (i + 1 <= argc) { str_predictor = string(argv[++i]); }
                 // alternative output
                 case 'o':
                 tag_x_out:
@@ -498,9 +507,18 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
 
         // compress-mandatory
         if (k == "dtype" and ConfigHelper::check_dtype(v, false)) this->dtype = v;
-        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) this->predictor = v;
-        if (k == "codec" and ConfigHelper::check_codec(v, true)) this->codec = v;          // TODO
-        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) this->spreducer = v;  // TODO
+        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) {
+            this->str_predictor = v;
+            this->predictor     = ConfigHelper::predictor_lookup(v);
+        }
+        if (k == "codec" and ConfigHelper::check_codec(v, true)) {
+            this->str_codec = v;  // TODO
+            this->codec     = ConfigHelper::codec_lookup(v);
+        }
+        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) {
+            this->str_spreducer = v;  // TODO
+            this->spreducer     = ConfigHelper::spreducer_lookup(v);
+        }
         if (k == "errorbound" or k == "eb") eb = std::strtod(v.c_str(), &end);
         if (k == "mode" and ConfigHelper::check_cuszmode(v, true)) this->mode = v;
         if (k == "size") {

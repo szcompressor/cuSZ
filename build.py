@@ -81,6 +81,14 @@ if __name__ == "__main__":
     cmake_cmd = ""
     target, build_type = "", "release"
 
+
+    if argc == 2:  # purge
+        purge_cmd = "rm -fr Release Debug RelWithDebInfo"
+        if argv[1] == "purge":
+            print("purge old builds...")
+            os.system(purge_cmd)
+            exit(0)
+
     if argc == 2:  # modify target
         target = argv[1]
 

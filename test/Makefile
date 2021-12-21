@@ -1,3 +1,6 @@
+dummylorenzo:
+	nvcc dummy_cxlorenzo.cu -DnoCUSPARSE -o run.dummy_cxlorenzo
+
 spline: ex_spline.cu ../src/utils/verify.hh ../src/kernel/spline.h ../src/utils/io.hh
 	nvcc ex_spline.cu -std=c++14 --extended-lambda -o spline
 

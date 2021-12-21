@@ -20,6 +20,7 @@
 #include <string>
 
 #include "common/configs.hh"
+// #include "common/definition.hh"
 #include "common/types.hh"
 #include "utils/format.hh"
 
@@ -38,7 +39,7 @@ class cuszCTX {
     struct { bool binning{false}, logtransform{false}, prescan{false}; } preprocess;
     struct { bool gpu_nvcomp_cascade{false}, cpu_gzip{false}; } postcompress;
 
-    struct { bool use_demo{false}, use_anchor{false}, autotune_huffchunk{true}; } on_off;
+    struct { bool use_demo{false}, use_anchor{false}, autotune_huffchunk{true}, release_input{false}, use_gpu_verify{false}; } on_off;
     struct { bool write2disk{false}, huffman{false}; } to_skip;
     struct { bool book{false}, quant{false}; } export_raw;
     struct { bool quality{true}, time{false}, cr{false}, compressibility{false}, dataseg{false}; } report;
@@ -46,6 +47,9 @@ class cuszCTX {
     // filenames
     struct { string path2file, origin_cmp, path_basename, basename, compress_output; } fnames;
     // clang-format on
+
+    // sparsity related: init_nnz when setting up SpReducer
+    float nz_density = SparseMethodSetup::default_density;
 
     bool verbose{false};
 
@@ -56,18 +60,23 @@ class cuszCTX {
     string opath;
 
     string demo_dataset;
-    string dtype     = ConfigHelper::get_default_dtype();      // "f32"
-    string mode      = ConfigHelper::get_default_cuszmode();   // "r2r"
-    string predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
-    string codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
-    string spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
+    string dtype = ConfigHelper::get_default_dtype();     // "f32"
+    string mode  = ConfigHelper::get_default_cuszmode();  // "r2r"
 
-    uint32_t quant_nbyte{2}, huff_nbyte{4};
+    string str_predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
+    string str_codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
+    string str_spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
+
+    uint32_t predictor = cusz::COMPONENTS::PREDICTOR::LORENZO;
+    uint32_t codec     = cusz::COMPONENTS::CODEC::HUFFMAN_COARSE;
+    uint32_t spreducer = cusz::COMPONENTS::SPREDUCER::CSR11;
+
+    uint32_t quant_bytewidth{2}, huff_bytewidth{4};
 
     int nnz_outlier;
 
     size_t huffman_num_uints, huffman_num_bits;
-    int    huffman_chunk{512}, nchunk{-1};
+    int    huffman_chunksize{512}, nchunk{-1};
 
     size_t       data_len{1}, quant_len{1}, anchor_len{1};
     unsigned int x, y, z, w;

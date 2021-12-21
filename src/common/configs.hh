@@ -22,6 +22,14 @@
 #include <unordered_map>
 #include <vector>
 
+#include "definition.hh"
+
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
+
 struct Reinterpret1DTo2D {
     static uint32_t get_square_size(uint32_t len)
     {  //
@@ -29,21 +37,39 @@ struct Reinterpret1DTo2D {
     }
 };
 
-// sparsity rate is less that 5%
-struct SparseMethodSetup {
-    static const int factor = 20;
-
-    template <typename T, typename M = int>
-    static uint32_t get_init_csr_nbyte(uint32_t len)
+struct Align {
+    template <cusz::ALIGNDATA ad = cusz::ALIGNDATA::NONE>
+    static size_t get_aligned_datalen(size_t len)
     {
-        auto m        = Reinterpret1DTo2D::get_square_size(len);
-        auto init_nnz = len / factor;
-        auto nbyte    = sizeof(M) * (m + 1) + sizeof(M) * init_nnz + sizeof(T) * init_nnz;
-        return nbyte;
+        if CONSTEXPR (ad == cusz::ALIGNDATA::NONE) return len;
+        if CONSTEXPR (ad == cusz::ALIGNDATA::SQUARE_MATRIX) {
+            auto m = Reinterpret1DTo2D::get_square_size(len);
+            return m * m;
+        }
     }
 
+    static const int DEFAULT_ALIGN_NBYTE = 128;
+
+    template <int NUM>
+    static inline bool is_aligned_at(const void* ptr)
+    {  //
+        return reinterpret_cast<uintptr_t>(ptr) % NUM == 0;
+    };
+
+    template <typename T, int NUM = DEFAULT_ALIGN_NBYTE>
+    static size_t get_aligned_nbyte(size_t len)
+    {
+        return ((sizeof(T) * len - 1) / NUM + 1) * NUM;
+    }
+};
+
+// sparsity rate is less that 5%
+struct SparseMethodSetup {
+    static constexpr float default_density  = 0.05;                 // ratio of nonzeros (R_nz)
+    static constexpr float default_sparsity = 1 - default_density;  // ratio of zeros, 1 - R_nz
+
     template <typename T, typename M = int>
-    static uint32_t get_exact_csr_nbyte(uint32_t len, uint32_t nnz)
+    static uint32_t get_csr_nbyte(uint32_t len, uint32_t nnz)
     {
         auto m     = Reinterpret1DTo2D::get_square_size(len);
         auto nbyte = sizeof(M) * (m + 1) + sizeof(M) * nnz + sizeof(T) * nnz;
@@ -52,12 +78,13 @@ struct SparseMethodSetup {
 };
 
 struct HuffmanHelper {
-    template <typename SYM, typename BOOK>
-    static uint32_t get_revbook_nbyte(int dict_size)
-    {
-        constexpr auto TYPE_BITCOUNT = sizeof(BOOK) * 8;
-        return sizeof(BOOK) * (2 * TYPE_BITCOUNT) + sizeof(SYM) * dict_size;
-    }
+    // deprecated
+    // template <typename SYM, typename BOOK>
+    // static uint32_t get_revbook_nbyte(int dict_size)
+    // {
+    //     constexpr auto TYPE_BITCOUNT = sizeof(BOOK) * 8;
+    //     return sizeof(BOOK) * (2 * TYPE_BITCOUNT) + sizeof(SYM) * dict_size;
+    // }
 
     static const int BLOCK_DIM_ENCODE  = 256;
     static const int BLOCK_DIM_DEFLATE = 256;
@@ -76,16 +103,29 @@ struct StringHelper {
 struct ConfigHelper {
     static uint32_t predictor_lookup(std::string name)
     {
-        const std::unordered_map<std::string, uint32_t> lut =  //
-            {{"lorenzo", 0}, {"lorenzoii", 1}, {"spline3", 2}};
+        const std::unordered_map<std::string, uint32_t> lut = {
+            {"lorenzo", cusz::COMPONENTS::PREDICTOR::LORENZO},
+            {"lorenzoii", cusz::COMPONENTS::PREDICTOR::LORENZOII},
+            {"spline3", cusz::COMPONENTS::PREDICTOR::SPLINE3}  //
+        };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such predictor as " + name);
         return lut.at(name);
     }
 
-    static uint32_t reducer_lookup(std::string name)
+    static uint32_t codec_lookup(std::string name)
     {
-        const std::unordered_map<std::string, uint32_t> lut =  //
-            {{"huffman", 0}, {"csr", 1}, {"rle", 2}};
+        const std::unordered_map<std::string, uint32_t> lut = {
+            {"huffman-coarse", cusz::COMPONENTS::CODEC::HUFFMAN_COARSE}  //
+        };
+        if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
+        return lut.at(name);
+    }
+
+    static uint32_t spreducer_lookup(std::string name)
+    {
+        const std::unordered_map<std::string, uint32_t> lut = {
+            {"csr11", cusz::COMPONENTS::SPREDUCER::CSR11}  //
+        };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);
     }
@@ -113,19 +153,23 @@ struct ConfigHelper {
         c1->radius    = c2->radius;
         c1->dict_size = c2->dict_size;
 
-        c1->quant_nbyte = c2->quant_nbyte;
-        c1->huff_nbyte  = c2->huff_nbyte;
+        c1->quant_bytewidth = c2->quant_bytewidth;
+        c1->huff_bytewidth  = c2->huff_bytewidth;
+
+        c1->predictor = c2->predictor;
+        c1->codec     = c2->codec;
+        c1->spreducer = c2->spreducer;
 
         c1->nnz_outlier = c2->nnz_outlier;
 
-        c1->huffman_chunk     = c2->huffman_chunk;
+        c1->huffman_chunksize = c2->huffman_chunksize;
         c1->huffman_num_uints = c2->huffman_num_uints;
 
         c1->to_skip.huffman = c2->to_skip.huffman;
     }
 
     static std::string get_default_predictor() { return "lorenzo"; }
-    static std::string get_default_spreducer() { return "cusparse-csr"; }
+    static std::string get_default_spreducer() { return "csr11"; }
     static std::string get_default_codec() { return "huffman-coarse"; }
     static std::string get_default_cuszmode() { return "r2r"; }
     static std::string get_default_dtype() { return "f32"; }
@@ -144,10 +188,22 @@ struct ConfigHelper {
 
     static bool check_codec(const std::string& val, bool fatal = false)
     {
-        auto legal = (val == "huffman") or (val == "csr") or (val == "rle");
+        auto legal = (val == "huffman-coarse");
         if (not legal) {
             if (fatal)
-                throw std::runtime_error("`codec` must be \"huffman\", \"csr\" or \"rle\".");
+                throw std::runtime_error("`codec` must be \"huffman-coarse\".");
+            else
+                printf("fallback to the default \"%s\".", get_default_codec().c_str());
+        }
+        return legal;
+    }
+
+    static bool check_spreducer(const std::string& val, bool fatal = false)
+    {
+        auto legal = (val == "csr11") or (val == "rle");
+        if (not legal) {
+            if (fatal)
+                throw std::runtime_error("`codec` must be \"csr11\" or \"rle\".");
             else
                 printf("fallback to the default \"%s\".", get_default_codec().c_str());
         }
@@ -220,7 +276,7 @@ struct ConfigHelper {
             "[get_npart] must be plain interger types.");
 
         return (size + subsize - 1) / subsize;
-    };
+    }
 };
 
 struct CompareHelper {

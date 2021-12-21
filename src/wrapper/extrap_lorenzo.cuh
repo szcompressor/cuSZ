@@ -40,6 +40,7 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     dim3     leap;  // leap.y, leap.z
     int      ndim;
     uint32_t len_data;
+    uint32_t len_outlier;
     uint32_t len_quant;  // may differ from `len_data`
     bool     delay_postquant;
 
@@ -61,10 +62,12 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     PredictorLorenzo(dim3 xyz, double eb, int radius, bool delay_postquant);
 
     // helper
-    uint32_t get_quant_len() const { return len_quant; }
     uint32_t get_anchor_len() const { return 0; }
-    float    get_time_elapsed() const { return time_elapsed; }
+    uint32_t get_quant_len() const { return len_quant; }
+    uint32_t get_outlier_len() const { return len_outlier; }
     uint32_t get_workspace_nbyte() const { return 0; };
+
+    float get_time_elapsed() const { return time_elapsed; }
 
     // methods
     void dryrun(T* in_out);

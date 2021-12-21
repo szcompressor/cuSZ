@@ -12,6 +12,8 @@
 #ifndef CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
 #define CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
 
+// caveat: CUDA 11.2 starts introduce new cuSAPARSE API, which cannot be used prior to 11.2.
+
 #include <driver_types.h>
 #include <cmath>
 #include <cstddef>
@@ -32,12 +34,12 @@ namespace cusz {
 template <typename T = float>
 class CSR11 : public VirtualGatherScatter {
    public:
-    using Origin = T;
+    using Origin                  = T;
+    static const auto DEFAULT_LOC = cusz::LOC::DEVICE;
 
    private:
     // clang-format off
     uint8_t* pool_ptr;
-    struct { int * rowptr, *colidx; T* values; } entry;
     struct { unsigned int rowptr, colidx, values; } offset;
     struct { unsigned int rowptr, colidx, values, total; } nbyte;
     unsigned int workspace_nbyte, dump_nbyte;
@@ -45,15 +47,28 @@ class CSR11 : public VirtualGatherScatter {
     float milliseconds{0.0};
     // clang-format on
 
-    // set up memory pool
-    void configure_workspace(uint8_t* _pool);
+    Capsule<int> rowptr;
+    Capsule<int> colidx;
+    Capsule<T>   values;
 
     // use when the real nnz is known
     void reconfigure_with_precise_nnz(int nnz);
 
+#if CUDART_VERSION >= 11020
     void gather_CUDA11(T* in, unsigned int& dump_nbyte);
+#elif CUDART_VERSION >= 10000
+    void gather_CUDA10(T* in, unsigned int& dump_nbyte);
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
 
+#if CUDART_VERSION >= 11020
     void scatter_CUDA11(T* out);
+#elif CUDART_VERSION >= 10000
+    void scatter_CUDA10(T* out);
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
 
     // TODO handle nnz == 0 otherwise
     unsigned int query_csr_bytelen() const
@@ -63,37 +78,88 @@ class CSR11 : public VirtualGatherScatter {
                + sizeof(T) * nnz;     // values
     }
 
-    void archive(uint8_t* dst, int& nnz, cudaMemcpyKind direction = cudaMemcpyHostToDevice);
-
     void extract(uint8_t* _pool);
 
    public:
     // helper
-    uint32_t get_total_nbyte() const { return nbyte.total; }
+
+    static uint32_t get_total_nbyte(uint32_t len, int nnz)
+    {
+        auto m = Reinterpret1DTo2D::get_square_size(len);
+        return sizeof(int) * (m + 1) + sizeof(int) * nnz + sizeof(T) * nnz;
+    }
 
     float get_time_elapsed() const { return milliseconds; }
 
-    // compression use
-    CSR11(unsigned int _len, unsigned int* init_workspace_nbyte = nullptr);
+    CSR11() = default;
 
-    void gather(T* in, uint8_t* workspace, uint8_t* dump, unsigned int& dump_nbyte, int& out_nnz)
+    template <cusz::LOC FROM = cusz::LOC::DEVICE, cusz::LOC TO = cusz::LOC::HOST>
+    CSR11& consolidate(uint8_t* dst);  //, cudaMemcpyKind direction = cudaMemcpyDeviceToHost);
+
+    CSR11& decompress_set_nnz(unsigned int _nnz);
+
+    void gather(T* in, unsigned int& nbyte_dump, int& out_nnz)  // removed memory pool
     {
-        configure_workspace(workspace);
-        gather_CUDA11(in, dump_nbyte);
-        archive(dump, out_nnz);
+#if CUDART_VERSION >= 11020
+        gather_CUDA11(in, nbyte_dump);
+#elif CUDART_VERSION >= 10000
+        gather_CUDA10(in, nbyte_dump);
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
+        out_nnz = this->nnz;
     }
 
-    // decompression use
-    CSR11(unsigned int _len, unsigned int _nnz);
+    /**
+     * @brief
+     *
+     * @param in
+     * @param in_len
+     * @param out_ptr nullable depending on impl.;
+     * @param out_idx
+     * @param out_val
+     * @param nnz
+     */
+    void
+    gather(T* in, uint32_t in_len, int* out_rowptr, int*& out_colidx, T*& out_val, int& out_nnz, uint32_t& nbyte_dump)
+    {
+        m = Reinterpret1DTo2D::get_square_size(in_len);
 
-    // only placehoding
+        if (out_rowptr) rowptr.template shallow_copy<DEFAULT_LOC>(out_rowptr);
+        colidx.template shallow_copy<DEFAULT_LOC>(out_colidx);
+        values.template shallow_copy<DEFAULT_LOC>(out_val);
+
+#if CUDART_VERSION >= 11020
+        // #pragma message("using gather-cuda11")
+        gather_CUDA11(in, nbyte_dump);
+#elif CUDART_VERSION >= 10000
+        // #pragma message("using gather-cuda10")
+        gather_CUDA10(in, nbyte_dump);
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
+        out_nnz = this->nnz;
+    }
+
+    // only placeholding
     void scatter() {}
     void gather() {}
 
-    void scatter(uint8_t* _pool, T* out)
+    void scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len)
     {
+        m = Reinterpret1DTo2D::get_square_size(out_len);
+        decompress_set_nnz(nnz);
         extract(_pool);
+
+#if CUDART_VERSION >= 11020
+        // #pragma message("using scatter-cuda11")
         scatter_CUDA11(out);
+#elif CUDART_VERSION >= 10000
+        // #pragma message("using scatter-cuda10")
+        scatter_CUDA10(out);
+#else
+#error CUDART_VERSION must be no less than 10.0!
+#endif
     }
 };
 
