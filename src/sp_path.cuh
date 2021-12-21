@@ -229,7 +229,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
     void data_analysis(T*& h_ext_data)
     {
-        data.template from_existing_on<HOST>(h_ext_data);
+        data.template shallow_copy<HOST>(h_ext_data);
         xdata.template alloc<HOST>().device2host();
 
         analysis::verify_data<T>(&stat, xdata.template get<HOST>(), data.template get<HOST>(), len);
@@ -255,7 +255,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         data_size = _size;
         len       = get_data_len();
 
-        data.set_len(len).template from_existing_on<DEVICE>(_data);
+        data.set_len(len).template shallow_copy<DEVICE>(_data);
         xdata.set_len(len);
 
         // set eb
@@ -399,7 +399,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
     void decompress(T* d_xdata, uint8_t* d_spdump, int _nnz, T* d_anchordump)
     {
-        xdata.template from_existing_on<DEVICE>(d_xdata);
+        xdata.template shallow_copy<DEVICE>(d_xdata);
         spreducer->decompress_set_nnz(nnz);
         LOGGING(LOG_INFO, "nnz:", _nnz);
 

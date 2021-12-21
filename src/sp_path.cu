@@ -102,7 +102,7 @@ SPCOMPRESSOR::SpPathCompressorOld(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     predictor = new Predictor(this->xyz, this->ctx->eb, 0 /* pseudo radius*/, false);
     this->anchor  //
         .set_len(predictor->get_anchor_len())
-        .template from_existing_on<cusz::LOC::HOST>(  //
+        .template shallow_copy<cusz::LOC::HOST>(  //
             reinterpret_cast<E*>(dump + this->dataseg.get_offset(cusz::SEG::ANCHOR)))
         .template alloc<cusz::LOC::DEVICE>()
         .host2device();
@@ -111,7 +111,7 @@ SPCOMPRESSOR::SpPathCompressorOld(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 
     sp_use  //
         .set_len(spreducer->get_total_nbyte())
-        .template from_existing_on<cusz::LOC::HOST>(  //
+        .template shallow_copy<cusz::LOC::HOST>(  //
             reinterpret_cast<BYTE*>(dump + this->dataseg.get_offset(cusz::SEG::SPFMT)))
         .template alloc<cusz::LOC::DEVICE>()
         .host2device();
