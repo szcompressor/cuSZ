@@ -125,9 +125,9 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data, uint3 x
     this->dict_size = dict_size;
 
     this->prescan();  // internally change eb (regarding value range)
-    ConfigHelper::set_eb_series(this->ctx->eb, this->config);
+    // ConfigHelper::set_eb_series(this->ctx->eb, this->config);
 
-    predictor             = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
+    predictor             = new Predictor(this->xyz, false);
     this->ctx->quant_len  = predictor->get_quant_len();
     this->ctx->anchor_len = predictor->get_anchor_len();
 
@@ -176,7 +176,9 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
 
     spreducer = new SpReducer;  // TODO resume SpReducer::constructor(uncompressed_len)
 
-    predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
+    // predictor = new Predictor(this->xyz, this->ctx->eb, this->ctx->radius, false);
+    predictor = new Predictor(this->xyz, false);
+
     // TODO use a compressor method instead of spreducer's
     sp_use
         .set_len(spreducer->get_total_nbyte(                               //
@@ -263,7 +265,8 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
     cudaStream_t stream_predictor;
     cudaStreamCreate(&stream_predictor);
     {
-        predictor->construct(this->original->dptr, nullptr, this->quant.dptr, stream_predictor);
+        predictor->construct(
+            this->original->dptr, nullptr, this->quant.dptr, this->ctx->eb, this->ctx->radius, stream_predictor);
     }
     cudaStreamDestroy(stream_predictor);
 
@@ -372,7 +375,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     cudaStream_t stream_predictor;
     CHECK_CUDA(cudaStreamCreate(&stream_predictor));
     {
-        predictor->reconstruct(nullptr, this->quant.dptr, xdata, stream_predictor);
+        predictor->reconstruct(nullptr, this->quant.dptr, xdata, this->ctx->eb, this->ctx->radius, stream_predictor);
     }
     if (stream_predictor) cudaStreamDestroy(stream_predictor);
 

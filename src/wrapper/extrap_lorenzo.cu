@@ -54,19 +54,13 @@ using dim3 = __dim3_compat;
 }  // namespace
 
 template <typename T, typename E, typename FP>
-cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, double _eb, int _radius, bool _delay_postquant)
+cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, bool _delay_postquant)
 {
-    // error bound
-    eb     = _eb;
-    ebx2   = eb * 2;
-    ebx2_r = 1 / ebx2;
-
     // size
     size      = xyz;
     leap      = dim3(1, size.x, size.x * size.y);
     len_data  = size.x * size.y * size.z;
     len_quant = len_data;
-    radius    = _radius;
 
     len_outlier = len_data;
 
@@ -80,8 +74,22 @@ cusz::PredictorLorenzo<T, E, FP>::PredictorLorenzo(dim3 xyz, double _eb, int _ra
 
 template <typename T, typename E, typename FP>
 template <bool DELAY_POSTQUANT>
-void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, T* anchor, E* errctrl, cudaStream_t stream)
+void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(
+    T* const in_data,
+    T* const out_anchor,
+    E* const out_errctrl,
+    T* const __restrict__ __out_outlier,
+    double const       eb,
+    int const          radius,
+    cudaStream_t const stream)
 {
+    // error bound
+    auto ebx2   = eb * 2;
+    auto ebx2_r = 1 / ebx2;
+
+    // decide if destructive for the input (data)
+    auto out_outlier = __out_outlier == nullptr ? in_data : __out_outlier;
+
     // TODO put into conditional compile
     cuda_timer_t timer;
     timer.timer_start();
@@ -93,14 +101,14 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, T* anchor, E* er
         auto           dim_grid     = ConfigHelper::get_npart(size.x, DATA_SUBSIZE);
         cusz::c_lorenzo_1d1l<T, E, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT>  //
             <<<dim_grid, dim_block, 0, stream>>>                            //
-            (data, errctrl, size.x, radius, ebx2_r);
+            (in_data, out_errctrl, out_outlier, size.x, radius, ebx2_r);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
         auto dim_grid  = dim3(ConfigHelper::get_npart(size.x, 16), ConfigHelper::get_npart(size.y, 16));
         cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>  //
             <<<dim_grid, dim_block, 0, stream>>>            //
-            (data, errctrl, size.x, size.y, leap.y, radius, ebx2_r);
+            (in_data, out_errctrl, out_outlier, size.x, size.y, leap.y, radius, ebx2_r);
     }
     else if (ndim == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
@@ -109,7 +117,7 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, T* anchor, E* er
              ConfigHelper::get_npart(size.z, 8));
         cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>  //
             <<<dim_grid, dim_block, 0, stream>>>               //
-            (data, errctrl, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2_r);
+            (in_data, out_errctrl, out_outlier, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2_r);
     }
     else {
         throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -126,8 +134,22 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(T* data, T* anchor, E* er
 
 template <typename T, typename E, typename FP>
 template <bool DELAY_POSTQUANT>
-void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(T* anchor, E* errctrl, T* xdata, cudaStream_t stream)
+void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(
+    T* const __restrict__ __in_outlier,
+    T* const           in_anchor,
+    E* const           in_errctrl,
+    T* const           out_xdata,
+    double const       eb,
+    int const          radius,
+    cudaStream_t const stream)
 {
+    // error bound
+    auto ebx2   = eb * 2;
+    auto ebx2_r = 1 / ebx2;
+
+    // decide if destructive for the input (outlier)
+    auto in_outlier = __in_outlier == nullptr ? out_xdata : __in_outlier;
+
     cuda_timer_t timer;
     timer.timer_start();
 
@@ -138,7 +160,7 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(T* anchor, E* errctrl, 
         auto           dim_grid     = ConfigHelper::get_npart(size.x, DATA_SUBSIZE);
         cusz::x_lorenzo_1d1l<T, E, FP, DATA_SUBSIZE, SEQ, DELAY_POSTQUANT>  //
             <<<dim_grid, dim_block, 0, stream>>>                            //
-            (xdata, errctrl, size.x, radius, ebx2);
+            (in_outlier, in_errctrl, out_xdata, size.x, radius, ebx2);
     }
     else if (ndim == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
@@ -146,7 +168,7 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(T* anchor, E* errctrl, 
 
         cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP, DELAY_POSTQUANT>  //
             <<<dim_grid, dim_block, 0, stream>>>                             //
-            (xdata, errctrl, size.x, size.y, leap.y, radius, ebx2);
+            (in_outlier, in_errctrl, out_xdata, size.x, size.y, leap.y, radius, ebx2);
     }
     else if (ndim == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
@@ -156,7 +178,7 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(T* anchor, E* errctrl, 
 
         cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP, DELAY_POSTQUANT>  //
             <<<dim_grid, dim_block, 0, stream>>>                                //
-            (xdata, errctrl, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2);
+            (in_outlier, in_errctrl, out_xdata, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2);
     }
 
     timer.timer_end();
@@ -169,19 +191,33 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(T* anchor, E* errctrl, 
 }
 
 template <typename T, typename E, typename FP>
-void cusz::PredictorLorenzo<T, E, FP>::construct(T* in_data, T* out_anchor, E* out_errctrl, cudaStream_t stream)
+void cusz::PredictorLorenzo<T, E, FP>::construct(
+    T* const           in_data,
+    T* const           out_anchor,
+    E* const           out_errctrl,
+    double const       eb,
+    int const          radius,
+    cudaStream_t const stream,
+    T* __restrict__ non_overlap_out_outlier)
 {
     if (not delay_postquant)
-        construct_proxy<false>(in_data, out_anchor, out_errctrl, stream);
+        construct_proxy<false>(in_data, out_anchor, out_errctrl, non_overlap_out_outlier, eb, radius, stream);
     else
         throw std::runtime_error("construct_proxy<delay_postquant==true> not implemented.");
 }
 
 template <typename T, typename E, typename FP>
-void cusz::PredictorLorenzo<T, E, FP>::reconstruct(T* in_anchor, E* in_errctrl, T* out_xdata, cudaStream_t stream)
+void cusz::PredictorLorenzo<T, E, FP>::reconstruct(
+    T* const           in_anchor,
+    E* const           in_errctrl,
+    T* const           out_xdata,
+    double const       eb,
+    int const          radius,
+    cudaStream_t const stream,
+    T* __restrict__ non_overlap_in_outlier)
 {
     if (not delay_postquant)
-        reconstruct_proxy<false>(in_anchor, in_errctrl, out_xdata, stream);
+        reconstruct_proxy<false>(non_overlap_in_outlier, in_anchor, in_errctrl, out_xdata, eb, radius, stream);
     else
         throw std::runtime_error("construct_proxy<delay_postquant==true> not implemented.");
 }

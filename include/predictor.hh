@@ -37,9 +37,26 @@ class PredictorAbstraction {
     virtual float get_time_elapsed() const = 0;
 
     // "real" methods
-    virtual ~PredictorAbstraction()                    = default;
-    virtual void construct(T*, T*, E*, cudaStream_t)   = 0;
-    virtual void reconstruct(T*, E*, T*, cudaStream_t) = 0;
+    virtual ~PredictorAbstraction() = default;
+
+    // methods
+    virtual void construct(
+        T* const           in_data,
+        T* const           out_anchor,
+        E* const           out_errctrl,
+        double const       eb,
+        int const          radius,
+        cudaStream_t const stream,
+        T* const __restrict__ non_overlap_out_outlier) = 0;
+
+    virtual void reconstruct(
+        T* const           in_anchor,
+        E* const           in_errctrl,
+        T* const           out_xdata,
+        double const       eb,
+        int const          radius,
+        cudaStream_t const stream,
+        T* const __restrict__ non_overlap_in_outlier) = 0;
 };
 
 }  // namespace cusz
