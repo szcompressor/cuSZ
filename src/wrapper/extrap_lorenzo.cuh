@@ -63,6 +63,7 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     ~PredictorLorenzo(){};
 
     // helper
+    uint32_t get_data_len() const { return len_data; }
     uint32_t get_anchor_len() const { return 0; }
     uint32_t get_quant_len() const { return len_quant; }
     uint32_t get_outlier_len() const { return len_outlier; }

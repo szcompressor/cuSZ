@@ -1,6 +1,18 @@
 dummylorenzo:
 	nvcc dummy_cxlorenzo.cu -DnoCUSPARSE -o run.dummy_cxlorenzo
 
+NVCC=nvcc --extended-lambda
+
+dryrundep1: ../src/wrapper/extrap_lorenzo.cu
+	@echo dryrun-dep-1
+	$(NVCC) $< -c
+dryrundep2: ../src/base_cusz.cu 
+	@echo dryrun-dep-2
+	$(NVCC) $< -c
+dryrun: extrap_lorenzo.o base_cusz.o
+	@echo compiling dryrun example
+	$(NVCC) test_dryrun.cu base_cusz.o extrap_lorenzo.o -lcusparse -o run.dryrun 
+
 spline: ex_spline.cu ../src/utils/verify.hh ../src/kernel/spline.h ../src/utils/io.hh
 	nvcc ex_spline.cu -std=c++14 --extended-lambda -o spline
 

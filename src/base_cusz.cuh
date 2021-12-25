@@ -33,6 +33,20 @@ class BaseCompressor {
     using FP   = typename Predictor::Precision;
     using E    = typename Predictor::ErrCtrl;
 
+   private:
+    struct NonCritical {
+        Predictor* p;
+        Capsule<T> original;
+        Capsule<E> errctrl;  // TODO change to 4-byte
+        Capsule<T> outlier;
+        Capsule<T> anchor;
+        Capsule<T> reconst;
+
+        NonCritical(dim3 size) { p = new Predictor(size, false); }
+    };
+
+    struct NonCritical* nc;
+
    protected:
     DataSeg dataseg;
 
@@ -54,41 +68,71 @@ class BaseCompressor {
     cuszHEADER* header;
     cusz::WHEN  timing;
 
-    int dict_size;
+    int    dict_size;
     double eb;
 
     dim3 xyz;
 
-   protected:
-    BaseCompressor& dryrun()
+   public:
+    BaseCompressor& generic_dryrun(const std::string fname, double eb, int radius, bool r2r, cudaStream_t stream)
     {
-        if (ctx->task_is.dryrun and ctx->str_predictor == "lorenzo") {
-            auto len = ctx->data_len;
+        if (not nc) throw std::runtime_error("NonCritical struct has no instance.");
 
-            LOGGING(LOG_INFO, "invoke dry-run");
-            constexpr auto SEQ       = 4;
-            constexpr auto SUBSIZE   = 256;
-            auto           dim_block = SUBSIZE / SEQ;
-            auto           dim_grid  = ConfigHelper::get_npart(len, SUBSIZE);
+        LOGGING(LOG_INFO, "invoke dry-run");
 
-            cusz::dual_quant_dryrun<T, float, SUBSIZE, SEQ>
-                <<<dim_grid, dim_block>>>(original->dptr, len, config.ebx2_r, config.ebx2);
-            HANDLE_ERROR(cudaDeviceSynchronize());
+        nc->original.template from_file<cusz::LOC::HOST>(fname).host2device_async(stream);
+        CHECK_CUDA(cudaStreamSynchronize(stream));
 
-            T* dryrun_result;
-            cudaMallocHost(&dryrun_result, len * sizeof(T));
-            cudaMemcpy(dryrun_result, original->dptr, len * sizeof(T), cudaMemcpyDeviceToHost);
-
-            analysis::verify_data<T>(&ctx->stat, dryrun_result, original->hptr, len);
-            analysis::print_data_quality_metrics<T>(&ctx->stat, 0, false);
-
-            cudaFreeHost(dryrun_result);
-
-            exit(0);
+        if (r2r) {
+            double max, min, rng;
+            nc->original.prescan(max, min, rng);
+            eb *= rng;
         }
+
+        nc->p->construct(nc->original.dptr, nc->anchor.dptr, nc->errctrl.dptr, eb, radius, stream, nc->outlier.dptr);
+        nc->p->reconstruct(nc->anchor.dptr, nc->errctrl.dptr, nc->reconst.dptr, eb, radius, stream, nc->outlier.dptr);
+
+        nc->reconst.device2host_async(stream);
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+
+        stat_t stat;
+        verify_data_GPU<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_data_len());
+        analysis::print_data_quality_metrics<T>(&stat, 0, true);
+
         return *this;
     }
 
+    BaseCompressor& dualquant_dryrun(const std::string fname, double eb, bool r2r, cudaStream_t stream)
+    {
+        auto len = nc->original.len;
+
+        nc->original.template from_file<cusz::LOC::HOST>(fname).host2device_async(stream);
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+
+        if (r2r) {
+            double max, min, rng;
+            nc->original.prescan(max, min, rng);
+            eb *= rng;
+        }
+
+        auto ebx2_r = 1 / (eb * 2);
+        auto ebx2   = eb * 2;
+
+        cusz::dualquant_dryrun_kernel                                              //
+            <<<ConfigHelper::get_npart(len, 256), 256, 256 * sizeof(T), stream>>>  //
+            (nc->original.dptr, nc->reconst.dptr, len, ebx2_r, ebx2);
+
+        nc->reconst.device2host_async(stream);
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+
+        stat_t stat;
+        verify_data_GPU(&stat, nc->reconst.hptr, nc->original.hptr, len);
+        analysis::print_data_quality_metrics<T>(&stat, 0, true);
+
+        return *this;
+    }
+
+   protected:
     BaseCompressor& prescan();
     BaseCompressor& noncritical__optional__report_compress_time();
     BaseCompressor& noncritical__optional__report_decompress_time();
@@ -107,14 +151,47 @@ class BaseCompressor {
    public:
     BaseCompressor() = default;
 
-    BaseCompressor(cuszCTX* _ctx, Capsule<T>* _in_data)
-    {  // dummy
+    ~BaseCompressor() {}
+
+   public:
+    // dry run
+    void init_generic_dryrun(dim3 size)
+    {  //
+        auto len = size.x * size.y * size.z;
+        nc       = new struct NonCritical(size);
+
+        nc->original.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->outlier.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->errctrl.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->anchor.set_len(nc->p->get_anchor_len()).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->reconst.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
     }
-    BaseCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
-    {  // dummy
+
+    void destroy_generic_dryrun()
+    {
+        delete nc->p;
+        nc->original.template free<cusz::LOC::HOST_DEVICE>();
+        nc->outlier.template free<cusz::LOC::HOST_DEVICE>();
+        nc->errctrl.template free<cusz::LOC::HOST_DEVICE>();
+        nc->anchor.template free<cusz::LOC::HOST_DEVICE>();
+        nc->reconst.template free<cusz::LOC::HOST_DEVICE>();
+        delete nc;
     }
-    ~BaseCompressor()
-    {  // dummy
+
+    void init_dualquant_dryrun(dim3 size)
+    {
+        auto len = size.x * size.y * size.z;
+        nc       = new struct NonCritical(size);
+        nc->original.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->reconst.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+    }
+
+    void destroy_dualquant_dryrun()
+    {
+        nc->original.template free<cusz::LOC::HOST_DEVICE>();
+        nc->reconst.template free<cusz::LOC::HOST_DEVICE>();
+
+        delete nc;
     }
 };
 
