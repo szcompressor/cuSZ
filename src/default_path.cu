@@ -52,7 +52,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::internal_eval_try_export_book()
         book.device2host();
 
         std::stringstream s;
-        s << this->ctx->fnames.path_basename + "-" << this->dict_size << "-ui" << sizeof(H) << ".lean-book";
+        s << this->ctx->fname.path_basename + "-" << this->dict_size << "-ui" << sizeof(H) << ".lean-book";
 
         // TODO as part of dump
         io::write_array_to_binary(s.str(), book.hptr, this->dict_size);
@@ -78,7 +78,7 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::internal_eval_try_export_quant()
 
         // TODO as part of dump
         io::write_array_to_binary(
-            this->ctx->fnames.path_basename + ".lean-this->quant", this->quant.hptr,
+            this->ctx->fname.path_basename + ".lean-this->quant", this->quant.hptr,
             BINDING::template get_uncompressed_len(predictor, codec));
         LOGGING(LOG_INFO, "exporting this->quant as binary; suffix: \".lean-this->quant\"");
         LOGGING(LOG_INFO, "exiting");
@@ -98,7 +98,7 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::try_skip_huffman()
 
         // TODO: as part of cusza
         io::write_array_to_binary(
-            this->ctx->fnames.path_basename + ".this->quant", this->quant.hptr,
+            this->ctx->fname.path_basename + ".this->quant", this->quant.hptr,
             BINDING::template get_uncompressed_len(predictor, codec));
         LOGGING(LOG_INFO, "to store this->quant.code directly (Huffman enc skipped)");
         exit(0);

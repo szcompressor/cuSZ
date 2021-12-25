@@ -45,7 +45,7 @@ class cuszCTX {
     struct { bool quality{true}, time{false}, cr{false}, compressibility{false}, dataseg{false}; } report;
 
     // filenames
-    struct { string path2file, origin_cmp, path_basename, basename, compress_output; } fnames;
+    struct { string fname, origin_cmp, path_basename, basename, compress_output; } fname;
     // clang-format on
 
     // sparsity related: init_nnz when setting up SpReducer
