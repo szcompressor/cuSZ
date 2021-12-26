@@ -46,19 +46,12 @@ typedef struct CUDATimer {
     cudaEvent_t start, stop;
     float       milliseconds;
 
+    // stream not involved
     void timer_start()
     {
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
         cudaEventRecord(start);
-    }
-
-    float timer_end_get_elapsed_time()
-    {
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        return milliseconds;
     }
 
     void timer_end()
@@ -67,6 +60,22 @@ typedef struct CUDATimer {
         cudaEventSynchronize(stop);
     }
 
+    // stream involved
+    void timer_start(cudaStream_t stream)
+    {
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+
+        cudaEventRecord(start, stream);  // set event as not occurred
+    }
+
+    void timer_end(cudaStream_t stream)
+    {
+        cudaEventRecord(stop, stream);
+        cudaEventSynchronize(stop);  // block host until `strem` meets `stop`
+    }
+
+    // get time
     float get_time_elapsed()
     {
         cudaEventElapsedTime(&milliseconds, start, stop);
