@@ -141,12 +141,13 @@ void wrapper::get_frequency(Input* d_in, size_t len, cusz::FREQ* d_freq, int nbi
     cudaFuncSetAttribute(
         kernel::p2013Histogram<Input, cusz::FREQ>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
 
-    auto t = new cuda_timer_t;
-    t->timer_start();
+    cuda_timer_t t;
+    t.timer_start();
     kernel::p2013Histogram                                                                    //
         <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
         (d_in, d_freq, num_values, num_buckets, r_per_block);
-    milliseconds += t->timer_end_get_elapsed_time();
+    t.timer_end();
+    milliseconds += t.get_time_elapsed();
     cudaDeviceSynchronize();
 }
 

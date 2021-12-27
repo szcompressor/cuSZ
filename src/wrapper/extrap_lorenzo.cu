@@ -123,7 +123,7 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    timer.timer_end();
+    timer.timer_end(stream);
     if (stream)
         CHECK_CUDA(cudaStreamSynchronize(stream));
     else
@@ -181,7 +181,7 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(
             (in_outlier, in_errctrl, out_xdata, size.x, size.y, size.z, leap.y, leap.z, radius, ebx2);
     }
 
-    timer.timer_end();
+    timer.timer_end(stream);
     if (stream)
         CHECK_CUDA(cudaStreamSynchronize(stream));
     else

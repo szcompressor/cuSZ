@@ -87,26 +87,28 @@ void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy1(
         int numSMs;
         cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         cusz::encode_fixedlen_gridstride  //
             <T, H><<<8 * numSMs, 256>>>   //
             (dev_input, dev_enc_space, len, dev_book, dict_size);
-        milliseconds += t->timer_end_get_elapsed_time();
+
+        t.timer_end();
+        milliseconds += t.get_time_elapsed();
         cudaDeviceSynchronize();
-        delete t;
     }
 
     {
         auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
         auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);
-        auto t         = new cuda_timer_t;
-        t->timer_start();
+
+        cuda_timer_t t;
+        t.timer_start();
         cusz::encode_deflate<H><<<grid_dim, block_dim>>>(dev_enc_space, len, dev_bits, chunk_size);
-        milliseconds += t->timer_end_get_elapsed_time();
+        t.timer_end();
+        milliseconds += t.get_time_elapsed();
         cudaDeviceSynchronize();
-        delete t;
     }
 
     cusz::huffman_process_metadata<H>(host_counts, dev_bits, nchunk, *ptr_num_bits, *ptr_num_uints);
@@ -126,11 +128,12 @@ void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy2(
 {
     auto nchunk = ConfigHelper::get_npart(len, chunk_size);
 
-    auto t = new cuda_timer_t;
-    t->timer_start();
+    cuda_timer_t t;
+    t.timer_start();
     cusz::huffman_enc_concatenate<<<nchunk, 128>>>(
         dev_enc_space, dev_out_bitstream, dev_entries, dev_uints, chunk_size);
-    milliseconds += t->timer_end_get_elapsed_time();
+    t.timer_end();
+    milliseconds += t.get_time_elapsed();
     cudaDeviceSynchronize();
 }
 
@@ -154,12 +157,12 @@ void cusz::HuffmanCoarse<T, H, M>::encode(
         wrapper::get_frequency<T>(in, in_len, freq, dict_size, time_hist);
 
         {  // This is end-to-end time for parbook.
-            auto t = new cuda_timer_t;
-            t->timer_start();
+            cuda_timer_t t;
+            t.timer_start();
             lossless::par_get_codebook<T, H>(dict_size, freq, book, revbook);
-            time_book = t->timer_end_get_elapsed_time();
+            t.timer_end();
+            time_book = t.get_time_elapsed();
             cudaDeviceSynchronize();
-            delete t;
         }
     }
 
@@ -212,14 +215,14 @@ void cusz::HuffmanCoarse<T, H, M>::decode(
     auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
     auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);
 
-    auto t = new cuda_timer_t;
-    t->timer_start();
+    cuda_timer_t t;
+    t.timer_start();
     cusz::decode_newtype<T, H, M><<<grid_dim, block_dim, revbook_nbyte>>>(  //
         d_in_bitstream, d_chunkwise_metadata, out_decoded, orilen, chunk_size, nchunk, d_revbook,
         (size_t)revbook_nbyte);
-    milliseconds += t->timer_end_get_elapsed_time();
+    t.timer_end();
+    milliseconds += t.get_time_elapsed();
     CHECK_CUDA(cudaDeviceSynchronize());
-    delete t;
 }
 
 #define HUFFCOARSE(E, H, M) \

@@ -39,7 +39,7 @@ int main(int argc, char** argv)
     {
         dryrun.generic_dryrun(fname, 1e-4, 512, r2r, stream);
     }
-    timer.timer_end();
+    timer.timer_end(stream);
     printf("generic_dryrun: %lf seconds.\n", timer.get_time_elapsed());
     dryrun.destroy_generic_dryrun();
 
@@ -50,7 +50,7 @@ int main(int argc, char** argv)
     {
         dryrun.dualquant_dryrun(fname, 1e-4, r2r, stream);
     }
-    timer.timer_end();
+    timer.timer_end(stream);
     printf("dualquant_dryrun: %lf seconds.\n", timer.get_time_elapsed());
     dryrun.destroy_dualquant_dryrun();
 

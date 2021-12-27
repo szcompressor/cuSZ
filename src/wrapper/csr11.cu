@@ -68,27 +68,27 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize, cudaStrea
 
     // allocate an external buffer if needed
     {
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         CHECK_CUSPARSE(
             cusparseDenseToSparse_bufferSize(handle, matA, matB, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, &bufferSize));
 
-        milliseconds += t->timer_end_get_elapsed_time();
-        delete t;
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
 
         CHECK_CUDA(cudaMalloc(&dBuffer, bufferSize));
     }
 
     // execute Sparse to Dense conversion
     {
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         CHECK_CUSPARSE(cusparseDenseToSparse_analysis(handle, matA, matB, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, dBuffer));
 
-        milliseconds += t->timer_end_get_elapsed_time();
-        delete t;
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
     }
 
     // get number of non-zero elements
@@ -106,13 +106,13 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize, cudaStrea
 
     // execute Sparse to Dense conversion
     {
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         CHECK_CUSPARSE(cusparseDenseToSparse_convert(handle, matA, matB, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, dBuffer));
 
-        milliseconds += t->timer_end_get_elapsed_time();
-        delete t;
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
     }
 
     // destroy matrix/vector descriptors
@@ -159,15 +159,15 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize, cudaSt
     // clang-format on
 
     {
-        auto timer_step3 = new cuda_timer_t;
-        timer_step3->timer_start();
+        cuda_timer_t t;
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr_bufferSizeExt(  //
             handle, m, n, in_outlier, lda, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
             rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), &lworkInBytes));
 
-        milliseconds += timer_step3->timer_end_get_elapsed_time();
-        delete timer_step3;
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
     }
 
     if (nullptr != d_work) cudaFree(d_work);
@@ -177,16 +177,16 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize, cudaSt
 
     /* step 4: compute rowptr and nnz */
     {
-        auto timer_step4 = new cuda_timer_t;
-        timer_step4->timer_start();
+        cuda_timer_t t.;
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseSpruneDense2csrNnz(  //
             handle, m, n, in_outlier, lda, &threshold, mat_desc, rowptr.template get<DEFAULT_LOC>(), &nnz, d_work));
 
-        milliseconds += timer_step4->timer_end_get_elapsed_time();
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
         // CHECK_CUDA(cudaDeviceSynchronize());
         CHECK_CUDA(cudaStreamSynchronize(stream));
-        delete timer_step4;
     }
 
     reconfigure_with_precise_nnz(nnz);
@@ -199,14 +199,15 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize, cudaSt
 
     /* step 5: compute col_ind and values */
     {
-        auto timer_step5 = new cuda_timer_t;
-        timer_step5->timer_start();
+        cuda_timer_t t;
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseSpruneDense2csr(  //
             handle, m, n, in_outlier, lda, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
             rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), d_work));
 
-        milliseconds += timer_step5->timer_end_get_elapsed_time();
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
         // CHECK_CUDA(cudaDeviceSynchronize());
         CHECK_CUDA(cudaStreamSynchronize(stream));
         delete timer_step5;
@@ -302,27 +303,27 @@ void CSR11<T>::scatter_CUDA11(T* out_dn, cudaStream_t stream)
         cusparseCreateDnMat(&matB, num_rows, num_cols, ld, d_dense, cuszCUSPARSE<T>::type, CUSPARSE_ORDER_ROW));
 
     {
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         // allocate an external buffer if needed
         CHECK_CUSPARSE(
             cusparseSparseToDense_bufferSize(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, &bufferSize));
 
-        milliseconds += t->timer_end_get_elapsed_time();
-        delete t;
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
     }
     CHECK_CUDA(cudaMalloc(&dBuffer, bufferSize));
 
     // execute Sparse to Dense conversion
     {
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         CHECK_CUSPARSE(cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, dBuffer));
 
-        milliseconds += t->timer_end_get_elapsed_time();
-        delete t;
+        t.timer_end(stream);
+        milliseconds += t.get_time_elapsed();
     }
 
     // destroy matrix/vector descriptors
@@ -361,17 +362,17 @@ void CSR11<T>::scatter_CUDA10(T* out_dn, cudaStream_t ext_stream)
     // clang-format on
 
     {
-        auto timer_scatter = new cuda_timer_t;
-        timer_scatter->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
 
         CHECK_CUSPARSE(cusparseScsr2dense(
             handle, m, n, mat_desc, values.template get<DEFAULT_LOC>(), rowptr.template get<DEFAULT_LOC>(),
             colidx.template get<DEFAULT_LOC>(), out_dn, lda));
 
-        milliseconds += timer_scatter->timer_end_get_elapsed_time();
+        t.timer_end();
+        milliseconds += t.get_time_elapsed();
         // CHECK_CUDA(cudaDeviceSynchronize());
         CHECK_CUDA(cudaStreamSynchronize(stream));
-        delete timer_scatter;
     }
 
     // TODO move cusparse handle outside
