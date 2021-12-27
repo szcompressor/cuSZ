@@ -133,7 +133,7 @@ class Analyzer {
         // TODO static check UInt
         if CONSTEXPR (policy == ExecutionPolicy::cuda_device and method == AnalyzerMethod::cuda_native) {
             float dummy;
-            wrapper::get_frequency(data, data_len, freq, num_bins, dummy);
+            kernel_wrapper::get_frequency(data, data_len, freq, num_bins, dummy);
         }
         else {
             // TODO static check

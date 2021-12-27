@@ -194,9 +194,8 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
             BINDING::template get_uncompressed_len(predictor, codec), this->header->huffman_chunksize);
 
         auto _h_data = reinterpret_cast<H*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_DATA));
-        auto _h_meta =
-            reinterpret_cast<size_t*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META));
-        auto _h_rev = reinterpret_cast<BYTE*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK));
+        auto _h_meta = reinterpret_cast<M*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META));
+        auto _h_rev  = reinterpret_cast<BYTE*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK));
 
         // max possible size instead of the fixed size, TODO check again
         cudaMalloc(&xhuff.in.dptr, sizeof(H) * this->header->quant_len / 2);
@@ -205,7 +204,7 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
             .template shallow_copy<kHOST>(_h_data)
             .host2device();
         (xhuff.meta)
-            .set_len(nchunk * 2)  // TODO size_t-Mtype binding problem
+            .set_len(nchunk * 2)  //
             .template shallow_copy<kHOST>(_h_meta)
             .template alloc<kDEVICE>()
             .host2device();
@@ -262,17 +261,18 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
     book.set_len(this->dict_size).template alloc<kDEVICE>();
     revbook.set_len(Codec::get_revbook_nbyte(this->dict_size)).template alloc<kHOST_DEVICE>();
 
-    cudaStream_t stream_predictor;
-    cudaStreamCreate(&stream_predictor);
     {
+        cudaStream_t stream_predictor;
+        cudaStreamCreate(&stream_predictor);
         predictor->construct(
             this->original->dptr, nullptr, this->quant.dptr, this->ctx->eb, this->ctx->radius, stream_predictor);
+        cudaStreamDestroy(stream_predictor);
     }
-    cudaStreamDestroy(stream_predictor);
 
-    cudaStream_t stream_spreducer;
-    CHECK_CUDA(cudaStreamCreate(&stream_spreducer));
     {
+        cudaStream_t stream_spreducer;
+        CHECK_CUDA(cudaStreamCreate(&stream_spreducer));
+
         spreducer->gather(
             this->original->dptr,                                          // in data
             BINDING::template get_uncompressed_len(predictor, spreducer),  //
@@ -282,9 +282,10 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
             nnz,                                                           // out 1
             sp_dump_nbyte,                                                 // out 2
             stream_spreducer);
+
+        spreducer->template consolidate<kDEVICE, kHOST>(sp_use.hptr);
+        if (stream_spreducer) cudaStreamDestroy(stream_spreducer);
     }
-    spreducer->template consolidate<kDEVICE, kHOST>(sp_use.hptr);
-    if (stream_spreducer) cudaStreamDestroy(stream_spreducer);
 
     this->time.lossy    = predictor->get_time_elapsed();
     this->time.sparsity = spreducer->get_time_elapsed();
@@ -305,13 +306,21 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
     auto& num_bits  = this->ctx->huffman_num_bits;
     auto& num_uints = this->ctx->huffman_num_uints;
 
-    codec->encode(
-        this->huff_workspace,                                                        //
-        this->quant.dptr, BINDING::template get_uncompressed_len(predictor, codec),  //
-        this->freq.dptr, book.dptr, this->dict_size,                                 //
-        revbook.dptr,                                                                //
-        huff_data, huff_counts, chunk_size,                                          //
-        num_bits, num_uints);
+    {
+        cudaStream_t stream_codec;
+        CHECK_CUDA(cudaStreamCreate(&stream_codec));
+
+        auto in_len = BINDING::template get_uncompressed_len(predictor, codec);
+
+        codec->encode(
+            /* space  */ this->freq.dptr, book.dptr, this->huff_workspace,
+            /* input  */ this->quant.dptr, in_len,
+            /* config */ this->dict_size, chunk_size,
+            /* output */ revbook.dptr, huff_data, huff_counts, num_bits, num_uints,
+            /* stream */ stream_codec);
+
+        if (stream_codec) cudaStreamDestroy(stream_codec);
+    }
 
     this->time.hist     = codec->get_time_hist();
     this->time.book     = codec->get_time_book();
@@ -321,7 +330,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
     this->dataseg.nbyte.at(cusz::SEG::REVBOOK) = Codec::get_revbook_nbyte(this->dict_size);
 
     huff_data.device2host();
-    this->dataseg.nbyte.at(cusz::SEG::HUFF_META) = sizeof(size_t) * (2 * nchunk);
+    this->dataseg.nbyte.at(cusz::SEG::HUFF_META) = sizeof(M) * (2 * nchunk);
     this->dataseg.nbyte.at(cusz::SEG::HUFF_DATA) = sizeof(H) * num_uints;
 
     this->noncritical__optional__report_compress_time();
@@ -336,8 +345,6 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     this->quant.set_len(BINDING::template get_uncompressed_len(predictor, codec)).template alloc<kDEVICE>();
     auto xdata = decomp_space->dptr, outlier = decomp_space->dptr;
 
-    using Mtype = typename Codec::Mtype;
-
     // TODO pass dump and this->dataseg description
     // problem statement:
     // Data are described in two ways:
@@ -349,35 +356,47 @@ DPCOMPRESSOR& DPCOMPRESSOR::decompress(Capsule<T>* decomp_space)
     auto dump = this->compressed->hptr;
 
     auto _h_data = reinterpret_cast<H*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_DATA));
-    auto _h_meta = reinterpret_cast<Mtype*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META));
+    auto _h_meta = reinterpret_cast<M*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::HUFF_META));
     auto _h_rev  = reinterpret_cast<BYTE*>(this->compressed->hptr + this->dataseg.get_offset(cusz::SEG::REVBOOK));
 
     auto nchunk = ConfigHelper::get_npart(
         BINDING::template get_uncompressed_len(predictor, codec), this->header->huffman_chunksize);
 
-    codec->decode(
-        BINDING::template get_uncompressed_len(predictor, codec), dump, this->header->huffman_chunksize,
-        this->header->huffman_num_uints, this->header->dict_size,  //
-        xhuff.in.dptr, xhuff.meta.dptr, xhuff.revbook.dptr, this->quant.dptr);
-
-    cudaStream_t stream_spreducer;
-    CHECK_CUDA(cudaStreamCreate(&stream_spreducer));
     {
+        cudaStream_t stream_codec;
+        CHECK_CUDA(cudaStreamCreate(&stream_codec));
+
+        auto uncompressed_len = BINDING::template get_uncompressed_len(predictor, codec);
+
+        codec->decode(
+            /* in  */ xhuff.in.dptr, xhuff.meta.dptr, xhuff.revbook.dptr, uncompressed_len,
+            /* cfg */ this->header->dict_size, this->header->huffman_chunksize,
+            /* out */ this->quant.dptr,
+            /* stream */ stream_codec);
+
+        if (stream_codec) cudaStreamDestroy(stream_codec);
+    }
+
+    {
+        cudaStream_t stream_spreducer;
+        CHECK_CUDA(cudaStreamCreate(&stream_spreducer));
+
         spreducer->scatter(
             sp_use.dptr,                                                   //
             this->ctx->nnz_outlier,                                        //
             outlier,                                                       //
             BINDING::template get_uncompressed_len(predictor, spreducer),  //
             stream_spreducer);
-    }
-    if (stream_spreducer) cudaStreamDestroy(stream_spreducer);
 
-    cudaStream_t stream_predictor;
-    CHECK_CUDA(cudaStreamCreate(&stream_predictor));
-    {
-        predictor->reconstruct(nullptr, this->quant.dptr, xdata, this->ctx->eb, this->ctx->radius, stream_predictor);
+        if (stream_spreducer) cudaStreamDestroy(stream_spreducer);
     }
-    if (stream_predictor) cudaStreamDestroy(stream_predictor);
+
+    {
+        cudaStream_t stream_predictor;
+        CHECK_CUDA(cudaStreamCreate(&stream_predictor));
+        predictor->reconstruct(nullptr, this->quant.dptr, xdata, this->ctx->eb, this->ctx->radius, stream_predictor);
+        if (stream_predictor) cudaStreamDestroy(stream_predictor);
+    }
 
     return *this;
 }

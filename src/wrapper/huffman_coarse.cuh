@@ -4,7 +4,7 @@
  * @brief
  * @version 0.3
  * @date 2021-12-17
- * (created) 2020-04-24 (rev1) 2021-09-05 (rev2) 2021-12-17
+ * (created) 2020-04-24 (rev1) 2021-09-05 (rev2) 2021-12-29
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * @copyright (C) 2021 by Washington State University, Argonne National Laboratory
@@ -26,44 +26,39 @@
 
 namespace cusz {
 
-template <typename Huff>
-void huffman_process_metadata(size_t* _counts, size_t* dev_bits, size_t nchunk, size_t& num_bits, size_t& num_uints);
-
-template <typename Huff>
-__global__ void huffman_enc_concatenate(
-    Huff*   in_enc_space,
-    Huff*   out_bitstream,
-    size_t* sp_entries,
-    size_t* sp_uints,
-    size_t  chunk_size);
-
-}  // namespace cusz
-namespace cusz {
-
-template <typename T, typename H, typename M = uint64_t>
+template <typename T, typename H, typename M = uint32_t>
 class HuffmanCoarse : public cusz::VariableRate {
    public:
-    using Origin  = T;
-    using Encoded = H;
-    using Mtype   = M;
+    using Origin    = T;
+    using Encoded   = H;
+    using MetadataT = M;
+
+    /**
+     * @brief on host; separate from data fields
+     * otherwise, aligning to 128B can be unwanted
+     *
+     */
+    struct header_t {
+        // length determined on start
+        uint32_t revbook;
+        uint32_t par_meta;
+        // varying length
+        uint32_t par_data;
+    } header;
+
+    Capsule<uint8_t> tmpspace;
+    Capsule<uint8_t> datafield;
 
    private:
     using BYTE      = uint8_t;
     using ADDR_OFST = uint32_t;
+    using BOOK      = H;
+    using SYM       = T;
 
-    cuszHEADER* header;
-    BYTE*       dump;
-    BYTE*       h_revbook;
-    H*          h_bitstream;
-    M*          h_bits_entries;
+    static const int CELL_BITWIDTH = sizeof(H) * 8;
 
     float milliseconds;
-
-    // messy
     float time_hist, time_book, time_lossless;
-
-    uint32_t orilen;
-    uint32_t nchunk, chunk_size, num_uints, revbook_nbyte;
 
    public:
     //
@@ -73,39 +68,37 @@ class HuffmanCoarse : public cusz::VariableRate {
     float get_time_lossless() const { return time_lossless; }
 
     // TODO this kind of space will be overlapping with quant-codes
-    size_t get_workspace_nbyte(size_t comp_in_len) const { return sizeof(H) * comp_in_len; }
-    size_t get_max_output_nbyte(size_t comp_in_len) const { return sizeof(H) * comp_in_len / 2; }
+    size_t get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
+    size_t get_max_output_nbyte(size_t len) const { return sizeof(H) * len / 2; }
 
     static uint32_t get_revbook_nbyte(int dict_size)
     {
-        using BOOK = H;
-        using SYM  = T;
-
-        constexpr auto TYPE_BITCOUNT = sizeof(BOOK) * 8;
-        return sizeof(BOOK) * (2 * TYPE_BITCOUNT) + sizeof(SYM) * dict_size;
+        return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
     }
 
-    static size_t tune_coarse_huffman_chunksize(size_t len)
+    constexpr bool can_overlap_input_and_firstphase_encode() { return sizeof(T) == sizeof(H); }
+
+    static size_t tune_coarse_huffman_sublen(size_t len)
     {
         int current_dev = 0;
         cudaSetDevice(current_dev);
         cudaDeviceProp dev_prop{};
         cudaGetDeviceProperties(&dev_prop, current_dev);
 
-        auto nSM                = dev_prop.multiProcessorCount;
-        auto allowed_block_dim  = dev_prop.maxThreadsPerBlock;
-        auto deflate_nthread    = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
-        auto optimal_chunk_size = ConfigHelper::get_npart(len, deflate_nthread);
-        optimal_chunk_size      = ConfigHelper::get_npart(optimal_chunk_size, HuffmanHelper::BLOCK_DIM_DEFLATE) *
-                             HuffmanHelper::BLOCK_DIM_DEFLATE;
+        auto nSM               = dev_prop.multiProcessorCount;
+        auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
+        auto deflate_nthread   = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
+        auto optimal_sublen    = ConfigHelper::get_npart(len, deflate_nthread);
+        optimal_sublen         = ConfigHelper::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
+                         HuffmanHelper::BLOCK_DIM_DEFLATE;
 
-        return optimal_chunk_size;
+        return optimal_sublen;
     }
 
-    static void get_coarse_parallelism(size_t len, int& chunksize, int& nchunk)
+    static void get_coarse_pardeg(size_t len, int& sublen, int& pardeg)
     {
-        chunksize = HuffmanCoarse::tune_coarse_huffman_chunksize(len);
-        nchunk    = ConfigHelper::get_npart(len, chunksize);
+        sublen = HuffmanCoarse::tune_coarse_huffman_sublen(len);
+        pardeg = ConfigHelper::get_npart(len, sublen);
     }
 
    public:
@@ -115,59 +108,76 @@ class HuffmanCoarse : public cusz::VariableRate {
     ~HuffmanCoarse() {}
 
    private:
-    void
-    huffman_process_metadata(size_t* _counts, size_t* dev_bits, size_t nchunk, size_t& num_bits, size_t& num_uints);
+    void inspect(
+        cusz::FREQ*  tmp_freq,
+        H*           tmp_book,
+        T*           in_data,
+        size_t const in_len,
+        int const    cfg_booklen,
+        BYTE*        out_revbook,
+        cudaStream_t = nullptr);
 
-    void huffman_encode_proxy1(
-        H*      dev_enc_space,
-        size_t* dev_bits,
-        size_t* dev_uints,
-        size_t* dev_entries,
-        size_t* host_counts,
-        T*      dev_input,
-        H*      dev_book,
-        size_t  len,
-        int     chunk_size,
-        int     dict_size,
-        size_t* ptr_num_bits,
-        size_t* ptr_num_uints,
-        float&  milliseconds);
+    void encode_phase1(
+        H*           tmp_book,
+        H*           tmp_encspace,
+        T*           in_uncompressed,
+        size_t const in_uncompressed_len,
+        int const    cfg_booklen,
+        cudaStream_t stream = nullptr);
 
-    void huffman_encode_proxy2(
-        H*      dev_enc_space,
-        size_t* dev_uints,
-        size_t* dev_entries,
-        H*      dev_out_bitstream,
-        size_t  len,
-        int     chunk_size,
-        float&  milliseconds);
+    void encode_phase2(
+        H*           tmp_encspace,
+        size_t const in_uncompressed_len,
+        int const    cfg_sublen,
+        int const    cfg_pardeg,
+        M*           par_nbit,
+        M*           par_ncell,
+        cudaStream_t stream = nullptr);
+
+    void encode_phase3(
+        M*           in_meta_deviceview,
+        int const    cfg_pardeg,
+        M*           out_meta_hostview,
+        size_t&      out_total_nbit,
+        size_t&      out_total_ncell,
+        cudaStream_t stream = nullptr);
+
+    void encode_phase4(
+        H*           tmp_encspace,
+        size_t const in_uncompressed_len,
+        int const    cfg_sublen,
+        int const    cfg_pardeg,
+        M*           out_compressed_meta,
+        H*           out_compressed,
+        cudaStream_t stream = nullptr);
 
    public:
-    void decode(
-        uint32_t _orilen,
-        BYTE*    _dump,
-        uint32_t _chunk_size,
-        uint32_t _num_uints,
-        uint32_t _dict_size,
-        H*       bitstream,
-        M*       bits_entries,
-        BYTE*    revbook,
-        T*       out);
-
     void encode(
-        H*               workspace,    // intermediate
-        T*               in,           // input 1
-        size_t           in_len,       // input 1 size
-        uint32_t*        freq,         // input 2
-        H*               book,         // input 3
-        int              dict_size,    // input 2&2 size
-        BYTE*            revbook,      // output 1
-        Capsule<H>&      huff_data,    // output 2
-        Capsule<size_t>& huff_counts,  // output 3
-        int              chunk_size,   // related
-        size_t&          num_bits,     // output
-        size_t&          num_uints     // output
-    );
+        cusz::FREQ*  tmp_freq,
+        H*           tmp_book,
+        H*           tmp_encspace,
+        T*           in_uncompressed,
+        size_t const in_uncompressed_len,
+        int const    cfg_booklen,
+        int const    cfg_sublen,
+        BYTE*        out_revbook,
+        Capsule<H>&  out_compressed,
+        Capsule<M>&  out_compressed_meta,
+        size_t&      out_total_nbit,
+        size_t&      out_total_ncell,
+        cudaStream_t = nullptr);
+
+    void decode(
+        H*           in_compressed,
+        M*           in_compressed_meta,
+        BYTE*        in_revbook,
+        size_t const in_uncompressed_len,
+        int const    cfg_booklen,
+        int const    cfg_sublen,
+        T*           out_uncompressed,
+        cudaStream_t = nullptr);
+
+    // end of class definition
 };
 
 }  // namespace cusz

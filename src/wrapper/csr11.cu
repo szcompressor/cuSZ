@@ -69,7 +69,7 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize, cudaStrea
     // allocate an external buffer if needed
     {
         cuda_timer_t t;
-        t.timer_start();
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(
             cusparseDenseToSparse_bufferSize(handle, matA, matB, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, &bufferSize));
@@ -83,7 +83,7 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize, cudaStrea
     // execute Sparse to Dense conversion
     {
         cuda_timer_t t;
-        t.timer_start();
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseDenseToSparse_analysis(handle, matA, matB, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, dBuffer));
 
@@ -107,7 +107,7 @@ void CSR11<T>::gather_CUDA11(T* in_data, unsigned int& _dump_poolsize, cudaStrea
     // execute Sparse to Dense conversion
     {
         cuda_timer_t t;
-        t.timer_start();
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseDenseToSparse_convert(handle, matA, matB, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, dBuffer));
 
@@ -185,7 +185,6 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize, cudaSt
 
         t.timer_end(stream);
         milliseconds += t.get_time_elapsed();
-        // CHECK_CUDA(cudaDeviceSynchronize());
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
 
@@ -208,7 +207,6 @@ void CSR11<T>::gather_CUDA10(T* in_outlier, unsigned int& _dump_poolsize, cudaSt
 
         t.timer_end(stream);
         milliseconds += t.get_time_elapsed();
-        // CHECK_CUDA(cudaDeviceSynchronize());
         CHECK_CUDA(cudaStreamSynchronize(stream));
         delete timer_step5;
     }
@@ -304,7 +302,7 @@ void CSR11<T>::scatter_CUDA11(T* out_dn, cudaStream_t stream)
 
     {
         cuda_timer_t t;
-        t.timer_start();
+        t.timer_start(stream);
 
         // allocate an external buffer if needed
         CHECK_CUSPARSE(
@@ -318,7 +316,7 @@ void CSR11<T>::scatter_CUDA11(T* out_dn, cudaStream_t stream)
     // execute Sparse to Dense conversion
     {
         cuda_timer_t t;
-        t.timer_start();
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseSparseToDense(handle, matA, matB, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, dBuffer));
 
@@ -363,7 +361,7 @@ void CSR11<T>::scatter_CUDA10(T* out_dn, cudaStream_t ext_stream)
 
     {
         cuda_timer_t t;
-        t.timer_start();
+        t.timer_start(stream);
 
         CHECK_CUSPARSE(cusparseScsr2dense(
             handle, m, n, mat_desc, values.template get<DEFAULT_LOC>(), rowptr.template get<DEFAULT_LOC>(),
@@ -371,7 +369,6 @@ void CSR11<T>::scatter_CUDA10(T* out_dn, cudaStream_t ext_stream)
 
         t.timer_end();
         milliseconds += t.get_time_elapsed();
-        // CHECK_CUDA(cudaDeviceSynchronize());
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
 

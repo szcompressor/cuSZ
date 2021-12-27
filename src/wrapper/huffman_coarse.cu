@@ -4,7 +4,7 @@
  * @brief
  * @version 0.3
  * @date 2021-12-17
- * (created) 2020-04-24 (rev1) 2021-09-05 (rev2) 2021-12-17
+ * (created) 2020-04-24 (rev1) 2021-09-05 (rev2) 2021-12-29
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * @copyright (C) 2021 by Washington State University, Argonne National Laboratory
@@ -21,208 +21,219 @@
 
 #define nworker blockDim.x
 
-template <typename Huff>
-__global__ void cusz::huffman_enc_concatenate(
-    Huff*   in_enc_space,
-    Huff*   out_bitstream,
-    size_t* sp_entries,
-    size_t* sp_uints,
-    size_t  chunk_size)
-{
-    auto len      = sp_uints[blockIdx.x];
-    auto sp_entry = sp_entries[blockIdx.x];
-    auto dn_entry = chunk_size * blockIdx.x;
+namespace cusz {
 
-    for (auto i = 0; i < (len + nworker - 1) / nworker; i++) {
-        auto _tid = threadIdx.x + i * nworker;
-        if (_tid < len) *(out_bitstream + sp_entry + _tid) = *(in_enc_space + dn_entry + _tid);
+template <typename Huff, typename Meta>
+__global__ void huffman_coarse_concatenate(
+    Huff*     tmp_encspace,
+    Meta*     par_entry,
+    Meta*     par_ncell,
+    int const cfg_sublen,
+    Huff*     out_bitstream)
+{
+    auto       ncell      = par_ncell[blockIdx.x];
+    auto       entry      = par_entry[blockIdx.x];
+    auto       output_dst = cfg_sublen * blockIdx.x;
+    auto const R          = (ncell + nworker - 1) / nworker;
+
+    for (auto i = 0; i < R; i++) {
+        auto x = threadIdx.x + i * nworker;
+        if (x < ncell) *(out_bitstream + entry + x) = *(tmp_encspace + output_dst + x);
         __syncthreads();
     }
 }
 
-template <typename Huff>
-void cusz::huffman_process_metadata(
-    size_t* _counts,
-    size_t* dev_bits,
-    size_t  nchunk,
-    size_t& num_bits,
-    size_t& num_uints)
+}  // namespace cusz
+
+template <typename T, typename H, typename M>
+void cusz::HuffmanCoarse<T, H, M>::inspect(
+    cusz::FREQ*  tmp_freq,
+    H*           tmp_book,
+    T*           in_uncompressed,
+    size_t const in_uncompressed_len,
+    int const    cfg_booklen,
+    BYTE*        out_revbook,
+    cudaStream_t stream)
 {
-    constexpr auto TYPE_BITCOUNT = sizeof(Huff) * 8;
+    kernel_wrapper::get_frequency<T>(in_uncompressed, in_uncompressed_len, tmp_freq, cfg_booklen, time_hist, stream);
 
-    auto sp_uints = _counts, sp_bits = _counts + nchunk, sp_entries = _counts + nchunk * 2;
-
-    cudaMemcpy(sp_bits, dev_bits, nchunk * sizeof(size_t), cudaMemcpyDeviceToHost);
-    memcpy(sp_uints, sp_bits, nchunk * sizeof(size_t));
-    for_each(sp_uints, sp_uints + nchunk, [&](size_t& i) { i = (i + TYPE_BITCOUNT - 1) / TYPE_BITCOUNT; });
-    memcpy(sp_entries + 1, sp_uints, (nchunk - 1) * sizeof(size_t));
-    for (auto i = 1; i < nchunk; i++) sp_entries[i] += sp_entries[i - 1];  // inclusive scan
-
-    num_bits  = std::accumulate(sp_bits, sp_bits + nchunk, (size_t)0);
-    num_uints = std::accumulate(sp_uints, sp_uints + nchunk, (size_t)0);
+    // This is end-to-end time for parbook.
+    cuda_timer_t t;
+    t.timer_start(stream);
+    kernel_wrapper::par_get_codebook<T, H>(tmp_freq, cfg_booklen, tmp_book, out_revbook, stream);
+    t.timer_end(stream);
+    time_book = t.get_time_elapsed();
+    cudaStreamSynchronize(stream);
 }
 
 template <typename T, typename H, typename M>
-void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy1(
-    H*      dev_enc_space,
-    size_t* dev_bits,
-    size_t* dev_uints,
-    size_t* dev_entries,
-    size_t* host_counts,
-    T*      dev_input,
-    H*      dev_book,
-    size_t  len,
-    int     chunk_size,
-    int     dict_size,
-    size_t* ptr_num_bits,
-    size_t* ptr_num_uints,
-    float&  milliseconds)
+void cusz::HuffmanCoarse<T, H, M>::encode_phase1(
+    H*           tmp_book,
+    H*           tmp_encspace,
+    T*           in_uncompressed,
+    size_t const in_uncompressed_len,
+    int const    cfg_booklen,
+    cudaStream_t stream)
 {
-    auto nchunk = ConfigHelper::get_npart(len, chunk_size);
+    auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
+    auto grid_dim  = ConfigHelper::get_npart(in_uncompressed_len, block_dim);
 
-    {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
-        auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
-
-        int numSMs;
-        cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
-
-        cuda_timer_t t;
-        t.timer_start();
-
-        cusz::encode_fixedlen_gridstride  //
-            <T, H><<<8 * numSMs, 256>>>   //
-            (dev_input, dev_enc_space, len, dev_book, dict_size);
-
-        t.timer_end();
-        milliseconds += t.get_time_elapsed();
-        cudaDeviceSynchronize();
-    }
-
-    {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
-        auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);
-
-        cuda_timer_t t;
-        t.timer_start();
-        cusz::encode_deflate<H><<<grid_dim, block_dim>>>(dev_enc_space, len, dev_bits, chunk_size);
-        t.timer_end();
-        milliseconds += t.get_time_elapsed();
-        cudaDeviceSynchronize();
-    }
-
-    cusz::huffman_process_metadata<H>(host_counts, dev_bits, nchunk, *ptr_num_bits, *ptr_num_uints);
-    cudaMemcpy(dev_uints, host_counts, nchunk * sizeof(size_t), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_entries, (host_counts + nchunk * 2), nchunk * sizeof(size_t), cudaMemcpyHostToDevice);
-}
-
-template <typename T, typename H, typename M>
-void cusz::HuffmanCoarse<T, H, M>::huffman_encode_proxy2(
-    H*      dev_enc_space,
-    size_t* dev_uints,
-    size_t* dev_entries,
-    H*      dev_out_bitstream,
-    size_t  len,
-    int     chunk_size,
-    float&  milliseconds)
-{
-    auto nchunk = ConfigHelper::get_npart(len, chunk_size);
+    int numSMs;
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
     cuda_timer_t t;
-    t.timer_start();
-    cusz::huffman_enc_concatenate<<<nchunk, 128>>>(
-        dev_enc_space, dev_out_bitstream, dev_entries, dev_uints, chunk_size);
-    t.timer_end();
-    milliseconds += t.get_time_elapsed();
-    cudaDeviceSynchronize();
+    t.timer_start(stream);
+
+    cusz::coarse_par::detail::kernel::huffman_encode_fixedlen_gridstride<T, H>
+        <<<8 * numSMs, 256, sizeof(H) * cfg_booklen, stream>>>  //
+        (in_uncompressed, in_uncompressed_len, tmp_book, cfg_booklen, tmp_encspace);
+
+    t.timer_end(stream);
+    time_lossless += t.get_time_elapsed();
+    cudaStreamSynchronize(stream);
+}
+
+template <typename T, typename H, typename M>
+void cusz::HuffmanCoarse<T, H, M>::encode_phase2(
+    H*           tmp_encspace,
+    size_t const in_uncompressed_len,
+    int const    cfg_sublen,
+    int const    cfg_pardeg,
+    M*           par_nbit,
+    M*           par_ncell,
+    cudaStream_t stream)
+{
+    auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+    auto grid_dim  = ConfigHelper::get_npart(cfg_pardeg, block_dim);
+
+    cuda_timer_t t;
+    t.timer_start(stream);
+
+    cusz::coarse_par::detail::kernel::huffman_encode_deflate<H><<<grid_dim, block_dim, 0, stream>>>  //
+        (tmp_encspace, in_uncompressed_len, par_nbit, par_ncell, cfg_sublen, cfg_pardeg);
+
+    t.timer_end(stream);
+    time_lossless += t.get_time_elapsed();
+    cudaStreamSynchronize(stream);
+}
+
+template <typename T, typename H, typename M>
+void cusz::HuffmanCoarse<T, H, M>::encode_phase3(
+    M*           in_meta_deviceview,
+    int const    cfg_pardeg,
+    M*           out_meta_hostview,
+    size_t&      out_total_nbit,
+    size_t&      out_total_ncell,
+    cudaStream_t stream)
+{
+    auto d_par_nbit  = in_meta_deviceview;
+    auto d_par_ncell = in_meta_deviceview + cfg_pardeg;
+    auto d_par_entry = in_meta_deviceview + cfg_pardeg * 2;
+
+    // TODO change order
+    auto h_par_ncell = out_meta_hostview;
+    auto h_par_nbit  = out_meta_hostview + cfg_pardeg;
+    auto h_par_entry = out_meta_hostview + cfg_pardeg * 2;
+
+    cudaMemcpyAsync(h_par_nbit, d_par_nbit, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream);
+    cudaMemcpyAsync(h_par_ncell, d_par_ncell, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+
+    memcpy(h_par_entry + 1, h_par_ncell, (cfg_pardeg - 1) * sizeof(M));
+    for (auto i = 1; i < cfg_pardeg; i++) h_par_entry[i] += h_par_entry[i - 1];  // inclusive scan
+
+    out_total_nbit  = std::accumulate(h_par_nbit, h_par_nbit + cfg_pardeg, (size_t)0);
+    out_total_ncell = std::accumulate(h_par_ncell, h_par_ncell + cfg_pardeg, (size_t)0);
+
+    cudaMemcpyAsync(d_par_entry, h_par_entry, cfg_pardeg * sizeof(M), cudaMemcpyHostToDevice, stream);
+    cudaStreamSynchronize(stream);
+}
+
+template <typename T, typename H, typename M>
+void cusz::HuffmanCoarse<T, H, M>::encode_phase4(
+    H*           tmp_encspace,
+    size_t const in_uncompressed_len,
+    int const    cfg_sublen,
+    int const    cfg_pardeg,
+    M*           out_compressed_meta,
+    H*           out_compressed,
+    cudaStream_t stream)
+{
+    auto par_ncell = out_compressed_meta + cfg_pardeg;
+    auto par_entry = out_compressed_meta + cfg_pardeg * 2;
+
+    cuda_timer_t t;
+    t.timer_start(stream);
+    cusz::huffman_coarse_concatenate<H, M><<<cfg_pardeg, 128, 0, stream>>>  //
+        (tmp_encspace, par_entry, par_ncell, cfg_sublen, out_compressed);
+    t.timer_end(stream);
+    time_lossless += t.get_time_elapsed();
+    cudaStreamSynchronize(stream);
 }
 
 template <typename T, typename H, typename M>
 void cusz::HuffmanCoarse<T, H, M>::encode(
-    H*               workspace,    //  intermediate
-    T*               in,           // input 1
-    size_t           in_len,       // input 1 size
-    uint32_t*        freq,         // input 2
-    H*               book,         // input 3
-    int              dict_size,    // input 2&2 size
-    BYTE*            revbook,      // output 1
-    Capsule<H>&      huff_data,    // output 2
-    Capsule<size_t>& huff_counts,  // output 3
-    int              chunk_size,   // related
-    size_t&          num_bits,     // output
-    size_t&          num_uints     // output
-)
+    cusz::FREQ*  tmp_freq,
+    H*           tmp_book,
+    H*           tmp_encspace,
+    T*           in_uncompressed,
+    size_t const in_uncompressed_len,
+    int const    cfg_booklen,
+    int const    cfg_sublen,
+    BYTE*        out_revbook,
+    Capsule<H>&  out_compressed,
+    Capsule<M>&  out_compressed_meta,
+    size_t&      out_total_nbit,
+    size_t&      out_total_ncell,
+    cudaStream_t stream)
 {
-    {
-        wrapper::get_frequency<T>(in, in_len, freq, dict_size, time_hist);
+    inspect(tmp_freq, tmp_book, in_uncompressed, in_uncompressed_len, cfg_booklen, out_revbook, stream);
 
-        {  // This is end-to-end time for parbook.
-            cuda_timer_t t;
-            t.timer_start();
-            lossless::par_get_codebook<T, H>(dict_size, freq, book, revbook);
-            t.timer_end();
-            time_book = t.get_time_elapsed();
-            cudaDeviceSynchronize();
-        }
-    }
+    auto const cfg_pardeg = ConfigHelper::get_npart(in_uncompressed_len, cfg_sublen);
 
-    {
-        auto const nchunk = ConfigHelper::get_npart(in_len, chunk_size);
+    auto par_nbit  = out_compressed_meta.dptr;
+    auto par_ncell = out_compressed_meta.dptr + cfg_pardeg;
+    auto par_entry = out_compressed_meta.dptr + cfg_pardeg * 2;
 
-        // fix-length space, padding improvised
-        // H* workspace;
-        // cudaMalloc(&workspace, sizeof(H) * in_len);
+    encode_phase1(tmp_book, tmp_encspace, in_uncompressed, in_uncompressed_len, cfg_booklen, stream);
 
-        auto d_bits    = huff_counts.dptr;
-        auto d_uints   = huff_counts.dptr + nchunk;
-        auto d_entries = huff_counts.dptr + nchunk * 2;
+    encode_phase2(tmp_encspace, in_uncompressed_len, cfg_sublen, cfg_pardeg, par_nbit, par_ncell, stream);
 
-        huffman_encode_proxy1(
-            workspace, d_bits, d_uints, d_entries, huff_counts.hptr, in, book, in_len, chunk_size, dict_size, &num_bits,
-            &num_uints, time_lossless);
+    encode_phase3(
+        out_compressed_meta.dptr, cfg_pardeg, out_compressed_meta.hptr, out_total_nbit, out_total_ncell, stream);
 
-        // --------------------------------------------------------------------------------
-        // update with the exact length
-        huff_data.set_len(num_uints);
+    // update with the exact length
+    out_compressed.set_len(out_total_ncell);
 
-        huffman_encode_proxy2(workspace, d_uints, d_entries, huff_data.dptr, in_len, chunk_size, time_lossless);
-
-        // cudaFree(workspace);
-
-        // return *this;
-    }
+    encode_phase4(
+        tmp_encspace, in_uncompressed_len, cfg_sublen, cfg_pardeg, out_compressed_meta.dptr, out_compressed.dptr,
+        stream);
 }
 
 template <typename T, typename H, typename M>
 void cusz::HuffmanCoarse<T, H, M>::decode(
-    uint32_t _orilen,
-    BYTE*    _dump,
-    uint32_t _chunk_size,
-    uint32_t _num_uints,
-    uint32_t _dict_size,
-    H*       d_in_bitstream,
-    M*       d_chunkwise_metadata,
-    BYTE*    d_revbook,
-    T*       out_decoded)
+    H*           in_compressed,
+    M*           in_compressed_meta,
+    BYTE*        in_revbook,
+    size_t const in_uncompressed_len,
+    int const    cfg_booklen,
+    int const    cfg_sublen,
+    T*           out_uncompressed,
+    cudaStream_t stream)
 {
-    dump          = _dump;
-    orilen        = _orilen;
-    chunk_size    = _chunk_size;
-    nchunk        = ConfigHelper::get_npart(orilen, chunk_size);
-    num_uints     = _num_uints;
-    revbook_nbyte = get_revbook_nbyte(_dict_size);
+    auto const pardeg        = ConfigHelper::get_npart(in_uncompressed_len, cfg_sublen);
+    auto       revbook_nbyte = get_revbook_nbyte(cfg_booklen);
 
     auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
-    auto grid_dim  = ConfigHelper::get_npart(nchunk, block_dim);
+    auto grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
 
     cuda_timer_t t;
-    t.timer_start();
-    cusz::decode_newtype<T, H, M><<<grid_dim, block_dim, revbook_nbyte>>>(  //
-        d_in_bitstream, d_chunkwise_metadata, out_decoded, orilen, chunk_size, nchunk, d_revbook,
-        (size_t)revbook_nbyte);
-    t.timer_end();
-    milliseconds += t.get_time_elapsed();
-    CHECK_CUDA(cudaDeviceSynchronize());
+    t.timer_start(stream);
+    cusz::coarse_par::detail::kernel::huffman_decode<T, H, M><<<grid_dim, block_dim, revbook_nbyte, stream>>>(  //
+        in_compressed, in_compressed_meta, in_revbook, revbook_nbyte, cfg_sublen, pardeg, out_uncompressed);
+    t.timer_end(stream);
+    milliseconds = t.get_time_elapsed();
+    CHECK_CUDA(cudaStreamSynchronize(stream));
 }
 
 #define HUFFCOARSE(E, H, M) \

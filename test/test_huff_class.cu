@@ -35,7 +35,7 @@ int TestEncoding(string filename)
     freq.SetLen(num_syms).AllocDeviceSpace();
 
     float dummy;
-    wrapper::get_frequency<Data, false>(data.dptr(), data.Len(), freq.dptr(), freq.Len(), dummy);
+    kernel_wrapper::get_frequency<Data, false>(data.dptr(), data.Len(), freq.dptr(), freq.Len(), dummy);
 
     ////////////////////////////////////////////////////////////////////////////////
     //  ^                                  | Huffman

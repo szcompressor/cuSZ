@@ -98,7 +98,7 @@ void cli_compress(cuszCTX* ctx)
 
     // TODO This does not cover the output size for *all* predictors.
     if (ctx->on_off.autotune_huffchunk)
-        DefaultPath::DefaultBinding::CODEC::get_coarse_parallelism(ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
+        DefaultPath::DefaultBinding::CODEC::get_coarse_pardeg(ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
     else
         ctx->nchunk = ConfigHelper::get_npart(ctx->data_len, ctx->huffman_chunksize);
 

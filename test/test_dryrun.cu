@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 
     cout << "\ngeneric dryrun" << '\n';
     dryrun.init_generic_dryrun(dim3(x, y, z));
-    timer.timer_start();
+    timer.timer_start(stream);
     {
         dryrun.generic_dryrun(fname, 1e-4, 512, r2r, stream);
     }
@@ -46,7 +46,7 @@ int main(int argc, char** argv)
     cout << "\ndualquant dryrun" << '\n';
     dryrun.init_dualquant_dryrun(dim3(x, y, z));
 
-    timer.timer_start();
+    timer.timer_start(stream);
     {
         dryrun.dualquant_dryrun(fname, 1e-4, r2r, stream);
     }

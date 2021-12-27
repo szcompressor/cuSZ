@@ -92,7 +92,7 @@ void cusz::PredictorLorenzo<T, E, FP>::construct_proxy(
 
     // TODO put into conditional compile
     cuda_timer_t timer;
-    timer.timer_start();
+    timer.timer_start(stream);
 
     if (ndim == 1) {
         constexpr auto SEQ          = 4;
@@ -151,7 +151,7 @@ void cusz::PredictorLorenzo<T, E, FP>::reconstruct_proxy(
     auto in_outlier = __in_outlier == nullptr ? out_xdata : __in_outlier;
 
     cuda_timer_t timer;
-    timer.timer_start();
+    timer.timer_start(stream);
 
     if (ndim == 1) {  // y-sequentiality == 8
         constexpr auto SEQ          = 8;

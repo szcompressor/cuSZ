@@ -40,19 +40,37 @@ template <typename Input>
 __global__ void NaiveHistogram(Input in_data[], int out_freq[], int N, int symbols_per_thread);
 
 /* Copied from J. Gomez-Luna et al */
-template <typename Input, typename Output>
-__global__ void p2013Histogram(Input*, Output*, size_t, int, int);
+template <typename T, typename FREQ>
+__global__ void p2013Histogram(T*, FREQ*, size_t, int, int);
 
 }  // namespace kernel
 
-namespace wrapper {
-template <typename Input>
-void get_frequency(Input* d_in, size_t len, cusz::FREQ* d_freq, int nbin, float& milliseconds);
+namespace kernel_wrapper {
 
-}  // namespace wrapper
+/**
+ * @brief Get frequency: a kernel wrapper
+ *
+ * @tparam T input type
+ * @param in_data input device array
+ * @param in_len input host var; len of in_data
+ * @param out_freq output device array
+ * @param nbin input host var; len of out_freq
+ * @param milliseconds output time elapsed
+ * @param stream optional stream
+ */
+template <typename T>
+void get_frequency(
+    T*           in_data,
+    size_t       in_len,
+    cusz::FREQ*  out_freq,
+    int          nbin,
+    float&       milliseconds,
+    cudaStream_t stream = nullptr);
 
-template <typename Input>
-__global__ void kernel::NaiveHistogram(Input in_data[], int out_freq[], int N, int symbols_per_thread)
+}  // namespace kernel_wrapper
+
+template <typename T>
+__global__ void kernel::NaiveHistogram(T in_data[], int out_freq[], int N, int symbols_per_thread)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int j;
@@ -66,12 +84,12 @@ __global__ void kernel::NaiveHistogram(Input in_data[], int out_freq[], int N, i
     }
 }
 
-template <typename Input, typename Output>
-__global__ void kernel::p2013Histogram(Input* in_data, Output* out_freq, size_t N, int nbin, int R)
+template <typename T, typename FREQ>
+__global__ void kernel::p2013Histogram(T* in_data, FREQ* out_freq, size_t N, int nbin, int R)
 {
     static_assert(
-        std::numeric_limits<Input>::is_integer and (not std::numeric_limits<Input>::is_signed),
-        "Input Must be Unsigned Integer type of {1,2,4} bytes");
+        std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
+        "T must be `unsigned integer` type of {1,2,4} bytes");
 
     extern __shared__ int Hs[/*(nbin + 1) * R*/];
 
@@ -102,53 +120,65 @@ __global__ void kernel::p2013Histogram(Input* in_data, Output* out_freq, size_t 
     }
 }
 
-template <typename Input>
-void wrapper::get_frequency(Input* d_in, size_t len, cusz::FREQ* d_freq, int nbin, float& milliseconds)
+template <typename T>
+void kernel_wrapper::get_frequency(
+    T*           in_data,
+    size_t       in_len,
+    cusz::FREQ*  out_freq,
+    int          num_buckets,
+    float&       milliseconds,
+    cudaStream_t stream)
 {
     static_assert(
-        std::numeric_limits<Input>::is_integer and (not std::numeric_limits<Input>::is_signed),
-        "To get frequency, `Input` must be unsigned integer type of {1,2,4} bytes");
+        std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
+        "To get frequency, `T` must be unsigned integer type of {1,2,4} bytes");
 
-    // Parameters for thread and block count optimization
-    // Initialize to device-specific values
-    int deviceId, max_bytes, max_bytes_opt_in, num_SMs;
+    int device_id, max_bytes, num_SMs;
+    int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
 
-    cudaGetDevice(&deviceId);
-    cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, deviceId);
-    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, deviceId);
+    cudaGetDevice(&device_id);
+    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, device_id);
 
-    // Account for opt-in extra shared memory on certain architectures
-    cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceId);
-    max_bytes = std::max(max_bytes, max_bytes_opt_in);
+    auto query_maxbytes = [&]() {
+        int max_bytes_opt_in;
+        cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
 
-    // Optimize launch
-    int num_buckets      = nbin;
-    int num_values       = len;
-    int items_per_thread = 1;
-    int r_per_block      = (max_bytes / (int)sizeof(int)) / (num_buckets + 1);
-    int num_blocks       = num_SMs;
-    // fits to size
-    int threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
-    while (threads_per_block > 1024) {
-        if (r_per_block <= 1) { threads_per_block = 1024; }
-        else {
-            r_per_block /= 2;
-            num_blocks *= 2;
-            threads_per_block = ((((num_values / (num_blocks * items_per_thread)) + 1) / 64) + 1) * 64;
+        // account for opt-in extra shared memory on certain architectures
+        cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
+        max_bytes = std::max(max_bytes, max_bytes_opt_in);
+
+        // config kernel attribute
+        cudaFuncSetAttribute(
+            kernel::p2013Histogram<T, cusz::FREQ>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
+    };
+
+    auto optimize_launch = [&]() {
+        items_per_thread = 1;
+        r_per_block      = (max_bytes / sizeof(int)) / (num_buckets + 1);
+        grid_dim         = num_SMs;
+        // fits to size
+        block_dim = ((((in_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+        while (block_dim > 1024) {
+            if (r_per_block <= 1) { block_dim = 1024; }
+            else {
+                r_per_block /= 2;
+                grid_dim *= 2;
+                block_dim = ((((in_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+            }
         }
-    }
+        shmem_use = ((num_buckets + 1) * r_per_block) * sizeof(int);
+    };
 
-    cudaFuncSetAttribute(
-        kernel::p2013Histogram<Input, cusz::FREQ>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
+    query_maxbytes();
+    optimize_launch();
 
     cuda_timer_t t;
     t.timer_start();
-    kernel::p2013Histogram                                                                    //
-        <<<num_blocks, threads_per_block, ((num_buckets + 1) * r_per_block) * sizeof(int)>>>  //
-        (d_in, d_freq, num_values, num_buckets, r_per_block);
+    kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
+        (in_data, out_freq, in_len, num_buckets, r_per_block);
     t.timer_end();
     milliseconds += t.get_time_elapsed();
-    cudaDeviceSynchronize();
+    cudaStreamSynchronize(stream);
 }
 
 #endif
