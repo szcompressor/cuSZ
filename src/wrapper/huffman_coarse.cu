@@ -19,26 +19,18 @@
 #include "huffman_coarse.cuh"
 #include "huffman_parbook.cuh"
 
-#define nworker blockDim.x
-
 namespace cusz {
 
 template <typename Huff, typename Meta>
-__global__ void huffman_coarse_concatenate(
-    Huff*     tmp_encspace,
-    Meta*     par_entry,
-    Meta*     par_ncell,
-    int const cfg_sublen,
-    Huff*     out_bitstream)
+__global__ void
+huffman_coarse_concatenate(Huff* gapped, Meta* par_entry, Meta* par_ncell, int const cfg_sublen, Huff* non_gapped)
 {
-    auto       ncell      = par_ncell[blockIdx.x];
-    auto       entry      = par_entry[blockIdx.x];
-    auto       output_dst = cfg_sublen * blockIdx.x;
-    auto const R          = (ncell + nworker - 1) / nworker;
+    auto ncell = par_ncell[blockIdx.x];
+    auto __src = gapped + cfg_sublen * blockIdx.x;
+    auto __dst = non_gapped + par_entry[blockIdx.x];
 
-    for (auto i = 0; i < R; i++) {
-        auto x = threadIdx.x + i * nworker;
-        if (x < ncell) *(out_bitstream + entry + x) = *(tmp_encspace + output_dst + x);
+    for (auto i = threadIdx.x; i < ncell; i += blockDim.x) {  // block-stride
+        *(__dst + i) = *(__src + i);
         __syncthreads();
     }
 }

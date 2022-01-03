@@ -165,17 +165,20 @@ __global__ void huffman_encode_deflate(
 {
     constexpr int CELL_BITWIDTH = sizeof(COMPRESSED) * 8;
 
-    auto gid = BIX * BDX + TIX;
+    auto tid = BIX * BDX + TIX;
 
-    if (gid < pardeg) {
+    if (tid < pardeg) {
         int         residue_bits = CELL_BITWIDTH;
         int         total_bits   = 0;
-        COMPRESSED* ptr          = inout_inplace + gid * sublen;
+        COMPRESSED* ptr          = inout_inplace + tid * sublen;
         COMPRESSED  bufr;
         uint8_t     word_width;
 
-        for (auto i = 0; i < sublen; i++) {
-            COMPRESSED packed_word = inout_inplace[gid * sublen + i];
+        auto did = tid * sublen;
+        for (auto i = 0; i < sublen; i++, did++) {
+            if (did == len) break;
+
+            COMPRESSED packed_word = inout_inplace[tid * sublen + i];
             auto       word_ptr    = reinterpret_cast<struct PackedWordByWidth<sizeof(COMPRESSED)>*>(&packed_word);
             word_width             = word_ptr->bits;
             word_ptr->bits         = (uint8_t)0x0;
@@ -211,8 +214,8 @@ __global__ void huffman_encode_deflate(
         }
         *ptr = bufr;  // manage the last unit
 
-        par_nbit[gid]  = total_bits;
-        par_ncell[gid] = (total_bits + CELL_BITWIDTH - 1) / CELL_BITWIDTH;
+        par_nbit[tid]  = total_bits;
+        par_ncell[tid] = (total_bits + CELL_BITWIDTH - 1) / CELL_BITWIDTH;
     }
 }
 
