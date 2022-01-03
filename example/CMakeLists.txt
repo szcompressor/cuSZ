@@ -25,8 +25,8 @@ add_library(minimalhuff ${LIB_TYPE} ../src/wrapper/huffman_coarse.cu ../src/wrap
 target_link_libraries(minimalhuff -lcusparse)
 set_target_properties(minimalhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-# add_executable(test-huffcoarse src/ex_api_huffcoarse.cu)
-# target_link_libraries(test-huffcoarse minimalhuff)
+add_executable(test-huffcoarse src/ex_api_huffcoarse.cu)
+target_link_libraries(test-huffcoarse minimalhuff)
 
 
 add_library(minimalcsr ${LIB_TYPE} ../src/wrapper/csr11.cu)

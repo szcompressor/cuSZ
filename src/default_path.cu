@@ -312,7 +312,7 @@ DPCOMPRESSOR& DPCOMPRESSOR::compress(bool optional_release_input)
 
         auto in_len = BINDING::template get_uncompressed_len(predictor, codec);
 
-        codec->encode(
+        codec->encode_integrated(
             /* space  */ this->freq.dptr, book.dptr, this->huff_workspace,
             /* input  */ this->quant.dptr, in_len,
             /* config */ this->dict_size, chunk_size,

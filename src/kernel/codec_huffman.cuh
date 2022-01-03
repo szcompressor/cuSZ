@@ -251,6 +251,36 @@ __global__ void huffman_decode(
     }
 };
 
+template <typename UNCOMPRESSED, typename COMPRESSED, typename MetadataT>
+__global__ void huffman_decode_new(
+    COMPRESSED*   in_compressed,
+    BYTE*         in_revbook,
+    MetadataT*    in_par_nbit,
+    MetadataT*    in_par_entry,
+    int const     in_revbook_nbyte,
+    int const     cfg_sublen,
+    int const     cfg_pardeg,
+    UNCOMPRESSED* out_uncompressed)
+{
+    extern __shared__ BYTE shmem[];
+    constexpr auto         block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+    auto R = (in_revbook_nbyte - 1 + block_dim) / block_dim;
+
+    for (auto i = 0; i < R; i++) {
+        if (TIX + i * block_dim < in_revbook_nbyte) shmem[TIX + i * block_dim] = in_revbook[TIX + i * block_dim];
+    }
+    __syncthreads();
+
+    auto gid = BIX * BDX + TIX;
+
+    if (gid < cfg_pardeg) {
+        cusz::coarse_par::detail::subroutine::single_thread_inflate(
+            in_compressed + in_par_entry[gid], out_uncompressed + cfg_sublen * gid, in_par_nbit[gid], shmem);
+        __syncthreads();
+    }
+};
+
 }  // namespace kernel
 }  // namespace detail
 }  // namespace coarse_par
