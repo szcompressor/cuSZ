@@ -31,9 +31,10 @@
 #endif
 
 struct Reinterpret1DTo2D {
-    static uint32_t get_square_size(uint32_t len)
+    template <typename T>
+    static T get_square_size(T len)
     {  //
-        return static_cast<uint32_t>(ceil(sqrt(len)));
+        return static_cast<T>(ceil(sqrt(len)));
     }
 };
 

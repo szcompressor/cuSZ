@@ -32,5 +32,5 @@ target_link_libraries(test-huffcoarse minimalhuff)
 add_library(minimalcsr ${LIB_TYPE} ../src/wrapper/csr11.cu)
 target_link_libraries(minimalcsr -lcusparse)
 
-# add_executable(test-csr src/ex_api_csr11.cu)
-# target_link_libraries(test-csr minimalcsr)
+add_executable(test-csr src/ex_api_csr11.cu)
+target_link_libraries(test-csr minimalcsr)
