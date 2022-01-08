@@ -9,9 +9,9 @@
  *
  */
 
-#include "../src/common/capsule.hh"
-#include "../src/kernel/rle.cuh"
-#include "../src/ood/codec_runlength.hh"
+#include "common/capsule.hh"
+#include "kernel/rle.cuh"
+#include "ood/codec_runlength.hh"
 
 void test_encoding(size_t& N, size_t& num_runs)
 {

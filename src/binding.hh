@@ -16,6 +16,12 @@
 #include <limits>
 #include <type_traits>
 
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
+
 /**
  * ------------
  * default path

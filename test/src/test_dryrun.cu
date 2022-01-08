@@ -31,7 +31,7 @@ int main(int argc, char** argv)
     cudaStreamCreate(&stream);
 
     Compressor   dryrun;
-    host_timer_t timer;
+    cuda_timer_t timer;
 
     cout << "\ngeneric dryrun" << '\n';
     dryrun.init_generic_dryrun(dim3(x, y, z));
