@@ -16,10 +16,6 @@
 #include "default_path.cuh"
 #include "wrapper.hh"
 
-constexpr auto kHOST        = cusz::LOC::HOST;
-constexpr auto kDEVICE      = cusz::LOC::DEVICE;
-constexpr auto kHOST_DEVICE = cusz::LOC::HOST_DEVICE;
-
 #define DPCOMPRESSOR_TYPE template <class BINDING>
 #define DPCOMPRESSOR DefaultPathCompressor<BINDING>
 
@@ -216,39 +212,6 @@ DPCOMPRESSOR::DefaultPathCompressor(cuszCTX* _ctx, Capsule<BYTE>* _in_dump)
     }
 
     LOGGING(LOG_INFO, "decompressing...");
-}
-
-DPCOMPRESSOR_TYPE
-DPCOMPRESSOR::~DefaultPathCompressor()
-{
-    if (this->timing == cusz::WHEN::COMPRESS) {  // release small-size arrays
-
-        this->quant.template free<kDEVICE>();
-        this->freq.template free<kDEVICE>();
-        huff_data.template free<kHOST_DEVICE>();
-        huff_counts.template free<kHOST_DEVICE>();
-        sp_use.template free<kHOST_DEVICE>();
-        book.template free<kDEVICE>();
-        revbook.template free<kHOST_DEVICE>();
-
-        cudaFree(huff_workspace);
-
-        ext_rowptr.template free<kDEVICE>();
-        ext_colidx.template free<kDEVICE>();
-        ext_values.template free<kDEVICE>();
-
-        delete this->header;
-    }
-    else {
-        cudaFree(sp_use.dptr);
-
-        xhuff.in.template free<kDEVICE>();
-        xhuff.meta.template free<kDEVICE>();
-        xhuff.revbook.template free<kDEVICE>();
-    }
-
-    delete spreducer;
-    delete predictor;
 }
 
 DPCOMPRESSOR_TYPE

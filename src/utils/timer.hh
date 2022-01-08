@@ -72,7 +72,7 @@ typedef struct CUDATimer {
     void timer_end(cudaStream_t stream)
     {
         cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);  // block host until `strem` meets `stop`
+        cudaEventSynchronize(stop);  // block host until `stream` meets `stop`
     }
 
     // get time
