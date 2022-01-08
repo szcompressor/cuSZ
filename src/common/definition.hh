@@ -25,19 +25,17 @@ enum class WHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 enum class ALIGNDATA { NONE, SQUARE_MATRIX, POWEROF2, NEXT_EVEN };
 enum class ALIGNMEM { NONE, WARP32B, WARP64B, WARP128B };
 
-struct COMPONENTS {
-    struct PREDICTOR {
-        static const uint32_t LORENZO   = 0;
-        static const uint32_t LORENZOII = 1;
-        static const uint32_t SPLINE3   = 2;
-    };
-    struct CODEC {
-        static const uint32_t HUFFMAN_COARSE = 0;
-    };
-    struct SPREDUCER {
-        static const uint32_t CSR11 = 0;
-    };
-};
+// struct PREDICTOR {
+//     static const uint32_t LORENZO   = 0;
+//     static const uint32_t LORENZOII = 1;
+//     static const uint32_t SPLINE3   = 2;
+// };
+// struct CODEC {
+//     static const uint32_t HUFFMAN_COARSE = 0;
+// };
+// struct SPREDUCER {
+//     static const uint32_t CSR11 = 0;
+// };
 
 // TODO when to use ADDR8?
 // TODO change to `enum class`

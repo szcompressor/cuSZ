@@ -84,10 +84,10 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__report_decompress_time(
 BASE_COMPRESSOR_TYPE
 BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__compare_with_original(T* xdata, bool use_gpu)
 {
-    if (not ctx->fnames.origin_cmp.empty() and ctx->report.quality) {
+    if (not ctx->fname.origin_cmp.empty() and ctx->report.quality) {
         LOGGING(LOG_INFO, "compare to the original");
 
-        auto odata = io::read_binary_to_new_array<T>(ctx->fnames.origin_cmp, ctx->data_len);
+        auto odata = io::read_binary_to_new_array<T>(ctx->fname.origin_cmp, ctx->data_len);
 
         if (use_gpu) {
             // TODO redundant memory use
@@ -120,8 +120,8 @@ BASE_COMPRESSOR& BASE_COMPRESSOR::noncritical__optional__write2disk(T* host_xdat
     if (ctx->to_skip.write2disk)
         LOGGING(LOG_INFO, "output: skipped");
     else {
-        LOGGING(LOG_INFO, "output:", ctx->fnames.path_basename + ".cuszx");
-        io::write_array_to_binary(ctx->fnames.path_basename + ".cuszx", host_xdata, ctx->data_len);
+        LOGGING(LOG_INFO, "output:", ctx->fname.path_basename + ".cuszx");
+        io::write_array_to_binary(ctx->fname.path_basename + ".cuszx", host_xdata, ctx->data_len);
     }
 
     return *this;

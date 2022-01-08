@@ -1,5 +1,5 @@
 /**
- * @file query.cc
+ * @file query.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.1.3

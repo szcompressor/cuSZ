@@ -7,8 +7,8 @@
 using std::cout;
 using std::endl;
 
-#include "../src/common/capsule.hh"
-#include "../src/ood/sparse_op.hh"
+#include "common/capsule.hh"
+#include "ood/sparse_op.hh"
 
 void TestSp2Dn()
 {

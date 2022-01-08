@@ -24,7 +24,7 @@ int main(int argc, char** argv)
     Capsule<float> in(atoi(argv[2]));
     in  //
         .template alloc<cusz::LOC::HOST_DEVICE>()
-        .template from_fs_to<cusz::LOC::HOST>(argv[1])
+        .template from_file<cusz::LOC::HOST>(argv[1])
         .host2device();
 
     auto where = std::string(argv[3]);

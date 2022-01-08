@@ -11,10 +11,10 @@
  */
 
 #include <iostream>
-#include "../src/common.hh"
-#include "../src/kernel/lorenzo.cuh"
-#include "../src/kernel/lorenzo_prototype.cuh"
-#include "../src/utils.hh"
+#include "common.hh"
+#include "kernel/lorenzo.cuh"
+#include "kernel/lorenzo_prototype.cuh"
+#include "utils.hh"
 using std::cerr;
 using std::cout;
 
@@ -33,7 +33,8 @@ cudaStream_t stream3;
 
 void Test1D(Data* data, Quant* quant)
 {
-    auto dimx = 512 * 512 * 512;
+    auto dimx    = 512 * 512 * 512;
+    auto outlier = data;
 
     static const auto SEQ          = ChunkingTrait<1>::SEQ;
     static const auto DATA_SUBSIZE = ChunkingTrait<1>::BLOCK;
@@ -41,16 +42,17 @@ void Test1D(Data* data, Quant* quant)
     auto              dim_grid     = ConfigHelper::get_npart(dimx, DATA_SUBSIZE);
 
     cusz::c_lorenzo_1d1l<Data, Quant, float, DATA_SUBSIZE, SEQ><<<dim_grid, dim_block, 0, stream1>>>  //
-        (data, quant, dimx, radius, ebx2_r);
+        (data, quant, outlier, dimx, radius, ebx2_r);
 
     cusz::x_lorenzo_1d1l<Data, Quant><<<dim_grid, dim_block, 0, stream1>>>  //
-        (data, quant, dimx, radius, ebx2);
+        (outlier, quant, data, dimx, radius, ebx2);
 }
 
 void Test2D(Data* data, Quant* quant)
 {
     auto dimx = 512 * 32, dimy = 512 * 16;
     auto stridey = dimx;
+    auto outlier = data;
 
     auto dim_block = dim3(16, 2);
     auto dim_grid  = dim3(
@@ -58,16 +60,17 @@ void Test2D(Data* data, Quant* quant)
          ConfigHelper::get_npart(dimy, 16));
 
     cusz::c_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant, float><<<dim_grid, dim_block, 0, stream2>>>  //
-        (data, quant, dimx, dimy, stridey, radius, ebx2_r);
+        (data, quant, outlier, dimx, dimy, stridey, radius, ebx2_r);
 
     cusz::x_lorenzo_2d1l_16x16data_mapto16x2<Data, Quant><<<dim_grid, dim_block, 0, stream2>>>  //
-        (data, quant, dimx, dimy, stridey, radius, ebx2);
+        (outlier, quant, data, dimx, dimy, stridey, radius, ebx2);
 }
 
 void Test3D(Data* data, Quant* quant)
 {
     auto dimx = 512, dimy = 512, dimz = 512;
     auto stridey = 512, stridez = 512 * 512;
+    auto outlier = data;
 
     auto dim_block = dim3(32, 1, 8);
     auto dim_grid  = dim3(
@@ -77,10 +80,10 @@ void Test3D(Data* data, Quant* quant)
      );
 
     cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<Data, Quant><<<dim_grid, dim_block, 0, stream3>>>  //
-        (data, quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
+        (data, quant, outlier, dimx, dimy, dimz, stridey, stridez, radius, ebx2_r);
 
     cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<<<dim_grid, dim_block, 0, stream3>>>  //
-        (data, quant, dimx, dimy, dimz, stridey, stridez, radius, ebx2);
+        (outlier, quant, data, dimx, dimy, dimz, stridey, stridez, radius, ebx2);
 }
 
 int main(int argc, char** argv)

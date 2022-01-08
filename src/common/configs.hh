@@ -31,9 +31,10 @@
 #endif
 
 struct Reinterpret1DTo2D {
-    static uint32_t get_square_size(uint32_t len)
+    template <typename T>
+    static T get_square_size(T len)
     {  //
-        return static_cast<uint32_t>(ceil(sqrt(len)));
+        return static_cast<T>(ceil(sqrt(len)));
     }
 };
 
@@ -104,9 +105,7 @@ struct ConfigHelper {
     static uint32_t predictor_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"lorenzo", cusz::COMPONENTS::PREDICTOR::LORENZO},
-            {"lorenzoii", cusz::COMPONENTS::PREDICTOR::LORENZOII},
-            {"spline3", cusz::COMPONENTS::PREDICTOR::SPLINE3}  //
+            {"lorenzo", 0}, {"lorenzoii", 1}, {"spline3", 2}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such predictor as " + name);
         return lut.at(name);
@@ -115,7 +114,7 @@ struct ConfigHelper {
     static uint32_t codec_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"huffman-coarse", cusz::COMPONENTS::CODEC::HUFFMAN_COARSE}  //
+            {"huffman-coarse", 0}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);
@@ -124,7 +123,7 @@ struct ConfigHelper {
     static uint32_t spreducer_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"csr11", cusz::COMPONENTS::SPREDUCER::CSR11}  //
+            {"csr11", 0}, {"spgs", 1}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);

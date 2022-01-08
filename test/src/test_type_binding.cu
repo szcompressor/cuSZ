@@ -12,10 +12,19 @@
 #include <cstdint>
 #include <iostream>
 #include <typeinfo>
-#include "../src/binding.hh"
-#include "../src/wrapper.hh"
+
+#include "binding.hh"
+#include "common.hh"
+#include "utils.hh"
+#include "wrapper.hh"
 
 using namespace std;
+
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
 
 int main()
 {
@@ -24,8 +33,8 @@ int main()
     cout << typeid(Predictor::Origin).name() << endl;
     cout << typeid(Predictor::Precision).name() << endl;
 
-    using binding1 = struct PredictorReducerEncoderBinding<
-        cusz::PredictorLorenzo<float, uint32_t, float>, cusz::CSR10<float>, cusz::HuffmanCoarse<uint32_t, uint32_t>>;
+    using binding1 = struct PredictorReducerCodecBinding<
+        cusz::PredictorLorenzo<float, uint32_t, float>, cusz::CSR11<float>, cusz::HuffmanCoarse<uint32_t, uint32_t>>;
 
     binding1::type_matching();
 
@@ -33,7 +42,7 @@ int main()
     cout << typeid(binding1::PREDICTOR::Origin).name() << endl;
 
     using binding2 = struct PredictorReducerBinding<  //
-        cusz::PredictorLorenzo<float, float, float>, cusz::CSR10<float>>;
+        cusz::PredictorLorenzo<float, float, float>, cusz::CSR11<float>>;
 
     binding2::type_matching();
 

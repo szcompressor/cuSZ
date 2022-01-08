@@ -28,8 +28,8 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2021-12-04.1";
-const int   VERSION       = 2021100501;
+const char* VERSION_TEXT  = "2021-12-30.1";
+const int   VERSION       = 202112301;
 const int   COMPATIBILITY = 0;
 
 namespace {
@@ -153,7 +153,7 @@ void cuszCTX::trap(int _status) { this->read_args_status = _status; }
 void cuszCTX::check_args_when_cli()
 {
     bool to_abort = false;
-    if (fnames.path2file.empty()) {
+    if (fname.fname.empty()) {
         cerr << LOG_ERR << "must specify input file" << endl;
         to_abort = true;
     }
@@ -283,7 +283,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                         break;
                     }
                     if (long_opt == "--origin" or long_opt == "--compare") {
-                        if (i + 1 <= argc) fnames.origin_cmp = string(argv[++i]);
+                        if (i + 1 <= argc) fname.origin_cmp = string(argv[++i]);
                         break;
                     }
                     if (long_opt == "--gzip") {
@@ -340,7 +340,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     break;
                 case 'i':
                 tag_input:
-                    if (i + 1 <= argc) fnames.path2file = string(argv[++i]);
+                    if (i + 1 <= argc) fname.fname = string(argv[++i]);
                     break;
                 case 'p':
                 tag_predictor:
@@ -550,14 +550,13 @@ void cuszCTX::sort_out_fnames()
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
-    auto input_path = fnames.path2file.substr(0, fnames.path2file.rfind('/') + 1);
-    if (not task_is.construct and task_is.reconstruct)
-        fnames.path2file = fnames.path2file.substr(0, fnames.path2file.rfind('.'));
-    fnames.basename = fnames.path2file.substr(fnames.path2file.rfind('/') + 1);
+    auto input_path = fname.fname.substr(0, fname.fname.rfind('/') + 1);
+    if (not task_is.construct and task_is.reconstruct) fname.fname = fname.fname.substr(0, fname.fname.rfind('.'));
+    fname.basename = fname.fname.substr(fname.fname.rfind('/') + 1);
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;
     opath += "/";
 
-    fnames.path_basename   = opath + fnames.basename;
-    fnames.compress_output = fnames.path_basename + ".cusza";
+    fname.path_basename   = opath + fname.basename;
+    fname.compress_output = fname.path_basename + ".cusza";
 }

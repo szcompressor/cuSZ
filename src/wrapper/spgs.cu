@@ -43,10 +43,11 @@ void spGS<T>::gather(
     this->val = out_val;
 
     {  // phase 1: count nnz
-        auto t = new cuda_timer_t;
-        t->timer_start();
-        out_nnz      = thrust::count_if(thrust::device, in, in + in_len, [] __device__(const T& x) { return x != 0; });
-        milliseconds = t->timer_end_get_elapsed_time();
+        cuda_timer_t t;
+        t.timer_start();
+        out_nnz = thrust::count_if(thrust::device, in, in + in_len, [] __device__(const T& x) { return x != 0; });
+        t.timer_end();
+        milliseconds = t.get_time_elapsed();
     }
     // TODO improve
     this->nnz = out_nnz;
@@ -61,12 +62,13 @@ void spGS<T>::gather(
     auto zipped_out_end = thrust::make_zip_iterator(thrust::make_tuple(out_val + out_nnz, out_idx + out_nnz));
 
     {
-        auto t = new cuda_timer_t;
-        t->timer_start();
+        cuda_timer_t t;
+        t.timer_start();
         thrust::copy_if(thrust::device, zipped_in, zipped_in_end, zipped_out, [] __host__ __device__(const Tuple& t) {
             return thrust::get<0>(t) != 0;
         });
-        milliseconds += t->timer_end_get_elapsed_time();
+        t.timer_end();
+        milliseconds += t.get_time_elapsed();
     }
 
     dump_nbyte = (sizeof(int) + sizeof(T)) * out_nnz;
@@ -75,10 +77,11 @@ void spGS<T>::gather(
 template <typename T>
 void spGS<T>::scatter(int*& in_idx, T*& in_val, int nnz, T* out)
 {
-    auto t = new cuda_timer_t;
-    t->timer_start();
+    cuda_timer_t t;
+    t.timer_start();
     thrust::scatter(thrust::device, in_val, in_val + nnz, in_idx, out);
-    milliseconds = t->timer_end_get_elapsed_time();
+    t.timer_end();
+    milliseconds = t.get_time_elapsed();
 }
 
 template <typename T>

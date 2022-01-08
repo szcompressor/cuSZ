@@ -14,15 +14,6 @@
 
 #include "../../include/predictor.hh"
 
-template <typename T = float, typename E = float, typename FP = float>
-void tbd_lorenzo_dryrun(T* data, dim3 size3, int ndim, FP eb);
-
-template <typename T = float, typename E = float, typename FP = float, bool DELAY_POSTQUANT = false>
-void compress_lorenzo_construct(T* data, E* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
-
-template <typename T = float, typename E = float, typename FP = float, bool DELAY_POSTQUANT = false>
-void decompress_lorenzo_reconstruct(T* data, E* quant, dim3 size3, int ndim, FP eb, int radius, float& ms);
-
 namespace cusz {
 
 template <typename T, typename E, typename FP>
@@ -31,11 +22,6 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     using Precision = FP;
 
    private:
-    int    radius;
-    double eb;
-    FP     ebx2_r;
-    FP     ebx2;
-
     dim3     size;  // size.x, size.y, size.z
     dim3     leap;  // leap.y, leap.z
     int      ndim;
@@ -52,16 +38,32 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     } on_off;
 
     template <bool DELAY_POSTQUANT>
-    void construct_proxy(T* in_data, T* out_anchor, E* out_errctrl, cudaStream_t = nullptr);
+    void construct_proxy(
+        T* in_data,
+        T* out_anchor,
+        E* out_errctrl,
+        T* __restrict__ __out_outlier,
+        double const eb,
+        int const    radius,
+        cudaStream_t const = nullptr);
 
     template <bool DELAY_POSTQUANT>
-    void reconstruct_proxy(T* in_anchor, E* in_errctrl, T* out_xdata, cudaStream_t = nullptr);
+    void reconstruct_proxy(
+        T* __restrict__ __in_outlier,
+        T*           in_anchor,
+        E*           in_errctrl,
+        T*           out_xdata,
+        double const eb,
+        int const    radius,
+        cudaStream_t const = nullptr);
 
    public:
-    // context free
-    PredictorLorenzo(dim3 xyz, double eb, int radius, bool delay_postquant);
+    // constructor
+    PredictorLorenzo(dim3 xyz, bool delay_postquant);
+    ~PredictorLorenzo(){};
 
     // helper
+    uint32_t get_data_len() const { return len_data; }
     uint32_t get_anchor_len() const { return 0; }
     uint32_t get_quant_len() const { return len_quant; }
     uint32_t get_outlier_len() const { return len_outlier; }
@@ -72,9 +74,23 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     // methods
     void dryrun(T* in_out);
 
-    void construct(T* in_data, T* out_anchor, E* out_errctrl, cudaStream_t = nullptr);
+    void construct(
+        T*           in_data,
+        T*           out_anchor,
+        E*           out_errctrl,
+        double const eb,
+        int const    radius,
+        cudaStream_t const = nullptr,
+        T* __restrict__    = nullptr);
 
-    void reconstruct(T* in_anchor, E* in_errctrl, T* out_xdata, cudaStream_t = nullptr);
+    void reconstruct(
+        T*           in_anchor,
+        E*           in_errctrl,
+        T*           out_xdata,
+        double const eb,
+        int const    radius,
+        cudaStream_t const = nullptr,
+        T* __restrict__    = nullptr);
 };
 
 }  // namespace cusz

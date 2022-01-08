@@ -163,34 +163,34 @@ class Capsule {
      * @return Capsule&
      */
     template <cusz::LOC DST, cusz::LOC VIA = cusz::LOC::NONE>
-    Capsule& from_fs_to(std::string fname, double* time = nullptr)
+    Capsule& from_file(std::string fname, double* time = nullptr)
     {
         auto a = hires::now();
 
         if (DST == cusz::LOC::HOST) {
             if (VIA == cusz::LOC::NONE) {
                 if (not hptr) {  //
-                    throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "hptr not set"));
+                    throw std::runtime_error(ERRSTR_BUILDER("from_file", "hptr not set"));
                 }
                 io::read_binary_to_array<T>(fname, hptr, len);
             }
             else {
-                throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_fs_to"));
+                throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_file"));
             }
         }
         else if (DST == cusz::LOC::DEVICE) {
-            throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "to DEVICE not implemented"));
+            throw std::runtime_error(ERRSTR_BUILDER("from_file", "to DEVICE not implemented"));
             // (VIA == cusz::LOC::HOST)
             // (VIA == cusz::LOC::NONE)
         }
         else if (DST == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("from_fs_to", "uniptr not set"));
+                throw std::runtime_error(ERRSTR_BUILDER("from_file", "uniptr not set"));
             }
             io::read_binary_to_array<T>(fname, uniptr, len);
         }
         else {
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_fs_to"));
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_file"));
         }
 
         auto z = hires::now();
@@ -200,22 +200,22 @@ class Capsule {
     }
 
     template <cusz::LOC SRC, cusz::LOC VIA = cusz::LOC::NONE>
-    Capsule& to_fs_from(std::string fname)
+    Capsule& to_file(std::string fname)
     {
         if (SRC == cusz::LOC::HOST) {
             if (not hptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "hptr not set"));
+                throw std::runtime_error(ERRSTR_BUILDER("to_file", "hptr not set"));
             }
             io::write_array_to_binary<T>(fname, hptr, len);
         }
         else if (SRC == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("to_fs_from", "uniptr not set"));
+                throw std::runtime_error(ERRSTR_BUILDER("to_file", "uniptr not set"));
             }
             io::write_array_to_binary<T>(fname, uniptr, len);
         }
         else {
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("to_fs_from"));
+            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("to_file"));
         }
         return *this;
     }

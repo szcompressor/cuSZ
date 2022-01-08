@@ -32,17 +32,18 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     using FP   = typename Predictor::Precision;
     using E    = typename Predictor::ErrCtrl;
     using H    = typename Codec::Encoded;
+    using M    = typename Codec::MetadataT;
 
    private:
    private:
     // --------------------
     // not in base class
     // --------------------
-    Capsule<H>      book;
-    Capsule<H>      huff_data;
-    Capsule<size_t> huff_counts;
-    Capsule<BYTE>   revbook;
-    Capsule<BYTE>   sp_use;
+    Capsule<H>    book;
+    Capsule<H>    huff_data;
+    Capsule<M>    huff_counts;
+    Capsule<BYTE> revbook;
+    Capsule<BYTE> sp_use;
 
     // tmp, device only
     Capsule<int> ext_rowptr;
@@ -52,9 +53,9 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     H* huff_workspace;  // compress
 
     struct {
-        Capsule<H>      in;
-        Capsule<size_t> meta;
-        Capsule<BYTE>   revbook;
+        Capsule<H>    in;
+        Capsule<M>    meta;
+        Capsule<BYTE> revbook;
     } xhuff;
 
     Predictor* predictor;
@@ -71,7 +72,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     DefaultPathCompressor& internal_eval_try_export_quant();
     DefaultPathCompressor& try_skip_huffman();
     // DefaultPathCompressor& get_freq_codebook();
-    DefaultPathCompressor& old_huffman_encode();
+    // DefaultPathCompressor& old_huffman_encode();
 
    public:
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data, uint3 xyz, int dict_size);
@@ -96,7 +97,8 @@ struct DefaultPath {
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
         // cusz::spGS<DATA>,  //  not woking for CUDA 10.2 on ppc
-        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type>>;
+        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>  //
+        >;
 
     using DefaultCompressor = class DefaultPathCompressor<DefaultBinding>;
 
@@ -104,7 +106,8 @@ struct DefaultPath {
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
         // cusz::spGS<DATA>,  //  not woking for CUDA 10.2 ppc
-        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type>>;
+        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>  //
+        >;
 
     using FallbackCompressor = class DefaultPathCompressor<FallbackBinding>;
 };

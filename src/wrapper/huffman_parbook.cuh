@@ -17,11 +17,21 @@
 #define PAR_HUFFMAN_H
 
 // Parallel huffman global memory and kernels
-namespace lossless {
+namespace kernel_wrapper {
 
-template <typename Q, typename H>
-void par_get_codebook(int stateNum, unsigned int* freq, H* codebook, uint8_t* meta);
+/**
+ * @brief get codebook and reverse codebook in parallel
+ *
+ * @tparam T input type
+ * @tparam H codebook type
+ * @param freq input device array; frequency
+ * @param dict_size dictionary size; len of freq
+ * @param codebook output device array; codebook for encoding
+ * @param reverse_codebook output device array; reverse codebook for decoding
+ */
+template <typename T, typename H>
+void par_get_codebook(cusz::FREQ* freq, int dict_size, H* codebook, uint8_t* reverse_codebook, cudaStream_t = nullptr);
 
-}  // namespace lossless
+}  // namespace kernel_wrapper
 
 #endif

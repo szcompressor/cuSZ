@@ -57,107 +57,109 @@ T* pre_binning(T* d, size_t* dim_array)
     return nullptr;
 }
 
-#define NONPTR_TYPE(VAR) std::remove_pointer<decltype(VAR)>::type
+using T = float;
+using E = ErrCtrlTrait<2>::type;
+using P = FastLowPrecisionTrait<true>::type;
+
+void cli_dryrun(cuszCTX* ctx, bool dualquant = true)
+{
+    BaseCompressor<DefaultPath::DefaultBinding::PREDICTOR> analysis;
+
+    uint3        xyz{ctx->x, ctx->y, ctx->z};
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    if (not dualquant) {
+        analysis.init_dualquant_dryrun(xyz);
+        analysis.dualquant_dryrun(ctx->fname.fname, ctx->eb, ctx->mode == "r2r", stream);
+        analysis.destroy_dualquant_dryrun();
+    }
+
+    if (dualquant) {
+        analysis.init_generic_dryrun(xyz);
+        analysis.generic_dryrun(ctx->fname.fname, ctx->eb, 512, ctx->mode == "r2r", stream);
+        analysis.destroy_generic_dryrun();
+    }
+    cudaStreamDestroy(stream);
+}
+
+void cli_compress(cuszCTX* ctx)
+{
+    double time_loading{0.0};
+
+    Capsule<T> in_data(ctx->data_len, "comp::in_data");
+    in_data.alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>()
+        .from_file<cusz::LOC::HOST>(ctx->fname.fname, &time_loading)
+        .host2device();
+
+    if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
+    LOGGING(LOG_INFO, "load", ctx->fname.fname, ctx->data_len * sizeof(T), "bytes");
+
+    Capsule<BYTE> out_archive("comp::out_archive");
+
+    // TODO This does not cover the output size for *all* predictors.
+    if (ctx->on_off.autotune_huffchunk)
+        DefaultPath::DefaultBinding::CODEC::get_coarse_pardeg(ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
+    else
+        ctx->nchunk = ConfigHelper::get_npart(ctx->data_len, ctx->huffman_chunksize);
+
+    uint3 xyz{ctx->x, ctx->y, ctx->z};
+
+    if (ctx->huff_bytewidth == 4) {
+        DefaultPath::DefaultCompressor cuszc(ctx, &in_data, xyz, ctx->dict_size);
+
+        cuszc.compress(ctx->on_off.release_input)
+            .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_archive.get<cusz::LOC::HOST>());
+        cout << "output:\t" << ctx->fname.compress_output << '\n';
+        out_archive.to_file<cusz::LOC::HOST>(ctx->fname.compress_output).free<cusz::LOC::HOST>();
+    }
+    else if (ctx->huff_bytewidth == 8) {
+        DefaultPath::FallbackCompressor cuszc(ctx, &in_data, xyz, ctx->dict_size);
+
+        cuszc.compress(ctx->on_off.release_input)
+            .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_archive.get<cusz::LOC::HOST>());
+        cout << "output:\t" << ctx->fname.compress_output << '\n';
+        out_archive.to_file<cusz::LOC::HOST>(ctx->fname.compress_output).free<cusz::LOC::HOST>();
+    }
+    else {
+        throw std::runtime_error("huff nbyte illegal");
+    }
+    if (ctx->on_off.release_input)
+        in_data.free<cusz::LOC::HOST>();
+    else
+        in_data.free<cusz::LOC::HOST_DEVICE>();
+}
+
+void cli_decompress(cuszCTX* ctx)
+{
+    auto fin_archive = ctx->fname.fname + ".cusza";
+    auto cusza_nbyte = ConfigHelper::get_filesize(fin_archive);
+
+    Capsule<BYTE> in_archive(cusza_nbyte, ("decomp::in_archive"));
+    in_archive.alloc<cusz::LOC::HOST>().from_file<cusz::LOC::HOST>(fin_archive);
+
+    Capsule<T> out_xdata("decomp::out_xdata");
+
+    // TODO try_writeback vs out_xdata.to_file()
+    if (ctx->huff_bytewidth == 4) {
+        DefaultPath::DefaultCompressor cuszd(ctx, &in_archive);
+        out_xdata.set_len(ctx->data_len).alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
+        cuszd.decompress(&out_xdata).backmatter(&out_xdata);
+    }
+    else if (ctx->huff_bytewidth == 8) {
+        DefaultPath::FallbackCompressor cuszd(ctx, &in_archive);
+
+        out_xdata.set_len(ctx->data_len).alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
+        cuszd.decompress(&out_xdata).backmatter(&out_xdata);
+    }
+    out_xdata.free<cusz::LOC::HOST_DEVICE>();
+}
 
 void normal_path_lorenzo(cuszCTX* ctx)
 {
-    using T = float;
-    using E = ErrCtrlTrait<2>::type;
-    using P = FastLowPrecisionTrait<true>::type;
-
-    // TODO be part of the other two tasks without touching FS
-    // if (ctx->task_is.experiment) {}
-
-    if (ctx->task_is.construct or ctx->task_is.dryrun) {
-        double time_loading{0.0};
-
-        Capsule<T> in_data(ctx->data_len);
-        in_data.alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>()
-            .from_fs_to<cusz::LOC::HOST>(ctx->fnames.path2file, &time_loading)
-            .host2device();
-
-        if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
-        LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
-
-        Capsule<BYTE> out_dump("out dump");
-
-        // TODO This does not cover the output size for *all* predictors.
-        if (ctx->on_off.autotune_huffchunk) {
-            DefaultPath::DefaultBinding::CODEC::get_coarse_parallelism(
-                ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
-        }
-        else {
-            ctx->nchunk = ConfigHelper::get_npart(ctx->data_len, ctx->huffman_chunksize);
-        }
-
-        uint3 xyz{ctx->x, ctx->y, ctx->z};
-
-        if (ctx->huff_bytewidth == 4) {
-            DefaultPath::DefaultCompressor cuszc(ctx, &in_data, xyz, ctx->dict_size);
-
-            cuszc  //
-                .compress(ctx->on_off.release_input)
-                .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_dump.get<cusz::LOC::HOST>());
-            cout << "output:\t" << ctx->fnames.compress_output << '\n';
-            out_dump  //
-                .to_fs_from<cusz::LOC::HOST>(ctx->fnames.compress_output)
-                .free<cusz::LOC::HOST>();
-        }
-        else if (ctx->huff_bytewidth == 8) {
-            DefaultPath::FallbackCompressor cuszc(ctx, &in_data, xyz, ctx->dict_size);
-
-            cuszc  //
-                .compress(ctx->on_off.release_input)
-                .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_dump.get<cusz::LOC::HOST>());
-            cout << "output:\t" << ctx->fnames.compress_output << '\n';
-            out_dump  //
-                .to_fs_from<cusz::LOC::HOST>(ctx->fnames.compress_output)
-                .free<cusz::LOC::HOST>();
-        }
-        else {
-            throw std::runtime_error("huff nbyte illegal");
-        }
-        if (ctx->on_off.release_input)
-            in_data.free<cusz::LOC::HOST>();
-        else
-            in_data.free<cusz::LOC::HOST_DEVICE>();
-    }
-
-    if (ctx->task_is.reconstruct) {  // fp32 only for now
-
-        auto fname_dump  = ctx->fnames.path2file + ".cusza";
-        auto cusza_nbyte = ConfigHelper::get_filesize(fname_dump);
-
-        Capsule<BYTE> in_dump(cusza_nbyte);
-        in_dump  //
-            .alloc<cusz::LOC::HOST>()
-            .from_fs_to<cusz::LOC::HOST>(fname_dump);
-
-        Capsule<T> out_xdata;
-
-        // TODO try_writeback vs out_xdata.to_fs_from()
-        if (ctx->huff_bytewidth == 4) {
-            DefaultPath::DefaultCompressor cuszd(ctx, &in_dump);
-
-            out_xdata  //
-                .set_len(ctx->data_len)
-                .alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
-            cuszd  //
-                .decompress(&out_xdata)
-                .backmatter(&out_xdata);
-        }
-        else if (ctx->huff_bytewidth == 8) {
-            DefaultPath::FallbackCompressor cuszd(ctx, &in_dump);
-
-            out_xdata  //
-                .set_len(ctx->data_len)
-                .alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
-            cuszd  //
-                .decompress(&out_xdata)
-                .backmatter(&out_xdata);
-        }
-        out_xdata.free<cusz::LOC::HOST_DEVICE>();
-    }
+    if (ctx->task_is.dryrun) cli_dryrun(ctx);
+    if (ctx->task_is.construct) cli_compress(ctx);
+    if (ctx->task_is.reconstruct) cli_decompress(ctx);
 }
 
 void special_path_spline3(cuszCTX* ctx)
