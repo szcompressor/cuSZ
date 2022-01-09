@@ -21,6 +21,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
+#include "utils.hh"
+
 using BYTE = uint8_t;
 using SIZE = size_t;
 
@@ -82,6 +84,22 @@ void verify(UNCOMPRESSED*& uncompressed, UNCOMPRESSED*& decompressed, SIZE len)
         }
     }
     printf("\nPASSED: The decoded/decompressed matches the original/uncompressed.\n");
+}
+
+template <typename DATA>
+void verify_errorboundness(DATA*& origin, DATA*& reconstructed, double const eb, SIZE len)
+{
+    for (auto i = 0; i < len; i++) {
+        auto un = (float)origin[i], de = (float)reconstructed[i];
+        auto error = fabs(un - de);
+        if (error >= eb) {
+            printf(
+                "Errorboundness is not guaranteed, first seen at %d: origin[[ %f ]], reconstructed[[ %f ]]\n", i, un,
+                de);
+            return;
+        }
+    }
+    printf("\nPASSED: The predictor guarantees the errorboundness.\n");
 }
 
 #endif

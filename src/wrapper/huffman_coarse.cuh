@@ -202,33 +202,33 @@ class HuffmanCoarse : public cusz::VariableRate {
 
     ~HuffmanCoarse()
     {
-#define HC_FREEHOST(VAR, SYM)  \
+#define HC_FREEHOST(VAR)       \
     if (h_##VAR) {             \
         cudaFreeHost(h_##VAR); \
         h_##VAR = nullptr;     \
     }
 
-#define HC_FREEDEV(VAR, SYM) \
-    if (d_##VAR) {           \
-        cudaFree(d_##VAR);   \
-        d_##VAR = nullptr;   \
+#define HC_FREEDEV(VAR)    \
+    if (d_##VAR) {         \
+        cudaFree(d_##VAR); \
+        d_##VAR = nullptr; \
     }
 
-        HC_FREEDEV(tmp, TMP);
-        HC_FREEDEV(freq, FREQ);
-        HC_FREEDEV(book, BOOK);
-        HC_FREEDEV(revbook, REVBOOK);
-        HC_FREEDEV(par_nbit, PAR_NBIT);
-        HC_FREEDEV(par_ncell, PAR_NCELL);
-        HC_FREEDEV(par_entry, PAR_ENTRY);
-        HC_FREEDEV(bitstream, BITSTREAM);
+        HC_FREEDEV(tmp);
+        HC_FREEDEV(freq);
+        HC_FREEDEV(book);
+        HC_FREEDEV(revbook);
+        HC_FREEDEV(par_nbit);
+        HC_FREEDEV(par_ncell);
+        HC_FREEDEV(par_entry);
+        HC_FREEDEV(bitstream);
 
-        HC_FREEHOST(freq, FREQ);
-        HC_FREEHOST(book, BOOK);
-        HC_FREEHOST(revbook, REVBOOK);
-        HC_FREEHOST(par_nbit, PAR_NBIT);
-        HC_FREEHOST(par_ncell, PAR_NCELL);
-        HC_FREEHOST(par_entry, PAR_ENTRY);
+        HC_FREEHOST(freq);
+        HC_FREEHOST(book);
+        HC_FREEHOST(revbook);
+        HC_FREEHOST(par_nbit);
+        HC_FREEHOST(par_ncell);
+        HC_FREEHOST(par_entry);
 
 #undef HC_FREEDEV
 #undef HC_FREEHOST

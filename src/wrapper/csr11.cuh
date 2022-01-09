@@ -173,16 +173,16 @@ class CSR11 : public VirtualGatherScatter {
 
     ~CSR11()
     {
-#define CSR11_FREEDEV(VAR, SYM) \
-    if (d_##VAR) {              \
-        cudaFree(d_##VAR);      \
-        d_##VAR = nullptr;      \
+#define CSR11_FREEDEV(VAR) \
+    if (d_##VAR) {         \
+        cudaFree(d_##VAR); \
+        d_##VAR = nullptr; \
     }
 
-        CSR11_FREEDEV(csr, CSR);
-        CSR11_FREEDEV(rowptr, ROWPTR);
-        CSR11_FREEDEV(colidx, COLIDX);
-        CSR11_FREEDEV(val, VAL);
+        CSR11_FREEDEV(csr);
+        CSR11_FREEDEV(rowptr);
+        CSR11_FREEDEV(colidx);
+        CSR11_FREEDEV(val);
 
 #undef CSR11_FREEDEV
     }

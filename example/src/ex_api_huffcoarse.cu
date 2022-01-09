@@ -9,11 +9,10 @@
  *
  */
 
-#include "../../src/utils.hh"
-#include "../../src/wrapper/huffman_coarse.cuh"
 #include "ex_common.cuh"
 
-using std::cout;
+#include "utils.hh"
+#include "wrapper/huffman_coarse.cuh"
 
 using UNCOMPRESSED = uint16_t;
 using COMPONENT    = cusz::HuffmanCoarse<UNCOMPRESSED, uint32_t, uint32_t>;

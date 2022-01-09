@@ -17,6 +17,8 @@ set(CMAKE_CUDA_ARCHITECTURES 75)
 
 enable_language(CUDA)
 
+include_directories(${CMAKE_SOURCE_DIR}/../src)
+
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations")
 
 set(LIB_TYPE SHARED)
@@ -34,3 +36,8 @@ target_link_libraries(minimalcsr -lcusparse)
 
 add_executable(test-csr src/ex_api_csr11.cu)
 target_link_libraries(test-csr minimalcsr)
+
+
+add_library(minimalpq ${LIB_TYPE} ../src/wrapper/extrap_lorenzo.cu)
+add_executable(test-pqlorenzo src/ex_api_pqlorenzo.cu)
+target_link_libraries(test-pqlorenzo minimalpq -lcusparse)
