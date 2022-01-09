@@ -9,18 +9,10 @@
  *
  */
 
-#include <cstdio>
-#include <experimental/random>
-#include <iostream>
-#include <string>
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-
-#include "../../src/utils.hh"
-#include "../../src/wrapper/csr11.cuh"
 #include "ex_common.cuh"
+
+#include "utils.hh"
+#include "wrapper/csr11.cuh"
 
 using UNCOMPRESSED = float;
 using COMPONENT    = cusz::CSR11<UNCOMPRESSED>;
