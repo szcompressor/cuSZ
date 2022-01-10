@@ -41,3 +41,12 @@ target_link_libraries(test-csr minimalcsr)
 add_library(minimalpq ${LIB_TYPE} ../src/wrapper/extrap_lorenzo.cu)
 add_executable(test-pqlorenzo src/ex_api_pqlorenzo.cu)
 target_link_libraries(test-pqlorenzo minimalpq -lcusparse)
+
+add_library(interp ${LIB_TYPE} ../src/wrapper/interp_spline3.cu)
+# add_library(spcompressor ${LIB_TYPE} ../src/sp_path.cu)
+add_executable(test-spline3 src/ex_api_spline3.cu)
+target_link_libraries(test-spline3 
+	interp 
+	# spcompressor 
+	minimalcsr 
+	-lcusparse)

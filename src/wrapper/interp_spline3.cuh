@@ -39,12 +39,14 @@ class Spline3 : public PredictorAbstraction<T, E> {
     FP     eb_r, ebx2, ebx2_r;
 
     bool delay_postquant_dummy;
+    bool outlier_overlapped;
 
     float time_elapsed;
 
     int radius{0};
 
    public:
+    unsigned int get_data_len() const { return len; }
     unsigned int get_anchor_len() const { return len_anchor; }
     unsigned int get_quant_len() const
     {
@@ -69,9 +71,82 @@ class Spline3 : public PredictorAbstraction<T, E> {
 
     Spline3(dim3 xyz, double _eb, int _radius = 0, bool _delay_postquant_dummy = true);
 
-    void construct(TITER in_data, TITER out_anchor, EITER out_errctrl, cudaStream_t = nullptr);
+    void construct(
+        TITER        in_data,
+        TITER        out_anchor,
+        EITER        out_errctrl,
+        double const eb,
+        int const    radius,
+        cudaStream_t                                  = nullptr,
+        T* const __restrict__ non_overlap_out_outlier = nullptr)
+    {
+        ////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////  obsolete  //////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////
+    }
 
-    void reconstruct(TITER in_anchor, EITER in_errctrl, TITER out_data, cudaStream_t = nullptr);
+    void reconstruct(
+        TITER        in_anchor,
+        EITER        in_errctrl,
+        TITER        out_data,
+        double const eb,
+        int const    radius,
+        cudaStream_t                                 = nullptr,
+        T* const __restrict__ non_overlap_in_outlier = nullptr)
+    {
+        ////////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////  obsolete  //////////////////////////////////
+        ////////////////////////////////////////////////////////////////////////////////
+    }
+
+    // new ------------------------------------------------------------
+   private:
+#define DEFINE_ARRAY(VAR, TYPE) TYPE* d_##VAR{nullptr};
+    DEFINE_ARRAY(anchor, T);
+    DEFINE_ARRAY(errctrl, E);
+    DEFINE_ARRAY(outlier, T);
+#undef DEFINE_ARRAY
+
+   public:
+    E* expose_quant() const { return d_errctrl; }
+    E* expose_errctrl() const { return d_errctrl; }
+    T* expose_anchor() const { return d_anchor; }
+
+   public:
+    Spline3() = default;
+
+    void allocate_workspace(dim3 _size3, bool _delay_postquant = false, bool _outlier_overlapped = true);
+
+    ~Spline3()
+    {
+#define SPLINE3_FREEDEV(VAR) \
+    if (d_##VAR) {           \
+        cudaFree(d_##VAR);   \
+        d_##VAR = nullptr;   \
+    }
+        SPLINE3_FREEDEV(anchor);
+        SPLINE3_FREEDEV(errctrl);
+
+#undef SPLINE3_FREEDEV
+    }
+
+    void construct(
+        TITER        in_data,
+        double const cfg_eb,
+        int const    cfg_radius,
+        TITER&       out_anchor,
+        EITER&       out_errctrl,
+        cudaStream_t stream                           = nullptr,
+        T* const __restrict__ non_overlap_out_outlier = nullptr);
+
+    void reconstruct(
+        TITER        in_anchor,
+        EITER        in_errctrl,
+        double const cfg_eb,
+        int const    cfg_radius,
+        TITER&       out_data,
+        cudaStream_t stream                          = nullptr,
+        T* const __restrict__ non_overlap_in_outlier = nullptr);
 };
 
 }  // namespace cusz
