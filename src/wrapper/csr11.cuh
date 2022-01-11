@@ -570,8 +570,6 @@ class CSR11 : public VirtualGatherScatter {
         /********************************************************************************/
     }
 
-#else
-#error CUDART_VERSION must be no less than 10.0!
 #endif
 
     /**
@@ -856,8 +854,6 @@ class CSR11 : public VirtualGatherScatter {
         /******************************************************************************/
     }
 
-#else
-#error CUDART_VERSION must be no less than 10.0!
 #endif
 
     // TODO handle nnz == 0 otherwise
@@ -953,8 +949,6 @@ class CSR11 : public VirtualGatherScatter {
         gather_CUDA11(in, nbyte_dump, stream);
 #elif CUDART_VERSION >= 10000
         gather_CUDA10(in, nbyte_dump, stream);
-#else
-#error CUDART_VERSION must be no less than 10.0!
 #endif
         out_nnz = this->nnz;
     }
@@ -973,8 +967,6 @@ class CSR11 : public VirtualGatherScatter {
         scatter_CUDA11(out, stream);
 #elif CUDART_VERSION >= 10000
         scatter_CUDA10(out, stream);
-#else
-#error CUDART_VERSION must be no less than 10.0!
 #endif
     }
 
@@ -1017,6 +1009,56 @@ class CSR11 : public VirtualGatherScatter {
         CSR11_ALLOCDEV(val, VAL);
     }
 
+   private:
+    /**
+     * @brief Collect fragmented arrays.
+     *
+     * @param header (host variable)
+     * @param in_uncompressed_len (host variable)
+     * @param stream CUDA stream
+     */
+    void subfile_collect(HEADER& header, size_t in_uncompressed_len, cudaStream_t stream = nullptr)
+    {
+        header.header_nbyte     = sizeof(HEADER);
+        header.uncompressed_len = in_uncompressed_len;
+        header.nnz              = rte.nnz;
+        header.m                = rte.m;
+
+        // update (redundant here)
+        rte.nbyte[RTE::COLIDX] = sizeof(int) * rte.nnz;
+        rte.nbyte[RTE::VAL]    = sizeof(T) * rte.nnz;
+
+        MetadataT nbyte[HEADER::END];
+        nbyte[HEADER::HEADER] = 128;
+        nbyte[HEADER::ROWPTR] = rte.nbyte[RTE::ROWPTR];
+        nbyte[HEADER::COLIDX] = rte.nbyte[RTE::COLIDX];
+        nbyte[HEADER::VAL]    = rte.nbyte[RTE::VAL];
+
+        header.entry[0] = 0;
+        // *.END + 1; need to knwo the ending position
+        for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
+        for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
+
+        auto debug_header_entry = [&]() {
+            cout << '\n';
+            cout << "debugging header in CSR11\n";
+            for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
+            cout << '\n';
+        };
+        debug_header_entry();
+
+        CHECK_CUDA(cudaMemcpyAsync(d_csr, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+
+        /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+
+        DEVICE2DEVICE_COPY(rowptr, ROWPTR)
+        DEVICE2DEVICE_COPY(colidx, COLIDX)
+        DEVICE2DEVICE_COPY(val, VAL)
+
+        /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    }
+
+   public:
     /**
      * @brief Public interface for gather method.
      *
@@ -1037,56 +1079,13 @@ class CSR11 : public VirtualGatherScatter {
         HEADER header;
         rte.ptr_header = &header;
 
-        auto subfile_collect = [&]() {
-            header.header_nbyte     = sizeof(HEADER);
-            header.uncompressed_len = in_uncompressed_len;
-            header.nnz              = rte.nnz;
-            header.m                = rte.m;
-
-            // update (redundant here)
-            rte.nbyte[RTE::COLIDX] = sizeof(int) * rte.nnz;
-            rte.nbyte[RTE::VAL]    = sizeof(T) * rte.nnz;
-
-            MetadataT nbyte[HEADER::END];
-            nbyte[HEADER::HEADER] = 128;
-            nbyte[HEADER::ROWPTR] = rte.nbyte[RTE::ROWPTR];
-            nbyte[HEADER::COLIDX] = rte.nbyte[RTE::COLIDX];
-            nbyte[HEADER::VAL]    = rte.nbyte[RTE::VAL];
-
-            header.entry[0] = 0;
-            // *.END + 1; need to knwo the ending position
-            for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
-            for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
-
-            auto debug_header_entry = [&]() {
-                cout << '\n';
-                cout << "debugging header in CSR11\n";
-                for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
-                cout << '\n';
-            };
-            debug_header_entry();
-
-            CHECK_CUDA(cudaMemcpyAsync(d_csr, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
-
-            /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
-
-            DEVICE2DEVICE_COPY(rowptr, ROWPTR)
-            DEVICE2DEVICE_COPY(colidx, COLIDX)
-            DEVICE2DEVICE_COPY(val, VAL)
-
-            /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
-        };
-
-        // -----------------------------------------------------------------------------
 #if CUDART_VERSION >= 11020
         gather_CUDA11_new(in_uncompressed, stream);
 #elif CUDART_VERSION >= 10000
         gather_CUDA10_new(in_uncompressed, stream);
-#else
-#error CUDART_VERSION must be no less than 10.0!
 #endif
 
-        subfile_collect();
+        subfile_collect(header, in_uncompressed_len, stream);
 
         out_compressed     = d_csr;
         out_compressed_len = header.subfile_size();
@@ -1114,10 +1113,10 @@ class CSR11 : public VirtualGatherScatter {
         scatter_CUDA11_new(in_compressed, out_decompressed, stream);
 #elif CUDART_VERSION >= 10000
         scatter_CUDA10_new(in_compressed, out_decompressed, stream);
-#else
-#error CUDART_VERSION must be no less than 10.0!
 #endif
     }
+
+    // end of class
 };
 
 //

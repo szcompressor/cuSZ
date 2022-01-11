@@ -39,11 +39,12 @@ using std::cout;
 
 #define EXPORT_NBYTE(FIELD) nbyte[HEADER::FIELD] = rte.nbyte[RTE::FIELD];
 
-#define DEVICE2DEVICE_COPY(VAR, FIELD)                                                                 \
-    {                                                                                                  \
-        auto dst = d_compressed + header.entry[HEADER::FIELD];                                         \
-        auto src = reinterpret_cast<BYTE*>(d_##VAR);                                                   \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
+#define DEVICE2DEVICE_COPY(VAR, FIELD)                                            \
+    {                                                                             \
+        constexpr auto D2D = cudaMemcpyDeviceToDevice;                            \
+        auto           dst = d_compressed + header.entry[HEADER::FIELD];          \
+        auto           src = reinterpret_cast<BYTE*>(d_##VAR);                    \
+        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], D2D, stream)); \
     }
 
 #define DEFINE_HC_ARRAY(VAR, TYPE) \
@@ -455,6 +456,61 @@ class HuffmanCoarse : public cusz::VariableRate {
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
 
+   private:
+    /**
+     * @brief Collect fragmented field with repurposing TMP space.
+     *
+     * @param header (host variable)
+     * @param stream CUDA stream
+     */
+    void subfile_collect(
+        HEADER&      header,
+        size_t const in_uncompressed_len,
+        int const    cfg_booklen,
+        int const    cfg_sublen,
+        cudaStream_t stream = nullptr)
+    {
+        auto BARRIER = [&]() {
+            if (stream)
+                CHECK_CUDA(cudaStreamSynchronize(stream));
+            else
+                CHECK_CUDA(cudaDeviceSynchronize());
+        };
+
+        header.header_nbyte     = sizeof(struct header_t);
+        header.booklen          = cfg_booklen;
+        header.sublen           = cfg_sublen;
+        header.uncompressed_len = in_uncompressed_len;
+
+        MetadataT nbyte[HEADER::END];
+        nbyte[HEADER::HEADER] = 128;
+
+        EXPORT_NBYTE(REVBOOK)
+        EXPORT_NBYTE(PAR_NBIT)
+        EXPORT_NBYTE(PAR_ENTRY)
+        EXPORT_NBYTE(BITSTREAM)
+
+        header.entry[0] = 0;
+        // *.END + 1: need to know the ending position
+        for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
+        for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
+
+        auto debug_header_entry = [&]() {
+            for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
+        };
+        // debug_header_entry();
+
+        CHECK_CUDA(cudaMemcpyAsync(d_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+
+        /* debug */ BARRIER();
+
+        DEVICE2DEVICE_COPY(revbook, REVBOOK)
+        DEVICE2DEVICE_COPY(par_nbit, PAR_NBIT)
+        DEVICE2DEVICE_COPY(par_entry, PAR_ENTRY)
+        DEVICE2DEVICE_COPY(bitstream, BITSTREAM)
+    }
+
+   public:
     /**
      * @brief Public encode interface.
      *
@@ -552,43 +608,6 @@ class HuffmanCoarse : public cusz::VariableRate {
             BARRIER();
         };
 
-        // collect fragmented field with repurposing TMP space
-        auto subfile_collect = [&]() {
-            // -----------------------------------------------------------------------------
-
-            header.header_nbyte     = sizeof(struct header_t);
-            header.booklen          = cfg_booklen;
-            header.sublen           = cfg_sublen;
-            header.uncompressed_len = in_uncompressed_len;
-
-            MetadataT nbyte[HEADER::END];
-            nbyte[HEADER::HEADER] = 128;
-
-            EXPORT_NBYTE(REVBOOK)
-            EXPORT_NBYTE(PAR_NBIT)
-            EXPORT_NBYTE(PAR_ENTRY)
-            EXPORT_NBYTE(BITSTREAM)
-
-            header.entry[0] = 0;
-            // *.END + 1: need to know the ending position
-            for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
-            for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
-
-            auto debug_header_entry = [&]() {
-                for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
-            };
-            // debug_header_entry();
-
-            CHECK_CUDA(cudaMemcpyAsync(d_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
-
-            /* debug */ BARRIER();
-
-            DEVICE2DEVICE_COPY(revbook, REVBOOK)
-            DEVICE2DEVICE_COPY(par_nbit, PAR_NBIT)
-            DEVICE2DEVICE_COPY(par_entry, PAR_ENTRY)
-            DEVICE2DEVICE_COPY(bitstream, BITSTREAM)
-        };
-
         // -----------------------------------------------------------------------------
 
         inspect(d_freq, d_book, in_uncompressed, in_uncompressed_len, cfg_booklen, d_revbook, stream);
@@ -599,7 +618,7 @@ class HuffmanCoarse : public cusz::VariableRate {
         encode_phase3_new();
         encode_phase4_new();
 
-        subfile_collect();
+        subfile_collect(header, in_uncompressed_len, cfg_booklen, cfg_sublen, stream);
 
         out_compressed     = d_compressed;
         out_compressed_len = header.subfile_size();
@@ -609,9 +628,9 @@ class HuffmanCoarse : public cusz::VariableRate {
      * @brief Public decode interface.
      *
      * @param in_compressed (device array) input
-     * @param out_decompressed (devce array output) output
+     * @param out_decompressed (device array output) output
      * @param stream CUDA stream
-     * @param header_on_device If true, copy header from device bianry to host.
+     * @param header_on_device If true, copy header from device binary to host.
      */
     void decode_new(
         BYTE*        in_compressed,  //
