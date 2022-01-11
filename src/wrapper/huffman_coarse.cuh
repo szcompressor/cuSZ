@@ -448,7 +448,7 @@ class HuffmanCoarse : public cusz::VariableRate {
 
         cuda_timer_t t;
         t.timer_start(stream);
-        cusz::coarse_par::detail::kernel::huffman_decode<T, H, M><<<grid_dim, block_dim, revbook_nbyte, stream>>>(  //
+        cusz::coarse_par::detail::kernel::huffman_decode<T, H, M><<<grid_dim, block_dim, revbook_nbyte, stream>>>(
             in_compressed, in_compressed_meta, in_revbook, revbook_nbyte, cfg_sublen, pardeg, out_decompressed);
         t.timer_end(stream);
         milliseconds = t.get_time_elapsed();

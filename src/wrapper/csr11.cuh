@@ -204,6 +204,7 @@ class CSR11 : public VirtualGatherScatter {
         cusparseDnMatDescr_t dnmat;  // dense
         void*                d_buffer      = nullptr;
         size_t               d_buffer_size = 0;
+        milliseconds                       = 0;
 
         CHECK_CUSPARSE(cusparseCreate(&handle));
 
@@ -357,6 +358,8 @@ class CSR11 : public VirtualGatherScatter {
         };
 
         /********************************************************************************/
+        milliseconds = 0;
+
         CHECK_CUSPARSE(cusparseCreate(&rte.handle));
         if (stream) CHECK_CUSPARSE(cusparseSetStream(rte.handle, stream));  // TODO move out
 
@@ -393,6 +396,7 @@ class CSR11 : public VirtualGatherScatter {
         float threshold = 0;
         auto n = m;
         auto ld = m;
+        milliseconds = 0;
 
         auto has_ext_stream = false;
 
@@ -545,6 +549,8 @@ class CSR11 : public VirtualGatherScatter {
         };
 
         /********************************************************************************/
+        milliseconds = 0;
+
         if (stream)
             has_ext_stream = true;
         else
@@ -601,6 +607,8 @@ class CSR11 : public VirtualGatherScatter {
         auto d_rowptr = rowptr.template get<DEFAULT_LOC>();
         auto d_colidx = colidx.template get<DEFAULT_LOC>();
         auto d_val    = values.template get<DEFAULT_LOC>();
+
+        milliseconds = 0;
 
         /********************************************************************************/
 
@@ -716,6 +724,8 @@ class CSR11 : public VirtualGatherScatter {
         };
 
         /******************************************************************************/
+        milliseconds = 0;
+
         CHECK_CUSPARSE(cusparseCreate(&rte.handle));
         if (stream) CHECK_CUSPARSE(cusparseSetStream(rte.handle, stream));
 
@@ -745,6 +755,8 @@ class CSR11 : public VirtualGatherScatter {
         cusparseMatDescr_t mat_desc = nullptr;
         auto n = m;
         auto ld = m;
+
+        milliseconds = 0;
 
         auto has_external_stream = false;
 
