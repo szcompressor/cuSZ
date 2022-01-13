@@ -15,7 +15,7 @@
 #ifndef CUSZ_DEFAULT_PATH_CUH
 #define CUSZ_DEFAULT_PATH_CUH
 
-#include "base_cusz.cuh"
+#include "base_compressor.cuh"
 #include "binding.hh"
 #include "wrapper.hh"
 #include "wrapper/spgs.cuh"
