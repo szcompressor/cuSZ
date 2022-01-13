@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+from typing import Any
+
+import os
+import sys
+import subprocess as sp
+
+__author__ = "Jiannan Tian"
+__copyright__ = "(C) 2021 by Washington State University, Argonne National Laboratory"
+__license__ = "BSD 3-Clause"
+__version__ = "0.3"
+__date__ = "2022-01-12"
+
+
+def find_exe():
+    prog = None
+    for p in [
+        "./bin/cusz",  ## from root dir
+        "./cusz",  ## from build dir
+        "../bin/cusz"  ## from script dir
+    ]:
+        if os.path.exists(p):
+            prog = p
+            print(f"\nFound cusz program: {p}.")
+            break
+    if not prog:
+        raise ValueError("No effective cusz program is found.")
+
+    return prog
+
+
+stringfy_name = lambda name: sp.check_output(f"echo {name}", shell=True).decode("utf8").rstrip()
+
+datasets = [("${CESM}", "3600x1800"), ("${HURR}", "500x500x100"), ("${NYX}", "512x512x512"), ("${HACC}", "280953867")]
+skipw = "--skip write2disk"
+grep_suffix = "grep -e \"max-error\" -e \"metrics\""
+gpuv = "--config gpuverify=on"
+mute_control = " >> /dev/null"
+
+
+def construct_cmd(prog, eb, name, size, short_form=False):
+    cmp_ori = f"--origin {name} {skipw}"
+    comp = f"{prog} -t f32 -m r2r -e {eb} -i {name} -l {size} -z --report time"
+    decomp = f"{prog} -i {name}.cusza -x {cmp_ori} --report time,quality {gpuv}"
+
+    if short_form:
+        comp += mute_control
+        decomp += f" | {grep_suffix}"
+
+    return comp, decomp
+
+
+def test_all(short_form=True):
+    prog = find_exe()
+    print()
+
+    for eb in ["2e-4", "1e-4"]:
+        for name, len in datasets:
+            comp, decomp = construct_cmd(prog, eb, name, len, short_form)
+            print(f":::: testing {stringfy_name(name)} ({len}) at {eb}\n")
+            sp.check_call(comp, shell=True)
+            sp.check_call(decomp, shell=True)
+            print("\n")
+
+
+def test_cesm(short_form=False):
+    prog = find_exe()
+    print()
+
+    for eb in ["2e-4", "1e-4"]:
+        name, len = ("${CESM}", "3600x1800")
+        comp, decomp = construct_cmd(prog, eb, name, len, short_form)
+        print(f":::: testing {stringfy_name(name)} ({len}) at {eb}\n")
+        sp.check_call(comp, shell=True)
+        sp.check_call(decomp, shell=True)
+        print("\n")
+
+
+if __name__ == "__main__":
+    argc, argv = len(sys.argv), sys.argv
+
+    if argc == 1:
+        print("./prog opt{1,2,3}\n"
+              "option (1) all (2) cesm-full (3) cesm")
+        print("running (3) for demo")
+        test_cesm(True)
+    elif argc == 2:
+        opt = int(argv[1])
+        if opt == 1:
+            test_all()
+        elif opt == 2:
+            test_cesm()
+        elif opt == 3:
+            test_cesm(True)
