@@ -988,11 +988,20 @@ class CSR11 : public VirtualGatherScatter {
      * @brief Allocate according to the input; usually allocate much more than the actual need at runtime for failsafe.
      *
      * @param in_uncompressed_len (host variable) input length
+     * @param dbg_print print for debugging
      */
-    void allocate_workspace(size_t const in_uncompressed_len)
+    void allocate_workspace(size_t const in_uncompressed_len, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 10 * sizeof(T); };
         auto init_nnz             = [&]() { return in_uncompressed_len / 10; };
+        auto debug                = [&]() {
+            printf("\nCSR11::allocate_workspace() debugging:\n");
+            printf("nbyte-CSR   : %u\n", rte.nbyte[RTE::CSR]);
+            printf("nbyte-ROWPTR  : %u\n", rte.nbyte[RTE::ROWPTR]);
+            printf("nbyte-COLIDX  : %u\n", rte.nbyte[RTE::COLIDX]);
+            printf("nbyte-VAL  : %u\n", rte.nbyte[RTE::VAL]);
+            printf("\n");
+        };
 
         memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
 
@@ -1007,6 +1016,8 @@ class CSR11 : public VirtualGatherScatter {
         CSR11_ALLOCDEV(rowptr, ROWPTR);
         CSR11_ALLOCDEV(colidx, COLIDX);
         CSR11_ALLOCDEV(val, VAL);
+
+        if (dbg_print) debug();
     }
 
    private:
