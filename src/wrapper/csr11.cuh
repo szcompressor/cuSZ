@@ -9,8 +9,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
-#define CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
+#ifndef CUSZ_CSR11_CUH
+#define CUSZ_CSR11_CUH
 
 // caveat: CUDA 11.2 starts introduce new cuSAPARSE API, which cannot be used prior to 11.2.
 
