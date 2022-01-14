@@ -48,15 +48,15 @@ Table of Contents
 
 # set up
 
-The requirements are listed below.
+Requirements:
 
-- NVIDIA GPU: Pascal, Volta, Turing, Ampere
-- cmake 3.18 onward
-- C++14 enabled compiler, GCC 7 onward; CUDA 9.2 onward (11.x is recommended)
+- NVIDIA GPU: Pascal, Volta, Turing, Ampere; CUDA 10 onward (11.x is recommended)
+- cmake 3.18 onward; C++14 enabled compiler, GCC 7 onward
+  - [Ninja build system](https://ninja-build.org) is recommended.
 
 <details>
 <summary>
-more details about build tools
+More details about build tools
 </summary>
 
 - The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
@@ -64,12 +64,10 @@ more details about build tools
 
 |      |     |      |      |      |      |      |      |      |      |      |
 | ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |
+| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |      |
 |      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
 |      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
 | CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 | 11.5 |
-
-* gcc 7.3 and 7.5 are tested working.
 
 </details>
 
@@ -78,14 +76,21 @@ more details about build tools
 For CUDA 11.x, to compile,
 ```bash
 git clone https://github.com/szcompressor/cuSZ.git cusz && cd cusz
-chmod 755 ./build.py && ./build.py <target> <optional: build type>
+chmod +x ./build.py  ## `./build.py -h` for help
+./build.py -t TARGET [-T BUILD TYPE] [-b BACKEND]
 ```
 
-- For the maximum compatibility, use `./build.py compat`. 
-- For optimal compilation, use `./build.py <target> <optional: build type>`. 
-  - Target names other than `compat` include `p100`, `v100`, `a100` and general `pascal`, `turing`, `ampere`.
-  - Build types include `release` (default), `release-profile` (enabling `-lineinfo`) and `debug` (enabling `-G`).
-- `build.py` automatically builds and installs `cusz` binary to `<workspace>/bin`.
+For example, to build A100-specific binary, 
+```
+./build.py -t a100
+```
+
+- GPU targets include `a100`, `v100`, `p100`, `ampere`, `turing`, `pascal`
+  - For the maximum compatibility, use `-t compat`. 
+- Build types include `release` (default), `release-profile` (with `-lineinfo`) and `debug` (with `-G`).
+- Build system backends include `make` (default) and `ninja`
+- `build.py` installs `cusz` binary to `${CMAKE_SOURCE_DIR}/bin`.
+- `--purge` to clean up all the old builds.
 
 Caveat: CUDA 10 or earlier, `cub` of a historical version becomes dependency. After `git clone`, please use `git submodule update --init` to patch.
 
@@ -98,9 +103,9 @@ Caveat: CUDA 10 or earlier, `cub` of a historical version becomes dependency. Af
 Type `cusz` or `cusz -h` for instant instructions. We give a basic use below.
 
 ```bash
-## cusz -t <dtype> -m <mode> -e <error bound> -i <input> -l <size> -z (compression) --report time[,quality[,...]]
+## cusz -t <type> -m <mode> -e <error bound> -i <in> -l <len> -z (compress) --report time[,quality[,...]]
 ./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z --report time
-## cusz -i <cusz archive> -x [--compare -i <origin>] (decompresion)
+## cusz -i <cusz archive> -x [--compare -i <origin>] (decompress)
 ./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x
 ./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --compare ./data/cesm-CLDHGH-3600x1800 --report time,quality
 ```

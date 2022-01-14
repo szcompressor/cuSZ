@@ -158,9 +158,28 @@ class HuffmanCoarse : public cusz::VariableRate {
     using RTE = runtime_encode_helper;
     RTE rte;
 
-    void allocate_workspace(size_t const in_uncompressed_len, int cfg_booklen, int cfg_pardeg)
+    /**
+     * @brief Allocate workspace according to the input size & configurations.
+     *
+     * @param in_uncompressed_len uncompressed length
+     * @param cfg_booklen codebook length
+     * @param cfg_pardeg degree of parallelism
+     * @param dbg_print print for debugging
+     */
+    void allocate_workspace(size_t const in_uncompressed_len, int cfg_booklen, int cfg_pardeg, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
+        auto debug                = [&]() {
+            printf("\nHuffmanCoarse::allocate_workspace() debugging:\n");
+            printf("nbyte-TMP   : %u\n", rte.nbyte[RTE::TMP]);
+            printf("nbyte-FREQ  : %u\n", rte.nbyte[RTE::FREQ]);
+            printf("nbyte-BOOK  : %u\n", rte.nbyte[RTE::BOOK]);
+            printf("nbyte-REVBOOK  : %u\n", rte.nbyte[RTE::REVBOOK]);
+            printf("nbyte-PAR_NBIT: %u\n", rte.nbyte[RTE::PAR_NBIT]);
+            printf("nbyte-PAR_NCELL: %u\n", rte.nbyte[RTE::PAR_NCELL]);
+            printf("nbyte-BITSTREAM: %u\n", rte.nbyte[RTE::BITSTREAM]);
+            printf("\n");
+        };
 
         memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
         // memset(rte.entry, 0, sizeof(uint32_t) * (RTE::END + 1));
@@ -192,6 +211,8 @@ class HuffmanCoarse : public cusz::VariableRate {
         HC_ALLOCHOST(par_nbit, PAR_NBIT);
         HC_ALLOCHOST(par_ncell, PAR_NCELL);
         HC_ALLOCHOST(par_entry, PAR_ENTRY);
+
+        if (dbg_print) debug();
     }
 
    private:

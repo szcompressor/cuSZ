@@ -332,8 +332,28 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
      * @param _delay_postquant (host variable) (future) control the delay of postquant
      * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
      */
-    void allocate_workspace(dim3 _size3, bool _delay_postquant = false, bool _outlier_overlapped = true)
+    void allocate_workspace(
+        dim3 _size3,
+        bool dbg_print           = false,
+        bool _delay_postquant    = false,
+        bool _outlier_overlapped = true)
     {
+        auto debug = [&]() {
+            printf(
+                "\nPredictorLorenzo::allocate_workspace() debugging:\n"
+                "size.xyz:\t(%u, %u, %u)\n"
+                "leap.xyz:\t(%u, %u, %u)\n"
+                "len.(data, quant, outlier):\t(%u, %u, %u)\n"
+                "sizeof(T):\t%d"
+                "\tsizeof(E):\t%d"
+                "\tsizeof(FP):\t%d\n"
+                "\n",
+                size.x, size.y, size.z,            //
+                leap.x, leap.y, leap.z,            //
+                len_data, len_quant, len_outlier,  //
+                (int)sizeof(T), (int)sizeof(E), (int)sizeof(FP));
+        };
+
         // size
         size      = _size3;
         leap      = dim3(1, size.x, size.x * size.y);
@@ -354,12 +374,14 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
         ALLOCDEV(anchor, T, 0);  // for lorenzo, anchor can be 0
         ALLOCDEV(errctrl, E, sizeof(E) * len_quant);
         if (not outlier_overlapped) ALLOCDEV(outlier, T, sizeof(T) * len_data);
+
+        if (dbg_print) debug();
     }
 
    public:
-    // E* expose_errctrl() const { return d_errctrl; }
-    // T* expose_anchor() const { return d_anchor; }
-    // T* expose_outlier() const { return d_outlier; }
+    E* dbg__expose_errctrl() const { return d_errctrl; }
+    T* dbg__expose_anchor() const { return d_anchor; }
+    T* dbg__expose_outlier() const { return d_outlier; }
 
     /**
      * @brief Construct error-control code & outlier; input and outlier do NOT overlap each other.

@@ -9,29 +9,24 @@
  *
  */
 
-#include "../src/base_cusz.cuh"
-#include "../src/wrapper/extrap_lorenzo.cuh"
+#include "base_compressor.cuh"
 
-using Compressor = BaseCompressor<cusz::PredictorLorenzo<float, uint16_t, float>>;
+#include "wrapper/extrap_lorenzo.cuh"
+using DefaultCompressor = BaseCompressor<cusz::PredictorLorenzo<float, uint16_t, float>>;
 
-int main(int argc, char** argv)
+#if __has_include("wrapper/interp_spline3.cuh")
+#include("wrapper/interp_spline3.cuh")
+using SPCompressor = BaseCompressor<cusz::Spline3<float, float, float>>;
+#endif
+
+template <class DryrunCompressor>
+void dryrun(string fname, int x, int y, int z, bool r2r)
 {
-    if (argc < 6) {
-        cout << "./program <filename> <x> <y> <z> <r2r|abs>";
-        exit(0);
-    }
-
-    auto fname = std::string(argv[1]);
-    auto x     = atoi(argv[2]);
-    auto y     = atoi(argv[3]);
-    auto z     = atoi(argv[4]);
-    auto r2r   = std::string(argv[5]) == "r2r";
-
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    Compressor   dryrun;
-    cuda_timer_t timer;
+    DryrunCompressor dryrun;
+    cuda_timer_t     timer;
 
     cout << "\ngeneric dryrun" << '\n';
     dryrun.init_generic_dryrun(dim3(x, y, z));
@@ -55,6 +50,26 @@ int main(int argc, char** argv)
     dryrun.destroy_dualquant_dryrun();
 
     cudaStreamDestroy(stream);
+}
+
+int main(int argc, char** argv)
+{
+    if (argc < 7) {
+        cout << "./program <filename> <x> <y> <z> <r2r|abs> <predictor id>";
+        exit(0);
+    }
+
+    auto fname = std::string(argv[1]);
+    auto x     = atoi(argv[2]);
+    auto y     = atoi(argv[3]);
+    auto z     = atoi(argv[4]);
+    auto r2r   = std::string(argv[5]) == "r2r";
+    auto pid   = atoi(argv[6]);
+
+    if (pid == 0) dryrun<DefaultCompressor>(fname, x, y, z, r2r);
+#if __has_include("wrapper/interp_spline3.cuh")
+    if (pid == 1) dryrun<SPCompressor>(fname, x, y, z, r2r);
+#endif
 
     return 0;
 }

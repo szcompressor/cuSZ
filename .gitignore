@@ -6,16 +6,7 @@ rle
 *.szx
 *.cusza
 *.cuszx
-*.yamp
-*.hbyte
-*.hmeta
-*.canon
-*.outlier
-*.BN
-*.huff
 *.out
-*.lean-book
-*.lean-quant
 
 # general
 *.dylib
@@ -54,9 +45,6 @@ RelWithDebInfo/
 dummy_cxlorenzo
 dummy_xlorenzo2d
 dummy_xlorenzo3d
-spline
-splineprof
-cmake-build-debug-t7600
 
 CLDLOW.dat
 
