@@ -2,12 +2,13 @@
 import os
 import sys
 import subprocess as sp
+import argparse
 
 __author__ = "Jiannan Tian"
 __copyright__ = "(C) 2021 by Washington State University, Argonne National Laboratory"
 __license__ = "BSD 3-Clause"
 __version__ = "0.3"
-__date__ = "2021-07-15"
+__date__ = "2021-07-15"  ## rev.1 2022-01-13
 
 pascal = ["60", "61", "62"]
 volta = ["70", "72"]
@@ -32,20 +33,8 @@ def figure_out_compatibility(cuda_ver):
         max_compat += pascal + volta + turing
     elif cuda_ver in ["11.0", "11.1", "11.2", "11.3", "11.4"]:
         max_compat += pascal + volta + turing + ampere
-    else:
-        max_compat += pascal + volta + turing + ampere
     return ";".join(max_compat)
 
-
-doc = """./build.py <gpu.name> <optional: build type>
-example:    ./build.py turing
-            ./build.py turing release
-
-build.type: release  release-profile  debug
-gpu.names:  p100  v100  a100
-            pascal  turing  ampere
-            compat
-"""
 
 cuda_ver = ""
 try:
@@ -71,54 +60,79 @@ types = {
     "debug": "Debug"
 }
 
-if __name__ == "__main__":
-    argc, argv = len(sys.argv), sys.argv
+parser = argparse.ArgumentParser(
+    description='Build cuSZ compressor.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--backend',
+                    '-b',
+                    default='ninja',
+                    help='build system: ninja, make')
+parser.add_argument(
+    '--target',
+    '--gpu',
+    default='turing',
+    help='GPU targets include: a100 v100 p100; ampere turing pasca; compat')
+parser.add_argument('--type',
+                    '-t',
+                    default='release',
+                    help='release, debug, release-profile')
+parser.add_argument('--purge',
+                    action='store_true',
+                    help='purge all contents in old builds')
 
+argc, argv = len(sys.argv), sys.argv
+args = parser.parse_args()
+
+
+def build(cmake_cmd, build_cmd, build_type):
+    # print(cmake_cmd)
+    os.system(cmake_cmd)
+    os.system(build_cmd)
+    print("copying binary to ./bin/")
+    if not os.path.isdir("./bin"):
+        os.mkdir("./bin")
+    os.system("cp {0}/cusz ./bin/cusz".format(build_type))
+
+
+if argc < 2:
+    parser.print_help()
+
+if args.purge:
+    purge_cmd = "rm -fr Release Debug RelWithDebInfo"
+    print("purge old builds...")
+    os.system(purge_cmd)
+    exit(0)
+
+build_type = types[args.type]
+
+_arch = '-DCMAKE_CUDA_ARCHITECTURES="{0}"'.format(targets[args.target])
+_type = '-DCMAKE_BUILD_TYPE={0}'.format(build_type)
+_dir = '-B {0}'.format(build_type)
+_ninja = '-GNinja'
+_with_make = ["cmake", _arch, _type, _dir]
+_with_ninja = ["cmake", _arch, _type, _dir, _ninja]
+cmake_cmd = None
+if args.backend == 'ninja':
+    cmake_cmd = " ".join(_with_ninja)
+else:
+    cmake_cmd = " ".join(_with_make)
+build_cmd = "cd {0} && ninja".format(
+    build_type) if args.backend == 'ninja' else "cd {0} && make -j".format(
+        build_type)
+
+# compile cusz
+if cuda_ver == "":
+    print("No nvcc is found, stop compiling.", sys.stderr)
+    exit(1)
+else:
     if argc < 2:
-        print(doc)
-        exit(1)
-
-    cmake_cmd = ""
-    target, build_type = "", "release"
-
-
-    if argc == 2:  # purge
-        purge_cmd = "rm -fr Release Debug RelWithDebInfo"
-        if argv[1] == "purge":
-            print("purge old builds...")
-            os.system(purge_cmd)
-            exit(0)
-
-    if argc == 2:  # modify target
-        target = argv[1]
-
-        if target not in targets.keys():
-            print(doc)
-            exit(1)
-
-    if argc == 3:
-        target = argv[1]
-        build_type = argv[2]
-
-        if (target in targets.keys()) and (build_type in types.keys()):
-            pass
-        else:
-            print(doc)
-            exit(1)
-
-    build_type_str = types[build_type]
-
-    cmake_cmd = 'cmake -DCMAKE_CUDA_ARCHITECTURES="{0}" -DCMAKE_BUILD_TYPE={1} -B {1}'.format(
-        targets[target], build_type_str)
-
-    # compile cusz
-    if cuda_ver == "":
-        print("No nvcc is found, stop compiling.", sys.stderr)
-        exit(1)
+        print('\nbuilding according to the default...')
     else:
-        os.system(cmake_cmd)
-        os.system("cd {0} && make -j".format(build_type_str))
-        print("copying binary to ./bin/")
-        if not os.path.isdir("./bin"):
-            os.mkdir("./bin")
-        os.system("cp {0}/cusz ./bin/cusz".format(build_type_str))
+        print('\nbuilding...')
+    print("""
+target  : {0}
+type    : {1}
+backend : {2}
+        """.format(args.target.capitalize(), build_type,
+                   args.backend.capitalize()))
+    build(cmake_cmd, build_cmd, build_type)
