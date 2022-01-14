@@ -65,15 +65,16 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--backend',
                     '-b',
-                    default='ninja',
+                    default='make',
                     help='build system: ninja, make')
 parser.add_argument(
     '--target',
     '--gpu',
+    '-t',
     default='turing',
-    help='GPU targets include: a100 v100 p100; ampere turing pasca; compat')
+    help='GPU targets include: a100 v100 p100; ampere turing pascal; compat')
 parser.add_argument('--type',
-                    '-t',
+                    '-T',
                     default='release',
                     help='release, debug, release-profile')
 parser.add_argument('--purge',
@@ -130,9 +131,9 @@ else:
     else:
         print('\nbuilding...')
     print("""
-target  : {0}
-type    : {1}
-backend : {2}
-        """.format(args.target.capitalize(), build_type,
-                   args.backend.capitalize()))
+target  : {0} ({1})
+type    : {2}
+backend : {3}
+        """.format(args.target.capitalize(), "SM " + targets[args.target],
+                   build_type, args.backend.capitalize()))
     build(cmake_cmd, build_cmd, build_type)
