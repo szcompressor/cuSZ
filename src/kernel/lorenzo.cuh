@@ -955,4 +955,14 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
     }
 }
 
+#undef TIX
+#undef TIY
+#undef TIZ
+#undef BIX
+#undef BIY
+#undef BIZ
+#undef BDX
+#undef BDY
+#undef BDZ
+
 #endif

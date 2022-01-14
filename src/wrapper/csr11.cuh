@@ -10,8 +10,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
-#define CUSZ_WRAPPER_HANDLE_SPARSITY11_CUH
+#ifndef CUSZ_CSR11_CUH
+#define CUSZ_CSR11_CUH
 
 // caveat: CUDA 10.2 may fail.
 
