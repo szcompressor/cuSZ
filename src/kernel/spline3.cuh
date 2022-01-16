@@ -591,4 +591,14 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     shmem2global_32x8x8data<T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
 }
 
+#undef TIX
+#undef TIY
+#undef TIZ
+#undef BIX
+#undef BIY
+#undef BIZ
+#undef BDX
+#undef BDY
+#undef BDZ
+
 #endif

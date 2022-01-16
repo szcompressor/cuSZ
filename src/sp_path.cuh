@@ -13,10 +13,27 @@
 #ifndef CUSZ_SP_PATH_CUH
 #define CUSZ_SP_PATH_CUH
 
-#include "base_cusz.cuh"
+#include "base_compressor.cuh"
 #include "binding.hh"
 #include "header.hh"
 #include "wrapper.hh"
+
+/******************************************************************************
+                            macros for shorthand writing
+ ******************************************************************************/
+
+#define D2D_CPY(VAR, FIELD)                                                                            \
+    {                                                                                                  \
+        auto dst = d_reserved_compressed + header.entry[HEADER::FIELD];                                \
+        auto src = reinterpret_cast<BYTE*>(d_##VAR);                                                   \
+        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
+    }
+
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[HEADER::SYM])
+
+/******************************************************************************
+                               class definition
+******************************************************************************/
 
 template <class BINDING, int SP_FACTOR = 10>
 class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
@@ -64,14 +81,12 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
      */
     void allocate_workspace(dim3 xyz)
     {
-        predictor = new Predictor;
+        predictor = new Predictor(xyz);
         spreducer = new SpReducer;
 
         data_size = xyz;
 
-        (*predictor).allocate_workspace(xyz);
-
-        // cout << "predictor data len\t" << (*predictor).get_data_len() << endl;
+        (*predictor).allocate_workspace();
 
         // TODO encapsulate more
         auto spreducer_in_len = (*predictor).get_quant_footprint();
@@ -127,29 +142,21 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
             CHECK_CUDA(cudaMemcpyAsync(d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
 
-#define D2D_CPY(VAR, FIELD)                                                                            \
-    {                                                                                                  \
-        auto dst = d_reserved_compressed + header.entry[HEADER::FIELD];                                \
-        auto src = reinterpret_cast<BYTE*>(d_##VAR);                                                   \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
-    }
             D2D_CPY(anchor, ANCHOR)
             D2D_CPY(spreducer_out, SPFMT)
-#undef D2D_CPY
 
             /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
         };
 
         (*predictor).construct(uncompressed, eb, radius, d_anchor, d_errctrl, stream);
-
         auto spreducer_in_len = (*predictor).get_quant_footprint();
-
         (*spreducer).gather_new(d_errctrl, spreducer_in_len, d_spreducer_out, spreducer_out_len, stream);
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
         subfile_collect();
         compressed_len = header.file_size();
+        compressed     = d_reserved_compressed;
 
         cout << "(c) predictor time: " << predictor->get_time_elapsed() << " ms\n";
         cout << "(c) spreducer time: " << spreducer->get_time_elapsed() << " ms\n";
@@ -164,18 +171,19 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
      * @param out_decompressed device pointer, output decompressed data
      * @param stream CUDA stream
      */
-    void decompress(BYTE* in_compressed, double const eb, int const radius, T* out_decompressed, cudaStream_t stream)
+    void decompress(
+        BYTE*        in_compressed,
+        double const eb,
+        int const    radius,
+        T*           out_decompressed,
+        cudaStream_t stream = nullptr)
     {
-        auto prev_ms = (*spreducer).get_time_elapsed();
-
         HEADER header;
         CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[HEADER::SYM])
         auto d_anchor       = ACCESSOR(ANCHOR, T);
         auto d_spreducer_in = ACCESSOR(SPFMT, BYTE);
-#undef ACCESSOR
 
         auto d_errctrl = (*predictor).expose_quant();  // reuse
 
@@ -183,7 +191,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         (*predictor).reconstruct(d_anchor, d_errctrl, eb, radius, out_decompressed, stream);
 
         // TODO timer
-        cout << "(x) spreducer time: " << spreducer->get_time_elapsed() - prev_ms << " ms\n";
+        cout << "(x) spreducer time: " << spreducer->get_time_elapsed() << " ms\n";
         cout << "(x) predictor time: " << predictor->get_time_elapsed() << " ms\n";
     }
 
@@ -193,6 +201,10 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         delete spreducer;
     }
 };
+
+/******************************************************************************
+                              config with defaults
+******************************************************************************/
 
 struct SparsityAwarePath {
    private:
@@ -213,5 +225,8 @@ struct SparsityAwarePath {
 
     using FallbackCompressor = class SpPathCompressor<FallbackBinding, 10>;
 };
+
+#undef ACCESSOR
+#undef D2D_CPY
 
 #endif

@@ -12,6 +12,7 @@
 #ifndef CUSZ_WRAPPER_INTERP_SPLINE_CUH
 #define CUSZ_WRAPPER_INTERP_SPLINE_CUH
 
+#include <exception>
 #include <limits>
 #include <numeric>
 
@@ -32,6 +33,10 @@
         d_##VAR = nullptr; \
     }
 
+#define ALLOCMANAGED(VAR, SYM, NBYTE)   \
+    cudaMallocManaged(&d_##VAR, NBYTE); \
+    cudaMemset(d_##VAR, 0x0, NBYTE);
+
 namespace cusz {
 
 template <typename T, typename E, typename FP>
@@ -46,21 +51,18 @@ class Spline3 : public PredictorAbstraction<T, E> {
     using EITER = E*;
 
    private:
+    bool dbg_mode{false};
+
     unsigned int dimx, dimx_aligned, nblockx, nanchorx;
     unsigned int dimy, dimy_aligned, nblocky, nanchory;
     unsigned int dimz, dimz_aligned, nblockz, nanchorz;
     unsigned int len, len_aligned, len_anchor;
     dim3         size, size_aligned, leap, leap_aligned, anchor_size, anchor_leap;
 
-    double eb;
-    FP     eb_r, ebx2, ebx2_r;
-
     bool delay_postquant_dummy;
     bool outlier_overlapped;
 
     float time_elapsed;
-
-    int radius{0};
 
    public:
     unsigned int get_data_len() const { return len; }
@@ -87,26 +89,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
     uint32_t get_workspace_nbyte() const { return 0; };
 
     /**
-     * @brief Constructor
-     * @deprecated use default constructor instead
-     *
-     * @param xyz
-     * @param _eb
-     * @param _radius
-     * @param _delay_postquant_dummy
-     */
-    Spline3(dim3 xyz, double _eb, int _radius = 0, bool _delay_postquant_dummy = true);
-
-    /**
-     * @brief
      * @deprecated use another construct method instead; will remove when cleaning
-     *
-     * @param in_data
-     * @param out_anchor
-     * @param out_errctrl
-     * @param eb
-     * @param radius
-     * @param non_overlap_out_outlier
      */
     void construct(
         TITER        in_data,
@@ -117,21 +100,11 @@ class Spline3 : public PredictorAbstraction<T, E> {
         cudaStream_t                                  = nullptr,
         T* const __restrict__ non_overlap_out_outlier = nullptr)
     {
-        ////////////////////////////////////////////////////////////////////////////////
-        //////////////////////////////////  obsolete  //////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
+        throw std::runtime_error("obsolete");
     }
 
     /**
-     * @brief
      * @deprecated use another reconstruct method instread; will remove when cleaning
-     *
-     * @param in_anchor
-     * @param in_errctrl
-     * @param out_data
-     * @param eb
-     * @param radius
-     * @param non_overlap_in_outlier
      */
     void reconstruct(
         TITER        in_anchor,
@@ -142,9 +115,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
         cudaStream_t                                 = nullptr,
         T* const __restrict__ non_overlap_in_outlier = nullptr)
     {
-        ////////////////////////////////////////////////////////////////////////////////
-        //////////////////////////////////  obsolete  //////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////////
+        throw std::runtime_error("obsolete");
     }
 
     // new ------------------------------------------------------------
@@ -161,69 +132,82 @@ class Spline3 : public PredictorAbstraction<T, E> {
    public:
     Spline3() = default;
 
-    /**
-     * @brief Allocate workspace according to the input size.
-     *
-     * @param xyz (host variable) 3D size for input data
-     * @param _delay_postquant_dummy (host variable) (future) control the delay of postquant
-     * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
-     */
-    void allocate_workspace(dim3 xyz, bool _delay_postquant_dummy = false, bool _outlier_overlapped = true)
+    Spline3(dim3 _size, bool _dbg_mode = false) : size(_size), dbg_mode(_dbg_mode)
     {
         auto debug = [&]() {
-            cout << '\n';
-            cout << "debug in spline3::allocate_workspace\n";
-            cout << "get_data_len: " << get_data_len() << '\n';
-            cout << "get_anchor_len " << get_anchor_len() << '\n';
-            cout << "get_quant_len " << get_quant_len() << '\n';
-            cout << "get_quant_footprint: " << get_quant_footprint() << '\n';
+            printf("\ndebug in spline3::constructor\n");
+            printf("dim.xyz & len:\t%d, %d, %d, %d\n", dimx, dimy, dimz, len);
+            printf("nblock.xyz:\t%d, %d, %d\n", nblockx, nblocky, nblockz);
+            printf("aligned.xyz:\t%d, %d, %d\n", dimx_aligned, dimy_aligned, dimz_aligned);
+            printf("nanchor.xyz:\t%d, %d, %d\n", nanchorx, nanchory, nanchorz);
+            printf("data_len:\t%d\n", get_data_len());
+            printf("anchor_len:\t%d\n", get_anchor_len());
+            printf("quant_len:\t%d\n", get_quant_len());
+            printf("quant_footprint:\t%d\n", get_quant_footprint());
+            printf("NBYTE anchor:\t%lu\n", sizeof(T) * len_anchor);
+            printf("NBYTE errctrl:\t%lu\n", sizeof(E) * get_quant_footprint());
             cout << '\n';
         };
 
-        size = xyz;
-        dimx = xyz.x, dimy = xyz.y, dimz = xyz.z;
+        // original size
+        dimx = size.x, dimy = size.y, dimz = size.z;
         len = dimx * dimy * dimz;
 
-        delay_postquant_dummy = _delay_postquant_dummy;
-        outlier_overlapped    = _outlier_overlapped;
+        // partition & aligning
+        nblockx      = ConfigHelper::get_npart(dimx, BLOCK * 4);
+        nblocky      = ConfigHelper::get_npart(dimy, BLOCK);
+        nblockz      = ConfigHelper::get_npart(dimz, BLOCK);
+        dimx_aligned = nblockx * 32;  // 235 -> 256
+        dimy_aligned = nblocky * 8;   // 449 -> 456
+        dimz_aligned = nblockz * 8;   // 449 -> 456
+        len_aligned  = dimx_aligned * dimy_aligned * dimz_aligned;
 
-        // data size
-        nblockx = ConfigHelper::get_npart(dimx, BLOCK * 4);
-        nblocky = ConfigHelper::get_npart(dimy, BLOCK);
-        nblockz = ConfigHelper::get_npart(dimz, BLOCK);
-        // (235, 449, 449) -> (256, 456, 456)
-        dimx_aligned = nblockx * 32, dimy_aligned = nblocky * 8, dimz_aligned = nblockz * 8;
-        len_aligned = dimx_aligned * dimy_aligned * dimz_aligned;
-
+        // multidimensional
         leap         = dim3(1, dimx, dimx * dimy);
         size_aligned = dim3(dimx_aligned, dimy_aligned, dimz_aligned);
         leap_aligned = dim3(1, dimx_aligned, dimx_aligned * dimy_aligned);
 
         // anchor point
-        nanchorx   = int(dimx / BLOCK) + 1;
-        nanchory   = int(dimy / BLOCK) + 1;
-        nanchorz   = int(dimz / BLOCK) + 1;
-        len_anchor = nanchorx * nanchory * nanchorz;
-
-        // 1D
+        nanchorx    = int(dimx / BLOCK) + 1;
+        nanchory    = int(dimy / BLOCK) + 1;
+        nanchorz    = int(dimz / BLOCK) + 1;
+        len_anchor  = nanchorx * nanchory * nanchorz;
         anchor_size = dim3(nanchorx, nanchory, nanchorz);
         anchor_leap = dim3(1, nanchorx, nanchorx * nanchory);
 
-        // allocate
-        {
-            auto nbyte = sizeof(T) * len_anchor;
-            ALLOCDEV(anchor, T, nbyte);  // for lorenzo, anchor can be 0
-        }
-        {
-            auto nbyte = sizeof(E) * get_quant_footprint();
-            ALLOCDEV(errctrl, E, nbyte);
-        }
-        if (not outlier_overlapped) {
-            auto nbyte = sizeof(E) * get_quant_footprint();
-            ALLOCDEV(outlier, T, nbyte);
-        }
+        if (dbg_mode) debug();
+    }
 
-        debug();
+    /**
+     * @brief Allocate workspace according to the input size.
+     *
+     * @param xyz (host variable) 3D size for input data
+     * @param dbg_managed (host variable) use unified memory for debugging
+     * @param _delay_postquant_dummy (host variable) (future) control the delay of postquant
+     * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
+     */
+    void allocate_workspace(bool _delay_postquant_dummy = false, bool _outlier_overlapped = true)
+    {
+        // config
+        delay_postquant_dummy = _delay_postquant_dummy;
+        outlier_overlapped    = _outlier_overlapped;
+
+        // allocate
+        auto nbyte_anchor = sizeof(T) * get_anchor_len();
+        printf("nbyte_anchor: %lu\n", nbyte_anchor);
+        cudaMalloc(&d_anchor, nbyte_anchor);
+        cudaMemset(d_anchor, 0x0, nbyte_anchor);
+
+        auto nbyte_errctrl = sizeof(E) * get_quant_footprint();
+        printf("nbyte_errctrl: %lu\n", nbyte_errctrl);
+        cudaMalloc(&d_errctrl, nbyte_errctrl);
+        cudaMemset(d_errctrl, 0x0, nbyte_errctrl);
+
+        if (not outlier_overlapped) {
+            auto nbyte_outlier = sizeof(T) * get_quant_footprint();
+            cudaMalloc(&d_outlier, nbyte_outlier);
+            cudaMemset(d_outlier, 0x0, nbyte_outlier);
+        }
     }
 
     ~Spline3()
@@ -235,17 +219,17 @@ class Spline3 : public PredictorAbstraction<T, E> {
     /**
      * @brief Construct error-control code & outlier; input and outlier overlap each other. Thus, it's destructive.
      *
-     * @param in_data__out_outlier (device array) input data and output outlier
+     * @param in_data (device array) input data and output outlier
      * @param cfg_eb (host variable) error bound; configuration
      * @param cfg_radius (host variable) radius to control the bound; configuration
-     * @param out_anchor (device array) output anchor point
-     * @param out_errctrl (device array) output error-control code; if range-limited integer, it is quant-code
+     * @param ptr_anchor (device array) output anchor point
+     * @param ptr_errctrl (device array) output error-control code; if range-limited integer, it is quant-code
      * @param stream CUDA stream
      */
     void construct(
-        TITER        in_data__out_outlier,
-        double const cfg_eb,
-        int const    cfg_radius,
+        TITER        in_data,
+        double const eb,
+        int const    radius,
         TITER&       out_anchor,
         EITER&       out_errctrl,
         cudaStream_t stream = nullptr)
@@ -256,14 +240,20 @@ class Spline3 : public PredictorAbstraction<T, E> {
         out_anchor  = d_anchor;
         out_errctrl = d_errctrl;
 
+        if (dbg_mode) {
+            printf("\nSpline3::construct dbg:\n");
+            printf("ebx2: %lf\n", ebx2);
+            printf("eb_r: %lf\n", eb_r);
+        }
+
         cuda_timer_t timer;
         timer.timer_start();
 
         cusz::c_spline3d_infprecis_32x8x8data<TITER, EITER, float, 256, false>
             <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1), 0, stream>>>  //
-            (in_data__out_outlier, size, leap,                                 //
-             out_errctrl, size_aligned, leap_aligned,                          //
-             out_anchor, anchor_leap,                                          //
+            (in_data, size, leap,                                              //
+             d_errctrl, size_aligned, leap_aligned,                            //
+             d_anchor, anchor_leap,                                            //
              eb_r, ebx2, radius);
 
         timer.timer_end();
@@ -292,7 +282,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
         EITER        in_errctrl,
         double const cfg_eb,
         int const    cfg_radius,
-        TITER&       in_outlier__out_xdata,
+        TITER        in_outlier__out_xdata,
         cudaStream_t stream = nullptr)
     {
         auto ebx2 = cfg_eb * 2;
@@ -306,7 +296,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
             (in_errctrl, size_aligned, leap_aligned,                           //
              in_anchor, anchor_size, anchor_leap,                              //
              in_outlier__out_xdata, size, leap,                                //
-             eb_r, ebx2, radius);
+             eb_r, ebx2, cfg_radius);
 
         timer.timer_end();
 
@@ -325,6 +315,10 @@ class Spline3 : public PredictorAbstraction<T, E> {
 
 #undef FREEDEV
 #undef ALLOCDEV
+
+#undef FREEMANAGED
+#undef ALLOCMANAGED
+
 #undef DEFINE_ARRAY
 
 #endif
