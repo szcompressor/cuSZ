@@ -52,6 +52,23 @@ void echo_metric(T* d1, T* d2)
     analysis::print_data_quality_metrics<T>(&stat, 0, false);
 }
 
+template <typename CAPSULE>
+void figure_out_eb(CAPSULE& data, double& eb, double& adjusted_eb, bool use_r2r)
+{
+    adjusted_eb = eb;
+
+    if (use_r2r) {
+        printf("using r2r mode...");
+        auto rng = data.prescan().get_rng();
+        adjusted_eb *= rng;
+        printf("rng: %f\teb: %f\tadjusted eb: %f\n", rng, eb, adjusted_eb);
+    }
+    else {
+        printf("using abs mode...");
+        printf("eb: %f\n", eb);
+    }
+}
+
 void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStream_t stream = nullptr)
 {
     auto BARRIER = [&]() {
@@ -166,7 +183,7 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaSt
     echo_metric(xdata, cmp);
 }
 
-void predictor_demo(bool use_sp, double eb = 1e-2, bool use_compressor = false)
+void predictor_demo(bool use_sp, double eb = 1e-2, bool use_compressor = false, bool use_r2r = false)
 {
     Capsule<T> exp(len, "exp data");
     Capsule<T> bak(len, "bak data");
@@ -179,9 +196,8 @@ void predictor_demo(bool use_sp, double eb = 1e-2, bool use_compressor = false)
     cudaMemcpy(bak.hptr, exp.hptr, len * sizeof(T), cudaMemcpyHostToHost);
     bak.host2device();
 
-    auto   rng         = exp.prescan().get_rng();
-    double adjusted_eb = eb * rng;
-    printf("rng: %f\teb: %f\tadjusted eb: %f\n", rng, eb, adjusted_eb);
+    double adjusted_eb;
+    figure_out_eb(exp, eb, adjusted_eb, use_r2r);
 
     cudaStream_t stream;
     CHECK_CUDA(cudaStreamCreate(&stream));
@@ -201,13 +217,15 @@ void predictor_demo(bool use_sp, double eb = 1e-2, bool use_compressor = false)
 int main(int argc, char** argv)
 {
     auto help = []() {
-        cout << "./prog (1|2|3) fname [eb = 1e-2]\n";
+        cout << "./prog (1|2|3) fname [eb = 1e-2] [abs|r2r]\n";
         cout << "(1) predictor demo\n"
                 "(2) predictor-spreducer demo\n"
                 "(3) compressor integration demo\n";
     };
 
-    auto eb = 1e-2;
+    auto eb      = 1e-2;
+    auto mode    = std::string("abs");
+    auto use_r2r = false;
 
     if (argc < 3) {  //
         help();
@@ -215,14 +233,16 @@ int main(int argc, char** argv)
     else if (argc >= 3) {
         auto demo = atoi(argv[1]);
         fname     = std::string(argv[2]);
-        if (argc == 4) eb = atof(argv[3]);
+        if (argc >= 4) eb = atof(argv[3]);
+        if (argc == 5) mode = std::string(argv[4]);
+        use_r2r = mode == "r2r";
 
         if (demo == 1)
-            predictor_demo(false, eb, false);
+            predictor_demo(false, eb, false, use_r2r);
         else if (demo == 2)
-            predictor_demo(true, eb, false);
+            predictor_demo(true, eb, false, use_r2r);
         else if (demo == 3)
-            predictor_demo(true, eb, true);
+            predictor_demo(true, eb, true, use_r2r);
         else
             help();
     }

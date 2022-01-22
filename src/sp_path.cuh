@@ -158,8 +158,30 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         compressed_len = header.file_size();
         compressed     = d_reserved_compressed;
 
-        cout << "(c) predictor time: " << predictor->get_time_elapsed() << " ms\n";
-        cout << "(c) spreducer time: " << spreducer->get_time_elapsed() << " ms\n";
+        auto compress_report = [&]() {
+            auto get_cr        = [&]() { return get_data_len() * sizeof(T) * 1.0 / compressed_len; };
+            auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };
+            auto ms_to_s       = [&](double ms) { return ms / 1000; };
+
+            auto bytes = get_data_len() * sizeof(T);
+
+            auto time_p = predictor->get_time_elapsed();
+            auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
+
+            auto time_s = spreducer->get_time_elapsed();
+            auto tp_s   = byte_to_gbyte(bytes) / ms_to_s(time_s);
+
+            auto tp_total = byte_to_gbyte(bytes) / ms_to_s(time_p + time_s);
+
+            printf("\n(c) COMPRESSION REPORT\n");
+            printf("%-*s: %.1f\n", 20, "compression ratio", get_cr());
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "total time", time_p + time_s, tp_total);
+            printf("\n");
+        };
+
+        compress_report();
     }
 
     /**
@@ -190,9 +212,28 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         (*spreducer).scatter_new(d_spreducer_in, d_errctrl, stream);
         (*predictor).reconstruct(d_anchor, d_errctrl, eb, radius, out_decompressed, stream);
 
-        // TODO timer
-        cout << "(x) spreducer time: " << spreducer->get_time_elapsed() << " ms\n";
-        cout << "(x) predictor time: " << predictor->get_time_elapsed() << " ms\n";
+        auto decompress_report = [&]() {
+            auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };
+            auto ms_to_s       = [&](double ms) { return ms / 1000; };
+
+            auto bytes = get_data_len() * sizeof(T);
+
+            auto time_p = predictor->get_time_elapsed();
+            auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
+
+            auto time_s = spreducer->get_time_elapsed();
+            auto tp_s   = byte_to_gbyte(bytes) / ms_to_s(time_s);
+
+            auto tp_total = byte_to_gbyte(bytes) / ms_to_s(time_p + time_s);
+
+            printf("\n(d) deCOMPRESSION REPORT\n");
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "total time", time_p + time_s, tp_total);
+            printf("\n");
+        };
+
+        decompress_report();
     }
 
     ~SpPathCompressor()
