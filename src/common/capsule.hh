@@ -306,16 +306,18 @@ class Capsule {
         OK::FREE<M>();
         raise_error_if_misuse_unified<LOC>();
 
-        if (LOC == cusz::LOC::HOST)
-            cudaFreeHost(hptr);
-        else if (LOC == cusz::LOC::DEVICE)
-            cudaFree(dptr);
+        if (LOC == cusz::LOC::HOST) {
+            if (hptr) cudaFreeHost(hptr);
+        }
+        else if (LOC == cusz::LOC::DEVICE) {
+            if (dptr) cudaFree(dptr);
+        }
         else if (LOC == cusz::LOC::HOST_DEVICE) {
-            cudaFreeHost(hptr);
-            cudaFree(dptr);
+            if (hptr) cudaFreeHost(hptr);
+            if (dptr) cudaFree(dptr);
         }
         else if (LOC == cusz::LOC::UNIFIED) {
-            cudaFree(uniptr);
+            if (uniptr) cudaFree(uniptr);
         }
         else {
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("free"));
