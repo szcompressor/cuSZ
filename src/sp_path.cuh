@@ -174,7 +174,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             auto tp_total = byte_to_gbyte(bytes) / ms_to_s(time_p + time_s);
 
             printf("\n(c) COMPRESSION REPORT\n");
-            printf("%-*s: %.1f\n", 20, "compression ratio", get_cr());
+            printf("%-*s: %.2f\n", 20, "compression ratio", get_cr());
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "total time", time_p + time_s, tp_total);

@@ -32,7 +32,6 @@ using std::string;
 #include "default_path.cuh"
 #include "header.hh"
 #include "query.hh"
-#include "sp_path.cuh"
 #include "utils.hh"
 
 namespace {
@@ -164,62 +163,7 @@ void normal_path_lorenzo(cuszCTX* ctx)
 
 void special_path_spline3(cuszCTX* ctx)
 {
-    // TODO remove hardcode for float for now
-    using T = float;
-    using E = ErrCtrlTrait<4, true>::type;
-    using P = FastLowPrecisionTrait<true>::type;
-
-    using H_DUMMY = HuffTrait<4>::type;
-
-    if (ctx->task_is.construct) {
-        double time_loading{0.0};
-
-        Capsule<T> in_data(ctx->data_len);
-        in_data.alloc<cusz::LOC::HOST_DEVICE>()
-            .set_name("in_data")
-            .from_fs_to<cusz::LOC::HOST>(ctx->fnames.path2file, &time_loading)
-            .host2device();
-
-        if (ctx->verbose) LOGGING(LOG_DBG, "time loading datum:", time_loading, "sec");
-        LOGGING(LOG_INFO, "load", ctx->fnames.path2file, ctx->data_len * sizeof(T), "bytes");
-
-        Capsule<BYTE> out_dump("out_dump");
-
-        SparsityAwarePathOld::DefaultCompressor cuszc(ctx, &in_data);
-        cuszc  //
-            .compress()
-            .consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(&out_dump.get<cusz::LOC::HOST>());
-        cout << "output:\t" << ctx->fnames.compress_output << '\n';
-        out_dump  //
-            .to_fs_from<cusz::LOC::HOST>(ctx->fnames.compress_output)
-            .free<cusz::LOC::HOST>();
-
-        in_data.free<cusz::LOC::HOST_DEVICE>();
-    }
-
-    if (ctx->task_is.reconstruct) {  // fp32 only for now
-                                     // TODO
-        auto fname_dump  = ctx->fnames.path2file + ".cusza";
-        auto cusza_nbyte = ConfigHelper::get_filesize(fname_dump);
-
-        Capsule<BYTE> in_dump(cusza_nbyte);
-        in_dump  //
-            .alloc<cusz::LOC::HOST>()
-            .from_fs_to<cusz::LOC::HOST>(fname_dump);
-
-        Capsule<T> out_xdata;
-
-        // TODO try_writeback vs out_xdata.to_fs_from()
-        DefaultPath::DefaultCompressor cuszd(ctx, &in_dump);
-
-        out_xdata  //
-            .set_len(ctx->data_len)
-            .alloc<cusz::LOC::HOST_DEVICE>();
-        cuszd  //
-            .decompress(&out_xdata)
-            .backmatter(&out_xdata);
-        out_xdata.free<cusz::LOC::HOST_DEVICE>();
-    }
+    //
 }
 
 int main(int argc, char** argv)

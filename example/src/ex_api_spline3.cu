@@ -34,7 +34,7 @@ using E = float;
 constexpr int fake_radius = 0;
 // constexpr auto DEVICE      = cusz::LOC::DEVICE;
 
-constexpr unsigned int dimz = 449, dimy = 449, dimx = 235;
+constexpr unsigned int dimx = 235, dimy = 449, dimz = 449;
 constexpr dim3         xyz = dim3(dimx, dimy, dimz);
 constexpr unsigned int len = dimx * dimy * dimz;
 
@@ -50,23 +50,6 @@ void echo_metric(T* d1, T* d2)
     stat_t stat;
     verify_data_GPU<T>(&stat, d1, d2, len);
     analysis::print_data_quality_metrics<T>(&stat, 0, false);
-}
-
-template <typename CAPSULE>
-void figure_out_eb(CAPSULE& data, double& eb, double& adjusted_eb, bool use_r2r)
-{
-    adjusted_eb = eb;
-
-    if (use_r2r) {
-        printf("using r2r mode...");
-        auto rng = data.prescan().get_rng();
-        adjusted_eb *= rng;
-        printf("rng: %f\teb: %f\tadjusted eb: %f\n", rng, eb, adjusted_eb);
-    }
-    else {
-        printf("using abs mode...");
-        printf("eb: %f\n", eb);
-    }
 }
 
 void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStream_t stream = nullptr)
@@ -170,7 +153,7 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaSt
     auto xdata = data;
 
     compressor.allocate_workspace(xyz);
-    compressor.compress(data, eb, 0, compressed, compressed_len, stream);
+    compressor.compress(data, eb, fake_radius, compressed, compressed_len, stream);
 
     Capsule<BYTE> file(compressed_len);
     file.template alloc<cusz::LOC::HOST_DEVICE>();
@@ -178,7 +161,7 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaSt
     cudaMemset(compressed, 0x0, compressed_len);
 
     cudaMemcpy(compressed, file.dptr, compressed_len, cudaMemcpyDeviceToDevice);
-    compressor.decompress(compressed, eb, 0, xdata, stream);
+    compressor.decompress(compressed, eb, fake_radius, xdata, stream);
 
     echo_metric(xdata, cmp);
 }
