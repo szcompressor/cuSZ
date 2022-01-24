@@ -30,6 +30,49 @@ using SIZE = size_t;
     printf("header::%-*s: %d\n", 20, "entry[" #SYM "]", (*header).entry[COMPONENT::HEADER::SYM]);
 
 template <typename T>
+void echo_metric_gpu(T* d1, T* d2, size_t len)
+{
+    stat_t stat;
+    verify_data_GPU<T>(&stat, d1, d2, len);
+    analysis::print_data_quality_metrics<T>(&stat, 0, true);
+}
+
+template <typename T>
+void echo_metric_cpu(T* _d1, T* _d2, size_t len, bool on_device = false)
+{
+    stat_t stat;
+    T*     d1;
+    T*     d2;
+    if (not on_device) {
+        d1 = _d1;
+        d2 = _d2;
+    }
+    else {
+        auto bytes = sizeof(T) * len;
+        cudaMallocHost(&d1, bytes);
+        cudaMallocHost(&d2, bytes);
+        cudaMemcpy(d1, _d1, bytes, cudaMemcpyDeviceToHost);
+        cudaMemcpy(d2, _d2, bytes, cudaMemcpyDeviceToHost);
+    }
+    analysis::verify_data<T>(&stat, d1, d2, len);
+    analysis::print_data_quality_metrics<T>(&stat, 0, false);
+
+    if (on_device) {
+        cudaFreeHost(d1);
+        cudaFreeHost(d2);
+    }
+}
+
+/**
+ * @brief Fill array with random intergers.
+ *
+ * @tparam T
+ * @param a input array to change
+ * @param len length
+ * @param default_num the default number to fill the array
+ * @param ratio the ratio of changed numbers in arrays
+ */
+template <typename T>
 void gen_randint_array(T* a, SIZE len, int default_num, int ratio)
 {
     auto fill = [&]() {  // fill base numbers
@@ -42,6 +85,49 @@ void gen_randint_array(T* a, SIZE len, int default_num, int ratio)
     };
     // -----------------------------------------------------------------------------
     fill(), randomize();
+}
+
+/**
+ * @brief Figure out error bound regarding the mode: abs or r2r.
+ *
+ * @tparam CAPSULE Capsule<T>
+ * @param data input data
+ * @param eb input error bound
+ * @param adjusted_eb eb adjusted regarding mode
+ * @param use_r2r if relative to value range
+ */
+template <typename CAPSULE>
+void figure_out_eb(CAPSULE& data, double& eb, double& adjusted_eb, bool use_r2r)
+{
+    adjusted_eb = eb;
+
+    if (use_r2r) {
+        printf("using r2r mode...");
+        auto rng = data.prescan().get_rng();
+        adjusted_eb *= rng;
+        printf("rng: %f\teb: %f\tadjusted eb: %f\n", rng, eb, adjusted_eb);
+    }
+    else {
+        printf("using abs mode...");
+        printf("eb: %f\n", eb);
+    }
+}
+
+/**
+ * @brief Barrier of device-wide or stream-based sync.
+ *
+ * @param stream
+ */
+void BARRIER(cudaStream_t stream = nullptr)
+{
+    if (not stream) {
+        CHECK_CUDA(cudaDeviceSynchronize());
+        printf("device sync'ed\n");
+    }
+    else {
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+        printf("stream sync'ed\n");
+    }
 }
 
 template <typename UNCOMPRESSED>

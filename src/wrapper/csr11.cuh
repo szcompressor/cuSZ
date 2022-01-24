@@ -15,6 +15,7 @@
 
 // caveat: CUDA 10.2 may fail.
 
+#include <clocale>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -41,10 +42,10 @@ template <> struct cuszCUSPARSE<double> { const static cudaDataType type = CUDA_
                             macros for shorthand writing
  ******************************************************************************/
 
-#define CSR11_FREEDEV(VAR) \
-    if (d_##VAR) {         \
-        cudaFree(d_##VAR); \
-        d_##VAR = nullptr; \
+#define CSR11_FREEDEV(VAR)             \
+    if (d_##VAR) {                     \
+        CHECK_CUDA(cudaFree(d_##VAR)); \
+        d_##VAR = nullptr;             \
     }
 
 #define DEVICE2DEVICE_COPY(VAR, FIELD)                                                                 \
@@ -54,9 +55,9 @@ template <> struct cuszCUSPARSE<double> { const static cudaDataType type = CUDA_
         CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
     }
 
-#define CSR11_ALLOCDEV(VAR, SYM)               \
-    cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM]); \
-    cudaMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]);
+#define CSR11_ALLOCDEV(VAR, SYM)                           \
+    CHECK_CUDA(cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
+    CHECK_CUDA(cudaMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]));
 
 #define DEFINE_CSR11_ARRAY(VAR, TYPE) TYPE* d_##VAR{nullptr};
 
@@ -131,9 +132,9 @@ class CSR11 : public VirtualGatherScatter {
         size_t lwork_in_bytes{0};
         char*  d_work{nullptr};
 #endif
-        uint32_t m;
-        int64_t  nnz;
-        HEADER*  ptr_header;
+        uint32_t m{0};
+        int64_t  nnz{0};
+        HEADER*  ptr_header{nullptr};
     };
     using RTE = runtime_encode_helper;
     RTE rte;
@@ -995,17 +996,23 @@ class CSR11 : public VirtualGatherScatter {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 10 * sizeof(T); };
         auto init_nnz             = [&]() { return in_uncompressed_len / 10; };
         auto debug                = [&]() {
+            setlocale(LC_NUMERIC, "");
+
+#define PRINT_DBG(VAR) printf("nbyte-%-*s:  %'10u\n", 10, #VAR, rte.nbyte[RTE::VAR]);
             printf("\nCSR11::allocate_workspace() debugging:\n");
-            printf("nbyte-CSR   : %u\n", rte.nbyte[RTE::CSR]);
-            printf("nbyte-ROWPTR  : %u\n", rte.nbyte[RTE::ROWPTR]);
-            printf("nbyte-COLIDX  : %u\n", rte.nbyte[RTE::COLIDX]);
-            printf("nbyte-VAL  : %u\n", rte.nbyte[RTE::VAL]);
+            printf("%-*s:  %'10ld\n", 16, "init.nnz", init_nnz());
+            PRINT_DBG(CSR);
+            PRINT_DBG(ROWPTR);
+            PRINT_DBG(COLIDX);
+            PRINT_DBG(VAL);
             printf("\n");
+#undef PRINT_DBG
         };
 
         memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
 
-        rte.m = Reinterpret1DTo2D::get_square_size(in_uncompressed_len);
+        rte.m   = Reinterpret1DTo2D::get_square_size(in_uncompressed_len);
+        rte.nnz = init_nnz();
 
         rte.nbyte[RTE::CSR]    = max_compressed_bytes();
         rte.nbyte[RTE::ROWPTR] = sizeof(int) * (rte.m + 1);
@@ -1028,7 +1035,8 @@ class CSR11 : public VirtualGatherScatter {
      * @param in_uncompressed_len (host variable)
      * @param stream CUDA stream
      */
-    void subfile_collect(HEADER& header, size_t in_uncompressed_len, cudaStream_t stream = nullptr)
+    void
+    subfile_collect(HEADER& header, size_t in_uncompressed_len, cudaStream_t stream = nullptr, bool dbg_print = false)
     {
         header.header_nbyte     = sizeof(HEADER);
         header.uncompressed_len = in_uncompressed_len;
@@ -1051,12 +1059,20 @@ class CSR11 : public VirtualGatherScatter {
         for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
 
         auto debug_header_entry = [&]() {
-            cout << '\n';
-            cout << "debugging header in CSR11\n";
-            for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
-            cout << '\n';
+            printf("\nCSR11::subfile_collect() debugging:\n");
+            printf("%-*s:  %'10ld\n", 16, "final.nnz", rte.nnz);
+            printf("  ENTRIES\n");
+
+#define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)HEADER::VAR, 14, #VAR, header.entry[HEADER::VAR]);
+            PRINT_ENTRY(HEADER);
+            PRINT_ENTRY(ROWPTR);
+            PRINT_ENTRY(COLIDX);
+            PRINT_ENTRY(VAL);
+            PRINT_ENTRY(END);
+            printf("\n");
+#undef PRINT_ENTRY
         };
-        debug_header_entry();
+        if (dbg_print) debug_header_entry();
 
         CHECK_CUDA(cudaMemcpyAsync(d_csr, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
 
@@ -1084,7 +1100,8 @@ class CSR11 : public VirtualGatherScatter {
         size_t const in_uncompressed_len,
         BYTE*&       out_compressed,
         size_t&      out_compressed_len,
-        cudaStream_t stream = nullptr)
+        cudaStream_t stream    = nullptr,
+        bool         dbg_print = false)
     {
         // cautious!
         HEADER header;
@@ -1096,7 +1113,7 @@ class CSR11 : public VirtualGatherScatter {
         gather_CUDA10_new(in_uncompressed, stream);
 #endif
 
-        subfile_collect(header, in_uncompressed_len, stream);
+        subfile_collect(header, in_uncompressed_len, stream, dbg_print);
 
         out_compressed     = d_csr;
         out_compressed_len = header.subfile_size();

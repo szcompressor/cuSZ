@@ -25,33 +25,15 @@ void compress_time__alloc_inside(
     SIZE&          compressed_len,
     cudaStream_t   stream)
 {
-    auto CR          = [&]() { return 1.0 * uncompressed_len * 4 / compressed_len; };
-    auto peek_header = [&]() {
-        auto header = new COMPONENT::HEADER;
-        cudaMemcpy(header, compressed, sizeof(COMPONENT::HEADER), cudaMemcpyDeviceToHost);
-
-        printf("header::%-*s: %d\n", 20, "header_nbyte", (*header).header_nbyte);
-        printf("header::%-*s: %ld\n", 20, "nnz", (int64_t)(*header).nnz);
-        printf("header::%-*s: %lu\n", 20, "uncompressed_len", (*header).uncompressed_len);
-        printf("\n");
-
-        PRINT_HEADER_ENTRY(HEADER)
-        PRINT_HEADER_ENTRY(ROWPTR)
-        PRINT_HEADER_ENTRY(COLIDX)
-        PRINT_HEADER_ENTRY(VAL)
-        PRINT_HEADER_ENTRY(END)
-
-        delete header;
-    };
+    auto CR = [&]() { return 1.0 * uncompressed_len * 4 / compressed_len; };
 
     // one-time setup
     component.allocate_workspace(uncompressed_len);
-    component.gather_new(uncompressed, uncompressed_len, compressed, compressed_len, stream);
+    component.gather_new(uncompressed, uncompressed_len, compressed, compressed_len, stream, true /*debug*/);
 
     printf("(print in encoding)\n");
     printf("%-*s: %lu\n", 28, "compressed/subfile size", compressed_len);
     printf("%-*s: %.3lfx\n\n", 28, "compression ration (CR)", CR());
-    peek_header();
 }
 
 void decompress_time(COMPONENT& component, BYTE*& compressed, UNCOMPRESSED*& decompressed, cudaStream_t stream)

@@ -15,6 +15,7 @@
 #ifndef CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
 #define CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
 
+#include <clocale>
 #include <cstdint>
 #include <exception>
 #include <functional>
@@ -170,15 +171,18 @@ class HuffmanCoarse : public cusz::VariableRate {
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
         auto debug                = [&]() {
+            setlocale(LC_NUMERIC, "");
+#define PRINT_DBG(VAR) printf("nbyte-%-*s:  %'10u\n", 10, #VAR, rte.nbyte[RTE::VAR]);
             printf("\nHuffmanCoarse::allocate_workspace() debugging:\n");
-            printf("nbyte-TMP   : %u\n", rte.nbyte[RTE::TMP]);
-            printf("nbyte-FREQ  : %u\n", rte.nbyte[RTE::FREQ]);
-            printf("nbyte-BOOK  : %u\n", rte.nbyte[RTE::BOOK]);
-            printf("nbyte-REVBOOK  : %u\n", rte.nbyte[RTE::REVBOOK]);
-            printf("nbyte-PAR_NBIT: %u\n", rte.nbyte[RTE::PAR_NBIT]);
-            printf("nbyte-PAR_NCELL: %u\n", rte.nbyte[RTE::PAR_NCELL]);
-            printf("nbyte-BITSTREAM: %u\n", rte.nbyte[RTE::BITSTREAM]);
+            PRINT_DBG(TMP);
+            PRINT_DBG(FREQ);
+            PRINT_DBG(BOOK);
+            PRINT_DBG(REVBOOK);
+            PRINT_DBG(PAR_NBIT);
+            PRINT_DBG(PAR_NCELL);
+            PRINT_DBG(BITSTREAM);
             printf("\n");
+#undef PRINT_DBG
         };
 
         memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
@@ -221,8 +225,8 @@ class HuffmanCoarse : public cusz::VariableRate {
 
     static const int CELL_BITWIDTH = sizeof(H) * 8;
 
-    float milliseconds;
-    float time_hist, time_book, time_lossless;
+    float milliseconds{0.0};
+    float time_hist{0.0}, time_book{0.0}, time_lossless{0.0};
 
    public:
     //
@@ -318,8 +322,9 @@ class HuffmanCoarse : public cusz::VariableRate {
         t.timer_start(stream);
         kernel_wrapper::par_get_codebook<T, H>(tmp_freq, cfg_booklen, tmp_book, out_revbook, stream);
         t.timer_end(stream);
-        time_book = t.get_time_elapsed();
         cudaStreamSynchronize(stream);
+
+        time_book = t.get_time_elapsed();
     }
 
    public:
@@ -473,8 +478,9 @@ class HuffmanCoarse : public cusz::VariableRate {
         cusz::coarse_par::detail::kernel::huffman_decode<T, H, M><<<grid_dim, block_dim, revbook_nbyte, stream>>>(
             in_compressed, in_compressed_meta, in_revbook, revbook_nbyte, cfg_sublen, pardeg, out_decompressed);
         t.timer_end(stream);
-        milliseconds = t.get_time_elapsed();
         CHECK_CUDA(cudaStreamSynchronize(stream));
+
+        milliseconds = t.get_time_elapsed();
     }
 
    private:
@@ -554,6 +560,9 @@ class HuffmanCoarse : public cusz::VariableRate {
     {
         auto const cfg_pardeg = ConfigHelper::get_npart(in_uncompressed_len, cfg_sublen);
 
+        cuda_timer_t t;
+        time_lossless = 0;
+
         auto BARRIER = [&]() {
             if (stream)
                 CHECK_CUDA(cudaStreamSynchronize(stream));
@@ -570,7 +579,7 @@ class HuffmanCoarse : public cusz::VariableRate {
             int numSMs;
             cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-            cuda_timer_t t;
+            // cuda_timer_t t;
             t.timer_start(stream);
 
             cusz::coarse_par::detail::kernel::huffman_encode_fixedlen_gridstride<T, H>
@@ -578,23 +587,25 @@ class HuffmanCoarse : public cusz::VariableRate {
                 (in_uncompressed, in_uncompressed_len, d_book, cfg_booklen, d_tmp);
 
             t.timer_end(stream);
-            time_lossless += t.get_time_elapsed();
             BARRIER();
+
+            time_lossless += t.get_time_elapsed();
         };
 
         auto encode_phase2_new = [&]() {
             auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
             auto grid_dim  = ConfigHelper::get_npart(cfg_pardeg, block_dim);
 
-            cuda_timer_t t;
+            // cuda_timer_t t;
             t.timer_start(stream);
 
             cusz::coarse_par::detail::kernel::huffman_encode_deflate<H><<<grid_dim, block_dim, 0, stream>>>  //
                 (d_tmp, in_uncompressed_len, d_par_nbit, d_par_ncell, cfg_sublen, cfg_pardeg);
 
             t.timer_end(stream);
-            time_lossless += t.get_time_elapsed();
             BARRIER();
+
+            time_lossless += t.get_time_elapsed();
         };
 
         auto encode_phase3_new = [&]() {
@@ -618,15 +629,16 @@ class HuffmanCoarse : public cusz::VariableRate {
         };
 
         auto encode_phase4_new = [&]() {
-            cuda_timer_t t;
+            // cuda_timer_t t;
             t.timer_start(stream);
             {
                 cusz::huffman_coarse_concatenate<H, M><<<cfg_pardeg, 128, 0, stream>>>  //
                     (d_tmp, d_par_entry, d_par_ncell, cfg_sublen, d_bitstream);
             }
             t.timer_end(stream);
-            time_lossless += t.get_time_elapsed();
             BARRIER();
+
+            time_lossless += t.get_time_elapsed();
         };
 
         // -----------------------------------------------------------------------------
@@ -678,8 +690,9 @@ class HuffmanCoarse : public cusz::VariableRate {
         cusz::coarse_par::detail::kernel::huffman_decode_new<T, H, M><<<grid_dim, block_dim, revbook_nbyte, stream>>>(
             d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte, header.sublen, pardeg, out_decompressed);
         t.timer_end(stream);
-        milliseconds = t.get_time_elapsed();
         cudaStreamSynchronize(stream);
+
+        time_lossless = t.get_time_elapsed();
     }
 
     // end of class definition

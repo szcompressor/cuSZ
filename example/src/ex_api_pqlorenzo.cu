@@ -25,14 +25,13 @@ using COMPONENT = cusz::PredictorLorenzo<DATA, ERRCTRL, float>;
 void compress_time__alloc_inside(
     COMPONENT&   component,
     DATA*&       origin,
-    dim3         xyz,
     DATA*&       anchor,
     ERRCTRL*&    errctrl,
     cudaStream_t stream)
 {
     auto in_data__out_outlier = origin;
 
-    component.allocate_workspace(xyz, false);
+    component.allocate_workspace();
     component.construct(in_data__out_outlier, eb, radius, anchor, errctrl, stream);
 }
 
@@ -44,7 +43,7 @@ void decompress_time(COMPONENT& component, DATA*& anchor, ERRCTRL*& errctrl, DAT
 
 int main(int argc, char** argv)
 {
-    COMPONENT component;
+    COMPONENT component(xyz);
 
     DATA*  experimented_data{nullptr};
     DATA*& reconstructed = experimented_data;
@@ -67,7 +66,7 @@ int main(int argc, char** argv)
 
     // for (auto i = 0; i < 100; i++) printf("%d\toriginal: %f\treconstructed: %f\n", i, original[i], reconstructed[i]);
 
-    compress_time__alloc_inside(component, experimented_data, xyz, anchor, errctrl, stream);
+    compress_time__alloc_inside(component, experimented_data, anchor, errctrl, stream);
     // ----------------------------------------------------------------------------------------
     decompress_time(component, anchor, errctrl, reconstructed, stream);
 

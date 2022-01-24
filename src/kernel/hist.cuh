@@ -173,12 +173,13 @@ void kernel_wrapper::get_frequency(
     optimize_launch();
 
     cuda_timer_t t;
-    t.timer_start();
+    t.timer_start(stream);
     kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
         (in_data, out_freq, in_len, num_buckets, r_per_block);
-    t.timer_end();
-    milliseconds += t.get_time_elapsed();
+    t.timer_end(stream);
     cudaStreamSynchronize(stream);
+
+    milliseconds = t.get_time_elapsed();
 }
 
 #endif
