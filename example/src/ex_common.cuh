@@ -38,16 +38,17 @@ void echo_metric_gpu(T* d1, T* d2, size_t len)
 }
 
 template <typename T>
-void echo_metric_cpu(T* _d1, T* _d2, size_t len, bool on_device = false)
+void echo_metric_cpu(T* _d1, T* _d2, size_t len, bool from_device = true)
 {
     stat_t stat;
     T*     d1;
     T*     d2;
-    if (not on_device) {
+    if (not from_device) {
         d1 = _d1;
         d2 = _d2;
     }
     else {
+        printf("allocating tmp space for CPU verification\n");
         auto bytes = sizeof(T) * len;
         cudaMallocHost(&d1, bytes);
         cudaMallocHost(&d2, bytes);
@@ -57,9 +58,9 @@ void echo_metric_cpu(T* _d1, T* _d2, size_t len, bool on_device = false)
     analysis::verify_data<T>(&stat, d1, d2, len);
     analysis::print_data_quality_metrics<T>(&stat, 0, false);
 
-    if (on_device) {
-        cudaFreeHost(d1);
-        cudaFreeHost(d2);
+    if (from_device) {
+        if (d1) cudaFreeHost(d1);
+        if (d2) cudaFreeHost(d2);
     }
 }
 

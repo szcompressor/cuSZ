@@ -31,7 +31,8 @@ using T = float;
 using E = float;
 
 // double const  eb          = 3e-3;
-constexpr int fake_radius = 0;
+constexpr int FAKE_RADIUS = 0;
+constexpr int radius      = FAKE_RADIUS;
 // constexpr auto DEVICE      = cusz::LOC::DEVICE;
 
 constexpr unsigned int dimx = 235, dimy = 449, dimz = 449;
@@ -42,15 +43,8 @@ using Compressor = SparsityAwarePath::DefaultCompressor;
 using Predictor  = cusz::Spline3<T, E, float>;
 using SpReducer  = cusz::CSR11<T>;
 
+bool        gpu_verify = true;
 std::string fname("");
-
-template <typename T>
-void echo_metric(T* d1, T* d2)
-{
-    stat_t stat;
-    verify_data_GPU<T>(&stat, d1, d2, len);
-    analysis::print_data_quality_metrics<T>(&stat, 0, false);
-}
 
 void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStream_t stream = nullptr)
 {
@@ -90,7 +84,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _1_compress_time = [&]() {
         printf("_1_compress_time\n");
-        predictor.construct(data, eb, fake_radius, anchor, errctrl, stream);
+        predictor.construct(data, eb, radius, anchor, errctrl, stream);
         BARRIER();
 
         dbg_echo_nnz();
@@ -98,7 +92,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _1_decompress_time = [&]() {  //
         printf("_1_decompress_time\n");
-        predictor.reconstruct(anchor, errctrl, eb, fake_radius, xdata, stream);
+        predictor.reconstruct(anchor, errctrl, eb, radius, xdata, stream);
         BARRIER();
     };
 
@@ -111,7 +105,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _2_compress_time = [&]() {
         printf("_2_compress_time\n");
-        predictor.construct(data, eb, fake_radius, anchor, errctrl, stream);
+        predictor.construct(data, eb, radius, anchor, errctrl, stream);
         BARRIER();
 
         dbg_echo_nnz();
@@ -124,7 +118,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
         printf("_2_decompress_time\n");
         spreducer.scatter_new(csr, errctrl, stream);
         BARRIER();
-        predictor.reconstruct(anchor, errctrl, eb, fake_radius, xdata, stream);
+        predictor.reconstruct(anchor, errctrl, eb, radius, xdata, stream);
         BARRIER();
     };
 
@@ -141,7 +135,10 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
         _2_decompress_time();
     }
 
-    echo_metric(xdata, cmp);
+    if (gpu_verify)
+        echo_metric_gpu(xdata, cmp, len);
+    else
+        echo_metric_cpu(xdata, cmp, len, true);
 }
 
 void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStream_t stream = nullptr)
@@ -152,18 +149,29 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaSt
 
     auto xdata = data;
 
+    // one-time ALLOCATION given the input size
     compressor.allocate_workspace(xyz);
-    compressor.compress(data, eb, fake_radius, compressed, compressed_len, stream);
 
+    // COMPRESSION
+    compressor.compress(data, eb, radius, compressed, compressed_len, stream);
+
+    // prepare a space that hold the compressed file
     Capsule<BYTE> file(compressed_len);
     file.template alloc<cusz::LOC::HOST_DEVICE>();
     cudaMemcpy(file.dptr, compressed, compressed_len, cudaMemcpyDeviceToDevice);
+    // clear & reuse for testing
     cudaMemset(compressed, 0x0, compressed_len);
 
+    // load the compressed "file" before decompression
     cudaMemcpy(compressed, file.dptr, compressed_len, cudaMemcpyDeviceToDevice);
-    compressor.decompress(compressed, eb, fake_radius, xdata, stream);
 
-    echo_metric(xdata, cmp);
+    // DECOMPRESSION
+    compressor.decompress(compressed, eb, radius, xdata, stream);
+
+    if (gpu_verify)
+        echo_metric_gpu(xdata, cmp, len);
+    else
+        echo_metric_cpu(xdata, cmp, len);
 }
 
 void predictor_demo(bool use_sp, double eb = 1e-2, bool use_compressor = false, bool use_r2r = false)
@@ -200,10 +208,17 @@ void predictor_demo(bool use_sp, double eb = 1e-2, bool use_compressor = false, 
 int main(int argc, char** argv)
 {
     auto help = []() {
-        cout << "./prog (1|2|3) fname [eb = 1e-2] [abs|r2r]\n";
-        cout << "(1) predictor demo\n"
-                "(2) predictor-spreducer demo\n"
-                "(3) compressor integration demo\n";
+        printf("./prog <1:select> <2:fname> [3:eb = 1e-2] [4:mode = abs] [5:verify = gpu]\n");
+        printf("<..> necessary, [..] optional\n");
+        printf(
+            "argv[1]: "
+            "(1) predictor demo, "
+            "(2) predictor-spreducer demo, "
+            "(3) compressor demo\n"
+            "argv[2]: filename\n"
+            "argv[3]: error bound (default to \"1e-2\")\n"
+            "argv[4]: mode, abs or r2r (default to \"abs\")\n"
+            "argv[5]: if using GPU to verify (default to \"gpu\")\n");
     };
 
     auto eb      = 1e-2;
@@ -217,7 +232,8 @@ int main(int argc, char** argv)
         auto demo = atoi(argv[1]);
         fname     = std::string(argv[2]);
         if (argc >= 4) eb = atof(argv[3]);
-        if (argc == 5) mode = std::string(argv[4]);
+        if (argc >= 5) mode = std::string(argv[4]);
+        if (argc == 6) gpu_verify = std::string(argv[5]) == "gpu";
         use_r2r = mode == "r2r";
 
         if (demo == 1)
