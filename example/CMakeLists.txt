@@ -66,3 +66,9 @@ target_link_libraries(ex-api-spline3
 	-lcuda
 	-lcusparse)
 set_target_properties(ex-api-spline3 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(app-spline3-pred src/app_spline3_pred.cu)
+target_link_libraries(app-spline3-pred
+	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
+	-lcusparse)
+# set_target_properties(app-spline3-pred PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
