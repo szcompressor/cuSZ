@@ -15,6 +15,7 @@
 #ifndef CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
 #define CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
 
+#include <cuda.h>
 #include <clocale>
 #include <cstdint>
 #include <exception>
@@ -134,6 +135,7 @@ class HuffmanCoarse : public cusz::VariableRate {
         int       header_nbyte : 16;
         int       booklen : 16;
         int       sublen;
+        int       pardeg;
         size_t    uncompressed_len;
         size_t    total_nbit;
         size_t    total_ncell;  // TODO change to uint32_t
@@ -159,6 +161,22 @@ class HuffmanCoarse : public cusz::VariableRate {
     using RTE = runtime_encode_helper;
     RTE rte;
 
+    void dbg_println(const std::string SYM_name, void* VAR, int SYM)
+    {
+        CUdeviceptr pbase0{0};
+        size_t      psize0{0};
+
+        cuMemGetAddressRange(&pbase0, &psize0, (CUdeviceptr)VAR);
+        printf(
+            "%s:\n"
+            "\t(supposed) pointer : %p\n"
+            "\t(supposed) bytes   : %'9lu\n"
+            "\t(queried)  pbase0  : %p\n"
+            "\t(queried)  psize0  : %'9lu\n",
+            SYM_name.c_str(), (void*)VAR, rte.nbyte[SYM], (void*)&pbase0, psize0);
+        pbase0 = 0, psize0 = 0;
+    }
+
     /**
      * @brief Allocate workspace according to the input size & configurations.
      *
@@ -170,19 +188,21 @@ class HuffmanCoarse : public cusz::VariableRate {
     void allocate_workspace(size_t const in_uncompressed_len, int cfg_booklen, int cfg_pardeg, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
-        auto debug                = [&]() {
+
+        auto debug = [&]() {
             setlocale(LC_NUMERIC, "");
-#define PRINT_DBG(VAR) printf("nbyte-%-*s:  %'10u\n", 10, #VAR, rte.nbyte[RTE::VAR]);
+
             printf("\nHuffmanCoarse::allocate_workspace() debugging:\n");
-            PRINT_DBG(TMP);
-            PRINT_DBG(FREQ);
-            PRINT_DBG(BOOK);
-            PRINT_DBG(REVBOOK);
-            PRINT_DBG(PAR_NBIT);
-            PRINT_DBG(PAR_NCELL);
-            PRINT_DBG(BITSTREAM);
+            printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
+
+            dbg_println("TMP", d_tmp, RTE::TMP);
+            dbg_println("FREQ", d_freq, RTE::FREQ);
+            dbg_println("BOOK", d_book, RTE::BOOK);
+            dbg_println("REVBOOK", d_revbook, RTE::REVBOOK);
+            dbg_println("PAR_NBIT", d_par_nbit, RTE::PAR_NBIT);
+            dbg_println("PAR_NCELL", d_par_ncell, RTE::PAR_NCELL);
+            dbg_println("BITSTREAM", d_bitstream, RTE::BITSTREAM);
             printf("\n");
-#undef PRINT_DBG
         };
 
         memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
@@ -330,7 +350,7 @@ class HuffmanCoarse : public cusz::VariableRate {
    public:
     /**
      * @brief
-     * @deprecated use `encode_new` instead
+     * @deprecated use `encode` instead
      *
      * @param d_freq
      * @param d_book
@@ -446,7 +466,7 @@ class HuffmanCoarse : public cusz::VariableRate {
 
     /**
      * @brief
-     * @deprecated use `decode_new` instead
+     * @deprecated use `decode` instead
      *
      * @param in_compressed
      * @param in_compressed_meta
@@ -495,6 +515,7 @@ class HuffmanCoarse : public cusz::VariableRate {
         size_t const in_uncompressed_len,
         int const    cfg_booklen,
         int const    cfg_sublen,
+        int const    cfg_pardeg,
         cudaStream_t stream = nullptr)
     {
         auto BARRIER = [&]() {
@@ -507,6 +528,7 @@ class HuffmanCoarse : public cusz::VariableRate {
         header.header_nbyte     = sizeof(struct header_t);
         header.booklen          = cfg_booklen;
         header.sublen           = cfg_sublen;
+        header.pardeg           = cfg_pardeg;
         header.uncompressed_len = in_uncompressed_len;
 
         MetadataT nbyte[HEADER::END];
@@ -549,17 +571,16 @@ class HuffmanCoarse : public cusz::VariableRate {
      * @param out_compressed_len (host variable) reference output
      * @param stream CUDA stream
      */
-    void encode_new(
+    void encode(
         T*           in_uncompressed,
         size_t const in_uncompressed_len,
         int const    cfg_booklen,
         int const    cfg_sublen,
+        int const    cfg_pardeg,
         BYTE*&       out_compressed,
         size_t&      out_compressed_len,
         cudaStream_t stream = nullptr)
     {
-        auto const cfg_pardeg = ConfigHelper::get_npart(in_uncompressed_len, cfg_sublen);
-
         cuda_timer_t t;
         time_lossless = 0;
 
@@ -572,14 +593,13 @@ class HuffmanCoarse : public cusz::VariableRate {
 
         struct header_t header;
 
-        auto encode_phase1_new = [&]() {
+        auto encode_phase1 = [&]() {
             auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
             auto grid_dim  = ConfigHelper::get_npart(in_uncompressed_len, block_dim);
 
             int numSMs;
             cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-            // cuda_timer_t t;
             t.timer_start(stream);
 
             cusz::coarse_par::detail::kernel::huffman_encode_fixedlen_gridstride<T, H>
@@ -592,11 +612,10 @@ class HuffmanCoarse : public cusz::VariableRate {
             time_lossless += t.get_time_elapsed();
         };
 
-        auto encode_phase2_new = [&]() {
+        auto encode_phase2 = [&]() {
             auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
             auto grid_dim  = ConfigHelper::get_npart(cfg_pardeg, block_dim);
 
-            // cuda_timer_t t;
             t.timer_start(stream);
 
             cusz::coarse_par::detail::kernel::huffman_encode_deflate<H><<<grid_dim, block_dim, 0, stream>>>  //
@@ -608,7 +627,7 @@ class HuffmanCoarse : public cusz::VariableRate {
             time_lossless += t.get_time_elapsed();
         };
 
-        auto encode_phase3_new = [&]() {
+        auto encode_phase3 = [&]() {
             CHECK_CUDA(cudaMemcpyAsync(h_par_nbit, d_par_nbit, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
             CHECK_CUDA(
                 cudaMemcpyAsync(h_par_ncell, d_par_ncell, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
@@ -628,8 +647,7 @@ class HuffmanCoarse : public cusz::VariableRate {
             rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
         };
 
-        auto encode_phase4_new = [&]() {
-            // cuda_timer_t t;
+        auto encode_phase4 = [&]() {
             t.timer_start(stream);
             {
                 cusz::huffman_coarse_concatenate<H, M><<<cfg_pardeg, 128, 0, stream>>>  //
@@ -645,13 +663,12 @@ class HuffmanCoarse : public cusz::VariableRate {
 
         inspect(d_freq, d_book, in_uncompressed, in_uncompressed_len, cfg_booklen, d_revbook, stream);
 
-        encode_phase1_new();
-        CHECK_CUDA(cudaDeviceSynchronize());
-        encode_phase2_new();
-        encode_phase3_new();
-        encode_phase4_new();
+        encode_phase1();
+        encode_phase2();
+        encode_phase3();
+        encode_phase4();
 
-        subfile_collect(header, in_uncompressed_len, cfg_booklen, cfg_sublen, stream);
+        subfile_collect(header, in_uncompressed_len, cfg_booklen, cfg_sublen, cfg_pardeg, stream);
 
         out_compressed     = d_compressed;
         out_compressed_len = header.subfile_size();
@@ -665,7 +682,7 @@ class HuffmanCoarse : public cusz::VariableRate {
      * @param stream CUDA stream
      * @param header_on_device If true, copy header from device binary to host.
      */
-    void decode_new(
+    void decode(
         BYTE*        in_compressed,  //
         T*           out_decompressed,
         cudaStream_t stream           = nullptr,
@@ -681,7 +698,7 @@ class HuffmanCoarse : public cusz::VariableRate {
         auto d_bitstream = ACCESSOR(BITSTREAM, H);
 
         auto const revbook_nbyte = get_revbook_nbyte(header.booklen);
-        auto const pardeg        = ConfigHelper::get_npart(header.uncompressed_len, header.sublen);
+        auto const pardeg        = header.pardeg;
         auto const block_dim     = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
         auto const grid_dim      = ConfigHelper::get_npart(pardeg, block_dim);
 

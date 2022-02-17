@@ -25,36 +25,44 @@ set(LIB_TYPE SHARED)
 
 add_executable(ex-api-huffcoarse src/ex_api_huffcoarse.cu)
 target_link_libraries(ex-api-huffcoarse 
+	PUBLIC
 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
+	-lcuda
 	-lcusparse)
 set_target_properties(ex-api-huffcoarse PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(ex-api-csr src/ex_api_csr11.cu)
 target_link_libraries(ex-api-csr 
+	PUBLIC
 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
 	-lcusparse)
 
 add_executable(ex-api-pqlorenzo src/ex_api_pqlorenzo.cu)
 target_link_libraries(ex-api-pqlorenzo 
+	PUBLIC
 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
  	-lcusparse)
 
 add_executable(ex-defaultcompressor src/ex_api_defaultcompressor.cu)
 target_link_libraries(ex-defaultcompressor  
+	PUBLIC
 	${CMAKE_SOURCE_DIR}/../Release/libnvgpusz.a 
 	${CMAKE_SOURCE_DIR}/../Release/libargp.a 
 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
+	-lcuda
 	-lcusparse)
 set_target_properties(ex-defaultcompressor PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(spcompressor ${LIB_TYPE} ../src/sp_path.cu)
 add_executable(ex-api-spline3 src/ex_api_spline3.cu)
 target_link_libraries(ex-api-spline3 
+	PUBLIC
 	spcompressor 
 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
+	-lcuda
 	-lcusparse)
 set_target_properties(ex-api-spline3 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

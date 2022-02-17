@@ -300,10 +300,11 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto data_len = (*predictor).get_data_len();
         auto m        = Reinterpret1DTo2D::get_square_size(data_len);
 
-        (*spreducer).gather_new(uncompressed, m * m, d_spfmt, spfmt_out_len, stream, dbg_print);
+        (*spreducer).gather(uncompressed, m * m, d_spfmt, spfmt_out_len, stream, dbg_print);
 
         auto errctrl_len = (*predictor).get_quant_len();
-        (*codec).encode_new(d_errctrl, errctrl_len, radius * 2, pardeg, d_codec_out, codec_out_len, stream);
+        auto sublen      = ConfigHelper::get_npart(data_len, pardeg);
+        (*codec).encode(d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
@@ -392,8 +393,8 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto d_spreducer_out = out_decompressed;
         auto d_predictor_out = out_decompressed;
 
-        (*spreducer).scatter_new(d_spreducer_in, d_spreducer_out, stream);
-        (*codec).decode_new(d_decoder_in, d_decoder_out);
+        (*spreducer).scatter(d_spreducer_in, d_spreducer_out, stream);
+        (*codec).decode(d_decoder_in, d_decoder_out);
         (*predictor).reconstruct(d_anchor, d_predictor_in, eb, radius, d_predictor_out, stream);
 
         auto decompress_report = [&]() {

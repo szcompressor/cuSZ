@@ -110,13 +110,13 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
         dbg_echo_nnz();
 
-        spreducer.gather_new(errctrl, predictor.get_quant_footprint(), csr, csr_nbyte, stream);
+        spreducer.gather(errctrl, predictor.get_quant_footprint(), csr, csr_nbyte, stream);
         BARRIER();
     };
 
     auto _2_decompress_time = [&]() {  //
         printf("_2_decompress_time\n");
-        spreducer.scatter_new(csr, errctrl, stream);
+        spreducer.scatter(csr, errctrl, stream);
         BARRIER();
         predictor.reconstruct(anchor, errctrl, eb, radius, xdata, stream);
         BARRIER();

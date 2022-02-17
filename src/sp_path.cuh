@@ -150,7 +150,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
         (*predictor).construct(uncompressed, eb, radius, d_anchor, d_errctrl, stream);
         auto spreducer_in_len = (*predictor).get_quant_footprint();
-        (*spreducer).gather_new(d_errctrl, spreducer_in_len, d_spreducer_out, spreducer_out_len, stream);
+        (*spreducer).gather(d_errctrl, spreducer_in_len, d_spreducer_out, spreducer_out_len, stream);
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
@@ -209,7 +209,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
         auto d_errctrl = (*predictor).expose_quant();  // reuse
 
-        (*spreducer).scatter_new(d_spreducer_in, d_errctrl, stream);
+        (*spreducer).scatter(d_spreducer_in, d_errctrl, stream);
         (*predictor).reconstruct(d_anchor, d_errctrl, eb, radius, out_decompressed, stream);
 
         auto decompress_report = [&]() {

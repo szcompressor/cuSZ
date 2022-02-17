@@ -191,7 +191,7 @@ class CSR11 : public VirtualGatherScatter {
 
     /**
      * @brief
-     * @deprecated use `gather_CUDA11_new` instead
+     * @deprecated use `gather_CUDA11` instead
      *
      * @tparam T
      * @param in_dense
@@ -381,7 +381,7 @@ class CSR11 : public VirtualGatherScatter {
 
     /**
      * @brief
-     * @deprecated use `gather_CUDA10_new` instead
+     * @deprecated use `gather_CUDA10` instead
      *
      * @param in_dense
      * @param _dump_poolsize
@@ -596,7 +596,7 @@ class CSR11 : public VirtualGatherScatter {
 
     /**
      * @brief
-     * @deprecated use `scatter_CUDA11_new` instead
+     * @deprecated use `scatter_CUDA11` instead
      *
      * @param out_dense
      * @param stream
@@ -742,7 +742,7 @@ class CSR11 : public VirtualGatherScatter {
 
     /**
      * @brief
-     * @deprecated use `scatter_CUDA10_new` instead
+     * @deprecated use `scatter_CUDA10` instead
      *
      * @param out_dense
      * @param ext_stream
@@ -1095,7 +1095,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param out_compressed_len (host variable) reference output length
      * @param stream CUDA stream
      */
-    void gather_new(
+    void gather(
         T*           in_uncompressed,
         size_t const in_uncompressed_len,
         BYTE*&       out_compressed,
@@ -1127,7 +1127,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param stream CUDA stream
      * @param header_on_device (optional) configuration; if true, the header is copied from the on-device binary.
      */
-    void scatter_new(
+    void scatter(
         BYTE*        in_compressed,  //
         T*           out_decompressed,
         cudaStream_t stream           = nullptr,

@@ -167,7 +167,7 @@ __global__ void huffman_encode_deflate(
 
     auto tid = BIX * BDX + TIX;
 
-    if (tid < pardeg) {
+    if (tid * sublen < len) {
         int         residue_bits = CELL_BITWIDTH;
         int         total_bits   = 0;
         COMPRESSED* ptr          = inout_inplace + tid * sublen;
