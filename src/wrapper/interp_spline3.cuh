@@ -217,6 +217,16 @@ class Spline3 : public PredictorAbstraction<T, E> {
     }
 
     /**
+     * @brief clear GPU buffer, may affect performance; essentially for debugging
+     *
+     */
+    void clear_buffer()
+    {
+        cudaMemset(d_anchor, 0x0, sizeof(T) * get_anchor_len());
+        cudaMemset(d_errctrl, 0x0, sizeof(E) * get_quant_len());
+    }
+
+    /**
      * @brief Construct error-control code & outlier; input and outlier overlap each other. Thus, it's destructive.
      *
      * @param in_data (device array) input data and output outlier

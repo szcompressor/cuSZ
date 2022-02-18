@@ -1087,6 +1087,18 @@ class CSR11 : public VirtualGatherScatter {
 
    public:
     /**
+     * @brief
+     *
+     */
+    void clear_buffer()
+    {
+        cudaMemset(d_csr, 0x0, rte.nbyte[RTE::CSR]);
+        cudaMemset(d_rowptr, 0x0, rte.nbyte[RTE::ROWPTR]);
+        cudaMemset(d_colidx, 0x0, rte.nbyte[RTE::COLIDX]);
+        cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
+    }
+
+    /**
      * @brief Public interface for gather method.
      *
      * @param in_uncompressed (device array) input

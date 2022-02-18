@@ -561,6 +561,22 @@ class HuffmanCoarse : public cusz::VariableRate {
 
    public:
     /**
+     * @brief
+     *
+     */
+    void clear_buffer()
+    {
+        cudaMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
+        cudaMemset(d_freq, 0x0, rte.nbyte[RTE::FREQ]);
+        cudaMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
+        cudaMemset(d_revbook, 0x0, rte.nbyte[RTE::REVBOOK]);
+        cudaMemset(d_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT]);
+        cudaMemset(d_par_ncell, 0x0, rte.nbyte[RTE::PAR_NCELL]);
+        cudaMemset(d_par_entry, 0x0, rte.nbyte[RTE::PAR_ENTRY]);
+        cudaMemset(d_bitstream, 0x0, rte.nbyte[RTE::BITSTREAM]);
+    }
+
+    /**
      * @brief Public encode interface.
      *
      * @param in_uncompressed (device array)

@@ -108,6 +108,9 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, int pardeg, cudaStr
     cudaMemcpy(file.dptr, compressed, compressed_len, cudaMemcpyDeviceToDevice);
     cudaMemset(compressed, 0x0, compressed_len);
 
+    // clear buffers of the components
+    compressor.clear_buffer();
+
     cudaMemcpy(compressed, file.dptr, compressed_len, cudaMemcpyDeviceToDevice);
     compressor.decompress(compressed, eb, radius, xdata, stream);
 

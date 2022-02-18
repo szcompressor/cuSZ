@@ -185,6 +185,16 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     }
 
     /**
+     * @brief
+     *
+     */
+    void clear_buffer()
+    {  //
+        (*predictor).clear_buffer();
+        (*spreducer).clear_buffer();
+    }
+
+    /**
      * @brief High-level decompress method for this compressor
      *
      * @param in_compressed device pointer, the cusz archive bianry

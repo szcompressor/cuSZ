@@ -274,7 +274,6 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
                 printf("  ENTRIES\n");
 
 #define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)HEADER::VAR, 14, #VAR, header.entry[HEADER::VAR]);
-                // for (auto i = 0; i < HEADER::END + 1; i++) printf("%u, header entry: %u\n", i, header.entry[i]);
                 PRINT_ENTRY(HEADER);
                 PRINT_ENTRY(ANCHOR);
                 PRINT_ENTRY(VLE);
@@ -311,10 +310,6 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         subfile_collect();
         compressed_len = header.file_size();
         compressed     = d_reserved_compressed;
-
-        // cout << "(c) predictor time  : " << (*predictor).get_time_elapsed() << " ms\n";
-        // cout << "(c) codec time      : " << (*codec).get_time_elapsed() << " ms\n";
-        // cout << "(c) spreducer time  : " << (*spreducer).get_time_elapsed() << " ms\n";
 
         auto compress_report = [&]() {
             auto get_cr        = [&]() { return get_data_len() * sizeof(T) * 1.0 / compressed_len; };
@@ -355,6 +350,17 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         };
 
         compress_report();
+    }
+
+    /**
+     * @brief
+     *
+     */
+    void clear_buffer()
+    {  //
+        (*predictor).clear_buffer();
+        (*codec).clear_buffer();
+        (*spreducer).clear_buffer();
     }
 
     /**

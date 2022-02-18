@@ -162,6 +162,9 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaSt
     // clear & reuse for testing
     cudaMemset(compressed, 0x0, compressed_len);
 
+    // clear buffers of the components
+    compressor.clear_buffer();
+
     // load the compressed "file" before decompression
     cudaMemcpy(compressed, file.dptr, compressed_len, cudaMemcpyDeviceToDevice);
 

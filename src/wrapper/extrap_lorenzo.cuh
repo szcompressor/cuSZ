@@ -329,11 +329,15 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
 
    public:
     /**
+     * @brief clear GPU buffer, may affect performance; essentially for debugging
+     *
+     */
+    void clear_buffer() { cudaMemset(d_errctrl, 0x0, sizeof(E) * len_quant); }
+
+    /**
      * @brief Allocate workspace according to the input size.
      *
-     * @param _size3 (host variable) 3D size for input data
-     * @param _delay_postquant (host variable) (future) control the delay of postquant
-     * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
+     * @param dbg_print if enabling debugging print
      */
     void allocate_workspace(bool dbg_print = false)
     {
