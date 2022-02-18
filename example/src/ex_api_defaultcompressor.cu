@@ -104,17 +104,24 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, int pardeg, cudaStr
     compressor.compress(data, eb, radius, pardeg, compressed, compressed_len, stream, true /*dbg*/);
 
     Capsule<BYTE> file(compressed_len);
-    file.template alloc<cusz::LOC::HOST_DEVICE>();
+    file.template alloc<cusz::LOC::DEVICE>();
+
     cudaMemcpy(file.dptr, compressed, compressed_len, cudaMemcpyDeviceToDevice);
     cudaMemset(compressed, 0x0, compressed_len);
 
-    // clear buffers of the components
-    compressor.clear_buffer();
+    compressor.clear_buffer();  // clear buffers of the components
 
     cudaMemcpy(compressed, file.dptr, compressed_len, cudaMemcpyDeviceToDevice);
     compressor.decompress(compressed, eb, radius, xdata, stream);
 
-    echo_metric_gpu(xdata, cmp, len);
+    float gb = 1.0 * sizeof(T) * len / 1e9;
+
+    if (gb < 0.8)
+        echo_metric_gpu(xdata, cmp, len);
+    else
+        echo_metric_cpu(xdata, cmp, len);
+
+    file.template free<cusz::LOC::DEVICE>();
 }
 
 void demo(double eb = 1e-2, bool use_compressor = false, bool use_r2r = false, bool sync_by_stream = false)
