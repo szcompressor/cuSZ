@@ -36,7 +36,6 @@ Table of Contents
 - [set up](#set-up)
 - [use](#use)
   - [basic use](#basic-use)
-  - [advanced use](#advanced-use)
 - [hands-on examples](#hands-on-examples)
 - [FAQ](#faq)
 - [tested by our team](#tested-by-our-team)
@@ -59,15 +58,15 @@ Requirements:
 More details about build tools
 </summary>
 
-- The table below shows toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
+- The table below shows the *tested* toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
 - more reference: 1) [CUDA compilers](https://gist.github.com/ax3l/9489132), 2) [CUDA archs](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
 
-|      |     |      |      |      |      |      |      |      |      |      |
-| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
-| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |      |
-|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |
-|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
-| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 | 11.5 |
+|      |     |      |      |      |      |      |      |      |      |      |      |
+| ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| gcc  | 7.x | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  | 7.x  |      |      |      |
+|      |     | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  | 8.x  |      |
+|      |     |      |      |      | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  | 9.x  |
+| CUDA | 9.2 | 10.0 | 10.1 | 10.2 | 11.0 | 11.1 | 11.2 | 11.3 | 11.4 | 11.5 | 11.6 |
 
 </details>
 
@@ -110,11 +109,11 @@ Type `cusz` or `cusz -h` for instant instructions. We give a basic use below.
 ./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --compare ./data/cesm-CLDHGH-3600x1800 --report time,quality
 ```
 
-We use 1800-by-3600 (y-x order) CESM-ATM CLDHGH for demonstration, which is in preset and `-D cesm` can be alternatively used . Type `cusz` or `cusz -h` to look up the presets.
+<!-- We use 1800-by-3600 (y-x order) CESM-ATM CLDHGH for demonstration, which is in preset and `-D cesm` can be alternatively used . Type `cusz` or `cusz -h` to look up the presets. -->
 
-```bash
+<!-- ```bash
 cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -z
-```
+``` -->
 
 The following *essential* arguments are required,
 
@@ -122,7 +121,7 @@ The following *essential* arguments are required,
 - `-m` to specify error control mode from `abs` (absolute) and `r2r` (relative to value range)
 - `-e` to specify error bound
 - `-i` to specify input file
-- `-l <size>` to specify dimensions; alternatively `--demo <dataset>` to load predefined size
+- `-l <size>` to specify dimensions
 
 ## advanced use
 
@@ -181,7 +180,7 @@ dry-run mode
 
 ```bash
 # compress
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -z \
+cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z \
     --report time
 # decompress
 cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --report time
@@ -201,7 +200,7 @@ cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --compare ./data/cesm-CLDHGH-3600x
 ```bash
 mkdir data2 data3
 # output compressed data to `data2`
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -z --opath data2
+cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z --opath data2
 # output decompressed data to `data3`
 cusz -i ./data2/cesm-CLDHGH-3600x1800.cusza -x --opath data3
 ```
@@ -214,7 +213,7 @@ cusz -i ./data2/cesm-CLDHGH-3600x1800.cusza -x --opath data3
 </summary>
 
 ```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -z \
+cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z \
     --config cap=256,quantbyte=1 \
     --report time
 ```
@@ -227,7 +226,7 @@ cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -z \
 </summary>
 
 ```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -z \
+cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z \
     --config cap=256,quantbyte=1 \
     --skip huffman
 cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x
@@ -242,7 +241,7 @@ cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x
 
 ```bash
 # This works equivalently to decompress with `--origin /path/to/origin-datum`
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 --demo cesm -r
+cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -r
 ```
 
 </details>
