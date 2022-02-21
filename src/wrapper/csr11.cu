@@ -11,13 +11,4 @@
 
 #include "csr11.cuh"
 
-#define CSR11_TYPE cusz::CSR11<float>
-
-template class CSR11_TYPE;
-
-template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::HOST, cusz::LOC::HOST>(uint8_t*);
-template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::HOST, cusz::LOC::DEVICE>(uint8_t*);
-template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::DEVICE, cusz::LOC::HOST>(uint8_t*);
-template CSR11_TYPE& CSR11_TYPE::consolidate<cusz::LOC::DEVICE, cusz::LOC::DEVICE>(uint8_t*);
-
-#undef CSR11_TYPE
+template class cusz::CSR11<float>;

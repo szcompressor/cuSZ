@@ -148,25 +148,8 @@ class CSR11 : public VirtualGatherScatter {
     DEFINE_CSR11_ARRAY(colidx, int);
     DEFINE_CSR11_ARRAY(val, T);
 
-    /**
-     * @brief
-     * @deprecated to delete
-     *
-     */
    private:
-    /**
-     * @brief
-     * @deprecated use the private variables only
-     *
-     */
-    // clang-format off
-    uint8_t* pool_ptr;
-    struct { unsigned int rowptr, colidx, values; } offset;
-    struct { unsigned int rowptr, colidx, values, total; } nbyte;
-    unsigned int workspace_nbyte, dump_nbyte;
-    unsigned int m{0}, dummy_nnz{0}, nnz{0};
     float milliseconds{0.0};
-    // clang-format on
 
     Capsule<int> rowptr;
     Capsule<int> colidx;
@@ -174,118 +157,15 @@ class CSR11 : public VirtualGatherScatter {
 
     /**
      * @brief Internal use when the real nnz is known.
-     * @deprecated
      *
      * @param nnz
      */
     void reconfigure_with_precise_nnz(int nnz)
     {
-        this->nnz    = nnz;
-        nbyte.rowptr = sizeof(int) * (m + 1);
-        nbyte.colidx = sizeof(int) * nnz;
-        nbyte.values = sizeof(T) * nnz;
-        nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
+        // TODO
     }
 
 #if CUDART_VERSION >= 11020
-
-    /**
-     * @brief
-     * @deprecated use `gather_CUDA11` instead
-     *
-     * @tparam T
-     * @param in_dense
-     * @param _dump_poolsize
-     * @param stream
-     */
-    void gather_CUDA11(T* in_dense, unsigned int& _dump_poolsize, cudaStream_t stream = nullptr)
-    {
-        cusparseHandle_t     handle = nullptr;
-        cusparseSpMatDescr_t spmat;  // sparse
-        cusparseDnMatDescr_t dnmat;  // dense
-        void*                d_buffer      = nullptr;
-        size_t               d_buffer_size = 0;
-        milliseconds                       = 0;
-
-        CHECK_CUSPARSE(cusparseCreate(&handle));
-
-        if (stream) CHECK_CUSPARSE(cusparseSetStream(handle, stream));
-
-        auto num_rows = m;
-        auto num_cols = m;
-        auto ld       = m;
-
-        // Create dense matrix A
-        CHECK_CUSPARSE(
-            cusparseCreateDnMat(&dnmat, num_rows, num_cols, ld, in_dense, cuszCUSPARSE<T>::type, CUSPARSE_ORDER_ROW));
-
-        // Create sparse matrix B in CSR format
-        auto d_rowptr = rowptr.template get<DEFAULT_LOC>();
-        CHECK_CUSPARSE(cusparseCreateCsr(
-            &spmat, num_rows, num_cols, 0, d_rowptr, nullptr, nullptr, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_BASE_ZERO, cuszCUSPARSE<T>::type));
-
-        // allocate an external buffer if needed
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(cusparseDenseToSparse_bufferSize(
-                handle, dnmat, spmat, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, &d_buffer_size));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-
-            CHECK_CUDA(cudaMalloc(&d_buffer, d_buffer_size));
-        }
-
-        // execute Sparse to Dense conversion
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(
-                cusparseDenseToSparse_analysis(handle, dnmat, spmat, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, d_buffer));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-        }
-
-        // get number of non-zero elements
-        int64_t num_rows_tmp, num_cols_tmp, __nnz;
-        /**  this is all HOST, skip timing **/
-        CHECK_CUSPARSE(cusparseSpMatGetSize(spmat, &num_rows_tmp, &num_cols_tmp, &__nnz));
-
-        auto d_colidx = colidx.template get<DEFAULT_LOC>();
-        auto d_val    = values.template get<DEFAULT_LOC>();
-
-        // allocate CSR column indices and values (skipped in customiztion)
-
-        // reset offsets, column indices, and values pointers
-        CHECK_CUSPARSE(cusparseCsrSetPointers(spmat, d_rowptr, d_colidx, d_val));
-
-        // execute Sparse to Dense conversion
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(
-                cusparseDenseToSparse_convert(handle, dnmat, spmat, CUSPARSE_DENSETOSPARSE_ALG_DEFAULT, d_buffer));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-        }
-
-        // destroy matrix/vector descriptors
-        CHECK_CUSPARSE(cusparseDestroyDnMat(dnmat));
-        CHECK_CUSPARSE(cusparseDestroySpMat(spmat));
-        CHECK_CUSPARSE(cusparseDestroy(handle));
-
-        /********************************************************************************/
-        reconfigure_with_precise_nnz(__nnz);
-        dump_nbyte     = query_csr_bytelen();
-        _dump_poolsize = dump_nbyte;
-    }
 
     /**
      * @brief Internal gather method; gather method as of CUDA 11.2
@@ -380,107 +260,6 @@ class CSR11 : public VirtualGatherScatter {
 #elif CUDART_VERSION >= 10000
 
     /**
-     * @brief
-     * @deprecated use `gather_CUDA10` instead
-     *
-     * @param in_dense
-     * @param _dump_poolsize
-     * @param ext_stream
-     */
-    void gather_CUDA10(T* in_dense, unsigned int& _dump_poolsize, cudaStream_t ext_stream = nullptr)
-    {
-        cusparseHandle_t handle = nullptr;
-        cudaStream_t stream = nullptr;
-        cusparseMatDescr_t mat_desc = nullptr;
-        size_t lwork_in_bytes = 0;
-        char* d_work = nullptr;
-        float threshold = 0;
-        auto n = m;
-        auto ld = m;
-        milliseconds = 0;
-
-        auto has_ext_stream = false;
-
-        if (ext_stream) {
-            has_ext_stream = true;
-            stream = ext_stream;
-        }
-        else {
-            CHECK_CUDA(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));  // 1. create stream
-        }
-
-        // clang-format off
-    CHECK_CUSPARSE(cusparseCreate          ( &handle                                  )); // 2. create handle
-    CHECK_CUSPARSE(cusparseSetStream       (  handle,    stream                       )); // 3. bind stream
-    CHECK_CUSPARSE(cusparseCreateMatDescr  ( &mat_desc                                )); // 4. create mat_desc
-    CHECK_CUSPARSE(cusparseSetMatIndexBase (  mat_desc,  CUSPARSE_INDEX_BASE_ZERO     )); // zero based
-    CHECK_CUSPARSE(cusparseSetMatType      (  mat_desc,  CUSPARSE_MATRIX_TYPE_GENERAL )); // type
-        // clang-format on
-
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(cusparseSpruneDense2csr_bufferSizeExt(  //
-                handle, m, n, in_dense, ld, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
-                rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), &lwork_in_bytes));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-        }
-
-        if (nullptr != d_work) cudaFree(d_work);
-        CHECK_CUDA(cudaMalloc((void**)&d_work, lwork_in_bytes));  // TODO where to release d_work?
-
-        auto nnz = 0;
-
-        /* step 4: compute rowptr and nnz */
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(cusparseSpruneDense2csrNnz(  //
-                handle, m, n, in_dense, ld, &threshold, mat_desc, rowptr.template get<DEFAULT_LOC>(), &nnz, d_work));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-            CHECK_CUDA(cudaStreamSynchronize(stream));
-        }
-
-        reconfigure_with_precise_nnz(nnz);
-
-        if (nnz == 0) {
-            std::cout << "nnz == 0, exiting gather.\n";
-            // return *this;
-            return;
-        }
-
-        /* step 5: compute col_ind and values */
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(cusparseSpruneDense2csr(  //
-                handle, m, n, in_dense, ld, &threshold, mat_desc, values.template get<DEFAULT_LOC>(),
-                rowptr.template get<DEFAULT_LOC>(), colidx.template get<DEFAULT_LOC>(), d_work));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-            CHECK_CUDA(cudaStreamSynchronize(stream));
-        }
-
-        if (handle) cusparseDestroy(handle);
-        if (mat_desc) cusparseDestroyMatDescr(mat_desc);
-
-        if ((not has_ext_stream) and stream) cudaStreamDestroy(stream);
-
-        /********************************************************************************/
-        dump_nbyte = query_csr_bytelen();
-        _dump_poolsize = dump_nbyte;
-        /********************************************************************************/
-    }
-
-    /**
      * @brief Internal gather method; CUDA version >= 10.0 * < 11.2
      *
      * @param in_dense (device array) input "as" dense-format m-by-m matrix
@@ -573,95 +352,7 @@ class CSR11 : public VirtualGatherScatter {
 
 #endif
 
-    /**
-     * @brief
-     * @deprecated When calling API, a CSR (as SpReducer) can do both gather and scatter
-     *
-     * @param _nnz
-     * @return CSR11&
-     */
-    CSR11& decompress_set_nnz(unsigned int _nnz)
-    {  //
-        this->nnz = _nnz;
-
-        nbyte.rowptr = sizeof(int) * (this->m + 1);
-        nbyte.colidx = sizeof(int) * this->nnz;
-        nbyte.values = sizeof(T) * this->nnz;
-        nbyte.total  = nbyte.rowptr + nbyte.colidx + nbyte.values;
-
-        return *this;
-    }
-
 #if CUDART_VERSION >= 11020
-
-    /**
-     * @brief
-     * @deprecated use `scatter_CUDA11` instead
-     *
-     * @param out_dense
-     * @param stream
-     */
-    void scatter_CUDA11(T* out_dense, cudaStream_t stream = nullptr)
-    {
-        auto d_rowptr = rowptr.template get<DEFAULT_LOC>();
-        auto d_colidx = colidx.template get<DEFAULT_LOC>();
-        auto d_val    = values.template get<DEFAULT_LOC>();
-
-        milliseconds = 0;
-
-        /********************************************************************************/
-
-        cusparseHandle_t     handle{nullptr};
-        cusparseSpMatDescr_t spmat;
-        cusparseDnMatDescr_t dnmat;
-        void*                d_buffer{nullptr};
-        size_t               d_buffer_size{0};
-
-        auto num_rows = m;
-        auto num_cols = m;
-        auto ld       = m;
-
-        CHECK_CUSPARSE(cusparseCreate(&handle));
-
-        if (stream) CHECK_CUSPARSE(cusparseSetStream(handle, stream));
-
-        // Create sparse matrix A in CSR format
-        CHECK_CUSPARSE(cusparseCreateCsr(
-            &spmat, num_rows, num_cols, nnz, d_rowptr, d_colidx, d_val, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_BASE_ZERO, cuszCUSPARSE<T>::type));
-        // Create dense matrix B
-        CHECK_CUSPARSE(
-            cusparseCreateDnMat(&dnmat, num_rows, num_cols, ld, out_dense, cuszCUSPARSE<T>::type, CUSPARSE_ORDER_ROW));
-
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            // allocate an external buffer if needed
-            CHECK_CUSPARSE(cusparseSparseToDense_bufferSize(
-                handle, spmat, dnmat, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, &d_buffer_size));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-        }
-        CHECK_CUDA(cudaMalloc(&d_buffer, d_buffer_size));
-
-        // execute Sparse to Dense conversion
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(cusparseSparseToDense(handle, spmat, dnmat, CUSPARSE_SPARSETODENSE_ALG_DEFAULT, d_buffer));
-
-            t.timer_end(stream);
-            milliseconds += t.get_time_elapsed();
-        }
-
-        // destroy matrix/vector descriptors
-        CHECK_CUSPARSE(cusparseDestroySpMat(spmat));
-        CHECK_CUSPARSE(cusparseDestroyDnMat(dnmat));
-        CHECK_CUSPARSE(cusparseDestroy(handle));
-    }
 
     /**
      * @brief Internal scatter method; use as of CUDA 11.2
@@ -741,58 +432,6 @@ class CSR11 : public VirtualGatherScatter {
 #elif CUDART_VERSION >= 10000
 
     /**
-     * @brief
-     * @deprecated use `scatter_CUDA10` instead
-     *
-     * @param out_dense
-     * @param ext_stream
-     */
-    void scatter_CUDA10(T* out_dense, cudaStream_t ext_stream = nullptr)
-    {
-        cusparseHandle_t handle = nullptr;  // TODO move cusparse handle outside
-        cudaStream_t stream = nullptr;
-        cusparseMatDescr_t mat_desc = nullptr;
-        auto n = m;
-        auto ld = m;
-
-        milliseconds = 0;
-
-        auto has_external_stream = false;
-
-        if (ext_stream) {
-            has_external_stream = true;
-            stream = ext_stream;
-        }
-        else {
-            CHECK_CUDA(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));  // 1. create stream
-        }
-
-        CHECK_CUSPARSE(cusparseCreate(&handle));                                      // 2. create handle
-        CHECK_CUSPARSE(cusparseSetStream(handle, stream));                            // 3. bind stream
-        CHECK_CUSPARSE(cusparseCreateMatDescr(&mat_desc));                            // 4. create descr
-        CHECK_CUSPARSE(cusparseSetMatIndexBase(mat_desc, CUSPARSE_INDEX_BASE_ZERO));  // zero based
-        CHECK_CUSPARSE(cusparseSetMatType(mat_desc, CUSPARSE_MATRIX_TYPE_GENERAL));   // type
-
-        {
-            cuda_timer_t t;
-            t.timer_start(stream);
-
-            CHECK_CUSPARSE(cusparseScsr2dense(
-                handle, m, n, mat_desc, values.template get<DEFAULT_LOC>(), rowptr.template get<DEFAULT_LOC>(),
-                colidx.template get<DEFAULT_LOC>(), out_dense, ld));
-
-            t.timer_end();
-            milliseconds += t.get_time_elapsed();
-            CHECK_CUDA(cudaStreamSynchronize(stream));
-        }
-
-        // TODO move cusparse handle outside
-        if (handle) cusparseDestroy(handle);
-        if (mat_desc) cusparseDestroyMatDescr(mat_desc);
-        if ((not has_external_stream) and stream) cudaStreamDestroy(stream);
-    }
-
-    /**
      * @brief Internal scatter method; CUDA version >= 10.0 * < 11.2
      *
      * @param in_csr (device array) input CSR-format
@@ -857,46 +496,7 @@ class CSR11 : public VirtualGatherScatter {
 
 #endif
 
-    // TODO handle nnz == 0 otherwise
-    /**
-     * @brief return csr bytesize
-     *
-     * @return unsigned int
-     */
-    unsigned int query_csr_bytelen() const
-    {
-        return sizeof(int) * (m + 1)  // rowptr
-               + sizeof(int) * nnz    // colidx
-               + sizeof(T) * nnz;     // values
-    }
-
-    /**
-     * @brief
-     * @deprecated Part of the unifed `scatter_*` instead; superseded by inlined ACCESSOR
-     *
-     * @param _pool
-     */
-    void extract(uint8_t* _pool)
-    {
-        offset.rowptr = 0;
-        offset.colidx = nbyte.rowptr;
-        offset.values = nbyte.rowptr + nbyte.colidx;
-
-        pool_ptr                           = _pool;
-        rowptr.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.rowptr);
-        colidx.template get<DEFAULT_LOC>() = reinterpret_cast<int*>(pool_ptr + offset.colidx);
-        values.template get<DEFAULT_LOC>() = reinterpret_cast<T*>(pool_ptr + offset.values);
-    };
-
    public:
-    // helper
-
-    static uint32_t get_total_nbyte(uint32_t len, int nnz)
-    {
-        auto m = Reinterpret1DTo2D::get_square_size(len);
-        return sizeof(int) * (m + 1) + sizeof(int) * nnz + sizeof(T) * nnz;
-    }
-
     float get_time_elapsed() const { return milliseconds; }
 
     CSR11() = default;
@@ -909,81 +509,9 @@ class CSR11 : public VirtualGatherScatter {
         CSR11_FREEDEV(val);
     }
 
-    /**
-     * @brief
-     * @deprecated Superseded by inlined LAMBDA `subfile_collect`
-     *
-     * @tparam FROM
-     * @tparam TO
-     * @param dst
-     * @return CSR11&
-     */
-    template <cusz::LOC FROM, cusz::LOC TO>
-    CSR11& consolidate(uint8_t* dst)
-    {
-        constexpr auto direction = CopyDirection<FROM, TO>::direction;
-        // clang-format off
-    cudaMemcpy(dst + 0,                           rowptr.template get<DEFAULT_LOC>(), nbyte.rowptr, direction);
-    cudaMemcpy(dst + nbyte.rowptr,                colidx.template get<DEFAULT_LOC>(), nbyte.colidx, direction);
-    cudaMemcpy(dst + nbyte.rowptr + nbyte.colidx, values.template get<DEFAULT_LOC>(), nbyte.values, direction);
-        // clang-format on
-        return *this;
-    }
-
-    void gather(
-        T*           in,
-        uint32_t     in_len,
-        int*         out_rowptr,
-        int*&        out_colidx,
-        T*&          out_val,
-        int&         out_nnz,
-        uint32_t&    nbyte_dump,
-        cudaStream_t stream = nullptr)
-    {
-        m = Reinterpret1DTo2D::get_square_size(in_len);
-
-        if (out_rowptr) rowptr.template shallow_copy<DEFAULT_LOC>(out_rowptr);
-        colidx.template shallow_copy<DEFAULT_LOC>(out_colidx);
-        values.template shallow_copy<DEFAULT_LOC>(out_val);
-
-#if CUDART_VERSION >= 11020
-        gather_CUDA11(in, nbyte_dump, stream);
-#elif CUDART_VERSION >= 10000
-        gather_CUDA10(in, nbyte_dump, stream);
-#endif
-        out_nnz = this->nnz;
-    }
-
     // only placeholding
     void scatter() {}
     void gather() {}
-
-    void scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len, cudaStream_t stream = nullptr)
-    {
-        m = Reinterpret1DTo2D::get_square_size(out_len);
-        decompress_set_nnz(nnz);
-        extract(_pool);
-
-#if CUDART_VERSION >= 11020
-        scatter_CUDA11(out, stream);
-#elif CUDART_VERSION >= 10000
-        scatter_CUDA10(out, stream);
-#endif
-    }
-
-    /**
-     * @brief Get the padding object
-     * @deprecated
-     *
-     * @param in_uncompressed_len
-     * @param padded_len
-     * @param m
-     */
-    static void get_padding(size_t const in_uncompressed_len, size_t& padded_len, int& m)
-    {
-        m          = Reinterpret1DTo2D::get_square_size(in_uncompressed_len);
-        padded_len = m * m;
-    }
 
     /**
      * @brief Allocate according to the input; usually allocate much more than the actual need at runtime for failsafe.

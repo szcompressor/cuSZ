@@ -21,7 +21,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
-#include "utils.hh"
+#include "../../src/utils.hh"
 
 using BYTE = uint8_t;
 using SIZE = size_t;

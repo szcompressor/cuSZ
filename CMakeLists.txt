@@ -23,7 +23,7 @@ set(LIB_TYPE STATIC)
 
 add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu src/wrapper/interp_spline3.cu)
 add_library(argp ${LIB_TYPE} src/context.cc)
-add_library(sp ${LIB_TYPE} src/wrapper/csr11.cu src/wrapper/spgs.cu)
+add_library(sp ${LIB_TYPE} src/wrapper/csr11.cu)
 target_link_libraries(sp PUBLIC -lcusparse)
 add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_coarse.cu)
 target_link_libraries(huff PUBLIC -lcusparse -lcuda)

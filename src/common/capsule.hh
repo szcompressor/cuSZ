@@ -95,7 +95,7 @@ class Capsule {
     }
 
     template <cusz::LOC LOC = cusz::LOC::UNIFIED>
-    T* set(T* ptr)
+    Capsule& set(T* ptr)
     {
         raise_error_if_misuse_unified<LOC>();
         hostdevice_not_allowed<LOC>();
@@ -108,6 +108,8 @@ class Capsule {
             uniptr = ptr;
         else
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("set"));
+
+        return *this;
     }
 
     Capsule() = default;

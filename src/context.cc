@@ -28,7 +28,7 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2021-12-30.1";
+const char* VERSION_TEXT  = "2022-02-20.alpha";
 const int   VERSION       = 202112301;
 const int   COMPATIBILITY = 0;
 
@@ -85,9 +85,13 @@ void set_config(cuszCTX* ctx, const char* in_str)
         else if (kv.first == "eb") {
             ctx->eb = StrHelper::str2fp(kv.second);
         }
-        else if (kv.first == "cap") {
+        else if (kv.first == "cap") {  // to delete, only radius matters for compressor
             ctx->dict_size = StrHelper::str2int(kv.second);
             ctx->radius    = ctx->dict_size / 2;
+        }
+        else if (kv.first == "radius") {  // to adjust, only radiusn matters for compressor
+            ctx->radius    = StrHelper::str2int(kv.second);
+            ctx->dict_size = ctx->radius * 2;
         }
         else if (kv.first == "huffbyte") {
             ctx->huff_bytewidth = StrHelper::str2int(kv.second);

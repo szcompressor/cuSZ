@@ -64,19 +64,19 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         uint32_t byte_uncompressed : 4;  // T; 1, 2, 4, 8
         uint32_t byte_vle : 4;           // 4, 8
         uint32_t byte_errctrl : 3;       // 1, 2, 4
-        // uint32_t byte_meta : 4;       // 4, 8
+        uint32_t byte_meta : 4;          // 4, 8
         uint32_t vle_pardeg;
-        uint32_t x : 16;
-        uint32_t y : 16;
-        uint32_t z : 16;
-        uint32_t w : 16;
+        uint32_t x;
+        uint32_t y;
+        uint32_t z;
+        uint32_t w;
         uint32_t ndim : 3;  // 1,2,3,4
         double   eb;
         size_t   data_len;
         size_t   errctrl_len;
         uint32_t radius : 16;
 
-        uint32_t entry[END];
+        uint32_t entry[END + 1];
 
         uint32_t file_size() const { return entry[END]; }
     };
@@ -124,15 +124,15 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     uint32_t sp_dump_nbyte;
 
    private:
-    dim3     data_size;
-    uint32_t get_data_len() { return data_size.x * data_size.y * data_size.z; }
+    dim3 const data_size;
+    uint32_t   get_data_len() { return data_size.x * data_size.y * data_size.z; }
 
    private:
     // TODO better move to base compressor
-    DefaultPathCompressor& analyze_compressibility();
-    DefaultPathCompressor& internal_eval_try_export_book();
-    DefaultPathCompressor& internal_eval_try_export_quant();
-    DefaultPathCompressor& try_skip_huffman();
+    // DefaultPathCompressor& analyze_compressibility();
+    // DefaultPathCompressor& internal_eval_try_export_book();
+    // DefaultPathCompressor& internal_eval_try_export_quant();
+    // DefaultPathCompressor& try_skip_huffman();
     // DefaultPathCompressor& get_freq_codebook();
     // DefaultPathCompressor& old_huffman_encode();
 
@@ -145,45 +145,10 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
      */
     ~DefaultPathCompressor()
     {
-        if (this->timing == cusz::WHEN::COMPRESS) {  // release small-size arrays
-
-            this->quant.template free<kDEVICE>();
-            this->freq.template free<kDEVICE>();
-            huff_data.template free<kHOST_DEVICE>();
-            huff_counts.template free<kHOST_DEVICE>();
-            sp_use.template free<kHOST_DEVICE>();
-            book.template free<kDEVICE>();
-            revbook.template free<kHOST_DEVICE>();
-
-            cudaFree(huff_workspace);
-
-            ext_rowptr.template free<kDEVICE>();
-            ext_colidx.template free<kDEVICE>();
-            ext_values.template free<kDEVICE>();
-
-            delete this->header;
-        }
-        else {
-            cudaFree(sp_use.dptr);
-
-            xhuff.in.template free<kDEVICE>();
-            xhuff.meta.template free<kDEVICE>();
-            xhuff.revbook.template free<kDEVICE>();
-        }
-
         if (spreducer) delete spreducer;
         if (codec) delete codec;
         if (predictor) delete predictor;
     }
-
-    /*
-    ~DefaultPathCompressor()
-    {
-        if (predictor) delete predictor;
-        if (codec) delete codec;
-        if (spreducer) delete spreducer;
-    };
-    */
 
     DefaultPathCompressor& compress(bool optional_release_input = false);
 
@@ -199,7 +164,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
      *
      * @param xyz
      */
-    DefaultPathCompressor(uint3 xyz) : data_size(xyz)
+    DefaultPathCompressor(dim3 xyz) : data_size(xyz)
     {
         predictor = new Predictor(xyz);
         spreducer = new SpReducer;
@@ -213,8 +178,9 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
      * @param cfg_pardeg
      * @param dbg_print
      */
-    void allocate_workspace(int cfg_max_booklen, int cfg_pardeg, bool dbg_print = false)
+    void allocate_workspace(int cfg_radius, int cfg_pardeg, bool dbg_print = false)
     {
+        const auto cfg_max_booklen = cfg_radius * 2;
         (*predictor).allocate_workspace(dbg_print);
 
         auto spreducer_in_len = (*predictor).get_data_len();
@@ -255,6 +221,13 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         size_t codec_out_len{0};
 
         HEADER header;
+        header.x          = data_size.x;
+        header.y          = data_size.y;
+        header.z          = data_size.z;
+        header.radius     = radius;
+        header.vle_pardeg = pardeg;
+        header.eb         = eb;
+        header.byte_vle   = sizeof(H);
 
         auto subfile_collect = [&]() {
             header.header_nbyte = sizeof(HEADER);
