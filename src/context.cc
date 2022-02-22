@@ -28,8 +28,8 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2022-02-20.alpha";
-const int   VERSION       = 202112301;
+const char* VERSION_TEXT  = "2022-02-28.rc1";
+const int   VERSION       = 20220228;
 const int   COMPATIBILITY = 0;
 
 namespace {

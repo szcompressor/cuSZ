@@ -1,23 +1,25 @@
-<img src="https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg" width="150">
+<h3 align="center"><img src="https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg" width="150"></h3>
 
-cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data
----
+<h3 align="center">
+A CUDA-Based Error-Bounded Lossy Compressor for Scientific Data
+</h3>
 
-cuSZ is a CUDA implementation of the world-widely used [SZ lossy compressor](https://github.com/szcompressor/SZ). It is the *first* error-bounded lossy compressor on GPUs for scientific data, which significantly improves SZ's throughput in GPU-based heterogeneous HPC systems. 
-This document introduces the installation and use of cuSZ on NVIDIA GPUs. 
+<p align="center">
+<a href="./LICENSE"><img src="https://img.shields.io/badge/License-BSD%203--Clause-blue.svg"></a>
+</p>
+
+cuSZ is a CUDA implementation of the world-widely used [SZ lossy compressor](https://github.com/szcompressor/SZ). It is the *first* error-bounded lossy compressor on GPU for scientific data, and it aims to improve SZ's throughput significantly on GPU-based heterogeneous HPC systems. 
+<!-- This document introduces the installation and use of cuSZ on NVIDIA GPUs.  -->
 
 Our published papers cover the essential design and implementation.
-- **PACT '20 cuSZ** 
-  - framework: fully parallelized prediction & error quantization ("construction"), GPU Huffman codec
-  - [local copy](doc/PACT'20-cusz.pdf), [ACM open access](https://dl.acm.org/doi/10.1145/3410463.3414624), [arXiv-2007.09625](https://arxiv.org/abs/2007.09625)
-- **CLUSTER '21 cuSZ+**
-  - enhancement: fully parallelized "reconstruction" of $N$-D partial-sum, sparsity-aware data reduction
-  - We are working on integrating the sparsity-aware compression.
-  - [IEEEXplore](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}), open accesses to be updated
+- **PACT '20: cuSZ**, [via local copy](doc/PACT'20-cusz.pdf), [via ACM](https://dl.acm.org/doi/10.1145/3410463.3414624), [via arXiv](https://arxiv.org/abs/2007.09625)
+  - framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
+- **CLUSTER '21: cuSZ+**, [via local](doc/CLUSTER'21-cusz+.pdf), [via IEEEXplore](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047})
+  - optimization in throughput, featuring fine-grained *N*-D "reconstruction"
+  - optimization in compression ratio, when data is deemed as "smooth"
 
-*Kindly note:* If you mention cuSZ in your paper, please cite using [these entries](https://github.com/szcompressor/cuSZ#citing-cusz).
+*Kindly note:* If you mention cuSZ in your paper, please cite using [these](https://github.com/szcompressor/cuSZ#citing-cusz) BibTeX entries.
 
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 (C) 2020 by Washington State University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
@@ -35,8 +37,8 @@ Table of Contents
 
 - [set up](#set-up)
 - [use](#use)
-  - [basic use](#basic-use)
-- [hands-on examples](#hands-on-examples)
+  - [synopsis](#synopsis)
+  - [example](#example)
 - [FAQ](#faq)
 - [tested by our team](#tested-by-our-team)
 - [citing cuSZ](#citing-cusz)
@@ -49,7 +51,8 @@ Table of Contents
 
 Requirements:
 
-- NVIDIA GPU: Pascal, Volta, Turing, Ampere; CUDA 10 onward (11.x is recommended)
+- NVIDIA GPU: Pascal, Volta, Turing, Ampere; CUDA 11 onward
+  - We are working on the compatibility of CUDA 10.
 - cmake 3.18 onward; C++14 enabled compiler, GCC 7 onward
   - [Ninja build system](https://ninja-build.org) is recommended.
 
@@ -58,8 +61,8 @@ Requirements:
 More details about build tools
 </summary>
 
-- The table below shows the *tested* toolchain compatibility; please also refer to [our testbed list](./doc/testbed.md).
-- more reference: 1) [CUDA compilers](https://gist.github.com/ax3l/9489132), 2) [CUDA archs](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
+- The table gives a quick view of toolchain compatibility; please also refer to [a more detailed document](./doc/testbed.md).
+- more reference: 1) [CUDA compilers](https://gist.github.com/ax3l/9489132), 2) [CUDA architectures & gencode](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/). 
 
 |      |     |      |      |      |      |      |      |      |      |      |      |
 | ---- | --- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
@@ -72,41 +75,49 @@ More details about build tools
 
 <br/>
 
-For CUDA 11.x, to compile,
 ```bash
-git clone https://github.com/szcompressor/cuSZ.git cusz && cd cusz
-chmod +x ./build.py  ## `./build.py -h` for help
+git clone https://github.com/szcompressor/cuSZ.git cusz-latest
+cd cusz-latest && chmod +x ./build.py
 ./build.py -t TARGET [-T BUILD TYPE] [-b BACKEND]
 ```
 
-For example, to build A100-specific binary, 
-```
-./build.py -t a100
-```
+For example, to build A100-specific binary: `./build.py -t a100`
 
-- GPU targets include `a100`, `v100`, `p100`, `ampere`, `turing`, `pascal`
-  - For the maximum compatibility, use `-t compat`. 
+- Targets include 
+  - `a100`, `v100`, `p100`, `ampere`, `turing`, `pascal`
+  - `compat` for the maximum compatibility
 - Build types include `release` (default), `release-profile` (with `-lineinfo`) and `debug` (with `-G`).
-- Build system backends include `make` (default) and `ninja`
+- Backends include `make` (default) and `ninja`
 - `build.py` installs `cusz` binary to `${CMAKE_SOURCE_DIR}/bin`.
 - `--purge` to clean up all the old builds.
 
-Caveat: CUDA 10 or earlier, `cub` of a historical version becomes dependency. After `git clone`, please use `git submodule update --init` to patch.
+<!-- Caveat: CUDA 10 or earlier, `cub` of a historical version becomes a dependency. After `git clone`, please use `git submodule update --init` to patch. -->
 
 
 <br/>
 
 # use
-## basic use
 
-Type `cusz` or `cusz -h` for instant instructions. We give a basic use below.
+Type `cusz` or `cusz -h` for instant instructions. 
+
+## synopsis
+
+`<...>` for the required; `[...]` for the optional printout
 
 ```bash
-## cusz -t <type> -m <mode> -e <error bound> -i <in> -l <len> -z (compress) --report time[,quality[,...]]
-./bin/cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z --report time
-## cusz -i <cusz archive> -x [--compare -i <origin>] (decompress)
-./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x
-./bin/cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --compare ./data/cesm-CLDHGH-3600x1800 --report time,quality
+# compression (-z)
+cusz -t <type> -m <mode> -e <error bound> -i <file> -l <N-D size> -z [--report time]
+# decompression (-x)
+cusz -i <.cusza file> -x [--compare <original file>] [--report time]
+```
+
+## example 
+```bash
+export PATH=$(pwd)/bin:$PATH               ## specify the path temporarily
+cd data && sh ./sh.get-sample-data         ## download sample data
+CESM=$(pwd)/cesm-CLDHGH-3600x1800 EB=1e-4
+cusz -t f32 -m r2r -e ${EB} -i ${CESM} -l 3600x1800 -z --report time
+cusz -i ${CESM}.cusza -x --compare ${CESM} --report time
 ```
 
 <!-- We use 1800-by-3600 (y-x order) CESM-ATM CLDHGH for demonstration, which is in preset and `-D cesm` can be alternatively used . Type `cusz` or `cusz -h` to look up the presets. -->
@@ -127,16 +138,14 @@ The following *essential* arguments are required,
 
 <details>
 <summary>
-disabling modules
+skip writing decompressed data
 </summary>
 
-- (in progress) To export quant-code, use `--skip huffman`
-- For non-IO use, we can skip writing to disk during decompression using `--skip write2disk`.
-- A combination of modules can be `--skip huffman,write2disk`.
+For evaluating purpose, we can skip writing to disk in decompression with `--skip write2disk`.
 
 </details>
 
-<details>
+<!-- <details>
 <summary>
 additional lossless compression
 </summary>
@@ -144,57 +153,11 @@ additional lossless compression
 ```bash
 cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600,1800 -z --gzip
 ```
-
-</details>
-
+</details> -->
 
 <details>
 <summary>
-changing internal parameter
-</summary>
-
-syntax: `-c` or `--config quantbyte=(1|2),huffbyte=(4|8)`
-
-- `quantbyte` to specify quant. code representation. Options `{1,2}` are for 1- and 2-byte, respectively. 
-- `huffbyte` to specify Huffman codeword representation. Options `{4,8}` are for 4- and 8-byte, respectively. (Manually specifying this may not result in optimal memory footprint.)
-
-</details>
-
-<details>
-<summary>
-dry-run mode
-</summary>
-
-
-`--dry-run` or `-r` in place of `-z` and/or `-x` enables dry-run mode to get PSNR. This employs the feature of dual-quantization that the decompressed data is guaranteed the same as the prequantized data.
-
-</details>
-<br/>
-
-# hands-on examples
-
-<details>
-<summary>
-1) 2D CESM demo, at 1e-4 relative to value range
-</summary>
-
-```bash
-# compress
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z \
-    --report time
-# decompress
-cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --report time
-# decompress and compare with the original data
-cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x --compare ./data/cesm-CLDHGH-3600x1800 \
-    --report time,quality
-```
-
-</details>
-
-
-<details>
-<summary>
-2) 2D CESM demo, specifying output path
+specify output path
 </summary>
 
 ```bash
@@ -207,37 +170,13 @@ cusz -i ./data2/cesm-CLDHGH-3600x1800.cusza -x --opath data3
 
 </details>
 
-<details>
-<summary>
-3) 2D CESM demo, with 1-byte (`uint8_t`) and 256 quant. bins
-</summary>
-
-```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z \
-    --config cap=256,quantbyte=1 \
-    --report time
-```
-
-</details>
 
 <details>
 <summary>
-4) in addition to the previous command, skipping Huffman codec,
+dryrun to learn data quality
 </summary>
 
-```bash
-cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -z \
-    --config cap=256,quantbyte=1 \
-    --skip huffman
-cusz -i ./data/cesm-CLDHGH-3600x1800.cusza -x
-```
-
-</details>
-
-<details>
-<summary>
-5) dry-run to get PSNR and to skip real compression or decompression; `-r` or `--dry-run`
-</summary>
+The actual compression or decompression is skipped; use `-r` or `--dry-run` in the command line.
 
 ```bash
 # This works equivalently to decompress with `--origin /path/to/origin-datum`
@@ -256,10 +195,10 @@ cusz -t f32 -m r2r -e 1e-4 -i ./data/cesm-CLDHGH-3600x1800 -l 3600x1800 -r
 How does SZ/cuSZ work?
 </summary>
 
-Prediction-based SZ algorithm comprises of 4 major parts
+Prediction-based SZ algorithm comprises four major parts,
 
 0. User specifies error-mode (e.g., absolute value (`abs`), or relative to data value magnitude (`r2r`) and error-bound.
-1. Prediction errors are quantized/integerized in units of input error-bound (*quant-code*). A selected range of quant-codes are stored, whereas the out-of-range codes are otherwise gathered as *outlier*.
+1. Prediction errors are quantized in units of input error-bound (*quant-code*). Range-limited quant-codes are stored, whereas the out-of-range codes are otherwise gathered as *outlier*.
 3. The in-range quant-codes are fed into Huffman encoder. A Huffman symbol may be represented in multiple bytes.
 4. (CPU-only) additional DEFLATE method is applied to exploit repeated patterns. As of CLUSTER '21 cuSZ+ work, an RLE method performs a similar pattern-exploiting.
 
@@ -270,10 +209,10 @@ Prediction-based SZ algorithm comprises of 4 major parts
 Why is there multibyte symbol for Huffman?
 </summary>
 
-The principle of Huffman coding is to guarantee high-frequency symbols with fewer bits. To be specific, given arbitray pairs of (symbol, frequency)-s, (*s<sub>i</sub>*, *f<sub>i</sub>*) and 
+The principle of Huffman coding is to guarantee high-frequency symbols with fewer bits. To be specific, given arbitrary pairs of (symbol, frequency)-s, (*s<sub>i</sub>*, *f<sub>i</sub>*) and 
 (*s<sub>j</sub>*, *f<sub>j</sub>*), the assigned codeword *c<sub>i</sub>* and *c<sub>j</sub>*, respectively, are guaranteed to have len(*c<sub>i</sub>*) is no greater than len(*c<sub>j</sub>*) if *f<sub>i</sub>* is no less than *f<sub>j</sub>*.
 
-The combination of *n* single-byte does not reflect the fact that that quant-code that represents the `+/-1` error-bound should be of the highest frequency. For example, an enumeration with 1024 symbols can cover 99.8% error-control code (the rest 0.2% can result in much more bits in codewords), among which the most frequent symbol can dominate at over 90%. If singlebyte symbols are used, `0x00` from bytes near MSB makes
+The combination of *n* single-byte does not reflect that quant-code representing the `+/-1` error-bound should be of the highest frequency. For example, an enumeration with 1024 symbols can cover 99.8% error-control code (the rest 0.2% can result in much more bits in codewords), among which the most frequent symbol can dominate at over 90%. If single-byte symbols are used, `0x00` from bytes near MSB makes
 
 1. the highest frequency not properly represented, and
 2. the pattern-exploiting harder. For example, `0x00ff,0x00ff` is otherwise interpreted as `0x00,0xff,0x00,0xff`.  
@@ -282,15 +221,15 @@ The combination of *n* single-byte does not reflect the fact that that quant-cod
 
 <details>
 <summary>
-What differs CPU-SZ and cuSZ in data quality and compression ratio?
+What differentiates CPU-SZ and cuSZ in data quality and compression ratio?
 </summary>
 
-CPU-SZ offers a rich set of compression features and is far more mature than cuSZ. (1) CPU-SZ has preprocessing, more compression mode (e.g., point-wise) and autotuning. (2) CPU-SZ has Lorenzo predictor and Linear Regression, whereas cuSZ has Lorenzo (we are working on new predictors).
+CPU-SZ offers a rich set of compression features and is far more mature than cuSZ. (1) CPU-SZ has preprocessing, more compression mode (e.g., point-wise), and autotuning. (2) CPU-SZ has Lorenzo predictor and Linear Regression, whereas cuSZ has Lorenzo (we are working on new predictors).
 
-1. They share the same Lorenzo predictor. However, many factors affect data quality (and can be quality optimizers).
+1. They share the same Lorenzo predictor. However, many factors affect data quality,
    1. preprocessing such as log transform and point-wise transform
    2. PSNR as a goal to autotune eb
-   3. initial values from which we predict border values (as if padding). cuSZ predicts from zeros while SZ determines optimal values for, e.g., application-specific metrics. Also note that cuSZ compression can result in a significantly higher PSNR than SZ (with the same eb, see Table 8 on page 10 of PACT '20 paper), but it is not necessarily better when it comes to applications.
+   3. initial values from which we predict border values (as if padding). cuSZ predicts from zeros while SZ determines optimal values for, e.g., application-specific metrics. Also, note that cuSZ compression can result in a significantly higher PSNR than SZ (with the same eb, see Table 8 on page 10 of PACT '20 paper), but it is not necessarily better when it comes to applications.
    4. The PSNR serves as a generic metric: SZ guarantees a lower bound of PSNR when the eb is relative to the data range, e.g., 64 for 1e-3, 84 for 1e-4.
 2. The linear scaling can be the same. SZ has an extra optimizer to decide the linear scaling range $[-r, +r]$; out-of-range quantization values are outliers. This is to optimize the compression ratio.
 3. Currently, the Huffman encoding is the same except cuSZ partitions data (therefore, it has overhead in padding bits and partitioning metadata).
@@ -306,9 +245,9 @@ CPU-SZ offers a rich set of compression features and is far more mature than cuS
 What is cuSZ+?
 </summary>
 
-cuSZ+ is referred to as the peer-reviewed work in 2021, on top of the original 2020 work.
+cuSZ+ is a follow-up peer-reviewed work in 2021, on top of the original 2020 work.
 cuSZ+ mixes the improvements in decompression throughput (by 4.3x to 18.6x) and the use of data patterns that are the source of compressibility. 
-There will not be, however, standalone software or version for cuSZ+. We are gradually rolling out the production-ready functionality that is mentioned in the published paper.
+There will not be, however, standalone software or version for cuSZ+. Instead, we are gradually rolling out the production-ready functionality mentioned in the published paper.
 
 </details>
 
@@ -317,19 +256,19 @@ There will not be, however, standalone software or version for cuSZ+. We are gra
 What is the future plan/road map of cuSZ?
 </summary>
 
-1. more predictors
+1. more predictors based on domain-specific study and generality
 2. more compression mode
-3. both more modularized and more tight coupled in components
+3. both more modularized and more tightly coupled in components
 4. APIs (soon)
 
 </details>
 
-<details>
+<!-- <details>
 <summary>
 How to know compression ratio?
 </summary>
 
-The archive size is compress-time known. The archive include metadata.
+The archive size is compress-time known. The archive includes metadata. -->
 
 </details>
 
@@ -373,12 +312,11 @@ We provide three small sample data in `data` by executing the script there. To d
 limitations
 </summary>
 
-- `double` support not ready
-- not API-ready
-- to integrate faster Huffman codec
-- 4-byte Huffman symbol may break; `--config huffbyte=8` is then needed.
-- performance degradation regarding large-size datasets
-- preprocessing not ready (e.g., binning, log-transform, normalization)
+- We are working on `double` support.
+- We are working on integrating faster Huffman codec
+- 4-byte Huffman symbol may break; `--config huffbyte=8` is needed.
+- tuning performance regarding different data input size
+- adding preprocessing (e.g., binning, log-transform, normalization)
 
 </details>
 
@@ -411,17 +349,17 @@ CLUSTER '21, cuSZ+
 
 ```bibtex
 @INPROCEEDINGS {cuszplus2021,
-     author = {J. Tian and S. Di and X. Yu and C. Rivera and K. Zhao and S. Jin and Y. Feng and X. Liang and D. Tao and F. Cappello},
-  booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
       title = {Optimizing Error-Bounded Lossy Compression for Scientific Data on GPUs},
+     author = {Tian, Jiannan and Di, Sheng and Yu, Xiaodong and Rivera, Cody and Zhao, Kai and Jin, Sian and Feng, Yunhe and Liang, Xin and Tao, Dingwen and Cappello, Franck},
        year = {2021},
-      pages = {283-293},
-   keywords = {conferences;graphics processing units;computer architecture;cluster computing;reconstruction algorithms;throughput;encoding},
-        doi = {10.1109/Cluster48925.2021.00047},
-        url = {https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047},
+      month = {September},
   publisher = {IEEE Computer Society},
     address = {Los Alamitos, CA, USA},
-      month = {sep}
+        url = {https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047},
+        doi = {10.1109/Cluster48925.2021.00047},
+  booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
+      pages = {283-293},
+   keywords = {conferences;graphics processing units;computer architecture;cluster computing;reconstruction algorithms;throughput;encoding}
 }
 ```
 
