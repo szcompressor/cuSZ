@@ -340,7 +340,7 @@ class CSR11 : public VirtualGatherScatter {
 
         gather10_init_and_probe();
         gather10_compute_rowptr_and_nnz();
-        if (nnz == 0) { return; }
+        if (rte.nnz == 0) { return; }
         gather10_compute_colidx_and_val();
 
         // TODO no need to destroy?
