@@ -127,7 +127,8 @@ void defaultpath_compress(
     compressor.allocate_workspace(radius, pardeg);  // alpha: overallocate for decompresison
 
     compressor.compress(
-        data.dptr, adjustd_eb, radius, pardeg, compressed, compressed_len, force_use_fallback_codec, stream);
+        data.dptr, adjustd_eb, radius, pardeg, compressed, compressed_len, force_use_fallback_codec, stream,
+        (*ctx).report.time);
 
     file.set_len(compressed_len)
         .template set<cusz::LOC::DEVICE>(compressed)
@@ -144,6 +145,7 @@ void defaultpath_decompress(
     Capsule<BYTE>*               in_compressed,
     std::string const&           basename,
     std::string const&           compare,
+    bool                         rpt_print,
     bool                         skip_write)
 {
     using Header = typename Compressor::HEADER;
@@ -159,34 +161,32 @@ void defaultpath_decompress(
 
     auto try_compare = [&]() {
         if (compare != "") {
-            float gb = 1.0 * sizeof(T) * len / 1e9;
+            float gb              = 1.0 * sizeof(T) * len / 1e9;
+            auto  compressd_bytes = (*header).file_size();
+
             if (gb < 0.8) {
                 cmp.template alloc<cusz::LOC::HOST_DEVICE>().template from_file<cusz::LOC::HOST>(compare).host2device();
-                echo_metric_gpu(xdata.dptr, cmp.dptr, len);
+                echo_metric_gpu(xdata.dptr, cmp.dptr, len, compressd_bytes);
                 cmp.template free<cusz::LOC::HOST_DEVICE>();
             }
             else {
                 cmp.template alloc<cusz::LOC::HOST>().template from_file<cusz::LOC::HOST>(compare);
                 xdata.device2host();
-                echo_metric_cpu(xdata.hptr, cmp.hptr, len);
+                echo_metric_cpu(xdata.hptr, cmp.hptr, len, compressd_bytes);
                 cmp.template free<cusz::LOC::HOST>();
             }
         }
     };
 
     auto try_write = [&]() {
-        if (not skip_write)
-            xdata
-                .device2host()  //
-                .template to_file<cusz::LOC::HOST>(basename + ".cuszx");
+        if (not skip_write) xdata.device2host().template to_file<cusz::LOC::HOST>(basename + ".cuszx");
     };
 
     xdata.set_len(len).template alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
     cmp.set_len(len).set_name("origin-cmp");
 
     Compressor compressor(xyz);
-    compressor.allocate_workspace(radius, pardeg);  // alpha: overallocate for decompresison
-    compressor.decompress((*in_compressed).dptr, eb, radius, xdata.dptr, stream);
+    compressor.decompress((*in_compressed).dptr, eb, radius, xdata.dptr, stream, rpt_print);
 
     try_compare();
     try_write();
@@ -235,7 +235,8 @@ void defaultpath(cuszCTX* ctx)
 
         auto skip_write = (*ctx).to_skip.write2disk;
 
-        defaultpath_decompress<DefaultPath::DefaultCompressor>(&header, stream, &file, basename, cmp_name, skip_write);
+        defaultpath_decompress<DefaultPath::DefaultCompressor>(
+            &header, stream, &file, basename, cmp_name, (*ctx).report.time, skip_write);
     }
 
     if (stream) cudaStreamDestroy(stream);

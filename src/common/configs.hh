@@ -299,17 +299,15 @@ struct ReportHelper {
         if (timer == 0.0) return;
 
         auto t = get_throughput(timer, _nbyte);
-        printf("  %-18s\t%'12f\t%'15f\n", s, timer, t);
+        printf("  %-12s %'12f %'10.2f\n", s, timer, t);
     };
 
-    static void print_throughput_tablehead(const char* name)
+    static void print_throughput_tablehead()
     {
         printf(
-            "\n%s throughput report (ms, 1e-3 sec):\n"
-            "  \e[1m\e[31m%-18s\t%12s\t%15s\e[0m\n",  //
-            name,                                     //
+            "\n  \e[1m\e[31m%-12s %12s %10s\e[0m\n",  //
             const_cast<char*>("kernel"),              //
-            const_cast<char*>("milliseconds"),        //
+            const_cast<char*>("time, ms"),            //
             const_cast<char*>("GiB/s")                //
         );
     }

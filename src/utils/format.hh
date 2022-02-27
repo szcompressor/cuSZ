@@ -20,12 +20,12 @@
 
 using std::string;
 
-const string LOG_NULL = "      ";
-const string LOG_INFO = "  ::  ";
-const string LOG_ERR  = " ERR  ";
-const string LOG_WARN = "WARN  ";
-const string LOG_DBG  = " dbg  ";
-const string LOG_EXP  = " exp  ";
+const string LOG_NULL      = "      ";
+const string LOG_INFO      = "  ::  ";
+const string LOG_ERR       = " ERR  ";
+const string LOG_WARN      = "WARN  ";
+const string LOG_DBG       = " dbg  ";
+const string LOG_EXCEPTION = "  !!  ";
 
 // https://stackoverflow.com/a/26080768/8740097  CC BY-SA 3.0
 template <typename T>
@@ -51,17 +51,8 @@ void LOGGING(const string& log_head, Args... args)
     oss.seekp(0, std::ios::end);
     std::stringstream::pos_type offset = oss.tellp();
     if (log_head == LOG_DBG) { std::cout << "\e[2m"; }  // dbg
-
-    // print progress
-    if (log_head == LOG_INFO) {
-        if (static_cast<int>(offset) + log_head.size() <= 80)
-            oss << std::string(80 - log_head.size() - offset, ' ');  // +9, ad hoc for log_*
-        else
-            oss << std::string(8, ' ');  // +9, ad hoc for log_*
-        oss << " [ok]";
-    }
-    std::cout << oss.str() << std::endl;            // print content
-    if (log_head == LOG_DBG) std::cout << "\e[0m";  // finish printing dbg
+    std::cout << oss.str() << std::endl;                // print content
+    if (log_head == LOG_DBG) std::cout << "\e[0m";      // finish printing dbg
 }
 
 #endif  // FORMAT_HH

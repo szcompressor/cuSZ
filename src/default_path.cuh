@@ -112,7 +112,6 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     // DefaultPathCompressor& internal_eval_try_export_quant();
     // DefaultPathCompressor& try_skip_huffman();
     // DefaultPathCompressor& get_freq_codebook();
-    // DefaultPathCompressor& old_huffman_encode();
 
    public:
     DefaultPathCompressor(cuszCTX* _ctx, Capsule<T>* _in_data, uint3 xyz, int dict_size);
@@ -170,13 +169,16 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
         auto allocate_predictor = [&]() { (*predictor).allocate_workspace(dbg_print); };
         auto allocate_spreducer = [&]() { (*spreducer).allocate_workspace(spreducer_in_len, sp_factor, dbg_print); };
-        auto allocate_codec     = [&]() {
-            if (codec_config == 0b00)
-                throw std::runtime_error("[DefaultPathCompressor::allocate_workspace] must have set bit(s).");
+        auto allocate_codec = [&]() {
+            if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
             if (codec_config bitand 0b01) {
+                LOGGING(LOG_INFO, "allocated 4-byte codec");
                 (*codec).allocate_workspace(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
+            }
             if (codec_config bitand 0b10) {
+                LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
                 (*fb_codec).allocate_workspace(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
+            }
         };
 
         allocate_predictor(), allocate_spreducer(), allocate_codec();
@@ -192,45 +194,37 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto bytes = get_data_len() * sizeof(T);
 
         auto time_p = (*predictor).get_time_elapsed();
-        auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
 
         float time_h, time_b, time_c;
-        float tp_h, tp_b, tp_c;
         if (not use_fallback_codec) {
             time_h = (*codec).get_time_hist();
-            tp_h   = byte_to_gbyte(bytes) / ms_to_s(time_h);
             time_b = (*codec).get_time_book();
-            tp_b   = byte_to_gbyte(bytes) / ms_to_s(time_b);
             time_c = (*codec).get_time_lossless();
-            tp_c   = byte_to_gbyte(bytes) / ms_to_s(time_c);
         }
         else {
             time_h = (*fb_codec).get_time_hist();
-            tp_h   = byte_to_gbyte(bytes) / ms_to_s(time_h);
             time_b = (*fb_codec).get_time_book();
-            tp_b   = byte_to_gbyte(bytes) / ms_to_s(time_b);
             time_c = (*fb_codec).get_time_lossless();
-            tp_c   = byte_to_gbyte(bytes) / ms_to_s(time_c);
         }
 
-        auto time_s = (*spreducer).get_time_elapsed();
-        auto tp_s   = byte_to_gbyte(bytes) / ms_to_s(time_s);
-
+        auto time_s        = (*spreducer).get_time_elapsed();
         auto time_subtotal = time_p + time_h + time_c + time_s;
-        auto tp_subtotal   = byte_to_gbyte(bytes) / ms_to_s(time_subtotal);
-
-        auto time_total = time_subtotal + time_b;
-        auto tp_total   = byte_to_gbyte(bytes) / ms_to_s(time_total);
+        auto time_total    = time_subtotal + time_b;
 
         printf("\n(c) COMPRESSION REPORT\n");
-        printf("%-*s: %.2f\n", 20, "compression ratio", get_cr());
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "hist time", time_h, tp_h);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "codec time", time_c, tp_c);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "-- subtotal time", time_subtotal, tp_subtotal);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "book time", time_b, tp_b);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "-- total time", time_total, tp_total);
+        printf("  %-*s %.2f\n", 20, "compression ratio", get_cr());
+        ReportHelper::print_throughput_tablehead();
+
+        ReportHelper::print_throughput_line("predictor", time_p, bytes);
+        ReportHelper::print_throughput_line("spreducer", time_s, bytes);
+        ReportHelper::print_throughput_line("histogram", time_h, bytes);
+        ReportHelper::print_throughput_line("Huff-encode", time_c, bytes);
+        ReportHelper::print_throughput_line("(subtotal)", time_subtotal, bytes);
+        printf("\e[2m");
+        ReportHelper::print_throughput_line("book", time_b, bytes);
+        ReportHelper::print_throughput_line("(total)", time_total, bytes);
+        printf("\e[0m");
+
         printf("\n");
     }
 
@@ -242,29 +236,23 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto bytes = get_data_len() * sizeof(T);
 
         auto time_p = (*predictor).get_time_elapsed();
-        auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
 
-        float time_c, tp_c;
-        if (not use_fallback_codec) {
-            time_c = (*codec).get_time_lossless();
-            tp_c   = byte_to_gbyte(bytes) / ms_to_s(time_c);
-        }
+        float time_c;
+        if (not use_fallback_codec) { time_c = (*codec).get_time_lossless(); }
         else {
             time_c = (*fb_codec).get_time_lossless();
-            tp_c   = byte_to_gbyte(bytes) / ms_to_s(time_c);
         }
 
-        auto time_s = (*spreducer).get_time_elapsed();
-        auto tp_s   = byte_to_gbyte(bytes) / ms_to_s(time_s);
-
+        auto time_s     = (*spreducer).get_time_elapsed();
         auto time_total = time_p + time_s + time_c;
-        auto tp_total   = byte_to_gbyte(bytes) / ms_to_s(time_total);
 
         printf("\n(d) deCOMPRESSION REPORT\n");
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "codec time", time_c, tp_c);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
-        printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "-- total time", time_total, tp_total);
+        ReportHelper::print_throughput_tablehead();
+        ReportHelper::print_throughput_line("spreducer", time_s, bytes);
+        ReportHelper::print_throughput_line("Huff-decode", time_c, bytes);
+        ReportHelper::print_throughput_line("predictor", time_p, bytes);
+        ReportHelper::print_throughput_line("(total)", time_total, bytes);
+
         printf("\n");
     }
 
@@ -314,6 +302,8 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
             auto encode_with_fallback_codec = [&]() {
                 use_fallback_codec = true;
                 if (not fallback_codec_allocated) {
+                    LOGGING(LOG_EXCEPTION, "online allocate fallback (8-byte) codec");
+
                     (*fb_codec).allocate_workspace(errctrl_len, radius * 2, pardeg, /*dbg print*/ false);
                     fallback_codec_allocated = true;
                 }
@@ -327,12 +317,14 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
                         d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
                 }
                 catch (const std::runtime_error& e) {
-                    cout << "exception switch to fallback codec\n";
+                    LOGGING(LOG_EXCEPTION, "switch to fallback codec");
+
                     encode_with_fallback_codec();
                 }
             }
             else {
-                cout << "force switch to fallback codec\n";
+                LOGGING(LOG_INFO, "force switch to fallback codec");
+
                 encode_with_fallback_codec();
             }
         };
@@ -390,6 +382,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
         update_header(), subfile_collect();
+        // output
         compressed_len = header.file_size();
         compressed     = d_reserved_compressed;
 
@@ -469,7 +462,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
         spreducer_do(), codec_do_with_exception(), predictor_do();
 
-        try_report_decompression();
+        if (rpt_print) try_report_decompression();
 
         // clear state for the next decompression after reporting
         use_fallback_codec = false;

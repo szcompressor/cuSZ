@@ -89,27 +89,28 @@ void verify_data(stat_t* stat, T* xdata, T* odata, size_t len)
 }
 
 template <typename Data>
-void print_data_quality_metrics(
-    stat_t* stat,
-    size_t  archive_nbyte = 0,
-    bool    gpu_checker   = false
-    // size_t  bin_scale    = 1 // TODO
-)
+void print_data_quality_metrics(stat_t* stat, size_t compressed_bytes = 0, bool gpu_checker = false)
 {
     auto checker = (not gpu_checker) ? string("(using CPU checker)") : string("(using GPU checker)");
-    auto nbyte   = (stat->len * sizeof(Data) * 1.0);
+    auto bytes   = (stat->len * sizeof(Data) * 1.0);
+
+    auto print_ln3 = [](const char* s, double n1, double n2, double n3) {
+        printf("  %-10s %16.8g %16.8g %16.8g %16s\n", s, n1, n2, n3, "");
+    };
 
     auto print_ln = [](const char* s, double n1, double n2, double n3, double n4) {
-        printf("  %-12s\t%15.8g\t%15.8g\t%15.8g\t%15.8g\n", s, n1, n2, n3, n4);
+        printf("  %-10s %16.8g %16.8g %16.8g %16.8g\n", s, n1, n2, n3, n4);
     };
     auto print_head = [](const char* s1, const char* s2, const char* s3, const char* s4, const char* s5) {
-        printf("  \e[1m\e[31m%-12s\t%15s\t%15s\t%15s\t%15s\e[0m\n", s1, s2, s3, s4, s5);
+        printf("  \e[1m\e[31m%-10s %16s %16s %16s %16s\e[0m\n", s1, s2, s3, s4, s5);
     };
 
     printf("\nquality metrics %s:\n", checker.c_str());
-    printf(
-        "  %-12s\t%15lu\t%15s\t%15lu\n",  //
-        const_cast<char*>("data-len"), stat->len, const_cast<char*>("data-byte"), sizeof(Data));
+
+    auto is_fp = std::is_same<Data, float>::value or std::is_same<Data, double>::value ? const_cast<char*>("yes")
+                                                                                       : const_cast<char*>("no");
+    print_head("", "data-len", "data-byte", "fp-type?", "");
+    printf("  %-10s %16d %16d %16s\n", "", stat->len, sizeof(Data), is_fp);
 
     print_head("", "min", "max", "rng", "std");
     print_ln("origin", stat->min_odata, stat->max_odata, stat->rng_odata, stat->std_odata);
@@ -119,7 +120,7 @@ void print_data_quality_metrics(
     print_ln("max-error", stat->max_abserr, stat->max_abserr_index, stat->max_pwrrel_abserr, stat->max_abserr_vs_rng);
 
     print_head("", "CR", "NRMSE", "corr-coeff", "PSNR");
-    print_ln("metrics", nbyte / archive_nbyte, stat->NRMSE, stat->coeff, stat->PSNR);
+    print_ln("metrics", bytes / compressed_bytes, stat->NRMSE, stat->coeff, stat->PSNR);
 
     printf("\n");
 };

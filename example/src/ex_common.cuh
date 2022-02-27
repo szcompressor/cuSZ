@@ -30,15 +30,15 @@ using SIZE = size_t;
     printf("header::%-*s: %d\n", 20, "entry[" #SYM "]", (*header).entry[COMPONENT::HEADER::SYM]);
 
 template <typename T>
-void echo_metric_gpu(T* d1, T* d2, size_t len)
+void echo_metric_gpu(T* d1, T* d2, size_t len, size_t compressed_bytes = 0)
 {
     stat_t stat;
     verify_data_GPU<T>(&stat, d1, d2, len);
-    analysis::print_data_quality_metrics<T>(&stat, 0, true);
+    analysis::print_data_quality_metrics<T>(&stat, compressed_bytes, true);
 }
 
 template <typename T>
-void echo_metric_cpu(T* _d1, T* _d2, size_t len, bool from_device = true)
+void echo_metric_cpu(T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0, bool from_device = true)
 {
     stat_t stat;
     T*     d1;
@@ -56,7 +56,7 @@ void echo_metric_cpu(T* _d1, T* _d2, size_t len, bool from_device = true)
         cudaMemcpy(d2, _d2, bytes, cudaMemcpyDeviceToHost);
     }
     analysis::verify_data<T>(&stat, d1, d2, len);
-    analysis::print_data_quality_metrics<T>(&stat, 0, false);
+    analysis::print_data_quality_metrics<T>(&stat, compressed_bytes, false);
 
     if (from_device) {
         if (d1) cudaFreeHost(d1);
