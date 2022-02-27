@@ -519,10 +519,10 @@ class CSR11 : public VirtualGatherScatter {
      * @param in_uncompressed_len (host variable) input length
      * @param dbg_print print for debugging
      */
-    void allocate_workspace(size_t const in_uncompressed_len, int sp_factor = 4, bool dbg_print = false)
+    void allocate_workspace(size_t const in_uncompressed_len, int density_factor = 4, bool dbg_print = false)
     {
-        auto max_compressed_bytes = [&]() { return in_uncompressed_len / sp_factor * sizeof(T); };
-        auto init_nnz             = [&]() { return in_uncompressed_len / sp_factor; };
+        auto max_compressed_bytes = [&]() { return in_uncompressed_len / density_factor * sizeof(T); };
+        auto init_nnz             = [&]() { return in_uncompressed_len / density_factor; };
         auto debug                = [&]() {
             setlocale(LC_NUMERIC, "");
 

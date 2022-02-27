@@ -31,7 +31,6 @@ using std::string;
 #include "common.hh"
 #include "context.hh"
 #include "default_path.cuh"
-#include "header.hh"
 #include "query.hh"
 #include "utils.hh"
 
@@ -122,9 +121,15 @@ void defaultpath_compress(
     auto r2r        = (*ctx).mode == "r2r";
     if (r2r) adjustd_eb *= data.prescan().get_rng();
     auto force_use_fallback_codec = (*ctx).huff_bytewidth == 8;
+    auto codecs_in_use            = force_use_fallback_codec ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
+    auto spreducer_density_factor = (*ctx).nz_density_factor;
 
     Compressor compressor(xyz);
-    compressor.allocate_workspace(radius, pardeg);  // alpha: overallocate for decompresison
+    (*compressor.expose_header()).codecs_in_use            = codecs_in_use;
+    (*compressor.expose_header()).spreducer_density_factor = spreducer_density_factor;
+
+    // TODO: overallocate for decompresison
+    compressor.allocate_workspace(radius, pardeg, spreducer_density_factor, codecs_in_use);
 
     compressor.compress(
         data.dptr, adjustd_eb, radius, pardeg, compressed, compressed_len, force_use_fallback_codec, stream,
@@ -185,7 +190,11 @@ void defaultpath_decompress(
     xdata.set_len(len).template alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
     cmp.set_len(len).set_name("origin-cmp");
 
+    auto sp_df  = (*header).spreducer_density_factor;
+    auto codecs = (*header).codecs_in_use;
+
     Compressor compressor(xyz);
+    compressor.allocate_workspace(radius, pardeg, sp_df, codecs);  // alpha: overallocated for decompresison
     compressor.decompress((*in_compressed).dptr, eb, radius, xdata.dptr, stream, rpt_print);
 
     try_compare();

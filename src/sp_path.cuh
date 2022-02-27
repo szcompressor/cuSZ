@@ -15,7 +15,6 @@
 
 #include "base_compressor.cuh"
 #include "binding.hh"
-#include "header.hh"
 #include "wrapper.hh"
 
 /******************************************************************************

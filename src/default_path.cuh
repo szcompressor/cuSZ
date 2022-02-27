@@ -17,6 +17,7 @@
 
 #include "base_compressor.cuh"
 #include "binding.hh"
+#include "header.hh"
 #include "wrapper.hh"
 #include "wrapper/spgs.cuh"
 
@@ -57,35 +58,10 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     bool use_fallback_codec{false};
     bool fallback_codec_allocated{false};
 
-    struct header_t {
-        static const int HEADER = 0;
-        static const int ANCHOR = 1;
-        static const int VLE    = 2;
-        static const int SPFMT  = 3;
-        static const int END    = 4;
+    using HEADER = cuszHEADER;
+    HEADER header;
 
-        uint32_t header_nbyte : 8;
-        uint32_t fp : 1;
-        uint32_t byte_uncompressed : 4;  // T; 1, 2, 4, 8
-        uint32_t byte_vle : 4;           // 4, 8
-        uint32_t byte_errctrl : 3;       // 1, 2, 4
-        uint32_t byte_meta : 4;          // 4, 8
-        uint32_t vle_pardeg;
-        uint32_t x;
-        uint32_t y;
-        uint32_t z;
-        uint32_t w;
-        uint32_t ndim : 3;  // 1,2,3,4
-        double   eb;
-        size_t   data_len;
-        size_t   errctrl_len;
-        uint32_t radius : 16;
-
-        uint32_t entry[END + 1];
-
-        uint32_t file_size() const { return entry[END]; }
-    };
-    using HEADER = struct header_t;
+    HEADER* expose_header() { return &header; }
 
     struct runtime_helper {
     };
@@ -152,23 +128,25 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
      *
      * @param cfg_radius
      * @param cfg_pardeg
-     * @param sp_factor
+     * @param density_factor
      * @param codec_config
      * @param dbg_print
      */
     void allocate_workspace(
         int  cfg_radius,
         int  cfg_pardeg,
-        int  sp_factor    = 4,
-        int  codec_config = 0b01,
-        bool dbg_print    = false)
+        int  density_factor = 4,
+        int  codec_config   = 0b01,
+        bool dbg_print      = false)
     {
         const auto cfg_max_booklen  = cfg_radius * 2;
         const auto spreducer_in_len = (*predictor).get_data_len();
         const auto codec_in_len     = (*predictor).get_quant_len();
 
         auto allocate_predictor = [&]() { (*predictor).allocate_workspace(dbg_print); };
-        auto allocate_spreducer = [&]() { (*spreducer).allocate_workspace(spreducer_in_len, sp_factor, dbg_print); };
+        auto allocate_spreducer = [&]() {
+            (*spreducer).allocate_workspace(spreducer_in_len, density_factor, dbg_print);
+        };
         auto allocate_codec = [&]() {
             if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
             if (codec_config bitand 0b01) {
@@ -178,6 +156,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
             if (codec_config bitand 0b10) {
                 LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
                 (*fb_codec).allocate_workspace(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
+                fallback_codec_allocated = true;
             }
         };
 
@@ -285,8 +264,6 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
         BYTE*  d_codec_out{nullptr};
         size_t codec_out_len{0};
-
-        HEADER header;
 
         auto data_len    = (*predictor).get_data_len();
         auto m           = Reinterpret1DTo2D::get_square_size(data_len);

@@ -53,9 +53,7 @@ void set_report(cuszCTX* ctx, const char* in_str)
         if (StrHelper::is_kv_pair(o)) {
             auto kv = StrHelper::parse_kv_onoff(o);
 
-            if (kv.first == "quality")
-                ctx->report.quality = kv.second;
-            else if (kv.first == "cr")
+            if (kv.first == "cr")
                 ctx->report.cr = kv.second;
             else if (kv.first == "compressibility")
                 ctx->report.compressibility = kv.second;
@@ -63,9 +61,7 @@ void set_report(cuszCTX* ctx, const char* in_str)
                 ctx->report.time = kv.second;
         }
         else {
-            if (o == "quality")
-                ctx->report.quality = true;
-            else if (o == "cr")
+            if (o == "cr")
                 ctx->report.cr = true;
             else if (o == "compressibility")
                 ctx->report.compressibility = true;
@@ -115,7 +111,12 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->on_off.release_input = true;
         }
         else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
-            ctx->nz_density = StrHelper::str2fp(kv.second);
+            ctx->nz_density        = StrHelper::str2fp(kv.second);
+            ctx->nz_density_factor = 1 / ctx->nz_density;
+        }
+        else if (kv.first == "densityfactor") {  // refer to `SparseMethodSetup` in `config.hh`
+            ctx->nz_density_factor = StrHelper::str2fp(kv.second);
+            ctx->nz_density        = 1 / ctx->nz_density_factor;
         }
         else if (kv.first == "gpuverify" and (kv.second == "on" or kv.second == "ON")) {
             ctx->on_off.use_gpu_verify = true;

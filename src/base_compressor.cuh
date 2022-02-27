@@ -15,7 +15,6 @@
 #include "analysis/analyzer.hh"
 #include "common.hh"
 #include "context.hh"
-#include "header.hh"
 #include "kernel/dryrun.cuh"
 #include "utils.hh"
 #include "wrapper.hh"
@@ -50,25 +49,7 @@ class BaseCompressor {
     struct NonCritical* nc;
 
    protected:
-    DataSeg dataseg;
-
-    // clang-format off
-    struct { double eb; FP ebx2, ebx2_r, eb_r; } config;
-    struct { float lossy{0.0}, sparsity{0.0}, hist{0.0}, book{0.0}, lossless{0.0}; } time;
-    // clang-format on
-
-    // data fields
-    Capsule<T>*    original;
-    Capsule<BYTE>* compressed;
-    Capsule<T>*    reconstructed;
-
-    Capsule<E>          quant;   // for compressor
-    Capsule<T>          anchor;  // for compressor
-    Capsule<cusz::FREQ> freq;    // for compressibility
-
-    cuszCTX*    ctx;
-    cuszHEADER* header;
-    cusz::WHEN  timing;
+    cuszCTX* ctx;
 
     int    dict_size;
     double eb;

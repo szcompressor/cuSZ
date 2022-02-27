@@ -66,8 +66,11 @@ struct Align {
 
 // sparsity rate is less that 5%
 struct SparseMethodSetup {
-    static constexpr float default_density  = 0.05;                 // ratio of nonzeros (R_nz)
+    // "Density" denotes the degree of non-zeros (nz).
+    static constexpr float default_density  = 0.25;                 // ratio of nonzeros (R_nz)
     static constexpr float default_sparsity = 1 - default_density;  // ratio of zeros, 1 - R_nz
+
+    static constexpr int default_density_factor = 4;  // ratio of nonzeros (R_nz)
 
     template <typename T, typename M = int>
     static uint32_t get_csr_nbyte(uint32_t len, uint32_t nnz)
@@ -127,44 +130,6 @@ struct ConfigHelper {
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);
-    }
-
-    template <typename CONFIG>
-    static void set_eb_series(double eb, CONFIG& config)
-    {
-        config.eb     = eb;
-        config.ebx2   = eb * 2;
-        config.ebx2_r = 1 / (eb * 2);
-        config.eb_r   = 1 / eb;
-    }
-
-    template <typename DST, typename SRC>
-    static void deep_copy_config_items(DST* c1, SRC* c2)
-    {
-        c1->x         = c2->x;
-        c1->y         = c2->y;
-        c1->z         = c2->z;
-        c1->w         = c2->w;
-        c1->ndim      = c2->ndim;
-        c1->eb        = c2->eb;
-        c1->data_len  = c2->data_len;
-        c1->quant_len = c2->quant_len;
-        c1->radius    = c2->radius;
-        c1->dict_size = c2->dict_size;
-
-        c1->quant_bytewidth = c2->quant_bytewidth;
-        c1->huff_bytewidth  = c2->huff_bytewidth;
-
-        c1->predictor = c2->predictor;
-        c1->codec     = c2->codec;
-        c1->spreducer = c2->spreducer;
-
-        c1->nnz_outlier = c2->nnz_outlier;
-
-        c1->huffman_chunksize = c2->huffman_chunksize;
-        c1->huffman_num_uints = c2->huffman_num_uints;
-
-        c1->to_skip.huffman = c2->to_skip.huffman;
     }
 
     static std::string get_default_predictor() { return "lorenzo"; }
