@@ -100,7 +100,7 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, int pardeg, cudaStr
 
     auto xdata = data;
 
-    compressor.allocate_workspace(radius, pardeg, false);
+    compressor.allocate_workspace(radius, pardeg, /*sp factor*/ 5, /*codec fallback*/ 0b01, /*dbg*/ false);
     compressor.compress(data, eb, radius, pardeg, compressed, compressed_len, stream, true /*dbg*/);
 
     Capsule<BYTE> file(compressed_len);

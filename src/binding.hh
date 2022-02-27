@@ -35,7 +35,7 @@
  *      Encoder<E, H>
  */
 
-template <class Predictor, class SpReducer, class Codec>
+template <class Predictor, class SpReducer, class Codec, class FallbackCodec>
 struct PredictorReducerCodecBinding {
     using T1 = typename Predictor::Origin;
     using T2 = typename Predictor::Anchor;
@@ -43,17 +43,23 @@ struct PredictorReducerCodecBinding {
     using T3 = typename SpReducer::Origin;  // SpReducer -> BYTE, omit
     using E2 = typename Codec::Origin;
     using H  = typename Codec::Encoded;
+    // fallback
+    using E3   = typename FallbackCodec::Origin;
+    using H_FB = typename FallbackCodec::Encoded;
 
-    using PREDICTOR = Predictor;
-    using SPREDUCER = SpReducer;
-    using CODEC     = Codec;
+    using PREDICTOR      = Predictor;
+    using SPREDUCER      = SpReducer;
+    using CODEC          = Codec;
+    using FALLBACK_CODEC = FallbackCodec;
 
     static void type_matching()
     {
         static_assert(
             std::is_same<T1, T2>::value and std::is_same<T1, T3>::value,
             "Predictor::Origin, Predictor::Anchor, and SpReducer::Origin must be the same.");
+
         static_assert(std::is_same<E1, E2>::value, "Predictor::ErrCtrl and Codec::Origin must be the same.");
+        static_assert(std::is_same<E1, E3>::value, "Predictor::ErrCtrl and FallbackCodec::Origin must be the same.");
 
         // TODO this is the restriction for now.
         static_assert(std::is_floating_point<T1>::value, "Predictor::Origin must be floating-point type.");
@@ -65,6 +71,11 @@ struct PredictorReducerCodecBinding {
 
         static_assert(
             std::numeric_limits<H>::is_integer and std::is_unsigned<H>::value,
+            "Codec::Encoded must be unsigned integer.");
+
+        // fallback
+        static_assert(
+            std::numeric_limits<H_FB>::is_integer and std::is_unsigned<H>::value,
             "Codec::Encoded must be unsigned integer.");
     }
 

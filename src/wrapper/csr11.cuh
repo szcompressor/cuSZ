@@ -173,7 +173,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param in_dense (device array) input "as" dense-format m-by-m matrix
      * @param stream CUDA stream
      */
-    void gather_CUDA11_new(T* in_dense, cudaStream_t stream)
+    void gather_CUDA11(T* in_dense, cudaStream_t stream)
     {
         auto num_rows = rte.m;
         auto num_cols = rte.m;
@@ -265,7 +265,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param in_dense (device array) input "as" dense-format m-by-m matrix
      * @param stream CUDA stream
      */
-    void gather_CUDA10_new(T* in_dense, cudaStream_t stream = nullptr)
+    void gather_CUDA10(T* in_dense, cudaStream_t stream = nullptr)
     {
         int num_rows, num_cols, ld;
         num_rows = num_cols = ld = rte.m;
@@ -362,7 +362,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param stream CUDA stream
      * @param header_on_device (optional) configuration; if true, the header is copied from the on-device binary.
      */
-    void scatter_CUDA11_new(BYTE* in_csr, T* out_dense, cudaStream_t stream = nullptr, bool header_on_device = true)
+    void scatter_CUDA11(BYTE* in_csr, T* out_dense, cudaStream_t stream = nullptr, bool header_on_device = true)
     {
         header_t header;
         if (header_on_device)
@@ -439,7 +439,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param stream CUDA stream
      * @param header_on_device (optional) configuration; if true, the header is copied from the on-device binary.
      */
-    void scatter_CUDA10_new(BYTE* in_csr, T* out_dense, cudaStream_t stream = nullptr, bool header_on_device = true)
+    void scatter_CUDA10(BYTE* in_csr, T* out_dense, cudaStream_t stream = nullptr, bool header_on_device = true)
     {
         header_t header;
         if (header_on_device)
@@ -519,10 +519,10 @@ class CSR11 : public VirtualGatherScatter {
      * @param in_uncompressed_len (host variable) input length
      * @param dbg_print print for debugging
      */
-    void allocate_workspace(size_t const in_uncompressed_len, bool dbg_print = false)
+    void allocate_workspace(size_t const in_uncompressed_len, int sp_factor = 4, bool dbg_print = false)
     {
-        auto max_compressed_bytes = [&]() { return in_uncompressed_len / 10 * sizeof(T); };
-        auto init_nnz             = [&]() { return in_uncompressed_len / 10; };
+        auto max_compressed_bytes = [&]() { return in_uncompressed_len / sp_factor * sizeof(T); };
+        auto init_nnz             = [&]() { return in_uncompressed_len / sp_factor; };
         auto debug                = [&]() {
             setlocale(LC_NUMERIC, "");
 
@@ -648,9 +648,9 @@ class CSR11 : public VirtualGatherScatter {
         rte.ptr_header = &header;
 
 #if CUDART_VERSION >= 11020
-        gather_CUDA11_new(in_uncompressed, stream);
+        gather_CUDA11(in_uncompressed, stream);
 #elif CUDART_VERSION >= 10000
-        gather_CUDA10_new(in_uncompressed, stream);
+        gather_CUDA10(in_uncompressed, stream);
 #endif
 
         subfile_collect(header, in_uncompressed_len, stream, dbg_print);
@@ -678,9 +678,9 @@ class CSR11 : public VirtualGatherScatter {
             CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
 
 #if CUDART_VERSION >= 11020
-        scatter_CUDA11_new(in_compressed, out_decompressed, stream);
+        scatter_CUDA11(in_compressed, out_decompressed, stream);
 #elif CUDART_VERSION >= 10000
-        scatter_CUDA10_new(in_compressed, out_decompressed, stream);
+        scatter_CUDA10(in_compressed, out_decompressed, stream);
 #endif
     }
 

@@ -601,8 +601,9 @@ void kernel_wrapper::par_get_codebook(
         cout << LOG_ERR << "Provided parallelism: " << mblocks << " blocks, " << mthreads << " threads, " << tthreads
              << " total" << endl
              << endl;
-        cout << LOG_ERR << "Exiting cuSZ ..." << endl;
-        exit(1);
+        // cout << LOG_ERR << "Exiting cuSZ ..." << endl;
+        throw std::system_error();
+        // exit(1);
     }
 
     uint32_t* diagonal_path_intersections;
@@ -644,9 +645,10 @@ void kernel_wrapper::par_get_codebook(
         cout << LOG_ERR << "Cannot store all Huffman codewords in " << max_CW_bits + 8 << "-bit representation" << endl;
         cout << LOG_ERR << "Huffman codeword representation requires at least " << max_CL + 8
              << " bits (longest codeword: " << max_CL << " bits)" << endl;
-        cout << LOG_ERR << "(Consider running with -H 8 for 8-byte representation)" << endl << endl;
-        cout << LOG_ERR << "Exiting cuSZ ..." << endl;
-        exit(1);
+        // cout << LOG_ERR << "(Consider running with -H 8 for 8-byte representation)" << endl << endl;
+        // cout << LOG_ERR << "Exiting cuSZ ..." << endl;
+        // exit(1);
+        throw std::runtime_error("Falling back to 8-byte Codec.");
     }
 
     // Configure CW for 1024 threads/block
@@ -661,8 +663,9 @@ void kernel_wrapper::par_get_codebook(
         cout << LOG_ERR << "Provided parallelism: " << cw_mblocks << " blocks, " << 1024 << " threads, " << cw_tthreads
              << " total" << endl
              << endl;
-        cout << LOG_ERR << "Exiting cuSZ ..." << endl;
-        exit(1);
+        // cout << LOG_ERR << "Exiting cuSZ ..." << endl;
+        // exit(1);
+        throw std::system_error();
     }
 
     void* CW_Args[] = {

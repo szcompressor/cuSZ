@@ -35,7 +35,7 @@
                                class definition
 ******************************************************************************/
 
-template <class BINDING, int SP_FACTOR = 10>
+template <class BINDING>
 class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     using Predictor = typename BINDING::PREDICTOR;
     using SpReducer = typename BINDING::SPREDUCER;
@@ -79,19 +79,19 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
      *
      * @param xyz 3D unsigned integer
      */
-    void allocate_workspace(dim3 xyz)
+    void allocate_workspace(dim3 xyz, int dummy_coarse_pardeg = -1, int sp_factor = 4, bool dbg_print = false)
     {
         predictor = new Predictor(xyz);
         spreducer = new SpReducer;
 
         data_size = xyz;
 
-        (*predictor).allocate_workspace();
+        (*predictor).allocate_workspace(/*TODO*/);
 
         // TODO encapsulate more
         auto spreducer_in_len = (*predictor).get_quant_footprint();
 
-        (*spreducer).allocate_workspace(spreducer_in_len);
+        (*spreducer).allocate_workspace(spreducer_in_len, sp_factor, dbg_print);
 
         CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_data_len() * sizeof(T) / 2));
     }
@@ -268,13 +268,14 @@ struct SparsityAwarePath {
         cusz::Spline3<DATA, ERRCTRL, FP>,
         cusz::CSR11<ERRCTRL>>;
 
-    using DefaultCompressor = class SpPathCompressor<DefaultBinding, 10>;
+    using DefaultCompressor      = class SpPathCompressor<DefaultBinding>;
+    using LorenzoBasedCompressor = class SpPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerBinding<  //
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<ERRCTRL>>;
 
-    using FallbackCompressor = class SpPathCompressor<FallbackBinding, 10>;
+    using FallbackCompressor = class SpPathCompressor<FallbackBinding>;
 };
 
 #undef ACCESSOR

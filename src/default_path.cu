@@ -111,4 +111,3 @@ this->analyze_compressibility()  //
 */
 
 template class DefaultPathCompressor<DefaultPath::DefaultBinding>;
-template class DefaultPathCompressor<DefaultPath::FallbackBinding>;

@@ -61,9 +61,10 @@ using T = float;
 using E = ErrCtrlTrait<2>::type;
 using P = FastLowPrecisionTrait<true>::type;
 
+template <class Predictor>
 void cli_dryrun(cuszCTX* ctx, bool dualquant = true)
 {
-    BaseCompressor<DefaultPath::DefaultBinding::PREDICTOR> analysis;
+    BaseCompressor<Predictor> analysis;
 
     uint3        xyz{ctx->x, ctx->y, ctx->z};
     cudaStream_t stream;
@@ -99,7 +100,7 @@ void defaultpath_compress(
     auto autotune = [&]() -> int {
         // TODO should be move to somewhere else, e.g., cusz::par_optmizer
         if (ctx->on_off.autotune_huffchunk)
-            DefaultPath::DefaultBinding::CODEC::get_coarse_pardeg(ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
+            Compressor::Codec::get_coarse_pardeg(ctx->data_len, ctx->huffman_chunksize, ctx->nchunk);
         else
             ctx->nchunk = ConfigHelper::get_npart(ctx->data_len, ctx->huffman_chunksize);
 
@@ -120,11 +121,13 @@ void defaultpath_compress(
     auto adjustd_eb = (*ctx).eb;
     auto r2r        = (*ctx).mode == "r2r";
     if (r2r) adjustd_eb *= data.prescan().get_rng();
+    auto force_use_fallback_codec = (*ctx).huff_bytewidth == 8;
 
     Compressor compressor(xyz);
     compressor.allocate_workspace(radius, pardeg);  // alpha: overallocate for decompresison
 
-    compressor.compress(data.dptr, adjustd_eb, radius, pardeg, compressed, compressed_len, stream);
+    compressor.compress(
+        data.dptr, adjustd_eb, radius, pardeg, compressed, compressed_len, force_use_fallback_codec, stream);
 
     file.set_len(compressed_len)
         .template set<cusz::LOC::DEVICE>(compressed)
@@ -191,8 +194,9 @@ void defaultpath_decompress(
 
 void defaultpath(cuszCTX* ctx)
 {
-    using T      = DefaultPath::DefaultCompressor::T;
-    using Header = DefaultPath::DefaultCompressor::HEADER;
+    using T         = DefaultPath::DefaultCompressor::T;
+    using Header    = DefaultPath::DefaultCompressor::HEADER;
+    using Predictor = DefaultPath::DefaultCompressor::Predictor;
 
     cudaStream_t stream;
     CHECK_CUDA(cudaStreamCreate(&stream));
@@ -200,23 +204,19 @@ void defaultpath(cuszCTX* ctx)
 
     auto basename = (*ctx).fname.fname;
 
-    if ((*ctx).task_is.dryrun) cli_dryrun(ctx);
+    if ((*ctx).task_is.dryrun) cli_dryrun<Predictor>(ctx);
 
     if ((*ctx).task_is.construct) {  //
         auto   len = (*ctx).x * (*ctx).y * (*ctx).z;
         double time_loading{0.0};
 
-        Capsule<typename DefaultPath::DefaultCompressor::T> data;
+        Capsule<T> data;
         data.set_len(len)
             .template alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>()
             .template from_file<cusz::LOC::HOST>(basename, &time_loading)
             .host2device();
 
-        if ((*ctx).huff_bytewidth == 4)
-            defaultpath_compress<DefaultPath::DefaultCompressor>(ctx, stream, &data, basename);
-
-        if ((*ctx).huff_bytewidth == 8)
-            defaultpath_compress<DefaultPath::FallbackCompressor>(ctx, stream, &data, basename);
+        defaultpath_compress<DefaultPath::DefaultCompressor>(ctx, stream, &data, basename);
     }
 
     if ((*ctx).task_is.reconstruct) {
@@ -235,15 +235,7 @@ void defaultpath(cuszCTX* ctx)
 
         auto skip_write = (*ctx).to_skip.write2disk;
 
-        if (header.byte_vle == 4) {
-            defaultpath_decompress<DefaultPath::DefaultCompressor>(
-                &header, stream, &file, basename, cmp_name, skip_write);
-        }
-        if (header.byte_vle == 8) {
-            auto header_f = reinterpret_cast<DefaultPath::FallbackCompressor::HEADER*>(&header);
-            defaultpath_decompress<DefaultPath::FallbackCompressor>(
-                header_f, stream, &file, basename, cmp_name, skip_write);
-        }
+        defaultpath_decompress<DefaultPath::DefaultCompressor>(&header, stream, &file, basename, cmp_name, skip_write);
     }
 
     if (stream) cudaStreamDestroy(stream);
