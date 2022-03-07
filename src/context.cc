@@ -28,8 +28,8 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2022-02-28.rc1";
-const int   VERSION       = 20220228;
+const char* VERSION_TEXT  = "2022-03-07.rc2";
+const int   VERSION       = 20220307;
 const int   COMPATIBILITY = 0;
 
 namespace {
@@ -91,13 +91,14 @@ void set_config(cuszCTX* ctx, const char* in_str)
         }
         else if (kv.first == "huffbyte") {
             ctx->huff_bytewidth = StrHelper::str2int(kv.second);
+            ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
         }
         else if (kv.first == "quantbyte") {
             ctx->quant_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->huffman_chunksize         = StrHelper::str2int(kv.second);
-            ctx->on_off.autotune_huffchunk = false;
+            ctx->vle_sublen                 = StrHelper::str2int(kv.second);
+            ctx->on_off.autotune_vle_pardeg = false;
         }
         else if (kv.first == "demo") {
             ctx->on_off.use_demo = true;
@@ -457,7 +458,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
     sort_out_fnames();
 }
 
-cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
+cuszCTX::cuszCTX(const char* config_str, bool dbg_print)
 {
     /**
      **  >>> syntax
@@ -465,40 +466,12 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
      **  "key1=val1,key2=val2[,...]"
      **
      **  >>> example
-     **  "predictor=lorenzo,size="
-     **
-     **  >>> notation
-     **  (x)    parentheses are NOT parts of the symbol
-     **  "x"    string literal
-     **  [x]    must format as indicated by x
-     **   |     LOGIC OR; select one of the candidates
-     **
-     **  >>> mandatory with defaults
-     **
-     **  must set |         key    value                   default
-     **  ======== + ==============================================
-     **           |       dtype    f32                     f32
-     **  -------- + ----------------------------------------------
-     **           |   predictor    lorenzo|spline3         lorenzo
-     **  -------- + ----------------------------------------------
-     **           |       codec    huffman-coarse
-     **  -------- + ----------------------------------------------
-     **           |   spreducer    csr|rle
-     **  -------- + ----------------------------------------------
-     **           |  errorbound    [scientific notation]   1e-4
-     **           |                "eb" as shorthand
-     **  -------- + ----------------------------------------------
-     **           |        mode    abs|r2r
-     **           |                "r2r": relative to eb
-     **  -------- + ----------------------------------------------
-     **       YES |        size    (x)x(y)x(z)
-     **  -------- + ----------------------------------------------
-     **           |      radius    [integer]               512
-     **  -------- + ----------------------------------------------
+     **  "predictor=lorenzo,size=3600x1800"
      **
      **/
 
-    const char* ex_config = "dtype=f32,predictor=spline3,spreducer=csr,eb=1e-2,radius=512,size=3600x1800";
+    // skip the default values
+    // const char* ex_config = "size=3600x1800";
 
     using config_map_t = map_t;
 
@@ -510,20 +483,17 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
         auto  v = kv.second;
         char* end;
 
-        // compress-mandatory
+        // general-mandatory (compress/decompress)
+        if (k == "input") { fname.fname = string(v); }
+        if (k == "do") {
+            if (v == "dryrun") task_is.dryrun = true;
+            if (v == "compress" or v == "zip") task_is.construct = true;
+            if (v == "decompress" or v == "unzip") task_is.reconstruct = true;
+        }
+
+        // mandatory
+        // compress
         if (k == "dtype" and ConfigHelper::check_dtype(v, false)) this->dtype = v;
-        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) {
-            this->str_predictor = v;
-            this->predictor     = ConfigHelper::predictor_lookup(v);
-        }
-        if (k == "codec" and ConfigHelper::check_codec(v, true)) {
-            this->str_codec = v;  // TODO
-            this->codec     = ConfigHelper::codec_lookup(v);
-        }
-        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) {
-            this->str_spreducer = v;  // TODO
-            this->spreducer     = ConfigHelper::spreducer_lookup(v);
-        }
         if (k == "errorbound" or k == "eb") eb = std::strtod(v.c_str(), &end);
         if (k == "mode" and ConfigHelper::check_cuszmode(v, true)) this->mode = v;
         if (k == "size") {
@@ -539,14 +509,39 @@ cuszCTX::cuszCTX(const char* config_str, bool to_compress, bool dbg_print)
         }
         if (k == "radius") { radius = StrHelper::str2int(v), dict_size = radius * 2; }
         if (k == "dictsize") { dict_size = StrHelper::str2int(v), radius = dict_size / 2; }
+        if (k == "huffbyte") {
+            huff_bytewidth = StrHelper::str2int(kv.second);
+            codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
+        }
 
-        // decompress-mandatory
+        // optional
+        // decompress
+        if (k == "origin" or k == "compare") { fname.origin_cmp = string(v); }
+
+        // future use
+        /*
+        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) {
+            this->str_predictor = v;
+            this->predictor     = ConfigHelper::predictor_lookup(v);
+        }
+        if (k == "codec" and ConfigHelper::check_codec(v, true)) {
+            this->str_codec = v;  // TODO
+            this->codec     = ConfigHelper::codec_lookup(v);
+        }
+        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) {
+            this->str_spreducer = v;  // TODO
+            this->spreducer     = ConfigHelper::spreducer_lookup(v);
+        }
+        */
     }
+
+    sort_out_fnames();
 
     if (dbg_print) {
         printf("input config string:\n");
-        printf("%s\n", ex_config);
-        printf(">>>");
+        printf("%s\n", config_str);
+        printf(">>>\n");
+        // TODO print cuszCTX
     }
 }
 

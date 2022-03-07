@@ -25,7 +25,8 @@ set(LIB_TYPE SHARED)
 
 add_executable(dummy_cxlorenzo src/dummy_cxlorenzo.cu)
 target_link_libraries(dummy_cxlorenzo 
-	${CMAKE_SOURCE_DIR}/../Release/libnvgpusz.a 
+	${CMAKE_SOURCE_DIR}/../Release/libcusz.a 
+	${CMAKE_SOURCE_DIR}/../Release/libcompress.a 
 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
@@ -34,7 +35,8 @@ target_link_libraries(dummy_cxlorenzo
 
 add_executable(dryrun src/test_dryrun.cu)
 target_link_libraries(dryrun 
-	${CMAKE_SOURCE_DIR}/../Release/libnvgpusz.a 
+	${CMAKE_SOURCE_DIR}/../Release/libcusz.a 
+	${CMAKE_SOURCE_DIR}/../Release/libcompress.a 
 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 

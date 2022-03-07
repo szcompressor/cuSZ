@@ -33,7 +33,7 @@
         CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
     }
 
-#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[HEADER::SYM])
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header->entry[HEADER::SYM])
 
 constexpr auto kHOST        = cusz::LOC::HOST;
 constexpr auto kDEVICE      = cusz::LOC::DEVICE;
@@ -164,6 +164,38 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_data_len() * sizeof(T) / 2));
     }
 
+    template <class CONFIG>
+    void allocate_workspace(CONFIG* config, bool dbg_print = false)
+    {
+        const auto cfg_radius       = (*config).radius;
+        const auto cfg_pardeg       = (*config).vle_pardeg;
+        const auto density_factor   = (*config).nz_density_factor;
+        const auto codec_config     = (*config).codecs_in_use;
+        const auto cfg_max_booklen  = cfg_radius * 2;
+        const auto spreducer_in_len = (*predictor).get_data_len();
+        const auto codec_in_len     = (*predictor).get_quant_len();
+
+        auto allocate_predictor = [&]() { (*predictor).allocate_workspace(dbg_print); };
+        auto allocate_spreducer = [&]() {
+            (*spreducer).allocate_workspace(spreducer_in_len, density_factor, dbg_print);
+        };
+        auto allocate_codec = [&]() {
+            if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
+            if (codec_config bitand 0b01) {
+                LOGGING(LOG_INFO, "allocated 4-byte codec");
+                (*codec).allocate_workspace(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
+            }
+            if (codec_config bitand 0b10) {
+                LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
+                (*fb_codec).allocate_workspace(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
+                fallback_codec_allocated = true;
+            }
+        };
+
+        allocate_predictor(), allocate_spreducer(), allocate_codec();
+        CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_data_len() * sizeof(T) / 2));
+    }
+
     void try_report_compression(size_t compressed_len)
     {
         auto get_cr        = [&]() { return get_data_len() * sizeof(T) * 1.0 / compressed_len; };
@@ -235,28 +267,59 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         printf("\n");
     }
 
+    template <class CONFIG>
+    void compress(
+        T*           uncompressed,
+        CONFIG*      config,
+        BYTE*&       compressed,
+        size_t&      compressed_len,
+        bool         codec_force_fallback,
+        cudaStream_t stream    = nullptr,
+        bool         rpt_print = true,
+        bool         dbg_print = false)
+    {
+        auto const eb                = config->eb;
+        auto const radius            = config->radius;
+        auto const pardeg            = config->vle_pardeg;
+        auto const codecs_in_use     = (*config).codecs_in_use;
+        auto const nz_density_factor = (*config).nz_density_factor;
+
+        compress(
+            uncompressed, eb, radius, pardeg, codecs_in_use, nz_density_factor, compressed, compressed_len,
+            codec_force_fallback, stream, rpt_print, dbg_print);
+    }
+
     /**
      * @brief
      *
      * @param uncompressed
      * @param eb
      * @param radius
+     * @param pardeg
      * @param compressed
      * @param compressed_len
+     * @param codec_force_fallback
      * @param stream
+     * @param rpt_print
+     * @param dbg_print
      */
     void compress(
-        T*           uncompressed,
-        double const eb,
-        int const    radius,
-        int const    pardeg,
-        BYTE*&       compressed,
-        size_t&      compressed_len,
-        bool         force_use_fallback_codec,
-        cudaStream_t stream    = nullptr,
-        bool         rpt_print = true,
-        bool         dbg_print = false)
+        T*             uncompressed,
+        double const   eb,
+        int const      radius,
+        int const      pardeg,
+        uint32_t const codecs_in_use,
+        int const      nz_density_factor,
+        BYTE*&         compressed,
+        size_t&        compressed_len,
+        bool           codec_force_fallback,
+        cudaStream_t   stream    = nullptr,
+        bool           rpt_print = true,
+        bool           dbg_print = false)
     {
+        header.codecs_in_use     = codecs_in_use;
+        header.nz_density_factor = nz_density_factor;
+
         T*     d_anchor{nullptr};   // predictor out1
         E*     d_errctrl{nullptr};  // predictor out2
         BYTE*  d_spfmt{nullptr};
@@ -288,7 +351,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
                     d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
             };
 
-            if (not force_use_fallback_codec) {
+            if (not codec_force_fallback) {
                 try {
                     (*codec).encode(
                         d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
@@ -384,25 +447,29 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
      * @brief High-level decompress method for this compressor
      *
      * @param in_compressed device pointer, the cusz archive bianry
-     * @param eb host variable, error bound
-     * @param radius host variable, in this case, it is 0
+     * @param header header on host; if null, copy from device binary (from the beginning)
      * @param out_decompressed device pointer, output decompressed data
      * @param stream CUDA stream
+     * @param rpt_print control over printing time
      */
     void decompress(
         BYTE*        in_compressed,
-        double const eb,
-        int const    radius,
+        cuszHEADER*  header,
         T*           out_decompressed,
         cudaStream_t stream    = nullptr,
         bool         rpt_print = true)
     {
-        // TODO host having copy of header
-        HEADER header;
-        CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        // TODO host having copy of header when compressing
+        if (not header) {
+            header = new HEADER;
+            CHECK_CUDA(cudaMemcpyAsync(header, in_compressed, sizeof(HEADER), cudaMemcpyDeviceToHost, stream));
+            CHECK_CUDA(cudaStreamSynchronize(stream));
+        }
 
-        use_fallback_codec = header.byte_vle == 8;
+        use_fallback_codec      = header->byte_vle == 8;
+        double const eb         = header->eb;
+        int const    radius     = header->radius;
+        auto const   vle_pardeg = header->vle_pardeg;
 
         // The inputs of components are from `compressed`.
         auto d_anchor       = ACCESSOR(ANCHOR, T);
@@ -426,7 +493,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
             else {
                 if (not fallback_codec_allocated) {
                     (*fb_codec).allocate_workspace(
-                        (*predictor).get_quant_len(), header.radius * 2, header.vle_pardeg, /*dbg print*/ false);
+                        (*predictor).get_quant_len(), radius * 2, vle_pardeg, /*dbg print*/ false);
                     fallback_codec_allocated = true;
                 }
 
@@ -446,8 +513,10 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     }
 };
 
+template <typename InputData = float>
 struct DefaultPath {
-    using DATA    = DataTrait<4>::type;
+    // using DATA    = DataTrait<4>::type;
+    using DATA    = InputData;
     using ERRCTRL = ErrCtrlTrait<2>::type;
     using FP      = FastLowPrecisionTrait<true>::type;
 

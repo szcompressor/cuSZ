@@ -31,6 +31,7 @@
 #include <string>
 
 #include "../utils/io.hh"
+#include "../utils/strhelper.hh"
 #include "../utils/timer.hh"
 #include "configs.hh"
 #include "definition.hh"
@@ -42,6 +43,12 @@ template <typename T, bool USE_UNIFIED = false>
 class Capsule {
    private:
     static const bool use_unified = USE_UNIFIED;
+
+    struct {
+        bool hptr{false};
+        bool dptr{false};
+        bool uniptr{false};
+    } allocation_status;
 
     template <cusz::LOC LOC>
     void raise_error_if_misuse_unified()
@@ -160,30 +167,22 @@ class Capsule {
      * @brief specify single-source data
      *
      * @tparam DST the destination of loaded data
-     * @tparam VIA the ephemeral/in transition
      * @param fname
      * @return Capsule&
      */
-    template <cusz::LOC DST, cusz::LOC VIA = cusz::LOC::NONE>
+    template <cusz::LOC DST>
     Capsule& from_file(std::string fname, double* time = nullptr)
     {
         auto a = hires::now();
 
         if (DST == cusz::LOC::HOST) {
-            if (VIA == cusz::LOC::NONE) {
-                if (not hptr) {  //
-                    throw std::runtime_error(ERRSTR_BUILDER("from_file", "hptr not set"));
-                }
-                io::read_binary_to_array<T>(fname, hptr, len);
-            }
-            else {
-                throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_file"));
-            }
+            if (not hptr) throw std::runtime_error(ERRSTR_BUILDER("from_file", "hptr not set"));
+            if (len == 0) throw std::runtime_error(ERRSTR_BUILDER("from_file", "len == 0"));
+            io::read_binary_to_array<T>(fname, hptr, len);  // interprete as T (bytes = len * sizeof(T))
         }
+        /*
         else if (DST == cusz::LOC::DEVICE) {
             throw std::runtime_error(ERRSTR_BUILDER("from_file", "to DEVICE not implemented"));
-            // (VIA == cusz::LOC::HOST)
-            // (VIA == cusz::LOC::NONE)
         }
         else if (DST == cusz::LOC::UNIFIED) {
             if (not uniptr) {  //
@@ -194,6 +193,7 @@ class Capsule {
         else {
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_file"));
         }
+        */
 
         auto z = hires::now();
         if (time) *time = static_cast<duration_t>(z - a).count();
@@ -277,27 +277,44 @@ class Capsule {
         auto aligned_datalen    = Align::get_aligned_datalen<AD>(len);
         auto __memory_footprint = Align::get_aligned_nbyte<T>(aligned_datalen);
 
-        if (LOC == cusz::LOC::HOST) {
-            cudaMallocHost(&hptr, __memory_footprint);
-            cudaMemset(hptr, 0x00, __memory_footprint);
-        }
-        else if (LOC == cusz::LOC::DEVICE) {
-            cudaMalloc(&dptr, __memory_footprint);
-            cudaMemset(dptr, 0x00, __memory_footprint);
-        }
-        else if (LOC == cusz::LOC::HOST_DEVICE) {
-            cudaMallocHost(&hptr, __memory_footprint);
-            cudaMemset(hptr, 0x00, __memory_footprint);
-            cudaMalloc(&dptr, __memory_footprint);
-            cudaMemset(dptr, 0x00, __memory_footprint);
-        }
-        else if (LOC == cusz::LOC::UNIFIED) {
-            cudaMallocManaged(&uniptr, __memory_footprint);
-            cudaMemset(uniptr, 0x00, __memory_footprint);
-        }
-        else {
+        auto allocate_on_host = [&]() {
+            if (allocation_status.hptr)
+                LOGGING(LOG_WARN, "already allocated on host");
+            else {
+                cudaMallocHost(&hptr, __memory_footprint);
+                cudaMemset(hptr, 0x00, __memory_footprint);
+                allocation_status.hptr = true;
+            }
+        };
+        auto allocate_on_device = [&]() {
+            if (allocation_status.dptr)
+                LOGGING(LOG_WARN, "already allocated on device");
+            else {
+                cudaMalloc(&dptr, __memory_footprint);
+                cudaMemset(dptr, 0x00, __memory_footprint);
+                allocation_status.dptr = true;
+            }
+        };
+        auto allocate_on_unified_mem = [&]() {
+            if (allocation_status.uniptr)
+                LOGGING(LOG_WARN, "already allocated on unified mem");
+            else {
+                cudaMallocManaged(&uniptr, __memory_footprint);
+                cudaMemset(uniptr, 0x00, __memory_footprint);
+                allocation_status.uniptr = true;
+            }
+        };
+
+        if (LOC == cusz::LOC::HOST)
+            allocate_on_host();
+        else if (LOC == cusz::LOC::DEVICE)
+            allocate_on_device();
+        else if (LOC == cusz::LOC::HOST_DEVICE)
+            allocate_on_host(), allocate_on_device();
+        else if (LOC == cusz::LOC::UNIFIED)
+            allocate_on_unified_mem();
+        else
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("alloc"));
-        }
 
         return *this;
     }
@@ -308,22 +325,38 @@ class Capsule {
         OK::FREE<M>();
         raise_error_if_misuse_unified<LOC>();
 
-        if (LOC == cusz::LOC::HOST) {
-            if (hptr) cudaFreeHost(hptr);
-        }
-        else if (LOC == cusz::LOC::DEVICE) {
-            if (dptr) cudaFree(dptr);
-        }
+        auto free_host = [&]() {
+            if (not hptr) throw std::runtime_error(ERRSTR_BUILDER("free", "hptr is null"));
+
+            cudaFreeHost(hptr);
+            allocation_status.hptr = false;
+        };
+        auto free_device = [&]() {
+            if (not dptr) throw std::runtime_error(ERRSTR_BUILDER("free", "dptr is null"));
+
+            cudaFree(dptr);
+            allocation_status.dptr = false;
+        };
+
+        auto free_unified = [&]() {
+            if (not uniptr) throw std::runtime_error(ERRSTR_BUILDER("free", "uniptr is null"));
+
+            cudaFree(uniptr);
+            allocation_status.uniptr = false;
+        };
+
+        if (LOC == cusz::LOC::HOST)
+            free_host();
+        else if (LOC == cusz::LOC::DEVICE)
+            free_device();
         else if (LOC == cusz::LOC::HOST_DEVICE) {
-            if (hptr) cudaFreeHost(hptr);
-            if (dptr) cudaFree(dptr);
+            free_host();
+            free_device();
         }
-        else if (LOC == cusz::LOC::UNIFIED) {
-            if (uniptr) cudaFree(uniptr);
-        }
-        else {
+        else if (LOC == cusz::LOC::UNIFIED)
+            free_unified();
+        else
             throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("free"));
-        }
 
         return *this;
     }

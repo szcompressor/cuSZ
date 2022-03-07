@@ -110,4 +110,9 @@ this->analyze_compressibility()  //
     .internal_eval_try_export_quant();
 */
 
-template class DefaultPathCompressor<DefaultPath::DefaultBinding>;
+#define F32_DEFAULT_PATH_COMPRESSOR DefaultPathCompressor<DefaultPath<float>::DefaultBinding>
+
+// template class DefaultPathCompressor<DefaultPath<float>::DefaultBinding>;
+template class F32_DEFAULT_PATH_COMPRESSOR;
+template void F32_DEFAULT_PATH_COMPRESSOR::allocate_workspace<cuszCTX>(cuszCTX*, bool);
+template void F32_DEFAULT_PATH_COMPRESSOR::allocate_workspace<cuszHEADER>(cuszHEADER*, bool);

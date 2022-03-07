@@ -265,29 +265,6 @@ class HuffmanCoarse : public cusz::VariableRate {
 
     constexpr bool can_overlap_input_and_firstphase_encode() { return sizeof(T) == sizeof(H); }
 
-    static size_t tune_coarse_huffman_sublen(size_t len)
-    {
-        int current_dev = 0;
-        cudaSetDevice(current_dev);
-        cudaDeviceProp dev_prop{};
-        cudaGetDeviceProperties(&dev_prop, current_dev);
-
-        auto nSM               = dev_prop.multiProcessorCount;
-        auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
-        auto deflate_nthread   = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
-        auto optimal_sublen    = ConfigHelper::get_npart(len, deflate_nthread);
-        optimal_sublen         = ConfigHelper::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
-                         HuffmanHelper::BLOCK_DIM_DEFLATE;
-
-        return optimal_sublen;
-    }
-
-    static void get_coarse_pardeg(size_t len, int& sublen, int& pardeg)
-    {
-        sublen = HuffmanCoarse::tune_coarse_huffman_sublen(len);
-        pardeg = ConfigHelper::get_npart(len, sublen);
-    }
-
    public:
     // 21-12-17 toward static method
     HuffmanCoarse() = default;

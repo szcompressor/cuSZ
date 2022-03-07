@@ -46,7 +46,7 @@ target_link_libraries(ex-api-pqlorenzo
 add_executable(ex-defaultcompressor src/ex_api_defaultcompressor.cu)
 target_link_libraries(ex-defaultcompressor  
 	PUBLIC
-	${CMAKE_SOURCE_DIR}/../Release/libnvgpusz.a 
+	${CMAKE_SOURCE_DIR}/../Release/libcompress.a 
 	${CMAKE_SOURCE_DIR}/../Release/libargp.a 
 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 

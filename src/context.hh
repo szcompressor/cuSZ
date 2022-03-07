@@ -39,7 +39,7 @@ class cuszCTX {
     struct { bool binning{false}, logtransform{false}, prescan{false}; } preprocess;
     struct { bool gpu_nvcomp_cascade{false}, cpu_gzip{false}; } postcompress;
 
-    struct { bool use_demo{false}, use_anchor{false}, autotune_huffchunk{true}, release_input{false}, use_gpu_verify{false}; } on_off;
+    struct { bool use_demo{false}, use_anchor{false}, autotune_vle_pardeg{true}, release_input{false}, use_gpu_verify{false}; } on_off;
     struct { bool write2disk{false}, huffman{false}; } to_skip;
     struct { bool book{false}, quant{false}; } export_raw;
     struct { bool time{false}, cr{false}, compressibility{false}, dataseg{false}; } report;
@@ -72,12 +72,16 @@ class cuszCTX {
     uint32_t codec     = 0;
     uint32_t spreducer = 0;
 
+    uint32_t codecs_in_use{0b01};
+
     uint32_t quant_bytewidth{2}, huff_bytewidth{4};
 
-    int nnz_outlier;
+    bool codec_force_fallback() const { return huff_bytewidth == 8; }
+
+    // int nnz_outlier;
 
     size_t huffman_num_uints, huffman_num_bits;
-    int    huffman_chunksize{512}, nchunk{-1};
+    int    vle_sublen{512}, vle_pardeg{-1};
 
     size_t       data_len{1}, quant_len{1}, anchor_len{1};
     unsigned int x, y, z, w;
@@ -99,10 +103,14 @@ class cuszCTX {
 
     static void print_full_doc();
 
+    static int autotune(cuszCTX* ctx);
+
    public:
     cuszCTX(int argc, char** argv);
 
-    cuszCTX(const char*, bool to_compress, bool dbg_print = false);
+    cuszCTX(const char*, bool dbg_print = false);
 };
+
+using cuszCONFIG = cuszCTX;
 
 #endif  // ARGPARSE_HH

@@ -16,6 +16,10 @@
 
 #include <cstdlib>
 
+typedef struct dim3_compat {
+    uint32_t x, y, z;
+} dim3_compat;
+
 typedef struct alignas(128) header_t {
     static const int HEADER = 0;
     static const int ANCHOR = 1;
@@ -29,7 +33,7 @@ typedef struct alignas(128) header_t {
     uint32_t byte_vle : 4;           // 4, 8
     uint32_t byte_errctrl : 3;       // 1, 2, 4
     uint32_t byte_meta : 4;          // 4, 8
-    uint32_t spreducer_density_factor : 16;
+    uint32_t nz_density_factor : 16;
     uint32_t codecs_in_use : 2;
     uint32_t vle_pardeg;
     uint32_t x;
@@ -45,6 +49,7 @@ typedef struct alignas(128) header_t {
     uint32_t entry[END + 1];
 
     uint32_t file_size() const { return entry[END]; }
+    size_t   get_uncompressed_len() const { return x * y * z; }
 } cuszHEADER;
 
 #endif

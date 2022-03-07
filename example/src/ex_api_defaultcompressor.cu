@@ -178,8 +178,8 @@ int main(int argc, char** argv)
     dimz = (*ctx).z;
     xyz  = dim3(dimx, dimy, dimz);
 
-    int& chunksize = (*ctx).huffman_chunksize;
-    int& pardeg    = (*ctx).nchunk;
+    int& chunksize = (*ctx).vle_sublen;
+    int& pardeg    = (*ctx).vle_pardeg;
     DefaultPath::DefaultBinding::CODEC::get_coarse_pardeg(len, chunksize, pardeg);
 
     printf("%-*s: %d\n", 16, "pardeg", pardeg);
