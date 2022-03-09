@@ -538,10 +538,14 @@ cuszCTX::cuszCTX(const char* config_str, bool dbg_print)
     sort_out_fnames();
 
     if (dbg_print) {
-        printf("input config string:\n");
-        printf("%s\n", config_str);
-        printf(">>>\n");
-        // TODO print cuszCTX
+        printf("\ninput config string:\n");
+        printf("\n%s\n", config_str);
+
+        for (auto kv : opts) {
+            auto k = kv.first;
+            auto v = kv.second;
+            cout << k << "\t" << v << "\n";
+        }
     }
 }
 

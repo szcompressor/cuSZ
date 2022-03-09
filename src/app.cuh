@@ -111,6 +111,8 @@ class app {
 
     static void destroy_compressor(compressor_t compressor) { delete compressor; }
 
+    void destroy_compressor() { delete compressor; }
+
    private:
     template <typename CONFIG>
     static dim3 get_xyz(CONFIG* c)
@@ -151,6 +153,16 @@ class app {
         out_compressed_len = compressed_len;
     }
 
+    /**
+     * @brief high-level cusz_compress() API, exposing compressed results: `compressed` & `compressed_len`
+     *
+     * @param in_uncompressed input uncompressed data, with size known and embedded in params
+     * @param params alias for a cusz context
+     * @param compressed output 1, binary after compression
+     * @param compressed_len output 2, size of the compressed binary
+     * @param stream CUDA stream
+     * @param report_time on-off, reporting kernel time
+     */
     void cusz_compress(
         T*           in_uncompressed,
         cuszCTX*     params,
@@ -166,12 +178,20 @@ class app {
     }
 
    public:
+    /**
+     * @brief high-level cusz_compress() API, hiding: `compressed` & `compressed_len`
+     *
+     * @param in_uncompressed input uncompressed data, with size known and embedded in params
+     * @param params alias for a cusz context
+     * @param stream CUDA stream
+     * @param report_time on-off, reporting kernel time
+     */
     void cusz_compress(T* in_uncompressed, cuszCTX* params, cudaStream_t stream, bool report_time = false)
     {
         cusz_compress(in_uncompressed, params, compressed, compressed_len, stream, report_time);
     }
 
-   private:
+   public:
     void try_compare(cuszHEADER* header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
     {
         auto len             = (*header).get_uncompressed_len();
@@ -205,14 +225,23 @@ class app {
     }
 
    public:
+    /**
+     * @brief high-level cusz_decompress() API
+     *
+     * @param in_compressed input compressed binary
+     * @param params alias for cusz header
+     * @param out_decompressed output decompressed data
+     * @param stream CUDA stream
+     * @param report_time on-off, reporting kernel time
+     */
     void cusz_decompress(
         BYTE*        in_compressed,
-        Header*      config,
+        Header*      params,
         T*           out_decompressed,
         cudaStream_t stream,
         bool         report_time = false)
     {
-        (*compressor).decompress(in_compressed, config, out_decompressed, stream, report_time);
+        (*compressor).decompress(in_compressed, params, out_decompressed, stream, report_time);
     }
 
     template <typename T>
@@ -261,7 +290,12 @@ class app {
             .host2device();
     }
 
-    void defaultpath(cuszCTX* ctx)
+    /**
+     * @brief a compressor dispatcher
+     *
+     * @param ctx context
+     */
+    void cusz_dispatch(cuszCTX* ctx)
     {
         cudaStream_t stream;
         CHECK_CUDA(cudaStreamCreate(&stream));

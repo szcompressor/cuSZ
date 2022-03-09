@@ -52,7 +52,7 @@ int main(int argc, char** argv)
     }
 
     cusz::app<float> cusz_cli;
-    cusz_cli.defaultpath(ctx);
+    cusz_cli.cusz_dispatch(ctx);
 
     // if (ctx->str_predictor == "lorenzo") defaultpath(ctx);
     // if (ctx->str_predictor == "spline3") sparsitypath_spline3(ctx);
