@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.14...3.18)
 
 project(cusz_asap CUDA CXX)
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CXX_STANDARD 14)
 
-## This is a feature as of cmake 3.18.
+## Policy CMP0104 is introduced as of version 3.18 (policy_max).
 ## check `cmake --help-policy CMP0104` for more detail.
 ## The maximum possible in compatibility can be set in CMakeLists.txt using
 ## `set(CMAKE_CUDA_ARCHITECTURES 60 61 62 70 72 75 80 86)`.

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.14...3.18)
 
 project(cusz_asap CUDA CXX)
 set(CMAKE_CUDA_STANDARD 14)
