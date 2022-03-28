@@ -78,8 +78,6 @@ class cuszCTX {
 
     bool codec_force_fallback() const { return huff_bytewidth == 8; }
 
-    // int nnz_outlier;
-
     size_t huffman_num_uints, huffman_num_bits;
     int    vle_sublen{512}, vle_pardeg{-1};
 

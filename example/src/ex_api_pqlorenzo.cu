@@ -31,7 +31,7 @@ void compress_time__alloc_inside(
 {
     auto in_data__out_outlier = origin;
 
-    component.allocate_workspace();
+    component.init();
     component.construct(in_data__out_outlier, eb, radius, anchor, errctrl, stream);
 }
 

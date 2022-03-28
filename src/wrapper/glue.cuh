@@ -182,7 +182,7 @@ class CompatibleSPGS : public VirtualGatherScatter {
     MetadataT* expose_idx() const { return d_idx; }
     T*         expose_val() const { return d_val; }
 
-    void allocate_workspace(size_t const in_uncompressed_len, int density_factor = 4, bool dbg_print = false)
+    void init(size_t const in_uncompressed_len, int density_factor = 4, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / density_factor * sizeof(T); };
         auto init_nnz             = [&]() { return in_uncompressed_len / density_factor; };

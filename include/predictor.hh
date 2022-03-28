@@ -28,36 +28,37 @@ class PredictorAbstraction {
 
    public:
     // helper functions
-    virtual uint32_t get_workspace_nbyte() const = 0;
+    virtual size_t get_workspace_nbyte() const = 0;
 
-    virtual uint32_t get_data_len() const    = 0;
-    virtual uint32_t get_quant_len() const   = 0;
-    virtual uint32_t get_anchor_len() const  = 0;
-    virtual uint32_t get_outlier_len() const = 0;
+    virtual size_t get_len_data() const    = 0;
+    virtual size_t get_len_quant() const   = 0;
+    virtual size_t get_len_anchor() const  = 0;
+    virtual size_t get_len_outlier() const = 0;
 
     virtual float get_time_elapsed() const = 0;
 
     // "real" methods
     virtual ~PredictorAbstraction() = default;
 
-    // methods
+    /*
     virtual void construct(
         T* const           in_data,
         T* const           out_anchor,
         E* const           out_errctrl,
+        dim3               base_len3,
         double const       eb,
         int const          radius,
-        cudaStream_t const stream,
-        T* const __restrict__ non_overlap_out_outlier) = 0;
+        cudaStream_t const stream) = 0;
 
     virtual void reconstruct(
         T* const           in_anchor,
         E* const           in_errctrl,
         T* const           out_xdata,
+        dim3               base_len3,
         double const       eb,
         int const          radius,
-        cudaStream_t const stream,
-        T* const __restrict__ non_overlap_in_outlier) = 0;
+        cudaStream_t const stream) = 0;
+    */
 };
 
 }  // namespace cusz

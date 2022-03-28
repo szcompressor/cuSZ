@@ -79,7 +79,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _1_allocate_workspace = [&]() {  //
         printf("_1_allocate_workspace\n");
-        predictor.allocate_workspace();
+        predictor.init();
     };
 
     auto _1_compress_time = [&]() {
@@ -98,9 +98,9 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _2_allocate_workspace = [&]() {
         printf("_2_allocate_workspace\n");
-        predictor.allocate_workspace();
+        predictor.init();
         auto spreducer_in_len = predictor.get_quant_footprint();
-        spreducer.allocate_workspace(spreducer_in_len, true);
+        spreducer.init(spreducer_in_len, true);
     };
 
     auto _2_compress_time = [&]() {
@@ -150,7 +150,7 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaSt
     auto xdata = data;
 
     // one-time ALLOCATION given the input size
-    compressor.allocate_workspace(xyz);
+    compressor.init(xyz);
 
     // COMPRESSION
     compressor.compress(data, eb, radius, compressed, compressed_len, stream);

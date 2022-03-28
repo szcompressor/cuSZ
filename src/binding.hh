@@ -80,15 +80,15 @@ struct PredictorReducerCodecBinding {
     }
 
     template <class Stage1, class Stage2>
-    static size_t get_uncompressed_len(Stage1* s, Stage2*)
+    static size_t get_len_uncompressed(Stage1* s, Stage2*)
     {
         // !! The compiler does not support/generate constexpr properly
         // !! just put combinations
         if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, SpReducer>::value)
-            return s->get_outlier_len();
+            return s->get_len_outlier();
 
         if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, Codec>::value)  //
-            return s->get_quant_len();
+            return s->get_len_quant();
     }
 };
 

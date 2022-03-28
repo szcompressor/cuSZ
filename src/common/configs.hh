@@ -259,7 +259,7 @@ struct ReportHelper {
         return nbyte / GiB / seconds;
     }
 
-    static void print_throughput_line(const char* s, float timer, size_t _nbyte)
+    static void println_throughput(const char* s, float timer, size_t _nbyte)
     {
         if (timer == 0.0) return;
 
@@ -267,7 +267,7 @@ struct ReportHelper {
         printf("  %-12s %'12f %'10.2f\n", s, timer, t);
     };
 
-    static void print_throughput_tablehead()
+    static void println_throughput_tablehead()
     {
         printf(
             "\n  \e[1m\e[31m%-12s %12s %10s\e[0m\n",  //

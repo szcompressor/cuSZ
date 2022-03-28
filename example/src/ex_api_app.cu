@@ -84,7 +84,7 @@ void demo_expose_io()
         auto header = new cuszHEADER;
         cudaMemcpy(header, d_compressed, sizeof(cuszHEADER), cudaMemcpyDeviceToHost);
 
-        auto len = (*header).get_uncompressed_len();
+        auto len = (*header).get_len_uncompressed();
         decompressed.set_len(len).template alloc<cusz::LOC::HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
         cmp.set_len(len);
 

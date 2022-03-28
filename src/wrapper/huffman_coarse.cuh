@@ -184,14 +184,14 @@ class HuffmanCoarse : public cusz::VariableRate {
      * @param cfg_pardeg degree of parallelism
      * @param dbg_print print for debugging
      */
-    void allocate_workspace(size_t const in_uncompressed_len, int cfg_booklen, int cfg_pardeg, bool dbg_print = false)
+    void init(size_t const in_uncompressed_len, int cfg_booklen, int cfg_pardeg, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
 
         auto debug = [&]() {
             setlocale(LC_NUMERIC, "");
 
-            printf("\nHuffmanCoarse::allocate_workspace() debugging:\n");
+            printf("\nHuffmanCoarse::init() debugging:\n");
             printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
 
             dbg_println("TMP", d_tmp, RTE::TMP);

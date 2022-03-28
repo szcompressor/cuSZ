@@ -81,32 +81,34 @@ class app {
     }
 
    private:
-    static void __init_compressor(compressor_t* compressor, context_t ctx, header_t header)
+    static void init_detail(compressor_t* compressor, context_t ctx, header_t header)
     {
         if (ctx and header) throw std::runtime_error("init_compressor: two sources for configurations.");
         if ((not ctx) and (not header))
             throw std::runtime_error("init_compressor: neither source is for configurations.");
 
         if (ctx) {
-            if (not *compressor) *compressor = new Compressor(get_xyz(ctx));
+            if (not *compressor) *compressor = new Compressor;
+            // (get_xyz(ctx));
             AutoconfigHelper::autotune(ctx);
-            (*compressor)->allocate_workspace(ctx);
+            (*compressor)->init(ctx);
         }
         if (header) {
-            if (not *compressor) *compressor = new Compressor(get_xyz(header));
-            (*compressor)->allocate_workspace(header);
+            if (not *compressor) *compressor = new Compressor;
+            // (get_xyz(header));
+            (*compressor)->init(header);
         }
     }
 
    public:
     void init_compressor(context_t config)
     {
-        if (not compressor) __init_compressor(&compressor, config, nullptr);
+        if (not compressor) init_detail(&compressor, config, nullptr);
     }
 
     void init_compressor(header_t config)
     {
-        if (not compressor) __init_compressor(&compressor, nullptr, config);
+        if (not compressor) init_detail(&compressor, nullptr, config);
     }
 
     static void destroy_compressor(compressor_t compressor) { delete compressor; }
@@ -146,7 +148,7 @@ class app {
 
    public:
     BYTE*  get_compressed() const { return compressed; }
-    size_t get_compressed_len() const { return compressed_len; }
+    size_t get_len_compressed() const { return compressed_len; }
     void   get_compressed(BYTE*& out_compressed, size_t& out_compressed_len) const
     {
         out_compressed     = compressed;
@@ -164,17 +166,14 @@ class app {
      * @param report_time on-off, reporting kernel time
      */
     void cusz_compress(
-        T*           in_uncompressed,
         cuszCTX*     params,
-        BYTE*&       compressed,
-        size_t&      compressed_len,
+        T*           in_uncompressed,
+        BYTE*&       out_compressed,
+        size_t&      out_compressed_len,
         cudaStream_t stream,
         bool         report_time = false)
     {
-        auto codec_fallback = (*params).codec_force_fallback();
-
-        (*compressor)
-            .compress(in_uncompressed, params, compressed, compressed_len, codec_fallback, stream, report_time);
+        (*compressor).compress(params, in_uncompressed, out_compressed, out_compressed_len, stream, report_time);
     }
 
    public:
@@ -186,15 +185,15 @@ class app {
      * @param stream CUDA stream
      * @param report_time on-off, reporting kernel time
      */
-    void cusz_compress(T* in_uncompressed, cuszCTX* params, cudaStream_t stream, bool report_time = false)
+    void cusz_compress(cuszCTX* params, T* in_uncompressed, cudaStream_t stream, bool report_time = false)
     {
-        cusz_compress(in_uncompressed, params, compressed, compressed_len, stream, report_time);
+        cusz_compress(params, in_uncompressed, compressed, compressed_len, stream, report_time);
     }
 
    public:
     void try_compare(cuszHEADER* header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
     {
-        auto len             = (*header).get_uncompressed_len();
+        auto len             = (*header).get_len_uncompressed();
         auto compressd_bytes = (*header).file_size();
 
         auto compare_on_gpu = [&]() {
@@ -315,7 +314,7 @@ class app {
             // core compression
             {
                 init_compressor(ctx);
-                cusz_compress(uncompressed.dptr, ctx, stream, (*ctx).report.time);
+                cusz_compress(ctx, uncompressed.dptr, stream, (*ctx).report.time);
                 cusz_write2disk_after_compress(basename + ".cusza");
             }
         }
@@ -326,7 +325,7 @@ class app {
             input_compressed(compressed, basename + ".cusza");
             memcpy(header, compressed.hptr, sizeof(Header));
 
-            auto len = (*header).get_uncompressed_len();
+            auto len = (*header).get_len_uncompressed();
             decompressed.set_len(len).template alloc<HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
             cmp.set_len(len);
 

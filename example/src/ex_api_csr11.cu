@@ -28,7 +28,7 @@ void compress_time__alloc_inside(
     auto CR = [&]() { return 1.0 * uncompressed_len * 4 / compressed_len; };
 
     // one-time setup
-    component.allocate_workspace(uncompressed_len);
+    component.init(uncompressed_len);
     component.gather(uncompressed, uncompressed_len, compressed, compressed_len, stream, true /*debug*/);
 
     printf("(print in encoding)\n");

@@ -49,7 +49,7 @@ typedef struct alignas(128) header_t {
     uint32_t entry[END + 1];
 
     uint32_t file_size() const { return entry[END]; }
-    size_t   get_uncompressed_len() const { return x * y * z; }
+    size_t   get_len_uncompressed() const { return x * y * z; }
 } cuszHEADER;
 
 #endif

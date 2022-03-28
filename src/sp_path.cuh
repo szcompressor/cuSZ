@@ -66,8 +66,8 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     using HEADER = struct header_t;
 
    public:
-    uint32_t get_data_len() { return data_size.x * data_size.y * data_size.z; }
-    uint32_t get_anchor_len() { return predictor->get_anchor_len(); }
+    uint32_t get_len_data() { return data_size.x * data_size.y * data_size.z; }
+    uint32_t get_len_anchor() { return predictor->get_len_anchor(); }
 
    private:
    public:
@@ -78,21 +78,21 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
      *
      * @param xyz 3D unsigned integer
      */
-    void allocate_workspace(dim3 xyz, int dummy_coarse_pardeg = -1, int sp_factor = 4, bool dbg_print = false)
+    void init(dim3 xyz, int dummy_coarse_pardeg = -1, int sp_factor = 4, bool dbg_print = false)
     {
         predictor = new Predictor(xyz);
         spreducer = new SpReducer;
 
         data_size = xyz;
 
-        (*predictor).allocate_workspace(/*TODO*/);
+        (*predictor).init(/*TODO*/);
 
         // TODO encapsulate more
         auto spreducer_in_len = (*predictor).get_quant_footprint();
 
-        (*spreducer).allocate_workspace(spreducer_in_len, sp_factor, dbg_print);
+        (*spreducer).init(spreducer_in_len, sp_factor, dbg_print);
 
-        CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_data_len() * sizeof(T) / 2));
+        CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_len_data() * sizeof(T) / 2));
     }
 
     /**
@@ -125,7 +125,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
             uint32_t nbyte[HEADER::END];
             nbyte[HEADER::HEADER] = 128;
-            nbyte[HEADER::ANCHOR] = sizeof(T) * (*predictor).get_anchor_len();
+            nbyte[HEADER::ANCHOR] = sizeof(T) * (*predictor).get_len_anchor();
             nbyte[HEADER::SPFMT]  = sizeof(BYTE) * spreducer_out_len;
 
             header.entry[0] = 0;
@@ -158,11 +158,11 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         compressed     = d_reserved_compressed;
 
         auto compress_report = [&]() {
-            auto get_cr        = [&]() { return get_data_len() * sizeof(T) * 1.0 / compressed_len; };
+            auto get_cr        = [&]() { return get_len_data() * sizeof(T) * 1.0 / compressed_len; };
             auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };
             auto ms_to_s       = [&](double ms) { return ms / 1000; };
 
-            auto bytes = get_data_len() * sizeof(T);
+            auto bytes = get_len_data() * sizeof(T);
 
             auto time_p = predictor->get_time_elapsed();
             auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
@@ -225,7 +225,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };
             auto ms_to_s       = [&](double ms) { return ms / 1000; };
 
-            auto bytes = get_data_len() * sizeof(T);
+            auto bytes = get_len_data() * sizeof(T);
 
             auto time_p = predictor->get_time_elapsed();
             auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);

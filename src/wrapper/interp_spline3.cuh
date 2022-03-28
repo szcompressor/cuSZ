@@ -65,28 +65,28 @@ class Spline3 : public PredictorAbstraction<T, E> {
     float time_elapsed;
 
    public:
-    unsigned int get_data_len() const { return len; }
-    unsigned int get_anchor_len() const { return len_anchor; }
-    unsigned int get_quant_len() const
+    size_t get_len_data() const { return len; }
+    size_t get_len_anchor() const { return len_anchor; }
+    size_t get_len_quant() const
     {
         auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
         return m * m;
     }
 
     // TODO this is just a placehodler
-    unsigned int get_outlier_len() const
+    size_t get_len_outlier() const
     {
-        throw std::runtime_error("spline3::get_outlier_len() not implemented");
+        throw std::runtime_error("spline3::get_len_outlier() not implemented");
         return 0;
     }
 
-    unsigned int get_quant_footprint() const
+    size_t get_quant_footprint() const
     {
         auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
         return m * m;
     }
-    float    get_time_elapsed() const { return time_elapsed; }
-    uint32_t get_workspace_nbyte() const { return 0; };
+    float  get_time_elapsed() const { return time_elapsed; }
+    size_t get_workspace_nbyte() const { return 0; };
 
     /**
      * @deprecated use another construct method instead; will remove when cleaning
@@ -140,9 +140,9 @@ class Spline3 : public PredictorAbstraction<T, E> {
             printf("nblock.xyz:\t%d, %d, %d\n", nblockx, nblocky, nblockz);
             printf("aligned.xyz:\t%d, %d, %d\n", dimx_aligned, dimy_aligned, dimz_aligned);
             printf("nanchor.xyz:\t%d, %d, %d\n", nanchorx, nanchory, nanchorz);
-            printf("data_len:\t%d\n", get_data_len());
-            printf("anchor_len:\t%d\n", get_anchor_len());
-            printf("quant_len:\t%d\n", get_quant_len());
+            printf("data_len:\t%d\n", get_len_data());
+            printf("anchor_len:\t%d\n", get_len_anchor());
+            printf("quant_len:\t%d\n", get_len_quant());
             printf("quant_footprint:\t%d\n", get_quant_footprint());
             printf("NBYTE anchor:\t%lu\n", sizeof(T) * len_anchor);
             printf("NBYTE errctrl:\t%lu\n", sizeof(E) * get_quant_footprint());
@@ -186,14 +186,14 @@ class Spline3 : public PredictorAbstraction<T, E> {
      * @param _delay_postquant_dummy (host variable) (future) control the delay of postquant
      * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
      */
-    void allocate_workspace(bool _delay_postquant_dummy = false, bool _outlier_overlapped = true)
+    void init(bool _delay_postquant_dummy = false, bool _outlier_overlapped = true)
     {
         // config
         delay_postquant_dummy = _delay_postquant_dummy;
         outlier_overlapped    = _outlier_overlapped;
 
         // allocate
-        auto nbyte_anchor = sizeof(T) * get_anchor_len();
+        auto nbyte_anchor = sizeof(T) * get_len_anchor();
         printf("nbyte_anchor: %lu\n", nbyte_anchor);
         cudaMalloc(&d_anchor, nbyte_anchor);
         cudaMemset(d_anchor, 0x0, nbyte_anchor);
@@ -222,8 +222,8 @@ class Spline3 : public PredictorAbstraction<T, E> {
      */
     void clear_buffer()
     {
-        cudaMemset(d_anchor, 0x0, sizeof(T) * get_anchor_len());
-        cudaMemset(d_errctrl, 0x0, sizeof(E) * get_quant_len());
+        cudaMemset(d_anchor, 0x0, sizeof(T) * get_len_anchor());
+        cudaMemset(d_errctrl, 0x0, sizeof(E) * get_len_quant());
     }
 
     /**

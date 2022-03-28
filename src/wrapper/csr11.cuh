@@ -519,7 +519,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param in_uncompressed_len (host variable) input length
      * @param dbg_print print for debugging
      */
-    void allocate_workspace(size_t const in_uncompressed_len, int density_factor = 4, bool dbg_print = false)
+    void init(size_t const in_uncompressed_len, int density_factor = 4, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / density_factor * sizeof(T); };
         auto init_nnz             = [&]() { return in_uncompressed_len / density_factor; };
@@ -527,7 +527,7 @@ class CSR11 : public VirtualGatherScatter {
             setlocale(LC_NUMERIC, "");
 
 #define PRINT_DBG(VAR) printf("nbyte-%-*s:  %'10u\n", 10, #VAR, rte.nbyte[RTE::VAR]);
-            printf("\nCSR11::allocate_workspace() debugging:\n");
+            printf("\nCSR11::init() debugging:\n");
             printf("%-*s:  %'10ld\n", 16, "init.nnz", init_nnz());
             PRINT_DBG(CSR);
             PRINT_DBG(ROWPTR);

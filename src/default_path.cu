@@ -74,7 +74,7 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::internal_eval_try_export_quant()
         // TODO as part of dump
         io::write_array_to_binary(
             this->ctx->fname.path_basename + ".lean-this->quant", this->quant.hptr,
-            BINDING::template get_uncompressed_len(predictor, codec));
+            BINDING::template get_len_uncompressed(predictor, codec));
         LOGGING(LOG_INFO, "exporting this->quant as binary; suffix: \".lean-this->quant\"");
         LOGGING(LOG_INFO, "exiting");
         exit(0);
@@ -94,7 +94,7 @@ DPCOMPRESSOR_TYPE DPCOMPRESSOR& DPCOMPRESSOR::try_skip_huffman()
         // TODO: as part of cusza
         io::write_array_to_binary(
             this->ctx->fname.path_basename + ".this->quant", this->quant.hptr,
-            BINDING::template get_uncompressed_len(predictor, codec));
+            BINDING::template get_len_uncompressed(predictor, codec));
         LOGGING(LOG_INFO, "to store this->quant.code directly (Huffman enc skipped)");
         exit(0);
     }
@@ -114,5 +114,5 @@ this->analyze_compressibility()  //
 
 // template class DefaultPathCompressor<DefaultPath<float>::DefaultBinding>;
 template class F32_DEFAULT_PATH_COMPRESSOR;
-template void F32_DEFAULT_PATH_COMPRESSOR::allocate_workspace<cuszCTX>(cuszCTX*, bool);
-template void F32_DEFAULT_PATH_COMPRESSOR::allocate_workspace<cuszHEADER>(cuszHEADER*, bool);
+template void F32_DEFAULT_PATH_COMPRESSOR::init<cuszCTX>(cuszCTX*, bool);
+template void F32_DEFAULT_PATH_COMPRESSOR::init<cuszHEADER>(cuszHEADER*, bool);

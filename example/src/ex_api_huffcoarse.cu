@@ -55,7 +55,7 @@ void compress_time__alloc_inside(
     };
 
     // one-time setup
-    component.allocate_workspace(uncompressed_len, booklen, pardeg);
+    component.init(uncompressed_len, booklen, pardeg);
     component.encode(uncompressed, uncompressed_len, booklen, pardeg, sublen, compressed, compressed_len, stream);
 
     printf("(print in encoding)\n");

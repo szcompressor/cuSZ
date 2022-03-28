@@ -104,7 +104,7 @@ void predictor_detail(T* data, T* cmp, dim3 _xyz, double eb, cudaStream_t stream
 
     auto _1_allocate_workspace = [&]() {  //
         printf("_1_allocate_workspace\n");
-        predictor.allocate_workspace();
+        predictor.init();
 
     };
 

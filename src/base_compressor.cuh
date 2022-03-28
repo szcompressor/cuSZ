@@ -43,7 +43,7 @@ class BaseCompressor {
         Capsule<T> anchor;
         Capsule<T> reconst;
 
-        NonCritical(dim3 size) { p = new Predictor(size, false); }
+        NonCritical(dim3 size) { p = new Predictor; }
     };
 
     struct NonCritical* nc;
@@ -82,14 +82,18 @@ class BaseCompressor {
             eb *= rng;
         }
 
-        nc->p->construct(nc->original.dptr, nc->anchor.dptr, nc->errctrl.dptr, eb, radius, stream, nc->outlier.dptr);
-        nc->p->reconstruct(nc->anchor.dptr, nc->errctrl.dptr, nc->reconst.dptr, eb, radius, stream, nc->outlier.dptr);
+        auto xyz = dim3(ctx->x, ctx->y, ctx->z);
+
+        nc->p->construct(
+            nc->original.dptr, xyz, eb, radius, nc->anchor.dptr, nc->errctrl.dptr, nc->outlier.dptr, stream);
+        nc->p->reconstruct(
+            xyz, nc->outlier.dptr, nc->anchor.dptr, nc->errctrl.dptr, eb, radius, nc->reconst.dptr, stream);
 
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         stat_t stat;
-        verify_data_GPU<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_data_len());
+        verify_data_GPU<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_len_data());
         analysis::print_data_quality_metrics<T>(&stat, 0, true);
 
         return *this;
@@ -148,7 +152,7 @@ class BaseCompressor {
         nc->original.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
         nc->outlier.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
         nc->errctrl.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
-        nc->anchor.set_len(nc->p->get_anchor_len()).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->anchor.set_len(nc->p->get_len_anchor()).template alloc<cusz::LOC::HOST_DEVICE>();
         nc->reconst.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
     }
 

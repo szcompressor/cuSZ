@@ -72,7 +72,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, int pardeg, cudaStre
 
     auto _1_allocate_workspace = [&]() {  //
         printf("_1_allocate_workspace\n");
-        predictor.allocate_workspace();
+        predictor.init();
     };
 
     auto _1_compress_time = [&]() {
@@ -100,7 +100,7 @@ void compressor_detail(T* data, T* cmp, dim3 xyz, double eb, int pardeg, cudaStr
 
     auto xdata = data;
 
-    compressor.allocate_workspace(radius, pardeg, /*sp factor*/ 5, /*codec fallback*/ 0b01, /*dbg*/ false);
+    compressor.init(radius, pardeg, /*sp factor*/ 5, /*codec fallback*/ 0b01, /*dbg*/ false);
     compressor.compress(data, eb, radius, pardeg, compressed, compressed_len, stream, true /*dbg*/);
 
     Capsule<BYTE> file(compressed_len);
