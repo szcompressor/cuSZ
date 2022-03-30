@@ -80,15 +80,15 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
      */
     void init(dim3 xyz, int dummy_coarse_pardeg = -1, int sp_factor = 4, bool dbg_print = false)
     {
-        predictor = new Predictor(xyz);
+        predictor = new Predictor;
         spcodec   = new SpCodec;
 
         data_size = xyz;
 
-        (*predictor).init(/*TODO*/);
+        (*predictor).init(xyz, dbg_print);
 
         // TODO encapsulate more
-        auto spcodec_in_len = (*predictor).get_quant_footprint();
+        auto spcodec_in_len = (*predictor).get_alloclen_quant();
 
         (*spcodec).init(spcodec_in_len, sp_factor, dbg_print);
 
@@ -147,8 +147,8 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
         };
 
-        (*predictor).construct(uncompressed, eb, radius, d_anchor, d_errctrl, stream);
-        auto spcodec_in_len = (*predictor).get_quant_footprint();
+        (*predictor).construct(data_size, uncompressed, d_anchor, d_errctrl, eb, radius, stream);
+        auto spcodec_in_len = (*predictor).get_alloclen_quant();
         (*spcodec).encode(d_errctrl, spcodec_in_len, d_spcodec_out, spcodec_out_len, stream);
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
@@ -219,7 +219,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         auto d_errctrl = (*predictor).expose_quant();  // reuse
 
         (*spcodec).decode(d_spcodec_in, d_errctrl, stream);
-        (*predictor).reconstruct(d_anchor, d_errctrl, eb, radius, out_decompressed, stream);
+        (*predictor).reconstruct(data_size, d_anchor, d_errctrl, eb, radius, out_decompressed, stream);
 
         auto decompress_report = [&]() {
             auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };

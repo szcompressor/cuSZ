@@ -269,7 +269,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         size_t data_len, m, errctrl_len, sublen;
         // must precede the following derived lengths
         auto predictor_do = [&]() {
-            (*predictor).construct(uncompressed, data_len3, eb, radius, d_anchor, d_errctrl, stream);
+            (*predictor).construct(data_len3, uncompressed, d_anchor, d_errctrl, eb, radius, stream);
         };
 
         auto spcodec_do = [&]() { (*spcodec).encode(uncompressed, m * m, d_spfmt, spfmt_out_len, stream, dbg_print); };
@@ -420,35 +420,32 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto const   vle_pardeg = header->vle_pardeg;
 
         // The inputs of components are from `compressed`.
-        auto d_anchor     = ACCESSOR(ANCHOR, T);
-        auto d_decoder_in = ACCESSOR(VLE, BYTE);
-        auto d_spcodec_in = ACCESSOR(SPFMT, BYTE);
+        auto d_anchor = ACCESSOR(ANCHOR, T);
+        auto d_vle    = ACCESSOR(VLE, BYTE);
+        auto d_sp     = ACCESSOR(SPFMT, BYTE);
 
         // wire the workspace
         auto d_errctrl = (*predictor).expose_quant();  // reuse space
 
-        // aliasing
-        auto d_decoder_out  = d_errctrl;
-        auto d_predictor_in = d_errctrl;
-
         // wire and aliasing
-        auto d_spcodec_out   = out_decompressed;
-        auto d_predictor_out = out_decompressed;
+        auto d_outlier       = out_decompressed;
+        auto d_outlier_xdata = out_decompressed;
 
-        auto spcodec_do              = [&]() { (*spcodec).decode(d_spcodec_in, d_spcodec_out, stream); };
+        auto spcodec_do              = [&]() { (*spcodec).decode(d_sp, d_outlier, stream); };
         auto codec_do_with_exception = [&]() {
-            if (not use_fallback_codec) { (*codec).decode(d_decoder_in, d_decoder_out); }
+            if (not use_fallback_codec) {  //
+                (*codec).decode(d_vle, d_errctrl);
+            }
             else {
                 if (not fallback_codec_allocated) {
                     (*fb_codec).init((*predictor).get_len_quant(), radius * 2, vle_pardeg, /*dbg print*/ false);
                     fallback_codec_allocated = true;
                 }
-
-                (*fb_codec).decode(d_decoder_in, d_decoder_out);
+                (*fb_codec).decode(d_vle, d_errctrl);
             }
         };
         auto predictor_do = [&]() {
-            (*predictor).reconstruct(data_len3, d_anchor, d_predictor_in, eb, radius, d_predictor_out, stream);
+            (*predictor).reconstruct(data_len3, d_outlier_xdata, d_anchor, d_errctrl, eb, radius, stream);
         };
 
         // process

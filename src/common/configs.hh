@@ -241,6 +241,55 @@ struct ConfigHelper {
 
         return (size + subsize - 1) / subsize;
     }
+
+#ifdef __CUDACC__
+    static int get_ndim(dim3 len3)
+    {
+        auto ndim = 3;
+        if (len3.z == 1) ndim = 2;
+        if (len3.z == 1 and len3.y == 1) ndim = 1;
+        return ndim;
+    }
+
+    static dim3 get_pardeg3(dim3 len3, dim3 sublen3)
+    {
+        return dim3(
+            get_npart(len3.x, sublen3.x),  //
+            get_npart(len3.y, sublen3.y),  //
+            get_npart(len3.z, sublen3.z));
+    }
+
+    template <typename T>
+    static dim3 get_pardeg3(dim3 len3, T sublen3[3])
+    {
+        return dim3(
+            get_npart(len3.x, sublen3[0]),  //
+            get_npart(len3.y, sublen3[1]),  //
+            get_npart(len3.z, sublen3[2]));
+    }
+
+    template <typename T>
+    static dim3 multiply_dim3(dim3 a, T b[3])
+    {
+        return dim3(a.x * b[0], a.y * b[1], a.z * b[2]);
+    }
+
+    static dim3 multiply_dim3(dim3 a, dim3 b)
+    {  //
+        return dim3(a.x * b.x, a.y * b.y, a.z * b.z);
+    }
+
+    static size_t get_serialized_len(dim3 a) { return a.x * a.y * a.z; }
+
+    static dim3 get_leap(dim3 len3) { return dim3(1, len3.x, len3.x * len3.y); }
+
+#endif
+
+    template <typename T>
+    static size_t get_serialized_len(T a[3])
+    {  //
+        return a[0] * a[1] * a[2];
+    }
 };
 
 struct CompareHelper {

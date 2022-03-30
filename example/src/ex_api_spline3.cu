@@ -59,7 +59,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
         }
     };
 
-    Predictor predictor(xyz, true);
+    Predictor predictor;
     SpCodec   spcodec;
 
     T* xdata = data;
@@ -69,8 +69,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto dbg_echo_nnz = [&]() {
         int __nnz = thrust::count_if(
-            thrust::device, errctrl, errctrl + predictor.get_quant_footprint(),
-            [] __device__(const T& x) { return x != 0; });
+            thrust::device, errctrl, errctrl + predictor.get_len_quant(), [] __device__(const T& x) { return x != 0; });
         cout << "__nnz: " << __nnz << '\n';
     };
 
@@ -79,12 +78,12 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _1_allocate_workspace = [&]() {  //
         printf("_1_allocate_workspace\n");
-        predictor.init();
+        predictor.init(xyz, true);
     };
 
     auto _1_compress_time = [&]() {
         printf("_1_compress_time\n");
-        predictor.construct(data, eb, radius, anchor, errctrl, stream);
+        predictor.construct(data, xyz, eb, radius, anchor, errctrl, stream);
         BARRIER();
 
         dbg_echo_nnz();
@@ -92,25 +91,25 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
     auto _1_decompress_time = [&]() {  //
         printf("_1_decompress_time\n");
-        predictor.reconstruct(anchor, errctrl, eb, radius, xdata, stream);
+        predictor.reconstruct(xyz, anchor, errctrl, eb, radius, xdata, stream);
         BARRIER();
     };
 
     auto _2_allocate_workspace = [&]() {
         printf("_2_allocate_workspace\n");
-        predictor.init();
-        auto spcodec_in_len = predictor.get_quant_footprint();
+        predictor.init(xyz, true);
+        auto spcodec_in_len = predictor.get_alloclen_quant();
         spcodec.init(spcodec_in_len, true);
     };
 
     auto _2_compress_time = [&]() {
         printf("_2_compress_time\n");
-        predictor.construct(data, eb, radius, anchor, errctrl, stream);
+        predictor.construct(data, xyz, eb, radius, anchor, errctrl, stream);
         BARRIER();
 
         dbg_echo_nnz();
 
-        spcodec.encode(errctrl, predictor.get_quant_footprint(), csr, csr_nbyte, stream);
+        spcodec.encode(errctrl, predictor.get_len_quant(), csr, csr_nbyte, stream);
         BARRIER();
     };
 
@@ -118,7 +117,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
         printf("_2_decompress_time\n");
         spcodec.decode(csr, errctrl, stream);
         BARRIER();
-        predictor.reconstruct(anchor, errctrl, eb, radius, xdata, stream);
+        predictor.reconstruct(xyz, anchor, errctrl, eb, radius, xdata, stream);
         BARRIER();
     };
 

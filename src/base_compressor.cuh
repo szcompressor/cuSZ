@@ -85,9 +85,9 @@ class BaseCompressor {
         auto xyz = dim3(ctx->x, ctx->y, ctx->z);
 
         nc->p->construct(
-            nc->original.dptr, xyz, eb, radius, nc->anchor.dptr, nc->errctrl.dptr, nc->outlier.dptr, stream);
+            xyz, nc->original.dptr, nc->anchor.dptr, nc->errctrl.dptr, nc->outlier.dptr, eb, radius, stream);
         nc->p->reconstruct(
-            xyz, nc->outlier.dptr, nc->anchor.dptr, nc->errctrl.dptr, eb, radius, nc->reconst.dptr, stream);
+            xyz, nc->outlier.dptr, nc->anchor.dptr, nc->errctrl.dptr, nc->reconst.dptr, eb, radius, stream);
 
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));

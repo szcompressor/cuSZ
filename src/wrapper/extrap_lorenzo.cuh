@@ -19,7 +19,7 @@
 #include <numeric>
 #include <stdexcept>
 
-#include "../../include/predictor.hh"
+#include "base_predictor.hh"
 
 #include "../common.hh"
 #include "../utils.hh"
@@ -67,21 +67,23 @@ using cusz::prototype::x_lorenzo_3d1l;
 namespace cusz {
 
 template <typename T, typename E, typename FP>
-class PredictorLorenzo : public PredictorAbstraction<T, E> {
-   public:
-    using Precision = FP;
-
+class PredictorLorenzo : public BasePredictor<T, E> {
    private:
     bool delay_postquant{false};
     bool outlier_overlapped{true};
 
     float time_elapsed;
 
-    // future use
-    // struct {
-    //     bool count_nnz;
-    //     bool blockwide_gather;
-    // } on_off;
+    size_t get_x() const { return this->rtlen.get_len3().x; }
+    size_t get_y() const { return this->rtlen.get_len3().y; }
+    size_t get_z() const { return this->rtlen.get_len3().z; }
+
+    dim3 get_leap() const { return this->rtlen.get_leap(); }
+    int  get_ndim() const { return this->rtlen.ndim; }
+
+    void derive_alloclen(dim3 len3) { this->__derive_len(len3, this->alloclen); }
+
+    void derive_rtlen(dim3 len3) { this->__derive_len(len3, this->rtlen); }
 
     /**
      * @brief Construction dispatcher; handling 1,2,3-D;
@@ -116,32 +118,32 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
         cuda_timer_t timer;
         timer.timer_start(stream);
 
-        if (rt_len.ndim == 1) {
+        if (get_ndim() == 1) {
             constexpr auto SEQ         = 4;
             constexpr auto DATA_SUBLEN = 256;
             auto           dim_block   = DATA_SUBLEN / SEQ;
-            auto           dim_grid    = ConfigHelper::get_npart(rt_len.len3.x, DATA_SUBLEN);
+            auto           dim_grid    = ConfigHelper::get_npart(get_x(), DATA_SUBLEN);
+
             ::cusz::c_lorenzo_1d1l<T, E, FP, DATA_SUBLEN, SEQ, DELAY_POSTQUANT>  //
                 <<<dim_grid, dim_block, 0, stream>>>                             //
-                (in_data, out_errctrl, out_outlier, rt_len.len3.x, radius, ebx2_r);
+                (in_data, out_errctrl, out_outlier, get_x(), radius, ebx2_r);
         }
-        else if (rt_len.ndim == 2) {  // y-sequentiality == 8
+        else if (get_ndim() == 2) {  // y-sequentiality == 8
             auto dim_block = dim3(16, 2);
-            auto dim_grid =
-                dim3(ConfigHelper::get_npart(rt_len.len3.x, 16), ConfigHelper::get_npart(rt_len.len3.y, 16));
+            auto dim_grid  = ConfigHelper::get_pardeg3(this->get_len3(), {16, 16, 1});
+
             ::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>  //
                 <<<dim_grid, dim_block, 0, stream>>>              //
-                (in_data, out_errctrl, out_outlier, rt_len.len3.x, rt_len.len3.y, rt_len.leap.y, radius, ebx2_r);
+                (in_data, out_errctrl, out_outlier, get_x(), get_y(), get_leap().y, radius, ebx2_r);
         }
-        else if (rt_len.ndim == 3) {  // y-sequentiality == 8
+        else if (get_ndim() == 3) {  // y-sequentiality == 8
             auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(
-                 ConfigHelper::get_npart(rt_len.len3.x, 32), ConfigHelper::get_npart(rt_len.len3.y, 8),
-                 ConfigHelper::get_npart(rt_len.len3.z, 8));
+            auto dim_grid  = ConfigHelper::get_pardeg3(this->get_len3(), {32, 8, 8});
+
             ::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>  //
                 <<<dim_grid, dim_block, 0, stream>>>                 //
-                (in_data, out_errctrl, out_outlier, rt_len.len3.x, rt_len.len3.y, rt_len.len3.z, rt_len.leap.y,
-                 rt_len.leap.z, radius, ebx2_r);
+                (in_data, out_errctrl, out_outlier, get_x(), get_y(), get_z(), get_leap().y, get_leap().z, radius,
+                 ebx2_r);
         }
         else {
             throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -188,34 +190,32 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
         cuda_timer_t timer;
         timer.timer_start(stream);
 
-        if (rt_len.ndim == 1) {  // y-sequentiality == 8
+        if (get_ndim() == 1) {  // y-sequentiality == 8
             constexpr auto SEQ         = 8;
             constexpr auto DATA_SUBLEN = 256;
             auto           dim_block   = DATA_SUBLEN / SEQ;
-            auto           dim_grid    = ConfigHelper::get_npart(rt_len.len3.x, DATA_SUBLEN);
+            auto           dim_grid    = ConfigHelper::get_npart(get_x(), DATA_SUBLEN);
+
             ::cusz::x_lorenzo_1d1l<T, E, FP, DATA_SUBLEN, SEQ, DELAY_POSTQUANT>  //
                 <<<dim_grid, dim_block, 0, stream>>>                             //
-                (in_outlier, in_errctrl, out_xdata, rt_len.len3.x, radius, ebx2);
+                (in_outlier, in_errctrl, out_xdata, get_x(), radius, ebx2);
         }
-        else if (rt_len.ndim == 2) {  // y-sequentiality == 8
+        else if (get_ndim() == 2) {  // y-sequentiality == 8
             auto dim_block = dim3(16, 2);
-            auto dim_grid =
-                dim3(ConfigHelper::get_npart(rt_len.len3.x, 16), ConfigHelper::get_npart(rt_len.len3.y, 16));
+            auto dim_grid  = ConfigHelper::get_pardeg3(this->get_len3(), {16, 16, 1});
 
             ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP, DELAY_POSTQUANT>  //
                 <<<dim_grid, dim_block, 0, stream>>>                               //
-                (in_outlier, in_errctrl, out_xdata, rt_len.len3.x, rt_len.len3.y, rt_len.leap.y, radius, ebx2);
+                (in_outlier, in_errctrl, out_xdata, get_x(), get_y(), get_leap().y, radius, ebx2);
         }
-        else if (rt_len.ndim == 3) {  // y-sequentiality == 8
+        else if (get_ndim() == 3) {  // y-sequentiality == 8
             auto dim_block = dim3(32, 1, 8);
-            auto dim_grid  = dim3(
-                 ConfigHelper::get_npart(rt_len.len3.x, 32), ConfigHelper::get_npart(rt_len.len3.y, 8),
-                 ConfigHelper::get_npart(rt_len.len3.z, 8));
+            auto dim_grid  = ConfigHelper::get_pardeg3(this->get_len3(), {32, 8, 8});
 
             ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP, DELAY_POSTQUANT>  //
                 <<<dim_grid, dim_block, 0, stream>>>                                  //
-                (in_outlier, in_errctrl, out_xdata, rt_len.len3.x, rt_len.len3.y, rt_len.len3.z, rt_len.leap.y,
-                 rt_len.leap.z, radius, ebx2);
+                (in_outlier, in_errctrl, out_xdata, get_x(), get_y(), get_z(), get_leap().y, get_leap().z, radius,
+                 ebx2);
         }
 
         timer.timer_end(stream);
@@ -225,29 +225,6 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
             CHECK_CUDA(cudaDeviceSynchronize());
 
         time_elapsed = timer.get_time_elapsed();
-    }
-
-   private:
-    void derive_and_set_alloc_len(dim3 len3)
-    {
-        alloc_len.data    = len3.x * len3.y * len3.z;
-        alloc_len.quant   = alloc_len.data;
-        alloc_len.outlier = alloc_len.data;
-        alloc_len.anchor  = 0;  // to update
-    }
-
-    void derive_and_set_rt_len(dim3 len3)
-    {
-        rt_len.len3    = len3;
-        rt_len.leap    = dim3(1, len3.x, len3.x * len3.y);
-        rt_len.data    = len3.x * len3.y * len3.z;
-        rt_len.quant   = rt_len.data;
-        rt_len.outlier = rt_len.data;
-        rt_len.anchor  = 0;
-
-        rt_len.ndim = 3;
-        if (len3.z == 1) rt_len.ndim = 2;
-        if (len3.z == 1 and len3.y == 1) rt_len.ndim = 1;
     }
 
    public:
@@ -260,19 +237,6 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
         FREE_DEV_ARRAY(errctrl);
     };
 
-    // helper
-    size_t get_alloclen_data() const { return alloc_len.data; }
-    size_t get_alloclen_anchor() const { return alloc_len.anchor; }
-    size_t get_alloclen_quant() const { return alloc_len.quant; }
-    size_t get_alloclen_outlier() const { return alloc_len.outlier; }
-
-    size_t get_len_data() const { return rt_len.data; }
-    size_t get_len_anchor() const { return rt_len.anchor; }
-    size_t get_len_quant() const { return rt_len.quant; }
-    size_t get_len_outlier() const { return rt_len.outlier; }
-
-    size_t get_workspace_nbyte() const { return 0; };
-
     float get_time_elapsed() const { return time_elapsed; }
 
     // refactor below
@@ -282,44 +246,12 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     DEFINE_ARRAY(outlier, T);
 #undef DEFINE_ARRAY
 
-   private:
-    struct {
-        dim3   len3;
-        size_t data, quant, outlier, anchor;
-    } alloc_len;
-
-    struct {
-        dim3   len3, leap;
-        int    ndim;
-        size_t data, quant, outlier, anchor;
-    } rt_len;
-
-    void debug_list_alloc_len()
-    {
-        printf("\nPredictorLorenzo::debug_list_alloc_len() debugging:\n");
-        printf("%-*s:  (%u, %u, %u)\n", 16, "sizeof.{T,E,FP}", (int)sizeof(T), (int)sizeof(E), (int)sizeof(FP));
-        printf("%-*s:  %'u\n", 16, "len.data", alloc_len.data);
-        printf("%-*s:  %'u\n", 16, "len.quant", alloc_len.quant);
-        printf("%-*s:  %'u\n", 16, "len.outlier", alloc_len.outlier);
-    }
-
-    void debug_list_rt_len()
-    {
-        printf("\nPredictorLorenzo::debug_list_rt_len() debugging:\n");
-        printf("%-*s:  (%u, %u, %u)\n", 16, "len3.xyz", rt_len.len3.x, rt_len.len3.y, rt_len.len3.z);
-        printf("%-*s:  (%u, %u, %u)\n", 16, "leap.xyz", rt_len.leap.x, rt_len.leap.y, rt_len.leap.z);
-        printf("%-*s:  (%u, %u, %u)\n", 16, "sizeof.{T,E,FP}", (int)sizeof(T), (int)sizeof(E), (int)sizeof(FP));
-        printf("%-*s:  %'u\n", 16, "len.data", rt_len.data);
-        printf("%-*s:  %'u\n", 16, "len.quant", rt_len.quant);
-        printf("%-*s:  %'u\n", 16, "len.outlier", rt_len.outlier);
-    }
-
    public:
     /**
      * @brief clear GPU buffer, may affect performance; essentially for debugging
      *
      */
-    void clear_buffer() { cudaMemset(d_errctrl, 0x0, sizeof(E) * rt_len.quant); }
+    void clear_buffer() { cudaMemset(d_errctrl, 0x0, sizeof(E) * this->rtlen.assigned.quant); }
 
     /**
      * @brief Allocate workspace according to the input size.
@@ -343,14 +275,14 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
      */
     void init(dim3 xyz, bool dbg_print = false)
     {
-        derive_and_set_alloc_len(xyz);
+        this->derive_alloclen(xyz);
 
         // allocate
-        ALLOCDEV2(anchor, T, alloc_len.anchor);
-        ALLOCDEV2(errctrl, E, alloc_len.quant);
-        if (not outlier_overlapped) ALLOCDEV(outlier, T, alloc_len.outlier);
+        ALLOCDEV2(anchor, T, this->alloclen.assigned.anchor);
+        ALLOCDEV2(errctrl, E, this->alloclen.assigned.quant);
+        if (not outlier_overlapped) ALLOCDEV(outlier, T, this->alloclen.assigned.outlier);
 
-        if (dbg_print) debug_list_alloc_len();
+        if (dbg_print) this->debug_list_alloclen();
     }
 
    public:
@@ -362,29 +294,30 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     /**
      * @brief Construct error-control code & outlier; input and outlier do NOT overlap each other.
      *
+     * @param len3 (host) 3D length for interpreting data
      * @param in_data (device array) input data
-     * @param eb (host variable) error bound; configuration
-     * @param radius (host variable) radius to control the bound; configuration
      * @param out_anchor (device array) output anchor point
      * @param out_errctrl (device array) output error-control code; if range-limited integer, it is quant-code
      * @param out_outlier (device array) non-overlapping (with `in_data`) output outlier
+     * @param eb (host variable) error bound; configuration
+     * @param radius (host variable) radius to control the bound; configuration
      * @param stream CUDA stream
      */
     void construct(
+        dim3 const len3,
         T* __restrict__ in_data,
-        dim3 const   interpreted_len3,
-        double const eb,
-        int const    radius,
-        T*&          out_anchor,
-        E*&          out_errctrl,
+        T*& out_anchor,
+        E*& out_errctrl,
         T*& __restrict__ out_outlier,
+        double const       eb,
+        int const          radius,
         cudaStream_t const stream = nullptr)
     {
         out_anchor  = d_anchor;
         out_errctrl = d_errctrl;
         out_outlier = d_outlier;
 
-        derive_and_set_rt_len(interpreted_len3);
+        this->derive_rtlen(len3);
 
         if (not delay_postquant)
             construct_proxy<false>(in_data, out_anchor, out_errctrl, out_outlier, eb, radius, stream);
@@ -393,57 +326,28 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     }
 
     /**
-     * @brief Construct error-control code & outlier; input and outlier overlap each other. Thus, it's destructive.
-     *
-     * @param in_data__out_outlier (device array) input data and output outlier
-     * @param eb (host variable) error bound; configuration
-     * @param radius (host variable) radius to control the bound; configuration
-     * @param out_anchor (device array) output anchor point
-     * @param out_errctrl (device array) output error-control code; if range-limited integer, it is quant-code
-     * @param stream CUDA stream
-     */
-    void construct(
-        T*                 in_data__out_outlier,
-        dim3 const         interpreted_len3,
-        double const       eb,
-        int const          radius,
-        T*&                out_anchor,
-        E*&                out_errctrl,
-        cudaStream_t const stream = nullptr)
-    {
-        out_anchor  = d_anchor;
-        out_errctrl = d_errctrl;
-
-        derive_and_set_rt_len(interpreted_len3);
-
-        if (not delay_postquant)
-            construct_proxy<false>(in_data__out_outlier, out_anchor, out_errctrl, nullptr, eb, radius, stream);
-        else
-            throw std::runtime_error("construct_proxy<delay_postquant==true> not implemented.");
-    }
-
-    /**
      * @brief Reconstruct data from error-control code & outlier; outlier and output do NOT overlap each other.
      *
-     * @param in_outlier (device array) input outlier
-     * @param in_anchor (device array) input anchor
-     * @param in_errctrl (device array) input error-control code
-     * @param eb (host variable) error bound; configuration
-     * @param radius (host variable) radius to control the bound; configuration
-     * @param out_xdata (device array) reconstructed data; output
+     * @param len3 (host) 3D length for interpreting data
+     * @param in_outlier (device) input outlier
+     * @param in_anchor (device) input anchor
+     * @param in_errctrl (device) input error-control code
+     * @param out_xdata (device) reconstructed data; output
+     * @param eb (host) error bound; configuration
+     * @param radius (host) radius to control the bound; configuration
      * @param stream CUDA stream
      */
     void reconstruct(
-        dim3 interpreted_len3,
+        dim3 len3,
         T* __restrict__ in_outlier,
-        T*           in_anchor,
-        E*           in_errctrl,
-        double const eb,
-        int const    radius,
+        T* in_anchor,
+        E* in_errctrl,
         T*& __restrict__ out_xdata,
+        double const       eb,
+        int const          radius,
         cudaStream_t const stream = nullptr)
     {
-        derive_and_set_rt_len(interpreted_len3);
+        this->derive_rtlen(len3);
 
         if (not delay_postquant)
             reconstruct_proxy<false>(in_outlier, in_anchor, in_errctrl, out_xdata, eb, radius, stream);
@@ -452,26 +356,60 @@ class PredictorLorenzo : public PredictorAbstraction<T, E> {
     }
 
     /**
+     * @brief Construct error-control code & outlier; input and outlier overlap each other. Thus, it's destructive.
+     *
+     * @param len3 (host) 3D length for interpreting data
+     * @param in_data__out_outlier (device) input data and output outlier
+     * @param out_anchor (device) output anchor point
+     * @param out_errctrl (device) output error-control code; if range-limited integer, it is quant-code
+     * @param eb (host) error bound; configuration
+     * @param radius (host) radius to control the bound; configuration
+     * @param stream CUDA stream
+     */
+    void construct(
+        dim3 const         len3,
+        T*                 in_data__out_outlier,
+        T*&                out_anchor,
+        E*&                out_errctrl,
+        double const       eb,
+        int const          radius,
+        cudaStream_t const stream = nullptr)
+    {
+        out_anchor  = d_anchor;
+        out_errctrl = d_errctrl;
+
+        derive_rtlen(len3);
+        this->check_rtlen();
+
+        if (not delay_postquant)
+            construct_proxy<false>(in_data__out_outlier, out_anchor, out_errctrl, nullptr, eb, radius, stream);
+        else
+            throw std::runtime_error("construct_proxy<delay_postquant==true> not implemented.");
+    }
+
+    /**
      * @brief Reconstruct data from error-control code & outlier; outlier and output overlap each other; destructive for
      * outlier.
      *
-     * @param in_anchor (device array) input anchor
-     * @param in_errctrl (device array) input error-control code
-     * @param eb (host variable) error bound; configuration
-     * @param radius (host variable) radius to control the bound; configuration
-     * @param in_outlier__out_xdata (device array) output reconstructed data, overlapped with input outlier
+     * @param len3 (host) 3D length for interpreting data
+     * @param in_outlier__out_xdata (device) output reconstructed data, overlapped with input outlier
+     * @param in_anchor (device) input anchor
+     * @param in_errctrl (device) input error-control code
+     * @param eb (host) error bound; configuration
+     * @param radius (host) radius to control the bound; configuration
      * @param stream CUDA stream
      */
     void reconstruct(
-        dim3               interpreted_len3,
+        dim3               len3,
+        T*&                in_outlier__out_xdata,
         T*                 in_anchor,
         E*                 in_errctrl,
         double const       eb,
         int const          radius,
-        T*&                in_outlier__out_xdata,
         cudaStream_t const stream = nullptr)
     {
-        derive_and_set_rt_len(interpreted_len3);
+        derive_rtlen(len3);
+        this->check_rtlen();
 
         if (not delay_postquant)
             reconstruct_proxy<false>(nullptr, in_anchor, in_errctrl, in_outlier__out_xdata, eb, radius, stream);

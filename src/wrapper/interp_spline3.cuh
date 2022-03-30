@@ -16,10 +16,10 @@
 #include <limits>
 #include <numeric>
 
-#include "../../include/predictor.hh"
 #include "../common.hh"
 #include "../kernel/spline3.cuh"
 #include "../utils.hh"
+#include "base_predictor.hh"
 
 #define DEFINE_ARRAY(VAR, TYPE) TYPE* d_##VAR{nullptr};
 
@@ -40,10 +40,7 @@
 namespace cusz {
 
 template <typename T, typename E, typename FP>
-class Spline3 : public PredictorAbstraction<T, E> {
-   public:
-    using Precision = FP;
-
+class Spline3 : public BasePredictor<T, E, FP> {
    private:
     static const auto BLOCK = 8;
 
@@ -53,72 +50,25 @@ class Spline3 : public PredictorAbstraction<T, E> {
    private:
     bool dbg_mode{false};
 
-    unsigned int dimx, dimx_aligned, nblockx, nanchorx;
-    unsigned int dimy, dimy_aligned, nblocky, nanchory;
-    unsigned int dimz, dimz_aligned, nblockz, nanchorz;
-    unsigned int len, len_aligned, len_anchor;
-    dim3         size, size_aligned, leap, leap_aligned, anchor_size, anchor_leap;
-
     bool delay_postquant_dummy;
     bool outlier_overlapped;
 
-    float time_elapsed;
-
    public:
-    size_t get_len_data() const { return len; }
-    size_t get_len_anchor() const { return len_anchor; }
+    // override
+    size_t get_alloclen_quant() const
+    {
+        auto m = Reinterpret1DTo2D::get_square_size(this->alloclen.assigned.quant);
+        return m * m;
+    }
+
     size_t get_len_quant() const
     {
-        auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
+        auto m = Reinterpret1DTo2D::get_square_size(this->rtlen.assigned.quant);
         return m * m;
     }
 
-    // TODO this is just a placehodler
-    size_t get_len_outlier() const
-    {
-        throw std::runtime_error("spline3::get_len_outlier() not implemented");
-        return 0;
-    }
-
-    size_t get_quant_footprint() const
-    {
-        auto m = Reinterpret1DTo2D::get_square_size(len_aligned);
-        return m * m;
-    }
-    float  get_time_elapsed() const { return time_elapsed; }
     size_t get_workspace_nbyte() const { return 0; };
 
-    /**
-     * @deprecated use another construct method instead; will remove when cleaning
-     */
-    void construct(
-        TITER        in_data,
-        TITER        out_anchor,
-        EITER        out_errctrl,
-        double const eb,
-        int const    radius,
-        cudaStream_t                                  = nullptr,
-        T* const __restrict__ non_overlap_out_outlier = nullptr)
-    {
-        throw std::runtime_error("obsolete");
-    }
-
-    /**
-     * @deprecated use another reconstruct method instread; will remove when cleaning
-     */
-    void reconstruct(
-        TITER        in_anchor,
-        EITER        in_errctrl,
-        TITER        out_data,
-        double const eb,
-        int const    radius,
-        cudaStream_t                                 = nullptr,
-        T* const __restrict__ non_overlap_in_outlier = nullptr)
-    {
-        throw std::runtime_error("obsolete");
-    }
-
-    // new ------------------------------------------------------------
    private:
     DEFINE_ARRAY(anchor, T);
     DEFINE_ARRAY(errctrl, E);
@@ -129,53 +79,31 @@ class Spline3 : public PredictorAbstraction<T, E> {
     E* expose_errctrl() const { return d_errctrl; }
     T* expose_anchor() const { return d_anchor; }
 
+   private:
+    void derive_alloclen(dim3 base)
+    {
+        int sublen[3]      = {32, 8, 8};
+        int anchor_step[3] = {8, 8, 8};
+
+        this->__derive_len(base, this->alloclen, sublen, anchor_step, true);
+    }
+
+    void derive_rtlen(dim3 base)
+    {
+        int sublen[3]      = {32, 8, 8};
+        int anchor_step[3] = {8, 8, 8};
+
+        this->__derive_len(base, this->rtlen, sublen, anchor_step, true);
+    }
+
    public:
     Spline3() = default;
 
-    Spline3(dim3 _size, bool _dbg_mode = false) : size(_size), dbg_mode(_dbg_mode)
+    void init(dim3 _size, bool _dbg_mode = false)
     {
-        auto debug = [&]() {
-            printf("\ndebug in spline3::constructor\n");
-            printf("dim.xyz & len:\t%d, %d, %d, %d\n", dimx, dimy, dimz, len);
-            printf("nblock.xyz:\t%d, %d, %d\n", nblockx, nblocky, nblockz);
-            printf("aligned.xyz:\t%d, %d, %d\n", dimx_aligned, dimy_aligned, dimz_aligned);
-            printf("nanchor.xyz:\t%d, %d, %d\n", nanchorx, nanchory, nanchorz);
-            printf("data_len:\t%d\n", get_len_data());
-            printf("anchor_len:\t%d\n", get_len_anchor());
-            printf("quant_len:\t%d\n", get_len_quant());
-            printf("quant_footprint:\t%d\n", get_quant_footprint());
-            printf("NBYTE anchor:\t%lu\n", sizeof(T) * len_anchor);
-            printf("NBYTE errctrl:\t%lu\n", sizeof(E) * get_quant_footprint());
-            cout << '\n';
-        };
-
-        // original size
-        dimx = size.x, dimy = size.y, dimz = size.z;
-        len = dimx * dimy * dimz;
-
-        // partition & aligning
-        nblockx      = ConfigHelper::get_npart(dimx, BLOCK * 4);
-        nblocky      = ConfigHelper::get_npart(dimy, BLOCK);
-        nblockz      = ConfigHelper::get_npart(dimz, BLOCK);
-        dimx_aligned = nblockx * 32;  // 235 -> 256
-        dimy_aligned = nblocky * 8;   // 449 -> 456
-        dimz_aligned = nblockz * 8;   // 449 -> 456
-        len_aligned  = dimx_aligned * dimy_aligned * dimz_aligned;
-
-        // multidimensional
-        leap         = dim3(1, dimx, dimx * dimy);
-        size_aligned = dim3(dimx_aligned, dimy_aligned, dimz_aligned);
-        leap_aligned = dim3(1, dimx_aligned, dimx_aligned * dimy_aligned);
-
-        // anchor point
-        nanchorx    = int(dimx / BLOCK) + 1;
-        nanchory    = int(dimy / BLOCK) + 1;
-        nanchorz    = int(dimz / BLOCK) + 1;
-        len_anchor  = nanchorx * nanchory * nanchorz;
-        anchor_size = dim3(nanchorx, nanchory, nanchorz);
-        anchor_leap = dim3(1, nanchorx, nanchorx * nanchory);
-
-        if (dbg_mode) debug();
+        derive_alloclen(_size);
+        if (_dbg_mode) this->debug_list_alloclen(true);
+        init_continue();
     }
 
     /**
@@ -186,25 +114,23 @@ class Spline3 : public PredictorAbstraction<T, E> {
      * @param _delay_postquant_dummy (host variable) (future) control the delay of postquant
      * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
      */
-    void init(bool _delay_postquant_dummy = false, bool _outlier_overlapped = true)
+    void init_continue(bool _delay_postquant_dummy = false, bool _outlier_overlapped = true)
     {
         // config
         delay_postquant_dummy = _delay_postquant_dummy;
         outlier_overlapped    = _outlier_overlapped;
 
         // allocate
-        auto nbyte_anchor = sizeof(T) * get_len_anchor();
-        printf("nbyte_anchor: %lu\n", nbyte_anchor);
+        auto nbyte_anchor = sizeof(T) * this->get_alloclen_anchor();
         cudaMalloc(&d_anchor, nbyte_anchor);
         cudaMemset(d_anchor, 0x0, nbyte_anchor);
 
-        auto nbyte_errctrl = sizeof(E) * get_quant_footprint();
-        printf("nbyte_errctrl: %lu\n", nbyte_errctrl);
+        auto nbyte_errctrl = sizeof(E) * this->get_alloclen_quant();
         cudaMalloc(&d_errctrl, nbyte_errctrl);
         cudaMemset(d_errctrl, 0x0, nbyte_errctrl);
 
         if (not outlier_overlapped) {
-            auto nbyte_outlier = sizeof(T) * get_quant_footprint();
+            auto nbyte_outlier = sizeof(T) * this->get_alloclen_quant();
             cudaMalloc(&d_outlier, nbyte_outlier);
             cudaMemset(d_outlier, 0x0, nbyte_outlier);
         }
@@ -222,7 +148,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
      */
     void clear_buffer()
     {
-        cudaMemset(d_anchor, 0x0, sizeof(T) * get_len_anchor());
+        cudaMemset(d_anchor, 0x0, sizeof(T) * this->get_len_anchor());
         cudaMemset(d_errctrl, 0x0, sizeof(E) * get_len_quant());
     }
 
@@ -237,13 +163,19 @@ class Spline3 : public PredictorAbstraction<T, E> {
      * @param stream CUDA stream
      */
     void construct(
+        dim3 const   len3,
         TITER        in_data,
-        double const eb,
-        int const    radius,
         TITER&       out_anchor,
         EITER&       out_errctrl,
+        double const eb,
+        int const    radius,
         cudaStream_t stream = nullptr)
     {
+        derive_rtlen(len3);  // placeholder
+        this->check_rtlen();
+
+        this->debug_list_rtlen(true);
+
         auto ebx2 = eb * 2;
         auto eb_r = 1 / eb;
 
@@ -260,10 +192,10 @@ class Spline3 : public PredictorAbstraction<T, E> {
         timer.timer_start();
 
         cusz::c_spline3d_infprecis_32x8x8data<TITER, EITER, float, 256, false>
-            <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1), 0, stream>>>  //
-            (in_data, size, leap,                                              //
-             d_errctrl, size_aligned, leap_aligned,                            //
-             d_anchor, anchor_leap,                                            //
+            <<<this->rtlen.nblock, dim3(256, 1, 1), 0, stream>>>             //
+            (in_data, this->rtlen.base.len3, this->rtlen.base.leap,          //
+             d_errctrl, this->rtlen.aligned.len3, this->rtlen.aligned.leap,  //
+             d_anchor, this->rtlen.anchor.leap,                              //
              eb_r, ebx2, radius);
 
         timer.timer_end();
@@ -273,7 +205,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
         else
             CHECK_CUDA(cudaDeviceSynchronize());
 
-        time_elapsed = timer.get_time_elapsed();
+        this->time_elapsed = timer.get_time_elapsed();
     }
 
     /**
@@ -288,6 +220,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
      * @param stream CUDA stream
      */
     void reconstruct(
+        dim3         len3,
         TITER        in_anchor,
         EITER        in_errctrl,
         double const cfg_eb,
@@ -295,6 +228,9 @@ class Spline3 : public PredictorAbstraction<T, E> {
         TITER        in_outlier__out_xdata,
         cudaStream_t stream = nullptr)
     {
+        derive_rtlen(len3);
+        this->check_rtlen();
+
         auto ebx2 = cfg_eb * 2;
         auto eb_r = 1 / cfg_eb;
 
@@ -302,10 +238,10 @@ class Spline3 : public PredictorAbstraction<T, E> {
         timer.timer_start();
 
         cusz::x_spline3d_infprecis_32x8x8data<EITER, TITER, float, 256>
-            <<<dim3(nblockx, nblocky, nblockz), dim3(256, 1, 1), 0, stream>>>  //
-            (in_errctrl, size_aligned, leap_aligned,                           //
-             in_anchor, anchor_size, anchor_leap,                              //
-             in_outlier__out_xdata, size, leap,                                //
+            <<<this->rtlen.nblock, dim3(256, 1, 1), 0, stream>>>                   //
+            (in_errctrl, this->rtlen.aligned.len3, this->rtlen.aligned.leap,       //
+             in_anchor, this->rtlen.anchor.len3, this->rtlen.anchor.leap,          //
+             in_outlier__out_xdata, this->rtlen.base.len3, this->rtlen.base.leap,  //
              eb_r, ebx2, cfg_radius);
 
         timer.timer_end();
@@ -315,7 +251,7 @@ class Spline3 : public PredictorAbstraction<T, E> {
         else
             CHECK_CUDA(cudaDeviceSynchronize());
 
-        time_elapsed = timer.get_time_elapsed();
+        this->time_elapsed = timer.get_time_elapsed();
     }
 
     // end of class definition
