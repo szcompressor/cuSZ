@@ -123,7 +123,7 @@ struct ConfigHelper {
         return lut.at(name);
     }
 
-    static uint32_t spreducer_lookup(std::string name)
+    static uint32_t spcodec_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
             {"csr11", 0}, {"spgs", 1}  //
@@ -133,7 +133,7 @@ struct ConfigHelper {
     }
 
     static std::string get_default_predictor() { return "lorenzo"; }
-    static std::string get_default_spreducer() { return "csr11"; }
+    static std::string get_default_spcodec() { return "csr11"; }
     static std::string get_default_codec() { return "huffman-coarse"; }
     static std::string get_default_cuszmode() { return "r2r"; }
     static std::string get_default_dtype() { return "f32"; }
@@ -162,7 +162,7 @@ struct ConfigHelper {
         return legal;
     }
 
-    static bool check_spreducer(const std::string& val, bool fatal = false)
+    static bool check_spcodec(const std::string& val, bool fatal = false)
     {
         auto legal = (val == "csr11") or (val == "rle");
         if (not legal) {

@@ -61,14 +61,14 @@ class spGS {
     uint32_t get_total_nbyte(uint32_t len, int nnz) { return sizeof(int) * nnz + sizeof(T) * nnz; }
 
     void
-    gather(T* in, uint32_t in_len, int* nullarray, int*& out_idx, T*& out_val, int& out_nnz, unsigned int& dump_nbyte);
+    encode(T* in, uint32_t in_len, int* nullarray, int*& out_idx, T*& out_val, int& out_nnz, unsigned int& dump_nbyte);
 
     template <cusz::LOC FROM = cusz::LOC::DEVICE, cusz::LOC TO = cusz::LOC::HOST>
     spGS& consolidate(uint8_t* dst);
 
-    void scatter(int*& in_idx, T*& in_val, int nnz, T* out);
+    void decode(int*& in_idx, T*& in_val, int nnz, T* out);
 
-    void scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len);
+    void decode(uint8_t* _pool, int nnz, T* out, uint32_t out_len);
 };
 
 }  // namespace cusz

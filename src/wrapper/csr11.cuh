@@ -151,9 +151,9 @@ class CSR11 : public VirtualGatherScatter {
    private:
     float milliseconds{0.0};
 
-    Capsule<int> rowptr;
-    Capsule<int> colidx;
-    Capsule<T>   values;
+    // Capsule<int> rowptr;
+    // Capsule<int> colidx;
+    // Capsule<T>   values;
 
     /**
      * @brief Internal use when the real nnz is known.
@@ -510,8 +510,8 @@ class CSR11 : public VirtualGatherScatter {
     }
 
     // only placeholding
-    void scatter() {}
-    void gather() {}
+    // void decode() {}
+    // void encode() {}
 
     /**
      * @brief Allocate according to the input; usually allocate much more than the actual need at runtime for failsafe.
@@ -635,7 +635,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param out_compressed_len (host variable) reference output length
      * @param stream CUDA stream
      */
-    void gather(
+    void encode(
         T*           in_uncompressed,
         size_t const in_uncompressed_len,
         BYTE*&       out_compressed,
@@ -667,7 +667,7 @@ class CSR11 : public VirtualGatherScatter {
      * @param stream CUDA stream
      * @param header_on_device (optional) configuration; if true, the header is copied from the on-device binary.
      */
-    void scatter(
+    void decode(
         BYTE*        in_compressed,  //
         T*           out_decompressed,
         cudaStream_t stream           = nullptr,

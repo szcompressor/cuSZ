@@ -29,7 +29,7 @@ void compress_time__alloc_inside(
 
     // one-time setup
     component.init(uncompressed_len);
-    component.gather(uncompressed, uncompressed_len, compressed, compressed_len, stream, true /*debug*/);
+    component.encode(uncompressed, uncompressed_len, compressed, compressed_len, stream, true /*debug*/);
 
     printf("(print in encoding)\n");
     printf("%-*s: %lu\n", 28, "compressed/subfile size", compressed_len);
@@ -38,7 +38,7 @@ void compress_time__alloc_inside(
 
 void decompress_time(COMPONENT& component, BYTE*& compressed, UNCOMPRESSED*& decompressed, cudaStream_t stream)
 {
-    component.scatter(compressed, decompressed, stream);
+    component.decode(compressed, decompressed, stream);
 }
 
 int main(int argc, char** argv)

@@ -38,7 +38,7 @@ unsigned int len() { return dimx * dimy * dimz; }
 
 using Compressor = SparsityAwarePath::DefaultCompressor;
 using Predictor  = cusz::Spline3<T, E, float>;
-using SpReducer  = cusz::CSR11<T>;
+using SpCodec    = cusz::CSR11<T>;
 
 int         quant_radius = 512;
 bool        gpu_verify   = true;
@@ -58,7 +58,7 @@ void predictor_detail(T* data, T* cmp, dim3 _xyz, double eb, cudaStream_t stream
     };
 
     Predictor predictor(_xyz, true);
-    SpReducer spreducer;
+    SpCodec   spcodec;
 
     T* xdata = data;
 

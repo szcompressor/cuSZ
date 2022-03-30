@@ -43,7 +43,7 @@ template <class BINDING>
 class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
    public:
     using Predictor     = typename BINDING::PREDICTOR;
-    using SpReducer     = typename BINDING::SPREDUCER;
+    using SpCodec       = typename BINDING::SPCODEC;
     using Codec         = typename BINDING::CODEC;
     using FallbackCodec = typename BINDING::FALLBACK_CODEC;
 
@@ -73,7 +73,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
    private:
     Predictor*     predictor;
-    SpReducer*     spreducer;
+    SpCodec*       spcodec;
     Codec*         codec;
     FallbackCodec* fb_codec;
 
@@ -93,14 +93,14 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     DefaultPathCompressor()
     {
         predictor = new Predictor;
-        spreducer = new SpReducer;
+        spcodec   = new SpCodec;
         codec     = new Codec;
         fb_codec  = new FallbackCodec;
     }
 
     ~DefaultPathCompressor()
     {
-        if (spreducer) delete spreducer;
+        if (spcodec) delete spcodec;
         if (codec) delete codec;
         if (fb_codec) delete codec;
         if (predictor) delete predictor;
@@ -120,7 +120,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         const auto y               = (*config).y;
         const auto z               = (*config).z;
 
-        size_t spreducer_in_len, codec_in_len;
+        size_t spcodec_in_len, codec_in_len;
 
         auto allocate_codec = [&]() {
             if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
@@ -137,10 +137,10 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 
         (*predictor).init(x, y, z, dbg_print);
 
-        spreducer_in_len = (*predictor).get_alloclen_data();
-        codec_in_len     = (*predictor).get_alloclen_quant();
+        spcodec_in_len = (*predictor).get_alloclen_data();
+        codec_in_len   = (*predictor).get_alloclen_quant();
 
-        (*spreducer).init(spreducer_in_len, density_factor, dbg_print);
+        (*spcodec).init(spcodec_in_len, density_factor, dbg_print);
 
         allocate_codec();
 
@@ -169,7 +169,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
             time_c = (*fb_codec).get_time_lossless();
         }
 
-        auto time_s        = (*spreducer).get_time_elapsed();
+        auto time_s        = (*spcodec).get_time_elapsed();
         auto time_subtotal = time_p + time_h + time_c + time_s;
         auto time_total    = time_subtotal + time_b;
 
@@ -178,7 +178,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         ReportHelper::println_throughput_tablehead();
 
         ReportHelper::println_throughput("predictor", time_p, bytes);
-        ReportHelper::println_throughput("spreducer", time_s, bytes);
+        ReportHelper::println_throughput("spcodec", time_s, bytes);
         ReportHelper::println_throughput("histogram", time_h, bytes);
         ReportHelper::println_throughput("Huff-encode", time_c, bytes);
         ReportHelper::println_throughput("(subtotal)", time_subtotal, bytes);
@@ -205,12 +205,12 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
             time_c = (*fb_codec).get_time_lossless();
         }
 
-        auto time_s     = (*spreducer).get_time_elapsed();
+        auto time_s     = (*spcodec).get_time_elapsed();
         auto time_total = time_p + time_s + time_c;
 
         printf("\n(d) deCOMPRESSION REPORT\n");
         ReportHelper::println_throughput_tablehead();
-        ReportHelper::println_throughput("spreducer", time_s, bytes);
+        ReportHelper::println_throughput("spcodec", time_s, bytes);
         ReportHelper::println_throughput("Huff-decode", time_c, bytes);
         ReportHelper::println_throughput("predictor", time_p, bytes);
         ReportHelper::println_throughput("(total)", time_total, bytes);
@@ -272,9 +272,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
             (*predictor).construct(uncompressed, data_len3, eb, radius, d_anchor, d_errctrl, stream);
         };
 
-        auto spreducer_do = [&]() {
-            (*spreducer).gather(uncompressed, m * m, d_spfmt, spfmt_out_len, stream, dbg_print);
-        };
+        auto spcodec_do = [&]() { (*spcodec).encode(uncompressed, m * m, d_spfmt, spfmt_out_len, stream, dbg_print); };
 
         auto codec_do_with_exception = [&]() {
             auto encode_with_fallback_codec = [&]() {
@@ -365,7 +363,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         errctrl_len = (*predictor).get_len_quant();
         sublen      = ConfigHelper::get_npart(data_len, pardeg);
 
-        spreducer_do(), codec_do_with_exception();
+        spcodec_do(), codec_do_with_exception();
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
@@ -388,7 +386,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     {  //
         (*predictor).clear_buffer();
         (*codec).clear_buffer();
-        (*spreducer).clear_buffer();
+        (*spcodec).clear_buffer();
     }
 
     /**
@@ -422,9 +420,9 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto const   vle_pardeg = header->vle_pardeg;
 
         // The inputs of components are from `compressed`.
-        auto d_anchor       = ACCESSOR(ANCHOR, T);
-        auto d_decoder_in   = ACCESSOR(VLE, BYTE);
-        auto d_spreducer_in = ACCESSOR(SPFMT, BYTE);
+        auto d_anchor     = ACCESSOR(ANCHOR, T);
+        auto d_decoder_in = ACCESSOR(VLE, BYTE);
+        auto d_spcodec_in = ACCESSOR(SPFMT, BYTE);
 
         // wire the workspace
         auto d_errctrl = (*predictor).expose_quant();  // reuse space
@@ -434,10 +432,10 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         auto d_predictor_in = d_errctrl;
 
         // wire and aliasing
-        auto d_spreducer_out = out_decompressed;
+        auto d_spcodec_out   = out_decompressed;
         auto d_predictor_out = out_decompressed;
 
-        auto spreducer_do            = [&]() { (*spreducer).scatter(d_spreducer_in, d_spreducer_out, stream); };
+        auto spcodec_do              = [&]() { (*spcodec).decode(d_spcodec_in, d_spcodec_out, stream); };
         auto codec_do_with_exception = [&]() {
             if (not use_fallback_codec) { (*codec).decode(d_decoder_in, d_decoder_out); }
             else {
@@ -454,7 +452,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         };
 
         // process
-        spreducer_do(), codec_do_with_exception(), predictor_do();
+        spcodec_do(), codec_do_with_exception(), predictor_do();
 
         if (rpt_print) try_report_decompression();
 

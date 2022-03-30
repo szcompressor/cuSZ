@@ -17,8 +17,8 @@ namespace cusz {
 class VirtualGatherScatter {
    public:
     virtual float get_time_elapsed() const = 0;
-    virtual void  gather()                 = 0;
-    virtual void  scatter()                = 0;
+    // virtual void  encode()                 = 0;
+    // virtual void  decode()                = 0;
 };
 
 class VariableRate {

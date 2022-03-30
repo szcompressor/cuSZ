@@ -41,7 +41,7 @@ unsigned int len = dimx * dimy * dimz;
 
 using Compressor = DefaultPath::DefaultCompressor;
 using Predictor  = cusz::PredictorLorenzo<T, E, float>;
-using SpReducer  = cusz::CSR11<T>;
+using SpCodec    = cusz::CSR11<T>;
 using Codec      = cusz::HuffmanCoarse<E, H, uint32_t>;
 
 std::string fname("");
@@ -60,7 +60,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, int pardeg, cudaStre
     };
 
     Predictor predictor(xyz);
-    SpReducer spreducer;
+    SpCodec   spcodec;
     Codec     codec;
 
     T* xdata = data;

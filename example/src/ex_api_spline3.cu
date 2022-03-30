@@ -41,7 +41,7 @@ constexpr unsigned int len = dimx * dimy * dimz;
 
 using Compressor = SparsityAwarePath::DefaultCompressor;
 using Predictor  = cusz::Spline3<T, E, float>;
-using SpReducer  = cusz::CSR11<T>;
+using SpCodec    = cusz::CSR11<T>;
 
 bool        gpu_verify = true;
 std::string fname("");
@@ -60,7 +60,7 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
     };
 
     Predictor predictor(xyz, true);
-    SpReducer spreducer;
+    SpCodec   spcodec;
 
     T* xdata = data;
 
@@ -99,8 +99,8 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
     auto _2_allocate_workspace = [&]() {
         printf("_2_allocate_workspace\n");
         predictor.init();
-        auto spreducer_in_len = predictor.get_quant_footprint();
-        spreducer.init(spreducer_in_len, true);
+        auto spcodec_in_len = predictor.get_quant_footprint();
+        spcodec.init(spcodec_in_len, true);
     };
 
     auto _2_compress_time = [&]() {
@@ -110,13 +110,13 @@ void predictor_detail(T* data, T* cmp, dim3 xyz, double eb, bool use_sp, cudaStr
 
         dbg_echo_nnz();
 
-        spreducer.gather(errctrl, predictor.get_quant_footprint(), csr, csr_nbyte, stream);
+        spcodec.encode(errctrl, predictor.get_quant_footprint(), csr, csr_nbyte, stream);
         BARRIER();
     };
 
     auto _2_decompress_time = [&]() {  //
         printf("_2_decompress_time\n");
-        spreducer.scatter(csr, errctrl, stream);
+        spcodec.decode(csr, errctrl, stream);
         BARRIER();
         predictor.reconstruct(anchor, errctrl, eb, radius, xdata, stream);
         BARRIER();
@@ -216,7 +216,7 @@ int main(int argc, char** argv)
         printf(
             "argv[1]: "
             "(1) predictor demo, "
-            "(2) predictor-spreducer demo, "
+            "(2) predictor-spcodec demo, "
             "(3) compressor demo\n"
             "argv[2]: filename\n"
             "argv[3]: error bound (default to \"1e-2\")\n"

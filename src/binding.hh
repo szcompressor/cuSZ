@@ -30,17 +30,17 @@
  * Predictor<T, E, (FP)>
  *           |  |   ^
  *           v  |   |
- * SpReducer<T> |   +---- default "fast-lowlowprecision"
+ *   SpCodec<T> |   +---- default "fast-lowlowprecision"
  *              v
  *      Encoder<E, H>
  */
 
-template <class Predictor, class SpReducer, class Codec, class FallbackCodec>
+template <class Predictor, class SpCodec, class Codec, class FallbackCodec>
 struct PredictorReducerCodecBinding {
     using T1 = typename Predictor::Origin;
     using T2 = typename Predictor::Anchor;
     using E1 = typename Predictor::ErrCtrl;
-    using T3 = typename SpReducer::Origin;  // SpReducer -> BYTE, omit
+    using T3 = typename SpCodec::Origin;  // SpCodec -> BYTE, omit
     using E2 = typename Codec::Origin;
     using H  = typename Codec::Encoded;
     // fallback
@@ -48,7 +48,7 @@ struct PredictorReducerCodecBinding {
     using H_FB = typename FallbackCodec::Encoded;
 
     using PREDICTOR      = Predictor;
-    using SPREDUCER      = SpReducer;
+    using SPCODEC        = SpCodec;
     using CODEC          = Codec;
     using FALLBACK_CODEC = FallbackCodec;
 
@@ -56,7 +56,7 @@ struct PredictorReducerCodecBinding {
     {
         static_assert(
             std::is_same<T1, T2>::value and std::is_same<T1, T3>::value,
-            "Predictor::Origin, Predictor::Anchor, and SpReducer::Origin must be the same.");
+            "Predictor::Origin, Predictor::Anchor, and SpCodec::Origin must be the same.");
 
         static_assert(std::is_same<E1, E2>::value, "Predictor::ErrCtrl and Codec::Origin must be the same.");
         static_assert(std::is_same<E1, E3>::value, "Predictor::ErrCtrl and FallbackCodec::Origin must be the same.");
@@ -84,7 +84,7 @@ struct PredictorReducerCodecBinding {
     {
         // !! The compiler does not support/generate constexpr properly
         // !! just put combinations
-        if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, SpReducer>::value)
+        if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, SpCodec>::value)
             return s->get_len_outlier();
 
         if CONSTEXPR (std::is_same<Stage1, Predictor>::value and std::is_same<Stage2, Codec>::value)  //
@@ -100,18 +100,18 @@ struct PredictorReducerCodecBinding {
  * Predictor<T, E, (FP)>
  *              |
  *              v
- *    SpReducer<E>
+ *      SpCodec<E>
  */
 
-template <class Predictor, class SpReducer>
+template <class Predictor, class SpCodec>
 struct PredictorReducerBinding {
     using T1 = typename Predictor::Origin;
     using T2 = typename Predictor::Anchor;
     using E1 = typename Predictor::ErrCtrl;
-    using E2 = typename SpReducer::Origin;
+    using E2 = typename SpCodec::Origin;
 
     using PREDICTOR = Predictor;
-    using SPREDUCER = SpReducer;
+    using SPCODEC   = SpCodec;
 
     // SpRecuder -> BYTE, omit
 
@@ -120,7 +120,7 @@ struct PredictorReducerBinding {
         static_assert(std::is_same<T1, T2>::value, "Predictor::Origin and Predictor::Anchor must be the same.");
 
         // alternatively, change Output of Predictor in place of Origin
-        static_assert(std::is_same<E1, E2>::value, "Predictor::ErrCtrl and SpReducer::Origin must be the same.");
+        static_assert(std::is_same<E1, E2>::value, "Predictor::ErrCtrl and SpCodec::Origin must be the same.");
 
         // TODO this is the restriction for now.
         static_assert(std::is_floating_point<T1>::value, "Predictor::Origin must be floating-point type.");
@@ -130,7 +130,7 @@ struct PredictorReducerBinding {
     }
 
     template <class Context>
-    static size_t get_spreducer_input_len(Context* ctx)
+    static size_t get_spcodec_input_len(Context* ctx)
     {
         return ctx->quant_len;
     }

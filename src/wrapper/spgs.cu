@@ -30,7 +30,7 @@ spGS<T>& spGS<T>::consolidate(uint8_t* dst)
 }
 
 template <typename T>
-void spGS<T>::gather(
+void spGS<T>::encode(
     T*            in,
     uint32_t      in_len,
     int*          nullarray,
@@ -75,23 +75,23 @@ void spGS<T>::gather(
 }
 
 template <typename T>
-void spGS<T>::scatter(int*& in_idx, T*& in_val, int nnz, T* out)
+void spGS<T>::decode(int*& in_idx, T*& in_val, int nnz, T* out)
 {
     cuda_timer_t t;
     t.timer_start();
-    thrust::scatter(thrust::device, in_val, in_val + nnz, in_idx, out);
+    thrust::decode(thrust::device, in_val, in_val + nnz, in_idx, out);
     t.timer_end();
     milliseconds = t.get_time_elapsed();
 }
 
 template <typename T>
-void spGS<T>::scatter(uint8_t* _pool, int nnz, T* out, uint32_t out_len)
+void spGS<T>::decode(uint8_t* _pool, int nnz, T* out, uint32_t out_len)
 {
     auto nbyte_idx = nnz * sizeof(int);
     auto in_idx    = reinterpret_cast<int*>(_pool);
     auto in_val    = reinterpret_cast<T*>(_pool + (nbyte_idx));
 
-    scatter(in_idx, in_val, nnz, out);
+    decode(in_idx, in_val, nnz, out);
 }
 
 }  // namespace cusz

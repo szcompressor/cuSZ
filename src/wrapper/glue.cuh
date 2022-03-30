@@ -325,7 +325,7 @@ class CompatibleSPGS : public VirtualGatherScatter {
             in_uncompressed, in_uncompressed_len, radius, out_compressed, out_compressed_len, 2, stream, dbg_print);
     }
 
-    void scatter(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream = nullptr)
+    void decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream = nullptr)
     {
         header_t header;
         CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
@@ -339,7 +339,7 @@ class CompatibleSPGS : public VirtualGatherScatter {
         thrust::cuda::par.on(stream);
         cuda_timer_t t;
         t.timer_start(stream);
-        thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, out_decompressed);
+        thrust::decode(thrust::device, d_val, d_val + nnz, d_idx, out_decompressed);
         t.timer_end(stream);
         milliseconds = t.get_time_elapsed();
     }

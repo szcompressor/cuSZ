@@ -51,13 +51,13 @@ void f()
 
     data.host2device();
 
-    cusz::spGS<float> spreducer;
+    cusz::spGS<float> spcodec;
 
     float        ms;
     unsigned int dump_nbyte;
 
-    spreducer.gather(data.dptr, len, nullptr, sp_idx.dptr, sp_val.dptr, out_nnz, dump_nbyte);
-    ms = spreducer.get_time_elapsed();
+    spcodec.encode(data.dptr, len, nullptr, sp_idx.dptr, sp_val.dptr, out_nnz, dump_nbyte);
+    ms = spcodec.get_time_elapsed();
 
     sp_val.device2host();
     sp_idx.device2host();
@@ -74,11 +74,11 @@ void f()
 
     data.template alloc<LOC>();
 
-    spreducer.scatter(sp_idx.dptr, sp_val.dptr, out_nnz, data.dptr);
+    spcodec.decode(sp_idx.dptr, sp_val.dptr, out_nnz, data.dptr);
 
     data.device2host();
 
-    ms = spreducer.get_time_elapsed();
+    ms = spcodec.get_time_elapsed();
     cout << (bytes * 1.0 / 1e9) / (ms / 1e3) << " GiB/s\n";
 
     cout << data.hptr[20] << '\n';

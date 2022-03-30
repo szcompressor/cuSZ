@@ -48,7 +48,7 @@ class cuszCTX {
     struct { string fname, origin_cmp, path_basename, basename, compress_output; } fname;
     // clang-format on
 
-    // sparsity related: init_nnz when setting up SpReducer
+    // sparsity related: init_nnz when setting up SpCodec
     float nz_density        = SparseMethodSetup::default_density;
     float nz_density_factor = SparseMethodSetup::default_density_factor;
 
@@ -66,11 +66,11 @@ class cuszCTX {
 
     string str_predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
     string str_codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
-    string str_spreducer = ConfigHelper::get_default_spreducer();  // "cusparse-csr"
+    string str_spcodec   = ConfigHelper::get_default_spcodec();    // "cusparse-csr"
 
     uint32_t predictor = 0;
     uint32_t codec     = 0;
-    uint32_t spreducer = 0;
+    uint32_t spcodec   = 0;
 
     uint32_t codecs_in_use{0b01};
 

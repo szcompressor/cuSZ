@@ -33,7 +33,7 @@ enum class ALIGNMEM { NONE, WARP32B, WARP64B, WARP128B };
 // struct CODEC {
 //     static const uint32_t HUFFMAN_COARSE = 0;
 // };
-// struct SPREDUCER {
+// struct SPCODEC {
 //     static const uint32_t CSR11 = 0;
 // };
 

@@ -28,8 +28,8 @@ using std::endl;
 using std::string;
 
 // TODO check version
-const char* VERSION_TEXT  = "2022-03-07.rc2";
-const int   VERSION       = 20220307;
+const char* VERSION_TEXT  = "2022-03-25.rc3";
+const int   VERSION       = 20220325;
 const int   COMPATIBILITY = 0;
 
 namespace {
@@ -528,9 +528,9 @@ cuszCTX::cuszCTX(const char* config_str, bool dbg_print)
             this->str_codec = v;  // TODO
             this->codec     = ConfigHelper::codec_lookup(v);
         }
-        if (k == "spreducer" and ConfigHelper::check_codec(v, true)) {
-            this->str_spreducer = v;  // TODO
-            this->spreducer     = ConfigHelper::spreducer_lookup(v);
+        if (k == "spcodec" and ConfigHelper::check_codec(v, true)) {
+            this->str_spcodec = v;  // TODO
+            this->spcodec     = ConfigHelper::spcodec_lookup(v);
         }
         */
     }

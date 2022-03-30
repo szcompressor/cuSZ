@@ -66,7 +66,7 @@ void RunLengthDecoding(T* d_fullfmt_data, const size_t N, T* d_compact_data, int
         counter(1), counter(N + 1),  //
         indices.begin());
 
-    thrust::gather(indices.begin(), indices.end(), input, output);
+    thrust::encode(indices.begin(), indices.end(), input, output);
 }
 
 }  // namespace kernel

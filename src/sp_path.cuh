@@ -37,7 +37,7 @@
 template <class BINDING>
 class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     using Predictor = typename BINDING::PREDICTOR;
-    using SpReducer = typename BINDING::SPREDUCER;
+    using SpCodec   = typename BINDING::SPCODEC;
 
     using T    = typename Predictor::Origin;   // wrong in type inference
     using E    = typename Predictor::ErrCtrl;  // wrong in type inference
@@ -47,7 +47,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     dim3         data_size;
 
     Predictor* predictor;
-    SpReducer* spreducer;
+    SpCodec*   spcodec;
 
     BYTE* d_reserved_compressed{nullptr};
 
@@ -81,16 +81,16 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     void init(dim3 xyz, int dummy_coarse_pardeg = -1, int sp_factor = 4, bool dbg_print = false)
     {
         predictor = new Predictor(xyz);
-        spreducer = new SpReducer;
+        spcodec   = new SpCodec;
 
         data_size = xyz;
 
         (*predictor).init(/*TODO*/);
 
         // TODO encapsulate more
-        auto spreducer_in_len = (*predictor).get_quant_footprint();
+        auto spcodec_in_len = (*predictor).get_quant_footprint();
 
-        (*spreducer).init(spreducer_in_len, sp_factor, dbg_print);
+        (*spcodec).init(spcodec_in_len, sp_factor, dbg_print);
 
         CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_len_data() * sizeof(T) / 2));
     }
@@ -115,8 +115,8 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     {
         T*     d_anchor{nullptr};
         E*     d_errctrl{nullptr};
-        BYTE*  d_spreducer_out{nullptr};
-        size_t spreducer_out_len{0};
+        BYTE*  d_spcodec_out{nullptr};
+        size_t spcodec_out_len{0};
 
         HEADER header;
 
@@ -126,7 +126,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             uint32_t nbyte[HEADER::END];
             nbyte[HEADER::HEADER] = 128;
             nbyte[HEADER::ANCHOR] = sizeof(T) * (*predictor).get_len_anchor();
-            nbyte[HEADER::SPFMT]  = sizeof(BYTE) * spreducer_out_len;
+            nbyte[HEADER::SPFMT]  = sizeof(BYTE) * spcodec_out_len;
 
             header.entry[0] = 0;
             // *.END + 1; need to know the ending position
@@ -142,14 +142,14 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             CHECK_CUDA(cudaMemcpyAsync(d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
 
             D2D_CPY(anchor, ANCHOR)
-            D2D_CPY(spreducer_out, SPFMT)
+            D2D_CPY(spcodec_out, SPFMT)
 
             /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
         };
 
         (*predictor).construct(uncompressed, eb, radius, d_anchor, d_errctrl, stream);
-        auto spreducer_in_len = (*predictor).get_quant_footprint();
-        (*spreducer).gather(d_errctrl, spreducer_in_len, d_spreducer_out, spreducer_out_len, stream);
+        auto spcodec_in_len = (*predictor).get_quant_footprint();
+        (*spcodec).encode(d_errctrl, spcodec_in_len, d_spcodec_out, spcodec_out_len, stream);
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
@@ -167,7 +167,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             auto time_p = predictor->get_time_elapsed();
             auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
 
-            auto time_s = spreducer->get_time_elapsed();
+            auto time_s = spcodec->get_time_elapsed();
             auto tp_s   = byte_to_gbyte(bytes) / ms_to_s(time_s);
 
             auto tp_total = byte_to_gbyte(bytes) / ms_to_s(time_p + time_s);
@@ -175,7 +175,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             printf("\n(c) COMPRESSION REPORT\n");
             printf("%-*s: %.2f\n", 20, "compression ratio", get_cr());
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
-            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spcodec time", time_s, tp_s);
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "total time", time_p + time_s, tp_total);
             printf("\n");
         };
@@ -190,7 +190,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     void clear_buffer()
     {  //
         (*predictor).clear_buffer();
-        (*spreducer).clear_buffer();
+        (*spcodec).clear_buffer();
     }
 
     /**
@@ -213,12 +213,12 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        auto d_anchor       = ACCESSOR(ANCHOR, T);
-        auto d_spreducer_in = ACCESSOR(SPFMT, BYTE);
+        auto d_anchor     = ACCESSOR(ANCHOR, T);
+        auto d_spcodec_in = ACCESSOR(SPFMT, BYTE);
 
         auto d_errctrl = (*predictor).expose_quant();  // reuse
 
-        (*spreducer).scatter(d_spreducer_in, d_errctrl, stream);
+        (*spcodec).decode(d_spcodec_in, d_errctrl, stream);
         (*predictor).reconstruct(d_anchor, d_errctrl, eb, radius, out_decompressed, stream);
 
         auto decompress_report = [&]() {
@@ -230,13 +230,13 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             auto time_p = predictor->get_time_elapsed();
             auto tp_p   = byte_to_gbyte(bytes) / ms_to_s(time_p);
 
-            auto time_s = spreducer->get_time_elapsed();
+            auto time_s = spcodec->get_time_elapsed();
             auto tp_s   = byte_to_gbyte(bytes) / ms_to_s(time_s);
 
             auto tp_total = byte_to_gbyte(bytes) / ms_to_s(time_p + time_s);
 
             printf("\n(d) deCOMPRESSION REPORT\n");
-            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spreducer time", time_s, tp_s);
+            printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "spcodec time", time_s, tp_s);
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "predictor time", time_p, tp_p);
             printf("%-*s: %4.3f ms\tthroughput  : %4.2f GiB/s\n", 20, "total time", time_p + time_s, tp_total);
             printf("\n");
@@ -248,7 +248,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     ~SpPathCompressor()
     {
         delete predictor;
-        delete spreducer;
+        delete spcodec;
     }
 };
 

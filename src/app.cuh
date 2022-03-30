@@ -44,7 +44,7 @@ class app {
     using Compressor = typename DefaultPath<float>::DefaultCompressor;
     using T          = typename Compressor::T;
     using Predictor  = typename Compressor::Predictor;
-    using SpReducer  = typename Compressor::SpReducer;
+    using SpCodec    = typename Compressor::SpCodec;
     using Codec      = typename Compressor::Codec;
 
     const static auto HOST        = cusz::LOC::HOST;
