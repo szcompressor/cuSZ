@@ -87,9 +87,9 @@ __global__ void kernel::NaiveHistogram(T in_data[], int out_freq[], int N, int s
 template <typename T, typename FREQ>
 __global__ void kernel::p2013Histogram(T* in_data, FREQ* out_freq, size_t N, int nbin, int R)
 {
-    static_assert(
-        std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
-        "T must be `unsigned integer` type of {1,2,4} bytes");
+    // static_assert(
+    //     std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
+    //     "T must be `unsigned integer` type of {1,2,4} bytes");
 
     extern __shared__ int Hs[/*(nbin + 1) * R*/];
 
@@ -109,6 +109,7 @@ __global__ void kernel::p2013Histogram(T* in_data, FREQ* out_freq, size_t N, int
 
     for (unsigned int i = begin; i < end; i += step) {
         int d = in_data[i];
+        d     = d <= 0 and d >= nbin ? nbin / 2 : d;
         atomicAdd(&Hs[off_rep + d], 1);
     }
     __syncthreads();
@@ -129,9 +130,9 @@ void kernel_wrapper::get_frequency(
     float&       milliseconds,
     cudaStream_t stream)
 {
-    static_assert(
-        std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
-        "To get frequency, `T` must be unsigned integer type of {1,2,4} bytes");
+    // static_assert(
+    //     std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
+    //     "To get frequency, `T` must be unsigned integer type of {1,2,4} bytes");
 
     int device_id, max_bytes, num_SMs;
     int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;

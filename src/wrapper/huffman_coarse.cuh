@@ -254,6 +254,10 @@ class HuffmanCoarse : public cusz::VariableRate {
     float get_time_book() const { return time_book; }
     float get_time_lossless() const { return time_lossless; }
 
+    H*          expose_book() const { return d_book; };
+    BYTE*       expose_revbook() const { return d_revbook; };
+    cusz::FREQ* expose_freq() const { return d_freq; };
+
     // TODO this kind of space will be overlapping with quant-codes
     size_t get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
     size_t get_max_output_nbyte(size_t len) const { return sizeof(H) * len / 2; }
@@ -415,7 +419,8 @@ class HuffmanCoarse : public cusz::VariableRate {
         int const    cfg_pardeg,
         BYTE*&       out_compressed,
         size_t&      out_compressed_len,
-        cudaStream_t stream = nullptr)
+        cudaStream_t stream     = nullptr,
+        bool         do_inspect = true)
     {
         cuda_timer_t t;
         time_lossless = 0;
@@ -497,7 +502,7 @@ class HuffmanCoarse : public cusz::VariableRate {
 
         // -----------------------------------------------------------------------------
 
-        inspect(d_freq, d_book, in_uncompressed, in_uncompressed_len, cfg_booklen, d_revbook, stream);
+        if (do_inspect) inspect(d_freq, d_book, in_uncompressed, in_uncompressed_len, cfg_booklen, d_revbook, stream);
 
         encode_phase1();
         encode_phase2();

@@ -71,7 +71,7 @@ namespace detail {
 template <typename T>             __global__ void GPU_FillArraySequence(T*, unsigned int);
 template <typename T>             __global__ void GPU_GetFirstNonzeroIndex(T*, unsigned int, unsigned int*);
 template <typename T>             __global__ void GPU_ReverseArray(T*, unsigned int);
-template <typename T, typename Q> __global__ void GPU_ReorderByIndex(T*, Q*, unsigned int);
+template <typename H, typename T> __global__ void GPU_ReorderByIndex(H*, T*, unsigned int);
 // clang-format on
 
 }  // namespace detail
@@ -478,18 +478,27 @@ __global__ void GPU_GetMaxCWLength(unsigned int* CL, unsigned int size, unsigned
 }  // namespace detail
 }  // namespace par_huffman
 
-// Reorders given a set of indices. Programmer must ensure that all index[i]
-// are unique or else race conditions may occur
-template <typename T, typename Q>
-__global__ void par_huffman::detail::GPU_ReorderByIndex(T* array, Q* index, unsigned int size)
+/**
+ * @brief Reorders given a set of indices. Programmer must ensure that all index[i]
+ * are unique or else race conditions may occur
+ *
+ * @tparam T
+ * @tparam Q
+ * @param array e.g., codebook
+ * @param index e.g., input data
+ * @param size
+ * @return __global__
+ */
+template <typename H, typename T>
+__global__ void par_huffman::detail::GPU_ReorderByIndex(H* array, T* index, unsigned int size)
 {
     unsigned int thread = (blockIdx.x * blockDim.x) + threadIdx.x;
-    T            temp;
-    Q            newIndex;
+    H            temp;
+    T            newIndex;
     if (thread < size) {
-        temp            = array[thread];
-        newIndex        = index[thread];
-        array[newIndex] = temp;
+        temp                 = array[thread];
+        newIndex             = index[thread];
+        array[(int)newIndex] = temp;
     }
 }
 
@@ -719,13 +728,18 @@ void kernel_wrapper::par_get_codebook(
 /********************************************************************************/
 // instantiate wrapper
 
-#define PAR_HUFFMAN(E, H)                                                                      \
-    template void kernel_wrapper::par_get_codebook<ErrCtrlTrait<E>::type, HuffTrait<H>::type>( \
+#define PAR_HUFFMAN(E, ETF, H)                                                                      \
+    template void kernel_wrapper::par_get_codebook<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type>( \
         cusz::FREQ*, int, HuffTrait<H>::type*, uint8_t*, cudaStream_t);
 
-PAR_HUFFMAN(1, 4)
-PAR_HUFFMAN(1, 8)
-PAR_HUFFMAN(2, 4)
-PAR_HUFFMAN(2, 8)
-PAR_HUFFMAN(4, 4)
-PAR_HUFFMAN(4, 8)
+// PAR_HUFFMAN(1, 4)
+// PAR_HUFFMAN(1, 8)
+PAR_HUFFMAN(2, false, 4)
+PAR_HUFFMAN(2, false, 8)
+// PAR_HUFFMAN(4, 4)
+// PAR_HUFFMAN(4, 8)
+
+PAR_HUFFMAN(4, true, 4)  // float
+PAR_HUFFMAN(4, true, 8)
+PAR_HUFFMAN(8, true, 4)  // double
+PAR_HUFFMAN(8, true, 8)

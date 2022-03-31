@@ -14,17 +14,13 @@
 
 #include "huffman_coarse.cuh"
 
-#define HUFFCOARSE(E, H, M) \
-    template class cusz::HuffmanCoarse<ErrCtrlTrait<E>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
+#define HUFFCOARSE(E, ETF, H, M) \
+    template class cusz::HuffmanCoarse<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
 
-HUFFCOARSE(2, 4, 4)
-// HUFFCOARSE(2, 4, 8)
-HUFFCOARSE(2, 8, 4)
-// HUFFCOARSE(2, 8, 8)
+HUFFCOARSE(2, false, 4, 4)  // deprecated
+HUFFCOARSE(2, false, 8, 4)  // deprecated
 
-// HUFFCOARSE(4, 4, 4)
-// HUFFCOARSE(4, 4, 8)
-// HUFFCOARSE(4, 8, 4)
-// HUFFCOARSE(4, 8, 8)
+HUFFCOARSE(4, true, 4, 4)  // float
+HUFFCOARSE(8, true, 8, 4)  // double
 
 #undef HUFFCOARSE

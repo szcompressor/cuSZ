@@ -151,7 +151,7 @@ __global__ void huffman_encode_fixedlen_gridstride(
          idx < in_uncompressed_len;            //
          idx += __helper::grid_stride_1()      //
     )
-        out_encoded[idx] = shmem_cb[in_uncompressed[idx]];
+        out_encoded[idx] = shmem_cb[(int)in_uncompressed[idx]];
 }
 
 template <typename COMPRESSED, typename MetadataT>
