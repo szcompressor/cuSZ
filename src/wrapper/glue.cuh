@@ -339,7 +339,7 @@ class CompatibleSPGS : public VirtualGatherScatter {
         thrust::cuda::par.on(stream);
         cuda_timer_t t;
         t.timer_start(stream);
-        thrust::decode(thrust::device, d_val, d_val + nnz, d_idx, out_decompressed);
+        thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, out_decompressed);
         t.timer_end(stream);
         milliseconds = t.get_time_elapsed();
     }
