@@ -76,6 +76,8 @@ void set_config(cuszCTX* ctx, const char* in_str)
     map_t opts;
     StrHelper::parse_strlist_as_kv(in_str, opts);
 
+    auto is_enabled = [&](auto& v) -> bool { return v == "on" or v == "ON"; };
+
     for (auto kv : opts) {
         if (kv.first == "mode") { ctx->mode = std::string(kv.second); }
         else if (kv.first == "eb") {
@@ -97,19 +99,28 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->quant_bytewidth = StrHelper::str2int(kv.second);
         }
         else if (kv.first == "huffchunk") {
-            ctx->vle_sublen                 = StrHelper::str2int(kv.second);
-            ctx->on_off.autotune_vle_pardeg = false;
+            ctx->vle_sublen              = StrHelper::str2int(kv.second);
+            ctx->use.autotune_vle_pardeg = false;
         }
         else if (kv.first == "demo") {
-            ctx->on_off.use_demo = true;
-            ctx->demo_dataset    = string(kv.second);
+            ctx->use.predefined_demo = true;
+            ctx->demo_dataset        = string(kv.second);
             ctx->load_demo_sizes();
         }
         else if (kv.first == "predictor") {
-            ctx->str_predictor = string(kv.second);
+            ctx->predictor = string(kv.second);
         }
-        else if (kv.first == "releaseinput" and (kv.second == "on" or kv.second == "ON")) {
-            ctx->on_off.release_input = true;
+        else if (kv.first == "postcompress") {
+            // TODO nvcomp, gzip, etc.
+        }
+        else if (kv.first == "anchor" and is_enabled(kv.second)) {
+            ctx->use.anchor = true;
+        }
+        else if (kv.first == "releaseinput" and is_enabled(kv.second)) {
+            ctx->use.release_input = true;
+        }
+        else if (kv.first == "pipeline") {
+            ctx->compression_pipeline = kv.second;
         }
         else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
             ctx->nz_density        = StrHelper::str2fp(kv.second);
@@ -119,20 +130,24 @@ void set_config(cuszCTX* ctx, const char* in_str)
             ctx->nz_density_factor = StrHelper::str2fp(kv.second);
             ctx->nz_density        = 1 / ctx->nz_density_factor;
         }
-        else if (kv.first == "gpuverify" and (kv.second == "on" or kv.second == "ON")) {
-            ctx->on_off.use_gpu_verify = true;
+        else if (kv.first == "gpuverify" and is_enabled(kv.second)) {
+            ctx->use.gpu_verify = true;
         }
 
         // when to enable anchor
-        if (ctx->str_predictor == "spline3") ctx->on_off.use_anchor = true;
-        if ((kv.first == "anchor") and  //
-            (string(kv.second) == "on" or string(kv.second) == "ON"))
-            ctx->on_off.use_anchor = true;
+        if (ctx->predictor == "spline3") {
+            // unconditionally use anchor when it is spline3
+            ctx->use.anchor = true;
+        }
     }
 }
 
 }  // namespace
 
+/**
+ * @deprecated
+ *
+ */
 void cuszCTX::load_demo_sizes()
 {
     const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
@@ -164,7 +179,7 @@ void cuszCTX::check_args_when_cli()
         to_abort = true;
     }
 
-    if (data_len == 1 and not on_off.use_demo) {
+    if (data_len == 1 and not use.predefined_demo) {
         if (task_is.construct or task_is.dryrun) {
             cerr << LOG_ERR << "wrong input size" << endl;
             to_abort = true;
@@ -247,6 +262,7 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     if (long_opt == "--meta") goto tag_meta;              //
                     if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
                     if (long_opt == "--eb") goto tag_error_bound;         //
+                    if (long_opt == "--predictor") goto tag_predictor;    //
                     if (long_opt == "--dtype") goto tag_type;             //
                     if (long_opt == "--input") goto tag_input;            // INPUT
                     if (long_opt == "--len") goto tag_len;                //
@@ -259,10 +275,15 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     if (long_opt == "--output") goto tag_x_out;           //
                     if (long_opt == "--verbose") goto tag_verbose;        //
 
+                    if (long_opt == "--pipeline") {
+                        if (i + 1 <= argc) compression_pipeline == string(argv[++i]);
+                        break;
+                    }
+
                     if (long_opt == "--demo") {
                         if (i + 1 <= argc) {
-                            on_off.use_demo = true;
-                            demo_dataset    = string(argv[++i]);
+                            use.predefined_demo = true;
+                            demo_dataset        = string(argv[++i]);
                             load_demo_sizes();
                         }
                         break;
@@ -271,8 +292,8 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     if (long_opt == "--skip") {
                         if (i + 1 <= argc) {
                             string exclude(argv[++i]);
-                            if (exclude.find("huffman") != std::string::npos) { to_skip.huffman = true; }
-                            if (exclude.find("write2disk") != std::string::npos) { to_skip.write2disk = true; }
+                            if (exclude.find("huffman") != std::string::npos) { skip.huffman = true; }
+                            if (exclude.find("write2disk") != std::string::npos) { skip.write2disk = true; }
                         }
                         break;
                     }
@@ -322,6 +343,10 @@ cuszCTX::cuszCTX(int argc, char** argv)
                     task_is.dryrun = true;
                     break;
                 // COMPRESSION CONFIG
+                case 'p':
+                tag_predictor:
+                    if (i + 1 <= argc) predictor = string(argv[++i]);
+                    break;
                 case 'm':  // mode
                 tag_mode:
                     if (i + 1 <= argc) {
@@ -348,9 +373,6 @@ cuszCTX::cuszCTX(int argc, char** argv)
                 tag_input:
                     if (i + 1 <= argc) fname.fname = string(argv[++i]);
                     break;
-                case 'p':
-                tag_predictor:
-                    if (i + 1 <= argc) { str_predictor = string(argv[++i]); }
                 // alternative output
                 case 'o':
                 tag_x_out:
@@ -521,15 +543,15 @@ cuszCTX::cuszCTX(const char* config_str, bool dbg_print)
         // future use
         /*
         if (k == "predictor" and ConfigHelper::check_predictor(v, true)) {
-            this->str_predictor = v;
+            this->predictor = v;
             this->predictor     = ConfigHelper::predictor_lookup(v);
         }
         if (k == "codec" and ConfigHelper::check_codec(v, true)) {
-            this->str_codec = v;  // TODO
+            this->codec = v;  // TODO
             this->codec     = ConfigHelper::codec_lookup(v);
         }
         if (k == "spcodec" and ConfigHelper::check_codec(v, true)) {
-            this->str_spcodec = v;  // TODO
+            this->spcodec = v;  // TODO
             this->spcodec     = ConfigHelper::spcodec_lookup(v);
         }
         */

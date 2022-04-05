@@ -32,25 +32,40 @@ extern const int   compatibility;
 
 class cuszCTX {
    public:
-    // clang-format off
     // on-off's
-    struct { bool construct{false}, reconstruct{false}, dryrun{false}, experiment{false}; bool gtest{false}; } task_is;
+    struct {
+        bool construct{false}, reconstruct{false}, dryrun{false};
+        bool experiment{false};
+        bool gtest{false};
+    } task_is;
 
-    struct { bool binning{false}, logtransform{false}, prescan{false}; } preprocess;
-    struct { bool gpu_nvcomp_cascade{false}, cpu_gzip{false}; } postcompress;
+    struct {
+        bool binning{false}, logtransform{false}, prescan{false};
+    } preprocess;
+    struct {
+        bool gpu_nvcomp_cascade{false}, cpu_gzip{false};
+    } postcompress;
 
-    struct { bool use_demo{false}, use_anchor{false}, autotune_vle_pardeg{true}, release_input{false}, use_gpu_verify{false}; } on_off;
-    struct { bool write2disk{false}, huffman{false}; } to_skip;
-    struct { bool book{false}, quant{false}; } export_raw;
-    struct { bool time{false}, cr{false}, compressibility{false}, dataseg{false}; } report;
+    struct {
+        bool predefined_demo{false}, release_input{false};
+        bool anchor{false}, autotune_vle_pardeg{true}, gpu_verify{false};
+    } use;
+
+    struct {
+        bool book{false}, quant{false};
+    } export_raw;
+
+    struct {
+        bool write2disk{false}, huffman{false};
+    } skip;
+    struct {
+        bool time{false}, cr{false}, compressibility{false};
+    } report;
 
     // filenames
-    struct { string fname, origin_cmp, path_basename, basename, compress_output; } fname;
-    // clang-format on
-
-    // sparsity related: init_nnz when setting up SpCodec
-    float nz_density        = SparseMethodSetup::default_density;
-    float nz_density_factor = SparseMethodSetup::default_density_factor;
+    struct {
+        string fname, origin_cmp, path_basename, basename, compress_output;
+    } fname;
 
     bool verbose{false};
 
@@ -61,16 +76,16 @@ class cuszCTX {
     string opath;
 
     string demo_dataset;
-    string dtype = ConfigHelper::get_default_dtype();     // "f32"
-    string mode  = ConfigHelper::get_default_cuszmode();  // "r2r"
+    string dtype{ConfigHelper::get_default_dtype()};          // "f32"
+    string mode{ConfigHelper::get_default_cuszmode()};        // "r2r"
+    string predictor{ConfigHelper::get_default_predictor()};  // "lorenzo"
+    string codec{ConfigHelper::get_default_codec()};          // "huffman-coarse"
+    string spcodec{ConfigHelper::get_default_spcodec()};      // "cusparse-csr"
+    string compression_pipeline{"auto"};
 
-    string str_predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
-    string str_codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
-    string str_spcodec   = ConfigHelper::get_default_spcodec();    // "cusparse-csr"
-
-    uint32_t predictor = 0;
-    uint32_t codec     = 0;
-    uint32_t spcodec   = 0;
+    // sparsity related: init_nnz when setting up SpCodec
+    float nz_density{SparseMethodSetup::default_density};
+    float nz_density_factor{SparseMethodSetup::default_density_factor};
 
     uint32_t codecs_in_use{0b01};
 
@@ -81,8 +96,8 @@ class cuszCTX {
     size_t huffman_num_uints, huffman_num_bits;
     int    vle_sublen{512}, vle_pardeg{-1};
 
-    size_t       data_len{1}, quant_len{1}, anchor_len{1};
     unsigned int x, y, z, w;
+    size_t       data_len{1}, quant_len{1}, anchor_len{1};
     int          ndim{-1};
 
     size_t get_len() const { return data_len; }

@@ -99,7 +99,7 @@ void demo_expose_io()
             cusz_instance.cusz_decompress(d_compressed, header, decompressed.dptr, stream, (*ctx).report.time);
 
             cusz_instance.try_compare(header, decompressed, cmp, (*ctx).fname.origin_cmp);
-            cusz_instance.try_write(decompressed, fname, (*ctx).to_skip.write2disk);
+            cusz_instance.try_write(decompressed, fname, (*ctx).skip.write2disk);
         }
     }
 

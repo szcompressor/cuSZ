@@ -41,7 +41,7 @@ struct AutoconfigHelper {
         };
 
         // TODO should be move to somewhere else, e.g., cusz::par_optmizer
-        if (ctx->on_off.autotune_vle_pardeg)
+        if (ctx->use.autotune_vle_pardeg)
             get_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
         else
             ctx->vle_pardeg = ConfigHelper::get_npart(ctx->data_len, ctx->vle_sublen);

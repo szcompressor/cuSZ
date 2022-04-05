@@ -19,8 +19,8 @@
 #include "analysis/analyzer.hh"
 #include "api.hh"
 #include "common.hh"
-#include "context.hh"
 #include "compressor.cuh"
+#include "context.hh"
 #include "query.hh"
 #include "utils.hh"
 
@@ -169,14 +169,14 @@ class CLI {
         core_decompress(header, compressor, compressed.dptr, decompressed.dptr, stream, (*ctx).report.time);
 
         try_evaluate_quality(header, decompressed, original, (*ctx).fname.origin_cmp);
-        try_write_decompressed_to_disk(decompressed, basename, (*ctx).to_skip.write2disk);
+        try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);
     }
 
    public:
     // TODO determine dtype & predictor in here
     void dispatch(context_t ctx)
     {
-        auto predictor = (*ctx).str_predictor;
+        auto predictor = (*ctx).predictor;
         if (predictor == "lorenzo") {
             using Compressor = typename Framework<Data>::LorenzoFeaturedCompressor;
             dispatch_task<Compressor>(ctx);
