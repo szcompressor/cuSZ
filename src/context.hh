@@ -85,6 +85,8 @@ class cuszCTX {
     unsigned int x, y, z, w;
     int          ndim{-1};
 
+    size_t get_len() const { return data_len; }
+
     double eb{0.0};
     int    dict_size{1024}, radius{512};
 

@@ -61,7 +61,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     using HEADER = cuszHEADER;
     HEADER header;
 
-    HEADER* expose_header() { return &header; }
+    void export_header(HEADER*& ext_header) { ext_header = &header; }
 
     struct runtime_helper {
     };
@@ -82,7 +82,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     uint32_t get_len_data() { return data_len3.x * data_len3.y * data_len3.z; }
 
    private:
-    // TODO better move to base compressor
+    // TODO move to base compressor
     // DefaultPathCompressor& analyze_compressibility();
     // DefaultPathCompressor& internal_eval_try_export_book();
     // DefaultPathCompressor& internal_eval_try_export_quant();
@@ -392,15 +392,15 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     /**
      * @brief High-level decompress method for this compressor
      *
-     * @param in_compressed device pointer, the cusz archive bianry
      * @param header header on host; if null, copy from device binary (from the beginning)
+     * @param in_compressed device pointer, the cusz archive bianry
      * @param out_decompressed device pointer, output decompressed data
      * @param stream CUDA stream
      * @param rpt_print control over printing time
      */
     void decompress(
-        BYTE*        in_compressed,
         cuszHEADER*  header,
+        BYTE*        in_compressed,
         T*           out_decompressed,
         cudaStream_t stream    = nullptr,
         bool         rpt_print = true)

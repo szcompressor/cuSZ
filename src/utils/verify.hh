@@ -110,7 +110,7 @@ void print_data_quality_metrics(stat_t* stat, size_t compressed_bytes = 0, bool 
     auto is_fp = std::is_same<Data, float>::value or std::is_same<Data, double>::value ? const_cast<char*>("yes")
                                                                                        : const_cast<char*>("no");
     print_head("", "data-len", "data-byte", "fp-type?", "");
-    printf("  %-10s %16d %16d %16s\n", "", stat->len, sizeof(Data), is_fp);
+    printf("  %-10s %16zu %16lu %16s\n", "", stat->len, sizeof(Data), is_fp);
 
     print_head("", "min", "max", "rng", "std");
     print_ln("origin", stat->min_odata, stat->max_odata, stat->rng_odata, stat->std_odata);

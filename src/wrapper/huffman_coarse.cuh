@@ -172,7 +172,7 @@ class HuffmanCoarse : public cusz::VariableRate {
             "\t(supposed) bytes   : %'9lu\n"
             "\t(queried)  pbase0  : %p\n"
             "\t(queried)  psize0  : %'9lu\n",
-            SYM_name.c_str(), (void*)VAR, rte.nbyte[SYM], (void*)&pbase0, psize0);
+            SYM_name.c_str(), (void*)VAR, (size_t)rte.nbyte[SYM], (void*)&pbase0, psize0);
         pbase0 = 0, psize0 = 0;
     }
 

@@ -9,7 +9,7 @@
  *
  */
 
-#include "app.cuh"
+#include "cli.cuh"
 
 // force generate a lib
-template class cusz::app<float>;
+template class cusz::CLI<float>;

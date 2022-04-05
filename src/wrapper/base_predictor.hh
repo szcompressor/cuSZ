@@ -106,24 +106,24 @@ class BasePredictor {
         printf("%-*s:  (%u, %u, %u)\n", 16, "sizeof.{T,E,FP}", (int)sizeof(T), (int)sizeof(E), (int)sizeof(FP));
         printf("%-*s:  (%u, %u, %u)\n", 16, "base.len3", base.len3.x, base.len3.y, base.len3.z);
         printf("%-*s:  (%u, %u, %u)\n", 16, "base.leap", base.leap.x, base.leap.y, base.leap.z);
-        printf("%-*s:  %'u\n", 16, "base.serial", base.serialized);
+        printf("%-*s:  %'zu\n", 16, "base.serial", base.serialized);
 
         if (use_anchor) {
             printf("%-*s:  (%u, %u, %u)\n", 16, "nblock", nblock.x, nblock.y, nblock.z);
 
             printf("%-*s:  (%u, %u, %u)\n", 16, "aligned.len3", aligned.len3.x, aligned.len3.y, aligned.len3.z);
             printf("%-*s:  (%u, %u, %u)\n", 16, "aligned.leap", aligned.leap.x, aligned.leap.y, aligned.leap.z);
-            printf("%-*s:  %'u\n", 16, "aligned.serial", aligned.serialized);
+            printf("%-*s:  %'zu\n", 16, "aligned.serial", aligned.serialized);
 
             printf("%-*s:  (%u, %u, %u)\n", 16, "anchor.len3", anchor.len3.x, anchor.len3.y, anchor.len3.z);
             printf("%-*s:  (%u, %u, %u)\n", 16, "anchor.leap", anchor.leap.x, anchor.leap.y, anchor.leap.z);
-            printf("%-*s:  %'u\n", 16, "anchor.serial", anchor.serialized);
+            printf("%-*s:  %'zu\n", 16, "anchor.serial", anchor.serialized);
         }
 
-        printf("%-*s:  %'u\n", 16, "len.data", derived.assigned.data);
-        printf("%-*s:  %'u\n", 16, "len.quant", derived.assigned.quant);
-        printf("%-*s:  %'u\n", 16, "len.outlier", derived.assigned.outlier);
-        printf("%-*s:  %'u\n", 16, "len.anchor", derived.assigned.anchor);
+        printf("%-*s:  %'zu\n", 16, "len.data", derived.assigned.data);
+        printf("%-*s:  %'zu\n", 16, "len.quant", derived.assigned.quant);
+        printf("%-*s:  %'zu\n", 16, "len.outlier", derived.assigned.outlier);
+        printf("%-*s:  %'zu\n", 16, "len.anchor", derived.assigned.anchor);
     }
 
     void check_rtlen()
