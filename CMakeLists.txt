@@ -28,7 +28,7 @@ target_link_libraries(sp PUBLIC -lcusparse)
 add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_coarse.cu)
 target_link_libraries(huff PUBLIC -lcusparse -lcuda)
 set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-add_library(compress ${LIB_TYPE} src/default_path.cu src/base_compressor.cu src/sp_path.cu)
+add_library(compress ${LIB_TYPE} src/compressor.cu src/base_compressor.cu)
 add_library(cusz ${LIB_TYPE} src/cli.cu)
 
 add_executable(cusz-bin src/cusz-cli.cu)

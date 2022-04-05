@@ -40,7 +40,7 @@ constexpr auto kDEVICE      = cusz::LOC::DEVICE;
 constexpr auto kHOST_DEVICE = cusz::LOC::HOST_DEVICE;
 
 template <class BINDING>
-class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
+class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
    public:
     using Predictor     = typename BINDING::PREDICTOR;
     using SpCodec       = typename BINDING::SPCODEC;
@@ -90,7 +90,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
     // DefaultPathCompressor& get_freq_codebook();
 
    public:
-    DefaultPathCompressor()
+    Compressor()
     {
         predictor = new Predictor;
         spcodec   = new SpCodec;
@@ -98,7 +98,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         fb_codec  = new FallbackCodec;
     }
 
-    ~DefaultPathCompressor()
+    ~Compressor()
     {
         if (spcodec) delete spcodec;
         if (codec) delete codec;
@@ -106,7 +106,7 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
         if (predictor) delete predictor;
     }
 
-    DefaultPathCompressor& compress(bool optional_release_input = false);
+    Compressor& compress(bool optional_release_input = false);
 
     template <class CONFIG>
     void init(CONFIG* config, bool dbg_print = false)
@@ -459,23 +459,28 @@ class DefaultPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR>
 };
 
 template <typename InputData = float>
-struct DefaultPath {
-    // using DATA    = DataTrait<4>::type;
+struct Framework {
     using DATA    = InputData;
     using ERRCTRL = ErrCtrlTrait<2>::type;
     using FP      = FastLowPrecisionTrait<true>::type;
 
-    using LorenzoBasedBinding = PredictorReducerCodecBinding<
+    using LorenzoFeatured = PredictorReducerCodecBinding<
         cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
         cusz::CSR11<DATA>,
-        // cusz::spGS<DATA>,  //  not woking for CUDA 10.2 on ppc
         cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>,
         cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>  //
         >;
-    using DefaultBinding = LorenzoBasedBinding;
 
-    using DefaultCompressor      = class DefaultPathCompressor<DefaultBinding>;
-    using LorenzoBasedCompressor = class DefaultPathCompressor<DefaultBinding>;
+    using Spline3Featured = PredictorReducerCodecBinding<
+        cusz::Spline3<DATA, ERRCTRL, FP>,
+        cusz::CSR11<DATA>,
+        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>,
+        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>  //
+        >;
+
+    using DefaultCompressor         = class Compressor<LorenzoFeatured>;
+    using LorenzoFeaturedCompressor = class Compressor<LorenzoFeatured>;
+    using Spline3FeaturedCompressor = class Compressor<Spline3Featured>;
 };
 
 #undef FREEDEV
