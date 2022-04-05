@@ -1,5 +1,5 @@
 /**
- * @file default_path.cuh
+ * @file compressor.cuh
  * @author Jiannan Tian
  * @brief cuSZ compressor of the default path
  * @version 0.3

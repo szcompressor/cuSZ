@@ -1,5 +1,5 @@
 /**
- * @file default_path.cu
+ * @file compressor.cu
  * @author Jiannan Tian
  * @brief cuSZ compressor of the default path
  * @version 0.3
@@ -12,7 +12,7 @@
  *
  */
 
-#include "default_path.cuh"
+#include "compressor.cuh"
 
 /*
 #define DPCOMPRESSOR_TYPE template <class BINDING>
