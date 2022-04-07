@@ -16,7 +16,6 @@
 
 #include "configs.hh"
 #include "definition.hh"
-#include "types.hh"
 
 // clang-format off
 

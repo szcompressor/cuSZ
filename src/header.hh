@@ -52,4 +52,11 @@ typedef struct alignas(128) header_t {
     size_t   get_len_uncompressed() const { return x * y * z; }
 } cuszHEADER;
 
+namespace cusz {
+
+using Header   = cuszHEADER;
+using header_t = Header*;
+
+}  // namespace cusz
+
 #endif

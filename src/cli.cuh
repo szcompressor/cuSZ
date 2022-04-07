@@ -18,6 +18,7 @@
 #include "../example/src/ex_common.cuh"
 #include "analysis/analyzer.hh"
 #include "api.hh"
+#include "cli/timerecord_viewer.hh"
 #include "common.hh"
 #include "compressor.cuh"
 #include "context.hh"
@@ -136,7 +137,11 @@ class CLI {
         load_uncompressed(basename);
         adjust_eb();
 
-        core_compress(ctx, compressor, input.dptr, compressed, compressed_len, header, stream, (*ctx).report.time);
+        auto timerecord = new TimeRecord;
+
+        core_compress(compressor, ctx, input.dptr, compressed, compressed_len, header, stream, timerecord);
+
+        TimeRecordViewer::view_compression(timerecord, input.nbyte(), compressed_len);
 
         write_compressed_to_disk(basename + ".cusza", compressed, compressed_len);
     }
@@ -166,7 +171,11 @@ class CLI {
         decompressed.set_len(len).template alloc<HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
         original.set_len(len);
 
-        core_decompress(header, compressor, compressed.dptr, decompressed.dptr, stream, (*ctx).report.time);
+        auto timerecord = new TimeRecord;
+
+        core_decompress(compressor, header, compressed.dptr, decompressed.dptr, stream, timerecord);
+
+        TimeRecordViewer::view_decompression(timerecord, decompressed.nbyte());
 
         try_evaluate_quality(header, decompressed, original, (*ctx).fname.origin_cmp);
         try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);

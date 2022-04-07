@@ -15,6 +15,16 @@
 #define TYPES_HH
 
 #include <cstdint>
+#include <tuple>
+#include <vector>
+
+namespace cusz {
+
+using TimeRecordTuple = std::tuple<const char*, double>;
+using TimeRecord      = std::vector<TimeRecordTuple>;
+using timerecord_t    = TimeRecord*;
+
+};  // namespace cusz
 
 typedef struct Stat {
     double min_odata{}, max_odata{}, rng_odata{}, std_odata{};

@@ -55,21 +55,19 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     using M    = typename Codec::MetadataT;
     using H_FB = typename FallbackCodec::Encoded;
 
+    using TimeRecord   = std::vector<std::tuple<const char*, double>>;
+    using timerecord_t = TimeRecord*;
+
+   private:
     bool use_fallback_codec{false};
     bool fallback_codec_allocated{false};
 
     using HEADER = cuszHEADER;
     HEADER header;
 
-    void export_header(HEADER*& ext_header) { ext_header = &header; }
-
-    struct runtime_helper {
-    };
-    using RT = runtime_helper;
-    RT rt;
-
-   private:
     BYTE* d_reserved_compressed{nullptr};
+
+    TimeRecord timerecord;
 
    private:
     Predictor*     predictor;
@@ -81,15 +79,9 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     dim3     data_len3;
     uint32_t get_len_data() { return data_len3.x * data_len3.y * data_len3.z; }
 
-   private:
-    // TODO move to base compressor
-    // DefaultPathCompressor& analyze_compressibility();
-    // DefaultPathCompressor& internal_eval_try_export_book();
-    // DefaultPathCompressor& internal_eval_try_export_quant();
-    // DefaultPathCompressor& try_skip_huffman();
-    // DefaultPathCompressor& get_freq_codebook();
-
    public:
+    void export_header(HEADER*& ext_header) { ext_header = &header; }
+
     Compressor()
     {
         predictor = new Predictor;
@@ -98,7 +90,7 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         fb_codec  = new FallbackCodec;
     }
 
-    ~Compressor()
+    void destroy()
     {
         if (spcodec) delete spcodec;
         if (codec) delete codec;
@@ -106,7 +98,17 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         if (predictor) delete predictor;
     }
 
-    Compressor& compress(bool optional_release_input = false);
+    ~Compressor() { destroy(); }
+
+    /**
+     * @brief Export internal Time Record list by deep copy.
+     *
+     * @param ext_timerecord nullable; pointer to external TimeRecord.
+     */
+    void export_timerecord(timerecord_t& ext_timerecord)
+    {
+        if (ext_timerecord) ext_timerecord = &timerecord;
+    }
 
     template <class CONFIG>
     void init(CONFIG* config, bool dbg_print = false)
@@ -147,75 +149,41 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_alloclen_data() * sizeof(T) / 2));
     }
 
-    void try_report_compression(size_t compressed_len)
+    void collect_compress_timerecord()
     {
-        auto get_cr        = [&]() { return get_len_data() * sizeof(T) * 1.0 / compressed_len; };
-        auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };
-        auto ms_to_s       = [&](double ms) { return ms / 1000; };
+#define COLLECT_TIME(NAME, TIME) timerecord.push_back({const_cast<const char*>(NAME), TIME});
 
-        auto bytes = get_len_data() * sizeof(T);
+        COLLECT_TIME("predict", (*predictor).get_time_elapsed());
 
-        auto time_p = (*predictor).get_time_elapsed();
+        if (not timerecord.empty()) timerecord.clear();
 
-        float time_h, time_b, time_c;
         if (not use_fallback_codec) {
-            time_h = (*codec).get_time_hist();
-            time_b = (*codec).get_time_book();
-            time_c = (*codec).get_time_lossless();
+            COLLECT_TIME("histogram", (*codec).get_time_hist());
+            COLLECT_TIME("book", (*codec).get_time_book());
+            COLLECT_TIME("huff-enc", (*codec).get_time_lossless());
         }
         else {
-            time_h = (*fb_codec).get_time_hist();
-            time_b = (*fb_codec).get_time_book();
-            time_c = (*fb_codec).get_time_lossless();
+            COLLECT_TIME("histogram", (*fb_codec).get_time_hist());
+            COLLECT_TIME("book", (*fb_codec).get_time_book());
+            COLLECT_TIME("huff-enc", (*fb_codec).get_time_lossless());
         }
 
-        auto time_s        = (*spcodec).get_time_elapsed();
-        auto time_subtotal = time_p + time_h + time_c + time_s;
-        auto time_total    = time_subtotal + time_b;
-
-        printf("\n(c) COMPRESSION REPORT\n");
-        printf("  %-*s %.2f\n", 20, "compression ratio", get_cr());
-        ReportHelper::println_throughput_tablehead();
-
-        ReportHelper::println_throughput("predictor", time_p, bytes);
-        ReportHelper::println_throughput("spcodec", time_s, bytes);
-        ReportHelper::println_throughput("histogram", time_h, bytes);
-        ReportHelper::println_throughput("Huff-encode", time_c, bytes);
-        ReportHelper::println_throughput("(subtotal)", time_subtotal, bytes);
-        printf("\e[2m");
-        ReportHelper::println_throughput("book", time_b, bytes);
-        ReportHelper::println_throughput("(total)", time_total, bytes);
-        printf("\e[0m");
-
-        printf("\n");
+        COLLECT_TIME("outlier", (*spcodec).get_time_elapsed());
     }
 
-    void try_report_decompression()
+    void collect_decompress_timerecord()
     {
-        auto byte_to_gbyte = [&](double bytes) { return bytes / 1024 / 1024 / 1024; };
-        auto ms_to_s       = [&](double ms) { return ms / 1000; };
+        if (not timerecord.empty()) timerecord.clear();
 
-        auto bytes = get_len_data() * sizeof(T);
+        COLLECT_TIME("outlier", (*spcodec).get_time_elapsed());
+        if (not use_fallback_codec) {  //
 
-        auto time_p = (*predictor).get_time_elapsed();
-
-        float time_c;
-        if (not use_fallback_codec) { time_c = (*codec).get_time_lossless(); }
-        else {
-            time_c = (*fb_codec).get_time_lossless();
+            COLLECT_TIME("huff-dec", (*codec).get_time_lossless());
         }
-
-        auto time_s     = (*spcodec).get_time_elapsed();
-        auto time_total = time_p + time_s + time_c;
-
-        printf("\n(d) deCOMPRESSION REPORT\n");
-        ReportHelper::println_throughput_tablehead();
-        ReportHelper::println_throughput("spcodec", time_s, bytes);
-        ReportHelper::println_throughput("Huff-decode", time_c, bytes);
-        ReportHelper::println_throughput("predictor", time_p, bytes);
-        ReportHelper::println_throughput("(total)", time_total, bytes);
-
-        printf("\n");
+        else {  //
+            COLLECT_TIME("huff-dec", (*fb_codec).get_time_lossless());
+        }
+        COLLECT_TIME("predict", (*predictor).get_time_elapsed());
     }
 
     template <class CONFIG>
@@ -225,7 +193,6 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         BYTE*&       compressed,
         size_t&      compressed_len,
         cudaStream_t stream    = nullptr,
-        bool         rpt_print = true,
         bool         dbg_print = false)
     {
         auto const eb                = (*config).eb;
@@ -238,7 +205,9 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
         compress_detail(
             uncompressed, eb, radius, pardeg, codecs_in_use, nz_density_factor, compressed, compressed_len,
-            (*config).codec_force_fallback(), stream, rpt_print, dbg_print);
+            (*config).codec_force_fallback(), stream, dbg_print);
+
+        collect_compress_timerecord();
     }
 
     void compress_detail(
@@ -252,7 +221,6 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         size_t&        compressed_len,
         bool           codec_force_fallback,
         cudaStream_t   stream    = nullptr,
-        bool           rpt_print = true,
         bool           dbg_print = false)
     {
         header.codecs_in_use     = codecs_in_use;
@@ -294,7 +262,6 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
                 }
                 catch (const std::runtime_error& e) {
                     LOGGING(LOG_EXCEPTION, "switch to fallback codec");
-
                     encode_with_fallback_codec();
                 }
             }
@@ -372,16 +339,10 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         compressed_len = header.file_size();
         compressed     = d_reserved_compressed;
 
-        if (rpt_print) try_report_compression(compressed_len);
-
         // considering that codec can be consecutively in use, and can compress data of different huff-byte
         use_fallback_codec = false;
     }
 
-    /**
-     * @brief
-     *
-     */
     void clear_buffer()
     {  //
         (*predictor).clear_buffer();
@@ -403,7 +364,7 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         BYTE*        in_compressed,
         T*           out_decompressed,
         cudaStream_t stream    = nullptr,
-        bool         rpt_print = true)
+        bool         dbg_print = true)
     {
         // TODO host having copy of header when compressing
         if (not header) {
@@ -451,10 +412,10 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         // process
         spcodec_do(), codec_do_with_exception(), predictor_do();
 
-        if (rpt_print) try_report_decompression();
-
         // clear state for the next decompression after reporting
         use_fallback_codec = false;
+
+        collect_decompress_timerecord();
     }
 };
 
@@ -489,5 +450,6 @@ struct Framework {
 #undef DEFINE_HOST
 #undef D2D_CPY
 #undef ACCESSOR
+#undef COLLECT_TIME
 
 #endif

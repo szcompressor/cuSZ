@@ -128,4 +128,11 @@ class cuszCTX {
 
 using cuszCONFIG = cuszCTX;
 
+namespace cusz {
+
+using Context   = cuszCTX;
+using context_t = Context*;
+
+}  // namespace cusz
+
 #endif  // ARGPARSE_HH
