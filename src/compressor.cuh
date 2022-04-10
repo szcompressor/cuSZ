@@ -34,6 +34,8 @@
 
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header->entry[HEADER::SYM])
 
+namespace cusz {
+
 constexpr auto kHOST        = cusz::LOC::HOST;
 constexpr auto kDEVICE      = cusz::LOC::DEVICE;
 constexpr auto kHOST_DEVICE = cusz::LOC::HOST_DEVICE;
@@ -442,6 +444,8 @@ struct Framework {
     using LorenzoFeaturedCompressor = class Compressor<LorenzoFeatured>;
     using Spline3FeaturedCompressor = class Compressor<Spline3Featured>;
 };
+
+}  // namespace cusz
 
 #undef FREEDEV
 #undef FREEHOST

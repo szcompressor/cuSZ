@@ -29,6 +29,8 @@
  * @tparam E for error control type
  */
 
+namespace cusz {
+
 template <class Predictor>
 class BaseCompressor {
    public:
@@ -186,5 +188,7 @@ class BaseCompressor {
         delete nc;
     }
 };
+
+}  // namespace cusz
 
 #endif

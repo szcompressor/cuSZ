@@ -27,9 +27,7 @@
 
 #include "../common.hh"
 
-#ifdef MAIN
-#include "verify.hh"
-#endif
+namespace cusz {
 
 static const int MINVAL = 0;
 static const int MAXVAL = 1;
@@ -143,5 +141,7 @@ void verify_data_GPU(Stat* s, T* xdata, T* odata, size_t len)
     s->reduced.NRMSE = sqrt(s->reduced.MSE) / s->odata.rng;
     s->reduced.PSNR  = 20 * log10(s->odata.rng) - 10 * log10(s->reduced.MSE);
 }
+
+}  // namespace cusz
 
 #endif

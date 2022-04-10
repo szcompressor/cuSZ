@@ -14,5 +14,5 @@
 
 #include "compressor.cuh"
 
-template class Compressor<Framework<float>::LorenzoFeatured>;
-// template class Compressor<Framework<float>::Spline3Featured>; // TODO
+template class cusz::Compressor<cusz::Framework<float>::LorenzoFeatured>;
+// template class cusz::Compressor<cusz::Framework<float>::Spline3Featured>; // TODO

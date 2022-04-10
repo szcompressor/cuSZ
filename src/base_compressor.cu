@@ -11,7 +11,7 @@
 
 #include "base_compressor.cuh"
 
-template class BaseCompressor<cusz::PredictorLorenzo<  //
+template class cusz::BaseCompressor<cusz::PredictorLorenzo<  //
     DataTrait<4>::type,
     ErrCtrlTrait<2>::type,
     FastLowPrecisionTrait<true>::type>>;

@@ -22,6 +22,8 @@
 #define CONSTEXPR
 #endif
 
+namespace cusz {
+
 /**
  * ------------
  * default path
@@ -135,5 +137,7 @@ struct PredictorReducerBinding {
         return ctx->quant_len;
     }
 };
+
+}  // namespace cusz
 
 #endif
