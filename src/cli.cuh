@@ -79,33 +79,6 @@ class CLI {
             .template free<HOST_DEVICE>();
     }
 
-    void try_evaluate_quality(header_t header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
-    {
-        auto len             = (*header).get_len_uncompressed();
-        auto compressd_bytes = (*header).file_size();
-
-        auto compare_on_gpu = [&]() {
-            cmp.template alloc<HOST_DEVICE>().template from_file<HOST>(compare).host2device();
-            echo_metric_gpu(xdata.dptr, cmp.dptr, len, compressd_bytes);
-            cmp.template free<HOST_DEVICE>();
-        };
-
-        auto compare_on_cpu = [&]() {
-            cmp.template alloc<HOST>().template from_file<HOST>(compare);
-            xdata.device2host();
-            echo_metric_cpu(xdata.hptr, cmp.hptr, len, compressd_bytes);
-            cmp.template free<HOST>();
-        };
-
-        if (compare != "") {
-            auto gb = 1.0 * sizeof(T) * len / 1e9;
-            if (gb < 0.8)
-                compare_on_gpu();
-            else
-                compare_on_cpu();
-        }
-    }
-
     void try_write_decompressed_to_disk(Capsule<T>& xdata, string basename, bool skip_write)
     {
         if (not skip_write) xdata.device2host().template to_file<HOST>(basename + ".cuszx");
@@ -142,7 +115,6 @@ class CLI {
         core_compress(compressor, ctx, input.dptr, compressed, compressed_len, header, stream, timerecord);
 
         TimeRecordViewer::view_compression(timerecord, input.nbyte(), compressed_len);
-
         write_compressed_to_disk(basename + ".cusza", compressed, compressed_len);
     }
 
@@ -176,8 +148,7 @@ class CLI {
         core_decompress(compressor, header, compressed.dptr, decompressed.dptr, stream, timerecord);
 
         TimeRecordViewer::view_decompression(timerecord, decompressed.nbyte());
-
-        try_evaluate_quality(header, decompressed, original, (*ctx).fname.origin_cmp);
+        QualityViewer::view(header, decompressed, original, (*ctx).fname.origin_cmp);
         try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);
     }
 

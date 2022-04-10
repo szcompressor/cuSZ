@@ -47,9 +47,9 @@ void exp_sppath_lorenzo_quality(unsigned int len, std::string fname, double eb)
         [&](T& el) { el = round(el * ebx2_r) * ebx2; }  //
     );
 
-    stat_t stat;
-    analysis::verify_data<T>(&stat, xdata.template get<HOST>(), data.template get<HOST>(), len);
-    analysis::print_data_quality_metrics<T>(&stat, 0, false);
+    Stat stat;
+    cusz::verify_data<T>(&stat, xdata.template get<HOST>(), data.template get<HOST>(), len);
+    cusz::QualityViewer::print_metrics<T>(&stat, 0, false);
 }
 
 #endif

@@ -91,10 +91,10 @@ void f(bool r2r = false)
         cout << "dryrun time: " << static_cast<duration_t>(z - a).count() << " sec\n";
     }
 
-    stat_t stat;
+    Stat stat;
 
-    analysis::verify_data(&stat, compute, input_dup, len);
-    analysis::print_data_quality_metrics<double>(&stat, 0, false);
+    cusz::verify_data(&stat, compute, input_dup, len);
+    cusz::QualityViewer::print_metrics<double>(&stat, 0, false);
 }
 
 int main(int argc, char** argv)

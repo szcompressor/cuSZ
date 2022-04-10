@@ -16,6 +16,5 @@
 #include "common/configs.hh"
 #include "common/definition.hh"
 #include "common/type_traits.hh"
-#include "common/types.hh"
 
 #endif

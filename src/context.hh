@@ -21,7 +21,6 @@
 
 #include "common/configs.hh"
 #include "common/definition.hh"
-#include "common/types.hh"
 #include "utils/format.hh"
 
 using std::string;
@@ -69,7 +68,7 @@ class cuszCTX {
 
     bool verbose{false};
 
-    stat_t stat;
+    // Stat stat;
 
     int read_args_status{0};
 

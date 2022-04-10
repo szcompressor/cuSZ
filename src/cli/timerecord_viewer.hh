@@ -12,7 +12,7 @@
 #ifndef CLI_TIMERECORD_VIEWER_HH
 #define CLI_TIMERECORD_VIEWER_HH
 
-#include "../common/types.hh"
+#include "../common/definition.hh"
 
 namespace cusz {
 

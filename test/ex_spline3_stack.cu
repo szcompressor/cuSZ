@@ -72,9 +72,9 @@ void exp_stack_absmode_lorenzo(
         );
 
         if (each_analysis) {
-            stat_t stat;
-            analysis::verify_data<T>(&stat, data.template get<HOST>(), xdata.template get<HOST>(), len);
-            analysis::print_data_quality_metrics<T>(&stat, 0, false);
+            Stat stat;
+            cusz::verify_data<T>(&stat, data.template get<HOST>(), xdata.template get<HOST>(), len);
+            cusz::QualityViewer::print_metrics<T>(&stat, 0, false);
         }
 
         // stack original data

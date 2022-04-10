@@ -21,48 +21,13 @@ using std::cout;
 using std::endl;
 using std::string;
 
+#include "../../src/analysis/verify.hh"
+#include "../../src/analysis/verify_gpu.cuh"
+#include "../../src/cli/quality_viewer.hh"
 #include "../../src/utils.hh"
 
 using BYTE = uint8_t;
 using SIZE = size_t;
-
-#define PRINT_HEADER_ENTRY(SYM) \
-    printf("header::%-*s: %d\n", 20, "entry[" #SYM "]", (*header).entry[COMPONENT::HEADER::SYM]);
-
-template <typename T>
-void echo_metric_gpu(T* d1, T* d2, size_t len, size_t compressed_bytes = 0)
-{
-    stat_t stat;
-    verify_data_GPU<T>(&stat, d1, d2, len);
-    analysis::print_data_quality_metrics<T>(&stat, compressed_bytes, true);
-}
-
-template <typename T>
-void echo_metric_cpu(T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0, bool from_device = true)
-{
-    stat_t stat;
-    T*     d1;
-    T*     d2;
-    if (not from_device) {
-        d1 = _d1;
-        d2 = _d2;
-    }
-    else {
-        printf("allocating tmp space for CPU verification\n");
-        auto bytes = sizeof(T) * len;
-        cudaMallocHost(&d1, bytes);
-        cudaMallocHost(&d2, bytes);
-        cudaMemcpy(d1, _d1, bytes, cudaMemcpyDeviceToHost);
-        cudaMemcpy(d2, _d2, bytes, cudaMemcpyDeviceToHost);
-    }
-    analysis::verify_data<T>(&stat, d1, d2, len);
-    analysis::print_data_quality_metrics<T>(&stat, compressed_bytes, false);
-
-    if (from_device) {
-        if (d1) cudaFreeHost(d1);
-        if (d2) cudaFreeHost(d2);
-    }
-}
 
 /**
  * @brief Fill array with random intergers.

@@ -20,7 +20,5 @@
 #include "utils/io.hh"
 #include "utils/strhelper.hh"
 #include "utils/timer.hh"
-#include "utils/verify.hh"
-#include "utils/verify_gpu.cuh"
 
 #endif

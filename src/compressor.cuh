@@ -19,7 +19,6 @@
 #include "binding.hh"
 #include "header.hh"
 #include "wrapper.hh"
-#include "wrapper/spgs.cuh"
 
 #define DEFINE_DEV(VAR, TYPE) TYPE* d_##VAR{nullptr};
 #define DEFINE_HOST(VAR, TYPE) TYPE* h_##VAR{nullptr};

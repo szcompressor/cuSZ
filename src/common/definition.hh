@@ -13,7 +13,7 @@
 #define CUSZ_COMMON_DEFINITION_HH
 
 #include <cstdint>
-#include <unordered_map>
+#include <tuple>
 #include <vector>
 
 namespace cusz {
@@ -24,18 +24,6 @@ enum class LOC { HOST, DEVICE, HOST_DEVICE, UNIFIED, FS, NONE, __BUFFER };
 enum class WHEN { COMPRESS, DECOMPRESS, EXPERIMENT, COMPRESS_DRYRUN };
 enum class ALIGNDATA { NONE, SQUARE_MATRIX, POWEROF2, NEXT_EVEN };
 enum class ALIGNMEM { NONE, WARP32B, WARP64B, WARP128B };
-
-// struct PREDICTOR {
-//     static const uint32_t LORENZO   = 0;
-//     static const uint32_t LORENZOII = 1;
-//     static const uint32_t SPLINE3   = 2;
-// };
-// struct CODEC {
-//     static const uint32_t HUFFMAN_COARSE = 0;
-// };
-// struct SPCODEC {
-//     static const uint32_t CSR11 = 0;
-// };
 
 // TODO when to use ADDR8?
 // TODO change to `enum class`
@@ -66,6 +54,10 @@ using ADDR4 = uint32_t;
 using ADDR8 = size_t;
 
 using FREQ = uint32_t;
+
+using TimeRecordTuple = std::tuple<const char*, double>;
+using TimeRecord      = std::vector<TimeRecordTuple>;
+using timerecord_t    = TimeRecord*;
 
 };  // namespace cusz
 

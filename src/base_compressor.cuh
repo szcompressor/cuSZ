@@ -13,6 +13,9 @@
 #define BASE_COMPRESSOR_CUH
 
 #include "analysis/analyzer.hh"
+#include "analysis/verify.hh"
+#include "analysis/verify_gpu.cuh"
+#include "cli/quality_viewer.hh"
 #include "common.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
@@ -92,9 +95,9 @@ class BaseCompressor {
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        stat_t stat;
+        Stat stat;
         verify_data_GPU<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_len_data());
-        analysis::print_data_quality_metrics<T>(&stat, 0, true);
+        cusz::QualityViewer::print_metrics<T>(&stat, 0, true);
 
         return *this;
     }
@@ -130,9 +133,9 @@ class BaseCompressor {
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        stat_t stat;
+        Stat stat;
         verify_data_GPU(&stat, nc->reconst.hptr, nc->original.hptr, len);
-        analysis::print_data_quality_metrics<T>(&stat, 0, true);
+        cusz::QualityViewer::print_metrics<T>(&stat, 0, true);
 
         return *this;
     }

@@ -14,13 +14,11 @@
 
 #include <type_traits>
 
-#include "common/types.hh"
+#include "common/definition.hh"
 #include "context.hh"
 #include "header.hh"
 
 namespace cusz {
-
-using TimeRecord = std::vector<std::tuple<const char*, double>>;
 
 template <class compressor_t, typename T>
 void core_compress(

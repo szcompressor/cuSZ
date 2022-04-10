@@ -209,9 +209,9 @@ void cx_sim(
         io::write_array_to_binary(finame + ".psz.sz14.xerr", comp_err, len);
     }
 
-    stat_t stat;
-    analysis::verify_data(&stat, xdata, data_cmp, len);
-    analysis::print_data_quality_metrics<Data>(&stat);
+    Stat stat;
+    cusz::verify_data(&stat, xdata, data_cmp, len);
+    cusz::QualityViewer::print_metrics<Data>(&stat);
 }
 
 }  // namespace FineMassiveSimulation
