@@ -28,17 +28,6 @@ using map_t    = std::unordered_map<std::string, std::string>;
 using str_list = std::vector<std::string>;
 
 struct StrHelper {
-    static unsigned int str2int(std::string s)
-    {
-        char* end;
-        auto  res = std::strtol(s.c_str(), &end, 10);
-        if (*end) {
-            const char* notif = "invalid option value, non-convertible part: ";
-            cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
-        }
-        return res;
-    };
-
     static unsigned int str2int(const char* s)
     {
         char* end;
@@ -48,18 +37,9 @@ struct StrHelper {
             cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
         }
         return res;
-    };
-
-    static double str2fp(std::string s)
-    {
-        char* end;
-        auto  res = std::strtod(s.c_str(), &end);
-        if (*end) {
-            const char* notif = "invalid option value, non-convertible part: ";
-            cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
-        }
-        return res;
     }
+
+    static unsigned int str2int(std::string s) { return str2int(s.c_str()); }
 
     static double str2fp(const char* s)
     {
@@ -70,7 +50,9 @@ struct StrHelper {
             cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
         }
         return res;
-    };
+    }
+
+    static double str2fp(std::string s) { return str2fp(s.c_str()); }
 
     static bool is_kv_pair(std::string s) { return s.find("=") != std::string::npos; }
 
@@ -121,15 +103,14 @@ struct StrHelper {
             // the 1st match: whole string
             // the 2nd: k, the 3rd: v
             if (kv_match.size() == 3) {
-                k = kv_match[1].str();
-                v = kv_match[2].str();
+                k = kv_match[1].str(), v = kv_match[2].str();
 
                 std::smatch v_match;
                 if (std::regex_match(v, v_match, onoff_pattern)) {  //
                     onoff = (v == "on") or (v == "ON");
                 }
                 else {
-                    throw std::runtime_error("not (k=v)-syntax");
+                    throw std::runtime_error("not legal (k=v)-syntax");
                 }
             }
         }

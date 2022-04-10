@@ -33,7 +33,7 @@
 struct Reinterpret1DTo2D {
     template <typename T>
     static T get_square_size(T len)
-    {  //
+    {
         return static_cast<T>(ceil(sqrt(len)));
     }
 };
@@ -199,31 +199,33 @@ struct ConfigHelper {
         return legal;
     }
 
+    static bool check_opt_in_list(std::string const& opt, std::vector<std::string> vs)
+    {
+        for (auto& i : vs) {
+            if (opt == i) return true;
+        }
+        return false;
+    }
+
     static void parse_length_literal(const char* str, std::vector<std::string>& dims)
     {
         std::stringstream data_len_ss(str);
         auto              data_len_literal = data_len_ss.str();
-        char              delimiter        = ',';
+        char              delimiter        = 'x';
 
         bool use_charx = data_len_literal.find('x') != std::string::npos;
         bool use_comma = data_len_literal.find(',') != std::string::npos;
-        bool delim_ok  = use_comma or use_charx;
 
         if (use_charx)
             delimiter = 'x';
-        else if (use_comma)
-            delimiter = ',';
+        else
+            throw std::runtime_error("Datasize literal must be delimited by \'x\'.");
 
         while (data_len_ss.good()) {
             std::string substr;
             std::getline(data_len_ss, substr, delimiter);
             dims.push_back(substr);
         }
-
-        if (dims.size() != 1 and (not delim_ok))
-            throw std::runtime_error("data-size literal must be delimited by \'x\' or \',\'.");
-
-        // TODO check if a good number (size==1) using regex
     }
 
     static size_t get_filesize(std::string fname)
@@ -295,7 +297,7 @@ struct ConfigHelper {
 struct CompareHelper {
     template <typename TRIO>
     static bool eq(TRIO a, TRIO b)
-    {  //
+    {
         return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
     };
 };
@@ -311,7 +313,6 @@ struct ReportHelper {
     static void println_throughput(const char* s, float timer, size_t _nbyte)
     {
         if (timer == 0.0) return;
-
         auto t = get_throughput(timer, _nbyte);
         printf("  %-12s %'12f %'10.2f\n", s, timer, t);
     };

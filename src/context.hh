@@ -22,12 +22,17 @@
 #include "common/configs.hh"
 #include "common/definition.hh"
 #include "utils/format.hh"
+#include "utils/strhelper.hh"
 
 using std::string;
+
+namespace cusz {
 
 extern const char* VERSION_TEXT;
 extern const int   version;
 extern const int   compatibility;
+
+}  // namespace cusz
 
 class cuszCTX {
    public:
@@ -107,17 +112,32 @@ class cuszCTX {
     void load_demo_sizes();
 
    private:
-    void sort_out_fnames();
+    void derive_fnames();
 
+    void check_cli_args();
+
+   public:
     void trap(int _status);
-
-    void check_args_when_cli();
 
     static void print_short_doc();
 
     static void print_full_doc();
 
     static int autotune(cuszCTX* ctx);
+
+   public:
+    static void parse_input_length(const char* lenstr, cuszCTX* ctx)
+    {
+        std::vector<string> dims;
+        ConfigHelper::parse_length_literal(lenstr, dims);
+        ctx->ndim = dims.size();
+        ctx->y = ctx->z = ctx->w = 1;
+        ctx->x                   = StrHelper::str2int(dims[0]);
+        if (ctx->ndim >= 2) ctx->y = StrHelper::str2int(dims[1]);
+        if (ctx->ndim >= 3) ctx->z = StrHelper::str2int(dims[2]);
+        if (ctx->ndim >= 4) ctx->w = StrHelper::str2int(dims[3]);
+        ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+    }
 
    public:
     cuszCTX(int argc, char** argv);

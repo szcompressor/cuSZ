@@ -19,22 +19,21 @@
 
 #include "argument_parser/document.hh"
 #include "context.hh"
-#include "utils/format.hh"
-#include "utils/strhelper.hh"
 
 using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
 
-// TODO check version
-const char* VERSION_TEXT  = "2022-03-25.rc3";
-const int   VERSION       = 20220325;
+namespace cusz {
+const char* VERSION_TEXT  = "2022-04-10.rc3";
+const int   VERSION       = 20220410;
 const int   COMPATIBILITY = 0;
+}  // namespace cusz
 
 namespace {
 
-void set_preprocess(cuszCTX* ctx, const char* in_str)
+void set_preprocess(cusz::context_t ctx, const char* in_str)
 {
     str_list opts;
     StrHelper::parse_strlist(in_str, opts);
@@ -44,7 +43,7 @@ void set_preprocess(cuszCTX* ctx, const char* in_str)
     }
 }
 
-void set_report(cuszCTX* ctx, const char* in_str)
+void set_report(cusz::context_t ctx, const char* in_str)
 {
     str_list opts;
     StrHelper::parse_strlist(in_str, opts);
@@ -71,66 +70,88 @@ void set_report(cuszCTX* ctx, const char* in_str)
     }
 }
 
-void set_config(cuszCTX* ctx, const char* in_str)
+void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
 {
     map_t opts;
     StrHelper::parse_strlist_as_kv(in_str, opts);
 
+    if (dbg_print) {
+        for (auto kv : opts) printf("%-*s %-s\n", 10, kv.first.c_str(), kv.second.c_str());
+        cout << "\n";
+    }
+
+    string k, v;
+    char*  end;
+
+    auto optmatch   = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(k, vs); };
     auto is_enabled = [&](auto& v) -> bool { return v == "on" or v == "ON"; };
 
     for (auto kv : opts) {
-        if (kv.first == "mode") { ctx->mode = std::string(kv.second); }
-        else if (kv.first == "eb") {
-            ctx->eb = StrHelper::str2fp(kv.second);
+        k = kv.first;
+        v = kv.second;
+
+        if (optmatch({"type", "dtype"})) {
+            ConfigHelper::check_dtype(v, false);
+            ctx->dtype = v;
         }
-        else if (kv.first == "cap") {  // to delete, only radius matters for compressor
-            ctx->dict_size = StrHelper::str2int(kv.second);
-            ctx->radius    = ctx->dict_size / 2;
+        else if (optmatch({"eb", "errorbound"})) {  //
+            ctx->eb = StrHelper::str2fp(v);
         }
-        else if (kv.first == "radius") {  // to adjust, only radiusn matters for compressor
-            ctx->radius    = StrHelper::str2int(kv.second);
-            ctx->dict_size = ctx->radius * 2;
+        else if (optmatch({"mode"})) {
+            ConfigHelper::check_cuszmode(v, true);
+            ctx->mode = v;
         }
-        else if (kv.first == "huffbyte") {
-            ctx->huff_bytewidth = StrHelper::str2int(kv.second);
-            ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
+        else if (optmatch({"len", "length"})) {  //
+            cuszCTX::parse_input_length(v.c_str(), ctx);
         }
-        else if (kv.first == "quantbyte") {
-            ctx->quant_bytewidth = StrHelper::str2int(kv.second);
+        else if (optmatch({"allocationlen"})) {  //
+            // placeholder
         }
-        else if (kv.first == "huffchunk") {
-            ctx->vle_sublen              = StrHelper::str2int(kv.second);
-            ctx->use.autotune_vle_pardeg = false;
-        }
-        else if (kv.first == "demo") {
+        else if (optmatch({"demo"})) {
             ctx->use.predefined_demo = true;
-            ctx->demo_dataset        = string(kv.second);
+            ctx->demo_dataset        = string(v);
             ctx->load_demo_sizes();
         }
-        else if (kv.first == "predictor") {
-            ctx->predictor = string(kv.second);
+        else if (optmatch({"cap", "booklen", "dictsize"})) {
+            ctx->dict_size = StrHelper::str2int(v);
+            ctx->radius    = ctx->dict_size / 2;
         }
-        else if (kv.first == "postcompress") {
-            // TODO nvcomp, gzip, etc.
+        else if (optmatch({"radius"})) {  //
+            ctx->radius    = StrHelper::str2int(v);
+            ctx->dict_size = ctx->radius * 2;
         }
-        else if (kv.first == "anchor" and is_enabled(kv.second)) {
+        else if (optmatch({"huffbyte"})) {
+            ctx->huff_bytewidth = StrHelper::str2int(v);
+            ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
+        }
+        else if (optmatch({"huffchunk"})) {
+            ctx->vle_sublen              = StrHelper::str2int(v);
+            ctx->use.autotune_vle_pardeg = false;
+        }
+        else if (optmatch({"predictor"})) {
+            ctx->predictor = string(v);
+        }
+        else if (optmatch({"anchor"}) and is_enabled(v)) {
             ctx->use.anchor = true;
         }
-        else if (kv.first == "releaseinput" and is_enabled(kv.second)) {
+        else if (optmatch({"failfast"}) and is_enabled(v)) {
+            // placeholder
+        }
+        else if (optmatch({"releaseinput"}) and is_enabled(v)) {
             ctx->use.release_input = true;
         }
-        else if (kv.first == "pipeline") {
-            ctx->compression_pipeline = kv.second;
+        else if (optmatch({"pipeline"})) {
+            ctx->compression_pipeline = v;
         }
-        else if (kv.first == "density") {  // refer to `SparseMethodSetup` in `config.hh`
-            ctx->nz_density        = StrHelper::str2fp(kv.second);
+        else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in `config.hh`
+            ctx->nz_density        = StrHelper::str2fp(v);
             ctx->nz_density_factor = 1 / ctx->nz_density;
         }
-        else if (kv.first == "densityfactor") {  // refer to `SparseMethodSetup` in `config.hh`
-            ctx->nz_density_factor = StrHelper::str2fp(kv.second);
+        else if (optmatch({"densityfactor"})) {  // refer to `SparseMethodSetup` in `config.hh`
+            ctx->nz_density_factor = StrHelper::str2fp(v);
             ctx->nz_density        = 1 / ctx->nz_density_factor;
         }
-        else if (kv.first == "gpuverify" and is_enabled(kv.second)) {
+        else if (optmatch({"gpuverify"}) and is_enabled(v)) {
             ctx->use.gpu_verify = true;
         }
 
@@ -142,12 +163,158 @@ void set_config(cuszCTX* ctx, const char* in_str)
     }
 }
 
+void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
+{
+    int i = 1;
+
+    auto check_next = [&]() {
+        if (i + 1 >= argc) throw std::runtime_error("out-of-range at" + std::string(argv[i]));
+    };
+
+    string opt;
+    auto   optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
+
+    while (i < argc) {
+        if (argv[i][0] == '-') {
+            opt = string(argv[i]);
+
+            if (optmatch({"-c", "--config"})) {
+                check_next();
+                set_config(ctx, argv[++i]);
+            }
+            else if (optmatch({"-R", "--report"})) {
+                check_next();
+                set_report(ctx, argv[++i]);
+            }
+            else if (optmatch({"-h", "--help"})) {
+                cusz::Context::print_full_doc();
+                exit(0);
+            }
+            else if (optmatch({"-v", "--version"})) {
+                cout << ">>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
+                exit(0);
+            }
+            else if (optmatch({"-m", "--mode"})) {
+                check_next();
+                ctx->mode = string(argv[++i]);
+                if (ctx->mode == "r2r") ctx->preprocess.prescan = true;
+            }
+            else if (optmatch({"-e", "--eb", "--error-bound"})) {
+                check_next();
+                char* end;
+                ctx->eb = std::strtod(argv[++i], &end);
+            }
+            else if (optmatch({"-p", "--predictor"})) {
+                check_next();
+                ctx->predictor = string(argv[++i]);
+            }
+            else if (optmatch({"-t", "--type", "--dtype"})) {
+                check_next();
+                string s = string(string(argv[++i]));
+                if (s == "f32" or s == "fp4")
+                    ctx->dtype = "f32";
+                else if (s == "f64" or s == "fp8")
+                    ctx->dtype = "f64";
+            }
+            else if (optmatch({"-i", "--input"})) {
+                check_next();
+                ctx->fname.fname = string(argv[++i]);
+            }
+            else if (optmatch({"-l", "--len"})) {
+                check_next();
+                cusz::Context::parse_input_length(argv[++i], ctx);
+            }
+            else if (optmatch({"-L", "--allocation-len"})) {
+                check_next();
+                // placeholder
+            }
+            else if (optmatch({"-z", "--zip", "--compress"})) {
+                ctx->task_is.construct = true;
+            }
+            else if (optmatch({"-x", "--unzip", "--decompress"})) {
+                ctx->task_is.reconstruct = true;
+            }
+            else if (optmatch({"-r", "--dry-run"})) {
+                ctx->task_is.dryrun = true;
+            }
+            else if (optmatch({"--anchor"})) {
+                ctx->use.anchor = true;
+            }
+            else if (optmatch({"--failfast"})) {
+                // placeholder
+            }
+            else if (optmatch({"-P", "--pre", "--preprocess"})) {
+                check_next();
+                string pre(argv[++i]);
+                if (pre.find("binning") != std::string::npos) { ctx->preprocess.binning = true; }
+            }
+            else if (optmatch({"-T", "--post", "--postprocess"})) {
+                check_next();
+                string post(argv[++i]);
+                if (post.find("gzip") != std::string::npos) { ctx->postcompress.cpu_gzip = true; }
+                if (post.find("nvcomp") != std::string::npos) { ctx->postcompress.gpu_nvcomp_cascade = true; }
+            }
+            else if (optmatch({"-V", "--verbose"})) {
+                ctx->verbose = true;
+            }
+            else if (optmatch({"--pipeline"})) {
+                check_next();
+                ctx->compression_pipeline == string(argv[++i]);
+            }
+            else if (optmatch({"--demo"})) {
+                check_next();
+                ctx->use.predefined_demo = true;
+                ctx->demo_dataset        = string(argv[++i]);
+                ctx->load_demo_sizes();
+            }
+            else if (optmatch({"-S", "-X", "--skip", "--exclude"})) {
+                check_next();
+                string exclude(argv[++i]);
+                if (exclude.find("huffman") != std::string::npos) { ctx->skip.huffman = true; }
+                if (exclude.find("write2disk") != std::string::npos) { ctx->skip.write2disk = true; }
+            }
+            else if (optmatch({"--opath"})) {
+                check_next();
+                ctx->opath = string(argv[++i]);
+            }
+            else if (optmatch({"--origin", "--compare"})) {
+                check_next();
+                ctx->fname.origin_cmp = string(argv[++i]);
+            }
+            else {
+                const char* notif_prefix = "invalid option value at position ";
+                char*       notif;
+                int         size = asprintf(&notif, "%d: %s", i, argv[i]);
+                cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m"
+                     << "\n";
+                cerr << string(LOG_NULL.length() + strlen(notif_prefix), ' ');
+                cerr << "\e[1m";
+                cerr << string(strlen(notif), '~');
+                cerr << "\e[0m\n";
+
+                ctx->trap(-1);
+            }
+        }
+        else {
+            const char* notif_prefix = "invalid option at position ";
+            char*       notif;
+            int         size = asprintf(&notif, "%d: %s", i, argv[i]);
+            cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
+                 << "\e[0m"
+                    "\n"
+                 << string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
+                 << "\e[1m"                                                //
+                 << string(strlen(notif), '~')                             //
+                 << "\e[0m\n";
+
+            ctx->trap(-1);
+        }
+        i++;
+    }
+}
+
 }  // namespace
 
-/**
- * @deprecated
- *
- */
 void cuszCTX::load_demo_sizes()
 {
     const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
@@ -171,7 +338,7 @@ void cuszCTX::load_demo_sizes()
 
 void cuszCTX::trap(int _status) { this->read_args_status = _status; }
 
-void cuszCTX::check_args_when_cli()
+void cuszCTX::check_cli_args()
 {
     bool to_abort = false;
     if (fname.fname.empty()) {
@@ -227,260 +394,54 @@ void cuszCTX::check_args_when_cli()
 
 void cuszCTX::print_short_doc()
 {
-    cout << "\n>>>>  cusz build: " << VERSION_TEXT << "\n";
+    cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
     cout << cusz_short_doc << endl;
 }
 
 void cuszCTX::print_full_doc()
 {
-    cout << "\n>>>>  cusz build: " << VERSION_TEXT << "\n";
+    cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
     cout << StrHelper::doc_format(cusz_full_doc) << endl;
 }
 
-cuszCTX::cuszCTX(int argc, char** argv)
+cuszCTX::cuszCTX(int argc, char** const argv)
 {
+    string opt;
+    auto   optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
+
     if (argc == 1) {
         print_short_doc();
         exit(0);
     }
 
-    opath = "";
+    /******************************************************************************/
+    /* phase 0: parse */
+    set_from_cli_input(this, argc, argv);
 
-    int i = 1;
-    while (i < argc) {
-        if (argv[i][0] == '-') {
-            auto long_opt = string(argv[i]);
-            switch (argv[i][1]) {
-                // ----------------------------------------------------------------
-                case '-':
-                    // string list
-                    if (long_opt == "--config") goto tag_config;
-                    if (long_opt == "--report") goto tag_report;
-                    if (long_opt == "--help") goto tag_help;              // DOCUMENT
-                    if (long_opt == "--version") goto tag_version;        //
-                    if (long_opt == "--predictor") goto tag_predictor;    //
-                    if (long_opt == "--meta") goto tag_meta;              //
-                    if (long_opt == "--mode") goto tag_mode;              // COMPRESSION CONFIG
-                    if (long_opt == "--eb") goto tag_error_bound;         //
-                    if (long_opt == "--predictor") goto tag_predictor;    //
-                    if (long_opt == "--dtype") goto tag_type;             //
-                    if (long_opt == "--input") goto tag_input;            // INPUT
-                    if (long_opt == "--len") goto tag_len;                //
-                    if (long_opt == "--compress") goto tag_compress;      // WORKFLOW
-                    if (long_opt == "--zip") goto tag_compress;           //
-                    if (long_opt == "--decompress") goto tag_decompress;  //
-                    if (long_opt == "--unzip") goto tag_decompress;       //
-                    if (long_opt == "--dry-run") goto tag_dryrun;         //
-                    if (long_opt == "--pre") goto tag_preproc;            // IO
-                    if (long_opt == "--output") goto tag_x_out;           //
-                    if (long_opt == "--verbose") goto tag_verbose;        //
-
-                    if (long_opt == "--pipeline") {
-                        if (i + 1 <= argc) compression_pipeline == string(argv[++i]);
-                        break;
-                    }
-
-                    if (long_opt == "--demo") {
-                        if (i + 1 <= argc) {
-                            use.predefined_demo = true;
-                            demo_dataset        = string(argv[++i]);
-                            load_demo_sizes();
-                        }
-                        break;
-                    }
-
-                    if (long_opt == "--skip") {
-                        if (i + 1 <= argc) {
-                            string exclude(argv[++i]);
-                            if (exclude.find("huffman") != std::string::npos) { skip.huffman = true; }
-                            if (exclude.find("write2disk") != std::string::npos) { skip.write2disk = true; }
-                        }
-                        break;
-                    }
-                    if (long_opt == "--export") {
-                        // TODO
-                        string extra_export(argv[++i]);
-                        if (extra_export.find("codebook") != std::string::npos) { export_raw.book = true; }
-                        if (extra_export.find("quant") != std::string::npos) { export_raw.quant = true; }
-                    }
-
-                    if (long_opt == "--opath") {  // TODO the followings has no single-letter options
-                        if (i + 1 <= argc)
-                            this->opath = string(argv[++i]);  // TODO does not apply for preprocessed such as binning
-                        break;
-                    }
-                    if (long_opt == "--origin" or long_opt == "--compare") {
-                        if (i + 1 <= argc) fname.origin_cmp = string(argv[++i]);
-                        break;
-                    }
-                    if (long_opt == "--gzip") {
-                        postcompress.cpu_gzip = true;
-                        break;  // wenyu: if there is "--gzip", set member field to_gzip true
-                    }
-                    if (long_opt == "--nvcomp") {
-                        throw std::runtime_error(
-                            "[argparse] nvcomp is disabled temporarily in favor of code refactoring.");
-                        postcompress.gpu_nvcomp_cascade = false;
-                        break;
-                    }
-                    if (long_opt == "--gtest") {
-                        throw std::runtime_error(
-                            "[argparse] gtest is disabled temporarily in favor of code refactoring.");
-                        task_is.gtest = false;
-                        break;
-                    }
-                // WORKFLOW
-                case 'z':
-                tag_compress:
-                    task_is.construct = true;
-                    break;
-                case 'x':
-                tag_decompress:
-                    task_is.reconstruct = true;
-                    break;
-                case 'r':
-                tag_dryrun:
-                    task_is.dryrun = true;
-                    break;
-                // COMPRESSION CONFIG
-                case 'p':
-                tag_predictor:
-                    if (i + 1 <= argc) predictor = string(argv[++i]);
-                    break;
-                case 'm':  // mode
-                tag_mode:
-                    if (i + 1 <= argc) {
-                        mode = string(argv[++i]);
-                        if (mode == "r2r") preprocess.prescan = true;
-                    }
-                    break;
-                // INPUT
-                case 'l':
-                tag_len:
-                    if (i + 1 <= argc) {
-                        std::vector<string> dims;
-                        ConfigHelper::parse_length_literal(argv[++i], dims);
-                        ndim = dims.size();
-                        y = z = w = 1;
-                        x         = StrHelper::str2int(dims[0].c_str());
-                        if (ndim >= 2) y = StrHelper::str2int(dims[1].c_str());
-                        if (ndim >= 3) z = StrHelper::str2int(dims[2].c_str());
-                        if (ndim >= 4) w = StrHelper::str2int(dims[3].c_str());
-                        data_len = x * y * z * w;
-                    }
-                    break;
-                case 'i':
-                tag_input:
-                    if (i + 1 <= argc) fname.fname = string(argv[++i]);
-                    break;
-                // alternative output
-                case 'o':
-                tag_x_out:
-                    cerr << LOG_ERR
-                         << "\"-o\" will be working in the (near) future release. Pleae use \"--opath [path]\" "
-                            "to "
-                            "specify output path."
-                         << endl;
-                    exit(1);
-                    break;
-                // preprocess
-                case 'P':
-                tag_preproc:
-                    if (i + 1 <= argc) {
-                        string pre(argv[++i]);
-                        if (pre.find("binning") != std::string::npos) { preprocess.binning = true; }
-                    }
-                    break;
-                // interactive mode
-                case 'I':
-                tag_interactive:
-                    break;
-                case 'c':
-                tag_config:
-                    if (i + 1 <= argc) set_config(this, argv[++i]);
-                    break;
-                // report
-                case 'R':
-                tag_report:
-                    if (i + 1 <= argc) set_report(this, argv[++i]);
-                    break;
-                case 'V':
-                tag_verbose:
-                    verbose = true;
-                    break;
-                // DOCUMENT
-                case 'h':
-                tag_help:
-                    print_full_doc();
-                    exit(0);
-                case 'v':
-                tag_version:
-                    cout << ">>>>  cusz build: " << VERSION_TEXT << "\n";
-                    exit(0);
-                // COMPRESSION CONFIG
-                case 't':
-                tag_type:
-                    if (i + 1 <= argc) {
-                        string s = string(string(argv[++i]));
-                        if (s == "f32" or s == "fp4")
-                            dtype = "f32";
-                        else if (s == "f64" or s == "fp8")
-                            dtype = "f64";
-                    }
-                    break;
-                case 'M':
-                tag_meta:  // TODO print .cusza archive metadat
-                    break;
-                case 'e':
-                tag_error_bound:
-                    if (i + 1 <= argc) {
-                        char* end;
-                        this->eb = std::strtod(argv[++i], &end);
-                    }
-                    break;
-                default:
-                    const char* notif_prefix = "invalid option value at position ";
-                    char*       notif;
-                    int         size = asprintf(&notif, "%d: %s", i, argv[i]);
-                    cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m"
-                         << "\n";
-                    cerr << string(LOG_NULL.length() + strlen(notif_prefix), ' ');
-                    cerr << "\e[1m";
-                    cerr << string(strlen(notif), '~');
-                    cerr << "\e[0m\n";
-                    trap(-1);
-            }
-        }
-        else {
-            const char* notif_prefix = "invalid option at position ";
-            char*       notif;
-            int         size = asprintf(&notif, "%d: %s", i, argv[i]);
-            cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
-                 << "\e[0m"
-                    "\n"
-                 << string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
-                 << "\e[1m"                                                //
-                 << string(strlen(notif), '~')                             //
-                 << "\e[0m\n";
-            trap(-1);
-        }
-        i++;
+    // special treatment
+    if (predictor == "spline3") {
+        // unconditionally use anchor when it is spline3
+        use.anchor = true;
     }
 
-    // phase 1: check syntax
+    /******************************************************************************/
+    /* phase 1: check syntax */
     if (read_args_status != 0) {
         cout << LOG_INFO << "Exiting..." << endl;
         // after printing ALL argument errors
         exit(-1);
     }
 
-    // phase 2: check if legal
-    check_args_when_cli();
-    // phase 3: sort out filenames
-    sort_out_fnames();
+    /******************************************************************************/
+    /* phase 2: check if legal */
+    check_cli_args();
+
+    /******************************************************************************/
+    /* phase 3: sort out filenames */
+    derive_fnames();
 }
 
-cuszCTX::cuszCTX(const char* config_str, bool dbg_print)
+cuszCTX::cuszCTX(const char* in_str, bool dbg_print)
 {
     /**
      **  >>> syntax
@@ -492,86 +453,10 @@ cuszCTX::cuszCTX(const char* config_str, bool dbg_print)
      **
      **/
 
-    // skip the default values
-    // const char* ex_config = "size=3600x1800";
-
-    using config_map_t = map_t;
-
-    config_map_t opts;
-    StrHelper::parse_strlist_as_kv(config_str, opts);
-
-    for (auto kv : opts) {
-        auto  k = kv.first;
-        auto  v = kv.second;
-        char* end;
-
-        // general-mandatory (compress/decompress)
-        if (k == "input") { fname.fname = string(v); }
-        if (k == "do") {
-            if (v == "dryrun") task_is.dryrun = true;
-            if (v == "compress" or v == "zip") task_is.construct = true;
-            if (v == "decompress" or v == "unzip") task_is.reconstruct = true;
-        }
-
-        // mandatory
-        // compress
-        if (k == "dtype" and ConfigHelper::check_dtype(v, false)) this->dtype = v;
-        if (k == "errorbound" or k == "eb") eb = std::strtod(v.c_str(), &end);
-        if (k == "mode" and ConfigHelper::check_cuszmode(v, true)) this->mode = v;
-        if (k == "size") {
-            std::vector<string> dims;
-            ConfigHelper::parse_length_literal(v.c_str(), dims);
-            ndim = dims.size();
-            y = z = w = 1;
-            x         = StrHelper::str2int(dims[0].c_str());
-            if (ndim >= 2) y = StrHelper::str2int(dims[1].c_str());
-            if (ndim >= 3) z = StrHelper::str2int(dims[2].c_str());
-            if (ndim >= 4) w = StrHelper::str2int(dims[3].c_str());
-            data_len = x * y * z * w;
-        }
-        if (k == "radius") { radius = StrHelper::str2int(v), dict_size = radius * 2; }
-        if (k == "dictsize") { dict_size = StrHelper::str2int(v), radius = dict_size / 2; }
-        if (k == "huffbyte") {
-            huff_bytewidth = StrHelper::str2int(kv.second);
-            codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
-        }
-
-        // optional
-        // decompress
-        if (k == "origin" or k == "compare") { fname.origin_cmp = string(v); }
-
-        // future use
-        /*
-        if (k == "predictor" and ConfigHelper::check_predictor(v, true)) {
-            this->predictor = v;
-            this->predictor     = ConfigHelper::predictor_lookup(v);
-        }
-        if (k == "codec" and ConfigHelper::check_codec(v, true)) {
-            this->codec = v;  // TODO
-            this->codec     = ConfigHelper::codec_lookup(v);
-        }
-        if (k == "spcodec" and ConfigHelper::check_codec(v, true)) {
-            this->spcodec = v;  // TODO
-            this->spcodec     = ConfigHelper::spcodec_lookup(v);
-        }
-        */
-    }
-
-    sort_out_fnames();
-
-    if (dbg_print) {
-        printf("\ninput config string:\n");
-        printf("\n%s\n", config_str);
-
-        for (auto kv : opts) {
-            auto k = kv.first;
-            auto v = kv.second;
-            cout << k << "\t" << v << "\n";
-        }
-    }
+    set_config(this, in_str, dbg_print);
 }
 
-void cuszCTX::sort_out_fnames()
+void cuszCTX::derive_fnames()
 {
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
