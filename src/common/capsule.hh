@@ -269,13 +269,15 @@ class Capsule {
         cusz::ALIGNDATA AD = cusz::ALIGNDATA::NONE,
         cusz::ALIGNMEM  AM = cusz::ALIGNMEM::WARP128B,
         cusz::DEV       M  = cusz::DEV::DEV>
-    Capsule& alloc()
+    Capsule& alloc(double overriding_factor = 0.0)
     {
         OK::ALLOC<M>();
         raise_error_if_misuse_unified<LOC>();
 
         auto aligned_datalen    = Align::get_aligned_datalen<AD>(len);
         auto __memory_footprint = Align::get_aligned_nbyte<T>(aligned_datalen);
+
+        if (overriding_factor > 1.0) { __memory_footprint = overriding_factor * __memory_footprint; }
 
         auto allocate_on_host = [&]() {
             if (allocation_status.hptr)

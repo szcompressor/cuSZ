@@ -107,7 +107,7 @@ struct QualityViewer {
     static void view(header_t header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
     {
         auto len             = (*header).get_len_uncompressed();
-        auto compressd_bytes = (*header).file_size();
+        auto compressd_bytes = (*header).get_filesize();
 
         auto compare_on_gpu = [&]() {
             cmp.template alloc<HOST_DEVICE>().template from_file<HOST>(compare).host2device();

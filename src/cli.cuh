@@ -90,13 +90,14 @@ class CLI {
         Capsule<T> input("uncompressed");
         BYTE*      compressed;
         size_t     compressed_len;
-        header_t   header;
+        Header     header;
         auto       len      = (*ctx).get_len();
         auto       basename = (*ctx).fname.fname;
 
         auto load_uncompressed = [&](std::string fname) {
-            input.set_len(len)
-                .template alloc<HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>()
+            input
+                .set_len(len)  //
+                .template alloc<HOST_DEVICE>(1.03)
                 .template from_file<HOST>(fname)
                 .host2device();
         };
@@ -110,11 +111,11 @@ class CLI {
         load_uncompressed(basename);
         adjust_eb();
 
-        auto timerecord = new TimeRecord;
+        TimeRecord timerecord;
 
-        core_compress(compressor, ctx, input.dptr, compressed, compressed_len, header, stream, timerecord);
+        core_compress(compressor, ctx, input.dptr, len * 1.03, compressed, compressed_len, header, stream, &timerecord);
 
-        TimeRecordViewer::view_compression(timerecord, input.nbyte(), compressed_len);
+        TimeRecordViewer::view_compression(&timerecord, input.nbyte(), compressed_len);
         write_compressed_to_disk(basename + ".cusza", compressed, compressed_len);
     }
 
@@ -140,14 +141,18 @@ class CLI {
         memcpy(header, compressed.hptr, sizeof(Header));
         auto len = (*header).get_len_uncompressed();
 
-        decompressed.set_len(len).template alloc<HOST_DEVICE, cusz::ALIGNDATA::SQUARE_MATRIX>();
+        decompressed  //
+            .set_len(len)
+            .template alloc<HOST_DEVICE>(1.03);
         original.set_len(len);
 
-        auto timerecord = new TimeRecord;
+        TimeRecord timerecord;
 
-        core_decompress(compressor, header, compressed.dptr, decompressed.dptr, stream, timerecord);
+        core_decompress(
+            compressor, header, compressed.dptr, header->get_filesize(), decompressed.dptr, len * 1.03, stream,
+            &timerecord);
 
-        TimeRecordViewer::view_decompression(timerecord, decompressed.nbyte());
+        TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
         QualityViewer::view(header, decompressed, original, (*ctx).fname.origin_cmp);
         try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);
     }

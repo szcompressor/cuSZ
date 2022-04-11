@@ -134,6 +134,9 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
         else if (optmatch({"anchor"}) and is_enabled(v)) {
             ctx->use.anchor = true;
         }
+        else if (optmatch({"nondestructive"}) and is_enabled(v)) {
+            // placeholder
+        }
         else if (optmatch({"failfast"}) and is_enabled(v)) {
             // placeholder
         }
@@ -239,6 +242,9 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             }
             else if (optmatch({"--anchor"})) {
                 ctx->use.anchor = true;
+            }
+            else if (optmatch({"--nondestructive", "--input-nondestructive"})) {
+                // placeholder
             }
             else if (optmatch({"--failfast"})) {
                 // placeholder

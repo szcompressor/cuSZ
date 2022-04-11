@@ -23,28 +23,40 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE SHARED)
 
-add_executable(ex-api-huffcoarse src/ex_api_huffcoarse.cu)
-target_link_libraries(ex-api-huffcoarse 
-	PUBLIC
-	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
-	-lcuda
-	-lcusparse)
-set_target_properties(ex-api-huffcoarse PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+# add_executable(ex-api-huffcoarse src/ex_api_huffcoarse.cu)
+# target_link_libraries(ex-api-huffcoarse 
+# 	PUBLIC
+# 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
+# 	-lcuda
+# 	-lcusparse)
+# set_target_properties(ex-api-huffcoarse PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_executable(ex-api-csr src/ex_api_csr11.cu)
-target_link_libraries(ex-api-csr 
-	PUBLIC
-	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
-	-lcusparse)
+# add_executable(ex-api-csr src/ex_api_csr11.cu)
+# target_link_libraries(ex-api-csr 
+# 	PUBLIC
+# 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
+# 	-lcusparse)
 
-add_executable(ex-api-pqlorenzo src/ex_api_pqlorenzo.cu)
-target_link_libraries(ex-api-pqlorenzo 
-	PUBLIC
-	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
- 	-lcusparse)
+# add_executable(ex-api-pqlorenzo src/ex_api_pqlorenzo.cu)
+# target_link_libraries(ex-api-pqlorenzo 
+# 	PUBLIC
+# 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
+#  	-lcusparse)
 
-add_executable(ex-defaultcompressor src/ex_api_defaultcompressor.cu)
-target_link_libraries(ex-defaultcompressor  
+# add_executable(ex-defaultcompressor src/ex_api_defaultcompressor.cu)
+# target_link_libraries(ex-defaultcompressor  
+# 	PUBLIC
+# 	${CMAKE_SOURCE_DIR}/../Release/libcompress.a 
+# 	${CMAKE_SOURCE_DIR}/../Release/libargp.a 
+# 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
+# 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
+# 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
+# 	-lcuda
+# 	-lcusparse)
+# set_target_properties(ex-defaultcompressor PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(ex-api src/ex_api_core.cu)
+target_link_libraries(ex-api
 	PUBLIC
 	${CMAKE_SOURCE_DIR}/../Release/libcompress.a 
 	${CMAKE_SOURCE_DIR}/../Release/libargp.a 
@@ -53,22 +65,22 @@ target_link_libraries(ex-defaultcompressor
 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
 	-lcuda
 	-lcusparse)
-set_target_properties(ex-defaultcompressor PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(ex-api PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(spcompressor ${LIB_TYPE} ../src/sp_path.cu)
-add_executable(ex-api-spline3 src/ex_api_spline3.cu)
-target_link_libraries(ex-api-spline3 
-	PUBLIC
-	spcompressor 
-	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
-	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
-	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
-	-lcuda
-	-lcusparse)
-set_target_properties(ex-api-spline3 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+# add_library(spcompressor ${LIB_TYPE} ../src/sp_path.cu)
+# add_executable(ex-api-spline3 src/ex_api_spline3.cu)
+# target_link_libraries(ex-api-spline3 
+# 	PUBLIC
+# 	spcompressor 
+# 	${CMAKE_SOURCE_DIR}/../Release/libhuff.a 
+# 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
+# 	${CMAKE_SOURCE_DIR}/../Release/libsp.a 
+# 	-lcuda
+# 	-lcusparse)
+# set_target_properties(ex-api-spline3 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_executable(app-spline3-pred src/app_spline3_pred.cu)
-target_link_libraries(app-spline3-pred
-	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
-	-lcusparse)
+# add_executable(app-spline3-pred src/app_spline3_pred.cu)
+# target_link_libraries(app-spline3-pred
+# 	${CMAKE_SOURCE_DIR}/../Release/libpq.a 
+# 	-lcusparse)
 # set_target_properties(app-spline3-pred PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

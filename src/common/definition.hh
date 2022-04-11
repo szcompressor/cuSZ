@@ -59,6 +59,8 @@ using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord      = std::vector<TimeRecordTuple>;
 using timerecord_t    = TimeRecord*;
 
+using BYTE = uint8_t;
+
 };  // namespace cusz
 
 #endif

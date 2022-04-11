@@ -81,7 +81,8 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     uint32_t get_len_data() { return data_len3.x * data_len3.y * data_len3.z; }
 
    public:
-    void export_header(HEADER*& ext_header) { ext_header = &header; }
+    // void export_header(HEADER*& ext_header) { ext_header = &header; }
+    void export_header(HEADER& ext_header) { ext_header = header; }
 
     Compressor()
     {
@@ -106,9 +107,9 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
      *
      * @param ext_timerecord nullable; pointer to external TimeRecord.
      */
-    void export_timerecord(timerecord_t& ext_timerecord)
+    void export_timerecord(TimeRecord* ext_timerecord)
     {
-        if (ext_timerecord) ext_timerecord = &timerecord;
+        if (ext_timerecord) *ext_timerecord = timerecord;
     }
 
     template <class CONFIG>
@@ -337,7 +338,7 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
         update_header(), subfile_collect();
         // output
-        compressed_len = header.file_size();
+        compressed_len = header.get_filesize();
         compressed     = d_reserved_compressed;
 
         // considering that codec can be consecutively in use, and can compress data of different huff-byte
