@@ -11,7 +11,7 @@
 
 #include <iostream>
 #include "../src/common/capsule.hh"
-#include "../src/wrapper/spgs.cuh"
+#include "../src/component/spgs.cuh"
 
 using std::cout;
 

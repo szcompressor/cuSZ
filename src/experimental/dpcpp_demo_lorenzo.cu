@@ -1,7 +1,7 @@
 /**
  * @file withwrapper_lorenzo.cu
  * @author Jiannan Tian
- * @brief A temporary test case using high-level wrapper/API.
+ * @brief A temporary test case using high-level component/API.
  * @version 0.3
  * @date 2021-06-21
  *
@@ -20,7 +20,7 @@
 
 #pragma message "--extended-lambda causes migration error (nvcc is incapable to be a wellrounded compiler)."
 // #include "../utils/verify_gpu.cuh"
-#include "../wrapper/extrap_lorenzo.h"
+#include "../component/extrap_lorenzo.h"
 
 using std::cout;
 using std::endl;

@@ -10,8 +10,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_EXTRAP_LORENZO_CUH
-#define CUSZ_WRAPPER_EXTRAP_LORENZO_CUH
+#ifndef CUSZ_COMPONENT_EXTRAP_LORENZO_CUH
+#define CUSZ_COMPONENT_EXTRAP_LORENZO_CUH
 
 #include <clocale>
 #include <iostream>

@@ -9,8 +9,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_SPGS_CUH
-#define CUSZ_WRAPPER_SPGS_CUH
+#ifndef CUSZ_COMPONENT_SPGS_CUH
+#define CUSZ_COMPONENT_SPGS_CUH
 
 #include <thrust/count.h>
 #include <thrust/device_vector.h>

@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
-#define CUSZ_WRAPPER_HUFFMAN_COARSE_CUH
+#ifndef CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
+#define CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
 
 #include <cuda.h>
 #include <clocale>

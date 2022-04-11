@@ -16,9 +16,9 @@
 #include "ex_common.cuh"
 #include "ex_common2.cuh"
 
+#include "component/csr11.cuh"
+#include "component/interp_spline3.cuh"
 #include "sp_path.cuh"
-#include "wrapper/csr11.cuh"
-#include "wrapper/interp_spline3.cuh"
 
 #include <pwd.h>
 #include <sys/types.h>

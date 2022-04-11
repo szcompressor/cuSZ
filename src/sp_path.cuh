@@ -15,7 +15,7 @@
 
 #include "base_compressor.cuh"
 #include "binding.hh"
-#include "wrapper.hh"
+#include "componments.hh"
 
 /******************************************************************************
                             macros for shorthand writing

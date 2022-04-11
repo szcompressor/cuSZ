@@ -11,8 +11,8 @@
 
 #include "ex_common.cuh"
 
+#include "component/huffman_coarse.cuh"
 #include "utils.hh"
-#include "wrapper/huffman_coarse.cuh"
 
 using UNCOMPRESSED = uint16_t;
 using COMPONENT    = cusz::HuffmanCoarse<UNCOMPRESSED, uint32_t, uint32_t>;

@@ -17,8 +17,8 @@
 
 #include "base_compressor.cuh"
 #include "binding.hh"
+#include "componments.hh"
 #include "header.hh"
-#include "wrapper.hh"
 
 #define DEFINE_DEV(VAR, TYPE) TYPE* d_##VAR{nullptr};
 #define DEFINE_HOST(VAR, TYPE) TYPE* h_##VAR{nullptr};

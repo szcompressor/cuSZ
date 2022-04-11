@@ -11,7 +11,7 @@
 
 #include "ex_common.cuh"
 
-#include "wrapper/extrap_lorenzo.cuh"
+#include "component/extrap_lorenzo.cuh"
 
 using DATA    = float;
 using ERRCTRL = uint16_t;

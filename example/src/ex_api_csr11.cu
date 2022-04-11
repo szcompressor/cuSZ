@@ -11,8 +11,8 @@
 
 #include "ex_common.cuh"
 
+#include "component/csr11.cuh"
 #include "utils.hh"
-#include "wrapper/csr11.cuh"
 
 using UNCOMPRESSED = float;
 using COMPONENT    = cusz::CSR11<UNCOMPRESSED>;

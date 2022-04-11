@@ -21,14 +21,14 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-const
 
 set(LIB_TYPE STATIC)
 
-add_library(pq ${LIB_TYPE} src/wrapper/extrap_lorenzo.cu src/wrapper/interp_spline3.cu)
+add_library(pq ${LIB_TYPE} src/component/extrap_lorenzo.cu src/component/interp_spline3.cu)
 add_library(argp ${LIB_TYPE} src/context.cc)
-add_library(sp ${LIB_TYPE} src/wrapper/csr11.cu)
+add_library(sp ${LIB_TYPE} src/component/csr11.cu)
 target_link_libraries(sp PUBLIC -lcusparse)
-add_library(huff ${LIB_TYPE} src/wrapper/huffman_parbook.cu src/wrapper/huffman_coarse.cu)
+add_library(huff ${LIB_TYPE} src/component/huffman_parbook.cu src/component/huffman_coarse.cu)
 target_link_libraries(huff PUBLIC -lcusparse -lcuda)
 set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-add_library(compress ${LIB_TYPE} src/compressor.cu src/base_compressor.cu)
+add_library(compress ${LIB_TYPE} src/compressor.cu)
 add_library(cusz ${LIB_TYPE} src/cli.cu)
 
 add_executable(cusz-bin src/cusz-cli.cu)

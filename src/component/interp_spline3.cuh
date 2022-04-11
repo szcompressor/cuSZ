@@ -9,8 +9,8 @@
  *
  */
 
-#ifndef CUSZ_WRAPPER_INTERP_SPLINE_CUH
-#define CUSZ_WRAPPER_INTERP_SPLINE_CUH
+#ifndef CUSZ_COMPONENT_INTERP_SPLINE_CUH
+#define CUSZ_COMPONENT_INTERP_SPLINE_CUH
 
 #include <exception>
 #include <limits>

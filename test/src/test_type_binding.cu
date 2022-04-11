@@ -15,8 +15,8 @@
 
 #include "binding.hh"
 #include "common.hh"
+#include "componments.hh"
 #include "utils.hh"
-#include "wrapper.hh"
 
 using namespace std;
 

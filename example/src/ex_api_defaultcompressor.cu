@@ -18,9 +18,9 @@
 #include "context.hh"
 #include "ex_common.cuh"
 
+#include "component/csr11.cuh"
+#include "component/extrap_lorenzo.cuh"
 #include "default_path.cuh"
-#include "wrapper/csr11.cuh"
-#include "wrapper/extrap_lorenzo.cuh"
 
 #include <pwd.h>
 #include <sys/types.h>

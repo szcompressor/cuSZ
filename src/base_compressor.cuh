@@ -17,10 +17,10 @@
 #include "analysis/verify_gpu.cuh"
 #include "cli/quality_viewer.hh"
 #include "common.hh"
+#include "componments.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "utils.hh"
-#include "wrapper.hh"
 
 /**
  * @brief bare metal, can run predictor to check data quality and compressibility

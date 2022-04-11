@@ -11,11 +11,11 @@
 
 #include "base_compressor.cuh"
 
-#include "wrapper/extrap_lorenzo.cuh"
+#include "component/extrap_lorenzo.cuh"
 using DefaultCompressor = BaseCompressor<cusz::PredictorLorenzo<float, uint16_t, float>>;
 
-#if __has_include("wrapper/interp_spline3.cuh")
-#include("wrapper/interp_spline3.cuh")
+#if __has_include("component/interp_spline3.cuh")
+#include("component/interp_spline3.cuh")
 using SPCompressor = BaseCompressor<cusz::Spline3<float, float, float>>;
 #endif
 
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     auto pid   = atoi(argv[6]);
 
     if (pid == 0) dryrun<DefaultCompressor>(fname, x, y, z, r2r);
-#if __has_include("wrapper/interp_spline3.cuh")
+#if __has_include("component/interp_spline3.cuh")
     if (pid == 1) dryrun<SPCompressor>(fname, x, y, z, r2r);
 #endif
 
