@@ -131,6 +131,12 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
         else if (optmatch({"predictor"})) {
             ctx->predictor = string(v);
         }
+        else if (optmatch({"codec"})) {
+            // placeholder
+        }
+        else if (optmatch({"spcodec"})) {
+            // placeholder
+        }
         else if (optmatch({"anchor"}) and is_enabled(v)) {
             ctx->use.anchor = true;
         }
@@ -210,6 +216,14 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             else if (optmatch({"-p", "--predictor"})) {
                 check_next();
                 ctx->predictor = string(argv[++i]);
+            }
+            else if (optmatch({"-c", "--codec"})) {
+                check_next();
+                // placeholder
+            }
+            else if (optmatch({"-s", "--spcodec"})) {
+                check_next();
+                // placeholder
             }
             else if (optmatch({"-t", "--type", "--dtype"})) {
                 check_next();
