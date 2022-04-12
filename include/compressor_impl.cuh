@@ -25,10 +25,12 @@
 #define FREEDEV(VAR) CHECK_CUDA(cudaFree(d_##VAR));
 #define FREEHOST(VAR) CHECK_CUDA(cudaFreeHost(h_##VAR));
 
+#define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)HEADER::VAR, 14, #VAR, header.entry[HEADER::VAR]);
+
 #define D2D_CPY(VAR, FIELD)                                                                            \
     {                                                                                                  \
         auto dst = d_reserved_compressed + header.entry[HEADER::FIELD];                                \
-        auto src = reinterpret_cast<BYTE*>(d_##VAR);                                                   \
+        auto src = reinterpret_cast<BYTE*>(VAR);                                                       \
         CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
     }
 
@@ -76,6 +78,9 @@ class Compressor {
     Codec*         codec;
     FallbackCodec* fb_codec;
 
+    cusz::FREQ* d_freq;
+    float       time_hist;
+
    private:
     dim3     data_len3;
     uint32_t get_len_data() { return data_len3.x * data_len3.y * data_len3.z; }
@@ -116,6 +121,21 @@ class Compressor {
     void init(Context* config, bool dbg_print = false) { init_detail(config, dbg_print); }
     void init(Header* config, bool dbg_print = false) { init_detail(config, dbg_print); }
 
+   private:
+    void init_codec(size_t codec_in_len, unsigned int codec_config, int max_booklen, int pardeg, bool dbg_print)
+    {
+        if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
+        if (codec_config bitand 0b01) {
+            LOGGING(LOG_INFO, "allocated 4-byte codec");
+            (*codec).init(codec_in_len, max_booklen, pardeg, dbg_print);
+        }
+        if (codec_config bitand 0b10) {
+            LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
+            (*fb_codec).init(codec_in_len, max_booklen, pardeg, dbg_print);
+            fallback_codec_allocated = true;
+        }
+    };
+
     template <class CONFIG>
     void init_detail(CONFIG* config, bool dbg_print)
     {
@@ -130,19 +150,6 @@ class Compressor {
 
         size_t spcodec_in_len, codec_in_len;
 
-        auto allocate_codec = [&]() {
-            if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
-            if (codec_config bitand 0b01) {
-                if (dbg_print) LOGGING(LOG_INFO, "allocated 4-byte codec");
-                (*codec).init(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
-            }
-            if (codec_config bitand 0b10) {
-                if (dbg_print) LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
-                (*fb_codec).init(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
-                fallback_codec_allocated = true;
-            }
-        };
-
         (*predictor).init(x, y, z, dbg_print);
 
         spcodec_in_len = (*predictor).get_alloclen_data();
@@ -150,7 +157,16 @@ class Compressor {
 
         (*spcodec).init(spcodec_in_len, density_factor, dbg_print);
 
-        allocate_codec();
+        {
+            auto bytes = sizeof(cusz::FREQ) * cfg_max_booklen;
+            cudaMalloc(&d_freq, bytes);
+            cudaMemset(d_freq, 0x0, bytes);
+
+            // cudaMalloc(&d_freq_another, bytes);
+            // cudaMemset(d_freq_another, 0x0, bytes);
+        }
+
+        init_codec(codec_in_len, codec_config, cfg_max_booklen, cfg_pardeg, dbg_print);
 
         CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_alloclen_data() * sizeof(T) / 2));
     }
@@ -162,14 +178,13 @@ class Compressor {
         if (not timerecord.empty()) timerecord.clear();
 
         COLLECT_TIME("predict", (*predictor).get_time_elapsed());
+        COLLECT_TIME("histogram", time_hist);
 
         if (not use_fallback_codec) {
-            COLLECT_TIME("histogram", (*codec).get_time_hist());
             COLLECT_TIME("book", (*codec).get_time_book());
             COLLECT_TIME("huff-enc", (*codec).get_time_lossless());
         }
         else {
-            COLLECT_TIME("histogram", (*fb_codec).get_time_hist());
             COLLECT_TIME("book", (*fb_codec).get_time_book());
             COLLECT_TIME("huff-enc", (*fb_codec).get_time_lossless());
         }
@@ -192,6 +207,103 @@ class Compressor {
 
         COLLECT_TIME("predict", (*predictor).get_time_elapsed());
     }
+
+   public:
+    void encode_with_exception(
+        E*           d_in,
+        size_t       inlen,
+        cusz::FREQ*  d_freq,
+        int          booklen,
+        int          sublen,
+        int          pardeg,
+        bool         codec_force_fallback,
+        BYTE*&       d_out,
+        size_t&      outlen,
+        cudaStream_t stream,
+        bool         dbg_print)
+    {
+        auto build_codebook_using = [&](auto encoder) { (*encoder).build_codebook(d_freq, booklen, stream); };
+        auto encode_with          = [&](auto encoder) {
+            (*encoder).encode(d_in, inlen, d_freq, booklen, sublen, pardeg, d_out, outlen, stream);
+        };
+
+        auto try_fallback_alloc = [&]() {
+            use_fallback_codec = true;
+            if (not fallback_codec_allocated) {
+                LOGGING(LOG_EXCEPTION, "online allocate fallback (8-byte) codec");
+                (*fb_codec).init(inlen, booklen, pardeg, dbg_print);
+                fallback_codec_allocated = true;
+            }
+        };
+
+        /******************************************************************************/
+        if (not codec_force_fallback) {
+            try {
+                build_codebook_using(codec);
+                encode_with(codec);
+            }
+            catch (const std::runtime_error& e) {
+                LOGGING(LOG_EXCEPTION, "switch to fallback codec");
+                try_fallback_alloc();
+
+                build_codebook_using(fb_codec);
+                encode_with(fb_codec);
+            }
+        }
+        else {
+            LOGGING(LOG_INFO, "force switch to fallback codec");
+            try_fallback_alloc();
+
+            build_codebook_using(fb_codec);
+            encode_with(fb_codec);
+        }
+    }
+
+    void subfile_collect(
+        T*           d_anchor,
+        size_t       anchor_len,
+        BYTE*        d_codec_out,
+        size_t       codec_outlen,
+        BYTE*        d_spfmt_out,
+        size_t       spfmt_outlen,
+        cudaStream_t stream,
+        bool         dbg_print)
+    {
+        header.header_nbyte = sizeof(HEADER);
+        uint32_t nbyte[HEADER::END];
+        nbyte[HEADER::HEADER] = 128;
+        nbyte[HEADER::ANCHOR] = sizeof(T) * anchor_len;
+        nbyte[HEADER::VLE]    = sizeof(BYTE) * codec_outlen;
+        nbyte[HEADER::SPFMT]  = sizeof(BYTE) * spfmt_outlen;
+
+        header.entry[0] = 0;
+        // *.END + 1; need to know the ending position
+        for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
+        for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
+
+        auto debug_header_entry = [&]() {
+            printf("\nsubfile collect in compressor:\n");
+            printf("  ENTRIES\n");
+
+            PRINT_ENTRY(HEADER);
+            PRINT_ENTRY(ANCHOR);
+            PRINT_ENTRY(VLE);
+            PRINT_ENTRY(SPFMT);
+            PRINT_ENTRY(END);
+            printf("\n");
+        };
+
+        if (dbg_print) debug_header_entry();
+
+        CHECK_CUDA(cudaMemcpyAsync(d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+
+        D2D_CPY(d_anchor, ANCHOR)
+        D2D_CPY(d_codec_out, VLE)
+        D2D_CPY(d_spfmt_out, SPFMT)
+
+        /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    };
+
 
     void compress(
         Context*     config,
@@ -216,47 +328,20 @@ class Compressor {
         T*     d_anchor{nullptr};   // predictor out1
         E*     d_errctrl{nullptr};  // predictor out2
         BYTE*  d_spfmt{nullptr};
-        size_t spfmt_out_len{0};
+        size_t spfmt_outlen{0};
 
         BYTE*  d_codec_out{nullptr};
-        size_t codec_out_len{0};
+        size_t codec_outlen{0};
 
-        size_t data_len, m, errctrl_len, sublen;
-        // must precede the following derived lengths
-        auto predictor_do = [&]() {
-            (*predictor).construct(data_len3, uncompressed, d_anchor, d_errctrl, eb, radius, stream);
-        };
+        size_t data_len, errctrl_len, sublen, spcodec_inlen;
+        auto   booklen = radius * 2;
 
-        auto spcodec_do = [&]() { (*spcodec).encode(uncompressed, m * m, d_spfmt, spfmt_out_len, stream, dbg_print); };
-
-        auto codec_do_with_exception = [&]() {
-            auto encode_with_fallback_codec = [&]() {
-                use_fallback_codec = true;
-                if (not fallback_codec_allocated) {
-                    if (dbg_print) LOGGING(LOG_EXCEPTION, "online allocate fallback (8-byte) codec");
-
-                    (*fb_codec).init(errctrl_len, radius * 2, pardeg, /*dbg print*/ false);
-                    fallback_codec_allocated = true;
-                }
-                (*fb_codec).encode(
-                    d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
-            };
-
-            if (not codec_force_fallback) {
-                try {
-                    (*codec).encode(
-                        d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
-                }
-                catch (const std::runtime_error& e) {
-                    if (dbg_print) LOGGING(LOG_EXCEPTION, "switch to fallback codec");
-                    encode_with_fallback_codec();
-                }
-            }
-            else {
-                if (dbg_print) LOGGING(LOG_INFO, "force switch to fallback codec");
-
-                encode_with_fallback_codec();
-            }
+        auto derive_lengths_after_prediction = [&]() {
+            data_len      = (*predictor).get_len_data();
+            errctrl_len   = (*predictor).get_len_quant();
+            auto m        = Reinterpret1DTo2D::get_square_size(data_len);
+            spcodec_inlen = m * m;
+            sublen        = ConfigHelper::get_npart(data_len, pardeg);
         };
 
         auto update_header = [&]() {
@@ -269,59 +354,38 @@ class Compressor {
             header.byte_vle   = use_fallback_codec ? 8 : 4;
         };
 
-        auto subfile_collect = [&]() {
-            header.header_nbyte = sizeof(HEADER);
-            uint32_t nbyte[HEADER::END];
-            nbyte[HEADER::HEADER] = 128;
-            nbyte[HEADER::ANCHOR] = sizeof(T) * (*predictor).get_len_anchor();
-            nbyte[HEADER::VLE]    = sizeof(BYTE) * codec_out_len;
-            nbyte[HEADER::SPFMT]  = sizeof(BYTE) * spfmt_out_len;
+        /******************************************************************************/
 
-            header.entry[0] = 0;
-            // *.END + 1; need to know the ending position
-            for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
-            for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
+        // Prediction is the dependency of the rest procedures.
+        (*predictor).construct(data_len3, uncompressed, d_anchor, d_errctrl, eb, radius, stream);
+        derive_lengths_after_prediction();
 
-            auto debug_header_entry = [&]() {
-                printf("\nsubfile collect in compressor:\n");
-                printf("  ENTRIES\n");
+        /******************************************************************************/
 
-#define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)HEADER::VAR, 14, #VAR, header.entry[HEADER::VAR]);
-                PRINT_ENTRY(HEADER);
-                PRINT_ENTRY(ANCHOR);
-                PRINT_ENTRY(VLE);
-                PRINT_ENTRY(SPFMT);
-                PRINT_ENTRY(END);
-                printf("\n");
-#undef PRINT_ENTRY
-            };
-
-            if (dbg_print) debug_header_entry();
-
-            CHECK_CUDA(cudaMemcpyAsync(d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
-
-            D2D_CPY(anchor, ANCHOR)
-            D2D_CPY(codec_out, VLE)
-            D2D_CPY(spfmt, SPFMT)
-
-            /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
-        };
-
-        // execution below
-        // ---------------
-
-        predictor_do();
-
-        data_len    = (*predictor).get_len_data();
-        m           = Reinterpret1DTo2D::get_square_size(data_len);
-        errctrl_len = (*predictor).get_len_quant();
-        sublen      = ConfigHelper::get_npart(data_len, pardeg);
-
-        spcodec_do(), codec_do_with_exception();
+        kernel_wrapper::get_frequency<E>(d_errctrl, errctrl_len, d_freq, booklen, time_hist, stream);
 
         /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        update_header(), subfile_collect();
+        // TODO remove duplicate get_frequency inside encode_with_exception()
+        encode_with_exception(
+            d_errctrl, errctrl_len,                                 // input
+            d_freq, booklen, sublen, pardeg, codec_force_fallback,  // config
+            d_codec_out, codec_outlen,                              // output
+            stream, dbg_print);
+
+        (*spcodec).encode(uncompressed, spcodec_inlen, d_spfmt, spfmt_outlen, stream, dbg_print);
+
+        /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+
+        /******************************************************************************/
+
+        update_header();
+        subfile_collect(
+            d_anchor, (*predictor).get_len_anchor(),  //
+            d_codec_out, codec_outlen,                //
+            d_spfmt, spfmt_outlen,                    //
+            stream, dbg_print);
+
         // output
         compressed_len = header.get_filesize();
         compressed     = d_reserved_compressed;
@@ -381,8 +445,8 @@ class Compressor {
         auto d_outlier       = out_decompressed;
         auto d_outlier_xdata = out_decompressed;
 
-        auto spcodec_do              = [&]() { (*spcodec).decode(d_sp, d_outlier, stream); };
-        auto codec_do_with_exception = [&]() {
+        auto spcodec_do            = [&]() { (*spcodec).decode(d_sp, d_outlier, stream); };
+        auto encode_with_exception = [&]() {
             if (not use_fallback_codec) {  //
                 (*codec).decode(d_vle, d_errctrl);
             }
@@ -399,7 +463,7 @@ class Compressor {
         };
 
         // process
-        spcodec_do(), codec_do_with_exception(), predictor_do();
+        spcodec_do(), encode_with_exception(), predictor_do();
 
         collect_decompress_timerecord();
 
@@ -442,6 +506,7 @@ struct Framework {
 #undef DEFINE_DEV
 #undef DEFINE_HOST
 #undef D2D_CPY
+#undef PRINT_ENTRY
 #undef ACCESSOR
 #undef COLLECT_TIME
 

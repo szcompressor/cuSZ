@@ -108,7 +108,6 @@ class HuffmanCoarse : public cusz::VariableRate {
    private:
     DEFINE_HC_ARRAY(tmp, H);
     DEFINE_HC_ARRAY(compressed, BYTE);  // alias in address
-    DEFINE_HC_ARRAY(freq, FreqT);
     DEFINE_HC_ARRAY(book, H);
     DEFINE_HC_ARRAY(revbook, BYTE);
     DEFINE_HC_ARRAY(par_nbit, M);
@@ -145,7 +144,6 @@ class HuffmanCoarse : public cusz::VariableRate {
 
     struct runtime_encode_helper {
         static const int TMP       = 0;
-        static const int FREQ      = 1;
         static const int BOOK      = 2;
         static const int REVBOOK   = 3;
         static const int PAR_NBIT  = 4;
@@ -179,11 +177,11 @@ class HuffmanCoarse : public cusz::VariableRate {
      * @brief Allocate workspace according to the input size & configurations.
      *
      * @param in_uncompressed_len uncompressed length
-     * @param cfg_booklen codebook length
-     * @param cfg_pardeg degree of parallelism
+     * @param booklen codebook length
+     * @param pardeg degree of parallelism
      * @param dbg_print print for debugging
      */
-    void init(size_t const in_uncompressed_len, int cfg_booklen, int cfg_pardeg, bool dbg_print = false)
+    void init(size_t const in_uncompressed_len, int const booklen, int const pardeg, bool dbg_print = false)
     {
         auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
 
@@ -194,7 +192,6 @@ class HuffmanCoarse : public cusz::VariableRate {
             printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
 
             dbg_println("TMP", d_tmp, RTE::TMP);
-            dbg_println("FREQ", d_freq, RTE::FREQ);
             dbg_println("BOOK", d_book, RTE::BOOK);
             dbg_println("REVBOOK", d_revbook, RTE::REVBOOK);
             dbg_println("PAR_NBIT", d_par_nbit, RTE::PAR_NBIT);
@@ -207,16 +204,14 @@ class HuffmanCoarse : public cusz::VariableRate {
         // memset(rte.entry, 0, sizeof(uint32_t) * (RTE::END + 1));
 
         rte.nbyte[RTE::TMP]       = sizeof(H) * in_uncompressed_len;
-        rte.nbyte[RTE::FREQ]      = sizeof(FreqT) * cfg_booklen;
-        rte.nbyte[RTE::BOOK]      = sizeof(H) * cfg_booklen;
-        rte.nbyte[RTE::REVBOOK]   = get_revbook_nbyte(cfg_booklen);
-        rte.nbyte[RTE::PAR_NBIT]  = sizeof(M) * cfg_pardeg;
-        rte.nbyte[RTE::PAR_NCELL] = sizeof(M) * cfg_pardeg;
-        rte.nbyte[RTE::PAR_ENTRY] = sizeof(M) * cfg_pardeg;
+        rte.nbyte[RTE::BOOK]      = sizeof(H) * booklen;
+        rte.nbyte[RTE::REVBOOK]   = get_revbook_nbyte(booklen);
+        rte.nbyte[RTE::PAR_NBIT]  = sizeof(M) * pardeg;
+        rte.nbyte[RTE::PAR_NCELL] = sizeof(M) * pardeg;
+        rte.nbyte[RTE::PAR_ENTRY] = sizeof(M) * pardeg;
         rte.nbyte[RTE::BITSTREAM] = max_compressed_bytes();
 
         HC_ALLOCDEV(tmp, TMP);
-        HC_ALLOCDEV(freq, FREQ);
         HC_ALLOCDEV(book, BOOK);
         HC_ALLOCDEV(revbook, REVBOOK);
         HC_ALLOCDEV(par_nbit, PAR_NBIT);
@@ -227,7 +222,6 @@ class HuffmanCoarse : public cusz::VariableRate {
         // standalone definition for output
         d_compressed = reinterpret_cast<BYTE*>(d_tmp);
 
-        HC_ALLOCHOST(freq, FREQ);
         HC_ALLOCHOST(book, BOOK);
         HC_ALLOCHOST(revbook, REVBOOK);
         HC_ALLOCHOST(par_nbit, PAR_NBIT);
@@ -244,18 +238,15 @@ class HuffmanCoarse : public cusz::VariableRate {
     static const int CELL_BITWIDTH = sizeof(H) * 8;
 
     float milliseconds{0.0};
-    float time_hist{0.0}, time_book{0.0}, time_lossless{0.0};
+    float time_book{0.0}, time_lossless{0.0};
 
    public:
-    //
     float get_time_elapsed() const { return milliseconds; }
-    float get_time_hist() const { return time_hist; }
     float get_time_book() const { return time_book; }
     float get_time_lossless() const { return time_lossless; }
 
-    H*          expose_book() const { return d_book; };
-    BYTE*       expose_revbook() const { return d_revbook; };
-    cusz::FREQ* expose_freq() const { return d_freq; };
+    H*    expose_book() const { return d_book; };
+    BYTE* expose_revbook() const { return d_revbook; };
 
     // TODO this kind of space will be overlapping with quant-codes
     size_t get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
@@ -275,7 +266,6 @@ class HuffmanCoarse : public cusz::VariableRate {
     ~HuffmanCoarse()
     {
         HC_FREEDEV(tmp);
-        HC_FREEDEV(freq);
         HC_FREEDEV(book);
         HC_FREEDEV(revbook);
         HC_FREEDEV(par_nbit);
@@ -283,7 +273,6 @@ class HuffmanCoarse : public cusz::VariableRate {
         HC_FREEDEV(par_entry);
         HC_FREEDEV(bitstream);
 
-        HC_FREEHOST(freq);
         HC_FREEHOST(book);
         HC_FREEHOST(revbook);
         HC_FREEHOST(par_nbit);
@@ -292,34 +281,21 @@ class HuffmanCoarse : public cusz::VariableRate {
     }
 
    public:
-    /**
-     * @brief Inspect the input data; generate histogram, codebook (for encoding), reversed codebook (for decoding).
-     *
-     * @param tmp_freq (device array) If called by other class methods, use class-private d_freq; otherwise, use
-     * external array.
-     * @param tmp_book (device array) If called by other class methods, use class-private d_book.
-     * @param in_uncompressed (device array) input data
-     * @param in_uncompressed_len (host variable) input data length
-     * @param cfg_booklen (host variable) configuration, book size
-     * @param out_revbook (device array) If called by other class methods, use class-private d_revbook.
-     * @param stream CUDA stream
+    // `autosw` collects hist outside the codec.
+    /*
+     void
+     get_frequency(T* data, size_t data_len, cusz::FREQ* freq, int const booklen, float& time_hist, cudaStream_t stream)
+     {
+         kernel_wrapper::get_frequency<T>(data, data_len, freq, booklen, time_hist, stream);
+     }
      */
-    void inspect(
-        cusz::FREQ*  tmp_freq,
-        H*           tmp_book,
-        T*           in_uncompressed,
-        size_t const in_uncompressed_len,
-        int const    cfg_booklen,
-        BYTE*        out_revbook,
-        cudaStream_t stream = nullptr)
-    {
-        kernel_wrapper::get_frequency<T>(
-            in_uncompressed, in_uncompressed_len, tmp_freq, cfg_booklen, time_hist, stream);
 
+    void build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
+    {
         // This is end-to-end time for parbook.
         cuda_timer_t t;
         t.timer_start(stream);
-        kernel_wrapper::par_get_codebook<T, H>(tmp_freq, cfg_booklen, tmp_book, out_revbook, stream);
+        kernel_wrapper::par_get_codebook<T, H>(freq, booklen, d_book, d_revbook, stream);
         t.timer_end(stream);
         cudaStreamSynchronize(stream);
 
@@ -390,7 +366,6 @@ class HuffmanCoarse : public cusz::VariableRate {
     void clear_buffer()
     {
         cudaMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
-        cudaMemset(d_freq, 0x0, rte.nbyte[RTE::FREQ]);
         cudaMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
         cudaMemset(d_revbook, 0x0, rte.nbyte[RTE::REVBOOK]);
         cudaMemset(d_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT]);
@@ -413,13 +388,13 @@ class HuffmanCoarse : public cusz::VariableRate {
     void encode(
         T*           in_uncompressed,
         size_t const in_uncompressed_len,
+        cusz::FREQ*  d_freq,
         int const    cfg_booklen,
         int const    cfg_sublen,
         int const    cfg_pardeg,
         BYTE*&       out_compressed,
         size_t&      out_compressed_len,
-        cudaStream_t stream     = nullptr,
-        bool         do_inspect = true)
+        cudaStream_t stream = nullptr)
     {
         cuda_timer_t t;
         time_lossless = 0;
@@ -433,7 +408,8 @@ class HuffmanCoarse : public cusz::VariableRate {
 
         struct header_t header;
 
-        auto encode_phase1 = [&]() {
+        /* phase 1 */
+        {
             auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
             auto grid_dim  = ConfigHelper::get_npart(in_uncompressed_len, block_dim);
 
@@ -450,9 +426,10 @@ class HuffmanCoarse : public cusz::VariableRate {
             BARRIER();
 
             time_lossless += t.get_time_elapsed();
-        };
+        }
 
-        auto encode_phase2 = [&]() {
+        /* phase 2 */
+        {
             auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
             auto grid_dim  = ConfigHelper::get_npart(cfg_pardeg, block_dim);
 
@@ -465,9 +442,10 @@ class HuffmanCoarse : public cusz::VariableRate {
             BARRIER();
 
             time_lossless += t.get_time_elapsed();
-        };
+        }
 
-        auto encode_phase3 = [&]() {
+        /* phase 3 */
+        {
             CHECK_CUDA(cudaMemcpyAsync(h_par_nbit, d_par_nbit, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
             CHECK_CUDA(
                 cudaMemcpyAsync(h_par_ncell, d_par_ncell, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
@@ -485,28 +463,18 @@ class HuffmanCoarse : public cusz::VariableRate {
 
             // update with the precise BITSTREAM nbyte
             rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
-        };
+        }
 
-        auto encode_phase4 = [&]() {
+        /* phase 4 */
+        {
             t.timer_start(stream);
-            {
-                cusz::huffman_coarse_concatenate<H, M><<<cfg_pardeg, 128, 0, stream>>>  //
-                    (d_tmp, d_par_entry, d_par_ncell, cfg_sublen, d_bitstream);
-            }
+            cusz::huffman_coarse_concatenate<H, M><<<cfg_pardeg, 128, 0, stream>>>  //
+                (d_tmp, d_par_entry, d_par_ncell, cfg_sublen, d_bitstream);
             t.timer_end(stream);
             BARRIER();
 
             time_lossless += t.get_time_elapsed();
-        };
-
-        // -----------------------------------------------------------------------------
-
-        if (do_inspect) inspect(d_freq, d_book, in_uncompressed, in_uncompressed_len, cfg_booklen, d_revbook, stream);
-
-        encode_phase1();
-        encode_phase2();
-        encode_phase3();
-        encode_phase4();
+        }
 
         subfile_collect(header, in_uncompressed_len, cfg_booklen, cfg_sublen, cfg_pardeg, stream);
 
@@ -517,8 +485,8 @@ class HuffmanCoarse : public cusz::VariableRate {
     /**
      * @brief Public decode interface.
      *
-     * @param in_compressed (device array) input
-     * @param out_decompressed (device array output) output
+     * @param in_compressed (device) input
+     * @param out_decompressed (device) output
      * @param stream CUDA stream
      * @param header_on_device If true, copy header from device binary to host.
      */
