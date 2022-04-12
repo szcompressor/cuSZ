@@ -155,9 +155,9 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     {
 #define COLLECT_TIME(NAME, TIME) timerecord.push_back({const_cast<const char*>(NAME), TIME});
 
-        COLLECT_TIME("predict", (*predictor).get_time_elapsed());
-
         if (not timerecord.empty()) timerecord.clear();
+
+        COLLECT_TIME("predict", (*predictor).get_time_elapsed());
 
         if (not use_fallback_codec) {
             COLLECT_TIME("histogram", (*codec).get_time_hist());
@@ -178,13 +178,14 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         if (not timerecord.empty()) timerecord.clear();
 
         COLLECT_TIME("outlier", (*spcodec).get_time_elapsed());
-        if (not use_fallback_codec) {  //
 
+        if (not use_fallback_codec) {  //
             COLLECT_TIME("huff-dec", (*codec).get_time_lossless());
         }
         else {  //
             COLLECT_TIME("huff-dec", (*fb_codec).get_time_lossless());
         }
+
         COLLECT_TIME("predict", (*predictor).get_time_elapsed());
     }
 
@@ -208,8 +209,6 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         compress_detail(
             uncompressed, eb, radius, pardeg, codecs_in_use, nz_density_factor, compressed, compressed_len,
             (*config).codec_force_fallback(), stream, dbg_print);
-
-        collect_compress_timerecord();
     }
 
     void compress_detail(
@@ -341,6 +340,8 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         compressed_len = header.get_filesize();
         compressed     = d_reserved_compressed;
 
+        collect_compress_timerecord();
+
         // considering that codec can be consecutively in use, and can compress data of different huff-byte
         use_fallback_codec = false;
     }
@@ -414,10 +415,10 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         // process
         spcodec_do(), codec_do_with_exception(), predictor_do();
 
+        collect_decompress_timerecord();
+
         // clear state for the next decompression after reporting
         use_fallback_codec = false;
-
-        collect_decompress_timerecord();
     }
 };
 
