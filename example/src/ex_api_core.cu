@@ -61,9 +61,22 @@ void f(std::string fname)
     BYTE* exposed_compressed;
     {
         cusz::TimeRecord timerecord;
+        cusz::Context*   ctx;
 
-        /* string-based config */ char const* config = "type=f32,eb=2.4e-4,mode=r2r,len=3600x1800";
-        /* build context       */ auto        ctx    = new cusz::Context(config);
+        /*
+         * Two methods to build the configuration.
+         * Note that specifying type is not needed because of T in cusz::Framework<T>
+         */
+
+        /* Method 1: Everthing is in string. */
+        // char const* config = "eb=2.4e-4,mode=r2r,len=3600x1800";
+        // ctx                = new cusz::Context(config);
+
+        /* Method 2: Numeric and string options are set separatedly. */
+        ctx = new cusz::Context();
+        ctx->set_len(3600, 1800, 1, 1)        // In this case, the last 2 arguments can be omitted.
+            .set_eb(2.4e-4)                   // numeric
+            .set_control_string("mode=r2r");  // string
 
         cusz::core_compress(
             compressor, ctx,                             // compressor & config

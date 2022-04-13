@@ -85,7 +85,7 @@ class cuszCTX {
     string predictor{ConfigHelper::get_default_predictor()};  // "lorenzo"
     string codec{ConfigHelper::get_default_codec()};          // "huffman-coarse"
     string spcodec{ConfigHelper::get_default_spcodec()};      // "cusparse-csr"
-    string compression_pipeline{"auto"};
+    string pipeline{"auto"};
 
     // sparsity related: init_nnz when setting up SpCodec
     float nz_density{SparseMethodSetup::default_density};
@@ -100,9 +100,15 @@ class cuszCTX {
     size_t huffman_num_uints, huffman_num_bits;
     int    vle_sublen{512}, vle_pardeg{-1};
 
-    unsigned int x, y, z, w;
-    size_t       data_len{1}, quant_len{1}, anchor_len{1};
-    int          ndim{-1};
+    unsigned int x{1}, y{1}, z{1}, w{1};
+
+    struct {
+        // size_t x, y, z, w;
+        size_t len;
+    } alloclen;
+
+    size_t data_len{1}, quant_len{1}, anchor_len{1};
+    int    ndim{-1};
 
     size_t get_len() const { return data_len; }
 
@@ -111,17 +117,58 @@ class cuszCTX {
 
     void load_demo_sizes();
 
+    /*******************************************************************************
+     * another configuration method, alternative to
+     *******************************************************************************/
+   public:
+    // for configuration
+    cuszCTX& set_eb(double _)
+    {
+        eb = _;
+        return *this;
+    }
+
+    cuszCTX& set_alloclen(size_t _)
+    {
+        alloclen.len = _;
+        return *this;
+    }
+
+    cuszCTX& set_control_string(const char* in_str);
+
+    cuszCTX& use_anchor(size_t _)
+    {
+        use.anchor = true;
+        return *this;
+    }
+
+    // set x, y, z, w, ndim, data_len
+    cuszCTX& set_len(size_t _x, size_t _y = 1, size_t _z = 1, size_t _w = 1)
+    {
+        x = _x, y = _y, z = _z, w = _w;
+
+        ndim = 4;
+        if (w == 1) ndim = 3;
+        if (z == 1) ndim = 2;
+        if (y == 1) ndim = 1;
+
+        data_len = x * y * z * w;
+
+        if (data_len == 1) throw std::runtime_error("Input data length cannot be 1 (in 1-D view).");
+        if (data_len == 0) throw std::runtime_error("Input data length cannot be 0 (in 1-D view).");
+
+        return *this;
+    }
+
    private:
     void derive_fnames();
 
-    void check_cli_args();
+    void validate();
 
    public:
     void trap(int _status);
 
-    static void print_short_doc();
-
-    static void print_full_doc();
+    static void print_doc(bool full = false);
 
     static int autotune(cuszCTX* ctx);
 
@@ -140,12 +187,12 @@ class cuszCTX {
     }
 
    public:
+    cuszCTX() = default;
+
     cuszCTX(int argc, char** argv);
 
     cuszCTX(const char*, bool dbg_print = false);
 };
-
-using cuszCONFIG = cuszCTX;
 
 namespace cusz {
 
