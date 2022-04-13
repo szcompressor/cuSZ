@@ -59,7 +59,7 @@ void core_compress(
         if (compressor == nullptr) throw std::runtime_error("`compressor` cannot be null.");
         if (config == nullptr) throw std::runtime_error("`config` cannot be null.");
         if (uncompressed == nullptr) throw std::runtime_error("Input `uncompressed` cannot be null.");
-        if (not uncompressed_alloc_len > 1.0299 * config->get_len())
+        if (not(uncompressed_alloc_len > 1.0299 * config->get_len()))
             throw std::runtime_error(
                 "cuSZ requires the allocation for `uncompressed` to at least 1.03x the original size.");
     }
@@ -106,7 +106,7 @@ void core_decompress(
             throw std::runtime_error("`compressed_len` mismatches the description in header.");
         if (decompressed == nullptr)
             throw std::runtime_error("Output `decompressed` cannot be null: must be allocated before API call.");
-        if (not decompressed_alloc_len > 1.0299 * config->get_len_uncompressed())
+        if (not(decompressed_alloc_len > 1.0299 * config->get_len_uncompressed()))
             throw std::runtime_error(
                 "cuSZ requires the allocation for `decompressed` to at least 1.03x the original size.");
     }
