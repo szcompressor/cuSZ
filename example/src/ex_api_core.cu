@@ -19,6 +19,18 @@ void f(std::string fname)
 {
     using Compressor = typename cusz::Framework<T>::LorenzoFeaturedCompressor;
 
+    /*
+     * The predefined XFeatureCompressor is equivalent to the free form below.
+     *
+     * using Framework   = cusz::Framework<T>;
+     * using Combination = cusz::CompressorTemplate<
+     *     typename Framework::PredictorLorenzo,
+     *     typename Framework::SpCodecCSR,
+     *     typename Framework::CodecHuffman32,
+     *     typename Framework::CodecHuffman64>;
+     * using Compressor = cusz::Compressor<Combination>;
+     */
+
     /* For demo, we use 3600x1800 CESM data. */
     auto len = 3600 * 1800;
 
@@ -34,6 +46,7 @@ void f(std::string fname)
     size_t uncompressed_alloclen = len * 1.03;
     size_t decompressed_alloclen = uncompressed_alloclen;
 
+    /* code snippet for looking at the device array easily */
     auto peek_devdata = [](T* d_arr, size_t num = 20) {
         thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%f\t", i); });
         printf("\n");

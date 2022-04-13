@@ -424,27 +424,29 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
 
 template <typename InputData = float>
 struct Framework {
-    using DATA    = InputData;
-    using ERRCTRL = ErrCtrlTrait<2>::type;
-    using FP      = FastLowPrecisionTrait<true>::type;
+    using DATA    = InputData;                          // depend on template input
+    using ERRCTRL = ErrCtrlTrait<2>::type;              // predefined
+    using FP      = FastLowPrecisionTrait<true>::type;  // predefined
 
-    using LorenzoFeatured = PredictorReducerCodecBinding<
-        cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
-        cusz::CSR11<DATA>,
-        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>,
-        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>  //
-        >;
+    /* Predictor */
+    using PredictorLorenzo = cusz::PredictorLorenzo<DATA, ERRCTRL, FP>;
+    using PredictorSpline3 = cusz::Spline3<DATA, ERRCTRL, FP>;
 
-    using Spline3Featured = PredictorReducerCodecBinding<
-        cusz::Spline3<DATA, ERRCTRL, FP>,
-        cusz::CSR11<DATA>,
-        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>,
-        cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>  //
-        >;
+    /* Lossless SpCodec */
+    using SpCodecCSR = cusz::CSR11<DATA>;
 
+    /* Lossless Codec*/
+    using CodecHuffman32 = cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>;
+    using CodecHuffman64 = cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>;
+
+    /* Predefined Combination */
+    using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpCodecCSR, CodecHuffman32, CodecHuffman64>;
+    using Spline3Featured = CompressorTemplate<PredictorSpline3, SpCodecCSR, CodecHuffman32, CodecHuffman64>;
+
+    /* Usable Compressor */
     using DefaultCompressor         = class Compressor<LorenzoFeatured>;
     using LorenzoFeaturedCompressor = class Compressor<LorenzoFeatured>;
-    using Spline3FeaturedCompressor = class Compressor<Spline3Featured>;
+    using Spline3FeaturedCompressor = class Compressor<Spline3Featured>; /* in progress */
 };
 
 }  // namespace cusz

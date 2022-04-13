@@ -38,7 +38,7 @@ namespace cusz {
  */
 
 template <class Predictor, class SpCodec, class Codec, class FallbackCodec>
-struct PredictorReducerCodecBinding {
+struct CompressorTemplate {
     using T1 = typename Predictor::Origin;
     using T2 = typename Predictor::Anchor;
     using E1 = typename Predictor::ErrCtrl;
@@ -105,6 +105,10 @@ struct PredictorReducerCodecBinding {
  *      SpCodec<E>
  */
 
+/**
+ * @deprecated There will be only one compression pipeline, featuring auto-switching between "default" and
+ * sparsity-aware path.
+ */
 template <class Predictor, class SpCodec>
 struct PredictorReducerBinding {
     using T1 = typename Predictor::Origin;
