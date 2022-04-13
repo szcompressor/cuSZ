@@ -128,6 +128,55 @@ class cuszCTX {
         return *this;
     }
 
+    cuszCTX& set_radius(int _)
+    {
+        radius    = _;
+        dict_size = radius * 2;
+        return *this;
+    }
+
+    cuszCTX& set_huffbyte(int _)
+    {
+        huff_bytewidth = _;
+        codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01 /*use 4-byte*/;
+        return *this;
+    }
+
+    cuszCTX& set_huffchunk(int _)
+    {
+        vle_sublen              = _;
+        use.autotune_vle_pardeg = false;
+        return *this;
+    }
+
+    cuszCTX& set_spcodec_densityfactor(int _)
+    {
+        if (_ <= 1)
+            throw std::runtime_error(
+                "Density factor for SpCodec must be >1. For example, setting the factor as 4 indicates the density "
+                "(the portion of nonzeros) is 25% in an array.");
+        nz_density_factor = _;
+        nz_density        = 1.0 / _;
+        return *this;
+    }
+
+    cuszCTX& enable_anchor(bool _)
+    {
+        use.anchor = true;
+        return *this;
+    }
+    cuszCTX& enable_input_nondestructive(bool _)
+    {
+        // placeholder
+        return *this;
+    }
+
+    cuszCTX& enable_failfast(bool _)
+    {
+        // placeholder
+        return *this;
+    }
+
     cuszCTX& set_alloclen(size_t _)
     {
         alloclen.len = _;
