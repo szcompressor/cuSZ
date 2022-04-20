@@ -8,6 +8,12 @@ option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 find_package(CUDAToolkit)
 include(GNUInstallDirs)
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h
+  )
+
+
 add_library(compile_settings INTERFACE)
 target_compile_options(compile_settings INTERFACE
   $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
@@ -16,6 +22,7 @@ target_compile_features(compile_settings INTERFACE cxx_std_14 cuda_std_14)
 target_include_directories(compile_settings INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
@@ -74,3 +81,4 @@ install(FILES
 )
 
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz/)
