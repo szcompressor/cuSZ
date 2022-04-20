@@ -732,12 +732,10 @@ void kernel_wrapper::par_get_codebook(
     template void kernel_wrapper::par_get_codebook<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type>( \
         cusz::FREQ*, int, HuffTrait<H>::type*, uint8_t*, cudaStream_t);
 
-// PAR_HUFFMAN(1, 4)
-// PAR_HUFFMAN(1, 8)
 PAR_HUFFMAN(2, false, 4)
 PAR_HUFFMAN(2, false, 8)
-// PAR_HUFFMAN(4, 4)
-// PAR_HUFFMAN(4, 8)
+PAR_HUFFMAN(4, false, 4)
+PAR_HUFFMAN(4, false, 8)
 
 PAR_HUFFMAN(4, true, 4)  // float
 PAR_HUFFMAN(4, true, 8)

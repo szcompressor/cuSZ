@@ -19,8 +19,10 @@
 
 HUFFCOARSE(2, false, 4, 4)  // deprecated
 HUFFCOARSE(2, false, 8, 4)  // deprecated
+HUFFCOARSE(4, false, 4, 4)  // deprecated
+HUFFCOARSE(4, false, 8, 4)  // deprecated
 
 HUFFCOARSE(4, true, 4, 4)  // float
-HUFFCOARSE(8, true, 8, 4)  // double
+HUFFCOARSE(4, true, 8, 4)  // float
 
 #undef HUFFCOARSE

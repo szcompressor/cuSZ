@@ -133,8 +133,10 @@ void split_by_binary_onepass(
 
 namespace cusz {
 
+enum class GlueMethod { SPLIT_BY_RADIUS, SPLIT_01_ONEPASS, SPLIT_01_TWOPASS };
+
 template <typename T = float>
-class CompatibleSPGS : public VirtualGatherScatter {
+class spGS2 : public VirtualGatherScatter {
    public:
     using Origin    = T;
     using BYTE      = uint8_t;
@@ -182,15 +184,15 @@ class CompatibleSPGS : public VirtualGatherScatter {
     MetadataT* expose_idx() const { return d_idx; }
     T*         expose_val() const { return d_val; }
 
-    void init(size_t const in_uncompressed_len, int density_factor = 4, bool dbg_print = false)
+    void init(size_t const len, int density_factor = 4, bool dbg_print = false)
     {
-        auto max_compressed_bytes = [&]() { return in_uncompressed_len / density_factor * sizeof(T); };
-        auto init_nnz             = [&]() { return in_uncompressed_len / density_factor; };
+        auto max_bytes = [&]() { return len / density_factor * sizeof(T); };
+        auto init_nnz  = [&]() { return len / density_factor; };
 
         memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
         rte.nnz = init_nnz();
 
-        rte.nbyte[RTE::SPFMT] = max_compressed_bytes();
+        rte.nbyte[RTE::SPFMT] = max_bytes();
         rte.nbyte[RTE::IDX]   = rte.nnz * sizeof(int);
         rte.nbyte[RTE::VAL]   = rte.nnz * sizeof(T);
 
@@ -206,14 +208,13 @@ class CompatibleSPGS : public VirtualGatherScatter {
      * @brief Collect fragmented arrays.
      *
      * @param header (host variable)
-     * @param in_uncompressed_len (host variable)
+     * @param len (host variable)
      * @param stream CUDA stream
      */
-    void
-    subfile_collect(HEADER& header, size_t in_uncompressed_len, cudaStream_t stream = nullptr, bool dbg_print = false)
+    void subfile_collect(HEADER& header, size_t len, cudaStream_t stream = nullptr, bool dbg_print = false)
     {
         header.header_nbyte     = sizeof(HEADER);
-        header.uncompressed_len = in_uncompressed_len;
+        header.uncompressed_len = len;
         header.nnz              = rte.nnz;
 
         // update (redundant here)
@@ -256,81 +257,39 @@ class CompatibleSPGS : public VirtualGatherScatter {
     }
 
    public:
-    void gather_detail(
-        T*           in_uncompressed,
-        size_t const in_uncompressed_len,
+    void encode(
+        GlueMethod   method,
+        T*           in,
+        size_t const in_len,
         int const    radius,
-        BYTE*&       out_compressed,
-        size_t&      out_compressed_len,
-        int          method    = 0,
+        BYTE*&       out,
+        size_t&      out_len,
         cudaStream_t stream    = nullptr,
         bool         dbg_print = false)
     {
         HEADER header;
 
-        if (method == 0)
-            split_by_radius(
-                in_uncompressed, in_uncompressed_len, radius, d_idx, d_val, rte.nnz, stream, thrust::device);
+        if (method == GlueMethod::SPLIT_BY_RADIUS)
+            split_by_radius(in, in_len, radius, d_idx, d_val, rte.nnz, stream, thrust::device);
 
         else {
-            if (method == 1)
-                split_by_binary_onepass(
-                    in_uncompressed, in_uncompressed_len, radius, d_idx, d_val, rte.nnz, stream, thrust::device);
-            else if (method == 2)
-                split_by_binary_twopass(
-                    in_uncompressed, in_uncompressed_len, radius, d_idx, d_val, rte.nnz, stream, thrust::device);
+            if (method == GlueMethod::SPLIT_01_ONEPASS)
+                split_by_binary_onepass(in, in_len, radius, d_idx, d_val, rte.nnz, stream, thrust::device);
+            else if (method == GlueMethod::SPLIT_01_TWOPASS)
+                split_by_binary_twopass(in, in_len, radius, d_idx, d_val, rte.nnz, stream, thrust::device);
         }
 
-        subfile_collect(header, in_uncompressed_len, stream, dbg_print);
-        out_compressed     = d_spfmt;
-        out_compressed_len = header.subfile_size();
+        subfile_collect(header, in_len, stream, dbg_print);
+        out     = d_spfmt;
+        out_len = header.subfile_size();
     }
 
-    void gather_splitbyradius(
-        T*           in_uncompressed,
-        size_t const in_uncompressed_len,
-        int const    radius,
-        BYTE*&       out_compressed,
-        size_t&      out_compressed_len,
-        cudaStream_t stream    = nullptr,
-        bool         dbg_print = false)
-    {
-        gather_detail(
-            in_uncompressed, in_uncompressed_len, radius, out_compressed, out_compressed_len, 0, stream, dbg_print);
-    }
-
-    void gather_bianry1pass(
-        T*           in_uncompressed,
-        size_t const in_uncompressed_len,
-        int const    radius,
-        BYTE*&       out_compressed,
-        size_t&      out_compressed_len,
-        cudaStream_t stream    = nullptr,
-        bool         dbg_print = false)
-    {
-        gather_detail(
-            in_uncompressed, in_uncompressed_len, radius, out_compressed, out_compressed_len, 1, stream, dbg_print);
-    }
-
-    void gather_bianry2pass(
-        T*           in_uncompressed,
-        size_t const in_uncompressed_len,
-        int const    radius,
-        BYTE*&       out_compressed,
-        size_t&      out_compressed_len,
-        cudaStream_t stream    = nullptr,
-        bool         dbg_print = false)
-    {
-        gather_detail(
-            in_uncompressed, in_uncompressed_len, radius, out_compressed, out_compressed_len, 2, stream, dbg_print);
-    }
-
-    void decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream = nullptr)
+    void decode(BYTE* coded, T* decoded, cudaStream_t stream = nullptr)
     {
         header_t header;
-        CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
+        CHECK_CUDA(cudaMemcpyAsync(&header, coded, sizeof(header), cudaMemcpyDeviceToHost, stream));
 
-#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[HEADER::SYM])
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(coded + header.entry[HEADER::SYM])
         auto d_idx = ACCESSOR(IDX, int);
         auto d_val = ACCESSOR(VAL, T);
 #undef ACCESSOR
@@ -339,7 +298,7 @@ class CompatibleSPGS : public VirtualGatherScatter {
         thrust::cuda::par.on(stream);
         cuda_timer_t t;
         t.timer_start(stream);
-        thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, out_decompressed);
+        thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
         t.timer_end(stream);
         milliseconds = t.get_time_elapsed();
     }
