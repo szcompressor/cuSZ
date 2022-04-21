@@ -115,7 +115,7 @@ class CLI {
 
         core_compress(compressor, ctx, input.dptr, len * 1.03, compressed, compressed_len, header, stream, &timerecord);
 
-        TimeRecordViewer::view_compression(&timerecord, input.nbyte(), compressed_len);
+        if (ctx->report.time) TimeRecordViewer::view_compression(&timerecord, input.nbyte(), compressed_len);
         write_compressed_to_disk(basename + ".cusza", compressed, compressed_len);
     }
 
@@ -152,7 +152,7 @@ class CLI {
             compressor, header, compressed.dptr, header->get_filesize(), decompressed.dptr, len * 1.03, stream,
             &timerecord);
 
-        TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
+        if (ctx->report.time) TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
         QualityViewer::view(header, decompressed, original, (*ctx).fname.origin_cmp);
         try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);
     }

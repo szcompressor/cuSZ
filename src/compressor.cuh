@@ -129,11 +129,11 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         auto allocate_codec = [&]() {
             if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
             if (codec_config bitand 0b01) {
-                LOGGING(LOG_INFO, "allocated 4-byte codec");
+                if (dbg_print) LOGGING(LOG_INFO, "allocated 4-byte codec");
                 (*codec).init(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
             }
             if (codec_config bitand 0b10) {
-                LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
+                if (dbg_print) LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
                 (*fb_codec).init(codec_in_len, cfg_max_booklen, cfg_pardeg, dbg_print);
                 fallback_codec_allocated = true;
             }
@@ -247,7 +247,7 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
             auto encode_with_fallback_codec = [&]() {
                 use_fallback_codec = true;
                 if (not fallback_codec_allocated) {
-                    LOGGING(LOG_EXCEPTION, "online allocate fallback (8-byte) codec");
+                    if (dbg_print) LOGGING(LOG_EXCEPTION, "online allocate fallback (8-byte) codec");
 
                     (*fb_codec).init(errctrl_len, radius * 2, pardeg, /*dbg print*/ false);
                     fallback_codec_allocated = true;
@@ -262,12 +262,12 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
                         d_errctrl, errctrl_len, radius * 2, sublen, pardeg, d_codec_out, codec_out_len, stream);
                 }
                 catch (const std::runtime_error& e) {
-                    LOGGING(LOG_EXCEPTION, "switch to fallback codec");
+                    if (dbg_print) LOGGING(LOG_EXCEPTION, "switch to fallback codec");
                     encode_with_fallback_codec();
                 }
             }
             else {
-                LOGGING(LOG_INFO, "force switch to fallback codec");
+                if (dbg_print) LOGGING(LOG_INFO, "force switch to fallback codec");
 
                 encode_with_fallback_codec();
             }

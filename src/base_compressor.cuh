@@ -76,7 +76,7 @@ class BaseCompressor {
     {
         if (not nc) throw std::runtime_error("NonCritical struct has no instance.");
 
-        LOGGING(LOG_INFO, "invoke dry-run");
+        // LOGGING(LOG_INFO, "invoke dry-run");
 
         nc->original.template from_file<cusz::LOC::HOST>(fname).host2device_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
