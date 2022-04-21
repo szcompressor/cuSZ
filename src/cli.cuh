@@ -15,7 +15,6 @@
 #include <string>
 #include <type_traits>
 
-#include "../example/src/ex_common.cuh"
 #include "analysis/analyzer.hh"
 #include "api.hh"
 #include "cli/timerecord_viewer.hh"
