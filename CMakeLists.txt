@@ -7,6 +7,7 @@ option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 find_package(CUDAToolkit)
 include(GNUInstallDirs)
+include(CTest)
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
@@ -14,12 +15,12 @@ configure_file(
   )
 
 
-add_library(compile_settings INTERFACE)
-target_compile_options(compile_settings INTERFACE
+add_library(cuszcompile_settings INTERFACE)
+target_compile_options(cuszcompile_settings INTERFACE
   $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
   )
-target_compile_features(compile_settings INTERFACE cxx_std_14 cuda_std_14)
-target_include_directories(compile_settings INTERFACE
+target_compile_features(cuszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
+target_include_directories(cuszcompile_settings INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
@@ -27,24 +28,24 @@ target_include_directories(compile_settings INTERFACE
   )
 
 
-add_library(pq  src/component/extrap_lorenzo.cu src/component/interp_spline3.cu)
-target_link_libraries(pq PUBLIC compile_settings)
+add_library(cuszpq  src/component/extrap_lorenzo.cu src/component/interp_spline3.cu)
+target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
 
-add_library(argp  src/context.cc)
-target_link_libraries(argp PUBLIC compile_settings)
+add_library(cuszargp  src/context.cc)
+target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 
-add_library(sp  src/component/csr11.cu)
-target_link_libraries(sp PUBLIC compile_settings CUDA::cusparse)
+add_library(cuszsp  src/component/csr11.cu)
+target_link_libraries(cuszsp PUBLIC cuszcompile_settings CUDA::cusparse)
 
-add_library(huff  src/component/huffman_parbook.cu src/component/huffman_coarse.cu)
-target_link_libraries(huff PUBLIC compile_settings CUDA::cusparse CUDA::cuda_driver)
-set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_library(cuszhuff  src/component/huffman_parbook.cu src/component/huffman_coarse.cu)
+target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
+set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(compress  src/compressor.cu)
-target_link_libraries(compress PUBLIC compile_settings)
+add_library(cuszcompress  src/compressor.cu)
+target_link_libraries(cuszcompress PUBLIC cuszcompile_settings)
 
 add_library(cusz  src/cli.cu)
-target_link_libraries(cusz PUBLIC compress argp huff sp pq)
+target_link_libraries(cusz PUBLIC cuszcompress cuszargp cuszhuff cuszsp cuszpq)
 
 add_executable(cusz-bin src/cusz-cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz )
@@ -55,12 +56,16 @@ if(CUSZ_BUILD_EXAMPLES)
   add_subdirectory(example)
 endif()
 
-install(TARGETS compile_settings EXPORT CUSZTargets)
-install(TARGETS pq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/cusz )
-install(TARGETS sp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/cusz)
-install(TARGETS argp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/cusz)
-install(TARGETS huff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/cusz)
-install(TARGETS compress EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/cusz)
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()
+
+install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
+install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszsp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszcompress EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets)
 install(TARGETS cusz-bin EXPORT CUSZTargets)
 install(EXPORT CUSZTargets NAMESPACE CUSZ:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)

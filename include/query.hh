@@ -38,7 +38,7 @@ std::string ExecShellCommand(const char* cmd)
 void GetMachineProperties()
 {
     std::vector<std::string> v;
-    cout << "host information: " << endl;
+    std::cout << "host information: " << std::endl;
 
     auto cpuinfo = ExecShellCommand(  //
         std::string("cat /proc/cpuinfo "
@@ -46,7 +46,7 @@ void GetMachineProperties()
                     "| head -n 1 "
                     "| awk -F': ' '{print $NF}'")
             .c_str());
-    cout << "  cpu model\t" << cpuinfo;
+    std::cout << "  cpu model\t" << cpuinfo;
 
     auto meminfo = ExecShellCommand(  //
         std::string("cat /proc/meminfo"
@@ -54,7 +54,7 @@ void GetMachineProperties()
                     "| awk -F' ' '{print $2\" \"$3}'")
             .c_str());
 
-    cout << "  memory size\t" << meminfo;
+    std::cout << "  memory size\t" << meminfo;
 
     auto endianness = ExecShellCommand(  //
         std::string("lscpu "
@@ -62,7 +62,7 @@ void GetMachineProperties()
                     "| awk -F'  ' '{print $NF}'")
             .c_str());
 
-    cout << "  byte order\t" << endianness;
+    std::cout << "  byte order\t" << endianness;
     printf("\n");
 }
 
