@@ -65,10 +65,6 @@ if(CUSZ_BUILD_EXAMPLES)
   add_subdirectory(example)
 endif()
 
-if(BUILD_TESTING)
-  add_subdirectory(test)
-endif()
-
 install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
 install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszsp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
