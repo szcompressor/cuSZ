@@ -1,5 +1,5 @@
 /**
- * @file compressor.cuh
+ * @file compressor_impl.cuh
  * @author Jiannan Tian
  * @brief cuSZ compressor of the default path
  * @version 0.3
@@ -41,7 +41,7 @@ constexpr auto kDEVICE      = cusz::LOC::DEVICE;
 constexpr auto kHOST_DEVICE = cusz::LOC::HOST_DEVICE;
 
 template <class BINDING>
-class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
+class Compressor {
    public:
     using Predictor     = typename BINDING::PREDICTOR;
     using SpCodec       = typename BINDING::SPCODEC;
@@ -112,8 +112,12 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         if (ext_timerecord) *ext_timerecord = timerecord;
     }
 
+    // TODO
+    void init(Context* config, bool dbg_print = false) { init_detail(config, dbg_print); }
+    void init(Header* config, bool dbg_print = false) { init_detail(config, dbg_print); }
+
     template <class CONFIG>
-    void init(CONFIG* config, bool dbg_print = false)
+    void init_detail(CONFIG* config, bool dbg_print)
     {
         const auto cfg_radius      = (*config).radius;
         const auto cfg_pardeg      = (*config).vle_pardeg;
@@ -189,9 +193,8 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         COLLECT_TIME("predict", (*predictor).get_time_elapsed());
     }
 
-    template <class CONFIG>
     void compress(
-        CONFIG*      config,
+        Context*     config,
         T*           uncompressed,
         BYTE*&       compressed,
         size_t&      compressed_len,
@@ -204,26 +207,9 @@ class Compressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         auto const codecs_in_use     = (*config).codecs_in_use;
         auto const nz_density_factor = (*config).nz_density_factor;
 
-        data_len3 = dim3((*config).x, (*config).y, (*config).z);
+        data_len3                 = dim3((*config).x, (*config).y, (*config).z);
+        auto codec_force_fallback = (*config).codec_force_fallback();
 
-        compress_detail(
-            uncompressed, eb, radius, pardeg, codecs_in_use, nz_density_factor, compressed, compressed_len,
-            (*config).codec_force_fallback(), stream, dbg_print);
-    }
-
-    void compress_detail(
-        T*             uncompressed,
-        double const   eb,
-        int const      radius,
-        int const      pardeg,
-        uint32_t const codecs_in_use,
-        int const      nz_density_factor,
-        BYTE*&         compressed,
-        size_t&        compressed_len,
-        bool           codec_force_fallback,
-        cudaStream_t   stream    = nullptr,
-        bool           dbg_print = false)
-    {
         header.codecs_in_use     = codecs_in_use;
         header.nz_density_factor = nz_density_factor;
 

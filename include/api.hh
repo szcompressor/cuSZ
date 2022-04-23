@@ -16,7 +16,7 @@
 #include <type_traits>
 
 #include "common/definition.hh"
-#include "compressor.cuh"
+#include "compressor_impl.cuh"
 #include "context.hh"
 #include "header.hh"
 

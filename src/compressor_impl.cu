@@ -12,7 +12,7 @@
  *
  */
 
-#include "compressor.cuh"
+#include "compressor_impl.cuh"
 
 template class cusz::Compressor<cusz::Framework<float>::LorenzoFeatured>;
 // template class cusz::Compressor<cusz::Framework<float>::Spline3Featured>; // TODO

@@ -19,11 +19,10 @@
 #include "api.hh"
 #include "cli/timerecord_viewer.hh"
 #include "common.hh"
-#include "compressor.cuh"
+#include "compressor_impl.cuh"
 #include "context.hh"
 #include "query.hh"
 #include "utils.hh"
-
 
 namespace cusz {
 
