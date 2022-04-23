@@ -25,7 +25,7 @@
 #define BIX blockIdx.x
 #define BDX blockDim.x
 
-#if CUDART_VERSION >= 11000
+#if __has_include(<cub/cub.cuh>)
 // #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
 #include <cub/cub.cuh>
 #else

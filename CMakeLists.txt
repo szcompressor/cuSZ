@@ -5,7 +5,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
-find_package(CUDAToolkit)
+find_package(CUDAToolkit REQUIRED)
+find_package(CUB REQUIRED)
+if(TARGET _CUB_CUB)
+  install(TARGETS _CUB_CUB EXPORT CUSZTargets)
+endif()
+
 include(GNUInstallDirs)
 include(CTest)
 
@@ -16,6 +21,9 @@ configure_file(
 
 
 add_library(cuszcompile_settings INTERFACE)
+target_link_libraries(cuszcompile_settings INTERFACE
+  CUB::CUB
+  )
 target_compile_options(cuszcompile_settings INTERFACE
   $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
   )
