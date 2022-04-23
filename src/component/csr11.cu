@@ -9,6 +9,6 @@
  *
  */
 
-#include "csr11.cuh"
+#include "component/csr11.cuh"
 
 template class cusz::CSR11<float>;

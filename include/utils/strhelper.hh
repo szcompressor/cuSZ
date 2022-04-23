@@ -117,7 +117,7 @@ struct StrHelper {
         return std::make_pair(k, onoff);
     }
 
-    static string doc_format(const string& s)
+    static std::string doc_format(const std::string& s)
     {
         std::regex  gray("%(.*?)%");
         std::string gray_text("\e[37m$1\e[0m");

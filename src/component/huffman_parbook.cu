@@ -26,10 +26,10 @@
 #include <limits>
 #include <type_traits>
 
-#include "../common.hh"
-#include "../kernel/par_merge.cuh"
-#include "../utils.hh"
-#include "huffman_parbook.cuh"
+#include "common.hh"
+#include "kernel/par_merge.cuh"
+#include "utils.hh"
+#include "component/huffman_parbook.cuh"
 
 using std::cout;
 using std::endl;

@@ -18,9 +18,9 @@
 
 #include <cuda_runtime.h>
 
-#include "../../include/reducer.hh"
-#include "../utils/cuda_err.cuh"
-#include "../utils/timer.hh"
+#include "reducer.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/timer.hh"
 
 // when using nvcc, functors must be defined outside a (__host__) function
 template <typename E>

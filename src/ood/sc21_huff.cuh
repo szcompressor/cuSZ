@@ -27,16 +27,16 @@
 #include <type_traits>
 #include <vector>
 
-#include "../hist.cuh"
-#include "../huff_codec.cuh"
-#include "../type_aliasing.hh"
-#include "../type_trait.hh"
-#include "../types.hh"
-#include "../utils/cuda_err.cuh"
-#include "../utils/cuda_mem.cuh"
-#include "../utils/format.hh"
-#include "../utils/io.hh"
-#include "../utils/timer.hh"
+#include "hist.cuh"
+#include "huff_codec.cuh"
+#include "type_aliasing.hh"
+#include "type_trait.hh"
+#include "types.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/cuda_mem.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
+#include "utils/timer.hh"
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr

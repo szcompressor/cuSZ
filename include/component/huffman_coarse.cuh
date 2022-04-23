@@ -24,14 +24,13 @@
 #include <type_traits>
 using std::cout;
 
-#include "../../include/reducer.hh"
+#include "../reducer.hh"
 #include "../common/capsule.hh"
 #include "../common/definition.hh"
 #include "../common/type_traits.hh"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
 #include "../utils.hh"
-#include "huffman_coarse.cuh"
 #include "huffman_parbook.cuh"
 
 /******************************************************************************

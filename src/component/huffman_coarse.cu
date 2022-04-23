@@ -12,7 +12,7 @@
  *
  */
 
-#include "huffman_coarse.cuh"
+#include "component/huffman_coarse.cuh"
 
 #define HUFFCOARSE(E, ETF, H, M) \
     template class cusz::HuffmanCoarse<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;

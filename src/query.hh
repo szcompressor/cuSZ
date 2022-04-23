@@ -25,12 +25,6 @@
 
 #include "query_dev.hh"
 
-using namespace std;
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-
 std::string ExecShellCommand(const char* cmd)
 {
     std::array<char, 128>                    buffer;

@@ -24,8 +24,6 @@
 #include "utils/format.hh"
 #include "utils/strhelper.hh"
 
-using std::string;
-
 namespace cusz {
 
 extern const char* VERSION_TEXT;
@@ -68,7 +66,7 @@ class cuszCTX {
 
     // filenames
     struct {
-        string fname, origin_cmp, path_basename, basename, compress_output;
+        std::string fname, origin_cmp, path_basename, basename, compress_output;
     } fname;
 
     bool verbose{false};
@@ -77,15 +75,15 @@ class cuszCTX {
 
     int read_args_status{0};
 
-    string opath;
+    std::string opath;
 
-    string demo_dataset;
-    string dtype{ConfigHelper::get_default_dtype()};          // "f32"
-    string mode{ConfigHelper::get_default_cuszmode()};        // "r2r"
-    string predictor{ConfigHelper::get_default_predictor()};  // "lorenzo"
-    string codec{ConfigHelper::get_default_codec()};          // "huffman-coarse"
-    string spcodec{ConfigHelper::get_default_spcodec()};      // "cusparse-csr"
-    string pipeline{"auto"};
+    std::string demo_dataset;
+    std::string dtype  = ConfigHelper::get_default_dtype();          // "f32"
+    std::string mode = ConfigHelper::get_default_cuszmode();        // "r2r"
+    std::string predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
+    std::string codec = ConfigHelper::get_default_codec();          // "huffman-coarse"
+    std::string spcodec  = ConfigHelper::get_default_spcodec();      // "cusparse-csr"
+    std::string pipeline = "auto";
 
     // sparsity related: init_nnz when setting up SpCodec
     float nz_density{SparseMethodSetup::default_density};
@@ -224,7 +222,7 @@ class cuszCTX {
    public:
     static void parse_input_length(const char* lenstr, cuszCTX* ctx)
     {
-        std::vector<string> dims;
+        std::vector<std::string> dims;
         ConfigHelper::parse_length_literal(lenstr, dims);
         ctx->ndim = dims.size();
         ctx->y = ctx->z = ctx->w = 1;

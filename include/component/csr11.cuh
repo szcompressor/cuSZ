@@ -28,7 +28,7 @@
 #include <cusparse.h>
 #include <driver_types.h>
 
-#include "../../include/reducer.hh"
+#include "../reducer.hh"
 #include "../common.hh"
 #include "../utils.hh"
 

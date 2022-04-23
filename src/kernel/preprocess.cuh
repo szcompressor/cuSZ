@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#include "../common.hh"
+#include "common.hh"
 
 using std::cout;
 using std::endl;

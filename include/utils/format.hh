@@ -18,14 +18,13 @@
 #include <sstream>
 #include <string>
 
-using std::string;
 
-const string LOG_NULL      = "      ";
-const string LOG_INFO      = "  ::  ";
-const string LOG_ERR       = " ERR  ";
-const string LOG_WARN      = "WARN  ";
-const string LOG_DBG       = " dbg  ";
-const string LOG_EXCEPTION = "  !!  ";
+const std::string LOG_NULL      = "      ";
+const std::string LOG_INFO      = "  ::  ";
+const std::string LOG_ERR       = " ERR  ";
+const std::string LOG_WARN      = "WARN  ";
+const std::string LOG_DBG       = " dbg  ";
+const std::string LOG_EXCEPTION = "  !!  ";
 
 // https://stackoverflow.com/a/26080768/8740097  CC BY-SA 3.0
 template <typename T>
@@ -42,7 +41,7 @@ void build(std::ostream& o, T t, Args... args)  // recursive variadic function
 }
 
 template <typename... Args>
-void LOGGING(const string& log_head, Args... args)
+void LOGGING(const std::string& log_head, Args... args)
 {
     std::ostringstream oss;
     oss << log_head;

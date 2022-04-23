@@ -10,7 +10,7 @@
  *
  */
 
-#include "extrap_lorenzo.cuh"
+#include "component/extrap_lorenzo.cuh"
 
 template class cusz::PredictorLorenzo<float, uint16_t, float>;
 template class cusz::PredictorLorenzo<float, float, float>;

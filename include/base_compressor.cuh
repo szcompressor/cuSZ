@@ -17,7 +17,7 @@
 #include "analysis/verify_gpu.cuh"
 #include "cli/quality_viewer.hh"
 #include "common.hh"
-#include "componments.hh"
+#include "components.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "utils.hh"

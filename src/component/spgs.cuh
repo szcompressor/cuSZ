@@ -17,8 +17,8 @@
 #include <thrust/execution_policy.h>
 
 #include <iostream>
-#include "../common.hh"
-#include "../utils/timer.hh"
+#include "common.hh"
+#include "utils/timer.hh"
 
 using std::cout;
 

@@ -16,22 +16,20 @@
 #include <regex>
 #include <string>
 
-using std::regex;
-using std::string;
 
-const string fmt_b("\e[1m");
-const string fmt_0("\e[0m");
+const std::string fmt_b("\e[1m");
+const std::string fmt_0("\e[0m");
 
-const regex  bful("@(.*?)@");
-const string bful_text("\e[1m\e[4m$1\e[0m");
-const regex  bf("\\*(.*?)\\*");
-const string bf_text("\e[1m$1\e[0m");
-const regex  ul(R"(_((\w|-|\d|\.)+?)_)");
-const string ul_text("\e[4m$1\e[0m");
-const regex  red(R"(\^\^(.*?)\^\^)");
-const string red_text("\e[31m$1\e[0m");
+const std::regex  bful("@(.*?)@");
+const std::string bful_text("\e[1m\e[4m$1\e[0m");
+const std::regex  bf("\\*(.*?)\\*");
+const std::string bf_text("\e[1m$1\e[0m");
+const std::regex  ul(R"(_((\w|-|\d|\.)+?)_)");
+const std::string ul_text("\e[4m$1\e[0m");
+const std::regex  red(R"(\^\^(.*?)\^\^)");
+const std::string red_text("\e[31m$1\e[0m");
 
-string  //
+std::string  //
 Format(const std::string& s)
 {
     auto a = std::regex_replace(s, bful, bful_text);

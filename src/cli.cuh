@@ -24,7 +24,6 @@
 #include "query.hh"
 #include "utils.hh"
 
-using std::string;
 
 namespace cusz {
 

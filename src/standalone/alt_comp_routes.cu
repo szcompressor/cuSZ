@@ -17,10 +17,6 @@
 #include "../ood/codec_runlength.hh"
 #include "../utils/io.hh"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
 
 // data types
 using Data  = float;

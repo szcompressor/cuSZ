@@ -36,8 +36,6 @@
 #include "configs.hh"
 #include "definition.hh"
 
-using cusz::OK;
-using std::string;
 
 template <typename T, bool USE_UNIFIED = false>
 class Capsule {
@@ -123,7 +121,7 @@ class Capsule {
 
     Capsule(unsigned int _len, const std::string _str = std::string("<unnamed>")) : len(_len), name(_str) {}
 
-    Capsule(const string _str) : name(_str){};
+    Capsule(const std::string _str) : name(_str){};
 
     Capsule(T* _h_in, T* _d_in, unsigned int _len) : hptr(_h_in), dptr(_d_in), len(_len) {}
 
@@ -271,7 +269,7 @@ class Capsule {
         cusz::DEV       M  = cusz::DEV::DEV>
     Capsule& alloc(double overriding_factor = 0.0)
     {
-        OK::ALLOC<M>();
+        cusz::OK::ALLOC<M>();
         raise_error_if_misuse_unified<LOC>();
 
         auto aligned_datalen    = Align::get_aligned_datalen<AD>(len);
@@ -324,7 +322,7 @@ class Capsule {
     template <cusz::LOC LOC, cusz::DEV M = cusz::DEV::DEV>
     Capsule& free()
     {
-        OK::FREE<M>();
+      cusz::OK::FREE<M>();
         raise_error_if_misuse_unified<LOC>();
 
         auto free_host = [&]() {
