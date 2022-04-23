@@ -24,8 +24,9 @@ add_library(cuszcompile_settings INTERFACE)
 target_link_libraries(cuszcompile_settings INTERFACE
   CUB::CUB
   )
+target_compile_definitions(cuszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
 target_compile_options(cuszcompile_settings INTERFACE
-  $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
+  $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
   )
 target_compile_features(cuszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
 target_include_directories(cuszcompile_settings INTERFACE
