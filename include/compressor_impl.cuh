@@ -415,8 +415,8 @@ struct Framework {
     using FP      = FastLowPrecisionTrait<true>::type;  // predefined
 
     /* Predictor */
-    using PredictorLorenzo = cusz::PredictorLorenzo<DATA, ERRCTRL, FP>;
-    using PredictorSpline3 = cusz::Spline3<DATA, ERRCTRL, FP>;
+    using PredictorLorenzo = typename cusz::api::PredictorLorenzo<DATA, ERRCTRL, FP>::impl;
+    using PredictorSpline3 = typename cusz::api::PredictorSpline3<DATA, ERRCTRL, FP>::impl;
 
     /* Lossless SpCodec */
     using SpCodecCSR = cusz::CSR11<DATA>;

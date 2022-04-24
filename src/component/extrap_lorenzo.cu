@@ -12,5 +12,5 @@
 
 #include "component/extrap_lorenzo.cuh"
 
-template class cusz::PredictorLorenzo<float, uint16_t, float>;
-template class cusz::PredictorLorenzo<float, float, float>;
+template struct cusz::api::PredictorLorenzo<float, uint16_t, float>::impl;
+template struct cusz::api::PredictorLorenzo<float, float, float>::impl;

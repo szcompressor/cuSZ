@@ -1,5 +1,5 @@
 /**
- * @file predictor.hh
+ * @file predictor_boilerplate.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -20,14 +20,7 @@
 
 namespace cusz {
 
-template <typename T, typename E, typename FP = float>
-class BasePredictor {
-   public:
-    using Origin    = T;
-    using Anchor    = T;
-    using ErrCtrl   = E;
-    using Precision = FP;
-
+class PredictorBoilerplate {
    protected:
     struct DerivedLengths {
         struct Interpretion3D {
@@ -95,7 +88,7 @@ class BasePredictor {
     // virtual void derive_alloclen(dim3 len3) = 0;
     // virtual void derive_rtlen(dim3 len3)    = 0;
 
-    template <class DERIVED>
+    template <class DERIVED, typename T, typename E, typename FP = float>
     void __debug_list_derived(DERIVED const& derived, bool use_anchor = false)
     {
         auto base    = derived.base;
@@ -136,21 +129,24 @@ class BasePredictor {
             throw std::runtime_error("Predictor: the runtime lengths cannot be greater than the allocation lengths.");
     }
 
+    template <typename T, typename E, typename FP = float>
     void debug_list_alloclen(bool use_anchor = false)
     {
         printf("\ndebugging, listing allocation lengths:\n");
-        __debug_list_derived(alloclen, use_anchor);
+        __debug_list_derived<decltype(alloclen), T, E, FP>(alloclen, use_anchor);
     }
 
+    template <typename T, typename E, typename FP = float>
     void debug_list_rtlen(bool use_anchor = false)
     {
         printf("\ndebugging, listing runtime lengths:\n");
-        __debug_list_derived(rtlen, use_anchor);
+        __debug_list_derived<decltype(rtlen), T, E, FP>(rtlen, use_anchor);
     }
 
    protected:
     struct DerivedLengths alloclen, rtlen;
-    float                 time_elapsed;
+
+    float time_elapsed;
 
     // -----------------------------------------------------------------------------
     //                                  accessor
@@ -163,7 +159,7 @@ class BasePredictor {
     size_t get_alloclen_outlier() const { return alloclen.assigned.outlier; }
 
     dim3   get_len3() const { return rtlen.base.len3; }
-    dim3   get_leap3() const { return rtlen.base.leap3; }
+    dim3   get_leap3() const { return rtlen.base.leap; }
     size_t get_len_data() const { return rtlen.assigned.data; }
     size_t get_len_anchor() const { return rtlen.assigned.anchor; }
     size_t get_len_quant() const { return rtlen.assigned.quant; }
@@ -171,17 +167,27 @@ class BasePredictor {
 
     float get_time_elapsed() const { return time_elapsed; }
 
+    size_t get_x() const { return this->rtlen.get_len3().x; }
+    size_t get_y() const { return this->rtlen.get_len3().y; }
+    size_t get_z() const { return this->rtlen.get_len3().z; }
+
+    dim3 get_leap() const { return this->rtlen.get_leap(); }
+    int  get_ndim() const { return this->rtlen.ndim; }
+
+    void derive_alloclen(dim3 len3) { this->__derive_len(len3, this->alloclen); }
+    void derive_rtlen(dim3 len3) { this->__derive_len(len3, this->rtlen); }
+
     // "real" methods
-    virtual ~BasePredictor() = default;
+    virtual ~PredictorBoilerplate() = default;
 
     // -----------------------------------------------------------------------------
     //                              internal accessor
     // -----------------------------------------------------------------------------
    protected:
-    size_t& alloclen_data() const { return alloclen.data; }
-    size_t& alloclen_anchor() const { return alloclen.anchor; }
-    size_t& alloclen_quant() const { return alloclen.quant; }
-    size_t& alloclen_outlier() const { return alloclen.outlier; }
+    // size_t& alloclen_data() const { return alloclen.data; }
+    // size_t& alloclen_anchor() const { return alloclen.anchor; }
+    // size_t& alloclen_quant() const { return alloclen.quant; }
+    // size_t& alloclen_outlier() const { return alloclen.outlier; }
 
    public:
 };

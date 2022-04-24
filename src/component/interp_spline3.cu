@@ -11,6 +11,4 @@
 
 #include "component/interp_spline3.cuh"
 
-// template class cusz::Spline3<float, unsigned short, float>;
-// template class cusz::Spline3<float, unsigned int, float>;
-template class cusz::Spline3<float, float, float>;
+template struct cusz::api::PredictorSpline3<float, float, float>::impl;
