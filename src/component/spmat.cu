@@ -1,5 +1,5 @@
 /**
- * @file csr11.cu
+ * @file spmat.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,6 +9,6 @@
  *
  */
 
-#include "component/csr11.cuh"
+#include "component/spmat.cuh"
 
-template class cusz::CSR11<float>;
+template struct cusz::api::SpCodecCSR<float, uint32_t>::impl;

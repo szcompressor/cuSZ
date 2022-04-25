@@ -17,7 +17,6 @@
 
 #include "base_compressor.cuh"
 #include "binding.hh"
-#include "component/glue.cuh"
 #include "components.hh"
 #include "header.hh"
 
@@ -79,9 +78,6 @@ class Compressor {
     Codec*         codec;
     FallbackCodec* fb_codec;
 
-    // autosw experimental
-    spGS2<E>* spgs;
-
     cusz::FREQ* d_freq;
     float       time_hist;
 
@@ -99,9 +95,6 @@ class Compressor {
         spcodec   = new SpCodec;
         codec     = new Codec;
         fb_codec  = new FallbackCodec;
-
-        // autosw experimental
-        spgs = new spGS2<E>;
     }
 
     void destroy()
@@ -133,11 +126,11 @@ class Compressor {
     {
         if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
         if (codec_config bitand 0b01) {
-            LOGGING(LOG_INFO, "allocated 4-byte codec");
+            if (dbg_print) LOGGING(LOG_INFO, "allocated 4-byte codec");
             (*codec).init(codec_in_len, max_booklen, pardeg, dbg_print);
         }
         if (codec_config bitand 0b10) {
-            LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
+            if (dbg_print) LOGGING(LOG_INFO, "allocated 8-byte (fallback) codec");
             (*fb_codec).init(codec_in_len, max_booklen, pardeg, dbg_print);
             fallback_codec_allocated = true;
         }
@@ -489,15 +482,16 @@ struct Framework {
     using PredictorSpline3 = typename cusz::api::PredictorSpline3<DATA, ERRCTRL, FP>::impl;
 
     /* Lossless SpCodec */
-    using SpCodecCSR = cusz::CSR11<DATA>;
+    using SpCodecMat = typename cusz::api::SpCodecCSR<DATA, uint32_t>::impl;
+    using SpCodecVec = typename cusz::api::SpCodecVec<DATA, uint32_t>::impl;
 
     /* Lossless Codec*/
     using CodecHuffman32 = cusz::api::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>::impl;
     using CodecHuffman64 = cusz::api::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>::impl;
 
     /* Predefined Combination */
-    using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpCodecCSR, CodecHuffman32, CodecHuffman64>;
-    using Spline3Featured = CompressorTemplate<PredictorSpline3, SpCodecCSR, CodecHuffman32, CodecHuffman64>;
+    using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpCodecVec, CodecHuffman32, CodecHuffman64>;
+    using Spline3Featured = CompressorTemplate<PredictorSpline3, SpCodecVec, CodecHuffman32, CodecHuffman64>;
 
     /* Usable Compressor */
     using DefaultCompressor         = class Compressor<LorenzoFeatured>;

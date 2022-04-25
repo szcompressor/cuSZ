@@ -126,7 +126,7 @@ struct ConfigHelper {
     static uint32_t spcodec_lookup(std::string name)
     {
         const std::unordered_map<std::string, uint32_t> lut = {
-            {"csr11", 0}, {"spgs", 1}  //
+            {"spmat", 0}, {"spvec", 1}  //
         };
         if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
         return lut.at(name);

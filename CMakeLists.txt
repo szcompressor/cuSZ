@@ -43,7 +43,7 @@ target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
 add_library(cuszargp  src/context.cc)
 target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 
-add_library(cuszsp  src/component/csr11.cu)
+add_library(cuszsp  src/component/spmat.cu src/component/spvec.cu)
 target_link_libraries(cuszsp PUBLIC cuszcompile_settings CUDA::cusparse)
 
 add_library(cuszhuff  src/component/huffman_parbook.cu src/component/huffman_coarse.cu)

@@ -21,8 +21,8 @@
 #include "context.hh"
 
 namespace cusz {
-const char* VERSION_TEXT  = "2022-04-10.rc3";
-const int   VERSION       = 20220410;
+const char* VERSION_TEXT  = "2022-04-26.api-workbranch";
+const int   VERSION       = 20220426;
 const int   COMPATIBILITY = 0;
 }  // namespace cusz
 
@@ -76,7 +76,7 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
     }
 
     std::string k, v;
-    char*  end;
+    char*       end;
 
     auto optmatch   = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(k, vs); };
     auto is_enabled = [&](auto& v) -> bool { return v == "on" or v == "ON"; };
@@ -176,7 +176,7 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
     };
 
     std::string opt;
-    auto   optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
+    auto optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
 
     while (i < argc) {
         if (argv[i][0] == '-') {
@@ -318,7 +318,7 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
                  << "\e[0m"
                     "\n"
                  << std::string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
-                 << "\e[1m"                                                //
+                 << "\e[1m"                                                     //
                  << std::string(strlen(notif), '~')                             //
                  << "\e[0m\n";
 
@@ -415,8 +415,8 @@ void cuszCTX::validate()
 
 cuszCTX::cuszCTX(int argc, char** const argv)
 {
-  std::string opt;
-    auto   optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
+    std::string opt;
+    auto optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
 
     if (argc == 1) {
         print_doc();

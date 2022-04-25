@@ -12,10 +12,11 @@
 #ifndef CUSZ_COMPONENT_HH
 #define CUSZ_COMPONENT_HH
 
-#include "component/csr11.cuh"
 #include "component/extrap_lorenzo.cuh"
 #include "component/huffman_coarse.cuh"
 #include "component/huffman_parbook.cuh"
 #include "component/interp_spline3.cuh"
+#include "component/spmat.cuh"
+#include "component/spvec.cuh"
 
 #endif

@@ -1,5 +1,5 @@
 /**
- * @file glue.cu
+ * @file spvec.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,7 +9,7 @@
  *
  */
 
-#include "glue.cuh"
+#include "component/spvec.cuh"
 
-template class cusz::CompatibleSPGS<float>;
-// template class CompatibleSPGS<double>;
+template struct cusz::api::SpCodecVec<float>::impl;
+// template struct cusz::api::SpCodecVec<double>::impl;
