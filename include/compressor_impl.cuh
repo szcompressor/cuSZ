@@ -17,8 +17,8 @@
 
 #include "base_compressor.cuh"
 #include "binding.hh"
-#include "components.hh"
 #include "component/glue.cuh"
+#include "components.hh"
 #include "header.hh"
 
 #define DEFINE_DEV(VAR, TYPE) TYPE* d_##VAR{nullptr};
@@ -492,8 +492,8 @@ struct Framework {
     using SpCodecCSR = cusz::CSR11<DATA>;
 
     /* Lossless Codec*/
-    using CodecHuffman32 = cusz::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>;
-    using CodecHuffman64 = cusz::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>;
+    using CodecHuffman32 = cusz::api::HuffmanCoarse<ERRCTRL, HuffTrait<4>::type, MetadataTrait<4>::type>::impl;
+    using CodecHuffman64 = cusz::api::HuffmanCoarse<ERRCTRL, HuffTrait<8>::type, MetadataTrait<4>::type>::impl;
 
     /* Predefined Combination */
     using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpCodecCSR, CodecHuffman32, CodecHuffman64>;
