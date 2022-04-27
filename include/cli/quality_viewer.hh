@@ -31,10 +31,6 @@ struct QualityViewer {
         auto checker = (not gpu_checker) ? string("(using CPU checker)") : string("(using GPU checker)");
         auto bytes   = (s->len * sizeof(Data) * 1.0);
 
-        auto println3 = [](const char* s, double n1, double n2, double n3) {
-            printf("  %-10s %16.8g %16.8g %16.8g %16s\n", s, n1, n2, n3, "");
-        };
-
         auto println = [](const char* s, double n1, double n2, double n3, double n4) {
             printf("  %-10s %16.8g %16.8g %16.8g %16.8g\n", s, n1, n2, n3, n4);
         };

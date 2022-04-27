@@ -310,9 +310,9 @@ void api::HuffmanCoarse<T, H, M>::impl::subfile_collect(
     for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
     for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
 
-    auto debug_header_entry = [&]() {
-        for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
-    };
+    // auto debug_header_entry = [&]() {
+    //     for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
+    // };
     // debug_header_entry();
 
     CHECK_CUDA(cudaMemcpyAsync(d_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
