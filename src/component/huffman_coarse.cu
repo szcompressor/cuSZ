@@ -14,9 +14,8 @@
 
 #include "component/huffman_coarse.cuh"
 
-#define HUFFCOARSE(E, ETF, H, M)             \
-    template class cusz::api::HuffmanCoarse< \
-        ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>::impl;
+#define HUFFCOARSE(E, ETF, H, M) \
+    template class cusz::HuffmanCoarse<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>::impl;
 
 HUFFCOARSE(2, false, 4, 4)  // deprecated
 HUFFCOARSE(2, false, 8, 4)  // deprecated

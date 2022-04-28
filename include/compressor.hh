@@ -16,7 +16,6 @@
 
 #include <cuda_runtime.h>
 
-#include "binding.hh"
 #include "common/type_traits.hh"
 #include "components.hh"
 #include "context.hh"
@@ -41,30 +40,38 @@
 
 namespace cusz {
 
+// extra helper
+struct CompressorHelper {
+    static int autotune_coarse_parvle(Context* ctx);
+};
+
 template <class BINDING>
 class Compressor {
    public:
     PUBLIC_TYPES
 
-   public:
+   private:
     class impl;
-    std::unique_ptr<impl> const pimpl;
+    std::unique_ptr<impl> pimpl;
 
    public:
     ~Compressor();
     Compressor();
-    Compressor(const Compressor&) = delete;
-    // Compressor& operator=(const Compressor&) = delete;
-    Compressor(Compressor&&) = delete;
-    // Compressor& operator=(Compressor&&) = delete;
+    Compressor(const Compressor&);
+    Compressor& operator=(const Compressor&);
+    Compressor(Compressor&&);
+    Compressor& operator=(Compressor&&);
 
+    // methods
     void init(Context*, bool dbg_print = false);
     void init(Header*, bool dbg_print = false);
     void destroy();
-
     void compress(Context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
     void decompress(Header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
     void clear_buffer();
+    // getter
+    void export_header(Header&);
+    void export_timerecord(TimeRecord*);
 };
 
 template <class BINDING>
@@ -80,8 +87,7 @@ class Compressor<BINDING>::impl {
     // profiling
     TimeRecord timerecord;
     // header
-    using HEADER = cuszHEADER;
-    HEADER header;
+    Header header;
     // components
     Predictor*     predictor;
     Spcodec*       spcodec;
@@ -95,10 +101,6 @@ class Compressor<BINDING>::impl {
    public:
     ~impl();
     impl();
-    impl(const impl&) = delete;
-    // impl& impl(const impl&) = delete;
-    impl(impl&&) = delete;
-    // impl& impl(impl&&)      = delete;
 
     // public methods
     void init(Context* config, bool dbg_print = false);
@@ -108,7 +110,7 @@ class Compressor<BINDING>::impl {
     void clear_buffer();
 
     // getter
-    void     export_header(HEADER&);
+    void     export_header(Header&);
     void     export_timerecord(TimeRecord*);
     uint32_t get_len_data();
 
@@ -123,37 +125,6 @@ class Compressor<BINDING>::impl {
     void subfile_collect(T*, size_t, BYTE*, size_t, BYTE*, size_t, cudaStream_t, bool);
     void destroy();
     // getter
-};
-
-template <typename InputData = float>
-struct Framework {
-    using DATA    = InputData;                          // depend on template input
-    using ERRCTRL = ErrCtrlTrait<4, true>::type;        // predefined
-    using FP      = FastLowPrecisionTrait<true>::type;  // predefined
-    using Huff4   = HuffTrait<4>::type;
-    using Huff8   = HuffTrait<8>::type;
-    using Meta4   = MetadataTrait<4>::type;
-
-    /* Predictor */
-    using PredictorLorenzo = typename cusz::api::PredictorLorenzo<DATA, ERRCTRL, FP>::impl;
-    using PredictorSpline3 = typename cusz::api::PredictorSpline3<DATA, ERRCTRL, FP>::impl;
-
-    /* Lossless Spcodec */
-    using SpcodecMat = typename cusz::api::SpCodecCSR<DATA, Meta4>::impl;
-    using SpcodecVec = typename cusz::api::SpCodecVec<DATA, Meta4>::impl;
-
-    /* Lossless Codec*/
-    using CodecHuffman32 = cusz::api::HuffmanCoarse<ERRCTRL, Huff4, Meta4>::impl;
-    using CodecHuffman64 = cusz::api::HuffmanCoarse<ERRCTRL, Huff8, Meta4>::impl;
-
-    /* Predefined Combination */
-    using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpcodecVec, CodecHuffman32, CodecHuffman64>;
-    using Spline3Featured = CompressorTemplate<PredictorSpline3, SpcodecVec, CodecHuffman32, CodecHuffman64>;
-
-    /* Usable Compressor */
-    using DefaultCompressor         = class Compressor<LorenzoFeatured>::impl;
-    using LorenzoFeaturedCompressor = class Compressor<LorenzoFeatured>::impl;
-    using Spline3FeaturedCompressor = class Compressor<Spline3Featured>::impl; /* in progress */
 };
 
 }  // namespace cusz

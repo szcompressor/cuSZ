@@ -11,5 +11,5 @@
 
 #include "component/spvec.cuh"
 
-template struct cusz::api::SpCodecVec<float>::impl;
-// template struct cusz::api::SpCodecVec<double>::impl;
+template struct cusz::SpcodecVec<float>::impl;
+// template struct cusz::SpcodecVec<double>::impl;

@@ -52,56 +52,6 @@ template <> struct cuszCUSPARSE<double> { const static cudaDataType type = CUDA_
 
 namespace cusz {
 
-template <typename T, typename M>
-struct api::SpCodecCSR<T, M>::impl::Header {
-    static const int HEADER = 0;
-    static const int ROWPTR = 1;
-    static const int COLIDX = 2;
-    static const int VAL    = 3;
-    static const int END    = 4;
-
-    int     header_nbyte : 16;
-    size_t  uncompressed_len;  // TODO unnecessary?
-    int     m;                 // as well as n; square
-    int64_t nnz;
-
-    MetadataT entry[END + 1];
-
-    MetadataT subfile_size() const { return entry[END]; }
-};
-
-template <typename T, typename M>
-struct api::SpCodecCSR<T, M>::impl::runtime_encode_helper {
-    static const int CSR    = 0;
-    static const int ROWPTR = 1;
-    static const int COLIDX = 2;
-    static const int VAL    = 3;
-    static const int END    = 4;
-
-    uint32_t nbyte[END];
-
-#if CUDART_VERSION >= 11020
-    cusparseHandle_t     handle{nullptr};
-    cusparseSpMatDescr_t spmat;
-    cusparseDnMatDescr_t dnmat;
-
-    void*  d_buffer{nullptr};
-    size_t d_buffer_size{0};
-#elif CUDART_VERSION >= 10000
-    cusparseHandle_t   handle{nullptr};
-    cusparseMatDescr_t mat_desc{nullptr};
-
-    size_t lwork_in_bytes{0};
-    char*  d_work{nullptr};
-#endif
-    uint32_t m{0};
-    int64_t  nnz{0};
-    Header*  ptr_header{nullptr};
-};
-
-// TODO
-// void reconfigure_with_precise_nnz(int nnz) {}
-
 #if CUDART_VERSION >= 11020
 
 /**
@@ -111,7 +61,7 @@ struct api::SpCodecCSR<T, M>::impl::runtime_encode_helper {
  * @param stream CUDA stream
  */
 template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::gather_CUDA_11020(T* in_dense, cudaStream_t stream)
+void SpcodecCSR<T, M>::impl::gather_CUDA_11020(T* in_dense, cudaStream_t stream)
 {
     auto num_rows = rte.m;
     auto num_cols = rte.m;
@@ -205,13 +155,13 @@ void api::SpCodecCSR<T, M>::impl::gather_CUDA_11020(T* in_dense, cudaStream_t st
  * @param stream CUDA stream
  */
 template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::gather_CUDA_fallback(T* in_dense, cudaStream_t stream)
+void SpcodecCSR<T, M>::impl::gather_CUDA_fallback(T* in_dense, cudaStream_t stream)
 {
     int num_rows, num_cols, ld;
     num_rows = num_cols = ld = rte.m;
 
     float threshold{0};
-    auto has_ext_stream{false};
+    auto  has_ext_stream{false};
 
     /******************************************************************************/
 
@@ -303,11 +253,7 @@ void api::SpCodecCSR<T, M>::impl::gather_CUDA_fallback(T* in_dense, cudaStream_t
  * @param header_on_device (optional) configuration; if true, the header is copied from the on-device binary.
  */
 template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::scatter_CUDA_11020(
-    BYTE*        in_csr,
-    T*           out_dense,
-    cudaStream_t stream,
-    bool         header_on_device)
+void SpcodecCSR<T, M>::impl::scatter_CUDA_11020(BYTE* in_csr, T* out_dense, cudaStream_t stream, bool header_on_device)
 {
     Header header;
     if (header_on_device) CHECK_CUDA(cudaMemcpyAsync(&header, in_csr, sizeof(header), cudaMemcpyDeviceToHost, stream));
@@ -384,11 +330,11 @@ void api::SpCodecCSR<T, M>::impl::scatter_CUDA_11020(
  * @param header_on_device (optional) configuration; if true, the header is copied from the on-device binary.
  */
 template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::scatter_CUDA_fallback(
-    BYTE* in_csr,
-    T* out_dense,
-    cudaStream_t stream = nullptr,
-    bool header_on_device = true)
+void SpcodecCSR<T, M>::impl::scatter_CUDA_fallback(
+    BYTE*        in_csr,
+    T*           out_dense,
+    cudaStream_t stream           = nullptr,
+    bool         header_on_device = true)
 {
     Header header;
     if (header_on_device) CHECK_CUDA(cudaMemcpyAsync(&header, in_csr, sizeof(header), cudaMemcpyDeviceToHost, stream));
@@ -396,12 +342,12 @@ void api::SpCodecCSR<T, M>::impl::scatter_CUDA_fallback(
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_csr + header.entry[Header::SYM])
     auto d_rowptr = ACCESSOR(ROWPTR, int);
     auto d_colidx = ACCESSOR(COLIDX, int);
-    auto d_val = ACCESSOR(VAL, T);
+    auto d_val    = ACCESSOR(VAL, T);
 #undef ACCESSOR
 
     auto num_rows = header.m;
     auto num_cols = header.m;
-    auto ld = header.m;
+    auto ld       = header.m;
 
     auto has_external_stream = false;
 
@@ -445,13 +391,7 @@ void api::SpCodecCSR<T, M>::impl::scatter_CUDA_fallback(
 #endif
 
 template <typename T, typename M>
-float api::SpCodecCSR<T, M>::impl::get_time_elapsed() const
-{
-    return milliseconds;
-}
-
-template <typename T, typename M>
-api::SpCodecCSR<T, M>::impl::~impl()
+SpcodecCSR<T, M>::impl::~impl()
 {
     SPMAT_FREEDEV(csr);
     SPMAT_FREEDEV(rowptr);
@@ -459,8 +399,9 @@ api::SpCodecCSR<T, M>::impl::~impl()
     SPMAT_FREEDEV(val);
 }
 
+// public methods
 template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::init(size_t const in_uncompressed_len, int density_factor, bool dbg_print)
+void SpcodecCSR<T, M>::impl::init(size_t const in_uncompressed_len, int density_factor, bool dbg_print)
 {
     auto max_compressed_bytes = [&]() { return in_uncompressed_len / density_factor * sizeof(T); };
     auto init_nnz             = [&]() { return in_uncompressed_len / density_factor; };
@@ -497,7 +438,63 @@ void api::SpCodecCSR<T, M>::impl::init(size_t const in_uncompressed_len, int den
 }
 
 template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::subfile_collect(
+void SpcodecCSR<T, M>::impl::clear_buffer()
+{
+    cudaMemset(d_csr, 0x0, rte.nbyte[RTE::CSR]);
+    cudaMemset(d_rowptr, 0x0, rte.nbyte[RTE::ROWPTR]);
+    cudaMemset(d_colidx, 0x0, rte.nbyte[RTE::COLIDX]);
+    cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
+}
+
+template <typename T, typename M>
+void SpcodecCSR<T, M>::impl::encode(
+    T*           in_uncompressed,
+    size_t const in_uncompressed_len,
+    BYTE*&       out_compressed,
+    size_t&      out_compressed_len,
+    cudaStream_t stream,
+    bool         dbg_print)
+{
+    // cautious!
+    Header header;
+    rte.ptr_header = &header;
+
+#if CUDART_VERSION >= 11020
+    gather_CUDA_11020(in_uncompressed, stream);
+#elif CUDART_VERSION >= 10000
+    gather_CUDA_fallback(in_uncompressed, stream);
+#endif
+
+    subfile_collect(header, in_uncompressed_len, stream, dbg_print);
+
+    out_compressed     = d_csr;
+    out_compressed_len = header.subfile_size();
+}
+
+template <typename T, typename M>
+void SpcodecCSR<T, M>::impl::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream)
+{
+    Header header;
+    CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
+
+#if CUDART_VERSION >= 11020
+    scatter_CUDA_11020(in_compressed, out_decompressed, stream);
+#elif CUDART_VERSION >= 10000
+    scatter_CUDA_fallback(in_compressed, out_decompressed, stream);
+#endif
+}
+
+// getter
+template <typename T, typename M>
+float SpcodecCSR<T, M>::impl::get_time_elapsed() const
+{
+    return milliseconds;
+}
+
+// helper
+
+template <typename T, typename M>
+void SpcodecCSR<T, M>::impl::subfile_collect(
     Header&      header,
     size_t       in_uncompressed_len,
     cudaStream_t stream,
@@ -550,59 +547,6 @@ void api::SpCodecCSR<T, M>::impl::subfile_collect(
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 }
 
-template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::clear_buffer()
-{
-    cudaMemset(d_csr, 0x0, rte.nbyte[RTE::CSR]);
-    cudaMemset(d_rowptr, 0x0, rte.nbyte[RTE::ROWPTR]);
-    cudaMemset(d_colidx, 0x0, rte.nbyte[RTE::COLIDX]);
-    cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
-}
-
-template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::encode(
-    T*           in_uncompressed,
-    size_t const in_uncompressed_len,
-    BYTE*&       out_compressed,
-    size_t&      out_compressed_len,
-    cudaStream_t stream,
-    bool         dbg_print)
-{
-    // cautious!
-    Header header;
-    rte.ptr_header = &header;
-
-#if CUDART_VERSION >= 11020
-    gather_CUDA_11020(in_uncompressed, stream);
-#elif CUDART_VERSION >= 10000
-    gather_CUDA_fallback(in_uncompressed, stream);
-#endif
-
-    subfile_collect(header, in_uncompressed_len, stream, dbg_print);
-
-    out_compressed     = d_csr;
-    out_compressed_len = header.subfile_size();
-}
-
-template <typename T, typename M>
-void api::SpCodecCSR<T, M>::impl::decode(
-    BYTE*        in_compressed,
-    T*           out_decompressed,
-    cudaStream_t stream,
-    bool         header_on_device)
-{
-    Header header;
-    if (header_on_device)
-        CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
-
-#if CUDART_VERSION >= 11020
-    scatter_CUDA_11020(in_compressed, out_decompressed, stream);
-#elif CUDART_VERSION >= 10000
-    scatter_CUDA_fallback(in_compressed, out_decompressed, stream);
-#endif
-}
-
-//
 }  // namespace cusz
 
 #undef SPMAT_D2DCPY

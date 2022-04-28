@@ -35,46 +35,45 @@ namespace cusz {
 
 // override
 template <typename T, typename E, typename FP>
-size_t api::PredictorSpline3<T, E, FP>::impl::get_alloclen_quant() const
+size_t PredictorSpline3<T, E, FP>::impl::get_alloclen_quant() const
 {
     auto m = Reinterpret1DTo2D::get_square_size(this->alloclen.assigned.quant);
     return m * m;
 }
 
 template <typename T, typename E, typename FP>
-size_t api::PredictorSpline3<T, E, FP>::impl::get_len_quant() const
+size_t PredictorSpline3<T, E, FP>::impl::get_len_quant() const
 {
     auto m = Reinterpret1DTo2D::get_square_size(this->rtlen.assigned.quant);
     return m * m;
 }
 
-// size_t get_workspace_nbyte() const { return 0; };
-
-// private:
-// DEFINE_ARRAY(anchor, T);
-// DEFINE_ARRAY(errctrl, E);
-// DEFINE_ARRAY(outlier, T);
-
 template <typename T, typename E, typename FP>
-E* api::PredictorSpline3<T, E, FP>::impl::expose_quant() const
+E* PredictorSpline3<T, E, FP>::impl::expose_quant() const
 {
     return d_errctrl;
 }
 
 template <typename T, typename E, typename FP>
-E* api::PredictorSpline3<T, E, FP>::impl::expose_errctrl() const
+E* PredictorSpline3<T, E, FP>::impl::expose_errctrl() const
 {
     return d_errctrl;
 }
 
 template <typename T, typename E, typename FP>
-T* api::PredictorSpline3<T, E, FP>::impl::expose_anchor() const
+T* PredictorSpline3<T, E, FP>::impl::expose_anchor() const
 {
     return d_anchor;
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::derive_alloclen(dim3 base)
+T* PredictorSpline3<T, E, FP>::impl::expose_outlier() const
+{
+    return d_outlier;
+}
+
+template <typename T, typename E, typename FP>
+void PredictorSpline3<T, E, FP>::impl::derive_alloclen(dim3 base)
 {
     int sublen[3]      = {32, 8, 8};
     int anchor_step[3] = {8, 8, 8};
@@ -83,7 +82,7 @@ void api::PredictorSpline3<T, E, FP>::impl::derive_alloclen(dim3 base)
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::derive_rtlen(dim3 base)
+void PredictorSpline3<T, E, FP>::impl::derive_rtlen(dim3 base)
 {
     int sublen[3]      = {32, 8, 8};
     int anchor_step[3] = {8, 8, 8};
@@ -92,11 +91,18 @@ void api::PredictorSpline3<T, E, FP>::impl::derive_rtlen(dim3 base)
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::init(dim3 _size, bool _dbg_mode)
+void PredictorSpline3<T, E, FP>::impl::init(dim3 _size, bool _dbg_mode)
 {
     derive_alloclen(_size);
     if (_dbg_mode) this->debug_list_alloclen<T, E, FP>(true);
     init_continue();
+}
+
+template <typename T, typename E, typename FP>
+void PredictorSpline3<T, E, FP>::impl::init(size_t x, size_t y, size_t z, bool dbg_print)
+{
+    auto len3 = dim3(x, y, z);
+    init(len3, dbg_print);
 }
 
 /**
@@ -108,7 +114,7 @@ void api::PredictorSpline3<T, E, FP>::impl::init(dim3 _size, bool _dbg_mode)
  * @param _outlier_overlapped (host variable) (future) control the input-output overlapping
  */
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::init_continue(bool _delay_postquant_dummy, bool _outlier_overlapped)
+void PredictorSpline3<T, E, FP>::impl::init_continue(bool _delay_postquant_dummy, bool _outlier_overlapped)
 {
     // config
     delay_postquant_dummy = _delay_postquant_dummy;
@@ -131,7 +137,12 @@ void api::PredictorSpline3<T, E, FP>::impl::init_continue(bool _delay_postquant_
 }
 
 template <typename T, typename E, typename FP>
-api::PredictorSpline3<T, E, FP>::impl::~impl()
+PredictorSpline3<T, E, FP>::impl::impl()
+{
+}
+
+template <typename T, typename E, typename FP>
+PredictorSpline3<T, E, FP>::impl::~impl()
 {
     FREEDEV(anchor);
     FREEDEV(errctrl);
@@ -142,7 +153,7 @@ api::PredictorSpline3<T, E, FP>::impl::~impl()
  *
  */
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::clear_buffer()
+void PredictorSpline3<T, E, FP>::impl::clear_buffer()
 {
     cudaMemset(d_anchor, 0x0, sizeof(T) * this->get_len_anchor());
     cudaMemset(d_errctrl, 0x0, sizeof(E) * get_len_quant());
@@ -159,7 +170,7 @@ void api::PredictorSpline3<T, E, FP>::impl::clear_buffer()
  * @param stream CUDA stream
  */
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::construct(
+void PredictorSpline3<T, E, FP>::impl::construct(
     dim3 const   len3,
     TITER        in_data,
     TITER&       out_anchor,
@@ -217,7 +228,7 @@ void api::PredictorSpline3<T, E, FP>::impl::construct(
  * @param stream CUDA stream
  */
 template <typename T, typename E, typename FP>
-void api::PredictorSpline3<T, E, FP>::impl::reconstruct(
+void PredictorSpline3<T, E, FP>::impl::reconstruct(
     dim3         len3,
     TITER&       in_outlier__out_xdata,
     TITER        in_anchor,
@@ -250,6 +261,12 @@ void api::PredictorSpline3<T, E, FP>::impl::reconstruct(
         CHECK_CUDA(cudaDeviceSynchronize());
 
     this->time_elapsed = timer.get_time_elapsed();
+}
+
+template <typename T, typename E, typename FP>
+float PredictorSpline3<T, E, FP>::impl::get_time_elapsed() const
+{
+    return time_elapsed;
 }
 
 }  // namespace cusz

@@ -27,9 +27,9 @@
 #include <type_traits>
 
 #include "common.hh"
+#include "component/huffman_parbook.cuh"
 #include "kernel/par_merge.cuh"
 #include "utils.hh"
-#include "component/huffman_parbook.cuh"
 
 using std::cout;
 using std::endl;

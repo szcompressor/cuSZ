@@ -12,6 +12,7 @@
 #ifndef CUSZ_COMMON_CONFIGS_HH
 #define CUSZ_COMMON_CONFIGS_HH
 
+#include <cuda_runtime.h>
 #include <cxxabi.h>
 #include <cmath>
 #include <fstream>
@@ -244,7 +245,7 @@ struct ConfigHelper {
         return (size + subsize - 1) / subsize;
     }
 
-#ifdef __CUDACC__
+    // #ifdef __CUDACC__
     static int get_ndim(dim3 len3)
     {
         auto ndim = 3;
@@ -285,7 +286,7 @@ struct ConfigHelper {
 
     static dim3 get_leap(dim3 len3) { return dim3(1, len3.x, len3.x * len3.y); }
 
-#endif
+    // #endif
 
     template <typename T>
     static size_t get_serialized_len(T a[3])

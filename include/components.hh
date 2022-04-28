@@ -12,11 +12,8 @@
 #ifndef CUSZ_COMPONENT_HH
 #define CUSZ_COMPONENT_HH
 
-#include "component/extrap_lorenzo.cuh"
-#include "component/huffman_coarse.cuh"
-#include "component/huffman_parbook.cuh"
-#include "component/interp_spline3.cuh"
-#include "component/spmat.cuh"
-#include "component/spvec.cuh"
+#include "component/codecs.hh"
+#include "component/predictors.hh"
+#include "component/spcodecs.hh"
 
 #endif

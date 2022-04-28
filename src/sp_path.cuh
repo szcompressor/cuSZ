@@ -37,7 +37,7 @@
 template <class BINDING>
 class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     using Predictor = typename BINDING::PREDICTOR;
-    using SpCodec   = typename BINDING::SPCODEC;
+    using Spcodec   = typename BINDING::SPCODEC;
 
     using T    = typename Predictor::Origin;   // wrong in type inference
     using E    = typename Predictor::ErrCtrl;  // wrong in type inference
@@ -47,7 +47,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     dim3         data_size;
 
     Predictor* predictor;
-    SpCodec*   spcodec;
+    Spcodec*   spcodec;
 
     BYTE* d_reserved_compressed{nullptr};
 
@@ -81,7 +81,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
     void init(dim3 xyz, int dummy_coarse_pardeg = -1, int sp_factor = 4, bool dbg_print = false)
     {
         predictor = new Predictor;
-        spcodec   = new SpCodec;
+        spcodec   = new Spcodec;
 
         data_size = xyz;
 

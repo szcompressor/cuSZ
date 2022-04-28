@@ -15,7 +15,6 @@
 #ifndef CUSZ_DEFAULT_PATH_CUH
 #define CUSZ_DEFAULT_PATH_CUH
 
-#include "binding.hh"
 #include "components.hh"
 #include "compressor.hh"
 #include "header.hh"
@@ -27,16 +26,16 @@
 #define FREEDEV(VAR) CHECK_CUDA(cudaFree(d_##VAR));
 #define FREEHOST(VAR) CHECK_CUDA(cudaFreeHost(h_##VAR));
 
-#define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)HEADER::VAR, 14, #VAR, header.entry[HEADER::VAR]);
+#define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)Header::VAR, 14, #VAR, header.entry[Header::VAR]);
 
 #define D2D_CPY(VAR, FIELD)                                                                            \
     {                                                                                                  \
-        auto dst = d_reserved_compressed + header.entry[HEADER::FIELD];                                \
+        auto dst = d_reserved_compressed + header.entry[Header::FIELD];                                \
         auto src = reinterpret_cast<BYTE*>(VAR);                                                       \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], cudaMemcpyDeviceToDevice, stream)); \
+        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], cudaMemcpyDeviceToDevice, stream)); \
     }
 
-#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header->entry[HEADER::SYM])
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header->entry[Header::SYM])
 
 namespace cusz {
 
@@ -181,12 +180,12 @@ void IMPL::clear_buffer()
 }
 
 TEMPLATE_TYPE
-void IMPL::decompress(cuszHEADER* header, BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool dbg_print)
+void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool dbg_print)
 {
     // TODO host having copy of header when compressing
     if (not header) {
-        header = new HEADER;
-        CHECK_CUDA(cudaMemcpyAsync(header, in_compressed, sizeof(HEADER), cudaMemcpyDeviceToHost, stream));
+        header = new Header;
+        CHECK_CUDA(cudaMemcpyAsync(header, in_compressed, sizeof(Header), cudaMemcpyDeviceToHost, stream));
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
 
@@ -237,7 +236,7 @@ void IMPL::decompress(cuszHEADER* header, BYTE* in_compressed, T* out_decompress
 
 // public getter
 TEMPLATE_TYPE
-void IMPL::export_header(HEADER& ext_header) { ext_header = header; }
+void IMPL::export_header(Header& ext_header) { ext_header = header; }
 
 TEMPLATE_TYPE
 void IMPL::export_timerecord(TimeRecord* ext_timerecord)
@@ -398,17 +397,17 @@ void IMPL::subfile_collect(
     cudaStream_t stream,
     bool         dbg_print)
 {
-    header.header_nbyte = sizeof(HEADER);
-    uint32_t nbyte[HEADER::END];
-    nbyte[HEADER::HEADER] = 128;
-    nbyte[HEADER::ANCHOR] = sizeof(T) * anchor_len;
-    nbyte[HEADER::VLE]    = sizeof(BYTE) * codec_outlen;
-    nbyte[HEADER::SPFMT]  = sizeof(BYTE) * spfmt_outlen;
+    header.header_nbyte = sizeof(Header);
+    uint32_t nbyte[Header::END];
+    nbyte[Header::HEADER] = 128;
+    nbyte[Header::ANCHOR] = sizeof(T) * anchor_len;
+    nbyte[Header::VLE]    = sizeof(BYTE) * codec_outlen;
+    nbyte[Header::SPFMT]  = sizeof(BYTE) * spfmt_outlen;
 
     header.entry[0] = 0;
     // *.END + 1; need to know the ending position
-    for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
-    for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
+    for (auto i = 1; i < Header::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
+    for (auto i = 1; i < Header::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
 
     auto debug_header_entry = [&]() {
         printf("\nsubfile collect in compressor:\n");
@@ -432,37 +431,6 @@ void IMPL::subfile_collect(
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 }
-
-// template <typename InputData = float>
-// struct Framework {
-//     using DATA    = InputData;                          // depend on template input
-//     using ERRCTRL = ErrCtrlTrait<4, true>::type;        // predefined
-//     using FP      = FastLowPrecisionTrait<true>::type;  // predefined
-//     using Huff4   = HuffTrait<4>::type;
-//     using Huff8   = HuffTrait<8>::type;
-//     using Meta4   = MetadataTrait<4>::type;
-
-//     /* Predictor */
-//     using PredictorLorenzo = typename cusz::PredictorLorenzo<DATA, ERRCTRL, FP>;
-//     using PredictorSpline3 = typename cusz::PredictorSpline3<DATA, ERRCTRL, FP>;
-
-//     /* Lossless Spcodec */
-//     using SpcodecMat = typename cusz::SpcodecCSR<DATA, Meta4>;
-//     using SpcodecVec = typename cusz::SpcodecVec<DATA, Meta4>;
-
-//     /* Lossless Codec*/
-//     using CodecHuffman32 = cusz::HuffmanCoarse<ERRCTRL, Huff4, Meta4>;
-//     using CodecHuffman64 = cusz::HuffmanCoarse<ERRCTRL, Huff8, Meta4>;
-
-//     /* Predefined Combination */
-//     using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpcodecVec, CodecHuffman32, CodecHuffman64>;
-//     using Spline3Featured = CompressorTemplate<PredictorSpline3, SpcodecVec, CodecHuffman32, CodecHuffman64>;
-
-//     /* Usable Compressor */
-//     using DefaultCompressor         = class Compressor<LorenzoFeatured>;
-//     using LorenzoFeaturedCompressor = class Compressor<LorenzoFeatured>;
-//     using Spline3FeaturedCompressor = class Compressor<Spline3Featured>; /* in progress */
-// };
 
 }  // namespace cusz
 

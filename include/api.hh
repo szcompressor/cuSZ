@@ -18,6 +18,7 @@
 #include "common/definition.hh"
 #include "compressor_impl.cuh"
 #include "context.hh"
+#include "framework.hh"
 #include "header.hh"
 
 #define STASTIC_ASSERT() \
@@ -47,7 +48,7 @@ void core_compress(
     Context*     config,
     T*           uncompressed,
     size_t       uncompressed_alloc_len,
-    BYTE*&       compressed,
+    uint8_t*&    compressed,
     size_t&      compressed_len,
     Header&      header,
     cudaStream_t stream     = nullptr,
@@ -64,7 +65,7 @@ void core_compress(
                 "cuSZ requires the allocation for `uncompressed` to at least 1.03x the original size.");
     }
 
-    AutoconfigHelper::autotune(config);
+    cusz::CompressorHelper::autotune_coarse_parvle(config);
     (*compressor).init(config);
     (*compressor).compress(config, uncompressed, compressed, compressed_len, stream);
     (*compressor).export_header(header);
@@ -89,7 +90,7 @@ template <class Compressor, typename T>
 void core_decompress(
     Compressor*  compressor,
     Header*      config,
-    BYTE*        compressed,
+    uint8_t*     compressed,
     size_t       compressed_len,
     T*           decompressed,
     size_t       decompressed_alloc_len,

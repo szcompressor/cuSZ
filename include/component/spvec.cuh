@@ -40,59 +40,17 @@
 namespace cusz {
 
 template <typename T, typename M>
-struct api::SpCodecVec<T, M>::impl::Header {
-    static const int HEADER = 0;
-    static const int IDX    = 1;
-    static const int VAL    = 2;
-    static const int END    = 3;
-
-    int       header_nbyte : 16;
-    size_t    uncompressed_len;
-    int       nnz;
-    MetadataT entry[END + 1];
-
-    MetadataT subfile_size() const { return entry[END]; }
-};
-
-template <typename T, typename M>
-struct api::SpCodecVec<T, M>::impl::runtime_encode_helper {
-    static const int SPFMT = 0;
-    static const int IDX   = 1;
-    static const int VAL   = 2;
-    static const int END   = 3;
-
-    uint32_t nbyte[END];
-    int      nnz{0};
-};
-
-template <typename T, typename M>
-api::SpCodecVec<T, M>::impl::~impl()
+SpcodecVec<T, M>::impl::~impl()
 {
     SPVEC_FREEDEV(spfmt);
     SPVEC_FREEDEV(idx);
     SPVEC_FREEDEV(val);
 }
 
-template <typename T, typename M>
-float api::SpCodecVec<T, M>::impl::get_time_elapsed() const
-{
-    return milliseconds;
-}
-
-// template <typename T, typename M>
-// MetadataT* api::SpCodecVec<T,M>::impl::expose_idx() const
-// {
-//     return d_idx;
-// }
-
-// template <typename T, typename M>
-// T* api::SpCodecVec<T,M>::impl::expose_val() const
-// {
-//     return d_val;
-// }
+// public methods
 
 template <typename T, typename M>
-void api::SpCodecVec<T, M>::impl::init(size_t const len, int density_factor, bool dbg_print)
+void SpcodecVec<T, M>::impl::init(size_t const len, int density_factor, bool dbg_print)
 {
     auto max_bytes = [&]() { return len / density_factor * sizeof(T); };
     auto init_nnz  = [&]() { return len / density_factor; };
@@ -112,7 +70,79 @@ void api::SpCodecVec<T, M>::impl::init(size_t const len, int density_factor, boo
 }
 
 template <typename T, typename M>
-void api::SpCodecVec<T, M>::impl::subfile_collect(Header& header, size_t len, cudaStream_t stream, bool dbg_print)
+void SpcodecVec<T, M>::impl::encode(
+    T*           in,
+    size_t const in_len,
+    BYTE*&       out,
+    size_t&      out_len,
+    cudaStream_t stream,
+    bool         dbg_print)
+{
+    Header header;
+
+    using thrust::placeholders::_1;
+
+    thrust::cuda::par.on(stream);
+    thrust::counting_iterator<int> zero(0);
+
+    cuda_timer_t t;
+    t.timer_start(stream);
+
+    // find out the indices
+    rte.nnz = thrust::copy_if(thrust::device, zero, zero + in_len, in, d_idx, _1 != 0) - d_idx;
+
+    // fetch corresponding values
+    thrust::copy(
+        thrust::device, thrust::make_permutation_iterator(in, d_idx),
+        thrust::make_permutation_iterator(in + rte.nnz, d_idx + rte.nnz), d_val);
+
+    t.timer_end(stream);
+    milliseconds = t.get_time_elapsed();
+
+    subfile_collect(header, in_len, stream, dbg_print);
+    out     = d_spfmt;
+    out_len = header.subfile_size();
+}
+
+template <typename T, typename M>
+void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, cudaStream_t stream)
+{
+    header_t header;
+    CHECK_CUDA(cudaMemcpyAsync(&header, coded, sizeof(header), cudaMemcpyDeviceToHost, stream));
+
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(coded + header.entry[Header::SYM])
+    auto d_idx = ACCESSOR(IDX, int);
+    auto d_val = ACCESSOR(VAL, T);
+#undef ACCESSOR
+    auto nnz = header.nnz;
+
+    thrust::cuda::par.on(stream);
+    cuda_timer_t t;
+    t.timer_start(stream);
+    thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
+    t.timer_end(stream);
+    milliseconds = t.get_time_elapsed();
+}
+
+template <typename T, typename M>
+void SpcodecVec<T, M>::impl::clear_buffer()
+{
+    cudaMemset(d_spfmt, 0x0, rte.nbyte[RTE::SPFMT]);
+    cudaMemset(d_idx, 0x0, rte.nbyte[RTE::IDX]);
+    cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
+}
+
+// getter
+template <typename T, typename M>
+float SpcodecVec<T, M>::impl::get_time_elapsed() const
+{
+    return milliseconds;
+}
+
+// helper
+
+template <typename T, typename M>
+void SpcodecVec<T, M>::impl::subfile_collect(Header& header, size_t len, cudaStream_t stream, bool dbg_print)
 {
     header.header_nbyte     = sizeof(Header);
     header.uncompressed_len = len;
@@ -155,69 +185,6 @@ void api::SpCodecVec<T, M>::impl::subfile_collect(Header& header, size_t len, cu
     SPVEC_D2DCPY(val, VAL)
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
-}
-
-template <typename T, typename M>
-void api::SpCodecVec<T, M>::impl::encode(
-    T*           in,
-    size_t const in_len,
-    BYTE*&       out,
-    size_t&      out_len,
-    cudaStream_t stream,
-    bool         dbg_print)
-{
-    Header header;
-
-    using thrust::placeholders::_1;
-
-    thrust::cuda::par.on(stream);
-    thrust::counting_iterator<int> zero(0);
-
-    cuda_timer_t t;
-    t.timer_start(stream);
-
-    // find out the indices
-    rte.nnz = thrust::copy_if(thrust::device, zero, zero + in_len, in, d_idx, _1 != 0) - d_idx;
-
-    // fetch corresponding values
-    thrust::copy(
-        thrust::device, thrust::make_permutation_iterator(in, d_idx),
-        thrust::make_permutation_iterator(in + rte.nnz, d_idx + rte.nnz), d_val);
-
-    t.timer_end(stream);
-    milliseconds = t.get_time_elapsed();
-
-    subfile_collect(header, in_len, stream, dbg_print);
-    out     = d_spfmt;
-    out_len = header.subfile_size();
-}
-
-template <typename T, typename M>
-void api::SpCodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, cudaStream_t stream)
-{
-    header_t header;
-    CHECK_CUDA(cudaMemcpyAsync(&header, coded, sizeof(header), cudaMemcpyDeviceToHost, stream));
-
-#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(coded + header.entry[Header::SYM])
-    auto d_idx = ACCESSOR(IDX, int);
-    auto d_val = ACCESSOR(VAL, T);
-#undef ACCESSOR
-    auto nnz = header.nnz;
-
-    thrust::cuda::par.on(stream);
-    cuda_timer_t t;
-    t.timer_start(stream);
-    thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
-    t.timer_end(stream);
-    milliseconds = t.get_time_elapsed();
-}
-
-template <typename T, typename M>
-void api::SpCodecVec<T, M>::impl::clear_buffer()
-{
-    cudaMemset(d_spfmt, 0x0, rte.nbyte[RTE::SPFMT]);
-    cudaMemset(d_idx, 0x0, rte.nbyte[RTE::IDX]);
-    cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
 }
 
 }  // namespace cusz

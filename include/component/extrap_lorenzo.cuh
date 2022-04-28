@@ -67,39 +67,32 @@ using cusz::prototype::x_lorenzo_3d1l;
 namespace cusz {
 
 template <typename T, typename E, typename FP>
-api::PredictorLorenzo<T, E, FP>::impl::impl()
+PredictorLorenzo<T, E, FP>::impl::impl()
 {
 }
 
 template <typename T, typename E, typename FP>
-api::PredictorLorenzo<T, E, FP>::impl::~impl()
+PredictorLorenzo<T, E, FP>::impl::~impl()
 {
     FREE_DEV_ARRAY(anchor);
     FREE_DEV_ARRAY(errctrl);
 }
 
-// refactor below
-//    private:
-//     DEFINE_ARRAY(anchor, T);
-//     DEFINE_ARRAY(errctrl, E);
-//     DEFINE_ARRAY(outlier, T);
-// #undef DEFINE_ARRAY
-
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::clear_buffer()
+void PredictorLorenzo<T, E, FP>::impl::clear_buffer()
 {
     cudaMemset(d_errctrl, 0x0, sizeof(E) * this->rtlen.assigned.quant);
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::init(size_t x, size_t y, size_t z, bool dbg_print)
+void PredictorLorenzo<T, E, FP>::impl::init(size_t x, size_t y, size_t z, bool dbg_print)
 {
     auto len3 = dim3(x, y, z);
     init(len3, dbg_print);
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::init(dim3 xyz, bool dbg_print)
+void PredictorLorenzo<T, E, FP>::impl::init(dim3 xyz, bool dbg_print)
 {
     this->derive_alloclen(xyz);
 
@@ -112,28 +105,28 @@ void api::PredictorLorenzo<T, E, FP>::impl::init(dim3 xyz, bool dbg_print)
 }
 
 template <typename T, typename E, typename FP>
-E* api::PredictorLorenzo<T, E, FP>::impl::expose_quant() const
+E* PredictorLorenzo<T, E, FP>::impl::expose_quant() const
 {
     return d_errctrl;
 }
 template <typename T, typename E, typename FP>
-E* api::PredictorLorenzo<T, E, FP>::impl::expose_errctrl() const
+E* PredictorLorenzo<T, E, FP>::impl::expose_errctrl() const
 {
     return d_errctrl;
 }
 template <typename T, typename E, typename FP>
-T* api::PredictorLorenzo<T, E, FP>::impl::expose_anchor() const
+T* PredictorLorenzo<T, E, FP>::impl::expose_anchor() const
 {
     return d_anchor;
 }
 template <typename T, typename E, typename FP>
-T* api::PredictorLorenzo<T, E, FP>::impl::expose_outlier() const
+T* PredictorLorenzo<T, E, FP>::impl::expose_outlier() const
 {
     return d_outlier;
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::construct(
+void PredictorLorenzo<T, E, FP>::impl::construct(
     dim3 const len3,
     T* __restrict__ in_data,
     T*& out_anchor,
@@ -156,7 +149,7 @@ void api::PredictorLorenzo<T, E, FP>::impl::construct(
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::reconstruct(
+void PredictorLorenzo<T, E, FP>::impl::reconstruct(
     dim3 len3,
     T* __restrict__ in_outlier,
     T* in_anchor,
@@ -175,7 +168,7 @@ void api::PredictorLorenzo<T, E, FP>::impl::reconstruct(
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::construct(
+void PredictorLorenzo<T, E, FP>::impl::construct(
     dim3 const   len3,
     T*           in_data__out_outlier,
     T*&          out_anchor,
@@ -197,7 +190,7 @@ void api::PredictorLorenzo<T, E, FP>::impl::construct(
 }
 
 template <typename T, typename E, typename FP>
-void api::PredictorLorenzo<T, E, FP>::impl::reconstruct(
+void PredictorLorenzo<T, E, FP>::impl::reconstruct(
     dim3         len3,
     T*&          in_outlier__out_xdata,
     T*           in_anchor,
@@ -216,8 +209,14 @@ void api::PredictorLorenzo<T, E, FP>::impl::reconstruct(
 }
 
 template <typename T, typename E, typename FP>
+float PredictorLorenzo<T, E, FP>::impl::get_time_elapsed() const
+{
+    return time_elapsed;
+}
+
+template <typename T, typename E, typename FP>
 template <bool DELAY_POSTQUANT>
-void api::PredictorLorenzo<T, E, FP>::impl::construct_proxy(
+void PredictorLorenzo<T, E, FP>::impl::construct_proxy(
     T* const in_data,
     T* const out_anchor,
     E* const out_errctrl,
@@ -278,7 +277,7 @@ void api::PredictorLorenzo<T, E, FP>::impl::construct_proxy(
 
 template <typename T, typename E, typename FP>
 template <bool DELAY_POSTQUANT>
-void api::PredictorLorenzo<T, E, FP>::impl::reconstruct_proxy(
+void PredictorLorenzo<T, E, FP>::impl::reconstruct_proxy(
     T* const __restrict__ __in_outlier,
     T* const     in_anchor,
     E* const     in_errctrl,

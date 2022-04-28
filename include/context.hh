@@ -78,14 +78,14 @@ class cuszCTX {
     std::string opath;
 
     std::string demo_dataset;
-    std::string dtype  = ConfigHelper::get_default_dtype();          // "f32"
-    std::string mode = ConfigHelper::get_default_cuszmode();        // "r2r"
+    std::string dtype     = ConfigHelper::get_default_dtype();      // "f32"
+    std::string mode      = ConfigHelper::get_default_cuszmode();   // "r2r"
     std::string predictor = ConfigHelper::get_default_predictor();  // "lorenzo"
-    std::string codec = ConfigHelper::get_default_codec();          // "huffman-coarse"
-    std::string spcodec  = ConfigHelper::get_default_spcodec();      // "cusparse-csr"
-    std::string pipeline = "auto";
+    std::string codec     = ConfigHelper::get_default_codec();      // "huffman-coarse"
+    std::string spcodec   = ConfigHelper::get_default_spcodec();    // "cusparse-csr"
+    std::string pipeline  = "auto";
 
-    // sparsity related: init_nnz when setting up SpCodec
+    // sparsity related: init_nnz when setting up Spcodec
     float nz_density{SparseMethodSetup::default_density};
     float nz_density_factor{SparseMethodSetup::default_density_factor};
 
@@ -151,7 +151,7 @@ class cuszCTX {
     {
         if (_ <= 1)
             throw std::runtime_error(
-                "Density factor for SpCodec must be >1. For example, setting the factor as 4 indicates the density "
+                "Density factor for Spcodec must be >1. For example, setting the factor as 4 indicates the density "
                 "(the portion of nonzeros) is 25% in an array.");
         nz_density_factor = _;
         nz_density        = 1.0 / _;
@@ -217,7 +217,7 @@ class cuszCTX {
 
     static void print_doc(bool full = false);
 
-    static int autotune(cuszCTX* ctx);
+    // static int autotune(cuszCTX* ctx);
 
    public:
     static void parse_input_length(const char* lenstr, cuszCTX* ctx)

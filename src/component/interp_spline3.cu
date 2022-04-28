@@ -11,4 +11,5 @@
 
 #include "component/interp_spline3.cuh"
 
-template struct cusz::api::PredictorSpline3<float, float, float>::impl;
+template struct cusz::PredictorSpline3<float, uint32_t, float>::impl;
+template struct cusz::PredictorSpline3<float, float, float>::impl;

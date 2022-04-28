@@ -11,5 +11,4 @@
 
 #include "cli.cuh"
 
-// force generate a lib
 template class cusz::CLI<float>;

@@ -12,7 +12,9 @@
 #ifndef CUSZ_COMPONENT_CODECS_HH
 #define CUSZ_COMPONENT_CODECS_HH
 
+#include <cuda_runtime.h>
 #include <cstdint>
+#include <memory>
 
 #define DEFINE_ARRAY(VAR, TYPE) \
     TYPE* d_##VAR{nullptr};     \
@@ -29,8 +31,6 @@ class CodecInterface {
     virtual void  clear_buffer()            = 0;
 };
 
-namespace api {
-
 template <typename T, typename H, typename M>
 class HuffmanCoarse : CodecInterface<T, H, M> {
    public:
@@ -40,8 +40,17 @@ class HuffmanCoarse : CodecInterface<T, H, M> {
     using FreqT     = uint32_t;
     using BYTE      = uint8_t;
 
+   private:
+    class impl;
+    std::unique_ptr<impl> pimpl;
+
    public:
-    struct impl;
+    ~HuffmanCoarse();                                // dtor
+    HuffmanCoarse();                                 // ctor
+    HuffmanCoarse(const HuffmanCoarse&);             // copy ctor
+    HuffmanCoarse& operator=(const HuffmanCoarse&);  // copy assign
+    HuffmanCoarse(HuffmanCoarse&&);                  // move ctor
+    HuffmanCoarse& operator=(HuffmanCoarse&&);       // move assign
 
     void init(size_t const, int const, int const, bool dbg_print = false);
     void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
@@ -55,7 +64,7 @@ class HuffmanCoarse : CodecInterface<T, H, M> {
 };
 
 template <typename T, typename H, typename M>
-struct HuffmanCoarse<T, H, M>::impl {
+class HuffmanCoarse<T, H, M>::impl {
    public:
     using Origin    = T;
     using Encoded   = H;
@@ -67,7 +76,8 @@ struct HuffmanCoarse<T, H, M>::impl {
     using BOOK = H;
     using SYM  = T;
 
-    struct header_t {
+    // TODO shared header
+    struct Header {
         static const int HEADER    = 0;
         static const int REVBOOK   = 1;
         static const int PAR_NBIT  = 2;
@@ -102,7 +112,7 @@ struct HuffmanCoarse<T, H, M>::impl {
     };
 
     using RTE    = runtime_encode_helper;
-    using HEADER = header_t;
+    using Header = struct Header;
 
    private:
     // array
@@ -123,9 +133,9 @@ struct HuffmanCoarse<T, H, M>::impl {
     float time_hist{0.0}, time_book{0.0}, time_lossless{0.0};
 
    public:
-    // constructor & destructor
-    impl() = default;
-    ~impl();
+    ~impl();  // dtor
+    impl();   // ctor
+
     // getter
     float         get_time_elapsed() const;
     float         get_time_book() const;
@@ -146,11 +156,10 @@ struct HuffmanCoarse<T, H, M>::impl {
     void clear_buffer();
 
    private:
-    void subfile_collect(HEADER&, size_t const, int const, int const, int const, cudaStream_t stream = nullptr);
+    void subfile_collect(Header&, size_t const, int const, int const, int const, cudaStream_t stream = nullptr);
     void dbg_println(const std::string, void*, int);
 };
 
-}  // namespace api
 }  // namespace cusz
 
 #undef DEFINE_ARRAY

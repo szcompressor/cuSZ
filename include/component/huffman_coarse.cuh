@@ -36,17 +36,17 @@ using std::cout;
                             macros for shorthand writing
  ******************************************************************************/
 
-#define EXPORT_NBYTE(FIELD) nbyte[HEADER::FIELD] = rte.nbyte[RTE::FIELD];
+#define EXPORT_NBYTE(FIELD) nbyte[Header::FIELD] = rte.nbyte[RTE::FIELD];
 
 #define DEVICE2DEVICE_COPY(VAR, FIELD)                                            \
     {                                                                             \
         constexpr auto D2D = cudaMemcpyDeviceToDevice;                            \
-        auto           dst = d_compressed + header.entry[HEADER::FIELD];          \
+        auto           dst = d_compressed + header.entry[Header::FIELD];          \
         auto           src = reinterpret_cast<BYTE*>(d_##VAR);                    \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[HEADER::FIELD], D2D, stream)); \
+        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], D2D, stream)); \
     }
 
-#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[HEADER::SYM])
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
 #define HC_ALLOCHOST(VAR, SYM)                     \
     cudaMallocHost(&h_##VAR, rte.nbyte[RTE::SYM]); \
@@ -93,48 +93,43 @@ huffman_coarse_concatenate(Huff* gapped, Meta* par_entry, Meta* par_ncell, int c
                                 class definition
  ******************************************************************************/
 
+#define TEMPLATE_TYPE template <typename T, typename H, typename M>
+#define IMPL HuffmanCoarse<T, H, M>::impl
+
 namespace cusz {
 
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::dbg_println(const std::string SYM_name, void* VAR, int SYM)
+TEMPLATE_TYPE
+IMPL::~impl()
 {
-    CUdeviceptr pbase0{0};
-    size_t      psize0{0};
+    HC_FREEDEV(tmp);
+    HC_FREEDEV(book);
+    HC_FREEDEV(revbook);
+    HC_FREEDEV(par_nbit);
+    HC_FREEDEV(par_ncell);
+    HC_FREEDEV(par_entry);
+    HC_FREEDEV(bitstream);
 
-    cuMemGetAddressRange(&pbase0, &psize0, (CUdeviceptr)VAR);
-    printf(
-        "%s:\n"
-        "\t(supposed) pointer : %p\n"
-        "\t(supposed) bytes   : %'9lu\n"
-        "\t(queried)  pbase0  : %p\n"
-        "\t(queried)  psize0  : %'9lu\n",
-        SYM_name.c_str(), (void*)VAR, (size_t)rte.nbyte[SYM], (void*)&pbase0, psize0);
-    pbase0 = 0, psize0 = 0;
+    HC_FREEHOST(book);
+    HC_FREEHOST(revbook);
+    HC_FREEHOST(par_nbit);
+    HC_FREEHOST(par_ncell);
+    HC_FREEHOST(par_entry);
 }
 
-/**
- * @brief Allocate workspace according to the input size & configurations.
- *
- * @param in_uncompressed_len uncompressed length
- * @param booklen codebook length
- * @param pardeg degree of parallelism
- * @param dbg_print print for debugging
- */
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::init(
-    size_t const in_uncompressed_len,
-    int const    booklen,
-    int const    pardeg,
-    bool         dbg_print)
+TEMPLATE_TYPE
+IMPL::impl() = default;
+
+//------------------------------------------------------------------------------
+
+TEMPLATE_TYPE
+void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const pardeg, bool dbg_print)
 {
     auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
 
     auto debug = [&]() {
         setlocale(LC_NUMERIC, "");
-
-        printf("\nHuffmanCoarse::init() debugging:\n");
+        printf("\nHuffmanCoarse<T, H, M>::init() debugging:\n");
         printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
-
         dbg_println("TMP", d_tmp, RTE::TMP);
         dbg_println("BOOK", d_book, RTE::BOOK);
         dbg_println("REVBOOK", d_revbook, RTE::REVBOOK);
@@ -175,89 +170,8 @@ void api::HuffmanCoarse<T, H, M>::impl::init(
     if (dbg_print) debug();
 }
 
-template <typename T, typename H, typename M>
-float api::HuffmanCoarse<T, H, M>::impl::get_time_elapsed() const
-{
-    return milliseconds;
-}
-
-template <typename T, typename H, typename M>
-float api::HuffmanCoarse<T, H, M>::impl::get_time_book() const
-{
-    return time_book;
-}
-template <typename T, typename H, typename M>
-float api::HuffmanCoarse<T, H, M>::impl::get_time_lossless() const
-{
-    return time_lossless;
-}
-
-template <typename T, typename H, typename M>
-H* api::HuffmanCoarse<T, H, M>::impl::expose_book() const
-{
-    return d_book;
-}
-
-template <typename T, typename H, typename M>
-BYTE* api::HuffmanCoarse<T, H, M>::impl::expose_revbook() const
-{
-    return d_revbook;
-}
-
-// TODO this kind of space will be overlapping with quant-codes
-template <typename T, typename H, typename M>
-size_t api::HuffmanCoarse<T, H, M>::impl::get_workspace_nbyte(size_t len) const
-{
-    return sizeof(H) * len;
-}
-
-template <typename T, typename H, typename M>
-size_t api::HuffmanCoarse<T, H, M>::impl::get_max_output_nbyte(size_t len) const
-{
-    return sizeof(H) * len / 2;
-}
-
-template <typename T, typename H, typename M>
-size_t api::HuffmanCoarse<T, H, M>::impl::get_revbook_nbyte(int dict_size)
-{
-    return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
-}
-
-template <typename T, typename H, typename M>
-constexpr bool api::HuffmanCoarse<T, H, M>::impl::can_overlap_input_and_firstphase_encode()
-{
-    return sizeof(T) == sizeof(H);
-}
-
-template <typename T, typename H, typename M>
-api::HuffmanCoarse<T, H, M>::impl::~impl()
-{
-    HC_FREEDEV(tmp);
-    HC_FREEDEV(book);
-    HC_FREEDEV(revbook);
-    HC_FREEDEV(par_nbit);
-    HC_FREEDEV(par_ncell);
-    HC_FREEDEV(par_entry);
-    HC_FREEDEV(bitstream);
-
-    HC_FREEHOST(book);
-    HC_FREEHOST(revbook);
-    HC_FREEHOST(par_nbit);
-    HC_FREEHOST(par_ncell);
-    HC_FREEHOST(par_entry);
-}
-
-// `autosw` collects hist outside the codec.
-/*
- void
- get_frequency(T* data, size_t data_len, cusz::FREQ* freq, int const booklen, float& time_hist, cudaStream_t stream)
- {
-     kernel_wrapper::get_frequency<T>(data, data_len, freq, booklen, time_hist, stream);
- }
- */
-
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
+TEMPLATE_TYPE
+void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
 {
     // This is end-to-end time for parbook.
     cuda_timer_t t;
@@ -269,91 +183,8 @@ void api::HuffmanCoarse<T, H, M>::impl::build_codebook(cusz::FREQ* freq, int con
     time_book = t.get_time_elapsed();
 }
 
-/**
- * @brief Collect fragmented field with repurposing TMP space.
- *
- * @param header (host variable)
- * @param stream CUDA stream
- */
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::subfile_collect(
-    HEADER&      header,
-    size_t const in_uncompressed_len,
-    int const    cfg_booklen,
-    int const    cfg_sublen,
-    int const    cfg_pardeg,
-    cudaStream_t stream)
-{
-    auto BARRIER = [&]() {
-        if (stream)
-            CHECK_CUDA(cudaStreamSynchronize(stream));
-        else
-            CHECK_CUDA(cudaDeviceSynchronize());
-    };
-
-    header.header_nbyte     = sizeof(struct header_t);
-    header.booklen          = cfg_booklen;
-    header.sublen           = cfg_sublen;
-    header.pardeg           = cfg_pardeg;
-    header.uncompressed_len = in_uncompressed_len;
-
-    MetadataT nbyte[HEADER::END];
-    nbyte[HEADER::HEADER] = 128;
-
-    EXPORT_NBYTE(REVBOOK)
-    EXPORT_NBYTE(PAR_NBIT)
-    EXPORT_NBYTE(PAR_ENTRY)
-    EXPORT_NBYTE(BITSTREAM)
-
-    header.entry[0] = 0;
-    // *.END + 1: need to know the ending position
-    for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
-    for (auto i = 1; i < HEADER::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
-
-    // auto debug_header_entry = [&]() {
-    //     for (auto i = 0; i < HEADER::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
-    // };
-    // debug_header_entry();
-
-    CHECK_CUDA(cudaMemcpyAsync(d_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
-
-    /* debug */ BARRIER();
-
-    DEVICE2DEVICE_COPY(revbook, REVBOOK)
-    DEVICE2DEVICE_COPY(par_nbit, PAR_NBIT)
-    DEVICE2DEVICE_COPY(par_entry, PAR_ENTRY)
-    DEVICE2DEVICE_COPY(bitstream, BITSTREAM)
-}
-
-/**
- * @brief
- *
- */
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::clear_buffer()
-{
-    cudaMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
-    cudaMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
-    cudaMemset(d_revbook, 0x0, rte.nbyte[RTE::REVBOOK]);
-    cudaMemset(d_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT]);
-    cudaMemset(d_par_ncell, 0x0, rte.nbyte[RTE::PAR_NCELL]);
-    cudaMemset(d_par_entry, 0x0, rte.nbyte[RTE::PAR_ENTRY]);
-    cudaMemset(d_bitstream, 0x0, rte.nbyte[RTE::BITSTREAM]);
-}
-
-/**
- * @brief Public encode interface.
- *
- * @param in_uncompressed (device array)
- * @param in_uncompressed_len (host variable)
- * @param cfg_booklen (host variable)
- * @param cfg_sublen (host variable)
- * @param out_compressed (device array) reference
- * @param out_compressed_len (host variable) reference output
- * @param stream CUDA stream
- */
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::encode(
+TEMPLATE_TYPE
+void IMPL::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
     cusz::FREQ*  d_freq,
@@ -374,7 +205,7 @@ void api::HuffmanCoarse<T, H, M>::impl::encode(
             CHECK_CUDA(cudaDeviceSynchronize());
     };
 
-    struct header_t header;
+    struct Header header;
 
     /* phase 1 */
     {
@@ -448,22 +279,10 @@ void api::HuffmanCoarse<T, H, M>::impl::encode(
     out_compressed_len = header.subfile_size();
 }
 
-/**
- * @brief Public decode interface.
- *
- * @param in_compressed (device) input
- * @param out_decompressed (device) output
- * @param stream CUDA stream
- * @param header_on_device If true, copy header from device binary to host.
- */
-template <typename T, typename H, typename M>
-void api::HuffmanCoarse<T, H, M>::impl::decode(
-    BYTE*        in_compressed,
-    T*           out_decompressed,
-    cudaStream_t stream,
-    bool         header_on_device)
+TEMPLATE_TYPE
+void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool header_on_device)
 {
-    header_t header;
+    Header header;
     if (header_on_device)
         CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
 
@@ -487,6 +306,115 @@ void api::HuffmanCoarse<T, H, M>::impl::decode(
     time_lossless = t.get_time_elapsed();
 }
 
+TEMPLATE_TYPE
+void IMPL::clear_buffer()
+{
+    cudaMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
+    cudaMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
+    cudaMemset(d_revbook, 0x0, rte.nbyte[RTE::REVBOOK]);
+    cudaMemset(d_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT]);
+    cudaMemset(d_par_ncell, 0x0, rte.nbyte[RTE::PAR_NCELL]);
+    cudaMemset(d_par_entry, 0x0, rte.nbyte[RTE::PAR_ENTRY]);
+    cudaMemset(d_bitstream, 0x0, rte.nbyte[RTE::BITSTREAM]);
+}
+
+// private helper
+TEMPLATE_TYPE
+void IMPL::subfile_collect(
+    Header&      header,
+    size_t const in_uncompressed_len,
+    int const    cfg_booklen,
+    int const    cfg_sublen,
+    int const    cfg_pardeg,
+    cudaStream_t stream)
+{
+    auto BARRIER = [&]() {
+        if (stream)
+            CHECK_CUDA(cudaStreamSynchronize(stream));
+        else
+            CHECK_CUDA(cudaDeviceSynchronize());
+    };
+
+    header.header_nbyte     = sizeof(Header);
+    header.booklen          = cfg_booklen;
+    header.sublen           = cfg_sublen;
+    header.pardeg           = cfg_pardeg;
+    header.uncompressed_len = in_uncompressed_len;
+
+    MetadataT nbyte[Header::END];
+    nbyte[Header::HEADER] = 128;
+
+    EXPORT_NBYTE(REVBOOK)
+    EXPORT_NBYTE(PAR_NBIT)
+    EXPORT_NBYTE(PAR_ENTRY)
+    EXPORT_NBYTE(BITSTREAM)
+
+    header.entry[0] = 0;
+    // *.END + 1: need to know the ending position
+    for (auto i = 1; i < Header::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
+    for (auto i = 1; i < Header::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
+
+    // auto debug_header_entry = [&]() {
+    //     for (auto i = 0; i < Header::END + 1; i++) printf("%d, header entry: %d\n", i, header.entry[i]);
+    // };
+    // debug_header_entry();
+
+    CHECK_CUDA(cudaMemcpyAsync(d_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+
+    /* debug */ BARRIER();
+
+    DEVICE2DEVICE_COPY(revbook, REVBOOK)
+    DEVICE2DEVICE_COPY(par_nbit, PAR_NBIT)
+    DEVICE2DEVICE_COPY(par_entry, PAR_ENTRY)
+    DEVICE2DEVICE_COPY(bitstream, BITSTREAM)
+}
+
+// getter
+TEMPLATE_TYPE
+float IMPL::get_time_elapsed() const { return milliseconds; }
+
+TEMPLATE_TYPE
+float IMPL::get_time_book() const { return time_book; }
+TEMPLATE_TYPE
+float IMPL::get_time_lossless() const { return time_lossless; }
+
+TEMPLATE_TYPE
+H* IMPL::expose_book() const { return d_book; }
+
+TEMPLATE_TYPE
+BYTE* IMPL::expose_revbook() const { return d_revbook; }
+
+// TODO this kind of space will be overlapping with quant-codes
+TEMPLATE_TYPE
+size_t IMPL::get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
+
+TEMPLATE_TYPE
+size_t IMPL::get_max_output_nbyte(size_t len) const { return sizeof(H) * len / 2; }
+
+TEMPLATE_TYPE
+size_t IMPL::get_revbook_nbyte(int dict_size) { return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size; }
+
+TEMPLATE_TYPE
+constexpr bool IMPL::can_overlap_input_and_firstphase_encode() { return sizeof(T) == sizeof(H); }
+
+// auxiliary
+TEMPLATE_TYPE
+void IMPL::dbg_println(const std::string SYM_name, void* VAR, int SYM)
+{
+    CUdeviceptr pbase0{0};
+    size_t      psize0{0};
+
+    cuMemGetAddressRange(&pbase0, &psize0, (CUdeviceptr)VAR);
+    printf(
+        "%s:\n"
+        "\t(supposed) pointer : %p\n"
+        "\t(supposed) bytes   : %'9lu\n"
+        "\t(queried)  pbase0  : %p\n"
+        "\t(queried)  psize0  : %'9lu\n",
+        SYM_name.c_str(), (void*)VAR, (size_t)rte.nbyte[SYM], (void*)&pbase0, psize0);
+    pbase0 = 0, psize0 = 0;
+}
+
 }  // namespace cusz
 
 #undef HC_ALLOCDEV
@@ -496,5 +424,8 @@ void api::HuffmanCoarse<T, H, M>::impl::decode(
 #undef EXPORT_NBYTE
 #undef ACCESSOR
 #undef DEVICE2DEVICE_COPY
+
+#undef TEMPLATE_TYPE
+#undef IMPL
 
 #endif

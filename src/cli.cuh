@@ -22,6 +22,7 @@
 #include "common.hh"
 #include "compressor.hh"
 #include "context.hh"
+#include "framework.hh"
 #include "query.hh"
 #include "utils.hh"
 

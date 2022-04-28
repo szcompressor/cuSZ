@@ -12,7 +12,6 @@
 #ifndef UTILS_HH
 #define UTILS_HH
 
-#include "utils/autotune.cuh"
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
 #include "utils/cusparse_err.cuh"

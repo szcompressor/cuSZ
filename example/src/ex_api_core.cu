@@ -25,7 +25,7 @@ void f(std::string fname)
      * using Framework   = cusz::Framework<T>;
      * using Combination = cusz::CompressorTemplate<
      *     typename Framework::PredictorLorenzo,
-     *     typename Framework::SpCodecCSR,
+     *     typename Framework::SpcodecCSR,
      *     typename Framework::CodecHuffman32,
      *     typename Framework::CodecHuffman64>;
      * using Compressor = cusz::Compressor<Combination>;
@@ -36,7 +36,7 @@ void f(std::string fname)
 
     Compressor*  compressor;
     cusz::Header header;
-    BYTE*        compressed;
+    uint8_t*     compressed;
     size_t       compressed_len;
 
     T *d_uncompressed, *h_uncompressed;
@@ -71,7 +71,7 @@ void f(std::string fname)
     cudaStreamCreate(&stream);
 
     compressor = new Compressor;
-    BYTE* exposed_compressed;
+    uint8_t* exposed_compressed;
     {
         cusz::TimeRecord timerecord;
         cusz::Context*   ctx;

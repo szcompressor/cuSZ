@@ -11,4 +11,4 @@
 
 #include "component/spmat.cuh"
 
-template struct cusz::api::SpCodecCSR<float, uint32_t>::impl;
+template struct cusz::SpcodecCSR<float, uint32_t>::impl;

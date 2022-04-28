@@ -14,6 +14,8 @@
 
 #include <cuda_runtime.h>
 #include <cstdint>
+#include <memory>
+
 #include "predictor_boilerplate.hh"
 
 #define DEFINE_ARRAY(VAR, TYPE) TYPE* d_##VAR{nullptr};
@@ -39,8 +41,6 @@ class PredictorInterface {
     virtual void clear_buffer() = 0;
 };
 
-namespace api {
-
 template <typename T, typename E, typename FP>
 class PredictorLorenzo : public PredictorInterface<T, E, FP> {
    public:
@@ -49,32 +49,41 @@ class PredictorLorenzo : public PredictorInterface<T, E, FP> {
     using ErrCtrl   = E;
     using Precision = FP;
 
+   private:
+    class impl;
+    std::unique_ptr<impl> pimpl;
+
    public:
-    // TODO will change to private
-    struct impl;
+    ~PredictorLorenzo();                                   // dtor
+    PredictorLorenzo();                                    // ctor
+    PredictorLorenzo(const PredictorLorenzo&);             // copy ctor
+    PredictorLorenzo& operator=(const PredictorLorenzo&);  // copy assign
+    PredictorLorenzo(PredictorLorenzo&&);                  // move ctor
+    PredictorLorenzo& operator=(PredictorLorenzo&&);       // move assign
 
     void init(size_t, size_t, size_t, bool dbg_print = false);
     void init(dim3, bool = false);
     void construct(dim3 const, T*, T*&, E*&, double const, int const, cudaStream_t = nullptr);
+    void construct(dim3 const, T*, T*&, E*&, T*&, double const, int const, cudaStream_t = nullptr);
     void reconstruct(dim3, T*&, T*, E*, double const, int const, cudaStream_t = nullptr);
+    void reconstruct(dim3, T*, T*, E*, T*&, double const, int const, cudaStream_t = nullptr);
+    void clear_buffer();
 
-    void expose_internal(E*&, T*&, T*&);
-
-    // TOOD too scattered
+    float  get_time_elapsed() const;
+    size_t get_alloclen_data() const;
+    size_t get_alloclen_quant() const;
+    size_t get_len_data() const;
+    size_t get_len_quant() const;
+    size_t get_len_anchor() const;
+    // TODO void expose_internal(E*&, T*&, T*&);
     E* expose_quant() const;
     E* expose_errctrl() const;
     T* expose_anchor() const;
     T* expose_outlier() const;
-
-    float get_time_elapsed() const;
-
-    void clear_buffer();
-
-   private:
 };
 
 template <typename T, typename E, typename FP>
-struct PredictorLorenzo<T, E, FP>::impl : public PredictorBoilerplate {
+class PredictorLorenzo<T, E, FP>::impl : public PredictorBoilerplate {
     // TODO remove the placeholder below
    public:
     using Origin    = T;
@@ -92,16 +101,14 @@ struct PredictorLorenzo<T, E, FP>::impl : public PredictorBoilerplate {
     void construct(dim3 const, T*, T*&, E*&, T*&, double const, int const, cudaStream_t = nullptr);
     void reconstruct(dim3, T*&, T*, E*, double const, int const, cudaStream_t = nullptr);
     void reconstruct(dim3, T*, T*, E*, T*&, double const, int const, cudaStream_t = nullptr);
+    void clear_buffer();
 
-    void expose_internal(E*&, T*&, T*&);
-
-    // TOOD too scattered
+    float get_time_elapsed() const;
+    // TODO void expose_internal(E*&, T*&, T*&);
     E* expose_quant() const;
     E* expose_errctrl() const;
     T* expose_anchor() const;
     T* expose_outlier() const;
-
-    void clear_buffer();
 
    private:
     // data
@@ -128,32 +135,39 @@ class PredictorSpline3 : public PredictorInterface<T, E, FP> {
     using ErrCtrl   = E;
     using Precision = FP;
 
+   private:
+    class impl;
+    std::unique_ptr<impl> pimpl;
+
    public:
-    // TODO will change to private
-    struct impl;
+    ~PredictorSpline3();                                   // dtor
+    PredictorSpline3();                                    // ctor
+    PredictorSpline3(const PredictorSpline3&);             // copy ctor
+    PredictorSpline3& operator=(const PredictorSpline3&);  // copy assign
+    PredictorSpline3(PredictorSpline3&&);                  // move ctor
+    PredictorSpline3& operator=(PredictorSpline3&&);       // move assign
 
     void init(size_t, size_t, size_t, bool dbg_print = false);
     void init(dim3, bool = false);
     void construct(dim3 const, T*, T*&, E*&, double const, int const, cudaStream_t = nullptr);
     void reconstruct(dim3, T*&, T*, E*, double const, int const, cudaStream_t = nullptr);
+    void clear_buffer();
 
-    void expose_internal(E*&, T*&, T*&);
-
-    // TOOD too scattered
+    float  get_time_elapsed() const;
+    size_t get_alloclen_data() const;
+    size_t get_alloclen_quant() const;
+    size_t get_len_data() const;
+    size_t get_len_quant() const;
+    size_t get_len_anchor() const;
+    // TODO void expose_internal(E*&, T*&, T*&);
     E* expose_quant() const;
     E* expose_errctrl() const;
     T* expose_anchor() const;
     T* expose_outlier() const;
-
-    void clear_buffer();
-
-    float get_time_elapsed() const;
-
-   private:
 };
 
 template <typename T, typename E, typename FP>
-struct PredictorSpline3<T, E, FP>::impl : public PredictorBoilerplate {
+class PredictorSpline3<T, E, FP>::impl : public PredictorBoilerplate {
     // TODO remove the placeholder below
    public:
     using Origin    = T;
@@ -171,16 +185,17 @@ struct PredictorSpline3<T, E, FP>::impl : public PredictorBoilerplate {
     void construct(dim3 const, T*, T*&, E*&, T*&, double const, int const, cudaStream_t = nullptr);
     void reconstruct(dim3, T*&, T*, E*, double const, int const, cudaStream_t = nullptr);
     void reconstruct(dim3, T*, T*, E*, T*&, double const, int const, cudaStream_t = nullptr);
+    void clear_buffer();
 
-    void expose_internal(E*&, T*&, T*&);
-
-    // TOOD too scattered
+    float get_time_elapsed() const;
+    // TODO void expose_internal(E*&, T*&, T*&);
     E* expose_quant() const;
     E* expose_errctrl() const;
     T* expose_anchor() const;
     T* expose_outlier() const;
-
-    void clear_buffer();
+    // override for spline3
+    size_t get_alloclen_quant() const;
+    size_t get_len_quant() const;
 
    private:
     // data
@@ -200,19 +215,15 @@ struct PredictorSpline3<T, E, FP>::impl : public PredictorBoilerplate {
 
    private:
     bool dbg_mode{false};
-
     bool delay_postquant_dummy;
 
    private:
     void init_continue(bool _delay_postquant_dummy = false, bool _outlier_overlapped = true);
     // override
-    void   derive_alloclen(dim3);
-    void   derive_rtlen(dim3);
-    size_t get_alloclen_quant() const;
-    size_t get_len_quant() const;
+    void derive_alloclen(dim3);
+    void derive_rtlen(dim3);
 };
 
-}  // namespace api
 }  // namespace cusz
 
 #undef DEFINE_ARRAY
