@@ -19,7 +19,7 @@ int main(int argc, char** argv)
 
     if (ctx->verbose) {
         GetMachineProperties();
-        GetDeviceProperty();
+        cudaHelper::GetDeviceProperty();
     }
 
     cusz::CLI<float> cusz_cli;

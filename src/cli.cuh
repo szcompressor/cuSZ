@@ -17,9 +17,10 @@
 
 #include "analysis/analyzer.hh"
 #include "api.hh"
+#include "base_compressor.cuh"
 #include "cli/timerecord_viewer.hh"
 #include "common.hh"
-#include "compressor_impl.cuh"
+#include "compressor.hh"
 #include "context.hh"
 #include "query.hh"
 #include "utils.hh"
@@ -65,7 +66,7 @@ class CLI {
     }
 
    private:
-    void write_compressed_to_disk(string compressed_name, BYTE* compressed, size_t compressed_len)
+    void write_compressed_to_disk(std::string compressed_name, BYTE* compressed, size_t compressed_len)
     {
         Capsule<BYTE> file("cusza");
         file.set_len(compressed_len)
@@ -76,7 +77,7 @@ class CLI {
             .template free<HOST_DEVICE>();
     }
 
-    void try_write_decompressed_to_disk(Capsule<T>& xdata, string basename, bool skip_write)
+    void try_write_decompressed_to_disk(Capsule<T>& xdata, std::string basename, bool skip_write)
     {
         if (not skip_write) xdata.device2host().template to_file<HOST>(basename + ".cuszx");
     }
