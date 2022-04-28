@@ -13,7 +13,7 @@
 #ifndef CUSZ_FRAMEWORK
 #define CUSZ_FRAMEWORK
 
-#include "components.hh"
+#include "component.hh"
 #include "compressor.hh"
 
 namespace cusz {

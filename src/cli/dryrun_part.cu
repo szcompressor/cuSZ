@@ -9,7 +9,7 @@
  *
  */
 
-#include "base_compressor.cuh"
+#include "dryrun_part.cuh"
 
 template class cusz::BaseCompressor<cusz::PredictorLorenzo<  //
     DataTrait<4>::type,

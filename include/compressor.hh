@@ -17,7 +17,7 @@
 #include <cuda_runtime.h>
 
 #include "common/type_traits.hh"
-#include "components.hh"
+#include "component.hh"
 #include "context.hh"
 #include "header.hh"
 

@@ -1,5 +1,5 @@
 /**
- * @file spcodecs.hh
+ * @file spcodec.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3

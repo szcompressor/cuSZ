@@ -12,12 +12,12 @@
 #ifndef BASE_COMPRESSOR_CUH
 #define BASE_COMPRESSOR_CUH
 
-#include "analysis/analyzer.hh"
-#include "analysis/verify.hh"
-#include "analysis/verify_gpu.cuh"
+#include "cli/analyzer.hh"
 #include "cli/quality_viewer.hh"
+#include "cli/verify.hh"
+#include "cli/verify_gpu.cuh"
 #include "common.hh"
-#include "components.hh"
+#include "component.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "utils.hh"

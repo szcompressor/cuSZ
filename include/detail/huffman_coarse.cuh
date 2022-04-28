@@ -26,10 +26,10 @@ using std::cout;
 
 #include "../common/definition.hh"
 #include "../common/type_traits.hh"
+#include "../component/codec.hh"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
 #include "../utils.hh"
-#include "codecs.hh"
 #include "huffman_parbook.cuh"
 
 /******************************************************************************

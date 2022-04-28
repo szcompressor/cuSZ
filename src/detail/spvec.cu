@@ -9,7 +9,7 @@
  *
  */
 
-#include "component/spvec.cuh"
+#include "detail/spvec.cuh"
 
 template struct cusz::SpcodecVec<float>::impl;
 // template struct cusz::SpcodecVec<double>::impl;

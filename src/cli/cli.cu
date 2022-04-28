@@ -1,5 +1,5 @@
 /**
- * @file app.cu
+ * @file cli.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3

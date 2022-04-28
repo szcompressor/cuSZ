@@ -27,7 +27,7 @@
 #include <type_traits>
 
 #include "common.hh"
-#include "component/huffman_parbook.cuh"
+#include "detail/huffman_parbook.cuh"
 #include "kernel/par_merge.cuh"
 #include "utils.hh"
 

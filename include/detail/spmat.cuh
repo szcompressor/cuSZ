@@ -16,8 +16,8 @@
 #include <cusparse.h>
 
 #include "../common.hh"
+#include "../component/spcodec.hh"
 #include "../utils.hh"
-#include "spcodecs.hh"
 
 // clang-format off
 template <typename F> struct cuszCUSPARSE;

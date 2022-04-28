@@ -9,7 +9,7 @@
  *
  */
 
-#include "component/interp_spline3.cuh"
+#include "detail/interp_spline3.cuh"
 
 template struct cusz::PredictorSpline3<float, uint32_t, float>::impl;
 template struct cusz::PredictorSpline3<float, float, float>::impl;

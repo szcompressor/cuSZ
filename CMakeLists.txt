@@ -40,20 +40,20 @@ target_include_directories(cuszcompile_settings INTERFACE
 add_library(cuszargp  src/context.cc)
 target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 
-add_library(cuszpq  src/component/predictors.cc src/component/extrap_lorenzo.cu src/component/interp_spline3.cu)
+add_library(cuszpq  src/component/predictor.cc src/detail/extrap_lorenzo.cu src/detail/interp_spline3.cu)
 target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
 
-add_library(cuszsp  src/component/spcodecs.cc src/component/spmat.cu src/component/spvec.cu)
+add_library(cuszsp  src/component/spcodec.cc src/detail/spmat.cu src/detail/spvec.cu)
 target_link_libraries(cuszsp PUBLIC cuszcompile_settings CUDA::cusparse)
 
-add_library(cuszhuff  src/component/codecs.cc src/component/huffman_parbook.cu src/component/huffman_coarse.cu)
+add_library(cuszhuff  src/component/codec.cc src/detail/huffman_parbook.cu src/detail/huffman_coarse.cu)
 target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
 set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(cuszcompress  src/compressor.cc src/compressor_impl.cu)
+add_library(cuszcompress  src/compressor.cc src/detail/compressor_impl.cu)
 target_link_libraries(cuszcompress PUBLIC cuszcompile_settings)
 
-add_library(cusz  src/cli.cu)
+add_library(cusz  src/cli/cli.cu)
 target_link_libraries(cusz PUBLIC cuszcompress cuszargp cuszhuff cuszsp cuszpq)
 
 add_executable(cusz-bin src/cusz-cli.cu)

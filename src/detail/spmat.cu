@@ -9,6 +9,6 @@
  *
  */
 
-#include "component/spmat.cuh"
+#include "detail/spmat.cuh"
 
 template struct cusz::SpcodecCSR<float, uint32_t>::impl;

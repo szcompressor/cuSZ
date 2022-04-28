@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include "argument_parser/document.hh"
+#include "cli/document.hh"
 #include "context.hh"
 
 namespace cusz {

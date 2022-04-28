@@ -11,7 +11,7 @@
  *
  */
 
-#include "cli.cuh"
+#include "cli/cli.cuh"
 
 int main(int argc, char** argv)
 {

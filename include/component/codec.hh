@@ -1,5 +1,5 @@
 /**
- * @file codecs.hh
+ * @file codec.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3

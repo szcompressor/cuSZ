@@ -1,5 +1,5 @@
 /**
- * @file spcodecs.cc
+ * @file spcodec.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,8 +9,8 @@
  *
  */
 
-#include "component/spcodecs.hh"
 #include <cuda_runtime.h>
+#include "component/spcodec.hh"
 
 namespace cusz {
 

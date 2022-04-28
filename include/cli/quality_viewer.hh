@@ -12,11 +12,11 @@
 #ifndef QUALITY_VIEWER_HH
 #define QUALITY_VIEWER_HH
 
-#include "../analysis/verify.hh"
-#include "../analysis/verify_gpu.cuh"
 #include "../common/capsule.hh"
 #include "../common/definition.hh"
 #include "../header.hh"
+#include "verify.hh"
+#include "verify_gpu.cuh"
 
 namespace cusz {
 

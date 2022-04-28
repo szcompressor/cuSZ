@@ -24,7 +24,7 @@
 #include <algorithm>
 #include <numeric>
 
-#include "../component/huffman_coarse.cuh"
+// #include "../component/huffman_coarse.cuh"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
 #include "../utils/timer.hh"

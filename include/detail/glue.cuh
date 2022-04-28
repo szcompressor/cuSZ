@@ -17,7 +17,7 @@
 #include <thrust/execution_policy.h>
 
 #include "../utils/timer.hh"
-#include "spcodecs.hh"
+#include "spcodec.hh"
 
 // when using nvcc, functors must be defined outside a (__host__) function
 template <typename E>

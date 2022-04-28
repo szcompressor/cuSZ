@@ -17,8 +17,8 @@
 #include <thrust/execution_policy.h>
 
 #include "../common.hh"
+#include "../component/spcodec.hh"
 #include "../utils.hh"
-#include "spcodecs.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
     CHECK_CUDA(cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \

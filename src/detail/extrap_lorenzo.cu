@@ -10,7 +10,7 @@
  *
  */
 
-#include "component/extrap_lorenzo.cuh"
+#include "detail/extrap_lorenzo.cuh"
 
 template struct cusz::PredictorLorenzo<float, uint16_t, float>::impl;
 template struct cusz::PredictorLorenzo<float, uint32_t, float>::impl;

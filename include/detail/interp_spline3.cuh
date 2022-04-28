@@ -17,9 +17,9 @@
 #include <numeric>
 
 #include "../common.hh"
+#include "../component/predictor.hh"
 #include "../kernel/spline3.cuh"
 #include "../utils.hh"
-#include "predictors.hh"
 
 #define ALLOCDEV(VAR, SYM, NBYTE) \
     cudaMalloc(&d_##VAR, NBYTE);  \

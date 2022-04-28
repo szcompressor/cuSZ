@@ -1,5 +1,5 @@
 /**
- * @file predictors.hh
+ * @file predictor.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3

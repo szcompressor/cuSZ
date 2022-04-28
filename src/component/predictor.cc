@@ -1,5 +1,5 @@
 /**
- * @file predictors.cc
+ * @file predictor.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,7 +9,7 @@
  *
  */
 
-#include "component/predictors.hh"
+#include "component/predictor.hh"
 
 namespace cusz {
 

@@ -19,9 +19,8 @@
 #include <numeric>
 #include <stdexcept>
 
-#include "predictors.hh"
-
 #include "../common.hh"
+#include "../component/predictor.hh"
 #include "../utils.hh"
 
 #ifdef DPCPP_SHOWCASE

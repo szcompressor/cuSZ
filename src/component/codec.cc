@@ -1,5 +1,5 @@
 /**
- * @file codecs.cc
+ * @file codec.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,8 +9,8 @@
  *
  */
 
-#include "component/codecs.hh"
 #include "common/type_traits.hh"
+#include "component/codec.hh"
 
 namespace cusz {
 

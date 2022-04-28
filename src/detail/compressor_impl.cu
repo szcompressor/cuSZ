@@ -12,7 +12,7 @@
  *
  */
 
-#include "compressor_impl.cuh"
+#include "detail/compressor_impl.cuh"
 #include "framework.hh"
 
 template class cusz::Compressor<cusz::PredefinedCombination<float>::LorenzoFeatured>::impl;

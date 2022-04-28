@@ -15,7 +15,7 @@
 #ifndef CUSZ_DEFAULT_PATH_CUH
 #define CUSZ_DEFAULT_PATH_CUH
 
-#include "components.hh"
+#include "component.hh"
 #include "compressor.hh"
 #include "header.hh"
 #include "kernel/hist.cuh"

@@ -1,5 +1,5 @@
 /**
- * @file app.cuh
+ * @file cli.cuh
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -15,16 +15,11 @@
 #include <string>
 #include <type_traits>
 
-#include "analysis/analyzer.hh"
 #include "api.hh"
-#include "base_compressor.cuh"
+#include "cli/analyzer.hh"
+#include "cli/dryrun_part.cuh"
+#include "cli/query.hh"
 #include "cli/timerecord_viewer.hh"
-#include "common.hh"
-#include "compressor.hh"
-#include "context.hh"
-#include "framework.hh"
-#include "query.hh"
-#include "utils.hh"
 
 namespace cusz {
 
