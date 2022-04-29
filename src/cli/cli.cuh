@@ -15,11 +15,11 @@
 #include <string>
 #include <type_traits>
 
-#include "api.hh"
 #include "cli/analyzer.hh"
 #include "cli/dryrun_part.cuh"
 #include "cli/query.hh"
 #include "cli/timerecord_viewer.hh"
+#include "cuszapi.hh"
 
 namespace cusz {
 

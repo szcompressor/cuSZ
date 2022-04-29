@@ -33,7 +33,7 @@
  * modified from `cuda-samples/Samples/deviceQuery/deviceQuery.cpp`
  */
 
-struct cudaHelper {
+struct GpuDiagnostics {
     static void GetDeviceProperty()
     {
         int         num_dev  = 0;

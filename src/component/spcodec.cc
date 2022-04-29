@@ -9,8 +9,8 @@
  *
  */
 
-#include <cuda_runtime.h>
 #include "component/spcodec.hh"
+#include <cuda_runtime.h>
 
 namespace cusz {
 
@@ -30,7 +30,7 @@ SpcodecCSR<T, M>::SpcodecCSR() : pimpl{std::make_unique<impl>()}
 }
 
 template <typename T, typename M>
-SpcodecCSR<T, M>::SpcodecCSR(const SpcodecCSR<T, M>& old) : pimpl(new impl(*old.pimpl))
+SpcodecCSR<T, M>::SpcodecCSR(const SpcodecCSR<T, M>& old) : pimpl{std::make_unique<impl>(*old.pimpl)}
 {
     // TODO allocation/deep copy
 }
@@ -103,7 +103,7 @@ SpcodecVec<T, M>::SpcodecVec() : pimpl{std::make_unique<impl>()}
 }
 
 template <typename T, typename M>
-SpcodecVec<T, M>::SpcodecVec(const SpcodecVec<T, M>& old) : pimpl(new impl(*old.pimpl))
+SpcodecVec<T, M>::SpcodecVec(const SpcodecVec<T, M>& old) : pimpl{std::make_unique<impl>(*old.pimpl)}
 {
     // TODO allocation/deep copy
 }

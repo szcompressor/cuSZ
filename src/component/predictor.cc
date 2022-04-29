@@ -29,7 +29,8 @@ PredictorLorenzo<T, E, FP>::PredictorLorenzo() : pimpl{std::make_unique<impl>()}
 }
 
 template <typename T, typename E, typename FP>
-PredictorLorenzo<T, E, FP>::PredictorLorenzo(const PredictorLorenzo<T, E, FP>& old) : pimpl(new impl(*old.pimpl))
+PredictorLorenzo<T, E, FP>::PredictorLorenzo(const PredictorLorenzo<T, E, FP>& old) :
+    pimpl{std::make_unique<impl>(*old.pimpl)}
 {
     // TODO allocation/deep copy
 }
@@ -199,7 +200,8 @@ PredictorSpline3<T, E, FP>::PredictorSpline3() : pimpl{std::make_unique<impl>()}
 }
 
 template <typename T, typename E, typename FP>
-PredictorSpline3<T, E, FP>::PredictorSpline3(const PredictorSpline3<T, E, FP>& old) : pimpl(new impl(*old.pimpl))
+PredictorSpline3<T, E, FP>::PredictorSpline3(const PredictorSpline3<T, E, FP>& old) :
+    pimpl{std::make_unique<impl>(*old.pimpl)}
 {
     // TODO allocation/deep copy
 }

@@ -25,45 +25,47 @@
 
 #include "query_dev.hh"
 
-std::string ExecShellCommand(const char* cmd)
-{
-    std::array<char, 128>                    buffer;
-    std::string                              result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-    if (!pipe) { throw std::runtime_error("popen() failed!"); }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) { result += buffer.data(); }
-    return result;
-}
+struct Diagnostics {
+    static std::string ExecShellCommand(const char* cmd)
+    {
+        std::array<char, 128>                    buffer;
+        std::string                              result;
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+        if (!pipe) { throw std::runtime_error("popen() failed!"); }
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) { result += buffer.data(); }
+        return result;
+    }
 
-void GetMachineProperties()
-{
-    std::vector<std::string> v;
-    std::cout << "host information: " << std::endl;
+    static void GetMachineProperties()
+    {
+        std::vector<std::string> v;
+        std::cout << "host information: " << std::endl;
 
-    auto cpuinfo = ExecShellCommand(  //
-        std::string("cat /proc/cpuinfo "
-                    "| grep \"model name\" "
-                    "| head -n 1 "
-                    "| awk -F': ' '{print $NF}'")
-            .c_str());
-    std::cout << "  cpu model\t" << cpuinfo;
+        auto cpuinfo = ExecShellCommand(  //
+            std::string("cat /proc/cpuinfo "
+                        "| grep \"model name\" "
+                        "| head -n 1 "
+                        "| awk -F': ' '{print $NF}'")
+                .c_str());
+        std::cout << "  cpu model\t" << cpuinfo;
 
-    auto meminfo = ExecShellCommand(  //
-        std::string("cat /proc/meminfo"
-                    "| grep \"MemTotal\" "
-                    "| awk -F' ' '{print $2\" \"$3}'")
-            .c_str());
+        auto meminfo = ExecShellCommand(  //
+            std::string("cat /proc/meminfo"
+                        "| grep \"MemTotal\" "
+                        "| awk -F' ' '{print $2\" \"$3}'")
+                .c_str());
 
-    std::cout << "  memory size\t" << meminfo;
+        std::cout << "  memory size\t" << meminfo;
 
-    auto endianness = ExecShellCommand(  //
-        std::string("lscpu "
-                    "| grep Endian "
-                    "| awk -F'  ' '{print $NF}'")
-            .c_str());
+        auto endianness = ExecShellCommand(  //
+            std::string("lscpu "
+                        "| grep Endian "
+                        "| awk -F'  ' '{print $NF}'")
+                .c_str());
 
-    std::cout << "  byte order\t" << endianness;
-    printf("\n");
-}
+        std::cout << "  byte order\t" << endianness;
+        printf("\n");
+    }
+};
 
 #endif

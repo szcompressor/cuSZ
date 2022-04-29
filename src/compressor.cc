@@ -32,9 +32,9 @@ Compressor<B>::Compressor(const Compressor<B>& old) : pimpl{std::make_unique<imp
 }
 
 template <class B>
-Compressor<B>& Compressor<B>::operator=(const Compressor<B>& compressor)
+Compressor<B>& Compressor<B>::operator=(const Compressor<B>& old)
 {
-    *pimpl = *compressor.pimpl;
+    *pimpl = *old.pimpl;
     return *this;
 }
 

@@ -9,8 +9,8 @@
  *
  */
 
-#include "common/type_traits.hh"
 #include "component/codec.hh"
+#include "common/type_traits.hh"
 
 namespace cusz {
 
@@ -24,7 +24,7 @@ TEMPLATE_TYPE
 HUFFMAN_COARSE::HuffmanCoarse() : pimpl{std::make_unique<impl>()} {}
 
 TEMPLATE_TYPE
-HUFFMAN_COARSE::HuffmanCoarse(const HUFFMAN_COARSE& old) : pimpl{new impl(*old.pimpl)}
+HUFFMAN_COARSE::HuffmanCoarse(const HUFFMAN_COARSE& old) : pimpl{std::make_unique<impl>(*old.pimpl)}
 {
     // TODO allocation/deep copy
 }

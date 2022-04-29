@@ -18,8 +18,8 @@ int main(int argc, char** argv)
     auto ctx = new cuszCTX(argc, argv);
 
     if (ctx->verbose) {
-        GetMachineProperties();
-        cudaHelper::GetDeviceProperty();
+        Diagnostics::GetMachineProperties();
+        GpuDiagnostics::GetDeviceProperty();
     }
 
     cusz::CLI<float> cusz_cli;

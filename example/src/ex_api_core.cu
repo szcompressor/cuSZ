@@ -9,7 +9,7 @@
  *
  */
 
-#include "api.hh"
+#include "cuszapi.hh"
 
 #include "cli/quality_viewer.hh"
 #include "cli/timerecord_viewer.hh"
@@ -25,7 +25,7 @@ void f(std::string fname)
      * using Framework   = cusz::Framework<T>;
      * using Combination = cusz::CompressorTemplate<
      *     typename Framework::PredictorLorenzo,
-     *     typename Framework::SpcodecCSR,
+     *     typename Framework::SpcodecMat,
      *     typename Framework::CodecHuffman32,
      *     typename Framework::CodecHuffman64>;
      * using Compressor = cusz::Compressor<Combination>;

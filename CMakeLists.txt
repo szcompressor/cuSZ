@@ -50,14 +50,14 @@ add_library(cuszhuff  src/component/codec.cc src/detail/huffman_parbook.cu src/d
 target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
 set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(cuszcompress  src/compressor.cc src/detail/compressor_impl.cu)
-target_link_libraries(cuszcompress PUBLIC cuszcompile_settings)
+add_library(cuszcomp  src/compressor.cc src/detail/compressor_impl.cu)
+target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
 
-add_library(cusz  src/cli/cli.cu)
-target_link_libraries(cusz PUBLIC cuszcompress cuszargp cuszhuff cuszsp cuszpq)
+add_library(cusz  src/cuszapi.cc)
+target_link_libraries(cusz PUBLIC cuszcomp cuszargp cuszhuff cuszsp cuszpq)
 
-add_executable(cusz-bin src/cusz-cli.cu)
-target_link_libraries(cusz-bin PRIVATE cusz )
+add_executable(cusz-bin src/cli_bin.cu src/cli/cli.cu)
+target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 
 option(CUSZ_BUILD_EXAMPLES "build example codes" OFF)
@@ -70,8 +70,8 @@ install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LI
 install(TARGETS cuszsp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszcompress EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cusz EXPORT CUSZTargets)
+install(TARGETS cuszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
 install(EXPORT CUSZTargets NAMESPACE CUSZ:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)
 include(CMakePackageConfigHelpers)
