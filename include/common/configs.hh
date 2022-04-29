@@ -214,14 +214,6 @@ struct ConfigHelper {
         auto              data_len_literal = data_len_ss.str();
         char              delimiter        = 'x';
 
-        bool use_charx = data_len_literal.find('x') != std::string::npos;
-        bool use_comma = data_len_literal.find(',') != std::string::npos;
-
-        if (use_charx)
-            delimiter = 'x';
-        else
-            throw std::runtime_error("Datasize literal must be delimited by \'x\'.");
-
         while (data_len_ss.good()) {
             std::string substr;
             std::getline(data_len_ss, substr, delimiter);

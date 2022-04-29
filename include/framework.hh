@@ -91,7 +91,7 @@ struct PredefinedCombination {
         }
     };
 
-    using ERRCTRL = ErrCtrlTrait<4, true>::type;        // predefined
+    using ERRCTRL = ErrCtrlTrait<4, false>::type;        // predefined
     using FP      = FastLowPrecisionTrait<true>::type;  // predefined
     using Huff4   = HuffTrait<4>::type;
     using Huff8   = HuffTrait<8>::type;

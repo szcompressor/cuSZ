@@ -112,9 +112,9 @@ void f(std::string fname)
     cudaMalloc(&compressed, compressed_len);
     cudaMemcpy(compressed, exposed_compressed, compressed_len, cudaMemcpyDeviceToDevice);
 
-    /* release compressor */ delete compressor;
+    // /* release compressor */ delete compressor;
 
-    compressor = new Compressor;
+    // compressor = new Compressor;
     {
         cusz::TimeRecord timerecord;
 
@@ -137,7 +137,7 @@ void f(std::string fname)
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len, compressed_len);
 
     cudaFree(compressed);
-    delete compressor;
+    // delete compressor;
 
     cudaStreamDestroy(stream);
 }
