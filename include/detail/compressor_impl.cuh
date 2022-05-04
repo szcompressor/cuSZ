@@ -15,9 +15,10 @@
 #ifndef CUSZ_DEFAULT_PATH_CUH
 #define CUSZ_DEFAULT_PATH_CUH
 
+#include <cuda_runtime.h>
 #include "component.hh"
 #include "compressor.hh"
-#include "header.hh"
+#include "header.h"
 #include "kernel/hist.cuh"
 #include "utils/cuda_err.cuh"
 
@@ -94,6 +95,14 @@ void IMPL::compress(
     auto const codecs_in_use     = (*config).codecs_in_use;
     auto const nz_density_factor = (*config).nz_density_factor;
 
+    if (dbg_print) {
+        std::cout << "eb\t" << eb << endl;
+        std::cout << "radius\t" << radius << endl;
+        std::cout << "pardeg\t" << pardeg << endl;
+        std::cout << "codecs_in_use\t" << codecs_in_use << endl;
+        std::cout << "nz_density_factor\t" << nz_density_factor << endl;
+    }
+
     data_len3                 = dim3((*config).x, (*config).y, (*config).z);
     auto codec_force_fallback = (*config).codec_force_fallback();
 
@@ -162,7 +171,7 @@ void IMPL::compress(
         stream, dbg_print);
 
     // output
-    compressed_len = header.get_filesize();
+    compressed_len = ConfigHelper::get_filesize(&header);
     compressed     = d_reserved_compressed;
 
     collect_compress_timerecord();
@@ -237,6 +246,9 @@ void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, 
 // public getter
 TEMPLATE_TYPE
 void IMPL::export_header(Header& ext_header) { ext_header = header; }
+
+TEMPLATE_TYPE
+void IMPL::export_header(Header* ext_header) { *ext_header = header; }
 
 TEMPLATE_TYPE
 void IMPL::export_timerecord(TimeRecord* ext_timerecord)

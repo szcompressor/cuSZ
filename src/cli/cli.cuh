@@ -133,7 +133,7 @@ class CLI {
 
         load_compressed(basename + ".cusza");
         memcpy(header, compressed.hptr, sizeof(Header));
-        auto len = (*header).get_len_uncompressed();
+        auto len = ConfigHelper::get_uncompressed_len(header);
 
         decompressed  //
             .set_len(len)
@@ -143,8 +143,8 @@ class CLI {
         TimeRecord timerecord;
 
         core_decompress(
-            compressor, header, compressed.dptr, header->get_filesize(), decompressed.dptr, len * 1.03, stream,
-            &timerecord);
+            compressor, header, compressed.dptr, ConfigHelper::get_filesize(header), decompressed.dptr, len * 1.03,
+            stream, &timerecord);
 
         if (ctx->report.time) TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
         QualityViewer::view(header, decompressed, original, (*ctx).fname.origin_cmp);
@@ -181,11 +181,11 @@ class CLI {
         cudaStream_t stream;
         CHECK_CUDA(cudaStreamCreate(&stream));
 
-        if ((*ctx).task_is.dryrun) dryrun<Predictor>(ctx);
+        if ((*ctx).cli_task.dryrun) dryrun<Predictor>(ctx);
 
-        if ((*ctx).task_is.construct) construct(ctx, compressor, stream);
+        if ((*ctx).cli_task.construct) construct(ctx, compressor, stream);
 
-        if ((*ctx).task_is.reconstruct) reconstruct(ctx, compressor, stream);
+        if ((*ctx).cli_task.reconstruct) reconstruct(ctx, compressor, stream);
 
         if (stream) cudaStreamDestroy(stream);
     }

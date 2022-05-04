@@ -1,5 +1,5 @@
 /**
- * @file ex_api_core.cu
+ * @file cxxapi.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -43,8 +43,8 @@ void f(std::string fname)
     T *d_decompressed, *h_decompressed;
 
     /* cuSZ requires a 3% overhead on device (not required on host). */
-    size_t uncompressed_alloclen = len * 1.03;
-    size_t decompressed_alloclen = uncompressed_alloclen;
+    size_t uncompressed_memlen = len * 1.03;
+    size_t decompressed_memlen = uncompressed_memlen;
 
     /* code snippet for looking at the device array easily */
     auto peek_devdata = [](T* d_arr, size_t num = 20) {
@@ -53,9 +53,9 @@ void f(std::string fname)
     };
 
     // clang-format off
-    cudaMalloc(     &d_uncompressed, sizeof(T) * uncompressed_alloclen );
+    cudaMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
     cudaMallocHost( &h_uncompressed, sizeof(T) * len );
-    cudaMalloc(     &d_decompressed, sizeof(T) * decompressed_alloclen );
+    cudaMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
     cudaMallocHost( &h_decompressed, sizeof(T) * len );
     // clang-format on
 
@@ -93,7 +93,7 @@ void f(std::string fname)
 
         cusz::core_compress(
             compressor, ctx,                             // compressor & config
-            d_uncompressed, uncompressed_alloclen,       // input
+            d_uncompressed, uncompressed_memlen,         // input
             exposed_compressed, compressed_len, header,  // output
             stream, &timerecord);
 
@@ -101,11 +101,9 @@ void f(std::string fname)
         cusz::TimeRecordViewer::view_compression(&timerecord, len * sizeof(T), compressed_len);
 
         /* verify header */
-        // clang-format off
-        printf("header.%-*s : %x\n",            12, "(addr)", &header);
+        printf("header.%-*s : %x\n", 12, "(addr)", &header);
         printf("header.%-*s : %lu, %lu, %lu\n", 12, "{x,y,z}", header.x, header.y, header.z);
-        printf("header.%-*s : %lu\n",           12, "filesize", header.get_filesize());
-        // clang-format on
+        printf("header.%-*s : %lu\n", 12, "filesize", ConfigHelper::get_filesize(&header));
     }
 
     /* If needed, User should perform a memcopy to transfer `exposed_compressed` before `compressor` is destroyed. */
@@ -119,9 +117,9 @@ void f(std::string fname)
         cusz::TimeRecord timerecord;
 
         cusz::core_decompress(
-            compressor, &header,                    // compressor & config
-            compressed, compressed_len,             // input
-            d_decompressed, decompressed_alloclen,  // output
+            compressor, &header,                  // compressor & config
+            compressed, compressed_len,           // input
+            d_decompressed, decompressed_memlen,  // output
             stream, &timerecord);
 
         /* User can interpret the collected time information in other ways. */

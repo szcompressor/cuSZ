@@ -241,13 +241,13 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
                 // placeholder
             }
             else if (optmatch({"-z", "--zip", "--compress"})) {
-                ctx->task_is.construct = true;
+                ctx->cli_task.construct = true;
             }
             else if (optmatch({"-x", "--unzip", "--decompress"})) {
-                ctx->task_is.reconstruct = true;
+                ctx->cli_task.reconstruct = true;
             }
             else if (optmatch({"-r", "--dry-run"})) {
-                ctx->task_is.dryrun = true;
+                ctx->cli_task.dryrun = true;
             }
             else if (optmatch({"--anchor"})) {
                 ctx->use.anchor = true;
@@ -368,17 +368,17 @@ void cuszCTX::validate()
     }
 
     if (data_len == 1 and not use.predefined_demo) {
-        if (task_is.construct or task_is.dryrun) {
+        if (cli_task.construct or cli_task.dryrun) {
             cerr << LOG_ERR << "wrong input size" << endl;
             to_abort = true;
         }
     }
-    if (not task_is.construct and not task_is.reconstruct and not task_is.dryrun) {
+    if (not cli_task.construct and not cli_task.reconstruct and not cli_task.dryrun) {
         cerr << LOG_ERR << "select compress (-z), decompress (-x) or dry-run (-r)" << endl;
         to_abort = true;
     }
     if (false == ConfigHelper::check_dtype(dtype, false)) {
-        if (task_is.construct or task_is.dryrun) {
+        if (cli_task.construct or cli_task.dryrun) {
             std::cout << dtype << endl;
             cerr << LOG_ERR << "must specify data type" << endl;
             to_abort = true;
@@ -390,21 +390,21 @@ void cuszCTX::validate()
     else if (quant_bytewidth == 2)
         assert(dict_size <= 65536);
 
-    if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
+    if (cli_task.dryrun and cli_task.construct and cli_task.reconstruct) {
         cerr << LOG_WARN << "no need to dry-run, compress and decompress at the same time" << endl;
         cerr << LOG_WARN << "dryrun only" << endl << endl;
-        task_is.construct   = false;
-        task_is.reconstruct = false;
+        cli_task.construct   = false;
+        cli_task.reconstruct = false;
     }
-    else if (task_is.dryrun and task_is.construct) {
+    else if (cli_task.dryrun and cli_task.construct) {
         cerr << LOG_WARN << "no need to dry-run and compress at the same time" << endl;
         cerr << LOG_WARN << "dryrun only" << endl << endl;
-        task_is.construct = false;
+        cli_task.construct = false;
     }
-    else if (task_is.dryrun and task_is.reconstruct) {
+    else if (cli_task.dryrun and cli_task.reconstruct) {
         cerr << LOG_WARN << "no need to dry-run and decompress at the same time" << endl;
         cerr << LOG_WARN << "will dryrun only" << endl << endl;
-        task_is.reconstruct = false;
+        cli_task.reconstruct = false;
     }
 
     if (to_abort) {
@@ -481,7 +481,7 @@ void cuszCTX::derive_fnames()
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto input_path = fname.fname.substr(0, fname.fname.rfind('/') + 1);
-    if (not task_is.construct and task_is.reconstruct) fname.fname = fname.fname.substr(0, fname.fname.rfind('.'));
+    if (not cli_task.construct and cli_task.reconstruct) fname.fname = fname.fname.substr(0, fname.fname.rfind('.'));
     fname.basename = fname.fname.substr(fname.fname.rfind('/') + 1);
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;

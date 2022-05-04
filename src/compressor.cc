@@ -96,6 +96,12 @@ void Compressor<B>::export_header(Header& header)
 }
 
 template <class B>
+void Compressor<B>::export_header(Header* header)
+{
+    pimpl->export_header(header);
+}
+
+template <class B>
 void Compressor<B>::export_timerecord(TimeRecord* ext_timerecord)
 {
     pimpl->export_timerecord(ext_timerecord);

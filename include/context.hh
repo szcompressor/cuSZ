@@ -32,14 +32,14 @@ extern const int   compatibility;
 
 }  // namespace cusz
 
-class cuszCTX {
+struct cuszCTX {
    public:
     // on-off's
     struct {
         bool construct{false}, reconstruct{false}, dryrun{false};
         bool experiment{false};
         bool gtest{false};
-    } task_is;
+    } cli_task;
 
     struct {
         bool binning{false}, logtransform{false}, prescan{false};
@@ -217,8 +217,6 @@ class cuszCTX {
 
     static void print_doc(bool full = false);
 
-    // static int autotune(cuszCTX* ctx);
-
    public:
     static void parse_input_length(const char* lenstr, cuszCTX* ctx)
     {
@@ -241,10 +239,12 @@ class cuszCTX {
     cuszCTX(const char*, bool dbg_print = false);
 };
 
+typedef struct cuszCTX cusz_context;
+
 namespace cusz {
 
-using Context   = cuszCTX;
-using context_t = Context*;
+using Context   = cusz_context;
+using context_t = cusz_context*;
 
 }  // namespace cusz
 

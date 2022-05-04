@@ -19,13 +19,13 @@
 #include "common/type_traits.hh"
 #include "component.hh"
 #include "context.hh"
-#include "header.hh"
+#include "header.h"
 
 #define PUBLIC_TYPES                                                   \
-    using Predictor     = typename BINDING::PREDICTOR;                 \
-    using Spcodec       = typename BINDING::SPCODEC;                   \
-    using Codec         = typename BINDING::CODEC;                     \
-    using FallbackCodec = typename BINDING::FALLBACK_CODEC;            \
+    using Predictor     = typename BINDING::Predictor;                 \
+    using Spcodec       = typename BINDING::Spcodec;                   \
+    using Codec         = typename BINDING::Codec;                     \
+    using FallbackCodec = typename BINDING::FallbackCodec;             \
     using BYTE          = uint8_t;                                     \
                                                                        \
     using T    = typename Predictor::Origin;                           \
@@ -71,6 +71,7 @@ class Compressor {
     void clear_buffer();
     // getter
     void export_header(Header&);
+    void export_header(Header*);
     void export_timerecord(TimeRecord*);
 };
 
@@ -111,6 +112,7 @@ class Compressor<BINDING>::impl {
 
     // getter
     void     export_header(Header&);
+    void     export_header(Header*);
     void     export_timerecord(TimeRecord*);
     uint32_t get_len_data();
 

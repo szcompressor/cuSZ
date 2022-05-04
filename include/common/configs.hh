@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../header.h"
 #include "definition.hh"
 
 #if __cplusplus >= 201703L
@@ -226,6 +227,14 @@ struct ConfigHelper {
         std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
         return in.tellg();
     }
+
+    static size_t get_filesize(cusz_header* h)
+    {
+        auto END = sizeof(h->entry) / sizeof(h->entry[0]);
+        return h->entry[END - 1];
+    }
+
+    static size_t get_uncompressed_len(cusz_header* h) { return h->x * h->y * h->z; }
 
     template <typename T1, typename T2>
     static size_t get_npart(T1 size, T2 subsize)

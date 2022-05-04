@@ -1,8 +1,8 @@
-#ifndef HEADER_HH
-#define HEADER_HH
+#ifndef CUSZ_HEADER_H
+#define CUSZ_HEADER_H
 
 /**
- * @file header.hh
+ * @file header.h
  * @author Jiannan Tian
  * @brief
  * @version 0.2
@@ -14,13 +14,15 @@
  *
  */
 
-#include <cstdlib>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef struct dim3_compat {
-    uint32_t x, y, z;
-} dim3_compat;
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-typedef struct alignas(128) header_t {
+typedef struct alignas(128) cusz_header {
     static const int HEADER = 0;
     static const int ANCHOR = 1;
     static const int VLE    = 2;
@@ -48,14 +50,18 @@ typedef struct alignas(128) header_t {
 
     uint32_t entry[END + 1];
 
-    uint32_t get_filesize() const { return entry[END]; }
-    size_t   get_len_uncompressed() const { return x * y * z; }
-} cuszHEADER;
+} cusz_header;
+
+typedef cusz_header cuszHEADER;
+
+#ifdef __cplusplus
+}
+#endif
 
 namespace cusz {
 
-using Header   = cuszHEADER;
-using header_t = Header*;
+using Header   = cusz_header;
+using header_t = cusz_header*;
 
 }  // namespace cusz
 

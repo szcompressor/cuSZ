@@ -14,7 +14,7 @@
 
 #include "../common/capsule.hh"
 #include "../common/definition.hh"
-#include "../header.hh"
+#include "../header.h"
 #include "verify.hh"
 #include "verify_gpu.cuh"
 
@@ -102,8 +102,8 @@ struct QualityViewer {
     template <typename T>
     static void view(header_t header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
     {
-        auto len             = (*header).get_len_uncompressed();
-        auto compressd_bytes = (*header).get_filesize();
+        auto len             = ConfigHelper::get_uncompressed_len(header);
+        auto compressd_bytes = ConfigHelper::get_filesize(header);
 
         auto compare_on_gpu = [&]() {
             cmp.template alloc<HOST_DEVICE>().template from_file<HOST>(compare).host2device();

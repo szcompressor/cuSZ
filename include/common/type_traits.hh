@@ -14,11 +14,24 @@
 #ifndef TYPE_TRAITS_HH
 #define TYPE_TRAITS_HH
 
-#include "configs.hh"
+#include <stdexcept>
+#include <type_traits>
+
+#include "cusz/type.h"
 #include "definition.hh"
 
-// clang-format off
+template <typename T>
+cusz_datatype cusz_typeof()
+{
+    if (std::is_same<T, float>::value)
+        return FP32;
+    else if (std::is_same<T, double>::value)
+        return FP64;
+    else
+        throw std::runtime_error("Type not supported.");
+}
 
+// clang-format off
 
 /**
  * @brief CUDA API does not accept uint64_t (understandable by literal), but instead, 

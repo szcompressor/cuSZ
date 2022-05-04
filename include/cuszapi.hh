@@ -17,7 +17,7 @@
 
 #include "context.hh"
 #include "framework.hh"
-#include "header.hh"
+#include "header.h"
 
 #define STASTIC_ASSERT() \
     static_assert(std::is_same<typename Compressor::T, T>::value, "Compressor::T and T must match");

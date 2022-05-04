@@ -50,10 +50,10 @@ add_library(cuszhuff  src/component/codec.cc src/detail/huffman_parbook.cu src/d
 target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
 set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(cuszcomp  src/compressor.cc src/detail/compressor_impl.cu)
+add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
 target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
 
-add_library(cusz  src/cuszapi.cc)
+add_library(cusz  src/comp.cc src/cuszapi.cc )
 target_link_libraries(cusz PUBLIC cuszcomp cuszargp cuszhuff cuszsp cuszpq)
 
 add_executable(cusz-bin src/cli_bin.cu src/cli/cli.cu)

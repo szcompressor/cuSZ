@@ -1,6 +1,5 @@
 # intermediate data
-cusz
-rle
+bin/cusz
 
 *.sz
 *.szx

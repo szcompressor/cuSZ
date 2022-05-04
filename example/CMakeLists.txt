@@ -1,3 +1,7 @@
-add_executable(ex-api src/ex_api_core.cu)
-target_link_libraries(ex-api PRIVATE cusz)
-set_target_properties(ex-api PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_executable(cxxapi src/cxxapi.cu)
+target_link_libraries(cxxapi PRIVATE cusz)
+set_target_properties(cxxapi PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(capi src/capi.cu)
+target_link_libraries(capi PRIVATE cusz)
+set_target_properties(capi PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
