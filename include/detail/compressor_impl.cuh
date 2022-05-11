@@ -16,6 +16,8 @@
 #define CUSZ_DEFAULT_PATH_CUH
 
 #include <cuda_runtime.h>
+#include <thrust/device_ptr.h>
+#include <iostream>
 #include "component.hh"
 #include "compressor.hh"
 #include "header.h"
@@ -29,8 +31,8 @@
 
 #define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)Header::VAR, 14, #VAR, header.entry[Header::VAR]);
 
-#define D2D_CPY(VAR, FIELD)                                                                            \
-    {                                                                                                  \
+#define DEVICE2DEVICE_COPY(VAR, FIELD)                                                                 \
+    if (nbyte[Header::FIELD] != 0 and VAR != nullptr) {                                                \
         auto dst = d_reserved_compressed + header.entry[Header::FIELD];                                \
         auto src = reinterpret_cast<BYTE*>(VAR);                                                       \
         CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], cudaMemcpyDeviceToDevice, stream)); \
@@ -54,9 +56,10 @@ TEMPLATE_TYPE
 IMPL::impl()
 {
     predictor = new Predictor;
-    spcodec   = new Spcodec;
-    codec     = new Codec;
-    fb_codec  = new FallbackCodec;
+
+    spcodec  = new Spcodec;
+    codec    = new Codec;
+    fb_codec = new FallbackCodec;
 }
 
 TEMPLATE_TYPE
@@ -79,6 +82,13 @@ void IMPL::init(Context* config, bool dbg_print) { init_detail(config, dbg_print
 
 TEMPLATE_TYPE
 void IMPL::init(Header* config, bool dbg_print) { init_detail(config, dbg_print); }
+
+template <class T>
+void peek_devdata(T* d_arr, size_t num = 20)
+{
+    thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%u\t", i); });
+    printf("\n");
+}
 
 TEMPLATE_TYPE
 void IMPL::compress(
@@ -121,11 +131,20 @@ void IMPL::compress(
     auto   booklen = radius * 2;
 
     auto derive_lengths_after_prediction = [&]() {
-        data_len      = (*predictor).get_len_data();
-        errctrl_len   = (*predictor).get_len_quant();
+        data_len    = (*predictor).get_len_data();
+        errctrl_len = (*predictor).get_len_quant();
+
+        // data_len    = (*prediction).get_len_data();
+        // errctrl_len = (*prediction).get_len_quant();
+
         auto m        = Reinterpret1DTo2D::get_square_size(data_len);
         spcodec_inlen = m * m;
         sublen        = ConfigHelper::get_npart(data_len, pardeg);
+
+        std::cout << "datalen\t" << data_len << '\n';
+        std::cout << "errctrl_len\t" << errctrl_len << '\n';
+        std::cout << "spcodec_inlen\t" << spcodec_inlen << '\n';
+        std::cout << "sublen\t" << sublen << '\n';
     };
 
     auto update_header = [&]() {
@@ -141,9 +160,10 @@ void IMPL::compress(
     /******************************************************************************/
 
     // Prediction is the dependency of the rest procedures.
-    (*predictor).construct(data_len3, uncompressed, d_anchor, d_errctrl, eb, radius, stream);
-    derive_lengths_after_prediction();
+    predictor->construct(LorenzoI, data_len3, uncompressed, &d_anchor, &d_errctrl, eb, radius, stream);
+    // peek_devdata(d_errctrl);
 
+    derive_lengths_after_prediction();
     /******************************************************************************/
 
     kernel_wrapper::get_frequency<E>(d_errctrl, errctrl_len, d_freq, booklen, time_hist, stream);
@@ -231,7 +251,7 @@ void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, 
         }
     };
     auto predictor_do = [&]() {
-        (*predictor).reconstruct(data_len3, d_outlier_xdata, d_anchor, d_errctrl, eb, radius, stream);
+        (*predictor).reconstruct(LorenzoI, data_len3, d_outlier_xdata, d_anchor, d_errctrl, eb, radius, stream);
     };
 
     // process
@@ -287,7 +307,7 @@ void IMPL::init_detail(CONFIG* config, bool dbg_print)
 
     size_t spcodec_in_len, codec_in_len;
 
-    (*predictor).init(x, y, z, dbg_print);
+    (*predictor).init(LorenzoI, x, y, z, dbg_print);
 
     spcodec_in_len = (*predictor).get_alloclen_data();
     codec_in_len   = (*predictor).get_alloclen_quant();
@@ -437,9 +457,9 @@ void IMPL::subfile_collect(
 
     CHECK_CUDA(cudaMemcpyAsync(d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
 
-    D2D_CPY(d_anchor, ANCHOR)
-    D2D_CPY(d_codec_out, VLE)
-    D2D_CPY(d_spfmt_out, SPFMT)
+    DEVICE2DEVICE_COPY(d_anchor, ANCHOR)
+    DEVICE2DEVICE_COPY(d_codec_out, VLE)
+    DEVICE2DEVICE_COPY(d_spfmt_out, SPFMT)
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 }
@@ -450,7 +470,7 @@ void IMPL::subfile_collect(
 #undef FREEHOST
 #undef DEFINE_DEV
 #undef DEFINE_HOST
-#undef D2D_CPY
+#undef DEVICE2DEVICE_COPY
 #undef PRINT_ENTRY
 #undef ACCESSOR
 #undef COLLECT_TIME

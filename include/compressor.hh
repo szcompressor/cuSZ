@@ -90,6 +90,7 @@ class Compressor<BINDING>::impl {
     // header
     Header header;
     // components
+
     Predictor*     predictor;
     Spcodec*       spcodec;
     Codec*         codec;

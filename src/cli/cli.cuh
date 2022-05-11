@@ -161,7 +161,7 @@ class CLI {
             dispatch_task<Compressor>(ctx);
         }
         else if (predictor == "spline3") {
-            using Compressor = typename Framework<Data>::Spline3FeaturedCompressor;
+            // using Compressor = typename Framework<Data>::Spline3FeaturedCompressor;
             throw std::runtime_error("Spline3 based compressor is not ready.");
             // dispatch_task<Compressor>(ctx);
         }

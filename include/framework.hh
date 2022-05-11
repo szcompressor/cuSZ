@@ -42,8 +42,8 @@ struct PredefinedCombination {
     struct CompressorTemplate;
 
     /* Predictor */
-    using PredictorLorenzo = typename cusz::PredictorLorenzo<DATA, ERRCTRL, FP>;
-    using PredictorSpline3 = typename cusz::PredictorSpline3<DATA, ERRCTRL, FP>;
+    using PredictionUnified = typename cusz::PredictionUnified<DATA, ERRCTRL, FP>;
+    // using PredictorSpline3 = typename cusz::PredictorSpline3<DATA, ERRCTRL, FP>;
 
     /* Lossless Spcodec */
     using SpcodecMat = typename cusz::SpcodecCSR<DATA, Meta4>;
@@ -54,8 +54,8 @@ struct PredefinedCombination {
     using CodecHuffman64 = cusz::HuffmanCoarse<ERRCTRL, Huff8, Meta4>;
 
     /* Predefined Combination */
-    using LorenzoFeatured = CompressorTemplate<PredictorLorenzo, SpcodecVec, CodecHuffman32, CodecHuffman64>;
-    using Spline3Featured = CompressorTemplate<PredictorSpline3, SpcodecVec, CodecHuffman32, CodecHuffman64>;
+    using LorenzoFeatured = CompressorTemplate<PredictionUnified, SpcodecVec, CodecHuffman32, CodecHuffman64>;
+    // using Spline3Featured = CompressorTemplate<PredictorSpline3, SpcodecVec, CodecHuffman32, CodecHuffman64>;
 };
 
 template <typename InputDataType>
@@ -112,7 +112,7 @@ struct Framework {
     using DefaultCompressor         = class Compressor<typename PredefinedCombination<DATA>::LorenzoFeatured>;
     using LorenzoFeaturedCompressor = class Compressor<typename PredefinedCombination<DATA>::LorenzoFeatured>;
     // in progress
-    using Spline3FeaturedCompressor = class Compressor<typename PredefinedCombination<DATA>::Spline3Featured>;
+    // using Spline3FeaturedCompressor = class Compressor<typename PredefinedCombination<DATA>::Spline3Featured>;
 };
 
 }  // namespace cusz

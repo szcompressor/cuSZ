@@ -79,21 +79,21 @@ void core_decompress(
 namespace cusz {
 
 using fp32lorenzo = Framework<float>::LorenzoFeaturedCompressor;
-using fp32spline3 = Framework<float>::Spline3FeaturedCompressor;
+// using fp32spline3 = Framework<float>::Spline3FeaturedCompressor;
 
 // clang-format off
 
 template void
 core_compress<fp32lorenzo, float>(fp32lorenzo*, Context*, float*, size_t, uint8_t*&, size_t&, Header&, cudaStream_t, TimeRecord*);
 
-template void
-core_compress<fp32spline3, float>(fp32spline3*, Context*, float*, size_t, uint8_t*&, size_t&, Header&, cudaStream_t, TimeRecord*);
+// template void
+// core_compress<fp32spline3, float>(fp32spline3*, Context*, float*, size_t, uint8_t*&, size_t&, Header&, cudaStream_t, TimeRecord*);
 
 template void
 core_decompress<fp32lorenzo, float>(fp32lorenzo*, Header*, uint8_t*, size_t, float*, size_t, cudaStream_t, TimeRecord*);
 
-template void
-core_decompress<fp32spline3, float>(fp32spline3*, Header*, uint8_t*, size_t, float*, size_t, cudaStream_t, TimeRecord*);
+// template void
+// core_decompress<fp32spline3, float>(fp32spline3*, Header*, uint8_t*, size_t, float*, size_t, cudaStream_t, TimeRecord*);
 
 // clang-format on
 

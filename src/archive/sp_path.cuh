@@ -271,7 +271,7 @@ struct SparsityAwarePath {
     using LorenzoBasedCompressor = class SpPathCompressor<DefaultBinding>;
 
     using FallbackBinding = PredictorReducerBinding<  //
-        cusz::PredictorLorenzo<DATA, ERRCTRL, FP>,
+        cusz::PredictionUnified<DATA, ERRCTRL, FP>,
         cusz::CSR11<ERRCTRL>>;
 
     using FallbackCompressor = class SpPathCompressor<FallbackBinding>;

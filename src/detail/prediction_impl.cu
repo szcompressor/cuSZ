@@ -1,5 +1,5 @@
 /**
- * @file extrap_lorenzo.cu
+ * @file prediction_impl.cu
  * @author Jiannan Tian
  * @brief A high-level LorenzoND wrapper. Allocations are explicitly out of called functions.
  * @version 0.3
@@ -10,8 +10,8 @@
  *
  */
 
-#include "detail/extrap_lorenzo.cuh"
+#include "detail/prediction_impl.cuh"
 
-template struct cusz::PredictorLorenzo<float, uint16_t, float>::impl;
-template struct cusz::PredictorLorenzo<float, uint32_t, float>::impl;
-template struct cusz::PredictorLorenzo<float, float, float>::impl;
+template struct cusz::PredictionUnified<float, uint16_t, float>::impl;
+template struct cusz::PredictionUnified<float, uint32_t, float>::impl;
+template struct cusz::PredictionUnified<float, float, float>::impl;

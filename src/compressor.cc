@@ -147,4 +147,4 @@ int CompressorHelper::autotune_coarse_parvle(Context* ctx)
 }  // namespace cusz
 
 template class cusz::Compressor<cusz::PredefinedCombination<float>::LorenzoFeatured>;
-template class cusz::Compressor<cusz::PredefinedCombination<float>::Spline3Featured>;
+// template class cusz::Compressor<cusz::PredefinedCombination<float>::Spline3Featured>;

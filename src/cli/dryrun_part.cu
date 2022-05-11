@@ -11,7 +11,7 @@
 
 #include "dryrun_part.cuh"
 
-template class cusz::BaseCompressor<cusz::PredictorLorenzo<  //
+template class cusz::BaseCompressor<cusz::PredictionUnified<  //
     DataTrait<4>::type,
     ErrCtrlTrait<2>::type,
     FastLowPrecisionTrait<true>::type>>;

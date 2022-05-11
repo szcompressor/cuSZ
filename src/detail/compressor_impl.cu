@@ -16,4 +16,4 @@
 #include "framework.hh"
 
 template class cusz::Compressor<cusz::PredefinedCombination<float>::LorenzoFeatured>::impl;
-template class cusz::Compressor<cusz::PredefinedCombination<float>::Spline3Featured>::impl;  // TODO
+// template class cusz::Compressor<cusz::PredefinedCombination<float>::Spline3Featured>::impl;  // TODO

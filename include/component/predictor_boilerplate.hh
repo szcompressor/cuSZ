@@ -17,6 +17,7 @@
 #include <stdexcept>
 
 #include "../common/configs.hh"
+#include "../cusz/type.h"
 
 namespace cusz {
 
@@ -84,9 +85,6 @@ class PredictorBoilerplate {
             derived.assigned.anchor  = derived.anchor.serialized;
         }
     }
-
-    // virtual void derive_alloclen(dim3 len3) = 0;
-    // virtual void derive_rtlen(dim3 len3)    = 0;
 
     template <class DERIVED, typename T, typename E, typename FP = float>
     void __debug_list_derived(DERIVED const& derived, bool use_anchor = false)
@@ -174,22 +172,37 @@ class PredictorBoilerplate {
     dim3 get_leap() const { return this->rtlen.get_leap(); }
     int  get_ndim() const { return this->rtlen.ndim; }
 
-    void derive_alloclen(dim3 len3) { this->__derive_len(len3, this->alloclen); }
-    void derive_rtlen(dim3 len3) { this->__derive_len(len3, this->rtlen); }
+    void derive_alloclen(cusz_predictortype predictor, dim3 base)
+    {
+        if (predictor == LorenzoI) {
+            // normal
+            this->__derive_len(base, this->alloclen);
+        }
+
+        else if (predictor == Spline3) {
+            // maximum possible
+            int sublen[3]      = {32, 8, 8};
+            int anchor_step[3] = {8, 8, 8};
+            this->__derive_len(base, this->alloclen, sublen, anchor_step, true);
+        }
+    }
+
+    void derive_rtlen(cusz_predictortype predictor, dim3 base)
+    {
+        if (predictor == LorenzoI) {
+            // normal
+            this->__derive_len(base, this->rtlen);
+        }
+        else if (predictor == Spline3) {
+            // maximum possible
+            int sublen[3]      = {32, 8, 8};
+            int anchor_step[3] = {8, 8, 8};
+            this->__derive_len(base, this->rtlen, sublen, anchor_step, true);
+        }
+    }
 
     // "real" methods
     virtual ~PredictorBoilerplate() = default;
-
-    // -----------------------------------------------------------------------------
-    //                              internal accessor
-    // -----------------------------------------------------------------------------
-   protected:
-    // size_t& alloclen_data() const { return alloclen.data; }
-    // size_t& alloclen_anchor() const { return alloclen.anchor; }
-    // size_t& alloclen_quant() const { return alloclen.quant; }
-    // size_t& alloclen_outlier() const { return alloclen.outlier; }
-
-   public:
 };
 
 }  // namespace cusz

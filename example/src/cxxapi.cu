@@ -24,7 +24,7 @@ void f(std::string fname)
      *
      * using Framework   = cusz::Framework<T>;
      * using Combination = cusz::CompressorTemplate<
-     *     typename Framework::PredictorLorenzo,
+     *     typename Framework::PredictionUnified,
      *     typename Framework::SpcodecMat,
      *     typename Framework::CodecHuffman32,
      *     typename Framework::CodecHuffman64>;
