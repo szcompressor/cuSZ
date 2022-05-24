@@ -82,7 +82,7 @@ void get_max_err(
 }
 
 template <typename T>
-void verify_data_GPU(Stat* s, T* xdata, T* odata, size_t len)
+void verify_data_GPU(cusz_stats* s, T* xdata, T* odata, size_t len)
 {
     using tup = thrust::tuple<T, T>;
 

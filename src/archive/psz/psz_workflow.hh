@@ -211,7 +211,7 @@ void cx_sim(
 
     Stat stat;
     cusz::verify_data(&stat, xdata, data_cmp, len);
-    cusz::QualityViewer::print_metrics<Data>(&stat);
+    cusz::QualityViewer::print_metrics_cross<Data>(&stat);
 }
 
 }  // namespace FineMassiveSimulation

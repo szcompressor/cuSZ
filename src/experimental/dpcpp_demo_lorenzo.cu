@@ -92,12 +92,12 @@ void test_lorenzo(std::string fname, int ndim, dim3 size3)
     // {
     //     Stat stat_gpu;
     //     verify_data_GPU(&stat_gpu, h_data, h2_data, len1);
-    //     cusz::QualityViewer::print_metrics<Data>(&stat_gpu, false, eb, 0, 1, false, true);
+    //     cusz::QualityViewer::print_metrics_cross<Data>(&stat_gpu, false, eb, 0, 1, false, true);
     // }
     {
         Stat stat;
         cusz::verify_data(&stat, h_data, h2_data, len1);
-        cusz::QualityViewer::print_metrics<Data>(&stat, false, eb, 0, 1, false, false);
+        cusz::QualityViewer::print_metrics_cross<Data>(&stat, false, eb, 0, 1, false, false);
     }
 
     // clear up

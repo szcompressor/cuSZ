@@ -99,9 +99,9 @@ class BaseCompressor {
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        Stat stat;
+        cusz_stats stat;
         verify_data_GPU<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_len_data());
-        cusz::QualityViewer::print_metrics<T>(&stat, 0, true);
+        cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
     }
@@ -137,9 +137,9 @@ class BaseCompressor {
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        Stat stat;
+        cusz_stats stat;
         verify_data_GPU(&stat, nc->reconst.hptr, nc->original.hptr, len);
-        cusz::QualityViewer::print_metrics<T>(&stat, 0, true);
+        cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
     }

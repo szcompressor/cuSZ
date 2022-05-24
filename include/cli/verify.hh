@@ -15,29 +15,14 @@
  */
 
 #include "../common.hh"
+#include "../cusz/type.h"
 
 using namespace std;
 
 namespace cusz {
 
-typedef struct Statistics {
-    // clang-format off
-    typedef struct Res { double min, max, rng, std; } Res; Res odata, xdata;
-    struct { double PSNR, MSE, NRMSE, coeff; } reduced;
-    struct { double abs, rel, pwrrel; size_t idx; } max_err;
-    double user_eb;
-    size_t len;
-    // clang-format on
-} Statistics;
-
-using Metric   = Statistics;
-using metric_t = Metric;
-
-using Stat   = Statistics;
-using stat_t = Stat*;
-
 template <typename T>
-void verify_data(Stat* s, T* xdata, T* odata, size_t len)
+void verify_data(cusz_stats* s, T* xdata, T* odata, size_t len)
 {
     double max_odata = odata[0], min_odata = odata[0];
     double max_xdata = xdata[0], min_xdata = xdata[0];

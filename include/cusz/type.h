@@ -139,6 +139,17 @@ typedef struct cusz_runtime_config {
 } cusz_runtime_config;
 typedef cusz_runtime_config cusz_config;
 
+typedef struct cusz_stats {
+    // clang-format off
+    typedef struct Res { double min, max, rng, std; } Res; Res odata, xdata;
+    struct { double PSNR, MSE, NRMSE, coeff; } reduced;
+    struct { double abs, rel, pwrrel; size_t idx; } max_err;
+    struct { double lag_one, lag_two; } autocor;
+    double user_eb;
+    size_t len;
+    // clang-format on
+} cusz_stats;
+
 #endif
 
 #ifdef __cplusplus

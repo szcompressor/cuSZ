@@ -26,7 +26,7 @@ const static auto HOST_DEVICE = cusz::LOC::HOST_DEVICE;
 
 struct QualityViewer {
     template <typename Data>
-    static void print_metrics(Stat* s, size_t compressed_bytes = 0, bool gpu_checker = false)
+    static void print_metrics_cross(cusz_stats* s, size_t compressed_bytes = 0, bool gpu_checker = false)
     {
         auto checker = (not gpu_checker) ? string("(using CPU checker)") : string("(using GPU checker)");
         auto bytes   = (s->len * sizeof(Data) * 1.0);
@@ -52,44 +52,70 @@ struct QualityViewer {
         printhead("", "abs-val", "abs-idx", "pw-rel", "VS-RNG");
         println("max-error", s->max_err.abs, s->max_err.idx, s->max_err.pwrrel, s->max_err.rel);
 
-        printhead("", "CR", "NRMSE", "corr-coeff", "PSNR");
+        printhead("", "CR", "NRMSE", "cross-cor", "PSNR");
         println("metrics", bytes / compressed_bytes, s->reduced.NRMSE, s->reduced.coeff, s->reduced.PSNR);
 
+        // printf("\n");
+    };
+
+    static void print_metrics_auto(double* lag1_cor, double* lag2_cor)
+    {
+        auto printhead = [](const char* s1, const char* s2, const char* s3, const char* s4, const char* s5) {
+            printf("  \e[1m\e[31m%-10s %16s %16s %16s %16s\e[0m\n", s1, s2, s3, s4, s5);
+        };
+
+        printhead("", "lag1-cor", "lag2-cor", "", "");
+        printf("  %-10s %16lf %16lf\n", "auto", *lag1_cor, *lag2_cor);
         printf("\n");
     };
 
     template <typename T>
-    static void echo_metric_gpu(T* d1, T* d2, size_t len, size_t compressed_bytes = 0)
+    static void echo_metric_gpu(T* reconstructed, T* origin, size_t len, size_t compressed_bytes = 0)
     {
-        auto stat = new Stat;
-        verify_data_GPU<T>(stat, d1, d2, len);
-        print_metrics<T>(stat, compressed_bytes, true);
+        // cross
+        auto stat_x = new cusz_stats;
+        verify_data_GPU<T>(stat_x, reconstructed, origin, len);
+        print_metrics_cross<T>(stat_x, compressed_bytes, true);
+
+        auto stat_auto_lag1 = new cusz_stats;
+        verify_data_GPU<T>(stat_auto_lag1, origin, origin + 1, len - 1);
+        auto stat_auto_lag2 = new cusz_stats;
+        verify_data_GPU<T>(stat_auto_lag2, origin, origin + 2, len - 2);
+
+        print_metrics_auto(&stat_auto_lag1->reduced.coeff, &stat_auto_lag2->reduced.coeff);
     }
 
     template <typename T>
     static void echo_metric_cpu(T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0, bool from_device = true)
     {
-        auto stat = new Stat;
-        T*   d1;
-        T*   d2;
+        auto stat = new cusz_stats;
+        T*   reconstructed;
+        T*   origin;
         if (not from_device) {
-            d1 = _d1;
-            d2 = _d2;
+            reconstructed = _d1;
+            origin        = _d2;
         }
         else {
             printf("allocating tmp space for CPU verification\n");
             auto bytes = sizeof(T) * len;
-            cudaMallocHost(&d1, bytes);
-            cudaMallocHost(&d2, bytes);
-            cudaMemcpy(d1, _d1, bytes, cudaMemcpyDeviceToHost);
-            cudaMemcpy(d2, _d2, bytes, cudaMemcpyDeviceToHost);
+            cudaMallocHost(&reconstructed, bytes);
+            cudaMallocHost(&origin, bytes);
+            cudaMemcpy(reconstructed, _d1, bytes, cudaMemcpyDeviceToHost);
+            cudaMemcpy(origin, _d2, bytes, cudaMemcpyDeviceToHost);
         }
-        cusz::verify_data<T>(stat, d1, d2, len);
-        print_metrics<T>(stat, compressed_bytes, false);
+        cusz::verify_data<T>(stat, reconstructed, origin, len);
+        print_metrics_cross<T>(stat, compressed_bytes, false);
+
+        auto stat_auto_lag1 = new cusz_stats;
+        verify_data<T>(stat_auto_lag1, origin, origin + 1, len - 1);
+        auto stat_auto_lag2 = new cusz_stats;
+        verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
+
+        print_metrics_auto(&stat_auto_lag1->reduced.coeff, &stat_auto_lag2->reduced.coeff);
 
         if (from_device) {
-            if (d1) cudaFreeHost(d1);
-            if (d2) cudaFreeHost(d2);
+            if (reconstructed) cudaFreeHost(reconstructed);
+            if (origin) cudaFreeHost(origin);
         }
     }
 

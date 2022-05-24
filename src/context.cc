@@ -21,8 +21,8 @@
 #include "context.hh"
 
 namespace cusz {
-const char* VERSION_TEXT  = "2022-04-29.apiwb";
-const int   VERSION       = 20220429;
+const char* VERSION_TEXT  = "2022-05-24.canary";
+const int   VERSION       = 20220524;
 const int   COMPATIBILITY = 0;
 }  // namespace cusz
 
