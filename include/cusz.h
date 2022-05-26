@@ -29,7 +29,7 @@ typedef struct cusz_compressor cusz_compressor;
 
 cusz_compressor* cusz_create(cusz_framework* framework, cusz_datatype const type);
 
-void cusz_commit_space(cusz_compressor* comp, cusz_len const reserved_mem, cusz_framework* override);
+cusz_error_status cusz_commit_space(cusz_fixedlen_internal const* fixedlen, cusz_varlen_internal const* varlen);
 
 void cusz_release(cusz_compressor* comp);
 

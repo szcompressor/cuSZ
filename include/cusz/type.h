@@ -19,6 +19,20 @@ extern "C" {
 #include "stddef.h"
 
 //////// state enumeration
+
+typedef enum cusz_error_status {  //
+    GPU_MALLOC_FAILURE = 0,
+    GPU_OUT_OF_MEMORY
+} cusz_error_status;
+
+typedef struct cusz_fixedlen_internal { /* all nullable */
+    void* encoding;
+} cusz_fixedlen_internal;
+typedef struct cusz_varlen_internal { /* all nullable */
+    void* huffman;
+    void* outlier;
+} cusz_varlen_internal;
+
 typedef enum cusz_datatype  //
 { FP32 = 0,
   FP64 = 1 } cusz_datatype;
@@ -44,14 +58,21 @@ typedef enum cusz_predictortype  //
   Spline3   = 3 } cusz_predictortype;
 
 typedef enum cusz_preprocessingtype  //
-{ FP64toFP32   = 0,
-  LogTransform = 1 } cusz_preprocessingtype;
+{ FP64toFP32 = 0,
+  LogTransform,
+  ShiftedLogTransform,
+  Binning2x2,
+  Binning2x1,
+  Binning1x2,
+} cusz_preprocessingtype;
 
 typedef enum cusz_codectype  //
-{ Huffman       = 0,
-  RunLength     = 1,
-  NvcompCascade = 101,
-  NvcompLz4     = 102 } cusz_codectype;
+{ Huffman = 0,
+  RunLength,
+  NvcompCascade,
+  NvcompLz4,
+  NvcompSnappy,
+} cusz_codectype;
 
 typedef enum cusz_spcodectype  //
 { SparseMat = 0,
