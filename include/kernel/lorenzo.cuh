@@ -54,36 +54,38 @@ namespace cusz {
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam COUNT_NNZ if counting NNZ (reserved)
- * @tparam COUNT_NON1ST if counting non-top1 symbol (reserved)
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
- * @param in_data input
- * @param out_errctrl output 1
- * @param out_outlier output 2
- * @param dimx x-size
+ * @tparam NO_R_SEPARATE if delaying seperating by radius
+ * @param data input
+ * @param errctrl output 1
+ * @param outlier output 2
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2_r precalculated reciprocal of eb*2
- * @param num_non1st number of non-top-1
- * @param nnz_array array storing nnz for this data partition/chunk
  */
 template <
     typename Data,
     typename ErrCtrl,
-    typename FP          = float,
-    int  BLOCK           = 256,
-    int  SEQ             = 4,
-    bool COUNT_NNZ       = false,
-    bool COUNT_NON1ST    = false,
-    bool DELAY_POSTQUANT = false>
+    typename FP        = float,
+    int  BLOCK         = 256,
+    int  SEQ           = 4,
+    bool NO_R_SEPARATE = false
+    // ,
+    // bool COUNT_NNZ    = false,
+    // bool COUNT_NON1ST = false
+    >
 __global__ void c_lorenzo_1d1l(
-    Data*         in_data,
-    ErrCtrl*      out_errctrl,
-    Data*         out_outlier,
-    DIM           dimx,
-    int           radius,
-    FP            ebx2_r,
-    unsigned int* num_non1st = nullptr,
-    unsigned int* nnz_array  = nullptr);
+    Data*    data,
+    ErrCtrl* errctrl,
+    Data*    outlier,
+    dim3     len3,
+    dim3     stride3,
+    int      radius,
+    FP       ebx2_r
+    // ,
+    // unsigned int* num_non1st = nullptr,
+    // unsigned int* nnz_array  = nullptr
+);
 
 /**
  * @brief compress-time 2D Lorenzo pred-quant kernel
@@ -93,38 +95,36 @@ __global__ void c_lorenzo_1d1l(
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam COUNT_NNZ if counting NNZ (reserved)
- * @tparam COUNT_NON1ST if counting non-top1 symbol (reserved)
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
- * @param in_data input
- * @param out_errctrl output 1
- * @param out_outlier output 2
- * @param dimx x-size
- * @param dimy y-size
- * @param stridey 1D-to-2D leap/stride for y
+ * @tparam NO_R_SEPARATE if delaying seperating by radius
+ * @param data input
+ * @param errctrl output 1
+ * @param outlier output 2
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2_r precalculated reciprocal of eb*2
- * @param num_non1st number of non-top-1
- * @param nnz_array array storing nnz for this data partition/chunk
  */
 template <
     typename Data,
     typename ErrCtrl,
-    typename FP          = float,
-    bool COUNT_NNZ       = false,
-    bool COUNT_NON1ST    = false,
-    bool DELAY_POSTQUANT = false>
+    typename FP        = float,
+    bool NO_R_SEPARATE = false
+    // ,
+    // bool COUNT_NNZ       = false,
+    // bool COUNT_NON1ST    = false,
+    >
 __global__ void c_lorenzo_2d1l_16x16data_mapto16x2(
-    Data*         in_data,
-    ErrCtrl*      out_errctrl,
-    Data*         out_outlier,
-    DIM           dimx,
-    DIM           dimy,
-    STRIDE        stridey,
-    int           radius,
-    FP            ebx2_r,
-    unsigned int* num_non1st = nullptr,
-    unsigned int* nnz_array  = nullptr);
+    Data*    data,
+    ErrCtrl* errctrl,
+    Data*    outlier,
+    dim3     len3,
+    dim3     stride3,
+    int      radius,
+    FP       ebx2_r
+    // ,
+    // unsigned int* num_non1st = nullptr,
+    // unsigned int* nnz_array  = nullptr
+);
 
 /**
  * @brief compress-time 3D Lorenzo pred-quant kernel
@@ -134,42 +134,36 @@ __global__ void c_lorenzo_2d1l_16x16data_mapto16x2(
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam COUNT_NNZ if counting NNZ (reserved)
- * @tparam COUNT_NON1ST if counting non-top1 symbol (reserved)
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
- * @param in_data input
- * @param out_errctrl output 1
- * @param out_outlier output 2
- * @param dimx x-size
- * @param dimy y-size
- * @param dimz z-size
- * @param stridey 1D-to-3D leap/stride for y
- * @param stridez 1D-to-3D leap/stride for z
+ * @tparam NO_R_SEPARATE if delaying seperating by radius
+ * @param data input
+ * @param errctrl output 1
+ * @param outlier output 2
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2_r precalculated reciprocal of eb*2
- * @param num_non1st number of non-top-1
- * @param nnz_array array storing nnz for this data partition/chunk
  */
 template <
     typename Data,
     typename ErrCtrl,
-    typename FP          = float,
-    bool COUNT_NNZ       = false,
-    bool COUNT_NON1ST    = false,
-    bool DELAY_POSTQUANT = false>
+    typename FP        = float,
+    bool NO_R_SEPARATE = false
+    // ,
+    // bool COUNT_NNZ       = false,
+    // bool COUNT_NON1ST    = false
+    >
 __global__ void c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
-    Data*         in_data,
-    ErrCtrl*      out_errctrl,
-    Data*         out_outlier,
-    DIM           dimx,
-    DIM           dimy,
-    DIM           dimz,
-    STRIDE        stridey,
-    STRIDE        stridez,
-    int           radius,
-    FP            ebx2_r,
-    unsigned int* num_non1st = nullptr,
-    unsigned int* nnz_array  = nullptr);
+    Data*    data,
+    ErrCtrl* errctrl,
+    Data*    outlier,
+    dim3     len3,
+    dim3     stride3,
+    int      radius,
+    FP       ebx2_r
+    // ,
+    // unsigned int* num_non1st = nullptr,
+    // unsigned int* nnz_array  = nullptr
+);
 
 /**
  * @brief decompress-time 1D Lorenzo pred-quant kernel
@@ -179,26 +173,26 @@ __global__ void c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
  * @param outlier input 1
  * @param quant input 2
  * @param xdata output
- * @param dimx x-size
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2 precalculated eb*2
  */
 template <
     typename Data,
     typename ErrCtrl,
-    typename FP          = float,
-    int  BLOCK           = 256,
-    int  SEQ             = 8,
-    bool DELAY_POSTQUANT = false>
+    typename FP = float,
+    int BLOCK   = 256,
+    int SEQ     = 8>
 __global__ void x_lorenzo_1d1l(
     Data*    outlier,  //
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2);
 
@@ -210,24 +204,21 @@ __global__ void x_lorenzo_1d1l(
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
  * @param outlier input 1
  * @param quant input 2
  * @param xdata output
- * @param dimx x-size
- * @param dimy y-size
- * @param stridey 1D-to-2D leap/stride for y
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2 precalculated eb*2
  */
-template <typename Data, typename ErrCtrl, typename FP = float, bool DELAY_POSTQUANT = false>
+template <typename Data, typename ErrCtrl, typename FP = float>
 __global__ void x_lorenzo_2d1l_16x16data_mapto16x2(
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
-    DIM      dimy,
-    STRIDE   stridey,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2);
 
@@ -239,28 +230,21 @@ __global__ void x_lorenzo_2d1l_16x16data_mapto16x2(
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
  * @param outlier input 1
  * @param quant input 2
  * @param xdata output
- * @param dimx x-size
- * @param dimy y-size
- * @param dimz z-size
- * @param stridey 1D-to-3D leap/stride for y
- * @param stridez 1D-to-3D leap/stride for z
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2 precalculated eb*2
  */
-template <typename Data, typename ErrCtrl, typename FP = float, bool DELAY_POSTQUANT = false>
+template <typename Data, typename ErrCtrl, typename FP = float>
 __global__ void x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
-    DIM      dimy,
-    DIM      dimz,
-    STRIDE   stridey,
-    STRIDE   stridez,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2);
 
@@ -272,28 +256,21 @@ __global__ void x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
  * @tparam FP type for internal floating-point processing
  * @tparam BLOCK block size
  * @tparam SEQ degree of sequentiality
- * @tparam DELAY_POSTQUANT if delaying NNZ (reserved)
  * @param outlier input 1
  * @param quant input 2
  * @param xdata output
- * @param dimx x-size
- * @param dimy y-size
- * @param dimz z-size
- * @param stridey 1D-to-3D leap/stride for y
- * @param stridez 1D-to-3D leap/stride for z
+ * @param len3 data length in 3D
+ * @param stride3 data stride in 3D
  * @param radius quant-code radius
  * @param ebx2 precalculated eb*2
  */
-template <typename Data, typename ErrCtrl, typename FP = float, bool DELAY_POSTQUANT = false>
+template <typename Data, typename ErrCtrl, typename FP = float>
 __global__ void x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
-    DIM      dimy,
-    DIM      dimz,
-    STRIDE   stridey,
-    STRIDE   stridez,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2);
 
@@ -301,9 +278,12 @@ __global__ void x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
 
 namespace {
 
+/**
+ * @brief (Original SZ/cuSZ design) 1D: no separation into quant-code and outlier
+ */
 template <typename Data, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void
-pred1d_delay_postquant(Data thread_scope[SEQ], volatile Data* shmem_data, Data from_last_stripe = 0)
+pred1d_no_radius_separate(Data thread_scope[SEQ], volatile Data* shmem_data, Data from_last_stripe = 0)
 {
     if CONSTEXPR (FIRST_POINT) {
         Data delta                = thread_scope[0] - from_last_stripe;
@@ -319,8 +299,11 @@ pred1d_delay_postquant(Data thread_scope[SEQ], volatile Data* shmem_data, Data f
     }
 }
 
+/**
+ * @brief (Original SZ/cuSZ design) 1D: separate delta by radius in to quant-code and outlier
+ */
 template <typename Data, typename ErrCtrl, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void pred1d_postquant(
+__forceinline__ __device__ void pred1d_radius_separate(
     Data              thread_scope[SEQ],
     volatile Data*    shmem_data,
     volatile ErrCtrl* shmem_quant,
@@ -370,7 +353,7 @@ __forceinline__ __device__ void load1d(
     __syncthreads();
 }
 
-template <typename Data, typename ErrCtrl, int NTHREAD, int SEQ, bool DELAY_POSTQUANT>
+template <typename Data, typename ErrCtrl, int NTHREAD, int SEQ, bool NO_R_SEPARATE>
 __forceinline__ __device__ void write1d(
     volatile Data*    shmem_data,
     Data*             data,
@@ -382,9 +365,14 @@ __forceinline__ __device__ void write1d(
 #pragma unroll
     for (auto i = 0; i < SEQ; i++) {
         auto id = id_base + TIX + i * NTHREAD;
-        if (id < dimx) {  //
-            data[id] = shmem_data[TIX + i * NTHREAD];
-            if CONSTEXPR (not DELAY_POSTQUANT) quant[id] = shmem_quant[TIX + i * NTHREAD];
+        if (id < dimx) {
+            if CONSTEXPR (NO_R_SEPARATE) {  // TODO no-radius-separate uses shmem_data
+                quant[id] = shmem_data[TIX + i * NTHREAD];
+            }
+            else {
+                data[id]  = shmem_data[TIX + i * NTHREAD];
+                quant[id] = shmem_quant[TIX + i * NTHREAD];
+            }
         }
     }
 }
@@ -426,7 +414,7 @@ __forceinline__ __device__ void pred2d(Data center[YSEQ + 1])
     __syncthreads();
 }
 
-template <typename Data, typename ErrCtrl, int YSEQ, bool DELAY_POSTQUANT = false>
+template <typename Data, typename ErrCtrl, int YSEQ, bool NO_R_SEPARATE = false>
 __forceinline__ __device__ void postquant_write2d(
     Data         center[YSEQ + 1],
     ErrCtrl*     quant,
@@ -449,8 +437,9 @@ __forceinline__ __device__ void postquant_write2d(
         auto gid = get_gid(i - 1);
 
         if (gix < dimx and giy_base + i - 1 < dimy) {
-            if CONSTEXPR (DELAY_POSTQUANT) {  //
-                outlier[gid] = center[i];
+            if CONSTEXPR (NO_R_SEPARATE) {
+                // write delta to quant array
+                quant[gid] = center[i];
             }
             else {
                 bool quantizable = fabs(center[i]) < radius;
@@ -470,31 +459,36 @@ template <
     typename FP,
     int  BLOCK,
     int  SEQ,
-    bool COUNT_NNZ,
-    bool COUNT_NON1ST,
-    bool DELAY_POSTQUANT>
+    bool NO_R_SEPARATE
+    // ,
+    // bool COUNT_NNZ,
+    // bool COUNT_NON1ST
+    >
 __global__ void cusz::c_lorenzo_1d1l(  //
-    Data*         data,
-    ErrCtrl*      quant,
-    Data*         outlier,
-    DIM           dimx,
-    int           radius,
-    FP            ebx2_r,
-    unsigned int* num_non1st,
-    unsigned int* nnz_array)
+    Data*    data,
+    ErrCtrl* quant,
+    Data*    outlier,
+    dim3     len3,
+    dim3     stride3,
+    int      radius,
+    FP       ebx2_r
+    // ,
+    // unsigned int* num_non1st,
+    // unsigned int* nnz_array
+)
 {
     constexpr auto NTHREAD = BLOCK / SEQ;
 
     __shared__ struct {
         union {
-            uint8_t uninitialized[BLOCK * sizeof(Data) + (1 - DELAY_POSTQUANT) * BLOCK * sizeof(ErrCtrl)];
+            uint8_t uninitialized[BLOCK * sizeof(Data) + (1 - NO_R_SEPARATE) * BLOCK * sizeof(ErrCtrl)];
             Data    data[BLOCK];
         } space;
-        struct {
-            unsigned int num_non1st;
-            unsigned int nnz_array[COUNT_NNZ * BLOCK / 4];
-            unsigned int nnz;
-        } query;
+        // struct {
+        //     unsigned int num_non1st;
+        //     unsigned int nnz_array[COUNT_NNZ * BLOCK / 4];
+        //     unsigned int nnz;
+        // } query;
     } shmem;
 
     auto id_base = BIX * BLOCK;
@@ -505,39 +499,48 @@ __global__ void cusz::c_lorenzo_1d1l(  //
     /********************************************************************************
      * load from DRAM using striped layout, perform prequant
      ********************************************************************************/
-    load1d<Data, FP, NTHREAD, SEQ>(data, dimx, id_base, shmem.space.data, thread_scope, from_last_stripe, ebx2_r);
+    load1d<Data, FP, NTHREAD, SEQ>(data, len3.x, id_base, shmem.space.data, thread_scope, from_last_stripe, ebx2_r);
 
     /********************************************************************************
      * Depending on whether postquant is delayed in compression, deside separating
      * data-type outlier and uint-type quantcode when writing to DRAM (or not).
      ********************************************************************************/
-    if CONSTEXPR (DELAY_POSTQUANT) {
-        pred1d_delay_postquant<Data, SEQ, true>(thread_scope, shmem.space.data, from_last_stripe);
-        pred1d_delay_postquant<Data, SEQ, false>(thread_scope, shmem.space.data);
-        write1d<Data, ErrCtrl, NTHREAD, SEQ, true>(shmem.space.data, outlier, dimx, id_base);
+    if CONSTEXPR (NO_R_SEPARATE) {
+        pred1d_no_radius_separate<Data, SEQ, true>(thread_scope, shmem.space.data, from_last_stripe);
+        pred1d_no_radius_separate<Data, SEQ, false>(thread_scope, shmem.space.data);
+        write1d<Data, ErrCtrl, NTHREAD, SEQ, true>(shmem.space.data, outlier, len3.x, id_base);
     }
-    else {  // the original SZ/cuSZ design
-        // unsigned int local_nnz;
+    else {
+        // the original SZ/cuSZ design
         auto shmem_quant = reinterpret_cast<ErrCtrl*>(shmem.space.uninitialized + sizeof(Data) * BLOCK);
-        pred1d_postquant<Data, ErrCtrl, SEQ, true>(
+        pred1d_radius_separate<Data, ErrCtrl, SEQ, true>(
             thread_scope, shmem.space.data, shmem_quant, radius, from_last_stripe);
-        pred1d_postquant<Data, ErrCtrl, SEQ, false>(thread_scope, shmem.space.data, shmem_quant, radius);
-        write1d<Data, ErrCtrl, NTHREAD, SEQ, false>(shmem.space.data, outlier, dimx, id_base, shmem_quant, quant);
+        pred1d_radius_separate<Data, ErrCtrl, SEQ, false>(thread_scope, shmem.space.data, shmem_quant, radius);
+        write1d<Data, ErrCtrl, NTHREAD, SEQ, false>(shmem.space.data, outlier, len3.x, id_base, shmem_quant, quant);
     }
 }
 
-template <typename Data, typename ErrCtrl, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
+template <
+    typename Data,
+    typename ErrCtrl,
+    typename FP,
+    bool NO_R_SEPARATE
+    // ,
+    // bool COUNT_NNZ,
+    // bool COUNT_NON1ST
+    >
 __global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
-    Data*         data,
-    ErrCtrl*      quant,
-    Data*         outlier,
-    DIM           dimx,
-    DIM           dimy,
-    STRIDE        stridey,
-    int           radius,
-    FP            ebx2_r,
-    unsigned int* num_non1st,
-    unsigned int* nnz_array)
+    Data*    data,
+    ErrCtrl* quant,
+    Data*    outlier,
+    dim3     len3,
+    dim3     stride3,
+    int      radius,
+    FP       ebx2_r
+    // ,
+    // unsigned int* num_non1st,
+    // unsigned int* nnz_array
+)
 {
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -548,26 +551,33 @@ __global__ void cusz::c_lorenzo_2d1l_16x16data_mapto16x2(
     auto gix      = BIX * BDX + TIX;           // BDX == 16
     auto giy_base = BIY * BLOCK + TIY * YSEQ;  // BDY * YSEQ = BLOCK == 16
                                                // clang-format off
-    load2d_prequant<Data, FP, YSEQ>(data, center, dimx, dimy, stridey, gix, giy_base, ebx2_r);
+    load2d_prequant<Data, FP, YSEQ>(data, center, len3.x, len3.y, stride3.y, gix, giy_base, ebx2_r);
     pred2d<Data, FP, YSEQ>(center);
-    postquant_write2d<Data, ErrCtrl, YSEQ, DELAY_POSTQUANT>(center, quant, outlier, dimx, dimy, stridey, radius, gix, giy_base);
+    postquant_write2d<Data, ErrCtrl, YSEQ, NO_R_SEPARATE>(center, quant, outlier, len3.x, len3.y, stride3.y, radius, gix, giy_base);
     // clang-format on
 }
 
-template <typename Data, typename ErrCtrl, typename FP, bool COUNT_NNZ, bool COUNT_NON1ST, bool DELAY_POSTQUANT>
+template <
+    typename Data,
+    typename ErrCtrl,
+    typename FP,  //
+    bool NO_R_SEPARATE
+    // ,
+    // bool COUNT_NNZ,
+    // bool COUNT_NON1ST
+    >
 __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
-    Data*         data,
-    ErrCtrl*      quant,
-    Data*         outlier,
-    DIM           dimx,
-    DIM           dimy,
-    DIM           dimz,
-    STRIDE        stridey,
-    STRIDE        stridez,
-    int           radius,
-    FP            ebx2_r,
-    unsigned int* non1st,
-    unsigned int* nnz_array)
+    Data*    data,
+    ErrCtrl* quant,
+    Data*    outlier,
+    dim3     len3,
+    dim3     stride3,
+    int      radius,
+    FP       ebx2_r
+    // ,
+    // unsigned int* non1st,
+    // unsigned int* nnz_array
+)
 {
     constexpr auto  BLOCK = 8;
     __shared__ Data shmem[8][8][32];
@@ -577,15 +587,15 @@ __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     auto gix      = BIX * (BLOCK * 4) + TIX;
     auto giy_base = BIY * BLOCK;
     auto giz      = BIZ * BLOCK + z;
-    auto base_id  = gix + giy_base * stridey + giz * stridez;
+    auto base_id  = gix + giy_base * stride3.y + giz * stride3.z;
 
     /********************************************************************************
      * load from DRAM, perform prequant
      ********************************************************************************/
-    if (gix < dimx and giz < dimz) {
+    if (gix < len3.x and giz < len3.z) {
         for (auto y = 0; y < BLOCK; y++) {
-            if (giy_base + y < dimy) {
-                shmem[z][y][TIX] = round(data[base_id + y * stridey] * ebx2_r);  // prequant (fp presence)
+            if (giy_base + y < len3.y) {
+                shmem[z][y][TIX] = round(data[base_id + y * stride3.y] * ebx2_r);  // prequant (fp presence)
             }
         }
     }
@@ -607,20 +617,20 @@ __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
                                     + (y > 0 ? shmem[z][y - 1][TIX] : 0)                            //
                                     + (z > 0 ? shmem[z - 1][y][TIX] : 0));                          //
 
-        auto id = base_id + (y * stridey);
+        auto id = base_id + (y * stride3.y);
 
         /********************************************************************************
          * Depending on whether postquant is delayed in compression, deside separating
          * data-type outlier and uint-type quantcode when writing to DRAM (or not).
          ********************************************************************************/
-        if CONSTEXPR (DELAY_POSTQUANT) {
-            if (gix < dimx and (giy_base + y) < dimy and giz < dimz) quant[id] = delta;
+        if CONSTEXPR (NO_R_SEPARATE) {
+            if (gix < len3.x and (giy_base + y) < len3.y and giz < len3.z) quant[id] = delta;
             // end of branch
         }
-        else { /* DELAY_POSTQUANT == false, the original SZ/cuSZ design */
+        else { /* NO_R_SEPARATE == false, the original SZ/cuSZ design */
             bool quantizable = fabs(delta) < radius;
             Data candidate   = delta + radius;
-            if (gix < dimx and (giy_base + y) < dimy and giz < dimz) {
+            if (gix < len3.x and (giy_base + y) < len3.y and giz < len3.z) {
                 outlier[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
                 quant[id]   = quantizable * static_cast<ErrCtrl>(candidate);
             }
@@ -630,12 +640,13 @@ __global__ void cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     /* EOF */
 }
 
-template <typename Data, typename ErrCtrl, typename FP, int BLOCK, int SEQ, bool DELAY_POSTQUANT>
+template <typename Data, typename ErrCtrl, typename FP, int BLOCK, int SEQ>
 __global__ void cusz::x_lorenzo_1d1l(  //
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2)
 {
@@ -663,27 +674,21 @@ __global__ void cusz::x_lorenzo_1d1l(  //
     ErrCtrl thread_scope_quant[SEQ];
 
     /********************************************************************************
-     * Depending on whether postquant is delayed in compression, deside fusing
-     * data-type outlier and uint-type quantcode when loading from DRAM (or not).
+     * load to thread-private array (fuse at the same time)
+     * (BIX * BDX * SEQ) denotes the start of the data chunk that belongs to this thread block
      ********************************************************************************/
-    if CONSTEXPR (DELAY_POSTQUANT) {
-        // TODO
-    }
-    else {
-        // (BIX * BDX * SEQ) denotes the start of the data chunk that belongs to this thread block
-        BlockLoadT_quant(temp_storage.load_quant).Load(quant + (BIX * BDX) * SEQ, thread_scope_quant);
-        __syncthreads();  // barrier for shmem reuse
-        BlockLoadT_outlier(temp_storage.load_outlier).Load(outlier + (BIX * BDX) * SEQ, thread_scope.outlier);
-        __syncthreads();  // barrier for shmem reuse
+    BlockLoadT_quant(temp_storage.load_quant).Load(quant + (BIX * BDX) * SEQ, thread_scope_quant);
+    __syncthreads();  // barrier for shmem reuse
+    BlockLoadT_outlier(temp_storage.load_outlier).Load(outlier + (BIX * BDX) * SEQ, thread_scope.outlier);
+    __syncthreads();  // barrier for shmem reuse
 
 #pragma unroll
-        for (auto i = 0; i < SEQ; i++) {
-            auto id = (BIX * BDX + TIX) * SEQ + i;
-            thread_scope.xdata[i] =
-                id < dimx ? thread_scope.outlier[i] + static_cast<Data>(thread_scope_quant[i]) - radius : 0;
-        }
-        __syncthreads();
+    for (auto i = 0; i < SEQ; i++) {
+        auto id = (BIX * BDX + TIX) * SEQ + i;
+        thread_scope.xdata[i] =
+            id < len3.x ? thread_scope.outlier[i] + static_cast<Data>(thread_scope_quant[i]) - radius : 0;
     }
+    __syncthreads();
 
     /********************************************************************************
      * perform partial-sum using cub::InclusiveSum
@@ -701,14 +706,13 @@ __global__ void cusz::x_lorenzo_1d1l(  //
     BlockStoreT_xdata(temp_storage.store_xdata).Store(xdata + (BIX * BDX) * SEQ, thread_scope.xdata);
 }
 
-template <typename Data, typename ErrCtrl, typename FP, bool DELAY_POSTQUANT>
+template <typename Data, typename ErrCtrl, typename FP>
 __global__ void cusz::x_lorenzo_2d1l_16x16data_mapto16x2(
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
-    DIM      dimy,
-    STRIDE   stridey,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2)
 {
@@ -735,25 +739,19 @@ __global__ void cusz::x_lorenzo_2d1l_16x16data_mapto16x2(
 
     auto gix      = BIX * BLOCK + TIX;
     auto giy_base = BIY * BLOCK + TIY * YSEQ;  // BDY * YSEQ = BLOCK == 16
-    auto get_gid  = [&](auto i) { return (giy_base + i) * stridey + gix; };
+    auto get_gid  = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
 
     /********************************************************************************
-     * Depending on whether postquant is delayed in compression, deside fusing
-     * data-type outlier and uint-type quantcode when loading from DRAM (or not).
+     * load to thread-private array (fuse at the same time)
      ********************************************************************************/
-    if CONSTEXPR (DELAY_POSTQUANT) {
-        // TODO
-    }
-    else {
 #pragma unroll
-        for (auto i = 0; i < YSEQ; i++) {
-            auto gid = get_gid(i);
-            // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
-            if (gix < dimx and giy_base + i < dimy)
-                thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
-            else
-                thread_scope[i] = 0;  // TODO set as init state?
-        }
+    for (auto i = 0; i < YSEQ; i++) {
+        auto gid = get_gid(i);
+        // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
+        if (gix < len3.x and giy_base + i < len3.y)
+            thread_scope[i] = outlier[gid] + static_cast<Data>(quant[gid]) - radius;  // fuse
+        else
+            thread_scope[i] = 0;  // TODO set as init state?
     }
 
     /********************************************************************************
@@ -788,20 +786,17 @@ __global__ void cusz::x_lorenzo_2d1l_16x16data_mapto16x2(
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
         auto gid = get_gid(i);
-        if (gix < dimx and giy_base + i < dimy) xdata[gid] = thread_scope[i];
+        if (gix < len3.x and giy_base + i < len3.y) xdata[gid] = thread_scope[i];
     }
 }
 
-template <typename Data, typename ErrCtrl, typename FP, bool DELAY_POSTQUANT>
+template <typename Data, typename ErrCtrl, typename FP>
 __global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
-    DIM      dimy,
-    DIM      dimz,
-    STRIDE   stridey,
-    STRIDE   stridez,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2)
 {
@@ -816,25 +811,18 @@ __global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
     auto seg_tix = TIX % 8;
 
     auto gix = BIX * (4 * BLOCK) + TIX, giy_base = BIY * BLOCK, giz = BIZ * BLOCK + TIZ;
-    auto get_gid = [&](auto y) { return giz * stridez + (giy_base + y) * stridey + gix; };
+    auto get_gid = [&](auto y) { return giz * stride3.z + (giy_base + y) * stride3.y + gix; };
 
     /********************************************************************************
-     * Depending on whether postquant is delayed in compression, deside fusing
-     * data-type outlier and uint-type quantcode when loading from DRAM (or not).
+     * load to thread-private array (fuse at the same time)
      ********************************************************************************/
-    if CONSTEXPR (DELAY_POSTQUANT) {
-        // TODO
-    }
-    else {
-        // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
 #pragma unroll
-        for (auto y = 0; y < YSEQ; y++) {
-            auto gid = get_gid(y);
-            if (gix < dimx and giy_base + y < dimy and giz < dimz)
-                thread_scope[y] = outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(radius);  // fuse
-            else
-                thread_scope[y] = 0;
-        }
+    for (auto y = 0; y < YSEQ; y++) {
+        auto gid = get_gid(y);
+        if (gix < len3.x and giy_base + y < len3.y and giz < len3.z)
+            thread_scope[y] = outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(radius);  // fuse
+        else
+            thread_scope[y] = 0;
     }
 
     /********************************************************************************
@@ -882,7 +870,7 @@ __global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
      ********************************************************************************/
 #pragma unroll
     for (auto y = 0; y < YSEQ; y++) {
-        if (gix < dimx and giy_base + y < dimy and giz < dimz) { xdata[get_gid(y)] = thread_scope[y] * ebx2; }
+        if (gix < len3.x and giy_base + y < len3.y and giz < len3.z) { xdata[get_gid(y)] = thread_scope[y] * ebx2; }
     }
     /* EOF */
 }
@@ -890,16 +878,13 @@ __global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
 /********************************************************************************
  * experimental prototype toward further optmization
  ********************************************************************************/
-template <typename Data, typename ErrCtrl, typename FP, bool DELAY_POSTQUANT>
+template <typename Data, typename ErrCtrl, typename FP>
 __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
     Data*    outlier,
     ErrCtrl* quant,
     Data*    xdata,
-    DIM      dimx,
-    DIM      dimy,
-    DIM      dimz,
-    STRIDE   stridey,
-    STRIDE   stridez,
+    dim3     len3,
+    dim3     stride3,
     int      radius,
     FP       ebx2)
 {
@@ -914,7 +899,7 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
     auto seg_tix = TIX % 8;
 
     auto gix = BIX * (4 * BLOCK) + TIX, giy_base = BIY * BLOCK, giz = BIZ * BLOCK + TIZ;
-    auto get_gid = [&](auto y) { return giz * stridez + (giy_base + y) * stridey + gix; };
+    auto get_gid = [&](auto y) { return giz * stride3.z + (giy_base + y) * stride3.y + gix; };
 
     auto y = 0;
 
@@ -922,7 +907,7 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
 #pragma unroll
     for (y = 0; y < YSEQ; y++) {
         auto gid = get_gid(y);
-        if (gix < dimx and giy_base + y < dimy and giz < dimz)
+        if (gix < len3.x and giy_base + y < len3.y and giz < len3.z)
             thread_scope += outlier[gid] + static_cast<Data>(quant[gid]) - static_cast<Data>(radius);  // fuse
 
         Data val = thread_scope;
@@ -951,7 +936,7 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
 
         // thread_scope += val;
 
-        if (gix < dimx and giy_base + y < dimy and giz < dimz) { xdata[get_gid(y)] = val * ebx2; }
+        if (gix < len3.x and giy_base + y < len3.y and giz < len3.z) { xdata[get_gid(y)] = val * ebx2; }
     }
 }
 

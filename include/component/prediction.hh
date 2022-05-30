@@ -135,10 +135,9 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
     bool delay_postquant{false};
     bool outlier_overlapped{true};
 
-    template <bool DELAY_POSTQUANT>
+    template <bool NO_R_SEPARATE>
     void construct_proxy_LorenzoI(T*, T*, E*, double const, int const, cudaStream_t = nullptr);
 
-    template <bool DELAY_POSTQUANT>
     void reconstruct_proxy_LorenzoI(T*, T*, E*, double const, int const, cudaStream_t = nullptr);
 
     void construct_proxy_Spline3(

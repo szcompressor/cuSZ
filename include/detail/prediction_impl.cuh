@@ -132,7 +132,7 @@ void IMPL::construct(
         if (not delay_postquant)
             construct_proxy_LorenzoI<false>(data_outlier, d_anchor, d_errctrl, eb, radius, stream);
         else
-            throw std::runtime_error("construct_proxy_LorenzoI<delay_postquant==true> not implemented.");
+            construct_proxy_LorenzoI<true>(data_outlier, d_anchor, d_errctrl, eb, radius, stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);
@@ -157,10 +157,7 @@ void IMPL::reconstruct(
         this->derive_rtlen(LorenzoI, len3);
         this->check_rtlen();
 
-        if (not delay_postquant)
-            reconstruct_proxy_LorenzoI<false>(outlier_xdata, anchor, errctrl, eb, radius, stream);
-        else
-            throw std::runtime_error("construct_proxy_LorenzoI<delay_postquant==true> not implemented.");
+        reconstruct_proxy_LorenzoI(outlier_xdata, anchor, errctrl, eb, radius, stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);
@@ -175,9 +172,9 @@ THE_TYPE
 float IMPL::get_time_elapsed() const { return time_elapsed; }
 
 THE_TYPE
-template <bool DELAY_POSTQUANT>
+template <bool NO_R_SEPARATE>
 void IMPL::construct_proxy_LorenzoI(
-    T* const     in_data,
+    T* const     data,
     T* const     anchor,
     E* const     errctrl,
     double const eb,
@@ -188,7 +185,7 @@ void IMPL::construct_proxy_LorenzoI(
     auto ebx2   = eb * 2;
     auto ebx2_r = 1 / ebx2;
 
-    auto out_outlier = in_data;
+    auto outlier = data;
 
     // TODO put into conditional compile
     cuda_timer_t timer;
@@ -200,9 +197,9 @@ void IMPL::construct_proxy_LorenzoI(
         auto           dim_block   = DATA_SUBLEN / SEQ;
         auto           dim_grid    = ConfigHelper::get_npart(get_x(), DATA_SUBLEN);
 
-        ::cusz::c_lorenzo_1d1l<T, E, FP, DATA_SUBLEN, SEQ, DELAY_POSTQUANT>  //
-            <<<dim_grid, dim_block, 0, stream>>>                             //
-            (in_data, errctrl, out_outlier, get_x(), radius, ebx2_r);
+        ::cusz::c_lorenzo_1d1l<T, E, FP, DATA_SUBLEN, SEQ, NO_R_SEPARATE>  //
+            <<<dim_grid, dim_block, 0, stream>>>                           //
+            (data, errctrl, outlier, get_len3(), get_leap(), radius, ebx2_r);
     }
     else if (get_ndim() == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
@@ -210,7 +207,7 @@ void IMPL::construct_proxy_LorenzoI(
 
         ::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>  //
             <<<dim_grid, dim_block, 0, stream>>>              //
-            (in_data, errctrl, out_outlier, get_x(), get_y(), get_leap().y, radius, ebx2_r);
+            (data, errctrl, outlier, get_len3(), get_leap(), radius, ebx2_r);
     }
     else if (get_ndim() == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
@@ -218,7 +215,7 @@ void IMPL::construct_proxy_LorenzoI(
 
         ::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>  //
             <<<dim_grid, dim_block, 0, stream>>>                 //
-            (in_data, errctrl, out_outlier, get_x(), get_y(), get_z(), get_leap().y, get_leap().z, radius, ebx2_r);
+            (data, errctrl, outlier, get_len3(), get_leap(), radius, ebx2_r);
     }
     else {
         throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -234,9 +231,8 @@ void IMPL::construct_proxy_LorenzoI(
 }
 
 THE_TYPE
-template <bool DELAY_POSTQUANT>
 void IMPL::reconstruct_proxy_LorenzoI(
-    T*           out_xdata,
+    T*           xdata,
     T*           anchor,
     E*           errctrl,
     double const eb,
@@ -247,9 +243,7 @@ void IMPL::reconstruct_proxy_LorenzoI(
     auto ebx2   = eb * 2;
     auto ebx2_r = 1 / ebx2;
 
-    // decide if destructive for the input (outlier)
-    // auto in_outlier = __in_outlier == nullptr ? out_xdata : __in_outlier;
-    auto in_outlier = out_xdata;
+    auto outlier = xdata;
 
     cuda_timer_t timer;
     timer.timer_start(stream);
@@ -260,25 +254,25 @@ void IMPL::reconstruct_proxy_LorenzoI(
         auto           dim_block   = DATA_SUBLEN / SEQ;
         auto           dim_grid    = ConfigHelper::get_npart(get_x(), DATA_SUBLEN);
 
-        ::cusz::x_lorenzo_1d1l<T, E, FP, DATA_SUBLEN, SEQ, DELAY_POSTQUANT>  //
-            <<<dim_grid, dim_block, 0, stream>>>                             //
-            (in_outlier, errctrl, out_xdata, get_x(), radius, ebx2);
+        ::cusz::x_lorenzo_1d1l<T, E, FP, DATA_SUBLEN, SEQ>  //
+            <<<dim_grid, dim_block, 0, stream>>>            //
+            (outlier, errctrl, xdata, get_len3(), get_leap(), radius, ebx2);
     }
     else if (get_ndim() == 2) {  // y-sequentiality == 8
         auto dim_block = dim3(16, 2);
         auto dim_grid  = ConfigHelper::get_pardeg3(this->get_len3(), {16, 16, 1});
 
-        ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP, DELAY_POSTQUANT>  //
-            <<<dim_grid, dim_block, 0, stream>>>                               //
-            (in_outlier, errctrl, out_xdata, get_x(), get_y(), get_leap().y, radius, ebx2);
+        ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>  //
+            <<<dim_grid, dim_block, 0, stream>>>              //
+            (outlier, errctrl, xdata, get_len3(), get_leap(), radius, ebx2);
     }
     else if (get_ndim() == 3) {  // y-sequentiality == 8
         auto dim_block = dim3(32, 1, 8);
         auto dim_grid  = ConfigHelper::get_pardeg3(this->get_len3(), {32, 8, 8});
 
-        ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP, DELAY_POSTQUANT>  //
-            <<<dim_grid, dim_block, 0, stream>>>                                  //
-            (in_outlier, errctrl, out_xdata, get_x(), get_y(), get_z(), get_leap().y, get_leap().z, radius, ebx2);
+        ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>  //
+            <<<dim_grid, dim_block, 0, stream>>>                 //
+            (outlier, errctrl, xdata, get_len3(), get_leap(), radius, ebx2);
     }
 
     timer.timer_end(stream);
@@ -340,10 +334,11 @@ void IMPL::impl::reconstruct_proxy_Spline3(
     cuda_timer_t timer;
     timer.timer_start();
 
-    cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256><<<this->rtlen.nblock, dim3(256, 1, 1), 0, stream>>>  //
-        (errctrl, this->rtlen.aligned.len3, this->rtlen.aligned.leap,                                              //
-         anchor, this->rtlen.anchor.len3, this->rtlen.anchor.leap,                                                 //
-         xdata, this->rtlen.base.len3, this->rtlen.base.leap,                                                      //
+    cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>          //
+        <<<this->rtlen.nblock, dim3(256, 1, 1), 0, stream>>>           //
+        (errctrl, this->rtlen.aligned.len3, this->rtlen.aligned.leap,  //
+         anchor, this->rtlen.anchor.len3, this->rtlen.anchor.leap,     //
+         xdata, this->rtlen.base.len3, this->rtlen.base.leap,          //
          eb_r, ebx2, radius);
 
     timer.timer_end();
