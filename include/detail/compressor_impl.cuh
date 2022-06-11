@@ -141,10 +141,10 @@ void IMPL::compress(
         spcodec_inlen = m * m;
         sublen        = ConfigHelper::get_npart(data_len, pardeg);
 
-        std::cout << "datalen\t" << data_len << '\n';
-        std::cout << "errctrl_len\t" << errctrl_len << '\n';
-        std::cout << "spcodec_inlen\t" << spcodec_inlen << '\n';
-        std::cout << "sublen\t" << sublen << '\n';
+        // std::cout << "datalen\t" << data_len << '\n';
+        // std::cout << "errctrl_len\t" << errctrl_len << '\n';
+        // std::cout << "spcodec_inlen\t" << spcodec_inlen << '\n';
+        // std::cout << "sublen\t" << sublen << '\n';
     };
 
     auto update_header = [&]() {
