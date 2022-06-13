@@ -166,7 +166,7 @@ void IMPL::compress(
     derive_lengths_after_prediction();
     /******************************************************************************/
 
-    kernel_wrapper::get_frequency<E>(d_errctrl, errctrl_len, d_freq, booklen, time_hist, stream);
+    launch_histogram<E>(d_errctrl, errctrl_len, d_freq, booklen, time_hist, stream);
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 

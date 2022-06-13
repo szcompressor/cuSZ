@@ -70,8 +70,6 @@ struct __helper {
 };
 
 namespace cusz {
-namespace coarse_par {
-namespace detail {
 namespace subroutine {
 
 // TODO change size_t to unsigned int
@@ -127,10 +125,8 @@ __device__ void single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int 
 
 }  // namespace subroutine
 
-namespace kernel {
-
 template <typename UNCOMPRESSED, typename ENCODED>
-__global__ void huffman_encode_fixedlen_gridstride(
+__global__ void coarse_grained_Huffman_encode_phase1_fill(
     UNCOMPRESSED* in_uncompressed,
     size_t const  in_uncompressed_len,
     ENCODED*      in_book,
@@ -155,7 +151,7 @@ __global__ void huffman_encode_fixedlen_gridstride(
 }
 
 template <typename COMPRESSED, typename MetadataT>
-__global__ void huffman_encode_deflate(
+__global__ void coarse_grained_Huffman_encode_phase2_deflate(
     COMPRESSED*  inout_inplace,
     size_t const len,
     MetadataT*   par_nbit,
@@ -219,71 +215,53 @@ __global__ void huffman_encode_deflate(
     }
 }
 
+template <typename Huff, typename Meta>
+__global__ void coarse_grained_Huffman_encode_phase4_concatenate(
+    Huff*     gapped,
+    Meta*     par_entry,
+    Meta*     par_ncell,
+    int const cfg_sublen,
+    Huff*     non_gapped)
+{
+    auto n   = par_ncell[blockIdx.x];
+    auto src = gapped + cfg_sublen * blockIdx.x;
+    auto dst = non_gapped + par_entry[blockIdx.x];
+
+    for (auto i = threadIdx.x; i < n; i += blockDim.x) {  // block-stride
+        dst[i] = src[i];
+    }
+}
+
 template <typename UNCOMPRESSED, typename COMPRESSED, typename MetadataT>
 __global__ void huffman_decode(
-    COMPRESSED*   in_compressed,
-    MetadataT*    in_compressed_meta,
-    BYTE*         in_revbook,
-    int const     in_revbook_nbyte,
-    int const     cfg_sublen,
-    int const     cfg_pardeg,
+    COMPRESSED*   compressed,
+    BYTE*         revbook,
+    MetadataT*    par_nbit,
+    MetadataT*    par_entry,
+    int const     revbook_nbyte,
+    int const     sublen,
+    int const     pardeg,
     UNCOMPRESSED* out_uncompressed)
 {
     extern __shared__ BYTE shmem[];
     constexpr auto         block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
 
-    auto R = (in_revbook_nbyte - 1 + block_dim) / block_dim;
+    auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 
     for (auto i = 0; i < R; i++) {
-        if (TIX + i * block_dim < in_revbook_nbyte) shmem[TIX + i * block_dim] = in_revbook[TIX + i * block_dim];
-    }
-    __syncthreads();
-
-    auto par_nbit  = in_compressed_meta;
-    auto par_entry = in_compressed_meta + cfg_pardeg;
-
-    auto gid = BIX * BDX + TIX;
-
-    if (gid < cfg_pardeg) {
-        cusz::coarse_par::detail::subroutine::single_thread_inflate(
-            in_compressed + par_entry[gid], out_uncompressed + cfg_sublen * gid, par_nbit[gid], shmem);
-        __syncthreads();
-    }
-};
-
-template <typename UNCOMPRESSED, typename COMPRESSED, typename MetadataT>
-__global__ void huffman_decode_new(
-    COMPRESSED*   in_compressed,
-    BYTE*         in_revbook,
-    MetadataT*    in_par_nbit,
-    MetadataT*    in_par_entry,
-    int const     in_revbook_nbyte,
-    int const     cfg_sublen,
-    int const     cfg_pardeg,
-    UNCOMPRESSED* out_uncompressed)
-{
-    extern __shared__ BYTE shmem[];
-    constexpr auto         block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
-
-    auto R = (in_revbook_nbyte - 1 + block_dim) / block_dim;
-
-    for (auto i = 0; i < R; i++) {
-        if (TIX + i * block_dim < in_revbook_nbyte) shmem[TIX + i * block_dim] = in_revbook[TIX + i * block_dim];
+        if (TIX + i * block_dim < revbook_nbyte) shmem[TIX + i * block_dim] = revbook[TIX + i * block_dim];
     }
     __syncthreads();
 
     auto gid = BIX * BDX + TIX;
 
-    if (gid < cfg_pardeg) {
-        cusz::coarse_par::detail::subroutine::single_thread_inflate(
-            in_compressed + in_par_entry[gid], out_uncompressed + cfg_sublen * gid, in_par_nbit[gid], shmem);
+    if (gid < pardeg) {
+        cusz::subroutine::single_thread_inflate(
+            compressed + par_entry[gid], out_uncompressed + sublen * gid, par_nbit[gid], shmem);
         __syncthreads();
     }
 };
 
-}  // namespace kernel
-}  // namespace detail
-}  // namespace coarse_par
 }  // namespace cusz
 
 #endif

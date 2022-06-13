@@ -27,7 +27,7 @@
 #include <type_traits>
 
 #include "common.hh"
-#include "detail/huffman_parbook.cuh"
+#include "kernel/huffman_parbook.cuh"
 #include "kernel/par_merge.cuh"
 #include "utils.hh"
 
@@ -516,11 +516,12 @@ __global__ void par_huffman::detail::GPU_ReverseArray(T* array, unsigned int siz
 
 // Parallel codebook generation wrapper
 template <typename T, typename H>
-void kernel_wrapper::par_get_codebook(
-    cusz::FREQ*  freq,
-    int          dict_size,
+void kernel_wrapper::parallel_get_codebook(
+    uint32_t*    freq,
     H*           codebook,
+    int          dict_size,
     uint8_t*     reverse_codebook,
+    float&       time_book,
     cudaStream_t stream)
 {
     // Metadata
@@ -728,9 +729,9 @@ void kernel_wrapper::par_get_codebook(
 /********************************************************************************/
 // instantiate wrapper
 
-#define PAR_HUFFMAN(E, ETF, H)                                                                      \
-    template void kernel_wrapper::par_get_codebook<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type>( \
-        cusz::FREQ*, int, HuffTrait<H>::type*, uint8_t*, cudaStream_t);
+#define PAR_HUFFMAN(E, ETF, H)                                                                           \
+    template void kernel_wrapper::parallel_get_codebook<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type>( \
+        cusz::FREQ*, HuffTrait<H>::type*, int, uint8_t*, float&, cudaStream_t);
 
 PAR_HUFFMAN(2, false, 4)
 PAR_HUFFMAN(2, false, 8)

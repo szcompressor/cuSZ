@@ -120,9 +120,12 @@ class HuffmanCoarse<T, H, M>::impl {
     DEFINE_ARRAY(compressed, BYTE);  // alias in address
     DEFINE_ARRAY(book, H);
     DEFINE_ARRAY(revbook, BYTE);
+
+    DEFINE_ARRAY(par_metadata, M);
     DEFINE_ARRAY(par_nbit, M);
     DEFINE_ARRAY(par_ncell, M);
     DEFINE_ARRAY(par_entry, M);
+
     DEFINE_ARRAY(bitstream, H);
     // helper
     RTE rte;

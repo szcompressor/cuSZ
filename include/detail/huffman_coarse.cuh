@@ -29,8 +29,9 @@ using std::cout;
 #include "../component/codec.hh"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/hist.cuh"
+#include "../kernel/huffman_parbook.cuh"
+#include "../kernel/launch_lossless.cuh"
 #include "../utils.hh"
-#include "huffman_parbook.cuh"
 
 /******************************************************************************
                             macros for shorthand writing
@@ -67,27 +68,6 @@ using std::cout;
         cudaFree(d_##VAR); \
         d_##VAR = nullptr; \
     }
-
-/******************************************************************************
-                                kernel definition
- ******************************************************************************/
-
-namespace cusz {
-
-template <typename Huff, typename Meta>
-__global__ void
-huffman_coarse_concatenate(Huff* gapped, Meta* par_entry, Meta* par_ncell, int const cfg_sublen, Huff* non_gapped)
-{
-    auto n   = par_ncell[blockIdx.x];
-    auto src = gapped + cfg_sublen * blockIdx.x;
-    auto dst = non_gapped + par_entry[blockIdx.x];
-
-    for (auto i = threadIdx.x; i < n; i += blockDim.x) {  // block-stride
-        dst[i] = src[i];
-    }
-}
-
-}  // namespace cusz
 
 /******************************************************************************
                                 class definition
@@ -151,11 +131,24 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
     rte.nbyte[RTE::BITSTREAM] = max_compressed_bytes();
 
     HC_ALLOCDEV(tmp, TMP);
-    HC_ALLOCDEV(book, BOOK);
-    HC_ALLOCDEV(revbook, REVBOOK);
-    HC_ALLOCDEV(par_nbit, PAR_NBIT);
-    HC_ALLOCDEV(par_ncell, PAR_NCELL);
-    HC_ALLOCDEV(par_entry, PAR_ENTRY);
+
+    {
+        auto total_bytes = rte.nbyte[RTE::BOOK] + rte.nbyte[RTE::REVBOOK];
+        cudaMalloc(&d_book, total_bytes);
+        cudaMemset(d_book, 0x0, total_bytes);
+
+        d_revbook = reinterpret_cast<uint8_t*>(d_book + booklen);
+    }
+
+    {
+        cudaMalloc(&d_par_metadata, rte.nbyte[RTE::PAR_NBIT] * 3);
+        cudaMemset(d_par_metadata, 0x0, rte.nbyte[RTE::PAR_NBIT] * 3);
+
+        d_par_nbit  = d_par_metadata;
+        d_par_ncell = d_par_metadata + pardeg;
+        d_par_entry = d_par_metadata + pardeg * 2;
+    }
+
     HC_ALLOCDEV(bitstream, BITSTREAM);
 
     // standalone definition for output
@@ -163,9 +156,15 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
 
     HC_ALLOCHOST(book, BOOK);
     HC_ALLOCHOST(revbook, REVBOOK);
-    HC_ALLOCHOST(par_nbit, PAR_NBIT);
-    HC_ALLOCHOST(par_ncell, PAR_NCELL);
-    HC_ALLOCHOST(par_entry, PAR_ENTRY);
+
+    {
+        cudaMallocHost(&h_par_metadata, rte.nbyte[RTE::PAR_NBIT] * 3);
+        // cudaMemset(h_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT] * 3);
+
+        h_par_nbit  = h_par_metadata;
+        h_par_ncell = h_par_metadata + pardeg;
+        h_par_entry = h_par_metadata + pardeg * 2;
+    }
 
     if (dbg_print) debug();
 }
@@ -173,14 +172,8 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
 TEMPLATE_TYPE
 void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
 {
-    // This is end-to-end time for parbook.
-    cuda_timer_t t;
-    t.timer_start(stream);
-    kernel_wrapper::par_get_codebook<T, H>(freq, booklen, d_book, d_revbook, stream);
-    t.timer_end(stream);
-    cudaStreamSynchronize(stream);
-
-    time_book = t.get_time_elapsed();
+    launch_gpu_parallel_build_codebook<T, H, M>(
+        freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), time_book, stream);
 }
 
 TEMPLATE_TYPE
@@ -188,92 +181,33 @@ void IMPL::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
     cusz::FREQ*  d_freq,
-    int const    cfg_booklen,
-    int const    cfg_sublen,
-    int const    cfg_pardeg,
+    int const    booklen,
+    int const    sublen,
+    int const    pardeg,
     BYTE*&       out_compressed,
     size_t&      out_compressed_len,
     cudaStream_t stream)
 {
-    cuda_timer_t t;
     time_lossless = 0;
-
-    auto BARRIER = [&]() {
-        if (stream)
-            CHECK_CUDA(cudaStreamSynchronize(stream));
-        else
-            CHECK_CUDA(cudaDeviceSynchronize());
-    };
 
     struct Header header;
 
-    /* phase 1 */
-    {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
-        auto grid_dim  = ConfigHelper::get_npart(in_uncompressed_len, block_dim);
+    int numSMs;
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-        int numSMs;
-        cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+    launch_coarse_grained_Huffman_encoding<T, H, M>(
+        in_uncompressed, d_tmp, in_uncompressed_len,  //
+        d_freq, d_book, booklen,                      //
+        d_bitstream, d_par_metadata, h_par_metadata,  //
+        sublen, pardeg, numSMs, /* config */          //
+        out_compressed, out_compressed_len, time_lossless, stream);
 
-        t.timer_start(stream);
+    header.total_nbit  = std::accumulate(h_par_nbit, h_par_nbit + pardeg, (size_t)0);
+    header.total_ncell = std::accumulate(h_par_ncell, h_par_ncell + pardeg, (size_t)0);
+    // update with the precise BITSTREAM nbyte
+    rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
 
-        cusz::coarse_par::detail::kernel::huffman_encode_fixedlen_gridstride<T, H>
-            <<<8 * numSMs, 256, sizeof(H) * cfg_booklen, stream>>>  //
-            (in_uncompressed, in_uncompressed_len, d_book, cfg_booklen, d_tmp);
-
-        t.timer_end(stream);
-        BARRIER();
-
-        time_lossless += t.get_time_elapsed();
-    }
-
-    /* phase 2 */
-    {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
-        auto grid_dim  = ConfigHelper::get_npart(cfg_pardeg, block_dim);
-
-        t.timer_start(stream);
-
-        cusz::coarse_par::detail::kernel::huffman_encode_deflate<H><<<grid_dim, block_dim, 0, stream>>>  //
-            (d_tmp, in_uncompressed_len, d_par_nbit, d_par_ncell, cfg_sublen, cfg_pardeg);
-
-        t.timer_end(stream);
-        BARRIER();
-
-        time_lossless += t.get_time_elapsed();
-    }
-
-    /* phase 3 */
-    {
-        CHECK_CUDA(cudaMemcpyAsync(h_par_nbit, d_par_nbit, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaMemcpyAsync(h_par_ncell, d_par_ncell, cfg_pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        BARRIER();
-
-        memcpy(h_par_entry + 1, h_par_ncell, (cfg_pardeg - 1) * sizeof(M));
-        for (auto i = 1; i < cfg_pardeg; i++) h_par_entry[i] += h_par_entry[i - 1];  // inclusive scan
-
-        header.total_nbit  = std::accumulate(h_par_nbit, h_par_nbit + cfg_pardeg, (size_t)0);
-        header.total_ncell = std::accumulate(h_par_ncell, h_par_ncell + cfg_pardeg, (size_t)0);
-
-        CHECK_CUDA(cudaMemcpyAsync(d_par_entry, h_par_entry, cfg_pardeg * sizeof(M), cudaMemcpyHostToDevice, stream));
-        BARRIER();
-
-        // update with the precise BITSTREAM nbyte
-        rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
-    }
-
-    /* phase 4 */
-    {
-        t.timer_start(stream);
-        cusz::huffman_coarse_concatenate<H, M><<<cfg_pardeg, 128, 0, stream>>>  //
-            (d_tmp, d_par_entry, d_par_ncell, cfg_sublen, d_bitstream);
-        t.timer_end(stream);
-        BARRIER();
-
-        time_lossless += t.get_time_elapsed();
-    }
-
-    subfile_collect(header, in_uncompressed_len, cfg_booklen, cfg_sublen, cfg_pardeg, stream);
+    subfile_collect(header, in_uncompressed_len, booklen, sublen, pardeg, stream);
 
     out_compressed     = d_compressed;
     out_compressed_len = header.subfile_size();
@@ -292,18 +226,10 @@ void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream,
     auto d_bitstream = ACCESSOR(BITSTREAM, H);
 
     auto const revbook_nbyte = get_revbook_nbyte(header.booklen);
-    auto const pardeg        = header.pardeg;
-    auto const block_dim     = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
-    auto const grid_dim      = ConfigHelper::get_npart(pardeg, block_dim);
 
-    cuda_timer_t t;
-    t.timer_start(stream);
-    cusz::coarse_par::detail::kernel::huffman_decode_new<T, H, M><<<grid_dim, block_dim, revbook_nbyte, stream>>>(
-        d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte, header.sublen, pardeg, out_decompressed);
-    t.timer_end(stream);
-    cudaStreamSynchronize(stream);
-
-    time_lossless = t.get_time_elapsed();
+    launch_coarse_grained_Huffman_decoding<T, H, M>(
+        d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry, header.sublen, header.pardeg, out_decompressed,
+        time_lossless, stream);
 }
 
 TEMPLATE_TYPE
@@ -323,9 +249,9 @@ TEMPLATE_TYPE
 void IMPL::subfile_collect(
     Header&      header,
     size_t const in_uncompressed_len,
-    int const    cfg_booklen,
-    int const    cfg_sublen,
-    int const    cfg_pardeg,
+    int const    booklen,
+    int const    sublen,
+    int const    pardeg,
     cudaStream_t stream)
 {
     auto BARRIER = [&]() {
@@ -336,9 +262,9 @@ void IMPL::subfile_collect(
     };
 
     header.header_nbyte     = sizeof(Header);
-    header.booklen          = cfg_booklen;
-    header.sublen           = cfg_sublen;
-    header.pardeg           = cfg_pardeg;
+    header.booklen          = booklen;
+    header.sublen           = sublen;
+    header.pardeg           = pardeg;
     header.uncompressed_len = in_uncompressed_len;
 
     MetadataT nbyte[Header::END];

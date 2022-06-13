@@ -25,12 +25,19 @@ namespace kernel_wrapper {
  * @tparam T input type
  * @tparam H codebook type
  * @param freq input device array; frequency
- * @param dict_size dictionary size; len of freq
  * @param codebook output device array; codebook for encoding
+ * @param dict_size dictionary size; len of freq or codebook
  * @param reverse_codebook output device array; reverse codebook for decoding
+ * @param time_book the returned time
  */
 template <typename T, typename H>
-void par_get_codebook(cusz::FREQ* freq, int dict_size, H* codebook, uint8_t* reverse_codebook, cudaStream_t = nullptr);
+void parallel_get_codebook(
+    cusz::FREQ* freq,
+    H*          codebook,
+    int         dict_size,
+    uint8_t*    reverse_codebook,
+    float&      time_book,
+    cudaStream_t = nullptr);
 
 }  // namespace kernel_wrapper
 

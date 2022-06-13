@@ -45,8 +45,6 @@ __global__ void p2013Histogram(T*, FREQ*, size_t, int, int);
 
 }  // namespace kernel
 
-namespace kernel_wrapper {
-
 /**
  * @brief Get frequency: a kernel wrapper
  *
@@ -59,15 +57,13 @@ namespace kernel_wrapper {
  * @param stream optional stream
  */
 template <typename T>
-void get_frequency(
+void launch_histogram(
     T*           in_data,
     size_t       in_len,
     cusz::FREQ*  out_freq,
     int          nbin,
     float&       milliseconds,
     cudaStream_t stream = nullptr);
-
-}  // namespace kernel_wrapper
 
 template <typename T>
 __global__ void kernel::NaiveHistogram(T in_data[], int out_freq[], int N, int symbols_per_thread)
@@ -122,7 +118,7 @@ __global__ void kernel::p2013Histogram(T* in_data, FREQ* out_freq, size_t N, int
 }
 
 template <typename T>
-void kernel_wrapper::get_frequency(
+void launch_histogram(
     T*           in_data,
     size_t       in_len,
     cusz::FREQ*  out_freq,

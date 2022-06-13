@@ -46,7 +46,7 @@ target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
 add_library(cuszsp  src/component/spcodec.cc src/detail/spmat.cu src/detail/spvec.cu)
 target_link_libraries(cuszsp PUBLIC cuszcompile_settings CUDA::cusparse)
 
-add_library(cuszhuff  src/component/codec.cc src/detail/huffman_parbook.cu src/detail/huffman_coarse.cu)
+add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
 target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
 set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
