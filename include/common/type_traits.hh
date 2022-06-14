@@ -88,6 +88,9 @@ template <bool FAST> struct FastLowPrecisionTrait;
 template <> struct FastLowPrecisionTrait<true>  { typedef float  type; };
 template <> struct FastLowPrecisionTrait<false> { typedef double type; };
 
+template <typename F> struct cuszCUSPARSE;
+template <> struct cuszCUSPARSE<float>  { const static cudaDataType type = CUDA_R_32F; };
+template <> struct cuszCUSPARSE<double> { const static cudaDataType type = CUDA_R_64F; };
 
 #ifdef __CUDACC__
 #include <driver_types.h>

@@ -18,6 +18,7 @@
 
 #include "../common.hh"
 #include "../component/spcodec.hh"
+#include "../kernel/launch_sparse_method.cuh"
 #include "../utils.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
@@ -80,24 +81,7 @@ void SpcodecVec<T, M>::impl::encode(
 {
     Header header;
 
-    using thrust::placeholders::_1;
-
-    thrust::cuda::par.on(stream);
-    thrust::counting_iterator<int> zero(0);
-
-    cuda_timer_t t;
-    t.timer_start(stream);
-
-    // find out the indices
-    rte.nnz = thrust::copy_if(thrust::device, zero, zero + in_len, in, d_idx, _1 != 0) - d_idx;
-
-    // fetch corresponding values
-    thrust::copy(
-        thrust::device, thrust::make_permutation_iterator(in, d_idx),
-        thrust::make_permutation_iterator(in + rte.nnz, d_idx + rte.nnz), d_val);
-
-    t.timer_end(stream);
-    milliseconds = t.get_time_elapsed();
+    launch_thrust_gather<T, M>(in, in_len, this->d_val, this->d_idx, out, out_len, rte.nnz, milliseconds, stream);
 
     subfile_collect(header, in_len, stream, dbg_print);
     out     = d_spfmt;
@@ -114,14 +98,8 @@ void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, cudaStream_t stream
     auto d_idx = ACCESSOR(IDX, int);
     auto d_val = ACCESSOR(VAL, T);
 #undef ACCESSOR
-    auto nnz = header.nnz;
 
-    thrust::cuda::par.on(stream);
-    cuda_timer_t t;
-    t.timer_start(stream);
-    thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
-    t.timer_end(stream);
-    milliseconds = t.get_time_elapsed();
+    launch_thrust_scatter<T, M>(d_val, d_idx, header.nnz, decoded, milliseconds, stream);
 }
 
 template <typename T, typename M>

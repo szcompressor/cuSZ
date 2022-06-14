@@ -55,6 +55,7 @@ struct PredefinedCombination {
 
     /* Predefined Combination */
     using LorenzoFeatured = CompressorTemplate<PredictionUnified, SpcodecVec, CodecHuffman32, CodecHuffman64>;
+    // using LorenzoFeatured = CompressorTemplate<PredictionUnified, SpcodecMat, CodecHuffman32, CodecHuffman64>;
     // using Spline3Featured = CompressorTemplate<PredictorSpline3, SpcodecVec, CodecHuffman32, CodecHuffman64>;
 };
 
