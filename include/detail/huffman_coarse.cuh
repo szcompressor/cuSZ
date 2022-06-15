@@ -74,7 +74,7 @@ using std::cout;
  ******************************************************************************/
 
 #define TEMPLATE_TYPE template <typename T, typename H, typename M>
-#define IMPL HuffmanCoarse<T, H, M>::impl
+#define IMPL LosslessCodec<T, H, M>::impl
 
 namespace cusz {
 

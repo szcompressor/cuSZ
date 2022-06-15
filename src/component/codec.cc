@@ -15,16 +15,16 @@
 namespace cusz {
 
 #define TEMPLATE_TYPE template <typename T, typename H, typename M>
-#define HUFFMAN_COARSE HuffmanCoarse<T, H, M>
+#define HUFFMAN_COARSE LosslessCodec<T, H, M>
 
 TEMPLATE_TYPE
-HUFFMAN_COARSE::~HuffmanCoarse() { pimpl.reset(); }
+HUFFMAN_COARSE::~LosslessCodec() { pimpl.reset(); }
 
 TEMPLATE_TYPE
-HUFFMAN_COARSE::HuffmanCoarse() : pimpl{std::make_unique<impl>()} {}
+HUFFMAN_COARSE::LosslessCodec() : pimpl{std::make_unique<impl>()} {}
 
 TEMPLATE_TYPE
-HUFFMAN_COARSE::HuffmanCoarse(const HUFFMAN_COARSE& old) : pimpl{std::make_unique<impl>(*old.pimpl)}
+HUFFMAN_COARSE::LosslessCodec(const HUFFMAN_COARSE& old) : pimpl{std::make_unique<impl>(*old.pimpl)}
 {
     // TODO allocation/deep copy
 }
@@ -38,7 +38,7 @@ HUFFMAN_COARSE& HUFFMAN_COARSE::operator=(const HUFFMAN_COARSE& old)
 }
 
 TEMPLATE_TYPE
-HUFFMAN_COARSE::HuffmanCoarse(HUFFMAN_COARSE&&) = default;
+HUFFMAN_COARSE::LosslessCodec(HUFFMAN_COARSE&&) = default;
 
 TEMPLATE_TYPE
 HUFFMAN_COARSE& HUFFMAN_COARSE::operator=(HUFFMAN_COARSE&&) = default;
@@ -97,7 +97,7 @@ float HUFFMAN_COARSE::get_time_lossless() const { return pimpl->get_time_lossles
 }  // namespace cusz
 
 #define HUFFCOARSE_CC(E, ETF, H, M) \
-    template class cusz::HuffmanCoarse<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
+    template class cusz::LosslessCodec<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
 
 HUFFCOARSE_CC(2, false, 4, 4)  // deprecated
 HUFFCOARSE_CC(2, false, 8, 4)  // deprecated

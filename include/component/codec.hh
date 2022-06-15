@@ -22,17 +22,19 @@
 
 namespace cusz {
 
-template <typename T, typename H, typename M>
-class CodecInterface {
-   public:
-    virtual float get_time_elapsed() const  = 0;
-    virtual float get_time_book() const     = 0;
-    virtual float get_time_lossless() const = 0;
-    virtual void  clear_buffer()            = 0;
-};
+// template <typename T, typename H, typename M>
+// class CodecInterface {
+//    public:
+//     virtual float get_time_elapsed() const  = 0;
+//     virtual float get_time_book() const     = 0;
+//     virtual float get_time_lossless() const = 0;
+//     virtual void  clear_buffer()            = 0;
+// };
 
 template <typename T, typename H, typename M>
-class HuffmanCoarse : CodecInterface<T, H, M> {
+class LosslessCodec
+// : CodecInterface<T, H, M>
+{
    public:
     using Origin    = T;
     using Encoded   = H;
@@ -45,12 +47,12 @@ class HuffmanCoarse : CodecInterface<T, H, M> {
     std::unique_ptr<impl> pimpl;
 
    public:
-    ~HuffmanCoarse();                                // dtor
-    HuffmanCoarse();                                 // ctor
-    HuffmanCoarse(const HuffmanCoarse&);             // copy ctor
-    HuffmanCoarse& operator=(const HuffmanCoarse&);  // copy assign
-    HuffmanCoarse(HuffmanCoarse&&);                  // move ctor
-    HuffmanCoarse& operator=(HuffmanCoarse&&);       // move assign
+    ~LosslessCodec();                                // dtor
+    LosslessCodec();                                 // ctor
+    LosslessCodec(const LosslessCodec&);             // copy ctor
+    LosslessCodec& operator=(const LosslessCodec&);  // copy assign
+    LosslessCodec(LosslessCodec&&);                  // move ctor
+    LosslessCodec& operator=(LosslessCodec&&);       // move assign
 
     void init(size_t const, int const, int const, bool dbg_print = false);
     void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
@@ -64,7 +66,7 @@ class HuffmanCoarse : CodecInterface<T, H, M> {
 };
 
 template <typename T, typename H, typename M>
-class HuffmanCoarse<T, H, M>::impl {
+class LosslessCodec<T, H, M>::impl {
    public:
     using Origin    = T;
     using Encoded   = H;

@@ -50,8 +50,8 @@ struct PredefinedCombination {
     using SpcodecVec = typename cusz::SpcodecVec<DATA, Meta4>;
 
     /* Lossless Codec*/
-    using CodecHuffman32 = cusz::HuffmanCoarse<ERRCTRL, Huff4, Meta4>;
-    using CodecHuffman64 = cusz::HuffmanCoarse<ERRCTRL, Huff8, Meta4>;
+    using CodecHuffman32 = cusz::LosslessCodec<ERRCTRL, Huff4, Meta4>;
+    using CodecHuffman64 = cusz::LosslessCodec<ERRCTRL, Huff8, Meta4>;
 
     /* Predefined Combination */
     using LorenzoFeatured = CompressorTemplate<PredictionUnified, SpcodecVec, CodecHuffman32, CodecHuffman64>;
