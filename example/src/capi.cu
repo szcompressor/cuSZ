@@ -71,9 +71,16 @@ void f(std::string fname)
     cusz_len         uncomp_len = cusz_len{3600, 1800, 1, 1, 1.03};
     cusz_len         decomp_len = uncomp_len;
 
+    cusz::TimeRecord compress_timerecord;
+    cusz::TimeRecord decompress_timerecord;
+
     {
         cusz_compress(
-            comp, config, d_uncompressed, uncomp_len, &exposed_compressed, &compressed_len, &header, nullptr, stream);
+            comp, config, d_uncompressed, uncomp_len, &exposed_compressed, &compressed_len, &header,
+            (void*)&compress_timerecord, stream);
+
+        /* User can interpret the collected time information in other ways. */
+        cusz::TimeRecordViewer::view_compression(&compress_timerecord, len * sizeof(T), compressed_len);
 
         /* verify header */
         printf("header.%-*s : %x\n", 12, "(addr)", &header);
@@ -86,7 +93,11 @@ void f(std::string fname)
     cudaMemcpy(compressed, exposed_compressed, compressed_len, cudaMemcpyDeviceToDevice);
 
     {
-        cusz_decompress(comp, &header, exposed_compressed, compressed_len, d_decompressed, decomp_len, nullptr, stream);
+        cusz_decompress(
+            comp, &header, exposed_compressed, compressed_len, d_decompressed, decomp_len,
+            (void*)&decompress_timerecord, stream);
+
+        cusz::TimeRecordViewer::view_decompression(&decompress_timerecord, len * sizeof(T));
     }
 
     /* a casual peek */

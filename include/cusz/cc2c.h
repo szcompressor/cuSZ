@@ -51,7 +51,7 @@ struct cusz_compressor {
         uint8_t**      compressed,
         size_t*        comp_bytes,
         cusz_header*   header,
-        cusz_record**  record,
+        void*          record,
         cudaStream_t   stream);
 
     cusz_error_status decompress(
@@ -60,7 +60,7 @@ struct cusz_compressor {
         size_t const   comp_len,
         void*          decompressed,
         cusz_len const decomp_len,
-        cusz_record**  record,
+        void*          record,
         cudaStream_t   stream);
 };
 

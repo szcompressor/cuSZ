@@ -68,10 +68,10 @@ cusz_error_status cusz_compressor::compress(
     uint8_t**      compressed,
     size_t*        comp_bytes,
     cusz_header*   header,
-    cusz_record**  record,
+    void*          record,
     cudaStream_t   stream)
 {
-    cusz::TimeRecord cpp_record;
+    // cusz::TimeRecord cpp_record;
 
     context = new cusz_context();
     static_cast<cusz_context*>(context)
@@ -96,7 +96,7 @@ cusz_error_status cusz_compressor::compress(
                 static_cast<cusz_context*>(context), static_cast<DATA*>(uncompressed), *compressed, *comp_bytes,
                 stream);
         static_cast<Compressor*>(this->compressor)->export_header(*header);
-        static_cast<Compressor*>(this->compressor)->export_timerecord(&cpp_record);
+        static_cast<Compressor*>(this->compressor)->export_timerecord((cusz::TimeRecord*)record);
     }
     else {
         throw std::runtime_error(std::string(__FUNCTION__) + ": Type is not supported.");
@@ -111,10 +111,10 @@ cusz_error_status cusz_compressor::decompress(
     size_t const   comp_len,
     void*          decompressed,
     cusz_len const decomp_len,
-    cusz_record**  record,
+    void*          record,
     cudaStream_t   stream)
 {
-    cusz::TimeRecord cpp_record;
+    // cusz::TimeRecord cpp_record;
 
     if (type == FP32) {
         using DATA       = float;
@@ -123,7 +123,7 @@ cusz_error_status cusz_compressor::decompress(
         static_cast<Compressor*>(this->compressor)->init(header);
         static_cast<Compressor*>(this->compressor)
             ->decompress(header, compressed, static_cast<DATA*>(decompressed), stream);
-        static_cast<Compressor*>(this->compressor)->export_timerecord(&cpp_record);
+        static_cast<Compressor*>(this->compressor)->export_timerecord((cusz::TimeRecord*)record);
     }
     else {
         throw std::runtime_error(std::string(__FUNCTION__) + ": Type is not supported.");

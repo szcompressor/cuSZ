@@ -41,7 +41,7 @@ cusz_error_status cusz_compress(
     uint8_t**        compressed,
     size_t*          comp_bytes,
     cusz_header*     header,
-    cusz_record**    record,
+    void*            record,
     cudaStream_t     stream);
 
 cusz_error_status cusz_decompress(
@@ -51,7 +51,7 @@ cusz_error_status cusz_decompress(
     size_t const     comp_len,
     void*            decompressed,
     cusz_len const   decomp_len,
-    cusz_record**    record,
+    void*            record,
     cudaStream_t     stream);
 
 #endif
