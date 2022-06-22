@@ -9,6 +9,8 @@
  *
  */
 
+#include <cuda_runtime.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,7 +18,6 @@ extern "C" {
 #ifndef CUSZ_H
 #define CUSZ_H
 
-#include <cuda_runtime.h>
 #include <stddef.h>
 
 #include "cusz/cc2c.h"
