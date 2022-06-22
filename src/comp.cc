@@ -23,17 +23,22 @@ cusz_compressor* cusz_create(cusz_framework* framework, cusz_datatype type)
     return new cusz_compressor(framework, type);
 }
 
-void cusz_commit_space(cusz_compressor* comp, cusz_len const reserved_mem, cusz_framework* adjusted)
+cusz_error_status cusz_commit_space(cusz_compressor* comp, cusz_len const reserved_mem, cusz_framework* adjusted)
 {
     if (adjusted)
-        comp->commit_space(reserved_mem, adjusted);
+        return comp->commit_space(reserved_mem, adjusted);
     else {
     }
+    return CUSZ_SUCCESS;
 }
 
-void cusz_release(cusz_compressor* comp) { delete comp; }
+cusz_error_status cusz_release(cusz_compressor* comp)
+{
+    delete comp;
+    return CUSZ_SUCCESS;
+}
 
-void cusz_compress(
+cusz_error_status cusz_compress(
     cusz_compressor* comp,
     cusz_config*     config,
     void*            uncompressed,
@@ -44,10 +49,10 @@ void cusz_compress(
     cusz_record**    record,
     cudaStream_t     stream)
 {
-    comp->compress(config, uncompressed, uncomp_len, compressed, comp_bytes, header, record, stream);
+    return comp->compress(config, uncompressed, uncomp_len, compressed, comp_bytes, header, record, stream);
 }
 
-void cusz_decompress(
+cusz_error_status cusz_decompress(
     cusz_compressor* comp,
     cusz_header*     header,
     uint8_t*         compressed,
@@ -57,5 +62,5 @@ void cusz_decompress(
     cusz_record**    record,
     cudaStream_t     stream)
 {
-    comp->decompress(header, compressed, comp_len, decompressed, decomp_len, record, stream);
+    return comp->decompress(header, compressed, comp_len, decompressed, decomp_len, record, stream);
 }

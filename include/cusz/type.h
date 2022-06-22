@@ -21,8 +21,18 @@ extern "C" {
 //////// state enumeration
 
 typedef enum cusz_error_status {  //
-    GPU_MALLOC_FAILURE = 0,
-    GPU_OUT_OF_MEMORY
+    CUSZ_SUCCESS = 0,
+    CUSZ_FAIL_ONDISK_FILE_ERROR,
+    CUSZ_FAIL_DATA_NOT_READY,
+    // specify error when calling CUDA API
+    CUSZ_FAIL_GPU_MALLOC,
+    CUSZ_FAIL_GPU_MEMCPY,
+    CUSZ_FAIL_GPU_ILLEGAL_ACCESS,
+    // specify error related to our own memory manager
+    CUSZ_FAIL_GPU_OUT_OF_MEMORY,
+    // when compression is useless
+    CUSZ_FAIL_INCOMPRESSIABLE,
+    // TODO component related error
 } cusz_error_status;
 
 typedef struct cusz_fixedlen_internal { /* all nullable */
@@ -147,7 +157,7 @@ typedef struct cusz_custom_framework {
     cusz_custom_predictor    predictor;
     cusz_custom_quantization quantization;
     cusz_custom_codec        codec;
-    cusz_custom_spcodec      spcodec;
+    // cusz_custom_spcodec      spcodec;
 
     cusz_custom_huffman_codec huffman;
 } cusz_custom_framework;

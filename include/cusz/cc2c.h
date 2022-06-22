@@ -39,12 +39,12 @@ struct cusz_compressor {
     cusz_compressor& operator=(cusz_compressor&&) = default;
 
     /* Set size for memory allocation ; optionally adjust the framework */
-    void commit_space(cusz_len const reserved_mem, cusz_framework* adjusted);
+    cusz_error_status commit_space(cusz_len const reserved_mem, cusz_framework* adjusted);
 
     /* Internally deep copy cusz_framework struct */
-    void commit_framework(cusz_framework* framework);
+    cusz_error_status commit_framework(cusz_framework* framework);
 
-    void compress(
+    cusz_error_status compress(
         cusz_config*   config,
         void*          uncompressed,
         cusz_len const uncomp_len,
@@ -54,7 +54,7 @@ struct cusz_compressor {
         cusz_record**  record,
         cudaStream_t   stream);
 
-    void decompress(
+    cusz_error_status decompress(
         cusz_header*   header,
         uint8_t*       compressed,
         size_t const   comp_len,

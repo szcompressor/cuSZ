@@ -31,9 +31,9 @@ cusz_compressor* cusz_create(cusz_framework* framework, cusz_datatype const type
 
 cusz_error_status cusz_commit_space(cusz_fixedlen_internal const* fixedlen, cusz_varlen_internal const* varlen);
 
-void cusz_release(cusz_compressor* comp);
+cusz_error_status cusz_release(cusz_compressor* comp);
 
-void cusz_compress(
+cusz_error_status cusz_compress(
     cusz_compressor* comp,
     cusz_config*     config,
     void*            uncompressed,
@@ -44,7 +44,7 @@ void cusz_compress(
     cusz_record**    record,
     cudaStream_t     stream);
 
-void cusz_decompress(
+cusz_error_status cusz_decompress(
     cusz_compressor* comp,
     cusz_header*     header,
     uint8_t*         compressed,

@@ -19,7 +19,11 @@ extern "C" {
 #include "cusz/type.h"
 }
 
-void cusz_compressor::commit_framework(cusz_framework* _framework) { framework = _framework; }
+cusz_error_status cusz_compressor::commit_framework(cusz_framework* _framework)
+{
+    framework = _framework;
+    return CUSZ_SUCCESS;
+}
 
 cusz_compressor::cusz_compressor(cusz_framework* _framework, cusz_datatype _type) : type(_type)
 {
@@ -37,11 +41,12 @@ cusz_compressor::cusz_compressor(cusz_framework* _framework, cusz_datatype _type
     }
 }
 
-void cusz_compressor::commit_space(cusz_len const reserved_mem, cusz_framework* adjusted)
+cusz_error_status cusz_compressor::commit_space(cusz_len const reserved_mem, cusz_framework* adjusted)
 {
     // TODO adjust framework here
 
     // end of adjusting framework
+    return CUSZ_SUCCESS;
 }
 
 void cc2c_record(cusz::TimeRecord cpp_record, cusz_record** record)
@@ -56,7 +61,7 @@ void cc2c_record(cusz::TimeRecord cpp_record, cusz_record** record)
     }
 }
 
-void cusz_compressor::compress(
+cusz_error_status cusz_compressor::compress(
     cusz_config*   config,
     void*          uncompressed,
     cusz_len const uncomp_len,
@@ -96,9 +101,11 @@ void cusz_compressor::compress(
     else {
         throw std::runtime_error(std::string(__FUNCTION__) + ": Type is not supported.");
     }
+
+    return CUSZ_SUCCESS;
 }
 
-void cusz_compressor::decompress(
+cusz_error_status cusz_compressor::decompress(
     cusz_header*   header,
     uint8_t*       compressed,
     size_t const   comp_len,
@@ -121,4 +128,6 @@ void cusz_compressor::decompress(
     else {
         throw std::runtime_error(std::string(__FUNCTION__) + ": Type is not supported.");
     }
+
+    return CUSZ_SUCCESS;
 }

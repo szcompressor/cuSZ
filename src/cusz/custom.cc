@@ -22,11 +22,8 @@ cusz_custom_framework*    cusz_default_framework()
 {
     return new cusz_custom_framework{
         FP32,  // placeholder; set in another function call
-        Auto,
-        cusz_default_predictor(),
-        cusz_default_quantization(),
-        cusz_default_codec(),
-        cusz_default_spcodec(),
+        Auto, cusz_default_predictor(), cusz_default_quantization(), cusz_default_codec(),
+        // cusz_default_spcodec(),
         cusz_default_huffman_codec()};
 }
 
