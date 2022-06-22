@@ -57,7 +57,15 @@ void f(std::string fname)
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    cusz_framework*  framework  = cusz_default_framework();
+    // using default
+    // cusz_framework* framework = cusz_default_framework();
+    // alternatively
+    cusz_framework* framework = new cusz_custom_framework{
+        .pipeline     = Auto,
+        .predictor    = cusz_custom_predictor{.type = LorenzoI},
+        .quantization = cusz_custom_quantization{.radius = 512},
+        .codec        = cusz_custom_codec{.type = Huffman}};
+
     cusz_compressor* comp       = cusz_create(framework, FP32);
     cusz_config*     config     = new cusz_config{.eb = 2.4e-4, .mode = Rel};
     cusz_len         uncomp_len = cusz_len{3600, 1800, 1, 1, 1.03};
