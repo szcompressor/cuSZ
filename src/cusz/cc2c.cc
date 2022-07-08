@@ -30,7 +30,6 @@ cusz_compressor::cusz_compressor(cusz_framework* _framework, cusz_datatype _type
     framework = _framework;
 
     if (type == FP32) {
-        std::cout << "using default compressor for now" << std::endl;
         using DATA       = float;
         using Compressor = cusz::Framework<DATA>::DefaultCompressor;
 
