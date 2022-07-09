@@ -12,22 +12,18 @@
  */
 
 #include <cassert>
+#include <cstring>
 #include <cmath>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
 
-#include "argument_parser/document.hh"
+#include "cli/document.hh"
 #include "context.hh"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-
 namespace cusz {
-const char* VERSION_TEXT  = "2022-04-10.rc3";
-const int   VERSION       = 20220410;
+const char* VERSION_TEXT  = "2022-06-15.canary";
+const int   VERSION       = 20220615;
 const int   COMPATIBILITY = 0;
 }  // namespace cusz
 
@@ -77,11 +73,11 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
 
     if (dbg_print) {
         for (auto kv : opts) printf("%-*s %-s\n", 10, kv.first.c_str(), kv.second.c_str());
-        cout << "\n";
+        std::cout << "\n";
     }
 
-    string k, v;
-    char*  end;
+    std::string k, v;
+    char*       end;
 
     auto optmatch   = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(k, vs); };
     auto is_enabled = [&](auto& v) -> bool { return v == "on" or v == "ON"; };
@@ -94,29 +90,29 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
             ConfigHelper::check_dtype(v, false);
             ctx->dtype = v;
         }
-        else if (optmatch({"eb", "errorbound"})) {  //
+        else if (optmatch({"eb", "errorbound"})) {
             ctx->eb = StrHelper::str2fp(v);
         }
         else if (optmatch({"mode"})) {
             ConfigHelper::check_cuszmode(v, true);
             ctx->mode = v;
         }
-        else if (optmatch({"len", "length"})) {  //
+        else if (optmatch({"len", "length"})) {
             cuszCTX::parse_input_length(v.c_str(), ctx);
         }
-        else if (optmatch({"allocationlen"})) {  //
-            // placeholder
+        else if (optmatch({"alloclen"})) {
+            ctx->alloclen.len = StrHelper::str2int(v);
         }
         else if (optmatch({"demo"})) {
             ctx->use.predefined_demo = true;
-            ctx->demo_dataset        = string(v);
+            ctx->demo_dataset        = std::string(v);
             ctx->load_demo_sizes();
         }
         else if (optmatch({"cap", "booklen", "dictsize"})) {
             ctx->dict_size = StrHelper::str2int(v);
             ctx->radius    = ctx->dict_size / 2;
         }
-        else if (optmatch({"radius"})) {  //
+        else if (optmatch({"radius"})) {
             ctx->radius    = StrHelper::str2int(v);
             ctx->dict_size = ctx->radius * 2;
         }
@@ -129,7 +125,7 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
             ctx->use.autotune_vle_pardeg = false;
         }
         else if (optmatch({"predictor"})) {
-            ctx->predictor = string(v);
+            ctx->predictor = std::string(v);
         }
         else if (optmatch({"codec"})) {
             // placeholder
@@ -150,7 +146,7 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
             ctx->use.release_input = true;
         }
         else if (optmatch({"pipeline"})) {
-            ctx->compression_pipeline = v;
+            ctx->pipeline = v;
         }
         else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in `config.hh`
             ctx->nz_density        = StrHelper::str2fp(v);
@@ -180,12 +176,12 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
         if (i + 1 >= argc) throw std::runtime_error("out-of-range at" + std::string(argv[i]));
     };
 
-    string opt;
-    auto   optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
+    std::string opt;
+    auto optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
 
     while (i < argc) {
         if (argv[i][0] == '-') {
-            opt = string(argv[i]);
+            opt = std::string(argv[i]);
 
             if (optmatch({"-c", "--config"})) {
                 check_next();
@@ -196,16 +192,16 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
                 set_report(ctx, argv[++i]);
             }
             else if (optmatch({"-h", "--help"})) {
-                cusz::Context::print_full_doc();
+                cusz::Context::print_doc(true);
                 exit(0);
             }
             else if (optmatch({"-v", "--version"})) {
-                cout << ">>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
+                std::cout << ">>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
                 exit(0);
             }
             else if (optmatch({"-m", "--mode"})) {
                 check_next();
-                ctx->mode = string(argv[++i]);
+                ctx->mode = std::string(argv[++i]);
                 if (ctx->mode == "r2r") ctx->preprocess.prescan = true;
             }
             else if (optmatch({"-e", "--eb", "--error-bound"})) {
@@ -215,7 +211,7 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             }
             else if (optmatch({"-p", "--predictor"})) {
                 check_next();
-                ctx->predictor = string(argv[++i]);
+                ctx->predictor = std::string(argv[++i]);
             }
             else if (optmatch({"-c", "--codec"})) {
                 check_next();
@@ -227,7 +223,7 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             }
             else if (optmatch({"-t", "--type", "--dtype"})) {
                 check_next();
-                string s = string(string(argv[++i]));
+                std::string s = std::string(std::string(argv[++i]));
                 if (s == "f32" or s == "fp4")
                     ctx->dtype = "f32";
                 else if (s == "f64" or s == "fp8")
@@ -235,7 +231,7 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             }
             else if (optmatch({"-i", "--input"})) {
                 check_next();
-                ctx->fname.fname = string(argv[++i]);
+                ctx->fname.fname = std::string(argv[++i]);
             }
             else if (optmatch({"-l", "--len"})) {
                 check_next();
@@ -246,13 +242,13 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
                 // placeholder
             }
             else if (optmatch({"-z", "--zip", "--compress"})) {
-                ctx->task_is.construct = true;
+                ctx->cli_task.construct = true;
             }
             else if (optmatch({"-x", "--unzip", "--decompress"})) {
-                ctx->task_is.reconstruct = true;
+                ctx->cli_task.reconstruct = true;
             }
             else if (optmatch({"-r", "--dry-run"})) {
-                ctx->task_is.dryrun = true;
+                ctx->cli_task.dryrun = true;
             }
             else if (optmatch({"--anchor"})) {
                 ctx->use.anchor = true;
@@ -265,12 +261,12 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             }
             else if (optmatch({"-P", "--pre", "--preprocess"})) {
                 check_next();
-                string pre(argv[++i]);
+                std::string pre(argv[++i]);
                 if (pre.find("binning") != std::string::npos) { ctx->preprocess.binning = true; }
             }
             else if (optmatch({"-T", "--post", "--postprocess"})) {
                 check_next();
-                string post(argv[++i]);
+                std::string post(argv[++i]);
                 if (post.find("gzip") != std::string::npos) { ctx->postcompress.cpu_gzip = true; }
                 if (post.find("nvcomp") != std::string::npos) { ctx->postcompress.gpu_nvcomp_cascade = true; }
             }
@@ -279,27 +275,27 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             }
             else if (optmatch({"--pipeline"})) {
                 check_next();
-                ctx->compression_pipeline == string(argv[++i]);
+                ctx->pipeline = std::string(argv[++i]);
             }
             else if (optmatch({"--demo"})) {
                 check_next();
                 ctx->use.predefined_demo = true;
-                ctx->demo_dataset        = string(argv[++i]);
+                ctx->demo_dataset        = std::string(argv[++i]);
                 ctx->load_demo_sizes();
             }
             else if (optmatch({"-S", "-X", "--skip", "--exclude"})) {
                 check_next();
-                string exclude(argv[++i]);
+                std::string exclude(argv[++i]);
                 if (exclude.find("huffman") != std::string::npos) { ctx->skip.huffman = true; }
                 if (exclude.find("write2disk") != std::string::npos) { ctx->skip.write2disk = true; }
             }
             else if (optmatch({"--opath"})) {
                 check_next();
-                ctx->opath = string(argv[++i]);
+                ctx->opath = std::string(argv[++i]);
             }
             else if (optmatch({"--origin", "--compare"})) {
                 check_next();
-                ctx->fname.origin_cmp = string(argv[++i]);
+                ctx->fname.origin_cmp = std::string(argv[++i]);
             }
             else {
                 const char* notif_prefix = "invalid option value at position ";
@@ -307,9 +303,9 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
                 int         size = asprintf(&notif, "%d: %s", i, argv[i]);
                 cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m"
                      << "\n";
-                cerr << string(LOG_NULL.length() + strlen(notif_prefix), ' ');
+                cerr << std::string(LOG_NULL.length() + strlen(notif_prefix), ' ');
                 cerr << "\e[1m";
-                cerr << string(strlen(notif), '~');
+                cerr << std::string(strlen(notif), '~');
                 cerr << "\e[0m\n";
 
                 ctx->trap(-1);
@@ -322,9 +318,9 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
             cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
                  << "\e[0m"
                     "\n"
-                 << string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
-                 << "\e[1m"                                                //
-                 << string(strlen(notif), '~')                             //
+                 << std::string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
+                 << "\e[1m"                                                     //
+                 << std::string(strlen(notif), '~')                             //
                  << "\e[0m\n";
 
             ctx->trap(-1);
@@ -334,6 +330,12 @@ void set_from_cli_input(cusz::context_t ctx, int const argc, char** const argv)
 }
 
 }  // namespace
+
+cuszCTX& cuszCTX::set_control_string(const char* in_str)
+{
+    set_config(this, in_str);
+    return *this;
+}
 
 void cuszCTX::load_demo_sizes()
 {
@@ -358,7 +360,7 @@ void cuszCTX::load_demo_sizes()
 
 void cuszCTX::trap(int _status) { this->read_args_status = _status; }
 
-void cuszCTX::check_cli_args()
+void cuszCTX::validate()
 {
     bool to_abort = false;
     if (fname.fname.empty()) {
@@ -367,18 +369,18 @@ void cuszCTX::check_cli_args()
     }
 
     if (data_len == 1 and not use.predefined_demo) {
-        if (task_is.construct or task_is.dryrun) {
+        if (cli_task.construct or cli_task.dryrun) {
             cerr << LOG_ERR << "wrong input size" << endl;
             to_abort = true;
         }
     }
-    if (not task_is.construct and not task_is.reconstruct and not task_is.dryrun) {
+    if (not cli_task.construct and not cli_task.reconstruct and not cli_task.dryrun) {
         cerr << LOG_ERR << "select compress (-z), decompress (-x) or dry-run (-r)" << endl;
         to_abort = true;
     }
     if (false == ConfigHelper::check_dtype(dtype, false)) {
-        if (task_is.construct or task_is.dryrun) {
-            cout << dtype << endl;
+        if (cli_task.construct or cli_task.dryrun) {
+            std::cout << dtype << endl;
             cerr << LOG_ERR << "must specify data type" << endl;
             to_abort = true;
         }
@@ -389,48 +391,36 @@ void cuszCTX::check_cli_args()
     else if (quant_bytewidth == 2)
         assert(dict_size <= 65536);
 
-    if (task_is.dryrun and task_is.construct and task_is.reconstruct) {
+    if (cli_task.dryrun and cli_task.construct and cli_task.reconstruct) {
         cerr << LOG_WARN << "no need to dry-run, compress and decompress at the same time" << endl;
         cerr << LOG_WARN << "dryrun only" << endl << endl;
-        task_is.construct   = false;
-        task_is.reconstruct = false;
+        cli_task.construct   = false;
+        cli_task.reconstruct = false;
     }
-    else if (task_is.dryrun and task_is.construct) {
+    else if (cli_task.dryrun and cli_task.construct) {
         cerr << LOG_WARN << "no need to dry-run and compress at the same time" << endl;
         cerr << LOG_WARN << "dryrun only" << endl << endl;
-        task_is.construct = false;
+        cli_task.construct = false;
     }
-    else if (task_is.dryrun and task_is.reconstruct) {
+    else if (cli_task.dryrun and cli_task.reconstruct) {
         cerr << LOG_WARN << "no need to dry-run and decompress at the same time" << endl;
         cerr << LOG_WARN << "will dryrun only" << endl << endl;
-        task_is.reconstruct = false;
+        cli_task.reconstruct = false;
     }
 
     if (to_abort) {
-        print_short_doc();
+        print_doc();
         exit(-1);
     }
 }
 
-void cuszCTX::print_short_doc()
-{
-    cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
-    cout << cusz_short_doc << endl;
-}
-
-void cuszCTX::print_full_doc()
-{
-    cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
-    cout << StrHelper::doc_format(cusz_full_doc) << endl;
-}
-
 cuszCTX::cuszCTX(int argc, char** const argv)
 {
-    string opt;
-    auto   optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
+    std::string opt;
+    auto optmatch = [&](std::vector<std::string> vs) -> bool { return ConfigHelper::check_opt_in_list(opt, vs); };
 
     if (argc == 1) {
-        print_short_doc();
+        print_doc();
         exit(0);
     }
 
@@ -447,14 +437,14 @@ cuszCTX::cuszCTX(int argc, char** const argv)
     /******************************************************************************/
     /* phase 1: check syntax */
     if (read_args_status != 0) {
-        cout << LOG_INFO << "Exiting..." << endl;
+        std::cout << LOG_INFO << "Exiting..." << endl;
         // after printing ALL argument errors
         exit(-1);
     }
 
     /******************************************************************************/
     /* phase 2: check if legal */
-    check_cli_args();
+    validate();
 
     /******************************************************************************/
     /* phase 3: sort out filenames */
@@ -476,13 +466,23 @@ cuszCTX::cuszCTX(const char* in_str, bool dbg_print)
     set_config(this, in_str, dbg_print);
 }
 
+void cuszCTX::print_doc(bool full)
+{
+    std::cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
+
+    if (full)
+        std::cout << StrHelper::doc_format(cusz_full_doc) << std::endl;
+    else
+        std::cout << cusz_short_doc << std::endl;
+}
+
 void cuszCTX::derive_fnames()
 {
     // (1) "fname"          -> "", "fname"
     // (2) "./fname"        -> "./" "fname"
     // (3) "/path/to/fname" -> "/path/to", "fname"
     auto input_path = fname.fname.substr(0, fname.fname.rfind('/') + 1);
-    if (not task_is.construct and task_is.reconstruct) fname.fname = fname.fname.substr(0, fname.fname.rfind('.'));
+    if (not cli_task.construct and cli_task.reconstruct) fname.fname = fname.fname.substr(0, fname.fname.rfind('.'));
     fname.basename = fname.fname.substr(fname.fname.rfind('/') + 1);
 
     if (opath.empty()) opath = input_path.empty() ? opath = "" : opath = input_path;

@@ -1,5 +1,6 @@
 ﻿---
 BasedOnStyle: Chromium
+BreakBeforeBraces: Stroustrup
 IndentWidth: 4
 ColumnLimit: 120
 BreakConstructorInitializers: AfterColon
@@ -14,5 +15,3 @@ AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignEscapedNewlines: Left
 AlignAfterOpenBracket: AlwaysBreak
-
-BreakBeforeBraces: Stroustrup

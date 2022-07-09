@@ -64,7 +64,7 @@ submain: $(SRC_DIR)/cusz_interface.cu
 api_sparsity: $(API_DIR)/handle_sparsity.cu
 	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/handle_sparsity.o
 
-extrap_lorenzo: $(API_DIR)/extrap_lorenzo.cu
+extrap_lorenzo: $(API_DIR)/prediction_impl.cu
 	$(NVCC) $(NV_FLAGS) -c $< -o $(API_DIR)/extrap_lorenzo.o
 
 api_huffman: $(API_DIR)/deprecated_lossless_huffman.cu

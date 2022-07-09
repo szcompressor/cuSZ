@@ -16,15 +16,11 @@
 #include <experimental/random>
 #include <iostream>
 #include <string>
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
 
-#include "../../src/analysis/verify.hh"
-#include "../../src/analysis/verify_gpu.cuh"
-#include "../../src/cli/quality_viewer.hh"
-#include "../../src/utils.hh"
+#include "analysis/verify.hh"
+#include "analysis/verify_gpu.cuh"
+#include "cli/quality_viewer.hh"
+#include "utils.hh"
 
 using BYTE = uint8_t;
 using SIZE = size_t;

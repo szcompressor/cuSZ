@@ -1,36 +1,95 @@
-cmake_minimum_required(VERSION 3.14...3.18)
+cmake_minimum_required(VERSION 3.18)
+project(CUSZ LANGUAGES CUDA CXX VERSION 0.3.0)
 
-project(cusz_asap CUDA CXX)
-set(CMAKE_CUDA_STANDARD 14)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-## Policy CMP0104 is introduced as of version 3.18 (policy_max).
-## check `cmake --help-policy CMP0104` for more detail.
-## The maximum possible in compatibility can be set in CMakeLists.txt using
-## `set(CMAKE_CUDA_ARCHITECTURES 60 61 62 70 72 75 80 86)`.
-## For command line, use, for example `cmake -DCMAKE_CUDA_ARCHITECTURES="75" ..` 
-## to specify CUDA arch.
+option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
-enable_language(CUDA)
+find_package(CUDAToolkit REQUIRED)
+find_package(CUB REQUIRED)
+if(TARGET _CUB_CUB)
+  install(TARGETS _CUB_CUB EXPORT CUSZTargets)
+endif()
 
-#include_directories(src)
-#include_directories(src/pSZ)
+include(GNUInstallDirs)
+include(CTest)
 
-## TODO flag only add to a specific library, e.g. suppressing deprecation on CUDA10 cuSPARSE
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations")
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h
+  )
 
-set(LIB_TYPE STATIC)
 
-add_library(pq ${LIB_TYPE} src/component/extrap_lorenzo.cu src/component/interp_spline3.cu)
-add_library(argp ${LIB_TYPE} src/context.cc)
-add_library(sp ${LIB_TYPE} src/component/csr11.cu)
-target_link_libraries(sp PUBLIC -lcusparse)
-add_library(huff ${LIB_TYPE} src/component/huffman_parbook.cu src/component/huffman_coarse.cu)
-target_link_libraries(huff PUBLIC -lcusparse -lcuda)
-set_target_properties(huff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-add_library(compress ${LIB_TYPE} src/compressor.cu)
-add_library(cusz ${LIB_TYPE} src/cli.cu)
+add_library(cuszcompile_settings INTERFACE)
+target_link_libraries(cuszcompile_settings INTERFACE
+  CUB::CUB
+  )
+target_compile_definitions(cuszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
+target_compile_options(cuszcompile_settings INTERFACE
+  $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
+  )
+target_compile_features(cuszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
+target_include_directories(cuszcompile_settings INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
+  )
 
-add_executable(cusz-bin src/cusz-cli.cu)
-target_link_libraries(cusz-bin cusz compress argp huff sp pq)
+
+add_library(cuszargp  src/context.cc)
+target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
+
+add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
+target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
+
+add_library(cuszsp  src/component/spcodec.cc src/detail/spmat.cu src/detail/spvec.cu)
+target_link_libraries(cuszsp PUBLIC cuszcompile_settings CUDA::cusparse)
+
+add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
+target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
+set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
+target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
+
+add_library(cusz  src/comp.cc src/cuszapi.cc )
+target_link_libraries(cusz PUBLIC cuszcomp cuszargp cuszhuff cuszsp cuszpq)
+
+add_executable(cusz-bin src/cli_bin.cu src/cli/cli.cu)
+target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
+
+option(CUSZ_BUILD_EXAMPLES "build example codes" OFF)
+if(CUSZ_BUILD_EXAMPLES)
+  add_subdirectory(example)
+endif()
+
+install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
+install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszsp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cuszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS cusz-bin EXPORT CUSZTargets)
+install(EXPORT CUSZTargets NAMESPACE CUSZ:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)
+include(CMakePackageConfigHelpers)
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/CUSZConfig.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ
+)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfigVersion.cmake"
+  VERSION "${PROJECT_VERSION}"
+  COMPATIBILITY AnyNewerVersion
+)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfigVersion.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ
+)
+
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz/)
