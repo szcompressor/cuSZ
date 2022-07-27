@@ -37,27 +37,29 @@ target_include_directories(cuszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
+add_library(cuszkernel  src/kernel/claunch_cuda.cu)
+target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
 
 add_library(cuszargp  src/context.cc)
 target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 
 add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
-target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
+target_link_libraries(cuszpq PUBLIC cuszcompile_settings cuszkernel)
 
 add_library(cuszsp  src/component/spcodec.cc src/detail/spmat.cu src/detail/spvec.cu)
 target_link_libraries(cuszsp PUBLIC cuszcompile_settings CUDA::cusparse)
 
 add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
-target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver)
+target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cusparse CUDA::cuda_driver cuszkernel)
 set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
 target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
 
-add_library(cusz  src/comp.cc src/cuszapi.cc )
+add_library(cusz  src/comp.cc src/cuszapi.cc)
 target_link_libraries(cusz PUBLIC cuszcomp cuszargp cuszhuff cuszsp cuszpq)
 
-add_executable(cusz-bin src/cli_bin.cu src/cli/cli.cu)
+add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 
@@ -67,6 +69,7 @@ if(CUSZ_BUILD_EXAMPLES)
 endif()
 
 install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
+install(TARGETS cuszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszsp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

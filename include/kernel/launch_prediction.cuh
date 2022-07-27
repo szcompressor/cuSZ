@@ -15,7 +15,9 @@
 #include <cuda_runtime.h>
 
 #include "../common.hh"
-#include "../utils.hh"
+#include "../utils/cuda_err.cuh"
+#include "../utils/cuda_mem.cuh"
+#include "../utils/timer.hh"
 #include "lorenzo.cuh"
 #include "spline3.cuh"
 

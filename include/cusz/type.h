@@ -21,9 +21,9 @@ extern "C" {
 //////// state enumeration
 
 typedef enum cusz_error_status {  //
-    CUSZ_SUCCESS = 0,
-    CUSZ_FAIL_ONDISK_FILE_ERROR,
-    CUSZ_FAIL_DATA_NOT_READY,
+    CUSZ_SUCCESS                = 0x00,
+    CUSZ_FAIL_ONDISK_FILE_ERROR = 0x01,
+    CUSZ_FAIL_DATA_NOT_READY    = 0x02,
     // specify error when calling CUDA API
     CUSZ_FAIL_GPU_MALLOC,
     CUSZ_FAIL_GPU_MEMCPY,
@@ -33,6 +33,12 @@ typedef enum cusz_error_status {  //
     // when compression is useless
     CUSZ_FAIL_INCOMPRESSIABLE,
     // TODO component related error
+    CUSZ_FAIL_UNSUPPORTED_DATATYPE,
+    CUSZ_FAIL_UNSUPPORTED_QUANTTYPE,
+    CUSZ_FAIL_UNSUPPORTED_PRECISION,
+    CUSZ_FAIL_UNSUPPORTED_PIPELINE,
+    // not-implemented error
+    CUSZ_NOT_IMPLEMENTED = 0x0100,
 } cusz_error_status;
 
 typedef struct cusz_fixedlen_internal { /* all nullable */
@@ -44,8 +50,12 @@ typedef struct cusz_varlen_internal { /* all nullable */
 } cusz_varlen_internal;
 
 typedef enum cusz_datatype  //
-{ FP32 = 0,
-  FP64 = 1 } cusz_datatype;
+{ FP32   = 0,
+  FP64   = 1,
+  UINT8  = 10,
+  UINT16 = 11,
+  UINT32 = 12,
+  UINT64 = 13 } cusz_datatype;
 
 typedef enum cusz_executiontype  //
 { Device = 0,

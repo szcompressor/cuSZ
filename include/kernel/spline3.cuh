@@ -25,13 +25,13 @@
 #define CONSTEXPR
 #endif
 
-#ifndef __CUDACC__
-#define __global__
-#define __device__
-#define __host__
-#define __shared__
-#define __forceinline__
-#endif
+// #ifndef __CUDACC__
+// #define __global__
+// #define __device__
+// #define __host__
+// #define __shared__
+// #define __forceinline__
+// #endif
 
 #define TIX threadIdx.x
 #define TIY threadIdx.y

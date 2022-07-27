@@ -21,6 +21,7 @@
 
 #include "../common.hh"
 #include "../component/prediction.hh"
+#include "../kernel/cpplaunch_cuda.hh"
 #include "../kernel/launch_prediction.cuh"
 #include "../utils.hh"
 
@@ -134,19 +135,25 @@ void IMPL::construct(
         auto placeholder2 = dim3(0, 0, 0);
 
         if (not delay_postquant)
-            launch_construct_LorenzoI<T, E, FP, false>(
-                data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, eb, radius, time_elapsed, stream);
+            // launch_construct_LorenzoI<T, E, FP, false>(
+            cusz::cpplaunch_construct_LorenzoI<T, E, FP>(
+                false,  //
+                data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, eb, radius, &time_elapsed, stream);
         else
-            launch_construct_LorenzoI<T, E, FP, true>(
-                data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, eb, radius, time_elapsed, stream);
+            // launch_construct_LorenzoI<T, E, FP, true>(
+            cusz::cpplaunch_construct_LorenzoI<T, E, FP>(
+                true,  //
+                data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, eb, radius, &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);
         this->check_rtlen();
 
-        launch_construct_Spline3<T, E, FP, true>(
+        // launch_construct_Spline3<T, E, FP, true>(
+        cusz::cpplaunch_construct_Spline3<T, E, FP>(
+            true,  //
             data_outlier, len3, d_anchor, this->rtlen.anchor.len3, d_errctrl, this->rtlen.aligned.len3, eb, radius,
-            time_elapsed, stream);
+            &time_elapsed, stream);
     }
 }
 
@@ -168,17 +175,19 @@ void IMPL::reconstruct(
         auto placeholder1 = dim3(0, 0, 0);
         auto placeholder2 = dim3(0, 0, 0);
 
-        launch_reconstruct_LorenzoI<T, E, FP>(
-            outlier_xdata, len3, anchor, placeholder1, errctrl, placeholder2, eb, radius, time_elapsed, stream);
+        // launch_reconstruct_LorenzoI<T, E, FP>(
+        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(
+            outlier_xdata, len3, anchor, placeholder1, errctrl, placeholder2, eb, radius, &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);
         this->check_rtlen();
         // this->debug_list_rtlen<T, E, FP>(true);
 
-        launch_reconstruct_Spline3<T, E, FP>(
+        // launch_reconstruct_Spline3<T, E, FP>(
+        cusz::cpplaunch_reconstruct_Spline3<T, E, FP>(
             outlier_xdata, len3, anchor, this->rtlen.anchor.len3, errctrl, this->rtlen.aligned.len3, eb, radius,
-            time_elapsed, stream);
+            &time_elapsed, stream);
     }
 }
 
