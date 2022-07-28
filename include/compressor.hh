@@ -14,7 +14,7 @@
 
 #include <memory>
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "common/type_traits.hh"
 #include "component.hh"
@@ -66,8 +66,8 @@ class Compressor {
     void init(Context*, bool dbg_print = false);
     void init(Header*, bool dbg_print = false);
     void destroy();
-    void compress(Context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decompress(Header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    void compress(Context*, T*, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decompress(Header*, BYTE*, T*, hipStream_t = nullptr, bool = true);
     void clear_buffer();
     // getter
     void export_header(Header&);
@@ -107,8 +107,8 @@ class Compressor<BINDING>::impl {
     // public methods
     void init(Context* config, bool dbg_print = false);
     void init(Header* config, bool dbg_print = false);
-    void compress(Context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decompress(Header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    void compress(Context*, T*, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decompress(Header*, BYTE*, T*, hipStream_t = nullptr, bool = true);
     void clear_buffer();
 
     // getter
@@ -124,8 +124,8 @@ class Compressor<BINDING>::impl {
     void init_codec(size_t, unsigned int, int, int, bool);
     void collect_compress_timerecord();
     void collect_decompress_timerecord();
-    void encode_with_exception(E*, size_t, uint32_t*, int, int, int, bool, BYTE*&, size_t&, cudaStream_t, bool);
-    void subfile_collect(T*, size_t, BYTE*, size_t, BYTE*, size_t, cudaStream_t, bool);
+    void encode_with_exception(E*, size_t, uint32_t*, int, int, int, bool, BYTE*&, size_t&, hipStream_t, bool);
+    void subfile_collect(T*, size_t, BYTE*, size_t, BYTE*, size_t, hipStream_t, bool);
     void destroy();
     // getter
 };

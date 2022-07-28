@@ -12,7 +12,7 @@
 #ifndef CUSZ_COMMON_CONFIGS_HH
 #define CUSZ_COMMON_CONFIGS_HH
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cxxabi.h>
 #include <cmath>
 #include <fstream>

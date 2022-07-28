@@ -14,8 +14,8 @@
 
 #define DEFINE_ARRAY(VAR, TYPE) TYPE* d_##VAR{nullptr};
 
-#include <cuda_runtime.h>
-#include <cusparse.h>
+#include <hip/hip_runtime.h>
+#include <hipsparse.h>
 
 #include <cstdint>
 #include <memory>
@@ -41,8 +41,8 @@ class SpcodecCSR {
     SpcodecCSR& operator=(SpcodecCSR&&);       // move assign
 
     void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decode(BYTE*, T*, hipStream_t = nullptr);
     void clear_buffer();
     // getter
     float get_time_elapsed() const;
@@ -72,18 +72,18 @@ class SpcodecCSR<T, M>::impl {
     DEFINE_ARRAY(val, T);
 
    private:
-    void gather_CUDA_11020(T*, cudaStream_t = nullptr);
-    void scatter_CUDA_11020(BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    void gather_CUDA_fallback(T*, cudaStream_t = nullptr);
-    void scatter_CUDA_fallback(BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    void subfile_collect(Header&, size_t, cudaStream_t = nullptr, bool = false);
+    void gather_CUDA_11020(T*, hipStream_t = nullptr);
+    void scatter_CUDA_11020(BYTE*, T*, hipStream_t = nullptr, bool = true);
+    void gather_CUDA_fallback(T*, hipStream_t = nullptr);
+    void scatter_CUDA_fallback(BYTE*, T*, hipStream_t = nullptr, bool = true);
+    void subfile_collect(Header&, size_t, hipStream_t = nullptr, bool = false);
 
    public:
     impl() = default;
     ~impl();
     void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decode(BYTE*, T*, hipStream_t = nullptr);
     void clear_buffer();
     // getter
     float get_time_elapsed() const;
@@ -117,20 +117,11 @@ struct SpcodecCSR<T, M>::impl::runtime_encode_helper {
 
     uint32_t nbyte[END];
 
-#if CUDART_VERSION >= 11020
-    cusparseHandle_t     handle{nullptr};
-    cusparseSpMatDescr_t spmat;
-    cusparseDnMatDescr_t dnmat;
-
-    void*  d_buffer{nullptr};
-    size_t d_buffer_size{0};
-#elif CUDART_VERSION >= 10000
-    cusparseHandle_t   handle{nullptr};
-    cusparseMatDescr_t mat_desc{nullptr};
+    hipsparseHandle_t   handle{nullptr};
+    hipsparseMatDescr_t mat_desc{nullptr};
 
     size_t lwork_in_bytes{0};
     char*  d_work{nullptr};
-#endif
     uint32_t m{0};
     int64_t  nnz{0};
     Header*  ptr_header{nullptr};
@@ -159,8 +150,8 @@ class SpcodecVec {
     SpcodecVec& operator=(SpcodecVec&&);       // move assign
 
     void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decode(BYTE*, T*, hipStream_t = nullptr);
     void clear_buffer();
     // getter
     float get_time_elapsed() const;
@@ -188,14 +179,14 @@ struct SpcodecVec<T, M>::impl {
     RTE rte;
 
    private:
-    void subfile_collect(Header&, size_t, cudaStream_t = nullptr, bool = false);
+    void subfile_collect(Header&, size_t, hipStream_t = nullptr, bool = false);
 
    public:
     impl() = default;
     ~impl();
     void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decode(BYTE*, T*, hipStream_t = nullptr);
     void clear_buffer();
     // getter
     float get_time_elapsed() const;

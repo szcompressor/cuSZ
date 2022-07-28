@@ -12,7 +12,7 @@
 #ifndef CUSZ_CC2C_H
 #define CUSZ_CC2C_H
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include "../header.h"
 #include "record.h"
 #include "type.h"
@@ -52,7 +52,7 @@ struct cusz_compressor {
         size_t*        comp_bytes,
         cusz_header*   header,
         void*          record,
-        cudaStream_t   stream);
+        hipStream_t   stream);
 
     cusz_error_status decompress(
         cusz_header*   header,
@@ -61,7 +61,7 @@ struct cusz_compressor {
         void*          decompressed,
         cusz_len const decomp_len,
         void*          record,
-        cudaStream_t   stream);
+        hipStream_t   stream);
 };
 
 #endif

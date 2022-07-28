@@ -12,7 +12,7 @@
 #ifndef CUSZ_COMPONENT_CODECS_HH
 #define CUSZ_COMPONENT_CODECS_HH
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cstdint>
 #include <memory>
 
@@ -55,9 +55,9 @@ class LosslessCodec
     LosslessCodec& operator=(LosslessCodec&&);       // move assign
 
     void init(size_t const, int const, int const, bool dbg_print = false);
-    void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, uint32_t*, int const, int const, int const, BYTE*&, size_t&, cudaStream_t = nullptr);
-    void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    void build_codebook(uint32_t*, int const, hipStream_t = nullptr);
+    void encode(T*, size_t const, uint32_t*, int const, int const, int const, BYTE*&, size_t&, hipStream_t = nullptr);
+    void decode(BYTE*, T*, hipStream_t = nullptr, bool = true);
     void clear_buffer();
 
     float get_time_elapsed() const;
@@ -155,13 +155,13 @@ class LosslessCodec<T, H, M>::impl {
     constexpr bool can_overlap_input_and_firstphase_encode();
     // public methods
     void init(size_t const, int const, int const, bool dbg_print = false);
-    void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, uint32_t*, int const, int const, int const, BYTE*&, size_t&, cudaStream_t = nullptr);
-    void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    void build_codebook(uint32_t*, int const, hipStream_t = nullptr);
+    void encode(T*, size_t const, uint32_t*, int const, int const, int const, BYTE*&, size_t&, hipStream_t = nullptr);
+    void decode(BYTE*, T*, hipStream_t = nullptr, bool = true);
     void clear_buffer();
 
    private:
-    void subfile_collect(Header&, size_t const, int const, int const, int const, cudaStream_t stream = nullptr);
+    void subfile_collect(Header&, size_t const, int const, int const, int const, hipStream_t stream = nullptr);
     void dbg_println(const std::string, void*, int);
 };
 

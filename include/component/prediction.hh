@@ -12,7 +12,7 @@
 #ifndef CUSZ_COMPONENT_PREDICTORS_HH
 #define CUSZ_COMPONENT_PREDICTORS_HH
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cstdint>
 #include <memory>
 
@@ -54,7 +54,7 @@ class PredictionUnified {
         E**                errctrl,
         double const       eb,
         int const          radius,
-        cudaStream_t       stream);
+        hipStream_t       stream);
 
     void reconstruct(
         cusz_predictortype predictor,
@@ -64,7 +64,7 @@ class PredictionUnified {
         E*                 errctrl,
         double const       eb,
         int const          radius,
-        cudaStream_t       stream);
+        hipStream_t       stream);
 
     void clear_buffer();
 
@@ -105,7 +105,7 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
         E**                errctrl,
         double const       eb,
         int const          radius,
-        cudaStream_t       stream);
+        hipStream_t       stream);
 
     void reconstruct(
         cusz_predictortype predictor,
@@ -115,7 +115,7 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
         E*                 errctrl,
         double const       eb,
         int const          radius,
-        cudaStream_t       stream);
+        hipStream_t       stream);
 
     void clear_buffer();
 
@@ -136,9 +136,9 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
     bool outlier_overlapped{true};
 
     template <bool NO_R_SEPARATE>
-    void construct_proxy_LorenzoI(T*, T*, E*, double const, int const, cudaStream_t = nullptr);
+    void construct_proxy_LorenzoI(T*, T*, E*, double const, int const, hipStream_t = nullptr);
 
-    void reconstruct_proxy_LorenzoI(T*, T*, E*, double const, int const, cudaStream_t = nullptr);
+    void reconstruct_proxy_LorenzoI(T*, T*, E*, double const, int const, hipStream_t = nullptr);
 
     void construct_proxy_Spline3(
         T*           data_outlier,
@@ -146,7 +146,7 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
         E*&          errctrl,
         double const eb,
         int const    radius,
-        cudaStream_t stream);
+        hipStream_t stream);
 
     void reconstruct_proxy_Spline3(
         T*           outlier_xdata,
@@ -154,7 +154,7 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
         E*           errctrl,
         double const eb,
         int const    radius,
-        cudaStream_t stream);
+        hipStream_t stream);
 };
 
 // template <typename T, typename E, typename FP>
