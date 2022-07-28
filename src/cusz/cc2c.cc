@@ -9,6 +9,8 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include "cusz/cc2c.h"
 #include "compressor.hh"
 #include "context.hh"
@@ -69,7 +71,7 @@ cusz_error_status cusz_compressor::compress(
     size_t*        comp_bytes,
     cusz_header*   header,
     void*          record,
-    cudaStream_t   stream)
+    hipStream_t   stream)
 {
     // cusz::TimeRecord cpp_record;
 
@@ -112,7 +114,7 @@ cusz_error_status cusz_compressor::decompress(
     void*          decompressed,
     cusz_len const decomp_len,
     void*          record,
-    cudaStream_t   stream)
+    hipStream_t   stream)
 {
     // cusz::TimeRecord cpp_record;
 

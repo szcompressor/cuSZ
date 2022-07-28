@@ -12,6 +12,8 @@
 #define THE_TYPE template <typename T, typename E, typename FP>
 #define PREDICTION PredictionUnified<T, E, FP>
 
+
+#include <hip/hip_runtime.h>
 #include "component/prediction.hh"
 
 namespace cusz {
@@ -99,7 +101,7 @@ void PREDICTION::construct(
     E**                out_errctrl,
     double const       eb,
     int const          radius,
-    cudaStream_t       stream)
+    hipStream_t       stream)
 {
     pimpl->construct(predictor, len3, in_data__out_outlier, out_anchor, out_errctrl, eb, radius, stream);
 }
@@ -113,7 +115,7 @@ void PREDICTION::reconstruct(
     E*                 in_errctrl,
     double const       eb,
     int const          radius,
-    cudaStream_t       stream)
+    hipStream_t       stream)
 {
     pimpl->reconstruct(predictor, len3, in_outlier__out_xdata, in_anchor, in_errctrl, eb, radius, stream);
 }

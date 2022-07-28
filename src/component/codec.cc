@@ -9,6 +9,8 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include "component/codec.hh"
 #include "common/type_traits.hh"
 
@@ -52,7 +54,7 @@ void HUFFMAN_COARSE::init(size_t const in_uncompressed_len, int const booklen, i
 }
 
 TEMPLATE_TYPE
-void HUFFMAN_COARSE::build_codebook(uint32_t* freq, int const booklen, cudaStream_t stream)
+void HUFFMAN_COARSE::build_codebook(uint32_t* freq, int const booklen, hipStream_t stream)
 {
     pimpl->build_codebook(freq, booklen, stream);
 }
@@ -67,7 +69,7 @@ void HUFFMAN_COARSE::encode(
     int const    cfg_pardeg,
     BYTE*&       out_compressed,
     size_t&      out_compressed_len,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     pimpl->encode(
         in_uncompressed, in_uncompressed_len, d_freq, cfg_booklen, cfg_sublen, cfg_pardeg, out_compressed,
@@ -75,7 +77,7 @@ void HUFFMAN_COARSE::encode(
 }
 
 TEMPLATE_TYPE
-void HUFFMAN_COARSE::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool header_on_device)
+void HUFFMAN_COARSE::decode(BYTE* in_compressed, T* out_decompressed, hipStream_t stream, bool header_on_device)
 {
     pimpl->decode(in_compressed, out_decompressed, stream, header_on_device);
 }

@@ -9,6 +9,8 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include "compressor.hh"
 #include "common/configs.hh"
 #include "framework.hh"
@@ -64,7 +66,7 @@ void Compressor<B>::compress(
     Compressor<B>::T* uncompressed,
     BYTE*&            compressed,
     size_t&           compressed_len,
-    cudaStream_t      stream,
+    hipStream_t      stream,
     bool              dbg_print)
 {
     pimpl->compress(config, uncompressed, compressed, compressed_len, stream, dbg_print);
@@ -75,7 +77,7 @@ void Compressor<B>::decompress(
     Header*           config,
     BYTE*             compressed,
     Compressor<B>::T* decompressed,
-    cudaStream_t      stream,
+    hipStream_t      stream,
     bool              dbg_print)
 {
     pimpl->decompress(config, compressed, decompressed, stream, dbg_print);
@@ -116,9 +118,9 @@ int CompressorHelper::autotune_coarse_parvle(Context* ctx)
 {
     auto tune_coarse_huffman_sublen = [](size_t len) {
         int current_dev = 0;
-        cudaSetDevice(current_dev);
-        cudaDeviceProp dev_prop{};
-        cudaGetDeviceProperties(&dev_prop, current_dev);
+        hipSetDevice(current_dev);
+        hipDeviceProp_t dev_prop{};
+        hipGetDeviceProperties(&dev_prop, current_dev);
 
         auto nSM               = dev_prop.multiProcessorCount;
         auto allowed_block_dim = dev_prop.maxThreadsPerBlock;

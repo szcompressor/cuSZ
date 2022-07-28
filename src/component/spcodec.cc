@@ -10,7 +10,7 @@
  */
 
 #include "component/spcodec.hh"
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 namespace cusz {
 
@@ -63,14 +63,14 @@ void SpcodecCSR<T, M>::encode(
     size_t const in_len,
     BYTE*&       out,
     size_t&      out_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     pimpl->encode(in, in_len, out, out_len, stream, dbg_print);
 }
 
 template <typename T, typename M>
-void SpcodecCSR<T, M>::decode(BYTE* coded, T* decoded, cudaStream_t stream)
+void SpcodecCSR<T, M>::decode(BYTE* coded, T* decoded, hipStream_t stream)
 {
     pimpl->decode(coded, decoded, stream);
 }
@@ -136,14 +136,14 @@ void SpcodecVec<T, M>::encode(
     size_t const in_len,
     BYTE*&       out,
     size_t&      out_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     pimpl->encode(in, in_len, out, out_len, stream, dbg_print);
 }
 
 template <typename T, typename M>
-void SpcodecVec<T, M>::decode(BYTE* coded, T* decoded, cudaStream_t stream)
+void SpcodecVec<T, M>::decode(BYTE* coded, T* decoded, hipStream_t stream)
 {
     pimpl->decode(coded, decoded, stream);
 }
