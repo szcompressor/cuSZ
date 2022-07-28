@@ -62,7 +62,7 @@ void get_max_err(
         diff = original;  // aliasing
     }
     else {
-        cudaMalloc(&diff, sizeof(T) * len);
+        hipMalloc(&diff, sizeof(T) * len);
     }
 
     auto expr = [=] __device__(T rel, T oel) { return rel - oel; };
@@ -78,7 +78,7 @@ void get_max_err(
     maximum_val      = *maximum_ptr;
     maximum_loc      = maximum_ptr - d;
 
-    if (not destructive) { cudaFree(diff); }
+    if (not destructive) { hipFree(diff); }
 }
 
 template <typename T>

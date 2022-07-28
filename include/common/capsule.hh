@@ -20,9 +20,9 @@
 #define CONSTEXPR
 #endif
 
-#ifdef __CUDACC__
-#include <cuda_runtime.h>
-#include <driver_types.h>
+#ifdef __HIPCC__
+#include <hip/hip_runtime.h>
+#include <hip/driver_types.h>
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #endif
@@ -225,31 +225,31 @@ class Capsule {
     // TODO really useful?
     Capsule& memset(unsigned char init = 0x0u)
     {
-        cudaMemset(dptr, init, nbyte());
+        hipMemset(dptr, init, nbyte());
         return *this;
     }
 
     Capsule& host2device()
     {
-        cudaMemcpy(dptr, hptr, nbyte(), cudaMemcpyHostToDevice);
+        hipMemcpy(dptr, hptr, nbyte(), hipMemcpyHostToDevice);
         return *this;
     }
 
     Capsule& device2host()
     {
-        cudaMemcpy(hptr, dptr, nbyte(), cudaMemcpyDeviceToHost);
+        hipMemcpy(hptr, dptr, nbyte(), hipMemcpyDeviceToHost);
         return *this;
     }
 
-    Capsule& host2device_async(cudaStream_t stream)
+    Capsule& host2device_async(hipStream_t stream)
     {
-        cudaMemcpyAsync(dptr, hptr, nbyte(), cudaMemcpyHostToDevice, stream);
+        hipMemcpyAsync(dptr, hptr, nbyte(), hipMemcpyHostToDevice, stream);
         return *this;
     }
 
-    Capsule& device2host_async(cudaStream_t stream)
+    Capsule& device2host_async(hipStream_t stream)
     {
-        cudaMemcpyAsync(hptr, dptr, nbyte(), cudaMemcpyDeviceToHost, stream);
+        hipMemcpyAsync(hptr, dptr, nbyte(), hipMemcpyDeviceToHost, stream);
         return *this;
     }
 
@@ -281,8 +281,8 @@ class Capsule {
             if (allocation_status.hptr)
                 LOGGING(LOG_WARN, "already allocated on host");
             else {
-                cudaMallocHost(&hptr, __memory_footprint);
-                cudaMemset(hptr, 0x00, __memory_footprint);
+                hipMallocHost(&hptr, __memory_footprint);
+                hipMemset(hptr, 0x00, __memory_footprint);
                 allocation_status.hptr = true;
             }
         };
@@ -290,8 +290,8 @@ class Capsule {
             if (allocation_status.dptr)
                 LOGGING(LOG_WARN, "already allocated on device");
             else {
-                cudaMalloc(&dptr, __memory_footprint);
-                cudaMemset(dptr, 0x00, __memory_footprint);
+                hipMalloc(&dptr, __memory_footprint);
+                hipMemset(dptr, 0x00, __memory_footprint);
                 allocation_status.dptr = true;
             }
         };
@@ -299,8 +299,8 @@ class Capsule {
             if (allocation_status.uniptr)
                 LOGGING(LOG_WARN, "already allocated on unified mem");
             else {
-                cudaMallocManaged(&uniptr, __memory_footprint);
-                cudaMemset(uniptr, 0x00, __memory_footprint);
+                hipMallocManaged(&uniptr, __memory_footprint);
+                hipMemset(uniptr, 0x00, __memory_footprint);
                 allocation_status.uniptr = true;
             }
         };
@@ -328,20 +328,20 @@ class Capsule {
         auto free_host = [&]() {
             if (not hptr) throw std::runtime_error(ERRSTR_BUILDER("free", "hptr is null"));
 
-            cudaFreeHost(hptr);
+            hipHostFree(hptr);
             allocation_status.hptr = false;
         };
         auto free_device = [&]() {
             if (not dptr) throw std::runtime_error(ERRSTR_BUILDER("free", "dptr is null"));
 
-            cudaFree(dptr);
+            hipFree(dptr);
             allocation_status.dptr = false;
         };
 
         auto free_unified = [&]() {
             if (not uniptr) throw std::runtime_error(ERRSTR_BUILDER("free", "uniptr is null"));
 
-            cudaFree(uniptr);
+            hipFree(uniptr);
             allocation_status.uniptr = false;
         };
 

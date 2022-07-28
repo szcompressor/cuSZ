@@ -49,7 +49,7 @@ void core_compress(
     uint8_t*&    compressed,
     size_t&      compressed_len,
     Header&      header,
-    cudaStream_t stream     = nullptr,
+    hipStream_t stream     = nullptr,
     TimeRecord*  timerecord = nullptr);
 
 /**
@@ -74,7 +74,7 @@ void core_decompress(
     size_t       compressed_len,
     T*           decompressed,
     size_t       decompressed_alloc_len,
-    cudaStream_t stream     = nullptr,
+    hipStream_t stream     = nullptr,
     TimeRecord*  timerecord = nullptr);
 
 }  // namespace cusz

@@ -9,6 +9,8 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include "cuszapi.hh"
 
 #include "cli/quality_viewer.hh"
@@ -53,22 +55,22 @@ void f(std::string fname)
     };
 
     // clang-format off
-    cudaMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
-    cudaMallocHost( &h_uncompressed, sizeof(T) * len );
-    cudaMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
-    cudaMallocHost( &h_decompressed, sizeof(T) * len );
+    hipMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
+    hipMallocHost( &h_uncompressed, sizeof(T) * len );
+    hipMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
+    hipMallocHost( &h_decompressed, sizeof(T) * len );
     // clang-format on
 
     /* User handles loading from filesystem & transferring to device. */
     io::read_binary_to_array(fname, h_uncompressed, len);
-    cudaMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
+    hipMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, hipMemcpyHostToDevice);
 
     /* a casual peek */
     printf("peeking uncompressed data, 20 elements\n");
     peek_devdata(d_uncompressed, 20);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStream_t stream;
+    hipStreamCreate(&stream);
 
     compressor = new Compressor;
     uint8_t* exposed_compressed;
@@ -107,8 +109,8 @@ void f(std::string fname)
     }
 
     /* If needed, User should perform a memcopy to transfer `exposed_compressed` before `compressor` is destroyed. */
-    cudaMalloc(&compressed, compressed_len);
-    cudaMemcpy(compressed, exposed_compressed, compressed_len, cudaMemcpyDeviceToDevice);
+    hipMalloc(&compressed, compressed_len);
+    hipMemcpy(compressed, exposed_compressed, compressed_len, hipMemcpyDeviceToDevice);
 
     // /* release compressor */ delete compressor;
 
@@ -131,13 +133,13 @@ void f(std::string fname)
     peek_devdata(d_decompressed, 20);
 
     /* demo: offline checking (de)compression quality. */
-    /* load data again    */ cudaMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
+    /* load data again    */ hipMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, hipMemcpyHostToDevice);
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len, compressed_len);
 
-    cudaFree(compressed);
+    hipFree(compressed);
     // delete compressor;
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 }
 
 int main(int argc, char** argv)

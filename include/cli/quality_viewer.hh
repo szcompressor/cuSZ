@@ -98,10 +98,10 @@ struct QualityViewer {
         else {
             printf("allocating tmp space for CPU verification\n");
             auto bytes = sizeof(T) * len;
-            cudaMallocHost(&reconstructed, bytes);
-            cudaMallocHost(&origin, bytes);
-            cudaMemcpy(reconstructed, _d1, bytes, cudaMemcpyDeviceToHost);
-            cudaMemcpy(origin, _d2, bytes, cudaMemcpyDeviceToHost);
+            hipMallocHost(&reconstructed, bytes);
+            hipMallocHost(&origin, bytes);
+            hipMemcpy(reconstructed, _d1, bytes, hipMemcpyDeviceToHost);
+            hipMemcpy(origin, _d2, bytes, hipMemcpyDeviceToHost);
         }
         cusz::verify_data<T>(stat, reconstructed, origin, len);
         print_metrics_cross<T>(stat, compressed_bytes, false);
@@ -114,8 +114,8 @@ struct QualityViewer {
         print_metrics_auto(&stat_auto_lag1->reduced.coeff, &stat_auto_lag2->reduced.coeff);
 
         if (from_device) {
-            if (reconstructed) cudaFreeHost(reconstructed);
-            if (origin) cudaFreeHost(origin);
+            if (reconstructed) hipHostFree(reconstructed);
+            if (origin) hipHostFree(origin);
         }
     }
 

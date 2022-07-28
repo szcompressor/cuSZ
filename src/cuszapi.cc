@@ -9,6 +9,8 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include "cuszapi.hh"
 
 namespace cusz {
@@ -22,7 +24,7 @@ void core_compress(
     uint8_t*&    compressed,
     size_t&      compressed_len,
     Header&      header,
-    cudaStream_t stream,
+    hipStream_t stream,
     TimeRecord*  timerecord)
 {
     STASTIC_ASSERT();
@@ -51,7 +53,7 @@ void core_decompress(
     size_t       compressed_len,
     T*           decompressed,
     size_t       decompressed_alloc_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     TimeRecord*  timerecord)
 {
     STASTIC_ASSERT();
@@ -84,13 +86,13 @@ using fp32lorenzo = Framework<float>::LorenzoFeaturedCompressor;
 // clang-format off
 
 template void
-core_compress<fp32lorenzo, float>(fp32lorenzo*, Context*, float*, size_t, uint8_t*&, size_t&, Header&, cudaStream_t, TimeRecord*);
+core_compress<fp32lorenzo, float>(fp32lorenzo*, Context*, float*, size_t, uint8_t*&, size_t&, Header&, hipStream_t, TimeRecord*);
 
 // template void
 // core_compress<fp32spline3, float>(fp32spline3*, Context*, float*, size_t, uint8_t*&, size_t&, Header&, cudaStream_t, TimeRecord*);
 
 template void
-core_decompress<fp32lorenzo, float>(fp32lorenzo*, Header*, uint8_t*, size_t, float*, size_t, cudaStream_t, TimeRecord*);
+core_decompress<fp32lorenzo, float>(fp32lorenzo*, Header*, uint8_t*, size_t, float*, size_t, hipStream_t, TimeRecord*);
 
 // template void
 // core_decompress<fp32spline3, float>(fp32spline3*, Header*, uint8_t*, size_t, float*, size_t, cudaStream_t, TimeRecord*);

@@ -9,7 +9,7 @@
  *
  */
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +43,7 @@ cusz_error_status cusz_compress(
     size_t*          comp_bytes,
     cusz_header*     header,
     void*            record,
-    cudaStream_t     stream);
+    hipStream_t     stream);
 
 cusz_error_status cusz_decompress(
     cusz_compressor* comp,
@@ -53,7 +53,7 @@ cusz_error_status cusz_decompress(
     void*            decompressed,
     cusz_len const   decomp_len,
     void*            record,
-    cudaStream_t     stream);
+    hipStream_t     stream);
 
 #endif
 

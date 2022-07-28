@@ -9,6 +9,8 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include <stdexcept>
 
 #include <thrust/device_ptr.h>
@@ -47,7 +49,7 @@ cusz_error_status cusz_compress(
     size_t*          comp_bytes,
     cusz_header*     header,
     void*            record,
-    cudaStream_t     stream)
+    hipStream_t     stream)
 {
     return comp->compress(config, uncompressed, uncomp_len, compressed, comp_bytes, header, record, stream);
 }
@@ -60,7 +62,7 @@ cusz_error_status cusz_decompress(
     void*            decompressed,
     cusz_len const   decomp_len,
     void*            record,
-    cudaStream_t     stream)
+    hipStream_t     stream)
 {
     return comp->decompress(header, compressed, comp_len, decompressed, decomp_len, record, stream);
 }

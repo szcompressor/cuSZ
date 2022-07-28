@@ -9,12 +9,13 @@
  *
  */
 
+
+#include <hip/hip_runtime.h>
 #include "cusz.h"
 #include "cuszapi.hh"
-#include "utils/io.hh"
 
-// #include "cli/quality_viewer.hh"
-// #include "cli/timerecord_viewer.hh"
+#include "cli/quality_viewer.hh"
+#include "cli/timerecord_viewer.hh"
 
 template <typename T>
 void f(std::string fname)
@@ -36,28 +37,27 @@ void f(std::string fname)
 
     /* code snippet for looking at the device array easily */
     auto peek_devdata = [](T* d_arr, size_t num = 20) {
-        // thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%f\t", i);
-        // });
+        thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%f\t", i); });
         printf("\n");
     };
 
     // clang-format off
-    cudaMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
-    cudaMallocHost( &h_uncompressed, sizeof(T) * len );
-    cudaMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
-    cudaMallocHost( &h_decompressed, sizeof(T) * len );
+    hipMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
+    hipMallocHost( &h_uncompressed, sizeof(T) * len );
+    hipMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
+    hipMallocHost( &h_decompressed, sizeof(T) * len );
     // clang-format on
 
     /* User handles loading from filesystem & transferring to device. */
     io::read_binary_to_array(fname, h_uncompressed, len);
-    cudaMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
+    hipMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, hipMemcpyHostToDevice);
 
     /* a casual peek */
     printf("peeking uncompressed data, 20 elements\n");
     peek_devdata(d_uncompressed, 20);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStream_t stream;
+    hipStreamCreate(&stream);
 
     // using default
     // cusz_framework* framework = cusz_default_framework();
@@ -82,7 +82,7 @@ void f(std::string fname)
             (void*)&compress_timerecord, stream);
 
         /* User can interpret the collected time information in other ways. */
-        // cusz::TimeRecordViewer::view_compression(&compress_timerecord, len * sizeof(T), compressed_len);
+        cusz::TimeRecordViewer::view_compression(&compress_timerecord, len * sizeof(T), compressed_len);
 
         /* verify header */
         printf("header.%-*s : %x\n", 12, "(addr)", &header);
@@ -91,15 +91,15 @@ void f(std::string fname)
     }
 
     /* If needed, User should perform a memcopy to transfer `exposed_compressed` before `compressor` is destroyed. */
-    cudaMalloc(&compressed, compressed_len);
-    cudaMemcpy(compressed, exposed_compressed, compressed_len, cudaMemcpyDeviceToDevice);
+    hipMalloc(&compressed, compressed_len);
+    hipMemcpy(compressed, exposed_compressed, compressed_len, hipMemcpyDeviceToDevice);
 
     {
         cusz_decompress(
             comp, &header, exposed_compressed, compressed_len, d_decompressed, decomp_len,
             (void*)&decompress_timerecord, stream);
 
-        // cusz::TimeRecordViewer::view_decompression(&decompress_timerecord, len * sizeof(T));
+        cusz::TimeRecordViewer::view_decompression(&decompress_timerecord, len * sizeof(T));
     }
 
     /* a casual peek */
@@ -107,16 +107,15 @@ void f(std::string fname)
     peek_devdata(d_decompressed, 20);
 
     /* demo: offline checking (de)compression quality. */
-    /* load data again    */ cudaMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
-    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len,
-    // compressed_len);
+    /* load data again    */ hipMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, hipMemcpyHostToDevice);
+    /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len, compressed_len);
 
     cusz_release(comp);
 
-    cudaFree(compressed);
+    hipFree(compressed);
     // delete compressor;
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 }
 
 int main(int argc, char** argv)
