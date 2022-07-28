@@ -56,9 +56,9 @@ void f(std::string fname)
 
     // clang-format off
     hipMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
-    hipMallocHost( &h_uncompressed, sizeof(T) * len );
+    hipHostMalloc( &h_uncompressed, sizeof(T) * len );
     hipMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
-    hipMallocHost( &h_decompressed, sizeof(T) * len );
+    hipHostMalloc( &h_decompressed, sizeof(T) * len );
     // clang-format on
 
     /* User handles loading from filesystem & transferring to device. */
