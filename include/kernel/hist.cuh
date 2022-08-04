@@ -14,7 +14,7 @@
 #ifndef CUSZ_KERNEL_HIST_CUH
 #define CUSZ_KERNEL_HIST_CUH
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cstdio>
 #include <limits>
 
@@ -63,7 +63,7 @@ void launch_histogram(
     cusz::FREQ*  out_freq,
     int          nbin,
     float&       milliseconds,
-    cudaStream_t stream = nullptr);
+    hipStream_t stream = nullptr);
 
 template <typename T>
 __global__ void kernel::NaiveHistogram(T in_data[], int out_freq[], int N, int symbols_per_thread)
@@ -124,7 +124,7 @@ void launch_histogram(
     cusz::FREQ*  out_freq,
     int          num_buckets,
     float&       milliseconds,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     // static_assert(
     //     std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
@@ -133,20 +133,20 @@ void launch_histogram(
     int device_id, max_bytes, num_SMs;
     int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
 
-    cudaGetDevice(&device_id);
-    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, device_id);
+    hipGetDevice(&device_id);
+    hipDeviceGetAttribute(&num_SMs, hipDeviceAttributeMultiprocessorCount, device_id);
 
     auto query_maxbytes = [&]() {
         int max_bytes_opt_in;
-        cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
+        hipDeviceGetAttribute(&max_bytes, hipDeviceAttributeMaxSharedMemoryPerBlock, device_id);
 
         // account for opt-in extra shared memory on certain architectures
-        cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
+        hipDeviceGetAttribute(&max_bytes_opt_in, hipDeviceAttributeSharedMemPerBlockOptin, device_id);
         max_bytes = std::max(max_bytes, max_bytes_opt_in);
 
         // config kernel attribute
-        cudaFuncSetAttribute(
-            kernel::p2013Histogram<T, cusz::FREQ>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
+        //hipFuncSetAttribute(
+        //    kernel::p2013Histogram<T, cusz::FREQ>, hipFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
     };
 
     auto optimize_launch = [&]() {
@@ -169,14 +169,14 @@ void launch_histogram(
     query_maxbytes();
     optimize_launch();
 
-    cuda_timer_t t;
-    t.timer_start(stream);
+    //cuda_timer_t t;
+    //t.timer_start(stream);
     kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
         (in_data, out_freq, in_len, num_buckets, r_per_block);
-    t.timer_end(stream);
-    cudaStreamSynchronize(stream);
+    //t.timer_end(stream);
+    hipStreamSynchronize(stream);
 
-    milliseconds = t.get_time_elapsed();
+    milliseconds = 0;//t.get_time_elapsed();
 }
 
 #endif

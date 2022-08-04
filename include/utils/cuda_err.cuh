@@ -14,23 +14,23 @@
  *
  */
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cstdio>
 
 // back compatibility start
-static void HandleError(cudaError_t err, const char* file, int line)
+static void HandleError(hipError_t err, const char* file, int line)
 {
-    if (err != cudaSuccess) {
-        printf("%s in %s at line %d\n", cudaGetErrorString(err), file, line);
+    if (err != hipSuccess) {
+        printf("%s in %s at line %d\n", hipGetErrorString(err), file, line);
         exit(EXIT_FAILURE);
     }
 }
 #define HANDLE_ERROR(err) (HandleError(err, __FILE__, __LINE__))
 // back compatibility end
 
-static void check_cuda_error(cudaError_t status, const char* file, int line)
+static void check_cuda_error(hipError_t status, const char* file, int line)
 {
-    if (cudaSuccess != status) {
+    if (hipSuccess != status) {
         /*
         printf("\nCUDA error/status reference (as of CUDA 11):\n");
         printf("cudaSuccess                         -> %d\n", cudaSuccess);
@@ -165,7 +165,7 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("\n");
         printf(
             "CUDA API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n",  //
-            file, line, cudaGetErrorString(status), status);
+            file, line, hipGetErrorString(status), status);
         exit(EXIT_FAILURE);
     }
 }

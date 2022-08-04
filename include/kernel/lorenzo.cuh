@@ -17,13 +17,7 @@
 
 #include <cstddef>
 
-#if __has_include(<cub/cub.cuh>)
-// #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
-#include <cub/cub.cuh>
-#else
-// #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
-#include "../../external/cub/cub/cub.cuh"
-#endif
+#include <hipcub/hipcub.hpp>
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr
@@ -394,7 +388,7 @@ __forceinline__ __device__ void load2d_prequant(
     for (auto i = 0; i < YSEQ; i++) {
         if (gix < dimx and giy_base + i < dimy) center[i + 1] = round(data[get_gid(i)] * ebx2_r);
     }
-    auto tmp = __shfl_up_sync(0xffffffff, center[YSEQ], 16);  // same-warp, next-16
+    auto tmp = __shfl_up(0xffffffff, center[YSEQ], 16);  // same-warp, next-16
     if (TIY == 1) center[0] = tmp;
 }
 
@@ -408,7 +402,7 @@ __forceinline__ __device__ void pred2d(Data center[YSEQ + 1])
 #pragma unroll
     for (auto i = YSEQ; i > 0; i--) {
         center[i] -= center[i - 1];
-        auto west = __shfl_up_sync(0xffffffff, center[i], 1, 16);
+        auto west = __shfl_up(0xffffffff, center[i], 1);
         if (TIX > 0) center[i] -= west;
     }
     __syncthreads();
@@ -653,10 +647,10 @@ __global__ void cusz::x_lorenzo_1d1l(  //
     constexpr auto block_dim = BLOCK / SEQ;  // dividable
 
     // coalesce-load (warp-striped) and transpose in shmem (similar for store)
-    typedef cub::BlockLoad<Data, block_dim, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE>    BlockLoadT_outlier;
-    typedef cub::BlockLoad<ErrCtrl, block_dim, SEQ, cub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoadT_quant;
-    typedef cub::BlockStore<Data, block_dim, SEQ, cub::BLOCK_STORE_WARP_TRANSPOSE>  BlockStoreT_xdata;
-    typedef cub::BlockScan<Data, block_dim, cub::BLOCK_SCAN_RAKING_MEMOIZE>
+    typedef hipcub::BlockLoad<Data, block_dim, SEQ, hipcub::BLOCK_LOAD_WARP_TRANSPOSE>    BlockLoadT_outlier;
+    typedef hipcub::BlockLoad<ErrCtrl, block_dim, SEQ, hipcub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoadT_quant;
+    typedef hipcub::BlockStore<Data, block_dim, SEQ, hipcub::BLOCK_STORE_WARP_TRANSPOSE>  BlockStoreT_xdata;
+    typedef hipcub::BlockScan<Data, block_dim, hipcub::BLOCK_SCAN_RAKING_MEMOIZE>
         BlockScanT_xdata;  // TODO autoselect algorithm
 
     __shared__ union TempStorage {  // overlap shared memory space
@@ -691,7 +685,7 @@ __global__ void cusz::x_lorenzo_1d1l(  //
     __syncthreads();
 
     /********************************************************************************
-     * perform partial-sum using cub::InclusiveSum
+     * perform partial-sum using hipcub::InclusiveSum
      ********************************************************************************/
     BlockScanT_xdata(temp_storage.scan_xdata).InclusiveSum(thread_scope.xdata, thread_scope.xdata);
     __syncthreads();  // barrier for shmem reuse
@@ -774,7 +768,7 @@ __global__ void cusz::x_lorenzo_2d1l_16x16data_mapto16x2(
 #pragma unroll
     for (auto& i : thread_scope) {
         for (auto d = 1; d < BLOCK; d *= 2) {
-            Data n = __shfl_up_sync(0xffffffff, i, d, 16);
+            Data n = __shfl_up(0xffffffff, i, d);
             if (TIX >= d) i += n;
         }
         i *= ebx2;
@@ -842,7 +836,7 @@ __global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
         Data val = thread_scope[i];
 
         for (dist = 1; dist < BLOCK; dist *= 2) {
-            addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            addend = __shfl_up(0xffffffff, val, dist);
             if (seg_tix >= dist) val += addend;
         }
 
@@ -853,7 +847,7 @@ __global__ void cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8(
         __syncthreads();
 
         for (dist = 1; dist < BLOCK; dist *= 2) {
-            addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            addend = __shfl_up(0xffffffff, val, dist);
             if (seg_tix >= dist) val += addend;
         }
 
@@ -914,7 +908,7 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
 
         // shuffle, ND partial-sums
         for (auto dist = 1; dist < BLOCK; dist *= 2) {
-            Data addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            Data addend = __shfl_up(0xffffffff, val, dist);
             if (seg_tix >= dist) val += addend;
         }
 
@@ -925,7 +919,7 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
         __syncthreads();
 
         for (auto dist = 1; dist < BLOCK; dist *= 2) {
-            Data addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+            Data addend = __shfl_up(0xffffffff, val, dist);
             if (seg_tix >= dist) val += addend;
         }
 

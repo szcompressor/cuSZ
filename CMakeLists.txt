@@ -44,7 +44,7 @@ target_include_directories(cuszcompile_settings INTERFACE
 add_library(cuszargp  src/context.cc)
 target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 
-add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
+add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cc)
 target_link_libraries(cuszpq PUBLIC cuszcompile_settings)
 
 add_library(cuszsp  src/component/spcodec.cc src/detail/spmat.cu src/detail/spvec.cu)
@@ -54,7 +54,7 @@ add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/d
 target_link_libraries(cuszhuff PUBLIC cuszcompile_settings roc::hipsparse hip::device)
 set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
+add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cc)
 target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
 
 add_library(cusz  src/comp.cc src/cuszapi.cc )

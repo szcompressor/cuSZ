@@ -15,7 +15,7 @@
 #ifndef CUSZ_DEFAULT_PATH_CUH
 #define CUSZ_DEFAULT_PATH_CUH
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <thrust/device_ptr.h>
 #include <iostream>
 #include "component.hh"
@@ -26,8 +26,8 @@
 
 #define DEFINE_DEV(VAR, TYPE) TYPE* d_##VAR{nullptr};
 #define DEFINE_HOST(VAR, TYPE) TYPE* h_##VAR{nullptr};
-#define FREEDEV(VAR) CHECK_CUDA(cudaFree(d_##VAR));
-#define FREEHOST(VAR) CHECK_CUDA(cudaFreeHost(h_##VAR));
+#define FREEDEV(VAR) CHECK_CUDA(hipFree(d_##VAR));
+#define FREEHOST(VAR) CHECK_CUDA(hipHostFree(h_##VAR));
 
 #define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)Header::VAR, 14, #VAR, header.entry[Header::VAR]);
 
@@ -35,7 +35,7 @@
     if (nbyte[Header::FIELD] != 0 and VAR != nullptr) {                                                \
         auto dst = d_reserved_compressed + header.entry[Header::FIELD];                                \
         auto src = reinterpret_cast<BYTE*>(VAR);                                                       \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], cudaMemcpyDeviceToDevice, stream)); \
+        CHECK_CUDA(hipMemcpyAsync(dst, src, nbyte[Header::FIELD], hipMemcpyDeviceToDevice, stream)); \
     }
 
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header->entry[Header::SYM])
@@ -96,7 +96,7 @@ void IMPL::compress(
     T*           uncompressed,
     BYTE*&       compressed,
     size_t&      compressed_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     auto const eb                = (*config).eb;
@@ -168,7 +168,7 @@ void IMPL::compress(
 
     launch_histogram<E>(d_errctrl, errctrl_len, d_freq, booklen, time_hist, stream);
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 
     // TODO remove duplicate get_frequency inside encode_with_exception()
     encode_with_exception(
@@ -179,7 +179,7 @@ void IMPL::compress(
 
     (*spcodec).encode(uncompressed, spcodec_inlen, d_spfmt, spfmt_outlen, stream, dbg_print);
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 
     /******************************************************************************/
 
@@ -209,13 +209,13 @@ void IMPL::clear_buffer()
 }
 
 TEMPLATE_TYPE
-void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool dbg_print)
+void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, hipStream_t stream, bool dbg_print)
 {
     // TODO host having copy of header when compressing
     if (not header) {
         header = new Header;
-        CHECK_CUDA(cudaMemcpyAsync(header, in_compressed, sizeof(Header), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipMemcpyAsync(header, in_compressed, sizeof(Header), hipMemcpyDeviceToHost, stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
     }
 
     data_len3 = dim3(header->x, header->y, header->z);
@@ -316,8 +316,8 @@ void IMPL::init_detail(CONFIG* config, bool dbg_print)
 
     {
         auto bytes = sizeof(cusz::FREQ) * cfg_max_booklen;
-        cudaMalloc(&d_freq, bytes);
-        cudaMemset(d_freq, 0x0, bytes);
+        hipMalloc(&d_freq, bytes);
+        hipMemset(d_freq, 0x0, bytes);
 
         // cudaMalloc(&d_freq_another, bytes);
         // cudaMemset(d_freq_another, 0x0, bytes);
@@ -325,7 +325,7 @@ void IMPL::init_detail(CONFIG* config, bool dbg_print)
 
     init_codec(codec_in_len, codec_config, cfg_max_booklen, cfg_pardeg, dbg_print);
 
-    CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_alloclen_data() * sizeof(T) / 2));
+    CHECK_CUDA(hipMalloc(&d_reserved_compressed, (*predictor).get_alloclen_data() * sizeof(T) / 2));
 }
 
 TEMPLATE_TYPE
@@ -378,7 +378,7 @@ void IMPL::encode_with_exception(
     bool         codec_force_fallback,
     BYTE*&       d_out,
     size_t&      outlen,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     auto build_codebook_using = [&](auto encoder) { (*encoder).build_codebook(d_freq, booklen, stream); };
@@ -426,7 +426,7 @@ void IMPL::subfile_collect(
     size_t       codec_outlen,
     BYTE*        d_spfmt_out,
     size_t       spfmt_outlen,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     header.header_nbyte = sizeof(Header);
@@ -455,13 +455,13 @@ void IMPL::subfile_collect(
 
     if (dbg_print) debug_header_entry();
 
-    CHECK_CUDA(cudaMemcpyAsync(d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(hipMemcpyAsync(d_reserved_compressed, &header, sizeof(header), hipMemcpyHostToDevice, stream));
 
     DEVICE2DEVICE_COPY(d_anchor, ANCHOR)
     DEVICE2DEVICE_COPY(d_codec_out, VLE)
     DEVICE2DEVICE_COPY(d_spfmt_out, SPFMT)
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 }
 
 }  // namespace cusz

@@ -1,0 +1,1 @@
+/opt/rocm-5.1.0/bin/hipcc -rdynamic CMakeFiles/cxxapi.dir/cxxapi.cc.o -o cxxapi  -lcusz 

@@ -1,0 +1,475 @@
+The system is: Linux - 5.3.18-150300.59.68_11.0.76-cray_shasta_c - x86_64
+Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+Compiler: /opt/rocm-5.1.0/bin/hipcc 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+
+The C compiler identification is Clang, found in "/ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/3.20.6/CompilerIdC/a.out"
+
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: /opt/rocm-5.1.0/bin/hipcc 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+
+The CXX compiler identification is Clang, found in "/ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/3.20.6/CompilerIdCXX/a.out"
+
+Detecting C compiler ABI info compiled with the following output:
+Change Dir: /ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_ea9bc/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_ea9bc.dir/build.make CMakeFiles/cmTC_ea9bc.dir/build
+gmake[1]: Entering directory '/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o
+/opt/rocm-5.1.0/bin/hipcc   -v -MD -MT CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -c /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCCompilerABI.c
+AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /opt/rocm-5.1.0/llvm/bin
+Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Candidate multilib: .;@m64
+Selected multilib: .;@m64
+Found HIP installation: /opt/rocm-5.1.0, version 5.1.20531
+ (in-process)
+ "/opt/rocm-5.1.0/llvm/bin/clang-14" -cc1 -triple x86_64-unknown-linux-gnu -emit-obj --mrelax-relocations -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model static -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -resource-dir /opt/rocm-5.1.0/llvm/lib/clang/14.0.0 -dependency-file CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -sys-header-deps -isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/.. -isystem /opt/rocm-5.1.0/include -isystem /opt/rocm-5.1.0/hip/include -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -fdebug-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -ferror-limit 19 -fgnuc-version=4.2.1 -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -x c /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCCompilerABI.c
+clang -cc1 version 14.0.0 based upon LLVM 14.0.0git default target x86_64-unknown-linux-gnu
+ignoring nonexistent directory "/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..
+ /opt/rocm-5.1.0/include
+ /opt/rocm-5.1.0/hip/include
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include
+ /usr/local/include
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include
+ /usr/include
+End of search list.
+Linking C executable cmTC_ea9bc
+/autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ea9bc.dir/link.txt --verbose=1
+/opt/rocm-5.1.0/bin/hipcc  -v -rdynamic CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -o cmTC_ea9bc 
+AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /opt/rocm-5.1.0/llvm/bin
+Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Candidate multilib: .;@m64
+Selected multilib: .;@m64
+Found HIP installation: /opt/rocm-5.1.0, version 5.1.20531
+ "/opt/rocm-5.1.0/llvm/bin/ld.lld" -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_ea9bc /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o /usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o -L/opt/rocm-5.1.0/hip/lib -L/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux -L/usr/lib64/gcc/x86_64-suse-linux/7 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib -L/opt/rocm-5.1.0/llvm/bin/../lib -L/lib -L/usr/lib -lgcc_s -lgcc -lpthread -lm -lrt --enable-new-dtags -rpath=/opt/rocm-5.1.0/hip/lib:/opt/rocm-5.1.0/lib -lamdhip64 CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -lclang_rt.builtins-x86_64 -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib64/gcc/x86_64-suse-linux/7/crtend.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o
+gmake[1]: Leaving directory '/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp'
+
+
+
+Parsed C implicit include dir info from above output: rv=done
+  found start of include info
+  found start of implicit include info
+    add: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..]
+    add: [/opt/rocm-5.1.0/include]
+    add: [/opt/rocm-5.1.0/hip/include]
+    add: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+    add: [/usr/local/include]
+    add: [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include]
+    add: [/usr/include]
+  end of search list found
+  collapse include dir [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0]
+  collapse include dir [/opt/rocm-5.1.0/include] ==> [/opt/rocm-5.1.0/include]
+  collapse include dir [/opt/rocm-5.1.0/hip/include] ==> [/opt/rocm-5.1.0/hip/include]
+  collapse include dir [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+  collapse include dir [/usr/local/include] ==> [/usr/local/include]
+  collapse include dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include] ==> [/usr/x86_64-suse-linux/include]
+  collapse include dir [/usr/include] ==> [/usr/include]
+  implicit include dirs: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0;/opt/rocm-5.1.0/include;/opt/rocm-5.1.0/hip/include;/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include;/usr/local/include;/usr/x86_64-suse-linux/include;/usr/include]
+
+
+Parsed C implicit link information from above output:
+  link line regex: [^( *|.*[/\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_ea9bc/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_ea9bc.dir/build.make CMakeFiles/cmTC_ea9bc.dir/build]
+  ignore line: [gmake[1]: Entering directory '/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp']
+  ignore line: [Building C object CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o]
+  ignore line: [/opt/rocm-5.1.0/bin/hipcc   -v -MD -MT CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -MF CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o.d -o CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -c /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCCompilerABI.c]
+  ignore line: [AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)]
+  ignore line: [Target: x86_64-unknown-linux-gnu]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/rocm-5.1.0/llvm/bin]
+  ignore line: [Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Candidate multilib: .]
+  ignore line: [@m64]
+  ignore line: [Selected multilib: .]
+  ignore line: [@m64]
+  ignore line: [Found HIP installation: /opt/rocm-5.1.0  version 5.1.20531]
+  ignore line: [ (in-process)]
+  ignore line: [ "/opt/rocm-5.1.0/llvm/bin/clang-14" -cc1 -triple x86_64-unknown-linux-gnu -emit-obj --mrelax-relocations -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCCompilerABI.c -mrelocation-model static -mframe-pointer=none -fmath-errno -ffp-contract=on -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -resource-dir /opt/rocm-5.1.0/llvm/lib/clang/14.0.0 -dependency-file CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o.d -MT CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -sys-header-deps -isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/.. -isystem /opt/rocm-5.1.0/include -isystem /opt/rocm-5.1.0/hip/include -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -fdebug-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -ferror-limit 19 -fgnuc-version=4.2.1 -vectorize-loops -vectorize-slp -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -x c /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCCompilerABI.c]
+  ignore line: [clang -cc1 version 14.0.0 based upon LLVM 14.0.0git default target x86_64-unknown-linux-gnu]
+  ignore line: [ignoring nonexistent directory "/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..]
+  ignore line: [ /opt/rocm-5.1.0/include]
+  ignore line: [ /opt/rocm-5.1.0/hip/include]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+  ignore line: [ /usr/local/include]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include]
+  ignore line: [ /usr/include]
+  ignore line: [End of search list.]
+  ignore line: [Linking C executable cmTC_ea9bc]
+  ignore line: [/autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ea9bc.dir/link.txt --verbose=1]
+  ignore line: [/opt/rocm-5.1.0/bin/hipcc  -v -rdynamic CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -o cmTC_ea9bc ]
+  ignore line: [AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)]
+  ignore line: [Target: x86_64-unknown-linux-gnu]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/rocm-5.1.0/llvm/bin]
+  ignore line: [Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Candidate multilib: .]
+  ignore line: [@m64]
+  ignore line: [Selected multilib: .]
+  ignore line: [@m64]
+  ignore line: [Found HIP installation: /opt/rocm-5.1.0  version 5.1.20531]
+  link line: [ "/opt/rocm-5.1.0/llvm/bin/ld.lld" -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_ea9bc /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o /usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o -L/opt/rocm-5.1.0/hip/lib -L/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux -L/usr/lib64/gcc/x86_64-suse-linux/7 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib -L/opt/rocm-5.1.0/llvm/bin/../lib -L/lib -L/usr/lib -lgcc_s -lgcc -lpthread -lm -lrt --enable-new-dtags -rpath=/opt/rocm-5.1.0/hip/lib:/opt/rocm-5.1.0/lib -lamdhip64 CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o -lclang_rt.builtins-x86_64 -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib64/gcc/x86_64-suse-linux/7/crtend.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o]
+    arg [/opt/rocm-5.1.0/llvm/bin/ld.lld] ==> ignore
+    arg [-export-dynamic] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [-m] ==> ignore
+    arg [elf_x86_64] ==> ignore
+    arg [-export-dynamic] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_ea9bc] ==> ignore
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o]
+    arg [-L/opt/rocm-5.1.0/hip/lib] ==> dir [/opt/rocm-5.1.0/hip/lib]
+    arg [-L/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux] ==> dir [/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux]
+    arg [-L/usr/lib64/gcc/x86_64-suse-linux/7] ==> dir [/usr/lib64/gcc/x86_64-suse-linux/7]
+    arg [-L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64] ==> dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64]
+    arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+    arg [-L/usr/lib/../lib64] ==> dir [/usr/lib/../lib64]
+    arg [-L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib] ==> dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib]
+    arg [-L/opt/rocm-5.1.0/llvm/bin/../lib] ==> dir [/opt/rocm-5.1.0/llvm/bin/../lib]
+    arg [-L/lib] ==> dir [/lib]
+    arg [-L/usr/lib] ==> dir [/usr/lib]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [-lpthread] ==> lib [pthread]
+    arg [-lm] ==> lib [m]
+    arg [-lrt] ==> lib [rt]
+    arg [--enable-new-dtags] ==> ignore
+    arg [-rpath=/opt/rocm-5.1.0/hip/lib:/opt/rocm-5.1.0/lib] ==> ignore
+    arg [-lamdhip64] ==> lib [amdhip64]
+    arg [CMakeFiles/cmTC_ea9bc.dir/CMakeCCompilerABI.c.o] ==> ignore
+    arg [-lclang_rt.builtins-x86_64] ==> lib [clang_rt.builtins-x86_64]
+    arg [-lstdc++] ==> lib [stdc++]
+    arg [-lm] ==> lib [m]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [-lc] ==> lib [c]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/crtend.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/crtend.o]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o]
+  collapse obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o] ==> [/usr/lib64/crt1.o]
+  collapse obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o] ==> [/usr/lib64/crti.o]
+  collapse obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o] ==> [/usr/lib64/crtn.o]
+  collapse library dir [/opt/rocm-5.1.0/hip/lib] ==> [/opt/rocm-5.1.0/hip/lib]
+  collapse library dir [/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/lib/linux]
+  collapse library dir [/usr/lib64/gcc/x86_64-suse-linux/7] ==> [/usr/lib64/gcc/x86_64-suse-linux/7]
+  collapse library dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64] ==> [/usr/lib64]
+  collapse library dir [/lib/../lib64] ==> [/lib64]
+  collapse library dir [/usr/lib/../lib64] ==> [/usr/lib64]
+  collapse library dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib] ==> [/usr/x86_64-suse-linux/lib]
+  collapse library dir [/opt/rocm-5.1.0/llvm/bin/../lib] ==> [/opt/rocm-5.1.0/llvm/lib]
+  collapse library dir [/lib] ==> [/lib]
+  collapse library dir [/usr/lib] ==> [/usr/lib]
+  implicit libs: [gcc_s;gcc;pthread;m;rt;amdhip64;clang_rt.builtins-x86_64;stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+  implicit objs: [/usr/lib64/crt1.o;/usr/lib64/crti.o;/usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o;/usr/lib64/gcc/x86_64-suse-linux/7/crtend.o;/usr/lib64/crtn.o]
+  implicit dirs: [/opt/rocm-5.1.0/hip/lib;/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/lib/linux;/usr/lib64/gcc/x86_64-suse-linux/7;/usr/lib64;/lib64;/usr/x86_64-suse-linux/lib;/opt/rocm-5.1.0/llvm/lib;/lib;/usr/lib]
+  implicit fwks: []
+
+
+Detecting CXX compiler ABI info compiled with the following output:
+Change Dir: /ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_e3615/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_e3615.dir/build.make CMakeFiles/cmTC_e3615.dir/build
+gmake[1]: Entering directory '/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o
+/opt/rocm-5.1.0/bin/hipcc   -v -MD -MT CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -c /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCXXCompilerABI.cpp
+AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /opt/rocm-5.1.0/llvm/bin
+Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Candidate multilib: .;@m64
+Selected multilib: .;@m64
+Found HIP installation: /opt/rocm-5.1.0, version 5.1.20531
+ "/opt/rocm-5.1.0/llvm/bin/clang-14" -cc1 -triple amdgcn-amd-amdhsa -aux-triple x86_64-unknown-linux-gnu -emit-obj --mrelax-relocations -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 1 -fhalf-no-semantic-interposition -mframe-pointer=none -fno-rounding-math -mconstructor-aliases -aux-target-cpu x86-64 -fcuda-is-device -mllvm -amdgpu-internalize-symbols -fcuda-allow-variadic-functions -fvisibility hidden -fapply-global-visibility-to-externs -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/hip.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/ocml.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/ockl.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_daz_opt_off.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_unsafe_math_off.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_finite_only_off.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_correctly_rounded_sqrt_on.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_wavefrontsize64_on.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_isa_version_90a.bc -target-cpu gfx90a -debugger-tuning=gdb -v -resource-dir /opt/rocm-5.1.0/llvm/lib/clang/14.0.0 -dependency-file CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers -internal-isystem /opt/rocm-5.1.0/include -include __clang_hip_runtime_wrapper.h -isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/.. -isystem /opt/rocm-5.1.0/include -isystem /opt/rocm-5.1.0/hip/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -std=c++11 -fdeprecated-macro -fno-autolink -fdebug-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -ferror-limit 19 -fhip-new-launch-api -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -vectorize-loops -vectorize-slp -mllvm -amdgpu-early-inline-all=true -mllvm -amdgpu-function-calls=false -cuid=9be7f3cf823d622 -fcuda-allow-variadic-functions -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/CMakeCXXCompilerABI-019130/CMakeCXXCompilerABI-gfx90a.o -x hip /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCXXCompilerABI.cpp
+clang -cc1 version 14.0.0 based upon LLVM 14.0.0git default target x86_64-unknown-linux-gnu
+ignoring nonexistent directory "/include"
+ignoring nonexistent directory "/include"
+ignoring duplicate directory "/opt/rocm-5.1.0/include"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward"
+ignoring duplicate directory "/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include"
+ignoring duplicate directory "/usr/local/include"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include"
+ignoring duplicate directory "/usr/include"
+ignoring duplicate directory "/usr/local/include"
+ignoring duplicate directory "/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include"
+ignoring duplicate directory "/usr/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..
+ /opt/rocm-5.1.0/include
+ /opt/rocm-5.1.0/hip/include
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include
+ /usr/local/include
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include
+ /usr/include
+End of search list.
+ "/opt/rocm-5.1.0/llvm/bin/lld" -flavor gnu --no-undefined -shared -plugin-opt=-amdgpu-internalize-symbols -plugin-opt=mcpu=gfx90a -plugin-opt=O3 -plugin-opt=-amdgpu-early-inline-all=true -plugin-opt=-amdgpu-function-calls=false -o /tmp/CMakeCXXCompilerABI-8e51b1/CMakeCXXCompilerABI-gfx90a.out /tmp/CMakeCXXCompilerABI-019130/CMakeCXXCompilerABI-gfx90a.o
+ "/opt/rocm-5.1.0/llvm/bin/clang-offload-bundler" -type=o -bundle-align=4096 -targets=host-x86_64-unknown-linux,hipv4-amdgcn-amd-amdhsa--gfx90a -inputs=/dev/null,/tmp/CMakeCXXCompilerABI-8e51b1/CMakeCXXCompilerABI-gfx90a.out -outputs=/tmp/CMakeCXXCompilerABI-e23c70.hipfb
+ "/opt/rocm-5.1.0/llvm/bin/clang-14" -cc1 -triple x86_64-unknown-linux-gnu -aux-triple amdgcn-amd-amdhsa -emit-obj --mrelax-relocations -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model static -mframe-pointer=none -fmath-errno -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -resource-dir /opt/rocm-5.1.0/llvm/lib/clang/14.0.0 -dependency-file CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers -internal-isystem /opt/rocm-5.1.0/include -include __clang_hip_runtime_wrapper.h -isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/.. -isystem /opt/rocm-5.1.0/include -isystem /opt/rocm-5.1.0/hip/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -std=c++11 -fdeprecated-macro -fdebug-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -ferror-limit 19 -fhip-new-launch-api -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -vectorize-loops -vectorize-slp -mllvm -amdgpu-early-inline-all=true -mllvm -amdgpu-function-calls=false -fcuda-include-gpubinary /tmp/CMakeCXXCompilerABI-e23c70.hipfb -cuid=9be7f3cf823d622 -fcuda-allow-variadic-functions -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -x hip /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCXXCompilerABI.cpp
+clang -cc1 version 14.0.0 based upon LLVM 14.0.0git default target x86_64-unknown-linux-gnu
+ignoring nonexistent directory "/include"
+ignoring nonexistent directory "/include"
+ignoring duplicate directory "/opt/rocm-5.1.0/include"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward"
+ignoring duplicate directory "/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include"
+ignoring duplicate directory "/usr/local/include"
+ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include"
+ignoring duplicate directory "/usr/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..
+ /opt/rocm-5.1.0/include
+ /opt/rocm-5.1.0/hip/include
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward
+ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include
+ /usr/local/include
+ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include
+ /usr/include
+End of search list.
+Linking CXX executable cmTC_e3615
+/autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e3615.dir/link.txt --verbose=1
+/opt/rocm-5.1.0/bin/hipcc  -v -rdynamic CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_e3615 
+AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /opt/rocm-5.1.0/llvm/bin
+Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7
+Candidate multilib: .;@m64
+Selected multilib: .;@m64
+Found HIP installation: /opt/rocm-5.1.0, version 5.1.20531
+ "/opt/rocm-5.1.0/llvm/bin/ld.lld" -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_e3615 /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o /usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o -L/opt/rocm-5.1.0/hip/lib -L/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux -L/usr/lib64/gcc/x86_64-suse-linux/7 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib -L/opt/rocm-5.1.0/llvm/bin/../lib -L/lib -L/usr/lib -lgcc_s -lgcc -lpthread -lm -lrt --enable-new-dtags -rpath=/opt/rocm-5.1.0/hip/lib:/opt/rocm-5.1.0/lib -lamdhip64 CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -lclang_rt.builtins-x86_64 -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib64/gcc/x86_64-suse-linux/7/crtend.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o
+gmake[1]: Leaving directory '/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp'
+
+
+
+Parsed CXX implicit include dir info from above output: rv=done
+  found start of include info
+  found start of implicit include info
+    add: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..]
+    add: [/opt/rocm-5.1.0/include]
+    add: [/opt/rocm-5.1.0/hip/include]
+    add: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers]
+    add: [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7]
+    add: [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux]
+    add: [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward]
+    add: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+    add: [/usr/local/include]
+    add: [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include]
+    add: [/usr/include]
+  end of search list found
+  collapse include dir [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0]
+  collapse include dir [/opt/rocm-5.1.0/include] ==> [/opt/rocm-5.1.0/include]
+  collapse include dir [/opt/rocm-5.1.0/hip/include] ==> [/opt/rocm-5.1.0/hip/include]
+  collapse include dir [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers]
+  collapse include dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7] ==> [/usr/include/c++/7]
+  collapse include dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux] ==> [/usr/include/c++/7/x86_64-suse-linux]
+  collapse include dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward] ==> [/usr/include/c++/7/backward]
+  collapse include dir [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+  collapse include dir [/usr/local/include] ==> [/usr/local/include]
+  collapse include dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include] ==> [/usr/x86_64-suse-linux/include]
+  collapse include dir [/usr/include] ==> [/usr/include]
+  implicit include dirs: [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0;/opt/rocm-5.1.0/include;/opt/rocm-5.1.0/hip/include;/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers;/usr/include/c++/7;/usr/include/c++/7/x86_64-suse-linux;/usr/include/c++/7/backward;/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include;/usr/local/include;/usr/x86_64-suse-linux/include;/usr/include]
+
+
+Parsed CXX implicit link information from above output:
+  link line regex: [^( *|.*[/\])(ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_e3615/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_e3615.dir/build.make CMakeFiles/cmTC_e3615.dir/build]
+  ignore line: [gmake[1]: Entering directory '/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp']
+  ignore line: [Building CXX object CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o]
+  ignore line: [/opt/rocm-5.1.0/bin/hipcc   -v -MD -MT CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -MF CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o.d -o CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -c /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCXXCompilerABI.cpp]
+  ignore line: [AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)]
+  ignore line: [Target: x86_64-unknown-linux-gnu]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/rocm-5.1.0/llvm/bin]
+  ignore line: [Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Candidate multilib: .]
+  ignore line: [@m64]
+  ignore line: [Selected multilib: .]
+  ignore line: [@m64]
+  ignore line: [Found HIP installation: /opt/rocm-5.1.0  version 5.1.20531]
+  ignore line: [ "/opt/rocm-5.1.0/llvm/bin/clang-14" -cc1 -triple amdgcn-amd-amdhsa -aux-triple x86_64-unknown-linux-gnu -emit-obj --mrelax-relocations -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model pic -pic-level 1 -fhalf-no-semantic-interposition -mframe-pointer=none -fno-rounding-math -mconstructor-aliases -aux-target-cpu x86-64 -fcuda-is-device -mllvm -amdgpu-internalize-symbols -fcuda-allow-variadic-functions -fvisibility hidden -fapply-global-visibility-to-externs -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/hip.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/ocml.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/ockl.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_daz_opt_off.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_unsafe_math_off.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_finite_only_off.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_correctly_rounded_sqrt_on.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_wavefrontsize64_on.bc -mlink-builtin-bitcode /opt/rocm-5.1.0/amdgcn/bitcode/oclc_isa_version_90a.bc -target-cpu gfx90a -debugger-tuning=gdb -v -resource-dir /opt/rocm-5.1.0/llvm/lib/clang/14.0.0 -dependency-file CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers -internal-isystem /opt/rocm-5.1.0/include -include __clang_hip_runtime_wrapper.h -isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/.. -isystem /opt/rocm-5.1.0/include -isystem /opt/rocm-5.1.0/hip/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -std=c++11 -fdeprecated-macro -fno-autolink -fdebug-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -ferror-limit 19 -fhip-new-launch-api -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -vectorize-loops -vectorize-slp -mllvm -amdgpu-early-inline-all=true -mllvm -amdgpu-function-calls=false -cuid=9be7f3cf823d622 -fcuda-allow-variadic-functions -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o /tmp/CMakeCXXCompilerABI-019130/CMakeCXXCompilerABI-gfx90a.o -x hip /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCXXCompilerABI.cpp]
+  ignore line: [clang -cc1 version 14.0.0 based upon LLVM 14.0.0git default target x86_64-unknown-linux-gnu]
+  ignore line: [ignoring nonexistent directory "/include"]
+  ignore line: [ignoring nonexistent directory "/include"]
+  ignore line: [ignoring duplicate directory "/opt/rocm-5.1.0/include"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward"]
+  ignore line: [ignoring duplicate directory "/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include"]
+  ignore line: [ignoring duplicate directory "/usr/local/include"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include"]
+  ignore line: [ignoring duplicate directory "/usr/include"]
+  ignore line: [ignoring duplicate directory "/usr/local/include"]
+  ignore line: [ignoring duplicate directory "/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include"]
+  ignore line: [ignoring duplicate directory "/usr/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..]
+  ignore line: [ /opt/rocm-5.1.0/include]
+  ignore line: [ /opt/rocm-5.1.0/hip/include]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+  ignore line: [ /usr/local/include]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include]
+  ignore line: [ /usr/include]
+  ignore line: [End of search list.]
+  ignore line: [ "/opt/rocm-5.1.0/llvm/bin/lld" -flavor gnu --no-undefined -shared -plugin-opt=-amdgpu-internalize-symbols -plugin-opt=mcpu=gfx90a -plugin-opt=O3 -plugin-opt=-amdgpu-early-inline-all=true -plugin-opt=-amdgpu-function-calls=false -o /tmp/CMakeCXXCompilerABI-8e51b1/CMakeCXXCompilerABI-gfx90a.out /tmp/CMakeCXXCompilerABI-019130/CMakeCXXCompilerABI-gfx90a.o]
+  ignore line: [ "/opt/rocm-5.1.0/llvm/bin/clang-offload-bundler" -type=o -bundle-align=4096 -targets=host-x86_64-unknown-linux hipv4-amdgcn-amd-amdhsa--gfx90a -inputs=/dev/null /tmp/CMakeCXXCompilerABI-8e51b1/CMakeCXXCompilerABI-gfx90a.out -outputs=/tmp/CMakeCXXCompilerABI-e23c70.hipfb]
+  ignore line: [ "/opt/rocm-5.1.0/llvm/bin/clang-14" -cc1 -triple x86_64-unknown-linux-gnu -aux-triple amdgcn-amd-amdhsa -emit-obj --mrelax-relocations -disable-free -clear-ast-before-backend -disable-llvm-verifier -discard-value-names -main-file-name CMakeCXXCompilerABI.cpp -mrelocation-model static -mframe-pointer=none -fmath-errno -fno-rounding-math -mconstructor-aliases -funwind-tables=2 -target-cpu x86-64 -tune-cpu generic -debugger-tuning=gdb -v -fcoverage-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -resource-dir /opt/rocm-5.1.0/llvm/lib/clang/14.0.0 -dependency-file CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o.d -MT CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -sys-header-deps -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers -internal-isystem /opt/rocm-5.1.0/include -include __clang_hip_runtime_wrapper.h -isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/.. -isystem /opt/rocm-5.1.0/include -isystem /opt/rocm-5.1.0/hip/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7 -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -internal-isystem /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include -internal-isystem /usr/local/include -internal-isystem /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -std=c++11 -fdeprecated-macro -fdebug-compilation-dir=/autofs/nccs-svm1_home1/xiyu/cusz-hip/example/src/CMakeFiles/CMakeTmp -ferror-limit 19 -fhip-new-launch-api -fgnuc-version=4.2.1 -fcxx-exceptions -fexceptions -vectorize-loops -vectorize-slp -mllvm -amdgpu-early-inline-all=true -mllvm -amdgpu-function-calls=false -fcuda-include-gpubinary /tmp/CMakeCXXCompilerABI-e23c70.hipfb -cuid=9be7f3cf823d622 -fcuda-allow-variadic-functions -faddrsig -D__GCC_HAVE_DWARF2_CFI_ASM=1 -o CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -x hip /autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/share/cmake-3.20/Modules/CMakeCXXCompilerABI.cpp]
+  ignore line: [clang -cc1 version 14.0.0 based upon LLVM 14.0.0git default target x86_64-unknown-linux-gnu]
+  ignore line: [ignoring nonexistent directory "/include"]
+  ignore line: [ignoring nonexistent directory "/include"]
+  ignore line: [ignoring duplicate directory "/opt/rocm-5.1.0/include"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward"]
+  ignore line: [ignoring duplicate directory "/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include"]
+  ignore line: [ignoring duplicate directory "/usr/local/include"]
+  ignore line: [ignoring duplicate directory "/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include"]
+  ignore line: [ignoring duplicate directory "/usr/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/..]
+  ignore line: [ /opt/rocm-5.1.0/include]
+  ignore line: [ /opt/rocm-5.1.0/hip/include]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include/cuda_wrappers]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/x86_64-suse-linux]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../include/c++/7/backward]
+  ignore line: [ /opt/rocm-5.1.0/llvm/lib/clang/14.0.0/include]
+  ignore line: [ /usr/local/include]
+  ignore line: [ /usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/include]
+  ignore line: [ /usr/include]
+  ignore line: [End of search list.]
+  ignore line: [Linking CXX executable cmTC_e3615]
+  ignore line: [/autofs/nccs-svm1_sw/crusher/spack-envs/base/opt/cray-sles15-zen3/cce-14.0.0/cmake-3.20.6-jj4fb5uctkwbzuugdpjowgktd4fl27dp/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e3615.dir/link.txt --verbose=1]
+  ignore line: [/opt/rocm-5.1.0/bin/hipcc  -v -rdynamic CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_e3615 ]
+  ignore line: [AMD clang version 14.0.0 (https://github.com/RadeonOpenCompute/llvm-project roc-5.1.0 22114 5cba46feb6af367b1cafaa183ec42dbfb8207b14)]
+  ignore line: [Target: x86_64-unknown-linux-gnu]
+  ignore line: [Thread model: posix]
+  ignore line: [InstalledDir: /opt/rocm-5.1.0/llvm/bin]
+  ignore line: [Found candidate GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Selected GCC installation: /usr/lib64/gcc/x86_64-suse-linux/7]
+  ignore line: [Candidate multilib: .]
+  ignore line: [@m64]
+  ignore line: [Selected multilib: .]
+  ignore line: [@m64]
+  ignore line: [Found HIP installation: /opt/rocm-5.1.0  version 5.1.20531]
+  link line: [ "/opt/rocm-5.1.0/llvm/bin/ld.lld" -export-dynamic --eh-frame-hdr -m elf_x86_64 -export-dynamic -dynamic-linker /lib64/ld-linux-x86-64.so.2 -o cmTC_e3615 /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o /usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o -L/opt/rocm-5.1.0/hip/lib -L/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux -L/usr/lib64/gcc/x86_64-suse-linux/7 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64 -L/lib/../lib64 -L/usr/lib/../lib64 -L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib -L/opt/rocm-5.1.0/llvm/bin/../lib -L/lib -L/usr/lib -lgcc_s -lgcc -lpthread -lm -lrt --enable-new-dtags -rpath=/opt/rocm-5.1.0/hip/lib:/opt/rocm-5.1.0/lib -lamdhip64 CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o -lclang_rt.builtins-x86_64 -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib64/gcc/x86_64-suse-linux/7/crtend.o /usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o]
+    arg [/opt/rocm-5.1.0/llvm/bin/ld.lld] ==> ignore
+    arg [-export-dynamic] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [-m] ==> ignore
+    arg [elf_x86_64] ==> ignore
+    arg [-export-dynamic] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_e3615] ==> ignore
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o]
+    arg [-L/opt/rocm-5.1.0/hip/lib] ==> dir [/opt/rocm-5.1.0/hip/lib]
+    arg [-L/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux] ==> dir [/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux]
+    arg [-L/usr/lib64/gcc/x86_64-suse-linux/7] ==> dir [/usr/lib64/gcc/x86_64-suse-linux/7]
+    arg [-L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64] ==> dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64]
+    arg [-L/lib/../lib64] ==> dir [/lib/../lib64]
+    arg [-L/usr/lib/../lib64] ==> dir [/usr/lib/../lib64]
+    arg [-L/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib] ==> dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib]
+    arg [-L/opt/rocm-5.1.0/llvm/bin/../lib] ==> dir [/opt/rocm-5.1.0/llvm/bin/../lib]
+    arg [-L/lib] ==> dir [/lib]
+    arg [-L/usr/lib] ==> dir [/usr/lib]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [-lpthread] ==> lib [pthread]
+    arg [-lm] ==> lib [m]
+    arg [-lrt] ==> lib [rt]
+    arg [--enable-new-dtags] ==> ignore
+    arg [-rpath=/opt/rocm-5.1.0/hip/lib:/opt/rocm-5.1.0/lib] ==> ignore
+    arg [-lamdhip64] ==> lib [amdhip64]
+    arg [CMakeFiles/cmTC_e3615.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+    arg [-lclang_rt.builtins-x86_64] ==> lib [clang_rt.builtins-x86_64]
+    arg [-lstdc++] ==> lib [stdc++]
+    arg [-lm] ==> lib [m]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [-lc] ==> lib [c]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/crtend.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/crtend.o]
+    arg [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o] ==> obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o]
+  collapse obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crt1.o] ==> [/usr/lib64/crt1.o]
+  collapse obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crti.o] ==> [/usr/lib64/crti.o]
+  collapse obj [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64/crtn.o] ==> [/usr/lib64/crtn.o]
+  collapse library dir [/opt/rocm-5.1.0/hip/lib] ==> [/opt/rocm-5.1.0/hip/lib]
+  collapse library dir [/opt/rocm-5.1.0/llvm/bin/../lib/clang/14.0.0/lib/linux] ==> [/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/lib/linux]
+  collapse library dir [/usr/lib64/gcc/x86_64-suse-linux/7] ==> [/usr/lib64/gcc/x86_64-suse-linux/7]
+  collapse library dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../lib64] ==> [/usr/lib64]
+  collapse library dir [/lib/../lib64] ==> [/lib64]
+  collapse library dir [/usr/lib/../lib64] ==> [/usr/lib64]
+  collapse library dir [/usr/lib64/gcc/x86_64-suse-linux/7/../../../../x86_64-suse-linux/lib] ==> [/usr/x86_64-suse-linux/lib]
+  collapse library dir [/opt/rocm-5.1.0/llvm/bin/../lib] ==> [/opt/rocm-5.1.0/llvm/lib]
+  collapse library dir [/lib] ==> [/lib]
+  collapse library dir [/usr/lib] ==> [/usr/lib]
+  implicit libs: [gcc_s;gcc;pthread;m;rt;amdhip64;clang_rt.builtins-x86_64;stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+  implicit objs: [/usr/lib64/crt1.o;/usr/lib64/crti.o;/usr/lib64/gcc/x86_64-suse-linux/7/crtbegin.o;/usr/lib64/gcc/x86_64-suse-linux/7/crtend.o;/usr/lib64/crtn.o]
+  implicit dirs: [/opt/rocm-5.1.0/hip/lib;/opt/rocm-5.1.0/llvm/lib/clang/14.0.0/lib/linux;/usr/lib64/gcc/x86_64-suse-linux/7;/usr/lib64;/lib64;/usr/x86_64-suse-linux/lib;/opt/rocm-5.1.0/llvm/lib;/lib;/usr/lib]
+  implicit fwks: []
+
+

@@ -12,6 +12,7 @@
 #ifndef CUSZ_KERNEL_SPLINE3_CUH
 #define CUSZ_KERNEL_SPLINE3_CUH
 
+#include <hip/hip_runtime.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <type_traits>
@@ -25,15 +26,6 @@
 #define CONSTEXPR
 #endif
 
-#ifndef __CUDACC__
-#define __global__
-#define __device__
-#define __host__
-#define __shared__
-#define __forceinline__
-#endif
-
-#define TIX threadIdx.x
 #define TIY threadIdx.y
 #define TIZ threadIdx.z
 #define BIX blockIdx.x
@@ -41,7 +33,6 @@
 #define BIZ blockIdx.z
 #define BDX blockDim.x
 #define BDY blockDim.y
-#define BDZ blockDim.
 
 using DIM     = unsigned int;
 using STRIDE  = unsigned int;
@@ -185,7 +176,7 @@ __device__ void
 c_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errctrl[9][9][33], int radius)
 {
     // alternatively, reinterprete cast volatile T?[][][] to 1D
-    for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
+    for (int _tix = threadIdx.x; _tix < 33 * 9 * 9; _tix += 256) {
         auto x = (_tix % 33);
         auto y = (_tix / 33) % 9;
         auto z = (_tix / 33) / 9;
@@ -206,9 +197,9 @@ c_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errct
 template <typename T1, int LINEAR_BLOCK_SIZE = 256>
 __device__ void c_gather_anchor(T1* data, DIM3 data_size, STRIDE3 data_leap, T1* anchor, STRIDE3 anchor_leap)
 {
-    auto x = (TIX % 32) + BIX * 32;
-    auto y = (TIX / 32) % 8 + BIY * 8;
-    auto z = (TIX / 32) / 8 + BIZ * 8;
+    auto x = (threadIdx.x % 32) + BIX * 32;
+    auto y = (threadIdx.x / 32) % 8 + BIY * 8;
+    auto z = (threadIdx.x / 32) / 8 + BIZ * 8;
 
     bool pred1 = x % 8 == 0 and y % 8 == 0 and z % 8 == 0;
     bool pred2 = x < data_size.x and y < data_size.y and z < data_size.z;
@@ -228,7 +219,7 @@ __device__ void c_gather_anchor(volatile T1 shm_data[9][9][33], T1* anchor, STRI
 {
     constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
     for (auto i = 0; i < NUM_ITERS; i++) {
-        auto _tix = i * LINEAR_BLOCK_SIZE + TIX;
+        int _tix = i * LINEAR_BLOCK_SIZE + threadIdx.x;
 
         if (_tix < 33 * 9 * 9) {
             auto x = (_tix % 33);
@@ -255,7 +246,7 @@ __device__ void x_reset_scratch_33x9x9data(
     DIM3        anchor_size,  //
     STRIDE3     anchor_leap)
 {
-    for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
+    for (int _tix = threadIdx.x; _tix < 33 * 9 * 9; _tix += 256) {
         auto x = (_tix % 33);
         auto y = (_tix / 33) % 9;
         auto z = (_tix / 33) / 9;
@@ -289,7 +280,7 @@ global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 data_leap, volatile
 {
     constexpr auto TOTAL = 33 * 9 * 9;
 
-    for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+    for (int _tix = threadIdx.x; _tix < TOTAL; _tix += 256) {
         auto x   = (_tix % 33);
         auto y   = (_tix / 33) % 9;
         auto z   = (_tix / 33) / 9;
@@ -309,7 +300,7 @@ shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 d
 {
     constexpr auto TOTAL = 32 * 8 * 8;
 
-    for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+    for (int _tix = threadIdx.x; _tix < TOTAL; _tix += 256) {
         auto x   = (_tix % 32);
         auto y   = (_tix / 32) % 8;
         auto z   = (_tix / 32) / 8;
@@ -393,7 +384,7 @@ __forceinline__ __device__ void interpolate_stage(
 
     if CONSTEXPR (COARSEN) {
         constexpr auto TOTAL = BLOCK_DIMX * BLOCK_DIMY * BLOCK_DIMZ;
-        for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+        for (int _tix = threadIdx.x; _tix < TOTAL; _tix += 256) {
             auto itix = (_tix % BLOCK_DIMX);
             auto itiy = (_tix / BLOCK_DIMX) % BLOCK_DIMY;
             auto itiz = (_tix / BLOCK_DIMX) / BLOCK_DIMY;
@@ -404,9 +395,9 @@ __forceinline__ __device__ void interpolate_stage(
         }
     }
     else {
-        auto itix = (TIX % BLOCK_DIMX);
-        auto itiy = (TIX / BLOCK_DIMX) % BLOCK_DIMY;
-        auto itiz = (TIX / BLOCK_DIMX) / BLOCK_DIMY;
+        auto itix = (threadIdx.x % BLOCK_DIMX);
+        auto itiy = (threadIdx.x / BLOCK_DIMX) % BLOCK_DIMY;
+        auto itiz = (threadIdx.x / BLOCK_DIMX) / BLOCK_DIMY;
         auto x    = xmap(itix, unit);
         auto y    = ymap(itiy, unit);
         auto z    = zmap(itiz, unit);
@@ -505,8 +496,8 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     /******************************************************************************
      test only: print a block
      ******************************************************************************/
-    // if (TIX == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(shm_errctrl); }
-    // if (TIX == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(shm_data); }
+    // if (threadIdx.x == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(shm_errctrl); }
+    // if (threadIdx.x == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(shm_data); }
 }
 
 /********************************************************************************
@@ -591,14 +582,5 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     shmem2global_32x8x8data<T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
 }
 
-#undef TIX
-#undef TIY
-#undef TIZ
-#undef BIX
-#undef BIY
-#undef BIZ
-#undef BDX
-#undef BDY
-#undef BDZ
 
 #endif

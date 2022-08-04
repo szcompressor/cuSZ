@@ -9,13 +9,12 @@
  *
  */
 
-
-#include <hip/hip_runtime.h>
 #include "cusz.h"
 #include "cuszapi.hh"
+#include "utils/io.hh"
 
-#include "cli/quality_viewer.hh"
-#include "cli/timerecord_viewer.hh"
+// #include "cli/quality_viewer.hh"
+// #include "cli/timerecord_viewer.hh"
 
 template <typename T>
 void f(std::string fname)
@@ -37,7 +36,8 @@ void f(std::string fname)
 
     /* code snippet for looking at the device array easily */
     auto peek_devdata = [](T* d_arr, size_t num = 20) {
-        thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%f\t", i); });
+        // thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%f\t", i);
+        // });
         printf("\n");
     };
 
@@ -82,7 +82,7 @@ void f(std::string fname)
             (void*)&compress_timerecord, stream);
 
         /* User can interpret the collected time information in other ways. */
-        cusz::TimeRecordViewer::view_compression(&compress_timerecord, len * sizeof(T), compressed_len);
+        // cusz::TimeRecordViewer::view_compression(&compress_timerecord, len * sizeof(T), compressed_len);
 
         /* verify header */
         printf("header.%-*s : %x\n", 12, "(addr)", &header);
@@ -99,7 +99,7 @@ void f(std::string fname)
             comp, &header, exposed_compressed, compressed_len, d_decompressed, decomp_len,
             (void*)&decompress_timerecord, stream);
 
-        cusz::TimeRecordViewer::view_decompression(&decompress_timerecord, len * sizeof(T));
+        // cusz::TimeRecordViewer::view_decompression(&decompress_timerecord, len * sizeof(T));
     }
 
     /* a casual peek */
@@ -108,7 +108,8 @@ void f(std::string fname)
 
     /* demo: offline checking (de)compression quality. */
     /* load data again    */ hipMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, hipMemcpyHostToDevice);
-    /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len, compressed_len);
+    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len,
+    // compressed_len);
 
     cusz_release(comp);
 

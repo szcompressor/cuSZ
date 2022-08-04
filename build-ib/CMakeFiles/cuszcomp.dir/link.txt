@@ -1,0 +1,2 @@
+/opt/cray/pe/cce/14.0.0/binutils/x86_64/x86_64-pc-linux-gnu/bin/ar qc libcuszcomp.a CMakeFiles/cuszcomp.dir/src/cusz/cc2c.cc.o CMakeFiles/cuszcomp.dir/src/cusz/custom.cc.o CMakeFiles/cuszcomp.dir/src/compressor.cc.o
+/opt/cray/pe/cce/14.0.0/binutils/x86_64/x86_64-pc-linux-gnu/bin/ranlib libcuszcomp.a

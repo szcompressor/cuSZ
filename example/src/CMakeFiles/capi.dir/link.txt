@@ -1,0 +1,1 @@
+/opt/rocm-5.1.0/bin/hipcc -rdynamic CMakeFiles/capi.dir/capi.cc.o -o capi  -lcusz 

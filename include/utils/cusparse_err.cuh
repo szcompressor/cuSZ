@@ -14,41 +14,42 @@
  *
  */
 
-#include <cuda_runtime.h>
-#include <cusparse.h>
+#include <hip/hip_runtime.h>
+#include <hipsparse.h>
 #include <cstdio>
 
 // block cusparse for generic testing
 #ifndef noCUSPARSE
 
-static void check_cusparse_error(cusparseStatus_t status, const char* file, int line)
+static void check_cusparse_error(hipsparseStatus_t status, const char* file, int line)
 {
-    if (CUSPARSE_STATUS_SUCCESS != status) {
-        printf("\nCUSPARSE status reference (as of CUDA 11):\n");
-        printf("CUSPARSE_STATUS_SUCCESS                   -> %d\n", CUSPARSE_STATUS_SUCCESS);
-        printf("CUSPARSE_STATUS_NOT_INITIALIZED           -> %d\n", CUSPARSE_STATUS_NOT_INITIALIZED);
-        printf("CUSPARSE_STATUS_ALLOC_FAILED              -> %d\n", CUSPARSE_STATUS_ALLOC_FAILED);
-        printf("CUSPARSE_STATUS_INVALID_VALUE             -> %d\n", CUSPARSE_STATUS_INVALID_VALUE);
-        printf("CUSPARSE_STATUS_ARCH_MISMATCH             -> %d\n", CUSPARSE_STATUS_ARCH_MISMATCH);
-        printf("CUSPARSE_STATUS_EXECUTION_FAILED          -> %d\n", CUSPARSE_STATUS_EXECUTION_FAILED);
-        printf("CUSPARSE_STATUS_INTERNAL_ERROR            -> %d\n", CUSPARSE_STATUS_INTERNAL_ERROR);
-        printf("CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED -> %d\n", CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
-#if (CUDART_VERSION == 1010)
-        printf("CUSPARSE_STATUS_NOT_SUPPORTED             -> %d\n", CUSPARSE_STATUS_NOT_SUPPORTED);
-#endif
-#if (CUDART_VERSION == 1100)
-        printf("CUSPARSE_STATUS_INSUFFICIENT_RESOURCES    -> %d\n", CUSPARSE_STATUS_INSUFFICIENT_RESOURCES);
-#endif
-#if (CUDART_VERSION == 1100)
-        printf("CUSPARSE_STATUS_INSUFFICIENT_RESOURCES    -> %d\n", CUSPARSE_STATUS_INSUFFICIENT_RESOURCES);
-#endif
-        printf("\n");
-
-#if (CUDART_VERSION >= 1010)
-        printf(
-            "CUSPARSE API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n", file, line,
-            cusparseGetErrorString(status), status);
-#endif
+    if (HIPSPARSE_STATUS_SUCCESS != status) {
+        printf("\n*SPARSE raises an error.\n");
+//        printf("\nCUSPARSE status reference (as of CUDA 11):\n");
+//        printf("CUSPARSE_STATUS_SUCCESS                   -> %d\n", CUSPARSE_STATUS_SUCCESS);
+//        printf("CUSPARSE_STATUS_NOT_INITIALIZED           -> %d\n", CUSPARSE_STATUS_NOT_INITIALIZED);
+//        printf("CUSPARSE_STATUS_ALLOC_FAILED              -> %d\n", CUSPARSE_STATUS_ALLOC_FAILED);
+//        printf("CUSPARSE_STATUS_INVALID_VALUE             -> %d\n", CUSPARSE_STATUS_INVALID_VALUE);
+//        printf("CUSPARSE_STATUS_ARCH_MISMATCH             -> %d\n", CUSPARSE_STATUS_ARCH_MISMATCH);
+//        printf("CUSPARSE_STATUS_EXECUTION_FAILED          -> %d\n", CUSPARSE_STATUS_EXECUTION_FAILED);
+//        printf("CUSPARSE_STATUS_INTERNAL_ERROR            -> %d\n", CUSPARSE_STATUS_INTERNAL_ERROR);
+//        printf("CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED -> %d\n", CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+//#if (CUDART_VERSION == 1010)
+//        printf("CUSPARSE_STATUS_NOT_SUPPORTED             -> %d\n", CUSPARSE_STATUS_NOT_SUPPORTED);
+//#endif
+//#if (CUDART_VERSION == 1100)
+//        printf("CUSPARSE_STATUS_INSUFFICIENT_RESOURCES    -> %d\n", CUSPARSE_STATUS_INSUFFICIENT_RESOURCES);
+//#endif
+//#if (CUDART_VERSION == 1100)
+//        printf("CUSPARSE_STATUS_INSUFFICIENT_RESOURCES    -> %d\n", CUSPARSE_STATUS_INSUFFICIENT_RESOURCES);
+//#endif
+//        printf("\n");
+//
+//#if (CUDART_VERSION >= 1010)
+//        printf(
+//            "CUSPARSE API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n", file, line,
+//            cusparseGetErrorString(status), status);
+//#endif
         exit(EXIT_FAILURE);
     }
 }

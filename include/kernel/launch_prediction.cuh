@@ -12,7 +12,7 @@
 #ifndef PREDICTION_CONFIG_CUH
 #define PREDICTION_CONFIG_CUH
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "../common.hh"
 #include "../utils.hh"
@@ -30,7 +30,7 @@ void launch_construct_LorenzoI(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -70,8 +70,8 @@ void launch_construct_LorenzoI(
 
     auto outlier = data;
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    //cuda_timer_t timer;
+    //timer.timer_start(stream);
 
     if (ndim() == 1) {
         ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D.x, SEQ_1D.x, NO_R_SEPARATE>
@@ -89,13 +89,13 @@ void launch_construct_LorenzoI(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    timer.timer_end(stream);
+    //timer.timer_end(stream);
     if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
     else
-        CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = timer.get_time_elapsed();
+    time_elapsed = 0;//timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP>
@@ -109,7 +109,7 @@ void launch_reconstruct_LorenzoI(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -149,8 +149,8 @@ void launch_reconstruct_LorenzoI(
 
     auto outlier = xdata;
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    //cuda_timer_t timer;
+    //timer.timer_start(stream);
 
     if (ndim() == 1) {
         ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D.x, SEQ_1D.x>
@@ -165,13 +165,13 @@ void launch_reconstruct_LorenzoI(
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
 
-    timer.timer_end(stream);
+    //timer.timer_end(stream);
     if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
     else
-        CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = timer.get_time_elapsed();
+    time_elapsed = 0;//timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP, bool NO_R_SEPARATE>
@@ -185,7 +185,7 @@ void launch_construct_Spline3(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -225,8 +225,8 @@ void launch_construct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    cuda_timer_t timer;
-    timer.timer_start();
+    //cuda_timer_t timer;
+    //timer.timer_start();
 
     if (ndim() == 1) {  //
         throw std::runtime_error("Spline1 not implemented");
@@ -243,14 +243,14 @@ void launch_construct_Spline3(
              eb_r, ebx2, radius);
     }
 
-    timer.timer_end();
+    //timer.timer_end();
 
     if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
     else
-        CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = timer.get_time_elapsed();
+    time_elapsed = 0;//timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP>
@@ -264,7 +264,7 @@ void launch_reconstruct_Spline3(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -304,8 +304,8 @@ void launch_reconstruct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    cuda_timer_t timer;
-    timer.timer_start();
+    //cuda_timer_t timer;
+    //timer.timer_start();
 
     cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
         <<<GRID_3D, BLOCK_3D, 0, stream>>>                     //
@@ -314,14 +314,14 @@ void launch_reconstruct_Spline3(
          xdata, len3, leap3,                                   //
          eb_r, ebx2, radius);
 
-    timer.timer_end();
+    //timer.timer_end();
 
     if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
     else
-        CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = timer.get_time_elapsed();
+    time_elapsed = 0;//timer.get_time_elapsed();
 }
 
 #endif

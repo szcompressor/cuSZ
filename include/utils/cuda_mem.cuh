@@ -14,10 +14,11 @@
  *
  */
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 template <int NUM>
 static inline bool __is_aligned_at(const void* ptr)
@@ -70,8 +71,8 @@ template <typename T>
 inline T* create_CUDA_space(size_t len, uint8_t filling_val = 0x00)
 {
     T* d_var;
-    cudaMalloc(&d_var, len * sizeof(T));
-    cudaMemset(d_var, filling_val, len * sizeof(T));
+    hipMalloc(&d_var, len * sizeof(T));
+    hipMemset(d_var, filling_val, len * sizeof(T));
     return d_var;
 }
 
@@ -79,8 +80,8 @@ template <typename T>
 inline T* create_devspace_memcpy_h2d(T* var, size_t l)
 {
     T* d_var;
-    cudaMalloc(&d_var, l * sizeof(T));
-    cudaMemcpy(d_var, var, l * sizeof(T), cudaMemcpyHostToDevice);
+    hipMalloc(&d_var, l * sizeof(T));
+    hipMemcpy(d_var, var, l * sizeof(T), hipMemcpyHostToDevice);
     return d_var;
 }
 template <typename T>
@@ -88,8 +89,8 @@ inline T* create_devspace_memcpy_d2h(T* d_var, size_t l)
 {
     // auto var = new T[l];
     T* var;
-    cudaMallocHost(&var, l * sizeof(T));
-    cudaMemcpy(var, d_var, l * sizeof(T), cudaMemcpyDeviceToHost);
+    hipMallocHost(&var, l * sizeof(T));
+    hipMemcpy(var, d_var, l * sizeof(T), hipMemcpyDeviceToHost);
     return var;
 }
 

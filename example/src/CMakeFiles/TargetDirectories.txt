@@ -1,0 +1,4 @@
+/ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/rebuild_cache.dir
+/ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/edit_cache.dir
+/ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/capi.dir
+/ccs/home/xiyu/cusz-hip/example/src/CMakeFiles/cxxapi.dir

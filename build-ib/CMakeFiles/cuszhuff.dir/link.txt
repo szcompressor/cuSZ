@@ -1,0 +1,2 @@
+/opt/cray/pe/cce/14.0.0/binutils/x86_64/x86_64-pc-linux-gnu/bin/ar qc libcuszhuff.a CMakeFiles/cuszhuff.dir/src/component/codec.cc.o
+/opt/cray/pe/cce/14.0.0/binutils/x86_64/x86_64-pc-linux-gnu/bin/ranlib libcuszhuff.a

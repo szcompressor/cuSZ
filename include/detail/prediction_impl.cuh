@@ -48,19 +48,19 @@ using cusz::prototype::x_lorenzo_3d1l;
 
 #define ALLOCDEV(VAR, SYM, NBYTE)                    \
     if (NBYTE != 0) {                                \
-        CHECK_CUDA(cudaMalloc(&d_##VAR, NBYTE));     \
-        CHECK_CUDA(cudaMemset(d_##VAR, 0x0, NBYTE)); \
+        CHECK_CUDA(hipMalloc(&d_##VAR, NBYTE));     \
+        CHECK_CUDA(hipMemset(d_##VAR, 0x0, NBYTE)); \
     }
 
 #define ALLOCDEV2(VAR, TYPE, LEN)                                 \
     if (LEN != 0) {                                               \
-        CHECK_CUDA(cudaMalloc(&d_##VAR, sizeof(TYPE) * LEN));     \
-        CHECK_CUDA(cudaMemset(d_##VAR, 0x0, sizeof(TYPE) * LEN)); \
+        CHECK_CUDA(hipMalloc(&d_##VAR, sizeof(TYPE) * LEN));     \
+        CHECK_CUDA(hipMemset(d_##VAR, 0x0, sizeof(TYPE) * LEN)); \
     }
 
 #define FREE_DEV_ARRAY(VAR)            \
     if (d_##VAR) {                     \
-        CHECK_CUDA(cudaFree(d_##VAR)); \
+        CHECK_CUDA(hipFree(d_##VAR)); \
         d_##VAR = nullptr;             \
     }
 
@@ -81,7 +81,7 @@ IMPL::~impl()
 }
 
 THE_TYPE
-void IMPL::clear_buffer() { cudaMemset(d_errctrl, 0x0, sizeof(E) * this->rtlen.assigned.quant); }
+void IMPL::clear_buffer() { hipMemset(d_errctrl, 0x0, sizeof(E) * this->rtlen.assigned.quant); }
 
 THE_TYPE
 void IMPL::init(cusz_predictortype predictor, size_t x, size_t y, size_t z, bool dbg_print)
@@ -121,7 +121,7 @@ void IMPL::construct(
     E**                errctrl,
     double const       eb,
     int const          radius,
-    cudaStream_t       stream)
+    hipStream_t       stream)
 {
     *anchor  = d_anchor;
     *errctrl = d_errctrl;
@@ -159,7 +159,7 @@ void IMPL::reconstruct(
     E*                 errctrl,
     double const       eb,
     int const          radius,
-    cudaStream_t       stream)
+    hipStream_t       stream)
 {
     if (predictor == LorenzoI) {
         this->derive_rtlen(LorenzoI, len3);
