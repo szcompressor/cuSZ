@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @file huffman_parbook.cu
  * @author Cody Rivera (cjrivera1@crimson.ua.edu)
@@ -13,7 +14,7 @@
  *
  */
 
-#include <cooperative_groups.h>
+#include <hip/hip_cooperative_groups.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
@@ -522,7 +523,7 @@ void kernel_wrapper::parallel_get_codebook(
     int          dict_size,
     uint8_t*     reverse_codebook,
     float&       time_book,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     // Metadata
     auto type_bw  = sizeof(H) * 8;
@@ -532,8 +533,8 @@ void kernel_wrapper::parallel_get_codebook(
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
-    par_huffman::detail::GPU_FillArraySequence<T><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
-    cudaStreamSynchronize(stream);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(par_huffman::detail::GPU_FillArraySequence<T>), nblocks, 1024, 0, 0, _d_qcode, (unsigned int)dict_size);
+    hipStreamSynchronize(stream);
 
     /**
      * Originally from par_huffman_sortbyfreq.cu by Cody Rivera (cjrivera1@crimson.ua.edu)
@@ -551,17 +552,16 @@ void kernel_wrapper::parallel_get_codebook(
     };
 
     lambda_sort_by_freq(freq, dict_size, _d_qcode);
-    cudaStreamSynchronize(stream);
+    hipStreamSynchronize(stream);
 
     unsigned int* d_first_nonzero_index;
     unsigned int  first_nonzero_index = dict_size;
-    cudaMalloc(&d_first_nonzero_index, sizeof(unsigned int));
-    cudaMemcpy(d_first_nonzero_index, &first_nonzero_index, sizeof(unsigned int), cudaMemcpyHostToDevice);
-    par_huffman::detail::GPU_GetFirstNonzeroIndex<unsigned int>
-        <<<nblocks, 1024>>>(freq, dict_size, d_first_nonzero_index);
-    cudaStreamSynchronize(stream);
-    cudaMemcpy(&first_nonzero_index, d_first_nonzero_index, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-    cudaFree(d_first_nonzero_index);
+    hipMalloc(&d_first_nonzero_index, sizeof(unsigned int));
+    hipMemcpy(d_first_nonzero_index, &first_nonzero_index, sizeof(unsigned int), hipMemcpyHostToDevice);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(par_huffman::detail::GPU_GetFirstNonzeroIndex<unsigned int>), nblocks, 1024, 0, 0, freq, dict_size, d_first_nonzero_index);
+    hipStreamSynchronize(stream);
+    hipMemcpy(&first_nonzero_index, d_first_nonzero_index, sizeof(unsigned int), hipMemcpyDeviceToHost);
+    hipFree(d_first_nonzero_index);
 
     int           nz_dict_size   = dict_size - first_nonzero_index;
     unsigned int* _nz_d_freq     = freq + first_nonzero_index;
@@ -575,17 +575,17 @@ void kernel_wrapper::parallel_get_codebook(
     unsigned int *iNodesFreq = nullptr;  int *iNodesLeader = nullptr;
     unsigned int *tempFreq   = nullptr;  int *tempIsLeaf   = nullptr;  int *tempIndex = nullptr;
     unsigned int *copyFreq   = nullptr;  int *copyIsLeaf   = nullptr;  int *copyIndex = nullptr;
-    cudaMalloc(&CL,           nz_dict_size * sizeof(unsigned int) );
-    cudaMalloc(&lNodesLeader, nz_dict_size * sizeof(int)          );
-    cudaMalloc(&iNodesFreq,   nz_dict_size * sizeof(unsigned int) );
-    cudaMalloc(&iNodesLeader, nz_dict_size * sizeof(int)          );
-    cudaMalloc(&tempFreq,     nz_dict_size * sizeof(unsigned int) );
-    cudaMalloc(&tempIsLeaf,   nz_dict_size * sizeof(int)          );
-    cudaMalloc(&tempIndex,    nz_dict_size * sizeof(int)          );
-    cudaMalloc(&copyFreq,     nz_dict_size * sizeof(unsigned int) );
-    cudaMalloc(&copyIsLeaf,   nz_dict_size * sizeof(int)          );
-    cudaMalloc(&copyIndex,    nz_dict_size * sizeof(int)          );
-    cudaMemset(CL, 0,         nz_dict_size * sizeof(int)          );
+    hipMalloc(&CL,           nz_dict_size * sizeof(unsigned int) );
+    hipMalloc(&lNodesLeader, nz_dict_size * sizeof(int)          );
+    hipMalloc(&iNodesFreq,   nz_dict_size * sizeof(unsigned int) );
+    hipMalloc(&iNodesLeader, nz_dict_size * sizeof(int)          );
+    hipMalloc(&tempFreq,     nz_dict_size * sizeof(unsigned int) );
+    hipMalloc(&tempIsLeaf,   nz_dict_size * sizeof(int)          );
+    hipMalloc(&tempIndex,    nz_dict_size * sizeof(int)          );
+    hipMalloc(&copyFreq,     nz_dict_size * sizeof(unsigned int) );
+    hipMalloc(&copyIsLeaf,   nz_dict_size * sizeof(int)          );
+    hipMalloc(&copyIndex,    nz_dict_size * sizeof(int)          );
+    hipMemset(CL, 0,         nz_dict_size * sizeof(int)          );
     // clang-format on
 
     // Grid configuration for CL -- based on Cooperative Groups
@@ -593,10 +593,10 @@ void kernel_wrapper::parallel_get_codebook(
     int            cg_blocks_sm;
     int            device_id;
     int            mthreads = 32;  // 1 warp
-    cudaDeviceProp deviceProp;
-    cudaGetDevice(&device_id);
-    cudaGetDeviceProperties(&deviceProp, device_id);
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    hipDeviceProp_t deviceProp;
+    hipGetDevice(&device_id);
+    hipGetDeviceProperties(&deviceProp, device_id);
+    hipOccupancyMaxActiveBlocksPerMultiprocessor(
         &cg_blocks_sm, par_huffman::GPU_GenerateCL<unsigned int>, mthreads, 5 * sizeof(int32_t) + 32 * sizeof(int32_t));
     cg_mblocks = deviceProp.multiProcessorCount * cg_blocks_sm;
 
@@ -617,10 +617,10 @@ void kernel_wrapper::parallel_get_codebook(
     }
 
     uint32_t* diagonal_path_intersections;
-    cudaMalloc(&diagonal_path_intersections, (2 * (mblocks + 1)) * sizeof(uint32_t));
+    hipMalloc(&diagonal_path_intersections, (2 * (mblocks + 1)) * sizeof(uint32_t));
 
     // Codebook already init'ed
-    cudaStreamSynchronize(stream);
+    hipStreamSynchronize(stream);
 
     // Call first kernel
     // Collect arguments
@@ -633,10 +633,10 @@ void kernel_wrapper::parallel_get_codebook(
                        (void*)&copyIndex,    (void*)&diagonal_path_intersections,
                        (void*)&mblocks,      (void*)&mthreads};
     // Cooperative Launch
-    cudaLaunchCooperativeKernel(
+    hipLaunchCooperativeKernel(
         (void*)par_huffman::GPU_GenerateCL<unsigned int>, mblocks, mthreads, CL_Args,
-        5 * sizeof(int32_t) + 32 * sizeof(int32_t));
-    cudaStreamSynchronize(stream);
+        5 * sizeof(int32_t) + 32 * sizeof(int32_t), stream);
+    hipStreamSynchronize(stream);
 
     // Exits if the highest codeword length is greater than what
     // the adaptive representation can handle
@@ -644,11 +644,11 @@ void kernel_wrapper::parallel_get_codebook(
 
     unsigned int* d_max_CL;
     unsigned int  max_CL;
-    cudaMalloc(&d_max_CL, sizeof(unsigned int));
-    par_huffman::detail::GPU_GetMaxCWLength<<<1, 1>>>(CL, nz_dict_size, d_max_CL);
-    cudaStreamSynchronize(stream);
-    cudaMemcpy(&max_CL, d_max_CL, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-    cudaFree(d_max_CL);
+    hipMalloc(&d_max_CL, sizeof(unsigned int));
+    hipLaunchKernelGGL(par_huffman::detail::GPU_GetMaxCWLength, 1, 1, 0, 0, CL, nz_dict_size, d_max_CL);
+    hipStreamSynchronize(stream);
+    hipMemcpy(&max_CL, d_max_CL, sizeof(unsigned int), hipMemcpyDeviceToHost);
+    hipFree(d_max_CL);
 
     int max_CW_bits = (sizeof(H) * 8) - 8;
     if (max_CL > max_CW_bits) {
@@ -686,43 +686,45 @@ void kernel_wrapper::parallel_get_codebook(
         (void*)&nz_dict_size};
 
     // Call second kernel
-    cudaLaunchCooperativeKernel(
+    hipLaunchCooperativeKernel(
         (void*)par_huffman::GPU_GenerateCW<unsigned int, H>,  //
         cw_mblocks,                                           //
         1024,                                                 //
-        CW_Args);
-    cudaStreamSynchronize(stream);
+        CW_Args,                                              //
+        0,                                                    // 
+        stream);
+    hipStreamSynchronize(stream);
 
 #ifdef D_DEBUG_PRINT
-    print_codebook<H><<<1, 32>>>(codebook, dict_size);  // PASS
-    cudaStreamSynchronize(stream);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(print_codebook<H>), 1, 32, 0, 0, codebook, dict_size);  // PASS
+    hipStreamSynchronize(stream);
 #endif
 
     // Reverse _d_qcode and codebook
-    par_huffman::detail::GPU_ReverseArray<H><<<nblocks, 1024>>>(codebook, (unsigned int)dict_size);
-    par_huffman::detail::GPU_ReverseArray<T><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
-    cudaStreamSynchronize(stream);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(par_huffman::detail::GPU_ReverseArray<H>), nblocks, 1024, 0, 0, codebook, (unsigned int)dict_size);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(par_huffman::detail::GPU_ReverseArray<T>), nblocks, 1024, 0, 0, _d_qcode, (unsigned int)dict_size);
+    hipStreamSynchronize(stream);
 
-    par_huffman::detail::GPU_ReorderByIndex<H, T><<<nblocks, 1024>>>(codebook, _d_qcode, (unsigned int)dict_size);
-    cudaStreamSynchronize(stream);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(par_huffman::detail::GPU_ReorderByIndex<H, T>), nblocks, 1024, 0, 0, codebook, _d_qcode, (unsigned int)dict_size);
+    hipStreamSynchronize(stream);
 
     // Cleanup
-    cudaFree(CL);
-    cudaFree(lNodesLeader);
-    cudaFree(iNodesFreq);
-    cudaFree(iNodesLeader);
-    cudaFree(tempFreq);
-    cudaFree(tempIsLeaf);
-    cudaFree(tempIndex);
-    cudaFree(copyFreq);
-    cudaFree(copyIsLeaf);
-    cudaFree(copyIndex);
-    cudaFree(diagonal_path_intersections);
-    cudaStreamSynchronize(stream);
+    hipFree(CL);
+    hipFree(lNodesLeader);
+    hipFree(iNodesFreq);
+    hipFree(iNodesLeader);
+    hipFree(tempFreq);
+    hipFree(tempIsLeaf);
+    hipFree(tempIndex);
+    hipFree(copyFreq);
+    hipFree(copyIsLeaf);
+    hipFree(copyIndex);
+    hipFree(diagonal_path_intersections);
+    hipStreamSynchronize(stream);
 
 #ifdef D_DEBUG_PRINT
-    print_codebook<H><<<1, 32>>>(codebook, dict_size);  // PASS
-    cudaStreamSynchronize(stream);
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(print_codebook<H>), 1, 32, 0, 0, codebook, dict_size);  // PASS
+    hipStreamSynchronize(stream);
 #endif
 }
 
@@ -731,7 +733,7 @@ void kernel_wrapper::parallel_get_codebook(
 
 #define PAR_HUFFMAN(E, ETF, H)                                                                           \
     template void kernel_wrapper::parallel_get_codebook<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type>( \
-        cusz::FREQ*, HuffTrait<H>::type*, int, uint8_t*, float&, cudaStream_t);
+        cusz::FREQ*, HuffTrait<H>::type*, int, uint8_t*, float&, hipStream_t);
 
 PAR_HUFFMAN(2, false, 4)
 PAR_HUFFMAN(2, false, 8)

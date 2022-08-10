@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /**
  * @file codec_huffman.cuh
  * @author Jiannan Tian
@@ -25,13 +26,13 @@
 #define BIX blockIdx.x
 #define BDX blockDim.x
 
-#if __has_include(<cub/cub.cuh>)
-// #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
-#include <cub/cub.cuh>
-#else
-// #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
-#include "../../external/cub/cub/cub.cuh"
-#endif
+//#if __has_include(<hipcub/hipcub.hpp>)
+//// #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
+#include <hipcub/hipcub.hpp>
+//#else
+//// #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
+//#include "../../external/cub/hipcub/hipcub.hpp"
+//#endif
 
 using BYTE = uint8_t;
 
@@ -227,7 +228,7 @@ __global__ void coarse_grained_Huffman_encode_phase4_concatenate(
     auto src = gapped + cfg_sublen * blockIdx.x;
     auto dst = non_gapped + par_entry[blockIdx.x];
 
-    for (auto i = threadIdx.x; i < n; i += blockDim.x) {  // block-stride
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {  // block-stride
         dst[i] = src[i];
     }
 }

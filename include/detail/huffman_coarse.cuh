@@ -15,7 +15,7 @@
 #ifndef CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
 #define CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
 
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 #include <clocale>
 #include <cstdint>
 #include <exception>
@@ -41,31 +41,31 @@ using std::cout;
 
 #define DEVICE2DEVICE_COPY(VAR, FIELD)                                            \
     {                                                                             \
-        constexpr auto D2D = cudaMemcpyDeviceToDevice;                            \
+        constexpr auto D2D = hipMemcpyDeviceToDevice;                            \
         auto           dst = d_compressed + header.entry[Header::FIELD];          \
         auto           src = reinterpret_cast<BYTE*>(d_##VAR);                    \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], D2D, stream)); \
+        CHECK_CUDA(hipMemcpyAsync(dst, src, nbyte[Header::FIELD], D2D, stream)); \
     }
 
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
 #define HC_ALLOCHOST(VAR, SYM)                     \
-    cudaMallocHost(&h_##VAR, rte.nbyte[RTE::SYM]); \
+    hipHostMalloc(&h_##VAR, rte.nbyte[RTE::SYM]); \
     memset(h_##VAR, 0x0, rte.nbyte[RTE::SYM]);
 
 #define HC_ALLOCDEV(VAR, SYM)                  \
-    cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM]); \
-    cudaMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]);
+    hipMalloc(&d_##VAR, rte.nbyte[RTE::SYM]); \
+    hipMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]);
 
 #define HC_FREEHOST(VAR)       \
     if (h_##VAR) {             \
-        cudaFreeHost(h_##VAR); \
+        hipHostFree(h_##VAR); \
         h_##VAR = nullptr;     \
     }
 
 #define HC_FREEDEV(VAR)    \
     if (d_##VAR) {         \
-        cudaFree(d_##VAR); \
+        hipFree(d_##VAR); \
         d_##VAR = nullptr; \
     }
 
@@ -109,7 +109,7 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
     auto debug = [&]() {
         setlocale(LC_NUMERIC, "");
         printf("\nHuffmanCoarse<T, H, M>::init() debugging:\n");
-        printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
+        printf("CUdeviceptr nbyte: %d\n", (int)sizeof(hipDeviceptr_t));
         dbg_println("TMP", d_tmp, RTE::TMP);
         dbg_println("BOOK", d_book, RTE::BOOK);
         dbg_println("REVBOOK", d_revbook, RTE::REVBOOK);
@@ -134,15 +134,15 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
 
     {
         auto total_bytes = rte.nbyte[RTE::BOOK] + rte.nbyte[RTE::REVBOOK];
-        cudaMalloc(&d_book, total_bytes);
-        cudaMemset(d_book, 0x0, total_bytes);
+        hipMalloc(&d_book, total_bytes);
+        hipMemset(d_book, 0x0, total_bytes);
 
         d_revbook = reinterpret_cast<uint8_t*>(d_book + booklen);
     }
 
     {
-        cudaMalloc(&d_par_metadata, rte.nbyte[RTE::PAR_NBIT] * 3);
-        cudaMemset(d_par_metadata, 0x0, rte.nbyte[RTE::PAR_NBIT] * 3);
+        hipMalloc(&d_par_metadata, rte.nbyte[RTE::PAR_NBIT] * 3);
+        hipMemset(d_par_metadata, 0x0, rte.nbyte[RTE::PAR_NBIT] * 3);
 
         d_par_nbit  = d_par_metadata;
         d_par_ncell = d_par_metadata + pardeg;
@@ -158,7 +158,7 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
     HC_ALLOCHOST(revbook, REVBOOK);
 
     {
-        cudaMallocHost(&h_par_metadata, rte.nbyte[RTE::PAR_NBIT] * 3);
+        hipHostMalloc(&h_par_metadata, rte.nbyte[RTE::PAR_NBIT] * 3);
         // cudaMemset(h_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT] * 3);
 
         h_par_nbit  = h_par_metadata;
@@ -170,7 +170,7 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
 }
 
 TEMPLATE_TYPE
-void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
+void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, hipStream_t stream)
 {
     launch_gpu_parallel_build_codebook<T, H, M>(
         freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), time_book, stream);
@@ -186,14 +186,14 @@ void IMPL::encode(
     int const    pardeg,
     BYTE*&       out_compressed,
     size_t&      out_compressed_len,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     time_lossless = 0;
 
     struct Header header;
 
     int numSMs;
-    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+    hipDeviceGetAttribute(&numSMs, hipDeviceAttributeMultiprocessorCount, 0);
 
     launch_coarse_grained_Huffman_encoding<T, H, M>(
         in_uncompressed, d_tmp, in_uncompressed_len,  //
@@ -214,11 +214,11 @@ void IMPL::encode(
 }
 
 TEMPLATE_TYPE
-void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool header_on_device)
+void IMPL::decode(BYTE* in_compressed, T* out_decompressed, hipStream_t stream, bool header_on_device)
 {
     Header header;
     if (header_on_device)
-        CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
+        CHECK_CUDA(hipMemcpyAsync(&header, in_compressed, sizeof(header), hipMemcpyDeviceToHost, stream));
 
     auto d_revbook   = ACCESSOR(REVBOOK, BYTE);
     auto d_par_nbit  = ACCESSOR(PAR_NBIT, M);
@@ -235,13 +235,13 @@ void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream,
 TEMPLATE_TYPE
 void IMPL::clear_buffer()
 {
-    cudaMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
-    cudaMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
-    cudaMemset(d_revbook, 0x0, rte.nbyte[RTE::REVBOOK]);
-    cudaMemset(d_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT]);
-    cudaMemset(d_par_ncell, 0x0, rte.nbyte[RTE::PAR_NCELL]);
-    cudaMemset(d_par_entry, 0x0, rte.nbyte[RTE::PAR_ENTRY]);
-    cudaMemset(d_bitstream, 0x0, rte.nbyte[RTE::BITSTREAM]);
+    hipMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
+    hipMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
+    hipMemset(d_revbook, 0x0, rte.nbyte[RTE::REVBOOK]);
+    hipMemset(d_par_nbit, 0x0, rte.nbyte[RTE::PAR_NBIT]);
+    hipMemset(d_par_ncell, 0x0, rte.nbyte[RTE::PAR_NCELL]);
+    hipMemset(d_par_entry, 0x0, rte.nbyte[RTE::PAR_ENTRY]);
+    hipMemset(d_bitstream, 0x0, rte.nbyte[RTE::BITSTREAM]);
 }
 
 // private helper
@@ -252,13 +252,13 @@ void IMPL::subfile_collect(
     int const    booklen,
     int const    sublen,
     int const    pardeg,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto BARRIER = [&]() {
         if (stream)
-            CHECK_CUDA(cudaStreamSynchronize(stream));
+            CHECK_CUDA(hipStreamSynchronize(stream));
         else
-            CHECK_CUDA(cudaDeviceSynchronize());
+            CHECK_CUDA(hipDeviceSynchronize());
     };
 
     header.header_nbyte     = sizeof(Header);
@@ -285,7 +285,7 @@ void IMPL::subfile_collect(
     // };
     // debug_header_entry();
 
-    CHECK_CUDA(cudaMemcpyAsync(d_compressed, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(hipMemcpyAsync(d_compressed, &header, sizeof(header), hipMemcpyHostToDevice, stream));
 
     /* debug */ BARRIER();
 
@@ -327,10 +327,10 @@ constexpr bool IMPL::can_overlap_input_and_firstphase_encode() { return sizeof(T
 TEMPLATE_TYPE
 void IMPL::dbg_println(const std::string SYM_name, void* VAR, int SYM)
 {
-    CUdeviceptr pbase0{0};
+    hipDeviceptr_t pbase0{0};
     size_t      psize0{0};
 
-    cuMemGetAddressRange(&pbase0, &psize0, (CUdeviceptr)VAR);
+    hipMemGetAddressRange(&pbase0, &psize0, (hipDeviceptr_t)VAR);
     printf(
         "%s:\n"
         "\t(supposed) pointer : %p\n"

@@ -37,7 +37,7 @@ void parallel_get_codebook(
     int         dict_size,
     uint8_t*    reverse_codebook,
     float&      time_book,
-    cudaStream_t = nullptr);
+    hipStream_t = nullptr);
 
 }  // namespace kernel_wrapper
 

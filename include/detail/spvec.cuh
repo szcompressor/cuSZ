@@ -22,12 +22,12 @@
 #include "../utils.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
-    CHECK_CUDA(cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
-    CHECK_CUDA(cudaMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]));
+    CHECK_CUDA(hipMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
+    CHECK_CUDA(hipMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]));
 
 #define SPVEC_FREEDEV(VAR)             \
     if (d_##VAR) {                     \
-        CHECK_CUDA(cudaFree(d_##VAR)); \
+        CHECK_CUDA(hipFree(d_##VAR)); \
         d_##VAR = nullptr;             \
     }
 
@@ -35,7 +35,7 @@
     {                                                                                                  \
         auto dst = d_spfmt + header.entry[Header::FIELD];                                              \
         auto src = reinterpret_cast<BYTE*>(d_##VAR);                                                   \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], cudaMemcpyDeviceToDevice, stream)); \
+        CHECK_CUDA(hipMemcpyAsync(dst, src, nbyte[Header::FIELD], hipMemcpyDeviceToDevice, stream)); \
     }
 
 namespace cusz {
@@ -76,7 +76,7 @@ void SpcodecVec<T, M>::impl::encode(
     size_t const in_len,
     BYTE*&       out,
     size_t&      out_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     Header header;
@@ -89,10 +89,10 @@ void SpcodecVec<T, M>::impl::encode(
 }
 
 template <typename T, typename M>
-void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, cudaStream_t stream)
+void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, hipStream_t stream)
 {
     header_t header;
-    CHECK_CUDA(cudaMemcpyAsync(&header, coded, sizeof(header), cudaMemcpyDeviceToHost, stream));
+    CHECK_CUDA(hipMemcpyAsync(&header, coded, sizeof(header), hipMemcpyDeviceToHost, stream));
 
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(coded + header.entry[Header::SYM])
     auto d_idx = ACCESSOR(IDX, int);
@@ -105,9 +105,9 @@ void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, cudaStream_t stream
 template <typename T, typename M>
 void SpcodecVec<T, M>::impl::clear_buffer()
 {
-    cudaMemset(d_spfmt, 0x0, rte.nbyte[RTE::SPFMT]);
-    cudaMemset(d_idx, 0x0, rte.nbyte[RTE::IDX]);
-    cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
+    hipMemset(d_spfmt, 0x0, rte.nbyte[RTE::SPFMT]);
+    hipMemset(d_idx, 0x0, rte.nbyte[RTE::IDX]);
+    hipMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
 }
 
 // getter
@@ -120,7 +120,7 @@ float SpcodecVec<T, M>::impl::get_time_elapsed() const
 // helper
 
 template <typename T, typename M>
-void SpcodecVec<T, M>::impl::subfile_collect(Header& header, size_t len, cudaStream_t stream, bool dbg_print)
+void SpcodecVec<T, M>::impl::subfile_collect(Header& header, size_t len, hipStream_t stream, bool dbg_print)
 {
     header.header_nbyte     = sizeof(Header);
     header.uncompressed_len = len;
@@ -155,14 +155,14 @@ void SpcodecVec<T, M>::impl::subfile_collect(Header& header, size_t len, cudaStr
     };
     if (dbg_print) debug_header_entry();
 
-    CHECK_CUDA(cudaMemcpyAsync(d_spfmt, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(hipMemcpyAsync(d_spfmt, &header, sizeof(header), hipMemcpyHostToDevice, stream));
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 
     SPVEC_D2DCPY(idx, IDX)
     SPVEC_D2DCPY(val, VAL)
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 }
 
 }  // namespace cusz

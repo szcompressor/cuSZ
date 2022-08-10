@@ -55,7 +55,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <cooperative_groups.h>
+#include <hip/hip_cooperative_groups.h>
 namespace cg = cooperative_groups;
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))

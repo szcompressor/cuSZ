@@ -13,7 +13,7 @@
 #ifndef CUSZ_SPMAT_CUH
 #define CUSZ_SPMAT_CUH
 
-#include <cusparse.h>
+#include <hipsparse.h>
 
 #include "../common.hh"
 #include "../component/spcodec.hh"
@@ -30,7 +30,7 @@
 
 #define SPMAT_FREEDEV(VAR)             \
     if (d_##VAR) {                     \
-        CHECK_CUDA(cudaFree(d_##VAR)); \
+        CHECK_CUDA(hipFree(d_##VAR)); \
         d_##VAR = nullptr;             \
     }
 
@@ -38,12 +38,12 @@
     {                                                                                                  \
         auto dst = d_csr + header.entry[Header::FIELD];                                                \
         auto src = reinterpret_cast<BYTE*>(d_##VAR);                                                   \
-        CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], cudaMemcpyDeviceToDevice, stream)); \
+        CHECK_CUDA(hipMemcpyAsync(dst, src, nbyte[Header::FIELD], hipMemcpyDeviceToDevice, stream)); \
     }
 
 #define SPMAT_ALLOCDEV(VAR, SYM)                           \
-    CHECK_CUDA(cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
-    CHECK_CUDA(cudaMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]));
+    CHECK_CUDA(hipMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
+    CHECK_CUDA(hipMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]));
 
 /******************************************************************************
                                class definition
@@ -101,10 +101,10 @@ void SpcodecCSR<T, M>::impl::init(size_t const in_uncompressed_len, int density_
 template <typename T, typename M>
 void SpcodecCSR<T, M>::impl::clear_buffer()
 {
-    cudaMemset(d_csr, 0x0, rte.nbyte[RTE::CSR]);
-    cudaMemset(d_rowptr, 0x0, rte.nbyte[RTE::ROWPTR]);
-    cudaMemset(d_colidx, 0x0, rte.nbyte[RTE::COLIDX]);
-    cudaMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
+    hipMemset(d_csr, 0x0, rte.nbyte[RTE::CSR]);
+    hipMemset(d_rowptr, 0x0, rte.nbyte[RTE::ROWPTR]);
+    hipMemset(d_colidx, 0x0, rte.nbyte[RTE::COLIDX]);
+    hipMemset(d_val, 0x0, rte.nbyte[RTE::VAL]);
 }
 
 template <typename T, typename M>
@@ -113,7 +113,7 @@ void SpcodecCSR<T, M>::impl::encode(
     size_t const in_uncompressed_len,
     BYTE*&       out_compressed,
     size_t&      out_compressed_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     // cautious!
@@ -141,10 +141,10 @@ void SpcodecCSR<T, M>::impl::encode(
 }
 
 template <typename T, typename M>
-void SpcodecCSR<T, M>::impl::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream)
+void SpcodecCSR<T, M>::impl::decode(BYTE* in_compressed, T* out_decompressed, hipStream_t stream)
 {
     Header header;
-    CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
+    CHECK_CUDA(hipMemcpyAsync(&header, in_compressed, sizeof(header), hipMemcpyDeviceToHost, stream));
 
     auto d_rowptr = reinterpret_cast<int*>(in_compressed + header.entry[Header::ROWPTR]);
     auto d_colidx = reinterpret_cast<int*>(in_compressed + header.entry[Header::COLIDX]);
@@ -178,7 +178,7 @@ template <typename T, typename M>
 void SpcodecCSR<T, M>::impl::subfile_collect(
     Header&      header,
     size_t       in_uncompressed_len,
-    cudaStream_t stream,
+    hipStream_t stream,
     bool         dbg_print)
 {
     header.header_nbyte     = sizeof(Header);
@@ -217,15 +217,15 @@ void SpcodecCSR<T, M>::impl::subfile_collect(
     };
     if (dbg_print) debug_header_entry();
 
-    CHECK_CUDA(cudaMemcpyAsync(d_csr, &header, sizeof(header), cudaMemcpyHostToDevice, stream));
+    CHECK_CUDA(hipMemcpyAsync(d_csr, &header, sizeof(header), hipMemcpyHostToDevice, stream));
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 
     SPMAT_D2DCPY(rowptr, ROWPTR)
     SPMAT_D2DCPY(colidx, COLIDX)
     SPMAT_D2DCPY(val, VAL)
 
-    /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+    /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 }
 
 }  // namespace cusz
