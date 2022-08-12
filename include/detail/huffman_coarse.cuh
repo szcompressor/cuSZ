@@ -172,8 +172,10 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
 TEMPLATE_TYPE
 void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, hipStream_t stream)
 {
+    printf("test1\n");
     launch_gpu_parallel_build_codebook<T, H, M>(
         freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), time_book, stream);
+    printf("test2\n");
 }
 
 TEMPLATE_TYPE

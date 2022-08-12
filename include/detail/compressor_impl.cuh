@@ -177,7 +177,9 @@ void IMPL::compress(
         d_codec_out, codec_outlen,                              // output
         stream, dbg_print);
 
+    printf("test3\n");
     (*spcodec).encode(uncompressed, spcodec_inlen, d_spfmt, spfmt_outlen, stream, dbg_print);
+    printf("test4\n");
 
     /* debug */ CHECK_CUDA(hipStreamSynchronize(stream));
 

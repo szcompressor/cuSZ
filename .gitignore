@@ -62,3 +62,6 @@ data/exafel-59200x388
 data/exafel-59200x388.tgz
 data/hurr-CLOUDf48-500x500x100
 data/hurr-CLOUDf48-500x500x100.tgz
+
+example/src/core
+example/src/*.dat
