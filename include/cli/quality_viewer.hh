@@ -12,6 +12,8 @@
 #ifndef QUALITY_VIEWER_HH
 #define QUALITY_VIEWER_HH
 
+#include <thrust/equal.h>
+
 #include "../common/capsule.hh"
 #include "../common/definition.hh"
 #include "../header.h"
@@ -25,6 +27,28 @@ const static auto DEVICE      = cusz::LOC::DEVICE;
 const static auto HOST_DEVICE = cusz::LOC::HOST_DEVICE;
 
 struct QualityViewer {
+    template <typename Data>
+    static void identical(cusz_execution_policy const policy, Data* d1, Data* d2, size_t const len)
+    {
+        bool result;
+
+        if (policy == CUSZ_CPU) {  //
+            result = thrust::equal(thrust::host, d1, d1 + len, d2);
+        }
+        else if (policy == CUSZ_GPU) {
+            result = thrust::equal(thrust::device, d1, d1 + len, d2);
+        }
+        else {
+            printf("Not a valid execution policy, exiting...\n");
+            exit(-1);
+        }
+
+        if (result)
+            cout << ">>>>  IDENTICAL." << endl;
+        else
+            cout << "!!!!  ERROR: NOT IDENTICAL." << endl;
+    }
+
     template <typename Data>
     static void print_metrics_cross(cusz_stats* s, size_t compressed_bytes = 0, bool gpu_checker = false)
     {

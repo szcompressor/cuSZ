@@ -18,6 +18,8 @@ extern "C" {
 
 #include "stddef.h"
 
+typedef enum cusz_execution_policy { CUSZ_CPU, CUSZ_GPU } cusz_execution_policy;
+
 //////// state enumeration
 
 typedef enum cusz_error_status {  //

@@ -3,7 +3,7 @@
  * @author Jiannan Tian
  * @brief
  * @version 0.3
- * @date 2022-05-06
+ * @date 2022-08-06
  *
  * (C) 2022 by Washington State University, Argonne National Laboratory
  *
@@ -14,11 +14,18 @@
 // #include "cusz.h"
 #include "kernel/cpplaunch_cuda.hh"
 
+std::string type_literal;
+
 template <typename T, typename E>
-void f(std::string fname, double error_bound = 1.2e-4)
+void f(
+    std::string const fname,
+    size_t const      x,
+    size_t const      y,
+    size_t const      z,
+    double const      error_bound = 1.2e-4,
+    int const         radius      = 128)
 {
-    /* For demo, we use 3600x1800 CESM data. */
-    auto len = 3600 * 1800;
+    auto len = x * y * z;
 
     T *d_d, *h_d;
     T *d_xd, *h_xd;
@@ -54,16 +61,19 @@ void f(std::string fname, double error_bound = 1.2e-4)
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    dim3 len3 = dim3(3600, 1800, 1);
+    dim3 len3 = dim3(x, y, z);
 
     float time;
     cusz::cpplaunch_construct_LorenzoI<T, E, float>(  //
-        false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, 128, &time, stream);
+        false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+
+    cudaMemcpy(h_eq, d_eq, sizeof(E) * len, cudaMemcpyDeviceToHost);
+    io::write_array_to_binary<E>(fname + ".eq." + type_literal, h_eq, len);
 
     cudaMemcpy(d_xd, d_d, sizeof(T) * len, cudaMemcpyDeviceToDevice);
 
     cusz::cpplaunch_reconstruct_LorenzoI<T, E, float>(  //
-        d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, 128, &time, stream);
+        d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
 
     /* demo: offline checking (de)compression quality. */
     /* load data again    */ cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
@@ -78,22 +88,52 @@ void f(std::string fname, double error_bound = 1.2e-4)
 
 int main(int argc, char** argv)
 {
-    if (argc < 4) {
-        printf("PROG /path/to/cesm-3600x1800 ErrorBound [optional: ErrorQuantType]\n");
+    if (argc < 6) {
+        printf("PROG /path/to/datafield X Y Z ErrorBound [ErrorQuantType] [Radius]\n");
+        printf("0    1                  2 3 4 5          6                7\n");
         exit(0);
     }
     else {
-        auto eb = atof(argv[2]);
-        if (string(argv[3]) == "ui8")
-            f<float, uint8_t>(std::string(argv[1]), eb);
-        else if (string(argv[3]) == "ui16")
-            f<float, uint16_t>(std::string(argv[1]), eb);
-        else if (string(argv[3]) == "ui32")
-            f<float, uint32_t>(std::string(argv[1]), eb);
-        else if (string(argv[3]) == "fp32")
-            f<float, float>(std::string(argv[1]), eb);
+        auto fname = std::string(argv[1]);
+        auto x     = atoi(argv[2]);
+        auto y     = atoi(argv[3]);
+        auto z     = atoi(argv[4]);
+        auto eb    = atof(argv[5]);
+
+        std::string type;
+        if (argc > 6)
+            type = std::string(argv[6]);
         else
-            f<float, uint16_t>(std::string(argv[1]), eb);
+            type = "ui16";
+        type_literal = type;
+
+        int radius;
+        if (argc > 7)
+            radius = atoi(argv[7]);
+        else
+            radius = 128;
+
+        auto radius_legal = [&](int const sizeof_T) {
+            size_t upper_bound = 1lu << (sizeof_T * 8);
+            cout << upper_bound << endl;
+            cout << radius * 2 << endl;
+            if ((radius * 2) > upper_bound) throw std::runtime_error("Radius overflows error-quantization type.");
+        };
+
+        if (type == "ui8") {
+            radius_legal(1);
+            f<float, uint8_t>(fname, x, y, z, eb, radius);
+        }
+        else if (type == "ui16") {
+            radius_legal(2);
+            f<float, uint16_t>(fname, x, y, z, eb, radius);
+        }
+        else if (type == "ui32") {
+            radius_legal(4);
+            f<float, uint32_t>(fname, x, y, z, eb, radius);
+        }
+        else if (type == "fp32")
+            f<float, float>(fname, x, y, z, eb, radius);
     }
 
     return 0;
