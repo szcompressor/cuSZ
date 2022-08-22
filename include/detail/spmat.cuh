@@ -17,7 +17,7 @@
 
 #include "../common.hh"
 #include "../component/spcodec.hh"
-#include "../kernel/launch_sparse_method.cuh"
+#include "../kernel/launch_spm.cuh"
 #include "../utils.hh"
 
 // clang-format off

@@ -17,9 +17,15 @@
 #include <thrust/execution_policy.h>
 
 #include "../common.hh"
-#include "../component/spcodec.hh"
-#include "../kernel/launch_sparse_method.cuh"
-#include "../utils.hh"
+#include "../component/spcodec_vec.hh"
+#include "../kernel/launch_spv.cuh"
+
+#include "utils/cuda_err.cuh"
+// #include "utils/cuda_mem.cuh"
+// #include "utils/format.hh"
+// #include "utils/io.hh"
+// #include "utils/strhelper.hh"
+#include "utils/timer.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
     CHECK_CUDA(cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
