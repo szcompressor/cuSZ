@@ -12,17 +12,21 @@
 #ifndef F4C1E2EB_2BF7_46DE_8A7D_BA4D6130A87E
 #define F4C1E2EB_2BF7_46DE_8A7D_BA4D6130A87E
 
+#include <thrust/count.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+
+#include "../utils/timer.hh"
+
 template <typename T, typename M>
-void launch_thrust_gather(
-    T*            in,
-    size_t const  in_len,
-    T*            d_val,
-    unsigned int* d_idx,
-    uint8_t*      out,
-    size_t&       out_len,
-    int&          nnz,
-    float&        milliseconds,
-    cudaStream_t  stream)
+void launch_spv_gather(
+    T*           in,
+    size_t const in_len,
+    T*           d_val,
+    uint32_t*    d_idx,
+    int&         nnz,
+    float&       milliseconds,
+    cudaStream_t stream)
 {
     using thrust::placeholders::_1;
 
@@ -45,7 +49,7 @@ void launch_thrust_gather(
 }
 
 template <typename T, typename M>
-void launch_thrust_scatter(T* d_val, int* d_idx, int const nnz, T* decoded, float& milliseconds, cudaStream_t stream)
+void launch_spv_scatter(T* d_val, uint32_t* d_idx, int const nnz, T* decoded, float& milliseconds, cudaStream_t stream)
 {
     thrust::cuda::par.on(stream);
     cuda_timer_t t;
