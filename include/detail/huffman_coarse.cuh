@@ -28,6 +28,7 @@ using std::cout;
 #include "../common/type_traits.hh"
 #include "../component/codec.hh"
 #include "../kernel/codec_huffman.cuh"
+#include "../kernel/cpplaunch_cuda.hh"
 #include "../kernel/hist.cuh"
 #include "../kernel/huffman_parbook.cuh"
 #include "../kernel/launch_lossless.cuh"
@@ -197,12 +198,13 @@ void IMPL::encode(
     int numSMs;
     hipDeviceGetAttribute(&numSMs, hipDeviceAttributeMultiprocessorCount, 0);
 
-    launch_coarse_grained_Huffman_encoding<T, H, M>(
+    // launch_coarse_grained_Huffman_encoding<T, H, M>(
+    cusz::cpplaunch_coarse_grained_Huffman_encoding<T, H, M>(
         in_uncompressed, d_tmp, in_uncompressed_len,  //
         d_freq, d_book, booklen,                      //
         d_bitstream, d_par_metadata, h_par_metadata,  //
         sublen, pardeg, numSMs, /* config */          //
-        out_compressed, out_compressed_len, time_lossless, stream);
+        &out_compressed, &out_compressed_len, &time_lossless, stream);
 
     header.total_nbit  = std::accumulate(h_par_nbit, h_par_nbit + pardeg, (size_t)0);
     header.total_ncell = std::accumulate(h_par_ncell, h_par_ncell + pardeg, (size_t)0);
@@ -229,9 +231,10 @@ void IMPL::decode(BYTE* in_compressed, T* out_decompressed, hipStream_t stream, 
 
     auto const revbook_nbyte = get_revbook_nbyte(header.booklen);
 
-    launch_coarse_grained_Huffman_decoding<T, H, M>(
+    // launch_coarse_grained_Huffman_decoding<T, H, M>(
+    cusz::cpplaunch_coarse_grained_Huffman_decoding<T, H, M>(
         d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry, header.sublen, header.pardeg, out_decompressed,
-        time_lossless, stream);
+        &time_lossless, stream);
 }
 
 TEMPLATE_TYPE

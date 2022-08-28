@@ -26,6 +26,18 @@
 #define CONSTEXPR
 #endif
 
+<<<<<<< HEAD
+=======
+// #ifndef __CUDACC__
+// #define __global__
+// #define __device__
+// #define __host__
+// #define __shared__
+// #define __forceinline__
+// #endif
+
+#define TIX threadIdx.x
+>>>>>>> develop-advance
 #define TIY threadIdx.y
 #define TIZ threadIdx.z
 #define BIX blockIdx.x

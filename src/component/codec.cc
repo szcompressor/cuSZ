@@ -101,12 +101,14 @@ float HUFFMAN_COARSE::get_time_lossless() const { return pimpl->get_time_lossles
 #define HUFFCOARSE_CC(E, ETF, H, M) \
     template class cusz::LosslessCodec<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
 
-HUFFCOARSE_CC(2, false, 4, 4)  // deprecated
-HUFFCOARSE_CC(2, false, 8, 4)  // deprecated
-HUFFCOARSE_CC(4, false, 4, 4)  // deprecated
-HUFFCOARSE_CC(4, false, 8, 4)  // deprecated
+HUFFCOARSE_CC(1, false, 4, 4)  // uint
+HUFFCOARSE_CC(1, false, 8, 4)  //
+HUFFCOARSE_CC(2, false, 4, 4)  //
+HUFFCOARSE_CC(2, false, 8, 4)  //
+HUFFCOARSE_CC(4, false, 4, 4)  //
+HUFFCOARSE_CC(4, false, 8, 4)  //
 
 HUFFCOARSE_CC(4, true, 4, 4)  // float
-HUFFCOARSE_CC(4, true, 8, 4)  // float
+HUFFCOARSE_CC(4, true, 8, 4)  //
 
 #undef HUFFCOARSE_CC

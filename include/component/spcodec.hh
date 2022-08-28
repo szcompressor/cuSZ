@@ -120,102 +120,11 @@ struct SpcodecCSR<T, M>::impl::runtime_encode_helper {
     hipsparseHandle_t   handle{nullptr};
     hipsparseMatDescr_t mat_desc{nullptr};
 
-    size_t lwork_in_bytes{0};
-    char*  d_work{nullptr};
+    size_t   lwork_in_bytes{0};
+    char*    d_work{nullptr};
     uint32_t m{0};
     int64_t  nnz{0};
     Header*  ptr_header{nullptr};
-};
-
-/*******************************************************************************
- * sparsity-aware coder/decoder, vector
- *******************************************************************************/
-
-template <typename T, typename M = uint32_t>
-class SpcodecVec {
-   public:
-    using Origin = T;
-    using BYTE   = uint8_t;
-
-   private:
-    class impl;
-    std::unique_ptr<impl> pimpl;
-
-   public:
-    ~SpcodecVec();                             // dtor
-    SpcodecVec();                              // ctor
-    SpcodecVec(const SpcodecVec&);             // copy ctor
-    SpcodecVec& operator=(const SpcodecVec&);  // copy assign
-    SpcodecVec(SpcodecVec&&);                  // move ctor
-    SpcodecVec& operator=(SpcodecVec&&);       // move assign
-
-    void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, hipStream_t = nullptr);
-    void clear_buffer();
-    // getter
-    float get_time_elapsed() const;
-};
-
-template <typename T, typename M>
-struct SpcodecVec<T, M>::impl {
-   public:
-    using Origin    = T;
-    using BYTE      = uint8_t;
-    using MetadataT = M;
-
-   private:
-    DEFINE_ARRAY(spfmt, BYTE);
-    DEFINE_ARRAY(idx, M);
-    DEFINE_ARRAY(val, T);
-
-    struct Header;
-    struct runtime_encode_helper;
-    using header_t = Header;
-    using RTE      = runtime_encode_helper;
-
-    float milliseconds{0.0};
-
-    RTE rte;
-
-   private:
-    void subfile_collect(Header&, size_t, hipStream_t = nullptr, bool = false);
-
-   public:
-    impl() = default;
-    ~impl();
-    void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, hipStream_t = nullptr);
-    void clear_buffer();
-    // getter
-    float get_time_elapsed() const;
-};
-
-template <typename T, typename M>
-struct SpcodecVec<T, M>::impl::Header {
-    static const int HEADER = 0;
-    static const int IDX    = 1;
-    static const int VAL    = 2;
-    static const int END    = 3;
-
-    int       header_nbyte : 16;
-    size_t    uncompressed_len;
-    int       nnz;
-    MetadataT entry[END + 1];
-
-    MetadataT subfile_size() const { return entry[END]; }
-};
-
-template <typename T, typename M>
-struct SpcodecVec<T, M>::impl::runtime_encode_helper {
-    static const int SPFMT = 0;
-    static const int IDX   = 1;
-    static const int VAL   = 2;
-    static const int END   = 3;
-
-    uint32_t nbyte[END];
-    int      nnz{0};
 };
 
 }  // namespace cusz

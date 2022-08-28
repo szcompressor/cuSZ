@@ -17,9 +17,15 @@
 #include <thrust/execution_policy.h>
 
 #include "../common.hh"
-#include "../component/spcodec.hh"
-#include "../kernel/launch_sparse_method.cuh"
-#include "../utils.hh"
+#include "../component/spcodec_vec.hh"
+#include "../kernel/launch_spv.cuh"
+
+#include "utils/cuda_err.cuh"
+// #include "utils/cuda_mem.cuh"
+// #include "utils/format.hh"
+// #include "utils/io.hh"
+// #include "utils/strhelper.hh"
+#include "utils/timer.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
     CHECK_CUDA(hipMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \
@@ -81,7 +87,7 @@ void SpcodecVec<T, M>::impl::encode(
 {
     Header header;
 
-    launch_thrust_gather<T, M>(in, in_len, this->d_val, this->d_idx, out, out_len, rte.nnz, milliseconds, stream);
+    launch_spv_gather<T, M>(in, in_len, this->d_val, this->d_idx, rte.nnz, milliseconds, stream);
 
     subfile_collect(header, in_len, stream, dbg_print);
     out     = d_spfmt;
@@ -95,11 +101,11 @@ void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, hipStream_t stream)
     CHECK_CUDA(hipMemcpyAsync(&header, coded, sizeof(header), hipMemcpyDeviceToHost, stream));
 
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(coded + header.entry[Header::SYM])
-    auto d_idx = ACCESSOR(IDX, int);
+    auto d_idx = ACCESSOR(IDX, uint32_t);
     auto d_val = ACCESSOR(VAL, T);
 #undef ACCESSOR
 
-    launch_thrust_scatter<T, M>(d_val, d_idx, header.nnz, decoded, milliseconds, stream);
+    launch_spv_scatter<T, M>(d_val, d_idx, header.nnz, decoded, milliseconds, stream);
 }
 
 template <typename T, typename M>

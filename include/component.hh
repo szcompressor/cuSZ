@@ -15,5 +15,6 @@
 #include "component/codec.hh"
 #include "component/prediction.hh"
 #include "component/spcodec.hh"
+#include "component/spcodec_vec.hh"
 
 #endif

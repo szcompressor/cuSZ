@@ -23,19 +23,19 @@
 template <typename T, typename M>
 void launch_cusparse_gather_cuda11200_onward(
     hipsparseHandle_t     handle,
-    T*                   in_dense,
-    uint32_t const       num_rows,
-    uint32_t const       num_cols,
+    T*                    in_dense,
+    uint32_t const        num_rows,
+    uint32_t const        num_cols,
     hipsparseDnMatDescr_t dnmat,
     hipsparseSpMatDescr_t spmat,
-    void*                d_buffer,
-    size_t&              d_buffer_size,
-    M*                   d_rowptr,
-    M*                   d_colidx,
-    T*                   d_val,
-    int64_t&             nnz,
-    float&               milliseconds,
-    hipStream_t         stream)
+    void*                 d_buffer,
+    size_t&               d_buffer_size,
+    M*                    d_rowptr,
+    M*                    d_colidx,
+    T*                    d_val,
+    int64_t&              nnz,
+    float&                milliseconds,
+    hipStream_t           stream)
 {
     auto ld = num_rows;
 
@@ -52,28 +52,28 @@ void launch_cusparse_gather_cuda11200_onward(
 
     auto gather11_init_buffer = [&]() {
         {  // allocate an external buffer if needed
-            //cuda_timer_t t;
-            //t.timer_start(stream);
+            // cuda_timer_t t;
+            // t.timer_start(stream);
 
             CHECK_CUSPARSE(hipsparseDenseToSparse_bufferSize(
                 handle, dnmat, spmat, HIPSPARSE_DENSETOSPARSE_ALG_DEFAULT, &d_buffer_size));
 
-            //t.timer_end(stream);
-            milliseconds += 0;//t.get_time_elapsed();
+            // t.timer_end(stream);
+            milliseconds += 0;  // t.get_time_elapsed();
 
             CHECK_CUDA(hipMalloc(&d_buffer, d_buffer_size));
         }
     };
 
     auto gather11_analysis = [&]() {
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         CHECK_CUSPARSE(
             hipsparseDenseToSparse_analysis(handle, dnmat, spmat, HIPSPARSE_DENSETOSPARSE_ALG_DEFAULT, d_buffer));
 
-        //t.timer_end(stream);
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end(stream);
+        milliseconds += 0;  // t.get_time_elapsed();
     };
 
     int64_t num_rows_tmp, num_cols_tmp;
@@ -89,14 +89,14 @@ void launch_cusparse_gather_cuda11200_onward(
     };
 
     auto gather11_dn2csr = [&]() {
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         CHECK_CUSPARSE(
             hipsparseDenseToSparse_convert(handle, dnmat, spmat, HIPSPARSE_DENSETOSPARSE_ALG_DEFAULT, d_buffer));
 
-        //t.timer_end(stream);
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end(stream);
+        milliseconds += 0;  // t.get_time_elapsed();
     };
 
     /********************************************************************************/
@@ -124,19 +124,19 @@ void launch_cusparse_gather_cuda11200_onward(
 template <typename T, typename M>
 void launch_cusparse_scatter_cuda11200_onward(
     hipsparseHandle_t     handle,
-    int*                 d_rowptr,
-    int*                 d_colidx,
-    T*                   d_val,
-    int const            num_rows,
-    int const            num_cols,
-    int const            nnz,
+    int*                  d_rowptr,
+    int*                  d_colidx,
+    T*                    d_val,
+    int const             num_rows,
+    int const             num_cols,
+    int const             nnz,
     hipsparseDnMatDescr_t dnmat,
     hipsparseSpMatDescr_t spmat,
-    void*                d_buffer,
-    size_t&              d_buffer_size,
-    T*                   out_dense,
-    float&               milliseconds,
-    hipStream_t         stream)
+    void*                 d_buffer,
+    size_t&               d_buffer_size,
+    T*                    out_dense,
+    float&                milliseconds,
+    hipStream_t           stream)
 {
     auto ld = num_rows;
 
@@ -145,32 +145,32 @@ void launch_cusparse_scatter_cuda11200_onward(
             &spmat, num_rows, num_cols, nnz, d_rowptr, d_colidx, d_val, HIPSPARSE_INDEX_32I, HIPSPARSE_INDEX_32I,
             HIPSPARSE_INDEX_BASE_ZERO, cuszCUSPARSE<T>::type));
 
-        CHECK_CUSPARSE(
-            hipsparseCreateDnMat(&dnmat, num_rows, num_cols, ld, out_dense, cuszCUSPARSE<T>::type, HIPSPARSE_ORDER_ROW));
+        CHECK_CUSPARSE(hipsparseCreateDnMat(
+            &dnmat, num_rows, num_cols, ld, out_dense, cuszCUSPARSE<T>::type, HIPSPARSE_ORDER_ROW));
     };
 
     auto scatter11_init_buffer = [&]() {
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         // allocate an external buffer if needed
-        CHECK_CUSPARSE(
-            hipsparseSparseToDense_bufferSize(handle, spmat, dnmat, HIPSPARSE_SPARSETODENSE_ALG_DEFAULT, &d_buffer_size));
+        CHECK_CUSPARSE(hipsparseSparseToDense_bufferSize(
+            handle, spmat, dnmat, HIPSPARSE_SPARSETODENSE_ALG_DEFAULT, &d_buffer_size));
 
-        //t.timer_end(stream);
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end(stream);
+        milliseconds += 0;  // t.get_time_elapsed();
 
         CHECK_CUDA(hipMalloc(&d_buffer, d_buffer_size));
     };
 
     auto scatter11_csr2dn = [&]() {
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         CHECK_CUSPARSE(hipsparseSparseToDense(handle, spmat, dnmat, HIPSPARSE_SPARSETODENSE_ALG_DEFAULT, d_buffer));
 
-        //t.timer_end(stream);
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end(stream);
+        milliseconds += 0;  // t.get_time_elapsed();
     };
 
     /******************************************************************************/
@@ -194,18 +194,18 @@ void launch_cusparse_scatter_cuda11200_onward(
 template <typename T, typename M>
 void launch_cusparse_gather_before_cuda11200(
     hipsparseHandle_t   handle,
-    T*                 in_dense,
-    uint32_t const     num_rows,
-    uint32_t const     num_cols,
+    T*                  in_dense,
+    uint32_t const      num_rows,
+    uint32_t const      num_cols,
     hipsparseMatDescr_t mat_desc,
-    void*              d_work,
-    size_t&            lwork_in_bytes,
-    M*                 d_rowptr,
-    M*                 d_colidx,
-    T*                 d_val,
-    int&               nnz,  // int is for compatibility; cuSPARSE of CUDA 11 changed data type
-    float&             milliseconds,
-    hipStream_t       stream)
+    void*               d_work,
+    size_t&             lwork_in_bytes,
+    M*                  d_rowptr,
+    M*                  d_colidx,
+    T*                  d_val,
+    int&                nnz,  // int is for compatibility; cuSPARSE of CUDA 11 changed data type
+    float&              milliseconds,
+    hipStream_t         stream)
 {
     auto ld = num_rows;
 
@@ -217,21 +217,21 @@ void launch_cusparse_gather_before_cuda11200(
     auto gather10_init_and_probe = [&]() {
         {  // init
 
-            CHECK_CUSPARSE(hipsparseCreateMatDescr(&mat_desc));                            // 4. create rte.mat_desc
+            CHECK_CUSPARSE(hipsparseCreateMatDescr(&mat_desc));                             // 4. create rte.mat_desc
             CHECK_CUSPARSE(hipsparseSetMatIndexBase(mat_desc, HIPSPARSE_INDEX_BASE_ZERO));  // zero based
             CHECK_CUSPARSE(hipsparseSetMatType(mat_desc, HIPSPARSE_MATRIX_TYPE_GENERAL));   // type
         }
 
         {  // probe
-            //cuda_timer_t t;
-            //t.timer_start(stream);
+            // cuda_timer_t t;
+            // t.timer_start(stream);
 
             CHECK_CUSPARSE(hipsparseSpruneDense2csr_bufferSizeExt(
                 handle, num_rows, num_cols, in_dense, ld, &threshold, mat_desc, d_val, d_rowptr, d_colidx,
                 &lwork_in_bytes));
 
-            //t.timer_end(stream);
-            milliseconds += 0;//t.get_time_elapsed();
+            // t.timer_end(stream);
+            milliseconds += 0;  // t.get_time_elapsed();
         }
 
         if (nullptr != d_work) hipFree(d_work);
@@ -239,27 +239,27 @@ void launch_cusparse_gather_before_cuda11200(
     };
 
     auto gather10_compute_rowptr_and_nnz = [&]() {  // step 4
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         CHECK_CUSPARSE(hipsparseSpruneDense2csrNnz(
             handle, num_rows, num_cols, in_dense, ld, &threshold, mat_desc, d_rowptr, &nnz, d_work));
 
-        //t.timer_end(stream);
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end(stream);
+        milliseconds += 0;  // t.get_time_elapsed();
         CHECK_CUDA(hipStreamSynchronize(stream));
 
     };
 
     auto gather10_compute_colidx_and_val = [&]() {  // step 5
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         CHECK_CUSPARSE(hipsparseSpruneDense2csr(  //
             handle, num_rows, num_cols, in_dense, ld, &threshold, mat_desc, d_val, d_rowptr, d_colidx, d_work));
 
-        //t.timer_end(stream);
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end(stream);
+        milliseconds += 0;  // t.get_time_elapsed();
         CHECK_CUDA(hipStreamSynchronize(stream));
     };
 
@@ -270,8 +270,8 @@ void launch_cusparse_gather_before_cuda11200(
         has_ext_stream = true;
     else
         CHECK_CUDA(hipStreamCreateWithFlags(&stream, hipStreamNonBlocking));  // 1. create stream
-    CHECK_CUSPARSE(hipsparseCreate(&handle));                                    // 2. create handle
-    CHECK_CUSPARSE(hipsparseSetStream(handle, stream));                          // 3. bind stream
+    CHECK_CUSPARSE(hipsparseCreate(&handle));                                 // 2. create handle
+    CHECK_CUSPARSE(hipsparseSetStream(handle, stream));                       // 3. bind stream
 
     gather10_init_and_probe();
     gather10_compute_rowptr_and_nnz();
@@ -290,18 +290,18 @@ void launch_cusparse_gather_before_cuda11200(
 template <typename T, typename M>
 void launch_cusparse_scatter_before_cuda11200(
     hipsparseHandle_t   handle,
-    int*               d_rowptr,
-    int*               d_colidx,
-    T*                 d_val,
-    int const          num_rows,
-    int const          num_cols,
-    int const          nnz,
+    int*                d_rowptr,
+    int*                d_colidx,
+    T*                  d_val,
+    int const           num_rows,
+    int const           num_cols,
+    int const           nnz,
     hipsparseMatDescr_t mat_desc,
-    void*              d_buffer,
-    size_t&            d_buffer_size,
-    T*                 out_dense,
-    float&             milliseconds,
-    hipStream_t       stream)
+    void*               d_buffer,
+    size_t&             d_buffer_size,
+    T*                  out_dense,
+    float&              milliseconds,
+    hipStream_t         stream)
 {
     auto ld = num_rows;
 
@@ -310,20 +310,20 @@ void launch_cusparse_scatter_before_cuda11200(
     /******************************************************************************/
 
     auto scatter10_init = [&]() {
-        CHECK_CUSPARSE(hipsparseCreateMatDescr(&mat_desc));                            // 4. create descr
+        CHECK_CUSPARSE(hipsparseCreateMatDescr(&mat_desc));                             // 4. create descr
         CHECK_CUSPARSE(hipsparseSetMatIndexBase(mat_desc, HIPSPARSE_INDEX_BASE_ZERO));  // zero based
         CHECK_CUSPARSE(hipsparseSetMatType(mat_desc, HIPSPARSE_MATRIX_TYPE_GENERAL));   // type
     };
 
     auto scatter10_sparse2dense = [&]() {
-        //cuda_timer_t t;
-        //t.timer_start(stream);
+        // cuda_timer_t t;
+        // t.timer_start(stream);
 
         CHECK_CUSPARSE(
             hipsparseScsr2dense(handle, num_rows, num_cols, mat_desc, d_val, d_rowptr, d_colidx, out_dense, ld));
 
-        //t.timer_end();
-        milliseconds += 0;//t.get_time_elapsed();
+        // t.timer_end();
+        milliseconds += 0;  // t.get_time_elapsed();
         CHECK_CUDA(hipStreamSynchronize(stream));
     };
 
@@ -342,49 +342,6 @@ void launch_cusparse_scatter_before_cuda11200(
     if (mat_desc) hipsparseDestroyMatDescr(mat_desc);
     if ((not has_external_stream) and stream) hipStreamDestroy(stream);
     /******************************************************************************/
-}
-
-template <typename T, typename M>
-void launch_thrust_gather(
-    T*            in,
-    size_t const  in_len,
-    T*            d_val,
-    unsigned int* d_idx,
-    uint8_t*      out,
-    size_t&       out_len,
-    int&          nnz,
-    float&        milliseconds,
-    hipStream_t  stream)
-{
-    using thrust::placeholders::_1;
-
-    thrust::hip::par.on(stream);
-    thrust::counting_iterator<int> zero(0);
-
-    //cuda_timer_t t;
-    //t.timer_start(stream);
-
-    // find out the indices
-    nnz = thrust::copy_if(thrust::device, zero, zero + in_len, in, d_idx, _1 != 0) - d_idx;
-
-    // fetch corresponding values
-    thrust::copy(
-        thrust::device, thrust::make_permutation_iterator(in, d_idx),
-        thrust::make_permutation_iterator(in + nnz, d_idx + nnz), d_val);
-
-    //t.timer_end(stream);
-    milliseconds = 0;//t.get_time_elapsed();
-}
-
-template <typename T, typename M>
-void launch_thrust_scatter(T* d_val, int* d_idx, int const nnz, T* decoded, float& milliseconds, hipStream_t stream)
-{
-    thrust::hip::par.on(stream);
-    //cuda_timer_t t;
-    //t.timer_start(stream);
-    thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
-    //t.timer_end(stream);
-    milliseconds = 0;//t.get_time_elapsed();
 }
 
 #endif
