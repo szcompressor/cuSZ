@@ -42,29 +42,29 @@ target_include_directories(cuszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
-add_library(cuszkernel  src/kernel/claunch_cuda.cu)
+add_library(cuszkernel  src/kernel/claunch_cuda.cc)
 target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
 
 add_library(cuszargp  src/context.cc)
 target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 set_property(TARGET cuszargp PROPERTY HIP_ARCHITECTURES gfx908)
 
-add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
+add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cc)
 target_link_libraries(cuszpq PUBLIC cuszcompile_settings cuszkernel)
 set_property(TARGET cuszpq PROPERTY HIP_ARCHITECTURES gfx908)
 
-add_library(cuszspv  src/component/spcodec_vec.cc src/detail/spvec.cu)
+add_library(cuszspv  src/component/spcodec_vec.cc src/detail/spvec.cc)
 target_link_libraries(cuszspv PUBLIC cuszcompile_settings)
-set_property(TARGET cuszsp PROPERTY HIP_ARCHITECTURES gfx908)
+set_property(TARGET cuszspv PROPERTY HIP_ARCHITECTURES gfx908)
 
-add_library(cuszspm  src/component/spcodec.cc src/detail/spmat.cu)
+add_library(cuszspm  src/component/spcodec.cc src/detail/spmat.cc)
 target_link_libraries(cuszspm PUBLIC cuszcompile_settings roc::hipsparse)
-set_property(TARGET cuszsp PROPERTY HIP_ARCHITECTURES gfx908)
+set_property(TARGET cuszspm PROPERTY HIP_ARCHITECTURES gfx908)
 
-add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
-target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cuda_driver cuszkernel)
-# set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_property(TARGET cuszsp PROPERTY HIP_ARCHITECTURES gfx908)
+add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cc src/detail/huffman_coarse.cc)
+target_link_libraries(cuszhuff PUBLIC cuszcompile_settings hip::device cuszkernel)
+## CUDA::cuda_driver -> hip::device
+set_property(TARGET cuszhuff PROPERTY HIP_ARCHITECTURES gfx908)
 
 add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cc)
 target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)

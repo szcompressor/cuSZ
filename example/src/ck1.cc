@@ -43,23 +43,23 @@ void f(
         printf("\n");
     };
 
-    cudaMalloc(&d_d, sizeof(T) * len);
-    cudaMalloc(&d_xd, sizeof(T) * len);
-    cudaMalloc(&d_eq, sizeof(E) * len);
-    cudaMallocHost(&h_d, sizeof(T) * len);
-    cudaMallocHost(&h_xd, sizeof(T) * len);
-    cudaMallocHost(&h_eq, sizeof(E) * len);
+    hipMalloc(&d_d, sizeof(T) * len);
+    hipMalloc(&d_xd, sizeof(T) * len);
+    hipMalloc(&d_eq, sizeof(E) * len);
+    hipHostMalloc(&h_d, sizeof(T) * len);
+    hipHostMalloc(&h_xd, sizeof(T) * len);
+    hipHostMalloc(&h_eq, sizeof(E) * len);
 
     /* User handles loading from filesystem & transferring to device. */
     io::read_binary_to_array(fname, h_d, len);
-    cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
+    hipMemcpy(d_d, h_d, sizeof(T) * len, hipMemcpyHostToDevice);
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
     peek_devdata_T(d_d, 20);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStream_t stream;
+    hipStreamCreate(&stream);
 
     dim3 len3 = dim3(x, y, z);
 
@@ -67,19 +67,19 @@ void f(
     cusz::cpplaunch_construct_LorenzoI<T, E, float>(  //
         false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
 
-    cudaMemcpy(h_eq, d_eq, sizeof(E) * len, cudaMemcpyDeviceToHost);
+    hipMemcpy(h_eq, d_eq, sizeof(E) * len, hipMemcpyDeviceToHost);
     io::write_array_to_binary<E>(fname + ".eq." + type_literal, h_eq, len);
 
-    cudaMemcpy(d_xd, d_d, sizeof(T) * len, cudaMemcpyDeviceToDevice);
+    hipMemcpy(d_xd, d_d, sizeof(T) * len, hipMemcpyDeviceToDevice);
 
     cusz::cpplaunch_reconstruct_LorenzoI<T, E, float>(  //
         d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
 
     /* demo: offline checking (de)compression quality. */
-    /* load data again    */ cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
+    /* load data again    */ hipMemcpy(d_d, h_d, sizeof(T) * len, hipMemcpyHostToDevice);
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_xd, d_d, len);
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");

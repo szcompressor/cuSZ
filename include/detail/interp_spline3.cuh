@@ -22,12 +22,12 @@
 #include "../utils.hh"
 
 #define ALLOCDEV(VAR, SYM, NBYTE) \
-    cudaMalloc(&d_##VAR, NBYTE);  \
+    hipMalloc(&d_##VAR, NBYTE);   \
     cudaMemset(d_##VAR, 0x0, NBYTE);
 
 #define FREEDEV(VAR)       \
     if (d_##VAR) {         \
-        cudaFree(d_##VAR); \
+        hipFree(d_##VAR);  \
         d_##VAR = nullptr; \
     }
 
@@ -122,16 +122,16 @@ namespace cusz {
 
 //     // allocate
 //     auto nbyte_anchor = sizeof(T) * this->get_alloclen_anchor();
-//     cudaMalloc(&d_anchor, nbyte_anchor);
+//     hipMalloc(&d_anchor, nbyte_anchor);
 //     cudaMemset(d_anchor, 0x0, nbyte_anchor);
 
 //     auto nbyte_errctrl = sizeof(E) * this->get_alloclen_quant();
-//     cudaMalloc(&d_errctrl, nbyte_errctrl);
+//     hipMalloc(&d_errctrl, nbyte_errctrl);
 //     cudaMemset(d_errctrl, 0x0, nbyte_errctrl);
 
 //     if (not outlier_overlapped) {
 //         auto nbyte_outlier = sizeof(T) * this->get_alloclen_quant();
-//         cudaMalloc(&d_outlier, nbyte_outlier);
+//         hipMalloc(&d_outlier, nbyte_outlier);
 //         cudaMemset(d_outlier, 0x0, nbyte_outlier);
 //     }
 // }

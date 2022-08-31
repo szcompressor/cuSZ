@@ -12,7 +12,7 @@
 #ifndef CF358238_3946_4FFC_B5E6_45C12F0C0B44
 #define CF358238_3946_4FFC_B5E6_45C12F0C0B44
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include <cstdint>
 #include <memory>
@@ -44,8 +44,8 @@ class SpcodecVec {
     SpcodecVec& operator=(SpcodecVec&&);       // move assign
 
     void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decode(BYTE*, T*, hipStream_t = nullptr);
     void clear_buffer();
     // getter
     float get_time_elapsed() const;
@@ -73,14 +73,14 @@ struct SpcodecVec<T, M>::impl {
     RTE rte;
 
    private:
-    void subfile_collect(Header&, size_t, cudaStream_t = nullptr, bool = false);
+    void subfile_collect(Header&, size_t, hipStream_t = nullptr, bool = false);
 
    public:
     impl() = default;
     ~impl();
     void init(size_t const, int = 4, bool = false);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decode(BYTE*, T*, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, hipStream_t = nullptr, bool = false);
+    void decode(BYTE*, T*, hipStream_t = nullptr);
     void clear_buffer();
     // getter
     float get_time_elapsed() const;

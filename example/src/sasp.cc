@@ -36,28 +36,28 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
         printf("\n");
     };
 
-    cudaMalloc(&d_d, sizeof(T) * len);
-    cudaMalloc(&d_xd, sizeof(T) * len);
-    cudaMallocHost(&h_d, sizeof(T) * len);
-    cudaMallocHost(&h_xd, sizeof(T) * len);
+    hipMalloc(&d_d, sizeof(T) * len);
+    hipMalloc(&d_xd, sizeof(T) * len);
+    hipHostMalloc(&h_d, sizeof(T) * len);
+    hipHostMalloc(&h_xd, sizeof(T) * len);
 
     /* User handles loading from filesystem & transferring to device. */
     io::read_binary_to_array(fname, h_d, len);
-    cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
+    hipMemcpy(d_d, h_d, sizeof(T) * len, hipMemcpyHostToDevice);
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
     peek_devdata_T(d_d, 20);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStream_t stream;
+    hipStreamCreate(&stream);
 
     dim3 len3 = dim3(x, y, z);
 
     cusz::SpcodecVec<T, uint32_t> encoder;
     encoder.init(len, 1);  // CR lower bound = 1
 
-    cudaMalloc(&d_compressed, len * sizeof(T) * 2);
+    hipMalloc(&d_compressed, len * sizeof(T) * 2);
 
     // float  time;
     size_t outlen;
@@ -73,7 +73,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     /* perform evaluation */ cusz::QualityViewer::identical(CUSZ_GPU, d_xd, d_d, len);
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");

@@ -1,5 +1,5 @@
 /**
- * @file spv.cu
+ * @file spvo.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,10 +9,10 @@
  *
  */
 
-#include "kernel/launch_spv.cuh"
+#include "component/spcodec_vec.hh"
 #include "rand.hh"
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
@@ -21,52 +21,45 @@
 template <typename T = float>
 int f()
 {
-    T*        a;            // input
-    T*        da;           // decoded
-    size_t    len = 10000;  //
-    T*        val;          // intermeidate
-    uint32_t* idx;          //
-    int       nnz;          //
-    float     ms;
+    T*       a;            // input
+    T*       da;           // decoded
+    size_t   len = 10000;  //
+    uint8_t* file;         // output
+    size_t   filelen;      //
+    float    ms;
 
-    cudaMallocManaged(&a, sizeof(T) * len);
-    cudaMallocManaged(&da, sizeof(T) * len);
-    cudaMallocManaged(&val, sizeof(T) * len);
-    cudaMallocManaged(&idx, sizeof(uint32_t) * len);
+    hipMallocManaged(&a, sizeof(T) * len);
+    hipMallocManaged(&da, sizeof(T) * len);
+    hipMallocManaged(&file, sizeof(T) * len);
+    hipMemset(a, 0x0, sizeof(T) * len);
+    hipMemset(da, 0x0, sizeof(T) * len);
+    hipMemset(file, 0x0, sizeof(T) * len);
 
     // determine nnz
-    auto trials = randint(len) / 1;
+    auto trials = randint(len) / 10;
 
     for (auto i = 0; i < trials; i++) {
         auto idx = randint(len);
         a[idx]   = randint(INT32_MAX);
     }
-
     // CPU counting nnz
     auto nnz_ref = 0;
     for (auto i = 0; i < len; i++) {
         if (a[i] != 0) nnz_ref += 1;
     }
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    hipStream_t stream;
+    hipStreamCreate(&stream);
 
     ////////////////////////////////////////////////////////////////
 
-    launch_spv_gather<T, uint32_t>(a, len, val, idx, nnz, ms, stream);
+    auto codec = new cusz::SpcodecVec<T>;
 
-    cudaStreamSynchronize(stream);
+    codec->init(len, 1);
+    codec->encode(a, len, file, filelen, stream, false);
 
-    if (nnz != nnz_ref) {
-        std::cout << "nnz_ref: " << nnz_ref << std::endl;
-        std::cout << "nnz: " << nnz << std::endl;
-        std::cerr << "nnz != nnz_ref" << std::endl;
-        return -1;
-    }
-
-    launch_spv_scatter<T, uint32_t>(val, idx, nnz, da, ms, stream);
-
-    cudaStreamSynchronize(stream);
+    std::cout << "filelen: " << filelen << std::endl;
+    codec->decode(file, da, stream);
 
     ////////////////////////////////////////////////////////////////
 
@@ -79,12 +72,11 @@ int f()
         }
     }
 
-    cudaFree(a);
-    cudaFree(da);
-    cudaFree(val);
-    cudaFree(idx);
+    hipFree(a);
+    hipFree(da);
+    // hipFree(file);
 
-    cudaStreamDestroy(stream);
+    hipStreamDestroy(stream);
 
     if (same)
         return 0;

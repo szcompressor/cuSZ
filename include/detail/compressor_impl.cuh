@@ -31,10 +31,10 @@
 
 #define PRINT_ENTRY(VAR) printf("%d %-*s:  %'10u\n", (int)Header::VAR, 14, #VAR, header.entry[Header::VAR]);
 
-#define DEVICE2DEVICE_COPY(VAR, FIELD)                                                                 \
-    if (nbyte[Header::FIELD] != 0 and VAR != nullptr) {                                                \
-        auto dst = d_reserved_compressed + header.entry[Header::FIELD];                                \
-        auto src = reinterpret_cast<BYTE*>(VAR);                                                       \
+#define DEVICE2DEVICE_COPY(VAR, FIELD)                                                               \
+    if (nbyte[Header::FIELD] != 0 and VAR != nullptr) {                                              \
+        auto dst = d_reserved_compressed + header.entry[Header::FIELD];                              \
+        auto src = reinterpret_cast<BYTE*>(VAR);                                                     \
         CHECK_CUDA(hipMemcpyAsync(dst, src, nbyte[Header::FIELD], hipMemcpyDeviceToDevice, stream)); \
     }
 
@@ -92,12 +92,12 @@ void peek_devdata(T* d_arr, size_t num = 20)
 
 TEMPLATE_TYPE
 void IMPL::compress(
-    Context*     config,
-    T*           uncompressed,
-    BYTE*&       compressed,
-    size_t&      compressed_len,
+    Context*    config,
+    T*          uncompressed,
+    BYTE*&      compressed,
+    size_t&     compressed_len,
     hipStream_t stream,
-    bool         dbg_print)
+    bool        dbg_print)
 {
     auto const eb                = (*config).eb;
     auto const radius            = (*config).radius;
@@ -321,7 +321,7 @@ void IMPL::init_detail(CONFIG* config, bool dbg_print)
         hipMalloc(&d_freq, bytes);
         hipMemset(d_freq, 0x0, bytes);
 
-        // cudaMalloc(&d_freq_another, bytes);
+        // hipMalloc(&d_freq_another, bytes);
         // cudaMemset(d_freq_another, 0x0, bytes);
     }
 
@@ -371,17 +371,17 @@ void IMPL::collect_decompress_timerecord()
 
 TEMPLATE_TYPE
 void IMPL::encode_with_exception(
-    E*           d_in,
-    size_t       inlen,
-    cusz::FREQ*  d_freq,
-    int          booklen,
-    int          sublen,
-    int          pardeg,
-    bool         codec_force_fallback,
-    BYTE*&       d_out,
-    size_t&      outlen,
+    E*          d_in,
+    size_t      inlen,
+    cusz::FREQ* d_freq,
+    int         booklen,
+    int         sublen,
+    int         pardeg,
+    bool        codec_force_fallback,
+    BYTE*&      d_out,
+    size_t&     outlen,
     hipStream_t stream,
-    bool         dbg_print)
+    bool        dbg_print)
 {
     auto build_codebook_using = [&](auto encoder) { (*encoder).build_codebook(d_freq, booklen, stream); };
     auto encode_with          = [&](auto encoder) {
@@ -422,14 +422,14 @@ void IMPL::encode_with_exception(
 
 TEMPLATE_TYPE
 void IMPL::subfile_collect(
-    T*           d_anchor,
-    size_t       anchor_len,
-    BYTE*        d_codec_out,
-    size_t       codec_outlen,
-    BYTE*        d_spfmt_out,
-    size_t       spfmt_outlen,
+    T*          d_anchor,
+    size_t      anchor_len,
+    BYTE*       d_codec_out,
+    size_t      codec_outlen,
+    BYTE*       d_spfmt_out,
+    size_t      spfmt_outlen,
     hipStream_t stream,
-    bool         dbg_print)
+    bool        dbg_print)
 {
     header.header_nbyte = sizeof(Header);
     uint32_t nbyte[Header::END];

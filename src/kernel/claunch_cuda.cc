@@ -17,7 +17,7 @@
     cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                    \
         bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,         \
         E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,    \
-        cudaStream_t stream)                                                                                   \
+        hipStream_t stream)                                                                                   \
     {                                                                                                          \
         if (NO_R_SEPARATE)                                                                                     \
             launch_construct_LorenzoI<T, E, FP, true>(                                                         \
@@ -38,7 +38,7 @@ C_CONSTRUCT_LORENZOI(fp32, fp32, fp32, float, float, float);
 #define C_RECONSTRUCT_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                       \
     cusz_error_status claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                 \
         T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
-        double const eb, int const radius, float* time_elapsed, cudaStream_t stream)                          \
+        double const eb, int const radius, float* time_elapsed, hipStream_t stream)                          \
     {                                                                                                         \
         launch_reconstruct_LorenzoI<T, E, FP>(                                                                \
             xdata, len3, anchor, placeholder_1, errctrl, placeholder_2, eb, radius, *time_elapsed, stream);   \
@@ -55,7 +55,7 @@ C_RECONSTRUCT_LORENZOI(fp32, fp32, fp32, float, float, float);
 #define C_RECONSTRUCT_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                               \
     cusz_error_status claunch_construct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                           \
         bool NO_R_SEPARATE, T* data, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, \
-        double const eb, int const radius, float* time_elapsed, cudaStream_t stream)                                 \
+        double const eb, int const radius, float* time_elapsed, hipStream_t stream)                                 \
     {                                                                                                                \
         if (NO_R_SEPARATE)                                                                                           \
             launch_construct_Spline3<T, E, FP, true>(                                                                \
@@ -76,7 +76,7 @@ C_RECONSTRUCT_SPLINE3(fp32, fp32, fp32, float, float, float);
 #define C_RECONSTRUCT_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                             \
     cusz_error_status claunch_reconstruct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                       \
         T* xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, double const eb, \
-        int const radius, float* time_elapsed, cudaStream_t stream)                                                \
+        int const radius, float* time_elapsed, hipStream_t stream)                                                \
     {                                                                                                              \
         launch_reconstruct_Spline3<T, E, FP>(                                                                      \
             xdata, len3, anchor, an_len3, errctrl, ec_len3, eb, radius, *time_elapsed, stream);                    \
@@ -93,7 +93,7 @@ C_RECONSTRUCT_SPLINE3(fp32, fp32, fp32, float, float, float);
 // #define C_GPUPAR_CODEBOOK(Tliteral, Hliteral, Mliteral, T, H, M)                                                      \
 //     cusz_error_status claunch_gpu_parallel_build_codebook_T##Tliteral##_H##Hliteral##_M##Mliteral(                    \
 //         uint32_t* freq, H* book, int const booklen, uint8_t* revbook, int const revbook_nbyte, float* time_book,      \
-//         cudaStream_t stream)                                                                                          \
+//         hipStream_t stream)                                                                                          \
 //     {                                                                                                                 \
 //         launch_gpu_parallel_build_codebook<T, H, M>(freq, book, booklen, revbook, revbook_nbyte, *time_book, stream); \
 //         return CUSZ_SUCCESS;                                                                                          \
@@ -115,7 +115,7 @@ C_RECONSTRUCT_SPLINE3(fp32, fp32, fp32, float, float, float);
     cusz_error_status claunch_coarse_grained_Huffman_encoding_T##Tliteral##_H##Hliteral##_M##Mliteral(                 \
         T* uncompressed, H* d_internal_coded, size_t const len, uint32_t* d_freq, H* d_book, int const booklen,        \
         H* d_bitstream, M* d_par_metadata, M* h_par_metadata, int const sublen, int const pardeg, int numSMs,          \
-        uint8_t** out_compressed, size_t* out_compressed_len, float* time_lossless, cudaStream_t stream)               \
+        uint8_t** out_compressed, size_t* out_compressed_len, float* time_lossless, hipStream_t stream)               \
     {                                                                                                                  \
         launch_coarse_grained_Huffman_encoding<T, H, M>(                                                               \
             uncompressed, d_internal_coded, len, d_freq, d_book, booklen, d_bitstream, d_par_metadata, h_par_metadata, \
@@ -141,7 +141,7 @@ C_COARSE_HUFFMAN_ENCODE(fp32, ull, ui32, float, unsigned long long, uint32_t);
 #define C_COARSE_HUFFMAN_DECODE(Tliteral, Hliteral, Mliteral, T, H, M)                                                \
     cusz_error_status claunch_coarse_grained_Huffman_decoding_T##Tliteral##_H##Hliteral##_M##Mliteral(                \
         H* d_bitstream, uint8_t* d_revbook, int const revbook_nbyte, M* d_par_nbit, M* d_par_entry, int const sublen, \
-        int const pardeg, T* out_decompressed, float* time_lossless, cudaStream_t stream)                             \
+        int const pardeg, T* out_decompressed, float* time_lossless, hipStream_t stream)                             \
     {                                                                                                                 \
         launch_coarse_grained_Huffman_decoding(                                                                       \
             d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry, sublen, pardeg, out_decompressed,         \
