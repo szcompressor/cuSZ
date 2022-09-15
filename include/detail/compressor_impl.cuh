@@ -381,16 +381,14 @@ void IMPL::encode_with_exception(
     cudaStream_t stream,
     bool         dbg_print)
 {
-    auto build_codebook_using = [&](auto encoder) { (*encoder).build_codebook(d_freq, booklen, stream); };
-    auto encode_with          = [&](auto encoder) {
-        (*encoder).encode(d_in, inlen, d_freq, booklen, sublen, pardeg, d_out, outlen, stream);
-    };
+    auto build_codebook_using = [&](auto encoder) { encoder->build_codebook(d_freq, booklen, stream); };
+    auto encode_with          = [&](auto encoder) { encoder->encode(d_in, inlen, d_out, outlen, stream); };
 
     auto try_fallback_alloc = [&]() {
         use_fallback_codec = true;
         if (not fallback_codec_allocated) {
             LOGGING(LOG_EXCEPTION, "online allocate fallback (8-byte) codec");
-            (*fb_codec).init(inlen, booklen, pardeg, dbg_print);
+            fb_codec->init(inlen, booklen, pardeg, dbg_print);
             fallback_codec_allocated = true;
         }
     };

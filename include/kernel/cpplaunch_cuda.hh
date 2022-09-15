@@ -12,6 +12,7 @@
 #ifndef COMPONENT_CALL_KERNEL_HH
 #define COMPONENT_CALL_KERNEL_HH
 
+#include "../hf/hf_struct.h"
 #include "../kernel/claunch_cuda.h"
 
 namespace cusz {
@@ -88,6 +89,17 @@ cusz_error_status cpplaunch_coarse_grained_Huffman_encoding(
     size_t*      out_compressed_len,
     float*       time_lossless,
     cudaStream_t stream);
+
+template <typename T, typename H, typename M>
+cusz_error_status cpplaunch_coarse_grained_Huffman_encoding_rev1(
+    T*            uncompressed,
+    size_t const  len,
+    hf_book*      book_desc,
+    hf_bitstream* bitstream_desc,
+    uint8_t**     out_compressed,
+    size_t*       out_compressed_len,
+    float*        time_lossless,
+    cudaStream_t  stream);
 
 template <typename T, typename H, typename M>
 cusz_error_status cpplaunch_coarse_grained_Huffman_decoding(
@@ -200,6 +212,31 @@ CPP_COARSE_HUFFMAN_ENCODE(ui32, ull, ui32, uint32_t, unsigned long long, uint32_
 CPP_COARSE_HUFFMAN_ENCODE(fp32, ull, ui32, float, unsigned long long, uint32_t);
 
 #undef CPP_COARSE_HUFFMAN_ENCODE
+
+#define CPP_COARSE_HUFFMAN_ENCODE_rev1(Tliteral, Hliteral, Mliteral, T, H, M)                                         \
+    template <>                                                                                                       \
+    cusz_error_status cusz::cpplaunch_coarse_grained_Huffman_encoding_rev1<T, H, M>(                                  \
+        T * uncompressed, size_t const len, hf_book* book_desc, hf_bitstream* bitstream_desc,                         \
+        uint8_t** out_compressed, size_t* out_compressed_len, float* time_lossless, cudaStream_t stream)              \
+    {                                                                                                                 \
+        return claunch_coarse_grained_Huffman_encoding_rev1_T##Tliteral##_H##Hliteral##_M##Mliteral(                  \
+            uncompressed, len, book_desc, bitstream_desc, out_compressed, out_compressed_len, time_lossless, stream); \
+    }
+
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui8, ui32, ui32, uint8_t, uint32_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui16, ui32, ui32, uint16_t, uint32_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui32, ui32, ui32, uint32_t, uint32_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(fp32, ui32, ui32, float, uint32_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui8, ui64, ui32, uint8_t, uint64_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui16, ui64, ui32, uint16_t, uint64_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui32, ui64, ui32, uint32_t, uint64_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(fp32, ui64, ui32, float, uint64_t, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui8, ull, ui32, uint8_t, unsigned long long, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui16, ull, ui32, uint16_t, unsigned long long, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(ui32, ull, ui32, uint32_t, unsigned long long, uint32_t);
+CPP_COARSE_HUFFMAN_ENCODE_rev1(fp32, ull, ui32, float, unsigned long long, uint32_t);
+
+#undef CPP_COARSE_HUFFMAN_ENCODE_rev1
 
 #define CPP_COARSE_HUFFMAN_DECODE(Tliteral, Hliteral, Mliteral, T, H, M)                                      \
     template <>                                                                                               \
