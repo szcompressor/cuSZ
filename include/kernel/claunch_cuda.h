@@ -19,6 +19,8 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <stdlib.h>
+
 #include "../cusz/type.h"
 #include "../hf/hf_struct.h"
 
