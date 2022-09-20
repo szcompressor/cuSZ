@@ -14,7 +14,6 @@
 
 #include "utils/cuda_err.cuh"
 #include "utils/cuda_mem.cuh"
-#include "utils/cusparse_err.cuh"
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/strhelper.hh"
