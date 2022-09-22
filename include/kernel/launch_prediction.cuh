@@ -50,20 +50,20 @@ void launch_construct_LorenzoI(
             return 3;
     };
 
-    constexpr auto SUBLEN_1D = dim3(256, 1, 1);
-    constexpr auto SEQ_1D    = dim3(4, 1, 1);  // x-sequentiality == 4
+    constexpr auto SUBLEN_1D = 256;
+    constexpr auto SEQ_1D    = 4;  // x-sequentiality == 4
     constexpr auto BLOCK_1D  = dim3(256 / 4, 1, 1);
     auto           GRID_1D   = pardeg3(len3, SUBLEN_1D);
 
     constexpr auto SUBLEN_2D = dim3(16, 16, 1);
-    constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_2D  = dim3(16, 2, 1);
-    auto           GRID_2D   = pardeg3(len3, SUBLEN_2D);
+    // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_2D = dim3(16, 2, 1);
+    auto           GRID_2D  = pardeg3(len3, SUBLEN_2D);
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-    constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D  = dim3(32, 1, 8);
-    auto           GRID_3D   = pardeg3(len3, SUBLEN_3D);
+    // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_3D = dim3(32, 1, 8);
+    auto           GRID_3D  = pardeg3(len3, SUBLEN_3D);
 
     // error bound
     auto ebx2   = eb * 2;
@@ -76,7 +76,7 @@ void launch_construct_LorenzoI(
     timer.timer_start(stream);
 
     if (ndim() == 1) {
-        ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D.x, SEQ_1D.x, NO_R_SEPARATE>
+        ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D, NO_R_SEPARATE>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
     }
     else if (ndim() == 2) {
@@ -129,20 +129,20 @@ void launch_reconstruct_LorenzoI(
             return 3;
     };
 
-    constexpr auto SUBLEN_1D = dim3(256, 1, 1);
-    constexpr auto SEQ_1D    = dim3(8, 1, 1);  // x-sequentiality == 8
+    constexpr auto SUBLEN_1D = 256;
+    constexpr auto SEQ_1D    = 8;  // x-sequentiality == 8
     constexpr auto BLOCK_1D  = dim3(256 / 8, 1, 1);
     auto           GRID_1D   = pardeg3(len3, SUBLEN_1D);
 
     constexpr auto SUBLEN_2D = dim3(16, 16, 1);
-    constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_2D  = dim3(16, 2, 1);
-    auto           GRID_2D   = pardeg3(len3, SUBLEN_2D);
+    // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_2D = dim3(16, 2, 1);
+    auto           GRID_2D  = pardeg3(len3, SUBLEN_2D);
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-    constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D  = dim3(32, 1, 8);
-    auto           GRID_3D   = pardeg3(len3, SUBLEN_3D);
+    // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_3D = dim3(32, 1, 8);
+    auto           GRID_3D  = pardeg3(len3, SUBLEN_3D);
 
     // error bound
     auto ebx2   = eb * 2;
@@ -155,7 +155,7 @@ void launch_reconstruct_LorenzoI(
     timer.timer_start(stream);
 
     if (ndim() == 1) {
-        ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D.x, SEQ_1D.x>
+        ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
     else if (ndim() == 2) {
@@ -275,6 +275,7 @@ void launch_reconstruct_Spline3(
             (len.z - 1) / sublen.z + 1);
     };
 
+    /*
     auto ndim = [&]() {
         if (len3.z == 1 and len3.y == 1)
             return 1;
@@ -283,6 +284,7 @@ void launch_reconstruct_Spline3(
         else
             return 3;
     };
+     */
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
     constexpr auto SEQ_3D    = dim3(1, 8, 1);
