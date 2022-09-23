@@ -23,7 +23,8 @@ void f(
     size_t const      y,
     size_t const      z,
     double const      error_bound = 1.2e-4,
-    int const         radius      = 128)
+    int const         radius      = 128,
+    bool              use_proto   = false)
 {
     auto len = x * y * z;
 
@@ -56,7 +57,7 @@ void f(
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    peek_devdata_T(d_d, 20);
+    peek_devdata_T(d_d, 100);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -64,16 +65,39 @@ void f(
     dim3 len3 = dim3(x, y, z);
 
     float time;
-    cusz::cpplaunch_construct_LorenzoI<T, E, float>(  //
-        false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+
+    if (not use_proto) {
+        cout << "using optimized comp. kernel\n";
+        cusz::cpplaunch_construct_LorenzoI<T, E, float>(  //
+            false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+    }
+    else {
+        cout << "using prototype comp. kernel\n";
+        cusz::cpplaunch_construct_LorenzoI_proto<T, E, float>(  //
+            false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+    }
+
+    cudaDeviceSynchronize();
+
+    peek_devdata_E(d_eq, 100);
 
     cudaMemcpy(h_eq, d_eq, sizeof(E) * len, cudaMemcpyDeviceToHost);
     io::write_array_to_binary<E>(fname + ".eq." + type_literal, h_eq, len);
 
     cudaMemcpy(d_xd, d_d, sizeof(T) * len, cudaMemcpyDeviceToDevice);
 
-    cusz::cpplaunch_reconstruct_LorenzoI<T, E, float>(  //
-        d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+    if (not use_proto) {
+        cout << "using optimized decomp. kernel\n";
+        cusz::cpplaunch_reconstruct_LorenzoI<T, E, float>(  //
+            d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+    }
+    else {
+        cout << "using prototype decomp. kernel\n";
+        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, float>(  //
+            d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+    }
+
+    cudaDeviceSynchronize();
 
     /* demo: offline checking (de)compression quality. */
     /* load data again    */ cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
@@ -83,14 +107,14 @@ void f(
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
-    peek_devdata_T(d_xd, 20);
+    peek_devdata_T(d_xd, 100);
 }
 
 int main(int argc, char** argv)
 {
     if (argc < 6) {
-        printf("PROG /path/to/datafield X Y Z ErrorBound [ErrorQuantType] [Radius]\n");
-        printf("0    1                  2 3 4 5          6                7\n");
+        printf("PROG /path/to/datafield X Y Z ErrorBound [ErrorQuantType] [Radius] [Use Prototype]\n");
+        printf("0    1                  2 3 4 5          [6:ui16]         [7:128]  [8:yes]\n");
         exit(0);
     }
     else {
@@ -113,6 +137,12 @@ int main(int argc, char** argv)
         else
             radius = 128;
 
+        bool use_prototype;
+        if (argc > 8)
+            use_prototype = std::string(argv[8]) == "yes";
+        else
+            use_prototype = false;
+
         auto radius_legal = [&](int const sizeof_T) {
             size_t upper_bound = 1lu << (sizeof_T * 8);
             cout << upper_bound << endl;
@@ -122,18 +152,19 @@ int main(int argc, char** argv)
 
         if (type == "ui8") {
             radius_legal(1);
-            f<float, uint8_t>(fname, x, y, z, eb, radius);
+            f<float, uint8_t>(fname, x, y, z, eb, radius, use_prototype);
         }
         else if (type == "ui16") {
             radius_legal(2);
-            f<float, uint16_t>(fname, x, y, z, eb, radius);
+            f<float, uint16_t>(fname, x, y, z, eb, radius, use_prototype);
         }
         else if (type == "ui32") {
             radius_legal(4);
-            f<float, uint32_t>(fname, x, y, z, eb, radius);
+            f<float, uint32_t>(fname, x, y, z, eb, radius, use_prototype);
         }
-        else if (type == "fp32")
-            f<float, float>(fname, x, y, z, eb, radius);
+        else if (type == "fp32") {
+            f<float, float>(fname, x, y, z, eb, radius, use_prototype);
+        }
     }
 
     return 0;

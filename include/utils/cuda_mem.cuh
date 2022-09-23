@@ -18,6 +18,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
 
 template <int NUM>
 static inline bool __is_aligned_at(const void* ptr)
