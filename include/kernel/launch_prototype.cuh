@@ -13,7 +13,6 @@
 #define BAA68178_B2F5_4C58_AB0A_A29731EBB9B6
 
 #include <stdexcept>
-#include "../utils/cuda_err.cuh"
 #include "../utils/cuda_mem.cuh"
 #include "../utils/timer.hh"
 #include "lorenzo_prototype.cuh"
@@ -29,7 +28,7 @@ void launch_construct_LorenzoI_proto(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -66,8 +65,8 @@ void launch_construct_LorenzoI_proto(
 
     auto outlier = data;
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    //cuda_timer_t timer;
+    //timer.timer_start(stream);
 
     if (ndim() == 1) {
         cusz::prototype::c_lorenzo_1d1l<T, E, FP>
@@ -85,13 +84,13 @@ void launch_construct_LorenzoI_proto(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    timer.timer_end(stream);
+    //timer.timer_end(stream);
     if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        hipStreamSynchronize(stream);
     else
-        CHECK_CUDA(cudaDeviceSynchronize());
+        hipDeviceSynchronize();
 
-    time_elapsed = timer.get_time_elapsed();
+    //time_elapsed = timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP>
@@ -105,7 +104,7 @@ void launch_reconstruct_LorenzoI_proto(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    cudaStream_t stream)
+    hipStream_t stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -142,8 +141,8 @@ void launch_reconstruct_LorenzoI_proto(
 
     auto outlier = xdata;
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    //cuda_timer_t timer;
+    //timer.timer_start(stream);
 
     if (ndim() == 1) {
         cusz::prototype::x_lorenzo_1d1l<T, E, FP>
@@ -158,13 +157,13 @@ void launch_reconstruct_LorenzoI_proto(
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, len3, leap3, radius, ebx2);
     }
 
-    timer.timer_end(stream);
+    //timer.timer_end(stream);
     if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        hipStreamSynchronize(stream);
     else
-        CHECK_CUDA(cudaDeviceSynchronize());
+        hipDeviceSynchronize();
 
-    time_elapsed = timer.get_time_elapsed();
+    //time_elapsed = timer.get_time_elapsed();
 }
 
 #endif /* BAA68178_B2F5_4C58_AB0A_A29731EBB9B6 */

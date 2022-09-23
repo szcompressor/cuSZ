@@ -140,9 +140,9 @@ void launch_coarse_grained_Huffman_encoding_rev1(
     uint8_t*&     out_compressed,
     size_t&       out_compressed_len,
     float&        time_lossless,
-    cudaStream_t  stream)
+    hipStream_t  stream)
 {
-    cuda_timer_t t;
+    //cuda_timer_t t;
 
     H*        d_buffer    = (H*)bitstream_desc->buffer;
     H*        d_bitstream = (H*)bitstream_desc->bitstream;
@@ -166,16 +166,16 @@ void launch_coarse_grained_Huffman_encoding_rev1(
         auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
         auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
 
-        t.timer_start(stream);
+        //t.timer_start(stream);
 
         cusz::coarse_grained_Huffman_encode_phase1_fill<T, H>   //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_buffer);
 
-        t.timer_end(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        //t.timer_end(stream);
+        CHECK_CUDA(hipStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        //time_lossless += t.get_time_elapsed();
     }
 
     /* phase 2 */
@@ -183,40 +183,40 @@ void launch_coarse_grained_Huffman_encoding_rev1(
         auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
         auto grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
 
-        t.timer_start(stream);
+        //t.timer_start(stream);
 
         cusz::coarse_grained_Huffman_encode_phase2_deflate<H>  //
             <<<grid_dim, block_dim, 0, stream>>>               //
             (d_buffer, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
-        t.timer_end(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        //t.timer_end(stream);
+        CHECK_CUDA(hipStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        //time_lossless += t.get_time_elapsed();
     }
 
     /* phase 3 */
     {
-        CHECK_CUDA(cudaMemcpyAsync(h_par_nbit, d_par_nbit, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaMemcpyAsync(h_par_ncell, d_par_ncell, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipMemcpyAsync(h_par_nbit, d_par_nbit, pardeg * sizeof(M), hipMemcpyDeviceToHost, stream));
+        CHECK_CUDA(hipMemcpyAsync(h_par_ncell, d_par_ncell, pardeg * sizeof(M), hipMemcpyDeviceToHost, stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
 
         memcpy(h_par_entry + 1, h_par_ncell, (pardeg - 1) * sizeof(M));
         for (auto i = 1; i < pardeg; i++) h_par_entry[i] += h_par_entry[i - 1];  // inclusive scan
 
-        CHECK_CUDA(cudaMemcpyAsync(d_par_entry, h_par_entry, pardeg * sizeof(M), cudaMemcpyHostToDevice, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_CUDA(hipMemcpyAsync(d_par_entry, h_par_entry, pardeg * sizeof(M), hipMemcpyHostToDevice, stream));
+        CHECK_CUDA(hipStreamSynchronize(stream));
     }
 
     /* phase 4 */
     {
-        t.timer_start(stream);
+        //t.timer_start(stream);
         cusz::coarse_grained_Huffman_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_buffer, d_par_entry, d_par_ncell, sublen, d_bitstream);
-        t.timer_end(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        //t.timer_end(stream);
+        CHECK_CUDA(hipStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        //time_lossless += t.get_time_elapsed();
     }
 }
 

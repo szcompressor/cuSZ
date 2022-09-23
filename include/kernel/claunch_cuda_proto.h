@@ -12,7 +12,12 @@
 #ifndef F8664941_35AD_4E6E_975D_5E495B81E08D
 #define F8664941_35AD_4E6E_975D_5E495B81E08D
 
+
 #ifdef __cplusplus
+
+// hip requires cpp linkage
+#include <hip/hip_runtime.h>
+
 extern "C" {
 #endif
 
@@ -23,7 +28,7 @@ extern "C" {
     cusz_error_status claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(           \
         bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,      \
         E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed, \
-        cudaStream_t stream);
+        hipStream_t stream);
 
 C_CONSTRUCT_LORENZOI_PROTO(fp32, ui8, fp32, float, uint8_t, float);
 C_CONSTRUCT_LORENZOI_PROTO(fp32, ui16, fp32, float, uint16_t, float);
@@ -35,7 +40,7 @@ C_CONSTRUCT_LORENZOI_PROTO(fp32, fp32, fp32, float, float, float);
 #define C_RECONSTRUCT_LORENZOI_PROTO(Tliteral, Eliteral, FPliteral, T, E, FP)                                 \
     cusz_error_status claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(           \
         T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
-        double const eb, int const radius, float* time_elapsed, cudaStream_t stream);
+        double const eb, int const radius, float* time_elapsed, hipStream_t stream);
 
 C_RECONSTRUCT_LORENZOI_PROTO(fp32, ui8, fp32, float, uint8_t, float);
 C_RECONSTRUCT_LORENZOI_PROTO(fp32, ui16, fp32, float, uint16_t, float);

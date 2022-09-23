@@ -83,8 +83,8 @@ __global__ void c_lorenzo_2d1l(  //
 {
     __shared__ Data shmem[BLOCK][BLOCK + 1];
 
-    auto y = threadIdx.y, x = threadIdx.x;
-    auto giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
+    size_t y = threadIdx.y, x = threadIdx.x;
+    size_t giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
 
     auto id = gix + giy * stride3.y;  // low to high dim, inner to outer
     if (gix < len3.x and giy < len3.y) {
@@ -131,8 +131,8 @@ __global__ void c_lorenzo_3d1l(  //
 {
     __shared__ Data shmem[BLOCK][BLOCK][BLOCK + 1];
 
-    auto z = threadIdx.z, y = threadIdx.y, x = threadIdx.x;
-    auto giz = blockIdx.z * blockDim.z + z, giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
+    uint32_t z = threadIdx.z, y = threadIdx.y, x = threadIdx.x;
+    size_t giz = blockIdx.z * blockDim.z + z, giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
 
     auto id = gix + giy * stride3.y + giz * stride3.z;  // low to high in dim, inner to outer
     if (gix < len3.x and giy < len3.y and giz < len3.z) {

@@ -30,7 +30,7 @@ cusz_error_status cpplaunch_construct_LorenzoI_proto(
     double const eb,
     int const    radius,
     float*       time_elapsed,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 template <typename T, typename E, typename FP>
 cusz_error_status cpplaunch_reconstruct_LorenzoI_proto(
@@ -43,7 +43,7 @@ cusz_error_status cpplaunch_reconstruct_LorenzoI_proto(
     double const eb,
     int const    radius,
     float*       time_elapsed,
-    cudaStream_t stream);
+    hipStream_t stream);
 
 template <typename T, typename E, typename FP>
 cusz_error_status cpplaunch_construct_LorenzoI(
@@ -127,7 +127,7 @@ cusz_error_status cpplaunch_coarse_grained_Huffman_encoding_rev1(
     uint8_t**     out_compressed,
     size_t*       out_compressed_len,
     float*        time_lossless,
-    cudaStream_t  stream);
+    hipStream_t  stream);
 
 template <typename T, typename H, typename M>
 cusz_error_status cpplaunch_coarse_grained_Huffman_decoding(
@@ -149,7 +149,7 @@ cusz_error_status cpplaunch_coarse_grained_Huffman_decoding(
     cusz_error_status cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                                       \
         bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,          \
         E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,     \
-        cudaStream_t stream)                                                                                    \
+        hipStream_t stream)                                                                                    \
     {                                                                                                           \
         return claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                      \
             NO_R_SEPARATE, data, len3, anchor, placeholder_1, errctrl, placeholder_2, eb, radius, time_elapsed, \
@@ -167,7 +167,7 @@ CPP_CONSTRUCT_LORENZOI_PROTO(fp32, fp32, fp32, float, float, float);
     template <>                                                                                                \
     cusz_error_status cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                                    \
         T * xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
-        double const eb, int const radius, float* time_elapsed, cudaStream_t stream)                           \
+        double const eb, int const radius, float* time_elapsed, hipStream_t stream)                           \
     {                                                                                                          \
         return claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                   \
             xdata, len3, anchor, placeholder_1, errctrl, placeholder_2, eb, radius, time_elapsed, stream);     \
@@ -281,7 +281,7 @@ CPP_COARSE_HUFFMAN_ENCODE(fp32, ull, ui32, float, unsigned long long, uint32_t);
     template <>                                                                                                       \
     cusz_error_status cusz::cpplaunch_coarse_grained_Huffman_encoding_rev1<T, H, M>(                                  \
         T * uncompressed, size_t const len, hf_book* book_desc, hf_bitstream* bitstream_desc,                         \
-        uint8_t** out_compressed, size_t* out_compressed_len, float* time_lossless, cudaStream_t stream)              \
+        uint8_t** out_compressed, size_t* out_compressed_len, float* time_lossless, hipStream_t stream)              \
     {                                                                                                                 \
         return claunch_coarse_grained_Huffman_encoding_rev1_T##Tliteral##_H##Hliteral##_M##Mliteral(                  \
             uncompressed, len, book_desc, bitstream_desc, out_compressed, out_compressed_len, time_lossless, stream); \

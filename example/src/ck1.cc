@@ -67,7 +67,7 @@ void f(
             false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
 
-    cudaDeviceSynchronize();
+    hipDeviceSynchronize();
 
     peek_device_data<E>(d_eq, 100);
 
@@ -87,7 +87,7 @@ void f(
             d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
 
-    cudaDeviceSynchronize();
+    hipDeviceSynchronize();
 
     /* demo: offline checking (de)compression quality. */
     /* load data again    */ hipMemcpy(d_d, h_d, sizeof(T) * len, hipMemcpyHostToDevice);
