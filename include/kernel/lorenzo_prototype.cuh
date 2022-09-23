@@ -26,61 +26,42 @@ using STRIDE = unsigned int;
 namespace cusz {
 namespace prototype {  // easy algorithmic description
 
-// clang-format off
-template <typename Data, typename Quant, typename FP, int BLOCK = 256, bool PROBE_PRED_ERROR = false> __global__ void c_lorenzo_1d1l
-(Data*, Quant*, DIM, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
-template <typename Data, typename Quant, typename FP, int BLOCK = 256> __global__ void x_lorenzo_1d1l
-(Data*, Quant*, DIM, int, FP);
-
-template <typename Data, typename Quant, typename FP, int BLOCK = 16, bool PROBE_PRED_ERROR = false> __global__ void c_lorenzo_2d1l
-(Data*, Quant*, DIM, DIM, STRIDE, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
-template <typename Data, typename Quant, typename FP, int BLOCK = 16> __global__ void x_lorenzo_2d1l
-(Data*, Quant*, DIM, DIM, STRIDE, int, FP);
-
-template <typename Data, typename Quant, typename FP, int BLOCK = 8, bool PROBE_PRED_ERROR = false> __global__ void c_lorenzo_3d1l
-(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP, int* = nullptr, Data* = nullptr, FP = 1.0);
-template <typename Data, typename Quant, typename FP, int BLOCK = 8> __global__ void x_lorenzo_3d1l
-(Data*, Quant*, DIM, DIM, DIM, STRIDE, STRIDE, int, FP);
-// clang-format on
-
-}  // namespace prototype
-}  // namespace cusz
-
-template <typename Data, typename Quant, typename FP, int BLOCK, bool PROBE_PRED_ERROR>
-__global__ void cusz::prototype::c_lorenzo_1d1l(  //
+template <typename Data, typename Quant, typename FP, int BLOCK = 256, bool PROBE_PRED_ERROR = false>
+__global__ void c_lorenzo_1d1l(  //
     Data*  data,
     Quant* quant,
-    DIM    dimx,
+    dim3   len3,
+    dim3   stride3,
     int    radius,
     FP     ebx2_r,
-    int*   integer_error,
-    Data*  raw_error,
-    FP     ebx2)
+    int*   integer_error = nullptr,
+    Data*  raw_error     = nullptr,
+    FP     ebx2          = 1.0)
 {
     __shared__ Data shmem[BLOCK];
 
     auto id = blockIdx.x * blockDim.x + threadIdx.x;
-    if (id < dimx) {
+    if (id < len3.x) {
         shmem[threadIdx.x] = round(data[id] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();  // necessary to ensure correctness
 
     Data delta = shmem[threadIdx.x] - (threadIdx.x == 0 ? 0 : shmem[threadIdx.x - 1]);
 
-#ifndef DPCPP_SHOWCASE
-    if CONSTEXPR (PROBE_PRED_ERROR) {
-        if (id < dimx) {  // postquant
-            integer_error[id] = delta;
-            raw_error[id]     = delta * ebx2;
-        }
-        return;
-    }
-#endif
+    // #ifndef DPCPP_SHOWCASE
+    //     if CONSTEXPR (PROBE_PRED_ERROR) {
+    //         if (id < len3.x) {  // postquant
+    //             integer_error[id] = delta;
+    //             raw_error[id]     = delta * ebx2;
+    //         }
+    //         return;
+    //     }
+    // #endif
 
     {
         bool quantizable = fabs(delta) < radius;
         Data candidate   = delta + radius;
-        if (id < dimx) {                                // postquant
+        if (id < len3.x) {                              // postquant
             data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
             quant[id] = quantizable * static_cast<Quant>(candidate);
         }
@@ -88,26 +69,25 @@ __global__ void cusz::prototype::c_lorenzo_1d1l(  //
     // EOF
 }
 
-template <typename Data, typename Quant, typename FP, int BLOCK, bool PROBE_PRED_ERROR>
-__global__ void cusz::prototype::c_lorenzo_2d1l(  //
+template <typename Data, typename Quant, typename FP, int BLOCK = 16, bool PROBE_PRED_ERROR = false>
+__global__ void c_lorenzo_2d1l(  //
     Data*  data,
     Quant* quant,
-    DIM    dimx,
-    DIM    dimy,
-    STRIDE stridey,
+    dim3   len3,
+    dim3   stride3,
     int    radius,
     FP     ebx2_r,
-    int*   integer_error,
-    Data*  raw_error,
-    FP     ebx2)
+    int*   integer_error = nullptr,
+    Data*  raw_error     = nullptr,
+    FP     ebx2          = 1.0)
 {
-    __shared__ Data shmem[BLOCK][BLOCK];
+    __shared__ Data shmem[BLOCK][BLOCK + 1];
 
     auto y = threadIdx.y, x = threadIdx.x;
     auto giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
 
-    auto id = gix + giy * stridey;  // low to high dim, inner to outer
-    if (gix < dimx and giy < dimy) {
+    auto id = gix + giy * stride3.y;  // low to high dim, inner to outer
+    if (gix < len3.x and giy < len3.y) {
         shmem[y][x] = round(data[id] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();  // necessary to ensure correctness
@@ -116,20 +96,20 @@ __global__ void cusz::prototype::c_lorenzo_2d1l(  //
                                 (y > 0 ? shmem[y - 1][x] : 0) -                // dist=1
                                 (x > 0 and y > 0 ? shmem[y - 1][x - 1] : 0));  // dist=2
 
-#ifndef DPCPP_SHOWCASE
-    if CONSTEXPR (PROBE_PRED_ERROR) {
-        if (gix < dimx and giy < dimy) {
-            integer_error[id] = static_cast<int>(delta);
-            raw_error[id]     = delta * ebx2;
-        }
-        return;
-    }
-#endif
+    // #ifndef DPCPP_SHOWCASE
+    //     if CONSTEXPR (PROBE_PRED_ERROR) {
+    //         if (gix < len3.x and giy < len3.y) {
+    //             integer_error[id] = static_cast<int>(delta);
+    //             raw_error[id]     = delta * ebx2;
+    //         }
+    //         return;
+    //     }
+    // #endif
 
     {
         bool quantizable = fabs(delta) < radius;
         Data candidate   = delta + radius;
-        if (gix < dimx and giy < dimy) {
+        if (gix < len3.x and giy < len3.y) {
             data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
             quant[id] = quantizable * static_cast<Quant>(candidate);
         }
@@ -137,28 +117,25 @@ __global__ void cusz::prototype::c_lorenzo_2d1l(  //
     // EOF
 }
 
-template <typename Data, typename Quant, typename FP, int BLOCK, bool PROBE_PRED_ERROR>
-__global__ void cusz::prototype::c_lorenzo_3d1l(  //
+template <typename Data, typename Quant, typename FP, int BLOCK = 8, bool PROBE_PRED_ERROR = false>
+__global__ void c_lorenzo_3d1l(  //
     Data*  data,
     Quant* quant,
-    DIM    dimx,
-    DIM    dimy,
-    DIM    dimz,
-    STRIDE stridey,
-    STRIDE stridez,
+    dim3   len3,
+    dim3   stride3,
     int    radius,
     FP     ebx2_r,
-    int*   integer_error,
-    Data*  raw_error,
-    FP     ebx2)
+    int*   integer_error = nullptr,
+    Data*  raw_error     = nullptr,
+    FP     ebx2          = 1.0)
 {
-    __shared__ Data shmem[BLOCK][BLOCK][BLOCK];
+    __shared__ Data shmem[BLOCK][BLOCK][BLOCK + 1];
 
     auto z = threadIdx.z, y = threadIdx.y, x = threadIdx.x;
     auto giz = blockIdx.z * blockDim.z + z, giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
 
-    auto id = gix + giy * stridey + giz * stridez;  // low to high in dim, inner to outer
-    if (gix < dimx and giy < dimy and giz < dimz) {
+    auto id = gix + giy * stride3.y + giz * stride3.z;  // low to high in dim, inner to outer
+    if (gix < len3.x and giy < len3.y and giz < len3.z) {
         shmem[z][y][x] = round(data[id] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();  // necessary to ensure correctness
@@ -171,20 +148,20 @@ __global__ void cusz::prototype::c_lorenzo_3d1l(  //
                                    + (y > 0 ? shmem[z][y - 1][x] : 0)                            //
                                    + (z > 0 ? shmem[z - 1][y][x] : 0));                          //
 
-#ifndef DPCPP_SHOWCASE
-    if CONSTEXPR (PROBE_PRED_ERROR) {
-        if (gix < dimx and giy < dimy and giz < dimz) {
-            integer_error[id] = static_cast<int>(delta);
-            raw_error[id]     = delta * ebx2;
-        }
-        return;
-    }
-#endif
+    // #ifndef DPCPP_SHOWCASE
+    //     if CONSTEXPR (PROBE_PRED_ERROR) {
+    //         if (gix < len3.x and giy < len3.y and giz < len3.z) {
+    //             integer_error[id] = static_cast<int>(delta);
+    //             raw_error[id]     = delta * ebx2;
+    //         }
+    //         return;
+    //     }
+    // #endif
 
     {
         bool quantizable = fabs(delta) < radius;
         Data candidate   = delta + radius;
-        if (gix < dimx and giy < dimy and giz < dimz) {
+        if (gix < len3.x and giy < len3.y and giz < len3.z) {
             data[id]  = (1 - quantizable) * candidate;  // output; reuse data for outlier
             quant[id] = quantizable * static_cast<Quant>(candidate);
         }
@@ -192,11 +169,12 @@ __global__ void cusz::prototype::c_lorenzo_3d1l(  //
     // EOF
 }
 
-template <typename Data, typename Quant, typename FP, int BLOCK>
-__global__ void cusz::prototype::x_lorenzo_1d1l(  //
+template <typename Data, typename Quant, typename FP, int BLOCK = 256>
+__global__ void x_lorenzo_1d1l(  //
     Data*  xdata_outlier,
     Quant* quant,
-    DIM    dimx,
+    dim3   len3,
+    dim3   stride3,
     int    radius,
     FP     ebx2)
 {
@@ -204,7 +182,7 @@ __global__ void cusz::prototype::x_lorenzo_1d1l(  //
 
     auto id = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (id < dimx)
+    if (id < len3.x)
         shmem[threadIdx.x] = xdata_outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
     else
         shmem[threadIdx.x] = 0;
@@ -218,25 +196,24 @@ __global__ void cusz::prototype::x_lorenzo_1d1l(  //
         __syncthreads();
     }
 
-    if (id < dimx) { xdata_outlier[id] = shmem[threadIdx.x] * ebx2; }
+    if (id < len3.x) { xdata_outlier[id] = shmem[threadIdx.x] * ebx2; }
 }
 
-template <typename Data, typename Quant, typename FP, int BLOCK>
-__global__ void cusz::prototype::x_lorenzo_2d1l(  //
+template <typename Data, typename Quant, typename FP, int BLOCK = 16>
+__global__ void x_lorenzo_2d1l(  //
     Data*  xdata_outlier,
     Quant* quant,
-    DIM    dimx,
-    DIM    dimy,
-    STRIDE stridey,
+    dim3   len3,
+    dim3   stride3,
     int    radius,
     FP     ebx2)
 {
-    __shared__ Data shmem[BLOCK][BLOCK];
+    __shared__ Data shmem[BLOCK][BLOCK + 1];
 
     auto   giy = blockIdx.y * blockDim.y + threadIdx.y, gix = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t id = gix + giy * stridey;
+    size_t id = gix + giy * stride3.y;
 
-    if (gix < dimx and giy < dimy)
+    if (gix < len3.x and giy < len3.y)
         shmem[threadIdx.y][threadIdx.x] = xdata_outlier[id] + static_cast<Data>(quant[id]) - radius;  // fuse
     else
         shmem[threadIdx.y][threadIdx.x] = 0;
@@ -258,28 +235,25 @@ __global__ void cusz::prototype::x_lorenzo_2d1l(  //
         __syncthreads();
     }
 
-    if (gix < dimx and giy < dimy) { xdata_outlier[id] = shmem[threadIdx.y][threadIdx.x] * ebx2; }
+    if (gix < len3.x and giy < len3.y) { xdata_outlier[id] = shmem[threadIdx.y][threadIdx.x] * ebx2; }
 }
 
-template <typename Data, typename Quant, typename FP, int BLOCK>
-__global__ void cusz::prototype::x_lorenzo_3d1l(  //
+template <typename Data, typename Quant, typename FP, int BLOCK = 8>
+__global__ void x_lorenzo_3d1l(  //
     Data*  xdata_outlier,
     Quant* quant,
-    DIM    dimx,
-    DIM    dimy,
-    DIM    dimz,
-    STRIDE stridey,
-    STRIDE stridez,
+    dim3   len3,
+    dim3   stride3,
     int    radius,
     FP     ebx2)
 {
-    __shared__ Data shmem[BLOCK][BLOCK][BLOCK];
+    __shared__ Data shmem[BLOCK][BLOCK][BLOCK + 1];
 
     auto giz = blockIdx.z * BLOCK + threadIdx.z, giy = blockIdx.y * BLOCK + threadIdx.y,
          gix  = blockIdx.x * BLOCK + threadIdx.x;
-    size_t id = gix + giy * stridey + giz * stridez;  // low to high in dim, inner to outer
+    size_t id = gix + giy * stride3.y + giz * stride3.z;  // low to high in dim, inner to outer
 
-    if (gix < dimx and giy < dimy and giz < dimz)
+    if (gix < len3.x and giy < len3.y and giz < len3.z)
         shmem[threadIdx.z][threadIdx.y][threadIdx.x] = xdata_outlier[id] + static_cast<Data>(quant[id]) - radius;  // id
     else
         shmem[threadIdx.z][threadIdx.y][threadIdx.x] = 0;
@@ -309,9 +283,12 @@ __global__ void cusz::prototype::x_lorenzo_3d1l(  //
         __syncthreads();
     }
 
-    if (gix < dimx and giy < dimy and giz < dimz) {
+    if (gix < len3.x and giy < len3.y and giz < len3.z) {
         xdata_outlier[id] = shmem[threadIdx.z][threadIdx.y][threadIdx.x] * ebx2;
     }
 }
+
+}  // namespace prototype
+}  // namespace cusz
 
 #endif

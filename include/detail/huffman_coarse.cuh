@@ -27,6 +27,7 @@ using std::cout;
 #include "../common/definition.hh"
 #include "../common/type_traits.hh"
 #include "../component/codec.hh"
+#include "../hf/hf_struct.h"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/cpplaunch_cuda.hh"
 #include "../kernel/hist.cuh"
@@ -40,33 +41,33 @@ using std::cout;
 
 #define EXPORT_NBYTE(FIELD) nbyte[Header::FIELD] = rte.nbyte[RTE::FIELD];
 
-#define DEVICE2DEVICE_COPY(VAR, FIELD)                                            \
-    {                                                                             \
+#define DEVICE2DEVICE_COPY(VAR, FIELD)                                           \
+    {                                                                            \
         constexpr auto D2D = hipMemcpyDeviceToDevice;                            \
-        auto           dst = d_compressed + header.entry[Header::FIELD];          \
-        auto           src = reinterpret_cast<BYTE*>(d_##VAR);                    \
+        auto           dst = d_compressed + header.entry[Header::FIELD];         \
+        auto           src = reinterpret_cast<BYTE*>(d_##VAR);                   \
         CHECK_CUDA(hipMemcpyAsync(dst, src, nbyte[Header::FIELD], D2D, stream)); \
     }
 
 #define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
-#define HC_ALLOCHOST(VAR, SYM)                     \
+#define HC_ALLOCHOST(VAR, SYM)                    \
     hipHostMalloc(&h_##VAR, rte.nbyte[RTE::SYM]); \
     memset(h_##VAR, 0x0, rte.nbyte[RTE::SYM]);
 
-#define HC_ALLOCDEV(VAR, SYM)                  \
+#define HC_ALLOCDEV(VAR, SYM)                 \
     hipMalloc(&d_##VAR, rte.nbyte[RTE::SYM]); \
     hipMemset(d_##VAR, 0x0, rte.nbyte[RTE::SYM]);
 
-#define HC_FREEHOST(VAR)       \
-    if (h_##VAR) {             \
+#define HC_FREEHOST(VAR)      \
+    if (h_##VAR) {            \
         hipHostFree(h_##VAR); \
-        h_##VAR = nullptr;     \
+        h_##VAR = nullptr;    \
     }
 
 #define HC_FREEDEV(VAR)    \
     if (d_##VAR) {         \
-        hipFree(d_##VAR); \
+        hipFree(d_##VAR);  \
         d_##VAR = nullptr; \
     }
 
@@ -167,13 +168,23 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
         h_par_entry = h_par_metadata + pardeg * 2;
     }
 
+    int numSMs;
+    hipDeviceGetAttribute(&numSMs, hipDeviceAttributeMultiprocessorCount, 0);
+
+    int sublen = (in_uncompressed_len - 1) / pardeg + 1;
+
+    book_desc      = new hf_book{nullptr, d_book, booklen};
+    chunk_desc_d   = new hf_chunk{d_par_nbit, d_par_ncell, d_par_entry};
+    chunk_desc_h   = new hf_chunk{h_par_nbit, h_par_ncell, h_par_entry};
+    bitstream_desc = new hf_bitstream{d_tmp, d_bitstream, chunk_desc_d, chunk_desc_h, sublen, pardeg, numSMs};
+
     if (dbg_print) debug();
 }
 
 TEMPLATE_TYPE
 void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, hipStream_t stream)
 {
-    printf("test1\n");
+    book_desc->freq = freq;
     launch_gpu_parallel_build_codebook<T, H, M>(
         freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), time_book, stream);
     printf("test2\n");
@@ -183,35 +194,28 @@ TEMPLATE_TYPE
 void IMPL::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
-    cusz::FREQ*  d_freq,
-    int const    booklen,
-    int const    sublen,
-    int const    pardeg,
     BYTE*&       out_compressed,
     size_t&      out_compressed_len,
-    hipStream_t stream)
+    hipStream_t  stream)
 {
     time_lossless = 0;
 
     struct Header header;
 
-    int numSMs;
-    hipDeviceGetAttribute(&numSMs, hipDeviceAttributeMultiprocessorCount, 0);
-
-    // launch_coarse_grained_Huffman_encoding<T, H, M>(
-    cusz::cpplaunch_coarse_grained_Huffman_encoding<T, H, M>(
-        in_uncompressed, d_tmp, in_uncompressed_len,  //
-        d_freq, d_book, booklen,                      //
-        d_bitstream, d_par_metadata, h_par_metadata,  //
-        sublen, pardeg, numSMs, /* config */          //
+    cusz::cpplaunch_coarse_grained_Huffman_encoding_rev1<T, H, M>(
+        in_uncompressed, in_uncompressed_len,  //
+        book_desc, bitstream_desc,             //
         &out_compressed, &out_compressed_len, &time_lossless, stream);
 
-    header.total_nbit  = std::accumulate(h_par_nbit, h_par_nbit + pardeg, (size_t)0);
-    header.total_ncell = std::accumulate(h_par_ncell, h_par_ncell + pardeg, (size_t)0);
+    header.total_nbit =
+        std::accumulate((M*)chunk_desc_h->bits, (M*)chunk_desc_h->bits + bitstream_desc->pardeg, (size_t)0);
+    header.total_ncell =
+        std::accumulate((M*)chunk_desc_h->cells, (M*)chunk_desc_h->cells + bitstream_desc->pardeg, (size_t)0);
     // update with the precise BITSTREAM nbyte
     rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
 
-    subfile_collect(header, in_uncompressed_len, booklen, sublen, pardeg, stream);
+    subfile_collect(
+        header, in_uncompressed_len, book_desc->booklen, bitstream_desc->sublen, bitstream_desc->pardeg, stream);
 
     out_compressed     = d_compressed;
     out_compressed_len = header.subfile_size();
@@ -257,7 +261,7 @@ void IMPL::subfile_collect(
     int const    booklen,
     int const    sublen,
     int const    pardeg,
-    hipStream_t stream)
+    hipStream_t  stream)
 {
     auto BARRIER = [&]() {
         if (stream)
@@ -333,7 +337,7 @@ TEMPLATE_TYPE
 void IMPL::dbg_println(const std::string SYM_name, void* VAR, int SYM)
 {
     hipDeviceptr_t pbase0{0};
-    size_t      psize0{0};
+    size_t         psize0{0};
 
     hipMemGetAddressRange(&pbase0, &psize0, (hipDeviceptr_t)VAR);
     printf(

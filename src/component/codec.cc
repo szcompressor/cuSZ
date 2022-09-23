@@ -63,17 +63,11 @@ TEMPLATE_TYPE
 void HUFFMAN_COARSE::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
-    uint32_t*    d_freq,
-    int const    cfg_booklen,
-    int const    cfg_sublen,
-    int const    cfg_pardeg,
     BYTE*&       out_compressed,
     size_t&      out_compressed_len,
     hipStream_t stream)
 {
-    pimpl->encode(
-        in_uncompressed, in_uncompressed_len, d_freq, cfg_booklen, cfg_sublen, cfg_pardeg, out_compressed,
-        out_compressed_len, stream);
+    pimpl->encode(in_uncompressed, in_uncompressed_len, out_compressed, out_compressed_len, stream);
 }
 
 TEMPLATE_TYPE

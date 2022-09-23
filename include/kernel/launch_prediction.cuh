@@ -32,7 +32,7 @@ void launch_construct_LorenzoI(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    hipStream_t stream)
+    hipStream_t  stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -50,20 +50,20 @@ void launch_construct_LorenzoI(
             return 3;
     };
 
-    constexpr auto SUBLEN_1D = dim3(256, 1, 1);
-    constexpr auto SEQ_1D    = dim3(4, 1, 1);  // x-sequentiality == 4
+    constexpr auto SUBLEN_1D = 256;
+    constexpr auto SEQ_1D    = 4;  // x-sequentiality == 4
     constexpr auto BLOCK_1D  = dim3(256 / 4, 1, 1);
     auto           GRID_1D   = pardeg3(len3, SUBLEN_1D);
 
     constexpr auto SUBLEN_2D = dim3(16, 16, 1);
-    constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_2D  = dim3(16, 2, 1);
-    auto           GRID_2D   = pardeg3(len3, SUBLEN_2D);
+    // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_2D = dim3(16, 2, 1);
+    auto           GRID_2D  = pardeg3(len3, SUBLEN_2D);
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-    constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D  = dim3(32, 1, 8);
-    auto           GRID_3D   = pardeg3(len3, SUBLEN_3D);
+    // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_3D = dim3(32, 1, 8);
+    auto           GRID_3D  = pardeg3(len3, SUBLEN_3D);
 
     // error bound
     auto ebx2   = eb * 2;
@@ -72,11 +72,11 @@ void launch_construct_LorenzoI(
 
     auto outlier = data;
 
-    //cuda_timer_t timer;
-    //timer.timer_start(stream);
+    // cuda_timer_t timer;
+    // timer.timer_start(stream);
 
     if (ndim() == 1) {
-        ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D.x, SEQ_1D.x, NO_R_SEPARATE>
+        ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D, NO_R_SEPARATE>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
     }
     else if (ndim() == 2) {
@@ -91,13 +91,13 @@ void launch_construct_LorenzoI(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    //timer.timer_end(stream);
+    // timer.timer_end(stream);
     if (stream)
         CHECK_CUDA(hipStreamSynchronize(stream));
     else
         CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = 0;//timer.get_time_elapsed();
+    time_elapsed = 0;  // timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP>
@@ -111,7 +111,7 @@ void launch_reconstruct_LorenzoI(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    hipStream_t stream)
+    hipStream_t  stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -130,19 +130,19 @@ void launch_reconstruct_LorenzoI(
     };
 
     constexpr auto SUBLEN_1D = dim3(256, 1, 1);
-    constexpr auto SEQ_1D    = dim3(4, 1, 1);  // x-sequentiality == 4 for HIP
+    constexpr auto SEQ_1D    = 4;  // x-sequentiality == 4 for HIP
     constexpr auto BLOCK_1D  = dim3(256 / 8, 1, 1);
     auto           GRID_1D   = pardeg3(len3, SUBLEN_1D);
 
     constexpr auto SUBLEN_2D = dim3(16, 16, 1);
-    constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_2D  = dim3(16, 2, 1);
-    auto           GRID_2D   = pardeg3(len3, SUBLEN_2D);
+    // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_2D = dim3(16, 2, 1);
+    auto           GRID_2D  = pardeg3(len3, SUBLEN_2D);
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-    constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D  = dim3(32, 1, 8);
-    auto           GRID_3D   = pardeg3(len3, SUBLEN_3D);
+    // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
+    constexpr auto BLOCK_3D = dim3(32, 1, 8);
+    auto           GRID_3D  = pardeg3(len3, SUBLEN_3D);
 
     // error bound
     auto ebx2   = eb * 2;
@@ -151,11 +151,11 @@ void launch_reconstruct_LorenzoI(
 
     auto outlier = xdata;
 
-    //cuda_timer_t timer;
-    //timer.timer_start(stream);
+    // cuda_timer_t timer;
+    // timer.timer_start(stream);
 
     if (ndim() == 1) {
-        ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D.x, SEQ_1D.x>
+        ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
     else if (ndim() == 2) {
@@ -167,13 +167,13 @@ void launch_reconstruct_LorenzoI(
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
 
-    //timer.timer_end(stream);
+    // timer.timer_end(stream);
     if (stream)
         CHECK_CUDA(hipStreamSynchronize(stream));
     else
         CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = 0;//timer.get_time_elapsed();
+    time_elapsed = 0;  // timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP, bool NO_R_SEPARATE>
@@ -187,7 +187,7 @@ void launch_construct_Spline3(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    hipStream_t stream)
+    hipStream_t  stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -227,8 +227,8 @@ void launch_construct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    //cuda_timer_t timer;
-    //timer.timer_start();
+    // cuda_timer_t timer;
+    // timer.timer_start();
 
     if (ndim() == 1) {  //
         throw std::runtime_error("Spline1 not implemented");
@@ -245,14 +245,14 @@ void launch_construct_Spline3(
              eb_r, ebx2, radius);
     }
 
-    //timer.timer_end();
+    // timer.timer_end();
 
     if (stream)
         CHECK_CUDA(hipStreamSynchronize(stream));
     else
         CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = 0;//timer.get_time_elapsed();
+    time_elapsed = 0;  // timer.get_time_elapsed();
 }
 
 template <typename T, typename E, typename FP>
@@ -266,7 +266,7 @@ void launch_reconstruct_Spline3(
     double const eb,
     int const    radius,
     float&       time_elapsed,
-    hipStream_t stream)
+    hipStream_t  stream)
 {
     auto pardeg3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -275,6 +275,7 @@ void launch_reconstruct_Spline3(
             (len.z - 1) / sublen.z + 1);
     };
 
+    /*
     auto ndim = [&]() {
         if (len3.z == 1 and len3.y == 1)
             return 1;
@@ -283,6 +284,7 @@ void launch_reconstruct_Spline3(
         else
             return 3;
     };
+     */
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
     constexpr auto SEQ_3D    = dim3(1, 8, 1);
@@ -306,8 +308,8 @@ void launch_reconstruct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    //cuda_timer_t timer;
-    //timer.timer_start();
+    // cuda_timer_t timer;
+    // timer.timer_start();
 
     cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
         <<<GRID_3D, BLOCK_3D, 0, stream>>>                     //
@@ -316,14 +318,14 @@ void launch_reconstruct_Spline3(
          xdata, len3, leap3,                                   //
          eb_r, ebx2, radius);
 
-    //timer.timer_end();
+    // timer.timer_end();
 
     if (stream)
         CHECK_CUDA(hipStreamSynchronize(stream));
     else
         CHECK_CUDA(hipDeviceSynchronize());
 
-    time_elapsed = 0;//timer.get_time_elapsed();
+    time_elapsed = 0;  // timer.get_time_elapsed();
 }
 
 #endif

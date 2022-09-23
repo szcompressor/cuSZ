@@ -42,7 +42,7 @@ target_include_directories(cuszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
-add_library(cuszkernel  src/kernel/claunch_cuda.cc)
+add_library(cuszkernel  src/kernel/claunch_cuda.cc src/kernel/claunch_cuda_proto.cc)
 target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
 
 add_library(cuszargp  src/context.cc)
