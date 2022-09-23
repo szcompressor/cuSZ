@@ -17,6 +17,7 @@
 
 #include "../common.hh"
 #include "../utils.hh"
+#include "../utils/cusparse_err.cuh"
 
 // #if CUDART_VERSION >= 11020
 

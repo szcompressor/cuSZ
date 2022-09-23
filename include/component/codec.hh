@@ -16,6 +16,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "../hf/hf_struct.h"
+
 #define DEFINE_ARRAY(VAR, TYPE) \
     TYPE* d_##VAR{nullptr};     \
     TYPE* h_##VAR{nullptr};
@@ -56,7 +58,7 @@ class LosslessCodec
 
     void init(size_t const, int const, int const, bool dbg_print = false);
     void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, uint32_t*, int const, int const, int const, BYTE*&, size_t&, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr);
     void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
     void clear_buffer();
 
@@ -137,6 +139,11 @@ class LosslessCodec<T, H, M>::impl {
     float milliseconds{0.0};
     float time_hist{0.0}, time_book{0.0}, time_lossless{0.0};
 
+    hf_book*      book_desc;
+    hf_chunk*     chunk_desc_d;
+    hf_chunk*     chunk_desc_h;
+    hf_bitstream* bitstream_desc;
+
    public:
     ~impl();  // dtor
     impl();   // ctor
@@ -156,7 +163,7 @@ class LosslessCodec<T, H, M>::impl {
     // public methods
     void init(size_t const, int const, int const, bool dbg_print = false);
     void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, uint32_t*, int const, int const, int const, BYTE*&, size_t&, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr);
     void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
     void clear_buffer();
 
