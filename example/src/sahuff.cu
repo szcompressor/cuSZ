@@ -31,7 +31,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
     uint8_t*       d_compressed;
     constexpr auto booklen = 1024;
     constexpr auto pardeg  = 768;
-    auto           sublen  = (len - 1) / pardeg + 1;
+    // auto           sublen  = (len - 1) / pardeg + 1;
 
     /* code snippet for looking at the device array easily */
     auto peek_devdata_T = [](T* d_arr, size_t num = 20) {

@@ -20,55 +20,54 @@ extern "C" {
 
 #include <stdint.h>
 #include "../cusz/type.h"
+#include "../hf/hf_struct.h"
 
-#define C_CONSTRUCT_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                       \
-    cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                 \
-        bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,      \
-        E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed, \
-        cudaStream_t stream);
-
-C_CONSTRUCT_LORENZOI(fp32, ui8, fp32, float, uint8_t, float);
-C_CONSTRUCT_LORENZOI(fp32, ui16, fp32, float, uint16_t, float);
-C_CONSTRUCT_LORENZOI(fp32, ui32, fp32, float, uint32_t, float);
-C_CONSTRUCT_LORENZOI(fp32, fp32, fp32, float, float, float);
-
-#undef C_CONSTRUCT_LORENZOI
-
-#define C_RECONSTRUCT_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                       \
+#define C_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                   \
+    cusz_error_status claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(             \
+        bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,        \
+        E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,   \
+        cudaStream_t stream);                                                                                 \
+                                                                                                              \
+    cusz_error_status claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(           \
+        T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
+        double const eb, int const radius, float* time_elapsed, cudaStream_t stream);                         \
+                                                                                                              \
+    cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                   \
+        bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,        \
+        E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,   \
+        cudaStream_t stream);                                                                                 \
+                                                                                                              \
     cusz_error_status claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                 \
         T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
         double const eb, int const radius, float* time_elapsed, cudaStream_t stream);
 
-C_RECONSTRUCT_LORENZOI(fp32, ui8, fp32, float, uint8_t, float);
-C_RECONSTRUCT_LORENZOI(fp32, ui16, fp32, float, uint16_t, float);
-C_RECONSTRUCT_LORENZOI(fp32, ui32, fp32, float, uint32_t, float);
-C_RECONSTRUCT_LORENZOI(fp32, fp32, fp32, float, float, float);
+C_LORENZOI(fp32, ui8, fp32, float, uint8_t, float);
+C_LORENZOI(fp32, ui16, fp32, float, uint16_t, float);
+C_LORENZOI(fp32, ui32, fp32, float, uint32_t, float);
+C_LORENZOI(fp32, fp32, fp32, float, float, float);
 
-#undef C_RECONSTRUCT_LORENZOI
+C_LORENZOI(fp64, ui8, fp64, double, uint8_t, double);
+C_LORENZOI(fp64, ui16, fp64, double, uint16_t, double);
+C_LORENZOI(fp64, ui32, fp64, double, uint32_t, double);
+C_LORENZOI(fp64, fp32, fp64, double, float, double);
 
-#define C_CONSTRUCT_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                                 \
+#undef C_LORENZOI
+
+#define C_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                                           \
     cusz_error_status claunch_construct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                           \
         bool NO_R_SEPARATE, T* data, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, \
-        double const eb, int const radius, float* time_elapsed, cudaStream_t stream);
-
-C_CONSTRUCT_SPLINE3(fp32, ui8, fp32, float, uint8_t, float);
-C_CONSTRUCT_SPLINE3(fp32, ui16, fp32, float, uint16_t, float);
-C_CONSTRUCT_SPLINE3(fp32, ui32, fp32, float, uint32_t, float);
-C_CONSTRUCT_SPLINE3(fp32, fp32, fp32, float, float, float);
-
-#undef C_CONSTRUCT_SPLINE3
-
-#define C_RECONSTRUCT_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                             \
-    cusz_error_status claunch_reconstruct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                       \
-        T* xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, double const eb, \
+        double const eb, int const radius, float* time_elapsed, cudaStream_t stream);                                \
+                                                                                                                     \
+    cusz_error_status claunch_reconstruct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                         \
+        T* xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, double const eb,   \
         int const radius, float* time_elapsed, cudaStream_t stream);
 
-C_RECONSTRUCT_SPLINE3(fp32, ui8, fp32, float, uint8_t, float);
-C_RECONSTRUCT_SPLINE3(fp32, ui16, fp32, float, uint16_t, float);
-C_RECONSTRUCT_SPLINE3(fp32, ui32, fp32, float, uint32_t, float);
-C_RECONSTRUCT_SPLINE3(fp32, fp32, fp32, float, float, float);
+C_SPLINE3(fp32, ui8, fp32, float, uint8_t, float);
+C_SPLINE3(fp32, ui16, fp32, float, uint16_t, float);
+C_SPLINE3(fp32, ui32, fp32, float, uint32_t, float);
+C_SPLINE3(fp32, fp32, fp32, float, float, float);
 
-#undef C_RECONSTRUCT_SPLINE3
+#undef C_SPLINE3
 
 // #define C_GPUPAR_CODEBOOK(Tliteral, Hliteral, Mliteral, T, H, M)                                                 \
 //     cusz_error_status claunch_gpu_parallel_build_codebook_T##Tliteral##_H##Hliteral##_M##Mliteral(               \

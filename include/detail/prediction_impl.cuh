@@ -22,7 +22,6 @@
 #include "../common.hh"
 #include "../component/prediction.hh"
 #include "../kernel/cpplaunch_cuda.hh"
-#include "../kernel/launch_prediction.cuh"
 #include "../utils.hh"
 
 #ifdef DPCPP_SHOWCASE
