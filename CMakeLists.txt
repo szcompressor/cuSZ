@@ -40,6 +40,12 @@ target_include_directories(cuszcompile_settings INTERFACE
 add_library(cuszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu)
 target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
 
+add_library(gpuszutilsgpu  src/utils/_compare.cu)
+target_link_libraries(gpuszutilsgpu PUBLIC cuszcompile_settings)
+
+add_library(gpuszutilscpu  src/utils/_compare.cc)
+target_link_libraries(gpuszutilscpu PUBLIC cuszcompile_settings)
+
 add_library(cuszargp  src/context.cc)
 target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
 
@@ -78,6 +84,8 @@ endif()
 
 install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
 install(TARGETS cuszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS gpuszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS gpuszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cuszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

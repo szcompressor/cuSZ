@@ -17,6 +17,7 @@
 #include "cli/quality_viewer.hh"
 #include "component/spcodec_vec.hh"
 #include "kernel/launch_spv.cuh"
+#include "utils/compare.cuh"
 #include "utils/io.hh"
 
 template <typename T, typename H = uint32_t>
@@ -71,7 +72,12 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     encoder.decode(d_compressed, d_xd, stream);
 
-    /* perform evaluation */ cusz::QualityViewer::identical(CUSZ_GPU, d_xd, d_d, len);
+    /* perform evaluation */ auto identical = gpusz::thrustgpu_identical(d_xd, d_d, len);
+
+    if (identical)
+        cout << ">>>>  IDENTICAL." << endl;
+    else
+        cout << "!!!!  ERROR: NOT IDENTICAL." << endl;
 
     cudaStreamDestroy(stream);
 
