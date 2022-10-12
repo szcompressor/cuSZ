@@ -98,6 +98,15 @@ cusz_error_status cpplaunch_reconstruct_Spline3(
     float*       time_elapsed,
     cudaStream_t stream);
 
+template <typename T>
+cusz_error_status cpplaunch_histogram(
+    T*           in_data,
+    size_t       in_len,
+    uint32_t*    out_freq,
+    int          num_buckets,
+    float*       milliseconds,
+    cudaStream_t stream);
+
 template <typename T, typename H, typename M>
 cusz_error_status cpplaunch_coarse_grained_Huffman_encoding(
     T*           uncompressed,
@@ -221,6 +230,21 @@ CPP_SPLINE3(fp32, ui32, fp32, float, uint32_t, float);
 CPP_SPLINE3(fp32, fp32, fp32, float, float, float);
 
 #undef CPP_SPLINE3
+
+#define CPP_HIST(Tliteral, T)                                                                                       \
+    template <>                                                                                                     \
+    cusz_error_status cusz::cpplaunch_histogram<T>(                                                                 \
+        T * in_data, size_t in_len, uint32_t * out_freq, int num_buckets, float* milliseconds, cudaStream_t stream) \
+    {                                                                                                               \
+        return claunch_histogram_T##Tliteral(in_data, in_len, out_freq, num_buckets, milliseconds, stream);         \
+    }
+
+CPP_HIST(ui8, uint8_t)
+CPP_HIST(ui16, uint16_t)
+CPP_HIST(ui32, uint32_t)
+CPP_HIST(ui64, uint64_t)
+
+#undef CPP_HIST
 
 #define CPP_COARSE_HUFFMAN_ENCODE(Tliteral, Hliteral, Mliteral, T, H, M)                                               \
     template <>                                                                                                        \

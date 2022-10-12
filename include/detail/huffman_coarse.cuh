@@ -213,6 +213,7 @@ void IMPL::encode(
     // update with the precise BITSTREAM nbyte
     rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
 
+    // d_revbook and revbook_nbyte is hidden; need to improve here
     subfile_collect(
         header, in_uncompressed_len, book_desc->booklen, bitstream_desc->sublen, bitstream_desc->pardeg, stream);
 

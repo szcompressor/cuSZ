@@ -11,6 +11,7 @@
 
 #include "hf/hf_struct.h"
 #include "kernel/claunch_cuda.h"
+#include "kernel/hist.cuh"
 #include "kernel/launch_lossless.cuh"
 #include "kernel/lorenzo.cuh"
 #include "kernel/spline3.cuh"
@@ -81,6 +82,21 @@ C_SPLINE3(fp32, ui32, fp32, float, uint32_t, float);
 C_SPLINE3(fp32, fp32, fp32, float, float, float);
 
 #undef C_SPLINE3
+
+#define C_HIST(Tliteral, T)                                                                                       \
+    cusz_error_status claunch_histogram_T##Tliteral(                                                              \
+        T* in_data, size_t in_len, uint32_t* out_freq, int num_buckets, float* milliseconds, cudaStream_t stream) \
+    {                                                                                                             \
+        launch_histogram<T>(in_data, in_len, out_freq, num_buckets, *milliseconds, stream);                       \
+        return cusz_error_status::CUSZ_SUCCESS;                                                                   \
+    }
+
+C_HIST(ui8, uint8_t)
+C_HIST(ui16, uint16_t)
+C_HIST(ui32, uint32_t)
+C_HIST(ui64, uint64_t)
+
+#undef C_HIST
 
 // #define C_GPUPAR_CODEBOOK(Tliteral, Hliteral, Mliteral, T, H, M)                                                      \
 //     cusz_error_status claunch_gpu_parallel_build_codebook_T##Tliteral##_H##Hliteral##_M##Mliteral(                    \
