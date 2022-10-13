@@ -137,8 +137,8 @@ void launch_coarse_grained_Huffman_encoding_rev1(
     size_t const  len,
     hf_book*      book_desc,
     hf_bitstream* bitstream_desc,
-    uint8_t*&     out_compressed,
-    size_t&       out_compressed_len,
+    uint8_t*&     out_compressed,      // 22-10-12 buggy
+    size_t&       out_compressed_len,  // 22-10-12 buggy
     float&        time_lossless,
     cudaStream_t  stream)
 {
