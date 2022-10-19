@@ -27,8 +27,8 @@ typedef struct hf_book {
     int   booklen;
 } hf_book;
 
-typedef struct hf_revbook {
-} hf_revbook;
+// typedef struct hf_revbook {
+// } hf_revbook;
 
 typedef struct hf_chunk {
     void* bits;     // how many bits each chunk

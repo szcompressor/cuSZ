@@ -146,12 +146,12 @@ void launch_coarse_grained_Huffman_encoding_rev1(
 
     H*        d_buffer    = (H*)bitstream_desc->buffer;
     H*        d_bitstream = (H*)bitstream_desc->bitstream;
-    uint32_t* d_freq      = book_desc->freq;
     H*        d_book      = (H*)book_desc->book;
     int const booklen     = book_desc->booklen;
     int const sublen      = bitstream_desc->sublen;
     int const pardeg      = bitstream_desc->pardeg;
     int const numSMs      = bitstream_desc->numSMs;
+    // uint32_t* d_freq      = book_desc->freq;
 
     auto d_par_nbit  = (M*)bitstream_desc->d_metadata->bits;
     auto d_par_ncell = (M*)bitstream_desc->d_metadata->cells;

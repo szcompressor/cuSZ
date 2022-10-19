@@ -26,7 +26,7 @@ int f()
     size_t   len = 10000;  //
     uint8_t* file;         // output
     size_t   filelen;      //
-    float    ms;
+    // float    ms;
 
     cudaMallocManaged(&a, sizeof(T) * len);
     cudaMallocManaged(&da, sizeof(T) * len);

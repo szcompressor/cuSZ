@@ -64,7 +64,7 @@ void launch_construct_LorenzoI_proto(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    auto outlier = data;
+    // auto outlier = data;
 
     cuda_timer_t timer;
     timer.timer_start(stream);
