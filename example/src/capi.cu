@@ -60,11 +60,20 @@ void f(std::string fname)
     // using default
     // cusz_framework* framework = cusz_default_framework();
     // alternatively
-    cusz_framework* framework = new cusz_custom_framework{
+    cusz_framework fw = cusz_framework{
         .pipeline     = Auto,
         .predictor    = cusz_custom_predictor{.type = LorenzoI},
         .quantization = cusz_custom_quantization{.radius = 512},
         .codec        = cusz_custom_codec{.type = Huffman}};
+    cusz_framework* framework = &fw;
+
+    // Brace initializing a struct pointer is not supported by all host compilers
+    // when nvcc forwards.
+    // cusz_framework* framework = new cusz_framework{
+    //     .pipeline     = Auto,
+    //     .predictor    = cusz_custom_predictor{.type = LorenzoI},
+    //     .quantization = cusz_custom_quantization{.radius = 512},
+    //     .codec        = cusz_custom_codec{.type = Huffman}};
 
     cusz_compressor* comp       = cusz_create(framework, FP32);
     cusz_config*     config     = new cusz_config{.eb = 2.4e-4, .mode = Rel};
