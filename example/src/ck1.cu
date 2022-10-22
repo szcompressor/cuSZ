@@ -27,6 +27,9 @@ void f(
     int const         radius      = 128,
     bool              use_proto   = false)
 {
+    // When the input type is FP<X>, the internal precision should be the same.
+    using FP = T;
+
     auto len = x * y * z;
 
     T *d_d, *h_d;
@@ -58,12 +61,12 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI<T, E, float>(  //
+        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(  //
             false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI_proto<T, E, float>(  //
+        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(  //
             false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
 
@@ -78,12 +81,12 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI<T, E, float>(  //
+        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(  //
             d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
     else {
         cout << "using prototype decomp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, float>(  //
+        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(  //
             d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
 
@@ -102,60 +105,87 @@ void f(
 
 int main(int argc, char** argv)
 {
+    //// help
     if (argc < 6) {
-        printf("PROG /path/to/datafield X Y Z ErrorBound [ErrorQuantType] [Radius] [Use Prototype]\n");
-        printf("0    1                  2 3 4 5          [6:ui16]         [7:128]  [8:yes]\n");
+        printf("0    1             2     3 4 5 6  [7]      [8:128]  [9:yes]\n");
+        printf("PROG /path/to/file DType X Y Z EB [EType]  [Radius] [Use Prototype]\n");
+        printf(" 2  DType: \"F\" for `float`, \"D\" for `double`\n");
+        printf("[7] EType: \"ui{8,16,32}\" for `uint{8,16,32}_t` as quant-code type\n");
         exit(0);
     }
-    else {
-        auto fname = std::string(argv[1]);
-        auto x     = atoi(argv[2]);
-        auto y     = atoi(argv[3]);
-        auto z     = atoi(argv[4]);
-        auto eb    = atof(argv[5]);
 
-        std::string type;
-        if (argc > 6)
-            type = std::string(argv[6]);
-        else
-            type = "ui16";
-        type_literal = type;
+    //// read argv
+    auto fname = std::string(argv[1]);
+    auto dtype = std::string(argv[2]);
+    auto x     = atoi(argv[3]);
+    auto y     = atoi(argv[4]);
+    auto z     = atoi(argv[4]);
+    auto eb    = atof(argv[6]);
 
-        int radius;
-        if (argc > 7)
-            radius = atoi(argv[7]);
-        else
-            radius = 128;
+    std::string etype;
+    if (argc > 7)
+        etype = std::string(argv[7]);
+    else
+        etype = "ui16";
+    type_literal = etype;
 
-        bool use_prototype;
-        if (argc > 8)
-            use_prototype = std::string(argv[8]) == "yes";
-        else
-            use_prototype = false;
+    int radius;
+    if (argc > 8)
+        radius = atoi(argv[8]);
+    else
+        radius = 128;
 
-        auto radius_legal = [&](int const sizeof_T) {
-            size_t upper_bound = 1lu << (sizeof_T * 8);
-            cout << upper_bound << endl;
-            cout << radius * 2 << endl;
-            if ((radius * 2) > upper_bound) throw std::runtime_error("Radius overflows error-quantization type.");
-        };
+    bool use_prototype;
+    if (argc > 9)
+        use_prototype = std::string(argv[9]) == "yes";
+    else
+        use_prototype = false;
 
-        if (type == "ui8") {
+    //// dispatch
+
+    auto radius_legal = [&](int const sizeof_T) {
+        size_t upper_bound = 1lu << (sizeof_T * 8);
+        cout << upper_bound << endl;
+        cout << radius * 2 << endl;
+        if ((radius * 2) > upper_bound) throw std::runtime_error("Radius overflows error-quantization type.");
+    };
+
+    if (dtype == "F") {
+        if (etype == "ui8") {
             radius_legal(1);
             f<float, uint8_t>(fname, x, y, z, eb, radius, use_prototype);
         }
-        else if (type == "ui16") {
+        else if (etype == "ui16") {
             radius_legal(2);
             f<float, uint16_t>(fname, x, y, z, eb, radius, use_prototype);
         }
-        else if (type == "ui32") {
+        else if (etype == "ui32") {
             radius_legal(4);
             f<float, uint32_t>(fname, x, y, z, eb, radius, use_prototype);
         }
-        else if (type == "fp32") {
+        else if (etype == "fp32") {
             f<float, float>(fname, x, y, z, eb, radius, use_prototype);
         }
     }
+    else if (dtype == "D") {
+        if (etype == "ui8") {
+            radius_legal(1);
+            f<double, uint8_t>(fname, x, y, z, eb, radius, use_prototype);
+        }
+        else if (etype == "ui16") {
+            radius_legal(2);
+            f<double, uint16_t>(fname, x, y, z, eb, radius, use_prototype);
+        }
+        else if (etype == "ui32") {
+            radius_legal(4);
+            f<double, uint32_t>(fname, x, y, z, eb, radius, use_prototype);
+        }
+        else if (etype == "fp32") {
+            f<double, float>(fname, x, y, z, eb, radius, use_prototype);
+        }
+    }
+    else
+        throw std::runtime_error("not a valid dtype.");
 
     return 0;
 }

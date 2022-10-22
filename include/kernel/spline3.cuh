@@ -601,4 +601,156 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
 #undef BDY
 #undef BDZ
 
+template <typename T, typename E, typename FP, bool NO_R_SEPARATE>
+void launch_construct_Spline3(
+    T*           data,
+    dim3 const   len3,
+    T*           anchor,
+    dim3 const   an_len3,
+    E*           errctrl,
+    dim3 const   ec_len3,
+    double const eb,
+    int const    radius,
+    float&       time_elapsed,
+    cudaStream_t stream)
+{
+    auto divide3 = [](dim3 len, dim3 sublen) {
+        return dim3(
+            (len.x - 1) / sublen.x + 1,  //
+            (len.y - 1) / sublen.y + 1,  //
+            (len.z - 1) / sublen.z + 1);
+    };
+
+    auto ndim = [&]() {
+        if (len3.z == 1 and len3.y == 1)
+            return 1;
+        else if (len3.z == 1 and len3.y != 1)
+            return 2;
+        else
+            return 3;
+    };
+
+    constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+    constexpr auto SEQ_3D    = dim3(1, 8, 1);
+    constexpr auto BLOCK_3D  = dim3(256, 1, 1);
+    auto           GRID_3D   = divide3(len3, SUBLEN_3D);
+
+    {
+        constexpr auto SUBLEN_TOTAL = SUBLEN_3D.x * SUBLEN_3D.y * SUBLEN_3D.z;
+        constexpr auto SEQ_TOTAL    = SEQ_3D.x * SEQ_3D.y * SEQ_3D.z;
+        constexpr auto BLOCK_TOTAL  = BLOCK_3D.x * BLOCK_3D.y * BLOCK_3D.z;
+
+        // static_assert(SUBLEN_TOTAL / SEQ_TOTAL == BLOCK_TOTAL, "parallelism does not match!");
+        if (SUBLEN_TOTAL / SEQ_TOTAL != BLOCK_TOTAL) throw std::runtime_error("parallelism does not match!");
+    }
+
+    ////////////////////////////////////////
+
+    auto ebx2     = eb * 2;
+    auto eb_r     = 1 / eb;
+    auto leap3    = dim3(1, len3.x, len3.x * len3.y);
+    auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
+    auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
+
+    cuda_timer_t timer;
+    timer.timer_start();
+
+    if (ndim() == 1) {  //
+        throw std::runtime_error("Spline1 not implemented");
+    }
+    else if (ndim() == 2) {
+        throw std::runtime_error("Spline2 not implemented");
+    }
+    else if (ndim() == 3) {
+        cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256, false>  //
+            <<<GRID_3D, BLOCK_3D, 0, stream>>>                            //
+            (data, len3, leap3,                                           //
+             errctrl, ec_len3, ec_leap3,                                  //
+             anchor, an_leap3,                                            //
+             eb_r, ebx2, radius);
+    }
+
+    timer.timer_end();
+
+    if (stream)
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+    else
+        CHECK_CUDA(cudaDeviceSynchronize());
+
+    time_elapsed = timer.get_time_elapsed();
+}
+
+template <typename T, typename E, typename FP>
+void launch_reconstruct_Spline3(
+    T*           xdata,
+    dim3 const   len3,
+    T*           anchor,
+    dim3 const   an_len3,
+    E*           errctrl,
+    dim3 const   ec_len3,
+    double const eb,
+    int const    radius,
+    float&       time_elapsed,
+    cudaStream_t stream)
+{
+    auto divide3 = [](dim3 len, dim3 sublen) {
+        return dim3(
+            (len.x - 1) / sublen.x + 1,  //
+            (len.y - 1) / sublen.y + 1,  //
+            (len.z - 1) / sublen.z + 1);
+    };
+
+    /*
+    auto ndim = [&]() {
+        if (len3.z == 1 and len3.y == 1)
+            return 1;
+        else if (len3.z == 1 and len3.y != 1)
+            return 2;
+        else
+            return 3;
+    };
+     */
+
+    constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+    constexpr auto SEQ_3D    = dim3(1, 8, 1);
+    constexpr auto BLOCK_3D  = dim3(256, 1, 1);
+    auto           GRID_3D   = divide3(len3, SUBLEN_3D);
+
+    {
+        constexpr auto SUBLEN_TOTAL = SUBLEN_3D.x * SUBLEN_3D.y * SUBLEN_3D.z;
+        constexpr auto SEQ_TOTAL    = SEQ_3D.x * SEQ_3D.y * SEQ_3D.z;
+        constexpr auto BLOCK_TOTAL  = BLOCK_3D.x * BLOCK_3D.y * BLOCK_3D.z;
+
+        // static_assert(SUBLEN_TOTAL / SEQ_TOTAL == BLOCK_TOTAL, "parallelism does not match!");
+        if (SUBLEN_TOTAL / SEQ_TOTAL != BLOCK_TOTAL) throw std::runtime_error("parallelism does not match!");
+    }
+
+    ////////////////////////////////////////
+
+    auto ebx2     = eb * 2;
+    auto eb_r     = 1 / eb;
+    auto leap3    = dim3(1, len3.x, len3.x * len3.y);
+    auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
+    auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
+
+    cuda_timer_t timer;
+    timer.timer_start();
+
+    cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
+        <<<GRID_3D, BLOCK_3D, 0, stream>>>                     //
+        (errctrl, ec_len3, ec_leap3,                           //
+         anchor, an_len3, an_leap3,                            //
+         xdata, len3, leap3,                                   //
+         eb_r, ebx2, radius);
+
+    timer.timer_end();
+
+    if (stream)
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+    else
+        CHECK_CUDA(cudaDeviceSynchronize());
+
+    time_elapsed = timer.get_time_elapsed();
+}
+
 #endif

@@ -39,6 +39,12 @@ void typed_printf<float>(const float i)
     printf("%.7f\t", i);
 }
 
+template <>
+void typed_printf<double>(const double i)
+{
+    printf("%.7lf\t", i);
+}
+
 /* code snippet for looking at the device array easily */
 template <typename T>
 void __host__ __device__ peek_device_data(T* d_arr, size_t num, size_t offset = 0)
