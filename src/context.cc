@@ -12,8 +12,8 @@
  */
 
 #include <cassert>
-#include <cstring>
 #include <cmath>
+#include <cstring>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
@@ -22,8 +22,8 @@
 #include "context.hh"
 
 namespace cusz {
-const char* VERSION_TEXT  = "2022-06-15.canary";
-const int   VERSION       = 20220615;
+const char* VERSION_TEXT  = "2022-10-21 (based on v0.3.1)";
+const int   VERSION       = 20221021;
 const int   COMPATIBILITY = 0;
 }  // namespace cusz
 
