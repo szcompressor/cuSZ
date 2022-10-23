@@ -20,16 +20,11 @@
 
 #define C_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                    \
     cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                    \
-        bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,         \
-        E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,    \
-        cudaStream_t stream)                                                                                   \
+        T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1, E* const errctrl,           \
+        dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed, cudaStream_t stream) \
     {                                                                                                          \
-        if (NO_R_SEPARATE)                                                                                     \
-            launch_construct_LorenzoI<T, E, FP, true>(                                                         \
-                data, len3, anchor, placeholder_1, errctrl, placeholder_2, eb, radius, *time_elapsed, stream); \
-        else                                                                                                   \
-            launch_construct_LorenzoI<T, E, FP, false>(                                                        \
-                data, len3, anchor, placeholder_1, errctrl, placeholder_2, eb, radius, *time_elapsed, stream); \
+        launch_construct_LorenzoI<T, E, FP>(                                                                   \
+            data, len3, anchor, placeholder_1, errctrl, placeholder_2, eb, radius, *time_elapsed, stream);     \
         return CUSZ_SUCCESS;                                                                                   \
     }                                                                                                          \
                                                                                                                \

@@ -62,12 +62,12 @@ void f(
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
         cusz::cpplaunch_construct_LorenzoI<T, E, FP>(  //
-            false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+            d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
         cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(  //
-            false, d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+            d_d, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
     }
 
     cudaDeviceSynchronize();

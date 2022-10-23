@@ -132,7 +132,7 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
     DEFINE_ARRAY(errctrl, E);
     DEFINE_ARRAY(outlier, T);
     // flags
-    bool delay_postquant{false};
+    // bool delay_postquant{false};
     bool outlier_overlapped{true};
 
     template <bool NO_R_SEPARATE>

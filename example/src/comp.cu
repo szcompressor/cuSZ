@@ -188,14 +188,14 @@ cusz_error_status compressor(
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
         cusz::cpplaunch_construct_LorenzoI<T, E, FP>(  //
-            false, data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, config->eb,
-            config->radius, &time_pq, stream);
+            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, config->eb, config->radius,
+            &time_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
         cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(  //
-            false, data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, config->eb,
-            config->radius, &time_pq, stream);
+            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, config->eb, config->radius,
+            &time_pq, stream);
     }
 
     cout << "time-eq\t" << time_pq << endl;

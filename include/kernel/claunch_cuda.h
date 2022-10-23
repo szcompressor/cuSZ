@@ -22,23 +22,21 @@ extern "C" {
 #include "../cusz/type.h"
 #include "../hf/hf_struct.h"
 
-#define C_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                   \
-    cusz_error_status claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(             \
-        bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,        \
-        E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,   \
-        cudaStream_t stream);                                                                                 \
-                                                                                                              \
-    cusz_error_status claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(           \
-        T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
-        double const eb, int const radius, float* time_elapsed, cudaStream_t stream);                         \
-                                                                                                              \
-    cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                   \
-        bool NO_R_SEPARATE, T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1,        \
-        E* const errctrl, dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed,   \
-        cudaStream_t stream);                                                                                 \
-                                                                                                              \
-    cusz_error_status claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                 \
-        T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
+#define C_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                     \
+    cusz_error_status claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(               \
+        T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1, E* const errctrl,            \
+        dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed, cudaStream_t stream); \
+                                                                                                                \
+    cusz_error_status claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(             \
+        T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2,   \
+        double const eb, int const radius, float* time_elapsed, cudaStream_t stream);                           \
+                                                                                                                \
+    cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                     \
+        T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1, E* const errctrl,            \
+        dim3 const placeholder_2, double const eb, int const radius, float* time_elapsed, cudaStream_t stream); \
+                                                                                                                \
+    cusz_error_status claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                   \
+        T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2,   \
         double const eb, int const radius, float* time_elapsed, cudaStream_t stream);
 
 C_LORENZOI(fp32, ui8, fp32, float, uint8_t, float);
