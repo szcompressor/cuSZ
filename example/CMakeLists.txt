@@ -1,3 +1,5 @@
+find_package(nvcomp REQUIRED 2.3)
+
 add_executable(cxxapi src/cxxapi.cu)
 target_link_libraries(cxxapi PRIVATE cusz)
 set_target_properties(cxxapi PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -11,6 +13,10 @@ target_link_libraries(ck1 PRIVATE cuszkernel)
 
 add_executable(ck1var src/ck1var.cu)
 target_link_libraries(ck1var PRIVATE cuszkernel)
+
+add_executable(ck2 src/ck2.cu)
+target_link_libraries(ck2 PRIVATE nvcomp::nvcomp cuszkernel)
+target_include_directories(ck2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 add_executable(pipeline src/comp.cu)
 target_link_libraries(pipeline PRIVATE cuszspv cuszkernel cuszhuff gpuszutilsgpu)
