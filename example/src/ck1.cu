@@ -101,6 +101,13 @@ void f(
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
     peek_device_data<T>(d_xd, 100);
+
+    cudaFree(d_d);
+    cudaFree(d_xd);
+    cudaFree(d_eq);
+    cudaFreeHost(h_d);
+    cudaFreeHost(h_xd);
+    cudaFreeHost(h_eq);
 }
 
 int main(int argc, char** argv)
@@ -119,7 +126,7 @@ int main(int argc, char** argv)
     auto dtype = std::string(argv[2]);
     auto x     = atoi(argv[3]);
     auto y     = atoi(argv[4]);
-    auto z     = atoi(argv[4]);
+    auto z     = atoi(argv[5]);
     auto eb    = atof(argv[6]);
 
     std::string etype;
