@@ -30,10 +30,10 @@ using namespace nvcomp;
     }                                                                         \
   } while (false)
 
-void comp_decomp_with_single_manager(uint8_t* device_input_ptrs, const size_t input_buffer_len)
+void comp_decomp_with_single_manager(uint8_t* device_input_ptrs, const size_t input_buffer_len, uint8_t* res_decomp_buffer, cudaStream_t stream)
 {
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    // cudaStream_t stream;
+    // CUDA_CHECK(cudaStreamCreate(&stream));
 
     const int chunk_size = 1 << 16;
     nvcompType_t data_type = NVCOMP_TYPE_CHAR;
@@ -47,19 +47,99 @@ void comp_decomp_with_single_manager(uint8_t* device_input_ptrs, const size_t in
     nvcomp_manager.compress(device_input_ptrs, comp_buffer, comp_config);
 
     DecompressionConfig decomp_config = nvcomp_manager.configure_decompression(comp_buffer);
-    uint8_t* res_decomp_buffer;
-    CUDA_CHECK(cudaMalloc(&res_decomp_buffer, decomp_config.decomp_data_size));
+    // uint8_t* res_decomp_buffer;
+    // CUDA_CHECK(cudaMalloc(&res_decomp_buffer, decomp_config.decomp_data_size));
 
     nvcomp_manager.decompress(res_decomp_buffer, comp_buffer, decomp_config);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     CUDA_CHECK(cudaFree(comp_buffer));
-    CUDA_CHECK(cudaFree(res_decomp_buffer));
+    // CUDA_CHECK(cudaFree(res_decomp_buffer));
 
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    // CUDA_CHECK(cudaStreamDestroy(stream));
 }
+
+
+void comp_decomp_with_single_manager_with_checksums(uint8_t* device_input_ptrs, const size_t input_buffer_len, uint8_t* res_decomp_buffer, cudaStream_t stream)
+{
+//   cudaStream_t stream;
+//   CUDA_CHECK(cudaStreamCreate(&stream));
+
+  const int chunk_size = 1 << 16;
+  nvcompType_t data_type = NVCOMP_TYPE_CHAR;
+
+  /* 
+   * There are 5 possible modes for checksum processing as
+   * described below.
+   * 
+   * Mode: NoComputeNoVerify
+   * Description:
+   *   - During compression, do not compute checksums
+   *   - During decompression, do not verify checksums
+   *
+   * Mode: ComputeAndNoVerify
+   * Description:
+   *   - During compression, compute checksums
+   *   - During decompression, do not attempt to verify checksums
+   *
+   * Mode: NoComputeAndVerifyIfPresent
+   * Description:
+   *   - During compression, do not compute checksums
+   *   - During decompression, verify checksums if they were included
+   *
+   * Mode: ComputeAndVerifyIfPresent
+   * Description:
+   *   - During compression, compute checksums
+   *   - During decompression, verify checksums if they were included
+   *
+   * Mode: ComputeAndVerify
+   * Description:
+   *   - During compression, compute checksums
+   *   - During decompression, verify checksums. A runtime error will be 
+   *     thrown upon configure_decompression if checksums were not 
+   *     included in the compressed buffer.
+   */
   
+  int gpu_num = 0;
+
+  // manager constructed with checksum mode as final argument
+  LZ4Manager nvcomp_manager{chunk_size, data_type, stream, gpu_num, ComputeAndVerify};
+  CompressionConfig comp_config = nvcomp_manager.configure_compression(input_buffer_len);
+
+  uint8_t* comp_buffer;
+  CUDA_CHECK(cudaMalloc(&comp_buffer, comp_config.max_compressed_buffer_size));
+  
+  // Checksums are computed and stored for uncompressed and compressed buffers during compression
+  nvcomp_manager.compress(device_input_ptrs, comp_buffer, comp_config);
+
+  DecompressionConfig decomp_config = nvcomp_manager.configure_decompression(comp_buffer);
+//   uint8_t* res_decomp_buffer;
+//   CUDA_CHECK(cudaMalloc(&res_decomp_buffer, decomp_config.decomp_data_size));
+
+  // Checksums are computed for compressed and decompressed buffers and verified against those
+  // stored during compression
+  nvcomp_manager.decompress(res_decomp_buffer, comp_buffer, decomp_config);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  /*
+   * After synchronizing the stream, the nvcomp status can be checked to see if
+   * the checksums were successfully verified. Provided no unrelated nvcomp errors occurred,
+   * if the checksums were successfully verified, the status will be nvcompSuccess. Otherwise,
+   * it will be nvcompErrorBadChecksum.
+   */
+  nvcompStatus_t final_status = *decomp_config.get_status();
+  if(final_status == nvcompErrorBadChecksum) {
+    throw std::runtime_error("One or more checksums were incorrect.\n");
+  }
+
+  CUDA_CHECK(cudaFree(comp_buffer));
+//   CUDA_CHECK(cudaFree(res_decomp_buffer));
+
+//   CUDA_CHECK(cudaStreamDestroy(stream));
+}
+
 
 std::string type_literal;
 
@@ -95,7 +175,6 @@ void f(
     cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
 
     /* a casual peek */
-    printf("peeking data, 20 elements\n");
     peek_device_data<T>(d_d, 100);
 
     cudaStream_t stream;
@@ -120,22 +199,21 @@ void f(
 
     peek_device_data<E>(d_eq, 100);
 
-    // cudaMemcpy(h_eq, d_eq, sizeof(E) * len, cudaMemcpyDeviceToHost);
-    // io::write_array_to_binary<E>(fname + ".eq." + type_literal, h_eq, len);
+    cudaMemcpy(d_xd, d_d, sizeof(T) * len, cudaMemcpyDeviceToDevice);
 
-    // cudaMemcpy(d_xd, d_d, sizeof(T) * len, cudaMemcpyDeviceToDevice);
-    comp_decomp_with_single_manager((uint8_t*)d_eq, sizeof(E) * len);
-
+    E* d_nvout;
+    CUDA_CHECK(cudaMalloc(&d_nvout, sizeof(E) * len));
+    comp_decomp_with_single_manager((uint8_t*)d_eq, sizeof(E) * len, (uint8_t*)d_nvout, stream);
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
         cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(  //
-            d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+            d_xd, len3, d_anchor, len3, d_nvout, len3, error_bound, radius, &time, stream);
     }
     else {
         cout << "using prototype decomp. kernel\n";
         cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(  //
-            d_xd, len3, d_anchor, len3, d_eq, len3, error_bound, radius, &time, stream);
+            d_xd, len3, d_anchor, len3, d_nvout, len3, error_bound, radius, &time, stream);
     }
 
     cudaDeviceSynchronize();
@@ -147,12 +225,12 @@ void f(
     cudaStreamDestroy(stream);
 
     /* a casual peek */
-    printf("peeking xdata, 20 elements\n");
     peek_device_data<T>(d_xd, 100);
 
     cudaFree(d_d);
     cudaFree(d_xd);
     cudaFree(d_eq);
+    cudaFree(d_nvout);
     cudaFreeHost(h_d);
     cudaFreeHost(h_xd);
     cudaFreeHost(h_eq);
@@ -241,6 +319,5 @@ int main(int argc, char** argv)
     }
     else
         throw std::runtime_error("not a valid dtype.");
-    printf("finish the program\n");
     return 0;
 }
