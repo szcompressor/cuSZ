@@ -1,8 +1,8 @@
-# BUILD
+### BUILD
 
-'''
-git clone https://github.com/szcompressor/cuSZ.git cusz-latest
-git switch branch-nvcomp
+```bash
+git clone https://github.com/boyuanzhang62/cuSZ.git cusz-latest
+git switch canary-by
 cd cusz-latest && mkdir build && cd build
 
 # Example architectures (";"-separated when specifying)
@@ -17,14 +17,14 @@ cmake .. -DCUSZ_BUILD_EXAMPLES=on \
     -DCMAKE_PREFIX_PATH=[/path/to/nvcomp] \
     -DCMAKE_CUDA_ARCHITECTURES="75;80;86"
 make -j
-'''
+```
 
-# RUN
+### RUN
 
-The source file is in cusz/example/src/ck2.cu
+The source file is in `cusz-latest/example/src/ck2.cu`
 
-'''
+```bash
 # Use ./example/ck2 to get help information
 # Here is an example
-./example/ck2 [/dir/to/file] F 3600 1800 1 1e-2 ui32 128 no
-'''
+./example/ck2 [/dir/to/file] F [X] [Y] [Z] [error-bound] ui32 128
+```
