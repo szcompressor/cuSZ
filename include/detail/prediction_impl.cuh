@@ -78,6 +78,7 @@ IMPL::~impl()
 {
     FREE_DEV_ARRAY(anchor);
     FREE_DEV_ARRAY(errctrl);
+    FREE_DEV_ARRAY(outlier);
 }
 
 THE_TYPE
@@ -98,7 +99,7 @@ void IMPL::init(cusz_predictortype predictor, dim3 xyz, bool dbg_print)
     // allocate
     ALLOCDEV2(anchor, T, this->alloclen.assigned.anchor);
     ALLOCDEV2(errctrl, E, this->alloclen.assigned.quant);
-    if (not outlier_overlapped) ALLOCDEV(outlier, T, this->alloclen.assigned.outlier);
+    ALLOCDEV2(outlier, T, this->alloclen.assigned.outlier);
 
     if (dbg_print) this->debug_list_alloclen<T, E, FP>();
 }
@@ -134,7 +135,8 @@ void IMPL::construct(
         auto placeholder2 = dim3(0, 0, 0);
 
         cusz::cpplaunch_construct_LorenzoI<T, E, FP>(
-            data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, eb, radius, &time_elapsed, stream);
+            data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, data_outlier, eb, radius,
+            &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);
@@ -167,7 +169,8 @@ void IMPL::reconstruct(
 
         // launch_reconstruct_LorenzoI<T, E, FP>(
         cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(
-            outlier_xdata, len3, anchor, placeholder1, errctrl, placeholder2, eb, radius, &time_elapsed, stream);
+            outlier_xdata, len3, anchor, placeholder1, errctrl, placeholder2, outlier_xdata, eb, radius, &time_elapsed,
+            stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);

@@ -188,14 +188,14 @@ cusz_error_status compressor(
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
         cusz::cpplaunch_construct_LorenzoI<T, E, FP>(  //
-            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, config->eb, config->radius,
-            &time_pq, stream);
+            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, data->data, config->eb,
+            config->radius, &time_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
         cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(  //
-            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, config->eb, config->radius,
-            &time_pq, stream);
+            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, data->data, config->eb,
+            config->radius, &time_pq, stream);
     }
 
     cout << "time-eq\t" << time_pq << endl;
@@ -271,14 +271,14 @@ cusz_error_status decompressor(
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
         cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(  //
-            data->xdata, data->len3, data->anchor, data->len3, data->errq, data->len3, header_st->header.eb,
-            header_st->header.radius, &time_d_pq, stream);
+            data->xdata, data->len3, data->anchor, data->len3, data->errq, data->len3, data->xdata,
+            header_st->header.eb, header_st->header.radius, &time_d_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
         cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(  //
-            data->xdata, data->len3, data->anchor, data->len3, data->errq, data->len3, header_st->header.eb,
-            header_st->header.radius, &time_d_pq, stream);
+            data->xdata, data->len3, data->anchor, data->len3, data->errq, data->len3, data->xdata,
+            header_st->header.eb, header_st->header.radius, &time_d_pq, stream);
     }
 
     cout << "decomp-time-pq\t" << time_d_pq << endl;

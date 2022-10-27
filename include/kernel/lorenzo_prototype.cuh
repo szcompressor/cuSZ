@@ -16,6 +16,7 @@
 #define CUSZ_KERNEL_LORENZO_PROTOTYPE_CUH
 
 #include <cstddef>
+#include <stdexcept>
 
 // TODO disabling dynamic shmem alloction results in wrong number
 // extern __shared__ char scratch[];
@@ -302,6 +303,7 @@ void launch_construct_LorenzoI_proto(
     dim3 const   placeholder_1,
     E* const     errctrl,
     dim3 const   placeholder_2,
+    T*           outlier,
     double const eb,
     int const    radius,
     float&       time_elapsed,
@@ -340,7 +342,7 @@ void launch_construct_LorenzoI_proto(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    auto outlier = data;
+    // auto outlier = data;
 
     cuda_timer_t timer;
     timer.timer_start(stream);
@@ -378,6 +380,7 @@ void launch_reconstruct_LorenzoI_proto(
     dim3 const   placeholder_1,
     E*           errctrl,
     dim3 const   placeholder_2,
+    T*           outlier,
     double const eb,
     int const    radius,
     float&       time_elapsed,
@@ -416,7 +419,7 @@ void launch_reconstruct_LorenzoI_proto(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    auto outlier = xdata;
+    // auto outlier = xdata;
 
     cuda_timer_t timer;
     timer.timer_start(stream);
