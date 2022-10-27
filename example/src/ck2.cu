@@ -34,6 +34,7 @@ void comp_decomp_with_single_manager(
     uint8_t*     device_input_ptrs,
     const size_t input_buffer_len,
     uint8_t*     res_decomp_buffer,
+    size_t*      compressed_size,
     cudaStream_t stream)
 {
     // cudaStream_t stream;
@@ -49,8 +50,10 @@ void comp_decomp_with_single_manager(
     CUDA_CHECK(cudaMalloc(&comp_buffer, comp_config.max_compressed_buffer_size));
 
     nvcomp_manager.compress(device_input_ptrs, comp_buffer, comp_config);
-    size_t compressedSize = nvcomp_manager.get_compressed_output_size(comp_buffer);
-    printf("compression ratio (origin size / compressed size): %f\n", float(input_buffer_len) / float(compressedSize));
+    if (compressed_size) *compressed_size = nvcomp_manager.get_compressed_output_size(comp_buffer);
+
+    // printf("compression ratio (origin size / compressed size): %f\n", float(input_buffer_len) /
+    // float(compressedSize));
 
     DecompressionConfig decomp_config = nvcomp_manager.configure_decompression(comp_buffer);
     // uint8_t* res_decomp_buffer;
@@ -186,7 +189,7 @@ void f(
     cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
 
     /* a casual peek */
-    peek_device_data<T>(d_d, 100);
+    // peek_device_data<T>(d_d, 100);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -208,15 +211,14 @@ void f(
             &time, stream);
     }
 
-    cudaDeviceSynchronize();
-
-    peek_device_data<E>(d_eq, 100);
+    // peek_device_data<E>(d_eq, 100);
 
     cudaMemcpy(d_xd, d_d, sizeof(T) * len, cudaMemcpyDeviceToDevice);
 
-    E* d_nvout;
+    E*     d_nvout;
+    size_t compressed_size;
     CUDA_CHECK(cudaMalloc(&d_nvout, sizeof(E) * len));
-    comp_decomp_with_single_manager((uint8_t*)d_eq, sizeof(E) * len, (uint8_t*)d_nvout, stream);
+    comp_decomp_with_single_manager((uint8_t*)d_eq, sizeof(E) * len, (uint8_t*)d_nvout, &compressed_size, stream);
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
@@ -235,16 +237,14 @@ void f(
             &time, stream);
     }
 
-    cudaDeviceSynchronize();
-
     /* demo: offline checking (de)compression quality. */
     // /* load data again    */ cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
-    /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_xd, d_d, len);
+    /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_xd, d_d, len, compressed_size);
 
     cudaStreamDestroy(stream);
 
     /* a casual peek */
-    peek_device_data<T>(d_xd, 100);
+    // peek_device_data<T>(d_xd, 100);
 
     cudaFree(d_d);
     cudaFree(d_xd);
@@ -297,9 +297,11 @@ int main(int argc, char** argv)
 
     auto radius_legal = [&](int const sizeof_T) {
         size_t upper_bound = 1lu << (sizeof_T * 8);
-        cout << upper_bound << endl;
-        cout << radius * 2 << endl;
-        if ((radius * 2) > upper_bound) throw std::runtime_error("Radius overflows error-quantization type.");
+        if ((radius * 2) > upper_bound) {
+            cout << upper_bound << endl;
+            cout << radius * 2 << endl;
+            throw std::runtime_error("Radius overflows error-quantization type.");
+        }
     };
 
     if (dtype == "F") {
