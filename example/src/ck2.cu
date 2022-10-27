@@ -49,6 +49,8 @@ void comp_decomp_with_single_manager(
     CUDA_CHECK(cudaMalloc(&comp_buffer, comp_config.max_compressed_buffer_size));
 
     nvcomp_manager.compress(device_input_ptrs, comp_buffer, comp_config);
+    size_t compressedSize = nvcomp_manager.get_compressed_output_size(comp_buffer);
+    printf("compression ratio (origin size / compressed size): %f\n", float(input_buffer_len) / float(compressedSize));
 
     DecompressionConfig decomp_config = nvcomp_manager.configure_decompression(comp_buffer);
     // uint8_t* res_decomp_buffer;
