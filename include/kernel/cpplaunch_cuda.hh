@@ -77,6 +77,30 @@ cusz_error_status cpplaunch_reconstruct_LorenzoI(
     float*       time_elapsed,  // optional
     cudaStream_t stream);       //
 
+namespace experimental {
+
+template <typename T, typename E, typename FP>
+cusz_error_status cpplaunch_construct_LorenzoI_var(
+    T* const     data,          // input
+    dim3 const   len3,          //
+    double const eb,            // input (config)
+    E*           delta,         // output
+    bool*        signum,        //
+    float*       time_elapsed,  // optional
+    cudaStream_t stream);
+
+template <typename T, typename E, typename FP>
+cusz_error_status cpplaunch_reconstruct_LorenzoI_var(
+    E*           delta,         // input
+    bool*        signum,        //
+    dim3 const   len3,          //
+    double const eb,            // input (config)
+    T*           xdata,         // output
+    float*       time_elapsed,  // optional
+    cudaStream_t stream);
+
+}  // namespace experimental
+
 // 22-10-27 revise later
 template <typename T, typename E, typename FP>
 cusz_error_status cpplaunch_construct_Spline3(
@@ -160,43 +184,60 @@ cusz_error_status cpplaunch_coarse_grained_Huffman_decoding(
 
 }  // namespace cusz
 
-#define CPP_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                         \
-    template <>                                                                                                       \
-    cusz_error_status cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                                             \
-        T* const data, dim3 const len3, double const eb, int const radius, E* const eq, dim3 const eq_len3,           \
-        T* const anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx, float* time_elapsed,              \
-        cudaStream_t stream)                                                                                          \
-    {                                                                                                                 \
-        return claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                            \
-            data, len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);                 \
-    }                                                                                                                 \
-                                                                                                                      \
-    template <>                                                                                                       \
-    cusz_error_status cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                                           \
-        E * eq, dim3 const eq_len3, T* anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx,             \
-        double const eb, int const radius, T* xdata, dim3 const xdata_len3, float* time_elapsed, cudaStream_t stream) \
-    {                                                                                                                 \
-        return claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                          \
-            xdata, xdata_len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);          \
-    }                                                                                                                 \
-                                                                                                                      \
-    template <>                                                                                                       \
-    cusz_error_status cusz::cpplaunch_construct_LorenzoI<T, E, FP>(                                                   \
-        T* const data, dim3 const len3, double const eb, int const radius, E* const eq, dim3 const eq_len3,           \
-        T* const anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx, float* time_elapsed,              \
-        cudaStream_t stream)                                                                                          \
-    {                                                                                                                 \
-        return claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                                  \
-            data, len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);                 \
-    }                                                                                                                 \
-                                                                                                                      \
-    template <>                                                                                                       \
-    cusz_error_status cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(                                                 \
-        E * eq, dim3 const eq_len3, T* anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx,             \
-        double const eb, int const radius, T* xdata, dim3 const xdata_len3, float* time_elapsed, cudaStream_t stream) \
-    {                                                                                                                 \
-        return claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                                \
-            xdata, xdata_len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);          \
+#define CPP_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                          \
+    template <>                                                                                                        \
+    cusz_error_status cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                                              \
+        T* const data, dim3 const len3, double const eb, int const radius, E* const eq, dim3 const eq_len3,            \
+        T* const anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx, float* time_elapsed,               \
+        cudaStream_t stream)                                                                                           \
+    {                                                                                                                  \
+        return claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                             \
+            data, len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);                  \
+    }                                                                                                                  \
+                                                                                                                       \
+    template <>                                                                                                        \
+    cusz_error_status cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                                            \
+        E * eq, dim3 const eq_len3, T* anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx,              \
+        double const eb, int const radius, T* xdata, dim3 const xdata_len3, float* time_elapsed, cudaStream_t stream)  \
+    {                                                                                                                  \
+        return claunch_reconstruct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                           \
+            xdata, xdata_len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);           \
+    }                                                                                                                  \
+                                                                                                                       \
+    template <>                                                                                                        \
+    cusz_error_status cusz::cpplaunch_construct_LorenzoI<T, E, FP>(                                                    \
+        T* const data, dim3 const len3, double const eb, int const radius, E* const eq, dim3 const eq_len3,            \
+        T* const anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx, float* time_elapsed,               \
+        cudaStream_t stream)                                                                                           \
+    {                                                                                                                  \
+        return claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                                   \
+            data, len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);                  \
+    }                                                                                                                  \
+                                                                                                                       \
+    template <>                                                                                                        \
+    cusz_error_status cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(                                                  \
+        E * eq, dim3 const eq_len3, T* anchor, dim3 const anchor_len3, T* outlier, uint32_t* outlier_idx,              \
+        double const eb, int const radius, T* xdata, dim3 const xdata_len3, float* time_elapsed, cudaStream_t stream)  \
+    {                                                                                                                  \
+        return claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                                 \
+            xdata, xdata_len3, anchor, anchor_len3, eq, eq_len3, outlier, eb, radius, time_elapsed, stream);           \
+    }                                                                                                                  \
+                                                                                                                       \
+    template <>                                                                                                        \
+    cusz_error_status cusz::experimental::cpplaunch_construct_LorenzoI_var<T, E, FP>(                                  \
+        T* const data, dim3 const len3, double const eb, E* delta, bool* signum, float* time_elapsed,                  \
+        cudaStream_t stream)                                                                                           \
+    {                                                                                                                  \
+        return claunch_construct_LorenzoI_var_T##Tliteral##_E##Eliteral##_FP##FPliteral(                               \
+            data, delta, signum, len3, eb, time_elapsed, stream);                                                      \
+    }                                                                                                                  \
+                                                                                                                       \
+    template <>                                                                                                        \
+    cusz_error_status cusz::experimental::cpplaunch_reconstruct_LorenzoI_var<T, E, FP>(                                \
+        E * delta, bool* signum, dim3 const len3, double const eb, T* xdata, float* time_elapsed, cudaStream_t stream) \
+    {                                                                                                                  \
+        return claunch_reconstruct_LorenzoI_var_T##Tliteral##_E##Eliteral##_FP##FPliteral(                             \
+            signum, delta, xdata, len3, eb, time_elapsed, stream);                                                     \
     }
 
 CPP_LORENZOI(fp32, ui8, fp32, float, uint8_t, float);

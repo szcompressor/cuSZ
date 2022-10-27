@@ -1,7 +1,0 @@
-all: lovar1 lovar2
-
-lovar1: test_lovar1.cu
-	nvcc test_lovar1.cu --extended-lambda --expt-relaxed-constexpr -std=c++14 -I.. -o lovar1
-
-lovar2: test_lovar2.cu
-	nvcc test_lovar2.cu --extended-lambda --expt-relaxed-constexpr -std=c++14 -I.. -o lovar2

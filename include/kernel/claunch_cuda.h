@@ -39,7 +39,14 @@ extern "C" {
                                                                                                               \
     cusz_error_status claunch_reconstruct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                 \
         T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2, \
-        T* outlier, double const eb, int const radius, float* time_elapsed, cudaStream_t stream);
+        T* outlier, double const eb, int const radius, float* time_elapsed, cudaStream_t stream);             \
+                                                                                                              \
+    cusz_error_status claunch_construct_LorenzoI_var_T##Tliteral##_E##Eliteral##_FP##FPliteral(               \
+        T* const data, E* delta, bool* signum, dim3 const len3, double const eb, float* time_elapsed,         \
+        cudaStream_t stream);                                                                                 \
+                                                                                                              \
+    cusz_error_status claunch_reconstruct_LorenzoI_var_T##Tliteral##_E##Eliteral##_FP##FPliteral(             \
+        bool* signum, E* delta, T* xdata, dim3 const len3, double const eb, float* time_elapsed, cudaStream_t stream);
 
 C_LORENZOI(fp32, ui8, fp32, float, uint8_t, float);
 C_LORENZOI(fp32, ui16, fp32, float, uint16_t, float);

@@ -16,9 +16,11 @@
 #include <iostream>
 #include <string>
 
-#include "../cli/quality_viewer.hh"
-#include "../utils/io.hh"
-#include "lorenzo_var.cuh"
+#include "cli/quality_viewer.hh"
+// #include "lorenzo_var.cuh"
+#include "kernel/cpplaunch_cuda.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/io.hh"
 
 using std::cerr;
 using std::cout;
@@ -55,26 +57,13 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
         printf("\n");
     }
 
-    if (y == 1 and z == 1) {
-        cusz::experimental::c_lorenzo_1d1l<float, DeltaT, float, 256, 8>
-            <<<(len + 256) / 256,  //
-               256 / 8>>>          //
-            (data, delta, signum, len3, stride3, 1 / (2 * eb));
-    }
-    else if (z == 1) {
-        cusz::experimental::c_lorenzo_2d1l_16x16data_mapto16x2<float, DeltaT, float>  //
-            <<<dim3((x + 16) / 16, (y + 16) / 16, 1),                                 //
-               dim3(16, 2, 1)>>>                                                      //
-            (data, delta, signum, len3, stride3, 1 / (2 * eb));
-    }
-    else {
-        cusz::experimental::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<float, DeltaT, float>  //
-            <<<dim3((x + 32) / 32, (y + 8) / 8, (z + 8) / 8),                            //
-               dim3(32, 1, 8)>>>                                                         //
-            (data, delta, signum, len3, stride3, 1 / (2 * eb));
-    }
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
 
-    cudaDeviceSynchronize();
+    float time_comp;
+
+    cusz::experimental::cpplaunch_construct_LorenzoI_var<float, DeltaT, float>(
+        data, len3, eb, delta, signum, &time_comp, stream);
 
     {
         printf("signum\n");
@@ -89,25 +78,14 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
         printf("\n");
     }
 
-    if (z == 1 and y == 1) {
-        cusz::experimental::x_lorenzo_1d1l<float, DeltaT, float, 256, 8>  //
-            <<<(len + 256) / 256, 256 / 8>>>                              //
-            (signum, delta, xdata, len3, stride3, (2 * eb));
-    }
-    else if (z == 1) {
-        cusz::experimental::x_lorenzo_2d1l_16x16data_mapto16x2<float, DeltaT, float>  //
-            <<<dim3((x + 16) / 16, (y + 16) / 16, 1),                                 //
-               dim3(16, 2, 1)>>>                                                      //
-            (signum, delta, xdata, len3, stride3, (2 * eb));
-    }
-    else {
-        cusz::experimental::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<float, DeltaT, float>  //
-            <<<dim3((x + 32) / 32, (y + 8) / 8, (z + 8) / 8),                            //
-               dim3(32, 1, 8)>>>                                                         //
-            (signum, delta, xdata, len3, stride3, (2 * eb));
-    }
+    cout << "comp time\t" << time_comp << endl;
 
-    cudaDeviceSynchronize();
+    float time_decomp;
+    cusz::experimental::cpplaunch_reconstruct_LorenzoI_var<float, DeltaT, float>(
+        delta, signum, len3, eb, xdata, &time_decomp, stream);
+
+    cout << "decomp time\t" << time_decomp << endl;
+
     {
         printf("xdata\n");
         thrust::for_each(thrust::device, xdata + start, xdata + start + 20, [=] __device__ __host__(const float i) {
@@ -123,6 +101,8 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
     cudaFree(xdata);
     cudaFree(signum);
     cudaFree(delta);
+
+    cudaStreamDestroy(stream);
 
     return 0;
 }

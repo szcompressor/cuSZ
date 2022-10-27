@@ -37,7 +37,7 @@ target_include_directories(cuszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
-add_library(cuszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu)
+add_library(cuszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu src/kernel/claunch_cuda_var.cu)
 target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
 
 add_library(gpuszutilsgpu  src/utils/_compare.cu)
