@@ -28,3 +28,15 @@ The source file is in `cusz-latest/example/src/ck2.cu`
 # Here is an example
 ./example/ck2 [/dir/to/file] F [X] [Y] [Z] [error-bound] ui32 128
 ```
+
+### EXAMPLE DATASET
+
+The dataset could be downloaded from [SDRBench](https://sdrbench.github.io/).
+
+Here are the example commands to download and test CESM-ATM from SDRBench.
+
+```bash
+wget https://g-8d6b0.fd635.8443.data.globus.org/ds131.2/Data-Reduction-Repo/raw-data/CESM-ATM/SDRBENCH-CESM-ATM-1800x3600.tar.gz
+tar -xf SDRBENCH-CESM-ATM-1800x3600.tar.gz
+./example/ck2 ./1800x3600/AEROD_v_1_1800_3600.f32 F 3600 1800 1 1e-2 ui32 128
+```
