@@ -131,11 +131,16 @@ void IMPL::construct(
         derive_rtlen(LorenzoI, len3);
         this->check_rtlen();
 
-        auto placeholder1 = dim3(0, 0, 0);
-        auto placeholder2 = dim3(0, 0, 0);
+        // ad hoc placeholder
+        auto      anchor_len3  = dim3(0, 0, 0);
+        auto      errctrl_len3 = dim3(0, 0, 0);
+        auto      data         = data_outlier;
+        auto      outlier      = data_outlier;
+        uint32_t* outlier_idx  = nullptr;
 
         cusz::cpplaunch_construct_LorenzoI<T, E, FP>(
-            data_outlier, len3, d_anchor, placeholder1, d_errctrl, placeholder2, data_outlier, eb, radius,
+            data, len3, eb, radius,                                                //
+            d_errctrl, errctrl_len3, d_anchor, anchor_len3, outlier, outlier_idx,  //
             &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
@@ -164,13 +169,19 @@ void IMPL::reconstruct(
         this->derive_rtlen(LorenzoI, len3);
         this->check_rtlen();
 
-        auto placeholder1 = dim3(0, 0, 0);
-        auto placeholder2 = dim3(0, 0, 0);
+        // ad hoc placeholder
+        auto      anchor_len3  = dim3(0, 0, 0);
+        auto      errctrl_len3 = dim3(0, 0, 0);
+        auto      xdata        = outlier_xdata;
+        auto      outlier      = outlier_xdata;
+        uint32_t* outlier_idx  = nullptr;
 
-        // launch_reconstruct_LorenzoI<T, E, FP>(
+        auto xdata_len3 = len3;
+
         cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(
-            outlier_xdata, len3, anchor, placeholder1, errctrl, placeholder2, outlier_xdata, eb, radius, &time_elapsed,
-            stream);
+            errctrl, errctrl_len3, anchor, anchor_len3, outlier, outlier_idx, eb, radius,  //
+            xdata, xdata_len3,                                                             //
+            &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
         this->derive_rtlen(Spline3, len3);

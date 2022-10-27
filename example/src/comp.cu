@@ -54,10 +54,10 @@ template <typename T, typename E, typename M>
 struct runtime_data {
     T* h_data;
 
-    union {
-        T* data;
-        T* outlier;
-    };
+    T*        data;
+    T*        outlier;
+    uint32_t* outlier_idx;
+
     T* xdata;
 
     dim3   len3;
@@ -120,9 +120,10 @@ cusz_error_status allocate_data(
 
     CHECK_CUDA(cudaMallocHost(&d->h_data, sizeof(T) * len));
     CHECK_CUDA(cudaMalloc(&d->data, sizeof(T) * len));
-    CHECK_CUDA(cudaMalloc(&d->xdata, sizeof(T) * len));
-
+    CHECK_CUDA(cudaMalloc(&d->outlier, sizeof(T) * len));
     CHECK_CUDA(cudaMalloc(&d->errq, sizeof(E) * len));
+
+    CHECK_CUDA(cudaMalloc(&d->xdata, sizeof(T) * len));
 
     CHECK_CUDA(cudaMalloc(&d->val, sizeof(T) * len / 4));
     CHECK_CUDA(cudaMalloc(&d->idx, sizeof(uint32_t) * len / 4));
@@ -187,15 +188,17 @@ cusz_error_status compressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(  //
-            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, data->data, config->eb,
-            config->radius, &time_pq, stream);
+        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(                                                   //
+            data->data, data->len3, config->eb, config->radius,                                         //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  //
+            &time_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(  //
-            data->data, data->len3, data->anchor, data->anchor_len3, data->errq, data->len3, data->data, config->eb,
-            config->radius, &time_pq, stream);
+        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                                             //
+            data->data, data->len3, config->eb, config->radius,                                         //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  //
+            &time_pq, stream);
     }
 
     cout << "time-eq\t" << time_pq << endl;
@@ -270,15 +273,19 @@ cusz_error_status decompressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(  //
-            data->xdata, data->len3, data->anchor, data->len3, data->errq, data->len3, data->xdata,
-            header_st->header.eb, header_st->header.radius, &time_d_pq, stream);
+        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(                                                 //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  // input
+            header_st->header.eb, header_st->header.radius,  // input (config)
+            data->xdata, data->len3,                         // output
+            &time_d_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(  //
-            data->xdata, data->len3, data->anchor, data->len3, data->errq, data->len3, data->xdata,
-            header_st->header.eb, header_st->header.radius, &time_d_pq, stream);
+        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                                           //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  // input
+            header_st->header.eb, header_st->header.radius,  // input (config)
+            data->xdata, data->len3,                         // output
+            &time_d_pq, stream);
     }
 
     cout << "decomp-time-pq\t" << time_d_pq << endl;
@@ -317,7 +324,6 @@ void f(
 
     decompressor<T, E, FP, H, M>(data, hf, &codec, header_st, use_proto, stream);
 
-    /* load data */ CHECK_CUDA(cudaMemcpy(data->data, data->h_data, sizeof(T) * data->len, cudaMemcpyHostToDevice));
     /* view quality */ cusz::QualityViewer::echo_metric_gpu(data->xdata, data->data, data->len);
 
     deallocate_data<T, E, FP, H, M>(data, hf, config);

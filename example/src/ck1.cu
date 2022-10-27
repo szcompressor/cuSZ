@@ -32,12 +32,17 @@ void f(
 
     auto len = x * y * z;
 
-    T *d_d, *h_d;
-    T *d_xd, *h_xd;
-    T* d_anchor = nullptr;
-    E *d_eq, *h_eq;
+    T *       d_d, *h_d;
+    T *       d_xd, *h_xd;
+    T*        d_outlier;
+    E *       d_eq, *h_eq;
+    T*        d_anchor    = nullptr;
+    uint32_t* outlier_idx = nullptr;
+    dim3      len3        = dim3(x, y, z);
+    dim3      dummy_len3  = dim3(0, 0, 0);
 
     cudaMalloc(&d_d, sizeof(T) * len);
+    cudaMalloc(&d_outlier, sizeof(T) * len);
     cudaMalloc(&d_xd, sizeof(T) * len);
     cudaMalloc(&d_eq, sizeof(E) * len);
     cudaMallocHost(&h_d, sizeof(T) * len);
@@ -55,19 +60,21 @@ void f(
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    dim3 len3 = dim3(x, y, z);
-
     float time;
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(  //
-            d_d, len3, d_anchor, len3, d_eq, len3, d_d, error_bound, radius, &time, stream);
+        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(                        //
+            d_d, len3, error_bound, radius,                                  // input and config
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // output
+            &time, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(  //
-            d_d, len3, d_anchor, len3, d_eq, len3, d_d, error_bound, radius, &time, stream);
+        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                  //
+            d_d, len3, error_bound, radius,                                  // input and config
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // output
+            &time, stream);
     }
 
     cudaDeviceSynchronize();
@@ -81,19 +88,24 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(  //
-            d_xd, len3, d_anchor, len3, d_eq, len3, d_xd, error_bound, radius, &time, stream);
+        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(                      //
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // input
+            error_bound, radius,                                             // input (config)
+            d_xd, len3,                                                      // output
+            &time, stream);
     }
     else {
         cout << "using prototype decomp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(  //
-            d_xd, len3, d_anchor, len3, d_eq, len3, d_xd, error_bound, radius, &time, stream);
+        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                //
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // input
+            error_bound, radius,                                             // input (config)
+            d_xd, len3,                                                      // output
+            &time, stream);
     }
 
     cudaDeviceSynchronize();
 
     /* demo: offline checking (de)compression quality. */
-    /* load data again    */ cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_xd, d_d, len);
 
     cudaStreamDestroy(stream);
