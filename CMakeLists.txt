@@ -6,7 +6,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 find_package(CUDAToolkit REQUIRED)
-find_package(CUB REQUIRED)
+find_package(CUB)
 if(TARGET _CUB_CUB)
   install(TARGETS _CUB_CUB EXPORT CUSZTargets)
 endif()
@@ -21,9 +21,18 @@ configure_file(
 
 
 add_library(cuszcompile_settings INTERFACE)
-target_link_libraries(cuszcompile_settings INTERFACE
-  CUB::CUB
-  )
+if(CUB_FOUND)
+	target_link_libraries(cuszcompile_settings INTERFACE CUB::CUB)
+else()
+	message(WARNING "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub")
+ set(CMAKE_FIND_DEBUG_MODE TRUE)
+	find_file(CUB_HEADER cub.cuh PATHS "${CUDAToolkit_INCLUDE_DIRS}/cub" REQUIRED)
+	add_library(CUB INTERFACE)
+	get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY )
+	target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
+	target_link_libraries(cuszcompile_settings INTERFACE CUB)
+	install(TARGETS CUB EXPORT CUSZTargets)
+endif()
 target_compile_definitions(cuszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
 target_compile_options(cuszcompile_settings INTERFACE
   $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
