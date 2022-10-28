@@ -1,8 +1,6 @@
-## PREDICTION & NVCOMP::LOSSLESS DEMO
+## DEMO for CUSZ::PREDICTION & NVCOMP::LOSSLESS 
 
-Prerequisite:
-- The demo comes as an example in cuSZ project. Thus, a complete build of cuSZ is needed.
-- NVCOMP now is distributed in binary. Thus, specifying `/path/to/nvcomp` is required when building cuSZ.
+This demo is a new compression pipeline, i.e., cuSZ's prediction and nvCOMP's lossless encoding (e.g., LZ4). Since this demo comes as an example in cuSZ, building it requires a complete build of cuSZ. nvCOMP now is distributed in binary, thus, specifying `/path/to/nvcomp` is required when building cuSZ.
 
 ### BUILD CUSZ WITH NVCOMP 
 
@@ -26,7 +24,7 @@ make -j
 
 ### DEMO
 
-The demo working with nvcomp locates at `cusz-latest/example/src/ck2.cu`.
+The source code of this demo locates at `cusz-latest/example/src/ck2.cu`.
 
 ```bash
 ## 2: "F" for fp32 type, "D" for fp64 type
@@ -41,8 +39,7 @@ The demo working with nvcomp locates at `cusz-latest/example/src/ck2.cu`.
 
 ### EXAMPLE DATASET
 
-The dataset could be downloaded from [SDRBench](https://sdrbench.github.io/).
-To download 2D 3600-by-1800 CESM-ATM, 
+The example dataset can be downloaded from [SDRBench](https://sdrbench.github.io/). To download 2D 3600-by-1800 CESM-ATM data, 
 ```bash
 wget https://g-8d6b0.fd635.8443.data.globus.org/ds131.2/Data-Reduction-Repo/raw-data/CESM-ATM/SDRBENCH-CESM-ATM-1800x3600.tar.gz
 
@@ -94,4 +91,4 @@ export CESM=/path/to/1800x3600/CLDHGH_v_1_1800_3600.f32
 #   auto               0.999838         0.999464
 ```
 
-In this case, with `uint16` error-quantization code reinterpreted as two `uint16` to feed `lz4`, the compression ratio is not optimal. Note the compression ratio (CR) in the printed report does not include outliers (error-quantization code + outliers forms the prediction result).
+Note that with `uint16` error-quantization code (reinterpreted as two `uint8`) to feed `lz4`, the compression ratio (CR) of the new compression pipeline (cusz::prediction and nvcomp::lz4) is not optimal. In the above test, CR of original cuSZ is 6.1702592, whereas CR of the new compression pipeline is 2.9544599 (even ignoring prediction outliers).
