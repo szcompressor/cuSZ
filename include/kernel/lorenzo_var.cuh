@@ -560,8 +560,6 @@ void launch_construct_LorenzoI_var(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    auto outlier = data;
-
     cuda_timer_t timer;
     timer.timer_start(stream);
 
@@ -638,8 +636,6 @@ void launch_reconstruct_LorenzoI_var(
     auto ebx2   = eb * 2;
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
-
-    auto outlier = xdata;
 
     cuda_timer_t timer;
     timer.timer_start(stream);
