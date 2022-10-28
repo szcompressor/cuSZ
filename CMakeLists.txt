@@ -20,9 +20,9 @@ configure_file(
   )
 
 
-add_library(cuszcompile_settings INTERFACE)
+add_library(accszcompile_settings INTERFACE)
 if(CUB_FOUND)
-	target_link_libraries(cuszcompile_settings INTERFACE CUB::CUB)
+	target_link_libraries(accszcompile_settings INTERFACE CUB::CUB)
 else()
 	message(WARNING "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub")
  set(CMAKE_FIND_DEBUG_MODE TRUE)
@@ -30,15 +30,15 @@ else()
 	add_library(CUB INTERFACE)
 	get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY )
 	target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
-	target_link_libraries(cuszcompile_settings INTERFACE CUB)
+	target_link_libraries(accszcompile_settings INTERFACE CUB)
 	install(TARGETS CUB EXPORT CUSZTargets)
 endif()
-target_compile_definitions(cuszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
-target_compile_options(cuszcompile_settings INTERFACE
+target_compile_definitions(accszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
+target_compile_options(accszcompile_settings INTERFACE
   $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
   )
-target_compile_features(cuszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
-target_include_directories(cuszcompile_settings INTERFACE
+target_compile_features(accszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
+target_include_directories(accszcompile_settings INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
@@ -46,36 +46,36 @@ target_include_directories(cuszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
-add_library(cuszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu src/kernel/claunch_cuda_var.cu)
-target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
+add_library(accszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu src/kernel/claunch_cuda_var.cu)
+target_link_libraries(accszkernel PUBLIC accszcompile_settings)
 
-add_library(gpuszutilsgpu  src/utils/_compare.cu)
-target_link_libraries(gpuszutilsgpu PUBLIC cuszcompile_settings)
+add_library(accszutilsgpu  src/utils/_compare.cu)
+target_link_libraries(accszutilsgpu PUBLIC accszcompile_settings)
 
-add_library(gpuszutilscpu  src/utils/_compare.cc)
-target_link_libraries(gpuszutilscpu PUBLIC cuszcompile_settings)
+add_library(accszutilscpu  src/utils/_compare.cc)
+target_link_libraries(accszutilscpu PUBLIC accszcompile_settings)
 
-add_library(cuszargp  src/context.cc)
-target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
+add_library(accszargp  src/context.cc)
+target_link_libraries(accszargp PUBLIC accszcompile_settings)
 
-add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
-target_link_libraries(cuszpq PUBLIC cuszcompile_settings cuszkernel)
+add_library(accszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
+target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel)
 
-add_library(cuszspv  src/component/spcodec_vec.cc src/detail/spvec.cu)
-target_link_libraries(cuszspv PUBLIC cuszcompile_settings)
+add_library(accszspv  src/component/spcodec_vec.cc src/detail/spvec.cu)
+target_link_libraries(accszspv PUBLIC accszcompile_settings)
 
-add_library(cuszspm  src/component/spcodec.cc src/detail/spmat.cu)
-target_link_libraries(cuszspm PUBLIC cuszcompile_settings CUDA::cusparse)
+add_library(accszspm  src/component/spcodec.cc src/detail/spmat.cu)
+target_link_libraries(accszspm PUBLIC accszcompile_settings CUDA::cusparse)
 
-add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
-target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cuda_driver cuszkernel)
-set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_library(accszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
+target_link_libraries(accszhuff PUBLIC accszcompile_settings CUDA::cuda_driver accszkernel)
+set_target_properties(accszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
-target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
+add_library(accszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
+target_link_libraries(accszcomp PUBLIC accszcompile_settings)
 
 add_library(cusz  src/comp.cc src/cuszapi.cc)
-target_link_libraries(cusz PUBLIC cuszcomp cuszargp cuszhuff cuszspm cuszspv cuszpq)
+target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspm accszspv accszpq)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -91,16 +91,16 @@ if (CUSZ_BUILD_TESTS)
   add_subdirectory(test)
 endif()
 
-install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
-install(TARGETS cuszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS gpuszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS gpuszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszcompile_settings EXPORT CUSZTargets)
+install(TARGETS accszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS accszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
 install(EXPORT CUSZTargets NAMESPACE CUSZ:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)
