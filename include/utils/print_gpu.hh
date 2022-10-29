@@ -12,26 +12,45 @@
 #include "print_gpu.h"
 
 namespace accsz {
+
 template <typename T>
-void peek_device_data(T* d_arr, size_t num, size_t offset = 0);
+void peek_device_data(T* d_arr, size_t num, size_t offset = 0)
+{
+    if (std::is_same<T, int8_t>::value) {  //
+        peek_device_data_Ti8((int8_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, int16_t>::value) {
+        peek_device_data_Ti16((int16_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, int32_t>::value) {
+        peek_device_data_Ti32((int32_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, int64_t>::value) {
+        peek_device_data_Ti64((int64_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, uint8_t>::value) {
+        peek_device_data_Tui8((uint8_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, uint16_t>::value) {
+        peek_device_data_Tui16((uint16_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, uint32_t>::value) {
+        peek_device_data_Tui32((uint32_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, uint64_t>::value) {
+        peek_device_data_Tui64((uint64_t*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, float>::value) {
+        peek_device_data_Tfp32((float*)d_arr, num, offset);
+    }
+    else if (std::is_same<T, double>::value) {
+        peek_device_data_Tfp64((double*)d_arr, num, offset);
+    }
+    else {
+        std::runtime_error("peek_device_data cannot accept this type.");
+    }
 }
 
-#define PEEK_DEVICE_DATA(Tliteral, T)                                     \
-    template <>                                                           \
-    void accsz::peek_device_data<T>(T * d_arr, size_t num, size_t offset) \
-    {                                                                     \
-        peek_device_data_T##Tliteral(d_arr, num, offset);                 \
-    }
-
-PEEK_DEVICE_DATA(i8, int8_t)
-PEEK_DEVICE_DATA(i16, int16_t)
-PEEK_DEVICE_DATA(i32, int32_t)
-PEEK_DEVICE_DATA(i64, int64_t)
-PEEK_DEVICE_DATA(ui8, uint8_t)
-PEEK_DEVICE_DATA(ui16, uint16_t)
-PEEK_DEVICE_DATA(ui32, uint32_t)
-PEEK_DEVICE_DATA(ui64, uint64_t)
-PEEK_DEVICE_DATA(fp32, float)
-PEEK_DEVICE_DATA(fp64, double)
+}  // namespace accsz
 
 #undef PEEK_DEVICE_DATA

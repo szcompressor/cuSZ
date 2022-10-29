@@ -21,16 +21,13 @@
 #define CONSTEXPR
 #endif
 
-#ifdef __CUDACC__
 #include <cuda_runtime.h>
 #include <driver_types.h>
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#endif
 
 #include <stdexcept>
 #include <string>
 
+#include "../utils/compare_gpu.hh"
 #include "../utils/io.hh"
 #include "../utils/strhelper.hh"
 #include "../utils/timer.hh"
@@ -371,19 +368,12 @@ class Capsule {
 
     Capsule& prescan(double& max_value, double& min_value, double& rng)
     {
-        thrust::device_ptr<T> g_ptr;
+        // may not work for uniptr
+        T result[4];
+        gpusz::thrustgpu_get_extrema_rawptr<T>(dptr, len, result);
 
-        if (use_unified)
-            g_ptr = thrust::device_pointer_cast(uniptr);
-        else
-            g_ptr = thrust::device_pointer_cast(dptr);
-
-        // excluding padded
-        auto max_el_loc = thrust::max_element(g_ptr, g_ptr + len);
-        auto min_el_loc = thrust::min_element(g_ptr, g_ptr + len);
-
-        max_value = *max_el_loc;
-        min_value = *min_el_loc;
+        min_value = result[0];
+        max_value = result[1];
         rng       = max_value - min_value;
 
         return *this;

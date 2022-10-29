@@ -13,7 +13,7 @@ add_executable(ck1 src/ck1.cu)
 target_link_libraries(ck1 PRIVATE accszkernel accszutilsgpu)
 
 add_executable(ck1var src/ck1var.cu)
-target_link_libraries(ck1var PRIVATE accszkernel)
+target_link_libraries(ck1var PRIVATE accszkernel accszutilsgpu)
 
 add_executable(pipeline src/comp.cu)
 target_link_libraries(pipeline PRIVATE accszspv accszkernel accszhuff accszutilsgpu)

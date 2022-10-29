@@ -75,7 +75,7 @@ add_library(accszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src
 target_link_libraries(accszcomp PUBLIC accszcompile_settings)
 
 add_library(cusz  src/comp.cc src/cuszapi.cc)
-target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspm accszspv accszpq)
+target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspm accszspv accszpq accszutilscpu accszutilsgpu)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)

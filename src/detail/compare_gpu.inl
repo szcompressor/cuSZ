@@ -61,6 +61,21 @@ bool thrustgpu_error_bounded(T* a, T* b, size_t const len, double eb, size_t* fi
 }
 
 template <typename T>
+void thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4])
+{
+    thrust::device_ptr<T> g_ptr = thrust::device_pointer_cast(d_ptr);
+
+    auto minel  = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;
+    auto maxel  = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;
+    res[MINVAL] = *(g_ptr + minel);
+    res[MAXVAL] = *(g_ptr + maxel);
+    res[RNG]    = res[MAXVAL] - res[MINVAL];
+
+    auto sum    = thrust::reduce(g_ptr, g_ptr + len, (T)0.0, thrust::plus<T>());
+    res[AVGVAL] = sum / len;
+}
+
+template <typename T>
 void thrustgpu_get_extrema(thrust::device_ptr<T> g_ptr, size_t len, T res[4])
 {
     auto minel  = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;

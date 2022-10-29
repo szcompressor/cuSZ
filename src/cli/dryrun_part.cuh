@@ -15,12 +15,12 @@
 #include "cli/analyzer.hh"
 #include "cli/quality_viewer.hh"
 #include "cli/verify.hh"
-#include "cli/verify_gpu.cuh"
 #include "common.hh"
 #include "component.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
 #include "utils.hh"
+#include "utils/compare_gpu.hh"
 
 /**
  * @brief bare metal, can run predictor to check data quality and compressibility
@@ -100,7 +100,7 @@ class BaseCompressor {
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         cusz_stats stat;
-        verify_data_GPU<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_len_data());
+        gpusz::thrustgpu_assess_quality<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_len_data());
         cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
@@ -138,7 +138,7 @@ class BaseCompressor {
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         cusz_stats stat;
-        verify_data_GPU(&stat, nc->reconst.hptr, nc->original.hptr, len);
+        gpusz::thrustgpu_assess_quality(&stat, nc->reconst.hptr, nc->original.hptr, len);
         cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
