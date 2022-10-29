@@ -4,6 +4,7 @@
  * @brief
  * @version 0.3
  * @date 2022-04-09
+ * @deprecated 0.3.2
  *
  * (C) 2022 by Washington State University, Argonne National Laboratory
  *

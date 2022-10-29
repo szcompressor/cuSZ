@@ -12,7 +12,6 @@
 #ifndef CUSZ_COMMON_HH
 #define CUSZ_COMMON_HH
 
-#include "common/capsule.hh"
 #include "common/configs.hh"
 #include "common/definition.hh"
 #include "common/type_traits.hh"

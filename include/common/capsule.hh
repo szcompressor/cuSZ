@@ -5,6 +5,7 @@
  * @version 0.2.3
  * @date 2020-11-03
  * (create) 2020-11-03 (rev1) 2021-03-24 (rev2) 2021-09-08
+ * @deprecated 0.3.2
  *
  * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -35,7 +36,6 @@
 #include "../utils/timer.hh"
 #include "configs.hh"
 #include "definition.hh"
-
 
 template <typename T, bool USE_UNIFIED = false>
 class Capsule {
@@ -322,7 +322,7 @@ class Capsule {
     template <cusz::LOC LOC, cusz::DEV M = cusz::DEV::DEV>
     Capsule& free()
     {
-      cusz::OK::FREE<M>();
+        cusz::OK::FREE<M>();
         raise_error_if_misuse_unified<LOC>();
 
         auto free_host = [&]() {

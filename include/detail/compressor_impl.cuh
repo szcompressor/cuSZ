@@ -17,7 +17,9 @@
 
 #include <cuda_runtime.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <iostream>
+
 #include "component.hh"
 #include "compressor.hh"
 #include "header.h"
