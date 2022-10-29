@@ -17,8 +17,8 @@
 #include "cli/quality_viewer.hh"
 #include "component/codec.hh"
 #include "kernel/hist.cuh"
-#include "utils/compare.cuh"
-// #include "utils/compare.hh"
+#include "utils/compare_gpu.hh"
+// #include "utils/compare_cpu.hh"
 #include "utils/io.hh"
 
 template <typename T, typename H = uint32_t>

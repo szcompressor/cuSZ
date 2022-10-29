@@ -24,7 +24,7 @@ using std::endl;
 #include "kernel/launch_lossless.cuh"
 #include "kernel/launch_spv.cuh"
 #include "utils/cuda_err.cuh"
-#include "utils/print.cuh"
+#include "utils/print_gpu.hh"
 
 namespace alpha {
 

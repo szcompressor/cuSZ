@@ -9,7 +9,7 @@
  *
  */
 
-#include "_compare.cuh"
+#include "../detail/compare_gpu.inl"
 #include "utils/compare.h"
 
 #define THRUSTGPU_COMPARE_LOSSLESS(Tliteral, T)                          \

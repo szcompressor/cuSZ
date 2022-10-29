@@ -49,10 +49,10 @@ target_include_directories(accszcompile_settings INTERFACE
 add_library(accszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu src/kernel/claunch_cuda_var.cu)
 target_link_libraries(accszkernel PUBLIC accszcompile_settings)
 
-add_library(accszutilsgpu  src/utils/_compare.cu)
+add_library(accszutilsgpu  src/utils/compare_gpu.cu src/utils/print_gpu.cu)
 target_link_libraries(accszutilsgpu PUBLIC accszcompile_settings)
 
-add_library(accszutilscpu  src/utils/_compare.cc)
+add_library(accszutilscpu  src/utils/compare_cpu.cc)
 target_link_libraries(accszutilscpu PUBLIC accszcompile_settings)
 
 add_library(accszargp  src/context.cc)

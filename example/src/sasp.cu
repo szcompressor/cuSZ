@@ -17,7 +17,7 @@
 #include "cli/quality_viewer.hh"
 #include "component/spcodec_vec.hh"
 #include "kernel/launch_spv.cuh"
-#include "utils/compare.cuh"
+#include "utils/compare_gpu.hh"
 #include "utils/io.hh"
 
 template <typename T, typename H = uint32_t>

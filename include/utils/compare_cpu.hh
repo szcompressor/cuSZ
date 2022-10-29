@@ -1,5 +1,5 @@
 /**
- * @file compare.hh
+ * @file compare_cpu.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3

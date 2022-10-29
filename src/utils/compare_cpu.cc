@@ -9,7 +9,7 @@
  *
  */
 
-#include "_compare.hh"
+#include "../detail/compare_cpu.inl"
 #include "utils/compare.h"
 
 #define CPPSTD_COMPARE_LOSSLESS(Tliteral, T)                          \

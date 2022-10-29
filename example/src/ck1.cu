@@ -13,7 +13,7 @@
 // #include "cli/timerecord_viewer.hh"
 // #include "cusz.h"
 #include "kernel/cpplaunch_cuda.hh"
-#include "utils/print.cuh"
+#include "utils/print_gpu.hh"
 
 std::string type_literal;
 
@@ -55,7 +55,7 @@ void f(
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    peek_device_data<T>(d_d, 100);
+    accsz::peek_device_data<T>(d_d, 100);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -79,7 +79,7 @@ void f(
 
     cudaDeviceSynchronize();
 
-    peek_device_data<E>(d_eq, 100);
+    accsz::peek_device_data<E>(d_eq, 100);
 
     cudaMemcpy(h_eq, d_eq, sizeof(E) * len, cudaMemcpyDeviceToHost);
     io::write_array_to_binary<E>(fname + ".eq." + type_literal, h_eq, len);
@@ -112,7 +112,7 @@ void f(
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
-    peek_device_data<T>(d_xd, 100);
+    accsz::peek_device_data<T>(d_xd, 100);
 
     cudaFree(d_d);
     cudaFree(d_xd);
