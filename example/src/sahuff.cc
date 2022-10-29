@@ -9,15 +9,16 @@
  *
  */
 
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
+// #include <thrust/device_ptr.h>
+// #include <thrust/extrema.h>
+// #include <thrust/transform_reduce.h>
+// #include <thrust/tuple.h>
 #include <string>
 #include "cli/quality_viewer.hh"
 #include "component/codec.hh"
-#include "kernel/hist.cuh"
+#include "kernel/cpplaunch_cuda.hh"
 #include "utils/compare_gpu.hh"
+#include "utils/print_gpu.hh"
 // #include "utils/compare_cpu.hh"
 #include "utils/io.hh"
 
@@ -35,13 +36,6 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
     constexpr auto pardeg  = 768;
     // auto           sublen  = (len - 1) / pardeg + 1;
 
-    /* code snippet for looking at the device array easily */
-    auto peek_devdata_T = [](T* d_arr, size_t num = 20) {
-        thrust::for_each(
-            thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%u\t", (uint32_t)i); });
-        printf("\n");
-    };
-
     cudaMalloc(&d_d, sizeof(T) * len);
     cudaMalloc(&d_xd, sizeof(T) * len);
     cudaMalloc(&d_freq, sizeof(uint32_t) * booklen);
@@ -54,7 +48,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    peek_devdata_T(d_d, 20);
+    accsz::peek_device_data<T>(d_d, 20);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -63,7 +57,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     float time_hist;
 
-    launch_histogram<T>(d_d, len, d_freq, booklen, time_hist, stream);
+    cusz::cpplaunch_histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
 
     cusz::LosslessCodec<T, H, uint32_t> encoder;
     encoder.init(len, booklen, pardeg /* not optimal for perf */);
@@ -96,7 +90,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
-    peek_devdata_T(d_xd, 20);
+    accsz::peek_device_data<T>(d_xd, 20);
 }
 
 int main(int argc, char** argv)

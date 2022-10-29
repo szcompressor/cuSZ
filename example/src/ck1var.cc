@@ -11,16 +11,14 @@
 
 #include <cuda_runtime.h>
 #include <stdio.h>
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
 #include <iostream>
 #include <string>
 
 #include "cli/quality_viewer.hh"
-// #include "lorenzo_var.cuh"
 #include "kernel/cpplaunch_cuda.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
+#include "utils/print_gpu.hh"
 
 using std::cerr;
 using std::cout;
@@ -49,13 +47,9 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
     io::read_binary_to_array<float>(fname, h_data, len);
     cudaMemcpy(data, h_data, len * sizeof(float), cudaMemcpyHostToDevice);
 
-    {
-        printf("data\n");
-        thrust::for_each(thrust::device, data + start, data + start + 20, [=] __device__ __host__(const float i) {
-            printf("%.3e\t", i);
-        });
-        printf("\n");
-    }
+    /* a casual peek */
+    printf("peeking data, 20 elements\n");
+    accsz::peek_device_data<float>(data, 100);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -67,15 +61,10 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     {
         printf("signum\n");
-        thrust::for_each(thrust::device, signum + start, signum + start + 20, [=] __device__ __host__(const bool i) {
-            printf("%d\t", (int)i);
-        });
-        printf("\n");
+        accsz::peek_device_data<int8_t>((int8_t*)signum, 100);
+
         printf("delta\n");
-        thrust::for_each(thrust::device, delta + start, delta + start + 20, [=] __device__ __host__(const DeltaT i) {
-            printf("%u\t", (uint32_t)i);
-        });
-        printf("\n");
+        accsz::peek_device_data<DeltaT>(delta, 100);
     }
 
     cout << "comp time\t" << time_comp << endl;
@@ -88,10 +77,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     {
         printf("xdata\n");
-        thrust::for_each(thrust::device, xdata + start, xdata + start + 20, [=] __device__ __host__(const float i) {
-            printf("%.3e\t", i);
-        });
-        printf("\n");
+        accsz::peek_device_data<float>(xdata, 100);
     }
 
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(xdata, data, len);
