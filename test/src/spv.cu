@@ -9,7 +9,7 @@
  *
  */
 
-#include "kernel/launch_spv.cuh"
+#include "kernel/spv_gpu.hh"
 #include "rand.hh"
 
 #include <cuda_runtime.h>
@@ -53,7 +53,7 @@ int f()
 
     ////////////////////////////////////////////////////////////////
 
-    launch_spv_gather<T, uint32_t>(a, len, val, idx, nnz, ms, stream);
+    accsz::spv_gather<T, uint32_t>(a, len, val, idx, &nnz, &ms, stream);
 
     cudaStreamSynchronize(stream);
 
@@ -64,7 +64,7 @@ int f()
         return -1;
     }
 
-    launch_spv_scatter<T, uint32_t>(val, idx, nnz, da, ms, stream);
+    accsz::spv_scatter<T, uint32_t>(val, idx, nnz, da, &ms, stream);
 
     cudaStreamSynchronize(stream);
 

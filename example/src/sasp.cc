@@ -9,16 +9,17 @@
  *
  */
 
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
+// #include <thrust/device_ptr.h>
+// #include <thrust/extrema.h>
+// #include <thrust/transform_reduce.h>
+// #include <thrust/tuple.h>
 #include <string>
 #include "cli/quality_viewer.hh"
 #include "component/spcodec_vec.hh"
-#include "kernel/launch_spv.cuh"
+#include "kernel/spv_gpu.hh"
 #include "utils/compare_gpu.hh"
 #include "utils/io.hh"
+#include "utils/print_gpu.hh"
 
 template <typename T, typename H = uint32_t>
 void f(std::string fname, size_t const x, size_t const y, size_t const z)
@@ -29,13 +30,6 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
     T *      d_d, *h_d;
     T *      d_xd, *h_xd;
     uint8_t* d_compressed;
-
-    /* code snippet for looking at the device array easily */
-    auto peek_devdata_T = [](T* d_arr, size_t num = 20) {
-        thrust::for_each(
-            thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%u\t", (uint32_t)i); });
-        printf("\n");
-    };
 
     cudaMalloc(&d_d, sizeof(T) * len);
     cudaMalloc(&d_xd, sizeof(T) * len);
@@ -48,7 +42,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    peek_devdata_T(d_d, 20);
+    accsz::peek_device_data<T>(d_d, 20);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -83,7 +77,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
-    peek_devdata_T(d_xd, 20);
+    accsz::peek_device_data<T>(d_xd, 20);
 }
 
 int main(int argc, char** argv)

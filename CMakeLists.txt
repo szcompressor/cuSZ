@@ -61,7 +61,7 @@ target_link_libraries(accszargp PUBLIC accszcompile_settings)
 add_library(accszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
 target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel)
 
-add_library(accszspv  src/component/spcodec_vec.cc src/detail/spvec.cu)
+add_library(accszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
 target_link_libraries(accszspv PUBLIC accszcompile_settings)
 
 add_library(accszspm  src/component/spcodec.cc src/detail/spmat.cu)

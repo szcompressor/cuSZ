@@ -18,13 +18,10 @@
 
 #include "../common.hh"
 #include "../component/spcodec_vec.hh"
-#include "../kernel/launch_spv.cuh"
+#include "../kernel/spv_gpu.hh"
+// #include "../kernel/launch_spv.cuh"
 
 #include "utils/cuda_err.cuh"
-// #include "utils/cuda_mem.cuh"
-// #include "utils/format.hh"
-// #include "utils/io.hh"
-// #include "utils/strhelper.hh"
 #include "utils/timer.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
@@ -87,7 +84,7 @@ void SpcodecVec<T, M>::impl::encode(
 {
     Header header;
 
-    launch_spv_gather<T, M>(in, in_len, this->d_val, this->d_idx, rte.nnz, milliseconds, stream);
+    accsz::spv_gather<T, M>(in, in_len, this->d_val, this->d_idx, &rte.nnz, &milliseconds, stream);
 
     subfile_collect(header, in_len, stream, dbg_print);
     out     = d_spfmt;
@@ -105,7 +102,7 @@ void SpcodecVec<T, M>::impl::decode(BYTE* coded, T* decoded, cudaStream_t stream
     auto d_val = ACCESSOR(VAL, T);
 #undef ACCESSOR
 
-    launch_spv_scatter<T, M>(d_val, d_idx, header.nnz, decoded, milliseconds, stream);
+    accsz::spv_scatter<T, M>(d_val, d_idx, header.nnz, decoded, &milliseconds, stream);
 }
 
 template <typename T, typename M>

@@ -22,7 +22,7 @@ using std::endl;
 #include "hf/hf_struct.h"
 #include "kernel/cpplaunch_cuda.hh"
 #include "kernel/launch_lossless.cuh"
-#include "kernel/launch_spv.cuh"
+#include "kernel/spv_gpu.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/print_gpu.hh"
 
@@ -203,7 +203,7 @@ cusz_error_status compressor(
 
     cout << "time-eq\t" << time_pq << endl;
 
-    launch_spv_gather<T, M>(data->outlier, data->len, data->val, data->idx, header_st->nnz, time_spv, stream);
+    accsz::spv_gather<T, M>(data->outlier, data->len, data->val, data->idx, &header_st->nnz, &time_spv, stream);
 
     cout << "time-spv\t" << time_spv << endl;
     cout << "nnz\t" << header_st->nnz << endl;
@@ -258,7 +258,7 @@ cusz_error_status decompressor(
           // time_hf = 0,
         time_d_pq = 0;
 
-    launch_spv_scatter<T, uint32_t>(data->val, data->idx, header_st->nnz, data->xdata, time_scatter, stream);
+    accsz::spv_scatter<T, uint32_t>(data->val, data->idx, header_st->nnz, data->xdata, &time_scatter, stream);
     cout << "decomp-time-spv\t" << time_scatter << endl;
 
     codec->decode(hf->hl_comp, data->errq);
