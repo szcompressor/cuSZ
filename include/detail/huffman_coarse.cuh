@@ -30,7 +30,7 @@ using std::cout;
 #include "../hf/hf_struct.h"
 #include "../kernel/codec_huffman.cuh"
 #include "../kernel/cpplaunch_cuda.hh"
-#include "../kernel/hist.cuh"
+// #include "../kernel/hist.cuh"
 #include "../kernel/huffman_parbook.cuh"
 #include "../kernel/launch_lossless.cuh"
 #include "../utils.hh"

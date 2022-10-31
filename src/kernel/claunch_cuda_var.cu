@@ -10,7 +10,7 @@
  */
 
 #include "kernel/claunch_cuda.h"
-#include "kernel/lorenzo_var.cuh"
+#include "kernel/lorenzo_var.inl"
 
 #define C_LORENZOI_VAR(Tliteral, Eliteral, FPliteral, T, E, FP)                                                       \
     cusz_error_status claunch_construct_LorenzoI_var_T##Tliteral##_E##Eliteral##_FP##FPliteral(                       \

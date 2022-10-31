@@ -24,8 +24,8 @@
 using DIM    = unsigned int;
 using STRIDE = unsigned int;
 
-#include "../utils/cuda_err.cuh"
-#include "../utils/timer.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/timer.hh"
 
 namespace cusz {
 namespace prototype {  // easy algorithmic description

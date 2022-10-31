@@ -10,7 +10,7 @@
  */
 
 #include "kernel/claunch_cuda.h"
-#include "kernel/lorenzo_prototype.cuh"
+#include "kernel/lorenzo_proto.inl"
 
 #define C_LORENZOI_PROTO(Tliteral, Eliteral, FPliteral, T, E, FP)                                                    \
     cusz_error_status claunch_construct_LorenzoI_proto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                    \

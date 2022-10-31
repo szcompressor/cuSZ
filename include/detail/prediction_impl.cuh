@@ -34,11 +34,11 @@ using cusz::prototype::x_lorenzo_1d1l;
 using cusz::prototype::x_lorenzo_2d1l;
 using cusz::prototype::x_lorenzo_3d1l;
 
-#else
-#include "../kernel/lorenzo.cuh"
+// #else
+// #include "../kernel/lorenzo.inl"
 #endif
 
-#include "../kernel/spline3.cuh"
+// #include "../kernel/spline3.inl"
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr

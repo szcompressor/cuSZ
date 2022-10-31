@@ -17,6 +17,7 @@
 
 #include "../hf/hf_struct.h"
 #include "../utils/cuda_err.cuh"
+#include "../utils/timer.hh"
 #include "codec_huffman.cuh"
 #include "huffman_parbook.cuh"
 

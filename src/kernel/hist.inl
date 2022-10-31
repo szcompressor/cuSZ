@@ -18,8 +18,8 @@
 #include <cstdio>
 #include <limits>
 
-#include "../common.hh"
-#include "../utils/timer.hh"
+#include "common.hh"
+#include "utils/timer.hh"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
 const static unsigned int WARP_SIZE = 32;
