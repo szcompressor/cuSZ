@@ -18,7 +18,10 @@ extern "C" {
 
 #include "stddef.h"
 
-typedef enum cusz_execution_policy { CUSZ_CPU, CUSZ_GPU } cusz_execution_policy;
+enum cusz_execution_policy { CPU, CUDA };
+typedef enum cusz_execution_policy cusz_execution_policy;
+typedef enum cusz_execution_policy cusz_policy;
+typedef enum cusz_execution_policy asz_policy;
 
 //////// state enumeration
 
@@ -182,9 +185,13 @@ typedef struct cusz_runtime_config {
 } cusz_runtime_config;
 typedef cusz_runtime_config cusz_config;
 
+typedef struct Res {
+    double min, max, rng, std;
+} Res;
+
 typedef struct cusz_stats {
     // clang-format off
-    typedef struct Res { double min, max, rng, std; } Res; Res odata, xdata;
+    Res odata, xdata;
     struct { double PSNR, MSE, NRMSE, coeff; } reduced;
     struct { double abs, rel, pwrrel; size_t idx; } max_err;
     struct { double lag_one, lag_two; } autocor;

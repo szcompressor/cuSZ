@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(CUSZ LANGUAGES CUDA CXX VERSION 0.3.0)
+project(CUSZ LANGUAGES CUDA CXX C VERSION 0.3.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -57,6 +57,10 @@ target_link_libraries(accszutilscpu PUBLIC accszcompile_settings)
 
 add_library(accszargp  src/context.cc)
 target_link_libraries(accszargp PUBLIC accszcompile_settings)
+
+## seprate later
+add_library(asztimer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
+target_link_libraries(asztimer PUBLIC accszcompile_settings)
 
 add_library(accszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
 target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel)
