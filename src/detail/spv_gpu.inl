@@ -20,7 +20,7 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/tuple.h>
 
-// #include "utils/timer.hh"
+#include "utils/timer.h"
 
 namespace accsz {
 namespace detail {
@@ -40,8 +40,8 @@ void spv_gather(
     thrust::cuda::par.on(stream);
     thrust::counting_iterator<uint32_t> zero(0);
 
-    // cuda_timer_t t;
-    // t.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
     // find out the indices
     *nnz = thrust::copy_if(thrust::device, zero, zero + in_len, in, d_idx, _1 != 0) - d_idx;
@@ -51,19 +51,24 @@ void spv_gather(
         thrust::device, thrust::make_permutation_iterator(in, d_idx),
         thrust::make_permutation_iterator(in + *nnz, d_idx + *nnz), d_val);
 
-    // t.timer_end(stream);
-    // *milliseconds = t.get_time_elapsed();
+    STOP_CUDAEVENT_RECORDING(stream);
+    TIME_ELAPSED_CUDAEVENT(milliseconds);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename M>
 void spv_scatter(T* d_val, uint32_t* d_idx, int const nnz, T* decoded, float* milliseconds, cudaStream_t stream)
 {
     thrust::cuda::par.on(stream);
-    // cuda_timer_t t;
-    // t.timer_start(stream);
+
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
+
     thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
-    // t.timer_end(stream);
-    // *milliseconds = t.get_time_elapsed();
+
+    STOP_CUDAEVENT_RECORDING(stream);
+    TIME_ELAPSED_CUDAEVENT(milliseconds);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 }  // namespace detail

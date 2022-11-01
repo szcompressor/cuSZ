@@ -16,6 +16,7 @@
 #define CUSZ_KERNEL_LORENZO_CUH
 
 #include <cstddef>
+#include "utils/timer.h"
 
 #if __has_include(<cub/cub.cuh>)
 // #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
@@ -811,6 +812,8 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
 #undef BDY
 #undef BDZ
 
+#include "utils/timer.h"
+
 template <typename T, typename E, typename FP>
 void launch_construct_LorenzoI(
     T* const     data,
@@ -856,39 +859,35 @@ void launch_construct_LorenzoI(
     constexpr auto BLOCK_3D = dim3(32, 1, 8);
     auto           GRID_3D  = divide3(len3, SUBLEN_3D);
 
+    auto d = ndim();
+
     // error bound
     auto ebx2   = eb * 2;
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    // auto outlier = data;
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
-
-    if (ndim() == 1) {
+    if (d == 1) {
         ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
     }
-    else if (ndim() == 2) {
+    else if (d == 2) {
         ::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
             <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
     }
-    else if (ndim() == 3) {
+    else if (d == 3) {
         ::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
     }
-    else {
-        throw std::runtime_error("Lorenzo only works for 123-D.");
-    }
 
-    timer.timer_end(stream);
-    if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    else
-        CHECK_CUDA(cudaDeviceSynchronize());
+    STOP_CUDAEVENT_RECORDING(stream);
+    CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    time_elapsed = timer.get_time_elapsed();
+    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename E, typename FP>
@@ -941,31 +940,31 @@ void launch_reconstruct_LorenzoI(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    // auto outlier = xdata;
+    auto d = ndim();
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
-    if (ndim() == 1) {
+    if (d == 1) {
         ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
-    else if (ndim() == 2) {
+    else if (d == 2) {
         ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
             <<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
-    else if (ndim() == 3) {
+    else if (d == 3) {
         ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
     }
 
-    timer.timer_end(stream);
-    if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    else
-        CHECK_CUDA(cudaDeviceSynchronize());
+    STOP_CUDAEVENT_RECORDING(stream);
 
-    time_elapsed = timer.get_time_elapsed();
+    CHECK_CUDA(cudaStreamSynchronize(stream));
+
+    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 #endif

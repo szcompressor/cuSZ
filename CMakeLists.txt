@@ -46,8 +46,12 @@ target_include_directories(accszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
+## seprate later
+add_library(asztimer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
+target_link_libraries(asztimer PUBLIC accszcompile_settings)
+
 add_library(accszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu src/kernel/claunch_cuda_var.cu)
-target_link_libraries(accszkernel PUBLIC accszcompile_settings)
+target_link_libraries(accszkernel PUBLIC accszcompile_settings asztimer)
 
 add_library(accszutilsgpu  src/utils/compare_gpu.cu src/utils/print_gpu.cu)
 target_link_libraries(accszutilsgpu PUBLIC accszcompile_settings)
@@ -57,10 +61,6 @@ target_link_libraries(accszutilscpu PUBLIC accszcompile_settings)
 
 add_library(accszargp  src/context.cc)
 target_link_libraries(accszargp PUBLIC accszcompile_settings)
-
-## seprate later
-add_library(asztimer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
-target_link_libraries(asztimer PUBLIC accszcompile_settings)
 
 add_library(accszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
 target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel)
@@ -99,6 +99,7 @@ install(TARGETS accszcompile_settings EXPORT CUSZTargets)
 install(TARGETS accszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS asztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

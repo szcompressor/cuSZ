@@ -18,23 +18,19 @@ extern "C" {
 
 #include "../cusz/type.h"
 
-struct asz_timer {
-    asz_policy policy;
-
-    void* start;
-    void* end;
-
-    void* stream;
-};
-
+struct asz_timer;
 typedef struct asz_timer asz_timer;
+typedef struct asz_timer asz_cputimer;
+
+struct asz_cudatimer;
+typedef struct asz_cudatimer asz_cudatimer;
 
 // top-level/dispatcher
-asz_timer* asz_timer_create(asz_policy const p, void* stream);
-void       asz_timer_destroy(asz_timer* t);
-void       asz_timer_start(asz_timer* t);
-void       asz_timer_end(asz_timer* t);
-double     asz_time_elapsed(asz_timer* t);
+// asz_timer* asz_timer_create(asz_policy const p, void* stream);
+// void       asz_timer_destroy(asz_timer* t);
+// void       asz_timer_start(asz_timer* t);
+// void       asz_timer_end(asz_timer* t);
+// double     asz_time_elapsed(asz_timer* t);
 
 asz_timer* asz_cputimer_create();
 void       asz_cputimer_destroy(asz_timer* t);
@@ -42,17 +38,35 @@ void       asz_cputimer_start(asz_timer* t);
 void       asz_cputimer_end(asz_timer* t);
 double     asz_cputime_elapsed(asz_timer* t);
 
-asz_timer* asz_cudatimer_create();
-void       asz_cudatimer_destroy(asz_timer* t);
-void       asz_cudatimer_start(asz_timer* t);
-void       asz_cudatimer_end(asz_timer* t);
-double     asz_cudatime_elapsed(asz_timer* t);
+// 22-11-01 adding wrapper incurs unexpeted overhead in timing
+asz_cudatimer* asz_cudatimer_create();
+void           asz_cudatimer_destroy(asz_cudatimer* t);
+void           asz_cudatimer_start(asz_cudatimer* t);
+void           asz_cudatimer_end(asz_cudatimer* t);
+double         asz_cudatime_elapsed(asz_cudatimer* t);
 
-asz_timer* asz_cudastreamtimer_create(void* stream);
-void       asz_cudastreamtimer_destroy(asz_timer* t);
-void       asz_cudastreamtimer_start(asz_timer* t);
-void       asz_cudastreamtimer_end(asz_timer* t);
-double     asz_cudastreamtime_elapsed(asz_timer* t);
+asz_cudatimer* asz_cudastreamtimer_create(void* stream);
+void           asz_cudastreamtimer_destroy(asz_cudatimer* t);
+void           asz_cudastreamtimer_start(asz_cudatimer* t);
+void           asz_cudastreamtimer_end(asz_cudatimer* t);
+double         asz_cudastreamtime_elapsed(asz_cudatimer* t);
+
+// 22-11-01 CUDA timing snippet instead
+#define CREATE_CUDAEVENT_PAIR \
+    cudaEvent_t a, b;         \
+    cudaEventCreate(&a);      \
+    cudaEventCreate(&b);
+
+#define DESTROY_CUDAEVENT_PAIR \
+    cudaEventDestroy(a);       \
+    cudaEventDestroy(b);
+
+#define START_CUDAEVENT_RECORDING(STREAM) cudaEventRecord(a, STREAM);
+#define STOP_CUDAEVENT_RECORDING(STREAM) \
+    cudaEventRecord(b, STREAM);          \
+    cudaEventSynchronize(b);
+
+#define TIME_ELAPSED_CUDAEVENT(PTR_MILLISEC) cudaEventElapsedTime(PTR_MILLISEC, a, b);
 
 #ifdef __cplusplus
 }

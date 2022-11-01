@@ -10,85 +10,73 @@
  */
 
 #include <cuda_runtime.h>
+#include <iostream>
 #include "utils/timer.h"
 
+typedef struct asz_cudatimer {
+    cudaEvent_t  a, b;
+    float        milliseconds;
+    cudaStream_t stream;
+
+    asz_cudatimer() { create(); }
+    asz_cudatimer(cudaStream_t stream)
+    {
+        create();
+        this->stream = stream;
+    }
+
+    void create()
+    {
+        cudaEventCreate(&a);
+        cudaEventCreate(&b);
+    }
+
+    void destroy()
+    {
+        cudaEventDestroy(a);
+        cudaEventDestroy(b);
+    }
+
+    // stream not involved
+    void start() { cudaEventRecord(a); }
+
+    void stop()
+    {
+        cudaEventRecord(b);
+        cudaEventSynchronize(b);
+    }
+
+    // stream involved
+    void stream_start()
+    {
+        cudaEventRecord(a, stream);  // set event as not occurred
+    }
+
+    void stream_stop()
+    {
+        cudaEventRecord(b, stream);
+        cudaEventSynchronize(b);  // block host until `stream` meets `stop`
+    }
+
+    // get time
+    float time_elapsed()
+    {
+        cudaEventElapsedTime(&milliseconds, a, b);
+        std::cout << "milliseconds: " << milliseconds << std::endl;
+        return milliseconds;
+    }
+} asz_cudatimer;
+
 // cuda timer specific
-
-asz_timer* asz_cudatimer_create()
-{
-    auto t = new asz_timer{
-        .policy = asz_policy::CUDA,  //
-        .start  = new cudaEvent_t,
-        .end    = new cudaEvent_t};
-
-    cudaEventCreate(static_cast<cudaEvent_t*>(t->start));
-    cudaEventCreate(static_cast<cudaEvent_t*>(t->end));
-
-    return t;
-}
-
-void asz_cudatimer_destroy(asz_timer* t)
-{
-    delete static_cast<cudaEvent_t*>(t->start);
-    delete static_cast<cudaEvent_t*>(t->end);
-    delete t;
-}
-
-void asz_cudatimer_start(asz_timer* t)
-{  //
-    cudaEventRecord(*static_cast<cudaEvent_t*>(t->start));
-}
-
-void asz_cudatimer_end(asz_timer* t)
-{  //
-    cudaEventRecord(*static_cast<cudaEvent_t*>(t->end));
-    cudaEventSynchronize(*static_cast<cudaEvent_t*>(t->end));
-}
-
-double asz_cudatime_elapsed(asz_timer* t)
-{
-    float second;
-    cudaEventElapsedTime(&second, *static_cast<cudaEvent_t*>(t->start), *static_cast<cudaEvent_t*>(t->end));
-    return second / 1000;
-}
+asz_cudatimer* asz_cudatimer_create() { return new asz_cudatimer{}; }
+void           asz_cudatimer_destroy(asz_cudatimer* t) { t->destroy(); }
+void           asz_cudatimer_start(asz_cudatimer* t) { t->start(); }
+void           asz_cudatimer_end(asz_cudatimer* t) { t->stop(); }
+double         asz_cudatime_elapsed(asz_cudatimer* t) { return t->time_elapsed() / 1000; }
 
 // cuda streamtimer specific
-
-asz_timer* asz_cudastreamtimer_create(void* stream)
-{
-    auto t = new asz_timer{
-        .policy = asz_policy::CUDA,  //
-        .start  = new cudaEvent_t,
-        .end    = new cudaEvent_t,
-        .stream = stream};
-
-    cudaEventCreate(static_cast<cudaEvent_t*>(t->start));
-    cudaEventCreate(static_cast<cudaEvent_t*>(t->end));
-
-    return t;
-}
-
-void asz_cudastreamtimer_destroy(asz_timer* t)
-{
-    delete static_cast<cudaEvent_t*>(t->start);
-    delete static_cast<cudaEvent_t*>(t->end);
-    delete t;
-}
-
-void asz_cudastreamtimer_start(asz_timer* t)
-{  //
-    cudaEventRecord(*static_cast<cudaEvent_t*>(t->start), static_cast<cudaStream_t>(t->stream));
-}
-
-void asz_cudastreamtimer_end(asz_timer* t)
-{  //
-    cudaEventRecord(*static_cast<cudaEvent_t*>(t->end), static_cast<cudaStream_t>(t->stream));
-    cudaEventSynchronize(*static_cast<cudaEvent_t*>(t->end));
-}
-
-double asz_cudastreamtime_elapsed(asz_timer* t)
-{
-    float second;
-    cudaEventElapsedTime(&second, *static_cast<cudaEvent_t*>(t->start), *static_cast<cudaEvent_t*>(t->end));
-    return second / 1000;
-}
+asz_cudatimer* asz_cudastreamtimer_create(void* stream) { return new asz_cudatimer((cudaStream_t)stream); }
+void           asz_cudastreamtimer_destroy(asz_cudatimer* t) { t->destroy(); }
+void           asz_cudastreamtimer_start(asz_cudatimer* t) { t->stream_start(); }
+void           asz_cudastreamtimer_end(asz_cudatimer* t) { t->stream_stop(); }
+double         asz_cudastreamtime_elapsed(asz_cudatimer* t) { return t->time_elapsed() / 1000; }
