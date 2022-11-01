@@ -1,5 +1,5 @@
 /**
- * @file spline3.cuh
+ * @file spline3.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.2
@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <type_traits>
+#include "utils/cuda_err.cuh"
 
 #define SPLINE3_COMPR true
 #define SPLINE3_DECOMPR false
@@ -24,14 +25,6 @@
 #else
 #define CONSTEXPR
 #endif
-
-// #ifndef __CUDACC__
-// #define __global__
-// #define __device__
-// #define __host__
-// #define __shared__
-// #define __forceinline__
-// #endif
 
 #define TIX threadIdx.x
 #define TIY threadIdx.y

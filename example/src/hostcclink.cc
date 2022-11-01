@@ -1,5 +1,5 @@
 #include <cuda_runtime.h>
-#include "kernel/cpplaunch_cuda.hh"
+#include "kernel/lorenzo_all.hh"
 
 int main()
 {
@@ -21,9 +21,9 @@ int main()
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    cusz::cpplaunch_construct_LorenzoI<float, uint16_t, float>(
-        data, len3, eb, radius, errq, dim3(1, 1, 1), nullptr, dim3(1, 1, 1), outlier, outlier_idx, &time_elapsed,
-        stream);
+    compress_predict_lorenzo_i<float, uint16_t, float>(
+        data, len3, eb, radius, errq, dim3(1, 1, 1), nullptr, dim3(1, 1, 1), outlier, outlier_idx, nullptr,
+        &time_elapsed, stream);
 
     cudaFree(data);
     cudaFree(outlier);

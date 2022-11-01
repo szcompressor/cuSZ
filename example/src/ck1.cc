@@ -13,6 +13,7 @@
 // #include "cli/timerecord_viewer.hh"
 // #include "cusz.h"
 #include "kernel/cpplaunch_cuda.hh"
+#include "kernel/lorenzo_all.hh"
 #include "utils/print_gpu.hh"
 
 std::string type_literal;
@@ -64,16 +65,18 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(                        //
-            d_d, len3, error_bound, radius,                                  // input and config
-            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // output
+        compress_predict_lorenzo_i<T, E, FP>(  //
+            d_d, len3, error_bound, radius,    // input and config
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,
+            nullptr,  // output
             &time, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                  //
-            d_d, len3, error_bound, radius,                                  // input and config
-            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // output
+        compress_predict_lorenzo_iproto<T, E, FP>(  //
+            d_d, len3, error_bound, radius,         // input and config
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,
+            nullptr,  // output
             &time, stream);
     }
 
@@ -88,18 +91,18 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(                      //
-            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // input
-            error_bound, radius,                                             // input (config)
-            d_xd, len3,                                                      // output
+        decompress_predict_lorenzo_i<T, E, FP>(                                 //
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx, 0,  // input
+            error_bound, radius,                                                // input (config)
+            d_xd, len3,                                                         // output
             &time, stream);
     }
     else {
         cout << "using prototype decomp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                //
-            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,  // input
-            error_bound, radius,                                             // input (config)
-            d_xd, len3,                                                      // output
+        decompress_predict_lorenzo_iproto<T, E, FP>(                            //
+            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx, 0,  // input
+            error_bound, radius,                                                // input (config)
+            d_xd, len3,                                                         // output
             &time, stream);
     }
 

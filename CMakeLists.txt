@@ -47,10 +47,13 @@ target_include_directories(accszcompile_settings INTERFACE
   )
 
 ## seprate later
-add_library(asztimer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
+add_library(asztimer  src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
 target_link_libraries(asztimer PUBLIC accszcompile_settings)
 
-add_library(accszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu src/kernel/claunch_cuda_var.cu)
+add_library(aszkelo  src/kernel/lorenzo.cu src/kernel/lorenzo_var.cu src/kernel/lorenzo_proto.cu)
+target_link_libraries(aszkelo PUBLIC accszcompile_settings)
+
+add_library(accszkernel  src/kernel/claunch_cuda.cu)
 target_link_libraries(accszkernel PUBLIC accszcompile_settings asztimer)
 
 add_library(accszutilsgpu  src/utils/compare_gpu.cu src/utils/print_gpu.cu)
@@ -63,7 +66,7 @@ add_library(accszargp  src/context.cc)
 target_link_libraries(accszargp PUBLIC accszcompile_settings)
 
 add_library(accszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
-target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel)
+target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel aszkelo)
 
 add_library(accszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
 target_link_libraries(accszspv PUBLIC accszcompile_settings)
@@ -97,6 +100,7 @@ endif()
 
 install(TARGETS accszcompile_settings EXPORT CUSZTargets)
 install(TARGETS accszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS aszkelo EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS asztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

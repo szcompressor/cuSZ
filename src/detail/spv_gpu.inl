@@ -1,5 +1,5 @@
 /**
- * @file launch_sparse_vec_method.cuh
+ * @file spv_gpu.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.3

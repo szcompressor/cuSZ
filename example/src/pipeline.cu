@@ -22,6 +22,7 @@ using std::endl;
 #include "hf/hf_struct.h"
 #include "kernel/cpplaunch_cuda.hh"
 #include "kernel/launch_lossless.cuh"
+#include "kernel/lorenzo_all.hh"
 #include "kernel/spv_gpu.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/print_gpu.hh"
@@ -188,16 +189,17 @@ cusz_error_status compressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(                                                   //
-            data->data, data->len3, config->eb, config->radius,                                         //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  //
+        compress_predict_lorenzo_i<T, E, FP>(                    //
+            data->data, data->len3, config->eb, config->radius,  //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,
+            nullptr,  //
             &time_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_construct_LorenzoI_proto<T, E, FP>(                                             //
-            data->data, data->len3, config->eb, config->radius,                                         //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  //
+        compress_predict_lorenzo_iproto<T, E, FP>(                                                               //
+            data->data, data->len3, config->eb, config->radius,                                                  //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx, nullptr,  //
             &time_pq, stream);
     }
 
@@ -273,16 +275,16 @@ cusz_error_status decompressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(                                                 //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  // input
+        decompress_predict_lorenzo_i<T, E, FP>(                                                            //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx, 0,  // input
             header_st->header.eb, header_st->header.radius,  // input (config)
             data->xdata, data->len3,                         // output
             &time_d_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        cusz::cpplaunch_reconstruct_LorenzoI_proto<T, E, FP>(                                           //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,  // input
+        decompress_predict_lorenzo_iproto<T, E, FP>(                                                       //
+            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx, 0,  // input
             header_st->header.eb, header_st->header.radius,  // input (config)
             data->xdata, data->len3,                         // output
             &time_d_pq, stream);

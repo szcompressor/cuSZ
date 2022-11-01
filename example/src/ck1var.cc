@@ -15,7 +15,7 @@
 #include <string>
 
 #include "cli/quality_viewer.hh"
-#include "kernel/cpplaunch_cuda.hh"
+#include "kernel/lorenzo_all.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
@@ -56,7 +56,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     float time_comp;
 
-    cusz::experimental::cpplaunch_construct_LorenzoI_var<float, DeltaT, float>(
+    asz::experimental::compress_predict_lorenzo_ivar<float, DeltaT, float>(
         data, len3, eb, delta, signum, &time_comp, stream);
 
     {
@@ -70,7 +70,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
     cout << "comp time\t" << time_comp << endl;
 
     float time_decomp;
-    cusz::experimental::cpplaunch_reconstruct_LorenzoI_var<float, DeltaT, float>(
+    asz::experimental::decompress_predict_lorenzo_ivar<float, DeltaT, float>(
         delta, signum, len3, eb, xdata, &time_decomp, stream);
 
     cout << "decomp time\t" << time_decomp << endl;

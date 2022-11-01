@@ -1,5 +1,5 @@
 /**
- * @file hist.cuh
+ * @file hist.inl
  * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp (mlhickm@g.clemson.edu)
  * @brief Fast histogramming from [Gómez-Luna et al. 2013]
  * @version 0.1

@@ -22,6 +22,7 @@
 #include "../common.hh"
 #include "../component/prediction.hh"
 #include "../kernel/cpplaunch_cuda.hh"
+#include "../kernel/lorenzo_all.hh"
 #include "../utils.hh"
 
 #ifdef DPCPP_SHOWCASE
@@ -138,9 +139,9 @@ void IMPL::construct(
         auto      outlier      = data_outlier;
         uint32_t* outlier_idx  = nullptr;
 
-        cusz::cpplaunch_construct_LorenzoI<T, E, FP>(
-            data, len3, eb, radius,                                                //
-            d_errctrl, errctrl_len3, d_anchor, anchor_len3, outlier, outlier_idx,  //
+        compress_predict_lorenzo_i<T, E, FP>(
+            data, len3, eb, radius,                                                         //
+            d_errctrl, errctrl_len3, d_anchor, anchor_len3, outlier, outlier_idx, nullptr,  //
             &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
@@ -178,9 +179,9 @@ void IMPL::reconstruct(
 
         auto xdata_len3 = len3;
 
-        cusz::cpplaunch_reconstruct_LorenzoI<T, E, FP>(
-            errctrl, errctrl_len3, anchor, anchor_len3, outlier, outlier_idx, eb, radius,  //
-            xdata, xdata_len3,                                                             //
+        decompress_predict_lorenzo_i<T, E, FP>(
+            errctrl, errctrl_len3, anchor, anchor_len3, outlier, outlier_idx, 0, eb, radius,  //
+            xdata, xdata_len3,                                                                //
             &time_elapsed, stream);
     }
     else if (predictor == Spline3) {

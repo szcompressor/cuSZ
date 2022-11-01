@@ -1,5 +1,5 @@
 /**
- * @file lorenzo.cuh
+ * @file lorenzo.inl
  * @author Jiannan Tian
  * @brief Dual-ErrCtrl Lorenzo method.
  * @version 0.2
@@ -16,6 +16,7 @@
 #define CUSZ_KERNEL_LORENZO_CUH
 
 #include <cstddef>
+#include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
 #if __has_include(<cub/cub.cuh>)
@@ -814,157 +815,158 @@ __global__ void cusz::x_lorenzo_3d1lvar_32x8x8data_mapto32x1x8(
 
 #include "utils/timer.h"
 
-template <typename T, typename E, typename FP>
-void launch_construct_LorenzoI(
-    T* const     data,
-    dim3 const   len3,
-    T* const     anchor,
-    dim3 const   placeholder_1,
-    E* const     errctrl,
-    dim3 const   placeholder_2,
-    T* const     outlier,
-    double const eb,
-    int const    radius,
-    float&       time_elapsed,
-    cudaStream_t stream)
-{
-    auto divide3 = [](dim3 len, dim3 sublen) {
-        return dim3(
-            (len.x - 1) / sublen.x + 1,  //
-            (len.y - 1) / sublen.y + 1,  //
-            (len.z - 1) / sublen.z + 1);
-    };
+// template <typename T, typename E, typename FP>
+// void launch_construct_LorenzoI(
+//     T* const     data,
+//     dim3 const   len3,
+//     double const eb,
+//     int const    radius,
+//     E* const     errctrl,
+//     dim3 const   placeholder_2,
+//     T* const     anchor,
+//     dim3 const   placeholder_1,
+//     T* const     outlier,
+//     uint32_t*    outlier_idx,
+//     uint32_t*    num_outliers,
+//     float*       time_elapsed,
+//     cudaStream_t stream)
+// {
+//     auto divide3 = [](dim3 len, dim3 sublen) {
+//         return dim3(
+//             (len.x - 1) / sublen.x + 1,  //
+//             (len.y - 1) / sublen.y + 1,  //
+//             (len.z - 1) / sublen.z + 1);
+//     };
 
-    auto ndim = [&]() {
-        if (len3.z == 1 and len3.y == 1)
-            return 1;
-        else if (len3.z == 1 and len3.y != 1)
-            return 2;
-        else
-            return 3;
-    };
+//     auto ndim = [&]() {
+//         if (len3.z == 1 and len3.y == 1)
+//             return 1;
+//         else if (len3.z == 1 and len3.y != 1)
+//             return 2;
+//         else
+//             return 3;
+//     };
 
-    constexpr auto SUBLEN_1D = 256;
-    constexpr auto SEQ_1D    = 4;  // x-sequentiality == 4
-    constexpr auto BLOCK_1D  = dim3(256 / 4, 1, 1);
-    auto           GRID_1D   = divide3(len3, SUBLEN_1D);
+//     constexpr auto SUBLEN_1D = 256;
+//     constexpr auto SEQ_1D    = 4;  // x-sequentiality == 4
+//     constexpr auto BLOCK_1D  = dim3(256 / 4, 1, 1);
+//     auto           GRID_1D   = divide3(len3, SUBLEN_1D);
 
-    constexpr auto SUBLEN_2D = dim3(16, 16, 1);
-    // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_2D = dim3(16, 2, 1);
-    auto           GRID_2D  = divide3(len3, SUBLEN_2D);
+//     constexpr auto SUBLEN_2D = dim3(16, 16, 1);
+//     // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
+//     constexpr auto BLOCK_2D = dim3(16, 2, 1);
+//     auto           GRID_2D  = divide3(len3, SUBLEN_2D);
 
-    constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-    // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D = dim3(32, 1, 8);
-    auto           GRID_3D  = divide3(len3, SUBLEN_3D);
+//     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+//     // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
+//     constexpr auto BLOCK_3D = dim3(32, 1, 8);
+//     auto           GRID_3D  = divide3(len3, SUBLEN_3D);
 
-    auto d = ndim();
+//     auto d = ndim();
 
-    // error bound
-    auto ebx2   = eb * 2;
-    auto ebx2_r = 1 / ebx2;
-    auto leap3  = dim3(1, len3.x, len3.x * len3.y);
+//     // error bound
+//     auto ebx2   = eb * 2;
+//     auto ebx2_r = 1 / ebx2;
+//     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+//     CREATE_CUDAEVENT_PAIR;
+//     START_CUDAEVENT_RECORDING(stream);
 
-    if (d == 1) {
-        ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
-            <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
-    }
-    else if (d == 2) {
-        ::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
-            <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
-    }
-    else if (d == 3) {
-        ::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
-            <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
-    }
+//     if (d == 1) {
+//         ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+//             <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+//     }
+//     else if (d == 2) {
+//         ::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
+//             <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+//     }
+//     else if (d == 3) {
+//         ::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
+//             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+//     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+//     STOP_CUDAEVENT_RECORDING(stream);
+//     CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+//     TIME_ELAPSED_CUDAEVENT(time_elapsed);
 
-    DESTROY_CUDAEVENT_PAIR;
-}
+//     DESTROY_CUDAEVENT_PAIR;
+// }
 
-template <typename T, typename E, typename FP>
-void launch_reconstruct_LorenzoI(
-    T*           xdata,
-    dim3 const   len3,
-    T*           anchor,
-    dim3 const   placeholder_1,
-    E*           errctrl,
-    dim3 const   placeholder_2,
-    T*           outlier,
-    double const eb,
-    int const    radius,
-    float&       time_elapsed,
-    cudaStream_t stream)
-{
-    auto divide3 = [](dim3 len, dim3 sublen) {
-        return dim3(
-            (len.x - 1) / sublen.x + 1,  //
-            (len.y - 1) / sublen.y + 1,  //
-            (len.z - 1) / sublen.z + 1);
-    };
+// template <typename T, typename E, typename FP>
+// void launch_reconstruct_LorenzoI(
+//     E*             errctrl,
+//     dim3 const     placeholder_2,
+//     T*             anchor,
+//     dim3 const     placeholder_1,
+//     T*             outlier,
+//     uint32_t*      outlier_idx,
+//     uint32_t const num_outliers,
+//     double const   eb,
+//     int const      radius,
+//     T*             xdata,
+//     dim3 const     len3,
+//     float*         time_elapsed,
+//     cudaStream_t   stream)
+// {
+//     auto divide3 = [](dim3 len, dim3 sublen) {
+//         return dim3(
+//             (len.x - 1) / sublen.x + 1,  //
+//             (len.y - 1) / sublen.y + 1,  //
+//             (len.z - 1) / sublen.z + 1);
+//     };
 
-    auto ndim = [&]() {
-        if (len3.z == 1 and len3.y == 1)
-            return 1;
-        else if (len3.z == 1 and len3.y != 1)
-            return 2;
-        else
-            return 3;
-    };
+//     auto ndim = [&]() {
+//         if (len3.z == 1 and len3.y == 1)
+//             return 1;
+//         else if (len3.z == 1 and len3.y != 1)
+//             return 2;
+//         else
+//             return 3;
+//     };
 
-    constexpr auto SUBLEN_1D = 256;
-    constexpr auto SEQ_1D    = 8;  // x-sequentiality == 8
-    constexpr auto BLOCK_1D  = dim3(256 / 8, 1, 1);
-    auto           GRID_1D   = divide3(len3, SUBLEN_1D);
+//     constexpr auto SUBLEN_1D = 256;
+//     constexpr auto SEQ_1D    = 8;  // x-sequentiality == 8
+//     constexpr auto BLOCK_1D  = dim3(256 / 8, 1, 1);
+//     auto           GRID_1D   = divide3(len3, SUBLEN_1D);
 
-    constexpr auto SUBLEN_2D = dim3(16, 16, 1);
-    // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_2D = dim3(16, 2, 1);
-    auto           GRID_2D  = divide3(len3, SUBLEN_2D);
+//     constexpr auto SUBLEN_2D = dim3(16, 16, 1);
+//     // constexpr auto SEQ_2D    = dim3(1, 8, 1);  // y-sequentiality == 8
+//     constexpr auto BLOCK_2D = dim3(16, 2, 1);
+//     auto           GRID_2D  = divide3(len3, SUBLEN_2D);
 
-    constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-    // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D = dim3(32, 1, 8);
-    auto           GRID_3D  = divide3(len3, SUBLEN_3D);
+//     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+//     // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
+//     constexpr auto BLOCK_3D = dim3(32, 1, 8);
+//     auto           GRID_3D  = divide3(len3, SUBLEN_3D);
 
-    // error bound
-    auto ebx2   = eb * 2;
-    auto ebx2_r = 1 / ebx2;
-    auto leap3  = dim3(1, len3.x, len3.x * len3.y);
+//     // error bound
+//     auto ebx2   = eb * 2;
+//     auto ebx2_r = 1 / ebx2;
+//     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    auto d = ndim();
+//     auto d = ndim();
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+//     CREATE_CUDAEVENT_PAIR;
+//     START_CUDAEVENT_RECORDING(stream);
 
-    if (d == 1) {
-        ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
-            <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
-    }
-    else if (d == 2) {
-        ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
-            <<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
-    }
-    else if (d == 3) {
-        ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
-            <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
-    }
+//     if (d == 1) {
+//         ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+//             <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+//     }
+//     else if (d == 2) {
+//         ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
+//             <<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+//     }
+//     else if (d == 3) {
+//         ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
+//             <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+//     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
-
-    CHECK_CUDA(cudaStreamSynchronize(stream));
-
-    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
-
-    DESTROY_CUDAEVENT_PAIR;
-}
+//     STOP_CUDAEVENT_RECORDING(stream);
+//     CHECK_CUDA(cudaStreamSynchronize(stream));
+//     TIME_ELAPSED_CUDAEVENT(time_elapsed);
+//     DESTROY_CUDAEVENT_PAIR;
+// }
 
 #endif
