@@ -68,6 +68,23 @@ double         asz_cudastreamtime_elapsed(asz_cudatimer* t);
 
 #define TIME_ELAPSED_CUDAEVENT(PTR_MILLISEC) cudaEventElapsedTime(PTR_MILLISEC, a, b);
 
+// 22-11-01 HIP timing snippet instead
+#define CREATE_HIPEVENT_PAIR \
+    hipEvent_t a, b;         \
+    hipEventCreate(&a);      \
+    hipEventCreate(&b);
+
+#define DESTROY_HIPEVENT_PAIR \
+    hipEventDestroy(a);       \
+    hipEventDestroy(b);
+
+#define START_HIPEVENT_RECORDING(STREAM) hipEventRecord(a, STREAM);
+#define STOP_HIPEVENT_RECORDING(STREAM) \
+    hipEventRecord(b, STREAM);          \
+    hipEventSynchronize(b);
+
+#define TIME_ELAPSED_hipEVENT(PTR_MILLISEC) hipEventElapsedTime(PTR_MILLISEC, a, b);
+
 #ifdef __cplusplus
 }
 #endif
