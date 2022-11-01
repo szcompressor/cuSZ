@@ -17,7 +17,6 @@
 #include "lorenzo.inl"
 #include "spline3.inl"
 #include "utils/cuda_err.cuh"
-#include "utils/timer.hh"
 
 #define C_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                                          \
     cusz_error_status claunch_construct_LorenzoI_T##Tliteral##_E##Eliteral##_FP##FPliteral(                          \

@@ -39,7 +39,7 @@
 #define BDZ blockDim.z
 
 #include "utils/cuda_err.cuh"
-#include "utils/timer.hh"
+#include "utils/timer.h"
 
 namespace cusz {
 namespace experimental {
@@ -560,8 +560,8 @@ void launch_construct_LorenzoI_var(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
     if (ndim() == 1) {
         cusz::experimental::c_lorenzo_1d1l<T, DeltaT, FP, SEQ_1D, SEQ_1D>  //
@@ -582,13 +582,11 @@ void launch_construct_LorenzoI_var(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    timer.timer_end(stream);
-    if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    else
-        CHECK_CUDA(cudaDeviceSynchronize());
+    STOP_CUDAEVENT_RECORDING(stream);
+    CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    time_elapsed = timer.get_time_elapsed();
+    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename DeltaT, typename FP>
@@ -637,8 +635,8 @@ void launch_reconstruct_LorenzoI_var(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    cuda_timer_t timer;
-    timer.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
     if (ndim() == 1) {
         cusz::experimental::x_lorenzo_1d1l<T, DeltaT, FP, 256, 8>  //
@@ -656,13 +654,11 @@ void launch_reconstruct_LorenzoI_var(
             (signum, delta, xdata, len3, leap3, ebx2);
     }
 
-    timer.timer_end(stream);
-    if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    else
-        CHECK_CUDA(cudaDeviceSynchronize());
+    STOP_CUDAEVENT_RECORDING(stream);
+    CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    time_elapsed = timer.get_time_elapsed();
+    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 //

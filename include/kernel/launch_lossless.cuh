@@ -17,7 +17,7 @@
 
 #include "../hf/hf_struct.h"
 #include "../utils/cuda_err.cuh"
-#include "../utils/timer.hh"
+#include "../utils/timer.h"
 #include "codec_huffman.cuh"
 #include "huffman_parbook.cuh"
 
@@ -31,17 +31,16 @@ void launch_gpu_parallel_build_codebook(
     float&       time_book,
     cudaStream_t stream)
 {
-    cuda_timer_t t;
-    t.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
-    float placeholder;
-
+    float end_to_end;
     // TODO internal malloc & free takes much time
-    kernel_wrapper::parallel_get_codebook<T, H>(freq, book, booklen, revbook, placeholder, stream);
-    t.timer_end(stream);
-    cudaStreamSynchronize(stream);
+    kernel_wrapper::parallel_get_codebook<T, H>(freq, book, booklen, revbook, end_to_end, stream);
 
-    time_book = t.get_time_elapsed();
+    STOP_CUDAEVENT_RECORDING(stream);
+    TIME_ELAPSED_CUDAEVENT(&time_book);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename H, typename M>
@@ -63,8 +62,6 @@ void launch_coarse_grained_Huffman_encoding(
     float&       time_lossless,
     cudaStream_t stream)
 {
-    cuda_timer_t t;
-
     auto d_par_nbit  = d_par_metadata;
     auto d_par_ncell = d_par_metadata + pardeg;
     auto d_par_entry = d_par_metadata + pardeg * 2;
@@ -73,21 +70,25 @@ void launch_coarse_grained_Huffman_encoding(
     auto h_par_ncell = h_par_metadata + pardeg;
     auto h_par_entry = h_par_metadata + pardeg * 2;
 
+    CREATE_CUDAEVENT_PAIR;
+
     /* phase 1 */
     {
         auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
         auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
 
-        t.timer_start(stream);
+        START_CUDAEVENT_RECORDING(stream);
 
         cusz::coarse_grained_Huffman_encode_phase1_fill<T, H>   //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_internal_coded);
 
-        t.timer_end(stream);
+        STOP_CUDAEVENT_RECORDING(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        float stage_time;
+        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        time_lossless += stage_time;
     }
 
     /* phase 2 */
@@ -95,16 +96,18 @@ void launch_coarse_grained_Huffman_encoding(
         auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
         auto grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
 
-        t.timer_start(stream);
+        START_CUDAEVENT_RECORDING(stream);
 
         cusz::coarse_grained_Huffman_encode_phase2_deflate<H>  //
             <<<grid_dim, block_dim, 0, stream>>>               //
             (d_internal_coded, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
-        t.timer_end(stream);
+        STOP_CUDAEVENT_RECORDING(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        float stage_time;
+        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        time_lossless += stage_time;
     }
 
     /* phase 3 */
@@ -122,14 +125,20 @@ void launch_coarse_grained_Huffman_encoding(
 
     /* phase 4 */
     {
-        t.timer_start(stream);
+        START_CUDAEVENT_RECORDING(stream);
+
         cusz::coarse_grained_Huffman_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_internal_coded, d_par_entry, d_par_ncell, sublen, d_bitstream);
-        t.timer_end(stream);
+
+        STOP_CUDAEVENT_RECORDING(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        float stage_time;
+        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        time_lossless += stage_time;
     }
+
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename H, typename M>
@@ -143,7 +152,7 @@ void launch_coarse_grained_Huffman_encoding_rev1(
     float&        time_lossless,
     cudaStream_t  stream)
 {
-    cuda_timer_t t;
+    CREATE_CUDAEVENT_PAIR;
 
     H*        d_buffer    = (H*)bitstream_desc->buffer;
     H*        d_bitstream = (H*)bitstream_desc->bitstream;
@@ -167,16 +176,18 @@ void launch_coarse_grained_Huffman_encoding_rev1(
         auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
         auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
 
-        t.timer_start(stream);
+        START_CUDAEVENT_RECORDING(stream);
 
         cusz::coarse_grained_Huffman_encode_phase1_fill<T, H>   //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_buffer);
 
-        t.timer_end(stream);
+        STOP_CUDAEVENT_RECORDING(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        float stage_time;
+        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        time_lossless += stage_time;
     }
 
     /* phase 2 */
@@ -184,16 +195,18 @@ void launch_coarse_grained_Huffman_encoding_rev1(
         auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
         auto grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
 
-        t.timer_start(stream);
+        START_CUDAEVENT_RECORDING(stream);
 
         cusz::coarse_grained_Huffman_encode_phase2_deflate<H>  //
             <<<grid_dim, block_dim, 0, stream>>>               //
             (d_buffer, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
-        t.timer_end(stream);
+        STOP_CUDAEVENT_RECORDING(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        float stage_time;
+        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        time_lossless += stage_time;
     }
 
     /* phase 3 */
@@ -211,13 +224,18 @@ void launch_coarse_grained_Huffman_encoding_rev1(
 
     /* phase 4 */
     {
-        t.timer_start(stream);
+        START_CUDAEVENT_RECORDING(stream);
+
         cusz::coarse_grained_Huffman_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_buffer, d_par_entry, d_par_ncell, sublen, d_bitstream);
-        t.timer_end(stream);
+
+        STOP_CUDAEVENT_RECORDING(stream);
+
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
-        time_lossless += t.get_time_elapsed();
+        float stage_time;
+        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        time_lossless += stage_time;
     }
 }
 
@@ -237,15 +255,18 @@ void launch_coarse_grained_Huffman_decoding(
     auto const block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
     auto const grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
 
-    cuda_timer_t t;
-    t.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream)
+
     cusz::huffman_decode<T, H, M>                         //
         <<<grid_dim, block_dim, revbook_nbyte, stream>>>  //
         (d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte, sublen, pardeg, out_decompressed);
-    t.timer_end(stream);
+
+    STOP_CUDAEVENT_RECORDING(stream)
     cudaStreamSynchronize(stream);
 
-    time_lossless = t.get_time_elapsed();
+    TIME_ELAPSED_CUDAEVENT(&time_lossless);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 #endif

@@ -22,7 +22,6 @@
 // #include "../kernel/launch_spv.cuh"
 
 #include "utils/cuda_err.cuh"
-#include "utils/timer.hh"
 
 #define SPVEC_ALLOCDEV(VAR, SYM)                           \
     CHECK_CUDA(cudaMalloc(&d_##VAR, rte.nbyte[RTE::SYM])); \

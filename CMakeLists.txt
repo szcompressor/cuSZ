@@ -68,8 +68,8 @@ target_link_libraries(accszpq PUBLIC accszcompile_settings accszkernel)
 add_library(accszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
 target_link_libraries(accszspv PUBLIC accszcompile_settings)
 
-add_library(accszspm  src/component/spcodec.cc src/detail/spmat.cu)
-target_link_libraries(accszspm PUBLIC accszcompile_settings CUDA::cusparse)
+# add_library(accszspm  src/component/spcodec.cc src/detail/spmat.cu)
+# target_link_libraries(accszspm PUBLIC accszcompile_settings CUDA::cusparse)
 
 add_library(accszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
 target_link_libraries(accszhuff PUBLIC accszcompile_settings CUDA::cuda_driver accszkernel)
@@ -79,7 +79,7 @@ add_library(accszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src
 target_link_libraries(accszcomp PUBLIC accszcompile_settings)
 
 add_library(cusz  src/comp.cc src/cuszapi.cc)
-target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspm accszspv accszpq accszutilscpu accszutilsgpu)
+target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspv accszpq accszutilscpu accszutilsgpu)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -101,7 +101,7 @@ install(TARGETS accszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INS
 install(TARGETS accszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS asztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS accszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# install(TARGETS accszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

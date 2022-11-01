@@ -19,7 +19,7 @@
 #include <limits>
 
 #include "common.hh"
-#include "utils/timer.hh"
+#include "utils/timer.h"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
 const static unsigned int WARP_SIZE = 32;
@@ -169,14 +169,17 @@ void launch_histogram(
     query_maxbytes();
     optimize_launch();
 
-    cuda_timer_t t;
-    t.timer_start(stream);
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
+
     kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
         (in_data, out_freq, in_len, num_buckets, r_per_block);
-    t.timer_end(stream);
-    cudaStreamSynchronize(stream);
 
-    milliseconds = t.get_time_elapsed();
+    STOP_CUDAEVENT_RECORDING(stream);
+
+    cudaStreamSynchronize(stream);
+    TIME_ELAPSED_CUDAEVENT(&milliseconds);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 #endif

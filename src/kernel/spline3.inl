@@ -652,16 +652,18 @@ void launch_construct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    cuda_timer_t timer;
-    timer.timer_start();
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
-    if (ndim() == 1) {  //
+    auto d = ndim();
+
+    if (d == 1) {  //
         throw std::runtime_error("Spline1 not implemented");
     }
-    else if (ndim() == 2) {
+    else if (d == 2) {
         throw std::runtime_error("Spline2 not implemented");
     }
-    else if (ndim() == 3) {
+    else if (d == 3) {
         cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256, false>  //
             <<<GRID_3D, BLOCK_3D, 0, stream>>>                            //
             (data, len3, leap3,                                           //
@@ -670,14 +672,11 @@ void launch_construct_Spline3(
              eb_r, ebx2, radius);
     }
 
-    timer.timer_end();
+    STOP_CUDAEVENT_RECORDING(stream);
+    CHECK_CUDA(cudaStreamSynchronize(stream));
+    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
 
-    if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    else
-        CHECK_CUDA(cudaDeviceSynchronize());
-
-    time_elapsed = timer.get_time_elapsed();
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename E, typename FP>
@@ -733,8 +732,8 @@ void launch_reconstruct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    cuda_timer_t timer;
-    timer.timer_start();
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
     cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
         <<<GRID_3D, BLOCK_3D, 0, stream>>>                     //
@@ -743,14 +742,12 @@ void launch_reconstruct_Spline3(
          xdata, len3, leap3,                                   //
          eb_r, ebx2, radius);
 
-    timer.timer_end();
+    STOP_CUDAEVENT_RECORDING(stream);
 
-    if (stream)
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    else
-        CHECK_CUDA(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    time_elapsed = timer.get_time_elapsed();
+    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+    DESTROY_CUDAEVENT_PAIR;
 }
 
 #endif
