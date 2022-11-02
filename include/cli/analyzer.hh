@@ -24,7 +24,8 @@
 #include <algorithm>
 #include <numeric>
 
-#include "../kernel/codec_huffman.cuh"
+#include "../hf/hf_bookg.hh"
+#include "../hf/hf_codecg.hh"
 #include "../kernel/cpplaunch_cuda.hh"
 #include "../utils/timer.hh"
 

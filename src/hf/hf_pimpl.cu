@@ -12,7 +12,8 @@
  *
  */
 
-#include "detail/huffman_coarse.cuh"
+#include "detail/hf_pimpl.inl"
+#include "hf/hf.hh"
 
 #define HUFFCOARSE(E, ETF, H, M) \
     template class cusz::LosslessCodec<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>::impl;

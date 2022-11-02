@@ -10,18 +10,18 @@ add_executable(hostcclink  src/hostcclink.cc)
 target_link_libraries(hostcclink PRIVATE aszkelo CUDA::cudart)
 
 add_executable(ck1  src/ck1.cc)
-target_link_libraries(ck1 PRIVATE accszkernel aszkelo aszutilsg aszstatg CUDA::cudart)
+target_link_libraries(ck1 PRIVATE accszkernel aszkelo aszutils_g aszstat_g CUDA::cudart)
 
 add_executable(ck1var  src/ck1var.cc)
-target_link_libraries(ck1var PRIVATE accszkernel aszkelo aszutilsg aszstatg CUDA::cudart)
+target_link_libraries(ck1var PRIVATE accszkernel aszkelo aszutils_g aszstat_g CUDA::cudart)
 
 add_executable(pipeline  src/pipeline.cu)
-target_link_libraries(pipeline PRIVATE accszspv accszkernel aszkelo accszhuff aszutilsg aszstatg)
+target_link_libraries(pipeline PRIVATE accszspv accszkernel aszkelo aszhf_g aszutils_g aszstat_g)
 set_target_properties(pipeline PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(sahuff  src/sahuff.cc)
-target_link_libraries(sahuff PRIVATE cusz aszutilsg CUDA::cudart aszstatg)
+target_link_libraries(sahuff PRIVATE cusz aszutils_g aszstat_g aszhf_g CUDA::cudart)
 set_target_properties(sahuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(sasp  src/sasp.cc)
-target_link_libraries(sasp PRIVATE accszspv aszutilsg aszstatg CUDA::cudart)
+target_link_libraries(sasp PRIVATE accszspv aszutils_g aszstat_g CUDA::cudart)

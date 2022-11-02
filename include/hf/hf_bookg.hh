@@ -17,7 +17,7 @@
 #define PAR_HUFFMAN_H
 
 // Parallel huffman global memory and kernels
-namespace kernel_wrapper {
+namespace asz {
 
 /**
  * @brief get codebook and reverse codebook in parallel
@@ -32,13 +32,14 @@ namespace kernel_wrapper {
  */
 template <typename T, typename H>
 void parallel_get_codebook(
-    cusz::FREQ* freq,
-    H*          codebook,
-    int         dict_size,
-    uint8_t*    reverse_codebook,
-    float&      time_book,
+    uint32_t* freq,
+    int const booksize,
+    H*        codebook,
+    uint8_t*  reverse_codebook,
+    int const revbook_nbyte,
+    float*    time_book,
     cudaStream_t = nullptr);
 
-}  // namespace kernel_wrapper
+}  // namespace asz
 
 #endif

@@ -49,6 +49,7 @@
 #ifndef CUSZ_KERNEL_PAR_MERGE_CUH
 #define CUSZ_KERNEL_PAR_MERGE_CUH
 
+#include <cuda.h>
 #include <float.h>
 #include <limits.h>
 #include <stdint.h>

@@ -1,34 +1,28 @@
 /**
- * @file launch_lossless.cuh
+ * @file hf_codecg.cu
  * @author Jiannan Tian
- * @brief
+ * @brief kernel wrappers; launching Huffman kernels
  * @version 0.3
- * @date 2022-06-13
+ * @date 2022-11-02
  *
- * (C) 2022 by Washington State University, Argonne National Laboratory
+ * (C) 2022 by Indiana University, Argonne National Laboratory
  *
  */
 
-#ifndef CUSZ_KERNEL_LAUNCH_LOSSLESS_CUH
-#define CUSZ_KERNEL_LAUNCH_LOSSLESS_CUH
-
+#include <cuda.h>
 #include <cuda_runtime.h>
-#include <cstdlib>
-
-#include "../hf/hf_struct.h"
-#include "../utils/cuda_err.cuh"
-#include "../utils/timer.h"
-#include "codec_huffman.cuh"
-#include "huffman_parbook.cuh"
+#include "detail/hf_codecg.inl"
+#include "hf/hf_bookg.hh"
+#include "hf/hf_codecg.hh"
 
 template <typename T, typename H, typename M>
-void launch_gpu_parallel_build_codebook(
+void asz::hf_buildbook_g(
     uint32_t*    freq,
     H*           book,
     int const    booklen,
     uint8_t*     revbook,
     int const    revbook_nbyte,
-    float&       time_book,
+    float*       time_book,
     cudaStream_t stream)
 {
     CREATE_CUDAEVENT_PAIR;
@@ -36,15 +30,15 @@ void launch_gpu_parallel_build_codebook(
 
     float end_to_end;
     // TODO internal malloc & free takes much time
-    kernel_wrapper::parallel_get_codebook<T, H>(freq, book, booklen, revbook, end_to_end, stream);
+    asz::parallel_get_codebook<T, H>(freq, booklen, book, revbook, revbook_nbyte, &end_to_end, stream);
 
     STOP_CUDAEVENT_RECORDING(stream);
-    TIME_ELAPSED_CUDAEVENT(&time_book);
+    TIME_ELAPSED_CUDAEVENT(time_book);
     DESTROY_CUDAEVENT_PAIR;
 }
 
 template <typename T, typename H, typename M>
-void launch_coarse_grained_Huffman_encoding(
+void asz::hf_encode_coarse(
     T*           uncompressed,
     H*           d_internal_coded,
     size_t const len,
@@ -79,7 +73,7 @@ void launch_coarse_grained_Huffman_encoding(
 
         START_CUDAEVENT_RECORDING(stream);
 
-        cusz::coarse_grained_Huffman_encode_phase1_fill<T, H>   //
+        asz::detail::hf_encode_phase1_fill<T, H>                //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_internal_coded);
 
@@ -98,8 +92,8 @@ void launch_coarse_grained_Huffman_encoding(
 
         START_CUDAEVENT_RECORDING(stream);
 
-        cusz::coarse_grained_Huffman_encode_phase2_deflate<H>  //
-            <<<grid_dim, block_dim, 0, stream>>>               //
+        asz::detail::hf_encode_phase2_deflate<H>  //
+            <<<grid_dim, block_dim, 0, stream>>>  //
             (d_internal_coded, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
         STOP_CUDAEVENT_RECORDING(stream);
@@ -127,7 +121,7 @@ void launch_coarse_grained_Huffman_encoding(
     {
         START_CUDAEVENT_RECORDING(stream);
 
-        cusz::coarse_grained_Huffman_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
+        asz::detail::hf_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_internal_coded, d_par_entry, d_par_ncell, sublen, d_bitstream);
 
         STOP_CUDAEVENT_RECORDING(stream);
@@ -142,7 +136,7 @@ void launch_coarse_grained_Huffman_encoding(
 }
 
 template <typename T, typename H, typename M>
-void launch_coarse_grained_Huffman_encoding_rev1(
+void asz::hf_encode_coarse_rev1(
     T*            uncompressed,
     size_t const  len,
     hf_book*      book_desc,
@@ -178,7 +172,7 @@ void launch_coarse_grained_Huffman_encoding_rev1(
 
         START_CUDAEVENT_RECORDING(stream);
 
-        cusz::coarse_grained_Huffman_encode_phase1_fill<T, H>   //
+        asz::detail::hf_encode_phase1_fill<T, H>                //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_buffer);
 
@@ -197,8 +191,8 @@ void launch_coarse_grained_Huffman_encoding_rev1(
 
         START_CUDAEVENT_RECORDING(stream);
 
-        cusz::coarse_grained_Huffman_encode_phase2_deflate<H>  //
-            <<<grid_dim, block_dim, 0, stream>>>               //
+        asz::detail::hf_encode_phase2_deflate<H>  //
+            <<<grid_dim, block_dim, 0, stream>>>  //
             (d_buffer, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
         STOP_CUDAEVENT_RECORDING(stream);
@@ -226,7 +220,7 @@ void launch_coarse_grained_Huffman_encoding_rev1(
     {
         START_CUDAEVENT_RECORDING(stream);
 
-        cusz::coarse_grained_Huffman_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
+        asz::detail::hf_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_buffer, d_par_entry, d_par_ncell, sublen, d_bitstream);
 
         STOP_CUDAEVENT_RECORDING(stream);
@@ -240,7 +234,7 @@ void launch_coarse_grained_Huffman_encoding_rev1(
 }
 
 template <typename T, typename H, typename M>
-void launch_coarse_grained_Huffman_decoding(
+void asz::hf_decode_coarse(
     H*           d_bitstream,
     uint8_t*     d_revbook,
     int const    revbook_nbyte,
@@ -258,7 +252,7 @@ void launch_coarse_grained_Huffman_decoding(
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream)
 
-    cusz::huffman_decode<T, H, M>                         //
+    hf_decode_kernel<T, H, M>                             //
         <<<grid_dim, block_dim, revbook_nbyte, stream>>>  //
         (d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte, sublen, pardeg, out_decompressed);
 
@@ -269,4 +263,50 @@ void launch_coarse_grained_Huffman_decoding(
     DESTROY_CUDAEVENT_PAIR;
 }
 
-#endif
+// TODO 22-11-02 remove reference; use ptr instead
+// TODO return status
+
+#define HFBOOK_INIT(T, H, M) \
+    template void asz::hf_buildbook_g<T, H, M>(uint32_t*, H*, int const, uint8_t*, int const, float*, cudaStream_t);
+
+HFBOOK_INIT(uint8_t, uint32_t, uint32_t);
+HFBOOK_INIT(uint16_t, uint32_t, uint32_t);
+HFBOOK_INIT(uint32_t, uint32_t, uint32_t);
+HFBOOK_INIT(float, uint32_t, uint32_t);
+
+HFBOOK_INIT(uint8_t, uint64_t, uint32_t);
+HFBOOK_INIT(uint16_t, uint64_t, uint32_t);
+HFBOOK_INIT(uint32_t, uint64_t, uint32_t);
+HFBOOK_INIT(float, uint64_t, uint32_t);
+
+HFBOOK_INIT(uint8_t, unsigned long long, uint32_t);
+HFBOOK_INIT(uint16_t, unsigned long long, uint32_t);
+HFBOOK_INIT(uint32_t, unsigned long long, uint32_t);
+HFBOOK_INIT(float, unsigned long long, uint32_t);
+
+#define HF_CODEC_INIT(T, H, M)                                                                                     \
+    template void asz::hf_encode_coarse<T, H, M>(                                                                  \
+        T*, H*, size_t const, uint32_t*, H*, int const, H*, M*, M*, int const, int const, int, uint8_t*&, size_t&, \
+        float&, cudaStream_t);                                                                                     \
+                                                                                                                   \
+    template void asz::hf_encode_coarse_rev1<T, H, M>(                                                             \
+        T*, size_t const, hf_book*, hf_bitstream*, uint8_t*&, size_t&, float&, cudaStream_t);                      \
+                                                                                                                   \
+    template void asz::hf_decode_coarse<T, H, M>(                                                                  \
+        H*, uint8_t*, int const, M*, M*, int const, int const, T*, float&, cudaStream_t);
+
+HF_CODEC_INIT(uint8_t, uint32_t, uint32_t);
+HF_CODEC_INIT(uint16_t, uint32_t, uint32_t);
+HF_CODEC_INIT(uint32_t, uint32_t, uint32_t);
+HF_CODEC_INIT(float, uint32_t, uint32_t);
+HF_CODEC_INIT(uint8_t, uint64_t, uint32_t);
+HF_CODEC_INIT(uint16_t, uint64_t, uint32_t);
+HF_CODEC_INIT(uint32_t, uint64_t, uint32_t);
+HF_CODEC_INIT(float, uint64_t, uint32_t);
+HF_CODEC_INIT(uint8_t, unsigned long long, uint32_t);
+HF_CODEC_INIT(uint16_t, unsigned long long, uint32_t);
+HF_CODEC_INIT(uint32_t, unsigned long long, uint32_t);
+HF_CODEC_INIT(float, unsigned long long, uint32_t);
+
+#undef HFBOOK_INIT
+#undef HF_CODEC_INIT

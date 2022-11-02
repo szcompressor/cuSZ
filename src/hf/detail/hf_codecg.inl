@@ -1,7 +1,7 @@
 /**
  * @file codec_huffman.cuh
  * @author Jiannan Tian
- * @brief Wrapper of Huffman codec.
+ * @brief Huffman kernel definitions
  * @version 0.2
  * @date 2020-02-13
  * (created) 2020-02-02, (rev1) 2021-02-13, (rev2) 2021-12-29
@@ -14,12 +14,19 @@
 #ifndef CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 #define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
+#include <cuda_runtime.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 
-#include "../common.hh"
+#include "common.hh"
+#include "hf/hf_bookg.hh"
+#include "hf/hf_codecg.hh"
+#include "hf/hf_struct.h"
+#include "utils/cuda_err.cuh"
+#include "utils/timer.h"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x
@@ -36,21 +43,6 @@
 using BYTE = uint8_t;
 
 extern __shared__ char __codec_huffman_uninitialized[];
-
-template <int WIDTH>
-struct PackedWordByWidth;
-
-template <>
-struct PackedWordByWidth<4> {
-    uint32_t word : 24;
-    uint32_t bits : 8;
-};
-
-template <>
-struct PackedWordByWidth<8> {
-    uint64_t word : 56;
-    uint64_t bits : 8;
-};
 
 struct __helper {
     __device__ __forceinline__ static unsigned int local_tid_1() { return threadIdx.x; }
@@ -69,12 +61,53 @@ struct __helper {
     }
 };
 
-namespace cusz {
-namespace subroutine {
+template <typename UNCOMPRESSED, typename COMPRESSED, typename MetadataT>
+__global__ void hf_decode_kernel(
+    COMPRESSED*   compressed,
+    uint8_t*      revbook,
+    MetadataT*    par_nbit,
+    MetadataT*    par_entry,
+    int const     revbook_nbyte,
+    int const     sublen,
+    int const     pardeg,
+    UNCOMPRESSED* out_uncompressed);
+
+namespace asz {
+namespace detail {
+
+template <typename UNCOMPRESSED, typename ENCODED>
+__global__ void hf_encode_phase1_fill(
+    UNCOMPRESSED* in_uncompressed,
+    size_t const  in_uncompressed_len,
+    ENCODED*      in_book,
+    int const     in_booklen,
+    ENCODED*      out_encoded);
+
+template <typename COMPRESSED, typename MetadataT>
+__global__ void hf_encode_phase2_deflate(
+    COMPRESSED*  inout_inplace,
+    size_t const len,
+    MetadataT*   par_nbit,
+    MetadataT*   par_ncell,
+    int const    sublen,
+    int const    pardeg);
+
+template <typename Huff, typename Meta>
+__global__ void
+hf_encode_phase4_concatenate(Huff* gapped, Meta* par_entry, Meta* par_ncell, int const cfg_sublen, Huff* non_gapped);
 
 // TODO change size_t to unsigned int
 template <typename COMPRESSED, typename UNCOMPRESSED>
-__device__ void single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int const total_bw, BYTE* revbook)
+__device__ void
+hf_decode_single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int const total_bw, BYTE* revbook);
+
+}  // namespace detail
+}  // namespace asz
+
+// TODO change size_t to unsigned int
+template <typename COMPRESSED, typename UNCOMPRESSED>
+__device__ void
+asz::detail::hf_decode_single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int const total_bw, BYTE* revbook)
 {
     static const auto DTYPE_WIDTH = sizeof(COMPRESSED) * 8;
 
@@ -123,10 +156,8 @@ __device__ void single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int 
     }
 }
 
-}  // namespace subroutine
-
 template <typename UNCOMPRESSED, typename ENCODED>
-__global__ void coarse_grained_Huffman_encode_phase1_fill(
+__global__ void asz::detail::hf_encode_phase1_fill(
     UNCOMPRESSED* in_uncompressed,
     size_t const  in_uncompressed_len,
     ENCODED*      in_book,
@@ -151,7 +182,7 @@ __global__ void coarse_grained_Huffman_encode_phase1_fill(
 }
 
 template <typename COMPRESSED, typename MetadataT>
-__global__ void coarse_grained_Huffman_encode_phase2_deflate(
+__global__ void asz::detail::hf_encode_phase2_deflate(
     COMPRESSED*  inout_inplace,
     size_t const len,
     MetadataT*   par_nbit,
@@ -216,7 +247,7 @@ __global__ void coarse_grained_Huffman_encode_phase2_deflate(
 }
 
 template <typename Huff, typename Meta>
-__global__ void coarse_grained_Huffman_encode_phase4_concatenate(
+__global__ void asz::detail::hf_encode_phase4_concatenate(
     Huff*     gapped,
     Meta*     par_entry,
     Meta*     par_ncell,
@@ -233,9 +264,9 @@ __global__ void coarse_grained_Huffman_encode_phase4_concatenate(
 }
 
 template <typename UNCOMPRESSED, typename COMPRESSED, typename MetadataT>
-__global__ void huffman_decode(
+__global__ void hf_decode_kernel(
     COMPRESSED*   compressed,
-    BYTE*         revbook,
+    uint8_t*      revbook,
     MetadataT*    par_nbit,
     MetadataT*    par_entry,
     int const     revbook_nbyte,
@@ -243,8 +274,8 @@ __global__ void huffman_decode(
     int const     pardeg,
     UNCOMPRESSED* out_uncompressed)
 {
-    extern __shared__ BYTE shmem[];
-    constexpr auto         block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+    extern __shared__ uint8_t shmem[];
+    constexpr auto            block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
 
     auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 
@@ -256,12 +287,10 @@ __global__ void huffman_decode(
     auto gid = BIX * BDX + TIX;
 
     if (gid < pardeg) {
-        cusz::subroutine::single_thread_inflate(
+        asz::detail::hf_decode_single_thread_inflate(
             compressed + par_entry[gid], out_uncompressed + sublen * gid, par_nbit[gid], shmem);
         __syncthreads();
     }
-};
-
-}  // namespace cusz
+}
 
 #endif

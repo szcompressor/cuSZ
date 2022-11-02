@@ -17,11 +17,12 @@ using std::cout;
 using std::endl;
 
 #include "cli/quality_viewer.hh"
-#include "component/codec.hh"
 #include "cusz.h"
+#include "hf/hf.hh"
+#include "hf/hf_bookg.hh"
+#include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"
 #include "kernel/cpplaunch_cuda.hh"
-#include "kernel/launch_lossless.cuh"
 #include "kernel/lorenzo_all.hh"
 #include "kernel/spv_gpu.hh"
 #include "stat/stat_g.hh"

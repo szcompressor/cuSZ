@@ -16,22 +16,13 @@
 #include <cstdint>
 #include <memory>
 
-#include "../hf/hf_struct.h"
+#include "hf/hf_struct.h"
 
 #define DEFINE_ARRAY(VAR, TYPE) \
     TYPE* d_##VAR{nullptr};     \
     TYPE* h_##VAR{nullptr};
 
 namespace cusz {
-
-// template <typename T, typename H, typename M>
-// class CodecInterface {
-//    public:
-//     virtual float get_time_elapsed() const  = 0;
-//     virtual float get_time_book() const     = 0;
-//     virtual float get_time_lossless() const = 0;
-//     virtual void  clear_buffer()            = 0;
-// };
 
 template <typename T, typename H, typename M>
 class LosslessCodec

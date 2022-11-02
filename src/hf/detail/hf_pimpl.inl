@@ -16,24 +16,23 @@
 #define CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
 
 #include <cuda.h>
-#include <clocale>
-#include <cstdint>
-#include <exception>
-#include <functional>
+// #include <clocale>
+// #include <cstdint>
+// #include <exception>
+// #include <functional>
 #include <iostream>
-#include <type_traits>
+#include <numeric>
+// #include <type_traits>
+
 using std::cout;
 
-#include "../common/definition.hh"
-#include "../common/type_traits.hh"
-#include "../component/codec.hh"
-#include "../hf/hf_struct.h"
-#include "../kernel/codec_huffman.cuh"
-#include "../kernel/cpplaunch_cuda.hh"
-// #include "../kernel/hist.cuh"
-#include "../kernel/huffman_parbook.cuh"
-#include "../kernel/launch_lossless.cuh"
-#include "../utils.hh"
+#include "common/definition.hh"
+#include "common/type_traits.hh"
+#include "utils.hh"
+
+#include "hf/hf.hh"
+#include "hf/hf_bookg.hh"
+#include "hf/hf_codecg.hh"
 
 /******************************************************************************
                             macros for shorthand writing
@@ -185,8 +184,7 @@ TEMPLATE_TYPE
 void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
-    launch_gpu_parallel_build_codebook<T, H, M>(
-        freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), time_book, stream);
+    asz::hf_buildbook_g<T, H, M>(freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
 }
 
 TEMPLATE_TYPE
@@ -201,10 +199,10 @@ void IMPL::encode(
 
     struct Header header;
 
-    cusz::cpplaunch_coarse_grained_Huffman_encoding_rev1<T, H, M>(
+    asz::hf_encode_coarse_rev1<T, H, M>(
         in_uncompressed, in_uncompressed_len,  //
         book_desc, bitstream_desc,             //
-        &out_compressed, &out_compressed_len, &time_lossless, stream);
+        out_compressed, out_compressed_len, time_lossless, stream);
 
     header.total_nbit =
         std::accumulate((M*)chunk_desc_h->bits, (M*)chunk_desc_h->bits + bitstream_desc->pardeg, (size_t)0);
@@ -236,9 +234,9 @@ void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream,
     auto const revbook_nbyte = get_revbook_nbyte(header.booklen);
 
     // launch_coarse_grained_Huffman_decoding<T, H, M>(
-    cusz::cpplaunch_coarse_grained_Huffman_decoding<T, H, M>(
+    asz::hf_decode_coarse<T, H, M>(
         d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry, header.sublen, header.pardeg, out_decompressed,
-        &time_lossless, stream);
+        time_lossless, stream);
 }
 
 TEMPLATE_TYPE
