@@ -45,26 +45,6 @@ __global__ void p2013Histogram(T*, FREQ*, size_t, int, int);
 
 }  // namespace kernel
 
-/**
- * @brief Get frequency: a kernel wrapper
- *
- * @tparam T input type
- * @param in_data input device array
- * @param in_len input host var; len of in_data
- * @param out_freq output device array
- * @param nbin input host var; len of out_freq
- * @param milliseconds output time elapsed
- * @param stream optional stream
- */
-template <typename T>
-void launch_histogram(
-    T*           in_data,
-    size_t       in_len,
-    cusz::FREQ*  out_freq,
-    int          nbin,
-    float&       milliseconds,
-    cudaStream_t stream = nullptr);
-
 template <typename T>
 __global__ void kernel::NaiveHistogram(T in_data[], int out_freq[], int N, int symbols_per_thread)
 {
@@ -115,71 +95,6 @@ __global__ void kernel::p2013Histogram(T* in_data, FREQ* out_freq, size_t N, int
         for (int base = 0; base < (nbin + 1) * R; base += nbin + 1) { sum += Hs[base + pos]; }
         atomicAdd(out_freq + pos, sum);
     }
-}
-
-template <typename T>
-void launch_histogram(
-    T*           in_data,
-    size_t       in_len,
-    cusz::FREQ*  out_freq,
-    int          num_buckets,
-    float&       milliseconds,
-    cudaStream_t stream)
-{
-    // static_assert(
-    //     std::numeric_limits<T>::is_integer and (not std::numeric_limits<T>::is_signed),
-    //     "To get frequency, `T` must be unsigned integer type of {1,2,4} bytes");
-
-    int device_id, max_bytes, num_SMs;
-    int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
-
-    cudaGetDevice(&device_id);
-    cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, device_id);
-
-    auto query_maxbytes = [&]() {
-        int max_bytes_opt_in;
-        cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
-
-        // account for opt-in extra shared memory on certain architectures
-        cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
-        max_bytes = std::max(max_bytes, max_bytes_opt_in);
-
-        // config kernel attribute
-        cudaFuncSetAttribute(
-            kernel::p2013Histogram<T, cusz::FREQ>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
-    };
-
-    auto optimize_launch = [&]() {
-        items_per_thread = 1;
-        r_per_block      = (max_bytes / sizeof(int)) / (num_buckets + 1);
-        grid_dim         = num_SMs;
-        // fits to size
-        block_dim = ((((in_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
-        while (block_dim > 1024) {
-            if (r_per_block <= 1) { block_dim = 1024; }
-            else {
-                r_per_block /= 2;
-                grid_dim *= 2;
-                block_dim = ((((in_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
-            }
-        }
-        shmem_use = ((num_buckets + 1) * r_per_block) * sizeof(int);
-    };
-
-    query_maxbytes();
-    optimize_launch();
-
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
-
-    kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
-        (in_data, out_freq, in_len, num_buckets, r_per_block);
-
-    STOP_CUDAEVENT_RECORDING(stream);
-
-    cudaStreamSynchronize(stream);
-    TIME_ELAPSED_CUDAEVENT(&milliseconds);
-    DESTROY_CUDAEVENT_PAIR;
 }
 
 #endif

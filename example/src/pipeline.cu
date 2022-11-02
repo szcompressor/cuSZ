@@ -24,6 +24,7 @@ using std::endl;
 #include "kernel/launch_lossless.cuh"
 #include "kernel/lorenzo_all.hh"
 #include "kernel/spv_gpu.hh"
+#include "stat/stat_g.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/print_gpu.hh"
 
@@ -210,8 +211,7 @@ cusz_error_status compressor(
     cout << "time-spv\t" << time_spv << endl;
     cout << "nnz\t" << header_st->nnz << endl;
 
-    cusz::cpplaunch_histogram<E>(
-        data->errq, data->len, hf->book_desc->freq, hf->book_desc->booklen, &time_hist, stream);
+    asz::stat::histogram<E>(data->errq, data->len, hf->book_desc->freq, hf->book_desc->booklen, &time_hist, stream);
 
     cout << "time-hist\t" << time_hist << endl;
 

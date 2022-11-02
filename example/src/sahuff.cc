@@ -9,17 +9,14 @@
  *
  */
 
-// #include <thrust/device_ptr.h>
-// #include <thrust/extrema.h>
-// #include <thrust/transform_reduce.h>
-// #include <thrust/tuple.h>
 #include <string>
 #include "cli/quality_viewer.hh"
 #include "component/codec.hh"
 #include "kernel/cpplaunch_cuda.hh"
-#include "utils/compare_gpu.hh"
+#include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
 // #include "utils/compare_cpu.hh"
+#include "stat/stat_g.hh"
 #include "utils/io.hh"
 
 template <typename T, typename H = uint32_t>
@@ -57,7 +54,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     float time_hist;
 
-    cusz::cpplaunch_histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
+    asz::stat::histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
 
     cusz::LosslessCodec<T, H, uint32_t> encoder;
     encoder.init(len, booklen, pardeg /* not optimal for perf */);

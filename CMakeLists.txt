@@ -53,14 +53,17 @@ target_link_libraries(asztimer PUBLIC accszcompile_settings)
 add_library(aszkelo  src/kernel/lorenzo.cu src/kernel/lorenzo_var.cu src/kernel/lorenzo_proto.cu)
 target_link_libraries(aszkelo PUBLIC accszcompile_settings)
 
+add_library(aszstat  src/stat/compare_cpu.cc)
+target_link_libraries(aszstat PUBLIC accszcompile_settings)
+
+add_library(aszstatg  src/stat/compare_gpu.cu src/stat/stat_g.cu)
+target_link_libraries(aszstatg PUBLIC accszcompile_settings)
+
 add_library(accszkernel  src/kernel/claunch_cuda.cu)
 target_link_libraries(accszkernel PUBLIC accszcompile_settings asztimer)
 
-add_library(accszutilsgpu  src/utils/compare_gpu.cu src/utils/print_gpu.cu)
-target_link_libraries(accszutilsgpu PUBLIC accszcompile_settings)
-
-add_library(accszutilscpu  src/utils/compare_cpu.cc)
-target_link_libraries(accszutilscpu PUBLIC accszcompile_settings)
+add_library(aszutilsg  src/utils/print_gpu.cu)
+target_link_libraries(aszutilsg PUBLIC accszcompile_settings)
 
 add_library(accszargp  src/context.cc)
 target_link_libraries(accszargp PUBLIC accszcompile_settings)
@@ -75,14 +78,14 @@ target_link_libraries(accszspv PUBLIC accszcompile_settings)
 # target_link_libraries(accszspm PUBLIC accszcompile_settings CUDA::cusparse)
 
 add_library(accszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
-target_link_libraries(accszhuff PUBLIC accszcompile_settings CUDA::cuda_driver accszkernel)
+target_link_libraries(accszhuff PUBLIC accszcompile_settings CUDA::cuda_driver accszkernel aszstatg)
 set_target_properties(accszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(accszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
-target_link_libraries(accszcomp PUBLIC accszcompile_settings)
+target_link_libraries(accszcomp PUBLIC accszcompile_settings aszstatg)
 
 add_library(cusz  src/comp.cc src/cuszapi.cc)
-target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspv accszpq accszutilscpu accszutilsgpu)
+target_link_libraries(cusz PUBLIC accszcomp accszargp accszhuff accszspv accszpq aszstat aszutilsg)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -101,8 +104,9 @@ endif()
 install(TARGETS accszcompile_settings EXPORT CUSZTargets)
 install(TARGETS accszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS aszkelo EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS accszutilscpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS accszutilsgpu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS aszstat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS aszstatg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS aszutilsg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS asztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS accszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 # install(TARGETS accszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

@@ -17,7 +17,7 @@
 #include "cli/quality_viewer.hh"
 #include "component/spcodec_vec.hh"
 #include "kernel/spv_gpu.hh"
-#include "utils/compare_gpu.hh"
+#include "stat/compare_gpu.hh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
 

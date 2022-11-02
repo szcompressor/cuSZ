@@ -10,8 +10,8 @@
  */
 
 #include "../detail/compare_gpu.inl"
-#include "utils/compare.h"
-#include "utils/compare_gpu.hh"
+#include "stat/compare.h"
+#include "stat/compare_gpu.hh"
 
 #define THRUSTGPU_DESCRIPTION(Tliteral, T)                                        \
     void thrustgpu_get_extrema_rawptr_T##Tliteral(T* d_ptr, size_t len, T res[4]) \

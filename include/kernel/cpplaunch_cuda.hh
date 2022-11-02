@@ -46,15 +46,6 @@ cusz_error_status cpplaunch_reconstruct_Spline3(
     float*       time_elapsed,
     cudaStream_t stream);
 
-template <typename T>
-cusz_error_status cpplaunch_histogram(
-    T*           in_data,
-    size_t       in_len,
-    uint32_t*    out_freq,
-    int          num_buckets,
-    float*       milliseconds,
-    cudaStream_t stream);
-
 template <typename T, typename H, typename M>
 cusz_error_status cpplaunch_coarse_grained_Huffman_encoding(
     T*           uncompressed,

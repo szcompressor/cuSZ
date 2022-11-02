@@ -10,7 +10,7 @@
  */
 
 #include "../detail/compare_cpu.inl"
-#include "utils/compare.h"
+#include "stat/compare.h"
 
 #define CPPSTD_COMPARE_LOSSLESS(Tliteral, T)                          \
     bool cppstd_identical_T##Tliteral(T* d1, T* d2, size_t const len) \

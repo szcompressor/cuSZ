@@ -20,11 +20,11 @@
 #include <thrust/execution_policy.h>
 #include <iostream>
 
-// #include "../kernel/hist.inl"
 #include "component.hh"
 #include "compressor.hh"
 #include "header.h"
 #include "kernel/cpplaunch_cuda.hh"
+#include "stat/stat_g.hh"
 #include "utils/cuda_err.cuh"
 
 #define DEFINE_DEV(VAR, TYPE) TYPE* d_##VAR{nullptr};
@@ -169,7 +169,7 @@ void IMPL::compress(
     derive_lengths_after_prediction();
     /******************************************************************************/
 
-    cusz::cpplaunch_histogram<E>(d_errctrl, errctrl_len, d_freq, booklen, &time_hist, stream);
+    asz::stat::histogram<E>(d_errctrl, errctrl_len, d_freq, booklen, &time_hist, stream);
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 

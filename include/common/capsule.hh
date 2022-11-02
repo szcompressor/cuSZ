@@ -27,7 +27,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "../utils/compare_gpu.hh"
+#include "../stat/compare_gpu.hh"
 #include "../utils/io.hh"
 #include "../utils/strhelper.hh"
 #include "../utils/timer.hh"

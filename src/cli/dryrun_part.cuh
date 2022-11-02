@@ -19,8 +19,8 @@
 #include "component.hh"
 #include "context.hh"
 #include "kernel/dryrun.cuh"
+#include "stat/compare_gpu.hh"
 #include "utils.hh"
-#include "utils/compare_gpu.hh"
 
 /**
  * @brief bare metal, can run predictor to check data quality and compressibility

@@ -18,7 +18,7 @@
 #include "../common/capsule.hh"
 #include "../common/definition.hh"
 #include "../header.h"
-#include "../utils/compare_gpu.hh"
+#include "../stat/compare_gpu.hh"
 #include "verify.hh"
 
 namespace cusz {
