@@ -83,7 +83,7 @@ double         asz_cudastreamtime_elapsed(asz_cudatimer* t);
     hipEventRecord(b, STREAM);          \
     hipEventSynchronize(b);
 
-#define TIME_ELAPSED_hipEVENT(PTR_MILLISEC) hipEventElapsedTime(PTR_MILLISEC, a, b);
+#define TIME_ELAPSED_HIPEVENT(PTR_MILLISEC) hipEventElapsedTime(PTR_MILLISEC, a, b);
 
 #ifdef __cplusplus
 }
