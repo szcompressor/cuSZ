@@ -34,6 +34,7 @@
 #include "hf/hf_bookg.hh"
 #include "par_merge.inl"
 #include "utils.hh"
+#include "utils/timer.h"
 
 using std::cout;
 using std::endl;
@@ -520,7 +521,7 @@ __global__ void par_huffman::detail::GPU_ReverseArray(T* array, unsigned int siz
 
 // Parallel codebook generation wrapper
 template <typename T, typename H>
-void asz::parallel_get_codebook(
+void asz::hf_buildbook_g(
     uint32_t*    freq,
     int const    dict_size,
     H*           codebook,
@@ -534,6 +535,9 @@ void asz::parallel_get_codebook(
     auto _d_first = reinterpret_cast<H*>(reverse_codebook);
     auto _d_entry = reinterpret_cast<H*>(reverse_codebook + (sizeof(H) * type_bw));
     auto _d_qcode = reinterpret_cast<T*>(reverse_codebook + (sizeof(H) * 2 * type_bw));
+
+    CREATE_CUDAEVENT_PAIR;
+    START_CUDAEVENT_RECORDING(stream);
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
@@ -710,6 +714,10 @@ void asz::parallel_get_codebook(
 
     par_huffman::detail::GPU_ReorderByIndex<H, T><<<nblocks, 1024>>>(codebook, _d_qcode, (unsigned int)dict_size);
     cudaStreamSynchronize(stream);
+
+    STOP_CUDAEVENT_RECORDING(stream);
+    TIME_ELAPSED_CUDAEVENT(time_book);
+    DESTROY_CUDAEVENT_PAIR;
 
     // Cleanup
     cudaFree(CL);

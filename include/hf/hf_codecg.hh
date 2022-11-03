@@ -35,16 +35,6 @@ struct PackedWordByWidth<8> {
 namespace asz {
 
 template <typename T, typename H, typename M>
-void hf_buildbook_g(
-    uint32_t*    freq,
-    H*           book,
-    int const    booklen,
-    uint8_t*     revbook,
-    int const    revbook_nbyte,
-    float*       time_book,
-    cudaStream_t stream);
-
-template <typename T, typename H, typename M>
 void hf_encode_coarse(
     T*           uncompressed,
     H*           d_internal_coded,

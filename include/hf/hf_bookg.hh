@@ -31,7 +31,7 @@ namespace asz {
  * @param time_book the returned time
  */
 template <typename T, typename H>
-void parallel_get_codebook(
+void hf_buildbook_g(
     uint32_t* freq,
     int const booksize,
     H*        codebook,

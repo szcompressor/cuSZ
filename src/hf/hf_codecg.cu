@@ -16,28 +16,6 @@
 #include "hf/hf_codecg.hh"
 
 template <typename T, typename H, typename M>
-void asz::hf_buildbook_g(
-    uint32_t*    freq,
-    H*           book,
-    int const    booklen,
-    uint8_t*     revbook,
-    int const    revbook_nbyte,
-    float*       time_book,
-    cudaStream_t stream)
-{
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
-
-    float end_to_end;
-    // TODO internal malloc & free takes much time
-    asz::parallel_get_codebook<T, H>(freq, booklen, book, revbook, revbook_nbyte, &end_to_end, stream);
-
-    STOP_CUDAEVENT_RECORDING(stream);
-    TIME_ELAPSED_CUDAEVENT(time_book);
-    DESTROY_CUDAEVENT_PAIR;
-}
-
-template <typename T, typename H, typename M>
 void asz::hf_encode_coarse(
     T*           uncompressed,
     H*           d_internal_coded,
@@ -262,27 +240,6 @@ void asz::hf_decode_coarse(
     TIME_ELAPSED_CUDAEVENT(&time_lossless);
     DESTROY_CUDAEVENT_PAIR;
 }
-
-// TODO 22-11-02 remove reference; use ptr instead
-// TODO return status
-
-#define HFBOOK_INIT(T, H, M) \
-    template void asz::hf_buildbook_g<T, H, M>(uint32_t*, H*, int const, uint8_t*, int const, float*, cudaStream_t);
-
-HFBOOK_INIT(uint8_t, uint32_t, uint32_t);
-HFBOOK_INIT(uint16_t, uint32_t, uint32_t);
-HFBOOK_INIT(uint32_t, uint32_t, uint32_t);
-HFBOOK_INIT(float, uint32_t, uint32_t);
-
-HFBOOK_INIT(uint8_t, uint64_t, uint32_t);
-HFBOOK_INIT(uint16_t, uint64_t, uint32_t);
-HFBOOK_INIT(uint32_t, uint64_t, uint32_t);
-HFBOOK_INIT(float, uint64_t, uint32_t);
-
-HFBOOK_INIT(uint8_t, unsigned long long, uint32_t);
-HFBOOK_INIT(uint16_t, unsigned long long, uint32_t);
-HFBOOK_INIT(uint32_t, unsigned long long, uint32_t);
-HFBOOK_INIT(float, unsigned long long, uint32_t);
 
 #define HF_CODEC_INIT(T, H, M)                                                                                     \
     template void asz::hf_encode_coarse<T, H, M>(                                                                  \

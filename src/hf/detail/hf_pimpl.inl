@@ -184,7 +184,7 @@ TEMPLATE_TYPE
 void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
-    asz::hf_buildbook_g<T, H, M>(freq, d_book, booklen, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
+    asz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
 }
 
 TEMPLATE_TYPE
