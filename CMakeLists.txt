@@ -56,7 +56,11 @@ target_link_libraries(aszkelo PUBLIC accszcompile_settings)
 add_library(aszstat  src/stat/compare_cpu.cc)
 target_link_libraries(aszstat PUBLIC accszcompile_settings)
 
-add_library(aszstat_g  src/stat/compare_gpu.cu src/stat/stat_g.cu)
+add_library(aszstat_g  
+  src/stat/cmpg1_1.cu src/stat/cmpg1_2.cu src/stat/cmpg1_3.cu src/stat/cmpg1_4.cu src/stat/cmpg1_5.cu 
+  src/stat/cmpg2.cu src/stat/cmpg3.cu 
+  src/stat/cmpg4_1.cu src/stat/cmpg4_2.cu src/stat/cmpg4_3.cu src/stat/cmpg4_4.cu 
+  src/stat/stat_g.cu)
 target_link_libraries(aszstat_g PUBLIC accszcompile_settings)
 
 add_library(accszkernel  src/kernel/claunch_cuda.cu)
