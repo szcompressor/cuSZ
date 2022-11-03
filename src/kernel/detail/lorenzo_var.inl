@@ -19,7 +19,7 @@
 #include <cub/cub.cuh>
 #else
 // #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
-#include "../../external/cub/cub/cub.cuh"
+#include "../../third_party/cub/cub/cub.cuh"
 #endif
 
 #if __cplusplus >= 201703L
