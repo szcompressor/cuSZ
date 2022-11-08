@@ -77,8 +77,8 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
     encoder.decode(d_compressed, d_xd);
 
     // cudaMemcpy(h_xd, d_xd, len * sizeof(T), cudaMemcpyDeviceToHost);
-    // /* perform evaluation */ gpusz::cppstd_identical(h_xd, h_d, len);
-    /* perform evaluation */ auto identical = gpusz::thrustgpu_identical(d_xd, d_d, len);
+    // /* perform evaluation */ parsz::cppstd_identical(h_xd, h_d, len);
+    /* perform evaluation */ auto identical = parsz::thrustgpu_identical(d_xd, d_d, len);
 
     if (identical)
         cout << ">>>>  IDENTICAL." << endl;

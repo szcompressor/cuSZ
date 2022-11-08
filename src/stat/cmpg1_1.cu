@@ -16,11 +16,11 @@
 #define THRUSTGPU_DESCRIPTION(Tliteral, T)                                        \
     void thrustgpu_get_extrema_rawptr_T##Tliteral(T* d_ptr, size_t len, T res[4]) \
     {                                                                             \
-        gpusz::detail::thrustgpu_get_extrema_rawptr<T>(d_ptr, len, res);          \
+        parsz::detail::thrustgpu_get_extrema_rawptr<T>(d_ptr, len, res);          \
     }                                                                             \
                                                                                   \
     template <>                                                                   \
-    void gpusz::thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4])      \
+    void parsz::thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4])      \
     {                                                                             \
         thrustgpu_get_extrema_rawptr_T##Tliteral(d_ptr, len, res);                \
     }

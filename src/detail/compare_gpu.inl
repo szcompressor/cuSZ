@@ -23,7 +23,7 @@
 
 #include "cusz/type.h"
 
-namespace gpusz {
+namespace parsz {
 namespace detail {
 
 static const int MINVAL = 0;
@@ -184,6 +184,6 @@ void thrustgpu_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t len)
 }
 
 }  // namespace detail
-}  // namespace gpusz
+}  // namespace parsz
 
 #endif /* F7DF2FE5_571E_48C1_965D_0B19D1CC14D4 */

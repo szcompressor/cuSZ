@@ -370,7 +370,7 @@ class Capsule {
     {
         // may not work for uniptr
         T result[4];
-        gpusz::thrustgpu_get_extrema_rawptr<T>(dptr, len, result);
+        parsz::thrustgpu_get_extrema_rawptr<T>(dptr, len, result);
 
         min_value = result[0];
         max_value = result[1];

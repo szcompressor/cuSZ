@@ -16,7 +16,7 @@
 #define THRUSTGPU_ASSESS(Tliteral, T)                                                              \
     void thrustgpu_assess_quality_T##Tliteral(cusz_stats* s, T* xdata, T* odata, size_t const len) \
     {                                                                                              \
-        gpusz::detail::thrustgpu_assess_quality<T>(s, xdata, odata, len);                          \
+        parsz::detail::thrustgpu_assess_quality<T>(s, xdata, odata, len);                          \
     }
 
 THRUSTGPU_ASSESS(fp32, float);

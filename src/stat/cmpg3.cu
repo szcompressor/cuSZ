@@ -17,11 +17,11 @@
     bool thrustgpu_error_bounded_T##Tliteral(                                                                         \
         T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr)                            \
     {                                                                                                                 \
-        return gpusz::detail::thrustgpu_error_bounded<T>(a, b, len, eb, first_faulty_idx);                            \
+        return parsz::detail::thrustgpu_error_bounded<T>(a, b, len, eb, first_faulty_idx);                            \
     }                                                                                                                 \
                                                                                                                       \
     template <>                                                                                                       \
-    bool gpusz::thrustgpu_error_bounded<T>(T * a, T * b, size_t const len, double const eb, size_t* first_faulty_idx) \
+    bool parsz::thrustgpu_error_bounded<T>(T * a, T * b, size_t const len, double const eb, size_t* first_faulty_idx) \
     {                                                                                                                 \
         return thrustgpu_error_bounded_T##Tliteral(a, b, len, eb, first_faulty_idx);                                  \
     }
