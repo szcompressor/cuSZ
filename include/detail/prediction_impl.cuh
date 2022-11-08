@@ -118,15 +118,17 @@ THE_TYPE
 void IMPL::construct(
     cusz_predictortype predictor,
     dim3 const         len3,
-    T*                 data_outlier,
-    T**                anchor,
-    E**                errctrl,
+    T*                 data,
+    T**                ptr_anchor,
+    E**                ptr_errctrl,
+    T**                ptr_outlier,
     double const       eb,
     int const          radius,
     cudaStream_t       stream)
 {
-    *anchor  = d_anchor;
-    *errctrl = d_errctrl;
+    *ptr_anchor  = d_anchor;
+    *ptr_errctrl = d_errctrl;
+    *ptr_outlier = d_outlier;
 
     if (predictor == LorenzoI) {
         derive_rtlen(LorenzoI, len3);
@@ -135,13 +137,11 @@ void IMPL::construct(
         // ad hoc placeholder
         auto      anchor_len3  = dim3(0, 0, 0);
         auto      errctrl_len3 = dim3(0, 0, 0);
-        auto      data         = data_outlier;
-        auto      outlier      = data_outlier;
         uint32_t* outlier_idx  = nullptr;
 
         compress_predict_lorenzo_i<T, E, FP>(
-            data, len3, eb, radius,                                                         //
-            d_errctrl, errctrl_len3, d_anchor, anchor_len3, outlier, outlier_idx, nullptr,  //
+            data, len3, eb, radius,                                                           //
+            d_errctrl, errctrl_len3, d_anchor, anchor_len3, d_outlier, outlier_idx, nullptr,  //
             &time_elapsed, stream);
     }
     else if (predictor == Spline3) {
@@ -150,7 +150,7 @@ void IMPL::construct(
 
         cusz::cpplaunch_construct_Spline3<T, E, FP>(
             true,  //
-            data_outlier, len3, d_anchor, this->rtlen.anchor.len3, d_errctrl, this->rtlen.aligned.len3, eb, radius,
+            data, len3, d_anchor, this->rtlen.anchor.len3, d_errctrl, this->rtlen.aligned.len3, eb, radius,
             &time_elapsed, stream);
     }
 }

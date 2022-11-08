@@ -49,9 +49,10 @@ class PredictionUnified {
     void construct(
         cusz_predictortype predictor,
         dim3 const         len3,
-        T*                 data_outlier,
-        T**                anchor,
-        E**                errctrl,
+        T*                 data,
+        T**                ptr_anchor,
+        E**                ptr_errctrl,
+        T**                ptr_outlier,
         double const       eb,
         int const          radius,
         cudaStream_t       stream);
@@ -100,9 +101,10 @@ class PredictionUnified<T, E, FP>::impl : public PredictorBoilerplate {
     void construct(
         cusz_predictortype predictor,
         dim3 const         len3,
-        T*                 data_outlier,
-        T**                anchor,
-        E**                errctrl,
+        T*                 data,
+        T**                ptr_anchor,
+        E**                ptr_errctrl,
+        T**                ptr_outlier,
         double const       eb,
         int const          radius,
         cudaStream_t       stream);

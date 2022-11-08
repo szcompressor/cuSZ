@@ -107,7 +107,6 @@ void f(std::string fname)
     peek_devdata(d_decompressed, 20);
 
     /* demo: offline checking (de)compression quality. */
-    /* load data again    */ cudaMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
     // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len,
     // compressed_len);
 

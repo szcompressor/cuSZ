@@ -124,6 +124,7 @@ void IMPL::compress(
 
     T*     d_anchor{nullptr};   // predictor out1
     E*     d_errctrl{nullptr};  // predictor out2
+    T*     d_outlier{nullptr};  // predictor out3
     BYTE*  d_spfmt{nullptr};
     size_t spfmt_outlen{0};
 
@@ -163,7 +164,7 @@ void IMPL::compress(
     /******************************************************************************/
 
     // Prediction is the dependency of the rest procedures.
-    predictor->construct(LorenzoI, data_len3, uncompressed, &d_anchor, &d_errctrl, eb, radius, stream);
+    predictor->construct(LorenzoI, data_len3, uncompressed, &d_anchor, &d_errctrl, &d_outlier, eb, radius, stream);
     // peek_devdata(d_errctrl);
 
     derive_lengths_after_prediction();
@@ -180,7 +181,7 @@ void IMPL::compress(
         d_codec_out, codec_outlen,                              // output
         stream, dbg_print);
 
-    (*spcodec).encode(uncompressed, spcodec_inlen, d_spfmt, spfmt_outlen, stream, dbg_print);
+    (*spcodec).encode(d_outlier, spcodec_inlen, d_spfmt, spfmt_outlen, stream, dbg_print);
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
