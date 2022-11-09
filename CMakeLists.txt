@@ -80,8 +80,7 @@ if(CUSZ_BUILD_EXAMPLES)
   add_subdirectory(example)
 endif()
 
-option(CUSZ_BUILD_TESTS "build test codes" OFF)
-if (CUSZ_BUILD_TESTS)
+if (BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
