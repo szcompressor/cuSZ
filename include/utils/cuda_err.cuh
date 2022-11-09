@@ -16,13 +16,27 @@
 
 #include <cuda_runtime.h>
 #include <cstdio>
+#include <string>
+#include <stdexcept>
+#include <sstream>
+
+struct cusz_cuda_exception : public std::exception {
+  cusz_cuda_exception(const char* err, int err_code, const char* file, int line) {
+    std::stringstream ss;
+    ss << "CUDA API failed at \e[31m\e[1m" << file << ':' << line << "\e[0m with error: " << err << '(' << err_code << ')';
+    err_msg = ss.str();
+  }
+  const char* what() const noexcept {
+    return err_msg.c_str();
+  }
+  std::string err_msg;
+};
 
 // back compatibility start
 static void HandleError(cudaError_t err, const char* file, int line)
 {
     if (err != cudaSuccess) {
-        printf("%s in %s at line %d\n", cudaGetErrorString(err), file, line);
-        exit(EXIT_FAILURE);
+        throw cusz_cuda_exception(cudaGetErrorString(err), err, file, line);
     }
 }
 #define HANDLE_ERROR(err) (HandleError(err, __FILE__, __LINE__))
@@ -162,11 +176,7 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
         printf("cudaErrorUnknown                    -> %d\n", cudaErrorUnknown);
         printf("cudaErrorApiFailureBase (Deprecated)-> %d\n", cudaErrorApiFailureBase);
         */
-        printf("\n");
-        printf(
-            "CUDA API failed at \e[31m\e[1m%s:%d\e[0m with error: %s (%d)\n",  //
-            file, line, cudaGetErrorString(status), status);
-        exit(EXIT_FAILURE);
+        throw cusz_cuda_exception(cudaGetErrorString(status), status, file, line);
     }
 }
 
