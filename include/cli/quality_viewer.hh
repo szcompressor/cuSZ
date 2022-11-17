@@ -13,6 +13,7 @@
 #ifndef QUALITY_VIEWER_HH
 #define QUALITY_VIEWER_HH
 
+// 22-11-20 would fail in cxxapi.cu if deleted
 #include <thrust/equal.h>
 
 #include "../common/capsule.hh"

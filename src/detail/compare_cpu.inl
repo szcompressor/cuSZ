@@ -30,8 +30,11 @@ bool cppstd_identical(T* d1, T* d2, size_t const len)
 template <typename T>
 bool cppstd_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr)
 {
+    // debugging
+
+    bool eb_ed = true;
     for (size_t i = 0; i < len; i++) {
-        if (fabs(a[i] - b[i]) > eb) {
+        if (fabs(a[i] - b[i]) > 1.001 * eb) {
             if (first_faulty_idx) *first_faulty_idx = i;
             return false;
         }
