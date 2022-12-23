@@ -16,8 +16,8 @@
 #define CUSZ_KERNEL_LORENZO_CUH
 
 #include <cstddef>
-#include "utils/cuda_err.cuh"
-#include "utils/timer.h"
+// #include "utils/cuda_err.cuh"
+// #include "utils/timer.h"
 
 #if __has_include(<cub/cub.cuh>)
 // #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
