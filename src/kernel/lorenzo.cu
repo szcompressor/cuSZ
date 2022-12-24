@@ -17,6 +17,7 @@
 #include "kernel/lorenzo_all.hh"
 
 #include "detail/lorenzo.inl"
+#include "detail/lorenzo23.inl"
 
 template <typename T, typename E, typename FP>
 cusz_error_status compress_predict_lorenzo_i(
@@ -76,16 +77,23 @@ cusz_error_status compress_predict_lorenzo_i(
     START_CUDAEVENT_RECORDING(stream);
 
     if (d == 1) {
-        ::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
-            <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+        //::cusz::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+        //<<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+
+        parsz::cuda::__kernel::v0::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+            <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
     else if (d == 2) {
-        ::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
-            <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+        //::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
+        //<<<GRID_2D, BLOCK_2D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+        parsz::cuda::__kernel::v0::c_lorenzo_2d1l<T, E, FP>
+            <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
     else if (d == 3) {
-        ::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
-            <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+        //::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
+        //<<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
+        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, E, FP>
+            <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
@@ -154,16 +162,22 @@ cusz_error_status decompress_predict_lorenzo_i(
     START_CUDAEVENT_RECORDING(stream);
 
     if (d == 1) {
-        ::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
-            <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+        //::cusz::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+        //<<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+        parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+            <<<GRID_1D, BLOCK_1D, 0, stream>>>(errctrl, outlier, len3, leap3, radius, ebx2, xdata);
     }
     else if (d == 2) {
-        ::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
-            <<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+        //::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, E, FP>
+        //<<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+        parsz::cuda::__kernel::v0::x_lorenzo_2d1l<T, E, FP>
+            <<<GRID_2D, BLOCK_2D, 0, stream>>>(errctrl, outlier, len3, leap3, radius, ebx2, xdata);
     }
     else if (d == 3) {
-        ::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
-            <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+        //::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
+        //<<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, xdata, len3, leap3, radius, ebx2);
+        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, E, FP>
+            <<<GRID_3D, BLOCK_3D, 0, stream>>>(errctrl, outlier, len3, leap3, radius, ebx2, xdata);
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
