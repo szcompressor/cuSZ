@@ -212,16 +212,16 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::pq_no_outlier_1d(  //
     int          radius,
     T            prev)
 {
+    auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
+        shmem_quant[idx + threadIdx.x * SEQ] = static_cast<EQ>(cur - prev);
+    };
+
     if (FIRST_POINT) {  // i == 0
-        T delta                            = private_buffer[0] - prev;
-        shmem_quant[0 + threadIdx.x * SEQ] = static_cast<EQ>(delta);
+        quantize_1d(private_buffer[0], prev, 0);
     }
     else {
 #pragma unroll
-        for (auto i = 1; i < SEQ; i++) {
-            T delta                            = private_buffer[i] - private_buffer[i - 1];
-            shmem_quant[i + threadIdx.x * SEQ] = static_cast<EQ>(delta);
-        }
+        for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
         __syncthreads();
     }
 }
@@ -234,22 +234,20 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::pq_with_outlier_1d(
     int          radius,
     T            prev)
 {
+    auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
+        T    delta                             = cur - prev;
+        bool quantizable                       = fabs(delta) < radius;
+        T    candidate                         = delta + radius;
+        shmem_outlier[idx + threadIdx.x * SEQ] = (1 - quantizable) * candidate;
+        shmem_quant[idx + threadIdx.x * SEQ]   = quantizable * static_cast<EQ>(candidate);
+    };
+
     if (FIRST_POINT) {  // i == 0
-        T    delta                           = private_buffer[0] - prev;
-        bool quantizable                     = fabs(delta) < radius;
-        T    candidate                       = delta + radius;
-        shmem_outlier[0 + threadIdx.x * SEQ] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        shmem_quant[0 + threadIdx.x * SEQ]   = quantizable * static_cast<EQ>(candidate);
+        quantize_1d(private_buffer[0], prev, 0);
     }
     else {
 #pragma unroll
-        for (auto i = 1; i < SEQ; i++) {
-            T    delta                           = private_buffer[i] - private_buffer[i - 1];
-            bool quantizable                     = fabs(delta) < radius;
-            T    candidate                       = delta + radius;
-            shmem_outlier[i + threadIdx.x * SEQ] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-            shmem_quant[i + threadIdx.x * SEQ]   = quantizable * static_cast<EQ>(candidate);
-        }
+        for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
         __syncthreads();
     }
 }
@@ -346,18 +344,17 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::pq_no_outlier
     using UI                 = EQ;
     using I                  = typename parsz::typing::Int<BYTEWIDTH>::T;
 
+    auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
+        UI UI_delta                          = PN<BYTEWIDTH>::encode(static_cast<I>(cur - prev));
+        shmem_quant[idx + threadIdx.x * SEQ] = UI_delta;
+    };
+
     if (FIRST_POINT) {  // i == 0
-        T  delta                           = private_buffer[0] - prev;
-        UI UI_delta                        = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
-        shmem_quant[0 + threadIdx.x * SEQ] = UI_delta;
+        quantize_1d(private_buffer[0], prev, 0);
     }
     else {
 #pragma unroll
-        for (auto i = 1; i < SEQ; i++) {
-            T  delta                           = private_buffer[i] - private_buffer[i - 1];
-            UI UI_delta                        = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
-            shmem_quant[i + threadIdx.x * SEQ] = UI_delta;
-        }
+        for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
         __syncthreads();
     }
 }
