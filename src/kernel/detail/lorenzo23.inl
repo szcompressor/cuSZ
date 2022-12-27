@@ -9,7 +9,7 @@
  *
  */
 
-#include "llfn.inl"
+#include "subroutine.inl"
 
 namespace parsz {
 namespace cuda {
