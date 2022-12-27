@@ -77,8 +77,9 @@ __forceinline__ __device__ void parsz::cuda::__device::wave32::intrablock_exclus
                 T n = __shfl_up_sync(0xffffffff, addend, d, 32);
                 if (threadIdx.x >= d) addend += n;
             }
-            addend -= __shfl_sync(0xffffffff, addend, 0);
-            exchange_out[warp_id] = addend;
+            // exclusive scan
+            T prev_addend         = __shfl_up_sync(0xffffffff, addend, 1, 32);
+            exchange_out[warp_id] = (warp_id > 0) * prev_addend;
         }
     }
     // else-case handled by static_assert
