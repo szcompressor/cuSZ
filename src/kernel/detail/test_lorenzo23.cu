@@ -2,7 +2,7 @@
  * @file test_lorenzo23.cu
  * @author Jiannan Tian
  * @brief
- * @version 0.3
+ * @version 0.4
  * @date 2022-12-23
  *
  * (C) 2022 by Indiana University, Argonne National Laboratory

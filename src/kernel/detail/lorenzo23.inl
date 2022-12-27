@@ -2,7 +2,7 @@
  * @file lorenzo23.inl
  * @author Jiannan Tian
  * @brief
- * @version 0.3
+ * @version 0.4
  * @date 2022-12-22
  *
  * (C) 2022 by Indiana University, Argonne National Laboratory
@@ -46,7 +46,7 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_1d1l(
     EQ*  quant,
     T*   outlier)
 {
-    namespace llfn_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = parsz::cuda::__device::v0;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -56,17 +56,17 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_1d1l(
             T outlier[BLOCK];
         };
         EQ quant[BLOCK];
-    } shmem;
+    } s;
 
     T prev{0};
-    T thread_scope[SEQ];
+    T thp_data[SEQ];
 
     auto id_base = blockIdx.x * BLOCK;
 
-    llfn_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(data, len3.x, id_base, shmem.data, thread_scope, prev, ebx2_r);
-    llfn_v0::pq_with_outlier_1d<T, EQ, SEQ, true>(thread_scope, shmem.quant, shmem.outlier, radius, prev);
-    llfn_v0::pq_with_outlier_1d<T, EQ, SEQ, false>(thread_scope, shmem.quant, shmem.outlier, radius);
-    llfn_v0::write_1d<EQ, T, NTHREAD, SEQ, false>(shmem.quant, shmem.outlier, len3.x, id_base, quant, outlier);
+    subr_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(data, len3.x, id_base, s.data, thp_data, prev, ebx2_r);
+    subr_v0::predict_quantize_1d<T, EQ, SEQ, true>(thp_data, s.quant, s.outlier, radius, prev);
+    subr_v0::predict_quantize_1d<T, EQ, SEQ, false>(thp_data, s.quant, s.outlier, radius);
+    subr_v0::write_1d<EQ, T, NTHREAD, SEQ, false>(s.quant, s.outlier, len3.x, id_base, quant, outlier);
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
@@ -79,8 +79,8 @@ __global__ void parsz::cuda::__kernel::v1::c_lorenzo_1d1l(  //
     EQ*  quant,
     T*   outlier)
 {
-    namespace llfn_v0 = parsz::cuda::__device::v0;
-    namespace llfn_v1 = parsz::cuda::__device::v1_pncodec;
+    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v1 = parsz::cuda::__device::v1_pncodec;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -90,17 +90,17 @@ __global__ void parsz::cuda::__kernel::v1::c_lorenzo_1d1l(  //
             T outlier[BLOCK];
         };
         EQ quant[BLOCK];
-    } shmem;
+    } s;
 
     T prev{0};
-    T thread_scope[SEQ];
+    T thp_data[SEQ];
 
     auto id_base = blockIdx.x * BLOCK;
 
-    llfn_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(data, len3.x, id_base, shmem.data, thread_scope, prev, ebx2_r);
-    llfn_v1::pq_with_outlier_1d<T, EQ, SEQ, true>(thread_scope, shmem.quant, shmem.outlier, radius, prev);
-    llfn_v1::pq_with_outlier_1d<T, EQ, SEQ, false>(thread_scope, shmem.quant, shmem.outlier, radius);
-    llfn_v0::write_1d<EQ, T, NTHREAD, SEQ, false>(shmem.quant, shmem.outlier, len3.x, id_base, quant, outlier);
+    subr_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(data, len3.x, id_base, s.data, thp_data, prev, ebx2_r);
+    subr_v1::predict_quantize_1d<T, EQ, SEQ, true>(thp_data, s.quant, s.outlier, radius, prev);
+    subr_v1::predict_quantize_1d<T, EQ, SEQ, false>(thp_data, s.quant, s.outlier, radius);
+    subr_v0::write_1d<EQ, T, NTHREAD, SEQ, false>(s.quant, s.outlier, len3.x, id_base, quant, outlier);
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
@@ -113,7 +113,7 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_1d1l(  //
     FP   ebx2,
     T*   xdata)
 {
-    namespace llfn_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = parsz::cuda::__device::v0;
     namespace wave32  = parsz::cuda::__device::wave32;
 
     constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
@@ -126,14 +126,13 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_1d1l(  //
         // even if it's wave64, "/32" works
         T exchange_in[NTHREAD / 32];
         T exchange_out[NTHREAD / 32];
-    } shmem;
+    } s;
 
-    T thread_scope[SEQ];
+    T thp_data[SEQ];
 
     auto id_base = blockIdx.x * BLOCK;
 
-    llfn_v0::load_fuse_1d<T, EQ, NTHREAD, SEQ>(quant, outlier, len3.x, id_base, radius, shmem.xdata, thread_scope);
-    llfn_v0::blockwide_inclusivescan_1d<T, SEQ, NTHREAD>(
-        thread_scope, ebx2, shmem.exchange_in, shmem.exchange_out, shmem.xdata);
-    llfn_v0::write_1d<T, T, NTHREAD, SEQ, true>(shmem.xdata, nullptr, len3.x, id_base, xdata, nullptr);
+    subr_v0::load_fuse_1d<T, EQ, NTHREAD, SEQ>(quant, outlier, len3.x, id_base, radius, s.xdata, thp_data);
+    subr_v0::block_scan_1d<T, SEQ, NTHREAD>(thp_data, ebx2, s.exchange_in, s.exchange_out, s.xdata);
+    subr_v0::write_1d<T, T, NTHREAD, SEQ, true>(s.xdata, nullptr, len3.x, id_base, xdata, nullptr);
 }

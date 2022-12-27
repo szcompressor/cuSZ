@@ -2,7 +2,7 @@
  * @file subroutine.inl
  * @author Jiannan Tian
  * @brief subroutines of kernels
- * @version 0.3
+ * @version 0.4
  * @date 2022-12-22
  *
  * (C) 2022 by Indiana University, Argonne National Laboratory
@@ -53,7 +53,7 @@ __forceinline__ __device__ void write_1d(  //
 
 // compression pred-quant, method 1
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void pq_no_outlier_1d(  //
+__forceinline__ __device__ void predict_quantize__no_outlier_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
     int          radius,
@@ -61,7 +61,7 @@ __forceinline__ __device__ void pq_no_outlier_1d(  //
 
 // compression pred-quant, method 2
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void pq_with_outlier_1d(  //
+__forceinline__ __device__ void predict_quantize_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
     volatile T*  shmem_outlier,
@@ -70,7 +70,7 @@ __forceinline__ __device__ void pq_with_outlier_1d(  //
 
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
-__forceinline__ __device__ void blockwide_inclusivescan_1d(
+__forceinline__ __device__ void block_scan_1d(
     T           private_buffer[SEQ],
     T           ebx2,
     volatile T* exchange_in,
@@ -82,11 +82,12 @@ __forceinline__ __device__ void blockwide_inclusivescan_1d(
 namespace v1_pncodec {
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void pq_no_outlier_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, int radius, T prev);
+__forceinline__ __device__ void
+predict_quantize__no_outlier_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, int radius, T prev);
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void
-pq_with_outlier_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier, int radius, T prev);
+predict_quantize_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier, int radius, T prev);
 
 }  // namespace v1_pncodec
 
@@ -195,7 +196,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::write_1d(
 }
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void parsz::cuda::__device::v0::pq_no_outlier_1d(  //
+__forceinline__ __device__ void parsz::cuda::__device::v0::predict_quantize__no_outlier_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
     int          radius,
@@ -216,7 +217,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::pq_no_outlier_1d(  //
 }
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void parsz::cuda::__device::v0::pq_with_outlier_1d(
+__forceinline__ __device__ void parsz::cuda::__device::v0::predict_quantize_1d(
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
     volatile T*  shmem_outlier,
@@ -243,7 +244,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::pq_with_outlier_1d(
 
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
-__forceinline__ __device__ void parsz::cuda::__device::v0::blockwide_inclusivescan_1d(
+__forceinline__ __device__ void parsz::cuda::__device::v0::block_scan_1d(
     T           private_buffer[SEQ],
     T           ebx2,
     volatile T* exchange_in,
@@ -262,7 +263,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::blockwide_inclusivesc
 
 // v1_pncodec: quantization code uses PN::encode
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::pq_no_outlier_1d(  //
+__forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::predict_quantize__no_outlier_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
     int          radius,
@@ -288,7 +289,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::pq_no_outlier
 }
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::pq_with_outlier_1d(
+__forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::predict_quantize_1d(
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
     volatile T*  shmem_outlier,
@@ -299,28 +300,23 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::pq_with_outli
     using UI                 = EQ;
     using I                  = typename parsz::typing::Int<BYTEWIDTH>::T;
 
-    if (FIRST_POINT) {  // i == 0
-        T    delta       = private_buffer[0] - prev;
+    auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
+        T    delta       = cur - prev;
         bool quantizable = fabs(delta) < radius;
         UI   UI_delta    = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
 
         if (quantizable)
-            shmem_quant[0 + threadIdx.x * SEQ] = UI_delta;
+            shmem_quant[idx + threadIdx.x * SEQ] = UI_delta;
         else
-            shmem_outlier[0 + threadIdx.x * SEQ] = delta;
+            shmem_outlier[idx + threadIdx.x * SEQ] = delta;
+    };
+
+    if (FIRST_POINT) {  // i == 0
+        quantize_1d(private_buffer[0], prev, 0);
     }
     else {
 #pragma unroll
-        for (auto i = 1; i < SEQ; i++) {
-            T    delta       = private_buffer[i] - private_buffer[i - 1];
-            bool quantizable = fabs(delta) < radius;
-            UI   UI_delta    = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
-
-            if (quantizable)
-                shmem_quant[i + threadIdx.x * SEQ] = UI_delta;
-            else
-                shmem_outlier[i + threadIdx.x * SEQ] = delta;
-        }
+        for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
         __syncthreads();
     }
 }
