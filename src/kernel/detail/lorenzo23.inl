@@ -26,6 +26,19 @@ __global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
 __global__ void x_lorenzo_1d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
 
+namespace compaction {
+
+template <
+    typename T,
+    typename EQ,
+    typename FP,
+    int BLOCK,
+    int SEQ,
+    typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
+__global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+
+}
+
 }  // namespace v0
 
 namespace v1 {
@@ -46,6 +59,13 @@ __global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP 
 template <typename T, typename EQ, typename FP>
 __global__ void x_lorenzo_2d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
 
+namespace compaction {
+
+template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
+__global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+
+}  // namespace compaction
+
 }  // namespace v0
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +84,14 @@ namespace r1_shfl {
 template <typename T, typename EQ, typename FP>
 __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
 
+namespace compaction {
+
+template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
+__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+
 }
+
+}  // namespace r1_shfl
 
 }  // namespace v0
 
@@ -106,6 +133,40 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_1d1l(
     subr_v0::predict_quantize_1d<T, EQ, SEQ, true>(thp_data, s.quant, s.outlier, radius, prev);
     subr_v0::predict_quantize_1d<T, EQ, SEQ, false>(thp_data, s.quant, s.outlier, radius);
     subr_v0::write_1d<EQ, T, NTHREAD, SEQ, false>(s.quant, s.outlier, len3.x, id_base, quant, outlier);
+}
+
+template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename OutlierDesc>
+__global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l(
+    T*          data,
+    dim3        len3,
+    dim3        stride3,
+    int         radius,
+    FP          ebx2_r,
+    EQ*         quant,
+    OutlierDesc outlier_desc)
+{
+    namespace subr_v0  = parsz::cuda::__device::v0;
+    namespace subr_v0c = parsz::cuda::__device::v0::compaction;
+
+    constexpr auto NTHREAD = BLOCK / SEQ;
+
+    __shared__ struct {
+        union {
+            T data[BLOCK];
+            T outlier[BLOCK];
+        };
+        EQ quant[BLOCK];
+    } s;
+
+    T prev{0};
+    T thp_data[SEQ];
+
+    auto id_base = blockIdx.x * BLOCK;
+
+    subr_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(data, len3.x, id_base, s.data, thp_data, prev, ebx2_r);
+    subr_v0c::predict_quantize_1d<T, EQ, SEQ, true>(thp_data, s.quant, len3.x, radius, id_base, outlier_desc, prev);
+    subr_v0c::predict_quantize_1d<T, EQ, SEQ, false>(thp_data, s.quant, len3.x, radius, id_base, outlier_desc);
+    subr_v0::write_1d<EQ, T, NTHREAD, SEQ, true>(s.quant, nullptr, len3.x, id_base, quant, nullptr);
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
@@ -203,6 +264,33 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_2d1l(
     subr_v0::load_prequant_2d<T, FP, YSEQ>(data, len3.x, gix, len3.y, giy_base, stride3.y, ebx2_r, center);
     subr_v0::predict_2d<T, EQ, YSEQ>(center);
     subr_v0::quantize_write_2d<T, EQ, YSEQ>(center, len3.x, gix, len3.y, giy_base, stride3.y, radius, quant, outlier);
+}
+
+template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
+__global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l(
+    T*          data,
+    dim3        len3,
+    dim3        stride3,
+    int         radius,
+    FP          ebx2_r,
+    EQ*         quant,
+    OutlierDesc outlier)
+{
+    namespace subr_v0 = parsz::cuda::__device::v0;
+
+    constexpr auto BLOCK = 16;
+    constexpr auto YSEQ  = 8;
+
+    T center[YSEQ + 1] = {0};  // NW  N       first element <- 0
+                               //  W  center
+
+    auto gix      = blockIdx.x * BLOCK + threadIdx.x;         // BDX == BLOCK == 16
+    auto giy_base = blockIdx.y * BLOCK + threadIdx.y * YSEQ;  // BDY * YSEQ = BLOCK == 16
+
+    subr_v0::load_prequant_2d<T, FP, YSEQ>(data, len3.x, gix, len3.y, giy_base, stride3.y, ebx2_r, center);
+    subr_v0::predict_2d<T, EQ, YSEQ>(center);
+    subr_v0::compaction::quantize_write_2d<T, EQ, YSEQ>(
+        center, len3.x, gix, len3.y, giy_base, stride3.y, radius, quant, outlier);
 }
 
 // 16x16 data block maps to 16x2 (one warp) thread block
@@ -373,6 +461,73 @@ __global__ void parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l(
 
         // now delta[z] is delta
         quantize_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+    }
+}
+
+template <typename T, typename EQ, typename FP, typename OutlierDesc>
+__global__ void parsz::cuda::__kernel::v0::r1_shfl::compaction::c_lorenzo_3d1l(
+    T*          data,
+    dim3        len3,
+    dim3        stride3,
+    int         radius,
+    FP          ebx2_r,
+    EQ*         quant,
+    OutlierDesc outlier)
+{
+    constexpr auto BLOCK = 8;
+    __shared__ T   s[9][33];
+    T              delta[BLOCK + 1] = {0};  // first el = 0
+
+    const auto gix      = blockIdx.x * (BLOCK * 4) + threadIdx.x;
+    const auto giy      = blockIdx.y * BLOCK + threadIdx.y;
+    const auto giz_base = blockIdx.z * BLOCK;
+    const auto base_id  = gix + giy * stride3.y + giz_base * stride3.z;
+
+    auto giz = [&](auto z) { return giz_base + z; };
+    auto gid = [&](auto z) { return base_id + z * stride3.z; };
+
+    auto load_prequant_3d = [&]() {
+        if (gix < len3.x and giy < len3.y) {
+            for (auto z = 0; z < BLOCK; z++)
+                if (giz(z) < len3.z) delta[z + 1] = round(data[gid(z)] * ebx2_r);  // prequant (fp presence)
+        }
+        __syncthreads();
+    };
+
+    auto quantize_compact_write = [&](T delta, auto x, auto y, auto z, auto gid) {
+        bool quantizable = fabs(delta) < radius;
+        T    candidate   = delta + radius;
+        if (x < len3.x and y < len3.y and z < len3.z) {
+            quant[gid] = quantizable * static_cast<EQ>(candidate);
+            if (not quantizable) {
+                auto cur_idx         = atomicAdd(outlier.count, 1);
+                outlier.idx[cur_idx] = gid;
+                outlier.val[cur_idx] = candidate;
+            }
+        }
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    load_prequant_3d();
+
+    for (auto z = BLOCK; z > 0; z--) {
+        // z-direction
+        delta[z] -= delta[z - 1];
+
+        // x-direction
+        auto prev_x = __shfl_up_sync(0xffffffff, delta[z], 1, 8);
+        if (threadIdx.x % BLOCK > 0) delta[z] -= prev_x;
+
+        // y-direction, exchange via shmem
+        // ghost padding along y
+        s[threadIdx.y + 1][threadIdx.x] = delta[z];
+        __syncthreads();
+
+        delta[z] -= (threadIdx.y > 0) * s[threadIdx.y][threadIdx.x];
+
+        // now delta[z] is delta
+        quantize_compact_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
     }
 }
 

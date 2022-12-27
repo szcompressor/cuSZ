@@ -1,5 +1,5 @@
 /**
- * @file test_l23v01d.cu
+ * @file t-l23-v0-1d.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -9,7 +9,7 @@
  *
  */
 
-#include "test_utils.hh"
+#include "t-l23-utils.hh"
 
 int main()
 {

@@ -1,5 +1,5 @@
 /**
- * @file test_utils.hh
+ * @file t-l23-utils.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -22,6 +22,11 @@ using std::string;
 #include "../../../test/src/rand.hh"
 #include "lorenzo.inl"
 #include "lorenzo23.inl"
+
+#include <thrust/device_ptr.h>
+#include <thrust/extrema.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/tuple.h>
 
 int get_num_SMs()
 {
@@ -93,35 +98,51 @@ struct TestPredictQuantize {
 
     EQ *eq, *h_eq;
 
-    void init(size_t len)
+    OutlierDescriptionGlobalMemory<T> outlier_desc;
+    OutlierDescriptionGlobalMemory<T> h_outlier_desc;
+
+    void init(size_t len, bool compaction = false, bool managed = false)
     {
-        cudaMalloc(&xdata, sizeof(T) * len);
-        cudaMalloc(&outlier, sizeof(T) * len);
-        cudaMalloc(&eq, sizeof(EQ) * len);
+        if (not managed) {
+            cudaMalloc(&xdata, sizeof(T) * len);
+            cudaMalloc(&eq, sizeof(EQ) * len);
+            cudaMallocHost(&h_xdata, sizeof(T) * len);
+            cudaMallocHost(&h_eq, sizeof(EQ) * len);
+            cudaMemset(eq, 0, sizeof(EQ) * len);
 
-        cudaMemset(outlier, 0, sizeof(T) * len);
-        cudaMemset(eq, 0, sizeof(EQ) * len);
+            cudaMalloc(&outlier, sizeof(T) * len);
+            cudaMallocHost(&h_outlier, sizeof(T) * len);
+            cudaMemset(outlier, 0, sizeof(T) * len);
 
-        cudaMallocHost(&h_xdata, sizeof(T) * len);
-        cudaMallocHost(&h_outlier, sizeof(T) * len);
-        cudaMallocHost(&h_eq, sizeof(EQ) * len);
+            if (compaction) {
+                outlier_desc.allocate(len / 5);
+                h_outlier_desc.allocate(len / 5, false /* not device */);
+            }
+        }
+        else {
+            cudaMallocManaged(&xdata, sizeof(T) * len);
+            cudaMallocManaged(&eq, sizeof(EQ) * len);
+            cudaMemset(eq, 0, sizeof(EQ) * len);
+
+            cudaMallocManaged(&outlier, sizeof(T) * len);
+            cudaMemset(outlier, 0, sizeof(T) * len);
+
+            if (compaction) { outlier_desc.allocate_managed(len / 5); }
+        }
     }
 
-    void init_managed(size_t len)
-    {
-        cudaMallocManaged(&xdata, sizeof(T) * len);
-        cudaMallocManaged(&outlier, sizeof(T) * len);
-        cudaMallocManaged(&eq, sizeof(EQ) * len);
-
-        cudaMemset(outlier, 0, sizeof(T) * len);
-        cudaMemset(eq, 0, sizeof(EQ) * len);
-    }
-
-    void d2h(size_t len)
+    void d2h(size_t len, bool compaction = false)
     {
         cudaMemcpy(h_xdata, xdata, sizeof(T) * len, cudaMemcpyDeviceToHost);
-        cudaMemcpy(h_outlier, outlier, sizeof(T) * len, cudaMemcpyDeviceToHost);
         cudaMemcpy(h_eq, eq, sizeof(EQ) * len, cudaMemcpyDeviceToHost);
+
+        cudaMemcpy(h_outlier, outlier, sizeof(T) * len, cudaMemcpyDeviceToHost);
+
+        if (compaction) {
+            cudaMemcpy(h_outlier_desc.val, outlier_desc.val, sizeof(T) * len / 5, cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_outlier_desc.idx, outlier_desc.idx, sizeof(uint32_t) * len / 5, cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_outlier_desc.count, outlier_desc.count, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+        }
     };
 
     void destroy()
@@ -254,6 +275,35 @@ struct RefactorTestFramework {
         return *this;
     }
 
+    template <int BLOCK, int SEQ>
+    RefactorTestFramework& test1d_v0compaction_against_origin()
+    {
+        grid_dim = (len - 1) / BLOCK + 1;
+
+        struct TestPredictQuantize<T, EQ> ti1;
+        struct TestPredictQuantize<T, EQ> ti2;
+        ti1.init(len);
+        ti2.init(len, true);
+
+        origin_1d<BLOCK, SEQ>(ti1);
+        v0_compaction_1d<BLOCK, SEQ>(ti2);
+
+        ti1.d2h(len);
+        ti2.d2h(len);
+
+        bool equal_eq, equal_outlier, equal_xdata;
+        print_when_not_equal<EQ>(&equal_eq, ti1.h_eq, ti2.h_eq, len, "eq");
+        print_when_not_equal<T>(&equal_outlier, ti1.h_outlier, ti2.h_outlier, len, "outlier");
+        print_when_not_equal<T>(&equal_xdata, ti1.h_xdata, ti2.h_xdata, len, "xdata");
+
+        if (equal_eq and equal_outlier and equal_xdata) printf("(all equal) PASS\n");
+
+        ti1.destroy();
+        ti2.destroy();
+
+        return *this;
+    }
+
     RefactorTestFramework& test2d_v0_against_origin()
     {
         struct TestPredictQuantize<T, EQ> ti1;
@@ -263,6 +313,32 @@ struct RefactorTestFramework {
 
         origin_2d(ti1, len3, stride3);
         v0_2d(ti2, len3, stride3);
+
+        ti1.d2h(len);
+        ti2.d2h(len);
+
+        bool equal_eq, equal_outlier, equal_xdata;
+        print_when_not_equal<EQ>(&equal_eq, ti1.h_eq, ti2.h_eq, len, "eq");
+        print_when_not_equal<T>(&equal_outlier, ti1.h_outlier, ti2.h_outlier, len, "outlier");
+        print_when_not_equal<T>(&equal_xdata, ti1.h_xdata, ti2.h_xdata, len, "xdata");
+
+        if (equal_eq and equal_outlier and equal_xdata) printf("(all equal) PASS\n");
+
+        ti1.destroy();
+        ti2.destroy();
+
+        return *this;
+    }
+
+    RefactorTestFramework& test2d_v0compaction_against_origin()
+    {
+        struct TestPredictQuantize<T, EQ> ti1;
+        struct TestPredictQuantize<T, EQ> ti2;
+        ti1.init(len);
+        ti2.init(len, true);
+
+        origin_2d(ti1, len3, stride3);
+        v0_compaction_2d(ti2, len3, stride3);
 
         ti1.d2h(len);
         ti2.d2h(len);
@@ -332,6 +408,32 @@ struct RefactorTestFramework {
         return *this;
     }
 
+    RefactorTestFramework& test3d_v0r1compaction_against_origin()
+    {
+        struct TestPredictQuantize<T, EQ> ti1;
+        struct TestPredictQuantize<T, EQ> ti2;
+        ti1.init(len);
+        ti2.init(len, true);
+
+        origin_3d(ti1, len3, stride3);
+        v0r1_compaction_3d(ti2, len3, stride3);
+
+        ti1.d2h(len);
+        ti2.d2h(len);
+
+        bool equal_eq, equal_outlier, equal_xdata;
+        print_when_not_equal<EQ>(&equal_eq, ti1.h_eq, ti2.h_eq, len, "eq");
+        print_when_not_equal<T>(&equal_outlier, ti1.h_outlier, ti2.h_outlier, len, "outlier");
+        print_when_not_equal<T>(&equal_xdata, ti1.h_xdata, ti2.h_xdata, len, "xdata");
+
+        if (equal_eq and equal_outlier and equal_xdata) printf("3D v0r1-shfl vs origin (all equal) PASS\n");
+
+        ti1.destroy();
+        ti2.destroy();
+
+        return *this;
+    }
+
     template <int BLOCK, int SEQ>
     void origin_1d(struct TestPredictQuantize<T, EQ> ti)
     {
@@ -353,6 +455,29 @@ struct RefactorTestFramework {
 
         parsz::cuda::__kernel::v0::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
             <<<grid_dim, NTHREAD>>>(data, len3, dummy_stride3, radius, ebx2_r, ti.eq, ti.outlier);
+        cudaDeviceSynchronize();
+
+        parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
+            <<<grid_dim, NTHREAD>>>(ti.eq, ti.outlier, len3, dummy_stride3, radius, ebx2, ti.xdata);
+        cudaDeviceSynchronize();
+    }
+
+    template <int BLOCK, int SEQ>
+    void v0_compaction_1d(struct TestPredictQuantize<T, EQ> ti)
+    {
+        constexpr auto NTHREAD = BLOCK / SEQ;
+
+        parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ, OutlierDescriptionGlobalMemory<T>>
+            <<<grid_dim, NTHREAD>>>(data, len3, dummy_stride3, radius, ebx2_r, ti.eq, ti.outlier_desc);
+        cudaDeviceSynchronize();
+
+        cudaMemcpy(ti.h_outlier_desc.count, ti.outlier_desc.count, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+        thrust::scatter(
+            thrust::device,                                                         //
+            ti.outlier_desc.val, ti.outlier_desc.val + (*ti.h_outlier_desc.count),  //
+            ti.outlier_desc.idx,                                                    //
+            ti.outlier /* full-size */);
         cudaDeviceSynchronize();
 
         parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
@@ -399,6 +524,38 @@ struct RefactorTestFramework {
 
         parsz::cuda::__kernel::v0::c_lorenzo_2d1l<T, EQ, FP>
             <<<GRID_2D, BLOCK_2D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
+        cudaDeviceSynchronize();
+
+        parsz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
+            <<<GRID_2D, BLOCK_2D>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
+        cudaDeviceSynchronize();
+    }
+
+    void v0_compaction_2d(struct TestPredictQuantize<T, EQ> ti, dim3 len3, dim3 leap3)
+    {
+        // y-sequentiality == 8
+        constexpr auto SUBLEN_2D = dim3(16, 16, 1);
+        constexpr auto BLOCK_2D  = dim3(16, 2, 1);
+
+        auto divide3 = [](dim3 len, dim3 sublen) {
+            return dim3(
+                (len.x - 1) / sublen.x + 1,  //
+                (len.y - 1) / sublen.y + 1,  //
+                (len.z - 1) / sublen.z + 1);
+        };
+        auto GRID_2D = divide3(len3, SUBLEN_2D);
+
+        parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, EQ, FP, OutlierDescriptionGlobalMemory<T>>
+            <<<GRID_2D, BLOCK_2D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
+        cudaDeviceSynchronize();
+
+        cudaMemcpy(ti.h_outlier_desc.count, ti.outlier_desc.count, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+        thrust::scatter(
+            thrust::device,                                                         //
+            ti.outlier_desc.val, ti.outlier_desc.val + (*ti.h_outlier_desc.count),  //
+            ti.outlier_desc.idx,                                                    //
+            ti.outlier /* full-size */);
         cudaDeviceSynchronize();
 
         parsz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
@@ -467,6 +624,37 @@ struct RefactorTestFramework {
 
         parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
+        cudaDeviceSynchronize();
+
+        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
+            <<<GRID_3D, dim3(32, 1, 8)>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
+        cudaDeviceSynchronize();
+    }
+
+    void v0r1_compaction_3d(struct TestPredictQuantize<T, EQ> ti, dim3 len3, dim3 leap3)
+    {
+        auto divide3 = [](dim3 len, dim3 sublen) {
+            return dim3(
+                (len.x - 1) / sublen.x + 1,  //
+                (len.y - 1) / sublen.y + 1,  //
+                (len.z - 1) / sublen.z + 1);
+        };
+
+        // y-sequentiality == 8
+        constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+        auto           GRID_3D   = divide3(len3, SUBLEN_3D);
+
+        parsz::cuda::__kernel::v0::r1_shfl::compaction::c_lorenzo_3d1l<T, EQ, FP, OutlierDescriptionGlobalMemory<T>>
+            <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
+        cudaDeviceSynchronize();
+
+        cudaMemcpy(ti.h_outlier_desc.count, ti.outlier_desc.count, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+        thrust::scatter(
+            thrust::device,                                                         //
+            ti.outlier_desc.val, ti.outlier_desc.val + (*ti.h_outlier_desc.count),  //
+            ti.outlier_desc.idx,                                                    //
+            ti.outlier /* full-size */);
         cudaDeviceSynchronize();
 
         parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>

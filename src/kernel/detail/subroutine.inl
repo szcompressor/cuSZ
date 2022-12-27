@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include "subsub.inl"
+#include "typing.inl"
 
 namespace parsz {
 namespace cuda {
@@ -70,6 +71,25 @@ __forceinline__ __device__ void predict_quantize_1d(  //
     int          radius,
     T            prev = 0);
 
+namespace compaction {
+
+template <
+    typename T,
+    typename EQ,
+    int  SEQ,
+    bool FIRST_POINT,
+    typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
+__forceinline__ __device__ void predict_quantize_1d(  //
+    T            thp_buffer[SEQ],
+    volatile EQ* s_quant,
+    uint32_t     dimx,
+    int          radius,
+    uint32_t     g_id_base,
+    OutlierDesc  g_outlier,
+    T            prev = 0);
+
+}
+
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
 __forceinline__ __device__ void block_scan_1d(
@@ -123,6 +143,22 @@ __forceinline__ __device__ void quantize_write_2d(
     EQ*      quant,
     T*       outlier);
 
+namespace compaction {
+
+template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
+__forceinline__ __device__ void quantize_write_2d(
+    T           delta[YSEQ + 1],
+    uint32_t    dimx,
+    uint32_t    gix,
+    uint32_t    dimy,
+    uint32_t    giy_base,
+    uint32_t    stridey,
+    int         radius,
+    EQ*         quant,
+    OutlierDesc outlier);
+
+};
+
 // decompression load
 template <typename T, typename EQ, int YSEQ>
 __forceinline__ __device__ void load_fuse_2d(
@@ -163,37 +199,6 @@ namespace v0 {
 }  // namespace __device
 }  // namespace cuda
 }  // namespace parsz
-
-namespace parsz {
-namespace typing {
-
-// clang-format off
-template <int BYTEWIDTH> struct Int;
-template <> struct Int<1> { typedef int8_t  T; }; 
-template <> struct Int<2> { typedef int16_t T; }; 
-template <> struct Int<4> { typedef int32_t T; }; 
-template <> struct Int<8> { typedef int64_t T; };
-
-template <int BYTEWIDTH> struct UInt;
-template <> struct UInt<1> { typedef uint8_t  T; }; 
-template <> struct UInt<2> { typedef uint16_t T; }; 
-template <> struct UInt<4> { typedef uint32_t T; }; 
-template <> struct UInt<8> { typedef uint64_t T; };
-// clang-format on
-
-}  // namespace typing
-}  // namespace parsz
-
-template <int BYTEWIDTH>
-struct PN {
-    using UI = typename parsz::typing::UInt<BYTEWIDTH>::T;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
-
-    // reference: https://lemire.me/blog/2022/11/25/making-all-your-integers-positive-with-zigzag-encoding/
-
-    UI encode(I& x) { return (2 * x) ^ (x >> (BYTEWIDTH * 8 - 1)); }
-    I  decode(UI& x) { return (x >> 1) ^ (-(x & 1)); }
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -314,6 +319,47 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::predict_quantize_1d(
 #pragma unroll
         for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
         __syncthreads();
+    }
+}
+
+template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename OutlierDesc>
+__forceinline__ __device__ void parsz::cuda::__device::v0::compaction::predict_quantize_1d(
+    T            thp_buffer[SEQ],
+    volatile EQ* s_quant,
+    uint32_t     dimx,  // put x-related
+    int          radius,
+    uint32_t     g_idx_base,  // TODO this file `id_base` to `g_idx_base`
+    OutlierDesc  outlier,
+    T            prev)
+{
+    auto quantize_1d = [&](T& cur, T& prev, uint32_t inloop_idx) {
+        T    delta       = cur - prev;
+        bool quantizable = fabs(delta) < radius;
+        T    candidate   = delta + radius;
+
+        auto inblock_idx = inloop_idx + threadIdx.x * SEQ;  // TODO this file use `inblock_idx`
+
+        // though quantizable, need to set non-quantizable position as 0
+        s_quant[inblock_idx] = quantizable * static_cast<EQ>(candidate);
+
+        // very small chance running into this block
+        if (not quantizable) {
+            auto g_idx = inblock_idx + g_idx_base;
+            if (g_idx < dimx) {
+                auto cur_idx         = atomicAdd(outlier.count, 1);
+                outlier.val[cur_idx] = candidate;
+                outlier.idx[cur_idx] = g_idx;
+            }
+        }
+    };
+
+    if (FIRST_POINT) {  // i == 0
+        quantize_1d(thp_buffer[0], prev, 0);
+    }
+    else {
+#pragma unroll
+        for (auto i = 1; i < SEQ; i++) quantize_1d(thp_buffer[i], thp_buffer[i - 1], i);
+        __syncthreads();  // TODO move __syncthreads() outside this subroutine?
     }
 }
 
@@ -487,6 +533,40 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::quantize_write_2d(
             // outlier array is not in sparse form in this version
             quant[gid]   = quantizable * static_cast<EQ>(candidate);
             outlier[gid] = (not quantizable) * candidate;
+        }
+    }
+}
+
+template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
+__forceinline__ __device__ void parsz::cuda::__device::v0::compaction::quantize_write_2d(
+    // clang-format off
+    T        delta[YSEQ + 1],
+    uint32_t dimx, uint32_t gix,
+    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
+    int      radius,
+    EQ*      quant,
+    OutlierDesc outlier
+    // clang-format on
+)
+{
+    auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
+
+#pragma unroll
+    for (auto i = 1; i < YSEQ + 1; i++) {
+        auto gid = get_gid(i - 1);
+
+        if (gix < dimx and giy_base + (i - 1) < dimy) {
+            bool quantizable = fabs(delta[i]) < radius;
+            T    candidate   = delta[i] + radius;
+
+            // The non-quantizable is recorded as "0" (radius).
+            quant[gid] = quantizable * static_cast<EQ>(candidate);
+
+            if (not quantizable) {
+                auto cur_idx         = atomicAdd(outlier.count, 1);
+                outlier.idx[cur_idx] = gid;
+                outlier.val[cur_idx] = candidate;
+            }
         }
     }
 }

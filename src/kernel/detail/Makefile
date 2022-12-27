@@ -1,16 +1,29 @@
-all: tscan v01d v02d v03d
+all: l23
+l23: scan v0
 
-tscan: test_scan.cu test_utils.hh
-	nvcc test_scan.cu -o tscan
+SHARED_SOURCE = t-l23-utils.hh lorenzo23.inl subroutine.inl subsub.inl
 
-v01d: test_l23v01d.cu test_utils.hh lorenzo23.inl subroutine.inl subsub.inl
-	nvcc test_l23v01d.cu -o tv01d
+scan: t-l23-scan.cu $(SHARED_SOURCE)
+	nvcc t-l23-scan.cu -o t-scan
 
-v02d: test_l23v02d.cu test_utils.hh lorenzo23.inl subroutine.inl subsub.inl
-	nvcc test_l23v02d.cu -o tv02d
+v0: v0-1d v0c-1d v0-2d v0c-2d v0-3d v0r1-3d v0r1c-3d
 
-v03d: test_l23v03d.cu test_utils.hh lorenzo23.inl subroutine.inl subsub.inl
-	nvcc test_l23v03d.cu -o tv03d
+v0-1d: t-l23-v0-1d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0-1d.cu -o t-v0-1d
+v0c-1d: t-l23-v0c-1d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0c-1d.cu -o t-v0c-1d
+
+v0-2d: t-l23-v0-2d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0-2d.cu -o t-v0-2d
+v0c-2d: t-l23-v0c-2d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0c-2d.cu -o t-v0c-2d
+
+v0-3d: t-l23-v0-3d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0-3d.cu -o t-v0-3d
+v0r1-3d: t-l23-v0r1-3d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0r1-3d.cu -o t-v0r1-3d
+v0r1c-3d: t-l23-v0r1c-3d.cu $(SHARED_SOURCE)
+	nvcc t-l23-v0r1c-3d.cu -o t-v0r1c-3d
 
 clean:
-	rm -f tscan tv01d tv02d tv03d
+	rm -f t-scan t-v0-1d t-v0c-1d t-v0-2d t-v0c-2d t-v0-3d t-v0r1-3d t-v0r1c-3d

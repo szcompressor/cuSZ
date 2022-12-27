@@ -1,5 +1,5 @@
 /**
- * @file test_scan.cu
+ * @file t-l23-scan.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
