@@ -225,11 +225,13 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::predict_quantize_1d(
     T            prev)
 {
     auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
-        T    delta                             = cur - prev;
-        bool quantizable                       = fabs(delta) < radius;
-        T    candidate                         = delta + radius;
-        shmem_outlier[idx + threadIdx.x * SEQ] = (1 - quantizable) * candidate;
+        T    delta       = cur - prev;
+        bool quantizable = fabs(delta) < radius;
+        T    candidate   = delta + radius;
+
+        // otherwise, need to reset shared memory (to 0)
         shmem_quant[idx + threadIdx.x * SEQ]   = quantizable * static_cast<EQ>(candidate);
+        shmem_outlier[idx + threadIdx.x * SEQ] = (not quantizable) * candidate;
     };
 
     if (FIRST_POINT) {  // i == 0
@@ -305,10 +307,9 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pncodec::predict_quant
         bool quantizable = fabs(delta) < radius;
         UI   UI_delta    = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
 
-        if (quantizable)
-            shmem_quant[idx + threadIdx.x * SEQ] = UI_delta;
-        else
-            shmem_outlier[idx + threadIdx.x * SEQ] = delta;
+        // otherwise, need to reset shared memory (to 0)
+        shmem_quant[idx + threadIdx.x * SEQ]   = quantizable * UI_delta;
+        shmem_outlier[idx + threadIdx.x * SEQ] = (not quantizable) * delta;
     };
 
     if (FIRST_POINT) {  // i == 0
