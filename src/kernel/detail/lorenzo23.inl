@@ -48,6 +48,19 @@ __global__ void x_lorenzo_2d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, i
 
 }  // namespace v0
 
+////////////////////////////////////////////////////////////////////////////////
+// 3D
+
+namespace v0 {
+
+template <typename T, typename EQ, typename FP>
+__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
+
+template <typename T, typename EQ, typename FP>
+__global__ void x_lorenzo_3d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
+
+}  // namespace v0
+
 }  // namespace __kernel
 }  // namespace cuda
 }  // namespace parsz
@@ -214,4 +227,152 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_2d1l(  //
         quant, outlier, len3.x, gix, len3.y, giy_base, stride3.y, radius, thread_private);
     subr_v0::block_scan_2d<T, EQ, FP, YSEQ>(thread_private, intermediate, ebx2);
     subr_v0::decomp_write_2d<T, YSEQ>(thread_private, len3.x, gix, len3.y, giy_base, stride3.y, xdata);
+}
+
+template <typename T, typename EQ, typename FP>
+__global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
+    T*   data,
+    dim3 len3,
+    dim3 stride3,
+    int  radius,
+    FP   ebx2_r,
+    EQ*  quant,
+    T*   outlier)
+{
+    constexpr auto BLOCK = 8;
+    __shared__ T   s[8][8][32];
+
+    auto z = threadIdx.z;
+
+    auto gix      = blockIdx.x * (BLOCK * 4) + threadIdx.x;
+    auto giy_base = blockIdx.y * BLOCK;
+    auto giz      = blockIdx.z * BLOCK + z;
+    auto base_id  = gix + giy_base * stride3.y + giz * stride3.z;
+
+    auto giy = [&](auto y) { return giy_base + y; };
+    auto gid = [&](auto y) { return base_id + y * stride3.y; };
+
+    auto load_prequant_3d = [&]() {
+        if (gix < len3.x and giz < len3.z) {
+            for (auto y = 0; y < BLOCK; y++)
+                if (giy(y) < len3.y) s[z][y][threadIdx.x] = round(data[gid(y)] * ebx2_r);  // prequant (fp presence)
+        }
+        __syncthreads();
+    };
+
+    auto quantize_write = [&](T delta, auto x, auto y, auto z, auto gid) {
+        bool quantizable = fabs(delta) < radius;
+        T    candidate   = delta + radius;
+        if (x < len3.x and y < len3.y and z < len3.z) {
+            quant[gid]   = quantizable * static_cast<EQ>(candidate);
+            outlier[gid] = (not quantizable) * candidate;
+        }
+    };
+
+    auto x = threadIdx.x % 8;
+
+    auto predict_3d = [&](auto y) {
+        T delta = s[z][y][threadIdx.x] -                                               //
+                  ((z > 0 and y > 0 and x > 0 ? s[z - 1][y - 1][threadIdx.x - 1] : 0)  // dist=3
+                   - (y > 0 and x > 0 ? s[z][y - 1][threadIdx.x - 1] : 0)              // dist=2
+                   - (z > 0 and x > 0 ? s[z - 1][y][threadIdx.x - 1] : 0)              //
+                   - (z > 0 and y > 0 ? s[z - 1][y - 1][threadIdx.x] : 0)              //
+                   + (x > 0 ? s[z][y][threadIdx.x - 1] : 0)                            // dist=1
+                   + (y > 0 ? s[z][y - 1][threadIdx.x] : 0)                            //
+                   + (z > 0 ? s[z - 1][y][threadIdx.x] : 0));                          //
+        return delta;
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    load_prequant_3d();
+    for (auto y = 0; y < BLOCK; y++) {
+        auto delta = predict_3d(y);
+        quantize_write(delta, gix, giy(y), giz, gid(y));
+    }
+}
+
+// 32x8x8 data block maps to 32x1x8 thread block
+template <typename T, typename EQ, typename FP>
+__global__ void parsz::cuda::__kernel::v0::x_lorenzo_3d1l(  //
+    EQ*  quant,
+    T*   outlier,
+    dim3 len3,
+    dim3 stride3,
+    int  radius,
+    FP   ebx2,
+    T*   xdata)
+{
+    constexpr auto BLOCK = 8;
+    constexpr auto YSEQ  = BLOCK;
+    static_assert(BLOCK == 8, "In one case, we need BLOCK for 3D == 8");
+
+    __shared__ T intermediate[BLOCK][4][8];
+    T            thread_private[YSEQ];
+
+    auto seg_id  = threadIdx.x / 8;
+    auto seg_tix = threadIdx.x % 8;
+
+    auto gix      = blockIdx.x * (4 * BLOCK) + threadIdx.x;
+    auto giy_base = blockIdx.y * BLOCK;
+    auto giy      = [&](auto y) { return giy_base + y; };
+    auto giz      = blockIdx.z * BLOCK + threadIdx.z;
+    auto gid      = [&](auto y) { return giz * stride3.z + (giy_base + y) * stride3.y + gix; };
+
+    auto load_fuse_3d = [&]() {
+    // load to thread-private array (fuse at the same time)
+#pragma unroll
+        for (auto y = 0; y < YSEQ; y++) {
+            if (gix < len3.x and giy_base + y < len3.y and giz < len3.z)
+                thread_private[y] = outlier[gid(y)] + static_cast<T>(quant[gid(y)]) - radius;  // fuse
+            else
+                thread_private[y] = 0;
+        }
+    };
+
+    auto block_scan_3d = [&]() {
+        // partial-sum along y-axis, sequantially
+        for (auto y = 1; y < YSEQ; y++) thread_private[y] += thread_private[y - 1];
+
+#pragma unroll
+        for (auto i = 0; i < BLOCK; i++) {
+            // ND partial-sums along x- and z-axis
+            // in-warp shuffle used: in order to perform, it's transposed after X-partial sum
+            T val = thread_private[i];
+
+            for (auto dist = 1; dist < BLOCK; dist *= 2) {
+                auto addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+                if (seg_tix >= dist) val += addend;
+            }
+
+            // x-z transpose
+            intermediate[threadIdx.z][seg_id][seg_tix] = val;
+            __syncthreads();
+            val = intermediate[seg_tix][seg_id][threadIdx.z];
+            __syncthreads();
+
+            for (auto dist = 1; dist < BLOCK; dist *= 2) {
+                auto addend = __shfl_up_sync(0xffffffff, val, dist, 8);
+                if (seg_tix >= dist) val += addend;
+            }
+
+            intermediate[threadIdx.z][seg_id][seg_tix] = val;
+            __syncthreads();
+            val = intermediate[seg_tix][seg_id][threadIdx.z];
+            __syncthreads();
+
+            thread_private[i] = val;
+        }
+    };
+
+    auto decomp_write_3d = [&]() {
+#pragma unroll
+        for (auto y = 0; y < YSEQ; y++)
+            if (gix < len3.x and giy(y) < len3.y and giz < len3.z) xdata[gid(y)] = thread_private[y] * ebx2;
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+    load_fuse_3d();
+    block_scan_3d();
+    decomp_write_3d();
 }

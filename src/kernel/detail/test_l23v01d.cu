@@ -1,5 +1,5 @@
 /**
- * @file test_lorenzo23.cu
+ * @file test_l23v01d.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -14,7 +14,7 @@
 int main()
 {
     struct RefactorTestFramework<float, uint16_t> test {};
-    test.set_eb(1e-4).init_data_1d().test1d_v0_against_origin<256, 4>().destroy_1d();
+    test.set_eb(1e-4).init_data_1d().test1d_v0_against_origin<256, 4>().destroy();
 
     return 0;
 }

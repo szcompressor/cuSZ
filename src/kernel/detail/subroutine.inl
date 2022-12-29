@@ -154,6 +154,12 @@ __forceinline__ __device__ void decomp_write_2d(
 
 }  // namespace v0
 
+//////// 3D
+
+namespace v0 {
+
+}
+
 }  // namespace __device
 }  // namespace cuda
 }  // namespace parsz
@@ -577,3 +583,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::decomp_write_2d(
         if (gix < dimx and (giy_base + i) < dimy) xdata[gid] = thread_private[i];
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+//////// 3D
