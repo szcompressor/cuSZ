@@ -298,7 +298,33 @@ struct RefactorTestFramework {
         print_when_not_equal<T>(&equal_outlier, ti1.h_outlier, ti2.h_outlier, len, "outlier");
         print_when_not_equal<T>(&equal_xdata, ti1.h_xdata, ti2.h_xdata, len, "xdata");
 
-        if (equal_eq and equal_outlier and equal_xdata) printf("(all equal) PASS\n");
+        if (equal_eq and equal_outlier and equal_xdata) printf("3D v0 vs origin (all equal) PASS\n");
+
+        ti1.destroy();
+        ti2.destroy();
+
+        return *this;
+    }
+
+    RefactorTestFramework& test3d_v0r1_against_origin()
+    {
+        struct TestPredictQuantize<T, EQ> ti1;
+        struct TestPredictQuantize<T, EQ> ti2;
+        ti1.init(len);
+        ti2.init(len);
+
+        origin_3d(ti1, len3, stride3);
+        v0r1_3d(ti2, len3, stride3);
+
+        ti1.d2h(len);
+        ti2.d2h(len);
+
+        bool equal_eq, equal_outlier, equal_xdata;
+        print_when_not_equal<EQ>(&equal_eq, ti1.h_eq, ti2.h_eq, len, "eq");
+        print_when_not_equal<T>(&equal_outlier, ti1.h_outlier, ti2.h_outlier, len, "outlier");
+        print_when_not_equal<T>(&equal_xdata, ti1.h_xdata, ti2.h_xdata, len, "xdata");
+
+        if (equal_eq and equal_outlier and equal_xdata) printf("3D v0r1-shfl vs origin (all equal) PASS\n");
 
         ti1.destroy();
         ti2.destroy();
@@ -423,6 +449,28 @@ struct RefactorTestFramework {
 
         parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
+        cudaDeviceSynchronize();
+    }
+
+    void v0r1_3d(struct TestPredictQuantize<T, EQ> ti, dim3 len3, dim3 leap3)
+    {
+        auto divide3 = [](dim3 len, dim3 sublen) {
+            return dim3(
+                (len.x - 1) / sublen.x + 1,  //
+                (len.y - 1) / sublen.y + 1,  //
+                (len.z - 1) / sublen.z + 1);
+        };
+
+        // y-sequentiality == 8
+        constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+        auto           GRID_3D   = divide3(len3, SUBLEN_3D);
+
+        parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l<T, EQ, FP>
+            <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
+        cudaDeviceSynchronize();
+
+        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
+            <<<GRID_3D, dim3(32, 1, 8)>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
 };

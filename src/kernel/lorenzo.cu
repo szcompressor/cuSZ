@@ -63,7 +63,8 @@ cusz_error_status compress_predict_lorenzo_i(
 
     constexpr auto SUBLEN_3D = dim3(32, 8, 8);
     // constexpr auto SEQ_3D    = dim3(1, 8, 1);  // y-sequentiality == 8
-    constexpr auto BLOCK_3D = dim3(32, 1, 8);
+    // constexpr auto BLOCK_3D = dim3(32, 1, 8);  // for v0
+    constexpr auto BLOCK_3D = dim3(32, 8, 1);  // for v0::r1_shfl
     auto           GRID_3D  = divide3(len3, SUBLEN_3D);
 
     auto d = ndim();
@@ -92,7 +93,7 @@ cusz_error_status compress_predict_lorenzo_i(
     else if (d == 3) {
         //::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
         //<<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
-        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, E, FP>
+        parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l<T, E, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
 

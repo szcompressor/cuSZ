@@ -59,6 +59,13 @@ __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP 
 template <typename T, typename EQ, typename FP>
 __global__ void x_lorenzo_3d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
 
+namespace r1_shfl {
+
+template <typename T, typename EQ, typename FP>
+__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
+
+}
+
 }  // namespace v0
 
 }  // namespace __kernel
@@ -289,6 +296,83 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
     for (auto y = 0; y < BLOCK; y++) {
         auto delta = predict_3d(y);
         quantize_write(delta, gix, giy(y), giz, gid(y));
+    }
+}
+
+template <typename T, typename EQ, typename FP>
+__global__ void parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l(
+    T*   data,
+    dim3 len3,
+    dim3 stride3,
+    int  radius,
+    FP   ebx2_r,
+    EQ*  quant,
+    T*   outlier)
+{
+    constexpr auto BLOCK = 8;
+    __shared__ T   s[9][33];
+    T              delta[BLOCK + 1] = {0};  // first el = 0
+
+    const auto gix      = blockIdx.x * (BLOCK * 4) + threadIdx.x;
+    const auto giy      = blockIdx.y * BLOCK + threadIdx.y;
+    const auto giz_base = blockIdx.z * BLOCK;
+    const auto base_id  = gix + giy * stride3.y + giz_base * stride3.z;
+
+    auto giz = [&](auto z) { return giz_base + z; };
+    auto gid = [&](auto z) { return base_id + z * stride3.z; };
+
+    auto load_prequant_3d = [&]() {
+        if (gix < len3.x and giy < len3.y) {
+            for (auto z = 0; z < BLOCK; z++)
+                if (giz(z) < len3.z) delta[z + 1] = round(data[gid(z)] * ebx2_r);  // prequant (fp presence)
+        }
+        __syncthreads();
+    };
+
+    auto quantize_write = [&](T delta, auto x, auto y, auto z, auto gid) {
+        bool quantizable = fabs(delta) < radius;
+        T    candidate   = delta + radius;
+        if (x < len3.x and y < len3.y and z < len3.z) {
+            quant[gid]   = quantizable * static_cast<EQ>(candidate);
+            outlier[gid] = (not quantizable) * candidate;
+        }
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /* z-direction, sequential in private buffer
+       delta = + (s[z][y][x] - s[z-1][y][x])
+               - (s[z][y][x-1] - s[z-1][y][x-1])
+               + (s[z][y-1][x-1] - s[z-1][y-1][x-1])
+               - (s[z][y-1][x] - s[z-1][y-1][x])
+
+       x-direction, shuffle
+       delta = + (s[z][y][x] - s[z][y][x-1])
+               - (s[z][y-1][x] - s[z][y-1][x-1])
+
+       y-direction, shmem
+       delta = s[z][y][x] - s[z][y-1][x]
+     */
+
+    load_prequant_3d();
+
+    for (auto z = BLOCK; z > 0; z--) {
+        // z-direction
+        delta[z] -= delta[z - 1];
+
+        // x-direction
+        auto prev_x = __shfl_up_sync(0xffffffff, delta[z], 1, 8);
+        if (threadIdx.x % BLOCK > 0) delta[z] -= prev_x;
+
+        // y-direction, exchange via shmem
+        // ghost padding along y
+        s[threadIdx.y + 1][threadIdx.x] = delta[z];
+        __syncthreads();
+
+        delta[z] -= (threadIdx.y > 0) * s[threadIdx.y][threadIdx.x];
+
+        // now delta[z] is delta
+        quantize_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
     }
 }
 
