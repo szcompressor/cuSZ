@@ -93,7 +93,7 @@ cusz_error_status compress_predict_lorenzo_i(
     else if (d == 3) {
         //::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, E, FP>
         //<<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, outlier, len3, leap3, radius, ebx2_r);
-        parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l<T, E, FP>
+        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, E, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
 
