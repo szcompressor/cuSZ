@@ -1,10 +1,13 @@
 all: l23
-l23: scan v0
+l23: scan pn v0
 
 SHARED_SOURCE = t-l23-utils.hh lorenzo23.inl subroutine.inl subsub.inl
 
 scan: t-l23-scan.cu $(SHARED_SOURCE)
 	nvcc t-l23-scan.cu -o t-scan
+
+pn: t-pn.cc pn.hh
+	$(CXX) t-pn.cc -o t-pn
 
 v0: v0-1d v0c-1d v0-2d v0c-2d v0-3d v0r1-3d v0r1c-3d
 
@@ -26,4 +29,4 @@ v0r1c-3d: t-l23-v0r1c-3d.cu $(SHARED_SOURCE)
 	nvcc t-l23-v0r1c-3d.cu -o t-v0r1c-3d
 
 clean:
-	rm -f t-scan t-v0-1d t-v0c-1d t-v0-2d t-v0c-2d t-v0-3d t-v0r1-3d t-v0r1c-3d
+	rm -f t-scan t-pn t-v0-1d t-v0c-1d t-v0-2d t-v0c-2d t-v0-3d t-v0r1-3d t-v0r1c-3d
