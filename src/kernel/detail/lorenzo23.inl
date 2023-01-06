@@ -30,14 +30,8 @@ __global__ void x_lorenzo_1d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, i
 
 namespace compaction {
 
-template <
-    typename T,
-    typename EQ,
-    typename FP,
-    int BLOCK,
-    int SEQ,
-    typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
-__global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction = CompactionDRAM<T>>
+__global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }
 
@@ -57,21 +51,13 @@ namespace v1_pn {
 
 namespace compaction {
 
-template <
-    typename T,
-    typename EQ,
-    typename FP,
-    int BLOCK,
-    int SEQ,
-    typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
-__global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction = CompactionDRAM<T>>
+__global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }  // namespace compaction
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
-__global__ void x_lorenzo_1d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
-
-}  // namespace v1_pn
+__global__ void x_lorenzo_1d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
 
 namespace delta_only {
 
@@ -82,6 +68,8 @@ template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
 __global__ void x_lorenzo_1d1l(EQ* delta, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
 
 }  // namespace delta_only
+
+}  // namespace v1_pn
 
 ////////////////////////////////////////////////////////////////////////////////
 // 2D
@@ -106,8 +94,8 @@ __global__ void x_lorenzo_2d1l(EQ* delta, dim3 len3, dim3 stride3, FP ebx2, T* x
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
-__global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+__global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }  // namespace compaction
 
@@ -117,13 +105,13 @@ namespace v1_pn {
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
-__global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+__global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }  // namespace compaction
 
 template <typename T, typename EQ, typename FP>
-__global__ void x_lorenzo_2d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
+__global__ void x_lorenzo_2d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
 
 namespace delta_only {
 
@@ -143,7 +131,7 @@ __global__ void x_lorenzo_2d1l(EQ* delta, dim3 len3, dim3 stride3, FP ebx2, T* x
 namespace v0 {
 
 // TODO -> `legacy`
-namespace obsolete {
+namespace legacy {
 template <typename T, typename EQ, typename FP>
 __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
 
@@ -167,8 +155,8 @@ __global__ void x_lorenzo_3d1l(EQ* quant, dim3 len3, dim3 stride3, FP ebx2, T* x
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
-__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }
 
@@ -178,13 +166,13 @@ namespace v1_pn {
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
-__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
+template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void x_lorenzo_3d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
+__global__ void x_lorenzo_3d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
 
 namespace delta_only {
 
@@ -265,15 +253,15 @@ parsz::cuda::__kernel::v0::delta_only::c_lorenzo_1d1l(T* data, dim3 len3, dim3 s
     subr_v0::write_1d<EQ, T, NTHREAD, SEQ, false>(s.quant, nullptr, len3.x, id_base, quant, nullptr);
 }
 
-template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename OutlierDesc>
+template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction>
 __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l(
-    T*          data,
-    dim3        len3,
-    dim3        stride3,
-    int         radius,
-    FP          ebx2_r,
-    EQ*         quant,
-    OutlierDesc outlier_desc)
+    T*         data,
+    dim3       len3,
+    dim3       stride3,
+    int        radius,
+    FP         ebx2_r,
+    EQ*        quant,
+    Compaction outlier_desc)
 {
     namespace subr_v0  = parsz::cuda::__device::v0;
     namespace subr_v0c = parsz::cuda::__device::v0::compaction;
@@ -465,15 +453,15 @@ parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim
     subr_v1d::quantize_write_2d<T, EQ, YSEQ>(center, len3.x, gix, len3.y, giy_base, stride3.y, quant);
 }
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc>
+template <typename T, typename EQ, typename FP, typename Compaction>
 __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l(
-    T*          data,
-    dim3        len3,
-    dim3        stride3,
-    int         radius,
-    FP          ebx2_r,
-    EQ*         quant,
-    OutlierDesc outlier)
+    T*         data,
+    dim3       len3,
+    dim3       stride3,
+    int        radius,
+    FP         ebx2_r,
+    EQ*        quant,
+    Compaction outlier)
 {
     namespace subr_v0 = parsz::cuda::__device::v0;
 
@@ -611,7 +599,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::delta_only::x_lorenzo_2d1l(  //
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::obsolete::c_lorenzo_3d1l(
+__global__ void parsz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l(
     T*   data,
     dim3 len3,
     dim3 stride3,
@@ -867,15 +855,15 @@ __global__ void parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_3d1l(  //
     }
 }
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc>
+template <typename T, typename EQ, typename FP, typename Compaction>
 __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l(
-    T*          data,
-    dim3        len3,
-    dim3        stride3,
-    int         radius,
-    FP          ebx2_r,
-    EQ*         quant,
-    OutlierDesc outlier)
+    T*         data,
+    dim3       len3,
+    dim3       stride3,
+    int        radius,
+    FP         ebx2_r,
+    EQ*        quant,
+    Compaction outlier)
 {
     constexpr auto BLOCK = 8;
     __shared__ T   s[9][33];
@@ -934,15 +922,15 @@ __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l(
     }
 }
 
-template <typename T, typename EQ, typename FP, typename OutlierDesc>
+template <typename T, typename EQ, typename FP, typename Compaction>
 __global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_3d1l(
-    T*          data,
-    dim3        len3,
-    dim3        stride3,
-    int         radius,
-    FP          ebx2_r,
-    EQ*         quant,
-    OutlierDesc outlier)
+    T*         data,
+    dim3       len3,
+    dim3       stride3,
+    int        radius,
+    FP         ebx2_r,
+    EQ*        quant,
+    Compaction outlier)
 {
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
@@ -1048,7 +1036,7 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_3d1l(  //
     };
 
     auto block_scan_3d = [&]() {
-        // partial-sum along y-axis, sequantially
+        // partial-sum along y-axis, sequentially
         for (auto y = 1; y < YSEQ; y++) thread_private[y] += thread_private[y - 1];
 
 #pragma unroll
@@ -1137,7 +1125,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_3d1l(  //
     };
 
     auto block_scan_3d = [&]() {
-        // partial-sum along y-axis, sequantially
+        // partial-sum along y-axis, sequentially
         for (auto y = 1; y < YSEQ; y++) thread_private[y] += thread_private[y - 1];
 
 #pragma unroll
@@ -1220,7 +1208,7 @@ __global__ void parsz::cuda::__kernel::v0::delta_only::x_lorenzo_3d1l(  //
     };
 
     auto block_scan_3d = [&]() {
-        // partial-sum along y-axis, sequantially
+        // partial-sum along y-axis, sequentially
         for (auto y = 1; y < YSEQ; y++) thread_private[y] += thread_private[y - 1];
 
 #pragma unroll

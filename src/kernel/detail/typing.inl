@@ -11,7 +11,7 @@
 
 // TODO -> `compaction`
 template <typename T>
-struct OutlierDescriptionGlobalMemory {
+struct CompactionDRAM {
     using type = T;
     T*        val;
     uint32_t* idx;

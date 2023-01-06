@@ -86,14 +86,14 @@ template <
     typename EQ,
     int  SEQ,
     bool FIRST_POINT,
-    typename OutlierDesc = OutlierDescriptionGlobalMemory<T>>
+    typename Compaction = CompactionDRAM<T>>
 __forceinline__ __device__ void predict_quantize_1d(  //
     T            thp_buffer[SEQ],
     volatile EQ* s_quant,
     uint32_t     dimx,
     int          radius,
     uint32_t     g_id_base,
-    OutlierDesc  g_outlier,
+    Compaction   g_outlier,
     T            prev = 0);
 
 }
@@ -193,17 +193,17 @@ __forceinline__ __device__ void quantize_write_2d(
 
 namespace compaction {
 
-template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
+template <typename T, typename EQ, int YSEQ, typename Compaction>
 __forceinline__ __device__ void quantize_write_2d(
-    T           delta[YSEQ + 1],
-    uint32_t    dimx,
-    uint32_t    gix,
-    uint32_t    dimy,
-    uint32_t    giy_base,
-    uint32_t    stridey,
-    int         radius,
-    EQ*         quant,
-    OutlierDesc outlier);
+    T          delta[YSEQ + 1],
+    uint32_t   dimx,
+    uint32_t   gix,
+    uint32_t   dimy,
+    uint32_t   giy_base,
+    uint32_t   stridey,
+    int        radius,
+    EQ*        quant,
+    Compaction outlier);
 
 };
 
@@ -255,7 +255,7 @@ __forceinline__ __device__ void decomp_write_2d(
 namespace v1_pn {
 
 namespace compaction {
-template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
+template <typename T, typename EQ, int YSEQ, typename Compaction>
 __forceinline__ __device__ void quantize_write_2d(
     // clang-format off
     T        delta[YSEQ + 1],
@@ -263,7 +263,7 @@ __forceinline__ __device__ void quantize_write_2d(
     uint32_t dimy, uint32_t giy_base, uint32_t stridey,
     int      radius,
     EQ*      quant,
-    OutlierDesc outlier
+    Compaction outlier
     // clang-format on
 );
 
@@ -310,6 +310,8 @@ __forceinline__ __device__ void quantize_write_2d(
 //////// 3D
 
 namespace v0 {
+
+// TODO move subroutines for 3D here
 
 }
 
@@ -513,14 +515,14 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::predict_quantize_1d(
     }
 }
 
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename OutlierDesc>
+template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename Compaction>
 __forceinline__ __device__ void parsz::cuda::__device::v0::compaction::predict_quantize_1d(
     T            thp_buffer[SEQ],
     volatile EQ* s_quant,
     uint32_t     dimx,  // put x-related
     int          radius,
     uint32_t     g_idx_base,  // TODO this file `id_base` to `g_idx_base`
-    OutlierDesc  outlier,
+    Compaction   outlier,
     T            prev)
 {
     auto quantize_1d = [&](T& cur, T& prev, uint32_t inloop_idx) {
@@ -554,14 +556,14 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::compaction::predict_q
     }
 }
 
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename OutlierDesc>
+template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename Compaction>
 __forceinline__ __device__ void parsz::cuda::__device::v1_pn::compaction::predict_quantize_1d(
     T            thp_buffer[SEQ],
     volatile EQ* s_quant,
     uint32_t     dimx,  // put x-related
     int          radius,
     uint32_t     g_idx_base,  // TODO this file `id_base` to `g_idx_base`
-    OutlierDesc  outlier,
+    Compaction   outlier,
     T            prev)
 {
     constexpr auto BYTEWIDTH = sizeof(EQ);
@@ -624,7 +626,6 @@ template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void parsz::cuda::__device::v1_pn::predict_quantize__no_outlier_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
-    int          radius,
     T            prev)
 {
     constexpr auto BYTEWIDTH = sizeof(EQ);
@@ -818,7 +819,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::delta_only::quanti
     }
 }
 
-template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
+template <typename T, typename EQ, int YSEQ, typename Compaction>
 __forceinline__ __device__ void parsz::cuda::__device::v0::compaction::quantize_write_2d(
     // clang-format off
     T        delta[YSEQ + 1],
@@ -826,7 +827,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::compaction::quantize_
     uint32_t dimy, uint32_t giy_base, uint32_t stridey,
     int      radius,
     EQ*      quant,
-    OutlierDesc outlier
+    Compaction outlier
     // clang-format on
 )
 {
@@ -852,7 +853,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::compaction::quantize_
     }
 }
 
-template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
+template <typename T, typename EQ, int YSEQ, typename Compaction>
 __forceinline__ __device__ void parsz::cuda::__device::v1_pn::compaction::quantize_write_2d(
     // clang-format off
     T        delta[YSEQ + 1],
@@ -860,7 +861,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::compaction::quanti
     uint32_t dimy, uint32_t giy_base, uint32_t stridey,
     int      radius,
     EQ*      quant,
-    OutlierDesc outlier
+    Compaction outlier
     // clang-format on
 )
 {

@@ -98,8 +98,8 @@ struct TestPredictQuantize {
 
     EQ *eq, *h_eq;
 
-    OutlierDescriptionGlobalMemory<T> outlier_desc;
-    OutlierDescriptionGlobalMemory<T> h_outlier_desc;
+    CompactionDRAM<T> outlier_desc;
+    CompactionDRAM<T> h_outlier_desc;
 
     void init(size_t len, bool compaction = false, bool managed = false)
     {
@@ -467,7 +467,7 @@ struct RefactorTestFramework {
     {
         constexpr auto NTHREAD = BLOCK / SEQ;
 
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ, OutlierDescriptionGlobalMemory<T>>
+        parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ, CompactionDRAM<T>>
             <<<grid_dim, NTHREAD>>>(data, len3, dummy_stride3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
@@ -545,7 +545,7 @@ struct RefactorTestFramework {
         };
         auto GRID_2D = divide3(len3, SUBLEN_2D);
 
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, EQ, FP, OutlierDescriptionGlobalMemory<T>>
+        parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, EQ, FP, CompactionDRAM<T>>
             <<<GRID_2D, BLOCK_2D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
@@ -600,7 +600,7 @@ struct RefactorTestFramework {
         constexpr auto BLOCK_3D  = dim3(32, 1, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::obsolete::c_lorenzo_3d1l<T, EQ, FP>
+        parsz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
@@ -644,7 +644,7 @@ struct RefactorTestFramework {
         constexpr auto SUBLEN_3D = dim3(32, 8, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, EQ, FP, OutlierDescriptionGlobalMemory<T>>
+        parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, EQ, FP, CompactionDRAM<T>>
             <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
