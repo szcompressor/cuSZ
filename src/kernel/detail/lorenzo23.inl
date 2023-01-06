@@ -73,16 +73,17 @@ __global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP 
 
 namespace v0 {
 
+namespace obsolete {
+template <typename T, typename EQ, typename FP>
+__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
+
+}
+
 template <typename T, typename EQ, typename FP>
 __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
 
 template <typename T, typename EQ, typename FP>
 __global__ void x_lorenzo_3d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata);
-
-namespace r1_shfl {
-
-template <typename T, typename EQ, typename FP>
-__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier);
 
 namespace compaction {
 
@@ -90,8 +91,6 @@ template <typename T, typename EQ, typename FP, typename OutlierDesc = OutlierDe
 __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, OutlierDesc outlier);
 
 }
-
-}  // namespace r1_shfl
 
 }  // namespace v0
 
@@ -325,7 +324,7 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_2d1l(  //
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
+__global__ void parsz::cuda::__kernel::v0::obsolete::c_lorenzo_3d1l(
     T*   data,
     dim3 len3,
     dim3 stride3,
@@ -388,7 +387,7 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l(
+__global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
     T*   data,
     dim3 len3,
     dim3 stride3,
@@ -465,7 +464,7 @@ __global__ void parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l(
 }
 
 template <typename T, typename EQ, typename FP, typename OutlierDesc>
-__global__ void parsz::cuda::__kernel::v0::r1_shfl::compaction::c_lorenzo_3d1l(
+__global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l(
     T*          data,
     dim3        len3,
     dim3        stride3,

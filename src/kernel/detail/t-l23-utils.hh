@@ -600,7 +600,7 @@ struct RefactorTestFramework {
         constexpr auto BLOCK_3D  = dim3(32, 1, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, EQ, FP>
+        parsz::cuda::__kernel::v0::obsolete::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
@@ -622,7 +622,7 @@ struct RefactorTestFramework {
         constexpr auto SUBLEN_3D = dim3(32, 8, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::r1_shfl::c_lorenzo_3d1l<T, EQ, FP>
+        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
@@ -644,7 +644,7 @@ struct RefactorTestFramework {
         constexpr auto SUBLEN_3D = dim3(32, 8, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::r1_shfl::compaction::c_lorenzo_3d1l<T, EQ, FP, OutlierDescriptionGlobalMemory<T>>
+        parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, EQ, FP, OutlierDescriptionGlobalMemory<T>>
             <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
