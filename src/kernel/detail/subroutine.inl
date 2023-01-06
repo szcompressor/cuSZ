@@ -44,6 +44,14 @@ __forceinline__ __device__ void load_fuse_1d(
     volatile T* shmem,
     T           private_buffer[SEQ]);
 
+namespace delta_only {
+
+template <typename T, typename EQ, int NTHREAD, int SEQ>
+__forceinline__ __device__ void
+load_1d(EQ* quant, uint32_t dimx, uint32_t id_base, volatile T* shmem, T private_buffer[SEQ]);
+
+}
+
 // compression and decompression store
 template <typename T1, typename T2, int NTHREAD, int SEQ, bool NO_OUTLIER>
 __forceinline__ __device__ void write_1d(  //
@@ -59,7 +67,6 @@ template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void predict_quantize__no_outlier_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
-    int          radius,
     T            prev = 0);
 
 // compression pred-quant, method 2
@@ -105,7 +112,7 @@ namespace v1_pncodec {
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void
-predict_quantize__no_outlier_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, int radius, T prev);
+predict_quantize__no_outlier_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, T prev);
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void
@@ -143,6 +150,20 @@ __forceinline__ __device__ void quantize_write_2d(
     EQ*      quant,
     T*       outlier);
 
+namespace delta_only {
+
+template <typename T, typename EQ, int YSEQ>
+__forceinline__ __device__ void quantize_write_2d(
+    T        delta[YSEQ + 1],
+    uint32_t dimx,
+    uint32_t gix,
+    uint32_t dimy,
+    uint32_t giy_base,
+    uint32_t stridey,
+    EQ*      quant);
+
+}
+
 namespace compaction {
 
 template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
@@ -171,6 +192,20 @@ __forceinline__ __device__ void load_fuse_2d(
     uint32_t stridey,
     int      radius,
     T        private_buffer[YSEQ]);
+
+namespace delta_only {
+// decompression load
+template <typename T, typename EQ, int YSEQ>
+__forceinline__ __device__ void load_2d(
+    EQ*      quant,
+    uint32_t dimx,
+    uint32_t gix,
+    uint32_t dimy,
+    uint32_t giy_base,
+    uint32_t stridey,
+    T        private_buffer[YSEQ]);
+
+}  // namespace delta_only
 
 template <typename T, typename EQ, typename FP, int YSEQ>
 __forceinline__ __device__ void block_scan_2d(  //
@@ -226,6 +261,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::load_prequant_1d(
     if (threadIdx.x > 0) prev = shmem[threadIdx.x * SEQ - 1];
     __syncthreads();
 }
+
 template <typename T, typename EQ, int NTHREAD, int SEQ>
 __forceinline__ __device__ void parsz::cuda::__device::v0::load_fuse_1d(
     EQ*         quant,
@@ -241,6 +277,27 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::load_fuse_1d(
         auto local_id = threadIdx.x + i * NTHREAD;
         auto id       = id_base + local_id;
         if (id < dimx) shmem[local_id] = outlier[id] + static_cast<T>(quant[id]) - radius;
+    }
+    __syncthreads();
+
+#pragma unroll
+    for (auto i = 0; i < SEQ; i++) private_buffer[i] = shmem[threadIdx.x * SEQ + i];
+    __syncthreads();
+}
+
+template <typename T, typename EQ, int NTHREAD, int SEQ>
+__forceinline__ __device__ void parsz::cuda::__device::v0::delta_only::load_1d(
+    EQ*         quant,
+    uint32_t    dimx,
+    uint32_t    id_base,
+    volatile T* shmem,
+    T           private_buffer[SEQ])
+{
+#pragma unroll
+    for (auto i = 0; i < SEQ; i++) {
+        auto local_id = threadIdx.x + i * NTHREAD;
+        auto id       = id_base + local_id;
+        if (id < dimx) shmem[local_id] = static_cast<T>(quant[id]);
     }
     __syncthreads();
 
@@ -277,7 +334,6 @@ template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void parsz::cuda::__device::v0::predict_quantize__no_outlier_1d(  //
     T            private_buffer[SEQ],
     volatile EQ* shmem_quant,
-    int          radius,
     T            prev)
 {
     auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
@@ -537,6 +593,25 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::quantize_write_2d(
     }
 }
 
+template <typename T, typename EQ, int YSEQ>
+__forceinline__ __device__ void parsz::cuda::__device::v0::delta_only::quantize_write_2d(
+    // clang-format off
+    T        delta[YSEQ + 1],
+    uint32_t dimx,  uint32_t gix,
+    uint32_t dimy,  uint32_t giy_base, uint32_t stridey,
+    EQ*      quant
+    // clang-format on
+)
+{
+    auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
+
+#pragma unroll
+    for (auto i = 1; i < YSEQ + 1; i++) {
+        auto gid = get_gid(i - 1);
+        if (gix < dimx and giy_base + (i - 1) < dimy) quant[gid] = static_cast<EQ>(delta[i]);
+    }
+}
+
 template <typename T, typename EQ, int YSEQ, typename OutlierDesc>
 __forceinline__ __device__ void parsz::cuda::__device::v0::compaction::quantize_write_2d(
     // clang-format off
@@ -592,6 +667,30 @@ __forceinline__ __device__ void parsz::cuda::__device::v0::load_fuse_2d(
         // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
         if (gix < dimx and (giy_base + i) < dimy)
             thread_private[i] = outlier[gid] + static_cast<T>(quant[gid]) - radius;  // fuse
+        else
+            thread_private[i] = 0;  // TODO set as init state?
+    }
+}
+
+// load to thread-private array (fuse at the same time)
+template <typename T, typename EQ, int YSEQ>
+__forceinline__ __device__ void parsz::cuda::__device::v0::delta_only::load_2d(
+    // clang-format off
+    EQ*      quant,
+    uint32_t dimx, uint32_t gix,
+    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
+    T        thread_private[YSEQ]
+    // clang-format on
+)
+{
+    auto get_gid = [&](auto iy) { return (giy_base + iy) * stridey + gix; };
+
+#pragma unroll
+    for (auto i = 0; i < YSEQ; i++) {
+        auto gid = get_gid(i);
+        // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
+        if (gix < dimx and (giy_base + i) < dimy)
+            thread_private[i] = static_cast<T>(quant[gid]);  // fuse
         else
             thread_private[i] = 0;  // TODO set as init state?
     }
