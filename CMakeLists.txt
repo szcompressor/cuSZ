@@ -75,8 +75,9 @@ target_link_libraries(parszutils_g PUBLIC parszcompile_settings)
 add_library(parszargp  src/context.cc)
 target_link_libraries(parszargp PUBLIC parszcompile_settings)
 
-add_library(parszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
-target_link_libraries(parszpq PUBLIC parszcompile_settings parszkernel parszkelo)
+# TODO reserve for speeding up compilation
+# add_library(parszpq  src/detail/__to_delete_prediction_impl.cu)
+# target_link_libraries(parszpq PUBLIC parszcompile_settings parszkernel parszkelo)
 
 add_library(parszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
 target_link_libraries(parszspv PUBLIC parszcompile_settings)
@@ -95,7 +96,7 @@ target_link_libraries(parszhf_g PUBLIC parszcompile_settings parszstat_g parszhf
 set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(parszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
-target_link_libraries(parszcomp PUBLIC parszcompile_settings parszstat_g parszhf_g)
+target_link_libraries(parszcomp PUBLIC parszcompile_settings parszkernel parszkelo parszstat_g parszhf_g CUDA::cudart)
 
 add_library(cusz  src/comp.cc)
 target_link_libraries(cusz PUBLIC parszcomp parszargp parszhf_g parszspv parszpq parszstat parszutils_g)
@@ -120,7 +121,7 @@ install(TARGETS parszstat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL
 install(TARGETS parszstat_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszutils_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parsztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS parszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# install(TARGETS parszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszhfbook_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

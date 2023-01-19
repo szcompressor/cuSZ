@@ -46,7 +46,7 @@ struct PredefinedCombination {
     // using PredictorSpline3 = typename cusz::PredictorSpline3<DATA, ERRCTRL, FP>;
 
     /* Lossless Spcodec */
-    using SpcodecMat = typename cusz::SpcodecCSR<DATA, Meta4>;
+    // using SpcodecMat = typename cusz::SpcodecCSR<DATA, Meta4>;
     using SpcodecVec = typename cusz::SpcodecVec<DATA, Meta4>;
 
     /* Lossless Codec*/
