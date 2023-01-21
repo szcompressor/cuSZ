@@ -9,7 +9,7 @@
  *
  */
 
-#include "component/spcodec_vec.hh"
+#include "component/spcodec.inl"
 #include "rand.hh"
 
 #include <cuda_runtime.h>
