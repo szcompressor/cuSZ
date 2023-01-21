@@ -79,7 +79,7 @@ target_link_libraries(parszargp PUBLIC parszcompile_settings)
 # add_library(parszpq  src/detail/__to_delete_prediction_impl.cu)
 # target_link_libraries(parszpq PUBLIC parszcompile_settings parszkernel parszkelo)
 
-add_library(parszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
+add_library(parszspv  src/kernel/spv_gpu.cu)
 target_link_libraries(parszspv PUBLIC parszcompile_settings)
 
 add_library(parszhfbook_g  src/hf/hf_bookg.cu)
@@ -99,7 +99,7 @@ add_library(parszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src
 target_link_libraries(parszcomp PUBLIC parszcompile_settings parszkernel parszkelo parszstat_g parszhf_g CUDA::cudart)
 
 add_library(cusz  src/comp.cc)
-target_link_libraries(cusz PUBLIC parszcomp parszargp parszhf_g parszspv parszpq parszstat parszutils_g)
+target_link_libraries(cusz PUBLIC parszcomp parszargp parszhf_g parszspv parszstat parszutils_g)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)

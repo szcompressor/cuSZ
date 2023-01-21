@@ -207,6 +207,7 @@ cusz_error_status compressor(
 
     cout << "time-eq\t" << time_pq << endl;
 
+    // TODO better namesapce to specify this is a firewall
     accsz::spv_gather<T, M>(data->outlier, data->len, data->val, data->idx, &header_st->nnz, &time_spv, stream);
 
     cout << "time-spv\t" << time_spv << endl;

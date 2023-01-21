@@ -13,8 +13,7 @@
 #define CUSZ_COMPONENT_HH
 
 #include "component/prediction.inl"
-// #include "component/spcodec.hh"
-#include "component/spcodec_vec.hh"
+#include "component/spcodec.inl"
 #include "hf/hf.hh"
 
 #endif

@@ -15,7 +15,7 @@
 // #include <thrust/tuple.h>
 #include <string>
 #include "cli/quality_viewer.hh"
-#include "component/spcodec_vec.hh"
+#include "component/spcodec.inl"
 #include "kernel/spv_gpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/io.hh"
