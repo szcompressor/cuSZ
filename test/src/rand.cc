@@ -9,6 +9,7 @@
  *
  */
 
+#include "rand.hh"
 #include <iostream>
 #include <random>
 
@@ -21,3 +22,40 @@ int randint(size_t upper_limit)
 
     return distribute(gen);
 }
+
+template <typename T = float>
+T randfp(T upper_limit, T lower_limit)
+{
+    std::random_device                rd;
+    std::mt19937                      gen(rd());
+    std::uniform_real_distribution<T> dis(lower_limit, upper_limit);
+
+    return dis(gen);
+}
+
+template <>
+void rand_array<int>(int* array, size_t len)
+{
+    for (auto i = 0; i < len; i++) { array[i] = randint(1000); }
+}
+
+template <>
+void rand_array<float>(float* array, size_t len)
+{
+    for (auto i = 0; i < len / 2; i++) {
+        auto idx   = randint(len);
+        array[idx] = randfp<float>();
+    }
+}
+
+template <>
+void rand_array<double>(double* array, size_t len)
+{
+    for (auto i = 0; i < len / 5; i++) {
+        auto idx   = randint(len);
+        array[idx] = randfp<double>();
+    }
+}
+
+template float  randfp<float>(float, float);
+template double randfp<double>(double, double);

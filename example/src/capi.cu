@@ -14,6 +14,7 @@
 
 #include "cli/quality_viewer.hh"
 #include "cli/timerecord_viewer.hh"
+#include "utils/print_gpu.hh"
 
 template <typename T>
 void f(std::string fname)
@@ -33,12 +34,6 @@ void f(std::string fname)
     size_t uncompressed_memlen = len * 1.03;
     size_t decompressed_memlen = uncompressed_memlen;
 
-    /* code snippet for looking at the device array easily */
-    auto peek_devdata = [](T* d_arr, size_t num = 20) {
-        thrust::for_each(thrust::device, d_arr, d_arr + num, [=] __device__ __host__(const T i) { printf("%f\t", i); });
-        printf("\n");
-    };
-
     // clang-format off
     cudaMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
     cudaMallocHost( &h_uncompressed, sizeof(T) * len );
@@ -52,7 +47,7 @@ void f(std::string fname)
 
     /* a casual peek */
     printf("peeking uncompressed data, 20 elements\n");
-    peek_devdata(d_uncompressed, 20);
+    accsz::peek_device_data(d_uncompressed, 20);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -111,10 +106,9 @@ void f(std::string fname)
 
     /* a casual peek */
     printf("peeking decompressed data, 20 elements\n");
-    peek_devdata(d_decompressed, 20);
+    accsz::peek_device_data(d_decompressed, 20);
 
     /* demo: offline checking (de)compression quality. */
-    /* load data again    */ cudaMemcpy(d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len, compressed_len);
 
     cusz_release(comp);

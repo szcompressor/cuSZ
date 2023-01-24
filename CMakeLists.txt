@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(CUSZ LANGUAGES CUDA CXX VERSION 0.3.0)
+project(CUSZ LANGUAGES CUDA CXX C VERSION 0.3.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -20,9 +20,9 @@ configure_file(
   )
 
 
-add_library(cuszcompile_settings INTERFACE)
+add_library(parszcompile_settings INTERFACE)
 if(CUB_FOUND)
-	target_link_libraries(cuszcompile_settings INTERFACE CUB::CUB)
+	target_link_libraries(parszcompile_settings INTERFACE CUB::CUB)
 else()
 	message(WARNING "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub")
  set(CMAKE_FIND_DEBUG_MODE TRUE)
@@ -30,15 +30,15 @@ else()
 	add_library(CUB INTERFACE)
 	get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY )
 	target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
-	target_link_libraries(cuszcompile_settings INTERFACE CUB)
+	target_link_libraries(parszcompile_settings INTERFACE CUB)
 	install(TARGETS CUB EXPORT CUSZTargets)
 endif()
-target_compile_definitions(cuszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
-target_compile_options(cuszcompile_settings INTERFACE
+target_compile_definitions(parszcompile_settings INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
+target_compile_options(parszcompile_settings INTERFACE
   $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda --expt-relaxed-constexpr -Wno-deprecated-declarations>
   )
-target_compile_features(cuszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
-target_include_directories(cuszcompile_settings INTERFACE
+target_compile_features(parszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
+target_include_directories(parszcompile_settings INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
@@ -46,30 +46,54 @@ target_include_directories(cuszcompile_settings INTERFACE
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
   )
 
-add_library(cuszkernel  src/kernel/claunch_cuda.cu src/kernel/claunch_cuda_proto.cu)
-target_link_libraries(cuszkernel PUBLIC cuszcompile_settings)
+## seprate later
+add_library(parsztimer  src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
+target_link_libraries(parsztimer PUBLIC parszcompile_settings)
 
-add_library(cuszargp  src/context.cc)
-target_link_libraries(cuszargp PUBLIC cuszcompile_settings)
+add_library(parszkelo  src/kernel/lorenzo.cu src/kernel/lorenzo_var.cu src/kernel/lorenzo_proto.cu)
+target_link_libraries(parszkelo PUBLIC parszcompile_settings)
 
-add_library(cuszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
-target_link_libraries(cuszpq PUBLIC cuszcompile_settings cuszkernel)
+add_library(parszstat  src/stat/compare_cpu.cc)
+target_link_libraries(parszstat PUBLIC parszcompile_settings)
 
-add_library(cuszspv  src/component/spcodec_vec.cc src/detail/spvec.cu)
-target_link_libraries(cuszspv PUBLIC cuszcompile_settings)
+add_library(parszstat_g  
+  src/stat/cmpg1_1.cu src/stat/cmpg1_2.cu src/stat/cmpg1_3.cu src/stat/cmpg1_4.cu src/stat/cmpg1_5.cu 
+  src/stat/cmpg2.cu src/stat/cmpg3.cu 
+  src/stat/cmpg4_1.cu src/stat/cmpg4_2.cu src/stat/cmpg4_3.cu src/stat/cmpg4_4.cu 
+  src/stat/stat_g.cu)
+target_link_libraries(parszstat_g PUBLIC parszcompile_settings)
 
-add_library(cuszspm  src/component/spcodec.cc src/detail/spmat.cu)
-target_link_libraries(cuszspm PUBLIC cuszcompile_settings CUDA::cusparse)
+add_library(parszkernel  src/kernel/claunch_cuda.cu)
+target_link_libraries(parszkernel PUBLIC parszcompile_settings parsztimer)
 
-add_library(cuszhuff  src/component/codec.cc src/kernel/huffman_parbook.cu src/detail/huffman_coarse.cu)
-target_link_libraries(cuszhuff PUBLIC cuszcompile_settings CUDA::cuda_driver cuszkernel)
-set_target_properties(cuszhuff PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_library(parszutils_g  src/utils/print_gpu.cu)
+target_link_libraries(parszutils_g PUBLIC parszcompile_settings)
 
-add_library(cuszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
-target_link_libraries(cuszcomp PUBLIC cuszcompile_settings)
+add_library(parszargp  src/context.cc)
+target_link_libraries(parszargp PUBLIC parszcompile_settings)
+
+add_library(parszpq  src/component/prediction.cc src/detail/prediction_impl.cu)
+target_link_libraries(parszpq PUBLIC parszcompile_settings parszkernel parszkelo)
+
+add_library(parszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
+target_link_libraries(parszspv PUBLIC parszcompile_settings)
+
+# add_library(parszspm  src/component/spcodec.cc src/detail/spmat.cu)
+# target_link_libraries(parszspm PUBLIC parszcompile_settings CUDA::cusparse)
+
+add_library(parszhfbook_g   src/hf/hf_bookg.cu)
+target_link_libraries(parszhfbook_g PUBLIC parszcompile_settings CUDA::cuda_driver)
+set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_library(parszhf_g  src/hf/hf.cc src/hf/hf_pimpl.cu src/hf/hf_codecg.cu)
+target_link_libraries(parszhf_g PUBLIC parszcompile_settings parszstat_g parszhfbook_g)
+set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_library(parszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
+target_link_libraries(parszcomp PUBLIC parszcompile_settings parszstat_g parszhf_g)
 
 add_library(cusz  src/comp.cc src/cuszapi.cc)
-target_link_libraries(cusz PUBLIC cuszcomp cuszargp cuszhuff cuszspm cuszspv cuszpq)
+target_link_libraries(cusz PUBLIC parszcomp parszargp parszhf_g parszspv parszpq parszstat parszutils_g)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -84,14 +108,20 @@ if (BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
-install(TARGETS cuszcompile_settings EXPORT CUSZTargets)
-install(TARGETS cuszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszhuff EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS cuszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszcompile_settings EXPORT CUSZTargets)
+install(TARGETS parszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszkelo EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszstat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszstat_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszutils_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parsztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# install(TARGETS parszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszhfbook_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszhf_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
 install(EXPORT CUSZTargets NAMESPACE CUSZ:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)

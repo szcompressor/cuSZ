@@ -4,6 +4,7 @@
  * @brief
  * @version 0.3
  * @date 2022-04-09
+ * @deprecated 0.3.2
  *
  * (C) 2022 by Washington State University, Argonne National Laboratory
  *
@@ -12,13 +13,14 @@
 #ifndef QUALITY_VIEWER_HH
 #define QUALITY_VIEWER_HH
 
+// 22-11-20 would fail in cxxapi.cu if deleted
 #include <thrust/equal.h>
 
 #include "../common/capsule.hh"
 #include "../common/definition.hh"
 #include "../header.h"
+#include "../stat/compare_gpu.hh"
 #include "verify.hh"
-#include "verify_gpu.cuh"
 
 namespace cusz {
 
@@ -27,28 +29,6 @@ const static auto DEVICE      = cusz::LOC::DEVICE;
 const static auto HOST_DEVICE = cusz::LOC::HOST_DEVICE;
 
 struct QualityViewer {
-    template <typename Data>
-    static void identical(cusz_execution_policy const policy, Data* d1, Data* d2, size_t const len)
-    {
-        bool result;
-
-        if (policy == CUSZ_CPU) {  //
-            result = thrust::equal(thrust::host, d1, d1 + len, d2);
-        }
-        else if (policy == CUSZ_GPU) {
-            result = thrust::equal(thrust::device, d1, d1 + len, d2);
-        }
-        else {
-            printf("Not a valid execution policy, exiting...\n");
-            exit(-1);
-        }
-
-        if (result)
-            cout << ">>>>  IDENTICAL." << endl;
-        else
-            cout << "!!!!  ERROR: NOT IDENTICAL." << endl;
-    }
-
     template <typename Data>
     static void print_metrics_cross(cusz_stats* s, size_t compressed_bytes = 0, bool gpu_checker = false)
     {
@@ -98,13 +78,13 @@ struct QualityViewer {
     {
         // cross
         auto stat_x = new cusz_stats;
-        verify_data_GPU<T>(stat_x, reconstructed, origin, len);
+        parsz::thrustgpu_assess_quality<T>(stat_x, reconstructed, origin, len);
         print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
         auto stat_auto_lag1 = new cusz_stats;
-        verify_data_GPU<T>(stat_auto_lag1, origin, origin + 1, len - 1);
+        parsz::thrustgpu_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
         auto stat_auto_lag2 = new cusz_stats;
-        verify_data_GPU<T>(stat_auto_lag2, origin, origin + 2, len - 2);
+        parsz::thrustgpu_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
         print_metrics_auto(&stat_auto_lag1->reduced.coeff, &stat_auto_lag2->reduced.coeff);
     }

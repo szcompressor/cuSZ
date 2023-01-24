@@ -12,9 +12,9 @@
 #ifndef CUSZ_COMPONENT_HH
 #define CUSZ_COMPONENT_HH
 
-#include "component/codec.hh"
 #include "component/prediction.hh"
 #include "component/spcodec.hh"
 #include "component/spcodec_vec.hh"
+#include "hf/hf.hh"
 
 #endif

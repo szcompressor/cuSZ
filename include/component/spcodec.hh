@@ -138,4 +138,6 @@ struct SpcodecCSR<T, M>::impl::runtime_encode_helper {
 
 }  // namespace cusz
 
+#undef DEFINE_ARRAY
+
 #endif

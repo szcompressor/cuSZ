@@ -15,8 +15,6 @@
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
-
-#include "../utils/timer.hh"
 #include "spcodec.hh"
 
 // when using nvcc, functors must be defined outside a (__host__) function

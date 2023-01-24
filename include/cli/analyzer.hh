@@ -24,9 +24,9 @@
 #include <algorithm>
 #include <numeric>
 
-// #include "../component/huffman_coarse.cuh"
-#include "../kernel/codec_huffman.cuh"
-#include "../kernel/hist.cuh"
+#include "../hf/hf_bookg.hh"
+#include "../hf/hf_codecg.hh"
+#include "../kernel/cpplaunch_cuda.hh"
 #include "../utils/timer.hh"
 
 using std::cout;

@@ -1,12 +1,12 @@
 [submodule "external/cub"]
-	path = external/cub
+	path = third_party/cub
 	url = https://github.com/NVIDIA/cub
 	ignore = dirty
 [submodule "external/nvcomp"]
-	path = external/nvcomp
+	path = third_party/nvcomp
 	url = https://github.com/NVIDIA/nvcomp
 	ignore = dirty
 [submodule "external/googletest"]
-	path = external/googletest
+	path = third_party/googletest
 	url = https://github.com/google/googletest
 	ignore = dirty

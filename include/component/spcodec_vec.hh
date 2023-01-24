@@ -114,4 +114,6 @@ struct SpcodecVec<T, M>::impl::runtime_encode_helper {
 
 }  // namespace cusz
 
+#undef DEFINE_ARRAY
+
 #endif /* CF358238_3946_4FFC_B5E6_45C12F0C0B44 */
