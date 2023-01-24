@@ -135,14 +135,9 @@ void IMPL::compress(
     auto   booklen = radius * 2;
 
     auto derive_lengths_after_prediction = [&]() {
-        data_len    = (*predictor).get_len_data();
-        errctrl_len = (*predictor).get_len_quant();
-
-        // data_len    = (*prediction).get_len_data();
-        // errctrl_len = (*prediction).get_len_quant();
-
-        auto m        = Reinterpret1DTo2D::get_square_size(data_len);
-        spcodec_inlen = m * m;
+        data_len      = predictor->get_len_data();
+        errctrl_len   = data_len;
+        spcodec_inlen = data_len;
         sublen        = ConfigHelper::get_npart(data_len, pardeg);
 
         // std::cout << "datalen\t" << data_len << '\n';
