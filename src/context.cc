@@ -22,8 +22,8 @@
 #include "context.hh"
 
 namespace cusz {
-const char* VERSION_TEXT  = "2022-10-27 (unstable; based on v0.3.1)";
-const int   VERSION       = 20221027;
+const char* VERSION_TEXT  = "2023-01-23 (unstable; pre-0.4)";
+const int   VERSION       = 20230123;
 const int   COMPATIBILITY = 0;
 }  // namespace cusz
 
