@@ -24,7 +24,4 @@ int main(int argc, char** argv)
 
     cusz::CLI<float> cusz_cli;
     cusz_cli.dispatch(ctx);
-
-    // if (ctx->predictor == "lorenzo") defaultpath(ctx);
-    // if (ctx->predictor == "spline3") sparsitypath_spline3(ctx);
 }

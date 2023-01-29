@@ -19,7 +19,8 @@
 #include "cli/dryrun_part.cuh"
 #include "cli/query.hh"
 #include "cli/timerecord_viewer.hh"
-#include "cuszapi.hh"
+#include "cusz.h"
+#include "framework.hh"
 
 namespace cusz {
 
@@ -40,7 +41,7 @@ class CLI {
     CLI() = default;
 
     template <class Predictor>
-    static void dryrun(context_t ctx, bool dualquant = true)
+    static void cli_dryrun(context_t ctx, bool dualquant = true)
     {
         BaseCompressor<Predictor> analysis;
 
@@ -78,26 +79,26 @@ class CLI {
         if (not skip_write) xdata.device2host().template to_file<HOST>(basename + ".cuszx");
     }
 
-    template <typename compressor_t>
-    void construct(context_t ctx, compressor_t compressor, cudaStream_t stream)
+    // template <typename compressor_t>
+    void cli_construct(context_t ctx, cusz_compressor* compressor, cudaStream_t stream)
     {
         Capsule<T> input("uncompressed");
         BYTE*      compressed;
         size_t     compressed_len;
         Header     header;
-        auto       len      = (*ctx).get_len();
-        auto       basename = (*ctx).fname.fname;
+        auto       len      = ctx->get_len();
+        auto       basename = ctx->fname.fname;
 
         auto load_uncompressed = [&](std::string fname) {
             input
                 .set_len(len)  //
-                .template alloc<HOST_DEVICE>(1.03)
+                .template alloc<HOST_DEVICE>()
                 .template from_file<HOST>(fname)
                 .host2device();
         };
 
         auto adjust_eb = [&]() {
-            if ((*ctx).mode == "r2r") (*ctx).eb *= input.prescan().get_rng();
+            if (ctx->mode == "r2r") ctx->eb *= input.prescan().get_rng();
         };
 
         /******************************************************************************/
@@ -107,14 +108,21 @@ class CLI {
 
         TimeRecord timerecord;
 
-        core_compress(compressor, ctx, input.dptr, len * 1.03, compressed, compressed_len, header, stream, &timerecord);
+        // core_compress(compressor, ctx, input.dptr, len, compressed, compressed_len, header, stream, &timerecord);
+
+        cusz_config* config     = new cusz_config{.eb = ctx->eb, .mode = Rel};
+        cusz_len     uncomp_len = cusz_len{ctx->x, ctx->y, ctx->z, 1};
+
+        cusz_compress(
+            compressor, config, input.dptr, uncomp_len, &compressed, &compressed_len, &header, (void*)&timerecord,
+            stream);
 
         if (ctx->report.time) TimeRecordViewer::view_compression(&timerecord, input.nbyte(), compressed_len);
         write_compressed_to_disk(basename + ".cusza", compressed, compressed_len);
     }
 
-    template <typename compressor_t>
-    void reconstruct(context_t ctx, compressor_t compressor, cudaStream_t stream)
+    // template <typename compressor_t>
+    void cli_reconstruct(context_t ctx, cusz_compressor* compressor, cudaStream_t stream)
     {
         Capsule<BYTE> compressed("compressed");
         Capsule<T>    decompressed("decompressed"), original("cmp");
@@ -137,55 +145,47 @@ class CLI {
 
         decompressed  //
             .set_len(len)
-            .template alloc<HOST_DEVICE>(1.03);
+            .template alloc<HOST_DEVICE>();
         original.set_len(len);
 
         TimeRecord timerecord;
 
-        core_decompress(
-            compressor, header, compressed.dptr, ConfigHelper::get_filesize(header), decompressed.dptr, len * 1.03,
-            stream, &timerecord);
+        // core_decompress(
+        //     compressor, header, compressed.dptr, ConfigHelper::get_filesize(header), decompressed.dptr, len, stream,
+        //     &timerecord);
+
+        cusz_len decomp_len = cusz_len{header->x, header->y, header->z, 1};
+
+        cusz_decompress(
+            compressor, header, compressed.dptr, ConfigHelper::get_filesize(header), decompressed.dptr, decomp_len,
+            (void*)&timerecord, stream);
 
         if (ctx->report.time) TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
         QualityViewer::view(header, decompressed, original, (*ctx).fname.origin_cmp);
         try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);
+
+        decompressed.template free<HOST_DEVICE>();
     }
 
    public:
     // TODO determine dtype & predictor in here
     void dispatch(context_t ctx)
     {
-        auto predictor = (*ctx).predictor;
-        if (predictor == "lorenzo") {
-            using Compressor = typename Framework<Data>::LorenzoFeaturedCompressor;
-            dispatch_task<Compressor>(ctx);
-        }
-        else if (predictor == "spline3") {
-            // using Compressor = typename Framework<Data>::Spline3FeaturedCompressor;
-            throw std::runtime_error("Spline3 based compressor is not ready.");
-            // dispatch_task<Compressor>(ctx);
-        }
-        else {
-            using Compressor = typename Framework<Data>::DefaultCompressor;
-            dispatch_task<Compressor>(ctx);
-        }
-    }
+        // TODO disable predictor selection; to specify in another way
+        // auto predictor = (*ctx).predictor;
 
-   private:
-    template <class Compressor>
-    void dispatch_task(context_t ctx)
-    {
-        using Predictor = typename Compressor::Predictor;
-        auto compressor = new Compressor;
+        cusz_framework*  framework  = cusz_default_framework();
+        cusz_compressor* compressor = cusz_create(framework, FP32);
 
         cudaStream_t stream;
         CHECK_CUDA(cudaStreamCreate(&stream));
 
-        if ((*ctx).cli_task.dryrun) dryrun<Predictor>(ctx);
+        // TODO hardcoded predictor type
+        if ((*ctx).cli_task.dryrun) cli_dryrun<typename PredefinedCombination<float>::PredictionUnified>(ctx);
 
-        if ((*ctx).cli_task.construct) construct(ctx, compressor, stream);
+        if ((*ctx).cli_task.construct) cli_construct(ctx, compressor, stream);
 
-        if ((*ctx).cli_task.reconstruct) reconstruct(ctx, compressor, stream);
+        if ((*ctx).cli_task.reconstruct) cli_reconstruct(ctx, compressor, stream);
 
         if (stream) cudaStreamDestroy(stream);
     }

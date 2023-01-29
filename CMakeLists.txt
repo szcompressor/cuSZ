@@ -78,10 +78,7 @@ target_link_libraries(parszpq PUBLIC parszcompile_settings parszkernel parszkelo
 add_library(parszspv  src/kernel/spv_gpu.cu src/component/spcodec_vec.cc src/detail/spvec.cu)
 target_link_libraries(parszspv PUBLIC parszcompile_settings)
 
-# add_library(parszspm  src/component/spcodec.cc src/detail/spmat.cu)
-# target_link_libraries(parszspm PUBLIC parszcompile_settings CUDA::cusparse)
-
-add_library(parszhfbook_g   src/hf/hf_bookg.cu)
+add_library(parszhfbook_g  src/hf/hf_bookg.cu)
 target_link_libraries(parszhfbook_g PUBLIC parszcompile_settings CUDA::cuda_driver)
 set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
@@ -92,7 +89,7 @@ set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 add_library(parszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
 target_link_libraries(parszcomp PUBLIC parszcompile_settings parszstat_g parszhf_g)
 
-add_library(cusz  src/comp.cc src/cuszapi.cc)
+add_library(cusz  src/comp.cc)
 target_link_libraries(cusz PUBLIC parszcomp parszargp parszhf_g parszspv parszpq parszstat parszutils_g)
 
 add_executable(cusz-bin  src/cli_bin.cu src/cli/cli.cu)
@@ -116,7 +113,6 @@ install(TARGETS parszstat_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTA
 install(TARGETS parszutils_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parsztimer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszpq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-# install(TARGETS parszspm EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszspv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszhfbook_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
