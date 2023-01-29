@@ -118,7 +118,7 @@ typedef struct cusz_custom_len {
     union { size_t x1, y; };
     union { size_t x2, z; };
     union { size_t x3, w; };
-    double factor;
+    // double factor;
     // clang-format on
 } cusz_custom_len;
 typedef cusz_custom_len cusz_len;

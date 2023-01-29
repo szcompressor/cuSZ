@@ -81,9 +81,6 @@ cusz_error_status cusz_compressor::compress(
     // Be cautious of autotuning! The default value of pardeg is not robust.
     cusz::CompressorHelper::autotune_coarse_parvle(static_cast<cusz_context*>(context));
 
-    // TODO how to check effectively?
-    size_t len1d = uncomp_len.x * uncomp_len.y * uncomp_len.z * uncomp_len.factor;
-
     if (type == FP32) {
         using DATA       = float;
         using Compressor = cusz::Framework<DATA>::DefaultCompressor;

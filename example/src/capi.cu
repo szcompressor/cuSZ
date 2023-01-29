@@ -10,7 +10,6 @@
  */
 
 #include "cusz.h"
-#include "cuszapi.hh"
 
 #include "cli/quality_viewer.hh"
 #include "cli/timerecord_viewer.hh"
@@ -30,16 +29,8 @@ void f(std::string fname)
     T *d_uncompressed, *h_uncompressed;
     T *d_decompressed, *h_decompressed;
 
-    /* cuSZ requires a 3% overhead on device (not required on host). */
-    size_t uncompressed_memlen = len * 1.03;
-    size_t decompressed_memlen = uncompressed_memlen;
-
-    // clang-format off
-    cudaMalloc(     &d_uncompressed, sizeof(T) * uncompressed_memlen );
-    cudaMallocHost( &h_uncompressed, sizeof(T) * len );
-    cudaMalloc(     &d_decompressed, sizeof(T) * decompressed_memlen );
-    cudaMallocHost( &h_decompressed, sizeof(T) * len );
-    // clang-format on
+    cudaMalloc(&d_uncompressed, sizeof(T) * len), cudaMallocHost(&h_uncompressed, sizeof(T) * len);
+    cudaMalloc(&d_decompressed, sizeof(T) * len), cudaMallocHost(&h_decompressed, sizeof(T) * len);
 
     /* User handles loading from filesystem & transferring to device. */
     io::read_binary_to_array(fname, h_uncompressed, len);
@@ -72,7 +63,7 @@ void f(std::string fname)
 
     cusz_compressor* comp       = cusz_create(framework, FP32);
     cusz_config*     config     = new cusz_config{.eb = 2.4e-4, .mode = Rel};
-    cusz_len         uncomp_len = cusz_len{3600, 1800, 1, 1, 1.03};
+    cusz_len         uncomp_len = cusz_len{3600, 1800, 1, 1};  // x, y, z, w
     cusz_len         decomp_len = uncomp_len;
 
     cusz::TimeRecord compress_timerecord;
@@ -114,7 +105,6 @@ void f(std::string fname)
     cusz_release(comp);
 
     cudaFree(compressed);
-    // delete compressor;
 
     cudaStreamDestroy(stream);
 }
