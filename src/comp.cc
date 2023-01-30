@@ -4,6 +4,7 @@
  * @brief
  * @version 0.3
  * @date 2022-05-01
+ * (rev.1) 2023-01-29
  *
  * (C) 2022 by Washington State University, Argonne National Laboratory
  *
@@ -15,21 +16,28 @@
 #include <thrust/extrema.h>
 
 #include "component.hh"
+#include "compressor.hh"
+#include "context.hh"
 #include "cusz.h"
-#include "cusz/cc2c.h"
+#include "cusz/custom.h"
+#include "cusz/type.h"
+#include "framework.hh"
 
-cusz_compressor* cusz_create(cusz_framework* framework, cusz_datatype type)
+cusz_compressor* cusz_create(cusz_framework* _framework, cusz_datatype _type)
 {
-    return new cusz_compressor(framework, type);
-}
+    auto comp = new cusz_compressor{.framework = _framework, .type = _type};
 
-cusz_error_status cusz_commit_space(cusz_compressor* comp, cusz_len const reserved_mem, cusz_framework* adjusted)
-{
-    if (adjusted)
-        return comp->commit_space(reserved_mem, adjusted);
-    else {
+    if (comp->type == FP32) {
+        using DATA       = float;
+        using Compressor = cusz::Framework<DATA>::DefaultCompressor;
+
+        comp->compressor = new Compressor();
     }
-    return CUSZ_SUCCESS;
+    else {
+        throw std::runtime_error("Type is not supported.");
+    }
+
+    return comp;
 }
 
 cusz_error_status cusz_release(cusz_compressor* comp)
@@ -49,7 +57,35 @@ cusz_error_status cusz_compress(
     void*            record,
     cudaStream_t     stream)
 {
-    return comp->compress(config, uncompressed, uncomp_len, compressed, comp_bytes, header, record, stream);
+    // return comp->compress(config, uncompressed, uncomp_len, compressed, comp_bytes, header, record, stream);
+
+    // cusz::TimeRecord cpp_record;
+
+    auto context = new cusz_context();
+    (*context)
+        .set_len(uncomp_len.x, uncomp_len.y, uncomp_len.z, uncomp_len.w)
+        .set_eb(config->eb)
+        .set_control_string(config->eb == Rel ? "mode=r2r" : "mode=abs");
+
+    // Be cautious of autotuning! The default value of pardeg is not robust.
+    cusz::CompressorHelper::autotune_coarse_parvle(static_cast<cusz_context*>(context));
+
+    if (comp->type == FP32) {
+        using DATA       = float;
+        using Compressor = cusz::Framework<DATA>::DefaultCompressor;
+
+        // TODO add memlen & datalen comparison
+        static_cast<Compressor*>(comp->compressor)->init(context);
+        static_cast<Compressor*>(comp->compressor)
+            ->compress(context, static_cast<DATA*>(uncompressed), *compressed, *comp_bytes, stream);
+        static_cast<Compressor*>(comp->compressor)->export_header(*header);
+        static_cast<Compressor*>(comp->compressor)->export_timerecord((cusz::TimeRecord*)record);
+    }
+    else {
+        throw std::runtime_error(std::string(__FUNCTION__) + ": Type is not supported.");
+    }
+
+    return CUSZ_SUCCESS;
 }
 
 cusz_error_status cusz_decompress(
@@ -62,5 +98,22 @@ cusz_error_status cusz_decompress(
     void*            record,
     cudaStream_t     stream)
 {
-    return comp->decompress(header, compressed, comp_len, decompressed, decomp_len, record, stream);
+    // return comp->decompress(header, compressed, comp_len, decompressed, decomp_len, record, stream);
+
+    // cusz::TimeRecord cpp_record;
+
+    if (comp->type == FP32) {
+        using DATA       = float;
+        using Compressor = cusz::Framework<DATA>::DefaultCompressor;
+
+        static_cast<Compressor*>(comp->compressor)->init(header);
+        static_cast<Compressor*>(comp->compressor)
+            ->decompress(header, compressed, static_cast<DATA*>(decompressed), stream);
+        static_cast<Compressor*>(comp->compressor)->export_timerecord((cusz::TimeRecord*)record);
+    }
+    else {
+        throw std::runtime_error(std::string(__FUNCTION__) + ": Type is not supported.");
+    }
+
+    return CUSZ_SUCCESS;
 }
