@@ -1,5 +1,5 @@
 /**
- * @file comp.cc
+ * @file cusz_lib.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -29,7 +29,7 @@ cusz_compressor* cusz_create(cusz_framework* _framework, cusz_datatype _type)
 
     if (comp->type == FP32) {
         using DATA       = float;
-        using Compressor = cusz::Framework<DATA>::DefaultCompressor;
+        using Compressor = cusz::CompressorFP32;
 
         comp->compressor = new Compressor();
     }
@@ -57,8 +57,6 @@ cusz_error_status cusz_compress(
     void*            record,
     cudaStream_t     stream)
 {
-    // return comp->compress(config, uncompressed, uncomp_len, compressed, comp_bytes, header, record, stream);
-
     // cusz::TimeRecord cpp_record;
 
     auto context = new cusz_context();
@@ -72,7 +70,7 @@ cusz_error_status cusz_compress(
 
     if (comp->type == FP32) {
         using DATA       = float;
-        using Compressor = cusz::Framework<DATA>::DefaultCompressor;
+        using Compressor = cusz::CompressorFP32;
 
         // TODO add memlen & datalen comparison
         static_cast<Compressor*>(comp->compressor)->init(context);
@@ -98,13 +96,11 @@ cusz_error_status cusz_decompress(
     void*            record,
     cudaStream_t     stream)
 {
-    // return comp->decompress(header, compressed, comp_len, decompressed, decomp_len, record, stream);
-
     // cusz::TimeRecord cpp_record;
 
     if (comp->type == FP32) {
         using DATA       = float;
-        using Compressor = cusz::Framework<DATA>::DefaultCompressor;
+        using Compressor = cusz::CompressorFP32;
 
         static_cast<Compressor*>(comp->compressor)->init(header);
         static_cast<Compressor*>(comp->compressor)
