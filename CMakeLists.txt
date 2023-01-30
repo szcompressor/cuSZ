@@ -95,7 +95,7 @@ add_library(parszhf_g  src/hf/hf.cc src/hf/hf_pimpl.cu src/hf/hf_codecg.cu)
 target_link_libraries(parszhf_g PUBLIC parszcompile_settings parszstat_g parszhfbook_g)
 set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(parszcomp  src/cusz/cc2c.cc src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
+add_library(parszcomp  src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
 target_link_libraries(parszcomp PUBLIC parszcompile_settings parszkernel parszkelo parszstat_g parszhf_g CUDA::cudart)
 
 add_library(cusz  src/comp.cc)

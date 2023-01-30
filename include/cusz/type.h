@@ -165,6 +165,10 @@ typedef struct cusz_custom_spcodec {
 } cusz_custom_spcodec;
 
 ////// wrap-up
+
+/**
+ * @deprecated The framework could be simplifed & unified.
+ */
 typedef struct cusz_custom_framework {
     cusz_datatype     datatype;
     cusz_pipelinetype pipeline;
@@ -178,6 +182,14 @@ typedef struct cusz_custom_framework {
 } cusz_custom_framework;
 
 typedef cusz_custom_framework cusz_framework;
+
+typedef struct cusz_compressor_redundancy_compat_purpose {
+    void*           compressor;
+    cusz_framework* framework;
+    cusz_datatype   type;
+} cusz_compressor_compat;
+
+typedef cusz_compressor_compat cusz_compressor;
 
 typedef struct cusz_runtime_config {
     double    eb;

@@ -20,17 +20,12 @@ extern "C" {
 
 #include <stddef.h>
 
-#include "cusz/cc2c.h"
 #include "cusz/custom.h"
 #include "cusz/record.h"
 #include "cusz/type.h"
 #include "header.h"
 
-typedef struct cusz_compressor cusz_compressor;
-
 cusz_compressor* cusz_create(cusz_framework* framework, cusz_datatype const type);
-
-cusz_error_status cusz_commit_space(cusz_fixedlen_internal const* fixedlen, cusz_varlen_internal const* varlen);
 
 cusz_error_status cusz_release(cusz_compressor* comp);
 
