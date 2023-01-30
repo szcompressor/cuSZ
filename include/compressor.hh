@@ -28,9 +28,9 @@
     using FallbackCodec = typename BINDING::FallbackCodec;             \
     using BYTE          = uint8_t;                                     \
                                                                        \
-    using T    = typename Predictor::Origin;                           \
-    using FP   = typename Predictor::Precision;                        \
-    using E    = typename Predictor::ErrCtrl;                          \
+    using T    = typename BINDING::DATA;                               \
+    using FP   = typename BINDING::FP;                                 \
+    using E    = typename BINDING::ERRCTRL;                            \
     using H    = typename Codec::Encoded;                              \
     using M    = typename Codec::MetadataT;                            \
     using H_FB = typename FallbackCodec::Encoded;                      \

@@ -108,8 +108,6 @@ class CLI {
 
         TimeRecord timerecord;
 
-        // core_compress(compressor, ctx, input.dptr, len, compressed, compressed_len, header, stream, &timerecord);
-
         cusz_config* config     = new cusz_config{.eb = ctx->eb, .mode = Rel};
         cusz_len     uncomp_len = cusz_len{ctx->x, ctx->y, ctx->z, 1};
 
@@ -150,10 +148,6 @@ class CLI {
 
         TimeRecord timerecord;
 
-        // core_decompress(
-        //     compressor, header, compressed.dptr, ConfigHelper::get_filesize(header), decompressed.dptr, len, stream,
-        //     &timerecord);
-
         cusz_len decomp_len = cusz_len{header->x, header->y, header->z, 1};
 
         cusz_decompress(
@@ -181,7 +175,7 @@ class CLI {
         CHECK_CUDA(cudaStreamCreate(&stream));
 
         // TODO hardcoded predictor type
-        if ((*ctx).cli_task.dryrun) cli_dryrun<typename PredefinedCombination<float>::PredictionUnified>(ctx);
+        if ((*ctx).cli_task.dryrun) cli_dryrun<typename Framework<float>::Predictor>(ctx);
 
         if ((*ctx).cli_task.construct) cli_construct(ctx, compressor, stream);
 
