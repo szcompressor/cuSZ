@@ -20,6 +20,7 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
+#include <thrust/sort.h>
 
 #include <algorithm>
 #include <numeric>

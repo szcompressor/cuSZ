@@ -11,6 +11,7 @@
 
 #ifndef A54D2009_1D4F_4113_9E26_9695A3669224
 #define A54D2009_1D4F_4113_9E26_9695A3669224
+#include <cstdint>
 
 namespace accsz {
 
