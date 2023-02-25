@@ -11,9 +11,9 @@
 
 #include <stdint.h>
 #include <type_traits>
+#include "pipeline/compaction_g.inl"
 #include "pn.hh"
 #include "subsub.inl"
-#include "typing.inl"
 
 namespace parsz {
 namespace cuda {

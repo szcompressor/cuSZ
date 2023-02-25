@@ -12,11 +12,11 @@
 #ifndef CUSZ_COMPRESSOR_HH
 #define CUSZ_COMPRESSOR_HH
 
+#include <cuda_runtime.h>
 #include <memory>
 
-#include <cuda_runtime.h>
-
 #include "common/type_traits.hh"
+#include "compaction.hh"
 #include "component.hh"
 #include "context.hh"
 #include "header.h"
@@ -48,7 +48,21 @@ struct CompressorHelper {
 template <class BINDING>
 class Compressor {
    public:
-    PUBLIC_TYPES
+    using Predictor     = typename BINDING::Predictor;
+    using Spcodec       = typename BINDING::Spcodec;
+    using Codec         = typename BINDING::Codec;
+    using FallbackCodec = typename BINDING::FallbackCodec;
+    using BYTE          = uint8_t;
+
+    using T    = typename Predictor::Origin;
+    using FP   = typename Predictor::Precision;
+    using E    = typename Predictor::ErrCtrl;
+    using H    = typename Codec::Encoded;
+    using M    = typename Codec::MetadataT;
+    using H_FB = typename FallbackCodec::Encoded;
+
+    using TimeRecord   = std::vector<std::tuple<const char*, double>>;
+    using timerecord_t = TimeRecord*;
 
    private:
     class impl;
@@ -78,7 +92,21 @@ class Compressor {
 template <class BINDING>
 class Compressor<BINDING>::impl {
    public:
-    PUBLIC_TYPES
+    using Predictor     = typename BINDING::Predictor;
+    using Spcodec       = typename BINDING::Spcodec;
+    using Codec         = typename BINDING::Codec;
+    using FallbackCodec = typename BINDING::FallbackCodec;
+    using BYTE          = uint8_t;
+
+    using T    = typename Predictor::Origin;
+    using FP   = typename Predictor::Precision;
+    using E    = typename Predictor::ErrCtrl;
+    using H    = typename Codec::Encoded;
+    using M    = typename Codec::MetadataT;
+    using H_FB = typename FallbackCodec::Encoded;
+
+    using TimeRecord   = std::vector<std::tuple<const char*, double>>;
+    using timerecord_t = TimeRecord*;
 
    private:
     // state

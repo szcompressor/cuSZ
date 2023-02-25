@@ -58,7 +58,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         static const int SPFMT  = 2;
         static const int END    = 3;
 
-        int      header_nbyte : 16;
+        int      self_bytes : 16;
         uint32_t entry[END + 1];
 
         uint32_t file_size() const { return entry[END]; }
@@ -121,7 +121,7 @@ class SpPathCompressor : public BaseCompressor<typename BINDING::PREDICTOR> {
         HEADER header;
 
         auto subfile_collect = [&]() {
-            header.header_nbyte = sizeof(HEADER);
+            header.self_bytes = sizeof(HEADER);
 
             uint32_t nbyte[HEADER::END];
             nbyte[HEADER::HEADER] = 128;

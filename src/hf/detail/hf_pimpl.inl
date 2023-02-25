@@ -268,14 +268,14 @@ void IMPL::subfile_collect(
             CHECK_CUDA(cudaDeviceSynchronize());
     };
 
-    header.header_nbyte     = sizeof(Header);
+    header.self_bytes       = sizeof(Header);
     header.booklen          = booklen;
     header.sublen           = sublen;
     header.pardeg           = pardeg;
     header.uncompressed_len = in_uncompressed_len;
 
     MetadataT nbyte[Header::END];
-    nbyte[Header::HEADER] = 128;
+    nbyte[Header::HEADER] = sizeof(Header);
 
     EXPORT_NBYTE(REVBOOK)
     EXPORT_NBYTE(PAR_NBIT)

@@ -98,6 +98,9 @@ set_target_properties(parszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 add_library(parszcomp  src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
 target_link_libraries(parszcomp PUBLIC parszcompile_settings parszkernel parszkelo parszstat_g parszhf_g CUDA::cudart)
 
+add_library(parszcomp_v2  src/cusz/custom.cc src/pipeline/v2_compressor.cc src/pipeline/v2_compressor_impl.cu)
+target_link_libraries(parszcomp_v2 PUBLIC parszcompile_settings parszkernel parszkelo parszstat_g parszhf_g CUDA::cudart)
+
 add_library(cusz  src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC parszcomp parszargp parszhf_g parszspv parszstat parszutils_g)
 
@@ -127,6 +130,7 @@ install(TARGETS parszargp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL
 install(TARGETS parszhfbook_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszhf_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszcomp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS parszcomp_v2 EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
 install(EXPORT CUSZTargets NAMESPACE CUSZ:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)

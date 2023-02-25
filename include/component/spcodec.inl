@@ -56,13 +56,13 @@ class SpcodecVec {
     using BYTE      = uint8_t;
     using MetadataT = M;
 
-    struct Header {
+    struct alignas(128) Header {
         static const int HEADER = 0;
         static const int IDX    = 1;
         static const int VAL    = 2;
         static const int END    = 3;
 
-        int       header_nbyte : 16;
+        int       self_bytes : 16;
         size_t    uncompressed_len;
         int       nnz;
         MetadataT entry[END + 1];
@@ -164,7 +164,7 @@ class SpcodecVec {
 
     void subfile_collect(Header& header, size_t len, cudaStream_t stream, bool dbg_print)
     {
-        header.header_nbyte     = sizeof(Header);
+        header.self_bytes       = sizeof(Header);
         header.uncompressed_len = len;
         header.nnz              = rte.nnz;
 

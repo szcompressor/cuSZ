@@ -102,11 +102,11 @@ void IMPL::compress(
     cudaStream_t stream,
     bool         dbg_print)
 {
-    auto const eb                = (*config).eb;
-    auto const radius            = (*config).radius;
-    auto const pardeg            = (*config).vle_pardeg;
-    auto const codecs_in_use     = (*config).codecs_in_use;
-    auto const nz_density_factor = (*config).nz_density_factor;
+    auto const eb                = config->eb;
+    auto const radius            = config->radius;
+    auto const pardeg            = config->vle_pardeg;
+    auto const codecs_in_use     = config->codecs_in_use;
+    auto const nz_density_factor = config->nz_density_factor;
 
     if (dbg_print) {
         std::cout << "eb\t" << eb << endl;
@@ -116,8 +116,8 @@ void IMPL::compress(
         std::cout << "nz_density_factor\t" << nz_density_factor << endl;
     }
 
-    data_len3                 = dim3((*config).x, (*config).y, (*config).z);
-    auto codec_force_fallback = (*config).codec_force_fallback();
+    data_len3                 = dim3(config->x, config->y, config->z);
+    auto codec_force_fallback = config->codec_force_fallback();
 
     header.codecs_in_use     = codecs_in_use;
     header.nz_density_factor = nz_density_factor;
@@ -150,6 +150,7 @@ void IMPL::compress(
         header.x          = data_len3.x;
         header.y          = data_len3.y;
         header.z          = data_len3.z;
+        header.w          = 1;  // placeholder
         header.radius     = radius;
         header.vle_pardeg = pardeg;
         header.eb         = eb;
@@ -295,14 +296,14 @@ TEMPLATE_TYPE
 template <class CONFIG>
 void IMPL::init_detail(CONFIG* config, bool dbg_print)
 {
-    const auto cfg_radius      = (*config).radius;
-    const auto cfg_pardeg      = (*config).vle_pardeg;
-    const auto density_factor  = (*config).nz_density_factor;
-    const auto codec_config    = (*config).codecs_in_use;
+    const auto cfg_radius      = config->radius;
+    const auto cfg_pardeg      = config->vle_pardeg;
+    const auto density_factor  = config->nz_density_factor;
+    const auto codec_config    = config->codecs_in_use;
     const auto cfg_max_booklen = cfg_radius * 2;
-    const auto x               = (*config).x;
-    const auto y               = (*config).y;
-    const auto z               = (*config).z;
+    const auto x               = config->x;
+    const auto y               = config->y;
+    const auto z               = config->z;
 
     size_t spcodec_in_len, codec_in_len;
 
@@ -426,9 +427,9 @@ void IMPL::subfile_collect(
     cudaStream_t stream,
     bool         dbg_print)
 {
-    header.header_nbyte = sizeof(Header);
+    header.self_bytes = sizeof(Header);
     uint32_t nbyte[Header::END];
-    nbyte[Header::HEADER] = 128;
+    nbyte[Header::HEADER] = sizeof(Header);
     nbyte[Header::ANCHOR] = sizeof(T) * anchor_len;
     nbyte[Header::VLE]    = sizeof(BYTE) * codec_outlen;
     nbyte[Header::SPFMT]  = sizeof(BYTE) * spfmt_outlen;

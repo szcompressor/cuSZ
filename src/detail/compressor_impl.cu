@@ -12,7 +12,7 @@
  *
  */
 
-#include "detail/compressor_impl.cuh"
+#include "compressor_impl.inl"
 #include "framework.hh"
 
 template class cusz::Compressor<cusz::Framework<float>>::impl;

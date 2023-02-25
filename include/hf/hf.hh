@@ -72,7 +72,7 @@ class LosslessCodec<T, H, M>::impl {
     using SYM  = T;
 
     // TODO shared header
-    struct Header {
+    struct alignas(128) Header {
         static const int HEADER    = 0;
         static const int REVBOOK   = 1;
         static const int PAR_NBIT  = 2;
@@ -80,7 +80,7 @@ class LosslessCodec<T, H, M>::impl {
         static const int BITSTREAM = 4;
         static const int END       = 5;
 
-        int       header_nbyte : 16;
+        int       self_bytes : 16;
         int       booklen : 16;
         int       sublen;
         int       pardeg;
