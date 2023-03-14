@@ -32,9 +32,8 @@ extern "C" {
     cusz_error_status decompress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                       \
         E* delta, bool* signum, dim3 const len3, double const eb, T* xdata, float* time_elapsed, cudaStream_t stream); \
     cusz_error_status compress_predict_lorenzo_iproto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                       \
-        T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1, E* const errctrl,                   \
-        dim3 const placeholder_2, T* outlier, double const eb, int const radius, float* time_elapsed,                  \
-        cudaStream_t stream);                                                                                          \
+        T* const data, dim3 const len3, T* outlier, double const eb, int const radius, E* const errctrl,               \
+        float* time_elapsed, cudaStream_t stream);                                                                     \
     cusz_error_status decompress_predict_lorenzo_iproto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                     \
         T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2,          \
         T* outlier, double const eb, int const radius, float* time_elapsed, cudaStream_t stream);

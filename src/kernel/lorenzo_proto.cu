@@ -18,16 +18,13 @@
 
 #include "detail/lorenzo_proto.inl"
 
-template <typename T, typename E, typename FP>
+template <typename T, typename EQ, typename FP>
 cusz_error_status compress_predict_lorenzo_iproto(
     T* const     data,
     dim3 const   len3,
     double const eb,
     int const    radius,
-    E* const     errctrl,
-    dim3 const   placeholder_2,
-    T* const     anchor,
-    dim3 const   placeholder_1,
+    EQ* const    eq,
     T*           outlier,
     uint32_t*    outlier_idx,
     uint32_t*    num_outliers,
@@ -35,10 +32,7 @@ cusz_error_status compress_predict_lorenzo_iproto(
     cudaStream_t stream)
 {
     auto divide3 = [](dim3 len, dim3 sublen) {
-        return dim3(
-            (len.x - 1) / sublen.x + 1,  //
-            (len.y - 1) / sublen.y + 1,  //
-            (len.z - 1) / sublen.z + 1);
+        return dim3((len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1);
     };
 
     auto ndim = [&]() {
@@ -70,17 +64,16 @@ cusz_error_status compress_predict_lorenzo_iproto(
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream);
 
+    using namespace psz::cuda::__kernel::prototype;
+
     if (ndim() == 1) {
-        cusz::prototype::c_lorenzo_1d1l<T, E, FP>
-            <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, errctrl, len3, leap3, radius, ebx2_r);
+        c_lorenzo_1d1l<T, EQ, FP><<<GRID_1D, BLOCK_1D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
     else if (ndim() == 2) {
-        cusz::prototype::c_lorenzo_2d1l<T, E, FP>
-            <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, errctrl, len3, leap3, radius, ebx2_r);
+        c_lorenzo_2d1l<T, EQ, FP><<<GRID_2D, BLOCK_2D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
     else if (ndim() == 3) {
-        cusz::prototype::c_lorenzo_3d1l<T, E, FP>
-            <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, errctrl, len3, leap3, radius, ebx2_r);
+        c_lorenzo_3d1l<T, EQ, FP><<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
     else {
         throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -95,27 +88,21 @@ cusz_error_status compress_predict_lorenzo_iproto(
     return CUSZ_SUCCESS;
 }
 
-template <typename T, typename E, typename FP>
+template <typename T, typename EQ, typename FP>
 cusz_error_status decompress_predict_lorenzo_iproto(
-    E*             errctrl,
-    dim3 const     placeholder_2,
-    T*             anchor,
-    dim3 const     placeholder_1,
+    EQ*            eq,
+    dim3 const     len3,
     T*             outlier,
     uint32_t*      outlier_idx,
     uint32_t const num_outliers,
     double const   eb,
     int const      radius,
     T*             xdata,
-    dim3 const     len3,
     float*         time_elapsed,
     cudaStream_t   stream)
 {
     auto divide3 = [](dim3 len, dim3 sublen) {
-        return dim3(
-            (len.x - 1) / sublen.x + 1,  //
-            (len.y - 1) / sublen.y + 1,  //
-            (len.z - 1) / sublen.z + 1);
+        return dim3((len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1);
     };
 
     auto ndim = [&]() {
@@ -147,17 +134,16 @@ cusz_error_status decompress_predict_lorenzo_iproto(
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream);
 
+    using namespace psz::cuda::__kernel::prototype;
+
     if (ndim() == 1) {
-        cusz::prototype::x_lorenzo_1d1l<T, E, FP>
-            <<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, errctrl, len3, leap3, radius, ebx2);
+        x_lorenzo_1d1l<T, EQ, FP><<<GRID_1D, BLOCK_1D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
     else if (ndim() == 2) {
-        cusz::prototype::x_lorenzo_2d1l<T, E, FP>
-            <<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, errctrl, len3, leap3, radius, ebx2);
+        x_lorenzo_2d1l<T, EQ, FP><<<GRID_2D, BLOCK_2D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
     else if (ndim() == 3) {
-        cusz::prototype::x_lorenzo_3d1l<T, E, FP>
-            <<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, errctrl, len3, leap3, radius, ebx2);
+        x_lorenzo_3d1l<T, EQ, FP><<<GRID_3D, BLOCK_3D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
@@ -169,33 +155,13 @@ cusz_error_status decompress_predict_lorenzo_iproto(
     return CUSZ_SUCCESS;
 }
 
-#define CPP_TEMPLATE_INIT_AND_C_WRAPPER(Tliteral, Eliteral, FPliteral, T, E, FP)                                       \
-    template cusz_error_status compress_predict_lorenzo_iproto<T, E, FP>(                                              \
-        T* const, dim3 const, double const, int const, E* const, dim3 const, T* const, dim3 const, T* const,           \
-        uint32_t*, uint32_t*, float*, cudaStream_t);                                                                   \
-                                                                                                                       \
-    template cusz_error_status decompress_predict_lorenzo_iproto<T, E, FP>(                                            \
-        E*, dim3 const, T*, dim3 const, T*, uint32_t*, uint32_t const, double const, int const, T*, dim3 const,        \
-        float*, cudaStream_t);                                                                                         \
-                                                                                                                       \
-    cusz_error_status compress_predict_lorenzo_iproto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                       \
-        T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1, E* const errctrl,                   \
-        dim3 const placeholder_2, T* outlier, double const eb, int const radius, float* time_elapsed,                  \
-        cudaStream_t stream)                                                                                           \
-    {                                                                                                                  \
-        return compress_predict_lorenzo_iproto<T, E, FP>(                                                              \
-            data, len3, eb, radius, errctrl, placeholder_2, anchor, placeholder_1, outlier, nullptr, nullptr,          \
-            time_elapsed, stream);                                                                                     \
-    }                                                                                                                  \
-                                                                                                                       \
-    cusz_error_status decompress_predict_lorenzo_iproto_T##Tliteral##_E##Eliteral##_FP##FPliteral(                     \
-        T* xdata, dim3 const len3, T* anchor, dim3 const placeholder_1, E* errctrl, dim3 const placeholder_2,          \
-        T* outlier, double const eb, int const radius, float* time_elapsed, cudaStream_t stream)                       \
-    {                                                                                                                  \
-        return decompress_predict_lorenzo_iproto<T, E, FP>(                                                            \
-            errctrl, placeholder_2, anchor, placeholder_1, outlier, nullptr, 0, eb, radius, xdata, len3, time_elapsed, \
-            stream);                                                                                                   \
-    }
+#define CPP_TEMPLATE_INIT_AND_C_WRAPPER(Tliteral, Eliteral, FPliteral, T, EQ, FP)                         \
+    template cusz_error_status compress_predict_lorenzo_iproto<T, EQ, FP>(                                \
+        T* const, dim3 const, double const, int const, EQ* const, T* const, uint32_t*, uint32_t*, float*, \
+        cudaStream_t);                                                                                    \
+                                                                                                          \
+    template cusz_error_status decompress_predict_lorenzo_iproto<T, EQ, FP>(                              \
+        EQ*, dim3 const, T*, uint32_t*, uint32_t const, double const, int const, T*, float*, cudaStream_t);
 
 CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui8, fp32, float, uint8_t, float);
 CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui16, fp32, float, uint16_t, float);

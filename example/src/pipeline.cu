@@ -199,9 +199,9 @@ cusz_error_status compressor(
     }
     else {
         cout << "using prototype comp. kernel\n";
-        compress_predict_lorenzo_iproto<T, E, FP>(                                                               //
-            data->data, data->len3, config->eb, config->radius,                                                  //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx, nullptr,  //
+        compress_predict_lorenzo_iproto<T, E, FP>(                  //
+            data->data, data->len3, config->eb, config->radius,     //
+            data->errq, data->outlier, data->outlier_idx, nullptr,  //
             &time_pq, stream);
     }
 
@@ -285,10 +285,10 @@ cusz_error_status decompressor(
     }
     else {
         cout << "using prototype comp. kernel\n";
-        decompress_predict_lorenzo_iproto<T, E, FP>(                                                       //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx, 0,  // input
-            header_st->header.eb, header_st->header.radius,  // input (config)
-            data->xdata, data->len3,                         // output
+        decompress_predict_lorenzo_iproto<T, E, FP>(                      //
+            data->errq, data->len3, data->outlier, data->outlier_idx, 0,  // input
+            header_st->header.eb, header_st->header.radius,               // input (config)
+            data->xdata,                                                  // output
             &time_d_pq, stream);
     }
 

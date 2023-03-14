@@ -38,3 +38,19 @@ add_test(test_spv_hl spv_hl)
 # add_executable(tgpu src/tgpu.cu)
 # target_link_libraries(tgpu PRIVATE parsztimer)
 # add_test(test_tgpu tgpu)
+
+
+# 2023 March fix start
+add_library(psztestcompile_settings INTERFACE)
+target_include_directories(psztestcompile_settings INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>
+  )
+
+# correctness, include kernel `.inl` directly
+add_executable(core_serial_using_templates  src/test_core_serial.cc)
+target_link_libraries(core_serial_using_templates PRIVATE psztestcompile_settings)
+add_executable(core_cudaproto_using_templates  src/test_core_cudaproto.cu)
+target_link_libraries(core_cudaproto_using_templates PRIVATE parszcompile_settings psztestcompile_settings)
+add_test(test_core ccore_serial_using_template sore_cudaproto_using_templates)
+# 2023 March fix end

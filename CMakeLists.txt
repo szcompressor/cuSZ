@@ -53,6 +53,7 @@ target_include_directories(parszcompile_settings INTERFACE
 add_library(parsztimer  src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
 target_link_libraries(parsztimer PUBLIC parszcompile_settings)
 
+# deprecated
 add_library(parszkelo  src/kernel/lorenzo.cu src/kernel/lorenzo_var.cu src/kernel/lorenzo_proto.cu)
 target_link_libraries(parszkelo PUBLIC parszcompile_settings)
 
@@ -65,6 +66,18 @@ add_library(parszstat_g
   src/stat/cmpg4_1.cu src/stat/cmpg4_2.cu src/stat/cmpg4_3.cu src/stat/cmpg4_4.cu 
   src/stat/stat_g.cu)
 target_link_libraries(parszstat_g PUBLIC parszcompile_settings)
+
+# 2023 March fix start
+add_library(psz_core_serial
+  src/kernel/lorenzo_serial.cc
+)
+target_link_libraries(psz_core_serial PUBLIC parszcompile_settings)
+
+add_library(psz_core_cuda
+  src/kernel/lorenzo_proto.cu
+)
+target_link_libraries(psz_core_cuda PUBLIC parszcompile_settings)
+# 2023 March fix end
 
 add_library(parszkernel  src/kernel/claunch_cuda.cu)
 target_link_libraries(parszkernel PUBLIC parszcompile_settings parsztimer)
@@ -118,6 +131,10 @@ if (BUILD_TESTING)
 endif()
 
 install(TARGETS parszcompile_settings EXPORT CUSZTargets)
+# 2023 March fix start
+install(TARGETS psz_core_serial EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS psz_core_cuda   EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+# 2023 March fix end
 install(TARGETS parszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszkelo EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS parszstat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
