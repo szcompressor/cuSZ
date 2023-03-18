@@ -78,7 +78,7 @@ class BaseCompressor {
 
         // LOGGING(LOG_INFO, "invoke dry-run");
 
-        nc->original.template from_file<cusz::LOC::HOST>(fname).host2device_async(stream);
+        nc->original.fromfile(fname).host2device_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         if (r2r) {
@@ -100,7 +100,7 @@ class BaseCompressor {
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         cusz_stats stat;
-        parsz::thrustgpu_assess_quality<T>(&stat, nc->reconst.hptr, nc->original.hptr, nc->p->get_len_data());
+        parsz::thrustgpu_assess_quality<T>(&stat, nc->reconst.hptr(), nc->original.hptr(), nc->p->get_len_data());
         cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
@@ -116,9 +116,9 @@ class BaseCompressor {
      */
     BaseCompressor& dualquant_dryrun(const std::string fname, double eb, bool r2r, cudaStream_t stream)
     {
-        auto len = nc->original.len;
+        auto len = nc->original.len();
 
-        nc->original.template from_file<cusz::LOC::HOST>(fname).host2device_async(stream);
+        nc->original.fromfile(fname).host2device_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         if (r2r) {
@@ -132,13 +132,13 @@ class BaseCompressor {
 
         cusz::dualquant_dryrun_kernel                                              //
             <<<ConfigHelper::get_npart(len, 256), 256, 256 * sizeof(T), stream>>>  //
-            (nc->original.dptr, nc->reconst.dptr, len, ebx2_r, ebx2);
+            (nc->original.dptr(), nc->reconst.dptr(), len, ebx2_r, ebx2);
 
         nc->reconst.device2host_async(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         cusz_stats stat;
-        parsz::thrustgpu_assess_quality(&stat, nc->reconst.hptr, nc->original.hptr, len);
+        parsz::thrustgpu_assess_quality(&stat, nc->reconst.hptr(), nc->original.hptr(), len);
         cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
@@ -156,21 +156,21 @@ class BaseCompressor {
         auto len = size.x * size.y * size.z;
         nc       = new struct NonCritical(size);
 
-        nc->original.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
-        nc->outlier.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
-        nc->errctrl.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
-        nc->anchor.set_len(nc->p->get_len_anchor()).template alloc<cusz::LOC::HOST_DEVICE>();
-        nc->reconst.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->original.set_len(len).mallochost().malloc();
+        nc->outlier.set_len(len).mallochost().malloc();
+        nc->errctrl.set_len(len).mallochost().malloc();
+        nc->anchor.set_len(nc->p->get_len_anchor()).mallochost().malloc();
+        nc->reconst.set_len(len).mallochost().malloc();
     }
 
     void destroy_generic_dryrun()
     {
         delete nc->p;
-        nc->original.template free<cusz::LOC::HOST_DEVICE>();
-        nc->outlier.template free<cusz::LOC::HOST_DEVICE>();
-        nc->errctrl.template free<cusz::LOC::HOST_DEVICE>();
-        nc->anchor.template free<cusz::LOC::HOST_DEVICE>();
-        nc->reconst.template free<cusz::LOC::HOST_DEVICE>();
+        nc->original.freehost().free();
+        nc->outlier.freehost().free();
+        nc->errctrl.freehost().free();
+        nc->anchor.freehost().free();
+        nc->reconst.freehost().free();
         delete nc;
     }
 
@@ -178,14 +178,14 @@ class BaseCompressor {
     {
         auto len = size.x * size.y * size.z;
         nc       = new struct NonCritical(size);
-        nc->original.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
-        nc->reconst.set_len(len).template alloc<cusz::LOC::HOST_DEVICE>();
+        nc->original.set_len(len).mallochost().malloc();
+        nc->reconst.set_len(len).mallochost().malloc();
     }
 
     void destroy_dualquant_dryrun()
     {
-        nc->original.template free<cusz::LOC::HOST_DEVICE>();
-        nc->reconst.template free<cusz::LOC::HOST_DEVICE>();
+        nc->original.freehost().free();
+        nc->reconst.freehost().free();
 
         delete nc;
     }

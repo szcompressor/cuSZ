@@ -126,7 +126,7 @@ struct QualityViewer {
     template <typename T>
     static void load_origin(string const& fname, Capsule<T>& origin)
     {
-        origin.template alloc<HOST_DEVICE>().template from_file<cusz::LOC::HOST>(fname);
+        origin.mallochost().malloc().fromfile(fname);
     }
 
     template <typename T>
@@ -136,16 +136,16 @@ struct QualityViewer {
         auto compressd_bytes = ConfigHelper::get_filesize(header);
 
         auto compare_on_gpu = [&]() {
-            cmp.template alloc<HOST_DEVICE>().template from_file<HOST>(compare).host2device();
-            echo_metric_gpu(xdata.dptr, cmp.dptr, len, compressd_bytes);
-            cmp.template free<HOST_DEVICE>();
+            cmp.mallochost().malloc().fromfile(compare).host2device();
+            echo_metric_gpu(xdata.dptr(), cmp.dptr(), len, compressd_bytes);
+            cmp.freehost().free();
         };
 
         auto compare_on_cpu = [&]() {
-            cmp.template alloc<HOST>().template from_file<HOST>(compare);
+            cmp.mallochost().fromfile(compare);
             xdata.device2host();
-            echo_metric_cpu(xdata.hptr, cmp.hptr, len, compressd_bytes);
-            cmp.template free<HOST>();
+            echo_metric_cpu(xdata.hptr(), cmp.hptr(), len, compressd_bytes);
+            cmp.freehost();
         };
 
         if (compare != "") {
@@ -161,3 +161,4 @@ struct QualityViewer {
 }  // namespace cusz
 
 #endif
+

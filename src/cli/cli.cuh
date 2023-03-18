@@ -67,16 +67,17 @@ class CLI {
     {
         Capsule<BYTE> file("cusza");
         file.set_len(compressed_len)
-            .template set<DEVICE>(compressed)
-            .template alloc<HOST>()
+            .set_dptr(compressed)
+            .mallochost()
             .device2host()
-            .to_file<HOST>(compressed_name)
-            .template free<HOST_DEVICE>();
+            .tofile(compressed_name)
+            .freehost()
+            .free();
     }
 
     void try_write_decompressed_to_disk(Capsule<T>& xdata, std::string basename, bool skip_write)
     {
-        if (not skip_write) xdata.device2host().template to_file<HOST>(basename + ".cuszx");
+        if (not skip_write) xdata.device2host().tofile(basename + ".cuszx");
     }
 
     // template <typename compressor_t>
@@ -92,8 +93,9 @@ class CLI {
         auto load_uncompressed = [&](std::string fname) {
             input
                 .set_len(len)  //
-                .template alloc<HOST_DEVICE>()
-                .template from_file<HOST>(fname)
+                .mallochost()
+                .malloc()
+                .fromfile(fname)
                 .host2device();
         };
 
@@ -112,7 +114,7 @@ class CLI {
         cusz_len     uncomp_len = cusz_len{ctx->x, ctx->y, ctx->z, 1};
 
         cusz_compress(
-            compressor, config, input.dptr, uncomp_len, &compressed, &compressed_len, &header, (void*)&timerecord,
+            compressor, config, input.dptr(), uncomp_len, &compressed, &compressed_len, &header, (void*)&timerecord,
             stream);
 
         if (ctx->report.time) TimeRecordViewer::view_compression(&timerecord, input.nbyte(), compressed_len);
@@ -129,21 +131,24 @@ class CLI {
 
         auto load_compressed = [&](std::string compressed_name) {
             auto compressed_len = ConfigHelper::get_filesize(compressed_name);
-            compressed.set_len(compressed_len)
-                .template alloc<HOST_DEVICE>()
-                .template from_file<HOST>(compressed_name)
+            compressed
+                .set_len(compressed_len)  //
+                .mallochost()
+                .malloc()
+                .fromfile(compressed_name)
                 .host2device();
         };
 
         /******************************************************************************/
 
         load_compressed(basename + ".cusza");
-        memcpy(header, compressed.hptr, sizeof(Header));
+        memcpy(header, compressed.hptr(), sizeof(Header));
         auto len = ConfigHelper::get_uncompressed_len(header);
 
         decompressed  //
             .set_len(len)
-            .template alloc<HOST_DEVICE>();
+            .mallochost()
+            .malloc();
         original.set_len(len);
 
         TimeRecord timerecord;
@@ -151,14 +156,14 @@ class CLI {
         cusz_len decomp_len = cusz_len{header->x, header->y, header->z, 1};
 
         cusz_decompress(
-            compressor, header, compressed.dptr, ConfigHelper::get_filesize(header), decompressed.dptr, decomp_len,
+            compressor, header, compressed.dptr(), ConfigHelper::get_filesize(header), decompressed.dptr(), decomp_len,
             (void*)&timerecord, stream);
 
         if (ctx->report.time) TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
         QualityViewer::view(header, decompressed, original, (*ctx).fname.origin_cmp);
         try_write_decompressed_to_disk(decompressed, basename, (*ctx).skip.write2disk);
 
-        decompressed.template free<HOST_DEVICE>();
+        decompressed.freehost().free();
     }
 
    public:

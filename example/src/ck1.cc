@@ -15,6 +15,7 @@
 #include "kernel/cpplaunch_cuda.hh"
 #include "kernel/lorenzo_all.hh"
 #include "stat/compare_gpu.hh"
+#include "utils/io.hh"
 #include "utils/print_gpu.hh"
 
 std::string type_literal;

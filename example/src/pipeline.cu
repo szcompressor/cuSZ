@@ -27,6 +27,7 @@ using std::endl;
 #include "kernel/spv_gpu.hh"
 #include "stat/stat_g.hh"
 #include "utils/cuda_err.cuh"
+#include "utils/io.hh"
 #include "utils/print_gpu.hh"
 
 namespace alpha {

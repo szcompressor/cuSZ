@@ -24,45 +24,107 @@
 #include <cuda_runtime.h>
 #include <driver_types.h>
 
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
 #include "../stat/compare_gpu.hh"
-#include "../utils/io.hh"
-#include "../utils/strhelper.hh"
+// #include "../utils/io.hh"
 #include "../utils/timer.hh"
-#include "configs.hh"
 #include "definition.hh"
 
-template <typename T, bool USE_UNIFIED = false>
+template <typename T>
 class Capsule {
    private:
-    static const bool use_unified = USE_UNIFIED;
-
+    // variables
     struct {
-        bool hptr{false};
-        bool dptr{false};
-        bool uniptr{false};
+        bool hptr{false}, dptr{false}, uniptr{false};
     } allocation_status;
 
-    template <cusz::LOC LOC>
-    void raise_error_if_misuse_unified()
+    T *_dptr{nullptr}, *_hptr{nullptr}, *_uniptr{nullptr};
+
+    uint32_t _len{0};
+
+    std::string name;
+
+    // logging setup; standalone
+    const std::string LOG_NULL      = "      ";
+    const std::string LOG_INFO      = "  ::  ";
+    const std::string LOG_ERR       = " ERR  ";
+    const std::string LOG_WARN      = "WARN  ";
+    const std::string LOG_DBG       = " dbg  ";
+    const std::string LOG_EXCEPTION = "  !!  ";
+
+    // https://stackoverflow.com/a/26080768/8740097  CC BY-SA 3.0
+    template <typename S>
+    void build_string(std::ostream& o, S t)
     {
-        static_assert(
-            (LOC == cusz::LOC::UNIFIED and USE_UNIFIED == true)           //
-                or (LOC != cusz::LOC::UNIFIED and USE_UNIFIED == false),  //
-            "[Capsule] misused unified memory API");
+        o << t << " ";
     }
 
-    template <cusz::LOC LOC>
-    void hostdevice_not_allowed()
+    template <typename S, typename... Args>
+    void build_string(std::ostream& o, S t, Args... args)  // recursive variadic function
     {
-        static_assert(LOC != cusz::LOC::HOST_DEVICE, "[Capsule] LOC at HOST_DEVICE not allowed");
+        build_string(o, t);
+        build_string(o, args...);
+    }
+
+    template <typename... Args>
+    void LOGGING(const std::string& log_head, Args... args)
+    {
+        std::ostringstream oss;
+        oss << log_head;
+        build_string(oss, args...);
+
+        oss.seekp(0, std::ios::end);
+        std::stringstream::pos_type offset = oss.tellp();
+        if (log_head == LOG_DBG) { std::cout << "\e[2m"; }  // dbg
+        std::cout << oss.str() << std::endl;                // print content
+        if (log_head == LOG_DBG) std::cout << "\e[0m";      // finish printing dbg
+    }
+
+    // IO
+    int fs2mem(const char* fname, void* array, size_t num_els)
+    {
+        auto bytes = sizeof(T) * num_els;
+
+        std::ifstream ifs(fname, std::ios::binary | std::ios::in);
+        if (not ifs.is_open()) {
+            std::cerr << "fail to open " << fname << std::endl;
+            return -1;
+        }
+        ifs.read(reinterpret_cast<char*>(array), std::streamsize(bytes));
+        ifs.close();
+
+        return 0;
+    }
+
+    int mem2fs(const char* fname, void* array, size_t num_els)
+    {
+        auto bytes = sizeof(type) * num_els;
+
+        std::ofstream ofs(fname, std::ios::binary | std::ios::out);
+        if (not ofs.is_open()) {
+            std::cerr << "fail to open " << fname << std::endl;
+            return -1;
+        }
+
+        ofs.write(reinterpret_cast<const char*>(array), std::streamsize(bytes));
+        ofs.close();
+
+        return 0;
     }
 
     std::string ERRSTR_BUILDER(std::string func, std::string msg)
-    {  //
+    {
         return "[Capsule(\"" + name + "\")::" + func + "] " + msg;
+    }
+
+    void check_len(std::string funcname)
+    {
+        if (_len == 0) throw std::runtime_error("[Capsule(\"" + name + "\")::" + funcname + "] " + "len == 0");
     }
 
     std::string ERROR_UNDEFINED_BEHAVIOR(std::string func, std::string msg = "undefined behavior")
@@ -72,289 +134,210 @@ class Capsule {
 
    public:
     using type = T;
-    unsigned int len;
 
-    std::string name;
+    // TODO rule of n
+    // constructor
+    Capsule() = default;
+    Capsule(uint32_t len, const std::string _str = std::string("<unnamed>")) : _len(len), name(_str) {}
+    Capsule(const std::string _str) : name(_str){};
 
-    T* dptr;
-    T* hptr;
-    T* uniptr;
-
-    template <cusz::LOC LOC = cusz::LOC::UNIFIED>
-    T*& get()
+    ~Capsule()
     {
-        raise_error_if_misuse_unified<LOC>();
-        hostdevice_not_allowed<LOC>();
+        // Becasue _hptr can be obtained externally, and could be non-pinned, cudaFreeHost may not work properly.
+        // if (allocation_status.hptr) cudaFreeHost(_hptr);
 
-        if CONSTEXPR (LOC == cusz::LOC::HOST)
-            return hptr;
-        else if (LOC == cusz::LOC::DEVICE)
-            return dptr;
-        else if (LOC == cusz::LOC::UNIFIED)
-            return uniptr;
-        else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("get"));
+        if (allocation_status.dptr) cudaFree(_dptr);
+        if (allocation_status.uniptr) cudaFree(_uniptr);
     }
 
-    template <cusz::LOC LOC = cusz::LOC::UNIFIED>
-    Capsule& set(T* ptr)
+    // getter
+    T*&      dptr() { return _dptr; }
+    T*&      hptr() { return _hptr; }
+    T*&      uniptr() { return _uniptr; }
+    T&       dptr(uint32_t i) { return _dptr[i]; }
+    T&       hptr(uint32_t i) { return _hptr[i]; }
+    T&       uniptr(uint32_t i) { return _uniptr[i]; }
+    uint32_t len() const { return _len; }
+
+    // setter
+    Capsule& set_hptr(T* ptr)
     {
-        raise_error_if_misuse_unified<LOC>();
-        hostdevice_not_allowed<LOC>();
-
-        if CONSTEXPR (LOC == cusz::LOC::HOST)
-            hptr = ptr;
-        else if (LOC == cusz::LOC::DEVICE)
-            dptr = ptr;
-        else if (LOC == cusz::LOC::UNIFIED)  // rare
-            uniptr = ptr;
-        else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("set"));
-
+        _hptr                  = ptr;
+        allocation_status.hptr = true;
+        return *this;
+    }
+    Capsule& set_dptr(T* ptr)
+    {
+        _dptr                  = ptr;
+        allocation_status.dptr = true;
+        return *this;
+    }
+    Capsule& set_uniptr(T* ptr)
+    {
+        _uniptr                  = ptr;
+        allocation_status.uniptr = true;
         return *this;
     }
 
-    Capsule() = default;
+    // debug
+    void debug()
+    {
+        printf("Capsule debugging information\n");
+        printf("  name   : %s\n", name.c_str());
+        printf("  len    : %u\n", len());
+        printf("  hptr   : %s\n", allocation_status.hptr ? "set" : "not set");
+        printf("  dptr   : %s\n", allocation_status.dptr ? "set" : "not set");
+        printf("  uniptr : %s\n", allocation_status.uniptr ? "set" : "not set");
+    }
 
-    Capsule(unsigned int _len, const std::string _str = std::string("<unnamed>")) : len(_len), name(_str) {}
-
-    Capsule(const std::string _str) : name(_str){};
-
-    Capsule(T* _h_in, T* _d_in, unsigned int _len) : hptr(_h_in), dptr(_d_in), len(_len) {}
-
+    // for debugging
     Capsule& set_name(std::string _str)
     {
         name = _str;
         return *this;
     }
 
-    Capsule& set_len(unsigned int _len)
+    // variable len
+    Capsule& set_len(uint32_t len)
     {
-        len = _len;
+        if (len <= 0) throw std::runtime_error("length must be greater than 0");
+        _len = len;
         return *this;
     }
 
-    template <cusz::ALIGNDATA AD = cusz::ALIGNDATA::NONE>
-    unsigned int get_len()
+    // IO
+    Capsule& fromfile(std::string fname, double* time = nullptr)
     {
-        return Align::get_aligned_datalen<AD>(len);
-    }
+        if (not _hptr) throw std::runtime_error(ERRSTR_BUILDER("fromfile", "_hptr not set"));
+        if (_len == 0) throw std::runtime_error(ERRSTR_BUILDER("fromfile", "len == 0"));
 
-    template <cusz::LOC LOC>
-    Capsule& shallow_copy(T* in)
-    {
-        raise_error_if_misuse_unified<LOC>();
-        hostdevice_not_allowed<LOC>();
-
-        if (LOC == cusz::LOC::HOST)
-            hptr = in;
-        else if (LOC == cusz::LOC::DEVICE)
-            dptr = in;
-        else if (LOC == cusz::LOC::UNIFIED)
-            uniptr = in;
-        else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("shallow_copy"));
-
-        return *this;
-    }
-
-    /**
-     * @brief specify single-source data
-     *
-     * @tparam DST the destination of loaded data
-     * @param fname
-     * @return Capsule&
-     */
-    template <cusz::LOC DST>
-    Capsule& from_file(std::string fname, double* time = nullptr)
-    {
         auto a = hires::now();
-
-        if (DST == cusz::LOC::HOST) {
-            if (not hptr) throw std::runtime_error(ERRSTR_BUILDER("from_file", "hptr not set"));
-            if (len == 0) throw std::runtime_error(ERRSTR_BUILDER("from_file", "len == 0"));
-            io::read_binary_to_array<T>(fname, hptr, len);  // interprete as T (bytes = len * sizeof(T))
-        }
-        /*
-        else if (DST == cusz::LOC::DEVICE) {
-            throw std::runtime_error(ERRSTR_BUILDER("from_file", "to DEVICE not implemented"));
-        }
-        else if (DST == cusz::LOC::UNIFIED) {
-            if (not uniptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("from_file", "uniptr not set"));
-            }
-            io::read_binary_to_array<T>(fname, uniptr, len);
-        }
-        else {
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("from_file"));
-        }
-        */
-
+        fs2mem(fname.c_str(), _hptr, _len);
         auto z = hires::now();
+
         if (time) *time = static_cast<duration_t>(z - a).count();
 
         return *this;
     }
 
-    template <cusz::LOC SRC, cusz::LOC VIA = cusz::LOC::NONE>
-    Capsule& to_file(std::string fname)
+    Capsule& tofile(std::string fname, double* time = nullptr)
     {
-        if (SRC == cusz::LOC::HOST) {
-            if (not hptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("to_file", "hptr not set"));
-            }
-            io::write_array_to_binary<T>(fname, hptr, len);
-        }
-        else if (SRC == cusz::LOC::UNIFIED) {
-            if (not uniptr) {  //
-                throw std::runtime_error(ERRSTR_BUILDER("to_file", "uniptr not set"));
-            }
-            io::write_array_to_binary<T>(fname, uniptr, len);
-        }
-        else {
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("to_file"));
-        }
+        if (not _hptr) { throw std::runtime_error(ERRSTR_BUILDER("tofile", "_hptr not set")); }
+        if (_len == 0) throw std::runtime_error(ERRSTR_BUILDER("tofile", "len == 0"));
+
+        auto a = hires::now();
+        mem2fs(fname.c_str(), _hptr, _len);
+        auto z = hires::now();
+
+        if (time) *time = static_cast<duration_t>(z - a).count();
+
         return *this;
     }
 
-    unsigned int nbyte() const { return len * sizeof(T); }
+    uint32_t nbyte() const { return _len * sizeof(T); }
 
-    // TODO really useful?
-    Capsule& memset(unsigned char init = 0x0u)
-    {
-        cudaMemset(dptr, init, nbyte());
-        return *this;
-    }
-
+    // memcpy h2d, synchronous
     Capsule& host2device()
     {
-        cudaMemcpy(dptr, hptr, nbyte(), cudaMemcpyHostToDevice);
+        check_len("host2device");
+
+        cudaMemcpy(_dptr, _hptr, nbyte(), cudaMemcpyHostToDevice);
         return *this;
     }
-
+    // memcpy d2h, synchronous
     Capsule& device2host()
     {
-        cudaMemcpy(hptr, dptr, nbyte(), cudaMemcpyDeviceToHost);
+        check_len("device2host");
+
+        cudaMemcpy(_hptr, _dptr, nbyte(), cudaMemcpyDeviceToHost);
         return *this;
     }
-
+    // memcpy h2d, asynchronous
     Capsule& host2device_async(cudaStream_t stream)
     {
-        cudaMemcpyAsync(dptr, hptr, nbyte(), cudaMemcpyHostToDevice, stream);
+        check_len("host2device_async");
+
+        cudaMemcpyAsync(_dptr, _hptr, nbyte(), cudaMemcpyHostToDevice, stream);
         return *this;
     }
-
+    // memcpy d2h, asynchronous
     Capsule& device2host_async(cudaStream_t stream)
     {
-        cudaMemcpyAsync(hptr, dptr, nbyte(), cudaMemcpyDeviceToHost, stream);
+        check_len("device2host_async");
+
+        cudaMemcpyAsync(_hptr, _dptr, nbyte(), cudaMemcpyDeviceToHost, stream);
         return *this;
     }
+    // shorthand
+    Capsule& h2d() { return host2device(); }
+    Capsule& d2h() { return device2host(); }
+    Capsule& async_h2d(cudaStream_t stream) { return host2device_async(stream); }
+    Capsule& async_d2h(cudaStream_t stream) { return device2host_async(stream); }
 
-    /**
-     * @brief
-     *
-     * @tparam LOC where to allocate: HOST, DEVICE, HOST_DEVICE, UNIFIED
-     * @tparam AD alignment of data length; not reflecting the real datalen
-     * @tparam AM alignment of underlying memory; not reflecting the real datalen
-     * @tparam M mode, use with caution (easy to disable repo-wide)
-     * @return Capsule& return *this for chained call
-     */
-    template <
-        cusz::LOC       LOC,  //
-        cusz::ALIGNDATA AD = cusz::ALIGNDATA::NONE,
-        cusz::ALIGNMEM  AM = cusz::ALIGNMEM::WARP128B,
-        cusz::DEV       M  = cusz::DEV::DEV>
-    Capsule& alloc(double overriding_factor = 0.0)
+    // cudaMalloc wrapper
+    Capsule& malloc(bool do_memset = true, uint8_t memset_val = 0)
     {
-        cusz::OK::ALLOC<M>();
-        raise_error_if_misuse_unified<LOC>();
+        check_len("malloc");
 
-        auto aligned_datalen    = Align::get_aligned_datalen<AD>(len);
-        auto __memory_footprint = Align::get_aligned_nbyte<T>(aligned_datalen);
-
-        if (overriding_factor > 1.0) { __memory_footprint = overriding_factor * __memory_footprint; }
-
-        auto allocate_on_host = [&]() {
-            if (allocation_status.hptr)
-                LOGGING(LOG_WARN, "already allocated on host");
-            else {
-                cudaMallocHost(&hptr, __memory_footprint);
-                cudaMemset(hptr, 0x00, __memory_footprint);
-                allocation_status.hptr = true;
-            }
-        };
-        auto allocate_on_device = [&]() {
-            if (allocation_status.dptr)
-                LOGGING(LOG_WARN, "already allocated on device");
-            else {
-                cudaMalloc(&dptr, __memory_footprint);
-                cudaMemset(dptr, 0x00, __memory_footprint);
-                allocation_status.dptr = true;
-            }
-        };
-        auto allocate_on_unified_mem = [&]() {
-            if (allocation_status.uniptr)
-                LOGGING(LOG_WARN, "already allocated on unified mem");
-            else {
-                cudaMallocManaged(&uniptr, __memory_footprint);
-                cudaMemset(uniptr, 0x00, __memory_footprint);
-                allocation_status.uniptr = true;
-            }
-        };
-
-        if (LOC == cusz::LOC::HOST)
-            allocate_on_host();
-        else if (LOC == cusz::LOC::DEVICE)
-            allocate_on_device();
-        else if (LOC == cusz::LOC::HOST_DEVICE)
-            allocate_on_host(), allocate_on_device();
-        else if (LOC == cusz::LOC::UNIFIED)
-            allocate_on_unified_mem();
-        else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("alloc"));
-
+        if (allocation_status.dptr)
+            LOGGING(LOG_WARN, "already allocated on device");
+        else {
+            cudaMalloc(&_dptr, nbyte());
+            cudaMemset(_dptr, memset_val, nbyte());
+            allocation_status.dptr = true;
+        }
         return *this;
     }
+    // cudaMallocHost wrapper, pinned
+    Capsule& mallochost(bool do_memset = true, uint8_t memset_val = 0)
+    {
+        check_len("mallochost");
 
-    template <cusz::LOC LOC, cusz::DEV M = cusz::DEV::DEV>
+        if (allocation_status.hptr)
+            LOGGING(LOG_WARN, "already allocated on host");
+        else {
+            cudaMallocHost(&_hptr, nbyte());
+            memset(_hptr, memset_val, nbyte());
+            allocation_status.hptr = true;
+        }
+        return *this;
+    }
+    // cudaMallocManaged wrapper
+    Capsule& mallocmanaged(bool do_memset = true, uint8_t memset_val = 0)
+    {
+        check_len("mallocmanaged");
+
+        if (allocation_status.uniptr)
+            LOGGING(LOG_WARN, "already allocated as unified");
+        else {
+            cudaMallocManaged(&_uniptr, nbyte());
+            cudaMemset(_uniptr, memset_val, nbyte());
+            allocation_status.uniptr = true;
+        }
+        return *this;
+    }
+    // cudaFree wrapper
     Capsule& free()
     {
-        cusz::OK::FREE<M>();
-        raise_error_if_misuse_unified<LOC>();
-
-        auto free_host = [&]() {
-            if (not hptr) throw std::runtime_error(ERRSTR_BUILDER("free", "hptr is null"));
-
-            cudaFreeHost(hptr);
-            allocation_status.hptr = false;
-        };
-        auto free_device = [&]() {
-            if (not dptr) throw std::runtime_error(ERRSTR_BUILDER("free", "dptr is null"));
-
-            cudaFree(dptr);
-            allocation_status.dptr = false;
-        };
-
-        auto free_unified = [&]() {
-            if (not uniptr) throw std::runtime_error(ERRSTR_BUILDER("free", "uniptr is null"));
-
-            cudaFree(uniptr);
-            allocation_status.uniptr = false;
-        };
-
-        if (LOC == cusz::LOC::HOST)
-            free_host();
-        else if (LOC == cusz::LOC::DEVICE)
-            free_device();
-        else if (LOC == cusz::LOC::HOST_DEVICE) {
-            free_host();
-            free_device();
-        }
-        else if (LOC == cusz::LOC::UNIFIED)
-            free_unified();
-        else
-            throw std::runtime_error(ERROR_UNDEFINED_BEHAVIOR("free"));
-
+        if (not _dptr) throw std::runtime_error(ERRSTR_BUILDER("free", "_dptr is null"));
+        cudaFree(_dptr);
+        allocation_status.dptr = false;
+        return *this;
+    }
+    // cudaFreeHost wrapper
+    Capsule& freehost()
+    {
+        if (not _hptr) throw std::runtime_error(ERRSTR_BUILDER("free", "_hptr is null"));
+        cudaFreeHost(_hptr);
+        allocation_status.hptr = false;
+        return *this;
+    }
+    // cudaFree wrapper, but for unified memory
+    Capsule& freemanaged()
+    {
+        if (not _uniptr) throw std::runtime_error(ERRSTR_BUILDER("free", "_uniptr is null"));
+        cudaFree(_uniptr);
+        allocation_status.uniptr = false;
         return *this;
     }
 
@@ -366,11 +349,12 @@ class Capsule {
     double get_minval() { return minval; }
     double get_rng() { return rng; }
 
+    // data scan
     Capsule& prescan(double& max_value, double& min_value, double& rng)
     {
-        // may not work for uniptr
+        // may not work for _uniptr
         T result[4];
-        parsz::thrustgpu_get_extrema_rawptr<T>(dptr, len, result);
+        parsz::thrustgpu_get_extrema_rawptr<T>(_dptr, _len, result);
 
         min_value = result[0];
         max_value = result[1];
@@ -378,7 +362,7 @@ class Capsule {
 
         return *this;
     }
-
+    // data scan
     Capsule& prescan()
     {
         prescan(maxval, minval, rng);

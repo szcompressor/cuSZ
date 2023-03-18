@@ -13,6 +13,7 @@
 
 #include "cli/quality_viewer.hh"
 #include "cli/timerecord_viewer.hh"
+#include "utils/io.hh"
 #include "utils/print_gpu.hh"
 
 template <typename T>
