@@ -50,7 +50,9 @@ target_include_directories(psztestcompile_settings INTERFACE
 # correctness, include kernel `.inl` directly
 add_executable(core_serial_using_templates  src/test_core_serial.cc)
 target_link_libraries(core_serial_using_templates PRIVATE psztestcompile_settings)
+add_test(test_core_serial core_serial_using_templates)
+
 add_executable(core_cudaproto_using_templates  src/test_core_cudaproto.cu)
 target_link_libraries(core_cudaproto_using_templates PRIVATE parszcompile_settings psztestcompile_settings)
-add_test(test_core ccore_serial_using_template sore_cudaproto_using_templates)
+add_test(test_core_cudaproto core_cudaproto_using_templates)
 # 2023 March fix end
