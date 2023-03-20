@@ -12,7 +12,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-namespace parsz {
+// TODO typing should be more applicable
+
+namespace psz {
 namespace typing {
 
 // clang-format off
@@ -30,13 +32,13 @@ template <> struct UInt<8> { typedef uint64_t T; };
 // clang-format on
 
 }  // namespace typing
-}  // namespace parsz
+}  // namespace psz
 
 // TODO forward definition in another file
 template <int BYTEWIDTH>
 struct PN {
-    using UI = typename parsz::typing::UInt<BYTEWIDTH>::T;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using UI = typename psz::typing::UInt<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     // reference: https://lemire.me/blog/2022/11/25/making-all-your-integers-positive-with-zigzag-encoding/
 

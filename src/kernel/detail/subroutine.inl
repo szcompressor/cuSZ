@@ -11,8 +11,8 @@
 
 #include <stdint.h>
 #include <type_traits>
+#include "cusz/pn.hh"
 #include "pipeline/compaction_g.inl"
-#include "pn.hh"
 #include "subsub.inl"
 
 namespace parsz {
@@ -381,7 +381,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::load_fuse_1d(
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
 #pragma unroll
     for (auto i = 0; i < SEQ; i++) {
@@ -428,7 +428,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::delta_only::load_1
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
 #pragma unroll
     for (auto i = 0; i < SEQ; i++) {
@@ -569,7 +569,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::compaction::predic
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     auto quantize_1d = [&](T& cur, T& prev, uint32_t inloop_idx) {
         T    delta       = cur - prev;
@@ -631,7 +631,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::predict_quantize__
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
         UI UI_delta                          = PN<BYTEWIDTH>::encode(static_cast<I>(cur - prev));
@@ -658,7 +658,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::predict_quantize__
 // {
 //     constexpr auto BYTEWIDTH = sizeof(EQ);
 //     using UI                 = EQ;
-//     using I                  = typename parsz::typing::Int<BYTEWIDTH>::T;
+//     using I                  = typename psz::typing::Int<BYTEWIDTH>::T;
 
 //     auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
 //         T    delta       = cur - prev;
@@ -808,7 +808,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::delta_only::quanti
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
 
@@ -868,7 +868,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::compaction::quanti
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
 
@@ -934,7 +934,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::load_fuse_2d(
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     auto get_gid = [&](auto iy) { return (giy_base + iy) * stridey + gix; };
 
@@ -987,7 +987,7 @@ __forceinline__ __device__ void parsz::cuda::__device::v1_pn::delta_only::load_2
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     auto get_gid = [&](auto iy) { return (giy_base + iy) * stridey + gix; };
 

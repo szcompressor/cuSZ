@@ -1,5 +1,5 @@
 /**
- * @file t-pn.cc
+ * @file test_pncodec_func.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -11,14 +11,14 @@
 
 #include <bitset>
 #include <iostream>
-#include "pn.hh"
+#include "cusz/pn.hh"
 
 using std::bitset;
 using std::cout;
 using std::endl;
 
 template <int BYTEWIDTH>
-void f(typename parsz::typing::Int<BYTEWIDTH>::T input)
+void f(typename psz::typing::Int<BYTEWIDTH>::T input)
 {
     auto encoded = PN<4>::encode(input);
     auto decoded = PN<4>::decode(encoded);
@@ -29,7 +29,7 @@ void f(typename parsz::typing::Int<BYTEWIDTH>::T input)
 }
 
 template <int BYTEWIDTH>
-bool test(typename parsz::typing::Int<BYTEWIDTH>::T input)
+bool test(typename psz::typing::Int<BYTEWIDTH>::T input)
 {
     auto encoded = PN<4>::encode(input);
     auto decoded = PN<4>::decode(encoded);

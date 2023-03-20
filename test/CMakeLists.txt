@@ -48,6 +48,12 @@ target_include_directories(psztestcompile_settings INTERFACE
   )
 
 # correctness, include kernel `.inl` directly
+#### test_typing
+add_executable(core_typing  src/test_pncodec_func.cc)
+target_link_libraries(core_typing PRIVATE psztestcompile_settings)
+add_test(test_core_typing core_typing)
+#### test_typing  end
+
 #### test_subroutine
 add_executable(core_subroutine  src/test_core_cudaproto.cu)
 target_link_libraries(core_subroutine PRIVATE parszcompile_settings psztestcompile_settings)

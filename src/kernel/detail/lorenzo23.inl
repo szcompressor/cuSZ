@@ -805,7 +805,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_3d1l(  //
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     constexpr auto BLOCK = 8;
     __shared__ T   s[9][33];
@@ -935,7 +935,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_3d1l(
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     constexpr auto BLOCK = 8;
     __shared__ T   s[9][33];
@@ -1095,7 +1095,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_3d1l(  //
     constexpr auto BYTEWIDTH = sizeof(EQ);
 
     using UI = EQ;
-    using I  = typename parsz::typing::Int<BYTEWIDTH>::T;
+    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
 
     constexpr auto BLOCK = 8;
     constexpr auto YSEQ  = BLOCK;
