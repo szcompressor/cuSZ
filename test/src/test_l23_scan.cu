@@ -1,5 +1,5 @@
 /**
- * @file t-l23-scan.cu
+ * @file test_l23_scan.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -23,10 +23,10 @@ using std::string;
 #include "lorenzo23.inl"
 
 template <int BLOCK = 256, int SEQ = 8>
-void test_inclusive_scan()
+bool test_inclusive_scan()
 {
     using T  = float;
-    using EQ = uint16_t;
+    using EQ = int32_t;
     using FP = T;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
@@ -41,6 +41,8 @@ void test_inclusive_scan()
     cudaMallocManaged(&eq, sizeof(EQ) * len);
     cudaMemset(eq, 0x0, sizeof(EQ) * len);
 
+    bool ok = true;
+
     {
         cout << "original" << endl;
         for (auto i = 0; i < BLOCK; i++) data[i] = 1;
@@ -49,8 +51,18 @@ void test_inclusive_scan()
             <<<1, NTHREAD>>>(data, eq, data, dim3(len, 1, 1), dim3(0, 0, 0), 0, ebx2);
         cudaDeviceSynchronize();
 
-        for (auto i = 0; i < BLOCK; i++) cout << data[i] << " ";
-        cout << "\n" << endl;
+        // for (auto i = 0; i < BLOCK; i++) { cout << data[i] << " "; }
+        // cout << "\n" << endl;
+        for (auto i = 0; i < BLOCK; i++)
+            if (data[i] != i) {
+                ok = false;
+                break;
+            }
+
+        if (not ok) {
+            printf("ERROR\toriginal (21-May) not correct\n");
+            return false;
+        }
     }
 
     {
@@ -61,22 +73,38 @@ void test_inclusive_scan()
             <<<1, NTHREAD>>>(eq, data, dim3(len, 1, 1), dim3(0, 0, 0), 0, ebx2, data);
         cudaDeviceSynchronize();
 
-        for (auto i = 0; i < BLOCK; i++) cout << data[i] << " ";
-        cout << "\n" << endl;
+        // for (auto i = 0; i < BLOCK; i++) cout << data[i] << " ";
+        // cout << "\n" << endl;
+        for (auto i = 0; i < BLOCK; i++)
+            if (data[i] != i) {
+                ok = false;
+                break;
+            }
+
+        if (not ok) {
+            printf("ERROR\trefactored (22-Dec) not correct\n");
+            return false;
+        }
     }
 
     cudaFree(data);
     cudaFree(eq);
+
+    return ok;
 }
 
 int main()
 {
-    test_inclusive_scan<256, 4>();
-    test_inclusive_scan<256, 8>();
-    test_inclusive_scan<512, 4>();
-    test_inclusive_scan<512, 8>();
-    test_inclusive_scan<1024, 4>();
-    test_inclusive_scan<1024, 8>();
+    auto all_pass = true;
+    all_pass      = all_pass and test_inclusive_scan<256, 4>();
+    all_pass      = all_pass and test_inclusive_scan<256, 8>();
+    all_pass      = all_pass and test_inclusive_scan<512, 4>();
+    all_pass      = all_pass and test_inclusive_scan<512, 8>();
+    all_pass      = all_pass and test_inclusive_scan<1024, 4>();
+    all_pass      = all_pass and test_inclusive_scan<1024, 8>();
 
-    return 0;
+    if (all_pass)
+        return 0;
+    else
+        return -1;
 }
