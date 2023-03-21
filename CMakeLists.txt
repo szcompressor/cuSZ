@@ -68,6 +68,7 @@ add_library(parszstat_g
 target_link_libraries(parszstat_g PUBLIC parszcompile_settings)
 
 # 2023 March fix start
+# naming: PROJ_FUNC_BACKEND, where PROJ=psz, FUNC={core,api}, BACKEND={serial,cuda,...} 
 add_library(psz_core_serial
   src/kernel/lorenzo_serial.cc
 )
@@ -75,6 +76,8 @@ target_link_libraries(psz_core_serial PUBLIC parszcompile_settings)
 
 add_library(psz_core_cuda
   src/kernel/lorenzo_proto.cu
+  src/kernel/lorenzo.cu
+  # TODO src/kernel/lorenzo_var.cu
 )
 target_link_libraries(psz_core_cuda PUBLIC parszcompile_settings)
 # 2023 March fix end

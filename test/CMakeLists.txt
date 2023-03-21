@@ -7,10 +7,6 @@ target_link_libraries(parsz_testutils CUDA::cudart CUDA::curand)
 # target_link_directories(utils PRIVATE parsz_testutils parszstat parszstat_g parszutils_g CUDA::cudart)
 # add_test(test_utils utils)
 
-## testing prediction
-add_executable(pred_ll  src/pred_ll.cc)
-target_link_libraries(pred_ll PRIVATE parsz_testutils parszkelo parszstat parszstat_g parszutils_g CUDA::cudart)
-add_test(test_pred_ll pred_ll)
 
 # add_executable(pred_hl src/spv.cu)
 # target_link_libraries(pred_hl PRIVATE parszspv parsz_testutils)
@@ -68,5 +64,10 @@ add_test(test_core_serial core_serial_using_templates)
 add_executable(core_cudaproto_using_templates  src/test_core_cudaproto.cu)
 target_link_libraries(core_cudaproto_using_templates PRIVATE parszcompile_settings psztestcompile_settings)
 add_test(test_core_cudaproto core_cudaproto_using_templates)
+
+## testing prediction
+add_executable(core_cudakernelwarpper_pred  src/test_core_cudakernelwarpper_pred.cc)
+target_link_libraries(core_cudakernelwarpper_pred PRIVATE psz_core_cuda parsz_testutils parszstat parszstat_g parszutils_g CUDA::cudart)
+add_test(test_core_cudakernelwarpper_pred core_cudakernelwarpper_pred)
 #### test_core end
 # 2023 March fix end
