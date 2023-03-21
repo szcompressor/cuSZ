@@ -9,7 +9,7 @@
  *
  */
 
-#include "t-l23-utils.hh"
+#include "test_l23_utils.hh"
 
 int main()
 {

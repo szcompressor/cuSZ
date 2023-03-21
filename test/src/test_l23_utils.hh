@@ -1,5 +1,5 @@
 /**
- * @file t-l23-utils.hh
+ * @file test_l23_utils.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -19,9 +19,9 @@ using std::cout;
 using std::endl;
 using std::string;
 
-#include "../../../test/src/rand.hh"
 #include "lorenzo.inl"
 #include "lorenzo23.inl"
+#include "rand.hh"
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
