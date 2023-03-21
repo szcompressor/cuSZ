@@ -51,7 +51,7 @@ target_link_libraries(   l0_typing  PRIVATE psztestcompile_settings)
 add_test(test_l0_typing  l0_typing)
 
 # Level-1 subroutine
-add_executable(              l1_subroutine  src/test_l23_scan.cu)
+add_executable(              l1_subroutine  src/test_l1_l23scan.cu)
 target_link_libraries(       l1_subroutine  PRIVATE parszcompile_settings psztestcompile_settings)
 add_test(test_l1_subroutine  l1_subroutine)
 

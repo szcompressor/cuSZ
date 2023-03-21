@@ -1,5 +1,5 @@
 /**
- * @file test_l23_scan.cu
+ * @file test_l1_l23scan.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -18,8 +18,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
-#include "lorenzo.inl"
-#include "lorenzo23.inl"
+#include "kernel/detail/lorenzo.inl"
+#include "kernel/detail/lorenzo23.inl"
 #include "rand.hh"
 
 template <int BLOCK = 256, int SEQ = 8>
@@ -53,8 +53,10 @@ bool test_inclusive_scan()
 
         // for (auto i = 0; i < BLOCK; i++) { cout << data[i] << " "; }
         // cout << "\n" << endl;
+
         for (auto i = 0; i < BLOCK; i++)
-            if (data[i] != i) {
+            if (data[i] != i + 1 /* inclusive scan */) {
+                cout << i << "\t" << data[i] << endl;
                 ok = false;
                 break;
             }
@@ -75,8 +77,9 @@ bool test_inclusive_scan()
 
         // for (auto i = 0; i < BLOCK; i++) cout << data[i] << " ";
         // cout << "\n" << endl;
+
         for (auto i = 0; i < BLOCK; i++)
-            if (data[i] != i) {
+            if (data[i] != i + 1 /* inclusive scan */) {
                 ok = false;
                 break;
             }
