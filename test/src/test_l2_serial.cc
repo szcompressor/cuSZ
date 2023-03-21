@@ -1,5 +1,5 @@
 /**
- * @file test_core_serial.cc
+ * @file test_l2_serial.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.4

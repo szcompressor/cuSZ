@@ -1,31 +1,30 @@
-add_library(parsz_testutils  src/rand.cc src/rand_g.cc)
-target_link_libraries(parsz_testutils CUDA::cudart CUDA::curand)
-
+# utils for test
+add_library(          psz_testutils  src/rand.cc src/rand_g.cc)
+target_link_libraries(psz_testutils  CUDA::cudart CUDA::curand)
+# TODO include test_l23_utils.hh
 
 ## testing the utils 
 # add_executable(utils src/utils.cc)
-# target_link_directories(utils PRIVATE parsz_testutils parszstat parszstat_g parszutils_g CUDA::cudart)
+# target_link_directories(utils PRIVATE psz_testutils parszstat parszstat_g parszutils_g CUDA::cudart)
 # add_test(test_utils utils)
 
-
 # add_executable(pred_hl src/spv.cu)
-# target_link_libraries(pred_hl PRIVATE parszspv parsz_testutils)
+# target_link_libraries(pred_hl PRIVATE parszspv psz_testutils)
 # add_test(test_pred_hl pred_hl)
 
 ## testing sp vector
 add_executable(spv_ll src/spv.cu)
-target_link_libraries(spv_ll PRIVATE parszspv parsz_testutils)
+target_link_libraries(spv_ll PRIVATE parszspv psz_testutils)
 add_test(test_spv_ll spv_ll)
 
 add_executable(spv_hl src/spvo.cu)
-target_link_libraries(spv_hl PRIVATE parszspv parsz_testutils)
+target_link_libraries(spv_hl PRIVATE parszspv psz_testutils)
 add_test(test_spv_hl spv_hl)
 
 ## testing hf 
 # add_executable(hf_hl src/spv.cu)
-# target_link_libraries(hf_hl PRIVATE parszspv parsz_testutils)
+# target_link_libraries(hf_hl PRIVATE parszspv psz_testutils)
 # add_test(test_hf_hl hf_hl)
-
 
 # add_executable(tcpu src/tcpu.c)
 # target_link_libraries(tcpu PRIVATE parsztimer)
@@ -45,29 +44,31 @@ target_include_directories(psztestcompile_settings INTERFACE
 
 # correctness, include kernel `.inl` directly
 #### test_typing
-add_executable(core_typing  src/test_pncodec_func.cc)
-target_link_libraries(core_typing PRIVATE psztestcompile_settings)
-add_test(test_core_typing core_typing)
-#### test_typing  end
+# test core functionality
+# Level-0 basic typing
+add_executable(          l0_typing  src/test_pncodec_func.cc)
+target_link_libraries(   l0_typing  PRIVATE psztestcompile_settings)
+add_test(test_l0_typing  l0_typing)
 
-#### test_subroutine
-add_executable(core_subroutine  src/test_core_cudaproto.cu)
-target_link_libraries(core_subroutine PRIVATE parszcompile_settings psztestcompile_settings)
-add_test(core_subroutine core_subroutine)
-#### test_subroutine end
+# Level-1 subroutine
+add_executable(              l1_subroutine  src/test_l23_scan.cu)
+target_link_libraries(       l1_subroutine  PRIVATE parszcompile_settings psztestcompile_settings)
+add_test(test_l1_subroutine  l1_subroutine)
 
-#### test_core
-add_executable(core_serial_using_templates  src/test_core_serial.cc)
-target_link_libraries(core_serial_using_templates PRIVATE psztestcompile_settings)
-add_test(test_core_serial core_serial_using_templates)
+# Level-2 kernel (template; unit tests)
+add_executable(          l2_serial  src/test_l2_serial.cc)
+target_link_libraries(   l2_serial  PRIVATE psztestcompile_settings)
+add_test(test_l1_serial  l2_serial)
 
-add_executable(core_cudaproto_using_templates  src/test_core_cudaproto.cu)
-target_link_libraries(core_cudaproto_using_templates PRIVATE parszcompile_settings psztestcompile_settings)
-add_test(test_core_cudaproto core_cudaproto_using_templates)
+add_executable(             l2_cudaproto  src/test_l2_cudaproto.cu)
+target_link_libraries(      l2_cudaproto  PRIVATE parszcompile_settings psztestcompile_settings)
+add_test(test_l1_cudaproto  l2_cudaproto)
 
-## testing prediction
-add_executable(core_cudakernelwarpper_pred  src/test_core_cudakernelwarpper_pred.cc)
-target_link_libraries(core_cudakernelwarpper_pred PRIVATE psz_core_cuda parsz_testutils parszstat parszstat_g parszutils_g CUDA::cudart)
-add_test(test_core_cudakernelwarpper_pred core_cudakernelwarpper_pred)
-#### test_core end
+# TODO cross-validation
+# add_test(test_l1_cuda  l1_cuda)
+
+# Level-3 kernel with configuration (low-level API)
+add_executable(             l3_cuda_pred  src/test_l3_cuda_pred.cc)
+target_link_libraries(      l3_cuda_pred  PRIVATE psz_core_cuda psz_testutils parszstat parszstat_g parszutils_g CUDA::cudart)
+add_test(test_l3_cuda_pred  l3_cuda_pred)
 # 2023 March fix end

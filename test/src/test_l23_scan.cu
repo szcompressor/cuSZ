@@ -18,9 +18,9 @@ using std::cout;
 using std::endl;
 using std::string;
 
-#include "../../../test/src/rand.hh"
 #include "lorenzo.inl"
 #include "lorenzo23.inl"
+#include "rand.hh"
 
 template <int BLOCK = 256, int SEQ = 8>
 bool test_inclusive_scan()

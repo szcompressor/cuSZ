@@ -1,5 +1,5 @@
 /**
- * @file test_core_cudakernelwarpper_pred.cc
+ * @file test_l3_cuda_pred.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3
