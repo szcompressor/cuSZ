@@ -77,19 +77,19 @@ cusz_error_status compress_predict_lorenzo_i(
         //::cusz::c_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
         //<<<GRID_1D, BLOCK_1D, 0, stream>>>(data, eq, outlier, len3, leap3, radius, ebx2_r);
 
-        parsz::cuda::__kernel::v0::c_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
+        psz::cuda::__kernel::v0::c_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
     else if (d == 2) {
         //::cusz::c_lorenzo_2d1l_16x16data_mapto16x2<T, EQ, FP>
         //<<<GRID_2D, BLOCK_2D, 0, stream>>>(data, eq, outlier, len3, leap3, radius, ebx2_r);
-        parsz::cuda::__kernel::v0::c_lorenzo_2d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::c_lorenzo_2d1l<T, EQ, FP>
             <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
     else if (d == 3) {
         //::cusz::c_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, EQ, FP>
         //<<<GRID_3D, BLOCK_3D, 0, stream>>>(data, eq, outlier, len3, leap3, radius, ebx2_r);
-        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
 
@@ -158,19 +158,19 @@ cusz_error_status decompress_predict_lorenzo_i(
     if (d == 1) {
         //::cusz::x_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
         //<<<GRID_1D, BLOCK_1D, 0, stream>>>(outlier, eq, xdata, len3, leap3, radius, ebx2);
-        parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
+        psz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
     else if (d == 2) {
         //::cusz::x_lorenzo_2d1l_16x16data_mapto16x2<T, EQ, FP>
         //<<<GRID_2D, BLOCK_2D, 0, stream>>>(outlier, eq, xdata, len3, leap3, radius, ebx2);
-        parsz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
             <<<GRID_2D, BLOCK_2D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
     else if (d == 3) {
         //::cusz::x_lorenzo_3d1l_32x8x8data_mapto32x1x8<T, EQ, FP>
         //<<<GRID_3D, BLOCK_3D, 0, stream>>>(outlier, eq, xdata, len3, leap3, radius, ebx2);
-        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
 

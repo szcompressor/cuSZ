@@ -65,7 +65,7 @@ void peek_device_data_Tfp64(double* d_arr, size_t num, size_t offset)
 }
 
 template <typename T>
-void accsz::peek_device_data(T* d_arr, size_t num, size_t offset)
+void psz::peek_device_data(T* d_arr, size_t num, size_t offset)
 {
     if (std::is_same<T, int8_t>::value) {  //
         peek_device_data_Ti8((int8_t*)d_arr, num, offset);
@@ -102,7 +102,7 @@ void accsz::peek_device_data(T* d_arr, size_t num, size_t offset)
     }
 }
 
-#define CPP_PEEK(Tliteral, T) template void accsz::peek_device_data<T>(T * d_arr, size_t num, size_t offset);
+#define CPP_PEEK(Tliteral, T) template void psz::peek_device_data<T>(T * d_arr, size_t num, size_t offset);
 
 CPP_PEEK(i8, int8_t);
 CPP_PEEK(i16, int16_t);

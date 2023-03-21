@@ -193,7 +193,7 @@ struct RefactorTestFramework {
         cudaMalloc(&data, sizeof(T) * len);
         cudaMallocHost(&h_data, sizeof(T) * len);
 
-        // parsz::testutils::cuda::rand_array<T>(data, len);
+        // psz::testutils::cuda::rand_array<T>(data, len);
 
         auto fname = std::string(getenv("CESM"));
         read_binary_to_array(fname, h_data, len);
@@ -453,11 +453,11 @@ struct RefactorTestFramework {
     {
         constexpr auto NTHREAD = BLOCK / SEQ;
 
-        parsz::cuda::__kernel::v0::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
+        psz::cuda::__kernel::v0::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
             <<<grid_dim, NTHREAD>>>(data, len3, dummy_stride3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
+        psz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
             <<<grid_dim, NTHREAD>>>(ti.eq, ti.outlier, len3, dummy_stride3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
@@ -467,7 +467,7 @@ struct RefactorTestFramework {
     {
         constexpr auto NTHREAD = BLOCK / SEQ;
 
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ, CompactionDRAM<T>>
+        psz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ, CompactionDRAM<T>>
             <<<grid_dim, NTHREAD>>>(data, len3, dummy_stride3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
@@ -480,7 +480,7 @@ struct RefactorTestFramework {
             ti.outlier /* full-size */);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
+        psz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
             <<<grid_dim, NTHREAD>>>(ti.eq, ti.outlier, len3, dummy_stride3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
@@ -522,11 +522,11 @@ struct RefactorTestFramework {
         };
         auto GRID_2D = divide3(len3, SUBLEN_2D);
 
-        parsz::cuda::__kernel::v0::c_lorenzo_2d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::c_lorenzo_2d1l<T, EQ, FP>
             <<<GRID_2D, BLOCK_2D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
             <<<GRID_2D, BLOCK_2D>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
@@ -545,7 +545,7 @@ struct RefactorTestFramework {
         };
         auto GRID_2D = divide3(len3, SUBLEN_2D);
 
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, EQ, FP, CompactionDRAM<T>>
+        psz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, EQ, FP, CompactionDRAM<T>>
             <<<GRID_2D, BLOCK_2D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
@@ -558,7 +558,7 @@ struct RefactorTestFramework {
             ti.outlier /* full-size */);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_2d1l<T, EQ, FP>
             <<<GRID_2D, BLOCK_2D>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
@@ -600,11 +600,11 @@ struct RefactorTestFramework {
         constexpr auto BLOCK_3D  = dim3(32, 1, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, BLOCK_3D>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
@@ -622,11 +622,11 @@ struct RefactorTestFramework {
         constexpr auto SUBLEN_3D = dim3(32, 8, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::c_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::c_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, dim3(32, 1, 8)>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }
@@ -644,7 +644,7 @@ struct RefactorTestFramework {
         constexpr auto SUBLEN_3D = dim3(32, 8, 8);
         auto           GRID_3D   = divide3(len3, SUBLEN_3D);
 
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, EQ, FP, CompactionDRAM<T>>
+        psz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, EQ, FP, CompactionDRAM<T>>
             <<<GRID_3D, dim3(32, 8, 1)>>>(data, len3, leap3, radius, ebx2_r, ti.eq, ti.outlier_desc);
         cudaDeviceSynchronize();
 
@@ -657,7 +657,7 @@ struct RefactorTestFramework {
             ti.outlier /* full-size */);
         cudaDeviceSynchronize();
 
-        parsz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
+        psz::cuda::__kernel::v0::x_lorenzo_3d1l<T, EQ, FP>
             <<<GRID_3D, dim3(32, 1, 8)>>>(ti.eq, ti.outlier, len3, leap3, radius, ebx2, ti.xdata);
         cudaDeviceSynchronize();
     }

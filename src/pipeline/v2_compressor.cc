@@ -13,7 +13,7 @@
 #include "common/configs.hh"
 #include "framework.hh"
 
-namespace parsz {
+namespace psz {
 
 template <class B>
 v2_Compressor<B>::~v2_Compressor()
@@ -107,6 +107,6 @@ void v2_Compressor<B>::export_header(v2_header* header)
 //     pimpl->export_timerecord(ext_timerecord);
 // }
 
-}  // namespace parsz
+}  // namespace psz
 
-template class parsz::v2_Compressor<cusz::Framework<float>>;
+template class psz::v2_Compressor<cusz::Framework<float>>;

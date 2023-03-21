@@ -23,7 +23,7 @@
 
 using Context = cusz::Context;
 
-namespace parsz {
+namespace psz {
 
 template <class CONFIG>
 class v2_Compressor {
@@ -143,4 +143,4 @@ class v2_Compressor<CONFIG>::impl {
     // getter
 };
 
-}  // namespace parsz
+}  // namespace psz

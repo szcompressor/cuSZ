@@ -15,19 +15,19 @@
 #define CPPSTD_COMPARE_LOSSLESS(Tliteral, T)                          \
     bool cppstd_identical_T##Tliteral(T* d1, T* d2, size_t const len) \
     {                                                                 \
-        return parsz::detail::cppstd_identical<T>(d1, d2, len);       \
+        return psz::detail::cppstd_identical<T>(d1, d2, len);         \
     }
 
 #define CPPSTD_COMPARE_LOSSY(Tliteral, T)                                                       \
     bool cppstd_error_bounded_T##Tliteral(                                                      \
         T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr)      \
     {                                                                                           \
-        return parsz::detail::cppstd_error_bounded<T>(a, b, len, eb, first_faulty_idx);         \
+        return psz::detail::cppstd_error_bounded<T>(a, b, len, eb, first_faulty_idx);           \
     }                                                                                           \
                                                                                                 \
     void cppstd_assess_quality_T##Tliteral(cusz_stats* s, T* xdata, T* odata, size_t const len) \
     {                                                                                           \
-        parsz::detail::cppstd_assess_quality<T>(s, xdata, odata, len);                          \
+        psz::detail::cppstd_assess_quality<T>(s, xdata, odata, len);                            \
     }
 
 CPPSTD_COMPARE_LOSSLESS(fp32, float)

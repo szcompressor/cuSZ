@@ -49,7 +49,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    accsz::peek_device_data<float>(data, 100);
+    psz::peek_device_data<float>(data, 100);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -61,10 +61,10 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     {
         printf("signum\n");
-        accsz::peek_device_data<int8_t>((int8_t*)signum, 100);
+        psz::peek_device_data<int8_t>((int8_t*)signum, 100);
 
         printf("delta\n");
-        accsz::peek_device_data<DeltaT>(delta, 100);
+        psz::peek_device_data<DeltaT>(delta, 100);
     }
 
     cout << "comp time\t" << time_comp << endl;
@@ -77,7 +77,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     {
         printf("xdata\n");
-        accsz::peek_device_data<float>(xdata, 100);
+        psz::peek_device_data<float>(xdata, 100);
     }
 
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(xdata, data, len);

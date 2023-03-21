@@ -18,7 +18,7 @@
 #include <cstdlib>
 #include "cusz/type.h"
 
-namespace parsz {
+namespace psz {
 namespace detail {
 
 template <typename T>
@@ -104,6 +104,6 @@ void cppstd_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t const len)
 }
 
 }  // namespace detail
-}  // namespace parsz
+}  // namespace psz
 
 #endif /* C0E747B4_066F_4B04_A3D2_00E1A3B7D682 */

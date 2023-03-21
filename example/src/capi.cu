@@ -39,7 +39,7 @@ void f(std::string fname)
 
     /* a casual peek */
     printf("peeking uncompressed data, 20 elements\n");
-    accsz::peek_device_data(d_uncompressed, 20);
+    psz::peek_device_data(d_uncompressed, 20);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -98,7 +98,7 @@ void f(std::string fname)
 
     /* a casual peek */
     printf("peeking decompressed data, 20 elements\n");
-    accsz::peek_device_data(d_decompressed, 20);
+    psz::peek_device_data(d_decompressed, 20);
 
     /* demo: offline checking (de)compression quality. */
     /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len, compressed_len);

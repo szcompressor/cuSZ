@@ -17,13 +17,13 @@
     void spv_gather_T##Tliteral##_M##Mliteral(                                                                     \
         T* in, size_t const in_len, T* d_val, uint32_t* d_idx, int* nnz, float* milliseconds, cudaStream_t stream) \
     {                                                                                                              \
-        accsz::detail::spv_gather<T, M>(in, in_len, d_val, d_idx, nnz, milliseconds, stream);                      \
+        psz::detail::spv_gather<T, M>(in, in_len, d_val, d_idx, nnz, milliseconds, stream);                        \
     }                                                                                                              \
                                                                                                                    \
     void spv_scatter_T##Tliteral##_M##Mliteral(                                                                    \
         T* d_val, uint32_t* d_idx, int const nnz, T* decoded, float* milliseconds, cudaStream_t stream)            \
     {                                                                                                              \
-        accsz::detail::spv_scatter<T, M>(d_val, d_idx, nnz, decoded, milliseconds, stream);                        \
+        psz::detail::spv_scatter<T, M>(d_val, d_idx, nnz, decoded, milliseconds, stream);                          \
     }
 
 SPV(ui8, ui32, uint8_t, uint32_t)
@@ -37,14 +37,14 @@ SPV(fp64, ui32, double, uint32_t)
 
 #define SPV(Tliteral, Mliteral, T, M)                                                                               \
     template <>                                                                                                     \
-    void accsz::spv_gather<T, M>(                                                                                   \
+    void psz::spv_gather<T, M>(                                                                                     \
         T * in, size_t const in_len, T* d_val, uint32_t* d_idx, int* nnz, float* milliseconds, cudaStream_t stream) \
     {                                                                                                               \
         spv_gather_T##Tliteral##_M##Mliteral(in, in_len, d_val, d_idx, nnz, milliseconds, stream);                  \
     }                                                                                                               \
                                                                                                                     \
     template <>                                                                                                     \
-    void accsz::spv_scatter<T, M>(                                                                                  \
+    void psz::spv_scatter<T, M>(                                                                                    \
         T * d_val, uint32_t * d_idx, int const nnz, T* decoded, float* milliseconds, cudaStream_t stream)           \
     {                                                                                                               \
         spv_scatter_T##Tliteral##_M##Mliteral(d_val, d_idx, nnz, decoded, milliseconds, stream);                    \

@@ -22,7 +22,7 @@
 
 #include "utils/timer.h"
 
-namespace accsz {
+namespace psz {
 namespace detail {
 
 template <typename T, typename M>
@@ -72,6 +72,6 @@ void spv_scatter(T* d_val, uint32_t* d_idx, int const nnz, T* decoded, float* mi
 }
 
 }  // namespace detail
-}  // namespace accsz
+}  // namespace psz
 
 #endif /* F88E11A6_6B61_4C6F_8B2E_30EEAAB4D204 */

@@ -213,7 +213,7 @@ cusz_error_status compressor(
     cout << "time-eq\t" << time_pq << endl;
 
     // TODO better namesapce to specify this is a firewall
-    accsz::spv_gather<T, M>(data->outlier, data->len, data->val, data->idx, &header_st->nnz, &time_spv, stream);
+    psz::spv_gather<T, M>(data->outlier, data->len, data->val, data->idx, &header_st->nnz, &time_spv, stream);
 
     cout << "time-spv\t" << time_spv << endl;
     cout << "nnz\t" << header_st->nnz << endl;
@@ -267,7 +267,7 @@ cusz_error_status decompressor(
           // time_hf = 0,
         time_d_pq = 0;
 
-    accsz::spv_scatter<T, uint32_t>(data->val, data->idx, header_st->nnz, data->xdata, &time_scatter, stream);
+    psz::spv_scatter<T, uint32_t>(data->val, data->idx, header_st->nnz, data->xdata, &time_scatter, stream);
     cout << "decomp-time-spv\t" << time_scatter << endl;
 
     codec->decode(hf->hl_comp, data->errq);

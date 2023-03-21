@@ -14,7 +14,7 @@
 #include "rand.hh"
 
 template <>
-void parsz::testutils::cuda::rand_array<float>(float* array_g, size_t len)
+void psz::testutils::cuda::rand_array<float>(float* array_g, size_t len)
 {
     curandGenerator_t gen;
 
@@ -27,7 +27,7 @@ void parsz::testutils::cuda::rand_array<float>(float* array_g, size_t len)
 }
 
 template <>
-void parsz::testutils::cuda::rand_array<double>(double* array_g, size_t len)
+void psz::testutils::cuda::rand_array<double>(double* array_g, size_t len)
 {
     curandGenerator_t gen;
 

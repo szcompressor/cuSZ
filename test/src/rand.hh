@@ -23,7 +23,7 @@ T randfp(T upper = 1.0, T lower = 0.0);
 template <typename T>
 void rand_array(T* array, size_t len);
 
-namespace parsz {
+namespace psz {
 namespace testutils {
 namespace cuda {
 
@@ -32,6 +32,6 @@ void rand_array(T* array, size_t len);
 
 }
 }  // namespace testutils
-}  // namespace parsz
+}  // namespace psz
 
 #endif /* B160F9D0_4352_4049_9B85_57BEAFC5C816 */

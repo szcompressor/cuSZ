@@ -11,11 +11,11 @@
 
 #include "print_gpu.h"
 
-namespace accsz {
+namespace psz {
 
 template <typename T>
 void peek_device_data(T* d_arr, size_t num, size_t offset = 0);
 
-}  // namespace accsz
+}  // namespace psz
 
 #undef PEEK_DEVICE_DATA

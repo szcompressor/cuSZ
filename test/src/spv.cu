@@ -53,7 +53,7 @@ int f()
 
     ////////////////////////////////////////////////////////////////
 
-    accsz::spv_gather<T, uint32_t>(a, len, val, idx, &nnz, &ms, stream);
+    psz::spv_gather<T, uint32_t>(a, len, val, idx, &nnz, &ms, stream);
 
     cudaStreamSynchronize(stream);
 
@@ -64,7 +64,7 @@ int f()
         return -1;
     }
 
-    accsz::spv_scatter<T, uint32_t>(val, idx, nnz, da, &ms, stream);
+    psz::spv_scatter<T, uint32_t>(val, idx, nnz, da, &ms, stream);
 
     cudaStreamSynchronize(stream);
 

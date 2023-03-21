@@ -13,7 +13,7 @@
 #define A54D2009_1D4F_4113_9E26_9695A3669224
 #include <cstdint>
 
-namespace accsz {
+namespace psz {
 
 template <typename T, typename M>
 void spv_gather(
@@ -28,6 +28,6 @@ void spv_gather(
 template <typename T, typename M>
 void spv_scatter(T* d_val, uint32_t* d_idx, int const nnz, T* decoded, float* milliseconds, cudaStream_t stream);
 
-}  // namespace accsz
+}  // namespace psz
 
 #endif /* A54D2009_1D4F_4113_9E26_9695A3669224 */

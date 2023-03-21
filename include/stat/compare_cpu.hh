@@ -14,7 +14,7 @@
 
 #include "compare.h"
 
-namespace parsz {
+namespace psz {
 
 template <typename T>
 bool cppstd_identical(T* d1, T* d2, size_t const len);
@@ -25,26 +25,26 @@ bool cppstd_error_bounded(T* a, T* b, size_t const len, double const eb, size_t*
 template <typename T>
 void cppstd_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t const len);
 
-}  // namespace parsz
+}  // namespace psz
 
-#define CPPSTD_COMPARE_LOSSLESS(Tliteral, T)                          \
-    template <>                                                       \
-    bool parsz::cppstd_identical<T>(T * d1, T * d2, size_t const len) \
-    {                                                                 \
-        return cppstd_identical_T##Tliteral(d1, d2, len);             \
+#define CPPSTD_COMPARE_LOSSLESS(Tliteral, T)                        \
+    template <>                                                     \
+    bool psz::cppstd_identical<T>(T * d1, T * d2, size_t const len) \
+    {                                                               \
+        return cppstd_identical_T##Tliteral(d1, d2, len);           \
     }
 
-#define CPPSTD_COMPARE_LOSSY(Tliteral, T)                                                                          \
-    template <>                                                                                                    \
-    bool parsz::cppstd_error_bounded<T>(T * a, T * b, size_t const len, double const eb, size_t* first_faulty_idx) \
-    {                                                                                                              \
-        return cppstd_error_bounded_T##Tliteral(a, b, len, eb, first_faulty_idx);                                  \
-    }                                                                                                              \
-                                                                                                                   \
-    template <>                                                                                                    \
-    void parsz::cppstd_assess_quality<T>(cusz_stats * s, T * xdata, T * odata, size_t const len)                   \
-    {                                                                                                              \
-        cppstd_assess_quality_T##Tliteral(s, xdata, odata, len);                                                   \
+#define CPPSTD_COMPARE_LOSSY(Tliteral, T)                                                                        \
+    template <>                                                                                                  \
+    bool psz::cppstd_error_bounded<T>(T * a, T * b, size_t const len, double const eb, size_t* first_faulty_idx) \
+    {                                                                                                            \
+        return cppstd_error_bounded_T##Tliteral(a, b, len, eb, first_faulty_idx);                                \
+    }                                                                                                            \
+                                                                                                                 \
+    template <>                                                                                                  \
+    void psz::cppstd_assess_quality<T>(cusz_stats * s, T * xdata, T * odata, size_t const len)                   \
+    {                                                                                                            \
+        cppstd_assess_quality_T##Tliteral(s, xdata, odata, len);                                                 \
     }
 
 CPPSTD_COMPARE_LOSSLESS(fp32, float)

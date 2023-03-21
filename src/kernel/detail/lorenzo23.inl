@@ -11,9 +11,9 @@
 
 #include "subroutine.inl"
 
-namespace subr = parsz::cuda::__device;
+namespace subr = psz::cuda::__device;
 
-namespace parsz {
+namespace psz {
 namespace cuda {
 namespace __kernel {
 
@@ -188,22 +188,16 @@ __global__ void x_lorenzo_3d1l(EQ* quant, dim3 len3, dim3 stride3, FP ebx2, T* x
 
 }  // namespace __kernel
 }  // namespace cuda
-}  // namespace parsz
+}  // namespace psz
 
 ////////////////////////////////////////////////////////////////////////////////
 // 1D definition
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
-__global__ void parsz::cuda::__kernel::v0::c_lorenzo_1d1l(
-    T*   data,
-    dim3 len3,
-    dim3 stride3,
-    int  radius,
-    FP   ebx2_r,
-    EQ*  quant,
-    T*   outlier)
+__global__ void
+psz::cuda::__kernel::v0::c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -228,9 +222,9 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_1d1l(
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
 __global__ void
-parsz::cuda::__kernel::v0::delta_only::c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, FP ebx2_r, EQ* quant)
+psz::cuda::__kernel::v0::delta_only::c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, FP ebx2_r, EQ* quant)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -254,7 +248,7 @@ parsz::cuda::__kernel::v0::delta_only::c_lorenzo_1d1l(T* data, dim3 len3, dim3 s
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction>
-__global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l(
+__global__ void psz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l(
     T*         data,
     dim3       len3,
     dim3       stride3,
@@ -263,8 +257,8 @@ __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l(
     EQ*        quant,
     Compaction outlier_desc)
 {
-    namespace subr_v0  = parsz::cuda::__device::v0;
-    namespace subr_v0c = parsz::cuda::__device::v0::compaction;
+    namespace subr_v0  = psz::cuda::__device::v0;
+    namespace subr_v0c = psz::cuda::__device::v0::compaction;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -288,7 +282,7 @@ __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l(
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction>
-__global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_1d1l(  //
+__global__ void psz::cuda::__kernel::v1_pn::compaction::c_lorenzo_1d1l(  //
     T*         data,
     dim3       len3,
     dim3       stride3,
@@ -297,8 +291,8 @@ __global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_1d1l(  //
     EQ*        quant,
     Compaction outlier)
 {
-    namespace subr_v0  = parsz::cuda::__device::v0;
-    namespace subr_v1c = parsz::cuda::__device::v1_pn::compaction;
+    namespace subr_v0  = psz::cuda::__device::v0;
+    namespace subr_v1c = psz::cuda::__device::v1_pn::compaction;
 
     constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -322,7 +316,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_1d1l(  //
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
-__global__ void parsz::cuda::__kernel::v0::x_lorenzo_1d1l(  //
+__global__ void psz::cuda::__kernel::v0::x_lorenzo_1d1l(  //
     EQ*  quant,
     T*   outlier,
     dim3 len3,
@@ -331,8 +325,8 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_1d1l(  //
     FP   ebx2,
     T*   xdata)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
-    namespace wave32  = parsz::cuda::__device::wave32;
+    namespace subr_v0 = psz::cuda::__device::v0;
+    namespace wave32  = psz::cuda::__device::wave32;
 
     constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
@@ -356,14 +350,14 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_1d1l(  //
 }
 
 template <typename T, typename EQ, typename FP, int BLOCK, int SEQ>
-__global__ void parsz::cuda::__kernel::v0::delta_only::x_lorenzo_1d1l(  //
+__global__ void psz::cuda::__kernel::v0::delta_only::x_lorenzo_1d1l(  //
     EQ*  quant,
     dim3 len3,
     dim3 stride3,
     FP   ebx2,
     T*   xdata)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
@@ -387,16 +381,10 @@ __global__ void parsz::cuda::__kernel::v0::delta_only::x_lorenzo_1d1l(  //
 // 2D definition
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::c_lorenzo_2d1l(
-    T*   data,
-    dim3 len3,
-    dim3 stride3,
-    int  radius,
-    FP   ebx2_r,
-    EQ*  quant,
-    T*   outlier)
+__global__ void
+psz::cuda::__kernel::v0::c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -414,9 +402,9 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_2d1l(
 
 template <typename T, typename EQ, typename FP>
 __global__ void
-parsz::cuda::__kernel::v0::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, FP ebx2_r, EQ* quant)
+psz::cuda::__kernel::v0::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, FP ebx2_r, EQ* quant)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -434,10 +422,10 @@ parsz::cuda::__kernel::v0::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim3 s
 
 template <typename T, typename EQ, typename FP>
 __global__ void
-parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, FP ebx2_r, EQ* quant)
+psz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, FP ebx2_r, EQ* quant)
 {
-    namespace subr_v0  = parsz::cuda::__device::v0;
-    namespace subr_v1d = parsz::cuda::__device::v1_pn::delta_only;
+    namespace subr_v0  = psz::cuda::__device::v0;
+    namespace subr_v1d = psz::cuda::__device::v1_pn::delta_only;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -454,7 +442,7 @@ parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_2d1l(T* data, dim3 len3, dim
 }
 
 template <typename T, typename EQ, typename FP, typename Compaction>
-__global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l(
+__global__ void psz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l(
     T*         data,
     dim3       len3,
     dim3       stride3,
@@ -463,7 +451,7 @@ __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l(
     EQ*        quant,
     Compaction outlier)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = 8;
@@ -482,7 +470,7 @@ __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l(
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::x_lorenzo_2d1l(  //
+__global__ void psz::cuda::__kernel::v0::x_lorenzo_2d1l(  //
     EQ*  quant,
     T*   outlier,
     dim3 len3,
@@ -491,7 +479,7 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_2d1l(  //
     FP   ebx2,
     T*   xdata)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = BLOCK / 2;  // sequentiality in y direction
@@ -513,7 +501,7 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_2d1l(  //
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_2d1l(  //
+__global__ void psz::cuda::__kernel::v1_pn::x_lorenzo_2d1l(  //
     EQ*  quant,
     T*   outlier,
     dim3 len3,
@@ -521,8 +509,8 @@ __global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_2d1l(  //
     FP   ebx2,
     T*   xdata)
 {
-    namespace subr_v0    = parsz::cuda::__device::v0;
-    namespace subr_v1_pn = parsz::cuda::__device::v1_pn;
+    namespace subr_v0    = psz::cuda::__device::v0;
+    namespace subr_v1_pn = psz::cuda::__device::v1_pn;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = BLOCK / 2;  // sequentiality in y direction
@@ -543,14 +531,14 @@ __global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_2d1l(  //
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::delta_only::x_lorenzo_2d1l(  //
+__global__ void psz::cuda::__kernel::v0::delta_only::x_lorenzo_2d1l(  //
     EQ*  quant,
     dim3 len3,
     dim3 stride3,
     FP   ebx2,
     T*   xdata)
 {
-    namespace subr_v0 = parsz::cuda::__device::v0;
+    namespace subr_v0 = psz::cuda::__device::v0;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = BLOCK / 2;  // sequentiality in y direction
@@ -571,15 +559,15 @@ __global__ void parsz::cuda::__kernel::v0::delta_only::x_lorenzo_2d1l(  //
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v1_pn::delta_only::x_lorenzo_2d1l(  //
+__global__ void psz::cuda::__kernel::v1_pn::delta_only::x_lorenzo_2d1l(  //
     EQ*  quant,
     dim3 len3,
     dim3 stride3,
     FP   ebx2,
     T*   xdata)
 {
-    namespace subr_v0    = parsz::cuda::__device::v0;
-    namespace subr_v1_pn = parsz::cuda::__device::v1_pn;
+    namespace subr_v0    = psz::cuda::__device::v0;
+    namespace subr_v1_pn = psz::cuda::__device::v1_pn;
 
     constexpr auto BLOCK = 16;
     constexpr auto YSEQ  = BLOCK / 2;  // sequentiality in y direction
@@ -599,7 +587,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::delta_only::x_lorenzo_2d1l(  //
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l(
+__global__ void psz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l(
     T*   data,
     dim3 len3,
     dim3 stride3,
@@ -662,14 +650,8 @@ __global__ void parsz::cuda::__kernel::v0::legacy::c_lorenzo_3d1l(
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
-    T*   data,
-    dim3 len3,
-    dim3 stride3,
-    int  radius,
-    FP   ebx2_r,
-    EQ*  quant,
-    T*   outlier)
+__global__ void
+psz::cuda::__kernel::v0::c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, T* outlier)
 {
     constexpr auto BLOCK = 8;
     __shared__ T   s[9][33];
@@ -739,7 +721,7 @@ __global__ void parsz::cuda::__kernel::v0::c_lorenzo_3d1l(
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::delta_only::c_lorenzo_3d1l(  //
+__global__ void psz::cuda::__kernel::v0::delta_only::c_lorenzo_3d1l(  //
     T*   data,
     dim3 len3,
     dim3 stride3,
@@ -795,7 +777,7 @@ __global__ void parsz::cuda::__kernel::v0::delta_only::c_lorenzo_3d1l(  //
 }
 
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_3d1l(  //
+__global__ void psz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_3d1l(  //
     T*   data,
     dim3 len3,
     dim3 stride3,
@@ -856,7 +838,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::delta_only::c_lorenzo_3d1l(  //
 }
 
 template <typename T, typename EQ, typename FP, typename Compaction>
-__global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l(
+__global__ void psz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l(
     T*         data,
     dim3       len3,
     dim3       stride3,
@@ -923,7 +905,7 @@ __global__ void parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l(
 }
 
 template <typename T, typename EQ, typename FP, typename Compaction>
-__global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_3d1l(
+__global__ void psz::cuda::__kernel::v1_pn::compaction::c_lorenzo_3d1l(
     T*         data,
     dim3       len3,
     dim3       stride3,
@@ -999,7 +981,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::compaction::c_lorenzo_3d1l(
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::x_lorenzo_3d1l(  //
+__global__ void psz::cuda::__kernel::v0::x_lorenzo_3d1l(  //
     EQ*  quant,
     T*   outlier,
     dim3 len3,
@@ -1084,7 +1066,7 @@ __global__ void parsz::cuda::__kernel::v0::x_lorenzo_3d1l(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_3d1l(  //
+__global__ void psz::cuda::__kernel::v1_pn::x_lorenzo_3d1l(  //
     EQ*  quant,
     T*   outlier,
     dim3 len3,
@@ -1173,7 +1155,7 @@ __global__ void parsz::cuda::__kernel::v1_pn::x_lorenzo_3d1l(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename EQ, typename FP>
-__global__ void parsz::cuda::__kernel::v0::delta_only::x_lorenzo_3d1l(  //
+__global__ void psz::cuda::__kernel::v0::delta_only::x_lorenzo_3d1l(  //
     EQ*  quant,
     dim3 len3,
     dim3 stride3,

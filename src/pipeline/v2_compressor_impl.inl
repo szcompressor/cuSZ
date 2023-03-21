@@ -37,7 +37,7 @@
 
 #define ACCESS_VAR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header->entry[v2_header::SYM])
 
-namespace parsz {
+namespace psz {
 
 TEMPLATE_TYPE
 IMPL::impl()
@@ -213,7 +213,7 @@ void IMPL::decompress(v2_header* header, BYTE* in_compressed, T* out_decompresse
     auto d_outlier = out_decompressed;
     auto d_xdata   = out_decompressed;
 
-    accsz::detail::spv_scatter<T, IDX>(d_spval, d_spidx, header->sp.count, d_outlier, &decomp_time.scatter, stream);
+    psz::detail::spv_scatter<T, IDX>(d_spval, d_spidx, header->sp.count, d_outlier, &decomp_time.scatter, stream);
 
     codec->decode(d_vle, d_errctrl);
 
@@ -231,7 +231,7 @@ void IMPL::decompress(v2_header* header, BYTE* in_compressed, T* out_decompresse
     // use_fallback_codec = false;
 }
 
-}  // namespace parsz
+}  // namespace psz
 
 #undef TEMPLATE_TYPE
 #undef IMPL

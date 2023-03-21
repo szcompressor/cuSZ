@@ -70,15 +70,15 @@ cusz_error_status v2_compress_predict_lorenzo_i(
     START_CUDAEVENT_RECORDING(stream);
 
     if (d == 1) {
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
+        psz::cuda::__kernel::v0::compaction::c_lorenzo_1d1l<T, E, FP, SUBLEN_1D, SEQ_1D>
             <<<GRID_1D, BLOCK_1D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
     else if (d == 2) {
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, E, FP>
+        psz::cuda::__kernel::v0::compaction::c_lorenzo_2d1l<T, E, FP>
             <<<GRID_2D, BLOCK_2D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
     else if (d == 3) {
-        parsz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, E, FP>
+        psz::cuda::__kernel::v0::compaction::c_lorenzo_3d1l<T, E, FP>
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, errctrl, outlier);
     }
 

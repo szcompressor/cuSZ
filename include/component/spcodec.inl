@@ -133,7 +133,7 @@ class SpcodecVec {
     {
         Header header;
 
-        accsz::spv_gather<T, M>(in, in_len, this->d_val, this->d_idx, &rte.nnz, &milliseconds, stream);
+        psz::spv_gather<T, M>(in, in_len, this->d_val, this->d_idx, &rte.nnz, &milliseconds, stream);
 
         subfile_collect(header, in_len, stream, dbg_print);
         out     = d_spfmt;
@@ -150,7 +150,7 @@ class SpcodecVec {
         auto d_val = ACCESSOR(VAL, T);
 #undef ACCESSOR
 
-        accsz::spv_scatter<T, M>(d_val, d_idx, header.nnz, decoded, &milliseconds, stream);
+        psz::spv_scatter<T, M>(d_val, d_idx, header.nnz, decoded, &milliseconds, stream);
     }
 
     void clear_buffer()

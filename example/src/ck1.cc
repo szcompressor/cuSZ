@@ -58,7 +58,7 @@ void f(
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    accsz::peek_device_data<T>(d_d, 100);
+    psz::peek_device_data<T>(d_d, 100);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -84,7 +84,7 @@ void f(
 
     cudaDeviceSynchronize();
 
-    accsz::peek_device_data<E>(d_eq, 100);
+    psz::peek_device_data<E>(d_eq, 100);
 
     cudaMemcpy(h_eq, d_eq, sizeof(E) * len, cudaMemcpyDeviceToHost);
     io::write_array_to_binary<E>(fname + ".eq." + type_literal, h_eq, len);
@@ -117,7 +117,7 @@ void f(
 
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
-    accsz::peek_device_data<T>(d_xd, 100);
+    psz::peek_device_data<T>(d_xd, 100);
 
     cudaFree(d_d);
     cudaFree(d_xd);

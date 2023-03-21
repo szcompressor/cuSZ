@@ -9,7 +9,7 @@
  *
  */
 
-namespace parsz {
+namespace psz {
 namespace cuda {
 namespace __device {
 
@@ -27,10 +27,10 @@ __forceinline__ __device__ void intrablock_exclusivescan_1d(  //
 
 }  // namespace __device
 }  // namespace cuda
-}  // namespace parsz
+}  // namespace psz
 
 template <typename T, int SEQ>
-__forceinline__ __device__ void parsz::cuda::__device::wave32::intrawarp_inclusivescan_1d(T private_buffer[SEQ])
+__forceinline__ __device__ void psz::cuda::__device::wave32::intrawarp_inclusivescan_1d(T private_buffer[SEQ])
 {
     for (auto i = 1; i < SEQ; i++) private_buffer[i] += private_buffer[i - 1];
     T addend = private_buffer[SEQ - 1];
@@ -49,7 +49,7 @@ __forceinline__ __device__ void parsz::cuda::__device::wave32::intrawarp_inclusi
 }
 
 template <typename T, int SEQ, int NTHREAD>
-__forceinline__ __device__ void parsz::cuda::__device::wave32::intrablock_exclusivescan_1d(
+__forceinline__ __device__ void psz::cuda::__device::wave32::intrablock_exclusivescan_1d(
     T           private_buffer[SEQ],
     volatile T* exchange_in,
     volatile T* exchange_out)

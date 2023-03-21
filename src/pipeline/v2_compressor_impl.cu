@@ -12,4 +12,4 @@
 #include "framework.hh"
 #include "v2_compressor_impl.inl"
 
-template class parsz::v2_Compressor<cusz::Framework<float>>::impl;
+template class psz::v2_Compressor<cusz::Framework<float>>::impl;

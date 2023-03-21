@@ -71,7 +71,7 @@ bool test_inclusive_scan()
         cout << "refactored v0 (wave32)" << endl;
         for (auto i = 0; i < BLOCK; i++) data[i] = 1;
 
-        parsz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
+        psz::cuda::__kernel::v0::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
             <<<1, NTHREAD>>>(eq, data, dim3(len, 1, 1), dim3(0, 0, 0), 0, ebx2, data);
         cudaDeviceSynchronize();
 

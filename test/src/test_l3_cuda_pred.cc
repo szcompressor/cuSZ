@@ -35,7 +35,7 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
 
     uint32_t* outlier_idx{nullptr};
 
-    parsz::testutils::cuda::rand_array<T>(data.uniptr(), len);
+    psz::testutils::cuda::rand_array<T>(data.uniptr(), len);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -55,12 +55,12 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    // accsz::peek_device_data(data.uniptr(), 100);
-    // accsz::peek_device_data(xdata.uniptr(), 100);
+    // psz::peek_device_data(data.uniptr(), 100);
+    // psz::peek_device_data(xdata.uniptr(), 100);
 
     size_t first_non_eb = 0;
-    // bool   error_bounded = parsz::thrustgpu_error_bounded<T>(xdata, data, len, error_bound, &first_non_eb);
-    bool error_bounded = parsz::cppstd_error_bounded<T>(xdata.uniptr(), data.uniptr(), len, error_bound, &first_non_eb);
+    // bool   error_bounded = psz::thrustgpu_error_bounded<T>(xdata, data, len, error_bound, &first_non_eb);
+    bool error_bounded = psz::cppstd_error_bounded<T>(xdata.uniptr(), data.uniptr(), len, error_bound, &first_non_eb);
 
     // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(data.uniptr(), xdata.uniptr(), len);
 

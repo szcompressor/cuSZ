@@ -16,11 +16,11 @@
 #define THRUSTGPU_COMPARE_LOSSLESS(Tliteral, T)                          \
     bool thrustgpu_identical_T##Tliteral(T* d1, T* d2, size_t const len) \
     {                                                                    \
-        return parsz::detail::thrustgpu_identical<T>(d1, d2, len);       \
+        return psz::detail::thrustgpu_identical<T>(d1, d2, len);         \
     }                                                                    \
                                                                          \
     template <>                                                          \
-    bool parsz::thrustgpu_identical<T>(T * d1, T * d2, size_t const len) \
+    bool psz::thrustgpu_identical<T>(T * d1, T * d2, size_t const len)   \
     {                                                                    \
         return thrustgpu_identical_T##Tliteral(d1, d2, len);             \
     }

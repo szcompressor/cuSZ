@@ -100,7 +100,7 @@ class BaseCompressor {
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         cusz_stats stat;
-        parsz::thrustgpu_assess_quality<T>(&stat, nc->reconst.hptr(), nc->original.hptr(), nc->p->get_len_data());
+        psz::thrustgpu_assess_quality<T>(&stat, nc->reconst.hptr(), nc->original.hptr(), nc->p->get_len_data());
         cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
@@ -138,7 +138,7 @@ class BaseCompressor {
         CHECK_CUDA(cudaStreamSynchronize(stream));
 
         cusz_stats stat;
-        parsz::thrustgpu_assess_quality(&stat, nc->reconst.hptr(), nc->original.hptr(), len);
+        psz::thrustgpu_assess_quality(&stat, nc->reconst.hptr(), nc->original.hptr(), len);
         cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
         return *this;
