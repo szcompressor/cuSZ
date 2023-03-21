@@ -103,13 +103,13 @@ class PredictionUnified : public PredictorBoilerplate {
             this->check_rtlen();
 
             // ad hoc placeholder
-            auto      anchor_len3  = dim3(0, 0, 0);
-            auto      errctrl_len3 = dim3(0, 0, 0);
-            uint32_t* outlier_idx  = nullptr;
+            // auto      anchor_len3  = dim3(0, 0, 0);
+            // auto      errctrl_len3 = dim3(0, 0, 0);
+            uint32_t* outlier_idx = nullptr;
 
             compress_predict_lorenzo_i<T, E, FP>(
-                data, len3, eb, radius,                                                           //
-                d_errctrl, errctrl_len3, d_anchor, anchor_len3, d_outlier, outlier_idx, nullptr,  //
+                data, len3, eb, radius,                      //
+                d_errctrl, d_outlier, outlier_idx, nullptr,  //
                 &time_elapsed, stream);
         }
         else if (predictor == Spline3) {
@@ -138,17 +138,17 @@ class PredictionUnified : public PredictorBoilerplate {
             this->check_rtlen();
 
             // ad hoc placeholder
-            auto      anchor_len3  = dim3(0, 0, 0);
-            auto      errctrl_len3 = dim3(0, 0, 0);
-            auto      xdata        = outlier_xdata;
-            auto      outlier      = outlier_xdata;
-            uint32_t* outlier_idx  = nullptr;
+            // auto      anchor_len3  = dim3(0, 0, 0);
+            // auto      errctrl_len3 = dim3(0, 0, 0);
+            auto      xdata       = outlier_xdata;
+            auto      outlier     = outlier_xdata;
+            uint32_t* outlier_idx = nullptr;
 
             auto xdata_len3 = len3;
 
             decompress_predict_lorenzo_i<T, E, FP>(
-                errctrl, errctrl_len3, anchor, anchor_len3, outlier, outlier_idx, 0, eb, radius,  //
-                xdata, xdata_len3,                                                                //
+                errctrl, xdata_len3, outlier, outlier_idx, 0, eb, radius,  //
+                xdata,                                                     //
                 &time_elapsed, stream);
         }
         else if (predictor == Spline3) {

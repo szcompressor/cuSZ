@@ -114,8 +114,8 @@ void IMPL::compress(
     BYTE*  d_codec_out{nullptr};
     size_t codec_outlen{0};
 
-    size_t sublen;
-    auto   booklen = radius * 2;
+    // size_t sublen;
+    auto booklen = radius * 2;
 
     /******************************************************************************/
 
@@ -218,13 +218,11 @@ void IMPL::decompress(v2_header* header, BYTE* in_compressed, T* out_decompresse
     codec->decode(d_vle, d_errctrl);
 
     decompress_predict_lorenzo_i<T, EQ, FP>(
-        d_errctrl, data_len3,     //
-        d_anchor, dim3(0, 0, 0),  // two placeholders
-        d_outlier,                //
-        nullptr, 0,               // TODO remove
+        d_errctrl, data_len3,  //
+        d_outlier,             //
+        nullptr, 0,            // TODO remove
         header->eb, header->radius,
-        d_xdata,        // output
-        dim3(0, 0, 0),  // placeholder
+        d_xdata,  // output
         &decomp_time.reconstruct, stream);
 
     // collect_decompress_timerecord();

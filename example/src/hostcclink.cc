@@ -22,8 +22,7 @@ int main()
     cudaStreamCreate(&stream);
 
     compress_predict_lorenzo_i<float, uint16_t, float>(
-        data, len3, eb, radius, errq, dim3(1, 1, 1), nullptr, dim3(1, 1, 1), outlier, outlier_idx, nullptr,
-        &time_elapsed, stream);
+        data, len3, eb, radius, errq, outlier, outlier_idx, nullptr, &time_elapsed, stream);
 
     cudaFree(data);
     cudaFree(outlier);

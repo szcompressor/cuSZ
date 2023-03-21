@@ -192,10 +192,14 @@ cusz_error_status compressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        compress_predict_lorenzo_i<T, E, FP>(                    //
-            data->data, data->len3, config->eb, config->radius,  //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,
-            nullptr,  //
+        // compress_predict_lorenzo_i<T, E, FP>(                    //
+        //     data->data, data->len3, config->eb, config->radius,  //
+        //     data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,
+        //     nullptr,  //
+        //     &time_pq, stream);
+        compress_predict_lorenzo_i<T, E, FP>(                       //
+            data->data, data->len3, config->eb, config->radius,     //
+            data->errq, data->outlier, data->outlier_idx, nullptr,  //
             &time_pq, stream);
     }
     else {
@@ -278,10 +282,10 @@ cusz_error_status decompressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        decompress_predict_lorenzo_i<T, E, FP>(                                                            //
-            data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx, 0,  // input
-            header_st->header.eb, header_st->header.radius,  // input (config)
-            data->xdata, data->len3,                         // output
+        decompress_predict_lorenzo_i<T, E, FP>(                           //
+            data->errq, data->len3, data->outlier, data->outlier_idx, 0,  // input
+            header_st->header.eb, header_st->header.radius,               // input (config)
+            data->xdata,                                                  // output
             &time_d_pq, stream);
     }
     else {

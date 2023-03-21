@@ -44,17 +44,16 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
 
     float time;
 
-    compress_predict_lorenzo_i<T, E, FP>(  //
-        data, len3, error_bound, radius,   // input and config
-        eq, dummy_len3, anchor, dummy_len3, outlier, outlier_idx,
-        nullptr,  // output
+    compress_predict_lorenzo_i<T, E, FP>(   //
+        data, len3, error_bound, radius,    // input and config
+        eq, outlier, outlier_idx, nullptr,  // output
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    decompress_predict_lorenzo_i<T, E, FP>(                           //
-        eq, dummy_len3, anchor, dummy_len3, outlier, outlier_idx, 0,  // input
-        error_bound, radius,                                          // input (config)
-        xdata, len3,                                                  // output
+    decompress_predict_lorenzo_i<T, E, FP>(  //
+        eq, len3, outlier, outlier_idx, 0,   // input
+        error_bound, radius,                 // input (config)
+        xdata,                               // output
         &time, stream);
     cudaStreamSynchronize(stream);
 

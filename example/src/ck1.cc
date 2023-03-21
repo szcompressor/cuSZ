@@ -69,7 +69,7 @@ void f(
         cout << "using optimized comp. kernel\n";
         compress_predict_lorenzo_i<T, E, FP>(  //
             d_d, len3, error_bound, radius,    // input and config
-            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx,
+            d_eq, d_outlier, outlier_idx,
             nullptr,  // output
             &time, stream);
     }
@@ -93,10 +93,10 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
-        decompress_predict_lorenzo_i<T, E, FP>(                                 //
-            d_eq, dummy_len3, d_anchor, dummy_len3, d_outlier, outlier_idx, 0,  // input
-            error_bound, radius,                                                // input (config)
-            d_xd, len3,                                                         // output
+        decompress_predict_lorenzo_i<T, E, FP>(     //
+            d_eq, len3, d_outlier, outlier_idx, 0,  // input
+            error_bound, radius,                    // input (config)
+            d_xd,                                   // output
             &time, stream);
     }
     else {

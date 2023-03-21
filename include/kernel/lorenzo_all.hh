@@ -15,35 +15,29 @@
 #include <stdint.h>
 #include "cusz/type.h"
 
-template <typename T, typename E, typename FP>
+template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status compress_predict_lorenzo_i(
     T* const     data,          // input
-    dim3 const   data_len3,     //
+    dim3 const   len3,          //
     double const eb,            // input (config)
     int const    radius,        //
-    E* const     eq,            // output
-    dim3 const   eq_len3,       //
-    T* const     anchor,        //
-    dim3 const   anchor_len3,   //
+    EQ* const    eq,            // output
     T*           outlier,       //
     uint32_t*    outlier_idx,   //
     uint32_t*    num_outliers,  //
     float*       time_elapsed,  // optional
     cudaStream_t stream);       //
 
-template <typename T, typename E, typename FP>
+template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status decompress_predict_lorenzo_i(
-    E*             eq,            // input
-    dim3 const     eq_len3,       //
-    T*             anchor,        //
-    dim3 const     anchor_len3,   //
+    EQ*            eq,            // input
+    dim3 const     len3,          //
     T*             outlier,       //
     uint32_t*      outlier_idx,   //
     uint32_t const num_outliers,  //
     double const   eb,            // input (config)
     int const      radius,        //
     T*             xdata,         // output
-    dim3 const     xdata_len3,    //
     float*         time_elapsed,  // optional
     cudaStream_t   stream);
 
