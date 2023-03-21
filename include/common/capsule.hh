@@ -41,11 +41,12 @@ class Capsule {
     // variables
     struct {
         bool hptr{false}, dptr{false}, uniptr{false};
-    } allocation_status;
+    } alloc_status;
 
     T *_dptr{nullptr}, *_hptr{nullptr}, *_uniptr{nullptr};
 
     uint32_t _len{0};
+    dim3     _len3{1, 1, 1}, _stride3{1, 1, 1};
 
     std::string name;
 
@@ -138,62 +139,59 @@ class Capsule {
     // TODO rule of n
     // constructor
     Capsule() = default;
-    Capsule(uint32_t len, const std::string _str = std::string("<unnamed>")) : _len(len), name(_str) {}
     Capsule(const std::string _str) : name(_str){};
+    Capsule(uint32_t len, const std::string _str = std::string("<unnamed>")) : _len(len), name(_str) {}
+    Capsule(uint32_t x, uint32_t y, uint32_t z, const std::string _str = std::string("<unnamed>")) : name(_str)
+    {
+        _len3 = dim3(x, y, z);
+        _len  = x * y * z;
+    }
 
     ~Capsule()
     {
         // Becasue _hptr can be obtained externally, and could be non-pinned, cudaFreeHost may not work properly.
-        // if (allocation_status.hptr) cudaFreeHost(_hptr);
+        // if (alloc_status.hptr) cudaFreeHost(_hptr);
 
-        if (allocation_status.dptr) cudaFree(_dptr);
-        if (allocation_status.uniptr) cudaFree(_uniptr);
+        if (alloc_status.dptr) cudaFree(_dptr);
+        if (alloc_status.uniptr) cudaFree(_uniptr);
     }
 
-    // getter
-    T*&      dptr() { return _dptr; }
-    T*&      hptr() { return _hptr; }
-    T*&      uniptr() { return _uniptr; }
-    T&       dptr(uint32_t i) { return _dptr[i]; }
-    T&       hptr(uint32_t i) { return _hptr[i]; }
-    T&       uniptr(uint32_t i) { return _uniptr[i]; }
-    uint32_t len() const { return _len; }
+    // getter start --------------------
+    T*& dptr() { return _dptr; }
+    T*& hptr() { return _hptr; }
+    T*& uniptr() { return _uniptr; }
 
-    // setter
+    uint32_t len() const { return _len; }
+    dim3     len3() const { return _len3; }
+    dim3     stride3() const { return _stride3; }
+    // 1D
+    T& dptr(uint32_t i) { return _dptr[i]; }
+    T& hptr(uint32_t i) { return _hptr[i]; }
+    T& uniptr(uint32_t i) { return _uniptr[i]; }
+    // 2D
+    T& dptr(uint32_t x, uint32_t y) { return _dptr[x + y * _stride3.y]; }
+    T& hptr(uint32_t x, uint32_t y) { return _hptr[x + y * _stride3.y]; }
+    T& uniptr(uint32_t x, uint32_t y) { return _uniptr[x + y * _stride3.y]; }
+    // 3D
+    T& dptr(uint32_t x, uint32_t y, uint32_t z) { return _dptr[x + y * _stride3.y + z * _stride3.z]; }
+    T& hptr(uint32_t x, uint32_t y, uint32_t z) { return _hptr[x + y * _stride3.y + z * _stride3.z]; }
+    T& uniptr(uint32_t x, uint32_t y, uint32_t z) { return _uniptr[x + y * _stride3.y + z * _stride3.z]; }
+    // getter end -----------------------
+
+    // setter start ---------------------
     Capsule& set_hptr(T* ptr)
     {
-        _hptr                  = ptr;
-        allocation_status.hptr = true;
+        _hptr = ptr, alloc_status.hptr = true;
         return *this;
     }
     Capsule& set_dptr(T* ptr)
     {
-        _dptr                  = ptr;
-        allocation_status.dptr = true;
+        _dptr = ptr, alloc_status.dptr = true;
         return *this;
     }
     Capsule& set_uniptr(T* ptr)
     {
-        _uniptr                  = ptr;
-        allocation_status.uniptr = true;
-        return *this;
-    }
-
-    // debug
-    void debug()
-    {
-        printf("Capsule debugging information\n");
-        printf("  name   : %s\n", name.c_str());
-        printf("  len    : %u\n", len());
-        printf("  hptr   : %s\n", allocation_status.hptr ? "set" : "not set");
-        printf("  dptr   : %s\n", allocation_status.dptr ? "set" : "not set");
-        printf("  uniptr : %s\n", allocation_status.uniptr ? "set" : "not set");
-    }
-
-    // for debugging
-    Capsule& set_name(std::string _str)
-    {
-        name = _str;
+        _uniptr = ptr, alloc_status.uniptr = true;
         return *this;
     }
 
@@ -202,6 +200,37 @@ class Capsule {
     {
         if (len <= 0) throw std::runtime_error("length must be greater than 0");
         _len = len;
+        return *this;
+    }
+
+    Capsule& set_len3(uint32_t x, uint32_t y = 1, uint32_t z = 1)
+    {
+        if (x == 1) throw std::runtime_error("x must be > 1.");
+        if (x * y * z == 0) throw std::runtime_error("x, y, z must be non-zero.");
+
+        _len3    = dim3(x, y, z);
+        _stride3 = dim3(1, x, x * y);
+        _len     = x * y * z;
+
+        return *this;
+    }
+    // setter end ----------------------
+
+    // debug
+    void debug()
+    {
+        printf("Capsule debugging information\n");
+        printf("  name   : %s\n", name.c_str());
+        printf("  len    : %u\n", len());
+        printf("  hptr   : %s\n", alloc_status.hptr ? "set" : "not set");
+        printf("  dptr   : %s\n", alloc_status.dptr ? "set" : "not set");
+        printf("  uniptr : %s\n", alloc_status.uniptr ? "set" : "not set");
+    }
+
+    // for debugging
+    Capsule& set_name(std::string _str)
+    {
+        name = _str;
         return *this;
     }
 
@@ -279,12 +308,12 @@ class Capsule {
     {
         check_len("malloc");
 
-        if (allocation_status.dptr)
+        if (alloc_status.dptr)
             LOGGING(LOG_WARN, "already allocated on device");
         else {
             cudaMalloc(&_dptr, nbyte());
             cudaMemset(_dptr, memset_val, nbyte());
-            allocation_status.dptr = true;
+            alloc_status.dptr = true;
         }
         return *this;
     }
@@ -293,12 +322,12 @@ class Capsule {
     {
         check_len("mallochost");
 
-        if (allocation_status.hptr)
+        if (alloc_status.hptr)
             LOGGING(LOG_WARN, "already allocated on host");
         else {
             cudaMallocHost(&_hptr, nbyte());
             memset(_hptr, memset_val, nbyte());
-            allocation_status.hptr = true;
+            alloc_status.hptr = true;
         }
         return *this;
     }
@@ -307,12 +336,12 @@ class Capsule {
     {
         check_len("mallocmanaged");
 
-        if (allocation_status.uniptr)
+        if (alloc_status.uniptr)
             LOGGING(LOG_WARN, "already allocated as unified");
         else {
             cudaMallocManaged(&_uniptr, nbyte());
             cudaMemset(_uniptr, memset_val, nbyte());
-            allocation_status.uniptr = true;
+            alloc_status.uniptr = true;
         }
         return *this;
     }
@@ -321,7 +350,7 @@ class Capsule {
     {
         if (not _dptr) throw std::runtime_error(ERRSTR_BUILDER("free", "_dptr is null"));
         cudaFree(_dptr);
-        allocation_status.dptr = false;
+        alloc_status.dptr = false;
         return *this;
     }
     // cudaFreeHost wrapper
@@ -329,7 +358,7 @@ class Capsule {
     {
         if (not _hptr) throw std::runtime_error(ERRSTR_BUILDER("free", "_hptr is null"));
         cudaFreeHost(_hptr);
-        allocation_status.hptr = false;
+        alloc_status.hptr = false;
         return *this;
     }
     // cudaFree wrapper, but for unified memory
@@ -337,7 +366,7 @@ class Capsule {
     {
         if (not _uniptr) throw std::runtime_error(ERRSTR_BUILDER("free", "_uniptr is null"));
         cudaFree(_uniptr);
-        allocation_status.uniptr = false;
+        alloc_status.uniptr = false;
         return *this;
     }
 
