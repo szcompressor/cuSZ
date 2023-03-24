@@ -86,8 +86,8 @@ struct cuszCTX {
     std::string pipeline  = "auto";
 
     // sparsity related: init_nnz when setting up Spcodec
-    float nz_density{SparseMethodSetup::default_density};
-    float nz_density_factor{SparseMethodSetup::default_density_factor};
+    float nz_density{0.25};
+    float nz_density_factor{4};
 
     uint32_t codecs_in_use{0b01};
 

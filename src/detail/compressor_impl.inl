@@ -45,10 +45,6 @@
 
 namespace cusz {
 
-constexpr auto kHOST        = cusz::LOC::HOST;
-constexpr auto kDEVICE      = cusz::LOC::DEVICE;
-constexpr auto kHOST_DEVICE = cusz::LOC::HOST_DEVICE;
-
 #define TEMPLATE_TYPE template <class BINDING>
 #define IMPL Compressor<BINDING>::impl
 

@@ -38,6 +38,7 @@ using std::cout;
 #define CONSTEXPR
 #endif
 
+// TODO remove
 enum class ExecutionPolicy { host, cuda_device };
 enum class AnalyzerMethod { thrust, cuda_native, stl };
 

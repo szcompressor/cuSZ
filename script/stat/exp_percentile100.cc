@@ -23,8 +23,9 @@ int main(int argc, char** argv)
 
     Capsule<float> in(atoi(argv[2]));
     in  //
-        .template alloc<cusz::LOC::HOST_DEVICE>()
-        .template from_file<cusz::LOC::HOST>(argv[1])
+        .template malloc()
+        .template mallochost()
+        .template fromfile(argv[1])
         .host2device();
 
     auto where = std::string(argv[3]);
@@ -47,7 +48,7 @@ int main(int argc, char** argv)
     }
     cout << '\n';
 
-    in.template free<cusz::LOC::HOST_DEVICE>();
+    in.template free().template freehost();
 
     return 0;
 }

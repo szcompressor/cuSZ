@@ -30,10 +30,6 @@ class CLI {
     using Header = cuszHEADER;
     using T      = Data;
 
-    const static auto HOST        = cusz::LOC::HOST;
-    const static auto DEVICE      = cusz::LOC::DEVICE;
-    const static auto HOST_DEVICE = cusz::LOC::HOST_DEVICE;
-
     using context_t = cuszCTX*;
     using header_t  = cuszHEADER*;
 

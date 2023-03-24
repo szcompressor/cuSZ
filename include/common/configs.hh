@@ -32,57 +32,6 @@
 #define CONSTEXPR
 #endif
 
-struct Reinterpret1DTo2D {
-    template <typename T>
-    static T get_square_size(T len)
-    {
-        return static_cast<T>(ceil(sqrt(len)));
-    }
-};
-
-struct Align {
-    template <cusz::ALIGNDATA ad = cusz::ALIGNDATA::NONE>
-    static size_t get_aligned_datalen(size_t len)
-    {
-        if CONSTEXPR (ad == cusz::ALIGNDATA::NONE) return len;
-        if CONSTEXPR (ad == cusz::ALIGNDATA::SQUARE_MATRIX) {
-            auto m = Reinterpret1DTo2D::get_square_size(len);
-            return m * m;
-        }
-    }
-
-    static const int DEFAULT_ALIGN_NBYTE = 128;
-
-    template <int NUM>
-    static inline bool is_aligned_at(const void* ptr)
-    {  //
-        return reinterpret_cast<uintptr_t>(ptr) % NUM == 0;
-    };
-
-    template <typename T, int NUM = DEFAULT_ALIGN_NBYTE>
-    static size_t get_aligned_nbyte(size_t len)
-    {
-        return ((sizeof(T) * len - 1) / NUM + 1) * NUM;
-    }
-};
-
-// sparsity rate is less that 5%
-struct SparseMethodSetup {
-    // "Density" denotes the degree of non-zeros (nz).
-    static constexpr float default_density  = 0.25;                 // ratio of nonzeros (R_nz)
-    static constexpr float default_sparsity = 1 - default_density;  // ratio of zeros, 1 - R_nz
-
-    static constexpr int default_density_factor = 4;  // ratio of nonzeros (R_nz)
-
-    template <typename T, typename M = int>
-    static uint32_t get_csr_nbyte(uint32_t len, uint32_t nnz)
-    {
-        auto m     = Reinterpret1DTo2D::get_square_size(len);
-        auto nbyte = sizeof(M) * (m + 1) + sizeof(M) * nnz + sizeof(T) * nnz;
-        return nbyte;
-    }
-};
-
 struct HuffmanHelper {
     // deprecated
     // template <typename SYM, typename BOOK>

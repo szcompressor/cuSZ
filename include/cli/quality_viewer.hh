@@ -24,10 +24,6 @@
 
 namespace cusz {
 
-const static auto HOST        = cusz::LOC::HOST;
-const static auto DEVICE      = cusz::LOC::DEVICE;
-const static auto HOST_DEVICE = cusz::LOC::HOST_DEVICE;
-
 struct QualityViewer {
     template <typename Data>
     static void print_metrics_cross(cusz_stats* s, size_t compressed_bytes = 0, bool gpu_checker = false)
