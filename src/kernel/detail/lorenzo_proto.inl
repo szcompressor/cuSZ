@@ -3,9 +3,8 @@
  * @author Jiannan Tian
  * @brief (prototype) Dual-EQ Lorenzo method.
  * @version 0.2
- * @date 2021-01-16
- * (create) 2019-09-23; (release) 2020-09-20; (rev1) 2021-01-16; (rev2) 2021-02-20; (rev3) 2021-04-11
- * (rev4) 2021-04-30
+ * @date 2019-09-23
+ * (create) 2019-09-23 (rev) 2023-04-03
  *
  * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
  * See LICENSE in top-level directory
@@ -21,192 +20,196 @@
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
+#include "../../utils/it_cuda.hh"
+
 namespace psz {
 
 namespace cuda {
 namespace __kernel {
 
-namespace prototype {  // easy algorithmic description
+namespace proto {  // easy algorithmic description
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 256>
-__global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
+__global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
 {
+    SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK];
 
-    auto id = blockIdx.x * blockDim.x + threadIdx.x;
-    if (id < len3.x) {
-        buf[threadIdx.x] = round(data[id] * ebx2_r);  // prequant (fp presence)
-    }
-    __syncthreads();  // necessary to ensure correctness
+    auto id   = gid1();
+    auto data = [&](auto dx) -> T& { return buf[t().x + dx]; };
 
-    T delta = buf[threadIdx.x] - (threadIdx.x == 0 ? 0 : buf[threadIdx.x - 1]);
+    // prequant (fp presence)
+    if (id < len3.x) { data(0) = round(in_data[id] * ebx2_r); }
+    __syncthreads();
 
+    T    delta       = data(0) - (t().x == 0 ? 0 : data(-1));
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
-    if (id < len3.x) {                             // postquant
-        data[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        eq[id]   = quantizable * static_cast<EQ>(candidate);
+    if (check_boundary1()) {  // postquant
+        outlier[id] = (1 - quantizable) * candidate;
+        eq[id]      = quantizable * static_cast<EQ>(candidate);
     }
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 16>
-__global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
+__global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
 {
+    SETUP_ND_GPU_CUDA;
+
     __shared__ T buf[BLK][BLK + 1];
 
     auto y = threadIdx.y, x = threadIdx.x;
-    auto giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
+    auto data = [&](auto dx, auto dy) -> T& { return buf[t().y + dy][t().x + dx]; };
 
-    auto id = gix + giy * stride3.y;  // low to high dim, inner to outer
-    if (gix < len3.x and giy < len3.y) {
-        buf[y][x] = round(data[id] * ebx2_r);  // prequant (fp presence)
-    }
-    __syncthreads();  // necessary to ensure correctness
+    auto id = gid2();
 
-    T delta = buf[y][x] - ((x > 0 ? buf[y][x - 1] : 0) +                // dist=1
-                           (y > 0 ? buf[y - 1][x] : 0) -                // dist=1
-                           (x > 0 and y > 0 ? buf[y - 1][x - 1] : 0));  // dist=2
+    if (check_boundary2()) { data(0, 0) = round(in_data[id] * ebx2_r); }
+    __syncthreads();
+
+    T delta = data(0, 0) - ((x > 0 ? data(-1, 0) : 0) +             // dist=1
+                            (y > 0 ? data(0, -1) : 0) -             // dist=1
+                            (x > 0 and y > 0 ? data(-1, -1) : 0));  // dist=2
 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
-    if (gix < len3.x and giy < len3.y) {
-        data[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        eq[id]   = quantizable * static_cast<EQ>(candidate);
+    if (check_boundary2()) {
+        outlier[id] = (1 - quantizable) * candidate;
+        eq[id]      = quantizable * static_cast<EQ>(candidate);
     }
 }
 
 template <typename T, typename EQ, typename FP, int BLK = 8>
-__global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
+__global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
 {
+    SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK][BLK + 1];
 
-    auto z = threadIdx.z, y = threadIdx.y, x = threadIdx.x;
-    auto giz = blockIdx.z * blockDim.z + z, giy = blockIdx.y * blockDim.y + y, gix = blockIdx.x * blockDim.x + x;
+    auto z = t().z, y = t().y, x = t().x;
+    auto data = [&](auto dx, auto dy, auto dz) -> T& { return buf[t().z + dz][t().y + dy][t().x + dx]; };
 
-    auto id = gix + giy * stride3.y + giz * stride3.z;  // low to high in dim, inner to outer
-    if (gix < len3.x and giy < len3.y and giz < len3.z) {
-        buf[z][y][x] = round(data[id] * ebx2_r);  // prequant (fp presence)
-    }
-    __syncthreads();  // necessary to ensure correctness
+    auto id = gid3();
+    if (check_boundary3()) { data(0, 0, 0) = round(in_data[id] * ebx2_r); }
+    __syncthreads();
 
-    T delta = buf[z][y][x] - ((z > 0 and y > 0 and x > 0 ? buf[z - 1][y - 1][x - 1] : 0)  // dist=3
-                              - (y > 0 and x > 0 ? buf[z][y - 1][x - 1] : 0)              // dist=2
-                              - (z > 0 and x > 0 ? buf[z - 1][y][x - 1] : 0)              //
-                              - (z > 0 and y > 0 ? buf[z - 1][y - 1][x] : 0)              //
-                              + (x > 0 ? buf[z][y][x - 1] : 0)                            // dist=1
-                              + (y > 0 ? buf[z][y - 1][x] : 0)                            //
-                              + (z > 0 ? buf[z - 1][y][x] : 0));                          //
+    T delta = data(0, 0, 0) - ((z > 0 and y > 0 and x > 0 ? data(-1, -1, -1) : 0)  // dist=3
+                               - (y > 0 and x > 0 ? data(-1, -1, 0) : 0)           // dist=2
+                               - (z > 0 and x > 0 ? data(-1, 0, -1) : 0)           //
+                               - (z > 0 and y > 0 ? data(0, -1, -1) : 0)           //
+                               + (x > 0 ? data(-1, 0, 0) : 0)                      // dist=1
+                               + (y > 0 ? data(0, -1, 0) : 0)                      //
+                               + (z > 0 ? data(0, 0, -1) : 0));                    //
 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
-    if (gix < len3.x and giy < len3.y and giz < len3.z) {
-        data[id] = (1 - quantizable) * candidate;  // output; reuse data for outlier
-        eq[id]   = quantizable * static_cast<EQ>(candidate);
+    if (check_boundary3()) {
+        outlier[id] = (1 - quantizable) * candidate;
+        eq[id]      = quantizable * static_cast<EQ>(candidate);
     }
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 256>
 __global__ void x_lorenzo_1d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
+    SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK];
 
-    auto id = blockIdx.x * blockDim.x + threadIdx.x;
+    auto id   = gid1();
+    auto data = [&](auto dx) -> T& { return buf[t().x + dx]; };
 
     if (id < len3.x)
-        buf[threadIdx.x] = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
+        data(0) = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
     else
-        buf[threadIdx.x] = 0;
+        data(0) = 0;
     __syncthreads();
 
     for (auto d = 1; d < BLK; d *= 2) {
         T n = 0;
-        if (threadIdx.x >= d) n = buf[threadIdx.x - d];  // like __shfl_up_sync(0x1f, var, d); warp_sync
+        if (t().x >= d) n = data(-d);  // like __shfl_up_sync(0x1f, var, d); warp_sync
         __syncthreads();
-        if (threadIdx.x >= d) buf[threadIdx.x] += n;
+        if (t().x >= d) data(0) += n;
         __syncthreads();
     }
 
-    if (id < len3.x) { xdata[id] = buf[threadIdx.x] * ebx2; }
+    if (id < len3.x) { xdata[id] = data(0) * ebx2; }
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 16>
 __global__ void x_lorenzo_2d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
+    SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK + 1];
 
-    auto   giy = blockIdx.y * blockDim.y + threadIdx.y, gix = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t id = gix + giy * stride3.y;
+    auto id   = gid2();
+    auto data = [&](auto dx, auto dy) -> T& { return buf[t().y + dy][t().x + dx]; };
 
-    if (gix < len3.x and giy < len3.y)
-        buf[threadIdx.y][threadIdx.x] = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
+    if (check_boundary2())
+        data(0, 0) = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
     else
-        buf[threadIdx.y][threadIdx.x] = 0;
+        data(0, 0) = 0;
     __syncthreads();
 
     for (auto d = 1; d < BLK; d *= 2) {
         T n = 0;
-        if (threadIdx.x >= d) n = buf[threadIdx.y][threadIdx.x - d];
+        if (t().x >= d) n = data(-d, 0);
         __syncthreads();
-        if (threadIdx.x >= d) buf[threadIdx.y][threadIdx.x] += n;
+        if (t().x >= d) data(0, 0) += n;
         __syncthreads();
     }
 
     for (auto d = 1; d < BLK; d *= 2) {
         T n = 0;
-        if (threadIdx.y >= d) n = buf[threadIdx.y - d][threadIdx.x];
+        if (t().y >= d) n = data(0, -d);
         __syncthreads();
-        if (threadIdx.y >= d) buf[threadIdx.y][threadIdx.x] += n;
+        if (t().y >= d) data(0, 0) += n;
         __syncthreads();
     }
 
-    if (gix < len3.x and giy < len3.y) { xdata[id] = buf[threadIdx.y][threadIdx.x] * ebx2; }
+    if (check_boundary2()) { xdata[id] = data(0, 0) * ebx2; }
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 8>
 __global__ void x_lorenzo_3d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
+    SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK][BLK + 1];
 
-    auto giz = blockIdx.z * BLK + threadIdx.z, giy = blockIdx.y * BLK + threadIdx.y,
-         gix  = blockIdx.x * BLK + threadIdx.x;
-    size_t id = gix + giy * stride3.y + giz * stride3.z;  // low to high in dim, inner to outer
+    auto id   = gid3();
+    auto data = [&](auto dx, auto dy, auto dz) -> T& { return buf[t().z + dz][t().y + dy][t().x + dx]; };
 
-    if (gix < len3.x and giy < len3.y and giz < len3.z)
-        buf[threadIdx.z][threadIdx.y][threadIdx.x] = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // id
+    if (check_boundary3())
+        data(0, 0, 0) = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;
     else
-        buf[threadIdx.z][threadIdx.y][threadIdx.x] = 0;
+        data(0, 0, 0) = 0;
     __syncthreads();
 
     for (auto dist = 1; dist < BLK; dist *= 2) {
         T addend = 0;
-        if (threadIdx.x >= dist) addend = buf[threadIdx.z][threadIdx.y][threadIdx.x - dist];
+        if (t().x >= dist) addend = data(-dist, 0, 0);
         __syncthreads();
-        if (threadIdx.x >= dist) buf[threadIdx.z][threadIdx.y][threadIdx.x] += addend;
-        __syncthreads();
-    }
-
-    for (auto dist = 1; dist < BLK; dist *= 2) {
-        T addend = 0;
-        if (threadIdx.y >= dist) addend = buf[threadIdx.z][threadIdx.y - dist][threadIdx.x];
-        __syncthreads();
-        if (threadIdx.y >= dist) buf[threadIdx.z][threadIdx.y][threadIdx.x] += addend;
+        if (t().x >= dist) data(0, 0, 0) += addend;
         __syncthreads();
     }
 
     for (auto dist = 1; dist < BLK; dist *= 2) {
         T addend = 0;
-        if (threadIdx.z >= dist) addend = buf[threadIdx.z - dist][threadIdx.y][threadIdx.x];
+        if (t().y >= dist) addend = data(0, -dist, 0);
         __syncthreads();
-        if (threadIdx.z >= dist) buf[threadIdx.z][threadIdx.y][threadIdx.x] += addend;
+        if (t().y >= dist) data(0, 0, 0) += addend;
         __syncthreads();
     }
 
-    if (gix < len3.x and giy < len3.y and giz < len3.z) {
-        xdata[id] = buf[threadIdx.z][threadIdx.y][threadIdx.x] * ebx2;
+    for (auto dist = 1; dist < BLK; dist *= 2) {
+        T addend = 0;
+        if (t().z >= dist) addend = data(0, 0, -dist);
+        __syncthreads();
+        if (t().z >= dist) data(0, 0, 0) += addend;
+        __syncthreads();
     }
+
+    if (check_boundary3()) { xdata[id] = data(0, 0, 0) * ebx2; }
 }
 
-}  // namespace prototype
+}  // namespace proto
 }  // namespace __kernel
 }  // namespace cuda
 }  // namespace psz

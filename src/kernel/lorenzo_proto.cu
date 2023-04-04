@@ -64,7 +64,7 @@ cusz_error_status compress_predict_lorenzo_iproto(
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream);
 
-    using namespace psz::cuda::__kernel::prototype;
+    using namespace psz::cuda::__kernel::proto;
 
     if (ndim() == 1) {
         c_lorenzo_1d1l<T, EQ, FP><<<GRID_1D, BLOCK_1D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
@@ -134,7 +134,7 @@ cusz_error_status decompress_predict_lorenzo_iproto(
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream);
 
-    using namespace psz::cuda::__kernel::prototype;
+    using namespace psz::cuda::__kernel::proto;
 
     if (ndim() == 1) {
         x_lorenzo_1d1l<T, EQ, FP><<<GRID_1D, BLOCK_1D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);

@@ -20,7 +20,7 @@
 
 using std::cout;
 using std::endl;
-namespace proto = psz::cuda::__kernel::prototype;
+namespace proto = psz::cuda::__kernel::proto;
 
 using T  = float;
 using FP = float;
@@ -78,7 +78,7 @@ bool test1(
 
     eq.d2h();
 
-    // for (auto i = 0; i < len; i++) { cout << h_eq[i] << endl; }
+    // for (auto i = 0; i < len; i++) { cout << eq.hptr(i) << endl; }
 
     bool ok = true;
     for (auto i = 0; i < len; i++) {
