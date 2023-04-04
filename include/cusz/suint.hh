@@ -1,5 +1,5 @@
 /**
- * @file pn.hh
+ * @file suint.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -9,8 +9,12 @@
  *
  */
 
+#ifndef A2F829BC_283B_488E_A52B_CD597670EC52
+#define A2F829BC_283B_488E_A52B_CD597670EC52
+
 #include <stdint.h>
 #include <stdlib.h>
+#include <sstream>
 
 // TODO typing should be more applicable
 
@@ -47,3 +51,5 @@ struct PN {
     static I  decode(UI* x) { return ((*x) >> 1) ^ (-((*x) & 1)); }
     static I  decode(UI x) { return (x >> 1) ^ (-(x & 1)); }
 };
+
+#endif /* A2F829BC_283B_488E_A52B_CD597670EC52 */

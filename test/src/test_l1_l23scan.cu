@@ -18,8 +18,8 @@ using std::cout;
 using std::endl;
 using std::string;
 
+#include "kernel/detail/l23.inl"
 #include "kernel/detail/lorenzo.inl"
-#include "kernel/detail/lorenzo23.inl"
 #include "rand.hh"
 
 template <int BLOCK = 256, int SEQ = 8>

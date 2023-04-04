@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 #include <type_traits>
-#include "cusz/pn.hh"
+#include "cusz/suint.hh"
 #include "pipeline/compaction_g.inl"
 #include "subsub.inl"
 
@@ -79,25 +79,6 @@ __forceinline__ __device__ void predict_quantize_1d(  //
     int          radius,
     T            prev = 0);
 
-namespace compaction {
-
-template <
-    typename T,
-    typename EQ,
-    int  SEQ,
-    bool FIRST_POINT,
-    typename Compaction = CompactCudaDram<T>>
-__forceinline__ __device__ void predict_quantize_1d(  //
-    T            thp_buffer[SEQ],
-    volatile EQ* s_quant,
-    uint32_t     dimx,
-    int          radius,
-    uint32_t     g_id_base,
-    Compaction   g_outlier,
-    T            prev = 0);
-
-}
-
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
 __forceinline__ __device__ void block_scan_1d(
@@ -109,43 +90,26 @@ __forceinline__ __device__ void block_scan_1d(
 
 }  // namespace v0
 
-namespace v1_pn {
+namespace rolling {
 
-template <typename T, typename EQ, int NTHREAD, int SEQ>
-__forceinline__ __device__ void
-load_fuse_1d(EQ* quant, T* outlier, uint32_t dimx, uint32_t id_base, volatile T* shmem, T private_buffer[SEQ]);
-
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void
-predict_quantize__no_outlier_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, T prev);
-
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void
-predict_quantize_1d(T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier, int radius, T prev);
-
-namespace compaction {
-
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename Compaction>
-__forceinline__ __device__ void predict_quantize_1d(
+template <
+    typename T,
+    bool FIRST_POINT,
+    typename PNENC,
+    int SEQ,
+    typename EQ         = int32_t,
+    typename Compaction = CompactCudaDram<T>>
+__forceinline__ __device__ void predict_quantize_1d(  //
     T            thp_buffer[SEQ],
     volatile EQ* s_quant,
     uint32_t     dimx,
     int          radius,
-    uint32_t     g_idx_base,
-    Compaction   outlier,
-    T            prev);
+    uint32_t     g_id_base,
+    Compaction   g_outlier,
+    T            prev  = 0,
+    PNENC        pnenc = 0);
 
-}
-
-namespace delta_only {
-
-template <typename T, typename EQ, int NTHREAD, int SEQ>
-__forceinline__ __device__ void
-load_1d(EQ* quant, uint32_t dimx, uint32_t id_base, volatile T* shmem, T private_buffer[SEQ]);
-
-}
-
-}  // namespace v1_pn
+}  // namespace rolling
 
 //////// 2D
 
@@ -190,22 +154,6 @@ __forceinline__ __device__ void quantize_write_2d(
     EQ*      quant);
 
 }
-
-namespace compaction {
-
-template <typename T, typename EQ, int YSEQ, typename Compaction>
-__forceinline__ __device__ void quantize_write_2d(
-    T          delta[YSEQ + 1],
-    uint32_t   dimx,
-    uint32_t   gix,
-    uint32_t   dimy,
-    uint32_t   giy_base,
-    uint32_t   stridey,
-    int        radius,
-    EQ*        quant,
-    Compaction outlier);
-
-};
 
 // decompression load
 template <typename T, typename EQ, int YSEQ>
@@ -252,60 +200,21 @@ __forceinline__ __device__ void decomp_write_2d(
 
 }  // namespace v0
 
-namespace v1_pn {
+namespace rolling {
 
-namespace compaction {
 template <typename T, typename EQ, int YSEQ, typename Compaction>
 __forceinline__ __device__ void quantize_write_2d(
-    // clang-format off
-    T        delta[YSEQ + 1],
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    int      radius,
-    EQ*      quant,
-    Compaction outlier
-    // clang-format on
-);
+    T          delta[YSEQ + 1],
+    uint32_t   dimx,
+    uint32_t   gix,
+    uint32_t   dimy,
+    uint32_t   giy_base,
+    uint32_t   stridey,
+    int        radius,
+    EQ*        quant,
+    Compaction outlier);
 
-}
-
-template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void load_fuse_2d(
-    // clang-format off
-    EQ*      quant,
-    T*       outlier,
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    int      radius,
-    T        thread_private[YSEQ]
-    // clang-format on
-);
-
-namespace delta_only {
-
-template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void load_2d(
-    // clang-format off
-    EQ*      quant,
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    T        thread_private[YSEQ]
-    // clang-format on
-);
-
-template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void quantize_write_2d(
-    T        delta[YSEQ + 1],
-    uint32_t dimx,
-    uint32_t gix,
-    uint32_t dimy,
-    uint32_t giy_base,
-    uint32_t stridey,
-    EQ*      quant);
-
-}  // namespace delta_only
-
-}  // namespace v1_pn
+};
 
 //////// 3D
 
@@ -370,33 +279,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::load_fuse_1d(
 }
 
 template <typename T, typename EQ, int NTHREAD, int SEQ>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::load_fuse_1d(
-    EQ*         quant,
-    T*          outlier,
-    uint32_t    dimx,
-    uint32_t    id_base,
-    volatile T* shmem,
-    T           private_buffer[SEQ])
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-#pragma unroll
-    for (auto i = 0; i < SEQ; i++) {
-        auto local_id = threadIdx.x + i * NTHREAD;
-        auto id       = id_base + local_id;
-        if (id < dimx) shmem[local_id] = outlier[id] + PN<BYTEWIDTH>::decode(quant[id]);
-    }
-    __syncthreads();
-
-#pragma unroll
-    for (auto i = 0; i < SEQ; i++) private_buffer[i] = shmem[threadIdx.x * SEQ + i];
-    __syncthreads();
-}
-
-template <typename T, typename EQ, int NTHREAD, int SEQ>
 __forceinline__ __device__ void psz::cuda::__device::v0::delta_only::load_1d(
     EQ*         quant,
     uint32_t    dimx,
@@ -409,32 +291,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::delta_only::load_1d(
         auto local_id = threadIdx.x + i * NTHREAD;
         auto id       = id_base + local_id;
         if (id < dimx) shmem[local_id] = static_cast<T>(quant[id]);
-    }
-    __syncthreads();
-
-#pragma unroll
-    for (auto i = 0; i < SEQ; i++) private_buffer[i] = shmem[threadIdx.x * SEQ + i];
-    __syncthreads();
-}
-
-template <typename T, typename EQ, int NTHREAD, int SEQ>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::delta_only::load_1d(
-    EQ*         quant,
-    uint32_t    dimx,
-    uint32_t    id_base,
-    volatile T* shmem,
-    T           private_buffer[SEQ])
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-#pragma unroll
-    for (auto i = 0; i < SEQ; i++) {
-        auto local_id = threadIdx.x + i * NTHREAD;
-        auto id       = id_base + local_id;
-        if (id < dimx) shmem[local_id] = PN<BYTEWIDTH>::decode(quant[id]);
     }
     __syncthreads();
 
@@ -515,93 +371,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::predict_quantize_1d(
     }
 }
 
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename Compaction>
-__forceinline__ __device__ void psz::cuda::__device::v0::compaction::predict_quantize_1d(
-    T            thp_buffer[SEQ],
-    volatile EQ* s_quant,
-    uint32_t     dimx,  // put x-related
-    int          radius,
-    uint32_t     g_idx_base,  // TODO this file `id_base` to `g_idx_base`
-    Compaction   outlier,
-    T            prev)
-{
-    auto quantize_1d = [&](T& cur, T& prev, uint32_t inloop_idx) {
-        T    delta       = cur - prev;
-        bool quantizable = fabs(delta) < radius;
-        T    candidate   = delta + radius;
-
-        auto inblock_idx = inloop_idx + threadIdx.x * SEQ;  // TODO this file use `inblock_idx`
-
-        // though quantizable, need to set non-quantizable position as 0
-        s_quant[inblock_idx] = quantizable * static_cast<EQ>(candidate);
-
-        // very small chance running into this block
-        if (not quantizable) {
-            auto g_idx = inblock_idx + g_idx_base;
-            if (g_idx < dimx) {
-                auto cur_idx         = atomicAdd(outlier.count, 1);
-                outlier.val[cur_idx] = candidate;
-                outlier.idx[cur_idx] = g_idx;
-            }
-        }
-    };
-
-    if (FIRST_POINT) {  // i == 0
-        quantize_1d(thp_buffer[0], prev, 0);
-    }
-    else {
-#pragma unroll
-        for (auto i = 1; i < SEQ; i++) quantize_1d(thp_buffer[i], thp_buffer[i - 1], i);
-        __syncthreads();  // TODO move __syncthreads() outside this subroutine?
-    }
-}
-
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT, typename Compaction>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::compaction::predict_quantize_1d(
-    T            thp_buffer[SEQ],
-    volatile EQ* s_quant,
-    uint32_t     dimx,  // put x-related
-    int          radius,
-    uint32_t     g_idx_base,  // TODO this file `id_base` to `g_idx_base`
-    Compaction   outlier,
-    T            prev)
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    auto quantize_1d = [&](T& cur, T& prev, uint32_t inloop_idx) {
-        T    delta       = cur - prev;
-        bool quantizable = fabs(delta) < radius;
-        UI   UI_delta    = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
-
-        auto inblock_idx = inloop_idx + threadIdx.x * SEQ;  // TODO this file use `inblock_idx`
-
-        // though quantizable, need to set non-quantizable position as 0
-        s_quant[inblock_idx] = quantizable * UI_delta;
-
-        // very small chance running into this block
-        if (not quantizable) {
-            auto g_idx = inblock_idx + g_idx_base;
-            if (g_idx < dimx) {
-                auto cur_idx         = atomicAdd(outlier.count, 1);
-                outlier.val[cur_idx] = delta;
-                outlier.idx[cur_idx] = g_idx;
-            }
-        }
-    };
-
-    if (FIRST_POINT) {  // i == 0
-        quantize_1d(thp_buffer[0], prev, 0);
-    }
-    else {
-#pragma unroll
-        for (auto i = 1; i < SEQ; i++) quantize_1d(thp_buffer[i], thp_buffer[i - 1], i);
-        __syncthreads();  // TODO move __syncthreads() outside this subroutine?
-    }
-}
-
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
 __forceinline__ __device__ void psz::cuda::__device::v0::block_scan_1d(
@@ -620,65 +389,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::block_scan_1d(
     for (auto i = 0; i < SEQ; i++) shmem_buffer[threadIdx.x * SEQ + i] = private_buffer[i] * ebx2;
     __syncthreads();
 }
-
-// v1_pn: quantization code uses PN::encode
-template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::predict_quantize__no_outlier_1d(  //
-    T            private_buffer[SEQ],
-    volatile EQ* shmem_quant,
-    T            prev)
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
-        UI UI_delta                          = PN<BYTEWIDTH>::encode(static_cast<I>(cur - prev));
-        shmem_quant[idx + threadIdx.x * SEQ] = UI_delta;
-    };
-
-    if (FIRST_POINT) {  // i == 0
-        quantize_1d(private_buffer[0], prev, 0);
-    }
-    else {
-#pragma unroll
-        for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
-        __syncthreads();
-    }
-}
-
-// template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-// __forceinline__ __device__ void psz::cuda::__device::v1_pn::predict_quantize_1d(
-//     T            private_buffer[SEQ],
-//     volatile EQ* shmem_quant,
-//     volatile T*  shmem_outlier,
-//     int          radius,
-//     T            prev)
-// {
-//     constexpr auto BYTEWIDTH = sizeof(EQ);
-//     using UI                 = EQ;
-//     using I                  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-//     auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
-//         T    delta       = cur - prev;
-//         bool quantizable = fabs(delta) < radius;
-//         UI   UI_delta    = PN<BYTEWIDTH>::encode(static_cast<I>(delta));
-
-//         // otherwise, need to reset shared memory (to 0)
-//         shmem_quant[idx + threadIdx.x * SEQ]   = quantizable * UI_delta;
-//         shmem_outlier[idx + threadIdx.x * SEQ] = (not quantizable) * delta;
-//     };
-
-//     if (FIRST_POINT) {  // i == 0
-//         quantize_1d(private_buffer[0], prev, 0);
-//     }
-//     else {
-// #pragma unroll
-//         for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
-//         __syncthreads();
-//     }
-// }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -795,32 +505,8 @@ __forceinline__ __device__ void psz::cuda::__device::v0::delta_only::quantize_wr
     }
 }
 
-template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::delta_only::quantize_write_2d(
-    // clang-format off
-    T        delta[YSEQ + 1],
-    uint32_t dimx,  uint32_t gix,
-    uint32_t dimy,  uint32_t giy_base, uint32_t stridey,
-    EQ*      quant
-    // clang-format on
-)
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
-
-#pragma unroll
-    for (auto i = 1; i < YSEQ + 1; i++) {
-        auto gid = get_gid(i - 1);
-        if (gix < dimx and giy_base + (i - 1) < dimy) quant[gid] = PN<BYTEWIDTH>::encode(static_cast<I>(delta[i]));
-    }
-}
-
 template <typename T, typename EQ, int YSEQ, typename Compaction>
-__forceinline__ __device__ void psz::cuda::__device::v0::compaction::quantize_write_2d(
+__forceinline__ __device__ void psz::cuda::__device::rolling::quantize_write_2d(
     // clang-format off
     T        delta[YSEQ + 1],
     uint32_t dimx, uint32_t gix,
@@ -848,45 +534,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::compaction::quantize_wr
                 auto cur_idx         = atomicAdd(outlier.count, 1);
                 outlier.idx[cur_idx] = gid;
                 outlier.val[cur_idx] = candidate;
-            }
-        }
-    }
-}
-
-template <typename T, typename EQ, int YSEQ, typename Compaction>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::compaction::quantize_write_2d(
-    // clang-format off
-    T        delta[YSEQ + 1],
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    int      radius,
-    EQ*      quant,
-    Compaction outlier
-    // clang-format on
-)
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
-
-#pragma unroll
-    for (auto i = 1; i < YSEQ + 1; i++) {
-        auto gid = get_gid(i - 1);
-
-        if (gix < dimx and giy_base + (i - 1) < dimy) {
-            bool quantizable = fabs(delta[i]) < radius;
-            UI   UI_delta    = PN<BYTEWIDTH>::encode(static_cast<I>(delta[i]));
-
-            // The non-quantizable is recorded as "0" (radius).
-            quant[gid] = quantizable * UI_delta;
-
-            if (not quantizable) {
-                auto cur_idx         = atomicAdd(outlier.count, 1);
-                outlier.idx[cur_idx] = gid;
-                outlier.val[cur_idx] = delta[i];
             }
         }
     }
@@ -920,37 +567,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::load_fuse_2d(
 
 // load to thread-private array (fuse at the same time)
 template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::load_fuse_2d(
-    // clang-format off
-    EQ*      quant,
-    T*       outlier,
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    int      radius,
-    T        thread_private[YSEQ]
-    // clang-format on
-)
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    auto get_gid = [&](auto iy) { return (giy_base + iy) * stridey + gix; };
-
-#pragma unroll
-    for (auto i = 0; i < YSEQ; i++) {
-        auto gid = get_gid(i);
-        // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
-        if (gix < dimx and (giy_base + i) < dimy)
-            thread_private[i] = outlier[gid] + PN<BYTEWIDTH>::decode(quant[gid]);  // fuse
-        else
-            thread_private[i] = 0;  // TODO set as init state?
-    }
-}
-
-// load to thread-private array (fuse at the same time)
-template <typename T, typename EQ, int YSEQ>
 __forceinline__ __device__ void psz::cuda::__device::v0::delta_only::load_2d(
     // clang-format off
     EQ*      quant,
@@ -968,35 +584,6 @@ __forceinline__ __device__ void psz::cuda::__device::v0::delta_only::load_2d(
         // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
         if (gix < dimx and (giy_base + i) < dimy)
             thread_private[i] = static_cast<T>(quant[gid]);
-        else
-            thread_private[i] = 0;  // TODO set as init state?
-    }
-}
-
-// load to thread-private array (fuse at the same time)
-template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void psz::cuda::__device::v1_pn::delta_only::load_2d(
-    // clang-format off
-    EQ*      quant,
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    T        thread_private[YSEQ]
-    // clang-format on
-)
-{
-    constexpr auto BYTEWIDTH = sizeof(EQ);
-
-    using UI = EQ;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    auto get_gid = [&](auto iy) { return (giy_base + iy) * stridey + gix; };
-
-#pragma unroll
-    for (auto i = 0; i < YSEQ; i++) {
-        auto gid = get_gid(i);
-        // even if we hit the else branch, all threads in a warp hit the y-boundary simultaneously
-        if (gix < dimx and (giy_base + i) < dimy)
-            thread_private[i] = PN<BYTEWIDTH>::decode(quant[gid]);
         else
             thread_private[i] = 0;  // TODO set as init state?
     }

@@ -16,7 +16,7 @@
 #include "kernel/lorenzo_all.hh"
 
 // #include "detail/lorenzo.inl"
-#include "detail/lorenzo23.inl"
+#include "detail/l23.inl"
 
 template <typename T, typename EQ, typename FP>
 cusz_error_status compress_predict_lorenzo_i(

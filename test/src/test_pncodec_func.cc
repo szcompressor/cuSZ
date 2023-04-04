@@ -11,7 +11,7 @@
 
 #include <bitset>
 #include <iostream>
-#include "cusz/pn.hh"
+#include "cusz/suint.hh"
 
 using std::bitset;
 using std::cout;
