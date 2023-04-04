@@ -9,6 +9,7 @@
  *
  */
 
+#include <stdexcept>
 #include "cli/quality_viewer.hh"
 // #include "cli/timerecord_viewer.hh"
 // #include "cusz.h"
@@ -74,12 +75,13 @@ void f(
             &time, stream);
     }
     else {
-        cout << "using prototype comp. kernel\n";
-        compress_predict_lorenzo_iproto<T, E, FP>(  //
-            d_d, len3, error_bound, radius,         // input and config
-            d_eq, d_outlier, outlier_idx,
-            nullptr,  // output
-            &time, stream);
+        // cout << "using prototype comp. kernel\n";
+        // compress_predict_lorenzo_iproto<T, E, FP>(  //
+        //     d_d, len3, error_bound, radius,         // input and config
+        //     d_eq, d_outlier, outlier_idx,
+        //     nullptr,  // output
+        //     &time, stream);
+        throw runtime_error("prototype is disabled to later fix");
     }
 
     cudaDeviceSynchronize();
@@ -101,11 +103,12 @@ void f(
     }
     else {
         cout << "using prototype decomp. kernel\n";
-        decompress_predict_lorenzo_iproto<T, E, FP>(  //
-            d_eq, len3, d_outlier, outlier_idx, 0,    // input
-            error_bound, radius,                      // input (config)
-            d_xd,                                     // output
-            &time, stream);
+        //     decompress_predict_lorenzo_iproto<T, E, FP>(  //
+        //         d_eq, len3, d_outlier, outlier_idx, 0,    // input
+        //         error_bound, radius,                      // input (config)
+        //         d_xd,                                     // output
+        //         &time, stream);
+        throw runtime_error("prototype is disabled to later fix");
     }
 
     cudaDeviceSynchronize();

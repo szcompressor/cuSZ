@@ -204,10 +204,11 @@ cusz_error_status compressor(
     }
     else {
         cout << "using prototype comp. kernel\n";
-        compress_predict_lorenzo_iproto<T, E, FP>(                  //
-            data->data, data->len3, config->eb, config->radius,     //
-            data->errq, data->outlier, data->outlier_idx, nullptr,  //
-            &time_pq, stream);
+        // compress_predict_lorenzo_iproto<T, E, FP>(                  //
+        //     data->data, data->len3, config->eb, config->radius,     //
+        //     data->errq, data->outlier, data->outlier_idx, nullptr,  //
+        //     &time_pq, stream);
+        throw runtime_error("prototype is disabled to later fix");
     }
 
     cout << "time-eq\t" << time_pq << endl;
@@ -290,11 +291,12 @@ cusz_error_status decompressor(
     }
     else {
         cout << "using prototype comp. kernel\n";
-        decompress_predict_lorenzo_iproto<T, E, FP>(                      //
-            data->errq, data->len3, data->outlier, data->outlier_idx, 0,  // input
-            header_st->header.eb, header_st->header.radius,               // input (config)
-            data->xdata,                                                  // output
-            &time_d_pq, stream);
+        // decompress_predict_lorenzo_iproto<T, E, FP>(                      //
+        //     data->errq, data->len3, data->outlier, data->outlier_idx, 0,  // input
+        //     header_st->header.eb, header_st->header.radius,               // input (config)
+        //     data->xdata,                                                  // output
+        //     &time_d_pq, stream);
+        throw runtime_error("prototype is disabled to later fix");
     }
 
     cout << "decomp-time-pq\t" << time_d_pq << endl;

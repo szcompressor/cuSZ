@@ -18,17 +18,17 @@
 
 template <typename T, typename E, typename FP>
 cusz_error_status v2_compress_predict_lorenzo_i(
-    T* const          data,
-    dim3 const        len3,
-    double const      eb,
-    int const         radius,
-    E* const          errctrl,
-    dim3 const        placeholder_2,
-    T* const          anchor,
-    dim3 const        placeholder_1,
-    CompactionDRAM<T> outlier,
-    float*            time_elapsed,
-    cudaStream_t      stream)
+    T* const           data,
+    dim3 const         len3,
+    double const       eb,
+    int const          radius,
+    E* const           errctrl,
+    dim3 const         placeholder_2,
+    T* const           anchor,
+    dim3 const         placeholder_1,
+    CompactCudaDram<T> outlier,
+    float*             time_elapsed,
+    cudaStream_t       stream)
 {
     auto divide3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -93,7 +93,7 @@ cusz_error_status v2_compress_predict_lorenzo_i(
 #define CPP_TEMPLATE_INIT_AND_C_WRAPPER(Tliteral, Eliteral, FPliteral, T, E, FP)                   \
     template cusz_error_status v2_compress_predict_lorenzo_i<T, E, FP>(                            \
         T* const, dim3 const, double const, int const, E* const, dim3 const, T* const, dim3 const, \
-        struct CompactionDRAM<T>, float*, cudaStream_t);                                           \
+        struct CompactCudaDram<T>, float*, cudaStream_t);                                          \
                                                                                                    \
     // cusz_error_status v2_compress_predict_lorenzo_i_T##Tliteral##_E##Eliteral##_FP##FPliteral(                \
     //     T* const data, dim3 const len3, T* const anchor, dim3 const placeholder_1, E* const errctrl,          \

@@ -97,10 +97,10 @@ class v2_Compressor<CONFIG>::impl {
     Codec* codec;
 
     // arrays
-    T*                d_anchor;
-    uint32_t*         d_errctrl;
-    uint32_t*         d_freq;
-    CompactionDRAM<T> outlier;
+    T*                 d_anchor;
+    uint32_t*          d_errctrl;
+    uint32_t*          d_freq;
+    CompactCudaDram<T> outlier;
 
     int sp_factor{20};
 

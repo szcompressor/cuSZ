@@ -17,10 +17,10 @@
 #include <cstddef>
 #include <stdexcept>
 
+#include "../../utils/it_cuda.hh"
+#include "pipeline/compaction_g.inl"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
-
-#include "../../utils/it_cuda.hh"
 
 namespace psz {
 
@@ -29,8 +29,8 @@ namespace __kernel {
 
 namespace proto {  // easy algorithmic description
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 256>
-__global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
+template <typename T, typename EQ = int32_t, typename FP = T, typename Outlier = CompactCudaDram<T>, int BLK = 256>
+__global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, Outlier* outlier)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK];
@@ -46,13 +46,17 @@ __global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
     if (check_boundary1()) {  // postquant
-        outlier[id] = (1 - quantizable) * candidate;
-        eq[id]      = quantizable * static_cast<EQ>(candidate);
+        eq[id] = quantizable * static_cast<EQ>(candidate);
+        if (not quantizable) {
+            auto dram_idx          = atomicAdd(outlier->count, 1);
+            outlier->val[dram_idx] = candidate;
+            outlier->idx[dram_idx] = id;
+        }
     }
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 16>
-__global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
+template <typename T, typename EQ = int32_t, typename FP = T, typename Outlier = CompactCudaDram<T>, int BLK = 16>
+__global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, Outlier* outlier)
 {
     SETUP_ND_GPU_CUDA;
 
@@ -73,13 +77,17 @@ __global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
     if (check_boundary2()) {
-        outlier[id] = (1 - quantizable) * candidate;
-        eq[id]      = quantizable * static_cast<EQ>(candidate);
+        eq[id] = quantizable * static_cast<EQ>(candidate);
+        if (not quantizable) {
+            auto dram_idx          = atomicAdd(outlier->count, 1);
+            outlier->val[dram_idx] = candidate;
+            outlier->idx[dram_idx] = id;
+        }
     }
 }
 
-template <typename T, typename EQ, typename FP, int BLK = 8>
-__global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, T* outlier)
+template <typename T, typename EQ = int32_t, typename FP = T, typename Outlier = CompactCudaDram<T>, int BLK = 8>
+__global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, Outlier* outlier)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK][BLK + 1];
@@ -102,8 +110,12 @@ __global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
     if (check_boundary3()) {
-        outlier[id] = (1 - quantizable) * candidate;
-        eq[id]      = quantizable * static_cast<EQ>(candidate);
+        eq[id] = quantizable * static_cast<EQ>(candidate);
+        if (not quantizable) {
+            auto dram_idx          = atomicAdd(outlier->count, 1);
+            outlier->val[dram_idx] = candidate;
+            outlier->idx[dram_idx] = id;
+        }
     }
 }
 

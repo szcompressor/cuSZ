@@ -17,6 +17,7 @@
 
 #include "common/capsule.hh"
 #include "kernel/detail/lorenzo_proto.inl"
+#include "pipeline/compaction_g.inl"
 
 using std::cout;
 using std::endl;
@@ -55,25 +56,25 @@ bool test1(
     T const*    h_expected_output,
     std::string funcname)
 {
-    Capsule<T>  input(len);
-    Capsule<T>  outlier(len);
-    Capsule<EQ> eq(len);
+    Capsule<T>         input(len);
+    Capsule<EQ>        eq(len);
+    CompactCudaDram<T> outlier;
 
     input.malloc().set_hptr(const_cast<T*>(h_input)).h2d();
     eq.malloc().mallochost();
-    outlier.malloc();
+    outlier.set_reserved_len(len / 2).malloc().mallochost();
 
     auto radius = 512;
 
     if (dim == 1)
         proto::c_lorenzo_1d1l<T>
-            <<<t1d_grid_dim, t1d_block_dim>>>(input.dptr(), len3, stride3, radius, 1, eq.dptr(), outlier.dptr());
+            <<<t1d_grid_dim, t1d_block_dim>>>(input.dptr(), len3, stride3, radius, 1.0, eq.dptr(), &outlier);
     else if (dim == 2)
         proto::c_lorenzo_2d1l<T>
-            <<<t2d_grid_dim, t2d_block_dim>>>(input.dptr(), len3, stride3, radius, 1, eq.dptr(), outlier.dptr());
+            <<<t2d_grid_dim, t2d_block_dim>>>(input.dptr(), len3, stride3, radius, 1.0, eq.dptr(), &outlier);
     else if (dim == 3)
         proto::c_lorenzo_3d1l<T>
-            <<<t3d_grid_dim, t3d_block_dim>>>(input.dptr(), len3, stride3, radius, 1, eq.dptr(), outlier.dptr());
+            <<<t3d_grid_dim, t3d_block_dim>>>(input.dptr(), len3, stride3, radius, 1.0, eq.dptr(), &outlier);
     cudaDeviceSynchronize();
 
     eq.d2h();
@@ -92,7 +93,7 @@ bool test1(
 
     input.free();
     eq.free().freehost();
-    outlier.free();
+    outlier.free().freehost();
 
     return ok;
 }
@@ -159,8 +160,9 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
     Capsule<EQ> eq(len);
     eq.malloc();
 
-    Capsule<T> outlier(len);
-    outlier.malloc();
+    // TODO outlier is a placeholder in this test
+    CompactCudaDram<T> outlier;
+    outlier.set_reserved_len(len / 2).malloc().mallochost();
 
     Capsule<T> xdata(len);
     xdata.malloc().mallochost();
@@ -173,7 +175,7 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
 
     if (dim == 1) {
         proto::c_lorenzo_1d1l<T>
-            <<<t1d_grid_dim, t1d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), outlier.dptr());
+            <<<t1d_grid_dim, t1d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), &outlier);
         cudaDeviceSynchronize();
         proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
             eq.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, ebx2, xdata.dptr());
@@ -181,7 +183,7 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
     }
     else if (dim == 2) {
         proto::c_lorenzo_2d1l<T>
-            <<<t2d_grid_dim, t2d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), outlier.dptr());
+            <<<t2d_grid_dim, t2d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), &outlier);
         cudaDeviceSynchronize();
         proto::x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
             eq.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, ebx2, xdata.dptr());
@@ -189,7 +191,7 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
     }
     else if (dim == 3) {
         proto::c_lorenzo_3d1l<T>
-            <<<t3d_grid_dim, t3d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), outlier.dptr());
+            <<<t3d_grid_dim, t3d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), &outlier);
         cudaDeviceSynchronize();
         proto::x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
             eq.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, ebx2, xdata.dptr());

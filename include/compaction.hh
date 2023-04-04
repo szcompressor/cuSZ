@@ -13,6 +13,6 @@
 #define DAB40B13_9236_42A9_8047_49CD896671C9
 
 template <typename T>
-struct CompactionDRAM;
+struct CompactCudaDram;
 
 #endif /* DAB40B13_9236_42A9_8047_49CD896671C9 */

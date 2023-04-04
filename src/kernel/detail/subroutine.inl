@@ -86,7 +86,7 @@ template <
     typename EQ,
     int  SEQ,
     bool FIRST_POINT,
-    typename Compaction = CompactionDRAM<T>>
+    typename Compaction = CompactCudaDram<T>>
 __forceinline__ __device__ void predict_quantize_1d(  //
     T            thp_buffer[SEQ],
     volatile EQ* s_quant,

@@ -12,7 +12,9 @@
 #ifndef C8C37773_7EF2_439B_B0EF_14D0058DC714
 #define C8C37773_7EF2_439B_B0EF_14D0058DC714
 
+#include <cuda_runtime.h>
 #include <stdint.h>
+#include "compaction.hh"
 #include "cusz/type.h"
 
 template <typename T, typename EQ = int32_t, typename FP = T>
@@ -67,30 +69,26 @@ cusz_error_status decompress_predict_lorenzo_ivar(
 }  // namespace experimental
 }  // namespace asz
 
-template <typename T, typename EQ, typename FP>
+template <typename T, typename EQ = int32_t, typename Outlier = CompactCudaDram<T> >
 cusz_error_status compress_predict_lorenzo_iproto(
     T* const     data,          // input
     dim3 const   len3,          //
     double const eb,            // input (config)
     int const    radius,        //
     EQ* const    eq,            // output
-    T*           outlier,       //
-    uint32_t*    outlier_idx,   //
-    uint32_t*    num_outliers,  //
+    Outlier*     outlier,       //
     float*       time_elapsed,  // optional
     cudaStream_t stream);       //
 
-template <typename T, typename EQ, typename FP>
+template <typename T, typename EQ = int32_t>
 cusz_error_status decompress_predict_lorenzo_iproto(
-    EQ*            eq,            // input
-    dim3 const     len3,          //
-    T*             outlier,       //
-    uint32_t*      outlier_idx,   //
-    uint32_t const num_outliers,  //
-    double const   eb,            // input (config)
-    int const      radius,        //
-    T*             xdata,         // output
-    float*         time_elapsed,  // optional
-    cudaStream_t   stream);
+    EQ*          eq,                 // input
+    dim3 const   len3,               //
+    T*           scattered_outlier,  //
+    double const eb,                 // input (config)
+    int const    radius,             //
+    T*           xdata,              // output
+    float*       time_elapsed,       // optional
+    cudaStream_t stream);
 
 #endif /* C8C37773_7EF2_439B_B0EF_14D0058DC714 */

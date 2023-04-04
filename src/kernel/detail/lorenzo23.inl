@@ -30,7 +30,7 @@ __global__ void x_lorenzo_1d1l(EQ* quant, T* outlier, dim3 len3, dim3 stride3, i
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction = CompactionDRAM<T>>
+template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction = CompactCudaDram<T>>
 __global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }
@@ -51,7 +51,7 @@ namespace v1_pn {
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction = CompactionDRAM<T>>
+template <typename T, typename EQ, typename FP, int BLOCK, int SEQ, typename Compaction = CompactCudaDram<T>>
 __global__ void c_lorenzo_1d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }  // namespace compaction
@@ -94,7 +94,7 @@ __global__ void x_lorenzo_2d1l(EQ* delta, dim3 len3, dim3 stride3, FP ebx2, T* x
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+template <typename T, typename EQ, typename FP, typename Compaction = CompactCudaDram<T>>
 __global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }  // namespace compaction
@@ -105,7 +105,7 @@ namespace v1_pn {
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+template <typename T, typename EQ, typename FP, typename Compaction = CompactCudaDram<T>>
 __global__ void c_lorenzo_2d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }  // namespace compaction
@@ -155,7 +155,7 @@ __global__ void x_lorenzo_3d1l(EQ* quant, dim3 len3, dim3 stride3, FP ebx2, T* x
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+template <typename T, typename EQ, typename FP, typename Compaction = CompactCudaDram<T>>
 __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }
@@ -166,7 +166,7 @@ namespace v1_pn {
 
 namespace compaction {
 
-template <typename T, typename EQ, typename FP, typename Compaction = CompactionDRAM<T>>
+template <typename T, typename EQ, typename FP, typename Compaction = CompactCudaDram<T>>
 __global__ void c_lorenzo_3d1l(T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* quant, Compaction outlier);
 
 }
