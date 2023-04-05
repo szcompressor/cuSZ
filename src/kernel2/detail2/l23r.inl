@@ -1,0 +1,260 @@
+/**
+ * @file l23r.inl
+ * @author Jiannan Tian
+ * @brief
+ * @version 0.4
+ * @date 2023-04-04
+ *
+ * (C) 2023 by Indiana University, Argonne National Laboratory
+ *
+ */
+
+#ifndef AAC905A6_6314_4E1E_B5CD_BBBA9005A448
+#define AAC905A6_6314_4E1E_B5CD_BBBA9005A448
+
+#include <type_traits>
+
+#include "cusz/suint.hh"
+#include "pipeline/compaction_g.inl"
+
+namespace psz {
+namespace rolling {
+
+template <
+    typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
+    int TileDim = 256, int Seq = 8, typename Compact = CompactCudaDram<T>>
+__global__ void c_lorenzo_1d1l(
+    T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
+    Compact* outlier)
+{
+  constexpr auto NumThreads = TileDim / Seq;
+
+  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
+  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
+  static_assert(
+      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
+
+  auto posneg_encode = [](EqInt x) -> EqUint {
+    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
+  };
+
+  __shared__ struct {
+    T data[TileDim];
+    EqUint eq_uint[TileDim];
+  } s;
+
+  T _thp_data[Seq + 1] = {0};
+  auto prev = [&]() -> T& { return _thp_data[0]; };
+  auto thp_data = [&](auto i) -> T& { return _thp_data[i + 1]; };
+
+  auto id_base = blockIdx.x * TileDim;
+  auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
+    auto cur_idx = atomicAdd(outlier->count, 1);
+    outlier->idx[cur_idx] = gid_data;
+    outlier->val[cur_idx] = delta;
+  };
+
+// dram.data to shmem.data
+#pragma unroll
+  for (auto ix = 0; ix < Seq; ix++) {
+    auto id = id_base + threadIdx.x + ix * NumThreads;
+    if (id < len3.x)
+      s.data[threadIdx.x + ix * NumThreads] = round(data[id] * ebx2_r);
+  }
+  __syncthreads();
+
+// shmem.data to private.data
+#pragma unroll
+  for (auto ix = 0; ix < Seq; ix++)
+    thp_data(ix) = s.data[threadIdx.x * Seq + ix];
+  if (threadIdx.x > 0)
+    prev() = s.data[threadIdx.x * Seq - 1];  // from last thread
+  __syncthreads();
+
+  // quantize & write back to shmem.eq
+#pragma unroll
+  for (auto ix = 0; ix < Seq; ix++) {
+    T delta = thp_data(ix) - thp_data(ix - 1);
+    bool quantizable = fabs(delta) < radius;
+    T candidate = UsePnEnc ? delta : delta + radius;
+    // otherwise, need to reset shared memory (to 0)
+    if (UsePnEnc)
+      s.eq_uint[ix + threadIdx.x * Seq] =
+          posneg_encode(quantizable * static_cast<EqInt>(candidate));
+    else
+      s.eq_uint[ix + threadIdx.x * Seq] =
+          quantizable * static_cast<EqUint>(candidate);
+    if (not quantizable)
+      write_outlier_to_dram(delta, id_base + threadIdx.x * Seq + ix);
+  }
+  __syncthreads();
+
+// write from shmem.eq to dram.eq
+#pragma unroll
+  for (auto ix = 0; ix < Seq; ix++) {
+    auto id = id_base + threadIdx.x + ix * NumThreads;
+    if (id < len3.x) eq[id] = s.eq_uint[threadIdx.x + ix * NumThreads];
+  }
+
+  // end of kernel
+}
+
+template <
+    typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
+    typename Compact = CompactCudaDram<T>>
+__global__ void c_lorenzo_2d1l(
+    T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
+    Compact* outlier)
+{
+  constexpr auto TileDim = 16;
+  constexpr auto Yseq = 8;
+
+  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
+  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
+  static_assert(
+      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
+
+  T _center[Yseq + 1] = {0};  // NW  N       first element <- 0
+  //  W  center
+  auto prev = [&]() -> T& { return _center[0]; };
+  auto center = [&](auto i) -> T& { return _center[i + 1]; };
+  auto last = [&]() -> T& { return _center[Yseq]; };
+
+  // BDX == TileDim == 16, BDY * Yseq = TileDim == 16
+  auto gix = blockIdx.x * TileDim + threadIdx.x;
+  auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
+  auto giy = [&](auto y) { return giy_base + y; };
+  auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
+    auto cur_idx = atomicAdd(outlier->count, 1);
+    outlier->idx[cur_idx] = gid_data;
+    outlier->val[cur_idx] = delta;
+  };
+
+  auto dram_idx = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
+  auto posneg_encode = [](EqInt x) -> EqUint {
+    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
+  };
+
+  // use a warp as two half-warps
+  // block_dim = (16, 2, 1) makes a full warp internally
+
+// read to private.data (center)
+#pragma unroll
+  for (auto i = 0; i < Yseq; i++) {
+    if (gix < len3.x and giy(i) < len3.y)
+      center(i) = round(data[dram_idx(i)] * ebx2_r);
+  }
+  // same-warp, next-16
+  auto tmp = __shfl_up_sync(0xffffffff, last(), 16, 32);
+  if (threadIdx.y == 1) prev() = tmp;
+
+// prediction (apply Lorenzo filter)
+#pragma unroll
+  for (auto i = Yseq - 1; i >= 0; i--) {
+    // with center[i-1] intact in this iteration
+    center(i) -= center(i - 1);
+    // within a halfwarp (32/2)
+    auto west = __shfl_up_sync(0xffffffff, center(i), 1, 16);
+    if (threadIdx.x > 0) center(i) -= west;  // delta
+  }
+  __syncthreads();
+
+#pragma unroll
+  for (auto i = 0; i < Yseq; i++) {
+    auto gid = dram_idx(i);
+
+    if (gix < len3.x and giy(i) < len3.y) {
+      bool quantizable = fabs(center(i)) < radius;
+      T candidate = UsePnEnc ? center(i) : center(i) + radius;
+      if (UsePnEnc)
+        eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
+      else
+        eq[gid] = quantizable * static_cast<EqUint>(candidate);
+      if (not quantizable) write_outlier_to_dram(candidate, gid);
+    }
+  }
+
+  // end of kernel
+}
+
+template <
+    typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
+    typename Compact = CompactCudaDram<T>>
+__global__ void c_lorenzo_3d1l(
+    T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
+    Compact* outlier)
+{
+  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
+  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
+  static_assert(
+      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
+  auto posneg_encode = [](EqInt x) -> EqUint {
+    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
+  };
+
+  constexpr auto TileDim = 8;
+  __shared__ T s[9][33];
+  T delta[TileDim + 1] = {0};  // first el = 0
+
+  const auto gix = blockIdx.x * (TileDim * 4) + threadIdx.x;
+  const auto giy = blockIdx.y * TileDim + threadIdx.y;
+  const auto giz_base = blockIdx.z * TileDim;
+  const auto base_id = gix + giy * stride3.y + giz_base * stride3.z;
+
+  auto giz = [&](auto z) { return giz_base + z; };
+  auto gid = [&](auto z) { return base_id + z * stride3.z; };
+
+  auto load_prequant_3d = [&]() {
+    if (gix < len3.x and giy < len3.y) {
+      for (auto z = 0; z < TileDim; z++)
+        if (giz(z) < len3.z)
+          delta[z + 1] =
+              round(data[gid(z)] * ebx2_r);  // prequant (fp presence)
+    }
+    __syncthreads();
+  };
+
+  auto quantize_compact_write = [&](T delta, auto x, auto y, auto z, auto gid) {
+    bool quantizable = fabs(delta) < radius;
+    T candidate = UsePnEnc ? delta : delta + radius;
+    if (x < len3.x and y < len3.y and z < len3.z) {
+      if (UsePnEnc)
+        eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
+      else
+        eq[gid] = quantizable * static_cast<EqUint>(candidate);
+      if (not quantizable) {
+        auto cur_idx = atomicAdd(outlier->count, 1);
+        outlier->idx[cur_idx] = gid;
+        outlier->val[cur_idx] = candidate;
+      }
+    }
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+
+  load_prequant_3d();
+
+  for (auto z = TileDim; z > 0; z--) {
+    // z-direction
+    delta[z] -= delta[z - 1];
+
+    // x-direction
+    auto prev_x = __shfl_up_sync(0xffffffff, delta[z], 1, 8);
+    if (threadIdx.x % TileDim > 0) delta[z] -= prev_x;
+
+    // y-direction, exchange via shmem
+    // ghost padding along y
+    s[threadIdx.y + 1][threadIdx.x] = delta[z];
+    __syncthreads();
+
+    delta[z] -= (threadIdx.y > 0) * s[threadIdx.y][threadIdx.x];
+
+    // now delta[z] is delta
+    quantize_compact_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+  }
+}
+
+}  // namespace rolling
+}  // namespace psz
+
+#endif /* AAC905A6_6314_4E1E_B5CD_BBBA9005A448 */

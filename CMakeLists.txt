@@ -67,7 +67,7 @@ add_library(pszstat_g
   src/stat/stat_g.cu)
 target_link_libraries(pszstat_g PUBLIC pszcompile_settings)
 
-# 2023 March fix start
+# 2023 March-April fix start
 # naming: PROJ_FUNC_BACKEND, where PROJ=psz, FUNC={core,api}, BACKEND={serial,cuda,...} 
 add_library(psz_core_serial
   src/kernel/lorenzo_serial.cc
@@ -77,10 +77,11 @@ target_link_libraries(psz_core_serial PUBLIC pszcompile_settings)
 add_library(psz_core_cuda
   src/kernel/lorenzo_proto.cu
   src/kernel/lorenzo.cu
-  # TODO src/kernel/lorenzo_var.cu
+  src/kernel2/l23r.cu
+  src/kernel2/l23r_scttr.cu
 )
 target_link_libraries(psz_core_cuda PUBLIC pszcompile_settings)
-# 2023 March fix end
+# 2023 March-April fix end
 
 add_library(pszkernel  src/kernel/claunch_cuda.cu)
 target_link_libraries(pszkernel PUBLIC pszcompile_settings psztimer)
@@ -134,10 +135,10 @@ if (BUILD_TESTING)
 endif()
 
 install(TARGETS pszcompile_settings EXPORT CUSZTargets)
-# 2023 March fix start
+# 2023 March-April fix start
 install(TARGETS psz_core_serial EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_core_cuda   EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-# 2023 March fix end
+# 2023 March-April fix end
 install(TARGETS pszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszkelo EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszstat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
