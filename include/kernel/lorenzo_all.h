@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
 #include "cusz/type.h"
 
 #define C_LORENZOI(Tliteral, Eliteral, FPliteral, T, E, FP)                                           \
