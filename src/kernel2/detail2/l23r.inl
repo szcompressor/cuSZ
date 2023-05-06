@@ -15,7 +15,7 @@
 #include <type_traits>
 
 #include "cusz/suint.hh"
-#include "pipeline/compaction_g.inl"
+#include "pipeline/compact_cuda.hh"
 
 namespace psz {
 namespace rolling {
@@ -25,7 +25,7 @@ template <
     int TileDim = 256, int Seq = 8, typename Compact = CompactCudaDram<T>>
 __global__ void c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact* outlier)
+    Compact compact)
 {
   constexpr auto NumThreads = TileDim / Seq;
 
@@ -49,9 +49,9 @@ __global__ void c_lorenzo_1d1l(
 
   auto id_base = blockIdx.x * TileDim;
   auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
-    auto cur_idx = atomicAdd(outlier->count, 1);
-    outlier->idx[cur_idx] = gid_data;
-    outlier->val[cur_idx] = delta;
+    auto cur_idx = atomicAdd(compact.num, 1);
+    compact.idx[cur_idx] = gid_data;
+    compact.val[cur_idx] = delta;
   };
 
 // dram.data to shmem.data
@@ -104,7 +104,7 @@ template <
     typename Compact = CompactCudaDram<T>>
 __global__ void c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact* outlier)
+    Compact compact)
 {
   constexpr auto TileDim = 16;
   constexpr auto Yseq = 8;
@@ -125,9 +125,9 @@ __global__ void c_lorenzo_2d1l(
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
   auto giy = [&](auto y) { return giy_base + y; };
   auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
-    auto cur_idx = atomicAdd(outlier->count, 1);
-    outlier->idx[cur_idx] = gid_data;
-    outlier->val[cur_idx] = delta;
+    auto cur_idx = atomicAdd(compact.num, 1);
+    compact.idx[cur_idx] = gid_data;
+    compact.val[cur_idx] = delta;
   };
 
   auto dram_idx = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
@@ -182,7 +182,7 @@ template <
     typename Compact = CompactCudaDram<T>>
 __global__ void c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact* outlier)
+    Compact compact)
 {
   using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
   using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
@@ -214,7 +214,8 @@ __global__ void c_lorenzo_3d1l(
     __syncthreads();
   };
 
-  auto quantize_compact_write = [&](T delta, auto x, auto y, auto z, auto gid) {
+  auto quantize_compact_write = [&](T delta, auto x, auto y, auto z,
+                                    auto gid) {
     bool quantizable = fabs(delta) < radius;
     T candidate = UsePnEnc ? delta : delta + radius;
     if (x < len3.x and y < len3.y and z < len3.z) {
@@ -223,9 +224,9 @@ __global__ void c_lorenzo_3d1l(
       else
         eq[gid] = quantizable * static_cast<EqUint>(candidate);
       if (not quantizable) {
-        auto cur_idx = atomicAdd(outlier->count, 1);
-        outlier->idx[cur_idx] = gid;
-        outlier->val[cur_idx] = candidate;
+        auto cur_idx = atomicAdd(compact.num, 1);
+        compact.idx[cur_idx] = gid;
+        compact.val[cur_idx] = candidate;
       }
     }
   };

@@ -1,7 +1,7 @@
 /**
  * @file lorenzo_proto.inl
  * @author Jiannan Tian
- * @brief (prototype) Dual-EQ Lorenzo method.
+ * @brief (prototype) Dual-Eq Lorenzo method.
  * @version 0.2
  * @date 2019-09-23
  * (create) 2019-09-23 (rev) 2023-04-03
@@ -18,7 +18,7 @@
 #include <stdexcept>
 
 #include "../../utils/it_cuda.hh"
-#include "pipeline/compaction_g.inl"
+#include "pipeline/compact_cuda.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
@@ -29,8 +29,8 @@ namespace __kernel {
 
 namespace proto {  // easy algorithmic description
 
-template <typename T, typename EQ = int32_t, typename FP = T, typename Outlier = CompactCudaDram<T>, int BLK = 256>
-__global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, Outlier* outlier)
+template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactCudaDram<T>, int BLK = 256>
+__global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq, Compact compact)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK];
@@ -46,17 +46,17 @@ __global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
     if (check_boundary1()) {  // postquant
-        eq[id] = quantizable * static_cast<EQ>(candidate);
+        eq[id] = quantizable * static_cast<Eq>(candidate);
         if (not quantizable) {
-            auto dram_idx          = atomicAdd(outlier->count, 1);
-            outlier->val[dram_idx] = candidate;
-            outlier->idx[dram_idx] = id;
+            auto dram_idx         = atomicAdd(compact.num, 1);
+            compact.val[dram_idx] = candidate;
+            compact.idx[dram_idx] = id;
         }
     }
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, typename Outlier = CompactCudaDram<T>, int BLK = 16>
-__global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, Outlier* outlier)
+template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactCudaDram<T>, int BLK = 16>
+__global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq, Compact compact)
 {
     SETUP_ND_GPU_CUDA;
 
@@ -77,17 +77,17 @@ __global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
     if (check_boundary2()) {
-        eq[id] = quantizable * static_cast<EQ>(candidate);
+        eq[id] = quantizable * static_cast<Eq>(candidate);
         if (not quantizable) {
-            auto dram_idx          = atomicAdd(outlier->count, 1);
-            outlier->val[dram_idx] = candidate;
-            outlier->idx[dram_idx] = id;
+            auto dram_idx         = atomicAdd(compact.num, 1);
+            compact.val[dram_idx] = candidate;
+            compact.idx[dram_idx] = id;
         }
     }
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, typename Outlier = CompactCudaDram<T>, int BLK = 8>
-__global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, EQ* eq, Outlier* outlier)
+template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactCudaDram<T>, int BLK = 8>
+__global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq, Compact compact)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK][BLK + 1];
@@ -110,17 +110,17 @@ __global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     bool quantizable = fabs(delta) < radius;
     T    candidate   = delta + radius;
     if (check_boundary3()) {
-        eq[id] = quantizable * static_cast<EQ>(candidate);
+        eq[id] = quantizable * static_cast<Eq>(candidate);
         if (not quantizable) {
-            auto dram_idx          = atomicAdd(outlier->count, 1);
-            outlier->val[dram_idx] = candidate;
-            outlier->idx[dram_idx] = id;
+            auto dram_idx         = atomicAdd(compact.num, 1);
+            compact.val[dram_idx] = candidate;
+            compact.idx[dram_idx] = id;
         }
     }
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 256>
-__global__ void x_lorenzo_1d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
+template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 256>
+__global__ void x_lorenzo_1d1l(Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2, T* xdata)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK];
@@ -145,8 +145,8 @@ __global__ void x_lorenzo_1d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 str
     if (id < len3.x) { xdata[id] = data(0) * ebx2; }
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 16>
-__global__ void x_lorenzo_2d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
+template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 16>
+__global__ void x_lorenzo_2d1l(Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2, T* xdata)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK + 1];
@@ -179,8 +179,8 @@ __global__ void x_lorenzo_2d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 str
     if (check_boundary2()) { xdata[id] = data(0, 0) * ebx2; }
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 8>
-__global__ void x_lorenzo_3d1l(EQ* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
+template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 8>
+__global__ void x_lorenzo_3d1l(Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2, T* xdata)
 {
     SETUP_ND_GPU_CUDA;
     __shared__ T buf[BLK][BLK][BLK + 1];

@@ -2,7 +2,7 @@
 BasedOnStyle: Google
 BreakBeforeBraces: Stroustrup
 IndentWidth: 2
-ColumnLimit: 80
+ColumnLimit: 79
 BreakConstructorInitializers: AfterColon
 AllowShortBlocksOnASingleLine: Always
 AllowShortFunctionsOnASingleLine: All

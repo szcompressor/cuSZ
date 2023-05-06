@@ -15,4 +15,7 @@
 template <typename T>
 struct CompactCudaDram;
 
+template <typename T>
+struct CompactSerial;
+
 #endif /* DAB40B13_9236_42A9_8047_49CD896671C9 */

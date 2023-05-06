@@ -14,7 +14,7 @@
 #include "cusz/type.h"
 #include "detail2/l23r.inl"
 #include "kernel2/l23r.hh"
-#include "pipeline/compaction_g.inl"
+#include "pipeline/compact_cuda.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
@@ -48,7 +48,8 @@ cusz_error_status compress_predict_lorenzo_i_rolling(
   auto outlier = (Compact*)_outlier;
 
   constexpr auto Tile1D = 256;
-  constexpr auto Block1D = dim3(64, 1, 1);
+  constexpr auto Seq1D = 4;
+  constexpr auto Block1D = 64;
   auto Grid1D = divide3(len3, Tile1D);
 
   constexpr auto Tile2D = dim3(16, 16, 1);
@@ -70,19 +71,19 @@ cusz_error_status compress_predict_lorenzo_i_rolling(
   START_CUDAEVENT_RECORDING(stream);
 
   if (d == 1) {
-    psz::rolling::c_lorenzo_1d1l<T, false, Eq, T, Tile1D>
+    psz::rolling::c_lorenzo_1d1l<T, false, Eq, T, Tile1D, Seq1D>
         <<<Grid1D, Block1D, 0, stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, outlier);
+            data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (d == 2) {
     psz::rolling::c_lorenzo_2d1l<T, false, Eq, T>
         <<<Grid2D, Block2D, 0, stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, outlier);
+            data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (d == 3) {
     psz::rolling::c_lorenzo_3d1l<T, false, Eq, T>
         <<<Grid3D, Block3D, 0, stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, outlier);
+            data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
 
   STOP_CUDAEVENT_RECORDING(stream);

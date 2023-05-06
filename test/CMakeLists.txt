@@ -35,7 +35,7 @@ add_test(test_spv_hl spv_hl)
 # add_test(test_tgpu tgpu)
 
 
-# 2023 March fix start
+# 2023 March-April fix start
 add_library(psztestcompile_settings INTERFACE)
 target_include_directories(psztestcompile_settings INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src/>
@@ -51,18 +51,23 @@ target_link_libraries(   l0_typing  PRIVATE psztestcompile_settings)
 add_test(test_l0_typing  l0_typing)
 
 # Level-1 subroutine
-add_executable(              l1_subroutine  src/test_l1_l23scan.cu)
-target_link_libraries(       l1_subroutine  PRIVATE pszcompile_settings psztestcompile_settings)
-add_test(test_l1_subroutine  l1_subroutine)
+add_executable(        l1_scan  src/test_l1_l23scan.cu)
+target_link_libraries( l1_scan  PRIVATE pszcompile_settings psztestcompile_settings)
+add_test(test_l1_scan  l1_scan)
+
+add_executable(           l1_compact  src/test_l1_compact.cu)
+target_link_libraries(    l1_compact  PRIVATE pszcompile_settings psztestcompile_settings psz_testutils)
+add_test(test_l1_compact  l1_compact)
+
 
 # Level-2 kernel (template; unit tests)
 add_executable(          l2_serial  src/test_l2_serial.cc)
 target_link_libraries(   l2_serial  PRIVATE psztestcompile_settings)
-add_test(test_l1_serial  l2_serial)
+add_test(test_l2_serial  l2_serial)
 
 add_executable(             l2_cudaproto  src/test_l2_cudaproto.cu)
 target_link_libraries(      l2_cudaproto  PRIVATE pszcompile_settings psztestcompile_settings)
-add_test(test_l1_cudaproto  l2_cudaproto)
+add_test(test_l2_cudaproto  l2_cudaproto)
 
 # TODO cross-validation
 # add_test(test_l1_cuda  l1_cuda)
@@ -71,4 +76,8 @@ add_test(test_l1_cudaproto  l2_cudaproto)
 add_executable(             l3_cuda_pred  src/test_l3_cuda_pred.cc)
 target_link_libraries(      l3_cuda_pred  PRIVATE psz_core_cuda psz_testutils pszstat pszstat_g pszutils_g CUDA::cudart)
 add_test(test_l3_cuda_pred  l3_cuda_pred)
-# 2023 March fix end
+
+add_executable(          l3_cuda_r  src/test_l3_cuda_rolling.cc)
+target_link_libraries(   l3_cuda_r  PRIVATE psztestcompile_settings  psz_core_cuda psz_testutils pszstat pszstat_g pszutils_g CUDA::cudart)
+add_test(test_l3_cuda_r  l3_cuda_r)
+# 2023 March-April fix end
