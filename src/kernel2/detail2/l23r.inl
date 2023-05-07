@@ -12,6 +12,8 @@
 #ifndef AAC905A6_6314_4E1E_B5CD_BBBA9005A448
 #define AAC905A6_6314_4E1E_B5CD_BBBA9005A448
 
+#include <stdint.h>
+
 #include <type_traits>
 
 #include "cusz/suint.hh"
@@ -22,10 +24,11 @@ namespace rolling {
 
 template <
     typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
-    int TileDim = 256, int Seq = 8, typename Compact = CompactCudaDram<T>>
+    int TileDim = 256, int Seq = 8, typename CompactVal = T,
+    typename CompactIdx = uint32_t, typename CompactNum = uint32_t>
 __global__ void c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact compact)
+    CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
   constexpr auto NumThreads = TileDim / Seq;
 
@@ -49,9 +52,9 @@ __global__ void c_lorenzo_1d1l(
 
   auto id_base = blockIdx.x * TileDim;
   auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
-    auto cur_idx = atomicAdd(compact.num, 1);
-    compact.idx[cur_idx] = gid_data;
-    compact.val[cur_idx] = delta;
+    auto cur_idx = atomicAdd(cn, 1);
+    cidx[cur_idx] = gid_data;
+    cval[cur_idx] = delta;
   };
 
 // dram.data to shmem.data
@@ -101,10 +104,11 @@ __global__ void c_lorenzo_1d1l(
 
 template <
     typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
-    typename Compact = CompactCudaDram<T>>
+    typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t>
 __global__ void c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact compact)
+    CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
   constexpr auto TileDim = 16;
   constexpr auto Yseq = 8;
@@ -114,8 +118,9 @@ __global__ void c_lorenzo_2d1l(
   static_assert(
       std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
 
-  T _center[Yseq + 1] = {0};  // NW  N       first element <- 0
+  // NW  N       first el <- 0
   //  W  center
+  T _center[Yseq + 1] = {0};
   auto prev = [&]() -> T& { return _center[0]; };
   auto center = [&](auto i) -> T& { return _center[i + 1]; };
   auto last = [&]() -> T& { return _center[Yseq]; };
@@ -125,9 +130,9 @@ __global__ void c_lorenzo_2d1l(
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
   auto giy = [&](auto y) { return giy_base + y; };
   auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
-    auto cur_idx = atomicAdd(compact.num, 1);
-    compact.idx[cur_idx] = gid_data;
-    compact.val[cur_idx] = delta;
+    auto cur_idx = atomicAdd(cn, 1);
+    cidx[cur_idx] = gid_data;
+    cval[cur_idx] = delta;
   };
 
   auto dram_idx = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
@@ -179,10 +184,11 @@ __global__ void c_lorenzo_2d1l(
 
 template <
     typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
-    typename Compact = CompactCudaDram<T>>
+    typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t>
 __global__ void c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact compact)
+    CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
   using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
   using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
@@ -224,9 +230,9 @@ __global__ void c_lorenzo_3d1l(
       else
         eq[gid] = quantizable * static_cast<EqUint>(candidate);
       if (not quantizable) {
-        auto cur_idx = atomicAdd(compact.num, 1);
-        compact.idx[cur_idx] = gid;
-        compact.val[cur_idx] = candidate;
+        auto cur_idx = atomicAdd(cn, 1);
+        cidx[cur_idx] = gid;
+        cval[cur_idx] = candidate;
       }
     }
   };

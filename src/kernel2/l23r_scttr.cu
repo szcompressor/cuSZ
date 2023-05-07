@@ -9,6 +9,7 @@
  *
  */
 
+#include <stdint.h>
 #include <thrust/execution_policy.h>
 #include <thrust/scatter.h>
 

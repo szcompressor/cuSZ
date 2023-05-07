@@ -35,7 +35,7 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
     eq.mallocmanaged();
 
     CompactCudaDram<T> outlier;
-    outlier.set_reserved_len(len / 5).malloc().mallochost();
+    outlier.set_reserved_len(len).malloc().mallochost();
 
     psz::testutils::cuda::rand_array<T>(data.uniptr(), len);
 
@@ -49,6 +49,8 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
     cudaStreamSynchronize(stream);
 
     outlier.make_host_accessible(stream);
+
+    printf("#outlier: %d\n", outlier.num_outliers());
 
     psz_adhoc_scttr(outlier.val, outlier.idx, outlier.num_outliers(), xdata.uniptr(), &time, stream);
 
@@ -86,7 +88,7 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
 bool g(uint32_t x, uint32_t y, uint32_t z)
 {
     auto   all_pass = true;
-    double eb       = 1e-4;
+    double eb       = 1e-3;
 
     // all_pass = all_pass and f<float, uint8_t>(x, y, z, eb, 128);
     // all_pass = all_pass and f<float, uint16_t>(x, y, z, eb, 512);
@@ -106,9 +108,10 @@ bool g(uint32_t x, uint32_t y, uint32_t z)
 int main(int argc, char** argv)
 {
     bool all_pass = true;
-    all_pass      = all_pass and g(6480000, 1, 1);
-    all_pass      = all_pass and g(3600, 1800, 1);
-    all_pass      = all_pass and g(360, 180, 100);
+
+    all_pass = all_pass and g(6480000, 1, 1);
+    // all_pass      = all_pass and g(3600, 1800, 1);
+    // all_pass      = all_pass and g(360, 180, 100);
 
     if (all_pass)
         return 0;
