@@ -15,6 +15,7 @@
 #include <cuda_runtime.h>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include "../common.hh"
 #include "../kernel/cpplaunch_cuda.hh"
 #include "../kernel/lorenzo_all.hh"
@@ -113,13 +114,13 @@ class PredictionUnified : public PredictorBoilerplate {
                 &time_elapsed, stream);
         }
         else if (predictor == Spline3) {
-            this->derive_rtlen(Spline3, len3);
-            this->check_rtlen();
-
-            cusz::cpplaunch_construct_Spline3<T, E, FP>(
-                true,  //
-                data, len3, d_anchor, this->rtlen.anchor.len3, d_errctrl, this->rtlen.aligned.len3, eb, radius,
-                &time_elapsed, stream);
+            throw std::runtime_error("spline3 is disabled in this version.");
+            // this->derive_rtlen(Spline3, len3);
+            // this->check_rtlen();
+            // cusz::cpplaunch_construct_Spline3<T, E, FP>(
+            //     true,  //
+            //     data, len3, d_anchor, this->rtlen.anchor.len3, d_errctrl, this->rtlen.aligned.len3, eb, radius,
+            //     &time_elapsed, stream);
         }
     }
 
@@ -152,14 +153,12 @@ class PredictionUnified : public PredictorBoilerplate {
                 &time_elapsed, stream);
         }
         else if (predictor == Spline3) {
-            this->derive_rtlen(Spline3, len3);
-            this->check_rtlen();
-            // this->debug_list_rtlen<T, E, FP>(true);
-
-            // launch_reconstruct_Spline3<T, E, FP>(
-            cusz::cpplaunch_reconstruct_Spline3<T, E, FP>(
-                outlier_xdata, len3, anchor, this->rtlen.anchor.len3, errctrl, this->rtlen.aligned.len3, eb, radius,
-                &time_elapsed, stream);
+            throw std::runtime_error("spline3 is disabled in this version.");
+            // this->derive_rtlen(Spline3, len3);
+            // this->check_rtlen();
+            // cusz::cpplaunch_reconstruct_Spline3<T, E, FP>(
+            //     outlier_xdata, len3, anchor, this->rtlen.anchor.len3, errctrl, this->rtlen.aligned.len3, eb, radius,
+            //     &time_elapsed, stream);
         }
     }
 

@@ -21,7 +21,7 @@ extern "C" {
 enum cusz_execution_policy { CPU, CUDA };
 typedef enum cusz_execution_policy cusz_execution_policy;
 typedef enum cusz_execution_policy cusz_policy;
-typedef enum cusz_execution_policy asz_policy;
+typedef enum cusz_execution_policy psz_policy;
 
 //////// state enumeration
 

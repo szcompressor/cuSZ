@@ -25,14 +25,14 @@ bool f(double sleep_time)
     strcpy(cmd, "sleep ");
     strcat(cmd, buf);
 
-    asz_cputimer* t = asz_cputimer_create();
+    psz_cputimer* t = psz_cputimer_create();
 
-    asz_cputimer_start(t);
+    psz_cputimer_start(t);
     int status = system(cmd);
-    asz_cputimer_end(t);
-    double second = asz_cputime_elapsed(t);
+    psz_cputimer_end(t);
+    double second = psz_cputime_elapsed(t);
 
-    asz_cputimer_destroy(t);
+    psz_cputimer_destroy(t);
 
     printf("sleep time: %f, recorded time: %f\n", (float)sleep_time, second);
     return second >= sleep_time;

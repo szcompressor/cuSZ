@@ -83,18 +83,11 @@ add_library(psz_core_cuda
 target_link_libraries(psz_core_cuda PUBLIC pszcompile_settings)
 # 2023 March-April fix end
 
-add_library(pszkernel  src/kernel/claunch_cuda.cu)
-target_link_libraries(pszkernel PUBLIC pszcompile_settings psztimer)
-
 add_library(pszutils_g  src/utils/print_gpu.cu)
 target_link_libraries(pszutils_g PUBLIC pszcompile_settings)
 
 add_library(pszargp  src/context.cc)
 target_link_libraries(pszargp PUBLIC pszcompile_settings)
-
-# TODO reserve for speeding up compilation
-# add_library(pszpq  src/detail/__to_delete_prediction_impl.cu)
-# target_link_libraries(pszpq PUBLIC pszcompile_settings pszkernel pszkelo)
 
 add_library(pszspv  src/kernel/spv_gpu.cu)
 target_link_libraries(pszspv PUBLIC pszcompile_settings)
@@ -113,10 +106,7 @@ target_link_libraries(pszhf_g PUBLIC pszcompile_settings pszstat_g pszhfbook_g)
 set_target_properties(pszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(pszcomp  src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
-target_link_libraries(pszcomp PUBLIC pszcompile_settings pszkernel pszkelo pszstat_g pszhf_g CUDA::cudart)
-
-# add_library(pszcomp_v2  src/cusz/custom.cc src/pipeline/v2_compressor.cc src/pipeline/v2_compressor_impl.cu)
-# target_link_libraries(pszcomp_v2 PUBLIC pszcompile_settings pszkernel pszkelo pszstat_g pszhf_g CUDA::cudart)
+target_link_libraries(pszcomp PUBLIC pszcompile_settings pszkelo pszstat_g pszhf_g CUDA::cudart)
 
 add_library(cusz  src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC pszcomp pszargp pszhf_g pszspv pszstat pszutils_g)
@@ -139,7 +129,6 @@ install(TARGETS pszcompile_settings EXPORT CUSZTargets)
 install(TARGETS psz_core_serial EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_core_cuda   EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 # 2023 March-April fix end
-install(TARGETS pszkernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszkelo EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszstat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszstat_g EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

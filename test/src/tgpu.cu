@@ -24,33 +24,33 @@ __global__ void dummy()
 
 bool f()
 {
-    // asz_timer* t1 = asz_timer_create(CUDA, NULL);
-    // asz_timer* t2 = asz_timer_create(CUDA, NULL);
+    // psz_timer* t1 = psz_timer_create(CUDA, NULL);
+    // psz_timer* t2 = psz_timer_create(CUDA, NULL);
 
     // {
-    //     asz_timer_start(t1);
+    //     psz_timer_start(t1);
     //     for (auto i = 0; i < 20; i++) dummy<<<1, 1>>>();
     //     cudaDeviceSynchronize();
-    //     asz_timer_end(t1);
+    //     psz_timer_end(t1);
     // }
     // {
     //     float* a = NULL;
     //     float* b = NULL;
 
-    //     asz_timer_start(t2);
+    //     psz_timer_start(t2);
     //     cudaMalloc(&a, 100000);
     //     cudaMalloc(&b, 100000);
     //     cudaMemcpy(b, a, 100000, cudaMemcpyDeviceToDevice);
     //     cudaFree(a);
     //     cudaFree(b);
-    //     asz_timer_end(t2);
+    //     psz_timer_end(t2);
     // }
 
-    // double s1 = asz_time_elapsed(t1);
-    // double s2 = asz_time_elapsed(t2);
+    // double s1 = psz_time_elapsed(t1);
+    // double s2 = psz_time_elapsed(t2);
 
-    // asz_timer_destroy(t1);
-    // asz_timer_destroy(t2);
+    // psz_timer_destroy(t1);
+    // psz_timer_destroy(t2);
 
     // printf("s1: %lf, s2: %lf\n", s1, s2);
 
