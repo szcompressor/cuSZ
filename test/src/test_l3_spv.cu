@@ -1,5 +1,5 @@
 /**
- * @file spv.cu
+ * @file test_l3_spv.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3

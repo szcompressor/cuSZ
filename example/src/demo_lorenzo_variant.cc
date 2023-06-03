@@ -1,5 +1,5 @@
 /**
- * @file test_lorenzo_var.cu
+ * @file demo_lorenzo_variant.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3

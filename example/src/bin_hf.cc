@@ -1,25 +1,24 @@
 /**
- * @file saspvec.cu
+ * @file bin_hf.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3
- * @date 2022-08-21
+ * @date 2022-08-15
  *
  * (C) 2022 by Indiana University, Argonne National Laboratory
  *
  */
 
-// #include <thrust/device_ptr.h>
-// #include <thrust/extrema.h>
-// #include <thrust/transform_reduce.h>
-// #include <thrust/tuple.h>
 #include <string>
 #include "cli/quality_viewer.hh"
-#include "component/spcodec.inl"
-#include "kernel/spv_gpu.hh"
+#include "hf/hf.hh"
+#include "hf/hf_bookg.hh"
+#include "hf/hf_codecg.hh"
 #include "stat/compare_gpu.hh"
-#include "utils/io.hh"
 #include "utils/print_gpu.hh"
+// #include "utils/compare_cpu.hh"
+#include "stat/stat_g.hh"
+#include "utils/io.hh"
 
 template <typename T, typename H = uint32_t>
 void f(std::string fname, size_t const x, size_t const y, size_t const z)
@@ -27,12 +26,17 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
     /* For demo, we use 3600x1800 CESM data. */
     auto len = x * y * z;
 
-    T *      d_d, *h_d;
-    T *      d_xd, *h_xd;
-    uint8_t* d_compressed;
+    T *            d_d, *h_d;
+    T *            d_xd, *h_xd;
+    uint32_t*      d_freq;
+    uint8_t*       d_compressed;
+    constexpr auto booklen = 1024;
+    constexpr auto pardeg  = 768;
+    // auto           sublen  = (len - 1) / pardeg + 1;
 
     cudaMalloc(&d_d, sizeof(T) * len);
     cudaMalloc(&d_xd, sizeof(T) * len);
+    cudaMalloc(&d_freq, sizeof(uint32_t) * booklen);
     cudaMallocHost(&h_d, sizeof(T) * len);
     cudaMallocHost(&h_xd, sizeof(T) * len);
 
@@ -49,23 +53,30 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     dim3 len3 = dim3(x, y, z);
 
-    cusz::SpcodecVec<T, uint32_t> encoder;
-    encoder.init(len, 1);  // CR lower bound = 1
+    float time_hist;
 
-    cudaMalloc(&d_compressed, len * sizeof(T) * 2);
+    asz::stat::histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
+
+    cusz::HuffmanCodec<T, H, uint32_t> encoder;
+    encoder.init(len, booklen, pardeg /* not optimal for perf */);
+
+    cudaMalloc(&d_compressed, len * sizeof(T) / 2);
 
     // float  time;
     size_t outlen;
-    encoder.encode(d_d, len, d_compressed, outlen, stream, true);
+    encoder.build_codebook(d_freq, booklen, stream);
+    encoder.encode(d_d, len, d_compressed, outlen, stream);
 
-    printf("Spvec in  len:\t%u\n", len);
-    printf("Spvec out len:\t%u\n", outlen);
+    printf("Huffman in  len:\t%u\n", len);
+    printf("Huffman out len:\t%u\n", outlen);
     printf(
-        "\"Spvec CR = sizeof(T) * len / outlen\", where outlen is byte count:\t%.2lf\n",
+        "\"Huffman CR = sizeof(T) * len / outlen\", where outlen is byte count:\t%.2lf\n",
         len * sizeof(T) * 1.0 / outlen);
 
-    encoder.decode(d_compressed, d_xd, stream);
+    encoder.decode(d_compressed, d_xd);
 
+    // cudaMemcpy(h_xd, d_xd, len * sizeof(T), cudaMemcpyDeviceToHost);
+    // /* perform evaluation */ psz::cppstd_identical(h_xd, h_d, len);
     /* perform evaluation */ auto identical = psz::thrustgpu_identical(d_xd, d_d, len);
 
     if (identical)
@@ -83,7 +94,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 int main(int argc, char** argv)
 {
     if (argc < 6) {
-        printf("PROG /path/to/datafield X Y Z [InputType]\n");
+        printf("PROG /path/to/datafield X Y Z [optional: ErrorQuantType]\n");
         printf("0    1                  2 3 4 5\n");
         exit(0);
     }

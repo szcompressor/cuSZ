@@ -1,5 +1,5 @@
 /**
- * @file capi.cu
+ * @file demo_cxx_link.cc
  * @author Jiannan Tian
  * @brief
  * @version 0.3

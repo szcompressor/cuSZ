@@ -1,5 +1,5 @@
 /**
- * @file capi.cu
+ * @file demo_capi_nvcc.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3

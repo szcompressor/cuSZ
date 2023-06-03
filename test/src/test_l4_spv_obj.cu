@@ -1,5 +1,5 @@
 /**
- * @file spvo.cu
+ * @file test_l4_spv_obj.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
