@@ -101,11 +101,11 @@ if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
     target_link_options(pszhfbook_g PUBLIC $<HOST_LINK:LINKER:--allow-shlib-undefined>)
 endif()
 
-add_library(pszhf_g  src/hf/hf.cc src/hf/hf_pimpl.cu src/hf/hf_codecg.cu)
+add_library(pszhf_g  src/hf/hf.cu src/hf/hf_codecg.cu)
 target_link_libraries(pszhf_g PUBLIC pszcompile_settings pszstat_g pszhfbook_g)
 set_target_properties(pszhfbook_g PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(pszcomp  src/cusz/custom.cc src/compressor.cc src/detail/compressor_impl.cu)
+add_library(pszcomp  src/cusz/custom.cc src/compressor.cu)
 target_link_libraries(pszcomp PUBLIC pszcompile_settings pszkelo pszstat_g pszhf_g CUDA::cudart)
 
 add_library(cusz  src/cusz_lib.cc)

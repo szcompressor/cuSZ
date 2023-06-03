@@ -16,104 +16,6 @@
 #include "hf/hf_codecg.hh"
 
 template <typename T, typename H, typename M>
-void asz::hf_encode_coarse(
-    T*           uncompressed,
-    H*           d_internal_coded,
-    size_t const len,
-    uint32_t*    d_freq,
-    H*           d_book,
-    int const    booklen,
-    H*           d_bitstream,
-    M*           d_par_metadata,
-    M*           h_par_metadata,
-    int const    sublen,
-    int const    pardeg,
-    int          numSMs,
-    uint8_t*&    out_compressed,
-    size_t&      out_compressed_len,
-    float&       time_lossless,
-    cudaStream_t stream)
-{
-    auto d_par_nbit  = d_par_metadata;
-    auto d_par_ncell = d_par_metadata + pardeg;
-    auto d_par_entry = d_par_metadata + pardeg * 2;
-
-    auto h_par_nbit  = h_par_metadata;
-    auto h_par_ncell = h_par_metadata + pardeg;
-    auto h_par_entry = h_par_metadata + pardeg * 2;
-
-    CREATE_CUDAEVENT_PAIR;
-
-    /* phase 1 */
-    {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
-        auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
-
-        START_CUDAEVENT_RECORDING(stream);
-
-        asz::detail::hf_encode_phase1_fill<T, H>                //
-            <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
-            (uncompressed, len, d_book, booklen, d_internal_coded);
-
-        STOP_CUDAEVENT_RECORDING(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-
-        float stage_time;
-        TIME_ELAPSED_CUDAEVENT(&stage_time);
-        time_lossless += stage_time;
-    }
-
-    /* phase 2 */
-    {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
-        auto grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
-
-        START_CUDAEVENT_RECORDING(stream);
-
-        asz::detail::hf_encode_phase2_deflate<H>  //
-            <<<grid_dim, block_dim, 0, stream>>>  //
-            (d_internal_coded, len, d_par_nbit, d_par_ncell, sublen, pardeg);
-
-        STOP_CUDAEVENT_RECORDING(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-
-        float stage_time;
-        TIME_ELAPSED_CUDAEVENT(&stage_time);
-        time_lossless += stage_time;
-    }
-
-    /* phase 3 */
-    {
-        CHECK_CUDA(cudaMemcpyAsync(h_par_nbit, d_par_nbit, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaMemcpyAsync(h_par_ncell, d_par_ncell, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-
-        memcpy(h_par_entry + 1, h_par_ncell, (pardeg - 1) * sizeof(M));
-        for (auto i = 1; i < pardeg; i++) h_par_entry[i] += h_par_entry[i - 1];  // inclusive scan
-
-        CHECK_CUDA(cudaMemcpyAsync(d_par_entry, h_par_entry, pardeg * sizeof(M), cudaMemcpyHostToDevice, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    }
-
-    /* phase 4 */
-    {
-        START_CUDAEVENT_RECORDING(stream);
-
-        asz::detail::hf_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
-            (d_internal_coded, d_par_entry, d_par_ncell, sublen, d_bitstream);
-
-        STOP_CUDAEVENT_RECORDING(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-
-        float stage_time;
-        TIME_ELAPSED_CUDAEVENT(&stage_time);
-        time_lossless += stage_time;
-    }
-
-    DESTROY_CUDAEVENT_PAIR;
-}
-
-template <typename T, typename H, typename M>
 void asz::hf_encode_coarse_rev1(
     T*            uncompressed,
     size_t const  len,
@@ -241,15 +143,11 @@ void asz::hf_decode_coarse(
     DESTROY_CUDAEVENT_PAIR;
 }
 
-#define HF_CODEC_INIT(T, H, M)                                                                                     \
-    template void asz::hf_encode_coarse<T, H, M>(                                                                  \
-        T*, H*, size_t const, uint32_t*, H*, int const, H*, M*, M*, int const, int const, int, uint8_t*&, size_t&, \
-        float&, cudaStream_t);                                                                                     \
-                                                                                                                   \
-    template void asz::hf_encode_coarse_rev1<T, H, M>(                                                             \
-        T*, size_t const, hf_book*, hf_bitstream*, uint8_t*&, size_t&, float&, cudaStream_t);                      \
-                                                                                                                   \
-    template void asz::hf_decode_coarse<T, H, M>(                                                                  \
+#define HF_CODEC_INIT(T, H, M)                                                                \
+    template void asz::hf_encode_coarse_rev1<T, H, M>(                                        \
+        T*, size_t const, hf_book*, hf_bitstream*, uint8_t*&, size_t&, float&, cudaStream_t); \
+                                                                                              \
+    template void asz::hf_decode_coarse<T, H, M>(                                             \
         H*, uint8_t*, int const, M*, M*, int const, int const, T*, float&, cudaStream_t);
 
 HF_CODEC_INIT(uint8_t, uint32_t, uint32_t);

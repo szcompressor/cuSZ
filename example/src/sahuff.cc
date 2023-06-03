@@ -57,7 +57,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     asz::stat::histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
 
-    cusz::LosslessCodec<T, H, uint32_t> encoder;
+    cusz::HuffmanCodec<T, H, uint32_t> encoder;
     encoder.init(len, booklen, pardeg /* not optimal for perf */);
 
     cudaMalloc(&d_compressed, len * sizeof(T) / 2);

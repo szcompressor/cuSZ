@@ -25,41 +25,7 @@
 namespace cusz {
 
 template <typename T, typename H, typename M>
-class LosslessCodec
-// : CodecInterface<T, H, M>
-{
-   public:
-    using Origin    = T;
-    using Encoded   = H;
-    using MetadataT = M;
-    using FreqT     = uint32_t;
-    using BYTE      = uint8_t;
-
-   private:
-    class impl;
-    std::unique_ptr<impl> pimpl;
-
-   public:
-    ~LosslessCodec();                                // dtor
-    LosslessCodec();                                 // ctor
-    LosslessCodec(const LosslessCodec&);             // copy ctor
-    LosslessCodec& operator=(const LosslessCodec&);  // copy assign
-    LosslessCodec(LosslessCodec&&);                  // move ctor
-    LosslessCodec& operator=(LosslessCodec&&);       // move assign
-
-    void init(size_t const, int const, int const, bool dbg_print = false);
-    void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr);
-    void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    void clear_buffer();
-
-    float get_time_elapsed() const;
-    float get_time_book() const;
-    float get_time_lossless() const;
-};
-
-template <typename T, typename H, typename M>
-class LosslessCodec<T, H, M>::impl {
+class HuffmanCodec {
    public:
     using Origin    = T;
     using Encoded   = H;
@@ -136,8 +102,8 @@ class LosslessCodec<T, H, M>::impl {
     hf_bitstream* bitstream_desc;
 
    public:
-    ~impl();  // dtor
-    impl();   // ctor
+    ~HuffmanCodec();  // dtor
+    HuffmanCodec();   // ctor
 
     // getter
     float         get_time_elapsed() const;

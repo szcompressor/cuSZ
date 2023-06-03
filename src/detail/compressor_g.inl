@@ -44,14 +44,13 @@
 
 namespace cusz {
 
-#define TEMPLATE_TYPE template <class BINDING>
-#define IMPL Compressor<BINDING>::impl
+#define TEMPLATE_TYPE template <class Combination>
 
 TEMPLATE_TYPE
-uint32_t IMPL::get_len_data() { return data_len3.x * data_len3.y * data_len3.z; }
+uint32_t Compressor<Combination>::get_len_data() { return data_len3.x * data_len3.y * data_len3.z; }
 
 TEMPLATE_TYPE
-IMPL::impl()
+Compressor<Combination>::Compressor()
 {
     predictor = new Predictor;
 
@@ -61,7 +60,7 @@ IMPL::impl()
 }
 
 TEMPLATE_TYPE
-void IMPL::destroy()
+void Compressor<Combination>::destroy()
 {
     if (spcodec) delete spcodec;
     if (codec) delete codec;
@@ -70,16 +69,16 @@ void IMPL::destroy()
 }
 
 TEMPLATE_TYPE
-IMPL::~impl() { destroy(); }
+Compressor<Combination>::~Compressor() { destroy(); }
 
 //------------------------------------------------------------------------------
 
 // TODO
 TEMPLATE_TYPE
-void IMPL::init(Context* config, bool dbg_print) { init_detail(config, dbg_print); }
+void Compressor<Combination>::init(Context* config, bool dbg_print) { init_detail(config, dbg_print); }
 
 TEMPLATE_TYPE
-void IMPL::init(Header* config, bool dbg_print) { init_detail(config, dbg_print); }
+void Compressor<Combination>::init(Header* config, bool dbg_print) { init_detail(config, dbg_print); }
 
 template <class T>
 void peek_devdata(T* d_arr, size_t num = 20)
@@ -89,7 +88,7 @@ void peek_devdata(T* d_arr, size_t num = 20)
 }
 
 TEMPLATE_TYPE
-void IMPL::compress(
+void Compressor<Combination>::compress(
     Context*     config,
     T*           uncompressed,
     BYTE*&       compressed,
@@ -196,7 +195,7 @@ void IMPL::compress(
 }
 
 TEMPLATE_TYPE
-void IMPL::clear_buffer()
+void Compressor<Combination>::clear_buffer()
 {  //
     (*predictor).clear_buffer();
     (*codec).clear_buffer();
@@ -204,7 +203,12 @@ void IMPL::clear_buffer()
 }
 
 TEMPLATE_TYPE
-void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool dbg_print)
+void Compressor<Combination>::decompress(
+    Header*      header,
+    BYTE*        in_compressed,
+    T*           out_decompressed,
+    cudaStream_t stream,
+    bool         dbg_print)
 {
     // TODO host having copy of header when compressing
     if (not header) {
@@ -260,20 +264,25 @@ void IMPL::decompress(Header* header, BYTE* in_compressed, T* out_decompressed, 
 
 // public getter
 TEMPLATE_TYPE
-void IMPL::export_header(Header& ext_header) { ext_header = header; }
+void Compressor<Combination>::export_header(Header& ext_header) { ext_header = header; }
 
 TEMPLATE_TYPE
-void IMPL::export_header(Header* ext_header) { *ext_header = header; }
+void Compressor<Combination>::export_header(Header* ext_header) { *ext_header = header; }
 
 TEMPLATE_TYPE
-void IMPL::export_timerecord(TimeRecord* ext_timerecord)
+void Compressor<Combination>::export_timerecord(TimeRecord* ext_timerecord)
 {
     if (ext_timerecord) *ext_timerecord = timerecord;
 }
 
 // helper
 TEMPLATE_TYPE
-void IMPL::init_codec(size_t codec_in_len, unsigned int codec_config, int max_booklen, int pardeg, bool dbg_print)
+void Compressor<Combination>::init_codec(
+    size_t       codec_in_len,
+    unsigned int codec_config,
+    int          max_booklen,
+    int          pardeg,
+    bool         dbg_print)
 {
     if (codec_config == 0b00) throw std::runtime_error("Argument codec_config must have set bit(s).");
     if (codec_config bitand 0b01) {
@@ -289,7 +298,7 @@ void IMPL::init_codec(size_t codec_in_len, unsigned int codec_config, int max_bo
 
 TEMPLATE_TYPE
 template <class CONFIG>
-void IMPL::init_detail(CONFIG* config, bool dbg_print)
+void Compressor<Combination>::init_detail(CONFIG* config, bool dbg_print)
 {
     const auto cfg_radius      = config->radius;
     const auto cfg_pardeg      = config->vle_pardeg;
@@ -304,8 +313,8 @@ void IMPL::init_detail(CONFIG* config, bool dbg_print)
 
     (*predictor).init(LorenzoI, x, y, z, dbg_print);
 
-    spcodec_in_len = (*predictor).get_alloclen_data();
-    codec_in_len   = (*predictor).get_alloclen_quant();
+    spcodec_in_len = (*predictor).get_len_data();
+    codec_in_len   = (*predictor).get_len_quant();
 
     (*spcodec).init(spcodec_in_len, density_factor, dbg_print);
 
@@ -320,11 +329,11 @@ void IMPL::init_detail(CONFIG* config, bool dbg_print)
 
     init_codec(codec_in_len, codec_config, cfg_max_booklen, cfg_pardeg, dbg_print);
 
-    CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_alloclen_data() * sizeof(T) / 2));
+    CHECK_CUDA(cudaMalloc(&d_reserved_compressed, (*predictor).get_len_data() * sizeof(T) / 2));
 }
 
 TEMPLATE_TYPE
-void IMPL::collect_compress_timerecord()
+void Compressor<Combination>::collect_compress_timerecord()
 {
 #define COLLECT_TIME(NAME, TIME) timerecord.push_back({const_cast<const char*>(NAME), TIME});
 
@@ -346,7 +355,7 @@ void IMPL::collect_compress_timerecord()
 }
 
 TEMPLATE_TYPE
-void IMPL::collect_decompress_timerecord()
+void Compressor<Combination>::collect_decompress_timerecord()
 {
     if (not timerecord.empty()) timerecord.clear();
 
@@ -363,7 +372,7 @@ void IMPL::collect_decompress_timerecord()
 }
 
 TEMPLATE_TYPE
-void IMPL::encode_with_exception(
+void Compressor<Combination>::encode_with_exception(
     E*           d_in,
     size_t       inlen,
     cusz::FREQ*  d_freq,
@@ -412,7 +421,7 @@ void IMPL::encode_with_exception(
 }
 
 TEMPLATE_TYPE
-void IMPL::subfile_collect(
+void Compressor<Combination>::subfile_collect(
     T*           d_anchor,
     size_t       anchor_len,
     BYTE*        d_codec_out,
@@ -467,8 +476,6 @@ void IMPL::subfile_collect(
 #undef PRINT_ENTRY
 #undef ACCESSOR
 #undef COLLECT_TIME
-
 #undef TEMPLATE_TYPE
-#undef IMPL
 
 #endif

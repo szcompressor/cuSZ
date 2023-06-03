@@ -104,7 +104,7 @@ cusz_error_status allocate_data(
     alpha::runtime_data<T, E, M>* d,
     dim3                          len3,
     alpha::hf_set*                hf,
-    cusz::LosslessCodec<E, H, M>* codec,
+    cusz::HuffmanCodec<E, H, M>*  codec,
     alpha::config*                config)
 {
     auto   x   = len3.x;
@@ -157,7 +157,7 @@ template <typename T, typename E, typename FP, typename H = uint32_t, typename M
 cusz_error_status deallocate_data(
     alpha::runtime_data<T, E, M>* d,
     alpha::hf_set*                hf,
-    // cusz::LosslessCodec<E, H, M>* codec,
+    // cusz::HuffmanCodec<E, H, M>* codec,
     alpha::config* config)
 {
     CHECK_CUDA(cudaFreeHost(d->h_data));
@@ -180,7 +180,7 @@ template <typename T, typename E, typename FP, typename H = uint32_t, typename M
 cusz_error_status compressor(
     alpha::runtime_data<T, E, M>* data,
     alpha::hf_set*                hf,
-    cusz::LosslessCodec<E, H, M>* codec,
+    cusz::HuffmanCodec<E, H, M>*  codec,
     alpha::config*                config,
     alpha::header_superset*       header_st,
     bool                          use_proto,
@@ -258,7 +258,7 @@ template <typename T, typename E, typename FP, typename H = uint32_t, typename M
 cusz_error_status decompressor(
     alpha::runtime_data<T, E, M>* data,
     alpha::hf_set*                hf,
-    cusz::LosslessCodec<E, H, M>* codec,
+    cusz::HuffmanCodec<E, H, M>*  codec,
     alpha::header_superset*       header_st,
     bool                          use_proto,
     cudaStream_t                  stream)
@@ -323,7 +323,7 @@ void f(
     data->len3 = len3;
     data->len  = len3.x * len3.y * len3.z;
 
-    cusz::LosslessCodec<E, uint32_t, uint32_t> codec;
+    cusz::HuffmanCodec<E, uint32_t, uint32_t> codec;
 
     allocate_data<T, E, FP, H, M>(data, len3, hf, &codec, config);
 

@@ -35,25 +35,6 @@ struct PackedWordByWidth<8> {
 namespace asz {
 
 template <typename T, typename H, typename M>
-void hf_encode_coarse(
-    T*           uncompressed,
-    H*           d_internal_coded,
-    size_t const len,
-    uint32_t*    d_freq,
-    H*           d_book,
-    int const    booklen,
-    H*           d_bitstream,
-    M*           d_par_metadata,
-    M*           h_par_metadata,
-    int const    sublen,
-    int const    pardeg,
-    int          numSMs,
-    uint8_t*&    out_compressed,
-    size_t&      out_compressed_len,
-    float&       time_lossless,
-    cudaStream_t stream);
-
-template <typename T, typename H, typename M>
 void hf_encode_coarse_rev1(
     T*            uncompressed,
     size_t const  len,

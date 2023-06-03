@@ -103,7 +103,7 @@ struct cuszCTX {
     struct {
         // size_t x, y, z, w;
         size_t len;
-    } alloclen;
+    } rtlen;
 
     size_t data_len{1}, quant_len{1}, anchor_len{1};
     int    ndim{-1};
@@ -177,7 +177,7 @@ struct cuszCTX {
 
     cuszCTX& set_alloclen(size_t _)
     {
-        alloclen.len = _;
+        rtlen.len = _;
         return *this;
     }
 

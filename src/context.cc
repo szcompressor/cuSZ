@@ -100,8 +100,8 @@ void set_config(cusz::context_t ctx, const char* in_str, bool dbg_print = false)
         else if (optmatch({"len", "length"})) {
             cuszCTX::parse_input_length(v.c_str(), ctx);
         }
-        else if (optmatch({"alloclen"})) {
-            ctx->alloclen.len = StrHelper::str2int(v);
+        else if (optmatch({"rtlen"})) {
+            ctx->rtlen.len = StrHelper::str2int(v);
         }
         else if (optmatch({"demo"})) {
             ctx->use.predefined_demo = true;

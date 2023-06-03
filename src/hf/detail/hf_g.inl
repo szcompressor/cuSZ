@@ -16,23 +16,17 @@
 #define CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
 
 #include <cuda.h>
-// #include <clocale>
-// #include <cstdint>
-// #include <exception>
-// #include <functional>
 #include <iostream>
 #include <numeric>
-// #include <type_traits>
 
 using std::cout;
 
 #include "common/definition.hh"
 #include "common/type_traits.hh"
-#include "utils.hh"
-
 #include "hf/hf.hh"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
+#include "utils.hh"
 
 /******************************************************************************
                             macros for shorthand writing
@@ -75,12 +69,11 @@ using std::cout;
  ******************************************************************************/
 
 #define TEMPLATE_TYPE template <typename T, typename H, typename M>
-#define IMPL LosslessCodec<T, H, M>::impl
 
 namespace cusz {
 
 TEMPLATE_TYPE
-IMPL::~impl()
+HuffmanCodec<T, H, M>::~HuffmanCodec()
 {
     HC_FREEDEV(tmp);
     HC_FREEDEV(book);
@@ -98,12 +91,12 @@ IMPL::~impl()
 }
 
 TEMPLATE_TYPE
-IMPL::impl() = default;
+HuffmanCodec<T, H, M>::HuffmanCodec() = default;
 
 //------------------------------------------------------------------------------
 
 TEMPLATE_TYPE
-void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const pardeg, bool dbg_print)
+void HuffmanCodec<T, H, M>::init(size_t const in_uncompressed_len, int const booklen, int const pardeg, bool dbg_print)
 {
     auto max_compressed_bytes = [&]() { return in_uncompressed_len / 2 * sizeof(H); };
 
@@ -181,14 +174,14 @@ void IMPL::init(size_t const in_uncompressed_len, int const booklen, int const p
 }
 
 TEMPLATE_TYPE
-void IMPL::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
+void HuffmanCodec<T, H, M>::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
     asz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
 }
 
 TEMPLATE_TYPE
-void IMPL::encode(
+void HuffmanCodec<T, H, M>::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
     BYTE*&       out_compressed,
@@ -220,7 +213,7 @@ void IMPL::encode(
 }
 
 TEMPLATE_TYPE
-void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool header_on_device)
+void HuffmanCodec<T, H, M>::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool header_on_device)
 {
     Header header;
     if (header_on_device)
@@ -240,7 +233,7 @@ void IMPL::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream,
 }
 
 TEMPLATE_TYPE
-void IMPL::clear_buffer()
+void HuffmanCodec<T, H, M>::clear_buffer()
 {
     cudaMemset(d_tmp, 0x0, rte.nbyte[RTE::TMP]);
     cudaMemset(d_book, 0x0, rte.nbyte[RTE::BOOK]);
@@ -253,7 +246,7 @@ void IMPL::clear_buffer()
 
 // private helper
 TEMPLATE_TYPE
-void IMPL::subfile_collect(
+void HuffmanCodec<T, H, M>::subfile_collect(
     Header&      header,
     size_t const in_uncompressed_len,
     int const    booklen,
@@ -304,35 +297,38 @@ void IMPL::subfile_collect(
 
 // getter
 TEMPLATE_TYPE
-float IMPL::get_time_elapsed() const { return milliseconds; }
+float HuffmanCodec<T, H, M>::get_time_elapsed() const { return milliseconds; }
 
 TEMPLATE_TYPE
-float IMPL::get_time_book() const { return time_book; }
+float HuffmanCodec<T, H, M>::get_time_book() const { return time_book; }
 TEMPLATE_TYPE
-float IMPL::get_time_lossless() const { return time_lossless; }
+float HuffmanCodec<T, H, M>::get_time_lossless() const { return time_lossless; }
 
 TEMPLATE_TYPE
-H* IMPL::expose_book() const { return d_book; }
+H* HuffmanCodec<T, H, M>::expose_book() const { return d_book; }
 
 TEMPLATE_TYPE
-BYTE* IMPL::expose_revbook() const { return d_revbook; }
+BYTE* HuffmanCodec<T, H, M>::expose_revbook() const { return d_revbook; }
 
 // TODO this kind of space will be overlapping with quant-codes
 TEMPLATE_TYPE
-size_t IMPL::get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
+size_t HuffmanCodec<T, H, M>::get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
 
 TEMPLATE_TYPE
-size_t IMPL::get_max_output_nbyte(size_t len) const { return sizeof(H) * len / 2; }
+size_t HuffmanCodec<T, H, M>::get_max_output_nbyte(size_t len) const { return sizeof(H) * len / 2; }
 
 TEMPLATE_TYPE
-size_t IMPL::get_revbook_nbyte(int dict_size) { return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size; }
+size_t HuffmanCodec<T, H, M>::get_revbook_nbyte(int dict_size)
+{
+    return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
+}
 
 TEMPLATE_TYPE
-constexpr bool IMPL::can_overlap_input_and_firstphase_encode() { return sizeof(T) == sizeof(H); }
+constexpr bool HuffmanCodec<T, H, M>::can_overlap_input_and_firstphase_encode() { return sizeof(T) == sizeof(H); }
 
 // auxiliary
 TEMPLATE_TYPE
-void IMPL::dbg_println(const std::string SYM_name, void* VAR, int SYM)
+void HuffmanCodec<T, H, M>::dbg_println(const std::string SYM_name, void* VAR, int SYM)
 {
     CUdeviceptr pbase0{0};
     size_t      psize0{0};
@@ -359,6 +355,5 @@ void IMPL::dbg_println(const std::string SYM_name, void* VAR, int SYM)
 #undef DEVICE2DEVICE_COPY
 
 #undef TEMPLATE_TYPE
-#undef IMPL
 
 #endif

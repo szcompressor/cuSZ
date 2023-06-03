@@ -21,23 +21,6 @@
 #include "context.hh"
 #include "header.h"
 
-#define PUBLIC_TYPES                                                   \
-    using Predictor     = typename BINDING::Predictor;                 \
-    using Spcodec       = typename BINDING::Spcodec;                   \
-    using Codec         = typename BINDING::Codec;                     \
-    using FallbackCodec = typename BINDING::FallbackCodec;             \
-    using BYTE          = uint8_t;                                     \
-                                                                       \
-    using T    = typename BINDING::DATA;                               \
-    using FP   = typename BINDING::FP;                                 \
-    using E    = typename BINDING::ERRCTRL;                            \
-    using H    = typename Codec::Encoded;                              \
-    using M    = typename Codec::MetadataT;                            \
-    using H_FB = typename FallbackCodec::Encoded;                      \
-                                                                       \
-    using TimeRecord   = std::vector<std::tuple<const char*, double>>; \
-    using timerecord_t = TimeRecord*;
-
 namespace cusz {
 
 // extra helper
@@ -47,50 +30,6 @@ struct CompressorHelper {
 
 template <class BINDING>
 class Compressor {
-   public:
-    using Predictor     = typename BINDING::Predictor;
-    using Spcodec       = typename BINDING::Spcodec;
-    using Codec         = typename BINDING::Codec;
-    using FallbackCodec = typename BINDING::FallbackCodec;
-    using BYTE          = uint8_t;
-
-    using T    = typename Predictor::Origin;
-    using FP   = typename Predictor::Precision;
-    using E    = typename Predictor::ErrCtrl;
-    using H    = typename Codec::Encoded;
-    using M    = typename Codec::MetadataT;
-    using H_FB = typename FallbackCodec::Encoded;
-
-    using TimeRecord   = std::vector<std::tuple<const char*, double>>;
-    using timerecord_t = TimeRecord*;
-
-   private:
-    class impl;
-    std::unique_ptr<impl> pimpl;
-
-   public:
-    ~Compressor();
-    Compressor();
-    Compressor(const Compressor&);
-    Compressor& operator=(const Compressor&);
-    Compressor(Compressor&&);
-    Compressor& operator=(Compressor&&);
-
-    // methods
-    void init(Context*, bool dbg_print = false);
-    void init(Header*, bool dbg_print = false);
-    void destroy();
-    void compress(Context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decompress(Header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    void clear_buffer();
-    // getter
-    void export_header(Header&);
-    void export_header(Header*);
-    void export_timerecord(TimeRecord*);
-};
-
-template <class BINDING>
-class Compressor<BINDING>::impl {
    public:
     using Predictor     = typename BINDING::Predictor;
     using Spcodec       = typename BINDING::Spcodec;
@@ -129,8 +68,8 @@ class Compressor<BINDING>::impl {
     dim3      data_len3;
 
    public:
-    ~impl();
-    impl();
+    ~Compressor();
+    Compressor();
 
     // public methods
     void init(Context* config, bool dbg_print = false);
@@ -159,7 +98,5 @@ class Compressor<BINDING>::impl {
 };
 
 }  // namespace cusz
-
-#undef PUBLIC_TYPES
 
 #endif

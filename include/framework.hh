@@ -42,15 +42,15 @@ struct Framework {
     struct CompressorTemplate;
 
     /* Predictor */
-    using CompatPurposePredictor = typename cusz::PredictionUnified<DATA, ERRCTRL, FP>;
+    using CompatPurposePredictor = typename cusz::Predictor<DATA, ERRCTRL, FP>;
     using Predictor              = CompatPurposePredictor;
 
     using CompatPurposeSpcodec = typename cusz::SpcodecVec<DATA, Meta4>;
     using Spcodec              = CompatPurposeSpcodec;
 
     /* Lossless Codec*/
-    using CodecHuffman32 = cusz::LosslessCodec<ERRCTRL, Huff4, Meta4>;
-    using CodecHuffman64 = cusz::LosslessCodec<ERRCTRL, Huff8, Meta4>;
+    using CodecHuffman32 = cusz::HuffmanCodec<ERRCTRL, Huff4, Meta4>;
+    using CodecHuffman64 = cusz::HuffmanCodec<ERRCTRL, Huff8, Meta4>;
     using Codec          = CodecHuffman32;
     using FallbackCodec  = CodecHuffman64;
 };

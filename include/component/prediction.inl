@@ -19,9 +19,7 @@
 #include "../common.hh"
 #include "../kernel/lorenzo_all.hh"
 #include "../utils.hh"
-
 #include "cusz/type.h"
-#include "pred_boilerplate_deprecated.hh"
 
 #define DEFINE_ARRAY(VAR, TYPE) TYPE* d_##VAR{nullptr};
 
@@ -46,25 +44,71 @@
 namespace cusz {
 
 template <typename T, typename E, typename FP>
-class PredictionUnified : public PredictorBoilerplate {
+class Predictor {
    public:
     using Origin    = T;
     using Anchor    = T;
     using ErrCtrl   = E;
     using Precision = FP;
 
+   private:
+    float time_elapsed;
+
+    struct DerivedLengths {
+        struct {
+            dim3   len3, leap;
+            size_t serialized;
+
+            void set_leap() { leap = ConfigHelper::get_leap(len3); }
+            void set_serialized() { serialized = ConfigHelper::get_serialized_len(len3); }
+        } base, anchor, aligned;
+
+        dim3 nblock;
+        int  ndim;
+
+        struct {
+            size_t data, quant, outlier, anchor;
+        } assigned;
+
+        // dim3 get_len3() const { return base.len3; }
+        dim3 get_leap() const { return base.leap; }
+    } rtlen;
+
+    template <class DERIVED>
+    void __derive_len(dim3 base, DERIVED& derived)
+    {
+        derived.base.len3 = base;
+        derived.base.set_leap();
+        derived.base.set_serialized();
+        derived.ndim = ConfigHelper::get_ndim(base);
+
+        derived.assigned.data    = derived.base.serialized;
+        derived.assigned.quant   = derived.base.serialized;
+        derived.assigned.outlier = derived.base.serialized;
+        derived.assigned.anchor  = 0;
+    }
+
    public:
-    ~PredictionUnified()
+    ~Predictor()
     {  // dtor
         FREE_DEV_ARRAY(anchor);
         FREE_DEV_ARRAY(errctrl);
         FREE_DEV_ARRAY(outlier);
     }
-    PredictionUnified() {}                                   // ctor
-    PredictionUnified(const PredictionUnified&);             // copy ctor
-    PredictionUnified& operator=(const PredictionUnified&);  // copy assign
-    PredictionUnified(PredictionUnified&&);                  // move ctor
-    PredictionUnified& operator=(PredictionUnified&&);       // move assign
+    Predictor() {}                           // ctor
+    Predictor(const Predictor&);             // copy ctor
+    Predictor& operator=(const Predictor&);  // copy assign
+    Predictor(Predictor&&);                  // move ctor
+    Predictor& operator=(Predictor&&);       // move assign
+
+    size_t get_len_data() const { return rtlen.assigned.data; }
+    size_t get_len_anchor() const { return rtlen.assigned.anchor; }
+    size_t get_len_quant() const { return rtlen.assigned.quant; }
+    size_t get_len_outlier() const { return rtlen.assigned.outlier; }
+    dim3   get_leap() const { return this->rtlen.get_leap(); }
+    int    get_ndim() const { return this->rtlen.ndim; }
+
+    void derive_lengths(cusz_predictortype predictor, dim3 base) { this->__derive_len(base, this->rtlen); }
 
     void init(cusz_predictortype predictor, size_t x, size_t y, size_t z, bool dbg_print = false)
     {
@@ -73,14 +117,12 @@ class PredictionUnified : public PredictorBoilerplate {
     }
     void init(cusz_predictortype predictor, dim3 xyz, bool dbg_print = false)
     {
-        this->derive_alloclen(predictor, xyz);
+        this->derive_lengths(predictor, xyz);
 
         // allocate
-        ALLOCDEV2(anchor, T, this->alloclen.assigned.anchor);
-        ALLOCDEV2(errctrl, E, this->alloclen.assigned.quant);
-        ALLOCDEV2(outlier, T, this->alloclen.assigned.outlier);
-
-        if (dbg_print) this->debug_list_alloclen<T, E, FP>();
+        ALLOCDEV2(anchor, T, this->rtlen.assigned.anchor);
+        ALLOCDEV2(errctrl, E, this->rtlen.assigned.quant);
+        ALLOCDEV2(outlier, T, this->rtlen.assigned.outlier);
     }
 
     void construct(
@@ -94,33 +136,18 @@ class PredictionUnified : public PredictorBoilerplate {
         int const          radius,
         cudaStream_t       stream)
     {
+        // derive_lengths(LorenzoI, len3);
+
         *ptr_anchor  = d_anchor;
         *ptr_errctrl = d_errctrl;
         *ptr_outlier = d_outlier;
 
-        if (predictor == LorenzoI) {
-            derive_rtlen(LorenzoI, len3);
-            this->check_rtlen();
+        uint32_t* outlier_idx = nullptr;
 
-            // ad hoc placeholder
-            // auto      anchor_len3  = dim3(0, 0, 0);
-            // auto      errctrl_len3 = dim3(0, 0, 0);
-            uint32_t* outlier_idx = nullptr;
-
-            compress_predict_lorenzo_i<T, E, FP>(
-                data, len3, eb, radius,                      //
-                d_errctrl, d_outlier, outlier_idx, nullptr,  //
-                &time_elapsed, stream);
-        }
-        else if (predictor == Spline3) {
-            throw std::runtime_error("spline3 is disabled in this version.");
-            // this->derive_rtlen(Spline3, len3);
-            // this->check_rtlen();
-            // cusz::cpplaunch_construct_Spline3<T, E, FP>(
-            //     true,  //
-            //     data, len3, d_anchor, this->rtlen.anchor.len3, d_errctrl, this->rtlen.aligned.len3, eb, radius,
-            //     &time_elapsed, stream);
-        }
+        compress_predict_lorenzo_i<T, E, FP>(
+            data, len3, eb, radius,                      //
+            d_errctrl, d_outlier, outlier_idx, nullptr,  //
+            &time_elapsed, stream);
     }
 
     void reconstruct(
@@ -133,42 +160,23 @@ class PredictionUnified : public PredictorBoilerplate {
         int const          radius,
         cudaStream_t       stream)
     {
-        if (predictor == LorenzoI) {
-            this->derive_rtlen(LorenzoI, len3);
-            this->check_rtlen();
+        // derive_lengths(LorenzoI, len3);
 
-            // ad hoc placeholder
-            // auto      anchor_len3  = dim3(0, 0, 0);
-            // auto      errctrl_len3 = dim3(0, 0, 0);
-            auto      xdata       = outlier_xdata;
-            auto      outlier     = outlier_xdata;
-            uint32_t* outlier_idx = nullptr;
+        auto      xdata       = outlier_xdata;
+        auto      outlier     = outlier_xdata;
+        uint32_t* outlier_idx = nullptr;
 
-            auto xdata_len3 = len3;
+        auto xdata_len3 = len3;
 
-            decompress_predict_lorenzo_i<T, E, FP>(
-                errctrl, xdata_len3, outlier, outlier_idx, 0, eb, radius,  //
-                xdata,                                                     //
-                &time_elapsed, stream);
-        }
-        else if (predictor == Spline3) {
-            throw std::runtime_error("spline3 is disabled in this version.");
-            // this->derive_rtlen(Spline3, len3);
-            // this->check_rtlen();
-            // cusz::cpplaunch_reconstruct_Spline3<T, E, FP>(
-            //     outlier_xdata, len3, anchor, this->rtlen.anchor.len3, errctrl, this->rtlen.aligned.len3, eb, radius,
-            //     &time_elapsed, stream);
-        }
+        decompress_predict_lorenzo_i<T, E, FP>(
+            errctrl, xdata_len3, outlier, outlier_idx, 0, eb, radius,  //
+            xdata,                                                     //
+            &time_elapsed, stream);
     }
 
     void clear_buffer() { cudaMemset(d_errctrl, 0x0, sizeof(E) * this->rtlen.assigned.quant); }
 
     float get_time_elapsed() const { return time_elapsed; }
-    // size_t get_alloclen_data() const;
-    // size_t get_alloclen_quant() const;
-    // size_t get_len_data() const;
-    // size_t get_len_quant() const;
-    // size_t get_len_anchor() const;
 
     E* expose_quant() const { return d_errctrl; }
     E* expose_errctrl() const { return d_errctrl; }
