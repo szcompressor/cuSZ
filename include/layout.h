@@ -24,32 +24,6 @@ extern "C" {
 
 typedef enum psz_runtime_mem_segment { HEADER = 0, ERRCTRL = 1, SP_VAL = 2, SP_IDX = 3, END = 4 } psz_mem_segment;
 
-typedef struct psz_runtime_mem_layout {
-    uint8_t* pool;
-    size_t   pool_len;
-
-    size_t seg_len[END];
-    size_t seg_entry[END];
-
-    float density{0.2};
-
-    void*     errctrl;
-    uint32_t* freq;
-    void*     anchor;
-    void*     sp_val_full;
-    void*     sp_val;
-
-    uint32_t* sp_idx;
-    uint8_t*  dn_out;
-
-    size_t dn_outlen;
-    int    nnz;
-
-} psz_mem_layout;
-
-void init(psz_mem_layout*, size_t);
-void destroy(psz_mem_layout*);
-
 typedef struct alignas(128) psz_header {
     static const int HEADER = 0;
     static const int ANCHOR = 1;
@@ -75,8 +49,30 @@ typedef struct alignas(128) psz_header {
 typedef struct psz_memory_segment {
     psz_dtype type;
     void*     buf;
-    uint32_t  len;
+    size_t    len;
 } psz_memseg;
+
+typedef struct psz_runtime_mem_layout {
+    size_t seg_len[END];
+    size_t seg_entry[END];
+    float  density{0.2};
+    size_t compressed_len;
+    int    nnz;
+
+    psz_memseg __pool;
+    psz_memseg data;
+    psz_memseg errctrl;
+    psz_memseg sp_val;
+    psz_memseg sp_idx;
+    psz_memseg sp_val_full;  // compat for demo purpose
+    psz_memseg hf_bitstream;
+    psz_memseg anchor;
+    psz_memseg freq;
+
+} psz_mem_layout;
+
+void init(psz_mem_layout*, size_t);
+void destroy(psz_mem_layout*);
 
 void psz_memseg_assign(psz_memseg* m, psz_dtype const t, void* b, uint32_t const l);
 void psz_malloc_cuda(psz_memseg* m);
