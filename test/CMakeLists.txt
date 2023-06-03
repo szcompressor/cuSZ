@@ -63,6 +63,12 @@ target_link_libraries(l2_cudaproto PRIVATE pszcompile_settings
                                            psztestcompile_settings)
 add_test(test_l2_cudaproto l2_cudaproto)
 
+# TODO cross-validation add_test(test_l1_cuda  l1_cuda) 2023 May fix
+add_executable(l2_histsp src2/test_l2_histsp.cu)
+target_link_libraries(l2_histsp PRIVATE pszcompile_settings)
+add_test(test_l2_histsp l2_histsp)
+# 2023 May fix end
+
 # TODO cross-validation add_test(test_l1_cuda  l1_cuda)
 
 # Level-3 kernel with configuration (low-level API)

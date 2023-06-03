@@ -92,8 +92,10 @@ target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 add_library(psz_core_serial src/kernel/lorenzo_serial.cc)
 target_link_libraries(psz_core_serial PUBLIC pszcompile_settings)
 
-add_library(psz_core_cuda src/kernel/lorenzo_proto.cu src/kernel/lorenzo.cu
-                          src/kernel2/l23r.cu src/kernel2/l23r_scttr.cu)
+add_library(
+  psz_core_cuda
+  src/kernel/lorenzo_proto.cu src/kernel/lorenzo.cu src/kernel2/l23r.cu
+  src/kernel2/l23r_scttr.cu src/kernel2/hist_sp.cu)
 target_link_libraries(psz_core_cuda PUBLIC pszcompile_settings)
 
 # 2023 March-April fix end
