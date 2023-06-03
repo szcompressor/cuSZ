@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <stdexcept>
 
 #include "cusz/type.h"
 #include "kernel/detail/hist.inl"
@@ -18,8 +19,11 @@
 #include "utils/timer.h"
 
 // query
-psz_error_status psz_query_device(int device_id, psz_device_property* prop)
+psz_error_status psz_query_device(psz_device_property* prop)
 {
+    int device_id;
+    cudaGetDevice(&device_id);
+
     cudaSetDevice(device_id);
     cudaDeviceProp dev_prop{};
     cudaGetDeviceProperties(&dev_prop, device_id);
@@ -96,7 +100,11 @@ psz_error_status psz_hf_tune_coarse_encoding(size_t const len, psz_device_proper
     static const int BLOCK_DIM_DEFLATE = 256;
     static const int DEFLATE_CONSTANT  = 4;
 
-    auto div = [](auto whole, auto part) -> uint32_t { return (whole - 1) / part + 1; };
+    auto div = [](auto whole, auto part) -> uint32_t {
+        if (whole == 0) throw std::runtime_error("Dividend is zero.");
+        if (part == 0) throw std::runtime_error("Divisor is zero.");
+        return (whole - 1) / part + 1;
+    };
 
     auto nthread = prop->max_blockdim * prop->sm_count / DEFLATE_CONSTANT;
     auto _       = div(len, nthread);
@@ -111,3 +119,5 @@ int psz_hf_revbook_nbyte(int booklen, int symbol_bytewidth)
     // symbol_bytewidth === sizeof(H) in other contexts
     return symbol_bytewidth * (2 * (symbol_bytewidth * 8)) + symbol_bytewidth * booklen;
 }
+
+size_t paz_hf_max_compressed_bytes(size_t datalen) { return datalen / 2; }

@@ -120,7 +120,7 @@ if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
                       $<HOST_LINK:LINKER:--allow-shlib-undefined>)
 endif()
 
-add_library(psz_hfg src/hf/hf.cu src/hf/hf_codecg.cu)
+add_library(psz_hfg src/hf/hf.cu src/hf/hf_codecg.cu src/hf/hf2.cu)
 target_link_libraries(psz_hfg PUBLIC pszcompile_settings psz_statg psz_hfbookg)
 set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 

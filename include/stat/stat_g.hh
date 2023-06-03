@@ -15,7 +15,7 @@
 #include <cuda_runtime.h>
 #include "cusz/type.h"
 
-namespace asz {
+namespace psz {
 namespace stat {
 
 /**
@@ -39,6 +39,6 @@ cusz_error_status histogram(
     cudaStream_t stream = nullptr);
 
 }  // namespace stat
-}  // namespace asz
+}  // namespace psz
 
 #endif /* D8B68EB9_A86B_4AEA_AD4C_3DF22827E7C3 */

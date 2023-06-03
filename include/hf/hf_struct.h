@@ -19,6 +19,9 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "cusz/type.h"
+#include "layout.h"
+
 // raw pointer array; regardless of being on host or device
 typedef struct hf_book {
     uint32_t* freq;
@@ -45,6 +48,38 @@ typedef struct hf_bitstream {
     int       pardeg;  // runtime paralleism degree
     int       numSMs;  // number of streaming multiprocessor
 } hf_bitstream;
+
+// used on host
+typedef struct hf_context {
+    int booklen, sublen, pardeg;
+
+    float time_book, time_lossless;
+
+    uint32_t* freq;
+
+    hf_book*      book_desc;
+    hf_bitstream* bitstream_desc;
+
+    size_t total_nbit, total_ncell;
+} hf_context;
+
+typedef hf_context hf_ctx;
+
+typedef struct hf_runtime_mem_layout {
+    // host
+    psz_memseg tmp;  // overlap with err-quant array
+    psz_memseg book;
+    psz_memseg revbook;
+    psz_memseg par_nbit;
+    psz_memseg par_ncell;
+    psz_memseg par_entry;
+    psz_memseg bitstream;
+    // host
+    psz_memseg h_par_nbit;
+    psz_memseg h_par_ncell;
+    psz_memseg h_par_entry;
+
+} hf_mem_layout;
 
 #ifdef __cplusplus
 }

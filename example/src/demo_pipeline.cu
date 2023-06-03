@@ -219,7 +219,7 @@ cusz_error_status compressor(
     cout << "time-spv\t" << time_spv << endl;
     cout << "nnz\t" << header_st->nnz << endl;
 
-    asz::stat::histogram<E>(data->errq, data->len, hf->book_desc->freq, hf->book_desc->booklen, &time_hist, stream);
+    psz::stat::histogram<E>(data->errq, data->len, hf->book_desc->freq, hf->book_desc->booklen, &time_hist, stream);
 
     cout << "time-hist\t" << time_hist << endl;
 
@@ -417,9 +417,6 @@ int main(int argc, char** argv)
             radius_legal(4);
             f<float, uint32_t>(fname, len3, hf, header_st, config, use_proto);
         }
-        // else if (etype == "fp32") {
-        //     f<float, float>(fname, len3, hf, header_st, config, use_proto);
-        // }
     }
     else if (dtype == "D") {
         if (etype == "ui8") {
@@ -434,9 +431,6 @@ int main(int argc, char** argv)
             radius_legal(4);
             f<double, uint32_t>(fname, len3, hf, header_st, config, use_proto);
         }
-        // else if (etype == "fp32") {
-        //     f<double, float>(fname, len3, hf, header_st, config, use_proto);
-        // }
     }
     else
         throw std::runtime_error("not a valid dtype.");

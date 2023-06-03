@@ -177,7 +177,7 @@ TEMPLATE_TYPE
 void HuffmanCodec<T, H, M>::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
-    asz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
+    psz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
 }
 
 TEMPLATE_TYPE
@@ -192,7 +192,7 @@ void HuffmanCodec<T, H, M>::encode(
 
     struct Header header;
 
-    asz::hf_encode_coarse_rev1<T, H, M>(
+    psz::hf_encode_coarse_rev1<T, H, M>(
         in_uncompressed, in_uncompressed_len,  //
         book_desc, bitstream_desc,             //
         out_compressed, out_compressed_len, time_lossless, stream);
@@ -227,7 +227,7 @@ void HuffmanCodec<T, H, M>::decode(BYTE* in_compressed, T* out_decompressed, cud
     auto const revbook_nbyte = get_revbook_nbyte(header.booklen);
 
     // launch_coarse_grained_Huffman_decoding<T, H, M>(
-    asz::hf_decode_coarse<T, H, M>(
+    psz::hf_decode_coarse<T, H, M>(
         d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry, header.sublen, header.pardeg, out_decompressed,
         time_lossless, stream);
 }

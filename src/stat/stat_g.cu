@@ -16,7 +16,7 @@
 #include "stat/stat_g.hh"
 
 template <typename T>
-cusz_error_status asz::stat::histogram(
+cusz_error_status psz::stat::histogram(
     T*           in_data,
     size_t const in_len,
     uint32_t*    out_freq,
@@ -79,13 +79,13 @@ cusz_error_status asz::stat::histogram(
 }
 
 #define INIT_HIST_AND_C(Tname, T)                                                                                     \
-    template cusz_error_status asz::stat::histogram<T>(T*, size_t const, uint32_t*, int const, float*, cudaStream_t); \
+    template cusz_error_status psz::stat::histogram<T>(T*, size_t const, uint32_t*, int const, float*, cudaStream_t); \
                                                                                                                       \
     cusz_error_status histogram_T##Tname(                                                                             \
         T* in_data, size_t const in_len, uint32_t* out_freq, int const num_buckets, float* milliseconds,              \
         cudaStream_t stream)                                                                                          \
     {                                                                                                                 \
-        return asz::stat::histogram<T>(in_data, in_len, out_freq, num_buckets, milliseconds, stream);                 \
+        return psz::stat::histogram<T>(in_data, in_len, out_freq, num_buckets, milliseconds, stream);                 \
     }
 
 INIT_HIST_AND_C(ui8, uint8_t)

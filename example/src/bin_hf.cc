@@ -55,7 +55,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     float time_hist;
 
-    asz::stat::histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
+    psz::stat::histogram<T>(d_d, len, d_freq, booklen, &time_hist, stream);
 
     cusz::HuffmanCodec<T, H, uint32_t> encoder;
     encoder.init(len, booklen, pardeg /* not optimal for perf */);

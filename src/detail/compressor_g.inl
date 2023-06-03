@@ -160,7 +160,7 @@ void Compressor<Combination>::compress(
     derive_lengths_after_prediction();
     /******************************************************************************/
 
-    asz::stat::histogram<E>(d_errctrl, errctrl_len, d_freq, booklen, &time_hist, stream);
+    psz::stat::histogram<E>(d_errctrl, errctrl_len, d_freq, booklen, &time_hist, stream);
 
     /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 

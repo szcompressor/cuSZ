@@ -24,7 +24,7 @@
 
 namespace cusz {
 
-template <typename T, typename H, typename M>
+template <typename T, typename H, typename M = uint32_t>
 class HuffmanCodec {
    public:
     using Origin    = T;

@@ -12,12 +12,15 @@
 #ifndef DA377C1A_D4A3_492C_A9E1_44072067050A
 #define DA377C1A_D4A3_492C_A9E1_44072067050A
 
+#include <cstdint>
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "cusz/type.h"
 
 typedef enum psz_runtime_mem_segment { HEADER = 0, ERRCTRL = 1, SP_VAL = 2, SP_IDX = 3, END = 4 } psz_mem_segment;
 
@@ -68,6 +71,19 @@ typedef struct alignas(128) psz_header {
     uint32_t nnz;
 
 } psz_header;
+
+typedef struct psz_memory_segment {
+    psz_dtype type;
+    void*     buf;
+    uint32_t  len;
+} psz_memseg;
+
+void psz_memseg_assign(psz_memseg* m, psz_dtype const t, void* b, uint32_t const l);
+void psz_malloc_cuda(psz_memseg* m);
+void psz_mallochost_cuda(psz_memseg* m);
+void psz_mallocmanaged_cuda(psz_memseg* m);
+void psz_free_cuda(psz_memseg* m);
+void psz_freehost_cuda(psz_memseg* m);
 
 #ifdef __cplusplus
 }

@@ -32,7 +32,7 @@ struct PackedWordByWidth<8> {
     uint64_t bits : 8;
 };
 
-namespace asz {
+namespace psz {
 
 template <typename T, typename H, typename M>
 void hf_encode_coarse_rev1(
@@ -58,6 +58,6 @@ void hf_decode_coarse(
     float&       time_lossless,
     cudaStream_t stream);
 
-}  // namespace asz
+}  // namespace psz
 
 #endif /* ABAACE49_2C9E_4E3C_AEFF_B016276142E1 */

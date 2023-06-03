@@ -72,7 +72,7 @@ __global__ void hf_decode_kernel(
     int const     pardeg,
     UNCOMPRESSED* out_uncompressed);
 
-namespace asz {
+namespace psz {
 namespace detail {
 
 template <typename UNCOMPRESSED, typename ENCODED>
@@ -102,12 +102,12 @@ __device__ void
 hf_decode_single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int const total_bw, BYTE* revbook);
 
 }  // namespace detail
-}  // namespace asz
+}  // namespace psz
 
 // TODO change size_t to unsigned int
 template <typename COMPRESSED, typename UNCOMPRESSED>
 __device__ void
-asz::detail::hf_decode_single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int const total_bw, BYTE* revbook)
+psz::detail::hf_decode_single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* out, int const total_bw, BYTE* revbook)
 {
     static const auto DTYPE_WIDTH = sizeof(COMPRESSED) * 8;
 
@@ -157,7 +157,7 @@ asz::detail::hf_decode_single_thread_inflate(COMPRESSED* input, UNCOMPRESSED* ou
 }
 
 template <typename UNCOMPRESSED, typename ENCODED>
-__global__ void asz::detail::hf_encode_phase1_fill(
+__global__ void psz::detail::hf_encode_phase1_fill(
     UNCOMPRESSED* in_uncompressed,
     size_t const  in_uncompressed_len,
     ENCODED*      in_book,
@@ -182,7 +182,7 @@ __global__ void asz::detail::hf_encode_phase1_fill(
 }
 
 template <typename COMPRESSED, typename MetadataT>
-__global__ void asz::detail::hf_encode_phase2_deflate(
+__global__ void psz::detail::hf_encode_phase2_deflate(
     COMPRESSED*  inout_inplace,
     size_t const len,
     MetadataT*   par_nbit,
@@ -247,7 +247,7 @@ __global__ void asz::detail::hf_encode_phase2_deflate(
 }
 
 template <typename Huff, typename Meta>
-__global__ void asz::detail::hf_encode_phase4_concatenate(
+__global__ void psz::detail::hf_encode_phase4_concatenate(
     Huff*     gapped,
     Meta*     par_entry,
     Meta*     par_ncell,
@@ -287,7 +287,7 @@ __global__ void hf_decode_kernel(
     auto gid = BIX * BDX + TIX;
 
     if (gid < pardeg) {
-        asz::detail::hf_decode_single_thread_inflate(
+        psz::detail::hf_decode_single_thread_inflate(
             compressed + par_entry[gid], out_uncompressed + sublen * gid, par_nbit[gid], shmem);
         __syncthreads();
     }

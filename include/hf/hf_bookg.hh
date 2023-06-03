@@ -17,7 +17,7 @@
 #define PAR_HUFFMAN_H
 
 // Parallel huffman global memory and kernels
-namespace asz {
+namespace psz {
 
 /**
  * @brief get codebook and reverse codebook in parallel
@@ -40,6 +40,6 @@ void hf_buildbook_g(
     float*    time_book,
     cudaStream_t = nullptr);
 
-}  // namespace asz
+}  // namespace psz
 
 #endif

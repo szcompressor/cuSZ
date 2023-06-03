@@ -521,7 +521,7 @@ __global__ void par_huffman::detail::GPU_ReverseArray(T* array, unsigned int siz
 
 // Parallel codebook generation wrapper
 template <typename T, typename H>
-void asz::hf_buildbook_g(
+void psz::hf_buildbook_g(
     uint32_t*    freq,
     int const    dict_size,
     H*           codebook,

@@ -45,6 +45,7 @@ typedef enum cusz_error_status {  //
     // not-implemented error
     CUSZ_NOT_IMPLEMENTED = 0x0100,
 } cusz_error_status;
+typedef cusz_error_status psz_error_status;
 
 typedef struct cusz_fixedlen_internal { /* all nullable */
     void* encoding;

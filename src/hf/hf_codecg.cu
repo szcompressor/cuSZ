@@ -16,7 +16,7 @@
 #include "hf/hf_codecg.hh"
 
 template <typename T, typename H, typename M>
-void asz::hf_encode_coarse_rev1(
+void psz::hf_encode_coarse_rev1(
     T*            uncompressed,
     size_t const  len,
     hf_book*      book_desc,
@@ -26,6 +26,14 @@ void asz::hf_encode_coarse_rev1(
     float&        time_lossless,
     cudaStream_t  stream)
 {
+    auto div = [](auto whole, auto part) -> uint32_t {
+        if (whole == 0) throw std::runtime_error("Dividend is zero.");
+        if (part == 0) throw std::runtime_error("Divisor is zero.");
+        return (whole - 1) / part + 1;
+    };
+    static const int BLOCK_DIM_ENCODE  = 256;
+    static const int BLOCK_DIM_DEFLATE = 256;
+
     CREATE_CUDAEVENT_PAIR;
 
     H*        d_buffer    = (H*)bitstream_desc->buffer;
@@ -47,12 +55,12 @@ void asz::hf_encode_coarse_rev1(
 
     /* phase 1 */
     {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_ENCODE;
-        auto grid_dim  = ConfigHelper::get_npart(len, block_dim);
+        auto block_dim = BLOCK_DIM_ENCODE;
+        auto grid_dim  = div(len, block_dim);
 
         START_CUDAEVENT_RECORDING(stream);
 
-        asz::detail::hf_encode_phase1_fill<T, H>                //
+        psz::detail::hf_encode_phase1_fill<T, H>                //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_buffer);
 
@@ -66,12 +74,12 @@ void asz::hf_encode_coarse_rev1(
 
     /* phase 2 */
     {
-        auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
-        auto grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
+        auto block_dim = BLOCK_DIM_DEFLATE;
+        auto grid_dim  = div(pardeg, block_dim);
 
         START_CUDAEVENT_RECORDING(stream);
 
-        asz::detail::hf_encode_phase2_deflate<H>  //
+        psz::detail::hf_encode_phase2_deflate<H>  //
             <<<grid_dim, block_dim, 0, stream>>>  //
             (d_buffer, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
@@ -100,7 +108,7 @@ void asz::hf_encode_coarse_rev1(
     {
         START_CUDAEVENT_RECORDING(stream);
 
-        asz::detail::hf_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
+        psz::detail::hf_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_buffer, d_par_entry, d_par_ncell, sublen, d_bitstream);
 
         STOP_CUDAEVENT_RECORDING(stream);
@@ -114,7 +122,7 @@ void asz::hf_encode_coarse_rev1(
 }
 
 template <typename T, typename H, typename M>
-void asz::hf_decode_coarse(
+void psz::hf_decode_coarse(
     H*           d_bitstream,
     uint8_t*     d_revbook,
     int const    revbook_nbyte,
@@ -144,10 +152,10 @@ void asz::hf_decode_coarse(
 }
 
 #define HF_CODEC_INIT(T, H, M)                                                                \
-    template void asz::hf_encode_coarse_rev1<T, H, M>(                                        \
+    template void psz::hf_encode_coarse_rev1<T, H, M>(                                        \
         T*, size_t const, hf_book*, hf_bitstream*, uint8_t*&, size_t&, float&, cudaStream_t); \
                                                                                               \
-    template void asz::hf_decode_coarse<T, H, M>(                                             \
+    template void psz::hf_decode_coarse<T, H, M>(                                             \
         H*, uint8_t*, int const, M*, M*, int const, int const, T*, float&, cudaStream_t);
 
 HF_CODEC_INIT(uint8_t, uint32_t, uint32_t);

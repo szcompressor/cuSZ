@@ -27,7 +27,7 @@ typedef struct psz_device_property {
     int max_shmem_bytes, max_shmem_bytes_opt_in;
 } psz_device_property;
 
-psz_error_status psz_query_device(int device_id, psz_device_property* prop);
+psz_error_status psz_query_device(psz_device_property* prop);
 
 psz_error_status psz_launch_p2013Histogram(
     psz_device_property* prop,
@@ -39,8 +39,8 @@ psz_error_status psz_launch_p2013Histogram(
     void*                stream);
 
 psz_error_status psz_hf_tune_coarse_encoding(size_t const len, psz_device_property* prop, int* sublen, int* pardeg);
-
-int psz_hf_revbook_nbyte(int booklen, int symbol_bytewidth);
+int              psz_hf_revbook_nbyte(int booklen, int symbol_bytewidth);
+size_t           paz_hf_max_compressed_bytes(size_t datalen);
 
 #ifdef __cplusplus
 }
