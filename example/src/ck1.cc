@@ -13,7 +13,6 @@
 #include "cli/quality_viewer.hh"
 // #include "cli/timerecord_viewer.hh"
 // #include "cusz.h"
-#include "kernel/cpplaunch_cuda.hh"
 #include "kernel/lorenzo_all.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/io.hh"

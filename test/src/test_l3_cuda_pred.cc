@@ -11,7 +11,6 @@
 
 #include <typeinfo>
 #include "cli/quality_viewer.hh"
-#include "kernel/cpplaunch_cuda.hh"
 #include "kernel/lorenzo_all.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"

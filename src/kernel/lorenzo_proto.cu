@@ -10,7 +10,6 @@
  */
 
 #include "cusz/type.h"
-#include "kernel/lorenzo_all.h"
 #include "kernel/lorenzo_all.hh"
 #include "pipeline/compact_cuda.hh"
 #include "utils/cuda_err.cuh"

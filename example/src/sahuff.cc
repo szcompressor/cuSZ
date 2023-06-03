@@ -14,7 +14,6 @@
 #include "hf/hf.hh"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
-#include "kernel/cpplaunch_cuda.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
 // #include "utils/compare_cpu.hh"

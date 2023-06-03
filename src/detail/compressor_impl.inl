@@ -23,7 +23,6 @@
 #include "component.hh"
 #include "compressor.hh"
 #include "header.h"
-#include "kernel/cpplaunch_cuda.hh"
 #include "stat/stat_g.hh"
 #include "utils/cuda_err.cuh"
 

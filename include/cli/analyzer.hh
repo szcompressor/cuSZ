@@ -27,7 +27,6 @@
 
 #include "../hf/hf_bookg.hh"
 #include "../hf/hf_codecg.hh"
-#include "../kernel/cpplaunch_cuda.hh"
 #include "../utils/timer.hh"
 
 using std::cout;

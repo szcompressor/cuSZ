@@ -17,7 +17,6 @@
 #include <memory>
 #include <stdexcept>
 #include "../common.hh"
-#include "../kernel/cpplaunch_cuda.hh"
 #include "../kernel/lorenzo_all.hh"
 #include "../utils.hh"
 
