@@ -91,6 +91,7 @@ struct hf_set {
     size_t   hl_complen;
 };
 
+// decpreated, use rt_config.h func instead
 template <typename H>
 int get_revbook_nbyte(int booklen)
 {
