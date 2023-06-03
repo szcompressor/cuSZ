@@ -89,7 +89,7 @@ typedef struct alignas(128) v2_cusz_header {
     // TODO replace the following with hf.VAR
     uint32_t vle_pardeg;
 
-} psz_header;
+} v2_cusz_header;
 
 #ifdef __cplusplus
 }

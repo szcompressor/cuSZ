@@ -14,6 +14,7 @@
 #ifndef TYPE_TRAITS_HH
 #define TYPE_TRAITS_HH
 
+#include <cstdint>
 #include <stdexcept>
 #include <type_traits>
 
@@ -88,6 +89,18 @@ template <bool FAST> struct FastLowPrecisionTrait;
 template <> struct FastLowPrecisionTrait<true>  { typedef float  type; };
 template <> struct FastLowPrecisionTrait<false> { typedef double type; };
 
+template <psz_dtype T> struct Tmap;
+template <> struct Tmap<F4> { typedef float    type; };
+template <> struct Tmap<F8> { typedef double   type; };
+template <> struct Tmap<I1> { typedef int8_t   type; };
+template <> struct Tmap<I2> { typedef int16_t  type; };
+template <> struct Tmap<I4> { typedef int32_t  type; };
+template <> struct Tmap<I8> { typedef int64_t  type; };
+template <> struct Tmap<U1> { typedef uint8_t  type; };
+template <> struct Tmap<U2> { typedef uint16_t type; };
+template <> struct Tmap<U4> { typedef uint32_t type; };
+template <> struct Tmap<U8> { typedef uint64_t type; };
+template <> struct Tmap<ULL>{ typedef unsigned long long type; };
 // clang-format on
 
 #endif

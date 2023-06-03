@@ -60,7 +60,26 @@ typedef enum cusz_datatype  //
   UINT8  = 10,
   UINT16 = 11,
   UINT32 = 12,
-  UINT64 = 13 } cusz_datatype;
+  UINT64 = 13,
+  //
+  F0 = 20,
+  F4 = 24,
+  F8 = 28,
+  //
+  U0 = 30,
+  U1 = 31,
+  U2 = 32,
+  U4 = 34,
+  U8 = 38,
+  //
+  I0 = 40,
+  I1 = 41,
+  I2 = 42,
+  I4 = 44,
+  I8 = 48,
+  //
+  ULL = 51 } cusz_datatype;
+typedef cusz_datatype psz_dtype;
 
 typedef enum cusz_executiontype  //
 { Device = 0,
