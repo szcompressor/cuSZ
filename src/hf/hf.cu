@@ -23,10 +23,12 @@
 #define HUFFCOARSE_CC(E, ETF, H, M) \
     template class cusz::HuffmanCodec<ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, MetadataTrait<M>::type>;
 
-HUFFCOARSE_CC(1, false, 4, 4)  // uint
-HUFFCOARSE_CC(1, false, 8, 4)  //
-HUFFCOARSE_CC(2, false, 4, 4)  //
-HUFFCOARSE_CC(2, false, 8, 4)  //
+// 23-06-04 restricted to u4 for quantization code
+
+// HUFFCOARSE_CC(1, false, 4, 4)  // uint
+// HUFFCOARSE_CC(1, false, 8, 4)  //
+// HUFFCOARSE_CC(2, false, 4, 4)  //
+// HUFFCOARSE_CC(2, false, 8, 4)  //
 HUFFCOARSE_CC(4, false, 4, 4)  //
 HUFFCOARSE_CC(4, false, 8, 4)  //
 

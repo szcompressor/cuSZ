@@ -9,22 +9,13 @@
  *
  */
 
-#include "../detail/compare_gpu.inl"
-#include "stat/compare.h"
-#include "stat/compare_gpu.hh"
+// #include "detail/extrema_thrust.inl"
+// #include "stat/compare.h"
+// #include "stat/compare_gpu.hh"
 
-#define THRUSTGPU_DESCRIPTION(Tliteral, T)                                        \
-    void thrustgpu_get_extrema_rawptr_T##Tliteral(T* d_ptr, size_t len, T res[4]) \
-    {                                                                             \
-        psz::detail::thrustgpu_get_extrema_rawptr<T>(d_ptr, len, res);            \
-    }                                                                             \
-                                                                                  \
-    template <>                                                                   \
-    void psz::thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4])        \
-    {                                                                             \
-        thrustgpu_get_extrema_rawptr_T##Tliteral(d_ptr, len, res);                \
-    }
+// #define THRUSTGPU_DESCRIPTION(Tliteral, T) \
+//     template void psz::thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4]);
 
-THRUSTGPU_DESCRIPTION(ui16, uint16_t)
+// THRUSTGPU_DESCRIPTION(ui16, uint16_t)
 
-#undef THRUSTGPU_DESCRIPTION
+// #undef THRUSTGPU_DESCRIPTION

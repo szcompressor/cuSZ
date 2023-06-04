@@ -26,6 +26,15 @@ template <typename T>
 bool thrustgpu_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx);
 
 template <typename T>
+void thrustgpu_get_maxerr(
+    T*      reconstructed,  // in
+    T*      original,       // in
+    size_t  len,            // in
+    T&      maximum_val,    // out
+    size_t& maximum_loc,    // out
+    bool    destructive = false);
+
+template <typename T>
 void thrustgpu_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t const len);
 
 }  // namespace psz

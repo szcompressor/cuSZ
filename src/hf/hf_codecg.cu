@@ -158,18 +158,16 @@ void psz::hf_decode_coarse(
     template void psz::hf_decode_coarse<T, H, M>(                                             \
         H*, uint8_t*, int const, M*, M*, int const, int const, T*, float&, cudaStream_t);
 
-HF_CODEC_INIT(uint8_t, uint32_t, uint32_t);
-HF_CODEC_INIT(uint16_t, uint32_t, uint32_t);
+// 23-06-04 restricted to u4 for quantization code
+
+// HF_CODEC_INIT(uint8_t, uint32_t, uint32_t);
+// HF_CODEC_INIT(uint16_t, uint32_t, uint32_t);
 HF_CODEC_INIT(uint32_t, uint32_t, uint32_t);
-HF_CODEC_INIT(float, uint32_t, uint32_t);
-HF_CODEC_INIT(uint8_t, uint64_t, uint32_t);
-HF_CODEC_INIT(uint16_t, uint64_t, uint32_t);
-HF_CODEC_INIT(uint32_t, uint64_t, uint32_t);
-HF_CODEC_INIT(float, uint64_t, uint32_t);
-HF_CODEC_INIT(uint8_t, unsigned long long, uint32_t);
-HF_CODEC_INIT(uint16_t, unsigned long long, uint32_t);
+// HF_CODEC_INIT(float, uint32_t, uint32_t);
+// HF_CODEC_INIT(uint8_t, unsigned long long, uint32_t);
+// HF_CODEC_INIT(uint16_t, unsigned long long, uint32_t);
 HF_CODEC_INIT(uint32_t, unsigned long long, uint32_t);
-HF_CODEC_INIT(float, unsigned long long, uint32_t);
+// HF_CODEC_INIT(float, unsigned long long, uint32_t);
 
 #undef HFBOOK_INIT
 #undef HF_CODEC_INIT

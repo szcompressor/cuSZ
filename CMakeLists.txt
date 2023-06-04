@@ -78,12 +78,13 @@ add_library(
   src/stat/cmpg1_3.cu
   src/stat/cmpg1_4.cu
   src/stat/cmpg1_5.cu
-  src/stat/cmpg2.cu
+  src/stat/cmpg2_1.cu
+  src/stat/cmpg2_2.cu
   src/stat/cmpg3.cu
   src/stat/cmpg4_1.cu
   src/stat/cmpg4_2.cu
-  src/stat/cmpg4_3.cu
-  src/stat/cmpg4_4.cu
+  src/stat/cmpg5_1.cu
+  src/stat/cmpg5_2.cu
   src/stat/stat_g.cu)
 target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 

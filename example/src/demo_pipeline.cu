@@ -404,33 +404,35 @@ int main(int argc, char** argv)
         if ((radius * 2) > upper_bound) throw std::runtime_error("Radius overflows error-quantization type.");
     };
 
+    // 23-06-04 restricted to u4 for quantization code
+
     if (dtype == "F") {
-        if (etype == "ui8") {
-            radius_legal(1);
-            f<float, uint8_t>(fname, len3, hf, header_st, config, use_proto);
-        }
-        else if (etype == "ui16") {
-            radius_legal(2);
-            f<float, uint16_t>(fname, len3, hf, header_st, config, use_proto);
-        }
-        else if (etype == "ui32") {
-            radius_legal(4);
-            f<float, uint32_t>(fname, len3, hf, header_st, config, use_proto);
-        }
+        // if (etype == "ui8") {
+        //     radius_legal(1);
+        //     f<float, uint8_t>(fname, len3, hf, header_st, config, use_proto);
+        // }
+        // else if (etype == "ui16") {
+        //     radius_legal(2);
+        //     f<float, uint16_t>(fname, len3, hf, header_st, config, use_proto);
+        // }
+        // else if (etype == "ui32") {
+        // }
+        radius_legal(4);
+        f<float, uint32_t>(fname, len3, hf, header_st, config, use_proto);
     }
     else if (dtype == "D") {
-        if (etype == "ui8") {
-            radius_legal(1);
-            f<double, uint8_t>(fname, len3, hf, header_st, config, use_proto);
-        }
-        else if (etype == "ui16") {
-            radius_legal(2);
-            f<double, uint16_t>(fname, len3, hf, header_st, config, use_proto);
-        }
-        else if (etype == "ui32") {
-            radius_legal(4);
-            f<double, uint32_t>(fname, len3, hf, header_st, config, use_proto);
-        }
+        // if (etype == "ui8") {
+        //     radius_legal(1);
+        //     f<double, uint8_t>(fname, len3, hf, header_st, config, use_proto);
+        // }
+        // else if (etype == "ui16") {
+        //     radius_legal(2);
+        //     f<double, uint16_t>(fname, len3, hf, header_st, config, use_proto);
+        // }
+        // else if (etype == "ui32") {
+        // }
+        radius_legal(4);
+        f<double, uint32_t>(fname, len3, hf, header_st, config, use_proto);
     }
     else
         throw std::runtime_error("not a valid dtype.");

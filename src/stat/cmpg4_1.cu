@@ -1,7 +1,7 @@
 /**
  * @file cmpg4_1.cu
  * @author Jiannan Tian
- * @brief (split to speed up buid process; part 4)
+ * @brief
  * @version 0.3
  * @date 2022-11-03
  *
@@ -9,15 +9,12 @@
  *
  */
 
-#include "../detail/compare_gpu.inl"
+#include "detail/compare_gpu.inl"
 #include "stat/compare.h"
 #include "stat/compare_gpu.hh"
 
-#define THRUSTGPU_ASSESS(Tliteral, T)                                                              \
-    void thrustgpu_assess_quality_T##Tliteral(cusz_stats* s, T* xdata, T* odata, size_t const len) \
-    {                                                                                              \
-        psz::detail::thrustgpu_assess_quality<T>(s, xdata, odata, len);                            \
-    }
+#define THRUSTGPU_ASSESS(Tliteral, T) \
+    template void psz::thrustgpu_assess_quality<T>(cusz_stats * s, T * xdata, T * odata, size_t const len);
 
 THRUSTGPU_ASSESS(fp32, float);
 

@@ -105,14 +105,16 @@ int main(int argc, char** argv)
         auto z     = atoi(argv[4]);
         auto type  = std::string(argv[5]);
 
-        if (type == "ui8")
-            f<uint8_t, uint32_t>(fname, x, y, z);
-        else if (type == "ui16")
-            f<uint16_t, uint32_t>(fname, x, y, z);
-        else if (type == "ui32")
-            f<uint32_t, uint32_t>(fname, x, y, z);
-        else
-            f<uint16_t, uint32_t>(fname, x, y, z);
+        // 23-06-04 restricted to u4 for quantization code
+
+        // if (type == "ui8")
+        //     f<uint8_t, uint32_t>(fname, x, y, z);
+        // else if (type == "ui16")
+        //     f<uint16_t, uint32_t>(fname, x, y, z);
+        // else if (type == "ui32")
+        f<uint32_t, uint32_t>(fname, x, y, z);
+        // else
+        //     f<uint16_t, uint32_t>(fname, x, y, z);
     }
 
     return 0;
