@@ -30,10 +30,12 @@
 #include <limits>
 #include <type_traits>
 
-#include "common.hh"
+#include "common/definition.hh"
+#include "common/type_traits.hh"
 #include "hf/hf_bookg.hh"
 #include "par_merge.inl"
 #include "utils.hh"
+#include "utils/configs.hh"
 #include "utils/timer.h"
 
 using std::cout;

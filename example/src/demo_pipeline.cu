@@ -16,7 +16,6 @@
 using std::cout;
 using std::endl;
 
-#include "cli/quality_viewer.hh"
 #include "cusz.h"
 #include "hf/hf.hh"
 #include "hf/hf_bookg.hh"
@@ -28,6 +27,7 @@ using std::endl;
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
+#include "utils/quality_viewer.hh"
 
 namespace alpha {
 

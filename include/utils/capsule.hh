@@ -32,8 +32,8 @@
 
 #include "../stat/compare_gpu.hh"
 // #include "../utils/io.hh"
+#include "../common/definition.hh"
 #include "../utils/timer.hh"
-#include "definition.hh"
 
 template <typename T>
 class Capsule {

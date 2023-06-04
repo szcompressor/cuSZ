@@ -18,13 +18,13 @@
 
 namespace cusz {
 
-using FREQ = uint32_t;
+// using FREQ = uint32_t;
 
 using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord      = std::vector<TimeRecordTuple>;
 using timerecord_t    = TimeRecord*;
 
-using BYTE = uint8_t;
+// using BYTE = uint8_t;
 
 };  // namespace cusz
 

@@ -1,5 +1,5 @@
 /**
- * @file compact_serial.hh
+ * @file compact_serial.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4

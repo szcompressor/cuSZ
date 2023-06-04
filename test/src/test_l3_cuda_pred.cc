@@ -10,12 +10,12 @@
  */
 
 #include <typeinfo>
-#include "cli/quality_viewer.hh"
 #include "kernel/lorenzo_all.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
+#include "utils/quality_viewer.hh"
 
 std::string type_literal;
 

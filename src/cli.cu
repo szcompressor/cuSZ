@@ -9,6 +9,6 @@
  *
  */
 
-#include "cli.cuh"
+#include "pipeline/cli.inl"
 
 template class cusz::CLI<float>;

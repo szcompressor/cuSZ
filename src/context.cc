@@ -18,8 +18,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#include "cli/document.hh"
 #include "context.hh"
+#include "utils/document.hh"
 
 namespace cusz {
 const char* VERSION_TEXT  = "2023-01-23 (unstable; pre-0.4)";

@@ -18,7 +18,9 @@
 #include <cstdio>
 #include <limits>
 
-#include "common.hh"
+#include "common/definition.hh"
+#include "common/type_traits.hh"
+#include "utils/configs.hh"
 #include "utils/timer.h"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)

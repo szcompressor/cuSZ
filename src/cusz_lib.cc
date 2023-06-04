@@ -15,13 +15,15 @@
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 
-#include "component.hh"
 #include "compressor.hh"
 #include "context.hh"
 #include "cusz.h"
 #include "cusz/custom.h"
 #include "cusz/type.h"
 #include "framework.hh"
+#include "hf/hf.hh"
+#include "pipeline/prediction.inl"
+#include "pipeline/spcodec.inl"
 
 cusz_compressor* cusz_create(cusz_framework* _framework, cusz_datatype _type)
 {

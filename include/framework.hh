@@ -13,8 +13,10 @@
 #ifndef CUSZ_FRAMEWORK
 #define CUSZ_FRAMEWORK
 
-#include "component.hh"
 #include "compressor.hh"
+#include "hf/hf.hh"
+#include "pipeline/prediction.inl"
+#include "pipeline/spcodec.inl"
 
 namespace cusz {
 

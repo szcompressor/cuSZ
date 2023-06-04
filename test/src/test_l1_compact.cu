@@ -10,8 +10,8 @@
  */
 
 #include <iostream>
-#include "pipeline/compact_cuda.hh"
-#include "pipeline/compact_serial.hh"
+#include "pipeline/compact_cuda.inl"
+#include "pipeline/compact_serial.inl"
 #include "rand.hh"
 
 using std::cout;

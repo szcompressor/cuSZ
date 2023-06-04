@@ -17,9 +17,11 @@
 
 #include "common/type_traits.hh"
 #include "compaction.hh"
-#include "component.hh"
 #include "context.hh"
 #include "header.h"
+#include "hf/hf.hh"
+// #include "prediction.inl"
+// #include "spcodec.inl"
 
 namespace cusz {
 

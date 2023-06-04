@@ -1,5 +1,5 @@
 /**
- * @file compact_cuda.hh
+ * @file compact_cuda.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4

@@ -10,14 +10,14 @@
  */
 
 #include <typeinfo>
-#include "cli/quality_viewer.hh"
 #include "kernel/lorenzo_all.hh"
 #include "kernel2/l23r.hh"
-#include "pipeline/compact_cuda.hh"
+#include "pipeline/compact_cuda.inl"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
+#include "utils/quality_viewer.hh"
 
 std::string type_literal;
 

@@ -23,8 +23,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../common/definition.hh"
 #include "../header.h"
-#include "definition.hh"
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr

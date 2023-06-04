@@ -19,8 +19,8 @@
 
 #include "analysis/verify.hh"
 #include "analysis/verify_gpu.cuh"
-#include "cli/quality_viewer.hh"
 #include "utils.hh"
+#include "utils/quality_viewer.hh"
 
 using BYTE = uint8_t;
 using SIZE = size_t;

@@ -127,7 +127,7 @@ add_library(psz_hfg src/hf/hf.cu src/hf/hf_codecg.cu src/hf/hf2.cu)
 target_link_libraries(psz_hfg PUBLIC pszcompile_settings psz_statg psz_hfbookg)
 set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_library(psz_comp src/cusz/custom.cc src/compressor.cu)
+add_library(psz_comp src/custom.cc src/compressor.cu)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel psz_statg
                                       psz_hfg CUDA::cudart)
 
@@ -135,7 +135,7 @@ add_library(cusz src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC psz_comp psz_argp psz_hfg psz_spv psz_stat
                                   psz_utilsg)
 
-add_executable(cusz-bin src/cli_bin.cu src/cli/cli.cu)
+add_executable(cusz-bin src/cli_prog.cu src/cli.cu src/dryrun.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 

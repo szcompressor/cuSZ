@@ -19,8 +19,8 @@
 #include <regex>
 #include <string>
 
-#include "common/configs.hh"
 #include "common/definition.hh"
+#include "utils/configs.hh"
 #include "utils/format.hh"
 #include "utils/strhelper.hh"
 

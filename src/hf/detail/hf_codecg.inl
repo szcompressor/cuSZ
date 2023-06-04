@@ -21,10 +21,12 @@
 #include <cstdlib>
 #include <limits>
 
-#include "common.hh"
+#include "common/definition.hh"
+#include "common/type_traits.hh"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"
+#include "utils/configs.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 

@@ -15,12 +15,13 @@
 #include <string>
 #include <type_traits>
 
-#include "cli/analyzer.hh"
-#include "cli/dryrun_part.cuh"
-#include "cli/query.hh"
-#include "cli/timerecord_viewer.hh"
 #include "cusz.h"
+#include "dryrun.hh"
 #include "framework.hh"
+#include "utils/analyzer.hh"
+#include "utils/quality_viewer.hh"
+#include "utils/query.hh"
+#include "utils/timerecord_viewer.hh"
 
 namespace cusz {
 
@@ -36,32 +37,32 @@ class CLI {
    public:
     CLI() = default;
 
-    template <class Predictor>
+    template <typename T>
     static void cli_dryrun(context_t ctx, bool dualquant = true)
     {
-        BaseCompressor<Predictor> analysis;
+        Dryrunner<T> dryrun;
 
         uint3        xyz{ctx->x, ctx->y, ctx->z};
         cudaStream_t stream;
         cudaStreamCreate(&stream);
 
         if (not dualquant) {
-            analysis.init_dualquant_dryrun(xyz);
-            analysis.dualquant_dryrun(ctx->fname.fname, ctx->eb, ctx->mode == "r2r", stream);
-            analysis.destroy_dualquant_dryrun();
+            dryrun.init_dualquant_dryrun(xyz)
+                .dualquant_dryrun(ctx->fname.fname, ctx->eb, ctx->mode == "r2r", stream)
+                .destroy_dualquant_dryrun();
         }
         else {
-            analysis.init_generic_dryrun(xyz);
-            analysis.generic_dryrun(ctx->fname.fname, ctx->eb, 512, ctx->mode == "r2r", stream);
-            analysis.destroy_generic_dryrun();
+            dryrun.init_generic_dryrun(xyz)
+                .generic_dryrun(ctx->fname.fname, ctx->eb, 512, ctx->mode == "r2r", stream)
+                .destroy_generic_dryrun();
         }
         cudaStreamDestroy(stream);
     }
 
    private:
-    void write_compressed_to_disk(std::string compressed_name, BYTE* compressed, size_t compressed_len)
+    void write_compressed_to_disk(std::string compressed_name, uint8_t* compressed, size_t compressed_len)
     {
-        Capsule<BYTE> file("cusza");
+        Capsule<uint8_t> file("cusza");
         file.set_len(compressed_len)
             .set_dptr(compressed)
             .mallochost()
@@ -80,7 +81,7 @@ class CLI {
     void cli_construct(context_t ctx, cusz_compressor* compressor, cudaStream_t stream)
     {
         Capsule<T> input("uncompressed");
-        BYTE*      compressed;
+        uint8_t*   compressed;
         size_t     compressed_len;
         Header     header;
         auto       len      = ctx->get_len();
@@ -120,10 +121,10 @@ class CLI {
     // template <typename compressor_t>
     void cli_reconstruct(context_t ctx, cusz_compressor* compressor, cudaStream_t stream)
     {
-        Capsule<BYTE> compressed("compressed");
-        Capsule<T>    decompressed("decompressed"), original("cmp");
-        auto          header   = new Header;
-        auto          basename = (*ctx).fname.fname;
+        Capsule<uint8_t> compressed("compressed");
+        Capsule<T>       decompressed("decompressed"), original("cmp");
+        auto             header   = new Header;
+        auto             basename = (*ctx).fname.fname;
 
         auto load_compressed = [&](std::string compressed_name) {
             auto compressed_len = ConfigHelper::get_filesize(compressed_name);
@@ -175,11 +176,9 @@ class CLI {
         cudaStream_t stream;
         CHECK_CUDA(cudaStreamCreate(&stream));
 
-        // TODO hardcoded predictor type
-        if ((*ctx).cli_task.dryrun) cli_dryrun<typename Framework<float>::Predictor>(ctx);
-
+        // TODO enable f8
+        if ((*ctx).cli_task.dryrun) cli_dryrun<float>(ctx);
         if ((*ctx).cli_task.construct) cli_construct(ctx, compressor, stream);
-
         if ((*ctx).cli_task.reconstruct) cli_reconstruct(ctx, compressor, stream);
 
         if (stream) cudaStreamDestroy(stream);

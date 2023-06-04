@@ -10,7 +10,7 @@
  */
 
 #include <stdexcept>
-#include "cli/quality_viewer.hh"
+#include "utils/quality_viewer.hh"
 // #include "cli/timerecord_viewer.hh"
 // #include "cusz.h"
 #include "kernel/lorenzo_all.hh"

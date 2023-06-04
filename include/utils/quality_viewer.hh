@@ -16,10 +16,10 @@
 // 22-11-20 would fail in cxxapi.cu if deleted
 #include <thrust/equal.h>
 
-#include "../common/capsule.hh"
 #include "../common/definition.hh"
 #include "../header.h"
 #include "../stat/compare_gpu.hh"
+#include "../utils/capsule.hh"
 #include "verify.hh"
 
 namespace cusz {

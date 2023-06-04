@@ -1,5 +1,5 @@
 /**
- * @file cusz-cli.cu
+ * @file cli_prog.cu
  * @author Jiannan Tian
  * @brief Driver program of cuSZ.
  * @version 0.1
@@ -11,7 +11,7 @@
  *
  */
 
-#include "cli/cli.cuh"
+#include "pipeline/cli.inl"
 
 int main(int argc, char** argv)
 {

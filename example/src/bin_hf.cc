@@ -10,12 +10,12 @@
  */
 
 #include <string>
-#include "cli/quality_viewer.hh"
 #include "hf/hf.hh"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
+#include "utils/quality_viewer.hh"
 // #include "utils/compare_cpu.hh"
 #include "stat/stat_g.hh"
 #include "utils/io.hh"

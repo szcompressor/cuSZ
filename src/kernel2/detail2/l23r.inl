@@ -17,7 +17,7 @@
 #include <type_traits>
 
 #include "cusz/suint.hh"
-#include "pipeline/compact_cuda.hh"
+#include "pipeline/compact_cuda.inl"
 
 namespace psz {
 namespace rolling {

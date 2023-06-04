@@ -38,7 +38,7 @@ using std::cout;
     {                                                                             \
         constexpr auto D2D = cudaMemcpyDeviceToDevice;                            \
         auto           dst = d_compressed + header.entry[Header::FIELD];          \
-        auto           src = reinterpret_cast<BYTE*>(d_##VAR);                    \
+        auto           src = reinterpret_cast<uint8_t*>(d_##VAR);                 \
         CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::FIELD], D2D, stream)); \
     }
 
@@ -146,7 +146,7 @@ void HuffmanCodec<T, H, M>::init(size_t const in_uncompressed_len, int const boo
     HC_ALLOCDEV(bitstream, BITSTREAM);
 
     // standalone definition for output
-    d_compressed = reinterpret_cast<BYTE*>(d_tmp);
+    d_compressed = reinterpret_cast<uint8_t*>(d_tmp);
 
     HC_ALLOCHOST(book, BOOK);
     HC_ALLOCHOST(revbook, REVBOOK);
@@ -174,7 +174,7 @@ void HuffmanCodec<T, H, M>::init(size_t const in_uncompressed_len, int const boo
 }
 
 TEMPLATE_TYPE
-void HuffmanCodec<T, H, M>::build_codebook(cusz::FREQ* freq, int const booklen, cudaStream_t stream)
+void HuffmanCodec<T, H, M>::build_codebook(uint32_t* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
     psz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
@@ -184,7 +184,7 @@ TEMPLATE_TYPE
 void HuffmanCodec<T, H, M>::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
-    BYTE*&       out_compressed,
+    uint8_t*&    out_compressed,
     size_t&      out_compressed_len,
     cudaStream_t stream)
 {
@@ -213,13 +213,17 @@ void HuffmanCodec<T, H, M>::encode(
 }
 
 TEMPLATE_TYPE
-void HuffmanCodec<T, H, M>::decode(BYTE* in_compressed, T* out_decompressed, cudaStream_t stream, bool header_on_device)
+void HuffmanCodec<T, H, M>::decode(
+    uint8_t*     in_compressed,
+    T*           out_decompressed,
+    cudaStream_t stream,
+    bool         header_on_device)
 {
     Header header;
     if (header_on_device)
         CHECK_CUDA(cudaMemcpyAsync(&header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost, stream));
 
-    auto d_revbook   = ACCESSOR(REVBOOK, BYTE);
+    auto d_revbook   = ACCESSOR(REVBOOK, uint8_t);
     auto d_par_nbit  = ACCESSOR(PAR_NBIT, M);
     auto d_par_entry = ACCESSOR(PAR_ENTRY, M);
     auto d_bitstream = ACCESSOR(BITSTREAM, H);
@@ -308,7 +312,7 @@ TEMPLATE_TYPE
 H* HuffmanCodec<T, H, M>::expose_book() const { return d_book; }
 
 TEMPLATE_TYPE
-BYTE* HuffmanCodec<T, H, M>::expose_revbook() const { return d_revbook; }
+uint8_t* HuffmanCodec<T, H, M>::expose_revbook() const { return d_revbook; }
 
 // TODO this kind of space will be overlapping with quant-codes
 TEMPLATE_TYPE

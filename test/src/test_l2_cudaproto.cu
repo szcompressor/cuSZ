@@ -15,9 +15,9 @@
 #include <string>
 #include <typeinfo>
 
-#include "common/capsule.hh"
 #include "kernel/detail/lorenzo_proto.inl"
-#include "pipeline/compact_cuda.hh"
+#include "pipeline/compact_cuda.inl"
+#include "utils/capsule.hh"
 
 using std::cout;
 using std::endl;

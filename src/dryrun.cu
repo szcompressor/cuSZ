@@ -9,9 +9,8 @@
  *
  */
 
-#include "dryrun_part.cuh"
+#include "dryrun.hh"
+#include "pipeline/dryrun.inl"
 
-template class cusz::BaseCompressor<cusz::Predictor<  //
-    DataTrait<4>::type,
-    ErrCtrlTrait<2>::type,
-    FastLowPrecisionTrait<true>::type>>;
+template class cusz::Dryrunner<DataTrait<4>::type>;
+template class cusz::Dryrunner<DataTrait<8>::type>;

@@ -14,11 +14,11 @@
 #include <iostream>
 #include <string>
 
-#include "cli/quality_viewer.hh"
 #include "kernel/lorenzo_all.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
+#include "utils/quality_viewer.hh"
 
 using std::cerr;
 using std::cout;

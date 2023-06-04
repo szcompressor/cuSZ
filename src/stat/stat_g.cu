@@ -40,7 +40,7 @@ cusz_error_status psz::stat::histogram(
 
         // config kernel attribute
         cudaFuncSetAttribute(
-            kernel::p2013Histogram<T, cusz::FREQ>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
+            kernel::p2013Histogram<T, uint32_t>, cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
     };
 
     auto optimize_launch = [&]() {
