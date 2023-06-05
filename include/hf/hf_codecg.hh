@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <cuda_runtime.h>
 #include "hf_struct.h"
 
 template <int WIDTH>
@@ -35,14 +36,14 @@ struct PackedWordByWidth<8> {
 namespace psz {
 
 template <typename T, typename H, typename M>
-void hf_encode_coarse_rev1(
+void hf_encode_coarse_rev2(
     T*            uncompressed,
     size_t const  len,
     hf_book*      book_desc,
     hf_bitstream* bitstream_desc,
-    uint8_t*&     out_compressed,      // 22-10-12 buggy
-    size_t&       out_compressed_len,  // 22-10-12 buggy
-    float&        time_lossless,
+    size_t*       outlen_nbit,
+    size_t*       outlen_ncell,
+    float*        time_lossless,
     cudaStream_t  stream);
 
 template <typename T, typename H, typename M>
@@ -55,7 +56,7 @@ void hf_decode_coarse(
     int const    sublen,
     int const    pardeg,
     T*           out_decompressed,
-    float&       time_lossless,
+    float*       time_lossless,
     cudaStream_t stream);
 
 }  // namespace psz

@@ -93,7 +93,7 @@ struct hf_set {
 
 // decpreated, use rt_config.h func instead
 template <typename H>
-int get_revbook_nbyte(int booklen)
+int reversebook_nbyte(int booklen)
 {
     return sizeof(H) * (2 * sizeof(H) * 8) + sizeof(H) * booklen;
 }
@@ -120,7 +120,7 @@ cusz_error_status allocate_data(
     hf->book_desc->booklen     = config->radius * 2;
     hf->bitstream_desc->sublen = sublen;
     hf->bitstream_desc->pardeg = pardeg;
-    hf->revbook_nbyte          = alpha::get_revbook_nbyte<H>(hf->book_desc->booklen);
+    hf->revbook_nbyte          = alpha::reversebook_nbyte<H>(hf->book_desc->booklen);
 
     CHECK_CUDA(cudaMallocHost(&d->h_data, sizeof(T) * len));
     CHECK_CUDA(cudaMalloc(&d->data, sizeof(T) * len));
@@ -188,7 +188,7 @@ cusz_error_status compressor(
     cudaStream_t                  stream)
 {
     float time_pq = 0, time_hist = 0, time_spv = 0;
-    // , time_book = 0, time_encoding = 0;
+    // , _time_book = 0, time_encoding = 0;
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
@@ -227,9 +227,9 @@ cusz_error_status compressor(
 
     // launch_gpu_parallel_build_codebook<E, H, M>(
     //     hf->book_desc->freq, (H*)hf->book_desc->book, hf->book_desc->booklen, hf->revbook, hf->revbook_nbyte,
-    //     time_book, stream);
+    //     _time_book, stream);
 
-    // cout << "time-book\t" << time_book << endl;
+    // cout << "time-book\t" << _time_book << endl;
     // 22-10-12 LL API temporarily not working
 
     // cusz::cpplaunch_coarse_grained_Huffman_encoding_rev1<E, H, M>(
@@ -240,7 +240,7 @@ cusz_error_status compressor(
     // cout << "time-encoding\t" << time_encoding << endl;
 
     codec->build_codebook(hf->book_desc->freq, hf->book_desc->booklen, stream);
-    codec->encode(data->errq, data->len, hf->hl_comp, hf->hl_complen, stream);
+    codec->encode(data->errq, data->len, &hf->hl_comp, &hf->hl_complen, stream);
 
     // header_st->total_nbit = std::accumulate(
     //     (M*)hf->bitstream_desc->h_metadata->bits, (M*)hf->bitstream_desc->h_metadata->bits +

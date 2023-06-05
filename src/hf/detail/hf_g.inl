@@ -118,7 +118,7 @@ void HuffmanCodec<T, H, M>::init(size_t const in_uncompressed_len, int const boo
 
     rte.nbyte[RTE::TMP]       = sizeof(H) * in_uncompressed_len;
     rte.nbyte[RTE::BOOK]      = sizeof(H) * booklen;
-    rte.nbyte[RTE::REVBOOK]   = get_revbook_nbyte(booklen);
+    rte.nbyte[RTE::REVBOOK]   = reversebook_nbyte(booklen);
     rte.nbyte[RTE::PAR_NBIT]  = sizeof(M) * pardeg;
     rte.nbyte[RTE::PAR_NCELL] = sizeof(M) * pardeg;
     rte.nbyte[RTE::PAR_ENTRY] = sizeof(M) * pardeg;
@@ -177,30 +177,27 @@ TEMPLATE_TYPE
 void HuffmanCodec<T, H, M>::build_codebook(uint32_t* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
-    psz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, get_revbook_nbyte(booklen), &time_book, stream);
+    psz::hf_buildbook_g<T, H>(freq, booklen, d_book, d_revbook, reversebook_nbyte(booklen), &_time_book, stream);
 }
 
 TEMPLATE_TYPE
 void HuffmanCodec<T, H, M>::encode(
     T*           in_uncompressed,
     size_t const in_uncompressed_len,
-    uint8_t*&    out_compressed,
-    size_t&      out_compressed_len,
+    uint8_t**    out_compressed,
+    size_t*      out_compressed_len,
     cudaStream_t stream)
 {
-    time_lossless = 0;
+    _time_lossless = 0;
 
     struct Header header;
 
-    psz::hf_encode_coarse_rev1<T, H, M>(
-        in_uncompressed, in_uncompressed_len,  //
-        book_desc, bitstream_desc,             //
-        out_compressed, out_compressed_len, time_lossless, stream);
+    psz::hf_encode_coarse_rev2<T, H, M>(
+        in_uncompressed, in_uncompressed_len, book_desc, bitstream_desc, &header.total_nbit, &header.total_ncell,
+        &_time_lossless, stream);
+    // cout << "header.total_nbit\t" << header.total_nbit << endl;
+    // cout << "header.total_ncell\t" << header.total_ncell << endl;
 
-    header.total_nbit =
-        std::accumulate((M*)chunk_desc_h->bits, (M*)chunk_desc_h->bits + bitstream_desc->pardeg, (size_t)0);
-    header.total_ncell =
-        std::accumulate((M*)chunk_desc_h->cells, (M*)chunk_desc_h->cells + bitstream_desc->pardeg, (size_t)0);
     // update with the precise BITSTREAM nbyte
     rte.nbyte[RTE::BITSTREAM] = sizeof(H) * header.total_ncell;
 
@@ -208,8 +205,8 @@ void HuffmanCodec<T, H, M>::encode(
     subfile_collect(
         header, in_uncompressed_len, book_desc->booklen, bitstream_desc->sublen, bitstream_desc->pardeg, stream);
 
-    out_compressed     = d_compressed;
-    out_compressed_len = header.subfile_size();
+    *out_compressed     = d_compressed;
+    *out_compressed_len = header.subfile_size();
 }
 
 TEMPLATE_TYPE
@@ -228,12 +225,12 @@ void HuffmanCodec<T, H, M>::decode(
     auto d_par_entry = ACCESSOR(PAR_ENTRY, M);
     auto d_bitstream = ACCESSOR(BITSTREAM, H);
 
-    auto const revbook_nbyte = get_revbook_nbyte(header.booklen);
+    auto const revbook_nbyte = reversebook_nbyte(header.booklen);
 
     // launch_coarse_grained_Huffman_decoding<T, H, M>(
     psz::hf_decode_coarse<T, H, M>(
         d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry, header.sublen, header.pardeg, out_decompressed,
-        time_lossless, stream);
+        &_time_lossless, stream);
 }
 
 TEMPLATE_TYPE
@@ -271,7 +268,7 @@ void HuffmanCodec<T, H, M>::subfile_collect(
     header.pardeg           = pardeg;
     header.uncompressed_len = in_uncompressed_len;
 
-    MetadataT nbyte[Header::END];
+    M nbyte[Header::END];
     nbyte[Header::HEADER] = sizeof(Header);
 
     EXPORT_NBYTE(REVBOOK)
@@ -300,13 +297,13 @@ void HuffmanCodec<T, H, M>::subfile_collect(
 }
 
 // getter
-TEMPLATE_TYPE
-float HuffmanCodec<T, H, M>::get_time_elapsed() const { return milliseconds; }
+// TEMPLATE_TYPE
+// float HuffmanCodec<T, H, M>::get_time_elapsed() const { return milliseconds; }
 
 TEMPLATE_TYPE
-float HuffmanCodec<T, H, M>::get_time_book() const { return time_book; }
+float HuffmanCodec<T, H, M>::time_book() const { return _time_book; }
 TEMPLATE_TYPE
-float HuffmanCodec<T, H, M>::get_time_lossless() const { return time_lossless; }
+float HuffmanCodec<T, H, M>::time_lossless() const { return _time_lossless; }
 
 TEMPLATE_TYPE
 H* HuffmanCodec<T, H, M>::expose_book() const { return d_book; }
@@ -316,13 +313,13 @@ uint8_t* HuffmanCodec<T, H, M>::expose_revbook() const { return d_revbook; }
 
 // TODO this kind of space will be overlapping with quant-codes
 TEMPLATE_TYPE
-size_t HuffmanCodec<T, H, M>::get_workspace_nbyte(size_t len) const { return sizeof(H) * len; }
+size_t HuffmanCodec<T, H, M>::workspace_nyte(size_t len) const { return sizeof(H) * len; }
 
 TEMPLATE_TYPE
-size_t HuffmanCodec<T, H, M>::get_max_output_nbyte(size_t len) const { return sizeof(H) * len / 2; }
+size_t HuffmanCodec<T, H, M>::max_out_nbyte(size_t len) const { return sizeof(H) * len / 2; }
 
 TEMPLATE_TYPE
-size_t HuffmanCodec<T, H, M>::get_revbook_nbyte(int dict_size)
+size_t HuffmanCodec<T, H, M>::reversebook_nbyte(int dict_size)
 {
     return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
 }

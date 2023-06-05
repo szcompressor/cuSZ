@@ -53,7 +53,7 @@ typedef struct hf_bitstream {
 typedef struct hf_context {
     int booklen, sublen, pardeg;
 
-    float time_book, time_lossless;
+    float _time_book, time_lossless;
 
     uint32_t* freq;
 
@@ -66,8 +66,8 @@ typedef struct hf_context {
 typedef hf_context hf_ctx;
 
 typedef struct hf_runtime_mem_layout {
-    // host
-    psz_memseg tmp;  // overlap with err-quant array
+    // device
+    psz_memseg tmp;  // can overlap with err-quant array
     psz_memseg book;
     psz_memseg revbook;
     psz_memseg par_nbit;

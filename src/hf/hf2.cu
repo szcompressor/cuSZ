@@ -22,25 +22,19 @@ template <typename T, typename H, typename M = uint32_t>
 psz_error_status
 hf_encode(hf_context* ctx, hf_mem_layout* mem, T* d_in, size_t const inlen, uint8_t** out, size_t* outlen, void* stream)
 {
-    float time_book;
+    float _time_book;
     float time_lossless;
     *out = (uint8_t*)mem->bitstream.buf;
 
     psz::hf_buildbook_g<T, H>(
-        ctx->freq, ctx->booklen, (H*)mem->book.buf, (uint8_t*)mem->revbook.buf, mem->revbook.len, &time_book,
+        ctx->freq, ctx->booklen, (H*)mem->book.buf, (uint8_t*)mem->revbook.buf, mem->revbook.len, &_time_book,
         (cudaStream_t)stream);
 
-    psz::hf_encode_coarse_rev1<T, H, M>(
-        d_in, inlen, ctx->book_desc, ctx->bitstream_desc, (uint8_t*)mem->bitstream.buf, outlen, &time_lossless,
+    psz::hf_encode_coarse_rev2<T, H, M>(
+        d_in, inlen, ctx->book_desc, ctx->bitstream_desc, &ctx->total_nbit, &ctx->total_ncell, &time_lossless,
         (cudaStream_t)stream);
 
-    // auxillary, put in ctx rather than export as part of output
-    ctx->total_nbit = std::accumulate(
-        (M*)ctx->bitstream_desc->h_metadata->bits,
-        (M*)ctx->bitstream_desc->h_metadata->bits + ctx->bitstream_desc->pardeg, (size_t)0);
-    ctx->total_ncell = std::accumulate(
-        (M*)ctx->bitstream_desc->h_metadata->cells,
-        (M*)ctx->bitstream_desc->h_metadata->cells + ctx->bitstream_desc->pardeg, (size_t)0);
+    // TODO memcpy on event
 
     return CUSZ_SUCCESS;
 }

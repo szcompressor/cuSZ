@@ -16,14 +16,14 @@
 #include "hf/hf_codecg.hh"
 
 template <typename T, typename H, typename M>
-void psz::hf_encode_coarse_rev1(
+void psz::hf_encode_coarse_rev2(
     T*            uncompressed,
     size_t const  len,
     hf_book*      book_desc,
     hf_bitstream* bitstream_desc,
-    uint8_t*&     out_compressed,      // 22-10-12 buggy
-    size_t&       out_compressed_len,  // 22-10-12 buggy
-    float&        time_lossless,
+    size_t*       outlen_nbit,
+    size_t*       outlen_ncell,
+    float*        time_lossless,
     cudaStream_t  stream)
 {
     auto div = [](auto whole, auto part) -> uint32_t {
@@ -69,7 +69,7 @@ void psz::hf_encode_coarse_rev1(
 
         float stage_time;
         TIME_ELAPSED_CUDAEVENT(&stage_time);
-        time_lossless += stage_time;
+        if (time_lossless) *time_lossless += stage_time;
     }
 
     /* phase 2 */
@@ -88,7 +88,7 @@ void psz::hf_encode_coarse_rev1(
 
         float stage_time;
         TIME_ELAPSED_CUDAEVENT(&stage_time);
-        time_lossless += stage_time;
+        if (time_lossless) *time_lossless += stage_time;
     }
 
     /* phase 3 */
@@ -117,7 +117,13 @@ void psz::hf_encode_coarse_rev1(
 
         float stage_time;
         TIME_ELAPSED_CUDAEVENT(&stage_time);
-        time_lossless += stage_time;
+        if (time_lossless) *time_lossless += stage_time;
+    }
+
+    /* phase 5: gather out sizes without memcpy */
+    {
+        if (outlen_nbit) *outlen_nbit = std::accumulate(h_par_nbit, h_par_nbit + pardeg, (size_t)0);
+        if (outlen_ncell) *outlen_ncell = std::accumulate(h_par_ncell, h_par_ncell + pardeg, (size_t)0);
     }
 }
 
@@ -131,7 +137,7 @@ void psz::hf_decode_coarse(
     int const    sublen,
     int const    pardeg,
     T*           out_decompressed,
-    float&       time_lossless,
+    float*       time_lossless,
     cudaStream_t stream)
 {
     auto const block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
@@ -147,16 +153,16 @@ void psz::hf_decode_coarse(
     STOP_CUDAEVENT_RECORDING(stream)
     cudaStreamSynchronize(stream);
 
-    TIME_ELAPSED_CUDAEVENT(&time_lossless);
+    TIME_ELAPSED_CUDAEVENT(time_lossless);
     DESTROY_CUDAEVENT_PAIR;
 }
 
-#define HF_CODEC_INIT(T, H, M)                                                                \
-    template void psz::hf_encode_coarse_rev1<T, H, M>(                                        \
-        T*, size_t const, hf_book*, hf_bitstream*, uint8_t*&, size_t&, float&, cudaStream_t); \
-                                                                                              \
-    template void psz::hf_decode_coarse<T, H, M>(                                             \
-        H*, uint8_t*, int const, M*, M*, int const, int const, T*, float&, cudaStream_t);
+#define HF_CODEC_INIT(T, H, M)                                                              \
+    template void psz::hf_encode_coarse_rev2<T, H, M>(                                      \
+        T*, size_t const, hf_book*, hf_bitstream*, size_t*, size_t*, float*, cudaStream_t); \
+                                                                                            \
+    template void psz::hf_decode_coarse<T, H, M>(                                           \
+        H*, uint8_t*, int const, M*, M*, int const, int const, T*, float*, cudaStream_t);
 
 // 23-06-04 restricted to u4 for quantization code
 

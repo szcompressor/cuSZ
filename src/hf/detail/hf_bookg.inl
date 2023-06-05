@@ -529,7 +529,7 @@ void psz::hf_buildbook_g(
     H*           codebook,
     uint8_t*     reverse_codebook,
     int const    revbook_nbyte,
-    float*       time_book,
+    float*       _time_book,
     cudaStream_t stream)
 {
     // Metadata
@@ -718,7 +718,7 @@ void psz::hf_buildbook_g(
     cudaStreamSynchronize(stream);
 
     STOP_CUDAEVENT_RECORDING(stream);
-    TIME_ELAPSED_CUDAEVENT(time_book);
+    TIME_ELAPSED_CUDAEVENT(_time_book);
     DESTROY_CUDAEVENT_PAIR;
 
     // Cleanup

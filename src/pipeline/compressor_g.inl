@@ -375,12 +375,12 @@ void Compressor<Combination>::collect_compress_timerecord()
   COLLECT_TIME("histogram", time_hist);
 
   if (not use_fallback_codec) {
-    COLLECT_TIME("book", (*codec).get_time_book());
-    COLLECT_TIME("huff-enc", (*codec).get_time_lossless());
+    COLLECT_TIME("book", (*codec).time_book());
+    COLLECT_TIME("huff-enc", (*codec).time_lossless());
   }
   else {
-    COLLECT_TIME("book", (*fb_codec).get_time_book());
-    COLLECT_TIME("huff-enc", (*fb_codec).get_time_lossless());
+    COLLECT_TIME("book", (*fb_codec).time_book());
+    COLLECT_TIME("huff-enc", (*fb_codec).time_lossless());
   }
 
   COLLECT_TIME("outlier", (*spcodec).get_time_elapsed());
@@ -394,10 +394,10 @@ void Compressor<Combination>::collect_decompress_timerecord()
   COLLECT_TIME("outlier", (*spcodec).get_time_elapsed());
 
   if (not use_fallback_codec) {  //
-    COLLECT_TIME("huff-dec", (*codec).get_time_lossless());
+    COLLECT_TIME("huff-dec", (*codec).time_lossless());
   }
   else {  //
-    COLLECT_TIME("huff-dec", (*fb_codec).get_time_lossless());
+    COLLECT_TIME("huff-dec", (*fb_codec).time_lossless());
   }
 
   COLLECT_TIME("predict", (*predictor).get_time_elapsed());
@@ -413,7 +413,7 @@ void Compressor<Combination>::encode_with_exception(
     encoder->build_codebook(d_freq, booklen, stream);
   };
   auto encode_with = [&](auto encoder) {
-    encoder->encode(d_in, inlen, d_out, outlen, stream);
+    encoder->encode(d_in, inlen, &d_out, &outlen, stream);
   };
 
   auto try_fallback_alloc = [&]() {

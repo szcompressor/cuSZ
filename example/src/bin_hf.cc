@@ -65,7 +65,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
     // float  time;
     size_t outlen;
     encoder.build_codebook(d_freq, booklen, stream);
-    encoder.encode(d_d, len, d_compressed, outlen, stream);
+    encoder.encode(d_d, len, &d_compressed, &outlen, stream);
 
     printf("Huffman in  len:\t%u\n", len);
     printf("Huffman out len:\t%u\n", outlen);

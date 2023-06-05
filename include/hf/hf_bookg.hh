@@ -28,7 +28,7 @@ namespace psz {
  * @param codebook output device array; codebook for encoding
  * @param dict_size dictionary size; len of freq or codebook
  * @param reverse_codebook output device array; reverse codebook for decoding
- * @param time_book the returned time
+ * @param _time_book the returned time
  */
 template <typename T, typename H>
 void hf_buildbook_g(
@@ -37,7 +37,7 @@ void hf_buildbook_g(
     H*        codebook,
     uint8_t*  reverse_codebook,
     int const revbook_nbyte,
-    float*    time_book,
+    float*    _time_book,
     cudaStream_t = nullptr);
 
 }  // namespace psz

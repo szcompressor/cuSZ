@@ -18,9 +18,7 @@
 
 #include "hf/hf_struct.h"
 
-#define DEFINE_ARRAY(VAR, TYPE) \
-    TYPE* d_##VAR{nullptr};     \
-    TYPE* h_##VAR{nullptr};
+#define DEFINE_ARRAY(VAR, TYPE) TYPE *d_##VAR{nullptr}, *h_##VAR{nullptr};
 
 namespace cusz {
 
@@ -46,16 +44,16 @@ class HuffmanCodec {
         static const int BITSTREAM = 4;
         static const int END       = 5;
 
-        int       self_bytes : 16;
-        int       booklen : 16;
-        int       sublen;
-        int       pardeg;
-        size_t    uncompressed_len;
-        size_t    total_nbit;
-        size_t    total_ncell;  // TODO change to uint32_t
-        MetadataT entry[END + 1];
+        int    self_bytes : 16;
+        int    booklen : 16;
+        int    sublen;
+        int    pardeg;
+        size_t uncompressed_len;
+        size_t total_nbit;
+        size_t total_ncell;  // TODO change to uint32_t
+        M      entry[END + 1];
 
-        MetadataT subfile_size() const { return entry[END]; }
+        M subfile_size() const { return entry[END]; }
     };
 
     struct runtime_encode_helper {
@@ -93,8 +91,9 @@ class HuffmanCodec {
     // memory
     static const int CELL_BITWIDTH = sizeof(H) * 8;
     // timer
-    float milliseconds{0.0};
-    float time_hist{0.0}, time_book{0.0}, time_lossless{0.0};
+    // float milliseconds{0.0};
+    // float time_hist{0.0};
+    float _time_book{0.0}, _time_lossless{0.0};
 
     hf_book*      book_desc;
     hf_chunk*     chunk_desc_d;
@@ -106,12 +105,12 @@ class HuffmanCodec {
     HuffmanCodec();   // ctor
 
     // getter
-    float         get_time_elapsed() const;
-    float         get_time_book() const;
-    float         get_time_lossless() const;
-    size_t        get_workspace_nbyte(size_t) const;
-    size_t        get_max_output_nbyte(size_t len) const;
-    static size_t get_revbook_nbyte(int);
+    // float         get_time_elapsed() const;
+    float         time_book() const;
+    float         time_lossless() const;
+    size_t        workspace_nyte(size_t) const;
+    size_t        max_out_nbyte(size_t len) const;
+    static size_t reversebook_nbyte(int);
     // getter for internal array
     H*    expose_book() const;
     BYTE* expose_revbook() const;
@@ -120,7 +119,7 @@ class HuffmanCodec {
     // public methods
     void init(size_t const, int const, int const, bool dbg_print = false);
     void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, BYTE*&, size_t&, cudaStream_t = nullptr);
+    void encode(T*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
     void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
     void clear_buffer();
 
