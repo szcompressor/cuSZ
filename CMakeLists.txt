@@ -131,6 +131,11 @@ add_library(psz_comp src/custom.cc src/compressor.cu)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel psz_statg
                                       psz_hfg CUDA::cudart)
 
+# 2023 June fix start
+add_library(psz_comp2 src/psz_lib.cc src/rt_config.cu)
+target_link_libraries(psz_comp2 PUBLIC pszcompile_settings CUDA::cudart)
+# 2023 June fix end
+
 add_library(cusz src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC psz_comp psz_argp psz_hfg psz_spv psz_stat
                                   psz_utilsg)

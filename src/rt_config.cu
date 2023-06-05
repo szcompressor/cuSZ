@@ -18,13 +18,19 @@
 #include "rt_config.h"
 #include "utils/timer.h"
 
+#include <iostream>
+using std::cout;
+using std::endl;
+
 // query
 psz_error_status psz_query_device(psz_device_property* prop)
 {
     int device_id;
     cudaGetDevice(&device_id);
 
-    cudaSetDevice(device_id);
+    // cout << "device_id\t" << device_id << endl;
+    // cudaSetDevice(device_id);
+
     cudaDeviceProp dev_prop{};
     cudaGetDeviceProperties(&dev_prop, device_id);
 
