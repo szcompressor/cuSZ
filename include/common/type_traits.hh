@@ -89,18 +89,31 @@ template <bool FAST> struct FastLowPrecisionTrait;
 template <> struct FastLowPrecisionTrait<true>  { typedef float  type; };
 template <> struct FastLowPrecisionTrait<false> { typedef double type; };
 
-template <psz_dtype T> struct Tmap;
-template <> struct Tmap<F4> { typedef float    type; static const int width = sizeof(float);    };
-template <> struct Tmap<F8> { typedef double   type; static const int width = sizeof(double);   };
-template <> struct Tmap<I1> { typedef int8_t   type; static const int width = sizeof(int8_t);   };
-template <> struct Tmap<I2> { typedef int16_t  type; static const int width = sizeof(int16_t);  };
-template <> struct Tmap<I4> { typedef int32_t  type; static const int width = sizeof(int32_t);  };
-template <> struct Tmap<I8> { typedef int64_t  type; static const int width = sizeof(int64_t);  };
-template <> struct Tmap<U1> { typedef uint8_t  type; static const int width = sizeof(uint8_t);  };
-template <> struct Tmap<U2> { typedef uint16_t type; static const int width = sizeof(uint16_t); };
-template <> struct Tmap<U4> { typedef uint32_t type; static const int width = sizeof(uint32_t); };
-template <> struct Tmap<U8> { typedef uint64_t type; static const int width = sizeof(uint64_t); };
-template <> struct Tmap<ULL>{ typedef unsigned long long type; static const int width = sizeof(unsigned long long);  };
+template <psz_dtype T> struct Ctype;
+template <> struct Ctype<F4> { typedef float    type; static const int width = sizeof(float);    };
+template <> struct Ctype<F8> { typedef double   type; static const int width = sizeof(double);   };
+template <> struct Ctype<I1> { typedef int8_t   type; static const int width = sizeof(int8_t);   };
+template <> struct Ctype<I2> { typedef int16_t  type; static const int width = sizeof(int16_t);  };
+template <> struct Ctype<I4> { typedef int32_t  type; static const int width = sizeof(int32_t);  };
+template <> struct Ctype<I8> { typedef int64_t  type; static const int width = sizeof(int64_t);  };
+template <> struct Ctype<U1> { typedef uint8_t  type; static const int width = sizeof(uint8_t);  };
+template <> struct Ctype<U2> { typedef uint16_t type; static const int width = sizeof(uint16_t); };
+template <> struct Ctype<U4> { typedef uint32_t type; static const int width = sizeof(uint32_t); };
+template <> struct Ctype<U8> { typedef uint64_t type; static const int width = sizeof(uint64_t); };
+template <> struct Ctype<ULL>{ typedef unsigned long long type; static const int width = sizeof(unsigned long long); };
+
+template <typename Ctype> struct PszType;
+template <> struct PszType<float>    { static const psz_dtype type = F4; static const int width = sizeof(float);    };
+template <> struct PszType<double>   { static const psz_dtype type = F8; static const int width = sizeof(double);   };
+template <> struct PszType<int8_t>   { static const psz_dtype type = I1; static const int width = sizeof(int8_t);   };
+template <> struct PszType<int16_t>  { static const psz_dtype type = I2; static const int width = sizeof(int16_t);  };
+template <> struct PszType<int32_t>  { static const psz_dtype type = I4; static const int width = sizeof(int32_t);  };
+template <> struct PszType<int64_t>  { static const psz_dtype type = I8; static const int width = sizeof(int64_t);  };
+template <> struct PszType<uint8_t>  { static const psz_dtype type = U1; static const int width = sizeof(uint8_t);  };
+template <> struct PszType<uint16_t> { static const psz_dtype type = U2; static const int width = sizeof(uint16_t); };
+template <> struct PszType<uint32_t> { static const psz_dtype type = U4; static const int width = sizeof(uint32_t); };
+template <> struct PszType<uint64_t> { static const psz_dtype type = U8; static const int width = sizeof(uint64_t); };
+template <> struct PszType<unsigned long long> { static const psz_dtype type = ULL; static const int width = sizeof(unsigned long long); };
 // clang-format on
 
 #endif
