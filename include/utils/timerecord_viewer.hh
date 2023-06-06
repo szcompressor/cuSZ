@@ -84,8 +84,8 @@ struct TimeRecordViewer {
         printf("\n(c) COMPRESSION REPORT\n");
         report_cr();
 
-        ReportHelper::println_throughput_tablehead();
-        for (auto& i : reflow) ReportHelper::println_throughput(std::get<0>(i), std::get<1>(i), bytes);
+        psz_utils::println_throughput_tablehead();
+        for (auto& i : reflow) psz_utils::println_throughput(std::get<0>(i), std::get<1>(i), bytes);
 
         printf("\n");
     }
@@ -97,8 +97,8 @@ struct TimeRecordViewer {
         auto total_time = get_total_time(r);
         (*r).push_back({const_cast<const char*>("(total)"), total_time});
 
-        ReportHelper::println_throughput_tablehead();
-        for (auto& i : *r) ReportHelper::println_throughput(std::get<0>(i), std::get<1>(i), bytes);
+        psz_utils::println_throughput_tablehead();
+        for (auto& i : *r) psz_utils::println_throughput(std::get<0>(i), std::get<1>(i), bytes);
 
         printf("\n");
     }

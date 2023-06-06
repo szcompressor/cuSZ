@@ -126,10 +126,10 @@ struct QualityViewer {
     }
 
     template <typename T>
-    static void view(header_t header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
+    static void view(cusz_header* header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
     {
-        auto len             = ConfigHelper::get_uncompressed_len(header);
-        auto compressd_bytes = ConfigHelper::get_filesize(header);
+        auto len             = psz_utils::get_uncompressed_len(header);
+        auto compressd_bytes = psz_utils::get_filesize(header);
 
         auto compare_on_gpu = [&]() {
             cmp.mallochost().malloc().fromfile(compare).host2device();

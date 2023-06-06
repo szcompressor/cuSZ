@@ -141,7 +141,7 @@ void psz::hf_decode_coarse(
     cudaStream_t stream)
 {
     auto const block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
-    auto const grid_dim  = ConfigHelper::get_npart(pardeg, block_dim);
+    auto const grid_dim  = psz_utils::get_npart(pardeg, block_dim);
 
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream)

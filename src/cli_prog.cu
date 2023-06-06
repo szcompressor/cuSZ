@@ -15,7 +15,9 @@
 
 int main(int argc, char** argv)
 {
-    auto ctx = new cuszCTX(argc, argv);
+    // auto ctx = new cusz_context(argc, argv);
+    auto ctx = new cusz_context;
+    pszctx_create_from_argv(ctx, argc, argv);
 
     if (ctx->verbose) {
         Diagnostics::GetMachineProperties();

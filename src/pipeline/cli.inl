@@ -16,6 +16,7 @@
 #include <type_traits>
 
 #include "cusz.h"
+#include "cusz/type.h"
 #include "dryrun.hh"
 #include "framework.hh"
 #include "utils/analyzer.hh"
@@ -29,17 +30,13 @@ namespace cusz {
 template <typename Data = float>
 class CLI {
  private:
-  using Header = cuszHEADER;
   using T = Data;
-
-  using context_t = cuszCTX*;
-  using header_t = cuszHEADER*;
 
  public:
   CLI() = default;
 
   template <typename T>
-  static void cli_dryrun(context_t ctx, bool dualquant = true)
+  static void do_dryrun(cusz_context* ctx, bool dualquant = true)
   {
     Dryrunner<T> dryrun;
 
@@ -49,14 +46,12 @@ class CLI {
 
     if (not dualquant) {
       dryrun.init_dualquant_dryrun(xyz)
-          .dualquant_dryrun(
-              ctx->fname.fname, ctx->eb, ctx->mode == "r2r", stream)
+          .dualquant_dryrun(ctx->infile, ctx->eb, ctx->mode == Rel, stream)
           .destroy_dualquant_dryrun();
     }
     else {
       dryrun.init_generic_dryrun(xyz)
-          .generic_dryrun(
-              ctx->fname.fname, ctx->eb, 512, ctx->mode == "r2r", stream)
+          .generic_dryrun(ctx->infile, ctx->eb, 512, ctx->mode == Rel, stream)
           .destroy_generic_dryrun();
     }
     cudaStreamDestroy(stream);
@@ -83,15 +78,15 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void cli_construct(
-      context_t ctx, cusz_compressor* compressor, cudaStream_t stream)
+  void do_construct(
+      cusz_context* ctx, cusz_compressor* compressor, cudaStream_t stream)
   {
     Capsule<T> input("uncompressed");
     uint8_t* compressed;
     size_t compressed_len;
-    Header header;
-    auto len = ctx->get_len();
-    auto basename = ctx->fname.fname;
+    cusz_header header;
+    auto len = ctx->data_len;
+    // auto basename = ctx->infile;
 
     auto load_uncompressed = [&](std::string fname) {
       input
@@ -103,12 +98,11 @@ class CLI {
     };
 
     auto adjust_eb = [&]() {
-      if (ctx->mode == "r2r") ctx->eb *= input.prescan().get_rng();
+      if (ctx->mode == Rel) ctx->eb *= input.prescan().get_rng();
     };
 
     /******************************************************************************/
-
-    load_uncompressed(basename);
+    load_uncompressed(std::string(ctx->infile));
     adjust_eb();
 
     TimeRecord timerecord;
@@ -120,23 +114,27 @@ class CLI {
         compressor, config, input.dptr(), uncomp_len, &compressed,
         &compressed_len, &header, (void*)&timerecord, stream);
 
-    if (ctx->report.time)
+    if (ctx->report_time)
       TimeRecordViewer::view_compression(
           &timerecord, input.nbyte(), compressed_len);
-    write_compressed_to_disk(basename + ".cusza", compressed, compressed_len);
+    write_compressed_to_disk(
+        std::string(ctx->infile) + ".cusza", compressed, compressed_len);
   }
 
   // template <typename compressor_t>
-  void cli_reconstruct(
-      context_t ctx, cusz_compressor* compressor, cudaStream_t stream)
+  void do_reconstruct(
+      cusz_context* ctx, cusz_compressor* compressor, cudaStream_t stream)
   {
     Capsule<uint8_t> compressed("compressed");
     Capsule<T> decompressed("decompressed"), original("cmp");
-    auto header = new Header;
-    auto basename = (*ctx).fname.fname;
+    auto header = new cusz_header;
+
+    auto basename = std::string(ctx->infile);
+    // remove suffix ".cusza"
+    basename = basename.substr(0, basename.rfind('.'));
 
     auto load_compressed = [&](std::string compressed_name) {
-      auto compressed_len = ConfigHelper::get_filesize(compressed_name);
+      auto compressed_len = psz_utils::get_filesize(compressed_name);
       compressed
           .set_len(compressed_len)  //
           .mallochost()
@@ -148,8 +146,8 @@ class CLI {
     /******************************************************************************/
 
     load_compressed(basename + ".cusza");
-    memcpy(header, compressed.hptr(), sizeof(Header));
-    auto len = ConfigHelper::get_uncompressed_len(header);
+    memcpy(header, compressed.hptr(), sizeof(cusz_header));
+    auto len = psz_utils::get_uncompressed_len(header);
 
     decompressed  //
         .set_len(len)
@@ -162,26 +160,28 @@ class CLI {
     cusz_len decomp_len = cusz_len{header->x, header->y, header->z, 1};
 
     cusz_decompress(
-        compressor, header, compressed.dptr(),
-        ConfigHelper::get_filesize(header), decompressed.dptr(), decomp_len,
-        (void*)&timerecord, stream);
+        compressor, header, compressed.dptr(), psz_utils::get_filesize(header),
+        decompressed.dptr(), decomp_len, (void*)&timerecord, stream);
 
-    if (ctx->report.time)
+    if (ctx->report_time)
       TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
-    QualityViewer::view(
-        header, decompressed, original, (*ctx).fname.origin_cmp);
-    try_write_decompressed_to_disk(
-        decompressed, basename, (*ctx).skip.write2disk);
+    QualityViewer::view(header, decompressed, original, ctx->original_file);
+
+    // try_write_decompressed_to_disk(decompressed, basename,
+    // ctx->skip_tofile);
+
+    if (not ctx->skip_tofile)
+      decompressed.device2host().tofile(basename + ".cuszx");
 
     decompressed.freehost().free();
   }
 
  public:
   // TODO determine dtype & predictor in here
-  void dispatch(context_t ctx)
+  void dispatch(cusz_context* ctx)
   {
     // TODO disable predictor selection; to specify in another way
-    // auto predictor = (*ctx).predictor;
+    // auto predictor = ctx->predictor;
 
     cusz_framework* framework = cusz_default_framework();
     cusz_compressor* compressor = cusz_create(framework, FP32);
@@ -190,9 +190,9 @@ class CLI {
     CHECK_CUDA(cudaStreamCreate(&stream));
 
     // TODO enable f8
-    if ((*ctx).cli_task.dryrun) cli_dryrun<float>(ctx);
-    if ((*ctx).cli_task.construct) cli_construct(ctx, compressor, stream);
-    if ((*ctx).cli_task.reconstruct) cli_reconstruct(ctx, compressor, stream);
+    if (ctx->task_dryrun) do_dryrun<float>(ctx);
+    if (ctx->task_construct) do_construct(ctx, compressor, stream);
+    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
 
     if (stream) cudaStreamDestroy(stream);
   }

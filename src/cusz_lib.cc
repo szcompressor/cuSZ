@@ -10,10 +10,14 @@
  *
  */
 
+#include <iostream>
 #include <stdexcept>
 
+using std::cout;
+using std::endl;
+
 #include "compressor.hh"
-#include "context.hh"
+#include "context.h"
 #include "cusz.h"
 #include "cusz/custom.h"
 #include "cusz/type.h"
@@ -56,23 +60,24 @@ cusz_error_status cusz_compress(
 {
     // cusz::TimeRecord cpp_record;
 
-    auto context = new cusz_context();
-    (*context)
-        .set_len(uncomp_len.x, uncomp_len.y, uncomp_len.z, uncomp_len.w)
-        .set_eb(config->eb)
-        .set_control_string(config->eb == Rel ? "mode=r2r" : "mode=abs");
+    auto ctx = new cusz_context;
+
+    pszctx_set_len(ctx, uncomp_len);
+
+    ctx->eb   = config->eb;
+    ctx->mode = config->mode;
 
     // Be cautious of autotuning! The default value of pardeg is not robust.
-    cusz::CompressorHelper::autotune_coarse_parvle(static_cast<cusz_context*>(context));
+    cusz::CompressorHelper::autotune_coarse_parvle(static_cast<cusz_context*>(ctx));
 
     if (comp->type == FP32) {
         using DATA       = float;
         using Compressor = cusz::CompressorFP32;
 
         // TODO add memlen & datalen comparison
-        static_cast<Compressor*>(comp->compressor)->init(context);
+        static_cast<Compressor*>(comp->compressor)->init(ctx);
         static_cast<Compressor*>(comp->compressor)
-            ->compress(context, static_cast<DATA*>(uncompressed), *compressed, *comp_bytes, stream);
+            ->compress(ctx, static_cast<DATA*>(uncompressed), *compressed, *comp_bytes, stream);
         static_cast<Compressor*>(comp->compressor)->export_header(*header);
         static_cast<Compressor*>(comp->compressor)->export_timerecord((cusz::TimeRecord*)record);
     }

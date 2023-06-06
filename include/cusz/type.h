@@ -80,6 +80,7 @@ typedef enum cusz_datatype  //
   I8 = 48,
   //
   ULL = 51 } cusz_datatype;
+typedef cusz_datatype cusz_dtype;
 typedef cusz_datatype psz_dtype;
 
 typedef enum cusz_executiontype  //

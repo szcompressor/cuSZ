@@ -14,7 +14,7 @@
 
 #include "common/definition.hh"
 #include "common/type_traits.hh"
-#include "context.hh"
+#include "context.h"
 // #include "hf/hf.hh"
 #include "kernel/dryrun.cuh"
 // #include "pipeline/prediction.inl"
@@ -29,38 +29,40 @@
 namespace cusz {
 
 template <typename T>
-Dryrunner<T>&
-Dryrunner<T>::generic_dryrun(const std::string fname, double eb, int radius, bool r2r, cudaStream_t stream)
+Dryrunner<T>& Dryrunner<T>::generic_dryrun(
+    const std::string fname, double eb, int radius, bool r2r,
+    cudaStream_t stream)
 {
-    throw std::runtime_error("Generic dryrun is disabled.");
-    return *this;
+  throw std::runtime_error("Generic dryrun is disabled.");
+  return *this;
 }
 
 template <typename T>
-Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(const std::string fname, double eb, bool r2r, cudaStream_t stream)
+Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(
+    const std::string fname, double eb, bool r2r, cudaStream_t stream)
 {
-    auto len = original.len();
+  auto len = original.len();
 
-    original.fromfile(fname).host2device_async(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+  original.fromfile(fname).host2device_async(stream);
+  CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    if (r2r) original.prescan(max, min, rng), eb *= rng;
+  if (r2r) original.prescan(max, min, rng), eb *= rng;
 
-    auto ebx2_r = 1 / (eb * 2);
-    auto ebx2   = eb * 2;
+  auto ebx2_r = 1 / (eb * 2);
+  auto ebx2 = eb * 2;
 
-    cusz::dualquant_dryrun_kernel                                              //
-        <<<ConfigHelper::get_npart(len, 256), 256, 256 * sizeof(T), stream>>>  //
-        (original.dptr(), reconst.dptr(), len, ebx2_r, ebx2);
+  cusz::dualquant_dryrun_kernel                                           //
+      <<<psz_utils::get_npart(len, 256), 256, 256 * sizeof(T), stream>>>  //
+      (original.dptr(), reconst.dptr(), len, ebx2_r, ebx2);
 
-    reconst.device2host_async(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+  reconst.device2host_async(stream);
+  CHECK_CUDA(cudaStreamSynchronize(stream));
 
-    cusz_stats stat;
-    psz::thrustgpu_assess_quality(&stat, reconst.hptr(), original.hptr(), len);
-    cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
+  cusz_stats stat;
+  psz::thrustgpu_assess_quality(&stat, reconst.hptr(), original.hptr(), len);
+  cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
-    return *this;
+  return *this;
 }
 
 template <typename T>
@@ -71,34 +73,34 @@ Dryrunner<T>::~Dryrunner()
 template <typename T>
 Dryrunner<T>& Dryrunner<T>::init_generic_dryrun(dim3 size)
 {
-    throw std::runtime_error("Generic dryrun is disabled.");
-    return *this;
+  throw std::runtime_error("Generic dryrun is disabled.");
+  return *this;
 }
 
 template <typename T>
 Dryrunner<T>& Dryrunner<T>::destroy_generic_dryrun()
 {
-    throw std::runtime_error("Generic dryrun is disabled.");
-    return *this;
+  throw std::runtime_error("Generic dryrun is disabled.");
+  return *this;
 }
 
 template <typename T>
 Dryrunner<T>& Dryrunner<T>::init_dualquant_dryrun(dim3 size)
 {
-    auto len = size.x * size.y * size.z;
-    original.set_len(len).mallochost().malloc();
-    reconst.set_len(len).mallochost().malloc();
+  auto len = size.x * size.y * size.z;
+  original.set_len(len).mallochost().malloc();
+  reconst.set_len(len).mallochost().malloc();
 
-    return *this;
+  return *this;
 }
 
 template <typename T>
 Dryrunner<T>& Dryrunner<T>::destroy_dualquant_dryrun()
 {
-    original.freehost().free();
-    reconst.freehost().free();
+  original.freehost().free();
+  reconst.freehost().free();
 
-    return *this;
+  return *this;
 }
 
 }  // namespace cusz

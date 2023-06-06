@@ -1,7 +1,7 @@
 #ifndef D3610824_7841_4292_99E9_D3F4F57E5C80
 #define D3610824_7841_4292_99E9_D3F4F57E5C80
 
-#include "context.hh"
+#include "context.h"
 #include "utils/capsule.hh"
 
 namespace cusz {
@@ -16,10 +16,10 @@ class Dryrunner {
     Capsule<T> reconst;
 
    protected:
-    cuszCTX* ctx;
-    int      dict_size;
-    dim3     xyz;
-    double   eb, max, min, rng;
+    cusz_context* ctx;
+    int           dict_size;
+    dim3          xyz;
+    double        eb, max, min, rng;
 
    public:
     Dryrunner() = default;

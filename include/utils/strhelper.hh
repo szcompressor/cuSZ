@@ -27,7 +27,7 @@ using ss_t     = std::stringstream;
 using map_t    = std::unordered_map<std::string, std::string>;
 using str_list = std::vector<std::string>;
 
-struct StrHelper {
+struct psz_helper {
     static unsigned int str2int(const char* s)
     {
         char* end;

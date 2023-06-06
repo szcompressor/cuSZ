@@ -25,12 +25,16 @@
 #include "kernel/lorenzo_all.hh"
 #include "kernel/spv_gpu.hh"
 #include "stat/stat_g.hh"
+#include "utils/configs.hh"
 #include "utils/cuda_err.cuh"
 
-#define PRINT_ENTRY(VAR)                               \
-  printf(                                              \
-      "%d %-*s:  %'10u\n", (int)Header::VAR, 14, #VAR, \
-      header.entry[Header::VAR]);
+using std::cout;
+using std::endl;
+
+#define PRINT_ENTRY(VAR)                                    \
+  printf(                                                   \
+      "%d %-*s:  %'10u\n", (int)cusz_header::VAR, 14, #VAR, \
+      header.entry[cusz_header::VAR]);
 
 namespace cusz {
 
@@ -55,14 +59,14 @@ Compressor<Combination>::~Compressor() { destroy(); }
 
 // TODO
 TEMPLATE_TYPE
-void Compressor<Combination>::init(Context* config, bool dbg_print)
+void Compressor<Combination>::init(cusz_context* config, bool dbg_print)
 {
   codec = new Codec;
   init_detail(config, dbg_print);
 }
 
 TEMPLATE_TYPE
-void Compressor<Combination>::init(Header* config, bool dbg_print)
+void Compressor<Combination>::init(cusz_header* config, bool dbg_print)
 {
   codec = new Codec;
   init_detail(config, dbg_print);
@@ -79,7 +83,7 @@ void Compressor<Combination>::init(Header* config, bool dbg_print)
 
 TEMPLATE_TYPE
 void Compressor<Combination>::compress(
-    Context* config, T* uncompressed, BYTE*& compressed,
+    cusz_context* config, T* uncompressed, BYTE*& compressed,
     size_t& compressed_len, cudaStream_t stream, bool dbg_print)
 {
   auto const eb = config->eb;
@@ -89,18 +93,18 @@ void Compressor<Combination>::compress(
   // auto const nz_density_factor = config->nz_density_factor;
 
   if (dbg_print) {
-    std::cout << "eb\t" << eb << endl;
-    std::cout << "radius\t" << radius << endl;
-    std::cout << "pardeg\t" << pardeg << endl;
-    // std::cout << "codecs_in_use\t" << codecs_in_use << endl;
-    // std::cout << "nz_density_factor\t" << nz_density_factor << endl;
+    cout << "eb\t" << eb << endl;
+    cout << "radius\t" << radius << endl;
+    cout << "pardeg\t" << pardeg << endl;
+    // cout << "codecs_in_use\t" << codecs_in_use << endl;
+    // cout << "nz_density_factor\t" << nz_density_factor << endl;
   }
 
   auto div = [](auto whole, auto part) { return (whole - 1) / part + 1; };
 
   data_len3 = dim3(config->x, config->y, config->z);
-  auto codec_force_fallback = config->codec_force_fallback();
 
+  // auto codec_force_fallback = config->codec_force_fallback();
   // header.codecs_in_use = codecs_in_use;
   // header.nz_density_factor = nz_density_factor;
 
@@ -147,7 +151,7 @@ void Compressor<Combination>::compress(
   merge_subfiles(d_codec_out, codec_outlen, d_spval, d_spidx, splen, stream);
 
   // output
-  compressed_len = ConfigHelper::get_filesize(&header);
+  compressed_len = psz_utils::get_filesize(&header);
   compressed = d_reserved_compressed;
 
   collect_compress_timerecord();
@@ -169,14 +173,14 @@ void Compressor<Combination>::clear_buffer()
 
 TEMPLATE_TYPE
 void Compressor<Combination>::decompress(
-    Header* header, BYTE* in_compressed, T* out_decompressed,
+    cusz_header* header, BYTE* in_compressed, T* out_decompressed,
     cudaStream_t stream, bool dbg_print)
 {
   // TODO host having copy of header when compressing
   if (not header) {
-    header = new Header;
+    header = new cusz_header;
     CHECK_CUDA(cudaMemcpyAsync(
-        header, in_compressed, sizeof(Header), cudaMemcpyDeviceToHost,
+        header, in_compressed, sizeof(cusz_header), cudaMemcpyDeviceToHost,
         stream));
     CHECK_CUDA(cudaStreamSynchronize(stream));
   }
@@ -188,12 +192,13 @@ void Compressor<Combination>::decompress(
   int const radius = header->radius;
 
   // The inputs of components are from `compressed`.
-  auto d_vle = (BYTE*)(in_compressed + header->entry[Header::VLE]);
+  auto d_vle = (BYTE*)(in_compressed + header->entry[cusz_header::VLE]);
 
   auto spval_nbyte = header->splen * sizeof(T);
-  auto local_d_spval = (T*)(in_compressed + header->entry[Header::SPFMT]);
+  auto local_d_spval = (T*)(in_compressed + header->entry[cusz_header::SPFMT]);
   auto local_d_spidx =
-      (uint32_t*)(in_compressed + header->entry[Header::SPFMT] + spval_nbyte);
+      (uint32_t*)(in_compressed + header->entry[cusz_header::SPFMT] +
+                  spval_nbyte);
 
   // wire and aliasing
   auto d_outlier = out_decompressed;
@@ -216,13 +221,13 @@ void Compressor<Combination>::decompress(
 
 // public getter
 TEMPLATE_TYPE
-void Compressor<Combination>::export_header(Header& ext_header)
+void Compressor<Combination>::export_header(cusz_header& ext_header)
 {
   ext_header = header;
 }
 
 TEMPLATE_TYPE
-void Compressor<Combination>::export_header(Header* ext_header)
+void Compressor<Combination>::export_header(cusz_header* ext_header)
 {
   *ext_header = header;
 }
@@ -311,17 +316,18 @@ void Compressor<Combination>::merge_subfiles(
     BYTE* d_codec_out, size_t codec_outlen, T* _d_spval, M* _d_spidx,
     size_t _splen, cudaStream_t stream)
 {
-  header.self_bytes = sizeof(Header);
-  uint32_t nbyte[Header::END];
-  nbyte[Header::HEADER] = sizeof(Header);
-  nbyte[Header::ANCHOR] = 0;
-  nbyte[Header::VLE] = sizeof(BYTE) * codec_outlen;
-  nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * _splen;
+  header.self_bytes = sizeof(cusz_header);
+  uint32_t nbyte[cusz_header::END];
+  nbyte[cusz_header::HEADER] = sizeof(cusz_header);
+  nbyte[cusz_header::ANCHOR] = 0;
+  nbyte[cusz_header::VLE] = sizeof(BYTE) * codec_outlen;
+  nbyte[cusz_header::SPFMT] = (sizeof(T) + sizeof(M)) * _splen;
 
   header.entry[0] = 0;
   // *.END + 1; need to know the ending position
-  for (auto i = 1; i < Header::END + 1; i++) header.entry[i] = nbyte[i - 1];
-  for (auto i = 1; i < Header::END + 1; i++)
+  for (auto i = 1; i < cusz_header::END + 1; i++)
+    header.entry[i] = nbyte[i - 1];
+  for (auto i = 1; i < cusz_header::END + 1; i++)
     header.entry[i] += header.entry[i - 1];
 
   CHECK_CUDA(cudaMemcpyAsync(
@@ -329,25 +335,25 @@ void Compressor<Combination>::merge_subfiles(
       stream));
 
   {
-    auto dst = d_reserved_compressed + header.entry[Header::VLE];
+    auto dst = d_reserved_compressed + header.entry[cusz_header::VLE];
     auto src = reinterpret_cast<BYTE*>(d_codec_out);
     CHECK_CUDA(cudaMemcpyAsync(
-        dst, src, nbyte[Header::VLE], cudaMemcpyDeviceToDevice, stream));
+        dst, src, nbyte[cusz_header::VLE], cudaMemcpyDeviceToDevice, stream));
   }
 
   {
     // copy spval
     auto part1_nbyte = sizeof(T) * _splen;
     {
-      auto dst = d_reserved_compressed + header.entry[Header::SPFMT];
+      auto dst = d_reserved_compressed + header.entry[cusz_header::SPFMT];
       auto src = reinterpret_cast<BYTE*>(_d_spval);
       CHECK_CUDA(cudaMemcpyAsync(
           dst, src, part1_nbyte, cudaMemcpyDeviceToDevice, stream));
     }
     // copy spidx
     {
-      auto dst =
-          d_reserved_compressed + header.entry[Header::SPFMT] + part1_nbyte;
+      auto dst = d_reserved_compressed + header.entry[cusz_header::SPFMT] +
+                 part1_nbyte;
       auto src = reinterpret_cast<BYTE*>(_d_spidx);
       CHECK_CUDA(cudaMemcpyAsync(
           dst, src, sizeof(uint32_t) * _splen, cudaMemcpyDeviceToDevice,

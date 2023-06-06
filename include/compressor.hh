@@ -17,17 +17,15 @@
 
 #include "common/type_traits.hh"
 #include "compaction.hh"
-#include "context.hh"
+#include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
-// #include "prediction.inl"
-// #include "spcodec.inl"
 
 namespace cusz {
 
 // extra helper
 struct CompressorHelper {
-    static int autotune_coarse_parvle(Context* ctx);
+    static int autotune_coarse_parvle(cusz_context* ctx);
 };
 
 template <class Combination>
@@ -56,7 +54,7 @@ class Compressor {
     TimeRecord timerecord;
 
     // header
-    Header header;
+    cusz_header header;
 
     // external codec that has complex internals
     Codec* codec;
@@ -86,15 +84,15 @@ class Compressor {
     ~Compressor();
 
     // public methods
-    void init(Context* config, bool dbg_print = false);
-    void init(Header* config, bool dbg_print = false);
-    void compress(Context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decompress(Header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    void init(cusz_context* config, bool dbg_print = false);
+    void init(cusz_header* config, bool dbg_print = false);
+    void compress(cusz_context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
+    void decompress(cusz_header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
     void clear_buffer();
 
     // getter
-    void export_header(Header&);
-    void export_header(Header*);
+    void export_header(cusz_header&);
+    void export_header(cusz_header*);
     void export_timerecord(TimeRecord*);
 
    private:

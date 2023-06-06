@@ -13,7 +13,7 @@
 #include <cuda_runtime.h>
 #include <cstdint>
 
-#include "context.hh"
+#include "context.h"
 #include "framework.hh"
 #include "hf/hf.hh"
 #include "kernel/lorenzo_all.hh"
@@ -62,7 +62,7 @@ psz_error_status psz_compress(
     int                  backend,
     psz_compressor*      comp,
     psz_device_property* prop,
-    cusz::Context*       config,
+    cusz_context*        config,
     void*                codec,
     psz_mem_layout*      mem,
     void*                in,

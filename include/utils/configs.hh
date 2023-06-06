@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "../common/definition.hh"
+#include "../cusz/type.h"
 #include "../header.h"
 
 #if __cplusplus >= 201703L
@@ -40,105 +41,34 @@ struct HuffmanHelper {
     static const int DEFLATE_CONSTANT  = 4;  // TODO -> deflate_chunk_constant
 };
 
-struct StringHelper {
+struct psz_utils {
     static std::string nnz_percentage(uint32_t nnz, uint32_t data_len)
     {
         return "(" + std::to_string(nnz / 1.0 / data_len * 100) + "%)";
     }
-};
 
-struct ConfigHelper {
-    static uint32_t predictor_lookup(std::string name)
-    {
-        const std::unordered_map<std::string, uint32_t> lut = {
-            {"lorenzo", 0}, {"lorenzoii", 1}, {"spline3", 2}  //
-        };
-        if (lut.find(name) != lut.end()) throw std::runtime_error("no such predictor as " + name);
-        return lut.at(name);
-    }
-
-    static uint32_t codec_lookup(std::string name)
-    {
-        const std::unordered_map<std::string, uint32_t> lut = {
-            {"huffman-coarse", 0}  //
-        };
-        if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
-        return lut.at(name);
-    }
-
-    static uint32_t spcodec_lookup(std::string name)
-    {
-        const std::unordered_map<std::string, uint32_t> lut = {
-            {"spmat", 0}, {"spvec", 1}  //
-        };
-        if (lut.find(name) != lut.end()) throw std::runtime_error("no such codec as " + name);
-        return lut.at(name);
-    }
-
-    static std::string get_default_predictor() { return "lorenzo"; }
-    static std::string get_default_spcodec() { return "csr11"; }
-    static std::string get_default_codec() { return "huffman-coarse"; }
-    static std::string get_default_cuszmode() { return "r2r"; }
-    static std::string get_default_dtype() { return "f32"; }
-
-    static bool check_predictor(const std::string& val, bool fatal = false)
-    {
-        auto legal = (val == "lorenzo") or (val == "spline3");
-        if (not legal) {
-            if (fatal)
-                throw std::runtime_error("`predictor` must be \"lorenzo\" or \"spline3\".");
-            else
-                printf("fallback to the default \"%s\".", get_default_predictor().c_str());
-        }
-        return legal;
-    }
-
-    static bool check_codec(const std::string& val, bool fatal = false)
-    {
-        auto legal = (val == "huffman-coarse");
-        if (not legal) {
-            if (fatal)
-                throw std::runtime_error("`codec` must be \"huffman-coarse\".");
-            else
-                printf("fallback to the default \"%s\".", get_default_codec().c_str());
-        }
-        return legal;
-    }
-
-    static bool check_spcodec(const std::string& val, bool fatal = false)
-    {
-        auto legal = (val == "csr11") or (val == "rle");
-        if (not legal) {
-            if (fatal)
-                throw std::runtime_error("`codec` must be \"csr11\" or \"rle\".");
-            else
-                printf("fallback to the default \"%s\".", get_default_codec().c_str());
-        }
-        return legal;
-    }
-
-    static bool check_cuszmode(const std::string& val, bool fatal = false)
+    static void check_cuszmode(const std::string& val)
     {
         auto legal = (val == "r2r") or (val == "abs");
-        if (not legal) {
-            if (fatal)
-                throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
-            else
-                printf("fallback to the default \"%s\".", get_default_cuszmode().c_str());
-        }
+        if (not legal) throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
+    }
+
+    static bool check_dtype(const std::string& val, bool delay_failure = true)
+    {
+        auto legal = (val == "f32") or (val == "f4");
+        // auto legal = (val == "f32") or (val == "f64");
+        if (not legal)
+            if (not delay_failure) throw std::runtime_error("Only `f32`/`f4` is supported temporarily.");
+
         return legal;
     }
 
-    static bool check_dtype(const std::string& val, bool fatal = false)
+    static bool check_dtype(const cusz_dtype& val, bool delay_failure = true)
     {
-        auto legal = (val == "f32");
-        // auto legal = (val == "f32") or (val == "f64");
-        if (not legal) {
-            if (fatal)
-                throw std::runtime_error("`dtype` must be \"f32\".");
-            else
-                printf("fallback to the default \"%s\".", get_default_dtype().c_str());
-        }
+        auto legal = (val == F4);
+        if (not legal)
+            if (not delay_failure) throw std::runtime_error("Only `f32` is supported temporarily.");
+
         return legal;
     }
 
@@ -186,17 +116,13 @@ struct ConfigHelper {
 
         return (size + subsize - 1) / subsize;
     }
-};
 
-struct CompareHelper {
     template <typename TRIO>
     static bool eq(TRIO a, TRIO b)
     {
         return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
     };
-};
 
-struct ReportHelper {
     static float get_throughput(float milliseconds, size_t nbyte)
     {
         auto GiB     = 1.0 * 1024 * 1024 * 1024;

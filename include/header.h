@@ -52,61 +52,8 @@ typedef struct alignas(128) cusz_header {
 
 } cusz_header;
 
-typedef cusz_header cuszHEADER;
-
-typedef struct alignas(128) v2_cusz_header {
-    // data segments
-    static const int HEADER = 0;
-    static const int ANCHOR = 1;
-    static const int SP_IDX = 2;
-    static const int SP_VAL = 3;
-    static const int HF     = 4;
-    static const int END    = 5;
-    uint32_t         entry[END + 1];
-
-    struct {
-        uint32_t precision : 1;
-    } data;
-
-    uint32_t x, y, z, w;
-
-    // struct {
-    // uint32_t codecs_in_use : 2;
-    double   eb;
-    uint32_t radius : 16;
-    // } config;
-
-    struct {
-        uint32_t factor : 8;  // density = 1/factor
-        uint32_t count;
-    } sp;
-
-    struct {
-        uint32_t rep_bytes : 4;  // 4, 8
-        uint32_t sublen : 28;
-        uint32_t pardeg;
-    } hf;
-
-    // TODO replace the following with hf.VAR
-    uint32_t vle_pardeg;
-
-} v2_cusz_header;
-
 #ifdef __cplusplus
 }
 #endif
-
-namespace cusz {
-
-using Header   = cusz_header;
-using header_t = cusz_header*;
-
-}  // namespace cusz
-
-namespace psz {
-
-using v2_header = v2_cusz_header;
-
-}
 
 #endif

@@ -20,7 +20,7 @@
 // extra helper
 namespace cusz {
 
-int CompressorHelper::autotune_coarse_parvle(Context* ctx)
+int CompressorHelper::autotune_coarse_parvle(cusz_context* ctx)
 {
     auto tune_coarse_huffman_sublen = [](size_t len) {
         int current_dev = 0;
@@ -31,23 +31,23 @@ int CompressorHelper::autotune_coarse_parvle(Context* ctx)
         auto nSM               = dev_prop.multiProcessorCount;
         auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
         auto deflate_nthread   = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
-        auto optimal_sublen    = ConfigHelper::get_npart(len, deflate_nthread);
-        optimal_sublen         = ConfigHelper::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
-                         HuffmanHelper::BLOCK_DIM_DEFLATE;
+        auto optimal_sublen    = psz_utils::get_npart(len, deflate_nthread);
+        optimal_sublen =
+            psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) * HuffmanHelper::BLOCK_DIM_DEFLATE;
 
         return optimal_sublen;
     };
 
     auto get_coarse_pardeg = [&](size_t len, int& sublen, int& pardeg) {
         sublen = tune_coarse_huffman_sublen(len);
-        pardeg = ConfigHelper::get_npart(len, sublen);
+        pardeg = psz_utils::get_npart(len, sublen);
     };
 
     // TODO should be move to somewhere else, e.g., cusz::par_optmizer
-    if (ctx->use.autotune_vle_pardeg)
+    if (ctx->use_autotune_hf)
         get_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
     else
-        ctx->vle_pardeg = ConfigHelper::get_npart(ctx->data_len, ctx->vle_sublen);
+        ctx->vle_pardeg = psz_utils::get_npart(ctx->data_len, ctx->vle_sublen);
 
     return ctx->vle_pardeg;
 }
