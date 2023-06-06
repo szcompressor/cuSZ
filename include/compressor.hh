@@ -33,12 +33,13 @@ struct CompressorHelper {
 template <class Combination>
 class Compressor {
    public:
-    using Spcodec = typename Combination::Spcodec;
-    using Codec   = typename Combination::Codec;
-    using BYTE    = uint8_t;
     /* removed, leaving vacancy in pipeline
      * using FallbackCodec = typename Combination::FallbackCodec;
+     * using Spcodec = typename Combination::Spcodec;
      */
+
+    using Codec = typename Combination::Codec;
+    using BYTE  = uint8_t;
 
     using T  = typename Combination::DATA;
     using FP = typename Combination::FP;
@@ -51,30 +52,34 @@ class Compressor {
     using timerecord_t = TimeRecord*;
 
    private:
-    // state
-    bool  use_fallback_codec{false};
-    bool  fallback_codec_allocated{false};
-    BYTE* d_reserved_compressed{nullptr};
     // profiling
     TimeRecord timerecord;
+
     // header
     Header header;
-    // components
 
-    Spcodec* spcodec;
-    Codec*   codec;
-    // variables
-    uint32_t* d_freq;
-    float     time_pred;
-    float     time_hist;
-    dim3      data_len3;
-    size_t    _23june_datalen;
+    // external codec that has complex internals
+    Codec* codec;
 
-    // 23-june
-    T*        _23june_d_anchor{nullptr};
-    E*        _23june_d_errctrl{nullptr};
-    T*        _23june_d_outlier{nullptr};
-    uint32_t* _23june_d_outlier_idx{nullptr};
+    float time_pred, time_hist, time_sp;
+
+    // sizes
+    dim3   data_len3;
+    size_t datalen_linearized;
+    int    splen;
+
+    // configs
+    float _23june_density{0.2};
+    bool  use_fallback_codec{false};        // obsolete
+    bool  fallback_codec_allocated{false};  // obsolete
+
+    // buffers
+    BYTE*     d_reserved_compressed{nullptr};
+    E*        d_errctrl{nullptr};  // pred out1
+    T*        d_outlier{nullptr};  // pred out2
+    uint32_t* d_freq;              // hist out
+    T*        d_spval{nullptr};    // gather out1
+    uint32_t* d_spidx{nullptr};    // gather out2
 
    public:
     Compressor() = default;
@@ -88,20 +93,17 @@ class Compressor {
     void clear_buffer();
 
     // getter
-    void     export_header(Header&);
-    void     export_header(Header*);
-    void     export_timerecord(TimeRecord*);
-    uint32_t get_len_data();
+    void export_header(Header&);
+    void export_header(Header*);
+    void export_timerecord(TimeRecord*);
 
    private:
     // helper
     template <class CONFIG>
     void init_detail(CONFIG*, bool);
-    void init_codec(size_t, unsigned int, int, int, bool);
     void collect_compress_timerecord();
     void collect_decompress_timerecord();
-    // void encode_with_exception(E*, size_t, uint32_t*, int, int, int, bool, BYTE*&, size_t&, cudaStream_t, bool);
-    void subfile_collect(T*, size_t, BYTE*, size_t, BYTE*, size_t, cudaStream_t, bool);
+    void merge_subfiles(BYTE*, size_t, T*, M*, size_t, cudaStream_t);
     void destroy();
     // getter
 };

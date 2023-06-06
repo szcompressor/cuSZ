@@ -16,9 +16,9 @@ add_executable(l3_spv src/test_l3_spv.cu)
 target_link_libraries(l3_spv PRIVATE psz_spv psz_testutils)
 add_test(test_l3_spv l3_spv)
 
-add_executable(l4_spv_obj src/test_l4_spv_obj.cu)
-target_link_libraries(l4_spv_obj PRIVATE psz_spv psz_testutils)
-add_test(test_l4_spv_obj l4_spv_obj)
+# add_executable(l4_spv_obj src/test_l4_spv_obj.cu)
+# target_link_libraries(l4_spv_obj PRIVATE psz_spv psz_testutils)
+# add_test(test_l4_spv_obj l4_spv_obj)
 
 # # testing hf add_executable(hf_hl src/spv.cu) target_link_libraries(hf_hl
 # PRIVATE psz_spv psz_testutils) add_test(test_hf_hl hf_hl)

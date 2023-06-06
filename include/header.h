@@ -32,13 +32,14 @@ typedef struct alignas(128) cusz_header {
 
     uint32_t self_bytes : 16;
     uint32_t fp : 1;
-    uint32_t byte_vle : 4;  // 4, 8
-    uint32_t nz_density_factor : 8;
+    uint32_t byte_vle : 4;           // 4, 8
+    uint32_t nz_density_factor : 8;  // TODO configurate it
     uint32_t codecs_in_use : 2;
     uint32_t vle_pardeg;
     uint32_t x, y, z, w;
     double   eb;
     uint32_t radius : 16;
+    int      splen;
 
     uint32_t entry[END + 1];
 

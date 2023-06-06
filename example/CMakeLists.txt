@@ -23,5 +23,5 @@ target_link_libraries(bin_hf PRIVATE cusz psz_utilsg psz_statg psz_hfg
                                      CUDA::cudart)
 set_target_properties(bin_hf PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-add_executable(bin_spv src/bin_spv.cc)
-target_link_libraries(bin_spv PRIVATE psz_spv psz_utilsg psz_statg CUDA::cudart)
+# add_executable(bin_spv src/bin_spv.cc)
+# target_link_libraries(bin_spv PRIVATE psz_spv psz_utilsg psz_statg CUDA::cudart)
