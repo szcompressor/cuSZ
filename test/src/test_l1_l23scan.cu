@@ -19,7 +19,7 @@ using std::endl;
 using std::string;
 
 #include "kernel/detail/l23.inl"
-#include "kernel/detail/lorenzo.inl"
+// #include "kernel/detail/lorenzo.inl"
 #include "rand.hh"
 
 template <int BLOCK = 256, int SEQ = 8>
@@ -43,29 +43,29 @@ bool test_inclusive_scan()
 
     bool ok = true;
 
-    {
-        cout << "original" << endl;
-        for (auto i = 0; i < BLOCK; i++) data[i] = 1;
+    // {
+    //     cout << "original" << endl;
+    //     for (auto i = 0; i < BLOCK; i++) data[i] = 1;
 
-        cusz::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
-            <<<1, NTHREAD>>>(data, eq, data, dim3(len, 1, 1), dim3(0, 0, 0), 0, ebx2);
-        cudaDeviceSynchronize();
+    //     cusz::x_lorenzo_1d1l<T, EQ, FP, BLOCK, SEQ>
+    //         <<<1, NTHREAD>>>(data, eq, data, dim3(len, 1, 1), dim3(0, 0, 0), 0, ebx2);
+    //     cudaDeviceSynchronize();
 
-        // for (auto i = 0; i < BLOCK; i++) { cout << data[i] << " "; }
-        // cout << "\n" << endl;
+    //     // for (auto i = 0; i < BLOCK; i++) { cout << data[i] << " "; }
+    //     // cout << "\n" << endl;
 
-        for (auto i = 0; i < BLOCK; i++)
-            if (data[i] != i + 1 /* inclusive scan */) {
-                cout << i << "\t" << data[i] << endl;
-                ok = false;
-                break;
-            }
+    //     for (auto i = 0; i < BLOCK; i++)
+    //         if (data[i] != i + 1 /* inclusive scan */) {
+    //             cout << i << "\t" << data[i] << endl;
+    //             ok = false;
+    //             break;
+    //         }
 
-        if (not ok) {
-            printf("ERROR\toriginal (21-May) not correct\n");
-            return false;
-        }
-    }
+    //     if (not ok) {
+    //         printf("ERROR\toriginal (21-May) not correct\n");
+    //         return false;
+    //     }
+    // }
 
     {
         cout << "refactored v0 (wave32)" << endl;

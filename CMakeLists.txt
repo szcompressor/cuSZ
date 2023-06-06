@@ -9,15 +9,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 find_package(CUDAToolkit REQUIRED)
-find_package(CUB)
 
-if(TARGET _CUB_CUB)
-  install(TARGETS _CUB_CUB EXPORT CUSZTargets)
-
-  if(TARGET _CUB_libcudacxx)
-    install(TARGETS _CUB_libcudacxx EXPORT CUSZTargets)
-  endif()
-endif()
+# 23-06-05 disable CUB
+# find_package(CUB)
+# if(TARGET _CUB_CUB)
+#   install(TARGETS _CUB_CUB EXPORT CUSZTargets)
+#   if(TARGET _CUB_libcudacxx)
+#     install(TARGETS _CUB_libcudacxx EXPORT CUSZTargets)
+#   endif()
+# endif()
 
 include(GNUInstallDirs)
 include(CTest)
@@ -27,21 +27,22 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
 
 add_library(pszcompile_settings INTERFACE)
 
-if(CUB_FOUND)
-  target_link_libraries(pszcompile_settings INTERFACE CUB::CUB)
-else()
-  message(
-    WARNING
-      "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub"
-  )
-  set(CMAKE_FIND_DEBUG_MODE TRUE)
-  find_file(CUB_HEADER cub.cuh PATHS "${CUDAToolkit_INCLUDE_DIRS}/cub" REQUIRED)
-  add_library(CUB INTERFACE)
-  get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY)
-  target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
-  target_link_libraries(pszcompile_settings INTERFACE CUB)
-  install(TARGETS CUB EXPORT CUSZTargets)
-endif()
+# 23-06-05 disable CUB
+# if(CUB_FOUND)
+#   target_link_libraries(pszcompile_settings INTERFACE CUB::CUB)
+# else()
+#   message(
+#     WARNING
+#       "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub"
+#   )
+#   set(CMAKE_FIND_DEBUG_MODE TRUE)
+#   find_file(CUB_HEADER cub.cuh PATHS "${CUDAToolkit_INCLUDE_DIRS}/cub" REQUIRED)
+#   add_library(CUB INTERFACE)
+#   get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY)
+#   target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
+#   target_link_libraries(pszcompile_settings INTERFACE CUB)
+#   install(TARGETS CUB EXPORT CUSZTargets)
+# endif()
 
 target_compile_definitions(
   pszcompile_settings
@@ -64,8 +65,7 @@ add_library(psz_timer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
 target_link_libraries(psz_timer PUBLIC pszcompile_settings)
 
 # deprecated
-add_library(psz_kernel src/kernel/lorenzo.cu src/kernel/lorenzo_var.cu
-                       src/kernel/lorenzo_proto.cu)
+add_library(psz_kernel src/kernel/lorenzo.cu src/kernel/lorenzo_proto.cu)
 target_link_libraries(psz_kernel PUBLIC pszcompile_settings)
 
 add_library(psz_stat src/stat/compare_cpu.cc)

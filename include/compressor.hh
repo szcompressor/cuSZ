@@ -77,8 +77,8 @@ class Compressor {
     uint32_t* _23june_d_outlier_idx{nullptr};
 
    public:
+    Compressor() = default;
     ~Compressor();
-    Compressor();
 
     // public methods
     void init(Context* config, bool dbg_print = false);

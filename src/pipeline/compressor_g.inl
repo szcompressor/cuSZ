@@ -61,13 +61,6 @@ uint32_t Compressor<Combination>::get_len_data()
 }
 
 TEMPLATE_TYPE
-Compressor<Combination>::Compressor()
-{
-  spcodec = new Spcodec;
-  codec = new Codec;
-}
-
-TEMPLATE_TYPE
 void Compressor<Combination>::destroy()
 {
   if (spcodec) delete spcodec;
@@ -87,12 +80,16 @@ Compressor<Combination>::~Compressor() { destroy(); }
 TEMPLATE_TYPE
 void Compressor<Combination>::init(Context* config, bool dbg_print)
 {
+  spcodec = new Spcodec;
+  codec = new Codec;
   init_detail(config, dbg_print);
 }
 
 TEMPLATE_TYPE
 void Compressor<Combination>::init(Header* config, bool dbg_print)
 {
+  spcodec = new Spcodec;
+  codec = new Codec;
   init_detail(config, dbg_print);
 }
 

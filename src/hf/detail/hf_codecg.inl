@@ -34,14 +34,6 @@
 #define BIX blockIdx.x
 #define BDX blockDim.x
 
-#if __has_include(<cub/cub.cuh>)
-// #pragma message __FILE__ ": (CUDA 11 onward), cub from system path"
-#include <cub/cub.cuh>
-#else
-// #pragma message __FILE__ ": (CUDA 10 or earlier), cub from git submodule"
-#include "../../third_party/cub/cub/cub.cuh"
-#endif
-
 using BYTE = uint8_t;
 
 extern __shared__ char __codec_huffman_uninitialized[];
