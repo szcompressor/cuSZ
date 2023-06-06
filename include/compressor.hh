@@ -30,21 +30,22 @@ struct CompressorHelper {
     static int autotune_coarse_parvle(Context* ctx);
 };
 
-template <class BINDING>
+template <class Combination>
 class Compressor {
    public:
-    using Predictor     = typename BINDING::Predictor;
-    using Spcodec       = typename BINDING::Spcodec;
-    using Codec         = typename BINDING::Codec;
-    using FallbackCodec = typename BINDING::FallbackCodec;
-    using BYTE          = uint8_t;
+    using Spcodec = typename Combination::Spcodec;
+    using Codec   = typename Combination::Codec;
+    using BYTE    = uint8_t;
+    /* removed, leaving vacancy in pipeline
+     * using FallbackCodec = typename Combination::FallbackCodec;
+     */
 
-    using T    = typename Predictor::Origin;
-    using FP   = typename Predictor::Precision;
-    using E    = typename Predictor::ErrCtrl;
-    using H    = typename Codec::Encoded;
-    using M    = typename Codec::MetadataT;
-    using H_FB = typename FallbackCodec::Encoded;
+    using T  = typename Combination::DATA;
+    using FP = typename Combination::FP;
+    using E  = typename Combination::ERRCTRL;
+    using H  = typename Codec::Encoded;
+    using M  = typename Codec::MetadataT;
+    // using H_FB = typename FallbackCodec::Encoded;
 
     using TimeRecord   = std::vector<std::tuple<const char*, double>>;
     using timerecord_t = TimeRecord*;
@@ -60,14 +61,20 @@ class Compressor {
     Header header;
     // components
 
-    Predictor*     predictor;
-    Spcodec*       spcodec;
-    Codec*         codec;
-    FallbackCodec* fb_codec;
+    Spcodec* spcodec;
+    Codec*   codec;
     // variables
     uint32_t* d_freq;
+    float     time_pred;
     float     time_hist;
     dim3      data_len3;
+    size_t    _23june_datalen;
+
+    // 23-june
+    T*        _23june_d_anchor{nullptr};
+    E*        _23june_d_errctrl{nullptr};
+    T*        _23june_d_outlier{nullptr};
+    uint32_t* _23june_d_outlier_idx{nullptr};
 
    public:
     ~Compressor();
@@ -93,7 +100,7 @@ class Compressor {
     void init_codec(size_t, unsigned int, int, int, bool);
     void collect_compress_timerecord();
     void collect_decompress_timerecord();
-    void encode_with_exception(E*, size_t, uint32_t*, int, int, int, bool, BYTE*&, size_t&, cudaStream_t, bool);
+    // void encode_with_exception(E*, size_t, uint32_t*, int, int, int, bool, BYTE*&, size_t&, cudaStream_t, bool);
     void subfile_collect(T*, size_t, BYTE*, size_t, BYTE*, size_t, cudaStream_t, bool);
     void destroy();
     // getter

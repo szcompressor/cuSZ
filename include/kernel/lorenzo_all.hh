@@ -17,6 +17,9 @@
 #include "compaction.hh"
 #include "cusz/type.h"
 
+#define psz_comp_lorenzo_2output compress_predict_lorenzo_i
+#define psz_decomp_lorenzo decompress_predict_lorenzo_i
+
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status compress_predict_lorenzo_i(
     T* const     data,          // input

@@ -12,9 +12,6 @@
 
 #include <stdexcept>
 
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-
 #include "compressor.hh"
 #include "context.hh"
 #include "cusz.h"
@@ -22,8 +19,6 @@
 #include "cusz/type.h"
 #include "framework.hh"
 #include "hf/hf.hh"
-#include "pipeline/prediction.inl"
-#include "pipeline/spcodec.inl"
 
 cusz_compressor* cusz_create(cusz_framework* _framework, cusz_datatype _type)
 {

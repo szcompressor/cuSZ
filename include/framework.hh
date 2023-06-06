@@ -15,7 +15,9 @@
 
 #include "compressor.hh"
 #include "hf/hf.hh"
-#include "pipeline/prediction.inl"
+/* removed, leaving vacancy in framework description
+ * #include "pipeline/prediction.inl"
+ */
 #include "pipeline/spcodec.inl"
 
 namespace cusz {
@@ -43,9 +45,7 @@ struct Framework {
     template <class Codec, class FallbackCodec>
     struct CompressorTemplate;
 
-    /* Predictor */
-    using CompatPurposePredictor = typename cusz::Predictor<DATA, ERRCTRL, FP>;
-    using Predictor              = CompatPurposePredictor;
+    /* Predictor vacancy */
 
     using CompatPurposeSpcodec = typename cusz::SpcodecVec<DATA, Meta4>;
     using Spcodec              = CompatPurposeSpcodec;
