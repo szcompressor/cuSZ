@@ -10,8 +10,7 @@
  */
 
 #include <stdexcept>
-#include "utils/quality_viewer.hh"
-// #include "cli/timerecord_viewer.hh"
+#include "utils/viewer.hh"
 // #include "cusz.h"
 #include "kernel/lorenzo_all.hh"
 #include "stat/compare_gpu.hh"

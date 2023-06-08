@@ -13,13 +13,16 @@
 #define CUSZ_COMPRESSOR_HH
 
 #include <cuda_runtime.h>
+#include <cstdint>
 #include <memory>
+#include <tuple>
+#include <vector>
 
-#include "common/type_traits.hh"
 #include "compaction.hh"
 #include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
+#include "type_traits.hh"
 
 namespace cusz {
 

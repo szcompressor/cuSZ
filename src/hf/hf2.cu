@@ -11,12 +11,12 @@
 
 #include <numeric>
 
-#include "common/type_traits.hh"
 #include "cusz/type.h"
 #include "hf/hf2.h"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"
+#include "type_traits.hh"
 
 template <typename T, typename H, typename M = uint32_t>
 psz_error_status

@@ -22,6 +22,14 @@
 
 namespace cusz {
 
+using TimeRecordTuple = std::tuple<const char*, double>;
+using TimeRecord      = std::vector<TimeRecordTuple>;
+using timerecord_t    = TimeRecord*;
+
+};  // namespace cusz
+
+namespace cusz {
+
 template <typename InputDataType, bool FastLowPrecision = true>
 struct Framework {
    public:

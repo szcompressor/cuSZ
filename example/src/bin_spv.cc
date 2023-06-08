@@ -19,7 +19,7 @@
 #include "stat/compare_gpu.hh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
-#include "utils/quality_viewer.hh"
+#include "utils/viewer.hh"
 
 template <typename T, typename H = uint32_t>
 void f(std::string fname, size_t const x, size_t const y, size_t const z)

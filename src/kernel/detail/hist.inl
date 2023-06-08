@@ -11,16 +11,15 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_HIST_CUH
-#define CUSZ_KERNEL_HIST_CUH
+#ifndef D69BE972_2A8C_472E_930F_FFAB041F3F2B
+#define D69BE972_2A8C_472E_930F_FFAB041F3F2B
 
 #include <cuda_runtime.h>
 #include <cstdio>
 #include <limits>
 
-#include "common/definition.hh"
-#include "common/type_traits.hh"
-#include "utils/configs.hh"
+#include "type_traits.hh"
+#include "utils/config.hh"
 #include "utils/timer.h"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
@@ -99,4 +98,4 @@ __global__ void kernel::p2013Histogram(T* in_data, FREQ* out_freq, size_t N, int
     }
 }
 
-#endif
+#endif /* D69BE972_2A8C_472E_930F_FFAB041F3F2B */

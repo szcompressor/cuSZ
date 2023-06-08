@@ -27,7 +27,7 @@ using std::endl;
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
-#include "utils/quality_viewer.hh"
+#include "utils/viewer.hh"
 
 namespace alpha {
 

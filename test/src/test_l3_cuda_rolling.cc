@@ -17,7 +17,7 @@
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
-#include "utils/quality_viewer.hh"
+#include "utils/viewer.hh"
 
 std::string type_literal;
 

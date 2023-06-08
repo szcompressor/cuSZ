@@ -15,7 +15,7 @@
 #include "compressor.hh"
 #include "framework.hh"
 #include "pipeline/compressor_g.inl"
-#include "utils/configs.hh"
+#include "utils/config.hh"
 
 // extra helper
 namespace cusz {

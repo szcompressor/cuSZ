@@ -15,7 +15,7 @@
  */
 
 #include "../cusz/type.h"
-#include "../utils/configs.hh"
+#include "../utils/config.hh"
 
 using namespace std;
 

@@ -31,8 +31,6 @@
 #include <string>
 
 #include "../stat/compare_gpu.hh"
-// #include "../utils/io.hh"
-#include "../common/definition.hh"
 #include "../utils/timer.hh"
 
 template <typename T>

@@ -22,12 +22,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "common/definition.hh"
 #include "context.h"
-#include "utils/configs.hh"
+#include "utils/config.hh"
 #include "utils/document.hh"
 #include "utils/format.hh"
-#include "utils/strhelper.hh"
 
 namespace cusz {
 const char* VERSION_TEXT  = "2023-06-04 (unstable; pre-0.4)";

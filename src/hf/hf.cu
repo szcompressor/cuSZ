@@ -12,7 +12,7 @@
  *
  */
 
-#include "common/type_traits.hh"
+#include "type_traits.hh"
 
 #include "hf/hf.hh"
 #include "hf/hf_bookg.hh"

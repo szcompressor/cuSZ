@@ -21,9 +21,8 @@
 #include "framework.hh"
 #include "utils/analyzer.hh"
 #include "utils/cuda_err.cuh"
-#include "utils/quality_viewer.hh"
 #include "utils/query.hh"
-#include "utils/timerecord_viewer.hh"
+#include "utils/viewer.hh"
 
 namespace cusz {
 

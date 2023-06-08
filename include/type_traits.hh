@@ -19,7 +19,6 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "definition.hh"
 
 template <typename T>
 cusz_datatype cusz_typeof()

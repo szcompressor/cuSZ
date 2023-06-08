@@ -25,7 +25,7 @@
 #include "kernel/lorenzo_all.hh"
 #include "kernel/spv_gpu.hh"
 #include "stat/stat_g.hh"
-#include "utils/configs.hh"
+#include "utils/config.hh"
 #include "utils/cuda_err.cuh"
 
 using std::cout;

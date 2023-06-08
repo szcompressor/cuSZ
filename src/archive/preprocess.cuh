@@ -16,8 +16,7 @@
 
 #include <iostream>
 
-#include "common/definition.hh"
-#include "common/type_traits.hh"
+#include "type_traits.hh"
 #include "utils/configs.hh"
 
 using std::cout;

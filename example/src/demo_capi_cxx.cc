@@ -12,8 +12,7 @@
 #include "cusz.h"
 #include "utils/io.hh"
 
-// #include "utils/quality_viewer.hh"
-// #include "cli/timerecord_viewer.hh"
+// #include "viewer.hh"
 
 template <typename T>
 void f(std::string fname)

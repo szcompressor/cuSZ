@@ -12,19 +12,17 @@
 #ifndef BB504423_E0DF_4AAA_8AF3_BEEEA28053DB
 #define BB504423_E0DF_4AAA_8AF3_BEEEA28053DB
 
-#include "common/definition.hh"
-#include "common/type_traits.hh"
 #include "context.h"
-// #include "hf/hf.hh"
 #include "kernel/dryrun.cuh"
-// #include "pipeline/prediction.inl"
-// #include "pipeline/spcodec.inl"
 #include "stat/compare_gpu.hh"
-#include "utils.hh"
+#include "type_traits.hh"
 #include "utils/analyzer.hh"
-#include "utils/configs.hh"
-#include "utils/quality_viewer.hh"
+#include "utils/config.hh"
+#include "utils/cuda_err.cuh"
+#include "utils/format.hh"
+#include "utils/io.hh"
 #include "utils/verify.hh"
+#include "utils/viewer.hh"
 
 namespace cusz {
 

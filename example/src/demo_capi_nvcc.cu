@@ -13,8 +13,7 @@
 
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
-#include "utils/quality_viewer.hh"
-#include "utils/timerecord_viewer.hh"
+#include "utils/viewer.hh"
 
 template <typename T>
 void f(std::string fname)
