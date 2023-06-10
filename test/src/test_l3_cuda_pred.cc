@@ -16,6 +16,7 @@
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
+#include "utils2/memseg_cxx.hh"
 
 std::string type_literal;
 
@@ -26,45 +27,54 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
     using FP = T;
     auto len = x * y * z;
 
-    Capsule<T> data(x, y, z, "data"), xdata(x, y, z, "xdata"), outlier(x, y, z, "outlier");
-    data.mallocmanaged(), xdata.mallocmanaged(), outlier.mallocmanaged();
+    auto data    = new pszmem_cxx<T>(x, y, z, "data");
+    auto xdata   = new pszmem_cxx<T>(x, y, z, "xdata");
+    auto outlier = new pszmem_cxx<T>(x, y, z, "outlier");
 
-    Capsule<EQ> eq(x, y, z, "eq");
-    eq.mallocmanaged();
+    data->control({MallocManaged});
+    xdata->control({MallocManaged});
+    outlier->control({MallocManaged});
+
+    auto eq = new pszmem_cxx<EQ>(x, y, z, "eq");
+    eq->control({MallocManaged});
 
     uint32_t* outlier_idx{nullptr};
 
-    psz::testutils::cuda::rand_array<T>(data.uniptr(), len);
+    psz::testutils::cuda::rand_array<T>(data->uniptr(), len);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
     float time;
+    auto  len3 = dim3(x, y, z);
 
-    compress_predict_lorenzo_i<T, EQ, FP>(                    //
-        data.uniptr(), data.len3(), error_bound, radius,      // input and config
-        eq.uniptr(), outlier.uniptr(), outlier_idx, nullptr,  // output
+    compress_predict_lorenzo_i<T, EQ, FP>(                      //
+        data->uniptr(), len3, error_bound, radius,              // input and config
+        eq->uniptr(), outlier->uniptr(), outlier_idx, nullptr,  // output
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    decompress_predict_lorenzo_i<T, EQ, FP>(                       //
-        eq.uniptr(), eq.len3(), outlier.uniptr(), outlier_idx, 0,  // input
-        error_bound, radius,                                       // input (config)
-        xdata.uniptr(),                                            // output
+    decompress_predict_lorenzo_i<T, EQ, FP>(                    //
+        eq->uniptr(), len3, outlier->uniptr(), outlier_idx, 0,  // input
+        error_bound, radius,                                    // input (config)
+        xdata->uniptr(),                                        // output
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    // psz::peek_device_data(data.uniptr(), 100);
-    // psz::peek_device_data(xdata.uniptr(), 100);
+    // psz::peek_device_data(data->uniptr(), 100);
+    // psz::peek_device_data(xdata->uniptr(), 100);
 
     size_t first_non_eb = 0;
     // bool   error_bounded = psz::thrustgpu_error_bounded<T>(xdata, data, len, error_bound, &first_non_eb);
-    bool error_bounded = psz::cppstd_error_bounded<T>(xdata.uniptr(), data.uniptr(), len, error_bound, &first_non_eb);
+    bool error_bounded = psz::cppstd_error_bounded<T>(xdata->uniptr(), data->uniptr(), len, error_bound, &first_non_eb);
 
-    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(data.uniptr(), xdata.uniptr(), len);
+    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(data->uniptr(), xdata->uniptr(), len);
 
     cudaStreamDestroy(stream);
-    data.freemanaged(), xdata.freemanaged(), eq.freemanaged(), outlier.freemanaged();
+    delete data;
+    delete xdata;
+    delete eq;
+    delete outlier;
 
     printf("(%u,%u,%u)\t(T=%s,EQ=%s)\terror bounded?\t", x, y, z, typeid(T).name(), typeid(EQ).name());
     if (not LENIENT) {

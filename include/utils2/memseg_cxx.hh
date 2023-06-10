@@ -1,9 +1,10 @@
 /**
  * @file memseg_cxx.hh
  * @author Jiannan Tian
- * @brief
+ * @brief drop-in replacement of previous Capsule
  * @version 0.4
  * @date 2023-06-09
+ * (created) 2020-11-03 (capsule.hh)
  *
  * (C) 2023 by Indiana University, Argonne National Laboratory
  *

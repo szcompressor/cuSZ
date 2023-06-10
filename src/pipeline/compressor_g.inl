@@ -151,7 +151,7 @@ void Compressor<Combination>::compress(
   merge_subfiles(d_codec_out, codec_outlen, d_spval, d_spidx, splen, stream);
 
   // output
-  compressed_len = psz_utils::get_filesize(&header);
+  compressed_len = psz_utils::filesize(&header);
   compressed = d_reserved_compressed;
 
   collect_compress_timerecord();

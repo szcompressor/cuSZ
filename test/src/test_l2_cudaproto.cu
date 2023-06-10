@@ -17,7 +17,7 @@
 
 #include "kernel/detail/lorenzo_proto.inl"
 #include "pipeline/compact_cuda.inl"
-#include "utils/capsule.hh"
+#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 using std::endl;
@@ -56,43 +56,46 @@ bool test1(
     T const*    h_expected_output,
     std::string funcname)
 {
-    Capsule<T>         input(len);
-    Capsule<EQ>        eq(len);
+    auto input = new pszmem_cxx<T>(len, 1, 1, "input");
+    auto eq    = new pszmem_cxx<EQ>(len, 1, 1, "input");
+
     CompactCudaDram<T> outlier;
 
-    input.malloc().set_hptr(const_cast<T*>(h_input)).h2d();
-    eq.malloc().mallochost();
+    input->hptr(const_cast<T*>(h_input))->control({Malloc, H2D});
+    eq->control({Malloc, MallocHost});
+
     outlier.set_reserved_len(len / 2).malloc().mallochost();
 
     auto radius = 512;
 
     if (dim == 1)
         proto::c_lorenzo_1d1l<T>
-            <<<t1d_grid_dim, t1d_block_dim>>>(input.dptr(), len3, stride3, radius, 1.0, eq.dptr(), outlier);
+            <<<t1d_grid_dim, t1d_block_dim>>>(input->dptr(), len3, stride3, radius, 1.0, eq->dptr(), outlier);
     else if (dim == 2)
         proto::c_lorenzo_2d1l<T>
-            <<<t2d_grid_dim, t2d_block_dim>>>(input.dptr(), len3, stride3, radius, 1.0, eq.dptr(), outlier);
+            <<<t2d_grid_dim, t2d_block_dim>>>(input->dptr(), len3, stride3, radius, 1.0, eq->dptr(), outlier);
     else if (dim == 3)
         proto::c_lorenzo_3d1l<T>
-            <<<t3d_grid_dim, t3d_block_dim>>>(input.dptr(), len3, stride3, radius, 1.0, eq.dptr(), outlier);
+            <<<t3d_grid_dim, t3d_block_dim>>>(input->dptr(), len3, stride3, radius, 1.0, eq->dptr(), outlier);
     cudaDeviceSynchronize();
 
-    eq.d2h();
+    eq->control({D2H});
 
     // for (auto i = 0; i < len; i++) { cout << eq.hptr(i) << endl; }
 
     bool ok = true;
     for (auto i = 0; i < len; i++) {
         // subject to change according to the algorithm
-        if (eq.hptr(i) - radius != h_expected_output[i]) {
+        if (eq->hptr()[i] - radius != h_expected_output[i]) {
             ok = false;
             break;
         }
     }
     cout << funcname << " works as expected: " << (ok ? "yes" : "NO") << endl;
 
-    input.free();
-    eq.free().freehost();
+    delete input;
+    delete eq;
+
     outlier.free().freehost();
 
     return ok;
@@ -109,63 +112,64 @@ bool test2(
 {
     auto radius = 512;
 
-    Capsule<EQ> input(len);
-    input.malloc().mallochost();
+    auto input = new pszmem_cxx<EQ>(len, 1, 1, "eq");
+    input->control({Malloc, MallocHost});
 
-    for (auto i = 0; i < len; i++) input.hptr(i) = _h_input[i] + radius;
-    input.h2d();
+    for (auto i = 0; i < len; i++) input->hptr(i) = _h_input[i] + radius;
+    // input.h2d();
+    input->control({H2D});
 
-    Capsule<T> xdata(len);
-    xdata.malloc().mallochost();
+    auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");
+    xdata->control({Malloc, MallocHost});
 
     if (dim == 1)
         proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
-            input.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, 1, xdata.dptr());
+            input->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, 1, xdata->dptr());
     else if (dim == 2)
         proto::x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
-            input.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, 1, xdata.dptr());
+            input->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, 1, xdata->dptr());
     else if (dim == 3)
         proto::x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
-            input.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, 1, xdata.dptr());
+            input->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, 1, xdata->dptr());
     else {
         throw std::runtime_error("must be 1, 2, or 3D.");
     }
-
     cudaDeviceSynchronize();
 
-    xdata.d2h();
+    xdata->control({D2H});
 
     bool ok = true;
     for (auto i = 0; i < len; i++) {
-        if (xdata.hptr(i) != h_expected_output[i]) {
+        if (xdata->hptr(i) != h_expected_output[i]) {
             ok = false;
             break;
         }
     }
     cout << funcname << " works as expected: " << (ok ? "yes" : "NO") << endl;
 
-    input.free().freehost();
-    xdata.free().freehost();
+    delete input;
+    delete xdata;
 
     return ok;
 }
 
 bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::string funcname)
 {
-    Capsule<T> input(len);
-    input.malloc().mallochost();
-    for (auto i = 0; i < len; i++) input.hptr(i) = h_input[i];
-    input.h2d();
+    auto input = new pszmem_cxx<T>(len, 1, 1, "input");
+    input->control({Malloc, MallocHost});
 
-    Capsule<EQ> eq(len);
-    eq.malloc();
+    for (auto i = 0; i < len; i++) input->hptr(i) = h_input[i];
+    input->control({H2D});
+
+    auto eq = new pszmem_cxx<EQ>(len, 1, 1, "eq");
+    eq->control({Malloc});
 
     // TODO outlier is a placeholder in this test
     CompactCudaDram<T> outlier;
     outlier.set_reserved_len(len / 2).malloc().mallochost();
 
-    Capsule<T> xdata(len);
-    xdata.malloc().mallochost();
+    auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");
+    xdata->control({Malloc, MallocHost});
 
     auto radius = 512;
 
@@ -175,37 +179,36 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
 
     if (dim == 1) {
         proto::c_lorenzo_1d1l<T>
-            <<<t1d_grid_dim, t1d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), outlier);
+            <<<t1d_grid_dim, t1d_block_dim>>>(input->dptr(), len3, stride3, radius, ebx2_r, eq->dptr(), outlier);
         cudaDeviceSynchronize();
         proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
-            eq.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, ebx2, xdata.dptr());
+            eq->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, ebx2, xdata->dptr());
         cudaDeviceSynchronize();
     }
     else if (dim == 2) {
         proto::c_lorenzo_2d1l<T>
-            <<<t2d_grid_dim, t2d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), outlier);
+            <<<t2d_grid_dim, t2d_block_dim>>>(input->dptr(), len3, stride3, radius, ebx2_r, eq->dptr(), outlier);
         cudaDeviceSynchronize();
         proto::x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
-            eq.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, ebx2, xdata.dptr());
+            eq->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, ebx2, xdata->dptr());
         cudaDeviceSynchronize();
     }
     else if (dim == 3) {
         proto::c_lorenzo_3d1l<T>
-            <<<t3d_grid_dim, t3d_block_dim>>>(input.dptr(), len3, stride3, radius, ebx2_r, eq.dptr(), outlier);
+            <<<t3d_grid_dim, t3d_block_dim>>>(input->dptr(), len3, stride3, radius, ebx2_r, eq->dptr(), outlier);
         cudaDeviceSynchronize();
         proto::x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
-            eq.dptr(), xdata.dptr() /* outlier */, len3, stride3, radius, ebx2, xdata.dptr());
+            eq->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, ebx2, xdata->dptr());
         cudaDeviceSynchronize();
     }
 
-    // cudaMemcpy(h_xdata, xdata, sizeof(EQ) * len, cudaMemcpyDeviceToHost);
-    xdata.d2h();
+    xdata->control({D2H});
 
     // for (auto i = 0; i < len; i++) { cout << h_xdata[i] << endl; }
 
     bool ok = true;
     for (auto i = 0; i < len; i++) {
-        if (xdata.hptr(i) != h_input[i]) {
+        if (xdata->hptr(i) != h_input[i]) {
             ok = false;
             break;
         }
@@ -214,10 +217,10 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
 
     // input.debug();
 
-    input.free().freehost();
-    eq.free();
+    delete input;
+    delete eq;
+    delete xdata;
     outlier.free();
-    xdata.free().freehost();
 
     return ok;
 }

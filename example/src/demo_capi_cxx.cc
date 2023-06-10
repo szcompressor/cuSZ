@@ -78,7 +78,7 @@ void f(std::string fname)
         /* verify header */
         printf("header.%-*s : %x\n", 12, "(addr)", &header);
         printf("header.%-*s : %lu, %lu, %lu\n", 12, "{x,y,z}", header.x, header.y, header.z);
-        printf("header.%-*s : %lu\n", 12, "filesize", psz_utils::get_filesize(&header));
+        printf("header.%-*s : %lu\n", 12, "filesize", psz_utils::filesize(&header));
     }
 
     /* If needed, User should perform a memcopy to transfer `exposed_compressed` before `compressor` is destroyed. */

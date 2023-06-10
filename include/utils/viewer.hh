@@ -17,9 +17,9 @@
 
 #include <algorithm>
 
-#include "../header.h"
-#include "../stat/compare_gpu.hh"
-#include "../utils/capsule.hh"
+#include "header.h"
+#include "stat/compare_gpu.hh"
+#include "utils2/memseg_cxx.hh"
 #include "verify.hh"
 
 namespace cusz {
@@ -120,28 +120,28 @@ struct QualityViewer {
     }
 
     template <typename T>
-    static void load_origin(string const& fname, Capsule<T>& origin)
+    static void view(cusz_header* header, pszmem_cxx<T>* xdata, pszmem_cxx<T>* cmp, string const& compare)
     {
-        origin.mallochost().malloc().fromfile(fname);
-    }
-
-    template <typename T>
-    static void view(cusz_header* header, Capsule<T>& xdata, Capsule<T>& cmp, string const& compare)
-    {
-        auto len             = psz_utils::get_uncompressed_len(header);
-        auto compressd_bytes = psz_utils::get_filesize(header);
+        auto len             = psz_utils::uncompressed_len(header);
+        auto compressd_bytes = psz_utils::filesize(header);
 
         auto compare_on_gpu = [&]() {
-            cmp.mallochost().malloc().fromfile(compare).host2device();
-            echo_metric_gpu(xdata.dptr(), cmp.dptr(), len, compressd_bytes);
-            cmp.freehost().free();
+            cmp->control({MallocHost, Malloc})->file(compare.c_str(), FromFile)->control({H2D});
+
+            // cmp.mallochost().malloc().fromfile(compare).host2device();
+            echo_metric_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
+            // cmp.freehost().free();
+            cmp->control({FreeHost, Free});
         };
 
         auto compare_on_cpu = [&]() {
-            cmp.mallochost().fromfile(compare);
-            xdata.device2host();
-            echo_metric_cpu(xdata.hptr(), cmp.hptr(), len, compressd_bytes);
-            cmp.freehost();
+            // cmp.mallochost().fromfile(compare);
+            cmp->control({MallocHost})->file(compare.c_str(), FromFile);
+            cmp->control({D2H});
+            // xdata.device2host();
+            echo_metric_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
+            // cmp.freehost();
+            cmp->control({FreeHost});
         };
 
         if (compare != "") {

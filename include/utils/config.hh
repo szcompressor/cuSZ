@@ -217,19 +217,19 @@ struct psz_utils {
         }
     }
 
-    static size_t get_filesize(std::string fname)
+    static size_t filesize(std::string fname)
     {
         std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
         return in.tellg();
     }
 
-    static size_t get_filesize(cusz_header* h)
+    static size_t filesize(cusz_header* h)
     {
         auto END = sizeof(h->entry) / sizeof(h->entry[0]);
         return h->entry[END - 1];
     }
 
-    static size_t get_uncompressed_len(cusz_header* h) { return h->x * h->y * h->z; }
+    static size_t uncompressed_len(cusz_header* h) { return h->x * h->y * h->z; }
 
     template <typename T1, typename T2>
     static size_t get_npart(T1 size, T2 subsize)

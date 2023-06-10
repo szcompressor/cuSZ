@@ -58,8 +58,9 @@ target_link_libraries(l2_serial PRIVATE psztestcompile_settings)
 add_test(test_l2_serial l2_serial)
 
 add_executable(l2_cudaproto src/test_l2_cudaproto.cu)
-target_link_libraries(l2_cudaproto PRIVATE pszcompile_settings
-                                           psztestcompile_settings)
+target_link_libraries(
+  l2_cudaproto PRIVATE pszcompile_settings psztestcompile_settings psz_utils
+                       psz_statg)
 add_test(test_l2_cudaproto l2_cudaproto)
 
 # TODO cross-validation add_test(test_l1_cuda  l1_cuda) 2023 May fix
@@ -72,8 +73,15 @@ add_test(test_l2_histsp l2_histsp)
 
 # Level-3 kernel with configuration (low-level API)
 add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
-target_link_libraries(l3_cuda_pred PRIVATE psz_kernel_cuda psz_testutils psz_stat
-                                           psz_statg psz_utilsg CUDA::cudart)
+target_link_libraries(
+  l3_cuda_pred
+  PRIVATE psz_kernel_cuda
+          psz_testutils
+          psz_stat
+          psz_statg
+          psz_utils
+          psz_utilsg
+          CUDA::cudart)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
 add_executable(l3_cuda_r src/test_l3_cuda_rolling.cc)
@@ -84,6 +92,7 @@ target_link_libraries(
           psz_testutils
           psz_stat
           psz_statg
+          psz_utils
           psz_utilsg
           CUDA::cudart)
 add_test(test_l3_cuda_r l3_cuda_r)

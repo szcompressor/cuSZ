@@ -15,14 +15,17 @@
 #include <string>
 #include <type_traits>
 
+#include "context.h"
 #include "cusz.h"
 #include "cusz/type.h"
 #include "dryrun.hh"
 #include "framework.hh"
+#include "header.h"
 #include "utils/analyzer.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
+#include "utils2/memseg_cxx.hh"
 
 namespace cusz {
 
@@ -54,49 +57,35 @@ class CLI {
   void write_compressed_to_disk(
       std::string compressed_name, uint8_t* compressed, size_t compressed_len)
   {
-    Capsule<uint8_t> file("cusza");
-    file.set_len(compressed_len)
-        .set_dptr(compressed)
-        .mallochost()
-        .device2host()
-        .tofile(compressed_name)
-        .freehost()
-        .free();
-  }
+    auto file = new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "cusza");
+    file->dptr(compressed)
+        ->control({MallocHost, D2H})
+        ->file(compressed_name.c_str(), ToFile)
+        ->control({FreeHost, Free});
 
-  void try_write_decompressed_to_disk(
-      Capsule<T>& xdata, std::string basename, bool skip_write)
-  {
-    if (not skip_write) xdata.device2host().tofile(basename + ".cuszx");
+    delete file;
   }
 
   // template <typename compressor_t>
   void do_construct(
       cusz_context* ctx, cusz_compressor* compressor, cudaStream_t stream)
   {
-    Capsule<T> input("uncompressed");
+    auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
+
     uint8_t* compressed;
     size_t compressed_len;
     cusz_header header;
-    auto len = ctx->data_len;
-    // auto basename = ctx->infile;
 
-    auto load_uncompressed = [&](std::string fname) {
-      input
-          .set_len(len)  //
-          .mallochost()
-          .malloc()
-          .fromfile(fname)
-          .host2device();
-    };
+    input->control({MallocHost, Malloc})
+        ->file(ctx->infile, FromFile)
+        ->control({H2D});
 
-    auto adjust_eb = [&]() {
-      if (ctx->mode == Rel) ctx->eb *= input.prescan().get_rng();
-    };
-
-    /******************************************************************************/
-    load_uncompressed(std::string(ctx->infile));
-    adjust_eb();
+    // adjust eb
+    if (ctx->mode == Rel) {
+      double _1, _2, rng;
+      input->extrema_scan(_1, _2, rng);
+      ctx->eb *= rng;
+    }
 
     TimeRecord timerecord;
 
@@ -104,69 +93,65 @@ class CLI {
     cusz_len uncomp_len = cusz_len{ctx->x, ctx->y, ctx->z, 1};
 
     cusz_compress(
-        compressor, config, input.dptr(), uncomp_len, &compressed,
+        compressor, config, input->dptr(), uncomp_len, &compressed,
         &compressed_len, &header, (void*)&timerecord, stream);
 
     if (ctx->report_time)
       TimeRecordViewer::view_compression(
-          &timerecord, input.nbyte(), compressed_len);
+          &timerecord, input->m->bytes, compressed_len);
     write_compressed_to_disk(
         std::string(ctx->infile) + ".cusza", compressed, compressed_len);
+
+    delete input;
   }
 
   // template <typename compressor_t>
   void do_reconstruct(
       cusz_context* ctx, cusz_compressor* compressor, cudaStream_t stream)
   {
-    Capsule<uint8_t> compressed("compressed");
-    Capsule<T> decompressed("decompressed"), original("cmp");
-    auto header = new cusz_header;
-
+    // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
-    // remove suffix ".cusza"
     basename = basename.substr(0, basename.rfind('.'));
 
-    auto load_compressed = [&](std::string compressed_name) {
-      auto compressed_len = psz_utils::get_filesize(compressed_name);
-      compressed
-          .set_len(compressed_len)  //
-          .mallochost()
-          .malloc()
-          .fromfile(compressed_name)
-          .host2device();
-    };
+    // all lengths in metadata
+    auto compressed_len = psz_utils::filesize(ctx->infile);
 
-    /******************************************************************************/
+    auto compressed =
+        new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "compressed");
 
-    load_compressed(basename + ".cusza");
-    memcpy(header, compressed.hptr(), sizeof(cusz_header));
-    auto len = psz_utils::get_uncompressed_len(header);
+    compressed->control({MallocHost, Malloc})
+        ->file(ctx->infile, FromFile)
+        ->control({H2D});
 
-    decompressed  //
-        .set_len(len)
-        .mallochost()
-        .malloc();
-    original.set_len(len);
+    auto header = new cusz_header;
+    memcpy(header, compressed->hptr(), sizeof(cusz_header));
+    auto len = psz_utils::uncompressed_len(header);
+
+    auto decompressed = new pszmem_cxx<T>(len, 1, 1, "decompressed");
+    decompressed->control({MallocHost, Malloc});
+
+    auto original = new pszmem_cxx<T>(len, 1, 1, "original-cmp");
 
     TimeRecord timerecord;
 
     cusz_len decomp_len = cusz_len{header->x, header->y, header->z, 1};
 
     cusz_decompress(
-        compressor, header, compressed.dptr(), psz_utils::get_filesize(header),
-        decompressed.dptr(), decomp_len, (void*)&timerecord, stream);
+        compressor, header, compressed->dptr(), psz_utils::filesize(header),
+        decompressed->dptr(), decomp_len, (void*)&timerecord, stream);
 
     if (ctx->report_time)
-      TimeRecordViewer::view_decompression(&timerecord, decompressed.nbyte());
+      TimeRecordViewer::view_decompression(
+          &timerecord, decompressed->m->bytes);
     QualityViewer::view(header, decompressed, original, ctx->original_file);
 
-    // try_write_decompressed_to_disk(decompressed, basename,
-    // ctx->skip_tofile);
-
     if (not ctx->skip_tofile)
-      decompressed.device2host().tofile(basename + ".cuszx");
+      decompressed->control({D2H})->file(
+          std::string(basename + ".cuszx").c_str(), ToFile);
 
-    decompressed.freehost().free();
+    decompressed->control({FreeHost, Free});
+    delete decompressed;
+    delete original;
   }
 
  public:
