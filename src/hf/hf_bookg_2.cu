@@ -9,7 +9,7 @@
  *
  */
 
-#include "detail/hf_bookg.inl"
+#include "detail/hf_bookg_2.inl"
 #include "hf/hf_bookg.hh"
 
 #define PAR_BOOK(T, H) \

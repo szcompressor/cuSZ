@@ -106,7 +106,7 @@ target_link_libraries(psz_argp PUBLIC pszcompile_settings)
 add_library(psz_spv src/kernel/spv_gpu.cu)
 target_link_libraries(psz_spv PUBLIC pszcompile_settings)
 
-add_library(psz_hfbookg src/hf/hf_bookg.cu)
+add_library(psz_hfbookg src/hf/hf_bookg_1.cu src/hf/hf_bookg_2.cu src/hf/hf_sort.cu)
 target_link_libraries(psz_hfbookg PUBLIC pszcompile_settings CUDA::cuda_driver)
 set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)

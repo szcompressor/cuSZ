@@ -16,9 +16,23 @@
 #ifndef PAR_HUFFMAN_H
 #define PAR_HUFFMAN_H
 
+#include <stdint.h>
+
+void lambda_sort_by_freq(uint32_t* freq, const int len, uint32_t* qcode);
+
+namespace par_huffman {
+// Codeword length
+template <typename F>
+__global__ void GPU_GenerateCL(F*, F*, int, F*, int*, F*, int*, F*, int*, int*, F*, int*, int*, uint32_t*, int, int);
+
+// Forward Codebook
+template <typename F, typename H>
+__global__ void GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size);
+
+}  // namespace par_huffman
+
 // Parallel huffman global memory and kernels
 namespace psz {
-
 /**
  * @brief get codebook and reverse codebook in parallel
  *
