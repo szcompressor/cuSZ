@@ -30,19 +30,35 @@ using Mem = psz_memseg;
 
 void pszmem__calc_len(Mem* m)
 {
+  m->len = m->lx * m->ly * m->lz;
   m->tsize = m->type % 10;
   m->bytes = m->tsize * m->len;
   m->sty = m->lx;
   m->stz = m->lx * m->ly;
 }
 
-int pszmem__ndim(Mem* m)
+void pszmem__check_len(Mem* m)
 {
   // TODO psz runtime error
-  if (m->len == 0) throw std::runtime_error("Len == 0 is not allowed.");
-  if (m->len == 1) throw std::runtime_error("Len == 1 is not allowed.");
-  if (m->lx == 1) throw std::runtime_error("Len-x == 1 is not allowed.");
+  if (m->len == 0) {
+    pszmem__dbg(m);
+    throw std::runtime_error(
+        "'" + std::string(m->name) + "'\tLen == 0 is not allowed.");
+  }
+  if (m->len == 1) {
+    pszmem__dbg(m);
+    throw std::runtime_error(
+        "'" + std::string(m->name) + "'\tLen == 1 is not allowed.");
+  }
+  if (m->lx == 1) {
+    pszmem__dbg(m);
+    throw std::runtime_error(
+        "'" + std::string(m->name) + "'\tLen-x == 1 is not allowed.");
+  }
+}
 
+int pszmem__ndim(Mem* m)
+{
   auto ndim = 3;
   if (m->lz == 1) ndim = 2;
   if (m->ly == 1) ndim = 1;
@@ -54,31 +70,34 @@ void pszmem__dbg(psz_memseg* m)
 {
   printf("pszmem::name\t%s\n", m->name);
   printf("pszmem::{dtype, tsize}\t{%d, %d}\n", m->type, m->tsize);
-  printf("pszmem::{len, bytes}\t{%d, %lu}\n", m->tsize, m->bytes);
+  printf("pszmem::{len, bytes}\t{%lu, %lu}\n", m->len, m->bytes);
   printf("pszmem::{lx, ly, lz}\t{%u, %u, %u}\n", m->lx, m->ly, m->lz);
   printf("pszmem::{sty, stz}\t{%lu, %lu}\n", m->sty, m->stz);
   printf("pszmem::{d, h, uni}\t{%p, %p, %p}\n", m->d, m->h, m->uni);
+  printf("\n");
 }
 
 Mem* pszmem_create1(psz_dtype t, uint32_t lx)
 {
-  auto m = new psz_memseg{.type = t, .len = lx, .lx = lx};
+  auto m = new psz_memseg{.type = t, .lx = lx};
   pszmem__calc_len(m);
+  pszmem__check_len(m);
   return m;
 }
 
 Mem* pszmem_create2(psz_dtype t, uint32_t lx, uint32_t ly)
 {
-  auto m = new psz_memseg{.type = t, .len = lx * ly, .lx = lx, .ly = ly};
+  auto m = new psz_memseg{.type = t, .lx = lx, .ly = ly};
   pszmem__calc_len(m);
+  pszmem__check_len(m);
   return m;
 }
 
 Mem* pszmem_create3(psz_dtype t, uint32_t lx, uint32_t ly, uint32_t lz)
 {
-  auto m = new psz_memseg{
-      .type = t, .len = lx * ly * lz, .lx = lx, .ly = ly, .lz = lz};
+  auto m = new psz_memseg{.type = t, .lx = lx, .ly = ly, .lz = lz};
   pszmem__calc_len(m);
+  pszmem__check_len(m);
   return m;
 }
 

@@ -15,6 +15,7 @@
 #include <cuda_runtime.h>
 
 #include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 #include "memseg.h"
@@ -50,24 +51,38 @@ class pszmem_cxx {
   double maxval, minval, range;
 
   pszmem_cxx(
-      uint32_t lx, uint32_t ly = 1, uint32_t lz = 1, const char name[10] = "")
+      uint32_t lx, uint32_t ly = 1, uint32_t lz = 1,
+      const char name[10] = "<unamed>")
   {
     m = pszmem_create3(T, lx, ly, lz);
     pszmem_set_name(m, name);
     ndim = pszmem__ndim(m);
   }
 
-  ~pszmem_cxx() { delete m; }
+  ~pszmem_cxx()
+  {
+    pszmem_free_cuda(m);
+    pszmem_freehost_cuda(m);
+    pszmem_freemanaged_cuda(m);
+    delete m;
+  }
 
   pszmem_cxx* extrema_scan(double& max_value, double& min_value, double& range)
   {
-    // may not work for _uniptr
-    Ctype result[4];
-    psz::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d, m->len, result);
+    if (std::is_same<Ctype, float>::value or
+        std::is_same<Ctype, double>::value) {
+      // may not work for _uniptr
+      Ctype result[4];
+      psz::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d, m->len, result);
 
-    min_value = result[0];
-    max_value = result[1];
-    range = max_value - min_value;
+      min_value = result[0];
+      max_value = result[1];
+      range = max_value - min_value;
+    }
+    else {
+      throw std::runtime_error(
+          "`extrema_scan` only supports `float` or `double`.");
+    }
 
     return this;
   }
@@ -121,10 +136,35 @@ class pszmem_cxx {
     return this;
   }
 
+  pszmem_cxx* dptr(Ctype* d)
+  {
+    if (d == nullptr) throw std::runtime_error("`dptr` arg. must not be nil.");
+    m->d = d;
+    return this;
+  }
+  pszmem_cxx* hptr(Ctype* h)
+  {
+    if (h == nullptr) throw std::runtime_error("`hptr` arg. must not be nil.");
+    m->h = h;
+    return this;
+  }
+
+  pszmem_cxx* uniptr(Ctype* uni)
+  {
+    if (uni == nullptr)
+      throw std::runtime_error("`unihptr` arg. must not be nil.");
+    m->uni = uni;
+    return this;
+  }
+
  public:  // getters
   size_t len() { return m->len; }
   Ctype* dptr() { return (Ctype*)m->d; };
   Ctype* hptr() { return (Ctype*)m->h; };
+  Ctype* uniptr() { return (Ctype*)m->uni; };
+  Ctype& dptr(uint32_t i) { return ((Ctype*)m->d)[i]; };
+  Ctype& hptr(uint32_t i) { return ((Ctype*)m->h)[i]; };
+  Ctype& uniptr(uint32_t i) { return ((Ctype*)m->uni)[i]; };
 };
 
 // template <psz_space space>
