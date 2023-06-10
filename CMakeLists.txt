@@ -64,10 +64,6 @@ target_include_directories(
 add_library(psz_timer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
 target_link_libraries(psz_timer PUBLIC pszcompile_settings)
 
-# deprecated
-add_library(psz_kernel src/kernel/lorenzo.cu src/kernel/lorenzo_proto.cu)
-target_link_libraries(psz_kernel PUBLIC pszcompile_settings)
-
 add_library(psz_stat src/stat/compare_cpu.cc)
 target_link_libraries(psz_stat PUBLIC pszcompile_settings)
 
@@ -89,14 +85,14 @@ add_library(
 target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(psz_core_serial src/kernel/lorenzo_serial.cc)
-target_link_libraries(psz_core_serial PUBLIC pszcompile_settings)
+add_library(psz_kernel_serial src/kernel/lorenzo_serial.cc)
+target_link_libraries(psz_kernel_serial PUBLIC pszcompile_settings)
 
 add_library(
-  psz_core_cuda
+  psz_kernel_cuda
   src/kernel/lorenzo_proto.cu src/kernel/lorenzo.cu src/kernel2/l23r.cu
   src/kernel2/l23r_scttr.cu src/kernel2/hist_sp.cu)
-target_link_libraries(psz_core_cuda PUBLIC pszcompile_settings)
+target_link_libraries(psz_kernel_cuda PUBLIC pszcompile_settings)
 
 add_library(psz_utils src/utils2/memseg.cc)
 target_link_libraries(psz_utils PUBLIC pszcompile_settings CUDA::cudart)
@@ -129,7 +125,7 @@ target_link_libraries(psz_hfg PUBLIC pszcompile_settings psz_statg psz_hfbookg)
 set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(psz_comp src/custom.cc src/compressor.cu)
-target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel psz_statg
+target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel_cuda psz_statg
                                       psz_hfg CUDA::cudart)
 
 add_library(psz_dryrun src/dryrun.cu)
@@ -158,12 +154,8 @@ endif()
 
 install(TARGETS pszcompile_settings EXPORT CUSZTargets)
 
-# 2023 March-April fix start
-install(TARGETS psz_core_serial EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_core_cuda EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-# 2023 March-April fix end
-install(TARGETS psz_kernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS psz_kernel_serial EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS psz_kernel_cuda EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_stat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_statg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_utils EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

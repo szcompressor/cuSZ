@@ -29,7 +29,6 @@ add_test(test_l3_spv l3_spv)
 # add_executable(tgpu src/tgpu.cu) target_link_libraries(tgpu PRIVATE psz_timer)
 # add_test(test_tgpu tgpu)
 
-# 2023 March-April fix start
 add_library(psztestcompile_settings INTERFACE)
 target_include_directories(
   psztestcompile_settings
@@ -73,7 +72,7 @@ add_test(test_l2_histsp l2_histsp)
 
 # Level-3 kernel with configuration (low-level API)
 add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
-target_link_libraries(l3_cuda_pred PRIVATE psz_core_cuda psz_testutils psz_stat
+target_link_libraries(l3_cuda_pred PRIVATE psz_kernel_cuda psz_testutils psz_stat
                                            psz_statg psz_utilsg CUDA::cudart)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
@@ -81,12 +80,10 @@ add_executable(l3_cuda_r src/test_l3_cuda_rolling.cc)
 target_link_libraries(
   l3_cuda_r
   PRIVATE psztestcompile_settings
-          psz_core_cuda
+          psz_kernel_cuda
           psz_testutils
           psz_stat
           psz_statg
           psz_utilsg
           CUDA::cudart)
 add_test(test_l3_cuda_r l3_cuda_r)
-
-# 2023 March-April fix end
