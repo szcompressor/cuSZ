@@ -21,9 +21,11 @@ extern "C" {
 #include <stdint.h>
 
 #include "cusz/type.h"
+#include "utils2/memseg.h"
 
 typedef enum psz_runtime_mem_segment { HEADER = 0, ERRCTRL = 1, SP_VAL = 2, SP_IDX = 3, END = 4 } psz_mem_segment;
 
+// TODO move to header.h
 typedef struct alignas(128) psz_header {
     static const int HEADER = 0;
     static const int ANCHOR = 1;
@@ -45,12 +47,6 @@ typedef struct alignas(128) psz_header {
     uint32_t nnz;
 
 } psz_header;
-
-typedef struct psz_memory_segment {
-    psz_dtype type;
-    void*     buf;
-    size_t    len;
-} psz_memseg;
 
 typedef struct psz_runtime_mem_layout {
     size_t seg_len[END];

@@ -88,7 +88,6 @@ add_library(
   src/stat/stat_g.cu)
 target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 
-# 2023 March-April fix start naming: PROJ_FUNC_BACKEND, where PROJ=psz,
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(psz_core_serial src/kernel/lorenzo_serial.cc)
 target_link_libraries(psz_core_serial PUBLIC pszcompile_settings)
@@ -99,7 +98,9 @@ add_library(
   src/kernel2/l23r_scttr.cu src/kernel2/hist_sp.cu)
 target_link_libraries(psz_core_cuda PUBLIC pszcompile_settings)
 
-# 2023 March-April fix end
+add_library(psz_utils src/utils2/memseg.cc)
+target_link_libraries(psz_utils PUBLIC pszcompile_settings CUDA::cudart)
+
 add_library(psz_utilsg src/utils/print_gpu.cu)
 target_link_libraries(psz_utilsg PUBLIC pszcompile_settings)
 
@@ -131,16 +132,17 @@ add_library(psz_comp src/custom.cc src/compressor.cu)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel psz_statg
                                       psz_hfg CUDA::cudart)
 
-# 2023 June fix start
+add_library(psz_dryrun src/dryrun.cu)
+target_link_libraries(psz_dryrun PUBLIC pszcompile_settings)
+
 add_library(psz_comp2 src/psz_lib.cc src/rt_config.cu)
 target_link_libraries(psz_comp2 PUBLIC pszcompile_settings CUDA::cudart)
-# 2023 June fix end
 
 add_library(cusz src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC psz_comp psz_argp psz_hfg psz_spv psz_stat
-                                  psz_utilsg)
+                                  psz_utilsg psz_utils psz_dryrun)
 
-add_executable(cusz-bin src/cli_prog.cu src/cli.cu src/dryrun.cu)
+add_executable(cusz-bin src/cli_prog.cu src/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 
@@ -164,12 +166,14 @@ install(TARGETS psz_core_cuda EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INS
 install(TARGETS psz_kernel EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_stat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_statg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS psz_utils EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_utilsg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_timer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_spv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_argp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_hfbookg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_hfg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS psz_dryrun EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_comp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)

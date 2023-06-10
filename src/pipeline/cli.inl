@@ -43,16 +43,10 @@ class CLI {
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    if (not dualquant) {
-      dryrun.init_dualquant_dryrun(xyz)
-          .dualquant_dryrun(ctx->infile, ctx->eb, ctx->mode == Rel, stream)
-          .destroy_dualquant_dryrun();
-    }
-    else {
-      dryrun.init_generic_dryrun(xyz)
-          .generic_dryrun(ctx->infile, ctx->eb, 512, ctx->mode == Rel, stream)
-          .destroy_generic_dryrun();
-    }
+    dryrun.init_dualquant_dryrun(xyz)
+        .dualquant_dryrun(ctx->infile, ctx->eb, ctx->mode == Rel, stream)
+        .destroy_dualquant_dryrun();
+
     cudaStreamDestroy(stream);
   }
 

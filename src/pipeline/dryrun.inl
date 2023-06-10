@@ -23,6 +23,7 @@
 #include "utils/io.hh"
 #include "utils/verify.hh"
 #include "utils/viewer.hh"
+#include "utils2/memseg_cxx.hh"
 
 namespace cusz {
 
@@ -39,25 +40,28 @@ template <typename T>
 Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(
     const std::string fname, double eb, bool r2r, cudaStream_t stream)
 {
-  auto len = original.len();
+  // auto len = original.len();
+  auto len = original->len();
 
-  original.fromfile(fname).host2device_async(stream);
+  original->debug();
+
+  original->file(fname.c_str(), FromFile)->control({ASYNC_H2D}, stream);
   CHECK_CUDA(cudaStreamSynchronize(stream));
 
-  if (r2r) original.prescan(max, min, rng), eb *= rng;
+  if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
   auto ebx2_r = 1 / (eb * 2);
   auto ebx2 = eb * 2;
 
   cusz::dualquant_dryrun_kernel                                           //
       <<<psz_utils::get_npart(len, 256), 256, 256 * sizeof(T), stream>>>  //
-      (original.dptr(), reconst.dptr(), len, ebx2_r, ebx2);
+      (original->dptr(), reconst->dptr(), len, ebx2_r, ebx2);
 
-  reconst.device2host_async(stream);
+  reconst->control({ASYNC_D2H}, stream);
   CHECK_CUDA(cudaStreamSynchronize(stream));
 
   cusz_stats stat;
-  psz::thrustgpu_assess_quality(&stat, reconst.hptr(), original.hptr(), len);
+  psz::thrustgpu_assess_quality(&stat, reconst->hptr(), original->hptr(), len);
   cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
 
   return *this;
@@ -66,6 +70,8 @@ Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(
 template <typename T>
 Dryrunner<T>::~Dryrunner()
 {
+  delete original;
+  delete reconst;
 }
 
 template <typename T>
@@ -85,9 +91,11 @@ Dryrunner<T>& Dryrunner<T>::destroy_generic_dryrun()
 template <typename T>
 Dryrunner<T>& Dryrunner<T>::init_dualquant_dryrun(dim3 size)
 {
-  auto len = size.x * size.y * size.z;
-  original.set_len(len).mallochost().malloc();
-  reconst.set_len(len).mallochost().malloc();
+  original = new pszmem_cxx<T>(size.x, size.y, size.z, "original");
+  original->control({MallocHost, Malloc});
+
+  reconst = new pszmem_cxx<T>(size.x, size.y, size.z, "reconst");
+  reconst->control({MallocHost, Malloc});
 
   return *this;
 }
@@ -95,8 +103,8 @@ Dryrunner<T>& Dryrunner<T>::init_dualquant_dryrun(dim3 size)
 template <typename T>
 Dryrunner<T>& Dryrunner<T>::destroy_dualquant_dryrun()
 {
-  original.freehost().free();
-  reconst.freehost().free();
+  original->control({FreeHost, Free});
+  reconst->control({FreeHost, Free});
 
   return *this;
 }

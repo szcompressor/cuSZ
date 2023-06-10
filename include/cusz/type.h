@@ -88,6 +88,8 @@ typedef enum cusz_executiontype  //
   Host   = 1,
   None   = 2 } cusz_executiontype;
 
+typedef cusz_executiontype psz_space;
+
 typedef enum cusz_mode  //
 { Abs = 0,
   Rel = 1 } cusz_mode;
