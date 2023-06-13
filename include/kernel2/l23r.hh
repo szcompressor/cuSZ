@@ -24,7 +24,7 @@ void psz_adhoc_scttr(
     T* val, uint32_t* idx, int const n, T* out, float* milliseconds,
     cudaStream_t stream);
 
-#define psz_comp_lorenzo compress_predict_lorenzo_i_rolling
+#define psz_comp_l23r compress_predict_lorenzo_i_rolling
 
 template <typename T, bool UsePnEnc = false, typename Eq = uint32_t>
 cusz_error_status compress_predict_lorenzo_i_rolling(

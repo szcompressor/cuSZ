@@ -85,12 +85,12 @@ add_library(
 target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(psz_kernel_serial src/kernel/lorenzo_serial.cc)
+add_library(psz_kernel_serial src/kernel/l23ser.cc)
 target_link_libraries(psz_kernel_serial PUBLIC pszcompile_settings)
 
 add_library(
   psz_kernel_cuda
-  src/kernel/lorenzo_proto.cu src/kernel/lorenzo.cu src/kernel2/l23r.cu
+  src/kernel/lproto.cu src/kernel/l23.cu src/kernel2/l23r.cu
   src/kernel2/l23r_scttr.cu src/kernel2/hist_sp.cu)
 target_link_libraries(psz_kernel_cuda PUBLIC pszcompile_settings)
 

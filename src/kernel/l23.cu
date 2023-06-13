@@ -13,13 +13,12 @@
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
-#include "kernel/lorenzo_all.hh"
-
-// #include "detail/lorenzo.inl"
+#include "kernel/l23.hh"
+// #include "detail/l21.inl"
 #include "detail/l23.inl"
 
 template <typename T, typename EQ, typename FP>
-cusz_error_status compress_predict_lorenzo_i(
+cusz_error_status psz_comp_l23(
     T* const     data,
     dim3 const   len3,
     double const eb,
@@ -102,7 +101,7 @@ cusz_error_status compress_predict_lorenzo_i(
 }
 
 template <typename T, typename EQ, typename FP>
-cusz_error_status decompress_predict_lorenzo_i(
+cusz_error_status psz_decomp_l23(
     EQ*            eq,
     dim3 const     len3,
     T*             outlier,
@@ -182,28 +181,26 @@ cusz_error_status decompress_predict_lorenzo_i(
     return CUSZ_SUCCESS;
 }
 
-#define CPP_TEMPLATE_INIT_AND_C_WRAPPER(T, EQ)                                                                     \
-    template cusz_error_status compress_predict_lorenzo_i<T, EQ>(                                                  \
+#define CPP_INS(T, EQ)                                                                     \
+    template cusz_error_status psz_comp_l23<T, EQ>(                                                  \
         T* const data, dim3 const len3, double const eb, int const radius, EQ* const eq, T* const outlier,         \
         uint32_t* outlier_idx, uint32_t* num_outliers, float* time_elapsed, cudaStream_t stream);                  \
                                                                                                                    \
-    template cusz_error_status decompress_predict_lorenzo_i<T, EQ>(                                                \
+    template cusz_error_status psz_decomp_l23<T, EQ>(                                                \
         EQ * eq, dim3 const len3, T* outlier, uint32_t* outlier_idx, uint32_t const num_outliers, double const eb, \
         int const radius, T* xdata, float* time_elapsed, cudaStream_t stream);
 
-// before 2023
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, uint8_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, uint16_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, uint32_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, float);
+CPP_INS(float, uint8_t);
+CPP_INS(float, uint16_t);
+CPP_INS(float, uint32_t);
+CPP_INS(float, float);
 
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, uint8_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, uint16_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, uint32_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, float);
+CPP_INS(double, uint8_t);
+CPP_INS(double, uint16_t);
+CPP_INS(double, uint32_t);
+CPP_INS(double, float);
 
-// 2023
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, int32_t);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, int32_t);
+CPP_INS(float, int32_t);
+CPP_INS(double, int32_t);
 
-#undef CPP_TEMPLATE_INIT_AND_C_WRAPPER
+#undef CPP_INS

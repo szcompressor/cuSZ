@@ -9,11 +9,11 @@
  *
  */
 
-#include "detail/lorenzo_serial.inl"
+#include "detail/l23ser.inl"
 #include "cusz/type.h"
 
 template <typename T, typename EQ, typename FP, typename OUTLIER = psz_outlier_serial<T>>
-cusz_error_status serial_compress_predict_lorenzo_i(
+cusz_error_status psz_comp_l23ser(
     T* const       data,
     psz_dim3 const len3,
     double const   eb,
@@ -56,7 +56,7 @@ cusz_error_status serial_compress_predict_lorenzo_i(
 }
 
 template <typename T, typename EQ, typename FP>
-cusz_error_status serial_decompress_predict_lorenzo_i(
+cusz_error_status psz_decomp_l23ser(
     EQ*            eq,
     psz_dim3 const len3,
     T*             outlier,
@@ -98,21 +98,21 @@ cusz_error_status serial_decompress_predict_lorenzo_i(
     return CUSZ_SUCCESS;
 }
 
-#define CPP_TEMPLATE_INIT_AND_C_WRAPPER(Tliteral, Eliteral, FPliteral, T, EQ, FP)                      \
-    template cusz_error_status serial_compress_predict_lorenzo_i<T, EQ, FP>(                           \
+#define CPP_INS(Tliteral, Eliteral, FPliteral, T, EQ, FP)                      \
+    template cusz_error_status psz_comp_l23ser<T, EQ, FP>(                           \
         T* const, psz_dim3 const, double const, int const, EQ* const, psz_outlier_serial<T>*, float*); \
                                                                                                        \
-    template cusz_error_status serial_decompress_predict_lorenzo_i<T, EQ, FP>(                         \
+    template cusz_error_status psz_decomp_l23ser<T, EQ, FP>(                         \
         EQ*, psz_dim3 const, T*, double const, int const, T*, float*);
 
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui8, fp32, float, uint8_t, float);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui16, fp32, float, uint16_t, float);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui32, fp32, float, uint32_t, float);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, fp32, fp32, float, float, float);
+CPP_INS(fp32, ui8, fp32, float, uint8_t, float);
+CPP_INS(fp32, ui16, fp32, float, uint16_t, float);
+CPP_INS(fp32, ui32, fp32, float, uint32_t, float);
+CPP_INS(fp32, fp32, fp32, float, float, float);
 
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, ui8, fp64, double, uint8_t, double);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, ui16, fp64, double, uint16_t, double);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, ui32, fp64, double, uint32_t, double);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, fp32, fp64, double, float, double);
+CPP_INS(fp64, ui8, fp64, double, uint8_t, double);
+CPP_INS(fp64, ui16, fp64, double, uint16_t, double);
+CPP_INS(fp64, ui32, fp64, double, uint32_t, double);
+CPP_INS(fp64, fp32, fp64, double, float, double);
 
-#undef CPP_TEMPLATE_INIT_AND_C_WRAPPER
+#undef CPP_INS

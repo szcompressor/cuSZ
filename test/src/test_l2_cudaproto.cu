@@ -15,7 +15,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "kernel/detail/lorenzo_proto.inl"
+#include "kernel/detail/lproto.inl"
 #include "pipeline/compact_cuda.inl"
 #include "utils2/memseg_cxx.hh"
 

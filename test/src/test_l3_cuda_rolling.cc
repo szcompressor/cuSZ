@@ -10,7 +10,7 @@
  */
 
 #include <typeinfo>
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "kernel2/l23r.hh"
 #include "pipeline/compact_cuda.inl"
 #include "rand.hh"
@@ -57,7 +57,7 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
 
     psz_adhoc_scttr(outlier.val, outlier.idx, outlier.num_outliers(), xdata->uniptr(), &time, stream);
 
-    decompress_predict_lorenzo_i<T, EQ, FP>(              //
+    psz_decomp_l23<T, EQ, FP>(              //
         eq->uniptr(), len3, xdata->uniptr(), nullptr, 0,  // input
         error_bound, radius,                              // input (config)
         xdata->uniptr(),                                  // output

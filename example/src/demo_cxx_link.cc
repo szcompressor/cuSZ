@@ -1,5 +1,5 @@
 #include <cuda_runtime.h>
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 
 int main()
 {
@@ -21,7 +21,7 @@ int main()
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    compress_predict_lorenzo_i<float, uint16_t, float>(
+    psz_comp_l23<float, uint16_t, float>(
         data, len3, eb, radius, errq, outlier, outlier_idx, nullptr, &time_elapsed, stream);
 
     cudaFree(data);

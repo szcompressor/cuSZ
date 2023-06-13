@@ -16,7 +16,7 @@
 #include "context.h"
 #include "framework.hh"
 #include "hf/hf.hh"
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
 #include "layout.h"
 #include "rt_config.h"
@@ -83,7 +83,7 @@ psz_error_status psz_compress(
         auto len_linearized = len * leny * lenz;
         auto len_freq       = config->radius * 2;
 
-        compress_predict_lorenzo_i<T, E>(
+        psz_comp_l23<T, E>(
             (T*)in, dim3(len, leny, lenz), config->eb, config->radius, ptr<E>(mem->errctrl), ptr<T>(mem->sp_val_full),
             ptr<E>(mem->sp_idx), nullptr /*nnz, reserved for next version*/, nullptr, (cudaStream_t)stream);
 
@@ -140,7 +140,7 @@ psz_error_status psz_decompress(
         auto hf = static_cast<cusz::HuffmanCodec<E, H>*>(codec);
         hf->decode(at(psz_header::VLE), ptr<E>(mem->errctrl));
 
-        decompress_predict_lorenzo_i<T, E>(
+        psz_decomp_l23<T, E>(
             ptr<E>(mem->errctrl), dim3(header->x, header->y, header->z), (T*)decompressed, nullptr, 0, header->eb,
             header->radius, (T*)decompressed, nullptr, (cudaStream_t)stream);
     }

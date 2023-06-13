@@ -21,7 +21,7 @@ using std::endl;
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
 #include "stat/stat_g.hh"
 #include "utils/cuda_err.cuh"
@@ -192,19 +192,19 @@ cusz_error_status compressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        // compress_predict_lorenzo_i<T, E, FP>(                    //
+        // psz_comp_l23<T, E, FP>(                    //
         //     data->data, data->len3, config->eb, config->radius,  //
         //     data->errq, data->len3, data->anchor, data->anchor_len3, data->outlier, data->outlier_idx,
         //     nullptr,  //
         //     &time_pq, stream);
-        compress_predict_lorenzo_i<T, E, FP>(                       //
+        psz_comp_l23<T, E, FP>(                       //
             data->data, data->len3, config->eb, config->radius,     //
             data->errq, data->outlier, data->outlier_idx, nullptr,  //
             &time_pq, stream);
     }
     else {
         cout << "using prototype comp. kernel\n";
-        // compress_predict_lorenzo_iproto<T, E, FP>(                  //
+        // psz_comp_lproto<T, E, FP>(                  //
         //     data->data, data->len3, config->eb, config->radius,     //
         //     data->errq, data->outlier, data->outlier_idx, nullptr,  //
         //     &time_pq, stream);
@@ -283,7 +283,7 @@ cusz_error_status decompressor(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        decompress_predict_lorenzo_i<T, E, FP>(                           //
+        psz_decomp_l23<T, E, FP>(                           //
             data->errq, data->len3, data->outlier, data->outlier_idx, 0,  // input
             header_st->header.eb, header_st->header.radius,               // input (config)
             data->xdata,                                                  // output
@@ -291,7 +291,7 @@ cusz_error_status decompressor(
     }
     else {
         cout << "using prototype comp. kernel\n";
-        // decompress_predict_lorenzo_iproto<T, E, FP>(                      //
+        // psz_decomp_lproto<T, E, FP>(                      //
         //     data->errq, data->len3, data->outlier, data->outlier_idx, 0,  // input
         //     header_st->header.eb, header_st->header.radius,               // input (config)
         //     data->xdata,                                                  // output

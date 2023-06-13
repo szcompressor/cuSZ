@@ -14,7 +14,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "kernel/detail/lorenzo_serial.inl"
+#include "kernel/detail/l23ser.inl"
 
 using std::cout;
 using std::endl;

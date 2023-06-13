@@ -1,7 +1,7 @@
 /**
- * @file compressor_impl.cuh
+ * @file compressor_g.inl
  * @author Jiannan Tian
- * @brief cuSZ compressor of the default path
+ * @brief compression pipeline
  * @version 0.3
  * @date 2023-06-06
  * (create) 2020-02-12; (release) 2020-09-20;
@@ -22,7 +22,7 @@
 #include "compressor.hh"
 #include "header.h"
 #include "hf/hf.hh"
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
 #include "stat/stat_g.hh"
 #include "utils/config.hh"
@@ -130,7 +130,7 @@ void Compressor<Combination>::compress(
 
   /******************************************************************************/
 
-  psz_comp_lorenzo_2output<T, E, FP>(
+  psz_comp_l23<T, E, FP>(
       uncompressed, data_len3, eb, radius, d_errctrl, d_outlier, nullptr,
       nullptr, &time_pred, stream);
   psz::stat::histogram<E>(
@@ -209,7 +209,7 @@ void Compressor<Combination>::decompress(
       stream);
 
   codec->decode(d_vle, d_errctrl);
-  psz_decomp_lorenzo<T, E, FP>(
+  psz_decomp_l23<T, E, FP>(
       d_errctrl, data_len3, d_outlier_xdata, nullptr, 0, eb, radius,
       d_outlier_xdata, &time_pred, stream);
 

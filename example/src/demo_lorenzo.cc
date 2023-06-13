@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include "utils/viewer.hh"
 // #include "cusz.h"
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
@@ -66,7 +66,7 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized comp. kernel\n";
-        compress_predict_lorenzo_i<T, E, FP>(  //
+        psz_comp_l23<T, E, FP>(  //
             d_d, len3, error_bound, radius,    // input and config
             d_eq, d_outlier, outlier_idx,
             nullptr,  // output
@@ -74,7 +74,7 @@ void f(
     }
     else {
         // cout << "using prototype comp. kernel\n";
-        // compress_predict_lorenzo_iproto<T, E, FP>(  //
+        // psz_comp_lproto<T, E, FP>(  //
         //     d_d, len3, error_bound, radius,         // input and config
         //     d_eq, d_outlier, outlier_idx,
         //     nullptr,  // output
@@ -93,7 +93,7 @@ void f(
 
     if (not use_proto) {
         cout << "using optimized decomp. kernel\n";
-        decompress_predict_lorenzo_i<T, E, FP>(     //
+        psz_decomp_l23<T, E, FP>(     //
             d_eq, len3, d_outlier, outlier_idx, 0,  // input
             error_bound, radius,                    // input (config)
             d_xd,                                   // output
@@ -101,7 +101,7 @@ void f(
     }
     else {
         cout << "using prototype decomp. kernel\n";
-        //     decompress_predict_lorenzo_iproto<T, E, FP>(  //
+        //     psz_decomp_lproto<T, E, FP>(  //
         //         d_eq, len3, d_outlier, outlier_idx, 0,    // input
         //         error_bound, radius,                      // input (config)
         //         d_xd,                                     // output

@@ -14,7 +14,7 @@
 #include <iostream>
 #include <string>
 
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
@@ -56,7 +56,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
 
     float time_comp;
 
-    asz::experimental::compress_predict_lorenzo_ivar<float, DeltaT, float>(
+    asz::experimental::psz_comp_l21var<float, DeltaT, float>(
         data, len3, eb, delta, signum, &time_comp, stream);
 
     {
@@ -70,7 +70,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
     cout << "comp time\t" << time_comp << endl;
 
     float time_decomp;
-    asz::experimental::decompress_predict_lorenzo_ivar<float, DeltaT, float>(
+    asz::experimental::psz_decomp_l21var<float, DeltaT, float>(
         delta, signum, len3, eb, xdata, &time_decomp, stream);
 
     cout << "decomp time\t" << time_decomp << endl;

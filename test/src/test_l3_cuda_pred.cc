@@ -10,7 +10,7 @@
  */
 
 #include <typeinfo>
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
@@ -48,13 +48,13 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
     float time;
     auto  len3 = dim3(x, y, z);
 
-    compress_predict_lorenzo_i<T, EQ, FP>(                      //
+    psz_comp_l23<T, EQ, FP>(                      //
         data->uniptr(), len3, error_bound, radius,              // input and config
         eq->uniptr(), outlier->uniptr(), outlier_idx, nullptr,  // output
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    decompress_predict_lorenzo_i<T, EQ, FP>(                    //
+    psz_decomp_l23<T, EQ, FP>(                    //
         eq->uniptr(), len3, outlier->uniptr(), outlier_idx, 0,  // input
         error_bound, radius,                                    // input (config)
         xdata->uniptr(),                                        // output

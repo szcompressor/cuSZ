@@ -1,5 +1,5 @@
 /**
- * @file claunch_cuda_proto.cu
+ * @file lproto.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -10,15 +10,15 @@
  */
 
 #include "cusz/type.h"
-#include "kernel/lorenzo_all.hh"
+#include "kernel/lproto.hh"
 #include "pipeline/compact_cuda.inl"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
-#include "detail/lorenzo_proto.inl"
+#include "detail/lproto.inl"
 
 template <typename T, typename Eq>
-cusz_error_status compress_predict_lorenzo_iproto(
+cusz_error_status psz_comp_lproto(
     T* const     data,
     dim3 const   len3,
     double const eb,
@@ -88,7 +88,7 @@ cusz_error_status compress_predict_lorenzo_iproto(
 }
 
 template <typename T, typename Eq>
-cusz_error_status decompress_predict_lorenzo_iproto(
+cusz_error_status psz_decomp_lproto(
     Eq*          eq,
     dim3 const   len3,
     T*           scattered_outlier,
@@ -155,24 +155,24 @@ cusz_error_status decompress_predict_lorenzo_iproto(
     return CUSZ_SUCCESS;
 }
 
-#define CPP_TEMPLATE_INIT_AND_C_WRAPPER(T, Eq)                                                  \
-    template cusz_error_status compress_predict_lorenzo_iproto<T, Eq>(                          \
+#define CPP_INS(T, Eq)                                                  \
+    template cusz_error_status psz_comp_lproto<T, Eq>(                          \
         T* const, dim3 const, double const, int const, Eq* const, void*, float*, cudaStream_t); \
                                                                                                 \
-    template cusz_error_status decompress_predict_lorenzo_iproto<T, Eq>(                        \
+    template cusz_error_status psz_decomp_lproto<T, Eq>(                        \
         Eq*, dim3 const, T*, double const, int const, T*, float*, cudaStream_t);
 
 // TODO decrease the number of instantiated types
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, uint8_t);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, uint16_t);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, uint32_t);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, float);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(float, int32_t);
+CPP_INS(float, uint8_t);
+CPP_INS(float, uint16_t);
+CPP_INS(float, uint32_t);
+// CPP_INS(float, float);
+// CPP_INS(float, int32_t);
 
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, uint8_t);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, uint16_t);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, uint32_t);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, float);
-// CPP_TEMPLATE_INIT_AND_C_WRAPPER(double, int32_t);
+// CPP_INS(double, uint8_t);
+// CPP_INS(double, uint16_t);
+// CPP_INS(double, uint32_t);
+// CPP_INS(double, float);
+// CPP_INS(double, int32_t);
 
-#undef CPP_TEMPLATE_INIT_AND_C_WRAPPER
+#undef CPP_INS

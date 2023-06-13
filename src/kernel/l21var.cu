@@ -10,14 +10,14 @@
  */
 
 #include "cusz/type.h"
-#include "kernel/lorenzo_all.hh"
+#include "kernel/l23.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
 #include "detail/lorenzo_var.inl"
 
 template <typename T, typename DeltaT, typename FP>
-cusz_error_status asz::experimental::compress_predict_lorenzo_ivar(
+cusz_error_status asz::experimental::psz_comp_l21var(
     T*           data,
     dim3 const   len3,
     double const eb,
@@ -94,7 +94,7 @@ cusz_error_status asz::experimental::compress_predict_lorenzo_ivar(
 }
 
 template <typename T, typename DeltaT, typename FP>
-cusz_error_status asz::experimental::decompress_predict_lorenzo_ivar(
+cusz_error_status asz::experimental::psz_decomp_l21var(
     DeltaT*      delta,
     bool*        signum,
     dim3 const   len3,
@@ -167,18 +167,18 @@ cusz_error_status asz::experimental::decompress_predict_lorenzo_ivar(
     return CUSZ_SUCCESS;
 }
 
-#define CPP_TEMPLATE_INIT_AND_C_WRAPPER(Tliteral, Eliteral, FPliteral, T, E, FP)                                      \
-    template cusz_error_status asz::experimental::compress_predict_lorenzo_ivar<T, E, FP>(                            \
+#define CPP_INS(Tliteral, Eliteral, FPliteral, T, E, FP)                                      \
+    template cusz_error_status asz::experimental::psz_comp_l21var<T, E, FP>(                            \
         T*, dim3 const, double const, E*, bool*, float*, cudaStream_t);                                               \
                                                                                                                       \
-    template cusz_error_status asz::experimental::decompress_predict_lorenzo_ivar<T, E, FP>(                          \
+    template cusz_error_status asz::experimental::psz_decomp_l21var<T, E, FP>(                          \
         E*, bool*, dim3 const, double const, T*, float*, cudaStream_t);                                               \
                                                                                                                       \
     cusz_error_status compress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                        \
         T* const data, dim3 const len3, double const eb, E* delta, bool* signum, float* time_elapsed,                 \
         cudaStream_t stream)                                                                                          \
     {                                                                                                                 \
-        asz::experimental::compress_predict_lorenzo_ivar<T, E, FP>(                                                   \
+        asz::experimental::psz_comp_l21var<T, E, FP>(                                                   \
             data, len3, eb, delta, signum, time_elapsed, stream);                                                     \
         return CUSZ_SUCCESS;                                                                                          \
     }                                                                                                                 \
@@ -186,19 +186,19 @@ cusz_error_status asz::experimental::decompress_predict_lorenzo_ivar(
     cusz_error_status decompress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                      \
         E* delta, bool* signum, dim3 const len3, double const eb, T* xdata, float* time_elapsed, cudaStream_t stream) \
     {                                                                                                                 \
-        asz::experimental::decompress_predict_lorenzo_ivar<T, E, FP>(                                                 \
+        asz::experimental::psz_decomp_l21var<T, E, FP>(                                                 \
             delta, signum, len3, eb, xdata, time_elapsed, stream);                                                    \
         return CUSZ_SUCCESS;                                                                                          \
     }
 
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui8, fp32, float, uint8_t, float);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui16, fp32, float, uint16_t, float);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, ui32, fp32, float, uint32_t, float);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp32, fp32, fp32, float, float, float);
+CPP_INS(fp32, ui8, fp32, float, uint8_t, float);
+CPP_INS(fp32, ui16, fp32, float, uint16_t, float);
+CPP_INS(fp32, ui32, fp32, float, uint32_t, float);
+CPP_INS(fp32, fp32, fp32, float, float, float);
 
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, ui8, fp64, double, uint8_t, double);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, ui16, fp64, double, uint16_t, double);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, ui32, fp64, double, uint32_t, double);
-CPP_TEMPLATE_INIT_AND_C_WRAPPER(fp64, fp32, fp64, double, float, double);
+CPP_INS(fp64, ui8, fp64, double, uint8_t, double);
+CPP_INS(fp64, ui16, fp64, double, uint16_t, double);
+CPP_INS(fp64, ui32, fp64, double, uint32_t, double);
+CPP_INS(fp64, fp32, fp64, double, float, double);
 
-#undef CPP_TEMPLATE_INIT_AND_C_WRAPPER
+#undef CPP_INS
