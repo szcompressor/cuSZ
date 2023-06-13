@@ -25,8 +25,6 @@ cusz_error_status psz_comp_l23(
     int const    radius,
     EQ* const    eq,
     T* const     outlier,
-    uint32_t*    outlier_idx,
-    uint32_t*    num_outliers,
     float*       time_elapsed,
     cudaStream_t stream)
 {
@@ -102,16 +100,14 @@ cusz_error_status psz_comp_l23(
 
 template <typename T, typename EQ, typename FP>
 cusz_error_status psz_decomp_l23(
-    EQ*            eq,
-    dim3 const     len3,
-    T*             outlier,
-    uint32_t*      outlier_idx,
-    uint32_t const num_outliers,
-    double const   eb,
-    int const      radius,
-    T*             xdata,
-    float*         time_elapsed,
-    cudaStream_t   stream)
+    EQ*          eq,
+    dim3 const   len3,
+    T*           outlier,
+    double const eb,
+    int const    radius,
+    T*           xdata,
+    float*       time_elapsed,
+    cudaStream_t stream)
 {
     auto divide3 = [](dim3 len, dim3 sublen) {
         return dim3(
@@ -181,14 +177,14 @@ cusz_error_status psz_decomp_l23(
     return CUSZ_SUCCESS;
 }
 
-#define CPP_INS(T, EQ)                                                                     \
-    template cusz_error_status psz_comp_l23<T, EQ>(                                                  \
-        T* const data, dim3 const len3, double const eb, int const radius, EQ* const eq, T* const outlier,         \
-        uint32_t* outlier_idx, uint32_t* num_outliers, float* time_elapsed, cudaStream_t stream);                  \
-                                                                                                                   \
-    template cusz_error_status psz_decomp_l23<T, EQ>(                                                \
-        EQ * eq, dim3 const len3, T* outlier, uint32_t* outlier_idx, uint32_t const num_outliers, double const eb, \
-        int const radius, T* xdata, float* time_elapsed, cudaStream_t stream);
+#define CPP_INS(T, EQ)                                                                                          \
+    template cusz_error_status psz_comp_l23<T, EQ>(                                                             \
+        T* const data, dim3 const len3, double const eb, int const radius, EQ* const eq, T* const outlier,      \
+        float* time_elapsed, cudaStream_t stream);                                                              \
+                                                                                                                \
+    template cusz_error_status psz_decomp_l23<T, EQ>(                                                           \
+        EQ * eq, dim3 const len3, T* outlier, double const eb, int const radius, T* xdata, float* time_elapsed, \
+        cudaStream_t stream);
 
 CPP_INS(float, uint8_t);
 CPP_INS(float, uint16_t);

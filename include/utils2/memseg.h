@@ -47,6 +47,8 @@ void pszmem_mallocmanaged_cuda(psz_memseg* m);
 void pszmem_free_cuda(psz_memseg* m);
 void pszmem_freehost_cuda(psz_memseg* m);
 void pszmem_freemanaged_cuda(psz_memseg* m);
+void pszmem_clearhost(psz_memseg* m);
+void pszmem_cleardevice(psz_memseg* m);
 void pszmem_h2d_cuda(psz_memseg* m);
 void pszmem_h2d_cudaasync(psz_memseg* m, void* stream);
 void pszmem_d2h_cuda(psz_memseg* m);

@@ -64,7 +64,7 @@ psz_error_status psz_compress(
     psz_device_property* prop,
     cusz_context*        config,
     void*                codec,
-    psz_mem_layout*      mem,
+    pszmem_pool*         mem,
     void*                in,
     size_t const         len,
     uint8_t*             out,
@@ -85,7 +85,7 @@ psz_error_status psz_compress(
 
         psz_comp_l23<T, E>(
             (T*)in, dim3(len, leny, lenz), config->eb, config->radius, ptr<E>(mem->errctrl), ptr<T>(mem->sp_val_full),
-            ptr<E>(mem->sp_idx), nullptr /*nnz, reserved for next version*/, nullptr, (cudaStream_t)stream);
+            nullptr, (cudaStream_t)stream);
 
         psz_launch_p2013Histogram(
             prop, ptr<E>(mem->errctrl), len_linearized, ptr<U4>(mem->freq), len_freq, nullptr, (cudaStream_t)stream);
@@ -118,7 +118,7 @@ psz_error_status psz_decompress(
     psz_header*     header,
     uint8_t*        compressed,
     size_t const    comp_len,
-    psz_mem_layout* mem,
+    pszmem_pool*    mem,
     void*           codec,
     void*           decompressed,
     psz_len const   decomp_len,
@@ -141,8 +141,8 @@ psz_error_status psz_decompress(
         hf->decode(at(psz_header::VLE), ptr<E>(mem->errctrl));
 
         psz_decomp_l23<T, E>(
-            ptr<E>(mem->errctrl), dim3(header->x, header->y, header->z), (T*)decompressed, nullptr, 0, header->eb,
-            header->radius, (T*)decompressed, nullptr, (cudaStream_t)stream);
+            ptr<E>(mem->errctrl), dim3(header->x, header->y, header->z), (T*)decompressed, header->eb, header->radius,
+            (T*)decompressed, nullptr, (cudaStream_t)stream);
     }
 
     // if F8

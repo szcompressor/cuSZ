@@ -25,7 +25,8 @@ extern "C" {
 // raw pointer array; regardless of being on host or device
 typedef struct hf_book {
     uint32_t* freq;
-    // undertermined on definition; could be uint32_t* and uint64_t*
+    // undertermined on definition
+    // could be uint32_t* and uint64_t*
     void* book;
     int   booklen;
 } hf_book;
@@ -65,7 +66,7 @@ typedef struct hf_context {
 
 typedef hf_context hf_ctx;
 
-typedef struct hf_runtime_mem_layout {
+typedef struct hfmem_pool {
     // device
     psz_memseg tmp;  // can overlap with err-quant array
     psz_memseg book;
@@ -79,7 +80,7 @@ typedef struct hf_runtime_mem_layout {
     psz_memseg h_par_ncell;
     psz_memseg h_par_entry;
 
-} hf_mem_layout;
+} hfmem_pool;
 
 #ifdef __cplusplus
 }

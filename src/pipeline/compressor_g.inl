@@ -24,9 +24,11 @@
 #include "hf/hf.hh"
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
+#include "layout.h"
 #include "stat/stat_g.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
+#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 using std::endl;
@@ -38,75 +40,98 @@ using std::endl;
 
 namespace cusz {
 
-#define TEMPLATE_TYPE template <class Combination>
-
-TEMPLATE_TYPE
-void Compressor<Combination>::destroy()
+template <class C>
+Compressor<C>* Compressor<C>::destroy()
 {
   if (codec) delete codec;
 
-  if (d_freq) cudaFree(d_freq);
-  if (d_errctrl) cudaFree(d_errctrl);
-  if (d_outlier) cudaFree(d_outlier);
-  if (d_spval) cudaFree(d_spval);
-  if (d_spidx) cudaFree(d_spidx);
+  delete freq;
+  delete errctrl;
+  delete outlier;
+  delete spval;
+  delete spidx;
+  delete compressed;
+
+  return this;
 }
 
-TEMPLATE_TYPE
-Compressor<Combination>::~Compressor() { destroy(); }
+template <class C>
+Compressor<C>::~Compressor()
+{
+  destroy();
+}
 
 //------------------------------------------------------------------------------
 
 // TODO
-TEMPLATE_TYPE
-void Compressor<Combination>::init(cusz_context* config, bool dbg_print)
+template <class C>
+Compressor<C>* Compressor<C>::init(cusz_context* config, bool dbg_print)
 {
   codec = new Codec;
   init_detail(config, dbg_print);
+  return this;
 }
 
-TEMPLATE_TYPE
-void Compressor<Combination>::init(cusz_header* config, bool dbg_print)
+template <class C>
+Compressor<C>* Compressor<C>::init(cusz_header* config, bool dbg_print)
 {
   codec = new Codec;
   init_detail(config, dbg_print);
+  return this;
 }
 
-// template <class T>
-// void peek_devdata(T* d_arr, size_t num = 20)
-// {
-//   thrust::for_each(
-//       thrust::device, d_arr, d_arr + num,
-//       [=] __device__ __host__(const T i) { printf("%u\t", i); });
-//   printf("\n");
-// }
+template <class C>
+template <class CONFIG>
+Compressor<C>* Compressor<C>::init_detail(CONFIG* config, bool debug)
+{
+  const auto radius = config->radius;
+  const auto pardeg = config->vle_pardeg;
+  // const auto density_factor = config->nz_density_factor;
+  // const auto codec_config = config->codecs_in_use;
+  const auto booklen = radius * 2;
+  const auto x = config->x;
+  const auto y = config->y;
+  const auto z = config->z;
 
-TEMPLATE_TYPE
-void Compressor<Combination>::compress(
-    cusz_context* config, T* uncompressed, BYTE*& compressed,
-    size_t& compressed_len, cudaStream_t stream, bool dbg_print)
+  len = x * y * z;
+
+  codec->init(len, booklen, pardeg, debug);
+
+  compressed = new pszmem_cxx<BYTE>(len * 2, 1, 1, "compressed");
+  errctrl = new pszmem_cxx<E>(x, y, z, "errctrl");
+  outlier = new pszmem_cxx<T>(x, y, z, "errctrl");
+  freq = new pszmem_cxx<uint32_t>(booklen, 1, 1, "freq");
+  spval = new pszmem_cxx<T>(x, y, z, "spval");
+  spidx = new pszmem_cxx<uint32_t>(x, y, z, "spidx");
+
+  compressed->control({Malloc, MallocHost});
+  errctrl->control({Malloc, MallocHost});
+  outlier->control({Malloc, MallocHost});
+  freq->control({Malloc, MallocHost});
+  spval->control({Malloc, MallocHost});
+  spidx->control({Malloc, MallocHost});
+
+  return this;
+}
+
+template <class C>
+Compressor<C>* Compressor<C>::compress(
+    cusz_context* config, T* in, BYTE*& out, size_t& outlen,
+    cudaStream_t stream, bool dbg_print)
 {
   auto const eb = config->eb;
   auto const radius = config->radius;
   auto const pardeg = config->vle_pardeg;
-  // auto const codecs_in_use = config->codecs_in_use;
-  // auto const nz_density_factor = config->nz_density_factor;
 
   if (dbg_print) {
     cout << "eb\t" << eb << endl;
     cout << "radius\t" << radius << endl;
     cout << "pardeg\t" << pardeg << endl;
-    // cout << "codecs_in_use\t" << codecs_in_use << endl;
-    // cout << "nz_density_factor\t" << nz_density_factor << endl;
   }
 
   auto div = [](auto whole, auto part) { return (whole - 1) / part + 1; };
 
-  data_len3 = dim3(config->x, config->y, config->z);
-
-  // auto codec_force_fallback = config->codec_force_fallback();
-  // header.codecs_in_use = codecs_in_use;
-  // header.nz_density_factor = nz_density_factor;
+  len3 = dim3(config->x, config->y, config->z);
 
   BYTE* d_codec_out{nullptr};
   size_t codec_outlen{0};
@@ -117,29 +142,28 @@ void Compressor<Combination>::compress(
   auto sublen = div(data_len, pardeg);
 
   auto update_header = [&]() {
-    header.x = data_len3.x;
-    header.y = data_len3.y;
-    header.z = data_len3.z;
+    header.x = len3.x;
+    header.y = len3.y;
+    header.z = len3.z;
     header.w = 1;  // placeholder
     header.radius = radius;
     header.vle_pardeg = pardeg;
     header.eb = eb;
-    header.byte_vle = use_fallback_codec ? 8 : 4;
     header.splen = splen;
+    // header.byte_vle = use_fallback_codec ? 8 : 4;
   };
 
   /******************************************************************************/
 
   psz_comp_l23<T, E, FP>(
-      uncompressed, data_len3, eb, radius, d_errctrl, d_outlier, nullptr,
-      nullptr, &time_pred, stream);
+      in, len3, eb, radius, errctrl->dptr(), outlier->dptr(), &time_pred,
+      stream);
   psz::stat::histogram<E>(
-      d_errctrl, datalen_linearized, d_freq, booklen, &time_hist, stream);
-  codec->build_codebook(d_freq, booklen, stream);
-  codec->encode(
-      d_errctrl, datalen_linearized, &d_codec_out, &codec_outlen, stream);
+      errctrl->dptr(), len, freq->dptr(), booklen, &time_hist, stream);
+  codec->build_codebook(freq->dptr(), booklen, stream);
+  codec->encode(errctrl->dptr(), len, &d_codec_out, &codec_outlen, stream);
   psz::spv_gather<T, M>(
-      d_outlier, datalen_linearized, d_spval, d_spidx, &splen, &time_sp,
+      outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &time_sp,
       stream);
 
   /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
@@ -148,31 +172,117 @@ void Compressor<Combination>::compress(
 
   update_header();
 
-  merge_subfiles(d_codec_out, codec_outlen, d_spval, d_spidx, splen, stream);
+  merge_subfiles(
+      d_codec_out, codec_outlen, spval->dptr(), spidx->dptr(), splen, stream);
 
   // output
-  compressed_len = psz_utils::filesize(&header);
-  compressed = d_reserved_compressed;
+  outlen = psz_utils::filesize(&header);
+  compressed->m->len = outlen;
+  compressed->m->bytes = outlen;
+  out = compressed->dptr();
 
-  collect_compress_timerecord();
+  collect_comp_time();
 
-  // considering that codec can be consecutively in use, and can compress data
-  // of different huff-byte
-  use_fallback_codec = false;
+  // TODO fallback hendling
+  // use_fallback_codec = false;
+
+  return this;
 }
 
-TEMPLATE_TYPE
-void Compressor<Combination>::clear_buffer()
+template <class C>
+Compressor<C>* Compressor<C>::merge_subfiles(
+    BYTE* d_codec_out, size_t codec_outlen, T* _d_spval, M* _d_spidx,
+    size_t _splen, cudaStream_t stream)
 {
-  cudaMemset(d_errctrl, 0, sizeof(E) * datalen_linearized);
-  cudaMemset(d_outlier, 0, sizeof(T) * datalen_linearized);
-  cudaMemset(d_spval, 0, sizeof(T) * datalen_linearized * _23june_density);
-  cudaMemset(d_spidx, 0, sizeof(M) * datalen_linearized * _23june_density);
-  codec->clear_buffer();
+  header.self_bytes = sizeof(cusz_header);
+  uint32_t nbyte[cusz_header::END];
+  nbyte[cusz_header::HEADER] = sizeof(cusz_header);
+  nbyte[cusz_header::ANCHOR] = 0;
+  nbyte[cusz_header::VLE] = sizeof(BYTE) * codec_outlen;
+  nbyte[cusz_header::SPFMT] = (sizeof(T) + sizeof(M)) * _splen;
+
+  header.entry[0] = 0;
+  // *.END + 1; need to know the ending position
+  for (auto i = 1; i < Header::END + 1; i++) header.entry[i] = nbyte[i - 1];
+  for (auto i = 1; i < Header::END + 1; i++)
+    header.entry[i] += header.entry[i - 1];
+
+  auto D2D = cudaMemcpyDeviceToDevice;
+  // TODO no need to copy header to device
+  CHECK_CUDA(cudaMemcpyAsync(
+      compressed->dptr(), &header, sizeof(header), cudaMemcpyHostToDevice,
+      stream));
+
+  // device-side copy
+  auto dst1 = compressed->dptr() + header.entry[Header::VLE];
+  auto src1 = d_codec_out;
+  CHECK_CUDA(cudaMemcpyAsync(dst1, src1, nbyte[Header::VLE], D2D, stream));
+
+  // copy spval
+  auto part1_nbyte = sizeof(T) * _splen;
+  auto dst2 = compressed->dptr() + header.entry[Header::SPFMT];
+  auto src2 = _d_spval;
+  CHECK_CUDA(cudaMemcpyAsync(dst2, src2, part1_nbyte, D2D, stream));
+  // copy spidx
+  auto dst3 = compressed->dptr() + header.entry[Header::SPFMT] + part1_nbyte;
+  auto src3 = _d_spidx;
+  CHECK_CUDA(
+      cudaMemcpyAsync(dst3, src3, sizeof(uint32_t) * _splen, D2D, stream));
+
+  /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+
+  return this;
 }
 
-TEMPLATE_TYPE
-void Compressor<Combination>::decompress(
+template <class C>
+Compressor<C>* Compressor<C>::dump_intermediate(
+    std::vector<pszmem_dump> list, char const* basename)
+{
+  for (auto& i : list) {
+    char __[256];
+
+    auto ofn = [&](char const* suffix) {
+      strcpy(__, basename);
+      strcat(__, suffix);
+      return __;
+    };
+
+    // TODO check if compressed len updated
+    if (i == PszArchive)
+      compressed->control({H2D})->file(ofn(".psz_archive"), ToFile);
+    else if (i == PszQuant)
+      errctrl->control({H2D})->file(ofn(".psz_quant"), ToFile);
+    else if (i == PszHist)
+      freq->control({H2D})->file(ofn(".psz_hist"), ToFile);
+    else if (i == PszSpVal)
+      spval->control({H2D})->file(ofn(".psz_spval"), ToFile);
+    else if (i == PszSpIdx)
+      spidx->control({H2D})->file(ofn(".psz_spidx"), ToFile);
+    else if (i > PszHf______ and i < END)
+      codec->dump_intermediate({i}, basename);
+    else
+      printf("[psz::dump] not a valid segment to dump.");
+  }
+
+  return this;
+}
+
+template <class C>
+Compressor<C>* Compressor<C>::clear_buffer()
+{
+  codec->clear_buffer();
+
+  errctrl->control({ClearDevice});
+  outlier->control({ClearDevice});
+  spval->control({ClearDevice});
+  spidx->control({ClearDevice});
+  compressed->control({ClearDevice});
+
+  return this;
+}
+
+template <class C>
+Compressor<C>* Compressor<C>::decompress(
     cusz_header* header, BYTE* in_compressed, T* out_decompressed,
     cudaStream_t stream, bool dbg_print)
 {
@@ -185,9 +295,9 @@ void Compressor<Combination>::decompress(
     CHECK_CUDA(cudaStreamSynchronize(stream));
   }
 
-  data_len3 = dim3(header->x, header->y, header->z);
+  len3 = dim3(header->x, header->y, header->z);
 
-  use_fallback_codec = header->byte_vle == 8;
+  // use_fallback_codec = header->byte_vle == 8;
   double const eb = header->eb;
   int const radius = header->radius;
 
@@ -201,93 +311,50 @@ void Compressor<Combination>::decompress(
                   spval_nbyte);
 
   // wire and aliasing
-  auto d_outlier = out_decompressed;
-  auto d_outlier_xdata = out_decompressed;
+  auto local_d_outlier = out_decompressed;
+  auto local_d_xdata = out_decompressed;
 
   psz::spv_scatter<T, M>(
-      local_d_spval, local_d_spidx, header->splen, d_outlier, &time_sp,
+      local_d_spval, local_d_spidx, header->splen, local_d_outlier, &time_sp,
       stream);
 
-  codec->decode(d_vle, d_errctrl);
+  codec->decode(d_vle, errctrl->dptr());
   psz_decomp_l23<T, E, FP>(
-      d_errctrl, data_len3, d_outlier_xdata, nullptr, 0, eb, radius,
-      d_outlier_xdata, &time_pred, stream);
+      errctrl->dptr(), len3, local_d_outlier, eb, radius, local_d_xdata,
+      &time_pred, stream);
 
-  collect_decompress_timerecord();
+  collect_decomp_time();
 
   // clear state for the next decompression after reporting
-  use_fallback_codec = false;
+  // use_fallback_codec = false;
+
+  return this;
 }
 
 // public getter
-TEMPLATE_TYPE
-void Compressor<Combination>::export_header(cusz_header& ext_header)
+template <class C>
+Compressor<C>* Compressor<C>::export_header(cusz_header& ext_header)
 {
   ext_header = header;
+  return this;
 }
 
-TEMPLATE_TYPE
-void Compressor<Combination>::export_header(cusz_header* ext_header)
+template <class C>
+Compressor<C>* Compressor<C>::export_header(cusz_header* ext_header)
 {
   *ext_header = header;
+  return this;
 }
 
-TEMPLATE_TYPE
-void Compressor<Combination>::export_timerecord(TimeRecord* ext_timerecord)
+template <class C>
+Compressor<C>* Compressor<C>::export_timerecord(TimeRecord* ext_timerecord)
 {
   if (ext_timerecord) *ext_timerecord = timerecord;
+  return this;
 }
 
-TEMPLATE_TYPE
-template <class CONFIG>
-void Compressor<Combination>::init_detail(CONFIG* config, bool dbg_print)
-{
-  const auto radius = config->radius;
-  const auto pardeg = config->vle_pardeg;
-  // const auto density_factor = config->nz_density_factor;
-  // const auto codec_config = config->codecs_in_use;
-  const auto max_booklen = radius * 2;
-  const auto x = config->x;
-  const auto y = config->y;
-  const auto z = config->z;
-
-  datalen_linearized = x * y * z;
-
-  {
-    auto reserved_splen = datalen_linearized * _23june_density;
-    cudaMalloc(&d_spval, reserved_splen * sizeof(T));
-    cudaMemset(d_spval, 0x0, reserved_splen * sizeof(T));
-
-    cudaMalloc(&d_spidx, reserved_splen * sizeof(uint32_t));
-    cudaMemset(d_spval, 0x0, reserved_splen * sizeof(uint32_t));
-  }
-
-  codec->init(datalen_linearized, max_booklen, pardeg, dbg_print);
-
-  // 23-june externalize buffers of spcodec obj
-  {
-    auto bytes = sizeof(uint32_t) * max_booklen;
-    cudaMalloc(&d_freq, bytes);
-    cudaMemset(d_freq, 0x0, bytes);
-  }
-
-  // 23-june externalize buffers of prediction obj
-  {
-    auto bytes1 = sizeof(E) * datalen_linearized;
-    cudaMalloc(&d_errctrl, bytes1);
-    cudaMemset(d_errctrl, 0x0, bytes1);
-
-    auto bytes2 = sizeof(T) * datalen_linearized;
-    cudaMalloc(&d_outlier, bytes2);
-    cudaMemset(d_outlier, 0x0, bytes2);
-  }
-
-  CHECK_CUDA(
-      cudaMalloc(&d_reserved_compressed, datalen_linearized * sizeof(T) / 2));
-}
-
-TEMPLATE_TYPE
-void Compressor<Combination>::collect_compress_timerecord()
+template <class C>
+Compressor<C>* Compressor<C>::collect_comp_time()
 {
 #define COLLECT_TIME(NAME, TIME) \
   timerecord.push_back({const_cast<const char*>(NAME), TIME});
@@ -299,75 +366,25 @@ void Compressor<Combination>::collect_compress_timerecord()
   COLLECT_TIME("book", codec->time_book());
   COLLECT_TIME("huff-enc", codec->time_lossless());
   COLLECT_TIME("outlier", time_sp);
+
+  return this;
 }
 
-TEMPLATE_TYPE
-void Compressor<Combination>::collect_decompress_timerecord()
+template <class C>
+Compressor<C>* Compressor<C>::collect_decomp_time()
 {
   if (not timerecord.empty()) timerecord.clear();
 
   COLLECT_TIME("outlier", time_sp);
   COLLECT_TIME("huff-dec", codec->time_lossless());
   COLLECT_TIME("predict", time_pred);
-}
 
-TEMPLATE_TYPE
-void Compressor<Combination>::merge_subfiles(
-    BYTE* d_codec_out, size_t codec_outlen, T* _d_spval, M* _d_spidx,
-    size_t _splen, cudaStream_t stream)
-{
-  header.self_bytes = sizeof(cusz_header);
-  uint32_t nbyte[cusz_header::END];
-  nbyte[cusz_header::HEADER] = sizeof(cusz_header);
-  nbyte[cusz_header::ANCHOR] = 0;
-  nbyte[cusz_header::VLE] = sizeof(BYTE) * codec_outlen;
-  nbyte[cusz_header::SPFMT] = (sizeof(T) + sizeof(M)) * _splen;
-
-  header.entry[0] = 0;
-  // *.END + 1; need to know the ending position
-  for (auto i = 1; i < cusz_header::END + 1; i++)
-    header.entry[i] = nbyte[i - 1];
-  for (auto i = 1; i < cusz_header::END + 1; i++)
-    header.entry[i] += header.entry[i - 1];
-
-  CHECK_CUDA(cudaMemcpyAsync(
-      d_reserved_compressed, &header, sizeof(header), cudaMemcpyHostToDevice,
-      stream));
-
-  {
-    auto dst = d_reserved_compressed + header.entry[cusz_header::VLE];
-    auto src = reinterpret_cast<BYTE*>(d_codec_out);
-    CHECK_CUDA(cudaMemcpyAsync(
-        dst, src, nbyte[cusz_header::VLE], cudaMemcpyDeviceToDevice, stream));
-  }
-
-  {
-    // copy spval
-    auto part1_nbyte = sizeof(T) * _splen;
-    {
-      auto dst = d_reserved_compressed + header.entry[cusz_header::SPFMT];
-      auto src = reinterpret_cast<BYTE*>(_d_spval);
-      CHECK_CUDA(cudaMemcpyAsync(
-          dst, src, part1_nbyte, cudaMemcpyDeviceToDevice, stream));
-    }
-    // copy spidx
-    {
-      auto dst = d_reserved_compressed + header.entry[cusz_header::SPFMT] +
-                 part1_nbyte;
-      auto src = reinterpret_cast<BYTE*>(_d_spidx);
-      CHECK_CUDA(cudaMemcpyAsync(
-          dst, src, sizeof(uint32_t) * _splen, cudaMemcpyDeviceToDevice,
-          stream));
-    }
-  }
-
-  /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+  return this;
 }
 
 }  // namespace cusz
 
 #undef PRINT_ENTRY
 #undef COLLECT_TIME
-#undef TEMPLATE_TYPE
 
 #endif /* A2519F0E_602B_4798_A8EF_9641123095D9 */

@@ -20,7 +20,7 @@
 
 template <typename T, typename H, typename M = uint32_t>
 psz_error_status
-hf_encode(hf_context* ctx, hf_mem_layout* mem, T* d_in, size_t const inlen, uint8_t** out, size_t* outlen, void* stream)
+hf_encode(hf_context* ctx, hfmem_pool* mem, T* d_in, size_t const inlen, uint8_t** out, size_t* outlen, void* stream)
 {
     float _time_book;
     float time_lossless;
@@ -40,7 +40,7 @@ hf_encode(hf_context* ctx, hf_mem_layout* mem, T* d_in, size_t const inlen, uint
 }
 
 template <typename T, typename H, typename M = uint32_t>
-psz_error_status hf_decode(hf_context* ctx, hf_mem_layout* mem, uint8_t* in, T* out, void* stream)
+psz_error_status hf_decode(hf_context* ctx, hfmem_pool* mem, uint8_t* in, T* out, void* stream)
 {
     psz::hf_decode_coarse<T, H, M>(
         mem->bitstream.buf, mem->revbook.buf, mem->revbook.len, mem->par_nbit.buf, mem->par_entry.buf,

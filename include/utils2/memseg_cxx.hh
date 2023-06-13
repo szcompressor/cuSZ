@@ -30,6 +30,8 @@ enum pszmem_control_stream {
   Free,
   FreeHost,
   FreeManaged,
+  ClearHost,
+  ClearDevice,
   H2D,
   D2H,
   ASYNC_H2D,
@@ -105,6 +107,10 @@ class pszmem_cxx {
         pszmem_freehost_cuda(m);
       else if (c == FreeManaged)
         pszmem_freemanaged_cuda(m);
+      else if (c == ClearHost)
+        pszmem_clearhost(m);
+      else if (c == ClearDevice)
+        pszmem_cleardevice(m);
       else if (c == H2D)
         pszmem_h2d_cuda(m);
       else if (c == ASYNC_H2D)
@@ -137,6 +143,7 @@ class pszmem_cxx {
     return this;
   }
 
+  // setter
   pszmem_cxx* dptr(Ctype* d)
   {
     if (d == nullptr) throw std::runtime_error("`dptr` arg. must not be nil.");
@@ -158,11 +165,13 @@ class pszmem_cxx {
     return this;
   }
 
- public:  // getters
-  size_t len() { return m->len; }
-  Ctype* dptr() { return (Ctype*)m->d; };
-  Ctype* hptr() { return (Ctype*)m->h; };
-  Ctype* uniptr() { return (Ctype*)m->uni; };
+  // getters
+  size_t len() const { return m->len; }
+  size_t bytes() const { return m->bytes; };
+  Ctype* dptr() const { return (Ctype*)m->d; };
+  Ctype* hptr() const { return (Ctype*)m->h; };
+  Ctype* uniptr() const { return (Ctype*)m->uni; };
+  // getters by index
   Ctype& dptr(uint32_t i) { return ((Ctype*)m->d)[i]; };
   Ctype& hptr(uint32_t i) { return ((Ctype*)m->h)[i]; };
   Ctype& uniptr(uint32_t i) { return ((Ctype*)m->uni)[i]; };

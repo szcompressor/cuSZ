@@ -16,12 +16,14 @@
 #include <cstdint>
 #include <memory>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include "compaction.hh"
 #include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
+#include "layout.h"
 #include "type_traits.hh"
 
 namespace cusz {
@@ -42,12 +44,12 @@ class Compressor {
     using Codec = typename Combination::Codec;
     using BYTE  = uint8_t;
 
-    using T  = typename Combination::DATA;
-    using FP = typename Combination::FP;
-    using E  = typename Combination::ERRCTRL;
-    using H  = typename Codec::Encoded;
-    using M  = typename Codec::MetadataT;
-    // using H_FB = typename FallbackCodec::Encoded;
+    using T      = typename Combination::DATA;
+    using FP     = typename Combination::FP;
+    using E      = typename Combination::ERRCTRL;
+    using H      = typename Codec::Encoded;
+    using M      = uint32_t;
+    using Header = cusz_header;
 
     using TimeRecord   = std::vector<std::tuple<const char*, double>>;
     using timerecord_t = TimeRecord*;
@@ -57,7 +59,7 @@ class Compressor {
     TimeRecord timerecord;
 
     // header
-    cusz_header header;
+    Header header;
 
     // external codec that has complex internals
     Codec* codec;
@@ -65,48 +67,46 @@ class Compressor {
     float time_pred, time_hist, time_sp;
 
     // sizes
-    dim3   data_len3;
-    size_t datalen_linearized;
+    dim3   len3;
+    size_t len;
     int    splen;
 
     // configs
-    float _23june_density{0.2};
-    bool  use_fallback_codec{false};        // obsolete
-    bool  fallback_codec_allocated{false};  // obsolete
+    float outlier_density{0.2};
 
     // buffers
-    BYTE*     d_reserved_compressed{nullptr};
-    E*        d_errctrl{nullptr};  // pred out1
-    T*        d_outlier{nullptr};  // pred out2
-    uint32_t* d_freq;              // hist out
-    T*        d_spval{nullptr};    // gather out1
-    uint32_t* d_spidx{nullptr};    // gather out2
+    pszmem_cxx<BYTE>*     compressed;
+    pszmem_cxx<E>*        errctrl;
+    pszmem_cxx<T>*        outlier;
+    pszmem_cxx<uint32_t>* freq;
+    pszmem_cxx<T>*        spval;
+    pszmem_cxx<uint32_t>* spidx;
 
    public:
     Compressor() = default;
     ~Compressor();
 
     // public methods
-    void init(cusz_context* config, bool dbg_print = false);
-    void init(cusz_header* config, bool dbg_print = false);
-    void compress(cusz_context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
-    void decompress(cusz_header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    void clear_buffer();
+    Compressor* init(cusz_context* config, bool dbg_print = false);
+    Compressor* init(cusz_header* config, bool dbg_print = false);
+    Compressor* compress(cusz_context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
+    Compressor* decompress(cusz_header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    Compressor* clear_buffer();
+    Compressor* dump_intermediate(std::vector<pszmem_dump>, char const*);
+    Compressor* destroy();
 
     // getter
-    void export_header(cusz_header&);
-    void export_header(cusz_header*);
-    void export_timerecord(TimeRecord*);
+    Compressor* export_header(cusz_header&);
+    Compressor* export_header(cusz_header*);
+    Compressor* export_timerecord(TimeRecord*);
 
    private:
     // helper
     template <class CONFIG>
-    void init_detail(CONFIG*, bool);
-    void collect_compress_timerecord();
-    void collect_decompress_timerecord();
-    void merge_subfiles(BYTE*, size_t, T*, M*, size_t, cudaStream_t);
-    void destroy();
-    // getter
+    Compressor* init_detail(CONFIG*, bool);
+    Compressor* collect_comp_time();
+    Compressor* collect_decomp_time();
+    Compressor* merge_subfiles(BYTE*, size_t, T*, M*, size_t, cudaStream_t);
 };
 
 }  // namespace cusz

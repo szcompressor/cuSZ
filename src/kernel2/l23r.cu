@@ -19,7 +19,7 @@
 #include "utils/timer.h"
 
 template <typename T, bool UsePnEnc, typename Eq>
-cusz_error_status compress_predict_lorenzo_i_rolling(
+cusz_error_status psz_comp_l23r(
     T* const data, dim3 const len3, double const eb, int const radius,
     Eq* const eq, void* _outlier, float* time_elapsed, cudaStream_t stream)
 {
@@ -93,22 +93,22 @@ cusz_error_status compress_predict_lorenzo_i_rolling(
   return CUSZ_SUCCESS;
 }
 
-template cusz_error_status compress_predict_lorenzo_i_rolling<float, false>(
+template cusz_error_status psz_comp_l23r<float, false>(
     float* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);
 
-template cusz_error_status compress_predict_lorenzo_i_rolling<float, true>(
+template cusz_error_status psz_comp_l23r<float, true>(
     float* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);
 
-template cusz_error_status compress_predict_lorenzo_i_rolling<double, false>(
+template cusz_error_status psz_comp_l23r<double, false>(
     double* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);
 
-template cusz_error_status compress_predict_lorenzo_i_rolling<double, true>(
+template cusz_error_status psz_comp_l23r<double, true>(
     double* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);

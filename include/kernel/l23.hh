@@ -25,22 +25,18 @@ cusz_error_status psz_comp_l23(
     int const    radius,        //
     EQ* const    eq,            // output
     T*           outlier,       //
-    uint32_t*    outlier_idx,   //
-    uint32_t*    num_outliers,  //
     float*       time_elapsed,  // optional
     cudaStream_t stream);       //
 
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status psz_decomp_l23(
-    EQ*            eq,            // input
-    dim3 const     len3,          //
-    T*             outlier,       //
-    uint32_t*      outlier_idx,   //
-    uint32_t const num_outliers,  //
-    double const   eb,            // input (config)
-    int const      radius,        //
-    T*             xdata,         // output
-    float*         time_elapsed,  // optional
-    cudaStream_t   stream);
+    EQ*          eq,            // input
+    dim3 const   len3,          //
+    T*           outlier,       //
+    double const eb,            // input (config)
+    int const    radius,        //
+    T*           xdata,         // output
+    float*       time_elapsed,  // optional
+    cudaStream_t stream);
 
 #endif /* B297267F_4731_48DB_8128_BBD202027EB7 */

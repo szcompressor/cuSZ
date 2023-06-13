@@ -23,23 +23,23 @@
 std::string type_literal;
 
 template <typename T, typename EQ, bool LENIENT = true>
-bool f(size_t const x, size_t const y, size_t const z, double const error_bound, int const radius = 512)
+bool f(size_t const x, size_t const y, size_t const z, double const eb, int const radius = 512)
 {
     // When the input type is FP<X>, the internal precision should be the same.
     using FP = T;
     auto len = x * y * z;
 
-    auto data  = new pszmem_cxx<T>(x, y, z, "data");
-    auto xdata = new pszmem_cxx<T>(x, y, z, "xdata");
-    auto eq    = new pszmem_cxx<EQ>(x, y, z, "eq");
-    data->control({MallocManaged});
-    xdata->control({MallocManaged});
-    eq->control({MallocManaged});
+    auto oridata = new pszmem_cxx<T>(x, y, z, "oridata");
+    auto de_data = new pszmem_cxx<T>(x, y, z, "de_data");
+    auto errctrl = new pszmem_cxx<EQ>(x, y, z, "errctrl");
+    oridata->control({MallocManaged});
+    de_data->control({MallocManaged});
+    errctrl->control({MallocManaged});
 
     CompactCudaDram<T> outlier;
     outlier.set_reserved_len(len).malloc().mallochost();
 
-    psz::testutils::cuda::rand_array<T>(data->uniptr(), len);
+    psz::testutils::cuda::rand_array<T>(oridata->uniptr(), len);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -47,36 +47,35 @@ bool f(size_t const x, size_t const y, size_t const z, double const error_bound,
     float time;
     auto  len3 = dim3(x, y, z);
 
-    compress_predict_lorenzo_i_rolling<T, false, EQ>(  //
-        data->uniptr(), len3, error_bound, radius, eq->uniptr(), &outlier, &time, stream);
+    psz_comp_l23r<T, false, EQ>(  //
+        oridata->uniptr(), len3, eb, radius, errctrl->uniptr(), &outlier, &time, stream);
     cudaStreamSynchronize(stream);
 
     outlier.make_host_accessible(stream);
 
     printf("#outlier: %d\n", outlier.num_outliers());
 
-    psz_adhoc_scttr(outlier.val, outlier.idx, outlier.num_outliers(), xdata->uniptr(), &time, stream);
+    psz_adhoc_scttr(outlier.val, outlier.idx, outlier.num_outliers(), de_data->uniptr(), &time, stream);
 
-    psz_decomp_l23<T, EQ, FP>(              //
-        eq->uniptr(), len3, xdata->uniptr(), nullptr, 0,  // input
-        error_bound, radius,                              // input (config)
-        xdata->uniptr(),                                  // output
+    psz_decomp_l23<T, EQ, FP>(
+        errctrl->uniptr(), len3, de_data->uniptr(), eb, radius,
+        de_data->uniptr(),  //
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    // psz::peek_device_data(data->uniptr(), 100);
-    // psz::peek_device_data(xdata->uniptr(), 100);
+    // psz::peek_device_data(oridata->uniptr(), 100);
+    // psz::peek_device_data(de_data->uniptr(), 100);
 
     size_t first_non_eb = 0;
-    // bool   error_bounded = psz::thrustgpu_error_bounded<T>(xdata, data, len, error_bound, &first_non_eb);
-    bool error_bounded = psz::cppstd_error_bounded<T>(xdata->uniptr(), data->uniptr(), len, error_bound, &first_non_eb);
+    // bool   error_bounded = psz::thrustgpu_error_bounded<T>(de_data, oridata, len, eb, &first_non_eb);
+    bool error_bounded = psz::cppstd_error_bounded<T>(de_data->uniptr(), oridata->uniptr(), len, eb, &first_non_eb);
 
-    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(data->uniptr(), xdata->uniptr(), len);
+    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(oridata->uniptr(), de_data->uniptr(), len);
 
     cudaStreamDestroy(stream);
-    delete data;
-    delete xdata;
-    delete eq;
+    delete oridata;
+    delete de_data;
+    delete errctrl;
 
     outlier.free().freehost();
 

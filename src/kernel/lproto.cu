@@ -169,9 +169,9 @@ CPP_INS(float, uint32_t);
 // CPP_INS(float, float);
 // CPP_INS(float, int32_t);
 
-// CPP_INS(double, uint8_t);
-// CPP_INS(double, uint16_t);
-// CPP_INS(double, uint32_t);
+CPP_INS(double, uint8_t);
+CPP_INS(double, uint16_t);
+CPP_INS(double, uint32_t);
 // CPP_INS(double, float);
 // CPP_INS(double, int32_t);
 

@@ -1,0 +1,17 @@
+---
+BasedOnStyle: Google
+BreakBeforeBraces: Stroustrup
+IndentWidth: 2
+ColumnLimit: 79
+BreakConstructorInitializers: AfterColon
+AllowShortBlocksOnASingleLine: Always
+AllowShortFunctionsOnASingleLine: All
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignAfterOpenBracket: AlwaysBreak

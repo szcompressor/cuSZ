@@ -9,14 +9,15 @@
  *
  */
 
-#ifndef CUSZ_COMPONENT_CODECS_HH
-#define CUSZ_COMPONENT_CODECS_HH
+#ifndef DAB559E7_A5C1_4342_B17E_17C31DA96EEF
+#define DAB559E7_A5C1_4342_B17E_17C31DA96EEF
 
 #include <cuda_runtime.h>
 #include <cstdint>
 #include <memory>
 
 #include "hf/hf_struct.h"
+#include "utils2/memseg_cxx.hh"
 
 #define DEFINE_ARRAY(VAR, TYPE) TYPE *d_##VAR{nullptr}, *h_##VAR{nullptr};
 
@@ -25,11 +26,8 @@ namespace cusz {
 template <typename T, typename H, typename M = uint32_t>
 class HuffmanCodec {
    public:
-    using Origin    = T;
-    using Encoded   = H;
-    using MetadataT = M;
-    using FreqT     = uint32_t;
-    using BYTE      = uint8_t;
+    using BYTE    = uint8_t;
+    using Encoded = H;
 
    private:
     using BOOK = H;
@@ -48,12 +46,12 @@ class HuffmanCodec {
         int    booklen : 16;
         int    sublen;
         int    pardeg;
-        size_t uncompressed_len;
+        size_t original_len;
         size_t total_nbit;
         size_t total_ncell;  // TODO change to uint32_t
         M      entry[END + 1];
 
-        M subfile_size() const { return entry[END]; }
+        M compressed_size() const { return entry[END]; }
     };
 
     struct runtime_encode_helper {
@@ -73,26 +71,22 @@ class HuffmanCodec {
     using RTE    = runtime_encode_helper;
     using Header = struct Header;
 
-   private:
+   public:
     // array
-    DEFINE_ARRAY(tmp, H);
-    DEFINE_ARRAY(compressed, BYTE);  // alias in address
-    DEFINE_ARRAY(book, H);
-    DEFINE_ARRAY(revbook, BYTE);
+    pszmem_cxx<H>*    tmp;
+    pszmem_cxx<BYTE>* compressed;
+    pszmem_cxx<H>*    book;
+    pszmem_cxx<BYTE>* revbook;
+    pszmem_cxx<M>*    par_nbit;
+    pszmem_cxx<M>*    par_ncell;
+    pszmem_cxx<M>*    par_entry;
+    pszmem_cxx<H>*    bitstream;
 
-    DEFINE_ARRAY(par_metadata, M);
-    DEFINE_ARRAY(par_nbit, M);
-    DEFINE_ARRAY(par_ncell, M);
-    DEFINE_ARRAY(par_entry, M);
-
-    DEFINE_ARRAY(bitstream, H);
     // helper
     RTE rte;
     // memory
     static const int CELL_BITWIDTH = sizeof(H) * 8;
     // timer
-    // float milliseconds{0.0};
-    // float time_hist{0.0};
     float _time_book{0.0}, _time_lossless{0.0};
 
     hf_book*      book_desc;
@@ -101,35 +95,34 @@ class HuffmanCodec {
     hf_bitstream* bitstream_desc;
 
    public:
-    ~HuffmanCodec();  // dtor
-    HuffmanCodec();   // ctor
+    ~HuffmanCodec();           // dtor
+    HuffmanCodec() = default;  // ctor
 
     // getter
-    // float         get_time_elapsed() const;
     float         time_book() const;
     float         time_lossless() const;
-    size_t        workspace_nyte(size_t) const;
-    size_t        max_out_nbyte(size_t len) const;
-    static size_t reversebook_nbyte(int);
+    static size_t revbook_bytes(int);
     // getter for internal array
-    H*    expose_book() const;
-    BYTE* expose_revbook() const;
+    // H*    expose_book() const;
+    // BYTE* expose_revbook() const;
+
     // compile-time
     constexpr bool can_overlap_input_and_firstphase_encode();
     // public methods
-    void init(size_t const, int const, int const, bool dbg_print = false);
-    void build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
-    void encode(T*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
-    void decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    void clear_buffer();
+    HuffmanCodec* init(size_t const, int const, int const, bool dbg_print = false);
+    HuffmanCodec* build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
+    HuffmanCodec* encode(T*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
+    HuffmanCodec* decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
+    HuffmanCodec* dump_intermediate(std::vector<pszmem_dump>, char const*);
+    HuffmanCodec* clear_buffer();
 
    private:
-    void subfile_collect(Header&, size_t const, int const, int const, int const, cudaStream_t stream = nullptr);
-    void dbg_println(const std::string, void*, int);
+    void hf_merge(Header&, size_t const, int const, int const, int const, cudaStream_t stream = nullptr);
+    void hf_debug(const std::string, void*, int);
 };
 
 }  // namespace cusz
 
 #undef DEFINE_ARRAY
 
-#endif
+#endif /* DAB559E7_A5C1_4342_B17E_17C31DA96EEF */

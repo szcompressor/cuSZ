@@ -23,7 +23,26 @@ extern "C" {
 #include "cusz/type.h"
 #include "utils2/memseg.h"
 
-typedef enum psz_runtime_mem_segment { HEADER = 0, ERRCTRL = 1, SP_VAL = 2, SP_IDX = 3, END = 4 } psz_mem_segment;
+typedef enum pszmem_runtime_type {
+    PszHeader      = 0,
+    PszQuant       = 1,
+    PszHist        = 2,
+    PszSpVal       = 3,
+    PszSpIdx       = 4,
+    PszArchive     = 5,
+    PszHf______    = 6,  // hf dummy start
+    PszHfHeader    = 7,
+    PszHfBook      = 8,
+    PszHfRevbook   = 9,
+    PszHfParNbit   = 10,
+    PszHfParNcell  = 11,
+    PszHfParEntry  = 12,
+    PszHfBitstream = 13,
+    PszHfArchive   = 14,
+    END
+} pszmem_runtime_type;
+// use scenario: dump intermediate dat
+typedef pszmem_runtime_type pszmem_dump;
 
 // TODO move to header.h
 typedef struct alignas(128) psz_header {
@@ -48,7 +67,7 @@ typedef struct alignas(128) psz_header {
 
 } psz_header;
 
-typedef struct psz_runtime_mem_layout {
+typedef struct pszmem_pool {
     size_t seg_len[END];
     size_t seg_entry[END];
     float  density{0.2};
@@ -65,17 +84,10 @@ typedef struct psz_runtime_mem_layout {
     psz_memseg anchor;
     psz_memseg freq;
 
-} psz_mem_layout;
+} pszmem_pool;
 
-void init(psz_mem_layout*, size_t);
-void destroy(psz_mem_layout*);
-
-void psz_memseg_assign(psz_memseg* m, psz_dtype const t, void* b, uint32_t const l);
-void psz_malloc_cuda(psz_memseg* m);
-void psz_mallochost_cuda(psz_memseg* m);
-void psz_mallocmanaged_cuda(psz_memseg* m);
-void psz_free_cuda(psz_memseg* m);
-void psz_freehost_cuda(psz_memseg* m);
+// void init(pszmem_pool*, size_t);
+// void destroy(pszmem_pool*);
 
 #ifdef __cplusplus
 }

@@ -118,6 +118,10 @@ void pszmem_mallochost_cuda(Mem* m)
   memset(m->h, 0x0, m->bytes);
 }
 
+void pszmem_clearhost(Mem* m) { memset(m->h, 0x0, m->bytes); }
+
+void pszmem_cleardevice(Mem* m) { cudaMemset(m->d, 0x0, m->bytes); }
+
 void pszmem_mallocmanaged_cuda(Mem* m)
 {
   if (m->uni == nullptr) cudaMallocManaged(&m->uni, m->bytes);

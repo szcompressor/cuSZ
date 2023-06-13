@@ -1,34 +1,34 @@
 #include <cuda_runtime.h>
+
 #include "kernel/l23.hh"
 
 int main()
 {
-    auto len3 = dim3(3600, 1800, 1);
-    auto len  = 6480000;
+  auto len3 = dim3(3600, 1800, 1);
+  auto len = 6480000;
 
-    float*    data;
-    uint16_t* errq;
-    float*    outlier;
-    uint32_t* outlier_idx;  // future use
-    auto      eb     = 1e-4;
-    auto      radius = 512;
-    float     time_elapsed;
+  float* data;
+  uint16_t* errq;
+  float* outlier;
+  auto eb = 1e-4;
+  auto radius = 512;
+  float time_elapsed;
 
-    cudaMallocManaged(&data, sizeof(float) * len);
-    cudaMallocManaged(&outlier, sizeof(float) * len);
-    cudaMallocManaged(&errq, sizeof(uint16_t) * len);
+  cudaMallocManaged(&data, sizeof(float) * len);
+  cudaMallocManaged(&outlier, sizeof(float) * len);
+  cudaMallocManaged(&errq, sizeof(uint16_t) * len);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    psz_comp_l23<float, uint16_t, float>(
-        data, len3, eb, radius, errq, outlier, outlier_idx, nullptr, &time_elapsed, stream);
+  psz_comp_l23<float, uint16_t, float>(
+      data, len3, eb, radius, errq, outlier, &time_elapsed, stream);
 
-    cudaFree(data);
-    cudaFree(outlier);
-    cudaFree(errq);
+  cudaFree(data);
+  cudaFree(outlier);
+  cudaFree(errq);
 
-    cudaStreamDestroy(stream);
+  cudaStreamDestroy(stream);
 
-    return 0;
+  return 0;
 }
