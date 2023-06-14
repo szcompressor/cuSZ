@@ -163,12 +163,12 @@ void pszmem_d2h_cudaasync(Mem* m, void* stream)
 
 void pszmem_device_deepcpy_cuda(Mem* dst, Mem* src)
 {
-  cudaMemcpy(src->h, dst->d, dst->bytes, cudaMemcpyDeviceToDevice);
+  cudaMemcpy(dst->h, src->d, src->bytes, cudaMemcpyDeviceToDevice);
 }
 
 void pszmem_host_deepcpy_cuda(Mem* dst, Mem* src)
 {
-  cudaMemcpy(src->h, dst->d, dst->bytes, cudaMemcpyHostToHost);
+  cudaMemcpy(dst->h, src->d, src->bytes, cudaMemcpyHostToHost);
 }
 
 void pszmem_fromfile(const char* fname, Mem* m)
