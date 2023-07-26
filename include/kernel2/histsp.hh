@@ -14,9 +14,11 @@
 
 #include <cstdint>
 
-template <typename T, typename FQ = uint32_t>
+#include "cusz/type.h"
+
+template <psz_policy Policy, typename T, typename FQ>
 int histsp(
-    T* in, uint32_t inlen, FQ* out, uint32_t outlen,
-    cudaStream_t stream = nullptr);
+    T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen,
+    void* stream = nullptr);
 
 #endif /* F7EA723F_5393_438E_83B5_AF3B3B6F8227 */

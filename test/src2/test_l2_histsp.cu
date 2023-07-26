@@ -13,7 +13,8 @@
 #include <iostream>
 #include <random>
 
-#include "kernel2/detail2/hist_sp.inl"
+#include "kernel2/detail2/histsp.inl"
+#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 using std::endl;
@@ -58,32 +59,25 @@ void gen_symetric_dist(
 template <int OUTLEN = 1024, int CHUNK = 32768, int NWARP = 8>
 int f_histsp_kernel(size_t inlen, float gen_dist[], int distlen = K)
 {
-  T *in, *hin;
-  FQ *out, *hout;
+  auto in = new pszmem_cxx<T>(inlen, 1, 1, "hist-in");
+  auto out = new pszmem_cxx<FQ>(OUTLEN, 1, 1, "hist-out");
 
-  cudaMallocHost(&hin, sizeof(T) * inlen);
-  memset(hin, 0, sizeof(T) * inlen);
-  cudaMalloc(&in, sizeof(T) * inlen);
-  cudaMemset(in, 0, sizeof(T) * inlen);
-
-  cudaMallocHost(&hout, sizeof(FQ) * OUTLEN);
-  memset(hout, 0, sizeof(T) * OUTLEN);
-  cudaMalloc(&out, sizeof(T) * OUTLEN);
-  cudaMemset(out, 0, sizeof(T) * OUTLEN);
+  in->control({Malloc, MallocHost});
+  out->control({Malloc, MallocHost});
 
   // setup using randgen
-  gen_symetric_dist(hin, inlen, gen_dist, distlen, OUTLEN / 2);
+  gen_symetric_dist(in->hptr(), inlen, gen_dist, distlen, OUTLEN / 2);
 
   // for (auto i = 0; i < inlen; i++) cout << hin[i] << "\t";
   // cout << endl;
 
-  cudaMemcpy(in, hin, sizeof(T) * inlen, cudaMemcpyHostToDevice);
+  in->control({H2D});
 
   constexpr auto NTREAD = 32 * NWARP;
 
   histsp_multiwarp<T, NWARP, CHUNK, FQ>
       <<<(inlen - 1) / CHUNK + 1, NTREAD, sizeof(FQ) * OUTLEN>>>(
-          in, inlen, out, OUTLEN, OUTLEN / 2);
+          in->dptr(), inlen, out->dptr(), OUTLEN, OUTLEN / 2);
 
   cudaDeviceSynchronize();
 
@@ -94,6 +88,9 @@ int f_histsp_kernel(size_t inlen, float gen_dist[], int distlen = K)
     printf("CUDA error: %s\n", cudaGetErrorString(error));
     exit(-1);
   }
+
+  delete in;
+  delete out;
 
   return 0;
 }

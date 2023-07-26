@@ -85,16 +85,16 @@ add_library(
 target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(psz_kernel_serial src/kernel/l23ser.cc)
+add_library(psz_kernel_serial src/kernel/l23ser.cc src/kernel2/histsp_serial.cc)
 target_link_libraries(psz_kernel_serial PUBLIC pszcompile_settings)
 
 add_library(
   psz_kernel_cuda
   src/kernel/lproto.cu src/kernel/l23.cu src/kernel2/l23r.cu
-  src/kernel2/l23r_scttr.cu src/kernel2/hist_sp.cu)
+  src/kernel2/l23r_scttr.cu src/kernel2/histsp.cu)
 target_link_libraries(psz_kernel_cuda PUBLIC pszcompile_settings)
 
-add_library(psz_utils src/utils2/memseg.cc)
+add_library(psz_utils src/utils2/memseg.cc src/utils2/vis_stat.cc)
 target_link_libraries(psz_utils PUBLIC pszcompile_settings CUDA::cudart)
 
 add_library(psz_utilsg src/utils/print_gpu.cu)
