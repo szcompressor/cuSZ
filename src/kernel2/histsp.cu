@@ -35,14 +35,18 @@ int histsp_cuda(
 }  // namespace detail
 }  // namespace psz
 
-// template int histsp_cuda<uint32_t>(
-//     uint32_t*, uint32_t, uint32_t*, uint32_t, cudaStream_t);
+#define SPECIALIZE_CUDA(E)                                          \
+  template <>                                                       \
+  int histsp<psz_policy::CUDA, E, uint32_t>(                        \
+      E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen, \
+      void* stream)                                                 \
+  {                                                                 \
+    return psz::detail::histsp_cuda<E, uint32_t>(                   \
+        in, inlen, out_hist, outlen, (cudaStream_t)stream);         \
+  }
 
-template <>
-int histsp<psz_policy::CUDA, uint32_t, uint32_t>(
-    uint32_t* in, uint32_t inlen, uint32_t* out_hist, uint32_t outlen,
-    void* stream)
-{
-  return psz::detail::histsp_cuda<uint32_t, uint32_t>(
-      in, inlen, out_hist, outlen, (cudaStream_t)stream);
-}
+SPECIALIZE_CUDA(uint8_t)
+SPECIALIZE_CUDA(uint16_t)
+SPECIALIZE_CUDA(uint32_t)
+
+#undef SPECIALIZE_CUDA

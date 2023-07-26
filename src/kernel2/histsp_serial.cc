@@ -19,7 +19,7 @@ namespace detail {
 // temporarily, there should be no obvious speed up than the normal hist on
 // CPU.
 template <typename T, typename FQ>
-int histsp_cpu(T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen)
+int histsp_cpu_v1(T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen)
 {
   auto radius = outlen / 2;
   T center{0}, neg1{0}, pos1{0};
@@ -42,14 +42,50 @@ int histsp_cpu(T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen)
   return 0;
 }
 
+template <typename T, typename FQ>
+int histsp_cpu_v2(T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen)
+{
+  auto radius = outlen / 2;
+  // T center{0};
+  T neg1{0}, pos1{0};
+
+  for (auto i = 0; i < inlen; i++) {
+    auto n = in[i];
+    if (n == radius)
+      continue;
+    else if (n == radius - 1)
+      neg1++;
+    else if (n == radius + 1)
+      pos1++;
+    else
+      out_hist[n]++;
+  }
+  // out_hist[radius] = center;
+  out_hist[radius - 1] = neg1;
+  out_hist[radius + 1] = pos1;
+
+  auto sum = 0U;
+  for (auto i = 0; i < outlen; i++) sum += out_hist[i];
+  out_hist[radius] = inlen - sum;
+
+  return 0;
+}
+
 }  // namespace detail
 }  // namespace psz
 
-template <>
-int histsp<psz_policy::CPU, uint32_t, uint32_t>(
-    uint32_t* in, uint32_t inlen, uint32_t* out_hist, uint32_t outlen,
-    void* stream)
-{
-  return psz::detail::histsp_cpu<uint32_t, uint32_t>(
-      in, inlen, out_hist, outlen);
-}
+#define SPECIALIZE_CPU(E)                                           \
+  template <>                                                       \
+  int histsp<psz_policy::CPU, E, uint32_t>(                         \
+      E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen, \
+      void* stream)                                                 \
+  {                                                                 \
+    return psz::detail::histsp_cpu_v2<E, uint32_t>(                 \
+        in, inlen, out_hist, outlen);                               \
+  }
+
+SPECIALIZE_CPU(uint8_t)
+SPECIALIZE_CPU(uint16_t)
+SPECIALIZE_CPU(uint32_t)
+
+#undef SPECIALIZE_CPU

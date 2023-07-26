@@ -10,16 +10,20 @@
  */
 
 #include <stdexcept>
+#include <string>
 
 #include "kernel/l23.hh"
 #include "kernel/lproto.hh"
+#include "kernel2/histsp.hh"
 #include "stat/compare_gpu.hh"
-#include "utils/io.hh"
+#include "stat/stat.hh"
 #include "utils/print_gpu.hh"
+#include "utils/timer.hh"
 #include "utils/viewer.hh"
 #include "utils2/memseg_cxx.hh"
 
 using std::string;
+using std::to_string;
 
 #define ABS 0
 #define REL 1
@@ -35,10 +39,12 @@ void f_lorenzo(
   // When the input type is FP<X>, the internal precision should be the same.
   using FP = T;
 
+  auto const ori_eb = eb;
+
   auto radius_legal = [&](int const sizeof_T) {
     size_t upper_bound = 1lu << (sizeof_T * 8);
-    cout << upper_bound << endl;
-    cout << radius * 2 << endl;
+    // cout << upper_bound << endl;
+    // cout << radius * 2 << endl;
     if ((radius * 2) > upper_bound)
       throw std::runtime_error("Radius overflows error-quantization type.");
   };
@@ -56,6 +62,9 @@ void f_lorenzo(
   auto de_data = new pszmem_cxx<T>(x, y, z, "de_data");
   auto errctrl = new pszmem_cxx<E>(x, y, z, "errctrl");
   auto outlier = new pszmem_cxx<T>(x, y, z, "outlier");
+  auto hist_q1 = new pszmem_cxx<uint32_t>(radius * 2, 1, 1, "hist-normal");
+  auto hist_q2 = new pszmem_cxx<uint32_t>(radius * 2, 1, 1, "hist-sp");
+
   oridata->control({Malloc, MallocHost})
       ->file(ifn, FromFile)
       ->control({H2D})
@@ -63,15 +72,17 @@ void f_lorenzo(
   de_data->control({Malloc, MallocHost});
   errctrl->control({Malloc, MallocHost});
   outlier->control({Malloc, MallocHost});
+  hist_q1->control({MallocHost});
+  hist_q2->control({MallocHost});
 
   /* a casual peek */
-  printf("peeking data, 20 elements\n");
-  psz::peek_device_data<T>(oridata->dptr(), 20);
+  // printf("peeking data, 20 elements\n");
+  // psz::peek_device_data<T>(oridata->dptr(), 20);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  float time;
+  float time, time_hist1, time_hist2;
 
   if (mode == REL) eb *= rng;
 
@@ -101,10 +112,35 @@ void f_lorenzo(
 
   cudaStreamSynchronize(stream);
 
-  psz::peek_device_data<E>(errctrl->dptr(), 20);
+  // psz::peek_device_data<E>(errctrl->dptr(), 20);
 
   errctrl->control({D2H})->file(
-      string(string(ifn) + ".eq." + type_str).c_str(), ToFile);
+      string(string(ifn) + ".eq." + type_str + ".eb." + to_string(ori_eb))
+          .c_str(),
+      ToFile);
+
+  psz::stat::histogram<psz_policy::CPU, E>(
+      errctrl->hptr(), len, hist_q1->hptr(), radius * 2, &time_hist1);
+
+  cout << "time_hist normal:\t" << time_hist1 << endl;
+
+  auto a = hires::now();
+  histsp<psz_policy::CPU, E, uint32_t>(
+      errctrl->hptr(), len, hist_q2->hptr(), radius * 2);
+  auto b = hires::now();
+  cout << "time_hist sp:\t" << static_cast<duration_t>(b - a).count() * 1000
+       << endl;
+
+  hist_q1->file(
+      string(string(ifn) + ".hist." + type_str + ".eb." + to_string(ori_eb))
+          .c_str(),
+      ToFile);
+
+  // for (auto i = 0; i < hist_q1->len(); i++) {
+  //   cout << hist_q1->hptr(i) << "\t";
+  //   cout << hist_q2->hptr(i) << "\t";
+  //   cout << (hist_q2->hptr(i) == hist_q1->hptr(i)) << "\n";
+  // }
 
   if (not use_proto) {
     cout << "using optimized decomp. kernel\n";
@@ -130,8 +166,8 @@ void f_lorenzo(
   cudaStreamDestroy(stream);
 
   /* a casual peek */
-  printf("peeking xdata, 20 elements\n");
-  psz::peek_device_data<T>(de_data->dptr(), 20);
+  // printf("peeking xdata, 20 elements\n");
+  // psz::peek_device_data<T>(de_data->dptr(), 20);
 
   delete oridata;
   delete de_data;

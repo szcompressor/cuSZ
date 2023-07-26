@@ -64,7 +64,8 @@ target_include_directories(
 add_library(psz_timer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
 target_link_libraries(psz_timer PUBLIC pszcompile_settings)
 
-add_library(psz_stat src/stat/compare_cpu.cc src/stat/stat.cc)
+add_library(psz_stat src/stat/compare_cpu.cc src/stat/stat.cc
+                     src/kernel2/histsp_serial.cc)
 target_link_libraries(psz_stat PUBLIC pszcompile_settings)
 
 add_library(
@@ -81,17 +82,16 @@ add_library(
   src/stat/cmpg4_2.cu
   src/stat/cmpg5_1.cu
   src/stat/cmpg5_2.cu
-  src/stat/stat_g.cu)
+  src/stat/stat_g.cu
+  src/kernel2/histsp.cu)
 target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(psz_kernel_serial src/kernel/l23ser.cc src/kernel2/histsp_serial.cc)
+add_library(psz_kernel_serial src/kernel/l23ser.cc)
 target_link_libraries(psz_kernel_serial PUBLIC pszcompile_settings)
 
-add_library(
-  psz_kernel_cuda
-  src/kernel/lproto.cu src/kernel/l23.cu src/kernel2/l23r.cu
-  src/kernel2/l23r_scttr.cu src/kernel2/histsp.cu)
+add_library(psz_kernel_cuda src/kernel/lproto.cu src/kernel/l23.cu
+                            src/kernel2/l23r.cu src/kernel2/l23r_scttr.cu)
 target_link_libraries(psz_kernel_cuda PUBLIC pszcompile_settings)
 
 add_library(psz_utils src/utils2/memseg.cc src/utils2/vis_stat.cc)
@@ -106,7 +106,8 @@ target_link_libraries(psz_argp PUBLIC pszcompile_settings)
 add_library(psz_spv src/kernel/spv_gpu.cu)
 target_link_libraries(psz_spv PUBLIC pszcompile_settings)
 
-add_library(psz_hfbookg src/hf/hf_bookg_1.cu src/hf/hf_bookg_2.cu src/hf/hf_sort.cu)
+add_library(psz_hfbookg src/hf/hf_bookg_1.cu src/hf/hf_bookg_2.cu
+                        src/hf/hf_sort.cu)
 target_link_libraries(psz_hfbookg PUBLIC pszcompile_settings CUDA::cuda_driver)
 set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)
@@ -125,8 +126,8 @@ target_link_libraries(psz_hfg PUBLIC pszcompile_settings psz_statg psz_hfbookg)
 set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_library(psz_comp src/custom.cc src/compressor.cu)
-target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel_cuda psz_statg
-                                      psz_hfg CUDA::cudart)
+target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel_cuda
+                                      psz_statg psz_hfg CUDA::cudart)
 
 add_library(psz_dryrun src/dryrun.cu)
 target_link_libraries(psz_dryrun PUBLIC pszcompile_settings)
@@ -135,8 +136,16 @@ add_library(psz_comp2 src/psz_lib.cc src/rt_config.cu)
 target_link_libraries(psz_comp2 PUBLIC pszcompile_settings CUDA::cudart)
 
 add_library(cusz src/cusz_lib.cc)
-target_link_libraries(cusz PUBLIC psz_comp psz_argp psz_hfg psz_spv psz_stat
-                                  psz_utilsg psz_utils psz_dryrun)
+target_link_libraries(
+  cusz
+  PUBLIC psz_comp
+  psz_argp
+  psz_hfg
+  psz_spv
+  psz_stat
+  psz_utilsg
+  psz_utils
+  psz_dryrun)
 
 add_executable(cusz-bin src/cli_prog.cu src/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
