@@ -25,7 +25,7 @@
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
 #include "layout.h"
-#include "stat/stat_g.hh"
+#include "stat/stat.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
 #include "utils2/memseg_cxx.hh"
@@ -158,7 +158,7 @@ Compressor<C>* Compressor<C>::compress(
   psz_comp_l23<T, E, FP>(
       in, len3, eb, radius, errctrl->dptr(), outlier->dptr(), &time_pred,
       stream);
-  psz::stat::histogram<E>(
+  psz::stat::histogram<psz_policy::CUDA, E>(
       errctrl->dptr(), len, freq->dptr(), booklen, &time_hist, stream);
   codec->build_codebook(freq->dptr(), booklen, stream);
   codec->encode(errctrl->dptr(), len, &d_codec_out, &codec_outlen, stream);

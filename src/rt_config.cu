@@ -14,7 +14,7 @@
 #include <stdexcept>
 
 #include "cusz/type.h"
-#include "kernel/detail/hist.inl"
+#include "kernel/detail/hist_cuda.inl"
 #include "rt_config.h"
 #include "utils/timer.h"
 

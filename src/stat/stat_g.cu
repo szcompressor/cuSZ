@@ -9,18 +9,21 @@
  *
  */
 
-#include "../kernel/detail/hist.inl"
+#include <cstdint>
+#include "../kernel/detail/hist_cuda.inl"
 
 #include "cusz/type.h"
-#include "stat/stat.h"
-#include "stat/stat_g.hh"
+#include "stat/stat.hh"
+
+namespace psz {
+namespace detail {
 
 template <typename T>
-cusz_error_status psz::stat::histogram(
-    T*           in_data,
-    size_t const in_len,
-    uint32_t*    out_freq,
-    int const    num_buckets,
+cusz_error_status histogram_cuda(
+    T*           in,
+    size_t const inlen,
+    uint32_t*    out_hist,
+    int const    outlen,
     float*       milliseconds,
     cudaStream_t stream)
 {
@@ -45,19 +48,19 @@ cusz_error_status psz::stat::histogram(
 
     auto optimize_launch = [&]() {
         items_per_thread = 1;
-        r_per_block      = (max_bytes / sizeof(int)) / (num_buckets + 1);
+        r_per_block      = (max_bytes / sizeof(int)) / (outlen + 1);
         grid_dim         = num_SMs;
         // fits to size
-        block_dim = ((((in_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+        block_dim = ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
         while (block_dim > 1024) {
             if (r_per_block <= 1) { block_dim = 1024; }
             else {
                 r_per_block /= 2;
                 grid_dim *= 2;
-                block_dim = ((((in_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+                block_dim = ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
             }
         }
-        shmem_use = ((num_buckets + 1) * r_per_block) * sizeof(int);
+        shmem_use = ((outlen + 1) * r_per_block) * sizeof(int);
     };
 
     query_maxbytes();
@@ -67,7 +70,7 @@ cusz_error_status psz::stat::histogram(
     START_CUDAEVENT_RECORDING(stream);
 
     kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
-        (in_data, out_freq, in_len, num_buckets, r_per_block);
+        (in, out_hist, inlen, outlen, r_per_block);
 
     STOP_CUDAEVENT_RECORDING(stream);
 
@@ -78,19 +81,20 @@ cusz_error_status psz::stat::histogram(
     return CUSZ_SUCCESS;
 }
 
-#define INIT_HIST_AND_C(Tname, T)                                                                                     \
-    template cusz_error_status psz::stat::histogram<T>(T*, size_t const, uint32_t*, int const, float*, cudaStream_t); \
-                                                                                                                      \
-    cusz_error_status histogram_T##Tname(                                                                             \
-        T* in_data, size_t const in_len, uint32_t* out_freq, int const num_buckets, float* milliseconds,              \
-        cudaStream_t stream)                                                                                          \
-    {                                                                                                                 \
-        return psz::stat::histogram<T>(in_data, in_len, out_freq, num_buckets, milliseconds, stream);                 \
+}  // namespace detail
+}  // namespace psz
+
+#define SPECIALIZE_HIST_CUDA(T)                                                                               \
+    template <>                                                                                               \
+    cusz_error_status psz::stat::histogram<psz_policy::CUDA, T>(                                              \
+        T * in, size_t const inlen, uint32_t* out_hist, int const nbin, float* milliseconds, void* stream)    \
+    {                                                                                                         \
+        return psz::detail::histogram_cuda<T>(in, inlen, out_hist, nbin, milliseconds, (cudaStream_t)stream); \
     }
 
-INIT_HIST_AND_C(ui8, uint8_t)
-INIT_HIST_AND_C(ui16, uint16_t)
-INIT_HIST_AND_C(ui32, uint32_t)
-INIT_HIST_AND_C(ui64, uint64_t)
+SPECIALIZE_HIST_CUDA(uint8_t);
+SPECIALIZE_HIST_CUDA(uint16_t);
+SPECIALIZE_HIST_CUDA(uint32_t);
+// SPECIALIZE_HIST_CUDA(uint64_t);
 
-#undef INIT_HIST_AND_C
+#undef SPECIALIZE_HIST_CUDA

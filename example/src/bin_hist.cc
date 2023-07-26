@@ -16,7 +16,7 @@
 #include "hf/hf_codecg.hh"
 #include "kernel2/histsp.hh"
 #include "stat/compare_gpu.hh"
-#include "stat/stat_g.hh"
+#include "stat/stat.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
 #include "utils2/memseg_cxx.hh"
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 
     float t_hist1, t_hist2;
 
-    psz::stat::histogram<T>(
+    psz::stat::histogram<psz_policy::CUDA, T>(
         wn->dptr(), len, freq1->dptr(), booklen, &t_hist1, stream);
 
     histsp<psz_policy::CUDA, T, uint32_t>(

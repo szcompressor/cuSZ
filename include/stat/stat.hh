@@ -1,5 +1,5 @@
 /**
- * @file stat.hh
+ * @file stat_g.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,7 +9,20 @@
  *
  */
 
-#ifndef B005D07B_D92D_4DF0_90D0_87A7B7C310C9
-#define B005D07B_D92D_4DF0_90D0_87A7B7C310C9
+#ifndef D8B68EB9_A86B_4AEA_AD4C_3DF22827E7C3
+#define D8B68EB9_A86B_4AEA_AD4C_3DF22827E7C3
 
-#endif /* B005D07B_D92D_4DF0_90D0_87A7B7C310C9 */
+#include <cstdint>
+#include "cusz/type.h"
+
+namespace psz {
+namespace stat {
+
+template <psz_policy Poilicy, typename T>
+cusz_error_status
+histogram(T* in, size_t const inlen, uint32_t* out_hist, int const outlen, float* milliseconds, void* stream = nullptr);
+
+}  // namespace stat
+}  // namespace psz
+
+#endif /* D8B68EB9_A86B_4AEA_AD4C_3DF22827E7C3 */

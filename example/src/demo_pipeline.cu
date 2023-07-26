@@ -24,7 +24,7 @@ using std::endl;
 #include "kernel/l23.hh"
 #include "kernel/lproto.hh"
 #include "kernel/spv_gpu.hh"
-#include "stat/stat_g.hh"
+#include "stat/stat.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
@@ -207,7 +207,7 @@ cusz_error_status compressor(
   cout << "time-spv\t" << time_spv << endl;
   cout << "nnz\t" << header_st->nnz << endl;
 
-  psz::stat::histogram<E>(
+  psz::stat::histogram<psz_policy::CUDA, E>(
       data->errctrl->dptr(), data->len, hf->book_desc->freq,
       hf->book_desc->booklen, &time_hist, stream);
 

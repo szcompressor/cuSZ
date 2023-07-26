@@ -64,7 +64,7 @@ target_include_directories(
 add_library(psz_timer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
 target_link_libraries(psz_timer PUBLIC pszcompile_settings)
 
-add_library(psz_stat src/stat/compare_cpu.cc)
+add_library(psz_stat src/stat/compare_cpu.cc src/stat/stat.cc)
 target_link_libraries(psz_stat PUBLIC pszcompile_settings)
 
 add_library(
