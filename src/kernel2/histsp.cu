@@ -28,6 +28,7 @@ int histsp_cuda(
   histsp_multiwarp<T, NWARP, CHUNK, FQ>
       <<<(inlen - 1) / CHUNK + 1, NTREAD, sizeof(FQ) * outlen, stream>>>(
           in, inlen, out_hist, outlen, outlen / 2);
+  cudaStreamSynchronize(stream);
 
   return 0;
 }
