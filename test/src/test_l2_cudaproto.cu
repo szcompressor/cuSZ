@@ -64,7 +64,7 @@ bool test1(
     input->hptr(const_cast<T*>(h_input))->control({Malloc, H2D});
     eq->control({Malloc, MallocHost});
 
-    outlier.set_reserved_len(len / 2).malloc().mallochost();
+    outlier.reserve_space(len / 2).malloc().mallochost();
 
     auto radius = 512;
 
@@ -166,7 +166,7 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
 
     // TODO outlier is a placeholder in this test
     CompactCudaDram<T> outlier;
-    outlier.set_reserved_len(len / 2).malloc().mallochost();
+    outlier.reserve_space(len / 2).malloc().mallochost();
 
     auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");
     xdata->control({Malloc, MallocHost});

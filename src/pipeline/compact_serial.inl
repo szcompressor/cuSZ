@@ -30,7 +30,7 @@ struct CompactSerial {
   // CompactSerial() {}
   // ~CompactSerial() {}
 
-  CompactSerial& set_reserved_len(size_t _reserved_len)
+  CompactSerial& reserve_space(size_t _reserved_len)
   {
     reserved_len = _reserved_len;
     return *this;

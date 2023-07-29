@@ -51,11 +51,6 @@ __global__ void c_lorenzo_1d1l(
   auto thp_data = [&](auto i) -> T& { return _thp_data[i + 1]; };
 
   auto id_base = blockIdx.x * TileDim;
-  auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
-    auto cur_idx = atomicAdd(cn, 1);
-    cidx[cur_idx] = gid_data;
-    cval[cur_idx] = delta;
-  };
 
 // dram.data to shmem.data
 #pragma unroll
@@ -87,8 +82,11 @@ __global__ void c_lorenzo_1d1l(
     else
       s.eq_uint[ix + threadIdx.x * Seq] =
           quantizable * static_cast<EqUint>(candidate);
-    if (not quantizable)
-      write_outlier_to_dram(delta, id_base + threadIdx.x * Seq + ix);
+    if (not quantizable) {
+      auto cur_idx = atomicAdd(cn, 1);
+      cidx[cur_idx] = id_base + threadIdx.x * Seq + ix;
+      cval[cur_idx] = candidate;
+    }
   }
   __syncthreads();
 
@@ -120,22 +118,17 @@ __global__ void c_lorenzo_2d1l(
 
   // NW  N       first el <- 0
   //  W  center
-  T _center[Yseq + 1] = {0};
-  auto prev = [&]() -> T& { return _center[0]; };
-  auto center = [&](auto i) -> T& { return _center[i + 1]; };
-  auto last = [&]() -> T& { return _center[Yseq]; };
+  T center[Yseq + 1] = {0};
+  // auto prev = [&]() -> T& { return _center[0]; };
+  // auto center = [&](auto i) -> T& { return _center[i + 1]; };
+  // auto last = [&]() -> T& { return _center[Yseq]; };
 
   // BDX == TileDim == 16, BDY * Yseq = TileDim == 16
   auto gix = blockIdx.x * TileDim + threadIdx.x;
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
-  auto giy = [&](auto y) { return giy_base + y; };
-  auto write_outlier_to_dram = [&](auto& delta, auto gid_data) {
-    auto cur_idx = atomicAdd(cn, 1);
-    cidx[cur_idx] = gid_data;
-    cval[cur_idx] = delta;
-  };
+  // auto giy = [&](auto y) { return giy_base + y; };
 
-  auto dram_idx = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
+  auto g_id = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
   auto posneg_encode = [](EqInt x) -> EqUint {
     return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
   };
@@ -145,37 +138,47 @@ __global__ void c_lorenzo_2d1l(
 
 // read to private.data (center)
 #pragma unroll
-  for (auto i = 0; i < Yseq; i++) {
-    if (gix < len3.x and giy(i) < len3.y)
-      center(i) = round(data[dram_idx(i)] * ebx2_r);
+  for (auto iy = 0; iy < Yseq; iy++) {
+    if (gix < len3.x and giy_base + iy < len3.y)
+      center[iy + 1] = round(data[g_id(iy)] * ebx2_r);
   }
   // same-warp, next-16
-  auto tmp = __shfl_up_sync(0xffffffff, last(), 16, 32);
-  if (threadIdx.y == 1) prev() = tmp;
+  auto tmp = __shfl_up_sync(0xffffffff, center[Yseq], 16, 32);
+  if (threadIdx.y == 1) center[0] = tmp;
 
 // prediction (apply Lorenzo filter)
 #pragma unroll
-  for (auto i = Yseq - 1; i >= 0; i--) {
+  for (auto i = Yseq; i > 0; i--) {
     // with center[i-1] intact in this iteration
-    center(i) -= center(i - 1);
+    center[i] -= center[i - 1];
     // within a halfwarp (32/2)
-    auto west = __shfl_up_sync(0xffffffff, center(i), 1, 16);
-    if (threadIdx.x > 0) center(i) -= west;  // delta
+    auto west = __shfl_up_sync(0xffffffff, center[i], 1, 16);
+    if (threadIdx.x > 0) center[i] -= west;  // delta
   }
   __syncthreads();
 
 #pragma unroll
-  for (auto i = 0; i < Yseq; i++) {
-    auto gid = dram_idx(i);
+  for (auto i = 1; i < Yseq + 1; i++) {
+    auto gid = g_id(i - 1);
 
-    if (gix < len3.x and giy(i) < len3.y) {
-      bool quantizable = fabs(center(i)) < radius;
-      T candidate = UsePnEnc ? center(i) : center(i) + radius;
+    if (gix < len3.x and giy_base + (i - 1) < len3.y) {
+      bool quantizable = fabs(center[i]) < radius;
+      T candidate = UsePnEnc ? center[i] : center[i] + radius;
       if (UsePnEnc)
         eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
       else
         eq[gid] = quantizable * static_cast<EqUint>(candidate);
-      if (not quantizable) write_outlier_to_dram(candidate, gid);
+      if (not quantizable) {
+        auto cur_idx = atomicAdd(cn, 1);
+        cidx[cur_idx] = gid;
+        cval[cur_idx] = candidate;
+
+        // printf(
+        //     "curidx: %d\t"
+        //     "gid: %u\t"
+        //     "candidate: %4.1f\n",
+        //     cur_idx, gid, candidate);
+      }
     }
   }
 

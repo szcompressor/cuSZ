@@ -85,15 +85,17 @@ target_link_libraries(
           CUDA::cudart)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
-add_executable(l3_cuda_r src/test_l3_cuda_rolling.cc)
+add_executable(l3_lorenzosp src/test_l3_lorenzosp.cu)
 target_link_libraries(
-  l3_cuda_r
+  l3_lorenzosp
   PRIVATE psztestcompile_settings
           psz_kernel_cuda
           psz_testutils
+          psz_spv
           psz_stat
           psz_statg
           psz_utils
           psz_utilsg
-          CUDA::cudart)
-add_test(test_l3_cuda_r l3_cuda_r)
+          # CUDA::cudart
+)
+add_test(test_l3_lorenzosp l3_lorenzosp)

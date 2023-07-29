@@ -87,13 +87,13 @@ bool f()
     psz::testutils::cuda::rand_array(in, len);
 
     CompactCudaDram<float> out_test1;
-    out_test1.set_reserved_len(len / 2).malloc().mallochost();
+    out_test1.reserve_space(len / 2).malloc().mallochost();
 
     CompactCudaDram<float> out_test2;
-    out_test2.set_reserved_len(len / 2).malloc().mallochost();
+    out_test2.reserve_space(len / 2).malloc().mallochost();
 
     CompactSerial<float> out_ref;
-    out_ref.set_reserved_len(len / 2).malloc();
+    out_ref.reserve_space(len / 2).malloc();
 
     test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test1.val, out_test1.idx, out_test1.num);
     cudaDeviceSynchronize();

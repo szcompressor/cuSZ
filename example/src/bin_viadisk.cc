@@ -41,7 +41,7 @@ void predict(
   outlier->control({Malloc, MallocHost});
 
   CompactCudaDram<T> compact;
-  compact.set_reserved_len(len).malloc().mallochost();
+  compact.reserve_space(len).malloc().mallochost();
 
   float time;
 
