@@ -13,6 +13,7 @@
 #define FDF0862D_B4A6_4E38_A11B_7299C37315A9
 
 #include <cstdint>
+#include <tuple>
 
 template <int WIDTH>
 struct PackedWordByWidth;
