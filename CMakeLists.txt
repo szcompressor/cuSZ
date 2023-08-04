@@ -90,8 +90,9 @@ target_link_libraries(psz_statg PUBLIC pszcompile_settings)
 add_library(psz_kernel_serial src/kernel/l23ser.cc)
 target_link_libraries(psz_kernel_serial PUBLIC pszcompile_settings)
 
-add_library(psz_kernel_cuda src/kernel/lproto.cu src/kernel/l23.cu
-                            src/kernel2/l23r.cu src/kernel2/l23r_scttr.cu)
+add_library(
+  psz_kernel_cuda src/kernel/lproto.cu src/kernel/l23.cu src/kernel/spline3.cu
+                  src/kernel2/l23r.cu src/kernel2/l23r_scttr.cu)
 target_link_libraries(psz_kernel_cuda PUBLIC pszcompile_settings)
 
 add_library(psz_utils src/utils2/memseg.cc src/utils2/vis_stat.cc)
@@ -139,13 +140,13 @@ add_library(cusz src/cusz_lib.cc)
 target_link_libraries(
   cusz
   PUBLIC psz_comp
-  psz_argp
-  psz_hfg
-  psz_spv
-  psz_stat
-  psz_utilsg
-  psz_utils
-  psz_dryrun)
+         psz_argp
+         psz_hfg
+         psz_spv
+         psz_stat
+         psz_utilsg
+         psz_utils
+         psz_dryrun)
 
 add_executable(cusz-bin src/cli_prog.cu src/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)

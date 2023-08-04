@@ -21,7 +21,7 @@ cusz_error_status histogram_ser(T* in, size_t const inlen, uint32_t* out_hist, i
     auto t1 = hires::now();
     for (auto i = 0; i < inlen; i++) {
         auto n = in[i];
-        out_hist[n] += 1;
+        out_hist[(int)n] += 1;
     }
     auto t2       = hires::now();
     *milliseconds = static_cast<duration_t>(t2 - t1).count() * 1000;
@@ -43,6 +43,7 @@ cusz_error_status histogram_ser(T* in, size_t const inlen, uint32_t* out_hist, i
 SPECIALIZE_HIST_SER(uint8_t);
 SPECIALIZE_HIST_SER(uint16_t);
 SPECIALIZE_HIST_SER(uint32_t);
+SPECIALIZE_HIST_SER(float);
 // SPECIALIZE_HIST_CUDA(uint64_t);
 
 #undef SPECIALIZE_HIST_SER

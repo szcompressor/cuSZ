@@ -49,5 +49,6 @@ int histsp_cuda(
 SPECIALIZE_CUDA(uint8_t)
 SPECIALIZE_CUDA(uint16_t)
 SPECIALIZE_CUDA(uint32_t)
+SPECIALIZE_CUDA(float)
 
 #undef SPECIALIZE_CUDA

@@ -58,7 +58,7 @@ int histsp_cpu_v2(T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen)
     else if (n == radius + 1)
       pos1++;
     else
-      out_hist[n]++;
+      out_hist[(int)n]++;
   }
   // out_hist[radius] = center;
   out_hist[radius - 1] = neg1;
@@ -87,5 +87,6 @@ int histsp_cpu_v2(T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen)
 SPECIALIZE_CPU(uint8_t)
 SPECIALIZE_CPU(uint16_t)
 SPECIALIZE_CPU(uint32_t)
+SPECIALIZE_CPU(float)
 
 #undef SPECIALIZE_CPU

@@ -95,6 +95,7 @@ cusz_error_status histogram_cuda(
 SPECIALIZE_HIST_CUDA(uint8_t);
 SPECIALIZE_HIST_CUDA(uint16_t);
 SPECIALIZE_HIST_CUDA(uint32_t);
+SPECIALIZE_HIST_CUDA(float);
 // SPECIALIZE_HIST_CUDA(uint64_t);
 
 #undef SPECIALIZE_HIST_CUDA

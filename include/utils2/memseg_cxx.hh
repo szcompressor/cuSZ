@@ -184,6 +184,18 @@ class pszmem_cxx {
   Ctype& dptr(uint32_t i) { return ((Ctype*)m->d)[i]; };
   Ctype& hptr(uint32_t i) { return ((Ctype*)m->h)[i]; };
   Ctype& uniptr(uint32_t i) { return ((Ctype*)m->uni)[i]; };
+
+  template <typename UINT3>
+  UINT3 len3() const
+  {
+    return UINT3(m->lx, m->ly, m->lz);
+  };
+
+  template <typename UINT3>
+  UINT3 st3() const
+  {
+    return UINT3(1, m->sty, m->stz);
+  };
 };
 
 // template <psz_space space>

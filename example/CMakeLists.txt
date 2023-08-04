@@ -5,9 +5,9 @@ set_target_properties(demo_capi_nvcc PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 add_executable(demo_cxx_link src/demo_cxx_link.cc)
 target_link_libraries(demo_cxx_link PRIVATE psz_kernel_cuda CUDA::cudart)
 
-add_executable(bin_lorenzo src/bin_lorenzo.cc)
+add_executable(bin_pred-hist src/bin_pred-hist.cc)
 target_link_libraries(
-  bin_lorenzo
+  bin_pred-hist
   PRIVATE psz_kernel_cuda
           psz_utilsg
           psz_utils
@@ -15,6 +15,11 @@ target_link_libraries(
           psz_statg
           psz_kernel_serial
           CUDA::cudart)
+
+# deprecated
+add_executable(bin_spline3 src/bin_spline3.cu)
+target_link_libraries(bin_spline3 PRIVATE psz_kernel_cuda psz_utilsg psz_utils
+                                          psz_stat psz_statg)
 
 # add_executable(demo_lorenzo_variant src/demo_lorenzo_variant.cc)
 # target_link_libraries(demo_lorenzo_variant PRIVATE psz_kernel_cuda psz_utilsg

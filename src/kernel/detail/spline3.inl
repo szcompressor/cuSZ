@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <type_traits>
 #include "utils/cuda_err.cuh"
+#include "utils/timer.h"
 
 #define SPLINE3_COMPR true
 #define SPLINE3_DECOMPR false
