@@ -143,6 +143,15 @@ class pszmem_cxx {
     return this;
   }
 
+  // view
+  template <typename Ctype2>
+  pszmem_cxx* asaviewof(pszmem_cxx<Ctype2>* another)
+  {
+    m->isaview = true;
+    pszmem_viewas(another->m, this->m);
+    return this;
+  }
+
   // setter
   pszmem_cxx* dptr(Ctype* d)
   {

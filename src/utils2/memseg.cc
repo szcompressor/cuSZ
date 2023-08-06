@@ -22,6 +22,8 @@
 
 #include "utils/io.hh"
 
+using std::string;
+
 namespace {
 
 using Mem = psz_memseg;
@@ -43,17 +45,17 @@ void pszmem__check_len(Mem* m)
   if (m->len == 0) {
     pszmem__dbg(m);
     throw std::runtime_error(
-        "'" + std::string(m->name) + "'\tLen == 0 is not allowed.");
+        "'" + string(m->name) + "'\tLen == 0 is not allowed.");
   }
   if (m->len == 1) {
     pszmem__dbg(m);
     throw std::runtime_error(
-        "'" + std::string(m->name) + "'\tLen == 1 is not allowed.");
+        "'" + string(m->name) + "'\tLen == 1 is not allowed.");
   }
   if (m->lx == 1) {
     pszmem__dbg(m);
     throw std::runtime_error(
-        "'" + std::string(m->name) + "'\tLen-x == 1 is not allowed.");
+        "'" + string(m->name) + "'\tLen-x == 1 is not allowed.");
   }
 }
 
@@ -108,13 +110,31 @@ void pszmem_set_name(psz_memseg* m, const char name[10])
 
 void pszmem_malloc_cuda(Mem* m)
 {
-  if (m->d == nullptr) cudaMalloc(&m->d, m->bytes);
+  if (m->d == nullptr) {
+    if (not m->isaview)
+      cudaMalloc(&m->d, m->bytes);
+    else
+      throw std::runtime_error(
+          string(m->name) + ": forbidden to malloc a view.");
+  }
+  else {
+    throw std::runtime_error(string(m->name) + ": dptr already malloc'ed.");
+  }
   cudaMemset(m->d, 0x0, m->bytes);
 }
 
 void pszmem_mallochost_cuda(Mem* m)
 {
-  if (m->h == nullptr) cudaMallocHost(&m->h, m->bytes);
+  if (m->h == nullptr) {
+    if (not m->isaview)
+      cudaMallocHost(&m->h, m->bytes);
+    else
+      throw std::runtime_error(
+          string(m->name) + ": forbidden to malloc a view.");
+  }
+  else {
+    throw std::runtime_error(string(m->name) + ": hptr already malloc'ed.");
+  }
   memset(m->h, 0x0, m->bytes);
 }
 
@@ -124,23 +144,50 @@ void pszmem_cleardevice(Mem* m) { cudaMemset(m->d, 0x0, m->bytes); }
 
 void pszmem_mallocmanaged_cuda(Mem* m)
 {
-  if (m->uni == nullptr) cudaMallocManaged(&m->uni, m->bytes);
+  if (m->uni == nullptr) {
+    if (not m->isaview)
+      cudaMallocManaged(&m->uni, m->bytes);
+    else
+      throw std::runtime_error(
+          string(m->name) + ": forbidden to malloc a view.");
+  }
+  else {
+    throw std::runtime_error(string(m->name) + ": uniptr already malloc'ed.");
+  }
   cudaMemset(m->uni, 0x0, m->bytes);
 }
 
 void pszmem_free_cuda(Mem* m)
 {
-  if (m->d) cudaFree(m->d);
+  if (m->d) {
+    if (not m->isaview)
+      cudaFree(m->d);
+    else
+      throw std::runtime_error(
+          string(m->name) + ": forbidden to free a view.");
+  }
 }
 
 void pszmem_freehost_cuda(Mem* m)
 {
-  if (m->h) cudaFreeHost(m->h);
+  if (m->h) {
+    if (not m->isaview)
+      cudaFreeHost(m->h);
+    else
+      throw std::runtime_error(
+          string(m->name) + ": forbidden to free a view.");
+  }
 }
 
 void pszmem_freemanaged_cuda(Mem* m)
 {
-  if (m->uni) cudaFree(m->uni);
+  if (m->uni) {
+    if (not m->isaview)
+      cudaFree(m->uni);
+    else
+      throw std::runtime_error(
+          string(m->name) + ": forbidden to free a view.");
+  }
 }
 
 void pszmem_h2d_cuda(Mem* m)
@@ -195,4 +242,21 @@ void pszmem_tofile(const char* fname, Mem* m)
   }
   ofs.write(reinterpret_cast<const char*>(m->h), std::streamsize(m->bytes));
   ofs.close();
+}
+
+void pszmem_viewas(psz_memseg* body, psz_memseg* view)
+{
+  view->isaview = true;
+
+  if (view->bytes >= body->bytes)
+    throw std::runtime_error("The view exceeds the legal length.");
+
+  if (body->d or body->h or body->uni) {
+    view->d = body->d;
+    view->h = body->h;
+    view->uni = body->uni;
+  }
+  else {
+    throw std::runtime_error("Must be malloc'ed in hptr, dptr, or uniptr.");
+  }
 }

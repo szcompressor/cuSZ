@@ -29,6 +29,7 @@ typedef struct psz_memory_segment {
   size_t len{1}, bytes{1};
   uint32_t lx{1}, ly{1}, lz{1};
   size_t sty{1}, stz{1};  // stride
+  bool isaview{false};
 
 } psz_memseg;
 
@@ -57,6 +58,7 @@ void pszmem_device_deepcpy_cuda(psz_memseg* dst, psz_memseg* src);
 void pszmem_host_deepcpy_cuda(psz_memseg* dst, psz_memseg* src);
 void pszmem_fromfile(const char* fname, psz_memseg* m);
 void pszmem_tofile(const char* fname, psz_memseg* m);
+void pszmem_viewas(psz_memseg* backend, psz_memseg* frontend);
 
 #ifdef __cplusplus
 }
