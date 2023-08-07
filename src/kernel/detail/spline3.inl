@@ -45,7 +45,7 @@ using STRIDE3 = dim3;
 constexpr int BLOCK8  = 8;
 constexpr int BLOCK32 = 32;
 
-#define SHM_ERROR shm_errctrl
+#define SHM_ERROR s_ectrl
 
 namespace cusz {
 
@@ -63,9 +63,9 @@ __global__ void c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
     STRIDE3 data_leap,
-    EITER   errctrl,
-    DIM3    errctrl_size,
-    STRIDE3 errctrl_leap,
+    EITER   ectrl,
+    DIM3    ectrl_size,
+    STRIDE3 ectrl_leap,
     TITER   anchor,
     STRIDE3 anchor_leap,
     FP      eb_r,
@@ -80,15 +80,15 @@ template <
     typename FP           = float,
     int LINEAR_BLOCK_SIZE = 256>
 __global__ void x_spline3d_infprecis_32x8x8data(
-    EITER   errctrl,       // input 1
-    DIM3    errctrl_size,  //
-    STRIDE3 errctrl_leap,  //
-    TITER   anchor,        // input 2
-    DIM3    anchor_size,   //
-    STRIDE3 anchor_leap,   //
-    TITER   data,          // output
-    DIM3    data_size,     //
-    STRIDE3 data_leap,     //
+    EITER   ectrl,        // input 1
+    DIM3    ectrl_size,   //
+    STRIDE3 ectrl_leap,   //
+    TITER   anchor,       // input 2
+    DIM3    anchor_size,  //
+    STRIDE3 anchor_leap,  //
+    TITER   data,         // output
+    DIM3    data_size,    //
+    STRIDE3 data_leap,    //
     FP      eb_r,
     FP      ebx2,
     int     radius);
@@ -104,12 +104,8 @@ template <
     int  LINEAR_BLOCK_SIZE,
     bool WORKFLOW         = SPLINE3_COMPR,
     bool PROBE_PRED_ERROR = false>
-__device__ void spline3d_layout2_interpolate(
-    volatile T1 shm_data[9][9][33],
-    volatile T2 shm_errctrl[9][9][33],
-    FP          eb_r,
-    FP          ebx2,
-    int         radius);
+__device__ void
+spline3d_layout2_interpolate(volatile T1 s_data[9][9][33], volatile T2 s_ectrl[9][9][33], FP eb_r, FP ebx2, int radius);
 }  // namespace device_api
 
 }  // namespace cusz
@@ -134,7 +130,7 @@ __forceinline__ __device__ bool xyz33x9x9_predicate(unsigned int x, unsigned int
 // control block_id3 in function call
 template <typename T, bool PRINT_FP = false, int XEND = 33, int YEND = 9, int ZEND = 9>
 __device__ void
-spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool compress = true, bool print_errctrl = true)
+spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool compress = true, bool print_ectrl = true)
 {
     for (auto z = 0; z < ZEND; z++) {
         printf("\nprint from GPU, z=%d\n", z);
@@ -147,13 +143,13 @@ spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool com
             for (auto x = 0; x < XEND; x++) {  //
                 if CONSTEXPR (PRINT_FP) { printf("%.2e\t", (float)a[z][y][x]); }
                 else {
-                    T c = print_errctrl ? a[z][y][x] - radius : a[z][y][x];
+                    T c = print_ectrl ? a[z][y][x] - radius : a[z][y][x];
                     if (compress) {
                         if (c == 0) { printf("%3c", '.'); }
                         else {
                             if (abs(c) >= 10) { printf("%3c", '*'); }
                             else {
-                                if (print_errctrl) { printf("%3d", c); }
+                                if (print_ectrl) { printf("%3d", c); }
                                 else {
                                     printf("%4.2f", c);
                                 }
@@ -161,7 +157,7 @@ spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool com
                         }
                     }
                     else {
-                        if (print_errctrl) { printf("%3d", c); }
+                        if (print_ectrl) { printf("%3d", c); }
                         else {
                             printf("%4.2f", c);
                         }
@@ -175,8 +171,7 @@ spline3d_print_block_from_GPU(T volatile a[9][9][33], int radius = 512, bool com
 }
 
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
-__device__ void
-c_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errctrl[9][9][33], int radius)
+__device__ void c_reset_scratch_33x9x9data(volatile T1 s_data[9][9][33], volatile T2 s_ectrl[9][9][33], int radius)
 {
     // alternatively, reinterprete cast volatile T?[][][] to 1D
     for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
@@ -184,15 +179,15 @@ c_reset_scratch_33x9x9data(volatile T1 shm_data[9][9][33], volatile T2 shm_errct
         auto y = (_tix / 33) % 9;
         auto z = (_tix / 33) / 9;
 
-        shm_data[z][y][x] = 0;
+        s_data[z][y][x] = 0;
         /*****************************************************************************
          okay to use
          ******************************************************************************/
-        if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) shm_errctrl[z][y][x] = radius;
+        if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) s_ectrl[z][y][x] = radius;
         /*****************************************************************************
          alternatively
          ******************************************************************************/
-        // shm_errctrl[z][y][x] = radius;
+        // s_ectrl[z][y][x] = radius;
     }
     __syncthreads();
 }
@@ -218,7 +213,7 @@ __device__ void c_gather_anchor(T1* data, DIM3 data_size, STRIDE3 data_leap, T1*
 /*
  * use shmem, erroneous
 template <typename T1, int LINEAR_BLOCK_SIZE = 256>
-__device__ void c_gather_anchor(volatile T1 shm_data[9][9][33], T1* anchor, STRIDE3 anchor_leap)
+__device__ void c_gather_anchor(volatile T1 s_data[9][9][33], T1* anchor, STRIDE3 anchor_leap)
 {
     constexpr auto NUM_ITERS = 33 * 9 * 9 / LINEAR_BLOCK_SIZE + 1;  // 11 iterations
     for (auto i = 0; i < NUM_ITERS; i++) {
@@ -233,7 +228,7 @@ __device__ void c_gather_anchor(volatile T1 shm_data[9][9][33], T1* anchor, STRI
                 auto aid = ((x / 8) + BIX * 4) +             //
                            ((y / 8) + BIY) * anchor_leap.y +  //
                            ((z / 8) + BIZ) * anchor_leap.z;   //
-                anchor[aid] = shm_data[z][y][x];
+                anchor[aid] = s_data[z][y][x];
             }
         }
     }
@@ -243,8 +238,8 @@ __device__ void c_gather_anchor(volatile T1 shm_data[9][9][33], T1* anchor, STRI
 
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
 __device__ void x_reset_scratch_33x9x9data(
-    volatile T1 shm_xdata[9][9][33],
-    volatile T2 shm_errctrl[9][9][33],
+    volatile T1 s_xdata[9][9][33],
+    volatile T2 s_ectrl[9][9][33],
     T1*         anchor,       //
     DIM3        anchor_size,  //
     STRIDE3     anchor_leap)
@@ -254,32 +249,31 @@ __device__ void x_reset_scratch_33x9x9data(
         auto y = (_tix / 33) % 9;
         auto z = (_tix / 33) / 9;
 
-        shm_errctrl[z][y][x] = 0;  // TODO explicitly handle zero-padding
+        s_ectrl[z][y][x] = 0;  // TODO explicitly handle zero-padding
         /*****************************************************************************
          okay to use
          ******************************************************************************/
         if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) {
-            shm_xdata[z][y][x] = 0;
+            s_xdata[z][y][x] = 0;
 
             auto ax = ((x / 8) + BIX * 4);
             auto ay = ((y / 8) + BIY);
             auto az = ((z / 8) + BIZ);
 
             if (ax < anchor_size.x and ay < anchor_size.y and az < anchor_size.z)
-                shm_xdata[z][y][x] = anchor[ax + ay * anchor_leap.y + az * anchor_leap.z];
+                s_xdata[z][y][x] = anchor[ax + ay * anchor_leap.y + az * anchor_leap.z];
         }
         /*****************************************************************************
          alternatively
          ******************************************************************************/
-        // shm_errctrl[z][y][x] = radius;
+        // s_ectrl[z][y][x] = radius;
     }
 
     __syncthreads();
 }
 
 template <typename Input, int LINEAR_BLOCK_SIZE = 256>
-__device__ void
-global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 data_leap, volatile Input shm_data[9][9][33])
+__device__ void global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 data_leap, volatile Input s_data[9][9][33])
 {
     constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -292,14 +286,14 @@ global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 data_leap, volatile
         auto gz  = (z + BIZ * BLOCK8);
         auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
-        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) shm_data[z][y][x] = data[gid];
+        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) s_data[z][y][x] = data[gid];
     }
     __syncthreads();
 }
 
 template <typename Output, int LINEAR_BLOCK_SIZE = 256>
 __device__ void
-shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 data_size, STRIDE3 data_leap)
+shmem2global_32x8x8data(volatile Output s_data[9][9][33], Output* data, DIM3 data_size, STRIDE3 data_leap)
 {
     constexpr auto TOTAL = 32 * 8 * 8;
 
@@ -312,7 +306,7 @@ shmem2global_32x8x8data(volatile Output shm_data[9][9][33], Output* data, DIM3 d
         auto gz  = (z + BIZ * BLOCK8);
         auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
-        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) data[gid] = shm_data[z][y][x];
+        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) data[gid] = s_data[z][y][x];
     }
     __syncthreads();
 }
@@ -335,8 +329,8 @@ template <
     bool BORDER_INCLUSIVE,
     bool WORKFLOW>
 __forceinline__ __device__ void interpolate_stage(
-    volatile T1 shm_data[9][9][33],
-    volatile T2 shm_errctrl[9][9][33],
+    volatile T1 s_data[9][9][33],
+    volatile T2 s_ectrl[9][9][33],
     LAMBDAX     xmap,
     LAMBDAY     ymap,
     LAMBDAZ     zmap,
@@ -356,17 +350,17 @@ __forceinline__ __device__ void interpolate_stage(
             T1 pred = 0;
 
             if CONSTEXPR (BLUE) {  //
-                pred = (shm_data[z - unit][y][x] + shm_data[z + unit][y][x]) / 2;
+                pred = (s_data[z - unit][y][x] + s_data[z + unit][y][x]) / 2;
             }
             if CONSTEXPR (YELLOW) {  //
-                pred = (shm_data[z][y][x - unit] + shm_data[z][y][x + unit]) / 2;
+                pred = (s_data[z][y][x - unit] + s_data[z][y][x + unit]) / 2;
             }
             if CONSTEXPR (HOLLOW) {  //
-                pred = (shm_data[z][y - unit][x] + shm_data[z][y + unit][x]) / 2;
+                pred = (s_data[z][y - unit][x] + s_data[z][y + unit][x]) / 2;
             }
 
             if CONSTEXPR (WORKFLOW == SPLINE3_COMPR) {
-                auto          err = shm_data[z][y][x] - pred;
+                auto          err = s_data[z][y][x] - pred;
                 decltype(err) code;
                 // TODO unsafe, did not deal with the out-of-cap case
                 {
@@ -374,12 +368,12 @@ __forceinline__ __device__ void interpolate_stage(
                     code = err < 0 ? -code : code;
                     code = int(code / 2) + radius;
                 }
-                shm_errctrl[z][y][x] = code;  // TODO double check if unsigned type works
-                shm_data[z][y][x]    = pred + (code - radius) * ebx2;
+                s_ectrl[z][y][x] = code;  // TODO double check if unsigned type works
+                s_data[z][y][x]  = pred + (code - radius) * ebx2;
             }
             else {  // TODO == DECOMPRESSS and static_assert
-                auto code         = shm_errctrl[z][y][x];
-                shm_data[z][y][x] = pred + (code - radius) * ebx2;
+                auto code       = s_ectrl[z][y][x];
+                s_data[z][y][x] = pred + (code - radius) * ebx2;
             }
         }
     };
@@ -415,8 +409,8 @@ __forceinline__ __device__ void interpolate_stage(
 
 template <typename T1, typename T2, typename FP, int LINEAR_BLOCK_SIZE, bool WORKFLOW, bool PROBE_PRED_ERROR>
 __device__ void cusz::device_api::spline3d_layout2_interpolate(
-    volatile T1 shm_data[9][9][33],
-    volatile T2 shm_errctrl[9][9][33],
+    volatile T1 s_data[9][9][33],
+    volatile T2 s_ectrl[9][9][33],
     FP          eb_r,
     FP          ebx2,
     int         radius)
@@ -444,15 +438,15 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, LINEAR_BLOCK_SIZE, 5, 2, NO_COARSEN, 1, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, LINEAR_BLOCK_SIZE, 4, 2, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, LINEAR_BLOCK_SIZE, 9, 1, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     unit = 2;
 
@@ -460,15 +454,15 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, LINEAR_BLOCK_SIZE, 9, 3, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, LINEAR_BLOCK_SIZE, 8, 3, NO_COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, LINEAR_BLOCK_SIZE, 17, 2, NO_COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     unit = 1;
 
@@ -476,31 +470,31 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, LINEAR_BLOCK_SIZE, 17, 5, COARSEN, 4, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xblue, yblue, zblue, unit, eb_r, ebx2, radius);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, LINEAR_BLOCK_SIZE, 16, 5, COARSEN, 9, BORDER_INCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xyellow, yyellow, zyellow, unit, eb_r, ebx2, radius);
     /******************************************************************************
      test only: last step inclusive
      ******************************************************************************/
     // interpolate_stage<
     //     T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
     //     false, false, true, LINEAR_BLOCK_SIZE, 33, 4, COARSEN, 9, BORDER_INCLUSIVE, WORKFLOW>(
-    //     shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+    //     s_data, s_ectrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
     /******************************************************************************
      production
      ******************************************************************************/
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, LINEAR_BLOCK_SIZE, 32, 4, COARSEN, 8, BORDER_EXCLUSIVE, WORKFLOW>(
-        shm_data, shm_errctrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
+        s_data, s_ectrl, xhollow, yhollow, zhollow, unit, eb_r, ebx2, radius);
 
     /******************************************************************************
      test only: print a block
      ******************************************************************************/
-    // if (TIX == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(shm_errctrl); }
-    // if (TIX == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(shm_data); }
+    // if (TIX == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(s_ectrl); }
+    // if (TIX == 0 and BIX == 0 and BIY == 0 and BIZ == 0) { spline3d_print_block_from_GPU(s_data); }
 }
 
 /********************************************************************************
@@ -512,9 +506,9 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
     STRIDE3 data_leap,
-    EITER   errctrl,
-    DIM3    errctrl_size,
-    STRIDE3 errctrl_leap,
+    EITER   ectrl,
+    DIM3    ectrl_size,
+    STRIDE3 ectrl_leap,
     TITER   anchor,
     STRIDE3 anchor_leap,
     FP      eb_r,
@@ -533,10 +527,10 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     else {
         __shared__ struct {
             T data[9][9][33];
-            E errctrl[9][9][33];
+            E ectrl[9][9][33];
         } shmem;
 
-        c_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, radius);
+        c_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, radius);
         global2shmem_33x9x9data<T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, shmem.data);
 
         // version 1, use shmem, erroneous
@@ -545,8 +539,8 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
         c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap);
 
         cusz::device_api::spline3d_layout2_interpolate<T, E, FP, LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
-            shmem.data, shmem.errctrl, eb_r, ebx2, radius);
-        shmem2global_32x8x8data<E, LINEAR_BLOCK_SIZE>(shmem.errctrl, errctrl, errctrl_size, errctrl_leap);
+            shmem.data, shmem.ectrl, eb_r, ebx2, radius);
+        shmem2global_32x8x8data<E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap);
     }
 }
 
@@ -556,15 +550,15 @@ template <
     typename FP,
     int LINEAR_BLOCK_SIZE>
 __global__ void cusz::x_spline3d_infprecis_32x8x8data(
-    EITER   errctrl,       // input 1
-    DIM3    errctrl_size,  //
-    STRIDE3 errctrl_leap,  //
-    TITER   anchor,        // input 2
-    DIM3    anchor_size,   //
-    STRIDE3 anchor_leap,   //
-    TITER   data,          // output
-    DIM3    data_size,     //
-    STRIDE3 data_leap,     //
+    EITER   ectrl,        // input 1
+    DIM3    ectrl_size,   //
+    STRIDE3 ectrl_leap,   //
+    TITER   anchor,       // input 2
+    DIM3    anchor_size,  //
+    STRIDE3 anchor_leap,  //
+    TITER   data,         // output
+    DIM3    data_size,    //
+    STRIDE3 data_leap,    //
     FP      eb_r,
     FP      ebx2,
     int     radius)
@@ -574,14 +568,14 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     using T = typename std::remove_pointer<TITER>::type;
 
     __shared__ struct {
-        E errctrl[9][9][33];
+        E ectrl[9][9][33];
         T data[9][9][33];
     } shmem;
 
-    x_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.errctrl, anchor, anchor_size, anchor_leap);
-    global2shmem_33x9x9data<E, LINEAR_BLOCK_SIZE>(errctrl, errctrl_size, errctrl_leap, shmem.errctrl);
+    x_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, anchor, anchor_size, anchor_leap);
+    global2shmem_33x9x9data<E, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, shmem.ectrl);
     cusz::device_api::spline3d_layout2_interpolate<T, E, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
-        shmem.data, shmem.errctrl, eb_r, ebx2, radius);
+        shmem.data, shmem.ectrl, eb_r, ebx2, radius);
     shmem2global_32x8x8data<T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
 }
 
@@ -601,7 +595,7 @@ void launch_construct_Spline3(
     dim3 const   len3,
     T*           anchor,
     dim3 const   an_len3,
-    E*           errctrl,
+    E*           ectrl,
     dim3 const   ec_len3,
     double const eb,
     int const    radius,
@@ -661,7 +655,7 @@ void launch_construct_Spline3(
         cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256, false>  //
             <<<GRID_3D, BLOCK_3D, 0, stream>>>                            //
             (data, len3, leap3,                                           //
-             errctrl, ec_len3, ec_leap3,                                  //
+             ectrl, ec_len3, ec_leap3,                                    //
              anchor, an_leap3,                                            //
              eb_r, ebx2, radius);
     }
@@ -679,7 +673,7 @@ void launch_reconstruct_Spline3(
     dim3 const   len3,
     T*           anchor,
     dim3 const   an_len3,
-    E*           errctrl,
+    E*           ectrl,
     dim3 const   ec_len3,
     double const eb,
     int const    radius,
@@ -731,7 +725,7 @@ void launch_reconstruct_Spline3(
 
     cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
         <<<GRID_3D, BLOCK_3D, 0, stream>>>                     //
-        (errctrl, ec_len3, ec_leap3,                           //
+        (ectrl, ec_len3, ec_leap3,                             //
          anchor, an_len3, an_leap3,                            //
          xdata, len3, leap3,                                   //
          eb_r, ebx2, radius);
