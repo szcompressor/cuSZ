@@ -24,10 +24,11 @@
 #include "hf/hf.hh"
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
-#include "layout.h"
 #include "stat/stat.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
+#include "utils2/layout.h"
+#include "utils2/layout_cxx.hh"
 #include "utils2/memseg_cxx.hh"
 
 using std::cout;
@@ -43,14 +44,8 @@ namespace cusz {
 template <class C>
 Compressor<C>* Compressor<C>::destroy()
 {
+  if (mem) delete mem;
   if (codec) delete codec;
-
-  delete freq;
-  delete errctrl;
-  delete outlier;
-  delete spval;
-  delete spidx;
-  delete compressed;
 
   return this;
 }
@@ -96,20 +91,7 @@ Compressor<C>* Compressor<C>::init_detail(CONFIG* config, bool debug)
   len = x * y * z;
 
   codec->init(len, booklen, pardeg, debug);
-
-  compressed = new pszmem_cxx<BYTE>(len * 1.2, 1, 1, "compressed");
-  errctrl = new pszmem_cxx<E>(x, y, z, "ectrl");
-  outlier = new pszmem_cxx<T>(x, y, z, "outlier, compat");
-  freq = new pszmem_cxx<uint32_t>(booklen, 1, 1, "freq");
-  spval = new pszmem_cxx<T>(x, y, z, "spval");
-  spidx = new pszmem_cxx<uint32_t>(x, y, z, "spidx");
-
-  compressed->control({Malloc, MallocHost});
-  errctrl->control({Malloc, MallocHost});
-  outlier->control({Malloc, MallocHost});
-  freq->control({Malloc, MallocHost});
-  spval->control({Malloc, MallocHost});
-  spidx->control({Malloc, MallocHost});
+  mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
 
   return this;
 }
@@ -156,15 +138,15 @@ Compressor<C>* Compressor<C>::compress(
   /******************************************************************************/
 
   psz_comp_l23<T, E, FP>(
-      in, len3, eb, radius, errctrl->dptr(), outlier->dptr(), &time_pred,
+      in, len3, eb, radius, mem->ectrl_lrz(), mem->outlier_space(), &time_pred,
       stream);
   psz::stat::histogram<psz_policy::CUDA, E>(
-      errctrl->dptr(), len, freq->dptr(), booklen, &time_hist, stream);
-  codec->build_codebook(freq->dptr(), booklen, stream);
-  codec->encode(errctrl->dptr(), len, &d_codec_out, &codec_outlen, stream);
+      mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
+  codec->build_codebook(mem->hist(), booklen, stream);
+  codec->encode(mem->ectrl_lrz(), len, &d_codec_out, &codec_outlen, stream);
   psz::spv_gather<T, M>(
-      outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &time_sp,
-      stream);
+      mem->outlier_space(), len, mem->outlier_val(), mem->outlier_idx(),
+      &splen, &time_sp, stream);
 
   /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
@@ -173,13 +155,14 @@ Compressor<C>* Compressor<C>::compress(
   update_header();
 
   merge_subfiles(
-      d_codec_out, codec_outlen, spval->dptr(), spidx->dptr(), splen, stream);
+      d_codec_out, codec_outlen, mem->outlier_val(), mem->outlier_idx(), splen,
+      stream);
 
   // output
   outlen = psz_utils::filesize(&header);
-  compressed->m->len = outlen;
-  compressed->m->bytes = outlen;
-  out = compressed->dptr();
+  mem->_compressed->m->len = outlen;
+  mem->_compressed->m->bytes = outlen;
+  out = mem->_compressed->dptr();
 
   collect_comp_time();
 
@@ -210,21 +193,21 @@ Compressor<C>* Compressor<C>::merge_subfiles(
   auto D2D = cudaMemcpyDeviceToDevice;
   // TODO no need to copy header to device
   CHECK_CUDA(cudaMemcpyAsync(
-      compressed->dptr(), &header, sizeof(header), cudaMemcpyHostToDevice,
+      mem->compressed(), &header, sizeof(header), cudaMemcpyHostToDevice,
       stream));
 
   // device-side copy
-  auto dst1 = compressed->dptr() + header.entry[Header::VLE];
+  auto dst1 = mem->compressed() + header.entry[Header::VLE];
   auto src1 = d_codec_out;
   CHECK_CUDA(cudaMemcpyAsync(dst1, src1, nbyte[Header::VLE], D2D, stream));
 
   // copy spval
   auto part1_nbyte = sizeof(T) * _splen;
-  auto dst2 = compressed->dptr() + header.entry[Header::SPFMT];
+  auto dst2 = mem->compressed() + header.entry[Header::SPFMT];
   auto src2 = _d_spval;
   CHECK_CUDA(cudaMemcpyAsync(dst2, src2, part1_nbyte, D2D, stream));
   // copy spidx
-  auto dst3 = compressed->dptr() + header.entry[Header::SPFMT] + part1_nbyte;
+  auto dst3 = mem->compressed() + header.entry[Header::SPFMT] + part1_nbyte;
   auto src3 = _d_spidx;
   CHECK_CUDA(
       cudaMemcpyAsync(dst3, src3, sizeof(uint32_t) * _splen, D2D, stream));
@@ -249,15 +232,15 @@ Compressor<C>* Compressor<C>::dump_intermediate(
 
     // TODO check if compressed len updated
     if (i == PszArchive)
-      compressed->control({H2D})->file(ofn(".psz_archive"), ToFile);
+      mem->_compressed->control({H2D})->file(ofn(".psz_archive"), ToFile);
     else if (i == PszQuant)
-      errctrl->control({H2D})->file(ofn(".psz_quant"), ToFile);
+      mem->el->control({H2D})->file(ofn(".psz_quant"), ToFile);
     else if (i == PszHist)
-      freq->control({H2D})->file(ofn(".psz_hist"), ToFile);
+      mem->ht->control({H2D})->file(ofn(".psz_hist"), ToFile);
     else if (i == PszSpVal)
-      spval->control({H2D})->file(ofn(".psz_spval"), ToFile);
+      mem->sv->control({H2D})->file(ofn(".psz_spval"), ToFile);
     else if (i == PszSpIdx)
-      spidx->control({H2D})->file(ofn(".psz_spidx"), ToFile);
+      mem->si->control({H2D})->file(ofn(".psz_spidx"), ToFile);
     else if (i > PszHf______ and i < END)
       codec->dump_intermediate({i}, basename);
     else
@@ -271,13 +254,7 @@ template <class C>
 Compressor<C>* Compressor<C>::clear_buffer()
 {
   codec->clear_buffer();
-
-  errctrl->control({ClearDevice});
-  outlier->control({ClearDevice});
-  spval->control({ClearDevice});
-  spidx->control({ClearDevice});
-  compressed->control({ClearDevice});
-
+  mem->clear_buffer();
   return this;
 }
 
@@ -318,9 +295,9 @@ Compressor<C>* Compressor<C>::decompress(
       local_d_spval, local_d_spidx, header->splen, local_d_outlier, &time_sp,
       stream);
 
-  codec->decode(d_vle, errctrl->dptr());
+  codec->decode(d_vle, mem->ectrl_lrz());
   psz_decomp_l23<T, E, FP>(
-      errctrl->dptr(), len3, local_d_outlier, eb, radius, local_d_xdata,
+      mem->ectrl_lrz(), len3, local_d_outlier, eb, radius, local_d_xdata,
       &time_pred, stream);
 
   collect_decomp_time();

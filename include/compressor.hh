@@ -23,8 +23,8 @@
 #include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
-#include "layout.h"
 #include "type_traits.hh"
+#include "utils2/layout_cxx.hh"
 
 namespace cusz {
 
@@ -75,12 +75,8 @@ class Compressor {
     float outlier_density{0.2};
 
     // buffers
-    pszmem_cxx<BYTE>*     compressed;
-    pszmem_cxx<E>*        errctrl;
-    pszmem_cxx<T>*        outlier;
-    pszmem_cxx<uint32_t>* freq;
-    pszmem_cxx<T>*        spval;
-    pszmem_cxx<uint32_t>* spidx;
+
+    pszmempool_cxx<T, E, H>* mem;
 
    public:
     Compressor() = default;

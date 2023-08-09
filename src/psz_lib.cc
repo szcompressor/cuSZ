@@ -18,8 +18,8 @@
 #include "hf/hf.hh"
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
-#include "layout.h"
 #include "rt_config.h"
+#include "utils2/layout.h"
 
 // psz_error_status psz_make_context(psz_context** ctx) {}
 
@@ -74,42 +74,6 @@ psz_error_status psz_compress(
     size_t const         lenz   = 1,
     void*                record = nullptr)
 {
-    // if F4
-    {
-        using T = float;
-        using E = uint32_t;
-        using H = uint32_t;
-
-        auto len_linearized = len * leny * lenz;
-        auto len_freq       = config->radius * 2;
-
-        psz_comp_l23<T, E>(
-            (T*)in, dim3(len, leny, lenz), config->eb, config->radius, ptr<E>(mem->errctrl), ptr<T>(mem->sp_val_full),
-            nullptr, (cudaStream_t)stream);
-
-        psz_launch_p2013Histogram(
-            prop, ptr<E>(mem->errctrl), len_linearized, ptr<U4>(mem->freq), len_freq, nullptr, (cudaStream_t)stream);
-
-        auto hf = static_cast<cusz::HuffmanCodec<E, H>*>(codec);
-        {
-            hf->build_codebook(ptr<U4>(mem->freq), len_freq, (cudaStream_t)stream);
-
-            auto hf_bitstream = ptr<U1>(mem->hf_bitstream);
-            // auto dn_out_len = new size_t{mem->dn_out.len};
-
-            hf->encode(
-                ptr<E>(mem->errctrl), len_linearized, &hf_bitstream, &mem->hf_bitstream.len, (cudaStream_t)stream);
-        }
-
-        psz::spv_gather<T, uint32_t>(
-            ptr<T>(mem->sp_val_full), len_linearized, ptr<T>(mem->sp_val), ptr<U4>(mem->sp_idx), &mem->nnz, nullptr,
-            (cudaStream_t)stream);
-    }
-
-    // if F8
-    {
-    }
-
     return CUSZ_SUCCESS;
 }
 
@@ -125,29 +89,5 @@ psz_error_status psz_decompress(
     void*           stream = nullptr,
     void*           record = nullptr)
 {
-    {  // if F4
-        using T = float;
-        using M = uint32_t;
-        using E = uint32_t;
-        using H = uint32_t;
-
-        auto at = [&](auto SEG) { return compressed + header->entry[SEG]; };
-
-        psz::spv_scatter<T, uint32_t>(
-            (T*)at(psz_header::SP_VAL), (M*)at(psz_header::SP_IDX), header->nnz, (T*)decompressed, nullptr,
-            (cudaStream_t)stream);
-
-        auto hf = static_cast<cusz::HuffmanCodec<E, H>*>(codec);
-        hf->decode(at(psz_header::VLE), ptr<E>(mem->errctrl));
-
-        psz_decomp_l23<T, E>(
-            ptr<E>(mem->errctrl), dim3(header->x, header->y, header->z), (T*)decompressed, header->eb, header->radius,
-            (T*)decompressed, nullptr, (cudaStream_t)stream);
-    }
-
-    // if F8
-    {
-    }
-
     return CUSZ_SUCCESS;
 }

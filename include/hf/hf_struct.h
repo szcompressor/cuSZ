@@ -20,7 +20,7 @@ extern "C" {
 #include <stdlib.h>
 
 #include "cusz/type.h"
-#include "layout.h"
+#include "utils2/layout.h"
 
 // raw pointer array; regardless of being on host or device
 typedef struct hf_book {
