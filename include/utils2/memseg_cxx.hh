@@ -58,15 +58,16 @@ class pszmem_cxx {
       const char name[10] = "<unamed>")
   {
     m = pszmem_create3(T, lx, ly, lz);
-    pszmem_set_name(m, name);
+    pszmem_setname(m, name);
     ndim = pszmem__ndim(m);
   }
 
   ~pszmem_cxx()
   {
-    pszmem_free_cuda(m);
-    pszmem_freehost_cuda(m);
-    pszmem_freemanaged_cuda(m);
+    if (not m->isaview and not m->d_borrowed) pszmem_free_cuda(m);
+    if (not m->isaview and not m->h_borrowed) pszmem_freehost_cuda(m);
+    if (not m->isaview and not m->d_borrowed and not m->h_borrowed)
+      pszmem_freemanaged_cuda(m);
     delete m;
   }
 
@@ -176,35 +177,37 @@ class pszmem_cxx {
     return this;
   }
 
-  // setter
+  // setter by borrowing
   pszmem_cxx* dptr(Ctype* d)
   {
-    if (d == nullptr) throw std::runtime_error("`dptr` arg. must not be nil.");
-    m->d = d;
+    if (d == nullptr) throw std::runtime_error("`d` arg. must not be nil.");
+    pszmem_borrow(this->m, d, nullptr);
     return this;
   }
+
   pszmem_cxx* hptr(Ctype* h)
   {
-    if (h == nullptr) throw std::runtime_error("`hptr` arg. must not be nil.");
-    m->h = h;
+    if (h == nullptr) throw std::runtime_error("`h` arg. must not be nil.");
+    pszmem_borrow(this->m, nullptr, h);
     return this;
   }
 
   pszmem_cxx* uniptr(Ctype* uni)
   {
     if (uni == nullptr)
-      throw std::runtime_error("`unihptr` arg. must not be nil.");
-    m->uni = uni;
+      throw std::runtime_error("`uni` arg. must not be nil.");
+    // to decrease the complexity of C impl.
+    m->uni = uni, m->d_borrowed = m->h_borrowed = true;
     return this;
   }
 
-  // getters
+  // getter
   size_t len() const { return m->len; }
   size_t bytes() const { return m->bytes; };
   Ctype* dptr() const { return (Ctype*)m->d; };
   Ctype* hptr() const { return (Ctype*)m->h; };
   Ctype* uniptr() const { return (Ctype*)m->uni; };
-  // getters by index
+  // getter by index
   Ctype& dptr(uint32_t i) { return ((Ctype*)m->d)[i]; };
   Ctype& hptr(uint32_t i) { return ((Ctype*)m->h)[i]; };
   Ctype& uniptr(uint32_t i) { return ((Ctype*)m->uni)[i]; };

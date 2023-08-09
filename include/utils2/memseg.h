@@ -29,19 +29,21 @@ typedef struct psz_memory_segment {
   size_t len{1}, bytes{1};
   uint32_t lx{1}, ly{1}, lz{1};
   size_t sty{1}, stz{1};  // stride
-  bool isaview{false};
+  bool isaview{false}, d_borrowed{false}, h_borrowed{false};
 
 } psz_memseg;
 
+typedef uint32_t _u4;
 typedef psz_memseg pszmem;
 
 void pszmem__calc_len(psz_memseg* m);
 int pszmem__ndim(psz_memseg* m);
 void pszmem__dbg(psz_memseg* m);
-psz_memseg* pszmem_create1(psz_dtype t, uint32_t lx);
-psz_memseg* pszmem_create2(psz_dtype t, uint32_t lx, uint32_t ly);
-psz_memseg* pszmem_create3(psz_dtype t, uint32_t lx, uint32_t ly, uint32_t lz);
-void pszmem_set_name(psz_memseg* m, const char name[10]);
+psz_memseg* pszmem_create1(psz_dtype t, _u4 lx);
+psz_memseg* pszmem_create2(psz_dtype t, _u4 lx, _u4 ly);
+psz_memseg* pszmem_create3(psz_dtype t, _u4 lx, _u4 ly, _u4 lz);
+void pszmem_borrow(pszmem* m, void* _d, void* _h);
+void pszmem_setname(psz_memseg* m, const char name[10]);
 void pszmem_malloc_cuda(psz_memseg* m);
 void pszmem_mallochost_cuda(psz_memseg* m);
 void pszmem_mallocmanaged_cuda(psz_memseg* m);
