@@ -60,6 +60,9 @@ void pszmem_fromfile(const char* fname, psz_memseg* m);
 void pszmem_tofile(const char* fname, psz_memseg* m);
 void pszmem_viewas(psz_memseg* backend, psz_memseg* frontend);
 
+// no impl. in C due to typing issue
+// void pszmem_cast(psz_memseg* dst, psz_memseg* src, psz_space s);
+
 #ifdef __cplusplus
 }
 #endif

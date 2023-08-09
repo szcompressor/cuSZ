@@ -152,6 +152,30 @@ class pszmem_cxx {
     return this;
   }
 
+  // cast
+  template <typename Ctype2>
+  pszmem_cxx* castto(pszmem_cxx<Ctype2>* dst, psz_space const s)
+  {
+    auto len1 = this->len();
+    auto len2 = dst->len();
+
+    if (len1 != len2) throw std::runtime_error("dst is not equal in length.");
+
+    if (s == psz_space::Host) {
+      if (dst->hptr() == nullptr or this->hptr() == nullptr)
+        throw std::runtime_error("hptr not set.");
+      for (auto i = 0; i < len1; i++) dst->hptr(i) = this->hptr(i);
+    }
+    else if (s == psz_space::Device) {
+      throw std::runtime_error(
+          "not implemented; use casting in host space instead.");
+    }
+    else {
+      throw std::runtime_error("not a legal space");
+    }
+    return this;
+  }
+
   // setter
   pszmem_cxx* dptr(Ctype* d)
   {
@@ -197,8 +221,5 @@ class pszmem_cxx {
     return UINT3(1, m->sty, m->stz);
   };
 };
-
-// template <psz_space space>
-// psz_mem
 
 #endif /* EC1B3A67_146B_48BF_A336_221E9D38C41F */
