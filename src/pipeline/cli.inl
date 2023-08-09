@@ -61,7 +61,7 @@ class CLI {
     file->dptr(compressed)
         ->control({MallocHost, D2H})
         ->file(compressed_name.c_str(), ToFile)
-        ->control({FreeHost, Free});
+        ->control({FreeHost});
 
     delete file;
   }
