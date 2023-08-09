@@ -74,15 +74,15 @@ typedef struct pszmem_pool {
     size_t compressed_len;
     int    nnz;
 
-    psz_memseg __pool;
-    psz_memseg data;
-    psz_memseg errctrl;
-    psz_memseg sp_val;
-    psz_memseg sp_idx;
-    psz_memseg sp_val_full;  // compat for demo purpose
-    psz_memseg hf_bitstream;
-    psz_memseg anchor;
-    psz_memseg freq;
+    pszmem __pool;
+    pszmem data;
+    pszmem errctrl;
+    pszmem sp_val;
+    pszmem sp_idx;
+    pszmem sp_val_full;  // compat for demo purpose
+    pszmem hf_bitstream;
+    pszmem anchor;
+    pszmem freq;
 
 } pszmem_pool;
 

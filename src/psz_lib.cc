@@ -38,19 +38,19 @@ psz_error_status psz_destroy() { return CUSZ_SUCCESS; }
 
 namespace {
 template <typename T>
-T* ptr(psz_memseg& m)
+T* ptr(pszmem& m)
 {
     return (T*)m.buf;
 }
 
 template <typename T>
-T* ptr(psz_memseg* m)
+T* ptr(pszmem* m)
 {
     return (T*)(m->buf);
 }
 
 template <psz_dtype T>
-typename Ctype<T>::type* ptr(psz_memseg& m)
+typename Ctype<T>::type* ptr(pszmem& m)
 {
     return (typename Ctype<T>::type*)(m.buf);
 }

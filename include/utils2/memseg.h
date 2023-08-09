@@ -31,39 +31,38 @@ typedef struct psz_memory_segment {
   size_t sty{1}, stz{1};  // stride
   bool isaview{false}, d_borrowed{false}, h_borrowed{false};
 
-} psz_memseg;
+} pszmem;
 
 typedef uint32_t _u4;
-typedef psz_memseg pszmem;
 
-void pszmem__calc_len(psz_memseg* m);
-int pszmem__ndim(psz_memseg* m);
-void pszmem__dbg(psz_memseg* m);
-psz_memseg* pszmem_create1(psz_dtype t, _u4 lx);
-psz_memseg* pszmem_create2(psz_dtype t, _u4 lx, _u4 ly);
-psz_memseg* pszmem_create3(psz_dtype t, _u4 lx, _u4 ly, _u4 lz);
+void pszmem__calc_len(pszmem* m);
+int pszmem__ndim(pszmem* m);
+void pszmem__dbg(pszmem* m);
+pszmem* pszmem_create1(psz_dtype t, _u4 lx);
+pszmem* pszmem_create2(psz_dtype t, _u4 lx, _u4 ly);
+pszmem* pszmem_create3(psz_dtype t, _u4 lx, _u4 ly, _u4 lz);
 void pszmem_borrow(pszmem* m, void* _d, void* _h);
-void pszmem_setname(psz_memseg* m, const char name[10]);
-void pszmem_malloc_cuda(psz_memseg* m);
-void pszmem_mallochost_cuda(psz_memseg* m);
-void pszmem_mallocmanaged_cuda(psz_memseg* m);
-void pszmem_free_cuda(psz_memseg* m);
-void pszmem_freehost_cuda(psz_memseg* m);
-void pszmem_freemanaged_cuda(psz_memseg* m);
-void pszmem_clearhost(psz_memseg* m);
-void pszmem_cleardevice(psz_memseg* m);
-void pszmem_h2d_cuda(psz_memseg* m);
-void pszmem_h2d_cudaasync(psz_memseg* m, void* stream);
-void pszmem_d2h_cuda(psz_memseg* m);
-void pszmem_d2h_cudaasync(psz_memseg* m, void* stream);
-void pszmem_device_deepcpy_cuda(psz_memseg* dst, psz_memseg* src);
-void pszmem_host_deepcpy_cuda(psz_memseg* dst, psz_memseg* src);
-void pszmem_fromfile(const char* fname, psz_memseg* m);
-void pszmem_tofile(const char* fname, psz_memseg* m);
-void pszmem_viewas(psz_memseg* backend, psz_memseg* frontend);
+void pszmem_setname(pszmem* m, const char name[10]);
+void pszmem_malloc_cuda(pszmem* m);
+void pszmem_mallochost_cuda(pszmem* m);
+void pszmem_mallocmanaged_cuda(pszmem* m);
+void pszmem_free_cuda(pszmem* m);
+void pszmem_freehost_cuda(pszmem* m);
+void pszmem_freemanaged_cuda(pszmem* m);
+void pszmem_clearhost(pszmem* m);
+void pszmem_cleardevice(pszmem* m);
+void pszmem_h2d_cuda(pszmem* m);
+void pszmem_h2d_cudaasync(pszmem* m, void* stream);
+void pszmem_d2h_cuda(pszmem* m);
+void pszmem_d2h_cudaasync(pszmem* m, void* stream);
+void pszmem_device_deepcpy_cuda(pszmem* dst, pszmem* src);
+void pszmem_host_deepcpy_cuda(pszmem* dst, pszmem* src);
+void pszmem_fromfile(const char* fname, pszmem* m);
+void pszmem_tofile(const char* fname, pszmem* m);
+void pszmem_viewas(pszmem* backend, pszmem* frontend);
 
 // no impl. in C due to typing issue
-// void pszmem_cast(psz_memseg* dst, psz_memseg* src, psz_space s);
+// void pszmem_cast(pszmem* dst, pszmem* src, psz_space s);
 
 #ifdef __cplusplus
 }

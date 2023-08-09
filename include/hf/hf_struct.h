@@ -68,17 +68,17 @@ typedef hf_context hf_ctx;
 
 typedef struct hfmem_pool {
     // device
-    psz_memseg tmp;  // can overlap with err-quant array
-    psz_memseg book;
-    psz_memseg revbook;
-    psz_memseg par_nbit;
-    psz_memseg par_ncell;
-    psz_memseg par_entry;
-    psz_memseg bitstream;
+    pszmem tmp;  // can overlap with err-quant array
+    pszmem book;
+    pszmem revbook;
+    pszmem par_nbit;
+    pszmem par_ncell;
+    pszmem par_entry;
+    pszmem bitstream;
     // host
-    psz_memseg h_par_nbit;
-    psz_memseg h_par_ncell;
-    psz_memseg h_par_entry;
+    pszmem h_par_nbit;
+    pszmem h_par_ncell;
+    pszmem h_par_entry;
 
 } hfmem_pool;
 
