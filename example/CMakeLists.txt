@@ -25,10 +25,13 @@ target_link_libraries(bin_spline3 PRIVATE psz_kernel_cuda psz_utilsg psz_utils
 # target_link_libraries(demo_lorenzo_variant PRIVATE psz_kernel_cuda psz_utilsg
 # psz_statg CUDA::cudart)
 
-add_executable(demo_pipeline src/demo_pipeline.cu)
-target_link_libraries(demo_pipeline PRIVATE psz_spv psz_kernel_cuda psz_utils
-                                            psz_hfg psz_utilsg psz_statg)
-set_target_properties(demo_pipeline PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+# deprecated
+add_executable(bin_pipeline_proto src/bin_pipeline_proto.cu)
+target_link_libraries(
+  bin_pipeline_proto PRIVATE psz_spv psz_kernel_cuda psz_utils psz_hfg
+                             psz_utilsg psz_statg)
+set_target_properties(bin_pipeline_proto PROPERTIES CUDA_SEPARABLE_COMPILATION
+                                                    ON)
 
 add_executable(bin_hf src/bin_hf.cc)
 target_link_libraries(bin_hf PRIVATE cusz psz_utilsg psz_statg psz_hfg

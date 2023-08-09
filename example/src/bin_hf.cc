@@ -12,41 +12,39 @@
 #include <string>
 
 #include "hf/hf.hh"
-#include "hf/hf_bookg.hh"
-#include "hf/hf_codecg.hh"
 #include "stat/compare_gpu.hh"
 #include "stat/stat.hh"
-#include "utils/io.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
+#include "utils2/memseg_cxx.hh"
 
-template <typename T, typename H = uint32_t>
-void f(std::string fname, size_t const x, size_t const y, size_t const z)
+using B = uint8_t;
+using F = _u4;
+
+template <typename E, typename H = _u4>
+void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 {
   /* For demo, we use 3600x1800 CESM data. */
   auto len = x * y * z;
 
-  T *d_d, *h_d;
-  T *d_xd, *h_xd;
-  uint32_t* d_freq;
-  uint8_t* d_compressed;
   constexpr auto booklen = 1024;
   constexpr auto pardeg = 768;
   // auto           sublen  = (len - 1) / pardeg + 1;
 
-  cudaMalloc(&d_d, sizeof(T) * len);
-  cudaMalloc(&d_xd, sizeof(T) * len);
-  cudaMalloc(&d_freq, sizeof(uint32_t) * booklen);
-  cudaMallocHost(&h_d, sizeof(T) * len);
-  cudaMallocHost(&h_xd, sizeof(T) * len);
+  auto od = new pszmem_cxx<E>(len, 1, 1, "original");
+  auto xd = new pszmem_cxx<E>(len, 1, 1, "decompressed");
+  auto ht = new pszmem_cxx<F>(booklen, 1, 1, "histogram");
+  uint8_t* d_compressed;
 
-  /* User handles loading from filesystem & transferring to device. */
-  io::read_binary_to_array(fname, h_d, len);
-  cudaMemcpy(d_d, h_d, sizeof(T) * len, cudaMemcpyHostToDevice);
+  od->control({Malloc, MallocHost})
+      ->file(fname.c_str(), FromFile)
+      ->control({H2D});
+  xd->control({Malloc, MallocHost});
+  ht->control({Malloc, MallocHost});
 
   /* a casual peek */
   printf("peeking data, 20 elements\n");
-  psz::peek_device_data<T>(d_d, 20);
+  psz::peek_device_data<E>(od->dptr(), 20);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -55,32 +53,32 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
   float time_hist;
 
-  psz::stat::histogram<psz_policy::CUDA, T>(
-      d_d, len, d_freq, booklen, &time_hist, stream);
+  psz::stat::histogram<psz_policy::CUDA, E>(
+      od->dptr(), len, ht->dptr(), booklen, &time_hist, stream);
 
-  cusz::HuffmanCodec<T, H, uint32_t> encoder;
-  encoder.init(len, booklen, pardeg /* not optimal for perf */);
+  cusz::HuffmanCodec<E, H, _u4> codec;
+  codec.init(len, booklen, pardeg /* not optimal for perf */);
 
-  cudaMalloc(&d_compressed, len * sizeof(T) / 2);
+  // cudaMalloc(&d_compressed, len * sizeof(E) / 2);
+  B* __out;
 
   // float  time;
   size_t outlen;
-  encoder.build_codebook(d_freq, booklen, stream);
-  encoder.encode(d_d, len, &d_compressed, &outlen, stream);
+  codec.build_codebook(ht->dptr(), booklen, stream);
+  codec.encode(od->dptr(), len, &d_compressed, &outlen, stream);
 
-  printf("Huffman in  len:\t%u\n", len);
-  printf("Huffman out len:\t%u\n", outlen);
+  printf("Huffman in  len:\t%lu\n", len);
+  printf("Huffman out len:\t%lu\n", outlen);
   printf(
-      "\"Huffman CR = sizeof(T) * len / outlen\", where outlen is byte "
+      "\"Huffman CR = sizeof(E) * len / outlen\", where outlen is byte "
       "count:\t%.2lf\n",
-      len * sizeof(T) * 1.0 / outlen);
+      len * sizeof(E) * 1.0 / outlen);
 
-  encoder.decode(d_compressed, d_xd);
+  codec.decode(d_compressed, xd->dptr());
 
-  // cudaMemcpy(h_xd, d_xd, len * sizeof(T), cudaMemcpyDeviceToHost);
-  // /* perform evaluation */ psz::cppstd_identical(h_xd, h_d, len);
-  /* perform evaluation */ auto identical =
-      psz::thrustgpu_identical(d_xd, d_d, len);
+  // psz::cppstd_identical(h_xd, h_d, len);
+  /* perform evaluation */
+  auto identical = psz::thrustgpu_identical(xd->dptr(), od->dptr(), len);
 
   if (identical)
     cout << ">>>>  IDENTICAL." << endl;
@@ -91,14 +89,14 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
   /* a casual peek */
   printf("peeking xdata, 20 elements\n");
-  psz::peek_device_data<T>(d_xd, 20);
+  psz::peek_device_data<E>(xd->dptr(), 20);
 }
 
 int main(int argc, char** argv)
 {
   if (argc < 6) {
-    printf("PROG /path/to/datafield X Y Z [optional: ErrorQuantType]\n");
-    printf("0    1                  2 3 4 5\n");
+    printf("PROG  /path/to/datafield  X  Y  Z  QuantType\n");
+    printf("0     1                   2  3  4  5\n");
     exit(0);
   }
   else {
@@ -108,16 +106,17 @@ int main(int argc, char** argv)
     auto z = atoi(argv[4]);
     auto type = std::string(argv[5]);
 
-    // 23-06-04 restricted to u4 for quantization code
-
     // if (type == "ui8")
-    //     f<uint8_t, uint32_t>(fname, x, y, z);
+    //   hf_run<uint8_t, _u4>(fname, x, y, z);
     // else if (type == "ui16")
-    //     f<uint16_t, uint32_t>(fname, x, y, z);
+    //   hf_run<uint16_t, _u4>(fname, x, y, z);
     // else if (type == "ui32")
-    f<uint32_t, uint32_t>(fname, x, y, z);
+    //   hf_run<_u4, _u4>(fname, x, y, z);
     // else
-    //     f<uint16_t, uint32_t>(fname, x, y, z);
+    //   hf_run<uint16_t, _u4>(fname, x, y, z);
+
+    // 23-06-04 restricted to u4 for quantization code
+    hf_run<_u4, _u4>(fname, x, y, z);
   }
 
   return 0;

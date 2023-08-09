@@ -1,4 +1,5 @@
 /**
+ * @file bin_pipeline_proto.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -29,6 +30,7 @@ using std::endl;
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
+#include "utils2/layout_cxx.hh"
 
 namespace alpha {
 
@@ -49,20 +51,6 @@ typedef struct header_superset {
   int hf_pardeg;
   int hf_sublen;
 } header_superset;
-
-template <typename T, typename E, typename M>
-struct runtime_data {
-  pszmem_cxx<T>* oridata;
-  pszmem_cxx<T>* de_data;
-  pszmem_cxx<E>* errctrl;
-  pszmem_cxx<T>* outlier;
-
-  pszmem_cxx<T>* spval;
-  pszmem_cxx<M>* spidx;
-
-  dim3 len3;
-  size_t len;
-};
 
 struct hf_set {
   hf_book* book_desc;
@@ -92,27 +80,11 @@ template <
     typename T, typename E = uint32_t, typename FP = T, typename H = uint32_t,
     typename M = uint32_t>
 cusz_error_status allocate_data(
-    alpha::runtime_data<T, E, M>* rtdata, dim3 len3, alpha::hf_set* hf,
-    cusz::HuffmanCodec<E, H, M>* codec, alpha::config* config)
+    dim3 len3, alpha::hf_set* hf, cusz::HuffmanCodec<E, H, M>* codec,
+    alpha::config* config)
 {
-  auto x = len3.x;
-  auto y = len3.y;
-  auto z = len3.z;
+  auto x = len3.x, y = len3.y, z = len3.z;
   size_t len = x * y * z;
-
-  rtdata->oridata = new pszmem_cxx<T>(x, y, z, "oridata");
-  rtdata->de_data = new pszmem_cxx<T>(x, y, z, "de_data");
-  rtdata->errctrl = new pszmem_cxx<E>(x, y, z, "errctrl");
-  rtdata->outlier = new pszmem_cxx<T>(x, y, z, "outlier");
-  rtdata->spval = new pszmem_cxx<T>(x * y * z / 4, 1, 1, "spval");
-  rtdata->spidx = new pszmem_cxx<M>(x * y * z / 4, 1, 1, "spidx");
-
-  rtdata->oridata->control({Malloc, MallocHost});
-  rtdata->de_data->control({Malloc, MallocHost});
-  rtdata->errctrl->control({Malloc, MallocHost});
-  rtdata->outlier->control({Malloc, MallocHost});
-  rtdata->spval->control({Malloc, MallocHost});
-  rtdata->spidx->control({Malloc, MallocHost});
 
   // coarse-grained
   auto sublen = 768;
@@ -125,27 +97,8 @@ cusz_error_status allocate_data(
 
   codec->init(len, hf->book_desc->booklen, pardeg);
 
-  // 22-10-12 LL API to be updated.
-
-  // CHECK_CUDA(cudaMalloc(&hf->bitstream_desc->buffer, sizeof(H) * len));
-  // CHECK_CUDA(cudaMalloc(&hf->bitstream_desc->bitstream, sizeof(T) * len /
-  // 2));  // check again CHECK_CUDA(cudaMalloc(&hf->out, sizeof(H) * len /
-  // 4)); CHECK_CUDA(cudaMalloc(&hf->bitstream_desc->d_metadata->bits,
-  // sizeof(M) * pardeg));
-  // CHECK_CUDA(cudaMalloc(&hf->bitstream_desc->d_metadata->cells, sizeof(M) *
-  // pardeg)); CHECK_CUDA(cudaMalloc(&hf->bitstream_desc->d_metadata->entries,
-  // sizeof(M) * pardeg));
-  // CHECK_CUDA(cudaMallocHost(&hf->bitstream_desc->h_metadata->bits, sizeof(M)
-  // * pardeg));
-  // CHECK_CUDA(cudaMallocHost(&hf->bitstream_desc->h_metadata->cells,
-  // sizeof(M) * pardeg));
-  // CHECK_CUDA(cudaMallocHost(&hf->bitstream_desc->h_metadata->entries,
-  // sizeof(M) * pardeg));
   CHECK_CUDA(cudaMalloc(
       &hf->book_desc->freq, sizeof(uint32_t) * hf->book_desc->booklen));
-  // CHECK_CUDA(cudaMalloc(&hf->book_desc->book, sizeof(H) *
-  // hf->book_desc->booklen)); CHECK_CUDA(cudaMalloc(&hf->revbook,
-  // hf->revbook_nbyte));
   CHECK_CUDA(cudaMalloc(&hf->hl_comp, 2 * len));
 
   // hf->d_metadata)
@@ -156,14 +109,11 @@ template <
     typename T, typename E = uint32_t, typename FP = T, typename H = uint32_t,
     typename M = uint32_t>
 cusz_error_status deallocate_data(
-    alpha::runtime_data<T, E, M>* rtdata, alpha::hf_set* hf,
+    pszmempool_cxx<T, E, H>* mem, alpha::hf_set* hf,
     // cusz::HuffmanCodec<E, H, M>* codec,
     alpha::config* config)
 {
-  delete rtdata->oridata;
-  delete rtdata->de_data;
-  delete rtdata->errctrl;
-  delete rtdata->outlier;
+  delete mem->od, delete mem->xd, delete mem;
 
   CHECK_CUDA(cudaFree(hf->book_desc->freq));
   CHECK_CUDA(cudaFree(hf->hl_comp));
@@ -175,7 +125,7 @@ template <
     typename T, typename E, typename FP, typename H = uint32_t,
     typename M = uint32_t>
 cusz_error_status compressor(
-    alpha::runtime_data<T, E, M>* data, alpha::hf_set* hf,
+    pszmempool_cxx<T, E, H>* mem, alpha::hf_set* hf,
     cusz::HuffmanCodec<E, H, M>* codec, alpha::config* config,
     alpha::header_superset* header_st, bool use_proto, cudaStream_t stream)
 {
@@ -184,10 +134,10 @@ cusz_error_status compressor(
 
   if (not use_proto) {
     cout << "using optimized comp. kernel\n";
-    psz_comp_l23<T, E, FP>(                                             //
-        data->oridata->dptr(), data->len3, config->eb, config->radius,  //
-        data->errctrl->dptr(), data->outlier->dptr(),                   //
-        &time_pq, stream);
+    psz_comp_l23<T, E, FP>(
+        mem->od->dptr(), mem->od->template len3<dim3>(), config->eb,
+        config->radius, mem->ectrl_lrz(), mem->outlier_space(), &time_pq,
+        stream);
   }
   else {
     cout << "using prototype comp. kernel\n";
@@ -201,21 +151,21 @@ cusz_error_status compressor(
 
   // TODO better namesapce to specify this is a firewall
   psz::spv_gather<T, M>(
-      data->outlier->dptr(), data->len, data->spval->dptr(),
-      data->spidx->dptr(), &header_st->nnz, &time_spv, stream);
+      mem->outlier_space(), mem->len, mem->outlier_val(), mem->outlier_idx(),
+      &header_st->nnz, &time_spv, stream);
 
   cout << "time-spv\t" << time_spv << endl;
   cout << "nnz\t" << header_st->nnz << endl;
 
   psz::stat::histogram<psz_policy::CUDA, E>(
-      data->errctrl->dptr(), data->len, hf->book_desc->freq,
-      hf->book_desc->booklen, &time_hist, stream);
+      mem->ectrl_lrz(), mem->len, hf->book_desc->freq, hf->book_desc->booklen,
+      &time_hist, stream);
 
   cout << "time-hist\t" << time_hist << endl;
 
   codec->build_codebook(hf->book_desc->freq, hf->book_desc->booklen, stream);
   codec->encode(
-      data->errctrl->dptr(), data->len, &hf->hl_comp, &hf->hl_complen, stream);
+      mem->ectrl_lrz(), mem->len, &hf->hl_comp, &hf->hl_complen, stream);
 
   return cusz_error_status::CUSZ_SUCCESS;
 }
@@ -224,7 +174,7 @@ template <
     typename T, typename E, typename FP, typename H = uint32_t,
     typename M = uint32_t>
 cusz_error_status decompressor(
-    alpha::runtime_data<T, E, M>* data, alpha::hf_set* hf,
+    pszmempool_cxx<T, E, H>* mem, alpha::hf_set* hf,
     cusz::HuffmanCodec<E, H, M>* codec, alpha::header_superset* header_st,
     bool use_proto, cudaStream_t stream)
 {
@@ -233,18 +183,17 @@ cusz_error_status decompressor(
       time_d_pq = 0;
 
   psz::spv_scatter<T, uint32_t>(
-      data->spval->dptr(), data->spidx->dptr(), header_st->nnz,
-      data->de_data->dptr(), &time_scatter, stream);
+      mem->outlier_val(), mem->outlier_idx(), header_st->nnz, mem->xd->dptr(),
+      &time_scatter, stream);
   cout << "decomp-time-spv\t" << time_scatter << endl;
 
-  codec->decode(hf->hl_comp, data->errctrl->dptr());
+  codec->decode(hf->hl_comp, mem->ectrl_lrz());
 
   if (not use_proto) {
     cout << "using optimized comp. kernel\n";
-    psz_decomp_l23<T, E, FP>(                                      //
-        data->errctrl->dptr(), data->len3, data->outlier->dptr(),  // input
-        header_st->header.eb, header_st->header.radius,  // input (config)
-        data->de_data->dptr(),                           // output
+    psz_decomp_l23<T, E, FP>(
+        mem->ectrl_lrz(), mem->od->template len3<dim3>(), mem->xd->dptr(),
+        header_st->header.eb, header_st->header.radius, mem->xd->dptr(),
         &time_d_pq, stream);
   }
   else {
@@ -273,24 +222,26 @@ void f(
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  auto data = new alpha::runtime_data<T, E, M>;
-  data->len3 = len3;
-  data->len = len3.x * len3.y * len3.z;
+  auto mem =
+      new pszmempool_cxx<T, E, H>(len3.x, config->radius, len3.y, len3.z);
 
   cusz::HuffmanCodec<E, uint32_t, uint32_t> codec;
 
-  allocate_data<T, E, FP, H, M>(data, len3, hf, &codec, config);
-  data->oridata->file(fname.c_str(), FromFile)->control({H2D});
+  allocate_data<T, E, FP, H, M>(len3, hf, &codec, config);
+  mem->od->control({Malloc, MallocHost})
+      ->file(fname.c_str(), FromFile)
+      ->control({H2D});
+  mem->xd->control({Malloc, MallocHost});
 
   compressor<T, E, FP, H, M>(
-      data, hf, &codec, config, header_st, use_proto, stream);
+      mem, hf, &codec, config, header_st, use_proto, stream);
 
-  decompressor<T, E, FP, H, M>(data, hf, &codec, header_st, use_proto, stream);
+  decompressor<T, E, FP, H, M>(mem, hf, &codec, header_st, use_proto, stream);
 
   /* view quality */ cusz::QualityViewer::echo_metric_gpu(
-      data->de_data->dptr(), data->oridata->dptr(), data->len);
+      mem->xd->dptr(), mem->od->dptr(), mem->len);
 
-  deallocate_data<T, E, FP, H, M>(data, hf, config);
+  deallocate_data<T, E, FP, H, M>(mem, hf, config);
 
   cudaStreamDestroy(stream);
 }
