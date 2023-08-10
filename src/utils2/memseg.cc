@@ -267,7 +267,7 @@ void pszmem_viewas(pszmem* body, pszmem* view)
 {
   view->isaview = true;
 
-  if (view->bytes >= body->bytes)
+  if (view->bytes > body->bytes)
     throw std::runtime_error("The view exceeds the legal length.");
 
   if (body->d or body->h or body->uni) {
