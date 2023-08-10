@@ -97,9 +97,9 @@ Compressor<C>* Compressor<C>::init_detail(CONFIG* config, bool debug)
 
   codec->init(len, booklen, pardeg, debug);
 
-  compressed = new pszmem_cxx<BYTE>(len * 2, 1, 1, "compressed");
-  errctrl = new pszmem_cxx<E>(x, y, z, "errctrl");
-  outlier = new pszmem_cxx<T>(x, y, z, "errctrl");
+  compressed = new pszmem_cxx<BYTE>(len * 1.2, 1, 1, "compressed");
+  errctrl = new pszmem_cxx<E>(x, y, z, "ectrl");
+  outlier = new pszmem_cxx<T>(x, y, z, "outlier, compat");
   freq = new pszmem_cxx<uint32_t>(booklen, 1, 1, "freq");
   spval = new pszmem_cxx<T>(x, y, z, "spval");
   spidx = new pszmem_cxx<uint32_t>(x, y, z, "spidx");
