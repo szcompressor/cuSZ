@@ -9,13 +9,8 @@
  *
  */
 
-// #include <thrust/device_ptr.h>
-// #include <thrust/extrema.h>
-// #include <thrust/transform_reduce.h>
-// #include <thrust/tuple.h>
 #include <string>
 #include "kernel/spv_gpu.hh"
-#include "pipeline/spcodec.inl"
 #include "stat/compare_gpu.hh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"

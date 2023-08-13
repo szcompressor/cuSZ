@@ -5,32 +5,24 @@ set_target_properties(demo_capi_nvcc PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 add_executable(demo_cxx_link src/demo_cxx_link.cc)
 target_link_libraries(demo_cxx_link PRIVATE pszkernel_cu CUDA::cudart)
 
-add_executable(bin_pred-hist src/bin_pred-hist.cc)
+# add_executable(demo_lorenzo_variant src/demo_lorenzo_variant.cc)
+# target_link_libraries(demo_lorenzo_variant PRIVATE pszkernel_cu pszutils_cu
+# pszstat_cu CUDA::cudart)
+
+add_library(ex_utils src/ex_utils.cu)
+
+add_executable(bin_pipeline src/bin_pipeline.cc)
 target_link_libraries(
-  bin_pred-hist
+  bin_pipeline
   PRIVATE pszkernel_cu
           pszutils_cu
           pszmem
           pszstat_ser
           pszstat_cu
+          pszhf_cu
           pszkernel_ser
+          ex_utils
           CUDA::cudart)
-
-# deprecated
-add_executable(bin_spline3 src/bin_spline3.cu)
-target_link_libraries(bin_spline3 PRIVATE pszkernel_cu pszutils_cu pszmem
-                                          pszstat_ser pszstat_cu)
-
-# add_executable(demo_lorenzo_variant src/demo_lorenzo_variant.cc)
-# target_link_libraries(demo_lorenzo_variant PRIVATE pszkernel_cu pszutils_cu
-# pszstat_cu CUDA::cudart)
-
-# deprecated
-add_executable(bin_pipeline_proto src/bin_pipeline_proto.cu)
-target_link_libraries(bin_pipeline_proto PRIVATE pszspv_cu pszkernel_cu pszmem
-                                                 pszhf_cu pszutils_cu pszstat_cu)
-set_target_properties(bin_pipeline_proto PROPERTIES CUDA_SEPARABLE_COMPILATION
-                                                    ON)
 
 add_executable(bin_hf src/bin_hf.cc)
 target_link_libraries(bin_hf PRIVATE cusz pszutils_cu pszstat_cu pszhf_cu
@@ -43,14 +35,3 @@ target_link_libraries(bin_hist PRIVATE pszkernel_cu pszutils_cu pszmem
 
 # add_executable(bin_spv src/bin_spv.cc) target_link_libraries(bin_spv PRIVATE
 # pszspv_cu pszutils_cu pszstat_cu CUDA::cudart)
-
-add_executable(bin_viadisk src/bin_viadisk.cc)
-target_link_libraries(
-  bin_viadisk
-  PRIVATE pszcompile_settings
-          cusz
-          pszkernel_cu
-          pszutils_cu
-          pszstat_cu
-          pszhf_cu
-          CUDA::cudart)
