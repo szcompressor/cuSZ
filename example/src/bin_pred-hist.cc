@@ -211,8 +211,7 @@ void predict_demo(
 
   cudaDeviceSynchronize();
 
-  /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(
-      mem->xd->dptr(), mem->od->dptr(), len);
+  psz::eval_dataquality_gpu(mem->xd->dptr(), mem->od->dptr(), len);
 
   cudaStreamDestroy(stream);
 

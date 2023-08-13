@@ -65,7 +65,7 @@ bool f(size_t const x, size_t const y, size_t const z, double const eb, int cons
     // bool   error_bounded = psz::thrustgpu_error_bounded<T>(de_data, oridata, len, eb, &first_non_eb);
     bool error_bounded = psz::cppstd_error_bounded<T>(de_data->uniptr(), oridata->uniptr(), len, eb, &first_non_eb);
 
-    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(oridata->uniptr(), de_data->uniptr(), len);
+    // psz::eval_dataquality_gpu(oridata->uniptr(), de_data->uniptr(), len);
 
     cudaStreamDestroy(stream);
     delete oridata;

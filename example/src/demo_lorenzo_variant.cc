@@ -80,7 +80,7 @@ int f(std::string fname, size_t x, size_t y, size_t z, double eb, size_t start =
         psz::peek_device_data<float>(xdata, 100);
     }
 
-    /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(xdata, data, len);
+    psz::eval_dataquality_gpu(xdata, data, len);
 
     cudaFreeHost(h_data);
     cudaFree(data);

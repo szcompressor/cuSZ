@@ -98,7 +98,7 @@ void f(std::string fname)
     // peek_devdata(d_decompressed, 20);
 
     /* demo: offline checking (de)compression quality. */
-    // /* perform evaluation */ cusz::QualityViewer::echo_metric_gpu(d_decompressed, d_uncompressed, len,
+    // psz::eval_dataquality_gpu(d_decompressed, d_uncompressed, len,
     // compressed_len);
 
     cusz_release(comp);

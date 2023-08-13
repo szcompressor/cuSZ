@@ -238,7 +238,7 @@ void f(
 
   decompressor<T, E, FP, H, M>(mem, hf, &codec, header_st, use_proto, stream);
 
-  /* view quality */ cusz::QualityViewer::echo_metric_gpu(
+  /* view quality */ psz::eval_dataquality_gpu(
       mem->xd->dptr(), mem->od->dptr(), mem->len);
 
   deallocate_data<T, E, FP, H, M>(mem, hf, config);

@@ -66,7 +66,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     encoder.decode(d_compressed, d_xd, stream);
 
-    /* perform evaluation */ auto identical = psz::thrustgpu_identical(d_xd, d_d, len);
+    auto identical = psz::thrustgpu_identical(d_xd, d_d, len);
 
     if (identical)
         cout << ">>>>  IDENTICAL." << endl;

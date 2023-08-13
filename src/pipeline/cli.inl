@@ -143,7 +143,7 @@ class CLI {
     if (ctx->report_time)
       TimeRecordViewer::view_decompression(
           &timerecord, decompressed->m->bytes);
-    QualityViewer::view(header, decompressed, original, ctx->original_file);
+    psz::view(header, decompressed, original, ctx->original_file);
 
     if (not ctx->skip_tofile)
       decompressed->control({D2H})->file(

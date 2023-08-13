@@ -62,7 +62,7 @@ Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(
 
   cusz_stats stat;
   psz::thrustgpu_assess_quality(&stat, reconst->hptr(), original->hptr(), len);
-  cusz::QualityViewer::print_metrics_cross<T>(&stat, 0, true);
+  psz::print_metrics_cross<T>(&stat, 0, true);
 
   return *this;
 }

@@ -94,7 +94,7 @@ void f(bool r2r = false)
     Stat stat;
 
     cusz::verify_data(&stat, compute, input_dup, len);
-    cusz::QualityViewer::print_metrics<double>(&stat, 0, false);
+    psz::print_metrics<double>(&stat, 0, false);
 }
 
 int main(int argc, char** argv)

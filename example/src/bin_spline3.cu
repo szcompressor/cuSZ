@@ -80,7 +80,7 @@ void predictor_detail(
       eb, fake_radius, d_xdata, predictor.data_size, predictor.data_leap,
       stream);
 
-  cusz::QualityViewer::echo_metric_gpu(d_xdata, d_cmp, len);
+  psz::eval_dataquality_gpu(d_xdata, d_cmp, len);
 }
 
 void predictor_demo(
