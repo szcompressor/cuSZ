@@ -20,7 +20,7 @@
 #include <numeric>
 
 #include "kernel/detail/spline3.inl"
-#include "utils2/memseg_cxx.hh"
+#include "mem/memseg_cxx.hh"
 
 using std::cout;
 

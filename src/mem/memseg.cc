@@ -9,7 +9,7 @@
  *
  */
 
-#include "utils2/memseg.h"
+#include "mem/memseg.h"
 
 #include <cuda_runtime.h>
 

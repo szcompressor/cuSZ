@@ -9,11 +9,10 @@
  *
  */
 
-#include "utils2/vis_stat.hh"
 
 #include <cstdint>
 
-#include "utils2/vis_stat.hh"
+#include "utils/vis_stat.hh"
 #include "vis_stat.impl.hh"
 
 template double get_entropy<uint8_t>(uint8_t *code, size_t l, size_t cap);

@@ -23,8 +23,8 @@
 #include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
+#include "mem/layout_cxx.hh"
 #include "type_traits.hh"
-#include "utils2/layout_cxx.hh"
 
 namespace cusz {
 
@@ -83,12 +83,12 @@ class Compressor {
     ~Compressor();
 
     // public methods
-    Compressor* init(cusz_context* config, bool dbg_print = false);
-    Compressor* init(cusz_header* config, bool dbg_print = false);
+    template <class CONFIG>
+    Compressor* init(CONFIG* config, bool dbg_print = false);
     Compressor* compress(cusz_context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr, bool = false);
     Compressor* decompress(cusz_header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
     Compressor* clear_buffer();
-    Compressor* dump_intermediate(std::vector<pszmem_dump>, char const*);
+    Compressor* dump(std::vector<pszmem_dump>, char const*);
     Compressor* destroy();
 
     // getter

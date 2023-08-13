@@ -14,6 +14,7 @@
 
 #include "context.h"
 #include "kernel/dryrun.cuh"
+#include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
 #include "type_traits.hh"
 #include "utils/analyzer.hh"
@@ -23,7 +24,6 @@
 #include "utils/io.hh"
 #include "utils/verify.hh"
 #include "utils/viewer.hh"
-#include "utils2/memseg_cxx.hh"
 
 namespace cusz {
 

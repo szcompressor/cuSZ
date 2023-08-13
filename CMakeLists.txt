@@ -61,15 +61,15 @@ target_include_directories(
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
 
 # seprate later
-add_library(psz_timer src/utils/timer_cpu.cc src/utils/timer_gpu.cu)
-target_link_libraries(psz_timer PUBLIC pszcompile_settings)
+add_library(psztime src/utils/timer_cpu.cc src/utils/timer_gpu.cc)
+target_link_libraries(psztime PUBLIC pszcompile_settings CUDA::cudart)
 
-add_library(psz_stat src/stat/compare_cpu.cc src/stat/stat.cc
-                     src/kernel2/histsp_serial.cc)
-target_link_libraries(psz_stat PUBLIC pszcompile_settings)
+add_library(pszstat_ser src/stat/compare_cpu.cc src/kernel/hist_ser.cc
+                        src/kernel/histsp_ser.cc)
+target_link_libraries(pszstat_ser PUBLIC pszcompile_settings)
 
 add_library(
-  psz_statg
+  pszstat_cu
   src/stat/cmpg1_1.cu
   src/stat/cmpg1_2.cu
   src/stat/cmpg1_3.cu
@@ -81,72 +81,67 @@ add_library(
   src/stat/cmpg4_1.cu
   src/stat/cmpg4_2.cu
   src/stat/cmpg5_1.cu
-  src/stat/cmpg5_2.cu
-  src/stat/stat_g.cu
-  src/kernel2/histsp.cu)
-target_link_libraries(psz_statg PUBLIC pszcompile_settings)
+  src/stat/cmpg5_2.cu)
+target_link_libraries(pszstat_cu PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(psz_kernel_serial src/kernel/l23ser.cc)
-target_link_libraries(psz_kernel_serial PUBLIC pszcompile_settings)
+add_library(pszkernel_ser src/kernel/l23_ser.cc)
+target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(
-  psz_kernel_cuda src/kernel/lproto.cu src/kernel/l23.cu src/kernel/spline3.cu
-                  src/kernel2/l23r.cu src/kernel2/l23r_scttr.cu)
-target_link_libraries(psz_kernel_cuda PUBLIC pszcompile_settings)
+  pszkernel_cu
+  src/kernel/lproto_cu.cu src/kernel/l23_cu.cu src/kernel/spline3_cu.cu
+  src/kernel/hist_cu.cu src/kernel/histsp_cu.cu src/kernel/l23r_cu.cu)
+target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
 
-add_library(psz_utils src/utils2/memseg.cc src/utils2/vis_stat.cc)
-target_link_libraries(psz_utils PUBLIC pszcompile_settings CUDA::cudart)
+add_library(pszmem src/mem/memseg.cc)
+target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 
-add_library(psz_utilsg src/utils/print_gpu.cu)
-target_link_libraries(psz_utilsg PUBLIC pszcompile_settings)
+add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
+target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 
-add_library(psz_argp src/context.cc)
-target_link_libraries(psz_argp PUBLIC pszcompile_settings)
+add_library(pszutils_cu src/utils/print_gpu.cu src/dryrun.cu)
+target_link_libraries(pszutils_cu PUBLIC pszcompile_settings)
 
-add_library(psz_spv src/kernel/spv_gpu.cu)
-target_link_libraries(psz_spv PUBLIC pszcompile_settings)
+add_library(pszspv_cu src/kernel/spv_gpu.cu src/kernel/l23r_adhoc_cu.cu)
+target_link_libraries(pszspv_cu PUBLIC pszcompile_settings)
 
-add_library(psz_hfbookg src/hf/hf_bookg_1.cu src/hf/hf_bookg_2.cu
-                        src/hf/hf_sort.cu)
-target_link_libraries(psz_hfbookg PUBLIC pszcompile_settings CUDA::cuda_driver)
-set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_library(pszhfbook_cu src/hf/hf_book1_cu.cu src/hf/hf_book2_cu.cu
+                         src/hf/hf_sort_cu.cu)
+target_link_libraries(pszhfbook_cu PUBLIC pszcompile_settings CUDA::cuda_driver)
+set_target_properties(pszhfbook_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)
-
 if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
   message(
     WARNING
       "the cuda driver is a stub!! adding --allow-shlib-undefined to fix downstream linking issues"
   )
-  target_link_options(psz_hfbookg PUBLIC
+  target_link_options(pszhfbook_cu PUBLIC
                       $<HOST_LINK:LINKER:--allow-shlib-undefined>)
 endif()
 
-add_library(psz_hfg src/hf/hf.cu src/hf/hf_codecg.cu src/hf/hf2.cu)
-target_link_libraries(psz_hfg PUBLIC pszcompile_settings psz_statg psz_hfbookg)
-set_target_properties(psz_hfbookg PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu
+                     src/hf/hf_stateless_cu.cu)
+target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
+                                      pszhfbook_cu)
 
-add_library(psz_comp src/custom.cc src/compressor.cu)
-target_link_libraries(psz_comp PUBLIC pszcompile_settings psz_kernel_cuda
-                                      psz_statg psz_hfg CUDA::cudart)
+add_library(psz_comp src/custom.cc src/compressor.cc)
+target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
+                                      pszstat_cu pszhf_cu CUDA::cudart)
 
-add_library(psz_dryrun src/dryrun.cu)
-target_link_libraries(psz_dryrun PUBLIC pszcompile_settings)
-
-add_library(psz_comp2 src/psz_lib.cc src/rt_config.cu)
-target_link_libraries(psz_comp2 PUBLIC pszcompile_settings CUDA::cudart)
+# add_library(psz_comp2 src/psz_lib.cc src/rt_config.cu)
+# target_link_libraries(psz_comp2 PUBLIC pszcompile_settings CUDA::cudart)
 
 add_library(cusz src/cusz_lib.cc)
 target_link_libraries(
   cusz
   PUBLIC psz_comp
-         psz_argp
-         psz_hfg
-         psz_spv
-         psz_stat
-         psz_utilsg
-         psz_utils
-         psz_dryrun)
+         pszhf_cu
+         pszspv_cu
+         pszstat_ser
+         pszutils_ser
+         pszutils_cu
+         pszmem)
 
 add_executable(cusz-bin src/cli_prog.cu src/cli.cu)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -164,18 +159,17 @@ endif()
 
 install(TARGETS pszcompile_settings EXPORT CUSZTargets)
 
-install(TARGETS psz_kernel_serial EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_kernel_cuda EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_stat EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_statg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_utils EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_utilsg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_timer EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_spv EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_argp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_hfbookg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_hfg EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psz_dryrun EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszkernel_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszkernel_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszstat_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszstat_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszmem EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszutils_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszutils_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS psztime EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszspv_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszhf_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_comp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)

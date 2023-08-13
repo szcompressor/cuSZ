@@ -165,7 +165,7 @@ HuffmanCodec<T, H, M>::decode(uint8_t* in_compressed, T* out_decompressed, cudaS
 }
 
 TEMPLATE_TYPE
-HuffmanCodec<T, H, M>* HuffmanCodec<T, H, M>::dump_intermediate(std::vector<pszmem_dump> list, char const* basename)
+HuffmanCodec<T, H, M>* HuffmanCodec<T, H, M>::dump(std::vector<pszmem_dump> list, char const* basename)
 {
     for (auto& i : list) {
         char __[256];

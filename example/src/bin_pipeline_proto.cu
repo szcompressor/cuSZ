@@ -25,12 +25,12 @@ using std::endl;
 #include "kernel/l23.hh"
 #include "kernel/lproto.hh"
 #include "kernel/spv_gpu.hh"
+#include "mem/layout_cxx.hh"
 #include "stat/stat.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/io.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
-#include "utils2/layout_cxx.hh"
 
 namespace alpha {
 

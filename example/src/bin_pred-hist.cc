@@ -16,14 +16,14 @@
 #include "kernel/l23.hh"
 #include "kernel/lproto.hh"
 #include "kernel/spline.hh"
-#include "kernel2/histsp.hh"
+#include "kernel/histsp.hh"
+#include "mem/layout_cxx.hh"
+#include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
 #include "stat/stat.hh"
 #include "utils/print_gpu.hh"
 #include "utils/timer.hh"
 #include "utils/viewer.hh"
-#include "utils2/layout_cxx.hh"
-#include "utils2/memseg_cxx.hh"
 
 using std::string;
 using std::to_string;

@@ -13,8 +13,8 @@
 #define DC62DA60_8211_4C93_9541_950ADEFC2820
 
 #include "layout.h"
+#include "mem/memseg.h"
 #include "memseg_cxx.hh"
-#include "utils2/memseg.h"
 
 template <typename T, typename E, typename H>
 class pszmempool_cxx {

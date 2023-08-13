@@ -11,12 +11,12 @@
 
 #include <typeinfo>
 #include "kernel/l23.hh"
+#include "mem/memseg_cxx.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
-#include "utils2/memseg_cxx.hh"
 
 std::string type_literal;
 

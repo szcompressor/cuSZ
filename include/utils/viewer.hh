@@ -18,8 +18,8 @@
 #include <algorithm>
 
 #include "header.h"
+#include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "utils2/memseg_cxx.hh"
 #include "verify.hh"
 
 namespace cusz {

@@ -12,11 +12,11 @@
 #include <string>
 
 #include "hf/hf.hh"
+#include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
 #include "stat/stat.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
-#include "utils2/memseg_cxx.hh"
 
 using B = uint8_t;
 using F = _u4;

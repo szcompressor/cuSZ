@@ -13,8 +13,9 @@
  */
 
 #include "compressor.hh"
+#include "context.h"
 #include "framework.hh"
-#include "pipeline/compressor_g.inl"
+#include "pipeline/compressor.inl"
 #include "utils/config.hh"
 
 // extra helper
@@ -54,4 +55,9 @@ int CompressorHelper::autotune_coarse_parvle(cusz_context* ctx)
 
 }  // namespace cusz
 
-template class cusz::Compressor<cusz::Framework<float>>;
+using Ff4 = cusz::Framework<float>;
+using CFf4 = cusz::Compressor<Ff4>;
+
+template class cusz::Compressor<Ff4>;
+template CFf4* CFf4::init<cusz_context>(cusz_context* config, bool debug);
+template CFf4* CFf4::init<cusz_header>(cusz_header* config, bool debug);

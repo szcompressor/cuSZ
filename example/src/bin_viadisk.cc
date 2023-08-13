@@ -15,9 +15,9 @@
 
 #include "kernel/l23.hh"
 #include "kernel/lproto.hh"
-#include "kernel2/l23r.hh"
+#include "kernel/l23r.hh"
+#include "mem/memseg_cxx.hh"
 #include "pipeline/compact_cuda.inl"
-#include "utils2/memseg_cxx.hh"
 
 using std::string;
 

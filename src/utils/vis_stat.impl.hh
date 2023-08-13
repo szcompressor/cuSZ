@@ -24,7 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "utils2/vis_stat.hh"
+#include "utils/vis_stat.hh"
 
 using std::cerr;
 using std::cout;

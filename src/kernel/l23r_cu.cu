@@ -12,8 +12,8 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "detail2/l23r.inl"
-#include "kernel2/l23r.hh"
+#include "detail/l23r.inl"
+#include "kernel/l23r.hh"
 #include "pipeline/compact_cuda.inl"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"

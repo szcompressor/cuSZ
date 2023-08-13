@@ -15,7 +15,7 @@
 #include <cuda_runtime.h>
 #include <cstddef>
 #include <cstdint>
-#include "utils2/memseg_cxx.hh"
+#include "mem/memseg_cxx.hh"
 
 typedef struct Spline3Len3 {
     // uint32_t blockx, blocky, blockz;

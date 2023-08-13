@@ -24,8 +24,8 @@ __global__ void dummy()
 
 bool f()
 {
-    // psz_timer* t1 = psz_timer_create(CUDA, NULL);
-    // psz_timer* t2 = psz_timer_create(CUDA, NULL);
+    // psztime* t1 = psz_timer_create(CUDA, NULL);
+    // psztime* t2 = psz_timer_create(CUDA, NULL);
 
     // {
     //     psz_timer_start(t1);

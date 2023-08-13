@@ -14,14 +14,14 @@
 #include <typeinfo>
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
-#include "kernel2/l23r.hh"
+#include "kernel/l23r.hh"
+#include "mem/memseg_cxx.hh"
 #include "pipeline/compact_cuda.inl"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
-#include "utils2/memseg_cxx.hh"
 
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>

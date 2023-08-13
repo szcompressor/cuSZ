@@ -13,10 +13,10 @@
 #include <iostream>
 #include <random>
 
-#include "kernel2/detail2/histsp.inl"
-#include "kernel2/histsp.hh"
+#include "kernel/detail/histsp.inl"
+#include "kernel/histsp.hh"
+#include "mem/memseg_cxx.hh"
 #include "stat/stat.hh"
-#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 using std::endl;

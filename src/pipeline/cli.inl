@@ -21,11 +21,11 @@
 #include "dryrun.hh"
 #include "framework.hh"
 #include "header.h"
+#include "mem/memseg_cxx.hh"
 #include "utils/analyzer.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
-#include "utils2/memseg_cxx.hh"
 
 namespace cusz {
 

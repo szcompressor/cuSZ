@@ -1,8 +1,8 @@
-﻿---
-BasedOnStyle: Chromium
+---
+BasedOnStyle: Google
 BreakBeforeBraces: Stroustrup
-IndentWidth: 4
-ColumnLimit: 120
+IndentWidth: 2
+ColumnLimit: 79
 BreakConstructorInitializers: AfterColon
 AllowShortBlocksOnASingleLine: Always
 AllowShortFunctionsOnASingleLine: All
@@ -11,7 +11,7 @@ AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
 AlignEscapedNewlines: Left
 AlignAfterOpenBracket: AlwaysBreak

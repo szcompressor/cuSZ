@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "hf/hf_struct.h"
-#include "utils2/memseg_cxx.hh"
+#include "mem/memseg_cxx.hh"
 
 #define DEFINE_ARRAY(VAR, TYPE) TYPE *d_##VAR{nullptr}, *h_##VAR{nullptr};
 
@@ -113,7 +113,7 @@ class HuffmanCodec {
     HuffmanCodec* build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
     HuffmanCodec* encode(T*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
     HuffmanCodec* decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
-    HuffmanCodec* dump_intermediate(std::vector<pszmem_dump>, char const*);
+    HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
     HuffmanCodec* clear_buffer();
 
    private:

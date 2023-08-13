@@ -21,7 +21,7 @@ extern "C" {
 #include <stdint.h>
 
 #include "cusz/type.h"
-#include "utils2/memseg.h"
+#include "mem/memseg.h"
 
 typedef enum pszmem_runtime_type {
   PszHeader = 0,

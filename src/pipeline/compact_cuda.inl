@@ -19,7 +19,7 @@
 #include <cstring>
 
 #include "compaction.hh"
-#include "utils2/memseg_cxx.hh"
+#include "mem/memseg_cxx.hh"
 
 // TODO filename -> `compaction`
 template <typename T>

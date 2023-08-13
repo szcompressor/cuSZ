@@ -16,8 +16,8 @@
 #include <typeinfo>
 
 #include "kernel/detail/lproto.inl"
+#include "mem/memseg_cxx.hh"
 #include "pipeline/compact_cuda.inl"
-#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 using std::endl;

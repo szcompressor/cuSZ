@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-#include "kernel2/histsp.hh"
+#include "kernel/histsp.hh"
 
 namespace psz {
 namespace detail {

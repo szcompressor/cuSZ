@@ -13,7 +13,8 @@
 #include <iostream>
 
 #include "kernel/spline.hh"
-#include "kernel2/histsp.hh"
+#include "kernel/histsp.hh"
+#include "mem/memseg_cxx.hh"
 #include "spline3_driver.cuh"
 #include "stat/compare_gpu.hh"
 #include "stat/stat.hh"
@@ -21,7 +22,6 @@
 #include "utils/print_gpu.hh"
 #include "utils/timer.hh"
 #include "utils/viewer.hh"
-#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 

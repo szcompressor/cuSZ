@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 #include "cusz/type.h"
-#include "utils2/layout.h"
+#include "mem/layout.h"
 
 typedef cusz_error_status psz_error_status;
 

@@ -24,12 +24,12 @@
 #include "hf/hf.hh"
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
+#include "mem/layout.h"
+#include "mem/layout_cxx.hh"
+#include "mem/memseg_cxx.hh"
 #include "stat/stat.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
-#include "utils2/layout.h"
-#include "utils2/layout_cxx.hh"
-#include "utils2/memseg_cxx.hh"
 
 using std::cout;
 using std::endl;
@@ -58,27 +58,12 @@ Compressor<C>::~Compressor()
 
 //------------------------------------------------------------------------------
 
-// TODO
-template <class C>
-Compressor<C>* Compressor<C>::init(cusz_context* config, bool dbg_print)
-{
-  codec = new Codec;
-  init_detail(config, dbg_print);
-  return this;
-}
-
-template <class C>
-Compressor<C>* Compressor<C>::init(cusz_header* config, bool dbg_print)
-{
-  codec = new Codec;
-  init_detail(config, dbg_print);
-  return this;
-}
-
 template <class C>
 template <class CONFIG>
-Compressor<C>* Compressor<C>::init_detail(CONFIG* config, bool debug)
+Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
 {
+  codec = new Codec;
+
   const auto radius = config->radius;
   const auto pardeg = config->vle_pardeg;
   // const auto density_factor = config->nz_density_factor;
@@ -92,9 +77,11 @@ Compressor<C>* Compressor<C>::init_detail(CONFIG* config, bool debug)
 
   codec->init(len, booklen, pardeg, debug);
   mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
-
+  
   return this;
 }
+
+
 
 template <class C>
 Compressor<C>* Compressor<C>::compress(
@@ -218,7 +205,7 @@ Compressor<C>* Compressor<C>::merge_subfiles(
 }
 
 template <class C>
-Compressor<C>* Compressor<C>::dump_intermediate(
+Compressor<C>* Compressor<C>::dump(
     std::vector<pszmem_dump> list, char const* basename)
 {
   for (auto& i : list) {
@@ -242,7 +229,7 @@ Compressor<C>* Compressor<C>::dump_intermediate(
     else if (i == PszSpIdx)
       mem->si->control({H2D})->file(ofn(".psz_spidx"), ToFile);
     else if (i > PszHf______ and i < END)
-      codec->dump_intermediate({i}, basename);
+      codec->dump({i}, basename);
     else
       printf("[psz::dump] not a valid segment to dump.");
   }

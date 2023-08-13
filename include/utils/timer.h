@@ -18,9 +18,9 @@ extern "C" {
 
 #include "../cusz/type.h"
 
-struct psz_timer;
-typedef struct psz_timer psz_timer;
-typedef struct psz_timer psz_cputimer;
+struct psztime;
+typedef struct psztime psztime;
+typedef struct psztime psz_cputimer;
 
 // 22-11-01 CUDA timing snippet instead
 #define CREATE_CUDAEVENT_PAIR \
