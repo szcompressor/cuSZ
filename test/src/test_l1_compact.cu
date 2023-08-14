@@ -10,8 +10,8 @@
  */
 
 #include <iostream>
-#include "pipeline/compact_cuda.inl"
-#include "pipeline/compact_serial.inl"
+#include "mem/compact_cu.hh"
+#include "mem/compact_ser.hh"
 #include "rand.hh"
 
 using std::cout;
@@ -50,9 +50,9 @@ __global__ void test_compaction2(T* in, uint32_t len, Compact compact)
         auto predicate = [&]() { return abs(delta) > 512; };
 
         if (predicate()) {
-            auto cur_idx         = atomicAdd(compact.num, 1);
-            compact.val[cur_idx] = delta;
-            compact.val[cur_idx] = id;
+            auto cur_idx         = atomicAdd(compact.d_num, 1);
+            compact.d_val[cur_idx] = delta;
+            compact.d_val[cur_idx] = id;
         }
     }
     // end of kernel
@@ -95,7 +95,7 @@ bool f()
     CompactSerial<float> out_ref;
     out_ref.reserve_space(len / 2).malloc();
 
-    test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test1.val, out_test1.idx, out_test1.num);
+    test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test1.d_val, out_test1.d_idx, out_test1.d_num);
     cudaDeviceSynchronize();
 
     test_compaction2<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test2);

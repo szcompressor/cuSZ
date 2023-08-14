@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include "cusz/suint.hh"
-#include "pipeline/compact_cuda.inl"
+#include "mem/compact_cu.hh"
 #include "subsub.inl"
 
 namespace psz {

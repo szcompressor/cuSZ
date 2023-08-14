@@ -1,5 +1,5 @@
 /**
- * @file compact_cuda.inl
+ * @file compact_cu.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -32,9 +32,9 @@ struct CompactCudaDram {
   using type = T;
 
   // `h_` for host-accessible
-  T *val, *h_val;
-  uint32_t *idx, *h_idx;
-  uint32_t *num, h_num{0};
+  T *d_val, *h_val;
+  uint32_t *d_idx, *h_idx;
+  uint32_t *d_num, h_num{0};
   size_t reserved_len;
 
   // CompactCudaDram() {}
@@ -48,10 +48,10 @@ struct CompactCudaDram {
 
   CompactCudaDram& malloc()
   {
-    cudaMalloc(&val, sizeof(T) * reserved_len);
-    cudaMalloc(&idx, sizeof(uint32_t) * reserved_len);
-    cudaMalloc(&num, sizeof(uint32_t) * 1);
-    cudaMemset(num, 0x0, sizeof(T) * 1);  // init val
+    cudaMalloc(&d_val, sizeof(T) * reserved_len);
+    cudaMalloc(&d_idx, sizeof(uint32_t) * reserved_len);
+    cudaMalloc(&d_num, sizeof(uint32_t) * 1);
+    cudaMemset(d_num, 0x0, sizeof(T) * 1);  // init d_val
 
     return *this;
   }
@@ -66,7 +66,7 @@ struct CompactCudaDram {
 
   CompactCudaDram& free()
   {
-    cudaFree(idx), cudaFree(val), cudaFree(num);
+    cudaFree(d_idx), cudaFree(d_val), cudaFree(d_num);
     return *this;
   }
 
@@ -79,10 +79,10 @@ struct CompactCudaDram {
   // memcpy
   CompactCudaDram& make_host_accessible(cudaStream_t stream = 0)
   {
-    cudaMemcpyAsync(&h_num, num, 1 * sizeof(uint32_t), d2h, stream);
+    cudaMemcpyAsync(&h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
     cudaStreamSynchronize(stream);
-    cudaMemcpyAsync(h_val, val, sizeof(T) * (h_num), d2h, stream);
-    cudaMemcpyAsync(h_idx, idx, sizeof(uint32_t) * (h_num), d2h, stream);
+    cudaMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
+    cudaMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
     cudaStreamSynchronize(stream);
 
     return *this;
@@ -110,6 +110,9 @@ struct CompactCudaDram {
 
   // accessor
   uint32_t num_outliers() { return h_num; }
+  T* val() { return d_val; }
+  uint32_t* idx() { return d_idx; }
+  uint32_t* num() { return d_num; }
 };
 
 #endif /* F712F74C_7488_4445_83EE_EE7F88A64BBA */

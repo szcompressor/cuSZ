@@ -18,7 +18,7 @@
 #include <stdexcept>
 
 #include "../../utils/it_cuda.hh"
-#include "pipeline/compact_cuda.inl"
+#include "mem/compact_cu.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
@@ -48,9 +48,9 @@ __global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     if (check_boundary1()) {  // postquant
         eq[id] = quantizable * static_cast<Eq>(candidate);
         if (not quantizable) {
-            auto dram_idx         = atomicAdd(compact.num, 1);
-            compact.val[dram_idx] = candidate;
-            compact.idx[dram_idx] = id;
+            auto dram_idx         = atomicAdd(compact.d_num, 1);
+            compact.d_val[dram_idx] = candidate;
+            compact.d_idx[dram_idx] = id;
         }
     }
 }
@@ -79,9 +79,9 @@ __global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     if (check_boundary2()) {
         eq[id] = quantizable * static_cast<Eq>(candidate);
         if (not quantizable) {
-            auto dram_idx         = atomicAdd(compact.num, 1);
-            compact.val[dram_idx] = candidate;
-            compact.idx[dram_idx] = id;
+            auto dram_idx         = atomicAdd(compact.d_num, 1);
+            compact.d_val[dram_idx] = candidate;
+            compact.d_idx[dram_idx] = id;
         }
     }
 }
@@ -112,9 +112,9 @@ __global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     if (check_boundary3()) {
         eq[id] = quantizable * static_cast<Eq>(candidate);
         if (not quantizable) {
-            auto dram_idx         = atomicAdd(compact.num, 1);
-            compact.val[dram_idx] = candidate;
-            compact.idx[dram_idx] = id;
+            auto dram_idx         = atomicAdd(compact.d_num, 1);
+            compact.d_val[dram_idx] = candidate;
+            compact.d_idx[dram_idx] = id;
         }
     }
 }

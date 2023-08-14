@@ -12,8 +12,9 @@
 #ifndef DC62DA60_8211_4C93_9541_950ADEFC2820
 #define DC62DA60_8211_4C93_9541_950ADEFC2820
 
+#include "compact_cu.hh"
 #include "layout.h"
-#include "mem/memseg.h"
+#include "memseg.h"
 #include "memseg_cxx.hh"
 
 template <typename T, typename E, typename H>
@@ -34,6 +35,8 @@ class pszmempool_cxx {
   pszmem_cxx<T> *sv;  // sp-val
   pszmem_cxx<M> *si;  // sp-idx
 
+  CompactCudaDram<T> *compact;
+
   pszmem_cxx<B> *_compressed;  // compressed
 
   size_t len;
@@ -52,8 +55,11 @@ class pszmempool_cxx {
   F *hist() { return ht->dptr(); }
   E *ectrl_lrz() { return el->dptr(); }
   E *ectrl_spl() { return es->dptr(); }
-  B *compressed() { return _compressed->dptr(); };
-  B *compressed_h() { return _compressed->hptr(); };
+  B *compressed() { return _compressed->dptr(); }
+  B *compressed_h() { return _compressed->hptr(); }
+  T *compact_val() { return compact->val(); }
+  M *compact_idx() { return compact->idx(); }
+  M compact_num_outliers() { return compact->num_outliers(); }
 };
 
 #define TPL template <typename T, typename E, typename H>
@@ -90,6 +96,8 @@ TPL POOL::pszmempool_cxx(_u4 x, int _radius, _u4 y, _u4 z)
   sv = new pszmem_cxx<T>(x, y, z, "sp-val");
   si = new pszmem_cxx<M>(x, y, z, "sp-idx");
 
+  compact = new CompactCudaDram<T>;
+
   _compressed->control({Malloc, MallocHost});
   oc->control({Malloc, MallocHost});
   ac->control({Malloc, MallocHost});
@@ -98,6 +106,8 @@ TPL POOL::pszmempool_cxx(_u4 x, int _radius, _u4 y, _u4 z)
   sv->control({Malloc, MallocHost});
   si->control({Malloc, MallocHost});
 
+  compact->reserve_space(len / 5).control({Malloc, MallocHost});
+
   el->asaviewof(e);
   es->asaviewof(e);
 }
@@ -105,6 +115,7 @@ TPL POOL::pszmempool_cxx(_u4 x, int _radius, _u4 y, _u4 z)
 TPL POOL::~pszmempool_cxx()
 {
   delete ac, delete e, delete oc, delete ht, delete sv, delete si;
+  compact->control({Free, FreeHost});
 }
 
 TPL POOL *POOL::clear_buffer()

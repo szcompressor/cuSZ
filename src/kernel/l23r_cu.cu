@@ -14,11 +14,11 @@
 #include "cusz/type.h"
 #include "detail/l23r.inl"
 #include "kernel/l23r.hh"
-#include "pipeline/compact_cuda.inl"
+#include "mem/compact_cu.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 
-template <typename T, bool UsePnEnc, typename Eq>
+template <typename T, typename Eq, bool UsePnEnc>
 cusz_error_status psz_comp_l23r(
     T* const data, dim3 const len3, double const eb, int const radius,
     Eq* const eq, void* _outlier, float* time_elapsed, cudaStream_t stream)
@@ -72,17 +72,20 @@ cusz_error_status psz_comp_l23r(
   if (d == 1) {
     psz::rolling::c_lorenzo_1d1l<T, false, Eq, T, Tile1D, Seq1D>
         <<<Grid1D, Block1D, 0, stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, ot->val, ot->idx, ot->num);
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
+            ot->num());
   }
   else if (d == 2) {
     psz::rolling::c_lorenzo_2d1l<T, false, Eq, T>
         <<<Grid2D, Block2D, 0, stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, ot->val, ot->idx, ot->num);
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
+            ot->num());
   }
   else if (d == 3) {
     psz::rolling::c_lorenzo_3d1l<T, false, Eq, T>
         <<<Grid3D, Block3D, 0, stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, ot->val, ot->idx, ot->num);
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
+            ot->num());
   }
 
   STOP_CUDAEVENT_RECORDING(stream);
@@ -93,22 +96,22 @@ cusz_error_status psz_comp_l23r(
   return CUSZ_SUCCESS;
 }
 
-template cusz_error_status psz_comp_l23r<float, false>(
+template cusz_error_status psz_comp_l23r<float, uint32_t, false>(
     float* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);
 
-template cusz_error_status psz_comp_l23r<float, true>(
+template cusz_error_status psz_comp_l23r<float, uint32_t, true>(
     float* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);
 
-template cusz_error_status psz_comp_l23r<double, false>(
+template cusz_error_status psz_comp_l23r<double, uint32_t, false>(
     double* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);
 
-template cusz_error_status psz_comp_l23r<double, true>(
+template cusz_error_status psz_comp_l23r<double, uint32_t, true>(
     double* const data, dim3 const len3, double const eb, int const radius,
     uint32_t* const eq, void* _outlier, float* time_elapsed,
     cudaStream_t stream);

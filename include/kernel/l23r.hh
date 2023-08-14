@@ -24,7 +24,7 @@ void psz_adhoc_scttr(
     T* val, uint32_t* idx, int const n, T* out, float* milliseconds,
     cudaStream_t stream);
 
-template <typename T, bool UsePnEnc = false, typename Eq = uint32_t>
+template <typename T, typename Eq = uint32_t, bool UsePnEnc = false>
 cusz_error_status psz_comp_l23r(
     T* const data, dim3 const len3, double const eb, int const radius,
     Eq* const eq, void* _outlier, float* time_elapsed, cudaStream_t stream);

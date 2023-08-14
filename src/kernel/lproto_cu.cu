@@ -11,7 +11,7 @@
 
 #include "cusz/type.h"
 #include "kernel/lproto.hh"
-#include "pipeline/compact_cuda.inl"
+#include "mem/compact_cu.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"
 

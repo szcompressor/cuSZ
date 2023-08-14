@@ -16,7 +16,7 @@
 #include "kernel/spv_gpu.hh"
 #include "kernel/l23r.hh"
 #include "mem/memseg_cxx.hh"
-#include "pipeline/compact_cuda.inl"
+#include "mem/compact_cu.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
@@ -74,11 +74,11 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     float time;
     auto  len3 = dim3(x, y, z);
 
-    psz_comp_l23r<T, false, EQ>(  //
+    psz_comp_l23r<T, EQ, false>(  //
         oridata->dptr(), len3, eb, radius, ectrl_focus->dptr(), &compact_outlier, &time, stream);
     cudaStreamSynchronize(stream);
 
-    psz_comp_l23<T, EQ, FP>(  //
+    psz_comp_l23<T, EQ>(  //
         oridata->dptr(), len3, eb, radius, ectrl_ref->dptr(), outlier->dptr(), &time, stream);
     cudaStreamSynchronize(stream);
 
@@ -139,7 +139,7 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
 
 
     psz_adhoc_scttr(
-        compact_outlier.val, compact_outlier.idx, compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
+        compact_outlier.val(), compact_outlier.idx(), compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
 
     psz_decomp_l23<T, EQ, FP>(
         ectrl_focus->dptr(), len3, de_data->dptr(), eb, radius,

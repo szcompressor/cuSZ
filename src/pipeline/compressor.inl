@@ -25,11 +25,11 @@
 #include "kernel/hist.hh"
 #include "kernel/histsp.hh"
 #include "kernel/l23.hh"
+#include "kernel/l23r.hh"
 #include "kernel/spv_gpu.hh"
 #include "mem/layout.h"
 #include "mem/layout_cxx.hh"
 #include "mem/memseg_cxx.hh"
-#include "kernel/hist.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
 
@@ -79,11 +79,9 @@ Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
 
   codec->init(len, booklen, pardeg, debug);
   mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
-  
+
   return this;
 }
-
-
 
 template <class C>
 Compressor<C>* Compressor<C>::compress(
@@ -113,39 +111,50 @@ Compressor<C>* Compressor<C>::compress(
   auto sublen = div(data_len, pardeg);
 
   auto update_header = [&]() {
-    header.x = len3.x;
-    header.y = len3.y;
-    header.z = len3.z;
+    header.x = len3.x, header.y = len3.y, header.z = len3.z,
     header.w = 1;  // placeholder
-    header.radius = radius;
+    header.radius = radius, header.eb = eb;
     header.vle_pardeg = pardeg;
-    header.eb = eb;
     header.splen = splen;
     // header.byte_vle = use_fallback_codec ? 8 : 4;
   };
 
   /******************************************************************************/
 
-  psz_comp_l23<T, E, FP>(
-      in, len3, eb, radius, mem->ectrl_lrz(), mem->outlier_space(), &time_pred,
+  // Below is substituted with prediction+compaction
+  /*
+    psz_comp_l23<T, E>(
+        in, len3, eb, radius, mem->ectrl_lrz(), mem->outlier_space(),
+    &time_pred, stream);
+  */
+  psz_comp_l23r<T, E>(
+      in, len3, eb, radius, mem->ectrl_lrz(), (void*)mem->compact, &time_pred,
       stream);
-  psz::histogram<psz_policy::CUDA, E>(
+  psz::histogram<CUDA, E>(
+      mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
+  psz::histsp<CUDA, E>(
       mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
   codec->build_codebook(mem->hist(), booklen, stream);
   codec->encode(mem->ectrl_lrz(), len, &d_codec_out, &codec_outlen, stream);
-  psz::spv_gather<T, M>(
-      mem->outlier_space(), len, mem->outlier_val(), mem->outlier_idx(),
-      &splen, &time_sp, stream);
+  /*
+     psz::spv_gather<T, M>(
+         mem->outlier_space(), len, mem->outlier_val(), mem->outlier_idx(),
+         &splen, &time_sp, stream);
+  */
 
-  /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+  mem->compact->make_host_accessible(stream);
+
+  splen = mem->compact->num_outliers();
+
+  // /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
 
   /******************************************************************************/
 
   update_header();
 
   merge_subfiles(
-      d_codec_out, codec_outlen, mem->outlier_val(), mem->outlier_idx(), splen,
-      stream);
+      d_codec_out, codec_outlen, mem->compact_val(), mem->compact_idx(),
+      mem->compact->num_outliers(), stream);
 
   // output
   outlen = psz_utils::filesize(&header);
