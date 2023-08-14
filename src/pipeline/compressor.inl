@@ -22,6 +22,8 @@
 #include "compressor.hh"
 #include "header.h"
 #include "hf/hf.hh"
+#include "kernel/hist.hh"
+#include "kernel/histsp.hh"
 #include "kernel/l23.hh"
 #include "kernel/spv_gpu.hh"
 #include "mem/layout.h"
