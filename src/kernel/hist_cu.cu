@@ -11,9 +11,9 @@
 
 #include <cstdint>
 
-#include "../kernel/detail/hist_cuda.inl"
+#include "../kernel/detail/hist_cu.inl"
 #include "cusz/type.h"
-#include "stat/stat.hh"
+#include "kernel/hist.hh"
 
 namespace psz {
 namespace detail {
@@ -87,7 +87,7 @@ cusz_error_status histogram_cuda(
 
 #define SPECIALIZE_HIST_CUDA(T)                                         \
   template <>                                                           \
-  cusz_error_status psz::stat::histogram<psz_policy::CUDA, T>(          \
+  cusz_error_status psz::histogram<psz_policy::CUDA, T>(          \
       T * in, size_t const inlen, uint32_t* out_hist, int const nbin,   \
       float* milliseconds, void* stream)                                \
   {                                                                     \

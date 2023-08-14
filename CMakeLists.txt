@@ -64,8 +64,7 @@ target_include_directories(
 add_library(psztime src/utils/timer_cpu.cc src/utils/timer_gpu.cc)
 target_link_libraries(psztime PUBLIC pszcompile_settings CUDA::cudart)
 
-add_library(pszstat_ser src/stat/compare_cpu.cc src/kernel/hist_ser.cc
-                        src/kernel/histsp_ser.cc)
+add_library(pszstat_ser src/stat/compare_cpu.cc)
 target_link_libraries(pszstat_ser PUBLIC pszcompile_settings)
 
 add_library(
@@ -85,7 +84,8 @@ add_library(
 target_link_libraries(pszstat_cu PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(pszkernel_ser src/kernel/l23_ser.cc)
+add_library(pszkernel_ser src/kernel/l23_ser.cc src/kernel/hist_ser.cc
+                          src/kernel/histsp_ser.cc)
 target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(

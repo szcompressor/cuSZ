@@ -9,8 +9,9 @@
  *
  */
 
-#include "stat/stat.hh"
+#include "kernel/hist.hh"
 #include "utils/timer.hh"
+#include "utils/it_serial.hh"
 
 namespace psz {
 namespace detail {
@@ -36,7 +37,7 @@ cusz_error_status histogram_ser(
 
 #define SPECIALIZE_HIST_SER(T)                                        \
   template <>                                                         \
-  cusz_error_status psz::stat::histogram<psz_policy::CPU, T>(         \
+  cusz_error_status psz::histogram<psz_policy::CPU, T>(         \
       T * in, size_t const inlen, uint32_t* out_hist, int const nbin, \
       float* milliseconds, void* stream)                              \
   {                                                                   \

@@ -11,17 +11,147 @@
 
 #include <string>
 
-#include "hf/hf.hh"
-#include "hf/hf_bookg.hh"
-#include "hf/hf_codecg.hh"
+#include "kernel/hist.hh"
 #include "kernel/histsp.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "stat/stat.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
+#include "ex_utils.hh"
+
+#define BASE false
+#define OPTIM true
 
 using T = uint32_t;
+
+
+template <typename T>
+void real_data_test(size_t len, size_t bklen, string fname)
+{
+  auto wn = new pszmem_cxx<T>(len, 1, 1, "whole numbers");
+  auto bs = new pszmem_cxx<uint32_t>(bklen, 1, 1, "base-ser");
+  auto os = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-ser");
+
+  auto bg = new pszmem_cxx<uint32_t>(bklen, 1, 1, "base-gpu");
+  auto og = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-gpu");
+
+  wn->control({Malloc, MallocHost})
+      ->file(fname.c_str(), FromFile)
+      ->control({H2D});
+
+  // serial and optim
+  bs->control({MallocHost}), bg->control({Malloc, MallocHost});
+  os->control({MallocHost}), og->control({Malloc, MallocHost});
+
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  float tbs, tos, tbg, tog;
+
+  hist<CPU, T>(BASE, wn->hptr(), len, bs->hptr(), bklen, &tbs, stream);
+  hist<CPU, T>(OPTIM, wn->hptr(), len, os->hptr(), bklen, &tos, stream);
+
+  hist<CUDA, T>(BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
+      bg->control({D2H});
+  hist<CUDA, T>(OPTIM, wn->dptr(), len, og->dptr(), bklen, &tog, stream),
+      og->control({D2H});
+
+  auto GBps = [&](auto bytes, auto millisec) {
+    return 1.0 * bytes / (1024 * 1024 * 1024) / (millisec / 1000);
+  };
+  printf(
+      "CPU time, baseline: %5.2f, optim: %5.2f (speedup: %5.2fx)\n"
+      "CPU GBps, baseline: %5.2f, optim: %5.2f\n",
+      tbs, tos, tbs / tos,  //
+      GBps(len * sizeof(T), tbs), GBps(len * sizeof(T), tos));
+  printf(
+      "GPU time, baseline: %5.2f, optim: %5.2f (speedup: %5.2fx)\n"
+      "GPU GBps, baseline: %5.2f, optim: %5.2f\n",
+      tbg, tog, tbg / tog,  //
+      GBps(len * sizeof(T), tbg), GBps(len * sizeof(T), tog));
+  printf("\n");
+
+  // check for error
+  cudaError_t error = cudaGetLastError();
+  if (error != cudaSuccess) {
+    // print the CUDA error message and exit
+    printf("CUDA error: %s\n", cudaGetErrorString(error));
+    exit(-1);
+  }
+
+  {
+    printf(
+        "%-10s %10s %10s %10s %10s\n",  //
+        "idx ( rel)", "base-ser", "base-gpu", "optim-ser", "optim-gpu");
+    for (auto i = 0; i < bklen; i++) {
+      auto fbs = bs->hptr(i), fbg = bg->hptr(i);
+      auto fos = os->hptr(i), fog = og->hptr(i);
+      if (fbs != 0 or fos != 0 or fbg != 0 or fog != 0)
+        printf(
+            "%-4u(%4d) %10u %10u %10u %10u\n",  //
+            i, i - (int)bklen / 2, fbs, fbg, fos, fog);
+    }
+  }
+
+  delete wn;
+  delete bg, delete bs;
+  delete og, delete os;
+
+  cudaStreamDestroy(stream);
+}
+
+template <typename T>
+void dummy_data_test()
+{
+  auto len = 1000000;
+  auto bklen = 1024;
+
+  auto wn = new pszmem_cxx<T>(len, 1, 1, "whole numbers");
+  auto serial = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-ser");
+  auto gpu = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-gpu");
+
+  wn->control({Malloc, MallocHost});
+  for (auto i = 0; i < len; i += 1) wn->hptr(i) = bklen / 2;
+  for (auto i = 2; i < len - 10; i += 100) {
+    wn->hptr(i - 1) = bklen / 2 - 1;
+    wn->hptr(i - 2) = bklen / 2 + 1;
+  }
+  wn->control({H2D});
+
+  // serial and optim
+  serial->control({MallocHost}), gpu->control({Malloc, MallocHost});
+
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  float tbs, tos, tbg, tog;
+
+  hist<CPU, T>(OPTIM, wn->hptr(), len, serial->hptr(), bklen, &tos, stream);
+  hist<CUDA, T>(OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream),
+      gpu->control({D2H});
+
+  // check for error
+  cudaError_t error = cudaGetLastError();
+  if (error != cudaSuccess) {
+    // print the CUDA error message and exit
+    printf("CUDA error: %s\n", cudaGetErrorString(error));
+    exit(-1);
+  }
+
+  {
+    printf("%-10s %10s %10s\n", "idx ( rel)", "sp-ser", "sp-gpu");
+    for (auto i = 0; i < bklen; i++) {
+      auto f1 = serial->hptr(i), f2 = gpu->hptr(i);
+      if (f1 != 0 or f2 != 0)
+        printf("%-4u(%4d) %10u %10u\n", i, i - bklen / 2, f1, f2);
+    }
+  }
+
+  delete wn;
+  delete serial, delete gpu;
+
+  cudaStreamDestroy(stream);
+}
 
 int main(int argc, char** argv)
 {
@@ -37,46 +167,13 @@ int main(int argc, char** argv)
     auto z = atoi(argv[4]);
 
     auto len = x * y * z;
-    auto booklen = 1024;
+    auto bklen = 1024;
 
-    auto wn = new pszmem_cxx<T>(len, 1, 1, "whole numbers");
-    auto freq1 = new pszmem_cxx<uint32_t>(booklen, 1, 1, "frequency");
-    auto freq2 = new pszmem_cxx<uint32_t>(booklen, 1, 1, "frequency");
+    printf("dummy data test:\n");
+    dummy_data_test<T>();
 
-    wn->control({Malloc, MallocHost})
-        ->file(fname.c_str(), FromFile)
-        ->control({H2D});
-    freq1->control({Malloc, MallocHost});
-    freq2->control({Malloc, MallocHost});
-
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
-    float t_hist1, t_hist2;
-
-    psz::stat::histogram<psz_policy::CUDA, T>(
-        wn->dptr(), len, freq1->dptr(), booklen, &t_hist1, stream);
-
-    histsp<psz_policy::CUDA, T, uint32_t>(
-        wn->dptr(), len, freq1->dptr(), booklen, stream);
-
-    freq1->control({D2H});
-    freq2->control({D2H});
-
-    for (auto i = 0; i < booklen; i++) {
-      printf(
-          "idx:\t%d\t"
-          "hist:\t%u\t"
-          "histsp:\t%u\t"
-          "\n",
-          i, freq1->hptr(i), freq2->hptr(i));
-    }
-
-    delete wn;
-    delete freq1;
-    delete freq2;
-
-    cudaStreamDestroy(stream);
+    printf("\nreal data test:\n");
+    real_data_test<T>(len, bklen, fname);
   }
 
   return 0;

@@ -16,6 +16,7 @@
 
 #include "ex_utils.hh"
 #include "hf/hf.hh"
+#include "kernel/hist.hh"
 #include "kernel/histsp.hh"
 #include "kernel/l23.hh"
 #include "kernel/lproto.hh"
@@ -23,7 +24,6 @@
 #include "mem/layout_cxx.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "stat/stat.hh"
 #include "utils/print_gpu.hh"
 #include "utils/timer.hh"
 #include "utils/viewer.hh"
@@ -96,7 +96,7 @@ void demo_c_predict(
 
   auto len3 = mem->el->template len3<dim3>();
   auto len3p = mem->es->template len3<dim3>();
-  float time, time_histcpu_baseline, time_histcpu_improved;
+  float time, time_histcpu_base, time_histcpu_optim;
 
   if (Predictor == LORENZO) {
     if (not proto) {
@@ -175,62 +175,48 @@ void demo_d_predict(
 template <typename H>
 void demo_hist_u4in(
     pszmem_cxx<_u4>* hist_in, pszmem_cxx<H>* hist_out, char const* ifn,
-    int const radius)
+    int const radius, cudaStream_t stream)
 {
   using E = _u4;
 
-  float tgpu_baseline, tgpu_improved;
-  float tcpu_baseline, tcpu_improved;
+  float tgpu_base, tgpu_optim;
+  float tcpu_base, tcpu_optim;
 
-  auto hist_cpu_baseline =
-      new pszmem_cxx<_u4>(radius * 2, 1, 1, "hist-normal");
-  auto hist_cpu_improve = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_cpu");
-  auto hist_gpu_improve = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_gpu");
-  hist_cpu_baseline->control({MallocHost});
-  hist_cpu_improve->control({MallocHost});
-  hist_gpu_improve->control({MallocHost});
+  auto ser_base = new pszmem_cxx<_u4>(radius * 2, 1, 1, "hist-normal");
+  auto ser_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_cpu");
+  auto gpu_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_gpu");
+  ser_base->control({MallocHost});
+  ser_optim->control({MallocHost});
+  gpu_optim->control({MallocHost, Malloc});
 
   printf("histogram inlen:\t%lu\n", hist_in->len());
 
-  // gpu baseline; also used for the next stage
-  psz::stat::histogram<psz_policy::CUDA, E>(
-      hist_in->dptr(), hist_in->len(), hist_out->dptr(), radius * 2,
-      &tgpu_baseline);
+  auto bklen = radius * 2;
+  hist<CPU, E>(
+      false, hist_in->hptr(), hist_in->len(), ser_base->hptr(), bklen,
+      &tcpu_base, stream);
+  hist<CPU, E>(
+      true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen,
+      &tcpu_optim, stream);
+  hist<CUDA, E>(
+      false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
+      &tgpu_base, stream);
+  hist<CUDA, E>(
+      true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
+      &tgpu_optim, stream);
 
-  // gpu improved
-  auto ga = hires::now();
-  histsp<psz_policy::CUDA, E, uint32_t>(
-      hist_in->dptr(), hist_in->len(), hist_gpu_improve->hptr(), radius * 2);
-  auto gb = hires::now();
-  tgpu_improved = static_cast<duration_t>(gb - ga).count() * 1000;
+  ser_base->file(string(string(ifn) + ".ht." + suffix()).c_str(), ToFile);
 
-  // cpu baseline
-  psz::stat::histogram<psz_policy::CPU, E>(
-      hist_in->hptr(), hist_in->len(), hist_cpu_baseline->hptr(), radius * 2,
-      &tcpu_baseline);
-
-  // cpu improved
-  auto a = hires::now();
-  histsp<psz_policy::CPU, E, uint32_t>(
-      hist_in->hptr(), hist_in->len(), hist_cpu_improve->hptr(), radius * 2);
-  auto b = hires::now();
-  tcpu_improved = static_cast<duration_t>(b - a).count() * 1000;
-
-  hist_cpu_baseline->file(
-      string(string(ifn) + ".ht." + suffix()).c_str(), ToFile);
-
-  printf("hist baseline:\t%f ms\n", tgpu_baseline);
   printf(
-      "hist improved:\t%f ms, speedup:\t%.2f\n", tgpu_improved,
-      tgpu_baseline / tgpu_improved);
-  printf("hist baseline:\t%f ms\n", tcpu_baseline);
+      "hist cpu baseline:\t%5.2f ms\toptim:\t%5.2f ms (speedup: %3.2fx)\n",  //
+      tcpu_base, tcpu_optim, tcpu_base / tcpu_optim);
   printf(
-      "hist improved:\t%f ms, speeup:\t%.2f\n", tcpu_improved,
-      tcpu_baseline / tcpu_improved);
+      "hist gpu baseline:\t%5.2f ms\toptim:\t%5.2f ms (speedup: %3.2fx)\n",  //
+      tgpu_base, tgpu_optim, tgpu_base / tgpu_optim);
 
-  delete hist_gpu_improve;
-  delete hist_cpu_baseline;
-  delete hist_cpu_improve;
+  delete gpu_optim;
+  delete ser_base;
+  delete ser_optim;
 }
 
 template <
@@ -249,11 +235,10 @@ void demo_pipeline(
 
   auto len = x * y * z;
   auto len3 = dim3(x, y, z);
-  float time, time_histcpu_baseline, time_histcpu_improved;
+  float time, time_histcpu_base, time_histcpu_optim;
   constexpr auto pardeg = 768;
 
   cusz::HuffmanCodec<_u4, H, _u4> codec;
-
 
   auto mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
   mem->od->control({Malloc, MallocHost})
@@ -275,7 +260,7 @@ void demo_pipeline(
 
   ectrl_u4->control({Malloc, MallocHost});
   ectrl_u4_decoded->control({Malloc, MallocHost});
-  
+
   codec.init(ectrl_u4->len(), radius * 2, pardeg /* not optimal for perf */);
 
   cudaStream_t stream;
@@ -296,7 +281,7 @@ void demo_pipeline(
                 mem->el->dptr(), mem->el->len(), radius, (void*)stream);
   printf("#outlier:\t%u\n", num_outlier);
 
-  demo_hist_u4in<H>(ectrl_u4, mem->ht, ifn, radius);
+  demo_hist_u4in<H>(ectrl_u4, mem->ht, ifn, radius, stream);
 
   size_t hf_outlen;
   {  // Huffman
@@ -304,7 +289,8 @@ void demo_pipeline(
     uint8_t* d_encoded;
 
     codec.build_codebook(mem->hist(), radius * 2, stream);
-    codec.encode(ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
+    codec.encode(
+        ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
     codec.decode(d_encoded, ectrl_u4_decoded->dptr());
 
     auto identical = psz::thrustgpu_identical(

@@ -13,10 +13,10 @@
 #include <iostream>
 #include <random>
 
-#include "kernel/detail/histsp.inl"
+#include "kernel/detail/histsp_cu.inl"
+#include "kernel/hist.hh"
 #include "kernel/histsp.hh"
 #include "mem/memseg_cxx.hh"
-#include "stat/stat.hh"
 
 using std::cout;
 using std::endl;
@@ -55,14 +55,16 @@ bool test1_debug()
   in->control({H2D});
   // float __t;
 
+  float t_histsp_ser, t_histsp_cuda;
+
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  histsp<psz_policy::CUDA, T, uint32_t>(
-      in->dptr(), inlen, o_gpusp->dptr(), NSYM, stream);
+  psz::histsp<psz_policy::CPU, T, uint32_t>(
+      in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
-  histsp<psz_policy::CPU, T, uint32_t>(
-      in->hptr(), inlen, o_serial->hptr(), NSYM);
+  psz::histsp<psz_policy::CUDA, T, uint32_t>(
+      in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
 
   o_gpusp->control({D2H});
 
@@ -140,19 +142,19 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
 
   in->control({H2D});
-  float __t;
+  float t_hist_cuda, t_histsp_ser, t_histsp_cuda;
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  histsp<psz_policy::CUDA, T, uint32_t>(
-      in->dptr(), inlen, o_gpusp->dptr(), NSYM, stream);
+  psz::histsp<psz_policy::CUDA, T, uint32_t>(
+      in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
 
-  psz::stat::histogram<psz_policy::CUDA, T>(
-      in->dptr(), inlen, o_gpu->dptr(), NSYM, &__t, stream);
+  psz::histogram<psz_policy::CUDA, T>(
+      in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
 
-  histsp<psz_policy::CPU, T, uint32_t>(
-      in->hptr(), inlen, o_serial->hptr(), NSYM);
+  psz::histsp<psz_policy::CPU, T, uint32_t>(
+      in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   o_gpu->control({D2H});
   o_gpusp->control({D2H});
@@ -234,7 +236,7 @@ bool perf(
       break;
     }
   }
-  if (all_eq) printf("full-length test: all equal\n");
+  if (all_eq) printf("perf test: all equal\n");
 
   return all_eq;
 }
@@ -256,17 +258,17 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
   in->control({H2D});
 
-  float __t;
+  float t_hist_gpu, t_histsp_ser;
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   // run CPU and GPU reference
-  psz::stat::histogram<psz_policy::CUDA, T>(
-      in->dptr(), inlen, o_gpu->dptr(), NSYM, &__t, stream);
+  psz::histogram<psz_policy::CUDA, T>(
+      in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, stream);
 
-  histsp<psz_policy::CPU, T, uint32_t>(
-      in->hptr(), inlen, o_serial->hptr(), NSYM);
+  psz::histsp<psz_policy::CPU, T, uint32_t>(
+      in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
   cudaStreamSynchronize(stream);
 
 // start testing & profiling

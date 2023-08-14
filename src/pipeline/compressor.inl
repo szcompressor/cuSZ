@@ -27,7 +27,7 @@
 #include "mem/layout.h"
 #include "mem/layout_cxx.hh"
 #include "mem/memseg_cxx.hh"
-#include "stat/stat.hh"
+#include "kernel/hist.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
 
@@ -127,7 +127,7 @@ Compressor<C>* Compressor<C>::compress(
   psz_comp_l23<T, E, FP>(
       in, len3, eb, radius, mem->ectrl_lrz(), mem->outlier_space(), &time_pred,
       stream);
-  psz::stat::histogram<psz_policy::CUDA, E>(
+  psz::histogram<psz_policy::CUDA, E>(
       mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
   codec->build_codebook(mem->hist(), booklen, stream);
   codec->encode(mem->ectrl_lrz(), len, &d_codec_out, &codec_outlen, stream);

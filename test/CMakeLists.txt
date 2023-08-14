@@ -65,8 +65,8 @@ add_test(test_l2_cudaproto l2_cudaproto)
 
 # TODO cross-validation add_test(test_l1_cuda  l1_cuda) 2023 May fix
 add_executable(l2_histsp src2/test_l2_histsp.cu)
-target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_cu pszkernel_cu
-                                        pszstat_ser)
+target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_cu
+                                        pszkernel_cu pszkernel_ser pszstat_ser)
 add_test(test_l2_histsp l2_histsp)
 # 2023 May fix end
 

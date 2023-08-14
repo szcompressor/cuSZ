@@ -14,6 +14,9 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 
+#include "ex_utils.hh"
+
+
 using _u1 = uint8_t;
 using _u2 = uint16_t;
 using _u4 = uint32_t;
@@ -32,6 +35,8 @@ template _u4 count_outlier(float*, size_t, int, void*);
 template _u4 count_outlier(_u1*, size_t, int, void*);
 template _u4 count_outlier(_u2*, size_t, int, void*);
 template _u4 count_outlier(_u4*, size_t, int, void*);
+
+
 
 #ifdef __MAIN__
 

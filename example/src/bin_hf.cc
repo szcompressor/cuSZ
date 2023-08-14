@@ -14,7 +14,7 @@
 #include "hf/hf.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "stat/stat.hh"
+#include "kernel/hist.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
 
@@ -53,7 +53,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   float time_hist;
 
-  psz::stat::histogram<psz_policy::CUDA, E>(
+  psz::histogram<psz_policy::CUDA, E>(
       od->dptr(), len, ht->dptr(), booklen, &time_hist, stream);
 
   cusz::HuffmanCodec<E, H, _u4> codec;
