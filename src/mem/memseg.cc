@@ -1,7 +1,7 @@
 /**
  * @file memseg.cc
  * @author Jiannan Tian
- * @brief
+ * @brief As portable as possible.
  * @version 0.4
  * @date 2023-06-09
  *
@@ -19,8 +19,6 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
-
-#include "utils/io.hh"
 
 using std::string;
 
