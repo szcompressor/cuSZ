@@ -19,9 +19,9 @@
 #include "utils/viewer.hh"
 
 using B = uint8_t;
-using F = _u4;
+using F = u4;
 
-template <typename E, typename H = _u4>
+template <typename E, typename H = u4>
 void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 {
   /* For demo, we use 3600x1800 CESM data. */
@@ -56,7 +56,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
   psz::histogram<psz_policy::CUDA, E>(
       od->dptr(), len, ht->dptr(), booklen, &time_hist, stream);
 
-  cusz::HuffmanCodec<E, H, _u4> codec;
+  cusz::HuffmanCodec<E, H, u4> codec;
   codec.init(len, booklen, pardeg /* not optimal for perf */);
 
   // cudaMalloc(&d_compressed, len * sizeof(E) / 2);
@@ -106,16 +106,16 @@ int main(int argc, char** argv)
     auto type = std::string(argv[5]);
 
     // if (type == "ui8")
-    //   hf_run<uint8_t, _u4>(fname, x, y, z);
+    //   hf_run<uint8_t, u4>(fname, x, y, z);
     // else if (type == "ui16")
-    //   hf_run<uint16_t, _u4>(fname, x, y, z);
+    //   hf_run<uint16_t, u4>(fname, x, y, z);
     // else if (type == "ui32")
-    //   hf_run<_u4, _u4>(fname, x, y, z);
+    //   hf_run<u4, u4>(fname, x, y, z);
     // else
-    //   hf_run<uint16_t, _u4>(fname, x, y, z);
+    //   hf_run<uint16_t, u4>(fname, x, y, z);
 
     // 23-06-04 restricted to u4 for quantization code
-    hf_run<_u4, _u4>(fname, x, y, z);
+    hf_run<u4, u4>(fname, x, y, z);
   }
 
   return 0;

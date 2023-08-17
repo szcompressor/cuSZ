@@ -15,14 +15,10 @@
 #include <thrust/execution_policy.h>
 
 #include "ex_utils.hh"
-
-
-using _u1 = uint8_t;
-using _u2 = uint16_t;
-using _u4 = uint32_t;
+#include "cusz/type.h"
 
 template <typename T>
-_u4 count_outlier(T* in, size_t inlen, int radius, void* stream)
+u4 count_outlier(T* in, size_t inlen, int radius, void* stream)
 {
   using thrust::placeholders::_1;
   thrust::cuda::par.on((cudaStream_t)stream);
@@ -31,10 +27,10 @@ _u4 count_outlier(T* in, size_t inlen, int radius, void* stream)
       thrust::device, in, in + inlen, _1 >= 2 * radius or _1 < 0);
 }
 
-template _u4 count_outlier(float*, size_t, int, void*);
-template _u4 count_outlier(_u1*, size_t, int, void*);
-template _u4 count_outlier(_u2*, size_t, int, void*);
-template _u4 count_outlier(_u4*, size_t, int, void*);
+template u4 count_outlier(float*, size_t, int, void*);
+template u4 count_outlier(u1*, size_t, int, void*);
+template u4 count_outlier(u2*, size_t, int, void*);
+template u4 count_outlier(u4*, size_t, int, void*);
 
 
 

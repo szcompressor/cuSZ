@@ -44,7 +44,7 @@ class pszmempool_cxx {
 
  public:
   // ctor, dtor
-  pszmempool_cxx(_u4 _x, int _radius = 512, _u4 _y = 1, _u4 _z = 1);
+  pszmempool_cxx(u4 _x, int _radius = 512, u4 _y = 1, u4 _z = 1);
   ~pszmempool_cxx();
   // utils
   pszmempool_cxx *clear_buffer();
@@ -65,7 +65,7 @@ class pszmempool_cxx {
 #define TPL template <typename T, typename E, typename H>
 #define POOL pszmempool_cxx<T, E, H>
 
-TPL POOL::pszmempool_cxx(_u4 x, int _radius, _u4 y, _u4 z)
+TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
 {
   len = x * y * z;
   radius = _radius;

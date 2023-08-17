@@ -18,7 +18,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#include "../cusz/type.h"
+#include "cusz/type.h"
 
 typedef struct psz_memory_segment {
   char name[10];
@@ -33,14 +33,12 @@ typedef struct psz_memory_segment {
 
 } pszmem;
 
-typedef uint32_t _u4;
-
 void pszmem__calc_len(pszmem* m);
 int pszmem__ndim(pszmem* m);
 void pszmem__dbg(pszmem* m);
-pszmem* pszmem_create1(psz_dtype t, _u4 lx);
-pszmem* pszmem_create2(psz_dtype t, _u4 lx, _u4 ly);
-pszmem* pszmem_create3(psz_dtype t, _u4 lx, _u4 ly, _u4 lz);
+pszmem* pszmem_create1(psz_dtype t, u4 lx);
+pszmem* pszmem_create2(psz_dtype t, u4 lx, u4 ly);
+pszmem* pszmem_create3(psz_dtype t, u4 lx, u4 ly, u4 lz);
 void pszmem_borrow(pszmem* m, void* _d, void* _h);
 void pszmem_setname(pszmem* m, const char name[10]);
 void pszmem_malloc_cuda(pszmem* m);

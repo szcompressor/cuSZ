@@ -73,7 +73,7 @@ void pszmem__dbg(pszmem* m)
   printf("\n");
 }
 
-pszmem* pszmem_create1(psz_dtype t, _u4 lx)
+pszmem* pszmem_create1(psz_dtype t, u4 lx)
 {
   auto m = new pszmem{.type = t, .lx = lx};
   pszmem__calc_len(m);
@@ -81,7 +81,7 @@ pszmem* pszmem_create1(psz_dtype t, _u4 lx)
   return m;
 }
 
-pszmem* pszmem_create2(psz_dtype t, _u4 lx, _u4 ly)
+pszmem* pszmem_create2(psz_dtype t, u4 lx, u4 ly)
 {
   auto m = new pszmem{.type = t, .lx = lx, .ly = ly};
   pszmem__calc_len(m);
@@ -89,7 +89,7 @@ pszmem* pszmem_create2(psz_dtype t, _u4 lx, _u4 ly)
   return m;
 }
 
-pszmem* pszmem_create3(psz_dtype t, _u4 lx, _u4 ly, _u4 lz)
+pszmem* pszmem_create3(psz_dtype t, u4 lx, u4 ly, u4 lz)
 {
   auto m = new pszmem{.type = t, .lx = lx, .ly = ly, .lz = lz};
   pszmem__calc_len(m);

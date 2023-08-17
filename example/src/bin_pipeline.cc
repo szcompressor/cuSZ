@@ -89,7 +89,7 @@ template <
     int Predictor, typename T = float, typename E = uint32_t,
     typename H = uint32_t>
 void demo_c_predict(
-    pszmempool_cxx<T, E, H>* mem, pszmem_cxx<_u4>* ectrl_u4, char const* ifn,
+    pszmempool_cxx<T, E, H>* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn,
     double const eb, int const radius, cudaStream_t stream, bool proto = false)
 {
   using FP = T;
@@ -174,15 +174,15 @@ void demo_d_predict(
 
 template <typename H>
 void demo_hist_u4in(
-    pszmem_cxx<_u4>* hist_in, pszmem_cxx<H>* hist_out, char const* ifn,
+    pszmem_cxx<u4>* hist_in, pszmem_cxx<H>* hist_out, char const* ifn,
     int const radius, cudaStream_t stream)
 {
-  using E = _u4;
+  using E = u4;
 
   float tgpu_base, tgpu_optim;
   float tcpu_base, tcpu_optim;
 
-  auto ser_base = new pszmem_cxx<_u4>(radius * 2, 1, 1, "hist-normal");
+  auto ser_base = new pszmem_cxx<u4>(radius * 2, 1, 1, "hist-normal");
   auto ser_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_cpu");
   auto gpu_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_gpu");
   ser_base->control({MallocHost});
@@ -238,7 +238,7 @@ void demo_pipeline(
   float time, time_histcpu_base, time_histcpu_optim;
   constexpr auto pardeg = 768;
 
-  cusz::HuffmanCodec<_u4, H, _u4> codec;
+  cusz::HuffmanCodec<u4, H, u4> codec;
 
   auto mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
   mem->od->control({Malloc, MallocHost})
@@ -250,13 +250,13 @@ void demo_pipeline(
   auto len3p = mem->es->template len3<dim3>();
   auto ectrl_u4 =
       Predictor == SPLINE3
-          ? new pszmem_cxx<_u4>(len3p.x, len3p.y, len3p.z, "ectrl_u4")
-          : new pszmem_cxx<_u4>(x, y, z, "ectrl_u4");
+          ? new pszmem_cxx<u4>(len3p.x, len3p.y, len3p.z, "ectrl_u4")
+          : new pszmem_cxx<u4>(x, y, z, "ectrl_u4");
   // TODO duplicate pszmem
   auto ectrl_u4_decoded =
       Predictor == SPLINE3
-          ? new pszmem_cxx<_u4>(len3p.x, len3p.y, len3p.z, "ectrl_u4_dec")
-          : new pszmem_cxx<_u4>(x, y, z, "ectrl_u4_dec");
+          ? new pszmem_cxx<u4>(len3p.x, len3p.y, len3p.z, "ectrl_u4_dec")
+          : new pszmem_cxx<u4>(x, y, z, "ectrl_u4_dec");
 
   ectrl_u4->control({Malloc, MallocHost});
   ectrl_u4_decoded->control({Malloc, MallocHost});
