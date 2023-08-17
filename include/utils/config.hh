@@ -15,20 +15,15 @@
 #define C5FC9A7F_B78D_4E1E_AC2A_3E18232CEEE3
 
 #include <cxxabi.h>
-#include <cmath>
-#include <fstream>
-#include <iostream>
-#include <limits>
-#include <numeric>
-#include <regex>
-#include <sstream>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
-#include "../cusz/type.h"
-#include "../header.h"
+#include <fstream>
+#include <regex>
+#include <unordered_map>
+
+#include "busyheader.hh"
+#include "cusz/type.h"
 #include "format.hh"
+#include "header.h"
 
 #if __cplusplus >= 201703L
 #define CONSTEXPR constexpr

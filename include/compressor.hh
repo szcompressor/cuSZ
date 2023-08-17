@@ -13,12 +13,8 @@
 #define CUSZ_COMPRESSOR_HH
 
 #include <cuda_runtime.h>
-#include <cstdint>
-#include <memory>
-#include <tuple>
-#include <type_traits>
-#include <vector>
 
+#include "busyheader.hh"
 #include "compaction.hh"
 #include "context.h"
 #include "header.h"

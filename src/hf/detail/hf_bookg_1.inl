@@ -18,15 +18,7 @@
 
 #include <cooperative_groups.h>
 #include <cuda.h>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <type_traits>
-
+#include "busyheader.hh"
 #include "hf/hf_bookg.hh"
 #include "par_merge.inl"
 #include "type_traits.hh"

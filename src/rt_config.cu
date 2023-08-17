@@ -9,18 +9,11 @@
  *
  */
 
-#include <cmath>
-#include <cstdint>
-#include <stdexcept>
-
+#include "busyheader.hh"
 #include "cusz/type.h"
 #include "kernel/detail/hist_cuda.inl"
 #include "rt_config.h"
 #include "utils/timer.h"
-
-#include <iostream>
-using std::cout;
-using std::endl;
 
 // query
 psz_error_status psz_query_device(psz_device_property* prop)

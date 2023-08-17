@@ -13,19 +13,13 @@
  *
  */
 
+#ifndef A76584FA_A629_4AF8_930B_9B1FB56213C8
+#define A76584FA_A629_4AF8_930B_9B1FB56213C8
+
 #include <cooperative_groups.h>
 #include <cuda.h>
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <type_traits>
 
-using std::cout;
-
+#include "busyheader.hh"
 #include "hf/hf_bookg.hh"
 #include "type_traits.hh"
 #include "utils/config.hh"
@@ -33,9 +27,6 @@ using std::cout;
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/timer.h"
-
-#ifndef A76584FA_A629_4AF8_930B_9B1FB56213C8
-#define A76584FA_A629_4AF8_930B_9B1FB56213C8
 
 namespace hf_detail {
 template <typename T>

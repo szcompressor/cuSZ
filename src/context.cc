@@ -11,25 +11,20 @@
  *
  */
 
-#include <cassert>
-#include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
+#include "context.h"
+
 #include <regex>
 #include <set>
-#include <stdexcept>
-#include <string>
 #include <unordered_map>
 
-#include "context.h"
+#include "busyheader.hh"
 #include "utils/config.hh"
 #include "utils/document.hh"
 #include "utils/format.hh"
 
 namespace cusz {
-const char* VERSION_TEXT  = "2023-06-04 (unstable; pre-0.4)";
-const int   VERSION       = 20230604;
+const char* VERSION_TEXT  = "2023-08-17 (unstable; pre-0.5)";
+const int   VERSION       = 20230817;
 const int   COMPATIBILITY = 0;
 }  // namespace cusz
 

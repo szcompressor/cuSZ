@@ -14,13 +14,7 @@
 #ifndef CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 #define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
-#include <cuda_runtime.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <cstdio>
-#include <cstdlib>
-#include <limits>
-
+#include "busyheader.hh"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"

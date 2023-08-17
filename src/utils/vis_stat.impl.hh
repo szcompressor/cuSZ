@@ -14,21 +14,13 @@
  *
  */
 
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
 #include <iomanip>
-#include <iostream>
-#include <numeric>
 #include <tuple>
 #include <unordered_map>
-#include <vector>
 
+#include "busyheader.hh"
 #include "utils/vis_stat.hh"
 
-using std::cerr;
-using std::cout;
-using std::endl;
 using std::tuple;
 
 template <typename T>

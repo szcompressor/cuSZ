@@ -10,14 +10,7 @@
  */
 
 #include <omp.h>
-#include <algorithm>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>  // for `memcpy`
-#include <iostream>
-#include <stdexcept>
-#include <string>
+#include "busyheader.hh"
 
 #include "../src/common.hh"
 #include "../src/utils.hh"

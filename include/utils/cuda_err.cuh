@@ -15,10 +15,7 @@
  */
 
 #include <cuda_runtime.h>
-#include <cstdio>
-#include <string>
-#include <stdexcept>
-#include <sstream>
+#include "busyheader.hh"
 
 struct cusz_cuda_exception : public std::exception {
   cusz_cuda_exception(const char* err, int err_code, const char* file, int line) {

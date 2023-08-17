@@ -12,22 +12,14 @@
 #ifndef ANALYSIS_ANALYZER_HH
 #define ANALYSIS_ANALYZER_HH
 
-#include <cstdio>
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/sort.h>
 
-#include <algorithm>
-#include <numeric>
-
-#include "../hf/hf_bookg.hh"
-#include "../hf/hf_codecg.hh"
-#include "../utils/timer.hh"
+#include "busyheader.hh"
+#include "hf/hf_bookg.hh"
+#include "hf/hf_codecg.hh"
+#include "utils/timer.hh"
 
 using std::cout;
 

@@ -13,16 +13,10 @@
 #ifndef QUERY_HH
 #define QUERY_HH
 
-#include <array>
-#include <cstdio>
-#include <iostream>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <vector>
 
 #include <cuda_runtime.h>
 
+#include "busyheader.hh"
 #include "query_dev.hh"
 
 struct Diagnostics {
