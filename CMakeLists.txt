@@ -74,8 +74,7 @@ add_library(
   src/stat/cmpg1_3.cu
   src/stat/cmpg1_4.cu
   src/stat/cmpg1_5.cu
-  src/stat/cmpg2_1.cu
-  src/stat/cmpg2_2.cu
+  src/stat/cmpg2.cu
   src/stat/cmpg3.cu
   src/stat/cmpg4_1.cu
   src/stat/cmpg4_2.cu

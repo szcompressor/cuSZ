@@ -12,12 +12,12 @@
 #include "detail/equal_thrust.inl"
 #include "stat/compare.h"
 #include "stat/compare_gpu.hh"
+#include "cusz/type.h"
 
-#define THRUSTGPU_COMPARE_LOSSLESS(Tliteral, T) \
-    template bool psz::thrustgpu_identical<T>(T * d1, T * d2, size_t const len);
-
-THRUSTGPU_COMPARE_LOSSLESS(ui8, uint8_t)
-THRUSTGPU_COMPARE_LOSSLESS(ui16, uint16_t)
-THRUSTGPU_COMPARE_LOSSLESS(ui32, uint32_t)
+bool psz::thrustgpu_identical(void* d1, void* d2, size_t sizeof_T, size_t const len)
+{
+  return thrust::equal(
+      thrust::device, (u1*)d1, (u1*)d1 + sizeof_T * len, (u1*)d2);
+}
 
 #undef THRUSTGPU_COMPARE_LOSSLESS

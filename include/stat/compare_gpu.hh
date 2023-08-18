@@ -19,8 +19,7 @@ namespace psz {
 template <typename T>
 void thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4]);
 
-template <typename T>
-bool thrustgpu_identical(T* d1, T* d2, size_t const len);
+bool thrustgpu_identical(void* d1, void* d2, size_t sizeof_T, size_t const len);
 
 template <typename T>
 bool thrustgpu_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx);

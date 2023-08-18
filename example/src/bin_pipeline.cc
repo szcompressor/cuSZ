@@ -292,7 +292,7 @@ void demo_pipeline(
     codec.decode(d_encoded, ectrl_u4_decoded->dptr());
 
     auto identical = psz::thrustgpu_identical(
-        ectrl_u4_decoded->dptr(), ectrl_u4->dptr(), hf_inlen);
+        ectrl_u4_decoded->dptr(), ectrl_u4->dptr(), sizeof(u4), hf_inlen);
 
     if (identical)
       printf("Huffman: decoded is identical to the input (quant code).\n");
