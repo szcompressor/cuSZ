@@ -134,7 +134,8 @@ Compressor<C>* Compressor<C>::compress(
       mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
   psz::histsp<CUDA, E>(
       mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
-  codec->build_codebook(mem->hist(), booklen, stream);
+  // codec->build_codebook(mem->hist(), booklen, stream);
+  codec->build_codebook(mem->ht, booklen, stream);
   codec->encode(mem->ectrl_lrz(), len, &d_codec_out, &codec_outlen, stream);
   /*
      psz::spv_gather<T, M>(

@@ -18,6 +18,7 @@
 #include <cuda.h>
 #include <iostream>
 #include <numeric>
+#include "mem/memseg_cxx.hh"
 
 using std::cout;
 
@@ -111,9 +112,21 @@ HuffmanCodec<T, H, M>* HuffmanCodec<T, H, M>::init(size_t const inlen, int const
 TEMPLATE_TYPE
 HuffmanCodec<T, H, M>* HuffmanCodec<T, H, M>::build_codebook(uint32_t* freq, int const booklen, cudaStream_t stream)
 {
-    book_desc->freq = freq;
     psz::hf_buildbook<CUDA, T, H>(
         freq, booklen, book->dptr(), revbook->dptr(), revbook_bytes(booklen), &_time_book, stream);
+
+    return this;
+}
+
+TEMPLATE_TYPE
+HuffmanCodec<T, H, M>* HuffmanCodec<T, H, M>::build_codebook(pszmem_cxx<uint32_t>* freq, int const booklen, cudaStream_t stream)
+{
+    // printf("using CPU huffman\n");
+    psz::hf_buildbook<CPU, T, H>(
+        freq->control({D2H})->hptr(), booklen, book->hptr(), revbook->hptr(), revbook_bytes(booklen), &_time_book, stream);
+
+    book->control({ASYNC_H2D}, stream);
+    revbook->control({ASYNC_H2D}, stream);
 
     return this;
 }

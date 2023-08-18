@@ -53,6 +53,7 @@ typedef struct alignas(8) __hf_stack {
 } __hf_stack;
 
 template <typename H>
-void hf_buildtree_impl2(u4* freq, size_t const bklen, H* book);
+void hf_buildtree_impl2(
+    u4* freq, size_t const bklen, H* book, float* time = nullptr);
 
 #endif /* CD5DD212_2C45_4A8C_BDAD_7186A89BB353 */

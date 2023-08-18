@@ -14,8 +14,7 @@
 #include <queue>
 
 #include "busyheader.hh"
-
-
+#include "utils/timer.hh"
 
 NodeCxx* __hf_stack::top(__hf_stack* s) { return s->_a[s->depth - 1]; }
 
@@ -34,7 +33,8 @@ void __hf_stack::push(__hf_stack* s, NodeCxx* n, T path, T len)
 }
 
 template <typename T>
-NodeCxx* __hf_stack::pop(__hf_stack* s, T* path_to_restore, T* length_to_restore)
+NodeCxx* __hf_stack::pop(
+    __hf_stack* s, T* path_to_restore, T* length_to_restore)
 {
   auto is_empty = [&](__hf_stack* s) -> bool { return (s->depth == 0); };
 
@@ -96,12 +96,14 @@ void __hf_stack::inorder_traverse(NodeCxx* root, H* book)
 
 // reference: https://gist.github.com/pwxcoo/72d7d3c5c3698371c21e486722f9b34b
 template <typename H>
-void hf_buildtree_impl2(u4* freq, size_t const bklen, H* book)
+void hf_buildtree_impl2(u4* freq, size_t const bklen, H* book, float* time)
 {
   using N = NodeCxx;
   using Container = std::vector<NodeCxx*>;
 
   std::priority_queue<N*, Container, CmpNode> pq;
+
+  auto a = hires::now();
 
   for (auto i = 0; i < bklen; i++) {
     auto f = freq[i];
@@ -121,7 +123,12 @@ void hf_buildtree_impl2(u4* freq, size_t const bklen, H* book)
   N* root = pq.top();
 
   __hf_stack::inorder_traverse(root, book);
+
+  auto b = hires::now();
+  auto t = static_cast<duration_t>(b - a).count() * 1000;
+  if (time) *time = t;
 }
 
-template void hf_buildtree_impl2(u4*, size_t const, u4*);
-template void hf_buildtree_impl2(u4*, size_t const, u8*);
+template void hf_buildtree_impl2(u4*, size_t const, u4*, f4*);
+template void hf_buildtree_impl2(u4*, size_t const, u8*, f4*);
+template void hf_buildtree_impl2(u4*, size_t const, ull*, f4*);

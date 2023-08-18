@@ -50,6 +50,7 @@ static constexpr int HFSERIAL_TREE_CPU = 0;
 static constexpr int HFSERIAL_TREE_CUDA = 1;
 
 template <typename H>
-void hf_buildtree_impl1(uint32_t* freq, uint16_t booklen, H* codebook);
+void hf_buildtree_impl1(
+    uint32_t* freq, uint16_t bklen, H* book, float* time = nullptr);
 
 #endif /* A68D9FDE_BC7F_4E78_8532_93D427E3F126 */

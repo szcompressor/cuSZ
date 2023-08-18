@@ -111,6 +111,7 @@ class HuffmanCodec {
     // public methods
     HuffmanCodec* init(size_t const, int const, int const, bool dbg_print = false);
     HuffmanCodec* build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
+    HuffmanCodec* build_codebook(pszmem_cxx<uint32_t>*, int const, cudaStream_t = nullptr);
     HuffmanCodec* encode(T*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
     HuffmanCodec* decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
     HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);

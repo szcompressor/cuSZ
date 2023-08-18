@@ -129,7 +129,7 @@ target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu
                      src/hf/hf_stateless_cu.cu)
 target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
-                                      pszhfbook_cu)
+                                      pszhfbook_cu pszhfbook_ser)
 
 add_library(psz_comp src/custom.cc src/compressor.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
@@ -174,6 +174,7 @@ install(TARGETS pszutils_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INST
 install(TARGETS pszutils_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psztime EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszspv_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszhfbook_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhf_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_comp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

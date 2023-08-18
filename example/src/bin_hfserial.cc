@@ -27,24 +27,15 @@ void printcode_u4(u4 idx, u4* word)
        << bitset<PW::field_word>(pw->word) << "\n";
 }
 
-void hfbook_serial_separate(string fname, int bklen)
+void hfbook_serial_reference(string fname, int bklen)
 {
-  auto bk_bytes = sizeof(u4) * bklen;
-  auto space_bytes = hf_space<u4, u4>::space_bytes(bklen);
-  auto revbook_ofst = hf_space<u4, u4>::revbook_offset(bklen);
-
-  cout << "space_bytes: " << space_bytes << endl;
-
   auto hist = new pszmem_cxx<u4>(bklen, 1, 1, "histogram");
   auto book = new pszmem_cxx<u4>(bklen, 1, 1, "internal book");
-
-  auto revbook_bytes = hf_space<u4, u4>::revbook_bytes(bklen);
-  auto revbook = new pszmem_cxx<u1>(revbook_bytes, 1, 1, "revbook");
-  auto space = new u1[space_bytes];
+  auto space = new hf_canon_reference<u4, u4>(bklen);
 
   hist->control({MallocHost})->file(fname.c_str(), FromFile);
-  book->control({MallocHost}), memset(book->hptr(), 0xff, bk_bytes);
-  revbook->control({MallocHost});
+  book->control({MallocHost});
+  memset(book->hptr(), 0xff, sizeof(u4) * bklen);
 
   hf_buildtree_impl2<u4>(hist->hptr(), bklen, book->hptr());
 
@@ -53,21 +44,19 @@ void hfbook_serial_separate(string fname, int bklen)
     if (res != 0 and res != 0xffffffff) printcode_u4(i, &res);
   }
 
-  memcpy(space, book, bk_bytes);  // copy in
-  canonize<u4, u4>(space, bklen);
+  space->icb() = book->hptr();  // external
+  space->canonize();
 
-  memcpy(book->hptr(), space + bk_bytes, bk_bytes);              // copy out
-  memcpy(revbook->hptr(), space + revbook_ofst, revbook_bytes);  // copy out
+  memcpy(book->hptr(), space->ocb(), sizeof(u4) * bklen);
 
-  printf("serial 2, canonized: \n");
+  printf("serial 1, canonized (CPU): \n");
   for (auto i = 0; i < bklen; i++) {
     auto res = book->hptr(i);
     if (res != 0 and res != 0xffffffff) printcode_u4(i, &res);
   }
 
   delete hist;
-  delete book;
-  delete revbook;
+  delete space;
 }
 
 void hfbook_serial_integrated(string fname, int bklen)
@@ -134,10 +123,10 @@ int main(int argc, char** argv)
   auto fname = std::string(argv[1]);
   auto bklen = atoi(argv[2]);
 
-  cout << "serial separate:" << endl;
-  hfbook_serial_separate(fname, bklen);
-  // cout << "serial integrate:" << endl;
-  // hfbook_serial_integrated(fname, bklen);
+  cout << "previous working reference:" << endl;
+  hfbook_serial_reference(fname, bklen);
+  cout << "serial integrate:" << endl;
+  hfbook_serial_integrated(fname, bklen);
   // cout << "GPU (reference):" << endl;
   // hfbook_gpu(fname, bklen);
 

@@ -10,11 +10,11 @@
  * top-level directory.
  */
 
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-
 #include "hf/hf_buildtree_impl1.hh"
+
+#include "busyheader.hh"
+#include "cusz/type.h"
+#include "utils/timer.hh"
 
 // hfserial: internal stack
 node_list top(hf_internal_stack* s);
@@ -290,7 +290,8 @@ void inorder_traverse_v2(HuffmanTree* ht, Q* codebook)
 }
 
 template <typename H>
-void hf_buildtree_impl1(uint32_t* ext_freq, uint16_t booklen, H* codebook)
+void hf_buildtree_impl1(
+    uint32_t* ext_freq, uint16_t booklen, H* codebook, float* time)
 {
   auto state_num = 2 * booklen;
   auto all_nodes = 2 * state_num;
@@ -300,15 +301,25 @@ void hf_buildtree_impl1(uint32_t* ext_freq, uint16_t booklen, H* codebook)
   memcpy(freq, ext_freq, sizeof(uint32_t) * booklen);
 
   auto tree = create_tree_serial(state_num);
-  for (size_t i = 0; i < tree->all_nodes; i++)
-    if (freq[i]) qinsert(tree, new_node(tree, freq[i], i, 0, 0));
-  while (tree->qend > 2)
-    qinsert(tree, new_node(tree, 0, 0, qremove(tree), qremove(tree)));
-  inorder_traverse_v2<H>(tree, codebook);
+
+  {  // real "kernel"
+    auto a = hires::now();
+
+    for (size_t i = 0; i < tree->all_nodes; i++)
+      if (freq[i]) qinsert(tree, new_node(tree, freq[i], i, 0, 0));
+    while (tree->qend > 2)
+      qinsert(tree, new_node(tree, 0, 0, qremove(tree), qremove(tree)));
+    inorder_traverse_v2<H>(tree, codebook);
+
+    auto b = hires::now();
+    auto t = static_cast<duration_t>(b - a).count() * 1000;
+    if (time) *time = t;
+  }
 
   destroy_tree(tree);
   delete[] freq;
 }
 
-template void hf_buildtree_impl1<uint32_t>(uint32_t*, uint16_t, uint32_t*);
-template void hf_buildtree_impl1<uint64_t>(uint32_t*, uint16_t, uint64_t*);
+template void hf_buildtree_impl1<u4>(u4*, u2, u4*, f4*);
+template void hf_buildtree_impl1<u8>(u4*, u2, u8*, f4*);
+template void hf_buildtree_impl1<ull>(u4*, u2, ull*, f4*);

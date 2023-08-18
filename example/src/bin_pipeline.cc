@@ -286,6 +286,7 @@ void demo_pipeline(
     uint8_t* d_encoded;
 
     codec.build_codebook(mem->hist(), radius * 2, stream);
+    // codec.build_codebook(mem->ht, radius * 2, stream);
     codec.encode(
         ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
     codec.decode(d_encoded, ectrl_u4_decoded->dptr());
