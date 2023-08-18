@@ -120,7 +120,10 @@ if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
                       $<HOST_LINK:LINKER:--allow-shlib-undefined>)
 endif()
 
-add_library(pszhfbook_ser src/hf/hfserial_book.cc src/hf/hfserial_canon.cc src/hf/hfserial_book2.cc src/archive/canonical.cu)
+add_library(
+  pszhfbook_ser
+  src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc src/hf/hf_canon.cc 
+  src/archive/canonical.cu src/hf/hf_bk.cc)
 target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 
 add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu

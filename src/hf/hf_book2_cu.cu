@@ -10,19 +10,26 @@
  */
 
 #include "detail/hf_bookg_2.inl"
+#include "hf/hf_bk.hh"
 #include "hf/hf_bookg.hh"
 
-#define PAR_BOOK(T, H) \
-    template void psz::hf_buildbook_g<T, H>(uint32_t*, int const, H*, uint8_t*, int const, float*, cudaStream_t);
-
+#define HF_BOOK_CU(T, H)                                                     \
+  template <>                                                                \
+  void psz::hf_buildbook<CUDA, T, H>(                                        \
+      uint32_t * freq, int const bklen, H* book, uint8_t* revbook,           \
+      int const revbook_bytes, float* time, void* stream)                       \
+  {                                                                          \
+    psz::hf_buildbook_cu<T, H>(                                              \
+        freq, bklen, book, revbook, revbook_bytes, time, (cudaStream_t)stream); \
+  }
 // 23-06-04 restricted to u4 for quantization code
 
 // PAR_BOOK(uint8_t, uint32_t);
 // PAR_BOOK(uint16_t, uint32_t);
-PAR_BOOK(uint32_t, uint32_t);
+HF_BOOK_CU(uint32_t, uint32_t);
 
 // PAR_BOOK(uint8_t, unsigned long long);
 // PAR_BOOK(uint16_t, unsigned long long);
-PAR_BOOK(uint32_t, unsigned long long);
+HF_BOOK_CU(uint32_t, unsigned long long);
 
-#undef PAR_BOOK
+#undef HF_BOOK_CU

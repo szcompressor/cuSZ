@@ -9,7 +9,7 @@
  *
  */
 
-#include "hf/hfserial_book2.hh"
+#include "hf/hf_buildtree_impl2.hh"
 
 #include <queue>
 
@@ -96,7 +96,7 @@ void __hf_stack::inorder_traverse(NodeCxx* root, H* book)
 
 // reference: https://gist.github.com/pwxcoo/72d7d3c5c3698371c21e486722f9b34b
 template <typename H>
-void hf_build_book2(u4* freq, size_t const bklen, H* book)
+void hf_buildtree_impl2(u4* freq, size_t const bklen, H* book)
 {
   using N = NodeCxx;
   using Container = std::vector<NodeCxx*>;
@@ -123,5 +123,5 @@ void hf_build_book2(u4* freq, size_t const bklen, H* book)
   __hf_stack::inorder_traverse(root, book);
 }
 
-template void hf_build_book2(u4*, size_t const, u4*);
-template void hf_build_book2(u4*, size_t const, u8*);
+template void hf_buildtree_impl2(u4*, size_t const, u4*);
+template void hf_buildtree_impl2(u4*, size_t const, u8*);

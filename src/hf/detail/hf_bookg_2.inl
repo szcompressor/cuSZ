@@ -78,20 +78,20 @@ __global__ void GPU_GetMaxCWLength(unsigned int* CL, unsigned int size, unsigned
 
 // Parallel codebook generation wrapper
 template <typename T, typename H>
-void psz::hf_buildbook_g(
+void psz::hf_buildbook_cu(
     uint32_t*    freq,
     int const    dict_size,
     H*           codebook,
-    uint8_t*     reverse_codebook,
+    uint8_t*     revbook,
     int const    revbook_nbyte,
     float*       _time_book,
     cudaStream_t stream)
 {
     // Metadata
     auto type_bw  = sizeof(H) * 8;
-    auto _d_first = reinterpret_cast<H*>(reverse_codebook);
-    auto _d_entry = reinterpret_cast<H*>(reverse_codebook + (sizeof(H) * type_bw));
-    auto _d_qcode = reinterpret_cast<T*>(reverse_codebook + (sizeof(H) * 2 * type_bw));
+    auto _d_first = reinterpret_cast<H*>(revbook);
+    auto _d_entry = reinterpret_cast<H*>(revbook + (sizeof(H) * type_bw));
+    auto _d_qcode = reinterpret_cast<T*>(revbook + (sizeof(H) * 2 * type_bw));
 
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream);

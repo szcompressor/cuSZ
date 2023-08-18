@@ -14,7 +14,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "hf/hfserial_book.hh"
+#include "hf/hf_buildtree_impl1.hh"
 
 // hfserial: internal stack
 node_list top(hf_internal_stack* s);
@@ -290,7 +290,7 @@ void inorder_traverse_v2(HuffmanTree* ht, Q* codebook)
 }
 
 template <typename H>
-void hf_create_book_serial(uint32_t* ext_freq, uint16_t booklen, H* codebook)
+void hf_buildtree_impl1(uint32_t* ext_freq, uint16_t booklen, H* codebook)
 {
   auto state_num = 2 * booklen;
   auto all_nodes = 2 * state_num;
@@ -310,5 +310,5 @@ void hf_create_book_serial(uint32_t* ext_freq, uint16_t booklen, H* codebook)
   delete[] freq;
 }
 
-template void hf_create_book_serial<uint32_t>(uint32_t*, uint16_t, uint32_t*);
-template void hf_create_book_serial<uint64_t>(uint32_t*, uint16_t, uint64_t*);
+template void hf_buildtree_impl1<uint32_t>(uint32_t*, uint16_t, uint32_t*);
+template void hf_buildtree_impl1<uint64_t>(uint32_t*, uint16_t, uint64_t*);

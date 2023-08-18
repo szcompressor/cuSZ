@@ -11,15 +11,14 @@
  *
  */
 
-// #include <cooperative_groups.h>
+#include <cooperative_groups.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <cstdint>
 
-#include "hf/hfserial_canon.hh"
+#include "hf/hf_canon.hh"
 
-/*
 
 __device__ int max_bw = 0;
 
@@ -103,7 +102,6 @@ __global__ void hf_canonical_code_cuda_cg(uint8_t* singleton, uint32_t booklen)
   o_cb[keys[gid]] = canonical[gid];
 }
 
-*/
 
 template <typename E, typename H>
 __global__ void canonize_cuda(uint8_t* singleton, uint32_t booklen)

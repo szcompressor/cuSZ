@@ -15,9 +15,9 @@
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 
-template <typename T, typename H, typename M>
+template <typename E, typename H, typename M>
 void psz::hf_encode_coarse_rev2(
-    T*            uncompressed,
+    E*            uncompressed,
     size_t const  len,
     hf_book*      book_desc,
     hf_bitstream* bitstream_desc,
@@ -60,7 +60,7 @@ void psz::hf_encode_coarse_rev2(
 
         START_CUDAEVENT_RECORDING(stream);
 
-        psz::detail::hf_encode_phase1_fill<T, H>                //
+        psz::detail::hf_encode_phase1_fill<E, H>                //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_buffer);
 
@@ -127,7 +127,7 @@ void psz::hf_encode_coarse_rev2(
     }
 }
 
-template <typename T, typename H, typename M>
+template <typename E, typename H, typename M>
 void psz::hf_decode_coarse(
     H*           d_bitstream,
     uint8_t*     d_revbook,
@@ -136,7 +136,7 @@ void psz::hf_decode_coarse(
     M*           d_par_entry,
     int const    sublen,
     int const    pardeg,
-    T*           out_decompressed,
+    E*           out_decompressed,
     float*       time_lossless,
     cudaStream_t stream)
 {
@@ -146,7 +146,7 @@ void psz::hf_decode_coarse(
     CREATE_CUDAEVENT_PAIR;
     START_CUDAEVENT_RECORDING(stream)
 
-    hf_decode_kernel<T, H, M>                             //
+    hf_decode_kernel<E, H, M>                             //
         <<<grid_dim, block_dim, revbook_nbyte, stream>>>  //
         (d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte, sublen, pardeg, out_decompressed);
 
@@ -157,12 +157,12 @@ void psz::hf_decode_coarse(
     DESTROY_CUDAEVENT_PAIR;
 }
 
-#define HF_CODEC_INIT(T, H, M)                                                              \
-    template void psz::hf_encode_coarse_rev2<T, H, M>(                                      \
-        T*, size_t const, hf_book*, hf_bitstream*, size_t*, size_t*, float*, cudaStream_t); \
+#define HF_CODEC_INIT(E, H, M)                                                              \
+    template void psz::hf_encode_coarse_rev2<E, H, M>(                                      \
+        E*, size_t const, hf_book*, hf_bitstream*, size_t*, size_t*, float*, cudaStream_t); \
                                                                                             \
-    template void psz::hf_decode_coarse<T, H, M>(                                           \
-        H*, uint8_t*, int const, M*, M*, int const, int const, T*, float*, cudaStream_t);
+    template void psz::hf_decode_coarse<E, H, M>(                                           \
+        H*, uint8_t*, int const, M*, M*, int const, int const, E*, float*, cudaStream_t);
 
 // 23-06-04 restricted to u4 for quantization code
 

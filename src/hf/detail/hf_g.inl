@@ -22,7 +22,7 @@
 using std::cout;
 
 #include "hf/hf.hh"
-#include "hf/hf_bookg.hh"
+#include "hf/hf_bk.hh"
 #include "hf/hf_codecg.hh"
 #include "type_traits.hh"
 #include "utils/cuda_err.cuh"
@@ -112,7 +112,7 @@ TEMPLATE_TYPE
 HuffmanCodec<T, H, M>* HuffmanCodec<T, H, M>::build_codebook(uint32_t* freq, int const booklen, cudaStream_t stream)
 {
     book_desc->freq = freq;
-    psz::hf_buildbook_g<T, H>(
+    psz::hf_buildbook<CUDA, T, H>(
         freq, booklen, book->dptr(), revbook->dptr(), revbook_bytes(booklen), &_time_book, stream);
 
     return this;
