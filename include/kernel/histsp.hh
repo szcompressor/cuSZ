@@ -18,7 +18,7 @@
 
 namespace psz {
 
-template <psz_policy Policy, typename T, typename FQ=uint32_t>
+template <pszpolicy Policy, typename T, typename FQ=uint32_t>
 int histsp(
     T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen, float* milliseconds,
     void* stream = nullptr);

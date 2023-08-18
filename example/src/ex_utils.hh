@@ -13,7 +13,7 @@
 template <typename T>
 uint32_t count_outlier(T* in, size_t inlen, int radius, void* stream);
 
-template <psz_policy policy, typename T>
+template <pszpolicy policy, typename T>
 void hist(
     bool optim, T* whole_numbers, size_t const len, uint32_t* hist,
     size_t const bklen, float* t, cudaStream_t stream)

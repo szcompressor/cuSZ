@@ -437,9 +437,9 @@ void pszctx_set_rawlen(cusz_context* ctx, size_t _x, size_t _y, size_t _z, size_
     if (ctx->data_len == 0) throw std::runtime_error("Input data length cannot be 0 (linearized).");
 }
 
-void pszctx_set_len(cusz_context* ctx, cusz_len len) { pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w); }
+void pszctx_set_len(cusz_context* ctx, pszlen len) { pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w); }
 
-void pszctx_set_config(cusz_context* ctx, cusz_config* config)
+void pszctx_set_config(cusz_context* ctx, pszrc* config)
 {
     ctx->eb   = config->eb;
     ctx->mode = config->mode;

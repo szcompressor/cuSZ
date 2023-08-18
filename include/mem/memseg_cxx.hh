@@ -21,7 +21,7 @@
 
 #include "memseg.h"
 #include "stat/compare_gpu.hh"
-#include "type_traits.hh"
+#include "typing.hh"
 
 enum pszmem_control_stream {
   Malloc,

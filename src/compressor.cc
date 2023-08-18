@@ -14,14 +14,14 @@
 
 #include "compressor.hh"
 #include "context.h"
-#include "framework.hh"
+#include "tehm.hh"
 #include "pipeline/compressor.inl"
 #include "utils/config.hh"
 
 // extra helper
 namespace cusz {
 
-int CompressorHelper::autotune_coarse_parvle(cusz_context* ctx)
+int CompressorHelper::autotune_coarse_parhf(cusz_context* ctx)
 {
     auto tune_coarse_huffman_sublen = [](size_t len) {
         int current_dev = 0;
@@ -55,7 +55,7 @@ int CompressorHelper::autotune_coarse_parvle(cusz_context* ctx)
 
 }  // namespace cusz
 
-using Ff4 = cusz::Framework<float>;
+using Ff4 = cusz::TEHM<float>;
 using CFf4 = cusz::Compressor<Ff4>;
 
 template class cusz::Compressor<Ff4>;

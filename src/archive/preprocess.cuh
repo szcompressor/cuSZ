@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#include "type_traits.hh"
+#include "typing.hh"
 #include "utils/configs.hh"
 
 using std::cout;

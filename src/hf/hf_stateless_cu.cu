@@ -16,7 +16,7 @@
 #include "hf/hf_bk.hh"
 #include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"
-#include "type_traits.hh"
+#include "typing.hh"
 
 template <typename T, typename H, typename M = uint32_t>
 psz_error_status hf_encode(

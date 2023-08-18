@@ -16,7 +16,7 @@
 #include "kernel/dryrun.cuh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "type_traits.hh"
+#include "typing.hh"
 #include "utils/analyzer.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"

@@ -89,9 +89,9 @@ void pszctx_validate(cusz_context* ctx);
 void pszctx_load_demo_datasize(cusz_context* ctx, void* demodata_name);
 
 void pszctx_set_rawlen(cusz_context* ctx, size_t _x, size_t _y, size_t _z, size_t _w);
-void pszctx_set_len(cusz_context* ctx, cusz_len len);
+void pszctx_set_len(cusz_context* ctx, pszlen len);
 void pszctx_set_report(cusz_context* ctx, const char* in_str);
-void pszctx_set_config(cusz_context* ctx, cusz_config* config);
+void pszctx_set_config(cusz_context* ctx, pszrc* config);
 void pszctx_set_radius(cusz_context* ctx, int _);
 void pszctx_set_huffbyte(cusz_context* ctx, int _);
 void pszctx_set_huffchunk(cusz_context* ctx, int _);

@@ -25,7 +25,7 @@ using std::cout;
 #include "hf/hf.hh"
 #include "hf/hf_bk.hh"
 #include "hf/hf_codecg.hh"
-#include "type_traits.hh"
+#include "typing.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/format.hh"
 

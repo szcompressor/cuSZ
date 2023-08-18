@@ -53,7 +53,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   float time_hist;
 
-  psz::histogram<psz_policy::CUDA, E>(
+  psz::histogram<pszpolicy::CUDA, E>(
       od->dptr(), len, ht->dptr(), booklen, &time_hist, stream);
 
   cusz::HuffmanCodec<E, H, u4> codec;

@@ -51,6 +51,7 @@ typedef struct alignas(128) cusz_header {
     // size_t   errctrl_len;
 
 } cusz_header;
+typedef cusz_header pszheader;
 
 #ifdef __cplusplus
 }

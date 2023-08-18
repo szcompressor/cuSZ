@@ -18,7 +18,7 @@
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
 #include "hf/hf_struct.h"
-#include "type_traits.hh"
+#include "typing.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/timer.h"

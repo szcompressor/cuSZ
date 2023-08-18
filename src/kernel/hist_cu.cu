@@ -87,7 +87,7 @@ cusz_error_status histogram_cuda(
 
 #define SPECIALIZE_HIST_CUDA(T)                                         \
   template <>                                                           \
-  cusz_error_status psz::histogram<psz_policy::CUDA, T>(          \
+  cusz_error_status psz::histogram<pszpolicy::CUDA, T>(          \
       T * in, size_t const inlen, uint32_t* out_hist, int const nbin,   \
       float* milliseconds, void* stream)                                \
   {                                                                     \

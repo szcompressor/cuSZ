@@ -18,7 +18,7 @@
 #include <cstdio>
 #include <limits>
 
-#include "type_traits.hh"
+#include "typing.hh"
 #include "utils/config.hh"
 #include "utils/timer.h"
 

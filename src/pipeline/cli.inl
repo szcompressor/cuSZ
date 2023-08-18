@@ -19,7 +19,7 @@
 #include "cusz.h"
 #include "cusz/type.h"
 #include "dryrun.hh"
-#include "framework.hh"
+#include "tehm.hh"
 #include "header.h"
 #include "mem/memseg_cxx.hh"
 #include "utils/analyzer.hh"
@@ -89,8 +89,8 @@ class CLI {
 
     TimeRecord timerecord;
 
-    cusz_config* config = new cusz_config{.eb = ctx->eb, .mode = Rel};
-    cusz_len uncomp_len = cusz_len{ctx->x, ctx->y, ctx->z, 1};
+    pszrc* config = new pszrc{.eb = ctx->eb, .mode = Rel};
+    pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
     cusz_compress(
         compressor, config, input->dptr(), uncomp_len, &compressed,
@@ -134,7 +134,7 @@ class CLI {
 
     TimeRecord timerecord;
 
-    cusz_len decomp_len = cusz_len{header->x, header->y, header->z, 1};
+    pszlen decomp_len = pszlen{header->x, header->y, header->z, 1};
 
     cusz_decompress(
         compressor, header, compressed->dptr(), psz_utils::filesize(header),
@@ -161,8 +161,8 @@ class CLI {
     // TODO disable predictor selection; to specify in another way
     // auto predictor = ctx->predictor;
 
-    cusz_framework* framework = cusz_default_framework();
-    cusz_compressor* compressor = cusz_create(framework, FP32);
+    cusz_framework* framework = pszdefault_framework();
+    cusz_compressor* compressor = cusz_create(framework, F4);
 
     cudaStream_t stream;
     CHECK_CUDA(cudaStreamCreate(&stream));

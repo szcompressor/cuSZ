@@ -60,10 +60,10 @@ bool test1_debug()
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  psz::histsp<psz_policy::CPU, T, uint32_t>(
+  psz::histsp<pszpolicy::CPU, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
-  psz::histsp<psz_policy::CUDA, T, uint32_t>(
+  psz::histsp<pszpolicy::CUDA, T, uint32_t>(
       in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
 
   o_gpusp->control({D2H});
@@ -147,13 +147,13 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  psz::histsp<psz_policy::CUDA, T, uint32_t>(
+  psz::histsp<pszpolicy::CUDA, T, uint32_t>(
       in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
 
-  psz::histogram<psz_policy::CUDA, T>(
+  psz::histogram<pszpolicy::CUDA, T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
 
-  psz::histsp<psz_policy::CPU, T, uint32_t>(
+  psz::histsp<pszpolicy::CPU, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   o_gpu->control({D2H});
@@ -264,10 +264,10 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   cudaStreamCreate(&stream);
 
   // run CPU and GPU reference
-  psz::histogram<psz_policy::CUDA, T>(
+  psz::histogram<pszpolicy::CUDA, T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, stream);
 
-  psz::histsp<psz_policy::CPU, T, uint32_t>(
+  psz::histsp<pszpolicy::CPU, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
   cudaStreamSynchronize(stream);
 

@@ -20,35 +20,33 @@ extern "C" {
 
 #include <stddef.h>
 
-#include "cusz/custom.h"
 #include "cusz/record.h"
 #include "cusz/type.h"
 #include "header.h"
 
-cusz_compressor* cusz_create(cusz_framework* framework, cusz_datatype const type);
+#define cusz_create psz_create
+#define cusz_release psz_release
+#define cusz_compress psz_compress
+#define cusz_decompress psz_decompress
 
-cusz_error_status cusz_release(cusz_compressor* comp);
+pszpredictor pszdefault_predictor();
+pszquantizer pszdefault_quantizer();
+pszhfrc pszdefault_hfcoder();
+pszframe* pszdefault_framework();
 
-cusz_error_status cusz_compress(
-    cusz_compressor* comp,
-    cusz_config*     config,
-    void*            uncompressed,
-    cusz_len const   uncomp_len,
-    uint8_t**        compressed,
-    size_t*          comp_bytes,
-    cusz_header*     header,
-    void*            record,
-    cudaStream_t     stream);
+pszcompressor* psz_create(pszframe* framework, pszdtype const type);
 
-cusz_error_status cusz_decompress(
-    cusz_compressor* comp,
-    cusz_header*     header,
-    uint8_t*         compressed,
-    size_t const     comp_len,
-    void*            decompressed,
-    cusz_len const   decomp_len,
-    void*            record,
-    cudaStream_t     stream);
+pszerror psz_release(pszcompressor* comp);
+
+pszerror psz_compress(
+    pszcompressor* comp, pszrc* config, void* uncompressed,
+    pszlen const uncomp_len, ptr_pszout compressed, size_t* comp_bytes,
+    pszheader* header, void* record, cudaStream_t stream);
+
+pszerror psz_decompress(
+    pszcompressor* comp, pszheader* header, pszout compressed,
+    size_t const comp_len, void* decompressed, pszlen const decomp_len,
+    void* record, cudaStream_t stream);
 
 #endif
 

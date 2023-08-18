@@ -18,7 +18,7 @@
 
 namespace psz {
 
-template <psz_policy Poilicy, typename T>
+template <pszpolicy Poilicy, typename T>
 cusz_error_status histogram(
     T* in, size_t const inlen, uint32_t* out_hist, int const outlen,
     float* milliseconds, void* stream = nullptr);

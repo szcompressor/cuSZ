@@ -12,7 +12,7 @@
  *
  */
 
-#include "type_traits.hh"
+#include "typing.hh"
 
 #include "hf/hf.hh"
 #include "hf/hf_bookg.hh"

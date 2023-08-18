@@ -21,7 +21,7 @@
 #include "busyheader.hh"
 #include "hf/hf_bookg.hh"
 #include "par_merge.inl"
-#include "type_traits.hh"
+#include "typing.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/format.hh"

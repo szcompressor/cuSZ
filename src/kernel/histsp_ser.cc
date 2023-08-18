@@ -82,7 +82,7 @@ int histsp_cpu_v2(
 
 #define SPECIALIZE_CPU(E)                                           \
   template <>                                                       \
-  int psz::histsp<psz_policy::CPU, E, uint32_t>(                         \
+  int psz::histsp<pszpolicy::CPU, E, uint32_t>(                         \
       E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen, \
       float* milliseconds, void* stream)                            \
   {                                                                 \

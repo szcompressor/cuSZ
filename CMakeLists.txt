@@ -130,12 +130,9 @@ add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu
 target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
                                       pszhfbook_cu pszhfbook_ser)
 
-add_library(psz_comp src/custom.cc src/compressor.cc)
+add_library(psz_comp src/compressor.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
                                       pszstat_cu pszhf_cu CUDA::cudart)
-
-# add_library(psz_comp2 src/psz_lib.cc src/rt_config.cu)
-# target_link_libraries(psz_comp2 PUBLIC pszcompile_settings CUDA::cudart)
 
 add_library(cusz src/cusz_lib.cc)
 target_link_libraries(
