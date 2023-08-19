@@ -10,15 +10,6 @@ option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 find_package(CUDAToolkit REQUIRED)
 
-# 23-06-05 disable CUB
-# find_package(CUB)
-# if(TARGET _CUB_CUB)
-#   install(TARGETS _CUB_CUB EXPORT CUSZTargets)
-#   if(TARGET _CUB_libcudacxx)
-#     install(TARGETS _CUB_libcudacxx EXPORT CUSZTargets)
-#   endif()
-# endif()
-
 include(GNUInstallDirs)
 include(CTest)
 
@@ -26,23 +17,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h)
 
 add_library(pszcompile_settings INTERFACE)
-
-# 23-06-05 disable CUB
-# if(CUB_FOUND)
-#   target_link_libraries(pszcompile_settings INTERFACE CUB::CUB)
-# else()
-#   message(
-#     WARNING
-#       "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub"
-#   )
-#   set(CMAKE_FIND_DEBUG_MODE TRUE)
-#   find_file(CUB_HEADER cub.cuh PATHS "${CUDAToolkit_INCLUDE_DIRS}/cub" REQUIRED)
-#   add_library(CUB INTERFACE)
-#   get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY)
-#   target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
-#   target_link_libraries(pszcompile_settings INTERFACE CUB)
-#   install(TARGETS CUB EXPORT CUSZTargets)
-# endif()
 
 target_compile_definitions(
   pszcompile_settings
