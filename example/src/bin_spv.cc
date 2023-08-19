@@ -13,7 +13,7 @@
 #include "kernel/spv_gpu.hh"
 #include "stat/compare_gpu.hh"
 #include "utils/io.hh"
-#include "utils/print_gpu.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
 template <typename T, typename H = uint32_t>
@@ -37,7 +37,7 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     /* a casual peek */
     printf("peeking data, 20 elements\n");
-    psz::peek_device_data<T>(d_d, 20);
+    psz::peek_data<T>(h_d, 20);
 
     cudaStream_t stream;
     cudaStreamCreate(&stream);
@@ -70,9 +70,11 @@ void f(std::string fname, size_t const x, size_t const y, size_t const z)
 
     cudaStreamDestroy(stream);
 
+    cudaMemcpy(h_xd, d_xd, sizeof(T) * len, cudaMemcpyDeviceToHost);
+
     /* a casual peek */
     printf("peeking xdata, 20 elements\n");
-    psz::peek_device_data<T>(d_xd, 20);
+    psz::peek_data<T>(h_xd, 20);
 }
 
 int main(int argc, char** argv)

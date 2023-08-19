@@ -20,7 +20,7 @@
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
-#include "utils/print_gpu.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
 #include <thrust/execution_policy.h>

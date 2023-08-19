@@ -11,7 +11,7 @@
 
 #include "cusz.h"
 #include "utils/io.hh"
-#include "utils/print_gpu.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
 template <typename T>
@@ -38,7 +38,7 @@ void f(std::string fname)
 
   /* a casual peek */
   printf("peeking uncompressed data, 20 elements\n");
-  psz::peek_device_data(d_uncomp, 20);
+  psz::peek_data(h_uncomp + len / 2, 20);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -107,7 +107,8 @@ void f(std::string fname)
 
   /* a casual peek */
   printf("peeking decompressed data, 20 elements\n");
-  psz::peek_device_data(d_decomp, 20);
+  cudaMemcpy(h_decomp, d_decomp, oribytes, cudaMemcpyDeviceToHost);
+  psz::peek_data(h_decomp + len / 2, 20);
 
   /* demo: offline checking (de)compression quality. */
   psz::eval_dataquality_gpu(d_decomp, d_uncomp, len, compressed_len);

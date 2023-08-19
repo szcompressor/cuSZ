@@ -15,7 +15,7 @@
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_gpu.hh"
-#include "utils/print_gpu.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
 std::string type_literal;
@@ -58,8 +58,8 @@ bool f(size_t const x, size_t const y, size_t const z, double const eb, int cons
         &time, stream);
     cudaStreamSynchronize(stream);
 
-    // psz::peek_device_data(oridata->uniptr(), 100);
-    // psz::peek_device_data(de_data->uniptr(), 100);
+    // psz::peek_data(oridata->uniptr(), 100);
+    // psz::peek_data(de_data->uniptr(), 100);
 
     size_t first_non_eb = 0;
     // bool   error_bounded = psz::thrustgpu_error_bounded<T>(de_data, oridata, len, eb, &first_non_eb);

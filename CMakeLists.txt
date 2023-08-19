@@ -76,7 +76,7 @@ target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 
-add_library(pszutils_cu src/utils/print_gpu.cu src/dryrun.cu)
+add_library(pszutils_cu src/dryrun.cu)
 target_link_libraries(pszutils_cu PUBLIC pszcompile_settings)
 
 add_library(pszspv_cu src/kernel/spv_gpu.cu)

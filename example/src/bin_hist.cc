@@ -15,7 +15,7 @@
 #include "kernel/histsp.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "utils/print_gpu.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 #include "ex_utils.hh"
 

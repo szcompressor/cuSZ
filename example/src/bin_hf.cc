@@ -15,7 +15,7 @@
 #include "kernel/hist.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "utils/print_gpu.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
 using B = uint8_t;
@@ -44,7 +44,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   /* a casual peek */
   printf("peeking data, 20 elements\n");
-  psz::peek_device_data<E>(od->dptr(), 20);
+  psz::peek_data<E>(od->control({D2H})->hptr(), 20);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -89,7 +89,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   /* a casual peek */
   printf("peeking xdata, 20 elements\n");
-  psz::peek_device_data<E>(xd->dptr(), 20);
+  psz::peek_data<E>(xd->control({D2H})->hptr(), 20);
 }
 
 int main(int argc, char** argv)
