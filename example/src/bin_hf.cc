@@ -12,9 +12,9 @@
 #include <string>
 
 #include "hf/hf.hh"
+#include "kernel/hist.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_gpu.hh"
-#include "kernel/hist.hh"
 #include "utils/print_gpu.hh"
 #include "utils/viewer.hh"
 
@@ -64,7 +64,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   // float  time;
   size_t outlen;
-  codec.build_codebook(ht->dptr(), booklen, stream);
+  codec.build_codebook(ht, booklen, stream);
   codec.encode(od->dptr(), len, &d_compressed, &outlen, stream);
 
   printf("Huffman in  len:\t%lu\n", len);
@@ -77,7 +77,8 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
   codec.decode(d_compressed, xd->dptr());
 
   // psz::cppstd_identical(h_xd, h_d, len);
-  auto identical = psz::thrustgpu_identical(xd->dptr(), od->dptr(), sizeof(E), len);
+  auto identical =
+      psz::thrustgpu_identical(xd->dptr(), od->dptr(), sizeof(E), len);
 
   if (identical)
     cout << ">>>>  IDENTICAL." << endl;

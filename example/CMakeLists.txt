@@ -39,6 +39,9 @@ target_link_libraries(bin_hist PRIVATE pszkernel_cu pszkernel_ser pszutils_cu
 # add_executable(bin_spv src/bin_spv.cc) target_link_libraries(bin_spv PRIVATE
 # pszspv_cu pszutils_cu pszstat_cu CUDA::cudart)
 
-add_executable(bin_hfserial src/bin_hfserial.cc)
-target_link_libraries(bin_hfserial PRIVATE pszhfbook_ser pszhf_cu pszmem
-                                           CUDA::cudart)
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  add_executable(bin_hfserial src/bin_hfserial.cc)
+  target_link_libraries(bin_hfserial PRIVATE pszhfbook_ser pszhf_cu pszmem
+                                             CUDA::cudart)
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)

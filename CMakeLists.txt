@@ -34,6 +34,9 @@ target_include_directories(
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
 
+option(CUSZ_RESEARCH_HUFFBK_GPU
+       "build research artifacts: create Huffman codebook on GPU" OFF)
+
 # seprate later
 add_library(psztime src/utils/timer_cpu.cc src/utils/timer_gpu.cc)
 target_link_libraries(psztime PUBLIC pszcompile_settings CUDA::cudart)
@@ -79,30 +82,41 @@ target_link_libraries(pszutils_cu PUBLIC pszcompile_settings)
 add_library(pszspv_cu src/kernel/spv_gpu.cu src/kernel/l23r_adhoc_cu.cu)
 target_link_libraries(pszspv_cu PUBLIC pszcompile_settings)
 
-add_library(pszhfbook_cu src/hf/hf_book1_cu.cu src/hf/hf_book2_cu.cu
-                         src/hf/hf_sort_cu.cu)
-target_link_libraries(pszhfbook_cu PUBLIC pszcompile_settings CUDA::cuda_driver)
-set_target_properties(pszhfbook_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)
-if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
-  message(
-    WARNING
-      "the cuda driver is a stub!! adding --allow-shlib-undefined to fix downstream linking issues"
-  )
-  target_link_options(pszhfbook_cu PUBLIC
-                      $<HOST_LINK:LINKER:--allow-shlib-undefined>)
-endif()
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  # define C/Cxx macro: https://stackoverflow.com/a/9017635
+  add_compile_definitions(ENABLE_HUFFBK_GPU)
+  add_library(pszhfbook_cu src/hf/hf_book1_cu.cu src/hf/hf_book2_cu.cu
+                           src/hf/hf_sort_cu.cu)
+  target_link_libraries(pszhfbook_cu PUBLIC pszcompile_settings
+                                            CUDA::cuda_driver)
+  set_target_properties(pszhfbook_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+  string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)
+  if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
+    message(
+      WARNING
+        "the cuda driver is a stub!! adding --allow-shlib-undefined to fix downstream linking issues"
+    )
+    target_link_options(pszhfbook_cu PUBLIC
+                        $<HOST_LINK:LINKER:--allow-shlib-undefined>)
+  endif()
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+# cmake option on-and-off-cache: https://stackoverflow.com/a/48984477
+unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 add_library(
-  pszhfbook_ser
-  src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc src/hf/hf_canon.cc 
-  src/archive/canonical.cu src/hf/hf_bk.cc)
+  pszhfbook_ser src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc
+                src/hf/hf_canon.cc src/hf/hf_bk.cc)
 target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 
-add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu
-                     src/hf/hf_stateless_cu.cu)
-target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
-                                      pszhfbook_cu pszhfbook_ser)
+add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu)
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
+                                        pszhfbook_cu pszhfbook_ser)
+else()
+  target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
+                                        pszhfbook_ser CUDA::cuda_driver)
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 add_library(psz_comp src/compressor.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
@@ -145,11 +159,15 @@ install(TARGETS pszutils_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTA
 install(TARGETS psztime EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszspv_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhfbook_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhf_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_comp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
+
 install(
   EXPORT CUSZTargets
   NAMESPACE CUSZ::
