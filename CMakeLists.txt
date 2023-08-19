@@ -79,7 +79,7 @@ target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 add_library(pszutils_cu src/utils/print_gpu.cu src/dryrun.cu)
 target_link_libraries(pszutils_cu PUBLIC pszcompile_settings)
 
-add_library(pszspv_cu src/kernel/spv_gpu.cu src/kernel/l23r_adhoc_cu.cu)
+add_library(pszspv_cu src/kernel/spv_gpu.cu)
 target_link_libraries(pszspv_cu PUBLIC pszcompile_settings)
 
 if(CUSZ_RESEARCH_HUFFBK_GPU)

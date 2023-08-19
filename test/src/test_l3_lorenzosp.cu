@@ -138,7 +138,7 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     // //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 
-    psz_adhoc_scttr(
+   psz::spv_scatter<T, u4>(
         compact_outlier.val(), compact_outlier.idx(), compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
 
     psz_decomp_l23<T, EQ, FP>(
