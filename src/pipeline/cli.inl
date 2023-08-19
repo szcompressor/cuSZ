@@ -19,9 +19,9 @@
 #include "cusz.h"
 #include "cusz/type.h"
 #include "dryrun.hh"
-#include "tehm.hh"
 #include "header.h"
 #include "mem/memseg_cxx.hh"
+#include "tehm.hh"
 #include "utils/analyzer.hh"
 #include "utils/cuda_err.cuh"
 #include "utils/query.hh"
@@ -38,7 +38,7 @@ class CLI {
   CLI() = default;
 
   template <typename T>
-  static void do_dryrun(cusz_context* ctx, bool dualquant = true)
+  static void do_dryrun(pszctx* ctx, bool dualquant = true)
   {
     Dryrunner<T> dryrun;
 
@@ -68,13 +68,13 @@ class CLI {
 
   // template <typename compressor_t>
   void do_construct(
-      cusz_context* ctx, cusz_compressor* compressor, cudaStream_t stream)
+      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
   {
     auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
 
     uint8_t* compressed;
     size_t compressed_len;
-    cusz_header header;
+    pszheader header;
 
     input->control({MallocHost, Malloc})
         ->file(ctx->infile, FromFile)
@@ -92,9 +92,11 @@ class CLI {
     pszrc* config = new pszrc{.eb = ctx->eb, .mode = Rel};
     pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
-    cusz_compress(
-        compressor, config, input->dptr(), uncomp_len, &compressed,
-        &compressed_len, &header, (void*)&timerecord, stream);
+    psz_compress_init(compressor, uncomp_len, config);
+
+    psz_compress(
+        compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
+        &header, (void*)&timerecord, stream);
 
     if (ctx->report_time)
       TimeRecordViewer::view_compression(
@@ -107,7 +109,7 @@ class CLI {
 
   // template <typename compressor_t>
   void do_reconstruct(
-      cusz_context* ctx, cusz_compressor* compressor, cudaStream_t stream)
+      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
@@ -136,8 +138,9 @@ class CLI {
 
     pszlen decomp_len = pszlen{header->x, header->y, header->z, 1};
 
-    cusz_decompress(
-        compressor, header, compressed->dptr(), psz_utils::filesize(header),
+    psz_decompress_init(compressor, header);
+    psz_decompress(
+        compressor, compressed->dptr(), psz_utils::filesize(header),
         decompressed->dptr(), decomp_len, (void*)&timerecord, stream);
 
     if (ctx->report_time)
@@ -156,7 +159,7 @@ class CLI {
 
  public:
   // TODO determine dtype & predictor in here
-  void dispatch(cusz_context* ctx)
+  void dispatch(pszctx* ctx)
   {
     // TODO disable predictor selection; to specify in another way
     // auto predictor = ctx->predictor;

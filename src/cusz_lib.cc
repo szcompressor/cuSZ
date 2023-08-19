@@ -14,6 +14,7 @@
 #include "compressor.hh"
 #include "context.h"
 #include "cusz.h"
+#include "cusz/type.h"
 #include "hf/hf.hh"
 #include "tehm.hh"
 
@@ -48,28 +49,37 @@ pszerror psz_release(pszcompressor* comp)
   return CUSZ_SUCCESS;
 }
 
-pszerror psz_compress(
-    pszcompressor* comp, pszrc* config, void* uncompressed,
-    pszlen const uncomp_len, ptr_pszout compressed, size_t* comp_bytes,
-    pszheader* header, void* record, cudaStream_t stream)
+pszerror psz_compress_init(
+    pszcompressor* comp, pszlen const uncomp_len, pszrc* config)
 {
-  // cusz::TimeRecord cpp_record;
-
-  auto ctx = new cusz_context;
-
-  pszctx_set_len(ctx, uncomp_len);
-
-  ctx->eb = config->eb;
-  ctx->mode = config->mode;
-
+  comp->ctx = new pszctx;
+  pszctx_set_len(comp->ctx, uncomp_len);
+  comp->ctx->eb = config->eb;
+  comp->ctx->mode = config->mode;
   // Be cautious of autotuning! The default value of pardeg is not robust.
-  cusz::CompressorHelper::autotune_coarse_parhf(ctx);
+  cusz::CompressorHelper::autotune_coarse_parhf(comp->ctx);
 
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);
+    cor->init(comp->ctx);
+  }
+  else {
+    throw std::runtime_error(
+        std::string(__FUNCTION__) + ": Type is not supported.");
+  }
 
-    cor->init(ctx);
-    cor->compress(ctx, (f4*)(uncompressed), *compressed, *comp_bytes, stream);
+  return CUSZ_SUCCESS;
+}
+
+pszerror psz_compress(
+    pszcompressor* comp, void* in, pszlen const uncomp_len,
+    ptr_pszout compressed, size_t* comp_bytes, pszheader* header, void* record,
+    cudaStream_t stream)
+{
+  if (comp->type == F4) {
+    auto cor = (cusz::CompressorF4*)(comp->compressor);
+
+    cor->compress(comp->ctx, (f4*)(in), *compressed, *comp_bytes, stream);
     cor->export_header(*header);
     cor->export_timerecord((cusz::TimeRecord*)record);
   }
@@ -81,18 +91,30 @@ pszerror psz_compress(
   return CUSZ_SUCCESS;
 }
 
-pszerror psz_decompress(
-    pszcompressor* comp, pszheader* header, pszout compressed,
-    size_t const comp_len, void* decompressed, pszlen const decomp_len,
-    void* record, cudaStream_t stream)
+pszerror psz_decompress_init(pszcompressor* comp, pszheader* header)
 {
-  // cusz::TimeRecord cpp_record;
+  comp->header = header;
+  if (comp->type == F4) {
+    auto cor = (cusz::CompressorF4*)(comp->compressor);
+    cor->init(header);
+  }
+  else {
+    throw std::runtime_error(
+        std::string(__FUNCTION__) + ": Type is not supported.");
+  }
 
+  return CUSZ_SUCCESS;
+}
+
+pszerror psz_decompress(
+    pszcompressor* comp, pszout compressed, size_t const comp_len,
+    void* decompressed, pszlen const decomp_len, void* record,
+    cudaStream_t stream)
+{
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
-    cor->init(header);
-    cor->decompress(header, compressed, (f4*)(decompressed), stream);
+    cor->decompress(comp->header, compressed, (f4*)(decompressed), stream);
     cor->export_timerecord((cusz::TimeRecord*)record);
   }
   else {

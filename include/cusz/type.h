@@ -172,8 +172,16 @@ typedef struct cusz_framework {
 typedef cusz_framework pszframework;
 typedef cusz_framework pszframe;
 
+struct cusz_context;
+typedef struct cusz_context pszctx;
+
+struct cusz_header;
+typedef struct cusz_header pszheader;
+
 typedef struct cusz_compressor {
   void* compressor;
+  pszctx* ctx;
+  pszheader* header;
   pszframe* framework;
   pszdtype type;
 } cusz_compressor;

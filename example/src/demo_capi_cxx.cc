@@ -25,16 +25,16 @@ void f(std::string fname)
   uint8_t* compressed_buf;
   size_t compressed_len;
 
-  T *d_ori, *h_ori;
-  T *d_reconst, *h_reconst;
+  T *d_uncomp, *h_uncomp;
+  T *d_decomp, *h_decomp;
 
   auto oribytes = sizeof(T) * len;
-  cudaMalloc(&d_ori, oribytes), cudaMallocHost(&h_ori, oribytes);
-  cudaMalloc(&d_reconst, oribytes), cudaMallocHost(&h_reconst, oribytes);
+  cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
+  cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
 
   /* User handles loading from filesystem & transferring to device. */
-  io::read_binary_to_array(fname, h_ori, len);
-  cudaMemcpy(d_ori, h_ori, oribytes, cudaMemcpyHostToDevice);
+  io::read_binary_to_array(fname, h_uncomp, len);
+  cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -59,13 +59,14 @@ void f(std::string fname)
   cusz::TimeRecord decompress_timerecord;
 
   {
-    cusz_compress(
-        comp, config, d_ori, uncomp_len, &ptr_compressed, &compressed_len,
-        &header, (void*)&compress_timerecord, stream);
+    psz_compress_init(comp, uncomp_len, config);
+    psz_compress(
+        comp, d_uncomp, uncomp_len, &ptr_compressed, &compressed_len, &header,
+        (void*)&compress_timerecord, stream);
 
     /* User can interpret the collected time information in other ways. */
     cusz::TimeRecordViewer::view_compression(
-        &compress_timerecord, len * sizeof(T), compressed_len);
+        &compress_timerecord, oribytes, compressed_len);
 
     /* verify header */
     printf("header.%-*s : %x\n", 12, "(addr)", &header);
@@ -84,22 +85,23 @@ void f(std::string fname)
       cudaMemcpyDeviceToDevice);
 
   {
-    cusz_decompress(
-        comp, &header, ptr_compressed, compressed_len, d_reconst, decomp_len,
+    psz_decompress_init(comp, &header);
+    psz_decompress(
+        comp, ptr_compressed, compressed_len, d_decomp, decomp_len,
         (void*)&decompress_timerecord, stream);
 
-    cusz::TimeRecordViewer::view_decompression(&decompress_timerecord, len *
-    sizeof(T));
+    cusz::TimeRecordViewer::view_decompression(
+        &decompress_timerecord, oribytes);
   }
 
   /* demo: offline checking (de)compression quality. */
-  psz::eval_dataquality_gpu(d_reconst, d_ori, len, compressed_len);
+  psz::eval_dataquality_gpu(d_decomp, d_uncomp, len, compressed_len);
 
   cusz_release(comp);
 
   cudaFree(compressed_buf);
-  cudaFree(d_ori), cudaFreeHost(h_ori);
-  cudaFree(d_reconst), cudaFreeHost(h_reconst);
+  cudaFree(d_uncomp), cudaFreeHost(h_uncomp);
+  cudaFree(d_decomp), cudaFreeHost(h_decomp);
 
   cudaStreamDestroy(stream);
 }

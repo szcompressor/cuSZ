@@ -25,22 +25,20 @@ void f(std::string fname)
   uint8_t* compressed;
   size_t compressed_len;
 
-  T *d_uncompressed, *h_uncompressed;
-  T *d_decompressed, *h_decompressed;
+  T *d_uncomp, *h_uncomp;
+  T *d_decomp, *h_decomp;
 
-  cudaMalloc(&d_uncompressed, sizeof(T) * len),
-      cudaMallocHost(&h_uncompressed, sizeof(T) * len);
-  cudaMalloc(&d_decompressed, sizeof(T) * len),
-      cudaMallocHost(&h_decompressed, sizeof(T) * len);
+  auto oribytes = sizeof(T) * len;
+  cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
+  cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
 
   /* User handles loading from filesystem & transferring to device. */
-  io::read_binary_to_array(fname, h_uncompressed, len);
-  cudaMemcpy(
-      d_uncompressed, h_uncompressed, sizeof(T) * len, cudaMemcpyHostToDevice);
+  io::read_binary_to_array(fname, h_uncomp, len);
+  cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
 
   /* a casual peek */
   printf("peeking uncompressed data, 20 elements\n");
-  psz::peek_device_data(d_uncompressed, 20);
+  psz::peek_device_data(d_uncomp, 20);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -72,13 +70,14 @@ void f(std::string fname)
   cusz::TimeRecord decompress_timerecord;
 
   {
-    cusz_compress(
-        comp, config, d_uncompressed, uncomp_len, &exposed_compressed,
-        &compressed_len, &header, (void*)&compress_timerecord, stream);
+    psz_compress_init(comp, uncomp_len, config);
+    psz_compress(
+        comp, d_uncomp, uncomp_len, &exposed_compressed, &compressed_len,
+        &header, (void*)&compress_timerecord, stream);
 
     /* User can interpret the collected time information in other ways. */
     cusz::TimeRecordViewer::view_compression(
-        &compress_timerecord, len * sizeof(T), compressed_len);
+        &compress_timerecord, oribytes, compressed_len);
 
     /* verify header */
     printf("header.%-*s : %x\n", 12, "(addr)", &header);
@@ -97,21 +96,21 @@ void f(std::string fname)
       cudaMemcpyDeviceToDevice);
 
   {
-    cusz_decompress(
-        comp, &header, exposed_compressed, compressed_len, d_decompressed,
-        decomp_len, (void*)&decompress_timerecord, stream);
+    psz_decompress_init(comp, &header);
+    psz_decompress(
+        comp, exposed_compressed, compressed_len, d_decomp, decomp_len,
+        (void*)&decompress_timerecord, stream);
 
     cusz::TimeRecordViewer::view_decompression(
-        &decompress_timerecord, len * sizeof(T));
+        &decompress_timerecord, oribytes);
   }
 
   /* a casual peek */
   printf("peeking decompressed data, 20 elements\n");
-  psz::peek_device_data(d_decompressed, 20);
+  psz::peek_device_data(d_decomp, 20);
 
   /* demo: offline checking (de)compression quality. */
-  psz::eval_dataquality_gpu(
-      d_decompressed, d_uncompressed, len, compressed_len);
+  psz::eval_dataquality_gpu(d_decomp, d_uncomp, len, compressed_len);
 
   cusz_release(comp);
 
