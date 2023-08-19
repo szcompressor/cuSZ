@@ -14,6 +14,8 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/equal.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/execution_policy.h>
 #include <thrust/tuple.h>
 
 #include "cusz/type.h"
