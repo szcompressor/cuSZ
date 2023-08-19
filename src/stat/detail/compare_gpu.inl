@@ -87,10 +87,10 @@ void thrustgpu_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t len)
     s->max_err.rel    = max_abserr / s->odata.rng;
     s->max_err.pwrrel = NAN;
 
-    s->reduced.coeff = ee / std_odata / std_xdata;
-    s->reduced.MSE   = sum_err2 / len;
-    s->reduced.NRMSE = sqrt(s->reduced.MSE) / s->odata.rng;
-    s->reduced.PSNR  = 20 * log10(s->odata.rng) - 10 * log10(s->reduced.MSE);
+    s->score.coeff = ee / std_odata / std_xdata;
+    s->score.MSE   = sum_err2 / len;
+    s->score.NRMSE = sqrt(s->score.MSE) / s->odata.rng;
+    s->score.PSNR  = 20 * log10(s->odata.rng) - 10 * log10(s->score.MSE);
 }
 
 }  // namespace psz

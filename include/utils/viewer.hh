@@ -62,8 +62,8 @@ static void print_metrics_cross(
 
   printhead("", "CR", "NRMSE", "cross-cor", "PSNR");
   println(
-      "metrics", bytes / compressed_bytes, s->reduced.NRMSE, s->reduced.coeff,
-      s->reduced.PSNR);
+      "metrics", bytes / compressed_bytes, s->score.NRMSE, s->score.coeff,
+      s->score.PSNR);
 
   // printf("\n");
 };
@@ -98,7 +98,7 @@ static void eval_dataquality_gpu(
       stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
-      &stat_auto_lag1->reduced.coeff, &stat_auto_lag2->reduced.coeff);
+      &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 }
 
 template <typename T>
@@ -130,7 +130,7 @@ static void eval_dataquality_cpu(
   cusz::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
-      &stat_auto_lag1->reduced.coeff, &stat_auto_lag2->reduced.coeff);
+      &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   if (from_device) {
     if (reconstructed) cudaFreeHost(reconstructed);

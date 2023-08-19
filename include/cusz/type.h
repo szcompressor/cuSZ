@@ -240,7 +240,7 @@ typedef struct Res {
 typedef struct cusz_stats {
   // clang-format off
     Res odata, xdata;
-    struct { double PSNR, MSE, NRMSE, coeff; } reduced;
+    struct { double PSNR, MSE, NRMSE, coeff; } score;
     struct { double abs, rel, pwrrel; size_t idx; } max_err;
     struct { double lag_one, lag_two; } autocor;
     double user_eb;
