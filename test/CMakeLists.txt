@@ -2,27 +2,12 @@
 add_library(psz_testutils src/rand.cc src/rand_g.cc)
 target_link_libraries(psz_testutils CUDA::cudart CUDA::curand)
 
-# TODO include test_l23_utils.hh
-
-# # testing the utils add_executable(utils src/utils.cc)
-# target_link_directories(utils PRIVATE psz_testutils pszstat_ser pszstat_cu
-# pszutils_cu CUDA::cudart) add_test(test_utils utils)
-
-# add_executable(pred_hl src/spv.cu) target_link_libraries(pred_hl PRIVATE
-# pszspv_cu psz_testutils) add_test(test_pred_hl pred_hl)
-
-# # testing sp vector
+# testing sp vector
 add_executable(l3_spv src/test_l3_spv.cu)
 target_link_libraries(l3_spv PRIVATE pszspv_cu psz_testutils)
 add_test(test_l3_spv l3_spv)
 
-# add_executable(l4_spv_obj src/test_l4_spv_obj.cu)
-# target_link_libraries(l4_spv_obj PRIVATE pszspv_cu psz_testutils)
-# add_test(test_l4_spv_obj l4_spv_obj)
-
-# # testing hf add_executable(hf_hl src/spv.cu) target_link_libraries(hf_hl
-# PRIVATE pszspv_cu psz_testutils) add_test(test_hf_hl hf_hl)
-
+# testing timer wrapper
 # add_executable(tcpu src/tcpu.c) target_link_libraries(tcpu PRIVATE psztime)
 # add_test(test_tcpu tcpu)
 
@@ -63,14 +48,10 @@ target_link_libraries(
                        pszstat_cu)
 add_test(test_l2_cudaproto l2_cudaproto)
 
-# TODO cross-validation add_test(test_l1_cuda  l1_cuda) 2023 May fix
-add_executable(l2_histsp src2/test_l2_histsp.cu)
+add_executable(l2_histsp src/test_l2_histsp.cu)
 target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_cu
                                         pszkernel_cu pszkernel_ser pszstat_ser)
 add_test(test_l2_histsp l2_histsp)
-# 2023 May fix end
-
-# TODO cross-validation add_test(test_l1_cuda  l1_cuda)
 
 # Level-3 kernel with configuration (low-level API)
 add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
