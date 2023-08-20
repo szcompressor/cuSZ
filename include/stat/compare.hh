@@ -55,12 +55,15 @@ bool error_bounded(
     T* a, T* b, size_t const len, double const eb,
     size_t* first_faulty_idx = nullptr)
 {
-  if (P == CPU)
-    cppstd_error_bounded(a, b, len, eb, first_faulty_idx);
+  bool eb_ed = true;
+  if (P == CPU) eb_ed = cppstd_error_bounded(a, b, len, eb, first_faulty_idx);
+#ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
-    thrustgpu_error_bounded(a, b, len, eb, first_faulty_idx);
+    eb_ed = thrustgpu_error_bounded(a, b, len, eb, first_faulty_idx);
+#endif
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
+  return eb_ed;
 }
 
 template <pszpolicy P, typename T>

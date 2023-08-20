@@ -150,8 +150,8 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     de_data->control({D2H});
 
     size_t first_non_eb = 0;
-    // bool   error_bounded = psz::thrustgpu_error_bounded<T>(de_data, oridata, len, eb, &first_non_eb);
-    bool error_bounded = psz::cppstd_error_bounded<T>(de_data->hptr(), oridata->hptr(), len, eb, &first_non_eb);
+    // bool   error_bounded = psz::error_bounded<THRUST, T>(de_data, oridata, len, eb, &first_non_eb);
+    bool error_bounded = psz::error_bounded<CPU, T>(de_data->hptr(), oridata->hptr(), len, eb, &first_non_eb);
 
     // psz::eval_dataquality_gpu(oridata->dptr(), de_data->dptr(), len);
 

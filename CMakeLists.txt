@@ -64,7 +64,7 @@ else()
     pszstat_cu
     src/stat/extrema_cu.cu
     src/stat/cmpg2.cu
-    src/stat/cmpg3.cu
+    # src/stat/cmpg3.cu
     src/stat/cmpg4_1.cu
     src/stat/cmpg4_2.cu
     src/stat/cmpg5_1.cu
