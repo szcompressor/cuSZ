@@ -80,6 +80,7 @@ typedef int32_t i4;
 typedef int64_t i8;
 typedef float f4;
 typedef double f8;
+typedef size_t szt;
 
 typedef enum cusz_executiontype  //
 { Device = 0,
