@@ -8,6 +8,7 @@ target_link_libraries(l3_spv PRIVATE pszspv_cu psz_testutils)
 add_test(test_l3_spv l3_spv)
 
 # testing timer wrapper
+
 # add_executable(tcpu src/tcpu.c) target_link_libraries(tcpu PRIVATE psztime)
 # add_test(test_tcpu tcpu)
 
@@ -80,3 +81,14 @@ target_link_libraries(
           # CUDA::cudart
 )
 add_test(test_l3_lorenzosp l3_lorenzosp)
+
+if(CUSZ_REACTIVATE_THRUSTGPU)
+  add_compile_definitions(REACTIVATE_THRUSTGPU)
+  add_executable(statfn src/test_statfn.cc)
+  target_link_libraries(statfn PRIVATE psztestcompile_settings psz_testutils
+                                       pszstat_cu pszstat_ser pszmem)
+else()
+  add_executable(statfn src/test_statfn.cc)
+  target_link_libraries(statfn PRIVATE psztestcompile_settings psz_testutils
+                                       pszstat_cu pszstat_ser pszmem)
+endif()

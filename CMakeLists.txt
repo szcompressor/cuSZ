@@ -36,6 +36,8 @@ target_include_directories(
 
 option(CUSZ_RESEARCH_HUFFBK_GPU
        "build research artifacts: create Huffman codebook on GPU" OFF)
+option(CUSZ_REACTIVATE_THRUSTGPU
+       "build previously thrust implemented functions" OFF)
 
 # seprate later
 add_library(psztime src/utils/timer_cpu.cc src/utils/timer_gpu.cc)
@@ -44,19 +46,30 @@ target_link_libraries(psztime PUBLIC pszcompile_settings CUDA::cudart)
 add_library(pszstat_ser src/stat/compare_cpu.cc)
 target_link_libraries(pszstat_ser PUBLIC pszcompile_settings)
 
-add_library(
-  pszstat_cu
-  src/stat/cmpg1_1.cu
-  src/stat/cmpg1_2.cu
-  src/stat/cmpg1_3.cu
-  src/stat/cmpg1_4.cu
-  src/stat/cmpg1_5.cu
-  src/stat/cmpg2.cu
-  src/stat/cmpg3.cu
-  src/stat/cmpg4_1.cu
-  src/stat/cmpg4_2.cu
-  src/stat/cmpg5_1.cu
-  src/stat/cmpg5_2.cu)
+if(CUSZ_REACTIVATE_THRUSTGPU)
+  add_compile_definitions(REACTIVATE_THRUSTGPU)
+  add_library(
+    pszstat_cu
+    src/stat/extrema_cu.cu
+    src/stat/cmpg1_4.cu
+    src/stat/cmpg1_5.cu
+    src/stat/cmpg2.cu
+    src/stat/cmpg3.cu
+    src/stat/cmpg4_1.cu
+    src/stat/cmpg4_2.cu
+    src/stat/cmpg5_1.cu
+    src/stat/cmpg5_2.cu)
+else()
+  add_library(
+    pszstat_cu
+    src/stat/extrema_cu.cu
+    src/stat/cmpg2.cu
+    src/stat/cmpg3.cu
+    src/stat/cmpg4_1.cu
+    src/stat/cmpg4_2.cu
+    src/stat/cmpg5_1.cu
+    src/stat/cmpg5_2.cu)
+endif()
 target_link_libraries(pszstat_cu PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}

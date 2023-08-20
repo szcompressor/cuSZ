@@ -15,7 +15,7 @@
 #include "context.h"
 #include "kernel/dryrun.cuh"
 #include "mem/memseg_cxx.hh"
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 #include "typing.hh"
 #include "utils/analyzer.hh"
 #include "utils/config.hh"

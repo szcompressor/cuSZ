@@ -12,7 +12,7 @@
 #ifndef C9DB8B27_F5D7_454F_9485_CAD4B2FE4A92
 #define C9DB8B27_F5D7_454F_9485_CAD4B2FE4A92
 
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 
 #include <thrust/device_ptr.h>
 // #include <thrust/device_vector.h>

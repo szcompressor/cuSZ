@@ -12,7 +12,7 @@
 #ifndef C6875E14_650F_49ED_9DD5_E7F916EE31FF
 #define C6875E14_650F_49ED_9DD5_E7F916EE31FF
 
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 
 // #include <thrust/count.h>
 // #include <thrust/iterator/constant_iterator.h>

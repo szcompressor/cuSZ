@@ -17,7 +17,8 @@
 
 #include "busyheader.hh"
 #include "compare_cpu.hh"
-#include "compare_gpu.hh"
+#include "compare_cu.hh"
+#include "compare_thrust.hh"
 #include "cusz/type.h"
 
 namespace psz {
@@ -30,19 +31,23 @@ bool identical(T* d1, T* d2, size_t const len)
   else if (P == THRUST)
     thrustgpu_identical(d1, d2, len);
   else {
-    throw runtime_error(__FUNCTION__ + ": backend not supported.");
+    throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
   }
 }
 
 template <pszpolicy P, typename T>
-void get_extrema(T* d_ptr, size_t len, T res[4])
+void probe_extrema(T* in, size_t len, T res[4])
 {
-  if (P == THRUST)
-    thrustgpu_get_extrema_rawptr(d_ptr, len, res[4]);
+  if (P == CPU) cppstd_extrema(in, len, res);
+#ifdef REACTIVATE_THRUSTGPU
+  else if (P == THRUST)
+    thrustgpu_get_extrema_rawptr(in, len, res);
+#endif
   else if (P == CUDA) {
+    cuda_extrema(in, len, res);
   }
   else
-    throw runtime_error(__FUNCTION__ + ": backend not supported.");
+    throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
 
 template <pszpolicy P, typename T>
@@ -55,7 +60,7 @@ bool error_bounded(
   else if (P == THRUST)
     thrustgpu_error_bounded(a, b, len, eb, first_faulty_idx);
   else
-    throw runtime_error(__FUNCTION__ + ": backend not supported.");
+    throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
 
 template <pszpolicy P, typename T>
@@ -66,7 +71,7 @@ void assess_quality(pszsummary* s, T* xdata, T* odata, size_t const len)
   else if (P == THRUST)
     thrustgpu_assess_quality(s, xdata, odata, len);
   else
-    throw runtime_error(__FUNCTION__ + ": backend not supported.");
+    throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
 
 }  // namespace psz

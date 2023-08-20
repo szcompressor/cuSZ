@@ -19,7 +19,7 @@
 
 #include "header.h"
 #include "mem/memseg_cxx.hh"
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 #include "verify.hh"
 
 namespace psz {

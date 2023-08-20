@@ -10,7 +10,7 @@
  */
 
 #include "detail/equal_thrust.inl"
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 #include "cusz/type.h"
 
 bool psz::thrustgpu_identical(void* d1, void* d2, size_t sizeof_T, size_t const len)

@@ -10,7 +10,7 @@
  */
 
 #include "detail/equal_thrust.inl"
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 
 #define THRUSTGPU_COMPARE_LOSSY(Tliteral, T)       \
     template bool psz::thrustgpu_error_bounded<T>( \

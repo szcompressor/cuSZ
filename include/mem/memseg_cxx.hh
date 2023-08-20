@@ -19,8 +19,10 @@
 #include <type_traits>
 #include <vector>
 
+#include "cusz/type.h"
 #include "memseg.h"
-#include "stat/compare_gpu.hh"
+#include "stat/compare.hh"
+#include "stat/compare_thrust.hh"
 #include "typing.hh"
 
 enum pszmem_control_stream {
@@ -77,7 +79,9 @@ class pszmem_cxx {
         std::is_same<Ctype, double>::value) {
       // may not work for _uniptr
       Ctype result[4];
-      psz::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d, m->len, result);
+      // psz::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d, m->len,
+      // result);
+      psz::probe_extrema<CUDA, Ctype>((Ctype*)m->d, m->len, result);
 
       min_value = result[0];
       max_value = result[1];

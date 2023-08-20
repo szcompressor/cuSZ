@@ -20,6 +20,9 @@ template <typename T>
 bool cppstd_identical(T* d1, T* d2, size_t const len);
 
 template <typename T>
+void cppstd_extrema(T* in, szt const len, T res[4]);
+
+template <typename T>
 bool cppstd_error_bounded(
     T* a, T* b, szt const len, f8 const eb, szt* first_faulty_idx = nullptr);
 

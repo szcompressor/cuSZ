@@ -28,7 +28,7 @@ namespace testutils {
 namespace cuda {
 
 template <typename T>
-void rand_array(T* array, size_t len);
+void rand_array(T* array, size_t len, uint32_t seed = 0x2468);
 
 }
 }  // namespace testutils

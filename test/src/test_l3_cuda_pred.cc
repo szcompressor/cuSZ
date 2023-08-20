@@ -14,7 +14,7 @@
 #include "mem/memseg_cxx.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 

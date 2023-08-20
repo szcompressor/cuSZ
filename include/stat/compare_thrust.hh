@@ -1,5 +1,5 @@
 /**
- * @file compare_gpu.hh
+ * @file compare_thrust.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.3
