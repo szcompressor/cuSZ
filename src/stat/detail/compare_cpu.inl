@@ -19,7 +19,6 @@
 #include "cusz/type.h"
 
 namespace psz {
-namespace detail {
 
 template <typename T>
 bool cppstd_identical(T* d1, T* d2, size_t const len)
@@ -103,7 +102,6 @@ void cppstd_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t const len)
     s->score.PSNR  = 20 * log10(s->odata.rng) - 10 * log10(s->score.MSE);
 }
 
-}  // namespace detail
 }  // namespace psz
 
 #endif /* C0E747B4_066F_4B04_A3D2_00E1A3B7D682 */

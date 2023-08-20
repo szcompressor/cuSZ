@@ -10,7 +10,6 @@
  */
 
 #include "detail/compare_gpu.inl"
-#include "stat/compare.h"
 #include "stat/compare_gpu.hh"
 
 #define THRUSTGPU_ASSESS(Tliteral, T) \

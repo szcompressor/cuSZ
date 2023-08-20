@@ -10,7 +10,6 @@
  */
 
 #include "detail/maxerr_thrust.inl"
-#include "stat/compare.h"
 #include "stat/compare_gpu.hh"
 
 #define THRUSTGPU_ASSESS(Tliteral, T)           \

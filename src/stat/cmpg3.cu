@@ -10,7 +10,6 @@
  */
 
 #include "detail/equal_thrust.inl"
-#include "stat/compare.h"
 #include "stat/compare_gpu.hh"
 
 #define THRUSTGPU_COMPARE_LOSSY(Tliteral, T)       \

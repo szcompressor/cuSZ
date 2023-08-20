@@ -10,7 +10,6 @@
  */
 
 #include "detail/equal_thrust.inl"
-#include "stat/compare.h"
 #include "stat/compare_gpu.hh"
 #include "cusz/type.h"
 
