@@ -101,7 +101,7 @@ if(CUSZ_RESEARCH_HUFFBK_GPU)
   endif()
 endif(CUSZ_RESEARCH_HUFFBK_GPU)
 # cmake option on-and-off-cache: https://stackoverflow.com/a/48984477
-unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
+# unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 add_library(
   pszhfbook_ser src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc
@@ -116,7 +116,7 @@ else()
   target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
                                         pszhfbook_ser CUDA::cuda_driver)
 endif(CUSZ_RESEARCH_HUFFBK_GPU)
-unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
+# unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 add_library(psz_comp src/compressor.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
@@ -166,7 +166,6 @@ install(TARGETS cusz-bin EXPORT CUSZTargets)
 if(CUSZ_RESEARCH_HUFFBK_GPU)
   install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif(CUSZ_RESEARCH_HUFFBK_GPU)
-unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 install(
   EXPORT CUSZTargets

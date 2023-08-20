@@ -41,4 +41,3 @@ if(CUSZ_RESEARCH_HUFFBK_GPU)
   target_link_libraries(bin_hfserial PRIVATE pszhfbook_ser pszhf_cu pszmem
                                              CUDA::cudart)
 endif(CUSZ_RESEARCH_HUFFBK_GPU)
-unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)

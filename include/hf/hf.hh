@@ -111,7 +111,6 @@ class HuffmanCodec {
   // public methods
   HuffmanCodec* init(
       size_t const, int const, int const, bool dbg_print = false);
-  template <pszpolicy p>
   HuffmanCodec* build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
   HuffmanCodec* build_codebook(
       pszmem_cxx<uint32_t>*, int const, cudaStream_t = nullptr);
