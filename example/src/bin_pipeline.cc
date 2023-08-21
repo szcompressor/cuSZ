@@ -10,7 +10,6 @@
  */
 
 #include "busyheader.hh"
-
 #include "ex_utils.hh"
 #include "hf/hf.hh"
 #include "kernel/hist.hh"
@@ -24,9 +23,6 @@
 #include "utils/print_arr.hh"
 #include "utils/timer.hh"
 #include "utils/viewer.hh"
-
-using std::string;
-using std::to_string;
 
 #define ABS 0
 #define REL 1
@@ -49,7 +45,7 @@ using std::to_string;
   }
 
 string dtype, etype, mode, pred, eb_str;
-double _1, _2, rng;
+f8 _1, _2, rng;
 
 namespace {
 
@@ -83,17 +79,17 @@ string suffix(bool compat = false)
 }  // namespace
 
 template <
-    int Predictor, typename T = float, typename E = uint32_t,
-    typename H = uint32_t>
+    int Predictor, typename T = f4, typename E = u4,
+    typename H = u4>
 void demo_c_predict(
     pszmempool_cxx<T, E, H>* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn,
-    double const eb, int const radius, cudaStream_t stream, bool proto = false)
+    f8 const eb, int const radius, cudaStream_t stream, bool proto = false)
 {
   using FP = T;
 
   auto len3 = mem->el->template len3<dim3>();
   auto len3p = mem->es->template len3<dim3>();
-  float time, time_histcpu_base, time_histcpu_optim;
+  f4 time, time_histcpu_base, time_histcpu_optim;
 
   if (Predictor == LORENZO) {
     if (not proto) {
@@ -136,17 +132,17 @@ void demo_c_predict(
 }
 
 template <
-    int Predictor, typename T = float, typename E = uint32_t,
-    typename H = uint32_t>
+    int Predictor, typename T = f4, typename E = u4,
+    typename H = u4>
 void demo_d_predict(
-    pszmempool_cxx<T, E, H>* mem, double const eb, int const radius,
+    pszmempool_cxx<T, E, H>* mem, f8 const eb, int const radius,
     cudaStream_t stream, bool proto = false)
 {
   using FP = T;
 
   auto len3 = mem->el->template len3<dim3>();
   auto len3p = mem->es->template len3<dim3>();
-  float time;
+  f4 time;
 
   if (Predictor == LORENZO) {
     if (not proto) {
@@ -176,8 +172,8 @@ void demo_hist_u4in(
 {
   using E = u4;
 
-  float tgpu_base, tgpu_optim;
-  float tcpu_base, tcpu_optim;
+  f4 tgpu_base, tgpu_optim;
+  f4 tcpu_base, tcpu_optim;
 
   auto ser_base = new pszmem_cxx<u4>(radius * 2, 1, 1, "hist-normal");
   auto ser_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_cpu");
@@ -217,22 +213,22 @@ void demo_hist_u4in(
 }
 
 template <
-    int Predictor = LORENZO, typename T = float, typename E = uint32_t,
-    typename H = uint32_t>
+    int Predictor = LORENZO, typename T = f4, typename E = u4,
+    typename H = u4>
 void demo_pipeline(
     char const* ifn, size_t const x, size_t const y, size_t const z,
-    double eb = 1.2e-4, int mode = REL, int const radius = 128,
+    f8 eb = 1.2e-4, int mode = REL, int const radius = 128,
     bool proto = false)
 {
   // When the input type is FP<X>, the internal precision should be the same.
   using FP = T;
-  using M = uint32_t;
+  using M = u4;
 
   radius_legal(radius, sizeof(E));
 
   auto len = x * y * z;
   auto len3 = dim3(x, y, z);
-  float time, time_histcpu_base, time_histcpu_optim;
+  f4 time, time_histcpu_base, time_histcpu_optim;
   constexpr auto pardeg = 768;
 
   cusz::HuffmanCodec<u4, H, u4> codec;
@@ -283,7 +279,7 @@ void demo_pipeline(
   size_t hf_outlen;
   {  // Huffman
     auto hf_inlen = ectrl_u4->len();
-    uint8_t* d_encoded;
+    u1* d_encoded;
 
     // codec.build_codebook(mem->hist(), radius * 2, stream);
     codec.build_codebook(mem->ht, radius * 2, stream);
@@ -335,7 +331,7 @@ int main(int argc, char** argv)
     printf("\n");
     printf("[6] `abs` for ABS/absolute; `rel` for REL/relative to range\n");
     printf("[7] `lorenzo` or `spline3`\n");
-    printf("[8] D-type (input): \"f\" for `float`, \"d\" for `double`\n");
+    printf("[8] D-type (input): \"f\" for `f4`, \"d\" for `f8`\n");
     printf("[9] E-type (quant-code): \"u{1,2,4}\" for `uint{8,16,32}_t`\n");
     exit(0);
   }
@@ -367,31 +363,31 @@ int main(int argc, char** argv)
   if (p == SPLINE3) {
     etype = "f4";
     if (dtype == "f")
-      demo_pipeline<SPLINE3, float, float>(fname, x, y, z, eb, m, r);
+      demo_pipeline<SPLINE3, f4, u4>(fname, x, y, z, eb, m, r);
     else if (dtype == "d")
-      demo_pipeline<SPLINE3, double, float>(fname, x, y, z, eb, m, r);
+      demo_pipeline<SPLINE3, f8, u4>(fname, x, y, z, eb, m, r);
   }
   else {
     if (dtype == "f") {
       if (etype == "u1")
-        demo_pipeline<LORENZO, float, uint8_t>(
+        demo_pipeline<LORENZO, f4, u1>(
             fname, x, y, z, eb, m, r, useproto);
       else if (etype == "u2")
-        demo_pipeline<LORENZO, float, uint16_t>(
+        demo_pipeline<LORENZO, f4, u2>(
             fname, x, y, z, eb, m, r, useproto);
       if (etype == "u4")
-        demo_pipeline<LORENZO, float, uint32_t>(
+        demo_pipeline<LORENZO, f4, u4>(
             fname, x, y, z, eb, m, r, useproto);
     }
     else if (dtype == "d") {
       if (etype == "u1")
-        demo_pipeline<LORENZO, double, uint8_t>(
+        demo_pipeline<LORENZO, f8, u1>(
             fname, x, y, z, eb, m, r, useproto);
       else if (etype == "u2")
-        demo_pipeline<LORENZO, double, uint16_t>(
+        demo_pipeline<LORENZO, f8, u2>(
             fname, x, y, z, eb, m, r, useproto);
       if (etype == "u4")
-        demo_pipeline<LORENZO, double, uint32_t>(
+        demo_pipeline<LORENZO, f8, u4>(
             fname, x, y, z, eb, m, r, useproto);
     }
     else

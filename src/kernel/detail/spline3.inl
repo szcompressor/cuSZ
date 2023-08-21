@@ -236,7 +236,7 @@ __device__ void c_gather_anchor(volatile T1 s_data[9][9][33], T1* anchor, STRIDE
 }
 */
 
-template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
+template <typename T1, typename T2 = T1, int LINEAR_BLOCK_SIZE = 256>
 __device__ void x_reset_scratch_33x9x9data(
     volatile T1 s_xdata[9][9][33],
     volatile T2 s_ectrl[9][9][33],
@@ -272,8 +272,8 @@ __device__ void x_reset_scratch_33x9x9data(
     __syncthreads();
 }
 
-template <typename Input, int LINEAR_BLOCK_SIZE = 256>
-__device__ void global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 data_leap, volatile Input s_data[9][9][33])
+template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
+__device__ void global2shmem_33x9x9data(T1* data, DIM3 data_size, STRIDE3 data_leap, volatile T2 s_data[9][9][33])
 {
     constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -291,9 +291,9 @@ __device__ void global2shmem_33x9x9data(Input* data, DIM3 data_size, STRIDE3 dat
     __syncthreads();
 }
 
-template <typename Output, int LINEAR_BLOCK_SIZE = 256>
+template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
 __device__ void
-shmem2global_32x8x8data(volatile Output s_data[9][9][33], Output* data, DIM3 data_size, STRIDE3 data_leap)
+shmem2global_32x8x8data(volatile T1 s_data[9][9][33], T2* data, DIM3 data_size, STRIDE3 data_leap)
 {
     constexpr auto TOTAL = 32 * 8 * 8;
 
@@ -527,20 +527,20 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     else {
         __shared__ struct {
             T data[9][9][33];
-            E ectrl[9][9][33];
+            T ectrl[9][9][33];
         } shmem;
 
-        c_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, radius);
-        global2shmem_33x9x9data<T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, shmem.data);
+        c_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, radius);
+        global2shmem_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, shmem.data);
 
         // version 1, use shmem, erroneous
         // c_gather_anchor<T>(shmem.data, anchor, anchor_leap);
         // version 2, use global mem, correct
         c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap);
 
-        cusz::device_api::spline3d_layout2_interpolate<T, E, FP, LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
+        cusz::device_api::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
             shmem.data, shmem.ectrl, eb_r, ebx2, radius);
-        shmem2global_32x8x8data<E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap);
+        shmem2global_32x8x8data<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap);
     }
 }
 
@@ -568,15 +568,15 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     using T = typename std::remove_pointer<TITER>::type;
 
     __shared__ struct {
-        E ectrl[9][9][33];
         T data[9][9][33];
+        T ectrl[9][9][33];
     } shmem;
 
-    x_reset_scratch_33x9x9data<T, E, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, anchor, anchor_size, anchor_leap);
-    global2shmem_33x9x9data<E, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, shmem.ectrl);
-    cusz::device_api::spline3d_layout2_interpolate<T, E, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
+    x_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, anchor, anchor_size, anchor_leap);
+    global2shmem_33x9x9data<E, T, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, shmem.ectrl);
+    cusz::device_api::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
         shmem.data, shmem.ectrl, eb_r, ebx2, radius);
-    shmem2global_32x8x8data<T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
+    shmem2global_32x8x8data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
 }
 
 #undef TIX

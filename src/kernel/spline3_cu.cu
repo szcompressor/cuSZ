@@ -9,14 +9,10 @@
  *
  */
 
-#include <iostream>
-#include <limits>
-#include <numeric>
 #include "detail/spline3.inl"
 #include "kernel/spline.hh"
-
-using std::cout;
-using std::endl;
+#include "busyheader.hh"
+#include "cusz/type.h"
 
 void spline3_calc_sizes(void* _l3, Spline3Len3* s3l3)
 {
@@ -132,14 +128,14 @@ int spline_reconstruct(
         pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl, pszmem_cxx<T> * xdata, double eb, uint32_t radius, \
         void* stream);
 
-INIT(float, uint8_t)
-INIT(float, uint16_t)
-INIT(float, uint32_t)
-INIT(float, float)
+INIT(f4, u1)
+INIT(f4, u2)
+INIT(f4, u4)
+INIT(f4, f4)
 
-INIT(double, uint8_t)
-INIT(double, uint16_t)
-INIT(double, uint32_t)
-INIT(double, float)
+INIT(f8, u1)
+INIT(f8, u2)
+INIT(f8, u4)
+INIT(f8, f4)
 
 #undef INIT
