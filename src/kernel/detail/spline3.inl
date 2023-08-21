@@ -57,8 +57,7 @@ template <
     typename TITER,
     typename EITER,
     typename FP            = float,
-    int  LINEAR_BLOCK_SIZE = 256,
-    bool PROBE_PRED_ERROR  = false>
+    int  LINEAR_BLOCK_SIZE = 256>
 __global__ void c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
@@ -70,9 +69,7 @@ __global__ void c_spline3d_infprecis_32x8x8data(
     STRIDE3 anchor_leap,
     FP      eb_r,
     FP      ebx2,
-    int     radius,
-    TITER   pred_error     = nullptr,
-    TITER   compress_error = nullptr);
+    int     radius);
 
 template <
     typename EITER,
@@ -291,9 +288,10 @@ __device__ void global2shmem_33x9x9data(T1* data, DIM3 data_size, STRIDE3 data_l
     __syncthreads();
 }
 
-template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256>
+// dram_outlier should be the same in type with shared memory buf
+template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = 256, bool WITH_COMPACT = false>
 __device__ void
-shmem2global_32x8x8data(volatile T1 s_data[9][9][33], T2* data, DIM3 data_size, STRIDE3 data_leap)
+shmem2global_32x8x8data(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, T1* dram_outlier = nullptr, uint32_t* dram_idx = nullptr)
 {
     constexpr auto TOTAL = 32 * 8 * 8;
 
@@ -304,9 +302,9 @@ shmem2global_32x8x8data(volatile T1 s_data[9][9][33], T2* data, DIM3 data_size, 
         auto gx  = (x + BIX * BLOCK32);
         auto gy  = (y + BIY * BLOCK8);
         auto gz  = (z + BIZ * BLOCK8);
-        auto gid = gx + gy * data_leap.y + gz * data_leap.z;
+        auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
-        if (gx < data_size.x and gy < data_size.y and gz < data_size.z) data[gid] = s_data[z][y][x];
+        if (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z) dram_buf[gid] = s_buf[z][y][x];
     }
     __syncthreads();
 }
@@ -501,7 +499,7 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
  * host API/kernel
  ********************************************************************************/
 
-template <typename TITER, typename EITER, typename FP, int LINEAR_BLOCK_SIZE, bool PROBE_PRED_ERROR>
+template <typename TITER, typename EITER, typename FP, int LINEAR_BLOCK_SIZE>
 __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
@@ -513,18 +511,13 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     STRIDE3 anchor_leap,
     FP      eb_r,
     FP      ebx2,
-    int     radius,
-    TITER   pred_error,
-    TITER   compress_error)
+    int     radius)
 {
     // compile time variables
     using T = typename std::remove_pointer<TITER>::type;
     using E = typename std::remove_pointer<EITER>::type;
 
-    if CONSTEXPR (PROBE_PRED_ERROR) {
-        // TODO
-    }
-    else {
+    {
         __shared__ struct {
             T data[9][9][33];
             T ectrl[9][9][33];
@@ -652,7 +645,7 @@ void launch_construct_Spline3(
         throw std::runtime_error("Spline2 not implemented");
     }
     else if (d == 3) {
-        cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256, false>  //
+        cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256>  //
             <<<GRID_3D, BLOCK_3D, 0, stream>>>                            //
             (data, len3, leap3,                                           //
              ectrl, ec_len3, ec_leap3,                                    //

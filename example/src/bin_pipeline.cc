@@ -110,7 +110,7 @@ void demo_c_predict(
   }
   else if (Predictor == SPLINE3) {
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
-    spline_construct(mem->od, mem->ac, mem->es, eb, radius, stream);
+    spline_construct(mem->od, mem->ac, mem->es, nullptr, eb, radius, &time, stream);
 
     printf(
         "using spline3:\n"
@@ -158,7 +158,7 @@ void demo_d_predict(
   }
   else if (Predictor == SPLINE3) {
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
-    spline_reconstruct(mem->ac, mem->es, mem->xd, eb, radius, stream);
+    spline_reconstruct(mem->ac, mem->es, mem->xd, eb, radius, &time, stream);
   }
   else {
     throw std::runtime_error("Must be LORENZO or SPLINE3.");
