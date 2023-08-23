@@ -8,6 +8,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
+option(PSZ_BACKEND_CUDA "use CUDA backend" ON)
+
+if(PSZ_BACKEND_CUDA)
+  add_compile_definitions(PSZ_USE_CUDA) 
+endif()
+
 find_package(CUDAToolkit REQUIRED)
 
 include(GNUInstallDirs)
@@ -83,7 +89,7 @@ add_library(
   src/kernel/hist_cu.cu src/kernel/histsp_cu.cu src/kernel/l23r_cu.cu)
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
 
-add_library(pszmem src/mem/memseg.cc)
+add_library(pszmem src/mem/memseg.cc src/mem/memseg_cu.cc)
 target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 
 add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)

@@ -19,7 +19,6 @@
 #include "kernel/lproto.hh"
 #include "kernel/spline.hh"
 #include "mem/layout_cxx.hh"
-#include "mem/memseg_cxx.hh"
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/timer.hh"

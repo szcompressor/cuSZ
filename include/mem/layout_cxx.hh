@@ -15,7 +15,7 @@
 #include "compact_cu.hh"
 #include "layout.h"
 #include "memseg.h"
-#include "memseg_cxx.hh"
+#include "memseg_cxx_cu.hh"
 
 template <typename T, typename E, typename H>
 class pszmempool_cxx {

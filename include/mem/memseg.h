@@ -41,23 +41,52 @@ pszmem* pszmem_create2(psz_dtype t, u4 lx, u4 ly);
 pszmem* pszmem_create3(psz_dtype t, u4 lx, u4 ly, u4 lz);
 void pszmem_borrow(pszmem* m, void* _d, void* _h);
 void pszmem_setname(pszmem* m, const char name[10]);
+void pszmem_clearhost(pszmem* m);
+void pszmem_fromfile(const char* fname, pszmem* m);
+void pszmem_tofile(const char* fname, pszmem* m);
+void pszmem_viewas(pszmem* backend, pszmem* frontend);
+
 void pszmem_malloc_cuda(pszmem* m);
 void pszmem_mallochost_cuda(pszmem* m);
 void pszmem_mallocmanaged_cuda(pszmem* m);
 void pszmem_free_cuda(pszmem* m);
 void pszmem_freehost_cuda(pszmem* m);
 void pszmem_freemanaged_cuda(pszmem* m);
-void pszmem_clearhost(pszmem* m);
-void pszmem_cleardevice(pszmem* m);
+void pszmem_cleardevice_cuda(pszmem* m);
 void pszmem_h2d_cuda(pszmem* m);
 void pszmem_h2d_cudaasync(pszmem* m, void* stream);
 void pszmem_d2h_cuda(pszmem* m);
 void pszmem_d2h_cudaasync(pszmem* m, void* stream);
 void pszmem_device_deepcpy_cuda(pszmem* dst, pszmem* src);
 void pszmem_host_deepcpy_cuda(pszmem* dst, pszmem* src);
-void pszmem_fromfile(const char* fname, pszmem* m);
-void pszmem_tofile(const char* fname, pszmem* m);
-void pszmem_viewas(pszmem* backend, pszmem* frontend);
+
+void pszmem_malloc_hip(pszmem* m);
+void pszmem_mallochost_hip(pszmem* m);
+void pszmem_mallocmanaged_hip(pszmem* m);
+void pszmem_free_hip(pszmem* m);
+void pszmem_freehost_hip(pszmem* m);
+void pszmem_freemanaged_hip(pszmem* m);
+void pszmem_cleardevice_hip(pszmem* m);
+void pszmem_h2d_hip(pszmem* m);
+void pszmem_h2d_hipasync(pszmem* m, void* stream);
+void pszmem_d2h_hip(pszmem* m);
+void pszmem_d2h_hipasync(pszmem* m, void* stream);
+void pszmem_device_deepcpy_hip(pszmem* dst, pszmem* src);
+void pszmem_host_deepcpy_hip(pszmem* dst, pszmem* src);
+
+void pszmem_malloc_oneapi(pszmem* m);
+void pszmem_mallochost_oneapi(pszmem* m);
+void pszmem_mallocmanaged_oneapi(pszmem* m);
+void pszmem_free_oneapi(pszmem* m);
+void pszmem_freehost_oneapi(pszmem* m);
+void pszmem_freeshared_oneapi(pszmem* m);
+void pszmem_cleardevice_oneapi(pszmem* m);
+void pszmem_h2d_oneapi(pszmem* m);
+void pszmem_h2d_oneapiasync(pszmem* m, void* stream);
+void pszmem_d2h_oneapi(pszmem* m);
+void pszmem_d2h_oneapiasync(pszmem* m, void* stream);
+void pszmem_device_deepcpy_oneapi(pszmem* dst, pszmem* src);
+void pszmem_host_deepcpy_oneapi(pszmem* dst, pszmem* src);
 
 // no impl. in C due to typing issue
 // void pszmem_cast(pszmem* dst, pszmem* src, psz_space s);
