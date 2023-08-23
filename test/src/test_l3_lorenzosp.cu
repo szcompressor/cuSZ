@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <typeinfo>
 #include "kernel/l23.hh"
-#include "kernel/spv_gpu.hh"
+#include "kernel/spv.hh"
 #include "kernel/l23r.hh"
 #include "mem/memseg_cxx.hh"
 #include "mem/compact_cu.hh"
@@ -108,7 +108,7 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
             compact_outlier.h_val);                                                // value
 
         float __t;
-        psz::spv_gather<T, uint32_t>(outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t, stream);
+        psz::spv_gather<CUDA, T, uint32_t>(outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t, stream);
         spidx->control({D2H});
         spval->control({D2H});
 
@@ -138,7 +138,7 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     // //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 
-   psz::spv_scatter<T, u4>(
+   psz::spv_scatter<CUDA, T, u4>(
         compact_outlier.val(), compact_outlier.idx(), compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
 
     psz_decomp_l23<T, EQ, FP>(

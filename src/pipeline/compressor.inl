@@ -16,9 +16,7 @@
 
 #include <cuda_runtime.h>
 
-#include <cstdint>
-#include <iostream>
-
+#include "busyheader.hh"
 #include "compressor.hh"
 #include "header.h"
 #include "hf/hf.hh"
@@ -26,15 +24,11 @@
 #include "kernel/histsp.hh"
 #include "kernel/l23.hh"
 #include "kernel/l23r.hh"
-#include "kernel/spv_gpu.hh"
+#include "kernel/spv.hh"
 #include "mem/layout.h"
 #include "mem/layout_cxx.hh"
-#include "mem/memseg_cxx.hh"
 #include "utils/config.hh"
 #include "utils/cuda_err.cuh"
-
-using std::cout;
-using std::endl;
 
 #define PRINT_ENTRY(VAR)                                    \
   printf(                                                   \
@@ -290,7 +284,7 @@ Compressor<C>* Compressor<C>::decompress(
   auto local_d_outlier = out_decompressed;
   auto local_d_xdata = out_decompressed;
 
-  psz::spv_scatter<T, M>(
+  psz::spv_scatter<CUDA, T, M>(
       local_d_spval, local_d_spidx, header->splen, local_d_outlier, &time_sp,
       stream);
 
