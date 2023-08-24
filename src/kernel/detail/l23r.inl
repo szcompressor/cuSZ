@@ -18,12 +18,22 @@
 
 #include "cusz/suint.hh"
 #include "mem/compact.hh"
+#include "port.hh"
+
+#define SETUP_ZIGZAG                                                         \
+  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;                  \
+  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;                    \
+  static_assert(                                                             \
+      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type."); \
+  auto posneg_encode = [](EqInt x) -> EqUint {                               \
+    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));                        \
+  };
 
 namespace psz {
 namespace rolling {
 
 template <
-    typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
+    typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
     int TileDim = 256, int Seq = 8, typename CompactVal = T,
     typename CompactIdx = uint32_t, typename CompactNum = uint32_t>
 __global__ void c_lorenzo_1d1l(
@@ -32,14 +42,7 @@ __global__ void c_lorenzo_1d1l(
 {
   constexpr auto NumThreads = TileDim / Seq;
 
-  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
-  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
-  static_assert(
-      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
-
-  auto posneg_encode = [](EqInt x) -> EqUint {
-    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
-  };
+  SETUP_ZIGZAG;
 
   __shared__ struct {
     T data[TileDim];
@@ -74,9 +77,9 @@ __global__ void c_lorenzo_1d1l(
   for (auto ix = 0; ix < Seq; ix++) {
     T delta = thp_data(ix) - thp_data(ix - 1);
     bool quantizable = fabs(delta) < radius;
-    T candidate = UsePnEnc ? delta : delta + radius;
+    T candidate = ZigZag ? delta : delta + radius;
     // otherwise, need to reset shared memory (to 0)
-    if (UsePnEnc)
+    if (ZigZag)
       s.eq_uint[ix + threadIdx.x * Seq] =
           posneg_encode(quantizable * static_cast<EqInt>(candidate));
     else
@@ -101,7 +104,7 @@ __global__ void c_lorenzo_1d1l(
 }
 
 template <
-    typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
+    typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t>
 __global__ void c_lorenzo_2d1l(
@@ -111,10 +114,7 @@ __global__ void c_lorenzo_2d1l(
   constexpr auto TileDim = 16;
   constexpr auto Yseq = 8;
 
-  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
-  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
-  static_assert(
-      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
+  SETUP_ZIGZAG;
 
   // NW  N       first el <- 0
   //  W  center
@@ -126,12 +126,7 @@ __global__ void c_lorenzo_2d1l(
   // BDX == TileDim == 16, BDY * Yseq = TileDim == 16
   auto gix = blockIdx.x * TileDim + threadIdx.x;
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
-  // auto giy = [&](auto y) { return giy_base + y; };
-
   auto g_id = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
-  auto posneg_encode = [](EqInt x) -> EqUint {
-    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
-  };
 
   // use a warp as two half-warps
   // block_dim = (16, 2, 1) makes a full warp internally
@@ -163,8 +158,8 @@ __global__ void c_lorenzo_2d1l(
 
     if (gix < len3.x and giy_base + (i - 1) < len3.y) {
       bool quantizable = fabs(center[i]) < radius;
-      T candidate = UsePnEnc ? center[i] : center[i] + radius;
-      if (UsePnEnc)
+      T candidate = ZigZag ? center[i] : center[i] + radius;
+      if (ZigZag)
         eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
       else
         eq[gid] = quantizable * static_cast<EqUint>(candidate);
@@ -172,12 +167,6 @@ __global__ void c_lorenzo_2d1l(
         auto cur_idx = atomicAdd(cn, 1);
         cidx[cur_idx] = gid;
         cval[cur_idx] = candidate;
-
-        // printf(
-        //     "curidx: %d\t"
-        //     "gid: %u\t"
-        //     "candidate: %4.1f\n",
-        //     cur_idx, gid, candidate);
       }
     }
   }
@@ -186,20 +175,14 @@ __global__ void c_lorenzo_2d1l(
 }
 
 template <
-    typename T, bool UsePnEnc = false, typename Eq = uint32_t, typename Fp = T,
+    typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t>
 __global__ void c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
-  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
-  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
-  static_assert(
-      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
-  auto posneg_encode = [](EqInt x) -> EqUint {
-    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));
-  };
+  SETUP_ZIGZAG;
 
   constexpr auto TileDim = 8;
   __shared__ T s[9][33];
@@ -226,9 +209,9 @@ __global__ void c_lorenzo_3d1l(
   auto quantize_compact_write = [&](T delta, auto x, auto y, auto z,
                                     auto gid) {
     bool quantizable = fabs(delta) < radius;
-    T candidate = UsePnEnc ? delta : delta + radius;
+    T candidate = ZigZag ? delta : delta + radius;
     if (x < len3.x and y < len3.y and z < len3.z) {
-      if (UsePnEnc)
+      if (ZigZag)
         eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
       else
         eq[gid] = quantizable * static_cast<EqUint>(candidate);

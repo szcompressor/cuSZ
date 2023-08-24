@@ -9,7 +9,7 @@
  *
  */
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "cusz/type.h"
 #include "detail/l23.inl"
@@ -62,26 +62,26 @@ pszerror psz_comp_l23(
   auto leap3 = dim3(1, len3.x, len3.x * len3.y);
 
   CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
+  START_GPUEVENT_RECORDING((hipStream_t)stream);
 
   if (d == 1) {
     psz::cuda_hip::__kernel::v0::c_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>
-        <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
+        <<<Grid1D, Block1D, 0, (hipStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
   else if (d == 2) {
     psz::cuda_hip::__kernel::v0::c_lorenzo_2d1l<T, Eq, FP>
-        <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
+        <<<Grid2D, Block2D, 0, (hipStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
   else if (d == 3) {
     psz::cuda_hip::__kernel::v0::c_lorenzo_3d1l<T, Eq, FP>
-        <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
+        <<<Grid3D, Block3D, 0, (hipStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
 
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+  STOP_GPUEVENT_RECORDING((hipStream_t)stream);
+  CHECK_GPU(hipStreamSynchronize((hipStream_t)stream));
   TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
 
@@ -131,26 +131,26 @@ pszerror psz_decomp_l23(
   auto d = ndim();
 
   CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
+  START_GPUEVENT_RECORDING((hipStream_t)stream);
 
   if (d == 1) {
     psz::cuda_hip::__kernel::v0::x_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>
-        <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
+        <<<Grid1D, Block1D, 0, (hipStream_t)stream>>>(
             eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (d == 2) {
     psz::cuda_hip::__kernel::v0::x_lorenzo_2d1l<T, Eq, FP>
-        <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
+        <<<Grid2D, Block2D, 0, (hipStream_t)stream>>>(
             eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (d == 3) {
     psz::cuda_hip::__kernel::v0::x_lorenzo_3d1l<T, Eq, FP>
-        <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
+        <<<Grid3D, Block3D, 0, (hipStream_t)stream>>>(
             eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
 
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+  STOP_GPUEVENT_RECORDING((hipStream_t)stream);
+  CHECK_GPU(hipStreamSynchronize((hipStream_t)stream));
   TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
 
@@ -158,11 +158,11 @@ pszerror psz_decomp_l23(
 }
 
 #define CPP_INS(T, Eq)                                                     \
-  template pszerror psz_comp_l23<T, Eq>(                                   \
+  template pszerror psz_comp_l23<T, Eq>(                          \
       T* const data, dim3 const len3, f8 const eb, int const radius,       \
       Eq* const eq, T* const outlier, f4* time_elapsed, void* stream);     \
                                                                            \
-  template pszerror psz_decomp_l23<T, Eq>(                                 \
+  template pszerror psz_decomp_l23<T, Eq>(                        \
       Eq * eq, dim3 const len3, T* outlier, f8 const eb, int const radius, \
       T* xdata, f4* time_elapsed, void* stream);
 

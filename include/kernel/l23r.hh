@@ -12,21 +12,14 @@
 #ifndef EBA07D6C_FD5C_446C_9372_F78DDB5E2B34
 #define EBA07D6C_FD5C_446C_9372_F78DDB5E2B34
 
-#include <cuda_runtime.h>
-
 #include <cstdint>
 
-#include "../cusz/type.h"
+#include "cusz/type.h"
 #include "mem/compact.hh"
 
-template <typename T>
-void psz_adhoc_scttr(
-    T* val, uint32_t* idx, int const n, T* out, float* milliseconds,
-    cudaStream_t stream);
-
-template <typename T, typename Eq = uint32_t, bool UsePnEnc = false>
+template <typename T, typename Eq = uint32_t, bool ZigZag = false>
 cusz_error_status psz_comp_l23r(
     T* const data, dim3 const len3, double const eb, int const radius,
-    Eq* const eq, void* _outlier, float* time_elapsed, cudaStream_t stream);
+    Eq* const eq, void* _outlier, float* time_elapsed, void* _stream);
 
 #endif /* EBA07D6C_FD5C_446C_9372_F78DDB5E2B34 */

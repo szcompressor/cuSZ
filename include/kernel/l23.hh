@@ -12,31 +12,31 @@
 #ifndef B297267F_4731_48DB_8128_BBD202027EB7
 #define B297267F_4731_48DB_8128_BBD202027EB7
 
-#include <cuda_runtime.h>
 #include <stdint.h>
-#include "mem/compact.hh"
+
 #include "cusz/type.h"
+#include "mem/compact.hh"
 
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status psz_comp_l23(
-    T* const     data,          // input
-    dim3 const   len3,          //
-    double const eb,            // input (config)
-    int const    radius,        //
-    EQ* const    eq,            // output
-    T*           outlier,       //
-    float*       time_elapsed,  // optional
-    cudaStream_t stream);       //
+    T* const data,        // input
+    dim3 const len3,      //
+    double const eb,      // input (config)
+    int const radius,     //
+    EQ* const eq,         // output
+    T* outlier,           //
+    float* time_elapsed,  // optional
+    void* stream);        //
 
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status psz_decomp_l23(
-    EQ*          eq,            // input
-    dim3 const   len3,          //
-    T*           outlier,       //
-    double const eb,            // input (config)
-    int const    radius,        //
-    T*           xdata,         // output
-    float*       time_elapsed,  // optional
-    cudaStream_t stream);
+    EQ* eq,               // input
+    dim3 const len3,      //
+    T* outlier,           //
+    double const eb,      // input (config)
+    int const radius,     //
+    T* xdata,             // output
+    float* time_elapsed,  // optional
+    void* stream);
 
 #endif /* B297267F_4731_48DB_8128_BBD202027EB7 */

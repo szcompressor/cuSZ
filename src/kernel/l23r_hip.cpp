@@ -1,5 +1,5 @@
 /**
- * @file l32r_cu.cu
+ * @file l32r_hip.cpp
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -9,7 +9,8 @@
  *
  */
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <type_traits>
 
 #include "cusz/type.h"
@@ -68,29 +69,29 @@ pszerror psz_comp_l23r(
   auto leap3 = dim3(1, len3.x, len3.x * len3.y);
 
   CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
+  START_GPUEVENT_RECORDING((hipStream_t)stream);
 
   if (d == 1) {
     psz::rolling::c_lorenzo_1d1l<T, false, Eq, T, Tile1D, Seq1D>
-        <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
+        <<<Grid1D, Block1D, 0, (hipStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
             ot->num());
   }
   else if (d == 2) {
     psz::rolling::c_lorenzo_2d1l<T, false, Eq, T>
-        <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
+        <<<Grid2D, Block2D, 0, (hipStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
             ot->num());
   }
   else if (d == 3) {
     psz::rolling::c_lorenzo_3d1l<T, false, Eq, T>
-        <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
+        <<<Grid3D, Block3D, 0, (hipStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
             ot->num());
   }
 
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+  STOP_GPUEVENT_RECORDING((hipStream_t)stream);
+  CHECK_GPU(hipStreamSynchronize((hipStream_t)stream));
   TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
 

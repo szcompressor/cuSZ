@@ -52,8 +52,8 @@ struct CompactGpuDram {
 
   CompactGpuDram& mallochost()
   {
-    hipMallocHost(&h_val, sizeof(T) * reserved_len);
-    hipMallocHost(&h_idx, sizeof(uint32_t) * reserved_len);
+    hipHostMalloc(&h_val, sizeof(T) * reserved_len);
+    hipHostMalloc(&h_idx, sizeof(uint32_t) * reserved_len);
 
     return *this;
   }
@@ -66,7 +66,7 @@ struct CompactGpuDram {
 
   CompactGpuDram& freehost()
   {
-    hipFreeHost(h_idx), hipFreeHost(h_val);
+    hipHostFree(h_idx), hipHostFree(h_val);
     return *this;
   }
 

@@ -21,7 +21,7 @@
 
 using std::cout;
 using std::endl;
-namespace proto = psz::cuda::__kernel::proto;
+namespace proto = psz::cuda_hip::__kernel::proto;
 
 using T  = float;
 using FP = float;

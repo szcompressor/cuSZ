@@ -67,7 +67,7 @@ class pszmem_cxx {
 
   pszmem_cxx* control(
       std::vector<pszmem_control> control_stream,
-      cudaStream_t stream = nullptr)
+      hipStream_t stream = nullptr)
   {
     for (auto& c : control_stream) {
       if (c == Malloc)
