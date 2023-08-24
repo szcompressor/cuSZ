@@ -11,7 +11,7 @@
 
 #include "cusz/type.h"
 #include "kernel/lproto.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 #include "utils/err.hh"
 #include "utils/timer.h"
 
@@ -41,7 +41,7 @@ cusz_error_status psz_comp_lproto(
             return 3;
     };
 
-    auto outlier = (CompactCudaDram<T>*)_outlier;
+    auto outlier = (CompactGpuDram<T>*)_outlier;
 
     constexpr auto SUBLEN_1D = 256;
     constexpr auto BLOCK_1D  = dim3(256, 1, 1);

@@ -17,7 +17,7 @@
 #include <type_traits>
 
 #include "cusz/suint.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 
 namespace psz {
 namespace rolling {

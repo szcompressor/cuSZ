@@ -16,7 +16,7 @@
 #include "kernel/spv.hh"
 #include "kernel/l23r.hh"
 #include "mem/memseg_cxx.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
 #include "stat/compare_thrust.hh"
@@ -59,7 +59,7 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     cout << "num_of_exaggerated: " << num_of_exaggerated << endl;
     cout << "step of inserting outlier: " << step << endl;
 
-    CompactCudaDram<T> compact_outlier;
+    CompactGpuDram<T> compact_outlier;
     compact_outlier.reserve_space(len).control({Malloc, MallocHost});
 
     psz::testutils::cuda::rand_array<T>(oridata->dptr(), len);

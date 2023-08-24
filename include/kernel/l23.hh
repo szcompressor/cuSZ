@@ -14,7 +14,7 @@
 
 #include <cuda_runtime.h>
 #include <stdint.h>
-#include "compaction.hh"
+#include "mem/compact.hh"
 #include "cusz/type.h"
 
 template <typename T, typename EQ = int32_t, typename FP = T>

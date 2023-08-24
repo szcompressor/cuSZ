@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include "cusz/suint.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 #include "subsub.inl"
 
 namespace psz {
@@ -98,7 +98,7 @@ template <
     typename PNENC,
     int SEQ,
     typename EQ         = int32_t,
-    typename Compaction = CompactCudaDram<T>>
+    typename Compaction = CompactGpuDram<T>>
 __forceinline__ __device__ void predict_quantize_1d(  //
     T            thp_buffer[SEQ],
     volatile EQ* s_quant,

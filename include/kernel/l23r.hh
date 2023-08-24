@@ -17,7 +17,7 @@
 #include <cstdint>
 
 #include "../cusz/type.h"
-#include "compaction.hh"
+#include "mem/compact.hh"
 
 template <typename T>
 void psz_adhoc_scttr(

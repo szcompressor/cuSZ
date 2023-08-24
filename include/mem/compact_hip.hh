@@ -1,5 +1,5 @@
 /**
- * @file compact_cu.hh
+ * @file compact_hip.hh
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -9,18 +9,18 @@
  *
  */
 
-#ifndef F712F74C_7488_4445_83EE_EE7F88A64BBA
-#define F712F74C_7488_4445_83EE_EE7F88A64BBA
+#ifndef E1192862_6E24_41A9_87D6_6B0BC7699283
+#define E1192862_6E24_41A9_87D6_6B0BC7699283
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include "mem/memseg_cxx.hh"
 
 // TODO filename -> `compaction`
 template <typename T>
 struct CompactGpuDram {
  private:
-  static const cudaMemcpyKind h2d = cudaMemcpyHostToDevice;
-  static const cudaMemcpyKind d2h = cudaMemcpyDeviceToHost;
+  static const hipMemcpyKind h2d = hipMemcpyHostToDevice;
+  static const hipMemcpyKind d2h = hipMemcpyDeviceToHost;
 
  public:
   using type = T;
@@ -42,49 +42,49 @@ struct CompactGpuDram {
 
   CompactGpuDram& malloc()
   {
-    cudaMalloc(&d_val, sizeof(T) * reserved_len);
-    cudaMalloc(&d_idx, sizeof(uint32_t) * reserved_len);
-    cudaMalloc(&d_num, sizeof(uint32_t) * 1);
-    cudaMemset(d_num, 0x0, sizeof(T) * 1);  // init d_val
+    hipMalloc(&d_val, sizeof(T) * reserved_len);
+    hipMalloc(&d_idx, sizeof(uint32_t) * reserved_len);
+    hipMalloc(&d_num, sizeof(uint32_t) * 1);
+    hipMemset(d_num, 0x0, sizeof(T) * 1);  // init d_val
 
     return *this;
   }
 
   CompactGpuDram& mallochost()
   {
-    cudaMallocHost(&h_val, sizeof(T) * reserved_len);
-    cudaMallocHost(&h_idx, sizeof(uint32_t) * reserved_len);
+    hipMallocHost(&h_val, sizeof(T) * reserved_len);
+    hipMallocHost(&h_idx, sizeof(uint32_t) * reserved_len);
 
     return *this;
   }
 
   CompactGpuDram& free()
   {
-    cudaFree(d_idx), cudaFree(d_val), cudaFree(d_num);
+    hipFree(d_idx), hipFree(d_val), hipFree(d_num);
     return *this;
   }
 
   CompactGpuDram& freehost()
   {
-    cudaFreeHost(h_idx), cudaFreeHost(h_val);
+    hipFreeHost(h_idx), hipFreeHost(h_val);
     return *this;
   }
 
   // memcpy
-  CompactGpuDram& make_host_accessible(cudaStream_t stream = 0)
+  CompactGpuDram& make_host_accessible(hipStream_t stream = 0)
   {
-    cudaMemcpyAsync(&h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
-    cudaStreamSynchronize(stream);
-    cudaMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
-    cudaMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
-    cudaStreamSynchronize(stream);
+    hipMemcpyAsync(&h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
+    hipStreamSynchronize(stream);
+    hipMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
+    hipMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
+    hipStreamSynchronize(stream);
 
     return *this;
   }
 
   CompactGpuDram& control(
       std::vector<pszmem_control> control_stream,
-      cudaStream_t stream = nullptr)
+      hipStream_t stream = nullptr)
   {
     for (auto& c : control_stream) {
       if (c == Malloc)
@@ -109,4 +109,4 @@ struct CompactGpuDram {
   uint32_t* num() { return d_num; }
 };
 
-#endif /* F712F74C_7488_4445_83EE_EE7F88A64BBA */
+#endif /* E1192862_6E24_41A9_87D6_6B0BC7699283 */

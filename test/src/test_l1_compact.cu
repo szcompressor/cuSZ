@@ -10,8 +10,7 @@
  */
 
 #include <iostream>
-#include "mem/compact_cu.hh"
-#include "mem/compact_ser.hh"
+#include "mem/compact.hh"
 #include "rand.hh"
 
 using std::cout;
@@ -40,7 +39,7 @@ __global__ void test_compaction1(T* in, uint32_t len, CompactVal* cval, CompactI
     // end of kernel
 }
 
-template <typename T, int TileDim = 256, typename Compact = CompactCudaDram<T>>
+template <typename T, int TileDim = 256, typename Compact = CompactGpuDram<T>>
 __global__ void test_compaction2(T* in, uint32_t len, Compact compact)
 {
     auto id = blockIdx.x * TileDim + threadIdx.x;
@@ -86,10 +85,10 @@ bool f()
     cudaMallocManaged(&in, sizeof(float) * len);
     psz::testutils::cuda::rand_array(in, len);
 
-    CompactCudaDram<float> out_test1;
+    CompactGpuDram<float> out_test1;
     out_test1.reserve_space(len / 2).malloc().mallochost();
 
-    CompactCudaDram<float> out_test2;
+    CompactGpuDram<float> out_test2;
     out_test2.reserve_space(len / 2).malloc().mallochost();
 
     CompactSerial<float> out_ref;

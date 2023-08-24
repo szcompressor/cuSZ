@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "compaction.hh"
+#include "mem/compact.hh"
 
 template <typename T>
 struct CompactSerial {

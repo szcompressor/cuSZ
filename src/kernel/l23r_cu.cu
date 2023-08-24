@@ -14,7 +14,7 @@
 #include "cusz/type.h"
 #include "detail/l23r.inl"
 #include "kernel/l23r.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 #include "utils/err.hh"
 #include "utils/timer.h"
 
@@ -43,7 +43,7 @@ cusz_error_status psz_comp_l23r(
       return 3;
   };
 
-  using Compact = CompactCudaDram<T>;
+  using Compact = CompactGpuDram<T>;
   auto ot = (Compact*)_outlier;
 
   constexpr auto Tile1D = 256;

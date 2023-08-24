@@ -17,7 +17,7 @@
 
 #include "kernel/detail/lproto.inl"
 #include "mem/memseg_cxx.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 
 using std::cout;
 using std::endl;
@@ -59,7 +59,7 @@ bool test1(
     auto input = new pszmem_cxx<T>(len, 1, 1, "input");
     auto eq    = new pszmem_cxx<EQ>(len, 1, 1, "input");
 
-    CompactCudaDram<T> outlier;
+    CompactGpuDram<T> outlier;
 
     input->hptr(const_cast<T*>(h_input))->control({Malloc, H2D});
     eq->control({Malloc, MallocHost});
@@ -165,7 +165,7 @@ bool test3(int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3, std::
     eq->control({Malloc});
 
     // TODO outlier is a placeholder in this test
-    CompactCudaDram<T> outlier;
+    CompactGpuDram<T> outlier;
     outlier.reserve_space(len / 2).malloc().mallochost();
 
     auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");

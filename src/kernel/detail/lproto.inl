@@ -18,7 +18,7 @@
 #include <stdexcept>
 
 #include "../../utils/it_cuda.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 #include "utils/err.hh"
 #include "utils/timer.h"
 
@@ -29,7 +29,7 @@ namespace __kernel {
 
 namespace proto {  // easy algorithmic description
 
-template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactCudaDram<T>, int BLK = 256>
+template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactGpuDram<T>, int BLK = 256>
 __global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq, Compact compact)
 {
     SETUP_ND_GPU_CUDA;
@@ -55,7 +55,7 @@ __global__ void c_lorenzo_1d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     }
 }
 
-template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactCudaDram<T>, int BLK = 16>
+template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactGpuDram<T>, int BLK = 16>
 __global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq, Compact compact)
 {
     SETUP_ND_GPU_CUDA;
@@ -86,7 +86,7 @@ __global__ void c_lorenzo_2d1l(T* in_data, dim3 len3, dim3 stride3, int radius, 
     }
 }
 
-template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactCudaDram<T>, int BLK = 8>
+template <typename T, typename Eq = int32_t, typename Fp = T, typename Compact = CompactGpuDram<T>, int BLK = 8>
 __global__ void c_lorenzo_3d1l(T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq, Compact compact)
 {
     SETUP_ND_GPU_CUDA;

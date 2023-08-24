@@ -15,7 +15,7 @@
 #include <cuda_runtime.h>
 
 #include "busyheader.hh"
-#include "compaction.hh"
+#include "mem/compact.hh"
 #include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
