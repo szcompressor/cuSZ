@@ -13,7 +13,7 @@
 #include "kernel/lproto.hh"
 #include "mem/compact.hh"
 #include "utils/err.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 #include "detail/lproto.inl"
 
@@ -60,8 +60,8 @@ cusz_error_status psz_comp_lproto(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     using namespace psz::cuda::__kernel::proto;
 
@@ -78,11 +78,11 @@ cusz_error_status psz_comp_lproto(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(cudaStreamSynchronize(stream));
 
-    TIME_ELAPSED_CUDAEVENT(time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }
@@ -128,8 +128,8 @@ cusz_error_status psz_decomp_lproto(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     using namespace psz::cuda::__kernel::proto;
 
@@ -146,11 +146,11 @@ cusz_error_status psz_decomp_lproto(
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(cudaStreamSynchronize(stream));
 
-    TIME_ELAPSED_CUDAEVENT(time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }

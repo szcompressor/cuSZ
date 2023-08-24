@@ -20,7 +20,7 @@
 #include "typing.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x

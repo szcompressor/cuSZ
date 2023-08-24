@@ -18,7 +18,7 @@
 #include <thrust/tuple.h>
 
 #include "kernel/spv.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 namespace psz {
 
@@ -32,8 +32,8 @@ void spv_gather_cu(
   thrust::hip::par.on(stream);
   thrust::counting_iterator<uint32_t> zero(0);
 
-  CREATE_HIPEVENT_PAIR;
-  START_HIPEVENT_RECORDING(stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   // find out the indices
   *nnz = thrust::copy_if(
@@ -45,9 +45,9 @@ void spv_gather_cu(
       thrust::device, thrust::make_permutation_iterator(in, d_idx),
       thrust::make_permutation_iterator(in + *nnz, d_idx + *nnz), d_val);
 
-  STOP_HIPEVENT_RECORDING(stream);
-  TIME_ELAPSED_HIPEVENT(milliseconds);
-  DESTROY_HIPEVENT_PAIR;
+  STOP_GPUEVENT_RECORDING(stream);
+  TIME_ELAPSED_GPUEVENT(milliseconds);
+  DESTROY_GPUEVENT_PAIR;
 }
 
 template <typename T, typename M>
@@ -57,14 +57,14 @@ void spv_scatter_cu(
 {
   thrust::hip::par.on(stream);
 
-  CREATE_HIPEVENT_PAIR;
-  START_HIPEVENT_RECORDING(stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   thrust::scatter(thrust::device, d_val, d_val + nnz, d_idx, decoded);
 
-  STOP_HIPEVENT_RECORDING(stream);
-  TIME_ELAPSED_HIPEVENT(milliseconds);
-  DESTROY_HIPEVENT_PAIR;
+  STOP_GPUEVENT_RECORDING(stream);
+  TIME_ELAPSED_GPUEVENT(milliseconds);
+  DESTROY_GPUEVENT_PAIR;
 }
 
 }  // namespace psz

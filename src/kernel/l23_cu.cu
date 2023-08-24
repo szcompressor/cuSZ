@@ -11,7 +11,7 @@
 
 #include "cusz/type.h"
 #include "utils/err.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 #include "kernel/l23.hh"
 // #include "detail/l21.inl"
@@ -67,8 +67,8 @@ cusz_error_status psz_comp_l23(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     if (d == 1) {
         //::cusz::c_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
@@ -90,10 +90,10 @@ cusz_error_status psz_comp_l23(
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(data, len3, leap3, radius, ebx2_r, eq, outlier);
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(cudaStreamSynchronize(stream));
-    TIME_ELAPSED_CUDAEVENT(time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }
@@ -147,8 +147,8 @@ cusz_error_status psz_decomp_l23(
 
     auto d = ndim();
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     if (d == 1) {
         //::cusz::x_lorenzo_1d1l<T, EQ, FP, SUBLEN_1D, SEQ_1D>
@@ -169,10 +169,10 @@ cusz_error_status psz_decomp_l23(
             <<<GRID_3D, BLOCK_3D, 0, stream>>>(eq, outlier, len3, leap3, radius, ebx2, xdata);
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(cudaStreamSynchronize(stream));
-    TIME_ELAPSED_CUDAEVENT(time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }

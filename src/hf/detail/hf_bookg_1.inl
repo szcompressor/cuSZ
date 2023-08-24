@@ -26,7 +26,7 @@
 #include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/io.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 using std::cout;
 using std::endl;

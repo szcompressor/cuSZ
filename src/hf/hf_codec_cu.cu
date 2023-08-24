@@ -34,7 +34,7 @@ void psz::hf_encode_coarse_rev2(
     static const int BLOCK_DIM_ENCODE  = 256;
     static const int BLOCK_DIM_DEFLATE = 256;
 
-    CREATE_CUDAEVENT_PAIR;
+    CREATE_GPUEVENT_PAIR;
 
     H*        d_buffer    = (H*)bitstream_desc->buffer;
     H*        d_bitstream = (H*)bitstream_desc->bitstream;
@@ -58,17 +58,17 @@ void psz::hf_encode_coarse_rev2(
         auto block_dim = BLOCK_DIM_ENCODE;
         auto grid_dim  = div(len, block_dim);
 
-        START_CUDAEVENT_RECORDING(stream);
+        START_GPUEVENT_RECORDING(stream);
 
         psz::detail::hf_encode_phase1_fill<E, H>                //
             <<<8 * numSMs, 256, sizeof(H) * booklen, stream>>>  //
             (uncompressed, len, d_book, booklen, d_buffer);
 
-        STOP_CUDAEVENT_RECORDING(stream);
+        STOP_GPUEVENT_RECORDING(stream);
         CHECK_GPU(cudaStreamSynchronize(stream));
 
         float stage_time;
-        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        TIME_ELAPSED_GPUEVENT(&stage_time);
         if (time_lossless) *time_lossless += stage_time;
     }
 
@@ -77,17 +77,17 @@ void psz::hf_encode_coarse_rev2(
         auto block_dim = BLOCK_DIM_DEFLATE;
         auto grid_dim  = div(pardeg, block_dim);
 
-        START_CUDAEVENT_RECORDING(stream);
+        START_GPUEVENT_RECORDING(stream);
 
         psz::detail::hf_encode_phase2_deflate<H>  //
             <<<grid_dim, block_dim, 0, stream>>>  //
             (d_buffer, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
-        STOP_CUDAEVENT_RECORDING(stream);
+        STOP_GPUEVENT_RECORDING(stream);
         CHECK_GPU(cudaStreamSynchronize(stream));
 
         float stage_time;
-        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        TIME_ELAPSED_GPUEVENT(&stage_time);
         if (time_lossless) *time_lossless += stage_time;
     }
 
@@ -106,17 +106,17 @@ void psz::hf_encode_coarse_rev2(
 
     /* phase 4 */
     {
-        START_CUDAEVENT_RECORDING(stream);
+        START_GPUEVENT_RECORDING(stream);
 
         psz::detail::hf_encode_phase4_concatenate<H, M><<<pardeg, 128, 0, stream>>>  //
             (d_buffer, d_par_entry, d_par_ncell, sublen, d_bitstream);
 
-        STOP_CUDAEVENT_RECORDING(stream);
+        STOP_GPUEVENT_RECORDING(stream);
 
         CHECK_GPU(cudaStreamSynchronize(stream));
 
         float stage_time;
-        TIME_ELAPSED_CUDAEVENT(&stage_time);
+        TIME_ELAPSED_GPUEVENT(&stage_time);
         if (time_lossless) *time_lossless += stage_time;
     }
 
@@ -143,18 +143,18 @@ void psz::hf_decode_coarse(
     auto const block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
     auto const grid_dim  = psz_utils::get_npart(pardeg, block_dim);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream)
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream)
 
     hf_decode_kernel<E, H, M>                             //
         <<<grid_dim, block_dim, revbook_nbyte, stream>>>  //
         (d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte, sublen, pardeg, out_decompressed);
 
-    STOP_CUDAEVENT_RECORDING(stream)
+    STOP_GPUEVENT_RECORDING(stream)
     cudaStreamSynchronize(stream);
 
-    TIME_ELAPSED_CUDAEVENT(time_lossless);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_lossless);
+    DESTROY_GPUEVENT_PAIR;
 }
 
 #define HF_CODEC_INIT(E, H, M)                                                              \

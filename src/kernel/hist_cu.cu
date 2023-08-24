@@ -67,17 +67,17 @@ cusz_error_status histogram_cuda(
   query_maxbytes();
   optimize_launch();
 
-  CREATE_CUDAEVENT_PAIR;
-  START_CUDAEVENT_RECORDING(stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
       (in, out_hist, inlen, outlen, r_per_block);
 
-  STOP_CUDAEVENT_RECORDING(stream);
+  STOP_GPUEVENT_RECORDING(stream);
 
   cudaStreamSynchronize(stream);
-  TIME_ELAPSED_CUDAEVENT(milliseconds);
-  DESTROY_CUDAEVENT_PAIR;
+  TIME_ELAPSED_GPUEVENT(milliseconds);
+  DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }

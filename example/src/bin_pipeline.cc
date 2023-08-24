@@ -21,7 +21,6 @@
 #include "mem/layout_cxx.hh"
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
-#include "utils/timer.hh"
 #include "utils/viewer.hh"
 
 using std::string;

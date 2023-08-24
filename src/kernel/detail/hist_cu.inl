@@ -20,7 +20,7 @@
 
 #include "typing.hh"
 #include "utils/config.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)
 const static unsigned int WARP_SIZE = 32;

@@ -26,7 +26,7 @@
 #include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/io.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 namespace hf_detail {
 template <typename T>
@@ -93,8 +93,8 @@ void psz::hf_buildbook_cu(
     auto _d_entry = reinterpret_cast<H*>(revbook + (sizeof(H) * type_bw));
     auto _d_qcode = reinterpret_cast<T*>(revbook + (sizeof(H) * 2 * type_bw));
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
@@ -256,9 +256,9 @@ void psz::hf_buildbook_cu(
     hf_detail::GPU_ReorderByIndex<H, T><<<nblocks, 1024>>>(codebook, _d_qcode, (unsigned int)dict_size);
     cudaStreamSynchronize(stream);
 
-    STOP_CUDAEVENT_RECORDING(stream);
-    TIME_ELAPSED_CUDAEVENT(_time_book);
-    DESTROY_CUDAEVENT_PAIR;
+    STOP_GPUEVENT_RECORDING(stream);
+    TIME_ELAPSED_GPUEVENT(_time_book);
+    DESTROY_GPUEVENT_PAIR;
 
     // Cleanup
     cudaFree(CL);

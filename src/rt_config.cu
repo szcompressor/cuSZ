@@ -13,7 +13,7 @@
 #include "cusz/type.h"
 #include "kernel/detail/hist_cuda.inl"
 #include "rt_config.h"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 // query
 psz_error_status psz_query_device(psz_device_property* prop)
@@ -78,17 +78,17 @@ psz_error_status psz_launch_p2013Histogram(
     }
 
     // start timing
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING((cudaStream_t)stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
     kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, (cudaStream_t)stream>>>  //
         (in_data, out_freq, in_len, num_buckets, r_per_block);
 
-    STOP_CUDAEVENT_RECORDING((cudaStream_t)stream);
+    STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
 
     cudaStreamSynchronize((cudaStream_t)stream);
-    TIME_ELAPSED_CUDAEVENT(milliseconds);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(milliseconds);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }

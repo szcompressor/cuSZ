@@ -1,5 +1,5 @@
 /**
- * @file l32r.cu
+ * @file l32r_cu.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -16,7 +16,7 @@
 #include "kernel/l23r.hh"
 #include "mem/compact.hh"
 #include "utils/err.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 template <typename T, typename Eq, bool UsePnEnc>
 cusz_error_status psz_comp_l23r(
@@ -66,8 +66,8 @@ cusz_error_status psz_comp_l23r(
   auto ebx2_r = 1 / ebx2;
   auto leap3 = dim3(1, len3.x, len3.x * len3.y);
 
-  CREATE_CUDAEVENT_PAIR;
-  START_CUDAEVENT_RECORDING(stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   if (d == 1) {
     psz::rolling::c_lorenzo_1d1l<T, false, Eq, T, Tile1D, Seq1D>
@@ -88,10 +88,10 @@ cusz_error_status psz_comp_l23r(
             ot->num());
   }
 
-  STOP_CUDAEVENT_RECORDING(stream);
+  STOP_GPUEVENT_RECORDING(stream);
   CHECK_GPU(cudaStreamSynchronize(stream));
-  TIME_ELAPSED_CUDAEVENT(time_elapsed);
-  DESTROY_CUDAEVENT_PAIR;
+  TIME_ELAPSED_GPUEVENT(time_elapsed);
+  DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }

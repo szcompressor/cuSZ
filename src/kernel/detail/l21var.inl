@@ -39,7 +39,7 @@
 #define BDZ blockDim.z
 
 #include "utils/err.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 namespace cusz {
 namespace experimental {

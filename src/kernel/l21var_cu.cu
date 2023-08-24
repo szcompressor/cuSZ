@@ -12,7 +12,7 @@
 #include "cusz/type.h"
 #include "kernel/l23.hh"
 #include "utils/err.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 #include "detail/lorenzo_var.inl"
 
@@ -62,8 +62,8 @@ cusz_error_status asz::experimental::psz_comp_l21var(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     if (ndim() == 1) {
         cusz::experimental::c_lorenzo_1d1l<T, DeltaT, FP, SEQ_1D, SEQ_1D>  //
@@ -84,11 +84,11 @@ cusz_error_status asz::experimental::psz_comp_l21var(
         throw std::runtime_error("Lorenzo only works for 123-D.");
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(cudaStreamSynchronize(stream));
 
-    TIME_ELAPSED_CUDAEVENT(time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }
@@ -139,8 +139,8 @@ cusz_error_status asz::experimental::psz_decomp_l21var(
     auto ebx2_r = 1 / ebx2;
     auto leap3  = dim3(1, len3.x, len3.x * len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     if (ndim() == 1) {
         cusz::experimental::x_lorenzo_1d1l<T, DeltaT, FP, 256, 8>  //
@@ -158,11 +158,11 @@ cusz_error_status asz::experimental::psz_decomp_l21var(
             (signum, delta, xdata, len3, leap3, ebx2);
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(cudaStreamSynchronize(stream));
 
-    TIME_ELAPSED_CUDAEVENT(time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 
     return CUSZ_SUCCESS;
 }

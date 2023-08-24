@@ -15,7 +15,7 @@
 
 #include "detail/histsp_cu.inl"
 #include "kernel/histsp.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 namespace psz {
 namespace detail {
@@ -29,17 +29,17 @@ int histsp_hip(
   auto num_chunks = (inlen - 1) / chunk + 1;
   auto num_workers = 256;  // n SIMD-32 (or 64 if AMD)
 
-  CREATE_HIPEVENT_PAIR;
-  START_HIPEVENT_RECORDING(stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   histsp_multiwarp<T, FQ>
       <<<num_chunks, num_workers, sizeof(FQ) * outlen, stream>>>(
           in, inlen, chunk, out_hist, outlen, outlen / 2);
-  STOP_HIPEVENT_RECORDING(stream);
+  STOP_GPUEVENT_RECORDING(stream);
 
   hipStreamSynchronize(stream);
-  TIME_ELAPSED_HIPEVENT(milliseconds);
-  DESTROY_HIPEVENT_PAIR;
+  TIME_ELAPSED_GPUEVENT(milliseconds);
+  DESTROY_GPUEVENT_PAIR;
 
   return 0;
 }
