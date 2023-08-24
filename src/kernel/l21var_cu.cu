@@ -11,7 +11,7 @@
 
 #include "cusz/type.h"
 #include "kernel/l23.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 #include "detail/lorenzo_var.inl"
@@ -85,7 +85,7 @@ cusz_error_status asz::experimental::psz_comp_l21var(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     TIME_ELAPSED_CUDAEVENT(time_elapsed);
     DESTROY_CUDAEVENT_PAIR;
@@ -159,7 +159,7 @@ cusz_error_status asz::experimental::psz_decomp_l21var(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     TIME_ELAPSED_CUDAEVENT(time_elapsed);
     DESTROY_CUDAEVENT_PAIR;

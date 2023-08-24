@@ -29,7 +29,7 @@ using std::cout;
 #include "hf/hf_bk.hh"
 #include "hf/hf_codecg.hh"
 #include "typing.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/format.hh"
 
 #define ACCESSOR(SYM, TYPE) \
@@ -180,7 +180,7 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::decode(
 {
   Header header;
   if (header_on_device)
-    CHECK_CUDA(cudaMemcpyAsync(
+    CHECK_GPU(cudaMemcpyAsync(
         &header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost,
         stream));
 
@@ -254,9 +254,9 @@ void HuffmanCodec<E, H, M>::hf_merge(
 {
   auto BARRIER = [&]() {
     if (stream)
-      CHECK_CUDA(cudaStreamSynchronize(stream));
+      CHECK_GPU(cudaStreamSynchronize(stream));
     else
-      CHECK_CUDA(cudaDeviceSynchronize());
+      CHECK_GPU(cudaDeviceSynchronize());
   };
 
   header.self_bytes = sizeof(Header);
@@ -281,7 +281,7 @@ void HuffmanCodec<E, H, M>::hf_merge(
     header.entry[i] += header.entry[i - 1];
   }
 
-  CHECK_CUDA(cudaMemcpyAsync(
+  CHECK_GPU(cudaMemcpyAsync(
       compressed->dptr(), &header, sizeof(header), cudaMemcpyHostToDevice,
       stream));
 
@@ -291,24 +291,24 @@ void HuffmanCodec<E, H, M>::hf_merge(
   {
     auto dst = compressed->dptr() + header.entry[Header::REVBOOK];
     auto src = revbook->dptr();
-    CHECK_CUDA(cudaMemcpyAsync(dst, src, nbyte[Header::REVBOOK], D2D, stream));
+    CHECK_GPU(cudaMemcpyAsync(dst, src, nbyte[Header::REVBOOK], D2D, stream));
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::PAR_NBIT];
     auto src = par_nbit->dptr();
-    CHECK_CUDA(
+    CHECK_GPU(
         cudaMemcpyAsync(dst, src, nbyte[Header::PAR_NBIT], D2D, stream));
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::PAR_ENTRY];
     auto src = par_entry->dptr();
-    CHECK_CUDA(
+    CHECK_GPU(
         cudaMemcpyAsync(dst, src, nbyte[Header::PAR_ENTRY], D2D, stream));
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::BITSTREAM];
     auto src = bitstream->dptr();
-    CHECK_CUDA(
+    CHECK_GPU(
         cudaMemcpyAsync(dst, src, nbyte[Header::BITSTREAM], D2D, stream));
   }
 }

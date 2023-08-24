@@ -19,7 +19,7 @@
 #include "hf/hf_struct.h"
 #include "typing.hh"
 #include "utils/config.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 #define TIX threadIdx.x

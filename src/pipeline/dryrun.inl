@@ -19,7 +19,7 @@
 #include "typing.hh"
 #include "utils/analyzer.hh"
 #include "utils/config.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/verify.hh"
@@ -46,7 +46,7 @@ Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(
   original->debug();
 
   original->file(fname.c_str(), FromFile)->control({ASYNC_H2D}, stream);
-  CHECK_CUDA(cudaStreamSynchronize(stream));
+  CHECK_GPU(cudaStreamSynchronize(stream));
 
   if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
@@ -58,7 +58,7 @@ Dryrunner<T>& Dryrunner<T>::dualquant_dryrun(
       (original->dptr(), reconst->dptr(), len, ebx2_r, ebx2);
 
   reconst->control({ASYNC_D2H}, stream);
-  CHECK_CUDA(cudaStreamSynchronize(stream));
+  CHECK_GPU(cudaStreamSynchronize(stream));
 
   cusz_stats stat;
   psz::thrustgpu_assess_quality(&stat, reconst->hptr(), original->hptr(), len);

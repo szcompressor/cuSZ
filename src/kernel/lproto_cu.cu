@@ -12,7 +12,7 @@
 #include "cusz/type.h"
 #include "kernel/lproto.hh"
 #include "mem/compact_cu.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 #include "detail/lproto.inl"
@@ -79,7 +79,7 @@ cusz_error_status psz_comp_lproto(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     TIME_ELAPSED_CUDAEVENT(time_elapsed);
     DESTROY_CUDAEVENT_PAIR;
@@ -147,7 +147,7 @@ cusz_error_status psz_decomp_lproto(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     TIME_ELAPSED_CUDAEVENT(time_elapsed);
     DESTROY_CUDAEVENT_PAIR;

@@ -15,7 +15,7 @@
 // #include "hf/hf_struct.h"
 #include "kernel/claunch_cuda.h"
 #include "kernel/cpplaunch_cuda.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 
 #define C_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                                           \
     cusz_error_status claunch_construct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                           \

@@ -23,7 +23,7 @@
 #include "mem/memseg_cxx.hh"
 #include "tehm.hh"
 #include "utils/analyzer.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
 
@@ -168,7 +168,7 @@ class CLI {
     cusz_compressor* compressor = cusz_create(framework, F4);
 
     cudaStream_t stream;
-    CHECK_CUDA(cudaStreamCreate(&stream));
+    CHECK_GPU(cudaStreamCreate(&stream));
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);

@@ -1,8 +1,5 @@
-#ifndef CUDA_ERR_CUH
-#define CUDA_ERR_CUH
-
 /**
- * @file cuda_err.cuh
+ * @file err_cu.hh
  * @author Jiannan Tian
  * @brief CUDA runtime error handling macros.
  * @version 0.2
@@ -13,6 +10,9 @@
  * See LICENSE in top-level directory
  *
  */
+
+#ifndef A7F48867_46BB_4F24_9393_DBE36076D62C
+#define A7F48867_46BB_4F24_9393_DBE36076D62C
 
 #include <cuda_runtime.h>
 #include "busyheader.hh"
@@ -28,16 +28,6 @@ struct cusz_cuda_exception : public std::exception {
   }
   std::string err_msg;
 };
-
-// back compatibility start
-static void HandleError(cudaError_t err, const char* file, int line)
-{
-    if (err != cudaSuccess) {
-        throw cusz_cuda_exception(cudaGetErrorString(err), err, file, line);
-    }
-}
-#define HANDLE_ERROR(err) (HandleError(err, __FILE__, __LINE__))
-// back compatibility end
 
 static void check_cuda_error(cudaError_t status, const char* file, int line)
 {
@@ -177,6 +167,8 @@ static void check_cuda_error(cudaError_t status, const char* file, int line)
     }
 }
 
-#define CHECK_CUDA(err) (check_cuda_error(err, __FILE__, __LINE__))
+#define CHECK_GPU(err) (check_cuda_error(err, __FILE__, __LINE__))
 
-#endif
+
+
+#endif /* A7F48867_46BB_4F24_9393_DBE36076D62C */

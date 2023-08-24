@@ -19,7 +19,7 @@
 
 #include "../../utils/it_cuda.hh"
 #include "mem/compact_cu.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 namespace psz {

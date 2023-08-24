@@ -65,7 +65,7 @@ void psz::hf_encode_coarse_rev2(
             (uncompressed, len, d_book, booklen, d_buffer);
 
         STOP_CUDAEVENT_RECORDING(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_GPU(cudaStreamSynchronize(stream));
 
         float stage_time;
         TIME_ELAPSED_CUDAEVENT(&stage_time);
@@ -84,7 +84,7 @@ void psz::hf_encode_coarse_rev2(
             (d_buffer, len, d_par_nbit, d_par_ncell, sublen, pardeg);
 
         STOP_CUDAEVENT_RECORDING(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_GPU(cudaStreamSynchronize(stream));
 
         float stage_time;
         TIME_ELAPSED_CUDAEVENT(&stage_time);
@@ -93,15 +93,15 @@ void psz::hf_encode_coarse_rev2(
 
     /* phase 3 */
     {
-        CHECK_CUDA(cudaMemcpyAsync(h_par_nbit, d_par_nbit, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaMemcpyAsync(h_par_ncell, d_par_ncell, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_GPU(cudaMemcpyAsync(h_par_nbit, d_par_nbit, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
+        CHECK_GPU(cudaMemcpyAsync(h_par_ncell, d_par_ncell, pardeg * sizeof(M), cudaMemcpyDeviceToHost, stream));
+        CHECK_GPU(cudaStreamSynchronize(stream));
 
         memcpy(h_par_entry + 1, h_par_ncell, (pardeg - 1) * sizeof(M));
         for (auto i = 1; i < pardeg; i++) h_par_entry[i] += h_par_entry[i - 1];  // inclusive scan
 
-        CHECK_CUDA(cudaMemcpyAsync(d_par_entry, h_par_entry, pardeg * sizeof(M), cudaMemcpyHostToDevice, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_GPU(cudaMemcpyAsync(d_par_entry, h_par_entry, pardeg * sizeof(M), cudaMemcpyHostToDevice, stream));
+        CHECK_GPU(cudaStreamSynchronize(stream));
     }
 
     /* phase 4 */
@@ -113,7 +113,7 @@ void psz::hf_encode_coarse_rev2(
 
         STOP_CUDAEVENT_RECORDING(stream);
 
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_GPU(cudaStreamSynchronize(stream));
 
         float stage_time;
         TIME_ELAPSED_CUDAEVENT(&stage_time);

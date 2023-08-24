@@ -28,7 +28,7 @@
 #include "mem/layout.h"
 #include "mem/layout_cxx.hh"
 #include "utils/config.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 
 #define PRINT_ENTRY(VAR)                                    \
   printf(                                                   \
@@ -141,7 +141,7 @@ Compressor<C>* Compressor<C>::compress(
 
   splen = mem->compact->num_outliers();
 
-  // /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+  // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
 
   /******************************************************************************/
 
@@ -185,27 +185,27 @@ Compressor<C>* Compressor<C>::merge_subfiles(
 
   auto D2D = cudaMemcpyDeviceToDevice;
   // TODO no need to copy header to device
-  CHECK_CUDA(cudaMemcpyAsync(
+  CHECK_GPU(cudaMemcpyAsync(
       mem->compressed(), &header, sizeof(header), cudaMemcpyHostToDevice,
       stream));
 
   // device-side copy
   auto dst1 = mem->compressed() + header.entry[Header::VLE];
   auto src1 = d_codec_out;
-  CHECK_CUDA(cudaMemcpyAsync(dst1, src1, nbyte[Header::VLE], D2D, stream));
+  CHECK_GPU(cudaMemcpyAsync(dst1, src1, nbyte[Header::VLE], D2D, stream));
 
   // copy spval
   auto part1_nbyte = sizeof(T) * _splen;
   auto dst2 = mem->compressed() + header.entry[Header::SPFMT];
   auto src2 = _d_spval;
-  CHECK_CUDA(cudaMemcpyAsync(dst2, src2, part1_nbyte, D2D, stream));
+  CHECK_GPU(cudaMemcpyAsync(dst2, src2, part1_nbyte, D2D, stream));
   // copy spidx
   auto dst3 = mem->compressed() + header.entry[Header::SPFMT] + part1_nbyte;
   auto src3 = _d_spidx;
-  CHECK_CUDA(
+  CHECK_GPU(
       cudaMemcpyAsync(dst3, src3, sizeof(uint32_t) * _splen, D2D, stream));
 
-  /* debug */ CHECK_CUDA(cudaStreamSynchronize(stream));
+  /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
 
   return this;
 }
@@ -259,10 +259,10 @@ Compressor<C>* Compressor<C>::decompress(
   // TODO host having copy of header when compressing
   if (not header) {
     header = new cusz_header;
-    CHECK_CUDA(cudaMemcpyAsync(
+    CHECK_GPU(cudaMemcpyAsync(
         header, in_compressed, sizeof(cusz_header), cudaMemcpyDeviceToHost,
         stream));
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
   }
 
   len3 = dim3(header->x, header->y, header->z);

@@ -38,7 +38,7 @@
 #define BDY blockDim.y
 #define BDZ blockDim.z
 
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 namespace cusz {

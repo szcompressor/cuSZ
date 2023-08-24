@@ -149,7 +149,7 @@ class Spline3 {
         (d_data, data_size, data_leap, d_ectrl, size_aligned, leap_aligned,
          d_anchor, anchor_leap, eb_r, ebx2, radius);
 
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     return 0;
   }
@@ -174,7 +174,7 @@ class Spline3 {
         (in_ectrl, size_aligned, leap_aligned, in_anchor, anchor_size,
          anchor_leap, out_xdata, data_size, data_leap, eb_r, ebx2, radius);
 
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     return 0;
   }

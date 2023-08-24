@@ -10,7 +10,7 @@
  */
 
 #include "cusz/type.h"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 #include "kernel/l23.hh"
@@ -91,7 +91,7 @@ cusz_error_status psz_comp_l23(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
     TIME_ELAPSED_CUDAEVENT(time_elapsed);
     DESTROY_CUDAEVENT_PAIR;
 
@@ -170,7 +170,7 @@ cusz_error_status psz_decomp_l23(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
     TIME_ELAPSED_CUDAEVENT(time_elapsed);
     DESTROY_CUDAEVENT_PAIR;
 

@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <type_traits>
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 #define SPLINE3_COMPR true
@@ -661,7 +661,7 @@ void launch_construct_Spline3(
     }
 
     STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
     TIME_ELAPSED_CUDAEVENT(&time_elapsed);
 
     DESTROY_CUDAEVENT_PAIR;
@@ -732,7 +732,7 @@ void launch_reconstruct_Spline3(
 
     STOP_CUDAEVENT_RECORDING(stream);
 
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
     TIME_ELAPSED_CUDAEVENT(&time_elapsed);
     DESTROY_CUDAEVENT_PAIR;

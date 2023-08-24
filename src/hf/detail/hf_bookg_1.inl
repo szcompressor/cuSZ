@@ -23,7 +23,7 @@
 #include "par_merge.inl"
 #include "typing.hh"
 #include "utils/config.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/timer.h"

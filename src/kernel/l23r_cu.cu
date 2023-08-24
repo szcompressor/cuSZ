@@ -15,7 +15,7 @@
 #include "detail/l23r.inl"
 #include "kernel/l23r.hh"
 #include "mem/compact_cu.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/timer.h"
 
 template <typename T, typename Eq, bool UsePnEnc>
@@ -89,7 +89,7 @@ cusz_error_status psz_comp_l23r(
   }
 
   STOP_CUDAEVENT_RECORDING(stream);
-  CHECK_CUDA(cudaStreamSynchronize(stream));
+  CHECK_GPU(cudaStreamSynchronize(stream));
   TIME_ELAPSED_CUDAEVENT(time_elapsed);
   DESTROY_CUDAEVENT_PAIR;
 

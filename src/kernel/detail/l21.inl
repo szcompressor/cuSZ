@@ -16,7 +16,7 @@
 #define CUSZ_KERNEL_LORENZO_CUH
 
 #include <cstddef>
-// #include "utils/cuda_err.cuh"
+// #include "utils/err.hh"
 // #include "utils/timer.h"
 
 #if __has_include(<cub/cub.cuh>)

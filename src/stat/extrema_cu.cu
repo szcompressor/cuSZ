@@ -14,7 +14,7 @@
 #include "cusz/type.h"
 #include "detail/extrema_g.inl"
 #include "stat/compare_cu.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 
 template <typename T>
 void psz::cuda_extrema(T* in, size_t len, T res[4])
@@ -37,13 +37,13 @@ void psz::cuda_extrema(T* in, size_t len, T res[4])
   T h_min, h_max, failsafe;
   T *d_minel, *d_maxel;
 
-  CHECK_CUDA(cudaMalloc(&d_minel, sizeof(T)));
-  CHECK_CUDA(cudaMalloc(&d_maxel, sizeof(T)));
+  CHECK_GPU(cudaMalloc(&d_minel, sizeof(T)));
+  CHECK_GPU(cudaMalloc(&d_maxel, sizeof(T)));
 
   // failsafe init
-  CHECK_CUDA(cudaMemcpy(&failsafe, in, sizeof(T), cudaMemcpyDeviceToHost));
-  CHECK_CUDA(cudaMemcpy(d_minel, in, sizeof(T), cudaMemcpyDeviceToDevice));
-  CHECK_CUDA(cudaMemcpy(d_maxel, in, sizeof(T), cudaMemcpyDeviceToDevice));
+  CHECK_GPU(cudaMemcpy(&failsafe, in, sizeof(T), cudaMemcpyDeviceToHost));
+  CHECK_GPU(cudaMemcpy(d_minel, in, sizeof(T), cudaMemcpyDeviceToDevice));
+  CHECK_GPU(cudaMemcpy(d_maxel, in, sizeof(T), cudaMemcpyDeviceToDevice));
 
   // launch
   psz::extrema_cu<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
@@ -52,15 +52,15 @@ void psz::cuda_extrema(T* in, size_t len, T res[4])
   cudaStreamSynchronize(stream);
 
   // collect results
-  CHECK_CUDA(cudaMemcpy(&h_min, d_minel, sizeof(T), cudaMemcpyDeviceToHost));
-  CHECK_CUDA(cudaMemcpy(&h_max, d_maxel, sizeof(T), cudaMemcpyDeviceToHost));
+  CHECK_GPU(cudaMemcpy(&h_min, d_minel, sizeof(T), cudaMemcpyDeviceToHost));
+  CHECK_GPU(cudaMemcpy(&h_max, d_maxel, sizeof(T), cudaMemcpyDeviceToHost));
 
   res[MINVAL] = h_min;
   res[MAXVAL] = h_max;
   res[RNG] = h_max - h_min;
 
-  CHECK_CUDA(cudaFree(d_minel));
-  CHECK_CUDA(cudaFree(d_maxel));
+  CHECK_GPU(cudaFree(d_minel));
+  CHECK_GPU(cudaFree(d_maxel));
 
   cudaStreamDestroy(stream);
 }

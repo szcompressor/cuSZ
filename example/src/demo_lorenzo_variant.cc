@@ -15,7 +15,7 @@
 #include <string>
 
 #include "kernel/l23.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/io.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
