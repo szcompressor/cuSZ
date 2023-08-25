@@ -13,24 +13,8 @@
  *
  */
 
-#ifndef CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
-#define CUSZ_COMPONENT_HUFFMAN_COARSE_CUH
-
-#include <cuda.h>
-
-#include <iostream>
-#include <numeric>
-
-#include "mem/memseg_cxx.hh"
-
-using std::cout;
-
-#include "hf/hf.hh"
-#include "hf/hf_bk.hh"
-#include "hf/hf_codecg.hh"
-#include "typing.hh"
-#include "utils/err.hh"
-#include "utils/format.hh"
+#ifndef ABBC78E4_3E65_4633_9BEA_27823AB7C398
+#define ABBC78E4_3E65_4633_9BEA_27823AB7C398
 
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
@@ -57,7 +41,7 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
   auto __debug = [&]() {
     setlocale(LC_NUMERIC, "");
     printf("\nHuffmanCoarse<E, H, M>::init() debugging:\n");
-    printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
+    printf("GpuDevicePtr nbyte: %d\n", (int)sizeof(GpuDevicePtr));
     hf_debug("TMP", tmp->dptr(), RTE::TMP);
     hf_debug("BOOK", book->dptr(), RTE::BOOK);
     hf_debug("REVBOOK", revbook->dptr(), RTE::REVBOOK);
@@ -99,7 +83,7 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
   compressed->dptr((uint8_t*)tmp->dptr())->hptr((uint8_t*)tmp->hptr());
 
   int numSMs;
-  cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+  GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
 
   int sublen = (inlen - 1) / pardeg + 1;
 
@@ -121,11 +105,11 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
 #ifdef ENABLE_HUFFBK_GPU
 TEMPLATE_TYPE
 HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
-    uint32_t* freq, int const booklen, cudaStream_t stream)
+    uint32_t* freq, int const booklen, void* stream)
 {
   psz::hf_buildbook<CUDA, E, H>(
       freq, booklen, book->dptr(), revbook->dptr(), revbook_bytes(booklen),
-      &_time_book, stream);
+      &_time_book, (GpuStreamT)stream);
 
   return this;
 }
@@ -133,23 +117,22 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
 
 TEMPLATE_TYPE
 HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
-    pszmem_cxx<uint32_t>* freq, int const booklen, cudaStream_t stream)
+    pszmem_cxx<uint32_t>* freq, int const booklen, void* stream)
 {
   // printf("using CPU huffman\n");
   psz::hf_buildbook<CPU, E, H>(
       freq->control({D2H})->hptr(), booklen, book->hptr(), revbook->hptr(),
-      revbook_bytes(booklen), &_time_book, stream);
+      revbook_bytes(booklen), &_time_book, (GpuStreamT)stream);
 
-  book->control({ASYNC_H2D}, stream);
-  revbook->control({ASYNC_H2D}, stream);
+  book->control({ASYNC_H2D}, (GpuStreamT)stream);
+  revbook->control({ASYNC_H2D}, (GpuStreamT)stream);
 
   return this;
 }
 
 TEMPLATE_TYPE
 HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::encode(
-    E* in, size_t const inlen, uint8_t** out, size_t* outlen,
-    cudaStream_t stream)
+    E* in, size_t const inlen, uint8_t** out, size_t* outlen, void* stream)
 {
   _time_lossless = 0;
 
@@ -175,14 +158,14 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::encode(
 
 TEMPLATE_TYPE
 HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::decode(
-    uint8_t* in_compressed, E* out_decompressed, cudaStream_t stream,
+    uint8_t* in_compressed, E* out_decompressed, void* stream,
     bool header_on_device)
 {
   Header header;
   if (header_on_device)
-    CHECK_GPU(cudaMemcpyAsync(
-        &header, in_compressed, sizeof(header), cudaMemcpyDeviceToHost,
-        stream));
+    CHECK_GPU(GpuMemcpyAsync(
+        &header, in_compressed, sizeof(header), GpuMemcpyD2H,
+        (GpuStreamT)stream));
 
   auto d_revbook = ACCESSOR(REVBOOK, uint8_t);
   auto d_par_nbit = ACCESSOR(PAR_NBIT, M);
@@ -250,13 +233,13 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::clear_buffer()
 TEMPLATE_TYPE
 void HuffmanCodec<E, H, M>::hf_merge(
     Header& header, size_t const original_len, int const booklen,
-    int const sublen, int const pardeg, cudaStream_t stream)
+    int const sublen, int const pardeg, void* stream)
 {
   auto BARRIER = [&]() {
     if (stream)
-      CHECK_GPU(cudaStreamSynchronize(stream));
+      CHECK_GPU(GpuStreamSync(stream));
     else
-      CHECK_GPU(cudaDeviceSynchronize());
+      CHECK_GPU(GpuDeviceSync());
   };
 
   header.self_bytes = sizeof(Header);
@@ -281,35 +264,36 @@ void HuffmanCodec<E, H, M>::hf_merge(
     header.entry[i] += header.entry[i - 1];
   }
 
-  CHECK_GPU(cudaMemcpyAsync(
-      compressed->dptr(), &header, sizeof(header), cudaMemcpyHostToDevice,
-      stream));
+  CHECK_GPU(GpuMemcpyAsync(
+      compressed->dptr(), &header, sizeof(header), GpuMemcpyH2D,
+      (GpuStreamT)stream));
 
   /* debug */ BARRIER();
 
-  constexpr auto D2D = cudaMemcpyDeviceToDevice;
+  constexpr auto D2D = GpuMemcpyD2D;
   {
     auto dst = compressed->dptr() + header.entry[Header::REVBOOK];
     auto src = revbook->dptr();
-    CHECK_GPU(cudaMemcpyAsync(dst, src, nbyte[Header::REVBOOK], D2D, stream));
+    CHECK_GPU(GpuMemcpyAsync(
+        dst, src, nbyte[Header::REVBOOK], D2D, (GpuStreamT)stream));
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::PAR_NBIT];
     auto src = par_nbit->dptr();
-    CHECK_GPU(
-        cudaMemcpyAsync(dst, src, nbyte[Header::PAR_NBIT], D2D, stream));
+    CHECK_GPU(GpuMemcpyAsync(
+        dst, src, nbyte[Header::PAR_NBIT], D2D, (GpuStreamT)stream));
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::PAR_ENTRY];
     auto src = par_entry->dptr();
-    CHECK_GPU(
-        cudaMemcpyAsync(dst, src, nbyte[Header::PAR_ENTRY], D2D, stream));
+    CHECK_GPU(GpuMemcpyAsync(
+        dst, src, nbyte[Header::PAR_ENTRY], D2D, (GpuStreamT)stream));
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::BITSTREAM];
     auto src = bitstream->dptr();
-    CHECK_GPU(
-        cudaMemcpyAsync(dst, src, nbyte[Header::BITSTREAM], D2D, stream));
+    CHECK_GPU(GpuMemcpyAsync(
+        dst, src, nbyte[Header::BITSTREAM], D2D, (GpuStreamT)stream));
   }
 }
 
@@ -341,10 +325,10 @@ TEMPLATE_TYPE
 void HuffmanCodec<E, H, M>::hf_debug(
     const std::string SYM_name, void* VAR, int SYM)
 {
-  CUdeviceptr pbase0{0};
+  GpuDevicePtr pbase0{0};
   size_t psize0{0};
 
-  cuMemGetAddressRange(&pbase0, &psize0, (CUdeviceptr)VAR);
+  GpuMemGetAddressRange(&pbase0, &psize0, (GpuDevicePtr)VAR);
   printf(
       "%s:\n"
       "\t(supposed) pointer : %p\n"
@@ -361,4 +345,4 @@ void HuffmanCodec<E, H, M>::hf_debug(
 #undef ACCESSOR
 #undef TEMPLATE_TYPE
 
-#endif
+#endif /* ABBC78E4_3E65_4633_9BEA_27823AB7C398 */

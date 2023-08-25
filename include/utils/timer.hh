@@ -38,9 +38,10 @@ typedef struct psztime psz_cputimer;
   cudaEventDestroy(a);        \
   cudaEventDestroy(b);
 
-#define START_GPUEVENT_RECORDING(STREAM) cudaEventRecord(a, STREAM);
-#define STOP_GPUEVENT_RECORDING(STREAM) \
-  cudaEventRecord(b, STREAM);           \
+#define START_GPUEVENT_RECORDING(STREAM) \
+  cudaEventRecord(a, (cudaStream_t)STREAM);
+#define STOP_GPUEVENT_RECORDING(STREAM)     \
+  cudaEventRecord(b, (cudaStream_t)STREAM); \
   cudaEventSynchronize(b);
 
 #define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
@@ -59,9 +60,10 @@ typedef struct psztime psz_cputimer;
   hipEventDestroy(a);         \
   hipEventDestroy(b);
 
-#define START_GPUEVENT_RECORDING(STREAM) hipEventRecord(a, STREAM);
-#define STOP_GPUEVENT_RECORDING(STREAM) \
-  hipEventRecord(b, STREAM);            \
+#define START_GPUEVENT_RECORDING(STREAM) \
+  hipEventRecord(a, (hipStream_t)STREAM);
+#define STOP_GPUEVENT_RECORDING(STREAM)   \
+  hipEventRecord(b, (hipStream_t)STREAM); \
   hipEventSynchronize(b);
 
 #define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \

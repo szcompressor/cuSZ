@@ -1,5 +1,5 @@
 /**
- * @file hf_obj_cu.cu
+ * @file hf_obj_hip.cpp
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -25,7 +25,6 @@
 #include "utils/format.hh"
 
 // deps
-#include <cuda.h>
 #include "port.hh"
 
 // definitions
