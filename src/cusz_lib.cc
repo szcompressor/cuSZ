@@ -74,12 +74,13 @@ pszerror psz_compress_init(
 pszerror psz_compress(
     pszcompressor* comp, void* in, pszlen const uncomp_len,
     ptr_pszout compressed, size_t* comp_bytes, pszheader* header, void* record,
-    cudaStream_t stream)
+    void* stream)
 {
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
-    cor->compress(comp->ctx, (f4*)(in), *compressed, *comp_bytes, stream);
+    cor->compress(
+        comp->ctx, (f4*)(in), *compressed, *comp_bytes, (cudaStream_t)stream);
     cor->export_header(*header);
     cor->export_timerecord((cusz::TimeRecord*)record);
   }
@@ -108,13 +109,13 @@ pszerror psz_decompress_init(pszcompressor* comp, pszheader* header)
 
 pszerror psz_decompress(
     pszcompressor* comp, pszout compressed, size_t const comp_len,
-    void* decompressed, pszlen const decomp_len, void* record,
-    cudaStream_t stream)
+    void* decompressed, pszlen const decomp_len, void* record, void* stream)
 {
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
-    cor->decompress(comp->header, compressed, (f4*)(decompressed), stream);
+    cor->decompress(
+        comp->header, compressed, (f4*)(decompressed), (cudaStream_t)stream);
     cor->export_timerecord((cusz::TimeRecord*)record);
   }
   else {
