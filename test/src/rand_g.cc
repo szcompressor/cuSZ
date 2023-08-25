@@ -17,7 +17,7 @@
 
 #warning "<hiprand.h> or <rocrand.h> could not be found even with `spack load hiprand`"
 
-// #include <hiprand.h>
+#include <hiprand.h>
 
 #endif
 
@@ -41,13 +41,13 @@ void psz::testutils::cuda_hip_compat::rand_array<float>(
 
 #warning "<hiprand.h> or <rocrand.h> could not be found even with `spack load hiprand`"
 
-  // hiprandGenerator_t gen;
-  // // Create a new generator
-  // hiprandCreateGenerator(&gen, HIPRAND_RNG_PSEUDO_DEFAULT);
-  // // Set the generator options
-  // hiprandSetPseudoRandomGeneratorSeed(gen, (unsigned long)seed);
-  // // Generate random numbers
-  // hiprandGenerateUniform(gen, array_g, len);
+  hiprandGenerator_t gen;
+  // Create a new generator
+  hiprandCreateGenerator(&gen, HIPRAND_RNG_PSEUDO_DEFAULT);
+  // Set the generator options
+  hiprandSetPseudoRandomGeneratorSeed(gen, (unsigned long)seed);
+  // Generate random numbers
+  hiprandGenerateUniform(gen, array_g, len);
 
 #endif
 }
@@ -70,13 +70,13 @@ void psz::testutils::cuda_hip_compat::rand_array<double>(
 
 #warning "<hiprand.h> or <rocrand.h> could not be found even with `spack load hiprand`"
 
-  // hiprandGenerator_t gen;
-  // // Create a new generator
-  // hiprandCreateGenerator(&gen, HIPRAND_RNG_PSEUDO_DEFAULT);
-  // // Set the generator options
-  // hiprandSetPseudoRandomGeneratorSeed(gen, (unsigned long)seed);
-  // // Generate random numbers
-  // hiprandGenerateUniformDouble(gen, array_g, len);
+  hiprandGenerator_t gen;
+  // Create a new generator
+  hiprandCreateGenerator(&gen, HIPRAND_RNG_PSEUDO_DEFAULT);
+  // Set the generator options
+  hiprandSetPseudoRandomGeneratorSeed(gen, (unsigned long)seed);
+  // Generate random numbers
+  hiprandGenerateUniformDouble(gen, array_g, len);
 
 #endif
 }
