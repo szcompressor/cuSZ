@@ -18,6 +18,10 @@
 #define GpuDevicePtr CUdeviceptr
 #define GpuMemGetAddressRange cuMemGetAddressRange
 
+#define GpuSetDevice cudaSetDevice
+#define GpuDeviceProp cudaDeviceProp
+#define GpuGetDeviceProperties cudaGetDeviceProperties
+
 #elif defined(PSZ_USE_HIP)
 
 // #include <hip/hip_runtime.h>
@@ -38,5 +42,9 @@
 #define GpuDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount
 #define GpuDevicePtr hipDeviceptr_t
 #define GpuMemGetAddressRange hipMemGetAddressRange
+
+#define GpuSetDevice hipSetDevice
+#define GpuDeviceProp hipDeviceProp_t
+#define GpuGetDeviceProperties hipGetDeviceProperties
 
 #endif

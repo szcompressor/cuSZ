@@ -14,8 +14,6 @@
 #ifndef A2519F0E_602B_4798_A8EF_9641123095D9
 #define A2519F0E_602B_4798_A8EF_9641123095D9
 
-#include <cuda_runtime.h>
-
 #include "busyheader.hh"
 #include "compressor.hh"
 #include "header.h"
@@ -25,7 +23,6 @@
 #include "kernel/l23.hh"
 #include "kernel/l23r.hh"
 #include "kernel/spv.hh"
-#include "mem/layout.h"
 #include "mem/layout_cxx.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
@@ -79,8 +76,8 @@ Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
 
 template <class C>
 Compressor<C>* Compressor<C>::compress(
-    cusz_context* config, T* in, BYTE*& out, size_t& outlen,
-    cudaStream_t stream, bool dbg_print)
+    cusz_context* config, T* in, BYTE*& out, size_t& outlen, void* stream,
+    bool dbg_print)
 {
   auto const eb = config->eb;
   auto const radius = config->radius;
@@ -137,11 +134,11 @@ Compressor<C>* Compressor<C>::compress(
          &splen, &time_sp, stream);
   */
 
-  mem->compact->make_host_accessible(stream);
+  mem->compact->make_host_accessible((GpuStreamT)stream);
 
   splen = mem->compact->num_outliers();
 
-  // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
+  // /* debug */ CHECK_GPU(GpuStreamSync(stream));
 
   /******************************************************************************/
 
@@ -168,7 +165,7 @@ Compressor<C>* Compressor<C>::compress(
 template <class C>
 Compressor<C>* Compressor<C>::merge_subfiles(
     BYTE* d_codec_out, size_t codec_outlen, T* _d_spval, M* _d_spidx,
-    size_t _splen, cudaStream_t stream)
+    size_t _splen, void* stream)
 {
   header.self_bytes = sizeof(cusz_header);
   uint32_t nbyte[cusz_header::END];
@@ -183,29 +180,29 @@ Compressor<C>* Compressor<C>::merge_subfiles(
   for (auto i = 1; i < Header::END + 1; i++)
     header.entry[i] += header.entry[i - 1];
 
-  auto D2D = cudaMemcpyDeviceToDevice;
+  auto D2D = GpuMemcpyD2D;
   // TODO no need to copy header to device
-  CHECK_GPU(cudaMemcpyAsync(
-      mem->compressed(), &header, sizeof(header), cudaMemcpyHostToDevice,
-      stream));
+  CHECK_GPU(GpuMemcpyAsync(
+      mem->compressed(), &header, sizeof(header), GpuMemcpyH2D,
+      (GpuStreamT)stream));
 
   // device-side copy
   auto dst1 = mem->compressed() + header.entry[Header::VLE];
   auto src1 = d_codec_out;
-  CHECK_GPU(cudaMemcpyAsync(dst1, src1, nbyte[Header::VLE], D2D, stream));
+  CHECK_GPU(GpuMemcpyAsync(dst1, src1, nbyte[Header::VLE], D2D, (GpuStreamT)stream));
 
   // copy spval
   auto part1_nbyte = sizeof(T) * _splen;
   auto dst2 = mem->compressed() + header.entry[Header::SPFMT];
   auto src2 = _d_spval;
-  CHECK_GPU(cudaMemcpyAsync(dst2, src2, part1_nbyte, D2D, stream));
+  CHECK_GPU(GpuMemcpyAsync(dst2, src2, part1_nbyte, D2D, (GpuStreamT)stream));
   // copy spidx
   auto dst3 = mem->compressed() + header.entry[Header::SPFMT] + part1_nbyte;
   auto src3 = _d_spidx;
   CHECK_GPU(
-      cudaMemcpyAsync(dst3, src3, sizeof(uint32_t) * _splen, D2D, stream));
+      GpuMemcpyAsync(dst3, src3, sizeof(uint32_t) * _splen, D2D, (GpuStreamT)stream));
 
-  /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
+  /* debug */ CHECK_GPU(GpuStreamSync(stream));
 
   return this;
 }
@@ -254,15 +251,15 @@ Compressor<C>* Compressor<C>::clear_buffer()
 template <class C>
 Compressor<C>* Compressor<C>::decompress(
     cusz_header* header, BYTE* in_compressed, T* out_decompressed,
-    cudaStream_t stream, bool dbg_print)
+    void* stream, bool dbg_print)
 {
   // TODO host having copy of header when compressing
   if (not header) {
     header = new cusz_header;
-    CHECK_GPU(cudaMemcpyAsync(
-        header, in_compressed, sizeof(cusz_header), cudaMemcpyDeviceToHost,
-        stream));
-    CHECK_GPU(cudaStreamSynchronize(stream));
+    CHECK_GPU(GpuMemcpyAsync(
+        header, in_compressed, sizeof(cusz_header), GpuMemcpyD2H,
+        (GpuStreamT)stream));
+    CHECK_GPU(GpuStreamSync(stream));
   }
 
   len3 = dim3(header->x, header->y, header->z);
