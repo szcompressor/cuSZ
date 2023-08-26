@@ -20,14 +20,21 @@
 #define GpuFree cudaFree
 #define GpuFreeHost cudaFreeHost
 
-#define GpuDeviceGetAttribute cudaDeviceGetAttribute
-#define GpuDevAttrMultiProcessorCount cudaDevAttrMultiProcessorCount
-#define GpuDevicePtr CUdeviceptr
-#define GpuMemGetAddressRange cuMemGetAddressRange
-
+#define GpuGetDevice cudaGetDevice
 #define GpuSetDevice cudaSetDevice
 #define GpuDeviceProp cudaDeviceProp
 #define GpuGetDeviceProperties cudaGetDeviceProperties
+#define GpuDeviceGetAttribute cudaDeviceGetAttribute
+#define GpuDevicePtr CUdeviceptr
+#define GpuMemGetAddressRange cuMemGetAddressRange
+#define GpuFuncSetAttribute cudaFuncSetAttribute
+#define GpuFuncAttribute cudaFuncAttribute
+
+#define GpuDevAttrMultiProcessorCount cudaDevAttrMultiProcessorCount
+#define GpuDevAttrMaxSharedMemoryPerBlock cudaDevAttrMaxSharedMemoryPerBlock
+#define GpuDevAttrMaxSharedMemoryPerBlockOptin cudaDevAttrMaxSharedMemoryPerBlockOptin
+#define GpuFuncAttributeMaxDynamicSharedMemorySize cudaFuncAttributeMaxDynamicSharedMemorySize
+
 
 #elif defined(PSZ_USE_HIP)
 
@@ -52,13 +59,19 @@
 #define GpuFree hipFree
 #define GpuFreeHost hipHostFree
 
-#define GpuDeviceGetAttribute hipDeviceGetAttribute
-#define GpuDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount
-#define GpuDevicePtr hipDeviceptr_t
-#define GpuMemGetAddressRange hipMemGetAddressRange
-
+#define GpuGetDevice hipGetDevice
 #define GpuSetDevice hipSetDevice
 #define GpuDeviceProp hipDeviceProp_t
 #define GpuGetDeviceProperties hipGetDeviceProperties
+#define GpuDeviceGetAttribute hipDeviceGetAttribute
+#define GpuDevicePtr hipDeviceptr_t
+#define GpuMemGetAddressRange hipMemGetAddressRange
+#define GpuFuncSetAttribute hipFuncSetAttribute
+#define GpuFuncAttribute hipFuncAttribute
+
+#define GpuDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount
+#define GpuDevAttrMaxSharedMemoryPerBlock hipDeviceAttributeMaxSharedMemoryPerBlock
+#define GpuDevAttrMaxSharedMemoryPerBlockOptin hipDeviceAttributeMaxSharedMemoryPerBlock
+#define GpuFuncAttributeMaxDynamicSharedMemorySize hipFuncAttributeMaxDynamicSharedMemorySize
 
 #endif
