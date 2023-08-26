@@ -63,7 +63,6 @@ target_link_libraries(
           pszstat_ser
           pszstat_cu
           pszmem
-          pszutils_cu
           CUDA::cudart)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
@@ -77,7 +76,6 @@ target_link_libraries(
           pszstat_ser
           pszstat_cu
           pszmem
-          pszutils_cu
           # CUDA::cudart
 )
 add_test(test_l3_lorenzosp l3_lorenzosp)
