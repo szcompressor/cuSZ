@@ -13,7 +13,6 @@
 #define DC032520_A30F_4F2D_A260_CCE0E88CF40C
 
 #include <thrust/device_ptr.h>
-#include <thrust/equal.h>
 #include <thrust/tuple.h>
 
 #include "cusz/type.h"
