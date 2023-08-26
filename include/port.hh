@@ -2,6 +2,9 @@
 
 // #include <cuda_runtime.h>
 #define GpuStreamT cudaStream_t
+#define GpuStreamCreate cudaStreamCreate
+#define GpuStreamDestroy cudaStreamDestroy
+
 #define GpuDeviceSync cudaDeviceSynchronize
 #define GpuStreamSync(STREAM) cudaStreamSynchronize((cudaStream_t)STREAM)
 
@@ -12,6 +15,10 @@
 #define GpuMemcpyH2H cudaMemcpyHostToHost
 #define GpuMemcpyD2H cudaMemcpyDeviceToHost
 #define GpuMemcpyD2D cudaMemcpyDeviceToDevice
+
+#define GpuMalloc cudaMalloc
+#define GpuFree cudaFree
+#define GpuFreeHost cudaFreeHost
 
 #define GpuDeviceGetAttribute cudaDeviceGetAttribute
 #define GpuDevAttrMultiProcessorCount cudaDevAttrMultiProcessorCount
@@ -27,6 +34,9 @@
 // #include <hip/hip_runtime.h>
 #include "port/primitives_hip.hh"
 #define GpuStreamT hipStream_t
+#define GpuStreamCreate hipStreamCreate
+#define GpuStreamDestroy hipStreamDestroy
+
 #define GpuDeviceSync hipDeviceSynchronize
 #define GpuStreamSync(STREAM) hipStreamSynchronize((hipStream_t)STREAM)
 
@@ -37,6 +47,10 @@
 #define GpuMemcpyH2H hipMemcpyHostToHost
 #define GpuMemcpyD2H hipMemcpyDeviceToHost
 #define GpuMemcpyD2D hipMemcpyDeviceToDevice
+
+#define GpuMalloc hipMalloc
+#define GpuFree hipFree
+#define GpuFreeHost hipHostFree
 
 #define GpuDeviceGetAttribute hipDeviceGetAttribute
 #define GpuDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount

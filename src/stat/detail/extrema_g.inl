@@ -16,6 +16,7 @@
 #include <stdio.h>
 
 #include <type_traits>
+
 namespace psz {
 
 namespace {
@@ -79,7 +80,7 @@ __device__ __forceinline__ T atomicMaxFp(T *addr, T value)
 }  // namespace
 
 template <typename T>
-__global__ void extrema_cu(
+__global__ void extrema_kernel(
     T *in, size_t const len, T *minel, T *maxel, T const failsafe, int const R)
 {
   __shared__ T shared_minv, shared_maxv;
@@ -115,6 +116,75 @@ __global__ void extrema_cu(
   }
 }
 
+}  // namespace psz
+
+namespace psz {
+
+namespace cuda_hip_compat {
+
+template <typename T>
+void extrema(T *in, size_t len, T res[4])
+{
+  static const int MINVAL = 0;
+  static const int MAXVAL = 1;
+  //   static const int AVGVAL = 2;  // TODO
+  static const int RNG = 3;
+
+  // TODO use external stream
+  GpuStreamT stream;
+  GpuStreamCreate(&stream);
+
+  auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
+
+  auto chunk = 32768;
+  auto nworker = 128;
+  auto R = chunk / nworker;
+
+  T h_min, h_max, failsafe;
+  T *d_minel, *d_maxel;
+
+  CHECK_GPU(GpuMalloc(&d_minel, sizeof(T)));
+  CHECK_GPU(GpuMalloc(&d_maxel, sizeof(T)));
+
+  // failsafe init
+  CHECK_GPU(GpuMemcpy(&failsafe, in, sizeof(T), GpuMemcpyD2H));
+  CHECK_GPU(GpuMemcpy(d_minel, in, sizeof(T), GpuMemcpyD2D));
+  CHECK_GPU(GpuMemcpy(d_maxel, in, sizeof(T), GpuMemcpyD2D));
+
+// launch
+#if defined(PSZ_USE_CUDA)
+  psz::extrema_kernel<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
+      in, len, d_minel, d_maxel, failsafe, R);
+#elif defined(PSZ_USE_HIP)
+  if constexpr (std::is_same<T, float>::value) {
+    psz::extrema_kernel<float>
+        <<<div(len, chunk), nworker, sizeof(float) * 2, stream>>>(
+            in, len, d_minel, d_maxel, failsafe, R);
+  }
+  else {
+    throw std::runtime_error(
+        "As of now (5.5.30202), HIP does not support 64-bit integer atomic "
+        "operation.");
+  }
+#endif
+
+  GpuStreamSync(stream);
+
+  // collect results
+  CHECK_GPU(GpuMemcpy(&h_min, d_minel, sizeof(T), GpuMemcpyD2H));
+  CHECK_GPU(GpuMemcpy(&h_max, d_maxel, sizeof(T), GpuMemcpyD2H));
+
+  res[MINVAL] = h_min;
+  res[MAXVAL] = h_max;
+  res[RNG] = h_max - h_min;
+
+  CHECK_GPU(GpuFree(d_minel));
+  CHECK_GPU(GpuFree(d_maxel));
+
+  GpuStreamDestroy(stream);
+}
+
+}  // namespace cuda_hip_compat
 }  // namespace psz
 
 #endif /* E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760 */

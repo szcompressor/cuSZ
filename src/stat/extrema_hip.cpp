@@ -1,4 +1,4 @@
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include "cusz/type.h"
 #include "stat/compare_gpu.hh"
 #include "utils/err.hh"
