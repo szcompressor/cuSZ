@@ -8,7 +8,7 @@ add_executable(demo_cxx_link src/demo_cxx_link.cc)
 target_link_libraries(demo_cxx_link PRIVATE pszkernel_cu CUDA::cudart)
 
 # add_executable(demo_lorenzo_variant src/demo_lorenzo_variant.cc)
-# target_link_libraries(demo_lorenzo_variant PRIVATE pszkernel_cu pszutils_cu
+# target_link_libraries(demo_lorenzo_variant PRIVATE pszkernel_cu 
 # pszstat_cu CUDA::cudart)
 
 add_library(ex_utils src/ex_utils.cu)
@@ -18,7 +18,6 @@ add_executable(bin_pipeline src/bin_pipeline.cc)
 target_link_libraries(
   bin_pipeline
   PRIVATE pszkernel_cu
-          pszutils_cu
           pszmem
           pszstat_ser
           pszstat_cu
@@ -28,12 +27,12 @@ target_link_libraries(
           CUDA::cudart)
 
 add_executable(bin_hf src/bin_hf.cc)
-target_link_libraries(bin_hf PRIVATE cusz pszutils_cu pszstat_cu pszhf_cu
+target_link_libraries(bin_hf PRIVATE cusz pszstat_cu pszhf_cu
                                      CUDA::cudart)
 set_target_properties(bin_hf PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(bin_hist src/bin_hist.cc)
-target_link_libraries(bin_hist PRIVATE pszkernel_cu pszkernel_ser pszutils_cu
+target_link_libraries(bin_hist PRIVATE pszkernel_cu pszkernel_ser 
                                        pszmem pszstat_cu CUDA::cudart)
 
 if(CUSZ_RESEARCH_HUFFBK_GPU)

@@ -84,7 +84,7 @@ add_library(pszkernel_ser src/kernel/l23_ser.cc src/kernel/hist_ser.cc
 target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(
-  pszkernel_cu
+  pszkernel_cu src/kernel/dryrun.cu
   src/kernel/lproto_cu.cu src/kernel/l23_cu.cu src/kernel/spline3_cu.cu
   src/kernel/hist_cu.cu src/kernel/histsp_cu.cu src/kernel/l23r_cu.cu)
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
@@ -94,9 +94,6 @@ target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 
 add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
-
-add_library(pszutils_cu src/dryrun.cu)
-target_link_libraries(pszutils_cu PUBLIC pszcompile_settings)
 
 add_library(pszspv_cu src/kernel/spv_cu.cu)
 target_link_libraries(pszspv_cu PUBLIC pszcompile_settings)
@@ -149,7 +146,6 @@ target_link_libraries(
          pszspv_cu
          pszstat_ser
          pszutils_ser
-         pszutils_cu
          pszmem)
 
 add_executable(cusz-bin src/cli_prog.cu src/cli.cu)
@@ -174,7 +170,6 @@ install(TARGETS pszstat_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTA
 install(TARGETS pszstat_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszmem EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszutils_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszutils_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psztime EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszspv_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhfbook_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
