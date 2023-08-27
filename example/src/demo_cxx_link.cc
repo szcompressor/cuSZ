@@ -1,4 +1,6 @@
-#include <cuda_runtime.h>
+/**
+ * @deprecated since other source files are also linked by host compiler
+ */
 
 #include "kernel/l23.hh"
 

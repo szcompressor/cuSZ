@@ -1,6 +1,6 @@
 #if defined(PSZ_USE_CUDA)
 
-// #include <cuda_runtime.h>
+#include <cuda_runtime.h>
 #define GpuStreamT cudaStream_t
 #define GpuStreamCreate cudaStreamCreate
 #define GpuStreamDestroy cudaStreamDestroy
@@ -17,8 +17,11 @@
 #define GpuMemcpyD2D cudaMemcpyDeviceToDevice
 
 #define GpuMalloc cudaMalloc
+#define GpuMallocManaged cudaMallocManaged
+#define GpuMallocShared cudaMallocManaged
 #define GpuFree cudaFree
 #define GpuFreeHost cudaFreeHost
+#define GpuMemset cudaMemset
 
 #define GpuGetDevice cudaGetDevice
 #define GpuSetDevice cudaSetDevice
@@ -42,7 +45,8 @@
 
 #elif defined(PSZ_USE_HIP)
 
-// #include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include "port/primitives_hip.hh"
 #define GpuStreamT hipStream_t
 #define GpuStreamCreate hipStreamCreate
@@ -60,8 +64,11 @@
 #define GpuMemcpyD2D hipMemcpyDeviceToDevice
 
 #define GpuMalloc hipMalloc
+#define GpuMallocManaged hipMallocManaged
+#define GpuMallocShared hipMallocManaged
 #define GpuFree hipFree
 #define GpuFreeHost hipHostFree
+#define GpuMemset hipMemset
 
 #define GpuGetDevice hipGetDevice
 #define GpuSetDevice hipSetDevice

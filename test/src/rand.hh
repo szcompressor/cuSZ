@@ -25,7 +25,7 @@ void rand_array(T* array, size_t len);
 
 namespace psz {
 namespace testutils {
-namespace cuda {
+namespace cuda_hip_compat {
 
 template <typename T>
 void rand_array(T* array, size_t len, uint32_t seed = 0x2468);

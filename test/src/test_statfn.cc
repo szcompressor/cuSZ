@@ -30,7 +30,7 @@ void f(szt len, u4 seed)
   in_thrust->control({Malloc, MallocHost});
   in_cuda->control({Malloc, MallocHost});
 
-  psz::testutils::cuda::rand_array(in_cpu->dptr(), in_cpu->len(), seed);
+  psz::testutils::cuda_hip_compat::rand_array(in_cpu->dptr(), in_cpu->len(), seed);
 
   in_cpu->control({D2H});
 
@@ -42,6 +42,7 @@ void f(szt len, u4 seed)
 #ifdef REACTIVATE_THRUSTGPU
   psz::probe_extrema<THRUST>(in_thrust->dptr(), len, res_thrust);
 #endif
+  // In fact, below is CUDA-HIP compat. Need better indication.
   psz::probe_extrema<CUDA>(in_cuda->dptr(), len, res_cuda);
 
   printf(

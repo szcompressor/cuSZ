@@ -1,14 +1,5 @@
 /**
- * @file interp_spline3.cuh
- * @author Jiannan Tian
- * @brief (header) A high-level Spline3D wrapper. Allocations are explicitly
- * out of called functions.
- * @version 0.3
- * @date 2021-06-15
- * (rev) 2023-08-04
- *
- * (C) 2021 by Washington State University, Argonne National Laboratory
- *
+ * @deprecated remove when fixing spline-based workflow
  */
 
 #ifndef CUSZ_WRAPPER_INTERP_SPLINE_CUH

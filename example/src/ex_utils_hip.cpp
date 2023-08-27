@@ -9,7 +9,7 @@
  *
  */
 
-#include "ex_utils_g.inl"
+#include "port.hh"
 
 template u4 count_outlier(float*, size_t, int, void*);
 template u4 count_outlier(u1*, size_t, int, void*);

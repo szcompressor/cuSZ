@@ -10,7 +10,6 @@
  */
 
 #include "busyheader.hh"
-
 #include "ex_utils.hh"
 #include "hf/hf.hh"
 #include "kernel/hist.hh"
@@ -19,12 +18,10 @@
 #include "kernel/lproto.hh"
 #include "kernel/spline.hh"
 #include "mem/layout_cxx.hh"
+#include "port.hh"
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
-
-using std::string;
-using std::to_string;
 
 #define ABS 0
 #define REL 1
@@ -85,7 +82,7 @@ template <
     typename H = uint32_t>
 void demo_c_predict(
     pszmempool_cxx<T, E, H>* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn,
-    double const eb, int const radius, cudaStream_t stream, bool proto = false)
+    double const eb, int const radius, GpuStreamT stream, bool proto = false)
 {
   using FP = T;
 
@@ -138,7 +135,7 @@ template <
     typename H = uint32_t>
 void demo_d_predict(
     pszmempool_cxx<T, E, H>* mem, double const eb, int const radius,
-    cudaStream_t stream, bool proto = false)
+    GpuStreamT stream, bool proto = false)
 {
   using FP = T;
 
@@ -170,7 +167,7 @@ void demo_d_predict(
 template <typename H>
 void demo_hist_u4in(
     pszmem_cxx<u4>* hist_in, pszmem_cxx<H>* hist_out, char const* ifn,
-    int const radius, cudaStream_t stream)
+    int const radius, GpuStreamT stream)
 {
   using E = u4;
 
@@ -258,8 +255,8 @@ void demo_pipeline(
 
   codec.init(ectrl_u4->len(), radius * 2, pardeg /* not optimal for perf */);
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  GpuStreamT stream;
+  GpuStreamCreate(&stream);
 
   if (mode == REL) eb *= rng;
 
@@ -311,7 +308,7 @@ void demo_pipeline(
   demo_d_predict<Predictor, T, E, H>(mem, eb, radius, stream, proto);
   psz::eval_dataquality_gpu(mem->xd->dptr(), mem->od->dptr(), len, hf_outlen);
 
-  cudaStreamDestroy(stream);
+  GpuStreamDestroy(stream);
 
   delete ectrl_u4, delete ectrl_u4_decoded;
   delete mem;

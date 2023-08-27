@@ -17,6 +17,7 @@
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
+#include "port.hh"
 
 using B = uint8_t;
 using F = u4;
@@ -46,8 +47,8 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
   printf("peeking data, 20 elements\n");
   psz::peek_data<E>(od->control({D2H})->hptr(), 20);
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  GpuStreamT stream;
+  GpuStreamCreate(&stream);
 
   dim3 len3 = dim3(x, y, z);
 
@@ -59,7 +60,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
   cusz::HuffmanCodec<E, H, u4> codec;
   codec.init(len, booklen, pardeg /* not optimal for perf */);
 
-  // cudaMalloc(&d_compressed, len * sizeof(E) / 2);
+  // GpuMalloc(&d_compressed, len * sizeof(E) / 2);
   B* __out;
 
   // float  time;
@@ -85,7 +86,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
   else
     cout << "!!!!  ERROR: NOT IDENTICAL." << endl;
 
-  cudaStreamDestroy(stream);
+  GpuStreamDestroy(stream);
 
   /* a casual peek */
   printf("peeking xdata, 20 elements\n");

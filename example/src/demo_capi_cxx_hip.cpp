@@ -9,7 +9,7 @@
  *
  */
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "cusz.h"
 #include "cusz/type.h"
@@ -31,15 +31,15 @@ void f(std::string fname)
   T *d_decomp, *h_decomp;
 
   auto oribytes = sizeof(T) * len;
-  cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
-  cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
+  hipMalloc(&d_uncomp, oribytes), hipMallocHost(&h_uncomp, oribytes);
+  hipMalloc(&d_decomp, oribytes), hipMallocHost(&h_decomp, oribytes);
 
   /* User handles loading from filesystem & transferring to device. */
   io::read_binary_to_array(fname, h_uncomp, len);
-  cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
+  hipMemcpy(d_uncomp, h_uncomp, oribytes, hipMemcpyHostToDevice);
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  hipStream_t stream;
+  hipStreamCreate(&stream);
 
   // Using default:
   // pszframe* work = pszdefault_framework();
@@ -81,10 +81,9 @@ void f(std::string fname)
 
   /* If needed, User should perform a memcopy to transfer `ptr_compressed`
    * before `compressor` is destroyed. */
-  cudaMalloc(&compressed_buf, compressed_len);
-  cudaMemcpy(
-      compressed_buf, ptr_compressed, compressed_len,
-      cudaMemcpyDeviceToDevice);
+  hipMalloc(&compressed_buf, compressed_len);
+  hipMemcpy(
+      compressed_buf, ptr_compressed, compressed_len, hipMemcpyDeviceToDevice);
 
   {
     psz_decompress_init(comp, &header);
@@ -101,11 +100,11 @@ void f(std::string fname)
 
   cusz_release(comp);
 
-  cudaFree(compressed_buf);
-  cudaFree(d_uncomp), cudaFreeHost(h_uncomp);
-  cudaFree(d_decomp), cudaFreeHost(h_decomp);
+  hipFree(compressed_buf);
+  hipFree(d_uncomp), hipFreeHost(h_uncomp);
+  hipFree(d_decomp), hipFreeHost(h_decomp);
 
-  cudaStreamDestroy(stream);
+  hipStreamDestroy(stream);
 }
 
 int main(int argc, char** argv)
