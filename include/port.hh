@@ -35,6 +35,10 @@
 #define GpuDevAttrMaxSharedMemoryPerBlockOptin cudaDevAttrMaxSharedMemoryPerBlockOptin
 #define GpuFuncAttributeMaxDynamicSharedMemorySize cudaFuncAttributeMaxDynamicSharedMemorySize
 
+#define GpuErrorT cudaError_t
+#define GpuSuccess cudaSuccess
+#define GpuGetErrorString cudaGetErrorString
+#define GpuGetLastError cudaGetLastError
 
 #elif defined(PSZ_USE_HIP)
 
@@ -73,5 +77,10 @@
 #define GpuDevAttrMaxSharedMemoryPerBlock hipDeviceAttributeMaxSharedMemoryPerBlock
 #define GpuDevAttrMaxSharedMemoryPerBlockOptin hipDeviceAttributeMaxSharedMemoryPerBlock
 #define GpuFuncAttributeMaxDynamicSharedMemorySize hipFuncAttributeMaxDynamicSharedMemorySize
+
+#define GpuErrorT hipError_t
+#define GpuSuccess hipSuccess
+#define GpuGetErrorString hipGetErrorString
+#define GpuGetLastError hipGetLastError
 
 #endif
