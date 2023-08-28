@@ -46,7 +46,7 @@ int f()
 
   ////////////////////////////////////////////////////////////////
 
-  psz::spv_gather<CUDA, T, uint32_t>(a, len, val, idx, &nnz, &ms, stream);
+  psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(a, len, val, idx, &nnz, &ms, stream);
 
   GpuStreamSync(stream);
 
@@ -57,7 +57,7 @@ int f()
     return -1;
   }
 
-  psz::spv_scatter<CUDA, T, uint32_t>(val, idx, nnz, da, &ms, stream);
+  psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(val, idx, nnz, da, &ms, stream);
 
   GpuStreamSync(stream);
 

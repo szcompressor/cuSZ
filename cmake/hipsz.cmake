@@ -26,6 +26,14 @@ if(hiprand_FOUND)
   include_directories(${hiprand_INCLUDE_DIRS})
 endif()
 
+find_package(rocrand REQUIRED)
+if(hiprand_FOUND)
+  message("[psz::info] rocrand FOUND")
+  message("[psz::info] $\{rocrand_INCLUDE_DIRS\}: " ${rocrand_INCLUDE_DIRS})
+  message("[psz::info] $\{rocrand_LIBRARIES\}: " ${rocrand_LIBRARIES})
+  include_directories(${rocrand_INCLUDE_DIRS})
+endif()
+
 include(GNUInstallDirs)
 include(CTest)
 
@@ -63,7 +71,8 @@ add_library(pszkernel_ser src/kernel/l23_ser.cc src/kernel/hist_ser.cc
 target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(pszkernel_hip src/kernel/l23_hip.cpp src/kernel/l23r_hip.cpp
-                          src/kernel/hist_hip.cpp src/kernel/histsp_hip.cpp)
+                          src/kernel/hist_hip.cpp src/kernel/histsp_hip.cpp
+                          src/kernel/dryrun_hip.cpp)
 target_link_libraries(pszkernel_hip PUBLIC pszcompile_settings)
 
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_hip.cc)
@@ -73,7 +82,7 @@ add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 
 add_library(pszspv_hip src/kernel/spv_hip.cpp)
-target_link_libraries(pszspv_hip PUBLIC pszcompile_settings rocthrust)
+target_link_libraries(pszspv_hip PUBLIC pszcompile_settings ${rocthrust_LIBRARIES})
 
 add_library(
   pszhfbook_ser src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc

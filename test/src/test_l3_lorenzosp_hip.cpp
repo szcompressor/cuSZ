@@ -39,7 +39,7 @@ bool batch_run_testcase(uint32_t x, uint32_t y, uint32_t z)
 
 int main(int argc, char** argv)
 {
-  cudaDeviceReset();
+  GpuDeviceReset();
 
   bool all_pass = true;
 

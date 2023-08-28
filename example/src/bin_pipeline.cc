@@ -97,17 +97,25 @@ void demo_c_predict(
           mem->outlier_space(), &time, stream);
     }
     else {
+// -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
       psz_comp_lproto<T, E>(
           mem->od->dptr(), len3, eb, radius, mem->ectrl_lrz(),
           mem->outlier_space(), &time, stream);
+#elif defined(PSZ_USE_HIP)
+#warning "[psz::warning] prototype-lorenzo disabled in HIP temporarily."
+#endif
+      // -----------------------------------------------------------------------------
     }
-
     mem->el
         ->control({D2H})  //
         ->file(string(string(ifn) + ".eq." + suffix()).c_str(), ToFile);
     mem->el->castto(ectrl_u4, psz_space::Host)->control({H2D});
   }
   else if (Predictor == SPLINE3) {
+// -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
+
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
     spline_construct(mem->od, mem->ac, mem->es, eb, radius, stream);
 
@@ -124,6 +132,11 @@ void demo_c_predict(
 
     ectrl_u4->file(
         string(string(ifn) + ".eqcompat." + suffix(true)).c_str(), ToFile);
+
+#elif defined(PSZ_USE_HIP)
+#warning "[psz::warning] HIP spline3 is disabled temporarily"
+#endif
+    // -----------------------------------------------------------------------------
   }
   else {
     throw std::runtime_error("Must be LORENZO or SPLINE3.");
@@ -150,14 +163,27 @@ void demo_d_predict(
           mem->xd->dptr(), &time, stream);
     }
     else {
+      // -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
       psz_decomp_lproto<T>(
           mem->ectrl_lrz(), len3, mem->outlier_space(), eb, radius,
           mem->xd->dptr(), &time, stream);
+#elif defined(PSZ_USE_HIP)
+#warning \
+    "[psz::warning] prototype-lorenzo (decomp) disabled in HIP temporarily"
+#endif
+      // -----------------------------------------------------------------------------
     }
   }
   else if (Predictor == SPLINE3) {
+    // -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
     spline_reconstruct(mem->ac, mem->es, mem->xd, eb, radius, stream);
+#elif defined(PSZ_USE_HIP)
+#warning "[psz::warning] HIP spline3 (decomp) is disabled temporarily"
+#endif
+    // -----------------------------------------------------------------------------
   }
   else {
     throw std::runtime_error("Must be LORENZO or SPLINE3.");
@@ -190,12 +216,21 @@ void demo_hist_u4in(
   hist<CPU, E>(
       true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen,
       &tcpu_optim, stream);
+#if defined(PSZ_USE_CUDA)
   hist<CUDA, E>(
       false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
       &tgpu_base, stream);
   hist<CUDA, E>(
       true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
       &tgpu_optim, stream);
+#elif defined(PSZ_USE_HIP)
+  hist<HIP, E>(
+      false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
+      &tgpu_base, stream);
+  hist<HIP, E>(
+      true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
+      &tgpu_optim, stream);
+#endif
 
   ser_base->file(string(string(ifn) + ".ht." + suffix()).c_str(), ToFile);
 

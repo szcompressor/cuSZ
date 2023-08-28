@@ -17,9 +17,9 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "../../utils/it_cuda.hh"
 #include "mem/compact.hh"
 #include "utils/err.hh"
+#include "utils/it_cuda.hh"
 #include "utils/timer.hh"
 
 namespace psz {
@@ -70,7 +70,7 @@ __global__ void c_lorenzo_2d1l(
 
   __shared__ T buf[BLK][BLK + 1];
 
-  auto y = threadIdx.y, x = threadIdx.x;
+  uint32_t y = threadIdx.y, x = threadIdx.x;
   auto data = [&](auto dx, auto dy) -> T& {
     return buf[t().y + dy][t().x + dx];
   };
@@ -254,5 +254,142 @@ __global__ void x_lorenzo_3d1l(
 }  // namespace __kernel
 }  // namespace cuda_hip
 }  // namespace psz
+
+#include "mem/compact.hh"
+#include "utils/err.hh"
+#include "utils/timer.hh"
+
+template <typename T, typename Eq>
+pszerror psz_comp_lproto(
+    T* const data, dim3 const len3, double const eb, int const radius,
+    Eq* const eq, void* _outlier, float* time_elapsed, void* stream)
+{
+  auto divide3 = [](dim3 len, dim3 sublen) {
+    return dim3(
+        (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1,
+        (len.z - 1) / sublen.z + 1);
+  };
+
+  auto ndim = [&]() {
+    if (len3.z == 1 and len3.y == 1)
+      return 1;
+    else if (len3.z == 1 and len3.y != 1)
+      return 2;
+    else
+      return 3;
+  };
+
+  auto outlier = (CompactGpuDram<T>*)_outlier;
+
+  constexpr auto Tile1D = 256;
+  constexpr auto Block1D = dim3(256, 1, 1);
+  auto Grid1D = divide3(len3, Tile1D);
+
+  constexpr auto Tile2D = dim3(16, 16, 1);
+  constexpr auto Block2D = dim3(16, 16, 1);
+  auto Grid2D = divide3(len3, Tile2D);
+
+  constexpr auto Tile3D = dim3(8, 8, 8);
+  constexpr auto Block3D = dim3(8, 8, 8);
+  auto Grid3D = divide3(len3, Tile3D);
+
+  // error bound
+  auto ebx2 = eb * 2;
+  auto ebx2_r = 1 / ebx2;
+  auto leap3 = dim3(1, len3.x, len3.x * len3.y);
+
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
+
+  using namespace psz::cuda_hip::__kernel::proto;
+
+  if (ndim() == 1) {
+    c_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
+        data, len3, leap3, radius, ebx2_r, eq, *outlier);
+  }
+  else if (ndim() == 2) {
+    c_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
+        data, len3, leap3, radius, ebx2_r, eq, *outlier);
+  }
+  else if (ndim() == 3) {
+    c_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
+        data, len3, leap3, radius, ebx2_r, eq, *outlier);
+  }
+  else {
+    throw std::runtime_error("Lorenzo only works for 123-D.");
+  }
+
+  STOP_GPUEVENT_RECORDING(stream);
+  CHECK_GPU(GpuStreamSync(stream));
+
+  TIME_ELAPSED_GPUEVENT(time_elapsed);
+  DESTROY_GPUEVENT_PAIR;
+
+  return CUSZ_SUCCESS;
+}
+
+template <typename T, typename Eq>
+pszerror psz_decomp_lproto(
+    Eq* eq, dim3 const len3, T* scattered_outlier, double const eb,
+    int const radius, T* xdata, float* time_elapsed, void* stream)
+{
+  auto divide3 = [](dim3 len, dim3 sublen) {
+    return dim3(
+        (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1,
+        (len.z - 1) / sublen.z + 1);
+  };
+
+  auto ndim = [&]() {
+    if (len3.z == 1 and len3.y == 1)
+      return 1;
+    else if (len3.z == 1 and len3.y != 1)
+      return 2;
+    else
+      return 3;
+  };
+
+  constexpr auto Tile1D = 256;
+  constexpr auto Block1D = dim3(256, 1, 1);
+  auto Grid1D = divide3(len3, Tile1D);
+
+  constexpr auto Tile2D = dim3(16, 16, 1);
+  constexpr auto Block2D = dim3(16, 16, 1);
+  auto Grid2D = divide3(len3, Tile2D);
+
+  constexpr auto Tile3D = dim3(8, 8, 8);
+  constexpr auto Block3D = dim3(8, 8, 8);
+  auto Grid3D = divide3(len3, Tile3D);
+
+  // error bound
+  auto ebx2 = eb * 2;
+  auto ebx2_r = 1 / ebx2;
+  auto leap3 = dim3(1, len3.x, len3.x * len3.y);
+
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
+
+  using namespace psz::cuda_hip::__kernel::proto;
+
+  if (ndim() == 1) {
+    x_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
+        eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+  }
+  else if (ndim() == 2) {
+    x_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
+        eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+  }
+  else if (ndim() == 3) {
+    x_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
+        eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+  }
+
+  STOP_GPUEVENT_RECORDING(stream);
+  CHECK_GPU(GpuStreamSync(stream));
+
+  TIME_ELAPSED_GPUEVENT(time_elapsed);
+  DESTROY_GPUEVENT_PAIR;
+
+  return CUSZ_SUCCESS;
+}
 
 #endif

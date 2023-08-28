@@ -15,7 +15,7 @@ uint32_t count_outlier(T* in, size_t inlen, int radius, void* stream);
 template <pszpolicy policy, typename T>
 void hist(
     bool optim, T* whole_numbers, size_t const len, uint32_t* hist,
-    size_t const bklen, float* t, cudaStream_t stream)
+    size_t const bklen, float* t, GpuStreamT stream)
 {
   if (optim)
     psz::histsp<policy, T>(whole_numbers, len, hist, bklen, t, stream);

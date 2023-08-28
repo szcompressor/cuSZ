@@ -78,7 +78,7 @@ bool f(
   delete outlier;
 
   printf(
-      "(%u,%u,%u)\t(T=%s,Eq=%s)\terror bounded?\t", x, y, z, typeid(T).name(),
+      "(%zu,%zu,%zu)\t(T=%s,Eq=%s)\terror bounded?\t", x, y, z, typeid(T).name(),
       typeid(Eq).name());
   if (not LENIENT) {
     if (not error_bounded) throw std::runtime_error("NO");

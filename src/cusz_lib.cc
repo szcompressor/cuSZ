@@ -17,6 +17,7 @@
 #include "cusz/type.h"
 #include "hf/hf.hh"
 #include "tehm.hh"
+#include "port.hh"
 
 pszpredictor pszdefault_predictor() { return {Lorenzo}; }
 pszquantizer pszdefault_quantizer() { return {512}; }
@@ -80,7 +81,7 @@ pszerror psz_compress(
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
     cor->compress(
-        comp->ctx, (f4*)(in), *compressed, *comp_bytes, (cudaStream_t)stream);
+        comp->ctx, (f4*)(in), *compressed, *comp_bytes, (GpuStreamT)stream);
     cor->export_header(*header);
     cor->export_timerecord((cusz::TimeRecord*)record);
   }
@@ -115,7 +116,7 @@ pszerror psz_decompress(
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
     cor->decompress(
-        comp->header, compressed, (f4*)(decompressed), (cudaStream_t)stream);
+        comp->header, compressed, (f4*)(decompressed), (GpuStreamT)stream);
     cor->export_timerecord((cusz::TimeRecord*)record);
   }
   else {

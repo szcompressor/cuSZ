@@ -13,7 +13,7 @@ int main()
   auto inlen = 500 * 500 * 100;
   auto all_eq = true;
 
-  cudaDeviceReset();
+  hipDeviceReset();
 
   // all_eq = all_eq and test1_debug();
   all_eq = all_eq and test2_fulllen_input<NSYM>(inlen, dist3);

@@ -34,8 +34,13 @@ void f(szt len, u4 seed)
 
   in_cpu->control({D2H});
 
+#if defined(PSZ_USE_CUDA)
   pszmem_device_deepcpy_cuda(in_cuda->m, in_cpu->m);
   pszmem_device_deepcpy_cuda(in_thrust->m, in_cpu->m);
+#elif defined(PSZ_USE_HIP)
+  pszmem_device_deepcpy_hip(in_cuda->m, in_cpu->m);
+  pszmem_device_deepcpy_hip(in_thrust->m, in_cpu->m);
+#endif
 
   f4 res_cpu[4], res_thrust[4], res_cuda[4];
   psz::probe_extrema<CPU>(in_cpu->hptr(), len, res_cpu);

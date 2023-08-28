@@ -1,5 +1,5 @@
 /**
- * @file dryrun.cuh
+ * @file dryrun_cu_hip.inl
  * @author Jiannan Tian
  * @brief cuSZ dryrun mode, checking data quality from lossy compression.
  * @version 0.3
@@ -46,11 +46,11 @@ void dryrun(size_t len, T* original, T* reconst, double eb, void* stream)
   auto ebx2_r = 1 / (eb * 2);
   auto ebx2 = eb * 2;
 
-  dryrun_kernel<<<div(len, 256), 256, 256 * sizeof(T), (cudaStream_t)stream>>>(
+  dryrun_kernel<<<div(len, 256), 256, 256 * sizeof(T), (GpuStreamT)stream>>>(
       original, reconst, len, ebx2_r, ebx2);
 
   // CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
-  cudaStreamSynchronize((cudaStream_t)stream);
+  GpuStreamSync(stream);
 }
 
 }  // namespace cuda_hip_compat

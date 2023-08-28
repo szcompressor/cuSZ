@@ -65,7 +65,7 @@ target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(
   pszkernel_cu
-  src/kernel/dryrun.cu
+  src/kernel/dryrun_cu.cu
   src/kernel/lproto_cu.cu
   src/kernel/l23_cu.cu
   src/kernel/spline3_cu.cu

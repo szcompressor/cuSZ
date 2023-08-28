@@ -31,8 +31,8 @@ void f(std::string fname)
   T *d_decomp, *h_decomp;
 
   auto oribytes = sizeof(T) * len;
-  hipMalloc(&d_uncomp, oribytes), hipMallocHost(&h_uncomp, oribytes);
-  hipMalloc(&d_decomp, oribytes), hipMallocHost(&h_decomp, oribytes);
+  hipMalloc(&d_uncomp, oribytes), hipHostMalloc(&h_uncomp, oribytes);
+  hipMalloc(&d_decomp, oribytes), hipHostMalloc(&h_decomp, oribytes);
 
   /* User handles loading from filesystem & transferring to device. */
   io::read_binary_to_array(fname, h_uncomp, len);
@@ -71,9 +71,9 @@ void f(std::string fname)
         &compress_timerecord, oribytes, compressed_len);
 
     /* verify header */
-    printf("header.%-*s : %x\n", 12, "(addr)", &header);
+    printf("header.%-*s : %p\n", 12, "(addr)", (void*)&header);
     printf(
-        "header.%-*s : %lu, %lu, %lu\n", 12, "{x,y,z}", header.x, header.y,
+        "header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", header.x, header.y,
         header.z);
     printf(
         "header.%-*s : %lu\n", 12, "filesize", psz_utils::filesize(&header));
@@ -101,8 +101,8 @@ void f(std::string fname)
   cusz_release(comp);
 
   hipFree(compressed_buf);
-  hipFree(d_uncomp), hipFreeHost(h_uncomp);
-  hipFree(d_decomp), hipFreeHost(h_decomp);
+  hipFree(d_uncomp), hipHostFree(h_uncomp);
+  hipFree(d_decomp), hipHostFree(h_decomp);
 
   hipStreamDestroy(stream);
 }

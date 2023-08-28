@@ -1,4 +1,5 @@
 #include <thrust/equal.h>
+#include <thrust/execution_policy.h>
 
 #include "cusz/type.h"
 #include "stat/compare_thrust.hh"

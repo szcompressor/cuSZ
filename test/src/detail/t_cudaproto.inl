@@ -9,8 +9,11 @@
  *
  */
 
+#ifdef PSZ_USE_CUDA
 #include <cuda/std/functional>
 #include <nvfunctional>
+#endif
+
 #include <typeinfo>
 
 #include "busyheader.hh"
@@ -267,4 +270,3 @@ bool run_test3()
 
   return all_pass;
 }
-

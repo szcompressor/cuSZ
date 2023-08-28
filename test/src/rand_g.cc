@@ -15,9 +15,7 @@
 
 #elif defined(PSZ_USE_HIP)
 
-#warning "<hiprand.h> or <rocrand.h> could not be found even with `spack load hiprand`"
-
-#include <hiprand.h>
+#include <hiprand/hiprand.h>
 
 #endif
 
@@ -38,8 +36,6 @@ void psz::testutils::cuda_hip_compat::rand_array<float>(
   curandGenerateUniform(gen, array_g, len);
 
 #elif defined(PSZ_USE_HIP)
-
-#warning "<hiprand.h> or <rocrand.h> could not be found even with `spack load hiprand`"
 
   hiprandGenerator_t gen;
   // Create a new generator
@@ -67,8 +63,6 @@ void psz::testutils::cuda_hip_compat::rand_array<double>(
   curandGenerateUniformDouble(gen, array_g, len);
 
 #elif defined(PSZ_USE_HIP)
-
-#warning "<hiprand.h> or <rocrand.h> could not be found even with `spack load hiprand`"
 
   hiprandGenerator_t gen;
   // Create a new generator

@@ -115,7 +115,7 @@ bool testcase(
         compact_outlier.h_val);                         // value
 
     float __t;
-    psz::spv_gather<CUDA, T, uint32_t>(
+    psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
         outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t,
         stream);
     spidx->control({D2H});
@@ -149,7 +149,7 @@ bool testcase(
   // //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 
-  psz::spv_scatter<CUDA, T, u4>(
+  psz::spv_scatter<PROPER_GPU_BACKEND, T, u4>(
       compact_outlier.val(), compact_outlier.idx(),
       compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
 
@@ -182,8 +182,8 @@ bool testcase(
   compact_outlier.control({Free, FreeHost});
 
   printf(
-      "(%u,%u,%u)\t(T=%s,EQ=%s)\terror bounded?\t", x, y, z, typeid(T).name(),
-      typeid(EQ).name());
+      "(%zu,%zu,%zu)\t(T=%s,EQ=%s)\terror bounded?\t", x, y, z,
+      typeid(T).name(), typeid(EQ).name());
   if (not LENIENT) {
     if (not error_bounded) throw std::runtime_error("NO");
   }

@@ -9,6 +9,10 @@
  *
  */
 
+// deps
+#include "port.hh"
+#include "cusz/type.h"
+// definitions
 #include "ex_utils_g.inl"
 
 template u4 count_outlier(float*, size_t, int, void*);

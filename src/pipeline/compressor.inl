@@ -121,9 +121,9 @@ Compressor<C>* Compressor<C>::compress(
   psz_comp_l23r<T, E>(
       in, len3, eb, radius, mem->ectrl_lrz(), (void*)mem->compact, &time_pred,
       stream);
-  psz::histogram<CUDA, E>(
+  psz::histogram<PROPER_GPU_BACKEND, E>(
       mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
-  psz::histsp<CUDA, E>(
+  psz::histsp<PROPER_GPU_BACKEND, E>(
       mem->ectrl_lrz(), len, mem->hist(), booklen, &time_hist, stream);
   // codec->build_codebook(mem->hist(), booklen, stream);
   codec->build_codebook(mem->ht, booklen, stream);
@@ -281,7 +281,7 @@ Compressor<C>* Compressor<C>::decompress(
   auto local_d_outlier = out_decompressed;
   auto local_d_xdata = out_decompressed;
 
-  psz::spv_scatter<CUDA, T, M>(
+  psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
       local_d_spval, local_d_spidx, header->splen, local_d_outlier, &time_sp,
       stream);
 

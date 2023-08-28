@@ -1,5 +1,8 @@
-#include "detail/maxerr_thrust.inl"
+// deps
 #include "stat/compare_thrust.hh"
+#include "port.hh"
+// definitions
+#include "detail/maxerr_thrust.inl"
 
 #define THRUSTGPU_ASSESS(Tliteral, T)           \
     template void psz::thrustgpu_get_maxerr<T>( \

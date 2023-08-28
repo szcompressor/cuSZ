@@ -9,8 +9,6 @@
  *
  */
 
-#include <cuda_runtime.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,8 +48,7 @@ pszerror psz_decompress_init(pszcompressor* comp, pszheader* header);
 
 pszerror psz_decompress(
     pszcompressor* comp, pszout compressed, size_t const comp_len,
-    void* decompressed, pszlen const decomp_len, void* record,
-    void* stream);
+    void* decompressed, pszlen const decomp_len, void* record, void* stream);
 
 #endif
 

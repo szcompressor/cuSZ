@@ -51,9 +51,11 @@ void real_data_test(size_t len, size_t bklen, string fname)
   hist<CPU, T>(BASE, wn->hptr(), len, bs->hptr(), bklen, &tbs, stream);
   hist<CPU, T>(OPTIM, wn->hptr(), len, os->hptr(), bklen, &tos, stream);
 
-  hist<CUDA, T>(BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
+  hist<PROPER_GPU_BACKEND, T>(
+      BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
       bg->control({D2H});
-  hist<CUDA, T>(OPTIM, wn->dptr(), len, og->dptr(), bklen, &tog, stream),
+  hist<PROPER_GPU_BACKEND, T>(
+      OPTIM, wn->dptr(), len, og->dptr(), bklen, &tog, stream),
       og->control({D2H});
 
   auto GBps = [&](auto bytes, auto millisec) {
@@ -127,8 +129,9 @@ void dummy_data_test()
   float tbs, tos, tbg, tog;
 
   hist<CPU, T>(OPTIM, wn->hptr(), len, serial->hptr(), bklen, &tos, stream);
-  hist<CUDA, T>(OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream),
-      gpu->control({D2H});
+  hist<PROPER_GPU_BACKEND, T>(
+      OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream);
+  gpu->control({D2H});
 
   // check for error
   GpuErrorT error = GpuGetLastError();
