@@ -1,14 +1,7 @@
 /**
- * @file cli.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-03-07
- *
- * (C) 2022 by Washington State University, Argonne National Laboratory
- *
+ * @deprecated remove when isolating backends
  */
 
-#include "pipeline/cli.inl"
+// #include "pipeline/cli.inl"
 
-template class cusz::CLI<float>;
+// template class cusz::CLI<float>;

@@ -40,8 +40,8 @@ class CLI {
   template <typename T>
   static void do_dryrun(pszctx* ctx, bool dualquant = true)
   {
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    GpuStreamT stream;
+    GpuStreamCreate(&stream);
 
     auto x = ctx->x, y = ctx->y, z = ctx->z;
     auto eb = ctx->eb;
@@ -59,7 +59,7 @@ class CLI {
     original->debug();
 
     original->file(fname, FromFile)->control({ASYNC_H2D}, stream);
-    CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
+    CHECK_GPU(GpuStreamSync((GpuStreamT)stream));
 
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
@@ -79,7 +79,7 @@ class CLI {
     delete original;
     delete reconst;
 
-    cudaStreamDestroy(stream);
+    GpuStreamDestroy(stream);
   }
 
  private:
@@ -97,7 +97,7 @@ class CLI {
 
   // template <typename compressor_t>
   void do_construct(
-      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
+      pszctx* ctx, cusz_compressor* compressor, GpuStreamT stream)
   {
     auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
 
@@ -138,7 +138,7 @@ class CLI {
 
   // template <typename compressor_t>
   void do_reconstruct(
-      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
+      pszctx* ctx, cusz_compressor* compressor, GpuStreamT stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
@@ -196,15 +196,15 @@ class CLI {
     cusz_framework* framework = pszdefault_framework();
     cusz_compressor* compressor = cusz_create(framework, F4);
 
-    cudaStream_t stream;
-    CHECK_GPU(cudaStreamCreate(&stream));
+    GpuStreamT stream;
+    CHECK_GPU(GpuStreamCreate(&stream));
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
     if (ctx->task_construct) do_construct(ctx, compressor, stream);
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
 
-    if (stream) cudaStreamDestroy(stream);
+    if (stream) GpuStreamDestroy(stream);
   }
 };
 

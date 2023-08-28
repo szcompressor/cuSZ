@@ -1,7 +1,7 @@
 /**
- * @file cli_prog.cu
+ * @file cli_prog_hip.cpp
  * @author Jiannan Tian
- * @brief CLI program of cuSZ.
+ * @brief CLI program of hipSZ.
  * @version 0.1
  * @date 2020-09-20
  * (created) 2019-12-30 (rev) 2022-02-20
@@ -11,7 +11,6 @@
  *
  */
 
-#include "port.hh"
 #include "pipeline/cli.inl"
 
 int main(int argc, char** argv)
