@@ -61,8 +61,8 @@ add_library(pszstat_ser src/stat/compare_cpu.cc)
 target_link_libraries(pszstat_ser PUBLIC pszcompile_settings)
 
 add_library(
-  pszstat_hip src/stat/extrema_hip.cpp src/stat/cmpg2.cpp src/stat/cmpg4_1.cpp
-              src/stat/cmpg4_2.cpp src/stat/cmpg5_1.cpp src/stat/cmpg5_2.cpp)
+  pszstat_hip src/stat/extrema.hip src/stat/cmpg2.hip src/stat/cmpg4_1.hip
+              src/stat/cmpg4_2.hip src/stat/cmpg5_1.hip src/stat/cmpg5_2.hip)
 target_link_libraries(pszstat_hip PUBLIC pszcompile_settings roc::rocthrust)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
@@ -70,9 +70,9 @@ add_library(pszkernel_ser src/kernel/l23_ser.cc src/kernel/hist_ser.cc
                           src/kernel/histsp_ser.cc)
 target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
-add_library(pszkernel_hip src/kernel/l23_hip.cpp src/kernel/l23r_hip.cpp
-                          src/kernel/hist_hip.cpp src/kernel/histsp_hip.cpp
-                          src/kernel/dryrun_hip.cpp)
+add_library(pszkernel_hip src/kernel/l23.hip src/kernel/l23r.hip
+                          src/kernel/hist.hip src/kernel/histsp.hip
+                          src/kernel/dryrun.hip)
 target_link_libraries(pszkernel_hip PUBLIC pszcompile_settings)
 
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_hip.cc)
@@ -81,7 +81,7 @@ target_link_libraries(pszmem PUBLIC pszcompile_settings hip::host)
 add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 
-add_library(pszspv_hip src/kernel/spv_hip.cpp)
+add_library(pszspv_hip src/kernel/spv.hip)
 target_link_libraries(pszspv_hip PUBLIC pszcompile_settings ${rocthrust_LIBRARIES})
 
 add_library(
@@ -89,7 +89,7 @@ add_library(
                 src/hf/hf_canon.cc src/hf/hf_bk.cc)
 target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 
-add_library(pszhf_hip src/hf/hf_obj_hip.cpp src/hf/hf_codec_hip.cpp)
+add_library(pszhf_hip src/hf/hf_obj.hip src/hf/hf_codec.hip)
 target_link_libraries(pszhf_hip PUBLIC pszcompile_settings pszstat_hip
                                        pszhfbook_ser hip::device)
 

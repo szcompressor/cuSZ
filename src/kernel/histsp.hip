@@ -1,5 +1,5 @@
 /**
- * @file histsp_hip.cpp
+ * @file histsp.hip
  * @author Jiannan Tian
  * @brief For HIP backend
  * @version 0.4

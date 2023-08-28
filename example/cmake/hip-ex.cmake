@@ -1,10 +1,10 @@
-add_executable(demo_capi_cxx src/demo_capi_cxx_hip.cpp)
-target_link_libraries(demo_capi_cxx PRIVATE hipsz)
+add_executable(demo_capi_hip src/demo_capi_hip.cc)
+target_link_libraries(demo_capi_hip PRIVATE hipsz)
 
 # add_executable(demo_cxx_link src/demo_cxx_link.cc)
 # target_link_libraries(demo_cxx_link PRIVATE pszkernel_hip hip::host)
 
-add_library(ex_utils src/ex_utils_hip.cpp)
+add_library(ex_utils src/ex_utils.hip)
 target_link_libraries(ex_utils PUBLIC pszcompile_settings)
 
 add_executable(bin_pipeline src/bin_pipeline.cc)

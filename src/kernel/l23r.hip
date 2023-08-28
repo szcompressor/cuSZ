@@ -1,5 +1,5 @@
 /**
- * @file l32r_hip.cpp
+ * @file l32r.hip
  * @author Jiannan Tian
  * @brief
  * @version 0.4

@@ -1,5 +1,5 @@
 /**
- * @file spv_gpu.cu
+ * @file spv.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3

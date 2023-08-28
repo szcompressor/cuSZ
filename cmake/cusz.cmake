@@ -42,7 +42,7 @@ if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)
   add_library(
     pszstat_cu
-    src/stat/extrema_cu.cu
+    src/stat/extrema.cu
     src/stat/cmpg1_4.cu
     src/stat/cmpg1_5.cu
     src/stat/cmpg2.cu
@@ -53,7 +53,7 @@ if(PSZ_REACTIVATE_THRUSTGPU)
     src/stat/cmpg5_2.cu)
 else()
   add_library(
-    pszstat_cu src/stat/extrema_cu.cu src/stat/cmpg2.cu src/stat/cmpg4_1.cu
+    pszstat_cu src/stat/extrema.cu src/stat/cmpg2.cu src/stat/cmpg4_1.cu
                src/stat/cmpg4_2.cu src/stat/cmpg5_1.cu src/stat/cmpg5_2.cu)
 endif()
 target_link_libraries(pszstat_cu PUBLIC pszcompile_settings)
@@ -65,13 +65,13 @@ target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(
   pszkernel_cu
-  src/kernel/dryrun_cu.cu
-  src/kernel/lproto_cu.cu
-  src/kernel/l23_cu.cu
-  src/kernel/spline3_cu.cu
-  src/kernel/hist_cu.cu
-  src/kernel/histsp_cu.cu
-  src/kernel/l23r_cu.cu)
+  src/kernel/dryrun.cu
+  src/kernel/lproto.cu
+  src/kernel/l23.cu
+  src/kernel/spline3.cu
+  src/kernel/hist.cu
+  src/kernel/histsp.cu
+  src/kernel/l23r.cu)
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
 
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_cu.cc)
@@ -80,14 +80,14 @@ target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 
-add_library(pszspv_cu src/kernel/spv_cu.cu)
+add_library(pszspv_cu src/kernel/spv.cu)
 target_link_libraries(pszspv_cu PUBLIC pszcompile_settings)
 
 if(PSZ_RESEARCH_HUFFBK_CUDA)
   # define C/Cxx macro: https://stackoverflow.com/a/9017635
   add_compile_definitions(ENABLE_HUFFBK_GPU)
-  add_library(pszhfbook_cu src/hf/hf_book1_cu.cu src/hf/hf_book2_cu.cu
-                           src/hf/hf_sort_cu.cu)
+  add_library(pszhfbook_cu src/hf/hf_book1.cu src/hf/hf_book2.cu
+                           src/hf/hf_sort.cu)
   target_link_libraries(pszhfbook_cu PUBLIC pszcompile_settings
                                             CUDA::cuda_driver)
   set_target_properties(pszhfbook_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -105,7 +105,7 @@ add_library(
                 src/hf/hf_canon.cc src/hf/hf_bk.cc)
 target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 
-add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu)
+add_library(pszhf_cu src/hf/hf_obj.cu src/hf/hf_codec.cu)
 if(PSZ_RESEARCH_HUFFBK_CUDA)
   target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
                                         pszhfbook_cu pszhfbook_ser)
