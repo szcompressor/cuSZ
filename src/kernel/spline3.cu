@@ -85,24 +85,24 @@ int spline_construct(
   auto grid_dim =
       dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
 
-  using Compact = CompactCudaDram<T>;
+  using Compact = CompactGpuDram<T>;
   auto ot = (Compact*)_outlier;
 
-  CREATE_CUDAEVENT_PAIR;
-  START_CUDAEVENT_RECORDING((cudaStream_t)stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256>  //
-      <<<grid_dim, dim3(256, 1, 1), 0, (cudaStream_t)stream>>>(
+      <<<grid_dim, dim3(256, 1, 1), 0, (GpuStreamT)stream>>>(
           data->dptr(), data->template len3<dim3>(),
           data->template st3<dim3>(),  //
           ectrl->dptr(), ectrl->template len3<dim3>(),
           ectrl->template st3<dim3>(),  //
           anchor->dptr(), anchor->template st3<dim3>(), eb_r, ebx2, radius);
 
-  STOP_CUDAEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_CUDAEVENT(time);
-  DESTROY_CUDAEVENT_PAIR;
+  STOP_GPUEVENT_RECORDING(stream);
+  CHECK_GPU(GpuStreamSync(stream));
+  TIME_ELAPSED_GPUEVENT(time);
+  DESTROY_GPUEVENT_PAIR;
 
   return 0;
 }
@@ -123,11 +123,11 @@ int spline_reconstruct(
   auto grid_dim =
       dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
 
-  CREATE_CUDAEVENT_PAIR;
-  START_CUDAEVENT_RECORDING((cudaStream_t)stream);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
   cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>     //
-      <<<grid_dim, dim3(256, 1, 1), 0, (cudaStream_t)stream>>>  //
+      <<<grid_dim, dim3(256, 1, 1), 0, (GpuStreamT)stream>>>  //
       (ectrl->dptr(), ectrl->template len3<dim3>(),
        ectrl->template st3<dim3>(),  //
        anchor->dptr(), anchor->template len3<dim3>(),
@@ -136,10 +136,10 @@ int spline_reconstruct(
        xdata->template st3<dim3>(),  //
        eb_r, ebx2, radius);
 
-  STOP_CUDAEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_CUDAEVENT(time);
-  DESTROY_CUDAEVENT_PAIR;
+  STOP_GPUEVENT_RECORDING(stream);
+  CHECK_GPU(GpuStreamSync(stream));
+  TIME_ELAPSED_GPUEVENT(time);
+  DESTROY_GPUEVENT_PAIR;
 
   return 0;
 }
