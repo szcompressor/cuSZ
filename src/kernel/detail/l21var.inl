@@ -38,8 +38,8 @@
 #define BDY blockDim.y
 #define BDZ blockDim.z
 
-#include "utils/cuda_err.cuh"
-#include "utils/timer.h"
+#include "utils/err.hh"
+#include "utils/timer.hh"
 
 namespace cusz {
 namespace experimental {

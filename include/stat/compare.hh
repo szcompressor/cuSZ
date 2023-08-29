@@ -17,7 +17,7 @@
 
 #include "busyheader.hh"
 #include "compare_cpu.hh"
-#include "compare_cu.hh"
+#include "compare_gpu.hh"
 #include "compare_thrust.hh"
 #include "cusz/type.h"
 
@@ -44,7 +44,7 @@ void probe_extrema(T* in, size_t len, T res[4])
     thrustgpu_get_extrema_rawptr(in, len, res);
 #endif
   else if (P == CUDA) {
-    cuda_extrema(in, len, res);
+    psz::cuda_hip_compat::extrema(in, len, res);
   }
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");

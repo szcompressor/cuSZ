@@ -12,8 +12,6 @@
 #ifndef DAB559E7_A5C1_4342_B17E_17C31DA96EEF
 #define DAB559E7_A5C1_4342_B17E_17C31DA96EEF
 
-#include <cuda_runtime.h>
-
 #include <cstdint>
 #include <memory>
 
@@ -111,19 +109,18 @@ class HuffmanCodec {
   // public methods
   HuffmanCodec* init(
       size_t const, int const, int const, bool dbg_print = false);
-  HuffmanCodec* build_codebook(uint32_t*, int const, cudaStream_t = nullptr);
+  HuffmanCodec* build_codebook(uint32_t*, int const, void* = nullptr);
   HuffmanCodec* build_codebook(
-      pszmem_cxx<uint32_t>*, int const, cudaStream_t = nullptr);
-  HuffmanCodec* encode(
-      E*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
-  HuffmanCodec* decode(BYTE*, E*, cudaStream_t = nullptr, bool = true);
+      pszmem_cxx<uint32_t>*, int const, void* = nullptr);
+  HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, void* = nullptr);
+  HuffmanCodec* decode(BYTE*, E*, void* = nullptr, bool = true);
   HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
   HuffmanCodec* clear_buffer();
 
  private:
   void hf_merge(
       Header&, size_t const, int const, int const, int const,
-      cudaStream_t stream = nullptr);
+      void* stream = nullptr);
   void hf_debug(const std::string, void*, int);
 };
 

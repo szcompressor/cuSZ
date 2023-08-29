@@ -21,6 +21,7 @@
 #include "mem/memseg_cxx.hh"
 #include "stat/compare_thrust.hh"
 #include "verify.hh"
+#include "port.hh"
 
 namespace psz {
 
@@ -116,10 +117,10 @@ static void eval_dataquality_cpu(
   else {
     printf("allocating tmp space for CPU verification\n");
     auto bytes = sizeof(T) * len;
-    cudaMallocHost(&reconstructed, bytes);
-    cudaMallocHost(&origin, bytes);
-    cudaMemcpy(reconstructed, _d1, bytes, cudaMemcpyDeviceToHost);
-    cudaMemcpy(origin, _d2, bytes, cudaMemcpyDeviceToHost);
+    GpuMallocHost(&reconstructed, bytes);
+    GpuMallocHost(&origin, bytes);
+    GpuMemcpy(reconstructed, _d1, bytes, GpuMemcpyD2H);
+    GpuMemcpy(origin, _d2, bytes, GpuMemcpyD2H);
   }
   cusz::verify_data<T>(stat, reconstructed, origin, len);
   print_metrics_cross<T>(stat, compressed_bytes, false);
@@ -133,8 +134,8 @@ static void eval_dataquality_cpu(
       &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   if (from_device) {
-    if (reconstructed) cudaFreeHost(reconstructed);
-    if (origin) cudaFreeHost(origin);
+    if (reconstructed) GpuFreeHost(reconstructed);
+    if (origin) GpuFreeHost(origin);
   }
 }
 

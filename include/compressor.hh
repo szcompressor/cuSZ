@@ -9,16 +9,14 @@
  *
  */
 
-#ifndef CUSZ_COMPRESSOR_HH
-#define CUSZ_COMPRESSOR_HH
-
-#include <cuda_runtime.h>
+#ifndef C3E05282_5791_4E76_9D49_EC31A316EC29
+#define C3E05282_5791_4E76_9D49_EC31A316EC29
 
 #include "busyheader.hh"
-#include "compaction.hh"
 #include "context.h"
 #include "header.h"
 #include "hf/hf.hh"
+#include "mem/compact.hh"
 #include "mem/layout_cxx.hh"
 #include "typing.hh"
 
@@ -82,10 +80,9 @@ class Compressor {
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool dbg_print = false);
   Compressor* compress(
-      cusz_context*, T*, BYTE*&, size_t&, cudaStream_t = nullptr,
-      bool = false);
+      cusz_context*, T*, BYTE*&, size_t&, void* = nullptr, bool = false);
   Compressor* decompress(
-      cusz_header*, BYTE*, T*, cudaStream_t = nullptr, bool = true);
+      cusz_header*, BYTE*, T*, void* = nullptr, bool = true);
   Compressor* clear_buffer();
   Compressor* dump(std::vector<pszmem_dump>, char const*);
   Compressor* destroy();
@@ -99,9 +96,9 @@ class Compressor {
   // helper
   Compressor* collect_comp_time();
   Compressor* collect_decomp_time();
-  Compressor* merge_subfiles(BYTE*, size_t, T*, M*, size_t, cudaStream_t);
+  Compressor* merge_subfiles(BYTE*, size_t, T*, M*, size_t, void*);
 };
 
 }  // namespace cusz
 
-#endif
+#endif /* C3E05282_5791_4E76_9D49_EC31A316EC29 */

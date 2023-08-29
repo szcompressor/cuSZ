@@ -1,0 +1,47 @@
+#define GpuStreamT hipStream_t
+#define GpuStreamCreate hipStreamCreate
+#define GpuStreamDestroy hipStreamDestroy
+
+#define GpuDeviceSync hipDeviceSynchronize
+#define GpuStreamSync(STREAM) hipStreamSynchronize((hipStream_t)STREAM)
+
+#define GpuMemcpy hipMemcpy
+#define GpuMemcpyAsync hipMemcpyAsync
+#define GpuMemcpyKind hipMemcpyKind
+#define GpuMemcpyH2D hipMemcpyHostToDevice
+#define GpuMemcpyH2H hipMemcpyHostToHost
+#define GpuMemcpyD2H hipMemcpyDeviceToHost
+#define GpuMemcpyD2D hipMemcpyDeviceToDevice
+
+#define GpuMalloc hipMalloc
+#define GpuMallocHost hipHostMalloc
+#define GpuMallocManaged hipMallocManaged
+#define GpuMallocShared hipMallocManaged
+#define GpuFree hipFree
+#define GpuFreeHost hipHostFree
+#define GpuMemset hipMemset
+
+#define GpuGetDevice hipGetDevice
+#define GpuSetDevice hipSetDevice
+#define GpuDeviceProp hipDeviceProp_t
+#define GpuGetDeviceProperties hipGetDeviceProperties
+#define GpuDeviceGetAttribute hipDeviceGetAttribute
+#define GpuDevicePtr hipDeviceptr_t
+#define GpuMemGetAddressRange hipMemGetAddressRange
+#define GpuFuncSetAttribute hipFuncSetAttribute
+#define GpuFuncAttribute hipFuncAttribute
+#define GpuDriverGetVersion hipDriverGetVersion
+#define GpuRuntimeGetVersion hipRuntimeGetVersion
+#define GpuGetDeviceCount hipGetDeviceCount
+
+#define GpuDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount
+#define GpuDevAttrMaxSharedMemoryPerBlock hipDeviceAttributeMaxSharedMemoryPerBlock
+#define GpuDevAttrMaxSharedMemoryPerBlockOptin hipDeviceAttributeMaxSharedMemoryPerBlock
+#define GpuFuncAttributeMaxDynamicSharedMemorySize hipFuncAttributeMaxDynamicSharedMemorySize
+
+#define GpuErrorT hipError_t
+#define GpuSuccess hipSuccess
+#define GpuGetErrorString hipGetErrorString
+#define GpuGetLastError hipGetLastError
+
+#define GpuDeviceReset hipDeviceReset

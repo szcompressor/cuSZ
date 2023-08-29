@@ -60,16 +60,21 @@ __global__ void histsp_multiwarp(
   }
   __syncthreads();
 
+#ifdef __HIP_PLATFORM_AMD__
+  for (auto& sum : p_hist) {
+    for (auto d = 1; d < 64; d *= 2) {
+      auto n = __shfl_up(sum, d, 64);
+      if (threadIdx.x % 64 >= d) sum += n;
+    }
+  }
+#else
   for (auto& sum : p_hist) {
     for (auto d = 1; d < 32; d *= 2) {
       auto n = __shfl_up_sync(0xffffffff, sum, d);
       if (threadIdx.x % 32 >= d) sum += n;
     }
   }
-  // for (auto& sum : p_hist) {
-  //   for (auto d = 1; d < 32; d *= 2)
-  //     sum += __shfl_xor_sync(0xffffffff, sum, d);
-  // }
+#endif
 
   for (auto i = 0; i < K; i++)
     if (threadIdx.x % 32 == 31)

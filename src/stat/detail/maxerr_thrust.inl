@@ -1,5 +1,5 @@
 /**
- * @file _compare.cuh
+ * @file maxerr_thrust.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -38,7 +38,7 @@ void thrustgpu_get_maxerr(
         diff = original;  // aliasing
     }
     else {
-        cudaMalloc(&diff, sizeof(T) * len);
+        GpuMalloc(&diff, sizeof(T) * len);
     }
 
     auto expr = [=] __device__(T rel, T oel) { return rel - oel; };
@@ -54,7 +54,7 @@ void thrustgpu_get_maxerr(
     maximum_val      = *maximum_ptr;
     maximum_loc      = maximum_ptr - d;
 
-    if (not destructive) { cudaFree(diff); }
+    if (not destructive) { GpuFree(diff); }
 }
 
 }  // namespace psz

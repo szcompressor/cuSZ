@@ -12,8 +12,6 @@
 #ifndef AA9BE6AD_ECA4_4267_A97F_B12C25A2B0C1
 #define AA9BE6AD_ECA4_4267_A97F_B12C25A2B0C1
 
-#include <cuda_runtime.h>
-
 #include <cstddef>
 #include <cstdint>
 

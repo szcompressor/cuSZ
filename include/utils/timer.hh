@@ -1,13 +1,14 @@
 /**
  * @file timer.hh
  * @author Jiannan Tian
- * @brief High-resolution timer wrapper from <chrono> and util functions for timing both CPU and CUDA function
+ * @brief High-resolution timer wrapper from <chrono> and util functions for
+ * timing both CPU and CUDA function
  * @version 0.2
  * @date 2021-01-05
- * (created) 2019-08-26 (rev) 2021-12-23
+ * (created) 2019-08-26 (rev) 2021-12-23 (rev) 22-10-31
  *
- * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * @copyright (C) 2020 by Washington State University, The University of
+ * Alabama, Argonne National Laboratory See LICENSE in top-level directory
  *
  */
 
@@ -17,16 +18,71 @@
 #include <chrono>
 #include <utility>
 
-using hires         = std::chrono::high_resolution_clock;
-using duration_t    = std::chrono::duration<double>;
+using hires = std::chrono::high_resolution_clock;
+using duration_t = std::chrono::duration<double>;
 using hires_clock_t = std::chrono::time_point<hires>;
 
-typedef struct Timer {
-    hires_clock_t start, end;
+struct psztime;
+typedef struct psztime psztime;
+typedef struct psztime psz_cputimer;
 
-    void   timer_start() { start = hires::now(); }
-    void   timer_end() { end = hires::now(); }
-    double get_time_elapsed() { return static_cast<duration_t>(end - start).count(); }
+#if defined(PSZ_USE_CUDA)
+
+// -------------------------------------
+#define CREATE_GPUEVENT_PAIR \
+  cudaEvent_t a, b;          \
+  cudaEventCreate(&a);       \
+  cudaEventCreate(&b);
+
+#define DESTROY_GPUEVENT_PAIR \
+  cudaEventDestroy(a);        \
+  cudaEventDestroy(b);
+
+#define START_GPUEVENT_RECORDING(STREAM) \
+  cudaEventRecord(a, (cudaStream_t)STREAM);
+#define STOP_GPUEVENT_RECORDING(STREAM)     \
+  cudaEventRecord(b, (cudaStream_t)STREAM); \
+  cudaEventSynchronize(b);
+
+#define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
+  cudaEventElapsedTime(PTR_MILLISEC, a, b);
+// -------------------------------------
+
+#elif defined(PSZ_USE_HIP)
+
+// -------------------------------------
+#define CREATE_GPUEVENT_PAIR \
+  hipEvent_t a, b;           \
+  hipEventCreate(&a);        \
+  hipEventCreate(&b);
+
+#define DESTROY_GPUEVENT_PAIR \
+  hipEventDestroy(a);         \
+  hipEventDestroy(b);
+
+#define START_GPUEVENT_RECORDING(STREAM) \
+  hipEventRecord(a, (hipStream_t)STREAM);
+#define STOP_GPUEVENT_RECORDING(STREAM)   \
+  hipEventRecord(b, (hipStream_t)STREAM); \
+  hipEventSynchronize(b);
+
+#define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
+  hipEventElapsedTime(PTR_MILLISEC, a, b);
+// -------------------------------------
+
+#elif defined(PSZ_USE_1API)
+// TODO
+#endif
+
+typedef struct Timer {
+  hires_clock_t start, end;
+
+  void timer_start() { start = hires::now(); }
+  void timer_end() { end = hires::now(); }
+  double get_time_elapsed()
+  {
+    return static_cast<duration_t>(end - start).count();
+  }
 
 } host_timer_t;
 
@@ -43,44 +99,44 @@ typedef struct Timer {
  *
  */
 typedef struct CUDATimer {
-    cudaEvent_t start, stop;
-    float       milliseconds;
+  cudaEvent_t start, stop;
+  float milliseconds;
 
-    // stream not involved
-    void timer_start()
-    {
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cudaEventRecord(start);
-    }
+  // stream not involved
+  void timer_start()
+  {
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+  }
 
-    void timer_end()
-    {
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
-    }
+  void timer_end()
+  {
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+  }
 
-    // stream involved
-    void timer_start(cudaStream_t stream)
-    {
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
+  // stream involved
+  void timer_start(cudaStream_t stream)
+  {
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
-        cudaEventRecord(start, stream);  // set event as not occurred
-    }
+    cudaEventRecord(start, stream);  // set event as not occurred
+  }
 
-    void timer_end(cudaStream_t stream)
-    {
-        cudaEventRecord(stop, stream);
-        cudaEventSynchronize(stop);  // block host until `stream` meets `stop`
-    }
+  void timer_end(cudaStream_t stream)
+  {
+    cudaEventRecord(stop, stream);
+    cudaEventSynchronize(stop);  // block host until `stream` meets `stop`
+  }
 
-    // get time
-    float get_time_elapsed()
-    {
-        cudaEventElapsedTime(&milliseconds, start, stop);
-        return milliseconds;
-    }
+  // get time
+  float get_time_elapsed()
+  {
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    return milliseconds;
+  }
 
 } cuda_timer_t;
 
@@ -100,17 +156,17 @@ typedef struct CUDATimer {
 template <typename F, typename... Args>
 double TimeThisRoutine(F func, Args&&... args)
 {
-    auto t0 = hires::now();
-    func(std::forward<Args>(args)...);
-    return static_cast<duration_t>(hires::now() - t0).count();
+  auto t0 = hires::now();
+  func(std::forward<Args>(args)...);
+  return static_cast<duration_t>(hires::now() - t0).count();
 }
 
 #ifdef __CUDACC__
 typedef struct CUDAKernelConfig {
-    dim3         dim_grid;
-    dim3         dim_block;
-    size_t       shmem_nbyte{0};
-    cudaStream_t stream;
+  dim3 dim_grid;
+  dim3 dim_block;
+  size_t shmem_nbyte{0};
+  cudaStream_t stream;
 
 } kernelcfg;
 
@@ -128,24 +184,24 @@ typedef struct CUDAKernelConfig {
 template <typename F, typename... Args>
 float TimeThisCUDARoutine(F func, kernelcfg cfg, Args&&... args)
 {
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
 
-    cudaEventRecord(start);
-    func<<<cfg.dim_grid, cfg.dim_block, cfg.shmem_nbyte, cfg.stream>>>(  //
-        args...
-        // std::forward<Args>(args)... // also works
-    );
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+  cudaEventRecord(start);
+  func<<<cfg.dim_grid, cfg.dim_block, cfg.shmem_nbyte, cfg.stream>>>(  //
+      args...
+      // std::forward<Args>(args)... // also works
+  );
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
 
-    cudaStreamSynchronize(cfg.stream);
+  cudaStreamSynchronize(cfg.stream);
 
-    float milliseconds;
-    cudaEventElapsedTime(&milliseconds, start, stop);
+  float milliseconds;
+  cudaEventElapsedTime(&milliseconds, start, stop);
 
-    return milliseconds;
+  return milliseconds;
 }
 
 #endif

@@ -15,8 +15,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <type_traits>
-#include "utils/cuda_err.cuh"
-#include "utils/timer.h"
+#include "utils/err.hh"
+#include "utils/timer.hh"
 
 #define SPLINE3_COMPR true
 #define SPLINE3_DECOMPR false
@@ -633,8 +633,8 @@ void launch_construct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     auto d = ndim();
 
@@ -653,11 +653,11 @@ void launch_construct_Spline3(
              eb_r, ebx2, radius);
     }
 
-    STOP_CUDAEVENT_RECORDING(stream);
-    CHECK_CUDA(cudaStreamSynchronize(stream));
-    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
+    STOP_GPUEVENT_RECORDING(stream);
+    CHECK_GPU(cudaStreamSynchronize(stream));
+    TIME_ELAPSED_GPUEVENT(&time_elapsed);
 
-    DESTROY_CUDAEVENT_PAIR;
+    DESTROY_GPUEVENT_PAIR;
 }
 
 template <typename T, typename E, typename FP>
@@ -713,8 +713,8 @@ void launch_reconstruct_Spline3(
     auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
     auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
         <<<GRID_3D, BLOCK_3D, 0, stream>>>                     //
@@ -723,12 +723,12 @@ void launch_reconstruct_Spline3(
          xdata, len3, leap3,                                   //
          eb_r, ebx2, radius);
 
-    STOP_CUDAEVENT_RECORDING(stream);
+    STOP_GPUEVENT_RECORDING(stream);
 
-    CHECK_CUDA(cudaStreamSynchronize(stream));
+    CHECK_GPU(cudaStreamSynchronize(stream));
 
-    TIME_ELAPSED_CUDAEVENT(&time_elapsed);
-    DESTROY_CUDAEVENT_PAIR;
+    TIME_ELAPSED_GPUEVENT(&time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
 }
 
 #endif

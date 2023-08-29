@@ -1,0 +1,47 @@
+#define GpuStreamT cudaStream_t
+#define GpuStreamCreate cudaStreamCreate
+#define GpuStreamDestroy cudaStreamDestroy
+
+#define GpuDeviceSync cudaDeviceSynchronize
+#define GpuStreamSync(STREAM) cudaStreamSynchronize((cudaStream_t)STREAM)
+
+#define GpuMemcpy cudaMemcpy
+#define GpuMemcpyAsync cudaMemcpyAsync
+#define GpuMemcpyKind cudaMemcpyKind
+#define GpuMemcpyH2D cudaMemcpyHostToDevice
+#define GpuMemcpyH2H cudaMemcpyHostToHost
+#define GpuMemcpyD2H cudaMemcpyDeviceToHost
+#define GpuMemcpyD2D cudaMemcpyDeviceToDevice
+
+#define GpuMalloc cudaMalloc
+#define GpuMallocHost cudaMallocHost
+#define GpuMallocManaged cudaMallocManaged
+#define GpuMallocShared cudaMallocManaged
+#define GpuFree cudaFree
+#define GpuFreeHost cudaFreeHost
+#define GpuMemset cudaMemset
+
+#define GpuGetDevice cudaGetDevice
+#define GpuSetDevice cudaSetDevice
+#define GpuDeviceProp cudaDeviceProp
+#define GpuGetDeviceProperties cudaGetDeviceProperties
+#define GpuDeviceGetAttribute cudaDeviceGetAttribute
+#define GpuDevicePtr CUdeviceptr
+#define GpuMemGetAddressRange cuMemGetAddressRange
+#define GpuFuncSetAttribute cudaFuncSetAttribute
+#define GpuFuncAttribute cudaFuncAttribute
+#define GpuDriverGetVersion cudaDriverGetVersion
+#define GpuRuntimeGetVersion cudaRuntimeGetVersion
+#define GpuGetDeviceCount cudaGetDeviceCount
+
+#define GpuDevAttrMultiProcessorCount cudaDevAttrMultiProcessorCount
+#define GpuDevAttrMaxSharedMemoryPerBlock cudaDevAttrMaxSharedMemoryPerBlock
+#define GpuDevAttrMaxSharedMemoryPerBlockOptin cudaDevAttrMaxSharedMemoryPerBlockOptin
+#define GpuFuncAttributeMaxDynamicSharedMemorySize cudaFuncAttributeMaxDynamicSharedMemorySize
+
+#define GpuErrorT cudaError_t
+#define GpuSuccess cudaSuccess
+#define GpuGetErrorString cudaGetErrorString
+#define GpuGetLastError cudaGetLastError
+
+#define GpuDeviceReset cudaDeviceReset

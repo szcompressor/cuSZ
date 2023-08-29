@@ -18,10 +18,9 @@
 #include "kernel/lproto.hh"
 #include "kernel/spline.hh"
 #include "mem/layout_cxx.hh"
-#include "mem/memseg_cxx.hh"
+#include "port.hh"
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
-#include "utils/timer.hh"
 #include "utils/viewer.hh"
 
 #define ABS 0
@@ -83,7 +82,7 @@ template <
     typename H = u4>
 void demo_c_predict(
     pszmempool_cxx<T, E, H>* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn,
-    f8 const eb, int const radius, cudaStream_t stream, bool proto = false)
+    f8 const eb, int const radius, GpuStreamT stream, bool proto = false)
 {
   using FP = T;
 
@@ -98,17 +97,25 @@ void demo_c_predict(
           mem->outlier_space(), &time, stream);
     }
     else {
+// -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
       psz_comp_lproto<T, E>(
           mem->od->dptr(), len3, eb, radius, mem->ectrl_lrz(),
           mem->outlier_space(), &time, stream);
+#elif defined(PSZ_USE_HIP)
+#warning "[psz::warning] prototype-lorenzo disabled in HIP temporarily."
+#endif
+      // -----------------------------------------------------------------------------
     }
-
     mem->el
         ->control({D2H})  //
         ->file(string(string(ifn) + ".eq." + suffix()).c_str(), ToFile);
     mem->el->castto(ectrl_u4, psz_space::Host)->control({H2D});
   }
   else if (Predictor == SPLINE3) {
+// -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
+
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
     spline_construct(mem->od, mem->ac, mem->es, nullptr, eb, radius, &time, stream);
 
@@ -125,6 +132,11 @@ void demo_c_predict(
 
     ectrl_u4->file(
         string(string(ifn) + ".eqcompat." + suffix(true)).c_str(), ToFile);
+
+#elif defined(PSZ_USE_HIP)
+#warning "[psz::warning] HIP spline3 is disabled temporarily"
+#endif
+    // -----------------------------------------------------------------------------
   }
   else {
     throw std::runtime_error("Must be LORENZO or SPLINE3.");
@@ -135,8 +147,8 @@ template <
     int Predictor, typename T = f4, typename E = u4,
     typename H = u4>
 void demo_d_predict(
-    pszmempool_cxx<T, E, H>* mem, f8 const eb, int const radius,
-    cudaStream_t stream, bool proto = false)
+    pszmempool_cxx<T, E, H>* mem, double const eb, int const radius,
+    GpuStreamT stream, bool proto = false)
 {
   using FP = T;
 
@@ -151,14 +163,27 @@ void demo_d_predict(
           mem->xd->dptr(), &time, stream);
     }
     else {
+      // -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
       psz_decomp_lproto<T>(
           mem->ectrl_lrz(), len3, mem->outlier_space(), eb, radius,
           mem->xd->dptr(), &time, stream);
+#elif defined(PSZ_USE_HIP)
+#warning \
+    "[psz::warning] prototype-lorenzo (decomp) disabled in HIP temporarily"
+#endif
+      // -----------------------------------------------------------------------------
     }
   }
   else if (Predictor == SPLINE3) {
+    // -----------------------------------------------------------------------------
+#if defined(PSZ_USE_CUDA)
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
     spline_reconstruct(mem->ac, mem->es, mem->xd, eb, radius, &time, stream);
+#elif defined(PSZ_USE_HIP)
+#warning "[psz::warning] HIP spline3 (decomp) is disabled temporarily"
+#endif
+    // -----------------------------------------------------------------------------
   }
   else {
     throw std::runtime_error("Must be LORENZO or SPLINE3.");
@@ -168,7 +193,7 @@ void demo_d_predict(
 template <typename H>
 void demo_hist_u4in(
     pszmem_cxx<u4>* hist_in, pszmem_cxx<H>* hist_out, char const* ifn,
-    int const radius, cudaStream_t stream)
+    int const radius, GpuStreamT stream)
 {
   using E = u4;
 
@@ -191,12 +216,21 @@ void demo_hist_u4in(
   hist<CPU, E>(
       true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen,
       &tcpu_optim, stream);
+#if defined(PSZ_USE_CUDA)
   hist<CUDA, E>(
       false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
       &tgpu_base, stream);
   hist<CUDA, E>(
       true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
       &tgpu_optim, stream);
+#elif defined(PSZ_USE_HIP)
+  hist<HIP, E>(
+      false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
+      &tgpu_base, stream);
+  hist<HIP, E>(
+      true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
+      &tgpu_optim, stream);
+#endif
 
   ser_base->file(string(string(ifn) + ".ht." + suffix()).c_str(), ToFile);
 
@@ -256,8 +290,8 @@ void demo_pipeline(
 
   codec.init(ectrl_u4->len(), radius * 2, pardeg /* not optimal for perf */);
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  GpuStreamT stream;
+  GpuStreamCreate(&stream);
 
   if (mode == REL) eb *= rng;
 
@@ -309,7 +343,7 @@ void demo_pipeline(
   demo_d_predict<Predictor, T, E, H>(mem, eb, radius, stream, proto);
   psz::eval_dataquality_gpu(mem->xd->dptr(), mem->od->dptr(), len, hf_outlen);
 
-  cudaStreamDestroy(stream);
+  GpuStreamDestroy(stream);
 
   delete ectrl_u4, delete ectrl_u4_decoded;
   delete mem;

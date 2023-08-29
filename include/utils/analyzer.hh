@@ -77,13 +77,13 @@ class Analyzer {
             // caveat: no residence check
             thrust::sort(thrust::device, in, in + len);
             T* htmp;
-            cudaMallocHost(&htmp, sizeof(T) * len);
-            cudaMemcpy(htmp, in, sizeof(T) * len, cudaMemcpyDeviceToHost);
+            GpuMallocHost(&htmp, sizeof(T) * len);
+            GpuMemcpy(htmp, in, sizeof(T) * len, GpuMemcpyD2H);
             for (auto i = 0; i < len; i += step) {  //
                 res.push_back(htmp[i]);
             }
             res.push_back(htmp[len - 1]);
-            cudaFreeHost(htmp);
+            GpuFreeHost(htmp);
         }
         else {  // fallback
             std::sort(in, in + len);

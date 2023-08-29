@@ -23,10 +23,10 @@
 #include "hf/hf_bookg.hh"
 #include "typing.hh"
 #include "utils/config.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/io.hh"
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 namespace hf_detail {
 template <typename T>
@@ -85,7 +85,7 @@ void psz::hf_buildbook_cu(
     uint8_t*     revbook,
     int const    revbook_nbyte,
     float*       _time_book,
-    cudaStream_t stream)
+    void*        stream)
 {
     // Metadata
     auto type_bw  = sizeof(H) * 8;
@@ -93,23 +93,23 @@ void psz::hf_buildbook_cu(
     auto _d_entry = reinterpret_cast<H*>(revbook + (sizeof(H) * type_bw));
     auto _d_qcode = reinterpret_cast<T*>(revbook + (sizeof(H) * 2 * type_bw));
 
-    CREATE_CUDAEVENT_PAIR;
-    START_CUDAEVENT_RECORDING(stream);
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
 
     // Sort Qcodes by frequency
     int nblocks = (dict_size / 1024) + 1;
     hf_detail::GPU_FillArraySequence<T><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
     lambda_sort_by_freq(freq, dict_size, _d_qcode);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
     unsigned int* d_first_nonzero_index;
     unsigned int  first_nonzero_index = dict_size;
     cudaMalloc(&d_first_nonzero_index, sizeof(unsigned int));
     cudaMemcpy(d_first_nonzero_index, &first_nonzero_index, sizeof(unsigned int), cudaMemcpyHostToDevice);
     hf_detail::GPU_GetFirstNonzeroIndex<unsigned int><<<nblocks, 1024>>>(freq, dict_size, d_first_nonzero_index);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
     cudaMemcpy(&first_nonzero_index, d_first_nonzero_index, sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaFree(d_first_nonzero_index);
 
@@ -170,7 +170,7 @@ void psz::hf_buildbook_cu(
     cudaMalloc(&diagonal_path_intersections, (2 * (mblocks + 1)) * sizeof(uint32_t));
 
     // Codebook already init'ed
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
     // Call first kernel
     // Collect arguments
@@ -186,7 +186,7 @@ void psz::hf_buildbook_cu(
     cudaLaunchCooperativeKernel(
         (void*)par_huffman::GPU_GenerateCL<unsigned int>, mblocks, mthreads, CL_Args,
         5 * sizeof(int32_t) + 32 * sizeof(int32_t));
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
     // Exits if the highest codeword length is greater than what
     // the adaptive representation can handle
@@ -196,7 +196,7 @@ void psz::hf_buildbook_cu(
     unsigned int  max_CL;
     cudaMalloc(&d_max_CL, sizeof(unsigned int));
     hf_detail::GPU_GetMaxCWLength<<<1, 1>>>(CL, nz_dict_size, d_max_CL);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
     cudaMemcpy(&max_CL, d_max_CL, sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaFree(d_max_CL);
 
@@ -241,24 +241,24 @@ void psz::hf_buildbook_cu(
         cw_mblocks,                                           //
         1024,                                                 //
         CW_Args);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
 #ifdef D_DEBUG_PRINT
     print_codebook<H><<<1, 32>>>(codebook, dict_size);  // PASS
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 #endif
 
     // Reverse _d_qcode and codebook
     hf_detail::GPU_ReverseArray<H><<<nblocks, 1024>>>(codebook, (unsigned int)dict_size);
     hf_detail::GPU_ReverseArray<T><<<nblocks, 1024>>>(_d_qcode, (unsigned int)dict_size);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
     hf_detail::GPU_ReorderByIndex<H, T><<<nblocks, 1024>>>(codebook, _d_qcode, (unsigned int)dict_size);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
-    STOP_CUDAEVENT_RECORDING(stream);
-    TIME_ELAPSED_CUDAEVENT(_time_book);
-    DESTROY_CUDAEVENT_PAIR;
+    STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
+    TIME_ELAPSED_GPUEVENT(_time_book);
+    DESTROY_GPUEVENT_PAIR;
 
     // Cleanup
     cudaFree(CL);
@@ -272,11 +272,11 @@ void psz::hf_buildbook_cu(
     cudaFree(copyIsLeaf);
     cudaFree(copyIndex);
     cudaFree(diagonal_path_intersections);
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 
 #ifdef D_DEBUG_PRINT
     print_codebook<H><<<1, 32>>>(codebook, dict_size);  // PASS
-    cudaStreamSynchronize(stream);
+    cudaStreamSynchronize((cudaStream_t)stream);
 #endif
 }
 

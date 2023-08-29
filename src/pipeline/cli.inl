@@ -12,18 +12,18 @@
 #ifndef CLI_CUH
 #define CLI_CUH
 
-#include <string>
-#include <type_traits>
-
-#include "context.h"
+#include "busyheader.hh"
+#include "port.hh"
 #include "cusz.h"
 #include "cusz/type.h"
-#include "dryrun.hh"
 #include "header.h"
+//
+#include "context.h"
+#include "dryrun.hh"
 #include "mem/memseg_cxx.hh"
 #include "tehm.hh"
 #include "utils/analyzer.hh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
 
@@ -40,17 +40,46 @@ class CLI {
   template <typename T>
   static void do_dryrun(pszctx* ctx, bool dualquant = true)
   {
-    Dryrunner<T> dryrun;
+    GpuStreamT stream;
+    GpuStreamCreate(&stream);
 
-    uint3 xyz{ctx->x, ctx->y, ctx->z};
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    auto x = ctx->x, y = ctx->y, z = ctx->z;
+    auto eb = ctx->eb;
+    auto r2r = ctx->mode == Rel;
+    auto fname = ctx->infile;
 
-    dryrun.init_dualquant_dryrun(xyz)
-        .dualquant_dryrun(ctx->infile, ctx->eb, ctx->mode == Rel, stream)
-        .destroy_dualquant_dryrun();
+    pszmem_cxx<T>* original = new pszmem_cxx<T>(x, y, z, "original");
+    pszmem_cxx<T>* reconst = new pszmem_cxx<T>(x, y, z, "reconst");
+    original->control({MallocHost, Malloc});
+    reconst->control({MallocHost, Malloc});
 
-    cudaStreamDestroy(stream);
+    double max, min, rng;
+    auto len = original->len();
+
+    original->debug();
+
+    original->file(fname, FromFile)->control({ASYNC_H2D}, stream);
+    CHECK_GPU(GpuStreamSync((GpuStreamT)stream));
+
+    if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
+
+    psz::cuda_hip_compat::dryrun(
+        len, original->dptr(), reconst->dptr(), eb, stream);
+
+    reconst->control({D2H});
+
+    cusz_stats stat;
+    psz::assess_quality<CPU>(&stat, reconst->hptr(), original->hptr(), len);
+    psz::print_metrics_cross<T>(&stat, 0, true);
+
+    // destroy
+    original->control({FreeHost, Free});
+    reconst->control({FreeHost, Free});
+
+    delete original;
+    delete reconst;
+
+    GpuStreamDestroy(stream);
   }
 
  private:
@@ -68,7 +97,7 @@ class CLI {
 
   // template <typename compressor_t>
   void do_construct(
-      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
+      pszctx* ctx, cusz_compressor* compressor, GpuStreamT stream)
   {
     auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
 
@@ -109,7 +138,7 @@ class CLI {
 
   // template <typename compressor_t>
   void do_reconstruct(
-      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
+      pszctx* ctx, cusz_compressor* compressor, GpuStreamT stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
@@ -167,15 +196,15 @@ class CLI {
     cusz_framework* framework = pszdefault_framework();
     cusz_compressor* compressor = cusz_create(framework, F4);
 
-    cudaStream_t stream;
-    CHECK_CUDA(cudaStreamCreate(&stream));
+    GpuStreamT stream;
+    CHECK_GPU(GpuStreamCreate(&stream));
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
     if (ctx->task_construct) do_construct(ctx, compressor, stream);
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
 
-    if (stream) cudaStreamDestroy(stream);
+    if (stream) GpuStreamDestroy(stream);
   }
 };
 

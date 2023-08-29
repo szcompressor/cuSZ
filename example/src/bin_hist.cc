@@ -11,19 +11,19 @@
 
 #include <string>
 
+#include "ex_utils.hh"
 #include "kernel/hist.hh"
 #include "kernel/histsp.hh"
 #include "mem/memseg_cxx.hh"
+#include "port.hh"
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
-#include "ex_utils.hh"
 
 #define BASE false
 #define OPTIM true
 
 using T = uint32_t;
-
 
 template <typename T>
 void real_data_test(size_t len, size_t bklen, string fname)
@@ -43,17 +43,19 @@ void real_data_test(size_t len, size_t bklen, string fname)
   bs->control({MallocHost}), bg->control({Malloc, MallocHost});
   os->control({MallocHost}), og->control({Malloc, MallocHost});
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  GpuStreamT stream;
+  GpuStreamCreate(&stream);
 
   float tbs, tos, tbg, tog;
 
   hist<CPU, T>(BASE, wn->hptr(), len, bs->hptr(), bklen, &tbs, stream);
   hist<CPU, T>(OPTIM, wn->hptr(), len, os->hptr(), bklen, &tos, stream);
 
-  hist<CUDA, T>(BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
+  hist<PROPER_GPU_BACKEND, T>(
+      BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
       bg->control({D2H});
-  hist<CUDA, T>(OPTIM, wn->dptr(), len, og->dptr(), bklen, &tog, stream),
+  hist<PROPER_GPU_BACKEND, T>(
+      OPTIM, wn->dptr(), len, og->dptr(), bklen, &tog, stream),
       og->control({D2H});
 
   auto GBps = [&](auto bytes, auto millisec) {
@@ -72,10 +74,10 @@ void real_data_test(size_t len, size_t bklen, string fname)
   printf("\n");
 
   // check for error
-  cudaError_t error = cudaGetLastError();
-  if (error != cudaSuccess) {
+  GpuErrorT error = GpuGetLastError();
+  if (error != GpuSuccess) {
     // print the CUDA error message and exit
-    printf("CUDA error: %s\n", cudaGetErrorString(error));
+    printf("GPU error: %s\n", GpuGetErrorString(error));
     exit(-1);
   }
 
@@ -97,7 +99,7 @@ void real_data_test(size_t len, size_t bklen, string fname)
   delete bg, delete bs;
   delete og, delete os;
 
-  cudaStreamDestroy(stream);
+  GpuStreamDestroy(stream);
 }
 
 template <typename T>
@@ -121,20 +123,20 @@ void dummy_data_test()
   // serial and optim
   serial->control({MallocHost}), gpu->control({Malloc, MallocHost});
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  GpuStreamT stream;
+  GpuStreamCreate(&stream);
 
   float tbs, tos, tbg, tog;
 
   hist<CPU, T>(OPTIM, wn->hptr(), len, serial->hptr(), bklen, &tos, stream);
-  hist<CUDA, T>(OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream),
-      gpu->control({D2H});
+  hist<PROPER_GPU_BACKEND, T>(
+      OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream);
+  gpu->control({D2H});
 
   // check for error
-  cudaError_t error = cudaGetLastError();
-  if (error != cudaSuccess) {
-    // print the CUDA error message and exit
-    printf("CUDA error: %s\n", cudaGetErrorString(error));
+  GpuErrorT error = GpuGetLastError();
+  if (error != GpuSuccess) {
+    printf("GPU error: %s\n", GpuGetErrorString(error));
     exit(-1);
   }
 
@@ -150,7 +152,7 @@ void dummy_data_test()
   delete wn;
   delete serial, delete gpu;
 
-  cudaStreamDestroy(stream);
+  GpuStreamDestroy(stream);
 }
 
 int main(int argc, char** argv)

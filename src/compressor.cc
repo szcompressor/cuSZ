@@ -1,5 +1,5 @@
 /**
- * @file compressor.cu
+ * @file compressor.cc
  * @author Jiannan Tian
  * @brief cuSZ compressor of the default path
  * @version 0.3
@@ -12,6 +12,7 @@
  *
  */
 
+#include "port.hh"
 #include "compressor.hh"
 #include "context.h"
 #include "tehm.hh"
@@ -25,9 +26,9 @@ int CompressorHelper::autotune_coarse_parhf(cusz_context* ctx)
 {
     auto tune_coarse_huffman_sublen = [](size_t len) {
         int current_dev = 0;
-        cudaSetDevice(current_dev);
-        cudaDeviceProp dev_prop{};
-        cudaGetDeviceProperties(&dev_prop, current_dev);
+        GpuSetDevice(current_dev);
+        GpuDeviceProp dev_prop{};
+        GpuGetDeviceProperties(&dev_prop, current_dev);
 
         auto nSM               = dev_prop.multiProcessorCount;
         auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
