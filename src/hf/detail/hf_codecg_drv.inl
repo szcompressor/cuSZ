@@ -10,9 +10,9 @@
  */
 
 #include "cusz/type.h"
-#include "hf_codecg_kernel.inl"
 #include "hf/hf_bookg.hh"
 #include "hf/hf_codecg.hh"
+#include "hf_codecg_kernel.inl"
 
 template <typename E, typename H, typename M>
 void psz::hf_encode_coarse_rev2(
@@ -94,6 +94,9 @@ void psz::hf_encode_coarse_rev2(
         h_par_ncell, d_par_ncell, pardeg * sizeof(M), GpuMemcpyD2H,
         (GpuStreamT)stream));
     CHECK_GPU(GpuStreamSync(stream));
+
+    // for (auto i = 0; i < pardeg; i++)
+    //   cout << i << " " << h_par_nbit[i] << endl;
 
     memcpy(h_par_entry + 1, h_par_ncell, (pardeg - 1) * sizeof(M));
     for (auto i = 1; i < pardeg; i++)

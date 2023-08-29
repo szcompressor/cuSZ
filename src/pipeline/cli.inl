@@ -13,10 +13,10 @@
 #define CLI_CUH
 
 #include "busyheader.hh"
-#include "port.hh"
 #include "cusz.h"
 #include "cusz/type.h"
 #include "header.h"
+#include "port.hh"
 //
 #include "context.h"
 #include "dryrun.hh"
@@ -118,7 +118,8 @@ class CLI {
 
     TimeRecord timerecord;
 
-    pszrc* config = new pszrc{.eb = ctx->eb, .mode = Rel};
+    pszrc* config =
+        new pszrc{.eb = ctx->eb, .mode = Rel, .pred_type = ctx->pred_type};
     pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
     psz_compress_init(compressor, uncomp_len, config);

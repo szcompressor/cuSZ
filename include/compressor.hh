@@ -14,6 +14,7 @@
 
 #include "busyheader.hh"
 #include "context.h"
+#include "cusz/type.h"
 #include "header.h"
 #include "hf/hf.hh"
 #include "mem/compact.hh"
@@ -37,6 +38,7 @@ class Compressor {
 
   using Codec = typename TEHM::Codec;
   using BYTE = uint8_t;
+  using B = u1;
 
   using T = typename TEHM::T;
   using E = typename TEHM::E;
@@ -96,7 +98,8 @@ class Compressor {
   // helper
   Compressor* collect_comp_time();
   Compressor* collect_decomp_time();
-  Compressor* merge_subfiles(BYTE*, size_t, T*, M*, size_t, void*);
+  Compressor* merge_subfiles(
+      pszpredictor_type, T*, szt, BYTE*, szt, T*, M*, szt, void*);
 };
 
 }  // namespace cusz

@@ -92,6 +92,10 @@ class HuffmanCodec {
   hf_chunk* chunk_desc_h;
   hf_bitstream* bitstream_desc;
 
+  int pardeg;
+  int booklen;
+  int numSMs;
+
  public:
   ~HuffmanCodec();           // dtor
   HuffmanCodec() = default;  // ctor

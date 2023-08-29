@@ -13,6 +13,7 @@
 
 #include "context.h"
 
+#include <cstring>
 #include <regex>
 #include <set>
 #include <unordered_map>
@@ -126,6 +127,8 @@ void pszctx_parse_control_string(
       ctx->use_autotune_hf = false;
     }
     else if (optmatch({"predictor"})) {
+      strcpy(ctx->dbgstr_pred, v.c_str());
+
       if (v == "spline" or v == "spline3") {
         ctx->pred_type = pszpredictor_type::Spline;
       }
@@ -222,6 +225,8 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-p", "--predictor"})) {
         check_next();
         auto v = std::string(argv[++i]);
+        strcpy(ctx->dbgstr_pred, v.c_str());
+
         if (v == "spline" or v == "spline3") {
           ctx->pred_type = pszpredictor_type::Spline;
         }

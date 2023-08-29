@@ -38,7 +38,7 @@ class pszmempool_cxx {
 
   pszmem_cxx<B> *_compressed;  // compressed
 
-  size_t len;
+  size_t len, len_spl;
   int radius, bklen;
 
  public:
@@ -54,6 +54,7 @@ class pszmempool_cxx {
   F *hist() { return ht->dptr(); }
   E *ectrl_lrz() { return el->dptr(); }
   E *ectrl_spl() { return es->dptr(); }
+  T *anchor() { return ac->dptr(); }
   B *compressed() { return _compressed->dptr(); }
   B *compressed_h() { return _compressed->hptr(); }
   T *compact_val() { return compact->val(); }
@@ -77,7 +78,7 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
   constexpr auto BLK = 8;
   auto xp = pad(x, 4 * BLK), yp = (y == 1) ? 1 : pad(y, BLK),
        zp = (z == 1) ? 1 : pad(z, BLK);
-  auto len_spl = xp * yp * zp;
+  len_spl = xp * yp * zp; // always larger than len
 
   _compressed = new pszmem_cxx<B>(len * 1.2, 1, 1, "compressed");
 

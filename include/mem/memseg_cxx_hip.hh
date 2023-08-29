@@ -51,7 +51,7 @@ class pszmem_cxx {
       Ctype result[4];
       // psz::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d, m->len,
       // result);
-      psz::probe_extrema<CUDA, Ctype>((Ctype*)m->d, m->len, result);
+      psz::probe_extrema<HIP, Ctype>((Ctype*)m->d, m->len, result);
 
       min_value = result[0];
       max_value = result[1];

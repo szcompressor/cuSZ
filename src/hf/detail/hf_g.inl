@@ -16,6 +16,7 @@
 #ifndef ABBC78E4_3E65_4633_9BEA_27823AB7C398
 #define ABBC78E4_3E65_4633_9BEA_27823AB7C398
 
+#include <linux/limits.h>
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 #define TEMPLATE_TYPE template <typename E, typename H, typename M>
@@ -36,7 +37,7 @@ HuffmanCodec<E, H, M>::~HuffmanCodec()
 
 TEMPLATE_TYPE
 HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
-    size_t const inlen, int const booklen, int const pardeg, bool debug)
+    size_t const max_inlen, int const _booklen, int const _pardeg, bool debug)
 {
   auto __debug = [&]() {
     setlocale(LC_NUMERIC, "");
@@ -53,16 +54,19 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
 
   memset(rte.nbyte, 0, sizeof(uint32_t) * RTE::END);
 
-  // placeholder length
-  compressed = new pszmem_cxx<BYTE>(inlen * 4, 1, 1, "hf::compressed");
+  pardeg = _pardeg;
+  booklen = _booklen;
 
-  tmp = new pszmem_cxx<H>(inlen, 1, 1, "hf::tmp");
+  // placeholder length
+  compressed = new pszmem_cxx<BYTE>(max_inlen * 4, 1, 1, "hf::compressed");
+
+  tmp = new pszmem_cxx<H>(max_inlen, 1, 1, "hf::tmp");
   book = new pszmem_cxx<H>(booklen, 1, 1, "hf::book");
   revbook = new pszmem_cxx<BYTE>(revbook_bytes(booklen), 1, 1, "hf::revbook");
   par_nbit = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_nbit");
   par_ncell = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_ncell");
   par_entry = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_entry");
-  bitstream = new pszmem_cxx<H>(inlen / 2, 1, 1, "hf::bitstream");
+  bitstream = new pszmem_cxx<H>(max_inlen / 2, 1, 1, "hf::bitstream");
 
   rte.nbyte[RTE::TMP] = tmp->bytes();
   rte.nbyte[RTE::BOOK] = book->bytes();
@@ -82,20 +86,21 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
 
   compressed->dptr((uint8_t*)tmp->dptr())->hptr((uint8_t*)tmp->hptr());
 
-  int numSMs;
   GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
 
-  int sublen = (inlen - 1) / pardeg + 1;
+  {
+    int sublen = (max_inlen - 1) / pardeg + 1;
 
-  book_desc = new hf_book{nullptr, book->dptr(), booklen};
-  chunk_desc_d =
-      new hf_chunk{par_nbit->dptr(), par_ncell->dptr(), par_entry->dptr()};
-  chunk_desc_h =
-      new hf_chunk{par_nbit->hptr(), par_ncell->hptr(), par_entry->hptr()};
-  bitstream_desc = new hf_bitstream{tmp->dptr(),  bitstream->dptr(),
-                                    chunk_desc_d, chunk_desc_h,
-                                    sublen,       pardeg,
-                                    numSMs};
+    book_desc = new hf_book{nullptr, book->dptr(), booklen};
+    chunk_desc_d =
+        new hf_chunk{par_nbit->dptr(), par_ncell->dptr(), par_entry->dptr()};
+    chunk_desc_h =
+        new hf_chunk{par_nbit->hptr(), par_ncell->hptr(), par_entry->hptr()};
+    bitstream_desc = new hf_bitstream{tmp->dptr(),  bitstream->dptr(),
+                                      chunk_desc_d, chunk_desc_h,
+                                      sublen,       pardeg,
+                                      numSMs};
+  }
 
   if (debug) __debug();
 
@@ -123,6 +128,12 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
   psz::hf_buildbook<CPU, E, H>(
       freq->control({D2H})->hptr(), booklen, book->hptr(), revbook->hptr(),
       revbook_bytes(booklen), &_time_book, (GpuStreamT)stream);
+
+  // for (auto i = 0; i < booklen; i++) {
+  //   auto f = freq->hptr(i);
+  //   if (f != 0)
+  //     printf("[psz::dbg::codebook::freq(i)] (idx) %5d    (freq) %8d\n", i, f);
+  // }
 
   book->control({ASYNC_H2D}, (GpuStreamT)stream);
   revbook->control({ASYNC_H2D}, (GpuStreamT)stream);

@@ -16,8 +16,8 @@
 #include "cusz.h"
 #include "cusz/type.h"
 #include "hf/hf.hh"
-#include "tehm.hh"
 #include "port.hh"
+#include "tehm.hh"
 
 pszpredictor pszdefault_predictor() { return {Lorenzo}; }
 pszquantizer pszdefault_quantizer() { return {512}; }
@@ -50,6 +50,7 @@ pszerror psz_release(pszcompressor* comp)
   return CUSZ_SUCCESS;
 }
 
+// TODO config is redundant when it comes to CLI
 pszerror psz_compress_init(
     pszcompressor* comp, pszlen const uncomp_len, pszrc* config)
 {
@@ -57,6 +58,8 @@ pszerror psz_compress_init(
   pszctx_set_len(comp->ctx, uncomp_len);
   comp->ctx->eb = config->eb;
   comp->ctx->mode = config->mode;
+  comp->ctx->pred_type = config->pred_type;
+
   // Be cautious of autotuning! The default value of pardeg is not robust.
   cusz::CompressorHelper::autotune_coarse_parhf(comp->ctx);
 

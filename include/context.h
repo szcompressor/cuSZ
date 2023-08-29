@@ -50,6 +50,7 @@ struct cusz_context {
   bool verbose{false};
 
   pszpredictor_type pred_type;
+  char dbgstr_pred[10];
 
   // sizes
   uint32_t x{1}, y{1}, z{1}, w{1};

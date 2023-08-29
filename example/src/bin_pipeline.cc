@@ -19,6 +19,7 @@
 #include "kernel/spline.hh"
 #include "mem/layout_cxx.hh"
 #include "port.hh"
+#include "stat/compare.hh"
 #include "stat/compare_thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
@@ -77,9 +78,7 @@ string suffix(bool compat = false)
 
 }  // namespace
 
-template <
-    int Predictor, typename T = f4, typename E = u4,
-    typename H = u4>
+template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
 void demo_c_predict(
     pszmempool_cxx<T, E, H>* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn,
     f8 const eb, int const radius, GpuStreamT stream, bool proto = false)
@@ -117,7 +116,8 @@ void demo_c_predict(
 #if defined(PSZ_USE_CUDA)
 
     if (ndim(len3) != 3) throw std::runtime_error("SPLINE3: must be 3D data.");
-    spline_construct(mem->od, mem->ac, mem->es, nullptr, eb, radius, &time, stream);
+    spline_construct(
+        mem->od, mem->ac, mem->es, nullptr, eb, radius, &time, stream);
 
     printf(
         "using spline3:\n"
@@ -143,9 +143,7 @@ void demo_c_predict(
   }
 }
 
-template <
-    int Predictor, typename T = f4, typename E = u4,
-    typename H = u4>
+template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
 void demo_d_predict(
     pszmempool_cxx<T, E, H>* mem, double const eb, int const radius,
     GpuStreamT stream, bool proto = false)
@@ -223,6 +221,7 @@ void demo_hist_u4in(
   hist<CUDA, E>(
       true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
       &tgpu_optim, stream);
+
 #elif defined(PSZ_USE_HIP)
   hist<HIP, E>(
       false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
@@ -247,12 +246,10 @@ void demo_hist_u4in(
 }
 
 template <
-    int Predictor = LORENZO, typename T = f4, typename E = u4,
-    typename H = u4>
+    int Predictor = LORENZO, typename T = f4, typename E = u4, typename H = u4>
 void demo_pipeline(
     char const* ifn, size_t const x, size_t const y, size_t const z,
-    f8 eb = 1.2e-4, int mode = REL, int const radius = 128,
-    bool proto = false)
+    f8 eb = 1.2e-4, int mode = REL, int const radius = 128, bool proto = false)
 {
   // When the input type is FP<X>, the internal precision should be the same.
   using FP = T;
@@ -268,6 +265,7 @@ void demo_pipeline(
   cusz::HuffmanCodec<u4, H, u4> codec;
 
   auto mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
+
   mem->od->control({Malloc, MallocHost})
       ->file(ifn, FromFile)
       ->control({H2D})
@@ -404,25 +402,19 @@ int main(int argc, char** argv)
   else {
     if (dtype == "f") {
       if (etype == "u1")
-        demo_pipeline<LORENZO, f4, u1>(
-            fname, x, y, z, eb, m, r, useproto);
+        demo_pipeline<LORENZO, f4, u1>(fname, x, y, z, eb, m, r, useproto);
       else if (etype == "u2")
-        demo_pipeline<LORENZO, f4, u2>(
-            fname, x, y, z, eb, m, r, useproto);
+        demo_pipeline<LORENZO, f4, u2>(fname, x, y, z, eb, m, r, useproto);
       if (etype == "u4")
-        demo_pipeline<LORENZO, f4, u4>(
-            fname, x, y, z, eb, m, r, useproto);
+        demo_pipeline<LORENZO, f4, u4>(fname, x, y, z, eb, m, r, useproto);
     }
     else if (dtype == "d") {
       if (etype == "u1")
-        demo_pipeline<LORENZO, f8, u1>(
-            fname, x, y, z, eb, m, r, useproto);
+        demo_pipeline<LORENZO, f8, u1>(fname, x, y, z, eb, m, r, useproto);
       else if (etype == "u2")
-        demo_pipeline<LORENZO, f8, u2>(
-            fname, x, y, z, eb, m, r, useproto);
+        demo_pipeline<LORENZO, f8, u2>(fname, x, y, z, eb, m, r, useproto);
       if (etype == "u4")
-        demo_pipeline<LORENZO, f8, u4>(
-            fname, x, y, z, eb, m, r, useproto);
+        demo_pipeline<LORENZO, f8, u4>(fname, x, y, z, eb, m, r, useproto);
     }
     else
       throw std::runtime_error("not a valid dtype.");

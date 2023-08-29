@@ -17,23 +17,6 @@
 
 #include "mem/memseg_cxx.hh"
 
-typedef struct Spline3Len3 {
-  // uint32_t blockx, blocky, blockz;
-  uint32_t x_32, y_8, z_8;
-
-  uint32_t len;
-  uint32_t len_aligned;
-  uint32_t len_anchor;
-
-  dim3 grid_dim;
-
-  dim3 l3_data, stride3_data;
-  dim3 l3_aligned, stride3_aligned;
-  dim3 l3_anchor, stride3_anchor;
-} Spline3Len3;
-
-void spline3_calc_sizes(void* _l3, Spline3Len3* s3l3);
-
 template <typename T, typename E, typename FP = T>
 int spline_construct(
     pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* errctrl,

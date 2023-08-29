@@ -95,10 +95,8 @@ typedef enum cusz_mode  //
 typedef cusz_mode pszmode;
 
 typedef enum cusz_predictortype  //
-{ Lorenzo0 = 0,
-  Lorenzo = 1,
-  LorenzoI = 2,
-  Spline = 3 } cusz_predictortype;
+{ Lorenzo = 0,
+  Spline = 1 } cusz_predictortype;
 typedef cusz_predictortype pszpredictor_type;
 
 typedef enum cusz_preprocessingtype  //
@@ -191,6 +189,7 @@ typedef cusz_compressor pszcompressor;
 typedef struct cusz_runtime_config {
   f8 eb;
   pszmode mode;
+  pszpredictor_type pred_type;
 } cusz_runtime_config;
 typedef cusz_runtime_config pszruntimeconfig;
 typedef cusz_runtime_config pszrc;

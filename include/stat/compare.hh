@@ -43,7 +43,7 @@ void probe_extrema(T* in, size_t len, T res[4])
   else if (P == THRUST)
     thrustgpu_get_extrema_rawptr(in, len, res);
 #endif
-  else if (P == CUDA) {
+  else if (P == CUDA or P == HIP) {
     psz::cuda_hip_compat::extrema(in, len, res);
   }
   else

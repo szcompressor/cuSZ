@@ -16,57 +16,99 @@
 #include "kernel/spline.hh"
 #include "mem/compact_cu.hh"
 
-void spline3_calc_sizes(void* _l3, Spline3Len3* s3l3)
+#define SETUP                                                   \
+  auto div3 = [](dim3 len, dim3 sublen) {                       \
+    return dim3(                                                \
+        (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, \
+        (len.z - 1) / sublen.z + 1);                            \
+  };                                                            \
+  auto ndim = [&]() {                                           \
+    if (len3.z == 1 and len3.y == 1)                            \
+      return 1;                                                 \
+    else if (len3.z == 1 and len3.y != 1)                       \
+      return 2;                                                 \
+    else                                                        \
+      return 3;                                                 \
+  };
+
+template <typename T, typename E, typename FP, bool NO_R_SEPARATE>
+void spline3_construct_raw(
+    T* data, dim3 const len3, T* anchor, dim3 const an_len3, E* ectrl,
+    dim3 const ec_len3, double const eb, int const radius, float& time_elapsed,
+    void* stream)
 {
-  constexpr auto BLOCK = 8;
+  SETUP;
 
-  auto div = [](auto _len, auto _sublen) { return (_len - 1) / _sublen + 1; };
-  auto linearize = [](dim3 a) { return a.x * a.y * a.z; };
-  auto leap = [](dim3 a) { return dim3(1, a.x, a.x * a.y); };
+  constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+  constexpr auto SEQ_3D = dim3(1, 8, 1);
+  constexpr auto BLOCK_3D = dim3(256, 1, 1);
+  auto GRID_3D = div3(len3, SUBLEN_3D);
 
-  auto l3 = *((dim3*)_l3);
+  ////////////////////////////////////////
 
-  // original
-  s3l3->len = l3.x * l3.y * l3.z;
-  s3l3->l3_data = l3;
-  s3l3->stride3_data = dim3(1, l3.x, l3.x * l3.y);
+  auto ebx2 = eb * 2;
+  auto eb_r = 1 / eb;
+  auto leap3 = dim3(1, len3.x, len3.x * len3.y);
+  auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
+  auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
 
-  // padding
-  s3l3->grid_dim.x = div(l3.x, BLOCK * 4);
-  s3l3->grid_dim.y = div(l3.y, BLOCK);
-  s3l3->grid_dim.z = div(l3.z, BLOCK);
-  s3l3->x_32 = s3l3->grid_dim.x * 32;  // e.g., 235 -> 256
-  s3l3->y_8 = s3l3->grid_dim.y * 8;    // e.g., 449 -> 456
-  s3l3->z_8 = s3l3->grid_dim.z * 8;    // e.g., 449 -> 456
-  s3l3->l3_aligned = dim3(s3l3->x_32, s3l3->y_8, s3l3->z_8);
-  s3l3->len_aligned = linearize(s3l3->l3_aligned);
-  s3l3->stride3_aligned = leap(s3l3->l3_aligned);
+  auto d = ndim();
 
-  // anchor point
-  s3l3->l3_anchor.x = div(l3.x, BLOCK);
-  s3l3->l3_anchor.y = div(l3.y, BLOCK);
-  s3l3->l3_anchor.z = div(l3.z, BLOCK);
-  s3l3->len_anchor = linearize(s3l3->l3_anchor);
-  s3l3->stride3_anchor = leap(s3l3->l3_anchor);
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
 
-  printf("\ncalculating spline3 sizes:\n");
-  printf(
-      "data-(x, y, z)=(%u, %u, %u)\n", s3l3->l3_data.x, s3l3->l3_data.y,
-      s3l3->l3_data.z);
-  printf(
-      "stride_data-(x, y, z)=(%u, %u, %u)\n", s3l3->stride3_data.x,
-      s3l3->stride3_data.y, s3l3->stride3_data.z);
-  printf("padded-(x, y, z)=(%u, %u, %u)\n", s3l3->x_32, s3l3->y_8, s3l3->z_8);
-  printf(
-      "stride_aligned-(x, y, z)=(%u, %u, %u)\n", s3l3->stride3_aligned.x,
-      s3l3->stride3_aligned.y, s3l3->stride3_aligned.z);
-  printf(
-      "anchor-(x, y, z)=(%u, %u, %u)\n", s3l3->l3_anchor.x, s3l3->l3_anchor.y,
-      s3l3->l3_anchor.z);
-  printf(
-      "spline3 quant-code size: %u (%.3lfx the original)\n", s3l3->len_aligned,
-      s3l3->len_aligned * 1.0 / s3l3->len);
-  printf("\n");
+  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256>  //
+      <<<GRID_3D, BLOCK_3D, 0, (GpuStreamT)stream>>>         //
+      (data, len3, leap3,                                    //
+       ectrl, ec_len3, ec_leap3,                             //
+       anchor, an_leap3,                                     //
+       eb_r, ebx2, radius);
+
+  STOP_GPUEVENT_RECORDING(stream);
+  CHECK_GPU(GpuStreamSync(stream));
+
+  TIME_ELAPSED_GPUEVENT(&time_elapsed);
+  DESTROY_GPUEVENT_PAIR;
+}
+
+template <typename T, typename E, typename FP>
+void spline3_reconstruct_raw(
+    T* xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* ectrl,
+    dim3 const ec_len3, double const eb, int const radius, float& time_elapsed,
+    void* stream)
+{
+  SETUP;
+
+  constexpr auto SUBLEN_3D = dim3(32, 8, 8);
+  constexpr auto SEQ_3D = dim3(1, 8, 1);
+  constexpr auto BLOCK_3D = dim3(256, 1, 1);
+  auto GRID_3D = div3(len3, SUBLEN_3D);
+
+  ////////////////////////////////////////
+
+  auto ebx2 = eb * 2;
+  auto eb_r = 1 / eb;
+  auto leap3 = dim3(1, len3.x, len3.x * len3.y);
+  auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
+  auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
+
+  auto d = ndim();
+
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
+
+  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
+      <<<GRID_3D, BLOCK_3D, 0, (GpuStreamT)stream>>>         //
+      (ectrl, ec_len3, ec_leap3,                             //
+       anchor, an_len3, an_leap3,                            //
+       xdata, len3, leap3,                                   //
+       eb_r, ebx2, radius);
+
+  STOP_GPUEVENT_RECORDING(stream);
+  CHECK_GPU(GpuStreamSync(stream));
+
+  TIME_ELAPSED_GPUEVENT(&time_elapsed);
+  DESTROY_GPUEVENT_PAIR;
 }
 
 template <typename T, typename E, typename FP>
@@ -126,7 +168,7 @@ int spline_reconstruct(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>     //
+  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>   //
       <<<grid_dim, dim3(256, 1, 1), 0, (GpuStreamT)stream>>>  //
       (ectrl->dptr(), ectrl->template len3<dim3>(),
        ectrl->template st3<dim3>(),  //
@@ -163,3 +205,4 @@ INIT(f8, u4)
 INIT(f8, f4)
 
 #undef INIT
+#undef SETUP
