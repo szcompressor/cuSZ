@@ -49,6 +49,8 @@ struct cusz_context {
   bool report_cr_est{false};
   bool verbose{false};
 
+  pszpredictor_type pred_type;
+
   // sizes
   uint32_t x{1}, y{1}, z{1}, w{1};
   size_t data_len{1};
@@ -81,10 +83,12 @@ typedef cusz_context pszctx;
 void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
 void pszctx_parse_length(pszctx* ctx, const char* lenstr);
-void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print);
+void pszctx_parse_control_string(
+    pszctx* ctx, const char* in_str, bool dbg_print);
 void pszctx_validate(pszctx* ctx);
 void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
-void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w);
+void pszctx_set_rawlen(
+    pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w);
 void pszctx_set_len(pszctx* ctx, pszlen len);
 void pszctx_set_report(pszctx* ctx, const char* in_str);
 void pszctx_set_config(pszctx* ctx, pszrc* config);
@@ -93,7 +97,8 @@ void pszctx_set_huffbyte(pszctx* ctx, int _);
 void pszctx_set_huffchunk(pszctx* ctx, int _);
 void pszctx_set_densityfactor(pszctx* ctx, int _);
 void pszctx_create_from_argv(pszctx* ctx, int const argc, char** const argv);
-void pszctx_create_from_string(pszctx* ctx, const char* in_str, bool dbg_print);
+void pszctx_create_from_string(
+    pszctx* ctx, const char* in_str, bool dbg_print);
 
 #ifdef __cplusplus
 }

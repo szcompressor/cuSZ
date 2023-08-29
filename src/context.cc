@@ -18,6 +18,7 @@
 #include <unordered_map>
 
 #include "busyheader.hh"
+#include "cusz/type.h"
 #include "utils/config.hh"
 #include "utils/document.hh"
 #include "utils/format.hh"
@@ -124,13 +125,23 @@ void pszctx_parse_control_string(
       ctx->vle_sublen = psz_helper::str2int(v);
       ctx->use_autotune_hf = false;
     }
-    // else if (optmatch({"predictor"})) {}
-    // else if (optmatch({"codec"})) {}
-    // else if (optmatch({"spcodec"})) {}
-    // else if (optmatch({"anchor"}) and is_enabled(v)) { ctx->use_anchor =
-    // true; } else if (optmatch({"nondestructive"}) and is_enabled(v)) {} else
-    // if (optmatch({"failfast"}) and is_enabled(v)) {} else if
-    // (optmatch({"releaseinput"}) and is_enabled(v)) {}
+    else if (optmatch({"predictor"})) {
+      if (v == "spline" or v == "spline3") {
+        ctx->pred_type = pszpredictor_type::Spline;
+      }
+      else if (v == "lorenzo") {
+        ctx->pred_type = pszpredictor_type::Lorenzo;
+      }
+      else {
+        printf(
+            "[psz::warning::parser] "
+            "\"%s\" is not a supported predictor; "
+            "fallback to \"lorenzo\".",
+            v.c_str());
+        ctx->pred_type = pszpredictor_type::Lorenzo;
+      }
+    }
+    // else if (optmatch({"failfast"}) and is_enabled(v)) {}
     else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in
                                        // `config.hh`
       ctx->nz_density = psz_helper::str2fp(v);
@@ -144,16 +155,10 @@ void pszctx_parse_control_string(
     else if (optmatch({"gpuverify"}) and is_enabled(v)) {
       ctx->use_gpu_verify = true;
     }
-    // disable for now
-    // if (ctx->predictor == "spline3") {
-    //     // unconditionally use anchor when it is spline3
-    //     ctx->use_anchor = true;
-    // }
   }
 }
 
-void pszctx_create_from_argv(
-    pszctx* ctx, int const argc, char** const argv)
+void pszctx_create_from_argv(pszctx* ctx, int const argc, char** const argv)
 {
   if (argc == 1) {
     pszctx_print_document(false);
@@ -164,8 +169,7 @@ void pszctx_create_from_argv(
   pszctx_validate(ctx);
 }
 
-void pszctx_create_from_string(
-    pszctx* ctx, const char* in_str, bool dbg_print)
+void pszctx_create_from_string(pszctx* ctx, const char* in_str, bool dbg_print)
 {
   pszctx_parse_control_string(ctx, in_str, dbg_print);
 }
@@ -215,9 +219,24 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         char* end;
         ctx->eb = std::strtod(argv[++i], &end);
       }
-      // else if (optmatch({"-p", "--predictor"})) {}
-      // else if (optmatch({"-c", "--codec"})) {}
-      // else if (optmatch({"-s", "--spcodec"})) {}
+      else if (optmatch({"-p", "--predictor"})) {
+        check_next();
+        auto v = std::string(argv[++i]);
+        if (v == "spline" or v == "spline3") {
+          ctx->pred_type = pszpredictor_type::Spline;
+        }
+        else if (v == "lorenzo") {
+          ctx->pred_type = pszpredictor_type::Lorenzo;
+        }
+        else {
+          printf(
+              "[psz::warning::parser] "
+              "\"%s\" is not a supported predictor; "
+              "fallback to \"lorenzo\".",
+              v.c_str());
+          ctx->pred_type = pszpredictor_type::Lorenzo;
+        }
+      }
       else if (optmatch({"-t", "--type", "--dtype"})) {
         check_next();
         std::string s = std::string(std::string(argv[++i]));
@@ -453,8 +472,7 @@ void pszctx_print_document(bool full_document)
     std::cout << cusz_short_doc << std::endl;
 }
 
-void pszctx_set_rawlen(
-    pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
+void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 {
   ctx->x = _x, ctx->y = _y, ctx->z = _z, ctx->w = _w;
 
