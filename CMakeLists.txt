@@ -20,6 +20,9 @@ option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" 
 # example and testing
 option(PSZ_BUILD_EXAMPLES "build example codes" OFF)
 
+# probe cmake configs regarding compilers
+include(cmake/probe.cmake)
+
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
   include(cmake/cusz.cmake)
 elseif(PSZ_BACKEND STREQUAL "HIP" OR PSZ_BACKEND STREQUAL "hip")
