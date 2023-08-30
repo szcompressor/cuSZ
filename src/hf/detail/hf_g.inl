@@ -57,7 +57,7 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
   compressed = new pszmem_cxx<BYTE>(inlen * 4, 1, 1, "hf::compressed");
 
   tmp = new pszmem_cxx<H>(inlen, 1, 1, "hf::tmp");
-  book = new pszmem_cxx<H>(inlen, 1, 1, "hf::book");
+  book = new pszmem_cxx<H>(booklen, 1, 1, "hf::book");
   revbook = new pszmem_cxx<BYTE>(revbook_bytes(booklen), 1, 1, "hf::revbook");
   par_nbit = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_nbit");
   par_ncell = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_ncell");
