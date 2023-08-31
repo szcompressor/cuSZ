@@ -20,15 +20,10 @@
 #include "header.h"
 #include "compressor.hh"
 #include "hf/hf.hh"
-#include "kernel/hist.hh"
-#include "kernel/histsp.hh"
-#include "kernel/l23.hh"
-#include "kernel/l23r.hh"
-#include "kernel/spline.hh"
-#include "kernel/spv.hh"
-#include "mem/layout_cxx.hh"
-#include "utils/config.hh"
+#include "kernel.hh"
+#include "mem.hh"
 #include "utils/err.hh"
+#include "utils/config.hh"
 
 #define PRINT_ENTRY(VAR)                                    \
   printf(                                                   \

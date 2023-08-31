@@ -12,19 +12,11 @@
 #include "busyheader.hh"
 #include "ex_utils.hh"
 #include "hf/hf.hh"
-#include "kernel/hist.hh"
-#include "kernel/histsp.hh"
-#include "kernel/l23.hh"
-#include "kernel/l23r.hh"
-#include "kernel/lproto.hh"
-#include "kernel/spv.hh"
-#include "kernel/spline.hh"
-#include "mem/layout_cxx.hh"
+#include "kernel.hh"
+#include "mem.hh"
 #include "port.hh"
-#include "stat/compare.hh"
-#include "stat/compare_thrust.hh"
-#include "utils/print_arr.hh"
-#include "utils/viewer.hh"
+#include "stat.hh"
+#include "utils.hh"
 
 #define ABS 0
 #define REL 1

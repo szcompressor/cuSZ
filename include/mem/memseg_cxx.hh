@@ -17,7 +17,6 @@
 #include "cusz/type.h"
 #include "memseg.h"
 #include "stat/compare.hh"
-#include "stat/compare_thrust.hh"
 #include "typing.hh"
 
 enum pszmem_control_stream {

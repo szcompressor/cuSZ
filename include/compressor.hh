@@ -17,8 +17,7 @@
 #include "cusz/type.h"
 #include "header.h"
 #include "hf/hf.hh"
-#include "mem/compact.hh"
-#include "mem/layout_cxx.hh"
+#include "mem.hh"
 #include "typing.hh"
 
 namespace cusz {

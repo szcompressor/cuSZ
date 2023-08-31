@@ -12,13 +12,10 @@
 #include <string>
 
 #include "ex_utils.hh"
-#include "kernel/hist.hh"
-#include "kernel/histsp.hh"
-#include "mem/memseg_cxx.hh"
+#include "kernel.hh"
+#include "mem.hh"
 #include "port.hh"
-#include "stat/compare_thrust.hh"
-#include "utils/print_arr.hh"
-#include "utils/viewer.hh"
+#include "stat.hh"
 
 #define BASE false
 #define OPTIM true

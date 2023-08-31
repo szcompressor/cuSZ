@@ -20,7 +20,7 @@
 //
 #include "context.h"
 #include "dryrun.hh"
-#include "mem/memseg_cxx.hh"
+#include "mem.hh"
 #include "tehm.hh"
 #include "utils/analyzer.hh"
 #include "utils/err.hh"

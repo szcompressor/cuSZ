@@ -13,11 +13,10 @@
 
 #include "hf/hf.hh"
 #include "kernel/hist.hh"
-#include "mem/memseg_cxx.hh"
-#include "stat/compare_thrust.hh"
-#include "utils/print_arr.hh"
-#include "utils/viewer.hh"
+#include "mem.hh"
+#include "stat.hh"
 #include "port.hh"
+#include "utils/print_arr.hh"
 
 using B = uint8_t;
 using F = u4;
