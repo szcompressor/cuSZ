@@ -156,23 +156,44 @@ Compressor<C>* Compressor<C>::compress(
     // as it is not always outperformed by `psz::histsp`.
     psz::histogram<PROPER_GPU_BACKEND, E>(
         mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
+
+  #if defined(PSZ_USE_CUDA)
     psz::histsp<PROPER_GPU_BACKEND, E>(
         mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
+  #elif defined(PSZ_USE_HIP)
+    cout << "[psz::warning::compressor] fast histsp hangs when HIP backend is used; fallback to the normal version" << endl;
+  #endif
 
-    // mem->ht->control({D2H});
-    // for (auto i = 0; i < booklen; i++) {
-    //   auto f = mem->ht->hptr(i);
-    //   if (f != 0) printf("[psz::dbg::hist_sp] (idx) %5d    (freq) %8d\n", i,
-    //   f);
-    // }
+  //   mem->ht->control({D2H});
+  //   for (auto i = 0; i < booklen; i++) {
+  //     auto f = mem->ht->hptr(i);
+  // #if defined(PSZ_USE_CUDA)
+  //     if (f != 0) printf("[psz::dbg::res::hist_sp] (idx) %5d    (freq) %8d\n", i, f);
+  // #elif defined(PSZ_USE_HIP)
+  //     if (f != 0) printf("[psz::dbg::res::hist] (idx) %5d    (freq) %8d\n", i, f);
+  // #endif
+  //   }
 
     // Huffman encoding
     codec->build_codebook(mem->ht, booklen, stream);
+// #if defined(PSZ_USE_HIP)
+//     for (auto i = 0; i < booklen; i++) {
+//       auto c = mem->ht->hptr(i);
+//       if (c != ~(H)0x0 and c != 0x0) {
+//         printf("[psz::dbg::res::codebook] (idx) %5d    ", i);
+//         cout << bitset<sizeof(H) * 8>(c) << '\n';
+//       }
+//     }
+// #endif
     codec->encode(mem->ectrl_lrz(), elen, &d_codec_out, &codec_outlen, stream);
 
     // count outliers (by far, already gathered in psz_comp_l23r)
     mem->compact->make_host_accessible((GpuStreamT)stream);
     splen = mem->compact->num_outliers();
+
+#if defined(PSZ_USE_HIP)
+    cout << "[psz:dbg::res] splen: " << splen << endl;
+#endif
   }
 
   // /* debug */ CHECK_GPU(GpuStreamSync(stream));

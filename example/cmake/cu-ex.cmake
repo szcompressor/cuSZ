@@ -19,6 +19,7 @@ target_link_libraries(
           pszkernel_ser
           pszkernel_cu
           pszstat_cu
+          pszspv_cu
           pszhf_cu
           CUDA::cudart)
 

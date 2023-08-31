@@ -41,13 +41,11 @@ enum pszmem_control_stream {
 using pszmem_control = pszmem_control_stream;
 
 #if defined(PSZ_USE_CUDA)
-#warning "CUDA backend is used"
-#include "memseg_cxx_cu.hh"
+  #include "memseg_cxx_cu.hh"
 #elif defined(PSZ_USE_HIP)
-// #warning "HIP backend is used"
-#include "memseg_cxx_hip.hh"
+  #include "memseg_cxx_hip.hh"
 #elif defined(PSZ_USE_1API)
-// #include "memseg_cxx_1api.hh"
+  // #include "memseg_cxx_1api.hh"
 #endif
 
 

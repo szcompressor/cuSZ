@@ -1,5 +1,5 @@
 /**
- * @file lorenzo.cu
+ * @file l23.hip
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -9,7 +9,7 @@
  *
  */
 
-#include <hip/hip_runtime.h>
+#include "port.hh"
 
 #include "cusz/type.h"
 #include "detail/l23.inl"

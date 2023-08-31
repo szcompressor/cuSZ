@@ -47,6 +47,10 @@ void psz::hf_encode_coarse_rev2(
   auto h_par_ncell = (M*)bitstream_desc->h_metadata->cells;
   auto h_par_entry = (M*)bitstream_desc->h_metadata->entries;
 
+#ifdef PSZ_USE_HIP
+  cout << "[psz::dbg::hfcodec] entering phase1" << endl;
+#endif
+
   /* phase 1 */
   {
     auto block_dim = BLOCK_DIM_ENCODE;
@@ -66,6 +70,10 @@ void psz::hf_encode_coarse_rev2(
     if (time_lossless) *time_lossless += stage_time;
   }
 
+#ifdef PSZ_USE_HIP
+  cout << "[psz::dbg::hfcodec] entering phase2" << endl;
+#endif
+
   /* phase 2 */
   {
     auto block_dim = BLOCK_DIM_DEFLATE;
@@ -84,6 +92,10 @@ void psz::hf_encode_coarse_rev2(
     TIME_ELAPSED_GPUEVENT(&stage_time);
     if (time_lossless) *time_lossless += stage_time;
   }
+
+#ifdef PSZ_USE_HIP
+  cout << "[psz::dbg::hfcodec] entering phase3" << endl;
+#endif
 
   /* phase 3 */
   {
@@ -108,6 +120,17 @@ void psz::hf_encode_coarse_rev2(
     CHECK_GPU(GpuStreamSync(stream));
   }
 
+  cout << "[psz::dbg::hfcodec] pardeg=" << pardeg << endl;
+#ifdef PSZ_USE_HIP
+  cout << "[psz::dbg::hfcodec] phase3 ends" << endl;
+
+  // for (auto i = 1; i < 100; i++) {
+  //   cout << "[psz::dbg::hfcodec] check h_par_ncell (first 100 entries): (idx) " << i << "\t" << h_par_ncell[i] << "\n";
+  // }
+  cout << "[psz::dbg::hfcodec] entering phase4" << endl;
+#endif
+
+
   /* phase 4 */
   {
     START_GPUEVENT_RECORDING(stream);
@@ -124,6 +147,10 @@ void psz::hf_encode_coarse_rev2(
     TIME_ELAPSED_GPUEVENT(&stage_time);
     if (time_lossless) *time_lossless += stage_time;
   }
+
+#ifdef PSZ_USE_HIP
+    cout << "[psz::dbg::hfcodec] entering phase5" << endl;
+#endif
 
   /* phase 5: gather out sizes without memcpy */
   {

@@ -16,6 +16,7 @@ target_link_libraries(
           pszkernel_ser
           pszkernel_hip
           pszstat_hip
+          pszspv_hip
           pszhf_hip
           hip::host)
 

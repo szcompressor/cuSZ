@@ -44,10 +44,7 @@ add_library(pszcompile_settings INTERFACE)
 
 target_compile_definitions(
   pszcompile_settings
-  INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,Clang>:__STRICT_ANSI__>)
-# target_compile_options( pszcompile_settings INTERFACE
-# $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda
-# --expt-relaxed-constexpr -Wno-deprecated-declarations>)
+  INTERFACE $<$<COMPILE_LANG_AND_ID:HIP,Clang>:__STRICT_ANSI__> -D__HIP_PLATFORM_AMD__)
 target_compile_features(pszcompile_settings INTERFACE cxx_std_14)
 target_include_directories(
   pszcompile_settings
