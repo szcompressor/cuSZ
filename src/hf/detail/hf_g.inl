@@ -89,7 +89,7 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
   GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
 
 // #ifdef PSZ_USE_HIP
-  cout << "[psz::dbg::hf] numSMs=" << numSMs << endl;
+  // cout << "[psz::dbg::hf] numSMs=" << numSMs << endl;
 // #endif
 
   {

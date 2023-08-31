@@ -47,9 +47,9 @@ void psz::hf_encode_coarse_rev2(
   auto h_par_ncell = (M*)bitstream_desc->h_metadata->cells;
   auto h_par_entry = (M*)bitstream_desc->h_metadata->entries;
 
-#ifdef PSZ_USE_HIP
-  cout << "[psz::dbg::hfcodec] entering phase1" << endl;
-#endif
+// #ifdef PSZ_USE_HIP
+//   cout << "[psz::dbg::hfcodec] entering phase1" << endl;
+// #endif
 
   /* phase 1 */
   {
@@ -70,9 +70,9 @@ void psz::hf_encode_coarse_rev2(
     if (time_lossless) *time_lossless += stage_time;
   }
 
-#ifdef PSZ_USE_HIP
-  cout << "[psz::dbg::hfcodec] entering phase2" << endl;
-#endif
+// #ifdef PSZ_USE_HIP
+//   cout << "[psz::dbg::hfcodec] entering phase2" << endl;
+// #endif
 
   /* phase 2 */
   {
@@ -93,9 +93,9 @@ void psz::hf_encode_coarse_rev2(
     if (time_lossless) *time_lossless += stage_time;
   }
 
-#ifdef PSZ_USE_HIP
-  cout << "[psz::dbg::hfcodec] entering phase3" << endl;
-#endif
+// #ifdef PSZ_USE_HIP
+//   cout << "[psz::dbg::hfcodec] entering phase3" << endl;
+// #endif
 
   /* phase 3 */
   {
@@ -120,16 +120,15 @@ void psz::hf_encode_coarse_rev2(
     CHECK_GPU(GpuStreamSync(stream));
   }
 
-  cout << "[psz::dbg::hfcodec] pardeg=" << pardeg << endl;
 #ifdef PSZ_USE_HIP
-  cout << "[psz::dbg::hfcodec] phase3 ends" << endl;
+  // cout << "[psz::dbg::hfcodec] pardeg=" << pardeg << endl;
+  // cout << "[psz::dbg::hfcodec] phase3 ends" << endl;
 
   // for (auto i = 1; i < 100; i++) {
   //   cout << "[psz::dbg::hfcodec] check h_par_ncell (first 100 entries): (idx) " << i << "\t" << h_par_ncell[i] << "\n";
   // }
-  cout << "[psz::dbg::hfcodec] entering phase4" << endl;
+  // cout << "[psz::dbg::hfcodec] entering phase4" << endl;
 #endif
-
 
   /* phase 4 */
   {
@@ -149,7 +148,7 @@ void psz::hf_encode_coarse_rev2(
   }
 
 #ifdef PSZ_USE_HIP
-    cout << "[psz::dbg::hfcodec] entering phase5" << endl;
+    // cout << "[psz::dbg::hfcodec] entering phase5" << endl;
 #endif
 
   /* phase 5: gather out sizes without memcpy */
@@ -161,6 +160,11 @@ void psz::hf_encode_coarse_rev2(
       *outlen_ncell =
           std::accumulate(h_par_ncell, h_par_ncell + pardeg, (size_t)0);
   }
+
+#ifdef PSZ_USE_HIP
+    // cout << "[psz::dbg::hfcodec] end of encoding" << endl;
+#endif
+
 }
 
 template <typename E, typename H, typename M>
