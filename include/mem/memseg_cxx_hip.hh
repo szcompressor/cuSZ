@@ -13,6 +13,9 @@
 #ifndef E9058A2D_B20F_4DA5_B818_B495C26F66CD
 #define E9058A2D_B20F_4DA5_B818_B495C26F66CD
 
+// The next-line: failsafe macro check 
+#ifdef PSZ_USE_HIP
+
 #include <hip/hip_runtime.h>
 
 template <typename Ctype>
@@ -198,5 +201,7 @@ class pszmem_cxx {
     return UINT3(1, m->sty, m->stz);
   };
 };
+
+#endif
 
 #endif /* E9058A2D_B20F_4DA5_B818_B495C26F66CD */

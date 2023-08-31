@@ -15,9 +15,10 @@
 #define A2519F0E_602B_4798_A8EF_9641123095D9
 
 #include "busyheader.hh"
-#include "compressor.hh"
+#include "port.hh"
 #include "cusz/type.h"
 #include "header.h"
+#include "compressor.hh"
 #include "hf/hf.hh"
 #include "kernel/hist.hh"
 #include "kernel/histsp.hh"
@@ -26,7 +27,6 @@
 #include "kernel/spline.hh"
 #include "kernel/spv.hh"
 #include "mem/layout_cxx.hh"
-#include "mem/memseg_cxx_cu.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
 

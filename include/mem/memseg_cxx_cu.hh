@@ -13,6 +13,9 @@
 #ifndef EC1B3A67_146B_48BF_A336_221E9D38C41F
 #define EC1B3A67_146B_48BF_A336_221E9D38C41F
 
+// The next-line: failsafe macro check 
+#ifdef PSZ_USE_CUDA
+
 #include <cuda_runtime.h>
 
 template <typename Ctype>
@@ -198,5 +201,7 @@ class pszmem_cxx {
     return UINT3(1, m->sty, m->stz);
   };
 };
+
+#endif
 
 #endif /* EC1B3A67_146B_48BF_A336_221E9D38C41F */
