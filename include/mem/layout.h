@@ -31,7 +31,7 @@ typedef enum pszmem_runtime_type {
   PszSpIdx = 4,
   PszArchive = 5,
   PszHf______ = 6,  // hf dummy start
-  PszHfHeader = 7,
+  pszhf_header = 7,
   PszHfBook = 8,
   PszHfRevbook = 9,
   PszHfParNbit = 10,

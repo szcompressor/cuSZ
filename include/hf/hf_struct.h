@@ -28,7 +28,7 @@ typedef struct hf_book {
     // undertermined on definition
     // could be uint32_t* and uint64_t*
     void* book;
-    int   booklen;
+    int   bklen;
 } hf_book;
 
 // typedef struct hf_revbook {
@@ -52,7 +52,7 @@ typedef struct hf_bitstream {
 
 // used on host
 typedef struct hf_context {
-    int booklen, sublen, pardeg;
+    int bklen, sublen, pardeg;
 
     float _time_book, time_lossless;
 

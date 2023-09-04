@@ -25,14 +25,21 @@ template <typename E, typename M = u4>
 class HuffmanCodec {
  public:
   using BYTE = u1;
-  using H = u4;
+  using RAW = u1;
+  using H4 = u4;
+  using H8 = u8;
+
+  static const int TYPICAL = sizeof(u4);
+  static const int FAILSAFE = sizeof(u8);
 
  private:
-  using BOOK = H;
+  using BOOK4B = u4;
+  using BOOK8B = u8;
+
   using SYM = E;
 
-  // TODO shared header
-  struct alignas(128) Header {
+  // TODO psz and pszhf combined to use 128 byte
+  struct alignas(128) pszhf_header {
     static const int HEADER = 0;
     static const int REVBOOK = 1;
     static const int PAR_NBIT = 2;
@@ -41,19 +48,20 @@ class HuffmanCodec {
     static const int END = 5;
 
     int self_bytes : 16;
-    int booklen : 16;
+    int bklen : 16;
     int sublen;
     int pardeg;
     size_t original_len;
     size_t total_nbit;
     size_t total_ncell;  // TODO change to uint32_t
+    pszdtype internal_hf;
     M entry[END + 1];
 
     M compressed_size() const { return entry[END]; }
   };
 
-  struct runtime_encode_helper {
-    static const int TMP = 0;
+  struct pszhf_rc {
+    static const int SCRATCH = 0;
     static const int FREQ = 1;
     static const int BOOK = 2;
     static const int REVBOOK = 3;
@@ -66,24 +74,40 @@ class HuffmanCodec {
     uint32_t nbyte[END];
   };
 
-  using RTE = runtime_encode_helper;
-  using Header = struct Header;
+  using RC = pszhf_rc;
+  using pszhf_header = struct pszhf_header;
+  using Header = pszhf_header;
 
  public:
   // array
-  pszmem_cxx<H>* tmp;
-  pszmem_cxx<BYTE>* compressed;
-  pszmem_cxx<H>* book;
-  pszmem_cxx<BYTE>* revbook;
+  pszmem_cxx<RAW>* __scratch;
+  pszmem_cxx<H4>* scratch4;
+  pszmem_cxx<H8>* scratch8;
+
+  pszmem_cxx<BYTE>* compressed4;
+  pszmem_cxx<BYTE>* compressed8;
+
+  pszmem_cxx<RAW>* __bk;
+  pszmem_cxx<H4>* bk4;
+  pszmem_cxx<H8>* bk8;
+
+  pszmem_cxx<RAW>* __revbk;
+  pszmem_cxx<BYTE>* revbk4;
+  pszmem_cxx<BYTE>* revbk8;
+
+  pszmem_cxx<RAW>* __bitstream;
+  pszmem_cxx<H4>* bitstream4;
+  pszmem_cxx<H8>* bitstream8;
+
+  // data partition/embarrassingly parallelism description
   pszmem_cxx<M>* par_nbit;
   pszmem_cxx<M>* par_ncell;
   pszmem_cxx<M>* par_entry;
-  pszmem_cxx<H>* bitstream;
 
   // helper
-  RTE rte;
+  RC rc;
   // memory
-  static const int CELL_BITWIDTH = sizeof(H) * 8;
+
   // timer
   float _time_book{0.0}, _time_lossless{0.0};
 
@@ -93,7 +117,7 @@ class HuffmanCodec {
   hf_bitstream* bitstream_desc;
 
   int pardeg;
-  int booklen;
+  int bklen;
   int numSMs;
 
  public:
@@ -103,9 +127,9 @@ class HuffmanCodec {
   // getter
   float time_book() const;
   float time_lossless() const;
-  static size_t revbook_bytes(int);
+  // static size_t revbook_bytes(int);
   // getter for internal array
-  // H*    expose_book() const;
+  // H4*    expose_book() const;
   // BYTE* expose_revbook() const;
 
   // compile-time
@@ -121,11 +145,35 @@ class HuffmanCodec {
   HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
   HuffmanCodec* clear_buffer();
 
+  // analysis
+  template <pszpolicy P>
+  static void calculate_CR(bool gpu_par_style = true)
+  {
+    if (gpu_par_style) {}
+  }
+
  private:
   void hf_merge(
       Header&, size_t const, int const, int const, int const,
       void* stream = nullptr);
   void hf_debug(const std::string, void*, int);
+
+  static size_t revbook_bytes(int dict_size)
+  {
+    static const int CELL_BITWIDTH = sizeof(BOOK4B) * 8;
+    return sizeof(BOOK4B) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
+  }
+
+  static int __revbk_bytes(
+      int bklen, int BK_UNIT_BYTES = sizeof(BOOK4B),
+      int SYM_BYTES = sizeof(SYM))
+  {
+    static const int CELL_BITWIDTH = BK_UNIT_BYTES * 8;
+    return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
+  }
+
+  static int revbk4_bytes(int bklen) { return __revbk_bytes(bklen, 4); }
+  static int revbk8_bytes(int bklen) { return __revbk_bytes(bklen, 8); }
 };
 
 }  // namespace cusz

@@ -33,7 +33,7 @@ void psz::hf_encode_coarse_rev2(
   H* d_buffer = (H*)bitstream_desc->buffer;
   H* d_bitstream = (H*)bitstream_desc->bitstream;
   H* d_book = (H*)book_desc->book;
-  int const booklen = book_desc->booklen;
+  int const booklen = book_desc->bklen;
   int const sublen = bitstream_desc->sublen;
   int const pardeg = bitstream_desc->pardeg;
   int const numSMs = bitstream_desc->numSMs;
