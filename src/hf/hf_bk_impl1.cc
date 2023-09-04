@@ -10,37 +10,12 @@
  * top-level directory.
  */
 
-#include "hf/hf_buildtree_impl1.hh"
+#include "hf/hf_bk_impl.hh"
 
 #include "busyheader.hh"
 #include "cusz/type.h"
+#include "hf/hf_word.hh"
 #include "utils/timer.hh"
-
-// hfserial: internal stack
-node_list top(hf_internal_stack* s);
-template <typename T>
-void push_v2(hf_internal_stack* s, node_list n, T path, T len);
-template <typename T>
-node_list pop_v2(
-    hf_internal_stack* s, T* path_to_restore, T* length_to_restore);
-template <typename Q>
-void inorder_traverse_v2(hfserial_tree* ht, Q* codebook);
-
-// hfserial: priority queue
-void qinsert(hfserial_tree* ht, node_list n);
-node_list qremove(hfserial_tree* ht);
-void build_code(
-    hfserial_tree* ht, node_list n, int len, uint64_t out1, uint64_t out2);
-
-// hfserial: auxiliary functions
-node_list new_node(
-    hfserial_tree* ht, size_t freq, uint32_t c, node_list a, node_list b);
-void qinsert(hfserial_tree* ht, node_list n);
-node_list qremove(hfserial_tree* ht);
-void build_code(
-    hfserial_tree* ht, node_list n, int len, uint64_t out1, uint64_t out2);
-
-////////////////////////////////////////////////////////////////////////////////
 
 HuffmanTree* create_tree_serial(int state_num)
 {
@@ -204,95 +179,12 @@ void build_code(
   }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// internal functions
-////////////////////////////////////////////////////////////////////////////////
-
-node_list top(hf_internal_stack* s) { return s->_a[s->depth - 1]; }
-
-template <typename T>
-void push_v2(hf_internal_stack* s, node_list n, T path, T len)
-{
-  if (s->depth + 1 <= hf_internal_stack::MAX_DEPTH) {
-    s->depth += 1;
-
-    s->_a[s->depth - 1] = n;
-    s->saved_path[s->depth - 1] = path;
-    s->saved_length[s->depth - 1] = len;
-  }
-  else
-    printf("Error: stack overflow\n");
-}
-
-template <typename T>
-node_list pop_v2(
-    hf_internal_stack* s, T* path_to_restore, T* length_to_restore)
-{
-  auto is_empty = [&](hf_internal_stack* s) -> bool {
-    return (s->depth == 0);
-  };
-
-  node_list n;
-
-  if (is_empty(s)) {
-    printf("Error: stack underflow, exiting...\n");
-    return nullptr;
-    //        exit(0);
-  }
-  else {
-    // TODO holding array -> __a
-    n = s->_a[s->depth - 1];
-    s->_a[s->depth - 1] = nullptr;
-
-    *length_to_restore = s->saved_length[s->depth - 1];
-    *path_to_restore = s->saved_path[s->depth - 1];
-    s->depth -= 1;
-
-    return n;
-  }
-}
-
-template <typename Q>
-void inorder_traverse_v2(HuffmanTree* ht, Q* codebook)
-{
-  auto is_empty = [&](hf_internal_stack* s) -> bool {
-    return (s->depth == 0);
-  };
-
-  node_list root = ht->qq[1];
-  auto s = new hf_internal_stack();
-
-  bool done = 0;
-  Q out1 = 0, len = 0;
-
-  while (!done) {
-    if (root->left or root->right) {
-      push_v2(s, root, out1, len);
-      root = root->left;
-      out1 <<= 1u;
-      out1 |= 0u;
-      len += 1;
-    }
-    else {
-      uint32_t bincode = root->c;
-      codebook[bincode] = out1 | ((len & (Q)0xffu) << (sizeof(Q) * 8 - 8));
-      if (!is_empty(s)) {
-        root = pop_v2(s, &out1, &len);
-        root = root->right;
-        out1 <<= 1u;
-        out1 |= 1u;
-        len += 1;
-      }
-      else
-        done = true;
-    }
-  } /* end of while */
-}
-
 template <typename H>
 void hf_buildtree_impl1(
-    uint32_t* ext_freq, uint16_t booklen, H* codebook, float* time)
+    uint32_t* ext_freq, uint16_t booklen, H* book, float* time)
 {
+  using N = node_t;
+
   auto state_num = 2 * booklen;
   auto all_nodes = 2 * state_num;
 
@@ -309,7 +201,7 @@ void hf_buildtree_impl1(
       if (freq[i]) qinsert(tree, new_node(tree, freq[i], i, 0, 0));
     while (tree->qend > 2)
       qinsert(tree, new_node(tree, 0, 0, qremove(tree), qremove(tree)));
-    inorder_traverse_v2<H>(tree, codebook);
+    __pszhf_stack<N>::inorder_traverse<H>(tree, book);
 
     auto b = hires::now();
     auto t = static_cast<duration_t>(b - a).count() * 1000;

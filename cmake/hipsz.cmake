@@ -82,8 +82,8 @@ add_library(pszspv_hip src/kernel/spv.hip)
 target_link_libraries(pszspv_hip PUBLIC pszcompile_settings ${rocthrust_LIBRARIES})
 
 add_library(
-  pszhfbook_ser src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc
-                src/hf/hf_canon.cc src/hf/hf_bk.cc)
+  pszhfbook_ser src/hf/hf_bk_impl1.cc src/hf/hf_bk_impl2.cc
+                src/hf/hf_bk_internal.cc src/hf/hf_bk.cc src/hf/hf_canon.cc)
 target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 
 add_library(pszhf_hip src/hf/hf_obj.hip src/hf/hf_codec.hip)

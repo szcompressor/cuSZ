@@ -2,8 +2,7 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "hf/hf_buildtree_impl1.hh"
-#include "hf/hf_buildtree_impl2.hh"
+#include "hf/hf_bk_impl.hh"
 #include "hf/hf_canon.hh"
 #include "utils/timer.hh"
 
@@ -26,6 +25,7 @@ void hf_build_and_canonize_book_serial(
   {
     f4 t;
     hf_buildtree_impl1<H>(freq, bklen, book, &t);
+    // hf_buildtree_impl2<H>(freq, bklen, book, &t);
     // cout << t << endl;
     *time += t;
   }

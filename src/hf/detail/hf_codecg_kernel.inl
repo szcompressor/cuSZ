@@ -95,7 +95,7 @@ template <typename H, typename E>
 __device__ void psz::detail::hf_decode_single_thread_inflate(
     H* input, E* out, int const total_bw, BYTE* revbook)
 {
-  constexpr auto TYPE_BITS = sizeof(H) * 8;
+  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
 
   int next_bit;
   auto idx_bit = 0;
@@ -105,37 +105,37 @@ __device__ void psz::detail::hf_decode_single_thread_inflate(
   H bufr = input[idx_byte];
 
   auto first = reinterpret_cast<H*>(revbook);
-  auto entry = first + TYPE_BITS;
-  auto keys = reinterpret_cast<E*>(revbook + sizeof(H) * (2 * TYPE_BITS));
-  H v = (bufr >> (TYPE_BITS - 1)) & 0x1;  // get the first bit
+  auto entry = first + CELL_BITWIDTH;
+  auto keys = reinterpret_cast<E*>(revbook + sizeof(H) * (2 * CELL_BITWIDTH));
+  H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // get the first bit
   auto l = 1;
   auto i = 0;
 
   while (i < total_bw) {
     while (v < first[l]) {  // append next i_cb bit
       ++i;
-      idx_byte = i / TYPE_BITS;  // [1:exclusive]
-      idx_bit = i % TYPE_BITS;
+      idx_byte = i / CELL_BITWIDTH;  // [1:exclusive]
+      idx_bit = i % CELL_BITWIDTH;
       if (idx_bit == 0) {
         // idx_byte += 1; // [1:exclusive]
         bufr = input[idx_byte];
       }
 
-      next_bit = ((bufr >> (TYPE_BITS - 1 - idx_bit)) & 0x1);
+      next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
       v = (v << 1) | next_bit;
       ++l;
     }
     out[idx_out++] = keys[entry[l] + v - first[l]];
     {
       ++i;
-      idx_byte = i / TYPE_BITS;  // [2:exclusive]
-      idx_bit = i % TYPE_BITS;
+      idx_byte = i / CELL_BITWIDTH;  // [2:exclusive]
+      idx_bit = i % CELL_BITWIDTH;
       if (idx_bit == 0) {
         // idx_byte += 1; // [2:exclusive]
         bufr = input[idx_byte];
       }
 
-      next_bit = ((bufr >> (TYPE_BITS - 1 - idx_bit)) & 0x1);
+      next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
       v = 0x0 | next_bit;
     }
     l = 1;
