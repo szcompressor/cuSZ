@@ -27,25 +27,10 @@
 // deps
 #include <cuda.h>
 #include "port.hh"
-
 // definitions
 #include "detail/hf_g.inl"
 
-#define HUFFCOARSE_CC(E, ETF, H, M)                   \
-  template class cusz::HuffmanCodec<                  \
-      ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, \
-      MetadataTrait<M>::type>;
+template class cusz::HuffmanCodec<u1, u4>;
+template class cusz::HuffmanCodec<u2, u4>;
+template class cusz::HuffmanCodec<u4, u4>;
 
-// 23-06-04 restricted to u4 for quantization code
-
-// HUFFCOARSE_CC(1, false, 4, 4)  // uint
-// HUFFCOARSE_CC(1, false, 8, 4)  //
-// HUFFCOARSE_CC(2, false, 4, 4)  //
-// HUFFCOARSE_CC(2, false, 8, 4)  //
-HUFFCOARSE_CC(4, false, 4, 4)  //
-HUFFCOARSE_CC(4, false, 8, 4)  //
-
-// HUFFCOARSE_CC(4, true, 4, 4)  // float
-// HUFFCOARSE_CC(4, true, 8, 4)  //
-
-#undef HUFFCOARSE_CC

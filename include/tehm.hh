@@ -42,15 +42,12 @@ struct TEHM {
   using T = InDtype;
   using E = ErrCtrlTrait<4, false>::type;  // predefined for mem. overlapping
   using FP = typename FastLowPrecisionTrait<FastLowPrecision>::type;
-  using H = HuffTrait<4>::type;
-  using H8 = HuffTrait<4>::type;
+  // using H = u4;
+  // using Hfailsafe = u8;
   using M = MetadataTrait<4>::type;
 
   /* Lossless Codec*/
-  using CodecHuffman32 = cusz::HuffmanCodec<E, H, M>;
-  using CodecHuffman64 = cusz::HuffmanCodec<E, H8, M>;
-  using Codec = CodecHuffman32;
-  using FallbackCodec = CodecHuffman64;
+  using Codec = cusz::HuffmanCodec<E, M>;
 };
 
 using CompressorF4 = cusz::Compressor<cusz::TEHM<f4>>;

@@ -19,12 +19,14 @@
 #include <linux/limits.h>
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
-#define TEMPLATE_TYPE template <typename E, typename H, typename M>
+
+#define TPL template <typename E, typename M>
+#define HF_CODEC HuffmanCodec<E, M>
 
 namespace cusz {
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>::~HuffmanCodec()
+TPL
+HF_CODEC::~HuffmanCodec()
 {
   delete tmp;
   delete book;
@@ -35,8 +37,8 @@ HuffmanCodec<E, H, M>::~HuffmanCodec()
   delete bitstream;
 }
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
+TPL
+HF_CODEC* HF_CODEC::init(
     size_t const max_inlen, int const _booklen, int const _pardeg, bool debug)
 {
   auto __debug = [&]() {
@@ -112,8 +114,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::init(
 }
 
 #ifdef ENABLE_HUFFBK_GPU
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
+TPL
+HF_CODEC* HF_CODEC::build_codebook(
     uint32_t* freq, int const booklen, void* stream)
 {
   psz::hf_buildbook<CUDA, E, H>(
@@ -124,8 +126,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
 }
 #endif
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
+TPL
+HF_CODEC* HF_CODEC::build_codebook(
     pszmem_cxx<uint32_t>* freq, int const booklen, void* stream)
 {
   // printf("using CPU huffman\n");
@@ -145,8 +147,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::build_codebook(
   return this;
 }
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::encode(
+TPL
+HF_CODEC* HF_CODEC::encode(
     E* in, size_t const inlen, uint8_t** out, size_t* outlen, void* stream)
 {
   _time_lossless = 0;
@@ -171,8 +173,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::encode(
   return this;
 }
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::decode(
+TPL
+HF_CODEC* HF_CODEC::decode(
     uint8_t* in_compressed, E* out_decompressed, void* stream,
     bool header_on_device)
 {
@@ -197,8 +199,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::decode(
   return this;
 }
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::dump(
+TPL
+HF_CODEC* HF_CODEC::dump(
     std::vector<pszmem_dump> list, char const* basename)
 {
   for (auto& i : list) {
@@ -230,8 +232,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::dump(
   return this;
 }
 
-TEMPLATE_TYPE
-HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::clear_buffer()
+TPL
+HF_CODEC* HF_CODEC::clear_buffer()
 {
   tmp->control({ClearDevice});
   book->control({ClearDevice});
@@ -245,8 +247,8 @@ HuffmanCodec<E, H, M>* HuffmanCodec<E, H, M>::clear_buffer()
 }
 
 // private helper
-TEMPLATE_TYPE
-void HuffmanCodec<E, H, M>::hf_merge(
+TPL
+void HF_CODEC::hf_merge(
     Header& header, size_t const original_len, int const booklen,
     int const sublen, int const pardeg, void* stream)
 {
@@ -312,32 +314,32 @@ void HuffmanCodec<E, H, M>::hf_merge(
   }
 }
 
-TEMPLATE_TYPE
-float HuffmanCodec<E, H, M>::time_book() const { return _time_book; }
-TEMPLATE_TYPE
-float HuffmanCodec<E, H, M>::time_lossless() const { return _time_lossless; }
+TPL
+float HF_CODEC::time_book() const { return _time_book; }
+TPL
+float HF_CODEC::time_lossless() const { return _time_lossless; }
 
-// TEMPLATE_TYPE
-// H* HuffmanCodec<E, H, M>::expose_book() const { return d_book; }
+// TPL
+// H* HF_CODEC::expose_book() const { return d_book; }
 
-// TEMPLATE_TYPE
-// uint8_t* HuffmanCodec<E, H, M>::expose_revbook() const { return d_revbook; }
+// TPL
+// uint8_t* HF_CODEC::expose_revbook() const { return d_revbook; }
 
-TEMPLATE_TYPE
-size_t HuffmanCodec<E, H, M>::revbook_bytes(int dict_size)
+TPL
+size_t HF_CODEC::revbook_bytes(int dict_size)
 {
   return sizeof(BOOK) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
 }
 
-TEMPLATE_TYPE
-constexpr bool HuffmanCodec<E, H, M>::can_overlap_input_and_firstphase_encode()
+TPL
+constexpr bool HF_CODEC::can_overlap_input_and_firstphase_encode()
 {
   return sizeof(E) == sizeof(H);
 }
 
 // auxiliary
-TEMPLATE_TYPE
-void HuffmanCodec<E, H, M>::hf_debug(
+TPL
+void HF_CODEC::hf_debug(
     const std::string SYM_name, void* VAR, int SYM)
 {
   GpuDevicePtr pbase0{0};
@@ -358,6 +360,7 @@ void HuffmanCodec<E, H, M>::hf_debug(
 }  // namespace cusz
 
 #undef ACCESSOR
-#undef TEMPLATE_TYPE
+#undef TPL
+#undef HF_CODEC
 
 #endif /* ABBC78E4_3E65_4633_9BEA_27823AB7C398 */

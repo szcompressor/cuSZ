@@ -253,7 +253,7 @@ void demo_pipeline(
   auto sublen = tune_coarse_huffman_sublen(len);
   auto pardeg = psz_utils::get_npart(len, sublen);
 
-  cusz::HuffmanCodec<u4, H, u4> hf_codec;
+  cusz::HuffmanCodec<u4, u4> hf_codec;
 
   auto mem = new MemPool(x, radius, y, z);
 

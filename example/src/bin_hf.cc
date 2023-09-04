@@ -23,7 +23,8 @@ using B = uint8_t;
 using F = u4;
 
 namespace {
-  szt tune_coarse_huffman_sublen(szt len) {
+
+szt tune_coarse_huffman_sublen(szt len) {
   int current_dev = 0;
   GpuSetDevice(current_dev);
   GpuDeviceProp dev_prop{};
@@ -38,7 +39,7 @@ namespace {
   optimal_sublen = psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) * HuffmanHelper::BLOCK_DIM_DEFLATE;
 
   return optimal_sublen;
-  }
+}
 
 void print_tobediscarded_info(float time_in_ms, string fn_name) {
   auto title = "[psz::info::discard::" + fn_name + "]";
@@ -94,7 +95,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
   psz::histogram<PROPER_GPU_BACKEND, E>(
       od->dptr(), len, ht->dptr(), booklen, &time_hist, stream);
 
-  cusz::HuffmanCodec<E, H, u4> codec;
+  cusz::HuffmanCodec<E, u4> codec;
   codec.init(len, booklen, pardeg /* not optimal for perf */);
 
   // GpuMalloc(&d_compressed, len * sizeof(E) / 2);

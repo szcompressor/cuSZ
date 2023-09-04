@@ -21,11 +21,11 @@
 
 namespace cusz {
 
-template <typename E, typename H, typename M = uint32_t>
+template <typename E, typename M = u4>
 class HuffmanCodec {
  public:
-  using BYTE = uint8_t;
-  using Encoded = H;
+  using BYTE = u1;
+  using H = u4;
 
  private:
   using BOOK = H;

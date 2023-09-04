@@ -42,9 +42,12 @@ class Compressor {
   using T = typename TEHM::T;
   using E = typename TEHM::E;
   using FP = typename TEHM::FP;
-  using H = typename TEHM::H;
   using M = typename TEHM::M;
   using Header = cusz_header;
+
+  using H = u4;
+  using H4 = u4;
+  using H8 = u8;
 
   using TimeRecord = std::vector<std::tuple<const char*, double>>;
   using timerecord_t = TimeRecord*;
