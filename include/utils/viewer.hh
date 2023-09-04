@@ -153,14 +153,14 @@ static void view(
         ->control({H2D});
 
     eval_dataquality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
-    cmp->control({FreeHost, Free});
+    // cmp->control({FreeHost, Free});
   };
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
     cmp->control({D2H});
     eval_dataquality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
-    cmp->control({FreeHost});
+    // cmp->control({FreeHost});
   };
 
   if (compare != "") {

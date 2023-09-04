@@ -13,6 +13,7 @@
 
 #include "busyheader.hh"
 #include "mem/memseg.h"
+#include "utils/err.hh"
 
 void pszmem_malloc_cuda(pszmem* m)
 {
@@ -22,7 +23,7 @@ void pszmem_malloc_cuda(pszmem* m)
 
   if (m->d == nullptr) {
     if (not m->isaview)
-      cudaMalloc(&m->d, m->bytes);
+      CHECK_GPU(cudaMalloc(&m->d, m->bytes));
     else
       throw std::runtime_error(
           string(m->name) + ": forbidden to malloc a view.");
@@ -30,7 +31,7 @@ void pszmem_malloc_cuda(pszmem* m)
   else {
     throw std::runtime_error(string(m->name) + ": dptr already malloc'ed.");
   }
-  cudaMemset(m->d, 0x0, m->bytes);
+  CHECK_GPU(cudaMemset(m->d, 0x0, m->bytes));
 }
 
 void pszmem_mallochost_cuda(pszmem* m)
@@ -41,7 +42,7 @@ void pszmem_mallochost_cuda(pszmem* m)
 
   if (m->h == nullptr) {
     if (not m->isaview)
-      cudaMallocHost(&m->h, m->bytes);
+      CHECK_GPU(cudaMallocHost(&m->h, m->bytes));
     else
       throw std::runtime_error(
           string(m->name) + ": forbidden to malloc a view.");
@@ -52,7 +53,10 @@ void pszmem_mallochost_cuda(pszmem* m)
   memset(m->h, 0x0, m->bytes);
 }
 
-void pszmem_cleardevice_cuda(pszmem* m) { cudaMemset(m->d, 0x0, m->bytes); }
+void pszmem_cleardevice_cuda(pszmem* m)
+{
+  CHECK_GPU(cudaMemset(m->d, 0x0, m->bytes));
+}
 
 void pszmem_mallocmanaged_cuda(pszmem* m)
 {
@@ -62,7 +66,7 @@ void pszmem_mallocmanaged_cuda(pszmem* m)
 
   if (m->uni == nullptr) {
     if (not m->isaview)
-      cudaMallocManaged(&m->uni, m->bytes);
+      CHECK_GPU(cudaMallocManaged(&m->uni, m->bytes));
     else
       throw std::runtime_error(
           string(m->name) + ": forbidden to malloc a view.");
@@ -70,7 +74,7 @@ void pszmem_mallocmanaged_cuda(pszmem* m)
   else {
     throw std::runtime_error(string(m->name) + ": uniptr already malloc'ed.");
   }
-  cudaMemset(m->uni, 0x0, m->bytes);
+  CHECK_GPU(cudaMemset(m->uni, 0x0, m->bytes));
 }
 
 void pszmem_free_cuda(pszmem* m)
@@ -80,7 +84,7 @@ void pszmem_free_cuda(pszmem* m)
 
   if (m->d) {
     if (not m->isaview)
-      cudaFree(m->d);
+      CHECK_GPU(cudaFree(m->d));
     else
       throw std::runtime_error(
           string(m->name) + ": forbidden to free a view.");
@@ -94,7 +98,7 @@ void pszmem_freehost_cuda(pszmem* m)
 
   if (m->h) {
     if (not m->isaview)
-      cudaFreeHost(m->h);
+      CHECK_GPU(cudaFreeHost(m->h));
     else
       throw std::runtime_error(
           string(m->name) + ": forbidden to free a view.");
@@ -109,7 +113,7 @@ void pszmem_freemanaged_cuda(pszmem* m)
 
   if (m->uni) {
     if (not m->isaview)
-      cudaFree(m->uni);
+      CHECK_GPU(cudaFree(m->uni));
     else
       throw std::runtime_error(
           string(m->name) + ": forbidden to free a view.");
@@ -118,32 +122,32 @@ void pszmem_freemanaged_cuda(pszmem* m)
 
 void pszmem_h2d_cuda(pszmem* m)
 {
-  cudaMemcpy(m->d, m->h, m->bytes, cudaMemcpyHostToDevice);
+  CHECK_GPU(cudaMemcpy(m->d, m->h, m->bytes, cudaMemcpyHostToDevice));
 }
 
 void pszmem_h2d_cudaasync(pszmem* m, void* stream)
 {
-  cudaMemcpyAsync(
-      m->d, m->h, m->bytes, cudaMemcpyHostToDevice, (cudaStream_t)stream);
+  CHECK_GPU(cudaMemcpyAsync(
+      m->d, m->h, m->bytes, cudaMemcpyHostToDevice, (cudaStream_t)stream));
 }
 
 void pszmem_d2h_cuda(pszmem* m)
 {
-  cudaMemcpy(m->h, m->d, m->bytes, cudaMemcpyDeviceToHost);
+  CHECK_GPU(cudaMemcpy(m->h, m->d, m->bytes, cudaMemcpyDeviceToHost));
 }
 
 void pszmem_d2h_cudaasync(pszmem* m, void* stream)
 {
-  cudaMemcpyAsync(
-      m->h, m->d, m->bytes, cudaMemcpyDeviceToHost, (cudaStream_t)stream);
+  CHECK_GPU(cudaMemcpyAsync(
+      m->h, m->d, m->bytes, cudaMemcpyDeviceToHost, (cudaStream_t)stream));
 }
 
 void pszmem_device_deepcpy_cuda(pszmem* dst, pszmem* src)
 {
-  cudaMemcpy(dst->d, src->d, src->bytes, cudaMemcpyDeviceToDevice);
+  CHECK_GPU(cudaMemcpy(dst->d, src->d, src->bytes, cudaMemcpyDeviceToDevice));
 }
 
 void pszmem_host_deepcpy_cuda(pszmem* dst, pszmem* src)
 {
-  cudaMemcpy(dst->h, src->h, src->bytes, cudaMemcpyHostToHost);
+  CHECK_GPU(cudaMemcpy(dst->h, src->h, src->bytes, cudaMemcpyHostToHost));
 }

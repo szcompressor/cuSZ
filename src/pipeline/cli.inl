@@ -89,8 +89,8 @@ class CLI {
     auto file = new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "cusza");
     file->dptr(compressed)
         ->control({MallocHost, D2H})
-        ->file(compressed_name.c_str(), ToFile)
-        ->control({FreeHost});
+        ->file(compressed_name.c_str(), ToFile);
+        // ->control({FreeHost});
 
     delete file;
   }
@@ -182,7 +182,7 @@ class CLI {
       decompressed->control({D2H})->file(
           std::string(basename + ".cuszx").c_str(), ToFile);
 
-    decompressed->control({FreeHost, Free});
+    // decompressed->control({FreeHost, Free});
     delete decompressed;
     delete original;
   }
