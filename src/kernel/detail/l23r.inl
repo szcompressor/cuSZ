@@ -234,6 +234,7 @@ __global__ void c_lorenzo_3d1l(
     // x-direction
     auto prev_x = __shfl_up_sync(0xffffffff, delta[z], 1, 8);
     if (threadIdx.x % TileDim > 0) delta[z] -= prev_x;
+    __syncthreads();
 
     // y-direction, exchange via shmem
     // ghost padding along y
