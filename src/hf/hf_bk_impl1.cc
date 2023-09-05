@@ -201,7 +201,7 @@ void hf_buildtree_impl1(
       if (freq[i]) qinsert(tree, new_node(tree, freq[i], i, 0, 0));
     while (tree->qend > 2)
       qinsert(tree, new_node(tree, 0, 0, qremove(tree), qremove(tree)));
-    __pszhf_stack<N>::inorder_traverse<H>(tree, book);
+    __pszhf_stack<N>::inorder_traverse<H>(tree->qq[1], book);
 
     auto b = hires::now();
     auto t = static_cast<duration_t>(b - a).count() * 1000;

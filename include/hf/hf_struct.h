@@ -29,6 +29,7 @@ typedef struct hf_book {
     // could be uint32_t* and uint64_t*
     void* book;
     int   bklen;
+    pszdtype bktype;
 } hf_book;
 
 // typedef struct hf_revbook {
@@ -66,21 +67,21 @@ typedef struct hf_context {
 
 typedef hf_context hf_ctx;
 
-typedef struct hfmem_pool {
-    // device
-    pszmem tmp;  // can overlap with err-quant array
-    pszmem book;
-    pszmem revbook;
-    pszmem par_nbit;
-    pszmem par_ncell;
-    pszmem par_entry;
-    pszmem bitstream;
-    // host
-    pszmem h_par_nbit;
-    pszmem h_par_ncell;
-    pszmem h_par_entry;
+// typedef struct hfmem_pool {
+//     // device
+//     pszmem tmp;  // can overlap with err-quant array
+//     pszmem book;
+//     pszmem revbook;
+//     pszmem par_nbit;
+//     pszmem par_ncell;
+//     pszmem par_entry;
+//     pszmem bitstream;
+//     // host
+//     pszmem h_par_nbit;
+//     pszmem h_par_ncell;
+//     pszmem h_par_entry;
 
-} hfmem_pool;
+// } hfmem_pool;
 
 #ifdef __cplusplus
 }

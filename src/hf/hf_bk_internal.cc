@@ -108,56 +108,14 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
   /* end of function */
 }
 
-template <typename NodeType>
-template <typename H>
-void NodeStack::inorder_traverse(HuffmanTree* ht, H* codebook)
-{
-  auto is_empty = [&](NodeStack* s) -> bool { return (s->depth == 0); };
-
-  node_list root = ht->qq[1];
-  auto s = new NodeStack();
-
-  bool done = 0;
-  H out1 = 0, len = 0;
-
-  while (!done) {
-    if (root->left or root->right) {
-      push(s, root, out1, len);
-      root = root->left;
-      out1 <<= 1u;
-      out1 |= 0u;
-      len += 1;
-    }
-    else {
-      uint32_t bincode = root->c;
-      codebook[bincode] =
-          out1 |
-          ((len & (H)0xffu)
-           << (sizeof(H) * 8 - PackedWordByWidth<sizeof(H)>::field_bits));
-      if (!is_empty(s)) {
-        root = pop(s, &out1, &len);
-        root = root->right;
-        out1 <<= 1u;
-        out1 |= 1u;
-        len += 1;
-      }
-      else
-        done = true;
-    }
-  } /* end of while */
-}
-
-
 template class __pszhf_stack<node_t>;
-template void __pszhf_stack<node_t>::inorder_traverse<u4>(hfserial_tree*, u4*);
-template void __pszhf_stack<node_t>::inorder_traverse<u8>(hfserial_tree*, u8*);
-template void __pszhf_stack<node_t>::inorder_traverse<ull>(hfserial_tree*, ull*);
-
+template void __pszhf_stack<node_t>::inorder_traverse<u4>(node_t*, u4*);
+template void __pszhf_stack<node_t>::inorder_traverse<u8>(node_t*, u8*);
+template void __pszhf_stack<node_t>::inorder_traverse<ull>(node_t*, ull*);
 
 template class __pszhf_stack<NodeCxx>;
 template void __pszhf_stack<NodeCxx>::inorder_traverse<u4>(NodeCxx*, u4*);
 template void __pszhf_stack<NodeCxx>::inorder_traverse<u8>(NodeCxx*, u8*);
 template void __pszhf_stack<NodeCxx>::inorder_traverse<ull>(NodeCxx*, ull*);
-
 
 #undef NodeStack

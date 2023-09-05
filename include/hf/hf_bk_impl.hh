@@ -20,7 +20,10 @@ struct alignas(8) node_t {
   struct node_t *left, *right;
   size_t freq;
   char t;  // in_node:0; otherwise:1
-  uint32_t c;
+  union {
+    uint32_t c;
+    uint32_t symbol;
+  };
 };
 
 typedef struct node_t* node_list;
@@ -37,7 +40,6 @@ typedef struct alignas(8) hfserial_tree {
   int n_inode;  // n_inode is for decompression
 } hfserial_tree;
 typedef hfserial_tree HuffmanTree;
-
 
 template <typename H>
 void hf_buildtree_impl1(

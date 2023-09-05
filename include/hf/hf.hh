@@ -27,7 +27,7 @@ class HuffmanCodec {
   using BYTE = u1;
   using RAW = u1;
   using H4 = u4;
-  using H8 = u8;
+  using H8 = ull;
 
   static const int TYPICAL = sizeof(u4);
   static const int FAILSAFE = sizeof(u8);
@@ -41,7 +41,7 @@ class HuffmanCodec {
   // TODO psz and pszhf combined to use 128 byte
   struct alignas(128) pszhf_header {
     static const int HEADER = 0;
-    static const int REVBOOK = 1;
+    static const int REVBK = 1;
     static const int PAR_NBIT = 2;
     static const int PAR_ENTRY = 3;
     static const int BITSTREAM = 4;
@@ -54,7 +54,7 @@ class HuffmanCodec {
     size_t original_len;
     size_t total_nbit;
     size_t total_ncell;  // TODO change to uint32_t
-    pszdtype internal_hf;
+    pszdtype encdtype;
     M entry[END + 1];
 
     M compressed_size() const { return entry[END]; }
@@ -63,20 +63,22 @@ class HuffmanCodec {
   struct pszhf_rc {
     static const int SCRATCH = 0;
     static const int FREQ = 1;
-    static const int BOOK = 2;
-    static const int REVBOOK = 3;
+    static const int BK = 2;
+    static const int REVBK = 3;
     static const int PAR_NBIT = 4;
     static const int PAR_NCELL = 5;
     static const int PAR_ENTRY = 6;
     static const int BITSTREAM = 7;
     static const int END = 8;
 
-    uint32_t nbyte[END];
+    // uint32_t nbyte[END];
   };
 
   using RC = pszhf_rc;
   using pszhf_header = struct pszhf_header;
   using Header = pszhf_header;
+
+  pszdtype __encdtype;
 
  public:
   // array
@@ -84,10 +86,9 @@ class HuffmanCodec {
   pszmem_cxx<H4>* scratch4;
   pszmem_cxx<H8>* scratch8;
 
-  pszmem_cxx<BYTE>* compressed4;
-  pszmem_cxx<BYTE>* compressed8;
+  pszmem_cxx<BYTE>* compressed;
 
-  pszmem_cxx<RAW>* __bk;
+  // pszmem_cxx<RAW>* __bk;
   pszmem_cxx<H4>* bk4;
   pszmem_cxx<H8>* bk8;
 
@@ -127,10 +128,6 @@ class HuffmanCodec {
   // getter
   float time_book() const;
   float time_lossless() const;
-  // static size_t revbook_bytes(int);
-  // getter for internal array
-  // H4*    expose_book() const;
-  // BYTE* expose_revbook() const;
 
   // compile-time
   constexpr bool can_overlap_input_and_firstphase_encode();
@@ -138,8 +135,10 @@ class HuffmanCodec {
   HuffmanCodec* init(
       size_t const, int const, int const, bool dbg_print = false);
   HuffmanCodec* build_codebook(uint32_t*, int const, void* = nullptr);
+
   HuffmanCodec* build_codebook(
       pszmem_cxx<uint32_t>*, int const, void* = nullptr);
+
   HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, void* = nullptr);
   HuffmanCodec* decode(BYTE*, E*, void* = nullptr, bool = true);
   HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
@@ -153,27 +152,31 @@ class HuffmanCodec {
   }
 
  private:
-  void hf_merge(
+  void __hf_merge(
       Header&, size_t const, int const, int const, int const,
       void* stream = nullptr);
   void hf_debug(const std::string, void*, int);
 
-  static size_t revbook_bytes(int dict_size)
-  {
-    static const int CELL_BITWIDTH = sizeof(BOOK4B) * 8;
-    return sizeof(BOOK4B) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
-  }
+  // static size_t revbook_bytes(int dict_size)
+  // {
+  //   static const int CELL_BITWIDTH = sizeof(BOOK4B) * 8;
+  //   return sizeof(BOOK4B) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
+  // }
 
-  static int __revbk_bytes(
-      int bklen, int BK_UNIT_BYTES = sizeof(BOOK4B),
-      int SYM_BYTES = sizeof(SYM))
+  static int __revbk_bytes(int bklen, int BK_UNIT_BYTES, int SYM_BYTES)
   {
     static const int CELL_BITWIDTH = BK_UNIT_BYTES * 8;
     return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
   }
 
-  static int revbk4_bytes(int bklen) { return __revbk_bytes(bklen, 4); }
-  static int revbk8_bytes(int bklen) { return __revbk_bytes(bklen, 8); }
+  static int revbk4_bytes(int bklen)
+  {
+    return __revbk_bytes(bklen, 4, sizeof(SYM));
+  }
+  static int revbk8_bytes(int bklen)
+  {
+    return __revbk_bytes(bklen, 8, sizeof(SYM));
+  }
 };
 
 }  // namespace cusz

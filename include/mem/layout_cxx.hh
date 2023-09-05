@@ -43,7 +43,7 @@ class pszmempool_cxx {
 
  public:
   // ctor, dtor
-  pszmempool_cxx(u4 _x, int _radius = 512, u4 _y = 1, u4 _z = 1);
+  pszmempool_cxx(u4 _x, int _radius, u4 _y, u4 _z);
   ~pszmempool_cxx();
   // utils
   pszmempool_cxx *clear_buffer();
@@ -78,7 +78,7 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
   constexpr auto BLK = 8;
   auto xp = pad(x, 4 * BLK), yp = (y == 1) ? 1 : pad(y, BLK),
        zp = (z == 1) ? 1 : pad(z, BLK);
-  len_spl = xp * yp * zp; // always larger than len
+  len_spl = xp * yp * zp;  // always larger than len
 
   _compressed = new pszmem_cxx<B>(len * 1.2, 1, 1, "compressed");
 
@@ -93,8 +93,8 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
   es = new pszmem_cxx<E>(xp, yp, zp, "ectrl-spline");
 
   ht = new pszmem_cxx<F>(bklen, 1, 1, "hist");
-  sv = new pszmem_cxx<T>(x, y, z, "sp-val");
-  si = new pszmem_cxx<M>(x, y, z, "sp-idx");
+  // sv = new pszmem_cxx<T>(x, y, z, "sp-val");
+  // si = new pszmem_cxx<M>(x, y, z, "sp-idx");
 
   compact = new CompactGpuDram<T>;
 
@@ -103,8 +103,8 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
   ac->control({Malloc, MallocHost});
   e->control({Malloc, MallocHost});
   ht->control({Malloc, MallocHost});
-  sv->control({Malloc, MallocHost});
-  si->control({Malloc, MallocHost});
+  // sv->control({Malloc, MallocHost});
+  // si->control({Malloc, MallocHost});
 
   compact->reserve_space(len / 5).control({Malloc, MallocHost});
 
@@ -123,9 +123,11 @@ TPL POOL *POOL::clear_buffer()
   e->control({ClearDevice});
   ac->control({ClearDevice});
   oc->control({ClearDevice});
-  sv->control({ClearDevice});
-  si->control({ClearDevice});
+  // sv->control({ClearDevice});
+  // si->control({ClearDevice});
   _compressed->control({ClearDevice});
+
+  delete compact;
 
   return this;
 }

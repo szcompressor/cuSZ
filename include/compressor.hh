@@ -59,7 +59,7 @@ class Compressor {
   // header
   Header header;
 
-  // external codec that has complex internals
+  // external codec that has standalone internals
   Codec* codec;
 
   float time_pred, time_hist, time_sp;

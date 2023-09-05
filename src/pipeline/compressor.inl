@@ -15,15 +15,15 @@
 #define A2519F0E_602B_4798_A8EF_9641123095D9
 
 #include "busyheader.hh"
-#include "port.hh"
+#include "compressor.hh"
 #include "cusz/type.h"
 #include "header.h"
-#include "compressor.hh"
 #include "hf/hf.hh"
 #include "kernel.hh"
 #include "mem.hh"
-#include "utils/err.hh"
+#include "port.hh"
 #include "utils/config.hh"
+#include "utils/err.hh"
 
 #define PRINT_ENTRY(VAR)                                    \
   printf(                                                   \
@@ -152,34 +152,40 @@ Compressor<C>* Compressor<C>::compress(
     psz::histogram<PROPER_GPU_BACKEND, E>(
         mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
 
-  #if defined(PSZ_USE_CUDA)
+#if defined(PSZ_USE_CUDA)
     psz::histsp<PROPER_GPU_BACKEND, E>(
         mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
-  #elif defined(PSZ_USE_HIP)
-    cout << "[psz::warning::compressor] fast histsp hangs when HIP backend is used; fallback to the normal version" << endl;
-  #endif
+#elif defined(PSZ_USE_HIP)
+    cout << "[psz::warning::compressor] fast histsp hangs when HIP backend is "
+            "used; fallback to the normal version"
+         << endl;
+#endif
 
-  //   mem->ht->control({D2H});
-  //   for (auto i = 0; i < booklen; i++) {
-  //     auto f = mem->ht->hptr(i);
-  // #if defined(PSZ_USE_CUDA)
-  //     if (f != 0) printf("[psz::dbg::res::hist_sp] (idx) %5d    (freq) %8d\n", i, f);
-  // #elif defined(PSZ_USE_HIP)
-  //     if (f != 0) printf("[psz::dbg::res::hist] (idx) %5d    (freq) %8d\n", i, f);
-  // #endif
-  //   }
+    //   mem->ht->control({D2H});
+    //   for (auto i = 0; i < booklen; i++) {
+    //     auto f = mem->ht->hptr(i);
+    // #if defined(PSZ_USE_CUDA)
+    //     if (f != 0) printf("[psz::dbg::res::hist_sp] (idx) %5d    (freq)
+    //     %8d\n", i, f);
+    // #elif defined(PSZ_USE_HIP)
+    //     if (f != 0) printf("[psz::dbg::res::hist] (idx) %5d    (freq)
+    //     %8d\n", i, f);
+    // #endif
+    //   }
 
     // Huffman encoding
+
     codec->build_codebook(mem->ht, booklen, stream);
-// #if defined(PSZ_USE_HIP)
-//     for (auto i = 0; i < booklen; i++) {
-//       auto c = mem->ht->hptr(i);
-//       if (c != ~(H)0x0 and c != 0x0) {
-//         printf("[psz::dbg::res::codebook] (idx) %5d    ", i);
-//         cout << bitset<sizeof(H) * 8>(c) << '\n';
-//       }
-//     }
-// #endif
+    // #if defined(PSZ_USE_HIP)
+    //     for (auto i = 0; i < booklen; i++) {
+    //       auto c = mem->ht->hptr(i);
+    //       if (c != ~(H)0x0 and c != 0x0) {
+    //         printf("[psz::dbg::res::codebook] (idx) %5d    ", i);
+    //         cout << bitset<sizeof(H) * 8>(c) << '\n';
+    //       }
+    //     }
+    // #endif
+
     codec->encode(mem->ectrl_lrz(), elen, &d_codec_out, &codec_outlen, stream);
 
     // count outliers (by far, already gathered in psz_comp_l23r)
@@ -264,13 +270,23 @@ Compressor<C>* Compressor<C>::merge_subfiles(
 
   // copy anchor
   if (pred_type == pszpredictor_type::Spline) {
-    concat_d2d(Header::ANCHOR, d_anchor);
-    concat_d2d(Header::VLE, d_codec_out);
+    concat_d2d(Header::ANCHOR, d_anchor, 0);
+    concat_d2d(Header::VLE, d_codec_out, 0);
   }
   else {
-    concat_d2d(Header::VLE, d_codec_out);
-    concat_d2d(Header::SPFMT, d_spval);
-    concat_d2d(Header::SPFMT, d_spidx, sizeof(T) * splen);  // offset by spval
+    concat_d2d(Header::VLE, d_codec_out, 0);
+
+    // dbg: previously
+    // concat_d2d(Header::SPFMT, d_spval, 0);
+    // concat_d2d(Header::SPFMT, d_spidx, sizeof(T) * splen);
+
+    CHECK_GPU(GpuMemcpyAsync(
+        dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen, GpuMemcpyD2D,
+        (GpuStreamT)stream));
+
+    CHECK_GPU(GpuMemcpyAsync(
+        dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen,
+        GpuMemcpyD2D, (GpuStreamT)stream));
   }
 
   /* debug */ CHECK_GPU(GpuStreamSync(stream));

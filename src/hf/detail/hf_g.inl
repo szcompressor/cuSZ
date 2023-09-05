@@ -17,6 +17,8 @@
 #define ABBC78E4_3E65_4633_9BEA_27823AB7C398
 
 #include <linux/limits.h>
+
+#include <stdexcept>
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
@@ -28,8 +30,8 @@ namespace cusz {
 TPL HF_CODEC::~HuffmanCodec()
 {
   // delete scratch;
-  delete __bk;
-  delete __revbk;
+  delete bk4, delete revbk4;
+  delete bk8, delete revbk8;
   delete __bitstream;
 
   delete par_nbit;
@@ -45,15 +47,14 @@ TPL HF_CODEC* HF_CODEC::init(
     printf("\nHuffmanCoarse<E, H4, M>::init() debugging:\n");
     printf("GpuDevicePtr nbyte: %d\n", (int)sizeof(GpuDevicePtr));
     hf_debug("SCRATCH", __scratch->dptr(), RC::SCRATCH);
-    hf_debug("BOOK", __bk->dptr(), RC::BOOK);
-    hf_debug("REVBOOK", __revbk->dptr(), RC::REVBOOK);
+    // TODO separate 4- and 8- books
+    // hf_debug("BK", __bk->dptr(), RC::BK);
+    // hf_debug("REVBK", __revbk->dptr(), RC::REVBK);
     hf_debug("BITSTREAM", __bitstream->dptr(), RC::BITSTREAM);
     hf_debug("PAR_NBIT", par_nbit->dptr(), RC::PAR_NBIT);
     hf_debug("PAR_NCELL", par_ncell->dptr(), RC::PAR_NCELL);
     printf("\n");
   };
-
-  memset(rc.nbyte, 0, sizeof(uint32_t) * RC::END);
 
   pardeg = _pardeg;
   bklen = _booklen;
@@ -61,18 +62,15 @@ TPL HF_CODEC* HF_CODEC::init(
   // for both u4 and u8 encoding
 
   // placeholder length
-  compressed4 = new pszmem_cxx<BYTE>(inlen * TYPICAL, 1, 1, "hf::out4B");
-  compressed8 = new pszmem_cxx<BYTE>(inlen * FAILSAFE, 1, 1, "hf::out8B");
+  compressed = new pszmem_cxx<BYTE>(inlen * TYPICAL, 1, 1, "hf::out4B");
 
   __scratch = new pszmem_cxx<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
   scratch4 = new pszmem_cxx<H4>(inlen, 1, 1, "hf::scratch4");
   scratch8 = new pszmem_cxx<H8>(inlen, 1, 1, "hf::scratch8");
 
-  __bk = new pszmem_cxx<RAW>(bklen * FAILSAFE, 1, 1, "hf::__book");
   bk4 = new pszmem_cxx<H4>(bklen, 1, 1, "hf::book4");
   bk8 = new pszmem_cxx<H8>(bklen, 1, 1, "hf::book8");
 
-  __revbk = new pszmem_cxx<RAW>(revbk8_bytes(bklen), 1, 1, "hf::__revbk");
   revbk4 = new pszmem_cxx<BYTE>(revbk4_bytes(bklen), 1, 1, "hf::revbk4");
   revbk8 = new pszmem_cxx<BYTE>(revbk8_bytes(bklen), 1, 1, "hf::revbk8");
 
@@ -86,25 +84,15 @@ TPL HF_CODEC* HF_CODEC::init(
   par_ncell = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_ncell");
   par_entry = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_entry");
 
-  // rc.nbyte[RC::SCRATCH] = scratch->bytes();
-  rc.nbyte[RC::BOOK] = bk4->bytes();
-  rc.nbyte[RC::REVBOOK] = revbk4->bytes();
-  rc.nbyte[RC::BITSTREAM] = bitstream4->bytes();
-  rc.nbyte[RC::PAR_NBIT] = par_nbit->bytes();
-  rc.nbyte[RC::PAR_NCELL] = par_ncell->bytes();
-  rc.nbyte[RC::PAR_ENTRY] = par_entry->bytes();
-
   __scratch->control({Malloc, MallocHost});
   scratch4->asaviewof(__scratch);
   scratch8->asaviewof(__scratch);
 
-  __bk->control({Malloc, MallocHost});
-  bk4->asaviewof(__bk);
-  bk8->asaviewof(__bk);
+  bk4->control({Malloc, MallocHost});
+  bk8->control({Malloc, MallocHost});
 
-  __revbk->control({Malloc, MallocHost});
-  revbk4->asaviewof(__revbk);
-  revbk8->asaviewof(__revbk);
+  revbk4->control({Malloc, MallocHost});
+  revbk8->control({Malloc, MallocHost});
 
   __bitstream->control({Malloc, MallocHost});
   bitstream4->asaviewof(__bitstream);
@@ -115,19 +103,14 @@ TPL HF_CODEC* HF_CODEC::init(
   par_entry->control({Malloc, MallocHost});
 
   // repurpose scratch after several substeps
-  compressed4->dptr(__scratch->dptr())->hptr(__scratch->hptr());
-  compressed8->dptr(__scratch->dptr())->hptr(__scratch->hptr());
+  compressed->dptr(__scratch->dptr())->hptr(__scratch->hptr());
 
   GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
-
-  // #ifdef PSZ_USE_HIP
-  // cout << "[psz::dbg::hf] numSMs=" << numSMs << endl;
-  // #endif
 
   {
     int sublen = (inlen - 1) / pardeg + 1;
 
-    book_desc = new hf_book{nullptr, bk4->dptr(), bklen};
+    book_desc = new hf_book{nullptr, nullptr, bklen};  //
     chunk_desc_d =
         new hf_chunk{par_nbit->dptr(), par_ncell->dptr(), par_entry->dptr()};
     chunk_desc_h =
@@ -159,23 +142,28 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 }
 #endif
 
+// using CPU huffman
 TPL HF_CODEC* HF_CODEC::build_codebook(
     pszmem_cxx<uint32_t>* freq, int const bklen, void* stream)
 {
-  // printf("using CPU huffman\n");
+  psz::hf_buildbook<CPU, E, H8>(
+      freq->control({D2H})->hptr(), bklen, bk8->hptr(), revbk8->hptr(),
+      revbk8_bytes(bklen), &_time_book, (GpuStreamT)stream);
+  bk8->control({ASYNC_H2D}, (GpuStreamT)stream);
+  revbk8->control({ASYNC_H2D}, (GpuStreamT)stream);
+  __encdtype = ULL;
+
+  // get max bits of huffman code
+
   psz::hf_buildbook<CPU, E, H4>(
       freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(),
-      revbook_bytes(bklen), &_time_book, (GpuStreamT)stream);
-
-  // for (auto i = 0; i < bklen; i++) {
-  //   auto f = freq->hptr(i);
-  //   if (f != 0)
-  //     printf("[psz::dbg::codebook::freq(i)] (idx) %5d    (freq) %8d\n", i,
-  //     f);
-  // }
-
+      revbk4_bytes(bklen), &_time_book, (GpuStreamT)stream);
   bk4->control({ASYNC_H2D}, (GpuStreamT)stream);
   revbk4->control({ASYNC_H2D}, (GpuStreamT)stream);
+  __encdtype = U4;
+
+  book_desc->bktype = __encdtype;
+  book_desc->book = __encdtype == U4 ? (void*)bk4->dptr() : (void*)bk8->dptr();
 
   return this;
 }
@@ -187,19 +175,25 @@ TPL HF_CODEC* HF_CODEC::encode(
 
   pszhf_header header;
 
-  psz::hf_encode_coarse_rev2<E, H4, M>(
-      in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-      &header.total_ncell, &_time_lossless, stream);
+  // So far, the enc scheme has been deteremined.
+  header.encdtype = __encdtype;
 
-  // update with the precise BITSTREAM nbyte
-  rc.nbyte[RC::BITSTREAM] = sizeof(H4) * header.total_ncell;
+  if (__encdtype == U4)
+    psz::hf_encode_coarse_rev2<E, H4, M>(
+        in, inlen, book_desc, bitstream_desc, &header.total_nbit,
+        &header.total_ncell, &_time_lossless, stream);
+  else {
+    printf("[psz::dbg::hf::enc] using H8 for encoding\n");
+    psz::hf_encode_coarse_rev2<E, H8, M>(
+        in, inlen, book_desc, bitstream_desc, &header.total_nbit,
+        &header.total_ncell, &_time_lossless, stream);
+  }
 
-  // d_revbook and revbook_nbyte is hidden; need to improve here
-  hf_merge(
+  __hf_merge(
       header, inlen, book_desc->bklen, bitstream_desc->sublen,
       bitstream_desc->pardeg, stream);
 
-  *out = compressed4->dptr();
+  *out = compressed->dptr();
   *outlen = header.compressed_size();
 
   return this;
@@ -215,17 +209,18 @@ TPL HF_CODEC* HF_CODEC::decode(
         &header, in_compressed, sizeof(header), GpuMemcpyD2H,
         (GpuStreamT)stream));
 
-  auto d_revbook = ACCESSOR(REVBOOK, uint8_t);
-  auto d_par_nbit = ACCESSOR(PAR_NBIT, M);
-  auto d_par_entry = ACCESSOR(PAR_ENTRY, M);
-  auto d_bitstream = ACCESSOR(BITSTREAM, H4);
-
-  auto const revbook_nbyte = revbook_bytes(header.bklen);
-
-  // launch_coarse_grained_Huffman_decoding<E, H4, M>(
-  psz::hf_decode_coarse<E, H4, M>(
-      d_bitstream, d_revbook, revbook_nbyte, d_par_nbit, d_par_entry,
-      header.sublen, header.pardeg, out_decompressed, &_time_lossless, stream);
+  if (header.encdtype == U4)
+    psz::hf_decode_coarse<E, H4, M>(
+        ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
+        revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
+        ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
+        &_time_lossless, stream);
+  else
+    psz::hf_decode_coarse<E, H8, M>(
+        ACCESSOR(BITSTREAM, H8), ACCESSOR(REVBK, BYTE),
+        revbk8_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
+        ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
+        &_time_lossless, stream);
 
   return this;
 }
@@ -242,19 +237,19 @@ TPL HF_CODEC* HF_CODEC::dump(
       return __;
     };
 
-    // TODO check if compressed4 len updated
+    // TODO check if compressed len updated
     if (i == PszHfArchive)
-      compressed4->control({H2D})->file(ofn(".pszhf_archive"), ToFile);
+      compressed->control({H2D})->file(ofn(".pszhf_ar"), ToFile);
     else if (i == PszHfBook)
-      bk4->control({H2D})->file(ofn(".pszhf_book"), ToFile);
+      bk4->control({H2D})->file(ofn(".pszhf_bk"), ToFile);
     else if (i == PszHfRevbook)
-      revbk4->control({H2D})->file(ofn(".pszhf_revbook"), ToFile);
+      revbk4->control({H2D})->file(ofn(".pszhf_revbk"), ToFile);
     else if (i == PszHfParNbit)
-      par_nbit->control({H2D})->file(ofn(".pszhf_parnbit"), ToFile);
+      par_nbit->control({H2D})->file(ofn(".pszhf_pbit"), ToFile);
     else if (i == PszHfParNcell)
-      par_ncell->control({H2D})->file(ofn(".pszhf_parncell"), ToFile);
+      par_ncell->control({H2D})->file(ofn(".pszhf_pcell"), ToFile);
     else if (i == PszHfParEntry)
-      par_entry->control({H2D})->file(ofn(".pszhf_parentry"), ToFile);
+      par_entry->control({H2D})->file(ofn(".pszhf_pentry"), ToFile);
     else
       printf("[hf::dump] not a valid segment to dump.");
   }
@@ -277,7 +272,7 @@ TPL HF_CODEC* HF_CODEC::clear_buffer()
 }
 
 // private helper
-TPL void HF_CODEC::hf_merge(
+TPL void HF_CODEC::__hf_merge(
     Header& header, size_t const original_len, int const bklen,
     int const sublen, int const pardeg, void* stream)
 {
@@ -288,6 +283,8 @@ TPL void HF_CODEC::hf_merge(
       CHECK_GPU(GpuDeviceSync());
   };
 
+  constexpr auto D2D = GpuMemcpyD2D;
+
   header.self_bytes = sizeof(Header);
   header.bklen = bklen;
   header.sublen = sublen;
@@ -296,10 +293,11 @@ TPL void HF_CODEC::hf_merge(
 
   M nbyte[Header::END];
   nbyte[Header::HEADER] = sizeof(Header);
-  nbyte[Header::REVBOOK] = rc.nbyte[RC::REVBOOK];
-  nbyte[Header::PAR_NBIT] = rc.nbyte[RC::PAR_NBIT];
-  nbyte[Header::PAR_ENTRY] = rc.nbyte[RC::PAR_ENTRY];
-  nbyte[Header::BITSTREAM] = rc.nbyte[RC::BITSTREAM];
+  nbyte[Header::REVBK] =
+      __encdtype == U4 ? revbk4_bytes(bklen) : revbk8_bytes(bklen);
+  nbyte[Header::PAR_NBIT] = par_nbit->bytes();
+  nbyte[Header::PAR_ENTRY] = par_ncell->bytes();
+  nbyte[Header::BITSTREAM] = (__encdtype == U4 ? 4 : 8) * header.total_ncell;
 
   header.entry[0] = 0;
   // *.END + 1: need to know the ending position
@@ -311,33 +309,32 @@ TPL void HF_CODEC::hf_merge(
   }
 
   CHECK_GPU(GpuMemcpyAsync(
-      compressed4->dptr(), &header, sizeof(header), GpuMemcpyH2D,
+      compressed->dptr(), &header, sizeof(header), GpuMemcpyH2D,
       (GpuStreamT)stream));
 
   /* debug */ BARRIER();
 
-  constexpr auto D2D = GpuMemcpyD2D;
   {
-    auto dst = compressed4->dptr() + header.entry[Header::REVBOOK];
-    auto src = revbk4->dptr();
+    auto dst = compressed->dptr() + header.entry[Header::REVBK];
+    auto src = __encdtype == U4 ? revbk4->dptr() : revbk8->dptr();
     CHECK_GPU(GpuMemcpyAsync(
-        dst, src, nbyte[Header::REVBOOK], D2D, (GpuStreamT)stream));
+        dst, src, nbyte[Header::REVBK], D2D, (GpuStreamT)stream));
   }
   {
-    auto dst = compressed4->dptr() + header.entry[Header::PAR_NBIT];
+    auto dst = compressed->dptr() + header.entry[Header::PAR_NBIT];
     auto src = par_nbit->dptr();
     CHECK_GPU(GpuMemcpyAsync(
         dst, src, nbyte[Header::PAR_NBIT], D2D, (GpuStreamT)stream));
   }
   {
-    auto dst = compressed4->dptr() + header.entry[Header::PAR_ENTRY];
+    auto dst = compressed->dptr() + header.entry[Header::PAR_ENTRY];
     auto src = par_entry->dptr();
     CHECK_GPU(GpuMemcpyAsync(
         dst, src, nbyte[Header::PAR_ENTRY], D2D, (GpuStreamT)stream));
   }
   {
-    auto dst = compressed4->dptr() + header.entry[Header::BITSTREAM];
-    auto src = bitstream4->dptr();
+    auto dst = compressed->dptr() + header.entry[Header::BITSTREAM];
+    auto src = __bitstream->dptr();
     CHECK_GPU(GpuMemcpyAsync(
         dst, src, nbyte[Header::BITSTREAM], D2D, (GpuStreamT)stream));
   }
@@ -345,18 +342,6 @@ TPL void HF_CODEC::hf_merge(
 
 TPL float HF_CODEC::time_book() const { return _time_book; }
 TPL float HF_CODEC::time_lossless() const { return _time_lossless; }
-
-// TPL
-// H4* HF_CODEC::expose_book() const { return d_book; }
-
-// TPL
-// uint8_t* HF_CODEC::expose_revbook() const { return d_revbook; }
-
-// TPL size_t HF_CODEC::revbook_bytes(int dict_size)
-// {
-//   static const int CELL_BITWIDTH = sizeof(BOOK_4B) * 8;
-//   return sizeof(BOOK_4B) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
-// }
 
 TPL constexpr bool HF_CODEC::can_overlap_input_and_firstphase_encode()
 {
@@ -373,11 +358,12 @@ TPL void HF_CODEC::hf_debug(const std::string SYM_name, void* VAR, int SYM)
   printf(
       "%s:\n"
       "\t(supposed) pointer : %p\n"
-      "\t(supposed) bytes   : %'9lu\n"
+      // "\t(supposed) bytes   : %'9lu\n"
       "\t(queried)  pbase0  : %p\n"
       "\t(queried)  psize0  : %'9lu\n",
-      SYM_name.c_str(), (void*)VAR, (size_t)rc.nbyte[SYM], (void*)&pbase0,
-      psize0);
+      SYM_name.c_str(), (void*)VAR,
+      // (size_t)rc.nbyte[SYM],
+      (void*)&pbase0, psize0);
   pbase0 = 0, psize0 = 0;
 }
 
