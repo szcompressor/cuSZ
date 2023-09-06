@@ -182,12 +182,21 @@ class pszmem_cxx {
   size_t len() const { return m->len; }
   size_t bytes() const { return m->bytes; };
   Ctype* dptr() const { return (Ctype*)m->d; };
+  Ctype* dbegin() const { return dptr(); };
+  Ctype* dend() const { return dptr() + m->len; };
   Ctype* hptr() const { return (Ctype*)m->h; };
+  Ctype* hbegin() const { return hptr(); };
+  Ctype* hend() const { return hptr() + m->len; };
   Ctype* uniptr() const { return (Ctype*)m->uni; };
+  Ctype* unibegin() const { return uniptr(); };
+  Ctype* uniend() const { return uniptr() + m->len; };
   // getter by index
   Ctype& dptr(uint32_t i) { return ((Ctype*)m->d)[i]; };
+  Ctype& dat(uint32_t i) { return ((Ctype*)m->d)[i]; };
   Ctype& hptr(uint32_t i) { return ((Ctype*)m->h)[i]; };
+  Ctype& hat(uint32_t i) { return ((Ctype*)m->h)[i]; };
   Ctype& uniptr(uint32_t i) { return ((Ctype*)m->uni)[i]; };
+  Ctype& uniat(uint32_t i) { return ((Ctype*)m->uni)[i]; };
 
   template <typename UINT3>
   UINT3 len3() const
