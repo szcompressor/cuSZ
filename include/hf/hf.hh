@@ -13,10 +13,13 @@
 #define DAB559E7_A5C1_4342_B17E_17C31DA96EEF
 
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
+#include <numeric>
 
 #include "cusz/type.h"
 #include "hf/hf_struct.h"
+#include "hf/hf_word.hh"
 #include "mem/memseg_cxx.hh"
 
 namespace cusz {
@@ -105,6 +108,8 @@ class HuffmanCodec {
   pszmem_cxx<M>* par_ncell;
   pszmem_cxx<M>* par_entry;
 
+  MemU4* hist_view;
+
   // helper
   RC rc;
   // memory
@@ -136,8 +141,7 @@ class HuffmanCodec {
       size_t const, int const, int const, bool dbg_print = false);
   HuffmanCodec* build_codebook(uint32_t*, int const, void* = nullptr);
 
-  HuffmanCodec* build_codebook(
-      pszmem_cxx<uint32_t>*, int const, void* = nullptr);
+  HuffmanCodec* build_codebook(MemU4*, int const, void* = nullptr);
 
   HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, void* = nullptr);
   HuffmanCodec* decode(BYTE*, E*, void* = nullptr, bool = true);
@@ -145,23 +149,13 @@ class HuffmanCodec {
   HuffmanCodec* clear_buffer();
 
   // analysis
-  template <pszpolicy P>
-  static void calculate_CR(bool gpu_par_style = true)
-  {
-    if (gpu_par_style) {}
-  }
+  void calculate_CR(MemU4* ectrl, szt sizeof_dtype = 4);
 
  private:
   void __hf_merge(
       Header&, size_t const, int const, int const, int const,
       void* stream = nullptr);
   void hf_debug(const std::string, void*, int);
-
-  // static size_t revbook_bytes(int dict_size)
-  // {
-  //   static const int CELL_BITWIDTH = sizeof(BOOK4B) * 8;
-  //   return sizeof(BOOK4B) * (2 * CELL_BITWIDTH) + sizeof(SYM) * dict_size;
-  // }
 
   static int __revbk_bytes(int bklen, int BK_UNIT_BYTES, int SYM_BYTES)
   {

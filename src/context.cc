@@ -25,8 +25,8 @@
 #include "utils/format.hh"
 
 namespace cusz {
-const char* VERSION_TEXT = "2023-08-17 (unstable; pre-0.5)";
-const int VERSION = 20230817;
+const char* VERSION_TEXT = "2023-09-05 (unstable)";
+const int VERSION = 20230905;
 const int COMPATIBILITY = 0;
 }  // namespace cusz
 
@@ -36,12 +36,13 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
   psz_helper::parse_strlist(in_str, opts);
 
   for (auto o : opts) {
+    // printf("[psz::dbg::parse] opt: %s\n", o.c_str());
     if (psz_helper::is_kv_pair(o)) {
       auto kv = psz_helper::parse_kv_onoff(o);
 
       if (kv.first == "cr")
         ctx->report_cr = kv.second;
-      else if (kv.first == "compressibility")
+      else if (kv.first == "cr.est")
         ctx->report_cr_est = kv.second;
       else if (kv.first == "time")
         ctx->report_time = kv.second;
@@ -49,7 +50,7 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
     else {
       if (o == "cr")
         ctx->report_cr = true;
-      else if (o == "compressibility")
+      else if (o == "cr.est")
         ctx->report_cr_est = true;
       else if (o == "time")
         ctx->report_time = true;

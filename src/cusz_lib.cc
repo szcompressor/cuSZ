@@ -59,6 +59,9 @@ pszerror psz_compress_init(
   comp->ctx->eb = config->eb;
   comp->ctx->mode = config->mode;
   comp->ctx->pred_type = config->pred_type;
+  comp->ctx->report_cr_est = config->est_cr;
+
+
 
   // Be cautious of autotuning! The default value of pardeg is not robust.
   cusz::CompressorHelper::autotune_coarse_parhf(comp->ctx);

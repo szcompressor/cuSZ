@@ -120,19 +120,15 @@ Compressor<C>* Compressor<C>::compress(
         mem->od, mem->ac, mem->es, /* placeholder */ (void*)mem->compact, eb,
         radius, &time_pred, stream);
 
-    psz::histogram<PROPER_GPU_BACKEND, E>(
-        mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
+    // psz::histogram<PROPER_GPU_BACKEND, E>(
+    //     mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
     psz::histsp<PROPER_GPU_BACKEND, E>(
         mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
 
-    // mem->ht->control({D2H});
-    // for (auto i = 0; i < booklen; i++) {
-    //   auto f = mem->ht->hptr(i);
-    //   if (f != 0)
-    //     printf("[psz::dbg::hist_sp] (idx) %5d    (freq) %8d\n", i, f);
-    // }
-
     codec->build_codebook(mem->ht, booklen, stream);
+
+    if (config->report_cr_est) codec->calculate_CR(mem->es);
+
     codec->encode(mem->ectrl_spl(), elen, &d_codec_out, &codec_outlen, stream);
 
 #else
@@ -149,8 +145,8 @@ Compressor<C>* Compressor<C>::compress(
 
     // `psz::histogram` is on for evaluating purpose,
     // as it is not always outperformed by `psz::histsp`.
-    psz::histogram<PROPER_GPU_BACKEND, E>(
-        mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
+    // psz::histogram<PROPER_GPU_BACKEND, E>(
+    //     mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
 
 #if defined(PSZ_USE_CUDA)
     psz::histsp<PROPER_GPU_BACKEND, E>(
@@ -161,30 +157,11 @@ Compressor<C>* Compressor<C>::compress(
          << endl;
 #endif
 
-    //   mem->ht->control({D2H});
-    //   for (auto i = 0; i < booklen; i++) {
-    //     auto f = mem->ht->hptr(i);
-    // #if defined(PSZ_USE_CUDA)
-    //     if (f != 0) printf("[psz::dbg::res::hist_sp] (idx) %5d    (freq)
-    //     %8d\n", i, f);
-    // #elif defined(PSZ_USE_HIP)
-    //     if (f != 0) printf("[psz::dbg::res::hist] (idx) %5d    (freq)
-    //     %8d\n", i, f);
-    // #endif
-    //   }
-
     // Huffman encoding
 
     codec->build_codebook(mem->ht, booklen, stream);
-    // #if defined(PSZ_USE_HIP)
-    //     for (auto i = 0; i < booklen; i++) {
-    //       auto c = mem->ht->hptr(i);
-    //       if (c != ~(H)0x0 and c != 0x0) {
-    //         printf("[psz::dbg::res::codebook] (idx) %5d    ", i);
-    //         cout << bitset<sizeof(H) * 8>(c) << '\n';
-    //       }
-    //     }
-    // #endif
+
+    if (config->report_cr_est) codec->calculate_CR(mem->el);
 
     codec->encode(mem->ectrl_lrz(), elen, &d_codec_out, &codec_outlen, stream);
 

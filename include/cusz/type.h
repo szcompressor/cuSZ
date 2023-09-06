@@ -190,6 +190,7 @@ typedef struct cusz_runtime_config {
   f8 eb;
   pszmode mode;
   pszpredictor_type pred_type;
+  bool est_cr;
 } cusz_runtime_config;
 typedef cusz_runtime_config pszruntimeconfig;
 typedef cusz_runtime_config pszrc;

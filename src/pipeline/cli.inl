@@ -90,7 +90,7 @@ class CLI {
     file->dptr(compressed)
         ->control({MallocHost, D2H})
         ->file(compressed_name.c_str(), ToFile);
-        // ->control({FreeHost});
+    // ->control({FreeHost});
 
     delete file;
   }
@@ -118,8 +118,11 @@ class CLI {
 
     TimeRecord timerecord;
 
-    pszrc* config =
-        new pszrc{.eb = ctx->eb, .mode = Rel, .pred_type = ctx->pred_type};
+    pszrc* config = new pszrc{
+        .eb = ctx->eb,
+        .mode = Rel,
+        .pred_type = ctx->pred_type,
+        .est_cr = ctx->report_cr_est};
     pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
     psz_compress_init(compressor, uncomp_len, config);
