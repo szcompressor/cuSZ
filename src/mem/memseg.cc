@@ -87,10 +87,10 @@ pszmem* pszmem_create3(psz_dtype t, u4 lx, u4 ly, u4 lz)
   return m;
 }
 
-void pszmem_borrow(pszmem* m, void* _d, void* _h)
+void pszmem_borrow(pszmem* m, void* src_d, void* src_h)
 {
-  if (_d) m->d = _d, m->d_borrowed = true;
-  if (_h) m->d = _h, m->h_borrowed = true;
+  if (src_d) m->d = src_d, m->d_borrowed = true;
+  if (src_h) m->d = src_h, m->h_borrowed = true;
 }
 
 void pszmem_setname(pszmem* m, const char name[10]) { strcpy(m->name, name); }

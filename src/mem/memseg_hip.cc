@@ -138,12 +138,12 @@ void pszmem_d2h_hipasync(pszmem* m, void* stream)
       m->h, m->d, m->bytes, hipMemcpyDeviceToHost, (hipStream_t)stream);
 }
 
-void pszmem_device_deepcpy_hip(pszmem* dst, pszmem* src)
+void pszmem_device_deepcopy_hip(pszmem* dst, pszmem* src)
 {
   hipMemcpy(dst->d, src->d, src->bytes, hipMemcpyDeviceToDevice);
 }
 
-void pszmem_host_deepcpy_hip(pszmem* dst, pszmem* src)
+void pszmem_host_deepcopy_hip(pszmem* dst, pszmem* src)
 {
   hipMemcpy(dst->h, src->h, src->bytes, hipMemcpyHostToHost);
 }

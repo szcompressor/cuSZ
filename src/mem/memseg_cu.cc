@@ -142,12 +142,12 @@ void pszmem_d2h_cudaasync(pszmem* m, void* stream)
       m->h, m->d, m->bytes, cudaMemcpyDeviceToHost, (cudaStream_t)stream));
 }
 
-void pszmem_device_deepcpy_cuda(pszmem* dst, pszmem* src)
+void pszmem_device_deepcopy_cuda(pszmem* dst, pszmem* src)
 {
   CHECK_GPU(cudaMemcpy(dst->d, src->d, src->bytes, cudaMemcpyDeviceToDevice));
 }
 
-void pszmem_host_deepcpy_cuda(pszmem* dst, pszmem* src)
+void pszmem_host_deepcopy_cuda(pszmem* dst, pszmem* src)
 {
   CHECK_GPU(cudaMemcpy(dst->h, src->h, src->bytes, cudaMemcpyHostToHost));
 }

@@ -57,8 +57,8 @@ void pszmem_h2d_cuda(pszmem* m);
 void pszmem_h2d_cudaasync(pszmem* m, void* stream);
 void pszmem_d2h_cuda(pszmem* m);
 void pszmem_d2h_cudaasync(pszmem* m, void* stream);
-void pszmem_device_deepcpy_cuda(pszmem* dst, pszmem* src);
-void pszmem_host_deepcpy_cuda(pszmem* dst, pszmem* src);
+void pszmem_device_deepcopy_cuda(pszmem* dst, pszmem* src);
+void pszmem_host_deepcopy_cuda(pszmem* dst, pszmem* src);
 
 void pszmem_malloc_hip(pszmem* m);
 void pszmem_mallochost_hip(pszmem* m);
@@ -71,8 +71,8 @@ void pszmem_h2d_hip(pszmem* m);
 void pszmem_h2d_hipasync(pszmem* m, void* stream);
 void pszmem_d2h_hip(pszmem* m);
 void pszmem_d2h_hipasync(pszmem* m, void* stream);
-void pszmem_device_deepcpy_hip(pszmem* dst, pszmem* src);
-void pszmem_host_deepcpy_hip(pszmem* dst, pszmem* src);
+void pszmem_device_deepcopy_hip(pszmem* dst, pszmem* src);
+void pszmem_host_deepcopy_hip(pszmem* dst, pszmem* src);
 
 void pszmem_malloc_oneapi(pszmem* m);
 void pszmem_mallochost_oneapi(pszmem* m);
@@ -85,8 +85,8 @@ void pszmem_h2d_oneapi(pszmem* m);
 void pszmem_h2d_oneapiasync(pszmem* m, void* stream);
 void pszmem_d2h_oneapi(pszmem* m);
 void pszmem_d2h_oneapiasync(pszmem* m, void* stream);
-void pszmem_device_deepcpy_oneapi(pszmem* dst, pszmem* src);
-void pszmem_host_deepcpy_oneapi(pszmem* dst, pszmem* src);
+void pszmem_device_deepcopy_oneapi(pszmem* dst, pszmem* src);
+void pszmem_host_deepcopy_oneapi(pszmem* dst, pszmem* src);
 
 // no impl. in C due to typing issue
 // void pszmem_cast(pszmem* dst, pszmem* src, psz_space s);
