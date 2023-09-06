@@ -73,7 +73,7 @@ void f(std::string fname)
     /* verify header */
     printf("header.%-*s : %p\n", 12, "(addr)", (void*)&header);
     printf(
-        "header.%-*s : %lu, %lu, %lu\n", 12, "{x,y,z}", header.x, header.y,
+        "header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", header.x, header.y,
         header.z);
     printf(
         "header.%-*s : %lu\n", 12, "filesize", psz_utils::filesize(&header));

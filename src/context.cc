@@ -101,8 +101,11 @@ void pszctx_parse_control_string(
       psz_utils::check_cuszmode(v);
       ctx->mode = v == "r2r" ? Rel : Abs;
     }
-    else if (optmatch({"len", "length"})) {
+    else if (optmatch({"len", "xyz", "dim3"})) {
       pszctx_parse_length(ctx, v.c_str());
+    }
+    else if (optmatch({"size", "slowest-to-fastest", "zyx"})) {
+      pszctx_parse_length_zyx(ctx, v.c_str());
     }
     else if (optmatch({"demo"})) {
       ctx->use_demodata = true;
@@ -255,14 +258,14 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         auto _ = std::string(argv[++i]);
         strcpy(ctx->infile, _.c_str());
       }
-      else if (optmatch({"-l", "--len"})) {
+      else if (optmatch({"-l", "--len", "--xyz", "--dim3"})) {
         check_next();
         pszctx_parse_length(ctx, argv[++i]);
       }
-      // else if (optmatch({"-L", "--allocation-len"})) {
-      //     check_next();
-      //     // placeholder
-      // }
+      else if (optmatch({"--size", "--zyx", "--slowest-to-fastest"})) {
+        check_next();
+        pszctx_parse_length_zyx(ctx, argv[++i]);
+      }
       else if (optmatch({"-z", "--zip", "--compress"})) {
         ctx->task_construct = true;
       }
@@ -395,6 +398,20 @@ void pszctx_parse_length(pszctx* ctx, const char* lenstr)
   if (ctx->ndim >= 2) ctx->y = psz_helper::str2int(dims[1]);
   if (ctx->ndim >= 3) ctx->z = psz_helper::str2int(dims[2]);
   if (ctx->ndim >= 4) ctx->w = psz_helper::str2int(dims[3]);
+  ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+}
+
+void pszctx_parse_length_zyx(
+    pszctx* ctx, const char* lenstr)
+{
+  std::vector<std::string> dims;
+  psz_utils::parse_length_literal(lenstr, dims);
+  ctx->ndim = dims.size();
+  ctx->y = ctx->z = ctx->w = 1;
+  ctx->x = psz_helper::str2int(dims[ctx->ndim - 1]);
+  if (ctx->ndim >= 2) ctx->y = psz_helper::str2int(dims[ctx->ndim - 2]);
+  if (ctx->ndim >= 3) ctx->z = psz_helper::str2int(dims[ctx->ndim - 3]);
+  if (ctx->ndim >= 4) ctx->w = psz_helper::str2int(dims[ctx->ndim - 4]);
   ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
 }
 

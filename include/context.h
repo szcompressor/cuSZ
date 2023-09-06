@@ -84,6 +84,7 @@ typedef cusz_context pszctx;
 void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
 void pszctx_parse_length(pszctx* ctx, const char* lenstr);
+void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr);
 void pszctx_parse_control_string(
     pszctx* ctx, const char* in_str, bool dbg_print);
 void pszctx_validate(pszctx* ctx);
