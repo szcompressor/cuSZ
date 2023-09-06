@@ -22,16 +22,16 @@ struct PackedWordByWidth;
 
 template <>
 struct PackedWordByWidth<4> {
-  static const int field_word = 27;
-  static const int field_bits = 5;
+  static const int FIELDWIDTH_word = 27;
+  static const int FIELDWIDTH_bits = 5;
   uint32_t word : 27;
   uint32_t bits : 5;
 };
 
 template <>
 struct PackedWordByWidth<8> {
-  static const int field_word = 58;
-  static const int field_bits = 6;
+  static const int FIELDWIDTH_word = 58;
+  static const int FIELDWIDTH_bits = 6;
   uint64_t word : 58;
   uint64_t bits : 6;
 };
@@ -40,16 +40,16 @@ struct PackedWordByWidth<8> {
 
 template <>
 struct PackedWordByWidth<4> {
-  static const int field_word = 24;
-  static const int field_bits = 8;
+  static const int FIELDWIDTH_word = 24;
+  static const int FIELDWIDTH_bits = 8;
   uint32_t word : 24;
   uint32_t bits : 8;
 };
 
 template <>
 struct PackedWordByWidth<8> {
-  static const int field_word = 56;
-  static const int field_bits = 8;
+  static const int FIELDWIDTH_word = 56;
+  static const int FIELDWIDTH_bits = 8;
   uint64_t word : 56;
   uint64_t bits : 8;
 };

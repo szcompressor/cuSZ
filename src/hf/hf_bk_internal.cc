@@ -91,7 +91,7 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
       book[symbol] =
           out1 |
           ((len & (H)0xffu)
-           << (sizeof(H) * 8 - PackedWordByWidth<sizeof(H)>::field_bits));
+           << (sizeof(H) * 8 - PackedWordByWidth<sizeof(H)>::FIELDWIDTH_bits));
       if (!is_empty(s)) {
         root = pop(s, &out1, &len);
         root = root->right;

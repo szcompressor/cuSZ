@@ -23,8 +23,8 @@ void printcode_u4(u4 idx, u4* word)
   using PW = PackedWordByWidth<4>;
   auto pw = (PW*)word;
   cout << idx << "\t"  //
-       << bitset<PW::field_bits>(pw->bits) << " (" << pw->bits << ")\t"
-       << bitset<PW::field_word>(pw->word) << "\n";
+       << bitset<PW::FIELDWIDTH_bits>(pw->bits) << " (" << pw->bits << ")\t"
+       << bitset<PW::FIELDWIDTH_word>(pw->word) << "\n";
 }
 
 void hfbook_serial_reference(string fname, int bklen)
