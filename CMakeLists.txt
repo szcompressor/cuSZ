@@ -13,6 +13,12 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
+# log: debug and sanitize
+option(PSZ_LOG_DBG_MODE "enable debugging printing" OFF)
+option(PSZ_LOG_SANITIZE_MODE "enable sanitizing functions" OFF)
+option(PSZLOG_ENABLE_ALL "enable all (debugging, sanitizing)" OFF)
+include(cmake/logging.cmake)
+
 # conditionaly enable functionality
 option(PSZ_RESEARCH_HUFFBK_CUDA "(CUDA only) build research artifacts: create Huffman codebook on GPU" OFF)
 option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" OFF)

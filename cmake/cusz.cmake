@@ -115,7 +115,8 @@ else()
 endif(PSZ_RESEARCH_HUFFBK_CUDA)
 # unset(PSZ_RESEARCH_HUFFBK_CUDA CACHE)
 
-add_library(psz_comp src/compressor.cc)
+# [TODO] maybe a standalone libpszdbg
+add_library(psz_comp src/compressor.cc src/log/sanitize.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
                                       pszstat_cu pszhf_cu CUDA::cudart)
 
