@@ -13,6 +13,7 @@
 #define CD5DD212_2C45_4A8C_BDAD_7186A89BB353
 
 #include "cusz/type.h"
+#include "hf/hf_word.hh"
 
 // for impl1
 
@@ -66,9 +67,9 @@ struct CmpNode {
   }
 };
 
-template <class NodeType = NodeCxx>
+template <class NodeType, int WIDTH>
 class alignas(8) __pszhf_stack {
-  static const int MAX_DEPTH = 32;
+  static const int MAX_DEPTH = PackedWordByWidth<WIDTH>::FIELDWIDTH_word;
   NodeType* _a[MAX_DEPTH];
   u8 saved_path[MAX_DEPTH];
   u8 saved_length[MAX_DEPTH];
@@ -86,9 +87,6 @@ class alignas(8) __pszhf_stack {
 
   template <typename H>
   static void inorder_traverse(NodeType* root, H* book);
-
-  template <typename H>
-  static void inorder_traverse(HuffmanTree* tree, H* book);
 };
 
 template <typename H>

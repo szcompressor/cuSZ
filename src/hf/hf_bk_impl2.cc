@@ -22,31 +22,31 @@
 template <typename H>
 void hf_buildtree_impl2(u4* freq, size_t const bklen, H* book, float* time)
 {
-  using N = NodeCxx;
+  using NodeType = NodeCxx;
   using Container = std::vector<NodeCxx*>;
 
-  std::priority_queue<N*, Container, CmpNode> pq;
+  std::priority_queue<NodeType*, Container, CmpNode> pq;
 
   auto a = hires::now();
 
   for (auto i = 0; i < bklen; i++) {
     auto f = freq[i];
-    if (f != 0) pq.push(new N(i, f));
+    if (f != 0) pq.push(new NodeType(i, f));
   }
 
   while (pq.size() != 1) {
-    N* left = pq.top();
+    NodeType* left = pq.top();
     pq.pop();
-    N* right = pq.top();
+    NodeType* right = pq.top();
     pq.pop();
 
     auto sum = left->freq + right->freq;
-    pq.push(new N(bklen + 1, sum, left, right));
+    pq.push(new NodeType(bklen + 1, sum, left, right));
   }
 
-  N* root = pq.top();
+  NodeType* root = pq.top();
 
-  __pszhf_stack<N>::inorder_traverse<H>(root, book);
+  __pszhf_stack<NodeType, sizeof(H)>::template inorder_traverse<H>(root, book);
 
   auto b = hires::now();
   auto t = static_cast<duration_t>(b - a).count() * 1000;

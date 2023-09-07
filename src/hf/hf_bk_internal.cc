@@ -18,16 +18,15 @@
 
 // internal data structure
 
-#define NodeStack __pszhf_stack<NodeType>
+#define NodeStackTpl template <class NodeType, int Width>
+#define NodeStack __pszhf_stack<NodeType, Width>
 
-template <class NodeType>
-NodeType* NodeStack::top(NodeStack* s)
+NodeStackTpl NodeType* NodeStack::top(NodeStack* s)
 {
   return s->_a[s->depth - 1];
 }
 
-template <class NodeType>
-template <typename T>
+NodeStackTpl template <typename T>
 void NodeStack::push(NodeStack* s, NodeType* n, T path, T len)
 {
   if (s->depth + 1 <= NodeStack::MAX_DEPTH) {
@@ -38,11 +37,10 @@ void NodeStack::push(NodeStack* s, NodeType* n, T path, T len)
     s->saved_length[s->depth - 1] = len;
   }
   else
-    throw std::runtime_error("[psz::err::hfinternal]: stack overflow.");
+    throw std::runtime_error("[psz::err::hf::traverse_stack]: exceeding MAX_DEPTH, stack overflow.");
 }
 
-template <class NodeType>
-template <typename T>
+NodeStackTpl template <typename T>
 NodeType* NodeStack::pop(
     NodeStack* s, T* path_to_restore, T* length_to_restore)
 {
@@ -67,8 +65,7 @@ NodeType* NodeStack::pop(
   }
 }
 
-template <class NodeType>
-template <typename H>
+NodeStackTpl template <typename H>
 void NodeStack::inorder_traverse(NodeType* root, H* book)
 {
   auto is_empty = [&](NodeStack* s) -> bool { return (s->depth == 0); };
@@ -108,14 +105,17 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
   /* end of function */
 }
 
-template class __pszhf_stack<node_t>;
-template void __pszhf_stack<node_t>::inorder_traverse<u4>(node_t*, u4*);
-template void __pszhf_stack<node_t>::inorder_traverse<u8>(node_t*, u8*);
-template void __pszhf_stack<node_t>::inorder_traverse<ull>(node_t*, ull*);
+template class __pszhf_stack<node_t, 4>;
+template void __pszhf_stack<node_t, 4>::inorder_traverse<u4>(node_t*, u4*);
+template class __pszhf_stack<node_t, 8>;
+template void __pszhf_stack<node_t, 8>::inorder_traverse<u8>(node_t*, u8*);
+template void __pszhf_stack<node_t, 8>::inorder_traverse<ull>(node_t*, ull*);
 
-template class __pszhf_stack<NodeCxx>;
-template void __pszhf_stack<NodeCxx>::inorder_traverse<u4>(NodeCxx*, u4*);
-template void __pszhf_stack<NodeCxx>::inorder_traverse<u8>(NodeCxx*, u8*);
-template void __pszhf_stack<NodeCxx>::inorder_traverse<ull>(NodeCxx*, ull*);
+template class __pszhf_stack<NodeCxx, 4>;
+template void __pszhf_stack<NodeCxx, 4>::inorder_traverse<u4>(NodeCxx*, u4*);
+template class __pszhf_stack<NodeCxx, 8>;
+template void __pszhf_stack<NodeCxx, 8>::inorder_traverse<u8>(NodeCxx*, u8*);
+template void __pszhf_stack<NodeCxx, 8>::inorder_traverse<ull>(NodeCxx*, ull*);
 
+#undef NodeStackTpl
 #undef NodeStack
