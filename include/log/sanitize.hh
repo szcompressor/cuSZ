@@ -18,19 +18,40 @@
 #include "dbg.hh"
 
 #ifdef PSZ_SANITIZE_ON
-#define PSZSANITIZE_PSZCTX(...) \
-  psz::sanitize<T, E, H>::sanitize_pszctx(__VA_ARGS__)
-#define PSZSANITIZE_QUANTCODE(...) \
-  psz::sanitize<T, E, H>::sanitize_quantcode(__VA_ARGS__)
-#define PSZSANITIZE_HIST_OUTPUT(...) \
-  psz::sanitize<T, E, H>::sanitize_histogram_output(__VA_ARGS__)
-#define PSZSANITIZE_HIST_BK(...) \
-  psz::sanitize<T, E, H>::sanitize_hist_book(__VA_ARGS__)
+
+#define PSZSANITIZE_PSZCTX(...)                         \
+  __PSZLOG__NEWLINE;                                    \
+  __PSZLOG__STATUS_SANITIZE_IN("pszctx");               \
+  __PSZLOG__WHERE_CALLED;                               \
+  psz::sanitize<T, E, H>::sanitize_pszctx(__VA_ARGS__); \
+  __PSZLOG__NEWLINE;
+
+#define PSZSANITIZE_QUANTCODE(...)                         \
+  __PSZLOG__NEWLINE;                                       \
+  __PSZLOG__STATUS_SANITIZE_IN("quantcode");               \
+  __PSZLOG__WHERE_CALLED;                                  \
+  psz::sanitize<T, E, H>::sanitize_quantcode(__VA_ARGS__); \
+  __PSZLOG__NEWLINE;
+
+#define PSZSANITIZE_HIST_OUTPUT(...)                      \
+  __PSZLOG__NEWLINE;                                      \
+  __PSZLOG__STATUS_SANITIZE_IN("hist_out");               \
+  __PSZLOG__WHERE_CALLED;                                 \
+  psz::sanitize<T, E, H>::sanitize_hist_out(__VA_ARGS__); \
+  __PSZLOG__NEWLINE;
+
+#define PSZSANITIZE_HIST_BK(...)                           \
+  __PSZLOG__NEWLINE;                                       \
+  __PSZLOG__STATUS_SANITIZE("hist_and_bk");                \
+  __PSZLOG__WHERE_CALLED;                                  \
+  psz::sanitize<T, E, H>::sanitize_hist_book(__VA_ARGS__); \
+  __PSZLOG__NEWLINE;
+
 #else
 #define PSZSANITIZE_PSZCTX(...)
 #define PSZSANITIZE_QUANTCODE(...)
 #define PSZSANITIZE_HIST_OUTPUT(...)
-#define PSZSANITIZE_HIST_BK(...) 
+#define PSZSANITIZE_HIST_BK(...)
 #endif
 
 namespace psz {
@@ -40,7 +61,7 @@ struct sanitize {
   static void sanitize_pszctx(pszctx const* ctx, std::string LOC = "");
   static void sanitize_quantcode(E const* h_ectrl, szt len, szt bklen);
   static void sanitize_hist_book(M const* h_hist, H const* h_ectrl, szt bklen);
-  static void sanitize_histogram_output(M const* h_hist, szt bklen);
+  static void sanitize_hist_out(M const* h_hist, szt bklen);
 
 };  // namespace sanitize
 

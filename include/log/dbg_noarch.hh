@@ -22,15 +22,17 @@
 
 #define __PSZLOG__NEWLINE printf("\n");
 
-#define __PSZLOG__STATUS_INFO printf("[psz::info] ");
-#define __PSZLOG__STATUS_INFO_IN(LOC) printf("[psz::info::%s] ", LOC);
+// clang-format off
+#define __PSZLOG__STATUS_INFO              printf("[psz::info] ");
+#define __PSZLOG__STATUS_INFO_IN(WHAT)     printf("[psz::info::%s] ", WHAT);
+#define __PSZLOG__STATUS_DBG               printf("[psz::\e[31mdbg\e[0m] ");
+#define __PSZLOG__STATUS_DBG_IN(WHAT)      printf("[psz::\e[31mdbg\e[0m::%s] ", WHAT);
+#define __PSZLOG__STATUS_SANITIZE          printf("[psz::\e[31mdbg::sanitize\e[0m] ");
+#define __PSZLOG__STATUS_SANITIZE_IN(WHAT) printf("[psz::\e[31mdbg::sanitize::%s\e[0m] ", WHAT);
+// clang-format on
 
-#define __PSZLOG__STATUS_DBG printf("[psz::\e[31mdbg\e[0m] ");
-#define __PSZLOG__STATUS_DBG_IN(LOC) printf("[psz::\e[31mdbg\e[0m::%s] ", LOC);
-
-#define __PSZLOG__STATUS_SANITIZE printf("[psz::\e[31mdbg::sanitize\e[0m] ");
-#define __PSZLOG__STATUS_SANITIZE_IN(LOC) \
-  printf("[psz::\e[31mdbg::sanitize::%s\e[0m] ", LOC);
+#define __PSZLOG__WHERE_CALLED \
+  printf("(func) %s at \e[31m%s:%d\e[0m\n", __func__, __FILE__, __LINE__);
 
 #define __PSZDBG__INFO(STR) \
   {                         \

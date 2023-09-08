@@ -30,12 +30,6 @@ void psz::sanitize<T, E, H>::sanitize_pszctx(
 {
   __PSZSANITIZE_VAR(LOC.c_str(), ctx->radius)
   __PSZSANITIZE_VAR(LOC.c_str(), ctx->dict_size)
-  printf(
-      "        (func) %s at "
-      "\e[31m"
-      "%s:%d"
-      "\e[0m\n",
-      __func__, __FILE__, __LINE__);
 }
 
 template <typename T, typename E, typename H>
@@ -52,7 +46,8 @@ void psz::sanitize<T, E, H>::sanitize_quantcode(
     auto idx = found_ptr - h_ectrl;
 
     __PSZDBG__FATAL(
-        "hist-input code at idx=" + to_string(idx) + " not valid (>bklen)")
+        "The first found invalid point (value >= bklen) is quantcode[" +
+        to_string(idx) + "] = " + to_string(h_ectrl[idx]))
   }
   else {
     __PSZLOG__STATUS_SANITIZE
@@ -83,7 +78,7 @@ void psz::sanitize<T, E, H>::sanitize_hist_book(
 }
 
 template <typename T, typename E, typename H>
-void psz::sanitize<T, E, H>::sanitize_histogram_output(
+void psz::sanitize<T, E, H>::sanitize_hist_out(
     M const* const h_hist, szt bklen)
 {
   if (not(std::is_same<M, u1>::value or std::is_same<M, u2>::value or
