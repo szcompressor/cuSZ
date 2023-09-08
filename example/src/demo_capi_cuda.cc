@@ -11,6 +11,7 @@
 
 #include <cuda_runtime.h>
 
+#include "context.h"
 #include "cusz.h"
 #include "cusz/type.h"
 #include "utils/io.hh"
@@ -52,7 +53,7 @@ void f(std::string fname)
 
   pszcompressor* comp = cusz_create(work, F4);
 
-  pszrc* config = new pszrc{.eb = 2.4e-4, .mode = Rel};
+  pszctx* ctx = new pszctx{.mode = Rel, .eb = 2.4e-4};
   pszlen uncomp_len = pszlen{3600, 1800, 1, 1};  // x, y, z, w
   pszlen decomp_len = uncomp_len;
 
@@ -61,7 +62,7 @@ void f(std::string fname)
   cusz::TimeRecord decompress_timerecord;
 
   {
-    psz_compress_init(comp, uncomp_len, config);
+    psz_compress_init(comp, uncomp_len, ctx);
     psz_compress(
         comp, d_uncomp, uncomp_len, &ptr_compressed, &compressed_len, &header,
         (void*)&compress_timerecord, stream);

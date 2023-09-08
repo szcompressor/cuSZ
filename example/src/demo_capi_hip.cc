@@ -61,7 +61,7 @@ void f(std::string fname)
   cusz::TimeRecord decompress_timerecord;
 
   {
-    psz_compress_init(comp, uncomp_len, config);
+    psz_compress_init(comp, uncomp_len, ctx);
     psz_compress(
         comp, d_uncomp, uncomp_len, &ptr_compressed, &compressed_len, &header,
         (void*)&compress_timerecord, stream);

@@ -276,15 +276,6 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-r", "--dryrun"})) {
         ctx->task_dryrun = true;
       }
-      else if (optmatch({"--anchor"})) {
-        ctx->use_anchor = true;
-      }
-      // else if (optmatch({"--nondestructive", "--input-nondestructive"})) {
-      //     // placeholder
-      // }
-      // else if (optmatch({"--failfast"})) {
-      //     // placeholder
-      // }
       else if (optmatch({"-P", "--pre", "--preprocess"})) {
         check_next();
         std::string pre(argv[++i]);
@@ -402,8 +393,7 @@ void pszctx_parse_length(pszctx* ctx, const char* lenstr)
   ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
 }
 
-void pszctx_parse_length_zyx(
-    pszctx* ctx, const char* lenstr)
+void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
 {
   std::vector<std::string> dims;
   psz_utils::parse_length_literal(lenstr, dims);
@@ -516,12 +506,6 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 void pszctx_set_len(pszctx* ctx, pszlen len)
 {
   pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w);
-}
-
-void pszctx_set_config(pszctx* ctx, pszrc* config)
-{
-  ctx->eb = config->eb;
-  ctx->mode = config->mode;
 }
 
 void pszctx_set_radius(pszctx* ctx, int _)

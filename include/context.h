@@ -29,17 +29,12 @@ struct cusz_context {
   bool task_experiment{false};
 
   bool prep_binning{false};
-  bool prep_logtransform{false};
+  //   bool prep_logtransform{false};
   bool prep_prescan{false};
 
   bool use_demodata{false};
-  bool use_release_input{false};
-  bool use_anchor{false};
   bool use_autotune_hf{true};
   bool use_gpu_verify{false};
-
-  bool export_book{false};
-  bool export_errctrl{false};
 
   bool skip_tofile{false};
   bool skip_hf{false};
@@ -64,8 +59,8 @@ struct cusz_context {
   char opath[200];
 
   // pipeline config
-  cusz_dtype dtype{F4};
-  cusz_mode mode{Rel};
+  pszdtype dtype{F4};
+  pszmode mode{Rel};
   double eb{0.0};
   int dict_size{1024}, radius{512};
   int quant_bytewidth{2}, huff_bytewidth{4};
@@ -93,7 +88,6 @@ void pszctx_set_rawlen(
     pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w);
 void pszctx_set_len(pszctx* ctx, pszlen len);
 void pszctx_set_report(pszctx* ctx, const char* in_str);
-void pszctx_set_config(pszctx* ctx, pszrc* config);
 void pszctx_set_radius(pszctx* ctx, int _);
 void pszctx_set_huffbyte(pszctx* ctx, int _);
 void pszctx_set_huffchunk(pszctx* ctx, int _);
