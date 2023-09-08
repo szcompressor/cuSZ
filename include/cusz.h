@@ -22,6 +22,7 @@ extern "C" {
 
 #include "cusz/record.h"
 #include "cusz/type.h"
+#include "cusz/type.h"
 #include "header.h"
 
 #define cusz_create psz_create
@@ -39,7 +40,7 @@ pszcompressor* psz_create(pszframe* framework, pszdtype const type);
 pszerror psz_release(pszcompressor* comp);
 
 pszerror psz_compress_init(
-    pszcompressor* comp, pszlen const uncomp_len, pszrc* config);
+    pszcompressor* comp, pszlen const uncomp_len, pszctx* ctx);
 
 pszerror psz_compress(
     pszcompressor* comp, void* uncompressed, pszlen const uncomp_len,

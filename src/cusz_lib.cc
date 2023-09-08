@@ -50,12 +50,16 @@ pszerror psz_release(pszcompressor* comp)
 }
 
 pszerror psz_compress_init(
-    pszcompressor* comp, pszlen const uncomp_len, pszrc* config)
+    pszcompressor* comp, pszlen const uncomp_len, pszctx* ctx)
 {
-  comp->ctx = new pszctx;
+  comp->ctx = ctx;
+  // comp->ctx = new pszctx;
   pszctx_set_len(comp->ctx, uncomp_len);
-  comp->ctx->eb = config->eb;
-  comp->ctx->mode = config->mode;
+  // comp->ctx->eb = config->eb;
+  // comp->ctx->mode = config->mode;
+  // comp->ctx->pred_type = config->pred_type;
+  // comp->ctx->report_cr_est = config->est_cr;
+
   // Be cautious of autotuning! The default value of pardeg is not robust.
   cusz::CompressorHelper::autotune_coarse_parhf(comp->ctx);
 

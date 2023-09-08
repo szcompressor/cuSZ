@@ -23,7 +23,7 @@
 #include "utils/format.hh"
 
 namespace cusz {
-const char* VERSION_TEXT = "2023-08-17 (unstable; pre-0.5)";
+const char* VERSION_TEXT = "2023-08-25 (unstable; 0.7)";
 const int VERSION = 20230817;
 const int COMPATIBILITY = 0;
 }  // namespace cusz
@@ -248,15 +248,6 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-r", "--dryrun"})) {
         ctx->task_dryrun = true;
       }
-      else if (optmatch({"--anchor"})) {
-        ctx->use_anchor = true;
-      }
-      // else if (optmatch({"--nondestructive", "--input-nondestructive"})) {
-      //     // placeholder
-      // }
-      // else if (optmatch({"--failfast"})) {
-      //     // placeholder
-      // }
       else if (optmatch({"-P", "--pre", "--preprocess"})) {
         check_next();
         std::string pre(argv[++i]);
@@ -374,6 +365,19 @@ void pszctx_parse_length(pszctx* ctx, const char* lenstr)
   ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
 }
 
+void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
+{
+  std::vector<std::string> dims;
+  psz_utils::parse_length_literal(lenstr, dims);
+  ctx->ndim = dims.size();
+  ctx->y = ctx->z = ctx->w = 1;
+  ctx->x = psz_helper::str2int(dims[ctx->ndim - 1]);
+  if (ctx->ndim >= 2) ctx->y = psz_helper::str2int(dims[ctx->ndim - 2]);
+  if (ctx->ndim >= 3) ctx->z = psz_helper::str2int(dims[ctx->ndim - 3]);
+  if (ctx->ndim >= 4) ctx->w = psz_helper::str2int(dims[ctx->ndim - 4]);
+  ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+}
+
 void pszctx_validate(pszctx* ctx)
 {
   bool to_abort = false;
@@ -475,12 +479,6 @@ void pszctx_set_rawlen(
 void pszctx_set_len(pszctx* ctx, pszlen len)
 {
   pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w);
-}
-
-void pszctx_set_config(pszctx* ctx, pszrc* config)
-{
-  ctx->eb = config->eb;
-  ctx->mode = config->mode;
 }
 
 void pszctx_set_radius(pszctx* ctx, int _)
