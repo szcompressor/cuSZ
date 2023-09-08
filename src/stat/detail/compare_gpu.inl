@@ -12,13 +12,14 @@
 #ifndef F7DF2FE5_571E_48C1_965D_0B19D1CC14D4
 #define F7DF2FE5_571E_48C1_965D_0B19D1CC14D4
 
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 
 // #include <thrust/count.h>
 // #include <thrust/iterator/constant_iterator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/tuple.h>
+#include "stat/compare.hh"
 
 #include "cusz/type.h"
 
@@ -39,11 +40,10 @@ void thrustgpu_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t len)
 
     T odata_res[4], xdata_res[4];
 
-    // commented for better build time
-    // thrustgpu_get_extrema(p_odata, len, odata_res);
-    // thrustgpu_get_extrema(p_xdata, len, xdata_res);
-    thrustgpu_get_extrema_rawptr(odata, len, odata_res);
-    thrustgpu_get_extrema_rawptr(xdata, len, xdata_res);
+    // thrustgpu_get_extrema_rawptr(odata, len, odata_res);
+    // thrustgpu_get_extrema_rawptr(xdata, len, xdata_res);
+    psz::probe_extrema<CUDA, T>(odata, len, odata_res);
+    psz::probe_extrema<CUDA, T>(xdata, len, xdata_res);
 
     auto begin = thrust::make_zip_iterator(thrust::make_tuple(p_odata, p_xdata));
     auto end   = thrust::make_zip_iterator(thrust::make_tuple(p_odata + len, p_xdata + len));

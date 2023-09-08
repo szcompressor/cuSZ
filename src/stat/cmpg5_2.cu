@@ -10,8 +10,7 @@
  */
 
 #include "detail/maxerr_thrust.inl"
-#include "stat/compare.h"
-#include "stat/compare_gpu.hh"
+#include "stat/compare_thrust.hh"
 
 #define THRUSTGPU_ASSESS(Tliteral, T)           \
     template void psz::thrustgpu_get_maxerr<T>( \

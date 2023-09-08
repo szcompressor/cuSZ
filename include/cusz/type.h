@@ -19,7 +19,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-enum cusz_execution_policy { CPU, CUDA, HIP, ONEAPI, HIP_NV, ONEAPI_NV };
+enum cusz_execution_policy { CPU, CUDA, HIP, ONEAPI, THRUST, HIP_NV, ONEAPI_NV };
 typedef enum cusz_execution_policy cusz_execution_policy;
 typedef enum cusz_execution_policy pszexepolicy;
 typedef enum cusz_execution_policy pszpolicy;
@@ -80,6 +80,7 @@ typedef int32_t i4;
 typedef int64_t i8;
 typedef float f4;
 typedef double f8;
+typedef size_t szt;
 
 typedef enum cusz_executiontype  //
 { Device = 0,

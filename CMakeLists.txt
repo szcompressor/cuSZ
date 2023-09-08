@@ -10,15 +10,6 @@ option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 find_package(CUDAToolkit REQUIRED)
 
-# 23-06-05 disable CUB
-# find_package(CUB)
-# if(TARGET _CUB_CUB)
-#   install(TARGETS _CUB_CUB EXPORT CUSZTargets)
-#   if(TARGET _CUB_libcudacxx)
-#     install(TARGETS _CUB_libcudacxx EXPORT CUSZTargets)
-#   endif()
-# endif()
-
 include(GNUInstallDirs)
 include(CTest)
 
@@ -26,23 +17,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h)
 
 add_library(pszcompile_settings INTERFACE)
-
-# 23-06-05 disable CUB
-# if(CUB_FOUND)
-#   target_link_libraries(pszcompile_settings INTERFACE CUB::CUB)
-# else()
-#   message(
-#     WARNING
-#       "cub not found via cmake find_package, trying to find the header ${CUDAToolkit_INCLUDE_DIRS}/cub"
-#   )
-#   set(CMAKE_FIND_DEBUG_MODE TRUE)
-#   find_file(CUB_HEADER cub.cuh PATHS "${CUDAToolkit_INCLUDE_DIRS}/cub" REQUIRED)
-#   add_library(CUB INTERFACE)
-#   get_filename_component(CUB_INCLUDE_DIR ${CUB_HEADER} DIRECTORY)
-#   target_include_directories(CUB INTERFACE ${CUB_INCLUDE_DIR})
-#   target_link_libraries(pszcompile_settings INTERFACE CUB)
-#   install(TARGETS CUB EXPORT CUSZTargets)
-# endif()
 
 target_compile_definitions(
   pszcompile_settings
@@ -60,6 +34,11 @@ target_include_directories(
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
 
+option(CUSZ_RESEARCH_HUFFBK_GPU
+       "build research artifacts: create Huffman codebook on GPU" OFF)
+option(CUSZ_REACTIVATE_THRUSTGPU
+       "build previously thrust implemented functions" OFF)
+
 # seprate later
 add_library(psztime src/utils/timer_cpu.cc src/utils/timer_gpu.cc)
 target_link_libraries(psztime PUBLIC pszcompile_settings CUDA::cudart)
@@ -67,19 +46,30 @@ target_link_libraries(psztime PUBLIC pszcompile_settings CUDA::cudart)
 add_library(pszstat_ser src/stat/compare_cpu.cc)
 target_link_libraries(pszstat_ser PUBLIC pszcompile_settings)
 
-add_library(
-  pszstat_cu
-  src/stat/cmpg1_1.cu
-  src/stat/cmpg1_2.cu
-  src/stat/cmpg1_3.cu
-  src/stat/cmpg1_4.cu
-  src/stat/cmpg1_5.cu
-  src/stat/cmpg2.cu
-  src/stat/cmpg3.cu
-  src/stat/cmpg4_1.cu
-  src/stat/cmpg4_2.cu
-  src/stat/cmpg5_1.cu
-  src/stat/cmpg5_2.cu)
+if(CUSZ_REACTIVATE_THRUSTGPU)
+  add_compile_definitions(REACTIVATE_THRUSTGPU)
+  add_library(
+    pszstat_cu
+    src/stat/extrema_cu.cu
+    src/stat/cmpg1_4.cu
+    src/stat/cmpg1_5.cu
+    src/stat/cmpg2.cu
+    src/stat/cmpg3.cu
+    src/stat/cmpg4_1.cu
+    src/stat/cmpg4_2.cu
+    src/stat/cmpg5_1.cu
+    src/stat/cmpg5_2.cu)
+else()
+  add_library(
+    pszstat_cu
+    src/stat/extrema_cu.cu
+    src/stat/cmpg2.cu
+    # src/stat/cmpg3.cu
+    src/stat/cmpg4_1.cu
+    src/stat/cmpg4_2.cu
+    src/stat/cmpg5_1.cu
+    src/stat/cmpg5_2.cu)
+endif()
 target_link_libraries(pszstat_cu PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
@@ -88,7 +78,7 @@ add_library(pszkernel_ser src/kernel/l23_ser.cc src/kernel/hist_ser.cc
 target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
 
 add_library(
-  pszkernel_cu
+  pszkernel_cu src/kernel/dryrun.cu
   src/kernel/lproto_cu.cu src/kernel/l23_cu.cu src/kernel/spline3_cu.cu
   src/kernel/hist_cu.cu src/kernel/histsp_cu.cu src/kernel/l23r_cu.cu)
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
@@ -99,36 +89,44 @@ target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
 
-add_library(pszutils_cu src/utils/print_gpu.cu src/dryrun.cu)
-target_link_libraries(pszutils_cu PUBLIC pszcompile_settings)
-
-add_library(pszspv_cu src/kernel/spv_gpu.cu src/kernel/l23r_adhoc_cu.cu)
+add_library(pszspv_cu src/kernel/spv_gpu.cu)
 target_link_libraries(pszspv_cu PUBLIC pszcompile_settings)
 
-add_library(pszhfbook_cu src/hf/hf_book1_cu.cu src/hf/hf_book2_cu.cu
-                         src/hf/hf_sort_cu.cu)
-target_link_libraries(pszhfbook_cu PUBLIC pszcompile_settings CUDA::cuda_driver)
-set_target_properties(pszhfbook_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)
-if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
-  message(
-    WARNING
-      "the cuda driver is a stub!! adding --allow-shlib-undefined to fix downstream linking issues"
-  )
-  target_link_options(pszhfbook_cu PUBLIC
-                      $<HOST_LINK:LINKER:--allow-shlib-undefined>)
-endif()
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  # define C/Cxx macro: https://stackoverflow.com/a/9017635
+  add_compile_definitions(ENABLE_HUFFBK_GPU)
+  add_library(pszhfbook_cu src/hf/hf_book1_cu.cu src/hf/hf_book2_cu.cu
+                           src/hf/hf_sort_cu.cu)
+  target_link_libraries(pszhfbook_cu PUBLIC pszcompile_settings
+                                            CUDA::cuda_driver)
+  set_target_properties(pszhfbook_cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+  string(FIND "${CUDA_cuda_driver_LIBRARY}" "stub" CUDA_DRIVER_IS_STUB)
+  if(NOT ${CUDA_DRIVER_IS_STUB} EQUAL -1)
+    message(
+      WARNING
+        "the cuda driver is a stub!! adding --allow-shlib-undefined to fix downstream linking issues"
+    )
+    target_link_options(pszhfbook_cu PUBLIC
+                        $<HOST_LINK:LINKER:--allow-shlib-undefined>)
+  endif()
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+# cmake option on-and-off-cache: https://stackoverflow.com/a/48984477
+# unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 add_library(
-  pszhfbook_ser
-  src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc src/hf/hf_canon.cc 
-  src/archive/canonical.cu src/hf/hf_bk.cc)
+  pszhfbook_ser src/hf/hf_buildtree_impl1.cc src/hf/hf_buildtree_impl2.cc
+                src/hf/hf_canon.cc src/hf/hf_bk.cc)
 target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
 
-add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu
-                     src/hf/hf_stateless_cu.cu)
-target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
-                                      pszhfbook_cu pszhfbook_ser)
+add_library(pszhf_cu src/hf/hf_obj_cu.cu src/hf/hf_codec_cu.cu)
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
+                                        pszhfbook_cu pszhfbook_ser)
+else()
+  target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
+                                        pszhfbook_ser CUDA::cuda_driver)
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+# unset(CUSZ_RESEARCH_HUFFBK_GPU CACHE)
 
 add_library(psz_comp src/compressor.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_cu
@@ -142,7 +140,6 @@ target_link_libraries(
          pszspv_cu
          pszstat_ser
          pszutils_ser
-         pszutils_cu
          pszmem)
 
 add_executable(cusz-bin src/cli_prog.cu src/cli.cu)
@@ -167,15 +164,17 @@ install(TARGETS pszstat_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTA
 install(TARGETS pszstat_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszmem EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszutils_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszutils_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psztime EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszspv_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhfbook_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhf_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_comp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
+if(CUSZ_RESEARCH_HUFFBK_GPU)
+  install(TARGETS pszhfbook_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif(CUSZ_RESEARCH_HUFFBK_GPU)
+
 install(
   EXPORT CUSZTargets
   NAMESPACE CUSZ::

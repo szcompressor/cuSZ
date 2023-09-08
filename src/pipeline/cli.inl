@@ -40,15 +40,44 @@ class CLI {
   template <typename T>
   static void do_dryrun(pszctx* ctx, bool dualquant = true)
   {
-    Dryrunner<T> dryrun;
-
-    uint3 xyz{ctx->x, ctx->y, ctx->z};
     cudaStream_t stream;
     cudaStreamCreate(&stream);
 
-    dryrun.init_dualquant_dryrun(xyz)
-        .dualquant_dryrun(ctx->infile, ctx->eb, ctx->mode == Rel, stream)
-        .destroy_dualquant_dryrun();
+    auto x = ctx->x, y = ctx->y, z = ctx->z;
+    auto eb = ctx->eb;
+    auto r2r = ctx->mode == Rel;
+    auto fname = ctx->infile;
+
+    pszmem_cxx<T>* original = new pszmem_cxx<T>(x, y, z, "original");
+    pszmem_cxx<T>* reconst = new pszmem_cxx<T>(x, y, z, "reconst");
+    original->control({MallocHost, Malloc});
+    reconst->control({MallocHost, Malloc});
+
+    double max, min, rng;
+    auto len = original->len();
+
+    original->debug();
+
+    original->file(fname, FromFile)->control({ASYNC_H2D}, stream);
+    CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
+
+    if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
+
+    psz::cuda_hip_compat::dryrun(
+        len, original->dptr(), reconst->dptr(), eb, stream);
+
+    reconst->control({D2H});
+
+    cusz_stats stat;
+    psz::assess_quality<CPU>(&stat, reconst->hptr(), original->hptr(), len);
+    psz::print_metrics_cross<T>(&stat, 0, true);
+
+    // destroy
+    original->control({FreeHost, Free});
+    reconst->control({FreeHost, Free});
+
+    delete original;
+    delete reconst;
 
     cudaStreamDestroy(stream);
   }

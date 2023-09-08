@@ -19,8 +19,8 @@
 #include "mem/compact_cu.hh"
 #include "rand.hh"
 #include "stat/compare_cpu.hh"
-#include "stat/compare_gpu.hh"
-#include "utils/print_gpu.hh"
+#include "stat/compare_thrust.hh"
+#include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
 #include <thrust/execution_policy.h>
@@ -138,7 +138,7 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     // //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 
-    psz_adhoc_scttr(
+   psz::spv_scatter<T, u4>(
         compact_outlier.val(), compact_outlier.idx(), compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
 
     psz_decomp_l23<T, EQ, FP>(
@@ -150,8 +150,8 @@ bool testcase(size_t const x, size_t const y, size_t const z, double const eb, i
     de_data->control({D2H});
 
     size_t first_non_eb = 0;
-    // bool   error_bounded = psz::thrustgpu_error_bounded<T>(de_data, oridata, len, eb, &first_non_eb);
-    bool error_bounded = psz::cppstd_error_bounded<T>(de_data->hptr(), oridata->hptr(), len, eb, &first_non_eb);
+    // bool   error_bounded = psz::error_bounded<THRUST, T>(de_data, oridata, len, eb, &first_non_eb);
+    bool error_bounded = psz::error_bounded<CPU, T>(de_data->hptr(), oridata->hptr(), len, eb, &first_non_eb);
 
     // psz::eval_dataquality_gpu(oridata->dptr(), de_data->dptr(), len);
 

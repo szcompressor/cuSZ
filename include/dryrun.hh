@@ -4,33 +4,21 @@
 #include "context.h"
 #include "mem/memseg_cxx.hh"
 
-namespace cusz {
+namespace psz {
+namespace cuda_hip_compat {
 
 template <typename T>
-class Dryrunner {
-   public:
-    using BYTE = uint8_t;
+void dryrun(size_t len, T* original, T* reconst, double eb, void* stream);
 
-   private:
-    pszmem_cxx<T>* original;
-    pszmem_cxx<T>* reconst;
+}
+}  // namespace psz
 
-   protected:
-    double eb, max, min, rng;
+namespace psz {
 
-   public:
-    Dryrunner() = default;
-    ~Dryrunner();
-
-    Dryrunner& generic_dryrun(const std::string fname, double eb, int radius, bool r2r, cudaStream_t stream);
-    Dryrunner& dualquant_dryrun(const std::string fname, double eb, bool r2r, cudaStream_t stream);
-
-    Dryrunner& init_generic_dryrun(dim3 size);
-    Dryrunner& destroy_generic_dryrun();
-    Dryrunner& init_dualquant_dryrun(dim3 size);
-    Dryrunner& destroy_dualquant_dryrun();
-};
-
-}  // namespace cusz
+template <typename T>
+void dryrun(
+    const std::string fname, size_t x, size_t y, size_t z, double eb, bool r2r,
+    void* stream);
+}
 
 #endif /* D3610824_7841_4292_99E9_D3F4F57E5C80 */

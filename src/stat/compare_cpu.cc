@@ -10,34 +10,30 @@
  */
 
 #include "detail/compare_cpu.inl"
-#include "stat/compare.h"
 
-#define CPPSTD_COMPARE_LOSSLESS(Tliteral, T)                          \
-    bool cppstd_identical_T##Tliteral(T* d1, T* d2, size_t const len) \
-    {                                                                 \
-        return psz::detail::cppstd_identical<T>(d1, d2, len);         \
-    }
+#include "cusz/type.h"
 
-#define CPPSTD_COMPARE_LOSSY(Tliteral, T)                                                       \
-    bool cppstd_error_bounded_T##Tliteral(                                                      \
-        T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr)      \
-    {                                                                                           \
-        return psz::detail::cppstd_error_bounded<T>(a, b, len, eb, first_faulty_idx);           \
-    }                                                                                           \
-                                                                                                \
-    void cppstd_assess_quality_T##Tliteral(cusz_stats* s, T* xdata, T* odata, size_t const len) \
-    {                                                                                           \
-        psz::detail::cppstd_assess_quality<T>(s, xdata, odata, len);                            \
-    }
+#define INIT_LOSSLESS(T) \
+  template bool psz::cppstd_identical(T* d1, T* d2, size_t const len);
 
-CPPSTD_COMPARE_LOSSLESS(fp32, float)
-CPPSTD_COMPARE_LOSSLESS(fp64, double)
-CPPSTD_COMPARE_LOSSLESS(ui8, uint8_t)
-CPPSTD_COMPARE_LOSSLESS(ui16, uint16_t)
-CPPSTD_COMPARE_LOSSLESS(ui32, uint32_t)
+#define INIT_LOSSY(T)                                \
+  template bool psz::cppstd_error_bounded(           \
+      T* a, T* b, size_t const len, double const eb, \
+      size_t* first_faulty_idx);                     \
+  template void psz::cppstd_assess_quality(          \
+      cusz_stats* s, T* xdata, T* odata, size_t const len);
 
-CPPSTD_COMPARE_LOSSY(fp32, float)
-CPPSTD_COMPARE_LOSSY(fp64, double)
+INIT_LOSSLESS(f4)
+INIT_LOSSLESS(f8)
+INIT_LOSSLESS(u1)
+INIT_LOSSLESS(u2)
+INIT_LOSSLESS(u4)
 
-#undef CPPSTD_COMPARE_LOSSLESS
-#undef CPPSTD_COMPARE_LOSSY
+INIT_LOSSY(f4)
+INIT_LOSSY(f8)
+
+template void psz::cppstd_extrema<f4>(f4* in, szt const len, f4 res[4]);
+template void psz::cppstd_extrema<f8>(f8* in, szt const len, f8 res[4]);
+
+#undef INIT_LOSSLESS
+#undef INIT_LOSSY

@@ -17,12 +17,13 @@
 #include <cstdint>
 #include <memory>
 
+#include "cusz/type.h"
 #include "hf/hf_struct.h"
 #include "mem/memseg_cxx.hh"
 
 namespace cusz {
 
-template <typename T, typename H, typename M = uint32_t>
+template <typename E, typename H, typename M = uint32_t>
 class HuffmanCodec {
  public:
   using BYTE = uint8_t;
@@ -30,7 +31,7 @@ class HuffmanCodec {
 
  private:
   using BOOK = H;
-  using SYM = T;
+  using SYM = E;
 
   // TODO shared header
   struct alignas(128) Header {
@@ -114,8 +115,8 @@ class HuffmanCodec {
   HuffmanCodec* build_codebook(
       pszmem_cxx<uint32_t>*, int const, cudaStream_t = nullptr);
   HuffmanCodec* encode(
-      T*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
-  HuffmanCodec* decode(BYTE*, T*, cudaStream_t = nullptr, bool = true);
+      E*, size_t const, BYTE**, size_t*, cudaStream_t = nullptr);
+  HuffmanCodec* decode(BYTE*, E*, cudaStream_t = nullptr, bool = true);
   HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
   HuffmanCodec* clear_buffer();
 

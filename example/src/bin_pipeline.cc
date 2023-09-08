@@ -20,8 +20,8 @@
 #include "kernel/spline.hh"
 #include "mem/layout_cxx.hh"
 #include "mem/memseg_cxx.hh"
-#include "stat/compare_gpu.hh"
-#include "utils/print_gpu.hh"
+#include "stat/compare_thrust.hh"
+#include "utils/print_arr.hh"
 #include "utils/timer.hh"
 #include "utils/viewer.hh"
 
@@ -285,8 +285,8 @@ void demo_pipeline(
     auto hf_inlen = ectrl_u4->len();
     uint8_t* d_encoded;
 
-    codec.build_codebook(mem->hist(), radius * 2, stream);
-    // codec.build_codebook(mem->ht, radius * 2, stream);
+    // codec.build_codebook(mem->hist(), radius * 2, stream);
+    codec.build_codebook(mem->ht, radius * 2, stream);
     codec.encode(
         ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
     codec.decode(d_encoded, ectrl_u4_decoded->dptr());

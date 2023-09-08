@@ -75,10 +75,10 @@ void spv_scatter(T* d_val, uint32_t* d_idx, int const nnz, T* decoded, float* mi
     template void psz::spv_scatter<T, M>(                                                                            \
         T * d_val, uint32_t * d_idx, int const nnz, T* decoded, float* milliseconds, cudaStream_t stream);
 
-SPV(ui8, ui32, uint8_t, uint32_t)
-SPV(ui16, ui32, uint16_t, uint32_t)
-SPV(ui32, ui32, uint32_t, uint32_t)
-SPV(ui64, ui32, uint64_t, uint32_t)
+// SPV(ui8, ui32, uint8_t, uint32_t)
+// SPV(ui16, ui32, uint16_t, uint32_t)
+// SPV(ui32, ui32, uint32_t, uint32_t)
+// SPV(ui64, ui32, uint64_t, uint32_t)
 SPV(fp32, ui32, float, uint32_t)
 SPV(fp64, ui32, double, uint32_t)
 
