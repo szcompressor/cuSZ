@@ -23,7 +23,7 @@
 #include "utils/format.hh"
 
 namespace cusz {
-const char* VERSION_TEXT = "2023-08-25 (unstable; 0.7)";
+const char* VERSION_TEXT = "2023-08-25 (unstable; 0.8)";
 const int VERSION = 20230817;
 const int COMPATIBILITY = 0;
 }  // namespace cusz
