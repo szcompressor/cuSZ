@@ -91,11 +91,14 @@ void psz::sanitize<T, E, H>::sanitize_hist_out(
   if (all_zero) __PSZDBG__FATAL("[psz::error] histogram outputs all zeros");
 
   cout << "[psz::dbg::hist::out] printing non-zero frequencies" << endl;
-  std::for_each(h_hist, h_hist + bklen, [idx = 0](auto freq) mutable {
-    if (freq != 0)
-      printf(
-          "\e[90m[psz::dbg::hist::out]\e[0m idx=%4d\tfreq=%u\n", idx++, freq);
-  });
+  std::for_each(
+      h_hist, h_hist + bklen, [quantcode = 0, idx2 = 0](auto freq) mutable {
+        if (freq != 0)
+          printf(
+              "\e[90m[psz::dbg::hist_out]\e[0m quantcode=%4d (nonzero %4d-th)\tfreq=%u\n",
+              quantcode, idx2++, freq);
+        quantcode++;
+      });
 }
 
 template struct psz::sanitize<f4, u4, u4>;
