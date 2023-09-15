@@ -18,6 +18,7 @@
 // #include <thrust/iterator/constant_iterator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
 
 #include "cusz/type.h"
 
