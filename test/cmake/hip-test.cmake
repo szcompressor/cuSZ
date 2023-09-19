@@ -43,13 +43,13 @@ add_test(test_l2_cudaproto l2_cudaproto)
 
 add_executable(l2_histsp src/test_l2_histsp_hip.cpp)
 target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_hip
-                                        pszkernel_hip pszkernel_ser pszstat_ser)
+                                        pszkernel_hip pszkernel_seq pszstat_seq)
 add_test(test_l2_histsp l2_histsp)
 
 # Level-3 kernel with configuration (low-level API)
 add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
 target_link_libraries(
-  l3_cuda_pred PRIVATE pszkernel_hip psz_testutils pszstat_ser pszstat_hip
+  l3_cuda_pred PRIVATE pszkernel_hip psz_testutils pszstat_seq pszstat_hip
                        pszmem hip::host)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
@@ -60,11 +60,11 @@ target_link_libraries(
           pszkernel_hip
           psz_testutils
           pszspv_hip
-          pszstat_ser
+          pszstat_seq
           pszstat_hip
           pszmem)
 add_test(test_l3_lorenzosp l3_lorenzosp)
 
 add_executable(statfn src/test_statfn.cc)
 target_link_libraries(statfn PRIVATE psztestcompile_settings psz_testutils
-                                     pszstat_hip pszstat_ser pszmem)
+                                     pszstat_hip pszstat_seq pszmem)

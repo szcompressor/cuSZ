@@ -18,14 +18,14 @@ struct CompactSerial;
 template <typename T>
 struct CompactGpuDram;
 
-#include "compact_ser.hh"
+#include "compact/compact.seq.hh"
 
 #if defined(PSZ_USE_CUDA)
-#include "compact_cu.hh"
+#include "compact/compact.cu.hh"
 #elif defined(PSZ_USE_HIP)
-#include "compact_hip.hh"
+#include "compact/compact.hip.hh"
 #elif defined(PSZ_USE_1API)
-// #include "compact_1api.hh"
+// #include "compact/compact.1api.hh"
 #endif
 
 #endif /* DAB40B13_9236_42A9_8047_49CD896671C9 */

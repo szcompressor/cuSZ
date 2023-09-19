@@ -1,5 +1,5 @@
 /**
- * @file hist_sp.cu
+ * @file histsp.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-#include "detail/histsp_cu.inl"
+#include "detail/histsp.cu_hip.inl"
 #include "kernel/histsp.hh"
 #include "utils/timer.hh"
 

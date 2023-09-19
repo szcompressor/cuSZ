@@ -5,7 +5,7 @@
 // definitions
 #include "detail/t_cuda_pred.inl"
 
-// TODO rename as cuda_hip_compat
+// TODO rename as cu_hip
 
 int main(int argc, char** argv)
 {

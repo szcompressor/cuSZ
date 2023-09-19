@@ -195,8 +195,8 @@ void demo_hist_u4in(
   gpu_optim->control({MallocHost, Malloc});
 
   auto bklen = radius * 2;
-  hist<CPU, E>(false, hist_in->hptr(), hist_in->len(), ser_base->hptr(), bklen, &tcpu_base, stream);
-  hist<CPU, E>(true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen, &tcpu_optim, stream);
+  hist<SEQ, E>(false, hist_in->hptr(), hist_in->len(), ser_base->hptr(), bklen, &tcpu_base, stream);
+  hist<SEQ, E>(true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen, &tcpu_optim, stream);
 
 
   // ----------------------------------------
@@ -319,7 +319,7 @@ void demo_pipeline(
     }
     print_GBps<f4>(len, time_comp_lossless, "decomp_hf_decode");
 
-    auto identical = psz::thrustgpu_identical(
+    auto identical = psz::thrustgpu::thrustgpu_identical(
         ectrl_u4_decoded->dptr(), ectrl_u4->dptr(), sizeof(u4), hf_inlen);
 
     if (identical)

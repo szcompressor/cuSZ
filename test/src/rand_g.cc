@@ -22,7 +22,7 @@
 #include "rand.hh"
 
 template <>
-void psz::testutils::cuda_hip_compat::rand_array<float>(
+void psz::testutils::cu_hip::rand_array<float>(
     float* array_g, size_t len, uint32_t seed)
 {
 #if defined(PSZ_USE_CUDA)
@@ -49,7 +49,7 @@ void psz::testutils::cuda_hip_compat::rand_array<float>(
 }
 
 template <>
-void psz::testutils::cuda_hip_compat::rand_array<double>(
+void psz::testutils::cu_hip::rand_array<double>(
     double* array_g, size_t len, uint32_t seed)
 {
 #if defined(PSZ_USE_CUDA)

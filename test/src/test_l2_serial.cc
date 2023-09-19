@@ -11,7 +11,7 @@
 
 #include "busyheader.hh"
 #include "detail/correctness.inl"
-#include "kernel/detail/l23ser.inl"
+#include "kernel/detail/l23.seq.inl"
 
 using T = float;
 using FP = float;

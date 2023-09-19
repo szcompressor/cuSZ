@@ -13,8 +13,8 @@
 
 #include "kernel/l23.hh"
 #include "mem/memseg_cxx.hh"
-#include "stat/compare_cpu.hh"
-#include "stat/compare_thrust.hh"
+#include "stat/compare/compare.stl.hh"
+#include "stat/compare/compare.thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
@@ -39,7 +39,7 @@ bool f(
   outlier->control({MallocManaged});
   errctrl->control({MallocManaged});
 
-  psz::testutils::cuda_hip_compat::rand_array<T>(oridata->uniptr(), len);
+  psz::testutils::cu_hip::rand_array<T>(oridata->uniptr(), len);
 
   GpuStreamT stream;
   GpuStreamCreate(&stream);
@@ -64,9 +64,9 @@ bool f(
   // psz::peek_data(de_data->uniptr(), 100);
 
   size_t first_non_eb = 0;
-  // bool   error_bounded = psz::thrustgpu_error_bounded<T>(de_data, oridata,
+  // bool   error_bounded = psz::thrustgpu::thrustgpu_error_bounded<T>(de_data, oridata,
   // len, eb, &first_non_eb);
-  bool error_bounded = psz::cppstd_error_bounded<T>(
+  bool error_bounded = psz::cppstl::cppstl_error_bounded<T>(
       de_data->uniptr(), oridata->uniptr(), len, eb, &first_non_eb);
 
   // psz::eval_dataquality_gpu(oridata->uniptr(), de_data->uniptr(), len);

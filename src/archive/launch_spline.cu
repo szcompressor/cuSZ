@@ -11,7 +11,7 @@
 
 #include "detail/hist.inl"
 #include "detail/spline3.inl"
-// #include "hf/hf_codecg.hh"
+// #include "hf/hfcodec.cu.hh"
 // #include "hf/hf_struct.h"
 #include "kernel/claunch_cuda.h"
 #include "kernel/cpplaunch_cuda.hh"

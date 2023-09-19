@@ -41,11 +41,11 @@ enum pszmem_control_stream {
 using pszmem_control = pszmem_control_stream;
 
 #if defined(PSZ_USE_CUDA)
-  #include "memseg_cxx_cu.hh"
+  #include "memseg_cxx/memseg_cxx.cu.hh"
 #elif defined(PSZ_USE_HIP)
-  #include "memseg_cxx_hip.hh"
+  #include "memseg_cxx/memseg_cxx.hip.hh"
 #elif defined(PSZ_USE_1API)
-  // #include "memseg_cxx_1api.hh"
+  // #include "memseg_cxx/memseg_cxx.1api.hh"
 #endif
 
 typedef pszmem_cxx<u1> MemU1;

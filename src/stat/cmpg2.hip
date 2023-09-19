@@ -2,9 +2,9 @@
 #include <thrust/execution_policy.h>
 
 #include "cusz/type.h"
-#include "stat/compare_thrust.hh"
+#include "stat/compare.thrust.hh"
 
-bool psz::thrustgpu_identical(
+bool psz::thrustgpu::thrustgpu_identical(
     void* d1, void* d2, size_t sizeof_T, size_t const len)
 {
   return thrust::equal(

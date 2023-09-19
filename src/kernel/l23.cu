@@ -1,5 +1,5 @@
 /**
- * @file lorenzo.cu
+ * @file l23.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -12,7 +12,7 @@
 #include <cuda_runtime.h>
 
 #include "cusz/type.h"
-#include "detail/l23.inl"
+#include "detail/l23.cu_hip.inl"
 #include "kernel/l23.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"

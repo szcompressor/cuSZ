@@ -30,7 +30,7 @@ void f(szt len, u4 seed)
   in_thrust->control({Malloc, MallocHost});
   in_cuda->control({Malloc, MallocHost});
 
-  psz::testutils::cuda_hip_compat::rand_array(in_cpu->dptr(), in_cpu->len(), seed);
+  psz::testutils::cu_hip::rand_array(in_cpu->dptr(), in_cpu->len(), seed);
 
   in_cpu->control({D2H});
 
@@ -43,7 +43,7 @@ void f(szt len, u4 seed)
 #endif
 
   f4 res_cpu[4], res_thrust[4], res_cuda[4];
-  psz::probe_extrema<CPU>(in_cpu->hptr(), len, res_cpu);
+  psz::probe_extrema<SEQ>(in_cpu->hptr(), len, res_cpu);
 #ifdef REACTIVATE_THRUSTGPU
   psz::probe_extrema<THRUST>(in_thrust->dptr(), len, res_thrust);
 #endif

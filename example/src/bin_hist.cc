@@ -45,8 +45,8 @@ void real_data_test(size_t len, size_t bklen, string fname)
 
   float tbs, tos, tbg, tog;
 
-  hist<CPU, T>(BASE, wn->hptr(), len, bs->hptr(), bklen, &tbs, stream);
-  hist<CPU, T>(OPTIM, wn->hptr(), len, os->hptr(), bklen, &tos, stream);
+  hist<SEQ, T>(BASE, wn->hptr(), len, bs->hptr(), bklen, &tbs, stream);
+  hist<SEQ, T>(OPTIM, wn->hptr(), len, os->hptr(), bklen, &tos, stream);
 
   hist<PROPER_GPU_BACKEND, T>(
       BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
@@ -125,7 +125,7 @@ void dummy_data_test()
 
   float tbs, tos, tbg, tog;
 
-  hist<CPU, T>(OPTIM, wn->hptr(), len, serial->hptr(), bklen, &tos, stream);
+  hist<SEQ, T>(OPTIM, wn->hptr(), len, serial->hptr(), bklen, &tos, stream);
   hist<PROPER_GPU_BACKEND, T>(
       OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream);
   gpu->control({D2H});

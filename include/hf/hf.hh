@@ -18,8 +18,8 @@
 #include <numeric>
 
 #include "cusz/type.h"
-#include "hf/hf_struct.h"
-#include "hf/hf_word.hh"
+#include "hf/hfstruct.h"
+#include "hf/hfword.hh"
 #include "mem/memseg_cxx.hh"
 
 namespace cusz {

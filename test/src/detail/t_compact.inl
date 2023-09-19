@@ -78,7 +78,7 @@ bool f()
 
   float* in;
   GpuMallocManaged(&in, sizeof(float) * len);
-  psz::testutils::cuda_hip_compat::rand_array(in, len);
+  psz::testutils::cu_hip::rand_array(in, len);
 
   CompactGpuDram<float> out_test1;
   out_test1.reserve_space(len / 2).malloc().mallochost();

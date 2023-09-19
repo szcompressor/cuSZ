@@ -1,5 +1,5 @@
 /**
- * @file l32r_cu.cu
+ * @file l23r.cu
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -13,7 +13,7 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "detail/l23r.inl"
+#include "detail/l23r.cu_hip.inl"
 #include "kernel/l23r.hh"
 #include "mem/compact.hh"
 #include "utils/err.hh"

@@ -12,10 +12,10 @@
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "hf/hf.hh"
-#include "hf/hf_bk.hh"
-#include "hf/hf_buildtree_impl2.hh"
-#include "hf/hf_canon.hh"
-#include "hf/hf_word.hh"
+#include "hf/hfbk.hh"
+#include "hf/hfbk_impl.hh"
+#include "hf/hfcanon.hh"
+#include "hf/hfword.hh"
 #include "mem/memseg_cxx.hh"
 
 void printcode_u4(u4 idx, u4* word)
@@ -71,7 +71,7 @@ void hfbook_serial_integrated(string fname, int bklen)
   book->control({MallocHost});
   revbook->control({MallocHost});
 
-  psz::hf_buildbook<CPU, u4, u4>(
+  psz::hf_buildbook<SEQ, u4, u4>(
       hist->hptr(), bklen, book->hptr(), revbook->hptr(), revbook_bytes,
       nullptr);
 
@@ -95,7 +95,7 @@ void hfbook_gpu(string fname, int bklen)
       ->file(fname.c_str(), FromFile)
       ->control({H2D});
 
-  cusz::HuffmanCodec<u4, u4, u4> codec;
+  cusz::HuffmanCodec<u4, u4> codec;
 
   auto fakelen1 = bklen * 100;
   auto fakelen2 = 768;
@@ -103,10 +103,10 @@ void hfbook_gpu(string fname, int bklen)
   codec.init(fakelen1, bklen, fakelen2);
   codec.build_codebook(hist->dptr(), bklen, 0);
 
-  codec.book->control({D2H});
+  codec.bk4->control({D2H});
 
   for (auto i = 0; i < bklen; i++) {
-    auto res = codec.book->hptr(i);
+    auto res = codec.bk4->hptr(i);
     if (res != 0 and res != 0xffffffff) printcode_u4(i, &res);
   }
 }

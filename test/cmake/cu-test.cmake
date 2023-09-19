@@ -51,13 +51,13 @@ add_test(test_l2_cudaproto l2_cudaproto)
 
 add_executable(l2_histsp src/test_l2_histsp.cu)
 target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_cu
-                                        pszkernel_cu pszkernel_ser pszstat_ser)
+                                        pszkernel_cu pszkernel_seq pszstat_seq)
 add_test(test_l2_histsp l2_histsp)
 
 # Level-3 kernel with configuration (low-level API)
 add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
 target_link_libraries(
-  l3_cuda_pred PRIVATE pszkernel_cu psz_testutils pszstat_ser pszstat_cu pszmem
+  l3_cuda_pred PRIVATE pszkernel_cu psz_testutils pszstat_seq pszstat_cu pszmem
                        CUDA::cudart)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
@@ -68,7 +68,7 @@ target_link_libraries(
           pszkernel_cu
           psz_testutils
           pszspv_cu
-          pszstat_ser
+          pszstat_seq
           pszstat_cu
           pszmem)
 add_test(test_l3_lorenzosp l3_lorenzosp)
@@ -77,9 +77,9 @@ if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)
   add_executable(statfn src/test_statfn.cc)
   target_link_libraries(statfn PRIVATE psztestcompile_settings psz_testutils
-                                       pszstat_cu pszstat_ser pszmem)
+                                       pszstat_cu pszstat_seq pszmem)
 else()
   add_executable(statfn src/test_statfn.cc)
   target_link_libraries(statfn PRIVATE psztestcompile_settings psz_testutils
-                                       pszstat_cu pszstat_ser pszmem)
+                                       pszstat_cu pszstat_seq pszmem)
 endif()

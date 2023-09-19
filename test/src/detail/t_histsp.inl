@@ -10,7 +10,7 @@
  */
 
 #include "busyheader.hh"
-#include "kernel/detail/histsp_cu.inl"
+#include "kernel/detail/histsp.cu_hip.inl"
 #include "kernel/hist.hh"
 #include "kernel/histsp.hh"
 #include "mem/memseg_cxx.hh"
@@ -54,7 +54,7 @@ bool test1_debug()
   GpuStreamT stream;
   GpuStreamCreate(&stream);
 
-  psz::histsp<pszpolicy::CPU, T, uint32_t>(
+  psz::histsp<pszpolicy::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   psz::histsp<PROPER_GPU_BACKEND, T, uint32_t>(
@@ -147,7 +147,7 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
 
 
-  psz::histsp<pszpolicy::CPU, T, uint32_t>(
+  psz::histsp<pszpolicy::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   o_gpu->control({D2H});
@@ -261,7 +261,7 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   psz::histogram<PROPER_GPU_BACKEND, T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, stream);
 
-  psz::histsp<pszpolicy::CPU, T, uint32_t>(
+  psz::histsp<pszpolicy::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
   GpuStreamSync(stream);
 

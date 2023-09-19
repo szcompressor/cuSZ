@@ -16,7 +16,7 @@
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "port.hh"
-#include "query_dev_cu_hip.hh"
+#include "query_dev.cu_hip.hh"
 
 struct Diagnostics {
   static std::string ExecShellCommand(const char* cmd)

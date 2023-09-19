@@ -54,8 +54,8 @@ target_include_directories(
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
 
-add_library(pszstat_ser src/stat/compare_cpu.cc)
-target_link_libraries(pszstat_ser PUBLIC pszcompile_settings)
+add_library(pszstat_seq src/stat/compare.stl.cc)
+target_link_libraries(pszstat_seq PUBLIC pszcompile_settings)
 
 add_library(
   pszstat_hip src/stat/extrema.hip src/stat/cmpg2.hip src/stat/cmpg4_1.hip
@@ -63,9 +63,9 @@ add_library(
 target_link_libraries(pszstat_hip PUBLIC pszcompile_settings roc::rocthrust)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(pszkernel_ser src/kernel/l23_ser.cc src/kernel/hist_ser.cc
-                          src/kernel/histsp_ser.cc)
-target_link_libraries(pszkernel_ser PUBLIC pszcompile_settings)
+add_library(pszkernel_seq src/kernel/l23.seq.cc src/kernel/hist.seq.cc
+                          src/kernel/histsp.seq.cc)
+target_link_libraries(pszkernel_seq PUBLIC pszcompile_settings)
 
 add_library(pszkernel_hip src/kernel/l23.hip src/kernel/l23r.hip
                           src/kernel/hist.hip src/kernel/histsp.hip
@@ -75,28 +75,28 @@ target_link_libraries(pszkernel_hip PUBLIC pszcompile_settings)
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_hip.cc)
 target_link_libraries(pszmem PUBLIC pszcompile_settings hip::host)
 
-add_library(pszutils_ser src/utils/vis_stat.cc src/context.cc)
-target_link_libraries(pszutils_ser PUBLIC pszcompile_settings)
+add_library(pszutils_seq src/utils/vis_stat.cc src/context.cc)
+target_link_libraries(pszutils_seq PUBLIC pszcompile_settings)
 
 add_library(pszspv_hip src/kernel/spv.hip)
 target_link_libraries(pszspv_hip PUBLIC pszcompile_settings ${rocthrust_LIBRARIES})
 
 add_library(
-  pszhfbook_ser src/hf/hf_bk_impl1.cc src/hf/hf_bk_impl2.cc
-                src/hf/hf_bk_internal.cc src/hf/hf_bk.cc src/hf/hf_canon.cc)
-target_link_libraries(pszhfbook_ser PUBLIC pszcompile_settings)
+  pszhfbook_seq src/hf/hfbk_impl1.seq.cc src/hf/hfbk_impl2.seq.cc
+                src/hf/hfbk_internal.seq.cc src/hf/hfbk.seq.cc src/hf/hfcanon.seq.cc)
+target_link_libraries(pszhfbook_seq PUBLIC pszcompile_settings)
 
-add_library(pszhf_hip src/hf/hf_obj.hip src/hf/hf_codec.hip)
+add_library(pszhf_hip src/hf/hfclass.hip src/hf/hf_codec.hip)
 target_link_libraries(pszhf_hip PUBLIC pszcompile_settings pszstat_hip
-                                       pszhfbook_ser hip::device)
+                                       pszhfbook_seq hip::device)
 
 add_library(psz_comp src/compressor.cc)
 target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_hip
                                       pszstat_hip pszhf_hip hip::host)
 
 add_library(hipsz src/cusz_lib.cc)
-target_link_libraries(hipsz PUBLIC psz_comp pszhf_hip pszspv_hip pszstat_ser
-                                  pszutils_ser pszmem)
+target_link_libraries(hipsz PUBLIC psz_comp pszhf_hip pszspv_hip pszstat_seq
+                                  pszutils_seq pszmem)
 
 add_executable(hipsz-bin src/cli_hipsz.cpp)
 target_link_libraries(hipsz-bin PRIVATE hipsz)
@@ -114,14 +114,14 @@ endif()
 # installation
 install(TARGETS pszcompile_settings EXPORT CUSZTargets)
 
-install(TARGETS pszkernel_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszkernel_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszkernel_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszstat_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszstat_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszstat_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszmem EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszutils_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszutils_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszspv_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS pszhfbook_ser EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszhfbook_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhf_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psz_comp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS hipsz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

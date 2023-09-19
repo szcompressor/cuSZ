@@ -17,8 +17,7 @@
 #include <thrust/sort.h>
 
 #include "busyheader.hh"
-#include "hf/hf_bookg.hh"
-#include "hf/hf_codecg.hh"
+#include "hf/hfcodec.hh"
 #include "utils/timer.hh"
 
 using std::cout;

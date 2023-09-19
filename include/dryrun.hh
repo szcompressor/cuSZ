@@ -5,7 +5,7 @@
 #include "mem/memseg_cxx.hh"
 
 namespace psz {
-namespace cuda_hip_compat {
+namespace cu_hip {
 
 template <typename T>
 void dryrun(size_t len, T* original, T* reconst, double eb, void* stream);

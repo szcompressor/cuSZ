@@ -21,8 +21,8 @@
 #include "kernel/spv.hh"
 #include "mem/compact.hh"
 #include "mem/memseg_cxx.hh"
-#include "stat/compare_cpu.hh"
-#include "stat/compare_thrust.hh"
+#include "stat/compare/compare.stl.hh"
+#include "stat/compare/compare.thrust.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
@@ -64,7 +64,7 @@ bool testcase(
   CompactGpuDram<T> compact_outlier;
   compact_outlier.reserve_space(len).control({Malloc, MallocHost});
 
-  psz::testutils::cuda_hip_compat::rand_array<T>(oridata->dptr(), len);
+  psz::testutils::cu_hip::rand_array<T>(oridata->dptr(), len);
 
   oridata->control({D2H});
   for (auto i = 0; i < num_of_exaggerated; i++) {
@@ -164,7 +164,7 @@ bool testcase(
   size_t first_non_eb = 0;
   // bool   error_bounded = psz::error_bounded<THRUST, T>(de_data, oridata,
   // len, eb, &first_non_eb);
-  bool error_bounded = psz::error_bounded<CPU, T>(
+  bool error_bounded = psz::error_bounded<SEQ, T>(
       de_data->hptr(), oridata->hptr(), len, eb, &first_non_eb);
 
   // psz::eval_dataquality_gpu(oridata->dptr(), de_data->dptr(), len);

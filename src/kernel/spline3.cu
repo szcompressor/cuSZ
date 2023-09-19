@@ -14,7 +14,7 @@
 #include "cusz/type.h"
 #include "detail/spline3.inl"
 #include "kernel/spline.hh"
-#include "mem/compact_cu.hh"
+#include "mem/compact.hh"
 
 #define SETUP                                                   \
   auto div3 = [](dim3 len, dim3 sublen) {                       \

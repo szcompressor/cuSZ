@@ -30,10 +30,6 @@ struct CompressorHelper {
 template <class TEHM>
 class Compressor {
  public:
-  /* removed, leaving vacancy in pipeline
-   * using FallbackCodec = typename TEHM::FallbackCodec;
-   * using Spcodec = typename TEHM::Spcodec;
-   */
 
   using Codec = typename TEHM::Codec;
   using BYTE = uint8_t;

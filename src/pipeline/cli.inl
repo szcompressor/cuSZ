@@ -1,5 +1,5 @@
 /**
- * @file cli.cuh
+ * @file cli.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -63,13 +63,13 @@ class CLI {
 
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
-    psz::cuda_hip_compat::dryrun(
+    psz::cu_hip::dryrun(
         len, original->dptr(), reconst->dptr(), eb, stream);
 
     reconst->control({D2H});
 
     cusz_stats stat;
-    psz::assess_quality<CPU>(&stat, reconst->hptr(), original->hptr(), len);
+    psz::assess_quality<SEQ>(&stat, reconst->hptr(), original->hptr(), len);
     psz::print_metrics_cross<T>(&stat, 0, true);
 
     // destroy
