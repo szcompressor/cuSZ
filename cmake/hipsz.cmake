@@ -98,7 +98,7 @@ add_library(hipsz src/cusz_lib.cc)
 target_link_libraries(hipsz PUBLIC psz_comp pszhf_hip pszspv_hip pszstat_seq
                                   pszutils_seq pszmem)
 
-add_executable(hipsz-bin src/cli_hipsz.cpp)
+add_executable(hipsz-bin src/cli_psz.cc)
 target_link_libraries(hipsz-bin PRIVATE hipsz)
 set_target_properties(hipsz-bin PROPERTIES OUTPUT_NAME hipsz)
 

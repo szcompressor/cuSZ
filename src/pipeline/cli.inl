@@ -22,7 +22,9 @@
 #include "dryrun.hh"
 #include "mem.hh"
 #include "tehm.hh"
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "utils/analyzer.hh"
+#endif
 #include "utils/err.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
@@ -40,8 +42,13 @@ class CLI {
   template <typename T>
   static void do_dryrun(pszctx* ctx, bool dualquant = true)
   {
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;
     GpuStreamCreate(&stream);
+#elif defined(PSZ_USE_1API)
+    dpct::device_ext& dev_ct1 = dpct::get_current_device();
+    dpct::queue_ptr stream = dev_ct1.create_queue();
+#endif
 
     auto x = ctx->x, y = ctx->y, z = ctx->z;
     auto eb = ctx->eb;
@@ -59,11 +66,19 @@ class CLI {
     original->debug();
 
     original->file(fname, FromFile)->control({ASYNC_H2D}, stream);
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     CHECK_GPU(GpuStreamSync((GpuStreamT)stream));
+#elif defined(PSZ_USE_1API)
+    stream->wait();
+#endif
 
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     psz::cu_hip::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+#elif defined(PSZ_USE_1API)
+    psz::dpcpp::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+#endif
 
     reconst->control({D2H});
 
@@ -78,7 +93,11 @@ class CLI {
     delete original;
     delete reconst;
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamDestroy(stream);
+#elif defined(PSZ_USE_1API)
+    dev_ct1.destroy_queue(stream);
+#endif
   }
 
  private:
@@ -125,12 +144,11 @@ class CLI {
         compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
         &header, (void*)&timerecord, stream);
 
-        printf("\n(c) COMPRESSION REPORT\n");
+    printf("\n(c) COMPRESSION REPORT\n");
 
     if (ctx->report_time)
       TimeRecordViewer::view_timerecord(&timerecord, &header);
-    if (ctx->report_cr)
-      TimeRecordViewer::view_cr(&header);
+    if (ctx->report_cr) TimeRecordViewer::view_cr(&header);
 
     write_compressed_to_disk(
         std::string(ctx->infile) + ".cusza", compressed, compressed_len);
@@ -198,15 +216,24 @@ class CLI {
     cusz_framework* framework = pszdefault_framework();
     cusz_compressor* compressor = cusz_create(framework, F4);
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;
     CHECK_GPU(GpuStreamCreate(&stream));
+#elif defined(PSZ_USE_1API)
+    dpct::device_ext& dev_ct1 = dpct::get_current_device();
+    dpct::queue_ptr stream = dev_ct1.create_queue();
+#endif
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
     if (ctx->task_construct) do_construct(ctx, compressor, stream);
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     if (stream) GpuStreamDestroy(stream);
+#elif defined(PSZ_USE_1API)
+    if (stream) dev_ct1.destroy_queue(stream);
+#endif
   }
 };
 

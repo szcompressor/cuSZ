@@ -76,7 +76,7 @@ void pszmem_host_deepcopy_hip(pszmem* dst, pszmem* src);
 
 void pszmem_malloc_1api(pszmem* m);
 void pszmem_mallochost_1api(pszmem* m);
-void pszmem_mallocmanaged_1api(pszmem* m);
+void pszmem_mallocshared_1api(pszmem* m);
 void pszmem_free_1api(pszmem* m);
 void pszmem_freehost_1api(pszmem* m);
 void pszmem_freeshared_1api(pszmem* m);

@@ -50,7 +50,7 @@ void pszmem_cleardevice_1api(pszmem* m)
   dpct::get_default_queue().memset(m->d, 0x0, m->bytes).wait_and_throw();
 }
 
-void pszmem_mallocmanaged_1api(pszmem* m)
+void pszmem_mallocshared_1api(pszmem* m)
 {
   dpct::device_ext& dev_ct1 = dpct::get_current_device();
   sycl::queue& q_ct1 = dev_ct1.default_queue();
@@ -99,7 +99,7 @@ void pszmem_freehost_1api(pszmem* m)
   }
 }
 
-void pszmem_freemanaged_1api(pszmem* m)
+void pszmem_freeshared_1api(pszmem* m)
 {
   if (m->d_borrowed or m->h_borrowed)
     throw std::runtime_error(

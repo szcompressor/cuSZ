@@ -35,6 +35,4 @@ static void psz_check_gpu_error_impl(
   }
 }
 
-#define CHECK_GPU(ERR) (psz_check_gpu_error_impl(ERR, __FILE__, __LINE__))
-
 #endif /* F7DB8F4D_0B6F_4137_A719_D30533955896 */

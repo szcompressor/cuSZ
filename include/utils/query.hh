@@ -16,7 +16,9 @@
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "port.hh"
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "query_dev.cu_hip.hh"
+#endif
 
 struct Diagnostics {
   static std::string ExecShellCommand(const char* cmd)

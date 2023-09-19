@@ -46,8 +46,8 @@ void dpl_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t len)
 
   // thrustgpu_get_extrema_rawptr(odata, len, odata_res);
   // thrustgpu_get_extrema_rawptr(xdata, len, xdata_res);
-  psz::probe_extrema<CUDA, T>(odata, len, odata_res);
-  psz::probe_extrema<CUDA, T>(xdata, len, xdata_res);
+  psz::probe_extrema<ONEAPI, T>(odata, len, odata_res);
+  psz::probe_extrema<ONEAPI, T>(xdata, len, xdata_res);
 
   auto begin =
       oneapi::dpl::make_zip_iterator(std::make_tuple(p_odata, p_xdata));

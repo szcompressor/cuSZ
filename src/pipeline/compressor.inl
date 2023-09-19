@@ -91,7 +91,7 @@ Compressor<C>* Compressor<C>::compress(
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   len3 = dim3(config->x, config->y, config->z);
 #elif defined(PSZ_USE_1API)
-  len3 = sycl::range<3>(config->z, config->y, config->x);
+  sycl::range<3> len3(config->z, config->y, config->x);
 #endif
 
   BYTE* d_codec_out{nullptr};
@@ -371,7 +371,7 @@ Compressor<C>* Compressor<C>::decompress(
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   len3 = dim3(header->x, header->y, header->z);
 #elif defined(PSZ_USE_1API)
-  len3 = sycl::range<3>(header->z, header->y, header->x);
+  sycl::range<3> len3(header->z, header->y, header->x);
 #endif
 
   // use_fallback_codec = header->byte_vle == 8;

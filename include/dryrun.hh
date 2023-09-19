@@ -11,6 +11,14 @@ template <typename T>
 void dryrun(size_t len, T* original, T* reconst, double eb, void* stream);
 
 }
+
+namespace dpcpp {
+
+template <typename T>
+void dryrun(size_t len, T* original, T* reconst, double eb, void* stream);
+
+}
+
 }  // namespace psz
 
 namespace psz {

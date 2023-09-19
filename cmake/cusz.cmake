@@ -124,7 +124,7 @@ add_library(cusz src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC psz_comp pszhf_cu pszspv_cu pszstat_seq
                                   pszutils_seq pszmem)
 
-add_executable(cusz-bin src/cli_cusz.cc)
+add_executable(cusz-bin src/cli_psz.cc)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 

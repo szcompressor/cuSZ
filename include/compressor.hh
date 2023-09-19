@@ -63,7 +63,7 @@ class Compressor {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   dim3 len3;
 #elif defined(PSZ_USE_1API)
-  sycl::range<3> len3;
+  // othersize defined
 #endif
   size_t len;
   int splen;
@@ -76,7 +76,7 @@ class Compressor {
   pszmempool_cxx<T, E, H>* mem;
 
  public:
-  Compressor() = default;
+  Compressor(){};
   ~Compressor();
 
   // public methods

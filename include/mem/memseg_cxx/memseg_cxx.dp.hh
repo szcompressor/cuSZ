@@ -55,7 +55,8 @@ class pszmem_cxx {
   }
 
   pszmem_cxx* control(
-      std::vector<pszmem_control> control_stream, dpct::queue_ptr stream)
+      std::vector<pszmem_control> control_stream,
+      dpct::queue_ptr stream = nullptr)
   {
     for (auto& c : control_stream) {
       if (c == Malloc)
@@ -63,7 +64,7 @@ class pszmem_cxx {
       else if (c == MallocHost)
         pszmem_mallochost_1api(m);
       else if (c == MallocManaged)
-        pszmem_mallocmanaged_1api(m);
+        pszmem_mallocshared_1api(m);
       else if (c == Free)
         pszmem_free_1api(m);
       else if (c == FreeHost)
@@ -76,12 +77,16 @@ class pszmem_cxx {
         pszmem_cleardevice_1api(m);
       else if (c == H2D)
         pszmem_h2d_1api(m);
-      else if (c == ASYNC_H2D)
+      else if (c == ASYNC_H2D) {
+#warning "[psz::TODO] add exception/nullability"
         pszmem_h2d_1apiasync(m, stream);
+      }
       else if (c == D2H)
         pszmem_d2h_1api(m);
-      else if (c == ASYNC_D2H)
+      else if (c == ASYNC_D2H) {
+#warning "[psz::TODO] add exception/nullability"
         pszmem_d2h_1apiasync(m, stream);
+      }
       else if (c == ExtremaScan)
         extrema_scan(maxval, minval, range);
     }

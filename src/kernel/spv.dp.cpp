@@ -60,15 +60,15 @@ void spv_scatter_dpl(
 
 #define SPECIALIZE_SPV(T, M)                                              \
   template <>                                                             \
-  void psz::spv_gather<CUDA, T, M>(                                       \
+  void psz::spv_gather<ONEAPI, T, M>(                                     \
       T * in, szt const in_len, T* d_val, M* d_idx, int* nnz,             \
       f4* milliseconds, void* q)                                          \
   {                                                                       \
-    psz::spv_gather<CUDA, T, M>(                                          \
+    psz::spv_gather<ONEAPI, T, M>(                                        \
         in, in_len, d_val, d_idx, nnz, milliseconds, (dpct::queue_ptr)q); \
   }                                                                       \
   template <>                                                             \
-  void psz::spv_scatter<CUDA, T, M>(                                      \
+  void psz::spv_scatter<ONEAPI, T, M>(                                    \
       T * d_val, M * d_idx, int const nnz, T* decoded, f4* milliseconds,  \
       void* q)                                                            \
   {                                                                       \
