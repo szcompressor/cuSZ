@@ -16,6 +16,8 @@
 #include "kernel/spline.hh"
 #include "mem/compact.hh"
 
+constexpr int DEFAULT_BLOCK_SIZE = 384;
+
 #define SETUP                                                   \
   auto div3 = [](dim3 len, dim3 sublen) {                       \
     return dim3(                                                \
@@ -41,7 +43,7 @@ void spline3_construct_raw(
 
   constexpr auto SUBLEN_3D = dim3(32, 8, 8);
   constexpr auto SEQ_3D = dim3(1, 8, 1);
-  constexpr auto BLOCK_3D = dim3(256, 1, 1);
+  constexpr auto BLOCK_3D = dim3(DEFAULT_BLOCK_SIZE, 1, 1);
   auto GRID_3D = div3(len3, SUBLEN_3D);
 
   ////////////////////////////////////////
@@ -57,7 +59,7 @@ void spline3_construct_raw(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256>  //
+  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
       <<<GRID_3D, BLOCK_3D, 0, (GpuStreamT)stream>>>         //
       (data, len3, leap3,                                    //
        ectrl, ec_len3, ec_leap3,                             //
@@ -81,7 +83,7 @@ void spline3_reconstruct_raw(
 
   constexpr auto SUBLEN_3D = dim3(32, 8, 8);
   constexpr auto SEQ_3D = dim3(1, 8, 1);
-  constexpr auto BLOCK_3D = dim3(256, 1, 1);
+  constexpr auto BLOCK_3D = dim3(DEFAULT_BLOCK_SIZE, 1, 1);
   auto GRID_3D = div3(len3, SUBLEN_3D);
 
   ////////////////////////////////////////
@@ -97,7 +99,7 @@ void spline3_reconstruct_raw(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>  //
+  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>  //
       <<<GRID_3D, BLOCK_3D, 0, (GpuStreamT)stream>>>         //
       (ectrl, ec_len3, ec_leap3,                             //
        anchor, an_len3, an_leap3,                            //
@@ -133,8 +135,8 @@ int spline_construct(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, 256>  //
-      <<<grid_dim, dim3(256, 1, 1), 0, (GpuStreamT)stream>>>(
+  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
+      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GpuStreamT)stream>>>(
           data->dptr(), data->template len3<dim3>(),
           data->template st3<dim3>(),  //
           ectrl->dptr(), ectrl->template len3<dim3>(),
@@ -168,8 +170,8 @@ int spline_reconstruct(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, 256>   //
-      <<<grid_dim, dim3(256, 1, 1), 0, (GpuStreamT)stream>>>  //
+  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>   //
+      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GpuStreamT)stream>>>  //
       (ectrl->dptr(), ectrl->template len3<dim3>(),
        ectrl->template st3<dim3>(),  //
        anchor->dptr(), anchor->template len3<dim3>(),

@@ -22,6 +22,8 @@
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
+
+#include "cusz/type.h"
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 

@@ -70,7 +70,9 @@ add_library(
   src/kernel/l23.cu
   src/kernel/spline3.cu
   src/kernel/hist.cu
+  src/kernel/hist.seq.cc # workaround
   src/kernel/histsp.cu
+  src/kernel/histsp.seq.cc
   src/kernel/l23r.cu)
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
 

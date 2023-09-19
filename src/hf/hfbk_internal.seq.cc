@@ -14,6 +14,7 @@
 #include "busyheader.hh"
 #include "hf/hfbk_impl.hh"
 #include "hf/hfword.hh"
+#include "log/dbg.hh"
 #include "utils/timer.hh"
 
 // internal data structure
@@ -37,7 +38,9 @@ void NodeStack::push(NodeStack* s, NodeType* n, T path, T len)
     s->saved_length[s->depth - 1] = len;
   }
   else
-    throw std::runtime_error("[psz::err::hf::traverse_stack]: exceeding MAX_DEPTH, stack overflow.");
+    throw std::runtime_error(
+        "[psz::err::hf::traverse_stack]: exceeding MAX_DEPTH, stack "
+        "overflow.");
 }
 
 NodeStackTpl template <typename T>
@@ -69,32 +72,40 @@ NodeStackTpl template <typename H>
 void NodeStack::inorder_traverse(NodeType* root, H* book)
 {
   auto is_empty = [&](NodeStack* s) -> bool { return (s->depth == 0); };
+  using PW = PackedWordByWidth<sizeof(H)>;
+  constexpr auto MAX_LEN = PW::FIELDWIDTH_word;
 
   auto s = new NodeStack();
+  auto p = root;
 
   bool done = 0;
   H out1 = 0, len = 0;
 
-  while (not done) {
-    if (root->left or root->right) {
-      push(s, root, out1, len);
-      root = root->left;
+  while (not done and p != nullptr) {
+    if (p->left or p->right) {
+      push(s, p, out1, len);
+      p = p->left;
       out1 <<= 1u;
       out1 |= 0u;
       len += 1;
+
+      if (len > MAX_LEN)
+        __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
     }
     else {
-      u4 symbol = root->symbol;
-      book[symbol] =
-          out1 |
-          ((len & (H)0xffu)
-           << (sizeof(H) * 8 - PackedWordByWidth<sizeof(H)>::FIELDWIDTH_bits));
-      if (!is_empty(s)) {
-        root = pop(s, &out1, &len);
-        root = root->right;
+      u4 symbol = p->symbol;
+      book[symbol] = out1;
+      reinterpret_cast<PW*>(&book[symbol])->bits = len;
+
+      if (not is_empty(s)) {
+        p = pop(s, &out1, &len);
+        p = p->right;
         out1 <<= 1u;
         out1 |= 1u;
         len += 1;
+
+        if (len > MAX_LEN)
+          __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
       }
       else
         done = true;
