@@ -98,6 +98,8 @@ typedef enum cusz_predictortype  //
 { Lorenzo = 0,
   Spline = 1 } cusz_predictortype;
 typedef cusz_predictortype pszpredictor_type;
+typedef cusz_predictortype pszpred_type;
+typedef cusz_predictortype pszpred;
 
 typedef enum cusz_preprocessingtype  //
 { FP64toFP32 = 0,
@@ -107,8 +109,8 @@ typedef enum cusz_preprocessingtype  //
   Binning2x1,
   Binning1x2,
 } cusz_preprocessingtype;
-typedef cusz_preprocessingtype psz_preprocess;
-typedef cusz_preprocessingtype pszpreprocess;
+typedef cusz_preprocessingtype pszprep_type;
+typedef cusz_preprocessingtype pszprep;
 
 typedef enum cusz_codectype  //
 { Huffman = 0,

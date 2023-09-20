@@ -108,6 +108,7 @@ Compressor<C>* Compressor<C>::compress(
     header.vle_pardeg = pardeg;
     header.splen = splen;
     header.pred_type = config->pred_type;
+    header.dtype = PszType<T>::type;
     // header.byte_vle = use_fallback_codec ? 8 : 4;
   };
 
@@ -231,7 +232,7 @@ Compressor<C>* Compressor<C>::merge_subfiles(
         (GpuStreamT)stream));
   };
 
-  header.self_bytes = sizeof(Header);
+  // header.self_bytes = sizeof(Header);
 
   ////////////////////////////////////////////////////////////////
   nbyte[Header::HEADER] = sizeof(Header);

@@ -10,18 +10,18 @@
  *
  */
 
-// 22-11-20 would fail in cxxapi.cu if deleted
-
 #ifndef C6EF99AE_F0D7_485B_ADE4_8F55666CA96C
 #define C6EF99AE_F0D7_485B_ADE4_8F55666CA96C
 
 #include <algorithm>
+#include <iomanip>
 
+#include "cusz/type.h"
 #include "header.h"
 #include "mem/memseg_cxx.hh"
+#include "port.hh"
 #include "stat/compare/compare.thrust.hh"
 #include "verify.hh"
-#include "port.hh"
 
 namespace psz {
 
@@ -88,7 +88,8 @@ static void eval_dataquality_gpu(
 {
   // cross
   auto stat_x = new cusz_stats;
-  psz::thrustgpu::thrustgpu_assess_quality<T>(stat_x, reconstructed, origin, len);
+  psz::thrustgpu::thrustgpu_assess_quality<T>(
+      stat_x, reconstructed, origin, len);
   print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new cusz_stats;
@@ -213,9 +214,11 @@ struct TimeRecordViewer {
     });
     return total;
   }
+
   static void view_compression(
       timerecord_t r, size_t bytes, size_t compressed_bytes = 0)
   {
+#warning "[TODO] view_compression is deprecated, use review_compression(...) instead"
     auto report_cr = [&]() {
       auto cr = 1.0 * bytes / compressed_bytes;
       if (compressed_bytes != 0)
@@ -255,6 +258,115 @@ struct TimeRecordViewer {
       psz_utils::println_throughput(std::get<0>(i), std::get<1>(i), bytes);
 
     printf("\n");
+  }
+
+  // [TODO] not a part of TimeRecordViewer
+  static void view_cr(pszheader* h)
+  {
+    // [TODO] put error status
+    if (h->dtype != F4 and h->dtype != F8)
+      cout << "[psz::log::fatal_error] original length is is zero." << endl;
+
+    auto comp_bytes = [&]() {
+      auto END = sizeof(h->entry) / sizeof(h->entry[0]);
+      return h->entry[END - 1];
+    };
+
+    auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
+    auto uncomp_bytes = h->x * h->y * h->z * sizeof_T();
+    auto fieldsize = [&](auto FIELD) {
+      return h->entry[FIELD + 1] - h->entry[FIELD];
+    };
+    auto __print = [&](auto str, auto num) {
+      cout << "  ";
+      cout << std::left;
+      cout << std::setw(28) << str;
+      cout << std::right;
+      cout << std::setw(10) << num;
+      cout << '\n';
+    };
+    auto __print_perc = [&](auto str, auto num) {
+      auto perc = num * 100.0 / comp_bytes();
+      cout << "  ";
+      cout << std::left;
+      cout << std::setw(28) << str;
+      cout << std::right;
+      cout << std::setw(10) << num;
+      cout << std::setw(10) << std::setprecision(3) << std::fixed << perc
+           << "%\n";
+    };
+    auto __newline = []() { cout << '\n'; };
+
+    if (comp_bytes() != 0) {
+      auto cr = 1.0 * uncomp_bytes / comp_bytes();
+      __newline();
+      __print("psz::comp::review::CR", cr);
+    }
+    else {
+      cout << "[psz::log::fatal_error] compressed len is zero." << endl;
+    }
+
+    __print("original::bytes", uncomp_bytes);
+    __print("original::bytes", uncomp_bytes);
+    __print("compressed::bytes", comp_bytes());
+    __newline();
+    __print_perc("compressed::total::bytes", comp_bytes());
+    printf("  ------------------------\n");
+    __print_perc("compressed::HEADER::bytes", sizeof(pszheader));
+    __print_perc("compressed::ANCHOR::bytes", fieldsize(pszheader::ANCHOR));
+    __print_perc("compressed::VLE::bytes", fieldsize(pszheader::VLE));
+    __print_perc("compressed::SPFMT::bytes", fieldsize(pszheader::SPFMT));
+    __newline();
+    __print(
+        "compressed::ANCHOR:::len", fieldsize(pszheader::ANCHOR) / sizeof_T());
+    __print(
+        "compressed::OUTLIER:::len",
+        fieldsize(pszheader::SPFMT) / (sizeof_T() + sizeof(uint32_t)));
+  }
+
+  static void view_timerecord(timerecord_t r, pszheader* h)
+  {
+    auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
+    auto uncomp_bytes = h->x * h->y * h->z * sizeof_T();
+
+    TimeRecord reflow;
+
+    {  // reflow
+      TimeRecordTuple book_tuple;
+
+      auto total_time = get_total_time(r);
+      auto subtotal_time = total_time;
+
+      for (auto& i : *r) {
+        auto item = std::string(std::get<0>(i));
+        if (item == "book") {
+          book_tuple = i;
+          subtotal_time -= std::get<1>(i);
+        }
+        else {
+          reflow.push_back(i);
+        }
+      }
+      reflow.push_back({const_cast<const char*>("(subtotal)"), subtotal_time});
+      printf("\e[2m");
+      reflow.push_back(book_tuple);
+      reflow.push_back({const_cast<const char*>("(total)"), total_time});
+      printf("\e[0m");
+    }
+
+    psz_utils::println_throughput_tablehead();
+    for (auto& i : reflow)
+      psz_utils::println_throughput(
+          std::get<0>(i), std::get<1>(i), uncomp_bytes);
+
+    printf("\n");
+  }
+
+  static void review_compression(timerecord_t r, pszheader* h)
+  {
+    printf("\n(c) COMPRESSION REPORT\n");
+    view_cr(h);
+    view_timerecord(r, h);
   }
 
   static void view_decompression(timerecord_t r, size_t bytes)

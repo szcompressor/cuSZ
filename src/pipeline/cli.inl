@@ -63,8 +63,7 @@ class CLI {
 
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
-    psz::cu_hip::dryrun(
-        len, original->dptr(), reconst->dptr(), eb, stream);
+    psz::cu_hip::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
 
     reconst->control({D2H});
 
@@ -118,11 +117,6 @@ class CLI {
 
     TimeRecord timerecord;
 
-    // pszrc* config = new pszrc{
-    //     .eb = ctx->eb,
-    //     .mode = Rel,
-    //     .pred_type = ctx->pred_type,
-    //     .est_cr = ctx->report_cr_est};
     pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
     psz_compress_init(compressor, uncomp_len, ctx);
@@ -131,9 +125,13 @@ class CLI {
         compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
         &header, (void*)&timerecord, stream);
 
+        printf("\n(c) COMPRESSION REPORT\n");
+
     if (ctx->report_time)
-      TimeRecordViewer::view_compression(
-          &timerecord, input->m->bytes, compressed_len);
+      TimeRecordViewer::view_timerecord(&timerecord, &header);
+    if (ctx->report_cr)
+      TimeRecordViewer::view_cr(&header);
+
     write_compressed_to_disk(
         std::string(ctx->infile) + ".cusza", compressed, compressed_len);
 

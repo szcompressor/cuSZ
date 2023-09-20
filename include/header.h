@@ -29,17 +29,16 @@ typedef struct alignas(128) cusz_header {
   static const int ANCHOR = 1;
   static const int VLE = 2;
   static const int SPFMT = 3;
-
   static const int END = 4;
 
-  uint32_t self_bytes : 16;
-  uint32_t fp : 1;
+  // uint32_t self_bytes : 16;
+  // uint32_t fp : 1;
   uint32_t byte_vle : 4;           // 4, 8
   uint32_t nz_density_factor : 8;  // TODO configurate it
   uint32_t codecs_in_use : 2;
   uint32_t vle_pardeg;
   uint32_t x, y, z, w;
-  // uint32_t acx, acy, acz;
+  pszdtype dtype;
   double eb;
   uint32_t radius : 16;
   int splen;
@@ -48,12 +47,9 @@ typedef struct alignas(128) cusz_header {
 
   pszpredictor_type pred_type;
 
-  // uint32_t byte_uncompressed : 4;  // T; 1, 2, 4, 8
-  // uint32_t byte_errctrl : 3;       // 1, 2, 4
-  // uint32_t byte_meta : 4;          // 4, 8
-  // uint32_t ndim : 3;               // 1,2,3,4
-  // size_t   data_len;
-  // size_t   errctrl_len;
+  // uint32_t byte_uncomp : 4;   // T; 1, 2, 4, 8
+  // uint32_t byte_errctrl : 3;  // 1, 2, 4
+  // uint32_t byte_meta : 4;     // 4, 8
 
 } cusz_header;
 typedef cusz_header pszheader;
