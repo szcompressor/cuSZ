@@ -13,6 +13,7 @@
 #define F712F74C_7488_4445_83EE_EE7F88A64BBA
 
 #include <cuda_runtime.h>
+
 #include <stdexcept>
 
 #include "mem/memseg_cxx.hh"
@@ -85,8 +86,6 @@ struct CompactGpuDram {
       throw std::runtime_error(
           "[psz::err::compact] Too many outliers exceed the maximum allocated "
           "buffer.");
-    // else
-    //   printf("[psz::dbg::compact] num outliers: %d\tmaximum allowed: %zu\n", h_num, reserved_len);
 
     return *this;
   }

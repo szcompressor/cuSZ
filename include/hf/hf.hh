@@ -149,7 +149,7 @@ class HuffmanCodec {
   HuffmanCodec* clear_buffer();
 
   // analysis
-  void calculate_CR(MemU4* ectrl, szt sizeof_dtype = 4);
+  void calculate_CR(MemU4* ectrl, szt sizeof_dtype = 4, szt overhead_bytes = 0);
 
  private:
   void __hf_merge(

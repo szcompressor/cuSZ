@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <type_traits>
+#include "cusz/type.h"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
@@ -40,8 +41,8 @@
 #define GDY gridDim.y
 #define GDZ gridDim.z
 
-using DIM     = unsigned int;
-using STRIDE  = unsigned int;
+using DIM     = u4;
+using STRIDE  = u4;
 using DIM3    = dim3;
 using STRIDE3 = dim3;
 
@@ -61,7 +62,10 @@ template <
     typename TITER,
     typename EITER,
     typename FP            = float,
-    int  LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+    int  LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE, 
+    typename CompactVal = TITER,
+    typename CompactIdx = uint32_t*,
+    typename CompactNum = uint32_t*>
 __global__ void c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
@@ -71,6 +75,9 @@ __global__ void c_spline3d_infprecis_32x8x8data(
     STRIDE3 ectrl_leap,
     TITER   anchor,
     STRIDE3 anchor_leap,
+    CompactVal cval,
+    CompactIdx cidx,
+    CompactNum cn,
     FP      eb_r,
     FP      ebx2,
     int     radius);
@@ -289,8 +296,6 @@ __device__ void global2shmem_33x9x9data(T1* data, DIM3 data_size, STRIDE3 data_l
         auto gz  = (z + BIZ * BLOCK8);
         auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
-
-
         if (gx < data_size.x and gy < data_size.y and gz < data_size.z) s_data[z][y][x] = data[gid];
 /*
         if(BIX == 7 and BIY == 47 and BIZ == 15 and x==10 and y==8 and z==4){
@@ -304,10 +309,30 @@ __device__ void global2shmem_33x9x9data(T1* data, DIM3 data_size, STRIDE3 data_l
     __syncthreads();
 }
 
+
+template <typename T = float, typename E = u4, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+__device__ void global2shmem_fuse(E* ectrl, dim3 ectrl_size, dim3 ectrl_leap, T* scattered_outlier, volatile T s_ectrl[9][9][33])
+{
+    constexpr auto TOTAL = 33 * 9 * 9;
+
+    for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+        auto x   = (_tix % 33);
+        auto y   = (_tix / 33) % 9;
+        auto z   = (_tix / 33) / 9;
+        auto gx  = (x + BIX * BLOCK32);
+        auto gy  = (y + BIY * BLOCK8);
+        auto gz  = (z + BIZ * BLOCK8);
+        auto gid = gx + gy * ectrl_leap.y + gz * ectrl_leap.z;
+
+        if (gx < ectrl_size.x and gy < ectrl_size.y and gz < ectrl_size.z) s_ectrl[z][y][x] = static_cast<T>(ectrl[gid]) + scattered_outlier[gid];
+    }
+    __syncthreads();
+}
+
 // dram_outlier should be the same in type with shared memory buf
-template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE, bool WITH_COMPACT = false>
+template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void
-shmem2global_32x8x8data(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, T1* dram_outlier = nullptr, uint32_t* dram_idx = nullptr)
+shmem2global_32x8x8data(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap)
 {
     auto x_size=BLOCK32+(BIX==GDX-1);
     auto y_size=BLOCK8+(BIY==GDY-1);
@@ -337,11 +362,48 @@ shmem2global_32x8x8data(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size
     __syncthreads();
 }
 
+
+// dram_outlier should be the same in type with shared memory buf
+template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+__device__ void
+shmem2global_32x8x8data_with_compaction(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, int radius, T1* dram_compactval = nullptr, uint32_t* dram_compactidx = nullptr, uint32_t* dram_compactnum = nullptr)
+{
+    auto x_size = BLOCK32 + (BIX == GDX-1);
+    auto y_size = BLOCK8 + (BIY == GDY-1);
+    auto z_size = BLOCK8 + (BIZ == GDZ-1);
+    auto TOTAL = x_size * y_size * z_size;
+
+    for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+        auto x   = (_tix % x_size);
+        auto y   = (_tix / x_size) % y_size;
+        auto z   = (_tix / x_size) / y_size;
+        auto gx  = (x + BIX * BLOCK32);
+        auto gy  = (y + BIY * BLOCK8);
+        auto gz  = (z + BIZ * BLOCK8);
+        auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
+
+        auto candidate = s_buf[z][y][x];
+        bool quantizable = (candidate >= 0) and (candidate < 2*radius);
+
+        if (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z) {
+            // TODO this is for algorithmic demo by reading from shmem
+            // For performance purpose, it can be inlined in quantization
+            dram_buf[gid] = quantizable * static_cast<T2>(candidate);
+
+            if (not quantizable) {
+                auto cur_idx = atomicAdd(dram_compactnum, 1);
+                dram_compactidx[cur_idx] = gid;
+                dram_compactval[cur_idx] = candidate;
+            }
+        }
+    }
+    __syncthreads();
+}
+
 template <
     typename T1,
     typename T2,
     typename FP,
-    
     typename LAMBDAX,
     typename LAMBDAY,
     typename LAMBDAZ,
@@ -684,14 +746,6 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
         }
     };
 
-
-
-    
-
-
-
-    
-
     // iteration 1
     /*
     auto colors_0={false,false,false};
@@ -859,7 +913,7 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
  * host API/kernel
  ********************************************************************************/
 
-template <typename TITER, typename EITER, typename FP, int LINEAR_BLOCK_SIZE>
+template <typename TITER, typename EITER, typename FP, int LINEAR_BLOCK_SIZE, typename CompactVal, typename CompactIdx, typename CompactNum>
 __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
@@ -869,6 +923,9 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     STRIDE3 ectrl_leap,
     TITER   anchor,
     STRIDE3 anchor_leap,
+    CompactVal compact_val,
+    CompactIdx compact_idx,
+    CompactNum compact_num,
     FP      eb_r,
     FP      ebx2,
     int     radius)
@@ -888,7 +945,9 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
         //    printf("reset\n");
         //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
         //    printf("dsz: %d %d %d\n",data_size.x,data_size.y,data_size.z);
+
         global2shmem_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, shmem.data);
+
        // if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
         //    printf("g2s\n");
         // version 1, use shmem, erroneous
@@ -902,7 +961,14 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
         //    printf("interp\n");
         //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
          //   printf("esz: %d %d %d\n",ectrl_size.x,ectrl_size.y,ectrl_size.z);
-        shmem2global_32x8x8data<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap);
+
+
+        //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
+
+        shmem2global_32x8x8data_with_compaction<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap, radius, compact_val, compact_idx, compact_num);
+
+        // shmem2global_32x8x8data<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap);
+
         //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
         //    printf("s2g\n");
     }
@@ -937,9 +1003,13 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     } shmem;
 
     x_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, shmem.ectrl, anchor, anchor_size, anchor_leap);
+
     //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
     //        printf("esz: %d %d %d\n",ectrl_size.x,ectrl_size.y,ectrl_size.z);
-    global2shmem_33x9x9data<E, T, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, shmem.ectrl);
+
+    // global2shmem_33x9x9data<E, T, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, shmem.ectrl);
+    global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, data, shmem.ectrl);
+
     cusz::device_api::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
         shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius);
     //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)

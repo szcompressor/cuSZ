@@ -33,86 +33,6 @@ constexpr int DEFAULT_BLOCK_SIZE = 384;
       return 3;                                                 \
   };
 
-template <typename T, typename E, typename FP, bool NO_R_SEPARATE>
-void spline3_construct_raw(
-    T* data, dim3 const len3, T* anchor, dim3 const an_len3, E* ectrl,
-    dim3 const ec_len3, double const eb, int const radius, float& time_elapsed,
-    void* stream)
-{
-  SETUP;
-
-  constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-  constexpr auto SEQ_3D = dim3(1, 8, 1);
-  constexpr auto BLOCK_3D = dim3(DEFAULT_BLOCK_SIZE, 1, 1);
-  auto GRID_3D = div3(len3, SUBLEN_3D);
-
-  ////////////////////////////////////////
-
-  auto ebx2 = eb * 2;
-  auto eb_r = 1 / eb;
-  auto leap3 = dim3(1, len3.x, len3.x * len3.y);
-  auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
-  auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
-
-  auto d = ndim();
-
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(stream);
-
-  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
-      <<<GRID_3D, BLOCK_3D, 0, (GpuStreamT)stream>>>         //
-      (data, len3, leap3,                                    //
-       ectrl, ec_len3, ec_leap3,                             //
-       anchor, an_leap3,                                     //
-       eb_r, ebx2, radius);
-
-  STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
-
-  TIME_ELAPSED_GPUEVENT(&time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
-}
-
-template <typename T, typename E, typename FP>
-void spline3_reconstruct_raw(
-    T* xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* ectrl,
-    dim3 const ec_len3, double const eb, int const radius, float& time_elapsed,
-    void* stream)
-{
-  SETUP;
-
-  constexpr auto SUBLEN_3D = dim3(32, 8, 8);
-  constexpr auto SEQ_3D = dim3(1, 8, 1);
-  constexpr auto BLOCK_3D = dim3(DEFAULT_BLOCK_SIZE, 1, 1);
-  auto GRID_3D = div3(len3, SUBLEN_3D);
-
-  ////////////////////////////////////////
-
-  auto ebx2 = eb * 2;
-  auto eb_r = 1 / eb;
-  auto leap3 = dim3(1, len3.x, len3.x * len3.y);
-  auto ec_leap3 = dim3(1, ec_len3.x, ec_len3.x * ec_len3.y);
-  auto an_leap3 = dim3(1, an_len3.x, an_len3.x * an_len3.y);
-
-  auto d = ndim();
-
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(stream);
-
-  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>  //
-      <<<GRID_3D, BLOCK_3D, 0, (GpuStreamT)stream>>>         //
-      (ectrl, ec_len3, ec_leap3,                             //
-       anchor, an_len3, an_leap3,                            //
-       xdata, len3, leap3,                                   //
-       eb_r, ebx2, radius);
-
-  STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
-
-  TIME_ELAPSED_GPUEVENT(&time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
-}
-
 template <typename T, typename E, typename FP>
 int spline_construct(
     pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl,
@@ -141,7 +61,8 @@ int spline_construct(
           data->template st3<dim3>(),  //
           ectrl->dptr(), ectrl->template len3<dim3>(),
           ectrl->template st3<dim3>(),  //
-          anchor->dptr(), anchor->template st3<dim3>(), eb_r, ebx2, radius);
+          anchor->dptr(), anchor->template st3<dim3>(), ot->val(), ot->idx(),
+          ot->num(), eb_r, ebx2, radius);
 
   STOP_GPUEVENT_RECORDING(stream);
   CHECK_GPU(GpuStreamSync(stream));

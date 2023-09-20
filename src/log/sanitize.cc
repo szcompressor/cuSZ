@@ -51,7 +51,7 @@ void psz::sanitize<T, E, H>::sanitize_quantcode(
   }
   else {
     __PSZLOG__STATUS_SANITIZE
-    __PSZLOG__P("hist-input codes all valid")
+    __PSZLOG__P("Quantization codes (the hist input) are all valid.")
   }
 }
 

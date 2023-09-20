@@ -36,9 +36,6 @@
 
 #define __PSZDBG__INFO(STR) \
   {                         \
-    __PSZLOG__NEWLINE;      \
-    __PSZLOG__STATUS_DBG;   \
-    __PSZLOG__WHERE_CALLED; \
     __PSZLOG__STATUS_DBG;   \
     cout << STR << endl;    \
   }
