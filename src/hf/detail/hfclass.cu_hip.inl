@@ -362,7 +362,7 @@ TPL void HF_CODEC::__hf_merge(
 
   constexpr auto D2D = GpuMemcpyD2D;
 
-  header.self_bytes = sizeof(Header);
+  // header.self_bytes = sizeof(Header);
   header.bklen = bklen;
   header.sublen = sublen;
   header.pardeg = pardeg;

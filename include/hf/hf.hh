@@ -50,7 +50,7 @@ class HuffmanCodec {
     static const int BITSTREAM = 4;
     static const int END = 5;
 
-    int self_bytes : 16;
+    // int self_bytes : 16;
     int bklen : 16;
     int sublen;
     int pardeg;
