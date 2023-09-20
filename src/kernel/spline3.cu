@@ -1,11 +1,12 @@
 /**
  * @file spline3.cu
- * @author Jiannan Tian
+ * @author Jinyang Liu, Shixun Wu, Jiannan Tian
  * @brief A high-level Spline3D wrapper. Allocations are explicitly out of
  * called functions.
  * @version 0.3
  * @date 2021-06-15
  *
+ * (copyright to be updated)
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
  */

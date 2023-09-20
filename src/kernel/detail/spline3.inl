@@ -1,10 +1,11 @@
 /**
  * @file spline3.inl
- * @author Jiannan Tian
+ * @author Jinyang Liu, Shixun Wu, Jiannan Tian
  * @brief
  * @version 0.2
  * @date 2021-05-15
  *
+ * (copyright to be updated)
  * (C) 2021 by Washington State University, Argonne National Laboratory
  *
  */
