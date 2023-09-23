@@ -26,53 +26,23 @@ struct psztime;
 typedef struct psztime psztime;
 typedef struct psztime psz_cputimer;
 
+#include "timer/timer.noarch.hh"
+
 #if defined(PSZ_USE_CUDA)
 
-// -------------------------------------
-#define CREATE_GPUEVENT_PAIR \
-  cudaEvent_t a, b;          \
-  cudaEventCreate(&a);       \
-  cudaEventCreate(&b);
-
-#define DESTROY_GPUEVENT_PAIR \
-  cudaEventDestroy(a);        \
-  cudaEventDestroy(b);
-
-#define START_GPUEVENT_RECORDING(STREAM) \
-  cudaEventRecord(a, (cudaStream_t)STREAM);
-#define STOP_GPUEVENT_RECORDING(STREAM)     \
-  cudaEventRecord(b, (cudaStream_t)STREAM); \
-  cudaEventSynchronize(b);
-
-#define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
-  cudaEventElapsedTime(PTR_MILLISEC, a, b);
-// -------------------------------------
+#include "timer/timer.cu.hh"
 
 #elif defined(PSZ_USE_HIP)
 
-// -------------------------------------
-#define CREATE_GPUEVENT_PAIR \
-  hipEvent_t a, b;           \
-  hipEventCreate(&a);        \
-  hipEventCreate(&b);
-
-#define DESTROY_GPUEVENT_PAIR \
-  hipEventDestroy(a);         \
-  hipEventDestroy(b);
-
-#define START_GPUEVENT_RECORDING(STREAM) \
-  hipEventRecord(a, (hipStream_t)STREAM);
-#define STOP_GPUEVENT_RECORDING(STREAM)   \
-  hipEventRecord(b, (hipStream_t)STREAM); \
-  hipEventSynchronize(b);
-
-#define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
-  hipEventElapsedTime(PTR_MILLISEC, a, b);
-// -------------------------------------
+#include "timer/timer.hip.hh"
 
 #elif defined(PSZ_USE_1API)
-// TODO
+
+#include "timer/timer.dp.hh"
+
 #endif
+
+#if defined(__FUTURE)
 
 typedef struct Timer {
   hires_clock_t start, end;
@@ -204,6 +174,7 @@ float TimeThisCUDARoutine(F func, kernelcfg cfg, Args&&... args)
   return milliseconds;
 }
 
+#endif
 #endif
 
 #endif  // UTILS_TIMER_HH
