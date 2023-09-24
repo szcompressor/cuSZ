@@ -27,7 +27,7 @@ template <pszpolicy P, typename T>
 bool identical(T* d1, T* d2, size_t const len)
 {
   if (P == SEQ)
-    psz::cppstl::cppstl_identical(d1, d2, len);
+    psz::cppstl_identical(d1, d2, len);
   else if (P == THRUST)
     thrustgpu_identical(d1, d2, len);
   else {
@@ -38,7 +38,7 @@ bool identical(T* d1, T* d2, size_t const len)
 template <pszpolicy P, typename T>
 void probe_extrema(T* in, size_t len, T res[4])
 {
-  if (P == SEQ) psz::cppstl::cppstl_extrema(in, len, res);
+  if (P == SEQ) psz::cppstl_extrema(in, len, res);
 #ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
     thrustgpu::thrustgpu_get_extrema_rawptr(in, len, res);
@@ -56,7 +56,7 @@ bool error_bounded(
     size_t* first_faulty_idx = nullptr)
 {
   bool eb_ed = true;
-  if (P == SEQ) eb_ed = psz::cppstl::cppstl_error_bounded(a, b, len, eb, first_faulty_idx);
+  if (P == SEQ) eb_ed = psz::cppstl_error_bounded(a, b, len, eb, first_faulty_idx);
 #ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
     eb_ed = psz::thrustgpu::thrustgpu_error_bounded(a, b, len, eb, first_faulty_idx);
@@ -70,9 +70,9 @@ template <pszpolicy P, typename T>
 void assess_quality(pszsummary* s, T* xdata, T* odata, size_t const len)
 {
   if (P == SEQ)
-    psz::cppstl::cppstl_assess_quality(s, xdata, odata, len);
+    psz::cppstl_assess_quality(s, xdata, odata, len);
   else if (P == THRUST)
-    psz::thrustgpu::thrustgpu_assess_quality(s, xdata, odata, len);
+    psz::thrustgpu_assess_quality(s, xdata, odata, len);
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }

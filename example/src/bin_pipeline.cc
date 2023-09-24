@@ -27,17 +27,17 @@
 
 int g_splen;
 
-#define PRINT_STATUS                                                      \
-  {                                                                       \
-    printf("\033[1mfname=\033[0m\"%s\"\n", ifn);                          \
-    printf("\033[1m(x, y, z)=\033[0m(%lu, %lu, %lu)\n", x, y, z);         \
-    printf(                                                               \
-        "\033[1m(eb, mode, radius)=\033[0m(%lf, %s, %d)\n", eb,           \
-        mode == REL ? "REL" : "ABS", radius);                             \
-    printf(                                                               \
-        "\033[1mpredictor=\033[0m%s\n",                                   \
-        Predictor == SPLINE3 ? "spline3" : "lorenzo");                    \
-    if (mode == REL) printf("\033[1meb_rel=\033[0m%lf\n", eb);            \
+#define PRINT_STATUS                                              \
+  {                                                               \
+    printf("\033[1mfname=\033[0m\"%s\"\n", ifn);                  \
+    printf("\033[1m(x, y, z)=\033[0m(%lu, %lu, %lu)\n", x, y, z); \
+    printf(                                                       \
+        "\033[1m(eb, mode, radius)=\033[0m(%lf, %s, %d)\n", eb,   \
+        mode == REL ? "REL" : "ABS", radius);                     \
+    printf(                                                       \
+        "\033[1mpredictor=\033[0m%s\n",                           \
+        Predictor == SPLINE3 ? "spline3" : "lorenzo");            \
+    if (mode == REL) printf("\033[1meb_rel=\033[0m%lf\n", eb);    \
   }
 
 string dtype, etype, mode, pred, eb_str;
@@ -45,7 +45,8 @@ f8 _1, _2, rng;
 
 namespace {
 
-szt tune_coarse_huffman_sublen(szt len) {
+szt tune_coarse_huffman_sublen(szt len)
+{
   int current_dev = 0;
   GpuSetDevice(current_dev);
   GpuDeviceProp dev_prop{};
@@ -55,9 +56,12 @@ szt tune_coarse_huffman_sublen(szt len) {
 
   auto nSM = dev_prop.multiProcessorCount;
   auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
-  auto deflate_nthread = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
+  auto deflate_nthread =
+      allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
   auto optimal_sublen = psz_utils::get_npart(len, deflate_nthread);
-  optimal_sublen = psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) * HuffmanHelper::BLOCK_DIM_DEFLATE;
+  optimal_sublen =
+      psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
+      HuffmanHelper::BLOCK_DIM_DEFLATE;
 
   return optimal_sublen;
 }
@@ -93,26 +97,28 @@ string suffix(bool compat = false)
 
 #define MemPool pszmempool_cxx<T, E, H>
 
-void print_tobediscarded_info(float time_in_ms, string fn_name) {
+void print_tobediscarded_info(float time_in_ms, string fn_name)
+{
   // auto title = "[psz::info::discard::" + fn_name + "]";
   // printf("%s time (ms): %.6f\n", title.c_str(), time_in_ms);
 }
 
 template <typename T>
-float print_GBps(szt len, float time_in_ms, string fn_name) {
+float print_GBps(szt len, float time_in_ms, string fn_name)
+{
   auto B_to_GiB = 1.0 * 1024 * 1024 * 1024;
   auto GiBps = len * sizeof(T) * 1.0 / B_to_GiB / (time_in_ms / 1000);
   auto title = "[psz::info::res::" + fn_name + "]";
-  printf("%s shortest time (ms): %.6f\thighest throughput (GiB/s): %.2f\n", 
-    title.c_str(), time_in_ms, GiBps);
+  printf(
+      "%s shortest time (ms): %.6f\thighest throughput (GiB/s): %.2f\n",
+      title.c_str(), time_in_ms, GiBps);
   return GiBps;
 }
 
-
 template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
 void demo_c_predict(
-    MemPool* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn,
-    f8 const eb, int const radius, GpuStreamT stream, bool proto = false)
+    MemPool* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn, f8 const eb,
+    int const radius, GpuStreamT stream, bool proto = false)
 {
   using FP = T;
 
@@ -121,12 +127,15 @@ void demo_c_predict(
   auto len3p = mem->es->template len3<dim3>();
   f4 time, time_histcpu_base, time_histcpu_optim;
 
-  // psz_comp_l23<T, E, FP>(mem->od->dptr(), len3, eb, radius, mem->ectrl_lrz(), mem->outlier_space(), &time, stream);
+  // psz_comp_l23<T, E, FP>(mem->od->dptr(), len3, eb, radius,
+  // mem->ectrl_lrz(), mem->outlier_space(), &time, stream);
 
   // ----------------------------------------
   auto time_pred = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
-    psz_comp_l23r<T, E>(mem->od->dptr(), len3, eb, radius, mem->ectrl_lrz(), (void*)mem->compact, &time, stream);
+    psz_comp_l23r<T, E>(
+        mem->od->dptr(), len3, eb, radius, mem->ectrl_lrz(),
+        (void*)mem->compact, &time, stream);
     print_tobediscarded_info(time, "comp_pred_l23r");
     time_pred = std::min(time, time_pred);
   }
@@ -145,8 +154,8 @@ void demo_c_predict(
 
 template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
 void demo_d_predict(
-    MemPool* mem, double const eb, int const radius,
-    GpuStreamT stream, bool proto = false)
+    MemPool* mem, double const eb, int const radius, GpuStreamT stream,
+    bool proto = false)
 {
   using FP = T;
 
@@ -159,7 +168,8 @@ void demo_d_predict(
   auto time_scatter_min = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
     psz::spv_scatter<PROPER_GPU_BACKEND, T, u4>(
-      mem->compact_val(), mem->compact_idx(), g_splen, mem->outlier_space(), &time_scatter, stream);
+        mem->compact_val(), mem->compact_idx(), g_splen, mem->outlier_space(),
+        &time_scatter, stream);
 
     print_tobediscarded_info(time_scatter, "decomp_scatter");
     time_scatter_min = std::min(time_scatter, time_scatter_min);
@@ -169,7 +179,9 @@ void demo_d_predict(
   // ----------------------------------------
   auto time_pred_min = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
-    psz_decomp_l23<T, E, FP>(mem->ectrl_lrz(), len3, mem->outlier_space(), eb, radius, mem->xd->dptr(), &time_pred, stream);
+    psz_decomp_l23<T, E, FP>(
+        mem->ectrl_lrz(), len3, mem->outlier_space(), eb, radius,
+        mem->xd->dptr(), &time_pred, stream);
 
     print_tobediscarded_info(time_pred, "decomp_scatter");
     time_pred_min = std::min(time_pred, time_pred_min);
@@ -195,14 +207,19 @@ void demo_hist_u4in(
   gpu_optim->control({MallocHost, Malloc});
 
   auto bklen = radius * 2;
-  hist<SEQ, E>(false, hist_in->hptr(), hist_in->len(), ser_base->hptr(), bklen, &tcpu_base, stream);
-  hist<SEQ, E>(true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen, &tcpu_optim, stream);
-
+  hist<SEQ, E>(
+      false, hist_in->hptr(), hist_in->len(), ser_base->hptr(), bklen,
+      &tcpu_base, stream);
+  hist<SEQ, E>(
+      true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen,
+      &tcpu_optim, stream);
 
   // ----------------------------------------
   auto time_hist_min = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
-    hist<PROPER_GPU_BACKEND, E>(false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen, &tgpu_base, stream);
+    hist<PROPER_GPU_BACKEND, E>(
+        false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
+        &tgpu_base, stream);
 
     print_tobediscarded_info(tgpu_base, "comp_hist");
     time_hist_min = std::min(time_hist_min, tgpu_base);
@@ -210,9 +227,10 @@ void demo_hist_u4in(
   // [psz::caveat] hard coded throughput calculating
   print_GBps<f4>(hist_in->len(), time_hist_min, "comp_hist");
 
-
 #if defined(PSZ_USE_CUDA)
-  hist<PROPER_GPU_BACKEND, E>(true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen, &tgpu_optim, stream);
+  hist<PROPER_GPU_BACKEND, E>(
+      true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
+      &tgpu_optim, stream);
 #elif defined(PSZ_USE_HIP)
   cout << "[psz::warning] skip hist-optim (hang when specifying HIP)" << endl;
 #endif
@@ -220,7 +238,8 @@ void demo_hist_u4in(
   ser_base->file(string(string(ifn) + ".ht." + suffix()).c_str(), ToFile);
 
 #if !defined(PSZ_USE_HIP)
-  // [psz::warning] The HIP testbed does not have high-frequency CPU. Also, hist_sp does not work.
+  // [psz::warning] The HIP testbed does not have high-frequency CPU. Also,
+  // hist_sp does not work.
   printf(
       "hist cpu baseline:\t%5.2f ms\toptim:\t%5.2f ms (speedup: %3.2fx)\n",  //
       tcpu_base, tcpu_optim, tcpu_base / tcpu_optim);
@@ -269,7 +288,8 @@ void demo_pipeline(
   ectrl_u4->control({Malloc, MallocHost});
   ectrl_u4_decoded->control({Malloc, MallocHost});
 
-  hf_codec.init(ectrl_u4->len(), radius * 2, pardeg /* not optimal for perf */);
+  hf_codec.init(
+      ectrl_u4->len(), radius * 2, pardeg /* not optimal for perf */);
 
   GpuStreamT stream;
   GpuStreamCreate(&stream);
@@ -302,10 +322,12 @@ void demo_pipeline(
     // ----------------------------------------
     auto time_comp_lossless = (float)INT_MAX;
     for (auto i = 0; i < 10; i++) {
-      hf_codec.encode(ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
+      hf_codec.encode(
+          ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
 
       print_tobediscarded_info(hf_codec.time_lossless(), "comp_hf_encode");
-      time_comp_lossless = std::min(time_comp_lossless, hf_codec.time_lossless());
+      time_comp_lossless =
+          std::min(time_comp_lossless, hf_codec.time_lossless());
     }
     print_GBps<f4>(len, time_comp_lossless, "comp_hf_encode");
 
@@ -315,30 +337,36 @@ void demo_pipeline(
       hf_codec.decode(d_encoded, ectrl_u4_decoded->dptr());
 
       print_tobediscarded_info(hf_codec.time_lossless(), "decomp_hf_decode");
-      time_comp_lossless = std::min(time_comp_lossless, hf_codec.time_lossless());
+      time_comp_lossless =
+          std::min(time_comp_lossless, hf_codec.time_lossless());
     }
     print_GBps<f4>(len, time_comp_lossless, "decomp_hf_decode");
 
-    auto identical = psz::thrustgpu::thrustgpu_identical(
+    auto identical = psz::thrustgpu_identical(
         ectrl_u4_decoded->dptr(), ectrl_u4->dptr(), sizeof(u4), hf_inlen);
 
     if (identical)
-      printf("[psz::info::huffman] decoded is identical to the input (quant code).\n");
+      printf(
+          "[psz::info::huffman] decoded is identical to the input (quant "
+          "code).\n");
     else
       printf(
-          "[psz::ERR::huffman] decoded is NOT IDENTICAL to the input (quant code).\n");
+          "[psz::ERR::huffman] decoded is NOT IDENTICAL to the input (quant "
+          "code).\n");
 
     // printf("data original inlen:\t%lu\n", len);
     // printf("Huffman inlen:\t%lu\n", hf_inlen);
     // printf("Huffman outlen:\t%lu\n", hf_outlen);
     // printf(
-    //     "Huffman CR = sizeof(E)*ori_len / (hf_out_bytes + outlier-overhead) = "
+    //     "Huffman CR = sizeof(E)*ori_len / (hf_out_bytes + outlier-overhead)
+    //     = "
     //     "\t%.2lf\n",
     //     len * sizeof(E) * 1.0 / (hf_outlen + num_outlier * 2 * 4));
   }
 
   demo_d_predict<Predictor, T, E, H>(mem, eb, radius, stream, proto);
-  psz::eval_dataquality_gpu(mem->xd->dptr(), mem->od->dptr(), len /*, hf_outlen */);
+  psz::eval_dataquality_gpu(
+      mem->xd->dptr(), mem->od->dptr(), len /*, hf_outlen */);
 
   GpuStreamDestroy(stream);
 
@@ -399,14 +427,14 @@ int main(int argc, char** argv)
   //     demo_pipeline<SPLINE3, f8, u4>(fname, x, y, z, eb, m, r);
   // }
   // else {
-    if (dtype == "f") {
-        demo_pipeline<LORENZO, f4, u4>(fname, x, y, z, eb, m, r, useproto);
-    }
-    else if (dtype == "d") {
-        demo_pipeline<LORENZO, f8, u4>(fname, x, y, z, eb, m, r, useproto);
-    }
-    else
-      throw std::runtime_error("[psz::ERR::bin_pipeline] not a valid dtype.");
+  if (dtype == "f") {
+    demo_pipeline<LORENZO, f4, u4>(fname, x, y, z, eb, m, r, useproto);
+  }
+  else if (dtype == "d") {
+    demo_pipeline<LORENZO, f8, u4>(fname, x, y, z, eb, m, r, useproto);
+  }
+  else
+    throw std::runtime_error("[psz::ERR::bin_pipeline] not a valid dtype.");
   // }
 
   return 0;

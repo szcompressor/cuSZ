@@ -14,13 +14,13 @@
 #include "cusz/type.h"
 
 #define INIT_LOSSLESS(T) \
-  template bool psz::cppstl::cppstl_identical(T* d1, T* d2, size_t const len);
+  template bool psz::cppstl_identical(T* d1, T* d2, size_t const len);
 
 #define INIT_LOSSY(T)                                \
-  template bool psz::cppstl::cppstl_error_bounded(           \
+  template bool psz::cppstl_error_bounded(           \
       T* a, T* b, size_t const len, double const eb, \
       size_t* first_faulty_idx);                     \
-  template void psz::cppstl::cppstl_assess_quality(          \
+  template void psz::cppstl_assess_quality(          \
       cusz_stats* s, T* xdata, T* odata, size_t const len);
 
 INIT_LOSSLESS(f4)
@@ -32,8 +32,8 @@ INIT_LOSSLESS(u4)
 INIT_LOSSY(f4)
 INIT_LOSSY(f8)
 
-template void psz::cppstl::cppstl_extrema<f4>(f4* in, szt const len, f4 res[4]);
-template void psz::cppstl::cppstl_extrema<f8>(f8* in, szt const len, f8 res[4]);
+template void psz::cppstl_extrema<f4>(f4* in, szt const len, f4 res[4]);
+template void psz::cppstl_extrema<f8>(f8* in, szt const len, f8 res[4]);
 
 #undef INIT_LOSSLESS
 #undef INIT_LOSSY

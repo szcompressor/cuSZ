@@ -15,7 +15,6 @@
 #include "cusz/type.h"
 
 namespace psz {
-namespace cppstl {
 
 template <typename T>
 bool cppstl_identical(T* d1, T* d2, size_t const len);
@@ -30,7 +29,6 @@ bool cppstl_error_bounded(
 template <typename T>
 void cppstl_assess_quality(pszsummary* s, T* xdata, T* odata, szt const len);
 
-}  // namespace cppstl
 }  // namespace psz
 
 #endif /* C93C3857_8821_4988_B6F0_4E885060F642 */

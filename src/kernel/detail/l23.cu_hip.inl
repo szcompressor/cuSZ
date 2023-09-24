@@ -13,7 +13,7 @@
 #include "port.hh"
 #include "subr.cu_hip.inl"
 
-namespace subr = psz::cuda_hip::__device;
+namespace subr = psz::cuda_hip;
 
 namespace psz {
 namespace cuda_hip {
@@ -22,7 +22,6 @@ namespace __kernel {
 ////////////////////////////////////////////////////////////////////////////////
 // 1D
 
-namespace v0 {
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
 __global__ void c_lorenzo_1d1l(
@@ -46,12 +45,10 @@ __global__ void x_lorenzo_1d1l(
 
 }  // namespace delta_only
 
-}  // namespace v0
 
 ////////////////////////////////////////////////////////////////////////////////
 // 2D
 
-namespace v0 {
 
 template <typename T, typename Eq, typename FP>
 __global__ void c_lorenzo_2d1l(
@@ -75,12 +72,10 @@ __global__ void x_lorenzo_2d1l(
 
 }  // namespace delta_only
 
-}  // namespace v0
 
 ////////////////////////////////////////////////////////////////////////////////
 // 3D
 
-namespace v0 {
 
 // TODO -> `legacy`
 namespace legacy {
@@ -113,7 +108,6 @@ __global__ void x_lorenzo_3d1l(
 
 }  // namespace delta_only
 
-}  // namespace v0
 }  // namespace __kernel
 }  // namespace cuda_hip
 }  // namespace psz
@@ -122,11 +116,11 @@ __global__ void x_lorenzo_3d1l(
 // 1D definition
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::cuda_hip::__kernel::v0::c_lorenzo_1d1l(
+__global__ void psz::cuda_hip::__kernel::c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -154,10 +148,10 @@ __global__ void psz::cuda_hip::__kernel::v0::c_lorenzo_1d1l(
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::cuda_hip::__kernel::v0::delta_only::c_lorenzo_1d1l(
+__global__ void psz::cuda_hip::__kernel::delta_only::c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto NTHREAD = BLOCK / SEQ;
 
@@ -184,11 +178,11 @@ __global__ void psz::cuda_hip::__kernel::v0::delta_only::c_lorenzo_1d1l(
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::cuda_hip::__kernel::v0::x_lorenzo_1d1l(  //
+__global__ void psz::cuda_hip::__kernel::x_lorenzo_1d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
-  namespace wave32 = psz::cu_hip::__device::wave32;
+  namespace subr_v0 = psz::cuda_hip;
+  namespace wave32 = psz::cu_hip::wave32;
 
   constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
@@ -215,10 +209,10 @@ __global__ void psz::cuda_hip::__kernel::v0::x_lorenzo_1d1l(  //
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::cuda_hip::__kernel::v0::delta_only::x_lorenzo_1d1l(  //
+__global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_1d1l(  //
     Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
@@ -245,11 +239,11 @@ __global__ void psz::cuda_hip::__kernel::v0::delta_only::x_lorenzo_1d1l(  //
 // 2D definition
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::c_lorenzo_2d1l(
+__global__ void psz::cuda_hip::__kernel::c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto BLOCK = 16;
   constexpr auto YSEQ = 8;
@@ -269,10 +263,10 @@ __global__ void psz::cuda_hip::__kernel::v0::c_lorenzo_2d1l(
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::delta_only::c_lorenzo_2d1l(
+__global__ void psz::cuda_hip::__kernel::delta_only::c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto BLOCK = 16;
   constexpr auto YSEQ = 8;
@@ -293,10 +287,10 @@ __global__ void psz::cuda_hip::__kernel::v0::delta_only::c_lorenzo_2d1l(
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::x_lorenzo_2d1l(  //
+__global__ void psz::cuda_hip::__kernel::x_lorenzo_2d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto BLOCK = 16;
   constexpr auto YSEQ = BLOCK / 2;  // sequentiality in y direction
@@ -321,10 +315,10 @@ __global__ void psz::cuda_hip::__kernel::v0::x_lorenzo_2d1l(  //
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::delta_only::x_lorenzo_2d1l(  //
+__global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_2d1l(  //
     Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata)
 {
-  namespace subr_v0 = psz::cuda_hip::__device::v0;
+  namespace subr_v0 = psz::cuda_hip;
 
   constexpr auto BLOCK = 16;
   constexpr auto YSEQ = BLOCK / 2;  // sequentiality in y direction
@@ -347,7 +341,7 @@ __global__ void psz::cuda_hip::__kernel::v0::delta_only::x_lorenzo_2d1l(  //
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::legacy::c_lorenzo_3d1l(
+__global__ void psz::cuda_hip::__kernel::legacy::c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
@@ -409,7 +403,7 @@ __global__ void psz::cuda_hip::__kernel::v0::legacy::c_lorenzo_3d1l(
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::c_lorenzo_3d1l(
+__global__ void psz::cuda_hip::__kernel::c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
@@ -483,7 +477,7 @@ __global__ void psz::cuda_hip::__kernel::v0::c_lorenzo_3d1l(
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::delta_only::c_lorenzo_3d1l(  //
+__global__ void psz::cuda_hip::__kernel::delta_only::c_lorenzo_3d1l(  //
     T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq)
 {
   constexpr auto BLOCK = 8;
@@ -539,7 +533,7 @@ __global__ void psz::cuda_hip::__kernel::v0::delta_only::c_lorenzo_3d1l(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::x_lorenzo_3d1l(  //
+__global__ void psz::cuda_hip::__kernel::x_lorenzo_3d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   constexpr auto BLOCK = 8;
@@ -623,7 +617,7 @@ __global__ void psz::cuda_hip::__kernel::v0::x_lorenzo_3d1l(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::cuda_hip::__kernel::v0::delta_only::x_lorenzo_3d1l(  //
+__global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_3d1l(  //
     Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata)
 {
   constexpr auto BLOCK = 8;

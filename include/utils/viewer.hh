@@ -88,15 +88,15 @@ static void eval_dataquality_gpu(
 {
   // cross
   auto stat_x = new cusz_stats;
-  psz::thrustgpu::thrustgpu_assess_quality<T>(
+  psz::thrustgpu_assess_quality<T>(
       stat_x, reconstructed, origin, len);
   print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new cusz_stats;
-  psz::thrustgpu::thrustgpu_assess_quality<T>(
+  psz::thrustgpu_assess_quality<T>(
       stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new cusz_stats;
-  psz::thrustgpu::thrustgpu_assess_quality<T>(
+  psz::thrustgpu_assess_quality<T>(
       stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(

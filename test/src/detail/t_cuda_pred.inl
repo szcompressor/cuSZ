@@ -64,9 +64,9 @@ bool f(
   // psz::peek_data(de_data->uniptr(), 100);
 
   size_t first_non_eb = 0;
-  // bool   error_bounded = psz::thrustgpu::thrustgpu_error_bounded<T>(de_data, oridata,
-  // len, eb, &first_non_eb);
-  bool error_bounded = psz::cppstl::cppstl_error_bounded<T>(
+  // bool   error_bounded = psz::thrustgpu::thrustgpu_error_bounded<T>(de_data,
+  // oridata, len, eb, &first_non_eb);
+  bool error_bounded = psz::cppstl_error_bounded<T>(
       de_data->uniptr(), oridata->uniptr(), len, eb, &first_non_eb);
 
   // psz::eval_dataquality_gpu(oridata->uniptr(), de_data->uniptr(), len);
@@ -78,8 +78,8 @@ bool f(
   delete outlier;
 
   printf(
-      "(%zu,%zu,%zu)\t(T=%s,Eq=%s)\terror bounded?\t", x, y, z, typeid(T).name(),
-      typeid(Eq).name());
+      "(%zu,%zu,%zu)\t(T=%s,Eq=%s)\terror bounded?\t", x, y, z,
+      typeid(T).name(), typeid(Eq).name());
   if (not LENIENT) {
     if (not error_bounded) throw std::runtime_error("NO");
   }

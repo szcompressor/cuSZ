@@ -24,7 +24,6 @@
 #include "stat/compare.hh"
 
 namespace psz {
-namespace thrustgpu {
 
 static const int MINVAL = 0;
 static const int MAXVAL = 1;
@@ -96,7 +95,6 @@ void thrustgpu_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t len)
   s->score.PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score.MSE);
 }
 
-}  // namespace thrustgpu
 }  // namespace psz
 
 #endif /* F7DF2FE5_571E_48C1_965D_0B19D1CC14D4 */

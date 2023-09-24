@@ -65,17 +65,17 @@ pszerror psz_comp_l23(
   START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
   if (d == 1) {
-    psz::cuda_hip::__kernel::v0::c_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>
+    psz::cuda_hip::__kernel::c_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>
         <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
   else if (d == 2) {
-    psz::cuda_hip::__kernel::v0::c_lorenzo_2d1l<T, Eq, FP>
+    psz::cuda_hip::__kernel::c_lorenzo_2d1l<T, Eq, FP>
         <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
   else if (d == 3) {
-    psz::cuda_hip::__kernel::v0::c_lorenzo_3d1l<T, Eq, FP>
+    psz::cuda_hip::__kernel::c_lorenzo_3d1l<T, Eq, FP>
         <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
@@ -134,17 +134,17 @@ pszerror psz_decomp_l23(
   START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
   if (d == 1) {
-    psz::cuda_hip::__kernel::v0::x_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>
+    psz::cuda_hip::__kernel::x_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>
         <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
             eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (d == 2) {
-    psz::cuda_hip::__kernel::v0::x_lorenzo_2d1l<T, Eq, FP>
+    psz::cuda_hip::__kernel::x_lorenzo_2d1l<T, Eq, FP>
         <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
             eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (d == 3) {
-    psz::cuda_hip::__kernel::v0::x_lorenzo_3d1l<T, Eq, FP>
+    psz::cuda_hip::__kernel::x_lorenzo_3d1l<T, Eq, FP>
         <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
             eq, outlier, len3, leap3, radius, ebx2, xdata);
   }

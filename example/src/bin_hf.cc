@@ -137,7 +137,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   // psz::cppstl_identical(h_xd, h_d, len);
   auto identical =
-      psz::thrustgpu::thrustgpu_identical(xd->dptr(), od->dptr(), sizeof(E), len);
+      psz::thrustgpu_identical(xd->dptr(), od->dptr(), sizeof(E), len);
 
   if (identical)
     cout << ">>>>  IDENTICAL." << endl;

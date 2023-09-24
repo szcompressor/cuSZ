@@ -19,8 +19,6 @@
 
 namespace psz {
 namespace cu_hip {
-namespace __device {
-
 namespace wave32 {
 
 template <typename T, int SEQ>
@@ -86,18 +84,13 @@ __forceinline__ __device__ void intrablock_exclusivescan_1d(
 }
 
 }  // namespace wave32
-
-}  // namespace __device
 }  // namespace cu_hip
 }  // namespace psz
 
 namespace psz {
 namespace cuda_hip {
-namespace __device {
 
 //////// 1D
-
-namespace v0 {
 
 // compression load
 template <typename T, typename FP, int NTHREAD, int SEQ>
@@ -143,23 +136,7 @@ __forceinline__ __device__ void block_scan_1d(
     T private_buffer[SEQ], T ebx2, volatile T* exchange_in,
     volatile T* exchange_out, volatile T* shmem_buffer);
 
-}  // namespace v0
-
-namespace rolling {
-
-template <
-    typename T, bool FIRST_POINT, typename PNENC, int SEQ,
-    typename EQ = int32_t,
-    typename Compaction = typename CompactDram<CUDA, T>::Compact>
-__forceinline__ __device__ void predict_quantize_1d(  //
-    T thp_buffer[SEQ], volatile EQ* s_quant, uint32_t dimx, int radius,
-    uint32_t g_id_base, Compaction g_outlier, T prev = 0, PNENC pnenc = 0);
-
-}  // namespace rolling
-
 //////// 2D
-
-namespace v0 {
 
 template <typename T, typename FP, int YSEQ>
 __forceinline__ __device__ void load_prequant_2d(
@@ -207,27 +184,10 @@ __forceinline__ __device__ void decomp_write_2d(
     T thread_private[YSEQ], uint32_t dimx, uint32_t gix, uint32_t dimy,
     uint32_t giy_base, uint32_t stridey, T* xdata);
 
-}  // namespace v0
-
-namespace rolling {
-
-template <typename T, typename EQ, int YSEQ, typename Compaction>
-__forceinline__ __device__ void quantize_write_2d(
-    T delta[YSEQ + 1], uint32_t dimx, uint32_t gix, uint32_t dimy,
-    uint32_t giy_base, uint32_t stridey, int radius, EQ* quant,
-    Compaction outlier);
-
-};
-
 //////// 3D
-
-namespace v0 {
 
 // TODO move subroutines for 3D here
 
-}
-
-}  // namespace __device
 }  // namespace cuda_hip
 }  // namespace psz
 
@@ -236,7 +196,7 @@ namespace v0 {
 //////// 1D
 
 template <typename T, typename FP, int NTHREAD, int SEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::load_prequant_1d(
+__forceinline__ __device__ void psz::cuda_hip::load_prequant_1d(
     T* data, uint32_t dimx, uint32_t id_base, volatile T* shmem,
     T private_buffer[SEQ],
     T& prev,  // TODO use pointer?
@@ -257,7 +217,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::load_prequant_1d(
 }
 
 template <typename T, typename EQ, int NTHREAD, int SEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::load_fuse_1d(
+__forceinline__ __device__ void psz::cuda_hip::load_fuse_1d(
     EQ* quant, T* outlier, uint32_t dimx, uint32_t id_base, int radius,
     volatile T* shmem, T private_buffer[SEQ])
 {
@@ -277,8 +237,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::load_fuse_1d(
 }
 
 template <typename T, typename EQ, int NTHREAD, int SEQ>
-__forceinline__ __device__ void
-psz::cuda_hip::__device::v0::delta_only::load_1d(
+__forceinline__ __device__ void psz::cuda_hip::delta_only::load_1d(
     EQ* quant, uint32_t dimx, uint32_t id_base, volatile T* shmem,
     T private_buffer[SEQ])
 {
@@ -299,7 +258,7 @@ psz::cuda_hip::__device::v0::delta_only::load_1d(
 template <
     typename T1, typename T2, int NTHREAD, int SEQ,
     bool NO_OUTLIER>  // TODO remove NO_OUTLIER, use nullable
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::write_1d(
+__forceinline__ __device__ void psz::cuda_hip::write_1d(
     volatile T1* shmem_a1, volatile T2* shmem_a2, uint32_t dimx,
     uint32_t id_base, T1* a1, T2* a2)
 {
@@ -320,7 +279,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::write_1d(
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __forceinline__ __device__ void
-psz::cuda_hip::__device::v0::predict_quantize__no_outlier_1d(  //
+psz::cuda_hip::predict_quantize__no_outlier_1d(  //
     T private_buffer[SEQ], volatile EQ* shmem_quant, T prev)
 {
   auto quantize_1d = [&](T& cur, T& prev, uint32_t idx) {
@@ -339,8 +298,7 @@ psz::cuda_hip::__device::v0::predict_quantize__no_outlier_1d(  //
 }
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
-__forceinline__ __device__ void
-psz::cuda_hip::__device::v0::predict_quantize_1d(
+__forceinline__ __device__ void psz::cuda_hip::predict_quantize_1d(
     T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier,
     int radius, T prev)
 {
@@ -368,11 +326,11 @@ psz::cuda_hip::__device::v0::predict_quantize_1d(
 
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::block_scan_1d(
+__forceinline__ __device__ void psz::cuda_hip::block_scan_1d(
     T private_buffer[SEQ], T ebx2, volatile T* exchange_in,
     volatile T* exchange_out, volatile T* shmem_buffer)
 {
-  namespace wave32 = psz::cu_hip::__device::wave32;
+  namespace wave32 = psz::cu_hip::wave32;
   wave32::intrawarp_inclusivescan_1d<T, SEQ>(private_buffer);
   wave32::intrablock_exclusivescan_1d<T, SEQ, NTHREAD>(
       private_buffer, exchange_in, exchange_out);
@@ -389,7 +347,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::block_scan_1d(
 //////// 2D
 
 template <typename T, typename FP, int YSEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::load_prequant_2d(
+__forceinline__ __device__ void psz::cuda_hip::load_prequant_2d(
     // clang-format off
     T*       data,
     uint32_t dimx, uint32_t gix,
@@ -415,8 +373,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::load_prequant_2d(
 }
 
 template <typename T, typename FP, int YSEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::predict_2d(
-    T center[YSEQ + 1])
+__forceinline__ __device__ void psz::cuda_hip::predict_2d(T center[YSEQ + 1])
 {
   /*
      Lorenzo 2D (1-layer) illustration
@@ -455,7 +412,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::predict_2d(
 }
 
 template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::quantize_write_2d(
+__forceinline__ __device__ void psz::cuda_hip::quantize_write_2d(
     // clang-format off
     T        delta[YSEQ + 1],
     uint32_t dimx,  uint32_t gix,
@@ -484,8 +441,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::quantize_write_2d(
 }
 
 template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void
-psz::cuda_hip::__device::v0::delta_only::quantize_write_2d(
+__forceinline__ __device__ void psz::cuda_hip::delta_only::quantize_write_2d(
     // clang-format off
     T        delta[YSEQ + 1],
     uint32_t dimx,  uint32_t gix,
@@ -504,44 +460,9 @@ psz::cuda_hip::__device::v0::delta_only::quantize_write_2d(
   }
 }
 
-template <typename T, typename EQ, int YSEQ, typename Compaction>
-__forceinline__ __device__ void
-psz::cuda_hip::__device::rolling::quantize_write_2d(
-    // clang-format off
-    T        delta[YSEQ + 1],
-    uint32_t dimx, uint32_t gix,
-    uint32_t dimy, uint32_t giy_base, uint32_t stridey,
-    int      radius,
-    EQ*      quant,
-    Compaction outlier
-    // clang-format on
-)
-{
-  auto get_gid = [&](auto i) { return (giy_base + i) * stridey + gix; };
-
-#pragma unroll
-  for (auto i = 1; i < YSEQ + 1; i++) {
-    auto gid = get_gid(i - 1);
-
-    if (gix < dimx and giy_base + (i - 1) < dimy) {
-      bool quantizable = fabs(delta[i]) < radius;
-      T candidate = delta[i] + radius;
-
-      // The non-quantizable is recorded as "0" (radius).
-      quant[gid] = quantizable * static_cast<EQ>(candidate);
-
-      if (not quantizable) {
-        auto cur_idx = atomicAdd(outlier.count, 1);
-        outlier.idx[cur_idx] = gid;
-        outlier.val[cur_idx] = candidate;
-      }
-    }
-  }
-}
-
 // load to thread-private array (fuse at the same time)
 template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::load_fuse_2d(
+__forceinline__ __device__ void psz::cuda_hip::load_fuse_2d(
     // clang-format off
     EQ*      quant,
     T*       outlier,
@@ -569,8 +490,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::load_fuse_2d(
 
 // load to thread-private array (fuse at the same time)
 template <typename T, typename EQ, int YSEQ>
-__forceinline__ __device__ void
-psz::cuda_hip::__device::v0::delta_only::load_2d(
+__forceinline__ __device__ void psz::cuda_hip::delta_only::load_2d(
     // clang-format off
     EQ*      quant,
     uint32_t dimx, uint32_t gix,
@@ -596,7 +516,7 @@ psz::cuda_hip::__device::v0::delta_only::load_2d(
 // partial-sum along y-axis, sequantially
 // then, in-warp partial-sum along x-axis
 template <typename T, typename EQ, typename FP, int YSEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::block_scan_2d(
+__forceinline__ __device__ void psz::cuda_hip::block_scan_2d(
     T thread_private[YSEQ], volatile T* intermediate, FP ebx2)
 {
   //       ------> gix (x)
@@ -644,7 +564,7 @@ __forceinline__ __device__ void psz::cuda_hip::__device::v0::block_scan_2d(
 
 // write to DRAM
 template <typename T, int YSEQ>
-__forceinline__ __device__ void psz::cuda_hip::__device::v0::decomp_write_2d(
+__forceinline__ __device__ void psz::cuda_hip::decomp_write_2d(
     // clang-format off
     T        thread_private[YSEQ],
     uint32_t dimx, uint32_t gix,

@@ -15,7 +15,6 @@
 #include "cusz/type.h"
 
 namespace psz {
-namespace thrustgpu {
 
 template <typename T>
 void thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4]);
@@ -40,7 +39,6 @@ template <typename T>
 void thrustgpu_assess_quality(
     cusz_stats* s, T* xdata, T* odata, size_t const len);
 
-}  // namespace thrustgpu
 }  // namespace psz
 
 #endif /* B0EE0E82_B3AA_4946_A589_A3A6A83DD862 */

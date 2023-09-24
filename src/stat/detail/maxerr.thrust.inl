@@ -22,7 +22,6 @@
 #include "cusz/type.h"
 
 namespace psz {
-namespace thrustgpu {
 
 template <typename T>
 void thrustgpu_get_maxerr(
@@ -58,7 +57,6 @@ void thrustgpu_get_maxerr(
   if (not destructive) { GpuFree(diff); }
 }
 
-}  // namespace thrustgpu
 }  // namespace psz
 
 #endif /* C6875E14_650F_49ED_9DD5_E7F916EE31FF */
