@@ -45,7 +45,7 @@ add_library(pszcompile_settings INTERFACE)
 target_compile_definitions(
   pszcompile_settings
   INTERFACE $<$<COMPILE_LANG_AND_ID:HIP,Clang>:__STRICT_ANSI__> -D__HIP_PLATFORM_AMD__)
-target_compile_features(pszcompile_settings INTERFACE cxx_std_14)
+target_compile_features(pszcompile_settings INTERFACE cxx_std_14) # [TODO] should be 17
 target_include_directories(
   pszcompile_settings
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>

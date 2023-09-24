@@ -10,6 +10,12 @@
 #include "port/hip_primitives.hh"
 #include "port/hip_suppress_warning.hh"
 
+#elif defined(PSZ_USE_1API)
+
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
+#include "port/dpcpp_indication.hh"
+
 #endif
 
 #include "port/proper_backend.hh"

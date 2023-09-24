@@ -1,5 +1,5 @@
 # select backend
-set(PSZ_BACKEND "CUDA" CACHE STRING "Select the desired backend: CUDA/cuda, HIP/hip.")
+set(PSZ_BACKEND "CUDA" CACHE STRING "Select the desired backend: CUDA/cuda, HIP/hip and ONEAPI/1api.")
 
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
   cmake_minimum_required(VERSION 3.17)
@@ -7,6 +7,9 @@ if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
 elseif(PSZ_BACKEND STREQUAL "HIP" OR PSZ_BACKEND STREQUAL "hip")
   cmake_minimum_required(VERSION 3.21)
   project(HIPSZ LANGUAGES HIP CXX C VERSION 0.6.0)
+elseif(PSZ_BACKEND STREQUAL "ONEAPI" OR PSZ_BACKEND STREQUAL "oneapi" OR PSZ_BACKEND STREQUAL "1api")
+  cmake_minimum_required(VERSION 3.23)
+  project(DPSZ LANGUAGES CXX C VERSION 0.6.0)
 endif()
 
 # general cmake setup
@@ -26,13 +29,19 @@ option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" 
 # example and testing
 option(PSZ_BUILD_EXAMPLES "build example codes" OFF)
 
-# probe cmake configs regarding compilers
-include(cmake/probe.cmake)
 
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
+  message("[psz::info] CUDA backend has been selected.")
   include(cmake/cusz.cmake)
 elseif(PSZ_BACKEND STREQUAL "HIP" OR PSZ_BACKEND STREQUAL "hip")
+  message("[psz::info] HIP-ROCm backend has been selected.")
   include(cmake/hipsz.cmake)
+elseif(PSZ_BACKEND STREQUAL "ONEAPI" OR PSZ_BACKEND STREQUAL "oneapi" OR PSZ_BACKEND STREQUAL "1api")
+  message("[psz::info] oneAPI backend has been selected.")
+  include(cmake/dpsz.cmake)
 else()
   message(FATAL_ERROR "Unsupported PSZ_BACKEND selected: ${PSZ_BACKEND}")
 endif()
+
+# probe cmake configs regarding compilers
+include(cmake/probe.cmake)

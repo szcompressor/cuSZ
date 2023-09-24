@@ -27,6 +27,9 @@ Makefile
 cmake-build-debug
 cmake-build-release
 build
+build-cusz
+build-hipsz
+build-dpsz
 
 # profiling and analysis
 *.ncu-rep
