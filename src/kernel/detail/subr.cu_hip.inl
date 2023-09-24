@@ -150,7 +150,7 @@ namespace rolling {
 template <
     typename T, bool FIRST_POINT, typename PNENC, int SEQ,
     typename EQ = int32_t,
-    typename Compaction = CompactGpuDram<T>>
+    typename Compaction = typename CompactDram<CUDA, T>::Compact>
 __forceinline__ __device__ void predict_quantize_1d(  //
     T thp_buffer[SEQ], volatile EQ* s_quant, uint32_t dimx, int radius,
     uint32_t g_id_base, Compaction g_outlier, T prev = 0, PNENC pnenc = 0);

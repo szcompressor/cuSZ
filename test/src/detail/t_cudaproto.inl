@@ -54,7 +54,8 @@ bool test1(
   auto input = new pszmem_cxx<T>(len, 1, 1, "input");
   auto eq = new pszmem_cxx<EQ>(len, 1, 1, "input");
 
-  CompactGpuDram<T> outlier;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  Compact outlier;
 
   input->hptr(const_cast<T*>(h_input))->control({Malloc, H2D});
   eq->control({Malloc, MallocHost});
@@ -160,7 +161,8 @@ bool test3(
   eq->control({Malloc});
 
   // TODO outlier is a placeholder in this test
-  CompactGpuDram<T> outlier;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  Compact outlier;
   outlier.reserve_space(len / 2).malloc().mallochost();
 
   auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");

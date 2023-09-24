@@ -61,7 +61,8 @@ bool testcase(
   cout << "num_of_exaggerated: " << num_of_exaggerated << endl;
   cout << "step of inserting outlier: " << step << endl;
 
-  CompactGpuDram<T> compact_outlier;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  Compact compact_outlier;
   compact_outlier.reserve_space(len).control({Malloc, MallocHost});
 
   psz::testutils::cu_hip::rand_array<T>(oridata->dptr(), len);

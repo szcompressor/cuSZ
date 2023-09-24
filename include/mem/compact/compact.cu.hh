@@ -18,7 +18,10 @@
 
 #include "mem/memseg_cxx.hh"
 
-// TODO filename -> `compaction`
+namespace psz {
+namespace detail {
+namespace cuda {
+
 template <typename T>
 struct CompactGpuDram {
  private:
@@ -116,5 +119,9 @@ struct CompactGpuDram {
   uint32_t* idx() { return d_idx; }
   uint32_t* num() { return d_num; }
 };
+
+}  // namespace cuda
+}  // namespace detail
+}  // namespace psz
 
 #endif /* F712F74C_7488_4445_83EE_EE7F88A64BBA */

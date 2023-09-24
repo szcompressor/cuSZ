@@ -31,7 +31,8 @@ namespace proto {  // easy algorithmic description
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
-    typename Compact = CompactGpuDram<T>, int BLK = 256>
+    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
+    int BLK = 256>
 __global__ void c_lorenzo_1d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     Compact compact)
@@ -61,7 +62,8 @@ __global__ void c_lorenzo_1d1l(
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
-    typename Compact = CompactGpuDram<T>, int BLK = 16>
+    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
+    int BLK = 16>
 __global__ void c_lorenzo_2d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     Compact compact)
@@ -98,7 +100,8 @@ __global__ void c_lorenzo_2d1l(
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
-    typename Compact = CompactGpuDram<T>, int BLK = 8>
+    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
+    int BLK = 8>
 __global__ void c_lorenzo_3d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     Compact compact)
@@ -279,7 +282,9 @@ pszerror psz_comp_lproto(
       return 3;
   };
 
-  auto outlier = (CompactGpuDram<T>*)_outlier;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+
+  auto outlier = (Compact*)_outlier;
 
   constexpr auto Tile1D = 256;
   constexpr auto Block1D = dim3(256, 1, 1);

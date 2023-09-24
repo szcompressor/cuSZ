@@ -74,19 +74,19 @@ void pszmem_d2h_hipasync(pszmem* m, void* stream);
 void pszmem_device_deepcopy_hip(pszmem* dst, pszmem* src);
 void pszmem_host_deepcopy_hip(pszmem* dst, pszmem* src);
 
-void pszmem_malloc_oneapi(pszmem* m);
-void pszmem_mallochost_oneapi(pszmem* m);
-void pszmem_mallocmanaged_oneapi(pszmem* m);
-void pszmem_free_oneapi(pszmem* m);
-void pszmem_freehost_oneapi(pszmem* m);
-void pszmem_freeshared_oneapi(pszmem* m);
-void pszmem_cleardevice_oneapi(pszmem* m);
-void pszmem_h2d_oneapi(pszmem* m);
-void pszmem_h2d_oneapiasync(pszmem* m, void* stream);
-void pszmem_d2h_oneapi(pszmem* m);
-void pszmem_d2h_oneapiasync(pszmem* m, void* stream);
-void pszmem_device_deepcopy_oneapi(pszmem* dst, pszmem* src);
-void pszmem_host_deepcopy_oneapi(pszmem* dst, pszmem* src);
+void pszmem_malloc_1api(pszmem* m);
+void pszmem_mallochost_1api(pszmem* m);
+void pszmem_mallocmanaged_1api(pszmem* m);
+void pszmem_free_1api(pszmem* m);
+void pszmem_freehost_1api(pszmem* m);
+void pszmem_freeshared_1api(pszmem* m);
+void pszmem_cleardevice_1api(pszmem* m);
+void pszmem_h2d_1api(pszmem* m);
+void pszmem_h2d_1apiasync(pszmem* m, void* stream);
+void pszmem_d2h_1api(pszmem* m);
+void pszmem_d2h_1apiasync(pszmem* m, void* stream);
+void pszmem_device_deepcopy_1api(pszmem* dst, pszmem* src);
+void pszmem_host_deepcopy_1api(pszmem* dst, pszmem* src);
 
 // no impl. in C due to typing issue
 // void pszmem_cast(pszmem* dst, pszmem* src, psz_space s);

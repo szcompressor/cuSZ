@@ -13,9 +13,11 @@
 #define E1192862_6E24_41A9_87D6_6B0BC7699283
 
 #include <hip/hip_runtime.h>
+
 #include "mem/memseg_cxx.hh"
 
-// TODO filename -> `compaction`
+namespace psz::detail::hip {
+
 template <typename T>
 struct CompactGpuDram {
  private:
@@ -83,8 +85,7 @@ struct CompactGpuDram {
   }
 
   CompactGpuDram& control(
-      std::vector<pszmem_control> control_stream,
-      hipStream_t stream = nullptr)
+      std::vector<pszmem_control> control_stream, hipStream_t stream = nullptr)
   {
     for (auto& c : control_stream) {
       if (c == Malloc)
@@ -108,5 +109,7 @@ struct CompactGpuDram {
   uint32_t* idx() { return d_idx; }
   uint32_t* num() { return d_num; }
 };
+
+}  // namespace psz::detail::hip
 
 #endif /* E1192862_6E24_41A9_87D6_6B0BC7699283 */

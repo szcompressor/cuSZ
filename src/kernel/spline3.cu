@@ -127,7 +127,7 @@ int spline_construct(
   auto grid_dim =
       dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
 
-  using Compact = CompactGpuDram<T>;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
   auto ot = (Compact*)_outlier;
 
   CREATE_GPUEVENT_PAIR;

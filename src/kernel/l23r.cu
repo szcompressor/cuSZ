@@ -44,7 +44,8 @@ pszerror psz_comp_l23r(
       return 3;
   };
 
-  using Compact = CompactGpuDram<T>;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND,T>::Compact;
+
   auto ot = (Compact*)_outlier;
 
   constexpr auto Tile1D = 256;

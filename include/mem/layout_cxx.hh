@@ -15,6 +15,7 @@
 #include "compact.hh"
 #include "layout.h"
 #include "memseg_cxx.hh"
+#include "port.hh"
 
 template <typename T, typename E, typename H>
 class pszmempool_cxx {
@@ -22,6 +23,7 @@ class pszmempool_cxx {
   using M = uint32_t;
   using F = uint32_t;
   using B = uint8_t;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
 
   pszmem_cxx<T> *od;  // original data
   pszmem_cxx<T> *xd;  // decompressed/reconstructed data
@@ -34,7 +36,7 @@ class pszmempool_cxx {
   pszmem_cxx<T> *sv;  // sp-val
   pszmem_cxx<M> *si;  // sp-idx
 
-  CompactGpuDram<T> *compact;
+  Compact *compact;
 
   pszmem_cxx<B> *_compressed;  // compressed
 
@@ -96,7 +98,7 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
   // sv = new pszmem_cxx<T>(x, y, z, "sp-val");
   // si = new pszmem_cxx<M>(x, y, z, "sp-idx");
 
-  compact = new CompactGpuDram<T>;
+  compact = new Compact;
 
   _compressed->control({Malloc, MallocHost});
   oc->control({Malloc, MallocHost});

@@ -9,9 +9,11 @@
  *
  */
 
+#include "../rand.hh"
 #include "busyheader.hh"
 #include "mem/compact.hh"
-#include "../rand.hh"
+#include "port.hh"
+#include "cusz/type.h"
 
 template <
     typename T, int TileDim = 256, typename CompactVal = T,
@@ -34,7 +36,9 @@ __global__ void test_compaction1(
   // end of kernel
 }
 
-template <typename T, int TileDim = 256, typename Compact = CompactGpuDram<T>>
+template <
+    typename T, int TileDim = 256,
+    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact>
 __global__ void test_compaction2(T* in, uint32_t len, Compact compact)
 {
   auto id = blockIdx.x * TileDim + threadIdx.x;
@@ -69,6 +73,10 @@ void test_compaction_serial(T* in, uint32_t len, Compact out)
 
 bool f()
 {
+
+using CompactGpu = typename CompactDram<PROPER_GPU_BACKEND, float>::Compact;
+using CompactSeq = typename CompactDram<SEQ, float>::Compact;
+
   constexpr auto TilDim = 256;
 
   // auto len       = (1u << 20) - 56;
@@ -80,13 +88,13 @@ bool f()
   GpuMallocManaged(&in, sizeof(float) * len);
   psz::testutils::cu_hip::rand_array(in, len);
 
-  CompactGpuDram<float> out_test1;
+  CompactGpu out_test1;
   out_test1.reserve_space(len / 2).malloc().mallochost();
 
-  CompactGpuDram<float> out_test2;
+  CompactGpu out_test2;
   out_test2.reserve_space(len / 2).malloc().mallochost();
 
-  CompactSerial<float> out_ref;
+  CompactSeq out_ref;
   out_ref.reserve_space(len / 2).malloc();
 
   test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(
