@@ -19,8 +19,12 @@
 
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status psz_comp_l23(
-    T* const data,        // input
-    dim3 const len3,      //
+    T* const data,  // input
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    dim3 const len3,
+#elif defined(PSZ_USE_1API)
+    sycl::range<3> const len3,
+#endif
     double const eb,      // input (config)
     int const radius,     //
     EQ* const eq,         // output
@@ -30,8 +34,12 @@ cusz_error_status psz_comp_l23(
 
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status psz_decomp_l23(
-    EQ* eq,               // input
-    dim3 const len3,      //
+    EQ* eq,  // input
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    dim3 const len3,
+#elif defined(PSZ_USE_1API)
+    sycl::range<3> const len3,
+#endif
     T* outlier,           //
     double const eb,      // input (config)
     int const radius,     //

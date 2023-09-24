@@ -22,7 +22,6 @@ namespace __kernel {
 ////////////////////////////////////////////////////////////////////////////////
 // 1D
 
-
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
 __global__ void c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
@@ -44,12 +43,10 @@ __global__ void x_lorenzo_1d1l(
     Eq* delta, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
 
 }  // namespace delta_only
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // 2D
 
-
 template <typename T, typename Eq, typename FP>
 __global__ void c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
@@ -72,10 +69,8 @@ __global__ void x_lorenzo_2d1l(
 
 }  // namespace delta_only
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // 3D
-
 
 // TODO -> `legacy`
 namespace legacy {
@@ -124,13 +119,8 @@ __global__ void psz::cuda_hip::__kernel::c_lorenzo_1d1l(
 
   constexpr auto NTHREAD = BLOCK / SEQ;
 
-  __shared__ struct {
-    union {
-      T data[BLOCK];
-      T outlier[BLOCK];
-    };
-    Eq eq[BLOCK];
-  } s;
+  __shared__ T scratch[BLOCK];  // for data and outlier
+  __shared__ Eq s_eq[BLOCK];
 
   T prev{0};
   T thp_data[SEQ];
@@ -138,13 +128,13 @@ __global__ void psz::cuda_hip::__kernel::c_lorenzo_1d1l(
   auto id_base = blockIdx.x * BLOCK;
 
   subr_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(
-      data, len3.x, id_base, s.data, thp_data, prev, ebx2_r);
+      data, len3.x, id_base, scratch, thp_data, prev, ebx2_r);
   subr_v0::predict_quantize_1d<T, Eq, SEQ, true>(
-      thp_data, s.eq, s.outlier, radius, prev);
+      thp_data, s_eq, scratch, radius, prev);
   subr_v0::predict_quantize_1d<T, Eq, SEQ, false>(
-      thp_data, s.eq, s.outlier, radius);
+      thp_data, s_eq, scratch, radius);
   subr_v0::write_1d<Eq, T, NTHREAD, SEQ, false>(
-      s.eq, s.outlier, len3.x, id_base, eq, outlier);
+      s_eq, scratch, len3.x, id_base, eq, outlier);
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
@@ -155,13 +145,8 @@ __global__ void psz::cuda_hip::__kernel::delta_only::c_lorenzo_1d1l(
 
   constexpr auto NTHREAD = BLOCK / SEQ;
 
-  __shared__ struct {
-    union {
-      T data[BLOCK];
-      T outlier[BLOCK];
-    };
-    Eq eq[BLOCK];
-  } s;
+  __shared__ T scratch[BLOCK];  // for data and outlier
+  __shared__ Eq s_eq[BLOCK];
 
   T prev{0};
   T thp_data[SEQ];
@@ -169,12 +154,12 @@ __global__ void psz::cuda_hip::__kernel::delta_only::c_lorenzo_1d1l(
   auto id_base = blockIdx.x * BLOCK;
 
   subr_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(
-      data, len3.x, id_base, s.data, thp_data, prev, ebx2_r);
+      data, len3.x, id_base, scratch, thp_data, prev, ebx2_r);
   subr_v0::predict_quantize__no_outlier_1d<T, Eq, SEQ, true>(
-      thp_data, s.eq, prev);
-  subr_v0::predict_quantize__no_outlier_1d<T, Eq, SEQ, false>(thp_data, s.eq);
+      thp_data, s_eq, prev);
+  subr_v0::predict_quantize__no_outlier_1d<T, Eq, SEQ, false>(thp_data, s_eq);
   subr_v0::write_1d<Eq, T, NTHREAD, SEQ, false>(
-      s.eq, nullptr, len3.x, id_base, eq, nullptr);
+      s_eq, nullptr, len3.x, id_base, eq, nullptr);
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
@@ -186,26 +171,21 @@ __global__ void psz::cuda_hip::__kernel::x_lorenzo_1d1l(  //
 
   constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
-  __shared__ struct {
-    union {
-      T outlier[BLOCK];
-      T xdata[BLOCK];
-    };
-    // even if it's wave64, "/32" works
-    T exchange_in[NTHREAD / 32];
-    T exchange_out[NTHREAD / 32];
-  } s;
+  __shared__ T scratch[BLOCK];  // for data and outlier
+  __shared__ Eq s_eq[BLOCK];
+  __shared__ T exch_in[NTHREAD / 32];
+  __shared__ T exch_out[NTHREAD / 32];
 
   T thp_data[SEQ];
 
   auto id_base = blockIdx.x * BLOCK;
 
   subr_v0::load_fuse_1d<T, Eq, NTHREAD, SEQ>(
-      eq, outlier, len3.x, id_base, radius, s.xdata, thp_data);
+      eq, outlier, len3.x, id_base, radius, scratch, thp_data);
   subr_v0::block_scan_1d<T, SEQ, NTHREAD>(
-      thp_data, ebx2, s.exchange_in, s.exchange_out, s.xdata);
+      thp_data, ebx2, exch_in, exch_out, scratch);
   subr_v0::write_1d<T, T, NTHREAD, SEQ, true>(
-      s.xdata, nullptr, len3.x, id_base, xdata, nullptr);
+      scratch, nullptr, len3.x, id_base, xdata, nullptr);
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
@@ -216,23 +196,22 @@ __global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_1d1l(  //
 
   constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
-  __shared__ struct {
-    T xdata[BLOCK];
-    // even if it's wave64, "/32" works
-    T exchange_in[NTHREAD / 32];
-    T exchange_out[NTHREAD / 32];
-  } s;
+  __shared__ T scratch[BLOCK];  // for data and outlier
+  __shared__ Eq s_eq[BLOCK];
+  // compat for wave32 and 64
+  __shared__ T exch_in[NTHREAD / 32];
+  __shared__ T exch_out[NTHREAD / 32];
 
   T thp_data[SEQ];
 
   auto id_base = blockIdx.x * BLOCK;
 
   subr_v0::delta_only::load_1d<T, Eq, NTHREAD, SEQ>(
-      eq, len3.x, id_base, s.xdata, thp_data);
+      eq, len3.x, id_base, scratch, thp_data);
   subr_v0::block_scan_1d<T, SEQ, NTHREAD>(
-      thp_data, ebx2, s.exchange_in, s.exchange_out, s.xdata);
+      thp_data, ebx2, exch_in, exch_out, scratch);
   subr_v0::write_1d<T, T, NTHREAD, SEQ, true>(
-      s.xdata, nullptr, len3.x, id_base, xdata, nullptr);
+      scratch, nullptr, len3.x, id_base, xdata, nullptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -296,7 +275,7 @@ __global__ void psz::cuda_hip::__kernel::x_lorenzo_2d1l(  //
   constexpr auto YSEQ = BLOCK / 2;  // sequentiality in y direction
   static_assert(BLOCK == 16, "In one case, we need BLOCK for 2D == 16");
 
-  __shared__ T intermediate[BLOCK];  // TODO use warp shuffle to eliminate this
+  __shared__ T scratch[BLOCK];  // TODO use warp shuffle to eliminate this
   T thread_private[YSEQ];
 
   auto gix = blockIdx.x * BLOCK + threadIdx.x;
@@ -308,7 +287,7 @@ __global__ void psz::cuda_hip::__kernel::x_lorenzo_2d1l(  //
   subr_v0::load_fuse_2d<T, Eq, YSEQ>(
       eq, outlier, len3.x, gix, len3.y, giy_base, stride3.y, radius,
       thread_private);
-  subr_v0::block_scan_2d<T, Eq, FP, YSEQ>(thread_private, intermediate, ebx2);
+  subr_v0::block_scan_2d<T, Eq, FP, YSEQ>(thread_private, scratch, ebx2);
   subr_v0::decomp_write_2d<T, YSEQ>(
       thread_private, len3.x, gix, len3.y, giy_base, stride3.y, xdata);
 }
@@ -324,7 +303,7 @@ __global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_2d1l(  //
   constexpr auto YSEQ = BLOCK / 2;  // sequentiality in y direction
   static_assert(BLOCK == 16, "In one case, we need BLOCK for 2D == 16");
 
-  __shared__ T intermediate[BLOCK];  // TODO use warp shuffle to eliminate this
+  __shared__ T scratch[BLOCK];  // TODO use warp shuffle to eliminate this
   T thread_private[YSEQ];
 
   auto gix = blockIdx.x * BLOCK + threadIdx.x;
@@ -335,7 +314,7 @@ __global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_2d1l(  //
 
   subr_v0::delta_only::load_2d<T, Eq, YSEQ>(
       eq, len3.x, gix, len3.y, giy_base, stride3.y, thread_private);
-  subr_v0::block_scan_2d<T, Eq, FP, YSEQ>(thread_private, intermediate, ebx2);
+  subr_v0::block_scan_2d<T, Eq, FP, YSEQ>(thread_private, scratch, ebx2);
   subr_v0::decomp_write_2d<T, YSEQ>(
       thread_private, len3.x, gix, len3.y, giy_base, stride3.y, xdata);
 }
@@ -540,7 +519,7 @@ __global__ void psz::cuda_hip::__kernel::x_lorenzo_3d1l(  //
   constexpr auto YSEQ = BLOCK;
   static_assert(BLOCK == 8, "In one case, we need BLOCK for 3D == 8");
 
-  __shared__ T intermediate[BLOCK][4][8];
+  __shared__ T scratch[BLOCK][4][8];
   T thread_private[YSEQ];
 
   auto seg_id = threadIdx.x / 8;
@@ -583,9 +562,9 @@ __global__ void psz::cuda_hip::__kernel::x_lorenzo_3d1l(  //
       }
 
       // x-z transpose
-      intermediate[threadIdx.z][seg_id][seg_tix] = val;
+      scratch[threadIdx.z][seg_id][seg_tix] = val;
       __syncthreads();
-      val = intermediate[seg_tix][seg_id][threadIdx.z];
+      val = scratch[seg_tix][seg_id][threadIdx.z];
       __syncthreads();
 
       for (auto dist = 1; dist < BLOCK; dist *= 2) {
@@ -593,9 +572,9 @@ __global__ void psz::cuda_hip::__kernel::x_lorenzo_3d1l(  //
         if (seg_tix >= dist) val += addend;
       }
 
-      intermediate[threadIdx.z][seg_id][seg_tix] = val;
+      scratch[threadIdx.z][seg_id][seg_tix] = val;
       __syncthreads();
-      val = intermediate[seg_tix][seg_id][threadIdx.z];
+      val = scratch[seg_tix][seg_id][threadIdx.z];
       __syncthreads();
 
       thread_private[i] = val;
@@ -624,7 +603,7 @@ __global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_3d1l(  //
   constexpr auto YSEQ = BLOCK;
   static_assert(BLOCK == 8, "In one case, we need BLOCK for 3D == 8");
 
-  __shared__ T intermediate[BLOCK][4][8];
+  __shared__ T scratch[BLOCK][4][8];
   T thread_private[YSEQ];
 
   auto seg_id = threadIdx.x / 8;
@@ -666,9 +645,9 @@ __global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_3d1l(  //
       }
 
       // x-z transpose
-      intermediate[threadIdx.z][seg_id][seg_tix] = val;
+      scratch[threadIdx.z][seg_id][seg_tix] = val;
       __syncthreads();
-      val = intermediate[seg_tix][seg_id][threadIdx.z];
+      val = scratch[seg_tix][seg_id][threadIdx.z];
       __syncthreads();
 
       for (auto dist = 1; dist < BLOCK; dist *= 2) {
@@ -676,9 +655,9 @@ __global__ void psz::cuda_hip::__kernel::delta_only::x_lorenzo_3d1l(  //
         if (seg_tix >= dist) val += addend;
       }
 
-      intermediate[threadIdx.z][seg_id][seg_tix] = val;
+      scratch[threadIdx.z][seg_id][seg_tix] = val;
       __syncthreads();
-      val = intermediate[seg_tix][seg_id][threadIdx.z];
+      val = scratch[seg_tix][seg_id][threadIdx.z];
       __syncthreads();
 
       thread_private[i] = val;

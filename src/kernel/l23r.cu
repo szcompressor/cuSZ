@@ -12,12 +12,14 @@
 #include <cuda_runtime.h>
 #include <type_traits>
 
+// deps
 #include "cusz/type.h"
-#include "detail/l23r.cu_hip.inl"
 #include "kernel/l23r.hh"
 #include "mem/compact.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
+// definitions
+#include "detail/l23r.cu_hip.inl"
 
 template <typename T, typename Eq, bool ZigZag>
 pszerror psz_comp_l23r(
@@ -44,7 +46,7 @@ pszerror psz_comp_l23r(
       return 3;
   };
 
-  using Compact = typename CompactDram<PROPER_GPU_BACKEND,T>::Compact;
+  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
 
   auto ot = (Compact*)_outlier;
 

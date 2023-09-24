@@ -16,7 +16,7 @@
 
 #include <type_traits>
 
-#include "cusz/suint.hh"
+#include "kernel/l23r.hh"
 #include "mem/compact.hh"
 #include "port.hh"
 
@@ -44,10 +44,8 @@ __global__ void c_lorenzo_1d1l(
 
   SETUP_ZIGZAG;
 
-  __shared__ struct {
-    T data[TileDim];
-    EqUint eq_uint[TileDim];
-  } s;
+  __shared__ T s_data[TileDim];
+  __shared__ EqUint s_eq_uint[TileDim];
 
   T _thp_data[Seq + 1] = {0};
   auto prev = [&]() -> T& { return _thp_data[0]; };
@@ -60,16 +58,16 @@ __global__ void c_lorenzo_1d1l(
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
     if (id < len3.x)
-      s.data[threadIdx.x + ix * NumThreads] = round(data[id] * ebx2_r);
+      s_data[threadIdx.x + ix * NumThreads] = round(data[id] * ebx2_r);
   }
   __syncthreads();
 
 // shmem.data to private.data
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++)
-    thp_data(ix) = s.data[threadIdx.x * Seq + ix];
+    thp_data(ix) = s_data[threadIdx.x * Seq + ix];
   if (threadIdx.x > 0)
-    prev() = s.data[threadIdx.x * Seq - 1];  // from last thread
+    prev() = s_data[threadIdx.x * Seq - 1];  // from last thread
   __syncthreads();
 
   // quantize & write back to shmem.eq
@@ -80,10 +78,10 @@ __global__ void c_lorenzo_1d1l(
     T candidate = ZigZag ? delta : delta + radius;
     // otherwise, need to reset shared memory (to 0)
     if (ZigZag)
-      s.eq_uint[ix + threadIdx.x * Seq] =
+      s_eq_uint[ix + threadIdx.x * Seq] =
           posneg_encode(quantizable * static_cast<EqInt>(candidate));
     else
-      s.eq_uint[ix + threadIdx.x * Seq] =
+      s_eq_uint[ix + threadIdx.x * Seq] =
           quantizable * static_cast<EqUint>(candidate);
     if (not quantizable) {
       auto cur_idx = atomicAdd(cn, 1);
@@ -97,7 +95,7 @@ __global__ void c_lorenzo_1d1l(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < len3.x) eq[id] = s.eq_uint[threadIdx.x + ix * NumThreads];
+    if (id < len3.x) eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
   }
 
   // end of kernel
