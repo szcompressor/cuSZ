@@ -16,9 +16,9 @@
 
 #include "busyheader.hh"
 #include "hf/hf.hh"
-#include "hf/hf_bk.hh"
-#include "hf/hf_bookg.hh"
-#include "hf/hfcodec.cu.hh"
+#include "hf/hfbk.hh"
+// #include "hf/hfbk.cu.hh"
+#include "hf/hfcodec.hh"
 #include "mem/memseg_cxx.hh"
 #include "typing.hh"
 #include "utils/err.hh"
