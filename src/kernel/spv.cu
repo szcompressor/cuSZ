@@ -22,7 +22,7 @@
 namespace psz {
 
 template <typename T, typename M>
-void spv_gather_cu(
+void spv_gather_thrust(
     T* in, szt const in_len, T* d_val, M* d_idx, int* nnz, f4* milliseconds,
     cudaStream_t stream)
 {
@@ -50,7 +50,7 @@ void spv_gather_cu(
 }
 
 template <typename T, typename M>
-void spv_scatter_cu(
+void spv_scatter_thrust(
     T* d_val, M* d_idx, int const nnz, T* decoded, f4* milliseconds,
     cudaStream_t stream)
 {
@@ -74,7 +74,7 @@ void spv_scatter_cu(
       T * in, szt const in_len, T* d_val, M* d_idx, int* nnz,               \
       f4* milliseconds, void* stream)                                       \
   {                                                                         \
-    psz::spv_gather<CUDA, T, M>(                                            \
+    spv_gather_thrust<T, M>(                                                \
         in, in_len, d_val, d_idx, nnz, milliseconds, (cudaStream_t)stream); \
   }                                                                         \
   template <>                                                               \
@@ -82,7 +82,7 @@ void spv_scatter_cu(
       T * d_val, M * d_idx, int const nnz, T* decoded, f4* milliseconds,    \
       void* stream)                                                         \
   {                                                                         \
-    psz::spv_scatter_cu(                                                    \
+    psz::spv_scatter_thrust(                                                \
         d_val, d_idx, nnz, decoded, milliseconds, (cudaStream_t)stream);    \
   }
 
