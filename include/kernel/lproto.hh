@@ -19,8 +19,12 @@
 
 template <typename T, typename EQ = int32_t>
 pszerror psz_comp_lproto(
-    T* const data,        // input
-    dim3 const len3,      //
+    T* const data,  // input
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    dim3 const len3,
+#elif defined(PSZ_USE_1API)
+    sycl::range<3> const len3,
+#endif
     double const eb,      // input (config)
     int const radius,     //
     EQ* const eq,         // output
@@ -30,8 +34,12 @@ pszerror psz_comp_lproto(
 
 template <typename T, typename EQ = int32_t>
 pszerror psz_decomp_lproto(
-    EQ* eq,                // input
-    dim3 const len3,       //
+    EQ* eq,  // input
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    dim3 const len3,
+#elif defined(PSZ_USE_1API)
+    sycl::range<3> const len3,
+#endif
     T* scattered_outlier,  //
     double const eb,       // input (config)
     int const radius,      //

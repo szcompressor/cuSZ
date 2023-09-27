@@ -30,7 +30,6 @@ struct CompressorHelper {
 template <class TEHM>
 class Compressor {
  public:
-
   using Codec = typename TEHM::Codec;
   using BYTE = uint8_t;
   using B = u1;
@@ -60,8 +59,12 @@ class Compressor {
 
   float time_pred, time_hist, time_sp;
 
-  // sizes
+// sizes
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   dim3 len3;
+#elif defined(PSZ_USE_1API)
+  sycl::range<3> len3;
+#endif
   size_t len;
   int splen;
 

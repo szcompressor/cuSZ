@@ -87,7 +87,12 @@ Compressor<C>* Compressor<C>::compress(
 
   auto div = [](auto whole, auto part) { return (whole - 1) / part + 1; };
 
+// [psz::note::TODO] compat layer or explicit macro
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   len3 = dim3(config->x, config->y, config->z);
+#elif defined(PSZ_USE_1API)
+  len3 = sycl::range<3>(config->z, config->y, config->x);
+#endif
 
   BYTE* d_codec_out{nullptr};
   size_t codec_outlen{0};
@@ -98,7 +103,11 @@ Compressor<C>* Compressor<C>::compress(
   auto sublen = div(data_len, pardeg);
 
   auto update_header = [&]() {
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     header.x = len3.x, header.y = len3.y, header.z = len3.z,
+#elif defined(PSZ_USE_1API)
+    header.x = len3[2], header.y = len3[1], header.z = len3[0],
+#endif
     header.w = 1;  // placeholder
     header.radius = radius, header.eb = eb;
     header.vle_pardeg = pardeg;
@@ -127,9 +136,7 @@ Compressor<C>* Compressor<C>::compress(
         mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
 
     codec->build_codebook(mem->ht, booklen, stream);
-
     if (config->report_cr_est) codec->calculate_CR(mem->es);
-
     codec->encode(mem->ectrl_spl(), elen, &d_codec_out, &codec_outlen, stream);
 
 #else
@@ -149,7 +156,7 @@ Compressor<C>* Compressor<C>::compress(
     // psz::histogram<PROPER_GPU_BACKEND, E>(
     //     mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
 
-#if defined(PSZ_USE_CUDA)
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
     psz::histsp<PROPER_GPU_BACKEND, E>(
         mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
 #elif defined(PSZ_USE_HIP)
@@ -159,11 +166,8 @@ Compressor<C>* Compressor<C>::compress(
 #endif
 
     // Huffman encoding
-
     codec->build_codebook(mem->ht, booklen, stream);
-
     if (config->report_cr_est) codec->calculate_CR(mem->el);
-
     codec->encode(mem->ectrl_lrz(), elen, &d_codec_out, &codec_outlen, stream);
 
     // count outliers (by far, already gathered in psz_comp_l23r)
@@ -207,16 +211,28 @@ Compressor<C>* Compressor<C>::merge_subfiles(
     pszpredictor_type pred_type, T* d_anchor, szt anchor_len,
     BYTE* d_codec_out, szt codec_outlen, T* d_spval, M* d_spidx, szt splen,
     void* stream)
+#if defined(PSZ_USE_1API)
+try
+#endif
 {
+
+#if defined(PSZ_USE_1API)
+  auto queue = (dpct::queue_ptr)stream;
+#endif
+
   uint32_t nbyte[Header::END];
 
   auto dst = [&](int FIELD, szt offset = 0) {
     return (void*)(mem->compressed() + header.entry[FIELD] + offset);
   };
   auto concat_d2d = [&](int FIELD, void* src, u4 dst_offset = 0) {
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     CHECK_GPU(GpuMemcpyAsync(
         dst(FIELD, dst_offset), src, nbyte[FIELD], GpuMemcpyD2D,
         (GpuStreamT)stream));
+#elif defined(PSZ_USE_1API)
+    queue->memcpy(dst(FIELD, dst_offset), src, nbyte[FIELD]);
+#endif
   };
 
   // header.self_bytes = sizeof(Header);
@@ -241,10 +257,14 @@ Compressor<C>* Compressor<C>::merge_subfiles(
   for (auto i = 1; i < Header::END + 1; i++)
     header.entry[i] += header.entry[i - 1];
 
-  // TODO no need to copy header to device
+    // TODO no need to copy header to device
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   CHECK_GPU(GpuMemcpyAsync(
       dst(Header::HEADER), &header, nbyte[Header::HEADER], GpuMemcpyH2D,
       (GpuStreamT)stream));
+#elif defined(PSZ_USE_1API)
+  queue->memcpy(dst(Header::HEADER), &header, nbyte[Header::HEADER]);
+#endif
 
   // copy anchor
   if (pred_type == pszpredictor_type::Spline) {
@@ -258,6 +278,7 @@ Compressor<C>* Compressor<C>::merge_subfiles(
     // concat_d2d(Header::SPFMT, d_spval, 0);
     // concat_d2d(Header::SPFMT, d_spidx, sizeof(T) * splen);
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     CHECK_GPU(GpuMemcpyAsync(
         dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen, GpuMemcpyD2D,
         (GpuStreamT)stream));
@@ -265,12 +286,29 @@ Compressor<C>* Compressor<C>::merge_subfiles(
     CHECK_GPU(GpuMemcpyAsync(
         dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen,
         GpuMemcpyD2D, (GpuStreamT)stream));
+#elif defined(PSZ_USE_1API)
+    queue->memcpy(dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen);
+
+    queue->memcpy(
+        dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen);
+#endif
   }
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   /* debug */ CHECK_GPU(GpuStreamSync(stream));
+#elif defined(PSZ_USE_1API)
+  /* debug */ queue->wait();
+#endif
 
   return this;
 }
+#if defined(PSZ_USE_1API)
+catch (sycl::exception const& exc) {
+  std::cerr << exc.what() << "Exception caught at file:" << __FILE__
+            << ", line:" << __LINE__ << std::endl;
+  std::exit(1);
+}
+#endif
 
 template <class C>
 Compressor<C>* Compressor<C>::dump(
@@ -320,12 +358,21 @@ Compressor<C>* Compressor<C>::decompress(
   // TODO host having copy of header when compressing
   if (not header) {
     header = new Header;
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     CHECK_GPU(GpuMemcpyAsync(
         header, in, sizeof(Header), GpuMemcpyD2H, (GpuStreamT)stream));
     CHECK_GPU(GpuStreamSync(stream));
+#elif defined(PSZ_USE_1API)
+    ((dpct::queue_ptr)stream)->memcpy(header, in, sizeof(Header));
+    ((dpct::queue_ptr)stream)->wait();
+#endif
   }
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   len3 = dim3(header->x, header->y, header->z);
+#elif defined(PSZ_USE_1API)
+  len3 = sycl::range<3>(header->z, header->y, header->x);
+#endif
 
   // use_fallback_codec = header->byte_vle == 8;
   double const eb = header->eb;
@@ -346,6 +393,7 @@ Compressor<C>* Compressor<C>::decompress(
   auto d_xdata = out;
 
   if (header->pred_type == Spline) {
+#ifdef PSZ_USE_CUDA
     mem->xd->dptr(d_xdata);
 
     // TODO release borrow
@@ -353,7 +401,6 @@ Compressor<C>* Compressor<C>::decompress(
     pszmem_cxx<T> anchor(aclen3.x, aclen3.y, aclen3.z);
     anchor.dptr(d_anchor);
 
-#ifdef PSZ_USE_CUDA
     codec->decode(d_vle, mem->ectrl_spl());
     spline_reconstruct(
         &anchor, mem->es, mem->xd, eb, radius, &time_pred, stream);
