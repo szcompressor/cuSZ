@@ -17,6 +17,8 @@
 
 #include "busyheader.hh"
 #include "compare/compare.cu_hip.hh"
+#include "compare/compare.dp.hh"
+#include "compare/compare.dpl.hh"
 #include "compare/compare.stl.hh"
 #include "compare/compare.thrust.hh"
 #include "cusz/type.h"
@@ -46,6 +48,9 @@ void probe_extrema(T* in, size_t len, T res[4])
   else if (P == CUDA or P == HIP) {
     psz::cu_hip::extrema(in, len, res);
   }
+  else if (P == ONEAPI) {
+    psz::dpcpp::extrema(in, len, res);
+  }
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
@@ -56,10 +61,12 @@ bool error_bounded(
     size_t* first_faulty_idx = nullptr)
 {
   bool eb_ed = true;
-  if (P == SEQ) eb_ed = psz::cppstl_error_bounded(a, b, len, eb, first_faulty_idx);
+  if (P == SEQ)
+    eb_ed = psz::cppstl_error_bounded(a, b, len, eb, first_faulty_idx);
 #ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
-    eb_ed = psz::thrustgpu::thrustgpu_error_bounded(a, b, len, eb, first_faulty_idx);
+    eb_ed = psz::thrustgpu::thrustgpu_error_bounded(
+        a, b, len, eb, first_faulty_idx);
 #endif
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
@@ -69,10 +76,13 @@ bool error_bounded(
 template <pszpolicy P, typename T>
 void assess_quality(pszsummary* s, T* xdata, T* odata, size_t const len)
 {
+  // [TODO] THRUST is not activated in the frontend
   if (P == SEQ)
     psz::cppstl_assess_quality(s, xdata, odata, len);
   else if (P == THRUST)
     psz::thrustgpu_assess_quality(s, xdata, odata, len);
+  else if (P == ONEAPI)
+    psz::dpl_assess_quality(s, xdata, odata, len);
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
