@@ -49,7 +49,7 @@ pszerror psz_comp_l23(
 
   auto d = ndim();
 
-  auto queue = ((sycl::queue*)((dpct::queue_ptr)stream));
+  auto queue = (sycl::queue*)stream;
 
   // error bound
   auto ebx2 = eb * 2;
@@ -162,7 +162,7 @@ pszerror psz_decomp_l23(
 
   auto d = ndim();
 
-  auto queue = ((sycl::queue*)((dpct::queue_ptr)stream));
+  auto queue = (sycl::queue*)stream;
 
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(queue);

@@ -217,20 +217,25 @@ class CLI {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;
     CHECK_GPU(GpuStreamCreate(&stream));
-#elif defined(PSZ_USE_1API)
-    dpct::device_ext& dev_ct1 = dpct::get_current_device();
-    dpct::queue_ptr stream = dev_ct1.create_queue();
-#endif
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
     if (ctx->task_construct) do_construct(ctx, compressor, stream);
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     if (stream) GpuStreamDestroy(stream);
+
 #elif defined(PSZ_USE_1API)
-    if (stream) dev_ct1.destroy_queue(stream);
+
+    sycl::queue q(
+        sycl::gpu_selector_v, sycl::property_list(
+                                  sycl::property::queue::in_order(),
+                                  sycl::property::queue::enable_profiling()));
+
+    // TODO enable f8
+    if (ctx->task_dryrun) do_dryrun<float>(ctx);
+    if (ctx->task_construct) do_construct(ctx, compressor, &q);
+    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, &q);
+
 #endif
   }
 };

@@ -52,8 +52,7 @@ void psz::hf_encode_coarse_rev2(
 
   CREATE_GPUEVENT_PAIR;
 
-  // auto queue = (sycl::queue*)((dpct::queue_ptr)stream);
-  auto queue = (dpct::queue_ptr)stream;
+  auto queue = (sycl::queue*)stream;
 
   /* phase 1 */
   {
@@ -170,8 +169,8 @@ void psz::hf_decode_coarse(
   auto const grid_dim = psz_utils::get_npart(pardeg, block_dim);
 
   CREATE_GPUEVENT_PAIR;
-  // auto queue = (sycl::queue*)((dpct::queue_ptr)stream);
-  auto queue = (dpct::queue_ptr)stream;
+
+  auto queue = (sycl::queue*)stream;
 
   START_GPUEVENT_RECORDING(queue);
 

@@ -17,16 +17,6 @@
 #include "cusz/suint.hh"
 #include "cusz/type.h"
 
-#warning[psz::note] move to all backends
-template <typename T, typename Eq>
-struct IntegerInterp {
-  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
-  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
-
-  static_assert(
-      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type.");
-};
-
 template <typename T, typename Eq = uint32_t, bool ZigZag = false>
 cusz_error_status psz_comp_l23r(
     T* const data,

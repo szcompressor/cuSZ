@@ -33,8 +33,11 @@
  * modified from `cuda-samples/Samples/deviceQuery/deviceQuery.cpp`
  */
 
-struct GpuDiagnostics {
-  static void GetDeviceProperty()
+#ifndef BF331734_1965_456A_9C12_6FBE16CCAB4E
+#define BF331734_1965_456A_9C12_6FBE16CCAB4E
+
+struct cu_hip_diagnostics {
+  static void get_device_property()
   {
     int num_dev = 0;
     GpuErrorT error_id = GpuGetDeviceCount(&num_dev);
@@ -80,3 +83,5 @@ struct GpuDiagnostics {
     printf("\n");
   }
 };
+
+#endif /* BF331734_1965_456A_9C12_6FBE16CCAB4E */

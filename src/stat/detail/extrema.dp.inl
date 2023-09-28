@@ -154,6 +154,7 @@ namespace dpcpp {
 template <typename T>
 void extrema(T *in, size_t len, T res[4])
 {
+  // [TODO] external stream
   dpct::device_ext &dev_ct1 = dpct::get_current_device();
   sycl::queue &queue = dev_ct1.default_queue();
 
@@ -161,10 +162,6 @@ void extrema(T *in, size_t len, T res[4])
   static const int MAXVAL = 1;
   //   static const int AVGVAL = 2;  // TODO
   static const int RNG = 3;
-
-  // TODO use external stream
-  dpct::queue_ptr stream;
-  stream = dev_ct1.create_queue();
 
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
@@ -189,8 +186,8 @@ void extrema(T *in, size_t len, T res[4])
   Adjust the work-group size if needed.
   */
   {
-    dpct::has_capability_or_fail(stream->get_device(), {sycl::aspect::fp64});
-    stream->submit([&](sycl::handler &cgh) {
+    // dpct::has_capability_or_fail(stream->get_device(), {sycl::aspect::fp64});
+    queue.submit([&](sycl::handler &cgh) {
       sycl::local_accessor<T, 0> shared_minv_acc_ct1(cgh);
       sycl::local_accessor<T, 0> shared_maxv_acc_ct1(cgh);
 
@@ -219,7 +216,7 @@ void extrema(T *in, size_t len, T res[4])
   sycl::free(d_minel, queue);
   sycl::free(d_maxel, queue);
 
-  dev_ct1.destroy_queue(stream);
+  // dev_ct1.destroy_queue(stream);
 }
 
 }  // namespace dpcpp

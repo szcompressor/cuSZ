@@ -59,9 +59,8 @@ struct CompactGpuDram {
   {
     dpct::device_ext &dev_ct1 = dpct::get_current_device();
     sycl::queue &q_ct1 = dev_ct1.default_queue();
-    DPCT_CHECK_ERROR(sycl::free(d_idx, q_ct1)),
-        DPCT_CHECK_ERROR(sycl::free(d_val, q_ct1)),
-        DPCT_CHECK_ERROR(sycl::free(d_num, q_ct1));
+    sycl::free(d_idx, q_ct1), sycl::free(d_val, q_ct1),
+        sycl::free(d_num, q_ct1);
     return *this;
   }
 
@@ -69,8 +68,7 @@ struct CompactGpuDram {
   {
     dpct::device_ext &dev_ct1 = dpct::get_current_device();
     sycl::queue &q_ct1 = dev_ct1.default_queue();
-    DPCT_CHECK_ERROR(sycl::free(h_idx, q_ct1)),
-        DPCT_CHECK_ERROR(sycl::free(h_val, q_ct1));
+    sycl::free(h_idx, q_ct1), sycl::free(h_val, q_ct1);
     return *this;
   }
 

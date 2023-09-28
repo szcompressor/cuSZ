@@ -38,8 +38,7 @@ void dryrun(size_t len, T* original, T* reconst, double eb, void* stream)
   auto ebx2_r = 1 / (eb * 2);
   auto ebx2 = eb * 2;
 
-  // auto queue = ((sycl::queue*)((dpct::queue_ptr)stream));
-  auto queue = (dpct::queue_ptr)stream;
+  auto queue = (sycl::queue*)stream;
 
   /*
   DPCT1049:75: The work-group size passed to the SYCL kernel may exceed the

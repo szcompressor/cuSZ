@@ -54,7 +54,7 @@ pszerror psz_comp_l23r(
 
   auto d = ndim();
 
-  auto queue = (sycl::queue*)((dpct::queue_ptr)stream);
+  auto queue = (sycl::queue*)stream;
 
   // error bound
   auto ebx2 = eb * 2;

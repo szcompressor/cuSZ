@@ -78,13 +78,11 @@ class pszmem_cxx {
       else if (c == H2D)
         pszmem_h2d_1api(m);
       else if (c == ASYNC_H2D) {
-#warning "[psz::TODO] add exception/nullability"
         pszmem_h2d_1apiasync(m, stream);
       }
       else if (c == D2H)
         pszmem_d2h_1api(m);
       else if (c == ASYNC_D2H) {
-#warning "[psz::TODO] add exception/nullability"
         pszmem_d2h_1apiasync(m, stream);
       }
       else if (c == ExtremaScan)

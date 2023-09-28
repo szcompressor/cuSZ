@@ -282,7 +282,7 @@ TPL HF_CODEC* HF_CODEC::decode(
     uint8_t* in_compressed, E* out_decompressed, void* stream,
     bool header_on_device)
 {
-  auto queue = (dpct::queue_ptr)stream;
+  auto queue = (sycl::queue*)stream;
 
   Header header;
   if (header_on_device)
@@ -355,7 +355,7 @@ TPL void HF_CODEC::__hf_merge(
     Header& header, size_t const original_len, int const bklen,
     int const sublen, int const pardeg, void* stream)
 try {
-  auto queue = (dpct::queue_ptr)stream;
+  auto queue = (sycl::queue*)stream;
 
   auto BARRIER = [&]() {
     if (stream)
@@ -435,7 +435,9 @@ TPL void HF_CODEC::hf_debug(const std::string SYM_name, void* VAR, int SYM)
   dpct::device_ptr pbase0{0};
   size_t psize0{0};
 
-#warning "DPCT1007:99: Migration of cuMemGetAddressRange is not supported."
+  // [psz::TODO] not-impl exception
+  // #warning "DPCT1007:99: Migration of cuMemGetAddressRange is not
+  // supported."
   // /*
   // DPCT1007:99: Migration of cuMemGetAddressRange is not supported.
   // */

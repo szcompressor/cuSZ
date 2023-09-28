@@ -217,7 +217,7 @@ try
 {
 
 #if defined(PSZ_USE_1API)
-  auto queue = (dpct::queue_ptr)stream;
+  auto queue = (sycl::queue*)stream;
 #endif
 
   uint32_t nbyte[Header::END];

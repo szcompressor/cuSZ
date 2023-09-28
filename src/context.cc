@@ -25,8 +25,17 @@
 #include "utils/format.hh"
 
 namespace cusz {
+
+#if defined(PSZ_USE_CUDA)
 const char* VERSION_TEXT = "2023-09-05 (unstable)";
 const int VERSION = 20230905;
+#elif defined(PSZ_USE_HIP)
+const char* VERSION_TEXT = "2023-08-31 (unstable)";
+const int VERSION = 20230831;
+#elif defined(PSZ_USE_1API)
+const char* VERSION_TEXT = "2023-09-28 (unstable)";
+const int VERSION = 20230928;
+#endif
 const int COMPATIBILITY = 0;
 }  // namespace cusz
 

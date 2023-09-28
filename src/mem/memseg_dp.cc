@@ -121,6 +121,7 @@ void pszmem_h2d_1api(pszmem* m)
       .wait_and_throw();
 }
 
+// [psz::TODO] wait or wait_and_throw?
 void pszmem_h2d_1apiasync(pszmem* m, void* stream)
 {
   ((dpct::queue_ptr)stream)  //

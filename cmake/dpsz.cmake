@@ -11,7 +11,15 @@ if(IntelSYCL_FOUND)
 
   # [psz::note] SYCL is not treated as a supported language.
   # With only SYCL_FLAGS, static check won't pass.
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++17 -fsycl")
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    # Do something for Debug build type
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsycl -g -Rno-debug-disables-optimization")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsycl -g -O2")
+  endif()
+
+  set(COMPILE_FLAGS "-fsycl")
+  set(LINK_FLAGS "-fsycl")
 
   message("[psz::info] IntelSYCL FOUND")
   message("[psz::info] $\{SYCL_LANGUAGE_VERSION\}: " ${SYCL_LANGUAGE_VERSION})
@@ -100,7 +108,7 @@ target_link_libraries(psz_comp PUBLIC pszcompile_settings pszkernel_dp
 
 add_library(dpsz src/cusz_lib.cc)
 target_link_libraries(dpsz PUBLIC psz_comp pszhf_dp pszspv_dp pszstat_seq
-pszutils_seq pszmem)
+  pszutils_seq pszmem)
 
 add_executable(dpsz-bin src/cli_psz.cc)
 target_link_libraries(dpsz-bin PRIVATE dpsz)
