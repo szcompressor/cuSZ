@@ -114,8 +114,7 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void do_construct(
-      pszctx* ctx, cusz_compressor* compressor, GpuStreamT stream)
+  void do_construct(pszctx* ctx, cusz_compressor* compressor, void* stream)
   {
     auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
 
@@ -157,8 +156,7 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void do_reconstruct(
-      pszctx* ctx, cusz_compressor* compressor, GpuStreamT stream)
+  void do_reconstruct(pszctx* ctx, cusz_compressor* compressor, void* stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
