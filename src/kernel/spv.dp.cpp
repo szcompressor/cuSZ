@@ -77,6 +77,6 @@ void spv_scatter_dpl(
   }
 
 SPECIALIZE_SPV(f4, u4)
-SPECIALIZE_SPV(f8, u4)
+// SPECIALIZE_SPV(f8, u4)
 
 #undef SPECIALIZE_SPV

@@ -13,8 +13,9 @@
 
 template <typename T, typename Eq, bool ZigZag>
 pszerror psz_comp_l23r(
-    T* const data, sycl::range<3> const len3, f8 const eb, int const radius,
-    Eq* const eq, void* _outlier, f4* time_elapsed, void* stream)
+    T* const data, sycl::range<3> const len3, PROPER_EB const eb,
+    int const radius, Eq* const eq, void* _outlier, f4* time_elapsed,
+    void* stream)
 {
   static_assert(
       std::is_same<Eq, u4>::value or std::is_same<Eq, uint16_t>::value or
@@ -71,7 +72,7 @@ pszerror psz_comp_l23r(
     limit. To get the device limit, query info::device::max_work_group_size.
     Adjust the work-group size if needed.
     */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
       using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
@@ -152,12 +153,12 @@ pszerror psz_comp_l23r(
 
 #define INIT(T, E, ZIGZAG)                                             \
   template pszerror psz_comp_l23r<T, E, ZIGZAG>(                       \
-      T* const data, sycl::range<3> const len3, f8 const eb,           \
+      T* const data, sycl::range<3> const len3, PROPER_EB const eb,    \
       int const radius, E* const eq, void* _outlier, f4* time_elapsed, \
       void* queue);
 
 INIT(f4, u4, false)
-// INIT(f4, u4, true)
+INIT(f4, u4, true)
 // INIT(f8, u4, false)
 // INIT(f8, u4, true)
 

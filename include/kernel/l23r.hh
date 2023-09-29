@@ -16,6 +16,7 @@
 
 #include "cusz/suint.hh"
 #include "cusz/type.h"
+#include "port.hh"
 
 template <typename T, typename Eq = uint32_t, bool ZigZag = false>
 cusz_error_status psz_comp_l23r(
@@ -25,7 +26,7 @@ cusz_error_status psz_comp_l23r(
 #elif defined(PSZ_USE_1API)
     sycl::range<3> const len3,
 #endif
-    double const eb, int const radius, Eq* const eq, void* _outlier,
+    PROPER_EB const eb, int const radius, Eq* const eq, void* _outlier,
     float* time_elapsed,
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     void* _stream

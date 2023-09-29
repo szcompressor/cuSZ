@@ -6,6 +6,7 @@
 #define DPL_ASSESS(Tliteral, T) \
     template void psz::dpl_assess_quality<T>(cusz_stats * s, T * xdata, T * odata, size_t const len);
 
-DPL_ASSESS(fp64, double);
+// [psz::note] cannot pass sycl::aspects::fp64 check
+// DPL_ASSESS(fp64, double);
 
 #undef DPL_ASSESS

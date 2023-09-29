@@ -11,8 +11,9 @@
 
 template <typename T, typename Eq, typename FP>
 pszerror psz_comp_l23(
-    T* const data, sycl::range<3> const len3, f8 const eb, int const radius,
-    Eq* const eq, T* const outlier, f4* time_elapsed, void* stream)
+    T* const data, sycl::range<3> const len3, PROPER_EB const eb,
+    int const radius, Eq* const eq, T* const outlier, f4* time_elapsed,
+    void* stream)
 {
   auto divide3 = [](sycl::range<3> len, sycl::range<3> subl) {
     return sycl::range<3>(
@@ -126,7 +127,7 @@ pszerror psz_comp_l23(
 
 template <typename T, typename Eq, typename FP>
 pszerror psz_decomp_l23(
-    Eq* eq, sycl::range<3> const len3, T* outlier, f8 const eb,
+    Eq* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
     int const radius, T* xdata, f4* time_elapsed, void* stream)
 {
   auto divide3 = [](sycl::range<3> l, sycl::range<3> subl) {
@@ -259,12 +260,12 @@ pszerror psz_decomp_l23(
 
 #define CPP_INS(T, Eq)                                                    \
   template pszerror psz_comp_l23<T, Eq>(                                  \
-      T* const data, sycl::range<3> const len3, f8 const eb,              \
+      T* const data, sycl::range<3> const len3, PROPER_EB const eb,       \
       int const radius, Eq* const eq, T* const outlier, f4* time_elapsed, \
       void* stream);                                                      \
                                                                           \
   template pszerror psz_decomp_l23<T, Eq>(                                \
-      Eq * eq, sycl::range<3> const len3, T* outlier, f8 const eb,        \
+      Eq * eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb, \
       int const radius, T* xdata, f4* time_elapsed, void* stream);
 
 CPP_INS(f4, u1);
@@ -272,12 +273,12 @@ CPP_INS(f4, u2);
 CPP_INS(f4, u4);
 CPP_INS(f4, f4);
 
-CPP_INS(f8, u1);
-CPP_INS(f8, u2);
-CPP_INS(f8, u4);
-CPP_INS(f8, f4);
+// CPP_INS(f8, u1);
+// CPP_INS(f8, u2);
+// CPP_INS(f8, u4);
+// CPP_INS(f8, f4);
 
 CPP_INS(f4, i4);
-CPP_INS(f8, i4);
+// CPP_INS(f8, i4);
 
 #undef CPP_INS

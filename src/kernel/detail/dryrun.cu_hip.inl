@@ -39,7 +39,7 @@ __global__ void dryrun_kernel(T* in, T* out, size_t len, FP ebx2_r, FP ebx2)
 }
 
 template <typename T>
-void dryrun(size_t len, T* original, T* reconst, double eb, void* stream)
+void dryrun(size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 

@@ -81,8 +81,17 @@ void assess_quality(pszsummary* s, T* xdata, T* odata, size_t const len)
     psz::cppstl_assess_quality(s, xdata, odata, len);
   else if (P == THRUST)
     psz::thrustgpu_assess_quality(s, xdata, odata, len);
-  else if (P == ONEAPI)
-    psz::dpl_assess_quality(s, xdata, odata, len);
+  else if (P == ONEAPI) {
+#if defined(PSZ_USE_1API)
+    if constexpr (std::is_same_v<T, f4>) {
+      psz::dpl_assess_quality(s, xdata, odata, len);
+    }
+    else {
+      static_assert(
+          std::is_same_v<T, f4>, "No f8, fast fail on sycl::aspects::fp64.");
+    }
+#endif
+  }
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }

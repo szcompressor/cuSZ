@@ -31,7 +31,7 @@ void dryrun_kernel(
 }
 
 template <typename T>
-void dryrun(size_t len, T* original, T* reconst, double eb, void* stream)
+void dryrun(size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 

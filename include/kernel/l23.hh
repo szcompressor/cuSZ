@@ -16,6 +16,7 @@
 
 #include "cusz/type.h"
 #include "mem/compact.hh"
+#include "port.hh"
 
 template <typename T, typename EQ = int32_t, typename FP = T>
 cusz_error_status psz_comp_l23(
@@ -25,7 +26,7 @@ cusz_error_status psz_comp_l23(
 #elif defined(PSZ_USE_1API)
     sycl::range<3> const len3,
 #endif
-    double const eb,      // input (config)
+    PROPER_EB const eb,   // input (config)
     int const radius,     //
     EQ* const eq,         // output
     T* outlier,           //
@@ -41,7 +42,7 @@ cusz_error_status psz_decomp_l23(
     sycl::range<3> const len3,
 #endif
     T* outlier,           //
-    double const eb,      // input (config)
+    PROPER_EB const eb,   // input (config)
     int const radius,     //
     T* xdata,             // output
     float* time_elapsed,  // optional
