@@ -20,7 +20,9 @@
 #include "header.h"
 #include "hf/hf.hh"
 #include "kernel.hh"
+#include "log.hh"
 #include "mem.hh"
+#include "mem/memseg_cxx.hh"
 #include "port.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
@@ -81,6 +83,8 @@ Compressor<C>* Compressor<C>::compress(
     cusz_context* config, T* in, BYTE*& out, size_t& outlen, void* stream,
     bool dbg_print)
 {
+  PSZSANITIZE_PSZCTX(config);
+
   auto const eb = config->eb;
   auto const radius = config->radius;
   auto const pardeg = config->vle_pardeg;
@@ -127,17 +131,32 @@ Compressor<C>* Compressor<C>::compress(
 #ifdef PSZ_USE_CUDA
     mem->od->dptr(in);
     spline_construct(
-        mem->od, mem->ac, mem->es, /* placeholder */ (void*)mem->compact, eb,
-        radius, &time_pred, stream);
+        mem->od, mem->ac, mem->es, (void*)mem->compact, eb, radius, &time_pred,
+        stream);
+
+    PSZDBG_LOG("interp: done")
+    PSZDBG_PTR_WHERE(mem->ectrl_spl());
+    PSZDBG_VAR("pipeline", elen)
+
+    PSZSANITIZE_QUANTCODE(mem->es->control({D2H})->hptr(), elen, booklen);
 
     // psz::histogram<PROPER_GPU_BACKEND, E>(
     //     mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
+    // PSZDBG_LOG("histogram gpu: done")
+    // PSZSANITIZE_HIST_OUTPUT(mem->ht->control({D2H})->hptr(), booklen);
+
     psz::histsp<PROPER_GPU_BACKEND, E>(
         mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
+    PSZDBG_LOG("histsp gpu: done")
 
     codec->build_codebook(mem->ht, booklen, stream);
-    if (config->report_cr_est) codec->calculate_CR(mem->es);
+    // [TODO] CR estimation must be after building codebook; need a flag.
+    if (config->report_cr_est)
+      codec->calculate_CR(mem->es, sizeof(T), sizeof(T) * mem->ac->len());
+    PSZDBG_LOG("codebook: done")
+    // PSZSANITIZE_HIST_BK(mem->ht->hptr(), codec->bk4->hptr(), booklen);
     codec->encode(mem->ectrl_spl(), elen, &d_codec_out, &codec_outlen, stream);
+    PSZDBG_LOG("encoding done")
 
 #else
     throw runtime_error(
@@ -169,21 +188,20 @@ Compressor<C>* Compressor<C>::compress(
     codec->build_codebook(mem->ht, booklen, stream);
     if (config->report_cr_est) codec->calculate_CR(mem->el);
     codec->encode(mem->ectrl_lrz(), elen, &d_codec_out, &codec_outlen, stream);
-
-    // count outliers (by far, already gathered in psz_comp_l23r)
-    mem->compact->make_host_accessible((GpuStreamT)stream);
-    splen = mem->compact->num_outliers();
-
-#if defined(PSZ_USE_HIP)
-    cout << "[psz:dbg::res] splen: " << splen << endl;
-#endif
   }
 
-  // /* debug */ CHECK_GPU(GpuStreamSync(stream));
+  // count outliers (by far, gathered in the predictor)
+  mem->compact->make_host_accessible((GpuStreamT)stream);
+  splen = mem->compact->num_outliers();
+
+#if defined(PSZ_USE_HIP)
+  cout << "[psz:dbg::res] splen: " << splen << endl;
+#endif
 
   /******************************************************************************/
 
   update_header();
+  PSZDBG_LOG("update header: done");
 
   merge_subfiles(
       config->pred_type,                                                     //
@@ -191,6 +209,7 @@ Compressor<C>* Compressor<C>::compress(
       d_codec_out, codec_outlen,                                             //
       mem->compact_val(), mem->compact_idx(), mem->compact->num_outliers(),  //
       stream);
+  PSZDBG_LOG("merge buf: done");
 
   // output
   outlen = psz_utils::filesize(&header);
@@ -199,6 +218,7 @@ Compressor<C>* Compressor<C>::compress(
   out = mem->_compressed->dptr();
 
   collect_comp_time();
+  PSZDBG_LOG("compression: done");
 
   // TODO fallback handling
   // use_fallback_codec = false;
@@ -240,16 +260,8 @@ try
   ////////////////////////////////////////////////////////////////
   nbyte[Header::HEADER] = sizeof(Header);
   nbyte[Header::VLE] = sizeof(BYTE) * codec_outlen;
-
-  if (pred_type == Spline) {
-    nbyte[Header::ANCHOR] = sizeof(T) * anchor_len;
-    nbyte[Header::SPFMT] = 0;
-    printf("[psz::warning] spline does not have outlier temporarily.");
-  }
-  else {
-    nbyte[Header::ANCHOR] = 0;
-    nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * splen;
-  }
+  nbyte[Header::ANCHOR] = pred_type == Spline ? sizeof(T) * anchor_len : 0;
+  nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
   header.entry[0] = 0;
   // *.END + 1; need to know the ending position
@@ -267,36 +279,27 @@ try
 #endif
 
   // copy anchor
-  if (pred_type == pszpredictor_type::Spline) {
+  if (pred_type == pszpredictor_type::Spline)
     concat_d2d(Header::ANCHOR, d_anchor, 0);
-    concat_d2d(Header::VLE, d_codec_out, 0);
-  }
-  else {
-    concat_d2d(Header::VLE, d_codec_out, 0);
 
-    // dbg: previously
-    // concat_d2d(Header::SPFMT, d_spval, 0);
-    // concat_d2d(Header::SPFMT, d_spidx, sizeof(T) * splen);
+  concat_d2d(Header::VLE, d_codec_out, 0);
+
+  // [TODO] rework the wrapper
+  // concat_d2d(Header::SPFMT, d_spval, 0);
+  // concat_d2d(Header::SPFMT, d_spidx, sizeof(T) * splen);
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    CHECK_GPU(GpuMemcpyAsync(
-        dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen, GpuMemcpyD2D,
-        (GpuStreamT)stream));
-
-    CHECK_GPU(GpuMemcpyAsync(
-        dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen,
-        GpuMemcpyD2D, (GpuStreamT)stream));
-#elif defined(PSZ_USE_1API)
-    queue->memcpy(dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen);
-
-    queue->memcpy(
-        dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen);
-#endif
-  }
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+  CHECK_GPU(GpuMemcpyAsync(
+      dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen, GpuMemcpyD2D,
+      (GpuStreamT)stream));
+  CHECK_GPU(GpuMemcpyAsync(
+      dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen,
+      GpuMemcpyD2D, (GpuStreamT)stream));
   /* debug */ CHECK_GPU(GpuStreamSync(stream));
 #elif defined(PSZ_USE_1API)
+  queue->memcpy(dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen);
+  queue->memcpy(
+      dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen);
   /* debug */ queue->wait();
 #endif
 
@@ -325,15 +328,15 @@ Compressor<C>* Compressor<C>::dump(
 
     // TODO check if compressed len updated
     if (i == PszArchive)
-      mem->_compressed->control({H2D})->file(ofn(".psz_archive"), ToFile);
+      mem->_compressed->control({D2H})->file(ofn(".psz_archive"), ToFile);
     else if (i == PszQuant)
-      mem->el->control({H2D})->file(ofn(".psz_quant"), ToFile);
+      mem->el->control({D2H})->file(ofn(".psz_quant"), ToFile);
     else if (i == PszHist)
-      mem->ht->control({H2D})->file(ofn(".psz_hist"), ToFile);
+      mem->ht->control({D2H})->file(ofn(".psz_hist"), ToFile);
     else if (i == PszSpVal)
-      mem->sv->control({H2D})->file(ofn(".psz_spval"), ToFile);
+      mem->sv->control({D2H})->file(ofn(".psz_spval"), ToFile);
     else if (i == PszSpIdx)
-      mem->si->control({H2D})->file(ofn(".psz_spidx"), ToFile);
+      mem->si->control({D2H})->file(ofn(".psz_spidx"), ToFile);
     else if (i > PszHf______ and i < END)
       codec->dump({i}, basename);
     else
@@ -401,6 +404,8 @@ Compressor<C>* Compressor<C>::decompress(
     pszmem_cxx<T> anchor(aclen3.x, aclen3.y, aclen3.z);
     anchor.dptr(d_anchor);
 
+    psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
+        d_spval, d_spidx, header->splen, d_outlier, &time_sp, stream);
     codec->decode(d_vle, mem->ectrl_spl());
     spline_reconstruct(
         &anchor, mem->es, mem->xd, eb, radius, &time_pred, stream);

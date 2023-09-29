@@ -45,7 +45,8 @@ class pszmempool_cxx {
 
  public:
   // ctor, dtor
-  pszmempool_cxx(u4 _x, int _radius, u4 _y, u4 _z);
+  pszmempool_cxx(
+      u4 _x, int _radius = 32768, u4 _y = 1, u4 _z = 1);  // ori radius 512
   ~pszmempool_cxx();
   // utils
   pszmempool_cxx *clear_buffer();
@@ -78,8 +79,9 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
 
   // for spline
   constexpr auto BLK = 8;
-  auto xp = pad(x, 4 * BLK), yp = (y == 1) ? 1 : pad(y, BLK),
-       zp = (z == 1) ? 1 : pad(z, BLK);
+  // auto xp = pad(x, 4 * BLK), yp = (y == 1) ? 1 : pad(y, BLK),
+  //      zp = (z == 1) ? 1 : pad(z, BLK);
+  auto xp = x, yp = y, zp = z;
   len_spl = xp * yp * zp;  // always larger than len
 
   _compressed = new pszmem_cxx<B>(len * 1.2, 1, 1, "compressed");

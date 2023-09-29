@@ -22,6 +22,8 @@
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
+
+#include "cusz/type.h"
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
@@ -180,7 +182,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 }
 
 // using CPU huffman
-TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype)
+TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
 {
   // serial part
   f8 serial_entropy = 0;
@@ -230,6 +232,7 @@ TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype)
   final_bytes += par_entry->len() *
                  (sizeof(U4) /* for idx */ + sizeof_dtype);  // outliers
   final_bytes += 128 * 2; /* two kinds of headers */
+  final_bytes += overhead_bytes;
 
   // print report
   // clang-format off
@@ -240,9 +243,8 @@ TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype)
   printf("[psz::info::hf::calc_cr] serial (ref), entropy-implied CR : %lf\n", sizeof_dtype * 8 / serial_entropy);
   printf("[psz::info::hf::calc_cr] serial (ref), avg-bit-implied    : %lf\n", sizeof_dtype * 8 / serial_avg_bits);
   printf("[psz::info::hf::calc_cr] pSZ/cuSZ achievable CR (chunked) : %lf\n", tmp_len * sizeof_dtype / final_bytes);
-  printf("[psz::info::hf::calc_cr] analysis done, exiting...\n");
+  printf("[psz::info::hf::calc_cr] analysis done, proceeding...\n");
   // clang-format on
-  // exit(0);
 }
 
 TPL HF_CODEC* HF_CODEC::encode(
