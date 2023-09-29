@@ -55,14 +55,15 @@ pszerror psz_comp_l23r(
   auto d = ndim();
 
   auto queue = (sycl::queue*)stream;
+  sycl::event e;
 
   // error bound
   auto ebx2 = eb * 2;
   auto ebx2_r = 1 / ebx2;
   auto leap3 = sycl::range<3>(len3[2] * len3[1], len3[2], 1);
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(queue);
+  // CREATE_GPUEVENT_PAIR;
+  // START_GPUEVENT_RECORDING(queue);
 
   if (d == 1) {
     /*
@@ -71,7 +72,7 @@ pszerror psz_comp_l23r(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;
       using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;
 
@@ -101,7 +102,7 @@ pszerror psz_comp_l23r(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       auto ot_val_ct6 = ot->val();
       auto ot_idx_ct7 = ot->idx();
       auto ot_num_ct8 = ot->num();
@@ -122,7 +123,7 @@ pszerror psz_comp_l23r(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 2> s_acc_ct1(sycl::range<2>(9, 33), cgh);
 
       auto ot_val_ct6 = ot->val();
@@ -139,9 +140,12 @@ pszerror psz_comp_l23r(
     });
   }
 
-  STOP_GPUEVENT_RECORDING(queue);
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
+  e.wait();
+  SYCL_TIME_DELTA(e, *time_elapsed);
+
+  // STOP_GPUEVENT_RECORDING(queue);
+  // TIME_ELAPSED_GPUEVENT(time_elapsed);
+  // DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }

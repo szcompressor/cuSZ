@@ -1,6 +1,16 @@
 #ifndef AC21DA73_7451_4FC7_8064_0B3206128605
 #define AC21DA73_7451_4FC7_8064_0B3206128605
 
+#define SYCL_TIME_DELTA(EVENT, MILLISEC)                                    \
+  auto sycl_time_delta = [](sycl::event& e) {                               \
+    cl_ulong start_time =                                                   \
+        e.get_profiling_info<sycl::info::event_profiling::command_start>(); \
+    cl_ulong end_time =                                                     \
+        e.get_profiling_info<sycl::info::event_profiling::command_end>();   \
+    return ((float)(end_time - start_time)) / 1e6;                          \
+  };                                                                        \
+  MILLISEC = sycl_time_delta(EVENT);
+
 #define CREATE_GPUEVENT_PAIR      \
   auto start = new sycl::event(); \
   auto end = new sycl::event();

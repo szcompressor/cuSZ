@@ -20,15 +20,15 @@ int histsp_dpcpp(
   auto num_chunks = (inlen - 1) / chunk + 1;
   auto num_workers = 256;  // n SIMD-32
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(queue);
+  // CREATE_GPUEVENT_PAIR;
+  // START_GPUEVENT_RECORDING(queue);
 
   /*
   DPCT1049:25: The work-group size passed to the SYCL kernel may exceed the
   limit. To get the device limit, query info::device::max_work_group_size.
   Adjust the work-group size if needed.
   */
-  queue->submit([&](sycl::handler& cgh) {
+  sycl::event e = queue->submit([&](sycl::handler& cgh) {
     /*
     DPCT1083:103: The size of local memory in the migrated code may be
     different from the original code. Check that the allocated memory size in
@@ -49,9 +49,12 @@ int histsp_dpcpp(
         });
   });
 
-  STOP_GPUEVENT_RECORDING(queue);
-  TIME_ELAPSED_GPUEVENT(milliseconds);
-  DESTROY_GPUEVENT_PAIR;
+  e.wait();
+  SYCL_TIME_DELTA(e, *milliseconds);
+
+  // STOP_GPUEVENT_RECORDING(queue);
+  // TIME_ELAPSED_GPUEVENT(milliseconds);
+  // DESTROY_GPUEVENT_PAIR;
 
   return 0;
 }

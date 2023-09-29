@@ -18,6 +18,7 @@
 
 #include "hf/hfcodec.hh"
 #include "hfcodec.dp.inl"
+#include "utils/timer.hh"
 
 template <typename E, typename H, typename M>
 void psz::hf_encode_coarse_rev2(
@@ -59,9 +60,9 @@ void psz::hf_encode_coarse_rev2(
     auto block_dim = BLOCK_DIM_ENCODE;
     auto grid_dim = div(len, block_dim);
 
-    START_GPUEVENT_RECORDING(queue);
+    // START_GPUEVENT_RECORDING(queue);
 
-    queue->submit([&](sycl::handler& cgh) {
+    sycl::event e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<char, 1> __codec_huffman_uninitialized_acc_ct1(
           sycl::range<1>(sizeof(H) * booklen), cgh);
 
@@ -76,10 +77,12 @@ void psz::hf_encode_coarse_rev2(
           });
     });
 
-    STOP_GPUEVENT_RECORDING(queue);
+    e.wait();
+    // STOP_GPUEVENT_RECORDING(queue);
 
     float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
+    SYCL_TIME_DELTA(e, stage_time);
+    // TIME_ELAPSED_GPUEVENT(&stage_time);
     if (time_lossless) *time_lossless += stage_time;
   }
 
@@ -88,9 +91,9 @@ void psz::hf_encode_coarse_rev2(
     auto block_dim = BLOCK_DIM_DEFLATE;
     auto grid_dim = div(pardeg, block_dim);
 
-    START_GPUEVENT_RECORDING(queue);
+    // START_GPUEVENT_RECORDING(queue);
 
-    queue->parallel_for(
+    sycl::event e = queue->parallel_for(
         sycl::nd_range<3>(
             grid_dim * sycl::range<3>(1, 1, block_dim),
             sycl::range<3>(1, 1, block_dim)),
@@ -100,10 +103,13 @@ void psz::hf_encode_coarse_rev2(
               item_ct1);
         });
 
-    STOP_GPUEVENT_RECORDING(queue);
+    // STOP_GPUEVENT_RECORDING(queue);
+    e.wait();
 
     float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
+    SYCL_TIME_DELTA(e, stage_time);
+    // TIME_ELAPSED_GPUEVENT(&stage_time);
+
     if (time_lossless) *time_lossless += stage_time;
   }
 
@@ -127,9 +133,9 @@ void psz::hf_encode_coarse_rev2(
 
   /* phase 4 */
   {
-    START_GPUEVENT_RECORDING(queue);
+    // START_GPUEVENT_RECORDING(queue);
 
-    queue->parallel_for(
+    sycl::event e = queue->parallel_for(
         sycl::nd_range<3>(
             sycl::range<3>(1, 1, pardeg) * sycl::range<3>(1, 1, 128),
             sycl::range<3>(1, 1, 128)),
@@ -138,11 +144,13 @@ void psz::hf_encode_coarse_rev2(
               d_buffer, d_par_entry, d_par_ncell, sublen, d_bitstream,
               item_ct1);
         });
+    e.wait();
 
-    STOP_GPUEVENT_RECORDING(queue);
+    // STOP_GPUEVENT_RECORDING(queue);
 
     float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
+    // TIME_ELAPSED_GPUEVENT(&stage_time);
+
     if (time_lossless) *time_lossless += stage_time;
   }
 
@@ -156,7 +164,7 @@ void psz::hf_encode_coarse_rev2(
           std::accumulate(h_par_ncell, h_par_ncell + pardeg, (size_t)0);
   }
 
-  DESTROY_GPUEVENT_PAIR;
+  // DESTROY_GPUEVENT_PAIR;
 }
 
 template <typename E, typename H, typename M>
@@ -168,13 +176,13 @@ void psz::hf_decode_coarse(
   auto const block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = psz_utils::get_npart(pardeg, block_dim);
 
-  CREATE_GPUEVENT_PAIR;
+  // CREATE_GPUEVENT_PAIR;
 
   auto queue = (sycl::queue*)stream;
 
-  START_GPUEVENT_RECORDING(queue);
+  // START_GPUEVENT_RECORDING(queue);
 
-  queue->submit([&](sycl::handler& cgh) {
+  sycl::event e = queue->submit([&](sycl::handler& cgh) {
     sycl::local_accessor<uint8_t, 1> dpct_local_acc_ct1(
         sycl::range<1>(revbook_nbyte), cgh);
 
@@ -190,8 +198,10 @@ void psz::hf_decode_coarse(
         });
   });
 
-  STOP_GPUEVENT_RECORDING(queue);
-  TIME_ELAPSED_GPUEVENT(time_lossless);
+  e.wait();
 
-  DESTROY_GPUEVENT_PAIR;
+  // STOP_GPUEVENT_RECORDING(queue);
+  // TIME_ELAPSED_GPUEVENT(time_lossless);
+
+  // DESTROY_GPUEVENT_PAIR;
 }

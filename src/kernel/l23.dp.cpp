@@ -50,14 +50,15 @@ pszerror psz_comp_l23(
   auto d = ndim();
 
   auto queue = (sycl::queue*)stream;
+  sycl::event e;
 
   // error bound
   auto ebx2 = eb * 2;
   auto ebx2_r = 1 / ebx2;
   auto leap3 = sycl::range<3>(len3[2] * len3[1], len3[2], 1);
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(queue);
+  // CREATE_GPUEVENT_PAIR;
+  // START_GPUEVENT_RECORDING(queue);
 
   if (d == 1) {
     /*
@@ -66,7 +67,7 @@ pszerror psz_comp_l23(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 1> scratch(sycl::range<1>(Tile1D), cgh);
       sycl::local_accessor<Eq, 1> s_eq(sycl::range<1>(Tile1D), cgh);
 
@@ -86,7 +87,7 @@ pszerror psz_comp_l23(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->parallel_for(
+    e = queue->parallel_for(
         sycl::nd_range<3>(Grid2D * Block2D, Block2D),
         [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
           psz::dpcpp::__kernel::c_lorenzo_2d1l<T, Eq, FP>(
@@ -100,7 +101,7 @@ pszerror psz_comp_l23(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 2> s_acc_ct1(sycl::range<2>(9, 33), cgh);
 
       cgh.parallel_for(
@@ -113,9 +114,12 @@ pszerror psz_comp_l23(
     });
   }
 
-  STOP_GPUEVENT_RECORDING(queue);
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
+  e.wait();
+  SYCL_TIME_DELTA(e, *time_elapsed);
+
+  // STOP_GPUEVENT_RECORDING(queue);
+  // TIME_ELAPSED_GPUEVENT(time_elapsed);
+  // DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }
@@ -163,9 +167,10 @@ pszerror psz_decomp_l23(
   auto d = ndim();
 
   auto queue = (sycl::queue*)stream;
+  sycl::event e;
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(queue);
+  // CREATE_GPUEVENT_PAIR;
+  // START_GPUEVENT_RECORDING(queue);
 
   if (d == 1) {
     /*
@@ -174,7 +179,7 @@ pszerror psz_decomp_l23(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       constexpr auto NTHREAD = Tile1D / Seq1D;
       sycl::local_accessor<T, 1> scratch(sycl::range<1>(Tile1D), cgh);
       sycl::local_accessor<Eq, 1> s_eq(sycl::range<1>(Tile1D), cgh);
@@ -198,7 +203,7 @@ pszerror psz_decomp_l23(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       /*
       DPCT1101:106: 'BLOCK' expression was replaced with a value.
       Modify the code to use the original expression, provided in
@@ -222,7 +227,7 @@ pszerror psz_decomp_l23(
     Adjust the work-group size if needed.
     */
     dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
-    queue->submit([&](sycl::handler& cgh) {
+    e = queue->submit([&](sycl::handler& cgh) {
       /*
       DPCT1101:107: 'BLOCK' expression was replaced with a value.
       Modify the code to use the original expression, provided in
@@ -241,9 +246,13 @@ pszerror psz_decomp_l23(
     });
   }
 
-  STOP_GPUEVENT_RECORDING(queue);
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
+  e.wait();
+
+  SYCL_TIME_DELTA(e, *time_elapsed);
+
+  // STOP_GPUEVENT_RECORDING(queue);
+  // TIME_ELAPSED_GPUEVENT(time_elapsed);
+  // DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }
