@@ -27,10 +27,13 @@
 #include "utils/config.hh"
 #include "utils/err.hh"
 
-#define PRINT_ENTRY(VAR)                                    \
-  printf(                                                   \
-      "%d %-*s:  %'10u\n", (int)cusz_header::VAR, 14, #VAR, \
-      header.entry[cusz_header::VAR]);
+// [psz::note] psz::histogram is left for evaluating purpose
+// compared to psz::histsp
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
+#define PSZ_HIST(...) psz::histsp<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#elif defined(PSZ_USE_HIP)
+#define PSZ_HIST(...) psz::histogram<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#endif
 
 namespace cusz {
 
@@ -70,10 +73,7 @@ Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
 
   mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
 
-  if (config->pred_type == pszpredictor_type::Spline)
-    codec->init(mem->len_spl, booklen, pardeg, debug);
-  else
-    codec->init(mem->len, booklen, pardeg, debug);
+  codec->init(mem->len, booklen, pardeg, debug);
 
   return this;
 }
@@ -121,107 +121,86 @@ Compressor<C>* Compressor<C>::compress(
     // header.byte_vle = use_fallback_codec ? 8 : 4;
   };
 
-  /******************************************************************************/
+  auto spline_in_use = [&]() { return config->pred_type == pszpred::Spline; };
 
-  auto elen = config->pred_type == pszpredictor_type::Spline  //
-                  ? mem->len_spl
-                  : len;
-
-  if (config->pred_type == pszpredictor_type::Spline) {
+  /* prediction-quantization with compaction */
+  {
+    if (spline_in_use()) {
 #ifdef PSZ_USE_CUDA
-    mem->od->dptr(in);
-    spline_construct(
-        mem->od, mem->ac, mem->es, (void*)mem->compact, eb, radius, &time_pred,
-        stream);
+      mem->od->dptr(in);
+      spline_construct(
+          mem->od, mem->ac, mem->e, (void*)mem->compact, eb, radius,
+          &time_pred, stream);
+#else
+      throw runtime_error(
+          "[psz::error] spline_construct not implemented other than CUDA.");
+#endif
+    }
+    else {
+      psz_comp_l23r<T, E>(
+          in, len3, eb, radius, mem->ectrl(), (void*)mem->compact, &time_pred,
+          stream);
+    }
 
-    PSZDBG_LOG("interp: done")
-    PSZDBG_PTR_WHERE(mem->ectrl_spl());
-    PSZDBG_VAR("pipeline", elen)
+    if (spline_in_use()) {
+      PSZDBG_LOG("interp: done");
+      PSZDBG_PTR_WHERE(mem->ectrl());
+      PSZDBG_VAR("pipeline", len);
+    }
+    if (spline_in_use())
+    {PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);}
+  }
 
-    PSZSANITIZE_QUANTCODE(mem->es->control({D2H})->hptr(), elen, booklen);
+  /* statistics: histogram */
+  {
+    PSZ_HIST(mem->ectrl(), len, mem->hist(), booklen, &time_hist, stream);
+    // if (spline_in_use())
+    // {PSZSANITIZE_HIST_OUTPUT(mem->ht->control({D2H})->hptr(), booklen);}
+    if (spline_in_use()) { PSZDBG_LOG("histsp gpu: done"); }
+  }
 
-    // psz::histogram<PROPER_GPU_BACKEND, E>(
-    //     mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
-    // PSZDBG_LOG("histogram gpu: done")
-    // PSZSANITIZE_HIST_OUTPUT(mem->ht->control({D2H})->hptr(), booklen);
-
-    psz::histsp<PROPER_GPU_BACKEND, E>(
-        mem->ectrl_spl(), elen, mem->hist(), booklen, &time_hist, stream);
-    PSZDBG_LOG("histsp gpu: done")
-
+  /* Huffman encoding */
+  {
     codec->build_codebook(mem->ht, booklen, stream);
     // [TODO] CR estimation must be after building codebook; need a flag.
-    if (config->report_cr_est)
-      codec->calculate_CR(mem->es, sizeof(T), sizeof(T) * mem->ac->len());
-    PSZDBG_LOG("codebook: done")
-    // PSZSANITIZE_HIST_BK(mem->ht->hptr(), codec->bk4->hptr(), booklen);
-    codec->encode(mem->ectrl_spl(), elen, &d_codec_out, &codec_outlen, stream);
-    PSZDBG_LOG("encoding done")
-
-#else
-    throw runtime_error(
-        "[psz::error] spline_construct only works for CUDA version "
-        "temporarily.");
-#endif
-  }
-  else {
-    // `psz_comp_l23r` with compaction in place of `psz_comp_l23` (no `r`)
-    psz_comp_l23r<T, E>(
-        in, len3, eb, radius, mem->ectrl_lrz(), (void*)mem->compact,
-        &time_pred, stream);
-
-    // `psz::histogram` is on for evaluating purpose,
-    // as it is not always outperformed by `psz::histsp`.
-    // psz::histogram<PROPER_GPU_BACKEND, E>(
-    //     mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
-    psz::histsp<PROPER_GPU_BACKEND, E>(
-        mem->ectrl_lrz(), elen, mem->hist(), booklen, &time_hist, stream);
-#elif defined(PSZ_USE_HIP)
-    cout << "[psz::warning::compressor] fast histsp hangs when HIP backend is "
-            "used; fallback to the normal version"
-         << endl;
-#endif
-
-    // Huffman encoding
-    codec->build_codebook(mem->ht, booklen, stream);
-    if (config->report_cr_est) codec->calculate_CR(mem->el);
-    codec->encode(mem->ectrl_lrz(), elen, &d_codec_out, &codec_outlen, stream);
+    if (config->report_cr_est) {
+      auto overhead = spline_in_use() ? sizeof(T) * mem->ac->len() : 0;
+      codec->calculate_CR(mem->e, sizeof(T), overhead);
+    }
+    if (spline_in_use()) { PSZDBG_LOG("codebook: done"); }
+    // if (spline_in_use()){PSZSANITIZE_HIST_BK(mem->ht->hptr(),
+    // codec->bk4->hptr(), booklen);}
+    codec->encode(mem->ectrl(), len, &d_codec_out, &codec_outlen, stream);
+    if (spline_in_use()) { PSZDBG_LOG("encoding done"); }
   }
 
-  // count outliers (by far, gathered in the predictor)
-  mem->compact->make_host_accessible((GpuStreamT)stream);
-  splen = mem->compact->num_outliers();
+  /* make outlier count seen on host */
+  {
+    mem->compact->make_host_accessible((GpuStreamT)stream);
+    splen = mem->compact->num_outliers();
+  }
 
-#if defined(PSZ_USE_HIP)
-  cout << "[psz:dbg::res] splen: " << splen << endl;
-#endif
-
-  /******************************************************************************/
-
+  /* update metadata/header */
   update_header();
-  PSZDBG_LOG("update header: done");
+  if (spline_in_use()) { PSZDBG_LOG("update header: done"); }
 
+  /* memcpy to archive */
   merge_subfiles(
       config->pred_type,                                                     //
       mem->anchor(), mem->ac->len(),                                         //
       d_codec_out, codec_outlen,                                             //
       mem->compact_val(), mem->compact_idx(), mem->compact->num_outliers(),  //
       stream);
-  PSZDBG_LOG("merge buf: done");
+  if (spline_in_use()) { PSZDBG_LOG("merge buf: done"); }
 
-  // output
+  /* output of this function */
   outlen = psz_utils::filesize(&header);
   mem->_compressed->m->len = outlen;
   mem->_compressed->m->bytes = outlen;
   out = mem->_compressed->dptr();
 
   collect_comp_time();
-  PSZDBG_LOG("compression: done");
-
-  // TODO fallback handling
-  // use_fallback_codec = false;
+  if (spline_in_use()) { PSZDBG_LOG("compression: done"); }
 
   return this;
 }
@@ -245,15 +224,18 @@ try
   auto dst = [&](int FIELD, szt offset = 0) {
     return (void*)(mem->compressed() + header.entry[FIELD] + offset);
   };
-  auto concat_d2d = [&](int FIELD, void* src, u4 dst_offset = 0) {
+
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+  auto concat_d2d = [&](int FIELD, void* src, u4 dst_offset = 0) {
     CHECK_GPU(GpuMemcpyAsync(
         dst(FIELD, dst_offset), src, nbyte[FIELD], GpuMemcpyD2D,
         (GpuStreamT)stream));
-#elif defined(PSZ_USE_1API)
-    queue->memcpy(dst(FIELD, dst_offset), src, nbyte[FIELD]);
-#endif
   };
+#elif defined(PSZ_USE_1API)
+  auto concat_d2d = [&](int FIELD, void* src, u4 dst_offset = 0) {
+    queue->memcpy(dst(FIELD, dst_offset), src, nbyte[FIELD]);
+  };
+#endif
 
   // header.self_bytes = sizeof(Header);
 
@@ -330,13 +312,9 @@ Compressor<C>* Compressor<C>::dump(
     if (i == PszArchive)
       mem->_compressed->control({D2H})->file(ofn(".psz_archive"), ToFile);
     else if (i == PszQuant)
-      mem->el->control({D2H})->file(ofn(".psz_quant"), ToFile);
+      mem->e->control({D2H})->file(ofn(".psz_quant"), ToFile);
     else if (i == PszHist)
       mem->ht->control({D2H})->file(ofn(".psz_hist"), ToFile);
-    else if (i == PszSpVal)
-      mem->sv->control({D2H})->file(ofn(".psz_spval"), ToFile);
-    else if (i == PszSpIdx)
-      mem->si->control({D2H})->file(ofn(".psz_spidx"), ToFile);
     else if (i > PszHf______ and i < END)
       codec->dump({i}, basename);
     else
@@ -392,36 +370,32 @@ Compressor<C>* Compressor<C>::decompress(
   auto d_spidx = (M*)access(Header::SPFMT, header->splen * sizeof(T));
 
   // wire and aliasing
-  auto d_outlier = out;
+  auto d_space = out;
   auto d_xdata = out;
+
+  psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
+      d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+  codec->decode(d_vle, mem->ectrl());
 
   if (header->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
-    mem->xd->dptr(d_xdata);
+    mem->xd->dptr(out);
 
     // TODO release borrow
     auto aclen3 = mem->ac->template len3<dim3>();
     pszmem_cxx<T> anchor(aclen3.x, aclen3.y, aclen3.z);
     anchor.dptr(d_anchor);
 
-    psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
-        d_spval, d_spidx, header->splen, d_outlier, &time_sp, stream);
-    codec->decode(d_vle, mem->ectrl_spl());
     spline_reconstruct(
-        &anchor, mem->es, mem->xd, eb, radius, &time_pred, stream);
+        &anchor, mem->e, mem->xd, eb, radius, &time_pred, stream);
 #else
     throw runtime_error(
-        "[psz::error] spline_reconstruct only works for CUDA version "
-        "temporarily.");
+        "[psz::error] spline_reconstruct not implemented other than CUDA.");
 #endif
   }
   else {
-    psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
-        d_spval, d_spidx, header->splen, d_outlier, &time_sp, stream);
-    codec->decode(d_vle, mem->ectrl_lrz());
     psz_decomp_l23<T, E, FP>(
-        mem->ectrl_lrz(), len3, d_outlier, eb, radius, d_xdata, &time_pred,
-        stream);
+        mem->ectrl(), len3, d_space, eb, radius, d_xdata, &time_pred, stream);
   }
 
   collect_decomp_time();
@@ -466,7 +440,7 @@ Compressor<C>* Compressor<C>::collect_comp_time()
   COLLECT_TIME("histogram", time_hist);
   COLLECT_TIME("book", codec->time_book());
   COLLECT_TIME("huff-enc", codec->time_lossless());
-  COLLECT_TIME("outlier", time_sp);
+  // COLLECT_TIME("outlier", time_sp);
 
   return this;
 }
@@ -485,7 +459,6 @@ Compressor<C>* Compressor<C>::collect_decomp_time()
 
 }  // namespace cusz
 
-#undef PRINT_ENTRY
 #undef COLLECT_TIME
 
 #endif /* A2519F0E_602B_4798_A8EF_9641123095D9 */

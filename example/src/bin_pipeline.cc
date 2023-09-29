@@ -128,13 +128,13 @@ void demo_c_predict(
   f4 time, time_histcpu_base, time_histcpu_optim;
 
   // psz_comp_l23<T, E, FP>(mem->od->dptr(), len3, eb, radius,
-  // mem->ectrl_lrz(), mem->outlier_space(), &time, stream);
+  // mem->ectrl(), mem->outlier_space(), &time, stream);
 
   // ----------------------------------------
   auto time_pred = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
     psz_comp_l23r<T, E>(
-        mem->od->dptr(), len3, eb, radius, mem->ectrl_lrz(),
+        mem->od->dptr(), len3, eb, radius, mem->ectrl(),
         (void*)mem->compact, &time, stream);
     print_tobediscarded_info(time, "comp_pred_l23r");
     time_pred = std::min(time, time_pred);
@@ -180,7 +180,7 @@ void demo_d_predict(
   auto time_pred_min = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
     psz_decomp_l23<T, E, FP>(
-        mem->ectrl_lrz(), len3, mem->outlier_space(), eb, radius,
+        mem->ectrl(), len3, mem->outlier_space(), eb, radius,
         mem->xd->dptr(), &time_pred, stream);
 
     print_tobediscarded_info(time_pred, "decomp_scatter");
