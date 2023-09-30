@@ -182,7 +182,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 }
 
 // using CPU huffman
-TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype)
+TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
 {
   // serial part
   f8 serial_entropy = 0;
@@ -232,6 +232,7 @@ TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype)
   final_bytes += par_entry->len() *
                  (sizeof(U4) /* for idx */ + sizeof_dtype);  // outliers
   final_bytes += 128 * 2; /* two kinds of headers */
+  final_bytes += overhead_bytes;
 
   // print report
   // clang-format off

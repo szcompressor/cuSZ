@@ -68,11 +68,11 @@ add_library(pszkernel_seq src/kernel/l23.seq.cc src/kernel/hist.seq.cc
   src/kernel/histsp.seq.cc)
 target_link_libraries(pszkernel_seq PUBLIC pszcompile_settings)
 
-add_executable(
-  port_dummy
-  src/kernel/port_dummy.dp.cpp
-)
-target_link_libraries(port_dummy PUBLIC pszcompile_settings)
+# add_executable(
+#   port_dummy
+#   src/kernel/port_dummy.dp.cpp
+# )
+# target_link_libraries(port_dummy PUBLIC pszcompile_settings)
 
 add_library(pszkernel_dp
   src/kernel/l23.dp.cpp
