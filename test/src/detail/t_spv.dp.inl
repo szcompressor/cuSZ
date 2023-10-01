@@ -9,11 +9,19 @@
  *
  */
 
+#include <dpct/dpct.hpp>
+#include <sycl/sycl.hpp>
+
 #include "kernel/spv.hh"
 
 template <typename T = float>
 int f()
 {
+  sycl::queue q(
+      sycl::gpu_selector_v, sycl::property_list(
+                                sycl::property::queue::in_order(),
+                                sycl::property::queue::enable_profiling()));
+
   T* a;                // input
   T* da;               // decoded
   size_t len = 10000;  //
@@ -22,17 +30,17 @@ int f()
   int nnz;             //
   float ms;
 
-  GpuMallocManaged(&a, sizeof(T) * len);
-  GpuMallocManaged(&da, sizeof(T) * len);
-  GpuMallocManaged(&val, sizeof(T) * len);
-  GpuMallocManaged(&idx, sizeof(uint32_t) * len);
+  a = (T*)sycl::malloc_shared(sizeof(T) * len, q);
+  da = (T*)sycl::malloc_shared(sizeof(T) * len, q);
+  val = (T*)sycl::malloc_shared(sizeof(T) * len, q);
+  idx = sycl::malloc_shared<uint32_t>(len, q);
 
   // determine nnz
-  auto trials = randint(len) / 1;
+  auto trials = psz::testutils::cpp::randint(len) / 1;
 
   for (auto i = 0; i < trials; i++) {
-    auto idx = randint(len);
-    a[idx] = randint(INT32_MAX);
+    auto idx = psz::testutils::cpp::randint(len);
+    a[idx] = psz::testutils::cpp::randint(INT32_MAX);
   }
 
   // CPU counting nnz
@@ -41,14 +49,12 @@ int f()
     if (a[i] != 0) nnz_ref += 1;
   }
 
-  GpuStreamT stream;
-  GpuStreamCreate(&stream);
-
   ////////////////////////////////////////////////////////////////
 
-  psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(a, len, val, idx, &nnz, &ms, stream);
+  psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
+      a, len, val, idx, &nnz, &ms, &q);
 
-  GpuStreamSync(stream);
+  q.wait();
 
   if (nnz != nnz_ref) {
     std::cout << "nnz_ref: " << nnz_ref << std::endl;
@@ -57,9 +63,10 @@ int f()
     return -1;
   }
 
-  psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(val, idx, nnz, da, &ms, stream);
+  psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(
+      val, idx, nnz, da, &ms, &q);
 
-  GpuStreamSync(stream);
+  q.wait();
 
   ////////////////////////////////////////////////////////////////
 
@@ -72,12 +79,10 @@ int f()
     }
   }
 
-  GpuFree(a);
-  GpuFree(da);
-  GpuFree(val);
-  GpuFree(idx);
-
-  GpuStreamDestroy(stream);
+  sycl::free(a, q);
+  sycl::free(da, q);
+  sycl::free(val, q);
+  sycl::free(idx, q);
 
   if (same)
     return 0;

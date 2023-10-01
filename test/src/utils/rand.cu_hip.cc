@@ -19,7 +19,7 @@
 
 #endif
 
-#include "rand.hh"
+#include "../rand.hh"
 
 template <>
 void psz::testutils::cu_hip::rand_array<float>(

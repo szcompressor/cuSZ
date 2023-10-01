@@ -287,19 +287,8 @@ void x_lorenzo_3d1l(  //
       T val = thread_private[i];
 
       for (auto dist = 1; dist < BLOCK; dist *= 2) {
-        /*
-        DPCT1023:30: The SYCL sub-group does not support mask options for
-        dpct::shift_sub_group_right. You can specify
-        "--use-experimental-features=masked-sub-group-operation" to use the
-        experimental helper function to migrate __shfl_up_sync.
-        */
-        /*
-        DPCT1096:76: The right-most dimension of the work-group used in the
-        SYCL kernel that calls this function may be less than "32". The
-        function "dpct::shift_sub_group_right" may return an unexpected result
-        on the CPU device. Modify the size of the work-group to ensure that the
-        value of the right-most dimension is a multiple of "32".
-        */
+        /* DPCT1023 */
+        /* DPCT1096 */
         auto addend = dpct::shift_sub_group_right(
             item_ct1.get_sub_group(), val, dist, 8);
         if (seg_tix >= dist) val += addend;
@@ -307,53 +296,21 @@ void x_lorenzo_3d1l(  //
 
       // x-z transpose
       scratch[item_ct1.get_local_id(0)][seg_id][seg_tix] = val;
-      /*
-      DPCT1065:26: Consider replacing sycl::nd_item::barrier() with
-      sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-      performance if there is no access to global memory.
-      */
-      item_ct1.barrier();
+      item_ct1.barrier(sycl::access::fence_space::local_space);
       val = scratch[seg_tix][seg_id][item_ct1.get_local_id(0)];
-      /*
-      DPCT1065:27: Consider replacing sycl::nd_item::barrier() with
-      sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-      performance if there is no access to global memory.
-      */
-      item_ct1.barrier();
+      item_ct1.barrier(sycl::access::fence_space::local_space);
 
       for (auto dist = 1; dist < BLOCK; dist *= 2) {
-        /*
-        DPCT1023:31: The SYCL sub-group does not support mask options for
-        dpct::shift_sub_group_right. You can specify
-        "--use-experimental-features=masked-sub-group-operation" to use the
-        experimental helper function to migrate __shfl_up_sync.
-        */
-        /*
-        DPCT1096:77: The right-most dimension of the work-group used in the
-        SYCL kernel that calls this function may be less than "32". The
-        function "dpct::shift_sub_group_right" may return an unexpected result
-        on the CPU device. Modify the size of the work-group to ensure that the
-        value of the right-most dimension is a multiple of "32".
-        */
+        /* DPCT1023 */ /* DPCT1096 */
         auto addend = dpct::shift_sub_group_right(
             item_ct1.get_sub_group(), val, dist, 8);
         if (seg_tix >= dist) val += addend;
       }
 
       scratch[item_ct1.get_local_id(0)][seg_id][seg_tix] = val;
-      /*
-      DPCT1065:28: Consider replacing sycl::nd_item::barrier() with
-      sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-      performance if there is no access to global memory.
-      */
-      item_ct1.barrier();
+      item_ct1.barrier(sycl::access::fence_space::local_space);
       val = scratch[seg_tix][seg_id][item_ct1.get_local_id(0)];
-      /*
-      DPCT1065:29: Consider replacing sycl::nd_item::barrier() with
-      sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-      performance if there is no access to global memory.
-      */
-      item_ct1.barrier();
+      item_ct1.barrier(sycl::access::fence_space::local_space);
 
       thread_private[i] = val;
     }

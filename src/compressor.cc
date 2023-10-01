@@ -72,10 +72,14 @@ try {
         .get_device(current_dev)
         .get_device_info(dev_prop);
 
-    auto nSM = dev_prop.get_max_compute_units();
+    auto nEU = dev_prop.get_max_compute_units();
     auto allowed_block_dim = dev_prop.get_max_work_group_size();
     auto deflate_nthread =
-        allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
+        allowed_block_dim * nEU / HuffmanHelper::DEFLATE_CONSTANT;
+    // Simple EU-SM conversion
+    deflate_nthread /= 16;
+    // SImple testing
+    deflate_nthread /= 16;
     auto optimal_sublen = psz_utils::get_npart(len, deflate_nthread);
     optimal_sublen = psz_utils::get_npart(
                          optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *

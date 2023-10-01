@@ -5,7 +5,7 @@
 #include "port.hh"
 #include "rand.hh"
 // definitions
-#include "detail/t_spv.inl"
+#include "detail/t_spv.dp.inl"
 
 int main()
 {

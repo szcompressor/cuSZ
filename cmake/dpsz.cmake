@@ -91,7 +91,7 @@ add_library(pszutils_seq src/utils/vis_stat.cc src/context.cc)
 target_link_libraries(pszutils_seq PUBLIC pszcompile_settings)
 
 add_library(pszspv_dp src/kernel/spv.dp.cpp)
-target_link_libraries(pszspv_dp PUBLIC pszcompile_settings ${rocthrust_LIBRARIES})
+target_link_libraries(pszspv_dp PUBLIC pszcompile_settings)
 
 add_library(
   pszhfbook_seq src/hf/hfbk_impl1.seq.cc src/hf/hfbk_impl2.seq.cc

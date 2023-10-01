@@ -25,7 +25,7 @@
 
 template <
     typename T, typename FQ = uint32_t, int K = 5,
-    bool OneapiUseExperimental = false>
+    bool OneapiUseExperimental = true>
 void histsp_multiwarp(
     T *in, uint32_t inlen,  //
     uint32_t chunk, FQ *out, uint32_t outlen, const sycl::nd_item<3> &item_ct1,
@@ -50,12 +50,7 @@ void histsp_multiwarp(
   for (auto i = item_ct1.get_local_id(2); i < outlen;
        i += item_ct1.get_local_range(2))
     s_hist[i] = 0;
-  /*
-  DPCT1065:19: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
   for (auto i = item_ct1.get_local_id(2); i < chunk;
        i += item_ct1.get_local_range(2)) {
@@ -75,19 +70,11 @@ void histsp_multiwarp(
             &s_hist[ori], 1);  // less possible
       }
     }
-    /*
-    DPCT1065:23: Consider replacing sycl::nd_item::barrier() with
-    sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-    performance if there is no access to global memory.
-    */
-    item_ct1.barrier();
   }
-  /*
-  DPCT1065:20: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  /* DPCT1065 */
+  // No global write, is local_space okay?
+  // item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
   for (auto &sum : p_hist) {
     for (auto d = 1; d < 32; d *= 2) {
@@ -110,21 +97,10 @@ void histsp_multiwarp(
     if (item_ct1.get_local_id(2) % 32 == 31)
       dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
           &s_hist[(int)offset + i - R], p_hist[i]);
-  /*
-  DPCT1065:21: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
   for (auto i = item_ct1.get_local_id(2); i < outlen;
        i += item_ct1.get_local_range(2))
     dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
         out + i, s_hist[i]);
-  /*
-  DPCT1065:22: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
 }

@@ -65,12 +65,7 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
   auto lane_id = item_ct1.get_local_id(2) % 32;
 
   if (lane_id == 31) exchange_in[warp_id] = private_buffer[SEQ - 1];
-  /*
-  DPCT1065:32: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
   if (NWARP <= 8) {
     if (item_ct1.get_local_id(2) == 0) {
@@ -115,22 +110,12 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
     }
   }
   // else-case handled by static_assert
-  /*
-  DPCT1065:33: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
   // propagate
   auto addend = exchange_out[warp_id];
   for (auto i = 0; i < SEQ; i++) private_buffer[i] += addend;
-  /*
-  DPCT1065:34: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 }  // namespace psz::dpcpp::wave32
@@ -249,12 +234,7 @@ __dpct_inline__ void psz::dpcpp::load_prequant_1d(
     private_buffer[i] = shmem[item_ct1.get_local_id(2) * SEQ + i];
   if (item_ct1.get_local_id(2) > 0)
     prev = shmem[item_ct1.get_local_id(2) * SEQ - 1];
-  /*
-  DPCT1065:38: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 template <typename T, typename EQ, int NTHREAD, int SEQ>
@@ -279,12 +259,7 @@ __dpct_inline__ void psz::dpcpp::load_fuse_1d(
 #pragma unroll
   for (auto i = 0; i < SEQ; i++)
     private_buffer[i] = shmem[item_ct1.get_local_id(2) * SEQ + i];
-  /*
-  DPCT1065:40: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 template <
@@ -387,12 +362,7 @@ __dpct_inline__ void psz::dpcpp::block_scan_1d(
   for (auto i = 0; i < SEQ; i++)
     shmem_buffer[item_ct1.get_local_id(2) * SEQ + i] =
         private_buffer[i] * ebx2;
-  /*
-  DPCT1065:42: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -485,12 +455,7 @@ __dpct_inline__ void psz::dpcpp::predict_2d(
       if (item_ct1.get_local_id(2) > 0) center[i] -= west;  // delta
     }
   }
-  /*
-  DPCT1065:44: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 template <typename T, typename EQ, int YSEQ>
@@ -581,12 +546,7 @@ __dpct_inline__ void psz::dpcpp::block_scan_2d(
   // TODO shuffle up by 16 in the same warp
   if (item_ct1.get_local_id(1) == 0)
     intermediate[item_ct1.get_local_id(2)] = thread_private[YSEQ - 1];
-  /*
-  DPCT1065:46: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
   // broadcast the partial-sum result from a previous segment
   if (item_ct1.get_local_id(1) == 1) {
     auto tmp = intermediate[item_ct1.get_local_id(2)];

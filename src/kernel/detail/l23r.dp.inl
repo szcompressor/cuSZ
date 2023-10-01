@@ -51,12 +51,9 @@ void c_lorenzo_1d1l(
       s_data[item_ct1.get_local_id(2) + ix * NumThreads] =
           sycl::round(data[id] * ebx2_r);
   }
-  /*
-  DPCT1065:45: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
+  /* DPCT1065 */
   item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
 // shmem.data to private.data
 #pragma unroll
@@ -64,12 +61,7 @@ void c_lorenzo_1d1l(
     thp_data(ix) = s_data[item_ct1.get_local_id(2) * Seq + ix];
   if (item_ct1.get_local_id(2) > 0)
     prev() = s_data[item_ct1.get_local_id(2) * Seq - 1];  // from last thread
-  /*
-  DPCT1065:46: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
 // quantize & write back to shmem.eq
 #pragma unroll
@@ -78,7 +70,7 @@ void c_lorenzo_1d1l(
     bool quantizable = sycl::fabs(delta) < radius;
     T candidate = ZigZag ? delta : delta + radius;
     // otherwise, need to reset shared memory (to 0)
-    if (ZigZag)
+    if constexpr (ZigZag)
       s_eq_uint[ix + item_ct1.get_local_id(2) * Seq] =
           posneg_encode(quantizable * static_cast<EqInt>(candidate));
     else
@@ -92,12 +84,7 @@ void c_lorenzo_1d1l(
       cval[cur_idx] = candidate;
     }
   }
-  /*
-  DPCT1065:47: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
 // write from shmem.eq to dram.eq
 #pragma unroll
@@ -113,13 +100,8 @@ void c_lorenzo_1d1l(
 template <
     typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, bool OneapiUseExperimental = false>
-/*
-DPCT1110:10: The total declared local variable size in device function
-c_lorenzo_2d1l exceeds 128 bytes and may cause high register pressure. Consult
-with your hardware vendor to find the total register size available and adjust
-the code, or use smaller sub-group size to avoid high register pressure.
-*/
+    typename CompactNum = uint32_t, bool OneapiUseExperimental = true>
+/* DPCT1110 */
 void c_lorenzo_2d1l(
     T* data, sycl::range<3> len3, sycl::range<3> stride3, int radius,
     Fp ebx2_r, Eq* eq, CompactVal* cval, CompactIdx* cidx, CompactNum* cn,
@@ -182,19 +164,14 @@ void c_lorenzo_2d1l(
       if (item_ct1.get_local_id(2) > 0) center[i] -= west;  // delta
     }
     else {
-      /* DPCT1023 */
-      /* DPCT1096 */
+      /* DPCT1023 */ /* DPCT1096 */
       auto west = dpct::shift_sub_group_right(
           item_ct1.get_sub_group(), center[i], 1, 16);
       if (item_ct1.get_local_id(2) > 0) center[i] -= west;  // delta
     }
   }
-  /*
-  DPCT1065:7: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  /* DPCT1065 */
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
 #pragma unroll
   for (auto i = 1; i < Yseq + 1; i++) {
@@ -203,7 +180,7 @@ void c_lorenzo_2d1l(
     if (gix < len3[2] and giy_base + (i - 1) < len3[1]) {
       bool quantizable = sycl::fabs(center[i]) < radius;
       T candidate = ZigZag ? center[i] : center[i] + radius;
-      if (ZigZag)
+      if constexpr (ZigZag)
         eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
       else
         eq[gid] = quantizable * static_cast<EqUint>(candidate);
@@ -223,13 +200,8 @@ void c_lorenzo_2d1l(
 template <
     typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, bool OneapiUseExperimental = false>
-/*
-DPCT1110:14: The total declared local variable size in device function
-c_lorenzo_3d1l exceeds 128 bytes and may cause high register pressure. Consult
-with your hardware vendor to find the total register size available and adjust
-the code, or use smaller sub-group size to avoid high register pressure.
-*/
+    typename CompactNum = uint32_t, bool OneapiUseExperimental = true>
+/* DPCT1110 register pressure */
 void c_lorenzo_3d1l(
     T* data, sycl::range<3> len3, sycl::range<3> stride3, int radius,
     Fp ebx2_r, Eq* eq, CompactVal* cval, CompactIdx* cidx, CompactNum* cn,
@@ -241,39 +213,46 @@ void c_lorenzo_3d1l(
 
   T delta[TileDim + 1] = {0};  // first el = 0
 
-  const auto gix =
-      item_ct1.get_group(2) * (TileDim * 4) + item_ct1.get_local_id(2);
-  const auto giy = item_ct1.get_group(1) * TileDim + item_ct1.get_local_id(1);
-  const auto giz_base = item_ct1.get_group(0) * TileDim;
-  const auto base_id = gix + giy * stride3[1] + giz_base * stride3[0];
+  auto gix = [&]() {
+    return item_ct1.get_group(2) * (TileDim * 4) + item_ct1.get_local_id(2);
+  };
+  auto giy = [&]() {
+    return item_ct1.get_group(1) * TileDim + item_ct1.get_local_id(1);
+  };
+  auto giz_base = [&]() { return item_ct1.get_group(0) * TileDim; };
+  auto base_id = gix() + giy() * stride3[1] + giz_base() * stride3[0];
 
-  auto giz = [&](auto z) { return giz_base + z; };
+  auto giz = [&](auto z) { return giz_base() + z; };
   auto gid = [&](auto z) { return base_id + z * stride3[0]; };
 
   auto load_prequant_3d = [&](const sycl::nd_item<3>& item_ct1) {
-    if (gix < len3[2] and giy < len3[1]) {
+    if (gix() < len3[2] and giy() < len3[1]) {
       for (auto z = 0; z < TileDim; z++)
         if (giz(z) < len3[0])
-          delta[z + 1] =
-              sycl::round(data[gid(z)] * ebx2_r);  // prequant (fp presence)
+          delta[z + 1] = sycl::round(data[gid(z)] * ebx2_r);
     }
-    /*
-    DPCT1065:11: Consider replacing sycl::nd_item::barrier() with
-    sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-    performance if there is no access to global memory.
-    */
+    /* DPCT1065 */
     item_ct1.barrier();
+    // item_ct1.barrier(sycl::access::fence_space::local_space);
   };
 
   auto quantize_compact_write = [&](T delta, auto x, auto y, auto z,
                                     auto gid) {
     bool quantizable = sycl::fabs(delta) < radius;
-    T candidate = ZigZag ? delta : delta + radius;
+    T candidate;
+    if constexpr (ZigZag) { candidate = delta; }
+    else {
+      candidate = delta + radius;
+    }
+
     if (x < len3[2] and y < len3[1] and z < len3[0]) {
-      if (ZigZag)
+      if constexpr (ZigZag) {
         eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
-      else
+      }
+      else {
         eq[gid] = quantizable * static_cast<EqUint>(candidate);
+      }
+
       if (not quantizable) {
         auto cur_idx =
             dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
@@ -307,28 +286,18 @@ void c_lorenzo_3d1l(
       if (item_ct1.get_local_id(2) % TileDim > 0) delta[z] -= prev_x;
     }
 
-    /*
-    DPCT1065:12: Consider replacing sycl::nd_item::barrier() with
-    sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-    performance if there is no access to global memory.
-    */
-    item_ct1.barrier();
+    item_ct1.barrier(sycl::access::fence_space::local_space);
 
     // y-direction, exchange via shmem
     // ghost padding along y
     s[item_ct1.get_local_id(1) + 1][item_ct1.get_local_id(2)] = delta[z];
-    /*
-    DPCT1065:13: Consider replacing sycl::nd_item::barrier() with
-    sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-    performance if there is no access to global memory.
-    */
-    item_ct1.barrier();
+    item_ct1.barrier(sycl::access::fence_space::local_space);
 
     delta[z] -= (item_ct1.get_local_id(1) > 0) *
                 s[item_ct1.get_local_id(1)][item_ct1.get_local_id(2)];
 
     // now delta[z] is delta
-    quantize_compact_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+    quantize_compact_write(delta[z], gix(), giy(), giz(z - 1), gid(z - 1));
   }
 }
 

@@ -58,16 +58,8 @@ pszerror psz_comp_l23(
   auto ebx2_r = 1 / ebx2;
   auto leap3 = sycl::range<3>(len3[2] * len3[1], len3[2], 1);
 
-  // CREATE_GPUEVENT_PAIR;
-  // START_GPUEVENT_RECORDING(queue);
-
   if (d == 1) {
-    /*
-    DPCT1049:69: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 1> scratch(sycl::range<1>(Tile1D), cgh);
       sycl::local_accessor<Eq, 1> s_eq(sycl::range<1>(Tile1D), cgh);
@@ -82,12 +74,7 @@ pszerror psz_comp_l23(
     });
   }
   else if (d == 2) {
-    /*
-    DPCT1049:70: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->parallel_for(
         sycl::nd_range<3>(Grid2D * Block2D, Block2D),
         [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
@@ -96,12 +83,7 @@ pszerror psz_comp_l23(
         });
   }
   else if (d == 3) {
-    /*
-    DPCT1049:71: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 2> s_acc_ct1(sycl::range<2>(9, 33), cgh);
 
@@ -117,10 +99,6 @@ pszerror psz_comp_l23(
 
   e.wait();
   SYCL_TIME_DELTA(e, *time_elapsed);
-
-  // STOP_GPUEVENT_RECORDING(queue);
-  // TIME_ELAPSED_GPUEVENT(time_elapsed);
-  // DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }
@@ -170,16 +148,8 @@ pszerror psz_decomp_l23(
   auto queue = (sycl::queue*)stream;
   sycl::event e;
 
-  // CREATE_GPUEVENT_PAIR;
-  // START_GPUEVENT_RECORDING(queue);
-
   if (d == 1) {
-    /*
-    DPCT1049:72: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       constexpr auto NTHREAD = Tile1D / Seq1D;
       sycl::local_accessor<T, 1> scratch(sycl::range<1>(Tile1D), cgh);
@@ -198,12 +168,7 @@ pszerror psz_decomp_l23(
     });
   }
   else if (d == 2) {
-    /*
-    DPCT1049:73: The work-group size passed to the SYCL kernel may exceed the
-    limit. To get the device limit, query info::device::max_work_group_size.
-    Adjust the work-group size if needed.
-    */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       /*
       DPCT1101:106: 'BLOCK' expression was replaced with a value.
@@ -250,10 +215,6 @@ pszerror psz_decomp_l23(
   e.wait();
 
   SYCL_TIME_DELTA(e, *time_elapsed);
-
-  // STOP_GPUEVENT_RECORDING(queue);
-  // TIME_ELAPSED_GPUEVENT(time_elapsed);
-  // DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }

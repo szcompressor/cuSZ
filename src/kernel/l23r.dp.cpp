@@ -102,7 +102,7 @@ pszerror psz_comp_l23r(
     limit. To get the device limit, query info::device::max_work_group_size.
     Adjust the work-group size if needed.
     */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       auto ot_val_ct6 = ot->val();
       auto ot_idx_ct7 = ot->idx();
@@ -123,7 +123,7 @@ pszerror psz_comp_l23r(
     limit. To get the device limit, query info::device::max_work_group_size.
     Adjust the work-group size if needed.
     */
-    dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(queue->get_device(), {sycl::aspect::fp64});
     e = queue->submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 2> s_acc_ct1(sycl::range<2>(9, 33), cgh);
 
