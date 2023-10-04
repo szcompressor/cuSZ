@@ -12,6 +12,7 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
+#include "kernel/criteria.hh"
 #include "kernel/spv.hh"
 
 template <typename T = float>
@@ -35,6 +36,8 @@ int f()
   val = (T*)sycl::malloc_shared(sizeof(T) * len, q);
   idx = sycl::malloc_shared<uint32_t>(len, q);
 
+  auto d_nnz = sycl::malloc_shared<int>(1, q);
+
   // determine nnz
   auto trials = psz::testutils::cpp::randint(len) / 1;
 
@@ -51,8 +54,12 @@ int f()
 
   ////////////////////////////////////////////////////////////////
 
-  psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
-      a, len, val, idx, &nnz, &ms, &q);
+  // psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
+  //     a, len, val, idx, &nnz, &ms, &q);
+
+  psz::spv_gather_naive<PROPER_GPU_BACKEND>(
+      a, len, 0, val, idx, d_nnz, psz::criterion::eq<T>(), &ms, &q);
+  nnz = *d_nnz;
 
   q.wait();
 

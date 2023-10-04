@@ -9,6 +9,7 @@
  *
  */
 
+#include "kernel/criteria.hh"
 #include "kernel/spv.hh"
 
 template <typename T = float>
@@ -20,12 +21,15 @@ int f()
   T* val;              // intermeidate
   uint32_t* idx;       //
   int nnz;             //
+  int* d_nnz;
   float ms;
 
   GpuMallocManaged(&a, sizeof(T) * len);
   GpuMallocManaged(&da, sizeof(T) * len);
   GpuMallocManaged(&val, sizeof(T) * len);
   GpuMallocManaged(&idx, sizeof(uint32_t) * len);
+
+  GpuMallocManaged(&d_nnz, sizeof(int));
 
   // determine nnz
   auto trials = psz::testutils::cpp::randint(len) / 1;
@@ -46,8 +50,12 @@ int f()
 
   ////////////////////////////////////////////////////////////////
 
-  psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
-      a, len, val, idx, &nnz, &ms, stream);
+  // psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
+  //     a, len, val, idx, &nnz, &ms, stream);
+
+  psz::spv_gather_naive<PROPER_GPU_BACKEND>(
+      a, len, 0, val, idx, d_nnz, psz::criterion::eq<T>(), &ms, stream);
+  nnz = *d_nnz;
 
   GpuStreamSync(stream);
 
@@ -58,7 +66,9 @@ int f()
     return -1;
   }
 
-  psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(
+  // psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(
+  //     val, idx, nnz, da, &ms, stream);
+  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, uint32_t>(
       val, idx, nnz, da, &ms, stream);
 
   GpuStreamSync(stream);
@@ -81,10 +91,12 @@ int f()
 
   GpuStreamDestroy(stream);
 
-  if (same)
+  if (same) {
+    std::cout << "[psz::test::info] decode correct" << std::endl;
     return 0;
+  }
   else {
-    std::cout << "decomp not okay" << std::endl;
+    std::cout << "[psz::test::ERR] DECODE NOT CORRECT" << std::endl;
     return -1;
   }
 }

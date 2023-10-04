@@ -147,8 +147,9 @@ Compressor<C>* Compressor<C>::compress(
       PSZDBG_PTR_WHERE(mem->ectrl());
       PSZDBG_VAR("pipeline", len);
     }
-    if (spline_in_use())
-    {PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);}
+    if (spline_in_use()) {
+      PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);
+    }
   }
 
   /* statistics: histogram */
@@ -373,8 +374,14 @@ Compressor<C>* Compressor<C>::decompress(
   auto d_space = out;
   auto d_xdata = out;
 
+#if defined(PSZ_USE_CUDA)
   psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
       d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+#elif defined(PSZ_USE_ONEAPI)
+  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, M>(
+      d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+#endif
+
   codec->decode(d_vle, mem->ectrl());
 
   if (header->pred_type == Spline) {

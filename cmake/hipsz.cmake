@@ -67,7 +67,7 @@ add_library(pszkernel_seq src/kernel/l23.seq.cc src/kernel/hist.seq.cc
                           src/kernel/histsp.seq.cc)
 target_link_libraries(pszkernel_seq PUBLIC pszcompile_settings)
 
-add_library(pszkernel_hip src/kernel/l23.hip src/kernel/l23r.hip
+add_library(pszkernel_hip src/kernel/spvn.hip src/kernel/l23.hip src/kernel/l23r.hip
                           src/kernel/hist.hip src/kernel/histsp.hip
                           src/kernel/dryrun.hip)
 target_link_libraries(pszkernel_hip PUBLIC pszcompile_settings)

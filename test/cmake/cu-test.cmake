@@ -4,7 +4,7 @@ target_link_libraries(psztest_utils_cu CUDA::cudart CUDA::curand)
 
 # testing sp vector
 add_executable(spv_cu src/test_spv.cu)
-target_link_libraries(spv_cu PRIVATE pszspv_cu psztest_utils_cu)
+target_link_libraries(spv_cu PRIVATE pszspv_cu psztest_utils_cu pszkernel_cu)
 add_test(test_spv_cu spv_cu)
 
 # testing timer wrapper

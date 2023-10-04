@@ -67,6 +67,7 @@ add_library(
   pszkernel_cu
   src/kernel/dryrun.cu
   src/kernel/lproto.cu
+  src/kernel/spvn.cu
   src/kernel/l23.cu
   src/kernel/spline3.cu
   src/kernel/hist.cu

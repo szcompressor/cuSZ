@@ -15,7 +15,7 @@ target_link_libraries(psztest_utils_dp)
 
 # testing sp vector
 add_executable(spv_dp src/test_spv.dp.cpp)
-target_link_libraries(spv_dp PRIVATE pszspv_dp psztest_utils_dp)
+target_link_libraries(spv_dp PRIVATE pszspv_dp psztest_utils_dp pszkernel_dp)
 add_test(test_spv_dp spv_dp)
 
 # # testing timer wrapper

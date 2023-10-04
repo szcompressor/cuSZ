@@ -75,9 +75,9 @@ target_link_libraries(pszkernel_seq PUBLIC pszcompile_settings)
 # target_link_libraries(port_dummy PUBLIC pszcompile_settings)
 
 add_library(pszkernel_dp
+  src/kernel/spvn.dp.cpp
   src/kernel/l23.dp.cpp
   src/kernel/l23r.dp.cpp
-
   # # src/kernel/hist.dp.cpp  ## no proper interop
   src/kernel/histsp.dp.cpp
   src/kernel/dryrun.dp.cpp
