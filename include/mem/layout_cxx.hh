@@ -12,8 +12,8 @@
 #ifndef DC62DA60_8211_4C93_9541_950ADEFC2820
 #define DC62DA60_8211_4C93_9541_950ADEFC2820
 
-#include "cusz/type.h"
 #include "compact.hh"
+#include "cusz/type.h"
 #include "layout.h"
 #include "memseg_cxx.hh"
 #include "port.hh"
@@ -27,11 +27,11 @@ class pszmempool_cxx {
   using B = uint8_t;
   using Compact = typename CompactDram<EXEC, T>::Compact;
 
-  pszmem_cxx<T> *od;  // original data
-  pszmem_cxx<T> *xd;  // decompressed/reconstructed data
-  pszmem_cxx<T> *ac;  // anchor
-  pszmem_cxx<E> *e;   // ectrl
-  pszmem_cxx<F> *ht;  // hist/frequency
+  pszmem_cxx<T> *od;           // original data
+  pszmem_cxx<T> *xd, *xdtest;  // decomp'ed data (xdtest for testing)
+  pszmem_cxx<T> *ac;           // anchor
+  pszmem_cxx<E> *e, *etest;    // ectrl (etest for testing)
+  pszmem_cxx<F> *ht;           // hist/frequency
 
   Compact *compact;
 
@@ -77,8 +77,10 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
 
   od = new pszmem_cxx<T>(x, y, z, "original data");
   xd = new pszmem_cxx<T>(x, y, z, "reconstructed data");
+  xdtest = new pszmem_cxx<T>(x, y, z, "reconstructed data (test)");
   ac = new pszmem_cxx<T>(div(x, BLK), div(y, BLK), div(z, BLK), "anchor");
   e = new pszmem_cxx<E>(x, y, z, "ectrl-lorenzo");
+  etest = new pszmem_cxx<E>(x, y, z, "ectrl-lorenzo (test)");
 
   ht = new pszmem_cxx<F>(bklen, 1, 1, "hist");
 

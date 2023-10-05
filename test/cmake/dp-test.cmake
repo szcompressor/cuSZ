@@ -18,19 +18,19 @@ add_executable(spv_dp src/test_spv.dp.cpp)
 target_link_libraries(spv_dp PRIVATE pszspv_dp psztest_utils_dp pszkernel_dp)
 add_test(test_spv_dp spv_dp)
 
-# # testing timer wrapper
+# testing timer wrapper
 
-# # add_executable(tcpu src/tcpu.c) target_link_libraries(tcpu PRIVATE psztime)
-# # add_test(test_tcpu tcpu)
+# add_executable(tcpu src/tcpu.c) target_link_libraries(tcpu PRIVATE psztime)
+# add_test(test_tcpu tcpu)
 
-# # add_executable(tgpu src/tgpu.cu) target_link_libraries(tgpu PRIVATE psztime)
-# # add_test(test_tgpu tgpu)
+# add_executable(tgpu src/tgpu.cu) target_link_libraries(tgpu PRIVATE psztime)
+# add_test(test_tgpu tgpu)
 
-# # correctness, include kernel `.inl` directly ### test_typing test core
-# # functionality Level-0 basic typing
-# add_executable(l0_typing src/test_pncodec_func.cc)
-# target_link_libraries(l0_typing PRIVATE psztestcompile_dp)
-# add_test(test_l0_typing l0_typing)
+# correctness, include kernel `.inl` directly ### test_typing test core
+# functionality Level-0 basic typing
+add_executable(zigzag src/test_zigzag_coding.cc)
+target_link_libraries(zigzag PRIVATE psztestcompile_dp)
+add_test(test_zigzag zigzag)
 
 # # Level-1 subroutine
 # add_executable(l1_scan src/test_l1_l23scan.cu)
@@ -47,18 +47,18 @@ add_test(test_spv_dp spv_dp)
 # add_executable(l2_cudaproto src/test_l2_cudaproto.cu)
 # target_link_libraries(
 # l2_cudaproto PRIVATE pszcompile_settings psztestcompile_dp pszmem
-# pszstat_cu)
+# pszstat_dp)
 # add_test(test_l2_cudaproto l2_cudaproto)
 
-# add_executable(l2_histsp src/test_l2_histsp.cu)
-# target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_cu
-# pszkernel_cu pszkernel_seq pszstat_seq)
-# add_test(test_l2_histsp l2_histsp)
+add_executable(histsp_dp src/test_histsp.dp.cpp)
+target_link_libraries(histsp_dp PRIVATE pszcompile_settings pszmem pszstat_dp
+pszkernel_dp pszkernel_seq pszstat_seq)
+add_test(test_histsp_dp histsp_dp)
 
 # # Level-3 kernel with configuration (low-level API)
 # add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
 # target_link_libraries(
-# l3_cuda_pred PRIVATE pszkernel_cu psz_testutils pszstat_seq pszstat_cu pszmem
+# l3_cuda_pred PRIVATE pszkernel_cu psz_testutils pszstat_seq pszstat_dp pszmem
 # CUDA::cudart)
 # add_test(test_l3_cuda_pred l3_cuda_pred)
 
@@ -82,9 +82,9 @@ add_test(test_lrzsp_dp lrzsp_dp)
 # add_compile_definitions(REACTIVATE_THRUSTGPU)
 # add_executable(statfn src/test_statfn.cc)
 # target_link_libraries(statfn PRIVATE psztestcompile_dp psz_testutils
-# pszstat_cu pszstat_seq pszmem)
+# pszstat_dp pszstat_seq pszmem)
 # else()
 # add_executable(statfn src/test_statfn.cc)
 # target_link_libraries(statfn PRIVATE psztestcompile_dp psz_testutils
-# pszstat_cu pszstat_seq pszmem)
+# pszstat_dp pszstat_seq pszmem)
 # endif()

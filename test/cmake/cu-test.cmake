@@ -22,9 +22,9 @@ target_include_directories(
 
 # correctness, include kernel `.inl` directly ### test_typing test core
 # functionality Level-0 basic typing
-add_executable(l0_typing src/test_pncodec_func.cc)
-target_link_libraries(l0_typing PRIVATE psztestcompile_cu)
-add_test(test_l0_typing l0_typing)
+add_executable(zigzag src/test_zigzag_coding.cc)
+target_link_libraries(zigzag PRIVATE psztestcompile_cu)
+add_test(test_zigzag zigzag)
 
 # Level-1 subroutine
 add_executable(l1_scan src/test_l1_l23scan.cu)
@@ -44,10 +44,10 @@ target_link_libraries(
   pszstat_cu)
 add_test(test_l2_cudaproto l2_cudaproto)
 
-add_executable(l2_histsp src/test_l2_histsp.cu)
-target_link_libraries(l2_histsp PRIVATE pszcompile_settings pszmem pszstat_cu
+add_executable(histsp_cu src/test_histsp.cu)
+target_link_libraries(histsp_cu PRIVATE pszcompile_settings pszmem pszstat_cu
   pszkernel_cu pszkernel_seq pszstat_seq)
-add_test(test_l2_histsp l2_histsp)
+add_test(test_histsp_cu histsp_cu)
 
 # Level-3 kernel with configuration (low-level API)
 add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
@@ -72,18 +72,18 @@ target_link_libraries(
   pszmem)
 add_test(test_lrzsp_cu lrzsp_cu)
 
-# add_executable(lrzsp2_cu src/test_lrzsp2.cu)
-# target_link_libraries(
-#   lrzsp2_cu
-#   PRIVATE psztestcompile_cu
-#   pszkernel_seq
-#   pszstat_seq
-#   pszkernel_cu
-#   psztest_utils_cu
-#   pszspv_cu
-#   pszstat_cu
-#   pszmem)
-# add_test(test_lrzsp2_cu lrzsp2_cu)
+add_executable(lrzsp2_cu src/test_lrzsp2.cu)
+target_link_libraries(
+  lrzsp2_cu
+  PRIVATE psztestcompile_cu
+  pszkernel_seq
+  pszstat_seq
+  pszkernel_cu
+  psztest_utils_cu
+  pszspv_cu
+  pszstat_cu
+  pszmem)
+add_test(test_lrzsp2_cu lrzsp2_cu)
 
 if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)

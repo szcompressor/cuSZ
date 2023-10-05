@@ -100,9 +100,13 @@ void c_lorenzo_1d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR1_GRID() { PFOR1_BLOCK() threadview_load(); }
-  PFOR1_GRID() { PFOR1_BLOCK() threadview_process(); }
-  PFOR1_GRID() { PFOR1_BLOCK() threadview_store(); }
+  PFOR1_GRID()
+  PFOR1_BLOCK()
+  {
+    threadview_load();
+    threadview_process();
+    threadview_store();
+  }
 
   delete _buf1;
   delete _buf2;
@@ -132,9 +136,13 @@ void x_lorenzo_1d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR1_GRID() { PFOR1_BLOCK() threadview_load(); }
-  PFOR1_GRID() { PFOR1_BLOCK() threadview_partial_sum(); }
-  PFOR1_GRID() { PFOR1_BLOCK() threadview_store(); }
+  PFOR1_GRID()
+  PFOR1_BLOCK()
+  {
+    threadview_load();
+    threadview_partial_sum();
+    threadview_store();
+  }
 
   delete _buf1;
 }
@@ -177,9 +185,13 @@ void c_lorenzo_2d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR2_GRID() { PFOR2_BLOCK() threadview_load(); }
-  PFOR2_GRID() { PFOR2_BLOCK() threadview_process(); }
-  PFOR2_GRID() { PFOR2_BLOCK() threadview_store(); }
+  PFOR2_GRID()
+  PFOR2_BLOCK()
+  {
+    threadview_load();
+    threadview_process();
+    threadview_store();
+  }
 
   delete _buf1;
   delete _buf2;
@@ -211,13 +223,14 @@ void x_lorenzo_2d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR2_GRID() { PFOR2_BLOCK() threadview_load(); }
   PFOR2_GRID()
+  PFOR2_BLOCK()
   {
-    PFOR2_BLOCK() threadview_partial_sum_x();
-    PFOR2_BLOCK() threadview_partial_sum_y();
+    threadview_load();
+    threadview_partial_sum_x();
+    threadview_partial_sum_y();
+    threadview_store();
   }
-  PFOR2_GRID() { PFOR2_BLOCK() threadview_store(); }
 
   delete _buf1;
 }
@@ -262,9 +275,13 @@ void c_lorenzo_3d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR3_GRID() { PFOR3_BLOCK() threadview_load(); }
-  PFOR3_GRID() { PFOR3_BLOCK() threadview_process(); }
-  PFOR3_GRID() { PFOR3_BLOCK() threadview_store(); }
+  PFOR3_GRID()
+  PFOR3_BLOCK()
+  {
+    threadview_load();
+    threadview_process();
+    threadview_store();
+  }
 
   delete _buf1;
   delete _buf2;
@@ -299,14 +316,15 @@ void x_lorenzo_3d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR3_GRID() { PFOR3_BLOCK() threadview_load(); }
   PFOR3_GRID()
+  PFOR3_BLOCK()
   {
-    PFOR3_BLOCK() threadview_partial_sum_x();
-    PFOR3_BLOCK() threadview_partial_sum_y();
-    PFOR3_BLOCK() threadview_partial_sum_z();
+    threadview_load();
+    threadview_partial_sum_x();
+    threadview_partial_sum_y();
+    threadview_partial_sum_z();
+    threadview_store();
   }
-  PFOR3_GRID() { PFOR3_BLOCK() threadview_store(); }
 
   delete _buf1;
 }

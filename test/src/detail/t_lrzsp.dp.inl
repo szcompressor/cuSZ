@@ -18,6 +18,7 @@
 #include <sycl/sycl.hpp>
 #include <typeinfo>
 
+#include "kernel/criteria.hh"
 #include "kernel/l23.hh"
 #include "kernel/l23r.hh"
 #include "kernel/spv.hh"
@@ -113,6 +114,7 @@ bool testcase(
 
   ////////////////////////////////////////////////////////////////////////////////
   int splen;
+  auto d_splen = sycl::malloc_shared<int>(1, q);
   {
     dpct::sort(
         oneapi::dpl::execution::seq, compact_outlier.h_idx,
@@ -120,8 +122,12 @@ bool testcase(
         compact_outlier.h_val);  // value
 
     float __t;
-    psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
-        outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t, &q);
+    // psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
+    //     outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t, &q);
+    psz::spv_gather_naive<PROPER_GPU_BACKEND>(
+        outlier->dptr(), len, 0, spval->dptr(), spidx->dptr(), d_splen,
+        psz::criterion::eq<T>(), &__t, &q);
+    splen = *d_splen;
     spidx->control({D2H});
     spval->control({D2H});
 
@@ -153,7 +159,7 @@ bool testcase(
   // //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 
-  psz::spv_scatter<PROPER_GPU_BACKEND, T, u4>(
+  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, u4>(
       compact_outlier.val(), compact_outlier.idx(),
       compact_outlier.num_outliers(), de_data->dptr(), &time, &q);
 

@@ -105,8 +105,8 @@ struct TimeRecordViewer {
   static void view_compression(
       timerecord_t r, size_t bytes, size_t compressed_bytes = 0)
   {
-#warning \
-    "[TODO] view_compression is deprecated, use review_compression(...) instead"
+// #warning \
+//     "[TODO] view_compression is deprecated, use review_compression(...) instead"
     auto report_cr = [&]() {
       auto cr = 1.0 * bytes / compressed_bytes;
       if (compressed_bytes != 0)
