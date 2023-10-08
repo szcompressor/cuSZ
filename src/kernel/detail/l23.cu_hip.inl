@@ -452,6 +452,7 @@ __global__ void psz::cuda_hip::__kernel::c_lorenzo_3d1l(
 
     // now delta[z] is delta
     quantize_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+    __syncthreads();
   }
 }
 
@@ -507,6 +508,7 @@ __global__ void psz::cuda_hip::__kernel::delta_only::c_lorenzo_3d1l(  //
 
     // now delta[z] is delta
     quantize_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+    __syncthreads();
   }
 }
 

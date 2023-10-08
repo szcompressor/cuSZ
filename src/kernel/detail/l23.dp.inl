@@ -223,13 +223,14 @@ void c_lorenzo_3d1l(
     sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
     performance if there is no access to global memory.
     */
-    item_ct1.barrier();
+    item_ct1.barrier(sycl::access::fence_space::local_space);
 
     delta[z] -= (item_ct1.get_local_id(1) > 0) *
                 s[item_ct1.get_local_id(1)][item_ct1.get_local_id(2)];
 
     // now delta[z] is delta
     quantize_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+    item_ct1.barrier();
   }
 }
 

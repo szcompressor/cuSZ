@@ -298,6 +298,7 @@ void c_lorenzo_3d1l(
 
     // now delta[z] is delta
     quantize_compact_write(delta[z], gix(), giy(), giz(z - 1), gid(z - 1));
+    item_ct1.barrier();
   }
 }
 
