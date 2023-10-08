@@ -10,18 +10,18 @@ target_link_libraries(demo_cxx_link PRIVATE pszkernel_cu CUDA::cudart)
 add_library(ex_utils src/ex_utils.cu)
 target_link_libraries(ex_utils PUBLIC pszcompile_settings)
 
-add_executable(bin_pipeline src/bin_pipeline.cc)
-target_link_libraries(
-  bin_pipeline
-  PRIVATE ex_utils
-          pszmem
-          pszstat_seq
-          pszkernel_seq
-          pszkernel_cu
-          pszstat_cu
-          pszspv_cu
-          pszhf_cu
-          CUDA::cudart)
+# add_executable(bin_pipeline src/bin_pipeline.cc)
+# target_link_libraries(
+#   bin_pipeline
+#   PRIVATE ex_utils
+#           pszmem
+#           pszstat_seq
+#           pszkernel_seq
+#           pszkernel_cu
+#           pszstat_cu
+#           pszspv_cu
+#           pszhf_cu
+#           CUDA::cudart)
 
 add_executable(bin_hf src/bin_hf.cc)
 target_link_libraries(bin_hf PRIVATE cusz pszstat_cu pszhf_cu CUDA::cudart)

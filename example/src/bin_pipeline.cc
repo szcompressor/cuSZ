@@ -123,8 +123,8 @@ void demo_c_predict(
   using FP = T;
 
   auto len = mem->od->len();
-  auto len3 = mem->el->template len3<dim3>();
-  auto len3p = mem->es->template len3<dim3>();
+  auto len3 = mem->e->template len3<dim3>();
+  // auto len3p = mem->e->template len3<dim3>();
   f4 time, time_histcpu_base, time_histcpu_optim;
 
   // psz_comp_l23<T, E, FP>(mem->od->dptr(), len3, eb, radius,
@@ -134,8 +134,8 @@ void demo_c_predict(
   auto time_pred = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
     psz_comp_l23r<T, E>(
-        mem->od->dptr(), len3, eb, radius, mem->ectrl(),
-        (void*)mem->compact, &time, stream);
+        mem->od->dptr(), len3, eb, radius, mem->ectrl(), (void*)mem->compact,
+        &time, stream);
     print_tobediscarded_info(time, "comp_pred_l23r");
     time_pred = std::min(time, time_pred);
   }
@@ -146,10 +146,10 @@ void demo_c_predict(
 
   cout << "[psz::info] outlier: " << g_splen << endl;
 
-  mem->el
+  mem->e
       ->control({D2H})  //
       ->file(string(string(ifn) + ".eq." + suffix()).c_str(), ToFile);
-  mem->el->castto(ectrl_u4, psz_space::Host)->control({H2D});
+  mem->e->castto(ectrl_u4, psz_space::Host)->control({H2D});
 }
 
 template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
@@ -159,9 +159,9 @@ void demo_d_predict(
 {
   using FP = T;
 
-  auto len = mem->el->len();
-  auto len3 = mem->el->template len3<dim3>();
-  auto len3p = mem->es->template len3<dim3>();
+  auto len = mem->e->len();
+  auto len3 = mem->e->template len3<dim3>();
+  // auto len3p = mem->e->template len3<dim3>();
   f4 time_pred, time_scatter;
 
   // ----------------------------------------
@@ -180,8 +180,8 @@ void demo_d_predict(
   auto time_pred_min = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
     psz_decomp_l23<T, E, FP>(
-        mem->ectrl(), len3, mem->outlier_space(), eb, radius,
-        mem->xd->dptr(), &time_pred, stream);
+        mem->ectrl(), len3, mem->outlier_space(), eb, radius, mem->xd->dptr(),
+        &time_pred, stream);
 
     print_tobediscarded_info(time_pred, "decomp_scatter");
     time_pred_min = std::min(time_pred, time_pred_min);
@@ -302,11 +302,7 @@ void demo_pipeline(
       mem, ectrl_u4, ifn, eb, radius, stream, proto);
 
   auto num_outlier =
-      Predictor == SPLINE3
-          ? count_outlier<E>(
-                mem->es->dptr(), mem->es->len(), radius, (void*)stream)
-          : count_outlier<E>(
-                mem->el->dptr(), mem->el->len(), radius, (void*)stream);
+      count_outlier<E>(mem->e->dptr(), mem->e->len(), radius, (void*)stream);
   // printf("#outlier:\t%u\n", num_outlier);
 
   demo_hist_u4in<H>(ectrl_u4, mem->ht, ifn, radius, stream);
