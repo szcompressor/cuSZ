@@ -3,6 +3,7 @@
 
 namespace psz {
 namespace criterion {
+namespace gpu {
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
@@ -43,6 +44,7 @@ struct in_ball {
 
 #endif
 
+}  // namespace gpu
 }  // namespace criterion
 }  // namespace psz
 

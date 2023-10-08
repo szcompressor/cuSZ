@@ -1,6 +1,6 @@
 #include "detail/spvn.dp.inl"
 
-#include "criteria.hh"
+#include "criteria.gpu.hh"
 #include "cusz/type.h"
 #include "kernel/spv.hh"
 #include "port.hh"
@@ -69,11 +69,11 @@
 SPVN_SCATTER(f4, u4)
 // SPVN_SCATTER(f8, u4)
 
-SPVN_GATHER(f4, psz::criterion::eq<f4>, u4)
-SPVN_GATHER(f4, psz::criterion::in_ball<f4>, u4)
-SPVN_GATHER(f4, psz::criterion::in_ball_shifted<f4>, u4)
-// SPVN_GATHER(f8, psz::criterion::eq<f4>, u4)
-// SPVN_GATHER(f8, psz::criterion::in_ball<f4>, u4)
-// SPVN_GATHER(f8, psz::criterion::in_ball_shifted<f4>, u4)
+SPVN_GATHER(f4, psz::criterion::gpu::eq<f4>, u4)
+SPVN_GATHER(f4, psz::criterion::gpu::in_ball<f4>, u4)
+SPVN_GATHER(f4, psz::criterion::gpu::in_ball_shifted<f4>, u4)
+// SPVN_GATHER(f8, psz::criterion::eq<f8>, u4)
+// SPVN_GATHER(f8, psz::criterion::in_ball<f8>, u4)
+// SPVN_GATHER(f8, psz::criterion::in_ball_shifted<f8>, u4)
 
 #undef SPVN_SCATTER

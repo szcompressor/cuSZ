@@ -12,18 +12,14 @@
 #ifndef DAB40B13_9236_42A9_8047_49CD896671C9
 #define DAB40B13_9236_42A9_8047_49CD896671C9
 
-// template <typename T>
-// struct CompactSerial;
-
-// template <typename T>
-// struct CompactGpuDram;
-
 #include "cusz/type.h"
 
 template <pszpolicy Policy, typename T>
 struct CompactDram;
 
 #include "compact/compact.seq.hh"
+
+// [psz::TODO] pass compilation with host compiler only
 
 // clang-format off
 template <> struct CompactDram<SEQ, f4> {
@@ -52,7 +48,6 @@ template <> struct CompactDram<HIP, f4> {
 template <> struct CompactDram<HIP, f8> {
   using Compact = psz::detail::hip::CompactGpuDram<f8>; };
 // clang-format on
-
 
 #elif defined(PSZ_USE_1API)
 

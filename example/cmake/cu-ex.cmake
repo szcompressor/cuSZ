@@ -4,9 +4,6 @@ target_link_libraries(demo_capi_cuda_nvcc PRIVATE cusz)
 add_executable(demo_capi_cuda src/demo_capi_cuda.cc)
 target_link_libraries(demo_capi_cuda PRIVATE cusz)
 
-add_executable(demo_cxx_link src/demo_cxx_link.cc)
-target_link_libraries(demo_cxx_link PRIVATE pszkernel_cu CUDA::cudart)
-
 add_library(ex_utils src/ex_utils.cu)
 target_link_libraries(ex_utils PUBLIC pszcompile_settings)
 

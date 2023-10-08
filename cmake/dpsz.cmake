@@ -65,7 +65,7 @@ target_link_libraries(pszstat_dp PUBLIC pszcompile_settings)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(pszkernel_seq src/kernel/l23.seq.cc src/kernel/hist.seq.cc
-  src/kernel/histsp.seq.cc)
+  src/kernel/histsp.seq.cc src/kernel/spvn.seq.cc)
 target_link_libraries(pszkernel_seq PUBLIC pszcompile_settings)
 
 # add_executable(

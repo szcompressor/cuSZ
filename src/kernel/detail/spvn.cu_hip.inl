@@ -21,6 +21,7 @@ __global__ void spvn_gather(
       auto cur_idx = atomicAdd(cn, 1);
       cidx[cur_idx] = tid;
       cval[cur_idx] = d;
+      in[tid] = 0;
     }
   }
 }

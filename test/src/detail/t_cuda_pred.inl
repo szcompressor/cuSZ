@@ -11,7 +11,7 @@
 
 #include <typeinfo>
 
-#include "kernel/l23.hh"
+#include "kernel/lrz.hh"
 #include "mem/memseg_cxx.hh"
 #include "stat/compare/compare.stl.hh"
 #include "stat/compare/compare.thrust.hh"

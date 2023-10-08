@@ -19,7 +19,7 @@
 #include "port.hh"
 
 template <typename T, typename Eq = uint32_t, bool ZigZag = false>
-cusz_error_status psz_comp_l23r(
+pszerror psz_comp_l23r(
     T* const data,
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,

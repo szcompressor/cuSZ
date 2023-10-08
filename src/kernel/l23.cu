@@ -13,7 +13,7 @@
 
 #include "cusz/type.h"
 #include "detail/l23.cu_hip.inl"
-#include "kernel/l23.hh"
+#include "kernel/lrz.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 

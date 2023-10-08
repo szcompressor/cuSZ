@@ -12,18 +12,20 @@
 #ifndef DC62DA60_8211_4C93_9541_950ADEFC2820
 #define DC62DA60_8211_4C93_9541_950ADEFC2820
 
+#include "cusz/type.h"
 #include "compact.hh"
 #include "layout.h"
 #include "memseg_cxx.hh"
 #include "port.hh"
 
-template <typename T, typename E, typename H>
+template <
+    typename T, typename E, typename H, pszpolicy EXEC = PROPER_GPU_BACKEND>
 class pszmempool_cxx {
  public:
   using M = uint32_t;
   using F = uint32_t;
   using B = uint8_t;
-  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  using Compact = typename CompactDram<EXEC, T>::Compact;
 
   pszmem_cxx<T> *od;  // original data
   pszmem_cxx<T> *xd;  // decompressed/reconstructed data
@@ -56,8 +58,8 @@ class pszmempool_cxx {
   M compact_num_outliers() { return compact->num_outliers(); }
 };
 
-#define TPL template <typename T, typename E, typename H>
-#define POOL pszmempool_cxx<T, E, H>
+#define TPL template <typename T, typename E, typename H, pszpolicy EXEC>
+#define POOL pszmempool_cxx<T, E, H, EXEC>
 
 TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z)
 {

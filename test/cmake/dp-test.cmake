@@ -44,10 +44,6 @@ add_test(test_spv_dp spv_dp)
 # add_test(test_l1_compact l1_compact)
 
 # # Level-2 kernel (template; unit tests)
-# add_executable(l2_serial src/test_l2_serial.cc)
-# target_link_libraries(l2_serial PRIVATE psztestcompile_dp)
-# add_test(test_l2_serial l2_serial)
-
 # add_executable(l2_cudaproto src/test_l2_cudaproto.cu)
 # target_link_libraries(
 # l2_cudaproto PRIVATE pszcompile_settings psztestcompile_dp pszmem
@@ -65,6 +61,10 @@ add_test(test_spv_dp spv_dp)
 # l3_cuda_pred PRIVATE pszkernel_cu psz_testutils pszstat_seq pszstat_cu pszmem
 # CUDA::cudart)
 # add_test(test_l3_cuda_pred l3_cuda_pred)
+
+add_executable(lrz_seq src/test_lrz.seq.cc)
+target_link_libraries(lrz_seq PRIVATE psztestcompile_dp)
+add_test(test_lrz_seq lrz_seq)
 
 add_executable(lrzsp_dp src/test_lrzsp.dp.cpp)
 target_link_libraries(

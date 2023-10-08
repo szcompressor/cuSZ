@@ -19,7 +19,7 @@
 #include "port.hh"
 
 template <typename T, typename EQ = int32_t, typename FP = T>
-cusz_error_status psz_comp_l23(
+pszerror psz_comp_l23(
     T* const data,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,
@@ -34,7 +34,7 @@ cusz_error_status psz_comp_l23(
     void* stream);        //
 
 template <typename T, typename EQ = int32_t, typename FP = T>
-cusz_error_status psz_decomp_l23(
+pszerror psz_decomp_l23(
     EQ* eq,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,

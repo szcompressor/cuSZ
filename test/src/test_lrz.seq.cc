@@ -34,7 +34,8 @@ bool test1(
     FUNC func, T const* input, size_t len, psz_dim3 len3, psz_dim3 stride3,
     T const* expected_output, std::string funcname)
 {
-  auto outlier = new struct psz_outlier_serial<T>(len / 10);
+  auto outlier = new CompactSerial<T>;
+  outlier->reserve_space(len / 10).malloc();
 
   auto eq = new EQ[len];
   memset(eq, 0, sizeof(EQ) * len);
@@ -89,7 +90,8 @@ bool test3(
     FUNC1 func1, FUNC2 func2, T const* input, size_t len, psz_dim3 len3,
     psz_dim3 stride3, std::string funcname)
 {
-  auto outlier = new struct psz_outlier_serial<T>(len / 10);
+  auto outlier = new struct CompactSerial<T>;
+  outlier->reserve_space(len / 10).malloc();
 
   auto eq = new EQ[len];
   memset(eq, 0, sizeof(EQ) * len);
@@ -127,7 +129,7 @@ template <typename T>
 struct FunctionType {
   using FP = T;
   using EQ = int32_t;
-  using OUTLIER = psz_outlier_serial<T>;
+  using OUTLIER = CompactSerial<T>;
   typedef std::function<void(T*, psz_dim3, psz_dim3, int, FP, EQ*, OUTLIER*)>
       type_c;
   typedef std::function<void(EQ*, T*, psz_dim3, psz_dim3, int, FP, T*)> type_x;
@@ -135,13 +137,13 @@ struct FunctionType {
 
 int main()
 {
-  FunctionType<T>::type_c cl1d1l = psz::serial::__kernel::c_lorenzo_1d1l<T>;
-  FunctionType<T>::type_c cl2d1l = psz::serial::__kernel::c_lorenzo_2d1l<T>;
-  FunctionType<T>::type_c cl3d1l = psz::serial::__kernel::c_lorenzo_3d1l<T>;
+  FunctionType<T>::type_c cl1d1l = psz::seq::__kernel::c_lorenzo_1d1l<T>;
+  FunctionType<T>::type_c cl2d1l = psz::seq::__kernel::c_lorenzo_2d1l<T>;
+  FunctionType<T>::type_c cl3d1l = psz::seq::__kernel::c_lorenzo_3d1l<T>;
 
-  FunctionType<T>::type_x xl1d1l = psz::serial::__kernel::x_lorenzo_1d1l<T>;
-  FunctionType<T>::type_x xl2d1l = psz::serial::__kernel::x_lorenzo_2d1l<T>;
-  FunctionType<T>::type_x xl3d1l = psz::serial::__kernel::x_lorenzo_3d1l<T>;
+  FunctionType<T>::type_x xl1d1l = psz::seq::__kernel::x_lorenzo_1d1l<T>;
+  FunctionType<T>::type_x xl2d1l = psz::seq::__kernel::x_lorenzo_2d1l<T>;
+  FunctionType<T>::type_x xl3d1l = psz::seq::__kernel::x_lorenzo_3d1l<T>;
 
   auto all_pass = true;
 

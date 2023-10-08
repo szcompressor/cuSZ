@@ -1,6 +1,6 @@
 // deps
 #include "cusz/type.h"
-#include "kernel/lproto.hh"
+#include "kernel/lrz/lproto.hh"
 // definitions
 #include "detail/lproto.inl"
 

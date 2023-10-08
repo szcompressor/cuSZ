@@ -64,9 +64,9 @@ void test_compaction_serial(T* in, uint32_t len, Compact out)
     auto predicate = [&]() { return abs(delta) > 512; };
 
     if (predicate()) {
-      auto cur_idx = out.num++;
-      out.idx[cur_idx] = id;
-      out.val[cur_idx] = delta;
+      auto cur_idx = out.num()++;
+      out.idx(cur_idx) = id;
+      out.val(cur_idx) = delta;
     }
   }
 }

@@ -189,7 +189,12 @@ class pszmem_cxx {
   template <typename UINT3>
   UINT3 len3() const
   {
-    return UINT3(m->lx, m->ly, m->lz);
+    if constexpr (std::is_same_v<UINT3, psz_dim3>)
+      return UINT3{m->lx, m->ly, m->lz};
+    else if constexpr (std::is_same_v < UINT3, sycl::range<3>)
+      return sycl::range<3>(m->lz, m->ly, m->lx);
+    else
+      return sycl::range<3>(m->lz, m->ly, m->lx);
   };
 
   template <typename UINT3>

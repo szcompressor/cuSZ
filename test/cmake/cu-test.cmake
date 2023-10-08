@@ -38,10 +38,6 @@ target_link_libraries(l1_compact PRIVATE pszcompile_settings
 add_test(test_l1_compact l1_compact)
 
 # Level-2 kernel (template; unit tests)
-add_executable(l2_serial src/test_l2_serial.cc)
-target_link_libraries(l2_serial PRIVATE psztestcompile_cu)
-add_test(test_l2_serial l2_serial)
-
 add_executable(l2_cudaproto src/test_l2_cudaproto.cu)
 target_link_libraries(
   l2_cudaproto PRIVATE pszcompile_settings psztestcompile_cu pszmem
@@ -60,6 +56,10 @@ target_link_libraries(
   CUDA::cudart)
 add_test(test_l3_cuda_pred l3_cuda_pred)
 
+add_executable(lrz_seq src/test_lrz.seq.cc)
+target_link_libraries(lrz_seq PRIVATE psztestcompile_cu)
+add_test(test_lrz_seq lrz_seq)
+
 add_executable(lrzsp_cu src/test_lrzsp.cu)
 target_link_libraries(
   lrzsp_cu
@@ -71,6 +71,19 @@ target_link_libraries(
   pszstat_cu
   pszmem)
 add_test(test_lrzsp_cu lrzsp_cu)
+
+# add_executable(lrzsp2_cu src/test_lrzsp2.cu)
+# target_link_libraries(
+#   lrzsp2_cu
+#   PRIVATE psztestcompile_cu
+#   pszkernel_seq
+#   pszstat_seq
+#   pszkernel_cu
+#   psztest_utils_cu
+#   pszspv_cu
+#   pszstat_cu
+#   pszmem)
+# add_test(test_lrzsp2_cu lrzsp2_cu)
 
 if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)

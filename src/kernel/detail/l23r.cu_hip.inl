@@ -16,7 +16,7 @@
 
 #include <type_traits>
 
-#include "kernel/l23r.hh"
+#include "kernel/lrz.hh"
 #include "mem/compact.hh"
 #include "port.hh"
 

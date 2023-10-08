@@ -201,7 +201,7 @@ class pszmem_cxx {
   template <typename UINT3>
   UINT3 len3() const
   {
-    return UINT3(m->lx, m->ly, m->lz);
+    return UINT3{m->lx, m->ly, m->lz};
   };
 
   template <typename UINT3>

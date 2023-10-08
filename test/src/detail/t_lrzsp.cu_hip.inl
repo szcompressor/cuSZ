@@ -16,8 +16,7 @@
 #include <stdexcept>
 #include <typeinfo>
 
-#include "kernel/l23.hh"
-#include "kernel/l23r.hh"
+#include "kernel/lrz.hh"
 #include "kernel/spv.hh"
 #include "mem/compact.hh"
 #include "mem/memseg_cxx.hh"

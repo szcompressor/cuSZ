@@ -31,10 +31,6 @@ target_link_libraries(l1_compact PRIVATE pszcompile_settings
 add_test(test_l1_compact l1_compact)
 
 # Level-2 kernel (template; unit tests)
-add_executable(l2_serial src/test_l2_serial.cc)
-target_link_libraries(l2_serial PRIVATE psztestcompile_settings)
-add_test(test_l2_serial l2_serial)
-
 add_executable(l2_cudaproto src/test_l2_cudaproto_hip.cpp)
 target_link_libraries(
   l2_cudaproto PRIVATE pszcompile_settings psztestcompile_settings pszmem
@@ -52,6 +48,10 @@ target_link_libraries(
   l3_cuda_pred PRIVATE pszkernel_hip psztest_utils_hip pszstat_seq pszstat_hip
   pszmem hip::host)
 add_test(test_l3_cuda_pred l3_cuda_pred)
+
+add_executable(lrz_seq src/test_lrz.seq.cc)
+target_link_libraries(lrz_seq PRIVATE psztestcompile_dp)
+add_test(test_lrz_seq lrz_seq)
 
 add_executable(lrzsp_hip src/test_lrzsp.hip)
 target_link_libraries(
