@@ -128,7 +128,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   auto time_decomp_lossless = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
-    codec.decode(d_compressed, xd->dptr());
+    codec.decode(d_compressed, xd->dptr(), stream);
 
     print_tobediscarded_info(codec.time_lossless(), "decomp_hf_decode");
     time_decomp_lossless = std::min(time_decomp_lossless, codec.time_lossless());

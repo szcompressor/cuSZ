@@ -168,7 +168,7 @@ struct psz_utils {
 
     static void check_cuszmode(const std::string& val)
     {
-        auto legal = (val == "r2r") or (val == "abs");
+        auto legal = (val == "r2r" or val == "rel") or (val == "abs");
         if (not legal) throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
     }
 

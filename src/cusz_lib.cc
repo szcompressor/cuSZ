@@ -81,7 +81,7 @@ pszerror psz_compress(
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
     cor->compress(
-        comp->ctx, (f4*)(in), *compressed, *comp_bytes, stream);
+        comp->ctx, (f4*)(in), compressed, comp_bytes, stream);
     cor->export_header(*header);
     cor->export_timerecord((psz::TimeRecord*)record);
   }

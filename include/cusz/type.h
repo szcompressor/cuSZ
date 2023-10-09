@@ -23,6 +23,8 @@ typedef enum psz_execution_policy { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
 typedef psz_execution_policy psz_platform;
 typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } pszdevice;
 
+typedef void* uninit_stream_t;
+
 //////// state enumeration
 
 typedef enum psz_error_status {  //

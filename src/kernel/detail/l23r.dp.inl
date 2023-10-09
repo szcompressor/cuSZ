@@ -53,7 +53,6 @@ void c_lorenzo_1d1l(
   }
   /* DPCT1065 */
   item_ct1.barrier();
-  item_ct1.barrier(sycl::access::fence_space::local_space);
 
 // shmem.data to private.data
 #pragma unroll

@@ -14,6 +14,7 @@
 #ifndef A2519F0E_602B_4798_A8EF_9641123095D9
 #define A2519F0E_602B_4798_A8EF_9641123095D9
 
+#include <stdexcept>
 #include "busyheader.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
@@ -22,10 +23,13 @@
 #include "kernel.hh"
 #include "log.hh"
 #include "mem.hh"
-#include "mem/memseg_cxx.hh"
 #include "port.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
+
+#define COR          \
+  template <class C> \
+  Compressor<C>* Compressor<C>
 
 // [psz::note] psz::histogram is left for evaluating purpose
 // compared to psz::histsp
@@ -37,8 +41,7 @@
 
 namespace cusz {
 
-template <class C>
-Compressor<C>* Compressor<C>::destroy()
+COR::destroy()
 {
   if (mem) delete mem;
   if (codec) delete codec;
@@ -56,18 +59,18 @@ Compressor<C>::~Compressor()
 
 template <class C>
 template <class CONFIG>
-Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
+Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool debug)
 {
   codec = new Codec;
 
-  const auto radius = config->radius;
-  const auto pardeg = config->vle_pardeg;
-  // const auto density_factor = config->nz_density_factor;
-  // const auto codec_config = config->codecs_in_use;
+  const auto radius = ctx->radius;
+  const auto pardeg = ctx->vle_pardeg;
+  // const auto density_factor = ctx->nz_density_factor;
+  // const auto codec_ctx = ctx->codecs_in_use;
   const auto booklen = radius * 2;
-  const auto x = config->x;
-  const auto y = config->y;
-  const auto z = config->z;
+  const auto x = ctx->x;
+  const auto y = ctx->y;
+  const auto z = ctx->z;
 
   len = x * y * z;
 
@@ -78,50 +81,20 @@ Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::compress(
-    psz_context* config, T* in, BYTE*& out, size_t& outlen, void* stream,
-    bool dbg_print)
+COR::compress_predict(pszctx* ctx, T* in, void* stream)
 {
-  PSZSANITIZE_PSZCTX(config);
+  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
 
-  auto const eb = config->eb;
-  auto const radius = config->radius;
-  auto const pardeg = config->vle_pardeg;
+  auto const eb = ctx->eb;
+  auto const radius = ctx->radius;
+  auto const pardeg = ctx->vle_pardeg;
 
-  auto div = [](auto whole, auto part) { return (whole - 1) / part + 1; };
-
-// [psz::note::TODO] compat layer or explicit macro
+  // [psz::note::TODO] compat layer or explicit macro
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  len3 = dim3(config->x, config->y, config->z);
+  auto len3 = dim3(ctx->x, ctx->y, ctx->z);
 #elif defined(PSZ_USE_1API)
-  sycl::range<3> len3(config->z, config->y, config->x);
+  auto len3 = sycl::range<3>(ctx->z, ctx->y, ctx->x);
 #endif
-
-  BYTE* d_codec_out{nullptr};
-  size_t codec_outlen{0};
-
-  size_t data_len = config->x * config->y * config->z;
-  auto booklen = radius * 2;
-
-  auto sublen = div(data_len, pardeg);
-
-  auto update_header = [&]() {
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    header.x = len3.x, header.y = len3.y, header.z = len3.z,
-#elif defined(PSZ_USE_1API)
-    header.x = len3[2], header.y = len3[1], header.z = len3[0],
-#endif
-    header.w = 1;  // placeholder
-    header.radius = radius, header.eb = eb;
-    header.vle_pardeg = pardeg;
-    header.splen = splen;
-    header.pred_type = config->pred_type;
-    header.dtype = PszType<T>::type;
-    // header.byte_vle = use_fallback_codec ? 8 : 4;
-  };
-
-  auto spline_in_use = [&]() { return config->pred_type == psz_predtype::Spline; };
 
   /* prediction-quantization with compaction */
   {
@@ -152,6 +125,20 @@ Compressor<C>* Compressor<C>::compress(
     }
   }
 
+  /* make outlier count seen on host */
+  {
+    mem->compact->make_host_accessible((GpuStreamT)stream);
+    ctx->splen = mem->compact->num_outliers();
+  }
+
+  return this;
+}
+
+COR::compress_histogram(pszctx* ctx, void* stream)
+{
+  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
+  auto booklen = ctx->radius * 2;
+
   /* statistics: histogram */
   {
     PSZ_HIST(mem->ectrl(), len, mem->hist(), booklen, &time_hist, stream);
@@ -160,57 +147,87 @@ Compressor<C>* Compressor<C>::compress(
     if (spline_in_use()) { PSZDBG_LOG("histsp gpu: done"); }
   }
 
+  return this;
+}
+
+COR::compress_encode(pszctx* ctx, void* stream)
+{
+  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
+  auto booklen = ctx->radius * 2;
+
   /* Huffman encoding */
   {
     codec->build_codebook(mem->ht, booklen, stream);
     // [TODO] CR estimation must be after building codebook; need a flag.
-    if (config->report_cr_est) {
+    if (ctx->report_cr_est) {
       auto overhead = spline_in_use() ? sizeof(T) * mem->ac->len() : 0;
       codec->calculate_CR(mem->e, sizeof(T), overhead);
     }
     if (spline_in_use()) { PSZDBG_LOG("codebook: done"); }
     // if (spline_in_use()){PSZSANITIZE_HIST_BK(mem->ht->hptr(),
     // codec->bk4->hptr(), booklen);}
-    codec->encode(mem->ectrl(), len, &d_codec_out, &codec_outlen, stream);
+    codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
     if (spline_in_use()) { PSZDBG_LOG("encoding done"); }
   }
-
-  /* make outlier count seen on host */
-  {
-    mem->compact->make_host_accessible((GpuStreamT)stream);
-    splen = mem->compact->num_outliers();
-  }
-
-  /* update metadata/header */
-  update_header();
-  if (spline_in_use()) { PSZDBG_LOG("update header: done"); }
-
-  /* memcpy to archive */
-  merge_subfiles(
-      config->pred_type,                                                     //
-      mem->anchor(), mem->ac->len(),                                         //
-      d_codec_out, codec_outlen,                                             //
-      mem->compact_val(), mem->compact_idx(), mem->compact->num_outliers(),  //
-      stream);
-  if (spline_in_use()) { PSZDBG_LOG("merge buf: done"); }
-
-  /* output of this function */
-  outlen = psz_utils::filesize(&header);
-  mem->_compressed->m->len = outlen;
-  mem->_compressed->m->bytes = outlen;
-  out = mem->_compressed->dptr();
-
-  collect_comp_time();
-  if (spline_in_use()) { PSZDBG_LOG("compression: done"); }
 
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::merge_subfiles(
-    psz_predtype pred_type, T* d_anchor, szt anchor_len,
-    BYTE* d_codec_out, szt codec_outlen, T* d_spval, M* d_spidx, szt splen,
-    void* stream)
+COR::compress_update_header(pszctx* ctx, void* stream)
+{
+  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
+
+  header.x = ctx->x, header.y = ctx->y, header.z = ctx->z,
+  header.w = 1;  // placeholder
+  header.radius = ctx->radius, header.eb = ctx->eb;
+  header.vle_pardeg = ctx->vle_pardeg;
+  header.splen = ctx->splen;
+  header.pred_type = ctx->pred_type;
+  header.dtype = PszType<T>::type;
+
+  // TODO no need to copy header to device
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+  CHECK_GPU(GpuMemcpyAsync(
+      mem->compressed() + 0, &header, sizeof(header), GpuMemcpyH2D,
+      (GpuStreamT)stream));
+#elif defined(PSZ_USE_1API)
+  queue->memcpy(mem->compressed() + 0, &header, sizeof(header));
+#endif
+
+  if (spline_in_use()) { PSZDBG_LOG("update header: done"); }
+
+  return this;
+}
+
+COR::compress_wrapup(BYTE** out, szt* outlen)
+{
+  /* output of this function */
+  *out = mem->_compressed->dptr();
+  *outlen = psz_utils::filesize(&header);
+  mem->_compressed->m->len = *outlen;
+  mem->_compressed->m->bytes = *outlen;
+
+  return this;
+}
+
+COR::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
+{
+  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
+
+  PSZSANITIZE_PSZCTX(ctx);
+
+  compress_predict(ctx, in, stream);
+  compress_histogram(ctx, stream);
+  compress_encode(ctx, stream);
+  compress_merge(ctx, stream);
+  compress_update_header(ctx, stream);
+  compress_wrapup(out, outlen);
+  compress_collect_kerneltime();
+
+  return this;
+}
+
+COR::compress_merge(pszctx* ctx, void* stream)
 #if defined(PSZ_USE_1API)
 try
 #endif
@@ -220,7 +237,10 @@ try
   auto queue = (sycl::queue*)stream;
 #endif
 
-  uint32_t nbyte[Header::END];
+  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
+
+  auto splen = mem->compact->num_outliers();
+  auto pred_type = ctx->pred_type;
 
   auto dst = [&](int FIELD, szt offset = 0) {
     return (void*)(mem->compressed() + header.entry[FIELD] + offset);
@@ -238,12 +258,10 @@ try
   };
 #endif
 
-  // header.self_bytes = sizeof(Header);
-
   ////////////////////////////////////////////////////////////////
   nbyte[Header::HEADER] = sizeof(Header);
-  nbyte[Header::VLE] = sizeof(BYTE) * codec_outlen;
-  nbyte[Header::ANCHOR] = pred_type == Spline ? sizeof(T) * anchor_len : 0;
+  nbyte[Header::VLE] = sizeof(BYTE) * comp_hf_outlen;
+  nbyte[Header::ANCHOR] = pred_type == Spline ? sizeof(T) * mem->ac->len() : 0;
   nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
   header.entry[0] = 0;
@@ -252,32 +270,17 @@ try
   for (auto i = 1; i < Header::END + 1; i++)
     header.entry[i] += header.entry[i - 1];
 
-    // TODO no need to copy header to device
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  CHECK_GPU(GpuMemcpyAsync(
-      dst(Header::HEADER), &header, nbyte[Header::HEADER], GpuMemcpyH2D,
-      (GpuStreamT)stream));
-#elif defined(PSZ_USE_1API)
-  queue->memcpy(dst(Header::HEADER), &header, nbyte[Header::HEADER]);
-#endif
-
   // copy anchor
-  if (pred_type == psz_predtype::Spline)
-    concat_d2d(Header::ANCHOR, d_anchor, 0);
-
-  concat_d2d(Header::VLE, d_codec_out, 0);
-
-  // [TODO] rework the wrapper
-  // concat_d2d(Header::SPFMT, d_spval, 0);
-  // concat_d2d(Header::SPFMT, d_spidx, sizeof(T) * splen);
+  if (pred_type == Spline) concat_d2d(Header::ANCHOR, mem->anchor(), 0);
+  concat_d2d(Header::VLE, comp_hf_out, 0);
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   CHECK_GPU(GpuMemcpyAsync(
-      dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen, GpuMemcpyD2D,
-      (GpuStreamT)stream));
-  CHECK_GPU(GpuMemcpyAsync(
-      dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen,
+      dst(Header::SPFMT, 0), mem->compact_val(), sizeof(T) * splen,
       GpuMemcpyD2D, (GpuStreamT)stream));
+  CHECK_GPU(GpuMemcpyAsync(
+      dst(Header::SPFMT, sizeof(T) * splen), mem->compact_idx(),
+      sizeof(M) * splen, GpuMemcpyD2D, (GpuStreamT)stream));
   /* debug */ CHECK_GPU(GpuStreamSync(stream));
 #elif defined(PSZ_USE_1API)
   queue->memcpy(dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen);
@@ -285,6 +288,8 @@ try
       dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen);
   /* debug */ queue->wait();
 #endif
+
+  if (spline_in_use()) { PSZDBG_LOG("merge buf: done"); }
 
   return this;
 }
@@ -296,9 +301,7 @@ catch (sycl::exception const& exc) {
 }
 #endif
 
-template <class C>
-Compressor<C>* Compressor<C>::dump(
-    std::vector<pszmem_dump> list, char const* basename)
+COR::dump(std::vector<pszmem_dump> list, char const* basename)
 {
   for (auto& i : list) {
     char __[256];
@@ -325,64 +328,35 @@ Compressor<C>* Compressor<C>::dump(
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::clear_buffer()
+COR::clear_buffer()
 {
   codec->clear_buffer();
   mem->clear_buffer();
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::decompress(
-    psz_header* header, BYTE* in, T* out, void* stream, bool dbg_print)
+COR::decompress_predict(
+    pszheader* header, BYTE* in, T* ext_anchor, T* out, uninit_stream_t stream)
 {
-  // TODO host having copy of header when compressing
-  if (not header) {
-    header = new Header;
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    CHECK_GPU(GpuMemcpyAsync(
-        header, in, sizeof(Header), GpuMemcpyD2H, (GpuStreamT)stream));
-    CHECK_GPU(GpuStreamSync(stream));
-#elif defined(PSZ_USE_1API)
-    ((dpct::queue_ptr)stream)->memcpy(header, in, sizeof(Header));
-    ((dpct::queue_ptr)stream)->wait();
-#endif
-  }
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  len3 = dim3(header->x, header->y, header->z);
-#elif defined(PSZ_USE_1API)
-  sycl::range<3> len3(header->z, header->y, header->x);
-#endif
-
-  // use_fallback_codec = header->byte_vle == 8;
-  double const eb = header->eb;
-  int const radius = header->radius;
-
   auto access = [&](int FIELD, szt offset_nbyte = 0) {
     return (void*)(in + header->entry[FIELD] + offset_nbyte);
   };
 
-  // The inputs of components are from `compressed`.
-  auto d_vle = (B*)access(Header::VLE);
-  auto d_anchor = (T*)access(Header::ANCHOR);
-  auto d_spval = (T*)access(Header::SPFMT);
-  auto d_spidx = (M*)access(Header::SPFMT, header->splen * sizeof(T));
+  const auto eb = header->eb;
+  const auto radius = header->radius;
 
+  if (in and ext_anchor) throw std::runtime_error("[psz::error] One of external in and ext_anchor must be null.");
+
+  auto d_anchor = ext_anchor ? ext_anchor : (T*)access(Header::ANCHOR);
   // wire and aliasing
   auto d_space = out;
   auto d_xdata = out;
 
-#if defined(PSZ_USE_CUDA)
-  psz::spv_scatter<PROPER_GPU_BACKEND, T, M>(
-      d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
-#elif defined(PSZ_USE_ONEAPI)
-  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, M>(
-      d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+  auto len3 = dim3(header->x, header->y, header->z);
+#elif defined(PSZ_USE_1API)
+  auto len3 = sycl::range<3>(header->z, header->y, header->x);
 #endif
-
-  codec->decode(d_vle, mem->ectrl());
 
   if (header->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
@@ -392,6 +366,8 @@ Compressor<C>* Compressor<C>::decompress(
     auto aclen3 = mem->ac->template len3<dim3>();
     pszmem_cxx<T> anchor(aclen3.x, aclen3.y, aclen3.z);
     anchor.dptr(d_anchor);
+
+    // [psz::TODO] throw exception
 
     spline_reconstruct(
         &anchor, mem->e, mem->xd, eb, radius, &time_pred, stream);
@@ -405,38 +381,83 @@ Compressor<C>* Compressor<C>::decompress(
         mem->ectrl(), len3, d_space, eb, radius, d_xdata, &time_pred, stream);
   }
 
-  collect_decomp_time();
+  return this;
+}
 
-  // clear state for the next decompression after reporting
-  // use_fallback_codec = false;
+COR::decompress_decode(pszheader* header, BYTE* in, uninit_stream_t stream)
+{
+  auto access = [&](int FIELD, szt offset_nbyte = 0) {
+    return (void*)(in + header->entry[FIELD] + offset_nbyte);
+  };
+
+  codec->decode((B*)access(Header::VLE), mem->ectrl(), stream);
+  return this;
+}
+
+COR::decompress_scatter(
+    pszheader* header, BYTE* in, T* d_space, uninit_stream_t stream)
+{
+  auto access = [&](int FIELD, szt offset_nbyte = 0) {
+    return (void*)(in + header->entry[FIELD] + offset_nbyte);
+  };
+
+  // The inputs of components are from `compressed`.
+  auto d_anchor = (T*)access(Header::ANCHOR);
+  auto d_spval = (T*)access(Header::SPFMT);
+  auto d_spidx = (M*)access(Header::SPFMT, header->splen * sizeof(T));
+
+  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, M>(
+      d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+
+  return this;
+}
+
+COR::decompress(pszheader* header, BYTE* in, T* out, void* stream)
+{
+  // TODO host having copy of header when compressing
+  if (not header) {
+    header = new Header;
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    CHECK_GPU(GpuMemcpyAsync(
+        header, in, sizeof(Header), GpuMemcpyD2H, (GpuStreamT)stream));
+    CHECK_GPU(GpuStreamSync(stream));
+#elif defined(PSZ_USE_1API)
+    ((sycl::queue*)stream)->memcpy(header, in, sizeof(Header));
+    ((sycl::queue*)stream)->wait();
+#endif
+  }
+
+  // wire and alias
+  auto d_space = out, d_xdata = out;
+
+  decompress_scatter(header, in, d_space, stream);
+  decompress_decode(header, in, stream);
+  decompress_predict(header, in, nullptr, d_xdata, stream);
+  decompress_collect_kerneltime();
 
   return this;
 }
 
 // public getter
-template <class C>
-Compressor<C>* Compressor<C>::export_header(psz_header& ext_header)
+COR::export_header(pszheader& ext_header)
 {
   ext_header = header;
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::export_header(psz_header* ext_header)
+COR::export_header(pszheader* ext_header)
 {
   *ext_header = header;
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::export_timerecord(TimeRecord* ext_timerecord)
+COR::export_timerecord(TimeRecord* ext_timerecord)
 {
   if (ext_timerecord) *ext_timerecord = timerecord;
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::collect_comp_time()
+COR::compress_collect_kerneltime()
 {
 #define COLLECT_TIME(NAME, TIME) \
   timerecord.push_back({const_cast<const char*>(NAME), TIME});
@@ -452,8 +473,7 @@ Compressor<C>* Compressor<C>::collect_comp_time()
   return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::collect_decomp_time()
+COR::decompress_collect_kerneltime()
 {
   if (not timerecord.empty()) timerecord.clear();
 
@@ -467,5 +487,6 @@ Compressor<C>* Compressor<C>::collect_decomp_time()
 }  // namespace cusz
 
 #undef COLLECT_TIME
+#undef COR
 
 #endif /* A2519F0E_602B_4798_A8EF_9641123095D9 */

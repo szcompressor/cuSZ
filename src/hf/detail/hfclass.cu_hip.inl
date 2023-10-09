@@ -141,7 +141,7 @@ TPL HF_CODEC* HF_CODEC::init(
 
 #ifdef ENABLE_HUFFBK_GPU
 TPL HF_CODEC* HF_CODEC::build_codebook(
-    uint32_t* freq, int const bklen, void* stream)
+    uint32_t* freq, int const bklen, uninit_stream_t stream)
 {
   psz::hf_buildbook<CUDA, E, H4>(
       freq, bklen, bk4->dptr(), revbk4->dptr(), revbk4_bytes(bklen),
@@ -153,7 +153,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 
 // using CPU huffman
 TPL HF_CODEC* HF_CODEC::build_codebook(
-    MemU4* freq, int const bklen, void* stream)
+    MemU4* freq, int const bklen, uninit_stream_t stream)
 {
 #ifdef __WORK_IN_PROGRESS
   psz::hf_buildbook<SEQ, E, H8>(
@@ -248,7 +248,7 @@ TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype, szt overhead_byt
 }
 
 TPL HF_CODEC* HF_CODEC::encode(
-    E* in, size_t const inlen, uint8_t** out, size_t* outlen, void* stream)
+    E* in, size_t const inlen, uint8_t** out, size_t* outlen, uninit_stream_t stream)
 {
   _time_lossless = 0;
 
@@ -279,7 +279,7 @@ TPL HF_CODEC* HF_CODEC::encode(
 }
 
 TPL HF_CODEC* HF_CODEC::decode(
-    uint8_t* in_compressed, E* out_decompressed, void* stream,
+    uint8_t* in_compressed, E* out_decompressed, uninit_stream_t stream,
     bool header_on_device)
 {
   Header header;
@@ -353,7 +353,7 @@ TPL HF_CODEC* HF_CODEC::clear_buffer()
 // private helper
 TPL void HF_CODEC::__hf_merge(
     Header& header, size_t const original_len, int const bklen,
-    int const sublen, int const pardeg, void* stream)
+    int const sublen, int const pardeg, uninit_stream_t stream)
 {
   auto BARRIER = [&]() {
     if (stream)

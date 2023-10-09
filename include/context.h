@@ -52,6 +52,7 @@ struct psz_context {
   // sizes
   uint32_t x{1}, y{1}, z{1}, w{1};
   size_t data_len{1};
+  size_t splen{0};
   int ndim{-1};
 
   // filenames

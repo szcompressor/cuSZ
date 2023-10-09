@@ -110,7 +110,7 @@ void pszctx_parse_control_string(
     }
     else if (optmatch({"mode"})) {
       psz_utils::check_cuszmode(v);
-      ctx->mode = v == "r2r" ? Rel : Abs;
+      ctx->mode = (v == "r2r" or v == "rel") ? Rel : Abs;
     }
     else if (optmatch({"len", "xyz", "dim3"})) {
       pszctx_parse_length(ctx, v.c_str());
@@ -228,7 +228,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-m", "--mode"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        ctx->mode = _ == "r2r" ? Rel : Abs;
+        ctx->mode = (_ == "r2r" or _ == "rel") ? Rel : Abs;
         if (ctx->mode == Rel) ctx->prep_prescan = true;
       }
       else if (optmatch({"-e", "--eb", "--error-bound"})) {

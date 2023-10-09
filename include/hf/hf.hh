@@ -139,17 +139,19 @@ class HuffmanCodec {
   // public methods
   HuffmanCodec* init(
       size_t const, int const, int const, bool dbg_print = false);
-  HuffmanCodec* build_codebook(uint32_t*, int const, void* = nullptr);
+  HuffmanCodec* build_codebook(
+      uint32_t*, int const, uninit_stream_t = nullptr);
 
-  HuffmanCodec* build_codebook(MemU4*, int const, void* = nullptr);
+  HuffmanCodec* build_codebook(MemU4*, int const, uninit_stream_t = nullptr);
 
-  HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, void* = nullptr);
-  HuffmanCodec* decode(BYTE*, E*, void* = nullptr, bool = true);
+  HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, uninit_stream_t);
+  HuffmanCodec* decode(BYTE*, E*, uninit_stream_t, bool = true);
   HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
   HuffmanCodec* clear_buffer();
 
   // analysis
-  void calculate_CR(MemU4* ectrl, szt sizeof_dtype = 4, szt overhead_bytes = 0);
+  void calculate_CR(
+      MemU4* ectrl, szt sizeof_dtype = 4, szt overhead_bytes = 0);
 
  private:
   void __hf_merge(

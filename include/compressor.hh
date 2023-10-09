@@ -38,7 +38,7 @@ class Compressor {
   using E = typename TEHM::E;
   using FP = typename TEHM::FP;
   using M = typename TEHM::M;
-  using Header = psz_header;
+  using Header = pszheader;
 
   using H = u4;
   using H4 = u4;
@@ -59,20 +59,19 @@ class Compressor {
 
   float time_pred, time_hist, time_sp;
 
-// sizes
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  dim3 len3;
-#elif defined(PSZ_USE_1API)
-  // othersize defined
-#endif
   size_t len;
   int splen;
+
+  BYTE* comp_hf_out{nullptr};
+  size_t comp_hf_outlen{0};
 
   // configs
   float outlier_density{0.2};
 
   // buffers
+  uint32_t nbyte[Header::END];
 
+ public:
   pszmempool_cxx<T, E, H>* mem;
 
  public:
@@ -82,25 +81,29 @@ class Compressor {
   // public methods
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool dbg_print = false);
-  Compressor* compress(
-      psz_context*, T*, BYTE*&, size_t&, void* = nullptr, bool = false);
-  Compressor* decompress(
-      psz_header*, BYTE*, T*, void* = nullptr, bool = true);
+  Compressor* compress(pszctx*, T*, BYTE**, size_t*, uninit_stream_t);
+  Compressor* compress_predict(pszctx*, T*, uninit_stream_t);
+  Compressor* compress_histogram(pszctx*, uninit_stream_t);
+  Compressor* compress_encode(pszctx*, uninit_stream_t);
+  Compressor* compress_merge(pszctx*, void*);
+  Compressor* compress_update_header(pszctx*, uninit_stream_t);
+  Compressor* compress_wrapup(BYTE** out, szt* outlen);
+  Compressor* compress_collect_kerneltime();
+
+  Compressor* decompress(pszheader*, BYTE*, T*, uninit_stream_t);
+  Compressor* decompress_scatter(pszheader*, BYTE*, T*, uninit_stream_t);
+  Compressor* decompress_decode(pszheader*, BYTE*, uninit_stream_t);
+  Compressor* decompress_predict(pszheader*, BYTE*, T*, T*, uninit_stream_t);
+  Compressor* decompress_collect_kerneltime();
+
   Compressor* clear_buffer();
   Compressor* dump(std::vector<pszmem_dump>, char const*);
   Compressor* destroy();
 
   // getter
-  Compressor* export_header(psz_header&);
-  Compressor* export_header(psz_header*);
+  Compressor* export_header(pszheader&);
+  Compressor* export_header(pszheader*);
   Compressor* export_timerecord(TimeRecord*);
-
- private:
-  // helper
-  Compressor* collect_comp_time();
-  Compressor* collect_decomp_time();
-  Compressor* merge_subfiles(
-      psz_predtype, T*, szt, BYTE*, szt, T*, M*, szt, void*);
 };
 
 }  // namespace cusz
