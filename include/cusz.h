@@ -23,17 +23,17 @@ extern "C" {
 #include "cusz/type.h"
 #include "header.h"
 
-#define cusz_create psz_create
-#define cusz_release psz_release
-#define cusz_compress psz_compress
-#define cusz_decompress psz_decompress
+// #define cusz_create psz_create
+// #define cusz_release psz_release
+// #define cusz_compress psz_compress
+// #define cusz_decompress psz_decompress
 
 pszpredictor pszdefault_predictor();
 pszquantizer pszdefault_quantizer();
 pszhfrc pszdefault_hfcoder();
 pszframe* pszdefault_framework();
 
-pszcompressor* psz_create(pszframe* framework, pszdtype const type);
+pszcompressor* psz_create(pszframe* framework, psz_dtype const type);
 
 pszerror psz_release(pszcompressor* comp);
 

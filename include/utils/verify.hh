@@ -22,7 +22,7 @@ using namespace std;
 namespace cusz {
 
 template <typename T>
-void verify_data(cusz_stats* s, T* xdata, T* odata, size_t len)
+void verify_data(psz_summary* s, T* xdata, T* odata, size_t len)
 {
     double max_odata = odata[0], min_odata = odata[0];
     double max_xdata = xdata[0], min_xdata = xdata[0];

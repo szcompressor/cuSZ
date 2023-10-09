@@ -57,7 +57,7 @@ class HuffmanCodec {
     size_t original_len;
     size_t total_nbit;
     size_t total_ncell;  // TODO change to uint32_t
-    pszdtype encdtype;
+    psz_dtype encdtype;
     M entry[END + 1];
 
     M compressed_size() const { return entry[END]; }
@@ -81,7 +81,7 @@ class HuffmanCodec {
   using pszhf_header = struct pszhf_header;
   using Header = pszhf_header;
 
-  pszdtype __encdtype;
+  psz_dtype __encdtype;
 
  public:
   // array

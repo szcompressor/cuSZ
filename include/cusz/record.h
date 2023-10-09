@@ -16,20 +16,20 @@
 extern "C" {
 #endif
 
-struct cusz_record_entry;
+struct psz_record_entry;
 
-struct cusz_record_entry {
-    const char* name;
-    double      time;
+struct psz_record_entry {
+  const char* name;
+  double time;
 
-    struct cusz_record_entry* next;
+  struct psz_record_entry* next;
 };
 
-typedef struct cusz_record {
-    int n;
+typedef struct psz_record {
+  int n;
 
-    struct cusz_record_entry* head;
-} cusz_record;
+  struct psz_record_entry* head;
+} psz_record;
 
 #ifdef __cplusplus
 }

@@ -39,7 +39,7 @@ Format(const std::string& s)
     return d;
 }
 
-static const char cusz_short_doc[] =
+static const char psz_short_doc[] =
     // "cusz, version [placeholder]\n"
     "\n"
     "usage: cusz [-zxrh] [-i file] [-t dtype] [-m mode] [-e eb] [-l x,y,z] "
@@ -80,7 +80,7 @@ static const char cusz_short_doc[] =
     "\n"
     "\"cusz -h\" for details.\n";
 
-static const char cusz_full_doc[] =
+static const char psz_full_doc[] =
     "*NAME*\n"
     "        cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data\n"
     "        Lowercased \"*cusz*\" is the command.\n"

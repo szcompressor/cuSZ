@@ -29,7 +29,7 @@ typedef struct hf_book {
     // could be uint32_t* and uint64_t*
     void* book;
     int   bklen;
-    pszdtype bktype;
+    psz_dtype bktype;
 } hf_book;
 
 // typedef struct hf_revbook {

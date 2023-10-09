@@ -44,22 +44,6 @@ typedef enum pszmem_runtime_type {
 // use scenario: dump intermediate dat
 typedef pszmem_runtime_type pszmem_dump;
 
-// TODO move to header.h
-typedef struct alignas(128) psz_header {
-  static const int HEADER = 0;
-  static const int ANCHOR = 1;
-  static const int VLE = 2;
-  static const int SP_VAL = 3;
-  static const int SP_IDX = 4;
-  static const int END = 5;
-
-  uint32_t x, y, z, w;
-  double eb;
-  uint32_t radius : 16;
-  uint32_t entry[END + 1];
-  uint32_t nnz;
-
-} psz_header;
 
 typedef struct psz_memory_pool {
   size_t seg_len[END];

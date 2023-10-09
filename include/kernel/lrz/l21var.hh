@@ -18,7 +18,7 @@
 #include "cusz/type.h"
 
 template <typename T, typename DeltaT, typename FP>
-cusz_error_status psz_comp_l21var(
+psz_error_status psz_comp_l21var(
     T*           data,
     dim3 const   len3,
     double const eb,
@@ -28,7 +28,7 @@ cusz_error_status psz_comp_l21var(
     cudaStream_t stream);
 
 template <typename T, typename DeltaT, typename FP>
-cusz_error_status psz_decomp_l21var(
+psz_error_status psz_decomp_l21var(
     DeltaT*      delta,
     bool*        signum,
     dim3 const   len3,

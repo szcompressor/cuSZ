@@ -19,7 +19,7 @@ extern "C" {
 #include "cusz/type.h"
 #include "mem/layout.h"
 
-typedef cusz_error_status psz_error_status;
+typedef psz_error_status psz_error_status;
 
 // TODO move to some type.h
 typedef struct psz_device_property {

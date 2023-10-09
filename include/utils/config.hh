@@ -182,7 +182,7 @@ struct psz_utils {
         return legal;
     }
 
-    static bool check_dtype(const cusz_dtype& val, bool delay_failure = true)
+    static bool check_dtype(const psz_dtype& val, bool delay_failure = true)
     {
         auto legal = (val == F4);
         if (not legal)
@@ -218,13 +218,13 @@ struct psz_utils {
         return in.tellg();
     }
 
-    static size_t filesize(cusz_header* h)
+    static size_t filesize(psz_header* h)
     {
         auto END = sizeof(h->entry) / sizeof(h->entry[0]);
         return h->entry[END - 1];
     }
 
-    static size_t uncompressed_len(cusz_header* h) { return h->x * h->y * h->z; }
+    static size_t uncompressed_len(psz_header* h) { return h->x * h->y * h->z; }
 
     template <typename T1, typename T2>
     static size_t get_npart(T1 size, T2 subsize)

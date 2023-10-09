@@ -19,14 +19,19 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-enum cusz_execution_policy { SEQ, CUDA, HIP, ONEAPI, THRUST, HIP_NV, ONEAPI_NV };
-typedef enum cusz_execution_policy cusz_execution_policy;
-typedef enum cusz_execution_policy pszexepolicy;
-typedef enum cusz_execution_policy pszpolicy;
+typedef enum psz_execution_policy {
+  SEQ,
+  CUDA,
+  HIP,
+  ONEAPI,
+  THRUST,
+  HIP_NV,
+  ONEAPI_NV
+} pszpolicy;
 
 //////// state enumeration
 
-typedef enum cusz_error_status {  //
+typedef enum psz_error_status {  //
   CUSZ_SUCCESS = 0x00,
   CUSZ_FAIL_ONDISK_FILE_ERROR = 0x01,
   CUSZ_FAIL_DATA_NOT_READY = 0x02,
@@ -45,11 +50,10 @@ typedef enum cusz_error_status {  //
   CUSZ_FAIL_UNSUPPORTED_PIPELINE,
   // not-implemented error
   CUSZ_NOT_IMPLEMENTED = 0x0100,
-} cusz_error_status;
-typedef cusz_error_status psz_error_status;
-typedef cusz_error_status pszerror;
+} psz_error_status;
+typedef psz_error_status pszerror;
 
-typedef enum cusz_datatype  //
+typedef enum psz_dtype  //
 { __F0 = 0,
   F4 = 4,
   F8 = 8,
@@ -63,10 +67,7 @@ typedef enum cusz_datatype  //
   I2 = 22,
   I4 = 24,
   I8 = 28,
-  ULL = 31 } cusz_datatype;
-typedef cusz_datatype cusz_dtype;
-typedef cusz_datatype psz_dtype;
-typedef cusz_datatype pszdtype;
+  ULL = 31 } psz_dtype;
 
 // aliasing
 typedef uint8_t u1;
@@ -82,55 +83,44 @@ typedef float f4;
 typedef double f8;
 typedef size_t szt;
 
-typedef enum cusz_executiontype  //
+typedef enum psz_space  //
 { Device = 0,
   Host = 1,
-  None = 2 } cusz_executiontype;
-typedef cusz_executiontype psz_space;
-typedef cusz_executiontype pszspace;
+  None = 2 } psz_space;
 
-typedef enum cusz_mode  //
+typedef enum psz_mode  //
 { Abs = 0,
-  Rel = 1 } cusz_mode;
-typedef cusz_mode pszmode;
+  Rel = 1 } psz_mode;
 
-typedef enum cusz_predictortype  //
+typedef enum psz_predtype  //
 { Lorenzo = 0,
-  Spline = 1 } cusz_predictortype;
-typedef cusz_predictortype pszpredictor_type;
-typedef cusz_predictortype pszpred_type;
-typedef cusz_predictortype pszpred;
+  Spline = 1 } psz_predtype;
 
-typedef enum cusz_preprocessingtype  //
+typedef enum psz_preptype  //
 { FP64toFP32 = 0,
   LogTransform,
   ShiftedLogTransform,
   Binning2x2,
   Binning2x1,
   Binning1x2,
-} cusz_preprocessingtype;
-typedef cusz_preprocessingtype pszprep_type;
-typedef cusz_preprocessingtype pszprep;
+} psz_prep_type;
 
-typedef enum cusz_codectype  //
+typedef enum psz_codectype  //
 { Huffman = 0,
   RunLength,
   // NvcompCascade,
   // NvcompLz4,
   // NvcompSnappy,
-} cusz_codectype;
-typedef cusz_codectype pszcodec;
+} psz_codectype;
 
-typedef enum cusz_huffman_booktype  //
+typedef enum psz_hfbktype  //
 { Canonical = 1,
   Sword = 2,
-  Mword = 3 } cusz_huffman_booktype;
-typedef cusz_huffman_booktype pszhfbk;
+  Mword = 3 } psz_hfbktype;
 
-typedef enum cusz_huffman_codingtype  //
+typedef enum psz_hfpartype  //
 { Coarse = 0,
-  Fine = 1 } cusz_huffman_codingtype;
-typedef cusz_huffman_codingtype pszhfpar;
+  Fine = 1 } psz_hfpartype;
 
 //////// configuration template
 typedef struct pszlen {
@@ -142,67 +132,63 @@ typedef struct pszlen {
   // clang-format on
 } pszlen;
 
-typedef struct cusz_predictor {
-  pszpredictor_type type;
-} cusz_predictor;
-typedef cusz_predictor pszpredictor;
+typedef struct pszpredictor {
+  psz_predtype type;
+} pszpredictor;
 
-typedef struct cusz_quantizer {
+typedef struct psz_quantizer {
   int radius;
-} cusz_quantizer;
-typedef cusz_quantizer pszquantizer;
+} psz_quantizer;
+typedef psz_quantizer pszquantizer;
 
-typedef struct cusz_hfcoder {
-  pszhfbk book;
-  pszhfpar style;
+typedef struct psz_hfruntimeconfig {
+  psz_hfbktype book;
+  psz_hfpartype style;
 
   int booklen;
   int coarse_pardeg;
-} cusz_hfcoder;
-// typedef cusz_hfcoder pszhfrc;
-typedef cusz_hfcoder pszhfrc;
+} psz_hfruntimeconfig;
+typedef psz_hfruntimeconfig pszhfrc;
 
 ////// wrap-up
 
-typedef struct cusz_framework {
+typedef struct psz_framework {
   pszpredictor predictor;
   pszquantizer quantizer;
   pszhfrc hfcoder;
   f4 max_outlier_percent;
-} cusz_custom_framcusz_frameworkework;
-typedef cusz_framework pszframework;
-typedef cusz_framework pszframe;
+} psz_framework;
+typedef psz_framework pszframe;
 
-struct cusz_context;
-typedef struct cusz_context pszctx;
+struct psz_context;
+typedef struct psz_context pszctx;
 
-struct cusz_header;
-typedef struct cusz_header pszheader;
+struct psz_header;
+typedef struct psz_header pszheader;
 
-typedef struct cusz_compressor {
+typedef struct psz_compressor {
   void* compressor;
   pszctx* ctx;
   pszheader* header;
   pszframe* framework;
-  pszdtype type;
-} cusz_compressor;
-typedef cusz_compressor pszcompressor;
+  psz_dtype type;
+} psz_compressor;
+typedef psz_compressor pszcompressor;
 
-typedef struct cusz_runtime_config {
+typedef struct psz_runtimeconfig {
   f8 eb;
-  pszmode mode;
-  pszpredictor_type pred_type;
+  psz_mode mode;
+  psz_predtype pred_type;
   bool est_cr;
-} cusz_runtime_config;
-typedef cusz_runtime_config pszruntimeconfig;
-typedef cusz_runtime_config pszrc;
+} psz_runtimeconfig;
+typedef psz_runtimeconfig pszrc;
 
 typedef struct Res {
   f8 min, max, rng, std;
 } pszscanres;
 typedef pszscanres Res;
 
-typedef struct cusz_stats {
+typedef struct psz_summary {
   // clang-format off
     pszscanres odata, xdata;
     struct { f8 PSNR, MSE, NRMSE, coeff; } score;
@@ -211,8 +197,8 @@ typedef struct cusz_stats {
     f8 user_eb;
     size_t len;
   // clang-format on
-} cusz_stats;
-typedef cusz_stats pszsummary;
+} psz_summary;
+typedef psz_summary pszsummary;
 
 typedef u1* pszout;
 // used for bridging some compressor internal buffer

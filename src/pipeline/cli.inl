@@ -82,7 +82,7 @@ class CLI {
 
     reconst->control({D2H});
 
-    cusz_stats stat;
+    psz_summary stat;
     psz::assess_quality<SEQ>(&stat, reconst->hptr(), original->hptr(), len);
     psz::print_metrics_cross<T>(&stat, 0, true);
 
@@ -114,7 +114,7 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void do_construct(pszctx* ctx, cusz_compressor* compressor, void* stream)
+  void do_construct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
     auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
 
@@ -133,7 +133,7 @@ class CLI {
       ctx->eb *= rng;
     }
 
-    TimeRecord timerecord;
+    psz::TimeRecord timerecord;
 
     pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
@@ -146,8 +146,8 @@ class CLI {
     printf("\n(c) COMPRESSION REPORT\n");
 
     if (ctx->report_time)
-      TimeRecordViewer::view_timerecord(&timerecord, &header);
-    if (ctx->report_cr) TimeRecordViewer::view_cr(&header);
+      psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
+    if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
 
     write_compressed_to_disk(
         std::string(ctx->infile) + ".cusza", compressed, compressed_len);
@@ -156,7 +156,7 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void do_reconstruct(pszctx* ctx, cusz_compressor* compressor, void* stream)
+  void do_reconstruct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
@@ -172,8 +172,8 @@ class CLI {
         ->file(ctx->infile, FromFile)
         ->control({H2D});
 
-    auto header = new cusz_header;
-    memcpy(header, compressed->hptr(), sizeof(cusz_header));
+    auto header = new psz_header;
+    memcpy(header, compressed->hptr(), sizeof(psz_header));
     auto len = psz_utils::uncompressed_len(header);
 
     auto decompressed = new pszmem_cxx<T>(len, 1, 1, "decompressed");
@@ -181,7 +181,7 @@ class CLI {
 
     auto original = new pszmem_cxx<T>(len, 1, 1, "original-cmp");
 
-    TimeRecord timerecord;
+    psz::TimeRecord timerecord;
 
     pszlen decomp_len = pszlen{header->x, header->y, header->z, 1};
 
@@ -191,7 +191,7 @@ class CLI {
         decompressed->dptr(), decomp_len, (void*)&timerecord, stream);
 
     if (ctx->report_time)
-      TimeRecordViewer::view_decompression(
+      psz::TimeRecordViewer::view_decompression(
           &timerecord, decompressed->m->bytes);
     psz::view(header, decompressed, original, ctx->original_file);
 
@@ -211,8 +211,8 @@ class CLI {
     // TODO disable predictor selection; to specify in another way
     // auto predictor = ctx->predictor;
 
-    cusz_framework* framework = pszdefault_framework();
-    cusz_compressor* compressor = cusz_create(framework, F4);
+    psz_framework* framework = pszdefault_framework();
+    psz_compressor* compressor = psz_create(framework, F4);
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;

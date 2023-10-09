@@ -24,7 +24,7 @@ namespace cusz {
 
 // extra helper
 struct CompressorHelper {
-  static int autotune_coarse_parhf(cusz_context* ctx);
+  static int autotune_coarse_parhf(psz_context* ctx);
 };
 
 template <class TEHM>
@@ -38,7 +38,7 @@ class Compressor {
   using E = typename TEHM::E;
   using FP = typename TEHM::FP;
   using M = typename TEHM::M;
-  using Header = cusz_header;
+  using Header = psz_header;
 
   using H = u4;
   using H4 = u4;
@@ -83,16 +83,16 @@ class Compressor {
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool dbg_print = false);
   Compressor* compress(
-      cusz_context*, T*, BYTE*&, size_t&, void* = nullptr, bool = false);
+      psz_context*, T*, BYTE*&, size_t&, void* = nullptr, bool = false);
   Compressor* decompress(
-      cusz_header*, BYTE*, T*, void* = nullptr, bool = true);
+      psz_header*, BYTE*, T*, void* = nullptr, bool = true);
   Compressor* clear_buffer();
   Compressor* dump(std::vector<pszmem_dump>, char const*);
   Compressor* destroy();
 
   // getter
-  Compressor* export_header(cusz_header&);
-  Compressor* export_header(cusz_header*);
+  Compressor* export_header(psz_header&);
+  Compressor* export_header(psz_header*);
   Compressor* export_timerecord(TimeRecord*);
 
  private:
@@ -100,7 +100,7 @@ class Compressor {
   Compressor* collect_comp_time();
   Compressor* collect_decomp_time();
   Compressor* merge_subfiles(
-      pszpredictor_type, T*, szt, BYTE*, szt, T*, M*, szt, void*);
+      psz_predtype, T*, szt, BYTE*, szt, T*, M*, szt, void*);
 };
 
 }  // namespace cusz

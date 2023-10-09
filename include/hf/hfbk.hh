@@ -7,7 +7,7 @@
 
 namespace psz {
 
-template <cusz_execution_policy P, typename E, typename H>
+template <pszpolicy P, typename E, typename H>
 void hf_buildbook(
     uint32_t* freq, int const bklen, H* book, uint8_t* revbook,
     int const revbook_bytes, float* time, void* stream = nullptr);

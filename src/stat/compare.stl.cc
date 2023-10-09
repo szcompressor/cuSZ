@@ -21,7 +21,7 @@
       T* a, T* b, size_t const len, double const eb, \
       size_t* first_faulty_idx);                     \
   template void psz::cppstl_assess_quality(          \
-      cusz_stats* s, T* xdata, T* odata, size_t const len);
+      psz_summary* s, T* xdata, T* odata, size_t const len);
 
 INIT_LOSSLESS(f4)
 INIT_LOSSLESS(f8)

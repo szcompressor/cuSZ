@@ -37,7 +37,7 @@ void thrustgpu_get_maxerr(
 
 template <typename T>
 void thrustgpu_assess_quality(
-    cusz_stats* s, T* xdata, T* odata, size_t const len);
+    psz_summary* s, T* xdata, T* odata, size_t const len);
 
 }  // namespace psz
 

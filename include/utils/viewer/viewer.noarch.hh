@@ -61,7 +61,7 @@ static void print_metrics_auto(double* lag1_cor, double* lag2_cor)
 
 }  // namespace psz
 
-namespace cusz {
+namespace psz {
 
 using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord = std::vector<TimeRecordTuple>;

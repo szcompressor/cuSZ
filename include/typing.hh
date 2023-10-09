@@ -21,7 +21,7 @@
 #include "cusz/type.h"
 
 template <typename T>
-cusz_datatype cusz_typeof()
+psz_dtype psz_typeof()
 {
     if (std::is_same<T, f4>::value)
         return F4;

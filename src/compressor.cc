@@ -24,7 +24,7 @@
 // extra helper
 namespace cusz {
 
-int CompressorHelper::autotune_coarse_parhf(cusz_context* ctx)
+int CompressorHelper::autotune_coarse_parhf(psz_context* ctx)
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 {
   auto tune_coarse_huffman_sublen = [](size_t len) {
@@ -115,5 +115,5 @@ using Ff4 = cusz::TEHM<float>;
 using CFf4 = cusz::Compressor<Ff4>;
 
 template class cusz::Compressor<Ff4>;
-template CFf4* CFf4::init<cusz_context>(cusz_context* config, bool debug);
-template CFf4* CFf4::init<cusz_header>(cusz_header* config, bool debug);
+template CFf4* CFf4::init<psz_context>(psz_context* config, bool debug);
+template CFf4* CFf4::init<psz_header>(psz_header* config, bool debug);

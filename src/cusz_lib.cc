@@ -29,7 +29,7 @@ pszframe* pszdefault_framework()
       20};
 }
 
-pszcompressor* psz_create(pszframe* _framework, pszdtype _type)
+pszcompressor* psz_create(pszframe* _framework, psz_dtype _type)
 {
   auto comp = new pszcompressor{.framework = _framework, .type = _type};
 
@@ -83,7 +83,7 @@ pszerror psz_compress(
     cor->compress(
         comp->ctx, (f4*)(in), *compressed, *comp_bytes, stream);
     cor->export_header(*header);
-    cor->export_timerecord((cusz::TimeRecord*)record);
+    cor->export_timerecord((psz::TimeRecord*)record);
   }
   else {
     throw std::runtime_error(
@@ -117,7 +117,7 @@ pszerror psz_decompress(
 
     cor->decompress(
         comp->header, compressed, (f4*)(decompressed), (GpuStreamT)stream);
-    cor->export_timerecord((cusz::TimeRecord*)record);
+    cor->export_timerecord((psz::TimeRecord*)record);
   }
   else {
     throw std::runtime_error(

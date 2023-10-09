@@ -11,14 +11,14 @@ static void eval_dataquality_gpu(
     T* reconstructed, T* origin, size_t len, size_t compressed_bytes = 0)
 {
   // cross
-  auto stat_x = new cusz_stats;
+  auto stat_x = new psz_summary;
   psz::thrustgpu_assess_quality<T>(stat_x, reconstructed, origin, len);
   print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
-  auto stat_auto_lag1 = new cusz_stats;
+  auto stat_auto_lag1 = new psz_summary;
   psz::thrustgpu_assess_quality<T>(
       stat_auto_lag1, origin, origin + 1, len - 1);
-  auto stat_auto_lag2 = new cusz_stats;
+  auto stat_auto_lag2 = new psz_summary;
   psz::thrustgpu_assess_quality<T>(
       stat_auto_lag2, origin, origin + 2, len - 2);
 
@@ -31,7 +31,7 @@ static void eval_dataquality_cpu(
     T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0,
     bool from_device = true)
 {
-  auto stat = new cusz_stats;
+  auto stat = new psz_summary;
   T* reconstructed;
   T* origin;
   if (not from_device) {
@@ -49,9 +49,9 @@ static void eval_dataquality_cpu(
   cusz::verify_data<T>(stat, reconstructed, origin, len);
   print_metrics_cross<T>(stat, compressed_bytes, false);
 
-  auto stat_auto_lag1 = new cusz_stats;
+  auto stat_auto_lag1 = new psz_summary;
   cusz::verify_data<T>(stat_auto_lag1, origin, origin + 1, len - 1);
-  auto stat_auto_lag2 = new cusz_stats;
+  auto stat_auto_lag2 = new psz_summary;
   cusz::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
@@ -65,7 +65,7 @@ static void eval_dataquality_cpu(
 
 template <typename T>
 static void view(
-    cusz_header* header, pszmem_cxx<T>* xdata, pszmem_cxx<T>* cmp,
+    psz_header* header, pszmem_cxx<T>* xdata, pszmem_cxx<T>* cmp,
     string const& compare)
 {
   auto len = psz_utils::uncompressed_len(header);

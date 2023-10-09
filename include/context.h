@@ -22,7 +22,7 @@ extern "C" {
 #include "cusz/type.h"
 #include "stdint.h"
 
-struct cusz_context {
+struct psz_context {
   bool task_construct{false};
   bool task_reconstruct{false};
   bool task_dryrun{false};
@@ -44,7 +44,9 @@ struct cusz_context {
   bool report_cr_est{false};
   bool verbose{false};
 
-  pszpredictor_type pred_type;
+  pszpolicy backend;
+
+  psz_predtype pred_type;
   char dbgstr_pred[10];
 
   // sizes
@@ -59,8 +61,8 @@ struct cusz_context {
   char opath[200];
 
   // pipeline config
-  pszdtype dtype{F4};
-  pszmode mode{Rel};
+  psz_dtype dtype{F4};
+  psz_mode mode{Rel};
   double eb{0.0};
   int dict_size{1024}, radius{512};
   int quant_bytewidth{2}, huff_bytewidth{4};
@@ -73,8 +75,8 @@ struct cusz_context {
   uint32_t codecs_in_use{0b01};
   int vle_sublen{512}, vle_pardeg{-1};
 };
-typedef struct cusz_context cusz_context;
-typedef cusz_context pszctx;
+typedef struct psz_context psz_context;
+typedef psz_context pszctx;
 
 void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);

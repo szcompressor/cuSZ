@@ -31,7 +31,7 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void thrustgpu_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t len)
+void thrustgpu_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 {
   using tup = thrust::tuple<T, T>;
 

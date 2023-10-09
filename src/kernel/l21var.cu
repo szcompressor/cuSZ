@@ -17,7 +17,7 @@
 #include "detail/lorenzo_var.inl"
 
 template <typename T, typename DeltaT, typename FP>
-cusz_error_status asz::experimental::psz_comp_l21var(
+psz_error_status asz::experimental::psz_comp_l21var(
     T*           data,
     dim3 const   len3,
     double const eb,
@@ -94,7 +94,7 @@ cusz_error_status asz::experimental::psz_comp_l21var(
 }
 
 template <typename T, typename DeltaT, typename FP>
-cusz_error_status asz::experimental::psz_decomp_l21var(
+psz_error_status asz::experimental::psz_decomp_l21var(
     DeltaT*      delta,
     bool*        signum,
     dim3 const   len3,
@@ -168,13 +168,13 @@ cusz_error_status asz::experimental::psz_decomp_l21var(
 }
 
 #define CPP_INS(Tliteral, Eliteral, FPliteral, T, E, FP)                                      \
-    template cusz_error_status asz::experimental::psz_comp_l21var<T, E, FP>(                            \
+    template psz_error_status asz::experimental::psz_comp_l21var<T, E, FP>(                            \
         T*, dim3 const, double const, E*, bool*, float*, cudaStream_t);                                               \
                                                                                                                       \
-    template cusz_error_status asz::experimental::psz_decomp_l21var<T, E, FP>(                          \
+    template psz_error_status asz::experimental::psz_decomp_l21var<T, E, FP>(                          \
         E*, bool*, dim3 const, double const, T*, float*, cudaStream_t);                                               \
                                                                                                                       \
-    cusz_error_status compress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                        \
+    psz_error_status compress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                        \
         T* const data, dim3 const len3, double const eb, E* delta, bool* signum, float* time_elapsed,                 \
         cudaStream_t stream)                                                                                          \
     {                                                                                                                 \
@@ -183,7 +183,7 @@ cusz_error_status asz::experimental::psz_decomp_l21var(
         return CUSZ_SUCCESS;                                                                                          \
     }                                                                                                                 \
                                                                                                                       \
-    cusz_error_status decompress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                      \
+    psz_error_status decompress_predict_lorenzo_ivar_T##Tliteral##_E##Eliteral##_FP##FPliteral(                      \
         E* delta, bool* signum, dim3 const len3, double const eb, T* xdata, float* time_elapsed, cudaStream_t stream) \
     {                                                                                                                 \
         asz::experimental::psz_decomp_l21var<T, E, FP>(                                                 \

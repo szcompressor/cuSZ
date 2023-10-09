@@ -143,10 +143,10 @@ void pszctx_parse_control_string(
       strcpy(ctx->dbgstr_pred, v.c_str());
 
       if (v == "spline" or v == "spline3") {
-        ctx->pred_type = pszpredictor_type::Spline;
+        ctx->pred_type = psz_predtype::Spline;
       }
       else if (v == "lorenzo") {
-        ctx->pred_type = pszpredictor_type::Lorenzo;
+        ctx->pred_type = psz_predtype::Lorenzo;
       }
       else {
         printf(
@@ -154,7 +154,7 @@ void pszctx_parse_control_string(
             "\"%s\" is not a supported predictor; "
             "fallback to \"lorenzo\".",
             v.c_str());
-        ctx->pred_type = pszpredictor_type::Lorenzo;
+        ctx->pred_type = psz_predtype::Lorenzo;
       }
     }
     // else if (optmatch({"failfast"}) and is_enabled(v)) {}
@@ -241,10 +241,10 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         strcpy(ctx->dbgstr_pred, v.c_str());
 
         if (v == "spline" or v == "spline3") {
-          ctx->pred_type = pszpredictor_type::Spline;
+          ctx->pred_type = psz_predtype::Spline;
         }
         else if (v == "lorenzo") {
-          ctx->pred_type = pszpredictor_type::Lorenzo;
+          ctx->pred_type = psz_predtype::Lorenzo;
         }
         else {
           printf(
@@ -252,7 +252,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
               "\"%s\" is not a supported predictor; "
               "fallback to \"lorenzo\".",
               v.c_str());
-          ctx->pred_type = pszpredictor_type::Lorenzo;
+          ctx->pred_type = psz_predtype::Lorenzo;
         }
       }
       else if (optmatch({"-t", "--type", "--dtype"})) {
@@ -489,9 +489,9 @@ void pszctx_print_document(bool full_document)
   std::cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
 
   if (full_document)
-    std::cout << psz_helper::doc_format(cusz_full_doc) << std::endl;
+    std::cout << psz_helper::doc_format(psz_full_doc) << std::endl;
   else
-    std::cout << cusz_short_doc << std::endl;
+    std::cout << psz_short_doc << std::endl;
 }
 
 void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)

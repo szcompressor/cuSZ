@@ -18,7 +18,7 @@
 #include "utils/err.hh"
 
 #define C_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                                           \
-    cusz_error_status claunch_construct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                           \
+    psz_error_status claunch_construct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                           \
         bool NO_R_SEPARATE, T* data, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, \
         double const eb, int const radius, float* time_elapsed, cudaStream_t stream)                                 \
     {                                                                                                                \
@@ -30,7 +30,7 @@
                 data, len3, anchor, an_len3, errctrl, ec_len3, eb, radius, *time_elapsed, stream);                   \
         return CUSZ_SUCCESS;                                                                                         \
     }                                                                                                                \
-    cusz_error_status claunch_reconstruct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                         \
+    psz_error_status claunch_reconstruct_Spline3_T##Tliteral##_E##Eliteral##_FP##FPliteral(                         \
         T* xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* errctrl, dim3 const ec_len3, double const eb,   \
         int const radius, float* time_elapsed, cudaStream_t stream)                                                  \
     {                                                                                                                \
@@ -51,7 +51,7 @@ C_SPLINE3(fp32, fp32, fp32, float, float, float);
 
 #define CPP_SPLINE3(Tliteral, Eliteral, FPliteral, T, E, FP)                                                    \
     template <>                                                                                                 \
-    cusz_error_status cusz::cpplaunch_construct_Spline3<T, E, FP>(                                              \
+    psz_error_status cusz::cpplaunch_construct_Spline3<T, E, FP>(                                              \
         bool NO_R_SEPARATE, T* data, dim3 const len3, T* anchor, dim3 const an_len3, E* eq, dim3 const ec_len3, \
         double const eb, int const radius, float* time_elapsed, cudaStream_t stream)                            \
     {                                                                                                           \
@@ -60,7 +60,7 @@ C_SPLINE3(fp32, fp32, fp32, float, float, float);
     }                                                                                                           \
                                                                                                                 \
     template <>                                                                                                 \
-    cusz_error_status cusz::cpplaunch_reconstruct_Spline3<T, E, FP>(                                            \
+    psz_error_status cusz::cpplaunch_reconstruct_Spline3<T, E, FP>(                                            \
         T * xdata, dim3 const len3, T* anchor, dim3 const an_len3, E* eq, dim3 const ec_len3, double const eb,  \
         int const radius, float* time_elapsed, cudaStream_t stream)                                             \
     {                                                                                                           \

@@ -24,7 +24,7 @@ void dpl_get_maxerr(
     bool destructive = false);
 
 template <typename T>
-void dpl_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t const len);
+void dpl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
 
 }  // namespace psz
 

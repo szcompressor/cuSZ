@@ -80,7 +80,7 @@ Compressor<C>* Compressor<C>::init(CONFIG* config, bool debug)
 
 template <class C>
 Compressor<C>* Compressor<C>::compress(
-    cusz_context* config, T* in, BYTE*& out, size_t& outlen, void* stream,
+    psz_context* config, T* in, BYTE*& out, size_t& outlen, void* stream,
     bool dbg_print)
 {
   PSZSANITIZE_PSZCTX(config);
@@ -121,7 +121,7 @@ Compressor<C>* Compressor<C>::compress(
     // header.byte_vle = use_fallback_codec ? 8 : 4;
   };
 
-  auto spline_in_use = [&]() { return config->pred_type == pszpred::Spline; };
+  auto spline_in_use = [&]() { return config->pred_type == psz_predtype::Spline; };
 
   /* prediction-quantization with compaction */
   {
@@ -208,7 +208,7 @@ Compressor<C>* Compressor<C>::compress(
 
 template <class C>
 Compressor<C>* Compressor<C>::merge_subfiles(
-    pszpredictor_type pred_type, T* d_anchor, szt anchor_len,
+    psz_predtype pred_type, T* d_anchor, szt anchor_len,
     BYTE* d_codec_out, szt codec_outlen, T* d_spval, M* d_spidx, szt splen,
     void* stream)
 #if defined(PSZ_USE_1API)
@@ -262,7 +262,7 @@ try
 #endif
 
   // copy anchor
-  if (pred_type == pszpredictor_type::Spline)
+  if (pred_type == psz_predtype::Spline)
     concat_d2d(Header::ANCHOR, d_anchor, 0);
 
   concat_d2d(Header::VLE, d_codec_out, 0);
@@ -335,7 +335,7 @@ Compressor<C>* Compressor<C>::clear_buffer()
 
 template <class C>
 Compressor<C>* Compressor<C>::decompress(
-    cusz_header* header, BYTE* in, T* out, void* stream, bool dbg_print)
+    psz_header* header, BYTE* in, T* out, void* stream, bool dbg_print)
 {
   // TODO host having copy of header when compressing
   if (not header) {
@@ -415,14 +415,14 @@ Compressor<C>* Compressor<C>::decompress(
 
 // public getter
 template <class C>
-Compressor<C>* Compressor<C>::export_header(cusz_header& ext_header)
+Compressor<C>* Compressor<C>::export_header(psz_header& ext_header)
 {
   ext_header = header;
   return this;
 }
 
 template <class C>
-Compressor<C>* Compressor<C>::export_header(cusz_header* ext_header)
+Compressor<C>* Compressor<C>::export_header(psz_header* ext_header)
 {
   *ext_header = header;
   return this;

@@ -58,7 +58,7 @@ bool cppstl_error_bounded(
 }
 
 template <typename T>
-void cppstl_assess_quality(cusz_stats* s, T* xdata, T* odata, size_t const len)
+void cppstl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 {
   double max_odata = odata[0], min_odata = odata[0];
   double max_xdata = xdata[0], min_xdata = xdata[0];
