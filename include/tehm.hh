@@ -17,13 +17,13 @@
 #include "cusz/type.h"
 #include "hf/hf.hh"
 
-namespace cusz {
+namespace psz {
 
 using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord = std::vector<TimeRecordTuple>;
 using timerecord_t = TimeRecord*;
 
-};  // namespace cusz
+};  // namespace psz
 
 namespace cusz {
 

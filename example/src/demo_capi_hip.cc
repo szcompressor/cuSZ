@@ -50,15 +50,15 @@ void f(std::string fname)
       .hfcoder = pszhfrc{.style = Coarse},
       .max_outlier_percent = 20};
 
-  pszcompressor* comp = cusz_create(work, F4);
+  pszcompressor* comp = psz_create(work, F4);
 
   pszrc* config = new pszrc{.eb = 2.4e-4, .mode = Rel};
   pszlen uncomp_len = pszlen{3600, 1800, 1, 1};  // x, y, z, w
   pszlen decomp_len = uncomp_len;
 
   // TODO still C++ types
-  cusz::TimeRecord compress_timerecord;
-  cusz::TimeRecord decompress_timerecord;
+  psz::TimeRecord compress_timerecord;
+  psz::TimeRecord decompress_timerecord;
 
   {
     psz_compress_init(comp, uncomp_len, ctx);
@@ -67,7 +67,7 @@ void f(std::string fname)
         (void*)&compress_timerecord, stream);
 
     /* User can interpret the collected time information in other ways. */
-    cusz::TimeRecordViewer::view_compression(
+    psz::TimeRecordViewer::view_compression(
         &compress_timerecord, oribytes, compressed_len);
 
     /* verify header */
@@ -91,14 +91,14 @@ void f(std::string fname)
         comp, ptr_compressed, compressed_len, d_decomp, decomp_len,
         (void*)&decompress_timerecord, stream);
 
-    cusz::TimeRecordViewer::view_decompression(
+    psz::TimeRecordViewer::view_decompression(
         &decompress_timerecord, oribytes);
   }
 
   /* demo: offline checking (de)compression quality. */
   psz::eval_dataquality_gpu(d_decomp, d_uncomp, len, compressed_len);
 
-  cusz_release(comp);
+  psz_release(comp);
 
   hipFree(compressed_buf);
   hipFree(d_uncomp), hipHostFree(h_uncomp);
