@@ -226,10 +226,17 @@ class CLI {
 
 #elif defined(PSZ_USE_1API)
 
-    sycl::queue q(
-        sycl::gpu_selector_v, sycl::property_list(
-                                  sycl::property::queue::in_order(),
-                                  sycl::property::queue::enable_profiling()));
+    sycl::queue q;
+    auto plist = sycl::property_list(
+        sycl::property::queue::in_order(),
+        sycl::property::queue::enable_profiling());
+
+    if (ctx->device == CPU)
+      q = sycl::queue(sycl::cpu_selector_v, plist);
+    else if (ctx->device == INTELGPU)
+      q = sycl::queue(sycl::gpu_selector_v, plist);
+    else
+      q = sycl::queue(sycl::default_selector_v, plist);
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);

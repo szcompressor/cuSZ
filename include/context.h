@@ -44,7 +44,7 @@ struct psz_context {
   bool report_cr_est{false};
   bool verbose{false};
 
-  pszpolicy backend;
+  pszdevice device;
 
   psz_predtype pred_type;
   char dbgstr_pred[10];

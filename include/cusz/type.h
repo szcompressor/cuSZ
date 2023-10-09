@@ -19,15 +19,9 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum psz_execution_policy {
-  SEQ,
-  CUDA,
-  HIP,
-  ONEAPI,
-  THRUST,
-  HIP_NV,
-  ONEAPI_NV
-} pszpolicy;
+typedef enum psz_execution_policy { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
+typedef psz_execution_policy psz_platform;
+typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } pszdevice;
 
 //////// state enumeration
 

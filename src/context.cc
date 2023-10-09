@@ -16,6 +16,7 @@
 #include <cstring>
 #include <regex>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
 
 #include "busyheader.hh"
@@ -324,6 +325,23 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         check_next();
         auto _ = std::string(argv[++i]);
         strcpy(ctx->original_file, _.c_str());
+      }
+      else if (optmatch({"--sycl-device"})) {
+#if defined(PSZ_USE_1API)
+        check_next();
+        auto _v = string(argv[++i]);
+        if (_v == "cpu" or _v == "CPU")
+          ctx->device = CPU;
+        else if (_v == "gpu" or _v == "GPU")
+          ctx->device = INTELGPU;
+        else
+          ctx->device = INTELGPU;
+
+#else
+        throw std::runtime_error(
+            "[psz::error] --sycl-device is not supported backend other than "
+            "CUDA/HIP.");
+#endif
       }
       else {
         const char* notif_prefix = "invalid option value at position ";
