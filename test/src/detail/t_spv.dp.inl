@@ -12,7 +12,7 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "kernel/criteria.hh"
+#include "kernel/criteria.gpu.hh"
 #include "kernel/spv.hh"
 
 template <typename T = float>
@@ -58,7 +58,7 @@ int f()
   //     a, len, val, idx, &nnz, &ms, &q);
 
   psz::spv_gather_naive<PROPER_GPU_BACKEND>(
-      a, len, 0, val, idx, d_nnz, psz::criterion::eq<T>(), &ms, &q);
+      a, len, 0, val, idx, d_nnz, psz::criterion::gpu::eq<T>(), &ms, &q);
   nnz = *d_nnz;
 
   q.wait();

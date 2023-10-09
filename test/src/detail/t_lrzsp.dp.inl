@@ -18,9 +18,8 @@
 #include <sycl/sycl.hpp>
 #include <typeinfo>
 
-#include "kernel/criteria.hh"
-#include "kernel/l23.hh"
-#include "kernel/l23r.hh"
+#include "kernel/criteria.gpu.hh"
+#include "kernel/lrz.hh"
 #include "kernel/spv.hh"
 #include "mem/compact.hh"
 #include "mem/memseg_cxx.hh"
@@ -126,7 +125,7 @@ bool testcase(
     //     outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t, &q);
     psz::spv_gather_naive<PROPER_GPU_BACKEND>(
         outlier->dptr(), len, 0, spval->dptr(), spidx->dptr(), d_splen,
-        psz::criterion::eq<T>(), &__t, &q);
+        psz::criterion::gpu::eq<T>(), &__t, &q);
     splen = *d_splen;
     spidx->control({D2H});
     spval->control({D2H});

@@ -5,7 +5,7 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
-#include "kernel/l23.hh"
+#include "kernel/lrz.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 

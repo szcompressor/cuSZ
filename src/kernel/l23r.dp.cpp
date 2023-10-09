@@ -6,7 +6,7 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "kernel/l23r.hh"
+#include "kernel/lrz.hh"
 #include "mem/compact.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"

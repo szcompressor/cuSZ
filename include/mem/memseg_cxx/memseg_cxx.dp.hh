@@ -5,6 +5,7 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
+#include "cusz/nd.h"
 
 template <typename Ctype>
 class pszmem_cxx {
@@ -191,7 +192,7 @@ class pszmem_cxx {
   {
     if constexpr (std::is_same_v<UINT3, psz_dim3>)
       return UINT3{m->lx, m->ly, m->lz};
-    else if constexpr (std::is_same_v < UINT3, sycl::range<3>)
+    else if constexpr (std::is_same_v<UINT3, typename sycl::range<3>>)
       return sycl::range<3>(m->lz, m->ly, m->lx);
     else
       return sycl::range<3>(m->lz, m->ly, m->lx);
