@@ -15,6 +15,7 @@
 #define A2519F0E_602B_4798_A8EF_9641123095D9
 
 #include <stdexcept>
+
 #include "busyheader.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
@@ -349,7 +350,9 @@ COR::decompress_predict(
   const auto eb = header->eb;
   const auto radius = header->radius;
 
-  if (in and ext_anchor) throw std::runtime_error("[psz::error] One of external in and ext_anchor must be null.");
+  if (in and ext_anchor)
+    throw std::runtime_error(
+        "[psz::error] One of external in and ext_anchor must be null.");
 
   auto d_anchor = ext_anchor ? ext_anchor : (T*)access(Header::ANCHOR);
   // wire and aliasing
