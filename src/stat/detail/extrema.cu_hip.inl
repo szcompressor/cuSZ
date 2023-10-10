@@ -156,7 +156,8 @@ void extrema(T *in, size_t len, T res[4])
   psz::extrema_kernel<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
       in, len, d_minel, d_maxel, failsafe, R);
 #elif defined(PSZ_USE_HIP)
-#warning "[psz::warning::caveat] `if-constexpr`-required C++17 is not specified in cmake file, but clang can handle it well."
+#warning \
+    "[psz::warning::caveat] `if-constexpr`-required C++17 is not specified in cmake file, but clang can handle it well."
   if constexpr (std::is_same<T, float>::value) {
     psz::extrema_kernel<float>
         <<<div(len, chunk), nworker, sizeof(float) * 2, stream>>>(

@@ -3,7 +3,6 @@
 
 #include "stat/compare/compare.thrust.hh"
 
-
 namespace psz {
 
 template <typename T>
@@ -24,6 +23,8 @@ static void eval_dataquality_gpu(
 
   print_metrics_auto(
       &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
+
+  delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
 template <typename T>
@@ -61,6 +62,8 @@ static void eval_dataquality_cpu(
     if (reconstructed) GpuFreeHost(reconstructed);
     if (origin) GpuFreeHost(origin);
   }
+
+  delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
 template <typename T>

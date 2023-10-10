@@ -15,14 +15,14 @@ static void eval_dataquality_gpu(
   print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new psz_summary;
-  psz::dpl_assess_quality<T>(
-      stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::dpl_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
-  psz::dpl_assess_quality<T>(
-      stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::dpl_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
       &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
+
+  delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
 template <typename T>
@@ -63,6 +63,8 @@ static void eval_dataquality_cpu(
     if (reconstructed) sycl::free(reconstructed, q_ct1);
     if (origin) sycl::free(origin, q_ct1);
   }
+
+  delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
 template <typename T>

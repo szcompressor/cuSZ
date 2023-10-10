@@ -138,6 +138,7 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   delete data;
   delete xdata;
   delete cor;
+  delete cmp;
 }
 
 int main(int argc, char** argv)
@@ -169,6 +170,8 @@ int main(int argc, char** argv)
   auto config_str = argv[3];
 
   run<f4>(ctx, string(subcmd), fname, config_str);
+
+  delete ctx;
 
   return 0;
 }

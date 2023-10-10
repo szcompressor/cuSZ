@@ -37,11 +37,17 @@ TPL HF_CODEC::~HuffmanCodec()
   // delete scratch;
   delete bk4, delete revbk4;
   delete bk8, delete revbk8;
-  delete __bitstream;
 
-  delete par_nbit;
-  delete par_ncell;
-  delete par_entry;
+  delete par_nbit, delete par_ncell, delete par_entry;
+
+  delete book_desc;
+  delete chunk_desc_d, delete chunk_desc_h;
+  delete bitstream_desc;
+
+  delete compressed;
+  delete __scratch, delete scratch4, delete scratch8;
+  delete __bitstream, delete bitstream4, delete bitstream8;
+  delete hist_view;
 }
 
 TPL HF_CODEC* HF_CODEC::init(
@@ -182,7 +188,8 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 }
 
 // using CPU huffman
-TPL void HF_CODEC::calculate_CR(MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
+TPL void HF_CODEC::calculate_CR(
+    MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
 {
   // serial part
   f8 serial_entropy = 0;

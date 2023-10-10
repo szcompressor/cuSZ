@@ -244,6 +244,9 @@ class CLI {
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, &q);
 
 #endif
+
+    delete framework;
+    delete compressor;
   }
 };
 

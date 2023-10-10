@@ -44,8 +44,8 @@ namespace cusz {
 
 COR::destroy()
 {
-  if (mem) delete mem;
-  if (codec) delete codec;
+  delete mem;
+  delete codec;
 
   return this;
 }

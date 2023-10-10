@@ -44,6 +44,7 @@ class pszmem_cxx {
     if (not m->isaview and not m->d_borrowed and not m->h_borrowed)
       pszmem_freemanaged_cuda(m);
     delete m;
+    m = nullptr;
   }
 
   pszmem_cxx* extrema_scan(double& max_value, double& min_value, double& range)
@@ -52,8 +53,8 @@ class pszmem_cxx {
         std::is_same<Ctype, double>::value) {
       // may not work for _uniptr
       Ctype result[4];
-      // psz::thrustgpu::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d, m->len,
-      // result);
+      // psz::thrustgpu::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d,
+      // m->len, result);
       psz::probe_extrema<CUDA, Ctype>((Ctype*)m->d, m->len, result);
 
       min_value = result[0];

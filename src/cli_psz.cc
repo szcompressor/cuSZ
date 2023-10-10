@@ -14,4 +14,6 @@ int main(int argc, char** argv)
 
   cusz::CLI<float> cusz_cli;
   cusz_cli.dispatch(ctx);
+
+  delete ctx;
 }
