@@ -9,23 +9,23 @@
  *
  */
 
+#include <stdexcept>
+
 #include "busyheader.hh"
+#include "context.h"
+#include "cusz.h"
 #include "ex_utils.hh"
 #include "hf/hf.hh"
 #include "kernel.hh"
 #include "mem.hh"
 #include "port.hh"
 #include "stat.hh"
+#include "tehm.hh"
 // #include "utils.hh"
 #include "utils/viewer.hh"
 
-#define ABS 0
-#define REL 1
-
-#define LORENZO 11
-#define SPLINE3 12
-
-int g_splen;
+using Compressor = cusz::Compressor<cusz::TEHM<f4>>;
+using BYTE = u1;
 
 #define PRINT_STATUS                                              \
   {                                                               \
@@ -95,15 +95,7 @@ string suffix(bool compat = false)
 
 }  // namespace
 
-#define MemPool pszmempool_cxx<T, E, H>
-
-void print_tobediscarded_info(float time_in_ms, string fn_name)
-{
-  // auto title = "[psz::info::discard::" + fn_name + "]";
-  // printf("%s time (ms): %.6f\n", title.c_str(), time_in_ms);
-}
-
-template <typename T>
+template <typename T = f4>
 float print_GBps(szt len, float time_in_ms, string fn_name)
 {
   auto B_to_GiB = 1.0 * 1024 * 1024 * 1024;
@@ -115,323 +107,190 @@ float print_GBps(szt len, float time_in_ms, string fn_name)
   return GiBps;
 }
 
-template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
-void demo_c_predict(
-    MemPool* mem, pszmem_cxx<u4>* ectrl_u4, char const* ifn, f8 const eb,
-    int const radius, GpuStreamT stream, bool proto = false)
+template <typename T = f4>
+void full_compress(
+    pszctx* ctx, Compressor* cor, T* in, BYTE** out, szt* outlen,
+    uninit_stream_t stream)
 {
-  using FP = T;
-
-  auto len = mem->od->len();
-  auto len3 = mem->e->template len3<dim3>();
-  // auto len3p = mem->e->template len3<dim3>();
-  f4 time, time_histcpu_base, time_histcpu_optim;
-
-  // psz_comp_l23<T, E, FP>(mem->od->dptr(), len3, eb, radius,
-  // mem->ectrl(), mem->outlier_space(), &time, stream);
-
-  // ----------------------------------------
-  auto time_pred = (float)INT_MAX;
-  for (auto i = 0; i < 10; i++) {
-    psz_comp_l23r<T, E>(
-        mem->od->dptr(), len3, eb, radius, mem->ectrl(), (void*)mem->compact,
-        &time, stream);
-    print_tobediscarded_info(time, "comp_pred_l23r");
-    time_pred = std::min(time, time_pred);
-  }
-  print_GBps<T>(len, time_pred, "comp_pred");
-
-  mem->compact->make_host_accessible((GpuStreamT)stream);
-  g_splen = mem->compact->num_outliers();
-
-  cout << "[psz::info] outlier: " << g_splen << endl;
-
-  mem->e
-      ->control({D2H})  //
-      ->file(string(string(ifn) + ".eq." + suffix()).c_str(), ToFile);
-  mem->e->castto(ectrl_u4, psz_space::Host)->control({H2D});
+  cor->compress_predict(ctx, in, stream);
+  cor->compress_histogram(ctx, stream);
+  cor->compress_encode(ctx, stream);
+  cor->compress_merge(ctx, stream);
+  cor->compress_update_header(ctx, stream);
+  cor->compress_wrapup(out, outlen);
 }
 
-template <int Predictor, typename T = f4, typename E = u4, typename H = u4>
-void demo_d_predict(
-    MemPool* mem, double const eb, int const radius, GpuStreamT stream,
-    bool proto = false)
+template <typename T = f4>
+void full_decompress(
+    pszheader* header, Compressor* cor, u1* d_compressed, T* out,
+    uninit_stream_t stream)
 {
-  using FP = T;
+  auto in = d_compressed;
+  auto d_space = out, d_xdata = out;
 
-  auto len = mem->e->len();
-  auto len3 = mem->e->template len3<dim3>();
-  // auto len3p = mem->e->template len3<dim3>();
-  f4 time_pred, time_scatter;
-
-  // ----------------------------------------
-  auto time_scatter_min = (float)INT_MAX;
-  for (auto i = 0; i < 10; i++) {
-    psz::spv_scatter<PROPER_GPU_BACKEND, T, u4>(
-        mem->compact_val(), mem->compact_idx(), g_splen, mem->outlier_space(),
-        &time_scatter, stream);
-
-    print_tobediscarded_info(time_scatter, "decomp_scatter");
-    time_scatter_min = std::min(time_scatter, time_scatter_min);
-  }
-  print_GBps<T>(len, time_scatter_min, "decomp_scatter");
-
-  // ----------------------------------------
-  auto time_pred_min = (float)INT_MAX;
-  for (auto i = 0; i < 10; i++) {
-    psz_decomp_l23<T, E, FP>(
-        mem->ectrl(), len3, mem->outlier_space(), eb, radius, mem->xd->dptr(),
-        &time_pred, stream);
-
-    print_tobediscarded_info(time_pred, "decomp_scatter");
-    time_pred_min = std::min(time_pred, time_pred_min);
-  }
-  print_GBps<T>(len, time_pred_min, "decomp_pred");
+  cor->decompress_scatter(header, in, d_space, stream);
+  cor->decompress_decode(header, in, stream);
+  cor->decompress_predict(header, in, nullptr, d_xdata, stream);
+  cor->decompress_collect_kerneltime();
 }
 
-template <typename H>
-void demo_hist_u4in(
-    pszmem_cxx<u4>* hist_in, pszmem_cxx<H>* hist_out, char const* ifn,
-    int const radius, GpuStreamT stream)
+template <typename T = f4>
+void pred_comp_decomp(
+    pszctx* ctx, Compressor* cor, T* in, T* out, uninit_stream_t stream)
 {
-  using E = u4;
+  auto header = new pszheader{};
+  float time_sp;
+  auto d_space = out, d_xdata = out;
 
-  f4 tgpu_base, tgpu_optim;
-  f4 tcpu_base, tcpu_optim;
+  cor->compress_predict(ctx, in, stream);
+  auto d_anchor = cor->mem->ac->dptr();
 
-  auto ser_base = new pszmem_cxx<u4>(radius * 2, 1, 1, "hist-normal");
-  auto ser_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_cpu");
-  auto gpu_optim = new pszmem_cxx<E>(radius * 2, 1, 1, "hist-sp_gpu");
-  ser_base->control({MallocHost});
-  ser_optim->control({MallocHost});
-  gpu_optim->control({MallocHost, Malloc});
+  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T>(
+      cor->mem->compact_val(), cor->mem->compact_idx(),
+      cor->mem->compact_num_outliers(), d_space, &time_sp, stream);
 
-  auto bklen = radius * 2;
-  hist<SEQ, E>(
-      false, hist_in->hptr(), hist_in->len(), ser_base->hptr(), bklen,
-      &tcpu_base, stream);
-  hist<SEQ, E>(
-      true, hist_in->hptr(), hist_in->len(), ser_optim->hptr(), bklen,
-      &tcpu_optim, stream);
+  header->x = ctx->x, header->y = ctx->y, header->z = ctx->z;
+  header->eb = ctx->eb, header->radius = ctx->radius;
 
-  // ----------------------------------------
-  auto time_hist_min = (float)INT_MAX;
-  for (auto i = 0; i < 10; i++) {
-    hist<PROPER_GPU_BACKEND, E>(
-        false, hist_in->dptr(), hist_in->len(), hist_out->dptr(), bklen,
-        &tgpu_base, stream);
-
-    print_tobediscarded_info(tgpu_base, "comp_hist");
-    time_hist_min = std::min(time_hist_min, tgpu_base);
-  }
-  // [psz::caveat] hard coded throughput calculating
-  print_GBps<f4>(hist_in->len(), time_hist_min, "comp_hist");
-
-#if defined(PSZ_USE_CUDA)
-  hist<PROPER_GPU_BACKEND, E>(
-      true, hist_in->dptr(), hist_in->len(), gpu_optim->dptr(), bklen,
-      &tgpu_optim, stream);
-#elif defined(PSZ_USE_HIP)
-  cout << "[psz::warning] skip hist-optim (hang when specifying HIP)" << endl;
-#endif
-
-  ser_base->file(string(string(ifn) + ".ht." + suffix()).c_str(), ToFile);
-
-#if !defined(PSZ_USE_HIP)
-  // [psz::warning] The HIP testbed does not have high-frequency CPU. Also,
-  // hist_sp does not work.
-  printf(
-      "hist cpu baseline:\t%5.2f ms\toptim:\t%5.2f ms (speedup: %3.2fx)\n",  //
-      tcpu_base, tcpu_optim, tcpu_base / tcpu_optim);
-  printf(
-      "hist gpu baseline:\t%5.2f ms\toptim:\t%5.2f ms (speedup: %3.2fx)\n",  //
-      tgpu_base, tgpu_optim, tgpu_base / tgpu_optim);
-#endif
-
-  delete gpu_optim;
-  delete ser_base;
-  delete ser_optim;
+  cor->decompress_predict(header, nullptr, d_anchor, d_xdata, stream);
 }
 
-template <
-    int Predictor = LORENZO, typename T = f4, typename E = u4, typename H = u4>
-void demo_pipeline(
-    char const* ifn, size_t const x, size_t const y, size_t const z,
-    f8 eb = 1.2e-4, int mode = REL, int const radius = 32, bool proto = false)
+template <typename T = f4>
+void pred_hist_comp(
+    pszctx* ctx, Compressor* cor, T* in, uninit_stream_t stream,
+    bool skip_print = false)
 {
-  // When the input type is FP<X>, the internal precision should be the same.
-  using FP = T;
-  using M = u4;
+  float time_hist;
+  auto len = ctx->data_len;
+  auto booklen = ctx->radius * 2;
 
-  radius_legal(radius, sizeof(E));
+  cor->compress_predict(ctx, in, stream);
 
-  auto len = x * y * z;
-  auto len3 = dim3(x, y, z);
-  f4 time, time_histcpu_base, time_histcpu_optim;
+  /* In place of `cor->compress_histogram(ctx, in, stream);` */
 
-  auto sublen = tune_coarse_huffman_sublen(len);
-  auto pardeg = psz_utils::get_npart(len, sublen);
+  cor->mem->e->control({D2H});
+  auto ectrl_gpu = cor->mem->e->dptr();
+  auto ectrl_cpu = cor->mem->e->hptr();
 
-  cusz::HuffmanCodec<u4, u4> hf_codec;
+  auto ht_gpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_gpu");
+  ht_gpu->control({Malloc, MallocHost});
 
-  auto mem = new MemPool(x, radius, y, z);
+  auto ht_cpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_cpu");
+  ht_cpu->control({MallocHost});
 
-  mem->od->control({Malloc, MallocHost})
-      ->file(ifn, FromFile)
-      ->control({H2D})
-      ->extrema_scan(_1, _2, rng);
-  mem->xd->control({Malloc, MallocHost});
+  psz::histsp<PROPER_GPU_BACKEND, u4>(
+      ectrl_gpu, len, ht_gpu->dptr(), booklen, &time_hist, stream);
+  psz::histsp<SEQ, u4>(
+      ectrl_cpu, len, ht_cpu->hptr(), booklen, &time_hist, stream);
 
-  auto ectrl_u4 = new pszmem_cxx<u4>(x, y, z, "ectrl_u4");
-  auto ectrl_u4_decoded = new pszmem_cxx<u4>(x, y, z, "ectrl_u4_dec");
+  ht_gpu->control({D2H});
+  auto eq = std::equal(ht_gpu->hbegin(), ht_gpu->hend(), ht_cpu->hbegin());
+  if (eq)
+    printf("[psz::test] CPU and GPU hist result in the same.\n");
+  else
+    throw std::runtime_error(
+        "[psz::test::error] CPU and GPU hist result differently.");
 
-  ectrl_u4->control({Malloc, MallocHost});
-  ectrl_u4_decoded->control({Malloc, MallocHost});
+  if (not skip_print) {
+    auto count = 0u;
+    std::for_each(ht_gpu->hbegin(), ht_gpu->hend(), [&count](auto h) {
+      if (h != 0) { printf("idx: %u\tfreq.: %u\n", count, h); }
+      count++;
+    });
+  }
+}
 
-  hf_codec.init(
-      ectrl_u4->len(), radius * 2, pardeg /* not optimal for perf */);
+template <typename T = f4>
+void pred_hist_hf_comp(
+    pszctx* ctx, Compressor* cor, T* in, uninit_stream_t stream)
+{
+  // TODO wrap up pred_hist_comp
+}
 
-  GpuStreamT stream;
-  GpuStreamCreate(&stream);
+template <typename T = f4>
+void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
+{
+  auto header = new pszheader{};
+  szt outlen;
 
-  if (mode == REL) eb *= rng;
+  pszctx_parse_control_string(ctx, config_str, true);
 
-  PRINT_STATUS;
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-  demo_c_predict<Predictor, T, E, H>(
-      mem, ectrl_u4, ifn, eb, radius, stream, proto);
+  auto data = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "uncompressed");
+  data->control({MallocHost, Malloc})->file(fname, FromFile)->control({H2D});
 
-  auto num_outlier =
-      count_outlier<E>(mem->e->dptr(), mem->e->len(), radius, (void*)stream);
-  // printf("#outlier:\t%u\n", num_outlier);
+  auto xdata = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "decompressed");
+  xdata->control({MallocHost, Malloc});
 
-  demo_hist_u4in<H>(ectrl_u4, mem->ht, ifn, radius, stream);
+  auto cmp = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "cmp");
 
-  size_t hf_outlen;
-  {  // Huffman
-    auto hf_inlen = ectrl_u4->len();
-    u1* d_encoded;
-
-    // hf_codec.build_codebook(mem->hist(), radius * 2, stream);
-    hf_codec.build_codebook(mem->ht, radius * 2, stream);
-
-    // ----------------------------------------
-    auto time_comp_lossless = (float)INT_MAX;
-    for (auto i = 0; i < 10; i++) {
-      hf_codec.encode(
-          ectrl_u4->dptr(), ectrl_u4->len(), &d_encoded, &hf_outlen, stream);
-
-      print_tobediscarded_info(hf_codec.time_lossless(), "comp_hf_encode");
-      time_comp_lossless =
-          std::min(time_comp_lossless, hf_codec.time_lossless());
-    }
-    print_GBps<f4>(len, time_comp_lossless, "comp_hf_encode");
-
-    // ----------------------------------------
-    auto time_decomp_lossless = (float)INT_MAX;
-    for (auto i = 0; i < 10; i++) {
-      hf_codec.decode(d_encoded, ectrl_u4_decoded->dptr());
-
-      print_tobediscarded_info(hf_codec.time_lossless(), "decomp_hf_decode");
-      time_comp_lossless =
-          std::min(time_comp_lossless, hf_codec.time_lossless());
-    }
-    print_GBps<f4>(len, time_comp_lossless, "decomp_hf_decode");
-
-    auto identical = psz::thrustgpu_identical(
-        ectrl_u4_decoded->dptr(), ectrl_u4->dptr(), sizeof(u4), hf_inlen);
-
-    if (identical)
-      printf(
-          "[psz::info::huffman] decoded is identical to the input (quant "
-          "code).\n");
-    else
-      printf(
-          "[psz::ERR::huffman] decoded is NOT IDENTICAL to the input (quant "
-          "code).\n");
-
-    // printf("data original inlen:\t%lu\n", len);
-    // printf("Huffman inlen:\t%lu\n", hf_inlen);
-    // printf("Huffman outlen:\t%lu\n", hf_outlen);
-    // printf(
-    //     "Huffman CR = sizeof(E)*ori_len / (hf_out_bytes + outlier-overhead)
-    //     = "
-    //     "\t%.2lf\n",
-    //     len * sizeof(E) * 1.0 / (hf_outlen + num_outlier * 2 * 4));
+  // adjust eb
+  if (ctx->mode == Rel) {
+    double _1, _2, rng;
+    data->extrema_scan(_1, _2, rng);
+    ctx->eb *= rng;
   }
 
-  demo_d_predict<Predictor, T, E, H>(mem, eb, radius, stream, proto);
-  psz::eval_dataquality_gpu(
-      mem->xd->dptr(), mem->od->dptr(), len /*, hf_outlen */);
+  BYTE* d_compressed{nullptr};
 
-  GpuStreamDestroy(stream);
+  cusz::CompressorHelper::autotune_coarse_parhf(ctx);
 
-  delete ectrl_u4, delete ectrl_u4_decoded;
-  delete mem;
+  auto cor = new Compressor();
+  cor->init(ctx);
+
+  if (subcmd == "full") {
+    full_compress(ctx, cor, data->dptr(), &d_compressed, &outlen, stream);
+    cor->export_header(header);
+    psz::TimeRecordViewer::view_cr(header);
+    full_decompress(header, cor, d_compressed, xdata->dptr(), stream);
+    psz::view(header, xdata, cmp, fname);
+  }
+  else if (subcmd == "pred-only") {
+    pred_comp_decomp(ctx, cor, data->dptr(), xdata->dptr(), stream);
+    psz::eval_dataquality_gpu(
+        xdata->dptr(), data->dptr(), data->len(), data->bytes());
+  }
+  else if (subcmd == "pred-hist") {
+    pred_hist_comp(ctx, cor, data->dptr(), stream);
+  }
+
+  delete data;
+  delete xdata;
+  delete cor;
+
+  cudaStreamDestroy(stream);
 }
 
 int main(int argc, char** argv)
 {
   //// help
-  if (argc < 6) {
-    printf(
-        "0     1              2  3  4  5   [6:1   [7:lorenzo  [8:F     "
-        "[9:u4  "
-        "  "
-        "[10:512  [11:no\n");
-    printf(
-        "PROG  /path/to/file  X  Y  Z  EB  [MODE  [PREDICTOR  [D-type  "
-        "[E-type  "
-        "[RADIUS  [USE PROTO\n");
+  if (argc < 4) {
+    printf("0     1       2      3       [4]\n");
+    printf("PROG  subcmd  fname  config  [if dump related]\n");
+    printf("subcmd contains:\n");
+    printf("  full\n");
+    printf("  pred-only\n");
     printf("\n");
-    printf("[6] `abs` for ABS/absolute; `rel` for REL/relative to range\n");
-    printf("[7] `lorenzo` or `spline3`\n");
-    printf("[8] D-type (input): \"f\" for `f4`, \"d\" for `f8`\n");
-    printf("[9] E-type (quant-code): \"u{1,2,4}\" for `uint{8,16,32}_t`\n");
+    printf("k-v config contains:\n");
+    printf("  type={f4}\n");
+    printf("  mode={abs,r2r}\n");
+    printf("  eb=[number]\n");
+    printf("  len/dim3=[X]x[Y]x[Z] or size=[Z]x[Y]x[X]\n");
+    printf("  radius=[number]\n");
+    printf("  predictor={lorenzo,spline}\n");
     exit(0);
   }
 
+  auto ctx = new pszctx{};
+
   //// read argv
-  auto fname = argv[1];
-  auto x = atoi(argv[2]);
-  auto y = atoi(argv[3]);
-  auto z = atoi(argv[4]);
-  auto eb = atof(argv[5]);
-  eb_str = string(argv[5]);
-  mode = string("rel");
-  dtype = string("f");
-  etype = string("u4");
-  pred = string("lorenzo");
-  int r = 512;
-  bool useproto = false;
+  auto subcmd = argv[1];
+  auto fname = argv[2];
+  auto config_str = argv[3];
 
-  if (argc > 6) mode = string(argv[6]);
-  if (argc > 7) pred = string(argv[7]);
-  if (argc > 8) dtype = string(argv[8]);
-  if (argc > 9) etype = string(argv[9]);
-  if (argc > 10) r = atoi(argv[10]);
-  if (argc > 11) useproto = string(argv[11]) == "yes";
-
-  //// dispatch
-  int m = (mode == "rel") ? REL : ABS;
-  int p = (pred == "spline" or pred == "spline3") ? SPLINE3 : LORENZO;
-  // if (p == SPLINE3) {
-  //   etype = "f4";
-  //   if (dtype == "f")
-  //     demo_pipeline<SPLINE3, f4, u4>(fname, x, y, z, eb, m, r);
-  //   else if (dtype == "d")
-  //     demo_pipeline<SPLINE3, f8, u4>(fname, x, y, z, eb, m, r);
-  // }
-  // else {
-  if (dtype == "f") {
-    demo_pipeline<LORENZO, f4, u4>(fname, x, y, z, eb, m, r, useproto);
-  }
-  else if (dtype == "d") {
-    demo_pipeline<LORENZO, f8, u4>(fname, x, y, z, eb, m, r, useproto);
-  }
-  else
-    throw std::runtime_error("[psz::ERR::bin_pipeline] not a valid dtype.");
-  // }
+  run<f4>(ctx, string(subcmd), fname, config_str);
 
   return 0;
 }

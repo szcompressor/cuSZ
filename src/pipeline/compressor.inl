@@ -191,6 +191,7 @@ COR::compress_update_header(pszctx* ctx, void* stream)
       mem->compressed() + 0, &header, sizeof(header), GpuMemcpyH2D,
       (GpuStreamT)stream));
 #elif defined(PSZ_USE_1API)
+  auto queue = (sycl::queue*)stream;
   queue->memcpy(mem->compressed() + 0, &header, sizeof(header));
 #endif
 
@@ -283,9 +284,12 @@ try
       sizeof(M) * splen, GpuMemcpyD2D, (GpuStreamT)stream));
   /* debug */ CHECK_GPU(GpuStreamSync(stream));
 #elif defined(PSZ_USE_1API)
-  queue->memcpy(dst(Header::SPFMT, 0), d_spval, sizeof(T) * splen);
   queue->memcpy(
-      dst(Header::SPFMT, sizeof(T) * splen), d_spidx, sizeof(M) * splen);
+      dst(Header::SPFMT, 0),  //
+      mem->compact_val(), sizeof(T) * splen);
+  queue->memcpy(
+      dst(Header::SPFMT, sizeof(T) * splen), mem->compact_idx(),
+      sizeof(M) * splen);
   /* debug */ queue->wait();
 #endif
 

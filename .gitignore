@@ -1,5 +1,8 @@
 # intermediate data
 bin/cusz
+buildcusz
+buildhipsz
+builddpsz
 
 *.sz
 *.szx
