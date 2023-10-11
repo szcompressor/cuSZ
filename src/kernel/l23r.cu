@@ -10,6 +10,7 @@
  */
 
 #include <cuda_runtime.h>
+
 #include <type_traits>
 
 // deps
@@ -74,19 +75,19 @@ pszerror psz_comp_l23r(
   START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
   if (d == 1) {
-    psz::rolling::c_lorenzo_1d1l<T, false, Eq, T, Tile1D, Seq1D>
+    psz::rolling::c_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>
         <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
             ot->num());
   }
   else if (d == 2) {
-    psz::rolling::c_lorenzo_2d1l<T, false, Eq, T>
+    psz::rolling::c_lorenzo_2d1l<T, Eq, T>
         <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
             ot->num());
   }
   else if (d == 3) {
-    psz::rolling::c_lorenzo_3d1l<T, false, Eq, T>
+    psz::rolling::c_lorenzo_3d1l<T, Eq, T>
         <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
             ot->num());

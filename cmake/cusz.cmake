@@ -17,7 +17,7 @@ target_compile_options(
   pszcompile_settings
   INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda
             --expt-relaxed-constexpr -Wno-deprecated-declarations>)
-target_compile_features(pszcompile_settings INTERFACE cxx_std_14 cuda_std_14)
+target_compile_features(pszcompile_settings INTERFACE cxx_std_17 cuda_std_17)
 target_include_directories(
   pszcompile_settings
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>

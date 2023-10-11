@@ -25,7 +25,7 @@
   using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;                    \
   static_assert(                                                             \
       std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type."); \
-  auto posneg_encode = [](EqInt x) -> EqUint {                               \
+  auto zigzag_encode = [](EqInt x) -> EqUint {                               \
     return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));                        \
   };
 
@@ -33,9 +33,9 @@ namespace psz {
 namespace rolling {
 
 template <
-    typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
-    int TileDim = 256, int Seq = 8, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t>
+    typename T, typename Eq = uint32_t, typename Fp = T, int TileDim = 256,
+    int Seq = 8, typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t, bool ZigZag = false>
 __global__ void c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
@@ -75,14 +75,18 @@ __global__ void c_lorenzo_1d1l(
   for (auto ix = 0; ix < Seq; ix++) {
     T delta = thp_data(ix) - thp_data(ix - 1);
     bool quantizable = fabs(delta) < radius;
-    T candidate = ZigZag ? delta : delta + radius;
-    // otherwise, need to reset shared memory (to 0)
-    if (ZigZag)
+    T candidate;
+
+    if constexpr (ZigZag) {
+      candidate = delta;
       s_eq_uint[ix + threadIdx.x * Seq] =
-          posneg_encode(quantizable * static_cast<EqInt>(candidate));
-    else
-      s_eq_uint[ix + threadIdx.x * Seq] =
-          quantizable * static_cast<EqUint>(candidate);
+          zigzag_encode(quantizable * (EqInt)candidate);
+    }
+    else {
+      candidate = delta + radius;
+      s_eq_uint[ix + threadIdx.x * Seq] = quantizable * (EqUint)candidate;
+    }
+
     if (not quantizable) {
       auto cur_idx = atomicAdd(cn, 1);
       cidx[cur_idx] = id_base + threadIdx.x * Seq + ix;
@@ -102,9 +106,9 @@ __global__ void c_lorenzo_1d1l(
 }
 
 template <
-    typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
+    typename T, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t>
+    typename CompactNum = uint32_t, bool ZigZag = false>
 __global__ void c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
@@ -156,11 +160,17 @@ __global__ void c_lorenzo_2d1l(
 
     if (gix < len3.x and giy_base + (i - 1) < len3.y) {
       bool quantizable = fabs(center[i]) < radius;
-      T candidate = ZigZag ? center[i] : center[i] + radius;
-      if (ZigZag)
-        eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
-      else
-        eq[gid] = quantizable * static_cast<EqUint>(candidate);
+      T candidate;
+
+      if constexpr (ZigZag) {
+        candidate = center[i];
+        eq[gid] = zigzag_encode(quantizable * (EqInt)candidate);
+      }
+      else {
+        candidate = center[i] + radius;
+        eq[gid] = quantizable * (EqUint)candidate;
+      }
+
       if (not quantizable) {
         auto cur_idx = atomicAdd(cn, 1);
         cidx[cur_idx] = gid;
@@ -173,9 +183,9 @@ __global__ void c_lorenzo_2d1l(
 }
 
 template <
-    typename T, bool ZigZag = false, typename Eq = uint32_t, typename Fp = T,
+    typename T, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t>
+    typename CompactNum = uint32_t, bool ZigZag = false>
 __global__ void c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
@@ -207,12 +217,19 @@ __global__ void c_lorenzo_3d1l(
   auto quantize_compact_write = [&](T delta, auto x, auto y, auto z,
                                     auto gid) {
     bool quantizable = fabs(delta) < radius;
-    T candidate = ZigZag ? delta : delta + radius;
+
     if (x < len3.x and y < len3.y and z < len3.z) {
-      if (ZigZag)
-        eq[gid] = posneg_encode(quantizable * static_cast<EqInt>(candidate));
-      else
-        eq[gid] = quantizable * static_cast<EqUint>(candidate);
+      T candidate;
+
+      if constexpr (ZigZag) {
+        candidate = delta;
+        eq[gid] = zigzag_encode(quantizable * (EqInt)candidate);
+      }
+      else {
+        candidate = delta + radius;
+        eq[gid] = quantizable * (EqUint)candidate;
+      }
+
       if (not quantizable) {
         auto cur_idx = atomicAdd(cn, 1);
         cidx[cur_idx] = gid;
@@ -232,7 +249,6 @@ __global__ void c_lorenzo_3d1l(
     // x-direction
     auto prev_x = __shfl_up_sync(0xffffffff, delta[z], 1, 8);
     if (threadIdx.x % TileDim > 0) delta[z] -= prev_x;
-    __syncthreads();
 
     // y-direction, exchange via shmem
     // ghost padding along y

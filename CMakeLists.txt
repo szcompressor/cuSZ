@@ -2,7 +2,7 @@
 set(PSZ_BACKEND "CUDA" CACHE STRING "Select the desired backend: CUDA/cuda, HIP/hip and ONEAPI/1api.")
 
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
-  cmake_minimum_required(VERSION 3.17)
+  cmake_minimum_required(VERSION 3.18)
   project(CUSZ LANGUAGES CUDA CXX C VERSION 0.6.0)
 elseif(PSZ_BACKEND STREQUAL "HIP" OR PSZ_BACKEND STREQUAL "hip")
   cmake_minimum_required(VERSION 3.21)
@@ -22,7 +22,7 @@ option(PSZ_LOG_SANITIZE_MODE "enable sanitizing functions" OFF)
 option(PSZLOG_ENABLE_ALL "enable all (debugging, sanitizing)" OFF)
 include(cmake/logging.cmake)
 
-# conditionaly enable functionality
+# conditionally enable functionality
 option(PSZ_RESEARCH_HUFFBK_CUDA "(CUDA only) build research artifacts: create Huffman codebook on GPU" OFF)
 option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" OFF)
 
