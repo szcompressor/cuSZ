@@ -9,7 +9,7 @@
  *
  */
 
-#include "kernel/detail/l23.cu_hip.inl"
+#include "kernel/detail/l23_x.cu_hip.inl"
 #include "../rand.hh"
 
 template <int BLOCK = 256, int SEQ = 8>

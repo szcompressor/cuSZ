@@ -519,22 +519,6 @@ template <typename T, typename EQ, typename FP, int YSEQ>
 __forceinline__ __device__ void psz::cuda_hip::block_scan_2d(
     T thread_private[YSEQ], volatile T* intermediate, FP ebx2)
 {
-  //       ------> gix (x)
-  //
-  //   |   t(0,0)       t(0,1)       t(0,2)       t(0,3)       ... t(0,f)
-  //   |
-  //   |   thp(0,0)[0]  thp(0,0)[0]  thp(0,0)[0]  thp(0,0)[0]
-  //  giy  thp(0,0)[1]  thp(0,0)[1]  thp(0,0)[1]  thp(0,0)[1]
-  //  (y)  |            |            |            |
-  //       thp(0,0)[7]  thp(0,0)[7]  thp(0,0)[7]  thp(0,0)[7]
-  //
-  //   |   t(1,0)       t(1,1)       t(1,2)       t(1,3)       ... t(1,f)
-  //   |
-  //   |   thp(1,0)[0]  thp(1,0)[0]  thp(1,0)[0]  thp(1,0)[0]
-  //  giy  thp(1,0)[1]  thp(1,0)[1]  thp(1,0)[1]  thp(1,0)[1]
-  //  (y)  |            |            |            |
-  //       thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]
-
   constexpr auto BLOCK = 16;
 
   for (auto i = 1; i < YSEQ; i++) thread_private[i] += thread_private[i - 1];

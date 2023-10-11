@@ -76,10 +76,11 @@ bool testcase(
   }
   oridata->control({H2D});
 
-  sycl::queue q(
-      sycl::gpu_selector_v, sycl::property_list(
-                                sycl::property::queue::in_order(),
-                                sycl::property::queue::enable_profiling()));
+  auto plist = sycl::property_list(
+      sycl::property::queue::in_order(),
+      sycl::property::queue::enable_profiling());
+
+  sycl::queue q(sycl::gpu_selector_v, plist);
 
   float time;
   auto len3 = sycl::range<3>(z, y, x);
@@ -122,7 +123,8 @@ bool testcase(
 
     float __t;
     // psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
-    //     outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t, &q);
+    //     outlier->dptr(), len, spval->dptr(), spidx->dptr(), &splen, &__t,
+    //     &q);
     psz::spv_gather_naive<PROPER_GPU_BACKEND>(
         outlier->dptr(), len, 0, spval->dptr(), spidx->dptr(), d_splen,
         psz::criterion::gpu::eq<T>(), &__t, &q);

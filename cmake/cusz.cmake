@@ -68,7 +68,8 @@ add_library(
   src/kernel/dryrun.cu
   src/kernel/lproto.cu
   src/kernel/spvn.cu
-  src/kernel/l23.cu
+  src/kernel/l23_c.cu
+  src/kernel/l23_x.cu
   src/kernel/spline3.cu
   src/kernel/hist.cu
   src/kernel/hist.seq.cc # workaround
