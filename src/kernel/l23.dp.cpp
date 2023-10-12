@@ -66,7 +66,7 @@ pszerror psz_comp_l23(
 
       cgh.parallel_for(
           sycl::nd_range<3>(Grid1D * Block1D, Block1D),
-          [=](sycl::nd_item<3> item_ct1) {
+          [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
             psz::dpcpp::__kernel::c_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>(
                 data, len3, leap3, radius, ebx2_r, eq, outlier, item_ct1,
                 scratch.get_pointer(), s_eq.get_pointer());

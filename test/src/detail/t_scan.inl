@@ -81,7 +81,7 @@ bool test1d(T* data, size_t len, Eq* eq, void* stream)
 
     cgh.parallel_for(
         sycl::nd_range<3>(Grid1D * Block1D, Block1D),
-        [=](sycl::nd_item<3> item_ct1) {
+        [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
           psz::dpcpp::__kernel::x_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
               eq, data, sycl::range<3>(1, 1, len), sycl::range<3>(1, 1, 1), 0,
               ebx2, data, item_ct1, scratch.get_pointer(), s_eq.get_pointer(),

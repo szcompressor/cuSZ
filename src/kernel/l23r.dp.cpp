@@ -81,7 +81,7 @@ pszerror psz_comp_l23r(
           sycl::nd_range<3>(
               Grid1D * sycl::range<3>(1, 1, Block1D),
               sycl::range<3>(1, 1, Block1D)),
-          [=](sycl::nd_item<3> item_ct1) {
+          [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
             psz::rolling_dp::c_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
                 data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
                 ot_num_ct8, item_ct1, s_data.get_pointer(),
@@ -130,7 +130,7 @@ pszerror psz_comp_l23r(
   return CUSZ_SUCCESS;
 }
 
-#define INIT(T, Eq, ZigZag)                                               \
+#define INIT(T, Eq, ZigZag)                                             \
   template pszerror psz_comp_l23r<T, Eq, ZigZag>(                       \
       T* const data, sycl::range<3> const len3, PROPER_EB const eb,     \
       int const radius, Eq* const eq, void* _outlier, f4* time_elapsed, \

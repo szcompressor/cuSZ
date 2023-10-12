@@ -5,9 +5,9 @@
 
 #include "cusz/type.h"
 #include "kernel/lrz.hh"
+#include "port.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
-#include "port.hh"
 // definitions
 #include "detail/l23_x.dp.inl"
 
@@ -68,7 +68,7 @@ pszerror psz_decomp_l23(
 
       cgh.parallel_for(
           sycl::nd_range<3>(Grid1D * Block1D, Block1D),
-          [=](sycl::nd_item<3> item_ct1) {
+          [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
             psz::dpcpp::__kernel::x_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>(
                 eq, outlier, len3, leap3, radius, ebx2, xdata, item_ct1,
                 scratch.get_pointer(), s_eq.get_pointer(),

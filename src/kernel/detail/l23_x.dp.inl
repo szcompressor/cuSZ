@@ -147,9 +147,8 @@ void x_lorenzo_2d1l(  //
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       for (auto d = 1; d < BLOCK; d *= 2) {
-        /* DPCT1023 */ /* DPCT1096 */
-        T n = dpct::shift_sub_group_right(
-            item_ct1.get_sub_group(), thp_data[i], d,
+        T n = psz::dpcpp::compat::shift_sub_group_right(
+            0xffffffff, item_ct1.get_sub_group(), thp_data[i], d,
             16);  // half-warp shuffle
         if (item_ct1.get_local_id(2) >= d) thp_data[i] += n;
       }
@@ -219,9 +218,8 @@ void x_lorenzo_3d1l(  //
       T val = thread_private[i];
 
       for (auto dist = 1; dist < BLOCK; dist *= 2) {
-        /* DPCT1023 */ /* DPCT1096 */
-        auto addend = dpct::shift_sub_group_right(
-            item_ct1.get_sub_group(), val, dist, 8);
+        auto addend = psz::dpcpp::compat::shift_sub_group_right(
+            0xffffffff, item_ct1.get_sub_group(), val, dist, 8);
         if (seg_tix >= dist) val += addend;
       }
 
@@ -232,9 +230,8 @@ void x_lorenzo_3d1l(  //
       item_ct1.barrier(sycl::access::fence_space::local_space);
 
       for (auto dist = 1; dist < BLOCK; dist *= 2) {
-        /* DPCT1023 */ /* DPCT1096 */
-        auto addend = dpct::shift_sub_group_right(
-            item_ct1.get_sub_group(), val, dist, 8);
+        auto addend = psz::dpcpp::compat::shift_sub_group_right(
+            0xffffffff, item_ct1.get_sub_group(), val, dist, 8);
         if (seg_tix >= dist) val += addend;
       }
 
@@ -261,5 +258,5 @@ void x_lorenzo_3d1l(  //
 }
 
 }  // namespace __kernel
-}  // namespace cuda_hip
+}  // namespace dpcpp
 }  // namespace psz

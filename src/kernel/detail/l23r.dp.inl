@@ -11,6 +11,7 @@
 #include "kernel/lrz.hh"
 #include "mem/compact.hh"
 #include "port.hh"
+#include "wave32.dp.inl"
 
 #define SETUP_ZIGZAG                                                         \
   using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;                  \
@@ -140,9 +141,8 @@ void c_lorenzo_2d1l(
   }
   // same-warp, next-16
 
-  /* DPCT1023 */ /* DPCT1096 */
-  auto tmp =
-      dpct::shift_sub_group_right(item_ct1.get_sub_group(), center[Yseq], 16);
+  auto tmp = psz::dpcpp::compat::shift_sub_group_right(
+      0xffffffff, item_ct1.get_sub_group(), center[Yseq], 16, 32);
   if (item_ct1.get_local_id(1) == 1) center[0] = tmp;
 
 // prediction (apply Lorenzo filter)
@@ -152,9 +152,8 @@ void c_lorenzo_2d1l(
     center[i] -= center[i - 1];
     // within a halfwarp (32/2)
 
-    /* DPCT1023 */ /* DPCT1096 */
-    auto west = dpct::shift_sub_group_right(
-        item_ct1.get_sub_group(), center[i], 1, 16);
+    auto west = psz::dpcpp::compat::shift_sub_group_right(
+        0xffffffff, item_ct1.get_sub_group(), center[i], 1, 16);
     if (item_ct1.get_local_id(2) > 0) center[i] -= west;  // delta
   }
   item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -259,9 +258,8 @@ void c_lorenzo_3d1l(
     delta[z] -= delta[z - 1];
 
     // x-direction
-    /* DPCT1023 */ /* DPCT1096 */
-    auto prev_x =
-        dpct::shift_sub_group_right(item_ct1.get_sub_group(), delta[z], 1, 8);
+    auto prev_x = psz::dpcpp::compat::shift_sub_group_right(
+        0xffffffff, item_ct1.get_sub_group(), delta[z], 1, 8);
     if (item_ct1.get_local_id(2) % TileDim > 0) delta[z] -= prev_x;
 
     // y-direction, exchange via shmem
