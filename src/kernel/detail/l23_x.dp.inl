@@ -17,7 +17,7 @@
 #include "wave32.dp.inl"
 
 namespace psz {
-namespace cuda_hip {
+namespace dpcpp {
 namespace __kernel {
 
 template <typename T, typename Eq, typename FP = T, int BLOCK, int SEQ>

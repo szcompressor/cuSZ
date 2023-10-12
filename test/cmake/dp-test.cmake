@@ -32,11 +32,10 @@ add_executable(zigzag src/test_zigzag_coding.cc)
 target_link_libraries(zigzag PRIVATE psztestcompile_dp)
 add_test(test_zigzag zigzag)
 
-# # Level-1 subroutine
-# add_executable(l1_scan src/test_l1_l23scan.cu)
-# target_link_libraries(l1_scan PRIVATE pszcompile_settings
-# psztestcompile_dp)
-# add_test(test_l1_scan l1_scan)
+# Level-1 subroutine
+add_executable(decomp_lrz_dp src/test_decomp_lrz.dp.cpp)
+target_link_libraries(decomp_lrz_dp PRIVATE pszcompile_settings psztestcompile_dp)
+add_test(test_decomp_lrz_dp decomp_lrz_dp)
 
 # add_executable(l1_compact src/test_l1_compact.cu)
 # target_link_libraries(l1_compact PRIVATE pszcompile_settings

@@ -27,10 +27,10 @@ target_link_libraries(zigzag PRIVATE psztestcompile_cu)
 add_test(test_zigzag zigzag)
 
 # Level-1 subroutine
-add_executable(l1_scan src/test_l1_l23scan.cu)
-target_link_libraries(l1_scan PRIVATE pszcompile_settings
+add_executable(decomp_lrz_cu src/test_decomp_lrz.cu)
+target_link_libraries(decomp_lrz_cu PRIVATE pszcompile_settings
   psztestcompile_cu)
-add_test(test_l1_scan l1_scan)
+add_test(test_decomp_lrz_cu decomp_lrz_cu)
 
 add_executable(l1_compact src/test_l1_compact.cu)
 target_link_libraries(l1_compact PRIVATE pszcompile_settings
