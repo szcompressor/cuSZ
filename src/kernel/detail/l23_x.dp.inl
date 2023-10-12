@@ -50,7 +50,7 @@ void x_lorenzo_1d1l(  //
   };
 
   auto block_scan_1d = [&](const sycl::nd_item<3> &item_ct1) {
-    namespace wave32 = psz::cu_hip::wave32;
+    namespace wave32 = psz::dpcpp::wave32;
     wave32::intrawarp_inclscan_1d<T, SEQ>(thp_data, item_ct1);
     wave32::intrablock_exclscan_1d<T, SEQ, NTHREAD>(
         thp_data, exch_in, exch_out, item_ct1);

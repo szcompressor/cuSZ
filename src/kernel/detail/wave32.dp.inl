@@ -1,11 +1,11 @@
-#include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
+#include <sycl/sycl.hpp>
 
-namespace psz {
-namespace cu_hip {
-namespace wave32 {
+#include "warp_compat.dp.inl"
 
-template <typename T, int SEQ>
+namespace psz::dpcpp::wave32 {
+
+template <typename T, int SEQ, bool EXPERIMENTAL_MASKED = true>
 __dpct_inline__ void intrawarp_inclscan_1d(
     T private_buffer[SEQ], const sycl::nd_item<3>& item_ct1)
 {
@@ -14,24 +14,13 @@ __dpct_inline__ void intrawarp_inclscan_1d(
 
   // in-warp shuffle
   for (auto d = 1; d < 32; d *= 2) {
-    /*
-    DPCT1023: 15: The SYCL sub-group does not support mask options for
-    dpct::shift_sub_group_right. You can specify
-    "--use-experimental-features=masked-sub-group-operation" to use the
-    experimental helper function to migrate __shfl_up_sync.
-    */
-    T n = dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, d);
+    T n = psz::dpcpp::compat::shift_sub_group_right(
+        0xffffffff, item_ct1.get_sub_group(), addend, d);
     if (item_ct1.get_local_id(2) % 32 >= d) addend += n;
   }
   // exclusive scan
-  /*
-  DPCT1023:16: The SYCL sub-group does not support mask options for
-  dpct::shift_sub_group_right. You can specify
-  "--use-experimental-features=masked-sub-group-operation" to use the
-  experimental helper function to migrate __shfl_up_sync.
-  */
-  T prev_addend =
-      dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, 1);
+  T prev_addend = psz::dpcpp::compat::shift_sub_group_right(
+      0xffffffff, item_ct1.get_sub_group(), addend, 1);
 
   // propagate
   if (item_ct1.get_local_id(2) % 32 > 0)
@@ -64,46 +53,24 @@ __dpct_inline__ void intrablock_exclscan_1d(
       auto addend = exchange_in[item_ct1.get_local_id(2)];
 
       for (auto d = 1; d < 32; d *= 2) {
-        /*
-        DPCT1023:20: The SYCL sub-group does not support mask options for
-        dpct::shift_sub_group_right. You can specify
-        "--use-experimental-features=masked-sub-group-operation" to use the
-        experimental helper function to migrate __shfl_up_sync.
-        */
-        T n = dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, d);
+        T n = psz::dpcpp::compat::shift_sub_group_right(
+            0xffffffff, item_ct1.get_sub_group(), addend, d);
         if (item_ct1.get_local_id(2) >= d) addend += n;
       }
       // exclusive scan
-      /*
-      DPCT1023:21: The SYCL sub-group does not support mask options for
-      dpct::shift_sub_group_right. You can specify
-      "--use-experimental-features=masked-sub-group-operation" to use the
-      experimental helper function to migrate __shfl_up_sync.
-      */
-      T prev_addend =
-          dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, 1);
+      T prev_addend = /* DPCT1023 */
+          psz::dpcpp::compat::shift_sub_group_right(
+              0xffffffff, item_ct1.get_sub_group(), addend, 1);
       exchange_out[warp_id] = (warp_id > 0) * prev_addend;
     }
   }
   // else-case handled by static_assert
-  /*
-  DPCT1065:18: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 
   // propagate
   auto addend = exchange_out[warp_id];
   for (auto i = 0; i < SEQ; i++) private_buffer[i] += addend;
-  /*
-  DPCT1065:19: Consider replacing sycl::nd_item::barrier() with
-  sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
-  performance if there is no access to global memory.
-  */
-  item_ct1.barrier();
+  item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
-}  // namespace wave32
-}  // namespace cu_hip
-}  // namespace psz
+}  // namespace psz::dpcpp::wave32
