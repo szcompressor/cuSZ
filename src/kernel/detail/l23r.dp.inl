@@ -28,12 +28,14 @@ namespace rolling_dp {
 template <
     typename T, typename Eq = uint32_t, typename Fp = T, int TileDim = 256,
     int Seq = 8, typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, bool ZigZag = false>
+    typename CompactNum = uint32_t, bool ZigZag = false,
+    bool DebugStreamPrint = false>
 void c_lorenzo_1d1l(
     T* data, sycl::range<3> len3, sycl::range<3> stride3, int radius,
     Fp ebx2_r, Eq* eq, CompactVal* cval, CompactIdx* cidx, CompactNum* cn,
     const sycl::nd_item<3>& item_ct1, T* s_data,
-    typename psz::typing::UInt<sizeof(Eq)>::T* s_eq_uint)
+    typename psz::typing::UInt<sizeof(Eq)>::T* s_eq_uint,
+    const sycl::stream* stream_ct1 = nullptr)
 {
   constexpr auto NumThreads = TileDim / Seq;
 
@@ -62,6 +64,30 @@ void c_lorenzo_1d1l(
   if (item_ct1.get_local_id(2) > 0)
     prev() = s_data[item_ct1.get_local_id(2) * Seq - 1];  // from last thread
   item_ct1.barrier(sycl::access::fence_space::local_space);
+
+  if constexpr (DebugStreamPrint) {
+    if (item_ct1.get_group(2) == 2) {
+      if (item_ct1.get_local_id(2) == 2) {
+        // print global data, the same access with reading from global memory
+        for (auto ix = 0; ix < Seq; ix++) {
+          auto id = id_base + item_ct1.get_local_id(2) + ix * NumThreads;
+          if (id < len3[2]) {
+            *stream_ct1 << "global, rounded (prequant): " << ix << "\t"
+                        << sycl::round(data[id] * ebx2_r) << "\n";
+          }
+        }
+
+        // print shared memory data and thread private data
+        for (auto ix = 0; ix < Seq; ix++) {
+          *stream_ct1 << "shared: " << ix << "\t"
+                      << s_data[item_ct1.get_local_id(2) * Seq + ix] << "\n"
+                      << "private: " << ix << "\t"  //
+                      << thp_data(ix) << "\n";
+        }
+      }
+    }
+    item_ct1.barrier();
+  }
 
   // quantize & write back to shmem.eq
 #pragma unroll

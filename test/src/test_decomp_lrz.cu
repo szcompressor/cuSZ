@@ -3,10 +3,13 @@
 #include "port.hh"
 // definitions
 #include "detail/t_scan.inl"
+#include "detail/t_scan_multblk.inl"
 
 int main()
 {
   auto all_pass = true, ok = true;
+
+  ////////////////////////////////////////////////////////////
 
   ok = test_inclscan_1block<1, 256, 4>(), all_pass = all_pass and ok;
   printf("%s: test_inclscan_1block<1, 256, 4>()\n", ok ? "OK" : "WRONG");
@@ -31,6 +34,13 @@ int main()
 
   ok = test_inclscan_1block<3>(), all_pass = all_pass and ok;
   printf("%s: test_inclscan_1block<3>()\n", ok ? "OK" : "WRONG");
+
+  ////////////////////////////////////////////////////////////
+
+  ok = test_inclscan_multipleblock(1, 1, 1), all_pass = all_pass and ok;
+  printf("%s: test_inclscan_multipleblock(1,1,1)\n", ok ? "OK" : "WRONG");
+
+  ////////////////////////////////////////////////////////////
 
   if (all_pass)
     return 0;

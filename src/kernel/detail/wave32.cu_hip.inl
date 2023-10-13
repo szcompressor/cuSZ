@@ -1,11 +1,12 @@
+#ifndef D48644A0_5C17_4076_BF73_09CECA468B27
+#define D48644A0_5C17_4076_BF73_09CECA468B27
 
 namespace psz {
 namespace cu_hip {
 namespace wave32 {
 
 template <typename T, int SEQ>
-__forceinline__ __device__ void intrawarp_inclscan_1d(
-    T private_buffer[SEQ])
+__forceinline__ __device__ void intrawarp_inclscan_1d(T private_buffer[SEQ])
 {
   for (auto i = 1; i < SEQ; i++) private_buffer[i] += private_buffer[i - 1];
   T addend = private_buffer[SEQ - 1];
@@ -68,3 +69,5 @@ __forceinline__ __device__ void intrablock_exclscan_1d(
 }  // namespace wave32
 }  // namespace cu_hip
 }  // namespace psz
+
+#endif /* D48644A0_5C17_4076_BF73_09CECA468B27 */

@@ -16,10 +16,10 @@ pszerror psz_decomp_l23(
     Eq* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
     int const radius, T* xdata, f4* time_elapsed, void* stream)
 {
-  auto divide3 = [](sycl::range<3> l, sycl::range<3> subl) {
+  auto sycl_div3 = [](sycl::range<3> l, sycl::range<3> subl) {
     return sycl::range<3>(
-        (l[2] - 1) / subl[2] + 1, (l[1] - 1) / subl[1] + 1,
-        (l[0] - 1) / subl[0] + 1);
+        (l[0] - 1) / subl[0] + 1, (l[1] - 1) / subl[1] + 1,
+        (l[2] - 1) / subl[2] + 1);
   };
 
   auto ndim = [&]() {
@@ -34,17 +34,17 @@ pszerror psz_decomp_l23(
   constexpr auto Tile1D = 256;
   constexpr auto Seq1D = 8;  // x-sequentiality == 8
   auto Block1D = sycl::range<3>(1, 1, 256 / 8);
-  auto Grid1D = divide3(len3, sycl::range<3>(1, 1, Tile1D));
+  auto Grid1D = sycl_div3(len3, sycl::range<3>(1, 1, Tile1D));
 
   auto Tile2D = sycl::range<3>(1, 16, 16);
   // y-sequentiality == 8
   auto Block2D = sycl::range<3>(1, 2, 16);
-  auto Grid2D = divide3(len3, Tile2D);
+  auto Grid2D = sycl_div3(len3, Tile2D);
 
   auto Tile3D = sycl::range<3>(8, 8, 32);
   // y-sequentiality == 8
   auto Block3D = sycl::range<3>(8, 1, 32);
-  auto Grid3D = divide3(len3, Tile3D);
+  auto Grid3D = sycl_div3(len3, Tile3D);
 
   // error bound
   auto ebx2 = eb * 2;

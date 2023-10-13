@@ -28,8 +28,7 @@ add_test(test_zigzag zigzag)
 
 # Level-1 subroutine
 add_executable(decomp_lrz_cu src/test_decomp_lrz.cu)
-target_link_libraries(decomp_lrz_cu PRIVATE pszcompile_settings
-  psztestcompile_cu)
+target_link_libraries(decomp_lrz_cu PRIVATE pszcompile_settings psztestcompile_cu pszkernel_cu)
 add_test(test_decomp_lrz_cu decomp_lrz_cu)
 
 add_executable(l1_compact src/test_l1_compact.cu)

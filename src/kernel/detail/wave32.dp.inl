@@ -1,3 +1,6 @@
+#ifndef C0001FA0_0D44_4EFB_BC50_2C6B3FE627F4
+#define C0001FA0_0D44_4EFB_BC50_2C6B3FE627F4
+
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
@@ -74,3 +77,5 @@ __dpct_inline__ void intrablock_exclscan_1d(
 }
 
 }  // namespace psz::dpcpp::wave32
+
+#endif /* C0001FA0_0D44_4EFB_BC50_2C6B3FE627F4 */
