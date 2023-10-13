@@ -200,6 +200,22 @@ typedef u1* pszout;
 // used for bridging some compressor internal buffer
 typedef pszout* ptr_pszout;
 
+struct INTERPOLATION_PARAMS {
+    // 
+    double alpha{1.75};
+    double beta{3.0};
+    
+    //
+    bool interpolators[3];
+    
+    //
+    bool reverse[3];
+
+    //
+    INTERPOLATION_PARAMS() : interpolators{true, true, true}, reverse{false, false, false} {};
+};
+
+
 #ifdef __cplusplus
 }
 #endif

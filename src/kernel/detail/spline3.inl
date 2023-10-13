@@ -81,7 +81,8 @@ __global__ void c_spline3d_infprecis_32x8x8data(
     CompactNum cn,
     FP      eb_r,
     FP      ebx2,
-    int     radius);
+    int     radius,
+    INTERPOLATION_PARAMS intp_param);
 
 template <
     typename EITER,
@@ -100,7 +101,8 @@ __global__ void x_spline3d_infprecis_32x8x8data(
     STRIDE3 data_leap,    //
     FP      eb_r,
     FP      ebx2,
-    int     radius);
+    int     radius,
+    INTERPOLATION_PARAMS intp_param);
 
 namespace device_api {
 /********************************************************************************
@@ -114,7 +116,7 @@ template <
     bool WORKFLOW         = SPLINE3_COMPR,
     bool PROBE_PRED_ERROR = false>
 __device__ void
-spline3d_layout2_interpolate(volatile T1 s_data[9][9][33], volatile T2 s_ectrl[9][9][33], FP eb_r, FP ebx2, int radius);
+spline3d_layout2_interpolate(volatile T1 s_data[9][9][33], volatile T2 s_ectrl[9][9][33], FP eb_r, FP ebx2, int radius, INTERPOLATION_PARAMS intp_param);
 }  // namespace device_api
 
 }  // namespace cusz
@@ -688,15 +690,10 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
      DIM3    data_size,
     FP          eb_r,
     FP          ebx2,
-    int         radius
-    
+    int         radius,
+    INTERPOLATION_PARAMS intp_param
     )
 {
-    double alpha=1.75;
-    double beta=3.0;
-    bool interpolators[3]={true,true,true};
-    //bool reverse[3]={true,true,true};//{false,true,true};
-    bool reverse[3]={false,false,false};
     auto xblue = [] __device__(int _tix, int unit) -> int { return unit * (_tix * 2); };
     auto yblue = [] __device__(int _tiy, int unit) -> int { return unit * (_tiy * 2); };
     auto zblue = [] __device__(int _tiz, int unit) -> int { return unit * (_tiz * 2 + 1); };
@@ -736,13 +733,13 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
         int temp=1;
         while(temp<unit){
             temp*=2;
-            cur_eb_r*=alpha;
-            cur_ebx2/=alpha;
+            cur_eb_r *= intp_param.alpha;
+            cur_ebx2 /= intp_param.alpha;
 
         }
-        if(cur_ebx2<ebx2/beta){
-            cur_ebx2=ebx2/beta;
-            cur_eb_r=eb_r*beta;
+        if(cur_ebx2 < ebx2 / intp_param.beta){
+            cur_ebx2 = ebx2 / intp_param.beta;
+            cur_eb_r = eb_r * intp_param.beta;
 
         }
     };
@@ -773,20 +770,20 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     int unit = 4;
     calc_eb(unit);
     //set_orders(reverse[2]);
-    if(reverse[2]){
+    if(intp_param.reverse[2]){
         interpolate_stage<
             T1, T2, FP, decltype(xhollow_reverse), decltype(yhollow_reverse), decltype(zhollow_reverse),  //
             false, false, true, LINEAR_BLOCK_SIZE, 4, 2, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[2]);
+            s_data, s_ectrl,data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[2]);
 
         interpolate_stage<
             T1, T2, FP, decltype(xyellow_reverse), decltype(yyellow_reverse), decltype(zyellow_reverse),  //
             false, true, false, LINEAR_BLOCK_SIZE, 9, 1, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[2]);
+            s_data, s_ectrl,data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[2]);
         interpolate_stage<
             T1, T2, FP, decltype(xblue_reverse), decltype(yblue_reverse), decltype(zblue_reverse),  //
             true, false, false, LINEAR_BLOCK_SIZE, 9, 3, NO_COARSEN, 1, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[2]);
+            s_data, s_ectrl,data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[2]);
 
 
     }
@@ -796,19 +793,19 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
         interpolate_stage<
             T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
             true, false, false, LINEAR_BLOCK_SIZE, 5, 2, NO_COARSEN, 1, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius,interpolators[2]);
+            s_data, s_ectrl,data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[2]);
        // if(BIX==0 and BIY==0 and BIZ==0)
        // printf("lv3s1\n");
         interpolate_stage<
             T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
             false, true, false, LINEAR_BLOCK_SIZE, 5, 1, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius,interpolators[2]);
+            s_data, s_ectrl,data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[2]);
         //if(BIX==0 and BIY==0 and BIZ==0)
       //  printf("lv3s2\n");
         interpolate_stage<
             T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
             false, false, true, LINEAR_BLOCK_SIZE, 4, 3, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius,interpolators[2]);
+            s_data, s_ectrl,data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[2]);
     }
    // if(BIX==0 and BIY==0 and BIZ==0)
    // printf("lv3\n");
@@ -818,33 +815,33 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     //set_orders(reverse[1]);
 
     // iteration 2, TODO switch y-z order
-    if(reverse[1]){
+    if(intp_param.reverse[1]){
         interpolate_stage<
             T1, T2, FP, decltype(xhollow_reverse), decltype(yhollow_reverse), decltype(zhollow_reverse),  //
             false, false, true, LINEAR_BLOCK_SIZE, 8, 3, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[1]);
+            s_data, s_ectrl,data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[1]);
         interpolate_stage<
             T1, T2, FP, decltype(xyellow_reverse), decltype(yyellow_reverse), decltype(zyellow_reverse),  //
             false, true, false, LINEAR_BLOCK_SIZE, 17, 2, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[1]);
+            s_data, s_ectrl,data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[1]);
         interpolate_stage<
             T1, T2, FP, decltype(xblue_reverse), decltype(yblue_reverse), decltype(zblue_reverse),  //
             true, false, false, LINEAR_BLOCK_SIZE, 17, 5, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[1]);
+            s_data, s_ectrl,data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[1]);
     }
     else{
         interpolate_stage<
             T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
             true, false, false, LINEAR_BLOCK_SIZE, 9, 3, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius,interpolators[1]);
+            s_data, s_ectrl,data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[1]);
         interpolate_stage<
             T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
             false, true, false, LINEAR_BLOCK_SIZE, 9, 2, NO_COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius,interpolators[1]);
+            s_data, s_ectrl,data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[1]);
         interpolate_stage<
             T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
             false, false, true, LINEAR_BLOCK_SIZE, 8, 5, NO_COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius,interpolators[1]);
+            s_data, s_ectrl,data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[1]);
 
     }
     //if(TIX==0 and TIY==0 and TIZ==0 and BIX==0 and BIY==0 and BIZ==0)
@@ -854,20 +851,20 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
    // set_orders(reverse[0]);
 
     // iteration 3
-    if(reverse[0]){
+    if(intp_param.reverse[0]){
         //may have bug 
         interpolate_stage<
             T1, T2, FP, decltype(xhollow_reverse), decltype(yhollow_reverse), decltype(zhollow_reverse),  //
             false, false, true, LINEAR_BLOCK_SIZE, 16, 5, COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[0]);
+            s_data, s_ectrl,data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[0]);
         interpolate_stage<
             T1, T2, FP, decltype(xyellow_reverse), decltype(yyellow_reverse), decltype(zyellow_reverse),  //
             false, true, false, LINEAR_BLOCK_SIZE, 33, 4, COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[0]);
+            s_data, s_ectrl,data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[0]);
         interpolate_stage<
             T1, T2, FP, decltype(xblue_reverse), decltype(yblue_reverse), decltype(zblue_reverse),  //
             true, false, false, LINEAR_BLOCK_SIZE, 33, 9, COARSEN, 4, BORDER_EXCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r, cur_ebx2, radius,interpolators[0]);
+            s_data, s_ectrl,data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[0]);
 
         //may have bug end
     }
@@ -875,16 +872,16 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
         interpolate_stage<
             T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
             true, false, false, LINEAR_BLOCK_SIZE, 17, 5, COARSEN, 4, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius,interpolators[0]);
+            s_data, s_ectrl,data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[0]);
         interpolate_stage<
             T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
             false, true, false, LINEAR_BLOCK_SIZE, 17, 4, COARSEN, 9, BORDER_INCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius,interpolators[0]);
+            s_data, s_ectrl,data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[0]);
        
         interpolate_stage<
             T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
             false, false, true, LINEAR_BLOCK_SIZE, 16, 9, COARSEN, 9, BORDER_EXCLUSIVE, WORKFLOW>(
-            s_data, s_ectrl,data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius,interpolators[0]);
+            s_data, s_ectrl,data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius, intp_param.interpolators[0]);
 
     }
   //  if(TIX==0 and TIY==0 and TIZ==0 and BIX==0 and BIY==0 and BIZ==0)
@@ -929,7 +926,8 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     CompactNum compact_num,
     FP      eb_r,
     FP      ebx2,
-    int     radius)
+    int     radius,
+    INTERPOLATION_PARAMS intp_param)
 {
     // compile time variables
     using T = typename std::remove_pointer<TITER>::type;
@@ -957,7 +955,7 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
         c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap);
 
         cusz::device_api::spline3d_layout2_interpolate<T, T, FP,LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
-            shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius);
+            shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius, intp_param);
         //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
         //    printf("interp\n");
         //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
@@ -992,7 +990,8 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     STRIDE3 data_leap,    //
     FP      eb_r,
     FP      ebx2,
-    int     radius)
+    int     radius,
+    INTERPOLATION_PARAMS intp_param)
 {
     // compile time variables
     using E = typename std::remove_pointer<EITER>::type;
@@ -1012,7 +1011,7 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
     global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, data, shmem.ectrl);
 
     cusz::device_api::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
-        shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius);
+        shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius, intp_param);
     //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
     //        printf("dsz: %d %d %d\n",data_size.x,data_size.y,data_size.z);
     shmem2global_32x8x8data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);

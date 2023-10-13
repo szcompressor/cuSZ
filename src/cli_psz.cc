@@ -11,7 +11,7 @@ int main(int argc, char** argv)
     CPU_QUERY;
     GPU_QUERY;
   }
-
+  
   cusz::CLI<float> cusz_cli;
   cusz_cli.dispatch(ctx);
 

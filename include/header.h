@@ -50,7 +50,9 @@ typedef struct alignas(128) psz_header {
   // uint32_t byte_uncomp : 4;   // T; 1, 2, 4, 8
   // uint32_t byte_errctrl : 3;  // 1, 2, 4
   // uint32_t byte_meta : 4;     // 4, 8
-
+  
+  
+  INTERPOLATION_PARAMS intp_param;
 } psz_header;
 typedef psz_header pszheader;
 

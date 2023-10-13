@@ -89,7 +89,8 @@ COR::compress_predict(pszctx* ctx, T* in, void* stream)
   auto const eb = ctx->eb;
   auto const radius = ctx->radius;
   auto const pardeg = ctx->vle_pardeg;
-
+  const auto booklen = radius * 2;
+  INTERPOLATION_PARAMS intp_param = ctx->intp_param;
   // [psz::note::TODO] compat layer or explicit macro
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   auto len3 = dim3(ctx->x, ctx->y, ctx->z);
@@ -103,7 +104,7 @@ COR::compress_predict(pszctx* ctx, T* in, void* stream)
 #ifdef PSZ_USE_CUDA
       mem->od->dptr(in);
       spline_construct(
-          mem->od, mem->ac, mem->e, (void*)mem->compact, eb, radius,
+          mem->od, mem->ac, mem->e, (void*)mem->compact, eb, radius, intp_param,
           &time_pred, stream);
 #else
       throw runtime_error(
@@ -349,7 +350,7 @@ COR::decompress_predict(
 
   const auto eb = header->eb;
   const auto radius = header->radius;
-
+  INTERPOLATION_PARAMS intp_param = header->intp_param;
   if (in and ext_anchor)
     throw std::runtime_error(
         "[psz::error] One of external in and ext_anchor must be null.");
@@ -377,7 +378,7 @@ COR::decompress_predict(
     // [psz::TODO] throw exception
 
     spline_reconstruct(
-        &anchor, mem->e, mem->xd, eb, radius, &time_pred, stream);
+        &anchor, mem->e, mem->xd, eb, radius, intp_param, &time_pred, stream);
 #else
     throw runtime_error(
         "[psz::error] spline_reconstruct not implemented other than CUDA.");

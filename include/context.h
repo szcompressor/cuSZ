@@ -75,7 +75,9 @@ struct psz_context {
   // codec config
   uint32_t codecs_in_use{0b01};
   int vle_sublen{512}, vle_pardeg{-1};
+  INTERPOLATION_PARAMS intp_param;
 };
+
 typedef struct psz_context psz_context;
 typedef psz_context pszctx;
 

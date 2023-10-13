@@ -37,10 +37,9 @@ constexpr int DEFAULT_BLOCK_SIZE = 384;
 template <typename T, typename E, typename FP>
 int spline_construct(
     pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl,
-    void* _outlier, double eb, uint32_t radius, float* time, void* stream)
+    void* _outlier, double eb, uint32_t radius, INTERPOLATION_PARAMS intp_param, float* time, void* stream)
 {
   constexpr auto BLOCK = 8;
-
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   auto ebx2 = eb * 2;
@@ -63,7 +62,7 @@ int spline_construct(
           ectrl->dptr(), ectrl->template len3<dim3>(),
           ectrl->template st3<dim3>(),  //
           anchor->dptr(), anchor->template st3<dim3>(), ot->val(), ot->idx(),
-          ot->num(), eb_r, ebx2, radius);
+          ot->num(), eb_r, ebx2, radius, intp_param);
 
   STOP_GPUEVENT_RECORDING(stream);
   CHECK_GPU(GpuStreamSync(stream));
@@ -76,7 +75,7 @@ int spline_construct(
 template <typename T, typename E, typename FP>
 int spline_reconstruct(
     pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl, pszmem_cxx<T>* xdata,
-    double eb, uint32_t radius, float* time, void* stream)
+    double eb, uint32_t radius, INTERPOLATION_PARAMS intp_param, float* time, void* stream)
 {
   constexpr auto BLOCK = 8;
 
@@ -100,7 +99,7 @@ int spline_reconstruct(
        anchor->template st3<dim3>(),  //
        xdata->dptr(), xdata->template len3<dim3>(),
        xdata->template st3<dim3>(),  //
-       eb_r, ebx2, radius);
+       eb_r, ebx2, radius, intp_param);
 
   STOP_GPUEVENT_RECORDING(stream);
   CHECK_GPU(GpuStreamSync(stream));
@@ -113,10 +112,10 @@ int spline_reconstruct(
 #define INIT(T, E)                                                            \
   template int spline_construct<T, E>(                                        \
       pszmem_cxx<T> * data, pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl,    \
-      void* _outlier, double eb, uint32_t radius, float* time, void* stream); \
+      void* _outlier, double eb, uint32_t radius, struct INTERPOLATION_PARAMS intp_param, float* time, void* stream); \
   template int spline_reconstruct<T, E>(                                      \
       pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl, pszmem_cxx<T> * xdata,   \
-      double eb, uint32_t radius, float* time, void* stream);
+      double eb, uint32_t radius, struct INTERPOLATION_PARAMS intp_param, float* time, void* stream);
 
 INIT(f4, u1)
 INIT(f4, u2)
