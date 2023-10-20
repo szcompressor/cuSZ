@@ -1,6 +1,5 @@
-
-
-namespace psz::experimental {
+#ifndef A3C56F10_4896_4902_AD5B_6D11E4D09D64
+#define A3C56F10_4896_4902_AD5B_6D11E4D09D64
 
 struct gpu_control {
 #if defined(PSZ_USE_CUDA)
@@ -12,4 +11,4 @@ struct gpu_control {
 #endif
 };
 
-}  // namespace psz::experimental
+#endif /* A3C56F10_4896_4902_AD5B_6D11E4D09D64 */

@@ -1,12 +1,5 @@
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-
-#include "cusz/type.h"
-#include "port.hh"
-
-namespace psz {
-namespace experimental {
+#ifndef F8DE640C_EFD2_444C_992C_946B18F625F2
+#define F8DE640C_EFD2_444C_992C_946B18F625F2
 
 using queue_ptr = void*;
 
@@ -111,5 +104,4 @@ void free_shared(T* __a, queue_ptr stream = nullptr)
   free_device(__a, stream);
 }
 
-}  // namespace experimental
-}  // namespace psz
+#endif /* F8DE640C_EFD2_444C_992C_946B18F625F2 */

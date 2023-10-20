@@ -1,5 +1,5 @@
-namespace psz {
-namespace experimental {
+#ifndef A23407D4_08B4_4B91_B0A3_CA66537E0C58
+#define A23407D4_08B4_4B91_B0A3_CA66537E0C58
 
 using queue_ptr = void*;
 
@@ -31,5 +31,4 @@ void stream_sync(queue_ptr stream)
 #endif
 }
 
-}  // namespace experimental
-}  // namespace psz
+#endif /* A23407D4_08B4_4B91_B0A3_CA66537E0C58 */
