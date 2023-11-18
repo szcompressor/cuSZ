@@ -13,9 +13,9 @@ if(IntelSYCL_FOUND)
   # With only SYCL_FLAGS, static check won't pass.
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     # Do something for Debug build type
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsycl -g -Rno-debug-disables-optimization")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsycl -g -fno-sycl-id-queries-fit-in-int -Rno-debug-disables-optimization")
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsycl -g -O2")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fsycl -g -fno-sycl-id-queries-fit-in-int -O2")
   endif()
 
   set(COMPILE_FLAGS "-fsycl")
