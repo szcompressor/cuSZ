@@ -25,7 +25,7 @@
 
 template <
     typename T, typename FQ = uint32_t, int K = 5,
-    bool OneapiUseExperimental = true>
+    bool OneapiUseExperimental = false>
 void histsp_multiwarp(
     T *in, uint32_t inlen,  //
     uint32_t chunk, FQ *out, uint32_t outlen, const sycl::nd_item<3> &item_ct1,
@@ -80,9 +80,13 @@ void histsp_multiwarp(
     for (auto d = 1; d < 32; d *= 2) {
       /* DPCT1108 */
       if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
         auto n = dpct::experimental::shift_sub_group_right(
             0xffffffff, item_ct1.get_sub_group(), sum, d);
         if (item_ct1.get_local_id(2) % 32 >= d) sum += n;
+#else
+        static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
       }
       else {
         /* DPCT1023 */

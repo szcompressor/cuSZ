@@ -21,10 +21,14 @@ __dpct_inline__ void intrawarp_inclusivescan_1d(
   // in-warp shuffle
   for (auto d = 1; d < 32; d *= 2) {
     if constexpr (OneapiUseExperimental) {
-      /* DPCT1108 */
+/* DPCT1108 */
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
       T n = dpct::experimental::shift_sub_group_right(
           0xffffffff, item_ct1.get_sub_group(), addend, d);
       if (item_ct1.get_local_id(2) % 32 >= d) addend += n;
+#else
+      static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
     }
     else {
       /* DPCT1023 */
@@ -35,12 +39,16 @@ __dpct_inline__ void intrawarp_inclusivescan_1d(
   }
   // exclusive scan
   if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
     /* DPCT1108 */
     T prev_addend = dpct::experimental::shift_sub_group_right(
         0xffffffff, item_ct1.get_sub_group(), addend, 1);
     // propagate
     if (item_ct1.get_local_id(2) % 32 > 0)
       for (auto i = 0; i < SEQ; i++) private_buffer[i] += prev_addend;
+#else
+    static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
   }
   else {
     /* DPCT1023 */
@@ -80,10 +88,14 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
 
       for (auto d = 1; d < 32; d *= 2) {
         if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
           /* DPCT1108 */
           T n = dpct::experimental::shift_sub_group_right(
               0xffffffff, item_ct1.get_sub_group(), addend, d);
           if (item_ct1.get_local_id(2) >= d) addend += n;
+#else
+          static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
         }
         else {
           /* DPCT1023 */
@@ -95,10 +107,14 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
       }
       // exclusive scan
       if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
         /* DPCT1108 */
         T prev_addend = dpct::experimental::shift_sub_group_right(
             0xffffffff, item_ct1.get_sub_group(), addend, 1);
         exchange_out[warp_id] = (warp_id > 0) * prev_addend;
+#else
+        static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
       }
       else {
         /* DPCT1023 */
@@ -391,11 +407,15 @@ __dpct_inline__ void psz::dpcpp::load_prequant_2d(
       center[iy + 1] = sycl::round(data[g_id(iy)] * ebx2_r);
   }
   if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
     /* DPCT1108 */
     auto tmp = dpct::experimental::shift_sub_group_right(
         0xffffffff, item_ct1.get_sub_group(), center[YSEQ],
         16);  // same-warp, next-16
     if (item_ct1.get_local_id(1) == 1) center[0] = tmp;
+#else
+    static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
   }
   else {
     /* DPCT1023 */
@@ -442,10 +462,14 @@ __dpct_inline__ void psz::dpcpp::predict_2d(
     // within a halfwarp (32/2)
 
     if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
       /* DPCT1108 */
       auto west = dpct::experimental::shift_sub_group_right(
           0xffffffff, item_ct1.get_sub_group(), center[i], 1, 16);
       if (item_ct1.get_local_id(2) > 0) center[i] -= west;  // delta
+#else
+      static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
     }
     else {
       /* DPCT1023 */
@@ -560,11 +584,14 @@ __dpct_inline__ void psz::dpcpp::block_scan_2d(
   for (auto i = 0; i < YSEQ; i++) {
     for (auto d = 1; d < BLOCK; d *= 2) {
       if constexpr (OneapiUseExperimental) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
         /* DPCT1108 */
         T n = dpct::experimental::shift_sub_group_right(
             0xffffffff, item_ct1.get_sub_group(), thread_private[i], d,
             16);  // half-warp shuffle
-        if (item_ct1.get_local_id(2) >= d) thread_private[i] += n;
+#else
+        static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
       }
       else {
         /* DPCT1023 */

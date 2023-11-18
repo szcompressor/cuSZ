@@ -1,11 +1,12 @@
 namespace psz::dpcpp::compat {
 
-template <typename T, bool EXPERIMENTAL_MASKED = true>
+template <typename T, bool EXPERIMENTAL_MASKED = false>
 T shift_sub_group_right(
     unsigned int member_mask, sycl::sub_group g, T x, unsigned int delta,
     int logical_sub_group_size = 32)
 {
   if constexpr (EXPERIMENTAL_MASKED) {
+#if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
     /*
     DPCT1108: '__shfl_up_sync' was migrated with the experimental feature
     masked sub_group function which may not be supported by all compilers or
@@ -13,6 +14,9 @@ T shift_sub_group_right(
     */
     return dpct::experimental::shift_sub_group_right(
         member_mask, g, x, delta, logical_sub_group_size);
+#else
+    static_assert(false, "[psz::fail_fast] no dpct::experimental");
+#endif
   }
   else {
     /*
