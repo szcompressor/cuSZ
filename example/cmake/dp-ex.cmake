@@ -5,7 +5,7 @@
 # target_link_libraries(ex_utils PUBLIC pszcompile_settings)
 
 add_executable(bin_pipeline_dp src/bin_pipeline.dp.cpp)
-target_link_libraries(bin_pipeline_dp PRIVATE psztestframe_dp)
+target_link_libraries(bin_pipeline_dp PRIVATE psztestframe_dp pszstat_seq)
 
 # add_executable(bin_hf src/bin_hf.cc)
 # target_link_libraries(bin_hf PRIVATE cusz pszstat_cu pszhf_cu CUDA::cudart)

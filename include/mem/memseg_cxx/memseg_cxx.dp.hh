@@ -4,8 +4,9 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "cusz/type.h"
 #include "cusz/nd.h"
+#include "cusz/type.h"
+#include "stat/compare.hh"
 
 template <typename Ctype>
 class pszmem_cxx {
@@ -41,7 +42,9 @@ class pszmem_cxx {
         std::is_same<Ctype, double>::value) {
       // may not work for _uniptr
       Ctype result[4];
-      psz::probe_extrema<ONEAPI, Ctype>((Ctype*)m->d, m->len, result);
+      // psz::probe_extrema<ONEAPI, Ctype>((Ctype*)m->d, m->len, result);
+      // psz::fatal SYCL GPU impl. not clear
+      psz::probe_extrema<SEQ, Ctype>((Ctype*)m->h, m->len, result);
 
       min_value = result[0];
       max_value = result[1];
