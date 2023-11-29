@@ -85,7 +85,7 @@ static void view(
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
-    cmp->control({D2H});
+    xdata->control({D2H});
     eval_dataquality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };

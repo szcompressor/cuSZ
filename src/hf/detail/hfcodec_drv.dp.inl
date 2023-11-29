@@ -183,7 +183,10 @@ void psz::hf_decode_coarse(
   // START_GPUEVENT_RECORDING(queue);
 
   sycl::event e = queue->submit([&](sycl::handler& cgh) {
-    sycl::local_accessor<uint8_t, 1> dpct_local_acc_ct1(
+    //
+    sycl::stream to_stdout(1024, 256, cgh);
+    //
+    sycl::local_accessor<uint8_t, 1> rbk_buf(
         sycl::range<1>(revbook_nbyte), cgh);
 
     cgh.parallel_for(
@@ -194,11 +197,12 @@ void psz::hf_decode_coarse(
           hf_decode_kernel<E, H, M>(
               d_bitstream, d_revbook, d_par_nbit, d_par_entry, revbook_nbyte,
               sublen, pardeg, out_decompressed, item_ct1,
-              dpct_local_acc_ct1.get_pointer());
+              rbk_buf.get_pointer(), to_stdout);
         });
   });
 
   e.wait();
+  SYCL_TIME_DELTA(e, *time_lossless);
 
   // STOP_GPUEVENT_RECORDING(queue);
   // TIME_ELAPSED_GPUEVENT(time_lossless);

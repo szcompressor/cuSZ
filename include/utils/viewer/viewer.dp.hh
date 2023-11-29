@@ -86,17 +86,19 @@ static void view(
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
-    cmp->control({D2H});
+    xdata->control({D2H});
     eval_dataquality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };
 
   if (compare != "") {
     auto gb = 1.0 * sizeof(T) * len / 1e9;
-    if (gb < 0.8)
-      compare_on_gpu();
-    else
-      compare_on_cpu();
+#warning \
+    "[psz::dpcpp::todo] DPL impl of quality assessment not working; revert to CPU version"
+    // if (gb < 0.8)
+    //   compare_on_gpu();
+    // else
+    compare_on_cpu();
   }
 }
 }  // namespace psz
