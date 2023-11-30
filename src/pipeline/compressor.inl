@@ -413,8 +413,9 @@ COR::decompress_scatter(
   auto d_spval = (T*)access(Header::SPFMT);
   auto d_spidx = (M*)access(Header::SPFMT, header->splen * sizeof(T));
 
-  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, M>(
-      d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+  if (header->splen != 0)
+    psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, M>(
+        d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
 
   return this;
 }
