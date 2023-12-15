@@ -21,7 +21,7 @@ extern "C" {
 #include "cusz/type.h"
 
 typedef struct psz_memory_segment {
-  char name[10];
+  char name[32];
   psz_dtype type;
   int tsize;
   void* buf;  // compat for wip
