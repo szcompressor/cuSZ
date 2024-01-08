@@ -127,7 +127,7 @@ target_link_libraries(pszcomp_cu PUBLIC pszcompile_settings pszkernel_cu
 add_library(psztestframe_cu src/pipeline/testframe.cc)
 target_link_libraries(psztestframe_cu PUBLIC pszcomp_cu pszmem pszutils_seq)
 
-add_library(cusz src/cusz_lib.cc)
+add_library(cusz src/cusz_lib.cc src/psz_module.cc)
 target_link_libraries(cusz PUBLIC pszcomp_cu pszhf_cu pszspv_cu pszstat_seq
                                   pszutils_seq pszmem)
 

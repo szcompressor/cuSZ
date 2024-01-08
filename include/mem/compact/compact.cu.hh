@@ -32,9 +32,14 @@ struct CompactGpuDram {
   using type = T;
 
   // `h_` for host-accessible
-  T *d_val, *h_val;
-  uint32_t *d_idx, *h_idx;
-  uint32_t *d_num, h_num{0};
+  T* d_val;
+  uint32_t* d_idx;
+  uint32_t* d_num;
+
+  T* h_val;
+  uint32_t* h_idx;
+  uint32_t h_num{0};
+
   size_t reserved_len;
 
   // CompactGpuDram() {}
