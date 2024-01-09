@@ -12,7 +12,7 @@
 #include "detail/l23r.dp.inl"
 
 template <typename T, typename Eq, bool ZigZag>
-pszerror psz_comp_l23r(
+pszerror pszcxx_predict_lorenzo(
     T* const data, sycl::range<3> const len3, PROPER_EB const eb,
     int const radius, Eq* const eq, void* _outlier, f4* time_elapsed,
     void* stream)
@@ -143,7 +143,7 @@ pszerror psz_comp_l23r(
 }
 
 #define INIT(T, Eq, ZigZag)                                             \
-  template pszerror psz_comp_l23r<T, Eq, ZigZag>(                       \
+  template pszerror pszcxx_predict_lorenzo<T, Eq, ZigZag>(                       \
       T* const data, sycl::range<3> const len3, PROPER_EB const eb,     \
       int const radius, Eq* const eq, void* _outlier, f4* time_elapsed, \
       void* stream);

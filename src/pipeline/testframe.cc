@@ -82,9 +82,9 @@ TESTFRAME::pred_hist_comp(
   auto ht_cpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_cpu");
   ht_cpu->control({MallocHost});
 
-  psz::histsp<PROPER_GPU_BACKEND, u4>(
+  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, u4>(
       ectrl_gpu, len, ht_gpu->dptr(), booklen, &time_hist, stream);
-  psz::histsp<SEQ, u4>(
+  pszcxx_histogram_cauchy<SEQ, u4>(
       ectrl_cpu, len, ht_cpu->hptr(), booklen, &time_hist, stream);
 
   ht_gpu->control({D2H});

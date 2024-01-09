@@ -47,13 +47,13 @@ bool f(
   float time;
   auto len3 = dim3(x, y, z);
 
-  psz_comp_l23<T, Eq, FP>(                   //
+  pszcxx_predict_lorenzo_unused<T, Eq, FP>(                   //
       oridata->uniptr(), len3, eb, radius,   // input and config
       errctrl->uniptr(), outlier->uniptr(),  // output
       &time, stream);
   GpuStreamSync(stream);
 
-  psz_decomp_l23<T, Eq, FP>(                       //
+  pszcxx_reverse_predict_lorenzo<T, Eq, FP>(                       //
       errctrl->uniptr(), len3, outlier->uniptr(),  // input
       eb, radius,                                  // input (config)
       de_data->uniptr(),                           // output

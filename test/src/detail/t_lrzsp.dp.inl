@@ -85,12 +85,12 @@ bool testcase(
   float time;
   auto len3 = sycl::range<3>(z, y, x);
 
-  psz_comp_l23r<T, EQ, false>(  //
+  pszcxx_predict_lorenzo<T, EQ, false>(  //
       oridata->dptr(), len3, eb, radius, ectrl_focus->dptr(), &compact_outlier,
       &time, &q);
   q.wait();
 
-  psz_comp_l23<T, EQ>(  //
+  pszcxx_predict_lorenzo_unused<T, EQ>(  //
       oridata->dptr(), len3, eb, radius, ectrl_ref->dptr(), outlier->dptr(),
       &time, &q);
   q.wait();
@@ -164,7 +164,7 @@ bool testcase(
       compact_outlier.val(), compact_outlier.idx(),
       compact_outlier.num_outliers(), de_data->dptr(), &time, &q);
 
-  psz_decomp_l23<T, EQ, FP>(
+  pszcxx_reverse_predict_lorenzo<T, EQ, FP>(
       ectrl_focus->dptr(), len3, de_data->dptr(), eb, radius,
       de_data->dptr(),  //
       &time, &q);

@@ -37,7 +37,7 @@ psz_error_status histogram_seq(
 
 #define SPECIALIZE_HIST_SER(T)                                        \
   template <>                                                         \
-  psz_error_status psz::histogram<pszpolicy::SEQ, T>(         \
+  psz_error_status pszcxx_histogram_generic<pszpolicy::SEQ, T>(         \
       T * in, size_t const inlen, uint32_t* out_hist, int const nbin, \
       float* milliseconds, void* stream)                              \
   {                                                                   \

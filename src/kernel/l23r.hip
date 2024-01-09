@@ -21,7 +21,7 @@
 #include "utils/timer.hh"
 
 template <typename T, typename Eq, bool ZigZag>
-pszerror psz_comp_l23r(
+pszerror pszcxx_predict_lorenzo(
     T* const data, dim3 const len3, f8 const eb, int const radius,
     Eq* const eq, void* _outlier, f4* time_elapsed, void* stream)
 {
@@ -99,7 +99,7 @@ pszerror psz_comp_l23r(
 }
 
 #define INIT(T, E, ZIGZAG)                                           \
-  template pszerror psz_comp_l23r<T, E, ZIGZAG>(                     \
+  template pszerror pszcxx_predict_lorenzo<T, E, ZIGZAG>(                     \
       T* const data, dim3 const len3, f8 const eb, int const radius, \
       E* const eq, void* _outlier, f4* time_elapsed, void* stream);
 

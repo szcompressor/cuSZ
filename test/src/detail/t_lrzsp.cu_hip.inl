@@ -78,12 +78,12 @@ bool testcase(
   float time;
   auto len3 = dim3(x, y, z);
 
-  psz_comp_l23r<T, EQ, false>(  //
+  pszcxx_predict_lorenzo<T, EQ, false>(  //
       oridata->dptr(), len3, eb, radius, ectrl_focus->dptr(), &compact_outlier,
       &time, stream);
   GpuStreamSync(stream);
 
-  psz_comp_l23<T, EQ>(  //
+  pszcxx_predict_lorenzo_unused<T, EQ>(  //
       oridata->dptr(), len3, eb, radius, ectrl_ref->dptr(), outlier->dptr(),
       &time, stream);
   GpuStreamSync(stream);
@@ -153,7 +153,7 @@ bool testcase(
       compact_outlier.val(), compact_outlier.idx(),
       compact_outlier.num_outliers(), de_data->dptr(), &time, stream);
 
-  psz_decomp_l23<T, EQ, FP>(
+  pszcxx_reverse_predict_lorenzo<T, EQ, FP>(
       ectrl_focus->dptr(), len3, de_data->dptr(), eb, radius,
       de_data->dptr(),  //
       &time, stream);

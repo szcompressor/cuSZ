@@ -118,7 +118,7 @@ namespace psz {
 namespace cuda_hip_compat {
 
 template <typename T>
-psz_error_status hist_default(
+psz_error_status histogram_generic(
     T *in, size_t const inlen, uint32_t *out_hist, int const outlen,
     float *milliseconds, dpct::queue_ptr queue)
 try {

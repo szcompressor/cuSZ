@@ -18,12 +18,12 @@
 #include "mem/memseg_cxx.hh"
 
 template <typename T, typename E, typename FP = T>
-int spline_construct(
+int pszcxx_predict_spline(
     pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* errctrl,
     void* _outlier, double eb, uint32_t radius, float* time, void* stream);
 
 template <typename T, typename E, typename FP = T>
-int spline_reconstruct(
+int pszcxx_reverse_predict_spline(
     pszmem_cxx<T>* anchor, pszmem_cxx<E>* errctrl, pszmem_cxx<T>* xdata,
     double eb, uint32_t radius, float* time, void* stream);
 
