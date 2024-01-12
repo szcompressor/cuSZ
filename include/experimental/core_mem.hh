@@ -2,6 +2,7 @@
 #define F8DE640C_EFD2_444C_992C_946B18F625F2
 
 #include "port/proper_backend.hh"
+#include <cstring>
 
 using queue_ptr = void*;
 

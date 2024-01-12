@@ -19,6 +19,7 @@ bool test()
   auto outlier_val = malloc_device<T>(outlier_reserved);
   auto outlier_idx = malloc_device<u4>(outlier_reserved);
   auto outlier_num = malloc_device<u4>(1);
+  auto outlier_host_num = malloc_host<u4>(1);
 
   pszlen shape1d = {6480000, 1, 1};
   pszlen shape2d = {3600, 1800, 1};
@@ -26,7 +27,9 @@ bool test()
 
   _2401::pszcxx_predict_lorenzo<T>(
       {data, shape1d}, {.eb = 1e-3, .radius = 512}, {eq, shape1d},
-      {outlier_val, outlier_idx, outlier_num, outlier_reserved}, stream);
+      {outlier_val, outlier_idx, outlier_num, outlier_host_num,
+       outlier_reserved},
+      stream);
 
   _2401::pszcxx_reverse_predict_lorenzo<T>(
       {eq, shape1d}, {xdata, shape1d}, {.eb = 1e-3, .radius = 512},

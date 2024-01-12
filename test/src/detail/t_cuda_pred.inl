@@ -69,7 +69,7 @@ bool f(
   bool error_bounded = psz::cppstl_error_bounded<T>(
       de_data->uniptr(), oridata->uniptr(), len, eb, &first_non_eb);
 
-  // psz::eval_dataquality_gpu(oridata->uniptr(), de_data->uniptr(), len);
+  // pszcxx_evaluate_quality_gpu(oridata->uniptr(), de_data->uniptr(), len);
 
   GpuStreamDestroy(stream);
   delete oridata;

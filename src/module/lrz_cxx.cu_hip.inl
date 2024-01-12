@@ -8,9 +8,9 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // definitions
-#include "module/cxx_module.hh"
 #include "kernel/detail/l23_x.cu_hip.inl"
 #include "kernel/detail/l23r.cu_hip.inl"
+#include "module/cxx_module.hh"
 
 namespace _2401 {
 
@@ -99,7 +99,7 @@ template <typename T>
 pszerror pszcxx_reverse_predict_lorenzo(
     pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
     pszrc2 const rc, pszarray_cxx<T> out_reconstruct, void* stream)
-{
+try {
   auto div3 = [](dim3 l, dim3 subl) {
     return dim3(
         (l.x - 1) / subl.x + 1, (l.y - 1) / subl.y + 1,
@@ -171,5 +171,7 @@ pszerror pszcxx_reverse_predict_lorenzo(
 
   return CUSZ_SUCCESS;
 }
+NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
+NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
 }  // namespace _2401

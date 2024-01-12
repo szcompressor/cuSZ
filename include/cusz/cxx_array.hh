@@ -19,6 +19,7 @@ struct pszcompact_cxx {
   T* const val;
   uint32_t* idx;
   uint32_t* num;
+  uint32_t* host_num;
   size_t reserved_len;
 
   // using type = T;

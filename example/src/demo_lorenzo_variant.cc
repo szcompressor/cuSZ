@@ -79,7 +79,7 @@ int f(
     psz::peek_device_data<float>(xdata, 100);
   }
 
-  psz::eval_dataquality_gpu(xdata, data, len);
+  pszcxx_evaluate_quality_gpu(xdata, data, len);
 
   GpuFreeHost(h_data);
   GpuFree(data);

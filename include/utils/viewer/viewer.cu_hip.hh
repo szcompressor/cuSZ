@@ -3,16 +3,15 @@
 
 #include "stat/compare/compare.thrust.hh"
 
-namespace psz {
 
 template <typename T>
-static void eval_dataquality_gpu(
+static void pszcxx_evaluate_quality_gpu(
     T* reconstructed, T* origin, size_t len, size_t compressed_bytes = 0)
 {
   // cross
   auto stat_x = new psz_summary;
   psz::thrustgpu_assess_quality<T>(stat_x, reconstructed, origin, len);
-  print_metrics_cross<T>(stat_x, compressed_bytes, true);
+  psz::print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new psz_summary;
   psz::thrustgpu_assess_quality<T>(
@@ -21,14 +20,14 @@ static void eval_dataquality_gpu(
   psz::thrustgpu_assess_quality<T>(
       stat_auto_lag2, origin, origin + 2, len - 2);
 
-  print_metrics_auto(
+  psz::print_metrics_auto(
       &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
 template <typename T>
-static void eval_dataquality_cpu(
+static void pszcxx_evaluate_quality_cpu(
     T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0,
     bool from_device = true)
 {
@@ -48,14 +47,14 @@ static void eval_dataquality_cpu(
     GpuMemcpy(origin, _d2, bytes, GpuMemcpyD2H);
   }
   cusz::verify_data<T>(stat, reconstructed, origin, len);
-  print_metrics_cross<T>(stat, compressed_bytes, false);
+  psz::print_metrics_cross<T>(stat, compressed_bytes, false);
 
   auto stat_auto_lag1 = new psz_summary;
   cusz::verify_data<T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
   cusz::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
-  print_metrics_auto(
+  psz::print_metrics_auto(
       &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
 
   if (from_device) {
@@ -65,6 +64,8 @@ static void eval_dataquality_cpu(
 
   delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
+
+namespace psz{
 
 template <typename T>
 static void view(
@@ -79,14 +80,14 @@ static void view(
         ->file(compare.c_str(), FromFile)
         ->control({H2D});
 
-    eval_dataquality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
     // cmp->control({FreeHost, Free});
   };
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
     xdata->control({D2H});
-    eval_dataquality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };
 

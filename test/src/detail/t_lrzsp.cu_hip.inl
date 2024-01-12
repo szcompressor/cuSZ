@@ -167,7 +167,7 @@ bool testcase(
   bool error_bounded = psz::error_bounded<SEQ, T>(
       de_data->hptr(), oridata->hptr(), len, eb, &first_non_eb);
 
-  // psz::eval_dataquality_gpu(oridata->dptr(), de_data->dptr(), len);
+  // pszcxx_evaluate_quality_gpu(oridata->dptr(), de_data->dptr(), len);
 
   GpuStreamDestroy(stream);
 

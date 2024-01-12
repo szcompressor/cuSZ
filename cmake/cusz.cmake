@@ -82,8 +82,11 @@ target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
 
 add_library(
   pszmodule2401_cu
-  src/module/lrz_cxx.cu
   src/module/lrz.cc
+  src/module/lrz_cxx.cu
+  src/module/spl_cxx.cu
+  src/module/hist_cxx.cu
+  src/module/scatter_cxx.cu
 )
 target_link_libraries(pszmodule2401_cu PUBLIC pszcompile_settings
   pszkernel_cu 

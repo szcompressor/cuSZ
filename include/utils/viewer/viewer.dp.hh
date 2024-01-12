@@ -6,7 +6,7 @@
 namespace psz {
 
 template <typename T>
-static void eval_dataquality_gpu(
+static void pszcxx_evaluate_quality_gpu(
     T* reconstructed, T* origin, size_t len, size_t compressed_bytes = 0)
 {
   // cross
@@ -26,7 +26,7 @@ static void eval_dataquality_gpu(
 }
 
 template <typename T>
-static void eval_dataquality_cpu(
+static void pszcxx_evaluate_quality_cpu(
     T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0,
     bool from_device = true)
 {
@@ -80,14 +80,14 @@ static void view(
         ->file(compare.c_str(), FromFile)
         ->control({H2D});
 
-    eval_dataquality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
     // cmp->control({FreeHost, Free});
   };
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
     xdata->control({D2H});
-    eval_dataquality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };
 

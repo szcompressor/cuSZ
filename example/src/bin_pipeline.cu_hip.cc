@@ -153,9 +153,9 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   else if (subcmd == "pred-only") {
     psz_testframe<f4>::pred_comp_decomp(
         ctx, cor, data->dptr(), xdata->dptr(), stream);
-    // psz::eval_dataquality_cpu(
+    // pszcxx_evaluate_quality_cpu(
     //     xdata->dptr(), data->dptr(), data->len(), data->bytes());
-    psz::eval_dataquality_cpu(
+    pszcxx_evaluate_quality_cpu(
         xdata->control({D2H})->hptr(), data->control({D2H})->hptr(),
         data->len(), data->bytes());
   }
