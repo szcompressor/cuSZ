@@ -94,3 +94,8 @@ else()
   target_link_libraries(statfn PRIVATE psztestcompile_cu psztest_utils_cu
     pszstat_cu pszstat_seq pszmem)
 endif()
+
+## 2401
+add_executable(pszcxx_lrz_cu src/test_pszcxx_lrz_cu.cc)
+  target_link_libraries(pszcxx_lrz_cu PRIVATE psztestcompile_cu psztest_utils_cu
+    pszstat_cu pszstat_seq pszmem pszmodule2401_cu)

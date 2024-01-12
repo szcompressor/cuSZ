@@ -75,8 +75,20 @@ add_library(
   src/kernel/hist.seq.cc # workaround
   src/kernel/histsp.cu
   src/kernel/histsp.seq.cc
-  src/kernel/l23r.cu)
+  src/kernel/l23r.cu
+  )
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
+
+
+add_library(
+  pszmodule2401_cu
+  src/module/lrz_cxx.cu
+  src/module/lrz.cc
+)
+target_link_libraries(pszmodule2401_cu PUBLIC pszcompile_settings
+  pszkernel_cu 
+  CUDA::cudart
+)
 
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_cu.cc)
 target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
@@ -127,7 +139,7 @@ target_link_libraries(pszcomp_cu PUBLIC pszcompile_settings pszkernel_cu
 add_library(psztestframe_cu src/pipeline/testframe.cc)
 target_link_libraries(psztestframe_cu PUBLIC pszcomp_cu pszmem pszutils_seq)
 
-add_library(cusz src/cusz_lib.cc src/psz_module.cc)
+add_library(cusz src/cusz_lib.cc)
 target_link_libraries(cusz PUBLIC pszcomp_cu pszhf_cu pszspv_cu pszstat_seq
                                   pszutils_seq pszmem)
 
