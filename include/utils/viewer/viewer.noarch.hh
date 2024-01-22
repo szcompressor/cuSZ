@@ -1,6 +1,18 @@
 #ifndef B166AEEB_917A_448A_91F6_D0F7A186A36A
 #define B166AEEB_917A_448A_91F6_D0F7A186A36A
 
+#include <cstdint>
+#include <cstddef>
+#include "cusz/type.h"
+#include <string>
+#include <vector>
+#include "tehm.hh"
+#include "utils/config.hh"
+#include <iomanip>
+
+using std::string;
+using std::vector;
+
 namespace psz {
 
 template <typename T>

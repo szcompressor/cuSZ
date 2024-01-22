@@ -23,16 +23,20 @@ try {
   CHECK_GPU(GpuStreamSync(stream));
   TIME_ELAPSED_GPUEVENT(milliseconds);
   DESTROY_GPUEVENT_PAIR;
+
+  return CUSZ_SUCCESS;
 }
 NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
 template <pszpolicy P, typename T>
-pszerror pszcxx_gather_make_metadata_host_available(
+pszerror _2401::pszcxx_gather_make_metadata_host_available(
     pszcompact_cxx<T> in, void* stream)
 try {
-  cudaMemcpyAsync(in.host_num, in.num, sizeof(u4));
+  cudaMemcpyAsync(in.host_num, in.num, sizeof(u4), cudaMemcpyDeviceToHost, (cudaStream_t)stream);
   // TODO portability issue
   cudaStreamSynchronize((GpuStreamT)stream);
+
+  return CUSZ_SUCCESS;
 }
 NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)

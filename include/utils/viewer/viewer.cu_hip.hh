@@ -1,8 +1,11 @@
 #ifndef BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 #define BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 
+#include "cusz/cxx_array.hh"
+#include "utils/verify.hh"
+#include "cusz/type.h"
 #include "stat/compare/compare.thrust.hh"
-
+#include "viewer.noarch.hh"
 
 template <typename T>
 static void pszcxx_evaluate_quality_gpu(
@@ -25,6 +28,19 @@ static void pszcxx_evaluate_quality_gpu(
 
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
+
+namespace _2401 {
+template <typename T>
+pszerror pszcxx_evaluate_quality_gpu(
+    pszarray_cxx<T> reconstructed, pszarray_cxx<T> origin)
+{
+  pszcxx_evaluate_quality_gpu(
+      (T*)reconstructed.buf, (T*)origin.buf, reconstructed.len3.x);
+
+  return CUSZ_SUCCESS;
+}
+
+}  // namespace _2401
 
 template <typename T>
 static void pszcxx_evaluate_quality_cpu(
@@ -65,7 +81,7 @@ static void pszcxx_evaluate_quality_cpu(
   delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
-namespace psz{
+namespace psz {
 
 template <typename T>
 static void view(
@@ -80,14 +96,16 @@ static void view(
         ->file(compare.c_str(), FromFile)
         ->control({H2D});
 
-    pszcxx_evaluate_quality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_gpu(
+        xdata->dptr(), cmp->dptr(), len, compressd_bytes);
     // cmp->control({FreeHost, Free});
   };
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
     xdata->control({D2H});
-    pszcxx_evaluate_quality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_cpu(
+        xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };
 

@@ -83,11 +83,11 @@ try {
             out_outlier.val, out_outlier.idx, out_outlier.num);
   }
 
-  float* time_elapsed;
+  // float* time_elapsed;
 
   STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
   CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
+  // TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
@@ -118,7 +118,7 @@ try {
       return 3;
   };
 
-  float* time_elapsed;
+  // float* time_elapsed;
 
   constexpr auto Tile1D = 256;
   constexpr auto Seq1D = 8;  // x-sequentiality == 8
@@ -166,7 +166,7 @@ try {
 
   STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
   CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
+  // TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;

@@ -124,7 +124,7 @@ add_library(
                 src/hf/hfbk_internal.seq.cc src/hf/hfbk.seq.cc src/hf/hfcanon.seq.cc)
 target_link_libraries(pszhfbook_seq PUBLIC pszcompile_settings)
 
-add_library(pszhf_cu src/hf/hfclass.cu src/hf/hfcodec.cu src/hf/hf24.cu)
+add_library(pszhf_cu src/hf/hfclass.cu src/hf/hfcodec.cu)
 if(PSZ_RESEARCH_HUFFBK_CUDA)
   target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
                                         pszhfbook_cu pszhfbook_seq)
