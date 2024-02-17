@@ -51,6 +51,8 @@ class Compressor {
   // profiling
   TimeRecord timerecord;
 
+  std::vector<pszerror> error_list;
+
   // header
   Header header;
 

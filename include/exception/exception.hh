@@ -6,6 +6,19 @@
 
 namespace psz {
 
+struct exception_io : public std::exception {
+  std::string err_msg;
+  exception_io(
+      const std::string fname, const char* _file_ = __FILE__,
+      const int _line_ = __LINE__)
+  {
+    std::stringstream ss;
+    ss << _file_ << ':' << _line_ << ": fail to open " << fname << "\n";
+    err_msg = ss.str();
+  }
+  const char* what() const noexcept { return err_msg.c_str(); }
+};
+
 struct exception_placeholder : public std::exception {
   std::string err_msg;
   exception_placeholder()
@@ -23,6 +36,28 @@ struct exception_incorrect_type : public std::exception {
   {
     std::stringstream ss;
     ss << buf_name << ": incorrect datatype.";
+    err_msg = ss.str();
+  }
+  const char* what() const noexcept { return err_msg.c_str(); }
+};
+
+struct exception_outlier_overflow : public std::exception {
+  std::string err_msg;
+  exception_outlier_overflow()
+  {
+    std::stringstream ss;
+    ss << "outliers overflow the allocated buffer.";
+    err_msg = ss.str();
+  }
+  const char* what() const noexcept { return err_msg.c_str(); }
+};
+
+struct exception_too_many_outliers : public std::exception {
+  std::string err_msg;
+  exception_too_many_outliers()
+  {
+    std::stringstream ss;
+    ss << __FILE__ << ':' << __LINE__ << ": there are too many outliers.\n";
     err_msg = ss.str();
   }
   const char* what() const noexcept { return err_msg.c_str(); }

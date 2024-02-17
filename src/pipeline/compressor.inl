@@ -19,6 +19,7 @@
 #include "busyheader.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
+#include "exception/exception.hh"
 #include "header.h"
 #include "hf/hf.hh"
 #include "kernel.hh"
@@ -27,6 +28,9 @@
 #include "port.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
+
+using std::cerr;
+using std::endl;
 
 #define COR          \
   template <class C> \
@@ -38,8 +42,30 @@
 #define PSZ_HIST(...) \
   pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
 #elif defined(PSZ_USE_HIP)
-#define PSZ_HIST(...) pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#define PSZ_HIST(...) \
+  pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
 #endif
+
+void concate_memcpy_d2d(
+    void* dst, void* src, size_t nbyte, void* stream, const char* _file_,
+    const int _line_)
+{
+  if (nbyte != 0) {
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    AD_HOC_CHECK_GPU_WITH_LINE(
+        GpuMemcpyAsync(dst, src, nbyte, GpuMemcpyD2D, (GpuStreamT)stream),
+        _file_, _line_);
+#elif defined(PSZ_USE_1API)
+    ((sycl::queue*)stream)->memcpy(dst(FIELD), src, nbyte);
+#endif
+  }
+}
+
+#define DST(FIELD, OFFSET) \
+  ((void*)(mem->compressed() + header.entry[FIELD] + OFFSET))
+
+#define SKIP_ON_FAILURE \
+  if (not error_list.empty()) return this;
 
 namespace cusz {
 
@@ -67,24 +93,18 @@ Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool debug)
 
   const auto radius = ctx->radius;
   const auto pardeg = ctx->vle_pardeg;
-  // const auto density_factor = ctx->nz_density_factor;
-  // const auto codec_ctx = ctx->codecs_in_use;
   const auto booklen = radius * 2;
-  const auto x = ctx->x;
-  const auto y = ctx->y;
-  const auto z = ctx->z;
-
+  const auto x = ctx->x, y = ctx->y, z = ctx->z;
   len = x * y * z;
 
   mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
-
   codec->init(mem->len, booklen, pardeg, debug);
 
   return this;
 }
 
 COR::compress_predict(pszctx* ctx, T* in, void* stream)
-{
+try {
   auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
 
   auto const eb = ctx->eb;
@@ -97,6 +117,7 @@ COR::compress_predict(pszctx* ctx, T* in, void* stream)
 #elif defined(PSZ_USE_1API)
   auto len3 = sycl::range<3>(ctx->z, ctx->y, ctx->x);
 #endif
+  auto linear = ctx->x * ctx->y * ctx->z;
 
   /* prediction-quantization with compaction */
   {
@@ -118,22 +139,29 @@ COR::compress_predict(pszctx* ctx, T* in, void* stream)
           stream);
     }
 
-    if (spline_in_use()) {
-      PSZDBG_LOG("interp: done");
-      PSZDBG_PTR_WHERE(mem->ectrl());
-      PSZDBG_VAR("pipeline", len);
-    }
-    if (spline_in_use()) {
-      PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);
-    }
+    PSZDBG_LOG("interp: done");
+    PSZDBG_PTR_WHERE(mem->ectrl());
+    PSZDBG_VAR("pipeline", len);
+    // PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);
   }
 
   /* make outlier count seen on host */
   {
     mem->compact->make_host_accessible((GpuStreamT)stream);
+    cerr << "outlier numbers: " << mem->compact->num_outliers() << ",\t";
+    cerr << "all numbers: " << linear << ",\t";
+    cerr << (mem->compact->num_outliers() * 100.0 / linear) << "%" << endl;
     ctx->splen = mem->compact->num_outliers();
   }
 
+  return this;
+}
+catch (const psz::exception_outlier_overflow& e) {
+  cerr << e.what() << endl;
+  auto linear = ctx->x * ctx->y * ctx->z;
+  cerr << "outlier numbers: " << mem->compact->num_outliers() << "\t";
+  cerr << (mem->compact->num_outliers() * 100.0 / linear) << "%" << endl;
+  error_list.push_back(PSZ_ERROR_OUTLIER_OVERFLOW);
   return this;
 }
 
@@ -143,12 +171,10 @@ COR::compress_histogram(pszctx* ctx, void* stream)
   auto booklen = ctx->radius * 2;
 
   /* statistics: histogram */
-  {
-    PSZ_HIST(mem->ectrl(), len, mem->hist(), booklen, &time_hist, stream);
-    // if (spline_in_use())
-    // {PSZSANITIZE_HIST_OUTPUT(mem->ht->control({D2H})->hptr(), booklen);}
-    if (spline_in_use()) { PSZDBG_LOG("histsp gpu: done"); }
-  }
+  PSZ_HIST(mem->ectrl(), len, mem->hist(), booklen, &time_hist, stream);
+  // if (spline_in_use())
+  // {PSZSANITIZE_HIST_OUTPUT(mem->ht->control({D2H})->hptr(), booklen);}
+  PSZDBG_LOG("histsp gpu: done");
 
   return this;
 }
@@ -159,25 +185,26 @@ COR::compress_encode(pszctx* ctx, void* stream)
   auto booklen = ctx->radius * 2;
 
   /* Huffman encoding */
-  {
-    codec->build_codebook(mem->ht, booklen, stream);
-    // [TODO] CR estimation must be after building codebook; need a flag.
-    if (ctx->report_cr_est) {
-      auto overhead = spline_in_use() ? sizeof(T) * mem->ac->len() : 0;
-      codec->calculate_CR(mem->e, sizeof(T), overhead);
-    }
-    if (spline_in_use()) { PSZDBG_LOG("codebook: done"); }
-    // if (spline_in_use()){PSZSANITIZE_HIST_BK(mem->ht->hptr(),
-    // codec->bk4->hptr(), booklen);}
-    codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
-    if (spline_in_use()) { PSZDBG_LOG("encoding done"); }
+  codec->build_codebook(mem->ht, booklen, stream);
+  // [TODO] CR estimation must be after building codebook; need a flag.
+  if (ctx->report_cr_est) {
+    auto overhead = spline_in_use() ? sizeof(T) * mem->ac->len() : 0;
+    codec->calculate_CR(mem->e, sizeof(T), overhead);
   }
+  PSZDBG_LOG("codebook: done");
+  // PSZSANITIZE_HIST_BK(mem->ht->hptr(), codec->bk4->hptr(), booklen);
+
+  codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
+
+  PSZDBG_LOG("encoding done");
 
   return this;
 }
 
 COR::compress_update_header(pszctx* ctx, void* stream)
 {
+  SKIP_ON_FAILURE;
+
   auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
 
   header.x = ctx->x, header.y = ctx->y, header.z = ctx->z,
@@ -198,13 +225,15 @@ COR::compress_update_header(pszctx* ctx, void* stream)
   queue->memcpy(mem->compressed() + 0, &header, sizeof(header));
 #endif
 
-  if (spline_in_use()) { PSZDBG_LOG("update header: done"); }
+  PSZDBG_LOG("update header: done");
 
   return this;
 }
 
 COR::compress_wrapup(BYTE** out, szt* outlen)
 {
+  SKIP_ON_FAILURE;
+
   /* output of this function */
   *out = mem->_compressed->dptr();
   *outlen = psz_utils::filesize(&header);
@@ -228,112 +257,54 @@ COR::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
   compress_wrapup(out, outlen);
   compress_collect_kerneltime();
 
+  if (not error_list.empty()) ctx->there_is_memerr = true;
+
   return this;
 }
 
 COR::compress_merge(pszctx* ctx, void* stream)
-#if defined(PSZ_USE_1API)
-try
-#endif
-{
-
-#if defined(PSZ_USE_1API)
-  auto queue = (sycl::queue*)stream;
-#endif
+try {
+  SKIP_ON_FAILURE;
 
   auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
-
   auto splen = mem->compact->num_outliers();
   auto pred_type = ctx->pred_type;
 
-  auto dst = [&](int FIELD, szt offset = 0) {
-    return (void*)(mem->compressed() + header.entry[FIELD] + offset);
-  };
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  auto concat_d2d = [&](int FIELD, void* src, u4 dst_offset = 0) {
-    CHECK_GPU(GpuMemcpyAsync(
-        dst(FIELD, dst_offset), src, nbyte[FIELD], GpuMemcpyD2D,
-        (GpuStreamT)stream));
-  };
-#elif defined(PSZ_USE_1API)
-  auto concat_d2d = [&](int FIELD, void* src, u4 dst_offset = 0) {
-    queue->memcpy(dst(FIELD, dst_offset), src, nbyte[FIELD]);
-  };
-#endif
-
-  ////////////////////////////////////////////////////////////////
   nbyte[Header::HEADER] = sizeof(Header);
   nbyte[Header::VLE] = sizeof(BYTE) * comp_hf_outlen;
   nbyte[Header::ANCHOR] = pred_type == Spline ? sizeof(T) * mem->ac->len() : 0;
   nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
+  // clang-format off
   header.entry[0] = 0;
   // *.END + 1; need to know the ending position
   for (auto i = 1; i < Header::END + 1; i++) header.entry[i] = nbyte[i - 1];
-  for (auto i = 1; i < Header::END + 1; i++)
-    header.entry[i] += header.entry[i - 1];
+  for (auto i = 1; i < Header::END + 1; i++) header.entry[i] += header.entry[i - 1];
 
-  // copy anchor
-  if (pred_type == Spline) concat_d2d(Header::ANCHOR, mem->anchor(), 0);
-  concat_d2d(Header::VLE, comp_hf_out, 0);
+  concate_memcpy_d2d(DST(Header::ANCHOR, 0), mem->anchor(), nbyte[Header::ANCHOR], stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(Header::VLE, 0), comp_hf_out, nbyte[Header::VLE], stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(Header::SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(Header::SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
+  // clang-format on
 
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  CHECK_GPU(GpuMemcpyAsync(
-      dst(Header::SPFMT, 0), mem->compact_val(), sizeof(T) * splen,
-      GpuMemcpyD2D, (GpuStreamT)stream));
-  CHECK_GPU(GpuMemcpyAsync(
-      dst(Header::SPFMT, sizeof(T) * splen), mem->compact_idx(),
-      sizeof(M) * splen, GpuMemcpyD2D, (GpuStreamT)stream));
-  /* debug */ CHECK_GPU(GpuStreamSync(stream));
-#elif defined(PSZ_USE_1API)
-  queue->memcpy(
-      dst(Header::SPFMT, 0),  //
-      mem->compact_val(), sizeof(T) * splen);
-  queue->memcpy(
-      dst(Header::SPFMT, sizeof(T) * splen), mem->compact_idx(),
-      sizeof(M) * splen);
-  /* debug */ queue->wait();
-#endif
-
-  if (spline_in_use()) { PSZDBG_LOG("merge buf: done"); }
+  PSZDBG_LOG("merge buf: done");
 
   return this;
 }
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+catch (const psz ::exception_gpu_general& e) {
+  std ::cerr << e.what() << std ::endl;
+  error_list.push_back(PSZ_ERROR_GPU_GENERAL);
+  return this;
+}
+#endif
 #if defined(PSZ_USE_1API)
 catch (sycl::exception const& exc) {
   std::cerr << exc.what() << "Exception caught at file:" << __FILE__
             << ", line:" << __LINE__ << std::endl;
-  std::exit(1);
-}
-#endif
-
-COR::dump(std::vector<pszmem_dump> list, char const* basename)
-{
-  for (auto& i : list) {
-    char __[256];
-
-    auto ofn = [&](char const* suffix) {
-      strcpy(__, basename);
-      strcat(__, suffix);
-      return __;
-    };
-
-    // TODO check if compressed len updated
-    if (i == PszArchive)
-      mem->_compressed->control({D2H})->file(ofn(".psz_archive"), ToFile);
-    else if (i == PszQuant)
-      mem->e->control({D2H})->file(ofn(".psz_quant"), ToFile);
-    else if (i == PszHist)
-      mem->ht->control({D2H})->file(ofn(".psz_hist"), ToFile);
-    else if (i > PszHf______ and i < END)
-      codec->dump({i}, basename);
-    else
-      printf("[psz::dump] not a valid segment to dump.");
-  }
-
   return this;
 }
+#endif
 
 COR::clear_buffer()
 {

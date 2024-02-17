@@ -44,6 +44,8 @@ struct psz_context {
   bool report_cr_est{false};
   bool verbose{false};
 
+  bool there_is_memerr{false};
+
   pszdevice device;
 
   psz_predtype pred_type;

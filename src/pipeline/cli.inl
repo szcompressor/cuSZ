@@ -143,14 +143,19 @@ class CLI {
         compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
         &header, (void*)&timerecord, stream);
 
-    printf("\n(c) COMPRESSION REPORT\n");
+    if (not ctx->there_is_memerr) {
+      printf("\n(c) COMPRESSION REPORT\n");
 
-    if (ctx->report_time)
-      psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
-    if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
+      if (ctx->report_time)
+        psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
+      if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
 
-    write_compressed_to_disk(
-        std::string(ctx->infile) + ".cusza", compressed, compressed_len);
+      write_compressed_to_disk(
+          std::string(ctx->infile) + ".cusza", compressed, compressed_len);
+    }
+    else {
+        printf("\n*** exit on failure.\n");
+    }
 
     delete input;
   }

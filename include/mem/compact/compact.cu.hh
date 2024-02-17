@@ -16,6 +16,8 @@
 
 #include <stdexcept>
 
+#include "cusz/type.h"
+#include "exception/exception.hh"
 #include "mem/memseg_cxx.hh"
 
 namespace psz {
@@ -82,21 +84,19 @@ struct CompactGpuDram {
   }
 
   // memcpy
-  CompactGpuDram& make_host_accessible(cudaStream_t stream = 0)
-  {
+  pszerror make_host_accessible(cudaStream_t stream = 0)
+  try {
     cudaMemcpyAsync(&h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
     cudaStreamSynchronize(stream);
     // cudaMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
     // cudaMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
     // cudaStreamSynchronize(stream);
 
-    if (h_num > reserved_len)
-      throw std::runtime_error(
-          "[psz::err::compact] Too many outliers exceed the maximum allocated "
-          "buffer.");
+    if (h_num > reserved_len) throw psz::exception_too_many_outliers();
 
-    return *this;
+    return CUSZ_SUCCESS;
   }
+  NONEXIT_CATCH(psz::exception_too_many_outliers, CUSZ_OUTLIER_TOO_MANY)
 
   CompactGpuDram& control(
       std::vector<pszmem_control> control_stream,

@@ -29,9 +29,17 @@ typedef void* uninit_stream_t;
 //////// state enumeration
 
 typedef enum psz_error_status {  //
-  CUSZ_SUCCESS = 0x00,
-  CUSZ_FAIL_ONDISK_FILE_ERROR = 0x01,
-  CUSZ_FAIL_DATA_NOT_READY = 0x02,
+  CUSZ_SUCCESS,
+  //
+  CUSZ_GENERAL_GPU_FAILURE,
+  //
+  CUSZ_FAIL_ONDISK_FILE_ERROR,
+  CUSZ_FAIL_DATA_NOT_READY,
+  //
+  PSZ_ERROR_GPU_GENERAL,
+  // 
+  PSZ_ERROR_OUTLIER_OVERFLOW,
+  PSZ_ERROR_IO,
   // specify error when calling CUDA API
   CUSZ_FAIL_GPU_MALLOC,
   CUSZ_FAIL_GPU_MEMCPY,
@@ -46,7 +54,9 @@ typedef enum psz_error_status {  //
   CUSZ_FAIL_UNSUPPORTED_PRECISION,
   CUSZ_FAIL_UNSUPPORTED_PIPELINE,
   // not-implemented error
-  CUSZ_NOT_IMPLEMENTED = 0x0100,
+  CUSZ_NOT_IMPLEMENTED,
+  // too many outliers
+  CUSZ_OUTLIER_TOO_MANY,
 } psz_error_status;
 typedef psz_error_status pszerror;
 
