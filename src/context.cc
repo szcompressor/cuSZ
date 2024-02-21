@@ -68,6 +68,29 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
   }
 }
 
+void pszctx_set_dumping(pszctx* ctx, const char* in_str)
+{
+  str_list opts;
+  psz_helper::parse_strlist(in_str, opts);
+
+  for (auto o : opts) {
+    if (psz_helper::is_kv_pair(o)) {
+      auto kv = psz_helper::parse_kv_onoff(o);
+
+      if (kv.first == "quantcode" or kv.first == "quant")
+        ctx->dump_quantcode = kv.second;
+      else if (kv.first == "histogram" or kv.first == "hist")
+        ctx->dump_hist = kv.second;
+    }
+    else {
+      if (o == "quantcode" or o == "quant")
+        ctx->dump_quantcode = true;
+      else if (o == "histogram" or o == "hist")
+        ctx->dump_hist = true;
+    }
+  }
+}
+
 /**
  **  >>> syntax
  **  comma-separated key-pairs
@@ -131,11 +154,12 @@ void pszctx_parse_control_string(
       ctx->radius = psz_helper::str2int(v);
       ctx->dict_size = ctx->radius * 2;
     }
-    else if (optmatch({"huffbyte"})) {
-      ctx->huff_bytewidth = psz_helper::str2int(v);
-      // ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use both*/
-      // : 0b01 /*use 4-byte*/;
-    }
+    // else if (optmatch({"huffbyte"})) {
+    //   ctx->huff_bytewidth = psz_helper::str2int(v);
+    //   // ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use
+    //   both*/
+    //   // : 0b01 /*use 4-byte*/;
+    // }
     else if (optmatch({"huffchunk"})) {
       ctx->vle_sublen = psz_helper::str2int(v);
       ctx->use_autotune_hf = false;
@@ -216,6 +240,10 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-R", "--report"})) {
         check_next();
         pszctx_set_report(ctx, argv[++i]);
+      }
+      else if (optmatch({"--dump"})) {
+        check_next();
+        pszctx_set_dumping(ctx, argv[++i]);
       }
       else if (optmatch({"-h", "--help"})) {
         pszctx_print_document(true);
@@ -541,12 +569,12 @@ void pszctx_set_radius(pszctx* ctx, int _)
   ctx->dict_size = ctx->radius * 2;
 }
 
-void pszctx_set_huffbyte(pszctx* ctx, int _)
-{
-  ctx->huff_bytewidth = _;
-  // ctx->codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01
-  // /*use 4-byte*/;
-}
+// void pszctx_set_huffbyte(pszctx* ctx, int _)
+// {
+//   ctx->huff_bytewidth = _;
+//   // ctx->codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01
+//   // /*use 4-byte*/;
+// }
 
 void pszctx_set_huffchunk(pszctx* ctx, int _)
 {

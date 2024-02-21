@@ -25,6 +25,8 @@
 #include "kernel.hh"
 #include "log.hh"
 #include "mem.hh"
+#include "mem/layout.h"
+#include "mem/memseg_cxx/definition.hh"
 #include "port.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
@@ -250,7 +252,13 @@ COR::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
   PSZSANITIZE_PSZCTX(ctx);
 
   compress_predict(ctx, in, stream);
+  // TODO constexpr to ultimately skip if-statement when not needed
+  if (ctx->dump_quantcode) optional_dump(ctx, pszmem_dump::PszQuant);
+
   compress_histogram(ctx, stream);
+  // TODO constexpr to ultimately skip if-statement when not needed
+  if (ctx->dump_hist) optional_dump(ctx, pszmem_dump::PszHist);
+
   compress_encode(ctx, stream);
   compress_merge(ctx, stream);
   compress_update_header(ctx, stream);
@@ -305,6 +313,32 @@ catch (sycl::exception const& exc) {
   return this;
 }
 #endif
+
+COR::optional_dump(pszctx* ctx, pszmem_dump const i)
+{
+  char __[256];
+
+  auto ofn = [&](char const* suffix) {
+    return string(ctx->infile) + string(suffix);
+  };
+
+  if (i == PszQuant) {
+    auto ofname = ofn(".psz_quant");
+    mem->e->control({D2H})->file(ofname.c_str(), ToFile);
+    cout << "dumping quantization code: " << ofname << endl;
+  }
+  else if (i == PszHist) {
+    auto ofname = ofn(".psz_hist");
+    mem->ht->control({D2H})->file(ofname.c_str(), ToFile);
+    cout << "dumping histogram: " << ofname << endl;
+  }
+  // else if (i > PszHf______ and i < END)
+  //   codec->dump({i}, basename);
+  else
+    printf("[psz::dump] not a valid segment to dump.");
+
+  return this;
+}
 
 COR::clear_buffer()
 {

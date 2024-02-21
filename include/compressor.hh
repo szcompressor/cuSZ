@@ -99,7 +99,7 @@ class Compressor {
   Compressor* decompress_collect_kerneltime();
 
   Compressor* clear_buffer();
-  Compressor* dump(std::vector<pszmem_dump>, char const*);
+  Compressor* optional_dump(pszctx*, pszmem_dump const);
   Compressor* destroy();
 
   // getter
