@@ -46,14 +46,15 @@ void f(std::string fname)
   // pszframe* work = pszdefault_framework();
   // Alternatively,
   pszframe* work = new pszframe{
-      .predictor = pszpredictor{.type = Lorenzo},
-      .quantizer = pszquantizer{.radius = 512},
-      .hfcoder = pszhfrc{.style = Coarse},
-      .max_outlier_percent = 20};
+      pszpredictor{Lorenzo},
+      pszquantizer{/* radius */ 512},
+      pszhfrc{pszdefault_hfcoder()},
+      /* max_outlier_percent */ 20};
 
   pszcompressor* comp = psz_create(work, F4);
 
-  pszctx* ctx = new pszctx{.mode = Rel, .eb = 2.4e-4};
+  pszctx* ctx = new pszctx{};
+  ctx->mode = Rel, ctx->eb = 2.4e-4;
   pszlen uncomp_len = pszlen{3600, 1800, 1, 1};  // x, y, z, w
   pszlen decomp_len = uncomp_len;
 
