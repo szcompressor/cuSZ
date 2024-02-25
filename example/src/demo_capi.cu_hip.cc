@@ -1,8 +1,8 @@
 /**
  * @file demo_cxx_link.cc
  * @author Jiannan Tian
- * @brief
- * @version 0.3
+ * @brief This demo is synchronous with v0.7.
+ * @version 0.7
  * @date 2022-05-06
  *
  * (C) 2022 by Washington State University, Argonne National Laboratory
@@ -23,9 +23,7 @@ void f(std::string fname)
   /* For demo, we use 3600x1800 CESM data. */
   auto len = 3600 * 1800;
 
-  pszheader header;
-  uint8_t* ptr_compressed;
-  uint8_t* compressed_buf;
+  uint8_t* internal_compressed;
   size_t compressed_len;
 
   T *d_uncomp, *h_uncomp;
@@ -62,36 +60,96 @@ void f(std::string fname)
   psz::TimeRecord compress_timerecord;
   psz::TimeRecord decompress_timerecord;
 
+  /*
+  This points to the on-host internal buffer of the header. A duplicate header
+  exists as the first 128 byte of the compressed file on device (as exposed by
+  `internal_compressed` below).
+  */
+  pszheader internal_header;
+
   {
     psz_compress_init(comp, uncomp_len, ctx);
     psz_compress(
-        comp, d_uncomp, uncomp_len, &ptr_compressed, &compressed_len, &header,
-        (void*)&compress_timerecord, stream);
+        comp, d_uncomp, uncomp_len, &internal_compressed, &compressed_len,
+        &internal_header, (void*)&compress_timerecord, stream);
 
     /* User can interpret the collected time information in other ways. */
     psz::TimeRecordViewer::view_compression(
         &compress_timerecord, oribytes, compressed_len);
 
     /* verify header */
-    printf("header.%-*s : %p\n", 12, "(addr)", (void*)&header);
+    printf("header.%-*s : %p\n", 12, "(addr)", (void*)&internal_header);
     printf(
-        "header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", header.x, header.y,
-        header.z);
+        "header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", internal_header.x,
+        internal_header.y, internal_header.z);
     printf(
-        "header.%-*s : %lu\n", 12, "filesize", psz_utils::filesize(&header));
+        "header.%-*s : %lu\n", 12, "filesize",
+        psz_utils::filesize(&internal_header));
   }
 
-  /* If needed, User should perform a memcopy to transfer `ptr_compressed`
-   * before `compressor` is destroyed. */
-  cudaMalloc(&compressed_buf, compressed_len);
-  cudaMemcpy(
-      compressed_buf, ptr_compressed, compressed_len,
-      cudaMemcpyDeviceToDevice);
+  /*
+  Scenario 1:
+  Memcpy from `internal_compressed`, on-device internal buffer (which saves
+  the compressed archive), to `external_compressed`, another on-device buffer
+  that persists independent from `compressor`. And the transfer happens before
+  `compressor` along with `internal_compressed` is destroyed.
+  */
 
+  /* This malloc can happen anywhere. */
+  uint8_t* external_compressed;
+
+  cudaMalloc(&external_compressed, compressed_len);
+  cudaMemcpy(
+      external_compressed, internal_compressed, compressed_len,
+      cudaMemcpyDeviceToDevice);
+  /*
+  Scenario 1 (cont'ed):
+  In this case, a header (the first 128 byte of the buffer) needs to be saved
+  on host for . There are two ways to complete this.
+
+  (1) Make a copy of the **on-host** `internal_header`, the exposed header in
+  the compressor buffer, and handle it otherwise. During the decompression,
+  this header copy can be used directly.
+
+  (2) Extract the first 128 bytes and type-cast them to `pszheader` (or the
+  pointer). If the compressed archive exists on device, an explicit
+  device-to-host memcpy is needed.
+  */
+
+  /*
+  Scenario 2:
+  Memcpy from `internal_compressed`, on-device internal buffer (which saves
+  the compressed archive), to `host_compressed`, an on-host buffer for
+  persisting in host memory or saving to filesystem.
+
+  The code snippet for Scenario 2 is commended for no conflict to compile this
+  demo.
+  */
+
+  /*
+  uint8_t* host_compressed;
+  cudaMallocHost(&host_compressed, compressed_len);
+  cudaMemcpy(
+      host_compressed, internal_compressed, compressed_len,
+      cudaMemcpyDeviceToHost);
+  pszheader external_header = *((pszheader*)host_compressed);
+
+  // Put at the end of the API call to clean up:
+  cudaFreeHost(host_compressed);
+  */
+
+  /*
+  The decompression presumes that the user is in Scenario 1 and use method (2)
+  to make a copy of header.
+  */
   {
+    pszheader header;
+    cudaMemcpy(
+        &header, external_compressed, sizeof(pszheader),
+        cudaMemcpyDeviceToHost);
     psz_decompress_init(comp, &header);
     psz_decompress(
-        comp, ptr_compressed, compressed_len, d_decomp, decomp_len,
+        comp, external_compressed, compressed_len, d_decomp, decomp_len,
         (void*)&decompress_timerecord, stream);
 
     psz::TimeRecordViewer::view_decompression(
@@ -103,7 +161,7 @@ void f(std::string fname)
 
   psz_release(comp);
 
-  cudaFree(compressed_buf);
+  cudaFree(external_compressed);
   cudaFree(d_uncomp), cudaFreeHost(h_uncomp);
   cudaFree(d_decomp), cudaFreeHost(h_decomp);
 
