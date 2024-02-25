@@ -93,6 +93,14 @@ target_link_libraries(pszmodule2401_cu PUBLIC pszcompile_settings
   CUDA::cudart
 )
 
+add_library(pszanalysis2402
+  src/hf/hf_est.cc
+  src/hf/hfbk_impl1.seq.cc
+  src/hf/hfbk_impl2.seq.cc
+  src/hf/hfbk_internal.seq.cc
+)
+target_link_libraries(pszanalysis2402 PUBLIC pszcompile_settings)
+
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_cu.cc)
 target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
 
@@ -165,6 +173,8 @@ install(TARGETS pszcompile_settings EXPORT CUSZTargets)
 
 install(TARGETS pszkernel_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszkernel_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszmodule2401_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pszanalysis2402 EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszstat_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszstat_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszmem EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
