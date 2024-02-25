@@ -13,6 +13,8 @@ void psz_review_timerecord(void* _r, psz_header* h);
 void psz_review_cr(psz_header* h);
 void psz_review_compression(void* r, psz_header* h);
 void psz_review_decompression(void* r, size_t bytes);
+void psz_review_evaluated_quality(
+    psz_policy, psz_dtype, void*, void*, size_t, size_t, bool);
 
 #ifdef __cplusplus
 }

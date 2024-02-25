@@ -41,11 +41,13 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
   s->odata.max = odata_res[MAXVAL];
   s->odata.min = odata_res[MINVAL];
   s->odata.rng = odata_res[MAXVAL] - odata_res[MINVAL];
+  s->odata.avg = odata_res[AVGVAL];
   s->odata.std = std_odata;
 
   s->xdata.max = xdata_res[MAXVAL];
   s->xdata.min = xdata_res[MINVAL];
   s->xdata.rng = xdata_res[MAXVAL] - xdata_res[MINVAL];
+  s->xdata.avg = xdata_res[AVGVAL];
   s->xdata.std = std_xdata;
 
   s->max_err_idx = max_abserr_index;

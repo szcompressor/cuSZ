@@ -23,7 +23,6 @@
 #include "mem.hh"
 #include "stat/compare.hh"
 #include "tehm.hh"
-#include "utils/viewer/viewer.h"
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "utils/analyzer.hh"
 #endif
@@ -88,7 +87,7 @@ class CLI {
 
     psz_summary stat;
     psz::assess_quality<THRUST>(&stat, reconst->dptr(), original->dptr(), len);
-    psz::print_metrics_cross<T>(&stat, 0, true);
+    psz::print_metrics_cross<T>(&stat, 0);
 
     // destroy
     original->control({FreeHost, Free});

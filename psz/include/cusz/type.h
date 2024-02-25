@@ -121,7 +121,7 @@ typedef struct psz_compressor {
 } psz_compressor;
 
 typedef struct psz_basic_data_description {
-  f8 min, max, rng, std;
+  f8 min, max, rng, std, avg;
 } psz_basic_data_description;
 typedef psz_basic_data_description psz_data_desc;
 

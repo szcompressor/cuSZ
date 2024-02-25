@@ -1,14 +1,6 @@
-#ifndef BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
-#define BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
-
-#include "cusz/type.h"
-#include "header.h"
-#include "mem/array_cxx.h"
 #include "stat/compare.hh"
-#include "utils/verify.hh"
-#include "viewer.noarch.hh"
 
-using namespace portable;
+namespace psz {
 
 template <typename T, psz_policy P = THRUST>
 static void pszcxx_evaluate_quality_gpu(
@@ -16,13 +8,13 @@ static void pszcxx_evaluate_quality_gpu(
 {
   // cross
   auto stat_x = new psz_summary;
-  psz::assess_quality<P, T>(stat_x, reconstructed, origin, len);
+  psz::dpl::GPU_assess_quality<T>(stat_x, reconstructed, origin, len);
   psz::print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new psz_summary;
-  psz::assess_quality<P, T>(stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::dpl::GPU_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
-  psz::assess_quality<P, T>(stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::dpl::GPU_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::print_metrics_auto(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
@@ -30,23 +22,14 @@ static void pszcxx_evaluate_quality_gpu(
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
-namespace _2401 {
-template <typename T, psz_policy P>
-pszerror pszcxx_evaluate_quality_gpu(array3<T> reconstructed, array3<T> origin)
-{
-  pszcxx_evaluate_quality_gpu<T, P>(
-      (T*)reconstructed.buf, (T*)origin.buf, reconstructed.len3.x);
-
-  return CUSZ_SUCCESS;
-}
-
-}  // namespace _2401
-
 template <typename T>
 static void pszcxx_evaluate_quality_cpu(
     T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0,
     bool from_device = true)
 {
+  sycl::device dev_ct1;
+  sycl::queue q_ct1(
+      dev_ct1, sycl::property_list{sycl::property::queue::in_order()});
   auto stat = new psz_summary;
   T* reconstructed;
   T* origin;
@@ -57,10 +40,10 @@ static void pszcxx_evaluate_quality_cpu(
   else {
     printf("allocating tmp space for CPU verification\n");
     auto bytes = sizeof(T) * len;
-    GpuMallocHost(&reconstructed, bytes);
-    GpuMallocHost(&origin, bytes);
-    GpuMemcpy(reconstructed, _d1, bytes, GpuMemcpyD2H);
-    GpuMemcpy(origin, _d2, bytes, GpuMemcpyD2H);
+    reconstructed = (T*)sycl::malloc_host(bytes, q_ct1);
+    origin = (T*)sycl::malloc_host(bytes, q_ct1);
+    q_ct1.memcpy(reconstructed, _d1, bytes).wait();
+    q_ct1.memcpy(origin, _d2, bytes).wait();
   }
   cusz::verify_data<T>(stat, reconstructed, origin, len);
   psz::print_metrics_cross<T>(stat, compressed_bytes, false);
@@ -74,22 +57,20 @@ static void pszcxx_evaluate_quality_cpu(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   if (from_device) {
-    if (reconstructed) GpuFreeHost(reconstructed);
-    if (origin) GpuFreeHost(origin);
+    if (reconstructed) sycl::free(reconstructed, q_ct1);
+    if (origin) sycl::free(origin, q_ct1);
   }
 
   delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
-
-namespace psz {
 
 template <typename T>
 static void view(
     psz_header* header, memobj<T>* xdata, memobj<T>* cmp,
     string const& compare)
 {
-  auto len = pszheader_uncompressed_len(header);
-  auto compressd_bytes = pszheader_compressed_len(header);
+  auto len = psz_utils::uncompressed_len(header);
+  auto compressd_bytes = psz_utils::filesize(header);
 
   auto compare_on_gpu = [&]() {
     cmp->control({MallocHost, Malloc})
@@ -111,12 +92,12 @@ static void view(
 
   if (compare != "") {
     auto gb = 1.0 * sizeof(T) * len / 1e9;
-    if (gb < 0.8)
-      compare_on_gpu();
-    else
-      compare_on_cpu();
+#warning \
+    "[psz::dpcpp::todo] DPL impl of quality assessment not working; revert to CPU version"
+    // if (gb < 0.8)
+    //   compare_on_gpu();
+    // else
+    compare_on_cpu();
   }
 }
 }  // namespace psz
-
-#endif /* BF8291FB_FC70_424B_B53C_94C1D8DDAC5A */

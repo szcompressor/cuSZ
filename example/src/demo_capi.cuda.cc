@@ -15,8 +15,6 @@
 
 // utilities for demo
 #include "utils/io.hh"  // io::read_binary_to_array
-#include "utils/viewer/viewer.cu_hip.hh"
-#include "utils/viewer/viewer.h"
 
 using T = float;
 
@@ -111,7 +109,8 @@ int main(int argc, char** argv)
   {
     auto comp_len = pszheader_filesize(&header);
     psz_review_decompression(decomp_timerecord, oribytes);
-    pszcxx_evaluate_quality_gpu(d_decomp, d_uncomp, len, comp_len);
+    psz_review_evaluated_quality(
+        THRUST, F4, d_decomp, d_uncomp, len, comp_len, true);
   }
 
   // clean up

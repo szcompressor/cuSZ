@@ -238,30 +238,6 @@ struct psz_utils {
     return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
   };
 
-  static float get_throughput(float milliseconds, size_t nbyte)
-  {
-    auto GiB = 1.0 * 1024 * 1024 * 1024;
-    auto seconds = milliseconds * 1e-3;
-    return nbyte / GiB / seconds;
-  }
-
-  static void println_throughput(const char* s, float timer, size_t _nbyte)
-  {
-    if (timer == 0.0) return;
-    auto t = get_throughput(timer, _nbyte);
-    printf("  %-12s %'12f %'10.2f\n", s, timer, t);
-  };
-
-  static void println_throughput_tablehead()
-  {
-    printf(
-        "\n  \e[1m\e[31m%-12s %12s %10s\e[0m\n",  //
-        const_cast<char*>("kernel"),              //
-        const_cast<char*>("time, ms"),            //
-        const_cast<char*>("GiB/s")                //
-    );
-  }
-
   static void print_datasegment_tablehead()
   {
     printf(

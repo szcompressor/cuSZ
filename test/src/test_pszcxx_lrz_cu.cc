@@ -6,7 +6,7 @@
 #include "module/cxx_module.hh"
 #include "pszcxx.hh"
 #include "utils/io.hh"
-#include "utils/viewer/viewer.cu_hip.hh"
+#include "utils/viewer.hh"
 
 using namespace portable;
 

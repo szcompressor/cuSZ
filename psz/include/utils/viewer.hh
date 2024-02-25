@@ -14,21 +14,50 @@
 #define C6EF99AE_F0D7_485B_ADE4_8F55666CA96C
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <iomanip>
+#include <string>
+#include <vector>
 
 #include "cusz/type.h"
 #include "header.h"
+#include "mem/array_cxx.h"
 #include "mem/memobj.hh"
 #include "port.hh"
 #include "verify.hh"
 
-// deps
-#include "viewer/viewer.noarch.hh"
+using std::string;
+using std::vector;
+using namespace portable;
 
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-#include "viewer/viewer.cu_hip.hh"
-#elif defined(PSZ_USE_1API)
-#include "viewer/viewer.dp.hh"
-#endif
+// deps
+namespace psz {
+
+template <typename T>
+void print_metrics_cross(
+    psz_summary* s, size_t comp_bytes = 0, bool gpu_checker = false);
+
+void print_metrics_auto(double* lag1_cor, double* lag2_cor);
+
+template <typename T>
+void view(
+    psz_header* header, memobj<T>* xdata, memobj<T>* cmp,
+    string const& compare);
+
+}  // namespace psz
+
+// TODO have not passed test
+template <typename T, psz_policy P = THRUST>
+pszerror pszcxx_evaluate_quality_gpu(array3<T> xdata, array3<T> odata);
+
+template <typename T, psz_policy P = THRUST>
+void pszcxx_evaluate_quality_gpu(
+    T* xdata, T* odata, size_t len, size_t comp_bytes = 0);
+
+template <typename T>
+void pszcxx_evaluate_quality_cpu(
+    T* _d1, T* _d2, size_t len, size_t comp_bytes = 0,
+    bool from_device = true);
 
 #endif /* C6EF99AE_F0D7_485B_ADE4_8F55666CA96C */

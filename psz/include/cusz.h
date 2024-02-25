@@ -19,6 +19,7 @@ extern "C" {
 #include "context.h"
 #include "cusz/type.h"
 #include "header.h"
+#include "cusz/review.h"
 
 #define psz_create capi_psz_create
 #define psz_create_default capi_psz_create_default
@@ -52,8 +53,6 @@ pszerror capi_psz_compress(
 pszerror capi_psz_decompress(
     psz_compressor* comp, uint8_t* compressed, size_t const comp_len,
     void* decompressed, psz_len3 const decomp_len, void* record, void* stream);
-
-float* capi_psz_stage_time(psz_compressor*);
 
 // defined in context.cc
 extern void capi_psz_version();

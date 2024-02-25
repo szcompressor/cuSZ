@@ -115,6 +115,7 @@ target_link_libraries(psz_cu_mem
 
 add_library(psz_cu_utils
   psz/src/utils/viewer.cc
+  psz/src/utils/viewer.cu
   psz/src/utils/verinfo.cc
   psz/src/utils/verinfo.cu
   psz/src/utils/verinfo_nv.cu
