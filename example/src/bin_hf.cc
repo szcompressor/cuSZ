@@ -11,7 +11,7 @@
 
 #include <string>
 
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "kernel/hist.hh"
 #include "mem.hh"
 #include "stat.hh"

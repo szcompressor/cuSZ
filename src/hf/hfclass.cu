@@ -15,7 +15,7 @@
  */
 
 #include "busyheader.hh"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "hf/hfbk.hh"
 #include "hf/hfbk.cu.hh"
 #include "hf/hfcodec.hh"

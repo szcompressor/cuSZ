@@ -57,7 +57,6 @@ class HuffmanCodec {
     size_t original_len;
     size_t total_nbit;
     size_t total_ncell;  // TODO change to uint32_t
-    psz_dtype encdtype;
     M entry[END + 1];
 
     M compressed_size() const { return entry[END]; }
@@ -73,7 +72,6 @@ class HuffmanCodec {
     static const int PAR_ENTRY = 6;
     static const int BITSTREAM = 7;
     static const int END = 8;
-
     // uint32_t nbyte[END];
   };
 
@@ -87,21 +85,17 @@ class HuffmanCodec {
   // array
   pszmem_cxx<RAW>* __scratch;
   pszmem_cxx<H4>* scratch4;
-  pszmem_cxx<H8>* scratch8;
 
   pszmem_cxx<BYTE>* compressed;
 
   // pszmem_cxx<RAW>* __bk;
   pszmem_cxx<H4>* bk4;
-  pszmem_cxx<H8>* bk8;
 
   pszmem_cxx<RAW>* __revbk;
   pszmem_cxx<BYTE>* revbk4;
-  pszmem_cxx<BYTE>* revbk8;
 
   pszmem_cxx<RAW>* __bitstream;
   pszmem_cxx<H4>* bitstream4;
-  pszmem_cxx<H8>* bitstream8;
 
   // data partition/embarrassingly parallelism description
   pszmem_cxx<M>* par_nbit;

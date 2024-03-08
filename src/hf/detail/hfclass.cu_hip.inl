@@ -36,7 +36,6 @@ TPL HF_CODEC::~HuffmanCodec()
 {
   // delete scratch;
   delete bk4, delete revbk4;
-  delete bk8, delete revbk8;
 
   delete par_nbit, delete par_ncell, delete par_entry;
 
@@ -45,8 +44,8 @@ TPL HF_CODEC::~HuffmanCodec()
   delete bitstream_desc;
 
   delete compressed;
-  delete __scratch, delete scratch4, delete scratch8;
-  delete __bitstream, delete bitstream4, delete bitstream8;
+  delete __scratch, delete scratch4;
+  delete __bitstream, delete bitstream4;
   delete hist_view;
 }
 
@@ -77,19 +76,15 @@ TPL HF_CODEC* HF_CODEC::init(
 
   __scratch = new pszmem_cxx<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
   scratch4 = new pszmem_cxx<H4>(inlen, 1, 1, "hf::scratch4");
-  scratch8 = new pszmem_cxx<H8>(inlen, 1, 1, "hf::scratch8");
 
   bk4 = new pszmem_cxx<H4>(bklen, 1, 1, "hf::book4");
-  bk8 = new pszmem_cxx<H8>(bklen, 1, 1, "hf::book8");
 
   revbk4 = new pszmem_cxx<BYTE>(revbk4_bytes(bklen), 1, 1, "hf::revbk4");
-  revbk8 = new pszmem_cxx<BYTE>(revbk8_bytes(bklen), 1, 1, "hf::revbk8");
 
   // encoded buffer
   __bitstream =
       new pszmem_cxx<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
   bitstream4 = new pszmem_cxx<H4>(inlen / 2, 1, 1, "hf::bitstrm4");
-  bitstream8 = new pszmem_cxx<H8>(inlen / 2, 1, 1, "hf::bitstrm8");
 
   par_nbit = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_nbit");
   par_ncell = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_ncell");
@@ -101,17 +96,13 @@ TPL HF_CODEC* HF_CODEC::init(
   // allocate
   __scratch->control({Malloc, MallocHost});
   scratch4->asaviewof(__scratch);
-  scratch8->asaviewof(__scratch);
 
   bk4->control({Malloc, MallocHost});
-  bk8->control({Malloc, MallocHost});
 
   revbk4->control({Malloc, MallocHost});
-  revbk8->control({Malloc, MallocHost});
 
   __bitstream->control({Malloc, MallocHost});
   bitstream4->asaviewof(__bitstream);
-  bitstream8->asaviewof(__bitstream);
 
   par_nbit->control({Malloc, MallocHost});
   par_ncell->control({Malloc, MallocHost});
@@ -161,17 +152,6 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 TPL HF_CODEC* HF_CODEC::build_codebook(
     MemU4* freq, int const bklen, uninit_stream_t stream)
 {
-#ifdef __WORK_IN_PROGRESS
-  psz::hf_buildbook<SEQ, E, H8>(
-      freq->control({D2H})->hptr(), bklen, bk8->hptr(), revbk8->hptr(),
-      revbk8_bytes(bklen), &_time_book, (GpuStreamT)stream);
-  bk8->control({ASYNC_H2D}, (GpuStreamT)stream);
-  revbk8->control({ASYNC_H2D}, (GpuStreamT)stream);
-  __encdtype = ULL;
-
-  // [TODO] need get max bits of huffman code
-#endif
-
   psz::hf_buildbook<SEQ, E, H4>(
       freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(),
       revbk4_bytes(bklen), &_time_book, (GpuStreamT)stream);
@@ -179,8 +159,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
   revbk4->control({ASYNC_H2D}, (GpuStreamT)stream);
   __encdtype = U4;
 
-  book_desc->bktype = __encdtype;
-  book_desc->book = __encdtype == U4 ? (void*)bk4->dptr() : (void*)bk8->dptr();
+  book_desc->book = (void*)bk4->dptr();
 
   hist_view->asaviewof(freq);  // for analysis
 
@@ -263,18 +242,10 @@ TPL HF_CODEC* HF_CODEC::encode(
   pszhf_header header;
 
   // So far, the enc scheme has been deteremined.
-  header.encdtype = __encdtype;
 
-  if (__encdtype == U4)
-    psz::hf_encode_coarse_rev2<E, H4, M>(
-        in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-        &header.total_ncell, &_time_lossless, stream);
-  else {
-    printf("[psz::dbg::hf::enc] using H8 for encoding\n");
-    psz::hf_encode_coarse_rev2<E, H8, M>(
-        in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-        &header.total_ncell, &_time_lossless, stream);
-  }
+  psz::hf_encode_coarse_rev2<E, H4, M>(
+      in, inlen, book_desc, bitstream_desc, &header.total_nbit,
+      &header.total_ncell, &_time_lossless, stream);
 
   __hf_merge(
       header, inlen, book_desc->bklen, bitstream_desc->sublen,
@@ -296,18 +267,11 @@ TPL HF_CODEC* HF_CODEC::decode(
         &header, in_compressed, sizeof(header), GpuMemcpyD2H,
         (GpuStreamT)stream));
 
-  if (header.encdtype == U4)
-    psz::hf_decode_coarse<E, H4, M>(
-        ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
-        revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
-        ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
-        &_time_lossless, stream);
-  else
-    psz::hf_decode_coarse<E, H8, M>(
-        ACCESSOR(BITSTREAM, H8), ACCESSOR(REVBK, BYTE),
-        revbk8_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
-        ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
-        &_time_lossless, stream);
+  psz::hf_decode_coarse<E, H4, M>(
+      ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
+      revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
+      ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
+      &_time_lossless, stream);
 
   return this;
 }
@@ -403,7 +367,7 @@ TPL void HF_CODEC::__hf_merge(
 
   {
     auto dst = compressed->dptr() + header.entry[Header::REVBK];
-    auto src = __encdtype == U4 ? revbk4->dptr() : revbk8->dptr();
+    auto src = revbk4->dptr();
     CHECK_GPU(GpuMemcpyAsync(
         dst, src, nbyte[Header::REVBK], D2D, (GpuStreamT)stream));
   }

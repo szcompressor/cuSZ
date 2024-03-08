@@ -15,7 +15,7 @@
 #include "context.h"
 #include "cusz.h"
 #include "cusz/type.h"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "port.hh"
 #include "tehm.hh"
 

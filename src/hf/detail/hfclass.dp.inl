@@ -161,17 +161,6 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 TPL HF_CODEC* HF_CODEC::build_codebook(
     MemU4* freq, int const bklen, void* stream)
 {
-#ifdef __WORK_IN_PROGRESS
-  psz::hf_buildbook<CPU, E, H8>(
-      freq->control({D2H})->hptr(), bklen, bk8->hptr(), revbk8->hptr(),
-      revbk8_bytes(bklen), &_time_book, (GpuStreamT)stream);
-  bk8->control({ASYNC_H2D}, (GpuStreamT)stream);
-  revbk8->control({ASYNC_H2D}, (GpuStreamT)stream);
-  __encdtype = ULL;
-
-  // [TODO] need get max bits of huffman code
-#endif
-
   psz::hf_buildbook<SEQ, E, H4>(
       freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(),
       revbk4_bytes(bklen), &_time_book, (dpct::queue_ptr)stream);
@@ -179,7 +168,6 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
   revbk4->control({ASYNC_H2D}, (dpct::queue_ptr)stream);
   __encdtype = U4;
 
-  book_desc->bktype = __encdtype;
   book_desc->book = __encdtype == U4 ? (void*)bk4->dptr() : (void*)bk8->dptr();
 
   hist_view->asaviewof(freq);  // for analysis
@@ -263,18 +251,10 @@ TPL HF_CODEC* HF_CODEC::encode(
   pszhf_header header;
 
   // So far, the enc scheme has been deteremined.
-  header.encdtype = __encdtype;
 
-  if (__encdtype == U4)
-    psz::hf_encode_coarse_rev2<E, H4, M>(
-        in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-        &header.total_ncell, &_time_lossless, stream);
-  else {
-    printf("[psz::dbg::hf::enc] using H8 for encoding\n");
-    psz::hf_encode_coarse_rev2<E, H8, M>(
-        in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-        &header.total_ncell, &_time_lossless, stream);
-  }
+  psz::hf_encode_coarse_rev2<E, H4, M>(
+      in, inlen, book_desc, bitstream_desc, &header.total_nbit,
+      &header.total_ncell, &_time_lossless, stream);
 
   __hf_merge(
       header, inlen, book_desc->bklen, bitstream_desc->sublen,
@@ -296,18 +276,11 @@ TPL HF_CODEC* HF_CODEC::decode(
   if (header_on_device)
     queue->memcpy(&header, in_compressed, sizeof(header)).wait();
 
-  if (header.encdtype == U4)
-    psz::hf_decode_coarse<E, H4, M>(
-        ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
-        revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
-        ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
-        &_time_lossless, stream);
-  else
-    psz::hf_decode_coarse<E, H8, M>(
-        ACCESSOR(BITSTREAM, H8), ACCESSOR(REVBK, BYTE),
-        revbk8_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
-        ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
-        &_time_lossless, stream);
+  psz::hf_decode_coarse<E, H4, M>(
+      ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
+      revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
+      ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
+      &_time_lossless, stream);
 
   return this;
 }

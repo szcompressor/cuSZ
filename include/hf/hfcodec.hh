@@ -28,8 +28,8 @@ void hf_encode_coarse_rev2(
 
 template <typename T, typename H, typename M>
 void hf_decode_coarse(
-    H* d_bitstream, uint8_t* d_revbook, int const revbook_nbyte, M* d_par_nbit,
-    M* d_par_entry, int const sublen, int const pardeg, T* out_decompressed,
+    H* d_bitstream, uint8_t* d_revbook, size_t const revbook_nbyte, M* d_par_nbit,
+    M* d_par_entry, size_t const sublen, size_t const pardeg, T* out_decompressed,
     float* time_lossless, void* stream);
 
 }  // namespace psz

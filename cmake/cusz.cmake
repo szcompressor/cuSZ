@@ -79,7 +79,7 @@ add_library(
   )
 target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
 
-
+# TODO installation
 add_library(
   pszmodule2401_cu
   src/module/lrz.cc
@@ -90,6 +90,16 @@ add_library(
 )
 target_link_libraries(pszmodule2401_cu PUBLIC pszcompile_settings
   pszkernel_cu 
+  CUDA::cudart
+)
+
+
+# TODO installation
+add_library(
+  phfmodule2401_cu
+  src/hf/hfcxx_module.cu
+)
+target_link_libraries(phfmodule2401_cu PUBLIC pszcompile_settings
   CUDA::cudart
 )
 
@@ -132,12 +142,13 @@ add_library(
                 src/hf/hfbk_internal.seq.cc src/hf/hfbk.seq.cc src/hf/hfcanon.seq.cc)
 target_link_libraries(pszhfbook_seq PUBLIC pszcompile_settings)
 
-add_library(pszhf_cu src/hf/hfclass.cu src/hf/hfcodec.cu)
+add_library(pszhf_cu src/hf/hfclass.cu src/hf/hfcodec.cc)
 if(PSZ_RESEARCH_HUFFBK_CUDA)
   target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
                                         pszhfbook_cu pszhfbook_seq)
 else()
   target_link_libraries(pszhf_cu PUBLIC pszcompile_settings pszstat_cu
+                                        phfmodule2401_cu
                                         pszhfbook_seq CUDA::cuda_driver)
 endif(PSZ_RESEARCH_HUFFBK_CUDA)
 # unset(PSZ_RESEARCH_HUFFBK_CUDA CACHE)
@@ -182,6 +193,7 @@ install(TARGETS pszutils_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INST
 install(TARGETS psztime EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszspv_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhfbook_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS phfmodule2401_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhf_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszcomp_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS psztestframe_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

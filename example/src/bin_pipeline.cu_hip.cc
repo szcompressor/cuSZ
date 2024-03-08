@@ -15,7 +15,7 @@
 #include "context.h"
 #include "cusz.h"
 #include "ex_utils.hh"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "kernel.hh"
 #include "mem.hh"
 #include "port.hh"

@@ -21,7 +21,7 @@
 #include "cusz/type.h"
 #include "exception/exception.hh"
 #include "header.h"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "kernel.hh"
 #include "log.hh"
 #include "mem.hh"
@@ -150,9 +150,9 @@ try {
   /* make outlier count seen on host */
   {
     mem->compact->make_host_accessible((GpuStreamT)stream);
-    cerr << "outlier numbers: " << mem->compact->num_outliers() << ",\t";
-    cerr << "all numbers: " << linear << ",\t";
-    cerr << (mem->compact->num_outliers() * 100.0 / linear) << "%" << endl;
+    // cerr << "outlier numbers: " << mem->compact->num_outliers() << ",\t";
+    // cerr << "all numbers: " << linear << ",\t";
+    // cerr << (mem->compact->num_outliers() * 100.0 / linear) << "%" << endl;
     ctx->splen = mem->compact->num_outliers();
   }
 
@@ -199,6 +199,13 @@ COR::compress_encode(pszctx* ctx, void* stream)
   codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
 
   PSZDBG_LOG("encoding done");
+
+  return this;
+}
+
+COR::compress_encode_use_prebuilt(pszctx* ctx, void* stream)
+{
+  throw psz::exception_placeholder();
 
   return this;
 }
@@ -259,7 +266,12 @@ COR::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
   // TODO constexpr to ultimately skip if-statement when not needed
   if (ctx->dump_hist) optional_dump(ctx, pszmem_dump::PszHist);
 
-  compress_encode(ctx, stream);
+  // TODO switch to constexpr
+  if (ctx->use_prebuilt_hfbk)
+    compress_encode_use_prebuilt(ctx, stream);
+  else
+    compress_encode(ctx, stream);
+
   compress_merge(ctx, stream);
   compress_update_header(ctx, stream);
   compress_wrapup(out, outlen);

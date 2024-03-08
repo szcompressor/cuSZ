@@ -16,7 +16,7 @@
 #include "context.h"
 #include "cusz/type.h"
 #include "header.h"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "mem.hh"
 #include "typing.hh"
 
@@ -87,6 +87,7 @@ class Compressor {
   Compressor* compress_predict(pszctx*, T*, uninit_stream_t);
   Compressor* compress_histogram(pszctx*, uninit_stream_t);
   Compressor* compress_encode(pszctx*, uninit_stream_t);
+  Compressor* compress_encode_use_prebuilt(pszctx*, uninit_stream_t);
   Compressor* compress_merge(pszctx*, void*);
   Compressor* compress_update_header(pszctx*, uninit_stream_t);
   Compressor* compress_wrapup(BYTE** out, szt* outlen);
