@@ -295,7 +295,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-i", "--input"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->infile, _.c_str());
+        strcpy(ctx->file_input, _.c_str());
       }
       else if (optmatch({"-l", "--len", "--xyz", "--dim3"})) {
         check_next();
@@ -352,7 +352,25 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"--origin", "--compare"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->original_file, _.c_str());
+        strcpy(ctx->file_compare, _.c_str());
+      }
+      else if (optmatch({"--import-hfbk"})) {
+        /* --import-hfbk fname,bklen,nbk */
+        check_next();
+        auto _ = std::string(argv[++i]);
+
+        std::vector<std::string> _tokens;
+        std::string _token;
+        std::istringstream _tokenstream(_);
+        while (std::getline(_tokenstream, _token, ',')) {
+          _tokens.push_back(_token);
+        }
+
+        strcpy(ctx->file_prebuilt_hist_top1, _tokens[0].c_str());
+        strcpy(ctx->file_prebuilt_hfbk, _tokens[1].c_str());
+        ctx->prebuilt_bklen = psz_helper::str2int(_tokens[2]);
+        ctx->prebuilt_nbk = psz_helper::str2int(_tokens[3]);
+        ctx->use_prebuilt_hfbk = true;
       }
       else if (optmatch({"--sycl-device"})) {
 #if defined(PSZ_USE_1API)
@@ -464,8 +482,8 @@ void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
 void pszctx_validate(pszctx* ctx)
 {
   bool to_abort = false;
-  // if (ctx->infile.empty()) {
-  if (ctx->infile[0] == '\0') {
+  // if (ctx->file_input.empty()) {
+  if (ctx->file_input[0] == '\0') {
     cerr << LOG_ERR << "must specify input file" << endl;
     to_abort = true;
   }
@@ -512,6 +530,13 @@ void pszctx_validate(pszctx* ctx)
          << endl;
     cerr << LOG_WARN << "will dryrun only" << endl << endl;
     ctx->task_reconstruct = false;
+  }
+
+  // if use prebuilt hfbk
+  if (ctx->use_prebuilt_hfbk) {
+    if (ctx->prebuilt_bklen != ctx->dict_size)
+      throw std::runtime_error("prebuilt-bklen != runtime-bklen");
+    // TODO use filesize to check nbk
   }
 
   if (to_abort) {

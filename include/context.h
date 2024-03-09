@@ -35,15 +35,18 @@ struct psz_context {
 
   // filenames
   char demodata_name[40];
-  char infile[500];
-  char original_file[500];
   char opath[200];
+  char file_input[500];
+  char file_compare[500];
+  char file_prebuilt_hist_top1[500];
+  char file_prebuilt_hfbk[500];
 
   // pipeline config
   psz_dtype dtype{F4};
   psz_mode mode{Rel};
   double eb{0.0};
   int dict_size{1024}, radius{512};
+  int prebuilt_bklen{1024}, prebuilt_nbk{1000};
 
   // spv gather-scatter config, tmp. unused
   float nz_density{0.2};
@@ -73,6 +76,7 @@ struct psz_context {
   bool use_demodata{false};
   bool use_autotune_hf{true};
   bool use_gpu_verify{false};
+  bool use_prebuilt_hfbk{false};
 
   bool skip_tofile{false};
   bool skip_hf{false};

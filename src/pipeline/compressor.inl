@@ -319,7 +319,7 @@ COR::optional_dump(pszctx* ctx, pszmem_dump const i)
   char __[256];
 
   auto ofn = [&](char const* suffix) {
-    return string(ctx->infile) + string(suffix);
+    return string(ctx->file_input) + string(suffix);
   };
 
   if (i == PszQuant) {

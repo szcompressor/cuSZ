@@ -53,7 +53,7 @@ class CLI {
     auto x = ctx->x, y = ctx->y, z = ctx->z;
     auto eb = ctx->eb;
     auto r2r = ctx->mode == Rel;
-    auto fname = ctx->infile;
+    auto fname = ctx->file_input;
 
     pszmem_cxx<T>* original = new pszmem_cxx<T>(x, y, z, "original");
     pszmem_cxx<T>* reconst = new pszmem_cxx<T>(x, y, z, "reconst");
@@ -123,7 +123,7 @@ class CLI {
     pszheader header;
 
     input->control({MallocHost, Malloc})
-        ->file(ctx->infile, FromFile)
+        ->file(ctx->file_input, FromFile)
         ->control({H2D});
 
     // adjust eb
@@ -151,7 +151,7 @@ class CLI {
       if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
 
       write_compressed_to_disk(
-          std::string(ctx->infile) + ".cusza", compressed, compressed_len);
+          std::string(ctx->file_input) + ".cusza", compressed, compressed_len);
     }
     else {
         printf("\n*** exit on failure.\n");
@@ -164,17 +164,17 @@ class CLI {
   void do_reconstruct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
     // extract basename w/o suffix
-    auto basename = std::string(ctx->infile);
+    auto basename = std::string(ctx->file_input);
     basename = basename.substr(0, basename.rfind('.'));
 
     // all lengths in metadata
-    auto compressed_len = psz_utils::filesize(ctx->infile);
+    auto compressed_len = psz_utils::filesize(ctx->file_input);
 
     auto compressed =
         new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "compressed");
 
     compressed->control({MallocHost, Malloc})
-        ->file(ctx->infile, FromFile)
+        ->file(ctx->file_input, FromFile)
         ->control({H2D});
 
     auto header = new psz_header;
@@ -198,7 +198,7 @@ class CLI {
     if (ctx->report_time)
       psz::TimeRecordViewer::view_decompression(
           &timerecord, decompressed->m->bytes);
-    psz::view(header, decompressed, original, ctx->original_file);
+    psz::view(header, decompressed, original, ctx->file_compare);
 
     if (not ctx->skip_tofile)
       decompressed->control({D2H})->file(
