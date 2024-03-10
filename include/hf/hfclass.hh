@@ -30,7 +30,8 @@ class HuffmanCodec {
   using BYTE = u1;
   using RAW = u1;
   using H4 = u4;
-  using H8 = ull;
+  using H = H4;
+  // using H8 = ull;
 
   static const int TYPICAL = sizeof(u4);
   static const int FAILSAFE = sizeof(u8);
@@ -52,8 +53,8 @@ class HuffmanCodec {
 
     // int self_bytes : 16;
     int bklen : 16;
-    int sublen;
-    int pardeg;
+    size_t sublen;
+    size_t pardeg;
     size_t original_len;
     size_t total_nbit;
     size_t total_ncell;  // TODO change to uint32_t
@@ -79,7 +80,6 @@ class HuffmanCodec {
   using pszhf_header = struct pszhf_header;
   using Header = pszhf_header;
 
-  psz_dtype __encdtype;
 
  public:
   // array
@@ -104,21 +104,15 @@ class HuffmanCodec {
 
   MemU4* hist_view;
 
-  // helper
-  RC rc;
-  // memory
-
   // timer
   float _time_book{0.0}, _time_lossless{0.0};
 
-  hf_book* book_desc;
-  hf_chunk* chunk_desc_d;
-  hf_chunk* chunk_desc_h;
-  hf_bitstream* bitstream_desc;
+  // hf_book* book_desc;
 
-  int pardeg;
-  int bklen;
+  size_t pardeg;
+  size_t sublen;
   int numSMs;
+  size_t bklen;
 
  public:
   ~HuffmanCodec();           // dtor

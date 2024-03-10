@@ -25,7 +25,7 @@ template void _2403::hf_encode_coarse_phase3(
     float* time_cpu_time, void* stream);
 
 #define INIT3(E, H)                                                      \
-  template void _2403::hf_decode_coarse(                                        \
+  template void _2403::hf_decode_coarse(                                 \
       hfarray_cxx<H> bitstream, hfarray_cxx<uint8_t> revbook,            \
       hfarray_cxx<u4> par_nbit, hfarray_cxx<u4> par_entry,               \
       hfpar_description hfpar, hfarray_cxx<E> out, float* time_lossless, \

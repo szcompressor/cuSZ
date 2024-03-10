@@ -24,44 +24,44 @@ extern "C" {
 
 // raw pointer array; regardless of being on host or device
 typedef struct hf_book {
-    uint32_t* freq;
-    // undertermined on definition
-    // could be uint32_t* and uint64_t*
-    void* book;
-    int   bklen;
+  uint32_t* freq;
+  // undertermined on definition
+  // could be uint32_t* and uint64_t*
+  void* book;
+  int bklen;
 } hf_book;
 
 // typedef struct hf_revbook {
 // } hf_revbook;
 
 typedef struct hf_chunk {
-    void* bits;     // how many bits each chunk
-    void* cells;    // how many cells each chunk
-    void* entries;  // jump to the chunk
+  void* bits;     // how many bits each chunk
+  void* cells;    // how many cells each chunk
+  void* entries;  // jump to the chunk
 } hf_chunk;
 
 typedef struct hf_bitstream {
-    void*     buffer;
-    void*     bitstream;
-    hf_chunk* d_metadata;
-    hf_chunk* h_metadata;
-    int       sublen;  // data chunksize
-    int       pardeg;  // runtime paralleism degree
-    int       numSMs;  // number of streaming multiprocessor
+  void* buffer;
+  void* bitstream;
+  hf_chunk* d_metadata;
+  hf_chunk* h_metadata;
+  size_t sublen;  // data chunksize
+  size_t pardeg;  // runtime paralleism degree
+  int numSMs;     // number of streaming multiprocessor
 } hf_bitstream;
 
 // used on host
 typedef struct hf_context {
-    int bklen, sublen, pardeg;
+  int bklen, sublen, pardeg;
 
-    float _time_book, time_lossless;
+  float _time_book, time_lossless;
 
-    uint32_t* freq;
+  uint32_t* freq;
 
-    hf_book*      book_desc;
-    hf_bitstream* bitstream_desc;
+  hf_book* book_desc;
+  hf_bitstream* bitstream_desc;
 
-    size_t total_nbit, total_ncell;
+  size_t total_nbit, total_ncell;
 } hf_context;
 
 typedef hf_context hf_ctx;

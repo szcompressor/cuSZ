@@ -166,7 +166,6 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
       revbk4_bytes(bklen), &_time_book, (dpct::queue_ptr)stream);
   bk4->control({ASYNC_H2D}, (dpct::queue_ptr)stream);
   revbk4->control({ASYNC_H2D}, (dpct::queue_ptr)stream);
-  __encdtype = U4;
 
   book_desc->book = __encdtype == U4 ? (void*)bk4->dptr() : (void*)bk8->dptr();
 

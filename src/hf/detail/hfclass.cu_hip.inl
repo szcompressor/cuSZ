@@ -16,14 +16,15 @@
 #ifndef ABBC78E4_3E65_4633_9BEA_27823AB7C398
 #define ABBC78E4_3E65_4633_9BEA_27823AB7C398
 
-#include <linux/limits.h>
-
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <numeric>
 #include <stdexcept>
 
 #include "cusz/type.h"
+#include "hf/hfcxx_module.hh"
+
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
@@ -39,9 +40,7 @@ TPL HF_CODEC::~HuffmanCodec()
 
   delete par_nbit, delete par_ncell, delete par_entry;
 
-  delete book_desc;
-  delete chunk_desc_d, delete chunk_desc_h;
-  delete bitstream_desc;
+  // delete book_desc;
 
   delete compressed;
   delete __scratch, delete scratch4;
@@ -113,23 +112,7 @@ TPL HF_CODEC* HF_CODEC::init(
 
   GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
 
-  {
-    int sublen = (inlen - 1) / pardeg + 1;
-
-    book_desc = new hf_book{nullptr, nullptr, bklen};  //
-    chunk_desc_d =
-        new hf_chunk{par_nbit->dptr(), par_ncell->dptr(), par_entry->dptr()};
-    chunk_desc_h =
-        new hf_chunk{par_nbit->hptr(), par_ncell->hptr(), par_entry->hptr()};
-    bitstream_desc = new hf_bitstream{
-        __scratch->dptr(),
-        __bitstream->dptr(),
-        chunk_desc_d,
-        chunk_desc_h,
-        sublen,
-        pardeg,
-        numSMs};
-  }
+  sublen = (inlen - 1) / pardeg + 1;
 
   if (debug) __debug();
 
@@ -157,9 +140,6 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
       revbk4_bytes(bklen), &_time_book, (GpuStreamT)stream);
   bk4->control({ASYNC_H2D}, (GpuStreamT)stream);
   revbk4->control({ASYNC_H2D}, (GpuStreamT)stream);
-  __encdtype = U4;
-
-  book_desc->book = (void*)bk4->dptr();
 
   hist_view->asaviewof(freq);  // for analysis
 
@@ -192,8 +172,8 @@ TPL void HF_CODEC::calculate_CR(
   // parallel simulation
   // f8 parallel_bits = 0;
   ectrl->control({D2H});
-  auto tmp_sublen = bitstream_desc->sublen;
-  auto tmp_pardeg = bitstream_desc->pardeg;
+  auto tmp_sublen = sublen;
+  auto tmp_pardeg = pardeg;
   auto tmp_len = ectrl->len();
   for (auto p = 0; p < tmp_pardeg; p++) {
     auto start = p * tmp_sublen;
@@ -234,22 +214,45 @@ TPL void HF_CODEC::calculate_CR(
 }
 
 TPL HF_CODEC* HF_CODEC::encode(
-    E* in, size_t const inlen, uint8_t** out, size_t* outlen,
+    E* in, size_t const len, uint8_t** out, size_t* outlen,
     uninit_stream_t stream)
 {
   _time_lossless = 0;
 
   pszhf_header header;
 
-  // So far, the enc scheme has been deteremined.
+  H* d_buffer = (H*)__scratch->dptr();
+  H* d_bitstream = (H*)__bitstream->dptr();
+  H* d_book = (H*)bk4->dptr();
+  hfpar_description hfpar{sublen, pardeg};
 
-  psz::hf_encode_coarse_rev2<E, H4, M>(
-      in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-      &header.total_ncell, &_time_lossless, stream);
+  auto d_par_nbit = par_nbit->dptr();
+  auto d_par_ncell = par_ncell->dptr();
+  auto d_par_entry = par_entry->dptr();
 
-  __hf_merge(
-      header, inlen, book_desc->bklen, bitstream_desc->sublen,
-      bitstream_desc->pardeg, stream);
+  auto h_par_nbit = par_nbit->hptr();
+  auto h_par_ncell = par_ncell->hptr();
+  auto h_par_entry = par_entry->hptr();
+
+  _2403::hf_encode_coarse_phase1<E, H>(
+      {in, len}, {d_book, bklen}, numSMs, {d_buffer, len}, &_time_lossless,
+      stream);
+
+  _2403::hf_encode_coarse_phase2<H, M>(
+      {d_buffer, len}, hfpar, {d_buffer, len /* placeholder */},
+      {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, &_time_lossless, stream);
+
+  _2403::hf_encode_coarse_phase3(
+      {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, {d_par_entry, pardeg},
+      hfpar, {h_par_nbit, pardeg}, {h_par_ncell, pardeg},
+      {h_par_entry, pardeg}, &header.total_nbit, &header.total_ncell, nullptr,
+      stream);
+
+  _2403::hf_encode_coarse_phase4<H, M>(
+      {d_buffer, len}, {d_par_entry, pardeg}, {d_par_ncell, pardeg}, hfpar,
+      {d_bitstream, len}, &_time_lossless, stream);
+
+  __hf_merge(header, len, bklen, sublen, pardeg, stream);
 
   *out = compressed->dptr();
   *outlen = header.compressed_size();
@@ -267,10 +270,12 @@ TPL HF_CODEC* HF_CODEC::decode(
         &header, in_compressed, sizeof(header), GpuMemcpyD2H,
         (GpuStreamT)stream));
 
-  psz::hf_decode_coarse<E, H4, M>(
-      ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
-      revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
-      ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
+  _2403::hf_decode_coarse<E, H4, M>(
+      {ACCESSOR(BITSTREAM, H4), 0},
+      {ACCESSOR(REVBK, BYTE), (size_t)revbk4_bytes(header.bklen)},
+      {ACCESSOR(PAR_NBIT, M), (size_t)pardeg},
+      {ACCESSOR(PAR_ENTRY, M), (size_t)pardeg},
+      {(size_t)header.sublen, (size_t)header.pardeg}, {out_decompressed, 0},
       &_time_lossless, stream);
 
   return this;
@@ -344,11 +349,10 @@ TPL void HF_CODEC::__hf_merge(
 
   M nbyte[Header::END];
   nbyte[Header::HEADER] = sizeof(Header);
-  nbyte[Header::REVBK] =
-      __encdtype == U4 ? revbk4_bytes(bklen) : revbk8_bytes(bklen);
+  nbyte[Header::REVBK] = revbk4_bytes(bklen);
   nbyte[Header::PAR_NBIT] = par_nbit->bytes();
   nbyte[Header::PAR_ENTRY] = par_ncell->bytes();
-  nbyte[Header::BITSTREAM] = (__encdtype == U4 ? 4 : 8) * header.total_ncell;
+  nbyte[Header::BITSTREAM] = 4 * header.total_ncell;
 
   header.entry[0] = 0;
   // *.END + 1: need to know the ending position
@@ -409,12 +413,9 @@ TPL void HF_CODEC::hf_debug(const std::string SYM_name, void* VAR, int SYM)
   printf(
       "%s:\n"
       "\t(supposed) pointer : %p\n"
-      // "\t(supposed) bytes   : %'9lu\n"
       "\t(queried)  pbase0  : %p\n"
       "\t(queried)  psize0  : %'9lu\n",
-      SYM_name.c_str(), (void*)VAR,
-      // (size_t)rc.nbyte[SYM],
-      (void*)&pbase0, psize0);
+      SYM_name.c_str(), (void*)VAR, (void*)&pbase0, psize0);
   pbase0 = 0, psize0 = 0;
 }
 
