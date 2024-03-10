@@ -4,15 +4,11 @@
 #include <cstddef>
 
 #include "hf/detail/hfcodec.cu_hip.inl"
-#include "hf/hfcodec.hh"
 #include "hf/hfcxx_module.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
 /**
- * @tparam E
- * @tparam H
- * @tparam M
  * @tparam TIMING default true to replicate the original
  */
 template <typename E, typename H, typename M, bool TIMING>
@@ -34,7 +30,7 @@ void _2403::phf_coarse_encode_phase1(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    psz::detail::phf_encode_phase1_fill<E, H>                             //
+    psz::detail::phf_encode_phase1_fill<E, H>                            //
         <<<8 * numSMs, 256, sizeof(H) * book.len, (GpuStreamT)stream>>>  //
         (in.buf, in.len, book.buf, book.len, out.buf);
 
@@ -46,7 +42,7 @@ void _2403::phf_coarse_encode_phase1(
     if (time_lossless) *time_lossless += stage_time;
   }
   else {
-    psz::detail::phf_encode_phase1_fill<E, H>                             //
+    psz::detail::phf_encode_phase1_fill<E, H>                            //
         <<<8 * numSMs, 256, sizeof(H) * book.len, (GpuStreamT)stream>>>  //
         (in.buf, in.len, book.buf, book.len, out.buf);
     CHECK_GPU(GpuStreamSync(stream));
@@ -73,7 +69,7 @@ void _2403::phf_coarse_encode_phase2(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    psz::detail::phf_encode_phase2_deflate<H>              //
+    psz::detail::phf_encode_phase2_deflate<H>             //
         <<<grid_dim, block_dim, 0, (GpuStreamT)stream>>>  //
         (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen,
          hfpar.pardeg);
@@ -86,7 +82,7 @@ void _2403::phf_coarse_encode_phase2(
     if (time_lossless) *time_lossless += stage_time;
   }
   else {
-    psz::detail::phf_encode_phase2_deflate<H>              //
+    psz::detail::phf_encode_phase2_deflate<H>             //
         <<<grid_dim, block_dim, 0, (GpuStreamT)stream>>>  //
         (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen,
          hfpar.pardeg);
@@ -170,7 +166,7 @@ void _2403::phf_coarse_decode(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    psz::detail::phf_decode_kernel<E, H, M>                                       //
+    psz::detail::phf_decode_kernel<E, H, M>                         //
         <<<grid_dim, block_dim, revbook.len, (GpuStreamT)stream>>>  //
         (bitstream.buf, revbook.buf, par_nbit.buf, par_entry.buf, revbook.len,
          hfpar.sublen, hfpar.pardeg, out.buf);
@@ -184,6 +180,39 @@ void _2403::phf_coarse_decode(
   else {
     CHECK_GPU(GpuStreamSync(stream));
   }
+}
+
+// TODO ret type (status) and exe_policy
+// duplicate with psz's
+template <typename T, bool TIMING>
+void _2403::phf_scatter_adhoc(
+    hfcompact_cxx<T> compact, T* out, f4* milliseconds, void* stream)
+{
+  auto grid_dim = (compact.n - 1) / 128 + 1;
+
+  if constexpr (TIMING) {
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
+    _2403::kernel::phf_scatter_adhoc<T, u4>
+        <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
+            compact.val, compact.idx, compact.n, out);
+    STOP_GPUEVENT_RECORDING(stream);
+    CHECK_GPU(GpuStreamSync(stream));
+
+    auto added_time = new float{0};
+    TIME_ELAPSED_GPUEVENT(added_time);
+
+    *milliseconds += *added_time;
+    DESTROY_GPUEVENT_PAIR;
+  }
+  else {
+    _2403::kernel::phf_scatter_adhoc<T, u4>
+        <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
+            compact.val, compact.idx, compact.n, out);
+    CHECK_GPU(GpuStreamSync(stream));
+  }
+
+  // return CUSZ_SUCCESS;
 }
 
 #endif /* D3F59CBB_1CC2_441A_8ACD_E598BDD68687 */

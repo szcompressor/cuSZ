@@ -27,9 +27,9 @@ int canonize(u1* bin, uint32_t const bklen)
   auto seg1 = sizeof(H) * (3 * bklen);
   auto seg2 = sizeof(u4) * (4 * TYPE_BITS);
 
-  H* icb = (H*)bin;
-  H* ocb = icb + bklen;
-  H* canon = icb + bklen * 2;
+  H* input_bk = (H*)bin;
+  H* output_bk = input_bk + bklen;
+  H* canon = input_bk + bklen * 2;
   auto numl = (u4*)(bin + seg1);
   auto iterby = numl + TYPE_BITS;
   auto first = numl + TYPE_BITS * 2;
@@ -43,7 +43,7 @@ int canonize(u1* bin, uint32_t const bklen)
   // states
   int max_l = 0;
 
-  for (auto c = icb; c < icb + bklen; c++) {
+  for (auto c = input_bk; c < input_bk + bklen; c++) {
     auto pw = (PW*)c;
     int l = pw->bits;
 
@@ -69,11 +69,11 @@ int canonize(u1* bin, uint32_t const bklen)
   //   printf("l: %3d\tnuml: %3d\tfirst: %3d\n", l, numl[l], first[l]);
 
   for (auto i = 0; i < bklen; i++) canon[i] = FILL;
-  for (auto i = 0; i < bklen; i++) ocb[i] = FILL;
+  for (auto i = 0; i < bklen; i++) output_bk[i] = FILL;
 
   // Reverse Codebook Generation
   for (auto i = 0; i < bklen; i++) {
-    auto c = icb[i];
+    auto c = input_bk[i];
     uint8_t l = reinterpret_cast<PW*>(&c)->bits;
 
     if (c != FILL) {
@@ -86,7 +86,7 @@ int canonize(u1* bin, uint32_t const bklen)
   }
 
   for (auto i = 0; i < bklen; i++)
-    if (canon[i] != FILL) ocb[keys[i]] = canon[i];
+    if (canon[i] != FILL) output_bk[keys[i]] = canon[i];
 
   return 0;
 }
@@ -115,7 +115,7 @@ int hf_canon_reference<E, H>::canonize()
   // states
   int max_l = 0;
 
-  for (auto c = icb(); c < icb() + booklen; c++) {
+  for (auto c = input_bk(); c < input_bk() + booklen; c++) {
     auto pw = (PW*)c;
     int l = pw->bits;
 
@@ -141,11 +141,11 @@ int hf_canon_reference<E, H>::canonize()
   //   printf("l: %3d\tnuml: %3d\tfirst: %3d\n", l, numl(l), first(l));
 
   for (auto i = 0; i < booklen; i++) canon(i) = ~((H)0x0);
-  for (auto i = 0; i < booklen; i++) ocb(i) = ~((H)0x0);
+  for (auto i = 0; i < booklen; i++) output_bk(i) = ~((H)0x0);
 
   // Reverse Codebook Generation
   for (auto i = 0; i < booklen; i++) {
-    auto c = icb(i);
+    auto c = input_bk(i);
     uint8_t l = reinterpret_cast<PW*>(&c)->bits;
 
     if (c != FILL) {
@@ -158,7 +158,7 @@ int hf_canon_reference<E, H>::canonize()
   }
 
   for (auto i = 0; i < booklen; i++)
-    if (canon(i) != FILL) ocb(keys(i)) = canon(i);
+    if (canon(i) != FILL) output_bk(keys(i)) = canon(i);
 
   return 0;
 }

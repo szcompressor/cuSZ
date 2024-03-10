@@ -18,7 +18,6 @@
 #include "hf/hfclass.hh"
 #include "hf/hfbk.hh"
 #include "hf/hfbk.cu.hh"
-#include "hf/hfcodec.hh"
 #include "mem/memseg_cxx.hh"
 #include "typing.hh"
 #include "utils/err.hh"

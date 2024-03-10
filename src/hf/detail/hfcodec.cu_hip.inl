@@ -15,8 +15,8 @@
 #define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
 #include "busyheader.hh"
-#include "hf/hfcodec.hh"
 #include "hf/hfstruct.h"
+#include "hf/hfword.hh"
 #include "typing.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
@@ -59,8 +59,61 @@ struct __helper {
   }
 };
 
-namespace psz {
-namespace detail {
+namespace _2403::kernel {
+
+// a duplicate from psz
+template <typename T, typename M = u4>
+__global__ void phf_scatter_adhoc(T* val, M* idx, int const n, T* out)
+{
+  auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (tid < n) {
+    int dst_idx = idx[tid];
+    out[dst_idx] = val[tid];
+  }
+}
+
+// TODO totally disable H (no need to be other than uint32_t)
+// TODO kernel wrapper
+template <typename E, typename H>
+__global__ void phf_encode_phase1_fill_with_filter(
+    /* input */ E* in, size_t const in_len, H* in_book, int const in_booklen,
+    H const replacement,  //
+    /* output */ H* encoded, E* outlier_val, uint32_t* outlier_idx,
+    uint32_t* outlier_num)
+{
+  auto shmem_cb = reinterpret_cast<uint32_t*>(__codec_huffman_uninitialized);
+
+  // load from global memory
+  for (auto idx = __helper::local_tid_1();  //
+       idx < in_booklen;                    //
+       idx += __helper::block_stride_1())
+    shmem_cb[idx] = in_book[idx];
+
+  __syncthreads();
+
+  for (auto idx = __helper::global_tid_1(); idx < in_len;
+       idx += __helper::grid_stride_1()) {
+    auto candidate = shmem_cb[(int)in[idx]];
+    auto pw4 = reinterpret_cast<PackedWordByWidth<4>*>(&candidate);
+
+    if (pw4->bits == pw4->OUTLIER_CUTOFF) {
+      encoded[idx] = replacement;
+      auto atomic_old_loc = atomicAdd(outlier_num, 1);
+      outlier_val[atomic_old_loc] = in[idx];
+      outlier_idx[atomic_old_loc] = idx;
+      printf(
+          "inside kernel; hf outlier; atomic_old_loc: %d\n", atomic_old_loc);
+    }
+    else {
+      encoded[idx] = candidate;
+    }
+  }
+}
+
+}  // namespace _2403::kernel
+
+namespace psz::detail {
 
 // TODO change size_t to unsigned int
 template <typename H, typename E>
@@ -237,7 +290,6 @@ __global__ void phf_decode_kernel(
   }
 }
 
-}  // namespace detail
-}  // namespace psz
+}  // namespace psz::detail
 
 #endif

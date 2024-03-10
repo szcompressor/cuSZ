@@ -42,6 +42,10 @@ void phf_coarse_decode(
     hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_entry, hfpar_description hfpar,
     hfarray_cxx<E> out, float* time_lossless, void* stream);
 
+template <typename T, bool TIMING = true>
+void phf_scatter_adhoc(
+    hfcompact_cxx<T> compact, T* out, float* milliseconds, void* stream);
+
 }  // namespace _2403
 
 #endif /* ED744237_D186_4707_B7FC_1B931FFC5CBB */
