@@ -231,13 +231,29 @@ TPL HF_CODEC* HF_CODEC::encode(
   auto h_par_ncell = par_ncell->hptr();
   auto h_par_entry = par_entry->hptr();
 
+  // auto f = hires::now();
+  // auto e = hires::now();
+  // auto d = hires::now();
+  // auto c = hires::now();
+  // auto b = hires::now();
+  // auto a = hires::now();
+
   _2403::phf_coarse_encode_phase1<E, H>(
       {in, len}, {d_book, bklen}, numSMs, {d_buffer, len}, &_time_lossless,
       stream);
 
+  // b = hires::now();
+
+  // _2403::phf_coarse_encode_phase1_collect_metadata<E, H>(
+  //     {in, len}, {d_book, bklen}, numSMs, {d_buffer, len},
+  //     {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, {sublen, pardeg},
+  //     &_time_lossless, stream);
+
   _2403::phf_coarse_encode_phase2<H, M>(
       {d_buffer, len}, hfpar, {d_buffer, len /* placeholder */},
       {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, &_time_lossless, stream);
+
+  // c = hires::now();
 
   _2403::phf_coarse_encode_phase3(
       {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, {d_par_entry, pardeg},
@@ -245,12 +261,25 @@ TPL HF_CODEC* HF_CODEC::encode(
       {h_par_entry, pardeg}, &header.total_nbit, &header.total_ncell, nullptr,
       stream);
 
+  // d = hires::now();
+
   _2403::phf_coarse_encode_phase4<H, M>(
       {d_buffer, len}, {d_par_entry, pardeg}, {d_par_ncell, pardeg}, hfpar,
       {d_bitstream, len}, &_time_lossless, stream);
 
+  // e = hires::now();
+
   make_metadata();
   phf_memcpy_merge(stream);  // TODO externalize/make explicit
+
+  // f = hires::now();
+
+  // cout << "phase1: " << static_cast<duration_t>(b - a).count() * 1e6 << endl;
+  // cout << "phase2: " << static_cast<duration_t>(c - a).count() * 1e6 << endl;
+  // cout << "phase3: " << static_cast<duration_t>(d - a).count() * 1e6 << endl;
+  // cout << "phase4: " << static_cast<duration_t>(e - a).count() * 1e6 << endl;
+  // cout << "wrapup: " << static_cast<duration_t>(f - a).count() * 1e6 << endl;
+
   // TODO may cooperate with upper-level; output
   *out = compressed->dptr();
   *outlen = header.compressed_size();

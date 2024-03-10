@@ -2,10 +2,14 @@
 
 #include "hfcxx_module.cu_hip.inl"
 
-#define INIT1(E, H)                                             \
-  template void _2403::phf_coarse_encode_phase1(                \
-      hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs, \
-      hfarray_cxx<H> out, float* time_lossless, void* stream);
+#define INIT1(E, H)                                                          \
+  template void _2403::phf_coarse_encode_phase1(                             \
+      hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,              \
+      hfarray_cxx<H> out, float* time_lossless, void* stream);               \
+  template void _2403::phf_coarse_encode_phase1_collect_metadata(                   \
+      hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,              \
+      hfarray_cxx<H> out, hfarray_cxx<u4> par_nbit, hfarray_cxx<u4> par_ncell, \
+      hfpar_description hfpar, float* time_lossless, void* stream);
 
 #define INIT2(H)                                                           \
   template void _2403::phf_coarse_encode_phase2(                           \

@@ -49,6 +49,48 @@ void _2403::phf_coarse_encode_phase1(
   }
 }
 
+template <typename E, typename H, typename M, bool TIMING>
+void _2403::phf_coarse_encode_phase1_collect_metadata(
+    hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
+    hfarray_cxx<H> out, hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell,
+    hfpar_description hfpar, float* time_lossless, void* stream)
+{
+  auto div = [](auto whole, auto part) -> uint32_t {
+    if (whole == 0) throw std::runtime_error("Dividend is zero.");
+    if (part == 0) throw std::runtime_error("Divisor is zero.");
+    return (whole - 1) / part + 1;
+  };
+
+  constexpr auto BLOCK_DIM_ENCODE = 256;
+  constexpr auto block_dim = BLOCK_DIM_ENCODE;
+
+  auto repeat = 10;
+  auto grid_dim = div(in.len, repeat * hfpar.sublen);
+
+  if constexpr (TIMING) {
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING(stream);
+
+    _2403::kernel::phf_encode_phase1_fill_collect_metadata<E, H>             //
+        <<<grid_dim, block_dim, sizeof(H) * book.len, (GpuStreamT)stream>>>  //
+        (in.buf, in.len, book.buf, book.len, hfpar.sublen, hfpar.pardeg,
+         repeat, out.buf, par_nbit.buf, par_ncell.buf);
+    STOP_GPUEVENT_RECORDING(stream);
+    CHECK_GPU(GpuStreamSync(stream));
+
+    float stage_time;
+    TIME_ELAPSED_GPUEVENT(&stage_time);
+    if (time_lossless) *time_lossless += stage_time;
+  }
+  else {
+    _2403::kernel::phf_encode_phase1_fill_collect_metadata<E, H>             //
+        <<<grid_dim, block_dim, sizeof(H) * book.len, (GpuStreamT)stream>>>  //
+        (in.buf, in.len, book.buf, book.len, hfpar.sublen, hfpar.pardeg,
+         repeat, out.buf, par_nbit.buf, par_ncell.buf);
+    CHECK_GPU(GpuStreamSync(stream));
+  }
+}
+
 template <typename H, typename M, bool TIMING>
 void _2403::phf_coarse_encode_phase2(
     hfarray_cxx<H> in, hfpar_description hfpar, hfarray_cxx<H> deflated,

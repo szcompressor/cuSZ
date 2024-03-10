@@ -14,6 +14,12 @@ void phf_coarse_encode_phase1(
     hfarray_cxx<T> in, hfarray_cxx<H> book, const int numSMs,
     hfarray_cxx<H> out, float* time_lossless, void* stream);
 
+template <typename E, typename H, typename M = uint32_t, bool TIMING = true>
+void phf_coarse_encode_phase1_collect_metadata(
+    hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
+    hfarray_cxx<H> out, hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell,
+    hfpar_description hfpar, float* time_lossless, void* stream);
+
 template <typename H, typename M = uint32_t, bool TIMING = true>
 void phf_coarse_encode_phase2(
     hfarray_cxx<H> in, hfpar_description hfpar, hfarray_cxx<H> deflated,
