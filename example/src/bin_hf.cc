@@ -24,7 +24,7 @@ using F = u4;
 
 namespace {
 
-szt tune_coarse_huffman_sublen(szt len) {
+szt tune_phf_coarse_sublen(szt len) {
   int current_dev = 0;
   GpuSetDevice(current_dev);
   GpuDeviceProp dev_prop{};
@@ -67,7 +67,7 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 
   constexpr auto booklen = 1024;
 
-  auto sublen = tune_coarse_huffman_sublen(len);
+  auto sublen = tune_phf_coarse_sublen(len);
   auto pardeg = psz_utils::get_npart(len, sublen);
 
   auto od = new pszmem_cxx<E>(len, 1, 1, "original");

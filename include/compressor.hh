@@ -24,7 +24,7 @@ namespace cusz {
 
 // extra helper
 struct CompressorHelper {
-  static int autotune_coarse_parhf(psz_context* ctx);
+  static int autotune_phf_coarse(psz_context* ctx);
 };
 
 template <class TEHM>

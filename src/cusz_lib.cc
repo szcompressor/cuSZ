@@ -58,7 +58,7 @@ pszerror psz_compress_init(
   pszctx_set_len(comp->ctx, uncomp_len);
 
   // Be cautious of autotuning! The default value of pardeg is not robust.
-  cusz::CompressorHelper::autotune_coarse_parhf(comp->ctx);
+  cusz::CompressorHelper::autotune_phf_coarse(comp->ctx);
 
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);

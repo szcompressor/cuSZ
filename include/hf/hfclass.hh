@@ -63,6 +63,8 @@ class HuffmanCodec {
     M compressed_size() const { return entry[END]; }
   };
 
+  pszhf_header header;
+
   struct pszhf_rc {
     static const int SCRATCH = 0;
     static const int FREQ = 1;
@@ -79,7 +81,6 @@ class HuffmanCodec {
   using RC = pszhf_rc;
   using pszhf_header = struct pszhf_header;
   using Header = pszhf_header;
-
 
  public:
   // array
@@ -109,6 +110,7 @@ class HuffmanCodec {
 
   // hf_book* book_desc;
 
+  size_t len;
   size_t pardeg;
   size_t sublen;
   int numSMs;
@@ -133,6 +135,9 @@ class HuffmanCodec {
   HuffmanCodec* build_codebook(MemU4*, int const, uninit_stream_t = nullptr);
 
   HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, uninit_stream_t);
+  HuffmanCodec* make_metadata();
+  HuffmanCodec* phf_memcpy_merge(uninit_stream_t);
+
   HuffmanCodec* decode(BYTE*, E*, uninit_stream_t, bool = true);
   HuffmanCodec* dump(std::vector<pszmem_dump>, char const*);
   HuffmanCodec* clear_buffer();
@@ -142,9 +147,18 @@ class HuffmanCodec {
       MemU4* ectrl, szt sizeof_dtype = 4, szt overhead_bytes = 0);
 
  private:
-  void __hf_merge(
-      Header&, size_t const, int const, int const, int const,
-      void* stream = nullptr);
+  struct memcpy_helper {
+    void* const ptr;
+    size_t const nbyte;
+    size_t const dst;
+  };
+
+  static void phf_memcpy_merge(
+      Header& header, void* memcpy_start, size_t memcpy_adjust_to_start,
+      memcpy_helper revbk, memcpy_helper par_nbit, memcpy_helper par_entry,
+      memcpy_helper bitstream,  //
+      uninit_stream_t stream = nullptr);
+
   void hf_debug(const std::string, void*, int);
 
   static int __revbk_bytes(int bklen, int BK_UNIT_BYTES, int SYM_BYTES)

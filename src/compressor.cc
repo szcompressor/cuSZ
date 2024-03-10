@@ -24,10 +24,10 @@
 // extra helper
 namespace cusz {
 
-int CompressorHelper::autotune_coarse_parhf(psz_context* ctx)
+int CompressorHelper::autotune_phf_coarse(psz_context* ctx)
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 {
-  auto tune_coarse_huffman_sublen = [](size_t len) {
+  auto tune_phf_coarse_sublen = [](size_t len) {
     int current_dev = 0;
     GpuSetDevice(current_dev);
     GpuDeviceProp dev_prop{};
@@ -38,6 +38,7 @@ int CompressorHelper::autotune_coarse_parhf(psz_context* ctx)
     auto deflate_nthread =
         allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
     auto optimal_sublen = psz_utils::get_npart(len, deflate_nthread);
+    // a multiple of power-of-2, e.g., 768
     optimal_sublen = psz_utils::get_npart(
                          optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
                      HuffmanHelper::BLOCK_DIM_DEFLATE;
@@ -45,14 +46,14 @@ int CompressorHelper::autotune_coarse_parhf(psz_context* ctx)
     return optimal_sublen;
   };
 
-  auto get_coarse_pardeg = [&](size_t len, int& sublen, int& pardeg) {
-    sublen = tune_coarse_huffman_sublen(len);
+  auto get_phf_coarse_pardeg = [&](size_t len, int& sublen, int& pardeg) {
+    sublen = tune_phf_coarse_sublen(len);
     pardeg = psz_utils::get_npart(len, sublen);
   };
 
   // TODO should be move to somewhere else, e.g., cusz::par_optmizer
-  if (ctx->use_autotune_hf)
-    get_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
+  if (ctx->use_autotune_phf)
+    get_phf_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
   else
     ctx->vle_pardeg = psz_utils::get_npart(ctx->data_len, ctx->vle_sublen);
 
@@ -60,7 +61,7 @@ int CompressorHelper::autotune_coarse_parhf(psz_context* ctx)
 }
 #elif defined(PSZ_USE_1API)
 try {
-  auto tune_coarse_huffman_sublen = [](size_t len) {
+  auto tune_phf_coarse_sublen = [](size_t len) {
     int current_dev = 0;
     /*
     DPCT1093:0: The "current_dev" device may be not the one intended for use.
@@ -88,14 +89,14 @@ try {
     return optimal_sublen;
   };
 
-  auto get_coarse_pardeg = [&](size_t len, int& sublen, int& pardeg) {
-    sublen = tune_coarse_huffman_sublen(len);
+  auto get_phf_coarse_pardeg = [&](size_t len, int& sublen, int& pardeg) {
+    sublen = tune_phf_coarse_sublen(len);
     pardeg = psz_utils::get_npart(len, sublen);
   };
 
   // TODO should be move to somewhere else, e.g., cusz::par_optmizer
-  if (ctx->use_autotune_hf)
-    get_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
+  if (ctx->use_autotune_phf)
+    get_phf_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
   else
     ctx->vle_pardeg = psz_utils::get_npart(ctx->data_len, ctx->vle_sublen);
 

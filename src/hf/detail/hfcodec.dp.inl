@@ -105,7 +105,7 @@ constexpr void hf_decode_single_thread_inflate(
 
 // TODO change size_t to unsigned int
 template <typename H, typename E>
-constexpr void psz::detail::hf_decode_single_thread_inflate(
+constexpr void psz::detail::phf_decode_single_thread_inflate(
     H* input, E* out, int const total_bw, BYTE* revbook,
     const sycl::stream& to_stdout)
 {
@@ -157,7 +157,7 @@ constexpr void psz::detail::hf_decode_single_thread_inflate(
 }
 
 template <typename E, typename H>
-void psz::detail::hf_encode_phase1_fill(
+void psz::detail::phf_encode_phase1_fill(
     E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
     int const in_booklen, H* out_encoded, const sycl::nd_item<3>& item_ct1,
     char* __codec_huffman_uninitialized)
@@ -185,7 +185,7 @@ void psz::detail::hf_encode_phase1_fill(
 }
 
 template <typename H, typename M>
-void psz::detail::hf_encode_phase2_deflate(
+void psz::detail::phf_encode_phase2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
     int const sublen, int const pardeg, const sycl::nd_item<3>& item_ct1)
 {
@@ -248,7 +248,7 @@ void psz::detail::hf_encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-void psz::detail::hf_encode_phase4_concatenate(
+void psz::detail::phf_encode_phase4_concatenate(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped,
     const sycl::nd_item<3>& item_ct1)
 {
@@ -283,7 +283,7 @@ void hf_decode_kernel(
   auto gid = BIX * BDX + TIX;
 
   if (gid < pardeg) {
-    psz::detail::hf_decode_single_thread_inflate(
+    psz::detail::phf_decode_single_thread_inflate(
         in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem,
         to_stdout);
 

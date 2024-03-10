@@ -16,7 +16,7 @@
  * @tparam TIMING default true to replicate the original
  */
 template <typename E, typename H, typename M, bool TIMING>
-void _2403::hf_encode_coarse_phase1(
+void _2403::phf_coarse_encode_phase1(
     hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
     hfarray_cxx<H> out, float* time_lossless, void* stream)
 {
@@ -34,7 +34,7 @@ void _2403::hf_encode_coarse_phase1(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    psz::detail::hf_encode_phase1_fill<E, H>                             //
+    psz::detail::phf_encode_phase1_fill<E, H>                             //
         <<<8 * numSMs, 256, sizeof(H) * book.len, (GpuStreamT)stream>>>  //
         (in.buf, in.len, book.buf, book.len, out.buf);
 
@@ -46,7 +46,7 @@ void _2403::hf_encode_coarse_phase1(
     if (time_lossless) *time_lossless += stage_time;
   }
   else {
-    psz::detail::hf_encode_phase1_fill<E, H>                             //
+    psz::detail::phf_encode_phase1_fill<E, H>                             //
         <<<8 * numSMs, 256, sizeof(H) * book.len, (GpuStreamT)stream>>>  //
         (in.buf, in.len, book.buf, book.len, out.buf);
     CHECK_GPU(GpuStreamSync(stream));
@@ -54,7 +54,7 @@ void _2403::hf_encode_coarse_phase1(
 }
 
 template <typename H, typename M, bool TIMING>
-void _2403::hf_encode_coarse_phase2(
+void _2403::phf_coarse_encode_phase2(
     hfarray_cxx<H> in, hfpar_description hfpar, hfarray_cxx<H> deflated,
     hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell, float* time_lossless,
     void* stream)
@@ -73,7 +73,7 @@ void _2403::hf_encode_coarse_phase2(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    psz::detail::hf_encode_phase2_deflate<H>              //
+    psz::detail::phf_encode_phase2_deflate<H>              //
         <<<grid_dim, block_dim, 0, (GpuStreamT)stream>>>  //
         (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen,
          hfpar.pardeg);
@@ -86,7 +86,7 @@ void _2403::hf_encode_coarse_phase2(
     if (time_lossless) *time_lossless += stage_time;
   }
   else {
-    psz::detail::hf_encode_phase2_deflate<H>              //
+    psz::detail::phf_encode_phase2_deflate<H>              //
         <<<grid_dim, block_dim, 0, (GpuStreamT)stream>>>  //
         (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen,
          hfpar.pardeg);
@@ -95,7 +95,7 @@ void _2403::hf_encode_coarse_phase2(
 }
 
 template <typename M, bool TIMING>
-void _2403::hf_encode_coarse_phase3(
+void _2403::phf_coarse_encode_phase3(
     hfarray_cxx<M> d_par_nbit, hfarray_cxx<M> d_par_ncell,
     hfarray_cxx<M> d_par_entry,  //
     hfpar_description hfpar,     //
@@ -129,7 +129,7 @@ void _2403::hf_encode_coarse_phase3(
 }
 
 template <typename H, typename M, bool TIMING>
-void _2403::hf_encode_coarse_phase4(
+void _2403::phf_coarse_encode_phase4(
     hfarray_cxx<H> buf, hfarray_cxx<M> par_entry, hfarray_cxx<M> par_ncell,
     hfpar_description hfpar, hfarray_cxx<H> bitstream, float* time_lossless,
     void* stream)
@@ -138,7 +138,7 @@ void _2403::hf_encode_coarse_phase4(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    psz::detail::hf_encode_phase4_concatenate<H, M>
+    psz::detail::phf_encode_phase4_concatenate<H, M>
         <<<hfpar.pardeg, 128, 0, (GpuStreamT)stream>>>  //
         (buf.buf, par_entry.buf, par_ncell.buf, hfpar.sublen, bitstream.buf);
 
@@ -150,7 +150,7 @@ void _2403::hf_encode_coarse_phase4(
     if (time_lossless) *time_lossless += stage_time;
   }
   else {
-    psz::detail::hf_encode_phase4_concatenate<H, M>
+    psz::detail::phf_encode_phase4_concatenate<H, M>
         <<<hfpar.pardeg, 128, 0, (GpuStreamT)stream>>>  //
         (buf.buf, par_entry.buf, par_ncell.buf, hfpar.sublen, bitstream.buf);
     CHECK_GPU(GpuStreamSync(stream));
@@ -158,7 +158,7 @@ void _2403::hf_encode_coarse_phase4(
 }
 
 template <typename E, typename H, typename M, bool TIMING>
-void _2403::hf_decode_coarse(
+void _2403::phf_coarse_decode(
     hfarray_cxx<H> bitstream, hfarray_cxx<uint8_t> revbook,
     hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_entry, hfpar_description hfpar,
     hfarray_cxx<E> out, float* time_lossless, void* stream)
@@ -170,7 +170,7 @@ void _2403::hf_decode_coarse(
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
 
-    hf_decode_kernel<E, H, M>                                       //
+    psz::detail::phf_decode_kernel<E, H, M>                                       //
         <<<grid_dim, block_dim, revbook.len, (GpuStreamT)stream>>>  //
         (bitstream.buf, revbook.buf, par_nbit.buf, par_entry.buf, revbook.len,
          hfpar.sublen, hfpar.pardeg, out.buf);

@@ -162,7 +162,7 @@ void pszctx_parse_control_string(
     // }
     else if (optmatch({"huffchunk"})) {
       ctx->vle_sublen = psz_helper::str2int(v);
-      ctx->use_autotune_hf = false;
+      ctx->use_autotune_phf = false;
     }
     else if (optmatch({"predictor"})) {
       strcpy(ctx->dbgstr_pred, v.c_str());
@@ -604,7 +604,7 @@ void pszctx_set_radius(pszctx* ctx, int _)
 void pszctx_set_huffchunk(pszctx* ctx, int _)
 {
   ctx->vle_sublen = _;
-  ctx->use_autotune_hf = false;
+  ctx->use_autotune_phf = false;
 }
 
 void pszctx_set_densityfactor(pszctx* ctx, int _)

@@ -21,13 +21,13 @@
 namespace psz {
 
 template <typename T, typename H, typename M>
-void hf_encode_coarse_rev2(
+void phf_coarse_encode_rev2(
     T* uncompressed, size_t const len, hf_book* book_desc,
     hf_bitstream* bitstream_desc, size_t* outlen_nbit, size_t* outlen_ncell,
     float* time_lossless, void* stream);
 
 // template <typename T, typename H, typename M>
-// void hf_decode_coarse(
+// void phf_coarse_decode(
 //     H* d_bitstream, uint8_t* d_revbook, size_t const revbook_nbyte, M* d_par_nbit,
 //     M* d_par_entry, size_t const sublen, size_t const pardeg, T* out_decompressed,
 //     float* time_lossless, void* stream);

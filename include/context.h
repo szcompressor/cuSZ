@@ -74,7 +74,7 @@ struct psz_context {
   bool prep_prescan{false};
 
   bool use_demodata{false};
-  bool use_autotune_hf{true};
+  bool use_autotune_phf{true};
   bool use_gpu_verify{false};
   bool use_prebuilt_hfbk{false};
 

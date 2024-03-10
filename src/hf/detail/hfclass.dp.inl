@@ -251,11 +251,11 @@ TPL HF_CODEC* HF_CODEC::encode(
 
   // So far, the enc scheme has been deteremined.
 
-  psz::hf_encode_coarse_rev2<E, H4, M>(
+  psz::phf_coarse_encode_rev2<E, H4, M>(
       in, inlen, book_desc, bitstream_desc, &header.total_nbit,
       &header.total_ncell, &_time_lossless, stream);
 
-  __hf_merge(
+  phf_memcpy_merge(
       header, inlen, book_desc->bklen, bitstream_desc->sublen,
       bitstream_desc->pardeg, stream);
 
@@ -275,7 +275,7 @@ TPL HF_CODEC* HF_CODEC::decode(
   if (header_on_device)
     queue->memcpy(&header, in_compressed, sizeof(header)).wait();
 
-  psz::hf_decode_coarse<E, H4, M>(
+  psz::phf_coarse_decode<E, H4, M>(
       ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
       revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
       ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
@@ -331,7 +331,7 @@ TPL HF_CODEC* HF_CODEC::clear_buffer()
 }
 
 // private helper
-TPL void HF_CODEC::__hf_merge(
+TPL void HF_CODEC::phf_memcpy_merge(
     Header& header, size_t const original_len, int const bklen,
     int const sublen, int const pardeg, void* stream)
 try {

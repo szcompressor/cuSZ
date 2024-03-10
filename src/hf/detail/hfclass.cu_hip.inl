@@ -24,6 +24,7 @@
 
 #include "cusz/type.h"
 #include "hf/hfcxx_module.hh"
+#include "utils/timer.hh"
 
 #define ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
@@ -67,6 +68,7 @@ TPL HF_CODEC* HF_CODEC::init(
 
   pardeg = _pardeg;
   bklen = _booklen;
+  len = inlen;
 
   // for both u4 and u8 encoding
 
@@ -172,17 +174,15 @@ TPL void HF_CODEC::calculate_CR(
   // parallel simulation
   // f8 parallel_bits = 0;
   ectrl->control({D2H});
-  auto tmp_sublen = sublen;
-  auto tmp_pardeg = pardeg;
   auto tmp_len = ectrl->len();
-  for (auto p = 0; p < tmp_pardeg; p++) {
-    auto start = p * tmp_sublen;
+  for (auto p = 0; p < pardeg; p++) {
+    auto start = p * sublen;
 
     // auto this_ncell = 0,
     auto this_nbit = 0;
 
-    for (auto i = 0; i < tmp_sublen; i++) {
-      if (i + tmp_sublen < tmp_len) {
+    for (auto i = 0; i < sublen; i++) {
+      if (i + sublen < tmp_len) {
         auto eq = ectrl->hat(start + i);
         auto c = bk4->hat(eq);
         auto b = ((PackedWordByWidth<4>*)(&c))->bits;
@@ -193,7 +193,6 @@ TPL void HF_CODEC::calculate_CR(
     par_ncell->hat(p) = (this_nbit - 1) / 32 + 1;
   }
   auto final_len = std::accumulate(par_ncell->hbegin(), par_ncell->hend(), 0);
-
   auto final_bytes = 1.0 * final_len * sizeof_dtype;
   final_bytes += par_entry->len() *
                  (sizeof(U4) /* for idx */ + sizeof_dtype);  // outliers
@@ -202,14 +201,14 @@ TPL void HF_CODEC::calculate_CR(
 
   // print report
   // clang-format off
-  printf("[psz::info::hf::calc_cr] get CR from hist and par setup\n");
-  printf("[psz::info::hf::calc_cr] (T, H)=(f4, u4)\n");
-  printf("[psz::info::hf::calc_cr] serial (ref), entropy            : %lf\n", serial_entropy);
-  printf("[psz::info::hf::calc_cr] serial (ref), avg-bit            : %lf\n", serial_avg_bits);
-  printf("[psz::info::hf::calc_cr] serial (ref), entropy-implied CR : %lf\n", sizeof_dtype * 8 / serial_entropy);
-  printf("[psz::info::hf::calc_cr] serial (ref), avg-bit-implied    : %lf\n", sizeof_dtype * 8 / serial_avg_bits);
-  printf("[psz::info::hf::calc_cr] pSZ/cuSZ achievable CR (chunked) : %lf\n", tmp_len * sizeof_dtype / final_bytes);
-  printf("[psz::info::hf::calc_cr] analysis done, proceeding...\n");
+  printf("[phf::calc_cr] get CR from hist and par setup\n");
+  printf("[phf::calc_cr] (T, H)=(f4, u4)\n");
+  printf("[phf::calc_cr] serial (ref), entropy            : %lf\n", serial_entropy);
+  printf("[phf::calc_cr] serial (ref), avg-bit            : %lf\n", serial_avg_bits);
+  printf("[phf::calc_cr] serial (ref), entropy-implied CR : %lf\n", sizeof_dtype * 8 / serial_entropy);
+  printf("[phf::calc_cr] serial (ref), avg-bit-implied    : %lf\n", sizeof_dtype * 8 / serial_avg_bits);
+  printf("[phf::calc_cr] pSZ/cuSZ achievable CR (chunked) : %lf\n", tmp_len * sizeof_dtype / final_bytes);
+  printf("[phf::calc_cr] analysis done, proceeding...\n");
   // clang-format on
 }
 
@@ -218,8 +217,6 @@ TPL HF_CODEC* HF_CODEC::encode(
     uninit_stream_t stream)
 {
   _time_lossless = 0;
-
-  pszhf_header header;
 
   H* d_buffer = (H*)__scratch->dptr();
   H* d_bitstream = (H*)__bitstream->dptr();
@@ -234,28 +231,65 @@ TPL HF_CODEC* HF_CODEC::encode(
   auto h_par_ncell = par_ncell->hptr();
   auto h_par_entry = par_entry->hptr();
 
-  _2403::hf_encode_coarse_phase1<E, H>(
+  _2403::phf_coarse_encode_phase1<E, H>(
       {in, len}, {d_book, bklen}, numSMs, {d_buffer, len}, &_time_lossless,
       stream);
 
-  _2403::hf_encode_coarse_phase2<H, M>(
+  _2403::phf_coarse_encode_phase2<H, M>(
       {d_buffer, len}, hfpar, {d_buffer, len /* placeholder */},
       {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, &_time_lossless, stream);
 
-  _2403::hf_encode_coarse_phase3(
+  _2403::phf_coarse_encode_phase3(
       {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, {d_par_entry, pardeg},
       hfpar, {h_par_nbit, pardeg}, {h_par_ncell, pardeg},
       {h_par_entry, pardeg}, &header.total_nbit, &header.total_ncell, nullptr,
       stream);
 
-  _2403::hf_encode_coarse_phase4<H, M>(
+  _2403::phf_coarse_encode_phase4<H, M>(
       {d_buffer, len}, {d_par_entry, pardeg}, {d_par_ncell, pardeg}, hfpar,
       {d_bitstream, len}, &_time_lossless, stream);
 
-  __hf_merge(header, len, bklen, sublen, pardeg, stream);
-
+  make_metadata();
+  phf_memcpy_merge(stream);  // TODO externalize/make explicit
+  // TODO may cooperate with upper-level; output
   *out = compressed->dptr();
   *outlen = header.compressed_size();
+
+  return this;
+}
+TPL HF_CODEC* HF_CODEC::phf_memcpy_merge(uninit_stream_t stream)
+{
+  phf_memcpy_merge(
+      header, compressed->dptr(), 0,
+      {revbk4->dptr(), revbk4->bytes(), header.entry[Header::REVBK]},
+      {par_nbit->dptr(), par_nbit->bytes(), header.entry[Header::PAR_NBIT]},
+      {par_entry->dptr(), par_entry->bytes(), header.entry[Header::PAR_ENTRY]},
+      {__bitstream->dptr(), __bitstream->bytes(),
+       header.entry[Header::BITSTREAM]},
+      stream);
+  return this;
+}
+
+TPL HF_CODEC* HF_CODEC::make_metadata()
+{
+  // header.self_bytes = sizeof(Header);
+  header.bklen = bklen;
+  header.sublen = sublen;
+  header.pardeg = pardeg;
+  header.original_len = len;
+
+  M nbyte[Header::END];
+  nbyte[Header::HEADER] = sizeof(Header);
+  nbyte[Header::REVBK] = revbk4_bytes(bklen);
+  nbyte[Header::PAR_NBIT] = par_nbit->bytes();
+  nbyte[Header::PAR_ENTRY] = par_ncell->bytes();
+  nbyte[Header::BITSTREAM] = 4 * header.total_ncell;
+
+  header.entry[0] = 0;
+  // *.END + 1: need to know the ending position
+  for (auto i = 1; i < Header::END + 1; i++) header.entry[i] = nbyte[i - 1];
+  for (auto i = 1; i < Header::END + 1; i++)
+    header.entry[i] += header.entry[i - 1];
 
   return this;
 }
@@ -270,7 +304,7 @@ TPL HF_CODEC* HF_CODEC::decode(
         &header, in_compressed, sizeof(header), GpuMemcpyD2H,
         (GpuStreamT)stream));
 
-  _2403::hf_decode_coarse<E, H4, M>(
+  _2403::phf_coarse_decode<E, H4, M>(
       {ACCESSOR(BITSTREAM, H4), 0},
       {ACCESSOR(REVBK, BYTE), (size_t)revbk4_bytes(header.bklen)},
       {ACCESSOR(PAR_NBIT, M), (size_t)pardeg},
@@ -328,71 +362,28 @@ TPL HF_CODEC* HF_CODEC::clear_buffer()
 }
 
 // private helper
-TPL void HF_CODEC::__hf_merge(
-    Header& header, size_t const original_len, int const bklen,
-    int const sublen, int const pardeg, uninit_stream_t stream)
+TPL void HF_CODEC::phf_memcpy_merge(
+    Header& header, void* memcpy_start, size_t memcpy_adjust_to_start,
+    memcpy_helper revbk, memcpy_helper par_nbit, memcpy_helper par_entry,
+    memcpy_helper bitstream,  //
+    uninit_stream_t stream)
 {
-  auto BARRIER = [&]() {
-    if (stream)
-      CHECK_GPU(GpuStreamSync(stream));
-    else
-      CHECK_GPU(GpuDeviceSync());
+  auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
+  auto d2d_memcpy_merge = [&](memcpy_helper& var) {
+    CHECK_GPU(GpuMemcpyAsync(
+        start + var.dst, var.ptr, var.nbyte, GpuMemcpyD2D,
+        (GpuStreamT)stream));
   };
 
-  constexpr auto D2D = GpuMemcpyD2D;
-
-  // header.self_bytes = sizeof(Header);
-  header.bklen = bklen;
-  header.sublen = sublen;
-  header.pardeg = pardeg;
-  header.original_len = original_len;
-
-  M nbyte[Header::END];
-  nbyte[Header::HEADER] = sizeof(Header);
-  nbyte[Header::REVBK] = revbk4_bytes(bklen);
-  nbyte[Header::PAR_NBIT] = par_nbit->bytes();
-  nbyte[Header::PAR_ENTRY] = par_ncell->bytes();
-  nbyte[Header::BITSTREAM] = 4 * header.total_ncell;
-
-  header.entry[0] = 0;
-  // *.END + 1: need to know the ending position
-  for (auto i = 1; i < Header::END + 1; i++) {
-    header.entry[i] = nbyte[i - 1];
-  }
-  for (auto i = 1; i < Header::END + 1; i++) {
-    header.entry[i] += header.entry[i - 1];
-  }
-
   CHECK_GPU(GpuMemcpyAsync(
-      compressed->dptr(), &header, sizeof(header), GpuMemcpyH2D,
-      (GpuStreamT)stream));
+      start, &header, sizeof(header), GpuMemcpyH2D, (GpuStreamT)stream));
+  // /* debug */ CHECK_GPU(GpuStreamSync(stream));
 
-  /* debug */ BARRIER();
-
-  {
-    auto dst = compressed->dptr() + header.entry[Header::REVBK];
-    auto src = revbk4->dptr();
-    CHECK_GPU(GpuMemcpyAsync(
-        dst, src, nbyte[Header::REVBK], D2D, (GpuStreamT)stream));
-  }
-  {
-    auto dst = compressed->dptr() + header.entry[Header::PAR_NBIT];
-    auto src = par_nbit->dptr();
-    CHECK_GPU(GpuMemcpyAsync(
-        dst, src, nbyte[Header::PAR_NBIT], D2D, (GpuStreamT)stream));
-  }
-  {
-    auto dst = compressed->dptr() + header.entry[Header::PAR_ENTRY];
-    auto src = par_entry->dptr();
-    CHECK_GPU(GpuMemcpyAsync(
-        dst, src, nbyte[Header::PAR_ENTRY], D2D, (GpuStreamT)stream));
-  }
-  {
-    auto dst = compressed->dptr() + header.entry[Header::BITSTREAM];
-    auto src = __bitstream->dptr();
-    CHECK_GPU(GpuMemcpyAsync(
-        dst, src, nbyte[Header::BITSTREAM], D2D, (GpuStreamT)stream));
-  }
+  d2d_memcpy_merge(revbk);
+  d2d_memcpy_merge(par_nbit);
+  d2d_memcpy_merge(par_entry);
+  d2d_memcpy_merge(bitstream);
+  // /* debug */ CHECK_GPU(GpuStreamSync(stream));
 }
 
 TPL float HF_CODEC::time_book() const { return _time_book; }

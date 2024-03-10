@@ -59,40 +59,12 @@ struct __helper {
   }
 };
 
-template <typename E, typename H, typename M>
-__global__ void hf_decode_kernel(
-    H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
-    int const revbook_nbyte, int const sublen, int const pardeg, E* out);
-
 namespace psz {
 namespace detail {
 
-template <typename E, typename H>
-__global__ void hf_encode_phase1_fill(
-    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
-    int const in_booklen, H* out_encoded);
-
-template <typename H, typename M>
-__global__ void hf_encode_phase2_deflate(
-    H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
-    int const sublen, int const pardeg);
-
-template <typename H, typename M>
-__global__ void hf_encode_phase4_concatenate(
-    H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen,
-    H* non_gapped);
-
 // TODO change size_t to unsigned int
 template <typename H, typename E>
-__device__ void hf_decode_single_thread_inflate(
-    H* input, E* out, int const total_bw, BYTE* revbook);
-
-}  // namespace detail
-}  // namespace psz
-
-// TODO change size_t to unsigned int
-template <typename H, typename E>
-__device__ void psz::detail::hf_decode_single_thread_inflate(
+__device__ void phf_decode_single_thread_inflate(
     H* input, E* out, int const total_bw, BYTE* revbook)
 {
   constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
@@ -143,7 +115,7 @@ __device__ void psz::detail::hf_decode_single_thread_inflate(
 }
 
 template <typename E, typename H>
-__global__ void psz::detail::hf_encode_phase1_fill(
+__global__ void phf_encode_phase1_fill(
     E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
     int const in_booklen, H* out_encoded)
 {
@@ -165,7 +137,7 @@ __global__ void psz::detail::hf_encode_phase1_fill(
 }
 
 template <typename H, typename M>
-__global__ void psz::detail::hf_encode_phase2_deflate(
+__global__ void phf_encode_phase2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
     int const sublen, int const pardeg)
 {
@@ -228,9 +200,8 @@ __global__ void psz::detail::hf_encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-__global__ void psz::detail::hf_encode_phase4_concatenate(
-    H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen,
-    H* non_gapped)
+__global__ void phf_encode_phase4_concatenate(
+    H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped)
 {
   auto n = par_ncell[blockIdx.x];
   auto src = gapped + cfg_sublen * blockIdx.x;
@@ -242,7 +213,7 @@ __global__ void psz::detail::hf_encode_phase4_concatenate(
 }
 
 template <typename E, typename H, typename M>
-__global__ void hf_decode_kernel(
+__global__ void phf_decode_kernel(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
     int const revbook_nbyte, int const sublen, int const pardeg, E* out)
 {
@@ -260,10 +231,13 @@ __global__ void hf_decode_kernel(
   auto gid = BIX * BDX + TIX;
 
   if (gid < pardeg) {
-    psz::detail::hf_decode_single_thread_inflate(
+    phf_decode_single_thread_inflate(
         in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem);
     __syncthreads();
   }
 }
+
+}  // namespace detail
+}  // namespace psz
 
 #endif

@@ -46,7 +46,7 @@ f8 _1, _2, rng;
 
 namespace {
 
-szt tune_coarse_huffman_sublen(szt len)
+szt tune_phf_coarse_sublen(szt len)
 {
   int current_dev = 0;
   GpuSetDevice(current_dev);
@@ -136,7 +136,7 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
 
   BYTE* d_compressed{nullptr};
 
-  cusz::CompressorHelper::autotune_coarse_parhf(ctx);
+  cusz::CompressorHelper::autotune_phf_coarse(ctx);
 
   auto cor = new Compressor();
   cor->init(ctx);
