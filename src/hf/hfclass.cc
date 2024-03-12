@@ -14,10 +14,10 @@
  *
  */
 
-#include "busyheader.hh"
 #include "hf/hfclass.hh"
-#include "hf/hfbk.hh"
+#include "busyheader.hh"
 #include "hf/hfbk.cu.hh"
+#include "hf/hfbk.hh"
 #include "mem/memseg_cxx.hh"
 #include "typing.hh"
 #include "utils/err.hh"
@@ -29,7 +29,10 @@
 // definitions
 #include "detail/hfclass.cu_hip.inl"
 
-template class cusz::HuffmanCodec<u1, u4>;
-template class cusz::HuffmanCodec<u2, u4>;
-template class cusz::HuffmanCodec<u4, u4>;
+template class cusz::HuffmanCodec<u1, u4, true>;
+template class cusz::HuffmanCodec<u2, u4, true>;
+template class cusz::HuffmanCodec<u4, u4, true>;
 
+template class cusz::HuffmanCodec<u1, u4, false>;
+template class cusz::HuffmanCodec<u2, u4, false>;
+template class cusz::HuffmanCodec<u4, u4, false>;

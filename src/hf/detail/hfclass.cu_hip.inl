@@ -26,15 +26,15 @@
 #include "hf/hfcxx_module.hh"
 #include "utils/timer.hh"
 
-#define ACCESSOR(SYM, TYPE) \
+#define PHF_ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
-#define TPL template <typename E, typename M>
-#define HF_CODEC HuffmanCodec<E, M>
+#define PHF_TPL template <typename E, typename M, bool TIMING>
+#define PHF_CLASS HuffmanCodec<E, M, TIMING>
 
 namespace cusz {
 
-TPL HF_CODEC::~HuffmanCodec()
+PHF_TPL PHF_CLASS::~HuffmanCodec()
 {
   // delete scratch;
   delete bk4, delete revbk4;
@@ -49,7 +49,7 @@ TPL HF_CODEC::~HuffmanCodec()
   delete hist_view;
 }
 
-TPL HF_CODEC* HF_CODEC::init(
+PHF_TPL PHF_CLASS* PHF_CLASS::init(
     size_t const inlen, int const _booklen, int const _pardeg, bool debug)
 {
   auto __debug = [&]() {
@@ -122,7 +122,7 @@ TPL HF_CODEC* HF_CODEC::init(
 }
 
 #ifdef ENABLE_HUFFBK_GPU
-TPL HF_CODEC* HF_CODEC::build_codebook(
+PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
     uint32_t* freq, int const bklen, uninit_stream_t stream)
 {
   psz::hf_buildbook<CUDA, E, H4>(
@@ -134,7 +134,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 #endif
 
 // using CPU huffman
-TPL HF_CODEC* HF_CODEC::build_codebook(
+PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
     MemU4* freq, int const bklen, uninit_stream_t stream)
 {
   psz::hf_buildbook<SEQ, E, H4>(
@@ -149,7 +149,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 }
 
 // using CPU huffman
-TPL void HF_CODEC::calculate_CR(
+PHF_TPL void PHF_CLASS::calculate_CR(
     MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
 {
   // serial part
@@ -212,7 +212,7 @@ TPL void HF_CODEC::calculate_CR(
   // clang-format on
 }
 
-TPL HF_CODEC* HF_CODEC::encode(
+PHF_TPL PHF_CLASS* PHF_CLASS::encode(
     E* in, size_t const len, uint8_t** out, size_t* outlen,
     uninit_stream_t stream)
 {
@@ -238,24 +238,24 @@ TPL HF_CODEC* HF_CODEC::encode(
   // auto b = hires::now();
   // auto a = hires::now();
 
-  _2403::phf_coarse_encode_phase1<E, H>(
+  phf_module::phf_coarse_encode_phase1(
       {in, len}, {d_book, bklen}, numSMs, {d_buffer, len}, &_time_lossless,
       stream);
 
   // b = hires::now();
 
-  // _2403::phf_coarse_encode_phase1_collect_metadata<E, H>(
+  // phf_module::phf_coarse_encode_phase1_collect_metadata(
   //     {in, len}, {d_book, bklen}, numSMs, {d_buffer, len},
   //     {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, {sublen, pardeg},
   //     &_time_lossless, stream);
 
-  _2403::phf_coarse_encode_phase2<H, M>(
+  phf_module::phf_coarse_encode_phase2(
       {d_buffer, len}, hfpar, {d_buffer, len /* placeholder */},
       {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, &_time_lossless, stream);
 
   // c = hires::now();
 
-  _2403::phf_coarse_encode_phase3(
+  phf_module::phf_coarse_encode_phase3(
       {d_par_nbit, pardeg}, {d_par_ncell, pardeg}, {d_par_entry, pardeg},
       hfpar, {h_par_nbit, pardeg}, {h_par_ncell, pardeg},
       {h_par_entry, pardeg}, &header.total_nbit, &header.total_ncell, nullptr,
@@ -263,7 +263,7 @@ TPL HF_CODEC* HF_CODEC::encode(
 
   // d = hires::now();
 
-  _2403::phf_coarse_encode_phase4<H, M>(
+  phf_module::phf_coarse_encode_phase4(
       {d_buffer, len}, {d_par_entry, pardeg}, {d_par_ncell, pardeg}, hfpar,
       {d_bitstream, len}, &_time_lossless, stream);
 
@@ -274,11 +274,12 @@ TPL HF_CODEC* HF_CODEC::encode(
 
   // f = hires::now();
 
-  // cout << "phase1: " << static_cast<duration_t>(b - a).count() * 1e6 << endl;
-  // cout << "phase2: " << static_cast<duration_t>(c - a).count() * 1e6 << endl;
-  // cout << "phase3: " << static_cast<duration_t>(d - a).count() * 1e6 << endl;
-  // cout << "phase4: " << static_cast<duration_t>(e - a).count() * 1e6 << endl;
-  // cout << "wrapup: " << static_cast<duration_t>(f - a).count() * 1e6 << endl;
+  // cout << "phase1: " << static_cast<duration_t>(b - a).count() * 1e6 <<
+  // endl; cout << "phase2: " << static_cast<duration_t>(c - a).count() * 1e6
+  // << endl; cout << "phase3: " << static_cast<duration_t>(d - a).count() *
+  // 1e6 << endl; cout << "phase4: " << static_cast<duration_t>(e - a).count()
+  // * 1e6 << endl; cout << "wrapup: " << static_cast<duration_t>(f -
+  // a).count() * 1e6 << endl;
 
   // TODO may cooperate with upper-level; output
   *out = compressed->dptr();
@@ -286,7 +287,7 @@ TPL HF_CODEC* HF_CODEC::encode(
 
   return this;
 }
-TPL HF_CODEC* HF_CODEC::phf_memcpy_merge(uninit_stream_t stream)
+PHF_TPL PHF_CLASS* PHF_CLASS::phf_memcpy_merge(uninit_stream_t stream)
 {
   phf_memcpy_merge(
       header, compressed->dptr(), 0,
@@ -299,7 +300,7 @@ TPL HF_CODEC* HF_CODEC::phf_memcpy_merge(uninit_stream_t stream)
   return this;
 }
 
-TPL HF_CODEC* HF_CODEC::make_metadata()
+PHF_TPL PHF_CLASS* PHF_CLASS::make_metadata()
 {
   // header.self_bytes = sizeof(Header);
   header.bklen = bklen;
@@ -323,7 +324,7 @@ TPL HF_CODEC* HF_CODEC::make_metadata()
   return this;
 }
 
-TPL HF_CODEC* HF_CODEC::decode(
+PHF_TPL PHF_CLASS* PHF_CLASS::decode(
     uint8_t* in_compressed, E* out_decompressed, uninit_stream_t stream,
     bool header_on_device)
 {
@@ -333,18 +334,18 @@ TPL HF_CODEC* HF_CODEC::decode(
         &header, in_compressed, sizeof(header), GpuMemcpyD2H,
         (GpuStreamT)stream));
 
-  _2403::phf_coarse_decode<E, H4, M>(
-      {ACCESSOR(BITSTREAM, H4), 0},
-      {ACCESSOR(REVBK, BYTE), (size_t)revbk4_bytes(header.bklen)},
-      {ACCESSOR(PAR_NBIT, M), (size_t)pardeg},
-      {ACCESSOR(PAR_ENTRY, M), (size_t)pardeg},
+  phf_module::phf_coarse_decode(
+      {PHF_ACCESSOR(BITSTREAM, H4), 0},
+      {PHF_ACCESSOR(REVBK, BYTE), (size_t)revbk4_bytes(header.bklen)},
+      {PHF_ACCESSOR(PAR_NBIT, M), (size_t)pardeg},
+      {PHF_ACCESSOR(PAR_ENTRY, M), (size_t)pardeg},
       {(size_t)header.sublen, (size_t)header.pardeg}, {out_decompressed, 0},
       &_time_lossless, stream);
 
   return this;
 }
 
-TPL HF_CODEC* HF_CODEC::dump(
+PHF_TPL PHF_CLASS* PHF_CLASS::dump(
     std::vector<pszmem_dump> list, char const* basename)
 {
   for (auto& i : list) {
@@ -376,7 +377,7 @@ TPL HF_CODEC* HF_CODEC::dump(
   return this;
 }
 
-TPL HF_CODEC* HF_CODEC::clear_buffer()
+PHF_TPL PHF_CLASS* PHF_CLASS::clear_buffer()
 {
   scratch4->control({ClearDevice});
   bk4->control({ClearDevice});
@@ -391,7 +392,7 @@ TPL HF_CODEC* HF_CODEC::clear_buffer()
 }
 
 // private helper
-TPL void HF_CODEC::phf_memcpy_merge(
+PHF_TPL void PHF_CLASS::phf_memcpy_merge(
     Header& header, void* memcpy_start, size_t memcpy_adjust_to_start,
     memcpy_helper revbk, memcpy_helper par_nbit, memcpy_helper par_entry,
     memcpy_helper bitstream,  //
@@ -415,16 +416,17 @@ TPL void HF_CODEC::phf_memcpy_merge(
   // /* debug */ CHECK_GPU(GpuStreamSync(stream));
 }
 
-TPL float HF_CODEC::time_book() const { return _time_book; }
-TPL float HF_CODEC::time_lossless() const { return _time_lossless; }
+PHF_TPL float PHF_CLASS::time_book() const { return _time_book; }
+PHF_TPL float PHF_CLASS::time_lossless() const { return _time_lossless; }
 
-TPL constexpr bool HF_CODEC::can_overlap_input_and_firstphase_encode()
+PHF_TPL constexpr bool PHF_CLASS::can_overlap_input_and_firstphase_encode()
 {
   return sizeof(E) == sizeof(H4);
 }
 
 // auxiliary
-TPL void HF_CODEC::hf_debug(const std::string SYM_name, void* VAR, int SYM)
+PHF_TPL void PHF_CLASS::hf_debug(
+    const std::string SYM_name, void* VAR, int SYM)
 {
   GpuDevicePtr pbase0{0};
   size_t psize0{0};
@@ -441,8 +443,8 @@ TPL void HF_CODEC::hf_debug(const std::string SYM_name, void* VAR, int SYM)
 
 }  // namespace cusz
 
-#undef ACCESSOR
-#undef TPL
-#undef HF_CODEC
+#undef PHF_ACCESSOR
+#undef PHF_TPL
+#undef PHF_CLASS
 
 #endif /* ABBC78E4_3E65_4633_9BEA_27823AB7C398 */

@@ -18,13 +18,14 @@
 #include <numeric>
 
 #include "cusz/type.h"
+#include "hf/hfcxx_module.hh"
 #include "hf/hfstruct.h"
 #include "hf/hfword.hh"
 #include "mem/memseg_cxx.hh"
 
 namespace cusz {
 
-template <typename E, typename M = u4>
+template <typename E, typename M = u4, bool TIMING = true>
 class HuffmanCodec {
  public:
   using BYTE = u1;
@@ -38,9 +39,10 @@ class HuffmanCodec {
 
  private:
   using BOOK4B = u4;
-  using BOOK8B = u8;
-
+  // using BOOK8B = u8;
   using SYM = E;
+
+  using phf_module = _2403::phf_kernel_wrapper<E, H, M, TIMING>;
 
   // TODO psz and pszhf combined to use 128 byte
   struct alignas(128) pszhf_header {

@@ -8,11 +8,11 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
-/**
- * @tparam TIMING default true to replicate the original
- */
-template <typename E, typename H, typename M, bool TIMING>
-void _2403::phf_coarse_encode_phase1(
+#define PHF_MODULE_TPL \
+  template <typename E, typename H, typename M, bool TIMING>
+#define PHF_MODULE_CLASS _2403::phf_kernel_wrapper<E, H, M, TIMING>
+
+PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase1(
     hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
     hfarray_cxx<H> out, float* time_lossless, void* stream)
 {
@@ -49,8 +49,8 @@ void _2403::phf_coarse_encode_phase1(
   }
 }
 
-template <typename E, typename H, typename M, bool TIMING>
-void _2403::phf_coarse_encode_phase1_collect_metadata(
+PHF_MODULE_TPL void
+PHF_MODULE_CLASS::phf_coarse_encode_phase1_collect_metadata(
     hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
     hfarray_cxx<H> out, hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell,
     hfpar_description hfpar, float* time_lossless, void* stream)
@@ -91,8 +91,7 @@ void _2403::phf_coarse_encode_phase1_collect_metadata(
   }
 }
 
-template <typename H, typename M, bool TIMING>
-void _2403::phf_coarse_encode_phase2(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase2(
     hfarray_cxx<H> in, hfpar_description hfpar, hfarray_cxx<H> deflated,
     hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell, float* time_lossless,
     void* stream)
@@ -132,8 +131,7 @@ void _2403::phf_coarse_encode_phase2(
   }
 }
 
-template <typename M, bool TIMING>
-void _2403::phf_coarse_encode_phase3(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase3(
     hfarray_cxx<M> d_par_nbit, hfarray_cxx<M> d_par_ncell,
     hfarray_cxx<M> d_par_entry,  //
     hfpar_description hfpar,     //
@@ -166,8 +164,7 @@ void _2403::phf_coarse_encode_phase3(
   CHECK_GPU(GpuStreamSync(stream));
 }
 
-template <typename H, typename M, bool TIMING>
-void _2403::phf_coarse_encode_phase4(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase4(
     hfarray_cxx<H> buf, hfarray_cxx<M> par_entry, hfarray_cxx<M> par_ncell,
     hfpar_description hfpar, hfarray_cxx<H> bitstream, float* time_lossless,
     void* stream)
@@ -195,8 +192,7 @@ void _2403::phf_coarse_encode_phase4(
   }
 }
 
-template <typename E, typename H, typename M, bool TIMING>
-void _2403::phf_coarse_decode(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_decode(
     hfarray_cxx<H> bitstream, hfarray_cxx<uint8_t> revbook,
     hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_entry, hfpar_description hfpar,
     hfarray_cxx<E> out, float* time_lossless, void* stream)
@@ -226,16 +222,15 @@ void _2403::phf_coarse_decode(
 
 // TODO ret type (status) and exe_policy
 // duplicate with psz's
-template <typename T, bool TIMING>
-void _2403::phf_scatter_adhoc(
-    hfcompact_cxx<T> compact, T* out, f4* milliseconds, void* stream)
+PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_scatter_adhoc(
+    hfcompact_cxx<E> compact, E* out, f4* milliseconds, void* stream)
 {
   auto grid_dim = (compact.n - 1) / 128 + 1;
 
   if constexpr (TIMING) {
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
-    _2403::kernel::phf_scatter_adhoc<T, u4>
+    _2403::kernel::phf_scatter_adhoc<E, u4>
         <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
             compact.val, compact.idx, compact.n, out);
     STOP_GPUEVENT_RECORDING(stream);
@@ -248,7 +243,7 @@ void _2403::phf_scatter_adhoc(
     DESTROY_GPUEVENT_PAIR;
   }
   else {
-    _2403::kernel::phf_scatter_adhoc<T, u4>
+    _2403::kernel::phf_scatter_adhoc<E, u4>
         <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
             compact.val, compact.idx, compact.n, out);
     CHECK_GPU(GpuStreamSync(stream));
@@ -256,5 +251,8 @@ void _2403::phf_scatter_adhoc(
 
   // return CUSZ_SUCCESS;
 }
+
+#undef PHF_MODULE_TPL
+#undef PHF_MODULE_CLASS
 
 #endif /* D3F59CBB_1CC2_441A_8ACD_E598BDD68687 */
