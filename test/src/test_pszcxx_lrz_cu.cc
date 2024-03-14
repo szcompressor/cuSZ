@@ -60,13 +60,15 @@ bool test(char* fname)
       outlier_val, outlier_idx, outlier_num, outlier_host_num,
       outlier_reserved};
 
+  float t_pred{0.0}, t_revpred{0};
+
   _2401::pszcxx_predict_lorenzo<T>(
       {data, the_data_size}, {.eb = the_eb, .radius = 512}, {eq, shape1d},
-      outlier_obj, stream);
+      outlier_obj, &t_pred, stream);
 
   _2401::pszcxx_reverse_predict_lorenzo<T>(
       {eq, shape1d}, {xdata, shape1d}, {.eb = the_eb, .radius = 512},
-      {xdata, the_data_size}, stream);
+      {xdata, the_data_size}, &t_revpred, stream);
 
   // updated coding style
   // _2401::pszcxx_evaluate_quality_gpu<T>(

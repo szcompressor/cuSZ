@@ -32,6 +32,7 @@ struct psz_context {
   size_t data_len{1};
   size_t splen{0};
   int ndim{-1};
+  pszlen _2403_pszlen{1, 1, 1, 1};
 
   // filenames
   char demodata_name[40];

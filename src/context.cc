@@ -450,6 +450,7 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
     ctx->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
 
     ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+    ctx->_2403_pszlen = {ctx->x, ctx->y, ctx->z, 1};
   }
 }
 
@@ -586,6 +587,7 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 void pszctx_set_len(pszctx* ctx, pszlen len)
 {
   pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w);
+  ctx->_2403_pszlen = len;
 }
 
 void pszctx_set_radius(pszctx* ctx, int _)

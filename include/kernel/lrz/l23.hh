@@ -18,7 +18,7 @@
 #include "mem/compact.hh"
 #include "port.hh"
 
-template <typename T, typename EQ = int32_t, typename FP = T>
+template <typename T, typename EQ = int32_t, bool TIMING = true>
 pszerror pszcxx_predict_lorenzo_unused(
     T* const data,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
@@ -33,7 +33,7 @@ pszerror pszcxx_predict_lorenzo_unused(
     float* time_elapsed,  // optional
     void* stream);        //
 
-template <typename T, typename EQ = int32_t, typename FP = T>
+template <typename T, typename EQ = int32_t, bool TIMING = true>
 pszerror pszcxx_reverse_predict_lorenzo(
     EQ* eq,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)

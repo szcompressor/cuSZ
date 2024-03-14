@@ -2,15 +2,17 @@
 
 #include "lrz_cxx.cu_hip.inl"
 
-#define INS(T)                                                            \
-  template pszerror _2401::pszcxx_predict_lorenzo<T>(                     \
-      pszarray_cxx<T>, pszrc2 const, pszarray_cxx<u4>, pszcompact_cxx<T>, \
-      void*);                                                             \
-  template pszerror _2401::pszcxx_reverse_predict_lorenzo(                \
-      pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier, \
-      pszrc2 const rc, pszarray_cxx<T> out_reconstruct, void* stream);
+#define INS(T, TIMING)                                                       \
+  template pszerror _2401::pszcxx_predict_lorenzo<T, TIMING>(                \
+      pszarray_cxx<T>, pszrc2 const, pszarray_cxx<u4>, pszcompact_cxx<T>,    \
+      f4*, void*);                                                           \
+  template pszerror _2401::pszcxx_reverse_predict_lorenzo<T, TIMING>(        \
+      pszarray_cxx<u4>, pszarray_cxx<T>, pszrc2 const, pszarray_cxx<T>, f4*, \
+      void*);
 
-INS(f4)
-INS(f8)
+INS(f4, true)
+INS(f8, true)
+INS(f4, false)
+INS(f8, false)
 
 #undef INS

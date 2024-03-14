@@ -1,6 +1,5 @@
 // deps
 #include "cusz/cxx_array.hh"
-#include "cusz/type.h"
 #include "exception/exception.hh"
 #include "kernel/lrz.hh"
 #include "mem/compact.hh"
@@ -10,7 +9,7 @@
 //
 #include "kernel/detail/spvn.cu_hip.inl"
 
-template <pszpolicy P, typename T>
+template <pszpolicy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_scatter_naive(
     pszcompact_cxx<T> in, pszarray_cxx<T> out, f4* milliseconds, void* stream)
 try {
@@ -29,7 +28,7 @@ try {
 NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
-template <pszpolicy P, typename T>
+template <pszpolicy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_gather_make_metadata_host_available(
     pszcompact_cxx<T> in, void* stream)
 try {

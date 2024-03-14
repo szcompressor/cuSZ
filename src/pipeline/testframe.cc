@@ -1,4 +1,5 @@
 #include "pipeline/testframe.hh"
+#include <stdexcept>
 
 #include "busyheader.hh"
 #include "compressor.hh"
@@ -20,11 +21,12 @@ TESTFRAME::full_compress(
     uninit_stream_t stream)
 {
   cor->compress_predict(ctx, in, stream);
-  cor->compress_histogram(ctx, stream);
+  // cor->compress_histogram(ctx, stream);
+  throw std::runtime_error("[2403] known distruption when modularizing.");
   cor->compress_encode(ctx, stream);
-  cor->compress_merge(ctx, stream);
-  cor->compress_update_header(ctx, stream);
-  cor->compress_wrapup(out, outlen);
+  cor->compress_merge_update_header(ctx, out, outlen, stream);
+  // cor->compress_update_header(ctx, stream);
+  // cor->compress_wrapup(out, outlen);
 }
 
 TESTFRAME::full_decompress(

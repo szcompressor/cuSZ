@@ -5,7 +5,7 @@
 
 // modular functions as of 2401
 // clang-format off
-pszerror psz_predict_lorenzo(pszarray in, pszrc2 const rc, pszarray out_errquant, pszoutlier out_outlier, void* stream);
+pszerror psz_predict_lorenzo(pszarray in, pszrc2 const rc, pszarray out_errquant, pszoutlier out_outlier, f4*void* stream);
 
 /**/pszerror psz_predict_spline(pszarray in, pszrc2 const rc, pszarray out_errquant, pszarray out_anchor, pszoutlier out_outlier, void* stream);
 /**/pszerror psz_histogram(pszarray in, pszarray hist, void* stream);
@@ -16,7 +16,7 @@ pszerror psz_predict_lorenzo(pszarray in, pszrc2 const rc, pszarray out_errquant
 /**/pszerror psz_unarchive(pszheader* in_header, pszarray in_archive, pszarray out_encoded, pszoutlier out_outlier, void* stream);
 /**/pszerror psz_decode_entropy(pszarray in_encoded, pszarray out_decoded, void* stream);
 /**/pszerror psz_decode_dictionary(pszarray in_encoded, pszarray out_decoded, void* stream);
-pszerror psz_reverse_predict_lorenzo(pszarray in_errquant, pszoutlier in_scattered_outlier, pszrc2 const rc, pszarray out_reconstruct, void* stream);
+pszerror psz_reverse_predict_lorenzo(pszarray in_errquant, pszoutlier in_scattered_outlier, pszrc2 const rc, pszarray out_reconstruct, f4*,void* stream);
 /**/pszerror psz_reverse_predict_spline(pszarray in_errquant, pszarray in_anchor, pszoutlier in_scattered_outlier, pszarray out_reconstruct, void* stream);
 // clang-format on
 

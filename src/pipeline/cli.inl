@@ -102,12 +102,15 @@ class CLI {
 
  private:
   void write_compressed_to_disk(
-      std::string compressed_name, uint8_t* compressed, size_t compressed_len)
+      std::string compressed_name, pszheader* header, uint8_t* compressed,
+      size_t compressed_len)
   {
     auto file = new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "cusza");
-    file->dptr(compressed)
-        ->control({MallocHost, D2H})
-        ->file(compressed_name.c_str(), ToFile);
+
+    file->dptr(compressed)->control({MallocHost, D2H});
+    // put on-host header
+    memcpy(file->hptr(), header, sizeof(pszheader));
+    file->file(compressed_name.c_str(), ToFile);
     // ->control({FreeHost});
 
     delete file;
@@ -151,10 +154,11 @@ class CLI {
       if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
 
       write_compressed_to_disk(
-          std::string(ctx->file_input) + ".cusza", compressed, compressed_len);
+          std::string(ctx->file_input) + ".cusza", &header, compressed,
+          compressed_len);
     }
     else {
-        printf("\n*** exit on failure.\n");
+      printf("\n*** exit on failure.\n");
     }
 
     delete input;

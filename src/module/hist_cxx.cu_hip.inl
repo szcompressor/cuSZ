@@ -9,7 +9,7 @@
 // definitions
 #include "kernel/detail/histsp.cu_hip.inl"
 
-template <pszpolicy policy, typename T>
+template <pszpolicy policy, typename T, typename FQ, bool TIMING>
 pszerror _2401::pszcxx_histogram_cauchy(
     pszarray_cxx<T> in, pszarray_cxx<u4> out_hist, float* milliseconds,
     void* stream)
