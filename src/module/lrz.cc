@@ -19,11 +19,11 @@ try {
   auto l3 = in.len3;
 
   if (in.dtype == F4)
-    _2401::pszcxx_predict_lorenzo<f4>(
+    _2401::pszpred_lrz<f4>::pszcxx_predict_lorenzo(
         *((pszarray_cxx<f4>*)&in), rc, *((pszarray_cxx<u4>*)&out_errquant),
         *((pszcompact_cxx<f4>*)&out_outlier), t, stream);
   else if (in.dtype == F8)
-    _2401::pszcxx_predict_lorenzo<f8>(
+    _2401::pszpred_lrz<f8>::pszcxx_predict_lorenzo(
         *((pszarray_cxx<f8>*)&in), rc, *((pszarray_cxx<u4>*)&out_errquant),
         *((pszcompact_cxx<f8>*)&out_outlier), t, stream);
   else
@@ -39,13 +39,13 @@ pszerror psz_reverse_predict_lorenzo(
     pszarray out_reconstruct, f4* t, void* stream)
 try {
   if (out_reconstruct.dtype == F4) {
-    _2401::pszcxx_reverse_predict_lorenzo(
+    _2401::pszpred_lrz<f4>::pszcxx_reverse_predict_lorenzo(
         *((pszarray_cxx<u4>*)&in_errquant),
         *((pszarray_cxx<f4>*)&in_scattered_outlier), rc,
         *((pszarray_cxx<f4>*)&out_reconstruct), t, stream);
   }
   else if (out_reconstruct.dtype == F8) {
-    _2401::pszcxx_reverse_predict_lorenzo(
+    _2401::pszpred_lrz<f8>::pszcxx_reverse_predict_lorenzo(
         *((pszarray_cxx<u4>*)&in_errquant),
         *((pszarray_cxx<f8>*)&in_scattered_outlier), rc,
         *((pszarray_cxx<f8>*)&out_reconstruct), t, stream);

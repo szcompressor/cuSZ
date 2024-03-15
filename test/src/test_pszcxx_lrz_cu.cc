@@ -62,11 +62,11 @@ bool test(char* fname)
 
   float t_pred{0.0}, t_revpred{0};
 
-  _2401::pszcxx_predict_lorenzo<T>(
+  _2401::pszpred_lrz<T>::pszcxx_predict_lorenzo(
       {data, the_data_size}, {.eb = the_eb, .radius = 512}, {eq, shape1d},
       outlier_obj, &t_pred, stream);
 
-  _2401::pszcxx_reverse_predict_lorenzo<T>(
+  _2401::pszpred_lrz<T>::pszcxx_reverse_predict_lorenzo(
       {eq, shape1d}, {xdata, shape1d}, {.eb = the_eb, .radius = 512},
       {xdata, the_data_size}, &t_revpred, stream);
 

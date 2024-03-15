@@ -25,6 +25,7 @@
 #include "port.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
+#include "utils/timer.hh"
 
 using std::cerr;
 using std::endl;
@@ -108,77 +109,61 @@ Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool debug)
 
 COR::compress_predict(pszctx* ctx, T* in, void* stream)
 try {
-  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
-
-  // [psz::note::TODO] compat layer or explicit macro
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   auto len3 = dim3(ctx->x, ctx->y, ctx->z);
 #elif defined(PSZ_USE_1API)
   auto len3 = sycl::range<3>(ctx->z, ctx->y, ctx->x);
 #endif
-  auto linear = ctx->x * ctx->y * ctx->z;
 
   /* prediction-quantization with compaction */
-  {
-    if (spline_in_use()) {
+  if (ctx->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
-      mem->od->dptr(in);
-      pszcxx_predict_spline(
-          mem->od, mem->ac, mem->e, (void*)mem->compact, ctx->eb, ctx->radius,
-          &time_pred, stream);
+    mem->od->dptr(in);
+    pszcxx_predict_spline(
+        mem->od, mem->ac, mem->e, (void*)mem->compact, ctx->eb, ctx->radius,
+        &time_pred, stream);
 #else
-      throw runtime_error(
-          "[psz::error] pszcxx_predict_spline not implemented other than "
-          "CUDA.");
+    throw runtime_error(
+        "[psz::error] pszcxx_predict_spline not implemented other than "
+        "CUDA.");
 #endif
-    }
-    else {
-      // pszcxx_predict_lorenzo<T, E>(
-      //     in, len3, ctx->eb, ctx->radius, mem->ectrl(), (void*)mem->compact,
-      //     &time_pred, stream);
-
-      _2401::pszcxx_predict_lorenzo<T>(
-          {in, ctx->_2403_pszlen}, {ctx->eb, ctx->radius},
-          {mem->e->dptr(), ctx->data_len}, *_2403_compact, &time_pred, stream);
-    }
+  }
+  else {
+    _2401::pszpred_lrz<T>::pszcxx_predict_lorenzo(
+        {in, ctx->_2403_pszlen}, {ctx->eb, ctx->radius},
+        {mem->e->dptr(), ctx->data_len}, *_2403_compact, &time_pred, stream);
 
     PSZDBG_LOG("interp: done");
     PSZDBG_PTR_WHERE(mem->ectrl());
     PSZDBG_VAR("pipeline", len);
-    // PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);
+    PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);
   }
 
   /* make outlier count seen on host */
-  {
-    mem->compact->make_host_accessible((GpuStreamT)stream);
-    // cerr << "outlier numbers: " << mem->compact->num_outliers() << ",\t";
-    // cerr << "all numbers: " << linear << ",\t";
-    // cerr << (mem->compact->num_outliers() * 100.0 / linear) << "%" << endl;
-    ctx->splen = mem->compact->num_outliers();
-  }
+  mem->compact->make_host_accessible((GpuStreamT)stream);
+  ctx->splen = mem->compact->num_outliers();
 
   return this;
 }
 catch (const psz::exception_outlier_overflow& e) {
   cerr << e.what() << endl;
-  auto linear = ctx->x * ctx->y * ctx->z;
   cerr << "outlier numbers: " << mem->compact->num_outliers() << "\t";
-  cerr << (mem->compact->num_outliers() * 100.0 / linear) << "%" << endl;
+  cerr << (mem->compact->num_outliers() * 100.0 / len) << "%" << endl;
   error_list.push_back(PSZ_ERROR_OUTLIER_OVERFLOW);
   return this;
 }
 
 COR::compress_encode(pszctx* ctx, void* stream)
 {
-  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
-  auto booklen = ctx->radius * 2;
+  auto booklen = ctx->dict_size;
 
   /* Huffman encoding */
   codec->build_codebook(mem->ht, booklen, stream);
   // [TODO] CR estimation must be after building codebook; need a flag.
   if (ctx->report_cr_est) {
-    auto overhead = spline_in_use() ? sizeof(T) * mem->ac->len() : 0;
-    codec->calculate_CR(mem->e, sizeof(T), overhead);
+    codec->calculate_CR(
+        mem->e, sizeof(T),
+        (sizeof(T) * mem->ac->len()) * (ctx->pred_type == Spline));
   }
   PSZDBG_LOG("codebook: done");
   // PSZSANITIZE_HIST_BK(mem->ht->hptr(), codec->bk4->hptr(), booklen);
@@ -199,8 +184,6 @@ COR::compress_encode_use_prebuilt(pszctx* ctx, void* stream)
 
 COR::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
 {
-  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
-
   PSZSANITIZE_PSZCTX(ctx);
 
   compress_predict(ctx, in, stream);
@@ -256,7 +239,6 @@ try {
   PSZDBG_LOG("merge buf: done");
 
   // update header
-  auto spline_in_use = [&]() { return ctx->pred_type == Spline; };
 
   header.x = ctx->x, header.y = ctx->y, header.z = ctx->z,
   header.w = 1;  // placeholder
@@ -367,7 +349,8 @@ COR::decompress_predict(
     // [psz::TODO] throw exception
 
     pszcxx_reverse_predict_spline(
-        &anchor, mem->e, mem->xd, header->eb, header->radius, &time_pred, stream);
+        &anchor, mem->e, mem->xd, header->eb, header->radius, &time_pred,
+        stream);
 #else
     throw runtime_error(
         "[psz::error] pszcxx_reverse_predict_spline not implemented other "
@@ -375,13 +358,14 @@ COR::decompress_predict(
 #endif
   }
   else {
-    _2401::pszcxx_reverse_predict_lorenzo<T>(
+    _2401::pszpred_lrz<T>::pszcxx_reverse_predict_lorenzo(
         {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
-        {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen}, &time_pred, stream);
+        {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
+        &time_pred, stream);
 
     // pszcxx_reverse_predict_lorenzo<T, E, FP>(
-    //     mem->ectrl(), len3, d_space, header->eb, header->radius, d_xdata, &time_pred,
-    //     stream);
+    //     mem->ectrl(), len3, d_space, header->eb, header->radius, d_xdata,
+    //     &time_pred, stream);
   }
 
   return this;

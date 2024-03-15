@@ -22,77 +22,90 @@
 // definitions
 #include "detail/l23r.cu_hip.inl"
 
-template <typename T, typename Eq, bool TIMING, bool ZigZag>
-pszerror pszcxx_predict_lorenzo(
+#define L23R_LAUNCH_KERNEL                                                 \
+  if (d == 1) {                                                            \
+    psz::rolling::c_lorenzo_1d1l<                                          \
+        T, u4, T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>     \
+        <<<c_lorenzo<1>::thread_grid(len3), c_lorenzo<1>::thread_block, 0, \
+           (cudaStream_t)stream>>>(                                        \
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
+            ot->num());                                                    \
+  }                                                                        \
+  else if (d == 2) {                                                       \
+    psz::rolling::c_lorenzo_2d1l<T, u4, T>                                 \
+        <<<c_lorenzo<2>::thread_grid(len3), c_lorenzo<2>::thread_block, 0, \
+           (cudaStream_t)stream>>>(                                        \
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
+            ot->num());                                                    \
+  }                                                                        \
+  else if (d == 3) {                                                       \
+    psz::rolling::c_lorenzo_3d1l<T, u4, T>                                 \
+        <<<c_lorenzo<3>::thread_grid(len3), c_lorenzo<3>::thread_block, 0, \
+           (cudaStream_t)stream>>>(                                        \
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
+            ot->num());                                                    \
+  }
+
+template <typename T, psz_timing_mode TIMING, bool ZigZag>
+pszerror pszcxx_predict_lorenzo__internal(
     T* const data, dim3 const len3, f8 const eb, int const radius,
-    Eq* const eq, void* _outlier, f4* time_elapsed, void* stream)
+    u4* const eq, void* _outlier, f4* time_elapsed, void* stream)
 {
-  static_assert(
-      std::is_same<Eq, u4>::value or std::is_same<Eq, uint16_t>::value or
-          std::is_same<Eq, uint8_t>::value,
-      "Eq must be unsigned integer that is less than or equal to 4 bytes.");
-
-
-
   using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
   using namespace psz::kernelconfig;
 
   auto ot = (Compact*)_outlier;
-
   auto d = lorenzo_utils::ndim(len3);
 
   // error bound
-  auto ebx2 = eb * 2;
-  auto ebx2_r = 1 / ebx2;
+  auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
   auto leap3 = dim3(1, len3.x, len3.x * len3.y);
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
+  if constexpr (TIMING == CPU_BARRIER_AND_TIMING) {
+    CREATE_GPUEVENT_PAIR;
+    START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
-  if (d == 1) {
-    psz::rolling::c_lorenzo_1d1l<
-        T, Eq, T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>
-        <<<c_lorenzo<1>::thread_grid(len3), c_lorenzo<1>::thread_block, 0,
-           (cudaStream_t)stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
-            ot->num());
-  }
-  else if (d == 2) {
-    psz::rolling::c_lorenzo_2d1l<T, Eq, T>
-        <<<c_lorenzo<2>::thread_grid(len3), c_lorenzo<2>::thread_block, 0,
-           (cudaStream_t)stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
-            ot->num());
-  }
-  else if (d == 3) {
-    psz::rolling::c_lorenzo_3d1l<T, Eq, T>
-        <<<c_lorenzo<3>::thread_grid(len3), c_lorenzo<3>::thread_block, 0,
-           (cudaStream_t)stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
-            ot->num());
-  }
+    L23R_LAUNCH_KERNEL;
 
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
+    STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
+    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+    TIME_ELAPSED_GPUEVENT(time_elapsed);
+    DESTROY_GPUEVENT_PAIR;
+  }
+  else if constexpr (TIMING == CPU_BARRIER) {
+    L23R_LAUNCH_KERNEL;
+    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+  }
+  else if constexpr (TIMING == GPU_AUTOMONY) {
+    L23R_LAUNCH_KERNEL;
+  }
+  else {
+    throw std::runtime_error(
+        "[2403] fail on purpose; show now run into this branch.");
+  }
 
   return CUSZ_SUCCESS;
 }
 
-#define INIT(T, E, TIMING, ZIGZAG)                                   \
-  template pszerror pszcxx_predict_lorenzo<T, E, TIMING, ZIGZAG>(    \
-      T* const data, dim3 const len3, f8 const eb, int const radius, \
-      E* const eq, void* _outlier, f4* time_elapsed, void* stream);
+#define L23R_INIT(T, TIMING, ZIGZAG)                                     \
+  template pszerror pszcxx_predict_lorenzo__internal<T, TIMING, ZIGZAG>( \
+      T* const data, dim3 const len3, f8 const eb, int const radius,     \
+      u4* const eq, void* _outlier, f4* time_elapsed, void* stream);
 
-INIT(f4, u4, true, false)
-INIT(f4, u4, true, true)
-INIT(f8, u4, true, false)
-INIT(f8, u4, true, true)
+L23R_INIT(f4, CPU_BARRIER_AND_TIMING, false)
+L23R_INIT(f4, CPU_BARRIER_AND_TIMING, true)
+L23R_INIT(f8, CPU_BARRIER_AND_TIMING, false)
+L23R_INIT(f8, CPU_BARRIER_AND_TIMING, true)
 
-INIT(f4, u4, false, false)
-INIT(f4, u4, false, true)
-INIT(f8, u4, false, false)
-INIT(f8, u4, false, true)
+L23R_INIT(f4, CPU_BARRIER, false)
+L23R_INIT(f4, CPU_BARRIER, true)
+L23R_INIT(f8, CPU_BARRIER, false)
+L23R_INIT(f8, CPU_BARRIER, true)
 
-#undef INIT
+L23R_INIT(f4, GPU_AUTOMONY, false)
+L23R_INIT(f4, GPU_AUTOMONY, true)
+L23R_INIT(f8, GPU_AUTOMONY, false)
+L23R_INIT(f8, GPU_AUTOMONY, true)
+
+#undef L23R_INIT
+#undef L23R_LAUNCH_KERNEL

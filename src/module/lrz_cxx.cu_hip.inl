@@ -16,8 +16,10 @@
 
 namespace _2401 {
 
-template <typename T, bool TIMING>
-pszerror pszcxx_predict_lorenzo(
+#define LRZ_WRAPPER_TPL template <typename T, psz_timing_mode TIMING>
+#define LRZ_WRAPPER_CLASS pszpred_lrz<T, TIMING>
+
+LRZ_WRAPPER_TPL pszerror LRZ_WRAPPER_CLASS::pszcxx_predict_lorenzo(
     pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
     pszcompact_cxx<T> out_outlier, f4* time_elapsed, void* stream)
 try {
@@ -29,7 +31,7 @@ try {
       out_outlier.num,
   };
 
-  pszcxx_predict_lorenzo<T, u4, TIMING>(
+  pszcxx_predict_lorenzo__internal<T, TIMING>(
       in.buf, len3, rc.eb, rc.radius, out_errquant.buf, (void*)&compact,
       time_elapsed, stream);
 
@@ -38,14 +40,13 @@ try {
 NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
-template <typename T, bool TIMING>
-pszerror pszcxx_reverse_predict_lorenzo(
+LRZ_WRAPPER_TPL pszerror LRZ_WRAPPER_CLASS::pszcxx_reverse_predict_lorenzo(
     pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
     pszrc2 const rc, pszarray_cxx<T> out_xdata, f4* time_elapsed, void* stream)
 try {
   auto len3 = dim3(out_xdata.len3.x, out_xdata.len3.y, out_xdata.len3.z);
 
-  pszcxx_reverse_predict_lorenzo<T, u4, TIMING>(
+  pszcxx_reverse_predict_lorenzo__internal<T, TIMING>(
       in_errquant.buf, len3, out_xdata.buf, rc.eb, rc.radius, out_xdata.buf,
       time_elapsed, stream);
 

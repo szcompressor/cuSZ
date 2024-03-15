@@ -37,7 +37,7 @@ typedef enum psz_error_status {  //
   CUSZ_FAIL_DATA_NOT_READY,
   //
   PSZ_ERROR_GPU_GENERAL,
-  // 
+  //
   PSZ_ERROR_OUTLIER_OVERFLOW,
   PSZ_ERROR_IO,
   // specify error when calling CUDA API
@@ -230,6 +230,12 @@ typedef __pszimpl_rc pszrc2;
 
 // forward
 struct pszprof;
+
+typedef enum psz_timing_mode {
+  CPU_BARRIER_AND_TIMING,
+  CPU_BARRIER,
+  GPU_AUTOMONY
+} psz_timing_mode;
 
 #ifdef __cplusplus
 }
