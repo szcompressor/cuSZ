@@ -44,9 +44,11 @@ PHF_TPL PHF_CLASS::~HuffmanCodec()
   // delete book_desc;
 
   delete compressed;
-  delete __scratch, delete scratch4;
-  delete __bitstream, delete bitstream4;
-  delete hist_view;
+  // delete __scratch;
+  delete scratch4;
+  // delete __bitstream;
+  delete bitstream4;
+  // delete hist_view;
 }
 
 PHF_TPL PHF_CLASS* PHF_CLASS::init(
@@ -56,11 +58,11 @@ PHF_TPL PHF_CLASS* PHF_CLASS::init(
     setlocale(LC_NUMERIC, "");
     printf("\nHuffmanCoarse<E, H4, M>::init() debugging:\n");
     printf("GpuDevicePtr nbyte: %d\n", (int)sizeof(GpuDevicePtr));
-    hf_debug("SCRATCH", __scratch->dptr(), RC::SCRATCH);
+    hf_debug("SCRATCH", scratch4->dptr(), RC::SCRATCH);
     // TODO separate 4- and 8- books
     // hf_debug("BK", __bk->dptr(), RC::BK);
     // hf_debug("REVBK", __revbk->dptr(), RC::REVBK);
-    hf_debug("BITSTREAM", __bitstream->dptr(), RC::BITSTREAM);
+    hf_debug("BITSTREAM", bitstream4->dptr(), RC::BITSTREAM);
     hf_debug("PAR_NBIT", par_nbit->dptr(), RC::PAR_NBIT);
     hf_debug("PAR_NCELL", par_ncell->dptr(), RC::PAR_NCELL);
     printf("\n");
@@ -75,42 +77,46 @@ PHF_TPL PHF_CLASS* PHF_CLASS::init(
   // placeholder length
   compressed = new pszmem_cxx<BYTE>(inlen * TYPICAL, 1, 1, "hf::out4B");
 
-  __scratch = new pszmem_cxx<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
-  scratch4 = new pszmem_cxx<H4>(inlen, 1, 1, "hf::scratch4");
+  // __scratch = new pszmem_cxx<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
+  // scratch4 = new pszmem_cxx<H4>(inlen, 1, 1, "hf::scratch4");
+  scratch4 = new pszmem_cxx<H4>(inlen * FAILSAFE, 1, 1, "hf::scratch4");
 
   bk4 = new pszmem_cxx<H4>(bklen, 1, 1, "hf::book4");
 
   revbk4 = new pszmem_cxx<BYTE>(revbk4_bytes(bklen), 1, 1, "hf::revbk4");
 
   // encoded buffer
-  __bitstream =
-      new pszmem_cxx<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
-  bitstream4 = new pszmem_cxx<H4>(inlen / 2, 1, 1, "hf::bitstrm4");
+  // __bitstream =
+  //     new pszmem_cxx<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
+  // bitstream4 = new pszmem_cxx<H4>(inlen / 2, 1, 1, "hf::bitstrm4");
+  bitstream4 = new pszmem_cxx<H4>(inlen * FAILSAFE / 2, 1, 1, "hf::bitstrm4");
 
   par_nbit = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_nbit");
   par_ncell = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_ncell");
   par_entry = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_entry");
 
   // external buffer
-  hist_view = new MemU4(bklen, 1, 1, "a view of external hist");
+  // hist_view = new MemU4(bklen, 1, 1, "a view of external hist");
 
   // allocate
-  __scratch->control({Malloc, MallocHost});
-  scratch4->asaviewof(__scratch);
+  // __scratch->control({Malloc, MallocHost});
+  // scratch4->asaviewof(__scratch);
+  scratch4->control({Malloc, MallocHost});
 
   bk4->control({Malloc, MallocHost});
 
   revbk4->control({Malloc, MallocHost});
 
-  __bitstream->control({Malloc, MallocHost});
-  bitstream4->asaviewof(__bitstream);
+  // __bitstream->control({Malloc, MallocHost});
+  // bitstream4->asaviewof(__bitstream);
+  bitstream4->control({Malloc, MallocHost});
 
   par_nbit->control({Malloc, MallocHost});
   par_ncell->control({Malloc, MallocHost});
   par_entry->control({Malloc, MallocHost});
 
   // repurpose scratch after several substeps
-  compressed->dptr(__scratch->dptr())->hptr(__scratch->hptr());
+  compressed->dptr((u1*)scratch4->dptr())->hptr((u1*)scratch4->hptr());
 
   GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
 
@@ -143,27 +149,26 @@ PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
   bk4->control({ASYNC_H2D}, (GpuStreamT)stream);
   revbk4->control({ASYNC_H2D}, (GpuStreamT)stream);
 
-  hist_view->asaviewof(freq);  // for analysis
+  // hist_view->asaviewof(freq);  // for analysis
 
   return this;
 }
 
 // using CPU huffman
 PHF_TPL void PHF_CLASS::calculate_CR(
-    MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
+    MemU4* ectrl, MemU4* freq, szt sizeof_dtype, szt overhead_bytes)
 {
   // serial part
   f8 serial_entropy = 0;
   f8 serial_avg_bits = 0;
 
-  auto len = std::accumulate(hist_view->hbegin(), hist_view->hend(), (szt)0);
+  auto len = std::accumulate(freq->hbegin(), freq->hend(), (szt)0);
   // printf("[psz::dbg::hf] len: %zu\n", len);
 
   for (auto i = 0; i < bklen; i++) {
-    auto freq = hist_view->hat(i);
     auto hfcode = bk4->hat(i);
     if (freq != 0) {
-      auto p = 1.0 * freq / len;
+      auto p = 1.0 * freq->hat(i) / len;
       serial_entropy += -std::log2(p) * p;
 
       auto bits = ((PackedWordByWidth<4>*)(&hfcode))->bits;
@@ -218,8 +223,8 @@ PHF_TPL PHF_CLASS* PHF_CLASS::encode(
 {
   _time_lossless = 0;
 
-  H* d_buffer = (H*)__scratch->dptr();
-  H* d_bitstream = (H*)__bitstream->dptr();
+  H* d_buffer = (H*)scratch4->dptr();
+  H* d_bitstream = (H*)bitstream4->dptr();
   H* d_book = (H*)bk4->dptr();
   hfpar_description hfpar{sublen, pardeg};
 
@@ -294,7 +299,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::phf_memcpy_merge(uninit_stream_t stream)
       {revbk4->dptr(), revbk4->bytes(), header.entry[Header::REVBK]},
       {par_nbit->dptr(), par_nbit->bytes(), header.entry[Header::PAR_NBIT]},
       {par_entry->dptr(), par_entry->bytes(), header.entry[Header::PAR_ENTRY]},
-      {__bitstream->dptr(), __bitstream->bytes(),
+      {bitstream4->dptr(), bitstream4->bytes(),
        header.entry[Header::BITSTREAM]},
       stream);
   return this;

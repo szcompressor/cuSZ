@@ -46,6 +46,14 @@ pszcompressor* psz_create(pszframe* _framework, psz_dtype _type)
 
 pszerror psz_release(pszcompressor* comp)
 {
+  if (comp->type == F4) {
+    using Compressor = cusz::CompressorF4;
+    delete (Compressor*)comp->compressor;
+  }
+  else {
+    throw std::runtime_error("Type is not supported.");
+  }
+
   delete comp;
   return CUSZ_SUCCESS;
 }
@@ -80,8 +88,7 @@ pszerror psz_compress(
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
-    cor->compress(
-        comp->ctx, (f4*)(in), compressed, comp_bytes, stream);
+    cor->compress(comp->ctx, (f4*)(in), compressed, comp_bytes, stream);
     cor->export_header(*header);
     cor->export_timerecord((psz::TimeRecord*)record);
   }
@@ -98,7 +105,7 @@ pszerror psz_decompress_init(pszcompressor* comp, pszheader* header)
   comp->header = header;
   if (comp->type == F4) {
     auto cor = (cusz::CompressorF4*)(comp->compressor);
-    cor->init(header);
+    cor->init(header, false);
   }
   else {
     throw std::runtime_error(

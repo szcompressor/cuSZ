@@ -67,25 +67,18 @@ void concate_memcpy_d2d(
 
 namespace cusz {
 
-COR::destroy()
-{
-  delete mem;
-  delete codec;
-
-  return this;
-}
-
 template <class C>
 Compressor<C>::~Compressor()
 {
-  destroy();
+  delete mem;
+  delete codec;
 }
 
 //------------------------------------------------------------------------------
 
 template <class C>
 template <class CONFIG>
-Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool debug)
+Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool iscompression, bool debug)
 {
   codec = new Codec;
 
@@ -96,12 +89,14 @@ Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool debug)
   len = x * y * z;
 
   // TODO [2403] need to merge the following
-  mem = new pszmempool_cxx<T, E, H>(x, radius, y, z);
+  mem = new pszmempool_cxx<T, E, H>(x, radius, y, z, iscompression);
 
-  // TODO [2403] ad hoc
-  _2403_compact = new pszcompact_cxx<T>{
-      mem->compact->d_val, mem->compact->d_idx, mem->compact->d_num,
-      mem->compact->h_num, mem->compact->reserved_len};
+  if (iscompression) {
+    // TODO [2403] ad hoc
+    _2403_compact = new pszcompact_cxx<T>{
+        mem->compact->d_val, mem->compact->d_idx, mem->compact->d_num,
+        mem->compact->h_num, mem->compact->reserved_len};
+  }
   codec->init(mem->len, booklen, pardeg, debug);
 
   return this;
@@ -118,10 +113,14 @@ try {
   /* prediction-quantization with compaction */
   if (ctx->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
-    mem->od->dptr(in);
+
+    pszmem_cxx<T> local_spline_in(
+        ctx->x, ctx->y, ctx->z, "local pszmem for spline input");
+    local_spline_in.dptr(in);
+
     pszcxx_predict_spline(
-        mem->od, mem->ac, mem->e, (void*)mem->compact, ctx->eb, ctx->radius,
-        &time_pred, stream);
+        &local_spline_in, mem->_anchor, mem->_ectrl, (void*)mem->compact,
+        ctx->eb, ctx->radius, &time_pred, stream);
 #else
     throw runtime_error(
         "[psz::error] pszcxx_predict_spline not implemented other than "
@@ -131,12 +130,13 @@ try {
   else {
     _2401::pszpred_lrz<T>::pszcxx_predict_lorenzo(
         {in, ctx->_2403_pszlen}, {ctx->eb, ctx->radius},
-        {mem->e->dptr(), ctx->data_len}, *_2403_compact, &time_pred, stream);
+        {mem->_ectrl->dptr(), ctx->data_len}, *_2403_compact, &time_pred,
+        stream);
 
     PSZDBG_LOG("interp: done");
     PSZDBG_PTR_WHERE(mem->ectrl());
     PSZDBG_VAR("pipeline", len);
-    PSZSANITIZE_QUANTCODE(mem->e->control({D2H})->hptr(), len, booklen);
+    PSZSANITIZE_QUANTCODE(mem->_ectrl->control({D2H})->hptr(), len, booklen);
   }
 
   /* make outlier count seen on host */
@@ -158,15 +158,15 @@ COR::compress_encode(pszctx* ctx, void* stream)
   auto booklen = ctx->dict_size;
 
   /* Huffman encoding */
-  codec->build_codebook(mem->ht, booklen, stream);
+  codec->build_codebook(mem->_hist, booklen, stream);
   // [TODO] CR estimation must be after building codebook; need a flag.
   if (ctx->report_cr_est) {
     codec->calculate_CR(
-        mem->e, sizeof(T),
-        (sizeof(T) * mem->ac->len()) * (ctx->pred_type == Spline));
+        mem->_ectrl, mem->_hist, sizeof(T),
+        (sizeof(T) * mem->_anchor->len()) * (ctx->pred_type == Spline));
   }
   PSZDBG_LOG("codebook: done");
-  // PSZSANITIZE_HIST_BK(mem->ht->hptr(), codec->bk4->hptr(), booklen);
+  // PSZSANITIZE_HIST_BK(mem->_hist->hptr(), codec->bk4->hptr(), booklen);
 
   codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
 
@@ -221,7 +221,8 @@ try {
 
   nbyte[Header::HEADER] = sizeof(Header);
   nbyte[Header::VLE] = sizeof(BYTE) * comp_hf_outlen;
-  nbyte[Header::ANCHOR] = pred_type == Spline ? sizeof(T) * mem->ac->len() : 0;
+  nbyte[Header::ANCHOR] =
+      pred_type == Spline ? sizeof(T) * mem->_anchor->len() : 0;
   nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
   // clang-format off
@@ -286,12 +287,12 @@ COR::optional_dump(pszctx* ctx, pszmem_dump const i)
 
   if (i == PszQuant) {
     auto ofname = ofn(".psz_quant");
-    mem->e->control({D2H})->file(ofname.c_str(), ToFile);
+    mem->_ectrl->control({D2H})->file(ofname.c_str(), ToFile);
     cout << "dumping quantization code: " << ofname << endl;
   }
   else if (i == PszHist) {
     auto ofname = ofn(".psz_hist");
-    mem->ht->control({D2H})->file(ofname.c_str(), ToFile);
+    mem->_hist->control({D2H})->file(ofname.c_str(), ToFile);
     cout << "dumping histogram: " << ofname << endl;
   }
   // else if (i > PszHf______ and i < END)
@@ -339,18 +340,18 @@ COR::decompress_predict(
 
   if (header->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
-    mem->xd->dptr(out);
+    mem->_xdata->dptr(out);
 
     // TODO release borrow
-    auto aclen3 = mem->ac->template len3<dim3>();
+    auto aclen3 = mem->_anchor->template len3<dim3>();
     pszmem_cxx<T> anchor(aclen3.x, aclen3.y, aclen3.z);
     anchor.dptr(d_anchor);
 
     // [psz::TODO] throw exception
 
     pszcxx_reverse_predict_spline(
-        &anchor, mem->e, mem->xd, header->eb, header->radius, &time_pred,
-        stream);
+        &anchor, mem->_ectrl, mem->_xdata, header->eb, header->radius,
+        &time_pred, stream);
 #else
     throw runtime_error(
         "[psz::error] pszcxx_reverse_predict_spline not implemented other "

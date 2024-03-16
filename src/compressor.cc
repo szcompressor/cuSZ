@@ -116,5 +116,7 @@ using Ff4 = cusz::TEHM<float>;
 using CFf4 = cusz::Compressor<Ff4>;
 
 template class cusz::Compressor<Ff4>;
-template CFf4* CFf4::init<psz_context>(psz_context* config, bool debug);
-template CFf4* CFf4::init<psz_header>(psz_header* config, bool debug);
+template CFf4* CFf4::init<psz_context>(
+    psz_context* config, bool iscompression, bool debug);
+template CFf4* CFf4::init<psz_header>(
+    psz_header* config, bool iscompression, bool debug);

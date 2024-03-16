@@ -14,11 +14,11 @@
 
 #include "busyheader.hh"
 #include "context.h"
-#include "module/cxx_module.hh"
 #include "cusz/type.h"
 #include "header.h"
 #include "hf/hfclass.hh"
 #include "mem.hh"
+#include "module/cxx_module.hh"
 #include "typing.hh"
 
 namespace cusz {
@@ -84,7 +84,7 @@ class Compressor {
 
   // public methods
   template <class CONFIG>
-  Compressor* init(CONFIG* config, bool dbg_print = false);
+  Compressor* init(CONFIG* config, bool iscompression=true, bool dbg_print = false);
   Compressor* compress(pszctx*, T*, BYTE**, size_t*, uninit_stream_t);
   Compressor* compress_predict(pszctx*, T*, uninit_stream_t);
   Compressor* compress_encode(pszctx*, uninit_stream_t);
@@ -100,7 +100,6 @@ class Compressor {
 
   Compressor* clear_buffer();
   Compressor* optional_dump(pszctx*, pszmem_dump const);
-  Compressor* destroy();
 
   // getter
   Compressor* export_header(pszheader&);

@@ -17,6 +17,9 @@
 #ifdef PSZ_USE_CUDA
 
 #include <cuda_runtime.h>
+#include <stdexcept>
+#include "cusz/type.h"
+#include "mem/memseg.h"
 
 template <typename Ctype>
 class pszmem_cxx {
@@ -39,10 +42,10 @@ class pszmem_cxx {
 
   ~pszmem_cxx()
   {
-    if (not m->isaview and not m->d_borrowed) pszmem_free_cuda(m);
-    if (not m->isaview and not m->h_borrowed) pszmem_freehost_cuda(m);
-    if (not m->isaview and not m->d_borrowed and not m->h_borrowed)
-      pszmem_freemanaged_cuda(m);
+    if (not m->d_borrowed) pszmem_free_cuda(m);
+    if (not m->h_borrowed) pszmem_freehost_cuda(m);
+    if (not m->h_borrowed and not m->d_borrowed) pszmem_freemanaged_cuda(m);
+
     delete m;
     m = nullptr;
   }

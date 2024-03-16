@@ -50,7 +50,7 @@ TESTFRAME::pred_comp_decomp(
   auto d_space = out, d_xdata = out;
 
   cor->compress_predict(ctx, in, stream);
-  auto d_anchor = cor->mem->ac->dptr();
+  auto d_anchor = cor->mem->_anchor->dptr();
 
   psz::spv_scatter_naive<PROPER_GPU_BACKEND, T>(
       cor->mem->compact_val(), cor->mem->compact_idx(),
@@ -74,9 +74,9 @@ TESTFRAME::pred_hist_comp(
 
   /* In place of `cor->compress_histogram(ctx, in, stream);` */
 
-  cor->mem->e->control({D2H});
-  auto ectrl_gpu = cor->mem->e->dptr();
-  auto ectrl_cpu = cor->mem->e->hptr();
+  cor->mem->_ectrl->control({D2H});
+  auto ectrl_gpu = cor->mem->_ectrl->dptr();
+  auto ectrl_cpu = cor->mem->_ectrl->hptr();
 
   auto ht_gpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_gpu");
   ht_gpu->control({Malloc, MallocHost});

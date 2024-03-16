@@ -86,7 +86,7 @@ class HuffmanCodec {
 
  public:
   // array
-  pszmem_cxx<RAW>* __scratch;
+  // pszmem_cxx<RAW>* __scratch;
   pszmem_cxx<H4>* scratch4;
 
   pszmem_cxx<BYTE>* compressed;
@@ -94,10 +94,10 @@ class HuffmanCodec {
   // pszmem_cxx<RAW>* __bk;
   pszmem_cxx<H4>* bk4;
 
-  pszmem_cxx<RAW>* __revbk;
+  // pszmem_cxx<RAW>* __revbk;
   pszmem_cxx<BYTE>* revbk4;
 
-  pszmem_cxx<RAW>* __bitstream;
+  // pszmem_cxx<RAW>* __bitstream;
   pszmem_cxx<H4>* bitstream4;
 
   // data partition/embarrassingly parallelism description
@@ -105,7 +105,7 @@ class HuffmanCodec {
   pszmem_cxx<M>* par_ncell;
   pszmem_cxx<M>* par_entry;
 
-  MemU4* hist_view;
+  // MemU4* hist_view;
 
   // timer
   float _time_book{0.0}, _time_lossless{0.0};
@@ -146,7 +146,7 @@ class HuffmanCodec {
 
   // analysis
   void calculate_CR(
-      MemU4* ectrl, szt sizeof_dtype = 4, szt overhead_bytes = 0);
+      MemU4* ectrl, MemU4* freq, szt sizeof_dtype = 4, szt overhead_bytes = 0);
 
  private:
   struct memcpy_helper {

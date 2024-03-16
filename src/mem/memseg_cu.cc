@@ -11,6 +11,8 @@
 
 #include <cuda_runtime.h>
 
+#include <stdexcept>
+
 #include "busyheader.hh"
 #include "mem/memseg.h"
 #include "utils/err.hh"
@@ -77,34 +79,43 @@ void pszmem_mallocmanaged_cuda(pszmem* m)
   CHECK_GPU(cudaMemset(m->uni, 0x0, m->bytes));
 }
 
+// TODO return status with exception handling
 void pszmem_free_cuda(pszmem* m)
 {
   if (m->d_borrowed)
     throw std::runtime_error(string(m->name) + ": cannot free borrowed dptr");
+  if (not m->d)
+    throw std::runtime_error(
+        string(m->name) + ": device array not allocated/double free.");
 
-  if (m->d) {
-    if (not m->isaview)
-      CHECK_GPU(cudaFree(m->d));
-    else
-      throw std::runtime_error(
-          string(m->name) + ": forbidden to free a view.");
+  if (not m->isaview) {
+    CHECK_GPU(cudaFree(m->d));
+    // cout << m->name << ": dptr freed." << endl;
+  }
+  else {
+    // throw std::runtime_error(string(m->name) + ": attenpted to free a view.");
   }
 }
 
+// TODO return status with exception handling
 void pszmem_freehost_cuda(pszmem* m)
 {
   if (m->h_borrowed)
     throw std::runtime_error(string(m->name) + ": cannot free borrowed hptr.");
+  if (not m->h)
+    throw std::runtime_error(
+        string(m->name) + ": host array not allocated/double free.");
 
-  if (m->h) {
-    if (not m->isaview)
-      CHECK_GPU(cudaFreeHost(m->h));
-    else
-      throw std::runtime_error(
-          string(m->name) + ": forbidden to free a view.");
+  if (not m->isaview) {
+    CHECK_GPU(cudaFreeHost(m->h));
+    // cout << m->name << ": hptr freed." << endl;
+  }
+  else {
+    // throw std::runtime_error(string(m->name) + ": attenpted to free a view.");
   }
 }
 
+// TODO return status with exception handling
 void pszmem_freemanaged_cuda(pszmem* m)
 {
   if (m->d_borrowed or m->h_borrowed)

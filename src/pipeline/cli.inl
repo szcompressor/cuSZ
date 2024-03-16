@@ -161,6 +161,7 @@ class CLI {
       printf("\n*** exit on failure.\n");
     }
 
+    // delete data buffers external to compressor
     delete input;
   }
 
@@ -208,7 +209,8 @@ class CLI {
       decompressed->control({D2H})->file(
           std::string(basename + ".cuszx").c_str(), ToFile);
 
-    // decompressed->control({FreeHost, Free});
+    // delete data buffers external to compressor
+    delete compressed;
     delete decompressed;
     delete original;
   }
@@ -220,6 +222,7 @@ class CLI {
     // TODO disable predictor selection; to specify in another way
     // auto predictor = ctx->predictor;
 
+    // TODO make it a value rather than a pointer
     psz_framework* framework = pszdefault_framework();
     psz_compressor* compressor = psz_create(framework, F4);
 
@@ -254,8 +257,11 @@ class CLI {
 
 #endif
 
+    // TODO mirrored with creation
     delete framework;
-    delete compressor;
+
+    psz_release(compressor);
+    // delete compressor;
   }
 };
 

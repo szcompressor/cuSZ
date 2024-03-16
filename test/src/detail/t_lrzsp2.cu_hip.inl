@@ -62,7 +62,7 @@
 //       mem->xd->hptr(), &time, nullptr);
 //   psz::spv_scatter_naive<SEQ>(
 //       mem->compact_val(), mem->compact_idx(), mem->compact->num_outliers(),
-//       mem->xdtest->hptr(), &time, nullptr);
+//       mem->_xdata_test->hptr(), &time, nullptr);
 
 //   psz_decomp_l23_seq<T, E>(
 //       mem->e->hptr(), mem->e->template len3<psz_dim3>(), mem->xd->hptr(), eb,
@@ -90,7 +90,7 @@
 //       mem->xd->dptr(), &time, stream);
 //   psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, u4>(
 //       mem->compact_val(), mem->compact_idx(), mem->compact->num_outliers(),
-//       mem->xdtest->dptr(), &time, stream);
+//       mem->_xdata_test->dptr(), &time, stream);
 //   GpuStreamSync(stream);
 
 //   pszcxx_reverse_predict_lorenzo<T, E>(
@@ -117,12 +117,12 @@
 //   auto mem_gpu = new MEMPOOL_GPU(x, radius, y, z);
 //   mem_gpu->od->control({Malloc, MallocHost});
 //   mem_gpu->xd->control({Malloc, MallocHost});
-//   mem_gpu->xdtest->control({Malloc, MallocHost});
+//   mem_gpu->_xdata_test->control({Malloc, MallocHost});
 
 //   auto mem_cpu = new MEMPOOL_SEQ(x, radius, y, z);
 //   mem_cpu->od->control({MallocHost});
 //   mem_cpu->xd->control({MallocHost});
-//   mem_cpu->xdtest->control({MallocHost});
+//   mem_cpu->_xdata_test->control({MallocHost});
 
 //   create_dummy_input(mem_gpu->od, mem_gpu->len);
 //   memcpy(
@@ -151,10 +151,10 @@
 //   // clean up
 //   mem_gpu->od->control({Free, FreeHost});
 //   mem_gpu->xd->control({Free, FreeHost});
-//   mem_gpu->xdtest->control({Free, FreeHost});
+//   mem_gpu->_xdata_test->control({Free, FreeHost});
 //   mem_cpu->od->control({FreeHost});
 //   mem_cpu->xd->control({FreeHost});
-//   mem_cpu->xdtest->control({FreeHost});
+//   mem_cpu->_xdata_test->control({FreeHost});
 
 //   return true;
 // }
