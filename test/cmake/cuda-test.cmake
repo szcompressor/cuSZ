@@ -74,3 +74,13 @@ target_link_libraries(stat_max_error
   CUDA::cudart
 )
 add_test(test_stat_max_error stat_max_error)
+
+# 2404
+add_executable(test_hfr src/test_hfr.cc)
+target_link_libraries(test_hfr
+  PRIVATE
+  psz_cu_compile_settings
+  psz_cu_test_compile_settings
+  psz_cu_test_utils
+  psz_cu_phf
+)

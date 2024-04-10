@@ -108,7 +108,7 @@ void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
   if (dump_book) codec.dump_internal_data("book", fname);
 
   for (auto i = 0; i < 10; i++) {
-    codec.encode(d_oridata.get(), len, &d_compressed, &outlen, stream);
+    codec.encode(true, d_oridata.get(), len, &d_compressed, &outlen, stream);
     time_encode = std::min(time_encode, codec.time_lossless());
     codec.decode(d_compressed, d_decomp.get(), stream);
     time_decode = std::min(time_decode, codec.time_lossless());

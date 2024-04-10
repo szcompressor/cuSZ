@@ -23,9 +23,11 @@ class HuffmanCodec {
  private:
   using SYM = E;
 
-  struct Buf;
   struct impl;
   std::unique_ptr<impl> pimpl;
+
+ public:  // temporarily for testing
+  struct Buf;
 
  public:
   using H4 = u4;
@@ -48,7 +50,8 @@ class HuffmanCodec {
   HuffmanCodec* buildbook(u4* d_hist_ext, phf_stream_t);
   // TODO inlen is unnecessary
   // alternatively, it can force check the input array
-  HuffmanCodec* encode(E*, size_t const, PHF_BYTE**, size_t*, phf_stream_t);
+  HuffmanCodec* encode(
+      bool use_HFR, E*, size_t const, PHF_BYTE**, size_t*, phf_stream_t);
   HuffmanCodec* decode(PHF_BYTE*, E*, phf_stream_t, bool = true);
   HuffmanCodec* clear_buffer();
   HuffmanCodec* dump_internal_data(std::string, std::string);
