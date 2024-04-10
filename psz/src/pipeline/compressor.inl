@@ -237,7 +237,8 @@ struct Compressor<C>::impl {
       // PSZSANITIZE_HIST_BK(mem->_hist->hptr(), codec->bk4->hptr(), booklen);
 
       codec_hf->encode(
-          mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+          true /* enable HFR unconditionally */, mem->ectrl(), len,
+          &comp_codec_out, &comp_codec_outlen, stream);
     }
     else if (ctx->codec1_type == FZGPUCodec) {
       codec_fzg->encode(

@@ -98,7 +98,7 @@ void hf_run(
   auto time_comp_lossless = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
     // codec.encode(od->dptr(), len, &d_compressed, &outlen, stream);
-    codec.encode(d_oridup, len, &d_compressed, &outlen, stream);
+    codec.encode(true, d_oridup, len, &d_compressed, &outlen, stream);
 
     print_tobediscarded_info(codec.time_lossless(), "comp_hf_encode");
     time_comp_lossless = std::min(time_comp_lossless, codec.time_lossless());

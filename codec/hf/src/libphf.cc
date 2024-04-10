@@ -124,18 +124,18 @@ phferr capi_phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t s)
 }
 
 phferr capi_phf_encode(
-    phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded,
-    size_t* enc_bytes, phf_stream_t s)
+    phf_codec* codec, bool use_HFR, void* in, size_t const inlen,
+    uint8_t** encoded, size_t* enc_bytes, phf_stream_t s)
 {
   if (codec->data_type == HF_U1)
     static_cast<phf::HuffmanCodec<u1>*>(codec->codec)
-        ->encode((u1*)in, inlen, encoded, enc_bytes, s);
+        ->encode(use_HFR, (u1*)in, inlen, encoded, enc_bytes, s);
   else if (codec->data_type == HF_U2)
     static_cast<phf::HuffmanCodec<u2>*>(codec->codec)
-        ->encode((u2*)in, inlen, encoded, enc_bytes, s);
+        ->encode(use_HFR, (u2*)in, inlen, encoded, enc_bytes, s);
   else if (codec->data_type == HF_U4)
     static_cast<phf::HuffmanCodec<u4>*>(codec->codec)
-        ->encode((u4*)in, inlen, encoded, enc_bytes, s);
+        ->encode(use_HFR, (u4*)in, inlen, encoded, enc_bytes, s);
   else
     return PHF_WRONG_DTYPE;
 

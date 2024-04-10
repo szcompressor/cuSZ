@@ -33,12 +33,12 @@ extern phferr capi_phf_decode(
 
 %inline %{
   PyObject* encode(
-      phf_codec * codec, void* in, size_t const inlen, phf_stream_t s)
+      phf_codec * codec, bool use_HFR, void* in, size_t const inlen, phf_stream_t s)
   {
     uint8_t* encoded;
     size_t enc_bytes;
 
-    phferr err = capi_phf_encode(codec, in, inlen, &encoded, &enc_bytes, s);
+    phferr err = capi_phf_encode(codec, use_HFR, in, inlen, &encoded, &enc_bytes, s);
     PyObject* py_encoded =
         PyBytes_FromStringAndSize((const char*)encoded, enc_bytes);
     PyObject* py_tuple = Py_BuildValue("(iO)", err, py_encoded);

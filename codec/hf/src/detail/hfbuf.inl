@@ -1,3 +1,5 @@
+#include <cuda.h>
+
 #include <cstddef>
 
 #include "hfclass.hh"
@@ -123,7 +125,7 @@ struct HuffmanCodec<E, TIMING>::Buf {
 
     // HFR: dense-sparse
     if (use_HFR) {
-      dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream", {Malloc});
+      dn_bitstream = new memobj<H4>(len, "hf::dn_bitstream", {Malloc});
       // 1 << 10 results in the max number of partitions
       dn_bitcount = new memobj<H4>(
           (len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});

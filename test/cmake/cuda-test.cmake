@@ -75,3 +75,13 @@ else()
     psztest_utils_cu psz_cu_mem
   )
 endif()
+
+# 2404
+add_executable(test_hfr src/test_hfr.cc)
+target_link_libraries(test_hfr
+  PRIVATE
+  psz_cu_compile_settings
+  psz_cu_test_compile_settings
+  psztest_utils_cu
+  psz_cu_phf
+)

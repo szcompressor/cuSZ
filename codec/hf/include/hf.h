@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "hf_type.h"
 
@@ -33,8 +34,8 @@ phferr capi_phf_release(phf_codec*);
 // TODO hist_len is not necessary; alternatively, it can force check size.
 phferr capi_phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t);
 phferr capi_phf_encode(
-    phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded,
-    size_t* enc_bytes, phf_stream_t);
+    phf_codec* codec, bool use_HFR, void* in, size_t const inlen,
+    uint8_t** encoded, size_t* enc_bytes, phf_stream_t);
 phferr capi_phf_decode(
     phf_codec* codec, uint8_t* encoded, void* decoded, phf_stream_t);
 
