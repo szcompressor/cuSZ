@@ -35,6 +35,7 @@
 #include "hfcxx_module.hh"
 #include "mem/memobj.hh"
 #include "port.hh"
+#include "rs_merge.hxx"
 #include "typing.hh"
 #include "utils/err.hh"
 #include "utils/format.hh"
@@ -82,7 +83,7 @@ struct HuffmanCodec<E, TIMING>::impl {
     sublen = (inlen - 1) / pardeg + 1;
 
     // TODO make unique_ptr; modify ctor
-    buf = new internal_buffer(inlen, _bklen, _pardeg, false, debug);
+    buf = new internal_buffer(inlen, _bklen, _pardeg, true, debug);
     hist = new memobj<u4>(
         bklen, "phf::hist", {MallocHost});  // dptr from external
   }
@@ -185,6 +186,59 @@ struct HuffmanCodec<E, TIMING>::impl {
     // TODO may cooperate with upper-level; output
     *out = buf->encoded->dptr();
     *outlen = phf_encoded_bytes(&header);
+  }
+
+  template <int MAGNITUDE = 10>
+  void encode_HFR(
+      E* in, size_t const len, uint8_t** out, size_t* outlen,
+      phf_stream_t stream)
+  {
+    auto dummy0 = hires::now();
+    auto dummy1 = hires::now();
+    auto hfr_timer0 = hires::now();
+
+    double avg_bitwidth = 0;
+
+    for (auto i = 0; i < buf->bk4->len(); i++) {
+      auto word = buf->bk4->hat(i);
+      auto a = reinterpret_cast<HuffmanWord<4>*>(&word);
+      auto count = hist->hat(i);
+      if (count != 0) avg_bitwidth += a->bitcount * 1.0 * count / len;
+    }
+
+    printf("avg_bitwidth: %.3lf\n", avg_bitwidth);
+    printf("CR based on avg_bitwidth: %.3lf\n", 32 / avg_bitwidth);
+
+    auto chunk = 1 << MAGNITUDE;
+    auto n_chunk = (len - 1) / chunk + 1;
+    H alt_code{};
+    u4 alt_bitcount{0};
+
+#define HFR_ENCODE(REDUCE)                                              \
+  phf::make_alternative_code(buf->bk4, REDUCE, alt_code, alt_bitcount); \
+  printf("%u-to-1 reduction (%ux)\n", (1 << REDUCE), REDUCE);           \
+  phf::cu_hip::GPU_HFReVISIT_encode<E, MAGNITUDE, REDUCE, false, H>(    \
+      {in, len}, {buf->bk4->array1_d(), alt_code, alt_bitcount},        \
+      buf->dense_space(n_chunk), buf->sparse_space(), stream);
+
+    // clang-format off
+  if (avg_bitwidth < 2) { HFR_ENCODE(4) }
+  else if (avg_bitwidth < 4) { HFR_ENCODE(3) }
+  else if (avg_bitwidth < 8) { HFR_ENCODE(2) }
+  else if (avg_bitwidth < 16) { HFR_ENCODE(1) }
+  else {  // FIXME TODO only for development purpose
+    throw std::runtime_error("avg bitwidth >= 16"); }
+    // clang-format on
+
+    auto hfr_timer1 = hires::now();
+    auto delta = hfr_timer1 - hfr_timer0;
+    auto delta_dummy = dummy1 - dummy0;
+    cout << "HFR time: "
+         << static_cast<duration_t>(delta - delta_dummy).count() * 1e6 << endl;
+    cout << "initial test of HFR finished..." << endl;
+    exit(0);
+
+#undef HFR_ENCODE
   }
 
   void decode(
@@ -331,10 +385,13 @@ PHF_TPL void PHF_CLASS::calculate_CR(
 
 PHF_TPL
 PHF_CLASS* PHF_CLASS::encode(
-    E* in, size_t const len, uint8_t** out, size_t* outlen,
+    bool use_HFR, E* in, size_t const len, uint8_t** out, size_t* outlen,
     phf_stream_t stream)
 {
-  pimpl->encode(in, len, out, outlen, stream);
+  if (not use_HFR)
+    pimpl->encode(in, len, out, outlen, stream);
+  else
+    pimpl->template encode_HFR<10>(in, len, out, outlen, stream);
   return this;
 }
 

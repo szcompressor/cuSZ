@@ -188,7 +188,10 @@ struct Compressor<C>::impl {
     PSZDBG_LOG("codebook: done");
     // PSZSANITIZE_HIST_BK(mem->_hist->hptr(), codec->bk4->hptr(), booklen);
 
-    codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
+    // TODO put context and minimal workset
+    codec->encode(
+        true /* We are on HFR branch anyway */, mem->ectrl(), len,
+        &comp_hf_out, &comp_hf_outlen, stream);
 
     PSZDBG_LOG("encoding done");
   }

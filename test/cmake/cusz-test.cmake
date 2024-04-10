@@ -88,10 +88,18 @@ else()
   )
 endif()
 
-# # 2401
+# 2401
 add_executable(pszcxx_lrz_cu src/test_pszcxx_lrz_cu.cc)
 target_link_libraries(pszcxx_lrz_cu
   PRIVATE psz_cu_test_compile_settings
   psztest_utils_cu
   cusz
+)
+
+# 2404
+add_executable(test_hfr src/test_hfr.cc)
+target_link_libraries(test_hfr
+  PRIVATE psz_cu_test_compile_settings
+  psztest_utils_cu
+  phf_cu
 )

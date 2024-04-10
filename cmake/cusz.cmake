@@ -23,6 +23,8 @@ target_include_directories(
   psz_cu_compile_settings
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hfr/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hfr/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hf/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hf/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
@@ -139,10 +141,15 @@ add_library(phf_cu
   hf/src/hfcanon.seq.cc
   hf/src/hfcxx_module.cu
   hf/src/libphf.cc
+  hf/src/rs_merge_r4.cu
+  hf/src/rs_merge_r3.cu
+  hf/src/rs_merge_r2.cu
+  hf/src/rs_merge_r1.cu
 )
 target_link_libraries(phf_cu
   PUBLIC psz_cu_compile_settings CUDA::cuda_driver
   psz_cu_stat
+  psz_cu_mem
 )
 
 add_library(cusz

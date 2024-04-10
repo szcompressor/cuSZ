@@ -1,3 +1,5 @@
+#include <cuda.h>
+
 #include <cstddef>
 
 #include "hfclass.hh"
@@ -104,13 +106,13 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
   // ctor
   internal_buffer(
-      size_t inlen, size_t _booklen, int _pardeg, bool _use_HFR = false,
+      size_t inlen, size_t _booklen, int _pardeg, bool _use_HFR = true,
       bool debug = false)
   {
     pardeg = _pardeg;
     bklen = _booklen;
     len = inlen;
-    use_HFR  =_use_HFR;
+    use_HFR = _use_HFR;
 
     encoded = new memobj<PHF_BYTE>(len * sizeof(u4), "hf::out4B");
     scratch4 = new memobj<H4>(len, "hf::scratch4", {Malloc, MallocHost});
@@ -124,7 +126,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
     // HFR: dense-sparse
     if (use_HFR) {
-      dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream", {Malloc});
+      dn_bitstream = new memobj<H4>(len, "hf::dn_bitstream", {Malloc});
       // 1 << 10 results in the max number of partitions
       dn_bitcount = new memobj<H4>(
           (len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});
