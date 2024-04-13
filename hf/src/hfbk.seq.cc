@@ -1,13 +1,13 @@
-#include "hf/hfbk.hh"
+#include "hfbk.hh"
 
 #include <bitset>
 #include <cstdint>
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "hf/hfbk_impl.hh"
-#include "hf/hfcanon.hh"
-#include "hf/hfword.hh"
+#include "hfbk_impl.hh"
+#include "hfcanon.hh"
+#include "hfword.hh"
 #include "utils/timer.hh"
 
 template <typename E, typename H>

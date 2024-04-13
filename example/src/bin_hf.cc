@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string>
 
-#include "hf/hfclass.hh"
+#include "hfclass.hh"
 #include "kernel/hist.hh"
 #include "mem.hh"
 #include "port.hh"

@@ -12,8 +12,8 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "hf/hfcanon.hh"
-#include "hf/hfword.hh"
+#include "hfcanon.hh"
+#include "hfword.hh"
 
 template <typename E, typename H>
 int canonize(u1* bin, uint32_t const bklen)

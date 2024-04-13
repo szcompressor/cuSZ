@@ -17,8 +17,10 @@ add_test(test_spv_cu spv_cu)
 add_library(psztestcompile_cu INTERFACE)
 target_include_directories(
   psztestcompile_cu
-  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src/>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>)
+  INTERFACE 
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/src/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/include/>
+  )
 
 # correctness, include kernel `.inl` directly ### test_typing test core
 # functionality Level-0 basic typing

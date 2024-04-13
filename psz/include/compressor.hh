@@ -16,7 +16,7 @@
 #include "context.h"
 #include "cusz/type.h"
 #include "header.h"
-#include "hf/hfclass.hh"
+#include "hfclass.hh"
 #include "mem.hh"
 #include "module/cxx_module.hh"
 #include "typing.hh"

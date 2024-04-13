@@ -15,8 +15,8 @@
 #define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
 #include "busyheader.hh"
-#include "hf/hfstruct.h"
-#include "hf/hfword.hh"
+#include "hfstruct.h"
+#include "hfword.hh"
 #include "typing.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"

@@ -18,7 +18,7 @@
 
 #include "compressor.hh"
 #include "exception/exception.hh"
-#include "hf/hfclass.hh"
+#include "hfclass.hh"
 #include "kernel.hh"
 #include "log.hh"
 #include "mem.hh"

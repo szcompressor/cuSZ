@@ -1,11 +1,11 @@
-#include "hf/hf_est.h"
+#include "hf_est.h"
 
 #include <numeric>
 #include <stdexcept>
 
 #include "busyheader.hh"
-#include "hf/hfbk_impl.hh"
-#include "hf/hfword.hh"
+#include "hfbk_impl.hh"
+#include "hfword.hh"
 #include "utils/vis_stat.hh"
 
 namespace {

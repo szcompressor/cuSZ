@@ -18,9 +18,9 @@
 #include <numeric>
 
 #include "cusz/type.h"
-#include "hf/hfcxx_module.hh"
-#include "hf/hfstruct.h"
-#include "hf/hfword.hh"
+#include "hfcxx_module.hh"
+#include "hfstruct.h"
+#include "hfword.hh"
 #include "mem/memseg_cxx.hh"
 
 namespace cusz {

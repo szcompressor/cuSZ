@@ -14,10 +14,10 @@
  *
  */
 
-#include "hf/hfclass.hh"
+#include "hfclass.hh"
 #include "busyheader.hh"
-#include "hf/hfbk.cu.hh"
-#include "hf/hfbk.hh"
+#include "hfbk.cu.hh"
+#include "hfbk.hh"
 #include "mem/memseg_cxx.hh"
 #include "typing.hh"
 #include "utils/err.hh"

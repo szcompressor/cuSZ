@@ -13,7 +13,7 @@
 
 #include "busyheader.hh"
 #include "context.h"
-#include "hf/hfword.hh"
+#include "hfword.hh"
 
 // resemble the one defined in dbg_cu.inl
 #define __PSZSANITIZE_VAR(LOC, VAR)       \

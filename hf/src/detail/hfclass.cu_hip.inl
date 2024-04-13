@@ -23,7 +23,7 @@
 #include <stdexcept>
 
 #include "cusz/type.h"
-#include "hf/hfcxx_module.hh"
+#include "hfcxx_module.hh"
 #include "utils/timer.hh"
 
 #define PHF_ACCESSOR(SYM, TYPE) \

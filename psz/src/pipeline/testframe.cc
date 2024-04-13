@@ -4,7 +4,7 @@
 #include "busyheader.hh"
 #include "compressor.hh"
 #include "context.h"
-#include "hf/hfclass.hh"
+#include "hfclass.hh"
 #include "kernel.hh"
 #include "mem.hh"
 #include "port.hh"

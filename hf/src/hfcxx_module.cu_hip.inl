@@ -3,8 +3,8 @@
 
 #include <cstddef>
 
-#include "hf/detail/hfcodec.cu_hip.inl"
-#include "hf/hfcxx_module.hh"
+#include "detail/hfcodec.cu_hip.inl"
+#include "hfcxx_module.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
