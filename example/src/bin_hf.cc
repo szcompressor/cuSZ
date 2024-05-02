@@ -9,13 +9,14 @@
  *
  */
 
+#include <cstdint>
 #include <string>
 
 #include "hf/hfclass.hh"
 #include "kernel/hist.hh"
 #include "mem.hh"
-#include "stat.hh"
 #include "port.hh"
+#include "stat.hh"
 #include "utils/print_arr.hh"
 #include "utils/viewer.hh"
 
@@ -24,7 +25,8 @@ using F = u4;
 
 namespace {
 
-szt tune_phf_coarse_sublen(szt len) {
+size_t tune_phf_coarse_sublen(size_t len)
+{
   int current_dev = 0;
   GpuSetDevice(current_dev);
   GpuDeviceProp dev_prop{};
@@ -34,38 +36,43 @@ szt tune_phf_coarse_sublen(szt len) {
 
   auto nSM = dev_prop.multiProcessorCount;
   auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
-  auto deflate_nthread = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
+  auto deflate_nthread =
+      allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
   auto optimal_sublen = psz_utils::get_npart(len, deflate_nthread);
-  optimal_sublen = psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) * HuffmanHelper::BLOCK_DIM_DEFLATE;
+  optimal_sublen =
+      psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
+      HuffmanHelper::BLOCK_DIM_DEFLATE;
 
   return optimal_sublen;
 }
 
-void print_tobediscarded_info(float time_in_ms, string fn_name) {
+void print_tobediscarded_info(float time_in_ms, string fn_name)
+{
   auto title = "[psz::info::discard::" + fn_name + "]";
   printf("%s time (ms): %.6f\n", title.c_str(), time_in_ms);
 }
 
 template <typename T>
-float print_GBps(szt len, float time_in_ms, string fn_name) {
+float print_GBps(size_t len, float time_in_ms, string fn_name)
+{
   auto B_to_GiB = 1.0 * 1024 * 1024 * 1024;
   auto GiBps = len * sizeof(T) * 1.0 / B_to_GiB / (time_in_ms / 1000);
   auto title = "[psz::info::res::" + fn_name + "]";
-  printf("%s shortest time (ms): %.6f\thighest throughput (GiB/s): %.2f\n", 
-    title.c_str(), time_in_ms, GiBps);
+  printf(
+      "%s shortest time (ms): %.6f\thighest throughput (GiB/s): %.2f\n",
+      title.c_str(), time_in_ms, GiBps);
   return GiBps;
 }
 
-
-}
+}  // namespace
 
 template <typename E, typename H = u4>
-void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
+void hf_run(
+    std::string fname, size_t const x, size_t const y, size_t const z,
+    size_t const booklen = 1024)
 {
   /* For demo, we use 3600x1800 CESM data. */
   auto len = x * y * z;
-
-  constexpr auto booklen = 1024;
 
   auto sublen = tune_phf_coarse_sublen(len);
   auto pardeg = psz_utils::get_npart(len, sublen);
@@ -131,7 +138,8 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
     codec.decode(d_compressed, xd->dptr(), stream);
 
     print_tobediscarded_info(codec.time_lossless(), "decomp_hf_decode");
-    time_decomp_lossless = std::min(time_decomp_lossless, codec.time_lossless());
+    time_decomp_lossless =
+        std::min(time_decomp_lossless, codec.time_lossless());
   }
   print_GBps<f4>(len, time_decomp_lossless, "decomp_hf_decode");
 
@@ -155,8 +163,8 @@ void hf_run(std::string fname, size_t const x, size_t const y, size_t const z)
 int main(int argc, char** argv)
 {
   if (argc < 6) {
-    printf("PROG  /path/to/datafield  X  Y  Z  QuantType\n");
-    printf("0     1                   2  3  4  5\n");
+    printf("PROG  /path/to/data  X  Y  Z  booklen  [optional: Type {u1,u2,u4}]\n");
+    printf("0     1              2  3  4  5        [6]\n");
     exit(0);
   }
   else {
@@ -164,19 +172,23 @@ int main(int argc, char** argv)
     auto x = atoi(argv[2]);
     auto y = atoi(argv[3]);
     auto z = atoi(argv[4]);
-    auto type = std::string(argv[5]);
+    auto bklen = atoi(argv[5]);
 
-    // if (type == "ui8")
-    //   hf_run<uint8_t, u4>(fname, x, y, z);
-    // else if (type == "ui16")
-    //   hf_run<uint16_t, u4>(fname, x, y, z);
-    // else if (type == "ui32")
-    //   hf_run<u4, u4>(fname, x, y, z);
-    // else
-    //   hf_run<uint16_t, u4>(fname, x, y, z);
+    auto type = string("u1");
+    if (argc == 8) type = std::string(argv[6]);
 
-    // 23-06-04 restricted to u4 for quantization code
-    hf_run<u4, u4>(fname, x, y, z);
+    if (type == "u1") {
+      printf("REVERT bklen to 256 for u1-type input.");
+      hf_run<uint8_t, u4>(fname, x, y, z, 256);
+    }
+    else {
+      if (type == "u2")
+        hf_run<uint16_t, u4>(fname, x, y, z, bklen);
+      else if (type == "u4")
+        hf_run<uint32_t, u4>(fname, x, y, z, bklen);
+      else
+        hf_run<uint32_t, u4>(fname, x, y, z, bklen);
+    }
   }
 
   return 0;
