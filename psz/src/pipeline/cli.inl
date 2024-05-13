@@ -63,7 +63,7 @@ class CLI {
     double max, min, rng;
     auto len = original->len();
 
-    original->debug();
+    original->control({DBG});
 
     original->file(fname, FromFile)->control({ASYNC_H2D}, stream);
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
@@ -202,7 +202,7 @@ class CLI {
 
     if (ctx->report_time)
       psz::TimeRecordViewer::view_decompression(
-          &timerecord, decompressed->m->bytes);
+          &timerecord, decompressed->bytes());
     psz::view(header, decompressed, original, ctx->file_compare);
 
     if (not ctx->skip_tofile)

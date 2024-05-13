@@ -16,9 +16,9 @@
 
 #include "hfclass.hh"
 #include "busyheader.hh"
-#include "hfbk.cu.hh"
+// #include "hfbk.cu.hh"
 #include "hfbk.hh"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 #include "typing.hh"
 #include "utils/err.hh"
 #include "utils/format.hh"

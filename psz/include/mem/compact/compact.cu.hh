@@ -18,7 +18,7 @@
 
 #include "cusz/type.h"
 #include "exception/exception.hh"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 namespace psz {
 namespace detail {

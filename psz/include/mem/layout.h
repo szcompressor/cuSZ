@@ -21,7 +21,6 @@ extern "C" {
 #include <stdint.h>
 
 #include "cusz/type.h"
-#include "mem/memseg.h"
 
 typedef enum pszmem_runtime_type {
   PszHeader = 0,
@@ -43,27 +42,6 @@ typedef enum pszmem_runtime_type {
 } pszmem_runtime_type;
 // use scenario: dump intermediate dat
 typedef pszmem_runtime_type pszmem_dump;
-
-
-typedef struct psz_memory_pool {
-  size_t seg_len[END];
-  size_t seg_entry[END];
-  float density{0.2};
-  size_t compressed_len;
-  int nnz;
-
-  pszmem __pool;
-  pszmem data;
-  pszmem ectrl;
-  pszmem spval;
-  pszmem spidx;
-  pszmem hf_bitstream;
-  pszmem anchor;
-  pszmem freq;
-} pszmem_pool;
-
-// void init(pszmem_pool*, size_t);
-// void destroy(pszmem_pool*);
 
 #ifdef __cplusplus
 }

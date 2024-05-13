@@ -257,8 +257,7 @@ try {
   /* output of this function */
   *out = mem->_compressed->dptr();
   *outlen = psz_utils::filesize(&header);
-  mem->_compressed->m->len = *outlen;
-  mem->_compressed->m->bytes = *outlen;
+  mem->_compressed->set_len(*outlen);
 
   return this;
 }

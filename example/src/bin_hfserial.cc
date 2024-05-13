@@ -16,7 +16,7 @@
 #include "hf/hfbk_impl.hh"
 #include "hf/hfcanon.hh"
 #include "hf/hfword.hh"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 void printcode_u4(u4 idx, u4* word)
 {

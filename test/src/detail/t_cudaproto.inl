@@ -19,7 +19,7 @@
 #include "busyheader.hh"
 #include "kernel/detail/lproto.inl"
 #include "mem/compact.hh"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 namespace proto = psz::cuda_hip::__kernel::proto;
 

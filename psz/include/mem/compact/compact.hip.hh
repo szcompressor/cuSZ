@@ -14,7 +14,7 @@
 
 #include <hip/hip_runtime.h>
 
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 namespace psz::detail::hip {
 

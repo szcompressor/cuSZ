@@ -82,7 +82,7 @@ add_library(
   psz/src/kernel/histsp.seq.cc
   psz/src/kernel/l23r.cu
 )
-target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings)
+target_link_libraries(pszkernel_cu PUBLIC pszcompile_settings pszmem)
 
 # TODO installation
 add_library(
@@ -115,8 +115,8 @@ add_library(pszanalysis2402
 )
 target_link_libraries(pszanalysis2402 PUBLIC pszcompile_settings)
 
-add_library(pszmem psz/src/mem/memseg.cc psz/src/mem/memseg_cu.cc)
-target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart)
+add_library(pszmem psz/src/mem/memobj.f.cc psz/src/mem/memobj.i.cc psz/src/mem/memobj.u.cc psz/src/mem/memobj.misc.cc)
+target_link_libraries(pszmem PUBLIC pszcompile_settings CUDA::cudart pszstat_cu)
 
 add_library(pszutils_seq psz/src/utils/vis_stat.cc psz/src/context.cc)
 target_link_libraries(pszutils_seq PUBLIC pszcompile_settings)
@@ -163,14 +163,14 @@ endif(PSZ_RESEARCH_HUFFBK_CUDA)
 # [TODO] maybe a standalone libpszdbg
 add_library(pszcomp_cu psz/src/compressor.cc psz/src/log/sanitize.cc)
 target_link_libraries(pszcomp_cu PUBLIC pszcompile_settings pszkernel_cu
-  pszmodule2401_cu pszstat_cu pszhf_cu CUDA::cudart)
+  pszmodule2401_cu pszstat_cu pszhf_cu CUDA::cudart pszmem)
 
 add_library(psztestframe_cu psz/src/pipeline/testframe.cc)
-target_link_libraries(psztestframe_cu PUBLIC pszcomp_cu pszmem pszutils_seq)
+target_link_libraries(psztestframe_cu PUBLIC pszcomp_cu pszutils_seq)
 
 add_library(cusz psz/src/cusz_lib.cc)
-target_link_libraries(cusz PUBLIC pszcomp_cu pszhf_cu pszspv_cu pszstat_seq
-  pszutils_seq pszmem)
+target_link_libraries(cusz PUBLIC pszcomp_cu pszhf_cu pszspv_cu pszstat_seq pszmem
+  pszutils_seq)
 
 add_executable(cusz-bin psz/src/cli_psz.cc)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -227,13 +227,13 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfigVersion.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ)
 
-## back compat
+# # back compat
 install(DIRECTORY psz/include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/psz/include/cusz_version.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz/)
 
-## new testing
+# # new testing
 install(DIRECTORY psz/include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/psz)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/psz/include/cusz_version.h

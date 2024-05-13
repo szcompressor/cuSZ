@@ -15,7 +15,7 @@
 #include "compact.hh"
 #include "cusz/type.h"
 #include "layout.h"
-#include "memseg_cxx.hh"
+#include "memobj.hh"
 #include "port.hh"
 
 template <

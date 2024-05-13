@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 template <typename T, typename E, typename FP = T>
 int pszcxx_predict_spline(

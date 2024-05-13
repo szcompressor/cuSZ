@@ -4,7 +4,7 @@ target_link_libraries(psztest_utils_cu CUDA::cudart CUDA::curand)
 
 # testing sp vector
 add_executable(spv_cu src/test_spv.cu)
-target_link_libraries(spv_cu PRIVATE pszspv_cu psztest_utils_cu pszkernel_cu)
+target_link_libraries(spv_cu PRIVATE pszspv_cu psztest_utils_cu pszkernel_cu pszmem pszstat_cu)
 add_test(test_spv_cu spv_cu)
 
 # testing timer wrapper
@@ -17,10 +17,10 @@ add_test(test_spv_cu spv_cu)
 add_library(psztestcompile_cu INTERFACE)
 target_include_directories(
   psztestcompile_cu
-  INTERFACE 
+  INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/include/>
-  )
+)
 
 # correctness, include kernel `.inl` directly ### test_typing test core
 # functionality Level-0 basic typing
@@ -30,7 +30,7 @@ add_test(test_zigzag zigzag)
 
 # Level-1 subroutine
 add_executable(decomp_lrz_cu src/test_decomp_lrz.cu)
-target_link_libraries(decomp_lrz_cu PRIVATE pszcompile_settings psztestcompile_cu pszkernel_cu)
+target_link_libraries(decomp_lrz_cu PRIVATE pszcompile_settings psztestcompile_cu pszkernel_cu pszmem pszstat_cu)
 add_test(test_decomp_lrz_cu decomp_lrz_cu)
 
 add_executable(l1_compact src/test_l1_compact.cu)
@@ -46,8 +46,8 @@ target_link_libraries(
 add_test(test_l2_cudaproto l2_cudaproto)
 
 add_executable(histsp_cu src/test_histsp.cu)
-target_link_libraries(histsp_cu PRIVATE pszcompile_settings pszmem pszstat_cu
-  pszkernel_cu pszkernel_seq pszstat_seq)
+target_link_libraries(histsp_cu PRIVATE pszcompile_settings pszcomp_cu
+  pszmem pszstat_cu pszkernel_cu pszkernel_seq pszstat_seq)
 add_test(test_histsp_cu histsp_cu)
 
 # Level-3 kernel with configuration (low-level API)
@@ -99,5 +99,5 @@ endif()
 
 ## 2401
 add_executable(pszcxx_lrz_cu src/test_pszcxx_lrz_cu.cc)
-  target_link_libraries(pszcxx_lrz_cu PRIVATE psztestcompile_cu psztest_utils_cu
-    pszstat_cu pszstat_seq pszmem pszmodule2401_cu)
+target_link_libraries(pszcxx_lrz_cu PRIVATE psztestcompile_cu psztest_utils_cu
+  pszstat_cu pszstat_seq pszmem pszmodule2401_cu pszcomp_cu pszkernel_cu)

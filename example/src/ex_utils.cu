@@ -22,7 +22,7 @@ template u4 count_outlier(u4*, size_t, int, void*);
 
 #ifdef __MAIN__
 
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 int main()
 {

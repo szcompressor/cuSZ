@@ -9,7 +9,12 @@
  *
  */
 
-#include "experimental/p9y.hh"
+ #include "experimental/control.hh"
+#include "experimental/mem_multibackend.hh"
+#include "experimental/core_type.hh"
+#include "experimental/snippet.hh"
+#include "experimental/sync.hh"
+// #include "experimental/p9y.hh"
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "kernel/detail/l23_x.cu_hip.inl"
@@ -21,7 +26,7 @@ template <typename T, typename Eq, int BLOCK, int SEQ>
 bool test1d(T* data, size_t len, Eq* eq, void* stream)
 {
   constexpr auto NTHREAD = BLOCK / SEQ;
-  using stream_t = psz::experimental::gpu_control::stream_t;
+  using stream_t = gpu_control::stream_t;
 
   bool ok = true;
   auto ebx2 = 1;  // dummy
@@ -60,7 +65,7 @@ bool test1d(T* data, size_t len, Eq* eq, void* stream)
   });
 
 #endif
-  psz::experimental::stream_sync(stream);
+  stream_sync(stream);
 
   /* verify */
   for (auto i = 0; i < len; i++) {
@@ -77,7 +82,7 @@ END:
 template <typename T, typename Eq>
 bool test2d(T* data, size_t len, Eq* eq, void* stream)
 {
-  using stream_t = psz::experimental::gpu_control::stream_t;
+  using stream_t = gpu_control::stream_t;
   constexpr auto BLOCK = 16;
 
   bool ok = true;
@@ -110,7 +115,7 @@ bool test2d(T* data, size_t len, Eq* eq, void* stream)
 
 #endif
 
-  psz::experimental::stream_sync(stream);
+  stream_sync(stream);
 
   /* verify */
   for (auto y = 0; y < BLOCK; y++) {
@@ -130,7 +135,7 @@ END:
 template <typename T, typename Eq>
 bool test3d(T* data, size_t len, Eq* eq, void* stream)
 {
-  using stream_t = psz::experimental::gpu_control::stream_t;
+  using stream_t = gpu_control::stream_t;
   constexpr auto BLOCK = 8;
 
   bool ok = true;
@@ -162,7 +167,7 @@ bool test3d(T* data, size_t len, Eq* eq, void* stream)
   });
 
 #endif
-  psz::experimental::stream_sync(stream);
+  stream_sync(stream);
 
   /* verify */
   for (auto z = 0; z < BLOCK; z++) {
@@ -201,8 +206,8 @@ bool test_inclscan_1block()
 
   PSZ_DEFAULT_CREATE_STREAM(stream);
 
-  auto data = psz::experimental::malloc_shared<T>(len, stream);
-  auto eq = psz::experimental::malloc_shared<Eq>(len, stream);
+  auto data = malloc_shared<T>(len, stream);
+  auto eq = malloc_shared<Eq>(len, stream);
 
   bool ok = true;
 
@@ -215,8 +220,8 @@ bool test_inclscan_1block()
   else if (dimension == 3)
     ok = ok && test3d<T, Eq>(data, len, eq, stream);
 
-  psz::experimental::free_shared(data, stream);
-  psz::experimental::free_shared(eq, stream);
+  free_shared(data, stream);
+  free_shared(eq, stream);
 
   PSZ_DEFAULT_DETELE_STREAM(stream);
 

@@ -2,7 +2,7 @@
 
 #include "cusz/cxx_array.hh"
 #include "cusz/type.h"
-#include "experimental/core_mem.hh"
+#include "experimental/mem_multibackend.hh"
 #include "module/cxx_module.hh"
 #include "pszcxx.hh"
 #include "utils/io.hh"

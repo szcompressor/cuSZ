@@ -16,7 +16,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "../memseg_cxx/definition.hh"
+#include "mem/definition.hh"
 #include "cusz/type.h"
 
 template <typename T>

@@ -13,8 +13,7 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "mem/memseg.h"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 #include "rand.hh"
 #include "stat/compare.hh"
 
@@ -35,8 +34,8 @@ void f(szt len, u4 seed)
   in_cpu->control({D2H});
 
 #if defined(PSZ_USE_CUDA)
-  pszmem_device_deepcopy_cuda(in_cuda->m, in_cpu->m);
-  pszmem_device_deepcopy_cuda(in_thrust->m, in_cpu->m);
+  // pszmem_device_deepcopy_cuda(in_cuda->m, in_cpu->m);
+  // pszmem_device_deepcopy_cuda(in_thrust->m, in_cpu->m);
 #elif defined(PSZ_USE_HIP)
   pszmem_device_deepcopy_hip(in_cuda->m, in_cpu->m);
   pszmem_device_deepcopy_hip(in_thrust->m, in_cpu->m);

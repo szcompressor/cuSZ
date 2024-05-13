@@ -21,7 +21,7 @@
 #include "hfcxx_module.hh"
 #include "hfstruct.h"
 #include "hfword.hh"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 namespace cusz {
 

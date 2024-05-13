@@ -18,7 +18,7 @@
 
 #include "cusz/type.h"
 #include "header.h"
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 #include "port.hh"
 #include "verify.hh"
 

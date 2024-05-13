@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <sycl/sycl.hpp>
 
-#include "mem/memseg_cxx.hh"
+#include "mem/memobj.hh"
 
 namespace psz::detail::dpcpp {
 

@@ -9,6 +9,9 @@
  *
  */
 
+#include "experimental/mem_multibackend.hh"
+#include "experimental/core_type.hh"
+#include "experimental/control.hh"
 #include "experimental/p9y.hh"
 #include "kernel/lrz/l23.hh"
 
@@ -58,7 +61,7 @@ END:
 template <typename T, typename Eq = u4>
 bool test3d_multblk_verify(T* data, size_t len, Eq* eq)
 {
-  using stream_t = psz::experimental::gpu_control::stream_t;
+  using stream_t = gpu_control::stream_t;
   constexpr auto BLOCK = 8;
 
   bool ok = true;
@@ -92,8 +95,8 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   using T = float;
   using Eq = uint32_t;
   using FP = T;
-  using core_type = psz::experimental::core_type;
-  using stream_t = psz::experimental::gpu_control::stream_t;
+  using core_type = core_type;
+  using stream_t = gpu_control::stream_t;
 
   float time;
 
@@ -102,8 +105,8 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   auto len3 = core_type::range3(x, y, z);
   auto len = core_type::linearize(len3);
 
-  auto data = psz::experimental::malloc_shared<T>(len, stream);
-  auto eq = psz::experimental::malloc_shared<Eq>(len, stream);
+  auto data = malloc_shared<T>(len, stream);
+  auto eq = malloc_shared<Eq>(len, stream);
 
   for (auto i = 0; i < len; i++) data[i] = 1;
 
@@ -112,8 +115,8 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   printf("test len: %u\t", 1);
   pszcxx_reverse_predict_lorenzo__internal(eq, len3, data, 0.5, 0, data, &time, stream);
 
-  psz::experimental::free_shared(data, stream);
-  psz::experimental::free_shared(eq, stream);
+  free_shared(data, stream);
+  free_shared(eq, stream);
 
   PSZ_DEFAULT_DETELE_STREAM(stream);
 

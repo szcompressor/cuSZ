@@ -1,6 +1,7 @@
 #ifndef A23407D4_08B4_4B91_B0A3_CA66537E0C58
 #define A23407D4_08B4_4B91_B0A3_CA66537E0C58
 
+#include "cusz/type.h"
 using queue_ptr = void*;
 
 template <psz_platform P = PROPER_GPU_BACKEND>
