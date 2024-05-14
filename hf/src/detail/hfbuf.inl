@@ -1,0 +1,203 @@
+#include <cstddef>
+
+#include "hfclass.hh"
+#include "mem/memobj.hh"
+
+namespace cusz {
+
+using namespace portable;
+
+template <typename E, typename M, bool TIMING>
+struct HuffmanCodec<E, M, TIMING>::internal_buffer {
+  // helper
+  struct RC {
+    static const int SCRATCH = 0;
+    static const int FREQ = 1;
+    static const int BK = 2;
+    static const int REVBK = 3;
+    static const int PAR_NBIT = 4;
+    static const int PAR_NCELL = 5;
+    static const int PAR_ENTRY = 6;
+    static const int BITSTREAM = 7;
+    static const int END = 8;
+    // uint32_t nbyte[END];
+  };
+
+  using RC = struct RC;
+
+  // vars
+  size_t len;
+  size_t pardeg;
+  size_t sublen;
+  size_t bklen;
+
+  // array
+  memobj<H4>* scratch4;
+  memobj<BYTE>* compressed;
+  memobj<H4>* bk4;
+  memobj<BYTE>* revbk4;
+  memobj<H4>* bitstream4;
+
+  // data partition/embarrassingly parallelism description
+  memobj<M>* par_nbit;
+  memobj<M>* par_ncell;
+  memobj<M>* par_entry;
+
+  // dense-sparse
+  memobj<H4>* dn_bitstream;
+  memobj<M>* dn_bitcount;
+  memobj<E>* sp_val;
+  memobj<M>* sp_idx;
+  memobj<M>* sp_num;
+
+  // auxiliary
+  void _debug(const std::string SYM_name, void* VAR, int SYM)
+  {
+    GpuDevicePtr pbase0{0};
+    size_t psize0{0};
+
+    GpuMemGetAddressRange(&pbase0, &psize0, (GpuDevicePtr)VAR);
+    printf(
+        "%s:\n"
+        "\t(supposed) pointer : %p\n"
+        "\t(queried)  pbase0  : %p\n"
+        "\t(queried)  psize0  : %'9lu\n",
+        SYM_name.c_str(), (void*)VAR, (void*)&pbase0, psize0);
+    pbase0 = 0, psize0 = 0;
+  }
+
+  void debug_all()
+  {
+    setlocale(LC_NUMERIC, "");
+    printf("\nHuffmanCoarse<E, H4, M>::init() debugging:\n");
+    printf("GpuDevicePtr nbyte: %d\n", (int)sizeof(GpuDevicePtr));
+    _debug("SCRATCH", scratch4->dptr(), RC::SCRATCH);
+    _debug("BITSTREAM", bitstream4->dptr(), RC::BITSTREAM);
+    _debug("PAR_NBIT", par_nbit->dptr(), RC::PAR_NBIT);
+    _debug("PAR_NCELL", par_ncell->dptr(), RC::PAR_NCELL);
+    printf("\n");
+  };
+
+  // ctor
+  internal_buffer(
+      size_t inlen, size_t _booklen, int _pardeg, bool use_hfr = false,
+      bool debug = false)
+  {
+    pardeg = _pardeg;
+    bklen = _booklen;
+    len = inlen;
+
+    compressed = new memobj<BYTE>(len * TYPICAL, "hf::out4B");
+    scratch4 = new memobj<H4>(len, "hf::scratch4");
+    bk4 = new memobj<H4>(bklen, "hf::book4");
+    revbk4 = new memobj<BYTE>(revbk4_bytes(bklen), "hf::revbk4");
+    bitstream4 = new memobj<H4>(len / 2, "hf::enc-buf");
+    par_nbit = new memobj<M>(pardeg, "hf::par_nbit");
+    par_ncell = new memobj<M>(pardeg, "hf::par_ncell");
+    par_entry = new memobj<M>(pardeg, "hf::par_entry");
+
+    // HFR: dense-sparse
+    dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream");
+    // 1 << 10 results in the max number of partitions
+    dn_bitcount = new memobj<H4>((len - 1) / (1 << 10) + 1, "hf::dn_bitcount");
+    sp_val = new memobj<E>(len / 10, "hf::sp_val");
+    sp_idx = new memobj<M>(len / 10, "hf::sp_idx");
+    sp_num = new memobj<M>(1, "hf::sp_num");
+
+    scratch4->control({Malloc, MallocHost});
+    bk4->control({Malloc, MallocHost});
+    revbk4->control({Malloc, MallocHost});
+    bitstream4->control({Malloc, MallocHost});
+    par_nbit->control({Malloc, MallocHost});
+    par_ncell->control({Malloc, MallocHost});
+    par_entry->control({Malloc, MallocHost});
+
+    // HFR: dense-sparse
+    if (use_hfr) {
+      dn_bitstream->control({Malloc});
+      dn_bitcount->control({Malloc});
+      sp_val->control({Malloc});
+      sp_idx->control({Malloc});
+      sp_num->control({Malloc, MallocHost});
+    }
+
+    // repurpose scratch after several substeps
+    compressed->dptr((u1*)scratch4->dptr())->hptr((u1*)scratch4->hptr());
+    // GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
+
+    sublen = (inlen - 1) / pardeg + 1;
+
+    if (debug) debug_all();
+  }
+
+  ~internal_buffer()
+  {
+    delete bk4, delete revbk4;
+    delete par_nbit, delete par_ncell, delete par_entry;
+
+    delete compressed;
+    delete scratch4, delete bitstream4;
+
+    delete sp_val, delete sp_idx, delete sp_num;
+  }
+
+  ::portable::compact_array1<E> sparse_space()
+  {
+    return {
+        sp_val->dptr(), sp_idx->dptr(), sp_num->dptr(), sp_num->hptr(),
+        sp_val->len()};
+  }
+
+  hfcxx_dense<H> dense_space(size_t n_chunk)
+  {
+    return {dn_bitstream->dptr(), dn_bitcount->dptr(), n_chunk};
+  }
+
+  void memcpy_merge(Header& header, uninit_stream_t stream)
+  {
+    auto memcpy_start = compressed->dptr();
+    auto memcpy_adjust_to_start = 0;
+
+    memcpy_helper _revbk{
+        revbk4->dptr(), revbk4->bytes(), header.entry[Header::REVBK]};
+    memcpy_helper _par_nbit{
+        par_nbit->dptr(), par_nbit->bytes(), header.entry[Header::PAR_NBIT]};
+    memcpy_helper _par_entry{
+        par_entry->dptr(), par_entry->bytes(),
+        header.entry[Header::PAR_ENTRY]};
+    memcpy_helper _bitstream{
+        bitstream4->dptr(), bitstream4->bytes(),
+        header.entry[Header::BITSTREAM]};
+
+    auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
+    auto d2d_memcpy_merge = [&](memcpy_helper& var) {
+      CHECK_GPU(GpuMemcpyAsync(
+          start + var.dst, var.ptr, var.nbyte, GpuMemcpyD2D,
+          (GpuStreamT)stream));
+    };
+
+    CHECK_GPU(GpuMemcpyAsync(
+        start, &header, sizeof(header), GpuMemcpyH2D, (GpuStreamT)stream));
+
+    // /* debug */ CHECK_GPU(GpuStreamSync(stream));
+    d2d_memcpy_merge(_revbk);
+    d2d_memcpy_merge(_par_nbit);
+    d2d_memcpy_merge(_par_entry);
+    d2d_memcpy_merge(_bitstream);
+    // /* debug */ CHECK_GPU(GpuStreamSync(stream));
+  }
+
+  void clear_buffer()
+  {
+    scratch4->control({ClearDevice});
+    bk4->control({ClearDevice});
+    revbk4->control({ClearDevice});
+    bitstream4->control({ClearDevice});
+
+    par_nbit->control({ClearDevice});
+    par_ncell->control({ClearDevice});
+    par_entry->control({ClearDevice});
+  }
+};
+
+}  // namespace cusz
