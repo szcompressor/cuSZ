@@ -4,7 +4,7 @@
 #define INS_HIST_CUDA_2401(T, TIMING)                                     \
   template pszerror                                                       \
   _2401::pszcxx_histogram_cauchy<pszpolicy::CUDA, T, u4, TIMING>(         \
-      pszarray_cxx<T> in, pszarray_cxx<u4> out_hist, float* milliseconds, \
+      array3<T> in, array3<u4> out_hist, float* milliseconds, \
       void* stream);
 
 INS_HIST_CUDA_2401(u1, true)

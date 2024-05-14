@@ -18,6 +18,8 @@
 #include "memobj.hh"
 #include "port.hh"
 
+using namespace portable;
+
 template <
     typename T, typename E, typename H, pszpolicy EXEC = PROPER_GPU_BACKEND>
 class pszmempool_cxx {

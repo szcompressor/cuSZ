@@ -1,12 +1,14 @@
 #include <cuda_runtime.h>
 
-#include "cusz/cxx_array.hh"
+#include "mem/array_cxx.h"
 #include "cusz/type.h"
 #include "experimental/mem_multibackend.hh"
 #include "module/cxx_module.hh"
 #include "pszcxx.hh"
 #include "utils/io.hh"
 #include "utils/viewer/viewer.cu_hip.hh"
+
+using namespace portable;
 
 template <typename T = f4>
 bool test(char* fname)
@@ -56,7 +58,7 @@ bool test(char* fname)
   auto the_eb = 1e-2;
   auto the_data_size = shape2d;
 
-  pszcompact_cxx<T> outlier_obj = {
+  compact_array1<T> outlier_obj = {
       outlier_val, outlier_idx, outlier_num, outlier_host_num,
       outlier_reserved};
 

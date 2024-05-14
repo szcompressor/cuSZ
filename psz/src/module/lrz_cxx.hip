@@ -2,15 +2,13 @@
 
 #include "cxx_lrz.cu_hip.inl"
 
-#define C_INS(T, Eq, ZIGZAG)                                                 \
-  template pszerror _2401::pszcxx_predict_lorenzo<T, Eq, ZIGZAG>(            \
-      pszarray_cxx<T>*, pszrc2 const, pszarray_cxx<Eq>*, pszcompact_cxx<T>*, \
-      void*);
+#define C_INS(T, Eq, ZIGZAG)                                      \
+  template pszerror _2401::pszcxx_predict_lorenzo<T, Eq, ZIGZAG>( \
+      array3<T>*, pszrc2 const, array3<Eq>*, compact_array1<T>*, void*);
 
-#define X_INS(T, Eq)                                                       \
-  template pszerror _2401::pszcxx_reverse_predict_lorenzo<T, Eq>(          \
-      pszarray_cxx<Eq>*, pszarray_cxx<T>*, pszrc2 const, pszarray_cxx<T>*, \
-      void*);
+#define X_INS(T, Eq)                                              \
+  template pszerror _2401::pszcxx_reverse_predict_lorenzo<T, Eq>( \
+      array3<Eq>*, array3<T>*, pszrc2 const, array3<T>*, void*);
 
 C_INS(f4, u4, false)
 C_INS(f4, u4, true)

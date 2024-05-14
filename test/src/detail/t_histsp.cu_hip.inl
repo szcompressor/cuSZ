@@ -15,6 +15,8 @@
 #include "kernel/histsp.hh"
 #include "mem/memobj.hh"
 
+using namespace portable;
+
 using T = uint32_t;
 using FQ = uint32_t;
 

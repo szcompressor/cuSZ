@@ -16,6 +16,7 @@
 #include <cstdint>
 
 #include "mem/memobj.hh"
+using namespace portable;
 
 template <typename T, typename E, typename FP = T>
 int pszcxx_predict_spline(

@@ -1,7 +1,7 @@
 // deps
-#include "cusz/cxx_array.hh"
 #include "exception/exception.hh"
 #include "kernel/lrz.hh"
+#include "mem/array_cxx.h"
 #include "mem/compact.hh"
 #include "typing.hh"
 #include "utils/err.hh"
@@ -11,7 +11,7 @@
 
 template <pszpolicy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_scatter_naive(
-    pszcompact_cxx<T> in, pszarray_cxx<T> out, f4* milliseconds, void* stream)
+    compact_array1<T> in, array3<T> out, f4* milliseconds, void* stream)
 try {
   auto grid_dim = (*(in.host_num) - 1) / 128 + 1;
   CREATE_GPUEVENT_PAIR;
@@ -30,9 +30,11 @@ NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
 template <pszpolicy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_gather_make_metadata_host_available(
-    pszcompact_cxx<T> in, void* stream)
+    compact_array1<T> in, void* stream)
 try {
-  cudaMemcpyAsync(in.host_num, in.num, sizeof(u4), cudaMemcpyDeviceToHost, (cudaStream_t)stream);
+  cudaMemcpyAsync(
+      in.host_num, in.num, sizeof(u4), cudaMemcpyDeviceToHost,
+      (cudaStream_t)stream);
   // TODO portability issue
   cudaStreamSynchronize((GpuStreamT)stream);
 

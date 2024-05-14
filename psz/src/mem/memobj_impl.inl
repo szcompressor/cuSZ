@@ -1,10 +1,25 @@
 #include <cuda_runtime.h>
 
 #include "experimental/mem_multibackend.hh"
+#include "mem/array_cxx.h"
+#include "mem/definition.hh"
 #include "mem/memobj.hh"
 
+// The next-line: failsafe macro check
+#include <linux/limits.h>
+
+#include <fstream>
+#include <iostream>
+
+#include "busyheader.hh"
+#include "cusz/type.h"
+#include "stat/compare.hh"
+#include "typing.hh"
+
+namespace portable {
+
 template <typename Ctype>
-struct pszmem_cxx<Ctype>::impl {
+struct memobj<Ctype>::impl {
   char name[32];
   const psz_dtype type{PszType<Ctype>::type};
   Ctype *d{nullptr}, *h{nullptr}, *uni{nullptr};
@@ -47,12 +62,12 @@ struct pszmem_cxx<Ctype>::impl {
 
   void _dbg()
   {
-    printf("pszmem::name\t%s\n", name);
-    printf("pszmem::{dtype}\t{%d}\n", type);
-    printf("pszmem::{len, bytes}\t{%lu, %lu}\n", _len, _bytes);
-    printf("pszmem::{lx, ly, lz}\t{%u, %u, %u}\n", lx, ly, lz);
-    printf("pszmem::{sty, stz}\t{%lu, %lu}\n", sty, stz);
-    printf("pszmem::{d, h}\t{%p, %p, %p}\n", d, h, uni);
+    printf("memobj::name\t%s\n", name);
+    printf("memobj::{dtype}\t{%d}\n", type);
+    printf("memobj::{len, bytes}\t{%lu, %lu}\n", _len, _bytes);
+    printf("memobj::{lx, ly, lz}\t{%u, %u, %u}\n", lx, ly, lz);
+    printf("memobj::{sty, stz}\t{%lu, %lu}\n", sty, stz);
+    printf("memobj::{d, h}\t{%p, %p, %p}\n", d, h, uni);
     printf("\n");
   }
 
@@ -212,6 +227,18 @@ struct pszmem_cxx<Ctype>::impl {
   Ctype* uniptr() const { return uni; };
   Ctype* unibegin() const { return uniptr(); };
   Ctype* uniend() const { return uniptr() + _len; };
+
+  // getter of interop
+  // TODO ctor from array3/array1
+  // clang-format off
+  ::portable::array3<Ctype> array3_h() const { return {hptr(), {lx, ly, lz}}; };
+  ::portable::array3<Ctype> array3_d() const { return {dptr(), {lx, ly, lz}}; };
+  ::portable::array3<Ctype> array3_uni() const { return {uniptr(), {lx, ly, lz}}; };
+  ::portable::array1<Ctype> array1_h() const { return {hptr(), _len}; };
+  ::portable::array1<Ctype> array1_d() const { return {dptr(), _len}; };
+  ::portable::array1<Ctype> array1_uni() const { return {uniptr(), _len}; };
+  // clang-format on
+
   // getter by index
   Ctype& dptr(uint32_t i) { return d[i]; };
   Ctype& dat(uint32_t i) { return d[i]; };
@@ -237,28 +264,28 @@ struct pszmem_cxx<Ctype>::impl {
 ///////////////////////////////
 
 template <typename Ctype>
-pszmem_cxx<Ctype>::pszmem_cxx(u4 _lx, const char _name[32]) :
+memobj<Ctype>::memobj(u4 _lx, const char _name[32]) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, 1, 1, _name);
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>::pszmem_cxx(u4 _lx, u4 _ly, const char _name[32]) :
+memobj<Ctype>::memobj(u4 _lx, u4 _ly, const char _name[32]) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, _ly, 1, _name);
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>::pszmem_cxx(u4 _lx, u4 _ly, u4 _lz, const char _name[32]) :
+memobj<Ctype>::memobj(u4 _lx, u4 _ly, u4 _lz, const char _name[32]) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, _ly, _lz, _name);
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>::~pszmem_cxx()
+memobj<Ctype>::~memobj()
 {
   pimpl->free_device();
   pimpl->free_host();
@@ -266,7 +293,7 @@ pszmem_cxx<Ctype>::~pszmem_cxx()
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::extrema_scan(
+memobj<Ctype>* memobj<Ctype>::extrema_scan(
     double& max_value, double& min_value, double& range)
 {
   pimpl->extrema_scan(max_value, min_value, range);
@@ -275,7 +302,7 @@ pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::extrema_scan(
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::control(
+memobj<Ctype>* memobj<Ctype>::control(
     std::vector<pszmem_control> control_stream, void* stream)
 {
   for (auto& c : control_stream) {
@@ -312,8 +339,7 @@ pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::control(
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::file(
-    const char* fname, pszmem_control control)
+memobj<Ctype>* memobj<Ctype>::file(const char* fname, pszmem_control control)
 {
   if (control == ToFile)
     pimpl->tofile(fname);
@@ -326,129 +352,163 @@ pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::file(
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::dptr(Ctype* d)
+memobj<Ctype>* memobj<Ctype>::dptr(Ctype* d)
 {
   pimpl->dptr(d);
   return this;
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::hptr(Ctype* h)
+memobj<Ctype>* memobj<Ctype>::hptr(Ctype* h)
 {
   pimpl->hptr(h);
   return this;
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::uniptr(Ctype* uni)
+memobj<Ctype>* memobj<Ctype>::uniptr(Ctype* uni)
 {
   pimpl->uniptr(uni);
   return this;
 }
 
 template <typename Ctype>
-pszmem_cxx<Ctype>* pszmem_cxx<Ctype>::set_len(size_t ext_len)
+memobj<Ctype>* memobj<Ctype>::set_len(size_t ext_len)
 {
   pimpl->set_len(ext_len);
   return this;
 }
 
 template <typename Ctype>
-size_t pszmem_cxx<Ctype>::len() const
+size_t memobj<Ctype>::len() const
 {
   return pimpl->len();
 }
 template <typename Ctype>
-size_t pszmem_cxx<Ctype>::bytes() const
+size_t memobj<Ctype>::bytes() const
 {
   return pimpl->bytes();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::dptr() const
+Ctype* memobj<Ctype>::dptr() const
 {
   return pimpl->dptr();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::dbegin() const
+Ctype* memobj<Ctype>::dbegin() const
 {
   return pimpl->dbegin();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::dend() const
+Ctype* memobj<Ctype>::dend() const
 {
   return pimpl->dend();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::hptr() const
+Ctype* memobj<Ctype>::hptr() const
 {
   return pimpl->hptr();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::hbegin() const
+Ctype* memobj<Ctype>::hbegin() const
 {
   return pimpl->hbegin();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::hend() const
+Ctype* memobj<Ctype>::hend() const
 {
   return pimpl->hend();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::uniptr() const
+Ctype* memobj<Ctype>::uniptr() const
 {
   return pimpl->uniptr();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::unibegin() const
+Ctype* memobj<Ctype>::unibegin() const
 {
   return pimpl->unibegin();
 };
 template <typename Ctype>
-Ctype* pszmem_cxx<Ctype>::uniend() const
+Ctype* memobj<Ctype>::uniend() const
 {
   return pimpl->uniend();
 };
 template <typename Ctype>
-Ctype& pszmem_cxx<Ctype>::dptr(uint32_t i)
+Ctype& memobj<Ctype>::dptr(uint32_t i)
 {
   return pimpl->d[i];
 };
 template <typename Ctype>
-Ctype& pszmem_cxx<Ctype>::dat(uint32_t i)
+Ctype& memobj<Ctype>::dat(uint32_t i)
 {
   return pimpl->d[i];
 };
 template <typename Ctype>
-Ctype& pszmem_cxx<Ctype>::hptr(uint32_t i)
+Ctype& memobj<Ctype>::hptr(uint32_t i)
 {
   return pimpl->h[i];
 };
 template <typename Ctype>
-Ctype& pszmem_cxx<Ctype>::hat(uint32_t i)
+Ctype& memobj<Ctype>::hat(uint32_t i)
 {
   return pimpl->h[i];
 };
 template <typename Ctype>
-Ctype& pszmem_cxx<Ctype>::uniptr(uint32_t i)
+Ctype& memobj<Ctype>::uniptr(uint32_t i)
 {
   return pimpl->uni[i];
 };
 template <typename Ctype>
-Ctype& pszmem_cxx<Ctype>::uniat(uint32_t i)
+Ctype& memobj<Ctype>::uniat(uint32_t i)
 {
   return pimpl->uni[i];
 };
 
 template <typename Ctype>
 template <typename UINT3>
-UINT3 pszmem_cxx<Ctype>::len3() const
+UINT3 memobj<Ctype>::len3() const
 {
   return pimpl->template len3<UINT3>();
 };
 
 template <typename Ctype>
 template <typename UINT3>
-UINT3 pszmem_cxx<Ctype>::st3() const
+UINT3 memobj<Ctype>::st3() const
 {
   return pimpl->template st3<UINT3>();
 };
+
+template <typename Ctype>
+::portable::array3<Ctype> memobj<Ctype>::array3_h() const
+{
+  return pimpl->array3_h();
+};
+
+template <typename Ctype>
+::portable::array3<Ctype> memobj<Ctype>::array3_d() const
+{
+  return pimpl->array3_d();
+};
+template <typename Ctype>
+::portable::array3<Ctype> memobj<Ctype>::array3_uni() const
+{
+  return pimpl->array3_uni();
+};
+template <typename Ctype>
+::portable::array1<Ctype> memobj<Ctype>::array1_h() const
+{
+  return pimpl->array1_h();
+};
+template <typename Ctype>
+::portable::array1<Ctype> memobj<Ctype>::array1_d() const
+{
+  return pimpl->array1_d();
+};
+template <typename Ctype>
+::portable::array1<Ctype> memobj<Ctype>::array1_uni() const
+{
+  return pimpl->array1_uni();
+};
+
+}  // namespace portable

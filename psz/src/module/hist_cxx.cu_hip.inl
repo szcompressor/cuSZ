@@ -1,5 +1,5 @@
 // deps
-#include "cusz/cxx_array.hh"
+#include "mem/array_cxx.h"
 #include "cusz/type.h"
 #include "exception/exception.hh"
 #include "module/cxx_module.hh"
@@ -9,9 +9,11 @@
 // definitions
 #include "kernel/detail/histsp.cu_hip.inl"
 
+using namespace portable;
+
 template <pszpolicy policy, typename T, typename FQ, bool TIMING>
 pszerror _2401::pszcxx_histogram_cauchy(
-    pszarray_cxx<T> in, pszarray_cxx<u4> out_hist, float* milliseconds,
+    array3<T> in, array3<u4> out_hist, float* milliseconds,
     void* stream)
 try {
   auto inlen = in.len3.x;

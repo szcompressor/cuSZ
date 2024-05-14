@@ -17,6 +17,8 @@
 #include "rand.hh"
 #include "stat/compare.hh"
 
+using namespace portable;
+
 void f(szt len, u4 seed)
 {
   printf("len: %lu\n", len);

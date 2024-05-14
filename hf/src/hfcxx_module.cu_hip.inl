@@ -13,8 +13,8 @@
 #define PHF_MODULE_CLASS _2403::phf_kernel_wrapper<E, H, M, TIMING>
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase1(
-    hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
-    hfarray_cxx<H> out, float* time_lossless, void* stream)
+    hfcxx_array<E> in, hfcxx_array<H> book, const int numSMs,
+    hfcxx_array<H> out, float* time_lossless, void* stream)
 {
   auto div = [](auto whole, auto part) -> uint32_t {
     if (whole == 0) throw std::runtime_error("Dividend is zero.");
@@ -51,8 +51,8 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase1(
 
 PHF_MODULE_TPL void
 PHF_MODULE_CLASS::phf_coarse_encode_phase1_collect_metadata(
-    hfarray_cxx<E> in, hfarray_cxx<H> book, const int numSMs,
-    hfarray_cxx<H> out, hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell,
+    hfcxx_array<E> in, hfcxx_array<H> book, const int numSMs,
+    hfcxx_array<H> out, hfcxx_array<M> par_nbit, hfcxx_array<M> par_ncell,
     hfpar_description hfpar, float* time_lossless, void* stream)
 {
   auto div = [](auto whole, auto part) -> uint32_t {
@@ -92,8 +92,8 @@ PHF_MODULE_CLASS::phf_coarse_encode_phase1_collect_metadata(
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase2(
-    hfarray_cxx<H> in, hfpar_description hfpar, hfarray_cxx<H> deflated,
-    hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_ncell, float* time_lossless,
+    hfcxx_array<H> in, hfpar_description hfpar, hfcxx_array<H> deflated,
+    hfcxx_array<M> par_nbit, hfcxx_array<M> par_ncell, float* time_lossless,
     void* stream)
 {
   auto div = [](auto whole, auto part) -> uint32_t {
@@ -132,11 +132,11 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase2(
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase3(
-    hfarray_cxx<M> d_par_nbit, hfarray_cxx<M> d_par_ncell,
-    hfarray_cxx<M> d_par_entry,  //
+    hfcxx_array<M> d_par_nbit, hfcxx_array<M> d_par_ncell,
+    hfcxx_array<M> d_par_entry,  //
     hfpar_description hfpar,     //
-    hfarray_cxx<M> h_par_nbit, hfarray_cxx<M> h_par_ncell,
-    hfarray_cxx<M> h_par_entry,                 //
+    hfcxx_array<M> h_par_nbit, hfcxx_array<M> h_par_ncell,
+    hfcxx_array<M> h_par_entry,                 //
     size_t* outlen_nbit, size_t* outlen_ncell,  //
     float* time_cpu_time, void* stream)
 {
@@ -165,8 +165,8 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase3(
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase4(
-    hfarray_cxx<H> buf, hfarray_cxx<M> par_entry, hfarray_cxx<M> par_ncell,
-    hfpar_description hfpar, hfarray_cxx<H> bitstream, float* time_lossless,
+    hfcxx_array<H> buf, hfcxx_array<M> par_entry, hfcxx_array<M> par_ncell,
+    hfpar_description hfpar, hfcxx_array<H> bitstream, float* time_lossless,
     void* stream)
 {
   if constexpr (TIMING) {
@@ -193,9 +193,9 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_encode_phase4(
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_decode(
-    hfarray_cxx<H> bitstream, hfarray_cxx<uint8_t> revbook,
-    hfarray_cxx<M> par_nbit, hfarray_cxx<M> par_entry, hfpar_description hfpar,
-    hfarray_cxx<E> out, float* time_lossless, void* stream)
+    hfcxx_array<H> bitstream, hfcxx_array<uint8_t> revbook,
+    hfcxx_array<M> par_nbit, hfcxx_array<M> par_entry, hfpar_description hfpar,
+    hfcxx_array<E> out, float* time_lossless, void* stream)
 {
   auto const block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = psz_utils::get_npart(hfpar.pardeg, block_dim);
@@ -223,16 +223,16 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_coarse_decode(
 // TODO ret type (status) and exe_policy
 // duplicate with psz's
 PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_scatter_adhoc(
-    hfcompact_cxx<E> compact, E* out, f4* milliseconds, void* stream)
+    hfcxx_compact<E> compact, E* out, f4* milliseconds, void* stream)
 {
-  auto grid_dim = (compact.n - 1) / 128 + 1;
+  auto grid_dim = (*(compact.host_num) - 1) / 128 + 1;
 
   if constexpr (TIMING) {
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING(stream);
     _2403::kernel::phf_scatter_adhoc<E, u4>
         <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
-            compact.val, compact.idx, compact.n, out);
+            compact.val, compact.idx, *(compact.host_num), out);
     STOP_GPUEVENT_RECORDING(stream);
     CHECK_GPU(GpuStreamSync(stream));
 
@@ -245,7 +245,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::phf_scatter_adhoc(
   else {
     _2403::kernel::phf_scatter_adhoc<E, u4>
         <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
-            compact.val, compact.idx, compact.n, out);
+            compact.val, compact.idx, *(compact.host_num), out);
     CHECK_GPU(GpuStreamSync(stream));
   }
 

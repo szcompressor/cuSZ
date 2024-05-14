@@ -1,13 +1,10 @@
 /**
- * @file memseg_cxx.cu.hh
+ * @file memobj.hh.hh
  * @author Jiannan Tian
  * @brief drop-in replacement of previous Capsule
  * @version 0.4
- * @date 2023-06-09
+ * @date 2024-05-12
  * (created) 2020-11-03 (capsule.hh)
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
  */
 
 #ifndef EC1B3A67_146B_48BF_A336_221E9D38C41F
@@ -16,19 +13,18 @@
 // The next-line: failsafe macro check
 #include <linux/limits.h>
 
-#include <fstream>
-#include <iostream>
 #include <memory>
-#include <stdexcept>
+#include <vector>
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "mem/array_cxx.h"
 #include "mem/definition.hh"
-#include "stat/compare.hh"
 #include "typing.hh"
 
+namespace portable {
+
 template <typename Ctype = uint8_t>
-class pszmem_cxx {
+class memobj {
  private:
   struct impl;
   std::unique_ptr<impl> pimpl;
@@ -39,25 +35,21 @@ class pszmem_cxx {
   double maxval, minval, range;
 
  public:
-  pszmem_cxx(u4 _lx, const char _name[32] = "<unnamed>");
-  pszmem_cxx(u4 _lx, u4 _ly, const char _name[32] = "<unnamed>");
-  pszmem_cxx(u4 _lx, u4 _ly, u4 _lz, const char _name[32] = "<unnamed>");
-  ~pszmem_cxx();
+  memobj(u4 _lx, const char _name[32] = "<unnamed>");
+  memobj(u4 _lx, u4 _ly, const char _name[32] = "<unnamed>");
+  memobj(u4 _lx, u4 _ly, u4 _lz, const char _name[32] = "<unnamed>");
+  ~memobj();
 
-  pszmem_cxx* extrema_scan(
-      double& max_value, double& min_value, double& range);
-
-  pszmem_cxx* control(
-      std::vector<pszmem_control> control_stream, void* stream = nullptr);
-
-  pszmem_cxx* file(const char* fname, pszmem_control control);
+  memobj* extrema_scan(double& maxval, double& minval, double& range);
+  memobj* control(std::vector<pszmem_control>, void* stream = nullptr);
+  memobj* file(const char* fname, pszmem_control control);
 
   // setter (borrowing)
-  pszmem_cxx* dptr(Ctype* d);
-  pszmem_cxx* hptr(Ctype* h);
-  pszmem_cxx* uniptr(Ctype* uni);
+  memobj* dptr(Ctype* d);
+  memobj* hptr(Ctype* h);
+  memobj* uniptr(Ctype* uni);
   // setter
-  pszmem_cxx* set_len(size_t ext_len);
+  memobj* set_len(size_t ext_len);
 
   // getter
   size_t len() const;
@@ -71,6 +63,15 @@ class pszmem_cxx {
   Ctype* uniptr() const;
   Ctype* unibegin() const;
   Ctype* uniend() const;
+
+  // getter of interop
+  ::portable::array3<Ctype> array3_h() const;
+  ::portable::array3<Ctype> array3_d() const;
+  ::portable::array3<Ctype> array3_uni() const;
+  ::portable::array1<Ctype> array1_h() const;
+  ::portable::array1<Ctype> array1_d() const;
+  ::portable::array1<Ctype> array1_uni() const;
+
   // getter by index
   Ctype& dptr(uint32_t i);
   Ctype& dat(uint32_t i);
@@ -86,18 +87,37 @@ class pszmem_cxx {
   UINT3 st3() const;
 };
 
-typedef pszmem_cxx<u1> MemU1;
-typedef pszmem_cxx<u2> MemU2;
-typedef pszmem_cxx<u4> MemU4;
-typedef pszmem_cxx<u8> MemU8;
-typedef pszmem_cxx<ull> MemUll;
-typedef pszmem_cxx<i1> MemI1;
-typedef pszmem_cxx<i2> MemI2;
-typedef pszmem_cxx<i4> MemI4;
-typedef pszmem_cxx<i8> MemI8;
-typedef pszmem_cxx<szt> MemSzt;
-typedef pszmem_cxx<szt> MemZu;
-typedef pszmem_cxx<f4> MemF4;
-typedef pszmem_cxx<f8> MemF8;
+/** @deprecated */
+typedef memobj<u1> MemU1;
+typedef memobj<u2> MemU2;
+typedef memobj<u4> MemU4;
+typedef memobj<u8> MemU8;
+typedef memobj<ull> MemUll;
+typedef memobj<i1> MemI1;
+typedef memobj<i2> MemI2;
+typedef memobj<i4> MemI4;
+typedef memobj<i8> MemI8;
+typedef memobj<szt> MemSzt;
+typedef memobj<szt> MemZu;
+typedef memobj<f4> MemF4;
+typedef memobj<f8> MemF8;
+
+typedef memobj<u1> mem_u1;
+typedef memobj<u2> mem_u2;
+typedef memobj<u4> mem_u4;
+typedef memobj<u8> mem_u8;
+typedef memobj<ull> mem_ull;
+typedef memobj<i1> mem_i1;
+typedef memobj<i2> mem_i2;
+typedef memobj<i4> mem_i4;
+typedef memobj<i8> mem_i8;
+typedef memobj<szt> mem_szt;
+typedef memobj<szt> mem_zu;
+typedef memobj<f4> mem_f4;
+typedef memobj<f8> mem_f8;
+
+}  // namespace portable
+
+#define pszmem_cxx memobj
 
 #endif /* EC1B3A67_146B_48BF_A336_221E9D38C41F */

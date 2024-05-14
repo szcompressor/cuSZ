@@ -111,7 +111,7 @@
 //     thrust::sort_by_key(
 //         thrust::host,  // execution
 //         compact_outlier.h_idx,
-//         compact_outlier.h_idx + *compact_outlier.h_num,  // key
+//         compact_outlier.h_idx + *compact_outlier.host_num,  // key
 //         compact_outlier.h_val);                         // value
 
 //     float __t;

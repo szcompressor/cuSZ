@@ -25,6 +25,8 @@
 
 namespace cusz {
 
+using namespace portable;
+
 template <typename E, typename M = u4, bool TIMING = true>
 class HuffmanCodec {
  public:

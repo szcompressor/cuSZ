@@ -1,10 +1,10 @@
 // deps
 #include <stdexcept>
 
-#include "cusz/cxx_array.hh"
 #include "cusz/type.h"
 #include "exception/exception.hh"
 #include "kernel/lrz.hh"
+#include "mem/array_cxx.h"
 #include "mem/compact.hh"
 #include "typing.hh"
 #include "utils/err.hh"
@@ -20,8 +20,8 @@ namespace _2401 {
 #define LRZ_WRAPPER_CLASS pszpred_lrz<T, TIMING>
 
 LRZ_WRAPPER_TPL pszerror LRZ_WRAPPER_CLASS::pszcxx_predict_lorenzo(
-    pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
-    pszcompact_cxx<T> out_outlier, f4* time_elapsed, void* stream)
+    array3<T> in, pszrc2 const rc, array3<u4> out_errquant,
+    compact_array1<T> out_outlier, f4* time_elapsed, void* stream)
 try {
   auto len3 = dim3(in.len3.x, in.len3.y, in.len3.z);
 
@@ -41,8 +41,8 @@ NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
 LRZ_WRAPPER_TPL pszerror LRZ_WRAPPER_CLASS::pszcxx_reverse_predict_lorenzo(
-    pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
-    pszrc2 const rc, pszarray_cxx<T> out_xdata, f4* time_elapsed, void* stream)
+    array3<u4> in_errquant, array3<T> in_scattered_outlier, pszrc2 const rc,
+    array3<T> out_xdata, f4* time_elapsed, void* stream)
 try {
   auto len3 = dim3(out_xdata.len3.x, out_xdata.len3.y, out_xdata.len3.z);
 

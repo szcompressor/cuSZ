@@ -1,35 +1,41 @@
 #ifndef A851557F_29B7_4865_AC4A_B5B59930E5F6
 #define A851557F_29B7_4865_AC4A_B5B59930E5F6
 
-#include "array.h"
-#include "type.h"
-#include "typing.hh"
+#include "cusz/type.h"
+#include "cusz/typing.hh"
 
+namespace portable {
+
+// dense array, 3d
 template <typename T>
-struct pszarray_cxx {
+struct array3 {
   T* const buf;
   pszlen len3;
-
-  // using type = T;
-  // using psztype = typename PszType<T>::type;
 };
 
+// dense array, 1d
 template <typename T>
-struct pszcompact_cxx {
+struct array1 {
+  T* const buf;
+  size_t len;
+};
+
+// sparse array, 1d
+template <typename T>
+struct compact_array1 {
   T* const val;
   uint32_t* idx;
   uint32_t* num;
   uint32_t* host_num;
   size_t reserved_len;
-
-  // using type = T;
-  // using psztype = typename PszType<T>::type;
 };
 
 template <typename T>
 struct pszpredict_2output {
-  pszarray_cxx<u4> dense;
-  pszcompact_cxx<T> sparse;
+  array3<u4> dense;
+  compact_array1<T> sparse;
 };
+
+}  // namespace portable
 
 #endif /* A851557F_29B7_4865_AC4A_B5B59930E5F6 */

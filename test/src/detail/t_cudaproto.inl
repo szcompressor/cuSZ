@@ -21,6 +21,8 @@
 #include "mem/compact.hh"
 #include "mem/memobj.hh"
 
+using namespace portable;
+
 namespace proto = psz::cuda_hip::__kernel::proto;
 
 using T = float;

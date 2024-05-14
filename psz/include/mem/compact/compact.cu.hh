@@ -14,6 +14,7 @@
 
 #include <cuda_runtime.h>
 
+#include <iostream>
 #include <stdexcept>
 
 #include "cusz/type.h"

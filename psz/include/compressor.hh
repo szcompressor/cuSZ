@@ -23,6 +23,8 @@
 
 namespace cusz {
 
+using namespace portable;
+
 // extra helper
 struct CompressorHelper {
   static int autotune_phf_coarse(psz_context* ctx);
@@ -76,7 +78,7 @@ class Compressor {
 
  public:
   pszmempool_cxx<T, E, H>* mem;
-  pszcompact_cxx<T>* _2403_compact;
+  compact_array1<T>* _2403_compact;
 
  public:
   Compressor(){};
@@ -84,7 +86,8 @@ class Compressor {
 
   // public methods
   template <class CONFIG>
-  Compressor* init(CONFIG* config, bool iscompression=true, bool dbg_print = false);
+  Compressor* init(
+      CONFIG* config, bool iscompression = true, bool dbg_print = false);
   Compressor* compress(pszctx*, T*, BYTE**, size_t*, uninit_stream_t);
   Compressor* compress_predict(pszctx*, T*, uninit_stream_t);
   Compressor* compress_encode(pszctx*, uninit_stream_t);

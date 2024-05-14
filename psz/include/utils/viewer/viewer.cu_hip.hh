@@ -1,11 +1,13 @@
 #ifndef BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 #define BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 
-#include "cusz/cxx_array.hh"
+#include "mem/array_cxx.h"
 #include "utils/verify.hh"
 #include "cusz/type.h"
 #include "stat/compare/compare.thrust.hh"
 #include "viewer.noarch.hh"
+
+using namespace portable;
 
 template <typename T>
 static void pszcxx_evaluate_quality_gpu(
@@ -32,7 +34,7 @@ static void pszcxx_evaluate_quality_gpu(
 namespace _2401 {
 template <typename T>
 pszerror pszcxx_evaluate_quality_gpu(
-    pszarray_cxx<T> reconstructed, pszarray_cxx<T> origin)
+    array3<T> reconstructed, array3<T> origin)
 {
   pszcxx_evaluate_quality_gpu(
       (T*)reconstructed.buf, (T*)origin.buf, reconstructed.len3.x);

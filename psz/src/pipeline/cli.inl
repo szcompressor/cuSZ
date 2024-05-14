@@ -21,6 +21,7 @@
 #include "context.h"
 #include "dryrun.hh"
 #include "mem.hh"
+#include "stat/compare.hh"
 #include "tehm.hh"
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "utils/analyzer.hh"
@@ -30,6 +31,8 @@
 #include "utils/viewer.hh"
 
 namespace cusz {
+
+using namespace portable;
 
 template <typename Data = float>
 class CLI {

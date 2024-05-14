@@ -93,7 +93,7 @@ Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool iscompression, bool debug)
 
   if (iscompression) {
     // TODO [2403] ad hoc
-    _2403_compact = new pszcompact_cxx<T>{
+    _2403_compact = new compact_array1<T>{
         mem->compact->d_val, mem->compact->d_idx, mem->compact->d_num,
         mem->compact->h_num, mem->compact->reserved_len};
   }

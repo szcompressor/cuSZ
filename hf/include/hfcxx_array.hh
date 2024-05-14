@@ -4,17 +4,28 @@
 #include <cstddef>
 #include <cstdint>
 
-template <typename T>
-struct hfarray_cxx {
-  T* const buf;
-  size_t len;
+#include "mem/array_cxx.h"
+
+#include "mem/array_cxx.h"
+
+using namespace portable;
+
+#define hfarray_cxx array1
+#define hfcxx_array array1
+#define hfcxx_compact compact_array1
+
+template <typename Hf>
+struct hfcxx_book {
+  hfarray_cxx<Hf> bk;
+  Hf const alt_code;  // even if u8 can use short u4 internal
+  u4 const alt_bits;
 };
 
-template <typename T, typename M = uint32_t>
-struct hfcompact_cxx {
-  T* const val;
-  M* const idx;
-  uint32_t n;
+template <typename Hf>
+struct hfcxx_dense {
+  Hf* const out;
+  u4* bits;
+  size_t n_part;
 };
 
 struct hfpar_description {

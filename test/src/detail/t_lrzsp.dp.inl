@@ -118,7 +118,7 @@ bool testcase(
   {
     dpct::sort(
         oneapi::dpl::execution::seq, compact_outlier.h_idx,
-        compact_outlier.h_idx + compact_outlier.h_num,
+        compact_outlier.h_idx + compact_outlier.host_num,
         compact_outlier.h_val);  // value
 
     float __t;

@@ -1,8 +1,8 @@
-#include "cusz/cxx_array.hh"
 #include "cusz/type.h"
-#include "kernel/detail/spline3.inl"
 #include "exception/exception.hh"
+#include "kernel/detail/spline3.inl"
 #include "kernel/spline.hh"
+#include "mem/array_cxx.h"
 #include "mem/compact.hh"
 #include "typing.hh"
 
@@ -10,10 +10,12 @@ constexpr int DEFAULT_BLOCK_SIZE = 384;
 
 namespace _2401 {
 
+using namespace portable;
+
 template <typename T>
 pszerror pszcxx_predict_spline(
-    pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
-    pszcompact_cxx<T> out_outlier, pszarray_cxx<T> out_anchor, float* time,
+    array3<T> in, pszrc2 const rc, array3<u4> out_errquant,
+    compact_array1<T> out_outlier, array3<T> out_anchor, float* time,
     void* stream)
 try {
   constexpr auto BLOCK = 8;
@@ -49,9 +51,9 @@ NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
 template <typename T>
 pszerror pszcxx_reverse_predict_spline(
-    pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
-    pszarray_cxx<T> in_anchor, pszrc2 const rc,
-    pszarray_cxx<T> out_reconstruct, float* time, void* stream)
+    array3<u4> in_errquant, array3<T> in_scattered_outlier,
+    array3<T> in_anchor, pszrc2 const rc, array3<T> out_reconstruct,
+    float* time, void* stream)
 try {
   constexpr auto BLOCK = 8;
   using FP = T;
