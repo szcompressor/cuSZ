@@ -128,7 +128,7 @@ try {
 #endif
   }
   else {
-    _2401::pszpred_lrz<T>::pszcxx_predict_lorenzo(
+    _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
         {in, ctx->_2403_pszlen}, {ctx->eb, ctx->radius},
         {mem->_ectrl->dptr(), ctx->data_len}, *_2403_compact, &time_pred,
         stream);
@@ -358,7 +358,7 @@ COR::decompress_predict(
 #endif
   }
   else {
-    _2401::pszpred_lrz<T>::pszcxx_reverse_predict_lorenzo(
+    _2401::pszpred_lrz<T, E>::pszcxx_reverse_predict_lorenzo(
         {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
         {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
         &time_pred, stream);

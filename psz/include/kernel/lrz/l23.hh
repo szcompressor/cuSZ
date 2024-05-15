@@ -18,26 +18,11 @@
 #include "mem/compact.hh"
 #include "port.hh"
 
-// template <typename T, typename EQ = int32_t, bool TIMING = true>
-// pszerror pszcxx_predict_lorenzo_unused(
-//     T* const data,  // input
-// #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-//     dim3 const len3,
-// #elif defined(PSZ_USE_1API)
-//     sycl::range<3> const len3,
-// #endif
-//     PROPER_EB const eb,   // input (config)
-//     int const radius,     //
-//     EQ* const eq,         // output
-//     T* outlier,           //
-//     float* time_elapsed,  // optional
-//     void* stream);        //
-
 template <
-    typename T,
+    typename T, typename E, 
     psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
 pszerror pszcxx_reverse_predict_lorenzo__internal(
-    u4* eq,  // input
+    E* eq,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,
 #elif defined(PSZ_USE_1API)

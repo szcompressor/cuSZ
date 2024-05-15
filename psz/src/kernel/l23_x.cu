@@ -20,27 +20,27 @@
 #define L23X_LAUNCH_KERNEL                                                 \
   if (d == 1) {                                                            \
     psz::cuda_hip::__kernel::x_lorenzo_1d1l<                               \
-        T, u4, T, x_lorenzo<1>::tile.x, x_lorenzo<1>::sequentiality.x>     \
+        T, E, T, x_lorenzo<1>::tile.x, x_lorenzo<1>::sequentiality.x>      \
         <<<x_lorenzo<1>::thread_grid(len3), x_lorenzo<1>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             eq, outlier, len3, leap3, radius, ebx2, xdata);                \
   }                                                                        \
   else if (d == 2) {                                                       \
-    psz::cuda_hip::__kernel::x_lorenzo_2d1l<T, u4, T>                      \
+    psz::cuda_hip::__kernel::x_lorenzo_2d1l<T, E, T>                       \
         <<<x_lorenzo<2>::thread_grid(len3), x_lorenzo<2>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             eq, outlier, len3, leap3, radius, ebx2, xdata);                \
   }                                                                        \
   else if (d == 3) {                                                       \
-    psz::cuda_hip::__kernel::x_lorenzo_3d1l<T, u4, T>                      \
+    psz::cuda_hip::__kernel::x_lorenzo_3d1l<T, E, T>                       \
         <<<x_lorenzo<3>::thread_grid(len3), x_lorenzo<3>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             eq, outlier, len3, leap3, radius, ebx2, xdata);                \
   }
 
-template <typename T, psz_timing_mode TIMING>
+template <typename T, typename E, psz_timing_mode TIMING>
 pszerror pszcxx_reverse_predict_lorenzo__internal(
-    u4* eq, dim3 const len3, T* outlier, f8 const eb, int const radius,
+    E* eq, dim3 const len3, T* outlier, f8 const eb, int const radius,
     T* xdata, f4* time_elapsed, void* stream)
 {
   using namespace psz::kernelconfig;
@@ -76,17 +76,24 @@ pszerror pszcxx_reverse_predict_lorenzo__internal(
   return CUSZ_SUCCESS;
 }
 
-#define L23X_INIT(T, TIMING)                                           \
-  template pszerror pszcxx_reverse_predict_lorenzo__internal<T, TIMING>(         \
-      u4 * eq, dim3 const len3, T* outlier, f8 const eb, int const radius, \
+#define L23X_INIT(T, E, TIMING)                                             \
+  template pszerror pszcxx_reverse_predict_lorenzo__internal<T, E, TIMING>( \
+      E * eq, dim3 const len3, T* outlier, f8 const eb, int const radius,  \
       T* xdata, f4* time_elapsed, void* stream);
 
-L23X_INIT(f4, CPU_BARRIER_AND_TIMING);
-L23X_INIT(f8, CPU_BARRIER_AND_TIMING);
-L23X_INIT(f4, CPU_BARRIER);
-L23X_INIT(f8, CPU_BARRIER);
-L23X_INIT(f4, GPU_AUTOMONY);
-L23X_INIT(f8, GPU_AUTOMONY);
+L23X_INIT(f4, u4, CPU_BARRIER_AND_TIMING);
+L23X_INIT(f8, u4, CPU_BARRIER_AND_TIMING);
+L23X_INIT(f4, u4, CPU_BARRIER);
+L23X_INIT(f8, u4, CPU_BARRIER);
+L23X_INIT(f4, u4, GPU_AUTOMONY);
+L23X_INIT(f8, u4, GPU_AUTOMONY);
+
+L23X_INIT(f4, u2, CPU_BARRIER_AND_TIMING);
+L23X_INIT(f8, u2, CPU_BARRIER_AND_TIMING);
+L23X_INIT(f4, u2, CPU_BARRIER);
+L23X_INIT(f8, u2, CPU_BARRIER);
+L23X_INIT(f4, u2, GPU_AUTOMONY);
+L23X_INIT(f8, u2, GPU_AUTOMONY);
 
 #undef L23X_INIT
 #undef L23X_LAUNCH_KERNEL

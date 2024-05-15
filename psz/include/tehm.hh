@@ -40,7 +40,7 @@ struct TEHM {
    */
 
   using T = InDtype;
-  using E = ErrCtrlTrait<4, false>::type;  // predefined for mem. overlapping
+  using E = ErrCtrlTrait<2, false>::type;  // predefined for mem. overlapping
   using FP = typename FastLowPrecisionTrait<FastLowPrecision>::type;
   // using H = u4;
   // using Hfailsafe = u8;

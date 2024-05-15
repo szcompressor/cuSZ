@@ -12,15 +12,14 @@ namespace _2401 {
 
 using namespace portable;
 
-template <typename T>
+template <typename T, typename E>
 pszerror pszcxx_predict_spline(
-    array3<T> in, pszrc2 const rc, array3<u4> out_errquant,
+    array3<T> in, pszrc2 const rc, array3<E> out_errquant,
     compact_array1<T> out_outlier, array3<T> out_anchor, float* time,
     void* stream)
 try {
   constexpr auto BLOCK = 8;
   using FP = T;
-  using E = u4;
   auto Div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
   auto Len3 = [](auto _l3) -> dim3 { return dim3(1, _l3.x, _l3.x * _l3.y); };
   auto Stride3 = [](auto _l3) -> dim3 { return dim3(_l3.x, _l3.y, _l3.z); };
@@ -49,15 +48,14 @@ try {
 NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
-template <typename T>
+template <typename T, typename E>
 pszerror pszcxx_reverse_predict_spline(
-    array3<u4> in_errquant, array3<T> in_scattered_outlier,
+    array3<E> in_errquant, array3<T> in_scattered_outlier,
     array3<T> in_anchor, pszrc2 const rc, array3<T> out_reconstruct,
     float* time, void* stream)
 try {
   constexpr auto BLOCK = 8;
   using FP = T;
-  using E = u4;
   auto Div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
   auto Len3 = [](auto _l3) -> dim3 { return dim3(1, _l3.x, _l3.x * _l3.y); };
   auto Stride3 = [](auto _l3) -> dim3 { return dim3(_l3.x, _l3.y, _l3.z); };

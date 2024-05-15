@@ -78,15 +78,15 @@ TESTFRAME::pred_hist_comp(
   auto ectrl_gpu = cor->mem->_ectrl->dptr();
   auto ectrl_cpu = cor->mem->_ectrl->hptr();
 
-  auto ht_gpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_gpu");
+  auto ht_gpu = new memobj<u4>(booklen, 1, 1, "ht_gpu");
   ht_gpu->control({Malloc, MallocHost});
 
-  auto ht_cpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_cpu");
+  auto ht_cpu = new memobj<u4>(booklen, 1, 1, "ht_cpu");
   ht_cpu->control({MallocHost});
 
-  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, u4>(
+  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, u2>(
       ectrl_gpu, len, ht_gpu->dptr(), booklen, &time_hist, stream);
-  pszcxx_histogram_cauchy<SEQ, u4>(
+  pszcxx_histogram_cauchy<SEQ, u2>(
       ectrl_cpu, len, ht_cpu->hptr(), booklen, &time_hist, stream);
 
   ht_gpu->control({D2H});

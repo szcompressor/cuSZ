@@ -110,7 +110,7 @@ class HuffmanCodec {
 
   // analysis
   void calculate_CR(
-      MemU4* ectrl, MemU4* freq, szt sizeof_dtype = 4, szt overhead_bytes = 0);
+      memobj<E>* ectrl, MemU4* freq, szt sizeof_dtype = 4, szt overhead_bytes = 0);
 
  private:
   struct memcpy_helper {

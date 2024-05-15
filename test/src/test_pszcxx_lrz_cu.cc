@@ -1,8 +1,8 @@
 #include <cuda_runtime.h>
 
-#include "mem/array_cxx.h"
 #include "cusz/type.h"
 #include "experimental/mem_multibackend.hh"
+#include "mem/array_cxx.h"
 #include "module/cxx_module.hh"
 #include "pszcxx.hh"
 #include "utils/io.hh"
@@ -10,7 +10,7 @@
 
 using namespace portable;
 
-template <typename T = f4>
+template <typename T = f4, typename E = u2>
 bool test(char* fname)
 {
   cudaStream_t stream;
@@ -22,7 +22,7 @@ bool test(char* fname)
   float* milliseconds;
 
   T *data, *xdata, *host_data, *host_xdata;
-  u4* eq;
+  E* eq;
   T* outlier_val;
   u4 *outlier_idx, *outlier_num, *outlier_host_num;
   cudaMalloc(&data, sizeof(T) * linear);
@@ -64,11 +64,11 @@ bool test(char* fname)
 
   float t_pred{0.0}, t_revpred{0};
 
-  _2401::pszpred_lrz<T>::pszcxx_predict_lorenzo(
+  _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
       {data, the_data_size}, {.eb = the_eb, .radius = 512}, {eq, shape1d},
       outlier_obj, &t_pred, stream);
 
-  _2401::pszpred_lrz<T>::pszcxx_reverse_predict_lorenzo(
+  _2401::pszpred_lrz<T, E>::pszcxx_reverse_predict_lorenzo(
       {eq, shape1d}, {xdata, shape1d}, {.eb = the_eb, .radius = 512},
       {xdata, the_data_size}, &t_revpred, stream);
 

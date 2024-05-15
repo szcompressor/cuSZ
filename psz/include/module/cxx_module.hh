@@ -9,27 +9,27 @@ namespace _2401 {
 
 using namespace portable;
 
-template <typename T, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+template <typename T, typename E, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
 class pszpred_lrz {
  public:
   static pszerror pszcxx_predict_lorenzo(
-      array3<T> in, pszrc2 const rc, array3<u4> out_errquant,
+      array3<T> in, pszrc2 const rc, array3<E> out_errquant,
       compact_array1<T> out_outlier, f4*, void* stream);
 
   static pszerror pszcxx_reverse_predict_lorenzo(
-      array3<u4> in_errquant, array3<T> in_scattered_outlier, pszrc2 const rc,
+      array3<E> in_errquant, array3<T> in_scattered_outlier, pszrc2 const rc,
       array3<T> out_reconstruct, f4*, void* stream);
 };
 
-template <typename T, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+template <typename T, typename E, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
 class pszpred_spl {
   static pszerror pszcxx_predict_spline(
-      array3<T> in, pszrc2 const rc, array3<u4> out_errquant,
+      array3<T> in, pszrc2 const rc, array3<E> out_errquant,
       compact_array1<T> out_outlier, array3<T> out_anchor, float* time,
       void* stream);
 
   static pszerror pszcxx_reverse_predict_spline(
-      array3<u4> in_errquant, array3<T> in_scattered_outlier,
+      array3<E> in_errquant, array3<T> in_scattered_outlier,
       array3<T> in_anchor, pszrc2 const rc, array3<T> out_reconstruct,
       float* time, void* stream);
 };

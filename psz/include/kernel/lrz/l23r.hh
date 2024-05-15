@@ -18,7 +18,7 @@
 #include "cusz/type.h"
 #include "port.hh"
 
-template <typename T, psz_timing_mode TIMING, bool ZigZag=false>
+template <typename T, typename E, psz_timing_mode TIMING, bool ZigZag=false>
 pszerror pszcxx_predict_lorenzo__internal(
     T* const data,
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
@@ -26,7 +26,7 @@ pszerror pszcxx_predict_lorenzo__internal(
 #elif defined(PSZ_USE_1API)
     sycl::range<3> const len3,
 #endif
-    PROPER_EB const eb, int const radius, u4* const eq, void* _outlier,
+    PROPER_EB const eb, int const radius, E* const eq, void* _outlier,
     float* time_elapsed,
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     void* _stream

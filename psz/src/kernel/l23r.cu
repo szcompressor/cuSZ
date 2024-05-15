@@ -25,31 +25,31 @@
 #define L23R_LAUNCH_KERNEL                                                 \
   if (d == 1) {                                                            \
     psz::rolling::c_lorenzo_1d1l<                                          \
-        T, u4, T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>     \
+        T, E, T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>      \
         <<<c_lorenzo<1>::thread_grid(len3), c_lorenzo<1>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
             ot->num());                                                    \
   }                                                                        \
   else if (d == 2) {                                                       \
-    psz::rolling::c_lorenzo_2d1l<T, u4, T>                                 \
+    psz::rolling::c_lorenzo_2d1l<T, E, T>                                  \
         <<<c_lorenzo<2>::thread_grid(len3), c_lorenzo<2>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
             ot->num());                                                    \
   }                                                                        \
   else if (d == 3) {                                                       \
-    psz::rolling::c_lorenzo_3d1l<T, u4, T>                                 \
+    psz::rolling::c_lorenzo_3d1l<T, E, T>                                  \
         <<<c_lorenzo<3>::thread_grid(len3), c_lorenzo<3>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
             ot->num());                                                    \
   }
 
-template <typename T, psz_timing_mode TIMING, bool ZigZag>
+template <typename T, typename E, psz_timing_mode TIMING, bool ZigZag>
 pszerror pszcxx_predict_lorenzo__internal(
-    T* const data, dim3 const len3, f8 const eb, int const radius,
-    u4* const eq, void* _outlier, f4* time_elapsed, void* stream)
+    T* const data, dim3 const len3, f8 const eb, int const radius, E* const eq,
+    void* _outlier, f4* time_elapsed, void* stream)
 {
   using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
   using namespace psz::kernelconfig;
@@ -87,25 +87,40 @@ pszerror pszcxx_predict_lorenzo__internal(
   return CUSZ_SUCCESS;
 }
 
-#define L23R_INIT(T, TIMING, ZIGZAG)                                     \
-  template pszerror pszcxx_predict_lorenzo__internal<T, TIMING, ZIGZAG>( \
-      T* const data, dim3 const len3, f8 const eb, int const radius,     \
-      u4* const eq, void* _outlier, f4* time_elapsed, void* stream);
+#define L23R_INIT(T, E, TIMING, ZIGZAG)                                     \
+  template pszerror pszcxx_predict_lorenzo__internal<T, E, TIMING, ZIGZAG>( \
+      T* const data, dim3 const len3, f8 const eb, int const radius,        \
+      E* const eq, void* _outlier, f4* time_elapsed, void* stream);
 
-L23R_INIT(f4, CPU_BARRIER_AND_TIMING, false)
-L23R_INIT(f4, CPU_BARRIER_AND_TIMING, true)
-L23R_INIT(f8, CPU_BARRIER_AND_TIMING, false)
-L23R_INIT(f8, CPU_BARRIER_AND_TIMING, true)
+L23R_INIT(f4, u2, CPU_BARRIER_AND_TIMING, false)
+L23R_INIT(f4, u2, CPU_BARRIER_AND_TIMING, true)
+L23R_INIT(f8, u2, CPU_BARRIER_AND_TIMING, false)
+L23R_INIT(f8, u2, CPU_BARRIER_AND_TIMING, true)
 
-L23R_INIT(f4, CPU_BARRIER, false)
-L23R_INIT(f4, CPU_BARRIER, true)
-L23R_INIT(f8, CPU_BARRIER, false)
-L23R_INIT(f8, CPU_BARRIER, true)
+L23R_INIT(f4, u2, CPU_BARRIER, false)
+L23R_INIT(f4, u2, CPU_BARRIER, true)
+L23R_INIT(f8, u2, CPU_BARRIER, false)
+L23R_INIT(f8, u2, CPU_BARRIER, true)
 
-L23R_INIT(f4, GPU_AUTOMONY, false)
-L23R_INIT(f4, GPU_AUTOMONY, true)
-L23R_INIT(f8, GPU_AUTOMONY, false)
-L23R_INIT(f8, GPU_AUTOMONY, true)
+L23R_INIT(f4, u2, GPU_AUTOMONY, false)
+L23R_INIT(f4, u2, GPU_AUTOMONY, true)
+L23R_INIT(f8, u2, GPU_AUTOMONY, false)
+L23R_INIT(f8, u2, GPU_AUTOMONY, true)
+
+L23R_INIT(f4, u4, CPU_BARRIER_AND_TIMING, false)
+L23R_INIT(f4, u4, CPU_BARRIER_AND_TIMING, true)
+L23R_INIT(f8, u4, CPU_BARRIER_AND_TIMING, false)
+L23R_INIT(f8, u4, CPU_BARRIER_AND_TIMING, true)
+
+L23R_INIT(f4, u4, CPU_BARRIER, false)
+L23R_INIT(f4, u4, CPU_BARRIER, true)
+L23R_INIT(f8, u4, CPU_BARRIER, false)
+L23R_INIT(f8, u4, CPU_BARRIER, true)
+
+L23R_INIT(f4, u4, GPU_AUTOMONY, false)
+L23R_INIT(f4, u4, GPU_AUTOMONY, true)
+L23R_INIT(f8, u4, GPU_AUTOMONY, false)
+L23R_INIT(f8, u4, GPU_AUTOMONY, true)
 
 #undef L23R_INIT
 #undef L23R_LAUNCH_KERNEL
