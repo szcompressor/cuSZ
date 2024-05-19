@@ -57,7 +57,7 @@ add_test(test_histsp_dp histsp_dp)
 # # Level-3 kernel with configuration (low-level API)
 # add_executable(l3_cuda_pred src/test_l3_cuda_pred.cc)
 # target_link_libraries(
-# l3_cuda_pred PRIVATE pszkernel_cu psz_testutils pszstat_seq pszstat_dp pszmem
+# l3_cuda_pred PRIVATE pszcore_cu psz_testutils pszstat_seq pszstat_dp pszmem
 # CUDA::cudart)
 # add_test(test_l3_cuda_pred l3_cuda_pred)
 

@@ -12,6 +12,6 @@ target_link_libraries(bin_pipeline_dp PRIVATE psztestframe_dp pszstat_seq)
 # set_target_properties(bin_hf PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 # add_executable(bin_hist src/bin_hist.cc)
-# target_link_libraries(bin_hist PRIVATE pszkernel_cu pszkernel_seq pszmem
+# target_link_libraries(bin_hist PRIVATE pszcore_cu pszkernel_seq pszmem
 #   pszstat_cu CUDA::cudart)
 
