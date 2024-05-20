@@ -36,7 +36,7 @@ int canonize(u1* bin, uint32_t const bklen)
   auto entry = numl + TYPE_BITS * 3;
   auto keys = (E*)(bin + seg1 + seg2);
 
-  using PW = PackedWordByWidth<sizeof(H)>;
+  using PW = HuffmanWord<sizeof(H)>;
 
   constexpr auto FILL = ~((H)0x0);
 
@@ -45,7 +45,7 @@ int canonize(u1* bin, uint32_t const bklen)
 
   for (auto c = input_bk; c < input_bk + bklen; c++) {
     auto pw = (PW*)c;
-    int l = pw->bits;
+    int l = pw->bitcount;
 
     if (*c != FILL) {
       max_l = l > max_l ? l : max_l;
@@ -74,13 +74,13 @@ int canonize(u1* bin, uint32_t const bklen)
   // Reverse Codebook Generation
   for (auto i = 0; i < bklen; i++) {
     auto c = input_bk[i];
-    uint8_t l = reinterpret_cast<PW*>(&c)->bits;
+    uint8_t l = reinterpret_cast<PW*>(&c)->bitcount;
 
     if (c != FILL) {
       canon[iterby[l]] = static_cast<H>(first[l] + iterby[l] - entry[l]);
       keys[iterby[l]] = i;
 
-      reinterpret_cast<PW*>(&(canon[iterby[l]]))->bits = l;
+      reinterpret_cast<PW*>(&(canon[iterby[l]]))->bitcount = l;
       iterby[l]++;
     }
   }
@@ -108,7 +108,7 @@ template <typename E, typename H>
 int hf_canon_reference<E, H>::canonize()
 {
   using Space = hf_canon_reference<E, H>;
-  using PW = PackedWordByWidth<sizeof(H)>;
+  using PW = HuffmanWord<sizeof(H)>;
 
   constexpr auto FILL = ~((H)0x0);
 
@@ -117,7 +117,7 @@ int hf_canon_reference<E, H>::canonize()
 
   for (auto c = input_bk(); c < input_bk() + booklen; c++) {
     auto pw = (PW*)c;
-    int l = pw->bits;
+    int l = pw->bitcount;
 
     if (*c != FILL) {
       max_l = l > max_l ? l : max_l;
@@ -146,13 +146,13 @@ int hf_canon_reference<E, H>::canonize()
   // Reverse Codebook Generation
   for (auto i = 0; i < booklen; i++) {
     auto c = input_bk(i);
-    uint8_t l = reinterpret_cast<PW*>(&c)->bits;
+    uint8_t l = reinterpret_cast<PW*>(&c)->bitcount;
 
     if (c != FILL) {
       canon(iterby(l)) = static_cast<H>(first(l) + iterby(l) - entry(l));
       keys(iterby(l)) = i;
 
-      reinterpret_cast<PW*>(&(canon(iterby(l))))->bits = l;
+      reinterpret_cast<PW*>(&(canon(iterby(l))))->bitcount = l;
       iterby(l)++;
     }
   }

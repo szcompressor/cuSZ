@@ -174,8 +174,8 @@ class Analyzer {
 
         // TODO somewhere explicitly state that null codeword is of length 0xff
         std::sort(v_canon_cb.begin(), v_canon_cb.end(), [](Huff& a, Huff& b) {
-            auto a_bits = reinterpret_cast<struct PackedWordByWidth<sizeof(Huff)>*>(&a)->bits;
-            auto b_bits = reinterpret_cast<struct PackedWordByWidth<sizeof(Huff)>*>(&b)->bits;
+            auto a_bits = reinterpret_cast<struct HuffmanWord<sizeof(Huff)>*>(&a)->bitcount;
+            auto b_bits = reinterpret_cast<struct HuffmanWord<sizeof(Huff)>*>(&b)->bitcount;
             return a_bits < b_bits;
         });
         std::sort(v_freq.begin(), v_freq.end(), std::greater<Huff>());
@@ -183,7 +183,7 @@ class Analyzer {
         double real_avgb = 0.0;
         for (auto i = 0; i < num_bins; i++) {
             if (v_freq[i] != 0) {
-                auto bits = reinterpret_cast<struct PackedWordByWidth<sizeof(Huff)>*>(&v_canon_cb[i])->bits;
+                auto bits = reinterpret_cast<struct HuffmanWord<sizeof(Huff)>*>(&v_canon_cb[i])->bitcount;
                 real_avgb += v_freq[i] * bits;
             }
         }
@@ -191,7 +191,7 @@ class Analyzer {
 
         theory.huffman_stat.avgb = real_avgb;
         theory.huffman_stat.min_bitlen =
-            reinterpret_cast<struct PackedWordByWidth<sizeof(Huff)>*>(&v_canon_cb.at(0))->bits;
+            reinterpret_cast<struct HuffmanWord<sizeof(Huff)>*>(&v_canon_cb.at(0))->bitcount;
 
         return *this;
     }

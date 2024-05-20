@@ -192,7 +192,7 @@ TPL void HF_CODEC::calculate_CR(
       auto p = 1.0 * freq / len;
       serial_entropy += -std::log2(p) * p;
 
-      auto bits = ((PackedWordByWidth<4>*)(&hfcode))->bits;
+      auto bits = ((HuffmanWord<4>*)(&hfcode))->bitcount;
       serial_avg_bits += bits * p;
     }
   }
@@ -213,7 +213,7 @@ TPL void HF_CODEC::calculate_CR(
       if (i + tmp_sublen < tmp_len) {
         auto eq = ectrl->hat(start + i);
         auto c = bk4->hat(eq);
-        auto b = ((PackedWordByWidth<4>*)(&c))->bits;
+        auto b = ((HuffmanWord<4>*)(&c))->bitcount;
         this_nbit += b;
       }
     }

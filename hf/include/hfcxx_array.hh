@@ -6,8 +6,6 @@
 
 #include "mem/array_cxx.h"
 
-#include "mem/array_cxx.h"
-
 using namespace portable;
 
 #define hfarray_cxx array1
@@ -17,8 +15,8 @@ using namespace portable;
 template <typename Hf>
 struct hfcxx_book {
   hfarray_cxx<Hf> bk;
-  Hf const alt_code;  // even if u8 can use short u4 internal
-  u4 const alt_bits;
+  Hf const alt_prefix_code;  // even if u8 can use short u4 internal
+  u4 const alt_bitcount;
 };
 
 template <typename Hf>

@@ -13,6 +13,8 @@
 #ifndef E8CDEF97_5136_45C6_A6F2_3FECD549F8A4
 #define E8CDEF97_5136_45C6_A6F2_3FECD549F8A4
 
+#include <memory>
+
 #include "busyheader.hh"
 #include "cusz/type.h"
 
@@ -21,7 +23,10 @@ struct cpu_diagnostics {
   {
     std::array<char, 128> buffer;
     std::string result;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+#pragma GCC diagnostic pop
     if (!pipe) { throw std::runtime_error("popen() failed!"); }
     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
       result += buffer.data();

@@ -25,10 +25,15 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
+#include "hfbk.hh"
 #include "hfbuf.inl"
 #include "hfclass.hh"
 #include "hfcxx_module.hh"
 #include "hfword.hh"
+#include "mem/memobj.hh"
+#include "typing.hh"
+#include "utils/err.hh"
+#include "utils/format.hh"
 #include "utils/timer.hh"
 
 #define PHF_ACCESSOR(SYM, TYPE) \
@@ -102,7 +107,7 @@ PHF_TPL void PHF_CLASS::calculate_CR(
       auto p = 1.0 * freq->hat(i) / len;
       serial_entropy += -std::log2(p) * p;
 
-      auto bits = ((PackedWordByWidth<4>*)(&hfcode))->bits;
+      auto bits = ((HuffmanWord<4>*)(&hfcode))->bitcount;
       serial_avg_bits += bits * p;
     }
   }
@@ -121,7 +126,7 @@ PHF_TPL void PHF_CLASS::calculate_CR(
       if (i + sublen < tmp_len) {
         auto eq = ectrl->hat(start + i);
         auto c = buf->bk4->hat(eq);
-        auto b = ((PackedWordByWidth<4>*)(&c))->bits;
+        auto b = ((HuffmanWord<4>*)(&c))->bitcount;
         this_nbit += b;
       }
     }

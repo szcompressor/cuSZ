@@ -69,7 +69,7 @@ struct CmpNode {
 
 template <class NodeType, int WIDTH>
 class alignas(8) __pszhf_stack {
-  static const int MAX_DEPTH = PackedWordByWidth<WIDTH>::FIELDWIDTH_word;
+  static const int MAX_DEPTH = HuffmanWord<WIDTH>::FIELD_CODE;
   NodeType* _a[MAX_DEPTH];
   u8 saved_path[MAX_DEPTH];
   u8 saved_length[MAX_DEPTH];

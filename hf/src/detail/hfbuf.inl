@@ -2,6 +2,7 @@
 
 #include "hfclass.hh"
 #include "mem/memobj.hh"
+#include "utils/err.hh"
 
 namespace cusz {
 

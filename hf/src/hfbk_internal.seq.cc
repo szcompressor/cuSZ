@@ -72,8 +72,8 @@ NodeStackTpl template <typename H>
 void NodeStack::inorder_traverse(NodeType* root, H* book)
 {
   auto is_empty = [&](NodeStack* s) -> bool { return (s->depth == 0); };
-  using PW = PackedWordByWidth<sizeof(H)>;
-  constexpr auto MAX_LEN = PW::FIELDWIDTH_word;
+  using PW = HuffmanWord<sizeof(H)>;
+  constexpr auto MAX_LEN = PW::FIELD_CODE;
 
   auto s = new NodeStack();
   auto p = root;
@@ -95,7 +95,7 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
     else {
       u4 symbol = p->symbol;
       book[symbol] = out1;
-      reinterpret_cast<PW*>(&book[symbol])->bits = len;
+      reinterpret_cast<PW*>(&book[symbol])->bitcount = len;
 
       if (not is_empty(s)) {
         p = pop(s, &out1, &len);

@@ -6,8 +6,8 @@
  * @date 2020-09-23
  * (create) 2020-09-23, (rev) 2021-09-17
  *
- * @copyright (C) 2020 by Washington State University, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * @copyright (C) 2020 by Washington State University, Argonne National
+ * Laboratory See LICENSE in top-level directory
  *
  */
 
@@ -23,12 +23,12 @@
 template <typename T>
 psz_dtype psz_typeof()
 {
-    if (std::is_same<T, f4>::value)
-        return F4;
-    else if (std::is_same<T, f8>::value)
-        return F8;
-    else
-        throw std::runtime_error("Type not supported.");
+  if (std::is_same<T, f4>::value)
+    return F4;
+  else if (std::is_same<T, f8>::value)
+    return F8;
+  else
+    throw std::runtime_error("Type not supported.");
 }
 
 // clang-format off
@@ -41,43 +41,9 @@ template <typename T> struct cuszCOMPAT;
 template <> struct cuszCOMPAT<u4> { using type = u4; };
 template <> struct cuszCOMPAT<u8> { using type = ull; };
 
-template <int WIDTH, bool FP = true> struct DataTrait;
-template <> struct DataTrait<4, true>  { typedef f4 type; };
-template <> struct DataTrait<8, true>  { typedef f8 type; };
-template <> struct DataTrait<1, false> { typedef i1 type; }; // future use
-template <> struct DataTrait<2, false> { typedef i2 type; }; // future use
-template <> struct DataTrait<4, false> { typedef i4 type; }; // future use
-template <> struct DataTrait<8, false> { typedef i8 type; }; // future use
-
-template <int NDIM> struct ChunkingTrait;
-template <> struct ChunkingTrait<1>     { static const int BLOCK = 256; static const int SEQ = 8; };
-template <> struct ChunkingTrait<0x101> { static const int BLOCK = 128; };
-template <> struct ChunkingTrait<0x201> { static const int BLOCK = 64;  };
-template <> struct ChunkingTrait<2>     { static const int BLOCK = 16; static const int YSEQ = 8; };
-template <> struct ChunkingTrait<3>     { static const int BLOCK = 8;  static const int YSEQ = 8; };
-
-template <int WIDTH, bool FP = false> struct ErrCtrlTrait;
-template <> struct ErrCtrlTrait<1, false> { typedef u1 type; };
-template <> struct ErrCtrlTrait<2, false> { typedef u2 type; };
-template <> struct ErrCtrlTrait<4, false> { typedef u4 type; };
-template <> struct ErrCtrlTrait<4, true>  { typedef f4 type; };
-template <> struct ErrCtrlTrait<8, true>  { typedef f8 type; };
-
-template <int WIDTH> struct HuffTrait;
-template <> struct HuffTrait<4> { typedef cuszCOMPAT<u4>::type type; };
-template <> struct HuffTrait<8> { typedef cuszCOMPAT<u8>::type type; };
-
-template <int WIDTH> struct ReducerTrait;
-template <> struct ReducerTrait<4> { typedef u4 type; };
-template <> struct ReducerTrait<8> { typedef u8 type; };
-
-template <int WIDTH> struct MetadataTrait;
-template <> struct MetadataTrait<4> { typedef u4 type; };
-template <> struct MetadataTrait<8> { typedef u8 type; }; // size_t is problematic; do not use
-
 template <bool LARGE> struct LargeInputTrait;
-template <> struct LargeInputTrait<false> { using type = MetadataTrait<4>::type; };
-template <> struct LargeInputTrait<true>  { using type = MetadataTrait<8>::type; };
+template <> struct LargeInputTrait<false> { using type = u4; };
+template <> struct LargeInputTrait<true>  { using type = u8; };
 
 template <bool FAST> struct FastLowPrecisionTrait;
 template <> struct FastLowPrecisionTrait<true>  { typedef f4 type; };

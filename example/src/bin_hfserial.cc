@@ -20,11 +20,11 @@
 
 void printcode_u4(u4 idx, u4* word)
 {
-  using PW = PackedWordByWidth<4>;
+  using PW = HuffmanWord<4>;
   auto pw = (PW*)word;
   cout << idx << "\t"  //
-       << bitset<PW::FIELDWIDTH_bits>(pw->bits) << " (" << pw->bits << ")\t"
-       << bitset<PW::FIELDWIDTH_word>(pw->word) << "\n";
+       << bitset<PW::FIELD_BITCOUNT>(pw->bitcount) << " (" << pw->bitcount
+       << ")\t" << bitset<PW::FIELD_CODE>(pw->prefix_code) << "\n";
 }
 
 void hfbook_serial_reference(string fname, int bklen)

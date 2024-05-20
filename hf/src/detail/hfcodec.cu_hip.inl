@@ -98,9 +98,9 @@ __global__ void phf_encode_phase1_fill_with_filter(
   for (auto idx = helper::global_tid_1(); idx < in_len;
        idx += helper::grid_stride_1()) {
     auto candidate = s_bk[(int)in[idx]];
-    auto pw4 = reinterpret_cast<PackedWordByWidth<4>*>(&candidate);
+    auto pw4 = reinterpret_cast<HuffmanWord<4>*>(&candidate);
 
-    if (pw4->bits == pw4->OUTLIER_CUTOFF) {
+    if (pw4->bitcount == pw4->OUTLIER_CUTOFF) {
       encoded[idx] = replacement;
       auto atomic_old_loc = atomicAdd(outlier_num, 1);
       outlier_val[atomic_old_loc] = in[idx];
@@ -119,7 +119,7 @@ __global__ void phf_encode_phase1_fill_collect_metadata(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, int const sublen,
     int const pardeg, int const repeat, H* encoded, M* par_nbit, M* par_ncell)
 {
-  using PW = PackedWordByWidth<sizeof(H)>;
+  using PW = HuffmanWord<sizeof(H)>;
   auto s_bk = reinterpret_cast<H*>(__codec_raw);
   // for one sublen of pts
   __shared__ uint32_t nbit;
@@ -142,7 +142,7 @@ __global__ void phf_encode_phase1_fill_collect_metadata(
       auto gid = i + (n * sublen) + block_base;
       auto word = s_bk[(int)in[gid]];
       encoded[gid] = word;
-      p_nbit += ((PW*)&word)->bits;
+      p_nbit += ((PW*)&word)->bitcount;
     }
     atomicAdd(&nbit, p_nbit);
     __syncthreads();
@@ -258,9 +258,9 @@ __global__ void phf_encode_phase2_deflate(
 
       H packed_word = inout_inplace[tid * sublen + i];
       auto word_ptr =
-          reinterpret_cast<struct PackedWordByWidth<sizeof(H)>*>(&packed_word);
-      word_width = word_ptr->bits;
-      word_ptr->bits = (uint8_t)0x0;
+          reinterpret_cast<struct HuffmanWord<sizeof(H)>*>(&packed_word);
+      word_width = word_ptr->bitcount;
+      word_ptr->bitcount = (uint8_t)0x0;
 
       if (residue_bits == CELL_BITWIDTH) {  // a new unit of compact format
         bufr = 0x0;

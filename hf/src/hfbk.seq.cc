@@ -15,8 +15,8 @@ void hf_build_and_canonize_book_serial(
     uint32_t* freq, int const bklen, H* book, uint8_t* revbook,
     int const revbook_bytes, float* time)
 {
-  using PW4 = PackedWordByWidth<4>;
-  using PW8 = PackedWordByWidth<8>;
+  using PW4 = HuffmanWord<4>;
+  using PW8 = HuffmanWord<8>;
 
   constexpr auto TYPE_BITS = sizeof(H) * 8;
   auto bk_bytes = sizeof(H) * bklen;
@@ -41,9 +41,9 @@ void hf_build_and_canonize_book_serial(
   // for (auto i = 0; i < bklen; i++) {
   //   auto pw4 = reinterpret_cast<PW4*>(book + i);
   //   cout << "old-" << i << "\t";
-  //   cout << bitset<PW4::FIELDWIDTH_bits>(pw4->bits) << "\t";
-  //   cout << pw4->bits << "\t";
-  //   cout << bitset<PW4::FIELDWIDTH_word>(pw4->word) << "\n";
+  //   cout << bitset<PW4::FIELD_BITCOUNT>(pw4->bitcount) << "\t";
+  //   cout << pw4->bitcount << "\t";
+  //   cout << bitset<PW4::FIELD_CODE>(pw4->prefix_code) << "\n";
   // }
 
   space->input_bk() = book;  // external
@@ -82,8 +82,8 @@ void hf_build_and_canonize_book_serial_v2(
     uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook,
     int const revbook_bytes, float* time)
 {
-  using PW4 = PackedWordByWidth<4>;
-  using PW8 = PackedWordByWidth<8>;
+  using PW4 = HuffmanWord<4>;
+  using PW8 = HuffmanWord<8>;
 
   constexpr auto TYPE_BITS = sizeof(H) * 8;
   auto bk_bytes = sizeof(H) * bklen;
@@ -116,23 +116,23 @@ void hf_build_and_canonize_book_serial_v2(
       //   // not meaningful
     }
     else {
-      if (pw8->bits > pw4->FIELDWIDTH_word) {
-        pw4->bits = pw4->OUTLIER_CUTOFF;
-        pw4->word = 0;  // not meaningful
-        cout << i << "\tlarger than FIELDWIDTH_word" << endl;
+      if (pw8->bitcount > pw4->FIELD_CODE) {
+        pw4->bitcount = pw4->OUTLIER_CUTOFF;
+        pw4->prefix_code = 0;  // not meaningful
+        cout << i << "\tlarger than FIELD_CODE" << endl;
       }
       else {
-        pw4->bits = pw8->bits;
-        pw4->word = pw8->word;
+        pw4->bitcount = pw8->bitcount;
+        pw4->prefix_code = pw8->prefix_code;
       }
     }
   }
   // for (auto i = 0; i < bklen; i++) {
   //   auto pw4 = reinterpret_cast<PW4*>(bk4 + i);
   //   cout << "new-" << i << "\t";
-  //   cout << bitset<PW4::FIELDWIDTH_bits>(pw4->bits) << "\t";
-  //   cout << pw4->bits << "\t";
-  //   cout << bitset<PW4::FIELDWIDTH_word>(pw4->word) << "\n";
+  //   cout << bitset<PW4::FIELD_BITCOUNT>(pw4->bitcount) << "\t";
+  //   cout << pw4->bitcount << "\t";
+  //   cout << bitset<PW4::FIELD_CODE>(pw4->prefix_code) << "\n";
   // }
 
   space->input_bk() = bk4;  // external

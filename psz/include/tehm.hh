@@ -27,7 +27,7 @@ using timerecord_t = TimeRecord*;
 
 namespace cusz {
 
-template <typename InDtype, bool FastLowPrecision = true>
+template <typename Input, bool Fast = true>
 struct TEHM {
  public:
   /**
@@ -39,12 +39,10 @@ struct TEHM {
    *        Encoder<E, H>
    */
 
-  using T = InDtype;
-  using E = ErrCtrlTrait<2, false>::type;  // predefined for mem. overlapping
-  using FP = typename FastLowPrecisionTrait<FastLowPrecision>::type;
-  // using H = u4;
-  // using Hfailsafe = u8;
-  using M = MetadataTrait<4>::type;
+  using T = Input;
+  using E = uint16_t;
+  using FP = typename FastLowPrecisionTrait<Fast>::type;
+  using M = uint32_t;
 
   /* Lossless Codec*/
   using Codec = cusz::HuffmanCodec<E, M>;

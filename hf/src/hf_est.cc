@@ -25,9 +25,9 @@ void est_impl(uint32_t* freq, int const bklen, double* entropy, double* cr)
   for (auto i = 0; i < bklen; i++) {
     auto count = freq[i];
     if (count != 0) {
-      using PW = PackedWordByWidth<HF_SYM_BYTE>;
+      using PW = HuffmanWord<HF_SYM_BYTE>;
       auto pw = (PW*)(&book[i]);
-      auto bits = pw->bits;
+      auto bits = pw->bitcount;
       all_bits += bits * count;
 
       auto p = freq[i] * 1.0 / len;

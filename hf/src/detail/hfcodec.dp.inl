@@ -206,9 +206,9 @@ void psz::detail::phf_encode_phase2_deflate(
 
       H packed_word = inout_inplace[tid * sublen + i];
       auto word_ptr =
-          reinterpret_cast<struct PackedWordByWidth<sizeof(H)>*>(&packed_word);
-      word_width = word_ptr->bits;
-      word_ptr->bits = (uint8_t)0x0;
+          reinterpret_cast<struct HuffmanWord<sizeof(H)>*>(&packed_word);
+      word_width = word_ptr->bitcount;
+      word_ptr->bitcount = (uint8_t)0x0;
 
       if (residue_bits == CELL_BITWIDTH) {  // a new unit of compact format
         bufr = 0x0;
