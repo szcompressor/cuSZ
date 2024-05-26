@@ -69,7 +69,7 @@ float print_GBps(size_t len, float time_in_ms, string fn_name)
 template <typename E, typename H = u4>
 void hf_run(
     std::string fname, size_t const x, size_t const y, size_t const z,
-    size_t const booklen = 1024)
+    size_t const bklen = 1024)
 {
   /* For demo, we use 3600x1800 CESM data. */
   auto len = x * y * z;
@@ -77,16 +77,12 @@ void hf_run(
   auto sublen = tune_phf_coarse_sublen(len);
   auto pardeg = psz_utils::get_npart(len, sublen);
 
-  auto od = new pszmem_cxx<E>(len, 1, 1, "original");
-  auto xd = new pszmem_cxx<E>(len, 1, 1, "decompressed");
-  auto ht = new pszmem_cxx<F>(booklen, 1, 1, "histogram");
-  uint8_t* d_compressed;
+  auto od = new pszmem_cxx<E>(len, "original", {Malloc, MallocHost});
+  auto xd = new pszmem_cxx<E>(len, "decompressed", {Malloc, MallocHost});
+  auto ht = new pszmem_cxx<F>(bklen, "histogram", {Malloc, MallocHost});
+  od->file(fname.c_str(), FromFile)->control({H2D});
 
-  od->control({Malloc, MallocHost})
-      ->file(fname.c_str(), FromFile)
-      ->control({H2D});
-  xd->control({Malloc, MallocHost});
-  ht->control({Malloc, MallocHost});
+  uint8_t* d_compressed;
 
   /* a casual peek */
   printf("peeking data, 20 elements\n");
@@ -100,17 +96,17 @@ void hf_run(
   float time_hist;
 
   pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(
-      od->dptr(), len, ht->dptr(), booklen, &time_hist, stream);
+      od->dptr(), len, ht->dptr(), bklen, &time_hist, stream);
 
   cusz::HuffmanCodec<E, u4> codec;
-  codec.init(len, booklen, pardeg /* not optimal for perf */);
+  codec.init(len, bklen, pardeg /* not optimal for perf */);
 
   // GpuMalloc(&d_compressed, len * sizeof(E) / 2);
   B* __out;
 
   // float  time;
   size_t outlen;
-  codec.build_codebook(ht, booklen, stream);
+  codec.build_codebook(ht, bklen, stream);
 
   E* d_oridup;
   GpuMalloc(&d_oridup, sizeof(E) * len);
@@ -163,7 +159,9 @@ void hf_run(
 int main(int argc, char** argv)
 {
   if (argc < 6) {
-    printf("PROG  /path/to/data  X  Y  Z  booklen  [optional: Type {u1,u2,u4}]\n");
+    printf(
+        "PROG  /path/to/data  X  Y  Z  bklen  [optional: Type "
+        "{u1,u2,u4}]\n");
     printf("0     1              2  3  4  5        [6]\n");
     exit(0);
   }

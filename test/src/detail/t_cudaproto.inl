@@ -53,16 +53,15 @@ bool test1(
     int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3,
     T const* h_expected_output, std::string funcname)
 {
-  auto input = new pszmem_cxx<T>(len, 1, 1, "input");
-  auto eq = new pszmem_cxx<EQ>(len, 1, 1, "input");
+  auto input = new pszmem_cxx<T>(len, "input", {Malloc});
+  auto eq = new pszmem_cxx<EQ>(len, "input", {Malloc, MallocHost});
 
   using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
-  Compact outlier;
 
-  input->hptr(const_cast<T*>(h_input))->control({Malloc, H2D});
-  eq->control({Malloc, MallocHost});
+  input->hptr(const_cast<T*>(h_input))->control({H2D});
 
-  outlier.reserve_space(len / 2).malloc().mallochost();
+  Compact outlier(len / 2);
+  outlier.malloc().mallochost();
 
   auto radius = 512;
 
@@ -105,15 +104,13 @@ bool test2(
 {
   auto radius = 512;
 
-  auto input = new pszmem_cxx<EQ>(len, 1, 1, "eq");
-  input->control({Malloc, MallocHost});
+  auto input = new pszmem_cxx<EQ>(len, "eq", {Malloc, MallocHost});
 
   for (auto i = 0; i < len; i++) input->hptr(i) = _h_input[i] + radius;
   // input.h2d();
   input->control({H2D});
 
-  auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");
-  xdata->control({Malloc, MallocHost});
+  auto xdata = new pszmem_cxx<T>(len, "xdata", {Malloc, MallocHost});
 
   if (dim == 1)
     proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
@@ -153,25 +150,19 @@ bool test3(
     int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3,
     std::string funcname)
 {
-  auto input = new pszmem_cxx<T>(len, 1, 1, "input");
-  input->control({Malloc, MallocHost});
+  auto input = new pszmem_cxx<T>(len, "input", {Malloc, MallocHost});
+  auto eq = new pszmem_cxx<EQ>(len, "eq", {Malloc});
+  auto xdata = new pszmem_cxx<T>(len, "xdata", {Malloc, MallocHost});
 
   for (auto i = 0; i < len; i++) input->hptr(i) = h_input[i];
   input->control({H2D});
 
-  auto eq = new pszmem_cxx<EQ>(len, 1, 1, "eq");
-  eq->control({Malloc});
-
   // TODO outlier is a placeholder in this test
   using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
-  Compact outlier;
-  outlier.reserve_space(len / 2).malloc().mallochost();
-
-  auto xdata = new pszmem_cxx<T>(len, 1, 1, "xdata");
-  xdata->control({Malloc, MallocHost});
+  Compact outlier(len/2);
+  outlier.malloc().mallochost();
 
   auto radius = 512;
-
   auto eb = 1e-2;
   auto ebx2 = eb * 2;
   auto ebx2_r = 1 / (eb * 2);

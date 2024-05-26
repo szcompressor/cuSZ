@@ -34,8 +34,8 @@ bool test1(
     FUNC func, T const* input, size_t len, psz_dim3 len3, psz_dim3 stride3,
     T const* expected_output, std::string funcname)
 {
-  auto outlier = new CompactSerial<T>;
-  outlier->reserve_space(len / 10).malloc();
+  auto outlier = new CompactSerial<T>(len / 10);
+  outlier->malloc();
 
   auto eq = new EQ[len];
   memset(eq, 0, sizeof(EQ) * len);
@@ -90,8 +90,8 @@ bool test3(
     FUNC1 func1, FUNC2 func2, T const* input, size_t len, psz_dim3 len3,
     psz_dim3 stride3, std::string funcname)
 {
-  auto outlier = new struct CompactSerial<T>;
-  outlier->reserve_space(len / 10).malloc();
+  auto outlier = new struct CompactSerial<T>(len / 10);
+  outlier->malloc();
 
   auto eq = new EQ[len];
   memset(eq, 0, sizeof(EQ) * len);

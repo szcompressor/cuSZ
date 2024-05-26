@@ -23,13 +23,9 @@ void f(szt len, u4 seed)
 {
   printf("len: %lu\n", len);
 
-  auto in_cpu = new pszmem_cxx<f4>(len, 1, 1, "f4 cpu");
-  auto in_thrust = new pszmem_cxx<f4>(len, 1, 1, "f4 thrust");
-  auto in_cuda = new pszmem_cxx<f4>(len, 1, 1, "f4 cu");
-
-  in_cpu->control({Malloc, MallocHost});
-  in_thrust->control({Malloc, MallocHost});
-  in_cuda->control({Malloc, MallocHost});
+  auto in_cpu = new pszmem_cxx<f4>(len, "f4 cpu", {Malloc, MallocHost});
+  auto in_thrust = new pszmem_cxx<f4>(len, "f4 thrust", {Malloc, MallocHost});
+  auto in_cuda = new pszmem_cxx<f4>(len, "f4 cu", {Malloc, MallocHost});
 
   psz::testutils::cu_hip::rand_array(in_cpu->dptr(), in_cpu->len(), seed);
 

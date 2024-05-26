@@ -58,10 +58,10 @@ class CLI {
     auto r2r = ctx->mode == Rel;
     auto fname = ctx->file_input;
 
-    pszmem_cxx<T>* original = new pszmem_cxx<T>(x, y, z, "original");
-    pszmem_cxx<T>* reconst = new pszmem_cxx<T>(x, y, z, "reconst");
-    original->control({MallocHost, Malloc});
-    reconst->control({MallocHost, Malloc});
+    pszmem_cxx<T>* original =
+        new pszmem_cxx<T>(x, y, z, "original", {MallocHost, Malloc});
+    pszmem_cxx<T>* reconst =
+        new pszmem_cxx<T>(x, y, z, "reconst", {MallocHost, Malloc});
 
     double max, min, rng;
     auto len = original->len();
@@ -108,13 +108,11 @@ class CLI {
       std::string compressed_name, pszheader* header, uint8_t* compressed,
       size_t compressed_len)
   {
-    auto file = new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "cusza");
+    auto file = new pszmem_cxx<uint8_t>(compressed_len, "cusza", {MallocHost});
 
-    file->dptr(compressed)->control({MallocHost, D2H});
-    // put on-host header
-    memcpy(file->hptr(), header, sizeof(pszheader));
+    file->dptr(compressed)->control({D2H});
+    memcpy(file->hptr(), header, sizeof(pszheader));  // put on-host header
     file->file(compressed_name.c_str(), ToFile);
-    // ->control({FreeHost});
 
     delete file;
   }
@@ -122,15 +120,14 @@ class CLI {
   // template <typename compressor_t>
   void do_construct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
-    auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
+    auto input = new pszmem_cxx<T>(
+        ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
 
     uint8_t* compressed;
     size_t compressed_len;
     pszheader header;
 
-    input->control({MallocHost, Malloc})
-        ->file(ctx->file_input, FromFile)
-        ->control({H2D});
+    input->file(ctx->file_input, FromFile)->control({H2D});
 
     // adjust eb
     if (ctx->mode == Rel) {
@@ -178,21 +175,18 @@ class CLI {
     // all lengths in metadata
     auto compressed_len = psz_utils::filesize(ctx->file_input);
 
-    auto compressed =
-        new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "compressed");
+    auto compressed = new pszmem_cxx<uint8_t>(
+        compressed_len, "compressed", {MallocHost, Malloc});
 
-    compressed->control({MallocHost, Malloc})
-        ->file(ctx->file_input, FromFile)
-        ->control({H2D});
+    compressed->file(ctx->file_input, FromFile)->control({H2D});
 
     auto header = new psz_header;
     memcpy(header, compressed->hptr(), sizeof(psz_header));
     auto len = psz_utils::uncompressed_len(header);
 
-    auto decompressed = new pszmem_cxx<T>(len, 1, 1, "decompressed");
-    decompressed->control({MallocHost, Malloc});
-
-    auto original = new pszmem_cxx<T>(len, 1, 1, "original-cmp");
+    auto decompressed =
+        new pszmem_cxx<T>(len, "decompressed", {MallocHost, Malloc});
+    auto original = new pszmem_cxx<T>(len, "original-cmp");
 
     psz::TimeRecord timerecord;
 

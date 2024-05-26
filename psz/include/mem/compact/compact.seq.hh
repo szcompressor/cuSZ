@@ -16,27 +16,22 @@
 #include <cstdlib>
 #include <vector>
 
-#include "mem/definition.hh"
 #include "cusz/type.h"
+#include "mem/definition.hh"
 
 template <typename T>
 struct CompactSerial {
  public:
   using type = T;
+  using control_stream_t = std::vector<pszmem_control>;
 
   T* _val;
   uint32_t* _idx;
   uint32_t _num{0};
   size_t reserved_len;
 
-  CompactSerial() = default;
+  CompactSerial(size_t _reserved_len) : reserved_len(_reserved_len){};
   ~CompactSerial() { free(); }
-
-  CompactSerial& reserve_space(size_t _reserved_len)
-  {
-    reserved_len = _reserved_len;
-    return *this;
-  }
 
   CompactSerial& malloc()
   {
@@ -54,9 +49,9 @@ struct CompactSerial {
   }
 
   CompactSerial& control(
-      std::vector<pszmem_control> control_stream, void* placeholder = nullptr)
+      control_stream_t controls, void* placeholder = nullptr)
   {
-    for (auto& c : control_stream) {
+    for (auto& c : controls) {
       if (c == Malloc)
         malloc();
       else if (c == MallocHost) {

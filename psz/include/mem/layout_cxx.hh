@@ -15,6 +15,7 @@
 #include "compact.hh"
 #include "cusz/type.h"
 #include "layout.h"
+#include "mem/definition.hh"
 #include "memobj.hh"
 #include "port.hh"
 
@@ -29,16 +30,16 @@ class pszmempool_cxx {
   using B = uint8_t;
   using Compact = typename CompactDram<EXEC, T>::Compact;
 
-  pszmem_cxx<T> *_oridata;              // original data
-  pszmem_cxx<T> *_xdata, *_xdata_test;  // decomp'ed data (also for testing)
-  pszmem_cxx<T> *_anchor;               // anchor
-  pszmem_cxx<E> *_ectrl, *_ectrl_test;  // ectrl (_ectrl_test for testing)
-  pszmem_cxx<F> *_hist;                 // hist/frequency
+  memobj<T> *_oridata;              // original data
+  memobj<T> *_xdata, *_xdata_test;  // decomp'ed data (also for testing)
+  memobj<T> *_anchor;               // anchor
+  memobj<E> *_ectrl, *_ectrl_test;  // ectrl (_ectrl_test for testing)
+  memobj<F> *_hist;                 // hist/frequency
 
   Compact *compact;
   bool iscompression;
 
-  pszmem_cxx<B> *_compressed;  // compressed
+  memobj<B> *_compressed;  // compressed
 
   size_t len;
   int radius, bklen;
@@ -52,14 +53,20 @@ class pszmempool_cxx {
   // utils
   pszmempool_cxx *clear_buffer();
   // getter
-  F *hist() { return _hist->dptr(); }
-  E *ectrl() { return _ectrl->dptr(); }
-  T *anchor() { return _anchor->dptr(); }
-  B *compressed() { return _compressed->dptr(); }
-  B *compressed_h() { return _compressed->hptr(); }
-  T *compact_val() { return compact->val(); }
-  M *compact_idx() { return compact->idx(); }
-  M compact_num_outliers() { return compact->num_outliers(); }
+  F *hist() const { return _hist->dptr(); }
+  E *ectrl() const { return _ectrl->dptr(); }
+  T *anchor() const { return _anchor->dptr(); }
+  B *compressed() const { return _compressed->dptr(); }
+  B *compressed_h() const { return _compressed->hptr(); }
+  T *compact_val() const { return compact->val(); }
+  M *compact_idx() const { return compact->idx(); }
+  M compact_num_outliers() const { return compact->num_outliers(); }
+  compact_array1<T> outlier()
+  {
+    return compact_array1<T>{
+        compact->d_val, compact->d_idx, compact->d_num, compact->h_num,
+        compact->reserved_len};
+  }
 };
 
 #define TPL template <typename T, typename E, typename H, pszpolicy EXEC>
@@ -78,40 +85,28 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :
   // for spline
   constexpr auto BLK = 8;
 
-  _compressed = new pszmem_cxx<B>(len * 1.2, 1, 1, "compressed");
-  // _oridata = new pszmem_cxx<T>(x, y, z, "original data");
+  _compressed = new memobj<B>(len * 1.2, "psz::comp'ed", {Malloc, MallocHost});
   if (not iscompression)
-    _xdata = new pszmem_cxx<T>(x, y, z, "reconstructed data");
-  // _xdata_test = new pszmem_cxx<T>(x, y, z, "reconstructed data (test)");
-  _anchor = new pszmem_cxx<T>(div(x, BLK), div(y, BLK), div(z, BLK), "anchor");
-  _ectrl = new pszmem_cxx<E>(x, y, z, "ectrl-lorenzo");
-  // _ectrl_test = new pszmem_cxx<E>(x, y, z, "ectrl-lorenzo (test)");
-
-  _hist = new pszmem_cxx<F>(bklen, 1, 1, "hist");
-
-  _compressed->control({Malloc, MallocHost});
-  _anchor->control({Malloc, MallocHost});
-  _ectrl->control({Malloc, MallocHost});
-  _hist->control({Malloc, MallocHost});
+    _xdata = new memobj<T>(x, y, z, "psz::decomp'ed", {Malloc, MallocHost});
+  _anchor = new memobj<T>(
+      div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor",
+      {Malloc, MallocHost});
+  _ectrl = new memobj<E>(x, y, z, "psz::quant", {Malloc});
+  _hist = new memobj<F>(bklen, "psz::hist", {Malloc, MallocHost});
 
   if (iscompression) {
     // [psz::TODO] consider compact as a view with exposing the limited length
-    // TODO not necessary for decompression
-    compact = new Compact;
-    compact->reserve_space(len / 5).control({Malloc, MallocHost});
+    compact = new Compact(len / 5);
+    compact->control({Malloc, MallocHost});
   }
 }
 
 TPL POOL::~pszmempool_cxx()
 {
-  // cout << "entering pszmempool destructor" << endl;
   if (_anchor) delete _anchor;
   if (_ectrl) delete _ectrl;
-  // if(_ectrl_test) delete _ectrl_test;
   if (_hist) delete _hist;
-  // if(_oridata) delete _oridata;
   if (iscompression and _xdata) delete _xdata;
-  // if(_xdata_test) delete _xdata_test;
   if (_compressed) delete _compressed;
 
   if (iscompression) {

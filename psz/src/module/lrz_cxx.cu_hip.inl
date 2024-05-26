@@ -25,11 +25,11 @@ LRZ_WRAPPER_TPL pszerror LRZ_WRAPPER_CLASS::pszcxx_predict_lorenzo(
 try {
   auto len3 = dim3(in.len3.x, in.len3.y, in.len3.z);
 
-  auto compact = typename CompactDram<CUDA, T>::Compact{
-      out_outlier.val,
-      out_outlier.idx,
-      out_outlier.num,
-  };
+  auto compact = typename CompactDram<CUDA, T>::Compact(out_outlier);
+//       out_outlier.val,
+//       out_outlier.idx,
+//       out_outlier.num,
+//   };
 
   pszcxx_predict_lorenzo__internal<T, E, TIMING>(
       in.buf, len3, rc.eb, rc.radius, out_errquant.buf, (void*)&compact,

@@ -264,24 +264,30 @@ struct memobj<Ctype>::impl {
 ///////////////////////////////
 
 template <typename Ctype>
-memobj<Ctype>::memobj(u4 _lx, const char _name[32]) :
+memobj<Ctype>::memobj(
+    u4 _lx, const char _name[32], control_stream_t commands) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, 1, 1, _name);
+  this->control(commands);
 }
 
 template <typename Ctype>
-memobj<Ctype>::memobj(u4 _lx, u4 _ly, const char _name[32]) :
+memobj<Ctype>::memobj(
+    u4 _lx, u4 _ly, const char _name[32], control_stream_t commands) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, _ly, 1, _name);
+  this->control(commands);
 }
 
 template <typename Ctype>
-memobj<Ctype>::memobj(u4 _lx, u4 _ly, u4 _lz, const char _name[32]) :
+memobj<Ctype>::memobj(
+    u4 _lx, u4 _ly, u4 _lz, const char _name[32], control_stream_t commands) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, _ly, _lz, _name);
+  this->control(commands);
 }
 
 template <typename Ctype>
@@ -302,10 +308,9 @@ memobj<Ctype>* memobj<Ctype>::extrema_scan(
 }
 
 template <typename Ctype>
-memobj<Ctype>* memobj<Ctype>::control(
-    std::vector<pszmem_control> control_stream, void* stream)
+memobj<Ctype>* memobj<Ctype>::control(control_stream_t commands, void* stream)
 {
-  for (auto& c : control_stream) {
+  for (auto& c : commands) {
     if (c == Malloc)
       pimpl->malloc_device();
     else if (c == MallocHost)
@@ -339,7 +344,7 @@ memobj<Ctype>* memobj<Ctype>::control(
 }
 
 template <typename Ctype>
-memobj<Ctype>* memobj<Ctype>::file(const char* fname, pszmem_control control)
+memobj<Ctype>* memobj<Ctype>::file(const char* fname, control_t control)
 {
   if (control == ToFile)
     pimpl->tofile(fname);

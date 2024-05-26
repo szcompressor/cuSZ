@@ -29,12 +29,11 @@ void printcode_u4(u4 idx, u4* word)
 
 void hfbook_serial_reference(string fname, int bklen)
 {
-  auto hist = new pszmem_cxx<u4>(bklen, 1, 1, "histogram");
-  auto book = new pszmem_cxx<u4>(bklen, 1, 1, "internal book");
+  auto hist = new pszmem_cxx<u4>(bklen, "histogram", {MallocHost});
+  auto book = new pszmem_cxx<u4>(bklen, "internal book", {MallocHost});
   auto space = new hf_canon_reference<u4, u4>(bklen);
 
-  hist->control({MallocHost})->file(fname.c_str(), FromFile);
-  book->control({MallocHost});
+  hist->file(fname.c_str(), FromFile);
   memset(book->hptr(), 0xff, sizeof(u4) * bklen);
 
   hf_buildtree_impl2<u4>(hist->hptr(), bklen, book->hptr());
@@ -61,15 +60,13 @@ void hfbook_serial_reference(string fname, int bklen)
 
 void hfbook_serial_integrated(string fname, int bklen)
 {
-  auto hist = new pszmem_cxx<u4>(bklen, 1, 1, "histogram");
-  auto book = new pszmem_cxx<u4>(bklen, 1, 1, "internal book");
+  auto hist = new pszmem_cxx<u4>(bklen, "histogram", {MallocHost});
+  auto book = new pszmem_cxx<u4>(bklen, "internal book", {MallocHost});
 
   auto revbook_bytes = hf_space<u4, u4>::revbook_bytes(bklen);
-  auto revbook = new pszmem_cxx<u1>(revbook_bytes, 1, 1, "revbook");
+  auto revbook = new pszmem_cxx<u1>(revbook_bytes, "revbook", {MallocHost});
 
-  hist->control({MallocHost})->file(fname.c_str(), FromFile);
-  book->control({MallocHost});
-  revbook->control({MallocHost});
+  hist->file(fname.c_str(), FromFile);
 
   psz::hf_buildbook<SEQ, u4, u4>(
       hist->hptr(), bklen, book->hptr(), revbook->hptr(), revbook_bytes,
@@ -88,12 +85,8 @@ void hfbook_serial_integrated(string fname, int bklen)
 // for reference
 void hfbook_gpu(string fname, int bklen)
 {
-  auto hist = new pszmem_cxx<u4>(bklen, 1, 1, "histogram");
-  auto book = new pszmem_cxx<u4>(bklen, 1, 1, "internal book");
-
-  hist->control({MallocHost, Malloc})
-      ->file(fname.c_str(), FromFile)
-      ->control({H2D});
+  auto hist = new pszmem_cxx<u4>(bklen, "histogram", {MallocHost, Malloc});
+  hist->file(fname.c_str(), FromFile)->control({H2D});
 
   cusz::HuffmanCodec<u4, u4> codec;
 
@@ -102,7 +95,6 @@ void hfbook_gpu(string fname, int bklen)
 
   codec.init(fakelen1, bklen, fakelen2);
   codec.build_codebook(hist->dptr(), bklen, 0);
-
   codec.bk4->control({D2H});
 
   for (auto i = 0; i < bklen; i++) {

@@ -16,29 +16,23 @@
 #include "mem.hh"
 #include "port.hh"
 #include "stat.hh"
+#include "typing.hh"
 
 #define BASE false
 #define OPTIM true
 
-using T = uint32_t;
+using T = u4;
 
 template <typename T>
 void real_data_test(size_t len, size_t bklen, string fname)
 {
-  auto wn = new pszmem_cxx<T>(len, 1, 1, "whole numbers");
-  auto bs = new pszmem_cxx<uint32_t>(bklen, 1, 1, "base-ser");
-  auto os = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-ser");
+  auto wn = new pszmem_cxx<T>(len, "whole numbers", {Malloc, MallocHost});
+  auto bs = new pszmem_cxx<u4>(bklen, "base-ser", {Malloc, MallocHost});
+  auto os = new pszmem_cxx<u4>(bklen, "optim-ser", {Malloc, MallocHost});
+  auto bg = new pszmem_cxx<u4>(bklen, "base-gpu", {Malloc, MallocHost});
+  auto og = new pszmem_cxx<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
 
-  auto bg = new pszmem_cxx<uint32_t>(bklen, 1, 1, "base-gpu");
-  auto og = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-gpu");
-
-  wn->control({Malloc, MallocHost})
-      ->file(fname.c_str(), FromFile)
-      ->control({H2D});
-
-  // serial and optim
-  bs->control({MallocHost}), bg->control({Malloc, MallocHost});
-  os->control({MallocHost}), og->control({Malloc, MallocHost});
+  wn->file(fname.c_str(), FromFile)->control({H2D});
 
   GpuStreamT stream;
   GpuStreamCreate(&stream);
@@ -105,20 +99,16 @@ void dummy_data_test()
   auto len = 1000000;
   auto bklen = 1024;
 
-  auto wn = new pszmem_cxx<T>(len, 1, 1, "whole numbers");
-  auto serial = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-ser");
-  auto gpu = new pszmem_cxx<uint32_t>(bklen, 1, 1, "optim-gpu");
+  auto wn = new pszmem_cxx<T>(len, "whole numbers", {Malloc, MallocHost});
+  auto serial = new pszmem_cxx<u4>(bklen, "optim-ser", {MallocHost});
+  auto gpu = new pszmem_cxx<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
 
-  wn->control({Malloc, MallocHost});
   for (auto i = 0; i < len; i += 1) wn->hptr(i) = bklen / 2;
   for (auto i = 2; i < len - 10; i += 100) {
     wn->hptr(i - 1) = bklen / 2 - 1;
     wn->hptr(i - 2) = bklen / 2 + 1;
   }
   wn->control({H2D});
-
-  // serial and optim
-  serial->control({MallocHost}), gpu->control({Malloc, MallocHost});
 
   GpuStreamT stream;
   GpuStreamCreate(&stream);

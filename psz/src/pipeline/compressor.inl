@@ -88,15 +88,7 @@ Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool iscompression, bool debug)
   const auto x = ctx->x, y = ctx->y, z = ctx->z;
   len = x * y * z;
 
-  // TODO [2403] need to merge the following
   mem = new pszmempool_cxx<T, E, H>(x, radius, y, z, iscompression);
-
-  if (iscompression) {
-    // TODO [2403] ad hoc
-    _2403_compact = new compact_array1<T>{
-        mem->compact->d_val, mem->compact->d_idx, mem->compact->d_num,
-        mem->compact->h_num, mem->compact->reserved_len};
-  }
   codec->init(mem->len, booklen, pardeg, debug);
 
   return this;
@@ -130,7 +122,7 @@ try {
   else {
     _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
         {in, ctx->_2403_pszlen}, {ctx->eb, ctx->radius},
-        {mem->_ectrl->dptr(), ctx->data_len}, *_2403_compact, &time_pred,
+        {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
         stream);
 
     PSZDBG_LOG("interp: done");

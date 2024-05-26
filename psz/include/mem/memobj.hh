@@ -28,6 +28,8 @@ class memobj {
  private:
   struct impl;
   std::unique_ptr<impl> pimpl;
+  using control_stream_t = std::vector<pszmem_control>;
+  using control_t = pszmem_control;
 
   const psz_dtype type{PszType<Ctype>::type};
 
@@ -35,14 +37,15 @@ class memobj {
   double maxval, minval, range;
 
  public:
-  memobj(u4 _lx, const char _name[32] = "<unnamed>");
-  memobj(u4 _lx, u4 _ly, const char _name[32] = "<unnamed>");
-  memobj(u4 _lx, u4 _ly, u4 _lz, const char _name[32] = "<unnamed>");
+ // for {1,2,3}-D
+  memobj(u4, const char[32] = "<unnamed>", control_stream_t = {});
+  memobj(u4, u4, const char[32] = "<unnamed>", control_stream_t = {});
+  memobj(u4, u4, u4, const char[32] = "<unnamed>", control_stream_t = {});
   ~memobj();
 
   memobj* extrema_scan(double& maxval, double& minval, double& range);
-  memobj* control(std::vector<pszmem_control>, void* stream = nullptr);
-  memobj* file(const char* fname, pszmem_control control);
+  memobj* control(control_stream_t, void* stream = nullptr);
+  memobj* file(const char* fname, control_t control);
 
   // setter (borrowing)
   memobj* dptr(Ctype* d);

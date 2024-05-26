@@ -89,37 +89,23 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
     len = inlen;
 
     compressed = new memobj<BYTE>(len * TYPICAL, "hf::out4B");
-    scratch4 = new memobj<H4>(len, "hf::scratch4");
-    bk4 = new memobj<H4>(bklen, "hf::book4");
-    revbk4 = new memobj<BYTE>(revbk4_bytes(bklen), "hf::revbk4");
-    bitstream4 = new memobj<H4>(len / 2, "hf::enc-buf");
-    par_nbit = new memobj<M>(pardeg, "hf::par_nbit");
-    par_ncell = new memobj<M>(pardeg, "hf::par_ncell");
-    par_entry = new memobj<M>(pardeg, "hf::par_entry");
-
-    // HFR: dense-sparse
-    dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream");
-    // 1 << 10 results in the max number of partitions
-    dn_bitcount = new memobj<H4>((len - 1) / (1 << 10) + 1, "hf::dn_bitcount");
-    sp_val = new memobj<E>(len / 10, "hf::sp_val");
-    sp_idx = new memobj<M>(len / 10, "hf::sp_idx");
-    sp_num = new memobj<M>(1, "hf::sp_num");
-
-    scratch4->control({Malloc, MallocHost});
-    bk4->control({Malloc, MallocHost});
-    revbk4->control({Malloc, MallocHost});
-    bitstream4->control({Malloc, MallocHost});
-    par_nbit->control({Malloc, MallocHost});
-    par_ncell->control({Malloc, MallocHost});
-    par_entry->control({Malloc, MallocHost});
+    scratch4 = new memobj<H4>(len, "hf::scratch4", {Malloc, MallocHost});
+    bk4 = new memobj<H4>(bklen, "hf::book4", {Malloc, MallocHost});
+    revbk4 = new memobj<BYTE>(revbk4_bytes(bklen), "hf::revbk4", {Malloc, MallocHost});
+    bitstream4 = new memobj<H4>(len / 2, "hf::enc-buf", {Malloc, MallocHost});
+    par_nbit = new memobj<M>(pardeg, "hf::par_nbit", {Malloc, MallocHost});
+    par_ncell = new memobj<M>(pardeg, "hf::par_ncell", {Malloc, MallocHost});
+    par_entry = new memobj<M>(pardeg, "hf::par_entry", {Malloc, MallocHost});
 
     // HFR: dense-sparse
     if (use_hfr) {
-      dn_bitstream->control({Malloc});
-      dn_bitcount->control({Malloc});
-      sp_val->control({Malloc});
-      sp_idx->control({Malloc});
-      sp_num->control({Malloc, MallocHost});
+      // HFR: dense-sparse
+      dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream", {Malloc});
+      // 1 << 10 results in the max number of partitions
+      dn_bitcount = new memobj<H4>((len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});
+      sp_val = new memobj<E>(len / 10, "hf::sp_val", {Malloc});
+      sp_idx = new memobj<M>(len / 10, "hf::sp_idx", {Malloc});
+      sp_num = new memobj<M>(1, "hf::sp_num", {Malloc, MallocHost});
     }
 
     // repurpose scratch after several substeps

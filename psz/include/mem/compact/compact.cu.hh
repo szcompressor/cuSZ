@@ -19,6 +19,8 @@
 
 #include "cusz/type.h"
 #include "exception/exception.hh"
+#include "mem/array_cxx.h"
+#include "mem/definition.hh"
 #include "mem/memobj.hh"
 
 namespace psz {
@@ -32,7 +34,7 @@ struct CompactGpuDram {
   static const cudaMemcpyKind d2h = cudaMemcpyDeviceToHost;
 
  public:
-  using type = T;
+  using control_stream_t = std::vector<pszmem_control>;
 
   // `h_` for host-accessible
   T* d_val;
@@ -45,14 +47,14 @@ struct CompactGpuDram {
 
   size_t reserved_len;
 
-  // CompactGpuDram() {}
-  // ~CompactGpuDram() {}
-
-  CompactGpuDram& reserve_space(size_t _reserved_len)
+  CompactGpuDram(size_t _reserved_len) : reserved_len(_reserved_len) {}
+  CompactGpuDram(portable::compact_array1<T> ca)
   {
-    reserved_len = _reserved_len;
-    return *this;
-  }
+    d_val = ca.val, d_idx = ca.idx, d_num = ca.num;
+    reserved_len = ca.reserved_len;
+  };
+
+  // ~CompactGpuDram() {}
 
   CompactGpuDram& malloc()
   {
@@ -86,14 +88,12 @@ struct CompactGpuDram {
     return *this;
   }
 
+ public:
   // memcpy
   pszerror make_host_accessible(cudaStream_t stream = 0)
   try {
     cudaMemcpyAsync(h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
     cudaStreamSynchronize(stream);
-    // cudaMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
-    // cudaMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
-    // cudaStreamSynchronize(stream);
 
     if (*h_num > reserved_len) throw psz::exception_too_many_outliers();
 
@@ -102,10 +102,9 @@ struct CompactGpuDram {
   NONEXIT_CATCH(psz::exception_too_many_outliers, CUSZ_OUTLIER_TOO_MANY)
 
   CompactGpuDram& control(
-      std::vector<pszmem_control> control_stream,
-      cudaStream_t stream = nullptr)
+      control_stream_t controls, cudaStream_t stream = nullptr)
   {
-    for (auto& c : control_stream) {
+    for (auto& c : controls) {
       if (c == Malloc)
         malloc();
       else if (c == MallocHost)

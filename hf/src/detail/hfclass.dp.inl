@@ -73,7 +73,7 @@ TPL HF_CODEC* HF_CODEC::init(
   // for both u4 and u8 encoding
 
   // placeholder length
-  compressed = new pszmem_cxx<BYTE>(inlen * TYPICAL, 1, 1, "hf::out4B");
+  compressed = new pszmem_cxx<BYTE>(inlen * TYPICAL, "hf::out4B");
 
   __scratch = new pszmem_cxx<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
   scratch4 = new pszmem_cxx<H4>(inlen, 1, 1, "hf::scratch4");
