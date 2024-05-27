@@ -4,7 +4,7 @@
 #include "cusz/type.h"
 using queue_ptr = void*;
 
-template <psz_platform P = PROPER_GPU_BACKEND>
+template <psz_backend P = PROPER_GPU_BACKEND>
 void device_sync(queue_ptr stream = nullptr)
 {
 #if defined(PSZ_USE_CUDA)
@@ -20,7 +20,7 @@ void device_sync(queue_ptr stream = nullptr)
 #endif
 }
 
-template <psz_platform P = PROPER_GPU_BACKEND>
+template <psz_backend P = PROPER_GPU_BACKEND>
 void stream_sync(queue_ptr stream)
 {
 #if defined(PSZ_USE_CUDA)

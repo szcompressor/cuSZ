@@ -10,7 +10,7 @@ target_link_libraries(demo_capi_minimal_cuda
 
 add_library(ex_utils src/ex_utils.cu)
 target_link_libraries(ex_utils
-  PUBLIC pszcompile_settings
+  PUBLIC psz_cu_compile_settings
 )
 
 # add_executable(bin_pipeline_cu src/bin_pipeline.cu_hip.cc)
@@ -23,7 +23,7 @@ target_link_libraries(bin_hf
   PRIVATE CUDA::cudart
   cusz
 )
-set_target_properties(bin_hf PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+# set_target_properties(bin_hf PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 add_executable(bin_hist src/bin_hist.cc)
 target_link_libraries(bin_hist

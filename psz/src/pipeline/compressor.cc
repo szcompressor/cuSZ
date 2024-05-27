@@ -54,8 +54,10 @@ int CompressorHelper::autotune_phf_coarse(psz_context* ctx)
   // TODO should be move to somewhere else, e.g., cusz::par_optmizer
   if (ctx->use_autotune_phf)
     get_phf_coarse_pardeg(ctx->data_len, ctx->vle_sublen, ctx->vle_pardeg);
-  else
+  else {
+    printf("[psz::warning] in rare cases, autotune_phf is not used.");
     ctx->vle_pardeg = psz_utils::get_npart(ctx->data_len, ctx->vle_sublen);
+  }
 
   return ctx->vle_pardeg;
 }
@@ -110,23 +112,16 @@ catch (sycl::exception const& exc) {
 
 #endif
 
-}  // namespace cusz
+}  // namespace psz
 
 using CompoundF4 = psz::CompoundType<float>;
 using CF4 = psz::Compressor<CompoundF4>;
-
 template class psz::Compressor<CompoundF4>;
-template CF4* CF4::init<psz_context>(
-    psz_context* config, bool iscompression, bool debug);
-template CF4* CF4::init<psz_header>(
-    psz_header* config, bool iscompression, bool debug);
-
+template CF4* CF4::init<psz_context>(psz_context*, bool, bool);
+template CF4* CF4::init<psz_header>(psz_header*, bool, bool);
 
 using CompoundF8 = psz::CompoundType<double>;
 using CF8 = psz::Compressor<CompoundF8>;
-
 template class psz::Compressor<CompoundF8>;
-template CF8* CF8::init<psz_context>(
-    psz_context* config, bool iscompression, bool debug);
-template CF8* CF8::init<psz_header>(
-    psz_header* config, bool iscompression, bool debug);
+template CF8* CF8::init<psz_context>(psz_context*, bool, bool);
+template CF8* CF8::init<psz_header>(psz_header*, bool, bool);

@@ -58,6 +58,6 @@ class Compressor {
   Compressor* export_timerecord(TimeRecord*);
 };
 
-}  // namespace cusz
+}  // namespace psz
 
 #endif /* C3E05282_5791_4E76_9D49_EC31A316EC29 */

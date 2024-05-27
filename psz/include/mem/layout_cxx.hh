@@ -22,7 +22,7 @@
 using namespace portable;
 
 template <
-    typename T, typename E, typename H, pszpolicy EXEC = PROPER_GPU_BACKEND>
+    typename T, typename E, typename H, psz_policy EXEC = PROPER_GPU_BACKEND>
 class pszmempool_cxx {
  public:
   using M = uint32_t;
@@ -69,7 +69,7 @@ class pszmempool_cxx {
   }
 };
 
-#define TPL template <typename T, typename E, typename H, pszpolicy EXEC>
+#define TPL template <typename T, typename E, typename H, psz_policy EXEC>
 #define POOL pszmempool_cxx<T, E, H, EXEC>
 
 TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :

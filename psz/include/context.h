@@ -23,31 +23,31 @@ extern "C" {
 #include "stdint.h"
 
 struct psz_context {
-  pszdevice device;
+  psz_device device;
 
-  psz_dtype dtype{F4};
+  psz_dtype dtype;
   psz_predtype pred_type;
   psz_codectype codec_type;
 
   // pipeline config
-  psz_mode mode{Rel};
-  double eb{0.0};
-  int dict_size{1024}, radius{512};
-  int prebuilt_bklen{1024}, prebuilt_nbk{1000};
+  psz_mode mode;
+  double eb;
+  int dict_size, radius;
+  int prebuilt_bklen, prebuilt_nbk;
 
   // spv gather-scatter config, tmp. unused
-  float nz_density{0.2};
-  float nz_density_factor{5};
+  float nz_density;
+  float nz_density_factor;
 
   // codec config
-  int vle_sublen{512}, vle_pardeg{-1};
+  int vle_sublen, vle_pardeg;
 
   // sizes
-  uint32_t x{1}, y{1}, z{1}, w{1};
-  size_t data_len{1};
-  size_t splen{0};
-  int ndim{-1};
-  psz_len3 nd_len{1, 1, 1};
+  uint32_t x, y, z, w;
+  size_t data_len;
+  size_t splen;
+  int ndim;
+  psz_len3 nd_len;
 
   // filenames
   char demodata_name[40];
@@ -61,37 +61,66 @@ struct psz_context {
   char dbgstr_pred[10];
 
   // dump intermediate
-  bool dump_quantcode{false};
-  bool dump_hist{false};
+  bool dump_quantcode;
+  bool dump_hist;
 
-  bool task_construct{false};
-  bool task_reconstruct{false};
-  bool task_dryrun{false};
-  bool task_experiment{false};
+  bool task_construct;
+  bool task_reconstruct;
+  bool task_dryrun;
+  bool task_experiment;
 
-  bool prep_binning{false};
-  //   bool prep_logtransform{false};
-  bool prep_prescan{false};
+  bool prep_binning;
+  //   bool prep_logtransform;
+  bool prep_prescan;
 
-  bool use_demodata{false};
-  bool use_autotune_phf{true};
-  bool use_gpu_verify{false};
-  bool use_prebuilt_hfbk{false};
+  bool use_demodata;
+  bool use_autotune_phf;
+  bool use_gpu_verify;
+  bool use_prebuilt_hfbk;
 
-  bool skip_tofile{false};
-  bool skip_hf{false};
+  bool skip_tofile;
+  bool skip_hf;
 
-  bool report_time{false};
-  bool report_cr{false};
-  bool report_cr_est{false};
-  bool verbose{false};
+  bool report_time;
+  bool report_cr;
+  bool report_cr_est;
+  bool verbose;
 
   // tracking error status
-  bool there_is_memerr{false};
+  bool there_is_memerr;
 };
 
 typedef struct psz_context psz_context;
 typedef psz_context pszctx;
+
+/**
+ * @brief Return a pszctx instance with default values.
+ *
+ * @return pszctx*
+ */
+pszctx* pszctx_default_values();
+
+/**
+ * @brief Modify an empty pszctx with default values.
+ *
+ */
+void pszctx_set_default_values(pszctx*);
+
+/**
+ * @brief Use a minimal workset as the return object.
+ *
+ * @param dtype input data type
+ * @param predictor Lorenzo, Spline
+ * @param quantizer_radius: int, e.g., 512
+ * @param codec HUffman
+ * @param eb error bound
+ * @param mode Rel, Abs
+ * @return pszctx*
+ */
+pszctx* pszctx_minimal_working_set(
+    psz_dtype const dtype, psz_predtype const predictor,
+    int const quantizer_radius, psz_codectype const codec, double const eb,
+    psz_mode const mode);
 
 void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
@@ -101,8 +130,7 @@ void pszctx_parse_control_string(
     pszctx* ctx, const char* in_str, bool dbg_print);
 void pszctx_validate(pszctx* ctx);
 void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
-void pszctx_set_rawlen(
-    pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w);
+void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z);
 void pszctx_set_len(pszctx* ctx, psz_len3 len);
 void pszctx_set_report(pszctx* ctx, const char* in_str);
 void pszctx_set_dumping(pszctx* ctx, const char* in_str);

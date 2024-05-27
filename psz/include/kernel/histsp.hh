@@ -16,7 +16,7 @@
 
 #include "cusz/type.h"
 
-template <pszpolicy Policy, typename T, typename FQ = uint32_t>
+template <psz_policy Policy, typename T, typename FQ = uint32_t>
 int pszcxx_histogram_cauchy(
     T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen, float* milliseconds,
     void* stream = nullptr);

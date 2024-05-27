@@ -10,14 +10,8 @@
  *
  */
 
-#include <cstdint>
-
-#include "busyheader.hh"
 #include "compressor.hh"
-#include "context.h"
 #include "cusz.h"
-#include "cusz/type.h"
-#include "hfclass.hh"
 #include "port.hh"
 #include "tehm.hh"
 
@@ -29,17 +23,9 @@ pszcompressor* psz_create(
   return new pszcompressor{
       .compressor = dtype == F4 ? (void*)(new psz::CompressorF4())
                                 : (void*)(new psz::CompressorF8()),
-      .ctx =
-          new pszctx{
-              .dtype = dtype,
-              .pred_type = predictor,
-              .codec_type = codec,
-              .mode = mode,
-              .eb = eb,
-              .dict_size = quantizer_radius * 2,
-              .radius = quantizer_radius,
-          },
-      .header = new pszheader,  // TODO link to Compressor::header
+      .ctx = pszctx_minimal_working_set(
+          dtype, predictor, quantizer_radius, codec, eb, mode),
+      .header = new pszheader,  // TODO link to compressor->header
       .type = dtype,
   };
 }
@@ -47,7 +33,13 @@ pszcompressor* psz_create(
 pszcompressor* psz_create_default(
     psz_dtype const dtype, double const eb, psz_mode const mode)
 {
-  return psz_create(dtype, Lorenzo, 512, Huffman, eb, mode);
+  return new pszcompressor{
+      .compressor = dtype == F4 ? (void*)(new psz::CompressorF4())
+                                : (void*)(new psz::CompressorF8()),
+      .ctx = pszctx_default_values(),
+      .header = new pszheader,  // TODO link to compressor->header
+      .type = dtype,
+  };
 }
 
 pszcompressor* psz_create_from_context(pszctx* const ctx)

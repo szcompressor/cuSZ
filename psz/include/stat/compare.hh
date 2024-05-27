@@ -25,7 +25,7 @@
 
 namespace psz {
 
-template <pszpolicy P, typename T>
+template <psz_policy P, typename T>
 bool identical(T* d1, T* d2, size_t const len)
 {
   if (P == SEQ)
@@ -37,7 +37,7 @@ bool identical(T* d1, T* d2, size_t const len)
   }
 }
 
-template <pszpolicy P, typename T>
+template <psz_policy P, typename T>
 void probe_extrema(T* in, size_t len, T res[4])
 {
   if (P == SEQ) psz::cppstl_extrema(in, len, res);
@@ -55,7 +55,7 @@ void probe_extrema(T* in, size_t len, T res[4])
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
 
-template <pszpolicy P, typename T>
+template <psz_policy P, typename T>
 bool error_bounded(
     T* a, T* b, size_t const len, double const eb,
     size_t* first_faulty_idx = nullptr)
@@ -73,7 +73,7 @@ bool error_bounded(
   return eb_ed;
 }
 
-template <pszpolicy P, typename T>
+template <psz_policy P, typename T>
 void assess_quality(pszsummary* s, T* xdata, T* odata, size_t const len)
 {
   // [TODO] THRUST is not activated in the frontend

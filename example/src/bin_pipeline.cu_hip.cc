@@ -119,12 +119,13 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  auto data = new memobj<f4>(ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
-  auto xdata = new memobj<f4>(ctx->x, ctx->y, ctx->z, "decompressed", {MallocHost, Malloc});
+  auto data = new memobj<f4>(
+      ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
+  auto xdata = new memobj<f4>(
+      ctx->x, ctx->y, ctx->z, "decomp'ed", {MallocHost, Malloc});
   auto cmp = new memobj<f4>(ctx->x, ctx->y, ctx->z, "cmp");
 
   data->file(fname, FromFile)->control({H2D});
-
 
   // adjust eb
   if (ctx->mode == Rel) {
@@ -191,7 +192,7 @@ int main(int argc, char** argv)
     exit(0);
   }
 
-  auto ctx = new pszctx{};
+  auto ctx = pszctx_default_values();
 
   //// read argv
   auto subcmd = argv[1];

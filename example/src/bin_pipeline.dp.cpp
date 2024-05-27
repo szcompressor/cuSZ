@@ -129,7 +129,8 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
     psz_testframe<f4>::pred_comp_decomp(
         ctx, cor, data->dptr(), xdata->dptr(), stream);
     pszcxx_evaluate_quality_cpu(
-        xdata->control({D2H})->hptr(), data->control({D2H})->hptr(), data->len(), data->bytes());
+        xdata->control({D2H})->hptr(), data->control({D2H})->hptr(),
+        data->len(), data->bytes());
   }
   else if (subcmd == "pred-hist") {
     psz_testframe<f4>::pred_hist_comp(ctx, cor, data->dptr(), stream);
@@ -162,7 +163,7 @@ int main(int argc, char** argv)
     exit(0);
   }
 
-  auto ctx = new pszctx{};
+  auto ctx = pszctx_default_values();
 
   //// read argv
   auto subcmd = argv[1];

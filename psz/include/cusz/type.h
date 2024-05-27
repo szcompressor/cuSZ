@@ -20,10 +20,9 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum psz_backend { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
-typedef enum psz_backend psz_platform;
-typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } pszdevice;
-typedef enum psz_space { Device = 0, Host = 1, None = 2 } psz_space;
+typedef enum psz_backend { SEQ, CUDA, HIP, ONEAPI, THRUST } psz_policy;
+typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } psz_device;
+typedef enum psz_space { Device = 0, Host = 1, IamLost = 2 } psz_space;
 
 typedef void* psz_stream_t;
 
@@ -117,21 +116,14 @@ typedef enum psz_codectype  //
 } psz_codectype;
 
 typedef struct psz_len3 {
-  // clang-format off
-    union { size_t x0, x; };
-    union { size_t x1, y; };
-    union { size_t x2, z; };
-    // union { size_t x3, w; };
-  // clang-format on
+  size_t x, y, z;
 } psz_len3;
 
 struct psz_context;
 typedef struct psz_context psz_ctx;
-typedef struct psz_context pszctx;
 
 struct psz_header;
 typedef struct psz_header psz_header;
-typedef struct psz_header pszheader;
 
 typedef struct psz_compressor {
   void* compressor;
@@ -146,15 +138,25 @@ typedef struct psz_basic_data_description {
 } psz_basic_data_description;
 typedef psz_basic_data_description psz_data_desc;
 
+struct __score_t {
+  f8 PSNR, MSE, NRMSE, coeff;
+};
+
+struct __max_err_t {
+  f8 abs, rel, pwrrel;
+  size_t idx;
+};
+struct __autocor_t {
+  f8 lag_one, lag_two;
+};
+
 typedef struct psz_statistic_summary {
-  // clang-format off
-    psz_data_desc odata, xdata;
-    struct { f8 PSNR, MSE, NRMSE, coeff; } score;
-    struct { f8 abs, rel, pwrrel; size_t idx; } max_err;
-    struct { f8 lag_one, lag_two; } autocor;
-    f8 user_eb;
-    size_t len;
-  // clang-format on
+  psz_data_desc odata, xdata;
+  struct __score_t score;
+  struct __max_err_t max_err;
+  struct __autocor_t autocor;
+  f8 user_eb;
+  size_t len;
 } psz_summary;
 typedef psz_summary pszsummary;
 
@@ -172,7 +174,7 @@ typedef psz_carray* pszarray_mutable;
 typedef struct psz_rettype_archive {
   u1* compressed;
   size_t* comp_bytes;
-  pszheader* header;
+  psz_header* header;
 } psz_archive;
 
 typedef psz_archive psz_data_output;

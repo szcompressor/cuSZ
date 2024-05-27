@@ -83,6 +83,13 @@ struct Compressor<C>::impl {
   using TimeRecord = std::vector<std::tuple<const char*, double>>;
   using timerecord_t = TimeRecord*;
 
+  static const int FORCED_ALIGN = 128;
+  static const int HEADER = 0;
+  static const int ANCHOR = 1;
+  static const int VLE = 2;
+  static const int SPFMT = 3;
+  static const int END = 4;
+
   // encapsulations
   Codec* codec;  // has standalone internals
   pszmempool_cxx<T, E, H>* mem;
@@ -96,7 +103,7 @@ struct Compressor<C>::impl {
   size_t comp_hf_outlen{0};
 
   // arrays
-  uint32_t nbyte[Header::END];
+  uint32_t nbyte[END];
 
   float time_pred, time_hist, time_sp;
 
@@ -194,28 +201,30 @@ struct Compressor<C>::impl {
   void compress_merge_update_header(
       pszctx* ctx, BYTE** out, szt* outlen, void* stream)
   try {
-    // merge
     // SKIP_ON_FAILURE;
 
     auto splen = mem->compact->num_outliers();
     auto pred_type = ctx->pred_type;
 
-    nbyte[Header::HEADER] = sizeof(Header);
-    nbyte[Header::VLE] = sizeof(BYTE) * comp_hf_outlen;
-    nbyte[Header::ANCHOR] =
-        pred_type == Spline ? sizeof(T) * mem->_anchor->len() : 0;
-    nbyte[Header::SPFMT] = (sizeof(T) + sizeof(M)) * splen;
+    static_assert(
+        sizeof(header) <= FORCED_ALIGN,
+        "The actual psz_header size is greater than the supposed.");
+
+    nbyte[HEADER] = FORCED_ALIGN;
+    nbyte[VLE] = sizeof(BYTE) * comp_hf_outlen;
+    nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->_anchor->len() : 0;
+    nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
     // clang-format off
   header.entry[0] = 0;
   // *.END + 1; need to know the ending position
-  for (auto i = 1; i < Header::END + 1; i++) header.entry[i] = nbyte[i - 1];
-  for (auto i = 1; i < Header::END + 1; i++) header.entry[i] += header.entry[i - 1];
+  for (auto i = 1; i < END + 1; i++) header.entry[i] = nbyte[i - 1];
+  for (auto i = 1; i < END + 1; i++) header.entry[i] += header.entry[i - 1];
 
-  concate_memcpy_d2d(DST(Header::ANCHOR, 0), mem->anchor(), nbyte[Header::ANCHOR], stream, __FILE__, __LINE__);
-  concate_memcpy_d2d(DST(Header::VLE, 0), comp_hf_out, nbyte[Header::VLE], stream, __FILE__, __LINE__);
-  concate_memcpy_d2d(DST(Header::SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
-  concate_memcpy_d2d(DST(Header::SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(VLE, 0), comp_hf_out, nbyte[VLE], stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
+  concate_memcpy_d2d(DST(SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
     // clang-format on
 
     PSZDBG_LOG("merge buf: done");
@@ -268,7 +277,7 @@ struct Compressor<C>::impl {
       throw std::runtime_error(
           "[psz::error] One of external in and ext_anchor must be null.");
 
-    auto d_anchor = ext_anchor ? ext_anchor : (T*)access(Header::ANCHOR);
+    auto d_anchor = ext_anchor ? ext_anchor : (T*)access(ANCHOR);
     // wire and aliasing
     auto d_space = out;
     auto d_xdata = out;
@@ -315,7 +324,7 @@ struct Compressor<C>::impl {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
     };
-    codec->decode((B*)access(Header::VLE), mem->ectrl(), stream);
+    codec->decode((B*)access(VLE), mem->ectrl(), stream);
   }
 
   void decompress_scatter(
@@ -326,9 +335,9 @@ struct Compressor<C>::impl {
     };
 
     // The inputs of components are from `compressed`.
-    auto d_anchor = (T*)access(Header::ANCHOR);
-    auto d_spval = (T*)access(Header::SPFMT);
-    auto d_spidx = (M*)access(Header::SPFMT, header->splen * sizeof(T));
+    auto d_anchor = (T*)access(ANCHOR);
+    auto d_spval = (T*)access(SPFMT);
+    auto d_spidx = (M*)access(SPFMT, header->splen * sizeof(T));
 
     if (header->splen != 0)
       psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, M>(

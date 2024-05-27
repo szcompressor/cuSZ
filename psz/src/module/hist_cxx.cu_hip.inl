@@ -1,7 +1,7 @@
 // deps
-#include "mem/array_cxx.h"
 #include "cusz/type.h"
 #include "exception/exception.hh"
+#include "mem/array_cxx.h"
 #include "module/cxx_module.hh"
 #include "typing.hh"
 #include "utils/err.hh"
@@ -11,10 +11,9 @@
 
 using namespace portable;
 
-template <pszpolicy policy, typename T, typename FQ, bool TIMING>
+template <psz_policy policy, typename T, typename FQ, bool TIMING>
 pszerror _2401::pszcxx_histogram_cauchy(
-    array3<T> in, array3<u4> out_hist, float* milliseconds,
-    void* stream)
+    array3<T> in, array3<u4> out_hist, float* milliseconds, void* stream)
 try {
   auto inlen = in.len3.x;
   auto outlen = out_hist.len3.x;

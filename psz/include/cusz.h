@@ -16,10 +16,7 @@ extern "C" {
 #ifndef CUSZ_H
 #define CUSZ_H
 
-#include <stddef.h>
-
 #include "context.h"
-#include "cusz/record.h"
 #include "cusz/type.h"
 #include "header.h"
 

@@ -425,17 +425,17 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
 void pszctx_load_demo_datasize(pszctx* ctx, void* name)
 {
   const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
-      {std::string("hacc"), {280953867, 1, 1, 1, 1}},
-      {std::string("hacc1b"), {1073726487, 1, 1, 1, 1}},
-      {std::string("cesm"), {3600, 1800, 1, 1, 2}},
-      {std::string("hurricane"), {500, 500, 100, 1, 3}},
-      {std::string("nyx-s"), {512, 512, 512, 1, 3}},
-      {std::string("nyx-m"), {1024, 1024, 1024, 1, 3}},
-      {std::string("qmc"), {288, 69, 7935, 1, 3}},
-      {std::string("qmcpre"), {69, 69, 33120, 1, 3}},
-      {std::string("exafel"), {388, 59200, 1, 1, 2}},
-      {std::string("rtm"), {235, 849, 849, 1, 3}},
-      {std::string("parihaka"), {1168, 1126, 922, 1, 3}}};
+      {std::string("hacc"), {280953867, 1, 1, 1}},
+      {std::string("hacc1b"), {1073726487, 1, 1, 1}},
+      {std::string("cesm"), {3600, 1800, 1, 2}},
+      {std::string("hurricane"), {500, 500, 100, 3}},
+      {std::string("nyx-s"), {512, 512, 512, 3}},
+      {std::string("nyx-m"), {1024, 1024, 1024, 3}},
+      {std::string("qmc"), {288, 69, 7935, 3}},
+      {std::string("qmcpre"), {69, 69, 33120, 3}},
+      {std::string("exafel"), {388, 59200, 1, 2}},
+      {std::string("rtm"), {235, 849, 849, 3}},
+      {std::string("parihaka"), {1168, 1126, 922, 3}}};
 
   auto demodata_name = *(std::string*)name;
 
@@ -565,7 +565,7 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
   if (ctx->y == 1) ndim = 1;
 
   ctx->ndim = ndim;
-  ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+  ctx->data_len = ctx->x * ctx->y * ctx->z;
   ctx->nd_len = psz_len3{_x, _y, _z};
 
   if (ctx->data_len == 1)
@@ -601,4 +601,73 @@ void pszctx_set_densityfactor(pszctx* ctx, int _)
         "(the portion of nonzeros) is 25% in an array.");
   ctx->nz_density_factor = _;
   ctx->nz_density = 1.0 / _;
+}
+
+pszctx* pszctx_default_values()
+{
+  return new pszctx{
+      .dtype = F4,
+      .pred_type = Lorenzo,
+      .codec_type = Huffman,
+      .mode = Rel,
+      .eb = 0.1,
+      .dict_size = 1024,
+      .radius = 512,
+      .prebuilt_bklen = 1024,
+      .prebuilt_nbk = 1000,
+      .nz_density = 0.2,
+      .nz_density_factor = 5,
+      .vle_sublen = 512,
+      .vle_pardeg = -1,
+      .x = 1,
+      .y = 1,
+      .z = 1,
+      .w = 1,
+      .data_len = 1,
+      .splen = 0,
+      .ndim = -1,
+      .nd_len = {1, 1, 1},
+      .dump_quantcode = false,
+      .dump_hist = false,
+      .task_construct = false,
+      .task_reconstruct = false,
+      .task_dryrun = false,
+      .task_experiment = false,
+      .prep_binning = false,
+      .prep_prescan = false,
+      .use_demodata = false,
+      .use_autotune_phf = true,
+      .use_gpu_verify = false,
+      .use_prebuilt_hfbk = false,
+      .skip_tofile = false,
+      .skip_hf = false,
+      .report_time = false,
+      .report_cr = false,
+      .report_cr_est = false,
+      .verbose = false,
+      .there_is_memerr = false,
+  };
+}
+
+void pszctx_set_default_values(pszctx* empty_ctx)
+{
+  auto default_vals = pszctx_default_values();
+  memcpy(empty_ctx, default_vals, sizeof(pszctx));
+  delete default_vals;
+}
+
+pszctx* pszctx_minimal_working_set(
+    psz_dtype const dtype, psz_predtype const predictor,
+    int const quantizer_radius, psz_codectype const codec, double const eb,
+    psz_mode const mode)
+{
+  auto ws = pszctx_default_values();
+  ws->dtype = dtype;
+  ws->pred_type = predictor;
+  ws->codec_type = codec;
+  ws->mode = mode;
+  ws->eb = eb;
+  ws->dict_size = quantizer_radius * 2;
+  ws->radius = quantizer_radius;
+  return ws;
 }

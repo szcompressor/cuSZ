@@ -34,21 +34,21 @@ class pszpred_spl {
       float* time, void* stream);
 };
 
-template <pszpolicy Policy, typename T, bool TIMING = true>
+template <psz_policy Policy, typename T, bool TIMING = true>
 pszerror pszcxx_histogram_cauchy(
     array3<T> in, array3<u4> out_hist, float* milliseconds, void* stream);
 
-template <pszpolicy P, typename T, bool TIMING = true>
+template <psz_policy P, typename T, bool TIMING = true>
 pszerror pszcxx_scatter_naive(
     compact_array1<T> in_outlier, array3<T> out_decomp_space,
     float* milliseconds, void* stream);
 
-template <pszpolicy P, typename T, bool TIMING = true>
+template <psz_policy P, typename T, bool TIMING = true>
 pszerror pszcxx_gather_make_metadata_host_available(
     compact_array1<T> in_outlier, void* stream);
 
 // see viewer.cu_hip.hh
-// template <pszpolicy P, typename T>
+// template <psz_policy P, typename T>
 // pszerror pszcxx_evaluate_quality(array3<T> d1, array3<T> d2);
 
 };  // namespace _2401

@@ -52,7 +52,7 @@ bool test1_debug()
   GpuStreamT stream;
   GpuStreamCreate(&stream);
 
-  pszcxx_histogram_cauchy<pszpolicy::SEQ, T, uint32_t>(
+  pszcxx_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, T, uint32_t>(
@@ -139,7 +139,7 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   pszcxx_histogram_generic<PROPER_GPU_BACKEND, T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
 
-  pszcxx_histogram_cauchy<pszpolicy::SEQ, T, uint32_t>(
+  pszcxx_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   o_gpu->control({D2H});
@@ -248,7 +248,7 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   pszcxx_histogram_generic<PROPER_GPU_BACKEND, T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, stream);
 
-  pszcxx_histogram_cauchy<pszpolicy::SEQ, T, uint32_t>(
+  pszcxx_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
   GpuStreamSync(stream);
 

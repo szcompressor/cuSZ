@@ -18,22 +18,22 @@
 
 namespace psz {
 
-template <pszpolicy P, typename T, typename M = u4>
+template <psz_policy P, typename T, typename M = u4>
 void spv_gather(
     T* in, size_t const in_len, T* d_val, M* d_idx, int* nnz, f4* milliseconds,
     void* stream);
 
-template <pszpolicy P, typename T, typename M = u4>
+template <psz_policy P, typename T, typename M = u4>
 void spv_scatter(
     T* d_val, M* d_idx, int const nnz, T* decoded, f4* milliseconds,
     void* stream);
 
-template <pszpolicy P, typename T, typename Criterion, typename M = u4>
+template <psz_policy P, typename T, typename Criterion, typename M = u4>
 void spv_gather_naive(
     T* in, size_t const in_len, int const radius, T* cval, M* cidx, int* cn,
     Criterion c, f4* milliseconds, void* stream);
 
-template <pszpolicy P, typename T, typename M = u4>
+template <psz_policy P, typename T, typename M = u4>
 void spv_scatter_naive(
     T* d_val, M* d_idx, int const nnz, T* decoded, f4* milliseconds,
     void* stream);

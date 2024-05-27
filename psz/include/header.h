@@ -15,41 +15,43 @@
  *
  */
 
-#include "cusz/type.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include "cusz/type.h"
 
-typedef struct alignas(128) psz_header {
-  static const int HEADER = 0;
-  static const int ANCHOR = 1;
-  static const int VLE = 2;
-  static const int SPFMT = 3;
-  static const int END = 4;
+// originally in-struct staic const int, conflicting with C compiler.
+// also see Compressor::impl
+#define PSZHEADER_FORCED_ALIGN 128
+#define PSZHEADER_HEADER 0
+#define PSZHEADER_ANCHOR 1
+#define PSZHEADER_VLE 2
+#define PSZHEADER_SPFMT 3
+#define PSZHEADER_END 4
 
-  // uint32_t self_bytes : 16;
-  // uint32_t fp : 1;
-  uint32_t byte_vle : 4;           // 4, 8
-  uint32_t nz_density_factor : 8;  // TODO configurate it
-  uint32_t codecs_in_use : 2;
-  uint32_t vle_pardeg;
-  uint32_t x, y, z, w;
+/**
+ * @brief Memory alignment at 128 bytes for GPU if the archive is on device.
+ *
+ */
+typedef struct psz_header {
   psz_dtype dtype;
-  double eb;
-  uint32_t radius : 16;
-  int splen;
-
-  uint32_t entry[END + 1];
-
   psz_predtype pred_type;
 
-  // uint32_t byte_uncomp : 4;   // T; 1, 2, 4, 8
-  // uint32_t byte_errctrl : 3;  // 1, 2, 4
-  // uint32_t byte_meta : 4;     // 4, 8
+  uint32_t entry[PSZHEADER_END + 1];  // segment entries
+  int splen;                          // direct len of sparse part
+  uint32_t x, y, z, w;
+
+  // compression config
+  double eb;
+  uint32_t radius : 16;
+  // coarse-grained HF-encoding config
+  uint32_t vle_pardeg;
+
+  // used
+  // uint32_t nz_density_factor : 8;
+  // uint32_t byte_vle : 4;           // 4, 8
+  // uint32_t codecs_in_use : 2;
 
 } psz_header;
 typedef psz_header pszheader;

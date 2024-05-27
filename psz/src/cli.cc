@@ -1,10 +1,11 @@
+#include "context.h"
 #include "pipeline/cli.inl"
 #include "port.hh"
 #include "utils/query.hh"
 
 int main(int argc, char** argv)
 {
-  auto ctx = new psz_context;
+  auto ctx = pszctx_default_values();
   pszctx_create_from_argv(ctx, argc, argv);
 
   if (ctx->verbose) {

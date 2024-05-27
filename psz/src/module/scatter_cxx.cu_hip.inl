@@ -9,7 +9,7 @@
 //
 #include "kernel/detail/spvn.cu_hip.inl"
 
-template <pszpolicy P, typename T, bool TIMING>
+template <psz_policy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_scatter_naive(
     compact_array1<T> in, array3<T> out, f4* milliseconds, void* stream)
 try {
@@ -28,7 +28,7 @@ try {
 NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
-template <pszpolicy P, typename T, bool TIMING>
+template <psz_policy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_gather_make_metadata_host_available(
     compact_array1<T> in, void* stream)
 try {

@@ -14,7 +14,7 @@
 
 #include "cusz/type.h"
 
-template <pszpolicy Policy, typename T>
+template <psz_policy Policy, typename T>
 struct CompactDram;
 
 #include "compact/compact.seq.hh"

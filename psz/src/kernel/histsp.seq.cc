@@ -83,7 +83,7 @@ int histsp_cpu_v2(
 
 #define SPECIALIZE_CPU(E)                                           \
   template <>                                                       \
-  int pszcxx_histogram_cauchy<pszpolicy::SEQ, E, uint32_t>(         \
+  int pszcxx_histogram_cauchy<psz_policy::SEQ, E, uint32_t>(        \
       E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen, \
       float* milliseconds, void* stream)                            \
   {                                                                 \
