@@ -16,11 +16,12 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 typedef enum psz_execution_policy { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
-typedef psz_execution_policy psz_platform;
+typedef enum psz_execution_policy psz_platform;
 typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } pszdevice;
 
 typedef void* uninit_stream_t;
@@ -64,6 +65,8 @@ typedef enum psz_dtype  //
   I4 = 24,
   I8 = 28,
   ULL = 31 } psz_dtype;
+
+typedef psz_dtype pszdtype;
 
 // aliasing
 typedef uint8_t u1;
@@ -199,6 +202,24 @@ typedef psz_summary pszsummary;
 typedef u1* pszout;
 // used for bridging some compressor internal buffer
 typedef pszout* ptr_pszout;
+
+// 2401
+typedef struct __pszimpl_binding_compressor_stream {
+  pszcompressor* compressor;
+  void* stream;
+} __pszimpl_compressor_stream_binding;
+
+typedef __pszimpl_compressor_stream_binding pszbinding_compresssor_stream;
+typedef pszbinding_compresssor_stream pszcompressor_stream;
+
+typedef struct __pszimpl_rc {
+  double eb;
+  int radius;
+} __pszimpl_rc;
+typedef __pszimpl_rc pszrc2;
+
+// forward
+struct pszprof;
 
 #ifdef __cplusplus
 }

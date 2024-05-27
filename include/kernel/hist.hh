@@ -16,13 +16,9 @@
 
 #include "cusz/type.h"
 
-namespace psz {
-
 template <pszpolicy Poilicy, typename T>
-psz_error_status histogram(
+psz_error_status pszcxx_histogram_generic(
     T* in, size_t const inlen, uint32_t* out_hist, int const outlen,
     float* milliseconds, void* stream = nullptr);
-
-}  // namespace psz
 
 #endif /* D8B68EB9_A86B_4AEA_AD4C_3DF22827E7C3 */

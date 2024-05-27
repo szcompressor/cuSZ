@@ -20,7 +20,6 @@ extern "C" {
 
 #include "cusz/record.h"
 #include "cusz/type.h"
-#include "cusz/type.h"
 #include "header.h"
 
 // #define cusz_create psz_create
@@ -50,6 +49,7 @@ pszerror psz_decompress_init(pszcompressor* comp, pszheader* header);
 pszerror psz_decompress(
     pszcompressor* comp, pszout compressed, size_t const comp_len,
     void* decompressed, pszlen const decomp_len, void* record, void* stream);
+
 
 #endif
 

@@ -64,7 +64,7 @@ int histsp_dpcpp(
 
 #define SPECIALIZE_DPCPP(E)                                                  \
   template <>                                                                \
-  int psz::histsp<pszpolicy::ONEAPI, E, uint32_t>(                           \
+  int pszcxx_histogram_cauchy<pszpolicy::ONEAPI, E, uint32_t>(               \
       E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen,          \
       float* milliseconds, void* stream)                                     \
   {                                                                          \

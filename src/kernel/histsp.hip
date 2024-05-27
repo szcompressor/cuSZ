@@ -49,7 +49,7 @@ int histsp_hip(
 
 #define SPECIALIZE_HIP(E)                                                \
   template <>                                                            \
-  int psz::histsp<pszpolicy::HIP, E, uint32_t>(                          \
+  int pszcxx_histogram_cauchy<pszpolicy::HIP, E, uint32_t>(              \
       E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen,      \
       float* milliseconds, void* stream)                                 \
   {                                                                      \

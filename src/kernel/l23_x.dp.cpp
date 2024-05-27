@@ -12,7 +12,7 @@
 #include "detail/l23_x.dp.inl"
 
 template <typename T, typename Eq, typename FP>
-pszerror psz_decomp_l23(
+pszerror pszcxx_reverse_predict_lorenzo(
     Eq* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
     int const radius, T* xdata, f4* time_elapsed, void* stream)
 {
@@ -124,7 +124,7 @@ pszerror psz_decomp_l23(
 }
 
 #define CPP_INS(T, Eq)                                                    \
-  template pszerror psz_decomp_l23<T, Eq>(                                \
+  template pszerror pszcxx_reverse_predict_lorenzo<T, Eq>(                                \
       Eq * eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb, \
       int const radius, T* xdata, f4* time_elapsed, void* stream);
 

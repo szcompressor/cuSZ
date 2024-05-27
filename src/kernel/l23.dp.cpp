@@ -10,7 +10,7 @@
 #include "utils/timer.hh"
 
 template <typename T, typename Eq, typename FP>
-pszerror psz_comp_l23(
+pszerror pszcxx_predict_lorenzo_unused(
     T* const data, sycl::range<3> const len3, PROPER_EB const eb,
     int const radius, Eq* const eq, T* const outlier, f4* time_elapsed,
     void* stream)
@@ -104,7 +104,7 @@ pszerror psz_comp_l23(
 }
 
 template <typename T, typename Eq, typename FP>
-pszerror psz_decomp_l23(
+pszerror pszcxx_reverse_predict_lorenzo(
     Eq* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
     int const radius, T* xdata, f4* time_elapsed, void* stream)
 {
@@ -220,12 +220,12 @@ pszerror psz_decomp_l23(
 }
 
 #define CPP_INS(T, Eq)                                                    \
-  template pszerror psz_comp_l23<T, Eq>(                                  \
+  template pszerror pszcxx_predict_lorenzo_unused<T, Eq>(                                  \
       T* const data, sycl::range<3> const len3, PROPER_EB const eb,       \
       int const radius, Eq* const eq, T* const outlier, f4* time_elapsed, \
       void* stream);                                                      \
                                                                           \
-  template pszerror psz_decomp_l23<T, Eq>(                                \
+  template pszerror pszcxx_reverse_predict_lorenzo<T, Eq>(                                \
       Eq * eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb, \
       int const radius, T* xdata, f4* time_elapsed, void* stream);
 

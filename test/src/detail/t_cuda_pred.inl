@@ -47,13 +47,13 @@ bool f(
   float time;
   auto len3 = dim3(x, y, z);
 
-  psz_comp_l23<T, Eq, FP>(                   //
+  pszcxx_predict_lorenzo_unused<T, Eq, FP>(                   //
       oridata->uniptr(), len3, eb, radius,   // input and config
       errctrl->uniptr(), outlier->uniptr(),  // output
       &time, stream);
   GpuStreamSync(stream);
 
-  psz_decomp_l23<T, Eq, FP>(                       //
+  pszcxx_reverse_predict_lorenzo<T, Eq, FP>(                       //
       errctrl->uniptr(), len3, outlier->uniptr(),  // input
       eb, radius,                                  // input (config)
       de_data->uniptr(),                           // output
@@ -69,7 +69,7 @@ bool f(
   bool error_bounded = psz::cppstl_error_bounded<T>(
       de_data->uniptr(), oridata->uniptr(), len, eb, &first_non_eb);
 
-  // psz::eval_dataquality_gpu(oridata->uniptr(), de_data->uniptr(), len);
+  // pszcxx_evaluate_quality_gpu(oridata->uniptr(), de_data->uniptr(), len);
 
   GpuStreamDestroy(stream);
   delete oridata;

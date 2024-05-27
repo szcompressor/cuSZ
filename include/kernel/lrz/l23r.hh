@@ -19,7 +19,7 @@
 #include "port.hh"
 
 template <typename T, typename Eq = uint32_t, bool ZigZag = false>
-pszerror psz_comp_l23r(
+pszerror pszcxx_predict_lorenzo(
     T* const data,
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,

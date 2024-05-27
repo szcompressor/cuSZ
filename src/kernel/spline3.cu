@@ -35,7 +35,7 @@ constexpr int DEFAULT_BLOCK_SIZE = 384;
   };
 
 template <typename T, typename E, typename FP>
-int spline_construct(
+int pszcxx_predict_spline(
     pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl,
     void* _outlier, double eb, uint32_t radius, float* time, void* stream)
 {
@@ -74,7 +74,7 @@ int spline_construct(
 }
 
 template <typename T, typename E, typename FP>
-int spline_reconstruct(
+int pszcxx_reverse_predict_spline(
     pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl, pszmem_cxx<T>* xdata,
     double eb, uint32_t radius, float* time, void* stream)
 {
@@ -111,10 +111,10 @@ int spline_reconstruct(
 }
 
 #define INIT(T, E)                                                            \
-  template int spline_construct<T, E>(                                        \
+  template int pszcxx_predict_spline<T, E>(                                        \
       pszmem_cxx<T> * data, pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl,    \
       void* _outlier, double eb, uint32_t radius, float* time, void* stream); \
-  template int spline_reconstruct<T, E>(                                      \
+  template int pszcxx_reverse_predict_spline<T, E>(                                      \
       pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl, pszmem_cxx<T> * xdata,   \
       double eb, uint32_t radius, float* time, void* stream);
 

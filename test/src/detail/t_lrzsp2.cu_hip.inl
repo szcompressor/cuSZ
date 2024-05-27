@@ -77,7 +77,7 @@ bool run_gpu(
 {
   float time;
 
-  psz_comp_l23r<T, E, false>(
+  pszcxx_predict_lorenzo<T, E, false>(
       mem->od->dptr(), mem->od->template len3<dim3>(), eb, radius,
       mem->ectrl(), mem->compact, &time, stream);
   GpuStreamSync(stream);
@@ -93,7 +93,7 @@ bool run_gpu(
       mem->xdtest->dptr(), &time, stream);
   GpuStreamSync(stream);
 
-  psz_decomp_l23<T, E>(
+  pszcxx_reverse_predict_lorenzo<T, E>(
       mem->ectrl(), mem->e->template len3<dim3>(), mem->xd->dptr(), eb, radius,
       mem->xd->dptr(), &time, stream);
   GpuStreamSync(stream);

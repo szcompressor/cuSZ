@@ -32,12 +32,13 @@
   template <class C> \
   Compressor<C>* Compressor<C>
 
-// [psz::note] psz::histogram is left for evaluating purpose
-// compared to psz::histsp
+// [psz::note] pszcxx_histogram_generic is left for evaluating purpose
+// compared to pszcxx_histogram_cauchy
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
-#define PSZ_HIST(...) psz::histsp<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#define PSZ_HIST(...) \
+  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
 #elif defined(PSZ_USE_HIP)
-#define PSZ_HIST(...) psz::histogram<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#define PSZ_HIST(...) pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
 #endif
 
 namespace cusz {
@@ -102,16 +103,17 @@ COR::compress_predict(pszctx* ctx, T* in, void* stream)
     if (spline_in_use()) {
 #ifdef PSZ_USE_CUDA
       mem->od->dptr(in);
-      spline_construct(
+      pszcxx_predict_spline(
           mem->od, mem->ac, mem->e, (void*)mem->compact, eb, radius,
           &time_pred, stream);
 #else
       throw runtime_error(
-          "[psz::error] spline_construct not implemented other than CUDA.");
+          "[psz::error] pszcxx_predict_spline not implemented other than "
+          "CUDA.");
 #endif
     }
     else {
-      psz_comp_l23r<T, E>(
+      pszcxx_predict_lorenzo<T, E>(
           in, len3, eb, radius, mem->ectrl(), (void*)mem->compact, &time_pred,
           stream);
     }
@@ -376,15 +378,16 @@ COR::decompress_predict(
 
     // [psz::TODO] throw exception
 
-    spline_reconstruct(
+    pszcxx_reverse_predict_spline(
         &anchor, mem->e, mem->xd, eb, radius, &time_pred, stream);
 #else
     throw runtime_error(
-        "[psz::error] spline_reconstruct not implemented other than CUDA.");
+        "[psz::error] pszcxx_reverse_predict_spline not implemented other "
+        "than CUDA.");
 #endif
   }
   else {
-    psz_decomp_l23<T, E, FP>(
+    pszcxx_reverse_predict_lorenzo<T, E, FP>(
         mem->ectrl(), len3, d_space, eb, radius, d_xdata, &time_pred, stream);
   }
 

@@ -96,7 +96,7 @@ void f(std::string fname)
   }
 
   /* demo: offline checking (de)compression quality. */
-  psz::eval_dataquality_gpu(d_decomp, d_uncomp, len, compressed_len);
+  pszcxx_evaluate_quality_gpu(d_decomp, d_uncomp, len, compressed_len);
 
   psz_release(comp);
 

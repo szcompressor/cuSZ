@@ -1,6 +1,9 @@
 #ifndef F4EEFA21_1B38_47EA_A59B_5C6A1A6D02DB
 #define F4EEFA21_1B38_47EA_A59B_5C6A1A6D02DB
 
+#include <exception>
+#include <sstream>
+
 struct psz_gpu_exception : public std::exception {
   psz_gpu_exception(const char* err, int err_code, const char* file, int line)
   {
