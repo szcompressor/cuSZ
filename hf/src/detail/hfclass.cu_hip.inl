@@ -76,7 +76,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
 
 // using CPU huffman
 PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
-    MemU4* freq, int const bklen, phf_stream_t stream)
+    memobj<u4>* freq, int const bklen, phf_stream_t stream)
 {
   psz::hf_buildbook<SEQ, E, H4>(
       freq->control({D2H})->hptr(), bklen, buf->bk4->hptr(),
@@ -92,7 +92,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
 
 // using CPU huffman
 PHF_TPL void PHF_CLASS::calculate_CR(
-    memobj<E>* ectrl, MemU4* freq, szt sizeof_dtype, szt overhead_bytes)
+    memobj<E>* ectrl, memobj<u4>* freq, szt sizeof_dtype, szt overhead_bytes)
 {
   // serial part
   f8 serial_entropy = 0;

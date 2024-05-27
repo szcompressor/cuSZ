@@ -36,8 +36,8 @@ constexpr int DEFAULT_BLOCK_SIZE = 384;
 
 template <typename T, typename E, typename FP>
 int pszcxx_predict_spline(
-    pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl,
-    void* _outlier, double eb, uint32_t radius, float* time, void* stream)
+    memobj<T>* data, memobj<T>* anchor, memobj<E>* ectrl, void* _outlier,
+    double eb, uint32_t radius, float* time, void* stream)
 {
   constexpr auto BLOCK = 8;
 
@@ -46,7 +46,7 @@ int pszcxx_predict_spline(
   auto ebx2 = eb * 2;
   auto eb_r = 1 / eb;
 
-  auto l3 = data->template len3<dim3>();
+  auto l3 = data->len3();
   auto grid_dim =
       dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
 
@@ -58,12 +58,10 @@ int pszcxx_predict_spline(
 
   cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
       <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GpuStreamT)stream>>>(
-          data->dptr(), data->template len3<dim3>(),
-          data->template st3<dim3>(),  //
-          ectrl->dptr(), ectrl->template len3<dim3>(),
-          ectrl->template st3<dim3>(),  //
-          anchor->dptr(), anchor->template st3<dim3>(), ot->val(), ot->idx(),
-          ot->num(), eb_r, ebx2, radius);
+          data->dptr(), data->len3(), data->st3(),     //
+          ectrl->dptr(), ectrl->len3(), ectrl->st3(),  //
+          anchor->dptr(), anchor->st3(), ot->val(), ot->idx(), ot->num(), eb_r,
+          ebx2, radius);
 
   STOP_GPUEVENT_RECORDING(stream);
   CHECK_GPU(GpuStreamSync(stream));
@@ -75,8 +73,8 @@ int pszcxx_predict_spline(
 
 template <typename T, typename E, typename FP>
 int pszcxx_reverse_predict_spline(
-    pszmem_cxx<T>* anchor, pszmem_cxx<E>* ectrl, pszmem_cxx<T>* xdata,
-    double eb, uint32_t radius, float* time, void* stream)
+    memobj<T>* anchor, memobj<E>* ectrl, memobj<T>* xdata, double eb,
+    uint32_t radius, float* time, void* stream)
 {
   constexpr auto BLOCK = 8;
 
@@ -85,7 +83,7 @@ int pszcxx_reverse_predict_spline(
   auto ebx2 = eb * 2;
   auto eb_r = 1 / eb;
 
-  auto l3 = xdata->template len3<dim3>();
+  auto l3 = xdata->len3();
   auto grid_dim =
       dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
 
@@ -94,12 +92,9 @@ int pszcxx_reverse_predict_spline(
 
   cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>   //
       <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GpuStreamT)stream>>>  //
-      (ectrl->dptr(), ectrl->template len3<dim3>(),
-       ectrl->template st3<dim3>(),  //
-       anchor->dptr(), anchor->template len3<dim3>(),
-       anchor->template st3<dim3>(),  //
-       xdata->dptr(), xdata->template len3<dim3>(),
-       xdata->template st3<dim3>(),  //
+      (ectrl->dptr(), ectrl->len3(), ectrl->st3(),                           //
+       anchor->dptr(), anchor->len3(), anchor->st3(),                        //
+       xdata->dptr(), xdata->len3(), xdata->st3(),                           //
        eb_r, ebx2, radius);
 
   STOP_GPUEVENT_RECORDING(stream);
@@ -111,12 +106,12 @@ int pszcxx_reverse_predict_spline(
 }
 
 #define INIT(T, E)                                                            \
-  template int pszcxx_predict_spline<T, E>(                                        \
-      pszmem_cxx<T> * data, pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl,    \
+  template int pszcxx_predict_spline<T, E>(                                   \
+      memobj<T> * data, memobj<T> * anchor, memobj<E> * ectrl,                \
       void* _outlier, double eb, uint32_t radius, float* time, void* stream); \
-  template int pszcxx_reverse_predict_spline<T, E>(                                      \
-      pszmem_cxx<T> * anchor, pszmem_cxx<E> * ectrl, pszmem_cxx<T> * xdata,   \
-      double eb, uint32_t radius, float* time, void* stream);
+  template int pszcxx_reverse_predict_spline<T, E>(                           \
+      memobj<T> * anchor, memobj<E> * ectrl, memobj<T> * xdata, double eb,    \
+      uint32_t radius, float* time, void* stream);
 
 INIT(f4, u1)
 INIT(f4, u2)

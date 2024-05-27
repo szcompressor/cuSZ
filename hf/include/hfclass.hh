@@ -72,7 +72,7 @@ class HuffmanCodec {
 
  public:
   // external
-  MemU4* hist;
+  memobj<u4>* hist;
 
   struct internal_buffer;
   internal_buffer* buf;
@@ -101,7 +101,7 @@ class HuffmanCodec {
   HuffmanCodec* build_codebook(
       uint32_t*, int const, phf_stream_t = nullptr);
 
-  HuffmanCodec* build_codebook(MemU4*, int const, phf_stream_t = nullptr);
+  HuffmanCodec* build_codebook(memobj<u4>*, int const, phf_stream_t = nullptr);
 
   HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, phf_stream_t);
 
@@ -111,7 +111,7 @@ class HuffmanCodec {
 
   // analysis
   void calculate_CR(
-      memobj<E>* ectrl, MemU4* freq, szt sizeof_dtype = 4, szt overhead_bytes = 0);
+      memobj<E>* ectrl, memobj<u4>* freq, szt sizeof_dtype = 4, szt overhead_bytes = 0);
 
  private:
   struct memcpy_helper {

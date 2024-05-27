@@ -77,9 +77,9 @@ void hf_run(
   auto sublen = tune_phf_coarse_sublen(len);
   auto pardeg = psz_utils::get_npart(len, sublen);
 
-  auto od = new pszmem_cxx<E>(len, "original", {Malloc, MallocHost});
-  auto xd = new pszmem_cxx<E>(len, "decompressed", {Malloc, MallocHost});
-  auto ht = new pszmem_cxx<F>(bklen, "histogram", {Malloc, MallocHost});
+  auto od = new memobj<E>(len, "original", {Malloc, MallocHost});
+  auto xd = new memobj<E>(len, "decompressed", {Malloc, MallocHost});
+  auto ht = new memobj<F>(bklen, "histogram", {Malloc, MallocHost});
   od->file(fname.c_str(), FromFile)->control({H2D});
 
   uint8_t* d_compressed;

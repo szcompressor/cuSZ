@@ -69,7 +69,7 @@ static void pszcxx_evaluate_quality_cpu(
 
 template <typename T>
 static void view(
-    psz_header* header, pszmem_cxx<T>* xdata, pszmem_cxx<T>* cmp,
+    psz_header* header, memobj<T>* xdata, memobj<T>* cmp,
     string const& compare)
 {
   auto len = psz_utils::uncompressed_len(header);

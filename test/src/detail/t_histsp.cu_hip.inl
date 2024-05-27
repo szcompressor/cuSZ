@@ -32,9 +32,9 @@ bool test1_debug()
   auto inlen = 256;
   auto NSYM = 1024;
 
-  auto in = new pszmem_cxx<T>(inlen, "hist-in", {Malloc, MallocHost});
-  auto o_gpusp = new pszmem_cxx<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
-  auto o_serial = new pszmem_cxx<FQ>(NSYM, "hist-o_gpusp", {MallocHost});
+  auto in = new memobj<T>(inlen, "hist-in", {Malloc, MallocHost});
+  auto o_gpusp = new memobj<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
+  auto o_serial = new memobj<FQ>(NSYM, "hist-o_gpusp", {MallocHost});
 
   for (auto i = 0; i < inlen; i++) {
     in->hptr(i) = 512;
@@ -120,10 +120,10 @@ void helper_generate_array(
 template <int NSYM = 1024>
 bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
 {
-  auto in = new pszmem_cxx<T>(inlen, "hist-in", {Malloc, MallocHost});
-  auto o_gpu = new pszmem_cxx<FQ>(NSYM, "hist-o_gpu", {Malloc, MallocHost});
-  auto o_gpusp = new pszmem_cxx<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
-  auto o_serial = new pszmem_cxx<FQ>(NSYM, "hist-o_serial", {MallocHost});
+  auto in = new memobj<T>(inlen, "hist-in", {Malloc, MallocHost});
+  auto o_gpu = new memobj<FQ>(NSYM, "hist-o_gpu", {Malloc, MallocHost});
+  auto o_gpusp = new memobj<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
+  auto o_serial = new memobj<FQ>(NSYM, "hist-o_serial", {MallocHost});
 
   // setup using randgen
   helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
@@ -184,8 +184,8 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
 
 template <int NSYM = 1024, int CHUNK = 32768, int NWARP = 8>
 bool perf(
-    pszmem_cxx<T>* in, pszmem_cxx<FQ>* o_gpusp,       // for histsp
-    pszmem_cxx<FQ>* o_gpu, pszmem_cxx<FQ>* o_serial,  // reference
+    memobj<T>* in, memobj<FQ>* o_gpusp,       // for histsp
+    memobj<FQ>* o_gpu, memobj<FQ>* o_serial,  // reference
     GpuStreamT stream)
 {
   constexpr auto NTREAD = 32 * NWARP;
@@ -230,10 +230,10 @@ bool perf(
 template <int NSYM = 1024>
 bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
 {
-  auto in = new pszmem_cxx<T>(inlen, "hist-in", {Malloc, MallocHost});
-  auto o_gpu = new pszmem_cxx<FQ>(NSYM, "hist-o_gpu", {Malloc, MallocHost});
-  auto o_gpusp = new pszmem_cxx<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
-  auto o_serial = new pszmem_cxx<FQ>(NSYM, "hist-o_serial", {MallocHost});
+  auto in = new memobj<T>(inlen, "hist-in", {Malloc, MallocHost});
+  auto o_gpu = new memobj<FQ>(NSYM, "hist-o_gpu", {Malloc, MallocHost});
+  auto o_gpusp = new memobj<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
+  auto o_serial = new memobj<FQ>(NSYM, "hist-o_serial", {MallocHost});
 
   // setup using randgen
   helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);

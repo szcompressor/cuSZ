@@ -9,11 +9,11 @@
  *
  */
 
- #include "experimental/control.hh"
-#include "experimental/mem_multibackend.hh"
+#include "experimental/control.hh"
 #include "experimental/core_type.hh"
 #include "experimental/snippet.hh"
 #include "experimental/sync.hh"
+#include "mem/multibackend.hh"  // changed from experimental
 // #include "experimental/p9y.hh"
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)

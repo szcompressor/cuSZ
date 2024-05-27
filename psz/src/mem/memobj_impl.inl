@@ -1,6 +1,4 @@
-#include <cuda_runtime.h>
-
-#include "experimental/mem_multibackend.hh"
+#include "mem/multibackend.hh"
 #include "mem/array_cxx.h"
 #include "mem/definition.hh"
 #include "mem/memobj.hh"
@@ -247,16 +245,14 @@ struct memobj<Ctype>::impl {
   Ctype& uniptr(uint32_t i) { return uni[i]; };
   Ctype& uniat(uint32_t i) { return uni[i]; };
 
-  template <typename UINT3>
-  UINT3 len3() const
+  BACKEND_SPECIFIC_LEN3 len3() const
   {
-    return UINT3{lx, ly, lz};
+    return MAKE_BACKEND_SPECOFIC_LEN3(lx, ly, lz);
   };
 
-  template <typename UINT3>
-  UINT3 st3() const
+  BACKEND_SPECIFIC_LEN3 st3() const
   {
-    return UINT3(1, sty, stz);
+    return MAKE_BACKEND_SPECOFIC_LEN3(1, sty, stz);
   };
 };
 
@@ -471,17 +467,15 @@ Ctype& memobj<Ctype>::uniat(uint32_t i)
 };
 
 template <typename Ctype>
-template <typename UINT3>
-UINT3 memobj<Ctype>::len3() const
+BACKEND_SPECIFIC_LEN3 memobj<Ctype>::len3() const
 {
-  return pimpl->template len3<UINT3>();
+  return pimpl->len3();
 };
 
 template <typename Ctype>
-template <typename UINT3>
-UINT3 memobj<Ctype>::st3() const
+BACKEND_SPECIFIC_LEN3 memobj<Ctype>::st3() const
 {
-  return pimpl->template st3<UINT3>();
+  return pimpl->st3();
 };
 
 template <typename Ctype>
@@ -517,3 +511,6 @@ template <typename Ctype>
 };
 
 }  // namespace portable
+
+// to be imported to files for instantiation
+#define __INSTANTIATE_MEMOBJ(T) template class portable::memobj<T>;

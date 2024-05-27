@@ -11,7 +11,7 @@
 namespace psz::experimental {
 
 #include "control.hh"
-#include "mem_multibackend.hh"
+#include "mem/multibackend.hh"
 #include "core_type.hh"
 #include "snippet.hh"
 #include "sync.hh"

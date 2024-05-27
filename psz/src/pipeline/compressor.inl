@@ -129,7 +129,7 @@ struct Compressor<C>::impl {
     if (ctx->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
 
-      pszmem_cxx<T> local_spline_in(
+      memobj<T> local_spline_in(
           ctx->x, ctx->y, ctx->z, "local pszmem for spline input");
       local_spline_in.dptr(in);
 
@@ -258,8 +258,7 @@ struct Compressor<C>::impl {
 #endif
 
   void decompress_predict(
-      pszheader* header, BYTE* in, T* ext_anchor, T* out,
-      psz_stream_t stream)
+      pszheader* header, BYTE* in, T* ext_anchor, T* out, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -288,8 +287,8 @@ struct Compressor<C>::impl {
       mem->_xdata->dptr(out);
 
       // TODO release borrow
-      auto aclen3 = mem->_anchor->template len3<dim3>();
-      pszmem_cxx<T> anchor(aclen3.x, aclen3.y, aclen3.z);
+      auto aclen3 = mem->_anchor->len3();
+      memobj<T> anchor(aclen3.x, aclen3.y, aclen3.z);
       anchor.dptr(d_anchor);
 
       // [psz::TODO] throw exception

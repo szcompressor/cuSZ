@@ -29,8 +29,8 @@ void printcode_u4(u4 idx, u4* word)
 
 void hfbook_serial_reference(string fname, int bklen)
 {
-  auto hist = new pszmem_cxx<u4>(bklen, "histogram", {MallocHost});
-  auto book = new pszmem_cxx<u4>(bklen, "internal book", {MallocHost});
+  auto hist = new memobj<u4>(bklen, "histogram", {MallocHost});
+  auto book = new memobj<u4>(bklen, "internal book", {MallocHost});
   auto space = new hf_canon_reference<u4, u4>(bklen);
 
   hist->file(fname.c_str(), FromFile);
@@ -60,11 +60,11 @@ void hfbook_serial_reference(string fname, int bklen)
 
 void hfbook_serial_integrated(string fname, int bklen)
 {
-  auto hist = new pszmem_cxx<u4>(bklen, "histogram", {MallocHost});
-  auto book = new pszmem_cxx<u4>(bklen, "internal book", {MallocHost});
+  auto hist = new memobj<u4>(bklen, "histogram", {MallocHost});
+  auto book = new memobj<u4>(bklen, "internal book", {MallocHost});
 
   auto revbook_bytes = hf_space<u4, u4>::revbook_bytes(bklen);
-  auto revbook = new pszmem_cxx<u1>(revbook_bytes, "revbook", {MallocHost});
+  auto revbook = new memobj<u1>(revbook_bytes, "revbook", {MallocHost});
 
   hist->file(fname.c_str(), FromFile);
 
@@ -85,7 +85,7 @@ void hfbook_serial_integrated(string fname, int bklen)
 // for reference
 void hfbook_gpu(string fname, int bklen)
 {
-  auto hist = new pszmem_cxx<u4>(bklen, "histogram", {MallocHost, Malloc});
+  auto hist = new memobj<u4>(bklen, "histogram", {MallocHost, Malloc});
   hist->file(fname.c_str(), FromFile)->control({H2D});
 
   cusz::HuffmanCodec<u4, u4> codec;

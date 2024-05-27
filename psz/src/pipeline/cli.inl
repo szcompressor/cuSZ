@@ -58,10 +58,10 @@ class CLI {
     auto r2r = ctx->mode == Rel;
     auto fname = ctx->file_input;
 
-    pszmem_cxx<T>* original =
-        new pszmem_cxx<T>(x, y, z, "original", {MallocHost, Malloc});
-    pszmem_cxx<T>* reconst =
-        new pszmem_cxx<T>(x, y, z, "reconst", {MallocHost, Malloc});
+    memobj<T>* original =
+        new memobj<T>(x, y, z, "original", {MallocHost, Malloc});
+    memobj<T>* reconst =
+        new memobj<T>(x, y, z, "reconst", {MallocHost, Malloc});
 
     double max, min, rng;
     auto len = original->len();
@@ -108,7 +108,7 @@ class CLI {
       std::string compressed_name, pszheader* header, uint8_t* compressed,
       size_t compressed_len)
   {
-    auto file = new pszmem_cxx<uint8_t>(compressed_len, "cusza", {MallocHost});
+    auto file = new memobj<uint8_t>(compressed_len, "cusza", {MallocHost});
 
     file->dptr(compressed)->control({D2H});
     memcpy(file->hptr(), header, sizeof(pszheader));  // put on-host header
@@ -121,7 +121,7 @@ class CLI {
   void do_construct(psz_compressor* compressor, void* stream)
   {
     auto ctx = compressor->ctx;
-    auto input = new pszmem_cxx<T>(
+    auto input = new memobj<T>(
         ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
 
     uint8_t* compressed;
@@ -174,7 +174,7 @@ class CLI {
     // all lengths in metadata
     auto compressed_len = psz_utils::filesize(ctx->file_input);
 
-    auto compressed = new pszmem_cxx<uint8_t>(
+    auto compressed = new memobj<uint8_t>(
         compressed_len, "compressed", {MallocHost, Malloc});
 
     compressed->file(ctx->file_input, FromFile)->control({H2D});
@@ -184,8 +184,8 @@ class CLI {
     auto len = psz_utils::uncompressed_len(header);
 
     auto decompressed =
-        new pszmem_cxx<T>(len, "decompressed", {MallocHost, Malloc});
-    auto original = new pszmem_cxx<T>(len, "original-cmp");
+        new memobj<T>(len, "decompressed", {MallocHost, Malloc});
+    auto original = new memobj<T>(len, "original-cmp");
 
     psz::TimeRecord timerecord;
 

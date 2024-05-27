@@ -26,11 +26,11 @@ using T = u4;
 template <typename T>
 void real_data_test(size_t len, size_t bklen, string fname)
 {
-  auto wn = new pszmem_cxx<T>(len, "whole numbers", {Malloc, MallocHost});
-  auto bs = new pszmem_cxx<u4>(bklen, "base-ser", {Malloc, MallocHost});
-  auto os = new pszmem_cxx<u4>(bklen, "optim-ser", {Malloc, MallocHost});
-  auto bg = new pszmem_cxx<u4>(bklen, "base-gpu", {Malloc, MallocHost});
-  auto og = new pszmem_cxx<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
+  auto wn = new memobj<T>(len, "whole numbers", {Malloc, MallocHost});
+  auto bs = new memobj<u4>(bklen, "base-ser", {Malloc, MallocHost});
+  auto os = new memobj<u4>(bklen, "optim-ser", {Malloc, MallocHost});
+  auto bg = new memobj<u4>(bklen, "base-gpu", {Malloc, MallocHost});
+  auto og = new memobj<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
 
   wn->file(fname.c_str(), FromFile)->control({H2D});
 
@@ -99,9 +99,9 @@ void dummy_data_test()
   auto len = 1000000;
   auto bklen = 1024;
 
-  auto wn = new pszmem_cxx<T>(len, "whole numbers", {Malloc, MallocHost});
-  auto serial = new pszmem_cxx<u4>(bklen, "optim-ser", {MallocHost});
-  auto gpu = new pszmem_cxx<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
+  auto wn = new memobj<T>(len, "whole numbers", {Malloc, MallocHost});
+  auto serial = new memobj<u4>(bklen, "optim-ser", {MallocHost});
+  auto gpu = new memobj<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
 
   for (auto i = 0; i < len; i += 1) wn->hptr(i) = bklen / 2;
   for (auto i = 2; i < len - 10; i += 100) {

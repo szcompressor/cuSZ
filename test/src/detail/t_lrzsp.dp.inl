@@ -40,13 +40,13 @@ bool testcase(
   using FP = T;
   auto len = x * y * z;
 
-  auto oridata = new pszmem_cxx<T>(x, y, z, "oridata");
-  auto de_data = new pszmem_cxx<T>(x, y, z, "de_data");
-  auto outlier = new pszmem_cxx<T>(x, y, z, "outlier, normal");
-  auto ectrl_focus = new pszmem_cxx<EQ>(x, y, z, "ectrl_focus");
-  auto ectrl_ref = new pszmem_cxx<EQ>(x, y, z, "ectrl_ref");
-  auto spval = new pszmem_cxx<T>(x, y, z, "spval");
-  auto spidx = new pszmem_cxx<uint32_t>(x, y, z, "spidx");
+  auto oridata = new memobj<T>(x, y, z, "oridata");
+  auto de_data = new memobj<T>(x, y, z, "de_data");
+  auto outlier = new memobj<T>(x, y, z, "outlier, normal");
+  auto ectrl_focus = new memobj<EQ>(x, y, z, "ectrl_focus");
+  auto ectrl_ref = new memobj<EQ>(x, y, z, "ectrl_ref");
+  auto spval = new memobj<T>(x, y, z, "spval");
+  auto spidx = new memobj<uint32_t>(x, y, z, "spidx");
 
   oridata->control({Malloc, MallocHost});
   de_data->control({Malloc, MallocHost});

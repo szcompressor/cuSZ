@@ -19,6 +19,7 @@
 #include "cusz/type.h"
 #include "mem/array_cxx.h"
 #include "mem/definition.hh"
+#include "mem/multibackend.hh"
 #include "typing.hh"
 
 namespace portable {
@@ -37,7 +38,7 @@ class memobj {
   double maxval, minval, range;
 
  public:
- // for {1,2,3}-D
+  // for {1,2,3}-D
   memobj(u4, const char[32] = "<unnamed>", control_stream_t = {});
   memobj(u4, u4, const char[32] = "<unnamed>", control_stream_t = {});
   memobj(u4, u4, u4, const char[32] = "<unnamed>", control_stream_t = {});
@@ -83,44 +84,26 @@ class memobj {
   Ctype& uniptr(uint32_t i);
   Ctype& uniat(uint32_t i);
 
-  template <typename UINT3>
-  UINT3 len3() const;
-
-  template <typename UINT3>
-  UINT3 st3() const;
+  BACKEND_SPECIFIC_LEN3 len3() const;
+  BACKEND_SPECIFIC_LEN3 st3() const;
 };
 
-/** @deprecated */
-typedef memobj<u1> MemU1;
-typedef memobj<u2> MemU2;
-typedef memobj<u4> MemU4;
-typedef memobj<u8> MemU8;
-typedef memobj<ull> MemUll;
-typedef memobj<i1> MemI1;
-typedef memobj<i2> MemI2;
-typedef memobj<i4> MemI4;
-typedef memobj<i8> MemI8;
-typedef memobj<szt> MemSzt;
-typedef memobj<szt> MemZu;
-typedef memobj<f4> MemF4;
-typedef memobj<f8> MemF8;
+#define MEM(T) memobj<T>
 
-typedef memobj<u1> mem_u1;
-typedef memobj<u2> mem_u2;
-typedef memobj<u4> mem_u4;
-typedef memobj<u8> mem_u8;
-typedef memobj<ull> mem_ull;
-typedef memobj<i1> mem_i1;
-typedef memobj<i2> mem_i2;
-typedef memobj<i4> mem_i4;
-typedef memobj<i8> mem_i8;
-typedef memobj<szt> mem_szt;
-typedef memobj<szt> mem_zu;
-typedef memobj<f4> mem_f4;
-typedef memobj<f8> mem_f8;
+typedef memobj<u1> memobj_u1;
+typedef memobj<u2> memobj_u2;
+typedef memobj<u4> memobj_u4;
+typedef memobj<u8> memobj_u8;
+typedef memobj<ull> memobj_ull;
+typedef memobj<i1> memobj_i1;
+typedef memobj<i2> memobj_i2;
+typedef memobj<i4> memobj_i4;
+typedef memobj<i8> memobj_i8;
+typedef memobj<szt> memobj_szt;
+typedef memobj<szt> memobj_zu;
+typedef memobj<f4> memobj_f4;
+typedef memobj<f8> memobj_f8;
 
 }  // namespace portable
-
-#define pszmem_cxx memobj
 
 #endif /* EC1B3A67_146B_48BF_A336_221E9D38C41F */

@@ -119,9 +119,9 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  auto data = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
-  auto xdata = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "decompressed", {MallocHost, Malloc});
-  auto cmp = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "cmp");
+  auto data = new memobj<f4>(ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
+  auto xdata = new memobj<f4>(ctx->x, ctx->y, ctx->z, "decompressed", {MallocHost, Malloc});
+  auto cmp = new memobj<f4>(ctx->x, ctx->y, ctx->z, "cmp");
 
   data->file(fname, FromFile)->control({H2D});
 

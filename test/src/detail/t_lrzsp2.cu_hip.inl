@@ -32,7 +32,7 @@
 
 // #define MEMPOOL_GPU pszmempool_cxx<T, E, u4, PROPER_GPU_BACKEND>
 // #define MEMPOOL_SEQ pszmempool_cxx<T, E, u4, SEQ>
-// #define MEM_T pszmem_cxx<T>
+// #define MEM_T memobj<T>
 
 // template <typename T = f4>
 // void create_dummy_input(MEM_T* in, szt len, f4 ratio = 0.001)

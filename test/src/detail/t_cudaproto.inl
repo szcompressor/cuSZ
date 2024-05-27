@@ -53,8 +53,8 @@ bool test1(
     int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3,
     T const* h_expected_output, std::string funcname)
 {
-  auto input = new pszmem_cxx<T>(len, "input", {Malloc});
-  auto eq = new pszmem_cxx<EQ>(len, "input", {Malloc, MallocHost});
+  auto input = new memobj<T>(len, "input", {Malloc});
+  auto eq = new memobj<EQ>(len, "input", {Malloc, MallocHost});
 
   using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
 
@@ -104,13 +104,13 @@ bool test2(
 {
   auto radius = 512;
 
-  auto input = new pszmem_cxx<EQ>(len, "eq", {Malloc, MallocHost});
+  auto input = new memobj<EQ>(len, "eq", {Malloc, MallocHost});
 
   for (auto i = 0; i < len; i++) input->hptr(i) = _h_input[i] + radius;
   // input.h2d();
   input->control({H2D});
 
-  auto xdata = new pszmem_cxx<T>(len, "xdata", {Malloc, MallocHost});
+  auto xdata = new memobj<T>(len, "xdata", {Malloc, MallocHost});
 
   if (dim == 1)
     proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
@@ -150,9 +150,9 @@ bool test3(
     int dim, T const* h_input, size_t len, dim3 len3, dim3 stride3,
     std::string funcname)
 {
-  auto input = new pszmem_cxx<T>(len, "input", {Malloc, MallocHost});
-  auto eq = new pszmem_cxx<EQ>(len, "eq", {Malloc});
-  auto xdata = new pszmem_cxx<T>(len, "xdata", {Malloc, MallocHost});
+  auto input = new memobj<T>(len, "input", {Malloc, MallocHost});
+  auto eq = new memobj<EQ>(len, "eq", {Malloc});
+  auto xdata = new memobj<T>(len, "xdata", {Malloc, MallocHost});
 
   for (auto i = 0; i < len; i++) input->hptr(i) = h_input[i];
   input->control({H2D});

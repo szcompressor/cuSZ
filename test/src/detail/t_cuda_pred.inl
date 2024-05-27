@@ -29,10 +29,10 @@
 //   using FP = T;
 //   auto len = x * y * z;
 
-//   auto oridata = new pszmem_cxx<T>(x, y, z, "oridata");
-//   auto de_data = new pszmem_cxx<T>(x, y, z, "de_data");
-//   auto outlier = new pszmem_cxx<T>(x, y, z, "outlier");
-//   auto errctrl = new pszmem_cxx<Eq>(x, y, z, "errctrl");
+//   auto oridata = new memobj<T>(x, y, z, "oridata");
+//   auto de_data = new memobj<T>(x, y, z, "de_data");
+//   auto outlier = new memobj<T>(x, y, z, "outlier");
+//   auto errctrl = new memobj<Eq>(x, y, z, "errctrl");
 
 //   oridata->control({MallocManaged});
 //   de_data->control({MallocManaged});

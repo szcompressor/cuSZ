@@ -94,13 +94,13 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   q = sycl::queue(sycl::default_selector_v, plist);
   auto stream = &q;
 
-  auto data = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "uncompressed");
+  auto data = new memobj<f4>(ctx->x, ctx->y, ctx->z, "uncompressed");
   data->control({MallocHost, Malloc})->file(fname, FromFile)->control({H2D});
 
-  auto xdata = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "decompressed");
+  auto xdata = new memobj<f4>(ctx->x, ctx->y, ctx->z, "decompressed");
   xdata->control({MallocHost, Malloc});
 
-  auto cmp = new pszmem_cxx<f4>(ctx->x, ctx->y, ctx->z, "cmp");
+  auto cmp = new memobj<f4>(ctx->x, ctx->y, ctx->z, "cmp");
 
   // adjust eb
   if (ctx->mode == Rel) {

@@ -27,7 +27,7 @@ template u4 count_outlier(u4*, size_t, int, void*);
 int main()
 {
   auto radius = 512;
-  auto a = new pszmem_cxx<float>(100, 100, 1, {Malloc, MallocHost});
+  auto a = new memobj<float>(100, 100, 1, {Malloc, MallocHost});
 
   auto _count = 0;
   for (auto i = 0; i < 100 * 99; i += 100) a->hptr(i) = 2045, _count += 1;

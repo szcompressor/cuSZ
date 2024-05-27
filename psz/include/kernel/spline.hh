@@ -20,12 +20,12 @@ using namespace portable;
 
 template <typename T, typename E, typename FP = T>
 int pszcxx_predict_spline(
-    pszmem_cxx<T>* data, pszmem_cxx<T>* anchor, pszmem_cxx<E>* errctrl,
+    memobj<T>* data, memobj<T>* anchor, memobj<E>* errctrl,
     void* _outlier, double eb, uint32_t radius, float* time, void* stream);
 
 template <typename T, typename E, typename FP = T>
 int pszcxx_reverse_predict_spline(
-    pszmem_cxx<T>* anchor, pszmem_cxx<E>* errctrl, pszmem_cxx<T>* xdata,
+    memobj<T>* anchor, memobj<E>* errctrl, memobj<T>* xdata,
     double eb, uint32_t radius, float* time, void* stream);
 
 #endif /* AA9BE6AD_ECA4_4267_A97F_B12C25A2B0C1 */

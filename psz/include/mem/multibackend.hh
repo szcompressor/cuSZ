@@ -8,10 +8,19 @@
 
 #if defined(PSZ_USE_CUDA)
 #include <cuda_runtime.h>
+#define BACKEND_SPECIFIC_LEN3 dim3
+#define MAKE_BACKEND_SPECOFIC_LEN3(X, Y, Z) dim3(X, Y, Z)
+
 #elif defined(PSZ_USE_HIP)
 #include <hip/hip_runtime.h>
+#define BACKEND_SPECIFIC_LEN3 dim3
+#define MAKE_BACKEND_SPECOFIC_LEN3(X, Y, Z) dim3(X, Y, Z)
+
 #elif defined(PSZ_USE_1API)
 #include <sycl/sycl.hpp>
+#define BACKEND_SPECIFIC_LEN3 sycl::range<3>
+#define MAKE_BACKEND_SPECOFIC_LEN3(X, Y, Z) sycl::range<3>(Z, Y, X)
+
 #endif
 
 template <pszmem_control>
@@ -147,8 +156,7 @@ void free_shared(T* __a, void* stream = nullptr)
 }
 
 template <typename T, pszmem_control DIR>
-void _memcpy_allkinds(
-    T* dst, T* src, size_t len, void* stream = nullptr)
+void _memcpy_allkinds(T* dst, T* src, size_t len, void* stream = nullptr)
 {
 #if defined(PSZ_USE_CUDA)
   cudaMemcpy(dst, src, sizeof(T) * len, _memcpy_direcion<DIR>::direction);
@@ -167,8 +175,7 @@ void _memcpy_allkinds(
 }
 
 template <typename T, pszmem_control DIR>
-void _memcpy_allkinds_async(
-    T* dst, T* src, size_t len, void* stream = nullptr)
+void _memcpy_allkinds_async(T* dst, T* src, size_t len, void* stream = nullptr)
 {
   if (not stream)
     throw std::runtime_error(

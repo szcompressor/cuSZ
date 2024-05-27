@@ -73,27 +73,27 @@ TPL HF_CODEC* HF_CODEC::init(
   // for both u4 and u8 encoding
 
   // placeholder length
-  compressed = new pszmem_cxx<BYTE>(inlen * TYPICAL, "hf::out4B");
+  compressed = new memobj<BYTE>(inlen * TYPICAL, "hf::out4B");
 
-  __scratch = new pszmem_cxx<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
-  scratch4 = new pszmem_cxx<H4>(inlen, 1, 1, "hf::scratch4");
-  scratch8 = new pszmem_cxx<H8>(inlen, 1, 1, "hf::scratch8");
+  __scratch = new memobj<RAW>(inlen * FAILSAFE, 1, 1, "hf::__scratch");
+  scratch4 = new memobj<H4>(inlen, 1, 1, "hf::scratch4");
+  scratch8 = new memobj<H8>(inlen, 1, 1, "hf::scratch8");
 
-  bk4 = new pszmem_cxx<H4>(bklen, 1, 1, "hf::book4");
-  bk8 = new pszmem_cxx<H8>(bklen, 1, 1, "hf::book8");
+  bk4 = new memobj<H4>(bklen, 1, 1, "hf::book4");
+  bk8 = new memobj<H8>(bklen, 1, 1, "hf::book8");
 
-  revbk4 = new pszmem_cxx<BYTE>(revbk4_bytes(bklen), 1, 1, "hf::revbk4");
-  revbk8 = new pszmem_cxx<BYTE>(revbk8_bytes(bklen), 1, 1, "hf::revbk8");
+  revbk4 = new memobj<BYTE>(revbk4_bytes(bklen), 1, 1, "hf::revbk4");
+  revbk8 = new memobj<BYTE>(revbk8_bytes(bklen), 1, 1, "hf::revbk8");
 
   // encoded buffer
   __bitstream =
-      new pszmem_cxx<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
-  bitstream4 = new pszmem_cxx<H4>(inlen / 2, 1, 1, "hf::bitstrm4");
-  bitstream8 = new pszmem_cxx<H8>(inlen / 2, 1, 1, "hf::bitstrm8");
+      new memobj<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
+  bitstream4 = new memobj<H4>(inlen / 2, 1, 1, "hf::bitstrm4");
+  bitstream8 = new memobj<H8>(inlen / 2, 1, 1, "hf::bitstrm8");
 
-  par_nbit = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_nbit");
-  par_ncell = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_ncell");
-  par_entry = new pszmem_cxx<M>(pardeg, 1, 1, "hf::par_entry");
+  par_nbit = new memobj<M>(pardeg, 1, 1, "hf::par_nbit");
+  par_ncell = new memobj<M>(pardeg, 1, 1, "hf::par_ncell");
+  par_entry = new memobj<M>(pardeg, 1, 1, "hf::par_entry");
 
   // external buffer
   hist_view = new MemU4(bklen, 1, 1, "a view of external hist");
