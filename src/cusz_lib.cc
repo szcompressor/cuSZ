@@ -16,6 +16,7 @@
 #include "cusz.h"
 #include "cusz/type.h"
 #include "hf/hf.hh"
+#include "port.hh"
 #include "tehm.hh"
 
 pszpredictor pszdefault_predictor() { return {Lorenzo}; }
@@ -28,7 +29,7 @@ pszframe* pszdefault_framework()
       20};
 }
 
-pszcompressor* psz_create(pszframe* _framework, pszdtype _type)
+pszcompressor* psz_create(pszframe* _framework, psz_dtype _type)
 {
   auto comp = new pszcompressor{.framework = _framework, .type = _type};
 
@@ -49,16 +50,12 @@ pszerror psz_release(pszcompressor* comp)
   return CUSZ_SUCCESS;
 }
 
+// TODO config is redundant when it comes to CLI
 pszerror psz_compress_init(
     pszcompressor* comp, pszlen const uncomp_len, pszctx* ctx)
 {
   comp->ctx = ctx;
-  // comp->ctx = new pszctx;
   pszctx_set_len(comp->ctx, uncomp_len);
-  // comp->ctx->eb = config->eb;
-  // comp->ctx->mode = config->mode;
-  // comp->ctx->pred_type = config->pred_type;
-  // comp->ctx->report_cr_est = config->est_cr;
 
   // Be cautious of autotuning! The default value of pardeg is not robust.
   cusz::CompressorHelper::autotune_coarse_parhf(comp->ctx);
@@ -84,9 +81,9 @@ pszerror psz_compress(
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
     cor->compress(
-        comp->ctx, (f4*)(in), *compressed, *comp_bytes, (cudaStream_t)stream);
+        comp->ctx, (f4*)(in), compressed, comp_bytes, stream);
     cor->export_header(*header);
-    cor->export_timerecord((cusz::TimeRecord*)record);
+    cor->export_timerecord((psz::TimeRecord*)record);
   }
   else {
     throw std::runtime_error(
@@ -119,8 +116,8 @@ pszerror psz_decompress(
     auto cor = (cusz::CompressorF4*)(comp->compressor);
 
     cor->decompress(
-        comp->header, compressed, (f4*)(decompressed), (cudaStream_t)stream);
-    cor->export_timerecord((cusz::TimeRecord*)record);
+        comp->header, compressed, (f4*)(decompressed), (GpuStreamT)stream);
+    cor->export_timerecord((psz::TimeRecord*)record);
   }
   else {
     throw std::runtime_error(

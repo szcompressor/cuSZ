@@ -11,7 +11,7 @@
 
 #include <cuda_runtime.h>
 #include <iostream>
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 typedef struct psz_cudatimer {
   cudaEvent_t  a, b;

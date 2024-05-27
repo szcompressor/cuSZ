@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 bool f(double sleep_time)
 {

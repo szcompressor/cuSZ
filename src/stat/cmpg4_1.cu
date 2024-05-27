@@ -1,19 +1,9 @@
-/**
- * @file cmpg4_1.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-11-03
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+#include "detail/compare.thrust.inl"
+#include "stat/compare/compare.thrust.hh"
 
-#include "detail/compare_gpu.inl"
-#include "stat/compare_thrust.hh"
-
-#define THRUSTGPU_ASSESS(Tliteral, T) \
-    template void psz::thrustgpu_assess_quality<T>(cusz_stats * s, T * xdata, T * odata, size_t const len);
+#define THRUSTGPU_ASSESS(Tliteral, T)             \
+  template void psz::thrustgpu_assess_quality<T>( \
+      psz_summary * s, T * xdata, T * odata, size_t const len);
 
 THRUSTGPU_ASSESS(fp32, float);
 

@@ -13,18 +13,30 @@
 
 #include "context.h"
 
+#include <cstring>
 #include <regex>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
 
 #include "busyheader.hh"
+#include "cusz/type.h"
 #include "utils/config.hh"
 #include "utils/document.hh"
 #include "utils/format.hh"
 
 namespace cusz {
-const char* VERSION_TEXT = "2023-08-25 (unstable; 0.8)";
-const int VERSION = 20230817;
+
+#if defined(PSZ_USE_CUDA)
+const char* VERSION_TEXT = "2023-09-05 (unstable; 0.9rc1)";
+const int VERSION = 20230905;
+#elif defined(PSZ_USE_HIP)
+const char* VERSION_TEXT = "2023-08-31 (unstable; 0.9rc1)";
+const int VERSION = 20230831;
+#elif defined(PSZ_USE_1API)
+const char* VERSION_TEXT = "2023-09-28 (unstable; 0.9rc1)";
+const int VERSION = 20230928;
+#endif
 const int COMPATIBILITY = 0;
 }  // namespace cusz
 
@@ -34,12 +46,13 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
   psz_helper::parse_strlist(in_str, opts);
 
   for (auto o : opts) {
+    // printf("[psz::dbg::parse] opt: %s\n", o.c_str());
     if (psz_helper::is_kv_pair(o)) {
       auto kv = psz_helper::parse_kv_onoff(o);
 
       if (kv.first == "cr")
         ctx->report_cr = kv.second;
-      else if (kv.first == "compressibility")
+      else if (kv.first == "cr.est")
         ctx->report_cr_est = kv.second;
       else if (kv.first == "time")
         ctx->report_time = kv.second;
@@ -47,7 +60,7 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
     else {
       if (o == "cr")
         ctx->report_cr = true;
-      else if (o == "compressibility")
+      else if (o == "cr.est")
         ctx->report_cr_est = true;
       else if (o == "time")
         ctx->report_time = true;
@@ -97,10 +110,13 @@ void pszctx_parse_control_string(
     }
     else if (optmatch({"mode"})) {
       psz_utils::check_cuszmode(v);
-      ctx->mode = v == "r2r" ? Rel : Abs;
+      ctx->mode = (v == "r2r" or v == "rel") ? Rel : Abs;
     }
-    else if (optmatch({"len", "length"})) {
+    else if (optmatch({"len", "xyz", "dim3"})) {
       pszctx_parse_length(ctx, v.c_str());
+    }
+    else if (optmatch({"size", "slowest-to-fastest", "zyx"})) {
+      pszctx_parse_length_zyx(ctx, v.c_str());
     }
     else if (optmatch({"demo"})) {
       ctx->use_demodata = true;
@@ -124,13 +140,25 @@ void pszctx_parse_control_string(
       ctx->vle_sublen = psz_helper::str2int(v);
       ctx->use_autotune_hf = false;
     }
-    // else if (optmatch({"predictor"})) {}
-    // else if (optmatch({"codec"})) {}
-    // else if (optmatch({"spcodec"})) {}
-    // else if (optmatch({"anchor"}) and is_enabled(v)) { ctx->use_anchor =
-    // true; } else if (optmatch({"nondestructive"}) and is_enabled(v)) {} else
-    // if (optmatch({"failfast"}) and is_enabled(v)) {} else if
-    // (optmatch({"releaseinput"}) and is_enabled(v)) {}
+    else if (optmatch({"predictor"})) {
+      strcpy(ctx->dbgstr_pred, v.c_str());
+
+      if (v == "spline" or v == "spline3") {
+        ctx->pred_type = psz_predtype::Spline;
+      }
+      else if (v == "lorenzo") {
+        ctx->pred_type = psz_predtype::Lorenzo;
+      }
+      else {
+        printf(
+            "[psz::warning::parser] "
+            "\"%s\" is not a supported predictor; "
+            "fallback to \"lorenzo\".",
+            v.c_str());
+        ctx->pred_type = psz_predtype::Lorenzo;
+      }
+    }
+    // else if (optmatch({"failfast"}) and is_enabled(v)) {}
     else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in
                                        // `config.hh`
       ctx->nz_density = psz_helper::str2fp(v);
@@ -144,16 +172,10 @@ void pszctx_parse_control_string(
     else if (optmatch({"gpuverify"}) and is_enabled(v)) {
       ctx->use_gpu_verify = true;
     }
-    // disable for now
-    // if (ctx->predictor == "spline3") {
-    //     // unconditionally use anchor when it is spline3
-    //     ctx->use_anchor = true;
-    // }
   }
 }
 
-void pszctx_create_from_argv(
-    pszctx* ctx, int const argc, char** const argv)
+void pszctx_create_from_argv(pszctx* ctx, int const argc, char** const argv)
 {
   if (argc == 1) {
     pszctx_print_document(false);
@@ -164,8 +186,7 @@ void pszctx_create_from_argv(
   pszctx_validate(ctx);
 }
 
-void pszctx_create_from_string(
-    pszctx* ctx, const char* in_str, bool dbg_print)
+void pszctx_create_from_string(pszctx* ctx, const char* in_str, bool dbg_print)
 {
   pszctx_parse_control_string(ctx, in_str, dbg_print);
 }
@@ -207,7 +228,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-m", "--mode"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        ctx->mode = _ == "r2r" ? Rel : Abs;
+        ctx->mode = (_ == "r2r" or _ == "rel") ? Rel : Abs;
         if (ctx->mode == Rel) ctx->prep_prescan = true;
       }
       else if (optmatch({"-e", "--eb", "--error-bound"})) {
@@ -215,9 +236,26 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         char* end;
         ctx->eb = std::strtod(argv[++i], &end);
       }
-      // else if (optmatch({"-p", "--predictor"})) {}
-      // else if (optmatch({"-c", "--codec"})) {}
-      // else if (optmatch({"-s", "--spcodec"})) {}
+      else if (optmatch({"-p", "--predictor"})) {
+        check_next();
+        auto v = std::string(argv[++i]);
+        strcpy(ctx->dbgstr_pred, v.c_str());
+
+        if (v == "spline" or v == "spline3") {
+          ctx->pred_type = psz_predtype::Spline;
+        }
+        else if (v == "lorenzo") {
+          ctx->pred_type = psz_predtype::Lorenzo;
+        }
+        else {
+          printf(
+              "[psz::warning::parser] "
+              "\"%s\" is not a supported predictor; "
+              "fallback to \"lorenzo\".",
+              v.c_str());
+          ctx->pred_type = psz_predtype::Lorenzo;
+        }
+      }
       else if (optmatch({"-t", "--type", "--dtype"})) {
         check_next();
         std::string s = std::string(std::string(argv[++i]));
@@ -231,14 +269,14 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         auto _ = std::string(argv[++i]);
         strcpy(ctx->infile, _.c_str());
       }
-      else if (optmatch({"-l", "--len"})) {
+      else if (optmatch({"-l", "--len", "--xyz", "--dim3"})) {
         check_next();
         pszctx_parse_length(ctx, argv[++i]);
       }
-      // else if (optmatch({"-L", "--allocation-len"})) {
-      //     check_next();
-      //     // placeholder
-      // }
+      else if (optmatch({"--size", "--zyx", "--slowest-to-fastest"})) {
+        check_next();
+        pszctx_parse_length_zyx(ctx, argv[++i]);
+      }
       else if (optmatch({"-z", "--zip", "--compress"})) {
         ctx->task_construct = true;
       }
@@ -287,6 +325,23 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         check_next();
         auto _ = std::string(argv[++i]);
         strcpy(ctx->original_file, _.c_str());
+      }
+      else if (optmatch({"--sycl-device"})) {
+#if defined(PSZ_USE_1API)
+        check_next();
+        auto _v = string(argv[++i]);
+        if (_v == "cpu" or _v == "CPU")
+          ctx->device = CPU;
+        else if (_v == "gpu" or _v == "GPU")
+          ctx->device = INTELGPU;
+        else
+          ctx->device = INTELGPU;
+
+#else
+        throw std::runtime_error(
+            "[psz::error] --sycl-device is not supported backend other than "
+            "CUDA/HIP.");
+#endif
       }
       else {
         const char* notif_prefix = "invalid option value at position ";
@@ -452,13 +507,12 @@ void pszctx_print_document(bool full_document)
   std::cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
 
   if (full_document)
-    std::cout << psz_helper::doc_format(cusz_full_doc) << std::endl;
+    std::cout << psz_helper::doc_format(psz_full_doc) << std::endl;
   else
-    std::cout << cusz_short_doc << std::endl;
+    std::cout << psz_short_doc << std::endl;
 }
 
-void pszctx_set_rawlen(
-    pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
+void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 {
   ctx->x = _x, ctx->y = _y, ctx->z = _z, ctx->w = _w;
 

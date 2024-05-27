@@ -19,7 +19,7 @@
 
 #include "analysis/verify.hh"
 #include "analysis/verify_gpu.cuh"
-#include "utils/cuda_err.cuh"
+#include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/io.hh"
 #include "utils/viewer.hh"
@@ -85,11 +85,11 @@ void figure_out_eb(CAPSULE& data, double& eb, double& adjusted_eb, bool use_r2r)
 void BARRIER(cudaStream_t stream = nullptr)
 {
     if (not stream) {
-        CHECK_CUDA(cudaDeviceSynchronize());
+        CHECK_GPU(cudaDeviceSynchronize());
         printf("device sync'ed\n");
     }
     else {
-        CHECK_CUDA(cudaStreamSynchronize(stream));
+        CHECK_GPU(cudaStreamSynchronize(stream));
         printf("stream sync'ed\n");
     }
 }
@@ -105,12 +105,12 @@ void exp__prepare_data(
     UNCOMPRESSED** uncompressed_backup = nullptr)
 {
     auto bytes = len * sizeof(UNCOMPRESSED);
-    CHECK_CUDA(cudaMallocManaged(uncompressed, bytes));
-    CHECK_CUDA(cudaMemset(*uncompressed, 0x0, bytes));
+    CHECK_GPU(cudaMallocManaged(uncompressed, bytes));
+    CHECK_GPU(cudaMemset(*uncompressed, 0x0, bytes));
     gen_randint_array(*uncompressed, len, base_number, non_base_portion);
 
-    CHECK_CUDA(cudaMallocManaged(decompressed, bytes));
-    CHECK_CUDA(cudaMemset(*decompressed, 0x0, bytes));
+    CHECK_GPU(cudaMallocManaged(decompressed, bytes));
+    CHECK_GPU(cudaMemset(*decompressed, 0x0, bytes));
 
     if (destructive)
         if (not uncompressed_backup) throw std::runtime_error("Destructive runtime must have data backed up.");

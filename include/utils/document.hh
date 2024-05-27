@@ -39,7 +39,7 @@ Format(const std::string& s)
     return d;
 }
 
-static const char cusz_short_doc[] =
+static const char psz_short_doc[] =
     // "cusz, version [placeholder]\n"
     "\n"
     "usage: cusz [-zxrh] [-i file] [-t dtype] [-m mode] [-e eb] [-l x,y,z] "
@@ -80,10 +80,10 @@ static const char cusz_short_doc[] =
     "\n"
     "\"cusz -h\" for details.\n";
 
-static const char cusz_full_doc[] =
+static const char psz_full_doc[] =
     "*NAME*\n"
     "        cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data\n"
-    "        Lowercased \"*cusz*\" is the command."
+    "        Lowercased \"*cusz*\" is the command.\n"
     "\n"
     "*SYNOPSIS*\n"
     "        The basic use is listed below,\n"
@@ -177,20 +177,20 @@ static const char cusz_full_doc[] =
     "                   + *cap*=<val>   capacity, number of quant-codes\n"
     "                   + *demo*=<val>  skip length input (\"-l x[,y[,z]]\"), alternative to \"--demo dataset\"\n"
     "\n"
-    "               Other internal parameters:\n"
-    "                   + *quantbyte*=<1|2>\n"
-    "                       Specify quantization code representation.\n"
-    "                       Options _1_, _2_ are for *1-* and *2-*byte, respectively. (default: 2)\n"
-    "                       ^^Manually specifying this may not result in optimal memory footprint.^^\n"
-    "                   + *huffbyte*=<4|8>\n"
-    "                       Specify Huffman codeword representation.\n"
-    "                       Options _4_, _8_ are for *4-* and *8-*byte, respectively. (default: 4)\n"
-    "                       ^^Manually specifying this may not result in optimal memory footprint.^^\n"
-    "                   + *huffchunk*=[256|512|1024|...]\n"
-    "                       Manually specify chunk size for Huffman codec, overriding autotuning.\n"
-    "                       Should be a power-of-2 that is sufficiently large.\n"
-    "                       ^^This affects Huffman decoding performance significantly.^^\n"
-    "\n"
+    // "               Other internal parameters:\n"
+    // "                   + *quantbyte*=<1|2>\n"
+    // "                       Specify quantization code representation.\n"
+    // "                       Options _1_, _2_ are for *1-* and *2-*byte, respectively. (default: 2)\n"
+    // "                       ^^Manually specifying this may not result in optimal memory footprint.^^\n"
+    // "                   + *huffbyte*=<4|8>\n"
+    // "                       Specify Huffman codeword representation.\n"
+    // "                       Options _4_, _8_ are for *4-* and *8-*byte, respectively. (default: 4)\n"
+    // "                       ^^Manually specifying this may not result in optimal memory footprint.^^\n"
+    // "                   + *huffchunk*=[256|512|1024|...]\n"
+    // "                       Manually specify chunk size for Huffman codec, overriding autotuning.\n"
+    // "                       Should be a power-of-2 that is sufficiently large.\n"
+    // "                       ^^This affects Huffman decoding performance significantly.^^\n"
+    // "\n"
     "*EXAMPLES*\n"
     "    *Demo Datasets*\n"
     "        Set a *shell variable*:\n"

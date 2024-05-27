@@ -1,5 +1,5 @@
 /**
- * @file cli.cuh
+ * @file cli.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.3
@@ -12,18 +12,20 @@
 #ifndef CLI_CUH
 #define CLI_CUH
 
-#include <string>
-#include <type_traits>
-
-#include "context.h"
+#include "busyheader.hh"
 #include "cusz.h"
 #include "cusz/type.h"
-#include "dryrun.hh"
 #include "header.h"
-#include "mem/memseg_cxx.hh"
+#include "port.hh"
+//
+#include "context.h"
+#include "dryrun.hh"
+#include "mem.hh"
 #include "tehm.hh"
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "utils/analyzer.hh"
-#include "utils/cuda_err.cuh"
+#endif
+#include "utils/err.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
 
@@ -40,8 +42,13 @@ class CLI {
   template <typename T>
   static void do_dryrun(pszctx* ctx, bool dualquant = true)
   {
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    GpuStreamT stream;
+    GpuStreamCreate(&stream);
+#elif defined(PSZ_USE_1API)
+    dpct::device_ext& dev_ct1 = dpct::get_current_device();
+    dpct::queue_ptr stream = dev_ct1.create_queue();
+#endif
 
     auto x = ctx->x, y = ctx->y, z = ctx->z;
     auto eb = ctx->eb;
@@ -59,17 +66,24 @@ class CLI {
     original->debug();
 
     original->file(fname, FromFile)->control({ASYNC_H2D}, stream);
-    CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    CHECK_GPU(GpuStreamSync((GpuStreamT)stream));
+#elif defined(PSZ_USE_1API)
+    stream->wait();
+#endif
 
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
-    psz::cuda_hip_compat::dryrun(
-        len, original->dptr(), reconst->dptr(), eb, stream);
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    psz::cu_hip::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+#elif defined(PSZ_USE_1API)
+    psz::dpcpp::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+#endif
 
     reconst->control({D2H});
 
-    cusz_stats stat;
-    psz::assess_quality<CPU>(&stat, reconst->hptr(), original->hptr(), len);
+    psz_summary stat;
+    psz::assess_quality<SEQ>(&stat, reconst->hptr(), original->hptr(), len);
     psz::print_metrics_cross<T>(&stat, 0, true);
 
     // destroy
@@ -79,7 +93,11 @@ class CLI {
     delete original;
     delete reconst;
 
-    cudaStreamDestroy(stream);
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    GpuStreamDestroy(stream);
+#elif defined(PSZ_USE_1API)
+    dev_ct1.destroy_queue(stream);
+#endif
   }
 
  private:
@@ -89,15 +107,14 @@ class CLI {
     auto file = new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "cusza");
     file->dptr(compressed)
         ->control({MallocHost, D2H})
-        ->file(compressed_name.c_str(), ToFile)
-        ->control({FreeHost});
+        ->file(compressed_name.c_str(), ToFile);
+    // ->control({FreeHost});
 
     delete file;
   }
 
   // template <typename compressor_t>
-  void do_construct(
-      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
+  void do_construct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
     auto input = new pszmem_cxx<T>(ctx->x, ctx->y, ctx->z, "uncompressed");
 
@@ -116,13 +133,8 @@ class CLI {
       ctx->eb *= rng;
     }
 
-    TimeRecord timerecord;
+    psz::TimeRecord timerecord;
 
-    // pszrc* config = new pszrc{
-    //     .eb = ctx->eb,
-    //     .mode = Rel,
-    //     .pred_type = ctx->pred_type,
-    //     .est_cr = ctx->report_cr_est};
     pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
 
     psz_compress_init(compressor, uncomp_len, ctx);
@@ -131,9 +143,12 @@ class CLI {
         compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
         &header, (void*)&timerecord, stream);
 
+    printf("\n(c) COMPRESSION REPORT\n");
+
     if (ctx->report_time)
-      TimeRecordViewer::view_compression(
-          &timerecord, input->m->bytes, compressed_len);
+      psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
+    if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
+
     write_compressed_to_disk(
         std::string(ctx->infile) + ".cusza", compressed, compressed_len);
 
@@ -141,8 +156,7 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void do_reconstruct(
-      pszctx* ctx, cusz_compressor* compressor, cudaStream_t stream)
+  void do_reconstruct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->infile);
@@ -158,8 +172,8 @@ class CLI {
         ->file(ctx->infile, FromFile)
         ->control({H2D});
 
-    auto header = new cusz_header;
-    memcpy(header, compressed->hptr(), sizeof(cusz_header));
+    auto header = new psz_header;
+    memcpy(header, compressed->hptr(), sizeof(psz_header));
     auto len = psz_utils::uncompressed_len(header);
 
     auto decompressed = new pszmem_cxx<T>(len, 1, 1, "decompressed");
@@ -167,7 +181,7 @@ class CLI {
 
     auto original = new pszmem_cxx<T>(len, 1, 1, "original-cmp");
 
-    TimeRecord timerecord;
+    psz::TimeRecord timerecord;
 
     pszlen decomp_len = pszlen{header->x, header->y, header->z, 1};
 
@@ -177,7 +191,7 @@ class CLI {
         decompressed->dptr(), decomp_len, (void*)&timerecord, stream);
 
     if (ctx->report_time)
-      TimeRecordViewer::view_decompression(
+      psz::TimeRecordViewer::view_decompression(
           &timerecord, decompressed->m->bytes);
     psz::view(header, decompressed, original, ctx->original_file);
 
@@ -185,7 +199,7 @@ class CLI {
       decompressed->control({D2H})->file(
           std::string(basename + ".cuszx").c_str(), ToFile);
 
-    decompressed->control({FreeHost, Free});
+    // decompressed->control({FreeHost, Free});
     delete decompressed;
     delete original;
   }
@@ -197,18 +211,42 @@ class CLI {
     // TODO disable predictor selection; to specify in another way
     // auto predictor = ctx->predictor;
 
-    cusz_framework* framework = pszdefault_framework();
-    cusz_compressor* compressor = cusz_create(framework, F4);
+    psz_framework* framework = pszdefault_framework();
+    psz_compressor* compressor = psz_create(framework, F4);
 
-    cudaStream_t stream;
-    CHECK_CUDA(cudaStreamCreate(&stream));
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    GpuStreamT stream;
+    CHECK_GPU(GpuStreamCreate(&stream));
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
     if (ctx->task_construct) do_construct(ctx, compressor, stream);
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
+    if (stream) GpuStreamDestroy(stream);
 
-    if (stream) cudaStreamDestroy(stream);
+#elif defined(PSZ_USE_1API)
+
+    sycl::queue q;
+    auto plist = sycl::property_list(
+        sycl::property::queue::in_order(),
+        sycl::property::queue::enable_profiling());
+
+    if (ctx->device == CPU)
+      q = sycl::queue(sycl::cpu_selector_v, plist);
+    else if (ctx->device == INTELGPU)
+      q = sycl::queue(sycl::gpu_selector_v, plist);
+    else
+      q = sycl::queue(sycl::default_selector_v, plist);
+
+    // TODO enable f8
+    if (ctx->task_dryrun) do_dryrun<float>(ctx);
+    if (ctx->task_construct) do_construct(ctx, compressor, &q);
+    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, &q);
+
+#endif
+
+    delete framework;
+    delete compressor;
   }
 };
 

@@ -9,7 +9,7 @@
  *
  */
 
-#include "busyheader.hh"
+#include "../busyheader.hh"
 
 template <typename T, int DIM, int BLOCK>
 struct psz_buf {
@@ -41,37 +41,37 @@ struct psz_buf {
   }
 };
 
-template <typename T, typename IDX = uint32_t>
-struct psz_outlier_serial {
- private:
-  T* _data;
-  IDX* _idx;
-  uint32_t _count{0};
-  uint32_t _cap;
+// template <typename T, typename IDX = uint32_t>
+// struct psz_outlier_seq {
+//  private:
+//   T* _data;
+//   IDX* _idx;
+//   uint32_t _count{0};
+//   uint32_t _cap;
 
- public:
-  psz_outlier_serial(size_t cap) : _cap(cap)
-  {
-    _data = new T[cap + 1];
-    _idx = new IDX[cap + 1];
-    memset(_data, 0x0, sizeof(T) * cap);
-  }
+//  public:
+//   psz_outlier_seq(size_t cap) : _cap(cap)
+//   {
+//     _data = new T[cap + 1];
+//     _idx = new IDX[cap + 1];
+//     memset(_data, 0x0, sizeof(T) * cap);
+//   }
 
-  ~psz_outlier_serial()
-  {
-    delete[] _data;
-    delete[] _idx;
-  }
+//   ~psz_outlier_seq()
+//   {
+//     delete[] _data;
+//     delete[] _idx;
+//   }
 
-  T*& val() { return _data; }
-  IDX*& idx() { return _idx; }
-  uint32_t const count() { return _count; }
+//   T*& val() { return _data; }
+//   IDX*& idx() { return _idx; }
+//   uint32_t const count() { return _count; }
 
-  void record(T data, IDX idx)
-  {
-    if (_count > _cap) throw std::runtime_error("Outlier overflows.");
-    _data[_count] = data;
-    _idx[_count] = idx;
-    ++_count;
-  }
-};
+//   void record(T data, IDX idx)
+//   {
+//     if (_count > _cap) throw std::runtime_error("Outlier overflows.");
+//     _data[_count] = data;
+//     _idx[_count] = idx;
+//     ++_count;
+//   }
+// };

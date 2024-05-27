@@ -19,7 +19,7 @@
 enum class DebugType { Header, HfHeader };
 
 struct psz_debug {
-  static void __header(const cusz_header* h)
+  static void __header(const psz_header* h)
   {
     printf("header::{x, y, z, w}\t{%u, %u, %u, %u}\n", h->x, h->y, h->z, h->w);
     printf("header::{radius, eb}\t{%u, %lf}\n", h->radius, h->eb);

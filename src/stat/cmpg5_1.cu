@@ -1,16 +1,8 @@
-/**
- * @file cmpg4_2.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-11-03
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
-#include "detail/maxerr_thrust.inl"
-#include "stat/compare_thrust.hh"
+// deps
+#include "stat/compare/compare.thrust.hh"
+#include "port.hh"
+// definitions
+#include "detail/maxerr.thrust.inl"
 
 #define THRUSTGPU_ASSESS(Tliteral, T)           \
     template void psz::thrustgpu_get_maxerr<T>( \

@@ -9,7 +9,7 @@
  *
  */
 
-#include "utils/timer.h"
+#include "utils/timer.hh"
 
 #include <chrono>
 #include <utility>
