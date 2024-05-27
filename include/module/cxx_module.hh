@@ -7,39 +7,42 @@
 
 namespace _2401 {
 
-template <typename T>
-pszerror pszcxx_predict_lorenzo(
-    pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
-    pszcompact_cxx<T> out_outlier, void* stream);
+template <typename T, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+class pszpred_lrz {
+ public:
+  static pszerror pszcxx_predict_lorenzo(
+      pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
+      pszcompact_cxx<T> out_outlier, f4*, void* stream);
 
-template <typename T>
-pszerror pszcxx_predict_spline(
-    pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
-    pszcompact_cxx<T> out_outlier, pszarray_cxx<T> out_anchor, float* time,
-    void* stream);
+  static pszerror pszcxx_reverse_predict_lorenzo(
+      pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
+      pszrc2 const rc, pszarray_cxx<T> out_reconstruct, f4*, void* stream);
+};
 
-template <typename T>
-pszerror pszcxx_reverse_predict_lorenzo(
-    pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
-    pszrc2 const rc, pszarray_cxx<T> out_reconstruct, void* stream);
+template <typename T, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+class pszpred_spl {
+  static pszerror pszcxx_predict_spline(
+      pszarray_cxx<T> in, pszrc2 const rc, pszarray_cxx<u4> out_errquant,
+      pszcompact_cxx<T> out_outlier, pszarray_cxx<T> out_anchor, float* time,
+      void* stream);
 
-template <typename T>
-pszerror pszcxx_reverse_predict_spline(
-    pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
-    pszarray_cxx<T> in_anchor, pszrc2 const rc,
-    pszarray_cxx<T> out_reconstruct, float* time, void* stream);
+  static pszerror pszcxx_reverse_predict_spline(
+      pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier,
+      pszarray_cxx<T> in_anchor, pszrc2 const rc,
+      pszarray_cxx<T> out_reconstruct, float* time, void* stream);
+};
 
-template <pszpolicy Policy, typename T>
+template <pszpolicy Policy, typename T, bool TIMING = true>
 pszerror pszcxx_histogram_cauchy(
     pszarray_cxx<T> in, pszarray_cxx<u4> out_hist, float* milliseconds,
     void* stream);
 
-template <pszpolicy P, typename T>
+template <pszpolicy P, typename T, bool TIMING = true>
 pszerror pszcxx_scatter_naive(
     pszcompact_cxx<T> in_outlier, pszarray_cxx<T> out_decomp_space,
     float* milliseconds, void* stream);
 
-template <pszpolicy P, typename T>
+template <pszpolicy P, typename T, bool TIMING = true>
 pszerror pszcxx_gather_make_metadata_host_available(
     pszcompact_cxx<T> in_outlier, void* stream);
 

@@ -17,7 +17,6 @@
 #include <thrust/sort.h>
 
 #include "busyheader.hh"
-#include "hf/hfcodec.hh"
 #include "utils/timer.hh"
 
 using std::cout;

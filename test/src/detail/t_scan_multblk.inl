@@ -110,7 +110,7 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   bool ok = true;
 
   printf("test len: %u\t", 1);
-  pszcxx_reverse_predict_lorenzo(eq, len3, data, 0.5, 0, data, &time, stream);
+  pszcxx_reverse_predict_lorenzo__internal(eq, len3, data, 0.5, 0, data, &time, stream);
 
   psz::experimental::free_shared(data, stream);
   psz::experimental::free_shared(eq, stream);

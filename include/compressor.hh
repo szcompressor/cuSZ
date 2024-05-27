@@ -16,15 +16,16 @@
 #include "context.h"
 #include "cusz/type.h"
 #include "header.h"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "mem.hh"
+#include "module/cxx_module.hh"
 #include "typing.hh"
 
 namespace cusz {
 
 // extra helper
 struct CompressorHelper {
-  static int autotune_coarse_parhf(psz_context* ctx);
+  static int autotune_phf_coarse(psz_context* ctx);
 };
 
 template <class TEHM>
@@ -51,6 +52,8 @@ class Compressor {
   // profiling
   TimeRecord timerecord;
 
+  std::vector<pszerror> error_list;
+
   // header
   Header header;
 
@@ -73,6 +76,7 @@ class Compressor {
 
  public:
   pszmempool_cxx<T, E, H>* mem;
+  pszcompact_cxx<T>* _2403_compact;
 
  public:
   Compressor(){};
@@ -80,14 +84,12 @@ class Compressor {
 
   // public methods
   template <class CONFIG>
-  Compressor* init(CONFIG* config, bool dbg_print = false);
+  Compressor* init(CONFIG* config, bool iscompression=true, bool dbg_print = false);
   Compressor* compress(pszctx*, T*, BYTE**, size_t*, uninit_stream_t);
   Compressor* compress_predict(pszctx*, T*, uninit_stream_t);
-  Compressor* compress_histogram(pszctx*, uninit_stream_t);
   Compressor* compress_encode(pszctx*, uninit_stream_t);
-  Compressor* compress_merge(pszctx*, void*);
-  Compressor* compress_update_header(pszctx*, uninit_stream_t);
-  Compressor* compress_wrapup(BYTE** out, szt* outlen);
+  Compressor* compress_encode_use_prebuilt(pszctx*, uninit_stream_t);
+  Compressor* compress_merge_update_header(pszctx*, BYTE**, szt*, void*);
   Compressor* compress_collect_kerneltime();
 
   Compressor* decompress(pszheader*, BYTE*, T*, uninit_stream_t);
@@ -97,8 +99,7 @@ class Compressor {
   Compressor* decompress_collect_kerneltime();
 
   Compressor* clear_buffer();
-  Compressor* dump(std::vector<pszmem_dump>, char const*);
-  Compressor* destroy();
+  Compressor* optional_dump(pszctx*, pszmem_dump const);
 
   // getter
   Compressor* export_header(pszheader&);

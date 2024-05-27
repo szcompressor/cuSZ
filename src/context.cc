@@ -68,6 +68,29 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
   }
 }
 
+void pszctx_set_dumping(pszctx* ctx, const char* in_str)
+{
+  str_list opts;
+  psz_helper::parse_strlist(in_str, opts);
+
+  for (auto o : opts) {
+    if (psz_helper::is_kv_pair(o)) {
+      auto kv = psz_helper::parse_kv_onoff(o);
+
+      if (kv.first == "quantcode" or kv.first == "quant")
+        ctx->dump_quantcode = kv.second;
+      else if (kv.first == "histogram" or kv.first == "hist")
+        ctx->dump_hist = kv.second;
+    }
+    else {
+      if (o == "quantcode" or o == "quant")
+        ctx->dump_quantcode = true;
+      else if (o == "histogram" or o == "hist")
+        ctx->dump_hist = true;
+    }
+  }
+}
+
 /**
  **  >>> syntax
  **  comma-separated key-pairs
@@ -131,14 +154,15 @@ void pszctx_parse_control_string(
       ctx->radius = psz_helper::str2int(v);
       ctx->dict_size = ctx->radius * 2;
     }
-    else if (optmatch({"huffbyte"})) {
-      ctx->huff_bytewidth = psz_helper::str2int(v);
-      // ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use both*/
-      // : 0b01 /*use 4-byte*/;
-    }
+    // else if (optmatch({"huffbyte"})) {
+    //   ctx->huff_bytewidth = psz_helper::str2int(v);
+    //   // ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use
+    //   both*/
+    //   // : 0b01 /*use 4-byte*/;
+    // }
     else if (optmatch({"huffchunk"})) {
       ctx->vle_sublen = psz_helper::str2int(v);
-      ctx->use_autotune_hf = false;
+      ctx->use_autotune_phf = false;
     }
     else if (optmatch({"predictor"})) {
       strcpy(ctx->dbgstr_pred, v.c_str());
@@ -217,6 +241,10 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         check_next();
         pszctx_set_report(ctx, argv[++i]);
       }
+      else if (optmatch({"--dump"})) {
+        check_next();
+        pszctx_set_dumping(ctx, argv[++i]);
+      }
       else if (optmatch({"-h", "--help"})) {
         pszctx_print_document(true);
         exit(0);
@@ -267,7 +295,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-i", "--input"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->infile, _.c_str());
+        strcpy(ctx->file_input, _.c_str());
       }
       else if (optmatch({"-l", "--len", "--xyz", "--dim3"})) {
         check_next();
@@ -324,7 +352,25 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"--origin", "--compare"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->original_file, _.c_str());
+        strcpy(ctx->file_compare, _.c_str());
+      }
+      else if (optmatch({"--import-hfbk"})) {
+        /* --import-hfbk fname,bklen,nbk */
+        check_next();
+        auto _ = std::string(argv[++i]);
+
+        std::vector<std::string> _tokens;
+        std::string _token;
+        std::istringstream _tokenstream(_);
+        while (std::getline(_tokenstream, _token, ',')) {
+          _tokens.push_back(_token);
+        }
+
+        strcpy(ctx->file_prebuilt_hist_top1, _tokens[0].c_str());
+        strcpy(ctx->file_prebuilt_hfbk, _tokens[1].c_str());
+        ctx->prebuilt_bklen = psz_helper::str2int(_tokens[2]);
+        ctx->prebuilt_nbk = psz_helper::str2int(_tokens[3]);
+        ctx->use_prebuilt_hfbk = true;
       }
       else if (optmatch({"--sycl-device"})) {
 #if defined(PSZ_USE_1API)
@@ -404,6 +450,7 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
     ctx->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
 
     ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+    ctx->_2403_pszlen = {ctx->x, ctx->y, ctx->z, 1};
   }
 }
 
@@ -436,8 +483,8 @@ void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
 void pszctx_validate(pszctx* ctx)
 {
   bool to_abort = false;
-  // if (ctx->infile.empty()) {
-  if (ctx->infile[0] == '\0') {
+  // if (ctx->file_input.empty()) {
+  if (ctx->file_input[0] == '\0') {
     cerr << LOG_ERR << "must specify input file" << endl;
     to_abort = true;
   }
@@ -484,6 +531,13 @@ void pszctx_validate(pszctx* ctx)
          << endl;
     cerr << LOG_WARN << "will dryrun only" << endl << endl;
     ctx->task_reconstruct = false;
+  }
+
+  // if use prebuilt hfbk
+  if (ctx->use_prebuilt_hfbk) {
+    if (ctx->prebuilt_bklen != ctx->dict_size)
+      throw std::runtime_error("prebuilt-bklen != runtime-bklen");
+    // TODO use filesize to check nbk
   }
 
   if (to_abort) {
@@ -533,6 +587,7 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 void pszctx_set_len(pszctx* ctx, pszlen len)
 {
   pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w);
+  ctx->_2403_pszlen = len;
 }
 
 void pszctx_set_radius(pszctx* ctx, int _)
@@ -541,17 +596,17 @@ void pszctx_set_radius(pszctx* ctx, int _)
   ctx->dict_size = ctx->radius * 2;
 }
 
-void pszctx_set_huffbyte(pszctx* ctx, int _)
-{
-  ctx->huff_bytewidth = _;
-  // ctx->codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01
-  // /*use 4-byte*/;
-}
+// void pszctx_set_huffbyte(pszctx* ctx, int _)
+// {
+//   ctx->huff_bytewidth = _;
+//   // ctx->codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01
+//   // /*use 4-byte*/;
+// }
 
 void pszctx_set_huffchunk(pszctx* ctx, int _)
 {
   ctx->vle_sublen = _;
-  ctx->use_autotune_hf = false;
+  ctx->use_autotune_phf = false;
 }
 
 void pszctx_set_densityfactor(pszctx* ctx, int _)

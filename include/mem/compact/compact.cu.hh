@@ -16,6 +16,8 @@
 
 #include <stdexcept>
 
+#include "cusz/type.h"
+#include "exception/exception.hh"
 #include "mem/memseg_cxx.hh"
 
 namespace psz {
@@ -38,7 +40,7 @@ struct CompactGpuDram {
 
   T* h_val;
   uint32_t* h_idx;
-  uint32_t h_num{0};
+  uint32_t* h_num;
 
   size_t reserved_len;
 
@@ -55,8 +57,8 @@ struct CompactGpuDram {
   {
     cudaMalloc(&d_val, sizeof(T) * reserved_len);
     cudaMalloc(&d_idx, sizeof(uint32_t) * reserved_len);
-    cudaMalloc(&d_num, sizeof(uint32_t) * 1);
-    cudaMemset(d_num, 0x0, sizeof(T) * 1);  // init d_val
+    cudaMalloc(&d_num, sizeof(uint32_t));
+    cudaMemset(d_num, 0x0, sizeof(T));  // init d_val
 
     return *this;
   }
@@ -65,6 +67,8 @@ struct CompactGpuDram {
   {
     cudaMallocHost(&h_val, sizeof(T) * reserved_len);
     cudaMallocHost(&h_idx, sizeof(uint32_t) * reserved_len);
+    cudaMallocHost(&h_num, sizeof(uint32_t));
+    *h_num = 0;
 
     return *this;
   }
@@ -77,26 +81,24 @@ struct CompactGpuDram {
 
   CompactGpuDram& freehost()
   {
-    cudaFreeHost(h_idx), cudaFreeHost(h_val);
+    cudaFreeHost(h_idx), cudaFreeHost(h_val), cudaFreeHost(h_num);
     return *this;
   }
 
   // memcpy
-  CompactGpuDram& make_host_accessible(cudaStream_t stream = 0)
-  {
-    cudaMemcpyAsync(&h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
+  pszerror make_host_accessible(cudaStream_t stream = 0)
+  try {
+    cudaMemcpyAsync(h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
     cudaStreamSynchronize(stream);
     // cudaMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
     // cudaMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
     // cudaStreamSynchronize(stream);
 
-    if (h_num > reserved_len)
-      throw std::runtime_error(
-          "[psz::err::compact] Too many outliers exceed the maximum allocated "
-          "buffer.");
+    if (*h_num > reserved_len) throw psz::exception_too_many_outliers();
 
-    return *this;
+    return CUSZ_SUCCESS;
   }
+  NONEXIT_CATCH(psz::exception_too_many_outliers, CUSZ_OUTLIER_TOO_MANY)
 
   CompactGpuDram& control(
       std::vector<pszmem_control> control_stream,
@@ -119,7 +121,7 @@ struct CompactGpuDram {
   }
 
   // accessor
-  uint32_t num_outliers() { return h_num; }
+  uint32_t num_outliers() { return *h_num; }
   T* val() { return d_val; }
   uint32_t* idx() { return d_idx; }
   uint32_t* num() { return d_num; }

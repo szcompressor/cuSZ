@@ -15,8 +15,8 @@
 #define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
 #include "busyheader.hh"
-#include "hf/hfcodec.hh"
 #include "hf/hfstruct.h"
+#include "hf/hfword.hh"
 #include "typing.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
@@ -28,9 +28,10 @@
 
 using BYTE = uint8_t;
 
-extern __shared__ char __codec_huffman_uninitialized[];
+extern __shared__ char __codec_raw[];
 
-struct __helper {
+namespace {
+struct helper {
   __device__ __forceinline__ static unsigned int local_tid_1()
   {
     return threadIdx.x;
@@ -59,40 +60,112 @@ struct __helper {
   }
 };
 
-template <typename E, typename H, typename M>
-__global__ void hf_decode_kernel(
-    H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
-    int const revbook_nbyte, int const sublen, int const pardeg, E* out);
+}  // namespace
 
-namespace psz {
-namespace detail {
+namespace _2403::kernel {
 
+// a duplicate from psz
+template <typename T, typename M = u4>
+__global__ void phf_scatter_adhoc(T* val, M* idx, int const n, T* out)
+{
+  auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (tid < n) {
+    int dst_idx = idx[tid];
+    out[dst_idx] = val[tid];
+  }
+}
+
+// TODO totally disable H (no need to be other than uint32_t)
+// TODO kernel wrapper
 template <typename E, typename H>
-__global__ void hf_encode_phase1_fill(
-    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
-    int const in_booklen, H* out_encoded);
+__global__ void phf_encode_phase1_fill_with_filter(
+    /* input */ E* in, size_t const in_len, H* in_bk, int const in_bklen,
+    H const replacement,  //
+    /* output */ H* encoded, E* outlier_val, uint32_t* outlier_idx,
+    uint32_t* outlier_num)
+{
+  auto s_bk = reinterpret_cast<uint32_t*>(__codec_raw);
 
-template <typename H, typename M>
-__global__ void hf_encode_phase2_deflate(
-    H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
-    int const sublen, int const pardeg);
+  // load from global memory
+  for (auto idx = helper::local_tid_1();  //
+       idx < in_bklen;                    //
+       idx += helper::block_stride_1())
+    s_bk[idx] = in_bk[idx];
 
-template <typename H, typename M>
-__global__ void hf_encode_phase4_concatenate(
-    H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen,
-    H* non_gapped);
+  __syncthreads();
+
+  for (auto idx = helper::global_tid_1(); idx < in_len;
+       idx += helper::grid_stride_1()) {
+    auto candidate = s_bk[(int)in[idx]];
+    auto pw4 = reinterpret_cast<PackedWordByWidth<4>*>(&candidate);
+
+    if (pw4->bits == pw4->OUTLIER_CUTOFF) {
+      encoded[idx] = replacement;
+      auto atomic_old_loc = atomicAdd(outlier_num, 1);
+      outlier_val[atomic_old_loc] = in[idx];
+      outlier_idx[atomic_old_loc] = idx;
+      printf(
+          "inside kernel; hf outlier; atomic_old_loc: %d\n", atomic_old_loc);
+    }
+    else {
+      encoded[idx] = candidate;
+    }
+  }
+}
+
+template <typename E, typename H, typename M = uint32_t>
+__global__ void phf_encode_phase1_fill_collect_metadata(
+    E* in, size_t const in_len, H* in_bk, int const in_bklen, int const sublen,
+    int const pardeg, int const repeat, H* encoded, M* par_nbit, M* par_ncell)
+{
+  using PW = PackedWordByWidth<sizeof(H)>;
+  auto s_bk = reinterpret_cast<H*>(__codec_raw);
+  // for one sublen of pts
+  __shared__ uint32_t nbit;
+
+  // load codebook
+  for (auto i = threadIdx.x; i < in_bklen; i += blockDim.x) {
+    s_bk[i] = in_bk[i];
+  }
+  __syncthreads();
+
+  for (auto n = 0; n < repeat; n++) {
+    uint32_t p_nbit{0};
+    if (threadIdx.x == 0) nbit = 0;
+    __syncthreads();
+
+    auto block_base = blockIdx.x * (repeat * sublen);
+    auto part_id = block_base / (n * sublen);
+
+    for (auto i = threadIdx.x; i < sublen; i += blockDim.x) {
+      auto gid = i + (n * sublen) + block_base;
+      auto word = s_bk[(int)in[gid]];
+      encoded[gid] = word;
+      p_nbit += ((PW*)&word)->bits;
+    }
+    atomicAdd(&nbit, p_nbit);
+    __syncthreads();
+
+    if (threadIdx.x == 0) {  //
+      auto ncell = (nbit - 1) / (sizeof(H) * 8) + 1;
+      if (part_id < pardeg) {
+        par_nbit[part_id] = nbit;
+        par_ncell[part_id] = ncell;
+      }
+    }
+
+    __syncthreads();
+  }
+}
+
+}  // namespace _2403::kernel
+
+namespace psz::detail {
 
 // TODO change size_t to unsigned int
 template <typename H, typename E>
-__device__ void hf_decode_single_thread_inflate(
-    H* input, E* out, int const total_bw, BYTE* revbook);
-
-}  // namespace detail
-}  // namespace psz
-
-// TODO change size_t to unsigned int
-template <typename H, typename E>
-__device__ void psz::detail::hf_decode_single_thread_inflate(
+__device__ void phf_decode_single_thread_inflate(
     H* input, E* out, int const total_bw, BYTE* revbook)
 {
   constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
@@ -143,29 +216,28 @@ __device__ void psz::detail::hf_decode_single_thread_inflate(
 }
 
 template <typename E, typename H>
-__global__ void psz::detail::hf_encode_phase1_fill(
-    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
-    int const in_booklen, H* out_encoded)
+__global__ void phf_encode_phase1_fill(
+    E* in, size_t const in_len, H* in_bk, int const in_bklen, H* out_encoded)
 {
-  auto shmem_cb = reinterpret_cast<H*>(__codec_huffman_uninitialized);
+  auto s_bk = reinterpret_cast<H*>(__codec_raw);
 
   // load from global memory
-  for (auto idx = __helper::local_tid_1();  //
-       idx < in_booklen;                    //
-       idx += __helper::block_stride_1())
-    shmem_cb[idx] = in_book[idx];
+  for (auto idx = helper::local_tid_1();  //
+       idx < in_bklen;                    //
+       idx += helper::block_stride_1())
+    s_bk[idx] = in_bk[idx];
 
   __syncthreads();
 
-  for (auto idx = __helper::global_tid_1();  //
-       idx < in_uncompressed_len;            //
-       idx += __helper::grid_stride_1()      //
+  for (auto idx = helper::global_tid_1();  //
+       idx < in_len;                       //
+       idx += helper::grid_stride_1()      //
   )
-    out_encoded[idx] = shmem_cb[(int)in_uncompressed[idx]];
+    out_encoded[idx] = s_bk[(int)in[idx]];
 }
 
 template <typename H, typename M>
-__global__ void psz::detail::hf_encode_phase2_deflate(
+__global__ void phf_encode_phase2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
     int const sublen, int const pardeg)
 {
@@ -228,9 +300,8 @@ __global__ void psz::detail::hf_encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-__global__ void psz::detail::hf_encode_phase4_concatenate(
-    H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen,
-    H* non_gapped)
+__global__ void phf_encode_phase4_concatenate(
+    H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped)
 {
   auto n = par_ncell[blockIdx.x];
   auto src = gapped + cfg_sublen * blockIdx.x;
@@ -242,7 +313,7 @@ __global__ void psz::detail::hf_encode_phase4_concatenate(
 }
 
 template <typename E, typename H, typename M>
-__global__ void hf_decode_kernel(
+__global__ void phf_decode_kernel(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
     int const revbook_nbyte, int const sublen, int const pardeg, E* out)
 {
@@ -260,10 +331,12 @@ __global__ void hf_decode_kernel(
   auto gid = BIX * BDX + TIX;
 
   if (gid < pardeg) {
-    psz::detail::hf_decode_single_thread_inflate(
+    phf_decode_single_thread_inflate(
         in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem);
     __syncthreads();
   }
 }
+
+}  // namespace psz::detail
 
 #endif

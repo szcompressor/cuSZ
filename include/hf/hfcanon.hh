@@ -86,8 +86,8 @@ class hf_canon_reference {
   }
 
   // accessor
-  H*& icb() { return _icb; }
-  H* ocb() { return _ocb; }
+  H*& input_bk() { return _icb; }
+  H* output_bk() { return _ocb; }
   H* canon() { return _canon; }
   E* keys() { return _keys; }
   int* numl() { return _numl; }
@@ -95,8 +95,8 @@ class hf_canon_reference {
   int* first() { return _first; }
   int* entry() { return _entry; }
 
-  H& icb(int i) { return _icb[i]; }
-  H& ocb(int i) { return _ocb[i]; }
+  H& input_bk(int i) { return _icb[i]; }
+  H& output_bk(int i) { return _ocb[i]; }
   H& canon(int i) { return _canon[i]; }
   E& keys(int i) { return _keys[i]; }
   int& numl(int i) { return _numl[i]; }

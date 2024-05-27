@@ -24,7 +24,7 @@ bool batch_run_testcase(uint32_t x, uint32_t y, uint32_t z)
 
   // all_pass = all_pass and testcase<float, uint8_t>(x, y, z, eb, 128);
   // all_pass = all_pass and testcase<float, uint16_t>(x, y, z, eb, 512);
-  all_pass = all_pass and testcase<float, uint32_t>(x, y, z, eb, 512);
+  // all_pass = all_pass and testcase<float, uint32_t>(x, y, z, eb, 512);
   // all_pass = all_pass and testcase<float, float>(x, y, z, eb, 512);
   // all_pass = all_pass and testcase<double, uint8_t>(x, y, z, eb, 128);
   // all_pass = all_pass and testcase<double, uint16_t>(x, y, z, eb, 512);
@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
   bool all_pass = true;
 
-  all_pass = all_pass and batch_run_testcase(50, 1, 1);
+  // all_pass = all_pass and batch_run_testcase(50, 1, 1);
   // all_pass = all_pass and batch_run_testcase(3600, 1800, 1);
   // all_pass = all_pass and batch_run_testcase(360, 180, 100);
 

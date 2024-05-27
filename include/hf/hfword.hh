@@ -26,7 +26,7 @@ struct PackedWordByWidth<4> {
   static const int FIELDWIDTH_word = 27;
   static const int FIELDWIDTH_bits = 5;
 
-  static const int IS_OUTLIER = 1 + FIELDWIDTH_word;
+  static const int OUTLIER_CUTOFF = 1 + FIELDWIDTH_word;
 
   uint32_t word : FIELDWIDTH_word;
   uint32_t bits : FIELDWIDTH_bits;
@@ -37,7 +37,7 @@ struct PackedWordByWidth<8> {
   static const int FIELDWIDTH_word = 58;
   static const int FIELDWIDTH_bits = 6;
 
-  static const int IS_OUTLIER = 1 + FIELDWIDTH_word;
+  static const int OUTLIER_CUTOFF = 1 + FIELDWIDTH_word;
 
   uint64_t word : FIELDWIDTH_word;
   uint64_t bits : FIELDWIDTH_bits;

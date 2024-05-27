@@ -1,16 +1,11 @@
-#include <cuda_runtime.h>
-
 #include "lrz_cxx.cu_hip.inl"
 
-#define INS(T)                                                            \
-  template pszerror _2401::pszcxx_predict_lorenzo<T>(                     \
-      pszarray_cxx<T>, pszrc2 const, pszarray_cxx<u4>, pszcompact_cxx<T>, \
-      void*);                                                             \
-  template pszerror _2401::pszcxx_reverse_predict_lorenzo(                \
-      pszarray_cxx<u4> in_errquant, pszarray_cxx<T> in_scattered_outlier, \
-      pszrc2 const rc, pszarray_cxx<T> out_reconstruct, void* stream);
+template class _2401::pszpred_lrz<f4, CPU_BARRIER_AND_TIMING>;
+template class _2401::pszpred_lrz<f4, CPU_BARRIER>;
+template class _2401::pszpred_lrz<f4, GPU_AUTOMONY>;
 
-INS(f4)
-INS(f8)
+template class _2401::pszpred_lrz<f8, CPU_BARRIER_AND_TIMING>;
+template class _2401::pszpred_lrz<f8, CPU_BARRIER>;
+template class _2401::pszpred_lrz<f8, GPU_AUTOMONY>;
 
 #undef INS

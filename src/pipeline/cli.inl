@@ -53,7 +53,7 @@ class CLI {
     auto x = ctx->x, y = ctx->y, z = ctx->z;
     auto eb = ctx->eb;
     auto r2r = ctx->mode == Rel;
-    auto fname = ctx->infile;
+    auto fname = ctx->file_input;
 
     pszmem_cxx<T>* original = new pszmem_cxx<T>(x, y, z, "original");
     pszmem_cxx<T>* reconst = new pszmem_cxx<T>(x, y, z, "reconst");
@@ -102,12 +102,15 @@ class CLI {
 
  private:
   void write_compressed_to_disk(
-      std::string compressed_name, uint8_t* compressed, size_t compressed_len)
+      std::string compressed_name, pszheader* header, uint8_t* compressed,
+      size_t compressed_len)
   {
     auto file = new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "cusza");
-    file->dptr(compressed)
-        ->control({MallocHost, D2H})
-        ->file(compressed_name.c_str(), ToFile);
+
+    file->dptr(compressed)->control({MallocHost, D2H});
+    // put on-host header
+    memcpy(file->hptr(), header, sizeof(pszheader));
+    file->file(compressed_name.c_str(), ToFile);
     // ->control({FreeHost});
 
     delete file;
@@ -123,7 +126,7 @@ class CLI {
     pszheader header;
 
     input->control({MallocHost, Malloc})
-        ->file(ctx->infile, FromFile)
+        ->file(ctx->file_input, FromFile)
         ->control({H2D});
 
     // adjust eb
@@ -143,15 +146,22 @@ class CLI {
         compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
         &header, (void*)&timerecord, stream);
 
-    printf("\n(c) COMPRESSION REPORT\n");
+    if (not ctx->there_is_memerr) {
+      printf("\n(c) COMPRESSION REPORT\n");
 
-    if (ctx->report_time)
-      psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
-    if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
+      if (ctx->report_time)
+        psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
+      if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
 
-    write_compressed_to_disk(
-        std::string(ctx->infile) + ".cusza", compressed, compressed_len);
+      write_compressed_to_disk(
+          std::string(ctx->file_input) + ".cusza", &header, compressed,
+          compressed_len);
+    }
+    else {
+      printf("\n*** exit on failure.\n");
+    }
 
+    // delete data buffers external to compressor
     delete input;
   }
 
@@ -159,17 +169,17 @@ class CLI {
   void do_reconstruct(pszctx* ctx, psz_compressor* compressor, void* stream)
   {
     // extract basename w/o suffix
-    auto basename = std::string(ctx->infile);
+    auto basename = std::string(ctx->file_input);
     basename = basename.substr(0, basename.rfind('.'));
 
     // all lengths in metadata
-    auto compressed_len = psz_utils::filesize(ctx->infile);
+    auto compressed_len = psz_utils::filesize(ctx->file_input);
 
     auto compressed =
         new pszmem_cxx<uint8_t>(compressed_len, 1, 1, "compressed");
 
     compressed->control({MallocHost, Malloc})
-        ->file(ctx->infile, FromFile)
+        ->file(ctx->file_input, FromFile)
         ->control({H2D});
 
     auto header = new psz_header;
@@ -193,13 +203,14 @@ class CLI {
     if (ctx->report_time)
       psz::TimeRecordViewer::view_decompression(
           &timerecord, decompressed->m->bytes);
-    psz::view(header, decompressed, original, ctx->original_file);
+    psz::view(header, decompressed, original, ctx->file_compare);
 
     if (not ctx->skip_tofile)
       decompressed->control({D2H})->file(
           std::string(basename + ".cuszx").c_str(), ToFile);
 
-    // decompressed->control({FreeHost, Free});
+    // delete data buffers external to compressor
+    delete compressed;
     delete decompressed;
     delete original;
   }
@@ -211,6 +222,7 @@ class CLI {
     // TODO disable predictor selection; to specify in another way
     // auto predictor = ctx->predictor;
 
+    // TODO make it a value rather than a pointer
     psz_framework* framework = pszdefault_framework();
     psz_compressor* compressor = psz_create(framework, F4);
 
@@ -245,8 +257,11 @@ class CLI {
 
 #endif
 
+    // TODO mirrored with creation
     delete framework;
-    delete compressor;
+
+    psz_release(compressor);
+    // delete compressor;
   }
 };
 

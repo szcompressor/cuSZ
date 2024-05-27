@@ -1,9 +1,10 @@
 #include "pipeline/testframe.hh"
+#include <stdexcept>
 
 #include "busyheader.hh"
 #include "compressor.hh"
 #include "context.h"
-#include "hf/hf.hh"
+#include "hf/hfclass.hh"
 #include "kernel.hh"
 #include "mem.hh"
 #include "port.hh"
@@ -20,11 +21,12 @@ TESTFRAME::full_compress(
     uninit_stream_t stream)
 {
   cor->compress_predict(ctx, in, stream);
-  cor->compress_histogram(ctx, stream);
+  // cor->compress_histogram(ctx, stream);
+  throw std::runtime_error("[2403] known distruption when modularizing.");
   cor->compress_encode(ctx, stream);
-  cor->compress_merge(ctx, stream);
-  cor->compress_update_header(ctx, stream);
-  cor->compress_wrapup(out, outlen);
+  cor->compress_merge_update_header(ctx, out, outlen, stream);
+  // cor->compress_update_header(ctx, stream);
+  // cor->compress_wrapup(out, outlen);
 }
 
 TESTFRAME::full_decompress(
@@ -48,7 +50,7 @@ TESTFRAME::pred_comp_decomp(
   auto d_space = out, d_xdata = out;
 
   cor->compress_predict(ctx, in, stream);
-  auto d_anchor = cor->mem->ac->dptr();
+  auto d_anchor = cor->mem->_anchor->dptr();
 
   psz::spv_scatter_naive<PROPER_GPU_BACKEND, T>(
       cor->mem->compact_val(), cor->mem->compact_idx(),
@@ -72,9 +74,9 @@ TESTFRAME::pred_hist_comp(
 
   /* In place of `cor->compress_histogram(ctx, in, stream);` */
 
-  cor->mem->e->control({D2H});
-  auto ectrl_gpu = cor->mem->e->dptr();
-  auto ectrl_cpu = cor->mem->e->hptr();
+  cor->mem->_ectrl->control({D2H});
+  auto ectrl_gpu = cor->mem->_ectrl->dptr();
+  auto ectrl_cpu = cor->mem->_ectrl->hptr();
 
   auto ht_gpu = new pszmem_cxx<u4>(booklen, 1, 1, "ht_gpu");
   ht_gpu->control({Malloc, MallocHost});

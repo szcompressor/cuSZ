@@ -9,49 +9,74 @@
  * @date 2020-09-20
  * Created on 2019-08-27
  *
- * @copyright (C) 2020 by Washington State University, The University of Alabama, Argonne National Laboratory
- * See LICENSE in top-level directory
+ * @copyright (C) 2020 by Washington State University, The University of
+ * Alabama, Argonne National Laboratory See LICENSE in top-level directory
  *
  */
 
 #include <fstream>
 #include <iostream>
 
+#include "exception/exception.hh"
+
 namespace io {
 
 template <typename T>
 T* read_binary_to_new_array(const std::string& fname, size_t dtype_len)
 {
-    std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
-    if (not ifs.is_open()) {
-        std::cerr << "fail to open " << fname << std::endl;
-        exit(1);
-    }
-    auto _a = new T[dtype_len]();
-    ifs.read(reinterpret_cast<char*>(_a), std::streamsize(dtype_len * sizeof(T)));
-    ifs.close();
-    return _a;
+  std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
+
+  if (not ifs.is_open()) {
+#if defined(NO_DEPENDENCY)
+    throw std::runtime_error("fail to open " + fname);
+#else
+    throw psz::exception_io(fname);
+#endif
+  }
+
+  auto _a = new T[dtype_len]();
+  ifs.read(
+      reinterpret_cast<char*>(_a), std::streamsize(dtype_len * sizeof(T)));
+  ifs.close();
+  return _a;
 }
 
 template <typename T>
 void read_binary_to_array(const std::string& fname, T* _a, size_t dtype_len)
 {
-    std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
-    if (not ifs.is_open()) {
-        std::cerr << "fail to open " << fname << std::endl;
-        exit(1);
-    }
-    ifs.read(reinterpret_cast<char*>(_a), std::streamsize(dtype_len * sizeof(T)));
-    ifs.close();
+  std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
+
+  if (not ifs.is_open()) {
+#if defined(NO_DEPENDENCY)
+    throw std::runtime_error("fail to open " + fname);
+#else
+    throw psz::exception_io(fname);
+#endif
+  }
+
+  ifs.read(
+      reinterpret_cast<char*>(_a), std::streamsize(dtype_len * sizeof(T)));
+  ifs.close();
 }
 
 template <typename T>
-void write_array_to_binary(const std::string& fname, T* const _a, size_t const dtype_len)
+void write_array_to_binary(
+    const std::string& fname, T* const _a, size_t const dtype_len)
 {
-    std::ofstream ofs(fname.c_str(), std::ios::binary | std::ios::out);
-    if (not ofs.is_open()) return;
-    ofs.write(reinterpret_cast<const char*>(_a), std::streamsize(dtype_len * sizeof(T)));
-    ofs.close();
+  std::ofstream ofs(fname.c_str(), std::ios::binary | std::ios::out);
+
+  if (not ofs.is_open()) {
+#if defined(NO_DEPENDENCY)
+    throw std::runtime_error("fail to open " + fname);
+#else
+    throw psz::exception_io(fname);
+#endif
+  }
+
+  ofs.write(
+      reinterpret_cast<const char*>(_a),
+      std::streamsize(dtype_len * sizeof(T)));
+  ofs.close();
 }
 
 }  // namespace io
