@@ -393,8 +393,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         const char* notif_prefix = "invalid option value at position ";
         char* notif;
         int size = asprintf(&notif, "%d: %s", i, argv[i]);
-        cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m"
-             << "\n";
+        cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m" << "\n";
         cerr << std::string(LOG_NULL.length() + strlen(notif_prefix), ' ');
         cerr << "\e[1m";
         cerr << std::string(strlen(notif), '~');
@@ -450,7 +449,7 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
     ctx->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
 
     ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
-    ctx->_2403_pszlen = {ctx->x, ctx->y, ctx->z, 1};
+    ctx->nd_len = {ctx->x, ctx->y, ctx->z, 1};
   }
 }
 
@@ -546,16 +545,6 @@ void pszctx_validate(pszctx* ctx)
   }
 }
 
-// pszctx::pszctx(int argc, char** const argv)
-// {
-//     pszctx_parse_argv(this, argc, argv);
-//     pszctx_validate(this);
-// }
-
-// pszctx::pszctx(const char* in_str, bool dbg_print) {
-// pszctx_set_field_from_str(this, in_str, dbg_print);
-// }
-
 void pszctx_print_document(bool full_document)
 {
   std::cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
@@ -577,6 +566,7 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 
   ctx->ndim = ndim;
   ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+  ctx->nd_len = pszlen{_x, _y, _z, _w};
 
   if (ctx->data_len == 1)
     throw std::runtime_error("Input data length cannot be 1 (linearized).");
@@ -587,7 +577,7 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 void pszctx_set_len(pszctx* ctx, pszlen len)
 {
   pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w);
-  ctx->_2403_pszlen = len;
+  // ctx->nd_len = len;
 }
 
 void pszctx_set_radius(pszctx* ctx, int _)
@@ -595,13 +585,6 @@ void pszctx_set_radius(pszctx* ctx, int _)
   ctx->radius = _;
   ctx->dict_size = ctx->radius * 2;
 }
-
-// void pszctx_set_huffbyte(pszctx* ctx, int _)
-// {
-//   ctx->huff_bytewidth = _;
-//   // ctx->codecs_in_use  = codec_force_fallback() ? 0b11 /*use both*/ : 0b01
-//   // /*use 4-byte*/;
-// }
 
 void pszctx_set_huffchunk(pszctx* ctx, int _)
 {

@@ -144,7 +144,7 @@ struct Compressor<C>::impl {
     }
     else {
       _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
-          {in, ctx->_2403_pszlen}, {ctx->eb, ctx->radius},
+          {in, ctx->nd_len}, {ctx->eb, ctx->radius},
           {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
           stream);
 
@@ -457,7 +457,7 @@ Compressor<C>* Compressor<C>::export_header(pszheader& ext_header)
 template <class C>
 Compressor<C>* Compressor<C>::export_header(pszheader* ext_header)
 {
-  *ext_header = pimpl->header;
+  if (ext_header) *ext_header = pimpl->header;
   return this;
 }
 
@@ -468,7 +468,7 @@ Compressor<C>* Compressor<C>::export_timerecord(TimeRecord* ext_timerecord)
   return this;
 }
 
-}  // namespace cusz
+}  // namespace psz
 
 #undef COLLECT_TIME
 

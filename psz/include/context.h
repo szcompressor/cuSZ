@@ -25,25 +25,11 @@ extern "C" {
 struct psz_context {
   pszdevice device;
 
+  psz_dtype dtype{F4};
   psz_predtype pred_type;
-
-  // sizes
-  uint32_t x{1}, y{1}, z{1}, w{1};
-  size_t data_len{1};
-  size_t splen{0};
-  int ndim{-1};
-  pszlen _2403_pszlen{1, 1, 1, 1};
-
-  // filenames
-  char demodata_name[40];
-  char opath[200];
-  char file_input[500];
-  char file_compare[500];
-  char file_prebuilt_hist_top1[500];
-  char file_prebuilt_hfbk[500];
+  psz_codectype codec_type;
 
   // pipeline config
-  psz_dtype dtype{F4};
   psz_mode mode{Rel};
   double eb{0.0};
   int dict_size{1024}, radius{512};
@@ -54,9 +40,22 @@ struct psz_context {
   float nz_density_factor{5};
 
   // codec config
-  //   uint32_t codecs_in_use{0b01};
-  //   int quant_bytewidth{2}, huff_bytewidth{4};
   int vle_sublen{512}, vle_pardeg{-1};
+
+  // sizes
+  uint32_t x{1}, y{1}, z{1}, w{1};
+  size_t data_len{1};
+  size_t splen{0};
+  int ndim{-1};
+  pszlen nd_len{1, 1, 1, 1};
+
+  // filenames
+  char demodata_name[40];
+  char opath[200];
+  char file_input[500];
+  char file_compare[500];
+  char file_prebuilt_hist_top1[500];
+  char file_prebuilt_hfbk[500];
 
   // ???
   char dbgstr_pred[10];

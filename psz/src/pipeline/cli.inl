@@ -118,8 +118,9 @@ class CLI {
   }
 
   // template <typename compressor_t>
-  void do_construct(pszctx* ctx, psz_compressor* compressor, void* stream)
+  void do_construct(psz_compressor* compressor, void* stream)
   {
+    auto ctx = compressor->ctx;
     auto input = new pszmem_cxx<T>(
         ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
 
@@ -138,12 +139,10 @@ class CLI {
 
     psz::TimeRecord timerecord;
 
-    pszlen uncomp_len = pszlen{ctx->x, ctx->y, ctx->z, 1};
-
-    psz_compress_init(compressor, uncomp_len, ctx);
+    psz_compress_init(compressor, pszlen{ctx->x, ctx->y, ctx->z, 1});
 
     psz_compress(
-        compressor, input->dptr(), uncomp_len, &compressed, &compressed_len,
+        compressor, input->dptr(), ctx->nd_len, &compressed, &compressed_len,
         &header, (void*)&timerecord, stream);
 
     if (not ctx->there_is_memerr) {
@@ -220,8 +219,10 @@ class CLI {
     // auto predictor = ctx->predictor;
 
     // TODO make it a value rather than a pointer
-    psz_framework* framework = pszdefault_framework();
-    psz_compressor* compressor = psz_create(framework, F4);
+    // psz_framework* framework = pszdefault_framework();
+    // psz_compressor* compressor = psz_create(framework, F4);
+
+    psz_compressor* compressor = psz_create_from_context(ctx);
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;
@@ -229,7 +230,7 @@ class CLI {
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
-    if (ctx->task_construct) do_construct(ctx, compressor, stream);
+    if (ctx->task_construct) do_construct(compressor, stream);
     if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
     if (stream) GpuStreamDestroy(stream);
 
@@ -255,7 +256,7 @@ class CLI {
 #endif
 
     // TODO mirrored with creation
-    delete framework;
+    // delete framework;
 
     psz_release(compressor);
     // delete compressor;

@@ -20,8 +20,8 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum psz_execution_policy { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
-typedef enum psz_execution_policy psz_platform;
+typedef enum psz_backend { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
+typedef enum psz_backend psz_platform;
 typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } pszdevice;
 
 typedef void* uninit_stream_t;
@@ -118,10 +118,8 @@ typedef enum psz_preptype  //
 
 typedef enum psz_codectype  //
 { Huffman = 0,
+  HuffmanRevisit,
   RunLength,
-  // NvcompCascade,
-  // NvcompLz4,
-  // NvcompSnappy,
 } psz_codectype;
 
 typedef enum psz_hfbktype  //
@@ -163,13 +161,13 @@ typedef psz_hfruntimeconfig pszhfrc;
 
 ////// wrap-up
 
-typedef struct psz_framework {
-  pszpredictor predictor;
-  pszquantizer quantizer;
-  pszhfrc hfcoder;
-  f4 max_outlier_percent;
-} psz_framework;
-typedef psz_framework pszframe;
+// typedef struct psz_framework {
+//   pszpredictor predictor;
+//   pszquantizer quantizer;
+//   pszhfrc hfcoder;
+//   f4 max_outlier_percent;
+// } psz_framework;
+// typedef psz_framework pszframe;
 
 struct psz_context;
 typedef struct psz_context pszctx;
@@ -181,7 +179,7 @@ typedef struct psz_compressor {
   void* compressor;
   pszctx* ctx;
   pszheader* header;
-  pszframe* framework;
+  // pszframe* framework;  // deprecated
   psz_dtype type;
 } psz_compressor;
 typedef psz_compressor pszcompressor;
@@ -211,9 +209,44 @@ typedef struct psz_summary {
 } psz_summary;
 typedef psz_summary pszsummary;
 
-typedef u1* pszout;
-// used for bridging some compressor internal buffer
-typedef pszout* ptr_pszout;
+// typedef u1* pszout;
+// // used for bridging some compressor internal buffer
+// typedef pszout* ptr_pszout;
+
+typedef struct psz_api_array {
+  void* const buf;
+  pszlen const len3;
+  psz_dtype dtype;
+} pszarray;
+
+typedef pszarray psz_data_input;
+typedef pszarray psz_input;
+typedef pszarray psz_in;
+typedef pszarray* pszarray_mutable;
+
+typedef struct psz_rettype_archive {
+  u1* compressed;
+  size_t* comp_bytes;
+  pszheader* header;
+} psz_archive;
+
+typedef psz_archive psz_data_output;
+typedef psz_archive psz_output;
+typedef psz_archive psz_out;
+
+typedef struct psz_api_compact {
+  void* const val;
+  uint32_t* idx;
+  uint32_t* num;
+  uint32_t reserved_len;
+  pszdtype const dtype;
+} sz_api_compact;
+
+typedef sz_api_compact pszcompact;
+typedef pszcompact pszoutlier;
+typedef pszoutlier* pszoutlier_mutable;
+
+
 
 // 2401
 typedef struct __pszimpl_binding_compressor_stream {

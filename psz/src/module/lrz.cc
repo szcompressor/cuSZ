@@ -5,7 +5,7 @@
 
 #include "cusz.h"
 #include "exception/exception.hh"
-#include "mem/array_c.h"
+// #include "mem/array_c.h"
 #include "pszcxx.hh"
 
 using namespace portable;

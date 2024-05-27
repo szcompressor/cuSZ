@@ -129,7 +129,7 @@ template <typename T>
 void free_host(T* __a, void* stream = nullptr)
 {
 #if defined(PSZ_USE_CUDA)
-  cudaFree(__a);
+  cudaFreeHost(__a);
 #elif defined(PSZ_USE_HIP)
   hipHostFree(__a);
 #elif defined(PSZ_USE_1API)

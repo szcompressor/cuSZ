@@ -112,11 +112,21 @@ catch (sycl::exception const& exc) {
 
 }  // namespace cusz
 
-using Ff4 = psz::CompoundType<float>;
-using CFf4 = psz::Compressor<Ff4>;
+using CompoundF4 = psz::CompoundType<float>;
+using CF4 = psz::Compressor<CompoundF4>;
 
-template class psz::Compressor<Ff4>;
-template CFf4* CFf4::init<psz_context>(
+template class psz::Compressor<CompoundF4>;
+template CF4* CF4::init<psz_context>(
     psz_context* config, bool iscompression, bool debug);
-template CFf4* CFf4::init<psz_header>(
+template CF4* CF4::init<psz_header>(
+    psz_header* config, bool iscompression, bool debug);
+
+
+using CompoundF8 = psz::CompoundType<double>;
+using CF8 = psz::Compressor<CompoundF8>;
+
+template class psz::Compressor<CompoundF8>;
+template CF8* CF8::init<psz_context>(
+    psz_context* config, bool iscompression, bool debug);
+template CF8* CF8::init<psz_header>(
     psz_header* config, bool iscompression, bool debug);

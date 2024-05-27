@@ -1,5 +1,10 @@
-add_executable(demo_capi_cuda src/demo_capi.cu_hip.cc)
+add_executable(demo_capi_cuda src/demo_capi.cuda.cc)
 target_link_libraries(demo_capi_cuda
+  PRIVATE cusz
+)
+
+add_executable(demo_capi_minimal_cuda src/demo_capi_minimal.cuda.cc)
+target_link_libraries(demo_capi_minimal_cuda
   PRIVATE cusz
 )
 
@@ -10,7 +15,7 @@ target_link_libraries(ex_utils
 
 # add_executable(bin_pipeline_cu src/bin_pipeline.cu_hip.cc)
 # target_link_libraries(bin_pipeline_cu
-#   PRIVATE cusz CUDA::cudart
+# PRIVATE cusz CUDA::cudart
 # )
 
 add_executable(bin_hf src/bin_hf.cc)
