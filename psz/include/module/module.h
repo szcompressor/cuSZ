@@ -5,19 +5,19 @@
 
 // modular functions as of 2401
 // clang-format off
-pszerror psz_predict_lorenzo(pszarray in, pszrc2 const rc, pszarray out_errquant, pszoutlier out_outlier, f4*void* stream);
+pszerror psz_predict_lorenzo(psz_carray in, psz_rc const rc, psz_carray out_errquant, psz_outlier out_outlier, f4*void* stream);
 
-/**/pszerror psz_predict_spline(pszarray in, pszrc2 const rc, pszarray out_errquant, pszarray out_anchor, pszoutlier out_outlier, void* stream);
-/**/pszerror psz_histogram(pszarray in, pszarray hist, void* stream);
-/**/pszerror psz_encode_entropy(pszarray in, pszarray out_encoded, void* stream);
-/**/pszerror psz_encode_dictionary(pszcompressor_stream cor, pszarray in, pszarray out_encoded, void* stream);
-/**/pszerror psz_archive(pszcompressor_stream cor, pszarray in_encoded, pszoutlier in_scattered_outlier, pszheader* out_header, pszarray out_archive, void* stream);
+/**/pszerror psz_predict_spline(psz_carray in, psz_rc const rc, psz_carray out_errquant, psz_carray out_anchor, psz_outlier out_outlier, void* stream);
+/**/pszerror psz_histogram(psz_carray in, psz_carray hist, void* stream);
+/**/pszerror psz_encode_entropy(psz_carray in, psz_carray out_encoded, void* stream);
+/**/pszerror psz_encode_dictionary(pszcompressor_stream cor, psz_carray in, psz_carray out_encoded, void* stream);
+/**/pszerror psz_archive(pszcompressor_stream cor, psz_carray in_encoded, psz_outlier in_scattered_outlier, pszheader* out_header, psz_carray out_archive, void* stream);
 
-/**/pszerror psz_unarchive(pszheader* in_header, pszarray in_archive, pszarray out_encoded, pszoutlier out_outlier, void* stream);
-/**/pszerror psz_decode_entropy(pszarray in_encoded, pszarray out_decoded, void* stream);
-/**/pszerror psz_decode_dictionary(pszarray in_encoded, pszarray out_decoded, void* stream);
-pszerror psz_reverse_predict_lorenzo(pszarray in_errquant, pszoutlier in_scattered_outlier, pszrc2 const rc, pszarray out_reconstruct, f4*,void* stream);
-/**/pszerror psz_reverse_predict_spline(pszarray in_errquant, pszarray in_anchor, pszoutlier in_scattered_outlier, pszarray out_reconstruct, void* stream);
+/**/pszerror psz_unarchive(pszheader* in_header, psz_carray in_archive, psz_carray out_encoded, psz_outlier out_outlier, void* stream);
+/**/pszerror psz_decode_entropy(psz_carray in_encoded, psz_carray out_decoded, void* stream);
+/**/pszerror psz_decode_dictionary(psz_carray in_encoded, psz_carray out_decoded, void* stream);
+pszerror psz_reverse_predict_lorenzo(psz_carray in_errquant, psz_outlier in_scattered_outlier, psz_rc const rc, psz_carray out_reconstruct, f4*,void* stream);
+/**/pszerror psz_reverse_predict_spline(psz_carray in_errquant, psz_carray in_anchor, psz_outlier in_scattered_outlier, psz_carray out_reconstruct, void* stream);
 // clang-format on
 
 #endif /* B140A45C_CB00_4A4F_B9BC_F84ABB108FD9 */

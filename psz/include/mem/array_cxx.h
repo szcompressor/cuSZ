@@ -10,7 +10,7 @@ namespace portable {
 template <typename T>
 struct array3 {
   T* const buf;
-  pszlen len3;
+  psz_len3 len3;
 };
 
 // dense array, 1d

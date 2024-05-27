@@ -64,7 +64,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::init(
 
 #ifdef ENABLE_HUFFBK_GPU
 PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
-    uint32_t* freq, int const bklen, uninit_stream_t stream)
+    uint32_t* freq, int const bklen, phf_stream_t stream)
 {
   psz::hf_buildbook<CUDA, E, H4>(
       freq, bklen, bk4->dptr(), revbk4->dptr(), revbk4_bytes(bklen),
@@ -76,7 +76,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
 
 // using CPU huffman
 PHF_TPL PHF_CLASS* PHF_CLASS::build_codebook(
-    MemU4* freq, int const bklen, uninit_stream_t stream)
+    MemU4* freq, int const bklen, phf_stream_t stream)
 {
   psz::hf_buildbook<SEQ, E, H4>(
       freq->control({D2H})->hptr(), bklen, buf->bk4->hptr(),
@@ -157,7 +157,7 @@ PHF_TPL void PHF_CLASS::calculate_CR(
 PHF_TPL
 PHF_CLASS* PHF_CLASS::encode(
     E* in, size_t const len, uint8_t** out, size_t* outlen,
-    uninit_stream_t stream)
+    phf_stream_t stream)
 {
   _time_lossless = 0;
 
@@ -238,7 +238,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::make_metadata()
 }
 
 PHF_TPL PHF_CLASS* PHF_CLASS::decode(
-    uint8_t* in_compressed, E* out_decompressed, uninit_stream_t stream,
+    uint8_t* in_compressed, E* out_decompressed, phf_stream_t stream,
     bool header_on_device)
 {
   Header header;

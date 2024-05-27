@@ -139,7 +139,7 @@ class CLI {
 
     psz::TimeRecord timerecord;
 
-    psz_compress_init(compressor, pszlen{ctx->x, ctx->y, ctx->z, 1});
+    psz_compress_init(compressor, psz_len3{ctx->x, ctx->y, ctx->z});
 
     psz_compress(
         compressor, input->dptr(), ctx->nd_len, &compressed, &compressed_len,
@@ -189,7 +189,7 @@ class CLI {
 
     psz::TimeRecord timerecord;
 
-    pszlen decomp_len = pszlen{header->x, header->y, header->z, 1};
+    psz_len3 decomp_len = psz_len3{header->x, header->y, header->z};
 
     psz_decompress_init(compressor, header);
     psz_decompress(

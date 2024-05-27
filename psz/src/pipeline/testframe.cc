@@ -18,7 +18,7 @@
 
 TESTFRAME::full_compress(
     pszctx* ctx, Compressor* cor, T* in, BYTE** out, szt* outlen,
-    uninit_stream_t stream)
+    psz_stream_t stream)
 {
   cor->compress_predict(ctx, in, stream);
   // cor->compress_histogram(ctx, stream);
@@ -31,7 +31,7 @@ TESTFRAME::full_compress(
 
 TESTFRAME::full_decompress(
     pszheader* header, Compressor* cor, u1* d_compressed, T* out,
-    uninit_stream_t stream)
+    psz_stream_t stream)
 {
   auto in = d_compressed;
   auto d_space = out, d_xdata = out;
@@ -43,7 +43,7 @@ TESTFRAME::full_decompress(
 }
 
 TESTFRAME::pred_comp_decomp(
-    pszctx* ctx, Compressor* cor, T* in, T* out, uninit_stream_t stream)
+    pszctx* ctx, Compressor* cor, T* in, T* out, psz_stream_t stream)
 {
   auto header = new pszheader{};
   float time_sp;
@@ -63,7 +63,7 @@ TESTFRAME::pred_comp_decomp(
 }
 
 TESTFRAME::pred_hist_comp(
-    pszctx* ctx, Compressor* cor, T* in, uninit_stream_t stream,
+    pszctx* ctx, Compressor* cor, T* in, psz_stream_t stream,
     bool skip_print)
 {
   float time_hist;
@@ -104,7 +104,7 @@ TESTFRAME::pred_hist_comp(
 }
 
 TESTFRAME::pred_hist_hf_comp(
-    pszctx* ctx, Compressor* cor, T* in, uninit_stream_t stream)
+    pszctx* ctx, Compressor* cor, T* in, psz_stream_t stream)
 {
   // TODO wrap up pred_hist_comp
 }

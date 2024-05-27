@@ -12,7 +12,7 @@ extern "C" {
 // typedef phf_execution_policy phf_platform;
 // typedef enum phf_device { CPU, NVGPU, AMDGPU, INTELGPU } phfdevice;
 
-typedef void* uninit_stream_t;
+typedef void* phf_stream_t;
 
 //////// state enumeration
 

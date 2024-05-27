@@ -51,9 +51,9 @@ bool test(char* fname)
 
   // for (auto i = 0; i < 20; i++) { cout << host_data[200 + i] << '\n'; }
 
-  pszlen shape1d = {6480000, 1, 1};
-  pszlen shape2d = {3600, 1800, 1};
-  pszlen shape3d = {360, 180, 100};
+  psz_len3 shape1d = {6480000, 1, 1};
+  psz_len3 shape2d = {3600, 1800, 1};
+  psz_len3 shape3d = {360, 180, 100};
 
   auto the_eb = 1e-2;
   auto the_data_size = shape2d;

@@ -47,7 +47,7 @@ struct psz_context {
   size_t data_len{1};
   size_t splen{0};
   int ndim{-1};
-  pszlen nd_len{1, 1, 1, 1};
+  psz_len3 nd_len{1, 1, 1};
 
   // filenames
   char demodata_name[40];
@@ -103,7 +103,7 @@ void pszctx_validate(pszctx* ctx);
 void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
 void pszctx_set_rawlen(
     pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w);
-void pszctx_set_len(pszctx* ctx, pszlen len);
+void pszctx_set_len(pszctx* ctx, psz_len3 len);
 void pszctx_set_report(pszctx* ctx, const char* in_str);
 void pszctx_set_dumping(pszctx* ctx, const char* in_str);
 void pszctx_set_radius(pszctx* ctx, int _);

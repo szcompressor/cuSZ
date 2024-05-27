@@ -31,7 +31,7 @@ void f(std::string fname)
       /* dtype */ F4, /* predictor */ Lorenzo, /* quantizer radius */ 512,
       /* codec */ Huffman, eb, mode);
 
-  auto uncomp_len = pszlen{3600, 1800, 1, 1};  // x, y, z, w
+  auto uncomp_len = psz_len3{3600, 1800, 1};  // x, y, z
   auto decomp_len = uncomp_len;
 
   pszheader header;

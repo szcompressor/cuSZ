@@ -53,8 +53,8 @@ void f(std::string fname)
   pszcompressor* comp = psz_create(work, F4);
 
   pszrc* config = new pszrc{.eb = 2.4e-4, .mode = Rel};
-  pszlen uncomp_len = pszlen{3600, 1800, 1, 1};  // x, y, z, w
-  pszlen decomp_len = uncomp_len;
+  psz_len3 uncomp_len = psz_len3{3600, 1800, 1, 1};  // x, y, z, w
+  psz_len3 decomp_len = uncomp_len;
 
   // TODO still C++ types
   psz::TimeRecord compress_timerecord;

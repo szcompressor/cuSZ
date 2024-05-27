@@ -72,7 +72,7 @@ pszerror psz_release(pszcompressor* comp)
   return CUSZ_SUCCESS;
 }
 
-pszerror psz_compress_init(pszcompressor* comp, pszlen const uncomp_len)
+pszerror psz_compress_init(pszcompressor* comp, psz_len3 const uncomp_len)
 {
   pszctx_set_len(comp->ctx, uncomp_len);
 
@@ -92,7 +92,7 @@ pszerror psz_compress_init(pszcompressor* comp, pszlen const uncomp_len)
 }
 
 pszerror psz_compress(
-    pszcompressor* comp, void* in, pszlen const uncomp_len,
+    pszcompressor* comp, void* in, psz_len3 const uncomp_len,
     uint8_t** compressed, size_t* comp_bytes, pszheader* header, void* record,
     void* stream)
 {
@@ -128,7 +128,7 @@ pszerror psz_decompress_init(pszcompressor* comp, pszheader* header)
 
 pszerror psz_decompress(
     pszcompressor* comp, uint8_t* compressed, size_t const comp_len,
-    void* decompressed, pszlen const decomp_len, void* record, void* stream)
+    void* decompressed, psz_len3 const decomp_len, void* record, void* stream)
 {
   if (comp->type == F4) {
     auto cor = (psz::CompressorF4*)(comp->compressor);

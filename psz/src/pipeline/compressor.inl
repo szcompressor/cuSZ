@@ -259,14 +259,11 @@ struct Compressor<C>::impl {
 
   void decompress_predict(
       pszheader* header, BYTE* in, T* ext_anchor, T* out,
-      uninit_stream_t stream)
+      psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
     };
-
-    // const auto eb = header->eb;
-    // const auto radius = header->radius;
 
     if (in and ext_anchor)
       throw std::runtime_error(
@@ -283,7 +280,7 @@ struct Compressor<C>::impl {
     auto len3 = sycl::range<3>(header->z, header->y, header->x);
 #endif
 
-    auto _adhoc_pszlen = pszlen{header->x, header->y, header->z, 1};
+    auto _adhoc_pszlen = psz_len3{header->x, header->y, header->z};
     auto _adhoc_linear = header->z * header->y * header->x;
 
     if (header->pred_type == Spline) {
@@ -314,7 +311,7 @@ struct Compressor<C>::impl {
     }
   }
 
-  void decompress_decode(pszheader* header, BYTE* in, uninit_stream_t stream)
+  void decompress_decode(pszheader* header, BYTE* in, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -323,7 +320,7 @@ struct Compressor<C>::impl {
   }
 
   void decompress_scatter(
-      pszheader* header, BYTE* in, T* d_space, uninit_stream_t stream)
+      pszheader* header, BYTE* in, T* d_space, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);

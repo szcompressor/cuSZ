@@ -448,8 +448,8 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
     ctx->x = demo_xyzw[0], ctx->y = demo_xyzw[1], ctx->z = demo_xyzw[2],
     ctx->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
 
-    ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
-    ctx->nd_len = {ctx->x, ctx->y, ctx->z, 1};
+    ctx->data_len = ctx->x * ctx->y * ctx->z;
+    ctx->nd_len = {ctx->x, ctx->y, ctx->z};
   }
 }
 
@@ -555,9 +555,9 @@ void pszctx_print_document(bool full_document)
     std::cout << psz_short_doc << std::endl;
 }
 
-void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
+void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
 {
-  ctx->x = _x, ctx->y = _y, ctx->z = _z, ctx->w = _w;
+  ctx->x = _x, ctx->y = _y, ctx->z = _z;
 
   auto ndim = 4;
   if (ctx->w == 1) ctx->ndim = 3;
@@ -566,7 +566,7 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
 
   ctx->ndim = ndim;
   ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
-  ctx->nd_len = pszlen{_x, _y, _z, _w};
+  ctx->nd_len = psz_len3{_x, _y, _z};
 
   if (ctx->data_len == 1)
     throw std::runtime_error("Input data length cannot be 1 (linearized).");
@@ -574,9 +574,9 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z, size_t _w)
     throw std::runtime_error("Input data length cannot be 0 (linearized).");
 }
 
-void pszctx_set_len(pszctx* ctx, pszlen len)
+void pszctx_set_len(pszctx* ctx, psz_len3 len)
 {
-  pszctx_set_rawlen(ctx, len.x, len.y, len.z, len.w);
+  pszctx_set_rawlen(ctx, len.x, len.y, len.z);
   // ctx->nd_len = len;
 }
 

@@ -48,8 +48,8 @@ class Compressor {
 
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool iscomp = true, bool dbg = false);
-  Compressor* compress(pszctx*, T*, BYTE**, size_t*, uninit_stream_t);
-  Compressor* decompress(pszheader*, BYTE*, T*, uninit_stream_t);
+  Compressor* compress(pszctx*, T*, BYTE**, size_t*, psz_stream_t);
+  Compressor* decompress(pszheader*, BYTE*, T*, psz_stream_t);
   Compressor* clear_buffer();
 
   // getter

@@ -14,7 +14,7 @@ using namespace portable;
 
 template <typename T, typename E>
 pszerror pszcxx_predict_spline(
-    array3<T> in, pszrc2 const rc, array3<E> out_errquant,
+    array3<T> in, psz_rc const rc, array3<E> out_errquant,
     compact_array1<T> out_outlier, array3<T> out_anchor, float* time,
     void* stream)
 try {
@@ -51,7 +51,7 @@ NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 template <typename T, typename E>
 pszerror pszcxx_reverse_predict_spline(
     array3<E> in_errquant, array3<T> in_scattered_outlier,
-    array3<T> in_anchor, pszrc2 const rc, array3<T> out_reconstruct,
+    array3<T> in_anchor, psz_rc const rc, array3<T> out_reconstruct,
     float* time, void* stream)
 try {
   constexpr auto BLOCK = 8;

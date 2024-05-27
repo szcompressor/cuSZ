@@ -23,8 +23,9 @@ extern "C" {
 typedef enum psz_backend { SEQ, CUDA, HIP, ONEAPI, THRUST } pszpolicy;
 typedef enum psz_backend psz_platform;
 typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } pszdevice;
+typedef enum psz_space { Device = 0, Host = 1, None = 2 } psz_space;
 
-typedef void* uninit_stream_t;
+typedef void* psz_stream_t;
 
 //////// state enumeration
 
@@ -76,8 +77,6 @@ typedef enum psz_dtype  //
   I8 = 28,
   ULL = 31 } psz_dtype;
 
-typedef psz_dtype pszdtype;
-
 // aliasing
 typedef uint8_t u1;
 typedef uint16_t u2;
@@ -93,11 +92,6 @@ typedef double f8;
 
 typedef uint8_t byte_t;
 typedef size_t szt;
-
-typedef enum psz_space  //
-{ Device = 0,
-  Host = 1,
-  None = 2 } psz_space;
 
 typedef enum psz_mode  //
 { Abs = 0,
@@ -122,84 +116,39 @@ typedef enum psz_codectype  //
   RunLength,
 } psz_codectype;
 
-typedef enum psz_hfbktype  //
-{ Canonical = 1,
-  Sword = 2,
-  Mword = 3 } psz_hfbktype;
-
-typedef enum psz_hfpartype  //
-{ Coarse = 0,
-  Fine = 1 } psz_hfpartype;
-
-//////// configuration template
-typedef struct pszlen {
+typedef struct psz_len3 {
   // clang-format off
     union { size_t x0, x; };
     union { size_t x1, y; };
     union { size_t x2, z; };
-    union { size_t x3, w; };
+    // union { size_t x3, w; };
   // clang-format on
-} pszlen;
-
-typedef struct pszpredictor {
-  psz_predtype type;
-} pszpredictor;
-
-typedef struct psz_quantizer {
-  int radius;
-} psz_quantizer;
-typedef psz_quantizer pszquantizer;
-
-typedef struct psz_hfruntimeconfig {
-  psz_hfbktype book;
-  psz_hfpartype style;
-
-  int booklen;
-  int coarse_pardeg;
-} psz_hfruntimeconfig;
-typedef psz_hfruntimeconfig pszhfrc;
-
-////// wrap-up
-
-// typedef struct psz_framework {
-//   pszpredictor predictor;
-//   pszquantizer quantizer;
-//   pszhfrc hfcoder;
-//   f4 max_outlier_percent;
-// } psz_framework;
-// typedef psz_framework pszframe;
+} psz_len3;
 
 struct psz_context;
+typedef struct psz_context psz_ctx;
 typedef struct psz_context pszctx;
 
 struct psz_header;
+typedef struct psz_header psz_header;
 typedef struct psz_header pszheader;
 
 typedef struct psz_compressor {
   void* compressor;
-  pszctx* ctx;
-  pszheader* header;
-  // pszframe* framework;  // deprecated
+  psz_ctx* ctx;
+  psz_header* header;
   psz_dtype type;
 } psz_compressor;
 typedef psz_compressor pszcompressor;
 
-typedef struct psz_runtimeconfig {
-  f8 eb;
-  psz_mode mode;
-  psz_predtype pred_type;
-  bool est_cr;
-} psz_runtimeconfig;
-typedef psz_runtimeconfig pszrc;
-
-typedef struct Res {
+typedef struct psz_basic_data_description {
   f8 min, max, rng, std;
-} pszscanres;
-typedef pszscanres Res;
+} psz_basic_data_description;
+typedef psz_basic_data_description psz_data_desc;
 
-typedef struct psz_summary {
+typedef struct psz_statistic_summary {
   // clang-format off
-    pszscanres odata, xdata;
+    psz_data_desc odata, xdata;
     struct { f8 PSNR, MSE, NRMSE, coeff; } score;
     struct { f8 abs, rel, pwrrel; size_t idx; } max_err;
     struct { f8 lag_one, lag_two; } autocor;
@@ -209,20 +158,16 @@ typedef struct psz_summary {
 } psz_summary;
 typedef psz_summary pszsummary;
 
-// typedef u1* pszout;
-// // used for bridging some compressor internal buffer
-// typedef pszout* ptr_pszout;
-
-typedef struct psz_api_array {
+typedef struct psz_capi_array {
   void* const buf;
-  pszlen const len3;
+  psz_len3 const len3;
   psz_dtype dtype;
-} pszarray;
+} psz_carray;
 
-typedef pszarray psz_data_input;
-typedef pszarray psz_input;
-typedef pszarray psz_in;
-typedef pszarray* pszarray_mutable;
+typedef psz_carray psz_data_input;
+typedef psz_carray psz_input;
+typedef psz_carray psz_in;
+typedef psz_carray* pszarray_mutable;
 
 typedef struct psz_rettype_archive {
   u1* compressed;
@@ -234,37 +179,32 @@ typedef psz_archive psz_data_output;
 typedef psz_archive psz_output;
 typedef psz_archive psz_out;
 
-typedef struct psz_api_compact {
+/**
+ * @brief This is an archive description of compaction array rather than
+ * runtime one, which deals with host-device residency status.
+ *
+ */
+typedef struct psz_capi_compact {
   void* const val;
   uint32_t* idx;
   uint32_t* num;
   uint32_t reserved_len;
-  pszdtype const dtype;
-} sz_api_compact;
+  psz_dtype const dtype;
+} psz_capi_compact;
 
-typedef sz_api_compact pszcompact;
-typedef pszcompact pszoutlier;
-typedef pszoutlier* pszoutlier_mutable;
+typedef psz_capi_compact psz_capi_outlier;
+typedef psz_capi_compact psz_compact;
+typedef psz_capi_compact psz_outlier;
+typedef psz_outlier* psz_outlier_mutable;
 
-
-
-// 2401
-typedef struct __pszimpl_binding_compressor_stream {
-  pszcompressor* compressor;
-  void* stream;
-} __pszimpl_compressor_stream_binding;
-
-typedef __pszimpl_compressor_stream_binding pszbinding_compresssor_stream;
-typedef pszbinding_compresssor_stream pszcompressor_stream;
-
-typedef struct __pszimpl_rc {
+typedef struct psz_runtime_config {
   double eb;
   int radius;
-} __pszimpl_rc;
-typedef __pszimpl_rc pszrc2;
+} psz_runtime_config;
+typedef psz_runtime_config psz_rc;
 
 // forward
-struct pszprof;
+struct psz_profiling;
 
 typedef enum psz_timing_mode {
   CPU_BARRIER_AND_TIMING,

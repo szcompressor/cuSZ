@@ -11,8 +11,8 @@
 using namespace portable;
 
 pszerror psz_predict_lorenzo(
-    pszarray in, pszrc2 const rc, pszarray out_errquant,
-    pszoutlier out_outlier, f4* t, void* stream)
+    psz_carray in, psz_rc const rc, psz_carray out_errquant,
+    psz_outlier out_outlier, f4* t, void* stream)
 try {
   if (out_errquant.dtype != U4)
     throw psz::exception_incorrect_type("errquant");
@@ -39,8 +39,8 @@ NONEXIT_CATCH(psz::exception_placeholder, CUSZ_NOT_IMPLEMENTED)
 NONEXIT_CATCH(psz::exception_incorrect_type, CUSZ_FAIL_UNSUPPORTED_DATATYPE)
 
 pszerror psz_reverse_predict_lorenzo(
-    pszarray in_errquant, pszoutlier in_scattered_outlier, pszrc2 const rc,
-    pszarray out_reconstruct, f4* t, void* stream)
+    psz_carray in_errquant, psz_outlier in_scattered_outlier, psz_rc const rc,
+    psz_carray out_reconstruct, f4* t, void* stream)
 try {
   using DefaultEtypeRT = u2;
 

@@ -140,7 +140,7 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
     return {dn_bitstream->dptr(), dn_bitcount->dptr(), n_chunk};
   }
 
-  void memcpy_merge(Header& header, uninit_stream_t stream)
+  void memcpy_merge(Header& header, phf_stream_t stream)
   {
     auto memcpy_start = compressed->dptr();
     auto memcpy_adjust_to_start = 0;

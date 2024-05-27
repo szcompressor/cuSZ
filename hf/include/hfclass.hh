@@ -20,6 +20,7 @@
 #include <numeric>
 
 #include "cusz/type.h"
+#include "hf_type.h"
 #include "hfcxx_module.hh"
 #include "hfword.hh"
 #include "mem/memobj.hh"
@@ -98,14 +99,14 @@ class HuffmanCodec {
   HuffmanCodec* init(
       size_t const, int const, int const, bool dbg_print = false);
   HuffmanCodec* build_codebook(
-      uint32_t*, int const, uninit_stream_t = nullptr);
+      uint32_t*, int const, phf_stream_t = nullptr);
 
-  HuffmanCodec* build_codebook(MemU4*, int const, uninit_stream_t = nullptr);
+  HuffmanCodec* build_codebook(MemU4*, int const, phf_stream_t = nullptr);
 
-  HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, uninit_stream_t);
+  HuffmanCodec* encode(E*, size_t const, BYTE**, size_t*, phf_stream_t);
 
   HuffmanCodec* make_metadata();
-  HuffmanCodec* decode(BYTE*, E*, uninit_stream_t, bool = true);
+  HuffmanCodec* decode(BYTE*, E*, phf_stream_t, bool = true);
   HuffmanCodec* clear_buffer();
 
   // analysis

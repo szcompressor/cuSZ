@@ -4,11 +4,11 @@
 
 #define C_INS(T, Eq, ZIGZAG)                                      \
   template pszerror _2401::pszcxx_predict_lorenzo<T, Eq, ZIGZAG>( \
-      array3<T>*, pszrc2 const, array3<Eq>*, compact_array1<T>*, void*);
+      array3<T>*, psz_rc const, array3<Eq>*, compact_array1<T>*, void*);
 
 #define X_INS(T, Eq)                                              \
   template pszerror _2401::pszcxx_reverse_predict_lorenzo<T, Eq>( \
-      array3<Eq>*, array3<T>*, pszrc2 const, array3<T>*, void*);
+      array3<Eq>*, array3<T>*, psz_rc const, array3<T>*, void*);
 
 C_INS(f4, u4, false)
 C_INS(f4, u4, true)
