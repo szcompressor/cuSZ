@@ -25,10 +25,10 @@ using timerecord_t = TimeRecord*;
 
 };  // namespace psz
 
-namespace cusz {
+namespace psz {
 
 template <typename Input, bool Fast = true>
-struct TEHM {
+struct CompoundType {
  public:
   /**
    *
@@ -48,9 +48,9 @@ struct TEHM {
   using Codec = cusz::HuffmanCodec<E, M>;
 };
 
-using CompressorF4 = cusz::Compressor<cusz::TEHM<f4>>;
-using CompressorF8 = cusz::Compressor<cusz::TEHM<f8>>;
+using CompressorF4 = Compressor<CompoundType<f4>>;
+using CompressorF8 = Compressor<CompoundType<f8>>;
 
-}  // namespace cusz
+}  // namespace psz
 
 #endif

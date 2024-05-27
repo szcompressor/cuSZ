@@ -22,7 +22,7 @@
 #include "utils/config.hh"
 
 // extra helper
-namespace cusz {
+namespace psz {
 
 int CompressorHelper::autotune_phf_coarse(psz_context* ctx)
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
@@ -112,10 +112,10 @@ catch (sycl::exception const& exc) {
 
 }  // namespace cusz
 
-using Ff4 = cusz::TEHM<float>;
-using CFf4 = cusz::Compressor<Ff4>;
+using Ff4 = psz::CompoundType<float>;
+using CFf4 = psz::Compressor<Ff4>;
 
-template class cusz::Compressor<Ff4>;
+template class psz::Compressor<Ff4>;
 template CFf4* CFf4::init<psz_context>(
     psz_context* config, bool iscompression, bool debug);
 template CFf4* CFf4::init<psz_header>(

@@ -129,7 +129,7 @@ target_link_libraries(phf_cu
 )
 
 add_library(cusz
-  psz/src/pipeline/testframe.cc
+  # psz/src/pipeline/testframe.cc
   psz/src/compressor.cc
   psz/src/log/sanitize.cc
   psz/src/cusz_lib.cc

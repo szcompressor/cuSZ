@@ -10,7 +10,7 @@
 
 template <typename T = f4>
 class psz_testframe {
-  using Compressor = cusz::Compressor<cusz::TEHM<f4>>;
+  using Compressor = cusz::Compressor<cusz::CompoundType<f4>>;
   using BYTE = u1;
 
  public:

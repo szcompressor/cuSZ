@@ -25,7 +25,7 @@
 #include "pipeline/testframe.hh"
 #include "utils/viewer.hh"
 
-using Compressor = cusz::Compressor<cusz::TEHM<f4>>;
+using Compressor = cusz::Compressor<cusz::CompoundType<f4>>;
 using BYTE = u1;
 
 #define PRINT_STATUS                                              \

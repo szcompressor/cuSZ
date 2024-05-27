@@ -33,26 +33,20 @@ pszcompressor* psz_create(pszframe* _framework, psz_dtype _type)
 {
   auto comp = new pszcompressor{.framework = _framework, .type = _type};
 
-  if (comp->type == F4) {
-    using Compressor = cusz::CompressorF4;
-    comp->compressor = new Compressor();
-  }
-  else {
+  if (comp->type == F4)
+    comp->compressor = new psz::CompressorF4();
+  else
     throw std::runtime_error("Type is not supported.");
-  }
 
   return comp;
 }
 
 pszerror psz_release(pszcompressor* comp)
 {
-  if (comp->type == F4) {
-    using Compressor = cusz::CompressorF4;
-    delete (Compressor*)comp->compressor;
-  }
-  else {
+  if (comp->type == F4)
+    delete (psz::CompressorF4*)comp->compressor;
+  else
     throw std::runtime_error("Type is not supported.");
-  }
 
   delete comp;
   return CUSZ_SUCCESS;
@@ -66,10 +60,10 @@ pszerror psz_compress_init(
   pszctx_set_len(comp->ctx, uncomp_len);
 
   // Be cautious of autotuning! The default value of pardeg is not robust.
-  cusz::CompressorHelper::autotune_phf_coarse(comp->ctx);
+  psz::CompressorHelper::autotune_phf_coarse(comp->ctx);
 
   if (comp->type == F4) {
-    auto cor = (cusz::CompressorF4*)(comp->compressor);
+    auto cor = (psz::CompressorF4*)(comp->compressor);
     cor->init(comp->ctx);
   }
   else {
@@ -86,7 +80,7 @@ pszerror psz_compress(
     void* stream)
 {
   if (comp->type == F4) {
-    auto cor = (cusz::CompressorF4*)(comp->compressor);
+    auto cor = (psz::CompressorF4*)(comp->compressor);
 
     cor->compress(comp->ctx, (f4*)(in), compressed, comp_bytes, stream);
     cor->export_header(*header);
@@ -104,7 +98,7 @@ pszerror psz_decompress_init(pszcompressor* comp, pszheader* header)
 {
   comp->header = header;
   if (comp->type == F4) {
-    auto cor = (cusz::CompressorF4*)(comp->compressor);
+    auto cor = (psz::CompressorF4*)(comp->compressor);
     cor->init(header, false);
   }
   else {
@@ -120,7 +114,7 @@ pszerror psz_decompress(
     void* decompressed, pszlen const decomp_len, void* record, void* stream)
 {
   if (comp->type == F4) {
-    auto cor = (cusz::CompressorF4*)(comp->compressor);
+    auto cor = (psz::CompressorF4*)(comp->compressor);
 
     cor->decompress(
         comp->header, compressed, (f4*)(decompressed), (GpuStreamT)stream);

@@ -8,10 +8,10 @@ target_link_libraries(ex_utils
   PUBLIC pszcompile_settings
 )
 
-add_executable(bin_pipeline_cu src/bin_pipeline.cu_hip.cc)
-target_link_libraries(bin_pipeline_cu
-  PRIVATE cusz CUDA::cudart
-)
+# add_executable(bin_pipeline_cu src/bin_pipeline.cu_hip.cc)
+# target_link_libraries(bin_pipeline_cu
+#   PRIVATE cusz CUDA::cudart
+# )
 
 add_executable(bin_hf src/bin_hf.cc)
 target_link_libraries(bin_hf
