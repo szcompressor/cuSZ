@@ -74,7 +74,7 @@ bool error_bounded(
 }
 
 template <psz_policy P, typename T>
-void assess_quality(pszsummary* s, T* xdata, T* odata, size_t const len)
+void assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 {
   // [TODO] THRUST is not activated in the frontend
   if (P == SEQ)

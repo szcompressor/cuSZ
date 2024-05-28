@@ -18,7 +18,7 @@
 #include "utils/io.hh"      // io::read_binary_to_array
 #include "utils/viewer.hh"  // view_de/compression, pszcxx_evaluate_quality_gpu
 
-void utility_verify_header(pszheader* h)
+void utility_verify_header(psz_header* h)
 {
   printf("header.%-*s : %p\n", 12, "(addr)", (void*)h);
   printf("header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", h->x, h->y, h->z);
@@ -53,11 +53,11 @@ void f(std::string fname)
 
   /*
   Using default:
-    pszcompressor* comp = psz_create_default(F4, eb, mode);
+    psz_compressor* comp = psz_create_default(F4, eb, mode);
 
   Alternatively, customize the compressor as follows.
   */
-  pszcompressor* comp = psz_create(
+  psz_compressor* comp = psz_create(
       /* dtype */ F4, /* predictor */ Lorenzo, /* quantizer radius */ 512,
       /* codec */ Huffman, eb, mode);
 
@@ -75,7 +75,7 @@ void f(std::string fname)
 
   psz_compress makes a copy of header from the internal.
   */
-  pszheader header;
+  psz_header header;
 
   {
     psz_compress_init(comp, uncomp_len);

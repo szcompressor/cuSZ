@@ -88,15 +88,15 @@ void dpl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
   s->xdata.rng = xdata_res[MAXVAL] - xdata_res[MINVAL];
   s->xdata.std = std_xdata;
 
-  s->max_err.idx = max_abserr_index;
-  s->max_err.abs = max_abserr;
-  s->max_err.rel = max_abserr / s->odata.rng;
-  s->max_err.pwrrel = NAN;
+  s->max_err_idx = max_abserr_index;
+  s->max_err_abs = max_abserr;
+  s->max_err_rel = max_abserr / s->odata.rng;
+  s->max_err_pwrrel = NAN;
 
-  s->score.coeff = ee / std_odata / std_xdata;
-  s->score.MSE = sum_err2 / len;
-  s->score.NRMSE = sqrt(s->score.MSE) / s->odata.rng;
-  s->score.PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score.MSE);
+  s->score_coeff = ee / std_odata / std_xdata;
+  s->score_MSE = sum_err2 / len;
+  s->score_NRMSE = sqrt(s->score_MSE) / s->odata.rng;
+  s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
 }
 
 }  // namespace psz

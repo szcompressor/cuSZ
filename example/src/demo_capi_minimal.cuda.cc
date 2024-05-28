@@ -27,14 +27,14 @@ void f(std::string fname)
   auto mode = Rel;   // set compression mode
   auto eb = 2.4e-4;  // set error bound
 
-  pszcompressor* comp = psz_create(
+  psz_compressor* comp = psz_create(
       /* dtype */ F4, /* predictor */ Lorenzo, /* quantizer radius */ 512,
       /* codec */ Huffman, eb, mode);
 
   auto uncomp_len = psz_len3{3600, 1800, 1};  // x, y, z
   auto decomp_len = uncomp_len;
 
-  pszheader header;
+  psz_header header;
 
   /* compression */
   {

@@ -142,7 +142,7 @@ target_link_libraries(cusz
   phf_cu
 )
 
-# export binary "cusz"
+#m export binary "cusz"
 add_executable(cusz-bin psz/src/cli.cc)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
@@ -156,6 +156,49 @@ if(BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
+if(PSZ_BUILD_PYBINDING)
+  # make python binding
+  find_package(SWIG REQUIRED)
+  include(${SWIG_USE_FILE})
+  message("[psz::info] $\{SWIG_USE_FILE\}: " ${SWIG_USE_FILE})
+
+  # deprecated as of 3.12; cmake --help-policy CMP0148
+  # find_package(PythonLibs REQUIRED)
+  # message("[psz::info] $\{PYTHON_INCLUDE_DIRS\}: " ${PYTHON_INCLUDE_DIRS})
+  find_package(Python REQUIRED COMPONENTS Development)
+
+  # include_directories(${Python_INCLUDE_DIRS})
+  message("[psz::info] $\{Python_FOUND\}: " ${Python_FOUND})
+  message("[psz::info] $\{Python_VERSION\}: " ${Python_VERSION})
+  message("[psz::info] $\{Python_INCLUDE_DIRS\}: " ${Python_INCLUDE_DIRS})
+  message("[psz::info] $\{Python_LINK_OPTIONS\}: " ${Python_LINK_OPTIONS})
+  message("[psz::info] $\{Python_LIBRARIES\}: " ${Python_LIBRARIES})
+  message("[psz::info] $\{Python_LIBRARY_DIRS\}: " ${Python_LIBRARY_DIRS})
+
+  set(SWIG_INCLUDE_DIRECTORIES
+    ${CMAKE_CURRENT_SOURCE_DIR}/psz/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/hf/include
+    ${Python_INCLUDE_DIRS}
+  )
+  include_directories(${SWIG_INCLUDE_DIRECTORIES})
+
+  swig_add_library(pycusz
+    LANGUAGE python
+    TYPE SHARED
+    SOURCES py/pycusz.i)
+
+  target_include_directories(pycusz PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
+  set_target_properties(pycusz PROPERTIES LINKER_LANGUAGE CXX)
+  target_link_libraries(pycusz PRIVATE CUDA::cudart ${PYTHON_LIBRARIES}
+  cusz
+  psz_cu_core
+  psz_cu_stat
+  psz_cu_mem
+  psz_cu_utils
+  phf_cu 
+  )
+endif()
+
 # installation
 install(TARGETS psz_cu_compile_settings EXPORT CUSZTargets)
 install(TARGETS psz_cu_core EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -164,6 +207,7 @@ install(TARGETS psz_cu_mem EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTAL
 install(TARGETS psz_cu_utils EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS phf_cu EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS pycusz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS cusz-bin EXPORT CUSZTargets)
 
 install(
@@ -183,13 +227,13 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfigVersion.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ)
 
-# # back compat
+# back compat
 install(DIRECTORY psz/include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/psz/include/cusz_version.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz/)
 
-# # new testing
+# new testing
 install(DIRECTORY psz/include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/psz)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/psz/include/cusz_version.h

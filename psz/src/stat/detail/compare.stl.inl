@@ -58,7 +58,8 @@ bool cppstl_error_bounded(
 }
 
 template <typename T>
-void cppstl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
+void cppstl_assess_quality(
+    psz_summary* s, T* xdata, T* odata, size_t const len)
 {
   double max_odata = odata[0], min_odata = odata[0];
   double max_xdata = xdata[0], min_xdata = xdata[0];
@@ -109,15 +110,15 @@ void cppstl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
   s->xdata.rng = max_xdata - min_xdata;
   s->xdata.std = std_xdata;
 
-  s->max_err.idx = max_abserr_index;
-  s->max_err.abs = max_abserr;
-  s->max_err.rel = max_abserr / s->odata.rng;
-  s->max_err.pwrrel = max_pwrrel_abserr;
+  s->max_err_idx = max_abserr_index;
+  s->max_err_abs = max_abserr;
+  s->max_err_rel = max_abserr / s->odata.rng;
+  s->max_err_pwrrel = max_pwrrel_abserr;
 
-  s->score.coeff = ee / std_odata / std_xdata;
-  s->score.MSE = sum_err2 / len;
-  s->score.NRMSE = sqrt(s->score.MSE) / s->odata.rng;
-  s->score.PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score.MSE);
+  s->score_coeff = ee / std_odata / std_xdata;
+  s->score_MSE = sum_err2 / len;
+  s->score_NRMSE = sqrt(s->score_MSE) / s->odata.rng;
+  s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
 }
 
 }  // namespace psz

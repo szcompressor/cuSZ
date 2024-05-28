@@ -20,9 +20,10 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum psz_backend { SEQ, CUDA, HIP, ONEAPI, THRUST } psz_policy;
-typedef enum psz_device { CPU, NVGPU, AMDGPU, INTELGPU } psz_device;
-typedef enum psz_space { Device = 0, Host = 1, IamLost = 2 } psz_space;
+typedef enum { SEQ, CUDA, HIP, ONEAPI, THRUST } psz_backend;
+typedef enum { CPU, NVGPU, AMDGPU, INTELGPU } psz_device;
+typedef enum { Device = 0, Host = 1, IamLost = 2 } psz_space;
+typedef psz_backend psz_policy;
 
 typedef void* psz_stream_t;
 
@@ -100,14 +101,14 @@ typedef enum psz_predtype  //
 { Lorenzo = 0,
   Spline = 1 } psz_predtype;
 
-typedef enum psz_preptype  //
+typedef enum psz_preprocestype  //
 { FP64toFP32 = 0,
   LogTransform,
   ShiftedLogTransform,
   Binning2x2,
   Binning2x1,
   Binning1x2,
-} psz_prep_type;
+} psz_preprocestype;
 
 typedef enum psz_codectype  //
 { Huffman = 0,
@@ -131,34 +132,23 @@ typedef struct psz_compressor {
   psz_header* header;
   psz_dtype type;
 } psz_compressor;
-typedef psz_compressor pszcompressor;
 
 typedef struct psz_basic_data_description {
   f8 min, max, rng, std;
 } psz_basic_data_description;
 typedef psz_basic_data_description psz_data_desc;
 
-struct __score_t {
-  f8 PSNR, MSE, NRMSE, coeff;
-};
-
-struct __max_err_t {
-  f8 abs, rel, pwrrel;
-  size_t idx;
-};
-struct __autocor_t {
-  f8 lag_one, lag_two;
-};
-
+// nested struct object (rather than ptr) results in Swig creating a `__get`,
+// which can be breaking. Used `prefix_` instead.
 typedef struct psz_statistic_summary {
   psz_data_desc odata, xdata;
-  struct __score_t score;
-  struct __max_err_t max_err;
-  struct __autocor_t autocor;
+  f8 score_PSNR, score_MSE, score_NRMSE, score_coeff;
+  f8 max_err_abs, max_err_rel, max_err_pwrrel;
+  size_t max_err_idx;
+  f8 autocor_lag_one, autocor_lag_two;
   f8 user_eb;
   size_t len;
 } psz_summary;
-typedef psz_summary pszsummary;
 
 typedef struct psz_capi_array {
   void* const buf;

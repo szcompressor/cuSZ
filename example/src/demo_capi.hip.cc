@@ -22,7 +22,7 @@ void f(std::string fname)
   /* For demo, we use 3600x1800 CESM data. */
   auto len = 3600 * 1800;
 
-  pszheader header;
+  psz_header header;
   uint8_t* ptr_compressed;
   uint8_t* compressed_buf;
   size_t compressed_len;
@@ -50,7 +50,7 @@ void f(std::string fname)
       .hfcoder = pszhfrc{.style = Coarse},
       .max_outlier_percent = 20};
 
-  pszcompressor* comp = psz_create(work, F4);
+  psz_compressor* comp = psz_create(work, F4);
 
   pszrc* config = new pszrc{.eb = 2.4e-4, .mode = Rel};
   psz_len3 uncomp_len = psz_len3{3600, 1800, 1, 1};  // x, y, z, w

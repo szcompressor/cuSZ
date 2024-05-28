@@ -19,7 +19,7 @@ class psz_testframe {
       psz_stream_t stream);
 
   static void full_decompress(
-      pszheader* header, Compressor* cor, u1* d_compressed, T* out,
+      psz_header* header, Compressor* cor, u1* d_compressed, T* out,
       psz_stream_t stream);
 
   static void pred_comp_decomp(

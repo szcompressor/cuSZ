@@ -40,6 +40,21 @@ const int VERSION = 20230928;
 const int COMPATIBILITY = 0;
 }  // namespace cusz
 
+void pszctx_print_document(bool full_document);
+void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
+void pszctx_parse_length(pszctx* ctx, const char* lenstr);
+void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr);
+void pszctx_parse_control_string(
+    pszctx* ctx, const char* in_str, bool dbg_print);
+void pszctx_validate(pszctx* ctx);
+void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
+void pszctx_set_report(pszctx* ctx, const char* in_str);
+void pszctx_set_dumping(pszctx* ctx, const char* in_str);
+void pszctx_set_radius(pszctx* ctx, int _);
+// void pszctx_set_huffbyte(pszctx* ctx, int _);
+void pszctx_set_huffchunk(pszctx* ctx, int _);
+void pszctx_set_densityfactor(pszctx* ctx, int _);
+
 void pszctx_set_report(pszctx* ctx, const char* in_str)
 {
   str_list opts;

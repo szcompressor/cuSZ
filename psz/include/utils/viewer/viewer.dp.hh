@@ -20,7 +20,7 @@ static void pszcxx_evaluate_quality_gpu(
   psz::dpl_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
-      &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
+      &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
@@ -57,7 +57,7 @@ static void pszcxx_evaluate_quality_cpu(
   cusz::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
-      &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
+      &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   if (from_device) {
     if (reconstructed) sycl::free(reconstructed, q_ct1);
@@ -80,14 +80,16 @@ static void view(
         ->file(compare.c_str(), FromFile)
         ->control({H2D});
 
-    pszcxx_evaluate_quality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_gpu(
+        xdata->dptr(), cmp->dptr(), len, compressd_bytes);
     // cmp->control({FreeHost, Free});
   };
 
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
     xdata->control({D2H});
-    pszcxx_evaluate_quality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
+    pszcxx_evaluate_quality_cpu(
+        xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };
 

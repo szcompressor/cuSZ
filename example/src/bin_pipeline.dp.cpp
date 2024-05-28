@@ -82,7 +82,7 @@ float print_GBps(szt len, float time_in_ms, string fn_name)
 template <typename T = f4>
 void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
 {
-  auto header = new pszheader{};
+  auto header = new psz_header{};
   szt outlen;
 
   pszctx_parse_control_string(ctx, config_str, true);

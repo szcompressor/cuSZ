@@ -49,12 +49,12 @@ class Compressor {
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool iscomp = true, bool dbg = false);
   Compressor* compress(pszctx*, T*, BYTE**, size_t*, psz_stream_t);
-  Compressor* decompress(pszheader*, BYTE*, T*, psz_stream_t);
+  Compressor* decompress(psz_header*, BYTE*, T*, psz_stream_t);
   Compressor* clear_buffer();
 
   // getter
-  Compressor* export_header(pszheader&);
-  Compressor* export_header(pszheader*);
+  Compressor* export_header(psz_header&);
+  Compressor* export_header(psz_header*);
   Compressor* export_timerecord(TimeRecord*);
 };
 

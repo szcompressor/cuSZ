@@ -19,7 +19,7 @@ option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 # log: debug and sanitize
 option(PSZ_LOG_DBG_MODE "enable debugging printing" OFF)
 option(PSZ_LOG_SANITIZE_MODE "enable sanitizing functions" OFF)
-option(PSZLOG_ENABLE_ALL "enable all (debugging, sanitizing)" OFF)
+option(PSZ_LOG_ENABLE_ALL "enable all (debugging, sanitizing)" OFF)
 include(cmake/logging.cmake)
 
 # conditionally enable functionality
@@ -27,7 +27,10 @@ option(PSZ_RESEARCH_HUFFBK_CUDA "(CUDA only) build research artifacts: create Hu
 option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" OFF)
 
 # example and testing
-option(PSZ_BUILD_EXAMPLES "build example codes" OFF)
+option(PSZ_BUILD_EXAMPLES "build example codes" ON)
+
+# pythhon binding
+option(PSZ_BUILD_PYBINDING "enable Python binding for specific backend" ON)
 
 
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")

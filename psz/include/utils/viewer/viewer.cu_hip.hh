@@ -1,10 +1,10 @@
 #ifndef BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 #define BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 
-#include "mem/array_cxx.h"
-#include "utils/verify.hh"
 #include "cusz/type.h"
+#include "mem/array_cxx.h"
 #include "stat/compare/compare.thrust.hh"
+#include "utils/verify.hh"
 #include "viewer.noarch.hh"
 
 using namespace portable;
@@ -26,15 +26,14 @@ static void pszcxx_evaluate_quality_gpu(
       stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::print_metrics_auto(
-      &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
+      &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   delete stat_x, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
 namespace _2401 {
 template <typename T>
-pszerror pszcxx_evaluate_quality_gpu(
-    array3<T> reconstructed, array3<T> origin)
+pszerror pszcxx_evaluate_quality_gpu(array3<T> reconstructed, array3<T> origin)
 {
   pszcxx_evaluate_quality_gpu(
       (T*)reconstructed.buf, (T*)origin.buf, reconstructed.len3.x);
@@ -73,7 +72,7 @@ static void pszcxx_evaluate_quality_cpu(
   cusz::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::print_metrics_auto(
-      &stat_auto_lag1->score.coeff, &stat_auto_lag2->score.coeff);
+      &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   if (from_device) {
     if (reconstructed) GpuFreeHost(reconstructed);

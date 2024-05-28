@@ -105,13 +105,13 @@ class CLI {
 
  private:
   void write_compressed_to_disk(
-      std::string compressed_name, pszheader* header, uint8_t* compressed,
+      std::string compressed_name, psz_header* header, uint8_t* compressed,
       size_t compressed_len)
   {
     auto file = new memobj<uint8_t>(compressed_len, "cusza", {MallocHost});
 
     file->dptr(compressed)->control({D2H});
-    memcpy(file->hptr(), header, sizeof(pszheader));  // put on-host header
+    memcpy(file->hptr(), header, sizeof(psz_header));  // put on-host header
     file->file(compressed_name.c_str(), ToFile);
 
     delete file;
@@ -126,7 +126,7 @@ class CLI {
 
     uint8_t* compressed;
     size_t compressed_len;
-    pszheader header;
+    psz_header header;
 
     input->file(ctx->file_input, FromFile)->control({H2D});
 

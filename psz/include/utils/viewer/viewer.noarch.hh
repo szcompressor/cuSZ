@@ -1,14 +1,15 @@
 #ifndef B166AEEB_917A_448A_91F6_D0F7A186A36A
 #define B166AEEB_917A_448A_91F6_D0F7A186A36A
 
-#include <cstdint>
 #include <cstddef>
-#include "cusz/type.h"
+#include <cstdint>
+#include <iomanip>
 #include <string>
 #include <vector>
+
+#include "cusz/type.h"
 #include "tehm.hh"
 #include "utils/config.hh"
-#include <iomanip>
 
 using std::string;
 using std::vector;
@@ -17,7 +18,7 @@ namespace psz {
 
 template <typename T>
 static void print_metrics_cross(
-    pszsummary* s, size_t compressed_bytes = 0, bool gpu_checker = false)
+    psz_summary* s, size_t compressed_bytes = 0, bool gpu_checker = false)
 {
   auto checker = (not gpu_checker) ? string("(using CPU checker)")
                                    : string("(using GPU checker)");
@@ -47,13 +48,13 @@ static void print_metrics_cross(
 
   printhead("", "abs-val", "abs-idx", "pw-rel", "VS-RNG");
   println(
-      "max-error", s->max_err.abs, s->max_err.idx, s->max_err.pwrrel,
-      s->max_err.rel);
+      "max-error", s->max_err_abs, s->max_err_idx, s->max_err_pwrrel,
+      s->max_err_rel);
 
   printhead("", "CR", "NRMSE", "cross-cor", "PSNR");
   println(
-      "metrics", bytes / compressed_bytes, s->score.NRMSE, s->score.coeff,
-      s->score.PSNR);
+      "metrics", bytes / compressed_bytes, s->score_NRMSE, s->score_coeff,
+      s->score_PSNR);
 
   // printf("\n");
 };
@@ -117,7 +118,7 @@ struct TimeRecordViewer {
   static void view_compression(
       timerecord_t r, size_t bytes, size_t compressed_bytes = 0)
   {
-// #warning \
+    // #warning \
 //     "[TODO] view_compression is deprecated, use review_compression(...) instead"
     auto report_cr = [&]() {
       auto cr = 1.0 * bytes / compressed_bytes;
@@ -161,7 +162,7 @@ struct TimeRecordViewer {
   }
 
   // [TODO] not a part of TimeRecordViewer
-  static void view_cr(pszheader* h)
+  static void view_cr(psz_header* h)
   {
     // [TODO] put error status
     if (h->dtype != F4 and h->dtype != F8)
@@ -212,7 +213,7 @@ struct TimeRecordViewer {
     __newline();
     __print_perc("compressed::total::bytes", comp_bytes());
     printf("  ------------------------\n");
-    __print_perc("compressed::HEADER::bytes", sizeof(pszheader));
+    __print_perc("compressed::HEADER::bytes", sizeof(psz_header));
     __print_perc("compressed::ANCHOR::bytes", fieldsize(PSZHEADER_ANCHOR));
     __print_perc("compressed::VLE::bytes", fieldsize(PSZHEADER_VLE));
     __print_perc("compressed::SPFMT::bytes", fieldsize(PSZHEADER_SPFMT));
@@ -224,7 +225,7 @@ struct TimeRecordViewer {
         fieldsize(PSZHEADER_SPFMT) / (sizeof_T() + sizeof(uint32_t)));
   }
 
-  static void view_timerecord(timerecord_t r, pszheader* h)
+  static void view_timerecord(timerecord_t r, psz_header* h)
   {
     auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
     auto uncomp_bytes = h->x * h->y * h->z * sizeof_T();
@@ -262,7 +263,7 @@ struct TimeRecordViewer {
     printf("\n");
   }
 
-  static void review_compression(timerecord_t r, pszheader* h)
+  static void review_compression(timerecord_t r, psz_header* h)
   {
     printf("\n(c) COMPRESSION REPORT\n");
     view_cr(h);
@@ -284,6 +285,6 @@ struct TimeRecordViewer {
   }
 };
 
-}  // namespace cusz
+}  // namespace psz
 
 #endif /* B166AEEB_917A_448A_91F6_D0F7A186A36A */

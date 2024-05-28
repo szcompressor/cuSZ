@@ -75,7 +75,7 @@ struct Compressor<C>::impl {
   using E = typename C::E;
   using FP = typename C::FP;
   using M = typename C::M;
-  using Header = pszheader;
+  using Header = psz_header;
 
   using H = u4;
   using H4 = u4;
@@ -267,7 +267,7 @@ struct Compressor<C>::impl {
 #endif
 
   void decompress_predict(
-      pszheader* header, BYTE* in, T* ext_anchor, T* out, psz_stream_t stream)
+      psz_header* header, BYTE* in, T* ext_anchor, T* out, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -319,7 +319,7 @@ struct Compressor<C>::impl {
     }
   }
 
-  void decompress_decode(pszheader* header, BYTE* in, psz_stream_t stream)
+  void decompress_decode(psz_header* header, BYTE* in, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -328,7 +328,7 @@ struct Compressor<C>::impl {
   }
 
   void decompress_scatter(
-      pszheader* header, BYTE* in, T* d_space, psz_stream_t stream)
+      psz_header* header, BYTE* in, T* d_space, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -425,14 +425,14 @@ Compressor<C>* Compressor<C>::clear_buffer()
 
 template <class C>
 Compressor<C>* Compressor<C>::decompress(
-    pszheader* header, BYTE* in, T* out, void* stream)
+    psz_header* header, BYTE* in, T* out, void* stream)
 {
   // TODO host having copy of header when compressing
   if (not header) {
-    header = new pszheader;
+    header = new psz_header;
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     CHECK_GPU(GpuMemcpyAsync(
-        header, in, sizeof(pszheader), GpuMemcpyD2H, (GpuStreamT)stream));
+        header, in, sizeof(psz_header), GpuMemcpyD2H, (GpuStreamT)stream));
     CHECK_GPU(GpuStreamSync(stream));
 #elif defined(PSZ_USE_1API)
     ((sycl::queue*)stream)->memcpy(header, in, sizeof(Header));
@@ -453,14 +453,14 @@ Compressor<C>* Compressor<C>::decompress(
 
 // public getter
 template <class C>
-Compressor<C>* Compressor<C>::export_header(pszheader& ext_header)
+Compressor<C>* Compressor<C>::export_header(psz_header& ext_header)
 {
   ext_header = pimpl->header;
   return this;
 }
 
 template <class C>
-Compressor<C>* Compressor<C>::export_header(pszheader* ext_header)
+Compressor<C>* Compressor<C>::export_header(psz_header* ext_header)
 {
   if (ext_header) *ext_header = pimpl->header;
   return this;

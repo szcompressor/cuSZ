@@ -54,7 +54,6 @@ typedef struct psz_header {
   // uint32_t codecs_in_use : 2;
 
 } psz_header;
-typedef psz_header pszheader;
 
 #ifdef __cplusplus
 }

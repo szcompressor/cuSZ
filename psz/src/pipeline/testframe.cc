@@ -30,7 +30,7 @@ TESTFRAME::full_compress(
 }
 
 TESTFRAME::full_decompress(
-    pszheader* header, Compressor* cor, u1* d_compressed, T* out,
+    psz_header* header, Compressor* cor, u1* d_compressed, T* out,
     psz_stream_t stream)
 {
   auto in = d_compressed;
@@ -45,7 +45,7 @@ TESTFRAME::full_decompress(
 TESTFRAME::pred_comp_decomp(
     pszctx* ctx, Compressor* cor, T* in, T* out, psz_stream_t stream)
 {
-  auto header = new pszheader{};
+  auto header = new psz_header{};
   float time_sp;
   auto d_space = out, d_xdata = out;
 
