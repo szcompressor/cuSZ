@@ -56,6 +56,10 @@ pszerror capi_psz_decompress(
     psz_compressor* comp, uint8_t* compressed, size_t const comp_len,
     void* decompressed, psz_len3 const decomp_len, void* record, void* stream);
 
+// defined in context.cc
+extern void capi_psz_version();
+extern void capi_psz_versioninfo();
+
 #ifdef __cplusplus
 }
 #endif

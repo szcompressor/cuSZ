@@ -24,21 +24,44 @@
 #include "utils/config.hh"
 #include "utils/document.hh"
 #include "utils/format.hh"
+#include "utils/verinfo.h"
 
-namespace cusz {
+namespace psz {
 
 #if defined(PSZ_USE_CUDA)
-const char* VERSION_TEXT = "2023-09-05 (unstable)";
-const int VERSION = 20230905;
+const char* BACKEND_TEXT = "cuSZ";
+const char* VERSION_TEXT = "2024-05-27 (0.10rc)";
+const int VERSION = 20240527;
 #elif defined(PSZ_USE_HIP)
+const char* BACKEND_TEXT = "hipSZ";
 const char* VERSION_TEXT = "2023-08-31 (unstable)";
 const int VERSION = 20230831;
 #elif defined(PSZ_USE_1API)
+const char* BACKEND_TEXT = "dpSZ";
 const char* VERSION_TEXT = "2023-09-28 (unstable)";
 const int VERSION = 20230928;
 #endif
 const int COMPATIBILITY = 0;
-}  // namespace cusz
+}  // namespace psz
+
+
+void capi_psz_version()
+{
+  printf("\n>>>  %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT);
+}
+
+void capi_psz_versioninfo()
+{
+  capi_psz_version();
+  printf("\ntoolchain:\n");
+  print_CXX_ver();
+  print_NVCC_ver();
+  printf("\ndriver:\n");
+  print_CUDA_driver();
+  print_NVIDIA_driver();
+  printf("\n");
+  CUDA_devices();
+}
 
 void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
@@ -265,7 +288,11 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         exit(0);
       }
       else if (optmatch({"-v", "--version"})) {
-        std::cout << ">>>  psz/cusz build: " << cusz::VERSION_TEXT << "\n";
+        capi_psz_version();
+        exit(0);
+      }
+      else if (optmatch({"-V", "--versioninfo"})) {
+        capi_psz_versioninfo();
         exit(0);
       }
       else if (optmatch({"-m", "--mode"})) {
@@ -562,7 +589,7 @@ void pszctx_validate(pszctx* ctx)
 
 void pszctx_print_document(bool full_document)
 {
-  std::cout << "\n>>>>  cusz build: " << cusz::VERSION_TEXT << "\n";
+  capi_psz_versioninfo();
 
   if (full_document)
     std::cout << psz_helper::doc_format(psz_full_doc) << std::endl;

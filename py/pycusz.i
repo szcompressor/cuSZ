@@ -1,6 +1,8 @@
 %module pycusz
 
 // The original names are not used.
+%rename(version) capi_psz_version;
+%rename(versioninfo) capi_psz_versioninfo;
 %rename(create) capi_psz_create;
 %rename(create_default) capi_psz_create_default;
 %rename(create_from_context) capi_psz_create_from_context;
@@ -65,6 +67,9 @@ Header = psz_header
 Compressor = psz_compressor
 Len3 = psz_len3
 %}
+
+extern void capi_psz_version();
+extern void capi_psz_versioninfo();
 
 extern psz_compressor* capi_psz_create(
     psz_dtype const dtype,  // input

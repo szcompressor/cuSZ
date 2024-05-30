@@ -93,6 +93,9 @@ struct psz_context {
 typedef struct psz_context psz_context;
 typedef psz_context pszctx;
 
+void capi_psz_version();
+void capi_psz_versioninfo();
+
 /**
  * @brief Return a pszctx instance with default values.
  *
