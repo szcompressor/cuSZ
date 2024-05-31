@@ -186,6 +186,9 @@ if(PSZ_BUILD_PYBINDING)
   )
   include_directories(${SWIG_INCLUDE_DIRECTORIES})
 
+  # -------------------
+  # add the 1st library
+  # -------------------
   swig_add_library(pycusz
     LANGUAGE python
     TYPE SHARED
@@ -199,6 +202,21 @@ if(PSZ_BUILD_PYBINDING)
   psz_cu_stat
   psz_cu_mem
   psz_cu_utils
+  phf_cu 
+  )
+
+  # -------------------
+  # add the 2nd library
+  # -------------------
+  swig_add_library(pycuhf
+  LANGUAGE python
+  TYPE SHARED
+  SOURCES py/pycuhf.i)
+
+  target_include_directories(pycuhf PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
+  set_target_properties(pycuhf PROPERTIES LINKER_LANGUAGE CXX)
+  target_link_libraries(pycuhf PRIVATE CUDA::cudart ${PYTHON_LIBRARIES}
+  psz_cu_mem
   phf_cu 
   )
 endif()
