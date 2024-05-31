@@ -2,7 +2,7 @@
 #define A851557F_29B7_4865_AC4A_B5B59930E5F6
 
 #include "cusz/type.h"
-#include "cusz/typing.hh"
+#include "typing.hh"
 
 namespace portable {
 

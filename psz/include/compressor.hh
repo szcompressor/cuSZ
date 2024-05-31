@@ -23,11 +23,6 @@ namespace psz {
 
 using namespace portable;
 
-// extra helper
-struct CompressorHelper {
-  static int autotune_phf_coarse(psz_context* ctx);
-};
-
 template <class C>
 class Compressor {
  private:

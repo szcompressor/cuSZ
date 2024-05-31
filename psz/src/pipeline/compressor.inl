@@ -112,16 +112,14 @@ struct Compressor<C>::impl {
   template <class CONFIG>
   void init(CONFIG* ctx, bool iscompression, bool debug)
   {
-    codec = new Codec;
-
     const auto radius = ctx->radius;
     const auto pardeg = ctx->vle_pardeg;
-    const auto booklen = radius * 2;
+    const auto bklen = radius * 2;
     const auto x = ctx->x, y = ctx->y, z = ctx->z;
     len = x * y * z;
 
     mem = new pszmempool_cxx<T, E, H>(x, radius, y, z, iscompression);
-    codec->init(mem->len, booklen, pardeg, debug);
+    codec = new Codec(mem->len, bklen, pardeg, debug);
   }
 
   void compress_predict(pszctx* ctx, T* in, void* stream)
@@ -176,9 +174,7 @@ struct Compressor<C>::impl {
 
   void compress_encode(pszctx* ctx, void* stream)
   {
-    auto booklen = ctx->dict_size;
-
-    codec->build_codebook(mem->_hist, booklen, stream);
+    codec->buildbook(mem->_hist->dptr(), stream);
     // [TODO] CR estimation must be after building codebook; need a flag.
     if (ctx->report_cr_est) {
       codec->calculate_CR(

@@ -4,14 +4,14 @@
 #include "mem/memobj.hh"
 #include "utils/err.hh"
 
-namespace cusz {
+namespace phf {
 
 using namespace portable;
 
-template <typename E, typename M, bool TIMING>
-struct HuffmanCodec<E, M, TIMING>::internal_buffer {
+template <typename E, bool TIMING>
+struct HuffmanCodec<E, TIMING>::internal_buffer {
   // helper
-  struct RC {
+  typedef struct RC {
     static const int SCRATCH = 0;
     static const int FREQ = 1;
     static const int BK = 2;
@@ -22,9 +22,16 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
     static const int BITSTREAM = 7;
     static const int END = 8;
     // uint32_t nbyte[END];
-  };
+  } RC;
 
-  using RC = struct RC;
+  typedef struct {
+    void* const ptr;
+    size_t const nbyte;
+    size_t const dst;
+  } memcpy_helper;
+
+  using SYM = E;
+  using Header = phf_header;
 
   // vars
   size_t len;
@@ -34,9 +41,9 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
 
   // array
   memobj<H4>* scratch4;
-  memobj<BYTE>* compressed;
+  memobj<PHF_BYTE>* encoded;
   memobj<H4>* bk4;
-  memobj<BYTE>* revbk4;
+  memobj<PHF_BYTE>* revbk4;
   memobj<H4>* bitstream4;
 
   // data partition/embarrassingly parallelism description
@@ -50,6 +57,21 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
   memobj<E>* sp_val;
   memobj<M>* sp_idx;
   memobj<M>* sp_num;
+
+  static int __revbk_bytes(int bklen, int BK_UNIT_BYTES, int SYM_BYTES)
+  {
+    static const int CELL_BITWIDTH = BK_UNIT_BYTES * 8;
+    return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
+  }
+
+  static int revbk4_bytes(int bklen)
+  {
+    return __revbk_bytes(bklen, 4, sizeof(SYM));
+  }
+  static int revbk8_bytes(int bklen)
+  {
+    return __revbk_bytes(bklen, 8, sizeof(SYM));
+  }
 
   // auxiliary
   void _debug(const std::string SYM_name, void* VAR, int SYM)
@@ -88,10 +110,11 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
     bklen = _booklen;
     len = inlen;
 
-    compressed = new memobj<BYTE>(len * TYPICAL, "hf::out4B");
+    encoded = new memobj<PHF_BYTE>(len * sizeof(u4), "hf::out4B");
     scratch4 = new memobj<H4>(len, "hf::scratch4", {Malloc, MallocHost});
     bk4 = new memobj<H4>(bklen, "hf::book4", {Malloc, MallocHost});
-    revbk4 = new memobj<BYTE>(revbk4_bytes(bklen), "hf::revbk4", {Malloc, MallocHost});
+    revbk4 = new memobj<PHF_BYTE>(
+        revbk4_bytes(bklen), "hf::revbk4", {Malloc, MallocHost});
     bitstream4 = new memobj<H4>(len / 2, "hf::enc-buf", {Malloc, MallocHost});
     par_nbit = new memobj<M>(pardeg, "hf::par_nbit", {Malloc, MallocHost});
     par_ncell = new memobj<M>(pardeg, "hf::par_ncell", {Malloc, MallocHost});
@@ -102,14 +125,15 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
       // HFR: dense-sparse
       dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream", {Malloc});
       // 1 << 10 results in the max number of partitions
-      dn_bitcount = new memobj<H4>((len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});
+      dn_bitcount = new memobj<H4>(
+          (len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});
       sp_val = new memobj<E>(len / 10, "hf::sp_val", {Malloc});
       sp_idx = new memobj<M>(len / 10, "hf::sp_idx", {Malloc});
       sp_num = new memobj<M>(1, "hf::sp_num", {Malloc, MallocHost});
     }
 
     // repurpose scratch after several substeps
-    compressed->dptr((u1*)scratch4->dptr())->hptr((u1*)scratch4->hptr());
+    encoded->dptr((u1*)scratch4->dptr())->hptr((u1*)scratch4->hptr());
     // GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
 
     sublen = (inlen - 1) / pardeg + 1;
@@ -122,7 +146,7 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
     delete bk4, delete revbk4;
     delete par_nbit, delete par_ncell, delete par_entry;
 
-    delete compressed;
+    delete encoded;
     delete scratch4, delete bitstream4;
 
     delete sp_val, delete sp_idx, delete sp_num;
@@ -142,19 +166,19 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
 
   void memcpy_merge(Header& header, phf_stream_t stream)
   {
-    auto memcpy_start = compressed->dptr();
+    auto memcpy_start = encoded->dptr();
     auto memcpy_adjust_to_start = 0;
 
     memcpy_helper _revbk{
-        revbk4->dptr(), revbk4->bytes(), header.entry[Header::REVBK]};
+        revbk4->dptr(), revbk4->bytes(), header.entry[PHFHEADER_REVBK]};
     memcpy_helper _par_nbit{
-        par_nbit->dptr(), par_nbit->bytes(), header.entry[Header::PAR_NBIT]};
+        par_nbit->dptr(), par_nbit->bytes(), header.entry[PHFHEADER_PAR_NBIT]};
     memcpy_helper _par_entry{
         par_entry->dptr(), par_entry->bytes(),
-        header.entry[Header::PAR_ENTRY]};
+        header.entry[PHFHEADER_PAR_ENTRY]};
     memcpy_helper _bitstream{
         bitstream4->dptr(), bitstream4->bytes(),
-        header.entry[Header::BITSTREAM]};
+        header.entry[PHFHEADER_BITSTREAM]};
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
@@ -187,4 +211,4 @@ struct HuffmanCodec<E, M, TIMING>::internal_buffer {
   }
 };
 
-}  // namespace cusz
+}  // namespace phf

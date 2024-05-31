@@ -125,6 +125,7 @@ add_library(phf_cu
   hf/src/hfbk.seq.cc
   hf/src/hfcanon.seq.cc
   hf/src/hfcxx_module.cu
+  hf/src/libphf.cc
 )
 target_link_libraries(phf_cu
   PUBLIC psz_cu_compile_settings CUDA::cuda_driver

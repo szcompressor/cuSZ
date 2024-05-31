@@ -46,27 +46,6 @@ f8 _1, _2, rng;
 
 namespace {
 
-szt tune_phf_coarse_sublen(szt len)
-{
-  int current_dev = 0;
-  GpuSetDevice(current_dev);
-  GpuDeviceProp dev_prop{};
-  GpuGetDeviceProperties(&dev_prop, current_dev);
-
-  // auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
-
-  auto nSM = dev_prop.multiProcessorCount;
-  auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
-  auto deflate_nthread =
-      allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
-  auto optimal_sublen = psz_utils::get_npart(len, deflate_nthread);
-  optimal_sublen =
-      psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
-      HuffmanHelper::BLOCK_DIM_DEFLATE;
-
-  return optimal_sublen;
-}
-
 int ndim(dim3 l)
 {
   auto n = 3;
@@ -136,7 +115,7 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
 
   BYTE* d_compressed{nullptr};
 
-  cusz::CompressorHelper::autotune_phf_coarse(ctx);
+  capi_phf_coarse_tune(ctx->data_len, &ctx->vle_sublen, &ctx->vle_pardeg);
 
   auto cor = new Compressor();
   cor->init(ctx);

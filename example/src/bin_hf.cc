@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <string>
 
+#include "hf.h"
 #include "hfclass.hh"
 #include "kernel/hist.hh"
 #include "mem.hh"
@@ -24,27 +25,6 @@ using B = uint8_t;
 using F = u4;
 
 namespace {
-
-size_t tune_phf_coarse_sublen(size_t len)
-{
-  int current_dev = 0;
-  GpuSetDevice(current_dev);
-  GpuDeviceProp dev_prop{};
-  GpuGetDeviceProperties(&dev_prop, current_dev);
-
-  // auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
-
-  auto nSM = dev_prop.multiProcessorCount;
-  auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
-  auto deflate_nthread =
-      allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
-  auto optimal_sublen = psz_utils::get_npart(len, deflate_nthread);
-  optimal_sublen =
-      psz_utils::get_npart(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
-      HuffmanHelper::BLOCK_DIM_DEFLATE;
-
-  return optimal_sublen;
-}
 
 void print_tobediscarded_info(float time_in_ms, string fn_name)
 {
@@ -74,8 +54,8 @@ void hf_run(
   /* For demo, we use 3600x1800 CESM data. */
   auto len = x * y * z;
 
-  auto sublen = tune_phf_coarse_sublen(len);
-  auto pardeg = psz_utils::get_npart(len, sublen);
+  int sublen, pardeg;
+  capi_phf_coarse_tune(len, &sublen, &pardeg);
 
   auto od = new memobj<E>(len, "original", {Malloc, MallocHost});
   auto xd = new memobj<E>(len, "decompressed", {Malloc, MallocHost});
@@ -98,15 +78,14 @@ void hf_run(
   pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(
       od->dptr(), len, ht->dptr(), bklen, &time_hist, stream);
 
-  cusz::HuffmanCodec<E, u4> codec;
-  codec.init(len, bklen, pardeg /* not optimal for perf */);
+  phf::HuffmanCodec<E> codec(len, bklen, pardeg /* not optimal for perf */);
 
   // GpuMalloc(&d_compressed, len * sizeof(E) / 2);
   B* __out;
 
   // float  time;
   size_t outlen;
-  codec.build_codebook(ht, bklen, stream);
+  codec.buildbook(ht->dptr(), stream);
 
   E* d_oridup;
   GpuMalloc(&d_oridup, sizeof(E) * len);

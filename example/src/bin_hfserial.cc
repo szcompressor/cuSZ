@@ -88,13 +88,13 @@ void hfbook_gpu(string fname, int bklen)
   auto hist = new memobj<u4>(bklen, "histogram", {MallocHost, Malloc});
   hist->file(fname.c_str(), FromFile)->control({H2D});
 
-  cusz::HuffmanCodec<u4, u4> codec;
+  phf::HuffmanCodec<u4, u4> codec;
 
   auto fakelen1 = bklen * 100;
   auto fakelen2 = 768;
 
   codec.init(fakelen1, bklen, fakelen2);
-  codec.build_codebook(hist->dptr(), bklen, 0);
+  codec.buildbook(hist->dptr(), bklen, 0);
   codec.bk4->control({D2H});
 
   for (auto i = 0; i < bklen; i++) {

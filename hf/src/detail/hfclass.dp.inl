@@ -146,7 +146,7 @@ TPL HF_CODEC* HF_CODEC::init(
 }
 
 #ifdef ENABLE_HUFFBK_GPU
-TPL HF_CODEC* HF_CODEC::build_codebook(
+TPL HF_CODEC* HF_CODEC::buildbook(
     uint32_t* freq, int const bklen, void* stream)
 {
   psz::hf_buildbook<CUDA, E, H4>(
@@ -158,7 +158,7 @@ TPL HF_CODEC* HF_CODEC::build_codebook(
 #endif
 
 // using CPU huffman
-TPL HF_CODEC* HF_CODEC::build_codebook(
+TPL HF_CODEC* HF_CODEC::buildbook(
     MemU4* freq, int const bklen, void* stream)
 {
   psz::hf_buildbook<SEQ, E, H4>(

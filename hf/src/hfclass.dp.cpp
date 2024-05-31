@@ -30,7 +30,7 @@
 // definitions
 #include "detail/hfclass.dp.inl"
 
-template class cusz::HuffmanCodec<u1, u4>;
-template class cusz::HuffmanCodec<u2, u4>;
-template class cusz::HuffmanCodec<u4, u4>;
+template class phf::HuffmanCodec<u1, u4>;
+template class phf::HuffmanCodec<u2, u4>;
+template class phf::HuffmanCodec<u4, u4>;
 

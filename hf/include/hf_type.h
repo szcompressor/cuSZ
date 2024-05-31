@@ -8,16 +8,13 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-// typedef enum phf_execution_policy { SEQ, CUDA, HIP, ONEAPI } phfpolicy;
-// typedef phf_execution_policy phf_platform;
-// typedef enum phf_device { CPU, NVGPU, AMDGPU, INTELGPU } phfdevice;
-
 typedef void* phf_stream_t;
 
 //////// state enumeration
 
-typedef enum phf_error_status {  //
+typedef enum {  //
   PHF_SUCCESS = 0x00,
+  PHF_WRONG_DTYPE,
   PHF_FAIL_GPU_MALLOC,
   PHF_FAIL_GPU_MEMCPY,
   PHF_FAIL_GPU_ILLEGAL_ACCESS,
@@ -26,20 +23,7 @@ typedef enum phf_error_status {  //
 } phf_error_status;
 typedef phf_error_status phferr;
 
-typedef struct phf_dtype  //
-{
-  static const int F4 = 4;
-  static const int F8 = 8;
-  static const int U1 = 11;
-  static const int U2 = 12;
-  static const int U4 = 14;
-  static const int U8 = 18;
-  static const int I1 = 21;
-  static const int I2 = 22;
-  static const int I4 = 24;
-  static const int I8 = 28;
-  static const int ULL = 31;
-} phf_dtype;
+typedef enum { HF_U1, HF_U2, HF_U4, HF_U8, HF_ULL, HF_INVALID } phf_dtype;
 
 // aliasing
 typedef uint8_t u1;
@@ -54,6 +38,35 @@ typedef int64_t i8;
 typedef float f4;
 typedef double f8;
 typedef size_t szt;
+
+#define PHFHEADER_FORCED_ALIGN 128
+#define PHFHEADER_HEADER 0
+#define PHFHEADER_REVBK 1
+#define PHFHEADER_PAR_NBIT 2
+#define PHFHEADER_PAR_ENTRY 3
+#define PHFHEADER_BITSTREAM 4
+#define PHFHEADER_END 5
+
+typedef uint32_t PHF_METADATA;
+typedef uint8_t PHF_BIN;
+typedef uint8_t PHF_BYTE;
+
+typedef struct {
+  int bklen : 16;
+  int sublen, pardeg;
+  size_t original_len;
+  size_t total_nbit, total_ncell;  // TODO change to uint32_t
+  uint32_t entry[PHFHEADER_END + 1];
+} phf_header;
+
+#define capi_phf_encoded_bytes phf_encoded_bytes
+uint32_t capi_phf_encoded_bytes(phf_header* h);
+
+typedef struct {
+  void* codec;
+  phf_header* header;
+  phf_dtype data_type;
+} phf_codec;
 
 #ifdef __cplusplus
 }

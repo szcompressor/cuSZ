@@ -64,12 +64,14 @@ pszerror capi_psz_release(psz_compressor* comp)
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_compress_init(psz_compressor* comp, psz_len3 const uncomp_len)
+pszerror capi_psz_compress_init(
+    psz_compressor* comp, psz_len3 const uncomp_len)
 {
   pszctx_set_len(comp->ctx, uncomp_len);
 
   // Be cautious of autotuning! The default value of pardeg is not robust.
-  psz::CompressorHelper::autotune_phf_coarse(comp->ctx);
+  capi_phf_coarse_tune(
+      comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
 
   if (comp->type == F4)
     static_cast<psz::CompressorF4*>(comp->compressor)->init(comp->ctx);

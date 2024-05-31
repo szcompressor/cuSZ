@@ -19,9 +19,9 @@
 #include "kernel.hh"
 #include "mem.hh"
 #include "port.hh"
+#include "hf.h"
 #include "stat.hh"
 #include "tehm.hh"
-// #include "utils.hh"
 #include "pipeline/testframe.hh"
 #include "utils/viewer.hh"
 
@@ -111,7 +111,7 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
 
   BYTE* d_compressed{nullptr};
 
-  cusz::CompressorHelper::autotune_phf_coarse(ctx);
+  capi_phf_coarse_tune(ctx->data_len, &ctx->vle_sublen, &ctx->vle_pardeg);
 
   auto cor = new Compressor();
   cor->init(ctx);

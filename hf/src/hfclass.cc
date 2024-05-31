@@ -15,7 +15,6 @@
  */
 
 #include "hfclass.hh"
-#include "typing.hh"
 
 // deps
 #include <cuda.h>
@@ -23,10 +22,10 @@
 // definitions
 #include "detail/hfclass.cu_hip.inl"
 
-template class cusz::HuffmanCodec<u1, u4, true>;
-template class cusz::HuffmanCodec<u2, u4, true>;
-template class cusz::HuffmanCodec<u4, u4, true>;
+template class phf::HuffmanCodec<u1, true>;
+template class phf::HuffmanCodec<u2, true>;
+template class phf::HuffmanCodec<u4, true>;
 
-template class cusz::HuffmanCodec<u1, u4, false>;
-template class cusz::HuffmanCodec<u2, u4, false>;
-template class cusz::HuffmanCodec<u4, u4, false>;
+template class phf::HuffmanCodec<u1, false>;
+template class phf::HuffmanCodec<u2, false>;
+template class phf::HuffmanCodec<u4, false>;

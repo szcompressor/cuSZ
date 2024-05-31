@@ -45,7 +45,7 @@ struct CompoundType {
   using M = uint32_t;
 
   /* Lossless Codec*/
-  using Codec = cusz::HuffmanCodec<E, M>;
+  using Codec = phf::HuffmanCodec<E>;
 };
 
 using CompressorF4 = Compressor<CompoundType<f4>>;

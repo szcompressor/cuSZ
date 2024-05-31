@@ -31,7 +31,7 @@
 #include "detail/hf_g.inl"
 
 #define HUFFCOARSE_CC(E, ETF, H, M)                   \
-  template class cusz::HuffmanCodec<                  \
+  template class phf::HuffmanCodec<                  \
       ErrCtrlTrait<E, ETF>::type, HuffTrait<H>::type, \
       MetadataTrait<M>::type>;
 
