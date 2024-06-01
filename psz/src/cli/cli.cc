@@ -1,5 +1,5 @@
 #include "context.h"
-#include "pipeline/cli.inl"
+#include "cli/cli.inl"
 #include "port.hh"
 #include "utils/query.hh"
 
@@ -13,8 +13,8 @@ int main(int argc, char** argv)
     GPU_QUERY;
   }
 
-  cusz::CLI<float> cusz_cli;
-  cusz_cli.dispatch(ctx);
+  psz::CLI<float> psz_cli;
+  psz_cli.dispatch(ctx);
 
   delete ctx;
 }

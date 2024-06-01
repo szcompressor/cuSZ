@@ -17,6 +17,7 @@
 #include <stdexcept>
 
 #include "compressor.hh"
+#include "context.h"
 #include "cusz/type.h"
 #include "exception/exception.hh"
 #include "hfclass.hh"
@@ -96,6 +97,8 @@ struct Compressor<C>::impl {
   std::vector<pszerror> error_list;
   TimeRecord timerecord;
 
+  float timerecord_v2[STAGE_END];
+
   // variables
   Header header;
   size_t len;
@@ -149,7 +152,7 @@ struct Compressor<C>::impl {
     }
     else {
       _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
-          {in, ctx->nd_len}, {ctx->eb, ctx->radius},
+          {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
           {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
           stream);
 
@@ -212,21 +215,20 @@ struct Compressor<C>::impl {
     nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
     // clang-format off
-  header.entry[0] = 0;
-  // *.END + 1; need to know the ending position
-  for (auto i = 1; i < END + 1; i++) header.entry[i] = nbyte[i - 1];
-  for (auto i = 1; i < END + 1; i++) header.entry[i] += header.entry[i - 1];
+    header.entry[0] = 0;
+    // *.END + 1; need to know the ending position
+    for (auto i = 1; i < END + 1; i++) header.entry[i] = nbyte[i - 1];
+    for (auto i = 1; i < END + 1; i++) header.entry[i] += header.entry[i - 1];
 
-  concate_memcpy_d2d(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream, __FILE__, __LINE__);
-  concate_memcpy_d2d(DST(VLE, 0), comp_hf_out, nbyte[VLE], stream, __FILE__, __LINE__);
-  concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
-  concate_memcpy_d2d(DST(SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(VLE, 0), comp_hf_out, nbyte[VLE], stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
     // clang-format on
 
     PSZDBG_LOG("merge buf: done");
 
     // update header
-
     header.x = ctx->x, header.y = ctx->y, header.z = ctx->z,
     header.w = 1;  // placeholder
     header.radius = ctx->radius, header.eb = ctx->eb;
@@ -242,7 +244,7 @@ struct Compressor<C>::impl {
 
     /* output of this function */
     *out = mem->_compressed->dptr();
-    *outlen = psz_utils::filesize(&header);
+    *outlen = pszheader_filesize(&header);
     mem->_compressed->set_len(*outlen);
 
     // return this;
@@ -351,7 +353,11 @@ struct Compressor<C>::impl {
     COLLECT_TIME("histogram", time_hist);
     COLLECT_TIME("book", codec->time_book());
     COLLECT_TIME("huff-enc", codec->time_lossless());
-    // COLLECT_TIME("outlier", time_sp);
+
+    timerecord_v2[STAGE_PREDICT] = time_pred;
+    timerecord_v2[STAGE_HISTOGRM] = time_hist;
+    timerecord_v2[STAGE_BOOK] = codec->time_book();
+    timerecord_v2[STAGE_HUFFMAN] = codec->time_lossless();
   }
 
   void decompress_collect_kerneltime()
@@ -361,6 +367,10 @@ struct Compressor<C>::impl {
     COLLECT_TIME("outlier", time_sp);
     COLLECT_TIME("huff-dec", codec->time_lossless());
     COLLECT_TIME("predict", time_pred);
+
+    timerecord_v2[STAGE_OUTLIER] = time_sp;
+    timerecord_v2[STAGE_HUFFMAN] = codec->time_lossless();
+    timerecord_v2[STAGE_PREDICT] = time_pred;
   }
 };
 
@@ -376,6 +386,20 @@ Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool iscompression, bool debug)
 
 template <class C>
 Compressor<C>::Compressor() : pimpl{std::make_unique<impl>()} {};
+
+template <class C>
+Compressor<C>::Compressor(psz_context* ctx, bool debug) :
+    pimpl{std::make_unique<impl>()}
+{
+  pimpl->template init(ctx, true /* comp */, debug);
+}
+
+template <class C>
+Compressor<C>::Compressor(psz_header* header, bool debug) :
+    pimpl{std::make_unique<impl>()}
+{
+  pimpl->template init(header, false /* decomp */, debug);
+}
 
 template <class C>
 Compressor<C>::~Compressor(){};
@@ -403,9 +427,6 @@ Compressor<C>* Compressor<C>::compress(
   pimpl->compress_merge_update_header(ctx, out, outlen, stream);
   pimpl->compress_collect_kerneltime();
 
-  // TODO constexpr if and runtime if
-  // if (ctx->dump_quantcode) optional_dump(ctx, pszmem_dump::PszQuant);
-  // if (ctx->dump_hist) optional_dump(ctx, pszmem_dump::PszHist);
   // TODO export or view
   if (not pimpl->error_list.empty()) ctx->there_is_memerr = true;
 
@@ -466,6 +487,15 @@ template <class C>
 Compressor<C>* Compressor<C>::export_timerecord(TimeRecord* ext_timerecord)
 {
   if (ext_timerecord) *ext_timerecord = pimpl->timerecord;
+  return this;
+}
+
+template <class C>
+Compressor<C>* Compressor<C>::export_timerecord(float* ext_timerecord)
+{
+  if (ext_timerecord)
+    for (auto i = 0; i < STAGE_END - 1; i++)
+      ext_timerecord[i] = pimpl->timerecord_v2[i];
   return this;
 }
 

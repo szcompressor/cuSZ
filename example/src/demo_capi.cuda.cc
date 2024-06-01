@@ -14,154 +14,114 @@
 #include "cusz.h"
 
 // utilities for demo
-#include "utils/config.hh"  //psz_utils::filesize
-#include "utils/io.hh"      // io::read_binary_to_array
-#include "utils/viewer.hh"  // view_de/compression, pszcxx_evaluate_quality_gpu
+#include "utils/io.hh"  // io::read_binary_to_array
+#include "utils/viewer/viewer.cu_hip.hh"
+#include "utils/viewer/viewer.h"
+
+using T = float;
+
+std::string fname;
+size_t len = 3600 * 1800;
+size_t oribytes = sizeof(T) * len;
+size_t x = 3600, y = 1800, z = 1;
+psz_len3 uncomp_len = {3600, 1800, 1};  // x, y, z
+auto mode = Rel;                        // set compression mode
+auto eb = 1.2e-4;                       // set error bound
+
+T *d_decomp, *h_decomp;
+T *d_uncomp, *h_uncomp;
+void* comp_timerecord;
+void* decomp_timerecord;
 
 void utility_verify_header(psz_header* h)
 {
   printf("header.%-*s : %p\n", 12, "(addr)", (void*)h);
   printf("header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", h->x, h->y, h->z);
-  printf("header.%-*s : %lu\n", 12, "filesize", psz_utils::filesize(h));
+  printf("header.%-*s : %lu\n", 12, "filesize", pszheader_filesize(h));
 }
 
-template <typename T>
-void f(std::string fname)
+void demo_compress(
+    uint8_t** compressed, psz_header* header, cudaStream_t stream)
 {
-  /* For demo, we use 3600x1800 CESM data. */
-  auto len = 3600 * 1800;
-
-  uint8_t* ptr_compressed;
+  uint8_t* p_compressed;
   size_t comp_len;
 
-  T *d_uncomp, *h_uncomp;
-  T *d_decomp, *h_decomp;
+  auto* compressor = psz_create(
+      /* data */ F4, uncomp_len, /* predictor */ Lorenzo,
+      /* quantizer radius */ 512,
+      /* codec */ Huffman);
 
-  auto oribytes = sizeof(T) * len;
-  cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
-  cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
+  psz_compress(
+      compressor, d_uncomp, uncomp_len, eb, mode, &p_compressed, &comp_len,
+      header, comp_timerecord, stream);
 
-  /* User handles loading from filesystem & transferring to device. */
-  io::read_binary_to_array(fname, h_uncomp, len);
-  cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
+  cudaMalloc(compressed, comp_len);
+  cudaMemcpy(*compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
 
-  cudaStream_t stream;
-  cudaStreamCreate(&stream);
+  psz_release(compressor);
+}
 
-  auto mode = Rel;   // set compression mode
-  auto eb = 2.4e-4;  // set error bound
+void demo_decompress(
+    uint8_t* compressed, psz_header* header, cudaStream_t stream)
+{
+  auto comp_len = pszheader_filesize(header);
+  psz_len3 decomp_len = psz_len3{header->x, header->y, header->z};
 
-  /*
-  Using default:
-    psz_compressor* comp = psz_create_default(F4, eb, mode);
+  auto compressor = psz_create_from_header(header);
+  psz_decompress(
+      compressor, compressed, comp_len, d_decomp, decomp_len,
+      decomp_timerecord, stream);
 
-  Alternatively, customize the compressor as follows.
-  */
-  psz_compressor* comp = psz_create(
-      /* dtype */ F4, /* predictor */ Lorenzo, /* quantizer radius */ 512,
-      /* codec */ Huffman, eb, mode);
-
-  auto uncomp_len = psz_len3{3600, 1800, 1};  // x, y, z
-  auto decomp_len = uncomp_len;
-
-  // TODO still C++ types
-  psz::TimeRecord comp_timerecord;
-  psz::TimeRecord decomp_timerecord;
-
-  /*
-  This points to the on-host internal buffer of the header. A duplicate header
-  exists as the first 128 byte of the compressed file on device (as exposed by
-  `ptr_compressed` below).
-
-  psz_compress makes a copy of header from the internal.
-  */
-  psz_header header;
-
-  {
-    psz_compress_init(comp, uncomp_len);
-    psz_compress(
-        comp, d_uncomp, uncomp_len, &ptr_compressed, &comp_len, &header,
-        (void*)&comp_timerecord, stream);
-
-    /* User can interpret the collected time information in other ways. */
-    psz::TimeRecordViewer::view_compression(
-        &comp_timerecord, oribytes, comp_len);
-
-    utility_verify_header(&header);
-  }
-
-  /*
-  Scenario 1: Persisting in another on-device buffer.
-
-  Memcpy from `ptr_compressed`, on-device internal buffer (of compressor), to
-  `ext_compressed`, another on-device buffer, via device-to-device memcpy.
-  After this, the compressor can be freely released.
-  */
-  uint8_t* ext_compressed;
-  cudaMalloc(&ext_compressed, comp_len);
-
-  /*
-  Also note that on-device ptr_compressed does not contain on-host header.
-  */
-  cudaMemcpy(
-      ext_compressed, ptr_compressed, comp_len, cudaMemcpyDeviceToDevice);
-  utility_verify_header(&header);
-
-  /*
-  Scenario 2: Saving the archive to filesystem.
-
-  1. Memcpy from on-device `ptr_compressed` with `comp_len` to
-  `host_compressed`, an on-host buffer for persisting in host memory or saving
-  to filesystem.
-  2. Put header to the begining of the archive.
-
-    uint8_t* host_compressed;
-    cudaMallocHost(&host_compressed, comp_len);
-    cudaMemcpy(
-        host_compressed, ptr_compressed, comp_len,
-  cudaMemcpyDeviceToHost); memcpy(host_compressed, &header, sizeof(header));
-
-  3. Save to filesystem.
-  4. Put at the end of the API call to clean up:
-    cudaFreeHost(host_compressed);
-  */
-
-  /*
-  The decompression uses the exported header from psz_compress.
-  */
-  {
-    utility_verify_header(&header);
-
-    psz_decompress_init(comp, &header);
-    psz_decompress(
-        comp, ext_compressed, comp_len, d_decomp, decomp_len,
-        (void*)&decomp_timerecord, stream);
-
-    psz::TimeRecordViewer::view_decompression(&decomp_timerecord, oribytes);
-  }
-
-  /* demo: offline checking (de)compression quality. */
-  pszcxx_evaluate_quality_gpu(d_decomp, d_uncomp, len, comp_len);
-
-  /* Release pSZ compressor */
-  psz_release(comp);
-
-  /*
-  Clean up CUDA stuff.
-  */
-  cudaFree(ext_compressed);
-  cudaFree(d_uncomp), cudaFreeHost(h_uncomp);
-  cudaFree(d_decomp), cudaFreeHost(h_decomp);
-  cudaStreamDestroy(stream);
+  psz_release(compressor);
 }
 
 int main(int argc, char** argv)
 {
   if (argc < 2) {
+    /* For demo, we use 3600x1800 CESM data. */
     printf("PROG /path/to/cesm-3600x1800\n");
     exit(0);
   }
 
-  f<float>(std::string(argv[1]));
+  psz_header header;
+  uint8_t* compressed;
+  auto fname = std::string(argv[1]);
+
+  cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
+  cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
+  io::read_binary_to_array(fname, h_uncomp, len);
+  cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
+
+  comp_timerecord = psz_make_timerecord();
+  decomp_timerecord = psz_make_timerecord();
+
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  demo_compress(&compressed, &header, stream);
+
+  {
+    utility_verify_header(&header);
+    auto comp_len = pszheader_filesize(&header);
+    psz_review_compression(comp_timerecord, &header);
+  }
+
+  demo_decompress(compressed, &header, stream);
+
+  {
+    auto comp_len = pszheader_filesize(&header);
+    psz_review_decompression(decomp_timerecord, oribytes);
+    pszcxx_evaluate_quality_gpu(d_decomp, d_uncomp, len, comp_len);
+  }
+
+  // clean up
+  cudaFree(compressed);
+  cudaFree(d_uncomp);
+  cudaFree(d_decomp);
+  cudaFreeHost(h_decomp);
+  cudaFreeHost(h_decomp);
+
+  cudaStreamDestroy(stream);
+
   return 0;
 }
