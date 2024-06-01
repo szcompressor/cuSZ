@@ -38,6 +38,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
   size_t pardeg;
   size_t sublen;
   size_t bklen;
+  bool use_HFR;
 
   // array
   memobj<H4>* scratch4;
@@ -103,12 +104,13 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
   // ctor
   internal_buffer(
-      size_t inlen, size_t _booklen, int _pardeg, bool use_hfr = false,
+      size_t inlen, size_t _booklen, int _pardeg, bool _use_HFR = false,
       bool debug = false)
   {
     pardeg = _pardeg;
     bklen = _booklen;
     len = inlen;
+    use_HFR  =_use_HFR;
 
     encoded = new memobj<PHF_BYTE>(len * sizeof(u4), "hf::out4B");
     scratch4 = new memobj<H4>(len, "hf::scratch4", {Malloc, MallocHost});
@@ -121,8 +123,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
     par_entry = new memobj<M>(pardeg, "hf::par_entry", {Malloc, MallocHost});
 
     // HFR: dense-sparse
-    if (use_hfr) {
-      // HFR: dense-sparse
+    if (use_HFR) {
       dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream", {Malloc});
       // 1 << 10 results in the max number of partitions
       dn_bitcount = new memobj<H4>(
@@ -143,13 +144,21 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
   ~internal_buffer()
   {
-    delete bk4, delete revbk4;
-    delete par_nbit, delete par_ncell, delete par_entry;
+    delete bk4;
+    delete revbk4;
+    delete par_nbit;
+    delete par_ncell;
+    delete par_entry;
 
     delete encoded;
-    delete scratch4, delete bitstream4;
+    delete scratch4;
+    delete bitstream4;
 
-    delete sp_val, delete sp_idx, delete sp_num;
+    if (use_HFR) {
+      delete sp_val;
+      delete sp_idx;
+      delete sp_num;
+    }
   }
 
   ::portable::compact_array1<E> sparse_space()
