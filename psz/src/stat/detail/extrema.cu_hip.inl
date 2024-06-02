@@ -81,17 +81,18 @@ __device__ __forceinline__ T atomicMaxFp(T *addr, T value)
 
 template <typename T>
 __global__ void extrema_kernel(
-    T *in, size_t const len, T *minel, T *maxel, T const failsafe, int const R)
+    T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe,
+    int const R)
 {
-  __shared__ T shared_minv, shared_maxv;
-  T tp_minv, tp_maxv;
+  __shared__ T shared_minv, shared_maxv, shared_sum;
+  // failsafe; require external setup
+  T tp_minv{failsafe}, tp_maxv{failsafe}, tp_sum{0};
 
   auto entry = (blockDim.x * R) * blockIdx.x + threadIdx.x;
   auto _idx = [&](auto r) { return entry + (r * blockDim.x); };
 
-  // failsafe; require external setup
-  tp_minv = failsafe, tp_maxv = failsafe;
-  if (threadIdx.x == 0) shared_minv = failsafe, shared_maxv = failsafe;
+  if (threadIdx.x == 0)
+    shared_minv = failsafe, shared_maxv = failsafe, shared_sum = 0;
 
   __syncthreads();
 
@@ -102,32 +103,33 @@ __global__ void extrema_kernel(
 
       tp_minv = min(tp_minv, val);
       tp_maxv = max(tp_maxv, val);
+      tp_sum += val;
     }
   }
   __syncthreads();
 
   atomicMinFp<T>(&shared_minv, tp_minv);
   atomicMaxFp<T>(&shared_maxv, tp_maxv);
+  atomicAdd(&shared_sum, tp_sum);
   __syncthreads();
 
   if (threadIdx.x == 0) {
-    auto oldmin = atomicMinFp<T>(minel, shared_minv);
-    auto oldmax = atomicMaxFp<T>(maxel, shared_maxv);
+    atomicMinFp<T>(minel, shared_minv);
+    atomicMaxFp<T>(maxel, shared_maxv);
+    atomicAdd(sum, shared_sum);
   }
 }
 
 }  // namespace psz
 
-namespace psz {
-
-namespace cu_hip {
+namespace psz::cu_hip {
 
 template <typename T>
 void extrema(T *in, size_t len, T res[4])
 {
   static const int MINVAL = 0;
   static const int MAXVAL = 1;
-  //   static const int AVGVAL = 2;  // TODO
+  static const int AVGVAL = 2;
   static const int RNG = 3;
 
   // TODO use external stream
@@ -140,28 +142,29 @@ void extrema(T *in, size_t len, T res[4])
   auto nworker = 128;
   auto R = chunk / nworker;
 
-  T h_min, h_max, failsafe;
-  T *d_minel, *d_maxel;
+  T h_min, h_max, h_sum, failsafe;
+  T *d_minel, *d_maxel, *d_sum;
 
   CHECK_GPU(GpuMalloc(&d_minel, sizeof(T)));
   CHECK_GPU(GpuMalloc(&d_maxel, sizeof(T)));
+  CHECK_GPU(GpuMalloc(&d_sum, sizeof(T)));
+  GpuMemset(d_sum, 0, sizeof(T));
 
   // failsafe init
-  CHECK_GPU(GpuMemcpy(&failsafe, in, sizeof(T), GpuMemcpyD2H));
-  CHECK_GPU(GpuMemcpy(d_minel, in, sizeof(T), GpuMemcpyD2D));
-  CHECK_GPU(GpuMemcpy(d_maxel, in, sizeof(T), GpuMemcpyD2D));
+  CHECK_GPU(GpuMemcpy(
+      &failsafe, in, sizeof(T), GpuMemcpyD2H));  // transfer the 1st val
+  CHECK_GPU(GpuMemcpy(d_minel, in, sizeof(T), GpuMemcpyD2D));  // init min el
+  CHECK_GPU(GpuMemcpy(d_maxel, in, sizeof(T), GpuMemcpyD2D));  // init max el
 
 // launch
 #if defined(PSZ_USE_CUDA)
   psz::extrema_kernel<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
-      in, len, d_minel, d_maxel, failsafe, R);
+      in, len, d_minel, d_maxel, d_sum, failsafe, R);
 #elif defined(PSZ_USE_HIP)
-#warning \
-    "[psz::warning::caveat] `if-constexpr`-required C++17 is not specified in cmake file, but clang can handle it well."
   if constexpr (std::is_same<T, float>::value) {
     psz::extrema_kernel<float>
         <<<div(len, chunk), nworker, sizeof(float) * 2, stream>>>(
-            in, len, d_minel, d_maxel, failsafe, R);
+            in, len, d_minel, d_maxel, d_sum, failsafe, R);
   }
   else {
     throw std::runtime_error(
@@ -175,18 +178,20 @@ void extrema(T *in, size_t len, T res[4])
   // collect results
   CHECK_GPU(GpuMemcpy(&h_min, d_minel, sizeof(T), GpuMemcpyD2H));
   CHECK_GPU(GpuMemcpy(&h_max, d_maxel, sizeof(T), GpuMemcpyD2H));
+  CHECK_GPU(GpuMemcpy(&h_sum, d_sum, sizeof(T), GpuMemcpyD2H));
 
   res[MINVAL] = h_min;
   res[MAXVAL] = h_max;
+  res[AVGVAL] = h_sum / len;
   res[RNG] = h_max - h_min;
 
   CHECK_GPU(GpuFree(d_minel));
   CHECK_GPU(GpuFree(d_maxel));
+  CHECK_GPU(GpuFree(d_sum));
 
   GpuStreamDestroy(stream);
 }
 
-}  // namespace cu_hip
-}  // namespace psz
+}  // namespace psz::cu_hip
 
 #endif /* E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760 */

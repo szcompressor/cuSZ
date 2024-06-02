@@ -91,10 +91,12 @@ __dpct_inline__ T atomicMaxFp(T *addr, T value)
 
 template <typename T>
 void extrema_kernel(
-    T *in, size_t const len, T *minel, T *maxel, T const failsafe, int const R,
-    const sycl::nd_item<3> &item_ct1, T &shared_minv, T &shared_maxv)
+    T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe,
+    int const R, const sycl::nd_item<3> &item_ct1, T &shared_minv,
+    T &shared_maxv, T &shared_sum)
 {
-  T tp_minv, tp_maxv;
+  // failsafe; require external setup
+  T tp_minv{failsafe}, tp_maxv{failsafe}, tp_sum{0};
 
   auto entry = (item_ct1.get_local_range(2) * R) * item_ct1.get_group(2) +
                item_ct1.get_local_id(2);
@@ -102,10 +104,8 @@ void extrema_kernel(
     return entry + (r * item_ct1.get_local_range(2));
   };
 
-  // failsafe; require external setup
-  tp_minv = failsafe, tp_maxv = failsafe;
   if (item_ct1.get_local_id(2) == 0)
-    shared_minv = failsafe, shared_maxv = failsafe;
+    shared_minv = failsafe, shared_maxv = failsafe, shared_sum = 0;
 
   /*
   DPCT1065:26: Consider replacing sycl::nd_item::barrier() with
@@ -121,6 +121,7 @@ void extrema_kernel(
 
       tp_minv = dpct::min(tp_minv, val);
       tp_maxv = dpct::max(tp_maxv, val);
+      tp_sum += val;
     }
   }
   /*
@@ -132,6 +133,8 @@ void extrema_kernel(
 
   atomicMinFp<T>(&shared_minv, tp_minv);
   atomicMaxFp<T>(&shared_maxv, tp_maxv);
+  dpct::atomic_fetch_add<sycl::access::address_space::local_space>(
+      &shared_sum, tp_sum);
   /*
   DPCT1065:28: Consider replacing sycl::nd_item::barrier() with
   sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
@@ -140,16 +143,16 @@ void extrema_kernel(
   item_ct1.barrier();
 
   if (item_ct1.get_local_id(2) == 0) {
-    auto oldmin = atomicMinFp<T>(minel, shared_minv);
-    auto oldmax = atomicMaxFp<T>(maxel, shared_maxv);
+    atomicMinFp<T>(minel, shared_minv);
+    atomicMaxFp<T>(maxel, shared_maxv);
+    dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
+        sum, shared_sum);
   }
 }
 
 }  // namespace psz
 
-namespace psz {
-
-namespace dpcpp {
+namespace psz::dpcpp {
 
 template <typename T>
 void extrema(T *in, size_t len, T res[4])
@@ -169,16 +172,18 @@ void extrema(T *in, size_t len, T res[4])
   auto nworker = 128;
   auto R = chunk / nworker;
 
-  T h_min, h_max, failsafe;
-  T *d_minel, *d_maxel;
+  T h_min, h_max, h_sum, failsafe;
+  T *d_minel, *d_maxel, *d_sum;
 
   d_minel = (T *)sycl::malloc_device(sizeof(T), queue);
   d_maxel = (T *)sycl::malloc_device(sizeof(T), queue);
+  d_sum = (T *)sycl::malloc_device(sizeof(T), queue);
 
   // failsafe init
   queue.memcpy(&failsafe, in, sizeof(T)).wait();
   queue.memcpy(d_minel, in, sizeof(T)).wait();
   queue.memcpy(d_maxel, in, sizeof(T)).wait();
+  queue.memset(d_sum, 0, sizeof(T)).wait();
 
   /*
   DPCT1049:29: The work-group size passed to the SYCL kernel may exceed the
@@ -186,10 +191,12 @@ void extrema(T *in, size_t len, T res[4])
   Adjust the work-group size if needed.
   */
   {
-    // dpct::has_capability_or_fail(stream->get_device(), {sycl::aspect::fp64});
+    // dpct::has_capability_or_fail(stream->get_device(),
+    // {sycl::aspect::fp64});
     queue.submit([&](sycl::handler &cgh) {
-      sycl::local_accessor<T, 0> shared_minv_acc_ct1(cgh);
-      sycl::local_accessor<T, 0> shared_maxv_acc_ct1(cgh);
+      sycl::local_accessor<T, 0> shared_minv(cgh);
+      sycl::local_accessor<T, 0> shared_maxv(cgh);
+      sycl::local_accessor<T, 0> shared_sum(cgh);
 
       cgh.parallel_for(
           sycl::nd_range<3>(
@@ -197,29 +204,28 @@ void extrema(T *in, size_t len, T res[4])
               sycl::range<3>(1, 1, nworker)),
           [=](sycl::nd_item<3> item_ct1) {
             psz::extrema_kernel<T>(
-                in, len, d_minel, d_maxel, failsafe, R, item_ct1,
-                shared_minv_acc_ct1, shared_maxv_acc_ct1);
+                in, len, d_minel, d_maxel, d_sum, failsafe, R, item_ct1,
+                shared_minv, shared_maxv, shared_sum);
           });
     });
   }
-
   queue.wait();
 
   // collect results
   queue.memcpy(&h_min, d_minel, sizeof(T)).wait();
   queue.memcpy(&h_max, d_maxel, sizeof(T)).wait();
+  queue.memcpy(&h_sum, d_sum, sizeof(T)).wait();
 
   res[MINVAL] = h_min;
   res[MAXVAL] = h_max;
+  res[AVGVAL] = h_sum / len;
   res[RNG] = h_max - h_min;
 
   sycl::free(d_minel, queue);
   sycl::free(d_maxel, queue);
-
-  // dev_ct1.destroy_queue(stream);
+  sycl::free(d_sum, queue);
 }
 
-}  // namespace dpcpp
-}  // namespace psz
+}  // namespace psz::dpcpp
 
 #endif /* E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760 */

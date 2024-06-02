@@ -51,10 +51,10 @@ void thrustgpu_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
       thrust::make_tuple(p_odata + len, p_xdata + len));
 
   // clang-format off
-    auto corr      = [=] __host__ __device__(tup t)  { return (thrust::get<0>(t) - odata[AVGVAL]) * (thrust::get<1>(t) - xdata[AVGVAL]); };
+    auto corr      = [=] __host__ __device__(tup t)  { return (thrust::get<0>(t) - odata_res[AVGVAL]) * (thrust::get<1>(t) - xdata_res[AVGVAL]); };
     auto err2      = []  __host__ __device__(tup t)  { T f = thrust::get<0>(t) - thrust::get<1>(t); return f * f; };
-    auto var_odata = [=] __host__ __device__(T a) { T f = a - odata[AVGVAL]; return f * f; };
-    auto var_xdata = [=] __host__ __device__(T a) { T f = a - xdata[AVGVAL]; return f * f; };
+    auto var_odata = [=] __host__ __device__(T a) { T f = a - odata_res[AVGVAL]; return f * f; };
+    auto var_xdata = [=] __host__ __device__(T a) { T f = a - xdata_res[AVGVAL]; return f * f; };
 
     auto sum_err2      = thrust::transform_reduce(begin, end, err2, 0.0f, thrust::plus<T>());
     auto sum_corr      = thrust::transform_reduce(begin, end, corr, 0.0f, thrust::plus<T>());
