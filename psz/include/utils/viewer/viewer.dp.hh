@@ -1,7 +1,7 @@
 #ifndef A3EF2E2E_2F32_4922_B1CB_88B84E6F9DD4
 #define A3EF2E2E_2F32_4922_B1CB_88B84E6F9DD4
 
-#include "stat/compare/compare.dpl.hh"
+#include "stat/compare.hh"
 
 namespace psz {
 
@@ -11,13 +11,13 @@ static void pszcxx_evaluate_quality_gpu(
 {
   // cross
   auto stat_x = new psz_summary;
-  psz::dpl_assess_quality<T>(stat_x, reconstructed, origin, len);
+  psz::dpl::GPU_assess_quality<T>(stat_x, reconstructed, origin, len);
   print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new psz_summary;
-  psz::dpl_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::dpl::GPU_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
-  psz::dpl_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::dpl::GPU_assess_quality<T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   print_metrics_auto(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);

@@ -9,22 +9,17 @@
  *
  */
 
-#ifndef C6875E14_650F_49ED_9DD5_E7F916EE31FF
-#define C6875E14_650F_49ED_9DD5_E7F916EE31FF
-
-#include "stat/compare/compare.thrust.hh"
-
-// #include <thrust/count.h>
-// #include <thrust/iterator/constant_iterator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 
 #include "cusz/type.h"
+#include "port.hh"
+#include "stat/compare.hh"
 
-namespace psz {
+namespace psz::thrustgpu {
 
 template <typename T>
-void thrustgpu_get_maxerr(
+void GPU_max_error(
     T* reconstructed,     // in
     T* original,          // in
     size_t len,           // in
@@ -57,6 +52,9 @@ void thrustgpu_get_maxerr(
   if (not destructive) { GpuFree(diff); }
 }
 
-}  // namespace psz
+}  // namespace psz::thrustgpu
 
-#endif /* C6875E14_650F_49ED_9DD5_E7F916EE31FF */
+#define __INSTANTIATE_THRUST_MAXERR(T)                              \
+  template void psz::thrustgpu::GPU_max_error<T>(                   \
+      T * reconstructed, T * original, size_t len, T & maximum_val, \
+      size_t & maximum_loc, bool destructive);

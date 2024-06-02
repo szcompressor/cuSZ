@@ -173,7 +173,7 @@ struct memobj<Ctype>::impl {
         std::is_same<Ctype, double>::value) {
       // may not work for _uniptr
       Ctype result[4];
-      // psz::thrustgpu::thrustgpu_get_extrema_rawptr<Ctype>((Ctype*)m->d,
+      // psz::thrustgpu::GPU_extrema_rawptr<Ctype>((Ctype*)m->d,
       // m->len, result);
       psz::probe_extrema<CUDA, Ctype>(d, _len, result);
 

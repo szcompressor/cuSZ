@@ -9,13 +9,6 @@
  *
  */
 
-#ifndef F7DF2FE5_571E_48C1_965D_0B19D1CC14D4
-#define F7DF2FE5_571E_48C1_965D_0B19D1CC14D4
-
-#include "stat/compare/compare.thrust.hh"
-
-// #include <thrust/count.h>
-// #include <thrust/iterator/constant_iterator.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/tuple.h>
@@ -23,7 +16,7 @@
 #include "cusz/type.h"
 #include "stat/compare.hh"
 
-namespace psz {
+namespace psz::thrustgpu {
 
 static const int MINVAL = 0;
 static const int MAXVAL = 1;
@@ -31,7 +24,7 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void thrustgpu_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
+void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 {
   using tup = thrust::tuple<T, T>;
 
@@ -41,10 +34,11 @@ void thrustgpu_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 
   T odata_res[4], xdata_res[4];
 
-  // thrustgpu_get_extrema_rawptr(odata, len, odata_res);
-  // thrustgpu_get_extrema_rawptr(xdata, len, xdata_res);
-  psz::probe_extrema<CUDA, T>(odata, len, odata_res);
-  psz::probe_extrema<CUDA, T>(xdata, len, xdata_res);
+  // It takes too long to compile THRUST backend.
+  // psz::probe_extrema<THRUST, T>(odata, len, odata_res);
+  // psz::probe_extrema<THRUST, T>(xdata, len, xdata_res);
+  psz::cu_hip::GPU_extrema<T>(odata, len, odata_res);
+  psz::cu_hip::GPU_extrema<T>(xdata, len, xdata_res);
 
   auto begin = thrust::make_zip_iterator(thrust::make_tuple(p_odata, p_xdata));
   auto end = thrust::make_zip_iterator(
@@ -69,7 +63,8 @@ void thrustgpu_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
   // -----------------------------------------------------------------------------
   T max_abserr{0};
   size_t max_abserr_index{0};
-  thrustgpu_get_maxerr(xdata, odata, len, max_abserr, max_abserr_index, false);
+  psz::thrustgpu::GPU_max_error(
+      xdata, odata, len, max_abserr, max_abserr_index, false);
   // -----------------------------------------------------------------------------
 
   s->len = len;
@@ -95,6 +90,8 @@ void thrustgpu_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
   s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
 }
 
-}  // namespace psz
+}  // namespace psz::thrustgpu
 
-#endif /* F7DF2FE5_571E_48C1_965D_0B19D1CC14D4 */
+#define __INSTANTIATE_THRUSTGPU_ASSESS(T)              \
+  template void psz::thrustgpu::GPU_assess_quality<T>( \
+      psz_summary * s, T * xdata, T * odata, size_t const len);

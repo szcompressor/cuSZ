@@ -1,6 +1,3 @@
-#ifndef C6875E14_650F_49ED_9DD5_E7F916EE31FF
-#define C6875E14_650F_49ED_9DD5_E7F916EE31FF
-
 #include <dpct/dpct.hpp>
 #include <dpct/dpl_utils.hpp>
 #include <oneapi/dpl/algorithm>
@@ -8,12 +5,13 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
-#include "stat/compare/compare.dpl.hh"
+#include "port.hh"
+#include "stat/compare.hh"
 
-namespace psz {
+namespace psz::dpl {
 
 template <typename T>
-void dpl_get_maxerr(
+void GPU_max_error(
     T* reconstructed,     // in
     T* original,          // in
     size_t len,           // in
@@ -50,6 +48,7 @@ void dpl_get_maxerr(
   if (not destructive) { sycl::free(diff, q_ct1); }
 }
 
-}  // namespace psz
+}  // namespace psz::dpl
 
-#endif /* C6875E14_650F_49ED_9DD5_E7F916EE31FF */
+#define __INSTANTIATE_DPL_MAXERR(T) \
+  template void psz::dpl::GPU_max_error<T>(T*, T*, size_t, T&, size_t&, bool);

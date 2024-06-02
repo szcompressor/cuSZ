@@ -9,13 +9,16 @@
  *
  */
 
-#ifndef E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760
-#define E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760
-
+#include <cuda_runtime.h>
 #include <math.h>
 #include <stdio.h>
 
 #include <type_traits>
+
+#include "cusz/type.h"
+#include "port.hh"
+#include "stat/compare.hh"
+#include "utils/err.hh"
 
 namespace psz {
 
@@ -80,7 +83,7 @@ __device__ __forceinline__ T atomicMaxFp(T *addr, T value)
 }  // namespace
 
 template <typename T>
-__global__ void extrema_kernel(
+__global__ void KERNEL_CUHIP_extrema(
     T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe,
     int const R)
 {
@@ -88,8 +91,8 @@ __global__ void extrema_kernel(
   // failsafe; require external setup
   T tp_minv{failsafe}, tp_maxv{failsafe}, tp_sum{0};
 
-  auto entry = (blockDim.x * R) * blockIdx.x + threadIdx.x;
-  auto _idx = [&](auto r) { return entry + (r * blockDim.x); };
+  auto _entry = [&]() { return (blockDim.x * R) * blockIdx.x + threadIdx.x; };
+  auto _idx = [&](auto r) { return _entry() + (r * blockDim.x); };
 
   if (threadIdx.x == 0)
     shared_minv = failsafe, shared_maxv = failsafe, shared_sum = 0;
@@ -125,7 +128,7 @@ __global__ void extrema_kernel(
 namespace psz::cu_hip {
 
 template <typename T>
-void extrema(T *in, size_t len, T res[4])
+void GPU_extrema(T *in, size_t len, T res[4])
 {
   static const int MINVAL = 0;
   static const int MAXVAL = 1;
@@ -158,8 +161,9 @@ void extrema(T *in, size_t len, T res[4])
 
 // launch
 #if defined(PSZ_USE_CUDA)
-  psz::extrema_kernel<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
-      in, len, d_minel, d_maxel, d_sum, failsafe, R);
+  psz::KERNEL_CUHIP_extrema<T>
+      <<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
+          in, len, d_minel, d_maxel, d_sum, failsafe, R);
 #elif defined(PSZ_USE_HIP)
   if constexpr (std::is_same<T, float>::value) {
     psz::extrema_kernel<float>
@@ -194,4 +198,5 @@ void extrema(T *in, size_t len, T res[4])
 
 }  // namespace psz::cu_hip
 
-#endif /* E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760 */
+#define __INSTANTIATE_CUHIP_EXTREMA(T) \
+  template void psz::cu_hip::GPU_extrema<T>(T * in, size_t len, T res[4]);

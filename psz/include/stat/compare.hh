@@ -16,12 +16,46 @@
 #include <stdlib.h>
 
 #include "busyheader.hh"
-#include "compare/compare.cu_hip.hh"
-#include "compare/compare.dp.hh"
-#include "compare/compare.dpl.hh"
-#include "compare/compare.stl.hh"
-#include "compare/compare.thrust.hh"
 #include "cusz/type.h"
+
+// clang-format off
+namespace psz::cppstl {
+bool CPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len);
+template <typename T> void CPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
+template <typename T> void CPU_calculate_errors(T* odata, T odata_avg, T* xdata, T xdata_avg, size_t len, T err[4]);
+template <typename T> void CPU_extrema(T* ptr, size_t len, T res[4]);
+template <typename T> bool CPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
+}  // namespace psz::cu_hip
+
+namespace psz::cu_hip {
+template <typename T> void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
+template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
+template <typename T> bool GPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
+}  // namespace psz::cu_hip
+
+namespace psz::thrustgpu {
+bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len);
+template <typename T> void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
+template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
+template <typename T> bool GPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx);
+template <typename T> void GPU_max_error(T* xdata, T* original, size_t len, T& maxval, size_t& maxloc, bool destructive = false);
+}  // namespace psz::thrustgpu
+
+namespace psz::dpcpp {
+template <typename T> void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
+template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
+}  // namespace psz::dpcpp
+
+namespace psz::dpl {
+template <typename T> void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
+template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
+}  // namespace psz::dpl
+
+// clang-format on
 
 namespace psz {
 
@@ -29,9 +63,9 @@ template <psz_policy P, typename T>
 bool identical(T* d1, T* d2, size_t const len)
 {
   if (P == SEQ)
-    psz::cppstl_identical(d1, d2, len);
+    cppstl::CPU_identical(d1, d2, sizeof(T), len);
   else if (P == THRUST)
-    thrustgpu_identical(d1, d2, len);
+    thrustgpu::GPU_identical(d1, d2, sizeof(T), len);
   else {
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
   }
@@ -40,17 +74,15 @@ bool identical(T* d1, T* d2, size_t const len)
 template <psz_policy P, typename T>
 void probe_extrema(T* in, size_t len, T res[4])
 {
-  if (P == SEQ) psz::cppstl_extrema(in, len, res);
-#ifdef REACTIVATE_THRUSTGPU
+  if (P == SEQ) cppstl::CPU_extrema(in, len, res);
+// #ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
-    thrustgpu::thrustgpu_get_extrema_rawptr(in, len, res);
-#endif
-  else if (P == CUDA or P == HIP) {
-    psz::cu_hip::extrema(in, len, res);
-  }
-  else if (P == ONEAPI) {
-    psz::dpcpp::extrema(in, len, res);
-  }
+    thrustgpu::GPU_extrema(in, len, res);
+// #endif
+  else if (P == CUDA or P == HIP) 
+    cu_hip::GPU_extrema(in, len, res);
+  else if (P == ONEAPI) 
+    dpcpp::GPU_extrema(in, len, res);
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
@@ -62,11 +94,10 @@ bool error_bounded(
 {
   bool eb_ed = true;
   if (P == SEQ)
-    eb_ed = psz::cppstl_error_bounded(a, b, len, eb, first_faulty_idx);
+    eb_ed = cppstl::CPU_error_bounded(a, b, len, eb, first_faulty_idx);
 #ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
-    eb_ed = psz::thrustgpu::thrustgpu_error_bounded(
-        a, b, len, eb, first_faulty_idx);
+    eb_ed = thrustgpu::GPU_error_bounded(a, b, len, eb, first_faulty_idx);
 #endif
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
@@ -77,20 +108,14 @@ template <psz_policy P, typename T>
 void assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 {
   // [TODO] THRUST is not activated in the frontend
-  if (P == SEQ)
-    psz::cppstl_assess_quality(s, xdata, odata, len);
-  else if (P == THRUST)
-    psz::thrustgpu_assess_quality(s, xdata, odata, len);
-  else if (P == ONEAPI) {
-#if defined(PSZ_USE_1API)
-    if constexpr (std::is_same_v<T, f4>) {
-      psz::dpl_assess_quality(s, xdata, odata, len);
-    }
-    else {
-      static_assert(
-          std::is_same_v<T, f4>, "No f8, fast fail on sycl::aspects::fp64.");
-    }
-#endif
+  if constexpr (P == SEQ)
+    cppstl::CPU_assess_quality(s, xdata, odata, len);
+  else if constexpr (P == CUDA)
+    cu_hip::GPU_assess_quality<T>(s, xdata, odata, len);
+  else if constexpr (P == THRUST)
+    thrustgpu::GPU_assess_quality(s, xdata, odata, len);
+  else if constexpr (P == ONEAPI) {
+    dpl::GPU_assess_quality(s, xdata, odata, len);
   }
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");

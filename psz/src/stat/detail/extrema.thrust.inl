@@ -9,17 +9,12 @@
  *
  */
 
-#ifndef C9DB8B27_F5D7_454F_9485_CAD4B2FE4A92
-#define C9DB8B27_F5D7_454F_9485_CAD4B2FE4A92
-
 #include <thrust/device_ptr.h>
-
-#include "stat/compare/compare.thrust.hh"
-// #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 
-namespace psz {
-namespace thrustgpu {
+#include "stat/compare.hh"
+
+namespace psz::thrustgpu {
 
 static const int MINVAL = 0;
 static const int MAXVAL = 1;
@@ -27,7 +22,7 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4])
+void GPU_extrema(T* d_ptr, size_t len, T res[4])
 {
   thrust::device_ptr<T> g_ptr = thrust::device_pointer_cast(d_ptr);
 
@@ -44,7 +39,7 @@ void thrustgpu_get_extrema_rawptr(T* d_ptr, size_t len, T res[4])
 // commented for better build time
 /*
 template <typename T>
-void thrustgpu_get_extrema(thrust::device_ptr<T> g_ptr, size_t len, T res[4])
+void GPU_extrema(thrust::device_ptr<T> g_ptr, size_t len, T res[4])
 {
     auto minel  = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;
     auto maxel  = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;
@@ -57,7 +52,7 @@ thrust::plus<T>()); res[AVGVAL] = sum / len;
 }
 */
 
-}  // namespace thrustgpu
-}  // namespace psz
+}  // namespace psz::thrustgpu
 
-#endif /* C9DB8B27_F5D7_454F_9485_CAD4B2FE4A92 */
+#define __INSTANTIATE_THRUSTGPU_EXTREMA(T) \
+  template void psz::thrustgpu::GPU_extrema(T* d_ptr, size_t len, T res[4]);

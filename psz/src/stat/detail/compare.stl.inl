@@ -9,27 +9,23 @@
  *
  */
 
-#ifndef C0E747B4_066F_4B04_A3D2_00E1A3B7D682
-#define C0E747B4_066F_4B04_A3D2_00E1A3B7D682
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <numeric>
-
+#include "stat/compare.hh"
 #include "cusz/type.h"
 
-namespace psz {
+namespace psz::cppstl {
 
-template <typename T>
-bool cppstl_identical(T* d1, T* d2, size_t const len)
+bool CPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len)
 {
-  return std::equal(d1, d1 + len, d2);
+  return std::equal((u1*)d1, (u1*)d1 + len * sizeof_T, (u1*)d2);
 }
 
 template <typename T>
-void cppstl_extrema(T* in, szt const len, T res[4])
+void CPU_extrema(T* in, szt const len, T res[4])
 {
   auto res2 = std::minmax_element(in, in + len);
   res[0] = *res2.first;
@@ -41,9 +37,9 @@ void cppstl_extrema(T* in, szt const len, T res[4])
 }
 
 template <typename T>
-bool cppstl_error_bounded(
+bool CPU_error_bounded(
     T* a, T* b, size_t const len, double const eb,
-    size_t* first_faulty_idx = nullptr)
+    size_t* first_faulty_idx )
 {
   // debugging
 
@@ -58,8 +54,7 @@ bool cppstl_error_bounded(
 }
 
 template <typename T>
-void cppstl_assess_quality(
-    psz_summary* s, T* xdata, T* odata, size_t const len)
+void CPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 {
   double max_odata = odata[0], min_odata = odata[0];
   double max_xdata = xdata[0], min_xdata = xdata[0];
@@ -121,6 +116,4 @@ void cppstl_assess_quality(
   s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
 }
 
-}  // namespace psz
-
-#endif /* C0E747B4_066F_4B04_A3D2_00E1A3B7D682 */
+}  // namespace psz::cppstl

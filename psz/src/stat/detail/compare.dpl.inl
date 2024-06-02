@@ -9,25 +9,17 @@
  *
  */
 
-#ifndef F7DF2FE5_571E_48C1_965D_0B19D1CC14D4
-#define F7DF2FE5_571E_48C1_965D_0B19D1CC14D4
-
+#include <cmath>
 #include <dpct/dpct.hpp>
 #include <dpct/dpl_utils.hpp>
 #include <oneapi/dpl/algorithm>
 #include <oneapi/dpl/execution>
 #include <sycl/sycl.hpp>
 
-#include "stat/compare/compare.dpl.hh"
-
-// #include <thrust/count.h>
-// #include <thrust/iterator/constant_iterator.h>
-#include <cmath>
-
 #include "cusz/type.h"
 #include "stat/compare.hh"
 
-namespace psz {
+namespace psz::dpl {
 
 static const int MINVAL = 0;
 static const int MAXVAL = 1;
@@ -35,8 +27,12 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void dpl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
+void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 {
+  static_assert(
+      std::is_same_v<T, f4>,
+      "No f8 for local GPU; fast fail on sycl::aspects::fp64.");
+
   using tup = std::tuple<T, T>;
 
   dpct::device_pointer<T> p_odata = dpct::get_device_pointer(odata);  // origin
@@ -44,8 +40,6 @@ void dpl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 
   T odata_res[4], xdata_res[4];
 
-  // thrustgpu_get_extrema_rawptr(odata, len, odata_res);
-  // thrustgpu_get_extrema_rawptr(xdata, len, xdata_res);
   psz::probe_extrema<ONEAPI, T>(odata, len, odata_res);
   psz::probe_extrema<ONEAPI, T>(xdata, len, xdata_res);
 
@@ -99,6 +93,8 @@ void dpl_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
   s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
 }
 
-}  // namespace psz
+}  // namespace psz::dpl
 
-#endif /* F7DF2FE5_571E_48C1_965D_0B19D1CC14D4 */
+#define __INSTANTIATE_DPL_ASSESS(T)              \
+  template void psz::dpl::GPU_assess_quality<T>( \
+      psz_summary * s, T * xdata, T * odata, size_t const len);

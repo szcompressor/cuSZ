@@ -9,15 +9,17 @@
  *
  */
 
-#ifndef E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760
-#define E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760
-
 #include <math.h>
 #include <stdio.h>
 
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 #include <type_traits>
+
+#include "cusz/type.h"
+#include "port.hh"
+#include "stat/compare.hh"
+#include "utils/err.hh"
 
 namespace psz {
 
@@ -90,7 +92,7 @@ __dpct_inline__ T atomicMaxFp(T *addr, T value)
 }  // namespace
 
 template <typename T>
-void extrema_kernel(
+void KERNEL_DP_extrema(
     T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe,
     int const R, const sycl::nd_item<3> &item_ct1, T &shared_minv,
     T &shared_maxv, T &shared_sum)
@@ -155,7 +157,7 @@ void extrema_kernel(
 namespace psz::dpcpp {
 
 template <typename T>
-void extrema(T *in, size_t len, T res[4])
+void GPU_extrema(T *in, size_t len, T res[4])
 {
   // [TODO] external stream
   dpct::device_ext &dev_ct1 = dpct::get_current_device();
@@ -203,7 +205,7 @@ void extrema(T *in, size_t len, T res[4])
               div(len, chunk) * sycl::range<3>(1, 1, nworker),
               sycl::range<3>(1, 1, nworker)),
           [=](sycl::nd_item<3> item_ct1) {
-            psz::extrema_kernel<T>(
+            psz::KERNEL_DP_extrema<T>(
                 in, len, d_minel, d_maxel, d_sum, failsafe, R, item_ct1,
                 shared_minv, shared_maxv, shared_sum);
           });
@@ -227,5 +229,3 @@ void extrema(T *in, size_t len, T res[4])
 }
 
 }  // namespace psz::dpcpp
-
-#endif /* E94048A9_2F2B_4A97_AB6E_1B8A3DD6E760 */

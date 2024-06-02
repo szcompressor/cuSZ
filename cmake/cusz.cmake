@@ -39,24 +39,34 @@ if(PSZ_REACTIVATE_THRUSTGPU)
   add_library(
     psz_cu_stat
     psz/src/stat/compare.stl.cc
-    psz/src/stat/extrema.cu
-    psz/src/stat/cmpg1_4.cu
-    psz/src/stat/cmpg2.cu
-    psz/src/stat/cmpg3.cu
-    psz/src/stat/cmpg4_1.cu
-    psz/src/stat/cmpg4_2.cu
-    psz/src/stat/cmpg5_1.cu
-    psz/src/stat/cmpg5_2.cu)
+    psz/src/stat/identical/all.thrust.cu
+    psz/src/stat/extrema/f4.cu
+    psz/src/stat/extrema/f8.cu
+    psz/src/stat/extrema/f4.thrust.cu
+    psz/src/stat/extrema/f8.thrust.cu
+    psz/src/stat/calcerr/f4.cu
+    psz/src/stat/calcerr/f8.cu
+    psz/src/stat/assess/f4.cu
+    psz/src/stat/assess/f8.cu
+    psz/src/stat/assess/f4.thrust.cu
+    psz/src/stat/assess/f8.thrust.cu
+    psz/src/stat/maxerr/f4.thrust.cu
+    psz/src/stat/maxerr/f8.thrust.cu)
 else()
   add_library(
     psz_cu_stat
     psz/src/stat/compare.stl.cc
-    psz/src/stat/extrema.cu
-    psz/src/stat/cmpg2.cu
-    psz/src/stat/cmpg4_1.cu
-    psz/src/stat/cmpg4_2.cu
-    psz/src/stat/cmpg5_1.cu
-    psz/src/stat/cmpg5_2.cu)
+    psz/src/stat/identical/all.thrust.cu
+    psz/src/stat/extrema/f4.cu
+    psz/src/stat/extrema/f8.cu
+    psz/src/stat/calcerr/f4.cu
+    psz/src/stat/calcerr/f8.cu
+    psz/src/stat/assess/f4.cu
+    psz/src/stat/assess/f8.cu
+    psz/src/stat/assess/f4.thrust.cu
+    psz/src/stat/assess/f8.thrust.cu
+    psz/src/stat/maxerr/f4.thrust.cu
+    psz/src/stat/maxerr/f8.thrust.cu)
 endif()
 
 target_link_libraries(psz_cu_stat

@@ -9,9 +9,6 @@
  *
  */
 
-#ifndef DC032520_A30F_4F2D_A260_CCE0E88CF40C
-#define DC032520_A30F_4F2D_A260_CCE0E88CF40C
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/find.h>
@@ -20,11 +17,10 @@
 
 #include "cusz/type.h"
 
-namespace psz {
-namespace thrustgpu {
+namespace psz::thrustgpu {
 
 template <typename T>
-bool thrustgpu_error_bounded(
+bool GPU_error_bounded(
     T* a, T* b, size_t const len, double eb,
     size_t* first_faulty_idx = nullptr)
 {
@@ -56,7 +52,9 @@ bool thrustgpu_error_bounded(
   }
 }
 
-}  // namespace thrustgpu
-}  // namespace psz
+}  // namespace psz::thrustgpu
 
-#endif /* DC032520_A30F_4F2D_A260_CCE0E88CF40C */
+#define __INSTANTIATE_THRUST_EB(T)                     \
+  template bool psz::thrustgpu::GPU_error_bounded<T>(  \
+      T * a, T * b, size_t const len, double const eb, \
+      size_t* first_faulty_idx);

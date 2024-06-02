@@ -118,9 +118,9 @@ void hf_run(
   }
   print_GBps<f4>(len, time_decomp_lossless, "decomp_hf_decode");
 
-  // psz::cppstl_identical(h_xd, h_d, len);
+  // psz::cppstl::CPU_identical(h_xd, h_d, len);
   auto identical =
-      psz::thrustgpu_identical(xd->dptr(), od->dptr(), sizeof(E), len);
+      psz::thrustgpu::GPU_identical(xd->dptr(), od->dptr(), sizeof(E), len);
 
   if (identical)
     cout << ">>>>  IDENTICAL." << endl;

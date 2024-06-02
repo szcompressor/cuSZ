@@ -86,7 +86,7 @@ class CLI {
     reconst->control({D2H});
 
     psz_summary stat;
-    psz::assess_quality<SEQ>(&stat, reconst->hptr(), original->hptr(), len);
+    psz::assess_quality<THRUST>(&stat, reconst->dptr(), original->dptr(), len);
     psz::print_metrics_cross<T>(&stat, 0, true);
 
     // destroy
