@@ -38,9 +38,22 @@ class Compressor {
   using timerecord_t = TimeRecord*;
 
  public:
+  /**
+   * @brief construct a object, use with init(...)
+   * @deprecated use with-argument ctors
+   */
   Compressor();
+  // comp, ctor(...) + no further init
+  Compressor(psz_context*, bool debug = false);
+  Compressor(psz_header*, bool debug = false);
+  // dtor, releasing 
   ~Compressor();
 
+/**
+ * @brief initialize internal buffer
+ * @deprecated to be an internal function
+ * @tparam CONFIG psz_context of psz_header
+ */
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool iscomp = true, bool dbg = false);
   Compressor* compress(pszctx*, T*, BYTE**, size_t*, psz_stream_t);
@@ -51,6 +64,7 @@ class Compressor {
   Compressor* export_header(psz_header&);
   Compressor* export_header(psz_header*);
   Compressor* export_timerecord(TimeRecord*);
+  Compressor* export_timerecord(float*);
 };
 
 }  // namespace psz

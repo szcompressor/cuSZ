@@ -2,6 +2,7 @@
 #define BF8291FB_FC70_424B_B53C_94C1D8DDAC5A
 
 #include "cusz/type.h"
+#include "header.h"
 #include "mem/array_cxx.h"
 #include "stat/compare.hh"
 #include "utils/verify.hh"
@@ -87,8 +88,8 @@ static void view(
     psz_header* header, memobj<T>* xdata, memobj<T>* cmp,
     string const& compare)
 {
-  auto len = psz_utils::uncompressed_len(header);
-  auto compressd_bytes = psz_utils::filesize(header);
+  auto len = pszheader_uncompressed_len(header);
+  auto compressd_bytes = pszheader_compressed_len(header);
 
   auto compare_on_gpu = [&]() {
     cmp->control({MallocHost, Malloc})

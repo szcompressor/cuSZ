@@ -3,11 +3,6 @@ target_link_libraries(demo_capi_cuda
   PRIVATE cusz
 )
 
-add_executable(demo_capi_minimal_cuda src/demo_capi_minimal.cuda.cc)
-target_link_libraries(demo_capi_minimal_cuda
-  PRIVATE cusz
-)
-
 add_library(ex_utils src/ex_utils.cu)
 target_link_libraries(ex_utils
   PUBLIC psz_cu_compile_settings

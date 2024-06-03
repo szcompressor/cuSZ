@@ -114,6 +114,7 @@ target_link_libraries(psz_cu_mem
 )
 
 add_library(psz_cu_utils
+  psz/src/utils/viewer.cc
   psz/src/utils/verinfo.cc
   psz/src/utils/verinfo.cu
   psz/src/utils/verinfo_nv.cu
@@ -121,6 +122,7 @@ add_library(psz_cu_utils
   psz/src/utils/context.cc
   psz/src/utils/timer_cpu.cc
   psz/src/utils/timer_gpu.cc
+  psz/src/utils/header.c
 )
 target_link_libraries(psz_cu_utils
   PUBLIC psz_cu_compile_settings CUDA::cudart CUDA::nvml
@@ -157,7 +159,7 @@ target_link_libraries(cusz
 )
 
 #m export binary "cusz"
-add_executable(cusz-bin psz/src/cli.cc)
+add_executable(cusz-bin psz/src/cli/cli.cc)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 

@@ -42,18 +42,16 @@ typedef struct psz_header {
   int splen;                          // direct len of sparse part
   uint32_t x, y, z, w;
 
-  // compression config
-  double eb;
-  uint32_t radius : 16;
-  // coarse-grained HF-encoding config
-  uint32_t vle_pardeg;
-
-  // used
-  // uint32_t nz_density_factor : 8;
-  // uint32_t byte_vle : 4;           // 4, 8
-  // uint32_t codecs_in_use : 2;
-
+  double eb;             // compression config
+  uint32_t radius : 16;  //
+  uint32_t vle_pardeg;   // coarse-grained HF
 } psz_header;
+
+psz_len3 pszheader_len3(psz_header*);
+size_t pszheader_linear_len(psz_header*);
+size_t pszheader_filesize(psz_header*);
+size_t pszheader_uncompressed_len(psz_header*);
+size_t pszheader_compressed_len(psz_header*);
 
 #ifdef __cplusplus
 }

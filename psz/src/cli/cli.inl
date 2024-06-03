@@ -23,6 +23,7 @@
 #include "mem.hh"
 #include "stat/compare.hh"
 #include "tehm.hh"
+#include "utils/viewer/viewer.h"
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "utils/analyzer.hh"
 #endif
@@ -30,7 +31,7 @@
 #include "utils/query.hh"
 #include "utils/viewer.hh"
 
-namespace cusz {
+namespace psz {
 
 using namespace portable;
 
@@ -105,28 +106,22 @@ class CLI {
 
  private:
   void write_compressed_to_disk(
-      std::string compressed_name, psz_header* header, uint8_t* compressed,
-      size_t compressed_len)
+      std::string compressed_name, psz_header* header, uint8_t* comped,
+      size_t comp_len)
   {
-    auto file = new memobj<uint8_t>(compressed_len, "cusza", {MallocHost});
+    auto file = new memobj<uint8_t>(comp_len, "psz-archive", {MallocHost});
 
-    file->dptr(compressed)->control({D2H});
+    file->dptr(comped)->control({D2H});
     memcpy(file->hptr(), header, sizeof(psz_header));  // put on-host header
     file->file(compressed_name.c_str(), ToFile);
 
     delete file;
   }
 
-  // template <typename compressor_t>
-  void do_construct(psz_compressor* compressor, void* stream)
+  void do_compress(pszctx* const ctx, void* stream)
   {
-    auto ctx = compressor->ctx;
     auto input = new memobj<T>(
-        ctx->x, ctx->y, ctx->z, "uncompressed", {MallocHost, Malloc});
-
-    uint8_t* compressed;
-    size_t compressed_len;
-    psz_header header;
+        ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
 
     input->file(ctx->file_input, FromFile)->control({H2D});
 
@@ -137,35 +132,38 @@ class CLI {
       ctx->eb *= rng;
     }
 
+    uint8_t* comped;
+    size_t comp_len;
+    psz_header header;
+    auto eb = ctx->eb;
+    auto mode = ctx->mode;
+
     psz::TimeRecord timerecord;
 
-    psz_compress_init(compressor, psz_len3{ctx->x, ctx->y, ctx->z});
-
+    // the core of compression
+    auto compressor = psz_create_from_context(ctx, get_len3(ctx));
     psz_compress(
-        compressor, input->dptr(), ctx->nd_len, &compressed, &compressed_len,
+        compressor, input->dptr(), get_len3(ctx), eb, mode, &comped, &comp_len,
         &header, (void*)&timerecord, stream);
 
     if (not ctx->there_is_memerr) {
       printf("\n(c) COMPRESSION REPORT\n");
 
-      if (ctx->report_time)
-        psz::TimeRecordViewer::view_timerecord(&timerecord, &header);
-      if (ctx->report_cr) psz::TimeRecordViewer::view_cr(&header);
+      if (ctx->report_time) psz_review_timerecord(&timerecord, &header);
+      if (ctx->report_cr) psz_review_cr(&header);
 
       write_compressed_to_disk(
-          std::string(ctx->file_input) + ".cusza", &header, compressed,
-          compressed_len);
+          std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
     }
     else {
       printf("\n*** exit on failure.\n");
     }
 
-    // delete data buffers external to compressor
+    psz_release(compressor);
     delete input;
   }
 
-  // template <typename compressor_t>
-  void do_reconstruct(pszctx* ctx, psz_compressor* compressor, void* stream)
+  void do_decompress(pszctx* const ctx, void* stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->file_input);
@@ -174,64 +172,51 @@ class CLI {
     // all lengths in metadata
     auto compressed_len = psz_utils::filesize(ctx->file_input);
 
-    auto compressed = new memobj<uint8_t>(
-        compressed_len, "compressed", {MallocHost, Malloc});
+    auto comped =
+        new memobj<uint8_t>(compressed_len, "comped", {MallocHost, Malloc});
 
-    compressed->file(ctx->file_input, FromFile)->control({H2D});
+    comped->file(ctx->file_input, FromFile)->control({H2D});
 
-    auto header = new psz_header;
-    memcpy(header, compressed->hptr(), sizeof(psz_header));
-    auto len = psz_utils::uncompressed_len(header);
-
-    auto decompressed =
-        new memobj<T>(len, "decompressed", {MallocHost, Malloc});
-    auto original = new memobj<T>(len, "original-cmp");
-
+    auto header = (psz_header*)comped->hptr();
+    auto len = pszheader_uncompressed_len(header);
+    auto comp_len = pszheader_filesize(header);
+    auto decomp_len = psz_len3{header->x, header->y, header->z};
     psz::TimeRecord timerecord;
 
-    psz_len3 decomp_len = psz_len3{header->x, header->y, header->z};
+    auto decomped = new memobj<T>(len, "decomp'ed", {MallocHost, Malloc});
+    auto original = new memobj<T>(len, "original-cmp");
 
-    psz_decompress_init(compressor, header);
+    // the core of decompression
+    auto compressor = psz_create_from_header(header);
     psz_decompress(
-        compressor, compressed->dptr(), psz_utils::filesize(header),
-        decompressed->dptr(), decomp_len, (void*)&timerecord, stream);
+        compressor, comped->dptr(), comp_len, decomped->dptr(), decomp_len,
+        (void*)&timerecord, stream);
 
     if (ctx->report_time)
-      psz::TimeRecordViewer::view_decompression(
-          &timerecord, decompressed->bytes());
-    psz::view(header, decompressed, original, ctx->file_compare);
+      psz_review_decompression(&timerecord, decomped->bytes());
+    psz::view(header, decomped, original, ctx->file_compare);
 
     if (not ctx->skip_tofile)
-      decompressed->control({D2H})->file(
+      decomped->control({D2H})->file(
           std::string(basename + ".cuszx").c_str(), ToFile);
 
-    // delete data buffers external to compressor
-    delete compressed;
-    delete decompressed;
+    psz_release(compressor);
+    delete comped;
+    delete decomped;
     delete original;
   }
 
  public:
-  // TODO determine dtype & predictor in here
   void dispatch(pszctx* ctx)
   {
-    // TODO disable predictor selection; to specify in another way
-    // auto predictor = ctx->predictor;
-
-    // TODO make it a value rather than a pointer
-    // psz_framework* framework = pszdefault_framework();
-    // psz_compressor* compressor = psz_create(framework, F4);
-
-    psz_compressor* compressor = psz_create_from_context(ctx);
-
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;
     CHECK_GPU(GpuStreamCreate(&stream));
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
-    if (ctx->task_construct) do_construct(compressor, stream);
-    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, stream);
+    if (ctx->task_construct) do_compress(ctx, stream);
+    if (ctx->task_reconstruct) do_decompress(ctx, stream);
     if (stream) GpuStreamDestroy(stream);
 
 #elif defined(PSZ_USE_1API)
@@ -250,19 +235,13 @@ class CLI {
 
     // TODO enable f8
     if (ctx->task_dryrun) do_dryrun<float>(ctx);
-    if (ctx->task_construct) do_construct(ctx, compressor, &q);
-    if (ctx->task_reconstruct) do_reconstruct(ctx, compressor, &q);
+    if (ctx->task_construct) do_compress(compressor, &q);
+    if (ctx->task_reconstruct) do_decompress(compressor, &q);
 
 #endif
-
-    // TODO mirrored with creation
-    // delete framework;
-
-    psz_release(compressor);
-    // delete compressor;
   }
 };
 
-}  // namespace cusz
+}  // namespace psz
 
 #endif

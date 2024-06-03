@@ -44,7 +44,6 @@ const int VERSION = 20230928;
 const int COMPATIBILITY = 0;
 }  // namespace psz
 
-
 void capi_psz_version()
 {
   printf("\n>>>  %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT);
@@ -491,7 +490,6 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
     ctx->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
 
     ctx->data_len = ctx->x * ctx->y * ctx->z;
-    ctx->nd_len = {ctx->x, ctx->y, ctx->z};
   }
 }
 
@@ -608,7 +606,6 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
 
   ctx->ndim = ndim;
   ctx->data_len = ctx->x * ctx->y * ctx->z;
-  ctx->nd_len = psz_len3{_x, _y, _z};
 
   if (ctx->data_len == 1)
     throw std::runtime_error("Input data length cannot be 1 (linearized).");
@@ -619,7 +616,11 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
 void pszctx_set_len(pszctx* ctx, psz_len3 len)
 {
   pszctx_set_rawlen(ctx, len.x, len.y, len.z);
-  // ctx->nd_len = len;
+}
+
+psz_len3 pszctx_get_len3(pszctx* ctx)
+{
+  return psz_len3{ctx->x, ctx->y, ctx->z};
 }
 
 void pszctx_set_radius(pszctx* ctx, int _)
@@ -668,7 +669,6 @@ pszctx* pszctx_default_values()
       .data_len = 1,
       .splen = 0,
       .ndim = -1,
-      .nd_len = {1, 1, 1},
       .dump_quantcode = false,
       .dump_hist = false,
       .task_construct = false,
@@ -698,17 +698,15 @@ void pszctx_set_default_values(pszctx* empty_ctx)
   delete default_vals;
 }
 
-pszctx* pszctx_minimal_working_set(
+pszctx* pszctx_minimal_workset(
     psz_dtype const dtype, psz_predtype const predictor,
-    int const quantizer_radius, psz_codectype const codec, double const eb,
-    psz_mode const mode)
+    int const quantizer_radius, psz_codectype const codec
+    )
 {
   auto ws = pszctx_default_values();
   ws->dtype = dtype;
   ws->pred_type = predictor;
   ws->codec_type = codec;
-  ws->mode = mode;
-  ws->eb = eb;
   ws->dict_size = quantizer_radius * 2;
   ws->radius = quantizer_radius;
   return ws;

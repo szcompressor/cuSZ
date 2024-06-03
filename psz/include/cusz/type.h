@@ -27,18 +27,13 @@ typedef psz_backend psz_policy;
 
 typedef void* psz_stream_t;
 
-//////// state enumeration
-
-typedef enum psz_error_status {  //
+typedef enum {
   CUSZ_SUCCESS,
-  //
   CUSZ_GENERAL_GPU_FAILURE,
-  //
   CUSZ_FAIL_ONDISK_FILE_ERROR,
   CUSZ_FAIL_DATA_NOT_READY,
-  //
+  PSZ_TYPE_UNSUPPORTED,
   PSZ_ERROR_GPU_GENERAL,
-  //
   PSZ_ERROR_OUTLIER_OVERFLOW,
   PSZ_ERROR_IO,
   // specify error when calling CUDA API
@@ -61,21 +56,7 @@ typedef enum psz_error_status {  //
 } psz_error_status;
 typedef psz_error_status pszerror;
 
-typedef enum psz_dtype  //
-{ __F0 = 0,
-  F4 = 4,
-  F8 = 8,
-  __U0 = 10,
-  U1 = 11,
-  U2 = 12,
-  U4 = 14,
-  U8 = 18,
-  __I0 = 20,
-  I1 = 21,
-  I2 = 22,
-  I4 = 24,
-  I8 = 28,
-  ULL = 31 } psz_dtype;
+typedef enum { F4, F8, U1, U2, U4, U8, I1, I2, I4, I8, ULL } psz_dtype;
 
 // aliasing
 typedef uint8_t u1;
@@ -93,16 +74,11 @@ typedef double f8;
 typedef uint8_t byte_t;
 typedef size_t szt;
 
-typedef enum psz_mode  //
-{ Abs = 0,
-  Rel = 1 } psz_mode;
+typedef enum { Abs, Rel } psz_mode;
+typedef enum { Lorenzo, Spline } psz_predtype;
 
-typedef enum psz_predtype  //
-{ Lorenzo = 0,
-  Spline = 1 } psz_predtype;
-
-typedef enum psz_preprocestype  //
-{ FP64toFP32 = 0,
+typedef enum {
+  FP64toFP32,
   LogTransform,
   ShiftedLogTransform,
   Binning2x2,
@@ -110,11 +86,20 @@ typedef enum psz_preprocestype  //
   Binning1x2,
 } psz_preprocestype;
 
-typedef enum psz_codectype  //
-{ Huffman = 0,
+typedef enum {
+  Huffman,
   HuffmanRevisit,
   RunLength,
 } psz_codectype;
+
+typedef enum {
+  STAGE_PREDICT = 0,
+  STAGE_HISTOGRM = 1,
+  STAGE_BOOK = 3,
+  STAGE_HUFFMAN = 4,
+  STAGE_OUTLIER = 5,
+  STAGE_END = 6
+} psz_time_stage;
 
 typedef struct psz_len3 {
   size_t x, y, z;
@@ -131,6 +116,8 @@ typedef struct psz_compressor {
   psz_ctx* ctx;
   psz_header* header;
   psz_dtype type;
+  psz_error_status last_error;
+  float stage_time[STAGE_END];
 } psz_compressor;
 
 typedef struct psz_basic_data_description {
