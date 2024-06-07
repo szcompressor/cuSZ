@@ -56,7 +56,7 @@ static const int HFReVISIT_trap_shuffle = 3;
 }  // namespace
 
 template <
-    class C, int return_at = HFReVISIT_disable_trap,
+    class C, bool use_scan = false, int return_at = HFReVISIT_disable_trap,
     int debug = HFReVISIT_disable_trap>
 __global__ void KERNEL_CUHIP_HFReVISIT_encode(
     INPUT typename C::T* in, u4 inlen, typename C::Hf* dram_book, u4 bklen,  //
@@ -80,7 +80,8 @@ __global__ void KERNEL_CUHIP_HFReVISIT_encode(
   __shared__ Hf reduced[C::NumShards];
   __shared__ Hf book[1024];
   __shared__ u4 bitcount[C::NumShards + 1];
-  // __shared__ u4 locs[C::NumShards + 1];  // TODO merge bits and locs
+  __shared__ u4 locs_for_threads[C::NumShards + 1];
+  __shared__ u4 locs_for_warps[C::NumShards / 32 + 1];
 
   auto total_threads = [&]() { return blockDim.x; };
   auto bits_of = [](Hf* _w) { return reinterpret_cast<W*>(_w)->bitcount; };
@@ -191,6 +192,93 @@ __global__ void KERNEL_CUHIP_HFReVISIT_encode(
     if (threadIdx.x == 0) dn_bitcount[blockIdx.x] = bitcount_this_block;
   };
 
+  auto scan_and_write_reference = [&]()
+  // INPUT volatile Hf* reduced, volatile u4* bitcount, volatile u4*
+  // locs_for_threads, OUTPUT Hf* output, u4* this_block_bitcount
+  {
+    // prepare for exclusive scan
+    if (threadIdx.x == 0) locs_for_threads[0] = 0;
+    // locs_for_threads[threadIdx.x + 1] = bitcount[threadIdx.x];
+    auto loc = bitcount[threadIdx.x];
+    __syncthreads();
+
+    // in-warp shuffle
+    for (auto d = 1; d < 32; d *= 2) {
+      T n = __shfl_up_sync(0xffffffff, loc, d, 32);
+      if (threadIdx.x % 32 >= d) loc += n;
+    }
+
+    auto warp_id = threadIdx.x / 32;
+    auto lane_id = threadIdx.x % 32;
+    auto n_warp = blockDim.x / 32;
+
+    if (lane_id == 31) locs_for_warps[warp_id] = loc;
+    __syncthreads();
+
+    constexpr auto inter_warp_ver = 2;
+
+    if constexpr (inter_warp_ver == 1) {
+      // compute-sanitizer NOT okay
+      // inter-warp (impl: in-warp shuffle)
+      if (threadIdx.x < n_warp) {
+        auto warp_shift = locs_for_warps[threadIdx.x];
+        for (auto d = 1; d < n_warp; d *= 2) {
+          T n = __shfl_up_sync(0xffffffff, warp_shift, d, 32);
+          if (threadIdx.x >= d) warp_shift += n;
+        }
+        locs_for_warps[threadIdx.x] = warp_shift;
+      }
+      __syncthreads();
+    }
+    else if constexpr (inter_warp_ver == 2) {
+      // compute-sanitizer okay
+      for (auto d = 1; d < n_warp; d *= 2) {
+        T n = 0;
+        auto id = threadIdx.x;
+        if (id >= d and id < n_warp) n = locs_for_warps[id - d];
+        __syncthreads();
+        if (id >= d and id < n_warp) locs_for_warps[id] += n;
+        __syncthreads();
+      }
+    }
+    else {
+      if (blockIdx.x == 0 and threadIdx.x == 0)
+        printf("HFR-scan: should be inter_warp_ver == 1 or 2.\n");
+      return;
+    }
+
+    // propagate
+    loc += locs_for_warps[warp_id];  // TODO use broadcast
+    __syncthreads();
+    locs_for_threads[threadIdx.x] = loc;
+    __syncthreads();
+
+    // bit ops
+    auto lb = locs_for_threads[threadIdx.x];
+    auto ub = locs_for_threads[threadIdx.x + 1];
+
+    auto start_cell = lb / C::BITWIDTH;
+    auto end_cell = ub / C::BITWIDTH;
+    auto lb_remainder = lb % C::BITWIDTH;
+
+    auto count = bitcount[threadIdx.x];
+    auto bs = reduced[threadIdx.x];  // fill from MSB to LSB
+
+    // write out metadata
+    if (threadIdx.x == blockDim.x - 1)
+      dn_bitcount[blockIdx.x] = bitcount[threadIdx.x];
+
+    // write out data, first half
+    atomicOr(&dn_out[start_cell], bs >> lb_remainder);
+
+    return;
+    // TODO below it starts to be wrong
+    if (start_cell != end_cell) {
+      atomicOr(
+          &dn_out[end_cell], bs << (count - (C::BITWIDTH - lb_remainder)));
+    }
+  };
+
   ////////////////////////////////////////
 
   data_loading();
@@ -203,7 +291,10 @@ __global__ void KERNEL_CUHIP_HFReVISIT_encode(
   DEBUG_2_REDUCE_MERGE_COMPACT();
   RETURN_AT(2);
 
-  shuffle_merge_and_write();
+  if constexpr (not use_scan)
+    shuffle_merge_and_write();
+  else
+    scan_and_write_reference();
 
   DEBUG_3_SHUFFLE_MERGE_WRITE();
   RETURN_AT(3);
@@ -217,7 +308,8 @@ namespace phf::cu_hip {
 
 // TODO add dn_bitcount length
 template <
-    typename T, int Magnitude, int ReduceTimes, bool use_scan, typename Hf>
+    typename T, int Magnitude, int ReduceTimes, bool _reserved_use_scan,
+    typename Hf>
 void GPU_HFReVISIT_encode(
     INPUT hfcxx_array<T> in, hfcxx_book<Hf> book,    //
     OUTPUT hfcxx_dense<Hf> dn, hfcxx_compact<T> sp,  //
@@ -243,6 +335,7 @@ void GPU_HFReVISIT_encode(
     printf("sp.num: %p\n", sp.num);
   }
 
+  // TODO pass use_scan
   phf::KERNEL_CUHIP_HFReVISIT_encode<C>
       <<<nblock, nthread, 0, (cudaStream_t)stream>>>(
           in.buf, in.len, book.bk.buf, book.bk.len, book.alt_prefix_code,
