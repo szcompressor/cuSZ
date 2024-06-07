@@ -26,6 +26,8 @@ class HuffmanCodec {
   struct impl;
   std::unique_ptr<impl> pimpl;
 
+  static const int HFR_Magnitude = 10;
+
  public:  // temporarily for testing
   struct Buf;
 
@@ -39,7 +41,7 @@ class HuffmanCodec {
   // TODO Is specifying inlen when constructing proper?
   HuffmanCodec(
       size_t const inlen, int const bklen, int const pardeg,
-      bool debug = false);
+      bool use_HFR = false, bool debug = false);
   ~HuffmanCodec();
 
   float time_book() const;

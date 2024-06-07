@@ -39,24 +39,45 @@ typedef float f4;
 typedef double f8;
 typedef size_t szt;
 
-#define PHFHEADER_FORCED_ALIGN 128
 #define PHFHEADER_HEADER 0
 #define PHFHEADER_REVBK 1
+// coarse-grained
 #define PHFHEADER_PAR_NBIT 2
 #define PHFHEADER_PAR_ENTRY 3
 #define PHFHEADER_BITSTREAM 4
 #define PHFHEADER_END 5
+// HFR: fine-grained
+#define PHFHEADER_HFR_DN_BITCOUNT 2
+#define PHFHEADER_HFR_DN_START_LOC 3
+#define PHFHEADER_HFR_DN_BITSTREAM 4
+#define PHFHEADER_HFR_SP_VAL 5
+#define PHFHEADER_HFR_SP_IDX 6
+#define PHFHEADER_HFR_END 7
 
 typedef uint32_t PHF_METADATA;
 typedef uint8_t PHF_BIN;
 typedef uint8_t PHF_BYTE;
 
-typedef struct {
-  int bklen : 16;
-  int sublen, pardeg;
-  size_t original_len;
-  size_t total_nbit, total_ncell;  // TODO change to uint32_t
-  uint32_t entry[PHFHEADER_END + 1];
+typedef union {
+  // placeholding size
+  uint8_t __[128];
+
+  struct {
+    int bklen;
+    int sublen, pardeg;
+    size_t original_len, total_nbit, total_ncell;
+    uint32_t entry[PHFHEADER_END + 1];
+  };
+
+  struct {
+    int HFR_bklen;
+    int HFR_pardeg;
+    size_t HFR_original_len;
+    size_t HFR_total_ncell;  // the final of dn_loc_inc
+    int HFR_sp_num;
+    uint32_t HFR_entry[PHFHEADER_HFR_END + 1];
+    bool HFR_in_use;
+  };
 } phf_header;
 
 #define capi_phf_encoded_bytes phf_encoded_bytes

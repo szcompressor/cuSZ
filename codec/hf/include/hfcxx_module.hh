@@ -57,7 +57,7 @@ class modules {
       void* stream);
 
   static void GPU_experimental_scatter(
-      hfcxx_compact<E> compact, E* out, float* milliseconds, void* stream);
+      hfcxx_sparse<E> compact, E* out, float* milliseconds, void* stream);
 };
 
 }  // namespace phf::cuhip

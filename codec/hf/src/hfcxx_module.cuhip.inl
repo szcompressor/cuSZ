@@ -218,7 +218,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
 // TODO ret type (status) and exe_policy
 // duplicate with psz's
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_experimental_scatter(
-    hfcxx_compact<E> compact, E* out, f4* milliseconds, void* stream)
+    hfcxx_sparse<E> compact, E* out, f4* milliseconds, void* stream)
 {
   auto grid_dim = (*(compact.host_num) - 1) / 128 + 1;
 

@@ -43,7 +43,7 @@ struct HFReVISIT_config {
 namespace phf {
 
 template <typename Hf = u4>
-void make_alternative_code(memobj<Hf>* bk, int reduce_times, Hf& alt_code, u4& alt_bitcount)
+void make_altcode(memobj<Hf>* bk, int reduce_times, Hf& alt_code, u4& alt_bitcount)
 {
   using W = HuffmanWord<sizeof(Hf)>;
   auto radius = bk->len() / 2;
@@ -62,12 +62,12 @@ void make_alternative_code(memobj<Hf>* bk, int reduce_times, Hf& alt_code, u4& a
 
 }  // namespace phf
 
-namespace phf::cuhip {
+namespace phf::module {
 
 template <typename T, int Magnitude, int ReduceTimes, bool use_scan = false, typename Hf = u4>
 void GPU_HFReVISIT_encode(
-    INPUT hfcxx_array<T> in, hfcxx_book<Hf> book,    //
-    OUTPUT hfcxx_dense<Hf> dn, hfcxx_compact<T> sp,  //
+    INPUT hfcxx_array<T> in, hfcxx_book<Hf> book,   //
+    OUTPUT hfcxx_dense<Hf> dn, hfcxx_sparse<T> sp,  //
     GPU_QUEUE void* stream, DEBUG u4 debug_blockid = false);
 
 }

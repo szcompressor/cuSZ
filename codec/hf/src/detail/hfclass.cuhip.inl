@@ -56,11 +56,9 @@ struct HuffmanCodec<E, TIMING>::impl {
 
   Buf* buf;
 
-  impl() = default;
   ~impl() { delete buf; }
 
-  // keep ctor short
-  void init(size_t const inlen, int const _bklen, int const _pardeg, bool debug)
+  impl(size_t const inlen, int const _bklen, int const _pardeg, bool use_HFR, bool debug)
   {
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
@@ -69,8 +67,10 @@ struct HuffmanCodec<E, TIMING>::impl {
     len = inlen;
     sublen = (inlen - 1) / pardeg + 1;
 
+    header.HFR_in_use = use_HFR;
+
     // TODO make unique_ptr; modify ctor
-    buf = new Buf(inlen, _bklen, _pardeg, true, debug);
+    buf = new Buf(inlen, _bklen, _pardeg, use_HFR, debug);
     hist = new memobj<u4>(bklen, "phf::hist", {MallocHost});  // dptr from external
   }
 
@@ -156,7 +156,6 @@ struct HuffmanCodec<E, TIMING>::impl {
     *outlen = phf_encoded_bytes(&header);
   }
 
-  template <int MAGNITUDE = 10>
   void encode_HFR(E* in, size_t const len, uint8_t** out, size_t* outlen, phf_stream_t stream)
   {
     auto dummy0 = hires::now();
@@ -175,16 +174,16 @@ struct HuffmanCodec<E, TIMING>::impl {
     printf("avg_bitwidth: %.3lf\n", avg_bitwidth);
     printf("CR based on avg_bitwidth: %.3lf\n", 32 / avg_bitwidth);
 
-    auto chunk = 1 << MAGNITUDE;
+    auto chunk = 1 << HFR_Magnitude;
     auto n_chunk = (len - 1) / chunk + 1;
-    H alt_code{};
+    H altcode{};
     u4 alt_bitcount{0};
 
-#define HFR_ENCODE(REDUCE)                                                                  \
-  phf::make_alternative_code(buf->bk4, REDUCE, alt_code, alt_bitcount);                     \
-  printf("%u-to-1 reduction (%ux)\n", (1 << REDUCE), REDUCE);                               \
-  phf::cuhip::GPU_HFReVISIT_encode<E, MAGNITUDE, REDUCE, false, H>(                         \
-      {in, len}, {buf->bk4->array1_d(), alt_code, alt_bitcount}, buf->dense_space(n_chunk), \
+#define HFR_ENCODE(REDUCE)                                                                 \
+  phf::make_altcode(buf->bk4, REDUCE, altcode, alt_bitcount);                              \
+  printf("%u-to-1 reduction (%ux)\n", (1 << REDUCE), REDUCE);                              \
+  phf::module::GPU_HFReVISIT_encode<E, HFR_Magnitude, REDUCE, false, H>(                   \
+      {in, len}, {buf->bk4->array1_d(), altcode, alt_bitcount}, buf->dense_space(n_chunk), \
       buf->sparse_space(), stream);
 
     // clang-format off
@@ -233,7 +232,7 @@ struct HuffmanCodec<E, TIMING>::impl {
     header.original_len = len;
 
     M nbyte[PHFHEADER_END];
-    nbyte[PHFHEADER_HEADER] = PHFHEADER_FORCED_ALIGN;
+    nbyte[PHFHEADER_HEADER] = sizeof(header);
     nbyte[PHFHEADER_REVBK] = revbk4_bytes(bklen);
     nbyte[PHFHEADER_PAR_NBIT] = buf->par_nbit->bytes();
     nbyte[PHFHEADER_PAR_ENTRY] = buf->par_ncell->bytes();
@@ -250,16 +249,13 @@ struct HuffmanCodec<E, TIMING>::impl {
 };  // end of pimpl class
 
 PHF_TPL PHF_CLASS::HuffmanCodec(
-    size_t const inlen, int const bklen, int const pardeg, bool debug) :
-    pimpl{std::make_unique<impl>()},
+    size_t const inlen, int const bklen, int const pardeg, bool use_HFR, bool debug) :
+    pimpl{std::make_unique<impl>(inlen, bklen, pardeg, use_HFR, debug)},
     in_dtype{
         std::is_same_v<E, u1>   ? HF_U1
         : std::is_same_v<E, u2> ? HF_U2
         : std::is_same_v<E, u4> ? HF_U4
-                                : HF_INVALID}
-{
-  pimpl->init(inlen, bklen, pardeg, debug);
-};
+                                : HF_INVALID} {};
 
 PHF_TPL PHF_CLASS::~HuffmanCodec(){};
 
@@ -277,7 +273,7 @@ PHF_CLASS* PHF_CLASS::encode(
   if (not use_HFR)
     pimpl->encode(in, len, out, outlen, stream);
   else
-    pimpl->template encode_HFR<10>(in, len, out, outlen, stream);
+    pimpl->encode_HFR(in, len, out, outlen, stream);
   return this;
 }
 

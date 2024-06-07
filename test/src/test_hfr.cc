@@ -33,7 +33,7 @@ struct testing_alt_code<2, u4> {
 template <typename T, int Magnitude = 12, int ReduceTimes = 4>
 void TEST_single_block_v2()
 {
-  using BUF = typename phf::HuffmanCodec<T>::Buf;
+  using Buf = typename phf::HuffmanCodec<T>::Buf;
   using HFR = HFReVISIT_config<T, Magnitude, ReduceTimes>;
   using ALT = testing_alt_code<ReduceTimes>;
   auto slab_size = HFR::ChunkSize;
@@ -44,7 +44,7 @@ void TEST_single_block_v2()
   size_t inlen = slab_size;
   size_t bklen = 1024;
 
-  auto buf = std::make_unique<BUF>(inlen, bklen, 1, true);
+  auto buf = std::make_unique<Buf>(inlen, bklen, 1, true);
 
   /* input  */ memobj<T> in(slab_size, "input");
   in.control({MallocHost, Malloc});
@@ -58,8 +58,9 @@ void TEST_single_block_v2()
   // for (auto i = 0; i < bk.len(); i++) cout << bk.hat(i) << endl;
   buf->bk4->control({H2D});
 
-  phf::cuhip::GPU_HFReVISIT_encode<T, Magnitude, ReduceTimes, false, u4>(
-      {in.dptr(), in.len()}, {buf->bk4->array1_d(), ALT::alt_code, ALT::alt_bitcount},
+  phf::module::GPU_HFReVISIT_encode<T, Magnitude, ReduceTimes, false, u4>(
+      {in.dptr(), in.len()},
+      {buf->bk4->array1_d(), ALT::alt_code, ALT::alt_bitcount},
       buf->dense_space(1), buf->sparse_space(), stream);
 
   cudaStreamSynchronize(stream);

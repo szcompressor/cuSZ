@@ -7,16 +7,12 @@
 #include "hfcxx_array.hh"
 #include "mem/cxx_array.h"
 
-template <typename Hf>
-using hfarray_cxx = _portable::array1<Hf>;
-template <typename Hf>
-using hfcxx_array = _portable::array1<Hf>;
-template <typename Hf>
-using hfcxx_compact = _portable::compact_array1<Hf>;
+#define hfcxx_array _portable::array1
+#define hfcxx_sparse _portable::compact_array1
 
 template <typename Hf>
 struct hfcxx_book {
-  hfarray_cxx<Hf> bk;
+  hfcxx_array<Hf> bk;
   Hf const alt_prefix_code;  // even if u8 can use short u4 internal
   u4 const alt_bitcount;
 };
@@ -24,8 +20,10 @@ struct hfcxx_book {
 template <typename Hf>
 struct hfcxx_dense {
   Hf* const out;
-  u4* bits;
-  size_t n_part;
+  u2* bitcount;  // no exceeding 2^16 bits per block
+  u4* start_loc;
+  u4* loc_inc;
+  size_t n_chunk;
 };
 
 struct hfpar_description {
