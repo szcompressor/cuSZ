@@ -3,6 +3,7 @@
 #include <cstddef>
 
 #include "hfclass.hh"
+#include "mem/definition.hh"
 #include "mem/memobj.hh"
 #include "utils/err.hh"
 
@@ -57,6 +58,8 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
   // dense-sparse
   memobj<H4>* dn_bitstream;
   memobj<M>* dn_bitcount;
+  memobj<M>* dn_start_loc;
+  memobj<M>* dn_loc_inc;
   memobj<E>* sp_val;
   memobj<M>* sp_idx;
   memobj<M>* sp_num;
@@ -126,10 +129,16 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
     // HFR: dense-sparse
     if (use_HFR) {
-      dn_bitstream = new memobj<H4>(len, "hf::dn_bitstream", {Malloc});
       // 1 << 10 results in the max number of partitions
-      dn_bitcount = new memobj<H4>(
-          (len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});
+      constexpr auto min_chunksize = 1 << 10;
+      auto max_n_chunk = (len + min_chunksize - 1) / min_chunksize;
+      dn_bitstream = new memobj<H4>(len, "hf::dn_bitstream", {Malloc});
+      dn_bitcount = new memobj<M>(max_n_chunk, "hf::dn_bitcount", {Malloc});
+      dn_start_loc = new memobj<M>(max_n_chunk, "hf::dn_start_loc", {Malloc});
+      // After the kernel run, the final value is the ending loc in u4,
+      // determining the CR, such that MallocHost is needed.
+      dn_loc_inc = new memobj<M>(1, "hf::dn_loc_inc", {Malloc, MallocHost});
+
       sp_val = new memobj<E>(len / 10, "hf::sp_val", {Malloc});
       sp_idx = new memobj<M>(len / 10, "hf::sp_idx", {Malloc});
       sp_num = new memobj<M>(1, "hf::sp_num", {Malloc, MallocHost});
@@ -172,7 +181,9 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
   hfcxx_dense<H> dense_space(size_t n_chunk)
   {
-    return {dn_bitstream->dptr(), dn_bitcount->dptr(), n_chunk};
+    return {
+        dn_bitstream->dptr(), dn_bitcount->dptr(), dn_start_loc->dptr(),
+        dn_loc_inc->dptr(), n_chunk};
   }
 
   void memcpy_merge(Header& header, phf_stream_t stream)

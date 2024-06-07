@@ -61,8 +61,9 @@ template <
 __global__ void KERNEL_CUHIP_HFReVISIT_encode(
     INPUT typename C::T* in, u4 inlen, typename C::Hf* dram_book, u4 bklen,  //
     INPUT typename C::Hf alt_code, u4 alt_bitcount,                          //
-    OUTPUT typename C::Hf* dn_out, u4* dn_bitcount,                          //
-    OUTPUT typename C::T* sp_val, u4* sp_idx, u4* sp_count,                  //
+    OUTPUT typename C::Hf* dn_out, u4* dn_bitcount, u4* dn_start_loc,
+    u4* loc_inc,                                             //
+    OUTPUT typename C::T* sp_val, u4* sp_idx, u4* sp_count,  //
     DEBUG u4 debug_blockid = 0)
 {
   using T = typename C::T;
@@ -81,6 +82,7 @@ __global__ void KERNEL_CUHIP_HFReVISIT_encode(
   __shared__ Hf book[1024];
   __shared__ u4 bitcount[C::NumShards + 1];
   // __shared__ u4 locs[C::NumShards + 1];  // TODO merge bits and locs
+  __shared__ u4 s_start_loc;
 
   auto total_threads = [&]() { return blockDim.x; };
   auto bits_of = [](Hf* _w) { return reinterpret_cast<W*>(_w)->bitcount; };
@@ -182,13 +184,39 @@ __global__ void KERNEL_CUHIP_HFReVISIT_encode(
       __syncthreads();
     }
 
-    auto bitcount_this_block = bitcount[0];
-    auto n_cell = (bitcount_this_block - 1) / C::BITWIDTH + 1;
-    if (threadIdx.x < n_cell) {
-      auto dram_addr = C::ChunkSize * blockIdx.x + threadIdx.x;
-      dn_out[dram_addr] = reduced[threadIdx.x];
+    constexpr auto write_output_ver = 2;
+    if constexpr (write_output_ver == 1) {
+      auto bitcount_this_block = bitcount[0];
+      auto n_cell = (bitcount_this_block - 1) / C::BITWIDTH + 1;
+      if (threadIdx.x < n_cell) {
+        auto dram_addr = C::ChunkSize * blockIdx.x + threadIdx.x;
+        dn_out[dram_addr] = reduced[threadIdx.x];
+      }
+      if (threadIdx.x == 0) dn_bitcount[blockIdx.x] = bitcount_this_block;
     }
-    if (threadIdx.x == 0) dn_bitcount[blockIdx.x] = bitcount_this_block;
+    else if constexpr (write_output_ver == 2) {
+      auto bitcount_this_block = bitcount[0];
+      auto n_cell = (bitcount_this_block - 1) / C::BITWIDTH + 1;
+
+      if (threadIdx.x == 0) auto s_start_loc = atomicAdd(loc_inc, n_cell);
+      __syncthreads();
+
+      auto start_loc = s_start_loc;
+
+      // ceil(bitcount / bits_of(Hf)) cannot be greater than blockDim.x
+      if (threadIdx.x < n_cell) dn_out[start_loc] = reduced[threadIdx.x];
+
+      // TODO change dn_bitcount to uint16_t*
+      if (threadIdx.x == 0) {
+        // decomp loc is known (fixed) according to blockIdx.x
+        dn_start_loc[blockIdx.x] = start_loc;
+        dn_bitcount[blockIdx.x] = bitcount_this_block;
+      }
+    }
+    else {
+      if (blockIdx.x == 0 and threadIdx.x == 0)
+        printf("write_output_ver must be 1 or 2");
+    }
   };
 
   ////////////////////////////////////////
@@ -237,7 +265,8 @@ void GPU_HFReVISIT_encode(
     printf("in: %p\n", in.buf);
     printf("bk: %p\n", book.bk.buf);
     printf("dn.out: %p\n", dn.out);
-    printf("dn.bits: %p\n", dn.bits);
+    printf("dn.bitcount: %p\n", dn.bitcount);
+    printf("dn.start_loc: %p\n", dn.start_loc);
     printf("sp.val: %p\n", sp.val);
     printf("sp.idx: %p\n", sp.idx);
     printf("sp.num: %p\n", sp.num);
@@ -246,7 +275,8 @@ void GPU_HFReVISIT_encode(
   phf::KERNEL_CUHIP_HFReVISIT_encode<C>
       <<<nblock, nthread, 0, (cudaStream_t)stream>>>(
           in.buf, in.len, book.bk.buf, book.bk.len, book.alt_prefix_code,
-          book.alt_bitcount, dn.out, dn.bits, sp.val, sp.idx, sp.num);
+          book.alt_bitcount, dn.out, dn.bitcount, dn.start_loc, dn.loc_inc,
+          sp.val, sp.idx, sp.num);
 
   cudaStreamSynchronize((cudaStream_t)stream);
 }

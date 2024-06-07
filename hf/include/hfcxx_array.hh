@@ -22,8 +22,10 @@ struct hfcxx_book {
 template <typename Hf>
 struct hfcxx_dense {
   Hf* const out;
-  u4* bits;
-  size_t n_part;
+  u4* bitcount;
+  u4* start_loc;
+  u4* loc_inc;
+  size_t n_chunk;
 };
 
 struct hfpar_description {
