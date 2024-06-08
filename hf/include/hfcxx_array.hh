@@ -22,7 +22,7 @@ struct hfcxx_book {
 template <typename Hf>
 struct hfcxx_dense {
   Hf* const out;
-  u4* bitcount;
+  u2* bitcount;  // no exceeding 2^16 bits per block
   u4* start_loc;
   u4* loc_inc;
   size_t n_chunk;

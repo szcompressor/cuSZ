@@ -57,7 +57,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
   // dense-sparse
   memobj<H4>* dn_bitstream;
-  memobj<M>* dn_bitcount;
+  memobj<u2>* dn_bitcount;
   memobj<M>* dn_start_loc;
   memobj<M>* dn_loc_inc;
   memobj<E>* sp_val;
@@ -133,7 +133,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
       constexpr auto min_chunksize = 1 << 10;
       auto max_n_chunk = (len + min_chunksize - 1) / min_chunksize;
       dn_bitstream = new memobj<H4>(len, "hf::dn_bitstream", {Malloc});
-      dn_bitcount = new memobj<M>(max_n_chunk, "hf::dn_bitcount", {Malloc});
+      dn_bitcount = new memobj<u2>(max_n_chunk, "hf::dn_bitcount", {Malloc});
       dn_start_loc = new memobj<M>(max_n_chunk, "hf::dn_start_loc", {Malloc});
       // After the kernel run, the final value is the ending loc in u4,
       // determining the CR, such that MallocHost is needed.

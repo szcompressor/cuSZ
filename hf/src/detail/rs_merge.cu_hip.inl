@@ -61,7 +61,7 @@ template <
 __global__ void KERNEL_CUHIP_HFReVISIT_encode(
     INPUT typename C::T* in, u4 inlen, typename C::Hf* dram_book, u4 bklen,  //
     INPUT typename C::Hf alt_code, u4 alt_bitcount,                          //
-    OUTPUT typename C::Hf* dn_out, u4* dn_bitcount, u4* dn_start_loc,
+    OUTPUT typename C::Hf* dn_out, u2* dn_bitcount, u4* dn_start_loc,
     u4* loc_inc,                                             //
     OUTPUT typename C::T* sp_val, u4* sp_idx, u4* sp_count,  //
     DEBUG u4 debug_blockid = 0)
