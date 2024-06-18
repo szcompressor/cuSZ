@@ -3,6 +3,7 @@
 #include <cstddef>
 
 #include "cusz/review.h"
+#include "cusz/type.h"
 #include "header.h"
 #include "mem/layout_cxx.hh"
 #include "tehm.hh"
@@ -42,7 +43,7 @@ double get_total_time(psz::timerecord_t r)
 
 void* psz_make_timerecord() { return (void*)new psz::TimeRecord; }
 
-void psz_review_timerecord(void* _r, psz_header* h)
+void psz_review_comp_time_breakdown(void* _r, psz_header* h)
 {
   auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
   auto uncomp_bytes = h->x * h->y * h->z * sizeof_T();
@@ -81,7 +82,7 @@ void psz_review_timerecord(void* _r, psz_header* h)
   printf("\n");
 }
 
-void psz_review_cr(psz_header* h)
+void psz_review_from_header(psz_header* h)
 {
   // [TODO] put error status
   if (h->dtype != F4 and h->dtype != F8)
@@ -100,39 +101,48 @@ void psz_review_cr(psz_header* h)
   auto __print = [&](auto str, auto num) {
     // cout << "  ";
     cout << std::left;
-    cout << std::setw(29) << str;
+    cout << std::setw(25) << string(str);
     cout << std::right;
-    cout << std::setw(10) << num;
+    cout << std::setw(14) << num;
     cout << '\n';
   };
   auto __print_perc = [&](auto str, auto num) {
     auto perc = num * 100.0 / comp_bytes();
     // cout << "  ";
     cout << std::left;
-    cout << std::setw(29) << str;
+    cout << std::setw(25) << string(str);
     cout << std::right;
-    cout << std::setw(10) << num;
+    cout << std::setw(14) << num;
     cout << std::setw(10) << std::setprecision(3) << std::fixed << perc
          << "%\n";
   };
   auto __newline = []() { cout << '\n'; };
 
+  auto n_outlier =
+      fieldsize(PSZHEADER_SPFMT) / (sizeof_T() + sizeof(uint32_t));
+
+  __print(
+      "logging::predictor",
+      h->logging_pred_type == Lorenzo ? "Lorenzo" : "Spine");
+  __print("logging::max", h->logging_max);
+  __print("logging::min", h->logging_min);
+  __print("logging::range", h->logging_max - h->logging_min);
+  __print("logging::mode", h->logging_mode == Rel ? "Rel" : "Abs");
+  __print("logging::input_eb", h->logging_input_eb);
+  __print("logging::final_eb", h->logging_final_eb);
+  printf("--------------------------------------------------\n");
   if (comp_bytes() != 0) {
     auto cr = 1.0 * uncomp_bytes / comp_bytes();
-    __newline();
+    // __newline();
     __print("data::comp_metric::CR", cr);
   }
   else {
     cout << "[psz::log::fatal_error] compressed len is zero." << endl;
   }
-
-  auto n_outlier =
-      fieldsize(PSZHEADER_SPFMT) / (sizeof_T() + sizeof(uint32_t));
-
   __print("data::original_bytes", uncomp_bytes);
   __print_perc("data::comp_bytes", comp_bytes());
   printf("--------------------------------------------------\n");
-  __print_perc("file::header::bytes", PSZHEADER_FORCED_ALIGN);
+  __print_perc("file::header::bytes", fieldsize(PSZHEADER_HEADER));
   __print_perc("file::anchor::bytes", fieldsize(PSZHEADER_ANCHOR));
   __print_perc("file::huffman::bytes", fieldsize(PSZHEADER_VLE));
   __print_perc("file::outlier::bytes", fieldsize(PSZHEADER_SPFMT));
@@ -144,8 +154,8 @@ void psz_review_cr(psz_header* h)
 void psz_review_compression(void* r, psz_header* h)
 {
   printf("\n(c) COMPRESSION REPORT\n");
-  psz_review_cr(h);
-  psz_review_timerecord((psz::timerecord_t)r, h);
+  psz_review_from_header(h);
+  psz_review_comp_time_breakdown((psz::timerecord_t)r, h);
 }
 
 void psz_review_decompression(void* r, size_t bytes)

@@ -23,7 +23,6 @@ extern "C" {
 
 // originally in-struct staic const int, conflicting with C compiler.
 // also see Compressor::impl
-#define PSZHEADER_FORCED_ALIGN 128
 #define PSZHEADER_HEADER 0
 #define PSZHEADER_ANCHOR 1
 #define PSZHEADER_VLE 2
@@ -35,16 +34,28 @@ extern "C" {
  *
  */
 typedef struct psz_header {
-  psz_dtype dtype;
-  psz_predtype pred_type;
+  union {
+    struct {
+      uint8_t __[128];
+    };
+    struct {
+      psz_dtype dtype;
+      psz_predtype pred_type;
 
-  uint32_t entry[PSZHEADER_END + 1];  // segment entries
-  int splen;                          // direct len of sparse part
-  uint32_t x, y, z, w;
+      uint32_t entry[PSZHEADER_END + 1];  // segment entries
+      int splen;                          // direct len of sparse part
+      uint32_t x, y, z, w;
 
-  double eb;             // compression config
-  uint32_t radius : 16;  //
-  uint32_t vle_pardeg;   // coarse-grained HF
+      double eb;             // compression config
+      uint32_t radius : 16;  //
+      uint32_t vle_pardeg;   // coarse-grained HF
+
+      double logging_input_eb, logging_final_eb;
+      double logging_min, logging_max;
+      psz_predtype logging_pred_type;
+      psz_mode logging_mode;
+    };
+  };
 } psz_header;
 
 psz_len3 pszheader_len3(psz_header*);

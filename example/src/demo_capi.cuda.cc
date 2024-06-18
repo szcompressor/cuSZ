@@ -14,6 +14,8 @@
 #include "cusz.h"
 
 // utilities for demo
+#include "cusz/review.h"
+#include "cusz/type.h"
 #include "utils/io.hh"  // io::read_binary_to_array
 
 using T = float;
@@ -21,8 +23,6 @@ using T = float;
 std::string fname;
 size_t len = 3600 * 1800;
 size_t oribytes = sizeof(T) * len;
-size_t x = 3600, y = 1800, z = 1;
-psz_len3 uncomp_len = {3600, 1800, 1};  // x, y, z
 auto mode = Rel;                        // set compression mode
 auto eb = 1.2e-4;                       // set error bound
 
@@ -31,27 +31,21 @@ T *d_uncomp, *h_uncomp;
 void* comp_timerecord;
 void* decomp_timerecord;
 
-void utility_verify_header(psz_header* h)
-{
-  printf("header.%-*s : %p\n", 12, "(addr)", (void*)h);
-  printf("header.%-*s : %u, %u, %u\n", 12, "{x,y,z}", h->x, h->y, h->z);
-  printf("header.%-*s : %lu\n", 12, "filesize", pszheader_filesize(h));
-}
-
 void demo_compress(
+    psz_predtype predictor, psz_len3 const interpreted_len3,
     uint8_t** compressed, psz_header* header, cudaStream_t stream)
 {
   uint8_t* p_compressed;
   size_t comp_len;
 
   auto* compressor = psz_create(
-      /* data */ F4, uncomp_len, /* predictor */ Lorenzo,
+      /* data */ F4, interpreted_len3, predictor,
       /* quantizer radius */ 512,
       /* codec */ Huffman);
 
   psz_compress(
-      compressor, d_uncomp, uncomp_len, eb, mode, &p_compressed, &comp_len,
-      header, comp_timerecord, stream);
+      compressor, d_uncomp, interpreted_len3, eb, mode, &p_compressed,
+      &comp_len, header, comp_timerecord, stream);
 
   cudaMalloc(compressed, comp_len);
   cudaMemcpy(*compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
@@ -73,17 +67,10 @@ void demo_decompress(
   psz_release(compressor);
 }
 
-int main(int argc, char** argv)
+void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
 {
-  if (argc < 2) {
-    /* For demo, we use 3600x1800 CESM data. */
-    printf("PROG /path/to/cesm-3600x1800\n");
-    exit(0);
-  }
-
   psz_header header;
   uint8_t* compressed;
-  auto fname = std::string(argv[1]);
 
   cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
   cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
@@ -96,10 +83,9 @@ int main(int argc, char** argv)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  demo_compress(&compressed, &header, stream);
+  demo_compress(predictor, interpreted_len3, &compressed, &header, stream);
 
   {
-    utility_verify_header(&header);
     auto comp_len = pszheader_filesize(&header);
     psz_review_compression(comp_timerecord, &header);
   }
@@ -121,6 +107,45 @@ int main(int argc, char** argv)
   cudaFreeHost(h_decomp);
 
   cudaStreamDestroy(stream);
+}
+
+int main(int argc, char** argv)
+{
+  if (argc < 2) {
+    /* For demo, we use 3600x1800 CESM data. */
+    printf("PROG /path/to/cesm-3600x1800\n");
+    exit(0);
+  }
+
+  auto print_dahsed_line = []() {
+    printf("\e[1m\e[31m-------------------------------\e[0m\n");
+  };
+  auto print_dahsed_line_long = []() {
+    printf("\e[1m\e[31m---------------------------------------\e[0m\n");
+  };
+  auto print_1d_title = []() {
+    printf("\e[1m\e[31minterpret data as 1D: x=6480000\e[0m\n");
+  };
+  auto print_2d_title = []() {
+    printf("\e[1m\e[31minterpret data as 2D: (x,y)=(3600,1800)\e[0m\n");
+  };
+  auto print_3d_title = []() {
+    printf("\e[1m\e[31minterpret data as 3D: (x,y,z)=(360,180,100)\e[0m\n");
+  };
+
+  auto fname = std::string(argv[1]);
+
+  print_dahsed_line(), print_1d_title(), print_dahsed_line();
+  demo(fname, {6480000, 1, 1}, Lorenzo);
+  printf("\n\n"), print_dahsed_line_long(), printf("\n\n\n");
+
+  print_dahsed_line(), print_2d_title(), print_dahsed_line();
+  demo(fname, {3600, 1800, 1}, Lorenzo);
+  printf("\n\n"), print_dahsed_line_long(), printf("\n\n\n");
+
+  print_dahsed_line(), print_3d_title(), print_dahsed_line();
+  demo(fname, {360, 180, 100}, Lorenzo);
+  printf("\n\n"), print_dahsed_line_long(), printf("\n\n\n");
 
   return 0;
 }

@@ -31,7 +31,6 @@ class pszmempool_cxx {
   using Compact = typename CompactDram<EXEC, T>::Compact;
 
   memobj<T> *_oridata;              // original data
-  memobj<T> *_xdata, *_xdata_test;  // decomp'ed data (also for testing)
   memobj<T> *_anchor;               // anchor
   memobj<E> *_ectrl, *_ectrl_test;  // ectrl (_ectrl_test for testing)
   memobj<F> *_hist;                 // hist/frequency
@@ -85,9 +84,8 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :
   // for spline
   constexpr auto BLK = 8;
 
-  _compressed = new memobj<B>(len * 1.2, "psz::comp'ed", {Malloc, MallocHost});
-  if (not iscompression)
-    _xdata = new memobj<T>(x, y, z, "psz::decomp'ed", {Malloc, MallocHost});
+  _compressed =
+      new memobj<B>(len * 4 / 2, "psz::comp'ed", {Malloc, MallocHost});
   _anchor = new memobj<T>(
       div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor",
       {Malloc, MallocHost});
@@ -106,7 +104,6 @@ TPL POOL::~pszmempool_cxx()
   if (_anchor) delete _anchor;
   if (_ectrl) delete _ectrl;
   if (_hist) delete _hist;
-  if (iscompression and _xdata) delete _xdata;
   if (_compressed) delete _compressed;
 
   if (iscompression) {

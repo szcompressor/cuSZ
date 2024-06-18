@@ -43,7 +43,7 @@ class CLI {
   CLI() = default;
 
   template <typename T>
-  static void do_dryrun(pszctx* ctx, bool dualquant = true)
+  static void cli_dryrun(pszctx* ctx, bool dualquant = true)
   {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     GpuStreamT stream;
@@ -117,19 +117,12 @@ class CLI {
     delete file;
   }
 
-  void do_compress(pszctx* const ctx, void* stream)
+  void cli_compress(pszctx* const ctx, void* stream)
   {
     auto input = new memobj<T>(
         ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
 
     input->file(ctx->file_input, FromFile)->control({H2D});
-
-    // adjust eb
-    if (ctx->mode == Rel) {
-      double _1, _2, rng;
-      input->extrema_scan(_1, _2, rng);
-      ctx->eb *= rng;
-    }
 
     uint8_t* comped;
     size_t comp_len;
@@ -148,8 +141,8 @@ class CLI {
     if (not ctx->there_is_memerr) {
       printf("\n(c) COMPRESSION REPORT\n");
 
-      if (ctx->report_time) psz_review_timerecord(&timerecord, &header);
-      if (ctx->report_cr) psz_review_cr(&header);
+      if (ctx->report_time) psz_review_comp_time_breakdown(&timerecord, &header);
+      if (ctx->report_cr) psz_review_from_header(&header);
 
       write_compressed_to_disk(
           std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
@@ -162,7 +155,7 @@ class CLI {
     delete input;
   }
 
-  void do_decompress(pszctx* const ctx, void* stream)
+  void cli_decompress(pszctx* const ctx, void* stream)
   {
     // extract basename w/o suffix
     auto basename = std::string(ctx->file_input);
@@ -213,9 +206,9 @@ class CLI {
     CHECK_GPU(GpuStreamCreate(&stream));
 
     // TODO enable f8
-    if (ctx->task_dryrun) do_dryrun<float>(ctx);
-    if (ctx->task_construct) do_compress(ctx, stream);
-    if (ctx->task_reconstruct) do_decompress(ctx, stream);
+    if (ctx->task_dryrun) cli_dryrun<float>(ctx);
+    if (ctx->task_construct) cli_compress(ctx, stream);
+    if (ctx->task_reconstruct) cli_decompress(ctx, stream);
     if (stream) GpuStreamDestroy(stream);
 
 #elif defined(PSZ_USE_1API)
@@ -233,9 +226,9 @@ class CLI {
       q = sycl::queue(sycl::default_selector_v, plist);
 
     // TODO enable f8
-    if (ctx->task_dryrun) do_dryrun<float>(ctx);
-    if (ctx->task_construct) do_compress(compressor, &q);
-    if (ctx->task_reconstruct) do_decompress(compressor, &q);
+    if (ctx->task_dryrun) cli_dryrun<float>(ctx);
+    if (ctx->task_construct) cli_compress(compressor, &q);
+    if (ctx->task_reconstruct) cli_decompress(compressor, &q);
 
 #endif
   }

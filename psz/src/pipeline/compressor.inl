@@ -15,6 +15,7 @@
 #define A2519F0E_602B_4798_A8EF_9641123095D9
 
 #include <stdexcept>
+#include <type_traits>
 
 #include "compressor.hh"
 #include "context.h"
@@ -205,11 +206,7 @@ struct Compressor<C>::impl {
     auto splen = mem->compact->num_outliers();
     auto pred_type = ctx->pred_type;
 
-    static_assert(
-        sizeof(header) <= FORCED_ALIGN,
-        "The actual psz_header size is greater than the supposed.");
-
-    nbyte[HEADER] = FORCED_ALIGN;
+    nbyte[HEADER] = sizeof(header);
     nbyte[VLE] = sizeof(BYTE) * comp_hf_outlen;
     nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->_anchor->len() : 0;
     nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * splen;
@@ -291,7 +288,9 @@ struct Compressor<C>::impl {
 
     if (header->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
-      mem->_xdata->dptr(out);
+      auto __xdata =
+          new memobj<T>(header->x, header->y, header->z, "__xdata", {});
+      __xdata->dptr(out);
 
       // TODO release borrow
       auto aclen3 = mem->_anchor->len3();
@@ -301,7 +300,7 @@ struct Compressor<C>::impl {
       // [psz::TODO] throw exception
 
       pszcxx_reverse_predict_spline(
-          &anchor, mem->_ectrl, mem->_xdata, header->eb, header->radius,
+          &anchor, mem->_ectrl, __xdata, header->eb, header->radius,
           &time_pred, stream);
 #else
       throw runtime_error(

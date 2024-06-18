@@ -49,6 +49,9 @@ struct psz_context {
   int ndim;
   psz_error_status last_error;
 
+  // internal logging
+  double logging_input_eb, logging_min, logging_max;
+
   // filenames
   char demodata_name[40];
   char opath[200];
