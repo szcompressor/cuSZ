@@ -19,3 +19,8 @@ target_link_libraries(bin_fzgcodec PRIVATE cusz CUDA::cudart)
 
 add_executable(batch_run src/batch_run.cc)
 target_link_libraries(batch_run PRIVATE cusz CUDA::cudart)
+
+add_executable(omp_ms_cuda src/omp_multistream.cuda.cc)
+target_link_libraries(omp_ms_cuda
+  PRIVATE cusz OpenMP::OpenMP_CXX
+)
