@@ -1,6 +1,8 @@
 add_compile_definitions(PSZ_USE_CUDA)
 
 find_package(CUDAToolkit REQUIRED)
+find_package(OpenMP)
+message("[psz::info] $\{OpenMP_FOUND\}: " ${OpenMP_FOUND})
 
 include(GNUInstallDirs)
 include(CTest)

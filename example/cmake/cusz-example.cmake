@@ -3,6 +3,11 @@ target_link_libraries(demo_capi_cuda
   PRIVATE cusz
 )
 
+add_executable(omp_ms_cuda src/omp_multistream.cuda.cc)
+target_link_libraries(omp_ms_cuda
+  PRIVATE cusz OpenMP::OpenMP_CXX
+)
+
 add_library(ex_utils src/ex_utils.cu)
 target_link_libraries(ex_utils
   PUBLIC psz_cu_compile_settings
