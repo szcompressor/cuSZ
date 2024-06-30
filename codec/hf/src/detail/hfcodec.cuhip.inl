@@ -62,7 +62,7 @@ namespace phf::experimental {
 
 // a duplicate from psz
 template <typename T, typename M = u4>
-__global__ void KERNEL_CUHIP_scatter_adhoc(T* val, M* idx, int const n, T* out)
+__global__ void KERNEL_CUHIP_scatter(T* val, M* idx, int const n, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -158,58 +158,6 @@ __global__ void KERNEL_CUHIP_encode_phase1_fill_collect_metadata(
 }  // namespace phf::experimental
 
 namespace phf {
-
-// TODO change size_t to unsigned int
-template <typename H, typename E>
-__device__ void SUBR_CUHIP_decode_single_thread_inflate(
-    H* input, E* out, int const total_bw, BYTE* revbook)
-{
-  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
-
-  int next_bit;
-  auto idx_bit = 0;
-  auto idx_byte = 0;
-  auto idx_out = 0;
-
-  H bufr = input[idx_byte];
-
-  auto first = reinterpret_cast<H*>(revbook);
-  auto entry = first + CELL_BITWIDTH;
-  auto keys = reinterpret_cast<E*>(revbook + sizeof(H) * (2 * CELL_BITWIDTH));
-  H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // get the first bit
-  auto l = 1;
-  auto i = 0;
-
-  while (i < total_bw) {
-    while (v < first[l]) {  // append next i_cb bit
-      ++i;
-      idx_byte = i / CELL_BITWIDTH;  // [1:exclusive]
-      idx_bit = i % CELL_BITWIDTH;
-      if (idx_bit == 0) {
-        // idx_byte += 1; // [1:exclusive]
-        bufr = input[idx_byte];
-      }
-
-      next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
-      v = (v << 1) | next_bit;
-      ++l;
-    }
-    out[idx_out++] = keys[entry[l] + v - first[l]];
-    {
-      ++i;
-      idx_byte = i / CELL_BITWIDTH;  // [2:exclusive]
-      idx_bit = i % CELL_BITWIDTH;
-      if (idx_bit == 0) {
-        // idx_byte += 1; // [2:exclusive]
-        bufr = input[idx_byte];
-      }
-
-      next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
-      v = 0x0 | next_bit;
-    }
-    l = 1;
-  }
-}
 
 template <typename E, typename H>
 __global__ void KERNEL_CUHIP_encode_phase1_fill(
@@ -308,27 +256,73 @@ __global__ void KERNEL_CUHIP_encode_phase4_concatenate(
   }
 }
 
+}  // namespace phf
+
+namespace phf {
+
 template <typename E, typename H, typename M>
-__global__ void KERNEL_CUHIP_decode_kernel(
+__global__ void KERNEL_CUHIP_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
     int const revbook_nbyte, int const sublen, int const pardeg, E* out)
 {
-  extern __shared__ uint8_t shmem[];
+  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
+  extern __shared__ uint8_t s_revbook[];
   constexpr auto block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+  auto single_thread_inflate = [&](H* input, E* out, int const total_bw) {
+    int next_bit;
+    auto idx_bit = 0, idx_byte = 0, idx_out = 0;
+    H bufr = input[idx_byte];
+    auto first = (H*)(s_revbook);
+    auto entry = first + CELL_BITWIDTH;
+    auto keys = (E*)(s_revbook + sizeof(H) * (2 * CELL_BITWIDTH));
+    H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // get the first bit
+    auto l = 1, i = 0;
+
+    while (i < total_bw) {
+      while (v < first[l]) {  // append next i_cb bit
+        ++i;
+        idx_byte = i / CELL_BITWIDTH;  // [1:exclusive]
+        idx_bit = i % CELL_BITWIDTH;
+        if (idx_bit == 0) {
+          // idx_byte += 1; // [1:exclusive]
+          bufr = input[idx_byte];
+        }
+
+        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
+        v = (v << 1) | next_bit;
+        ++l;
+      }
+      out[idx_out++] = keys[entry[l] + v - first[l]];
+      {
+        ++i;
+        idx_byte = i / CELL_BITWIDTH;  // [2:exclusive]
+        idx_bit = i % CELL_BITWIDTH;
+        if (idx_bit == 0) {
+          // idx_byte += 1; // [2:exclusive]
+          bufr = input[idx_byte];
+        }
+
+        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
+        v = 0x0 | next_bit;
+      }
+      l = 1;
+    }
+  };
 
   auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 
   for (auto i = 0; i < R; i++) {
     if (TIX + i * block_dim < revbook_nbyte)
-      shmem[TIX + i * block_dim] = revbook[TIX + i * block_dim];
+      s_revbook[TIX + i * block_dim] = revbook[TIX + i * block_dim];
   }
   __syncthreads();
 
   auto gid = BIX * BDX + TIX;
 
   if (gid < pardeg) {
-    SUBR_CUHIP_decode_single_thread_inflate(
-        in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem);
+    single_thread_inflate(
+        in + par_entry[gid], out + sublen * gid, par_nbit[gid]);
     __syncthreads();
   }
 }

@@ -29,7 +29,7 @@ class HuffmanCodec {
  private:
   using SYM = E;
 
-  struct internal_buffer;
+  struct Buf;
   struct impl;
   std::unique_ptr<impl> pimpl;
 

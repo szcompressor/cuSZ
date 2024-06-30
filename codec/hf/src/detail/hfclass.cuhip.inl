@@ -49,7 +49,7 @@ template <typename E, bool TIMING>
 struct HuffmanCodec<E, TIMING>::impl {
   static const bool TimeBreakdown{false};
 
-  using phf_module = phf::coarse::kernel_wrapper<E, H, TIMING>;
+  using phf_module = phf::cuhip::modules<E, H, TIMING>;
   using Header = phf_header;
 
   phf_header header;  // TODO combine psz and pszhf headers
@@ -65,7 +65,7 @@ struct HuffmanCodec<E, TIMING>::impl {
   size_t len, bklen;
   memobj<u4>* hist;
 
-  internal_buffer* buf;
+  Buf* buf;
 
   impl() = default;
   ~impl() { delete buf; }
@@ -82,7 +82,7 @@ struct HuffmanCodec<E, TIMING>::impl {
     sublen = (inlen - 1) / pardeg + 1;
 
     // TODO make unique_ptr; modify ctor
-    buf = new internal_buffer(inlen, _bklen, _pardeg, false, debug);
+    buf = new Buf(inlen, _bklen, _pardeg, true, debug);
     hist = new memobj<u4>(
         bklen, "phf::hist", {MallocHost});  // dptr from external
   }
@@ -134,13 +134,13 @@ struct HuffmanCodec<E, TIMING>::impl {
     hfpar_description hfpar{sublen, pardeg};
 
     {
-      phf_module::encode_phase1(
+      phf_module::GPU_coarse_encode_phase1(
           {in, len}, buf->bk4->array1_d(), numSMs, buf->scratch4->array1_d(),
           &_time_lossless, stream);
 
       if constexpr (TimeBreakdown) { b = hires::now(); }
 
-      phf_module::encode_phase2(
+      phf_module::GPU_coarse_encode_phase2(
           buf->scratch4->array1_d(), hfpar,
           buf->scratch4->array1_d() /* placeholder */,
           buf->par_nbit->array1_d(), buf->par_ncell->array1_d(),
@@ -149,7 +149,7 @@ struct HuffmanCodec<E, TIMING>::impl {
       if constexpr (TimeBreakdown) c = hires::now();
     }
 
-    phf_module::encode_phase3(
+    phf_module::GPU_coarse_encode_phase3(
         buf->par_nbit->array1_d(), buf->par_ncell->array1_d(),
         buf->par_entry->array1_d(), hfpar, buf->par_nbit->array1_h(),
         buf->par_ncell->array1_h(), buf->par_entry->array1_h(),
@@ -157,7 +157,7 @@ struct HuffmanCodec<E, TIMING>::impl {
 
     if constexpr (TimeBreakdown) d = hires::now();
 
-    phf_module::encode_phase4(
+    phf_module::GPU_coarse_encode_phase4(
         buf->scratch4->array1_d(), buf->par_entry->array1_d(),
         buf->par_ncell->array1_d(), hfpar, buf->bitstream4->array1_d(),
         &_time_lossless, stream);
@@ -200,7 +200,7 @@ struct HuffmanCodec<E, TIMING>::impl {
 #define PHF_ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
 
-    phf_module::phf_coarse_decode(
+    phf_module::GPU_coarse_decode(
         {PHF_ACCESSOR(BITSTREAM, H4), 0},
         {PHF_ACCESSOR(REVBK, PHF_BYTE), (size_t)revbk4_bytes(header.bklen)},
         {PHF_ACCESSOR(PAR_NBIT, M), (size_t)pardeg},

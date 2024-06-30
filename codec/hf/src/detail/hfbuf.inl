@@ -9,7 +9,7 @@ namespace phf {
 using namespace portable;
 
 template <typename E, bool TIMING>
-struct HuffmanCodec<E, TIMING>::internal_buffer {
+struct HuffmanCodec<E, TIMING>::Buf {
   // helper
   typedef struct RC {
     static const int SCRATCH = 0;
@@ -103,14 +103,13 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
   };
 
   // ctor
-  internal_buffer(
-      size_t inlen, size_t _booklen, int _pardeg, bool _use_HFR = false,
+  Buf(size_t inlen, size_t _booklen, int _pardeg, bool _use_HFR = false,
       bool debug = false)
   {
     pardeg = _pardeg;
     bklen = _booklen;
     len = inlen;
-    use_HFR  =_use_HFR;
+    use_HFR = _use_HFR;
 
     encoded = new memobj<PHF_BYTE>(len * sizeof(u4), "hf::out4B");
     scratch4 = new memobj<H4>(len, "hf::scratch4", {Malloc, MallocHost});
@@ -142,7 +141,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
     if (debug) debug_all();
   }
 
-  ~internal_buffer()
+  ~Buf()
   {
     delete bk4;
     delete revbk4;
@@ -197,7 +196,8 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
     };
 
     CHECK_GPU(cudaMemcpyAsync(
-        start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream));
+        start, &header, sizeof(header), cudaMemcpyHostToDevice,
+        (cudaStream_t)stream));
 
     // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
     d2d_memcpy_merge(_revbk);
