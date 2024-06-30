@@ -36,6 +36,8 @@ class HuffmanCodec {
   struct impl;
   std::unique_ptr<impl> pimpl;
 
+  static const int HFR_Magnitude = 10;
+
  public:  // temporarily for testing
   struct internal_buffer;
 
@@ -49,7 +51,7 @@ class HuffmanCodec {
   // TODO Is specifying inlen when constructing proper?
   HuffmanCodec(
       size_t const inlen, int const bklen, int const pardeg,
-      bool debug = false);
+      bool use_HFR = false, bool debug = false);
   ~HuffmanCodec();
 
   float time_book() const;
@@ -60,7 +62,8 @@ class HuffmanCodec {
   HuffmanCodec* buildbook(u4* d_hist_ext, phf_stream_t);
   // TODO inlen is unnecessary
   // alternatively, it can force check the input array
-  HuffmanCodec* encode(bool use_HFR, E*, size_t const, PHF_BYTE**, size_t*, phf_stream_t);
+  HuffmanCodec* encode(
+      bool use_HFR, E*, size_t const, PHF_BYTE**, size_t*, phf_stream_t);
   HuffmanCodec* decode(PHF_BYTE*, E*, phf_stream_t, bool = true);
   HuffmanCodec* clear_buffer();
   HuffmanCodec* dump_internal_data(std::string, std::string);
