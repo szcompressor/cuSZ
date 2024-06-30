@@ -13,8 +13,8 @@ cuSZ is a CUDA implementation of the widely used [SZ lossy compressor](https://g
 
 (C) 2022 by Indiana University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
-- developers: Jiannan Tian, Cody Rivera, Wenyu Gai, Dingwen Tao, Sheng Di, Franck Cappello
-- contributors (alphabetic): Jon Calhoun, Megan Hickman Fulp, Xin Liang, Robert Underwood, Kai Zhao
+- developers: (framework) Jiannan Tian, (kernel/pipeline) Jinyang Liu, Shixun Wu, Cody Rivera, (deployment) Robert Underwood, (advisors, PIs) Dingwen Tao, Sheng Di, Franck Cappello
+- contributors (alphabetic): Jon Calhoun, Wenyu Gai, Megan Hickman Fulp, Xin Liang, Kai Zhao
 - Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021!
 
 <br>
@@ -27,10 +27,10 @@ cuSZ is a CUDA implementation of the widely used [SZ lossy compressor](https://g
 <a href="https://github.com/szcompressor/cuSZ/wiki/API"><b>API reference</b></a>
 </p>
 
-<br>
+<!-- <br> -->
 
 <p align="center">
-Kindly note: If you mention cuSZ in your paper, please cite using <a href="https://github.com/szcompressor/cuSZ/wiki/cite-our-works">these BibTeX entries</a>.
+Kindly note: If you mention cuSZ in your paper, please refer to <a href="#citing-cusz">the detail below</a>.
 </p>
 
 
@@ -52,75 +52,49 @@ Prediction-based SZ algorithm comprises four major parts,
 
 </details>
 
-<details>
-<summary>
-Why is there multibyte symbol for Huffman?
-</summary>
-
-The principle of Huffman coding is to guarantee high-frequency symbols with fewer bits. To be specific, given arbitrary pairs of (symbol, frequency)-s, (*s<sub>i</sub>*, *f<sub>i</sub>*) and 
-(*s<sub>j</sub>*, *f<sub>j</sub>*), the assigned codeword *c<sub>i</sub>* and *c<sub>j</sub>*, respectively, are guaranteed to have len(*c<sub>i</sub>*) is no greater than len(*c<sub>j</sub>*) if *f<sub>i</sub>* is no less than *f<sub>j</sub>*.
-
-The combination of *n* single-byte does not reflect that quant-code representing the `+/-1` error-bound should be of the highest frequency. For example, an enumeration with 1024 symbols can cover 99.8% error-control code (the rest 0.2% can result in much more bits in codewords), among which the most frequent symbol can dominate at over 90%. If single-byte symbols are used, `0x00` from bytes near MSB makes
-
-1. the highest frequency not properly represented, and
-2. the pattern-exploiting harder. For example, `0x00ff,0x00ff` is otherwise interpreted as `0x00,0xff,0x00,0xff`.  
-
 </details>
 
 <details>
 <summary>
-What differentiates CPU-SZ and cuSZ in data quality and compression ratio?
+How does cuSZ evolve over years?
 </summary>
 
-CPU-SZ offers a rich set of compression features and is far more mature than cuSZ. (1) CPU-SZ has preprocessing, more compression mode (e.g., point-wise), and autotuning. (2) CPU-SZ has Lorenzo predictor and Linear Regression, whereas cuSZ has Lorenzo (we are working on new predictors).
+cuSZ and its variants use variable techniques to balance the need for data-reconstruction quality, compression ratio, and data-processing speed. A quick comparison is given below.
 
-1. They share the same Lorenzo predictor. However, many factors affect data quality,
-   1. preprocessing such as log transform and point-wise transform
-   2. PSNR as a goal to autotune eb
-   3. initial values from which we predict border values (as if padding). cuSZ predicts from zeros while SZ determines optimal values for, e.g., application-specific metrics. Also, note that cuSZ compression can result in a significantly higher PSNR than SZ (with the same eb, see Table 8 on page 10 of PACT '20 paper), but it is not necessarily better when it comes to applications.
-   4. The PSNR serves as a generic metric: SZ guarantees a lower bound of PSNR when the eb is relative to the data range, e.g., 64 for 1e-3, 84 for 1e-4.
-2. The linear scaling can be the same. SZ has an extra optimizer to decide the linear scaling range $[-r, +r]$; out-of-range quantization values are outliers. This is to optimize the compression ratio.
-3. Currently, the Huffman encoding is the same except cuSZ partitions data (therefore, it has overhead in padding bits and partitioning metadata).
+Notably, cuSZ (Tian et al., '20, '21) as the basic framework provides a balanced compression ratio and quality, while FZ-GPU (Zhang, Tian et al., '23) and SZp-CUDA/GSZ (Huang et al., '23, '24) prioritize data processing speed. cuSZ+ (hi-ratio) is an outcome of data compressibility research to demonstrate that certain methods (e.g., RLE) can work better in highly compressible cases (Tian et al., '21). The latest art, cuSZ-i (Liu, Tian, Wu et al., '24), attempts to utilize the QoZ-like methods (Liu et al., '22) to significantly enhance the data-reconstruction quality and the compression ratio.
 
-|        | preprocess | Lorenzo predictor | other predictors | Huffman | gzip/zstd   |
-| ------ | ---------- | ----------------- | ---------------- | ------- | ----------- |
-| CPU-SZ | x          | x                 | x                | x       | x           |
-| cuSZ   | TBD        | x, dual-quant     | TBD              | x       | alternative |
-</details>
+```
+                    prediction &                 statistics          lossless encoding          lossless encoding
+                    quantization                                     passs (1)                  pass (2)
 
-<details>
-<summary>
-What is cuSZ+?
-</summary>
+                  +----------------------+      +-----------+      +------------------+       +-----------------+
+CPU-SZ     -----> | predictor {ℓ, lr, S} | ---> | histogram | ---> | ui2 Huffman enc. | ----> | DEFLATE (LZ+HF) |
+'16, '17-ℓ, '18-lr, '21-S, '22-QoZ ------+      +-----------+      +------------------+       +-----------------+
+(Di and Franck, Tao et al., Liang et al. Zhao et al., Liu et al.)
 
-cuSZ+ is a follow-up peer-reviewed work in 2021, on top of the original 2020 work.
-cuSZ+ mixes the improvements in decompression throughput (by 4.3x to 18.6x) and the use of data patterns that are the source of compressibility. 
-There will not be, however, standalone software or version for cuSZ+. Instead, we are gradually rolling out the production-ready functionality mentioned in the published paper.
+                  +----------------------+      +-----------+      +------------------+
+cuSZ       -----> | predictor ℓ-(1,2,3)D | ---> | histogram | ---> | ui2 Huffman enc. | ----> ( n/a )
+'20, '21          +----------------------+      +-----------+      +------------------+
+(Tian et al.)
+                  +----------------------+      +-----------+      +-------------------+      +---------+
+cuSZ+        ---> | predictor ℓ-(1,2,3)D | ---> | histogram | ---> | de-redundancy RLE | ---> | HF enc. |
+hi-ratio '21      +----------------------+      +-----------+      +-------------------+      +---------+
+(Tian et al.)
+                  +----------------------+                         +---------------+
+FZ-GPU '23   ---> | predictor ℓ-(1,2,3)D | ---> ( n/a ) ---------> | de-redundancy | -------> ( n/a )
+(Zhang, Tian et al.) --------------------+                         +---------------+
 
-</details>
+                  [ single kernel ]------------------------------------------------+           
+SZp-CUDA/GSZ ---> | predictor ℓ-1D   ---------> ( n/a ) --------->   de-redundancy | -------> ( n/a )
+'23, '24          +----------------------------------------------------------------+           
+(Huang et al.)
 
-<details>
-<summary>
-What is the future plan/road map of cuSZ?
-</summary>
+                  +----------------+            +-----------+      +------------------+       +---------------+
+cuSZ-i '24   ---> | predictor S-3D | ---------> | histogram | ---> | ui2 Huffman enc. | ----> | de-redundancy |
+(Liu, Tian, Wu et al.) ------------+            +-----------+      +------------------+       +---------------+
 
-1. more predictors based on domain-specific study and generality
-2. more compression mode
-3. both more modularized and more tightly coupled in components
-4. APIs (soon)
-
-</details>
-
-
-<details>
-<summary>
-How to know the performance?
-</summary>
-
-1. `nvprof <cusz command>` for GPUs prior to Ampere
-2. `nsys profile --stat true <cusz command>` for all GPUs
-3. enable `--report time` in CLI
-4. A sample benchmark is shown at [`doc/benchmark.md`](https://github.com/szcompressor/cuSZ/blob/master/doc/benchmark.md). To be updated.
+ℓ: Lorenzo predictor; lr: linear-regression predictor; S: spline-interpolative predictor
+```
 
 </details>
 
@@ -145,70 +119,47 @@ We provide three small sample data in `data` by executing the script there. To d
 
 </details>
 
-<details>
-<summary>
-What are the limitations from the development?
-</summary>
 
-- The `double` support will be released in the next version.
-- We are working on integrating faster Huffman codec
-- 4-byte Huffman symbol may break; `--config huffbyte=8` is needed.
-- tuning performance regarding different data input size
-- adding preprocessing (e.g., binning, log-transform, normalization)
+# cite cuSZ
 
-</details>
+Our published papers cover the essential design and implementation. If you mention cuSZ in your paper, please kindly cite using `\cite{tian2020cusz,tian2021cuszplus,liu_tian_wu2024cuszi}` and the BibTeX entries below (or standalone [`.bib` file](doc/psz-cusz.bib)).
 
-<br/>
-
-# citing cuSZ
-
-Our published papers cover the essential design and implementation. If you mention cuSZ in your paper, please cite using the BibTeX entries below.
-
-**PACT '20: cuSZ** ([local copy](doc/PACT'20-cusz.pdf), [via ACM](https://dl.acm.org/doi/10.1145/3410463.3414624), or [via arXiv](https://arxiv.org/abs/2007.09625)) covers
-  - framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
-
-
+1. **PACT '20: cuSZ** ( [local copy](doc/PACT'20-cusz.pdf) | [ACM](https://dl.acm.org/doi/10.1145/3410463.3414624) | [arXiv](https://arxiv.org/abs/2007.09625) ) covers
+    - basic framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
+2. **CLUSTER '21: cuSZ+** ( [local copy](doc/CLUSTER'21-cusz+.pdf) | [IEEEXplore](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}) | [arXiv](https://arxiv.org/abs/2105.12912) ) covers
+    - optimization in throughput, featuring fine-grained *N*-D "reconstruction"
+    - optimization in compression ratio, when data is deemed as "smooth"
+3. **SC '24: cuSZ-_i_** (The final paper will come to SC '24 proceedings.) The paper ( [arXiv](https://arxiv.org/abs/2312.05492) ) covers
+    - spline-interpolation-based high-ratio data compression and high-quality data reconstruction
+    - compresion ratio boost from incorporating the synergetic lossless encoding
 
 ```bibtex
-@inproceedings{cusz2020,
-      title = {cuSZ: An Efficient GPU-Based Error-Bounded Lossy Compression Framework for Scientific Data},
+@inproceedings{tian2020cusz,
+      title = {{{\textsc cuSZ}: An efficient GPU-based error-bounded lossy compression framework for scientific data}},
      author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
-       year = {2020},
-       isbn = {9781450380751},
-  publisher = {Association for Computing Machinery},
-    address = {New York, NY, USA},
-        url = {https://doi.org/10.1145/3410463.3414624},
-        doi = {10.1145/3410463.3414624},
+       year = {2020}, month = {10},
+        doi = {10.1145/3410463.3414624}, isbn = {9781450380751},
   booktitle = {Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques},
-      pages = {3–15},
-   numpages = {13},
-   keywords = {cuda, gpu, scientific data, lossy compression, performance},
-   location = {Virtual Event, GA, USA},
-     series = {PACT '20}
-}
-```
+     series = {PACT '20}, address = {Atlanta (virtual event), GA, USA}}
 
-- **CLUSTER '21: cuSZ+** ([local copy](doc/CLUSTER'21-cusz+.pdf) or [via IEEEXplore](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047})) covers
-  - optimization in throughput, featuring fine-grained *N*-D "reconstruction"
-  - optimization in compression ratio, when data is deemed as "smooth"
-
-```bibtex
-@INPROCEEDINGS {cuszplus2021,
-      title = {Optimizing Error-Bounded Lossy Compression for Scientific Data on GPUs},
+@inproceedings{tian2021cuszplus,
+      title = {Optimizing error-bounded lossy compression for scientific data on GPUs},
      author = {Tian, Jiannan and Di, Sheng and Yu, Xiaodong and Rivera, Cody and Zhao, Kai and Jin, Sian and Feng, Yunhe and Liang, Xin and Tao, Dingwen and Cappello, Franck},
-       year = {2021},
-      month = {September},
-  publisher = {IEEE Computer Society},
-    address = {Los Alamitos, CA, USA},
-        url = {https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047},
+       year = {2021}, month = {09},
         doi = {10.1109/Cluster48925.2021.00047},
   booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
-      pages = {283-293},
-   keywords = {conferences;graphics processing units;computer architecture;cluster computing;reconstruction algorithms;throughput;encoding}
-}
+     series = {CLUSTER '21}, address = {Portland (virtual event), OR, USA}}
+
+@article{liu_tian_wu2024cuszi,
+     title = {{{\scshape cuSZ}-{\itshape i}: High-ratio scientific lossy compression on
+             GPUs with optimized multi-level interpolation}},
+    author = {Jinyang Liu and Jiannan Tian and Shixun Wu and Sheng Di and Boyuan Zhang and Yafan Huang and Kai Zhao and Guanpeng Li and Dingwen Tao and Zizhong Chen and Franck Cappello},
+      year = {2024}, month = {11},
+      note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu},
+       doi = {10.48550/arXiv.2312.05492},
+    series = {SC '24}, address = {Atlanta, GA, USA}}
 ```
 
-<br/>
 
 # acknowledgements
 
