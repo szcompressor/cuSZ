@@ -58,11 +58,11 @@ struct helper {
 
 }  // namespace
 
-namespace phf::__kernel::experimental {
+namespace phf::experimental {
 
 // a duplicate from psz
 template <typename T, typename M = u4>
-__global__ void __scatter_adhoc(T* val, M* idx, int const n, T* out)
+__global__ void KERNEL_CUHIP_scatter(T* val, M* idx, int const n, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -75,7 +75,7 @@ __global__ void __scatter_adhoc(T* val, M* idx, int const n, T* out)
 // TODO totally disable H (no need to be other than uint32_t)
 // TODO kernel wrapper
 template <typename E, typename H>
-__global__ void __encode_phase1_fill_with_filter(
+__global__ void KERNEL_CUHIP_encode_phase1_fill_with_filter(
     /* input */ E* in, size_t const in_len, H* in_bk, int const in_bklen,
     H const replacement,  //
     /* output */ H* encoded, E* outlier_val, uint32_t* outlier_idx,
@@ -111,7 +111,7 @@ __global__ void __encode_phase1_fill_with_filter(
 }
 
 template <typename E, typename H, typename M = uint32_t>
-__global__ void __encode_phase1_fill_collect_metadata(
+__global__ void KERNEL_CUHIP_encode_phase1_fill_collect_metadata(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, int const sublen,
     int const pardeg, int const repeat, H* encoded, M* par_nbit, M* par_ncell)
 {
@@ -155,64 +155,12 @@ __global__ void __encode_phase1_fill_collect_metadata(
   }
 }
 
-}  // namespace phf::__kernel::experimental
+}  // namespace phf::experimental
 
-namespace phf::__kernel {
-
-// TODO change size_t to unsigned int
-template <typename H, typename E>
-__device__ void __decode_single_thread_inflate(
-    H* input, E* out, int const total_bw, BYTE* revbook)
-{
-  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
-
-  int next_bit;
-  auto idx_bit = 0;
-  auto idx_byte = 0;
-  auto idx_out = 0;
-
-  H bufr = input[idx_byte];
-
-  auto first = reinterpret_cast<H*>(revbook);
-  auto entry = first + CELL_BITWIDTH;
-  auto keys = reinterpret_cast<E*>(revbook + sizeof(H) * (2 * CELL_BITWIDTH));
-  H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // get the first bit
-  auto l = 1;
-  auto i = 0;
-
-  while (i < total_bw) {
-    while (v < first[l]) {  // append next i_cb bit
-      ++i;
-      idx_byte = i / CELL_BITWIDTH;  // [1:exclusive]
-      idx_bit = i % CELL_BITWIDTH;
-      if (idx_bit == 0) {
-        // idx_byte += 1; // [1:exclusive]
-        bufr = input[idx_byte];
-      }
-
-      next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
-      v = (v << 1) | next_bit;
-      ++l;
-    }
-    out[idx_out++] = keys[entry[l] + v - first[l]];
-    {
-      ++i;
-      idx_byte = i / CELL_BITWIDTH;  // [2:exclusive]
-      idx_bit = i % CELL_BITWIDTH;
-      if (idx_bit == 0) {
-        // idx_byte += 1; // [2:exclusive]
-        bufr = input[idx_byte];
-      }
-
-      next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
-      v = 0x0 | next_bit;
-    }
-    l = 1;
-  }
-}
+namespace phf {
 
 template <typename E, typename H>
-__global__ void __encode_phase1_fill(
+__global__ void KERNEL_CUHIP_encode_phase1_fill(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, H* out_encoded)
 {
   auto s_bk = reinterpret_cast<H*>(__codec_raw);
@@ -233,7 +181,7 @@ __global__ void __encode_phase1_fill(
 }
 
 template <typename H, typename M>
-__global__ void __encode_phase2_deflate(
+__global__ void KERNEL_CUHIP_encode_phase2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
     int const sublen, int const pardeg)
 {
@@ -296,7 +244,7 @@ __global__ void __encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-__global__ void __encode_phase4_concatenate(
+__global__ void KERNEL_CUHIP_encode_phase4_concatenate(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped)
 {
   auto n = par_ncell[blockIdx.x];
@@ -308,31 +256,77 @@ __global__ void __encode_phase4_concatenate(
   }
 }
 
+}  // namespace phf
+
+namespace phf {
+
 template <typename E, typename H, typename M>
-__global__ void __decode_kernel(
+__global__ void KERNEL_CUHIP_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
     int const revbook_nbyte, int const sublen, int const pardeg, E* out)
 {
-  extern __shared__ uint8_t shmem[];
+  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
+  extern __shared__ uint8_t s_revbook[];
   constexpr auto block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+  auto single_thread_inflate = [&](H* input, E* out, int const total_bw) {
+    int next_bit;
+    auto idx_bit = 0, idx_byte = 0, idx_out = 0;
+    H bufr = input[idx_byte];
+    auto first = (H*)(s_revbook);
+    auto entry = first + CELL_BITWIDTH;
+    auto keys = (E*)(s_revbook + sizeof(H) * (2 * CELL_BITWIDTH));
+    H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // get the first bit
+    auto l = 1, i = 0;
+
+    while (i < total_bw) {
+      while (v < first[l]) {  // append next i_cb bit
+        ++i;
+        idx_byte = i / CELL_BITWIDTH;  // [1:exclusive]
+        idx_bit = i % CELL_BITWIDTH;
+        if (idx_bit == 0) {
+          // idx_byte += 1; // [1:exclusive]
+          bufr = input[idx_byte];
+        }
+
+        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
+        v = (v << 1) | next_bit;
+        ++l;
+      }
+      out[idx_out++] = keys[entry[l] + v - first[l]];
+      {
+        ++i;
+        idx_byte = i / CELL_BITWIDTH;  // [2:exclusive]
+        idx_bit = i % CELL_BITWIDTH;
+        if (idx_bit == 0) {
+          // idx_byte += 1; // [2:exclusive]
+          bufr = input[idx_byte];
+        }
+
+        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
+        v = 0x0 | next_bit;
+      }
+      l = 1;
+    }
+  };
 
   auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 
   for (auto i = 0; i < R; i++) {
     if (TIX + i * block_dim < revbook_nbyte)
-      shmem[TIX + i * block_dim] = revbook[TIX + i * block_dim];
+      s_revbook[TIX + i * block_dim] = revbook[TIX + i * block_dim];
   }
   __syncthreads();
 
   auto gid = BIX * BDX + TIX;
 
   if (gid < pardeg) {
-    __decode_single_thread_inflate(
-        in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem);
+    single_thread_inflate(
+        in + par_entry[gid], out + sublen * gid, par_nbit[gid]);
     __syncthreads();
   }
 }
 
-}  // namespace phf::__kernel
+}  // namespace phf
 
 #endif
