@@ -64,13 +64,17 @@ T* malloc_device(size_t len, void* stream = nullptr)
 {
   T* __a;
 #if defined(PSZ_USE_CUDA)
-  cudaMallocAsync(&__a, len * sizeof(T), (cudaStream_t)stream);
-  cudaMemsetAsync(__a, 0, len * sizeof(T), (cudaStream_t)stream);
-  cudaStreamSynchronize((cudaStream_t)stream);
+  // cudaMallocAsync(&__a, len * sizeof(T), (cudaStream_t)stream);
+  // cudaMemsetAsync(__a, 0, len * sizeof(T), (cudaStream_t)stream);
+  // cudaStreamSynchronize((cudaStream_t)stream);
+  cudaMalloc(&__a, len * sizeof(T));
+  cudaMemset(__a, 0, len * sizeof(T));
 #elif defined(PSZ_USE_HIP)
-  hipMallocAsync(&__a, len * sizeof(T), (hipStream_t)stream);
-  hipMemsetAsync(__a, 0, len * sizeof(T), (hipStream_t)stream);
-  hipStreamSynchronize((hipStream_t)stream);
+  // hipMallocAsync(&__a, len * sizeof(T), (hipStream_t)stream);
+  // hipMemsetAsync(__a, 0, len * sizeof(T), (hipStream_t)stream);
+  // hipStreamSynchronize((hipStream_t)stream);
+  hipMalloc(&__a, len * sizeof(T));
+  hipMemset(__a, 0, len * sizeof(T));
 #elif defined(PSZ_USE_1API)
   if (not stream)
     throw std::runtime_error(
