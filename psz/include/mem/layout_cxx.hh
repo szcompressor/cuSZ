@@ -94,7 +94,8 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :
 
   if (iscompression) {
     // [psz::TODO] consider compact as a view with exposing the limited length
-    compact = new Compact(len / 5);
+    // [psz::DRAFT] selective control of sparsity ratio
+    compact = new Compact(len);
     compact->control({Malloc, MallocHost});
   }
 }
