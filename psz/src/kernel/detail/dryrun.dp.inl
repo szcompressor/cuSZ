@@ -6,10 +6,8 @@
 
 namespace psz {
 
-namespace dpcpp {
-
 template <typename T = float, typename FP = T, int BLOCK = 256, int SEQ = 4>
-void dryrun_kernel(
+void KERNLE_CUHIP_lorenzo_dryrun(
     T* in, T* out, size_t len, FP ebx2_r, FP ebx2,
     const sycl::nd_item<3>& item_ct1, T* shmem)
 {
@@ -30,8 +28,13 @@ void dryrun_kernel(
   }
 }
 
+}  // namespace psz
+
+namespace psz::dpcpp {
+
 template <typename T>
-void dryrun(size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
+void GPU_lorenzo_dryrun(
+    size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
@@ -55,7 +58,7 @@ void dryrun(size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
               div(len, 256) * sycl::range<3>(1, 1, 256),
               sycl::range<3>(1, 1, 256)),
           [=](sycl::nd_item<3> item_ct1) {
-            dryrun_kernel(
+            KERNLE_CUHIP_lorenzo_dryrun(
                 original, reconst, len, ebx2_r, ebx2, item_ct1,
                 (T*)shmem_acc_ct1.get_pointer());
           });
@@ -65,8 +68,6 @@ void dryrun(size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
   queue->wait();
 }
 
-}  // namespace dpcpp
-
-}  // namespace psz
+}  // namespace psz::dpcpp
 
 #endif /* BDA1F851_E0AB_4877_9FB2_20BEAC0328F2 */

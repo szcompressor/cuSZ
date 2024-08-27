@@ -17,13 +17,13 @@
 #include <typeinfo>
 
 #include "busyheader.hh"
-#include "kernel/detail/lproto.inl"
+#include "kernel/detail/lproto.cuhip.inl"
 #include "mem/compact.hh"
 #include "mem/memobj.hh"
 
 using namespace portable;
 
-namespace proto = psz::cuda_hip::__kernel::proto;
+namespace proto = psz::proto;
 
 using T = float;
 using FP = float;
@@ -66,13 +66,13 @@ bool test1(
   auto radius = 512;
 
   if (dim == 1)
-    proto::c_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
+    proto::KERNEL_CUHIP_c_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
         input->dptr(), len3, stride3, radius, 1.0, eq->dptr(), outlier);
   else if (dim == 2)
-    proto::c_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
+    proto::KERNEL_CUHIP_c_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
         input->dptr(), len3, stride3, radius, 1.0, eq->dptr(), outlier);
   else if (dim == 3)
-    proto::c_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
+    proto::KERNEL_CUHIP_c_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
         input->dptr(), len3, stride3, radius, 1.0, eq->dptr(), outlier);
   GpuDeviceSync();
 
@@ -113,15 +113,15 @@ bool test2(
   auto xdata = new memobj<T>(len, "xdata", {Malloc, MallocHost});
 
   if (dim == 1)
-    proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
+    proto::KERNEL_CUHIP_x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
         input->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, 1,
         xdata->dptr());
   else if (dim == 2)
-    proto::x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
+    proto::KERNEL_CUHIP_x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
         input->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, 1,
         xdata->dptr());
   else if (dim == 3)
-    proto::x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
+    proto::KERNEL_CUHIP_x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
         input->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, 1,
         xdata->dptr());
   else {
@@ -168,28 +168,28 @@ bool test3(
   auto ebx2_r = 1 / (eb * 2);
 
   if (dim == 1) {
-    proto::c_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
+    proto::KERNEL_CUHIP_c_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
         input->dptr(), len3, stride3, radius, ebx2_r, eq->dptr(), outlier);
     GpuDeviceSync();
-    proto::x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
+    proto::KERNEL_CUHIP_x_lorenzo_1d1l<T><<<t1d_grid_dim, t1d_block_dim>>>(
         eq->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, ebx2,
         xdata->dptr());
     GpuDeviceSync();
   }
   else if (dim == 2) {
-    proto::c_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
+    proto::KERNEL_CUHIP_c_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
         input->dptr(), len3, stride3, radius, ebx2_r, eq->dptr(), outlier);
     GpuDeviceSync();
-    proto::x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
+    proto::KERNEL_CUHIP_x_lorenzo_2d1l<T><<<t2d_grid_dim, t2d_block_dim>>>(
         eq->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, ebx2,
         xdata->dptr());
     GpuDeviceSync();
   }
   else if (dim == 3) {
-    proto::c_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
+    proto::KERNEL_CUHIP_c_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
         input->dptr(), len3, stride3, radius, ebx2_r, eq->dptr(), outlier);
     GpuDeviceSync();
-    proto::x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
+    proto::KERNEL_CUHIP_x_lorenzo_3d1l<T><<<t3d_grid_dim, t3d_block_dim>>>(
         eq->dptr(), xdata->dptr() /* outlier */, len3, stride3, radius, ebx2,
         xdata->dptr());
     GpuDeviceSync();

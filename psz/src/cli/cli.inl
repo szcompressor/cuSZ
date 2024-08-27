@@ -78,9 +78,9 @@ class CLI {
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    psz::cu_hip::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+    psz::cuhip::GPU_lorenzo_dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
 #elif defined(PSZ_USE_1API)
-    psz::dpcpp::dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+    psz::dpcpp::GPU_lorenzo_dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
 #endif
 
     reconst->control({D2H});

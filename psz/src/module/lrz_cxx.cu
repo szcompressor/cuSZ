@@ -1,4 +1,4 @@
-#include "lrz_cxx.cu_hip.inl"
+#include "lrz_cxx.cuhip.inl"
 
 template class _2401::pszpred_lrz<f4, u2, CPU_BARRIER_AND_TIMING>;
 template class _2401::pszpred_lrz<f4, u2, CPU_BARRIER>;

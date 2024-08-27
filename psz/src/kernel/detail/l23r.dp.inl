@@ -22,15 +22,14 @@
     return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));                        \
   };
 
-namespace psz {
-namespace rolling_dp {
+namespace psz::rolling {
 
 template <
     typename T, typename Eq = uint32_t, typename Fp = T, int TileDim = 256,
     int Seq = 8, typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t, bool ZigZag = false,
     bool DebugStreamPrint = false>
-void c_lorenzo_1d1l(
+void KERNEL_DPCPP_c_lorenzo_1d1l(
     T* data, sycl::range<3> len3, sycl::range<3> stride3, int radius,
     Fp ebx2_r, Eq* eq, CompactVal* cval, CompactIdx* cidx, CompactNum* cn,
     const sycl::nd_item<3>& item_ct1, T* s_data,
@@ -133,7 +132,7 @@ template <
     typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t, bool ZigZag = false>
 /* DPCT1110 high register pressure */
-void c_lorenzo_2d1l(
+void KERNEL_DPCPP_c_lorenzo_2d1l(
     T* data, sycl::range<3> len3, sycl::range<3> stride3, int radius,
     Fp ebx2_r, Eq* eq, CompactVal* cval, CompactIdx* cidx, CompactNum* cn,
     const sycl::nd_item<3>& item_ct1)
@@ -219,7 +218,7 @@ template <
     typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t, bool ZigZag = false>
 /* DPCT1110: high register pressure */
-void c_lorenzo_3d1l(
+void KERNEL_DPCPP_c_lorenzo_3d1l(
     T* data, sycl::range<3> len3, sycl::range<3> stride3, int radius,
     Fp ebx2_r, Eq* eq, CompactVal* cval, CompactIdx* cidx, CompactNum* cn,
     const sycl::nd_item<3>& item_ct1, sycl::local_accessor<T, 2> s)
@@ -302,7 +301,6 @@ void c_lorenzo_3d1l(
   }
 }
 
-}  // namespace rolling_dp
 }  // namespace psz
 
 #endif /* AAC905A6_6314_4E1E_B5CD_BBBA9005A448 */

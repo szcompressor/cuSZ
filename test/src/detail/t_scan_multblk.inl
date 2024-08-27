@@ -16,7 +16,7 @@
 #include "kernel/lrz/l23.hh"
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-#include "kernel/detail/l23_x.cu_hip.inl"
+#include "kernel/detail/l23_x.cuhip.inl"
 #elif defined(PSZ_USE_1API)
 #include "kernel/detail/l23_x.dp.inl"
 #endif

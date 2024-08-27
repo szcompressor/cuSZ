@@ -2,7 +2,7 @@
 #include "cusz/type.h"
 #include "port.hh"
 // definitions
-#include "detail/hist.cu_hip.inl"
+#include "detail/hist.cuhip.inl"
 #include "kernel/hist.hh"
 
 #define SPECIAL(T)                                                    \
@@ -11,7 +11,7 @@
       T * in, size_t const inlen, uint32_t* out_hist, int const nbin, \
       float* milliseconds, void* stream)                              \
   {                                                                   \
-    return psz::cu_hip::histogram_generic<T>(                         \
+    return psz::cuhip::GPU_histogram_generic<T>(                         \
         in, inlen, out_hist, nbin, milliseconds, (GpuStreamT)stream); \
   }
 

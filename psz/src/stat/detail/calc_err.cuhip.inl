@@ -58,7 +58,7 @@ __global__ void KERNEL_CUHIP_calculate_errors(
 }  // namespace psz
 
 template <typename T>
-void psz::cu_hip::GPU_calculate_errors(
+void psz::cuhip::GPU_calculate_errors(
     T *d_odata, T odata_avg, T *d_xdata, T xdata_avg, size_t len, T h_err[4])
 {
   constexpr auto SUM_CORR = 0;
@@ -109,6 +109,6 @@ void psz::cu_hip::GPU_calculate_errors(
 }
 
 #define __INSTANTIATE_CUHIP_CALCERRORS(T)                             \
-  template void psz::cu_hip::GPU_calculate_errors<T>(                 \
+  template void psz::cuhip::GPU_calculate_errors<T>(                 \
       T * d_odata, T odata_avg, T * d_xdata, T xdata_avg, size_t len, \
       T h_err[4]);

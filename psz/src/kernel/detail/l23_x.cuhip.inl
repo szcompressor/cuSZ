@@ -15,14 +15,12 @@
 #include "cusz/suint.hh"
 #include "port.hh"
 // #include "subr.cu_hip.inl"
-#include "wave32.cu_hip.inl"
+#include "wave32.cuhip.inl"
 
 namespace psz {
-namespace cuda_hip {
-namespace __kernel {
 
 template <typename T, typename Eq, typename FP = T, int BLOCK, int SEQ>
-__global__ void x_lorenzo_1d1l(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_1d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
@@ -53,9 +51,8 @@ __global__ void x_lorenzo_1d1l(  //
   };
 
   auto block_scan_1d = [&]() {
-    namespace wave32 = psz::cu_hip::wave32;
-    wave32::intrawarp_inclscan_1d<T, SEQ>(thp_data);
-    wave32::intrablock_exclscan_1d<T, SEQ, NTHREAD>(
+    psz::SUBR_CUHIP_WAVE32_intrawarp_inclscan_1d<T, SEQ>(thp_data);
+    psz::SUBR_CUHIP_WAVE32_intrablock_exclscan_1d<T, SEQ, NTHREAD>(
         thp_data, exch_in, exch_out);
 
     // put back to shmem
@@ -100,7 +97,7 @@ __global__ void x_lorenzo_1d1l(  //
 //       thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]
 
 template <typename T, typename Eq, typename FP = T>
-__global__ void x_lorenzo_2d1l(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   constexpr auto BLOCK = 16;
@@ -171,7 +168,7 @@ __global__ void x_lorenzo_2d1l(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename Eq, typename FP = T>
-__global__ void x_lorenzo_3d1l(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_3d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   constexpr auto BLOCK = 8;
@@ -251,8 +248,6 @@ __global__ void x_lorenzo_3d1l(  //
   decomp_write_3d();
 }
 
-}  // namespace __kernel
-}  // namespace cuda_hip
 }  // namespace psz
 
 #endif /* D1C4C282_1485_4677_BC6B_F3DB79ED853E */

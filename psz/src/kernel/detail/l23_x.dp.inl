@@ -17,12 +17,10 @@
 #include "wave32.dp.inl"
 
 namespace psz {
-namespace dpcpp {
-namespace __kernel {
 
 template <typename T, typename Eq, typename FP = T, int BLOCK, int SEQ>
 /* DPCT1110: high register pressure */
-void x_lorenzo_1d1l(  //
+void KERNEL_DPCPP_x_lorenzo_1d1l(  //
     Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3,
     int radius, FP ebx2, T *xdata, const sycl::nd_item<3> &item_ct1,
     T *scratch, Eq *s_eq, T *exch_in, T *exch_out)
@@ -50,9 +48,8 @@ void x_lorenzo_1d1l(  //
   };
 
   auto block_scan_1d = [&](const sycl::nd_item<3> &item_ct1) {
-    namespace wave32 = psz::dpcpp::wave32;
-    wave32::intrawarp_inclscan_1d<T, SEQ>(thp_data, item_ct1);
-    wave32::intrablock_exclscan_1d<T, SEQ, NTHREAD>(
+    psz::SUBR_DPCPP_WAVE32_intrawarp_inclscan_1d<T, SEQ>(thp_data, item_ct1);
+    psz::SUBR_DPCPP_WAVE32_intrablock_exclscan_1d<T, SEQ, NTHREAD>(
         thp_data, exch_in, exch_out, item_ct1);
 
     // put back to shmem
@@ -98,7 +95,7 @@ void x_lorenzo_1d1l(  //
 
 template <typename T, typename Eq, typename FP = T>
 /* DPCT1110: high register pressure */
-void x_lorenzo_2d1l(  //
+void KERNEL_DPCPP_x_lorenzo_2d1l(  //
     Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3,
     int radius, FP ebx2, T *xdata, const sycl::nd_item<3> &item_ct1,
     T *scratch)
@@ -174,7 +171,7 @@ void x_lorenzo_2d1l(  //
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename Eq, typename FP = T>
 /* DPCT1110: high register pressure */
-void x_lorenzo_3d1l(  //
+void KERNEL_DPCPP_x_lorenzo_3d1l(  //
     Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3,
     int radius, FP ebx2, T *xdata, const sycl::nd_item<3> &item_ct1,
     sycl::local_accessor<T, 3> scratch)

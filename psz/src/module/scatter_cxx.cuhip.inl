@@ -7,7 +7,7 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 //
-#include "kernel/detail/spvn.cu_hip.inl"
+#include "kernel/detail/spvn.cuhip.inl"
 
 template <psz_policy P, typename T, bool TIMING>
 pszerror _2401::pszcxx_scatter_naive(
@@ -16,8 +16,9 @@ try {
   auto grid_dim = (*(in.host_num) - 1) / 128 + 1;
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
-  psz::cu_hip::spvn_scatter<T, u4><<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
-      in.val, in.idx, *(in.host_num), out.buf);
+  psz::KERNEL_CUHIP_spvn_scatter<T, u4>
+      <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
+          in.val, in.idx, *(in.host_num), out.buf);
   STOP_GPUEVENT_RECORDING(stream);
   CHECK_GPU(GpuStreamSync(stream));
   TIME_ELAPSED_GPUEVENT(milliseconds);

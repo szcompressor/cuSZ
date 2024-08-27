@@ -1,4 +1,4 @@
-#include "hist_cxx.cu_hip.inl"
+#include "hist_cxx.cuhip.inl"
 #include "module/cxx_module.hh"
 
 #define INS_HIST_CUDA_2401(T, TIMING)                              \

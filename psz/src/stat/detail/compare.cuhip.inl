@@ -1,6 +1,6 @@
 #include "stat/compare.hh"
 
-namespace psz::cu_hip {
+namespace psz::cuhip {
 
 constexpr auto MINVAL = 0;
 constexpr auto MAXVAL = 1;
@@ -17,12 +17,12 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 {
   T odata_res[4], xdata_res[4];
 
-  psz::cu_hip::GPU_extrema<T>(odata, len, odata_res);
-  psz::cu_hip::GPU_extrema<T>(xdata, len, xdata_res);
+  psz::cuhip::GPU_extrema<T>(odata, len, odata_res);
+  psz::cuhip::GPU_extrema<T>(xdata, len, xdata_res);
 
   T h_err[4];
 
-  psz::cu_hip::GPU_calculate_errors<T>(
+  psz::cuhip::GPU_calculate_errors<T>(
       odata, odata_res[AVGVAL], xdata, xdata_res[AVGVAL], len, h_err);
 
   double std_odata = sqrt(h_err[SUM_VAR_ODATA] / len);
@@ -63,6 +63,6 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 
 }  // namespace psz::cu_hip
 
-#define __INSTANTIATE_CUHIP_ASSESS(T)               \
-  template void psz::cu_hip::GPU_assess_quality<T>( \
+#define __INSTANTIATE_CUHIP_ASSESS(T)              \
+  template void psz::cuhip::GPU_assess_quality<T>( \
       psz_summary * s, T * xdata, T * odata, size_t const len);

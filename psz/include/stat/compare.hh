@@ -27,7 +27,7 @@ template <typename T> void CPU_extrema(T* ptr, size_t len, T res[4]);
 template <typename T> bool CPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
 }  // namespace psz::cu_hip
 
-namespace psz::cu_hip {
+namespace psz::cuhip {
 template <typename T> void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
 template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
 template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
@@ -80,7 +80,7 @@ void probe_extrema(T* in, size_t len, T res[4])
     thrustgpu::GPU_extrema(in, len, res);
 // #endif
   else if (P == CUDA or P == HIP) 
-    cu_hip::GPU_extrema(in, len, res);
+    cuhip::GPU_extrema(in, len, res);
   else if (P == ONEAPI) 
     dpcpp::GPU_extrema(in, len, res);
   else
@@ -111,7 +111,7 @@ void assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
   if constexpr (P == SEQ)
     cppstl::CPU_assess_quality(s, xdata, odata, len);
   else if constexpr (P == CUDA)
-    cu_hip::GPU_assess_quality<T>(s, xdata, odata, len);
+    cuhip::GPU_assess_quality<T>(s, xdata, odata, len);
   else if constexpr (P == THRUST)
     thrustgpu::GPU_assess_quality(s, xdata, odata, len);
   else if constexpr (P == ONEAPI) {

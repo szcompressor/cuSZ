@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-#include "detail/histsp.cu_hip.inl"
+#include "detail/histsp.cuhip.inl"
 #include "kernel/histsp.hh"
 #include "utils/timer.hh"
 
@@ -30,7 +30,7 @@ int histsp_cuda(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  histsp_multiwarp<T, FQ>
+  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<T, FQ>
       <<<num_chunks, num_workers, sizeof(FQ) * outlen, stream>>>(
           in, inlen, chunk, out_hist, outlen, outlen / 2);
   STOP_GPUEVENT_RECORDING(stream);

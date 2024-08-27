@@ -67,7 +67,7 @@ pszerror pszcxx_predict_lorenzo_unused(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid1D * Block1D, Block1D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::dpcpp::__kernel::c_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>(
+            psz::KERNEL_DPCPP_c_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>(
                 data, len3, leap3, radius, ebx2_r, eq, outlier, item_ct1,
                 scratch.get_pointer(), s_eq.get_pointer());
           });
@@ -78,7 +78,7 @@ pszerror pszcxx_predict_lorenzo_unused(
     e = queue->parallel_for(
         sycl::nd_range<3>(Grid2D * Block2D, Block2D),
         [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-          psz::dpcpp::__kernel::c_lorenzo_2d1l<T, Eq, FP>(
+          psz::KERNEL_DPCPP_c_lorenzo_2d1l<T, Eq, FP>(
               data, len3, leap3, radius, ebx2_r, eq, outlier, item_ct1);
         });
   }
@@ -90,7 +90,7 @@ pszerror pszcxx_predict_lorenzo_unused(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid3D * Block3D, Block3D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::dpcpp::__kernel::c_lorenzo_3d1l<T, Eq, FP>(
+            psz::KERNEL_DPCPP_c_lorenzo_3d1l<T, Eq, FP>(
                 data, len3, leap3, radius, ebx2_r, eq, outlier, item_ct1,
                 s_acc_ct1);
           });
@@ -160,7 +160,7 @@ pszerror pszcxx_reverse_predict_lorenzo(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid1D * Block1D, Block1D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::dpcpp::__kernel::x_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>(
+            psz::KERNEL_DPCPP_x_lorenzo_1d1l<T, Eq, FP, Tile1D, Seq1D>(
                 eq, outlier, len3, leap3, radius, ebx2, xdata, item_ct1,
                 scratch.get_pointer(), s_eq.get_pointer(),
                 exch_in.get_pointer(), exch_out.get_pointer());
@@ -180,7 +180,7 @@ pszerror pszcxx_reverse_predict_lorenzo(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid2D * Block2D, Block2D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::dpcpp::__kernel::x_lorenzo_2d1l<T, Eq, FP>(
+            psz::KERNEL_DPCPP_x_lorenzo_2d1l<T, Eq, FP>(
                 eq, outlier, len3, leap3, radius, ebx2, xdata, item_ct1,
                 scratch.get_pointer());
           });
@@ -205,7 +205,7 @@ pszerror pszcxx_reverse_predict_lorenzo(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid3D * Block3D, Block3D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::dpcpp::__kernel::x_lorenzo_3d1l<T, Eq, FP>(
+            psz::KERNEL_DPCPP_x_lorenzo_3d1l<T, Eq, FP>(
                 eq, outlier, len3, leap3, radius, ebx2, xdata, item_ct1,
                 scratch);
           });

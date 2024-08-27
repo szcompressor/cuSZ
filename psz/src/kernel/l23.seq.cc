@@ -42,15 +42,15 @@ pszerror psz_comp_l23_seq(
   auto leap3 = psz_dim3{1, len3.x, len3.x * len3.y};
 
   if (d == 1) {
-    psz::seq::__kernel::c_lorenzo_1d1l<T, EQ, FP, 256>(
+    psz::KERNEL_SEQ_c_lorenzo_1d1l<T, EQ, FP, 256>(
         data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
   else if (d == 2) {
-    psz::seq::__kernel::c_lorenzo_2d1l<T, EQ, FP, 16>(
+    psz::KERNEL_SEQ_c_lorenzo_2d1l<T, EQ, FP, 16>(
         data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
   else if (d == 3) {
-    psz::seq::__kernel::c_lorenzo_3d1l<T, EQ, FP, 8>(
+    psz::KERNEL_SEQ_c_lorenzo_3d1l<T, EQ, FP, 8>(
         data, len3, leap3, radius, ebx2_r, eq, outlier);
   }
 
@@ -85,15 +85,15 @@ pszerror psz_decomp_l23_seq(
   auto d = ndim();
 
   if (d == 1) {
-    psz::seq::__kernel::x_lorenzo_1d1l<T, EQ, FP, 256>(
+    psz::KERNEL_SEQ_x_lorenzo_1d1l<T, EQ, FP, 256>(
         eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (d == 2) {
-    psz::seq::__kernel::x_lorenzo_2d1l<T, EQ, FP, 16>(
+    psz::KERNEL_SEQ_x_lorenzo_2d1l<T, EQ, FP, 16>(
         eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (d == 3) {
-    psz::seq::__kernel::x_lorenzo_3d1l<T, EQ, FP, 8>(
+    psz::KERNEL_SEQ_x_lorenzo_3d1l<T, EQ, FP, 8>(
         eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
 

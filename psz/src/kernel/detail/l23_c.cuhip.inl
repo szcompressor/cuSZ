@@ -13,15 +13,13 @@
 #include "port.hh"
 #include "subr.cu_hip.inl"
 
-namespace psz {
-namespace cuda_hip {
-namespace __kernel {
+namespace psz::legacy {
 
 /**
  * @deprecated
  */
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void c_lorenzo_1d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
@@ -51,7 +49,7 @@ __global__ void c_lorenzo_1d1l(
  * @deprecated
  */
 template <typename T, typename Eq, typename FP>
-__global__ void c_lorenzo_2d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
@@ -80,7 +78,7 @@ __global__ void c_lorenzo_2d1l(
  * @deprecated
  */
 template <typename T, typename Eq, typename FP>
-__global__ void x_lorenzo_2d1l(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -107,7 +105,7 @@ __global__ void x_lorenzo_2d1l(  //
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void c_lorenzo_3d1l_legacy(
+__global__ void KERNEL_CUHIP_c_lorenzo_3d1l_legacy(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
@@ -172,7 +170,7 @@ __global__ void c_lorenzo_3d1l_legacy(
  * @deprecated
  */
 template <typename T, typename Eq, typename FP>
-__global__ void c_lorenzo_3d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
     T* outlier)
 {
@@ -246,6 +244,4 @@ __global__ void c_lorenzo_3d1l(
   }
 }
 
-}  // namespace __kernel
-}  // namespace cuda_hip
-}  // namespace psz
+}  // namespace psz::legacy

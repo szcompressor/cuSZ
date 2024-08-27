@@ -1,5 +1,5 @@
 /**
- * @file hfclass.cu_hip.inl
+ * @file hfclass.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.3

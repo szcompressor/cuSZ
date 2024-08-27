@@ -7,7 +7,7 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // definitions
-#include "kernel/detail/histsp.cu_hip.inl"
+#include "kernel/detail/histsp.cuhip.inl"
 
 using namespace portable;
 
@@ -25,7 +25,7 @@ try {
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  histsp_multiwarp<T, u4>
+  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<T, u4>
       <<<num_chunks, num_workers, sizeof(u4) * outlen, (cudaStream_t)stream>>>(
           in.buf, inlen, chunk, out_hist.buf, outlen, outlen / 2);
   STOP_GPUEVENT_RECORDING(stream);

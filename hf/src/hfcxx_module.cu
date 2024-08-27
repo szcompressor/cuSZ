@@ -1,5 +1,5 @@
 // TODO put u? in hf path
-#include "hfcxx_module.cu_hip.inl"
+#include "hfcxx_module.cuhip.inl"
 
 namespace phf::coarse {
 

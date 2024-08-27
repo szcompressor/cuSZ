@@ -1,5 +1,5 @@
 /**
- * @file l23r.cu_hip.inl
+ * @file l23r.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -36,7 +36,7 @@ template <
     typename T, typename Eq = uint32_t, typename Fp = T, int TileDim = 256,
     int Seq = 8, typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t, bool ZigZag = false>
-__global__ void c_lorenzo_1d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
@@ -109,7 +109,7 @@ template <
     typename T, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t, bool ZigZag = false>
-__global__ void c_lorenzo_2d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
@@ -186,7 +186,7 @@ template <
     typename T, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
     typename CompactNum = uint32_t, bool ZigZag = false>
-__global__ void c_lorenzo_3d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     T* data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {

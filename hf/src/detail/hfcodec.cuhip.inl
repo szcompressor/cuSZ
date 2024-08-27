@@ -1,5 +1,5 @@
 /**
- * @file codec_huffman.cuh
+ * @file hfcodec.cuhip.inl
  * @author Jiannan Tian
  * @brief Huffman kernel definitions
  * @version 0.2
@@ -58,11 +58,11 @@ struct helper {
 
 }  // namespace
 
-namespace phf::__kernel::experimental {
+namespace phf::experimental {
 
 // a duplicate from psz
 template <typename T, typename M = u4>
-__global__ void __scatter_adhoc(T* val, M* idx, int const n, T* out)
+__global__ void KERNEL_CUHIP_scatter_adhoc(T* val, M* idx, int const n, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -75,7 +75,7 @@ __global__ void __scatter_adhoc(T* val, M* idx, int const n, T* out)
 // TODO totally disable H (no need to be other than uint32_t)
 // TODO kernel wrapper
 template <typename E, typename H>
-__global__ void __encode_phase1_fill_with_filter(
+__global__ void KERNEL_CUHIP_encode_phase1_fill_with_filter(
     /* input */ E* in, size_t const in_len, H* in_bk, int const in_bklen,
     H const replacement,  //
     /* output */ H* encoded, E* outlier_val, uint32_t* outlier_idx,
@@ -111,7 +111,7 @@ __global__ void __encode_phase1_fill_with_filter(
 }
 
 template <typename E, typename H, typename M = uint32_t>
-__global__ void __encode_phase1_fill_collect_metadata(
+__global__ void KERNEL_CUHIP_encode_phase1_fill_collect_metadata(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, int const sublen,
     int const pardeg, int const repeat, H* encoded, M* par_nbit, M* par_ncell)
 {
@@ -155,13 +155,13 @@ __global__ void __encode_phase1_fill_collect_metadata(
   }
 }
 
-}  // namespace phf::__kernel::experimental
+}  // namespace phf::experimental
 
-namespace phf::__kernel {
+namespace phf {
 
 // TODO change size_t to unsigned int
 template <typename H, typename E>
-__device__ void __decode_single_thread_inflate(
+__device__ void SUBR_CUHIP_decode_single_thread_inflate(
     H* input, E* out, int const total_bw, BYTE* revbook)
 {
   constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
@@ -212,7 +212,7 @@ __device__ void __decode_single_thread_inflate(
 }
 
 template <typename E, typename H>
-__global__ void __encode_phase1_fill(
+__global__ void KERNEL_CUHIP_encode_phase1_fill(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, H* out_encoded)
 {
   auto s_bk = reinterpret_cast<H*>(__codec_raw);
@@ -233,7 +233,7 @@ __global__ void __encode_phase1_fill(
 }
 
 template <typename H, typename M>
-__global__ void __encode_phase2_deflate(
+__global__ void KERNEL_CUHIP_encode_phase2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
     int const sublen, int const pardeg)
 {
@@ -296,7 +296,7 @@ __global__ void __encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-__global__ void __encode_phase4_concatenate(
+__global__ void KERNEL_CUHIP_encode_phase4_concatenate(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped)
 {
   auto n = par_ncell[blockIdx.x];
@@ -309,7 +309,7 @@ __global__ void __encode_phase4_concatenate(
 }
 
 template <typename E, typename H, typename M>
-__global__ void __decode_kernel(
+__global__ void KERNEL_CUHIP_decode_kernel(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
     int const revbook_nbyte, int const sublen, int const pardeg, E* out)
 {
@@ -327,12 +327,12 @@ __global__ void __decode_kernel(
   auto gid = BIX * BDX + TIX;
 
   if (gid < pardeg) {
-    __decode_single_thread_inflate(
+    SUBR_CUHIP_decode_single_thread_inflate(
         in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem);
     __syncthreads();
   }
 }
 
-}  // namespace phf::__kernel
+}  // namespace phf
 
 #endif

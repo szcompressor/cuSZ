@@ -22,18 +22,15 @@
 #include "utils/it_cuda.hh"
 #include "utils/timer.hh"
 
-namespace psz {
+namespace psz::proto {
 
-namespace cuda_hip {
-namespace __kernel {
-
-namespace proto {  // easy algorithmic description
+// easy algorithmic description
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
     typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
     int BLK = 256>
-__global__ void c_lorenzo_1d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     Compact compact)
 {
@@ -64,7 +61,7 @@ template <
     typename T, typename Eq = int32_t, typename Fp = T,
     typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
     int BLK = 16>
-__global__ void c_lorenzo_2d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     Compact compact)
 {
@@ -102,7 +99,7 @@ template <
     typename T, typename Eq = int32_t, typename Fp = T,
     typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
     int BLK = 8>
-__global__ void c_lorenzo_3d1l(
+__global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
     Compact compact)
 {
@@ -140,7 +137,7 @@ __global__ void c_lorenzo_3d1l(
 }
 
 template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 256>
-__global__ void x_lorenzo_1d1l(
+__global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
     Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2,
     T* xdata)
 {
@@ -169,7 +166,7 @@ __global__ void x_lorenzo_1d1l(
 }
 
 template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 16>
-__global__ void x_lorenzo_2d1l(
+__global__ void KERNEL_CUHIP_x_lorenzo_2d1l(
     Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2,
     T* xdata)
 {
@@ -208,7 +205,7 @@ __global__ void x_lorenzo_2d1l(
 }
 
 template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 8>
-__global__ void x_lorenzo_3d1l(
+__global__ void KERNEL_CUHIP_x_lorenzo_3d1l(
     Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2,
     T* xdata)
 {
@@ -253,10 +250,7 @@ __global__ void x_lorenzo_3d1l(
   if (check_boundary3()) { xdata[id] = data(0, 0, 0) * ebx2; }
 }
 
-}  // namespace proto
-}  // namespace __kernel
-}  // namespace cuda_hip
-}  // namespace psz
+}  // namespace psz::proto
 
 #include "mem/compact.hh"
 #include "utils/err.hh"
@@ -306,18 +300,18 @@ pszerror psz_comp_lproto(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  using namespace psz::cuda_hip::__kernel::proto;
+  using namespace psz::proto;
 
   if (ndim() == 1) {
-    c_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_c_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
         data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (ndim() == 2) {
-    c_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
         data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (ndim() == 3) {
-    c_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
         data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else {
@@ -373,18 +367,18 @@ pszerror psz_decomp_lproto(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  using namespace psz::cuda_hip::__kernel::proto;
+  using namespace psz::proto;
 
   if (ndim() == 1) {
-    x_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
         eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 2) {
-    x_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
         eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 3) {
-    x_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
         eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
 

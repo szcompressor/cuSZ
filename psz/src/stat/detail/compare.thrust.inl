@@ -37,8 +37,8 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
   // It takes too long to compile THRUST backend.
   // psz::probe_extrema<THRUST, T>(odata, len, odata_res);
   // psz::probe_extrema<THRUST, T>(xdata, len, xdata_res);
-  psz::cu_hip::GPU_extrema<T>(odata, len, odata_res);
-  psz::cu_hip::GPU_extrema<T>(xdata, len, xdata_res);
+  psz::cuhip::GPU_extrema<T>(odata, len, odata_res);
+  psz::cuhip::GPU_extrema<T>(xdata, len, xdata_res);
 
   auto begin = thrust::make_zip_iterator(thrust::make_tuple(p_odata, p_xdata));
   auto end = thrust::make_zip_iterator(

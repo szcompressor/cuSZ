@@ -6,10 +6,10 @@
 
 #include "warp_compat.dp.inl"
 
-namespace psz::dpcpp::wave32 {
+namespace psz {
 
 template <typename T, int SEQ, bool EXPERIMENTAL_MASKED = true>
-__dpct_inline__ void intrawarp_inclscan_1d(
+__dpct_inline__ void SUBR_DPCPP_WAVE32_intrawarp_inclscan_1d(
     T private_buffer[SEQ], const sycl::nd_item<3>& item_ct1)
 {
   for (auto i = 1; i < SEQ; i++) private_buffer[i] += private_buffer[i - 1];
@@ -31,7 +31,7 @@ __dpct_inline__ void intrawarp_inclscan_1d(
 }
 
 template <typename T, int SEQ, int NTHREAD>
-__dpct_inline__ void intrablock_exclscan_1d(
+__dpct_inline__ void SUBR_DPCPP_WAVE32_intrablock_exclscan_1d(
     T private_buffer[SEQ], volatile T* exchange_in, volatile T* exchange_out,
     const sycl::nd_item<3>& item_ct1)
 {
@@ -76,6 +76,6 @@ __dpct_inline__ void intrablock_exclscan_1d(
   item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
-}  // namespace psz::dpcpp::wave32
+}  // namespace psz
 
 #endif /* C0001FA0_0D44_4EFB_BC50_2C6B3FE627F4 */

@@ -4,10 +4,9 @@
 #include "cusz/type.h"
 
 namespace psz {
-namespace cu_hip {
 
 template <typename T, typename Criterion, typename M = u4>
-__global__ void spvn_gather(
+__global__ void KERNEL_CUHIP_spvn_gather(
     T* in, szt const in_len, int const radius, T* cval, M* cidx, int* cn,
     Criterion criteria)
 {
@@ -27,7 +26,8 @@ __global__ void spvn_gather(
 }
 
 template <typename T, typename M = u4>
-__global__ void spvn_scatter(T* val, M* idx, int const nnz, T* out)
+__global__ void KERNEL_CUHIP_spvn_scatter(
+    T* val, M* idx, int const nnz, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -37,7 +37,6 @@ __global__ void spvn_scatter(T* val, M* idx, int const nnz, T* out)
   }
 }
 
-}  // namespace cu_hip
 }  // namespace psz
 
 #endif /* FC6B1F0D_E138_4DF5_8AC9_896900D1BE21 */

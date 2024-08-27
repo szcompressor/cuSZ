@@ -10,8 +10,8 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // definitions
-#include "kernel/detail/l23_x.cu_hip.inl"
-#include "kernel/detail/l23r.cu_hip.inl"
+#include "kernel/detail/l23_x.cuhip.inl"
+#include "kernel/detail/l23r.cuhip.inl"
 #include "module/cxx_module.hh"
 
 namespace _2401 {

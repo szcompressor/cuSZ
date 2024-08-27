@@ -17,7 +17,7 @@
 // #include "experimental/p9y.hh"
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-#include "kernel/detail/l23_x.cu_hip.inl"
+#include "kernel/detail/l23_x.cuhip.inl"
 #elif defined(PSZ_USE_1API)
 #include "kernel/detail/l23_x.dp.inl"
 #endif
@@ -36,7 +36,7 @@ bool test1d(T* data, size_t len, Eq* eq, void* stream)
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   /* process */
-  psz::cuda_hip::__kernel::x_lorenzo_1d1l<T, Eq, T, BLOCK, SEQ>
+  psz::KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq, T, BLOCK, SEQ>
       <<<1, NTHREAD, 0, (stream_t)stream>>>(
           eq, data, dim3(len, 1, 1), dim3(1, 1, 1), 0, ebx2, data);
 
@@ -57,7 +57,7 @@ bool test1d(T* data, size_t len, Eq* eq, void* stream)
     cgh.parallel_for(
         sycl::nd_range<3>(Grid1D * Block1D, Block1D),
         [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-          psz::dpcpp::__kernel::x_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
+          psz::KERNEL_DPCPP_x_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
               eq, data, sycl::range<3>(1, 1, len), sycl::range<3>(1, 1, 1), 0,
               ebx2, data, item_ct1, scratch.get_pointer(), s_eq.get_pointer(),
               exch_in.get_pointer(), exch_out.get_pointer());
@@ -93,7 +93,7 @@ bool test2d(T* data, size_t len, Eq* eq, void* stream)
 
     /* process */
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  psz::cuda_hip::__kernel::x_lorenzo_2d1l<T, Eq, T>
+  psz::KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq, T>
       <<<dim3(1, 1, 1), dim3(16, 2, 1), 0, (stream_t)stream>>>(
           eq, data, dim3(16, 16, 1), dim3(1, 16, 1), 0, ebx2, data);
 #elif defined(PSZ_USE_1API)
@@ -107,7 +107,7 @@ bool test2d(T* data, size_t len, Eq* eq, void* stream)
     cgh.parallel_for(
         sycl::nd_range<3>(Grid2D * Block2D, Block2D),
         [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-          psz::dpcpp::__kernel::x_lorenzo_2d1l<T, Eq, T>(
+          psz::KERNEL_DPCPP_x_lorenzo_2d1l<T, Eq, T>(
               eq, data, sycl::range<3>(1, 16, 16), sycl::range<3>(1, 16, 1), 0,
               ebx2, data, item_ct1, scratch.get_pointer());
         });
@@ -146,7 +146,7 @@ bool test3d(T* data, size_t len, Eq* eq, void* stream)
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   /* process */
-  psz::cuda_hip::__kernel::x_lorenzo_3d1l<T, Eq, T>
+  psz::KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq, T>
       <<<dim3(1, 1, 1), dim3(32, 1, 8), 0, (stream_t)stream>>>(
           eq, data, dim3(32, 8, 8), dim3(1, 32, 32 * 8), 0, ebx2, data);
 #elif defined(PSZ_USE_1API)
@@ -160,7 +160,7 @@ bool test3d(T* data, size_t len, Eq* eq, void* stream)
     cgh.parallel_for(
         sycl::nd_range<3>(Grid3D * Block3D, Block3D),
         [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-          psz::dpcpp::__kernel::x_lorenzo_3d1l<T, Eq, T>(
+          psz::KERNEL_DPCPP_x_lorenzo_3d1l<T, Eq, T>(
               eq, data, sycl::range<3>(8, 8, 32),
               sycl::range<3>(32 * 8, 32, 1), 0, ebx2, data, item_ct1, scratch);
         });

@@ -137,13 +137,13 @@ struct FunctionType {
 
 int main()
 {
-  FunctionType<T>::type_c cl1d1l = psz::seq::__kernel::c_lorenzo_1d1l<T>;
-  FunctionType<T>::type_c cl2d1l = psz::seq::__kernel::c_lorenzo_2d1l<T>;
-  FunctionType<T>::type_c cl3d1l = psz::seq::__kernel::c_lorenzo_3d1l<T>;
+  FunctionType<T>::type_c cl1d1l = psz::KERNEL_SEQ_c_lorenzo_1d1l<T>;
+  FunctionType<T>::type_c cl2d1l = psz::KERNEL_SEQ_c_lorenzo_2d1l<T>;
+  FunctionType<T>::type_c cl3d1l = psz::KERNEL_SEQ_c_lorenzo_3d1l<T>;
 
-  FunctionType<T>::type_x xl1d1l = psz::seq::__kernel::x_lorenzo_1d1l<T>;
-  FunctionType<T>::type_x xl2d1l = psz::seq::__kernel::x_lorenzo_2d1l<T>;
-  FunctionType<T>::type_x xl3d1l = psz::seq::__kernel::x_lorenzo_3d1l<T>;
+  FunctionType<T>::type_x xl1d1l = psz::KERNEL_SEQ_x_lorenzo_1d1l<T>;
+  FunctionType<T>::type_x xl2d1l = psz::KERNEL_SEQ_x_lorenzo_2d1l<T>;
+  FunctionType<T>::type_x xl3d1l = psz::KERNEL_SEQ_x_lorenzo_3d1l<T>;
 
   auto all_pass = true;
 

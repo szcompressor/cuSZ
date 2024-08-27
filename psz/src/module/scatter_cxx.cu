@@ -1,6 +1,6 @@
 
 #include "module/cxx_module.hh"
-#include "scatter_cxx.cu_hip.inl"
+#include "scatter_cxx.cuhip.inl"
 
 #define INS_SCATTER_2401(BACKEND, T, TIMING)                                 \
   template pszerror _2401::pszcxx_scatter_naive<BACKEND, T, TIMING>(         \

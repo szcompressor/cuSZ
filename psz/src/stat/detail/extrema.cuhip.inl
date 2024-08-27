@@ -1,5 +1,5 @@
 /**
- * @file extrema.cu_hip.inl
+ * @file extrema.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -125,7 +125,7 @@ __global__ void KERNEL_CUHIP_extrema(
 
 }  // namespace psz
 
-namespace psz::cu_hip {
+namespace psz::cuhip {
 
 template <typename T>
 void GPU_extrema(T *in, size_t len, T res[4])
@@ -196,7 +196,7 @@ void GPU_extrema(T *in, size_t len, T res[4])
   GpuStreamDestroy(stream);
 }
 
-}  // namespace psz::cu_hip
+}  // namespace psz::cuhip
 
 #define __INSTANTIATE_CUHIP_EXTREMA(T) \
-  template void psz::cu_hip::GPU_extrema<T>(T * in, size_t len, T res[4]);
+  template void psz::cuhip::GPU_extrema<T>(T * in, size_t len, T res[4]);

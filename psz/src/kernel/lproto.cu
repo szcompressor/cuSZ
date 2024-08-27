@@ -2,7 +2,7 @@
 #include "cusz/type.h"
 #include "kernel/lrz/lproto.hh"
 // definitions
-#include "detail/lproto.inl"
+#include "detail/lproto.cuhip.inl"
 
 #define CPP_INS(T, Eq)                                                 \
   template pszerror psz_comp_lproto<T, Eq>(                            \

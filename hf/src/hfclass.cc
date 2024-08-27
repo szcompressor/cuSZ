@@ -20,7 +20,7 @@
 #include <cuda.h>
 #include "port.hh"
 // definitions
-#include "detail/hfclass.cu_hip.inl"
+#include "detail/hfclass.cuhip.inl"
 
 template class phf::HuffmanCodec<u1, true>;
 template class phf::HuffmanCodec<u2, true>;

@@ -1,5 +1,5 @@
 /**
- * @file dryrun.cu_hip.inl
+ * @file dryrun.cuhip.inl
  * @author Jiannan Tian
  * @brief cuSZ dryrun mode, checking data quality from lossy compression.
  * @version 0.3
@@ -17,10 +17,9 @@
 
 namespace psz {
 
-namespace cu_hip {
-
 template <typename T = float, typename FP = T, int BLOCK = 256, int SEQ = 4>
-__global__ void dryrun_kernel(T* in, T* out, size_t len, FP ebx2_r, FP ebx2)
+__global__ void KERNLE_CUHIP_lorenzo_dryrun(
+    T* in, T* out, size_t len, FP ebx2_r, FP ebx2)
 {
   {
     constexpr auto NTHREAD = BLOCK / SEQ;
@@ -38,23 +37,27 @@ __global__ void dryrun_kernel(T* in, T* out, size_t len, FP ebx2_r, FP ebx2)
   }
 }
 
+}  // namespace psz
+
+namespace psz::cuhip {
+
 template <typename T>
-void dryrun(size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
+void GPU_lorenzo_dryrun(
+    size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   auto ebx2_r = 1 / (eb * 2);
   auto ebx2 = eb * 2;
 
-  dryrun_kernel<<<div(len, 256), 256, 256 * sizeof(T), (GpuStreamT)stream>>>(
+  KERNLE_CUHIP_lorenzo_dryrun<<<
+      div(len, 256), 256, 256 * sizeof(T), (GpuStreamT)stream>>>(
       original, reconst, len, ebx2_r, ebx2);
 
   // CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
   GpuStreamSync(stream);
 }
 
-}  // namespace cu_hip
-
-}  // namespace psz
+}  // namespace psz::cuhip
 
 #endif /* A248A007_AE47_424C_BF3C_95F41AF049CA */

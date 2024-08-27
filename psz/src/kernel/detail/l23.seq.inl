@@ -61,13 +61,11 @@ using std::endl;
   };
 
 namespace psz {
-namespace seq {
-namespace __kernel {
 
 template <
     typename T, typename EQ = int32_t, typename FP = T, int BLK = 256,
     typename OUTLIER = struct CompactSerial<T>>
-void c_lorenzo_1d1l(
+void KERNEL_SEQ_c_lorenzo_1d1l(
     T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
     OUTLIER* outlier) {
   SETUP_ND_CPU_SERIAL;
@@ -114,7 +112,7 @@ void c_lorenzo_1d1l(
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 256>
-void x_lorenzo_1d1l(
+void KERNEL_SEQ_x_lorenzo_1d1l(
     EQ* eq, T* scattered_outlier, psz_dim3 len3, psz_dim3 stride3, int radius,
     FP ebx2, T* xdata)
 {
@@ -150,7 +148,7 @@ void x_lorenzo_1d1l(
 template <
     typename T, typename EQ = int32_t, typename FP = T, int BLK = 16,
     typename OUTLIER = struct CompactSerial<T>>
-void c_lorenzo_2d1l(
+void KERNEL_SEQ_c_lorenzo_2d1l(
     T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
     OUTLIER* outlier) {
   SETUP_ND_CPU_SERIAL;
@@ -198,7 +196,7 @@ void c_lorenzo_2d1l(
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 16>
-void x_lorenzo_2d1l(
+void KERNEL_SEQ_x_lorenzo_2d1l(
     EQ* eq, T* scattered_outlier, psz_dim3 len3, psz_dim3 stride3, int radius,
     FP ebx2, T* xdata)
 {
@@ -238,7 +236,7 @@ void x_lorenzo_2d1l(
 template <
     typename T, typename EQ = int32_t, typename FP = T, int BLK = 8,
     typename OUTLIER = struct CompactSerial<T>>
-void c_lorenzo_3d1l(
+void KERNEL_SEQ_c_lorenzo_3d1l(
     T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
     OUTLIER* outlier) {
   SETUP_ND_CPU_SERIAL;
@@ -288,7 +286,7 @@ void c_lorenzo_3d1l(
 }
 
 template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 8>
-void x_lorenzo_3d1l(
+void KERNEL_SEQ_x_lorenzo_3d1l(
     EQ* eq, T* scattered_outlier, psz_dim3 len3, psz_dim3 stride3, int radius,
     FP ebx2, T* xdata)
 {
@@ -329,8 +327,6 @@ void x_lorenzo_3d1l(
   delete _buf1;
 }
 
-}  // namespace __kernel
-}  // namespace seq
 }  // namespace psz
 
 #undef SETUP_1D

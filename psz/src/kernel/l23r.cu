@@ -20,11 +20,11 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // definitions
-#include "detail/l23r.cu_hip.inl"
+#include "detail/l23r.cuhip.inl"
 
 #define L23R_LAUNCH_KERNEL                                                 \
   if (d == 1) {                                                            \
-    psz::rolling::c_lorenzo_1d1l<                                          \
+    psz::rolling::KERNEL_CUHIP_c_lorenzo_1d1l<                             \
         T, E, T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>      \
         <<<c_lorenzo<1>::thread_grid(len3), c_lorenzo<1>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
@@ -32,14 +32,14 @@
             ot->num());                                                    \
   }                                                                        \
   else if (d == 2) {                                                       \
-    psz::rolling::c_lorenzo_2d1l<T, E, T>                                  \
+    psz::rolling::KERNEL_CUHIP_c_lorenzo_2d1l<T, E, T>                     \
         <<<c_lorenzo<2>::thread_grid(len3), c_lorenzo<2>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \
             ot->num());                                                    \
   }                                                                        \
   else if (d == 3) {                                                       \
-    psz::rolling::c_lorenzo_3d1l<T, E, T>                                  \
+    psz::rolling::KERNEL_CUHIP_c_lorenzo_3d1l<T, E, T>                     \
         <<<c_lorenzo<3>::thread_grid(len3), c_lorenzo<3>::thread_block, 0, \
            (cudaStream_t)stream>>>(                                        \
             data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),   \

@@ -1,5 +1,5 @@
 /**
- * @file hist.cu_hip.inl
+ * @file hist.cuhip.inl
  * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp
  * (mlhickm@g.clemson.edu)
  * @brief Fast histogramming from [Gómez-Luna et al. 2013]
@@ -35,20 +35,20 @@ const static unsigned int WARP_SIZE = 32;
 #define bdy blockDim.y
 #define bdz blockDim.z
 
-namespace kernel {
+namespace psz {
 
 template <typename Input>
-__global__ void NaiveHistogram(
+__global__ void KERNEL_CUHIP_histogram_native(
     Input in_data[], int out_freq[], int N, int symbols_per_thread);
 
 /* Copied from J. Gomez-Luna et al */
 template <typename T, typename FREQ>
-__global__ void p2013Histogram(T*, FREQ*, size_t, int, int);
+__global__ void KERNEL_CUHIP_p2013Histogram(T*, FREQ*, size_t, int, int);
 
-}  // namespace kernel
+}  // namespace psz
 
 template <typename T>
-__global__ void kernel::NaiveHistogram(
+__global__ void psz::KERNEL_CUHIP_histogram_native(
     T in_data[], int out_freq[], int N, int symbols_per_thread)
 {
   unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -64,7 +64,7 @@ __global__ void kernel::NaiveHistogram(
 }
 
 template <typename T, typename FREQ>
-__global__ void kernel::p2013Histogram(
+__global__ void psz::KERNEL_CUHIP_p2013Histogram(
     T* in_data, FREQ* out_freq, size_t N, int nbin, int R)
 {
   // static_assert(
@@ -105,11 +105,10 @@ __global__ void kernel::p2013Histogram(
   }
 }
 
-namespace psz {
-namespace cu_hip {
+namespace psz::cuhip {
 
 template <typename T>
-psz_error_status histogram_generic(
+psz_error_status GPU_histogram_generic(
     T* in, size_t const inlen, uint32_t* out_hist, int const outlen,
     float* milliseconds, GpuStreamT stream)
 {
@@ -131,7 +130,7 @@ psz_error_status histogram_generic(
 
     // config kernel attribute
     GpuFuncSetAttribute(
-        (void*)kernel::p2013Histogram<T, uint32_t>,
+        (void*)KERNEL_CUHIP_p2013Histogram<T, uint32_t>,
         (GpuFuncAttribute)GpuFuncAttributeMaxDynamicSharedMemorySize,
         max_bytes);
   };
@@ -161,7 +160,7 @@ psz_error_status histogram_generic(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  kernel::p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
+  KERNEL_CUHIP_p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
       (in, out_hist, inlen, outlen, r_per_block);
 
   STOP_GPUEVENT_RECORDING(stream);
@@ -173,7 +172,6 @@ psz_error_status histogram_generic(
   return CUSZ_SUCCESS;
 }
 
-}  // namespace cu_hip
-}  // namespace psz
+}  // namespace psz::cuhip
 
 #endif /* D69BE972_2A8C_472E_930F_FFAB041F3F2B */

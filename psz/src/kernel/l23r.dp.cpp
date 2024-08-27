@@ -86,7 +86,7 @@ pszerror pszcxx_predict_lorenzo(
               Grid1D * sycl::range<3>(1, 1, Block1D),
               sycl::range<3>(1, 1, Block1D)),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::rolling_dp::c_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
+            psz::rolling::c_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
                 data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
                 ot_num_ct8, item_ct1, s_data.get_pointer(), s_eq.get_pointer(),
                 &stream_ct1);
@@ -107,7 +107,7 @@ pszerror pszcxx_predict_lorenzo(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid2D * Block2D, Block2D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::rolling_dp::c_lorenzo_2d1l<T, Eq, T>(
+            psz::rolling::c_lorenzo_2d1l<T, Eq, T>(
                 data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
                 ot_num_ct8, item_ct1);
           });
@@ -129,7 +129,7 @@ pszerror pszcxx_predict_lorenzo(
       cgh.parallel_for(
           sycl::nd_range<3>(Grid3D * Block3D, Block3D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
-            psz::rolling_dp::c_lorenzo_3d1l<T, Eq, T>(
+            psz::rolling::c_lorenzo_3d1l<T, Eq, T>(
                 data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
                 ot_num_ct8, item_ct1, s_acc_ct1);
           });

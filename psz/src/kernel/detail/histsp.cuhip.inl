@@ -1,5 +1,5 @@
 /**
- * @file hist_sp.cu_hip.inl
+ * @file hist_sp.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -13,6 +13,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+namespace psz {
+
 //                    -2 -1  0 +1 +2
 //                     |<-R->|<-R->|
 // p_hist              |<----K---->|       K=2R+1
@@ -21,7 +23,7 @@
 // Multiple warps:the large shmem use (relative to #thread).
 
 template <typename T, typename FQ = uint32_t, int K = 5>
-__global__ void histsp_multiwarp(
+__global__ void KERNEL_CUHIP_histogram_sparse_multiwarp(
     T* in, uint32_t inlen,  //
     uint32_t chunk, FQ* out, uint32_t outlen, int offset = 0)
 {
@@ -85,3 +87,5 @@ __global__ void histsp_multiwarp(
     atomicAdd(out + i, s_hist[i]);
   __syncthreads();
 }
+
+}  // namespace psz
