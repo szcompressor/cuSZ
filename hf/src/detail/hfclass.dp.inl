@@ -56,7 +56,7 @@ TPL HF_CODEC* HF_CODEC::init(
   auto __debug = [&]() {
     setlocale(LC_NUMERIC, "");
     printf("\nHuffmanCoarse<E, H4, M>::init() debugging:\n");
-    printf("GpuDevicePtr nbyte: %d\n", (int)sizeof(dpct::device_ptr));
+    printf("CUdeviceptr nbyte: %d\n", (int)sizeof(dpct::device_ptr));
     hf_debug("SCRATCH", __scratch->dptr(), RC::SCRATCH);
     // TODO separate 4- and 8- books
     // hf_debug("BK", __bk->dptr(), RC::BK);
@@ -151,7 +151,7 @@ TPL HF_CODEC* HF_CODEC::buildbook(
 {
   psz::hf_buildbook<CUDA, E, H4>(
       freq, bklen, bk4->dptr(), revbk4->dptr(), revbook_bytes(bklen),
-      &_time_book, (GpuStreamT)stream);
+      &_time_book, (cudaStream_t)stream);
 
   return this;
 }
@@ -421,7 +421,7 @@ TPL void HF_CODEC::hf_debug(const std::string SYM_name, void* VAR, int SYM)
   // /*
   // DPCT1007:99: Migration of cuMemGetAddressRange is not supported.
   // */
-  // GpuMemGetAddressRange(&pbase0, &psize0, (dpct::device_ptr)VAR);
+  // cuMemGetAddressRange(&pbase0, &psize0, (dpct::device_ptr)VAR);
   // printf(
   //     "%s:\n"
   //     "\t(supposed) pointer : %p\n"

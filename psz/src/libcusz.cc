@@ -185,7 +185,7 @@ pszerror capi_psz_decompress(
   if (comp->type == F4) {
     auto cor = (psz::CompressorF4*)(comp->compressor);
 
-    cor->decompress(comp->header, comped, (f4*)(decomped), (GpuStreamT)stream);
+    cor->decompress(comp->header, comped, (f4*)(decomped), (cudaStream_t)stream);
     cor->export_timerecord((psz::TimeRecord*)record);
     cor->export_timerecord(comp->stage_time);
   }

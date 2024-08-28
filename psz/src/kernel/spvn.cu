@@ -15,10 +15,10 @@
     auto grid_dim = (in_len - 1) / 128 + 1;                                  \
     CREATE_GPUEVENT_PAIR;                                                    \
     START_GPUEVENT_RECORDING(stream);                                        \
-    psz::KERNEL_CUHIP_spvn_gather<<<grid_dim, 128, 0, (GpuStreamT)stream>>>( \
+    psz::KERNEL_CUHIP_spvn_gather<<<grid_dim, 128, 0, (cudaStream_t)stream>>>( \
         in, in_len, radius, cval, cidx, cn, criteria);                       \
     STOP_GPUEVENT_RECORDING(stream);                                         \
-    CHECK_GPU(GpuStreamSync(stream));                                        \
+    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));                                        \
     TIME_ELAPSED_GPUEVENT(milliseconds);                                     \
     DESTROY_GPUEVENT_PAIR;                                                   \
   }
@@ -33,9 +33,9 @@
     CREATE_GPUEVENT_PAIR;                                               \
     START_GPUEVENT_RECORDING(stream);                                   \
     psz::KERNEL_CUHIP_spvn_scatter<T, M>                                \
-        <<<grid_dim, 128, 0, (GpuStreamT)stream>>>(val, idx, nnz, out); \
+        <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val, idx, nnz, out); \
     STOP_GPUEVENT_RECORDING(stream);                                    \
-    CHECK_GPU(GpuStreamSync(stream));                                   \
+    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));                                   \
     TIME_ELAPSED_GPUEVENT(milliseconds);                                \
     DESTROY_GPUEVENT_PAIR;                                              \
   }

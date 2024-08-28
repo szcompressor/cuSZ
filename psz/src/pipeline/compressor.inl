@@ -51,7 +51,7 @@ void concate_memcpy_d2d(
   if (nbyte != 0) {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     AD_HOC_CHECK_GPU_WITH_LINE(
-        GpuMemcpyAsync(dst, src, nbyte, GpuMemcpyD2D, (GpuStreamT)stream),
+        cudaMemcpyAsync(dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream),
         _file_, _line_);
 #elif defined(PSZ_USE_1API)
     ((sycl::queue*)stream)->memcpy(dst(FIELD), src, nbyte);
@@ -164,7 +164,7 @@ struct Compressor<C>::impl {
     }
 
     /* make outlier count seen on host */
-    mem->compact->make_host_accessible((GpuStreamT)stream);
+    mem->compact->make_host_accessible((cudaStream_t)stream);
     ctx->splen = mem->compact->num_outliers();
     // return this;
   }
@@ -447,9 +447,9 @@ Compressor<C>* Compressor<C>::decompress(
   if (not header) {
     header = new psz_header;
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    CHECK_GPU(GpuMemcpyAsync(
-        header, in, sizeof(psz_header), GpuMemcpyD2H, (GpuStreamT)stream));
-    CHECK_GPU(GpuStreamSync(stream));
+    CHECK_GPU(cudaMemcpyAsync(
+        header, in, sizeof(psz_header), cudaMemcpyDeviceToHost, (cudaStream_t)stream));
+    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 #elif defined(PSZ_USE_1API)
     ((sycl::queue*)stream)->memcpy(header, in, sizeof(Header));
     ((sycl::queue*)stream)->wait();

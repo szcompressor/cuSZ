@@ -1,47 +1,47 @@
-#define GpuStreamT hipStream_t
-#define GpuStreamCreate(...) hipStreamCreate(__VA_ARGS__)
-#define GpuStreamDestroy(...) hipStreamDestroy(__VA_ARGS__)
+#define cudaStream_t hipStream_t
+#define cudaStreamCreate(...) hipStreamCreate(__VA_ARGS__)
+#define cudaStreamDestroy(...) hipStreamDestroy(__VA_ARGS__)
 
-#define GpuDeviceSync(...) hipDeviceSynchronize(__VA_ARGS__)
-#define GpuStreamSync(STREAM) hipStreamSynchronize((hipStream_t)STREAM)
+#define cudaDeviceSynchronize(...) hipDeviceSynchronize(__VA_ARGS__)
+#define cudaStreamSynchronize(STREAM) hipStreamSynchronize((hipStream_t)STREAM)
 
-#define GpuMemcpy(...) hipMemcpy(__VA_ARGS__)
-#define GpuMemcpyAsync(...) hipMemcpyAsync(__VA_ARGS__)
-#define GpuMemcpyKind hipMemcpyKind
-#define GpuMemcpyH2D hipMemcpyHostToDevice
-#define GpuMemcpyH2H hipMemcpyHostToHost
-#define GpuMemcpyD2H hipMemcpyDeviceToHost
-#define GpuMemcpyD2D hipMemcpyDeviceToDevice
+#define cudaMemcpy(...) hipMemcpy(__VA_ARGS__)
+#define cudaMemcpyAsync(...) hipMemcpyAsync(__VA_ARGS__)
+#define cudaMemcpyKind hipMemcpyKind
+#define cudaMemcpyHostToDevice hipMemcpyHostToDevice
+#define cudaMemcpyHostToHost hipMemcpyHostToHost
+#define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
+#define cudaMemcpyDeviceToDevice hipMemcpyDeviceToDevice
 
-#define GpuMalloc(...) hipMalloc(__VA_ARGS__)
-#define GpuMallocHost(...) hipHostMalloc(__VA_ARGS__)
-#define GpuMallocManaged(...) hipMallocManaged(__VA_ARGS__)
-#define GpuMallocShared(...) hipMallocManaged(__VA_ARGS__)
-#define GpuFree(...) hipFree(__VA_ARGS__)
-#define GpuFreeHost(...) hipHostFree(__VA_ARGS__)
-#define GpuMemset(...) hipMemset(__VA_ARGS__)
+#define cudaMalloc(...) hipMalloc(__VA_ARGS__)
+#define cudaMallocHost(...) hipHostMalloc(__VA_ARGS__)
+#define cudaMallocManaged(...) hipMallocManaged(__VA_ARGS__)
+#define cudaMallocShared(...) hipMallocManaged(__VA_ARGS__)
+#define cudaFree(...) hipFree(__VA_ARGS__)
+#define cudaFreeHost(...) hipHostFree(__VA_ARGS__)
+#define cudaMemset(...) hipMemset(__VA_ARGS__)
 
-#define GpuGetDevice(...) hipGetDevice(__VA_ARGS__)
-#define GpuSetDevice(...) hipSetDevice(__VA_ARGS__)
-#define GpuDeviceProp hipDeviceProp_t
-#define GpuGetDeviceProperties(...) hipGetDeviceProperties(__VA_ARGS__)
-#define GpuDeviceGetAttribute(...) hipDeviceGetAttribute(__VA_ARGS__)
-#define GpuDevicePtr hipDeviceptr_t
-#define GpuMemGetAddressRange(...) hipMemGetAddressRange(__VA_ARGS__)
-#define GpuFuncSetAttribute(...) hipFuncSetAttribute(__VA_ARGS__)
-#define GpuFuncAttribute hipFuncAttribute
-#define GpuDriverGetVersion(...) hipDriverGetVersion(__VA_ARGS__)
-#define GpuRuntimeGetVersion(...) hipRuntimeGetVersion(__VA_ARGS__)
-#define GpuGetDeviceCount(...) hipGetDeviceCount(__VA_ARGS__)
+#define cudaGetDevice(...) hipGetDevice(__VA_ARGS__)
+#define cudaSetDevice(...) hipSetDevice(__VA_ARGS__)
+#define cudaDeviceProp hipDeviceProp_t
+#define cudaGetDeviceProperties(...) hipGetDeviceProperties(__VA_ARGS__)
+#define cudaDeviceGetAttribute(...) hipDeviceGetAttribute(__VA_ARGS__)
+#define CUdeviceptr hipDeviceptr_t
+#define cuMemGetAddressRange(...) hipMemGetAddressRange(__VA_ARGS__)
+#define cudaFuncSetAttribute(...) hipFuncSetAttribute(__VA_ARGS__)
+#define cudaFuncAttribute hipFuncAttribute
+#define cudaDriverGetVersion(...) hipDriverGetVersion(__VA_ARGS__)
+#define cudaRuntimeGetVersion(...) hipRuntimeGetVersion(__VA_ARGS__)
+#define cudaGetDeviceCount(...) hipGetDeviceCount(__VA_ARGS__)
 
-#define GpuDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount
-#define GpuDevAttrMaxSharedMemoryPerBlock hipDeviceAttributeMaxSharedMemoryPerBlock
-#define GpuDevAttrMaxSharedMemoryPerBlockOptin hipDeviceAttributeMaxSharedMemoryPerBlock
-#define GpuFuncAttributeMaxDynamicSharedMemorySize hipFuncAttributeMaxDynamicSharedMemorySize
+#define cudaDevAttrMultiProcessorCount hipDeviceAttributeMultiprocessorCount
+#define cudaDevAttrMaxSharedMemoryPerBlock hipDeviceAttributeMaxSharedMemoryPerBlock
+#define cudaDevAttrMaxSharedMemoryPerBlockOptin hipDeviceAttributeMaxSharedMemoryPerBlock
+#define cudaFuncAttributeMaxDynamicSharedMemorySize hipFuncAttributeMaxDynamicSharedMemorySize
 
-#define GpuErrorT hipError_t
-#define GpuSuccess hipSuccess
-#define GpuGetErrorString(...) hipGetErrorString(__VA_ARGS__)
-#define GpuGetLastError(...) hipGetLastError(__VA_ARGS__)
+#define cudaError_t hipError_t
+#define cudaSuccess hipSuccess
+#define cudaGetErrorString(...) hipGetErrorString(__VA_ARGS__)
+#define cudaGetLastError(...) hipGetLastError(__VA_ARGS__)
 
-#define GpuDeviceReset(...) hipDeviceReset(__VA_ARGS__)
+#define cudaDeviceReset(...) hipDeviceReset(__VA_ARGS__)

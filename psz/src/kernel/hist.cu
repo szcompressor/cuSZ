@@ -12,7 +12,7 @@
       float* milliseconds, void* stream)                              \
   {                                                                   \
     return psz::cuhip::GPU_histogram_generic<T>(                         \
-        in, inlen, out_hist, nbin, milliseconds, (GpuStreamT)stream); \
+        in, inlen, out_hist, nbin, milliseconds, (cudaStream_t)stream); \
   }
 
 SPECIAL(u1);

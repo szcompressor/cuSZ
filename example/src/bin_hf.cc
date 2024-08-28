@@ -68,8 +68,8 @@ void hf_run(
   printf("peeking data, 20 elements\n");
   psz::peek_data<E>(od->control({D2H})->hptr(), 20);
 
-  GpuStreamT stream;
-  GpuStreamCreate(&stream);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
   dim3 len3 = dim3(x, y, z);
 
@@ -80,7 +80,7 @@ void hf_run(
 
   phf::HuffmanCodec<E> codec(len, bklen, pardeg /* not optimal for perf */);
 
-  // GpuMalloc(&d_compressed, len * sizeof(E) / 2);
+  // cudaMalloc(&d_compressed, len * sizeof(E) / 2);
   B* __out;
 
   // float  time;
@@ -88,8 +88,8 @@ void hf_run(
   codec.buildbook(ht->dptr(), stream);
 
   E* d_oridup;
-  GpuMalloc(&d_oridup, sizeof(E) * len);
-  GpuMemcpy(d_oridup, od->dptr(), sizeof(E) * len, GpuMemcpyD2D);
+  cudaMalloc(&d_oridup, sizeof(E) * len);
+  cudaMemcpy(d_oridup, od->dptr(), sizeof(E) * len, cudaMemcpyDeviceToDevice);
 
   auto time_comp_lossless = (float)INT_MAX;
   for (auto i = 0; i < 10; i++) {
@@ -127,7 +127,7 @@ void hf_run(
   else
     cout << "!!!!  ERROR: NOT IDENTICAL." << endl;
 
-  GpuStreamDestroy(stream);
+  cudaStreamDestroy(stream);
 
   /* a casual peek */
   printf("peeking xdata, 20 elements\n");

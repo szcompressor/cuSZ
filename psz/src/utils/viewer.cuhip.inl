@@ -1,7 +1,6 @@
 #include "cusz/type.h"
 #include "port.hh"
 #include "stat/compare.hh"
-#include "utils/verify.hh"
 #include "utils/viewer.hh"
 
 using namespace portable;

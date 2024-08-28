@@ -45,13 +45,13 @@ static void pszcxx_evaluate_quality_cpu(
     q_ct1.memcpy(reconstructed, _d1, bytes).wait();
     q_ct1.memcpy(origin, _d2, bytes).wait();
   }
-  psz::utils::verify_data<T>(stat, reconstructed, origin, len);
+  psz::utils::assess_quality<ONEAPI, T>(stat, reconstructed, origin, len);
   psz::utils::print_metrics_cross<T>(stat, compressed_bytes, false);
 
   auto stat_auto_lag1 = new psz_summary;
-  psz::utils::verify_data<T>(stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::utils::assess_quality<ONEAPI, T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
-  psz::utils::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::utils::assess_quality<ONEAPI, T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::utils::print_metrics_auto(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);

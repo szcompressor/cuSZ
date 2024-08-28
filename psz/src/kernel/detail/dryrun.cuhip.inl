@@ -51,11 +51,11 @@ void GPU_lorenzo_dryrun(
   auto ebx2 = eb * 2;
 
   KERNLE_CUHIP_lorenzo_dryrun<<<
-      div(len, 256), 256, 256 * sizeof(T), (GpuStreamT)stream>>>(
+      div(len, 256), 256, 256 * sizeof(T), (cudaStream_t)stream>>>(
       original, reconst, len, ebx2_r, ebx2);
 
   // CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));
-  GpuStreamSync(stream);
+  cudaStreamSynchronize((cudaStream_t)stream);
 }
 
 }  // namespace psz::cuhip

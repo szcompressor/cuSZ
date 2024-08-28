@@ -69,20 +69,20 @@ void psz::cuhip::GPU_calculate_errors(
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   // TODO use external stream
-  GpuStreamT stream;
-  GpuStreamCreate(&stream);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
   T *d_sum_corr, *d_sum_err_sq, *d_sum_var_odata, *d_sum_var_xdata;
 
-  GpuMalloc(&d_sum_corr, sizeof(T));
-  GpuMalloc(&d_sum_err_sq, sizeof(T));
-  GpuMalloc(&d_sum_var_odata, sizeof(T));
-  GpuMalloc(&d_sum_var_xdata, sizeof(T));
+  cudaMalloc(&d_sum_corr, sizeof(T));
+  cudaMalloc(&d_sum_err_sq, sizeof(T));
+  cudaMalloc(&d_sum_var_odata, sizeof(T));
+  cudaMalloc(&d_sum_var_xdata, sizeof(T));
 
-  GpuMemset(d_sum_corr, 0, sizeof(T));
-  GpuMemset(d_sum_err_sq, 0, sizeof(T));
-  GpuMemset(d_sum_var_odata, 0, sizeof(T));
-  GpuMemset(d_sum_var_xdata, 0, sizeof(T));
+  cudaMemset(d_sum_corr, 0, sizeof(T));
+  cudaMemset(d_sum_err_sq, 0, sizeof(T));
+  cudaMemset(d_sum_var_odata, 0, sizeof(T));
+  cudaMemset(d_sum_var_xdata, 0, sizeof(T));
 
   auto chunk = 32768;
   auto nworker = 128;
@@ -93,19 +93,19 @@ void psz::cuhip::GPU_calculate_errors(
           d_odata, odata_avg, d_xdata, xdata_avg, len, d_sum_corr,
           d_sum_err_sq, d_sum_var_xdata, d_sum_var_odata, R);
 
-  GpuStreamSync(stream);
+  cudaStreamSynchronize(stream);
 
-  GpuMemcpy(&h_err[SUM_CORR], d_sum_corr, sizeof(T), GpuMemcpyD2H);
-  GpuMemcpy(&h_err[SUM_ERR_SQ], d_sum_err_sq, sizeof(T), GpuMemcpyD2H);
-  GpuMemcpy(&h_err[SUM_VAR_ODATA], d_sum_var_odata, sizeof(T), GpuMemcpyD2H);
-  GpuMemcpy(&h_err[SUM_VAR_XDATA], d_sum_var_xdata, sizeof(T), GpuMemcpyD2H);
+  cudaMemcpy(&h_err[SUM_CORR], d_sum_corr, sizeof(T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_err[SUM_ERR_SQ], d_sum_err_sq, sizeof(T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_err[SUM_VAR_ODATA], d_sum_var_odata, sizeof(T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&h_err[SUM_VAR_XDATA], d_sum_var_xdata, sizeof(T), cudaMemcpyDeviceToHost);
 
-  GpuFree(d_sum_corr);
-  GpuFree(d_sum_err_sq);
-  GpuFree(d_sum_var_odata);
-  GpuFree(d_sum_var_xdata);
+  cudaFree(d_sum_corr);
+  cudaFree(d_sum_err_sq);
+  cudaFree(d_sum_var_odata);
+  cudaFree(d_sum_var_xdata);
 
-  GpuStreamDestroy(stream);
+  cudaStreamDestroy(stream);
 }
 
 #define __INSTANTIATE_CUHIP_CALCERRORS(T)                             \

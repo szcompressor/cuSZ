@@ -6,7 +6,7 @@ DPCT1009:2: SYCL uses exceptions to report errors and does not use the error
 codes. The original code was commented out and a warning string was inserted.
 You need to rewrite this code.
 */
-#define GpuGetErrorString(...) \
+#define cudaGetErrorString(...) \
   "cudaGetErrorString is not supported" /*cudaGetErrorString(__VA_ARGS__)*/
 
 struct psz_gpu_exception : public std::exception {
@@ -22,16 +22,16 @@ struct psz_gpu_exception : public std::exception {
 };
 
 static void psz_check_gpu_error_impl(
-    GpuErrorT status, const char* file, int line)
+    cudaError_t status, const char* file, int line)
 {
   /*
   DPCT1000:1: Error handling if-stmt was detected but could not be rewritten.
   */
-  if (GpuSuccess != status) {
+  if (cudaSuccess != status) {
     /*
     DPCT1001:0: The statement could not be removed.
     */
-    throw psz_gpu_exception(GpuGetErrorString(status), status, file, line);
+    throw psz_gpu_exception(cudaGetErrorString(status), status, file, line);
   }
 }
 

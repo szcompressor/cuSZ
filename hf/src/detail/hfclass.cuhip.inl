@@ -74,7 +74,7 @@ struct HuffmanCodec<E, TIMING>::impl {
   void init(
       size_t const inlen, int const _bklen, int const _pardeg, bool debug)
   {
-    GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
     pardeg = _pardeg;
     bklen = _bklen;
@@ -93,7 +93,7 @@ struct HuffmanCodec<E, TIMING>::impl {
   {
     psz::hf_buildbook<CUDA, E, H4>(
         freq, bklen, bk4->dptr(), revbk4->dptr(), revbk4_bytes(bklen),
-        &_time_book, (GpuStreamT)stream);
+        &_time_book, (cudaStream_t)stream);
   }
 #else
   // build Huffman tree on CPU
@@ -104,9 +104,9 @@ struct HuffmanCodec<E, TIMING>::impl {
     psz::hf_buildbook<SEQ, E, H4>(
         hist->control({D2H})->hptr(), bklen, buf->bk4->hptr(),
         buf->revbk4->hptr(), revbk4_bytes(bklen), &_time_book,
-        (GpuStreamT)stream);
-    buf->bk4->control({ASYNC_H2D}, (GpuStreamT)stream);
-    buf->revbk4->control({ASYNC_H2D}, (GpuStreamT)stream);
+        (cudaStream_t)stream);
+    buf->bk4->control({ASYNC_H2D}, (cudaStream_t)stream);
+    buf->revbk4->control({ASYNC_H2D}, (cudaStream_t)stream);
   }
 #endif
 
@@ -193,9 +193,9 @@ struct HuffmanCodec<E, TIMING>::impl {
   {
     Header header;
     if (header_on_device)
-      CHECK_GPU(GpuMemcpyAsync(
-          &header, in_encoded, sizeof(header), GpuMemcpyD2H,
-          (GpuStreamT)stream));
+      CHECK_GPU(cudaMemcpyAsync(
+          &header, in_encoded, sizeof(header), cudaMemcpyDeviceToHost,
+          (cudaStream_t)stream));
 
 #define PHF_ACCESSOR(SYM, TYPE) \
   reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])

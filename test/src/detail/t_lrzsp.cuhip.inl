@@ -72,8 +72,8 @@
 //   }
 //   oridata->control({H2D});
 
-//   GpuStreamT stream;
-//   GpuStreamCreate(&stream);
+//   cudaStream_t stream;
+//   cudaStreamCreate(&stream);
 
 //   float time;
 //   auto len3 = dim3(x, y, z);
@@ -81,16 +81,16 @@
 //   pszcxx_predict_lorenzo<T, EQ, false>(  //
 //       oridata->dptr(), len3, eb, radius, ectrl_focus->dptr(), &compact_outlier,
 //       &time, stream);
-//   GpuStreamSync(stream);
+//   cudaStreamSynchronize(stream);
 
 //   pszcxx_predict_lorenzo_unused<T, EQ>(  //
 //       oridata->dptr(), len3, eb, radius, ectrl_ref->dptr(), outlier->dptr(),
 //       &time, stream);
-//   GpuStreamSync(stream);
+//   cudaStreamSynchronize(stream);
 
 //   ectrl_focus->control({ASYNC_D2H}, stream);
 //   ectrl_ref->control({ASYNC_D2H}, stream);
-//   GpuStreamSync(stream);
+//   cudaStreamSynchronize(stream);
 
 //   auto two_ectrl_eq = true;
 //   for (auto i = 0; i < len; i++) {
@@ -157,7 +157,7 @@
 //       ectrl_focus->dptr(), len3, de_data->dptr(), eb, radius,
 //       de_data->dptr(),  //
 //       &time, stream);
-//   GpuStreamSync(stream);
+//   cudaStreamSynchronize(stream);
 
 //   de_data->control({D2H});
 
@@ -169,7 +169,7 @@
 
 //   // pszcxx_evaluate_quality_gpu(oridata->dptr(), de_data->dptr(), len);
 
-//   GpuStreamDestroy(stream);
+//   cudaStreamDestroy(stream);
 
 //   delete oridata;
 //   delete de_data;

@@ -110,28 +110,28 @@ namespace psz::cuhip {
 template <typename T>
 psz_error_status GPU_histogram_generic(
     T* in, size_t const inlen, uint32_t* out_hist, int const outlen,
-    float* milliseconds, GpuStreamT stream)
+    float* milliseconds, cudaStream_t stream)
 {
   int device_id, max_bytes, num_SMs;
   int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
 
-  GpuGetDevice(&device_id);
-  GpuDeviceGetAttribute(&num_SMs, GpuDevAttrMultiProcessorCount, device_id);
+  cudaGetDevice(&device_id);
+  cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, device_id);
 
   auto query_maxbytes = [&]() {
     int max_bytes_opt_in;
-    GpuDeviceGetAttribute(
-        &max_bytes, GpuDevAttrMaxSharedMemoryPerBlock, device_id);
+    cudaDeviceGetAttribute(
+        &max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
 
     // account for opt-in extra shared memory on certain architectures
-    GpuDeviceGetAttribute(
-        &max_bytes_opt_in, GpuDevAttrMaxSharedMemoryPerBlockOptin, device_id);
+    cudaDeviceGetAttribute(
+        &max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
     max_bytes = std::max(max_bytes, max_bytes_opt_in);
 
     // config kernel attribute
-    GpuFuncSetAttribute(
+    cudaFuncSetAttribute(
         (void*)KERNEL_CUHIP_p2013Histogram<T, uint32_t>,
-        (GpuFuncAttribute)GpuFuncAttributeMaxDynamicSharedMemorySize,
+        (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize,
         max_bytes);
   };
 
@@ -165,7 +165,7 @@ psz_error_status GPU_histogram_generic(
 
   STOP_GPUEVENT_RECORDING(stream);
 
-  GpuStreamSync(stream);
+  cudaStreamSynchronize(stream);
   TIME_ELAPSED_GPUEVENT(milliseconds);
   DESTROY_GPUEVENT_PAIR;
 

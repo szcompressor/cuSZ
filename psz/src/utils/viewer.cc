@@ -272,10 +272,10 @@ void pszcxx_evaluate_quality_cpu(
   else {
     printf("allocating tmp space for CPU verification\n");
     auto bytes = sizeof(T) * len;
-    GpuMallocHost(&reconstructed, bytes);
-    GpuMallocHost(&origin, bytes);
-    GpuMemcpy(reconstructed, _d1, bytes, GpuMemcpyD2H);
-    GpuMemcpy(origin, _d2, bytes, GpuMemcpyD2H);
+    cudaMallocHost(&reconstructed, bytes);
+    cudaMallocHost(&origin, bytes);
+    cudaMemcpy(reconstructed, _d1, bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(origin, _d2, bytes, cudaMemcpyDeviceToHost);
   }
   psz::utils::assess_quality<SEQ, T>(stat, reconstructed, origin, len);
   psz::utils::print_metrics_cross<T>(stat, comp_bytes, false);
@@ -289,8 +289,8 @@ void pszcxx_evaluate_quality_cpu(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   if (from_device) {
-    if (reconstructed) GpuFreeHost(reconstructed);
-    if (origin) GpuFreeHost(origin);
+    if (reconstructed) cudaFreeHost(reconstructed);
+    if (origin) cudaFreeHost(origin);
   }
 
   delete stat, delete stat_auto_lag1, delete stat_auto_lag2;

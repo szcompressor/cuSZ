@@ -77,10 +77,10 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
   // auxiliary
   void _debug(const std::string SYM_name, void* VAR, int SYM)
   {
-    GpuDevicePtr pbase0{0};
+    CUdeviceptr pbase0{0};
     size_t psize0{0};
 
-    GpuMemGetAddressRange(&pbase0, &psize0, (GpuDevicePtr)VAR);
+    cuMemGetAddressRange(&pbase0, &psize0, (CUdeviceptr)VAR);
     printf(
         "%s:\n"
         "\t(supposed) pointer : %p\n"
@@ -94,7 +94,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
   {
     setlocale(LC_NUMERIC, "");
     printf("\nHuffmanCoarse<E, H4, M>::init() debugging:\n");
-    printf("GpuDevicePtr nbyte: %d\n", (int)sizeof(GpuDevicePtr));
+    printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
     _debug("SCRATCH", scratch4->dptr(), RC::SCRATCH);
     _debug("BITSTREAM", bitstream4->dptr(), RC::BITSTREAM);
     _debug("PAR_NBIT", par_nbit->dptr(), RC::PAR_NBIT);
@@ -135,7 +135,7 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
     // repurpose scratch after several substeps
     encoded->dptr((u1*)scratch4->dptr())->hptr((u1*)scratch4->hptr());
-    // GpuDeviceGetAttribute(&numSMs, GpuDevAttrMultiProcessorCount, 0);
+    // cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
     sublen = (inlen - 1) / pardeg + 1;
 
@@ -191,20 +191,20 @@ struct HuffmanCodec<E, TIMING>::internal_buffer {
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
-      CHECK_GPU(GpuMemcpyAsync(
-          start + var.dst, var.ptr, var.nbyte, GpuMemcpyD2D,
-          (GpuStreamT)stream));
+      CHECK_GPU(cudaMemcpyAsync(
+          start + var.dst, var.ptr, var.nbyte, cudaMemcpyDeviceToDevice,
+          (cudaStream_t)stream));
     };
 
-    CHECK_GPU(GpuMemcpyAsync(
-        start, &header, sizeof(header), GpuMemcpyH2D, (GpuStreamT)stream));
+    CHECK_GPU(cudaMemcpyAsync(
+        start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream));
 
-    // /* debug */ CHECK_GPU(GpuStreamSync(stream));
+    // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
     d2d_memcpy_merge(_revbk);
     d2d_memcpy_merge(_par_nbit);
     d2d_memcpy_merge(_par_entry);
     d2d_memcpy_merge(_bitstream);
-    // /* debug */ CHECK_GPU(GpuStreamSync(stream));
+    // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
   }
 
   void clear_buffer()

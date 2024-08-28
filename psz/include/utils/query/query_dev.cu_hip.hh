@@ -40,25 +40,25 @@ struct cu_hip_diagnostics {
   static void get_device_property()
   {
     int num_dev = 0;
-    GpuErrorT error_id = GpuGetDeviceCount(&num_dev);
+    cudaError_t error_id = cudaGetDeviceCount(&num_dev);
 
-    if (error_id != GpuSuccess) {
+    if (error_id != cudaSuccess) {
       printf(
-          "GpuGetDeviceCount returned %d\n-> %s\n", static_cast<int>(error_id),
-          GpuGetErrorString(error_id));
+          "cudaGetDeviceCount returned %d\n-> %s\n", static_cast<int>(error_id),
+          cudaGetErrorString(error_id));
       exit(EXIT_FAILURE);
     }
     if (num_dev == 0) { printf("NO CUDA device detected.\n"); }
     int dev, driver_ver = 0, runtime_ver = 0;
 
     for (dev = 0; dev < num_dev; ++dev) {
-      GpuSetDevice(dev);
-      GpuDeviceProp dev_prop;
-      GpuGetDeviceProperties(&dev_prop, dev);
+      cudaSetDevice(dev);
+      cudaDeviceProp dev_prop;
+      cudaGetDeviceProperties(&dev_prop, dev);
       printf("device #%d, %s: \n", dev, dev_prop.name);
 
-      GpuDriverGetVersion(&driver_ver);
-      GpuRuntimeGetVersion(&runtime_ver);
+      cudaDriverGetVersion(&driver_ver);
+      cudaRuntimeGetVersion(&runtime_ver);
       printf(
           "  driver/runtime\t%d.%d/%d.%d\n", driver_ver / 1000,
           (driver_ver % 100) / 10, runtime_ver / 1000,

@@ -33,7 +33,7 @@ void GPU_max_error(
     diff = original;  // aliasing
   }
   else {
-    GpuMalloc(&diff, sizeof(T) * len);
+    cudaMalloc(&diff, sizeof(T) * len);
   }
 
   auto expr = [=] __device__(T rel, T oel) { return rel - oel; };
@@ -49,7 +49,7 @@ void GPU_max_error(
   maximum_val = *maximum_ptr;
   maximum_loc = maximum_ptr - d;
 
-  if (not destructive) { GpuFree(diff); }
+  if (not destructive) { cudaFree(diff); }
 }
 
 }  // namespace psz::thrustgpu

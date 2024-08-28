@@ -131,21 +131,21 @@ try {
 
   auto query_maxbytes = [&]() {
     int max_bytes_opt_in;
-    GpuDeviceGetAttribute(
-        &max_bytes, GpuDevAttrMaxSharedMemoryPerBlock, device_id);
+    cudaDeviceGetAttribute(
+        &max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
 
     // account for opt-in extra shared memory on certain architectures
-    GpuDeviceGetAttribute(
-        &max_bytes_opt_in, GpuDevAttrMaxSharedMemoryPerBlockOptin, device_id);
+    cudaDeviceGetAttribute(
+        &max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
     max_bytes = std::max(max_bytes, max_bytes_opt_in);
 
     // config kernel attribute
     /*
     DPCT1007:102: Migration of cudaFuncSetAttribute is not supported.
     */
-    GpuFuncSetAttribute(
+    cudaFuncSetAttribute(
         (void *)kernel::p2013Histogram<T, uint32_t>,
-        (GpuFuncAttribute)GpuFuncAttributeMaxDynamicSharedMemorySize,
+        (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize,
         max_bytes);
   };
 

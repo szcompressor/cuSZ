@@ -303,15 +303,15 @@ pszerror psz_comp_lproto(
   using namespace psz::proto;
 
   if (ndim() == 1) {
-    KERNEL_CUHIP_c_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_c_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
         data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (ndim() == 2) {
-    KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
         data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (ndim() == 3) {
-    KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
         data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else {
@@ -319,7 +319,7 @@ pszerror psz_comp_lproto(
   }
 
   STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
+  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 
   TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
@@ -370,20 +370,20 @@ pszerror psz_decomp_lproto(
   using namespace psz::proto;
 
   if (ndim() == 1) {
-    KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
         eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 2) {
-    KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
         eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 3) {
-    KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (GpuStreamT)stream>>>(
+    KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
         eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
 
   STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
+  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 
   TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;

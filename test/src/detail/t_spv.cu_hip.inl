@@ -24,12 +24,12 @@ int f()
   int* d_nnz;
   float ms;
 
-  GpuMallocManaged(&a, sizeof(T) * len);
-  GpuMallocManaged(&da, sizeof(T) * len);
-  GpuMallocManaged(&val, sizeof(T) * len);
-  GpuMallocManaged(&idx, sizeof(uint32_t) * len);
+  cudaMallocManaged(&a, sizeof(T) * len);
+  cudaMallocManaged(&da, sizeof(T) * len);
+  cudaMallocManaged(&val, sizeof(T) * len);
+  cudaMallocManaged(&idx, sizeof(uint32_t) * len);
 
-  GpuMallocManaged(&d_nnz, sizeof(int));
+  cudaMallocManaged(&d_nnz, sizeof(int));
 
   // determine nnz
   auto trials = psz::testutils::cpp::randint(len) / 1;
@@ -45,8 +45,8 @@ int f()
     if (a[i] != 0) nnz_ref += 1;
   }
 
-  GpuStreamT stream;
-  GpuStreamCreate(&stream);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
   ////////////////////////////////////////////////////////////////
 
@@ -57,7 +57,7 @@ int f()
       a, len, 0, val, idx, d_nnz, psz::criterion::gpu::eq<T>(), &ms, stream);
   nnz = *d_nnz;
 
-  GpuStreamSync(stream);
+  cudaStreamSynchronize(stream);
 
   if (nnz != nnz_ref) {
     std::cout << "nnz_ref: " << nnz_ref << std::endl;
@@ -71,7 +71,7 @@ int f()
   psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, uint32_t>(
       val, idx, nnz, da, &ms, stream);
 
-  GpuStreamSync(stream);
+  cudaStreamSynchronize(stream);
 
   ////////////////////////////////////////////////////////////////
 
@@ -84,12 +84,12 @@ int f()
     }
   }
 
-  GpuFree(a);
-  GpuFree(da);
-  GpuFree(val);
-  GpuFree(idx);
+  cudaFree(a);
+  cudaFree(da);
+  cudaFree(val);
+  cudaFree(idx);
 
-  GpuStreamDestroy(stream);
+  cudaStreamDestroy(stream);
 
   if (same) {
     std::cout << "[psz::test::info] decode correct" << std::endl;

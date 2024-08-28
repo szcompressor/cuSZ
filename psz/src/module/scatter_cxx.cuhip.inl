@@ -20,7 +20,7 @@ try {
       <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
           in.val, in.idx, *(in.host_num), out.buf);
   STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
+  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
   TIME_ELAPSED_GPUEVENT(milliseconds);
   DESTROY_GPUEVENT_PAIR;
 
@@ -37,7 +37,7 @@ try {
       in.host_num, in.num, sizeof(u4), cudaMemcpyDeviceToHost,
       (cudaStream_t)stream);
   // TODO portability issue
-  cudaStreamSynchronize((GpuStreamT)stream);
+  cudaStreamSynchronize((cudaStream_t)stream);
 
   return CUSZ_SUCCESS;
 }

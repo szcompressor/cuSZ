@@ -28,9 +28,9 @@ size_t capi_phf_coarse_tune_sublen(size_t len)
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   // TODO ROCm GPUs should use different constants.
   int current_dev = 0;
-  GpuSetDevice(current_dev);
-  GpuDeviceProp dev_prop{};
-  GpuGetDeviceProperties(&dev_prop, current_dev);
+  cudaSetDevice(current_dev);
+  cudaDeviceProp dev_prop{};
+  cudaGetDeviceProperties(&dev_prop, current_dev);
 
   auto nSM = dev_prop.multiProcessorCount;
   auto allowed_block_dim = dev_prop.maxThreadsPerBlock;

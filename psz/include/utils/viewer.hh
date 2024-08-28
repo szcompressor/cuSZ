@@ -25,7 +25,6 @@
 #include "mem/array_cxx.h"
 #include "mem/memobj.hh"
 #include "port.hh"
-#include "verify.hh"
 
 using std::string;
 using std::vector;

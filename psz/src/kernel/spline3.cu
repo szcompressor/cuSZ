@@ -57,14 +57,14 @@ int pszcxx_predict_spline(
   START_GPUEVENT_RECORDING(stream);
 
   cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
-      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GpuStreamT)stream>>>(
+      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
           data->dptr(), data->len3(), data->st3(),     //
           ectrl->dptr(), ectrl->len3(), ectrl->st3(),  //
           anchor->dptr(), anchor->st3(), ot->val(), ot->idx(), ot->num(), eb_r,
           ebx2, radius);
 
   STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
+  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
   TIME_ELAPSED_GPUEVENT(time);
   DESTROY_GPUEVENT_PAIR;
 
@@ -91,14 +91,14 @@ int pszcxx_reverse_predict_spline(
   START_GPUEVENT_RECORDING(stream);
 
   cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>   //
-      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GpuStreamT)stream>>>  //
+      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>  //
       (ectrl->dptr(), ectrl->len3(), ectrl->st3(),                           //
        anchor->dptr(), anchor->len3(), anchor->st3(),                        //
        xdata->dptr(), xdata->len3(), xdata->st3(),                           //
        eb_r, ebx2, radius);
 
   STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(GpuStreamSync(stream));
+  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
   TIME_ELAPSED_GPUEVENT(time);
   DESTROY_GPUEVENT_PAIR;
 

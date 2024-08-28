@@ -36,22 +36,22 @@ int f(
   dim3 stride3 = dim3(1, x, x * y);
   size_t len = x * y * z;
 
-  GpuMallocHost(&h_data, len * sizeof(float));
+  cudaMallocHost(&h_data, len * sizeof(float));
 
-  GpuMalloc(&data, len * sizeof(float));
-  GpuMalloc(&xdata, len * sizeof(float));
-  GpuMalloc(&signum, len * sizeof(bool));
-  GpuMalloc(&delta, len * sizeof(DeltaT));
+  cudaMalloc(&data, len * sizeof(float));
+  cudaMalloc(&xdata, len * sizeof(float));
+  cudaMalloc(&signum, len * sizeof(bool));
+  cudaMalloc(&delta, len * sizeof(DeltaT));
 
   io::read_binary_to_array<float>(fname, h_data, len);
-  GpuMemcpy(data, h_data, len * sizeof(float), GpuMemcpyHostToDevice);
+  cudaMemcpy(data, h_data, len * sizeof(float), GpuMemcpyHostToDevice);
 
   /* a casual peek */
   printf("peeking data, 20 elements\n");
   psz::peek_device_data<float>(data, 100);
 
-  GpuStreamT stream;
-  GpuStreamCreate(&stream);
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
   float time_comp;
 
@@ -81,13 +81,13 @@ int f(
 
   pszcxx_evaluate_quality_gpu(xdata, data, len);
 
-  GpuFreeHost(h_data);
-  GpuFree(data);
-  GpuFree(xdata);
-  GpuFree(signum);
-  GpuFree(delta);
+  cudaFreeHost(h_data);
+  cudaFree(data);
+  cudaFree(xdata);
+  cudaFree(signum);
+  cudaFree(delta);
 
-  GpuStreamDestroy(stream);
+  cudaStreamDestroy(stream);
 
   return 0;
 }

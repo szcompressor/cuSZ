@@ -84,7 +84,7 @@ bool f()
   auto grid_dim = (len - 1) / TilDim + 1;
 
   float* in;
-  GpuMallocManaged(&in, sizeof(float) * len);
+  cudaMallocManaged(&in, sizeof(float) * len);
   psz::testutils::cu_hip::rand_array(in, len);
 
   CompactGpu out_test1(len / 2);
@@ -98,10 +98,10 @@ bool f()
 
   test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(
       in, len, out_test1.d_val, out_test1.d_idx, out_test1.d_num);
-  GpuDeviceSync();
+  cudaDeviceSynchronize();
 
   test_compaction2<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test2);
-  GpuDeviceSync();
+  cudaDeviceSynchronize();
 
   cout << endl;
 
@@ -114,7 +114,7 @@ bool f()
   cout << "GPU (plain)  #outlier:\t" << out_test1.num_outliers() << endl;
   cout << "GPU (struct) #outlier:\t" << out_test2.num_outliers() << endl;
 
-  GpuFree(in);
+  cudaFree(in);
   out_test1.free().freehost();
   out_test2.free().freehost();
   out_ref.free();
