@@ -61,7 +61,7 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
   s->score_PSNR = 20 * log10(s->odata.rng) - 10 * log10(s->score_MSE);
 }
 
-}  // namespace psz::cu_hip
+}  // namespace psz::cuhip
 
 #define __INSTANTIATE_CUHIP_ASSESS(T)              \
   template void psz::cuhip::GPU_assess_quality<T>( \

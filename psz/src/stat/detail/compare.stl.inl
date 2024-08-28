@@ -1,11 +1,13 @@
 /**
  * @file compare.stl.inl
  * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-08
+ * @brief Verification of decompressed data.
+ * @version 0.2
+ * @date 2020-09-20
+ * Created on: 2019-09-30
  *
- * (C) 2022 by Indiana University, Argonne National Laboratory
+ * @copyright (C) 2020 by Washington State University, The University of
+ * Alabama, Argonne National Laboratory See LICENSE in top-level directory
  *
  */
 

@@ -32,7 +32,7 @@ using std::vector;
 using namespace portable;
 
 // deps
-namespace psz {
+namespace psz::utils {
 
 template <typename T>
 void print_metrics_cross(
@@ -45,7 +45,7 @@ void view(
     psz_header* header, memobj<T>* xdata, memobj<T>* cmp,
     string const& compare);
 
-}  // namespace psz
+}  // namespace psz::utils
 
 // TODO have not passed test
 template <typename T, psz_policy P = THRUST>

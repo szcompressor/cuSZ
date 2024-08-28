@@ -29,6 +29,7 @@
 #include "utils/err.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
+#include "utils/config.hh"
 
 namespace psz {
 
@@ -78,16 +79,19 @@ class CLI {
     if (r2r) original->extrema_scan(max, min, rng), eb *= rng;
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    psz::cuhip::GPU_lorenzo_dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+    psz::cuhip::GPU_lorenzo_dryrun(
+        len, original->dptr(), reconst->dptr(), eb, stream);
 #elif defined(PSZ_USE_1API)
-    psz::dpcpp::GPU_lorenzo_dryrun(len, original->dptr(), reconst->dptr(), eb, stream);
+    psz::dpcpp::GPU_lorenzo_dryrun(
+        len, original->dptr(), reconst->dptr(), eb, stream);
 #endif
 
     reconst->control({D2H});
 
     psz_summary stat;
-    psz::assess_quality<THRUST>(&stat, reconst->dptr(), original->dptr(), len);
-    psz::print_metrics_cross<T>(&stat, 0);
+    psz::utils::assess_quality<THRUST>(
+        &stat, reconst->dptr(), original->dptr(), len);
+    psz::utils::print_metrics_cross<T>(&stat, 0);
 
     // destroy
     original->control({FreeHost, Free});
@@ -141,7 +145,8 @@ class CLI {
     if (not ctx->there_is_memerr) {
       printf("\n(c) COMPRESSION REPORT\n");
 
-      if (ctx->report_time) psz_review_comp_time_breakdown(&timerecord, &header);
+      if (ctx->report_time)
+        psz_review_comp_time_breakdown(&timerecord, &header);
       if (ctx->report_cr) psz_review_from_header(&header);
 
       write_compressed_to_disk(
@@ -186,7 +191,7 @@ class CLI {
 
     if (ctx->report_time)
       psz_review_decompression(&timerecord, decomped->bytes());
-    psz::view(header, decomped, original, ctx->file_compare);
+    psz::utils::view(header, decomped, original, ctx->file_compare);
 
     if (not ctx->skip_tofile)
       decomped->control({D2H})->file(

@@ -1,7 +1,7 @@
-#include "mem/multibackend.hh"
 #include "mem/array_cxx.h"
 #include "mem/definition.hh"
 #include "mem/memobj.hh"
+#include "mem/multibackend.hh"
 
 // The next-line: failsafe macro check
 #include <linux/limits.h>
@@ -175,7 +175,7 @@ struct memobj<Ctype>::impl {
       Ctype result[4];
       // psz::thrustgpu::GPU_extrema_rawptr<Ctype>((Ctype*)m->d,
       // m->len, result);
-      psz::probe_extrema<CUDA, Ctype>(d, _len, result);
+      psz::utils::probe_extrema<CUDA, Ctype>(d, _len, result);
 
       min_value = result[0];
       max_value = result[1];

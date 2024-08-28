@@ -4,7 +4,7 @@
 #include "rand.hh"
 #include <random>
 // definitions
-#include "detail/t_lrzsp.cu_hip.inl"
+#include "detail/t_lrzsp.cuhip.inl"
 
 // bool batch_run_testcase(uint32_t x, uint32_t y, uint32_t z)
 // {

@@ -25,14 +25,14 @@ template <typename T> void CPU_assess_quality(psz_summary* s, T* xdata, T* odata
 template <typename T> void CPU_calculate_errors(T* odata, T odata_avg, T* xdata, T xdata_avg, size_t len, T err[4]);
 template <typename T> void CPU_extrema(T* ptr, size_t len, T res[4]);
 template <typename T> bool CPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
-}  // namespace psz::cu_hip
+}  // namespace psz::cppstl
 
 namespace psz::cuhip {
 template <typename T> void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len);
 template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
 template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
 template <typename T> bool GPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
-}  // namespace psz::cu_hip
+}  // namespace psz::cuhip
 
 namespace psz::thrustgpu {
 bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len);
@@ -57,7 +57,7 @@ template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
 
 // clang-format on
 
-namespace psz {
+namespace psz::utils {
 
 template <psz_policy P, typename T>
 bool identical(T* d1, T* d2, size_t const len)
@@ -75,13 +75,13 @@ template <psz_policy P, typename T>
 void probe_extrema(T* in, size_t len, T res[4])
 {
   if (P == SEQ) cppstl::CPU_extrema(in, len, res);
-// #ifdef REACTIVATE_THRUSTGPU
+  // #ifdef REACTIVATE_THRUSTGPU
   else if (P == THRUST)
     thrustgpu::GPU_extrema(in, len, res);
-// #endif
-  else if (P == CUDA or P == HIP) 
+  // #endif
+  else if (P == CUDA or P == HIP)
     cuhip::GPU_extrema(in, len, res);
-  else if (P == ONEAPI) 
+  else if (P == ONEAPI)
     dpcpp::GPU_extrema(in, len, res);
   else
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
@@ -121,6 +121,6 @@ void assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
 
-}  // namespace psz
+}  // namespace psz::utils
 
 #endif /* CE05A256_23CB_4243_8839_B1FDA9C540D2 */

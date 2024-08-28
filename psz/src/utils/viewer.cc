@@ -7,6 +7,7 @@
 #include "header.h"
 #include "mem/layout_cxx.hh"
 #include "tehm.hh"
+#include "stat/compare.hh"
 
 float get_throughput(float milliseconds, size_t nbyte)
 {
@@ -174,7 +175,7 @@ void psz_review_decompression(void* r, size_t bytes)
 }
 
 template <typename T>
-void psz::print_metrics_cross(
+void psz::utils::print_metrics_cross(
     psz_summary* s, size_t comp_bytes, bool gpu_checker)
 {
   auto checker =
@@ -246,7 +247,7 @@ void psz::print_metrics_cross(
   println_segline();
 }
 
-void psz::print_metrics_auto(double* lag1_cor, double* lag2_cor)
+void psz::utils::print_metrics_auto(double* lag1_cor, double* lag2_cor)
 {
   auto println_v2 = [](string const prefix, string const kw, double n1) {
     std::string combined = prefix + "::\e[1m\e[31m" + kw + "\e[0m";
@@ -276,15 +277,15 @@ void pszcxx_evaluate_quality_cpu(
     GpuMemcpy(reconstructed, _d1, bytes, GpuMemcpyD2H);
     GpuMemcpy(origin, _d2, bytes, GpuMemcpyD2H);
   }
-  cusz::verify_data<T>(stat, reconstructed, origin, len);
-  psz::print_metrics_cross<T>(stat, comp_bytes, false);
+  psz::utils::assess_quality<SEQ, T>(stat, reconstructed, origin, len);
+  psz::utils::print_metrics_cross<T>(stat, comp_bytes, false);
 
   auto stat_auto_lag1 = new psz_summary;
-  cusz::verify_data<T>(stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::utils::assess_quality<SEQ, T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
-  cusz::verify_data<T>(stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::utils::assess_quality<SEQ, T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
-  psz::print_metrics_auto(
+  psz::utils::print_metrics_auto(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   if (from_device) {
@@ -296,7 +297,7 @@ void pszcxx_evaluate_quality_cpu(
 }
 
 template <typename T>
-void psz::view(
+void psz::utils::view(
     psz_header* header, memobj<T>* xdata, memobj<T>* cmp,
     string const& file_to_compare)
 {
@@ -328,8 +329,8 @@ void psz::view(
   }
 }
 
-#define __INSTANTIATE_CPU_VIEWER(T) \
-  template void psz::view<T>(       \
+#define __INSTANTIATE_CPU_VIEWER(T)  \
+  template void psz::utils::view<T>( \
       psz_header*, memobj<T>*, memobj<T>*, string const&);
 
 __INSTANTIATE_CPU_VIEWER(float)
