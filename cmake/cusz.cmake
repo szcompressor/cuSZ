@@ -163,6 +163,7 @@ target_link_libraries(cusz
 
 #m export binary "cusz"
 add_executable(cusz-bin psz/src/cli/cli.cc)
+set_source_files_properties(psz/src/cli/cli.cc PROPERTIES LANGUAGE CUDA)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 
