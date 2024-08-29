@@ -1,9 +1,7 @@
 #ifndef D1A6A3E2_708C_4A61_B275_A442FBB93F19
 #define D1A6A3E2_708C_4A61_B275_A442FBB93F19
 
-namespace psz {
-namespace criterion {
-namespace gpu {
+namespace psz::criterion::gpu {
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
@@ -44,8 +42,6 @@ struct in_ball {
 
 #endif
 
-}  // namespace gpu
-}  // namespace criterion
-}  // namespace psz
+}  // namespace psz::criterion::gpu
 
 #endif /* D1A6A3E2_708C_4A61_B275_A442FBB93F19 */

@@ -3,7 +3,7 @@
 #include "port.hh"
 #include <random>
 // definitions
-#include "detail/t_histsp.cuhip.inl"
+#include "detail/tune_histsp.cuhip.inl"
 
 int main()
 {

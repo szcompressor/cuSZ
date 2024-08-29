@@ -23,11 +23,11 @@ try {
   using DefaultEtypeRT = u2;
 
   if (in.dtype == F4)
-    _2401::pszpred_lrz<f4, DefaultEtypeRT>::pszcxx_predict_lorenzo(
+    pszcxx_predict_lorenzo<f4, DefaultEtypeRT>(
         *((array3<f4>*)&in), rc, *((array3<DefaultEtypeRT>*)&out_errquant),
         *((compact_array1<f4>*)&out_outlier), t, stream);
   else if (in.dtype == F8)
-    _2401::pszpred_lrz<f8, DefaultEtypeRT>::pszcxx_predict_lorenzo(
+    pszcxx_predict_lorenzo<f8, DefaultEtypeRT>(
         *((array3<f8>*)&in), rc, *((array3<DefaultEtypeRT>*)&out_errquant),
         *((compact_array1<f8>*)&out_outlier), t, stream);
   else
@@ -45,13 +45,13 @@ try {
   using DefaultEtypeRT = u2;
 
   if (out_reconstruct.dtype == F4) {
-    _2401::pszpred_lrz<f4, DefaultEtypeRT>::pszcxx_reverse_predict_lorenzo(
+    pszcxx_reverse_predict_lorenzo<f4, DefaultEtypeRT>(
         *((array3<DefaultEtypeRT>*)&in_errquant),
         *((array3<f4>*)&in_scattered_outlier), rc,
         *((array3<f4>*)&out_reconstruct), t, stream);
   }
   else if (out_reconstruct.dtype == F8) {
-    _2401::pszpred_lrz<f8, DefaultEtypeRT>::pszcxx_reverse_predict_lorenzo(
+    pszcxx_reverse_predict_lorenzo<f8, DefaultEtypeRT>(
         *((array3<DefaultEtypeRT>*)&in_errquant),
         *((array3<f8>*)&in_scattered_outlier), rc,
         *((array3<f8>*)&out_reconstruct), t, stream);

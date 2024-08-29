@@ -5,8 +5,7 @@
 #include <cstdint>
 
 #include "cusz/type.h"
-#include "kernel/hist.hh"
-#include "kernel/histsp.hh"
+#include "module/cxx_module.hh"
 #include "port.hh"
 
 template <typename T>
@@ -18,10 +17,10 @@ void hist(
     size_t const bklen, float* t, cudaStream_t stream)
 {
   if (optim)
-    pszcxx_histogram_cauchy<policy, T>(
+    pszcxx_compat_histogram_cauchy<policy, T>(
         whole_numbers, len, hist, bklen, t, stream);
   else
-    pszcxx_histogram_generic<policy, T>(
+    pszcxx_compat_histogram_generic<policy, T>(
         whole_numbers, len, hist, bklen, t, stream);
 }
 

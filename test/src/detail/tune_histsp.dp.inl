@@ -14,8 +14,8 @@
 
 #include "busyheader.hh"
 #include "kernel/detail/histsp.dp.inl"
-#include "kernel/hist.hh"
-#include "kernel/histsp.hh"
+#include "module/cxx_module.hh"
+#include "module/cxx_module.hh"
 #include "mem/memobj.hh"
 
 using T = uint32_t;

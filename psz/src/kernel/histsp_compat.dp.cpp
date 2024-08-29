@@ -1,18 +1,16 @@
-#include "detail/histsp.dp.inl"
-
 #include <chrono>
 #include <cstdint>
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "kernel/histsp.hh"
+#include "detail/histsp.dp.inl"
+#include "module/cxx_module.hh"
 #include "utils/timer.hh"
 
-namespace psz {
-namespace detail {
+namespace psz::dpcpp {
 
 template <typename T, typename FQ>
-int histsp_dpcpp(
+int GPU_histogram_sparse(
     T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen, float* milliseconds,
     dpct::queue_ptr queue)
 {
@@ -59,22 +57,21 @@ int histsp_dpcpp(
   return 0;
 }
 
-}  // namespace detail
-}  // namespace psz
+}  // namespace psz::dpcpp
 
-#define SPECIALIZE_DPCPP(E)                                                  \
+#define SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY(E)                       \
   template <>                                                                \
-  int pszcxx_histogram_cauchy<psz_policy::ONEAPI, E, uint32_t>(              \
+  int pszcxx_compat_histogram_cauchy<psz_policy::ONEAPI, E, uint32_t>(       \
       E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen,          \
       float* milliseconds, void* stream)                                     \
   {                                                                          \
-    return psz::detail::histsp_dpcpp<E, uint32_t>(                           \
+    return psz::dpcpp::GPU_histogram_sparse<E, uint32_t>(                    \
         in, inlen, out_hist, outlen, milliseconds, (dpct::queue_ptr)stream); \
   }
 
-// SPECIALIZE_DPCPP(float)
-// SPECIALIZE_DPCPP(uint8_t)
-// SPECIALIZE_DPCPP(uint16_t)
-SPECIALIZE_DPCPP(uint32_t)
+// SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY(float)
+// SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY(uint8_t)
+// SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY(uint16_t)
+SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY(uint32_t)
 
-#undef SPECIALIZE_CUDA
+#undef SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY

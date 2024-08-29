@@ -25,23 +25,10 @@ const static unsigned int WARP_SIZE = 32;
 #define bdy blockDim.y
 #define bdz blockDim.z
 
-namespace kernel {
-
-template <typename Input>
-void NaiveHistogram(
-    Input in_data[], int out_freq[], int N, int symbols_per_thread,
-    const sycl::nd_item<3> &item_ct1);
-
-/* Copied from J. Gomez-Luna et al */
-template <typename T, typename FREQ>
-void p2013Histogram(
-    T *, FREQ *, size_t, int, int, const sycl::nd_item<3> &item_ct1,
-    uint8_t *dpct_local);
-
-}  // namespace kernel
+namespace psz {
 
 template <typename T>
-void kernel::NaiveHistogram(
+void kernel::KERNEL_CUHIP_histogram_native(
     T in_data[], int out_freq[], int N, int symbols_per_thread,
     const sycl::nd_item<3> &item_ct1)
 {
@@ -60,7 +47,7 @@ void kernel::NaiveHistogram(
 }
 
 template <typename T, typename FREQ>
-void kernel::p2013Histogram(
+void kernel::KERNEL_CUHIP_p2013Histogram(
     T *in_data, FREQ *out_freq, size_t N, int nbin, int R,
     const sycl::nd_item<3> &item_ct1, uint8_t *dpct_local)
 {
@@ -114,11 +101,12 @@ void kernel::p2013Histogram(
   }
 }
 
-namespace psz {
-namespace cuda_hip_compat {
+}  // namespace psz
+
+namespace psz::dpcpp {
 
 template <typename T>
-psz_error_status histogram_generic(
+psz_error_status GPU_histogram_generic(
     T *in, size_t const inlen, uint32_t *out_hist, int const outlen,
     float *milliseconds, dpct::queue_ptr queue)
 try {
@@ -144,7 +132,7 @@ try {
     DPCT1007:102: Migration of cudaFuncSetAttribute is not supported.
     */
     cudaFuncSetAttribute(
-        (void *)kernel::p2013Histogram<T, uint32_t>,
+        (void *)kernel::KERNEL_CUHIP_p2013Histogram<T, uint32_t>,
         (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize,
         max_bytes);
   };
@@ -193,7 +181,7 @@ try {
             sycl::range<3>(1, 1, grid_dim) * sycl::range<3>(1, 1, block_dim),
             sycl::range<3>(1, 1, block_dim)),
         [=](sycl::nd_item<3> item_ct1) {
-          kernel::p2013Histogram(
+          kernel::KERNEL_CUHIP_p2013Histogram(
               in, out_hist, inlen, outlen, r_per_block, item_ct1,
               dpct_local_acc_ct1.get_pointer());
         });
@@ -211,7 +199,6 @@ catch (sycl::exception const &exc) {
   std::exit(1);
 }
 
-}  // namespace cuda_hip_compat
-}  // namespace psz
+}  // namespace psz::dpcpp
 
 #endif /* C6D3EFB0_47D3_40FB_A618_FA7412DC5376 */

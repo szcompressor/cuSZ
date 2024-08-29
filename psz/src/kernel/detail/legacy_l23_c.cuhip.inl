@@ -1,5 +1,5 @@
 /**
- * @file lorenzo23.inl
+ * @file l23_c.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -11,7 +11,7 @@
 
 #include "cusz/suint.hh"
 #include "port.hh"
-#include "subr.cu_hip.inl"
+#include "subr_legacy.cuhip.inl"
 
 namespace psz::legacy {
 

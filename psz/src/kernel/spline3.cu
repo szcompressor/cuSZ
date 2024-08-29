@@ -90,11 +90,12 @@ int pszcxx_reverse_predict_spline(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>   //
-      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>  //
-      (ectrl->dptr(), ectrl->len3(), ectrl->st3(),                           //
-       anchor->dptr(), anchor->len3(), anchor->st3(),                        //
-       xdata->dptr(), xdata->len3(), xdata->st3(),                           //
+  cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>  //
+      <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0,
+         (cudaStream_t)stream>>>                       //
+      (ectrl->dptr(), ectrl->len3(), ectrl->st3(),     //
+       anchor->dptr(), anchor->len3(), anchor->st3(),  //
+       xdata->dptr(), xdata->len3(), xdata->st3(),     //
        eb_r, ebx2, radius);
 
   STOP_GPUEVENT_RECORDING(stream);
@@ -105,7 +106,7 @@ int pszcxx_reverse_predict_spline(
   return 0;
 }
 
-#define INIT(T, E)                                                            \
+#define INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, E)                       \
   template int pszcxx_predict_spline<T, E>(                                   \
       memobj<T> * data, memobj<T> * anchor, memobj<E> * ectrl,                \
       void* _outlier, double eb, uint32_t radius, float* time, void* stream); \
@@ -113,15 +114,15 @@ int pszcxx_reverse_predict_spline(
       memobj<T> * anchor, memobj<E> * ectrl, memobj<T> * xdata, double eb,    \
       uint32_t radius, float* time, void* stream);
 
-INIT(f4, u1)
-INIT(f4, u2)
-INIT(f4, u4)
-INIT(f4, f4)
+#define INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(T) \
+  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u1); \
+  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u2); \
+  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u4); \
+  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, f4);
 
-INIT(f8, u1)
-INIT(f8, u2)
-INIT(f8, u4)
-INIT(f8, f4)
+INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(f4);
+INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(f8);
 
-#undef INIT
 #undef SETUP
+#undef INSTANTIATE_PSZCXX_MODULE_SPLINE__1param
+#undef INSTANTIATE_PSZCXX_MODULE_SPLINE__2params

@@ -11,8 +11,10 @@
 // definitions
 #include "detail/l23r.dp.inl"
 
+namespace psz::dpcpp {
+
 template <typename T, typename Eq, bool ZigZag>
-pszerror pszcxx_predict_lorenzo(
+pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const data, sycl::range<3> const len3, PROPER_EB const eb,
     int const radius, Eq* const eq, void* _outlier, f4* time_elapsed,
     void* stream)
@@ -142,13 +144,14 @@ pszerror pszcxx_predict_lorenzo(
   return CUSZ_SUCCESS;
 }
 
-#define INIT(T, Eq, ZigZag)                                             \
-  template pszerror pszcxx_predict_lorenzo<T, Eq, ZigZag>(                       \
-      T* const data, sycl::range<3> const len3, PROPER_EB const eb,     \
-      int const radius, Eq* const eq, void* _outlier, f4* time_elapsed, \
+}  // namespace psz::dpcpp
+
+#define INSTANCIATE_GPU_L23R(T, Eq, ZigZag)                                   \
+  template pszerror psz::dpcpp::GPU_c_lorenzo_nd_with_outlier<T, Eq, ZigZag>( \
+      T* const data, sycl::range<3> const len3, PROPER_EB const eb,           \
+      int const radius, Eq* const eq, void* _outlier, f4* time_elapsed,       \
       void* stream);
 
-INIT(f4, u4, false)
-// INIT(f8, u4, false)
+INSTANCIATE_GPU_L23R(f4, u4, false)
 
-#undef INIT
+#undef INSTANCIATE_GPU_L23R

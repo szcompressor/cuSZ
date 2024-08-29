@@ -12,7 +12,7 @@
 #include "detail/l23_x.dp.inl"
 
 template <typename T, typename Eq, typename FP>
-pszerror pszcxx_reverse_predict_lorenzo(
+pszerror GPU_x_lorenzo_nd(
     Eq* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
     int const radius, T* xdata, f4* time_elapsed, void* stream)
 {
@@ -123,22 +123,17 @@ pszerror pszcxx_reverse_predict_lorenzo(
   return CUSZ_SUCCESS;
 }
 
-#define CPP_INS(T, Eq)                                                    \
-  template pszerror pszcxx_reverse_predict_lorenzo<T, Eq>(                                \
+#define INSTANTIATE_GPU_L23X_2params(T, Eq)                               \
+  template pszerror psz::dpcpp::GPU_x_lorenzo_nd<T, Eq>(                  \
       Eq * eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb, \
       int const radius, T* xdata, f4* time_elapsed, void* stream);
 
-CPP_INS(f4, u1);
-CPP_INS(f4, u2);
-CPP_INS(f4, u4);
-CPP_INS(f4, f4);
+#define INSTANTIATE_GPU_L23X_1param(T) \
+  INSTANTIATE_GPU_L23X_2params(T, u2); \
+  INSTANTIATE_GPU_L23X_2params(T, u4); \
+  INSTANTIATE_GPU_L23X_2params(T, f4);
 
-// CPP_INS(f8, u1);
-// CPP_INS(f8, u2);
-// CPP_INS(f8, u4);
-// CPP_INS(f8, f4);
-
-CPP_INS(f4, i4);
-// CPP_INS(f8, i4);
+INSTANTIATE_GPU_L23X_1param(f4);
+// f8 will fail consumer-grade GPUs
 
 #undef CPP_INS

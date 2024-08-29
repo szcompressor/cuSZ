@@ -12,12 +12,12 @@ add_library(psztest_utils_cu src/utils/rand.seq.cc src/utils/rand.cu_hip.cc)
 target_link_libraries(psztest_utils_cu CUDA::cudart CUDA::curand)
 
 # testing sp vector
-add_executable(spv_cu src/test_spv.cu)
-target_link_libraries(spv_cu PRIVATE
-  psztest_utils_cu
-  cusz
-)
-add_test(test_spv_cu spv_cu)
+# add_executable(spv_cu src/test_spv.cu)
+# target_link_libraries(spv_cu PRIVATE
+#   psztest_utils_cu
+#   cusz
+# )
+# add_test(test_spv_cu spv_cu)
 
 # functionality
 add_executable(zigzag src/test_zigzag_coding.cc)
@@ -41,7 +41,7 @@ target_link_libraries(l2_cudaproto
   psz_cu_mem psz_cu_stat)
 add_test(test_l2_cudaproto l2_cudaproto)
 
-add_executable(histsp_cu src/test_histsp.cu)
+add_executable(histsp_cu src/tune_histsp.cu)
 target_link_libraries(histsp_cu
   PRIVATE psz_cu_compile_settings
   cusz
@@ -61,17 +61,6 @@ target_link_libraries(lrz_seq
   PRIVATE psz_cu_test_compile_settings)
 add_test(test_lrz_seq lrz_seq)
 
-add_executable(lrzsp_cu src/test_lrzsp.cu)
-target_link_libraries(lrzsp_cu
-  PRIVATE psz_cu_test_compile_settings
-)
-add_test(test_lrzsp_cu lrzsp_cu)
-
-add_executable(lrzsp2_cu src/test_lrzsp2.cu)
-target_link_libraries(lrzsp2_cu
-  PRIVATE psz_cu_test_compile_settings
-)
-add_test(test_lrzsp2_cu lrzsp2_cu)
 
 if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)

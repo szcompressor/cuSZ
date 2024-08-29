@@ -38,7 +38,7 @@
 // compared to pszcxx_histogram_cauchy
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
 #define PSZ_HIST(...) \
-  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+  pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
 #elif defined(PSZ_USE_HIP)
 #define PSZ_HIST(...) \
   pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
@@ -51,7 +51,8 @@ void concate_memcpy_d2d(
   if (nbyte != 0) {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     AD_HOC_CHECK_GPU_WITH_LINE(
-        cudaMemcpyAsync(dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream),
+        cudaMemcpyAsync(
+            dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream),
         _file_, _line_);
 #elif defined(PSZ_USE_1API)
     ((sycl::queue*)stream)->memcpy(dst(FIELD), src, nbyte);
@@ -152,7 +153,7 @@ struct Compressor<C>::impl {
 #endif
     }
     else {
-      _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
+      pszcxx_predict_lorenzo<T, E>(
           {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
           {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
           stream);
@@ -309,7 +310,7 @@ struct Compressor<C>::impl {
 #endif
     }
     else {
-      _2401::pszpred_lrz<T, E>::pszcxx_reverse_predict_lorenzo(
+      pszcxx_reverse_predict_lorenzo<T, E>(
           {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
           {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
           &time_pred, stream);
@@ -448,7 +449,8 @@ Compressor<C>* Compressor<C>::decompress(
     header = new psz_header;
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     CHECK_GPU(cudaMemcpyAsync(
-        header, in, sizeof(psz_header), cudaMemcpyDeviceToHost, (cudaStream_t)stream));
+        header, in, sizeof(psz_header), cudaMemcpyDeviceToHost,
+        (cudaStream_t)stream));
     CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 #elif defined(PSZ_USE_1API)
     ((sycl::queue*)stream)->memcpy(header, in, sizeof(Header));

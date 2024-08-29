@@ -12,7 +12,7 @@
 using namespace portable;
 
 template <psz_policy policy, typename T, typename FQ, bool TIMING>
-pszerror _2401::pszcxx_histogram_cauchy(
+pszerror pszcxx_histogram_cauchy(
     array3<T> in, array3<u4> out_hist, float* milliseconds, void* stream)
 try {
   auto inlen = in.len3.x;

@@ -64,16 +64,16 @@ bool test(char* fname)
 
   float t_pred{0.0}, t_revpred{0};
 
-  _2401::pszpred_lrz<T, E>::pszcxx_predict_lorenzo(
+  pszcxx_predict_lorenzo<T, E>(
       {data, the_data_size}, {.eb = the_eb, .radius = 512}, {eq, shape1d},
       outlier_obj, &t_pred, stream);
 
-  _2401::pszpred_lrz<T, E>::pszcxx_reverse_predict_lorenzo(
+  pszcxx_reverse_predict_lorenzo<T, E>(
       {eq, shape1d}, {xdata, shape1d}, {.eb = the_eb, .radius = 512},
       {xdata, the_data_size}, &t_revpred, stream);
 
-  // updated coding style
-  // _2401::pszcxx_evaluate_quality_gpu<T>(
+  // TODO: to be consistent with the updated coding style
+  // pszcxx_evaluate_quality_gpu<T>(
   //     {xdata, {linear, 1, 1}}, {data, {linear, 1, 1}});
 
   // fallback

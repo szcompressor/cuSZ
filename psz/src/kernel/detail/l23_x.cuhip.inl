@@ -1,5 +1,5 @@
 /**
- * @file lorenzo23.inl
+ * @file l23_x.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4

@@ -11,9 +11,6 @@
  *
  */
 
-#ifndef CUSZ_KERNEL_LORENZO_PROTOTYPE_CUH
-#define CUSZ_KERNEL_LORENZO_PROTOTYPE_CUH
-
 #include <cstddef>
 #include <stdexcept>
 
@@ -252,12 +249,8 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(
 
 }  // namespace psz::proto
 
-#include "mem/compact.hh"
-#include "utils/err.hh"
-#include "utils/timer.hh"
-
 template <typename T, typename Eq>
-pszerror psz_comp_lproto(
+pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const data, dim3 const len3, double const eb, int const radius,
     Eq* const eq, void* _outlier, float* time_elapsed, void* stream)
 {
@@ -303,16 +296,19 @@ pszerror psz_comp_lproto(
   using namespace psz::proto;
 
   if (ndim() == 1) {
-    KERNEL_CUHIP_c_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
-        data, len3, leap3, radius, ebx2_r, eq, *outlier);
+    KERNEL_CUHIP_c_lorenzo_1d1l<T, Eq>
+        <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
+            data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (ndim() == 2) {
-    KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
-        data, len3, leap3, radius, ebx2_r, eq, *outlier);
+    KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq>
+        <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
+            data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else if (ndim() == 3) {
-    KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
-        data, len3, leap3, radius, ebx2_r, eq, *outlier);
+    KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq>
+        <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
+            data, len3, leap3, radius, ebx2_r, eq, *outlier);
   }
   else {
     throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -328,7 +324,7 @@ pszerror psz_comp_lproto(
 }
 
 template <typename T, typename Eq>
-pszerror psz_decomp_lproto(
+pszerror GPU_x_lorenzo_nd(
     Eq* eq, dim3 const len3, T* scattered_outlier, double const eb,
     int const radius, T* xdata, float* time_elapsed, void* stream)
 {
@@ -370,16 +366,19 @@ pszerror psz_decomp_lproto(
   using namespace psz::proto;
 
   if (ndim() == 1) {
-    KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq><<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
-        eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+    KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq>
+        <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
+            eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 2) {
-    KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq><<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
-        eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+    KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq>
+        <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
+            eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 3) {
-    KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq><<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
-        eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+    KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq>
+        <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
+            eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
   }
 
   STOP_GPUEVENT_RECORDING(stream);
@@ -391,4 +390,15 @@ pszerror psz_decomp_lproto(
   return CUSZ_SUCCESS;
 }
 
-#endif
+////////////////////////////////////////////////////////////////////////////////
+#define INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, Eq)       \
+  template pszerror GPU_c_lorenzo_nd_with_outlier<T, Eq>(           \
+      T* const, dim3 const, double const, int const, Eq* const, void*, \
+      float*, void*);                                                  \
+  template pszerror GPU_x_lorenzo_nd<T, Eq>(   \
+      Eq*, dim3 const, T*, double const, int const, T*, float*, void*);
+
+#define INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__1param(T) \
+  INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, u1); \
+  INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, u2); \
+  INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, u4);

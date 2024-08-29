@@ -1,5 +1,5 @@
 /**
- * @file lorenzo23.inl
+ * @file l23_fzgpu.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -11,42 +11,12 @@
 
 #include "cusz/suint.hh"
 #include "port.hh"
-#include "subr.cu_hip.inl"
+#include "subr_legacy.cuhip.inl"
 
-namespace psz {
-namespace experiment {
+namespace psz::legacyt::fzgpu {
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l_delta_only(
-    T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* delta);
-
-template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(
-    Eq* delta, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
-
-template <typename T, typename Eq, typename FP>
-__global__ void KERNEL_CUHIP_c_lorenzo_2d1l_delta_only(
-    T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* delta);
-
-template <typename T, typename Eq, typename FP>
-__global__ void KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(
-    Eq* delta, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
-
-template <typename T, typename Eq, typename FP>
-__global__ void KERNEL_CUHIP_c_lorenzo_3d1l_delta_only(
-    T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq);
-
-template <typename T, typename Eq, typename FP>
-__global__ void KERNEL_CUHIP_x_lorenzo_3d1l_delta_only(
-    Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata);
-
-}  // namespace delta_only
-}  // namespace __kernel
-}  // namespace cuda_hip
-}  // namespace psz
-
-template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::KERNEL_CUHIP_c_lorenzo_1d1l_delta_only(
     T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -71,7 +41,7 @@ __global__ void psz::KERNEL_CUHIP_c_lorenzo_1d1l_delta_only(
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -97,7 +67,7 @@ __global__ void psz::KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(  //
 }
 
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
-__global__ void psz::KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(  //
     Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -123,7 +93,7 @@ __global__ void psz::KERNEL_CUHIP_x_lorenzo_1d1l_delta_only(  //
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::KERNEL_CUHIP_c_lorenzo_2d1l_delta_only(
+__global__ void KERNEL_CUHIP_c_lorenzo_2d1l_delta_only(
     T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -147,7 +117,7 @@ __global__ void psz::KERNEL_CUHIP_c_lorenzo_2d1l_delta_only(
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(  //
     Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, FP ebx2, T* xdata)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -175,7 +145,7 @@ __global__ void psz::KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(  //
 
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(  //
     Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata)
 {
   namespace subr_v0 = psz::cuda_hip;
@@ -201,7 +171,7 @@ __global__ void psz::KERNEL_CUHIP_x_lorenzo_2d1l_delta_only(  //
 }
 
 template <typename T, typename Eq, typename FP>
-__global__ void psz::KERNEL_CUHIP_c_lorenzo_3d1l_delta_only(  //
+__global__ void KERNEL_CUHIP_c_lorenzo_3d1l_delta_only(  //
     T* data, dim3 len3, dim3 stride3, FP ebx2_r, Eq* eq)
 {
   constexpr auto BLOCK = 8;
@@ -258,7 +228,7 @@ __global__ void psz::KERNEL_CUHIP_c_lorenzo_3d1l_delta_only(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, typename Eq, typename FP>
-__global__ void psz::KERNEL_CUHIP_x_lorenzo_3d1l_delta_only(  //
+__global__ void KERNEL_CUHIP_x_lorenzo_3d1l_delta_only(  //
     Eq* eq, dim3 len3, dim3 stride3, FP ebx2, T* xdata)
 {
   constexpr auto BLOCK = 8;
@@ -338,3 +308,5 @@ __global__ void psz::KERNEL_CUHIP_x_lorenzo_3d1l_delta_only(  //
   block_scan_3d();
   decomp_write_3d();
 }
+
+}  // namespace psz::legacyt::fzgpu

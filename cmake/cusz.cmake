@@ -77,26 +77,23 @@ target_link_libraries(psz_cu_stat
 add_library(
   psz_cu_core
   psz/src/kernel/l23.seq.cc
-  psz/src/kernel/hist.seq.cc
-  psz/src/kernel/histsp.seq.cc
-  psz/src/kernel/spvn.seq.cc
+  psz/src/kernel/hist_compat.seq.cc
+  psz/src/kernel/hist_compat.cu
+  psz/src/kernel/histsp_compat.seq.cc
+  psz/src/kernel/histsp_compat.cu
+  # psz/src/kernel/spvn.seq.cc
   psz/src/kernel/dryrun.cu
   psz/src/kernel/lproto.cu
   psz/src/kernel/spvn.cu
-  psz/src/kernel/l23_c.cu
+  psz/src/kernel/l23r.cu
   psz/src/kernel/l23_x.cu
   psz/src/kernel/spline3.cu
-  psz/src/kernel/hist.cu
-  psz/src/kernel/hist.seq.cc # workaround
-  psz/src/kernel/histsp.cu
-  psz/src/kernel/histsp.seq.cc
-  psz/src/kernel/l23r.cu
   psz/src/module/lrz.cc
-  psz/src/module/lrz_cxx.cu
-  psz/src/module/spl_cxx.cu
-  psz/src/module/hist_cxx.cu
-  psz/src/module/scatter_cxx.cu
-  psz/src/kernel/spv.cu # a thrust impl
+  # psz/src/module/lrz_cxx.cu
+  # psz/src/module/spl_cxx.cu
+  # psz/src/module/hist_cxx.cu
+  # psz/src/module/scatter_cxx.cu
+  # psz/src/kernel/spv.cu # a thrust impl
 )
 target_link_libraries(psz_cu_core
   PUBLIC psz_cu_compile_settings CUDA::cudart

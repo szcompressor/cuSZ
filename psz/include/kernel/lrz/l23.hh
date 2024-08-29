@@ -18,21 +18,32 @@
 #include "mem/compact.hh"
 #include "port.hh"
 
-template <
-    typename T, typename E, 
-    psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
-pszerror pszcxx_reverse_predict_lorenzo__internal(
-    E* eq,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    dim3 const len3,
-#elif defined(PSZ_USE_1API)
-    sycl::range<3> const len3,
+
+namespace psz::cuhip {
+
+template <
+    typename T, typename E, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+pszerror GPU_x_lorenzo_nd(
+    E* eq, dim3 const len3, T* outlier, PROPER_EB const eb, int const radius,
+    T* xdata, float* time_elapsed, void* stream);
+
+}
+
 #endif
-    T* outlier,           //
-    PROPER_EB const eb,   // input (config)
-    int const radius,     //
-    T* xdata,             // output
-    float* time_elapsed,  // optional
-    void* stream);
+
+#if defined(PSZ_USE_1API)
+
+namespace psz::dpcpp {
+
+template <
+    typename T, typename E, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+pszerror GPU_x_lorenzo_nd(
+    E* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
+    int const radius, T* xdata, float* time_elapsed, void* stream);
+
+}
+
+#endif
 
 #endif /* B297267F_4731_48DB_8128_BBD202027EB7 */

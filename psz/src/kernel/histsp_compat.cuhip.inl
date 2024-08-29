@@ -1,5 +1,5 @@
 /**
- * @file histsp.cu
+ * @file histsp.cuhip.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -12,14 +12,13 @@
 #include <cstdint>
 
 #include "detail/histsp.cuhip.inl"
-#include "kernel/histsp.hh"
+#include "module/cxx_module.hh"
 #include "utils/timer.hh"
 
-namespace psz {
-namespace detail {
+namespace psz::cuhip {
 
 template <typename T, typename FQ>
-int histsp_cuda(
+int GPU_histogram_sparse(
     T* in, uint32_t inlen, FQ* out_hist, uint32_t outlen, float* milliseconds,
     cudaStream_t stream)
 {
@@ -42,22 +41,15 @@ int histsp_cuda(
   return 0;
 }
 
-}  // namespace detail
-}  // namespace psz
+}  // namespace psz::cuhip
 
-#define SPECIALIZE_CUDA(E)                                                \
+////////////////////////////////////////////////////////////////////////////////
+#define SPECIALIZE_PSZCXX_COMPAT_MODULE_HIST_CAUCHY(BACKEND, E)           \
   template <>                                                             \
-  int pszcxx_histogram_cauchy<psz_policy::CUDA, E, uint32_t>(             \
+  int pszcxx_compat_histogram_cauchy<BACKEND, E, uint32_t>(               \
       E * in, uint32_t inlen, uint32_t * out_hist, uint32_t outlen,       \
       float* milliseconds, void* stream)                                  \
   {                                                                       \
-    return psz::detail::histsp_cuda<E, uint32_t>(                         \
+    return psz::cuhip::GPU_histogram_sparse<E, uint32_t>(                 \
         in, inlen, out_hist, outlen, milliseconds, (cudaStream_t)stream); \
   }
-
-SPECIALIZE_CUDA(uint8_t)
-SPECIALIZE_CUDA(uint16_t)
-SPECIALIZE_CUDA(uint32_t)
-SPECIALIZE_CUDA(float)
-
-#undef SPECIALIZE_CUDA

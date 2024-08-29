@@ -14,8 +14,8 @@
 
 #include "hf.h"
 #include "hfclass.hh"
-#include "kernel/hist.hh"
 #include "mem.hh"
+#include "module/cxx_module.hh"
 #include "port.hh"
 #include "stat.hh"
 #include "utils/print_arr.hh"
@@ -75,7 +75,7 @@ void hf_run(
 
   float time_hist;
 
-  pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(
+  pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, E>(
       od->dptr(), len, ht->dptr(), bklen, &time_hist, stream);
 
   phf::HuffmanCodec<E> codec(len, bklen, pardeg /* not optimal for perf */);

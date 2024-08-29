@@ -6,8 +6,8 @@
 #include "cusz/type.h"
 #include "header.h"
 #include "mem/layout_cxx.hh"
-#include "tehm.hh"
 #include "stat/compare.hh"
+#include "tehm.hh"
 
 float get_throughput(float milliseconds, size_t nbyte)
 {
@@ -187,9 +187,12 @@ void psz::utils::print_metrics_cross(
 
   double to_KiB = 1024.0, to_MiB = 1024.0 * to_KiB, to_GiB = 1024.0 * to_MiB;
 
-  auto println_v2 = [](string const prefix, string const kw, double n1,
-                       bool rounding_to_4th = false) {
-    std::string combined = prefix + "::\e[1m\e[31m" + kw + "\e[0m";
+  bool hlcolor_red = true;
+  auto println_v2 = [&](string const prefix, string const kw, double n1,
+                        bool rounding_to_4th = false) {
+    std::string combined = prefix +
+                           (hlcolor_red ? "::\e[1m\e[31m" : "::\e[1m\e[34m") +
+                           kw + "\e[0m";
     if (not rounding_to_4th)
       printf("%-*s%16.8g\n", 36, combined.c_str(), n1);
     else
@@ -223,11 +226,13 @@ void psz::utils::print_metrics_cross(
   println_v2("data", "compressed_MiB", comp_bytes / to_MiB, true);
   println_v2("data", "compressed_GiB", comp_bytes / to_GiB, true);
   println_segline();
+  hlcolor_red = false;
   println_v2("comp_metric", "CR", bytes / comp_bytes);
   println_v2("comp_metric", "bitrate", 32.0 / (bytes / comp_bytes));
   println_v2("comp_metric", "NRMSE", s->score_NRMSE);
   println_v2("comp_metric", "coeff", s->score_coeff);
   println_v2("comp_metric", "PSNR", s->score_PSNR);
+  hlcolor_red = true;
   println_segline();
   println_v2("data_original", "min", s->odata.min);
   println_v2("data_original", "max", s->odata.max);
@@ -281,9 +286,11 @@ void pszcxx_evaluate_quality_cpu(
   psz::utils::print_metrics_cross<T>(stat, comp_bytes, false);
 
   auto stat_auto_lag1 = new psz_summary;
-  psz::utils::assess_quality<SEQ, T>(stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::utils::assess_quality<SEQ, T>(
+      stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_summary;
-  psz::utils::assess_quality<SEQ, T>(stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::utils::assess_quality<SEQ, T>(
+      stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::utils::print_metrics_auto(
       &stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);

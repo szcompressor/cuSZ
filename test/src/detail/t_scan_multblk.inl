@@ -113,7 +113,7 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   bool ok = true;
 
   printf("test len: %u\t", 1);
-  pszcxx_reverse_predict_lorenzo__internal(eq, len3, data, 0.5, 0, data, &time, stream);
+  psz::cuhip::GPU_x_lorenzo_nd(eq, len3, data, 0.5, 0, data, &time, stream);
 
   free_shared(data, stream);
   free_shared(eq, stream);

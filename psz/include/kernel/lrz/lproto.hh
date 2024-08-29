@@ -15,10 +15,13 @@
 #include <stdint.h>
 
 #include "cusz/type.h"
+#include "kernel/lrz/lproto.hh"
 #include "mem/compact.hh"
 
+namespace psz::cuhip::proto {
+
 template <typename T, typename EQ = int32_t>
-pszerror psz_comp_lproto(
+pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const data,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,
@@ -33,7 +36,7 @@ pszerror psz_comp_lproto(
     void* stream);        //
 
 template <typename T, typename EQ = int32_t>
-pszerror psz_decomp_lproto(
+pszerror GPU_x_lorenzo_nd(
     EQ* eq,  // input
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
     dim3 const len3,
@@ -46,5 +49,7 @@ pszerror psz_decomp_lproto(
     T* xdata,              // output
     float* time_elapsed,   // optional
     void* stream);
+
+}  // namespace psz::cuhip::proto
 
 #endif /* D5965FDA_3E90_4AC4_A53B_8439817D7F1C */
