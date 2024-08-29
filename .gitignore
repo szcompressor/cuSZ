@@ -3,6 +3,7 @@ bin/cusz
 buildcusz
 buildhipsz
 builddpsz
+build-*
 
 *.sz
 *.szx
