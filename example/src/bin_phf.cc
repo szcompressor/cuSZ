@@ -24,6 +24,9 @@
 using B = uint8_t;
 using F = u4;
 
+string fname;
+bool dump_book;
+
 namespace {
 
 void print_tobediscarded_info(float time_in_ms, string fn_name)
@@ -86,6 +89,7 @@ void hf_run(
   // float  time;
   size_t outlen;
   codec.buildbook(ht->dptr(), stream);
+  if (dump_book) codec.dump_internal_data("book", fname);
 
   E* d_oridup;
   cudaMalloc(&d_oridup, sizeof(E) * len);
@@ -138,33 +142,35 @@ void hf_run(
 int main(int argc, char** argv)
 {
   if (argc < 6) {
+    // clang-format off
     printf(
-        "PROG  /path/to/data  X  Y  Z  bklen  [optional: Type "
-        "{u1,u2,u4}]\n");
-    printf("0     1              2  3  4  5        [6]\n");
+        "PROG  /path/to/data  X  Y  Z  bklen  [type: u1,u2,u4]  [dump book: true,false]\n"
+        "0     1              2  3  4  5      [6:optional]      [7:optional]\n");
+    // clang-format on
     exit(0);
   }
   else {
-    auto fname = std::string(argv[1]);
+    fname = std::string(argv[1]);
     auto x = atoi(argv[2]);
     auto y = atoi(argv[3]);
     auto z = atoi(argv[4]);
     auto bklen = atoi(argv[5]);
 
     auto type = string("u1");
-    if (argc == 8) type = std::string(argv[6]);
+    if (argc == 7) type = std::string(argv[6]);
+    if (argc == 8) dump_book = std::string(argv[7]) == "true";
 
     if (type == "u1") {
       printf("REVERT bklen to 256 for u1-type input.");
-      hf_run<uint8_t, u4>(fname, x, y, z, 256);
+      hf_run<u1>(fname, x, y, z, 256);
     }
     else {
       if (type == "u2")
-        hf_run<uint16_t, u4>(fname, x, y, z, bklen);
+        hf_run<u2>(fname, x, y, z, bklen);
       else if (type == "u4")
-        hf_run<uint32_t, u4>(fname, x, y, z, bklen);
+        hf_run<u4>(fname, x, y, z, bklen);
       else
-        hf_run<uint32_t, u4>(fname, x, y, z, bklen);
+        hf_run<u4>(fname, x, y, z, bklen);
     }
   }
 

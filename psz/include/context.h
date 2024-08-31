@@ -60,12 +60,14 @@ struct psz_context {
   char file_prebuilt_hist_top1[500];
   char file_prebuilt_hfbk[500];
 
-  // ???
-  char dbgstr_pred[10];
+  // str for metadata
+  char char_meta_eb[16];
+  char char_predictor_name[10];
 
   // dump intermediate
   bool dump_quantcode;
   bool dump_hist;
+  bool dump_full_hf;
 
   bool task_construct;
   bool task_reconstruct;

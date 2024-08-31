@@ -57,6 +57,7 @@ class HuffmanCodec {
   HuffmanCodec* encode(E*, size_t const, PHF_BYTE**, size_t*, phf_stream_t);
   HuffmanCodec* decode(PHF_BYTE*, E*, phf_stream_t, bool = true);
   HuffmanCodec* clear_buffer();
+  HuffmanCodec* dump_internal_data(std::string, std::string);
 
   // analysis
   void calculate_CR(

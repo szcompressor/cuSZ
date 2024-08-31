@@ -89,7 +89,7 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :
   _anchor = new memobj<T>(
       div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor",
       {Malloc, MallocHost});
-  _ectrl = new memobj<E>(x, y, z, "psz::quant", {Malloc});
+  _ectrl = new memobj<E>(x, y, z, "psz::quant", {Malloc, MallocHost});
   _hist = new memobj<F>(bklen, "psz::hist", {Malloc, MallocHost});
 
   if (iscompression) {

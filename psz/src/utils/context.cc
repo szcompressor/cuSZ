@@ -71,7 +71,7 @@ void pszctx_parse_control_string(
 void pszctx_validate(pszctx* ctx);
 void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
 void pszctx_set_report(pszctx* ctx, const char* in_str);
-void pszctx_set_dumping(pszctx* ctx, const char* in_str);
+void pszctx_set_datadump(pszctx* ctx, const char* in_str);
 void pszctx_set_radius(pszctx* ctx, int _);
 // void pszctx_set_huffbyte(pszctx* ctx, int _);
 void pszctx_set_huffchunk(pszctx* ctx, int _);
@@ -105,7 +105,7 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
   }
 }
 
-void pszctx_set_dumping(pszctx* ctx, const char* in_str)
+void pszctx_set_datadump(pszctx* ctx, const char* in_str)
 {
   str_list opts;
   psz_helper::parse_strlist(in_str, opts);
@@ -118,12 +118,16 @@ void pszctx_set_dumping(pszctx* ctx, const char* in_str)
         ctx->dump_quantcode = kv.second;
       else if (kv.first == "histogram" or kv.first == "hist")
         ctx->dump_hist = kv.second;
+      else if (kv.first == "full_huffman_binary" or kv.first == "full_hf")
+        ctx->dump_full_hf = kv.second;
     }
     else {
       if (o == "quantcode" or o == "quant")
         ctx->dump_quantcode = true;
       else if (o == "histogram" or o == "hist")
         ctx->dump_hist = true;
+      else if (o == "full_huffman_binary" or o == "full_hf")
+        ctx->dump_full_hf = true;
     }
   }
 }
@@ -202,7 +206,7 @@ void pszctx_parse_control_string(
       ctx->use_autotune_phf = false;
     }
     else if (optmatch({"predictor"})) {
-      strcpy(ctx->dbgstr_pred, v.c_str());
+      strcpy(ctx->char_predictor_name, v.c_str());
 
       if (v == "spline" or v == "spline3") {
         ctx->pred_type = psz_predtype::Spline;
@@ -280,7 +284,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       }
       else if (optmatch({"--dump"})) {
         check_next();
-        pszctx_set_dumping(ctx, argv[++i]);
+        pszctx_set_datadump(ctx, argv[++i]);
       }
       else if (optmatch({"-h", "--help"})) {
         pszctx_print_document(true);
@@ -304,11 +308,13 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         check_next();
         char* end;
         ctx->eb = std::strtod(argv[++i], &end);
+        strcpy(ctx->char_meta_eb, argv[i]);
+        cout << "testing eb string" << ctx->char_meta_eb << endl;
       }
       else if (optmatch({"-p", "--predictor"})) {
         check_next();
         auto v = std::string(argv[++i]);
-        strcpy(ctx->dbgstr_pred, v.c_str());
+        strcpy(ctx->char_predictor_name, v.c_str());
 
         if (v == "spline" or v == "spline3") {
           ctx->pred_type = psz_predtype::Spline;
@@ -700,8 +706,7 @@ void pszctx_set_default_values(pszctx* empty_ctx)
 
 pszctx* pszctx_minimal_workset(
     psz_dtype const dtype, psz_predtype const predictor,
-    int const quantizer_radius, psz_codectype const codec
-    )
+    int const quantizer_radius, psz_codectype const codec)
 {
   auto ws = pszctx_default_values();
   ws->dtype = dtype;
