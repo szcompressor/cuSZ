@@ -388,14 +388,14 @@ template <class C>
 Compressor<C>::Compressor(psz_context* ctx, bool debug) :
     pimpl{std::make_unique<impl>()}
 {
-  pimpl->template init(ctx, true /* comp */, debug);
+  pimpl->template init<psz_context>(ctx, true /* comp */, debug);
 }
 
 template <class C>
 Compressor<C>::Compressor(psz_header* header, bool debug) :
     pimpl{std::make_unique<impl>()}
 {
-  pimpl->template init(header, false /* decomp */, debug);
+  pimpl->template init<psz_header>(header, false /* decomp */, debug);
 }
 
 template <class C>
@@ -480,13 +480,13 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(
     // TODO to be portable
     cudaStreamSynchronize((cudaStream_t)stream);
     auto& d = pimpl->mem->_hist;
-  // TODO caution! lift hardcoded dtype (hist)
+    // TODO caution! lift hardcoded dtype (hist)
     d->control({D2H})->file(dump_name("u4", ".hist").c_str(), ToFile);
   }
   if (ctx->dump_quantcode) {
     cudaStreamSynchronize((cudaStream_t)stream);
     auto& d = pimpl->mem->_ectrl;
-  // TODO caution! list hardcoded dtype (quant)
+    // TODO caution! list hardcoded dtype (quant)
     d->control({D2H})->file(dump_name("u2", ".quant").c_str(), ToFile);
   }
 
