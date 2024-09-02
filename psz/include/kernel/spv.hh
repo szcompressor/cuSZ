@@ -12,12 +12,10 @@
 #ifndef A54D2009_1D4F_4113_9E26_9695A3669224
 #define A54D2009_1D4F_4113_9E26_9695A3669224
 
-#include <cstdint>
-
 #include "cusz/type.h"
 
+// TODO change to psz::[backend]::[funcname]
 namespace psz {
-
 
 template <psz_policy P, typename T, typename M = u4>
 void spv_gather(

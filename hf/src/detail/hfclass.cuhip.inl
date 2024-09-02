@@ -352,6 +352,13 @@ PHF_TPL PHF_CLASS* PHF_CLASS::clear_buffer()
   return this;
 }
 
+PHF_TPL PHF_CLASS* PHF_CLASS::dump_internal_data(string field, string fname)
+{
+  auto ofname = fname + ".book_u4";
+  if (field == "book") pimpl->buf->bk4->file(ofname.c_str(), ToFile);
+  return this;
+}
+
 PHF_TPL float PHF_CLASS::time_book() const { return pimpl->time_book(); }
 PHF_TPL float PHF_CLASS::time_lossless() const { return pimpl->time_codec(); }
 PHF_TPL size_t PHF_CLASS::inlen() const { return pimpl->inlen(); }

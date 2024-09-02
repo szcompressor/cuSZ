@@ -18,13 +18,10 @@
 #include <type_traits>
 
 #include "compressor.hh"
-#include "context.h"
-#include "cusz/type.h"
 #include "exception/exception.hh"
 #include "hfclass.hh"
 #include "kernel.hh"
 #include "log.hh"
-#include "mem.hh"
 #include "module/cxx_module.hh"
 #include "port.hh"
 #include "utils/config.hh"
@@ -465,6 +462,33 @@ Compressor<C>* Compressor<C>::decompress(
   pimpl->decompress_decode(header, in, stream);
   pimpl->decompress_predict(header, in, nullptr, d_xdata, stream);
   pimpl->decompress_collect_kerneltime();
+
+  return this;
+}
+
+// public getter
+template <class C>
+Compressor<C>* Compressor<C>::dump_compress_intermediate(
+    pszctx* ctx, psz_stream_t stream)
+{
+  auto dump_name = [&](string t, string suffix = ".quant") -> string {
+    return string(ctx->file_input) + "." + string(ctx->char_meta_eb) + suffix +
+           "_" + t;
+  };
+
+  if (ctx->dump_hist) {
+    // TODO to be portable
+    cudaStreamSynchronize((cudaStream_t)stream);
+    auto& d = pimpl->mem->_hist;
+  // TODO caution! lift hardcoded dtype (hist)
+    d->control({D2H})->file(dump_name("u4", ".hist").c_str(), ToFile);
+  }
+  if (ctx->dump_quantcode) {
+    cudaStreamSynchronize((cudaStream_t)stream);
+    auto& d = pimpl->mem->_ectrl;
+  // TODO caution! list hardcoded dtype (quant)
+    d->control({D2H})->file(dump_name("u2", ".quant").c_str(), ToFile);
+  }
 
   return this;
 }

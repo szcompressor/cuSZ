@@ -130,8 +130,8 @@ pszerror capi_psz_release(psz_compressor* comp)
 }
 
 pszerror capi_psz_compress(
-    psz_compressor* comp, void* d_in, psz_len3 const in_len3,
-    double const eb, psz_mode const mode, uint8_t** comped, size_t* comp_bytes,
+    psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb,
+    psz_mode const mode, uint8_t** comped, size_t* comp_bytes,
     psz_header* header, void* record, void* stream)
 {
   comp->ctx->eb = eb;
@@ -149,7 +149,7 @@ pszerror capi_psz_compress(
     else {
       printf("[psz::error] non-F4 is not currently supported.");
     }
-    comp->ctx->eb *= _rng; 
+    comp->ctx->eb *= _rng;
     comp->ctx->logging_max = _max;
     comp->ctx->logging_min = _min;
   }
@@ -161,6 +161,7 @@ pszerror capi_psz_compress(
     cor->export_header(*header);
     cor->export_timerecord((psz::TimeRecord*)record);
     cor->export_timerecord(comp->stage_time);
+    cor->dump_compress_intermediate(comp->ctx, stream);
   }
   else {
     // TODO put to log-queue
@@ -185,7 +186,8 @@ pszerror capi_psz_decompress(
   if (comp->type == F4) {
     auto cor = (psz::CompressorF4*)(comp->compressor);
 
-    cor->decompress(comp->header, comped, (f4*)(decomped), (cudaStream_t)stream);
+    cor->decompress(
+        comp->header, comped, (f4*)(decomped), (cudaStream_t)stream);
     cor->export_timerecord((psz::TimeRecord*)record);
     cor->export_timerecord(comp->stage_time);
   }

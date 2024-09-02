@@ -6,6 +6,8 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
+
+// TODO only 1 CUHIP
 #define SPVN_GATHER(T, Criterion, M)                                          \
   template <>                                                                 \
   void psz::spv_gather_naive<CUDA, T, Criterion, M>(                          \

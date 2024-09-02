@@ -13,8 +13,8 @@ target_link_libraries(demo_capi_cuda
 # PRIVATE cusz CUDA::cudart
 # )
 
-add_executable(bin_hf src/bin_hf.cc)
-target_link_libraries(bin_hf
+add_executable(phf src/bin_phf.cc)
+target_link_libraries(phf
   PRIVATE CUDA::cudart
   cusz
 )

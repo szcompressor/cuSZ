@@ -1,5 +1,3 @@
-#include "module/cxx_module.hh"
-#include "module/cxx_module.hh"
 #include "kernel/lrz.hh"
-#include "kernel/spv.hh"
 #include "kernel/spline.hh"
+#include "kernel/spv.hh"

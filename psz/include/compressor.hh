@@ -46,18 +46,19 @@ class Compressor {
   // comp, ctor(...) + no further init
   Compressor(psz_context*, bool debug = false);
   Compressor(psz_header*, bool debug = false);
-  // dtor, releasing 
+  // dtor, releasing
   ~Compressor();
 
-/**
- * @brief initialize internal buffer
- * @deprecated to be an internal function
- * @tparam CONFIG psz_context of psz_header
- */
+  /**
+   * @brief initialize internal buffer
+   * @deprecated to be an internal function
+   * @tparam CONFIG psz_context of psz_header
+   */
   template <class CONFIG>
   Compressor* init(CONFIG* config, bool iscomp = true, bool dbg = false);
   Compressor* compress(pszctx*, T*, BYTE**, size_t*, psz_stream_t);
   Compressor* decompress(psz_header*, BYTE*, T*, psz_stream_t);
+  Compressor* dump_compress_intermediate(pszctx*, psz_stream_t);
   Compressor* clear_buffer();
 
   // getter
