@@ -1,6 +1,5 @@
 @PACKAGE_INIT@
 
-find_package(CUB)
 find_package(CUDAToolkit REQUIRED)
 include("${CMAKE_CURRENT_LIST_DIR}/CUSZTargets.cmake")
 

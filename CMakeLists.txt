@@ -30,7 +30,7 @@ option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" 
 option(PSZ_BUILD_EXAMPLES "build example codes" ON)
 
 # pythhon binding
-option(PSZ_BUILD_PYBINDING "enable Python binding for specific backend" ON)
+option(PSZ_BUILD_PYBINDING "enable Python binding for specific backend" OFF)
 
 
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
