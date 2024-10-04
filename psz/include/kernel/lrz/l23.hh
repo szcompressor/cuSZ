@@ -22,8 +22,7 @@
 
 namespace psz::cuhip {
 
-template <
-    typename T, typename E, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+template <typename T, typename E, psz_timing_mode TIMING = SYNC_BY_STREAM>
 pszerror GPU_x_lorenzo_nd(
     E* eq, dim3 const len3, T* outlier, PROPER_EB const eb, int const radius,
     T* xdata, float* time_elapsed, void* stream);
@@ -36,8 +35,7 @@ pszerror GPU_x_lorenzo_nd(
 
 namespace psz::dpcpp {
 
-template <
-    typename T, typename E, psz_timing_mode TIMING = CPU_BARRIER_AND_TIMING>
+template <typename T, typename E, psz_timing_mode TIMING = SYNC_BY_STREAM>
 pszerror GPU_x_lorenzo_nd(
     E* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
     int const radius, T* xdata, float* time_elapsed, void* stream);

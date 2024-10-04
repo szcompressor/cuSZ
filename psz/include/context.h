@@ -64,6 +64,9 @@ struct psz_context {
   char char_meta_eb[16];
   char char_predictor_name[10];
 
+  // use prototype lorenzo
+  bool use_proto_lorenzo;
+
   // dump intermediate
   bool dump_quantcode;
   bool dump_hist;

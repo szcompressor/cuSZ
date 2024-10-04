@@ -52,7 +52,7 @@ pszerror GPU_x_lorenzo_nd(
   auto leap3 = dim3(1, len3.x, len3.x * len3.y);
   auto d = lorenzo_utils::ndim(len3);
 
-  if constexpr (TIMING == CPU_BARRIER_AND_TIMING) {
+  if constexpr (TIMING == SYNC_BY_STREAM) {
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
@@ -85,9 +85,9 @@ pszerror GPU_x_lorenzo_nd(
       E * eq, dim3 const len3, T* outlier, f8 const eb, int const radius, \
       T* xdata, f4* time_elapsed, void* stream);
 
-#define INSTANTIATE_GPU_L23X_2params(T, E)                    \
-  INSTANTIATE_GPU_L23X_3params(T, E, CPU_BARRIER_AND_TIMING); \
-  INSTANTIATE_GPU_L23X_3params(T, E, CPU_BARRIER);            \
+#define INSTANTIATE_GPU_L23X_2params(T, E)            \
+  INSTANTIATE_GPU_L23X_3params(T, E, SYNC_BY_STREAM); \
+  INSTANTIATE_GPU_L23X_3params(T, E, CPU_BARRIER);    \
   INSTANTIATE_GPU_L23X_3params(T, E, GPU_AUTOMONY);
 
 #define INSTANTIATE_GPU_L23X_1param(T) \

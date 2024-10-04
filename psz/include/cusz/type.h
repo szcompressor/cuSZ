@@ -186,7 +186,7 @@ typedef psz_runtime_config psz_rc;
 struct psz_profiling;
 
 typedef enum psz_timing_mode {
-  CPU_BARRIER_AND_TIMING,
+  SYNC_BY_STREAM,
   CPU_BARRIER,
   GPU_AUTOMONY
 } psz_timing_mode;

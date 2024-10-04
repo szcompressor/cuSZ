@@ -15,41 +15,43 @@
 #include <stdint.h>
 
 #include "cusz/type.h"
-#include "kernel/lrz/lproto.hh"
 #include "mem/compact.hh"
+#include "port.hh"
+
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
 namespace psz::cuhip::proto {
 
-template <typename T, typename EQ = int32_t>
+template <typename T, typename E>
 pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const data,  // input
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    dim3 const len3,
-#elif defined(PSZ_USE_1API)
-    sycl::range<3> const len3,
-#endif
-    double const eb,      // input (config)
-    int const radius,     //
-    EQ* const eq,         // output
-    void* _outlier,       //
-    float* time_elapsed,  // optional
-    void* stream);        //
+    T* const data, dim3 const len3, PROPER_EB const eb, int const radius,
+    E* const eq, void* _outlier, float* time_elapsed, void* stream);
 
-template <typename T, typename EQ = int32_t>
+template <typename T, typename E>
 pszerror GPU_x_lorenzo_nd(
-    EQ* eq,  // input
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    dim3 const len3,
-#elif defined(PSZ_USE_1API)
-    sycl::range<3> const len3,
-#endif
-    T* scattered_outlier,  //
-    double const eb,       // input (config)
-    int const radius,      //
-    T* xdata,              // output
-    float* time_elapsed,   // optional
-    void* stream);
+    E* eq, dim3 const len3, T* outlier, PROPER_EB const eb, int const radius,
+    T* xdata, float* time_elapsed, void* stream);
 
 }  // namespace psz::cuhip::proto
+
+#endif
+
+#if defined(PSZ_USE_1API)
+
+namespace psz::dpcpp::proto {
+template <typename T, typename E>
+pszerror GPU_c_lorenzo_nd_with_outlier(
+    T* const data, sycl::range<3> const len3, PROPER_EB const eb,
+    int const radius, E* const eq, void* _outlier, float* time_elapsed,
+    void* stream);
+
+template <typename T, typename E>
+pszerror GPU_x_lorenzo_nd(
+    E* eq, sycl::range<3> const len3, T* outlier, PROPER_EB const eb,
+    int const radius, T* xdata, float* time_elapsed, void* stream);
+
+}  // namespace psz::dpcpp::proto
+
+#endif
 
 #endif /* D5965FDA_3E90_4AC4_A53B_8439817D7F1C */

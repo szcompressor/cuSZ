@@ -237,6 +237,9 @@ void pszctx_parse_control_string(
     else if (optmatch({"gpuverify"}) and is_enabled(v)) {
       ctx->use_gpu_verify = true;
     }
+    else if (optmatch({"use-proto-lorenzo"}) and is_enabled(v)) {
+      ctx->use_proto_lorenzo = true;
+    }
   }
 }
 
@@ -351,6 +354,9 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"--size", "--zyx", "--slowest-to-fastest"})) {
         check_next();
         pszctx_parse_length_zyx(ctx, argv[++i]);
+      }
+      else if (optmatch({"--use-proto-lorenzo"})) {
+        ctx->use_proto_lorenzo = true;
       }
       else if (optmatch({"-z", "--zip", "--compress"})) {
         ctx->task_construct = true;
@@ -675,6 +681,7 @@ pszctx* pszctx_default_values()
       .data_len = 1,
       .splen = 0,
       .ndim = -1,
+      .use_proto_lorenzo = false,
       .dump_quantcode = false,
       .dump_hist = false,
       .task_construct = false,

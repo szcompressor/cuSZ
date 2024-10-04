@@ -54,6 +54,7 @@ typedef struct psz_header {
       double logging_min, logging_max;
       psz_predtype logging_pred_type;
       psz_mode logging_mode;
+      bool use_proto_lorenzo;
     };
   };
 } psz_header;

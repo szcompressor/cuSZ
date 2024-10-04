@@ -150,10 +150,16 @@ struct Compressor<C>::impl {
 #endif
     }
     else {
-      pszcxx_predict_lorenzo<T, E>(
-          {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
-          {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
-          stream);
+      if (ctx->use_proto_lorenzo)
+        pszcxx_predict_lorenzo<T, E, SYNC_BY_STREAM, true>(
+            {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
+            {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
+            stream);
+      else
+        pszcxx_predict_lorenzo<T, E, SYNC_BY_STREAM, false>(
+            {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
+            {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
+            stream);
 
       PSZDBG_LOG("interp: done");
       PSZDBG_PTR_WHERE(mem->ectrl());
@@ -226,6 +232,7 @@ struct Compressor<C>::impl {
     // update header
     header.x = ctx->x, header.y = ctx->y, header.z = ctx->z,
     header.w = 1;  // placeholder
+    header.use_proto_lorenzo = ctx->use_proto_lorenzo;
     header.radius = ctx->radius, header.eb = ctx->eb;
     header.vle_pardeg = ctx->vle_pardeg;
     header.splen = ctx->splen;
@@ -307,10 +314,16 @@ struct Compressor<C>::impl {
 #endif
     }
     else {
-      pszcxx_reverse_predict_lorenzo<T, E>(
-          {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
-          {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
-          &time_pred, stream);
+      if (header->use_proto_lorenzo)
+        pszcxx_reverse_predict_lorenzo<T, E, SYNC_BY_STREAM, true>(
+            {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
+            {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
+            &time_pred, stream);
+      else
+        pszcxx_reverse_predict_lorenzo<T, E, SYNC_BY_STREAM, false>(
+            {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
+            {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
+            &time_pred, stream);
     }
   }
 
@@ -480,13 +493,13 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(
     // TODO to be portable
     cudaStreamSynchronize((cudaStream_t)stream);
     auto& d = pimpl->mem->_hist;
-  // TODO caution! lift hardcoded dtype (hist)
+    // TODO caution! lift hardcoded dtype (hist)
     d->control({D2H})->file(dump_name("u4", ".hist").c_str(), ToFile);
   }
   if (ctx->dump_quantcode) {
     cudaStreamSynchronize((cudaStream_t)stream);
     auto& d = pimpl->mem->_ectrl;
-  // TODO caution! list hardcoded dtype (quant)
+    // TODO caution! list hardcoded dtype (quant)
     d->control({D2H})->file(dump_name("u2", ".quant").c_str(), ToFile);
   }
 

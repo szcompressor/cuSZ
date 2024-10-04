@@ -25,11 +25,11 @@ namespace psz::proto {
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
-    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
-    int BLK = 256>
+    typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t, int BLK = 256>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact compact)
+    CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[BLK];
@@ -47,20 +47,20 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
   if (check_boundary1()) {  // postquant
     eq[id] = quantizable * static_cast<Eq>(candidate);
     if (not quantizable) {
-      auto dram_idx = atomicAdd(compact.d_num, 1);
-      compact.d_val[dram_idx] = candidate;
-      compact.d_idx[dram_idx] = id;
+      auto cur_idx = atomicAdd(cn, 1);
+      cidx[cur_idx] = id;
+      cval[cur_idx] = candidate;
     }
   }
 }
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
-    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
-    int BLK = 16>
+    typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t, int BLK = 16>
 __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact compact)
+    CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
   SETUP_ND_GPU_CUDA;
 
@@ -85,20 +85,20 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
   if (check_boundary2()) {
     eq[id] = quantizable * static_cast<Eq>(candidate);
     if (not quantizable) {
-      auto dram_idx = atomicAdd(compact.d_num, 1);
-      compact.d_val[dram_idx] = candidate;
-      compact.d_idx[dram_idx] = id;
+      auto cur_idx = atomicAdd(cn, 1);
+      cidx[cur_idx] = id;
+      cval[cur_idx] = candidate;
     }
   }
 }
 
 template <
     typename T, typename Eq = int32_t, typename Fp = T,
-    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact,
-    int BLK = 8>
+    typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t, int BLK = 8>
 __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     T* in_data, dim3 len3, dim3 stride3, int radius, Fp ebx2_r, Eq* eq,
-    Compact compact)
+    CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[BLK][BLK][BLK + 1];
@@ -126,17 +126,16 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
   if (check_boundary3()) {
     eq[id] = quantizable * static_cast<Eq>(candidate);
     if (not quantizable) {
-      auto dram_idx = atomicAdd(compact.d_num, 1);
-      compact.d_val[dram_idx] = candidate;
-      compact.d_idx[dram_idx] = id;
+      auto cur_idx = atomicAdd(cn, 1);
+      cidx[cur_idx] = id;
+      cval[cur_idx] = candidate;
     }
   }
 }
 
 template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 256>
 __global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
-    Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2,
-    T* xdata)
+    Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2, T* xdata)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[BLK];
@@ -145,7 +144,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
   auto data = [&](auto dx) -> T& { return buf[t().x + dx]; };
 
   if (id < len3.x)
-    data(0) = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
+    data(0) = outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
   else
     data(0) = 0;
   __syncthreads();
@@ -164,8 +163,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
 
 template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 16>
 __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(
-    Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2,
-    T* xdata)
+    Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2, T* xdata)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[BLK][BLK + 1];
@@ -176,8 +174,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(
   };
 
   if (check_boundary2())
-    data(0, 0) =
-        scattered_outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
+    data(0, 0) = outlier[id] + static_cast<T>(eq[id]) - radius;  // fuse
   else
     data(0, 0) = 0;
   __syncthreads();
@@ -203,8 +200,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(
 
 template <typename T, typename Eq = int32_t, typename Fp = T, int BLK = 8>
 __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(
-    Eq* eq, T* scattered_outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2,
-    T* xdata)
+    Eq* eq, T* outlier, dim3 len3, dim3 stride3, int radius, Fp ebx2, T* xdata)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[BLK][BLK][BLK + 1];
@@ -215,7 +211,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(
   };
 
   if (check_boundary3())
-    data(0, 0, 0) = scattered_outlier[id] + static_cast<T>(eq[id]) - radius;
+    data(0, 0, 0) = outlier[id] + static_cast<T>(eq[id]) - radius;
   else
     data(0, 0, 0) = 0;
   __syncthreads();
@@ -249,6 +245,8 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(
 
 }  // namespace psz::proto
 
+namespace psz::cuhip::proto {
+
 template <typename T, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const data, dim3 const len3, double const eb, int const radius,
@@ -271,7 +269,7 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
 
   using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
 
-  auto outlier = (Compact*)_outlier;
+  auto ot = (Compact*)_outlier;
 
   constexpr auto Tile1D = 256;
   constexpr auto Block1D = dim3(256, 1, 1);
@@ -298,17 +296,20 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
   if (ndim() == 1) {
     KERNEL_CUHIP_c_lorenzo_1d1l<T, Eq>
         <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, *outlier);
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
+            ot->num());
   }
   else if (ndim() == 2) {
     KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq>
         <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, *outlier);
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
+            ot->num());
   }
   else if (ndim() == 3) {
     KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq>
         <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
-            data, len3, leap3, radius, ebx2_r, eq, *outlier);
+            data, len3, leap3, radius, ebx2_r, eq, ot->val(), ot->idx(),
+            ot->num());
   }
   else {
     throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -325,8 +326,8 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
 
 template <typename T, typename Eq>
 pszerror GPU_x_lorenzo_nd(
-    Eq* eq, dim3 const len3, T* scattered_outlier, double const eb,
-    int const radius, T* xdata, float* time_elapsed, void* stream)
+    Eq* eq, dim3 const len3, T* outlier, double const eb, int const radius,
+    T* xdata, float* time_elapsed, void* stream)
 {
   auto divide3 = [](dim3 len, dim3 sublen) {
     return dim3(
@@ -368,17 +369,17 @@ pszerror GPU_x_lorenzo_nd(
   if (ndim() == 1) {
     KERNEL_CUHIP_x_lorenzo_1d1l<T, Eq>
         <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
-            eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+            eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 2) {
     KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq>
         <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
-            eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+            eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
   else if (ndim() == 3) {
     KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq>
         <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
-            eq, scattered_outlier, len3, leap3, radius, ebx2, xdata);
+            eq, outlier, len3, leap3, radius, ebx2, xdata);
   }
 
   STOP_GPUEVENT_RECORDING(stream);
@@ -390,15 +391,17 @@ pszerror GPU_x_lorenzo_nd(
   return CUSZ_SUCCESS;
 }
 
+}  // namespace psz::cuhip::proto
+
 ////////////////////////////////////////////////////////////////////////////////
-#define INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, Eq)       \
-  template pszerror GPU_c_lorenzo_nd_with_outlier<T, Eq>(           \
-      T* const, dim3 const, double const, int const, Eq* const, void*, \
-      float*, void*);                                                  \
-  template pszerror GPU_x_lorenzo_nd<T, Eq>(   \
+#define INSTANTIATIE_GPU_LORENZO_PROTO_2params(T, Eq)                        \
+  template pszerror psz::cuhip::proto::GPU_c_lorenzo_nd_with_outlier<T, Eq>( \
+      T* const, dim3 const, double const, int const, Eq* const, void*,       \
+      float*, void*);                                                        \
+  template pszerror psz::cuhip::proto::GPU_x_lorenzo_nd<T, Eq>(              \
       Eq*, dim3 const, T*, double const, int const, T*, float*, void*);
 
-#define INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__1param(T) \
-  INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, u1); \
-  INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, u2); \
-  INSTANTIATIE_PSZCXX_MODULE_PROTO_LORENZO__2params(T, u4);
+#define INSTANTIATIE_LORENZO_PROTO_1param(T)     \
+  INSTANTIATIE_GPU_LORENZO_PROTO_2params(T, u1); \
+  INSTANTIATIE_GPU_LORENZO_PROTO_2params(T, u2); \
+  INSTANTIATIE_GPU_LORENZO_PROTO_2params(T, u4);

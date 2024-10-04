@@ -63,7 +63,7 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
   auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
   auto leap3 = dim3(1, len3.x, len3.x * len3.y);
 
-  if constexpr (TIMING == CPU_BARRIER_AND_TIMING) {
+  if constexpr (TIMING == SYNC_BY_STREAM) {
     CREATE_GPUEVENT_PAIR;
     START_GPUEVENT_RECORDING((cudaStream_t)stream);
 
@@ -101,9 +101,9 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
   INSTANCIATE_GPU_L23R_4params(T, E, TIMING, false); \
   INSTANCIATE_GPU_L23R_4params(T, E, TIMING, true);
 
-#define INSTANCIATE_GPU_L23R_2params(T, E)                    \
-  INSTANCIATE_GPU_L23R_3params(T, E, CPU_BARRIER_AND_TIMING); \
-  INSTANCIATE_GPU_L23R_3params(T, E, CPU_BARRIER);            \
+#define INSTANCIATE_GPU_L23R_2params(T, E)            \
+  INSTANCIATE_GPU_L23R_3params(T, E, SYNC_BY_STREAM); \
+  INSTANCIATE_GPU_L23R_3params(T, E, CPU_BARRIER);    \
   INSTANCIATE_GPU_L23R_3params(T, E, GPU_AUTOMONY);
 
 #define INSTANCIATE_GPU_L23R_1param(T) \

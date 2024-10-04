@@ -29,8 +29,7 @@
     return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));                        \
   };
 
-namespace psz {
-namespace rolling {
+namespace psz::rolling {
 
 template <
     typename T, typename Eq = uint32_t, typename Fp = T, int TileDim = 256,
@@ -263,7 +262,6 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
   }
 }
 
-}  // namespace rolling
-}  // namespace psz
+}  // namespace psz::rolling
 
 #endif /* AAC905A6_6314_4E1E_B5CD_BBBA9005A448 */
