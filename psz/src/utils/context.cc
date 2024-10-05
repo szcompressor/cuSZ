@@ -312,7 +312,6 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         char* end;
         ctx->eb = std::strtod(argv[++i], &end);
         strcpy(ctx->char_meta_eb, argv[i]);
-        cout << "testing eb string" << ctx->char_meta_eb << endl;
       }
       else if (optmatch({"-p", "--predictor"})) {
         check_next();

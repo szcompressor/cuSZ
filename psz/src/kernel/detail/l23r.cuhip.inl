@@ -262,6 +262,28 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
   }
 }
 
+template <
+    typename TIN, typename TOUT, bool ReverseProcess = false,
+    typename Fp = TIN, int TileDim = 256, int Seq = 8>
+__global__ void KERNEL_CUHIP_lorenzo_prequant(
+    TIN* in, size_t len, Fp ebx2_r, Fp ebx2, TOUT* out)
+{
+  constexpr auto NumThreads = TileDim / Seq;
+  auto id_base = blockIdx.x * TileDim;
+
+#pragma unroll
+  for (auto ix = 0; ix < Seq; ix++) {
+    auto id = id_base + threadIdx.x + ix * NumThreads;
+    // dram to dram
+    if constexpr (not ReverseProcess) {
+      if (id < len) out[id] = round(in[id] * ebx2_r);
+    }
+    else {
+      if (id < len) out[id] = in[id] * ebx2;
+    }
+  }
+}
+
 }  // namespace psz::rolling
 
 #endif /* AAC905A6_6314_4E1E_B5CD_BBBA9005A448 */

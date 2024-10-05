@@ -27,6 +27,12 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const data, dim3 const len3, PROPER_EB const eb, int const radius,
     E* const eq, void* _outlier, float* time_elapsed, void* _stream);
 
+template <
+    typename TIN, typename TOUT, bool ReverseProcess, psz_timing_mode TIMING>
+pszerror GPU_lorenzo_prequant(
+    TIN* const in, size_t const len, PROPER_EB const eb, TOUT* const out,
+    float* time_elapsed, void* _stream);
+
 }  // namespace psz::cuhip
 
 #endif

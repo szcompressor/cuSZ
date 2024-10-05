@@ -53,6 +53,8 @@ typedef enum {
   CUSZ_NOT_IMPLEMENTED,
   // too many outliers
   CUSZ_OUTLIER_TOO_MANY,
+  // specified wrong timer
+  PSZ_WRONG_TIMER_SPECIFIED,
 } psz_error_status;
 typedef psz_error_status pszerror;
 
