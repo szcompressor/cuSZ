@@ -22,31 +22,31 @@ namespace psz {
 //
 // Multiple warps:the large shmem use (relative to #thread).
 
-template <typename T, typename FQ = uint32_t, int K = 5>
+template <typename T, typename FREQ = uint32_t, int K = 5>
 __global__ void KERNEL_CUHIP_histogram_sparse_multiwarp(
-    T* in, uint32_t inlen,  //
-    uint32_t chunk, FQ* out, uint32_t outlen, int offset = 0)
+    T* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len,
+    uint32_t const chunk, int offset = 0)
 {
   static_assert(K % 2 == 1, "K must be odd.");
   constexpr auto R = (K - 1) / 2;  // K = 5, R = 2
 
   // small & big local hist based on presumed access category
-  extern __shared__ FQ s_hist[];
+  extern __shared__ FREQ s_hist[];
   // cannot scale according to compressiblity becasuse of the register pressure
   // there should be offline optimal
-  FQ p_hist[K] = {0};
+  FREQ p_hist[K] = {0};
 
   auto global_id = [&](auto i) { return blockIdx.x * chunk + i; };
   auto nworker = [&]() { return blockDim.x; };
 
-  for (auto i = threadIdx.x; i < outlen; i += blockDim.x) s_hist[i] = 0;
+  for (auto i = threadIdx.x; i < hist_len; i += blockDim.x) s_hist[i] = 0;
   __syncthreads();
 
   for (auto i = threadIdx.x; i < chunk; i += blockDim.x) {
     auto gid = global_id(i);
-    if (gid < inlen) {
-      auto ori = (int)in[gid];  // e.g., 512
-      auto sym = ori - offset;  // e.g., 512 - 512 = 0
+    if (gid < data_len) {
+      auto ori = (int)in_data[gid];  // e.g., 512
+      auto sym = ori - offset;       // e.g., 512 - 512 = 0
 
       if (2 * abs(sym) < K) {
         // -2, -1, 0, 1, 2 -> sym + R = 0, 1, 2, 3, 4
@@ -83,9 +83,39 @@ __global__ void KERNEL_CUHIP_histogram_sparse_multiwarp(
       atomicAdd(&s_hist[(int)offset + i - R], p_hist[i]);
   __syncthreads();
 
-  for (auto i = threadIdx.x; i < outlen; i += blockDim.x)
-    atomicAdd(out + i, s_hist[i]);
+  for (auto i = threadIdx.x; i < hist_len; i += blockDim.x)
+    atomicAdd(out_hist + i, s_hist[i]);
   __syncthreads();
 }
 
 }  // namespace psz
+
+#include "utils/timer.hh"
+
+namespace psz::cuhip {
+
+template <typename T, typename FREQ>
+int GPU_histogram_sparse(
+    T* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len,
+    float* milliseconds, cudaStream_t stream)
+{
+  auto chunk = 32768;
+  auto num_chunks = (data_len - 1) / chunk + 1;
+  auto num_workers = 256;  // n SIMD-32
+
+  CREATE_GPUEVENT_PAIR;
+  START_GPUEVENT_RECORDING(stream);
+
+  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<T, FREQ>
+      <<<num_chunks, num_workers, sizeof(FREQ) * hist_len, stream>>>(
+          in_data, data_len, out_hist, hist_len, chunk, hist_len / 2);
+  STOP_GPUEVENT_RECORDING(stream);
+
+  cudaStreamSynchronize(stream);
+  TIME_ELAPSED_GPUEVENT(milliseconds);
+  DESTROY_GPUEVENT_PAIR;
+
+  return 0;
+}
+
+}  // namespace psz::cuhip

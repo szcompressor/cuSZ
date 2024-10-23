@@ -37,80 +37,71 @@ const static unsigned int WARP_SIZE = 32;
 
 namespace psz {
 
-template <typename Input>
-__global__ void KERNEL_CUHIP_histogram_native(
-    Input in_data[], int out_freq[], int N, int symbols_per_thread);
-
-/* Copied from J. Gomez-Luna et al */
 template <typename T, typename FREQ>
-__global__ void KERNEL_CUHIP_p2013Histogram(T*, FREQ*, size_t, int, int);
-
-}  // namespace psz
-
-template <typename T>
-__global__ void psz::KERNEL_CUHIP_histogram_native(
-    T in_data[], int out_freq[], int N, int symbols_per_thread)
+__global__ void KERNEL_CUHIP_histogram_naive(
+    T* in_data, size_t const data_len, FREQ* out_bins, uint16_t const bins_len,
+    uint16_t const repeat)
 {
-  unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
-  unsigned int j;
-  if (i * symbols_per_thread < N) {  // if there is a symbol to count,
-    for (j = i * symbols_per_thread; j < (i + 1) * symbols_per_thread; j++) {
-      if (j < N) {
-        unsigned int item = in_data[j];  // Symbol to count
-        atomicAdd(&out_freq[item], 1);   // update bin count by 1
+  auto i = blockDim.x * blockIdx.x + threadIdx.x;
+  auto j = 0u;
+  if (i * repeat < data_len) {  // if there is a symbol to count,
+    for (j = i * repeat; j < (i + 1) * repeat; j++) {
+      if (j < data_len) {
+        auto item = in_data[j];         // symbol to count
+        atomicAdd(&out_bins[item], 1);  // update bin count by 1
       }
     }
   }
 }
 
+/* Copied from J. Gomez-Luna et al. */
 template <typename T, typename FREQ>
-__global__ void psz::KERNEL_CUHIP_p2013Histogram(
-    T* in_data, FREQ* out_freq, size_t N, int nbin, int R)
+__global__ void KERNEL_CUHIP_p2013Histogram(
+    T* in_data, size_t const data_len, FREQ* out_bins, uint16_t const bins_len,
+    uint16_t const repeat)
 {
-  // static_assert(
-  //     std::numeric_limits<T>::is_integer and (not
-  //     std::numeric_limits<T>::is_signed), "T must be `unsigned integer` type
-  //     of {1,2,4} bytes");
-
-  extern __shared__ int Hs[/*(nbin + 1) * R*/];
+  extern __shared__ int Hs[/*(bins_len + 1) * repeat*/];
 
   const unsigned int warp_id = (int)(tix / WARP_SIZE);
   const unsigned int lane = tix % WARP_SIZE;
   const unsigned int warps_block = bdx / WARP_SIZE;
-  const unsigned int off_rep = (nbin + 1) * (tix % R);
+  const unsigned int off_rep = (bins_len + 1) * (tix % repeat);
   const unsigned int begin =
-      (N / warps_block) * warp_id + WARP_SIZE * blockIdx.x + lane;
-  unsigned int end = (N / warps_block) * (warp_id + 1);
+      (data_len / warps_block) * warp_id + WARP_SIZE * blockIdx.x + lane;
+  unsigned int end = (data_len / warps_block) * (warp_id + 1);
   const unsigned int step = WARP_SIZE * gridDim.x;
 
   // final warp handles data outside of the warps_block partitions
-  if (warp_id >= warps_block - 1) end = N;
+  if (warp_id >= warps_block - 1) end = data_len;
 
-  for (unsigned int pos = tix; pos < (nbin + 1) * R; pos += bdx) Hs[pos] = 0;
+  for (unsigned int pos = tix; pos < (bins_len + 1) * repeat; pos += bdx)
+    Hs[pos] = 0;
   __syncthreads();
 
   for (unsigned int i = begin; i < end; i += step) {
     int d = in_data[i];
-    d = d <= 0 and d >= nbin ? nbin / 2 : d;
+    d = d <= 0 and d >= bins_len ? bins_len / 2 : d;
     atomicAdd(&Hs[off_rep + d], 1);
   }
   __syncthreads();
 
-  for (unsigned int pos = tix; pos < nbin; pos += bdx) {
+  for (unsigned int pos = tix; pos < bins_len; pos += bdx) {
     int sum = 0;
-    for (int base = 0; base < (nbin + 1) * R; base += nbin + 1) {
+    for (int base = 0; base < (bins_len + 1) * repeat; base += bins_len + 1) {
       sum += Hs[base + pos];
     }
-    atomicAdd(out_freq + pos, sum);
+    atomicAdd(out_bins + pos, sum);
   }
 }
+
+}  // namespace psz
 
 namespace psz::cuhip {
 
 template <typename T>
 psz_error_status GPU_histogram_generic(
-    T* in, size_t const inlen, uint32_t* out_hist, int const outlen,
-    float* milliseconds, cudaStream_t stream)
+    T* in_data, size_t const data_len, uint32_t* out_hist,
+    uint16_t const hist_len, float* milliseconds, cudaStream_t stream)
 {
   int device_id, max_bytes, num_SMs;
   int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
@@ -137,21 +128,21 @@ psz_error_status GPU_histogram_generic(
 
   auto optimize_launch = [&]() {
     items_per_thread = 1;
-    r_per_block = (max_bytes / sizeof(int)) / (outlen + 1);
+    r_per_block = (max_bytes / sizeof(int)) / (hist_len + 1);
     grid_dim = num_SMs;
     // fits to size
     block_dim =
-        ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+        ((((data_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
     while (block_dim > 1024) {
       if (r_per_block <= 1) { block_dim = 1024; }
       else {
         r_per_block /= 2;
         grid_dim *= 2;
         block_dim =
-            ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+            ((((data_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
       }
     }
-    shmem_use = ((outlen + 1) * r_per_block) * sizeof(int);
+    shmem_use = ((hist_len + 1) * r_per_block) * sizeof(int);
   };
 
   query_maxbytes();
@@ -161,7 +152,7 @@ psz_error_status GPU_histogram_generic(
   START_GPUEVENT_RECORDING(stream);
 
   KERNEL_CUHIP_p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
-      (in, out_hist, inlen, outlen, r_per_block);
+      (in_data, data_len, out_hist, hist_len, r_per_block);
 
   STOP_GPUEVENT_RECORDING(stream);
 
