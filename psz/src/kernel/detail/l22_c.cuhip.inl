@@ -1,7 +1,8 @@
 /**
- * @file l23_c.inl
+ * @file l22_c.inl
  * @author Jiannan Tian
- * @brief
+ * @brief Refactored from (legacy) l21conf version (with subroutines). l23_x is
+ * still in use.
  * @version 0.4
  * @date 2022-12-22
  *

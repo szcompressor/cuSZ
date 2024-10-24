@@ -1,7 +1,7 @@
 /**
  * @file l21.cuhip.inl
  * @author Jiannan Tian
- * @brief Dual-ErrCtrl Lorenzo method.
+ * @brief The original optimized Lorenzo kernels for CLUSTER '21.
  * @version 0.2
  * @date 2021-01-16
  * (create) 2019-09-23; (release) 2020-09-20; (rev1) 2021-01-16; (rev2)
