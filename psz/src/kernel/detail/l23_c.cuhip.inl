@@ -19,12 +19,13 @@
 #include "kernel/lrz.hh"
 #include "mem/compact.hh"
 #include "port.hh"
+#include "typing.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
 #define SETUP_ZIGZAG                                                         \
-  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;                  \
-  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;                    \
+  using EqUint = typename psz::UInt<sizeof(Eq)>::T;                          \
+  using EqInt = typename psz::SInt<sizeof(Eq)>::T;                           \
   static_assert(                                                             \
       std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type."); \
   auto zigzag_encode = [](EqInt x) -> EqUint {                               \
