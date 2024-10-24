@@ -60,12 +60,13 @@ class pszmempool_cxx {
   T *compact_val() const { return compact->val(); }
   M *compact_idx() const { return compact->idx(); }
   M compact_num_outliers() const { return compact->num_outliers(); }
-  compact_array1<T> outlier()
-  {
-    return compact_array1<T>{
-        compact->d_val, compact->d_idx, compact->d_num, compact->h_num,
-        compact->reserved_len};
-  }
+  // compact_array1<T> outlier()
+  // {
+  //   return compact_array1<T>{
+  //       compact->d_val, compact->d_idx, compact->d_num, compact->h_num,
+  //       compact->reserved_len};
+  // }
+  Compact *outlier() { return compact; }
 };
 
 #define TPL template <typename T, typename E, typename H, psz_policy EXEC>

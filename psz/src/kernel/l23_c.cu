@@ -1,4 +1,4 @@
-#include "l23r.cuhip.inl"
+#include "detail/l23_c.cuhip.inl"
 
 INSTANCIATE_GPU_L23R_1param(f4);
 INSTANCIATE_GPU_L23R_1param(f8);
@@ -6,7 +6,6 @@ INSTANCIATE_GPU_L23R_1param(f8);
 #undef INSTANCIATE_GPU_L23R_1param
 #undef INSTANCIATE_GPU_L23R_2params
 #undef INSTANCIATE_GPU_L23R_3params
-#undef INSTANCIATE_GPU_L23R_4params
 
 INSTANCIATE_GPU_L23_PREQ_1param(f4);
 INSTANCIATE_GPU_L23_PREQ_1param(f8);
@@ -14,4 +13,3 @@ INSTANCIATE_GPU_L23_PREQ_1param(f8);
 #undef INSTANCIATE_GPU_L23_PREQ_1param
 #undef INSTANCIATE_GPU_L23_PREQ_2params
 #undef INSTANCIATE_GPU_L23_PREQ_3params
-#undef INSTANCIATE_GPU_L23_PREQ_4params

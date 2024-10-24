@@ -14,8 +14,8 @@ target_link_libraries(psztest_utils_cu CUDA::cudart CUDA::curand)
 # testing sp vector
 # add_executable(spv_cu src/test_spv.cu)
 # target_link_libraries(spv_cu PRIVATE
-#   psztest_utils_cu
-#   cusz
+# psztest_utils_cu
+# cusz
 # )
 # add_test(test_spv_cu spv_cu)
 
@@ -61,7 +61,6 @@ target_link_libraries(lrz_seq
   PRIVATE psz_cu_test_compile_settings)
 add_test(test_lrz_seq lrz_seq)
 
-
 if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)
   add_executable(statfn src/test_statfn.cc)
@@ -76,11 +75,3 @@ else()
     psztest_utils_cu psz_cu_mem
   )
 endif()
-
-# # 2401
-add_executable(pszcxx_lrz_cu src/test_pszcxx_lrz_cu.cc)
-target_link_libraries(pszcxx_lrz_cu
-  PRIVATE psz_cu_test_compile_settings
-  psztest_utils_cu
-  cusz
-)

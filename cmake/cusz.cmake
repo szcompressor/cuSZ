@@ -85,12 +85,13 @@ add_library(
   psz/src/kernel/histsp_compat.cu
   # psz/src/kernel/spvn.seq.cc
   psz/src/kernel/dryrun.cu
-  psz/src/kernel/lproto.cu
+  psz/src/kernel/lproto_c.cu
+  psz/src/kernel/lproto_x.cu
   psz/src/kernel/spvn.cu
-  psz/src/kernel/l23r.cu
+  psz/src/kernel/l23_c.cu
   psz/src/kernel/l23_x.cu
   psz/src/kernel/spline3.cu
-  psz/src/module/lrz.cc
+  # psz/src/module/lrz.cc
   # psz/src/module/lrz_cxx.cu
   # psz/src/module/spl_cxx.cu
   # psz/src/module/hist_cxx.cu

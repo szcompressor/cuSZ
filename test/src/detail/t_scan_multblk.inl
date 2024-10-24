@@ -9,11 +9,11 @@
  *
  */
 
-#include "mem/multibackend.hh"
-#include "experimental/core_type.hh"
 #include "experimental/control.hh"
+#include "experimental/core_type.hh"
 #include "experimental/p9y.hh"
 #include "kernel/lrz/l23.hh"
+#include "mem/multibackend.hh"
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "kernel/detail/l23_x.cuhip.inl"
@@ -113,7 +113,7 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   bool ok = true;
 
   printf("test len: %u\t", 1);
-  psz::cuhip::GPU_x_lorenzo_nd(eq, len3, data, 0.5, 0, data, &time, stream);
+  psz::cuhip::GPU_x_lorenzo_nd(eq, data, data, len3, 0.5, 0, &time, stream);
 
   free_shared(data, stream);
   free_shared(eq, stream);

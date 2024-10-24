@@ -151,15 +151,13 @@ struct Compressor<C>::impl {
     }
     else {
       if (ctx->use_proto_lorenzo)
-        pszcxx_predict_lorenzo<T, E, SYNC_BY_STREAM, true>(
-            {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
-            {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
-            stream);
+        psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
+            in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+            (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
       else
-        pszcxx_predict_lorenzo<T, E, SYNC_BY_STREAM, false>(
-            {in, get_len3(ctx)}, {ctx->eb, ctx->radius},
-            {mem->_ectrl->dptr(), ctx->data_len}, mem->outlier(), &time_pred,
-            stream);
+        psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, E>(
+            in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+            (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
 
       PSZDBG_LOG("interp: done");
       PSZDBG_PTR_WHERE(mem->ectrl());
@@ -315,14 +313,14 @@ struct Compressor<C>::impl {
     }
     else {
       if (header->use_proto_lorenzo)
-        pszcxx_reverse_predict_lorenzo<T, E, SYNC_BY_STREAM, true>(
-            {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
-            {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
+        psz::cuhip::GPU_PROTO_x_lorenzo_nd<T, E>(
+            mem->ectrl(), d_space, d_xdata,
+            dim3(header->x, header->y, header->z), header->eb, header->radius,
             &time_pred, stream);
       else
-        pszcxx_reverse_predict_lorenzo<T, E, SYNC_BY_STREAM, false>(
-            {mem->ectrl(), _adhoc_linear}, {d_space, _adhoc_linear},
-            {header->eb, (int)header->radius}, {d_xdata, _adhoc_pszlen},
+        psz::cuhip::GPU_x_lorenzo_nd<T, E>(
+            mem->ectrl(), d_space, d_xdata,
+            dim3(header->x, header->y, header->z), header->eb, header->radius,
             &time_pred, stream);
     }
   }

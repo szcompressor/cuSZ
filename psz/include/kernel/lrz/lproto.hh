@@ -20,19 +20,20 @@
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
-namespace psz::cuhip::proto {
+namespace psz::cuhip {
 
-template <typename T, typename E>
-pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const data, dim3 const len3, PROPER_EB const eb, int const radius,
-    E* const eq, void* _outlier, float* time_elapsed, void* stream);
+template <typename T, typename Eq>
+pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
+    T* const in_data, dim3 const data_len3, Eq* const out_eq,
+    void* out_outlier, double const eb, uint16_t const radius,
+    float* time_elapsed, void* stream);
 
-template <typename T, typename E>
-pszerror GPU_x_lorenzo_nd(
-    E* eq, dim3 const len3, T* outlier, PROPER_EB const eb, int const radius,
-    T* xdata, float* time_elapsed, void* stream);
+template <typename T, typename Eq>
+pszerror GPU_PROTO_x_lorenzo_nd(
+    Eq* in_eq, T* in_outlier, T* out_data, dim3 const data_len3,
+    double const eb, int const radius, float* time_elapsed, void* stream);
 
-}  // namespace psz::cuhip::proto
+}  // namespace psz::cuhip
 
 #endif
 

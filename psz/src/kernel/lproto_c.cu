@@ -1,0 +1,7 @@
+#include "detail/lproto_c.cuhip.inl"
+
+INSTANTIATIE_LORENZO_PROTO_C_1param(f4);
+INSTANTIATIE_LORENZO_PROTO_C_1param(f8);
+
+#undef INSTANTIATIE_LORENZO_PROTO_C_1param
+#undef INSTANTIATIE_LORENZO_PROTO_C_2params
