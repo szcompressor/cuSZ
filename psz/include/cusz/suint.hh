@@ -12,44 +12,55 @@
 #ifndef A2F829BC_283B_488E_A52B_CD597670EC52
 #define A2F829BC_283B_488E_A52B_CD597670EC52
 
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstdint>
+#include <cstdlib>
 #include <sstream>
 
-// TODO typing should be more applicable
+#include "typing.hh"
 
 namespace psz {
-namespace typing {
 
-// clang-format off
-template <int BYTEWIDTH> struct Int;
-template <> struct Int<1> { typedef int8_t  T; }; 
-template <> struct Int<2> { typedef int16_t T; }; 
-template <> struct Int<4> { typedef int32_t T; }; 
-template <> struct Int<8> { typedef int64_t T; };
+// ZigZag encoding
+// reference:
+// https://lemire.me/blog/2022/11/25/making-all-your-integers-positive-with-zigzag-encoding/
+template <typename T>
+struct ZigZag {
+ public:
+  static constexpr int ByteWidth = sizeof(T);
+  using UInt = psz::UInt_t<ByteWidth>;
+  using SInt = psz::SInt_t<ByteWidth>;
 
-template <int BYTEWIDTH> struct UInt;
-template <> struct UInt<1> { typedef uint8_t  T; }; 
-template <> struct UInt<2> { typedef uint16_t T; }; 
-template <> struct UInt<4> { typedef uint32_t T; }; 
-template <> struct UInt<8> { typedef uint64_t T; };
-// clang-format on
+ private:
+  static constexpr int BitWidth = ByteWidth * 8;
 
-}  // namespace typing
-}  // namespace psz
+ public:
+  // force type checking to unsure the bitwidth
+  template <typename _SUPPOSED_SINT>
+  [[nodiscard]] static constexpr
+      typename std::enable_if_t<std::is_same_v<_SUPPOSED_SINT, SInt>, UInt>
+      encode(_SUPPOSED_SINT const x)
+  {
+    static_assert(
+        std::is_same_v<_SUPPOSED_SINT, SInt>,
+        "[ZigZag] encode() input must be a SIGNED integer, whose bitwidth is "
+        "the same as T in ZigZag<T>.");
+    return (x << 1) ^ (x >> (BitWidth - 1));
+  }
 
-// TODO forward definition in another file
-template <int BYTEWIDTH>
-struct PN {
-    using UI = typename psz::typing::UInt<BYTEWIDTH>::T;
-    using I  = typename psz::typing::Int<BYTEWIDTH>::T;
-
-    // reference: https://lemire.me/blog/2022/11/25/making-all-your-integers-positive-with-zigzag-encoding/
-
-    static UI encode(I* x) { return (2 * (*x)) ^ ((*x) >> (BYTEWIDTH * 8 - 1)); }
-    static UI encode(I x) { return (2 * x) ^ (x >> (BYTEWIDTH * 8 - 1)); }
-    static I  decode(UI* x) { return ((*x) >> 1) ^ (-((*x) & 1)); }
-    static I  decode(UI x) { return (x >> 1) ^ (-(x & 1)); }
+  // force type checking to unsure the bitwidth
+  template <typename _SUPPOSED_UINT>
+  [[nodiscard]] static constexpr
+      typename std::enable_if_t<std::is_same_v<_SUPPOSED_UINT, UInt>, SInt>
+      decode(_SUPPOSED_UINT const x)
+  {
+    static_assert(
+        std::is_same_v<_SUPPOSED_UINT, UInt>,
+        "[ZigZag] decode() input must be an UNSIGNED integer, whose bitwidth "
+        "is the same as T in ZigZag<T>.");
+    return (x >> 1) ^ (-(x & 1));
+  }
 };
+
+}  // namespace psz
 
 #endif /* A2F829BC_283B_488E_A52B_CD597670EC52 */

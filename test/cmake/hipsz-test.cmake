@@ -15,7 +15,7 @@ target_include_directories(
 
 # correctness, include kernel `.inl` directly ### test_typing test core
 # functionality Level-0 basic typing
-add_executable(zigzag src/test_zigzag_coding.cc)
+add_executable(zigzag src/test_zigzag_codec.cc)
 target_link_libraries(zigzag PRIVATE psztestcompile_settings)
 add_test(test_zigzag zigzag)
 

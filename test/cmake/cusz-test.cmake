@@ -20,7 +20,7 @@ target_link_libraries(psztest_utils_cu CUDA::cudart CUDA::curand)
 # add_test(test_spv_cu spv_cu)
 
 # functionality
-add_executable(zigzag src/test_zigzag_coding.cc)
+add_executable(zigzag src/test_zigzag_codec.cc)
 target_link_libraries(zigzag PRIVATE psz_cu_test_compile_settings)
 add_test(test_zigzag zigzag)
 

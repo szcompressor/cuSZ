@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef TYPE_TRAITS_HH
-#define TYPE_TRAITS_HH
+#ifndef PSZ_TYPING_HH
+#define PSZ_TYPING_HH
 
 #include <cstdint>
 #include <stdexcept>
@@ -74,6 +74,24 @@ template <> struct PszType<u2> { static const psz_dtype type = U2; static const 
 template <> struct PszType<u4> { static const psz_dtype type = U4; static const int width = sizeof(u4); };
 template <> struct PszType<u8> { static const psz_dtype type = U8; static const int width = sizeof(u8); };
 template <> struct PszType<ull> { static const psz_dtype type = ULL; static const int width = sizeof(ull); };
+
+namespace psz {
+
+template <int ByteWidth> struct SInt;
+template <> struct SInt<1> { using T =  int8_t; }; 
+template <> struct SInt<2> { using T = int16_t; }; 
+template <> struct SInt<4> { using T = int32_t; }; 
+template <> struct SInt<8> { using T = int64_t; };
+template <int ByteWidth> using SInt_t = typename SInt<ByteWidth>::T;
+
+template <int ByteWidth> struct UInt;
+template <> struct UInt<1> { using T =  uint8_t; }; 
+template <> struct UInt<2> { using T = uint16_t; }; 
+template <> struct UInt<4> { using T = uint32_t; }; 
+template <> struct UInt<8> { using T = uint64_t; };
+template <int ByteWidth> using UInt_t = typename UInt<ByteWidth>::T;
+
+}
 // clang-format on
 
 #endif

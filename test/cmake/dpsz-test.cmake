@@ -1,8 +1,8 @@
 add_library(psztestcompile_dp INTERFACE)
 target_include_directories(
-psztestcompile_dp
-INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src/>
-$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>)
+    psztestcompile_dp
+    INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src/>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>)
 
 # [psz::note] ad hoc solution from oneMKL sample code
 # [psz::note] at least change to per-target
@@ -28,7 +28,7 @@ add_test(test_spv_dp spv_dp)
 
 # correctness, include kernel `.inl` directly ### test_typing test core
 # functionality Level-0 basic typing
-add_executable(zigzag src/test_zigzag_coding.cc)
+add_executable(zigzag src/test_zigzag_codec.cc)
 target_link_libraries(zigzag PRIVATE psztestcompile_dp)
 add_test(test_zigzag zigzag)
 
@@ -48,10 +48,9 @@ add_test(test_decomp_lrz_dp decomp_lrz_dp)
 # l2_cudaproto PRIVATE pszcompile_settings psztestcompile_dp pszmem
 # pszstat_dp)
 # add_test(test_l2_cudaproto l2_cudaproto)
-
 add_executable(histsp_dp src/test_histsp.dp.cpp)
 target_link_libraries(histsp_dp PRIVATE pszcompile_settings pszmem pszstat_dp
-pszkernel_dp pszkernel_seq pszstat_seq)
+    pszkernel_dp pszkernel_seq pszstat_seq)
 add_test(test_histsp_dp histsp_dp)
 
 # # Level-3 kernel with configuration (low-level API)
@@ -60,7 +59,6 @@ add_test(test_histsp_dp histsp_dp)
 # l3_cuda_pred PRIVATE pszcore_cu psz_testutils pszstat_seq pszstat_dp pszmem
 # CUDA::cudart)
 # add_test(test_l3_cuda_pred l3_cuda_pred)
-
 add_executable(lrz_seq src/test_lrz.seq.cc)
 target_link_libraries(lrz_seq PRIVATE psztestcompile_dp)
 add_test(test_lrz_seq lrz_seq)
