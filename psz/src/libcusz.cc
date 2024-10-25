@@ -136,7 +136,7 @@ pszerror capi_psz_compress(
 {
   comp->ctx->eb = eb;
   comp->ctx->mode = mode;
-  comp->ctx->logging_input_eb = eb;
+  comp->ctx->user_input_eb = eb;
 
   if (mode == Rel) {
     double _max, _min, _rng;
@@ -169,12 +169,11 @@ pszerror capi_psz_compress(
     return PSZ_TYPE_UNSUPPORTED;
   }
 
-  header->logging_input_eb = comp->ctx->logging_input_eb;
-  header->logging_final_eb = comp->ctx->eb;
+  header->user_input_eb = comp->ctx->user_input_eb;
   header->logging_max = comp->ctx->logging_max;
   header->logging_min = comp->ctx->logging_min;
   header->logging_mode = mode;
-  header->logging_pred_type = comp->ctx->pred_type;
+  header->pred_type = comp->ctx->pred_type;
 
   return CUSZ_SUCCESS;
 }

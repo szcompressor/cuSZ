@@ -199,16 +199,16 @@ void pszctx_parse_control_string(
       ctx->vle_sublen = psz_helper::str2int(v);
       ctx->use_autotune_phf = false;
     }
-    else if (optmatch({"predictor"})) {
+    else if (optmatch({"pred", "predictor"})) {
       strcpy(ctx->char_predictor_name, v.c_str());
 
-      if (v == "spline" or v == "spline3")
+      if (v == "spline" or v == "spline3" or v == "spl")
         ctx->pred_type = psz_predtype::Spline;
-      else if (v == "lorenzo")
+      else if (v == "lorenzo" or v == "lrz")
         ctx->pred_type = psz_predtype::Lorenzo;
-      else if (v == "lorenzo-zigzag")
+      else if (v == "lorenzo-zigzag" or v == "lrz-zz")
         ctx->pred_type = psz_predtype::LorenzoZigZag;
-      else if (v == "lorenzo-proto")
+      else if (v == "lorenzo-proto" or v == "lrz-proto")
         ctx->pred_type = psz_predtype::LorenzoProto;
       else
         printf(
@@ -217,10 +217,18 @@ void pszctx_parse_control_string(
             "fallback to \"lorenzo\".",
             v.c_str());
     }
+    else if (optmatch({"hist", "histogram"})) {
+      strcpy(ctx->char_codec1_name, v.c_str());
+
+      if (v == "default")
+        ctx->hist_type = psz_histogramtype::HistogramDefault;
+      else if (v == "generic")
+        ctx->hist_type = psz_histogramtype::HistogramGeneric;
+    }
     else if (optmatch({"codec", "codec1"})) {
       strcpy(ctx->char_codec1_name, v.c_str());
 
-      if (v == "huffman")
+      if (v == "huffman" or v == "hf")
         ctx->codec1_type = psz_codectype::Huffman;
       else if (v == "fzgpu-codec")
         ctx->codec1_type = psz_codectype::FZGPUCodec;
@@ -311,18 +319,18 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         ctx->eb = std::strtod(argv[++i], &end);
         strcpy(ctx->char_meta_eb, argv[i]);
       }
-      else if (optmatch({"-p", "--predictor"})) {
+      else if (optmatch({"-p", "--pred", "--predictor"})) {
         check_next();
         auto v = std::string(argv[++i]);
         strcpy(ctx->char_predictor_name, v.c_str());
 
-        if (v == "spline" or v == "spline3")
+        if (v == "spline" or v == "spline3" or v == "spl")
           ctx->pred_type = psz_predtype::Spline;
-        else if (v == "lorenzo")
+        else if (v == "lorenzo" or v == "lrz")
           ctx->pred_type = psz_predtype::Lorenzo;
-        else if (v == "lorenzo-zigzag")
+        else if (v == "lorenzo-zigzag" or v == "lrz-zz")
           ctx->pred_type = psz_predtype::LorenzoZigZag;
-        else if (v == "lorenzo-proto")
+        else if (v == "lorenzo-proto" or v == "lrz-proto")
           ctx->pred_type = psz_predtype::LorenzoProto;
         else
           printf(
@@ -331,12 +339,22 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
               "fallback to \"lorenzo\".",
               v.c_str());
       }
+      else if (optmatch({"--hist", "--histogram"})) {
+        check_next();
+        auto v = std::string(argv[++i]);
+        strcpy(ctx->char_predictor_name, v.c_str());
+
+        if (v == "default")
+          ctx->hist_type = psz_histogramtype::HistogramDefault;
+        else if (v == "generic")
+          ctx->hist_type = psz_histogramtype::HistogramGeneric;
+      }
       else if (optmatch({"-c1", "--codec", "--codec1"})) {
         check_next();
         auto v = std::string(argv[++i]);
         strcpy(ctx->char_codec1_name, v.c_str());
 
-        if (v == "huffman")
+        if (v == "huffman" or v == "hf")
           ctx->codec1_type = psz_codectype::Huffman;
         else if (v == "fzgpu-codec")
           ctx->codec1_type = psz_codectype::FZGPUCodec;
@@ -667,6 +685,7 @@ pszctx* pszctx_default_values()
   return new pszctx{
       .dtype = F4,
       .pred_type = Lorenzo,
+      .hist_type = HistogramDefault,
       .codec1_type = Huffman,
       .mode = Rel,
       .eb = 0.1,

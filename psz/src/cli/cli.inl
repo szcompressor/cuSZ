@@ -26,10 +26,10 @@
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 #include "utils/analyzer.hh"
 #endif
+#include "utils/config.hh"
 #include "utils/err.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
-#include "utils/config.hh"
 
 namespace psz {
 
@@ -147,7 +147,7 @@ class CLI {
 
       if (ctx->report_time)
         psz_review_comp_time_breakdown(&timerecord, &header);
-      if (ctx->report_cr) psz_review_from_header(&header);
+      if (ctx->report_cr) psz_review_comp_time_from_header(&header);
 
       write_compressed_to_disk(
           std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
@@ -191,6 +191,7 @@ class CLI {
 
     if (ctx->report_time)
       psz_review_decompression(&timerecord, decomped->bytes());
+    psz_review_decomp_time_from_header(header);
     psz::utils::view(header, decomped, original, ctx->file_compare);
 
     if (not ctx->skip_tofile)

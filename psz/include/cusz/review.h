@@ -10,7 +10,8 @@ extern "C" {
 
 void* psz_make_timerecord();
 void psz_review_comp_time_breakdown(void* _r, psz_header* h);
-void psz_review_from_header(psz_header* h);
+void psz_review_comp_time_from_header(psz_header* h);
+void psz_review_decomp_time_from_header(psz_header* h);
 void psz_review_compression(void* r, psz_header* h);
 void psz_review_decompression(void* r, size_t bytes);
 void psz_review_evaluated_quality(

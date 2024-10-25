@@ -83,7 +83,37 @@ void psz_review_comp_time_breakdown(void* _r, psz_header* h)
   printf("\n");
 }
 
-void psz_review_from_header(psz_header* h)
+string const psz_report_query_pred(psz_predtype const p)
+{
+  const std::unordered_map<psz_predtype const, std::string const> lut = {
+      {psz_predtype::Lorenzo, "Lorenzo"},
+      {psz_predtype::LorenzoZigZag, "Lrz-ZigZag"},
+      {psz_predtype::LorenzoProto, "Lrz-Proto"},
+      {psz_predtype::Spline, "Spline"},
+  };
+  return lut.at(p);
+};
+
+string const psz_report_query_hist(psz_histogramtype const h)
+{
+  const std::unordered_map<psz_histogramtype const, std::string const> lut = {
+      {psz_histogramtype::HistogramDefault, "Hist-default"},
+      {psz_histogramtype::HistogramGeneric, "Hist-generic"},
+      {psz_histogramtype::HistogramNull, "Hist-(null)"},
+  };
+  return lut.at(h);
+};
+
+string const psz_report_query_codec1(psz_codectype const c)
+{
+  const std::unordered_map<psz_codectype const, std::string const> lut = {
+      {psz_codectype::Huffman, "Huffman"},
+      {psz_codectype::FZGPUCodec, "FZGPU-Codec"},
+  };
+  return lut.at(c);
+};
+
+void psz_review_comp_time_from_header(psz_header* h)
 {
   // [TODO] put error status
   if (h->dtype != F4 and h->dtype != F8)
@@ -122,23 +152,22 @@ void psz_review_from_header(psz_header* h)
   auto n_outlier =
       fieldsize(PSZHEADER_SPFMT) / (sizeof_T() + sizeof(uint32_t));
 
-  __print(
-      "logging::predictor",
-      h->logging_pred_type == Lorenzo ? "Lorenzo" : "Spine");
+  __print("logging::predictor", psz_report_query_pred(h->pred_type));
+  __print("logging::histogram", psz_report_query_hist(h->hist_type));
+  __print("logging::codec1", psz_report_query_codec1(h->codec1_type));
   __print("logging::max", h->logging_max);
   __print("logging::min", h->logging_min);
   __print("logging::range", h->logging_max - h->logging_min);
   __print("logging::mode", h->logging_mode == Rel ? "Rel" : "Abs");
-  __print("logging::input_eb", h->logging_input_eb);
-  __print("logging::final_eb", h->logging_final_eb);
+  __print("logging::input_eb", h->user_input_eb);
+  __print("logging::final_eb", h->eb);
   printf("--------------------------------------------------\n");
   if (comp_bytes() != 0) {
     auto cr = 1.0 * uncomp_bytes / comp_bytes();
-    // __newline();
     __print("data::comp_metric::CR", cr);
   }
   else {
-    cout << "[psz::log::fatal_error] compressed len is zero." << endl;
+    cout << "[psz::fatal] compressed len is zero." << endl;
   }
   __print("data::original_bytes", uncomp_bytes);
   __print_perc("data::comp_bytes", comp_bytes());
@@ -152,10 +181,26 @@ void psz_review_from_header(psz_header* h)
   __print("file::outlier:::number", n_outlier);
 }
 
+void println_text_v2(string const prefix, string const kw, string const text)
+{
+  std::string combined = prefix + "::\e[1m\e[31m" + kw + "\e[0m";
+  printf("%-*s%*s\n", 36, combined.c_str(), 16, text.c_str());
+}
+
+void psz_review_decomp_time_from_header(psz_header* h)
+{
+  println_text_v2(
+      "component", "predictor", psz_report_query_pred(h->pred_type));
+  println_text_v2(
+      "component", "histogram", psz_report_query_hist(h->hist_type));
+  println_text_v2(
+      "component", "codec1", psz_report_query_codec1(h->codec1_type));
+}
+
 void psz_review_compression(void* r, psz_header* h)
 {
   printf("\n(c) COMPRESSION REPORT\n");
-  psz_review_from_header(h);
+  psz_review_comp_time_from_header(h);
   psz_review_comp_time_breakdown((psz::timerecord_t)r, h);
 }
 
@@ -174,6 +219,7 @@ void psz_review_decompression(void* r, size_t bytes)
   printf("\n");
 }
 
+// TODO revise name
 template <typename T>
 void psz::utils::print_metrics_cross(
     psz_summary* s, size_t comp_bytes, bool gpu_checker)
@@ -199,57 +245,59 @@ void psz::utils::print_metrics_cross(
       printf("%-*s%16.4f\n", 36, combined.c_str(), n1);
   };
 
-  auto println_text_v2 = [](string const prefix, string const kw,
-                            string const text) {
-    std::string combined = prefix + "::\e[1m\e[31m" + kw + "\e[0m";
-    printf("%-*s%*s\n", 36, combined.c_str(), 16, text.c_str());
-  };
-
-  auto println_segline = []() {
+  auto println_segline_solid = []() {
     printf("---------------------------------------\n");
+  };
+  auto println_segline_dotted = []() {
+    printf(".......................................\n");
   };
 
   string dtype_text = !is_fp ? "non-fp" : sizeof(T) == 4 ? "fp32" : "fp64";
 
-  println_text_v2("status", "checker", checker);
-  println_segline();
+  // TODO (ad hoc) component-checker follow psz_review_decomp_time_from_header
+  println_text_v2("component", "checker", checker);
+  println_segline_solid();
   println_v2("data", "length", s->len);
   println_text_v2("data", "dtype", dtype_text);
-  println_segline();
+  println_segline_dotted();
   println_v2("data", "original_bytes", bytes);
   println_v2("data", "original_KiB", bytes / to_KiB, true);
   println_v2("data", "original_MiB", bytes / to_MiB, true);
   println_v2("data", "original_GiB", bytes / to_GiB, true);
-  println_segline();
+  println_segline_dotted();
   println_v2("data", "comp_bytes", comp_bytes);
   println_v2("data", "compressed_KiB", comp_bytes / to_KiB, true);
   println_v2("data", "compressed_MiB", comp_bytes / to_MiB, true);
   println_v2("data", "compressed_GiB", comp_bytes / to_GiB, true);
-  println_segline();
-  hlcolor_red = false;
-  println_v2("comp_metric", "CR", bytes / comp_bytes);
-  println_v2("comp_metric", "bitrate", 32.0 / (bytes / comp_bytes));
-  println_v2("comp_metric", "NRMSE", s->score_NRMSE);
-  println_v2("comp_metric", "coeff", s->score_coeff);
-  println_v2("comp_metric", "PSNR", s->score_PSNR);
-  hlcolor_red = true;
-  println_segline();
+  println_segline_dotted();
   println_v2("data_original", "min", s->odata.min);
   println_v2("data_original", "max", s->odata.max);
   println_v2("data_original", "rng", s->odata.rng);
   println_v2("data_original", "avg", s->odata.avg);
   println_v2("data_original", "std", s->odata.std);
-  println_segline();
+  println_segline_dotted();
   println_v2("data_decompressed", "min", s->xdata.min);
   println_v2("data_decompressed", "max", s->xdata.max);
   println_v2("data_decompressed", "rng", s->xdata.rng);
   println_v2("data_decompressed", "avg", s->xdata.avg);
   println_v2("data_decompressed", "std", s->xdata.std);
-  println_segline();
+  println_segline_solid();
+  hlcolor_red = false;
+  println_v2("comp_metric", "CR", bytes / comp_bytes);
+  println_v2("comp_metric", "bitrate", 32.0 / (bytes / comp_bytes));
+  hlcolor_red = true;
+  println_v2("comp_metric", "NRMSE", s->score_NRMSE);
+  println_v2("comp_metric", "coeff", s->score_coeff);
+  hlcolor_red = false;
+  println_v2("comp_metric", "PSNR", s->score_PSNR);
+  hlcolor_red = true;
+  println_segline_dotted();
   println_v2("data_max_diff", "index", s->max_err_idx);
-  println_v2("data_max_diff", "value", s->max_err_abs);
+  hlcolor_red = false;
+  println_v2("data_max_diff", "val", s->max_err_abs);
   println_v2("data_max_diff", "vs_rng", s->max_err_rel);
-  println_segline();
+  hlcolor_red = true;
+  println_segline_dotted();
 }
 
 void psz::utils::print_metrics_auto(double* lag1_cor, double* lag2_cor)
