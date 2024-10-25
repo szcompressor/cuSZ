@@ -31,16 +31,6 @@
 #define COLLECT_TIME(NAME, TIME) \
   timerecord.push_back({const_cast<const char*>(NAME), TIME});
 
-// [psz::note] pszcxx_histogram_generic is left for evaluating purpose
-// compared to pszcxx_histogram_cauchy
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
-#define PSZ_HIST(...) \
-  pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
-#elif defined(PSZ_USE_HIP)
-#define PSZ_HIST(...) \
-  pszcxx_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
-#endif
-
 void concate_memcpy_d2d(
     void* dst, void* src, size_t nbyte, void* stream, const char* _file_,
     const int _line_)
@@ -126,16 +116,33 @@ struct Compressor<C>::impl {
 
   void compress_predict(pszctx* ctx, T* in, void* stream)
   try {
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    auto len3 = dim3(ctx->x, ctx->y, ctx->z);
-#elif defined(PSZ_USE_1API)
-    auto len3 = sycl::range<3>(ctx->z, ctx->y, ctx->x);
-#endif
-
     /* prediction-quantization with compaction */
-    if (ctx->pred_type == Spline) {
-#ifdef PSZ_USE_CUDA
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
+    auto len3 = dim3(ctx->x, ctx->y, ctx->z);
+
+    if (ctx->pred_type == Lorenzo) {
+      psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
+          in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+          (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
+
+      PSZDBG_LOG("interp: done");
+      PSZDBG_PTR_WHERE(mem->ectrl());
+      PSZDBG_VAR("pipeline", len);
+      PSZSANITIZE_QUANTCODE(mem->_ectrl->control({D2H})->hptr(), len, booklen);
+    }
+    else if (ctx->pred_type == LorenzoZigZag) {
+      psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
+          in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+          (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
+    }
+    else if (ctx->pred_type == LorenzoProto) {
+      psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
+          in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+          (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
+    }
+    else if (ctx->pred_type == Spline) {
+#if defined(PSZ_USE_CUDA)
       memobj<T> local_spline_in(
           ctx->x, ctx->y, ctx->z, "local pszmem for spline input");
       local_spline_in.dptr(in);
@@ -145,37 +152,59 @@ struct Compressor<C>::impl {
           ctx->eb, ctx->radius, &time_pred, stream);
 #else
       throw runtime_error(
-          "[psz::error] pszcxx_predict_spline not implemented other than "
-          "CUDA.");
+          "[psz::error] psz::pred == spline not implemented in non-CUDA.");
 #endif
     }
-    else {
-      if (ctx->use_proto_lorenzo)
-        psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-            in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
-            (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
-      else
-        psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-            in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
-            (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
 
-      PSZDBG_LOG("interp: done");
-      PSZDBG_PTR_WHERE(mem->ectrl());
-      PSZDBG_VAR("pipeline", len);
-      PSZSANITIZE_QUANTCODE(mem->_ectrl->control({D2H})->hptr(), len, booklen);
-    }
+#elif defined(PSZ_USE_1API)
+
+    auto len3 = sycl::range<3>(ctx->z, ctx->y, ctx->x);
+    // TODO
+
+#endif
 
     /* make outlier count seen on host */
     mem->compact->make_host_accessible((cudaStream_t)stream);
     ctx->splen = mem->compact->num_outliers();
-    // return this;
   }
   catch (const psz::exception_outlier_overflow& e) {
     cerr << e.what() << endl;
     cerr << "outlier numbers: " << mem->compact->num_outliers() << "\t";
     cerr << (mem->compact->num_outliers() * 100.0 / len) << "%" << endl;
     error_list.push_back(PSZ_ERROR_OUTLIER_OVERFLOW);
-    // return this;
+  }
+
+  // [psz::note] pszcxx_histogram_generic is left for evaluating purpose
+  // compared to pszcxx_histogram_cauchy
+  // 241024 note the backend completion.
+
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
+#define PSZ_HIST(...) \
+  pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#elif defined(PSZ_USE_HIP)
+#define PSZ_HIST(...) \
+  pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
+#endif
+
+  void compress_histogram(pszctx* ctx, void* stream)
+  {
+    if (ctx->hist_type == psz_histogramtype::HistogramDefault) {
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
+
+      pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(
+          mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
+
+#elif defined(PSZ_USE_HIP)
+      // not implemented
+#endif
+    }
+    else if (ctx->hist_type == psz_histogramtype::HistogramGeneric) {
+      pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, E>(
+          mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
+    }
+    else {
+      // do nothing
+    }
   }
 
   void compress_encode(pszctx* ctx, void* stream)
@@ -227,40 +256,35 @@ struct Compressor<C>::impl {
 
     PSZDBG_LOG("merge buf: done");
 
-    // update header
-    header.x = ctx->x, header.y = ctx->y, header.z = ctx->z,
-    header.w = 1;  // placeholder
-    header.use_proto_lorenzo = ctx->use_proto_lorenzo;
+    // update header::metadata (.w is placeheld.)
+    header.x = ctx->x, header.y = ctx->y, header.z = ctx->z, header.w = 1;
+    header.splen = ctx->splen;
+    // update header::comp_config
     header.radius = ctx->radius, header.eb = ctx->eb;
     header.vle_pardeg = ctx->vle_pardeg;
-    header.splen = ctx->splen;
-    header.pred_type = ctx->pred_type;
+    // update header::atrributes
     header.dtype = PszType<T>::type;
+    header.pred_type = ctx->pred_type;
+    header.hist_type = ctx->hist_type;
+    header.codec1_type = ctx->codec1_type;
 
     PSZDBG_LOG("update header: done");
-
-    // wrap up
-    // SKIP_ON_FAILURE;
 
     /* output of this function */
     *out = mem->_compressed->dptr();
     *outlen = pszheader_filesize(&header);
     mem->_compressed->set_len(*outlen);
-
-    // return this;
   }
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   catch (const psz ::exception_gpu_general& e) {
     std ::cerr << e.what() << std ::endl;
     error_list.push_back(PSZ_ERROR_GPU_GENERAL);
-    // return this;
   }
 #endif
 #if defined(PSZ_USE_1API)
   catch (sycl::exception const& exc) {
     std::cerr << exc.what() << "Exception caught at file:" << __FILE__
               << ", line:" << __LINE__ << std::endl;
-    // return this;
   }
 #endif
 
@@ -277,52 +301,58 @@ struct Compressor<C>::impl {
 
     auto d_anchor = ext_anchor ? ext_anchor : (T*)access(ANCHOR);
     // wire and aliasing
-    auto d_space = out;
-    auto d_xdata = out;
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    auto len3 = dim3(header->x, header->y, header->z);
-#elif defined(PSZ_USE_1API)
-    auto len3 = sycl::range<3>(header->z, header->y, header->x);
-#endif
+    auto d_space = out, d_xdata = out;
 
     auto _adhoc_pszlen = psz_len3{header->x, header->y, header->z};
     auto _adhoc_linear = header->z * header->y * header->x;
 
-    if (header->pred_type == Spline) {
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+
+    auto len3 = dim3(header->x, header->y, header->z);
+
+    if (header->pred_type == Lorenzo) {
+      psz::cuhip::GPU_x_lorenzo_nd<T, false, E>(
+          mem->ectrl(), d_space, d_xdata,
+          dim3(header->x, header->y, header->z), header->eb, header->radius,
+          &time_pred, stream);
+    }
+    else if (header->pred_type == LorenzoZigZag) {
+      psz::cuhip::GPU_x_lorenzo_nd<T, true, E>(
+          mem->ectrl(), d_space, d_xdata,
+          dim3(header->x, header->y, header->z), header->eb, header->radius,
+          &time_pred, stream);
+    }
+    else if (header->pred_type == LorenzoProto) {
+      psz::cuhip::GPU_PROTO_x_lorenzo_nd<T, E>(
+          mem->ectrl(), d_space, d_xdata,
+          dim3(header->x, header->y, header->z), header->eb, header->radius,
+          &time_pred, stream);
+    }
+    else if (header->pred_type == Spline) {
 #ifdef PSZ_USE_CUDA
       auto __xdata =
           new memobj<T>(header->x, header->y, header->z, "__xdata", {});
       __xdata->dptr(out);
 
-      // TODO release borrow
       auto aclen3 = mem->_anchor->len3();
       memobj<T> anchor(aclen3.x, aclen3.y, aclen3.z);
       anchor.dptr(d_anchor);
-
-      // [psz::TODO] throw exception
 
       pszcxx_reverse_predict_spline(
           &anchor, mem->_ectrl, __xdata, header->eb, header->radius,
           &time_pred, stream);
 #else
       throw runtime_error(
-          "[psz::error] pszcxx_reverse_predict_spline not implemented other "
-          "than CUDA.");
+          "[psz::error] psz::pred == spline not implemented in non-CUDA.");
 #endif
     }
-    else {
-      if (header->use_proto_lorenzo)
-        psz::cuhip::GPU_PROTO_x_lorenzo_nd<T, E>(
-            mem->ectrl(), d_space, d_xdata,
-            dim3(header->x, header->y, header->z), header->eb, header->radius,
-            &time_pred, stream);
-      else
-        psz::cuhip::GPU_x_lorenzo_nd<T, false, E>(
-            mem->ectrl(), d_space, d_xdata,
-            dim3(header->x, header->y, header->z), header->eb, header->radius,
-            &time_pred, stream);
-    }
+
+#elif defined(PSZ_USE_1API)
+
+    auto len3 = sycl::range<3>(header->z, header->y, header->x);
+    // TODO
+
+#endif
   }
 
   void decompress_decode(psz_header* header, BYTE* in, psz_stream_t stream)
@@ -419,12 +449,13 @@ Compressor<C>* Compressor<C>::compress(
   PSZSANITIZE_PSZCTX(ctx);
 
   pimpl->compress_predict(ctx, in, stream);
+  pimpl->compress_histogram(ctx, stream);
 
-  /* statistics: histogram */
-  PSZ_HIST(
-      pimpl->mem->ectrl(), pimpl->len, pimpl->mem->hist(), ctx->dict_size,
-      &pimpl->time_hist, stream);
-  PSZDBG_LOG("histsp gpu: done");
+  // /* statistics: histogram */
+  // PSZ_HIST(
+  //     pimpl->mem->ectrl(), pimpl->len, pimpl->mem->hist(), ctx->dict_size,
+  //     &pimpl->time_hist, stream);
+  // PSZDBG_LOG("histsp gpu: done");
 
   // TODO constexpr if
   if (ctx->use_prebuilt_hfbk)

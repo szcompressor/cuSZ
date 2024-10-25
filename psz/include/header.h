@@ -41,20 +41,20 @@ typedef struct psz_header {
     struct {
       psz_dtype dtype;
       psz_predtype pred_type;
+      psz_histogramtype hist_type;
+      psz_codectype codec1_type;
 
       uint32_t entry[PSZHEADER_END + 1];  // segment entries
       int splen;                          // direct len of sparse part
       uint32_t x, y, z, w;
 
-      double eb;             // compression config
+      // compression config
+      double user_input_eb, eb;
       uint32_t radius : 16;  //
       uint32_t vle_pardeg;   // coarse-grained HF
 
-      double logging_input_eb, logging_final_eb;
       double logging_min, logging_max;
-      psz_predtype logging_pred_type;
       psz_mode logging_mode;
-      bool use_proto_lorenzo;
     };
   };
 } psz_header;

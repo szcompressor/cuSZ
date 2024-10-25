@@ -27,7 +27,8 @@ struct psz_context {
 
   psz_dtype dtype;
   psz_predtype pred_type;
-  psz_codectype codec_type;
+  psz_histogramtype hist_type;
+  psz_codectype codec1_type;
 
   // pipeline config
   psz_mode mode;
@@ -50,7 +51,7 @@ struct psz_context {
   psz_error_status last_error;
 
   // internal logging
-  double logging_input_eb, logging_min, logging_max;
+  double user_input_eb, logging_min, logging_max;
 
   // filenames
   char demodata_name[40];
@@ -62,10 +63,10 @@ struct psz_context {
 
   // str for metadata
   char char_meta_eb[16];
-  char char_predictor_name[10];
-
-  // use prototype lorenzo
-  bool use_proto_lorenzo;
+  char char_predictor_name[sizeof("lorenzo-zigzag")];
+  char char_hist_name[sizeof("histogram-centrality")];
+  char char_codec1_name[sizeof("huffman-revisit")];
+  char char_codec2_name[sizeof("huffman-revisit")];
 
   // dump intermediate
   bool dump_quantcode;

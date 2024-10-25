@@ -195,12 +195,6 @@ void pszctx_parse_control_string(
       ctx->radius = psz_helper::str2int(v);
       ctx->dict_size = ctx->radius * 2;
     }
-    // else if (optmatch({"huffbyte"})) {
-    //   ctx->huff_bytewidth = psz_helper::str2int(v);
-    //   // ctx->codecs_in_use  = ctx->codec_force_fallback() ? 0b11 /*use
-    //   both*/
-    //   // : 0b01 /*use 4-byte*/;
-    // }
     else if (optmatch({"huffchunk"})) {
       ctx->vle_sublen = psz_helper::str2int(v);
       ctx->use_autotune_phf = false;
@@ -208,22 +202,29 @@ void pszctx_parse_control_string(
     else if (optmatch({"predictor"})) {
       strcpy(ctx->char_predictor_name, v.c_str());
 
-      if (v == "spline" or v == "spline3") {
+      if (v == "spline" or v == "spline3")
         ctx->pred_type = psz_predtype::Spline;
-      }
-      else if (v == "lorenzo") {
+      else if (v == "lorenzo")
         ctx->pred_type = psz_predtype::Lorenzo;
-      }
-      else {
+      else if (v == "lorenzo-zigzag")
+        ctx->pred_type = psz_predtype::LorenzoZigZag;
+      else if (v == "lorenzo-proto")
+        ctx->pred_type = psz_predtype::LorenzoProto;
+      else
         printf(
             "[psz::warning::parser] "
             "\"%s\" is not a supported predictor; "
             "fallback to \"lorenzo\".",
             v.c_str());
-        ctx->pred_type = psz_predtype::Lorenzo;
-      }
     }
-    // else if (optmatch({"failfast"}) and is_enabled(v)) {}
+    else if (optmatch({"codec", "codec1"})) {
+      strcpy(ctx->char_codec1_name, v.c_str());
+
+      if (v == "huffman")
+        ctx->codec1_type = psz_codectype::Huffman;
+      else if (v == "fzgpu-codec")
+        ctx->codec1_type = psz_codectype::FZGPUCodec;
+    }
     else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in
                                        // `config.hh`
       ctx->nz_density = psz_helper::str2fp(v);
@@ -236,9 +237,6 @@ void pszctx_parse_control_string(
     }
     else if (optmatch({"gpuverify"}) and is_enabled(v)) {
       ctx->use_gpu_verify = true;
-    }
-    else if (optmatch({"use-proto-lorenzo"}) and is_enabled(v)) {
-      ctx->use_proto_lorenzo = true;
     }
   }
 }
@@ -318,20 +316,30 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         auto v = std::string(argv[++i]);
         strcpy(ctx->char_predictor_name, v.c_str());
 
-        if (v == "spline" or v == "spline3") {
+        if (v == "spline" or v == "spline3")
           ctx->pred_type = psz_predtype::Spline;
-        }
-        else if (v == "lorenzo") {
+        else if (v == "lorenzo")
           ctx->pred_type = psz_predtype::Lorenzo;
-        }
-        else {
+        else if (v == "lorenzo-zigzag")
+          ctx->pred_type = psz_predtype::LorenzoZigZag;
+        else if (v == "lorenzo-proto")
+          ctx->pred_type = psz_predtype::LorenzoProto;
+        else
           printf(
               "[psz::warning::parser] "
               "\"%s\" is not a supported predictor; "
               "fallback to \"lorenzo\".",
               v.c_str());
-          ctx->pred_type = psz_predtype::Lorenzo;
-        }
+      }
+      else if (optmatch({"-c1", "--codec", "--codec1"})) {
+        check_next();
+        auto v = std::string(argv[++i]);
+        strcpy(ctx->char_codec1_name, v.c_str());
+
+        if (v == "huffman")
+          ctx->codec1_type = psz_codectype::Huffman;
+        else if (v == "fzgpu-codec")
+          ctx->codec1_type = psz_codectype::FZGPUCodec;
       }
       else if (optmatch({"-t", "--type", "--dtype"})) {
         check_next();
@@ -353,9 +361,6 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"--size", "--zyx", "--slowest-to-fastest"})) {
         check_next();
         pszctx_parse_length_zyx(ctx, argv[++i]);
-      }
-      else if (optmatch({"--use-proto-lorenzo"})) {
-        ctx->use_proto_lorenzo = true;
       }
       else if (optmatch({"-z", "--zip", "--compress"})) {
         ctx->task_construct = true;
@@ -662,7 +667,7 @@ pszctx* pszctx_default_values()
   return new pszctx{
       .dtype = F4,
       .pred_type = Lorenzo,
-      .codec_type = Huffman,
+      .codec1_type = Huffman,
       .mode = Rel,
       .eb = 0.1,
       .dict_size = 1024,
@@ -680,7 +685,6 @@ pszctx* pszctx_default_values()
       .data_len = 1,
       .splen = 0,
       .ndim = -1,
-      .use_proto_lorenzo = false,
       .dump_quantcode = false,
       .dump_hist = false,
       .task_construct = false,
@@ -717,7 +721,7 @@ pszctx* pszctx_minimal_workset(
   auto ws = pszctx_default_values();
   ws->dtype = dtype;
   ws->pred_type = predictor;
-  ws->codec_type = codec;
+  ws->codec1_type = codec;
   ws->dict_size = quantizer_radius * 2;
   ws->radius = quantizer_radius;
   return ws;

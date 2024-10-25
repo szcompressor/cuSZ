@@ -77,7 +77,7 @@ typedef uint8_t byte_t;
 typedef size_t szt;
 
 typedef enum { Abs, Rel } psz_mode;
-typedef enum { Lorenzo, Spline } psz_predtype;
+typedef enum { Lorenzo, LorenzoZigZag, LorenzoProto, Spline } psz_predtype;
 
 typedef enum {
   FP64toFP32,
@@ -91,8 +91,15 @@ typedef enum {
 typedef enum {
   Huffman,
   HuffmanRevisit,
+  FZGPUCodec,
   RunLength,
 } psz_codectype;
+
+typedef enum {
+  HistogramDefault,
+  HistogramGeneric,
+  HistogramNull,
+} psz_histogramtype;
 
 typedef enum {
   STAGE_PREDICT = 0,

@@ -20,20 +20,17 @@ int pszcxx_compat_histogram_cauchy(
     void* stream = nullptr);
 
 template <psz_policy Policy, typename T, bool TIMING = true>
-pszerror pszcxx_histogram_cauchy(
+[[deprecated("array3 will be replaced.")]] pszerror pszcxx_histogram_cauchy(
     array3<T> in, array3<u4> out_hist, float* milliseconds, void* stream);
 
 template <psz_policy P, typename T, bool TIMING = true>
-pszerror pszcxx_scatter_naive(
+[[deprecated("array3 will be replaced.")]] pszerror pszcxx_scatter_naive(
     compact_array1<T> in_outlier, array3<T> out_decomp_space,
     float* milliseconds, void* stream);
 
 template <psz_policy P, typename T, bool TIMING = true>
-pszerror pszcxx_gather_make_metadata_host_available(
+[[deprecated("array3 will be replaced.")]] pszerror
+pszcxx_gather_make_metadata_host_available(
     compact_array1<T> in_outlier, void* stream);
-
-// see viewer.cuhip.hh
-// template <psz_policy P, typename T>
-// pszerror pszcxx_evaluate_quality(array3<T> d1, array3<T> d2);
 
 #endif /* E85FA9DC_9350_4F91_B4D8_5C094661479E */
