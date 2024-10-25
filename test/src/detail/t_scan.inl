@@ -36,7 +36,7 @@ bool test1d(T* data, size_t len, Eq* eq, void* stream)
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   /* process */
-  psz::KERNEL_CUHIP_x_lorenzo_1d1l<T, BLOCK, SEQ>
+  psz::KERNEL_CUHIP_x_lorenzo_1d1l<T, BLOCK, SEQ, false>
       <<<1, NTHREAD, 0, (stream_t)stream>>>(
           eq, data, data, dim3(len, 1, 1), dim3(1, 1, 1), 0, ebx2);
 
@@ -93,7 +93,7 @@ bool test2d(T* data, size_t len, Eq* eq, void* stream)
 
     /* process */
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  psz::KERNEL_CUHIP_x_lorenzo_2d1l<T, Eq, T>
+  psz::KERNEL_CUHIP_x_lorenzo_2d1l<T, false, Eq>
       <<<dim3(1, 1, 1), dim3(16, 2, 1), 0, (stream_t)stream>>>(
           eq, data, data, dim3(16, 16, 1), dim3(1, 16, 1), 0, ebx2);
 #elif defined(PSZ_USE_1API)
@@ -146,7 +146,7 @@ bool test3d(T* data, size_t len, Eq* eq, void* stream)
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   /* process */
-  psz::KERNEL_CUHIP_x_lorenzo_3d1l<T, Eq, T>
+  psz::KERNEL_CUHIP_x_lorenzo_3d1l<T, false, Eq>
       <<<dim3(1, 1, 1), dim3(32, 1, 8), 0, (stream_t)stream>>>(
           eq, data, data, dim3(32, 8, 8), dim3(1, 32, 32 * 8), 0, ebx2);
 #elif defined(PSZ_USE_1API)

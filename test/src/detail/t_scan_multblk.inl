@@ -113,7 +113,8 @@ bool test_inclscan_multipleblock(size_t x, size_t y, size_t z)
   bool ok = true;
 
   printf("test len: %u\t", 1);
-  psz::cuhip::GPU_x_lorenzo_nd(eq, data, data, len3, 0.5, 0, &time, stream);
+  psz::cuhip::GPU_x_lorenzo_nd<float, false>(
+      eq, data, data, len3, 0.5, 0, &time, stream);
 
   free_shared(data, stream);
   free_shared(eq, stream);

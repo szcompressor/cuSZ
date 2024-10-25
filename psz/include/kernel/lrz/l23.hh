@@ -23,13 +23,13 @@
 
 namespace psz::cuhip {
 
-template <typename T, typename Eq, bool ZigZag = false>
+template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, dim3 const data_len3, Eq* const out_eq,
     void* out_outlier, PROPER_EB const eb, uint16_t const radius,
     f4* time_elapsed, void* stream);
 
-template <typename T, typename Eq>
+template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_x_lorenzo_nd(
     Eq* const in_eq, T* const in_outlier, T* const out_data,
     dim3 const data_len3, PROPER_EB const eb, uint16_t const radius,

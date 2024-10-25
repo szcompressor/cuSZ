@@ -22,34 +22,29 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
-#define SETUP_ZIGZAG                                                         \
-  using EqUint = typename psz::typing::UInt<sizeof(Eq)>::T;                  \
-  using EqInt = typename psz::typing::Int<sizeof(Eq)>::T;                    \
-  static_assert(                                                             \
-      std::is_same<Eq, EqUint>::value, "Eq must be unsigned integer type."); \
-  auto zigzag_encode = [](EqInt x) -> EqUint {                               \
-    return (2 * (x)) ^ ((x) >> (sizeof(Eq) * 8 - 1));                        \
-  };
+#define SETUP_ZIGZAG                    \
+  using ZigZag = psz::ZigZag<Eq>;       \
+  using EqUInt = typename ZigZag::UInt; \
+  using EqSInt = typename ZigZag::SInt;
 
 namespace psz {
 
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
 // significantly slowed down the kernel on non-HPC GPU
 template <
-    typename T, int TileDim, int Seq, typename Eq = uint16_t,
+    typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t,
     typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, typename Fp = T, bool ZigZag = false>
+    typename CompactNum = uint32_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3,
     Eq* const out_eq, CompactVal* const out_cval, CompactIdx* const out_cidx,
     CompactNum* const out_cn, uint16_t const radius, Fp const ebx2_r)
 {
+  SETUP_ZIGZAG;
   constexpr auto NumThreads = TileDim / Seq;
 
-  SETUP_ZIGZAG;
-
   __shared__ T s_data[TileDim];
-  __shared__ EqUint s_eq_uint[TileDim];
+  __shared__ EqUInt s_eq_uint[TileDim];
 
   T _thp_data[Seq + 1] = {0};
   auto prev = [&]() -> T& { return _thp_data[0]; };
@@ -81,14 +76,14 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     bool quantizable = fabs(delta) < radius;
     T candidate;
 
-    if constexpr (ZigZag) {
+    if constexpr (UseZigZag) {
       candidate = delta;
       s_eq_uint[ix + threadIdx.x * Seq] =
-          zigzag_encode(quantizable * (EqInt)candidate);
+          ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
     }
     else {
       candidate = delta + radius;
-      s_eq_uint[ix + threadIdx.x * Seq] = quantizable * (EqUint)candidate;
+      s_eq_uint[ix + threadIdx.x * Seq] = quantizable * (EqUInt)candidate;
     }
 
     if (not quantizable) {
@@ -111,18 +106,17 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 }
 
 template <
-    typename T, typename Eq = uint16_t, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t,
-    typename Fp = T, bool ZigZag = false>
+    typename T, bool UseZigZag, typename Eq = uint16_t,
+    typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3,
     Eq* const out_eq, CompactVal* const out_cval, CompactIdx* const out_cidx,
     CompactNum* const out_cn, uint16_t const radius, Fp const ebx2_r)
 {
+  SETUP_ZIGZAG;
   constexpr auto TileDim = 16;
   constexpr auto Yseq = 8;
-
-  SETUP_ZIGZAG;
 
   // NW  N       first el <- 0
   //  W  center
@@ -168,13 +162,14 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
       bool quantizable = fabs(center[i]) < radius;
       T candidate;
 
-      if constexpr (ZigZag) {
+      if constexpr (UseZigZag) {
         candidate = center[i];
-        out_eq[gid] = zigzag_encode(quantizable * (EqInt)candidate);
+        out_eq[gid] =
+            ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
       }
       else {
         candidate = center[i] + radius;
-        out_eq[gid] = quantizable * (EqUint)candidate;
+        out_eq[gid] = quantizable * (EqUInt)candidate;
       }
 
       if (not quantizable) {
@@ -189,17 +184,17 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
 }
 
 template <
-    typename T, typename Eq = uint32_t, typename Fp = T,
+    typename T, bool UseZigZag, typename Eq = uint32_t, typename Fp = T,
     typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, bool ZigZag = false>
+    typename CompactNum = uint32_t>
 __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3,
     Eq* const out_eq, CompactVal* const out_cval, CompactIdx* const out_cidx,
     CompactNum* const out_cn, uint16_t const radius, Fp const ebx2_r)
 {
   SETUP_ZIGZAG;
-
   constexpr auto TileDim = 8;
+
   __shared__ T s[9][33];
   T delta[TileDim + 1] = {0};  // first el = 0
 
@@ -228,13 +223,14 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     if (x < data_len3.x and y < data_len3.y and z < data_len3.z) {
       T candidate;
 
-      if constexpr (ZigZag) {
+      if constexpr (UseZigZag) {
         candidate = delta;
-        out_eq[gid] = zigzag_encode(quantizable * (EqInt)candidate);
+        out_eq[gid] =
+            ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
       }
       else {
         candidate = delta + radius;
-        out_eq[gid] = quantizable * (EqUint)candidate;
+        out_eq[gid] = quantizable * (EqUInt)candidate;
       }
 
       if (not quantizable) {
@@ -297,7 +293,7 @@ __global__ void KERNEL_CUHIP_lorenzo_prequant(
 
 namespace psz::cuhip {
 
-template <typename T, typename Eq, bool ZigZag>
+template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, dim3 const data_len3, Eq* const out_eq,
     void* out_outlier, f8 const eb, uint16_t const radius, f4* time_elapsed,
@@ -318,21 +314,21 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
 
   if (d == 1) {
     psz::KERNEL_CUHIP_c_lorenzo_1d1l<
-        T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, Eq>
+        T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, UseZigZag, Eq>
         <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
            (cudaStream_t)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(),
             radius, (T)ebx2_r);
   }
   else if (d == 2) {
-    psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, Eq>
+    psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
         <<<c_lorenzo<2>::thread_grid(data_len3), c_lorenzo<2>::thread_block, 0,
            (cudaStream_t)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(),
             radius, (T)ebx2_r);
   }
   else if (d == 3) {
-    psz::KERNEL_CUHIP_c_lorenzo_3d1l<T, Eq>
+    psz::KERNEL_CUHIP_c_lorenzo_3d1l<T, UseZigZag, Eq>
         <<<c_lorenzo<3>::thread_grid(data_len3), c_lorenzo<3>::thread_block, 0,
            (cudaStream_t)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(),
@@ -376,15 +372,16 @@ pszerror GPU_lorenzo_prequant(
 }  // namespace psz::cuhip
 
 // -----------------------------------------------------------------------------
-#define INSTANCIATE_GPU_L23R_3params(T, Eq, ZIGZAG)                           \
-  template pszerror psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, Eq, ZIGZAG>( \
-      T* const in_data, dim3 const data_len3, Eq* const out_eq,               \
-      void* out_outlier, f8 const eb, uint16_t const radius,                  \
+#define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)         \
+  template pszerror                                             \
+  psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>( \
+      T* const in_data, dim3 const data_len3, Eq* const out_eq, \
+      void* out_outlier, f8 const eb, uint16_t const radius,    \
       f4* time_elapsed, void* stream);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
-  INSTANCIATE_GPU_L23R_3params(T, Eq, false); \
-  INSTANCIATE_GPU_L23R_3params(T, Eq, true);
+  INSTANCIATE_GPU_L23R_3params(T, false, Eq); \
+  INSTANCIATE_GPU_L23R_3params(T, true, Eq);
 
 #define INSTANCIATE_GPU_L23R_1param(T) \
   INSTANCIATE_GPU_L23R_2params(T, u2); \
@@ -407,5 +404,7 @@ pszerror GPU_lorenzo_prequant(
   INSTANCIATE_GPU_L23_PREQ_2params(T, true);
 
 //  -----------------------------------------------------------------------------
+
+#undef SETUP_ZIGZAG
 
 #endif /* E3BBDC36_B394_4F63_9E7C_CE601F1C5CA5 */

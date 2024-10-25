@@ -155,7 +155,7 @@ struct Compressor<C>::impl {
             in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
             (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
       else
-        psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, E>(
+        psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
             in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
             (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
 
@@ -318,7 +318,7 @@ struct Compressor<C>::impl {
             dim3(header->x, header->y, header->z), header->eb, header->radius,
             &time_pred, stream);
       else
-        psz::cuhip::GPU_x_lorenzo_nd<T, E>(
+        psz::cuhip::GPU_x_lorenzo_nd<T, false, E>(
             mem->ectrl(), d_space, d_xdata,
             dim3(header->x, header->y, header->z), header->eb, header->radius,
             &time_pred, stream);
