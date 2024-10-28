@@ -621,12 +621,13 @@ void pszctx_validate(pszctx* ctx)
 
 void pszctx_print_document(bool full_document)
 {
-  capi_psz_versioninfo();
-
-  if (full_document)
+  if (full_document) {
+    capi_psz_versioninfo();
+    cout << endl;
     std::cout << psz_helper::doc_format(psz_full_doc) << std::endl;
+  }
   else
-    std::cout << psz_short_doc << std::endl;
+    std::cout << psz_helper::doc_format(psz_short_doc) << std::endl;
 }
 
 void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)

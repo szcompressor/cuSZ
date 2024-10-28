@@ -205,13 +205,24 @@ struct psz_utils {
   {
     std::stringstream data_len_ss(str);
     auto data_len_literal = data_len_ss.str();
-    char delimiter = 'x';
+    auto checked = false;
 
-    while (data_len_ss.good()) {
-      std::string substr;
-      std::getline(data_len_ss, substr, delimiter);
-      dims.push_back(substr);
+    for (auto s : {"x", "*", "-", ",", "m"}) {
+      if (checked) break;
+      char delimiter = s[0];
+
+      if (data_len_literal.find(delimiter) != std::string::npos) {
+        while (data_len_ss.good()) {
+          std::string substr;
+          std::getline(data_len_ss, substr, delimiter);
+          dims.push_back(substr);
+        }
+        checked = true;
+      }
     }
+
+    // handle 1D
+    if (not checked) { dims.push_back(data_len_literal); }
   }
 
   static size_t filesize(std::string fname)

@@ -143,11 +143,22 @@ class CLI {
         &header, (void*)&timerecord, stream);
 
     if (not ctx->there_is_memerr) {
-      printf("\n(c) COMPRESSION REPORT\n");
-
-      if (ctx->report_time)
+      if (ctx->report_time) {
+        printf(
+            "\n\e[1m\e[31m"
+            "REPORT::COMPRESSION::TIME"
+            "\e[0m"
+            "\n");
         psz_review_comp_time_breakdown(&timerecord, &header);
-      if (ctx->report_cr) psz_review_comp_time_from_header(&header);
+      }
+      if (ctx->report_cr) {
+        printf(
+            "\n\e[1m\e[31m"
+            "REPORT::COMPRESSION::FILE"
+            "\e[0m"
+            "\n");
+        psz_review_comp_time_from_header(&header);
+      }
 
       write_compressed_to_disk(
           std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);

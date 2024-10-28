@@ -79,8 +79,6 @@ void psz_review_comp_time_breakdown(void* _r, psz_header* h)
   println_throughput_tablehead();
   for (auto& i : reflow)
     println_throughput(std::get<0>(i), std::get<1>(i), uncomp_bytes);
-
-  printf("\n");
 }
 
 string const psz_report_query_pred(psz_predtype const p)
@@ -115,9 +113,10 @@ string const psz_report_query_codec1(psz_codectype const c)
 
 void psz_review_comp_time_from_header(psz_header* h)
 {
+  printf("\n");
   // [TODO] put error status
   if (h->dtype != F4 and h->dtype != F8)
-    cout << "[psz::log::fatal_error] original length is is zero." << endl;
+    cout << "[psz::error] original length is is zero." << endl;
 
   auto comp_bytes = [&]() {
     auto END = sizeof(h->entry) / sizeof(h->entry[0]);
@@ -206,7 +205,11 @@ void psz_review_compression(void* r, psz_header* h)
 
 void psz_review_decompression(void* r, size_t bytes)
 {
-  printf("\n(d) deCOMPRESSION REPORT\n");
+  printf(
+      "\n\e[1m\e[31m"
+      "REPORT::deCOMPRESSION::TIME"
+      "\e[0m"
+      "\n");
 
   auto total_time = get_total_time((psz::timerecord_t)r);
   (*(psz::timerecord_t)r)
