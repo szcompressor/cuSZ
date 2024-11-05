@@ -91,6 +91,7 @@ add_library(
   psz/src/kernel/l23_c.cu
   psz/src/kernel/l23_x.cu
   psz/src/kernel/spline3.cu
+  psz/src/kernel/fzg_cx.cu
   # psz/src/module/lrz.cc
   # psz/src/module/lrz_cxx.cu
   # psz/src/module/spl_cxx.cu

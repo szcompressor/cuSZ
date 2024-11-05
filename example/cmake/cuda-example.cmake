@@ -7,7 +7,6 @@ target_link_libraries(demo_capi_cuda PRIVATE cusz)
 # add_executable(bin_pipeline_cu src/bin_pipeline.cu_hip.cc)
 # target_link_libraries(bin_pipeline_cu
 # PRIVATE cusz CUDA::cudart)
-
 add_executable(prequant src/bin_prequant.cc)
 target_link_libraries(prequant PRIVATE cusz CUDA::cudart)
 
@@ -16,3 +15,6 @@ target_link_libraries(phf PRIVATE cusz CUDA::cudart)
 
 add_executable(bin_hist src/bin_hist.cc)
 target_link_libraries(bin_hist PRIVATE cusz CUDA::cudart)
+
+add_executable(bin_fzgcodec src/bin_fzgcodec.cc)
+target_link_libraries(bin_fzgcodec PRIVATE cusz CUDA::cudart)
