@@ -230,7 +230,7 @@ void pszctx_parse_control_string(
 
       if (v == "huffman" or v == "hf")
         ctx->codec1_type = psz_codectype::Huffman;
-      else if (v == "fzgpu-codec")
+      else if (v == "fzgcodec")
         ctx->codec1_type = psz_codectype::FZGPUCodec;
     }
     else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in
@@ -356,7 +356,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
 
         if (v == "huffman" or v == "hf")
           ctx->codec1_type = psz_codectype::Huffman;
-        else if (v == "fzgpu-codec")
+        else if (v == "fzgcodec")
           ctx->codec1_type = psz_codectype::FZGPUCodec;
       }
       else if (optmatch({"-t", "--type", "--dtype"})) {

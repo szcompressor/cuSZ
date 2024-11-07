@@ -22,10 +22,12 @@ target_compile_features(psz_cu_compile_settings INTERFACE cxx_std_17 cuda_std_17
 
 target_include_directories(
   psz_cu_compile_settings
-  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src/>
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hf/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hf/src/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
@@ -69,6 +71,7 @@ else()
     psz/src/stat/maxerr/f4.thrust.cu
     psz/src/stat/maxerr/f8.thrust.cu)
 endif()
+
 target_link_libraries(psz_cu_stat
   PUBLIC psz_cu_compile_settings
 )
@@ -83,6 +86,7 @@ add_library(
   psz/src/kernel/hist_compat.cu
   psz/src/kernel/histsp_compat.seq.cc
   psz/src/kernel/histsp_compat.cu
+
   # psz/src/kernel/spvn.seq.cc
   psz/src/kernel/dryrun.cu
   psz/src/kernel/lproto_c.cu
@@ -92,6 +96,7 @@ add_library(
   psz/src/kernel/l23_x.cu
   psz/src/kernel/spline3.cu
   psz/src/kernel/fzg_cx.cu
+
   # psz/src/module/lrz.cc
   # psz/src/module/lrz_cxx.cu
   # psz/src/module/spl_cxx.cu
@@ -154,6 +159,16 @@ target_link_libraries(psz_cu_phf
 add_library(PSZ::CUDA::phf ALIAS psz_cu_phf)
 add_library(CUSZ::phf ALIAS psz_cu_phf)
 
+add_library(psz_cu_fzg
+  codec/fzg/fzg_class.cc
+)
+target_link_libraries(psz_cu_fzg
+  PUBLIC psz_cu_compile_settings
+  psz_cu_core
+)
+add_library(PSZ::CUDA::fzg ALIAS psz_cu_fzg)
+add_library(CUSZ::fzg ALIAS psz_cu_fzg)
+
 add_library(cusz
   psz/src/pipeline/compressor.cc
   psz/src/log/sanitize.cc
@@ -166,11 +181,12 @@ target_link_libraries(cusz
   psz_cu_mem
   psz_cu_utils
   psz_cu_phf
+  psz_cu_fzg
 )
 add_library(PSZ::CUDA::cusz ALIAS cusz)
 add_library(CUSZ::cusz ALIAS cusz)
 
-#m export binary "cusz"
+# m export binary "cusz"
 add_executable(cusz-bin psz/src/cli/cli.cc)
 set_source_files_properties(psz/src/cli/cli.cc PROPERTIES LANGUAGE CUDA)
 target_link_libraries(cusz-bin PRIVATE cusz)
@@ -222,57 +238,61 @@ if(PSZ_BUILD_PYBINDING)
   target_include_directories(pycusz PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
   set_target_properties(pycusz PROPERTIES LINKER_LANGUAGE CXX)
   target_link_libraries(pycusz PRIVATE CUDA::cudart ${PYTHON_LIBRARIES}
-  cusz
-  psz_cu_core
-  psz_cu_stat
-  psz_cu_mem
-  psz_cu_utils
-  psz_cu_phf 
+    cusz
+    psz_cu_core
+    psz_cu_stat
+    psz_cu_mem
+    psz_cu_utils
+    psz_cu_phf
+    psz_cu_fzg
   )
 
   # -------------------
   # add the 2nd library
   # -------------------
   swig_add_library(pycuhf
-  LANGUAGE python
-  TYPE SHARED
-  SOURCES py/pycuhf.i)
+    LANGUAGE python
+    TYPE SHARED
+    SOURCES py/pycuhf.i)
 
   target_include_directories(pycuhf PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
   set_target_properties(pycuhf PROPERTIES LINKER_LANGUAGE CXX)
   target_link_libraries(pycuhf PRIVATE CUDA::cudart ${PYTHON_LIBRARIES}
-  psz_cu_mem
-  psz_cu_phf 
+    psz_cu_mem
+    psz_cu_phf
   )
 endif()
 
-################################################################################
-##  installation using CUSZ:: namespace (back compat) ##########################
-################################################################################
+# ###############################################################################
+# #  installation using CUSZ:: namespace (back compat) ##########################
+# ###############################################################################
 
-# install libs 
+# install libs
 install(TARGETS psz_cu_compile_settings EXPORT CUSZTargets)
-install(TARGETS 
-  psz_cu_core 
-  psz_cu_stat 
-  psz_cu_mem 
+install(TARGETS
+  psz_cu_core
+  psz_cu_stat
+  psz_cu_mem
   psz_cu_utils
   psz_cu_phf
+  psz_cu_fzg
   cusz
-  EXPORT CUSZTargets 
+  EXPORT CUSZTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
 # install the executable
 install(TARGETS
   cusz-bin
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
 if(PSZ_BUILD_PYBINDING)
-  install(TARGETS 
-    pycusz 
+  install(TARGETS
+    pycusz
     pycuhf
     EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
@@ -282,7 +302,7 @@ install(
   EXPORT CUSZTargets
   NAMESPACE CUSZ::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ/)
-include(CMakePackageConfigHelpers)  # generate and install package config files
+include(CMakePackageConfigHelpers) # generate and install package config files
 configure_package_config_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CUSZConfig.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"

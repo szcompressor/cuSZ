@@ -144,10 +144,10 @@ static const char psz_full_doc[] =
     "        + _generic_: regardless of the quant-code distribution.\n"
     "\n"
     /*
-    "    *-c1* or *--codec* or *--codec1* <hf|fzgpu-codec>\n"
+    "    *-c1* or *--codec* or *--codec1* <hf|fzgcodec>\n"
     "        Select from the following lossless codec: \n"
     "        _hf_ or _huffman_: multibyte Huffman codec.\n"
-    "        _fzgpu-codec: bitshuffle & deredundancy in FZ-GPU.\n"
+    "        _fzgcodec: bitshuffle & deredundancy in FZ-GPU.\n"
     */
     "\n"
     "  ^^*optional::report::stdout*^^\n\n"
