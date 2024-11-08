@@ -52,7 +52,7 @@ static const char psz_short_doc[] =
     "  m mode  : _abs_, _rel_/_r2r_\n"
     "  e eb    : error bound\n"
     "  l size  : _-l [x[-y[-z]]] (1,2,3-D)\n"
-    "  p pred  : predictor: \"lorenzo\", \"spline\"\n"
+    "  p pred  : predictor: \"lrz\", \"spl\", \"lrz-zz\", \"lrz-proto\"\n"
     "\n"
     "  config list:\n"
     "    syntax: opt=v, \"kw1=val1,kw1=val2[,...]\"\n"
@@ -143,12 +143,10 @@ static const char psz_full_doc[] =
     "        + _default_: may outperform _generic_ in high-ratio cases.\n"
     "        + _generic_: regardless of the quant-code distribution.\n"
     "\n"
-    /*
     "    *-c1* or *--codec* or *--codec1* <hf|fzgcodec>\n"
     "        Select from the following lossless codec: \n"
     "        _hf_ or _huffman_: multibyte Huffman codec.\n"
     "        _fzgcodec: bitshuffle & deredundancy in FZ-GPU.\n"
-    */
     "\n"
     "  ^^*optional::report::stdout*^^\n\n"
     "    *--report* (option=on/off)-list\n"

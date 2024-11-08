@@ -47,7 +47,7 @@ class pszmempool_cxx {
   // ctor, dtor
   pszmempool_cxx(
       u4 _x, int _radius = 32768, u4 _y = 1, u4 _z = 1,
-      bool iscompression = true);
+      bool iscompression = true, psz_codectype codec_type = Huffman);
   ~pszmempool_cxx();
   // utils
   pszmempool_cxx *clear_buffer();
@@ -66,7 +66,9 @@ class pszmempool_cxx {
 #define TPL template <typename T, typename E, typename H, psz_policy EXEC>
 #define POOL pszmempool_cxx<T, E, H, EXEC>
 
-TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :
+TPL POOL::pszmempool_cxx(
+    u4 x, int _radius, u4 y, u4 z, bool _iscompression,
+    psz_codectype codec_type) :
     iscompression(_iscompression)
 {
   len = x * y * z;
@@ -84,7 +86,20 @@ TPL POOL::pszmempool_cxx(u4 x, int _radius, u4 y, u4 z, bool _iscompression) :
   _anchor = new memobj<T>(
       div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor",
       {Malloc, MallocHost});
-  _ectrl = new memobj<E>(x, y, z, "psz::quant", {Malloc, MallocHost});
+
+  if (codec_type == Huffman)
+    _ectrl = new memobj<E>(x, y, z, "psz::quant_hf", {Malloc, MallocHost});
+  else if (codec_type == FZGPUCodec) {
+    // TODO enable alloc size
+    auto _s = x * y * z;
+    _s = (_s - 1) / 4096 + 1;
+    _s *= 4096;
+    _ectrl = new memobj<E>(_s, 1, 1, "psz::quant_fzg", {Malloc, MallocHost});
+  }
+  else
+    throw std::runtime_error(
+        "[psz] codec other than Huffman or FZGPUCodec is not supported.");
+
   _hist = new memobj<F>(bklen, "psz::hist", {Malloc, MallocHost});
 
   if (iscompression) {

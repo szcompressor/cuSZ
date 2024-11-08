@@ -105,11 +105,12 @@ fzgpu::Buf::~Buf()
     CHECK_GPU(cudaFreeHost(h_out_data));
   }
 
-  CHECK_GPU(cudaFree(d_comp_out));
-  CHECK_GPU(cudaFree(d_bitflag_array));
+  CHECK_GPU(cudaFree(d_archive));
+  // CHECK_GPU(cudaFree(d_comp_out));
+  // CHECK_GPU(cudaFree(d_bitflag_array));
+  // CHECK_GPU(cudaFree(d_start_pos));
 
   CHECK_GPU(cudaFree(d_offset_counter));
-  CHECK_GPU(cudaFree(d_start_pos));
   CHECK_GPU(cudaFree(d_comp_len));
 }
 

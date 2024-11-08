@@ -106,6 +106,9 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
 
   comp->header = h;
 
+  // TODO remove extra header-ctx conversion and states
+  comp->ctx->codec1_type = h->codec1_type;
+
   if (comp->type == F4 or comp->type == F8)
     comp->compressor = comp->type == F4
                            ? (void*)(new psz::CompressorF4(comp->ctx))

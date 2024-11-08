@@ -1,81 +1,87 @@
-%module pycusz
+%
+    module pycusz
 
-// The original names are not used.
-%rename(version) capi_psz_version;
-%rename(versioninfo) capi_psz_versioninfo;
-%rename(create) capi_psz_create;
-%rename(create_default) capi_psz_create_default;
-%rename(create_from_context) capi_psz_create_from_context;
-%rename(create_from_header) capi_psz_create_from_header;
-%rename(release) capi_psz_release;
-%ignore capi_psz_compress;
-%rename(decompress) capi_psz_decompress;
-%rename(get_len3) pszctx_get_len3;
+    // The original names are not used.
+    % rename(version) capi_psz_version;
+% rename(versioninfo) capi_psz_versioninfo;
+% rename(create) capi_psz_create;
+% rename(create_default) capi_psz_create_default;
+% rename(create_from_context) capi_psz_create_from_context;
+% rename(create_from_header) capi_psz_create_from_header;
+% rename(release) capi_psz_release;
+% ignore capi_psz_compress;
+% rename(decompress) capi_psz_decompress;
+% rename(get_len3) pszctx_get_len3;
 
 // ignore pszctx related (as of now, 2405)
-%ignore pszctx_create_from_argv;
-%ignore pszctx_create_from_string;
-%ignore pszctx_default_values;
-%ignore pszctx_minimal_workset;
-%ignore pszctx_set_default_values;
-%ignore pszctx_set_len;
-%ignore pszctx_set_rawlen;
+% ignore pszctx_create_from_argv;
+% ignore pszctx_create_from_string;
+% ignore pszctx_default_values;
+% ignore pszctx_minimal_workset;
+% ignore pszctx_set_default_values;
+% ignore pszctx_set_len;
+% ignore pszctx_set_rawlen;
 
-%ignore psz_backend;
-%ignore psz_device;
-%ignore psz_space;
-%ignore psz_preprocestype;
-%ignore psz_basic_data_description;
-%ignore psz_statistic_summary;
-%ignore psz_capi_array;
-%ignore psz_rettype_archive;
-%ignore psz_capi_compact;
-%ignore psz_runtime_config;
-%ignore psz_timing_mode;
+% ignore psz_backend;
+% ignore psz_device;
+% ignore psz_space;
+% ignore psz_preprocestype;
+% ignore psz_basic_data_description;
+% ignore psz_statistic_summary;
+% ignore psz_capi_array;
+% ignore psz_rettype_archive;
+% ignore psz_capi_compact;
+% ignore psz_runtime_config;
+% ignore psz_timing_mode;
 
-%ignore __F0;
-%ignore __I0;
-%ignore __U0;
+% ignore __F0;
+% ignore __I0;
+% ignore __U0;
 
-%ignore PSZHEADER_FORCED_ALIGN;
-%ignore PSZHEADER_HEADER;
-%ignore PSZHEADER_ANCHOR;
-%ignore PSZHEADER_VLE;
-%ignore PSZHEADER_SPFMT;
-%ignore PSZHEADER_END;
+% ignore PSZHEADER_FORCED_ALIGN;
+% ignore PSZHEADER_HEADER;
+% ignore PSZHEADER_ANCHOR;
+% ignore PSZHEADER_ENCODED;
+% ignore PSZHEADER_SPFMT;
+% ignore PSZHEADER_END;
 
-%{
+%
+    {
 #include "context.h"
+#include "cusz.h"
 #include "cusz/type.h"
 #include "header.h"
-#include "cusz.h"
-%}
+        % }
 
-%include "context.h"
-%include "cusz/type.h"
-%include "header.h"
-%include "cusz.h"
+    % include "context.h" % include "cusz/type.h" % include "header.h" %
+    include "cusz.h"
 
-// directly write python code here
-// REF: https://stackoverflow.com/a/4549685
-// The original names are kept.
-%pythoncode %{
-Ctx = psz_context
-Header = psz_header
-Compressor = psz_compressor
-Len3 = psz_len3
-%}
+    // directly write python code here
+    // REF: https://stackoverflow.com/a/4549685
+    // The original names are kept.
+    % pythoncode %
+{
+  Ctx = psz_context Header = psz_header Compressor = psz_compressor Len3 =
+      psz_len3 %
+}
 
 extern void capi_psz_version();
 extern void capi_psz_versioninfo();
-extern psz_compressor* capi_psz_create(psz_dtype const, psz_len3 const, psz_predtype const, int const, psz_codectype const); 
-extern psz_compressor* capi_psz_create_default(psz_dtype const, psz_len3 const);
-extern psz_compressor* capi_psz_create_from_context(pszctx* const, psz_len3 const);
+extern psz_compressor* capi_psz_create(
+    psz_dtype const, psz_len3 const, psz_predtype const, int const,
+    psz_codectype const);
+extern psz_compressor* capi_psz_create_default(
+    psz_dtype const, psz_len3 const);
+extern psz_compressor* capi_psz_create_from_context(
+    pszctx* const, psz_len3 const);
 extern psz_compressor* capi_psz_create_from_header(psz_header* const);
 extern pszerror capi_psz_release(psz_compressor*);
-extern pszerror capi_psz_decompress(psz_compressor*, uint8_t*, size_t const comp_len, void*, psz_len3 const, void* record, void* stream);
+extern pszerror capi_psz_decompress(
+    psz_compressor*, uint8_t*, size_t const comp_len, void*, psz_len3 const,
+    void* record, void* stream);
 
-%inline %{
+% inline %
+{
   PyObject* compress(
       psz_compressor * comp, void* uncompressed, psz_len3 const uncomp_len,
       double const eb, psz_mode const mode, void* stream)
@@ -92,4 +98,5 @@ extern pszerror capi_psz_decompress(psz_compressor*, uint8_t*, size_t const comp
     PyObject* py_tuple = Py_BuildValue("(iO)", error_code, py_compressed);
     return py_tuple;
   }
-%}
+  %
+}

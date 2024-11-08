@@ -15,6 +15,7 @@
 
 #include "compressor.hh"
 #include "cusz/type.h"
+#include "fzg_class.hh"
 #include "hfclass.hh"
 
 namespace psz {
@@ -45,7 +46,8 @@ struct CompoundType {
   using M = uint32_t;
 
   /* Lossless Codec*/
-  using Codec = phf::HuffmanCodec<E>;
+  using CodecHF = phf::HuffmanCodec<E>;
+  using CodecFZG = psz::FzgCodec;
 };
 
 using CompressorF4 = Compressor<CompoundType<f4>>;

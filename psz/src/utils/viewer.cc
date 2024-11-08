@@ -173,7 +173,7 @@ void psz_review_comp_time_from_header(psz_header* h)
   printf("--------------------------------------------------\n");
   __print_perc("file::header::bytes", fieldsize(PSZHEADER_HEADER));
   __print_perc("file::anchor::bytes", fieldsize(PSZHEADER_ANCHOR));
-  __print_perc("file::huffman::bytes", fieldsize(PSZHEADER_VLE));
+  __print_perc("file::huffman::bytes", fieldsize(PSZHEADER_ENCODED));
   __print_perc("file::outlier::bytes", fieldsize(PSZHEADER_SPFMT));
   printf("--------------------------------------------------\n");
   __print("file::anchor:::number", fieldsize(PSZHEADER_ANCHOR) / sizeof_T());

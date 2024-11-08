@@ -57,7 +57,9 @@ namespace psz {
 
 template <class C>
 struct Compressor<C>::impl {
-  using Codec = typename C::Codec;
+  using CodecHF = typename C::CodecHF;
+  using CodecFZG = typename C::CodecFZG;
+
   using BYTE = uint8_t;
   using B = u1;
 
@@ -76,12 +78,13 @@ struct Compressor<C>::impl {
   static const int FORCED_ALIGN = 128;
   static const int HEADER = 0;
   static const int ANCHOR = 1;
-  static const int VLE = 2;
+  static const int ENCODED = 2;
   static const int SPFMT = 3;
   static const int END = 4;
 
   // encapsulations
-  Codec* codec;  // has standalone internals
+  CodecHF* codec_hf;    // Codecs have standalone internals.
+  CodecFZG* codec_fzg;  //
   pszmempool_cxx<T, E, H>* mem;
   std::vector<pszerror> error_list;
   TimeRecord timerecord;
@@ -91,15 +94,20 @@ struct Compressor<C>::impl {
   // variables
   Header header;
   size_t len;
-  BYTE* comp_hf_out{nullptr};
-  size_t comp_hf_outlen{0};
+  BYTE* comp_codec_out{nullptr};
+  size_t comp_codec_outlen{0};
 
   // arrays
   uint32_t nbyte[END];
 
   float time_pred, time_hist, time_sp;
 
-  ~impl() { delete mem, delete codec; }
+  ~impl()
+  {
+    delete mem;
+    if (codec_hf) delete codec_hf;
+    if (codec_fzg) delete codec_fzg;
+  }
 
   template <class CONFIG>
   void init(CONFIG* ctx, bool iscompression, bool debug)
@@ -111,7 +119,15 @@ struct Compressor<C>::impl {
     len = x * y * z;
 
     mem = new pszmempool_cxx<T, E, H>(x, radius, y, z, iscompression);
-    codec = new Codec(mem->len, bklen, pardeg, debug);
+
+    if (ctx->codec1_type == Huffman)
+      codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
+    else if (ctx->codec1_type == FZGPUCodec)
+      codec_fzg = new CodecFZG(mem->len);
+    else {
+      throw std::runtime_error(
+          "[psz] codec other than Huffman or FZGPUCodec is not supported.");
+    }
   }
 
   void compress_predict(pszctx* ctx, T* in, void* stream)
@@ -209,17 +225,28 @@ struct Compressor<C>::impl {
 
   void compress_encode(pszctx* ctx, void* stream)
   {
-    codec->buildbook(mem->_hist->dptr(), stream);
-    // [TODO] CR estimation must be after building codebook; need a flag.
-    if (ctx->report_cr_est) {
-      codec->calculate_CR(
-          mem->_ectrl, mem->_hist, sizeof(T),
-          (sizeof(T) * mem->_anchor->len()) * (ctx->pred_type == Spline));
-    }
-    PSZDBG_LOG("codebook: done");
-    // PSZSANITIZE_HIST_BK(mem->_hist->hptr(), codec->bk4->hptr(), booklen);
+    if (ctx->codec1_type == Huffman) {
+      codec_hf->buildbook(mem->_hist->dptr(), stream);
+      // [TODO] CR estimation must be after building codebook; need a flag.
+      if (ctx->report_cr_est) {
+        codec_hf->calculate_CR(
+            mem->_ectrl, mem->_hist, sizeof(T),
+            (sizeof(T) * mem->_anchor->len()) * (ctx->pred_type == Spline));
+      }
+      PSZDBG_LOG("codebook: done");
+      // PSZSANITIZE_HIST_BK(mem->_hist->hptr(), codec->bk4->hptr(), booklen);
 
-    codec->encode(mem->ectrl(), len, &comp_hf_out, &comp_hf_outlen, stream);
+      codec_hf->encode(
+          mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+    }
+    else if (ctx->codec1_type == FZGPUCodec) {
+      codec_fzg->encode(
+          mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+    }
+    else {
+      throw std::runtime_error(
+          "[psz] codec other than Huffman or FZGPUCodec is not supported.");
+    }
 
     PSZDBG_LOG("encoding done");
   }
@@ -238,7 +265,7 @@ struct Compressor<C>::impl {
     auto pred_type = ctx->pred_type;
 
     nbyte[HEADER] = sizeof(header);
-    nbyte[VLE] = sizeof(BYTE) * comp_hf_outlen;
+    nbyte[ENCODED] = sizeof(BYTE) * comp_codec_outlen;
     nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->_anchor->len() : 0;
     nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
@@ -249,7 +276,7 @@ struct Compressor<C>::impl {
     for (auto i = 1; i < END + 1; i++) header.entry[i] += header.entry[i - 1];
 
     concate_memcpy_d2d(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream, __FILE__, __LINE__);
-    concate_memcpy_d2d(DST(VLE, 0), comp_hf_out, nbyte[VLE], stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(ENCODED, 0), comp_codec_out, nbyte[ENCODED], stream, __FILE__, __LINE__);
     concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
     concate_memcpy_d2d(DST(SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
     // clang-format on
@@ -360,7 +387,18 @@ struct Compressor<C>::impl {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
     };
-    codec->decode((B*)access(VLE), mem->ectrl(), stream);
+    if (header->codec1_type == Huffman) {
+      codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
+    }
+    else if (header->codec1_type == FZGPUCodec) {
+      codec_fzg->decode(
+          (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(),
+          mem->len, stream);
+    }
+    else {
+      throw std::runtime_error(
+          "[psz] codec other than Huffman or FZGPUCodec is not supported.");
+    }
   }
 
   void decompress_scatter(
@@ -381,21 +419,30 @@ struct Compressor<C>::impl {
     // return this;
   }
 
-  void clear_buffer() { codec->clear_buffer(), mem->clear_buffer(); }
+  void clear_buffer()
+  {
+    if (codec_hf) codec_hf->clear_buffer(), mem->clear_buffer();
+  }
 
   void compress_collect_kerneltime()
   {
     if (not timerecord.empty()) timerecord.clear();
 
     COLLECT_TIME("predict", time_pred);
-    COLLECT_TIME("histogram", time_hist);
-    COLLECT_TIME("book", codec->time_book());
-    COLLECT_TIME("huff-enc", codec->time_lossless());
+
+    if (codec_hf) {
+      COLLECT_TIME("histogram", time_hist);
+      COLLECT_TIME("book", codec_hf->time_book());
+      COLLECT_TIME("huff-enc", codec_hf->time_lossless());
+    }
 
     timerecord_v2[STAGE_PREDICT] = time_pred;
-    timerecord_v2[STAGE_HISTOGRM] = time_hist;
-    timerecord_v2[STAGE_BOOK] = codec->time_book();
-    timerecord_v2[STAGE_HUFFMAN] = codec->time_lossless();
+
+    if (codec_hf) {
+      timerecord_v2[STAGE_HISTOGRM] = time_hist;
+      timerecord_v2[STAGE_BOOK] = codec_hf->time_book();
+      timerecord_v2[STAGE_HUFFMAN] = codec_hf->time_lossless();
+    }
   }
 
   void decompress_collect_kerneltime()
@@ -403,11 +450,12 @@ struct Compressor<C>::impl {
     if (not timerecord.empty()) timerecord.clear();
 
     COLLECT_TIME("outlier", time_sp);
-    COLLECT_TIME("huff-dec", codec->time_lossless());
+
+    if (codec_hf) { COLLECT_TIME("huff-dec", codec_hf->time_lossless()); }
     COLLECT_TIME("predict", time_pred);
 
     timerecord_v2[STAGE_OUTLIER] = time_sp;
-    timerecord_v2[STAGE_HUFFMAN] = codec->time_lossless();
+    if (codec_hf) { timerecord_v2[STAGE_HUFFMAN] = codec_hf->time_lossless(); }
     timerecord_v2[STAGE_PREDICT] = time_pred;
   }
 };
@@ -449,15 +497,9 @@ Compressor<C>* Compressor<C>::compress(
   PSZSANITIZE_PSZCTX(ctx);
 
   pimpl->compress_predict(ctx, in, stream);
-  pimpl->compress_histogram(ctx, stream);
 
-  // /* statistics: histogram */
-  // PSZ_HIST(
-  //     pimpl->mem->ectrl(), pimpl->len, pimpl->mem->hist(), ctx->dict_size,
-  //     &pimpl->time_hist, stream);
-  // PSZDBG_LOG("histsp gpu: done");
+  if (ctx->codec1_type == Huffman) pimpl->compress_histogram(ctx, stream);
 
-  // TODO constexpr if
   if (ctx->use_prebuilt_hfbk)
     pimpl->compress_encode_use_prebuilt(ctx, stream);
   else

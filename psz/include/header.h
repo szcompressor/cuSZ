@@ -25,7 +25,7 @@ extern "C" {
 // also see Compressor::impl
 #define PSZHEADER_HEADER 0
 #define PSZHEADER_ANCHOR 1
-#define PSZHEADER_VLE 2
+#define PSZHEADER_ENCODED 2
 #define PSZHEADER_SPFMT 3
 #define PSZHEADER_END 4
 
