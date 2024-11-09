@@ -25,8 +25,8 @@ target_include_directories(
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include/>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hf/include/>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/hf/src/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -39,8 +39,7 @@ option(PSZ_REACTIVATE_THRUSTGPU
 
 if(PSZ_REACTIVATE_THRUSTGPU)
   add_compile_definitions(REACTIVATE_THRUSTGPU)
-  add_library(
-    psz_cu_stat
+  add_library(psz_cu_stat
     psz/src/stat/compare.stl.cc
     psz/src/stat/identical/all.thrust.cu
     psz/src/stat/extrema/f4.cu
@@ -56,8 +55,7 @@ if(PSZ_REACTIVATE_THRUSTGPU)
     psz/src/stat/maxerr/f4.thrust.cu
     psz/src/stat/maxerr/f8.thrust.cu)
 else()
-  add_library(
-    psz_cu_stat
+  add_library(psz_cu_stat
     psz/src/stat/compare.stl.cc
     psz/src/stat/identical/all.thrust.cu
     psz/src/stat/extrema/f4.cu
@@ -73,14 +71,14 @@ else()
 endif()
 
 target_link_libraries(psz_cu_stat
-  PUBLIC psz_cu_compile_settings
+  PUBLIC
+  psz_cu_compile_settings
 )
 add_library(PSZ::CUDA::stat ALIAS psz_cu_stat)
 add_library(CUSZ::stat ALIAS psz_cu_stat)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(
-  psz_cu_core
+add_library(psz_cu_core
   psz/src/kernel/l23.seq.cc
   psz/src/kernel/hist_compat.seq.cc
   psz/src/kernel/hist_compat.cu
@@ -105,8 +103,10 @@ add_library(
   # psz/src/kernel/spv.cu # a thrust impl
 )
 target_link_libraries(psz_cu_core
-  PUBLIC psz_cu_compile_settings CUDA::cudart
+  PUBLIC
+  psz_cu_compile_settings
   psz_cu_mem
+  CUDA::cudart
 )
 add_library(PSZ::CUDA::core ALIAS psz_cu_core)
 add_library(CUSZ::core ALIAS psz_cu_core)
@@ -119,8 +119,10 @@ add_library(psz_cu_mem
 add_library(CUSZ::mem ALIAS psz_cu_mem)
 add_library(PSZ::cu_mem ALIAS psz_cu_mem)
 target_link_libraries(psz_cu_mem
-  PUBLIC psz_cu_compile_settings CUDA::cudart
+  PUBLIC
+  psz_cu_compile_settings
   psz_cu_stat
+  CUDA::cudart
 )
 
 add_library(psz_cu_utils
@@ -136,25 +138,29 @@ add_library(psz_cu_utils
   psz/src/utils/header.c
 )
 target_link_libraries(psz_cu_utils
-  PUBLIC psz_cu_compile_settings CUDA::cudart CUDA::nvml
+  PUBLIC
+  psz_cu_compile_settings
+  CUDA::cudart CUDA::nvml
 )
 add_library(PSZ::CUDA::utils ALIAS psz_cu_utils)
 add_library(CUSZ::utils ALIAS psz_cu_utils)
 
 add_library(psz_cu_phf
-  hf/src/hfclass.cc
-  hf/src/hf_est.cc
-  hf/src/hfbk_impl1.seq.cc
-  hf/src/hfbk_impl2.seq.cc
-  hf/src/hfbk_internal.seq.cc
-  hf/src/hfbk.seq.cc
-  hf/src/hfcanon.seq.cc
-  hf/src/hfcxx_module.cu
-  hf/src/libphf.cc
+  codec/hf/src/hfclass.cc
+  codec/hf/src/hf_est.cc
+  codec/hf/src/hfbk_impl1.seq.cc
+  codec/hf/src/hfbk_impl2.seq.cc
+  codec/hf/src/hfbk_internal.seq.cc
+  codec/hf/src/hfbk.seq.cc
+  codec/hf/src/hfcanon.seq.cc
+  codec/hf/src/hfcxx_module.cu
+  codec/hf/src/libphf.cc
 )
 target_link_libraries(psz_cu_phf
-  PUBLIC psz_cu_compile_settings CUDA::cuda_driver
+  PUBLIC
+  psz_cu_compile_settings
   psz_cu_stat
+  CUDA::cuda_driver
 )
 add_library(PSZ::CUDA::phf ALIAS psz_cu_phf)
 add_library(CUSZ::phf ALIAS psz_cu_phf)
@@ -163,7 +169,8 @@ add_library(psz_cu_fzg
   codec/fzg/fzg_class.cc
 )
 target_link_libraries(psz_cu_fzg
-  PUBLIC psz_cu_compile_settings
+  PUBLIC
+  psz_cu_compile_settings
   psz_cu_core
 )
 add_library(PSZ::CUDA::fzg ALIAS psz_cu_fzg)
@@ -175,13 +182,15 @@ add_library(cusz
   psz/src/libcusz.cc
 )
 target_link_libraries(cusz
-  PUBLIC psz_cu_compile_settings CUDA::cudart
+  PUBLIC
+  psz_cu_compile_settings
   psz_cu_core
   psz_cu_stat
   psz_cu_mem
   psz_cu_utils
   psz_cu_phf
   psz_cu_fzg
+  CUDA::cudart
 )
 add_library(PSZ::CUDA::cusz ALIAS cusz)
 add_library(CUSZ::cusz ALIAS cusz)
