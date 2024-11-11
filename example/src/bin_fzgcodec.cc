@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 
 #include "fzg_class.hh"
-#include "kernel/fzg_cx.hh"
+#include "fzg_kernel.hh"
 #include "utils/io.hh"
 
 int low_level_demo(char **argv)

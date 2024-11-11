@@ -1,7 +1,7 @@
 #include "fzg_class.hh"
 
+#include "fzg_kernel.hh"
 #include "fzg_type.h"
-#include "kernel/fzg_cx.hh"
 
 struct psz::FzgCodec::impl {
  public:

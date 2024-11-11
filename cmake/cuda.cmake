@@ -27,10 +27,12 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/src/>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/src>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
+)
 
 # option(PSZ_RESEARCH_HUFFBK_CUDA
 # "build research artifacts: create Huffman codebook on GPU" OFF)
@@ -93,7 +95,6 @@ add_library(psz_cu_core
   psz/src/kernel/l23_c.cu
   psz/src/kernel/l23_x.cu
   psz/src/kernel/spline3.cu
-  psz/src/kernel/fzg_cx.cu
 
   # psz/src/module/lrz.cc
   # psz/src/module/lrz_cxx.cu
@@ -166,7 +167,8 @@ add_library(PSZ::CUDA::phf ALIAS psz_cu_phf)
 add_library(CUSZ::phf ALIAS psz_cu_phf)
 
 add_library(psz_cu_fzg
-  codec/fzg/fzg_class.cc
+  codec/fzg/src/fzg_kernel.cu
+  codec/fzg/src/fzg_class.cc
 )
 target_link_libraries(psz_cu_fzg
   PUBLIC
@@ -325,7 +327,11 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CUSZ)
 
 # install headers
-install(DIRECTORY psz/include/
+install(DIRECTORY
+  psz/include/
+  codec/hf/include/
+  codec/fzg/include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/psz/include/cusz_version.h
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/psz/include/cusz_version.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cusz/)

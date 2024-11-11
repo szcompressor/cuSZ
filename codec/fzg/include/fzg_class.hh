@@ -3,8 +3,8 @@
 
 #include <memory>
 
+#include "fzg_kernel.hh"
 #include "fzg_type.h"
-#include "kernel/fzg_cx.hh"
 
 namespace psz {
 
