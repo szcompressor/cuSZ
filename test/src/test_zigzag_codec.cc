@@ -10,6 +10,7 @@
  */
 
 #include <bitset>
+#include <cmath>
 #include <iostream>
 
 #include "cusz/suint.hh"
@@ -36,7 +37,8 @@ bool test(T input)
   auto encoded = psz::ZigZag<T>::encode(input);
   auto decoded = psz::ZigZag<T>::decode(encoded);
 
-  auto pass1 = encoded == (input >= 0 ? (2 * input) : (2 * abs(input) - 1));
+  auto pass1 =
+      encoded == (input >= 0 ? (2 * input) : (2 * std::abs(input) - 1));
   auto pass2 = decoded == input;
   return pass1 and pass2;
 }
