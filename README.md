@@ -124,12 +124,12 @@ We provide three small sample data in `data` by executing the script there. To d
 
 Our published papers cover the essential design and implementation. If you mention cuSZ in your paper, please kindly cite using `\cite{tian2020cusz,tian2021cuszplus,liu_tian_wu2024cuszi}` and the BibTeX entries below (or standalone [`.bib` file](doc/psz-cusz.bib)).
 
-1. **PACT '20: cuSZ** ( [local copy](doc/PACT'20-cusz.pdf) | [ACM](https://dl.acm.org/doi/10.1145/3410463.3414624) | [arXiv](https://arxiv.org/abs/2007.09625) ) covers
+1. The **PACT '20: cuSZ** paper ( [local copy](doc/20_PACT_cuSZ.pdf) | [ACM](https://dl.acm.org/doi/10.1145/3410463.3414624) | [arXiv](https://arxiv.org/abs/2007.09625) ) covers
     - basic framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
-2. **CLUSTER '21: cuSZ+** ( [local copy](doc/CLUSTER'21-cusz+.pdf) | [IEEEXplore](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}) | [arXiv](https://arxiv.org/abs/2105.12912) ) covers
+2. The **CLUSTER '21: cuSZ+** paper ( [local copy](doc/21_CLUSTER_cuSZ+.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}) | [arXiv](https://arxiv.org/abs/2105.12912) ) covers
     - optimization in throughput, featuring fine-grained *N*-D "reconstruction"
     - optimization in compression ratio, when data is deemed as "smooth"
-3. **SC '24: cuSZ-_i_** (The final paper will come to SC '24 proceedings.) The paper ( [arXiv](https://arxiv.org/abs/2312.05492) ) covers
+3. The **SC '24: cuSZ-_i_** paper ( [local copy](doc/24_SC_cuSZ-i.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019) | [arXiv](https://arxiv.org/abs/2312.05492) ) covers
     - spline-interpolation-based high-ratio data compression and high-quality data reconstruction
     - compresion ratio boost from incorporating the synergetic lossless encoding
 
@@ -150,16 +150,16 @@ Our published papers cover the essential design and implementation. If you menti
   booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
      series = {CLUSTER '21}, address = {Portland (virtual event), OR, USA}}
 
-@article{liu_tian_wu2024cuszi,
-     title = {{{\scshape cuSZ}-{\itshape i}: High-ratio scientific lossy compression on
+@inproceedings{liu_tian_wu2024cuszi,
+      title = {{{\scshape cuSZ}-{\itshape i}: High-Ratio scientific lossy compression on
              GPUs with optimized multi-level interpolation}},
-    author = {Jinyang Liu and Jiannan Tian and Shixun Wu and Sheng Di and Boyuan Zhang and Yafan Huang and Kai Zhao and Guanpeng Li and Dingwen Tao and Zizhong Chen and Franck Cappello},
-      year = {2024}, month = {11},
-      note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu},
-       doi = {10.48550/arXiv.2312.05492},
-    series = {SC '24}, address = {Atlanta, GA, USA}}
+     author = {Liu, Jinyang and Tian, Jiannan and Wu, Shixun and Di, Sheng and Zhang, Boyuan and Underwood, Robert and Huang, Yafan and Huang, Jiajun and Zhao, Kai and Li, Guanpeng and Tao, Dingwen and Chen, Zizhong and Cappello, Franck},
+       year = {2024}, month = {11},
+       note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu},
+        doi = {10.1109/SC41406.2024.00019}, isbn = {979-8-3503-5291-7},
+  booktitle = {SC '24: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+     series = {SC '24}, address = {Atlanta, GA, USA}}
 ```
-
 
 # acknowledgements
 
