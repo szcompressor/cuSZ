@@ -154,9 +154,9 @@ Our published papers cover the essential design and implementation. If you menti
       title = {{{\scshape cuSZ}-{\itshape i}: High-Ratio scientific lossy compression on
              GPUs with optimized multi-level interpolation}},
      author = {Liu, Jinyang and Tian, Jiannan and Wu, Shixun and Di, Sheng and Zhang, Boyuan and Underwood, Robert and Huang, Yafan and Huang, Jiajun and Zhao, Kai and Li, Guanpeng and Tao, Dingwen and Chen, Zizhong and Cappello, Franck},
-       year = {2024}, month = {11},
+       year = {2024}, month = {11}, isbn = {979-8-3503-5291-7},
        note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu},
-        doi = {10.1109/SC41406.2024.00019}, isbn = {979-8-3503-5291-7},
+        url = {https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019}, 
   booktitle = {SC '24: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
      series = {SC '24}, address = {Atlanta, GA, USA}}
 ```
