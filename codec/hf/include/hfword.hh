@@ -15,7 +15,7 @@
 #include <cstdint>
 
 #include "cusz/type.h"
-// #include "typing.hh"
+#include "typing.hh"
 
 // clang-format off
 template <int WIDTH> constexpr int FIELD_CODE();

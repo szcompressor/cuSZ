@@ -23,6 +23,7 @@ target_compile_features(psz_cu_compile_settings INTERFACE cxx_std_17 cuda_std_17
 target_include_directories(
   psz_cu_compile_settings
   INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/portable/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/include/>
@@ -134,8 +135,6 @@ add_library(psz_cu_utils
   psz/src/utils/verinfo_nv.cu
   psz/src/utils/vis_stat.cc
   psz/src/utils/context.cc
-  psz/src/utils/timer_cpu.cc
-  psz/src/utils/timer_gpu.cc
   psz/src/utils/header.c
 )
 target_link_libraries(psz_cu_utils
@@ -180,7 +179,6 @@ add_library(CUSZ::fzg ALIAS psz_cu_fzg)
 
 add_library(cusz
   psz/src/pipeline/compressor.cc
-  psz/src/log/sanitize.cc
   psz/src/libcusz.cc
 )
 target_link_libraries(cusz

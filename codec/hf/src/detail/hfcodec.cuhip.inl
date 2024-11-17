@@ -16,7 +16,7 @@
 
 #include "hfclass.hh"  // contains HuffmanHelper; TODO put in another file
 #include "hfword.hh"
-#include "utils/config.hh"
+// #include "utils/config.hh"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x

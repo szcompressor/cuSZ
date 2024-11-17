@@ -4,6 +4,8 @@
 #include "fzg_kernel.hh"
 #include "utils/io.hh"
 
+namespace utils = _portable::utils;
+
 int low_level_demo(char **argv)
 {
   auto data_len = atoi(argv[2]);
@@ -18,7 +20,7 @@ int low_level_demo(char **argv)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  io::read_binary_to_array<uint16_t>(argv[1], buf->h_in_data, data_len);
+  utils::fromfile<uint16_t>(argv[1], &buf->h_in_data, data_len);
 
   cudaMemcpy(
       buf->d_in_data, buf->h_in_data, sizeof(uint16_t) * data_len,
@@ -114,7 +116,7 @@ int high_level_demo(char **argv)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  io::read_binary_to_array<uint16_t>(argv[1], h_in_data, data_len);
+  utils::fromfile<uint16_t>(argv[1], &h_in_data, data_len);
 
   cudaMemcpy(
       d_in_data, h_in_data, sizeof(uint16_t) * data_len,

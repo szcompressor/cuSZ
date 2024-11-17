@@ -30,10 +30,10 @@ class pszmempool_cxx {
   using B = uint8_t;
   using Compact = typename CompactDram<EXEC, T>::Compact;
 
-  memobj<T> *_oridata;              // original data
-  memobj<T> *_anchor;               // anchor
-  memobj<E> *_ectrl, *_ectrl_test;  // ectrl (_ectrl_test for testing)
-  memobj<F> *_hist;                 // hist/frequency
+  memobj<T> *_oridata;  // original data
+  memobj<T> *_anchor;   // anchor
+  memobj<E> *_ectrl;    // ectrl
+  memobj<F> *_hist;     // hist/frequency
 
   Compact *compact;
   bool iscompression;

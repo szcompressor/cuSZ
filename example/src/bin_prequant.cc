@@ -9,6 +9,7 @@
 #include "utils/io.hh"
 
 using std::string;
+namespace utils = _portable::utils;
 
 string fname;
 
@@ -49,7 +50,7 @@ int main(int argc, char** argv)
     cudaMalloc(&d_out, len * sizeof(TOUT));
     cudaMallocHost(&h_out, len * sizeof(TOUT));
 
-    io::read_binary_to_array(fname, h_in, len);
+    utils::fromfile(fname, &h_in, len);
 
     printf("(x, y, z) = (%d, %d, %d)\n", x, y, z);
 
@@ -76,7 +77,7 @@ int main(int argc, char** argv)
     }
 
     cudaMemcpy(h_out, d_out, len * sizeof(TOUT), cudaMemcpyDeviceToHost);
-    io::write_array_to_binary(fname + ".prequant", h_out, len);
+    utils::tofile(fname + ".prequant", h_out, len);
 
     cudaStreamDestroy(stream);
     cudaFree(d_in);

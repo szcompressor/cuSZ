@@ -92,7 +92,7 @@ struct psz_context {
 
   bool report_time;
   bool report_cr;
-  bool report_cr_est;
+  // bool report_cr_est;
   bool verbose;
 
   // tracking error status

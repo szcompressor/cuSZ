@@ -13,7 +13,10 @@
 
 #include "context.h"
 
+#include <cxxabi.h>
+
 #include <cstring>
+#include <fstream>
 #include <regex>
 #include <set>
 #include <stdexcept>
@@ -21,10 +24,16 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "utils/config.hh"
-#include "utils/document.hh"
+#include "document.inl"
+#include "header.h"
 #include "utils/format.hh"
 #include "utils/verinfo.h"
+
+using std::cerr;
+using std::endl;
+using ss_t = std::stringstream;
+using map_t = std::unordered_map<std::string, std::string>;
+using str_list = std::vector<std::string>;
 
 namespace psz {
 
@@ -62,6 +71,244 @@ void capi_psz_versioninfo()
   CUDA_devices();
 }
 
+// TODO placement
+namespace {
+
+struct psz_helper {
+  static unsigned int str2int(const char* s)
+  {
+    char* end;
+    auto res = std::strtol(s, &end, 10);
+    if (*end) {
+      const char* notif = "invalid option value, non-convertible part: ";
+      cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
+    }
+    return res;
+  }
+
+  static unsigned int str2int(std::string s) { return str2int(s.c_str()); }
+
+  static double str2fp(const char* s)
+  {
+    char* end;
+    auto res = std::strtod(s, &end);
+    if (*end) {
+      const char* notif = "invalid option value, non-convertible part: ";
+      cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
+    }
+    return res;
+  }
+
+  static double str2fp(std::string s) { return str2fp(s.c_str()); }
+
+  static bool is_kv_pair(std::string s)
+  {
+    return s.find("=") != std::string::npos;
+  }
+
+  static std::pair<std::string, std::string> separate_kv(std::string& s)
+  {
+    std::string delimiter = "=";
+
+    if (s.find(delimiter) == std::string::npos)
+      throw std::runtime_error(
+          "\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
+
+    std::string k = s.substr(0, s.find(delimiter));
+    std::string v =
+        s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
+
+    return std::make_pair(k, v);
+  }
+
+  static void parse_strlist_as_kv(const char* in_str, map_t& kv_list)
+  {
+    ss_t ss(in_str);
+    while (ss.good()) {
+      std::string tmp;
+      std::getline(ss, tmp, ',');
+      kv_list.insert(separate_kv(tmp));
+    }
+  }
+
+  static void parse_strlist(const char* in_str, str_list& list)
+  {
+    ss_t ss(in_str);
+    while (ss.good()) {
+      std::string tmp;
+      std::getline(ss, tmp, ',');
+      list.push_back(tmp);
+    }
+  }
+
+  static std::pair<std::string, bool> parse_kv_onoff(std::string in_str)
+  {
+    auto kv_literal = "(.*?)=(on|ON|off|OFF)";
+    std::regex kv_pattern(kv_literal);
+    std::regex onoff_pattern("on|ON|off|OFF");
+
+    bool onoff = false;
+    std::string k, v;
+
+    std::smatch kv_match;
+    if (std::regex_match(in_str, kv_match, kv_pattern)) {
+      // the 1st match: whole string
+      // the 2nd: k, the 3rd: v
+      if (kv_match.size() == 3) {
+        k = kv_match[1].str(), v = kv_match[2].str();
+
+        std::smatch v_match;
+        if (std::regex_match(v, v_match, onoff_pattern)) {  //
+          onoff = (v == "on") or (v == "ON");
+        }
+        else {
+          throw std::runtime_error("not legal (k=v)-syntax");
+        }
+      }
+    }
+    return std::make_pair(k, onoff);
+  }
+
+  static std::string doc_format(const std::string& s)
+  {
+    std::regex gray("%(.*?)%");
+    std::string gray_text("\e[37m$1\e[0m");
+
+    std::regex bful("@(.*?)@");
+    std::string bful_text("\e[1m\e[4m$1\e[0m");
+    std::regex bf("\\*(.*?)\\*");
+    std::string bf_text("\e[1m$1\e[0m");
+    std::regex ul(R"(_((\w|-|\d|\.)+?)_)");
+    std::string ul_text("\e[4m$1\e[0m");
+    std::regex red(R"(\^\^(.*?)\^\^)");
+    std::string red_text("\e[31m$1\e[0m");
+
+    auto a = std::regex_replace(s, bful, bful_text);
+    auto b = std::regex_replace(a, bf, bf_text);
+    auto c = std::regex_replace(b, ul, ul_text);
+    auto d = std::regex_replace(c, red, red_text);
+    auto e = std::regex_replace(d, gray, gray_text);
+
+    return e;
+  }
+};
+
+struct psz_utils {
+  static std::string nnz_percentage(uint32_t nnz, uint32_t data_len)
+  {
+    return "(" + std::to_string(nnz / 1.0 / data_len * 100) + "%)";
+  }
+
+  static void check_cuszmode(const std::string& val)
+  {
+    auto legal = (val == "r2r" or val == "rel") or (val == "abs");
+    if (not legal)
+      throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
+  }
+
+  static bool check_dtype(const std::string& val, bool delay_failure = true)
+  {
+    auto legal = (val == "f32") or (val == "f4");
+    // auto legal = (val == "f32") or (val == "f64");
+    if (not legal)
+      if (not delay_failure)
+        throw std::runtime_error("Only `f32`/`f4` is supported temporarily.");
+
+    return legal;
+  }
+
+  static bool check_dtype(const psz_dtype& val, bool delay_failure = true)
+  {
+    auto legal = (val == F4);
+    if (not legal)
+      if (not delay_failure)
+        throw std::runtime_error("Only `f32` is supported temporarily.");
+
+    return legal;
+  }
+
+  static bool check_opt_in_list(
+      std::string const& opt, std::vector<std::string> vs)
+  {
+    for (auto& i : vs) {
+      if (opt == i) return true;
+    }
+    return false;
+  }
+
+  static void parse_length_literal(
+      const char* str, std::vector<std::string>& dims)
+  {
+    std::stringstream data_len_ss(str);
+    auto data_len_literal = data_len_ss.str();
+    auto checked = false;
+
+    for (auto s : {"x", "*", "-", ",", "m"}) {
+      if (checked) break;
+      char delimiter = s[0];
+
+      if (data_len_literal.find(delimiter) != std::string::npos) {
+        while (data_len_ss.good()) {
+          std::string substr;
+          std::getline(data_len_ss, substr, delimiter);
+          dims.push_back(substr);
+        }
+        checked = true;
+      }
+    }
+
+    // handle 1D
+    if (not checked) { dims.push_back(data_len_literal); }
+  }
+
+  static size_t filesize(std::string fname)
+  {
+    std::ifstream in(
+        fname.c_str(), std::ifstream::ate | std::ifstream::binary);
+    return in.tellg();
+  }
+
+  template <typename T1, typename T2>
+  static size_t get_npart(T1 size, T2 subsize)
+  {
+    static_assert(
+        std::numeric_limits<T1>::is_integer and
+            std::numeric_limits<T2>::is_integer,
+        "[get_npart] must be plain interger types.");
+
+    return (size + subsize - 1) / subsize;
+  }
+
+  template <typename TRIO>
+  static bool eq(TRIO a, TRIO b)
+  {
+    return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
+  };
+
+  static void print_datasegment_tablehead()
+  {
+    printf(
+        "\ndata segments:\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
+        const_cast<char*>("name"),                                        //
+        const_cast<char*>("nbyte"),                                       //
+        const_cast<char*>("start"),                                       //
+        const_cast<char*>("end"));
+  }
+
+  static std::string demangle(const char* name)
+  {
+    int status = -4;
+    char* res = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+
+    const char* const demangled_name = (status == 0) ? res : name;
+    std::string ret_val(demangled_name);
+    free(res);
+    return ret_val;
+  };
+};
+
+}  // namespace
+
 void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
 void pszctx_parse_length(pszctx* ctx, const char* lenstr);
@@ -87,18 +334,16 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
     if (psz_helper::is_kv_pair(o)) {
       auto kv = psz_helper::parse_kv_onoff(o);
 
-      if (kv.first == "cr")
-        ctx->report_cr = kv.second;
-      else if (kv.first == "cr.est")
-        ctx->report_cr_est = kv.second;
+      if (kv.first == "cr") ctx->report_cr = kv.second;
+      // else if (kv.first == "cr.est")
+      //   ctx->report_cr_est = kv.second;
       else if (kv.first == "time")
         ctx->report_time = kv.second;
     }
     else {
-      if (o == "cr")
-        ctx->report_cr = true;
-      else if (o == "cr.est")
-        ctx->report_cr_est = true;
+      if (o == "cr") ctx->report_cr = true;
+      // else if (o == "cr.est")
+      //   ctx->report_cr_est = true;
       else if (o == "time")
         ctx->report_time = true;
     }
@@ -469,7 +714,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         char* notif;
         int size = asprintf(&notif, "%d: %s", i, argv[i]);
         cerr << LOG_ERR << notif_prefix << "\e[1m" << notif << "\e[0m" << "\n";
-        cerr << std::string(LOG_NULL.length() + strlen(notif_prefix), ' ');
+        cerr << std::string(strlen(LOG_NULL) + strlen(notif_prefix), ' ');
         cerr << "\e[1m";
         cerr << std::string(strlen(notif), '~');
         cerr << "\e[0m\n";
@@ -485,9 +730,9 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
            << "\e[0m"
               "\n"
-           << std::string(LOG_NULL.length() + strlen(notif_prefix), ' ')  //
-           << "\e[1m"                                                     //
-           << std::string(strlen(notif), '~')                             //
+           << std::string(strlen(LOG_NULL) + strlen(notif_prefix), ' ')  //
+           << "\e[1m"                                                    //
+           << std::string(strlen(notif), '~')                            //
            << "\e[0m\n";
 
       std::cout << LOG_ERR << "Exiting..." << endl;
@@ -722,7 +967,7 @@ pszctx* pszctx_default_values()
       .skip_hf = false,
       .report_time = false,
       .report_cr = false,
-      .report_cr_est = false,
+      // .report_cr_est = false,
       .verbose = false,
       .there_is_memerr = false,
   };

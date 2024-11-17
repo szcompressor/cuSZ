@@ -1,6 +1,7 @@
 #include <cstddef>
 
 #include "hfclass.hh"
+#include "hfcxx_array.hh"
 #include "mem/memobj.hh"
 #include "utils/err.hh"
 

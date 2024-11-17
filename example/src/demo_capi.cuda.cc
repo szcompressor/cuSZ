@@ -18,13 +18,15 @@
 #include "cusz/type.h"
 #include "utils/io.hh"  // io::read_binary_to_array
 
+namespace utils = _portable::utils;
+
 using T = float;
 
 std::string fname;
 size_t len = 3600 * 1800;
 size_t oribytes = sizeof(T) * len;
-auto mode = Rel;                        // set compression mode
-auto eb = 1.2e-4;                       // set error bound
+auto mode = Rel;   // set compression mode
+auto eb = 1.2e-4;  // set error bound
 
 T *d_decomp, *h_decomp;
 T *d_uncomp, *h_uncomp;
@@ -74,7 +76,7 @@ void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
 
   cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
   cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
-  io::read_binary_to_array(fname, h_uncomp, len);
+  utils::fromfile(fname, &h_uncomp, len);
   cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
 
   comp_timerecord = psz_make_timerecord();

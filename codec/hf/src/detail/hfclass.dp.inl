@@ -86,8 +86,7 @@ TPL HF_CODEC* HF_CODEC::init(
   revbk8 = new memobj<BYTE>(revbk8_bytes(bklen), 1, 1, "hf::revbk8");
 
   // encoded buffer
-  __bitstream =
-      new memobj<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
+  __bitstream = new memobj<RAW>(inlen * FAILSAFE / 2, 1, 1, "hf::__bitstrm");
   bitstream4 = new memobj<H4>(inlen / 2, 1, 1, "hf::bitstrm4");
   bitstream8 = new memobj<H8>(inlen / 2, 1, 1, "hf::bitstrm8");
 
@@ -158,8 +157,7 @@ TPL HF_CODEC* HF_CODEC::buildbook(
 #endif
 
 // using CPU huffman
-TPL HF_CODEC* HF_CODEC::buildbook(
-    MemU4* freq, int const bklen, void* stream)
+TPL HF_CODEC* HF_CODEC::buildbook(MemU4* freq, int const bklen, void* stream)
 {
   psz::hf_buildbook<SEQ, E, H4>(
       freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(),
@@ -172,74 +170,6 @@ TPL HF_CODEC* HF_CODEC::buildbook(
   hist_view->asaviewof(freq);  // for analysis
 
   return this;
-}
-
-// using CPU huffman
-TPL void HF_CODEC::calculate_CR(
-    MemU4* ectrl, szt sizeof_dtype, szt overhead_bytes)
-{
-  // serial part
-  f8 serial_entropy = 0;
-  f8 serial_avg_bits = 0;
-
-  auto len = std::accumulate(hist_view->hbegin(), hist_view->hend(), (szt)0);
-  // printf("[psz::dbg::hf] len: %zu\n", len);
-
-  for (auto i = 0; i < bklen; i++) {
-    auto freq = hist_view->hat(i);
-    auto hfcode = bk4->hat(i);
-    if (freq != 0) {
-      auto p = 1.0 * freq / len;
-      serial_entropy += -std::log2(p) * p;
-
-      auto bits = ((HuffmanWord<4>*)(&hfcode))->bitcount;
-      serial_avg_bits += bits * p;
-    }
-  }
-
-  // parallel simulation
-  // f8 parallel_bits = 0;
-  ectrl->control({D2H});
-  auto tmp_sublen = bitstream_desc->sublen;
-  auto tmp_pardeg = bitstream_desc->pardeg;
-  auto tmp_len = ectrl->len();
-  for (auto p = 0; p < tmp_pardeg; p++) {
-    auto start = p * tmp_sublen;
-
-    // auto this_ncell = 0,
-    auto this_nbit = 0;
-
-    for (auto i = 0; i < tmp_sublen; i++) {
-      if (i + tmp_sublen < tmp_len) {
-        auto eq = ectrl->hat(start + i);
-        auto c = bk4->hat(eq);
-        auto b = ((HuffmanWord<4>*)(&c))->bitcount;
-        this_nbit += b;
-      }
-    }
-    par_nbit->hat(p) = this_nbit;
-    par_ncell->hat(p) = (this_nbit - 1) / 32 + 1;
-  }
-  auto final_len = std::accumulate(par_ncell->hbegin(), par_ncell->hend(), 0);
-
-  auto final_bytes = 1.0 * final_len * sizeof_dtype;
-  final_bytes += par_entry->len() *
-                 (sizeof(U4) /* for idx */ + sizeof_dtype);  // outliers
-  final_bytes += 128 * 2; /* two kinds of headers */
-  final_bytes += overhead_bytes;
-
-  // print report
-  // clang-format off
-  printf("[psz::info::hf::calc_cr] get CR from hist and par setup\n");
-  printf("[psz::info::hf::calc_cr] (T, H)=(f4, u4)\n");
-  printf("[psz::info::hf::calc_cr] serial (ref), entropy            : %lf\n", serial_entropy);
-  printf("[psz::info::hf::calc_cr] serial (ref), avg-bit            : %lf\n", serial_avg_bits);
-  printf("[psz::info::hf::calc_cr] serial (ref), entropy-implied CR : %lf\n", sizeof_dtype * 8 / serial_entropy);
-  printf("[psz::info::hf::calc_cr] serial (ref), avg-bit-implied    : %lf\n", sizeof_dtype * 8 / serial_avg_bits);
-  printf("[psz::info::hf::calc_cr] pSZ/cuSZ achievable CR (chunked) : %lf\n", tmp_len * sizeof_dtype / final_bytes);
-  printf("[psz::info::hf::calc_cr] analysis done, exiting...\n");
-  // clang-format on
-  // exit(0);
 }
 
 TPL HF_CODEC* HF_CODEC::encode(

@@ -5,7 +5,7 @@
 #include "detail/fzg_c.cuhip.inl"
 #include "detail/fzg_x.cuhip.inl"
 #include "fzg_kernel.hh"
-#include "utils/err/err.cuhip.hh"
+#include "utils/err.hh"
 
 fzgpu::config_map const fzgpu::configure_fzgpu(size_t const data_len)
 {

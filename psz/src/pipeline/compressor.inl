@@ -21,10 +21,8 @@
 #include "exception/exception.hh"
 #include "hfclass.hh"
 #include "kernel.hh"
-#include "log.hh"
 #include "module/cxx_module.hh"
 #include "port.hh"
-#include "utils/config.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
@@ -132,20 +130,12 @@ struct Compressor<C>::impl {
 
   void compress_predict(pszctx* ctx, T* in, void* stream)
   try {
-    /* prediction-quantization with compaction */
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-
-    auto len3 = dim3(ctx->x, ctx->y, ctx->z);
 
     if (ctx->pred_type == Lorenzo) {
       psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
           in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
           (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
-
-      PSZDBG_LOG("interp: done");
-      PSZDBG_PTR_WHERE(mem->ectrl());
-      PSZDBG_VAR("pipeline", len);
-      PSZSANITIZE_QUANTCODE(mem->_ectrl->control({D2H})->hptr(), len, booklen);
     }
     else if (ctx->pred_type == LorenzoZigZag) {
       psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
@@ -227,14 +217,6 @@ struct Compressor<C>::impl {
   {
     if (ctx->codec1_type == Huffman) {
       codec_hf->buildbook(mem->_hist->dptr(), stream);
-      // [TODO] CR estimation must be after building codebook; need a flag.
-      if (ctx->report_cr_est) {
-        codec_hf->calculate_CR(
-            mem->_ectrl, mem->_hist, sizeof(T),
-            (sizeof(T) * mem->_anchor->len()) * (ctx->pred_type == Spline));
-      }
-      PSZDBG_LOG("codebook: done");
-      // PSZSANITIZE_HIST_BK(mem->_hist->hptr(), codec->bk4->hptr(), booklen);
 
       codec_hf->encode(
           mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
@@ -247,8 +229,6 @@ struct Compressor<C>::impl {
       throw std::runtime_error(
           "[psz] codec other than Huffman or FZGPUCodec is not supported.");
     }
-
-    PSZDBG_LOG("encoding done");
   }
 
   void compress_encode_use_prebuilt(pszctx* ctx, void* stream)
@@ -281,8 +261,6 @@ struct Compressor<C>::impl {
     concate_memcpy_d2d(DST(SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
     // clang-format on
 
-    PSZDBG_LOG("merge buf: done");
-
     // update header::metadata (.w is placeheld.)
     header.x = ctx->x, header.y = ctx->y, header.z = ctx->z, header.w = 1;
     header.splen = ctx->splen;
@@ -294,8 +272,6 @@ struct Compressor<C>::impl {
     header.pred_type = ctx->pred_type;
     header.hist_type = ctx->hist_type;
     header.codec1_type = ctx->codec1_type;
-
-    PSZDBG_LOG("update header: done");
 
     /* output of this function */
     *out = mem->_compressed->dptr();
@@ -494,8 +470,6 @@ template <class C>
 Compressor<C>* Compressor<C>::compress(
     pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
 {
-  PSZSANITIZE_PSZCTX(ctx);
-
   pimpl->compress_predict(ctx, in, stream);
 
   if (ctx->codec1_type == Huffman) pimpl->compress_histogram(ctx, stream);

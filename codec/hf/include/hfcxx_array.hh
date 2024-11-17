@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "hfcxx_array.hh"
 #include "mem/array_cxx.h"
 
 using namespace portable;

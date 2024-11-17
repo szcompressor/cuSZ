@@ -1,6 +1,7 @@
 #include "hf.h"
 #include "hf_type.h"
 #include "hfclass.hh"
+#include "hfcxx_array.hh"
 #include "port.hh"
 
 namespace phf {

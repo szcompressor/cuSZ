@@ -211,69 +211,6 @@ struct HuffmanCodec<E, TIMING>::impl {
 #undef PHF_ACCESSOR
   }
 
-  void calculate_CR(
-      memobj<E>* ectrl, memobj<u4>* freq, szt sizeof_dtype, szt overhead_bytes)
-  {
-    // serial part
-    f8 serial_entropy = 0;
-    f8 serial_avg_bits = 0;
-
-    auto len = std::accumulate(freq->hbegin(), freq->hend(), (szt)0);
-    // printf("[psz::dbg::hf] len: %zu\n", len);
-
-    for (auto i = 0; i < bklen; i++) {
-      auto hfcode = buf->bk4->hat(i);
-      if (freq != 0) {
-        auto p = 1.0 * freq->hat(i) / len;
-        serial_entropy += -std::log2(p) * p;
-
-        auto bits = ((HuffmanWord<4>*)(&hfcode))->bitcount;
-        serial_avg_bits += bits * p;
-      }
-    }
-
-    // parallel simulation
-    // f8 parallel_bits = 0;
-    ectrl->control({D2H});
-    auto tmp_len = ectrl->len();
-    for (auto p = 0; p < pardeg; p++) {
-      auto start = p * sublen;
-
-      // auto this_ncell = 0,
-      auto this_nbit = 0;
-
-      for (auto i = 0; i < sublen; i++) {
-        if (i + sublen < tmp_len) {
-          auto eq = ectrl->hat(start + i);
-          auto c = buf->bk4->hat(eq);
-          auto b = ((HuffmanWord<4>*)(&c))->bitcount;
-          this_nbit += b;
-        }
-      }
-      buf->par_nbit->hat(p) = this_nbit;
-      buf->par_ncell->hat(p) = (this_nbit - 1) / 32 + 1;
-    }
-    auto final_len =
-        std::accumulate(buf->par_ncell->hbegin(), buf->par_ncell->hend(), 0);
-    auto final_bytes = 1.0 * final_len * sizeof_dtype;
-    final_bytes += buf->par_entry->len() *
-                   (sizeof(U4) /* for idx */ + sizeof_dtype);  // outliers
-    final_bytes += 128 * 2; /* two kinds of headers */
-    final_bytes += overhead_bytes;
-
-    // print report
-    // clang-format off
-  printf("[phf::calc_cr] get CR from hist and par setup\n");
-  printf("[phf::calc_cr] (T, H)=(f4, u4)\n");
-  printf("[phf::calc_cr] serial (ref), entropy            : %lf\n", serial_entropy);
-  printf("[phf::calc_cr] serial (ref), avg-bit            : %lf\n", serial_avg_bits);
-  printf("[phf::calc_cr] serial (ref), entropy-implied CR : %lf\n", sizeof_dtype * 8 / serial_entropy);
-  printf("[phf::calc_cr] serial (ref), avg-bit-implied    : %lf\n", sizeof_dtype * 8 / serial_avg_bits);
-  printf("[phf::calc_cr] pSZ/cuSZ achievable CR (chunked) : %lf\n", tmp_len * sizeof_dtype / final_bytes);
-  printf("[phf::calc_cr] analysis done, proceeding...\n");
-    // clang-format on
-  }
-
   void make_metadata()
   {
     // header.self_bytes = sizeof(Header);
@@ -320,13 +257,6 @@ PHF_TPL PHF_CLASS* PHF_CLASS::buildbook(u4* freq, phf_stream_t stream)
 {
   pimpl->buildbook(freq, stream);
   return this;
-}
-
-// using CPU huffman
-PHF_TPL void PHF_CLASS::calculate_CR(
-    memobj<E>* ectrl, memobj<u4>* freq, szt sizeof_dtype, szt overhead_bytes)
-{
-  pimpl->calculate_CR(ectrl, freq, sizeof_dtype, overhead_bytes);
 }
 
 PHF_TPL
