@@ -30,8 +30,8 @@ namespace psz {
 
 #if defined(PSZ_USE_CUDA)
 const char* BACKEND_TEXT = "cuSZ";
-const char* VERSION_TEXT = "2024-05-27 (0.10rc)";
-const int VERSION = 20240527;
+const char* VERSION_TEXT = "2024-12-18 (0.14rc +updates)";
+const int VERSION = 20241218;
 #elif defined(PSZ_USE_HIP)
 const char* BACKEND_TEXT = "hipSZ";
 const char* VERSION_TEXT = "2023-08-31 (unstable)";
@@ -46,7 +46,7 @@ const int COMPATIBILITY = 0;
 
 void capi_psz_version()
 {
-  printf("\n>>>  %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT);
+  printf("\n>>> %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT);
 }
 
 void capi_psz_versioninfo()
@@ -179,7 +179,7 @@ void pszctx_parse_control_string(
     else if (optmatch({"len", "xyz", "dim3"})) {
       pszctx_parse_length(ctx, v.c_str());
     }
-    else if (optmatch({"size", "slowest-to-fastest", "zyx"})) {
+    else if (optmatch({"math-order", "slowest-to-fastest", "zyx"})) {
       pszctx_parse_length_zyx(ctx, v.c_str());
     }
     else if (optmatch({"demo"})) {
@@ -220,10 +220,10 @@ void pszctx_parse_control_string(
     else if (optmatch({"hist", "histogram"})) {
       strcpy(ctx->char_codec1_name, v.c_str());
 
-      if (v == "default")
-        ctx->hist_type = psz_histogramtype::HistogramDefault;
-      else if (v == "generic")
+      if (v == "generic")
         ctx->hist_type = psz_histogramtype::HistogramGeneric;
+      else if (v == "sparse")
+        ctx->hist_type = psz_histogramtype::HistogramSparse;
     }
     else if (optmatch({"codec", "codec1"})) {
       strcpy(ctx->char_codec1_name, v.c_str());
@@ -303,7 +303,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         capi_psz_version();
         exit(0);
       }
-      else if (optmatch({"-V", "--versioninfo"})) {
+      else if (optmatch({"-V", "--versioninfo", "--query-env"})) {
         capi_psz_versioninfo();
         exit(0);
       }
@@ -344,10 +344,10 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         auto v = std::string(argv[++i]);
         strcpy(ctx->char_predictor_name, v.c_str());
 
-        if (v == "default")
-          ctx->hist_type = psz_histogramtype::HistogramDefault;
-        else if (v == "generic")
+        if (v == "generic")
           ctx->hist_type = psz_histogramtype::HistogramGeneric;
+        else if (v == "sparse")
+          ctx->hist_type = psz_histogramtype::HistogramSparse;
       }
       else if (optmatch({"-c1", "--codec", "--codec1"})) {
         check_next();
@@ -376,7 +376,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         check_next();
         pszctx_parse_length(ctx, argv[++i]);
       }
-      else if (optmatch({"--size", "--zyx", "--slowest-to-fastest"})) {
+      else if (optmatch({"--math-order", "--zyx", "--slowest-to-fastest"})) {
         check_next();
         pszctx_parse_length_zyx(ctx, argv[++i]);
       }
@@ -622,12 +622,13 @@ void pszctx_validate(pszctx* ctx)
 void pszctx_print_document(bool full_document)
 {
   if (full_document) {
-    capi_psz_versioninfo();
-    cout << endl;
-    std::cout << psz_helper::doc_format(psz_full_doc) << std::endl;
+    capi_psz_version();
+    std::cout << "\n" << psz_helper::doc_format(psz_full_doc);
   }
-  else
-    std::cout << psz_helper::doc_format(psz_short_doc) << std::endl;
+  else {
+    capi_psz_version();
+    std::cout << psz_helper::doc_format(psz_short_doc);
+  }
 }
 
 void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
@@ -686,7 +687,7 @@ pszctx* pszctx_default_values()
   return new pszctx{
       .dtype = F4,
       .pred_type = Lorenzo,
-      .hist_type = HistogramDefault,
+      .hist_type = HistogramGeneric,
       .codec1_type = Huffman,
       .mode = Rel,
       .eb = 0.1,

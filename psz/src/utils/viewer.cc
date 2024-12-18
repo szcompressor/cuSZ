@@ -95,8 +95,8 @@ string const psz_report_query_pred(psz_predtype const p)
 string const psz_report_query_hist(psz_histogramtype const h)
 {
   const std::unordered_map<psz_histogramtype const, std::string const> lut = {
-      {psz_histogramtype::HistogramDefault, "Hist-default"},
       {psz_histogramtype::HistogramGeneric, "Hist-generic"},
+      {psz_histogramtype::HistogramSparse, "Hist-sparse"},
       {psz_histogramtype::HistogramNull, "Hist-(null)"},
   };
   return lut.at(h);
@@ -295,10 +295,10 @@ void psz::utils::print_metrics_cross(
   println_v2("comp_metric", "PSNR", s->score_PSNR);
   hlcolor_red = true;
   println_segline_dotted();
-  println_v2("data_max_diff", "index", s->max_err_idx);
+  println_v2("data_max_error", "index", s->max_err_idx);
   hlcolor_red = false;
-  println_v2("data_max_diff", "val", s->max_err_abs);
-  println_v2("data_max_diff", "vs_rng", s->max_err_rel);
+  println_v2("data_max_error", "val", s->max_err_abs);
+  println_v2("data_max_error", "vs_rng", s->max_err_rel);
   hlcolor_red = true;
   println_segline_dotted();
 }

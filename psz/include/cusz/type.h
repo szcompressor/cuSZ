@@ -96,8 +96,8 @@ typedef enum {
 } psz_codectype;
 
 typedef enum {
-  HistogramDefault,
   HistogramGeneric,
+  HistogramSparse,
   HistogramNull,
 } psz_histogramtype;
 
