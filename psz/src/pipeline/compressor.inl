@@ -204,7 +204,7 @@ struct Compressor<C>::impl {
 
   void compress_histogram(pszctx* ctx, void* stream)
   {
-    if (ctx->hist_type == psz_histogramtype::HistogramDefault) {
+    if (ctx->hist_type == psz_histogramtype::HistogramSparse) {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
 
       pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(

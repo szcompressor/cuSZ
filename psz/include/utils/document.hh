@@ -2,7 +2,7 @@
  * @file document.hh
  * @author Jiannan Tian
  * @brief
- * @version 0.1.1
+ * @version 0.14.0
  * @date 2020-09-22
  *
  * @copyright (C) 2020 by Washington State University, Argonne National
@@ -72,12 +72,12 @@ static const char psz_short_doc[] =
     "\"cusz -h\" for details.\n";
 
 static const char psz_full_doc[] =
-    "*NAME*\n"
+    "*NAME*\n\n"
     "    cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific "
     "Data\n"
-    "    Lowercased \"*cusz*\" is the command.\n"
+    "    The lowercased \"*cusz*\" is the command.\n"
     "\n"
-    "*SYNOPSIS*\n"
+    "*SYNOPSIS*\n\n"
     "    The basic use is listed below,\n"
     "    *cusz* *-t* f32 *-m* rel *-e* 1.0e-4.0 *-i* ${CESM} *-l* "
     "3600-1800 *-z* *--report* time,cr\n"
@@ -119,7 +119,8 @@ static const char psz_full_doc[] =
     "    *-i* or *--*@i@*nput* [compressed file]\n"
     "\n"
     "  ^^*alternative::command*^^\n\n"
-    "    *--size* == *--zyx* == *--slowest-to-fastest*  HPC dimension order.\n"
+    "    *--math-order* == *--zyx* == *--slowest-to-fastest*  Math dimension "
+    "order.\n"
     "\n"
     "    *-l* == *--len* == *--xyz* == *--dim3*  CUDA dimension order.\n"
     "\n"
@@ -131,22 +132,20 @@ static const char psz_full_doc[] =
     "  ^^*optional::modules*^^\n\n"
     "    *-p* or *--pred* or *--predictor* <lrz|lrz-zz|lrz-proto|spl>\n"
     "        Select from the following predictors: \n"
-    "        + _lrz_ or _lorenzo_: default Lorenzo predictor.\n"
-    "        + _lrz-zz_ or _lorenzo-zigzag_: default Lorenzo + ZigZag "
-    "codec.\n"
-    "        + _lrz-proto_ or _lorenzo-proto_: prototype Lorenzo that "
-    "matches default Lorenzo.\n"
+    "        + _lrz_ or _lorenzo_: (default) Lorenzo predictor.\n"
+    "        + _lrz-zz_ or _lorenzo-zigzag_: Lorenzo + ZigZag codec.\n"
+    "        + _lrz-proto_ or _lorenzo-proto_: prototype that matches _lrz_.\n"
     "        + _spl_ or _spline_: spline interpolation (3D).\n"
     "\n"
-    "    *--hist* or *--histogram* <default|generic>\n"
+    "    *--hist* or *--histogram* <generic|sparse>\n"
     "        Select from the following histogramming method: \n"
-    "        + _default_: may outperform _generic_ in high-ratio cases.\n"
-    "        + _generic_: regardless of the quant-code distribution.\n"
+    "        + _generic_: (default) for all quant-code distributions.\n"
+    "        + _sparse_: may outperform _generic_ in high-ratio cases.\n"
     "\n"
     "    *-c1* or *--codec* or *--codec1* <hf|fzgcodec>\n"
     "        Select from the following lossless codec: \n"
-    "        _hf_ or _huffman_: multibyte Huffman codec.\n"
-    "        _fzgcodec: bitshuffle & deredundancy in FZ-GPU.\n"
+    "        _hf_ or _huffman_: (default) multibyte Huffman codec.\n"
+    "        _fzgcodec_: bitshuffle & de-redundancy in FZ-GPU.\n"
     "\n"
     "  ^^*optional::report::stdout*^^\n\n"
     "    *--report* (option=on/off)-list\n"
@@ -155,7 +154,11 @@ static const char psz_full_doc[] =
     "        example: \"--report time,cr\", \"--report time=off\"\n"
     "\n"
     "  ^^*help::doc*^^\n\n"
-    "    *-h* or *--help*  Get help documentation.\n"
+    "    *-h* or *--help*  Query documentation.\n"
+    "\n"
+    "    *-v* or *--version*  Query build number.\n"
+    "\n"
+    "    *-V* or *--versioninfo* or *--query-env*  Query runtime.\n"
     "\n"
     "  ^^*config::string*^^\n\n"
     "    *-c* or *--config* (option=value)-list\n"
@@ -164,33 +167,32 @@ static const char psz_full_doc[] =
     "        + *cap*=<val>: capacity, number of quant-codes\n"
     "\n"
     "*EXAMPLES*\n\n"
-    "    # *CESM* example:\n"
+    "  ^^*compression pipelines*^^\n\n"
+    "    cuSZ integrates multiple pipelines, specified when compressing. \n\n"
+    "    # 1. Lorenzo + Huffman coding (default, balanced)\n"
+    "    cusz -t f32 -m rel -e 1e-4 -i ${HURR} -l 500-500-100 -z \\\n"
+    "      ^^--predictor lrz --codec hf^^\n"
+    "\n"
+    "    # 2. Spline-3D + Huffman coding (high-quality)\n"
+    "    cusz -t f32 -m rel -e 1e-4 -i ${HURR} -l 500-500-100 -z \\\n"
+    "      ^^--predictor spl --codec hf^^\n"
+    "\n"
+    "    # 3. Lorenzo-variant + FZGPU-coding (fast)\n"
+    "    cusz -t f32 -m rel -e 1e-4 -i ${HURR} -l 500-500-100 -z \\\n"
+    "      ^^--predictor lrz-zz --codec fzgcodec^^\n"
+    "\n"
+    "  ^^*testing data*^^\n\n"
+    "    Get testing data from Scientific Data Reduction Benchmarks (SDRB)\n"
+    "    at https://sdrbench.github.io\n"
+    "\n"
+    "    # 2D *CESM* example (compression and decompression):\n"
     "    cusz -t f32 -m rel -e 1e-4 -i ${CESM} -l 3600-1800 -z --report "
     "time\n"
     "    cusz -i ${CESM}.cusza -x --report time --compare ${CESM}\n"
-    /*
-    "    cusz -i ${CESM}.cusza -x --report time --compare ${CESM} --skip
-    write2disk\n"
-    */
     "\n"
-    /*
-    "    *CESM* example with specified output path:\n"
-    "    mkdir data2 data3\n"
-    "    ^^# zip, output to `data2`^^\n"
-    "    cusz -t f32 -m rel -e 1e-4 -i ${CESM} -l 3600-1800 -z --opath "
-    "data2\n"
-    "    ^^# unzip, in situ^^\n"
-    "    cusz -i ${CESM}.cusza -x && ls data2\n"
-    "    ^^# unzip, output to `data3`^^\n"
-    "    cusz -i ${CESM}.cusza -x --opath data3 && ls data3\n"
-    "    ^^# unzip, output to `data3`, compare to the original data^^\n"
-    "    cusz -i ${CESM}.cusza -x --opath data3 --compare ${CESM} && ls "
-    "data3\n"
-    */
-    "    # *Hurricane Isabel* example:\n"
+    "    # 3D *Hurricane Isabel* example (compression and decompression):\n"
     "    cusz -t f32 -m rel -e 1e-4 -i ${HURR} -l 500-500-100 -z\n"
-    "    cusz -i ${HURR}.cusza -x\n"
-    "\n";
+    "    cusz -i ${HURR}.cusza -x\n";
 
 static const char huff_re_short_doc[] =
     "\n"
