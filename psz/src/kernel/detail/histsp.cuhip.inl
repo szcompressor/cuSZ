@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "kernel/hist.hh"
+#include "utils/timer.hh"
+
 namespace psz {
 
 //                    -2 -1  0 +1 +2
@@ -90,14 +93,14 @@ __global__ void KERNEL_CUHIP_histogram_sparse_multiwarp(
 
 }  // namespace psz
 
-#include "utils/timer.hh"
+namespace psz::module {
 
-namespace psz::cuhip {
+using FREQ = uint32_t;
 
-template <typename T, typename FREQ>
-int GPU_histogram_sparse(
-    T* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len,
-    float* milliseconds, cudaStream_t stream)
+template <typename E>
+int GPU_histogram_Cauchy(
+    E* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len,
+    float* milliseconds, void* stream)
 {
   auto chunk = 32768;
   auto num_chunks = (data_len - 1) / chunk + 1;
@@ -106,16 +109,17 @@ int GPU_histogram_sparse(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<T, FREQ>
-      <<<num_chunks, num_workers, sizeof(FREQ) * hist_len, stream>>>(
+  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<E, FREQ>
+      <<<num_chunks, num_workers, sizeof(FREQ) * hist_len,
+         (cudaStream_t)stream>>>(
           in_data, data_len, out_hist, hist_len, chunk, hist_len / 2);
   STOP_GPUEVENT_RECORDING(stream);
 
-  cudaStreamSynchronize(stream);
+  cudaStreamSynchronize((cudaStream_t)stream);
   TIME_ELAPSED_GPUEVENT(milliseconds);
   DESTROY_GPUEVENT_PAIR;
 
   return 0;
 }
 
-}  // namespace psz::cuhip
+}  // namespace psz::module

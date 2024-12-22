@@ -100,7 +100,7 @@ void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
 
   cudaStreamCreate(&stream);
 
-  pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, E>(
+  psz::module::GPU_histogram_generic<E>(
       d_oridata, len, d_hist, bklen, &time_hist, stream);
   phf::HuffmanCodec<E> codec(len, bklen, pardeg);
 

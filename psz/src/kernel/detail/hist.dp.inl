@@ -51,11 +51,6 @@ void kernel::KERNEL_CUHIP_p2013Histogram(
     T *in_data, FREQ *out_freq, size_t N, int nbin, int R,
     const sycl::nd_item<3> &item_ct1, uint8_t *dpct_local)
 {
-  // static_assert(
-  //     std::numeric_limits<T>::is_integer and (not
-  //     std::numeric_limits<T>::is_signed), "T must be `unsigned integer` type
-  //     of {1,2,4} bytes");
-
   auto Hs = (int *)dpct_local;
 
   const unsigned int warp_id = (int)(tix / WARP_SIZE);

@@ -51,10 +51,10 @@ bool test1_debug()
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  pszcxx_compat_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
+  psz::module::SEQ_histogram_Cauchy_v2<T>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
-  pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, T, uint32_t>(
+  psz::module::GPU_histogram_Cauchy<T>(
       in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
 
   o_gpusp->control({D2H});
@@ -133,12 +133,12 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, T, uint32_t>(
+  psz::module::GPU_histogram_Cauchy<T>(
       in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
-  pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, T>(
+  psz::module::GPU_histogram_generic<T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
 
-  pszcxx_compat_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
+  psz::module::SEQ_histogram_Cauchy_v2<T>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   o_gpu->control({D2H});
@@ -244,10 +244,10 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   cudaStreamCreate(&stream);
 
   // run CPU and GPU reference
-  pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, T>(
+  psz::module::GPU_histogram_generic<T>(
       in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, stream);
 
-  pszcxx_compat_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
+  psz::module::SEQ_histogram_Cauchy_v2<T>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
   cudaStreamSynchronize(stream);
 

@@ -130,43 +130,32 @@ struct Compressor<C>::impl {
 
   void compress_predict(pszctx* ctx, T* in, void* stream)
   try {
+    auto len3 = MAKE_GPU_LEN3(ctx->x, ctx->y, ctx->z);
+    auto stride3 = MAKE_GPU_LEN3(1, ctx->x, ctx->x * ctx->y);
+
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
-    if (ctx->pred_type == Lorenzo) {
+    if (ctx->pred_type == Lorenzo)
       psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, dim3(ctx->x, ctx->y, ctx->z), mem->ectrl(),
-          (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
-    }
-    else if (ctx->pred_type == LorenzoZigZag) {
+          in, len3, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius,
+          &time_pred, stream);
+    else if (ctx->pred_type == LorenzoZigZag)
       psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, dim3(ctx->x, ctx->y, ctx->z), mem->ectrl(),
-          (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
-    }
-    else if (ctx->pred_type == LorenzoProto) {
+          in, len3, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius,
+          &time_pred, stream);
+    else if (ctx->pred_type == LorenzoProto)
       psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-          in, dim3(ctx->x, ctx->y, ctx->z), mem->ectrl(),
-          (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
-    }
-    else if (ctx->pred_type == Spline) {
-#if defined(PSZ_USE_CUDA)
-      memobj<T> local_spline_in(
-          ctx->x, ctx->y, ctx->z, "local pszmem for spline input");
-      local_spline_in.dptr(in);
-
-      pszcxx_predict_spline(
-          &local_spline_in, mem->_anchor, mem->_ectrl, (void*)mem->compact,
-          ctx->eb, ctx->radius, &time_pred, stream);
-#else
-      throw runtime_error(
-          "[psz::error] psz::pred == spline not implemented in non-CUDA.");
-#endif
-    }
+          in, len3, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius,
+          &time_pred, stream);
+    else if (ctx->pred_type == Spline)
+      psz::cuhip::GPU_predict_spline(
+          in, len3, stride3, mem->ectrl(), mem->_ectrl->len3(),
+          mem->_ectrl->st3(), mem->anchor(), mem->_anchor->len3(),
+          mem->_anchor->st3(), (void*)mem->compact, ctx->eb, ctx->radius,
+          &time_pred, stream);
 
 #elif defined(PSZ_USE_1API)
-
-    auto len3 = sycl::range<3>(ctx->z, ctx->y, ctx->x);
     // TODO
-
 #endif
 
     /* make outlier count seen on host */
@@ -182,40 +171,30 @@ struct Compressor<C>::impl {
 
   void compress_histogram(pszctx* ctx, void* stream)
   {
-    if (ctx->hist_type == psz_histogramtype::HistogramSparse) {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
 
-      pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(
+    if (ctx->hist_type == psz_histogramtype::HistogramSparse)
+      psz::module::GPU_histogram_Cauchy<E>(
+          mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
+    else if (ctx->hist_type == psz_histogramtype::HistogramGeneric)
+      psz::module::GPU_histogram_generic<E>(
           mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
 
 #elif defined(PSZ_USE_HIP)
-      // not implemented
+    // not implemented
 #endif
-    }
-    else if (ctx->hist_type == psz_histogramtype::HistogramGeneric) {
-      pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, E>(
-          mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
-    }
-    else {
-      // do nothing
-    }
   }
 
   void compress_encode(pszctx* ctx, void* stream)
   {
     if (ctx->codec1_type == Huffman) {
       codec_hf->buildbook(mem->_hist->dptr(), stream);
-
       codec_hf->encode(
           mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
     }
     else if (ctx->codec1_type == FZGPUCodec) {
       codec_fzg->encode(
           mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
-    }
-    else {
-      throw std::runtime_error(
-          "[psz] codec other than Huffman or FZGPUCodec is not supported.");
     }
   }
 
@@ -288,58 +267,34 @@ struct Compressor<C>::impl {
           "[psz::error] One of external in and ext_anchor must be null.");
 
     auto d_anchor = ext_anchor ? ext_anchor : (T*)access(ANCHOR);
-    // wire and aliasing
-    auto d_space = out, d_xdata = out;
+    auto d_space = out, d_xdata = out;  // aliases
 
-    auto _adhoc_pszlen = psz_len3{header->x, header->y, header->z};
-    auto _adhoc_linear = header->z * header->y * header->x;
+    auto len3 = MAKE_GPU_LEN3(header->x, header->y, header->z);
+    auto stride3 = MAKE_GPU_LEN3(1, header->x, header->x * header->y);
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
-    auto len3 = dim3(header->x, header->y, header->z);
-
-    if (header->pred_type == Lorenzo) {
+    if (header->pred_type == Lorenzo)
       psz::cuhip::GPU_x_lorenzo_nd<T, false, E>(
-          mem->ectrl(), d_space, d_xdata,
-          dim3(header->x, header->y, header->z), header->eb, header->radius,
+          mem->ectrl(), d_space, d_xdata, len3, header->eb, header->radius,
           &time_pred, stream);
-    }
-    else if (header->pred_type == LorenzoZigZag) {
+    else if (header->pred_type == LorenzoZigZag)
       psz::cuhip::GPU_x_lorenzo_nd<T, true, E>(
-          mem->ectrl(), d_space, d_xdata,
-          dim3(header->x, header->y, header->z), header->eb, header->radius,
+          mem->ectrl(), d_space, d_xdata, len3, header->eb, header->radius,
           &time_pred, stream);
-    }
-    else if (header->pred_type == LorenzoProto) {
+    else if (header->pred_type == LorenzoProto)
       psz::cuhip::GPU_PROTO_x_lorenzo_nd<T, E>(
-          mem->ectrl(), d_space, d_xdata,
-          dim3(header->x, header->y, header->z), header->eb, header->radius,
+          mem->ectrl(), d_space, d_xdata, len3, header->eb, header->radius,
           &time_pred, stream);
-    }
-    else if (header->pred_type == Spline) {
-#ifdef PSZ_USE_CUDA
-      auto __xdata =
-          new memobj<T>(header->x, header->y, header->z, "__xdata", {});
-      __xdata->dptr(out);
-
-      auto aclen3 = mem->_anchor->len3();
-      memobj<T> anchor(aclen3.x, aclen3.y, aclen3.z);
-      anchor.dptr(d_anchor);
-
-      pszcxx_reverse_predict_spline(
-          &anchor, mem->_ectrl, __xdata, header->eb, header->radius,
-          &time_pred, stream);
-#else
-      throw runtime_error(
-          "[psz::error] psz::pred == spline not implemented in non-CUDA.");
-#endif
-    }
+    else if (header->pred_type == Spline)
+      psz::cuhip::GPU_reverse_predict_spline(
+          mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->st3(),  //
+          d_anchor, mem->_anchor->len3(), mem->_anchor->st3(),    //
+          d_xdata, len3, stride3,                                 //
+          header->eb, header->radius, &time_pred, stream);
 
 #elif defined(PSZ_USE_1API)
-
-    auto len3 = sycl::range<3>(header->z, header->y, header->x);
     // TODO
-
 #endif
   }
 

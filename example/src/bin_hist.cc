@@ -23,6 +23,19 @@
 
 using T = u4;
 
+template <psz_policy policy, typename T>
+void hist(
+    bool optim, T* whole_numbers, size_t const len, uint32_t* hist,
+    size_t const bklen, float* t, cudaStream_t stream)
+{
+  if (optim)
+    psz::module::GPU_histogram_Cauchy<T>(
+        whole_numbers, len, hist, bklen, t, stream);
+  else
+    psz::module::GPU_histogram_generic<T>(
+        whole_numbers, len, hist, bklen, t, stream);
+}
+
 template <typename T>
 void real_data_test(size_t len, size_t bklen, string fname)
 {

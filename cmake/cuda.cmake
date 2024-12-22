@@ -83,12 +83,10 @@ add_library(CUSZ::stat ALIAS psz_cu_stat)
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(psz_cu_core
   psz/src/kernel/l23.seq.cc
-  psz/src/kernel/hist_compat.seq.cc
-  psz/src/kernel/hist_compat.cu
-  psz/src/kernel/histsp_compat.seq.cc
-  psz/src/kernel/histsp_compat.cu
-
-  # psz/src/kernel/spvn.seq.cc
+  psz/src/kernel/hist_generic.seq.cc
+  psz/src/kernel/hist_generic.cu
+  psz/src/kernel/histsp.seq.cc
+  psz/src/kernel/histsp.cu
   psz/src/kernel/dryrun.cu
   psz/src/kernel/lproto_c.cu
   psz/src/kernel/lproto_x.cu
@@ -96,13 +94,6 @@ add_library(psz_cu_core
   psz/src/kernel/l23_c.cu
   psz/src/kernel/l23_x.cu
   psz/src/kernel/spline3.cu
-
-  # psz/src/module/lrz.cc
-  # psz/src/module/lrz_cxx.cu
-  # psz/src/module/spl_cxx.cu
-  # psz/src/module/hist_cxx.cu
-  # psz/src/module/scatter_cxx.cu
-  # psz/src/kernel/spv.cu # a thrust impl
 )
 target_link_libraries(psz_cu_core
   PUBLIC

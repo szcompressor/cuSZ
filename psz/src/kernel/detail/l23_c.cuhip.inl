@@ -16,7 +16,7 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "kernel/lrz.hh"
+#include "kernel/predictor.hh"
 #include "mem/compact.hh"
 #include "port.hh"
 #include "utils/err.hh"

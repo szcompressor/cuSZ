@@ -12,12 +12,10 @@
  *
  */
 
-#ifndef D69BE972_2A8C_472E_930F_FFAB041F3F2B
-#define D69BE972_2A8C_472E_930F_FFAB041F3F2B
-
 #include <cstdio>
 #include <limits>
 
+#include "kernel/hist.hh"
 #include "typing.hh"
 #include "utils/timer.hh"
 
@@ -36,10 +34,10 @@ const static unsigned int WARP_SIZE = 32;
 
 namespace psz {
 
-template <typename T, typename FREQ>
+template <typename T>
 __global__ void KERNEL_CUHIP_histogram_naive(
-    T* in_data, size_t const data_len, FREQ* out_bins, uint16_t const bins_len,
-    uint16_t const repeat)
+    T* in_data, size_t const data_len, uint32_t* out_bins,
+    uint16_t const bins_len, uint16_t const repeat)
 {
   auto i = blockDim.x * blockIdx.x + threadIdx.x;
   auto j = 0u;
@@ -95,12 +93,12 @@ __global__ void KERNEL_CUHIP_p2013Histogram(
 
 }  // namespace psz
 
-namespace psz::cuhip {
+namespace psz::module {
 
 template <typename T>
-psz_error_status GPU_histogram_generic(
+int GPU_histogram_generic(
     T* in_data, size_t const data_len, uint32_t* out_hist,
-    uint16_t const hist_len, float* milliseconds, cudaStream_t stream)
+    uint16_t const hist_len, float* milliseconds, void* stream)
 {
   int device_id, max_bytes, num_SMs;
   int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
@@ -150,18 +148,17 @@ psz_error_status GPU_histogram_generic(
   CREATE_GPUEVENT_PAIR;
   START_GPUEVENT_RECORDING(stream);
 
-  KERNEL_CUHIP_p2013Histogram<<<grid_dim, block_dim, shmem_use, stream>>>  //
+  KERNEL_CUHIP_p2013Histogram<<<
+      grid_dim, block_dim, shmem_use, (cudaStream_t)stream>>>  //
       (in_data, data_len, out_hist, hist_len, r_per_block);
 
   STOP_GPUEVENT_RECORDING(stream);
 
-  cudaStreamSynchronize(stream);
+  cudaStreamSynchronize((cudaStream_t)stream);
   TIME_ELAPSED_GPUEVENT(milliseconds);
   DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }
 
-}  // namespace psz::cuhip
-
-#endif /* D69BE972_2A8C_472E_930F_FFAB041F3F2B */
+}  // namespace psz::module

@@ -1,3 +1,2 @@
-#include "kernel/lrz.hh"
-#include "kernel/spline.hh"
+#include "kernel/predictor.hh"
 #include "kernel/spv.hh"
