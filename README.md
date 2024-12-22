@@ -1,21 +1,21 @@
-<h3 align="center"><img src="https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg" width="150"></h3>
+<!-- <h3 align="center"><img src="https://user-images.githubusercontent.com/10354752/81179956-05860600-8f70-11ea-8b01-856f29b9e8b2.jpg" width="150"></h3> -->
 
 <h3 align="center">
-A CUDA-Based Error-Bounded Lossy Compressor for Scientific Data
+pSZ/cuSZ: A GPU-Based Error-Bounded Lossy Compressor for Scientific Data
 </h3>
 
 <p align="center">
 <a href="./LICENSE"><img src="https://img.shields.io/badge/License-BSD%203--Clause-blue.svg"></a>
 </p>
 
-cuSZ is a CUDA implementation of the widely used [SZ lossy compressor](https://github.com/szcompressor/SZ) for scientific data. It is the *first* error-bounded lossy compressor (circa 2020) on GPU for scientific data, aming to massively improve SZ's throughput on heterogeneous HPC systems. 
+pSZ/cuSZ (cuSZ for short) is a GPU implementation of the seminal [SZ algorithm](https://github.com/szcompressor/SZ). It is the *first* GPU-practical framework of error-bounded lossy compression on GPU for scientific data (circa 2020), aiming to improve SZ's throughput on heterogeneous HPC systems. pSZ/cuSZ primarily focuses on CUDA backend support, with other GPU-parallel backends in development. pSZ/cuSZ is formerly known as cuSZ, which is also the short form of its current name. 
 
+(C) 2025 by Argonne National Laboratory, University of Kentucky, and Indiana University. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
-(C) 2022 by Indiana University and Argonne National Laboratory. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
-
-- developers: (framework) Jiannan Tian, (kernel/pipeline) Jinyang Liu, Shixun Wu, Cody Rivera, (deployment) Robert Underwood, (advisors, PIs) Dingwen Tao, Sheng Di, Franck Cappello
-- contributors (alphabetic): Jon Calhoun, Wenyu Gai, Megan Hickman Fulp, Xin Liang, Kai Zhao
-- Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021!
+- Developers: (primary) Jiannan Tian, (cuSZ-*i*) Jinyang Liu, Shixun Wu, (Huffman coding) Cody Rivera, (deployment) Robert Underwood, (PIs) Sheng Di, Franck Cappello.
+- Contributors (alphabetic): Jon Calhoun, Wenyu Gai, Megan Hickman Fulp, Xin Liang, Kai Zhao.
+- Special thanks to Dingwen Tao for advising this project from 2020 to 2024.
+- Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021.
 
 <br>
 
@@ -30,17 +30,17 @@ cuSZ is a CUDA implementation of the widely used [SZ lossy compressor](https://g
 <!-- <br> -->
 
 <p align="center">
-Kindly note: If you mention cuSZ in your paper, please refer to <a href="#citing-cusz">the detail below</a>.
+Kindly note: If you mention pSZ/cuSZ in your paper, please refer to <a href="#citing-cusz">the detail below</a>.
 </p>
 
 
 # FAQ
 
-There are technical differences between CPU-SZ and cuSZ, please refer to our academic papers for more information.  
+There are technical differences between CPU-SZ and pSZ/cuSZ, please refer to our academic papers for more information.  
 
 <details>
 <summary>
-How does SZ/cuSZ work?
+How do SZ and pSZ/cuSZ work?
 </summary>
 
 Prediction-based SZ algorithm comprises four major parts,
@@ -137,16 +137,14 @@ Our published papers cover the essential design and implementation. If you menti
 @inproceedings{tian2020cusz,
       title = {{{\textsc cuSZ}: An efficient GPU-based error-bounded lossy compression framework for scientific data}},
      author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
-       year = {2020}, month = {10},
-        doi = {10.1145/3410463.3414624}, isbn = {9781450380751},
+       year = {2020}, month = {10}, doi = {10.1145/3410463.3414624}, isbn = {9781450380751},
   booktitle = {Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques},
      series = {PACT '20}, address = {Atlanta (virtual event), GA, USA}}
 
 @inproceedings{tian2021cuszplus,
       title = {Optimizing error-bounded lossy compression for scientific data on GPUs},
      author = {Tian, Jiannan and Di, Sheng and Yu, Xiaodong and Rivera, Cody and Zhao, Kai and Jin, Sian and Feng, Yunhe and Liang, Xin and Tao, Dingwen and Cappello, Franck},
-       year = {2021}, month = {09},
-        doi = {10.1109/Cluster48925.2021.00047},
+       year = {2021}, month = {09}, doi = {10.1109/Cluster48925.2021.00047},
   booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
      series = {CLUSTER '21}, address = {Portland (virtual event), OR, USA}}
 
@@ -154,15 +152,14 @@ Our published papers cover the essential design and implementation. If you menti
       title = {{{\scshape cuSZ}-{\itshape i}: High-Ratio scientific lossy compression on
              GPUs with optimized multi-level interpolation}},
      author = {Liu, Jinyang and Tian, Jiannan and Wu, Shixun and Di, Sheng and Zhang, Boyuan and Underwood, Robert and Huang, Yafan and Huang, Jiajun and Zhao, Kai and Li, Guanpeng and Tao, Dingwen and Chen, Zizhong and Cappello, Franck},
-       year = {2024}, month = {11}, isbn = {979-8-3503-5291-7},
+       year = {2024}, month = {11}, isbn = {979-8-3503-5291-7}, url = {https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019}, 
        note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu},
-        url = {https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019}, 
   booktitle = {SC '24: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
      series = {SC '24}, address = {Atlanta, GA, USA}}
 ```
 
 # acknowledgements
 
-This R&D is supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository is based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CCF-1617488](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1617488), [CCF-1619253](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1619253), [OAC-2003709](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2003709), [OAC-1948447/2034169](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2034169), and [OAC-2003624/2042084](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2042084).
+This R&D is supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository is based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CSSI/OAC #2104023](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2104023)/[#2247080](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2247080), [OAC #2247060](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2247060&HistoricalAwards=false), and [CSSI/OAC #2311875](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2311875)/[#2311876](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2311876&HistoricalAwards=false).
 
-![acknowledgement](https://user-images.githubusercontent.com/10354752/196348936-f0909251-1c2f-4c53-b599-08642dcc2089.png)
+<!-- ![acknowledgement](https://user-images.githubusercontent.com/10354752/196348936-f0909251-1c2f-4c53-b599-08642dcc2089.png) -->
