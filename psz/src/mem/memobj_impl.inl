@@ -130,10 +130,10 @@ struct memobj<Ctype>::impl {
   void free_device(void* stream = nullptr) { if (d and not d_borrowed) ::free_device(d, stream); }
   void free_host(void* stream = nullptr)   { if (h and not h_borrowed) ::free_host(h, stream); }
   void free_shared(void* stream = nullptr) { if (uni and not d_borrowed and not h_borrowed) ::free_shared(uni, stream); }
-  void h2d() { _memcpy_allkinds<Ctype, H2D>(d, h, _len); }
-  void d2h() { _memcpy_allkinds<Ctype, D2H>(h, d, _len); }
-  void h2d_async(void* stream) { _memcpy_allkinds_async<Ctype, H2D>(d, h, _len, stream); }
-  void d2h_async(void* stream) { _memcpy_allkinds_async<Ctype, D2H>(h, d, _len, stream); }
+  void h2d() { memcpy_allkinds<Ctype, H2D>(d, h, _len); }
+  void d2h() { memcpy_allkinds<Ctype, D2H>(h, d, _len); }
+  void h2d_async(void* stream) { memcpy_allkinds_async<Ctype, H2D>(d, h, _len, stream); }
+  void d2h_async(void* stream) { memcpy_allkinds_async<Ctype, D2H>(h, d, _len, stream); }
   void clear_host()   { memset(h, 0x0, _bytes); }
   void clear_device() { cudaMemset(d, 0x0, _bytes); }
   void clear_shared() { cudaMemset(uni, 0x0, _bytes); }
@@ -245,15 +245,9 @@ struct memobj<Ctype>::impl {
   Ctype& uniptr(uint32_t i) { return uni[i]; };
   Ctype& uniat(uint32_t i) { return uni[i]; };
 
-  BACKEND_SPECIFIC_LEN3 len3() const
-  {
-    return MAKE_BACKEND_SPECOFIC_LEN3(lx, ly, lz);
-  };
+  GPU_LEN3 len3() const { return MAKE_GPU_LEN3(lx, ly, lz); };
 
-  BACKEND_SPECIFIC_LEN3 st3() const
-  {
-    return MAKE_BACKEND_SPECOFIC_LEN3(1, sty, stz);
-  };
+  GPU_LEN3 st3() const { return MAKE_GPU_LEN3(1, sty, stz); };
 };
 
 //////////////////////////////// back to main class
@@ -467,13 +461,13 @@ Ctype& memobj<Ctype>::uniat(uint32_t i)
 };
 
 template <typename Ctype>
-BACKEND_SPECIFIC_LEN3 memobj<Ctype>::len3() const
+GPU_LEN3 memobj<Ctype>::len3() const
 {
   return pimpl->len3();
 };
 
 template <typename Ctype>
-BACKEND_SPECIFIC_LEN3 memobj<Ctype>::st3() const
+GPU_LEN3 memobj<Ctype>::st3() const
 {
   return pimpl->st3();
 };

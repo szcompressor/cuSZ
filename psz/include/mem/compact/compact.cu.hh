@@ -20,19 +20,12 @@
 #include "cusz/type.h"
 #include "exception/exception.hh"
 #include "mem/array_cxx.h"
-#include "mem/definition.hh"
-#include "mem/memobj.hh"
+#include "mem/multibackend.hh"
 
 namespace psz {
-namespace detail {
-namespace cuda {
 
 template <typename T>
 struct CompactGpuDram {
- private:
-  static const cudaMemcpyKind h2d = cudaMemcpyHostToDevice;
-  static const cudaMemcpyKind d2h = cudaMemcpyDeviceToHost;
-
  public:
   using control_stream_t = std::vector<pszmem_control>;
 
@@ -58,19 +51,18 @@ struct CompactGpuDram {
 
   CompactGpuDram& malloc()
   {
-    cudaMalloc(&d_val, sizeof(T) * reserved_len);
-    cudaMalloc(&d_idx, sizeof(uint32_t) * reserved_len);
-    cudaMalloc(&d_num, sizeof(uint32_t));
-    cudaMemset(d_num, 0x0, sizeof(T));  // init d_val
+    d_val = malloc_device<T>(reserved_len);
+    d_idx = malloc_device<uint32_t>(reserved_len);
+    d_num = malloc_device<uint32_t>(1);
 
     return *this;
   }
 
   CompactGpuDram& mallochost()
   {
-    cudaMallocHost(&h_val, sizeof(T) * reserved_len);
-    cudaMallocHost(&h_idx, sizeof(uint32_t) * reserved_len);
-    cudaMallocHost(&h_num, sizeof(uint32_t));
+    h_val = malloc_host<T>(reserved_len);
+    h_idx = malloc_host<uint32_t>(reserved_len);
+    h_num = malloc_host<uint32_t>(1);
     *h_num = 0;
 
     return *this;
@@ -78,13 +70,13 @@ struct CompactGpuDram {
 
   CompactGpuDram& free()
   {
-    cudaFree(d_idx), cudaFree(d_val), cudaFree(d_num);
+    free_device(d_idx), free_device(d_val), free_device(d_num);
     return *this;
   }
 
   CompactGpuDram& freehost()
   {
-    cudaFreeHost(h_idx), cudaFreeHost(h_val), cudaFreeHost(h_num);
+    free_host(h_idx), free_host(h_val), free_host(h_num);
     return *this;
   }
 
@@ -92,8 +84,8 @@ struct CompactGpuDram {
   // memcpy
   pszerror make_host_accessible(cudaStream_t stream = 0)
   try {
-    cudaMemcpyAsync(h_num, d_num, 1 * sizeof(uint32_t), d2h, stream);
-    cudaStreamSynchronize(stream);
+    memcpy_allkinds_async<uint32_t, D2H>(h_num, d_num, 1, stream);
+    sync_by_stream(stream);
 
     if (*h_num > reserved_len) throw psz::exception_too_many_outliers();
 
@@ -127,8 +119,6 @@ struct CompactGpuDram {
   uint32_t* num() { return d_num; }
 };
 
-}  // namespace cuda
-}  // namespace detail
 }  // namespace psz
 
 #endif /* F712F74C_7488_4445_83EE_EE7F88A64BBA */

@@ -134,17 +134,17 @@ struct Compressor<C>::impl {
 
     if (ctx->pred_type == Lorenzo) {
       psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+          in, dim3(ctx->x, ctx->y, ctx->z), mem->ectrl(),
           (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
     }
     else if (ctx->pred_type == LorenzoZigZag) {
       psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+          in, dim3(ctx->x, ctx->y, ctx->z), mem->ectrl(),
           (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
     }
     else if (ctx->pred_type == LorenzoProto) {
       psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-          in, dim3(ctx->x, ctx->y, ctx->z), mem->_ectrl->dptr(),
+          in, dim3(ctx->x, ctx->y, ctx->z), mem->ectrl(),
           (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
     }
     else if (ctx->pred_type == Spline) {
@@ -179,18 +179,6 @@ struct Compressor<C>::impl {
     cerr << (mem->compact->num_outliers() * 100.0 / len) << "%" << endl;
     error_list.push_back(PSZ_ERROR_OUTLIER_OVERFLOW);
   }
-
-  // [psz::note] pszcxx_histogram_generic is left for evaluating purpose
-  // compared to pszcxx_histogram_cauchy
-  // 241024 note the backend completion.
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
-#define PSZ_HIST(...) \
-  pszcxx_compat_histogram_cauchy<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
-#elif defined(PSZ_USE_HIP)
-#define PSZ_HIST(...) \
-  pszcxx_compat_histogram_generic<PROPER_GPU_BACKEND, E>(__VA_ARGS__);
-#endif
 
   void compress_histogram(pszctx* ctx, void* stream)
   {
@@ -239,8 +227,6 @@ struct Compressor<C>::impl {
   void compress_merge_update_header(
       pszctx* ctx, BYTE** out, szt* outlen, void* stream)
   try {
-    // SKIP_ON_FAILURE;
-
     auto splen = mem->compact->num_outliers();
     auto pred_type = ctx->pred_type;
 
@@ -274,9 +260,8 @@ struct Compressor<C>::impl {
     header.codec1_type = ctx->codec1_type;
 
     /* output of this function */
-    *out = mem->_compressed->dptr();
+    *out = mem->compressed();
     *outlen = pszheader_filesize(&header);
-    mem->_compressed->set_len(*outlen);
   }
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   catch (const psz ::exception_gpu_general& e) {
@@ -535,7 +520,6 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(
   };
 
   if (ctx->dump_hist) {
-    // TODO to be portable
     cudaStreamSynchronize((cudaStream_t)stream);
     auto& d = pimpl->mem->_hist;
     // TODO caution! lift hardcoded dtype (hist)
@@ -544,8 +528,9 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(
   if (ctx->dump_quantcode) {
     cudaStreamSynchronize((cudaStream_t)stream);
     auto& d = pimpl->mem->_ectrl;
-    // TODO caution! list hardcoded dtype (quant)
-    d->control({D2H})->file(dump_name("u2", ".quant").c_str(), ToFile);
+    d->control({MallocHost, D2H})
+        ->file(
+            dump_name("u" + to_string(sizeof(E)), ".quant").c_str(), ToFile);
   }
 
   return this;

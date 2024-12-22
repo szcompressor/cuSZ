@@ -84,17 +84,14 @@ TPL POOL::pszmempool_cxx(
   _compressed =
       new memobj<B>(len * 4 / 2, "psz::comp'ed", {Malloc, MallocHost});
   _anchor = new memobj<T>(
-      div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor",
-      {Malloc, MallocHost});
+      div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor", {Malloc});
 
   if (codec_type == Huffman)
-    _ectrl = new memobj<E>(x, y, z, "psz::quant_hf", {Malloc, MallocHost});
+    _ectrl = new memobj<E>(x, y, z, "psz::quant_hf", {Malloc});
   else if (codec_type == FZGPUCodec) {
     // TODO enable alloc size
-    auto _s = x * y * z;
-    _s = (_s - 1) / 4096 + 1;
-    _s *= 4096;
-    _ectrl = new memobj<E>(_s, 1, 1, "psz::quant_fzg", {Malloc, MallocHost});
+    auto _s = ((len - 1) / 4096 + 1) * 4096;
+    _ectrl = new memobj<E>(_s, 1, 1, "psz::quant_fzg", {Malloc});
   }
   else
     throw std::runtime_error(

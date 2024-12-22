@@ -7,19 +7,22 @@
 #include "mem/definition.hh"
 
 #if defined(PSZ_USE_CUDA)
+
 #include <cuda_runtime.h>
-#define BACKEND_SPECIFIC_LEN3 dim3
-#define MAKE_BACKEND_SPECOFIC_LEN3(X, Y, Z) dim3(X, Y, Z)
+#define GPU_LEN3 dim3
+#define MAKE_GPU_LEN3(X, Y, Z) dim3(X, Y, Z)
 
 #elif defined(PSZ_USE_HIP)
+
 #include <hip/hip_runtime.h>
-#define BACKEND_SPECIFIC_LEN3 dim3
-#define MAKE_BACKEND_SPECOFIC_LEN3(X, Y, Z) dim3(X, Y, Z)
+#define GPU_LEN3 dim3
+#define MAKE_GPU_LEN3(X, Y, Z) dim3(X, Y, Z)
 
 #elif defined(PSZ_USE_1API)
+
 #include <sycl/sycl.hpp>
-#define BACKEND_SPECIFIC_LEN3 sycl::range<3>
-#define MAKE_BACKEND_SPECOFIC_LEN3(X, Y, Z) sycl::range<3>(Z, Y, X)
+#define GPU_LEN3 sycl::range<3>
+#define MAKE_GPU_LEN3(X, Y, Z) sycl::range<3>(Z, Y, X)
 
 #endif
 
@@ -60,19 +63,13 @@ struct _memcpy_direcion<D2D> {
 };
 
 template <typename T>
-T* malloc_device(size_t len, void* stream = nullptr)
+T* malloc_device(size_t const len, void* stream = nullptr)
 {
   T* __a;
 #if defined(PSZ_USE_CUDA)
-  // cudaMallocAsync(&__a, len * sizeof(T), (cudaStream_t)stream);
-  // cudaMemsetAsync(__a, 0, len * sizeof(T), (cudaStream_t)stream);
-  // cudaStreamSynchronize((cudaStream_t)stream);
   cudaMalloc(&__a, len * sizeof(T));
   cudaMemset(__a, 0, len * sizeof(T));
 #elif defined(PSZ_USE_HIP)
-  // hipMallocAsync(&__a, len * sizeof(T), (hipStream_t)stream);
-  // hipMemsetAsync(__a, 0, len * sizeof(T), (hipStream_t)stream);
-  // hipStreamSynchronize((hipStream_t)stream);
   hipMalloc(&__a, len * sizeof(T));
   hipMemset(__a, 0, len * sizeof(T));
 #elif defined(PSZ_USE_1API)
@@ -86,7 +83,7 @@ T* malloc_device(size_t len, void* stream = nullptr)
 }
 
 template <typename T>
-T* malloc_host(size_t len, void* stream = nullptr)
+T* malloc_host(size_t const len, void* stream = nullptr)
 {
   T* __a;
 #if defined(PSZ_USE_CUDA)
@@ -106,7 +103,7 @@ T* malloc_host(size_t len, void* stream = nullptr)
 }
 
 template <typename T>
-T* malloc_shared(size_t len, void* stream = nullptr)
+T* malloc_shared(size_t const len, void* stream = nullptr)
 {
   T* __a;
 #if defined(PSZ_USE_CUDA)
@@ -160,7 +157,7 @@ void free_shared(T* __a, void* stream = nullptr)
 }
 
 template <typename T, pszmem_control DIR>
-void _memcpy_allkinds(T* dst, T* src, size_t len, void* stream = nullptr)
+void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
 {
 #if defined(PSZ_USE_CUDA)
   cudaMemcpy(dst, src, sizeof(T) * len, _memcpy_direcion<DIR>::direction);
@@ -179,7 +176,8 @@ void _memcpy_allkinds(T* dst, T* src, size_t len, void* stream = nullptr)
 }
 
 template <typename T, pszmem_control DIR>
-void _memcpy_allkinds_async(T* dst, T* src, size_t len, void* stream = nullptr)
+void memcpy_allkinds_async(
+    T* dst, T* src, size_t const len, void* stream = nullptr)
 {
   if (not stream)
     throw std::runtime_error(
@@ -199,5 +197,40 @@ void _memcpy_allkinds_async(T* dst, T* src, size_t len, void* stream = nullptr)
   ((sycl::queue*)stream)->memcpy(dst, src, sizeof(T) * len).wait();
 #endif
 }
+
+template <typename T>
+void memset_device(T* __a, size_t const len, int value = 0)
+{
+#if defined(PSZ_USE_CUDA)
+  cudaMemset(__a, value, sizeof(T) * len);
+#elif defined(PSZ_USE_HIP)
+  hipMemset(__a, value, sizeof(T) * len);
+#elif defined(PSZ_USE_1API)
+  memset(__a, value, sizeof(T) * len);
+#endif
+}
+
+template <typename T>
+void memset_host(T* __a, size_t const len, int value = 0)
+{
+  memset(__a, value, sizeof(T) * len);
+}
+
+#if defined(PSZ_USE_CUDA)
+#define sync_by_stream(stream) cudaStreamSynchronize((cudaStream_t)stream);
+#elif defined(PSZ_USE_HIP)
+#define sync_by_stream(stream) hipStreamSynchronize((hipStream_t)stream);
+#elif defined(PSZ_USE_1API)
+#define sync_by_stream(stream) ((dpct::queue_ptr*)stream)->wait();
+#endif
+
+#if defined(PSZ_USE_CUDA)
+#define sync_device cudaDeviceSynchronize();
+#elif defined(PSZ_USE_HIP)
+#define sync_device hipDeviceSynchronize();
+#elif defined(PSZ_USE_1API)
+#define sync_device
+// TODO there is no device wide sync?
+#endif
 
 #endif /* F8DE640C_EFD2_444C_992C_946B18F625F2 */

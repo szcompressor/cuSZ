@@ -19,46 +19,24 @@ struct CompactDram;
 
 #include "compact/compact.seq.hh"
 
-// [psz::TODO] pass compilation with host compiler only
-
-// clang-format off
-template <> struct CompactDram<SEQ, f4> {
-  using Compact = CompactSerial<f4>; };
-template <> struct CompactDram<SEQ, f8> {
-  using Compact = CompactSerial<f8>; };
-// clang-format on
-
-#if defined(PSZ_USE_CUDA)
+template <>
+struct CompactDram<SEQ, f4> {
+  using Compact = CompactSerial<f4>;
+};
+template <>
+struct CompactDram<SEQ, f8> {
+  using Compact = CompactSerial<f8>;
+};
 
 #include "compact/compact.cu.hh"
 
-// clang-format off
-template <> struct CompactDram<CUDA, f4> {
-  using Compact = psz::detail::cuda::CompactGpuDram<f4>; };
-template <> struct CompactDram<CUDA, f8> {
-  using Compact = psz::detail::cuda::CompactGpuDram<f8>; };
-// clang-format on
-
-#elif defined(PSZ_USE_HIP)
-
-#include "compact/compact.hip.hh"
-// clang-format off
-template <> struct CompactDram<HIP, f4> {
-  using Compact = psz::detail::hip::CompactGpuDram<f4>; };
-template <> struct CompactDram<HIP, f8> {
-  using Compact = psz::detail::hip::CompactGpuDram<f8>; };
-// clang-format on
-
-#elif defined(PSZ_USE_1API)
-
-#include "compact/compact.dp.hh"
-// clang-format off
-template <> struct CompactDram<ONEAPI, f4> {
-  using Compact = psz::detail::dpcpp::CompactGpuDram<f4>; };
-template <> struct CompactDram<ONEAPI, f8> {
-  using Compact = psz::detail::dpcpp::CompactGpuDram<f8>; };
-// clang-format on
-
-#endif
+template <>
+struct CompactDram<CUDA, f4> {
+  using Compact = psz::CompactGpuDram<f4>;
+};
+template <>
+struct CompactDram<CUDA, f8> {
+  using Compact = psz::CompactGpuDram<f8>;
+};
 
 #endif /* DAB40B13_9236_42A9_8047_49CD896671C9 */

@@ -38,9 +38,9 @@ float time_decode = (float)INT_MAX;
   printf("peeking data, 20 elements\n"); \
   psz::peek_data<E>(h_oridata, 20), printf("\n");
 
-#define PEEK_XDATA                                                 \
-  printf("peeking xdata, 20 elements\n");                          \
-  _memcpy_allkinds<E, D2H>(h_decomp, d_decomp, len), printf("\n"); \
+#define PEEK_XDATA                                                \
+  printf("peeking xdata, 20 elements\n");                         \
+  memcpy_allkinds<E, D2H>(h_decomp, d_decomp, len), printf("\n"); \
   psz::peek_data<E>(h_decomp, 20), printf("\n");
 
 #define CHECK_INTEGRITY                                                   \
@@ -57,7 +57,7 @@ float time_decode = (float)INT_MAX;
 
 #define LOAD_FILE                                  \
   utils::fromfile(fname.c_str(), &h_oridata, len); \
-  _memcpy_allkinds<E, H2D>(d_oridata, h_oridata, len);
+  memcpy_allkinds<E, H2D>(d_oridata, h_oridata, len);
 
 #define FREE_BUFFERS                            \
   free_device(d_oridata), free_host(h_oridata); \

@@ -35,40 +35,39 @@ struct CompactGpuDram {
 
   CompactGpuDram &malloc()
   {
-    dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    sycl::queue &q_ct1 = dev_ct1.default_queue();
-    d_val = (T *)sycl::malloc_device(sizeof(T) * reserved_len, q_ct1);
-    d_idx = sycl::malloc_device<uint32_t>(reserved_len, q_ct1);
-    d_num = sycl::malloc_device<uint32_t>(1, q_ct1);
-    q_ct1.memset(d_num, 0x0, sizeof(T) * 1).wait();  // init d_val
+    dpct::device_ext &device = dpct::get_current_device();
+    sycl::queue &q = device.default_queue();
+    d_val = (T *)sycl::malloc_device(sizeof(T) * reserved_len, q);
+    d_idx = sycl::malloc_device<uint32_t>(reserved_len, q);
+    d_num = sycl::malloc_device<uint32_t>(1, q);
+    q.memset(d_num, 0x0, sizeof(T) * 1).wait();  // init d_val
 
     return *this;
   }
 
   CompactGpuDram &mallochost()
   {
-    dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    sycl::queue &q_ct1 = dev_ct1.default_queue();
-    h_val = (T *)sycl::malloc_host(sizeof(T) * reserved_len, q_ct1);
-    h_idx = sycl::malloc_host<uint32_t>(reserved_len, q_ct1);
+    dpct::device_ext &device = dpct::get_current_device();
+    sycl::queue &q = device.default_queue();
+    h_val = (T *)sycl::malloc_host(sizeof(T) * reserved_len, q);
+    h_idx = sycl::malloc_host<uint32_t>(reserved_len, q);
 
     return *this;
   }
 
   CompactGpuDram &free()
   {
-    dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    sycl::queue &q_ct1 = dev_ct1.default_queue();
-    sycl::free(d_idx, q_ct1), sycl::free(d_val, q_ct1),
-        sycl::free(d_num, q_ct1);
+    dpct::device_ext &device = dpct::get_current_device();
+    sycl::queue &q = device.default_queue();
+    sycl::free(d_idx, q), sycl::free(d_val, q), sycl::free(d_num, q);
     return *this;
   }
 
   CompactGpuDram &freehost()
   {
-    dpct::device_ext &dev_ct1 = dpct::get_current_device();
-    sycl::queue &q_ct1 = dev_ct1.default_queue();
-    sycl::free(h_idx, q_ct1), sycl::free(h_val, q_ct1);
+    dpct::device_ext &device = dpct::get_current_device();
+    sycl::queue &q = device.default_queue();
+    sycl::free(h_idx, q), sycl::free(h_val, q);
     return *this;
   }
 
@@ -78,9 +77,6 @@ struct CompactGpuDram {
   {
     stream->memcpy(&h_num, d_num, 1 * sizeof(uint32_t));
     stream->wait();
-    // cudaMemcpyAsync(h_val, d_val, sizeof(T) * (h_num), d2h, stream);
-    // cudaMemcpyAsync(h_idx, d_idx, sizeof(uint32_t) * (h_num), d2h, stream);
-    // cudaStreamSynchronize(stream);
 
     if (h_num > reserved_len)
       throw std::runtime_error(
