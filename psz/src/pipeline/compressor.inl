@@ -195,7 +195,9 @@ struct Compressor<C>::impl {
   {
     if (ctx->codec1_type == Huffman) {
       codec_hf->buildbook(mem->hist(), stream);
-      codec_hf->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+      codec_hf->encode(
+          true /* enable HFR unconditionally */, mem->ectrl(), len, &comp_codec_out,
+          &comp_codec_outlen, stream);
     }
     else if (ctx->codec1_type == FZGPUCodec) {
       codec_fzg->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
