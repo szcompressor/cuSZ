@@ -12,12 +12,12 @@
 #include "../rand.hh"
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "mem/compact.hh"
-#include "port.hh"
+#include "mem/cxx_sp_cpu.h"
+#include "mem/cxx_sp_gpu.h"
 
 template <
-    typename T, int TileDim = 256, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t>
+    typename T, int TileDim = 256, typename CompactVal = T, typename CompactIdx = uint32_t,
+    typename CompactNum = uint32_t>
 __global__ void test_compaction1(
     T* in, uint32_t len, CompactVal* cval, CompactIdx* cidx, CompactNum* cn)
 {
@@ -36,9 +36,7 @@ __global__ void test_compaction1(
   // end of kernel
 }
 
-template <
-    typename T, int TileDim = 256,
-    typename Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact>
+template <typename T, int TileDim = 256, typename Compact = _portable::compact_gpu<T>>
 __global__ void test_compaction2(T* in, uint32_t len, Compact compact)
 {
   auto id = blockIdx.x * TileDim + threadIdx.x;
@@ -56,7 +54,7 @@ __global__ void test_compaction2(T* in, uint32_t len, Compact compact)
   // end of kernel
 }
 
-template <typename T, typename Compact = CompactSerial<T>>
+template <typename T, typename Compact = _portable::compact_seq<T>>
 void test_compaction_serial(T* in, uint32_t len, Compact out)
 {
   for (auto id = 0; id < len; id++) {
@@ -73,8 +71,8 @@ void test_compaction_serial(T* in, uint32_t len, Compact out)
 
 bool f()
 {
-  using CompactGpu = typename CompactDram<PROPER_GPU_BACKEND, float>::Compact;
-  using CompactSeq = typename CompactDram<SEQ, float>::Compact;
+  using compact_gpu = _portable::compact_gpu<float>;
+  using compact_seq = _portable::compact_seq<float>;
 
   constexpr auto TilDim = 256;
 
@@ -87,17 +85,17 @@ bool f()
   cudaMallocManaged(&in, sizeof(float) * len);
   psz::testutils::cu_hip::rand_array(in, len);
 
-  CompactGpu out_test1(len / 2);
+  compact_gpu out_test1(len / 2);
   out_test1.malloc().mallochost();
 
-  CompactGpu out_test2(len / 2);
+  compact_gpu out_test2(len / 2);
   out_test2.malloc().mallochost();
 
-  CompactSeq out_ref(len / 2);
+  compact_seq out_ref(len / 2);
   out_ref.malloc();
 
-  test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(
-      in, len, out_test1.d_val, out_test1.d_idx, out_test1.d_num);
+  test_compaction1<float, TilDim>
+      <<<grid_dim, block_dim>>>(in, len, out_test1.d_val, out_test1.d_idx, out_test1.d_num);
   cudaDeviceSynchronize();
 
   test_compaction2<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test2);

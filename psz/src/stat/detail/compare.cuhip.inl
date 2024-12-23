@@ -13,7 +13,8 @@ constexpr auto SUM_VAR_ODATA = 2;
 constexpr auto SUM_VAR_XDATA = 3;
 
 template <typename T>
-void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
+void GPU_assess_quality(
+    psz_statistics* s, T* xdata, T* odata, size_t const len)
 {
   T odata_res[4], xdata_res[4];
 
@@ -65,4 +66,4 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
 
 #define __INSTANTIATE_CUHIP_ASSESS(T)              \
   template void psz::cuhip::GPU_assess_quality<T>( \
-      psz_summary * s, T * xdata, T * odata, size_t const len);
+      psz_statistics * s, T * xdata, T * odata, size_t const len);

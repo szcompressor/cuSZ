@@ -1,8 +1,11 @@
+#include <cuda_runtime.h>
+
+#include <cstdio>
+
 #include "hf.h"
 #include "hf_type.h"
 #include "hfclass.hh"
 #include "hfcxx_array.hh"
-#include "port.hh"
 
 namespace phf {
 
@@ -35,8 +38,7 @@ size_t capi_phf_coarse_tune_sublen(size_t len)
 
   auto nSM = dev_prop.multiProcessorCount;
   auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
-  auto deflate_nthread =
-      allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
+  auto deflate_nthread = allowed_block_dim * nSM / HuffmanHelper::DEFLATE_CONSTANT;
 
 #elif defined(PSZ_USE_1API)
   int current_dev = 0;
@@ -50,16 +52,15 @@ size_t capi_phf_coarse_tune_sublen(size_t len)
 
   auto nEU = dev_prop.get_max_compute_units();
   auto allowed_block_dim = dev_prop.get_max_work_group_size();
-  auto deflate_nthread =
-      allowed_block_dim * nEU / HuffmanHelper::DEFLATE_CONSTANT;
+  auto deflate_nthread = allowed_block_dim * nEU / HuffmanHelper::DEFLATE_CONSTANT;
   deflate_nthread /= 16;  // simple EU-SM conversion
   deflate_nthread /= 16;  // simple test
 #endif
 
   auto optimal_sublen = div(len, deflate_nthread);
   // round up
-  optimal_sublen = div(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) *
-                   HuffmanHelper::BLOCK_DIM_DEFLATE;
+  optimal_sublen =
+      div(optimal_sublen, HuffmanHelper::BLOCK_DIM_DEFLATE) * HuffmanHelper::BLOCK_DIM_DEFLATE;
 
   return optimal_sublen;
 };
@@ -71,20 +72,13 @@ void capi_phf_coarse_tune(size_t len, int* sublen, int* pardeg)
   *pardeg = div(len, *sublen);
 }
 
-uint32_t capi_phf_encoded_bytes(phf_header* h)
-{
-  return h->entry[PHFHEADER_END];
-}
+uint32_t capi_phf_encoded_bytes(phf_header* h) { return h->entry[PHFHEADER_END]; }
 
-void capi_phf_version()
-{
-  printf("\n///  %s build: %s\n", phf::BACKEND_TEXT, phf::VERSION_TEXT);
-}
+void capi_phf_version() { printf("\n///  %s build: %s\n", phf::BACKEND_TEXT, phf::VERSION_TEXT); }
 
 void capi_phf_versioninfo() { capi_phf_version(); }
 
-phf_codec* capi_phf_create(
-    size_t const inlen, phf_dtype const t, int const bklen)
+phf_codec* capi_phf_create(size_t const inlen, phf_dtype const t, int const bklen)
 {
   int sublen, pardeg;
   capi_phf_coarse_tune(inlen, &sublen, &pardeg);
@@ -100,8 +94,7 @@ phf_codec* capi_phf_create(
       return nullptr;
   };
 
-  return new phf_codec{
-      .codec = ret_codec(), .header = new phf_header, .data_type = t};
+  return new phf_codec{.codec = ret_codec(), .header = new phf_header, .data_type = t};
 }
 
 phferr capi_phf_release(phf_codec* c)
@@ -125,8 +118,8 @@ phferr capi_phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t s)
 }
 
 phferr capi_phf_encode(
-    phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded,
-    size_t* enc_bytes, phf_stream_t s)
+    phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded, size_t* enc_bytes,
+    phf_stream_t s)
 {
   if (codec->data_type == HF_U1)
     static_cast<phf::HuffmanCodec<u1>*>(codec->codec)
@@ -143,18 +136,14 @@ phferr capi_phf_encode(
   return PHF_SUCCESS;
 }
 
-phferr capi_phf_decode(
-    phf_codec* codec, uint8_t* encoded, void* decoded, phf_stream_t s)
+phferr capi_phf_decode(phf_codec* codec, uint8_t* encoded, void* decoded, phf_stream_t s)
 {
   if (codec->data_type == HF_U1)
-    static_cast<phf::HuffmanCodec<u1>*>(codec->codec)
-        ->decode(encoded, (u1*)decoded, s);
+    static_cast<phf::HuffmanCodec<u1>*>(codec->codec)->decode(encoded, (u1*)decoded, s);
   else if (codec->data_type == HF_U2)
-    static_cast<phf::HuffmanCodec<u2>*>(codec->codec)
-        ->decode(encoded, (u2*)decoded, s);
+    static_cast<phf::HuffmanCodec<u2>*>(codec->codec)->decode(encoded, (u2*)decoded, s);
   else if (codec->data_type == HF_U4)
-    static_cast<phf::HuffmanCodec<u4>*>(codec->codec)
-        ->decode(encoded, (u4*)decoded, s);
+    static_cast<phf::HuffmanCodec<u4>*>(codec->codec)->decode(encoded, (u4*)decoded, s);
   else
     return PHF_WRONG_DTYPE;
 

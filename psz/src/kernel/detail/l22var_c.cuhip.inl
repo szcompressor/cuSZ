@@ -10,16 +10,14 @@
  *
  */
 
-#include "port.hh"
 #include "subr_legacy.cuhip.inl"
 
 namespace psz {
 
-template <
-    typename T, int TileDim, int Seq, typename Eq = uint16_t, typename Fp = T>
+template <typename T, int TileDim, int Seq, typename Eq = uint16_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l_FZGPU_delta_only(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,
-    Eq* const out_eq, Fp const ebx2_r)
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    Fp const ebx2_r)
 {
   namespace subr_v0 = psz::cuda_hip;
 
@@ -35,8 +33,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l_FZGPU_delta_only(
 
   subr_v0::load_prequant_1d<T, Fp, NTHREAD, Seq>(
       in_data, data_len3.x, id_base, scratch, thp_data, prev, ebx2_r);
-  subr_v0::predict_quantize__no_outlier_1d<T, Eq, Seq, true>(
-      thp_data, s_eq, prev);
+  subr_v0::predict_quantize__no_outlier_1d<T, Eq, Seq, true>(thp_data, s_eq, prev);
   subr_v0::predict_quantize__no_outlier_1d<T, Eq, Seq, false>(thp_data, s_eq);
   subr_v0::write_1d<Eq, T, NTHREAD, Seq, false>(
       s_eq, nullptr, data_len3.x, id_base, out_eq, nullptr);
@@ -44,8 +41,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l_FZGPU_delta_only(
 
 template <typename T, typename Eq, typename Fp>
 __global__ void KERNEL_CUHIP_c_lorenzo_2d1l_FZGPU_delta_only(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,
-    Eq* const out_eq, Fp const ebx2_r)
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    Fp const ebx2_r)
 {
   namespace subr_v0 = psz::cuda_hip;
 
@@ -58,8 +55,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l_FZGPU_delta_only(
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * YSEQ;
 
   subr_v0::load_prequant_2d<T, Fp, YSEQ>(
-      in_data, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y, ebx2_r,
-      center);
+      in_data, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y, ebx2_r, center);
   subr_v0::predict_2d<T, Eq, YSEQ>(center);
   subr_v0::delta_only::quantize_write_2d<T, Eq, YSEQ>(
       center, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y, out_eq);
@@ -67,8 +63,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l_FZGPU_delta_only(
 
 template <typename T, typename Eq, typename Fp>
 __global__ void KERNEL_CUHIP_c_lorenzo_3d1l_FZGPU_delta_only(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,
-    Eq* const out_eq, Fp const ebx2_r)
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    Fp const ebx2_r)
 {
   constexpr auto TileDim = 8;
   __shared__ T s[9][33];
@@ -86,8 +82,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l_FZGPU_delta_only(
     if (gix < data_len3.x and giy < data_len3.y) {
       for (auto z = 0; z < TileDim; z++)
         if (giz(z) < data_len3.z)
-          delta[z + 1] =
-              round(in_data[gid(z)] * ebx2_r);  // prequant (fp presence)
+          delta[z + 1] = round(in_data[gid(z)] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();
   };

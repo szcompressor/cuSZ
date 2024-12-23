@@ -13,11 +13,12 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "mem/memobj.hh"
+#include "mem/cxx_memobj.h"
 #include "rand.hh"
 #include "stat/compare.hh"
 
-using namespace portable;
+template <typename T>
+using memobj = _portable::memobj<T>;
 
 void f(szt len, u4 seed)
 {
@@ -42,7 +43,7 @@ void f(szt len, u4 seed)
   f4 res_cpu[4], res_thrust[4], res_cuda[4];
   psz::utils::probe_extrema<SEQ>(in_cpu->hptr(), len, res_cpu);
 #ifdef REACTIVATE_THRUSTGPU
-  psz::probe_extrema<THRUST>(in_thrust->dptr(), len, res_thrust);
+  psz::probe_extrema<THRUST_DPL>(in_thrust->dptr(), len, res_thrust);
 #endif
   // In fact, below is CUDA-HIP compat. Need better indication.
   psz::utils::probe_extrema<CUDA>(in_cuda->dptr(), len, res_cuda);
@@ -52,7 +53,7 @@ void f(szt len, u4 seed)
       res_cpu[0], res_cpu[1], res_cpu[2], res_cpu[3]);
 #ifdef REACTIVATE_THRUSTGPU
   printf(
-      "THRUST\tmin: %6.4f\tmax: %6.4f\tavg: %6.4f\trng: %6.4f\n",  //
+      "THRUST_DPL\tmin: %6.4f\tmax: %6.4f\tavg: %6.4f\trng: %6.4f\n",  //
       res_thrust[0], res_thrust[1], res_thrust[2], res_thrust[3]);
 #endif
   printf(

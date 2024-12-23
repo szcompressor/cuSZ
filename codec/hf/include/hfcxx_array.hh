@@ -5,13 +5,14 @@
 #include <cstdint>
 
 #include "hfcxx_array.hh"
-#include "mem/array_cxx.h"
+#include "mem/cxx_array.h"
 
-using namespace portable;
-
-#define hfarray_cxx array1
-#define hfcxx_array array1
-#define hfcxx_compact compact_array1
+template <typename Hf>
+using hfarray_cxx = _portable::array1<Hf>;
+template <typename Hf>
+using hfcxx_array = _portable::array1<Hf>;
+template <typename Hf>
+using hfcxx_compact = _portable::compact_array1<Hf>;
 
 template <typename Hf>
 struct hfcxx_book {

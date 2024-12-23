@@ -5,7 +5,7 @@
 // deps
 #include "cusz/type.h"
 #include "kernel/lrz.hh"
-#include "mem/compact.hh"
+#include "mem/cxx_sp_gpu.h"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // definitions
@@ -15,9 +15,8 @@ namespace psz::dpcpp {
 
 template <typename T, typename Eq, bool ZigZag>
 pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const data, sycl::range<3> const len3, PROPER_EB const eb,
-    int const radius, Eq* const eq, void* _outlier, f4* time_elapsed,
-    void* stream)
+    T* const data, sycl::range<3> const len3, PROPER_EB const eb, int const radius, Eq* const eq,
+    void* _outlier, f4* time_elapsed, void* stream)
 {
   static_assert(
       std::is_same<Eq, u4>::value or std::is_same<Eq, uint16_t>::value or
@@ -26,8 +25,7 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
 
   auto sycl_div3 = [](sycl::range<3> len, sycl::range<3> tile) {
     return sycl::range<3>(
-        (len[0] - 1) / tile[0] + 1, (len[1] - 1) / tile[1] + 1,
-        (len[2] - 1) / tile[2] + 1);
+        (len[0] - 1) / tile[0] + 1, (len[1] - 1) / tile[1] + 1, (len[2] - 1) / tile[2] + 1);
   };
 
   auto ndim = [&]() {
@@ -39,7 +37,7 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
       return 3;
   };
 
-  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  using Compact = typename CompactDram<PROPER_RUNTIME, T>::Compact;
 
   auto ot = (Compact*)_outlier;
 
@@ -84,14 +82,11 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
       auto ot_num_ct8 = ot->num();
 
       cgh.parallel_for(
-          sycl::nd_range<3>(
-              Grid1D * sycl::range<3>(1, 1, Block1D),
-              sycl::range<3>(1, 1, Block1D)),
+          sycl::nd_range<3>(Grid1D * sycl::range<3>(1, 1, Block1D), sycl::range<3>(1, 1, Block1D)),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
             psz::rolling::c_lorenzo_1d1l<T, Eq, T, Tile1D, Seq1D>(
-                data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
-                ot_num_ct8, item_ct1, s_data.get_pointer(), s_eq.get_pointer(),
-                &stream_ct1);
+                data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7, ot_num_ct8,
+                item_ct1, s_data.get_pointer(), s_eq.get_pointer(), &stream_ct1);
           });
     });
   }
@@ -110,8 +105,8 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
           sycl::nd_range<3>(Grid2D * Block2D, Block2D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
             psz::rolling::c_lorenzo_2d1l<T, Eq, T>(
-                data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
-                ot_num_ct8, item_ct1);
+                data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7, ot_num_ct8,
+                item_ct1);
           });
     });
   }
@@ -132,8 +127,8 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
           sycl::nd_range<3>(Grid3D * Block3D, Block3D),
           [=](sycl::nd_item<3> item_ct1) [[intel::reqd_sub_group_size(32)]] {
             psz::rolling::c_lorenzo_3d1l<T, Eq, T>(
-                data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7,
-                ot_num_ct8, item_ct1, s_acc_ct1);
+                data, len3, leap3, radius, ebx2_r, eq, ot_val_ct6, ot_idx_ct7, ot_num_ct8,
+                item_ct1, s_acc_ct1);
           });
     });
   }
@@ -146,11 +141,10 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
 
 }  // namespace psz::dpcpp
 
-#define INSTANCIATE_GPU_L23R(T, Eq, ZigZag)                                   \
-  template pszerror psz::dpcpp::GPU_c_lorenzo_nd_with_outlier<T, Eq, ZigZag>( \
-      T* const data, sycl::range<3> const len3, PROPER_EB const eb,           \
-      int const radius, Eq* const eq, void* _outlier, f4* time_elapsed,       \
-      void* stream);
+#define INSTANCIATE_GPU_L23R(T, Eq, ZigZag)                                           \
+  template pszerror psz::dpcpp::GPU_c_lorenzo_nd_with_outlier<T, Eq, ZigZag>(         \
+      T* const data, sycl::range<3> const len3, PROPER_EB const eb, int const radius, \
+      Eq* const eq, void* _outlier, f4* time_elapsed, void* stream);
 
 INSTANCIATE_GPU_L23R(f4, u4, false)
 

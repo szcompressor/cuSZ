@@ -17,8 +17,7 @@
 
 #include "cusz/type.h"
 #include "kernel/predictor.hh"
-#include "mem/compact.hh"
-#include "port.hh"
+#include "mem/cxx_sp_gpu.h"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
@@ -299,7 +298,7 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
     void* out_outlier, f8 const eb, uint16_t const radius, f4* time_elapsed,
     void* stream)
 {
-  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
 
   auto ot = (Compact*)out_outlier;

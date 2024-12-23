@@ -1,7 +1,4 @@
-#include "mem/array_cxx.h"
-#include "mem/definition.hh"
-#include "mem/memobj.hh"
-#include "mem/multibackend.hh"
+#include "mem/cxx_memobj.h"
 
 // The next-line: failsafe macro check
 #include <linux/limits.h>
@@ -10,11 +7,11 @@
 #include <iostream>
 
 #include "busyheader.hh"
-#include "cusz/type.h"
+#include "c_type.h"
 #include "stat/compare.hh"
 #include "typing.hh"
 
-namespace portable {
+namespace _portable {
 
 template <typename Ctype>
 struct memobj<Ctype>::impl {
@@ -130,10 +127,10 @@ struct memobj<Ctype>::impl {
   void free_device(void* stream = nullptr) { if (d and not d_borrowed) ::free_device(d, stream); }
   void free_host(void* stream = nullptr)   { if (h and not h_borrowed) ::free_host(h, stream); }
   void free_shared(void* stream = nullptr) { if (uni and not d_borrowed and not h_borrowed) ::free_shared(uni, stream); }
-  void h2d() { memcpy_allkinds<Ctype, H2D>(d, h, _len); }
-  void d2h() { memcpy_allkinds<Ctype, D2H>(h, d, _len); }
-  void h2d_async(void* stream) { memcpy_allkinds_async<Ctype, H2D>(d, h, _len, stream); }
-  void d2h_async(void* stream) { memcpy_allkinds_async<Ctype, D2H>(h, d, _len, stream); }
+  void h2d() { memcpy_allkinds<H2D>(d, h, _len); }
+  void d2h() { memcpy_allkinds<D2H>(h, d, _len); }
+  void h2d_async(void* stream) { memcpy_allkinds_async<H2D>(d, h, _len, stream); }
+  void d2h_async(void* stream) { memcpy_allkinds_async<D2H>(h, d, _len, stream); }
   void clear_host()   { memset(h, 0x0, _bytes); }
   void clear_device() { cudaMemset(d, 0x0, _bytes); }
   void clear_shared() { cudaMemset(uni, 0x0, _bytes); }
@@ -229,12 +226,12 @@ struct memobj<Ctype>::impl {
   // getter of interop
   // TODO ctor from array3/array1
   // clang-format off
-  ::portable::array3<Ctype> array3_h() const { return {hptr(), {lx, ly, lz}}; };
-  ::portable::array3<Ctype> array3_d() const { return {dptr(), {lx, ly, lz}}; };
-  ::portable::array3<Ctype> array3_uni() const { return {uniptr(), {lx, ly, lz}}; };
-  ::portable::array1<Ctype> array1_h() const { return {hptr(), _len}; };
-  ::portable::array1<Ctype> array1_d() const { return {dptr(), _len}; };
-  ::portable::array1<Ctype> array1_uni() const { return {uniptr(), _len}; };
+  ::_portable::array3<Ctype> array3_h() const { return {hptr(), {lx, ly, lz}}; };
+  ::_portable::array3<Ctype> array3_d() const { return {dptr(), {lx, ly, lz}}; };
+  ::_portable::array3<Ctype> array3_uni() const { return {uniptr(), {lx, ly, lz}}; };
+  ::_portable::array1<Ctype> array1_h() const { return {hptr(), _len}; };
+  ::_portable::array1<Ctype> array1_d() const { return {dptr(), _len}; };
+  ::_portable::array1<Ctype> array1_uni() const { return {uniptr(), _len}; };
   // clang-format on
 
   // getter by index
@@ -247,7 +244,7 @@ struct memobj<Ctype>::impl {
 
   GPU_LEN3 len3() const { return MAKE_GPU_LEN3(lx, ly, lz); };
 
-  GPU_LEN3 st3() const { return MAKE_GPU_LEN3(1, sty, stz); };
+  GPU_LEN3 stride3() const { return MAKE_GPU_LEN3(1, sty, stz); };
 };
 
 //////////////////////////////// back to main class
@@ -319,11 +316,11 @@ memobj<Ctype>* memobj<Ctype>::control(control_stream_t commands, void* stream)
       pimpl->clear_device();
     else if (c == H2D)
       pimpl->h2d();
-    else if (c == ASYNC_H2D)
+    else if (c == Async_H2D)
       pimpl->h2d_async(stream);
     else if (c == D2H)
       pimpl->d2h();
-    else if (c == ASYNC_D2H)
+    else if (c == Async_D2H)
       pimpl->d2h_async(stream);
     else if (c == ExtremaScan)
       pimpl->extrema_scan(maxval, minval, range);
@@ -467,44 +464,44 @@ GPU_LEN3 memobj<Ctype>::len3() const
 };
 
 template <typename Ctype>
-GPU_LEN3 memobj<Ctype>::st3() const
+GPU_LEN3 memobj<Ctype>::stride3() const
 {
-  return pimpl->st3();
+  return pimpl->stride3();
 };
 
 template <typename Ctype>
-::portable::array3<Ctype> memobj<Ctype>::array3_h() const
+::_portable::array3<Ctype> memobj<Ctype>::array3_h() const
 {
   return pimpl->array3_h();
 };
 
 template <typename Ctype>
-::portable::array3<Ctype> memobj<Ctype>::array3_d() const
+::_portable::array3<Ctype> memobj<Ctype>::array3_d() const
 {
   return pimpl->array3_d();
 };
 template <typename Ctype>
-::portable::array3<Ctype> memobj<Ctype>::array3_uni() const
+::_portable::array3<Ctype> memobj<Ctype>::array3_uni() const
 {
   return pimpl->array3_uni();
 };
 template <typename Ctype>
-::portable::array1<Ctype> memobj<Ctype>::array1_h() const
+::_portable::array1<Ctype> memobj<Ctype>::array1_h() const
 {
   return pimpl->array1_h();
 };
 template <typename Ctype>
-::portable::array1<Ctype> memobj<Ctype>::array1_d() const
+::_portable::array1<Ctype> memobj<Ctype>::array1_d() const
 {
   return pimpl->array1_d();
 };
 template <typename Ctype>
-::portable::array1<Ctype> memobj<Ctype>::array1_uni() const
+::_portable::array1<Ctype> memobj<Ctype>::array1_uni() const
 {
   return pimpl->array1_uni();
 };
 
-}  // namespace portable
+}  // namespace _portable
 
 // to be imported to files for instantiation
-#define __INSTANTIATE_MEMOBJ(T) template class portable::memobj<T>;
+#define __INSTANTIATE_MEMOBJ(T) template class _portable::memobj<T>;

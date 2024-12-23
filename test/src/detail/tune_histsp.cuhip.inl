@@ -11,10 +11,11 @@
 
 #include "busyheader.hh"
 #include "kernel/detail/histsp.cuhip.inl"
-#include "mem/memobj.hh"
+#include "mem/cxx_memobj.h"
 #include "module/cxx_module.hh"
 
-using namespace portable;
+template <typename T>
+using memobj = _portable::memobj<T>;
 
 using T = uint32_t;
 using FQ = uint32_t;
@@ -89,8 +90,7 @@ bool test1_debug()
   return all_eq;
 }
 
-void helper_generate_array(
-    T* in, size_t inlen, float dist[], int distlen = 5, int offset = 512)
+void helper_generate_array(T* in, size_t inlen, float dist[], int distlen = 5, int offset = 512)
 {
   // cout << "offset: " << offset << endl;
 
@@ -156,10 +156,7 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   auto all_eq = true;
 
   for (auto i = 0; i < NSYM; i++) {
-    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and
-        o_gpusp->hptr(i) == o_serial->hptr(i)) {
-      continue;
-    }
+    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and o_gpusp->hptr(i) == o_serial->hptr(i)) { continue; }
     else {
       printf(
           "first not equal\t"
@@ -208,10 +205,7 @@ bool perf(
   auto all_eq = true;
 
   for (auto i = 0; i < NSYM; i++) {
-    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and
-        o_gpusp->hptr(i) == o_serial->hptr(i)) {
-      continue;
-    }
+    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and o_gpusp->hptr(i) == o_serial->hptr(i)) { continue; }
     else {
       printf(
           "first not equal\t"

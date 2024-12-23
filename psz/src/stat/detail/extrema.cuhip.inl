@@ -16,7 +16,6 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "port.hh"
 #include "stat/compare.hh"
 #include "utils/err.hh"
 
@@ -39,24 +38,16 @@ struct matchby<8> {
   using ftype = double;
 };
 
-#define __ATOMIC_PLUGIN                                                     \
-  constexpr auto bytewidth = sizeof(T);                                     \
-  using itype = typename matchby<bytewidth>::itype;                         \
-  using utype = typename matchby<bytewidth>::utype;                         \
-  using ftype = typename matchby<bytewidth>::ftype;                         \
-  static_assert(std::is_same<T, ftype>::value, "T and ftype don't match."); \
-  auto fp_as_int = [](T fpval) -> itype {                                   \
-    return *reinterpret_cast<itype *>(&fpval);                              \
-  };                                                                        \
-  auto fp_as_uint = [](T fpval) -> utype {                                  \
-    return *reinterpret_cast<utype *>(&fpval);                              \
-  };                                                                        \
-  auto int_as_fp = [](itype ival) -> T {                                    \
-    return *reinterpret_cast<T *>(&ival);                                   \
-  };                                                                        \
-  auto uint_as_fp = [](utype uval) -> T {                                   \
-    return *reinterpret_cast<T *>(&uval);                                   \
-  };
+#define __ATOMIC_PLUGIN                                                                  \
+  constexpr auto bytewidth = sizeof(T);                                                  \
+  using itype = typename matchby<bytewidth>::itype;                                      \
+  using utype = typename matchby<bytewidth>::utype;                                      \
+  using ftype = typename matchby<bytewidth>::ftype;                                      \
+  static_assert(std::is_same<T, ftype>::value, "T and ftype don't match.");              \
+  auto fp_as_int = [](T fpval) -> itype { return *reinterpret_cast<itype *>(&fpval); };  \
+  auto fp_as_uint = [](T fpval) -> utype { return *reinterpret_cast<utype *>(&fpval); }; \
+  auto int_as_fp = [](itype ival) -> T { return *reinterpret_cast<T *>(&ival); };        \
+  auto uint_as_fp = [](utype uval) -> T { return *reinterpret_cast<T *>(&uval); };
 
 // modifed from https://stackoverflow.com/a/51549250 (CC BY-SA 4.0)
 // https://stackoverflow.com/a/72461459
@@ -64,9 +55,8 @@ template <typename T>
 __device__ __forceinline__ T atomicMinFp(T *addr, T value)
 {
   __ATOMIC_PLUGIN
-  auto old = !signbit(value)
-                 ? int_as_fp(atomicMin((itype *)addr, fp_as_int(value)))
-                 : uint_as_fp(atomicMax((utype *)addr, fp_as_uint(value)));
+  auto old = !signbit(value) ? int_as_fp(atomicMin((itype *)addr, fp_as_int(value)))
+                             : uint_as_fp(atomicMax((utype *)addr, fp_as_uint(value)));
   return old;
 }
 
@@ -74,9 +64,8 @@ template <typename T>
 __device__ __forceinline__ T atomicMaxFp(T *addr, T value)
 {
   __ATOMIC_PLUGIN
-  auto old = !signbit(value)
-                 ? int_as_fp(atomicMax((itype *)addr, fp_as_int(value)))
-                 : uint_as_fp(atomicMin((utype *)addr, fp_as_uint(value)));
+  auto old = !signbit(value) ? int_as_fp(atomicMax((itype *)addr, fp_as_int(value)))
+                             : uint_as_fp(atomicMin((utype *)addr, fp_as_uint(value)));
   return old;
 }
 
@@ -84,8 +73,7 @@ __device__ __forceinline__ T atomicMaxFp(T *addr, T value)
 
 template <typename T>
 __global__ void KERNEL_CUHIP_extrema(
-    T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe,
-    int const R)
+    T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe, int const R)
 {
   __shared__ T shared_minv, shared_maxv, shared_sum;
   // failsafe; require external setup
@@ -94,8 +82,7 @@ __global__ void KERNEL_CUHIP_extrema(
   auto _entry = [&]() { return (blockDim.x * R) * blockIdx.x + threadIdx.x; };
   auto _idx = [&](auto r) { return _entry() + (r * blockDim.x); };
 
-  if (threadIdx.x == 0)
-    shared_minv = failsafe, shared_maxv = failsafe, shared_sum = 0;
+  if (threadIdx.x == 0) shared_minv = failsafe, shared_maxv = failsafe, shared_sum = 0;
 
   __syncthreads();
 
@@ -154,21 +141,18 @@ void GPU_extrema(T *in, size_t len, T res[4])
   cudaMemset(d_sum, 0, sizeof(T));
 
   // failsafe init
-  CHECK_GPU(cudaMemcpy(
-      &failsafe, in, sizeof(T), cudaMemcpyDeviceToHost));  // transfer the 1st val
+  CHECK_GPU(cudaMemcpy(&failsafe, in, sizeof(T), cudaMemcpyDeviceToHost));  // transfer the 1st val
   CHECK_GPU(cudaMemcpy(d_minel, in, sizeof(T), cudaMemcpyDeviceToDevice));  // init min el
   CHECK_GPU(cudaMemcpy(d_maxel, in, sizeof(T), cudaMemcpyDeviceToDevice));  // init max el
 
 // launch
 #if defined(PSZ_USE_CUDA)
-  psz::KERNEL_CUHIP_extrema<T>
-      <<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
-          in, len, d_minel, d_maxel, d_sum, failsafe, R);
+  psz::KERNEL_CUHIP_extrema<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
+      in, len, d_minel, d_maxel, d_sum, failsafe, R);
 #elif defined(PSZ_USE_HIP)
   if constexpr (std::is_same<T, float>::value) {
-    psz::extrema_kernel<float>
-        <<<div(len, chunk), nworker, sizeof(float) * 2, stream>>>(
-            in, len, d_minel, d_maxel, d_sum, failsafe, R);
+    psz::extrema_kernel<float><<<div(len, chunk), nworker, sizeof(float) * 2, stream>>>(
+        in, len, d_minel, d_maxel, d_sum, failsafe, R);
   }
   else {
     throw std::runtime_error(

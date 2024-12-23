@@ -8,25 +8,23 @@
 #include <iostream>
 
 #define PORTABLE_IO_SUCCESS 0
-#define PORTABLE_IO_SUCCESS_WITH_ALLOCATION 1
+#define PORTABLE_FAIL_NULLPTR 1
 #define PORTABLE_IFS_FAIL_TO_OPEN -1
 #define PORTABLE_OFS_FAIL_TO_OPEN -2
 
 namespace _portable::utils {
 
 template <typename T>
-int fromfile(const std::string& fname, T** _a, size_t const dtype_len)
+int fromfile(const std::string& fname, T* _a, size_t const dtype_len)
 {
   int status = PORTABLE_IO_SUCCESS;
   std::ifstream ifs(fname.c_str(), std::ios::binary | std::ios::in);
   if (not ifs.is_open()) return PORTABLE_IFS_FAIL_TO_OPEN;
-  if (*_a == nullptr) {
-    *_a = new T[dtype_len]();
-    status = PORTABLE_IO_SUCCESS_WITH_ALLOCATION;
-  }
-  ifs.read((char*)(*_a), std::streamsize(dtype_len * sizeof(T)));
+  if (not _a) return PORTABLE_FAIL_NULLPTR;
+
+  ifs.read((char*)(_a), std::streamsize(dtype_len * sizeof(T)));
   ifs.close();
-  return status;
+  return PORTABLE_IO_SUCCESS;
 }
 
 template <typename T>

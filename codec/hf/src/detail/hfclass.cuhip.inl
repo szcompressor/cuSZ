@@ -33,9 +33,7 @@
 #include "hfbuf.inl"
 #include "hfclass.hh"
 #include "hfcxx_module.hh"
-#include "mem/memobj.hh"
-#include "port.hh"
-#include "typing.hh"
+#include "mem/cxx_memobj.h"
 #include "utils/err.hh"
 #include "utils/format.hh"
 #include "utils/timer.hh"
@@ -71,8 +69,7 @@ struct HuffmanCodec<E, TIMING>::impl {
   ~impl() { delete buf; }
 
   // keep ctor short
-  void init(
-      size_t const inlen, int const _bklen, int const _pardeg, bool debug)
+  void init(size_t const inlen, int const _bklen, int const _pardeg, bool debug)
   {
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
@@ -83,8 +80,7 @@ struct HuffmanCodec<E, TIMING>::impl {
 
     // TODO make unique_ptr; modify ctor
     buf = new Buf(inlen, _bklen, _pardeg, true, debug);
-    hist = new memobj<u4>(
-        bklen, "phf::hist", {MallocHost});  // dptr from external
+    hist = new memobj<u4>(bklen, "phf::hist", {MallocHost});  // dptr from external
   }
 
 #ifdef ENABLE_HUFFBK_GPU
@@ -92,8 +88,8 @@ struct HuffmanCodec<E, TIMING>::impl {
   void buildbook(uint32_t* freq, int const bklen, phf_stream_t stream)
   {
     psz::hf_buildbook<CUDA, E, H4>(
-        freq, bklen, bk4->dptr(), revbk4->dptr(), revbk4_bytes(bklen),
-        &_time_book, (cudaStream_t)stream);
+        freq, bklen, bk4->dptr(), revbk4->dptr(), revbk4_bytes(bklen), &_time_book,
+        (cudaStream_t)stream);
   }
 #else
   // build Huffman tree on CPU
@@ -102,11 +98,10 @@ struct HuffmanCodec<E, TIMING>::impl {
     this->hist->dptr(freq);
 
     psz::hf_buildbook<SEQ, E, H4>(
-        hist->control({D2H})->hptr(), bklen, buf->bk4->hptr(),
-        buf->revbk4->hptr(), revbk4_bytes(bklen), &_time_book,
-        (cudaStream_t)stream);
-    buf->bk4->control({ASYNC_H2D}, (cudaStream_t)stream);
-    buf->revbk4->control({ASYNC_H2D}, (cudaStream_t)stream);
+        hist->control({D2H})->hptr(), bklen, buf->bk4->hptr(), buf->revbk4->hptr(),
+        revbk4_bytes(bklen), &_time_book, (cudaStream_t)stream);
+    buf->bk4->control({Async_H2D}, (cudaStream_t)stream);
+    buf->revbk4->control({Async_H2D}, (cudaStream_t)stream);
   }
 #endif
 
@@ -116,18 +111,10 @@ struct HuffmanCodec<E, TIMING>::impl {
     return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
   }
 
-  static int revbk4_bytes(int bklen)
-  {
-    return __revbk_bytes(bklen, 4, sizeof(SYM));
-  }
-  static int revbk8_bytes(int bklen)
-  {
-    return __revbk_bytes(bklen, 8, sizeof(SYM));
-  }
+  static int revbk4_bytes(int bklen) { return __revbk_bytes(bklen, 4, sizeof(SYM)); }
+  static int revbk8_bytes(int bklen) { return __revbk_bytes(bklen, 8, sizeof(SYM)); }
 
-  void encode(
-      E* in, size_t const len, uint8_t** out, size_t* outlen,
-      phf_stream_t stream)
+  void encode(E* in, size_t const len, uint8_t** out, size_t* outlen, phf_stream_t stream)
   {
     _time_lossless = 0;
 
@@ -135,32 +122,28 @@ struct HuffmanCodec<E, TIMING>::impl {
 
     {
       phf_module::GPU_coarse_encode_phase1(
-          {in, len}, buf->bk4->array1_d(), numSMs, buf->scratch4->array1_d(),
-          &_time_lossless, stream);
+          {in, len}, buf->bk4->array1_d(), numSMs, buf->scratch4->array1_d(), &_time_lossless,
+          stream);
 
       if constexpr (TimeBreakdown) { b = hires::now(); }
 
       phf_module::GPU_coarse_encode_phase2(
-          buf->scratch4->array1_d(), hfpar,
-          buf->scratch4->array1_d() /* placeholder */,
-          buf->par_nbit->array1_d(), buf->par_ncell->array1_d(),
-          &_time_lossless, stream);
+          buf->scratch4->array1_d(), hfpar, buf->scratch4->array1_d() /* placeholder */,
+          buf->par_nbit->array1_d(), buf->par_ncell->array1_d(), &_time_lossless, stream);
 
       if constexpr (TimeBreakdown) c = hires::now();
     }
 
     phf_module::GPU_coarse_encode_phase3(
-        buf->par_nbit->array1_d(), buf->par_ncell->array1_d(),
-        buf->par_entry->array1_d(), hfpar, buf->par_nbit->array1_h(),
-        buf->par_ncell->array1_h(), buf->par_entry->array1_h(),
+        buf->par_nbit->array1_d(), buf->par_ncell->array1_d(), buf->par_entry->array1_d(), hfpar,
+        buf->par_nbit->array1_h(), buf->par_ncell->array1_h(), buf->par_entry->array1_h(),
         &header.total_nbit, &header.total_ncell, nullptr, stream);
 
     if constexpr (TimeBreakdown) d = hires::now();
 
     phf_module::GPU_coarse_encode_phase4(
-        buf->scratch4->array1_d(), buf->par_entry->array1_d(),
-        buf->par_ncell->array1_d(), hfpar, buf->bitstream4->array1_d(),
-        &_time_lossless, stream);
+        buf->scratch4->array1_d(), buf->par_entry->array1_d(), buf->par_ncell->array1_d(), hfpar,
+        buf->bitstream4->array1_d(), &_time_lossless, stream);
 
     if constexpr (TimeBreakdown) e = hires::now();
 
@@ -170,16 +153,11 @@ struct HuffmanCodec<E, TIMING>::impl {
     if constexpr (TimeBreakdown) f = hires::now();
 
     if constexpr (TimeBreakdown) {
-      cout << "phase1: " << static_cast<duration_t>(b - a).count() * 1e6
-           << endl;
-      cout << "phase2: " << static_cast<duration_t>(c - a).count() * 1e6
-           << endl;
-      cout << "phase3: " << static_cast<duration_t>(d - a).count() * 1e6
-           << endl;
-      cout << "phase4: " << static_cast<duration_t>(e - a).count() * 1e6
-           << endl;
-      cout << "wrapup: " << static_cast<duration_t>(f - a).count() * 1e6
-           << endl;
+      cout << "phase1: " << static_cast<duration_t>(b - a).count() * 1e6 << endl;
+      cout << "phase2: " << static_cast<duration_t>(c - a).count() * 1e6 << endl;
+      cout << "phase3: " << static_cast<duration_t>(d - a).count() * 1e6 << endl;
+      cout << "phase4: " << static_cast<duration_t>(e - a).count() * 1e6 << endl;
+      cout << "wrapup: " << static_cast<duration_t>(f - a).count() * 1e6 << endl;
     }
 
     // TODO may cooperate with upper-level; output
@@ -187,26 +165,20 @@ struct HuffmanCodec<E, TIMING>::impl {
     *outlen = phf_encoded_bytes(&header);
   }
 
-  void decode(
-      uint8_t* in_encoded, E* out_decoded, phf_stream_t stream,
-      bool header_on_device)
+  void decode(uint8_t* in_encoded, E* out_decoded, phf_stream_t stream, bool header_on_device)
   {
     Header header;
     if (header_on_device)
       CHECK_GPU(cudaMemcpyAsync(
-          &header, in_encoded, sizeof(header), cudaMemcpyDeviceToHost,
-          (cudaStream_t)stream));
+          &header, in_encoded, sizeof(header), cudaMemcpyDeviceToHost, (cudaStream_t)stream));
 
-#define PHF_ACCESSOR(SYM, TYPE) \
-  reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
+#define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
 
     phf_module::GPU_coarse_decode(
         {PHF_ACCESSOR(BITSTREAM, H4), 0},
         {PHF_ACCESSOR(REVBK, PHF_BYTE), (size_t)revbk4_bytes(header.bklen)},
-        {PHF_ACCESSOR(PAR_NBIT, M), (size_t)pardeg},
-        {PHF_ACCESSOR(PAR_ENTRY, M), (size_t)pardeg},
-        {(size_t)header.sublen, (size_t)header.pardeg}, {out_decoded, 0},
-        &_time_lossless, stream);
+        {PHF_ACCESSOR(PAR_NBIT, M), (size_t)pardeg}, {PHF_ACCESSOR(PAR_ENTRY, M), (size_t)pardeg},
+        {(size_t)header.sublen, (size_t)header.pardeg}, {out_decoded, 0}, &_time_lossless, stream);
 
 #undef PHF_ACCESSOR
   }
@@ -228,10 +200,8 @@ struct HuffmanCodec<E, TIMING>::impl {
 
     header.entry[0] = 0;
     // *.END + 1: need to know the ending position
-    for (auto i = 1; i < PHFHEADER_END + 1; i++)
-      header.entry[i] = nbyte[i - 1];
-    for (auto i = 1; i < PHFHEADER_END + 1; i++)
-      header.entry[i] += header.entry[i - 1];
+    for (auto i = 1; i < PHFHEADER_END + 1; i++) header.entry[i] = nbyte[i - 1];
+    for (auto i = 1; i < PHFHEADER_END + 1; i++) header.entry[i] += header.entry[i - 1];
   }
 
   void clear_buffer() { buf->clear_buffer(); }
@@ -261,16 +231,14 @@ PHF_TPL PHF_CLASS* PHF_CLASS::buildbook(u4* freq, phf_stream_t stream)
 
 PHF_TPL
 PHF_CLASS* PHF_CLASS::encode(
-    E* in, size_t const len, uint8_t** out, size_t* outlen,
-    phf_stream_t stream)
+    E* in, size_t const len, uint8_t** out, size_t* outlen, phf_stream_t stream)
 {
   pimpl->encode(in, len, out, outlen, stream);
   return this;
 }
 
 PHF_TPL PHF_CLASS* PHF_CLASS::decode(
-    uint8_t* in_encoded, E* out_decoded, phf_stream_t stream,
-    bool header_on_device)
+    uint8_t* in_encoded, E* out_decoded, phf_stream_t stream, bool header_on_device)
 {
   pimpl->decode(in_encoded, out_decoded, stream, header_on_device);
   return this;

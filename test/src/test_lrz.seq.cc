@@ -34,7 +34,7 @@ bool test1(
     FUNC func, T const* input, size_t len, psz_dim3 len3, psz_dim3 stride3,
     T const* expected_output, std::string funcname)
 {
-  auto outlier = new CompactSerial<T>(len / 10);
+  auto outlier = new _portable::compact_seq<T>(len / 10);
   outlier->malloc();
 
   auto eq = new EQ[len];
@@ -90,7 +90,7 @@ bool test3(
     FUNC1 func1, FUNC2 func2, T const* input, size_t len, psz_dim3 len3,
     psz_dim3 stride3, std::string funcname)
 {
-  auto outlier = new struct CompactSerial<T>(len / 10);
+  auto outlier = new _portable::compact_seq<T>(len / 10);
   outlier->malloc();
 
   auto eq = new EQ[len];
@@ -129,7 +129,7 @@ template <typename T>
 struct FunctionType {
   using FP = T;
   using EQ = int32_t;
-  using OUTLIER = CompactSerial<T>;
+  using OUTLIER = _portable::compact_seq<T>;
   typedef std::function<void(T*, psz_dim3, psz_dim3, int, FP, EQ*, OUTLIER*)>
       type_c;
   typedef std::function<void(EQ*, T*, psz_dim3, psz_dim3, int, FP, T*)> type_x;

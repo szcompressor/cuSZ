@@ -18,11 +18,10 @@
 #include "hf/hf.hh"
 #include "kernel.hh"
 #include "mem.hh"
-#include "port.hh"
 #include "hf.h"
+#include "pipeline/testframe.hh"
 #include "stat.hh"
 #include "tehm.hh"
-#include "pipeline/testframe.hh"
 #include "utils/viewer.hh"
 
 using Compressor = cusz::Compressor<cusz::CompoundType<f4>>;

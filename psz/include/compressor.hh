@@ -21,7 +21,6 @@
 
 namespace psz {
 
-using namespace portable;
 
 template <class C>
 class Compressor {

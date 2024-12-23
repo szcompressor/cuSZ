@@ -14,14 +14,12 @@
 #include "context.h"
 #include "cusz.h"
 #include "cusz/type.h"
-#include "mem/memobj.hh"
-#include "port.hh"
+#include "mem/cxx_memobj.h"
 #include "tehm.hh"
 
 psz_compressor* capi_psz_create(
-    psz_dtype const dtype, psz_len3 const uncomp_len3,
-    psz_predtype const predictor, int const quantizer_radius,
-    psz_codectype const codec)
+    psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
+    int const quantizer_radius, psz_codectype const codec)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr,
@@ -31,20 +29,17 @@ psz_compressor* capi_psz_create(
       .last_error = CUSZ_SUCCESS};
 
   pszctx_set_len(comp->ctx, uncomp_len3);
-  capi_phf_coarse_tune(
-      comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
+  capi_phf_coarse_tune(comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
   if (comp->type == F4 or comp->type == F8)
-    comp->compressor = comp->type == F4
-                           ? (void*)(new psz::CompressorF4(comp->ctx))
-                           : (void*)(new psz::CompressorF8(comp->ctx));
+    comp->compressor = comp->type == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
+                                        : (void*)(new psz::CompressorF8(comp->ctx));
   else
     comp->last_error = PSZ_TYPE_UNSUPPORTED;
 
   return comp;
 }
 
-psz_compressor* capi_psz_create_default(
-    psz_dtype const dtype, psz_len3 const uncomp_len3)
+psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const uncomp_len3)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr,
@@ -54,20 +49,17 @@ psz_compressor* capi_psz_create_default(
       .last_error = CUSZ_SUCCESS};
 
   pszctx_set_len(comp->ctx, uncomp_len3);
-  capi_phf_coarse_tune(
-      comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
+  capi_phf_coarse_tune(comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
   if (comp->type == F4 or comp->type == F8)
-    comp->compressor = comp->type == F4
-                           ? (void*)(new psz::CompressorF4(comp->ctx))
-                           : (void*)(new psz::CompressorF8(comp->ctx));
+    comp->compressor = comp->type == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
+                                        : (void*)(new psz::CompressorF8(comp->ctx));
   else
     comp->last_error = PSZ_TYPE_UNSUPPORTED;
 
   return comp;
 }
 
-psz_compressor* capi_psz_create_from_context(
-    pszctx* const ctx, psz_len3 uncomp_len3)
+psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_len3)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr,
@@ -77,12 +69,10 @@ psz_compressor* capi_psz_create_from_context(
       .last_error = CUSZ_SUCCESS};
 
   pszctx_set_len(comp->ctx, uncomp_len3);
-  capi_phf_coarse_tune(
-      comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
+  capi_phf_coarse_tune(comp->ctx->data_len, &comp->ctx->vle_sublen, &comp->ctx->vle_pardeg);
   if (comp->type == F4 or comp->type == F8)
-    comp->compressor = comp->type == F4
-                           ? (void*)(new psz::CompressorF4(comp->ctx))
-                           : (void*)(new psz::CompressorF8(comp->ctx));
+    comp->compressor = comp->type == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
+                                        : (void*)(new psz::CompressorF8(comp->ctx));
   else
     comp->last_error = PSZ_TYPE_UNSUPPORTED;
 
@@ -110,9 +100,8 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
   comp->ctx->codec1_type = h->codec1_type;
 
   if (comp->type == F4 or comp->type == F8)
-    comp->compressor = comp->type == F4
-                           ? (void*)(new psz::CompressorF4(comp->ctx))
-                           : (void*)(new psz::CompressorF8(comp->ctx));
+    comp->compressor = comp->type == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
+                                        : (void*)(new psz::CompressorF8(comp->ctx));
   else
     comp->last_error = PSZ_TYPE_UNSUPPORTED;
 
@@ -133,9 +122,8 @@ pszerror capi_psz_release(psz_compressor* comp)
 }
 
 pszerror capi_psz_compress(
-    psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb,
-    psz_mode const mode, uint8_t** comped, size_t* comp_bytes,
-    psz_header* header, void* record, void* stream)
+    psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
+    uint8_t** comped, size_t* comp_bytes, psz_header* header, void* record, void* stream)
 {
   comp->ctx->eb = eb;
   comp->ctx->mode = mode;
@@ -144,8 +132,7 @@ pszerror capi_psz_compress(
   if (mode == Rel) {
     double _max, _min, _rng;
     if (comp->type == F4) {
-      auto _input = memobj<f4>(
-          comp->ctx->x, comp->ctx->y, comp->ctx->z, "capi_data_input");
+      auto _input = memobj<f4>(comp->ctx->x, comp->ctx->y, comp->ctx->z, "capi_data_input");
       _input.dptr((f4*)d_in);
       _input.extrema_scan(_max, _min, _rng);
     }
@@ -182,14 +169,13 @@ pszerror capi_psz_compress(
 }
 
 pszerror capi_psz_decompress(
-    psz_compressor* comp, uint8_t* comped, size_t const comp_len,
-    void* decomped, psz_len3 const decomp_len, void* record, void* stream)
+    psz_compressor* comp, uint8_t* comped, size_t const comp_len, void* decomped,
+    psz_len3 const decomp_len, void* record, void* stream)
 {
   if (comp->type == F4) {
     auto cor = (psz::CompressorF4*)(comp->compressor);
 
-    cor->decompress(
-        comp->header, comped, (f4*)(decomped), (cudaStream_t)stream);
+    cor->decompress(comp->header, comped, (f4*)(decomped), (cudaStream_t)stream);
     cor->export_timerecord((psz::TimeRecord*)record);
     cor->export_timerecord(comp->stage_time);
   }

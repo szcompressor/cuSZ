@@ -14,8 +14,7 @@ void psz_review_comp_time_from_header(psz_header* h);
 void psz_review_decomp_time_from_header(psz_header* h);
 void psz_review_compression(void* r, psz_header* h);
 void psz_review_decompression(void* r, size_t bytes);
-void psz_review_evaluated_quality(
-    psz_policy, psz_dtype, void*, void*, size_t, size_t, bool);
+void psz_review_evaluated_quality(psz_runtime, psz_dtype, void*, void*, size_t, size_t, bool);
 
 #ifdef __cplusplus
 }

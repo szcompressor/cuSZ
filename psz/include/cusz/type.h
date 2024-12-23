@@ -20,12 +20,19 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { SEQ, CUDA, HIP, ONEAPI, THRUST } psz_backend;
-typedef enum { CPU, NVGPU, AMDGPU, INTELGPU } psz_device;
-typedef enum { Device = 0, Host = 1, IamLost = 2 } psz_space;
-typedef psz_backend psz_policy;
+#include "c_type.h"
 
-typedef void* psz_stream_t;
+typedef _portable_device psz_device;
+typedef _portable_runtime psz_runtime;
+typedef _portable_runtime psz_backend;
+typedef _portable_toolkit psz_toolkit;
+
+typedef _portable_stream_t psz_stream_t;
+typedef _portable_mem_control psz_mem_control;
+typedef _portable_dtype psz_dtype;
+typedef _portable_len3 psz_len3;
+typedef _portable_size3 psz_size3;
+typedef _portable_data_summary psz_data_summary;
 
 typedef enum {
   CUSZ_SUCCESS,
@@ -57,21 +64,6 @@ typedef enum {
   PSZ_WRONG_TIMER_SPECIFIED,
 } psz_error_status;
 typedef psz_error_status pszerror;
-
-typedef enum { F4, F8, U1, U2, U4, U8, I1, I2, I4, I8, ULL } psz_dtype;
-
-// aliasing
-typedef uint8_t u1;
-typedef uint16_t u2;
-typedef uint32_t u4;
-typedef uint64_t u8;
-typedef unsigned long long ull;
-typedef int8_t i1;
-typedef int16_t i2;
-typedef int32_t i4;
-typedef int64_t i8;
-typedef float f4;
-typedef double f8;
 
 typedef uint8_t byte_t;
 typedef size_t szt;
@@ -110,10 +102,6 @@ typedef enum {
   STAGE_END = 6
 } psz_time_stage;
 
-typedef struct psz_len3 {
-  size_t x, y, z;
-} psz_len3;
-
 struct psz_context;
 typedef struct psz_context psz_ctx;
 
@@ -129,22 +117,17 @@ typedef struct psz_compressor {
   float stage_time[STAGE_END];
 } psz_compressor;
 
-typedef struct psz_basic_data_description {
-  f8 min, max, rng, std, avg;
-} psz_basic_data_description;
-typedef psz_basic_data_description psz_data_desc;
-
 // nested struct object (rather than ptr) results in Swig creating a `__get`,
 // which can be breaking. Used `prefix_` instead.
-typedef struct psz_statistic_summary {
-  psz_data_desc odata, xdata;
+typedef struct psz_statistics {
+  psz_data_summary odata, xdata;
   f8 score_PSNR, score_MSE, score_NRMSE, score_coeff;
   f8 max_err_abs, max_err_rel, max_err_pwrrel;
   size_t max_err_idx;
   f8 autocor_lag_one, autocor_lag_two;
   f8 user_eb;
   size_t len;
-} psz_summary;
+} psz_statistics;
 
 typedef struct psz_capi_array {
   void* const buf;
@@ -194,11 +177,7 @@ typedef psz_runtime_config psz_rc;
 // forward
 struct psz_profiling;
 
-typedef enum psz_timing_mode {
-  SYNC_BY_STREAM,
-  CPU_BARRIER,
-  GPU_AUTOMONY
-} psz_timing_mode;
+typedef enum psz_timing_mode { SYNC_BY_STREAM, CPU_BARRIER, GPU_AUTOMONY } psz_timing_mode;
 
 #ifdef __cplusplus
 }

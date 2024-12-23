@@ -5,7 +5,6 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
-#include "port.hh"
 #include "stat/compare.hh"
 
 namespace psz::dpl {
@@ -37,9 +36,7 @@ void GPU_max_error(
   dpct::device_pointer<T> o(original);
   dpct::device_pointer<T> d(diff);
 
-  std::transform(
-      oneapi::dpl::execution::make_device_policy(q_ct1), r, r + len, o, d,
-      expr);
+  std::transform(oneapi::dpl::execution::make_device_policy(q_ct1), r, r + len, o, d, expr);
 
   auto maximum_ptr = std::max_element(oneapi::dpl::execution::seq, d, d + len);
   maximum_val = *maximum_ptr;

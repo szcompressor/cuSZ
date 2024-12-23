@@ -20,14 +20,14 @@
 
 namespace psz {
 
-using namespace portable;
+template <typename T>
+using memobj = _portable::memobj<T>;
 
 template <typename T>
 class CLI {
  private:
   void write_compressed_to_disk(
-      std::string compressed_name, psz_header* header, uint8_t* comped,
-      size_t comp_len);
+      std::string compressed_name, psz_header* header, uint8_t* comped, size_t comp_len);
 
   void cli_compress(pszctx* const ctx, void* stream);
   void cli_decompress(pszctx* const ctx, void* stream);
@@ -49,9 +49,8 @@ void CLI<T>::cli_dryrun()
 template <typename T>
 void CLI<T>::cli_compress(pszctx* const ctx, void* stream)
 {
-  auto write_compressed_to_disk = [](std::string compressed_name,
-                                     psz_header* header, uint8_t* comped,
-                                     size_t comp_len) {
+  auto write_compressed_to_disk = [](std::string compressed_name, psz_header* header,
+                                     uint8_t* comped, size_t comp_len) {
     auto file = new memobj<uint8_t>(comp_len, "psz-archive", {MallocHost});
 
     file->dptr(comped)->control({D2H});
@@ -61,8 +60,7 @@ void CLI<T>::cli_compress(pszctx* const ctx, void* stream)
     delete file;
   };
 
-  auto input =
-      new memobj<T>(ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
+  auto input = new memobj<T>(ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
 
   input->file(ctx->file_input, FromFile)->control({H2D});
 
@@ -77,8 +75,8 @@ void CLI<T>::cli_compress(pszctx* const ctx, void* stream)
   // the core of compression
   auto compressor = psz_create_from_context(ctx, get_len3(ctx));
   psz_compress(
-      compressor, input->dptr(), get_len3(ctx), eb, mode, &comped, &comp_len,
-      &header, (void*)&timerecord, stream);
+      compressor, input->dptr(), get_len3(ctx), eb, mode, &comped, &comp_len, &header,
+      (void*)&timerecord, stream);
 
   if (not ctx->there_is_memerr) {
     if (ctx->report_time) {
@@ -98,8 +96,7 @@ void CLI<T>::cli_compress(pszctx* const ctx, void* stream)
       psz_review_comp_time_from_header(&header);
     }
 
-    write_compressed_to_disk(
-        std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
+    write_compressed_to_disk(std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
   }
   else {
     printf("\n*** exit on failure.\n");
@@ -118,15 +115,13 @@ void CLI<T>::cli_decompress(pszctx* const ctx, void* stream)
 
   // all lengths in metadata
   auto filesize = [](std::string fname) -> size_t {
-    std::ifstream in(
-        fname.c_str(), std::ifstream::ate | std::ifstream::binary);
+    std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
     return in.tellg();
   };
 
   auto compressed_len = filesize(ctx->file_input);
 
-  auto comped =
-      new memobj<uint8_t>(compressed_len, "comped", {MallocHost, Malloc});
+  auto comped = new memobj<uint8_t>(compressed_len, "comped", {MallocHost, Malloc});
 
   comped->file(ctx->file_input, FromFile)->control({H2D});
 
@@ -142,17 +137,15 @@ void CLI<T>::cli_decompress(pszctx* const ctx, void* stream)
   // the core of decompression
   auto compressor = psz_create_from_header(header);
   psz_decompress(
-      compressor, comped->dptr(), comp_len, decomped->dptr(), decomp_len,
-      (void*)&timerecord, stream);
+      compressor, comped->dptr(), comp_len, decomped->dptr(), decomp_len, (void*)&timerecord,
+      stream);
 
-  if (ctx->report_time)
-    psz_review_decompression(&timerecord, decomped->bytes());
+  if (ctx->report_time) psz_review_decompression(&timerecord, decomped->bytes());
   psz_review_decomp_time_from_header(header);
   psz::utils::view(header, decomped, original, ctx->file_compare);
 
   if (not ctx->skip_tofile)
-    decomped->control({D2H})->file(
-        std::string(basename + ".cuszx").c_str(), ToFile);
+    decomped->control({D2H})->file(std::string(basename + ".cuszx").c_str(), ToFile);
 
   psz_release(compressor);
   delete comped;
@@ -177,8 +170,7 @@ void CLI<T>::dispatch(pszctx* ctx)
 
   sycl::queue q;
   auto plist = sycl::property_list(
-      sycl::property::queue::in_order(),
-      sycl::property::queue::enable_profiling());
+      sycl::property::queue::in_order(), sycl::property::queue::enable_profiling());
 
   if (ctx->device == CPU)
     q = sycl::queue(sycl::cpu_selector_v, plist);

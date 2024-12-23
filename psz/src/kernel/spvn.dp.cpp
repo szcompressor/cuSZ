@@ -3,7 +3,6 @@
 #include "criteria.gpu.hh"
 #include "cusz/type.h"
 #include "kernel/spv.hh"
-#include "port.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 

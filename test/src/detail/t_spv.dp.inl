@@ -19,9 +19,9 @@ template <typename T = float>
 int f()
 {
   sycl::queue q(
-      sycl::gpu_selector_v, sycl::property_list(
-                                sycl::property::queue::in_order(),
-                                sycl::property::queue::enable_profiling()));
+      sycl::gpu_selector_v,
+      sycl::property_list(
+          sycl::property::queue::in_order(), sycl::property::queue::enable_profiling()));
 
   T* a;                // input
   T* da;               // decoded
@@ -54,10 +54,10 @@ int f()
 
   ////////////////////////////////////////////////////////////////
 
-  // psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
+  // psz::spv_gather<PROPER_RUNTIME, T, uint32_t>(
   //     a, len, val, idx, &nnz, &ms, &q);
 
-  psz::spv_gather_naive<PROPER_GPU_BACKEND>(
+  psz::spv_gather_naive<PROPER_RUNTIME>(
       a, len, 0, val, idx, d_nnz, psz::criterion::gpu::eq<T>(), &ms, &q);
   nnz = *d_nnz;
 
@@ -70,8 +70,7 @@ int f()
     return -1;
   }
 
-  psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(
-      val, idx, nnz, da, &ms, &q);
+  psz::spv_scatter<PROPER_RUNTIME, T, uint32_t>(val, idx, nnz, da, &ms, &q);
 
   q.wait();
 

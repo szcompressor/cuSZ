@@ -98,7 +98,7 @@ void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
     auto comp_len = pszheader_filesize(&header);
     psz_review_decompression(decomp_timerecord, oribytes);
     psz_review_evaluated_quality(
-        THRUST, F4, d_decomp, d_uncomp, len, comp_len, true);
+        THRUST_DPL, F4, d_decomp, d_uncomp, len, comp_len, true);
   }
 
   // clean up

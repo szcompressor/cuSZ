@@ -17,7 +17,7 @@
 #include "../src/utils/it_serial.hh"
 #include "cusz/it.hh"
 #include "cusz/nd.h"
-#include "mem/compact/compact.seq.hh"
+#include "mem/cxx_sp_cpu.h"
 
 using std::cout;
 using std::endl;
@@ -64,7 +64,7 @@ namespace psz {
 
 template <
     typename T, typename EQ = int32_t, typename FP = T, int BLK = 256,
-    typename OUTLIER = struct CompactSerial<T>>
+    typename OUTLIER = struct _portable::compact_seq<T>>
 void KERNEL_SEQ_c_lorenzo_1d1l(
     T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
     OUTLIER* outlier) {
@@ -147,7 +147,7 @@ void KERNEL_SEQ_x_lorenzo_1d1l(
 
 template <
     typename T, typename EQ = int32_t, typename FP = T, int BLK = 16,
-    typename OUTLIER = struct CompactSerial<T>>
+    typename OUTLIER = struct _portable::compact_seq<T>>
 void KERNEL_SEQ_c_lorenzo_2d1l(
     T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
     OUTLIER* outlier) {
@@ -235,7 +235,7 @@ void KERNEL_SEQ_x_lorenzo_2d1l(
 
 template <
     typename T, typename EQ = int32_t, typename FP = T, int BLK = 8,
-    typename OUTLIER = struct CompactSerial<T>>
+    typename OUTLIER = struct _portable::compact_seq<T>>
 void KERNEL_SEQ_c_lorenzo_3d1l(
     T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
     OUTLIER* outlier) {

@@ -14,6 +14,7 @@
 
 #include "hf.h"
 #include "hfclass.hh"
+#include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
 #include "stat.hh"
 #include "utils/io.hh"
@@ -43,26 +44,28 @@ float time_decode = (float)INT_MAX;
   memcpy_allkinds<E, D2H>(h_decomp, d_decomp, len), printf("\n"); \
   psz::peek_data<E>(h_decomp, 20), printf("\n");
 
-#define CHECK_INTEGRITY                                                   \
-  auto identical =                                                        \
-      psz::thrustgpu::GPU_identical(d_decomp, d_oridata, sizeof(E), len); \
+#define CHECK_INTEGRITY                                 \
+  auto identical = psz::thrustgpu::GPU_identical(       \
+      d_decomp.get(), d_oridata.get(), sizeof(E), len); \
   printf("%s\n", identical ? ">>>>  IDENTICAL" : "!!!!  ERROR: DIFFERENT");
 
-#define MALLOC_BUFFERS                    \
-  auto d_oridata = malloc_device<E>(len); \
-  auto h_oridata = malloc_host<E>(len);   \
-  auto d_decomp = malloc_device<E>(len);  \
-  auto h_decomp = malloc_host<E>(len);    \
-  auto d_hist = malloc_device<F>(bklen);
+#define MALLOC_BUFFERS                         \
+  auto d_oridata = make_unique_device<E>(len); \
+  auto h_oridata = make_unique_host<E>(len);   \
+  auto d_decomp = make_unique_device<E>(len);  \
+  auto h_decomp = make_unique_host<E>(len);    \
+  auto d_hist = make_unique_device<F>(bklen);
 
-#define LOAD_FILE                                  \
-  utils::fromfile(fname.c_str(), &h_oridata, len); \
-  memcpy_allkinds<E, H2D>(d_oridata, h_oridata, len);
+#define LOAD_FILE                                       \
+  utils::fromfile(fname.c_str(), h_oridata.get(), len); \
+  memcpy_allkinds<H2D>(d_oridata.get(), h_oridata.get(), len);
 
-#define FREE_BUFFERS                            \
-  free_device(d_oridata), free_host(h_oridata); \
-  free_device(d_decomp), free_host(h_decomp);   \
-  free_device(d_hist);
+#define PREPARE   \
+  MALLOC_BUFFERS; \
+  LOAD_FILE;      \
+  cudaStreamCreate(&stream);
+
+#define CLEANUP cudaStreamDestroy(stream);
 
 #define PRINT_REPORT                                    \
   print_GBps<E>(len, time_encode, "hf_encode");         \
@@ -93,33 +96,28 @@ float print_GBps(size_t len, float time_in_ms, string fn_name)
 template <typename E, typename H = u4>
 void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
 {
-  MALLOC_BUFFERS;
-  LOAD_FILE;
+  PREPARE;
 
   capi_phf_coarse_tune(len, &sublen, &pardeg);
 
-  cudaStreamCreate(&stream);
-
   psz::module::GPU_histogram_generic<E>(
-      d_oridata, len, d_hist, bklen, &time_hist, stream);
+      d_oridata.get(), len, d_hist.get(), bklen, &time_hist, stream);
   phf::HuffmanCodec<E> codec(len, bklen, pardeg);
 
-  codec.buildbook(d_hist, stream);
+  codec.buildbook(d_hist.get(), stream);
   if (dump_book) codec.dump_internal_data("book", fname);
 
   for (auto i = 0; i < 10; i++) {
-    codec.encode(d_oridata, len, &d_compressed, &outlen, stream);
+    codec.encode(d_oridata.get(), len, &d_compressed, &outlen, stream);
     time_encode = std::min(time_encode, codec.time_lossless());
-    codec.decode(d_compressed, d_decomp, stream);
+    codec.decode(d_compressed, d_decomp.get(), stream);
     time_decode = std::min(time_decode, codec.time_lossless());
   }
 
   CHECK_INTEGRITY;
   PRINT_REPORT;
 
-  FREE_BUFFERS;
-
-  cudaStreamDestroy(stream);
+  CLEANUP;
 }
 
 int main(int argc, char** argv)

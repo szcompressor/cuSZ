@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "cusz/type.h"
-#include "mem/compact.hh"
+#include "mem/cxx_sp_gpu.h"
 #include "port.hh"
 
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)

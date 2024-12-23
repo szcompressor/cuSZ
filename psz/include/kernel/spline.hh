@@ -1,18 +1,20 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "mem/memobj.hh"
-using namespace portable;
+#include "mem/cxx_memobj.h"
+
+template <typename T>
+using memobj = _portable::memobj<T>;
 
 template <typename T, typename E, typename FP = T>
 [[deprecated]] int pszcxx_predict_spline(
-    memobj<T>* data, memobj<T>* anchor, memobj<E>* errctrl, void* _outlier,
-    double eb, uint32_t radius, float* time, void* stream);
+    memobj<T>* data, memobj<T>* anchor, memobj<E>* errctrl, void* _outlier, double eb,
+    uint32_t radius, float* time, void* stream);
 
 template <typename T, typename E, typename FP = T>
 [[deprecated]] int pszcxx_reverse_predict_spline(
-    memobj<T>* anchor, memobj<E>* errctrl, memobj<T>* xdata, double eb,
-    uint32_t radius, float* time, void* stream);
+    memobj<T>* anchor, memobj<E>* errctrl, memobj<T>* xdata, double eb, uint32_t radius,
+    float* time, void* stream);
 
 namespace psz::cuhip {
 

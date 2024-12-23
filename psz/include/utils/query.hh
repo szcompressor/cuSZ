@@ -3,7 +3,6 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "port.hh"
 //
 #include "query/query_cpu.hh"
 #define CPU_QUERY cpu_diagnostics::get_cpu_properties();
@@ -18,8 +17,7 @@
 
 // #define GPU_QUERY \
 //   l0_diagnostics::show_device(dpct::get_current_device().default_queue());
-#define GPU_QUERY \
-  l0_diagnostics::show_device();
+#define GPU_QUERY l0_diagnostics::show_device();
 
 #endif
 

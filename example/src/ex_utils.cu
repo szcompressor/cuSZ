@@ -11,7 +11,6 @@
 
 // deps
 #include "cusz/type.h"
-#include "port.hh"
 // definitions
 #include "ex_utils_g.inl"
 
@@ -22,7 +21,7 @@ template u4 count_outlier(u4*, size_t, int, void*);
 
 #ifdef __MAIN__
 
-#include "mem/memobj.hh"
+#include "mem/cxx_memobj.h"
 
 int main()
 {

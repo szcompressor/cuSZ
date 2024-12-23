@@ -1,5 +1,3 @@
-// deps
-#include "port.hh"
 // definitions
 #include "detail/t_compact.inl"
 

@@ -14,23 +14,21 @@
  *
  */
 
-#include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
+#include <sycl/sycl.hpp>
+
 #include "busyheader.hh"
 #include "hf/hf.hh"
 #include "hf/hfbk.hh"
 #include "hf/hfcodec.hh"
-#include "mem/memobj.hh"
+#include "mem/cxx_memobj.h"
 #include "typing.hh"
 #include "utils/err.hh"
 #include "utils/format.hh"
 
-// deps
-#include "port.hh"
 // definitions
 #include "detail/hfclass.dp.inl"
 
 template class phf::HuffmanCodec<u1, u4>;
 template class phf::HuffmanCodec<u2, u4>;
 template class phf::HuffmanCodec<u4, u4>;
-

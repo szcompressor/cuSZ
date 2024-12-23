@@ -27,7 +27,7 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
+void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
 {
   static_assert(
       std::is_same_v<T, f4>,
@@ -99,4 +99,4 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 
 #define __INSTANTIATE_DPL_ASSESS(T)              \
   template void psz::dpl::GPU_assess_quality<T>( \
-      psz_summary * s, T * xdata, T * odata, size_t const len);
+      psz_statistics * s, T * xdata, T * odata, size_t const len);

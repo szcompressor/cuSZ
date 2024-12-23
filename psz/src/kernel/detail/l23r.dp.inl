@@ -9,8 +9,7 @@
 #include <type_traits>
 
 #include "kernel/lrz.hh"
-#include "mem/compact.hh"
-#include "port.hh"
+#include "mem/cxx_sp_gpu.h"
 #include "wave32.dp.inl"
 
 #define SETUP_ZIGZAG                                                         \
@@ -301,6 +300,6 @@ void KERNEL_DPCPP_c_lorenzo_3d1l(
   }
 }
 
-}  // namespace psz
+}  // namespace psz::rolling
 
 #endif /* AAC905A6_6314_4E1E_B5CD_BBBA9005A448 */

@@ -2,15 +2,14 @@
 #define A851557F_29B7_4865_AC4A_B5B59930E5F6
 
 #include "cusz/type.h"
-#include "typing.hh"
 
-namespace portable {
+namespace _portable {
 
 // dense array, 3d
 template <typename T>
 struct array3 {
   T* const buf;
-  psz_len3 len3;
+  _portable_len3 len3;
 };
 
 // dense array, 1d
@@ -36,6 +35,6 @@ struct pszpredict_2output {
   compact_array1<T> sparse;
 };
 
-}  // namespace portable
+}  // namespace _portable
 
 #endif /* A851557F_29B7_4865_AC4A_B5B59930E5F6 */

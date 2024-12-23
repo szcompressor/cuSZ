@@ -16,7 +16,6 @@
 #include "compressor.hh"
 
 #include "pipeline/compressor.inl"
-#include "port.hh"
 #include "tehm.hh"
 
 using CompoundF4 = psz::CompoundType<float>;

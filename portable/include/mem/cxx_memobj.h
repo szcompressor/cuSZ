@@ -7,8 +7,8 @@
  * (created) 2020-11-03 (capsule.hh)
  */
 
-#ifndef EC1B3A67_146B_48BF_A336_221E9D38C41F
-#define EC1B3A67_146B_48BF_A336_221E9D38C41F
+#ifndef _PORTABLE_MEM_CXX_MEMOBJ_H
+#define _PORTABLE_MEM_CXX_MEMOBJ_H
 
 // The next-line: failsafe macro check
 #include <linux/limits.h>
@@ -16,21 +16,21 @@
 #include <memory>
 #include <vector>
 
+#include "c_type.h"
 #include "cusz/type.h"
-#include "mem/array_cxx.h"
-#include "mem/definition.hh"
-#include "mem/multibackend.hh"
+#include "cxx_array.h"
+#include "cxx_backends.h"
 #include "typing.hh"
 
-namespace portable {
+namespace _portable {
 
 template <typename Ctype = uint8_t>
 class memobj {
  private:
   struct impl;
   std::unique_ptr<impl> pimpl;
-  using control_stream_t = std::vector<pszmem_control>;
-  using control_t = pszmem_control;
+  using control_stream_t = std::vector<_portable_mem_control>;
+  using control_t = _portable_mem_control;
 
   const psz_dtype type{PszType<Ctype>::type};
 
@@ -69,12 +69,12 @@ class memobj {
   Ctype* uniend() const;
 
   // getter of interop
-  ::portable::array3<Ctype> array3_h() const;
-  ::portable::array3<Ctype> array3_d() const;
-  ::portable::array3<Ctype> array3_uni() const;
-  ::portable::array1<Ctype> array1_h() const;
-  ::portable::array1<Ctype> array1_d() const;
-  ::portable::array1<Ctype> array1_uni() const;
+  ::_portable::array3<Ctype> array3_h() const;
+  ::_portable::array3<Ctype> array3_d() const;
+  ::_portable::array3<Ctype> array3_uni() const;
+  ::_portable::array1<Ctype> array1_h() const;
+  ::_portable::array1<Ctype> array1_d() const;
+  ::_portable::array1<Ctype> array1_uni() const;
 
   // getter by index
   Ctype& dptr(uint32_t i);
@@ -85,7 +85,7 @@ class memobj {
   Ctype& uniat(uint32_t i);
 
   GPU_LEN3 len3() const;
-  GPU_LEN3 st3() const;
+  GPU_LEN3 stride3() const;
 };
 
 #define MEM(T) memobj<T>
@@ -104,6 +104,6 @@ typedef memobj<szt> memobj_zu;
 typedef memobj<f4> memobj_f4;
 typedef memobj<f8> memobj_f8;
 
-}  // namespace portable
+}  // namespace _portable
 
-#endif /* EC1B3A67_146B_48BF_A336_221E9D38C41F */
+#endif /* _PORTABLE_MEM_CXX_MEMOBJ_H */

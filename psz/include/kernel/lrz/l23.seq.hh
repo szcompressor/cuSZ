@@ -3,11 +3,11 @@
 
 #include "cusz/nd.h"
 #include "cusz/type.h"
-#include "mem/compact/compact.seq.hh"
+#include "mem/cxx_sp_cpu.h"
 
 template <
     typename T, typename EQ, typename FP = T,
-    typename OUTLIER = CompactSerial<T>>
+    typename OUTLIER = _portable::compact_seq<T>>
 pszerror psz_comp_l23_seq(
     T* const data, psz_dim3 const len3, double const eb, int const radius,
     EQ* const eq, OUTLIER* outlier, float* time_elapsed);

@@ -103,7 +103,7 @@ pszerror psz_decomp_l23_seq(
 #define CPP_INS(T, EQ, FP)                                      \
   template pszerror psz_comp_l23_seq<T, EQ, FP>(                \
       T* const, psz_dim3 const, f8 const, int const, EQ* const, \
-      CompactSerial<T>*, f4*);                                  \
+      _portable::compact_seq<T>*, f4*);                         \
                                                                 \
   template pszerror psz_decomp_l23_seq<T, EQ, FP>(              \
       EQ*, psz_dim3 const, T*, f8 const, int const, T*, f4*);

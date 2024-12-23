@@ -3,8 +3,9 @@ add_library(psz_cu_test_compile_settings INTERFACE)
 target_include_directories(
   psz_cu_test_compile_settings
   INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/src/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../portable/include/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/src/>
 )
 
 # utils for test

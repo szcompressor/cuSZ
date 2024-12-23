@@ -14,9 +14,8 @@
 
 #include "busyheader.hh"
 #include "kernel/detail/histsp.dp.inl"
+#include "mem/cxx_memobj.h"
 #include "module/cxx_module.hh"
-#include "module/cxx_module.hh"
-#include "mem/memobj.hh"
 
 using T = uint32_t;
 using FQ = uint32_t;
@@ -54,10 +53,10 @@ bool test1_debug()
   dpct::queue_ptr stream;
   stream = dev_ct1.create_queue();
 
-  pszcxx_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
+  pszcxx_histogram_cauchy<psz_runtime::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
-  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, T, uint32_t>(
+  pszcxx_histogram_cauchy<PROPER_RUNTIME, T, uint32_t>(
       in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
 
   o_gpusp->control({D2H});
@@ -91,8 +90,7 @@ bool test1_debug()
   return all_eq;
 }
 
-void helper_generate_array(
-    T* in, size_t inlen, float dist[], int distlen = 5, int offset = 512)
+void helper_generate_array(T* in, size_t inlen, float dist[], int distlen = 5, int offset = 512)
 {
   // cout << "offset: " << offset << endl;
 
@@ -136,12 +134,12 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   dpct::queue_ptr stream;
   stream = dev_ct1.create_queue();
 
-  pszcxx_histogram_cauchy<PROPER_GPU_BACKEND, T, uint32_t>(
+  pszcxx_histogram_cauchy<PROPER_RUNTIME, T, uint32_t>(
       in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
-  // pszcxx_histogram_generic<PROPER_GPU_BACKEND, T>(
+  // pszcxx_histogram_generic<PROPER_RUNTIME, T>(
   //     in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
 
-  pszcxx_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
+  pszcxx_histogram_cauchy<psz_runtime::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
   o_gpu->control({D2H});
@@ -158,10 +156,7 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   auto all_eq = true;
 
   for (auto i = 0; i < NSYM; i++) {
-    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and
-        o_gpusp->hptr(i) == o_serial->hptr(i)) {
-      continue;
-    }
+    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and o_gpusp->hptr(i) == o_serial->hptr(i)) { continue; }
     else {
       printf(
           "first not equal\t"
@@ -200,8 +195,7 @@ bool perf(
 
     cgh.parallel_for(
         sycl::nd_range<3>(
-            sycl::range<3>(1, 1, (in->len() - 1) / CHUNK + 1) *
-                sycl::range<3>(1, 1, NTREAD),
+            sycl::range<3>(1, 1, (in->len() - 1) / CHUNK + 1) * sycl::range<3>(1, 1, NTREAD),
             sycl::range<3>(1, 1, NTREAD)),
         [=](sycl::nd_item<3> item_ct1) {
           histsp_multiwarp<T, NWARP, CHUNK, FQ>(
@@ -222,10 +216,7 @@ bool perf(
   auto all_eq = true;
 
   for (auto i = 0; i < NSYM; i++) {
-    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and
-        o_gpusp->hptr(i) == o_serial->hptr(i)) {
-      continue;
-    }
+    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and o_gpusp->hptr(i) == o_serial->hptr(i)) { continue; }
     else {
       printf(
           "first not equal\t"
@@ -260,10 +251,10 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   sycl::queue q;
 
   // run CPU and GPU reference
-  // pszcxx_histogram_generic<PROPER_GPU_BACKEND, T>(
+  // pszcxx_histogram_generic<PROPER_RUNTIME, T>(
   //     in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, &q);
 
-  pszcxx_histogram_cauchy<psz_policy::SEQ, T, uint32_t>(
+  pszcxx_histogram_cauchy<psz_runtime::SEQ, T, uint32_t>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
 // start testing & profiling

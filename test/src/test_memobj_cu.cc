@@ -1,13 +1,10 @@
+#include "mem/cxx_memobj.h"
 #include "mem/layout_cxx.hh"
-#include "mem/memobj.hh"
 
-void test1() {
+void test1() {}
 
-
-}
-
-
-int main() {
-    test1();
-    return 0;
+int main()
+{
+  test1();
+  return 0;
 }

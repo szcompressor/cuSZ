@@ -15,7 +15,6 @@
 #include "cusz/suint.hh"
 #include "cusz/type.h"
 #include "kernel/predictor.hh"
-#include "port.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // #include "subr.cu_hip.inl"

@@ -18,7 +18,6 @@
 
 // deps
 #include <cuda.h>
-#include "port.hh"
 // definitions
 #include "detail/hfclass.cuhip.inl"
 

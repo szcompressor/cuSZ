@@ -11,7 +11,6 @@
  */
 
 #include "cusz/suint.hh"
-#include "port.hh"
 #include "subr_legacy.cuhip.inl"
 
 namespace psz::legacy {
@@ -21,8 +20,7 @@ namespace psz::legacy {
  */
 template <typename T, typename Eq, typename FP, int BLOCK, int SEQ>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
-    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
-    T* outlier)
+    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq, T* outlier)
 {
   namespace subr_v0 = psz::cuda_hip;
 
@@ -38,12 +36,9 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 
   subr_v0::load_prequant_1d<T, FP, NTHREAD, SEQ>(
       data, len3.x, id_base, scratch, thp_data, prev, ebx2_r);
-  subr_v0::predict_quantize_1d<T, Eq, SEQ, true>(
-      thp_data, s_eq, scratch, radius, prev);
-  subr_v0::predict_quantize_1d<T, Eq, SEQ, false>(
-      thp_data, s_eq, scratch, radius);
-  subr_v0::write_1d<Eq, T, NTHREAD, SEQ, false>(
-      s_eq, scratch, len3.x, id_base, eq, outlier);
+  subr_v0::predict_quantize_1d<T, Eq, SEQ, true>(thp_data, s_eq, scratch, radius, prev);
+  subr_v0::predict_quantize_1d<T, Eq, SEQ, false>(thp_data, s_eq, scratch, radius);
+  subr_v0::write_1d<Eq, T, NTHREAD, SEQ, false>(s_eq, scratch, len3.x, id_base, eq, outlier);
 }
 
 /**
@@ -51,8 +46,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
  */
 template <typename T, typename Eq, typename FP>
 __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
-    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
-    T* outlier)
+    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq, T* outlier)
 {
   namespace subr_v0 = psz::cuda_hip;
 
@@ -62,9 +56,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
   T center[YSEQ + 1] = {0};  // NW  N       first element <- 0
                              //  W  center
 
-  auto gix = blockIdx.x * BLOCK + threadIdx.x;  // BDX == BLOCK == 16
-  auto giy_base =
-      blockIdx.y * BLOCK + threadIdx.y * YSEQ;  // BDY * YSEQ = BLOCK == 16
+  auto gix = blockIdx.x * BLOCK + threadIdx.x;              // BDX == BLOCK == 16
+  auto giy_base = blockIdx.y * BLOCK + threadIdx.y * YSEQ;  // BDY * YSEQ = BLOCK == 16
 
   subr_v0::load_prequant_2d<T, FP, YSEQ>(
       data, len3.x, gix, len3.y, giy_base, stride3.y, ebx2_r, center);
@@ -92,14 +85,12 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
   T thread_private[YSEQ];
 
   auto gix = blockIdx.x * BLOCK + threadIdx.x;
-  auto giy_base =
-      blockIdx.y * BLOCK + threadIdx.y * YSEQ;  // BDY * YSEQ = BLOCK == 16
+  auto giy_base = blockIdx.y * BLOCK + threadIdx.y * YSEQ;  // BDY * YSEQ = BLOCK == 16
 
   auto get_gid = [&](auto i) { return (giy_base + i) * stride3.y + gix; };
 
   subr_v0::load_fuse_2d<T, Eq, YSEQ>(
-      eq, outlier, len3.x, gix, len3.y, giy_base, stride3.y, radius,
-      thread_private);
+      eq, outlier, len3.x, gix, len3.y, giy_base, stride3.y, radius, thread_private);
   subr_v0::block_scan_2d<T, Eq, FP, YSEQ>(thread_private, scratch, ebx2);
   subr_v0::decomp_write_2d<T, YSEQ>(
       thread_private, len3.x, gix, len3.y, giy_base, stride3.y, xdata);
@@ -107,8 +98,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
 
 template <typename T, typename Eq, typename FP>
 __global__ void KERNEL_CUHIP_c_lorenzo_3d1l_legacy(
-    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
-    T* outlier)
+    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq, T* outlier)
 {
   constexpr auto BLOCK = 8;
   __shared__ T s[8][8][32];
@@ -127,8 +117,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l_legacy(
     if (gix < len3.x and giz < len3.z) {
       for (auto y = 0; y < BLOCK; y++)
         if (giy(y) < len3.y)
-          s[z][y][threadIdx.x] =
-              round(data[gid(y)] * ebx2_r);  // prequant (fp presence)
+          s[z][y][threadIdx.x] = round(data[gid(y)] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();
   };
@@ -145,16 +134,14 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l_legacy(
   auto x = threadIdx.x % 8;
 
   auto predict_3d = [&](auto y) {
-    T delta =
-        s[z][y][threadIdx.x] -  //
-        ((z > 0 and y > 0 and x > 0 ? s[z - 1][y - 1][threadIdx.x - 1]
-                                    : 0)                         // dist=3
-         - (y > 0 and x > 0 ? s[z][y - 1][threadIdx.x - 1] : 0)  // dist=2
-         - (z > 0 and x > 0 ? s[z - 1][y][threadIdx.x - 1] : 0)  //
-         - (z > 0 and y > 0 ? s[z - 1][y - 1][threadIdx.x] : 0)  //
-         + (x > 0 ? s[z][y][threadIdx.x - 1] : 0)                // dist=1
-         + (y > 0 ? s[z][y - 1][threadIdx.x] : 0)                //
-         + (z > 0 ? s[z - 1][y][threadIdx.x] : 0));              //
+    T delta = s[z][y][threadIdx.x] -                                               //
+              ((z > 0 and y > 0 and x > 0 ? s[z - 1][y - 1][threadIdx.x - 1] : 0)  // dist=3
+               - (y > 0 and x > 0 ? s[z][y - 1][threadIdx.x - 1] : 0)              // dist=2
+               - (z > 0 and x > 0 ? s[z - 1][y][threadIdx.x - 1] : 0)              //
+               - (z > 0 and y > 0 ? s[z - 1][y - 1][threadIdx.x] : 0)              //
+               + (x > 0 ? s[z][y][threadIdx.x - 1] : 0)                            // dist=1
+               + (y > 0 ? s[z][y - 1][threadIdx.x] : 0)                            //
+               + (z > 0 ? s[z - 1][y][threadIdx.x] : 0));                          //
     return delta;
   };
 
@@ -172,8 +159,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l_legacy(
  */
 template <typename T, typename Eq, typename FP>
 __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
-    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq,
-    T* outlier)
+    T* data, dim3 len3, dim3 stride3, int radius, FP ebx2_r, Eq* eq, T* outlier)
 {
   constexpr auto BLOCK = 8;
   __shared__ T s[9][33];
@@ -191,8 +177,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     if (gix < len3.x and giy < len3.y) {
       for (auto z = 0; z < BLOCK; z++)
         if (giz(z) < len3.z)
-          delta[z + 1] =
-              round(data[gid(z)] * ebx2_r);  // prequant (fp presence)
+          delta[z + 1] = round(data[gid(z)] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();
   };

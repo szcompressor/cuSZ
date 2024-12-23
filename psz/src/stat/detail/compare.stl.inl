@@ -16,8 +16,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <numeric>
-#include "stat/compare.hh"
+
 #include "cusz/type.h"
+#include "stat/compare.hh"
 
 namespace psz::cppstl {
 
@@ -40,8 +41,7 @@ void CPU_extrema(T* in, szt const len, T res[4])
 
 template <typename T>
 bool CPU_error_bounded(
-    T* a, T* b, size_t const len, double const eb,
-    size_t* first_faulty_idx )
+    T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx)
 {
   // debugging
 
@@ -56,7 +56,8 @@ bool CPU_error_bounded(
 }
 
 template <typename T>
-void CPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t const len)
+void CPU_assess_quality(
+    psz_statistics* s, T* xdata, T* odata, size_t const len)
 {
   double max_odata = odata[0], min_odata = odata[0];
   double max_xdata = xdata[0], min_xdata = xdata[0];

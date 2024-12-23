@@ -13,7 +13,6 @@
 #include <thrust/execution_policy.h>
 
 #include "cusz/type.h"
-#include "port.hh"
 #include "stat/compare.hh"
 
 namespace psz::thrustgpu {
@@ -54,7 +53,7 @@ void GPU_max_error(
 
 }  // namespace psz::thrustgpu
 
-#define __INSTANTIATE_THRUST_MAXERR(T)                              \
-  template void psz::thrustgpu::GPU_max_error<T>(                   \
-      T * reconstructed, T * original, size_t len, T & maximum_val, \
-      size_t & maximum_loc, bool destructive);
+#define __INSTANTIATE_THRUST_MAXERR(T)                                                  \
+  template void psz::thrustgpu::GPU_max_error<T>(                                       \
+      T * reconstructed, T * original, size_t len, T& maximum_val, size_t& maximum_loc, \
+      bool destructive);

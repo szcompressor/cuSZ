@@ -105,10 +105,10 @@ add_library(PSZ::CUDA::core ALIAS psz_cu_core)
 add_library(CUSZ::core ALIAS psz_cu_core)
 
 add_library(psz_cu_mem
-  psz/src/mem/memobj.f.cc
-  psz/src/mem/memobj.i.cc
-  psz/src/mem/memobj.u.cc
-  psz/src/mem/memobj.misc.cc)
+  portable/src/mem/memobj.f.cc
+  portable/src/mem/memobj.i.cc
+  portable/src/mem/memobj.u.cc
+  portable/src/mem/memobj.misc.cc)
 add_library(CUSZ::mem ALIAS psz_cu_mem)
 add_library(PSZ::cu_mem ALIAS psz_cu_mem)
 target_link_libraries(psz_cu_mem
@@ -317,6 +317,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CUSZConfig.cmake"
 
 # install headers
 install(DIRECTORY
+  portable/include/
   psz/include/
   codec/hf/include/
   codec/fzg/include/

@@ -6,8 +6,7 @@
 #include <type_traits>
 
 #include "cusz/suint.hh"
-#include "mem/compact.hh"
-#include "port.hh"
+#include "mem/cxx_sp_gpu.h"
 
 namespace psz::dpcpp::wave32 {
 
@@ -41,8 +40,8 @@ __dpct_inline__ void intrawarp_inclusivescan_1d(
   if constexpr (OneapiUseExperimental) {
 #if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
     /* DPCT1108 */
-    T prev_addend = dpct::experimental::shift_sub_group_right(
-        0xffffffff, item_ct1.get_sub_group(), addend, 1);
+    T prev_addend =
+        dpct::experimental::shift_sub_group_right(0xffffffff, item_ct1.get_sub_group(), addend, 1);
     // propagate
     if (item_ct1.get_local_id(2) % 32 > 0)
       for (auto i = 0; i < SEQ; i++) private_buffer[i] += prev_addend;
@@ -53,8 +52,7 @@ __dpct_inline__ void intrawarp_inclusivescan_1d(
   else {
     /* DPCT1023 */
     /* DPCT1096 */
-    T prev_addend =
-        dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, 1);
+    T prev_addend = dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, 1);
     // propagate
     if (item_ct1.get_local_id(2) % 32 > 0)
       for (auto i = 0; i < SEQ; i++) private_buffer[i] += prev_addend;
@@ -78,8 +76,7 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
   if (NWARP <= 8) {
     if (item_ct1.get_local_id(2) == 0) {
       exchange_out[0] = 0;
-      for (auto i = 1; i < NWARP; i++)
-        exchange_out[i] = exchange_out[i - 1] + exchange_in[i - 1];
+      for (auto i = 1; i < NWARP; i++) exchange_out[i] = exchange_out[i - 1] + exchange_in[i - 1];
     }
   }
   else if (NWARP <= 32) {
@@ -100,8 +97,7 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
         else {
           /* DPCT1023 */
           /* DPCT1096 */
-          T n =
-              dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, d);
+          T n = dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, d);
           if (item_ct1.get_local_id(2) >= d) addend += n;
         }
       }
@@ -119,8 +115,7 @@ __dpct_inline__ void intrablock_exclusivescan_1d(
       else {
         /* DPCT1023 */
         /* DPCT1096 */
-        T prev_addend =
-            dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, 1);
+        T prev_addend = dpct::shift_sub_group_right(item_ct1.get_sub_group(), addend, 1);
         exchange_out[warp_id] = (warp_id > 0) * prev_addend;
       }
     }
@@ -143,78 +138,69 @@ namespace psz::dpcpp {
 // compression load
 template <typename T, typename FP, int NTHREAD, int SEQ>
 __dpct_inline__ void load_prequant_1d(
-    T* data, uint32_t dimx, uint32_t id_base, volatile T* shmem,
-    T private_buffer[SEQ], T& prev, FP ebx2_r,
-    const sycl::nd_item<3>& item_ct1);
+    T* data, uint32_t dimx, uint32_t id_base, volatile T* shmem, T private_buffer[SEQ], T& prev,
+    FP ebx2_r, const sycl::nd_item<3>& item_ct1);
 
 // decompression load
 template <typename T, typename EQ, int NTHREAD, int SEQ>
 __dpct_inline__ void load_fuse_1d(
-    EQ* quant, T* outlier, uint32_t dimx, uint32_t id_base, int radius,
-    volatile T* shmem, T private_buffer[SEQ],
-    const sycl::nd_item<3>& item_ct1);
+    EQ* quant, T* outlier, uint32_t dimx, uint32_t id_base, int radius, volatile T* shmem,
+    T private_buffer[SEQ], const sycl::nd_item<3>& item_ct1);
 
 // compression and decompression store
 template <typename T1, typename T2, int NTHREAD, int SEQ, bool NO_OUTLIER>
 __dpct_inline__ void write_1d(  //
-    volatile T1* shmem_a1, volatile T2* shmem_a2, uint32_t dimx,
-    uint32_t id_base, T1* a1, T2* a2, const sycl::nd_item<3>& item_ct1);
+    volatile T1* shmem_a1, volatile T2* shmem_a2, uint32_t dimx, uint32_t id_base, T1* a1, T2* a2,
+    const sycl::nd_item<3>& item_ct1);
 
 // compression pred-quant, method 1
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __dpct_inline__ void predict_quantize__no_outlier_1d(  //
-    T private_buffer[SEQ], volatile EQ* shmem_quant,
-    const sycl::nd_item<3>& item_ct1, T prev = 0);
+    T private_buffer[SEQ], volatile EQ* shmem_quant, const sycl::nd_item<3>& item_ct1, T prev = 0);
 
 // compression pred-quant, method 2
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __dpct_inline__ void predict_quantize_1d(  //
-    T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier,
-    int radius, const sycl::nd_item<3>& item_ct1, T prev = 0);
+    T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier, int radius,
+    const sycl::nd_item<3>& item_ct1, T prev = 0);
 
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
 __dpct_inline__ void block_scan_1d(
-    T private_buffer[SEQ], T ebx2, volatile T* exchange_in,
-    volatile T* exchange_out, volatile T* shmem_buffer,
-    const sycl::nd_item<3>& item_ct1);
+    T private_buffer[SEQ], T ebx2, volatile T* exchange_in, volatile T* exchange_out,
+    volatile T* shmem_buffer, const sycl::nd_item<3>& item_ct1);
 
 //////// 2D
 
-template <
-    typename T, typename FP, int YSEQ, bool OneapiUseExperimental = false>
+template <typename T, typename FP, int YSEQ, bool OneapiUseExperimental = false>
 __dpct_inline__ void load_prequant_2d(
-    T* data, uint32_t dimx, uint32_t gix, uint32_t dimy, uint32_t giy_base,
-    uint32_t stridey, FP ebx2_r, T center[YSEQ + 1],
-    const sycl::nd_item<3>& item_ct1);
+    T* data, uint32_t dimx, uint32_t gix, uint32_t dimy, uint32_t giy_base, uint32_t stridey,
+    FP ebx2_r, T center[YSEQ + 1], const sycl::nd_item<3>& item_ct1);
 
-template <
-    typename T, typename FP, int YSEQ, bool OneapiUseExperimental = false>
-__dpct_inline__ void predict_2d(
-    T center[YSEQ + 1], const sycl::nd_item<3>& item_ct1);
+template <typename T, typename FP, int YSEQ, bool OneapiUseExperimental = false>
+__dpct_inline__ void predict_2d(T center[YSEQ + 1], const sycl::nd_item<3>& item_ct1);
 
 template <typename T, typename EQ, int YSEQ>
 __dpct_inline__ void quantize_write_2d(
-    T delta[YSEQ + 1], uint32_t dimx, uint32_t gix, uint32_t dimy,
-    uint32_t giy_base, uint32_t stridey, int radius, EQ* quant, T* outlier);
+    T delta[YSEQ + 1], uint32_t dimx, uint32_t gix, uint32_t dimy, uint32_t giy_base,
+    uint32_t stridey, int radius, EQ* quant, T* outlier);
 
 // decompression load
 template <typename T, typename EQ, int YSEQ>
 __dpct_inline__ void load_fuse_2d(
-    EQ* quant, T* outlier, uint32_t dimx, uint32_t gix, uint32_t dimy,
-    uint32_t giy_base, uint32_t stridey, int radius, T private_buffer[YSEQ]);
+    EQ* quant, T* outlier, uint32_t dimx, uint32_t gix, uint32_t dimy, uint32_t giy_base,
+    uint32_t stridey, int radius, T private_buffer[YSEQ]);
 
 template <
     typename T, typename EQ, typename FP, int YSEQ,
     bool OneapiUseExperimental = false>
 __dpct_inline__ void block_scan_2d(  //
-    T thread_private[YSEQ], volatile T* intermediate, FP ebx2,
-    const sycl::nd_item<3>& item_ct1);
+    T thread_private[YSEQ], volatile T* intermediate, FP ebx2, const sycl::nd_item<3>& item_ct1);
 
 template <typename T, int YSEQ>
 __dpct_inline__ void decomp_write_2d(
-    T thread_private[YSEQ], uint32_t dimx, uint32_t gix, uint32_t dimy,
-    uint32_t giy_base, uint32_t stridey, T* xdata);
+    T thread_private[YSEQ], uint32_t dimx, uint32_t gix, uint32_t dimy, uint32_t giy_base,
+    uint32_t stridey, T* xdata);
 
 //////// 3D
 
@@ -226,17 +212,14 @@ __dpct_inline__ void decomp_write_2d(
 
 template <typename T, typename FP, int NTHREAD, int SEQ>
 __dpct_inline__ void psz::dpcpp::load_prequant_1d(
-    T* data, uint32_t dimx, uint32_t id_base, volatile T* shmem,
-    T private_buffer[SEQ],
+    T* data, uint32_t dimx, uint32_t id_base, volatile T* shmem, T private_buffer[SEQ],
     T& prev,  // TODO use pointer?
     FP ebx2_r, const sycl::nd_item<3>& item_ct1)
 {
 #pragma unroll
   for (auto i = 0; i < SEQ; i++) {
     auto id = id_base + item_ct1.get_local_id(2) + i * NTHREAD;
-    if (id < dimx)
-      shmem[item_ct1.get_local_id(2) + i * NTHREAD] =
-          sycl::round(data[id] * ebx2_r);
+    if (id < dimx) shmem[item_ct1.get_local_id(2) + i * NTHREAD] = sycl::round(data[id] * ebx2_r);
   }
   /*
   DPCT1065:37: Consider replacing sycl::nd_item::barrier() with
@@ -246,24 +229,21 @@ __dpct_inline__ void psz::dpcpp::load_prequant_1d(
   item_ct1.barrier();
 
 #pragma unroll
-  for (auto i = 0; i < SEQ; i++)
-    private_buffer[i] = shmem[item_ct1.get_local_id(2) * SEQ + i];
-  if (item_ct1.get_local_id(2) > 0)
-    prev = shmem[item_ct1.get_local_id(2) * SEQ - 1];
+  for (auto i = 0; i < SEQ; i++) private_buffer[i] = shmem[item_ct1.get_local_id(2) * SEQ + i];
+  if (item_ct1.get_local_id(2) > 0) prev = shmem[item_ct1.get_local_id(2) * SEQ - 1];
   item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
 template <typename T, typename EQ, int NTHREAD, int SEQ>
 __dpct_inline__ void psz::dpcpp::load_fuse_1d(
-    EQ* quant, T* outlier, uint32_t dimx, uint32_t id_base, int radius,
-    volatile T* shmem, T private_buffer[SEQ], const sycl::nd_item<3>& item_ct1)
+    EQ* quant, T* outlier, uint32_t dimx, uint32_t id_base, int radius, volatile T* shmem,
+    T private_buffer[SEQ], const sycl::nd_item<3>& item_ct1)
 {
 #pragma unroll
   for (auto i = 0; i < SEQ; i++) {
     auto local_id = item_ct1.get_local_id(2) + i * NTHREAD;
     auto id = id_base + local_id;
-    if (id < dimx)
-      shmem[local_id] = outlier[id] + static_cast<T>(quant[id]) - radius;
+    if (id < dimx) shmem[local_id] = outlier[id] + static_cast<T>(quant[id]) - radius;
   }
   /*
   DPCT1065:39: Consider replacing sycl::nd_item::barrier() with
@@ -273,8 +253,7 @@ __dpct_inline__ void psz::dpcpp::load_fuse_1d(
   item_ct1.barrier();
 
 #pragma unroll
-  for (auto i = 0; i < SEQ; i++)
-    private_buffer[i] = shmem[item_ct1.get_local_id(2) * SEQ + i];
+  for (auto i = 0; i < SEQ; i++) private_buffer[i] = shmem[item_ct1.get_local_id(2) * SEQ + i];
   item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
@@ -282,8 +261,8 @@ template <
     typename T1, typename T2, int NTHREAD, int SEQ,
     bool NO_OUTLIER>  // TODO remove NO_OUTLIER, use nullable
 __dpct_inline__ void psz::dpcpp::write_1d(
-    volatile T1* shmem_a1, volatile T2* shmem_a2, uint32_t dimx,
-    uint32_t id_base, T1* a1, T2* a2, const sycl::nd_item<3>& item_ct1)
+    volatile T1* shmem_a1, volatile T2* shmem_a2, uint32_t dimx, uint32_t id_base, T1* a1, T2* a2,
+    const sycl::nd_item<3>& item_ct1)
 {
 #pragma unroll
   for (auto i = 0; i < SEQ; i++) {
@@ -302,13 +281,10 @@ __dpct_inline__ void psz::dpcpp::write_1d(
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __dpct_inline__ void psz::dpcpp::predict_quantize__no_outlier_1d(  //
-    T private_buffer[SEQ], volatile EQ* shmem_quant,
-    const sycl::nd_item<3>& item_ct1, T prev)
+    T private_buffer[SEQ], volatile EQ* shmem_quant, const sycl::nd_item<3>& item_ct1, T prev)
 {
-  auto quantize_1d = [&](T& cur, T& prev, uint32_t idx,
-                         const sycl::nd_item<3>& item_ct1) {
-    shmem_quant[idx + item_ct1.get_local_id(2) * SEQ] =
-        static_cast<EQ>(cur - prev);
+  auto quantize_1d = [&](T& cur, T& prev, uint32_t idx, const sycl::nd_item<3>& item_ct1) {
+    shmem_quant[idx + item_ct1.get_local_id(2) * SEQ] = static_cast<EQ>(cur - prev);
   };
 
   if (FIRST_POINT) {  // i == 0
@@ -316,8 +292,7 @@ __dpct_inline__ void psz::dpcpp::predict_quantize__no_outlier_1d(  //
   }
   else {
 #pragma unroll
-    for (auto i = 1; i < SEQ; i++)
-      quantize_1d(private_buffer[i], private_buffer[i - 1], i);
+    for (auto i = 1; i < SEQ; i++) quantize_1d(private_buffer[i], private_buffer[i - 1], i);
     /*
     DPCT1065:50: Consider replacing sycl::nd_item::barrier() with
     sycl::nd_item::barrier(sycl::access::fence_space::local_space) for better
@@ -329,20 +304,17 @@ __dpct_inline__ void psz::dpcpp::predict_quantize__no_outlier_1d(  //
 
 template <typename T, typename EQ, int SEQ, bool FIRST_POINT>
 __dpct_inline__ void psz::dpcpp::predict_quantize_1d(
-    T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier,
-    int radius, const sycl::nd_item<3>& item_ct1, T prev)
+    T private_buffer[SEQ], volatile EQ* shmem_quant, volatile T* shmem_outlier, int radius,
+    const sycl::nd_item<3>& item_ct1, T prev)
 {
-  auto quantize_1d = [&](T& cur, T& prev, uint32_t idx,
-                         const sycl::nd_item<3>& item_ct1) {
+  auto quantize_1d = [&](T& cur, T& prev, uint32_t idx, const sycl::nd_item<3>& item_ct1) {
     T delta = cur - prev;
     bool quantizable = sycl::fabs(delta) < radius;
     T candidate = delta + radius;
 
     // otherwise, need to reset shared memory (to 0)
-    shmem_quant[idx + item_ct1.get_local_id(2) * SEQ] =
-        quantizable * static_cast<EQ>(candidate);
-    shmem_outlier[idx + item_ct1.get_local_id(2) * SEQ] =
-        (not quantizable) * candidate;
+    shmem_quant[idx + item_ct1.get_local_id(2) * SEQ] = quantizable * static_cast<EQ>(candidate);
+    shmem_outlier[idx + item_ct1.get_local_id(2) * SEQ] = (not quantizable) * candidate;
   };
 
   if (FIRST_POINT) {  // i == 0
@@ -364,9 +336,8 @@ __dpct_inline__ void psz::dpcpp::predict_quantize_1d(
 // decompression pred-quant
 template <typename T, int SEQ, int NTHREAD>
 __dpct_inline__ void psz::dpcpp::block_scan_1d(
-    T private_buffer[SEQ], T ebx2, volatile T* exchange_in,
-    volatile T* exchange_out, volatile T* shmem_buffer,
-    const sycl::nd_item<3>& item_ct1)
+    T private_buffer[SEQ], T ebx2, volatile T* exchange_in, volatile T* exchange_out,
+    volatile T* shmem_buffer, const sycl::nd_item<3>& item_ct1)
 {
   namespace wave32 = psz::dpcpp::wave32;
   wave32::intrawarp_inclusivescan_1d<T, SEQ>(private_buffer, item_ct1);
@@ -376,8 +347,7 @@ __dpct_inline__ void psz::dpcpp::block_scan_1d(
   // put back to shmem
 #pragma unroll
   for (auto i = 0; i < SEQ; i++)
-    shmem_buffer[item_ct1.get_local_id(2) * SEQ + i] =
-        private_buffer[i] * ebx2;
+    shmem_buffer[item_ct1.get_local_id(2) * SEQ + i] = private_buffer[i] * ebx2;
   item_ct1.barrier(sycl::access::fence_space::local_space);
 }
 
@@ -403,8 +373,7 @@ __dpct_inline__ void psz::dpcpp::load_prequant_2d(
 
 #pragma unroll
   for (auto iy = 0; iy < YSEQ; iy++) {
-    if (gix < dimx and giy_base + iy < dimy)
-      center[iy + 1] = sycl::round(data[g_id(iy)] * ebx2_r);
+    if (gix < dimx and giy_base + iy < dimy) center[iy + 1] = sycl::round(data[g_id(iy)] * ebx2_r);
   }
   if constexpr (OneapiUseExperimental) {
 #if defined(PSZ_INTERNAL_ENABLE_DPCT_EXPERIMENTAL)
@@ -427,8 +396,7 @@ __dpct_inline__ void psz::dpcpp::load_prequant_2d(
 }
 
 template <typename T, typename FP, int YSEQ, bool OneapiUseExperimental>
-__dpct_inline__ void psz::dpcpp::predict_2d(
-    T center[YSEQ + 1], const sycl::nd_item<3>& item_ct1)
+__dpct_inline__ void psz::dpcpp::predict_2d(T center[YSEQ + 1], const sycl::nd_item<3>& item_ct1)
 {
   /*
      Lorenzo 2D (1-layer) illustration
@@ -474,8 +442,7 @@ __dpct_inline__ void psz::dpcpp::predict_2d(
     else {
       /* DPCT1023 */
       /* DPCT1096 */
-      auto west = dpct::shift_sub_group_right(
-          item_ct1.get_sub_group(), center[i], 1, 16);
+      auto west = dpct::shift_sub_group_right(item_ct1.get_sub_group(), center[i], 1, 16);
       if (item_ct1.get_local_id(2) > 0) center[i] -= west;  // delta
     }
   }
@@ -532,8 +499,7 @@ __dpct_inline__ void psz::dpcpp::load_fuse_2d(
     // even if we hit the else branch, all threads in a warp hit the y-boundary
     // simultaneously
     if (gix < dimx and (giy_base + i) < dimy)
-      thread_private[i] =
-          outlier[gid] + static_cast<T>(quant[gid]) - radius;  // fuse
+      thread_private[i] = outlier[gid] + static_cast<T>(quant[gid]) - radius;  // fuse
     else
       thread_private[i] = 0;  // TODO set as init state?
   }
@@ -541,11 +507,9 @@ __dpct_inline__ void psz::dpcpp::load_fuse_2d(
 
 // partial-sum along y-axis, sequantially
 // then, in-warp partial-sum along x-axis
-template <
-    typename T, typename EQ, typename FP, int YSEQ, bool OneapiUseExperimental>
+template <typename T, typename EQ, typename FP, int YSEQ, bool OneapiUseExperimental>
 __dpct_inline__ void psz::dpcpp::block_scan_2d(
-    T thread_private[YSEQ], volatile T* intermediate, FP ebx2,
-    const sycl::nd_item<3>& item_ct1)
+    T thread_private[YSEQ], volatile T* intermediate, FP ebx2, const sycl::nd_item<3>& item_ct1)
 {
   //       ------> gix (x)
   //
@@ -575,8 +539,7 @@ __dpct_inline__ void psz::dpcpp::block_scan_2d(
   if (item_ct1.get_local_id(1) == 1) {
     auto tmp = intermediate[item_ct1.get_local_id(2)];
 #pragma unroll
-    for (auto i = 0; i < YSEQ; i++)
-      thread_private[i] += tmp;  // regression as pointer
+    for (auto i = 0; i < YSEQ; i++) thread_private[i] += tmp;  // regression as pointer
   }
   // implicit sync as there is half-warp divergence
 

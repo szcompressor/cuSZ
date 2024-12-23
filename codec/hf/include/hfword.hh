@@ -14,8 +14,7 @@
 
 #include <cstdint>
 
-#include "cusz/type.h"
-#include "typing.hh"
+#include "c_type.h"
 
 // clang-format off
 template <int WIDTH> constexpr int FIELD_CODE();
@@ -68,8 +67,7 @@ template <int W>
 void rightalign_to_leftalign(HuffmanWord<W>& in, HuffmanWordLeftAlign<W>& out)
 {
   out.bitcount = in.bitcount;
-  out.prefix_code = in.prefix_code
-                    << (HuffmanWord<W>::FIELD_CODE - in.bitcount);
+  out.prefix_code = in.prefix_code << (HuffmanWord<W>::FIELD_CODE - in.bitcount);
 }
 
 #endif /* FDF0862D_B4A6_4E38_A11B_7299C37315A9 */

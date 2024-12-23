@@ -12,23 +12,20 @@
 #ifndef DC62DA60_8211_4C93_9541_950ADEFC2820
 #define DC62DA60_8211_4C93_9541_950ADEFC2820
 
-#include "compact.hh"
 #include "cusz/type.h"
-#include "layout.h"
-#include "mem/definition.hh"
-#include "memobj.hh"
-#include "port.hh"
+#include "mem/cxx_memobj.h"
+#include "mem/cxx_sp_gpu.h"
 
-using namespace portable;
+template <typename T>
+using memobj = _portable::memobj<T>;
 
-template <
-    typename T, typename E, typename H, psz_policy EXEC = PROPER_GPU_BACKEND>
+template <typename T, typename E, typename H>
 class pszmempool_cxx {
  public:
   using M = uint32_t;
   using F = uint32_t;
   using B = uint8_t;
-  using Compact = typename CompactDram<EXEC, T>::Compact;
+  using Compact = _portable::compact_gpu<T>;
 
   memobj<T> *_oridata;  // original data
   memobj<T> *_anchor;   // anchor
@@ -46,8 +43,8 @@ class pszmempool_cxx {
  public:
   // ctor, dtor
   pszmempool_cxx(
-      u4 _x, int _radius = 32768, u4 _y = 1, u4 _z = 1,
-      bool iscompression = true, psz_codectype codec_type = Huffman);
+      u4 _x, int _radius = 32768, u4 _y = 1, u4 _z = 1, bool iscompression = true,
+      psz_codectype codec_type = Huffman);
   ~pszmempool_cxx();
   // utils
   pszmempool_cxx *clear_buffer();
@@ -63,12 +60,11 @@ class pszmempool_cxx {
   Compact *outlier() { return compact; }
 };
 
-#define TPL template <typename T, typename E, typename H, psz_policy EXEC>
-#define POOL pszmempool_cxx<T, E, H, EXEC>
+#define TPL template <typename T, typename E, typename H>
+#define POOL pszmempool_cxx<T, E, H>
 
 TPL POOL::pszmempool_cxx(
-    u4 x, int _radius, u4 y, u4 z, bool _iscompression,
-    psz_codectype codec_type) :
+    u4 x, int _radius, u4 y, u4 z, bool _iscompression, psz_codectype codec_type) :
     iscompression(_iscompression)
 {
   len = x * y * z;
@@ -81,10 +77,8 @@ TPL POOL::pszmempool_cxx(
   // for spline
   constexpr auto BLK = 8;
 
-  _compressed =
-      new memobj<B>(len * 4 / 2, "psz::comp'ed", {Malloc, MallocHost});
-  _anchor = new memobj<T>(
-      div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor", {Malloc});
+  _compressed = new memobj<B>(len * 4 / 2, "psz::comp'ed", {Malloc, MallocHost});
+  _anchor = new memobj<T>(div(x, BLK), div(y, BLK), div(z, BLK), "psz::anchor", {Malloc});
 
   if (codec_type == Huffman)
     _ectrl = new memobj<E>(x, y, z, "psz::quant_hf", {Malloc});
@@ -94,8 +88,7 @@ TPL POOL::pszmempool_cxx(
     _ectrl = new memobj<E>(_s, 1, 1, "psz::quant_fzg", {Malloc});
   }
   else
-    throw std::runtime_error(
-        "[psz] codec other than Huffman or FZGPUCodec is not supported.");
+    throw std::runtime_error("[psz] codec other than Huffman or FZGPUCodec is not supported.");
 
   _hist = new memobj<F>(bklen, "psz::hist", {Malloc, MallocHost});
 

@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "mem/compact.hh"
+#include "mem/cxx_sp_gpu.h"
 #include "utils/err.hh"
 #include "utils/it_cuda.hh"
 #include "utils/timer.hh"
@@ -208,9 +208,9 @@ pszerror GPU_PROTO_x_lorenzo_nd(
 }  // namespace psz::cuhip
 
 ////////////////////////////////////////////////////////////////////////////////
-#define INSTANTIATIE_GPU_LORENZO_PROTO_X_2params(T)                         \
-  template pszerror psz::cuhip::GPU_PROTO_x_lorenzo_nd<T>(                  \
-      uint16_t * in_eq, T * in_outlier, T * out_data, dim3 const data_len3, \
+#define INSTANTIATIE_GPU_LORENZO_PROTO_X_2params(T)                      \
+  template pszerror psz::cuhip::GPU_PROTO_x_lorenzo_nd<T>(               \
+      uint16_t* in_eq, T* in_outlier, T* out_data, dim3 const data_len3, \
       double const eb, int const radius, float* time_elapsed, void* stream);
 
 #define INSTANTIATIE_LORENZO_PROTO_X_1param(T) \

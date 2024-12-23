@@ -19,62 +19,28 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-
-template <typename T>
-psz_dtype psz_typeof()
-{
-  if (std::is_same<T, f4>::value)
-    return F4;
-  else if (std::is_same<T, f8>::value)
-    return F8;
-  else
-    throw std::runtime_error("Type not supported.");
-}
-
-// clang-format off
+#include "cxx_typing.h"
 
 /**
- * @brief CUDA API does not accept u8 (understandable by literal), but instead, 
+ * @brief CUDA API does not accept u8 (understandable by literal), but instead,
  * `unsigned long long`, which is ambiguous anyway.
  */
-template <typename T> struct cuszCOMPAT;
-template <> struct cuszCOMPAT<u4> { using type = u4; };
-template <> struct cuszCOMPAT<u8> { using type = ull; };
+template <typename T>
+using cuszCOMPAT = _portable::CudaCompat<T>;
 
-template <bool LARGE> struct LargeInputTrait;
-template <> struct LargeInputTrait<false> { using type = u4; };
-template <> struct LargeInputTrait<true>  { using type = u8; };
+template <bool LARGE>
+using LargeInputTrait = _portable::LargeInputTrait<LARGE>;
 
-template <bool FAST> struct FastLowPrecisionTrait;
-template <> struct FastLowPrecisionTrait<true>  { typedef f4 type; };
-template <> struct FastLowPrecisionTrait<false> { typedef f8 type; };
+template <bool FAST>
+using FastLowPrecisionTrait = _portable::FastLowPrecisionTrait<FAST>;
 
-template <psz_dtype T> struct Ctype;
-template <> struct Ctype<F4> { typedef f4 type; static const int width = sizeof(f4); };
-template <> struct Ctype<F8> { typedef f8 type; static const int width = sizeof(f8); };
-template <> struct Ctype<I1> { typedef i1 type; static const int width = sizeof(i1); };
-template <> struct Ctype<I2> { typedef i2 type; static const int width = sizeof(i2); };
-template <> struct Ctype<I4> { typedef i4 type; static const int width = sizeof(i4); };
-template <> struct Ctype<I8> { typedef i8 type; static const int width = sizeof(i8); };
-template <> struct Ctype<U1> { typedef u1 type; static const int width = sizeof(u1); };
-template <> struct Ctype<U2> { typedef u2 type; static const int width = sizeof(u2); };
-template <> struct Ctype<U4> { typedef u4 type; static const int width = sizeof(u4); };
-template <> struct Ctype<U8> { typedef u8 type; static const int width = sizeof(u8); };
-template <> struct Ctype<ULL>{ typedef ull type; static const int width = sizeof(ull); };
+template <psz_dtype T>
+using Ctype = _portable::Ctype<T>;
 
-template <typename Ctype> struct PszType;
-template <> struct PszType<f4> { static const psz_dtype type = F4; static const int width = sizeof(f4); };
-template <> struct PszType<f8> { static const psz_dtype type = F8; static const int width = sizeof(f8); };
-template <> struct PszType<i1> { static const psz_dtype type = I1; static const int width = sizeof(i1); };
-template <> struct PszType<i2> { static const psz_dtype type = I2; static const int width = sizeof(i2); };
-template <> struct PszType<i4> { static const psz_dtype type = I4; static const int width = sizeof(i4); };
-template <> struct PszType<i8> { static const psz_dtype type = I8; static const int width = sizeof(i8); };
-template <> struct PszType<u1> { static const psz_dtype type = U1; static const int width = sizeof(u1); };
-template <> struct PszType<u2> { static const psz_dtype type = U2; static const int width = sizeof(u2); };
-template <> struct PszType<u4> { static const psz_dtype type = U4; static const int width = sizeof(u4); };
-template <> struct PszType<u8> { static const psz_dtype type = U8; static const int width = sizeof(u8); };
-template <> struct PszType<ull> { static const psz_dtype type = ULL; static const int width = sizeof(ull); };
+template <typename Ctype>
+using PszType = _portable::TypeSym<Ctype>;
 
+// clang-format off
 namespace psz {
 
 template <int ByteWidth> struct SInt;

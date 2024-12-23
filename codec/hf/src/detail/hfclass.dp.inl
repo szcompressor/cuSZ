@@ -162,8 +162,8 @@ TPL HF_CODEC* HF_CODEC::buildbook(MemU4* freq, int const bklen, void* stream)
   psz::hf_buildbook<SEQ, E, H4>(
       freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(),
       revbk4_bytes(bklen), &_time_book, (dpct::queue_ptr)stream);
-  bk4->control({ASYNC_H2D}, (dpct::queue_ptr)stream);
-  revbk4->control({ASYNC_H2D}, (dpct::queue_ptr)stream);
+  bk4->control({Async_H2D}, (dpct::queue_ptr)stream);
+  revbk4->control({Async_H2D}, (dpct::queue_ptr)stream);
 
   book_desc->book = __encdtype == U4 ? (void*)bk4->dptr() : (void*)bk8->dptr();
 

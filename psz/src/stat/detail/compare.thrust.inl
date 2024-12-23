@@ -24,7 +24,7 @@ static const int AVGVAL = 2;
 static const int RNG = 3;
 
 template <typename T>
-void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
+void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
 {
   using tup = thrust::tuple<T, T>;
 
@@ -34,9 +34,9 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 
   T odata_res[4], xdata_res[4];
 
-  // It takes too long to compile THRUST backend.
-  // psz::probe_extrema<THRUST, T>(odata, len, odata_res);
-  // psz::probe_extrema<THRUST, T>(xdata, len, xdata_res);
+  // It takes too long to compile THRUST_DPL backend.
+  // psz::probe_extrema<THRUST_DPL, T>(odata, len, odata_res);
+  // psz::probe_extrema<THRUST_DPL, T>(xdata, len, xdata_res);
   psz::cuhip::GPU_extrema<T>(odata, len, odata_res);
   psz::cuhip::GPU_extrema<T>(xdata, len, xdata_res);
 
@@ -96,4 +96,4 @@ void GPU_assess_quality(psz_summary* s, T* xdata, T* odata, size_t len)
 
 #define __INSTANTIATE_THRUSTGPU_ASSESS(T)              \
   template void psz::thrustgpu::GPU_assess_quality<T>( \
-      psz_summary * s, T * xdata, T * odata, size_t const len);
+      psz_statistics * s, T * xdata, T * odata, size_t const len);

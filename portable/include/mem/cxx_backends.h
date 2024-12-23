@@ -1,32 +1,39 @@
-#ifndef F8DE640C_EFD2_444C_992C_946B18F625F2
-#define F8DE640C_EFD2_444C_992C_946B18F625F2
+#ifndef _PORTABLE_MEM_CXX_BACKENDS_H
+#define _PORTABLE_MEM_CXX_BACKENDS_H
 
 #include <cstring>
 #include <stdexcept>
 
-#include "mem/definition.hh"
+#if defined(PSZ_USE_CUDA)
+#include <cuda_runtime.h>
+#elif defined(PSZ_USE_HIP)
+#include <hip/hip_runtime.h>
+#elif defined(PSZ_USE_1API)
+#include <dpct/dpct.hpp>
+#include <sycl/sycl.hpp>
+#endif
+
+#include "c_type.h"
+#include "cxx_smart_ptr.h"
 
 #if defined(PSZ_USE_CUDA)
 
-#include <cuda_runtime.h>
 #define GPU_LEN3 dim3
 #define MAKE_GPU_LEN3(X, Y, Z) dim3(X, Y, Z)
 
 #elif defined(PSZ_USE_HIP)
 
-#include <hip/hip_runtime.h>
 #define GPU_LEN3 dim3
 #define MAKE_GPU_LEN3(X, Y, Z) dim3(X, Y, Z)
 
 #elif defined(PSZ_USE_1API)
 
-#include <sycl/sycl.hpp>
 #define GPU_LEN3 sycl::range<3>
 #define MAKE_GPU_LEN3(X, Y, Z) sycl::range<3>(Z, Y, X)
 
 #endif
 
-template <pszmem_control>
+template <_portable_mem_control>
 struct _memcpy_direcion;
 
 template <>
@@ -102,8 +109,10 @@ T* malloc_host(size_t const len, void* stream = nullptr)
   return __a;
 }
 
+#define malloc_shared malloc_unified
+
 template <typename T>
-T* malloc_shared(size_t const len, void* stream = nullptr)
+T* malloc_unified(size_t const len, void* stream = nullptr)
 {
   T* __a;
 #if defined(PSZ_USE_CUDA)
@@ -114,7 +123,7 @@ T* malloc_shared(size_t const len, void* stream = nullptr)
   if (not stream)
     throw std::runtime_error(
         "[psz::error] SYCL backend does not allow stream to be null.");
-  __a = sycl::malloc_shared<T>(len, *((sycl::queue*)stream));
+  __a = sycl::malloc_unified<T>(len, *((sycl::queue*)stream));
   ((sycl::queue*)stream)->wait();
 #endif
   return __a;
@@ -150,19 +159,74 @@ void free_host(T* __a, void* stream = nullptr)
 #endif
 }
 
+#define free_shared free_unified
+
 template <typename T>
-void free_shared(T* __a, void* stream = nullptr)
+void free_unified(T* __a, void* stream = nullptr)
 {
   free_device(__a, stream);
 }
 
-template <typename T, pszmem_control DIR>
+template <typename T>
+std::unique_ptr<T, GPU_deleter_device> make_unique_device(
+    size_t const len, void* stream = nullptr)
+{
+  T* ptr = malloc_device<T>(len);
+  return std::unique_ptr<T, GPU_deleter_device>(
+      ptr, GPU_deleter_device(stream));
+}
+
+template <typename T>
+std::unique_ptr<T, GPU_deleter_host> make_unique_host(
+    size_t const len, void* stream = nullptr)
+{
+  T* ptr = malloc_host<T>(len);
+  return std::unique_ptr<T, GPU_deleter_host>(ptr, GPU_deleter_host(stream));
+}
+
+template <typename T>
+std::unique_ptr<T, GPU_deleter_unified> make_unique_unified(
+    size_t const len, void* stream = nullptr)
+{
+  T* ptr = malloc_unified<T>(len);
+  return std::unique_ptr<T, GPU_deleter_unified>(
+      ptr, GPU_deleter_unified(stream));
+}
+
+template <typename T>
+std::shared_ptr<T> make_shared_device(size_t const len, void* stream = nullptr)
+{
+  T* ptr = malloc_device<T>(len);
+  return std::shared_ptr<T>(ptr, GPU_deleter_device(stream));
+}
+
+template <typename T>
+std::shared_ptr<T> make_shared_host(size_t const len, void* stream = nullptr)
+{
+  T* ptr = malloc_host<T>(len);
+  return std::shared_ptr<T>(ptr, GPU_deleter_host(stream));
+}
+
+template <typename T>
+std::shared_ptr<T> make_shared_unified(
+    size_t const len, void* stream = nullptr)
+{
+  T* ptr = malloc_unified<T>(len);
+  return std::shared_ptr<T>(ptr, GPU_deleter_unified(stream));
+}
+
+template <_portable_mem_control DIR, typename T>
 void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
 {
+  static_assert(
+      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+
+  constexpr auto direction = _memcpy_direcion<DIR>::direction;
+
 #if defined(PSZ_USE_CUDA)
-  cudaMemcpy(dst, src, sizeof(T) * len, _memcpy_direcion<DIR>::direction);
+  cudaMemcpy(dst, src, sizeof(T) * len, direction);
 #elif defined(PSZ_USE_HIP)
-  hipMemcpy(dst, src, sizeof(T) * len, _memcpy_direcion<DIR>::direction);
+  hipMemcpy(dst, src, sizeof(T) * len, direction);
 #elif defined(PSZ_USE_1API)
   if (not stream) {
     cerr << "[psz::warning] null queue is not allowed; "
@@ -175,32 +239,30 @@ void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
 #endif
 }
 
-template <typename T, pszmem_control DIR>
+template <_portable_mem_control DIR, typename T>
 void memcpy_allkinds_async(
     T* dst, T* src, size_t const len, void* stream = nullptr)
 {
-  if (not stream)
-    throw std::runtime_error(
-        "[psz::error] null stream/queue is not allowed because async-form "
-        "memcpy is specified.");
+  static_assert(
+      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+
+  constexpr auto direction = _memcpy_direcion<DIR>::direction;
 
 #if defined(PSZ_USE_CUDA)
-  cudaMemcpyAsync(
-      dst, src, sizeof(T) * len, _memcpy_direcion<DIR>::direction,
-      (cudaStream_t)stream);
+  cudaMemcpyAsync(dst, src, sizeof(T) * len, direction, (cudaStream_t)stream);
 #elif defined(PSZ_USE_HIP)
-  hipMemcpyAsync(
-      dst, src, sizeof(T) * len, _memcpy_direcion<DIR>::direction,
-      (hipStream_t)stream);
-
+  hipMemcpyAsync(dst, src, sizeof(T) * len, direction, (hipStream_t)stream);
 #elif defined(PSZ_USE_1API)
-  ((sycl::queue*)stream)->memcpy(dst, src, sizeof(T) * len).wait();
+  ((sycl::queue*)stream)->memcpy(dst, src, sizeof(T) * len);
 #endif
 }
 
 template <typename T>
 void memset_device(T* __a, size_t const len, int value = 0)
 {
+  static_assert(
+      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+
 #if defined(PSZ_USE_CUDA)
   cudaMemset(__a, value, sizeof(T) * len);
 #elif defined(PSZ_USE_HIP)
@@ -213,15 +275,51 @@ void memset_device(T* __a, size_t const len, int value = 0)
 template <typename T>
 void memset_host(T* __a, size_t const len, int value = 0)
 {
+  static_assert(
+      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+
   memset(__a, value, sizeof(T) * len);
 }
+
+#if defined(PSZ_USE_CUDA)
+#define create_stream(...)     \
+  ([]() -> cudaStream_t {      \
+    cudaStream_t stream;       \
+    cudaStreamCreate(&stream); \
+    return stream;             \
+  })(__VA_ARGS__);
+#elif defined(PSZ_USE_HIP)
+#define create_stream(...)    \
+  ([]() -> hipStream_t {      \
+    hipStream_t stream;       \
+    hipStreamCreate(&stream); \
+    return stream;            \
+  })(__VA_ARGS__);
+#elif defined(PSZ_USE_1API)
+#define create_stream(...)                                         \
+  ([]() -> dpct::queue_ptr {                                       \
+    dpct::queue_ptr q = dpct::get_current_device().create_queue(); \
+    return q;                                                      \
+  })(__VA_ARGS__);
+#endif
+
+#if defined(PSZ_USE_CUDA)
+#define destroy_stream(stream) \
+  ([](void* s) { cudaStreamDestroy((cudaStream_t)s); })(stream);
+#elif defined(PSZ_USE_HIP)
+#define destroy_stream(stream) \
+  ([](void* s) { hipStreamDestroy((cudaStream_t)s); })(stream);
+#elif defined(PSZ_USE_1API)
+#define destroy_stream(stream) \
+  ([](void* q) { ((dpct::queue_ptr)q)->reset(); })(stream);
+#endif
 
 #if defined(PSZ_USE_CUDA)
 #define sync_by_stream(stream) cudaStreamSynchronize((cudaStream_t)stream);
 #elif defined(PSZ_USE_HIP)
 #define sync_by_stream(stream) hipStreamSynchronize((hipStream_t)stream);
 #elif defined(PSZ_USE_1API)
-#define sync_by_stream(stream) ((dpct::queue_ptr*)stream)->wait();
+#define sync_by_stream(stream) ((dpct::queue_ptr)stream)->wait();
 #endif
 
 #if defined(PSZ_USE_CUDA)
@@ -233,4 +331,4 @@ void memset_host(T* __a, size_t const len, int value = 0)
 // TODO there is no device wide sync?
 #endif
 
-#endif /* F8DE640C_EFD2_444C_992C_946B18F625F2 */
+#endif /* _PORTABLE_MEM_CXX_BACKENDS_H */

@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "mem/compact.hh"
+#include "mem/cxx_sp_gpu.h"
 #include "utils/err.hh"
 #include "utils/it_cuda.hh"
 #include "utils/timer.hh"
@@ -161,7 +161,7 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
       return 3;
   };
 
-  using Compact = typename CompactDram<PROPER_GPU_BACKEND, T>::Compact;
+  using Compact = _portable::compact_gpu<T>;
 
   auto ot = (Compact*)out_outlier;
 

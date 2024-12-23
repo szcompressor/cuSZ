@@ -10,15 +10,14 @@
  *
  */
 
-#include "port.hh"
 #include "subr_legacy.cuhip.inl"
 
 namespace psz {
 
 template <typename T, int TileDim, int Seq>
 __global__ void KERNEL_CUHIP_x_lorenzo_1d1l_FZGPU(
-    FzgpuDeltaType* const in_delta, T* const out_data, dim3 const data_len3,
-    dim3 const data_leap3, T const ebx2)
+    FzgpuDeltaType* const in_delta, T* const out_data, dim3 const data_len3, dim3 const data_leap3,
+    T const ebx2)
 {
   namespace subr_v0 = psz::cuda_hip;
   constexpr auto NTHREAD = TileDim / Seq;
@@ -35,8 +34,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_1d1l_FZGPU(
 
   subr_v0::delta_only::load_1d<T, Eq, NTHREAD, Seq>(
       in_delta, data_len3.x, id_base, scratch, thp_data);
-  subr_v0::block_scan_1d<T, Seq, NTHREAD>(
-      thp_data, ebx2, exch_in, exch_out, scratch);
+  subr_v0::block_scan_1d<T, Seq, NTHREAD>(thp_data, ebx2, exch_in, exch_out, scratch);
   subr_v0::write_1d<T, T, NTHREAD, Seq, true>(
       scratch, nullptr, data_len3.x, id_base, out_data, nullptr);
 }
@@ -44,8 +42,8 @@ __global__ void KERNEL_CUHIP_x_lorenzo_1d1l_FZGPU(
 // 16x16 data block maps to 16x2 (one warp) thread block
 template <typename T>
 __global__ void KERNEL_CUHIP_x_lorenzo_2d1l_FZGPU(
-    FzgpuDeltaType* const in_delta, T* const out_data, dim3 const data_len3,
-    dim3 const data_leap3, T const ebx2)
+    FzgpuDeltaType* const in_delta, T* const out_data, dim3 const data_len3, dim3 const data_leap3,
+    T const ebx2)
 {
   namespace subr_v0 = psz::cuda_hip;
 
@@ -57,25 +55,22 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l_FZGPU(
   T thread_private[YSeq];
 
   auto gix = blockIdx.x * TileDim + threadIdx.x;
-  auto giy_base =
-      blockIdx.y * TileDim + threadIdx.y * YSeq;  // BDY * YSeq = TileDim == 16
+  auto giy_base = blockIdx.y * TileDim + threadIdx.y * YSeq;  // BDY * YSeq = TileDim == 16
 
   auto get_gid = [&](auto i) { return (giy_base + i) * data_leap3.y + gix; };
 
   subr_v0::delta_only::load_2d<T, Eq, YSeq>(
-      in_delta, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y,
-      thread_private);
+      in_delta, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y, thread_private);
   subr_v0::block_scan_2d<T, Eq, Fp, YSeq>(thread_private, scratch, ebx2);
   subr_v0::decomp_write_2d<T, YSeq>(
-      thread_private, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y,
-      out_data);
+      thread_private, data_len3.x, gix, data_len3.y, giy_base, data_leap3.y, out_data);
 }
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T>
 __global__ void KERNEL_CUHIP_x_lorenzo_3d1l_delta_only(
-    FzgpuDeltaType* const in_delta, T* const out_data, dim3 const data_len3,
-    dim3 const data_leap3, T const ebx2)
+    FzgpuDeltaType* const in_delta, T* const out_data, dim3 const data_len3, dim3 const data_leap3,
+    T const ebx2)
 {
   constexpr auto TileDim = 8;
   constexpr auto YSeq = TileDim;
@@ -91,16 +86,13 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l_delta_only(
   auto giy_base = blockIdx.y * TileDim;
   auto giy = [&](auto y) { return giy_base + y; };
   auto giz = blockIdx.z * TileDim + threadIdx.z;
-  auto gid = [&](auto y) {
-    return giz * data_leap3.z + (giy_base + y) * data_leap3.y + gix;
-  };
+  auto gid = [&](auto y) { return giz * data_leap3.z + (giy_base + y) * data_leap3.y + gix; };
 
   auto load_3d = [&]() {
   // load to thread-private array (fuse at the same time)
 #pragma unroll
     for (auto y = 0; y < YSeq; y++) {
-      if (gix < data_len3.x and giy_base + y < data_len3.y and
-          giz < data_len3.z)
+      if (gix < data_len3.x and giy_base + y < data_len3.y and giz < data_len3.z)
         thread_private[y] = static_cast<T>(in_delta[gid(y)]);  // fuse
       else
         thread_private[y] = 0;

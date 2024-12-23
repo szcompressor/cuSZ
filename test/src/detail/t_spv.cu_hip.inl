@@ -50,10 +50,10 @@ int f()
 
   ////////////////////////////////////////////////////////////////
 
-  // psz::spv_gather<PROPER_GPU_BACKEND, T, uint32_t>(
+  // psz::spv_gather<PROPER_RUNTIME, T, uint32_t>(
   //     a, len, val, idx, &nnz, &ms, stream);
 
-  psz::spv_gather_naive<PROPER_GPU_BACKEND>(
+  psz::spv_gather_naive<PROPER_RUNTIME>(
       a, len, 0, val, idx, d_nnz, psz::criterion::gpu::eq<T>(), &ms, stream);
   nnz = *d_nnz;
 
@@ -66,10 +66,9 @@ int f()
     return -1;
   }
 
-  // psz::spv_scatter<PROPER_GPU_BACKEND, T, uint32_t>(
+  // psz::spv_scatter<PROPER_RUNTIME, T, uint32_t>(
   //     val, idx, nnz, da, &ms, stream);
-  psz::spv_scatter_naive<PROPER_GPU_BACKEND, T, uint32_t>(
-      val, idx, nnz, da, &ms, stream);
+  psz::spv_scatter_naive<PROPER_RUNTIME, T, uint32_t>(val, idx, nnz, da, &ms, stream);
 
   cudaStreamSynchronize(stream);
 

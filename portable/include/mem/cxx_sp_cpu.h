@@ -9,31 +9,33 @@
  *
  */
 
-#ifndef AF5746CE_5141_41E1_AF1D_FF476775BB6E
-#define AF5746CE_5141_41E1_AF1D_FF476775BB6E
+#ifndef _PORTABLE_MEM_CXX_SP_CPU_H
+#define _PORTABLE_MEM_CXX_SP_CPU_H
 
 #include <cstdint>
 #include <cstdlib>
 #include <vector>
 
+#include "c_type.h"
 #include "cusz/type.h"
-#include "mem/definition.hh"
+
+namespace _portable {
 
 template <typename T>
-struct CompactSerial {
+struct compact_seq {
  public:
   using type = T;
-  using control_stream_t = std::vector<pszmem_control>;
+  using control_stream_t = std::vector<_portable_mem_control>;
 
   T* _val;
   uint32_t* _idx;
   uint32_t _num{0};
   size_t reserved_len;
 
-  CompactSerial(size_t _reserved_len) : reserved_len(_reserved_len){};
-  ~CompactSerial() { free(); }
+  compact_seq(size_t _reserved_len) : reserved_len(_reserved_len){};
+  ~compact_seq() { free(); }
 
-  CompactSerial& malloc()
+  compact_seq& malloc()
   {
     _val = new T[reserved_len];
     _idx = new uint32_t[reserved_len];
@@ -41,26 +43,23 @@ struct CompactSerial {
     return *this;
   }
 
-  CompactSerial& free()
+  compact_seq& free()
   {
     delete[] _val;
     delete[] _idx;
     return *this;
   }
 
-  CompactSerial& control(
-      control_stream_t controls, void* placeholder = nullptr)
+  compact_seq& control(control_stream_t controls, void* placeholder = nullptr)
   {
     for (auto& c : controls) {
-      if (c == Malloc)
-        malloc();
+      if (c == Malloc) { malloc(); }
       else if (c == MallocHost) {
       }
-      else if (c == Free)
+      else if (c == Free) {
         free();
-      else if (c == FreeHost) {
       }
-      else if (c == D2H) {
+      else if (c == FreeHost) {
       }
     }
 
@@ -77,4 +76,6 @@ struct CompactSerial {
   uint32_t& num() { return _num; }
 };
 
-#endif /* AF5746CE_5141_41E1_AF1D_FF476775BB6E */
+}  // namespace _portable
+
+#endif /* _PORTABLE_MEM_CXX_SP_CPU_H */

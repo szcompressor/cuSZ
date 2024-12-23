@@ -26,8 +26,8 @@
 % ignore psz_device;
 % ignore psz_space;
 % ignore psz_preprocestype;
-% ignore psz_basic_data_description;
-% ignore psz_statistic_summary;
+% ignore psz_data_summary;
+% ignore psz_statistics;
 % ignore psz_capi_array;
 % ignore psz_rettype_archive;
 % ignore psz_capi_compact;

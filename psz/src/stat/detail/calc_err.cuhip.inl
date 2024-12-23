@@ -1,6 +1,5 @@
 // 24-06-02 by J. Tian
 
-#include "port.hh"
 #include "stat/compare.hh"
 
 namespace psz {
@@ -8,8 +7,7 @@ namespace psz {
 template <typename T>
 __global__ void KERNEL_CUHIP_calculate_errors(
     T *odata, T odata_avg, T *xdata, T xdata_avg, size_t len,  //
-    T *sum_corr, T *sum_err_sq, T *sum_var_odata, T *sum_var_xdata,
-    int const R)
+    T *sum_corr, T *sum_err_sq, T *sum_var_odata, T *sum_var_xdata, int const R)
 {
   __shared__ T s_sum_corr;
   __shared__ T s_sum_err_sq;
@@ -21,8 +19,7 @@ __global__ void KERNEL_CUHIP_calculate_errors(
   auto _entry = [&]() { return (blockDim.x * R) * blockIdx.x + threadIdx.x; };
   auto _idx = [&](auto r) { return _entry() + (r * blockDim.x); };
 
-  if (threadIdx.x == 0)
-    s_sum_corr = 0, s_sum_err_sq = 0, s_sum_var_odata = 0, s_sum_var_xdata = 0;
+  if (threadIdx.x == 0) s_sum_corr = 0, s_sum_err_sq = 0, s_sum_var_odata = 0, s_sum_var_xdata = 0;
   __syncthreads();
 
   for (auto r = 0; r < R; r++) {
@@ -88,10 +85,9 @@ void psz::cuhip::GPU_calculate_errors(
   auto nworker = 128;
   auto R = chunk / nworker;
 
-  psz::KERNEL_CUHIP_calculate_errors<T>
-      <<<div(len, chunk), nworker, 0, stream>>>(
-          d_odata, odata_avg, d_xdata, xdata_avg, len, d_sum_corr,
-          d_sum_err_sq, d_sum_var_xdata, d_sum_var_odata, R);
+  psz::KERNEL_CUHIP_calculate_errors<T><<<div(len, chunk), nworker, 0, stream>>>(
+      d_odata, odata_avg, d_xdata, xdata_avg, len, d_sum_corr, d_sum_err_sq, d_sum_var_xdata,
+      d_sum_var_odata, R);
 
   cudaStreamSynchronize(stream);
 
@@ -108,7 +104,6 @@ void psz::cuhip::GPU_calculate_errors(
   cudaStreamDestroy(stream);
 }
 
-#define __INSTANTIATE_CUHIP_CALCERRORS(T)                             \
-  template void psz::cuhip::GPU_calculate_errors<T>(                 \
-      T * d_odata, T odata_avg, T * d_xdata, T xdata_avg, size_t len, \
-      T h_err[4]);
+#define __INSTANTIATE_CUHIP_CALCERRORS(T)            \
+  template void psz::cuhip::GPU_calculate_errors<T>( \
+      T * d_odata, T odata_avg, T * d_xdata, T xdata_avg, size_t len, T h_err[4]);
