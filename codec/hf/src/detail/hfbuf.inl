@@ -1,3 +1,5 @@
+#include <cuda.h>
+
 #include <cstddef>
 
 #include "hf.h"
@@ -41,9 +43,12 @@ struct HuffmanCodec<E>::Buf {
   const size_t pardeg;
   const size_t sublen;
   const size_t bklen;
-  const bool use_HFR;
   const size_t revbk4_bytes;
   const size_t bitstream_max_len;
+
+  static const int HFR_Chunksize = 1 << HFR_Magnitude;
+  const bool HFR_in_use;
+  const int HFR_nchunk;
 
   // array
   GPU_unique_dptr<H4[]> d_scratch4;
@@ -67,8 +72,11 @@ struct HuffmanCodec<E>::Buf {
   GPU_unique_hptr<M[]> h_par_entry;
 
   // dense-sparse
-  memobj<H4>* dn_bitstream;
-  memobj<M>* dn_bitcount;
+  GPU_unique_dptr<H4[]> d_dn_bitstream;
+  GPU_unique_dptr<u4[]> d_dn_bitcount;
+  GPU_unique_dptr<M[]> d_dn_start_loc;
+  GPU_unique_uptr<M[]> u_dn_loc_inc;
+
   memobj<E>* sp_val;
   memobj<M>* sp_idx;
   memobj<M>* sp_num;
@@ -79,6 +87,7 @@ struct HuffmanCodec<E>::Buf {
 
  public:
   // auxiliary
+  // TODO standalone tool
   void _debug(const std::string SYM_name, void* VAR, int SYM)
   {
     CUdeviceptr pbase0{0};
@@ -113,8 +122,9 @@ struct HuffmanCodec<E>::Buf {
       pardeg(_pardeg),
       sublen((inlen - 1) / _pardeg + 1),
       bklen(_bklen),
-      use_HFR(_use_HFR),
-      revbk4_bytes(_revbk4_bytes(_bklen))
+      revbk4_bytes(_revbk4_bytes(_bklen)),
+      HFR_in_use(_use_HFR),
+      HFR_nchunk((inlen + HFR_Chunksize - 1) / HFR_Chunksize)
   {
     h_scratch4 = MAKE_UNIQUE_HOST(H4, len);
     d_scratch4 = MAKE_UNIQUE_DEVICE(H4, len);
@@ -122,20 +132,26 @@ struct HuffmanCodec<E>::Buf {
     d_bk4 = MAKE_UNIQUE_DEVICE(H4, bklen);
     h_revbk4 = MAKE_UNIQUE_HOST(PHF_BYTE, revbk4_bytes);
     d_revbk4 = MAKE_UNIQUE_DEVICE(PHF_BYTE, revbk4_bytes);
-    d_bitstream4 = MAKE_UNIQUE_DEVICE(H4, bitstream_max_len);
-    h_bitstream4 = MAKE_UNIQUE_HOST(H4, bitstream_max_len);
-    h_par_nbit = MAKE_UNIQUE_HOST(M, pardeg);
-    d_par_nbit = MAKE_UNIQUE_DEVICE(M, pardeg);
-    h_par_ncell = MAKE_UNIQUE_HOST(M, pardeg);
-    d_par_ncell = MAKE_UNIQUE_DEVICE(M, pardeg);
-    h_par_entry = MAKE_UNIQUE_HOST(M, pardeg);
-    d_par_entry = MAKE_UNIQUE_DEVICE(M, pardeg);
 
-    // HFR: dense-sparse
-    if (use_HFR) {
-      dn_bitstream = new memobj<H4>(len / 2, "hf::dn_bitstream", {Malloc});
-      // 1 << 10 results in the max number of partitions
-      dn_bitcount = new memobj<H4>((len - 1) / (1 << 10) + 1, "hf::dn_bitcount", {Malloc});
+    if (not HFR_in_use) {
+      d_bitstream4 = MAKE_UNIQUE_DEVICE(H4, bitstream_max_len);
+      h_bitstream4 = MAKE_UNIQUE_HOST(H4, bitstream_max_len);
+      h_par_nbit = MAKE_UNIQUE_HOST(M, pardeg);
+      d_par_nbit = MAKE_UNIQUE_DEVICE(M, pardeg);
+      h_par_ncell = MAKE_UNIQUE_HOST(M, pardeg);
+      d_par_ncell = MAKE_UNIQUE_DEVICE(M, pardeg);
+      h_par_entry = MAKE_UNIQUE_HOST(M, pardeg);
+      d_par_entry = MAKE_UNIQUE_DEVICE(M, pardeg);
+    }
+    else {  // HFR: dense-sparse
+      d_dn_bitstream = MAKE_UNIQUE_DEVICE(H4, len / 2);
+      d_dn_bitcount = MAKE_UNIQUE_DEVICE(u4, HFR_nchunk);
+      d_dn_start_loc = MAKE_UNIQUE_DEVICE(M, HFR_nchunk);
+
+      // After the kernel run, the final value is the ending loc in u4,
+      // determining the CR, such that MallocHost is needed.
+      u_dn_loc_inc = MAKE_UNIQUE_UNIFIED(M, 1);
+
       sp_val = new memobj<E>(len / 10, "hf::sp_val", {Malloc});
       sp_idx = new memobj<M>(len / 10, "hf::sp_idx", {Malloc});
       sp_num = new memobj<M>(1, "hf::sp_num", {Malloc, MallocHost});
@@ -150,7 +166,7 @@ struct HuffmanCodec<E>::Buf {
 
   ~Buf()
   {
-    if (use_HFR) {
+    if (HFR_in_use) {
       delete sp_val;
       delete sp_idx;
       delete sp_num;
@@ -162,9 +178,11 @@ struct HuffmanCodec<E>::Buf {
     return {sp_val->dptr(), sp_idx->dptr(), sp_num->dptr(), sp_num->hptr(), sp_val->len()};
   }
 
-  phf::dense<H> dense_space(size_t n_chunk)
+  phf::dense<H> dense_space(size_t HFR_nchunk)
   {
-    return {dn_bitstream->dptr(), dn_bitcount->dptr(), n_chunk};
+    return {
+        d_dn_bitstream.get(), d_dn_bitcount.get(), d_dn_start_loc.get(), u_dn_loc_inc.get(),
+        HFR_nchunk};
   }
 
   void memcpy_merge(Header& header, phf_stream_t stream)
@@ -173,12 +191,6 @@ struct HuffmanCodec<E>::Buf {
     auto memcpy_adjust_to_start = 0;
 
     memcpy_helper _revbk{d_revbk4.get(), revbk4_bytes, header.entry[PHFHEADER_REVBK]};
-    memcpy_helper _par_nbit{
-        d_par_nbit.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_NBIT]};
-    memcpy_helper _par_entry{
-        d_par_entry.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_ENTRY]};
-    memcpy_helper _bitstream{
-        d_bitstream4.get(), bitstream_max_len * sizeof(H4), header.entry[PHFHEADER_BITSTREAM]};
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
@@ -189,12 +201,25 @@ struct HuffmanCodec<E>::Buf {
     CHECK_GPU(cudaMemcpyAsync(
         start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream));
 
-    // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
+    // for both non-HFR and HFR
     d2d_memcpy_merge(_revbk);
-    d2d_memcpy_merge(_par_nbit);
-    d2d_memcpy_merge(_par_entry);
-    d2d_memcpy_merge(_bitstream);
-    // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
+
+    if (not HFR_in_use) {
+      memcpy_helper _par_nbit{
+          d_par_nbit.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_NBIT]};
+      memcpy_helper _par_entry{
+          d_par_entry.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_ENTRY]};
+      memcpy_helper _bitstream{
+          d_bitstream4.get(), bitstream_max_len * sizeof(H4), header.entry[PHFHEADER_BITSTREAM]};
+
+      d2d_memcpy_merge(_par_nbit);
+      d2d_memcpy_merge(_par_entry);
+      d2d_memcpy_merge(_bitstream);
+    }
+    else {
+      auto total_len = u_dn_loc_inc[0];
+      // TODO
+    }
   }
 
   void clear_buffer()

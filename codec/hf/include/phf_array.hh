@@ -24,9 +24,11 @@ struct book {
 
 template <typename Hf>
 struct dense {
-  Hf* const out;
-  u4* bits;
-  size_t n_part;
+  Hf* const encoded;  // TODO change name to `bitstream`
+  u4* chunk_nbit;     // no exceeding 2^16 bits per block
+  u4* chunk_loc;
+  u4* loc_inc;
+  size_t n_chunk;
 };
 
 struct par_config {
