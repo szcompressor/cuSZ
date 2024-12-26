@@ -18,7 +18,7 @@
 namespace psz::thrustgpu {
 
 template <typename T>
-void GPU_max_error(
+void GPU_find_max_error(
     T* reconstructed,     // in
     T* original,          // in
     size_t len,           // in
@@ -54,6 +54,6 @@ void GPU_max_error(
 }  // namespace psz::thrustgpu
 
 #define __INSTANTIATE_THRUST_MAXERR(T)                                                  \
-  template void psz::thrustgpu::GPU_max_error<T>(                                       \
+  template void psz::thrustgpu::GPU_find_max_error<T>(                                  \
       T * reconstructed, T * original, size_t len, T& maximum_val, size_t& maximum_loc, \
       bool destructive);

@@ -2,9 +2,7 @@
 
 #include <stdexcept>
 
-#include "busyheader.hh"
 #include "compressor.hh"
-#include "context.h"
 #include "hfclass.hh"
 #include "kernel.hh"
 #include "mem.hh"

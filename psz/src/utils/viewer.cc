@@ -6,9 +6,9 @@
 #include "cusz/type.h"
 #include "header.h"
 #include "mem/layout_cxx.hh"
+#include "port.hh"
 #include "stat/compare.hh"
 #include "tehm.hh"
-#include "port.hh"
 
 float get_throughput(float milliseconds, size_t nbyte)
 {
@@ -373,24 +373,22 @@ void psz_review_evaluated_quality(
   if (d == F4) {
     auto x = (float*)xdata;
     auto o = (float*)odata;
-    if (p == THRUST_DPL)
-      pszcxx_evaluate_quality_gpu<float, THRUST_DPL>(x, o, len, comp_bytes);
+    if (p == SEQ) pszcxx_evaluate_quality_cpu<float>(x, o, len, comp_bytes, arrays_on_device);
+    // else if (p == THRUST_DPL)
+    //   pszcxx_evaluate_quality_gpu<float, THRUST_DPL>(x, o, len, comp_bytes);
     else if (p == PROPER_RUNTIME)
       pszcxx_evaluate_quality_gpu<float, PROPER_RUNTIME>(x, o, len, comp_bytes);
-    else if (p == SEQ)
-      pszcxx_evaluate_quality_cpu<float>(x, o, len, comp_bytes, arrays_on_device);
     else
       printf("psz_review_evaluated_quality: not a valid backend.");
   }
   else if (d == F8) {
     auto x = (double*)xdata;
     auto o = (double*)odata;
-    if (p == THRUST_DPL)
-      pszcxx_evaluate_quality_gpu<double, THRUST_DPL>(x, o, len, comp_bytes);
+    if (p == SEQ) pszcxx_evaluate_quality_cpu<double>(x, o, len, comp_bytes, arrays_on_device);
+    // else if (p == THRUST_DPL)
+    //   pszcxx_evaluate_quality_gpu<double, THRUST_DPL>(x, o, len, comp_bytes);
     else if (p == PROPER_RUNTIME)
       pszcxx_evaluate_quality_gpu<double, PROPER_RUNTIME>(x, o, len, comp_bytes);
-    else if (p == SEQ)
-      pszcxx_evaluate_quality_cpu<double>(x, o, len, comp_bytes, arrays_on_device);
     else
       printf("psz_review_evaluated_quality: not a valid backend.");
   }

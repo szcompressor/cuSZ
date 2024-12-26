@@ -3,7 +3,6 @@
 #include <numeric>
 #include <stdexcept>
 
-#include "busyheader.hh"
 #include "hfbk_impl.hh"
 #include "hfword.hh"
 #include "utils/vis_stat.hh"

@@ -10,7 +10,6 @@
  * top-level directory.
  */
 
-
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "hfbk_impl.hh"
@@ -83,8 +82,7 @@ HuffmanTree* create_hfserial_tree_gpu(int state_num)
   return ht;
 }
 
-node_list new_node(
-    HuffmanTree* ht, size_t freq, uint32_t c, node_list a, node_list b)
+node_list new_node(HuffmanTree* ht, size_t freq, uint32_t c, node_list a, node_list b)
 {
   node_list n = ht->pool + ht->n_nodes++;
   if (freq) {
@@ -145,8 +143,7 @@ node_list qremove(HuffmanTree* ht)
  * @out2 should be 0 as well.
  * @index: the index of the byte
  * */
-void build_code(
-    HuffmanTree* ht, node_list n, int len, uint64_t out1, uint64_t out2)
+void build_code(HuffmanTree* ht, node_list n, int len, uint64_t out1, uint64_t out2)
 {
   if (n->t) {
     ht->code[n->c] = (uint64_t*)malloc(2 * sizeof(uint64_t));
@@ -180,8 +177,7 @@ void build_code(
 }
 
 template <typename H>
-void hf_buildtree_impl1(
-    uint32_t* ext_freq, uint16_t booklen, H* book, float* time)
+void hf_buildtree_impl1(uint32_t* ext_freq, uint16_t booklen, H* book, float* time)
 {
   using NodeType = node_t;
 
@@ -199,8 +195,7 @@ void hf_buildtree_impl1(
 
     for (size_t i = 0; i < tree->all_nodes; i++)
       if (freq[i]) qinsert(tree, new_node(tree, freq[i], i, 0, 0));
-    while (tree->qend > 2)
-      qinsert(tree, new_node(tree, 0, 0, qremove(tree), qremove(tree)));
+    while (tree->qend > 2) qinsert(tree, new_node(tree, 0, 0, qremove(tree), qremove(tree)));
     __pszhf_stack<NodeType, sizeof(H)>::template inorder_traverse<H>(tree->qq[1], book);
 
     auto b = hires::now();

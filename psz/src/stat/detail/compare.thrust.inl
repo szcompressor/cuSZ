@@ -28,8 +28,7 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
 {
   using tup = thrust::tuple<T, T>;
 
-  thrust::device_ptr<T> p_odata =
-      thrust::device_pointer_cast(odata);  // origin
+  thrust::device_ptr<T> p_odata = thrust::device_pointer_cast(odata);  // origin
   thrust::device_ptr<T> p_xdata = thrust::device_pointer_cast(xdata);
 
   T odata_res[4], xdata_res[4];
@@ -37,12 +36,11 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
   // It takes too long to compile THRUST_DPL backend.
   // psz::probe_extrema<THRUST_DPL, T>(odata, len, odata_res);
   // psz::probe_extrema<THRUST_DPL, T>(xdata, len, xdata_res);
-  psz::cuhip::GPU_extrema<T>(odata, len, odata_res);
-  psz::cuhip::GPU_extrema<T>(xdata, len, xdata_res);
+  psz::module::GPU_extrema<T>(odata, len, odata_res);
+  psz::module::GPU_extrema<T>(xdata, len, xdata_res);
 
   auto begin = thrust::make_zip_iterator(thrust::make_tuple(p_odata, p_xdata));
-  auto end = thrust::make_zip_iterator(
-      thrust::make_tuple(p_odata + len, p_xdata + len));
+  auto end = thrust::make_zip_iterator(thrust::make_tuple(p_odata + len, p_xdata + len));
 
   // clang-format off
     auto corr      = [=] __host__ __device__(tup t)  { return (thrust::get<0>(t) - odata_res[AVGVAL]) * (thrust::get<1>(t) - xdata_res[AVGVAL]); };
@@ -63,8 +61,7 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
   // -----------------------------------------------------------------------------
   T max_abserr{0};
   size_t max_abserr_index{0};
-  psz::thrustgpu::GPU_max_error(
-      xdata, odata, len, max_abserr, max_abserr_index, false);
+  psz::thrustgpu::GPU_find_max_error(xdata, odata, len, max_abserr, max_abserr_index, false);
   // -----------------------------------------------------------------------------
 
   s->len = len;

@@ -44,9 +44,9 @@ float time_decode = (float)INT_MAX;
   memcpy_allkinds<E, D2H>(h_decomp, d_decomp, len), printf("\n"); \
   psz::peek_data<E>(h_decomp, 20), printf("\n");
 
-#define CHECK_INTEGRITY                                 \
-  auto identical = psz::thrustgpu::GPU_identical(       \
-      d_decomp.get(), d_oridata.get(), sizeof(E), len); \
+#define CHECK_INTEGRITY                                                               \
+  auto identical =                                                                    \
+      psz::module::GPU_identical(d_decomp.get(), d_oridata.get(), sizeof(E), len, 0); \
   printf("%s\n", identical ? ">>>>  IDENTICAL" : "!!!!  ERROR: DIFFERENT");
 
 #define MALLOC_BUFFERS                         \

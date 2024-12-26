@@ -19,7 +19,6 @@
 #include <cooperative_groups.h>
 #include <cuda.h>
 
-#include "busyheader.hh"
 #include "hf/hf_bookg.hh"
 #include "typing.hh"
 #include "utils/config.hh"

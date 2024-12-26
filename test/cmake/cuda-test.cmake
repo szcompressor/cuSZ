@@ -9,8 +9,8 @@ target_include_directories(
 )
 
 # utils for test
-add_library(psztest_utils_cu src/utils/rand.seq.cc src/utils/rand.cu_hip.cc)
-target_link_libraries(psztest_utils_cu CUDA::cudart CUDA::curand)
+add_library(psz_cu_test_utils src/utils/rand.seq.cc src/utils/rand.cu_hip.cc)
+target_link_libraries(psz_cu_test_utils CUDA::cudart CUDA::curand)
 
 # functionality
 add_executable(zigzag src/test_zigzag_codec.cc)
@@ -20,7 +20,7 @@ add_test(test_zigzag zigzag)
 # Level-1 subroutine
 add_executable(l1_compact src/test_l1_compact.cu)
 target_link_libraries(l1_compact PRIVATE psz_cu_compile_settings
-  psz_cu_test_compile_settings psztest_utils_cu)
+  psz_cu_test_compile_settings psz_cu_test_utils)
 add_test(test_l1_compact l1_compact)
 
 # Level-2 kernel (template; unit tests)
@@ -42,12 +42,34 @@ if(PSZ_REACTIVATE_THRUSTGPU)
   add_executable(statfn src/test_statfn.cc)
   target_link_libraries(statfn
     PRIVATE psz_cu_test_compile_settings
-    psztest_utils_cu psz_cu_mem
+    psz_cu_test_utils psz_cu_mem
   )
 else()
   add_executable(statfn src/test_statfn.cc)
   target_link_libraries(statfn
     PRIVATE psz_cu_test_compile_settings
-    psztest_utils_cu psz_cu_mem
+    psz_cu_test_utils psz_cu_mem
   )
 endif()
+
+add_executable(stat_identical src/test_identical.cc)
+target_link_libraries(stat_identical
+  PRIVATE
+  psz_cu_test_compile_settings
+  psz_cu_compile_settings
+  psz_cu_test_utils
+  psz_cu_stat
+  CUDA::cudart
+)
+add_test(test_stat_identical stat_identical)
+
+add_executable(stat_max_error src/test_max_error.cc)
+target_link_libraries(stat_max_error
+  PRIVATE
+  psz_cu_test_compile_settings
+  psz_cu_compile_settings
+  psz_cu_test_utils
+  psz_cu_stat
+  CUDA::cudart
+)
+add_test(test_stat_max_error stat_max_error)

@@ -40,8 +40,7 @@ void CPU_extrema(T* in, szt const len, T res[4])
 }
 
 template <typename T>
-bool CPU_error_bounded(
-    T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx)
+bool CPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx)
 {
   // debugging
 
@@ -56,8 +55,20 @@ bool CPU_error_bounded(
 }
 
 template <typename T>
-void CPU_assess_quality(
-    psz_statistics* s, T* xdata, T* odata, size_t const len)
+void CPU_find_max_error(T* a, T* b, size_t const len, T& maxval, size_t& maxloc)
+{
+  maxval = T(0);
+  maxloc = 0;
+
+  // Find the maximum error and its index
+  for (size_t i = 0; i < len; ++i) {
+    T error = std::fabs(a[i] - b[i]);
+    if (error > maxval) maxval = error, maxloc = i;
+  }
+}
+
+template <typename T>
+void CPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
 {
   double max_odata = odata[0], min_odata = odata[0];
   double max_xdata = xdata[0], min_xdata = xdata[0];
@@ -67,8 +78,7 @@ void CPU_assess_quality(
   for (size_t i = 0; i < len; i++) sum_0 += odata[i], sum_x += xdata[i];
 
   double mean_odata = sum_0 / len, mean_xdata = sum_x / len;
-  double sum_var_odata = 0, sum_var_xdata = 0, sum_err2 = 0, sum_corr = 0,
-         rel_abserr = 0;
+  double sum_var_odata = 0, sum_var_xdata = 0, sum_err2 = 0, sum_corr = 0, rel_abserr = 0;
 
   double max_pwrrel_abserr = 0;
   size_t max_abserr_index = 0;
@@ -82,8 +92,7 @@ void CPU_assess_quality(
     float abserr = fabs(xdata[i] - odata[i]);
     if (odata[i] != 0) {
       rel_abserr = abserr / fabs(odata[i]);
-      max_pwrrel_abserr =
-          max_pwrrel_abserr < rel_abserr ? rel_abserr : max_pwrrel_abserr;
+      max_pwrrel_abserr = max_pwrrel_abserr < rel_abserr ? rel_abserr : max_pwrrel_abserr;
     }
     max_abserr_index = max_abserr < abserr ? i : max_abserr_index;
     max_abserr = max_abserr < abserr ? abserr : max_abserr;

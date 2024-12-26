@@ -6,7 +6,6 @@
 #include <fstream>
 #include <iostream>
 
-#include "busyheader.hh"
 #include "c_type.h"
 #include "stat/compare.hh"
 #include "typing.hh"
@@ -70,16 +69,13 @@ struct memobj<Ctype>::impl {
   {
     if (_len == 0) {
       _dbg();
-      throw std::runtime_error(
-          "'" + string(name) + "'\tLen == 0 is not allowed.");
+      throw std::runtime_error("'" + string(name) + "'\tLen == 0 is not allowed.");
     }
   }
 
   void malloc_device(void* stream = nullptr)
   {
-    if (d_borrowed)
-      throw std::runtime_error(
-          string(name) + ": cannot malloc borrowed dptr.");
+    if (d_borrowed) throw std::runtime_error(string(name) + ": cannot malloc borrowed dptr.");
 
     if (d == nullptr) {
       // cudaMalloc(&d, _bytes);
@@ -93,9 +89,7 @@ struct memobj<Ctype>::impl {
 
   void malloc_host(void* stream = nullptr)
   {
-    if (h_borrowed)
-      throw std::runtime_error(
-          string(name) + ": cannot malloc borrowed hptr.");
+    if (h_borrowed) throw std::runtime_error(string(name) + ": cannot malloc borrowed hptr.");
 
     if (h == nullptr) {
       // cudaMallocHost(&h, _bytes);
@@ -110,8 +104,7 @@ struct memobj<Ctype>::impl {
   void malloc_shared(void* stream = nullptr)
   {
     if (d_borrowed or h_borrowed)
-      throw std::runtime_error(
-          string(name) + ": cannot malloc borrowed uniptr.");
+      throw std::runtime_error(string(name) + ": cannot malloc borrowed uniptr.");
 
     if (uni == nullptr) {
       // cudaMallocManaged(&uni, _bytes);
@@ -166,8 +159,7 @@ struct memobj<Ctype>::impl {
 
   void extrema_scan(double& max_value, double& min_value, double& range)
   {
-    if (std::is_same<Ctype, float>::value or
-        std::is_same<Ctype, double>::value) {
+    if (std::is_same<Ctype, float>::value or std::is_same<Ctype, double>::value) {
       // may not work for _uniptr
       Ctype result[4];
       // psz::thrustgpu::GPU_extrema_rawptr<Ctype>((Ctype*)m->d,
@@ -179,8 +171,7 @@ struct memobj<Ctype>::impl {
       range = max_value - min_value;
     }
     else {
-      throw std::runtime_error(
-          "`extrema_scan` only supports `float` or `double`.");
+      throw std::runtime_error("`extrema_scan` only supports `float` or `double`.");
     }
   }
 
@@ -199,16 +190,12 @@ struct memobj<Ctype>::impl {
 
   void uniptr(Ctype* uni)
   {
-    if (uni == nullptr)
-      throw std::runtime_error("`uni` arg. must not be nil.");
+    if (uni == nullptr) throw std::runtime_error("`uni` arg. must not be nil.");
     // to decrease the complexity of C impl.
     uni = uni, d_borrowed = h_borrowed = true;
   }
 
-  void set_len(size_t ext_len)
-  {
-    _len = ext_len, _bytes = sizeof(Ctype) * _len;
-  }
+  void set_len(size_t ext_len) { _len = ext_len, _bytes = sizeof(Ctype) * _len; }
 
   // getter
   size_t len() const { return _len; }
@@ -251,8 +238,7 @@ struct memobj<Ctype>::impl {
 ///////////////////////////////
 
 template <typename Ctype>
-memobj<Ctype>::memobj(
-    u4 _lx, const char _name[32], control_stream_t commands) :
+memobj<Ctype>::memobj(u4 _lx, const char _name[32], control_stream_t commands) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, 1, 1, _name);
@@ -260,8 +246,7 @@ memobj<Ctype>::memobj(
 }
 
 template <typename Ctype>
-memobj<Ctype>::memobj(
-    u4 _lx, u4 _ly, const char _name[32], control_stream_t commands) :
+memobj<Ctype>::memobj(u4 _lx, u4 _ly, const char _name[32], control_stream_t commands) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, _ly, 1, _name);
@@ -269,8 +254,7 @@ memobj<Ctype>::memobj(
 }
 
 template <typename Ctype>
-memobj<Ctype>::memobj(
-    u4 _lx, u4 _ly, u4 _lz, const char _name[32], control_stream_t commands) :
+memobj<Ctype>::memobj(u4 _lx, u4 _ly, u4 _lz, const char _name[32], control_stream_t commands) :
     pimpl{std::make_unique<impl>()}
 {
   pimpl->_constructor(_lx, _ly, _lz, _name);
@@ -286,8 +270,7 @@ memobj<Ctype>::~memobj()
 }
 
 template <typename Ctype>
-memobj<Ctype>* memobj<Ctype>::extrema_scan(
-    double& max_value, double& min_value, double& range)
+memobj<Ctype>* memobj<Ctype>::extrema_scan(double& max_value, double& min_value, double& range)
 {
   pimpl->extrema_scan(max_value, min_value, range);
 

@@ -1,7 +1,6 @@
 #ifndef D776A673_682E_40DB_BA19_2E9A516D44CC
 #define D776A673_682E_40DB_BA19_2E9A516D44CC
 
-#include "busyheader.hh"
 #include "compressor.hh"
 #include "context.h"
 #include "cusz/type.h"

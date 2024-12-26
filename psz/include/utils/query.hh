@@ -1,7 +1,6 @@
 #ifndef C5CF22D0_3237_4B41_9907_531D96EAA7F0
 #define C5CF22D0_3237_4B41_9907_531D96EAA7F0
 
-#include "busyheader.hh"
 #include "cusz/type.h"
 //
 #include "query/query_cpu.hh"

@@ -24,13 +24,12 @@ namespace psz {
 // easy algorithmic description
 
 template <
-    typename T, int TileDim = 256, typename Eq = uint16_t,
-    typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, typename Fp = T>
+    typename T, int TileDim = 256, typename Eq = uint16_t, typename CompactVal = T,
+    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_prototype_c_lorenzo_1d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,
-    Eq* const out_eq, CompactVal* const out_cval, CompactIdx* const out_cidx,
-    CompactNum* const out_cn, uint16_t const radius, Fp const ebx2_r)
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
+    uint16_t const radius, Fp const ebx2_r)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[TileDim];
@@ -56,22 +55,19 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_1d1l(
 }
 
 template <
-    typename T, int TileDim = 16, typename Eq = uint16_t,
-    typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, typename Fp = T>
+    typename T, int TileDim = 16, typename Eq = uint16_t, typename CompactVal = T,
+    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_prototype_c_lorenzo_2d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,
-    Eq* const out_eq, CompactVal* const out_cval, CompactIdx* const out_cidx,
-    CompactNum* const out_cn, uint16_t const radius, Fp const ebx2_r)
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
+    uint16_t const radius, Fp const ebx2_r)
 {
   SETUP_ND_GPU_CUDA;
 
   __shared__ T buf[TileDim][TileDim + 1];
 
   uint32_t y = threadIdx.y, x = threadIdx.x;
-  auto data = [&](auto dx, auto dy) -> T& {
-    return buf[t().y + dy][t().x + dx];
-  };
+  auto data = [&](auto dx, auto dy) -> T& { return buf[t().y + dy][t().x + dx]; };
 
   auto id = gid2();
 
@@ -95,13 +91,12 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_2d1l(
 }
 
 template <
-    typename T, int TileDim = 8, typename Eq = uint16_t,
-    typename CompactVal = T, typename CompactIdx = uint32_t,
-    typename CompactNum = uint32_t, typename Fp = T>
+    typename T, int TileDim = 8, typename Eq = uint16_t, typename CompactVal = T,
+    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_prototype_c_lorenzo_3d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,
-    Eq* const out_eq, CompactVal* const out_cval, CompactIdx* const out_cidx,
-    CompactNum* const out_cn, uint16_t const radius, Fp const ebx2_r)
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
+    uint16_t const radius, Fp const ebx2_r)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[TileDim][TileDim][TileDim + 1];
@@ -115,14 +110,13 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_3d1l(
   if (check_boundary3()) { data(0, 0, 0) = round(in_data[id] * ebx2_r); }
   __syncthreads();
 
-  T delta = data(0, 0, 0) -
-            ((z > 0 and y > 0 and x > 0 ? data(-1, -1, -1) : 0)  // dist=3
-             - (y > 0 and x > 0 ? data(-1, -1, 0) : 0)           // dist=2
-             - (z > 0 and x > 0 ? data(-1, 0, -1) : 0)           //
-             - (z > 0 and y > 0 ? data(0, -1, -1) : 0)           //
-             + (x > 0 ? data(-1, 0, 0) : 0)                      // dist=1
-             + (y > 0 ? data(0, -1, 0) : 0)                      //
-             + (z > 0 ? data(0, 0, -1) : 0));                    //
+  T delta = data(0, 0, 0) - ((z > 0 and y > 0 and x > 0 ? data(-1, -1, -1) : 0)  // dist=3
+                             - (y > 0 and x > 0 ? data(-1, -1, 0) : 0)           // dist=2
+                             - (z > 0 and x > 0 ? data(-1, 0, -1) : 0)           //
+                             - (z > 0 and y > 0 ? data(0, -1, -1) : 0)           //
+                             + (x > 0 ? data(-1, 0, 0) : 0)                      // dist=1
+                             + (y > 0 ? data(0, -1, 0) : 0)                      //
+                             + (z > 0 ? data(0, 0, -1) : 0));                    //
 
   bool quantizable = fabs(delta) < radius;
   T candidate = delta + radius;
@@ -142,14 +136,12 @@ namespace psz::cuhip {
 
 template <typename T, typename Eq = uint16_t>
 pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
-    T* const in_data, dim3 const data_len3, Eq* const out_eq,
-    void* out_outlier, double const eb, uint16_t const radius,
-    float* time_elapsed, void* stream)
+    T* const in_data, dim3 const data_len3, Eq* const out_eq, void* out_outlier, double const eb,
+    uint16_t const radius, float* time_elapsed, void* stream)
 {
   auto divide3 = [](dim3 len, dim3 sublen) {
     return dim3(
-        (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1,
-        (len.z - 1) / sublen.z + 1);
+        (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1);
   };
 
   auto ndim = [&]() {
@@ -165,13 +157,10 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
 
   auto ot = (Compact*)out_outlier;
 
-  constexpr auto Tile1D = dim3(256, 1, 1), Tile2D = dim3(16, 16, 1),
-                 Tile3D = dim3(8, 8, 8);
-  constexpr auto Block1D = dim3(256, 1, 1), Block2D = dim3(16, 16, 1),
-                 Block3D = dim3(8, 8, 8);
+  constexpr auto Tile1D = dim3(256, 1, 1), Tile2D = dim3(16, 16, 1), Tile3D = dim3(8, 8, 8);
+  constexpr auto Block1D = dim3(256, 1, 1), Block2D = dim3(16, 16, 1), Block3D = dim3(8, 8, 8);
 
-  auto Grid1D = divide3(data_len3, Tile1D),
-       Grid2D = divide3(data_len3, Tile2D),
+  auto Grid1D = divide3(data_len3, Tile1D), Grid2D = divide3(data_len3, Tile2D),
        Grid3D = divide3(data_len3, Tile3D);
 
   // error bound
@@ -182,22 +171,16 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
   START_GPUEVENT_RECORDING(stream);
 
   if (ndim() == 1) {
-    psz::KERNEL_CUHIP_prototype_c_lorenzo_1d1l<T>
-        <<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
-            in_data, data_len3, data_leap3, out_eq, ot->val(), ot->idx(),
-            ot->num(), radius, ebx2_r);
+    psz::KERNEL_CUHIP_prototype_c_lorenzo_1d1l<T><<<Grid1D, Block1D, 0, (cudaStream_t)stream>>>(
+        in_data, data_len3, data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, ebx2_r);
   }
   else if (ndim() == 2) {
-    psz::KERNEL_CUHIP_prototype_c_lorenzo_2d1l<T>
-        <<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
-            in_data, data_len3, data_leap3, out_eq, ot->val(), ot->idx(),
-            ot->num(), radius, ebx2_r);
+    psz::KERNEL_CUHIP_prototype_c_lorenzo_2d1l<T><<<Grid2D, Block2D, 0, (cudaStream_t)stream>>>(
+        in_data, data_len3, data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, ebx2_r);
   }
   else if (ndim() == 3) {
-    psz::KERNEL_CUHIP_prototype_c_lorenzo_3d1l<T>
-        <<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
-            in_data, data_len3, data_leap3, out_eq, ot->val(), ot->idx(),
-            ot->num(), radius, ebx2_r);
+    psz::KERNEL_CUHIP_prototype_c_lorenzo_3d1l<T><<<Grid3D, Block3D, 0, (cudaStream_t)stream>>>(
+        in_data, data_len3, data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, ebx2_r);
   }
   else {
     throw std::runtime_error("Lorenzo only works for 123-D.");
@@ -215,11 +198,11 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
 }  // namespace psz::cuhip
 
 ////////////////////////////////////////////////////////////////////////////////
-#define INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T)                     \
-  template pszerror psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T>( \
-      T* const in_data, dim3 const data_len3, uint16_t* const out_eq,   \
-      void* out_outlier, double const eb, uint16_t const radius,        \
-      float* time_elapsed, void* stream);
+#define INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, Eq)                            \
+  template pszerror psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>(        \
+      T* const in_data, dim3 const data_len3, Eq* const out_eq, void* out_outlier, \
+      double const eb, uint16_t const radius, float* time_elapsed, void* stream);
 
-#define INSTANTIATIE_LORENZO_PROTO_C_1param(T) \
-  INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T);
+#define INSTANTIATIE_LORENZO_PROTO_C_1param(T)     \
+  INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, u1); \
+  INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, u2);

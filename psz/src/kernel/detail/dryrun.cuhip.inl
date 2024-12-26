@@ -18,7 +18,7 @@
 namespace psz {
 
 template <typename T = float, typename FP = T, int BLOCK = 256, int SEQ = 4>
-__global__ void KERNLE_CUHIP_lorenzo_dryrun(
+[[obsolete]] __global__ void KERNLE_CUHIP_lorenzo_dryrun(
     T* in, T* out, size_t len, FP ebx2_r, FP ebx2)
 {
   {
@@ -42,7 +42,7 @@ __global__ void KERNLE_CUHIP_lorenzo_dryrun(
 namespace psz::cuhip {
 
 template <typename T>
-void GPU_lorenzo_dryrun(
+[[deprecated]] void GPU_lorenzo_dryrun(
     size_t len, T* original, T* reconst, PROPER_EB eb, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
@@ -50,8 +50,7 @@ void GPU_lorenzo_dryrun(
   auto ebx2_r = 1 / (eb * 2);
   auto ebx2 = eb * 2;
 
-  KERNLE_CUHIP_lorenzo_dryrun<<<
-      div(len, 256), 256, 256 * sizeof(T), (cudaStream_t)stream>>>(
+  KERNLE_CUHIP_lorenzo_dryrun<<<div(len, 256), 256, 256 * sizeof(T), (cudaStream_t)stream>>>(
       original, reconst, len, ebx2_r, ebx2);
 
   // CHECK_CUDA(cudaStreamSynchronize((cudaStream_t)stream));

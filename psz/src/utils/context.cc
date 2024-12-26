@@ -11,17 +11,10 @@
  *
  */
 
-#include "context.h"
-
 #include <cxxabi.h>
-
-#include <cstring>
 #include <fstream>
-#include <regex>
-#include <set>
-#include <stdexcept>
-#include <unordered_map>
 
+#include "context.h"
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "document.inl"

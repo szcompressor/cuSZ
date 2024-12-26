@@ -36,7 +36,7 @@ bool test(T input)
   auto encoded = psz::ZigZag<T>::encode(input);
   auto decoded = psz::ZigZag<T>::decode(encoded);
 
-  auto pass1 = encoded == (input >= 0 ? (2 * input) : (2 * abs(input) - 1));
+  auto pass1 = encoded == (input >= 0 ? (2 * input) : (2 * std::abs(input) - 1));
   auto pass2 = decoded == input;
   return pass1 and pass2;
 }
@@ -45,14 +45,14 @@ int main()
 {
   demo(0), demo(1), demo(-1), demo(2), demo(-2);
 
-  auto test1 = test((int8_t)0) and test((int8_t)1) and test((int8_t)-1) and
-               test((int8_t)2) and test((int8_t)-2);
-  auto test2 = test((int16_t)0) and test((int16_t)1) and test((int16_t)-1) and
-               test((int16_t)2) and test((int16_t)-2);
-  auto test4 = test((int32_t)0) and test((int32_t)1) and test((int32_t)-1) and
-               test((int32_t)2) and test((int32_t)-2);
-  auto test8 = test((int64_t)0) and test((int64_t)1) and test((int64_t)-1) and
-               test((int64_t)2) and test((int64_t)-2);
+  auto test1 = test((int8_t)0) and test((int8_t)1) and test((int8_t)-1) and test((int8_t)2) and
+               test((int8_t)-2);
+  auto test2 = test((int16_t)0) and test((int16_t)1) and test((int16_t)-1) and test((int16_t)2) and
+               test((int16_t)-2);
+  auto test4 = test((int32_t)0) and test((int32_t)1) and test((int32_t)-1) and test((int32_t)2) and
+               test((int32_t)-2);
+  auto test8 = test((int64_t)0) and test((int64_t)1) and test((int64_t)-1) and test((int64_t)2) and
+               test((int64_t)-2);
 
   cout << "test1: " << (test1 ? "okay" : "failed") << endl;
   cout << "test2: " << (test2 ? "okay" : "failed") << endl;

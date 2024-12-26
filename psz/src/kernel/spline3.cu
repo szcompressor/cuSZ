@@ -11,7 +11,6 @@
  *
  */
 
-#include "busyheader.hh"
 #include "cusz/type.h"
 #include "detail/spline3.inl"
 #include "kernel/spline.hh"
@@ -174,13 +173,15 @@ int psz::cuhip::GPU_reverse_predict_spline(
 #undef l3
 }
 
+// #define INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, E)                                     \
+//   template int pszcxx_predict_spline<T, E>(                                                 \
+//       memobj<T> * data, memobj<T> * anchor, memobj<E> * ectrl, void* _outlier, double eb,   \
+//       uint32_t radius, float* time, void* stream);                                          \
+//   template int pszcxx_reverse_predict_spline<T, E>(                                         \
+//       memobj<T> * anchor, memobj<E> * ectrl, memobj<T> * xdata, double eb, uint32_t radius, \
+//       float* time, void* stream);
+
 #define INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, E)                                       \
-  template int pszcxx_predict_spline<T, E>(                                                   \
-      memobj<T> * data, memobj<T> * anchor, memobj<E> * ectrl, void* _outlier, double eb,     \
-      uint32_t radius, float* time, void* stream);                                            \
-  template int pszcxx_reverse_predict_spline<T, E>(                                           \
-      memobj<T> * anchor, memobj<E> * ectrl, memobj<T> * xdata, double eb, uint32_t radius,   \
-      float* time, void* stream);                                                             \
   template int psz::cuhip::GPU_predict_spline<T, E>(                                          \
       T * in_data, dim3 const data_len3, dim3 const data_stride3, E* out_ectrl,               \
       dim3 const ectrl_len3, dim3 const ectrl_stride3, T* out_anchor, dim3 const anchor_len3, \
@@ -193,9 +194,7 @@ int psz::cuhip::GPU_reverse_predict_spline(
 
 #define INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(T) \
   INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u1); \
-  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u2); \
-  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u4); \
-  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, f4);
+  INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u2);
 
 INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(f4);
 INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(f8);

@@ -16,26 +16,16 @@
 #ifndef ABBC78E4_3E65_4633_9BEA_27823AB7C398
 #define ABBC78E4_3E65_4633_9BEA_27823AB7C398
 
-#include <cuda.h>
-
-#include <algorithm>
-#include <cmath>
-#include <cstddef>
-#include <cstdlib>
 #include <numeric>
 #include <stdexcept>
 #include <type_traits>
 
-#include "busyheader.hh"
-#include "cusz/type.h"
 #include "hf_type.h"
 #include "hfbk.hh"
 #include "hfbuf.inl"
 #include "hfclass.hh"
 #include "hfcxx_module.hh"
 #include "mem/cxx_memobj.h"
-#include "utils/err.hh"
-#include "utils/format.hh"
 #include "utils/timer.hh"
 
 #define PHF_TPL template <typename E, bool TIMING>

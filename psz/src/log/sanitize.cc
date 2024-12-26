@@ -11,7 +11,6 @@
 
 #include "log/sanitize.hh"
 
-#include "busyheader.hh"
 #include "context.h"
 #include "hfword.hh"
 

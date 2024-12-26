@@ -9,10 +9,9 @@
  *
  */
 
-
-#include "busyheader.hh"
-#include "cusz/type.h"
 #include "hfcanon.hh"
+
+#include "cusz/type.h"
 #include "hfword.hh"
 
 template <typename E, typename H>
@@ -175,6 +174,5 @@ INIT(u4, u8)
 INIT(u1, ull)
 INIT(u2, ull)
 INIT(u4, ull)
-
 
 #undef INIT

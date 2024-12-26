@@ -15,7 +15,6 @@
 
 #include <memory>
 
-#include "busyheader.hh"
 #include "cusz/type.h"
 
 struct cpu_diagnostics {

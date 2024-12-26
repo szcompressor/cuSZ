@@ -45,6 +45,7 @@ if(PSZ_REACTIVATE_THRUSTGPU)
   add_library(psz_cu_stat
     psz/src/stat/compare.stl.cc
     psz/src/stat/identical/all.thrust.cu
+    psz/src/stat/identical/all.cu
     psz/src/stat/extrema/f4.cu
     psz/src/stat/extrema/f8.cu
     psz/src/stat/extrema/f4.thrust.cu
@@ -56,21 +57,21 @@ if(PSZ_REACTIVATE_THRUSTGPU)
     psz/src/stat/assess/f4.thrust.cu
     psz/src/stat/assess/f8.thrust.cu
     psz/src/stat/maxerr/f4.thrust.cu
-    psz/src/stat/maxerr/f8.thrust.cu)
+    psz/src/stat/maxerr/f8.thrust.cu
+    psz/src/stat/maxerr/max_err.cu
+  )
 else()
   add_library(psz_cu_stat
     psz/src/stat/compare.stl.cc
-    psz/src/stat/identical/all.thrust.cu
+    psz/src/stat/identical/all.cu
     psz/src/stat/extrema/f4.cu
     psz/src/stat/extrema/f8.cu
     psz/src/stat/calcerr/f4.cu
     psz/src/stat/calcerr/f8.cu
     psz/src/stat/assess/f4.cu
     psz/src/stat/assess/f8.cu
-    psz/src/stat/assess/f4.thrust.cu
-    psz/src/stat/assess/f8.thrust.cu
-    psz/src/stat/maxerr/f4.thrust.cu
-    psz/src/stat/maxerr/f8.thrust.cu)
+    psz/src/stat/maxerr/max_err.cu
+  )
 endif()
 
 target_link_libraries(psz_cu_stat
@@ -87,7 +88,6 @@ add_library(psz_cu_core
   psz/src/kernel/hist_generic.cu
   psz/src/kernel/histsp.seq.cc
   psz/src/kernel/histsp.cu
-  psz/src/kernel/dryrun.cu
   psz/src/kernel/lproto_c.cu
   psz/src/kernel/lproto_x.cu
   psz/src/kernel/spvn.cu

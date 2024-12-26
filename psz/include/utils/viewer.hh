@@ -48,10 +48,10 @@ void view(psz_header* header, memobj<T>* xdata, memobj<T>* cmp, string const& co
 }  // namespace psz::utils
 
 // TODO have not passed test
-template <typename T, psz_runtime P = THRUST_DPL>
+template <typename T, psz_runtime P = CUDA>
 pszerror pszcxx_evaluate_quality_gpu(array3<T> xdata, array3<T> odata);
 
-template <typename T, psz_runtime P = THRUST_DPL>
+template <typename T, psz_runtime P = CUDA>
 void pszcxx_evaluate_quality_gpu(T* xdata, T* odata, size_t len, size_t comp_bytes = 0);
 
 template <typename T>

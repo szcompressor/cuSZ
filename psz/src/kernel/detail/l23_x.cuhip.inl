@@ -28,12 +28,10 @@
 namespace psz {
 
 template <
-    typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t,
-    typename Fp = T>
+    typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
-    Eq* const in_eq, T* const in_outlier, T* const out_data,
-    dim3 const data_len3, dim3 const data_leap3, uint16_t const radius,
-    Fp const ebx2)
+    Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
+    dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
   SETUP_ZIGZAG
   constexpr auto NTHREAD = TileDim / Seq;  // equiv. to blockDim.x
@@ -55,34 +53,29 @@ __global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
       if (id < data_len3.x) {
         // fuse outlier and error-quant
         if constexpr (not UseZigZag) {
-          scratch[local_id] =
-              in_outlier[id] + static_cast<T>(in_eq[id]) - radius;
+          scratch[local_id] = in_outlier[id] + static_cast<T>(in_eq[id]) - radius;
         }
         else {
           auto e = in_eq[id];
           scratch[local_id] =
-              in_outlier[id] +
-              static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
+              in_outlier[id] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
         }
       }
     }
     __syncthreads();
 
 #pragma unroll
-    for (auto i = 0; i < Seq; i++)
-      thp_data[i] = scratch[threadIdx.x * Seq + i];
+    for (auto i = 0; i < Seq; i++) thp_data[i] = scratch[threadIdx.x * Seq + i];
     __syncthreads();
   };
 
   auto block_scan_1d = [&]() {
     psz::SUBR_CUHIP_WAVE32_intrawarp_inclscan_1d<T, Seq>(thp_data);
-    psz::SUBR_CUHIP_WAVE32_intrablock_exclscan_1d<T, Seq, NTHREAD>(
-        thp_data, exch_in, exch_out);
+    psz::SUBR_CUHIP_WAVE32_intrablock_exclscan_1d<T, Seq, NTHREAD>(thp_data, exch_in, exch_out);
 
     // put back to shmem
 #pragma unroll
-    for (auto i = 0; i < Seq; i++)
-      scratch[threadIdx.x * Seq + i] = thp_data[i] * ebx2;
+    for (auto i = 0; i < Seq; i++) scratch[threadIdx.x * Seq + i] = thp_data[i] * ebx2;
     __syncthreads();
   };
 
@@ -122,9 +115,8 @@ __global__ void KERNEL_CUHIP_x_lorenzo_1d1l(
 
 template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
-    Eq* const in_eq, T* const in_outlier, T* const out_data,
-    dim3 const data_len3, dim3 const data_leap3, uint16_t const radius,
-    Fp const ebx2)
+    Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
+    dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
   SETUP_ZIGZAG;
   constexpr auto TileDim = 16;
@@ -135,8 +127,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
   T thp_data[YSEQ] = {0};
 
   auto gix = blockIdx.x * TileDim + threadIdx.x;
-  auto giy_base =
-      blockIdx.y * TileDim + threadIdx.y * YSEQ;  // BDY * YSEQ = TileDim == 16
+  auto giy_base = blockIdx.y * TileDim + threadIdx.y * YSEQ;  // BDY * YSEQ = TileDim == 16
 
   auto get_gid = [&](auto i) { return (giy_base + i) * data_leap3.y + gix; };
 
@@ -152,8 +143,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
         }
         else {
           auto e = in_eq[gid];
-          thp_data[i] = in_outlier[gid] +
-                        static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
+          thp_data[i] = in_outlier[gid] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
         }
       }
     }
@@ -171,16 +161,14 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
     if (threadIdx.y == 1) {
       auto tmp = scratch[threadIdx.x];
 #pragma unroll
-      for (auto i = 0; i < YSEQ; i++)
-        thp_data[i] += tmp;  // regression as pointer
+      for (auto i = 0; i < YSEQ; i++) thp_data[i] += tmp;  // regression as pointer
     }
     // implicit sync as there is half-warp divergence
 
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       for (auto d = 1; d < TileDim; d *= 2) {
-        T n = __shfl_up_sync(
-            0xffffffff, thp_data[i], d, 16);  // half-warp shuffle
+        T n = __shfl_up_sync(0xffffffff, thp_data[i], d, 16);  // half-warp shuffle
         if (threadIdx.x >= d) thp_data[i] += n;
       }
       thp_data[i] *= ebx2;  // scale accordingly
@@ -191,8 +179,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       auto gid = get_gid(i);
-      if (gix < data_len3.x and (giy_base + i) < data_len3.y)
-        out_data[gid] = thp_data[i];
+      if (gix < data_len3.x and (giy_base + i) < data_len3.y) out_data[gid] = thp_data[i];
     }
   };
 
@@ -206,9 +193,8 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l(  //
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
 __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(  //
-    Eq* const in_eq, T* const in_outlier, T* const out_data,
-    dim3 const data_len3, dim3 const data_leap3, uint16_t const radius,
-    Fp const ebx2)
+    Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
+    dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
   SETUP_ZIGZAG
   constexpr auto TileDim = 8;
@@ -225,26 +211,21 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(  //
   auto giy_base = blockIdx.y * TileDim;
   auto giy = [&](auto y) { return giy_base + y; };
   auto giz = blockIdx.z * TileDim + threadIdx.z;
-  auto gid = [&](auto y) {
-    return giz * data_leap3.z + (giy_base + y) * data_leap3.y + gix;
-  };
+  auto gid = [&](auto y) { return giz * data_leap3.z + (giy_base + y) * data_leap3.y + gix; };
 
   auto load_fuse_3d = [&]() {
   // load to thread-private array (fuse at the same time)
 #pragma unroll
     for (auto y = 0; y < YSEQ; y++) {
-      if (gix < data_len3.x and giy_base + y < data_len3.y and
-          giz < data_len3.z) {
+      if (gix < data_len3.x and giy_base + y < data_len3.y and giz < data_len3.z) {
         // fuse outlier and error-quant
         if constexpr (not UseZigZag) {
-          thread_private[y] =
-              in_outlier[gid(y)] + static_cast<T>(in_eq[gid(y)]) - radius;
+          thread_private[y] = in_outlier[gid(y)] + static_cast<T>(in_eq[gid(y)]) - radius;
         }
         else {
           auto e = in_eq[gid(y)];
           thread_private[y] =
-              in_outlier[gid(y)] +
-              static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
+              in_outlier[gid(y)] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
         }
       }
     }
@@ -305,9 +286,8 @@ namespace psz::cuhip {
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_x_lorenzo_nd(
-    Eq* const in_eq, T* const in_outlier, T* const out_data,
-    dim3 const data_len3, f8 const eb, uint16_t const radius, f4* time_elapsed,
-    void* stream)
+    Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3, f8 const eb,
+    uint16_t const radius, f4* time_elapsed, void* stream)
 {
   using namespace psz::kernelconfig;
 
@@ -324,22 +304,19 @@ pszerror GPU_x_lorenzo_nd(
         T, x_lorenzo<1>::tile.x, x_lorenzo<1>::sequentiality.x, UseZigZag, Eq>
         <<<x_lorenzo<1>::thread_grid(data_len3), x_lorenzo<1>::thread_block, 0,
            (cudaStream_t)stream>>>(
-            in_eq, in_outlier, out_data, data_len3, data_leap3, radius,
-            (T)ebx2);
+            in_eq, in_outlier, out_data, data_len3, data_leap3, radius, (T)ebx2);
   }
   else if (d == 2) {
     psz::KERNEL_CUHIP_x_lorenzo_2d1l<T, UseZigZag, Eq>
         <<<x_lorenzo<2>::thread_grid(data_len3), x_lorenzo<2>::thread_block, 0,
            (cudaStream_t)stream>>>(
-            in_eq, in_outlier, out_data, data_len3, data_leap3, radius,
-            (T)ebx2);
+            in_eq, in_outlier, out_data, data_len3, data_leap3, radius, (T)ebx2);
   }
   else if (d == 3) {
     psz::KERNEL_CUHIP_x_lorenzo_3d1l<T, UseZigZag, Eq>
         <<<x_lorenzo<3>::thread_grid(data_len3), x_lorenzo<3>::thread_block, 0,
            (cudaStream_t)stream>>>(
-            in_eq, in_outlier, out_data, data_len3, data_leap3, radius,
-            (T)ebx2);
+            in_eq, in_outlier, out_data, data_len3, data_leap3, radius, (T)ebx2);
   }
 
   STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
@@ -352,18 +329,17 @@ pszerror GPU_x_lorenzo_nd(
 
 }  // namespace psz::cuhip
 
-#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)              \
-  template pszerror psz::cuhip::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>( \
-      Eq* const in_eq, T* const in_outlier, T* const out_data,       \
-      dim3 const data_len3, f8 const eb, uint16_t const radius,      \
-      f4* time_elapsed, void* stream);
+#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)                                           \
+  template pszerror psz::cuhip::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(                              \
+      Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3, f8 const eb, \
+      uint16_t const radius, f4* time_elapsed, void* stream);
 
 #define INSTANTIATE_GPU_L23X_2params(T, Eq)   \
   INSTANTIATE_GPU_L23X_3params(T, false, Eq); \
   INSTANTIATE_GPU_L23X_3params(T, true, Eq);
 
 #define INSTANTIATE_GPU_L23X_1param(T) \
-  INSTANTIATE_GPU_L23X_2params(T, u2); \
-  INSTANTIATE_GPU_L23X_2params(T, u4);
+  INSTANTIATE_GPU_L23X_2params(T, u1); \
+  INSTANTIATE_GPU_L23X_2params(T, u2);
 
 #endif /* D1C4C282_1485_4677_BC6B_F3DB79ED853E */

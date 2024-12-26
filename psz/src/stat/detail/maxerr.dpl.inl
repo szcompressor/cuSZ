@@ -10,7 +10,7 @@
 namespace psz::dpl {
 
 template <typename T>
-void GPU_max_error(
+void GPU_find_max_error(
     T* reconstructed,     // in
     T* original,          // in
     size_t len,           // in
@@ -48,4 +48,4 @@ void GPU_max_error(
 }  // namespace psz::dpl
 
 #define __INSTANTIATE_DPL_MAXERR(T) \
-  template void psz::dpl::GPU_max_error<T>(T*, T*, size_t, T&, size_t&, bool);
+  template void psz::dpl::GPU_find_max_error<T>(T*, T*, size_t, T&, size_t&, bool);
