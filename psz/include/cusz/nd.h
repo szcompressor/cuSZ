@@ -12,6 +12,8 @@ typedef struct psz_dim3 {
   uint32_t x, y, z;
 } psz_dim3;
 
+psz_dim3 psz_div3(psz_dim3 len, psz_dim3 sublen);
+
 #ifdef __cplusplus
 }
 #endif

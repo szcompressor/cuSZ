@@ -27,6 +27,7 @@ add_test(test_l1_compact l1_compact)
 add_executable(histsp_cu src/tune_histsp.cu)
 target_link_libraries(histsp_cu
   PRIVATE psz_cu_compile_settings
+  psz_seq_core
   cusz
 )
 add_test(test_histsp_cu histsp_cu)
@@ -34,7 +35,7 @@ add_test(test_histsp_cu histsp_cu)
 # Level-3 kernel with configuration (low-level API)
 add_executable(lrz_seq src/test_lrz.seq.cc)
 target_link_libraries(lrz_seq
-  PRIVATE psz_cu_test_compile_settings)
+  PRIVATE psz_cu_test_compile_settings psz_seq_core)
 add_test(test_lrz_seq lrz_seq)
 
 if(PSZ_REACTIVATE_THRUSTGPU)

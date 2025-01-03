@@ -17,7 +17,13 @@
 #include "../src/utils/it_serial.hh"
 #include "cusz/it.hh"
 #include "cusz/nd.h"
+#include "cusz/suint.hh"
 #include "mem/cxx_sp_cpu.h"
+
+auto div3 = [](psz_dim3 len, psz_dim3 sublen) {
+  return psz_dim3{
+      (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1};
+};
 
 using std::cout;
 using std::endl;
@@ -28,9 +34,9 @@ using std::endl;
   auto& buf1 = *_buf1;                             \
   auto databuf_it = [&](auto x) -> T& { return buf1(t.x + x + PADDING); };
 #define SETUP_1D_EQBUF                    \
-  auto _buf2 = new psz_buf<EQ, 1, BLK>(); \
+  auto _buf2 = new psz_buf<Eq, 1, BLK>(); \
   auto& buf2 = *_buf2;                    \
-  auto eqbuf_it = [&](auto dx) -> EQ& { return buf2(t.x + dx); };
+  auto eqbuf_it = [&](auto dx) -> Eq& { return buf2(t.x + dx); };
 
 #define SETUP_2D_DATABUF                                 \
   constexpr auto PADDING = 1;                            \
@@ -39,12 +45,10 @@ using std::endl;
   auto databuf_it = [&](auto dx, auto dy) -> T& {        \
     return buf1(t.x + dx + PADDING, t.y + dy + PADDING); \
   };
-#define SETUP_2D_EQBUF                           \
-  auto _buf2 = new psz_buf<EQ, 2, BLK>();        \
-  auto& buf2 = *_buf2;                           \
-  auto eqbuf_it = [&](auto dx, auto dy) -> EQ& { \
-    return buf2(t.x + dx, t.y + dy);             \
-  };
+#define SETUP_2D_EQBUF                    \
+  auto _buf2 = new psz_buf<Eq, 2, BLK>(); \
+  auto& buf2 = *_buf2;                    \
+  auto eqbuf_it = [&](auto dx, auto dy) -> Eq& { return buf2(t.x + dx, t.y + dy); };
 
 #define SETUP_3D_DATABUF                                                     \
   constexpr auto PADDING = 1;                                                \
@@ -54,23 +58,30 @@ using std::endl;
     return buf1(t.x + dx + PADDING, t.y + dy + PADDING, t.z + dz + PADDING); \
   };
 #define SETUP_3D_EQBUF                                    \
-  auto _buf2 = new psz_buf<EQ, 3, BLK>();                 \
+  auto _buf2 = new psz_buf<Eq, 3, BLK>();                 \
   auto& buf2 = *_buf2;                                    \
-  auto eqbuf_it = [&](auto dx, auto dy, auto dz) -> EQ& { \
+  auto eqbuf_it = [&](auto dx, auto dy, auto dz) -> Eq& { \
     return buf2(t.x + dx, t.y + dy, t.z + dz);            \
   };
 
+#define SETUP_ZIGZAG                    \
+  using ZigZag = psz::ZigZag<Eq>;       \
+  using EqUInt = typename ZigZag::UInt; \
+  using EqSInt = typename ZigZag::SInt;
+
 namespace psz {
 
-template <
-    typename T, typename EQ = int32_t, typename FP = T, int BLK = 256,
-    typename OUTLIER = struct _portable::compact_seq<T>>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, int BLK = 256>
 void KERNEL_SEQ_c_lorenzo_1d1l(
-    T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
-    OUTLIER* outlier) {
+    T* data, psz_dim3 len3, psz_dim3 stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
+    void* in_outlier)
+{
   SETUP_ND_CPU_SERIAL;
   SETUP_1D_DATABUF;
   SETUP_1D_EQBUF;
+  SETUP_ZIGZAG;
+
+  auto outlier = (struct _portable::compact_seq<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -79,27 +90,32 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
   auto threadview_process = [&]() {
     auto delta = databuf_it(0) - databuf_it(-1);
     bool quantizable = fabs(delta) < radius;
-    T candidate = delta + radius;
+    T candidate;
+
+    if constexpr (UseZigZag) {
+      candidate = delta;
+      eqbuf_it(0) = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+    }
+    else {
+      candidate = delta + radius;
+      eqbuf_it(0) = quantizable * (EqUInt)candidate;
+    }
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
       outlier->idx(cur_idx) = gid1();
-      outlier->val(cur_idx) = delta;
-      eqbuf_it(0) = 0;
-    }
-    else {
-      eqbuf_it(0) = delta;
+      outlier->val(cur_idx) = candidate;
     }
   };
   auto threadview_store = [&]() {
-    if (check_boundary1()) eq[gid1()] = eqbuf_it(0);
+    if (check_boundary1()) in_eq[gid1()] = eqbuf_it(0);
   };
 
   ////////////////////////////////////////
   data_partition();
 
-  PFOR1_GRID()
-  PFOR1_BLOCK()
+  PARFOR1_GRID()
+  PARFOR1_BLOCK()
   {
     threadview_load();
     threadview_process();
@@ -108,21 +124,28 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
 
   delete _buf1;
   delete _buf2;
-
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 256>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, int BLK = 256>
 void KERNEL_SEQ_x_lorenzo_1d1l(
-    EQ* eq, T* scattered_outlier, psz_dim3 len3, psz_dim3 stride3, int radius,
-    FP ebx2, T* xdata)
+    Eq* in_eq, T* in_outlier, psz_dim3 len3, psz_dim3 stride3, uint16_t radius, f8 ebx2, T* xdata)
 {
   SETUP_ND_CPU_SERIAL;
   SETUP_1D_DATABUF;
+  SETUP_ZIGZAG;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
-    if (check_boundary1())
-      databuf_it(0) = eq[gid1()] + scattered_outlier[gid1()];
+    if (check_boundary1()) {
+      if constexpr (not UseZigZag) {
+        databuf_it(0) = in_outlier[gid1()] + static_cast<T>(in_eq[gid1()]) - radius;
+      }
+      else {
+        auto e = in_eq[gid1()];
+        databuf_it(0) =
+            in_outlier[gid1()] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
+      }
+    }
   };
   auto threadview_partial_sum = [&]() {
     if (t.x > 0) databuf_it(0) += databuf_it(-1);
@@ -134,8 +157,8 @@ void KERNEL_SEQ_x_lorenzo_1d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR1_GRID()
-  PFOR1_BLOCK()
+  PARFOR1_GRID()
+  PARFOR1_BLOCK()
   {
     threadview_load();
     threadview_partial_sum();
@@ -145,46 +168,52 @@ void KERNEL_SEQ_x_lorenzo_1d1l(
   delete _buf1;
 }
 
-template <
-    typename T, typename EQ = int32_t, typename FP = T, int BLK = 16,
-    typename OUTLIER = struct _portable::compact_seq<T>>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, int BLK = 16>
 void KERNEL_SEQ_c_lorenzo_2d1l(
-    T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
-    OUTLIER* outlier) {
+    T* data, psz_dim3 len3, psz_dim3 stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
+    void* in_outlier)
+{
   SETUP_ND_CPU_SERIAL;
   SETUP_2D_DATABUF;
   SETUP_2D_EQBUF;
+  SETUP_ZIGZAG;
+
+  auto outlier = (struct _portable::compact_seq<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
     if (check_boundary2()) databuf_it(0, 0) = data[gid2()] * ebx2_r;
   };
   auto threadview_process = [&]() {
-    auto delta = databuf_it(0, 0) -
-                 (databuf_it(-1, 0) + databuf_it(0, -1) - databuf_it(-1, -1));
+    auto delta = databuf_it(0, 0) - (databuf_it(-1, 0) + databuf_it(0, -1) - databuf_it(-1, -1));
 
     bool quantizable = fabs(delta) < radius;
-    T candidate = delta + radius;
+    T candidate;
+
+    if constexpr (UseZigZag) {
+      candidate = delta;
+      eqbuf_it(0, 0) = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+    }
+    else {
+      candidate = delta + radius;
+      eqbuf_it(0, 0) = quantizable * (EqUInt)candidate;
+    }
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
       outlier->idx(cur_idx) = gid2();
-      outlier->val(cur_idx) = delta;
-      eqbuf_it(0, 0) = 0;
-    }
-    else {
-      eqbuf_it(0, 0) = delta;
+      outlier->val(cur_idx) = candidate;
     }
   };
   auto threadview_store = [&]() {
-    if (check_boundary2()) eq[gid2()] = eqbuf_it(0, 0);
+    if (check_boundary2()) in_eq[gid2()] = eqbuf_it(0, 0);
   };
 
   ////////////////////////////////////////
   data_partition();
 
-  PFOR2_GRID()
-  PFOR2_BLOCK()
+  PARFOR2_GRID()
+  PARFOR2_BLOCK()
   {
     threadview_load();
     threadview_process();
@@ -195,18 +224,26 @@ void KERNEL_SEQ_c_lorenzo_2d1l(
   delete _buf2;
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 16>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, int BLK = 16>
 void KERNEL_SEQ_x_lorenzo_2d1l(
-    EQ* eq, T* scattered_outlier, psz_dim3 len3, psz_dim3 stride3, int radius,
-    FP ebx2, T* xdata)
+    Eq* in_eq, T* in_outlier, psz_dim3 len3, psz_dim3 stride3, uint16_t radius, f8 ebx2, T* xdata)
 {
   SETUP_ND_CPU_SERIAL;
   SETUP_2D_DATABUF;
+  SETUP_ZIGZAG;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
-    if (check_boundary2())
-      databuf_it(0, 0) = eq[gid2()] + scattered_outlier[gid2()];
+    if (check_boundary2()) {
+      if constexpr (not UseZigZag) {
+        databuf_it(0, 0) = in_outlier[gid2()] + static_cast<T>(in_eq[gid2()]) - radius;
+      }
+      else {
+        auto e = in_eq[gid2()];
+        databuf_it(0, 0) =
+            in_outlier[gid2()] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
+      }
+    }
   };
   auto threadview_partial_sum_x = [&]() {
     if (t.x > 0) databuf_it(0, 0) += databuf_it(-1, 0);
@@ -221,27 +258,28 @@ void KERNEL_SEQ_x_lorenzo_2d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR2_GRID()
-  PFOR2_BLOCK()
+  PARFOR2_GRID()
   {
-    threadview_load();
-    threadview_partial_sum_x();
-    threadview_partial_sum_y();
-    threadview_store();
+    PARFOR2_BLOCK() { threadview_load(); }
+    PARFOR2_BLOCK() { threadview_partial_sum_x(); }
+    PARFOR2_BLOCK() { threadview_partial_sum_y(); }
+    PARFOR2_BLOCK() { threadview_store(); }
   }
 
   delete _buf1;
 }
 
-template <
-    typename T, typename EQ = int32_t, typename FP = T, int BLK = 8,
-    typename OUTLIER = struct _portable::compact_seq<T>>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, int BLK = 8>
 void KERNEL_SEQ_c_lorenzo_3d1l(
-    T* data, psz_dim3 len3, psz_dim3 stride3, int radius, FP ebx2_r, EQ* eq,
-    OUTLIER* outlier) {
+    T* data, psz_dim3 len3, psz_dim3 stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
+    void* in_outlier)
+{
   SETUP_ND_CPU_SERIAL;
   SETUP_3D_DATABUF;
   SETUP_3D_EQBUF;
+  SETUP_ZIGZAG;
+
+  auto outlier = (struct _portable::compact_seq<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -249,32 +287,36 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
   };
   auto threadview_process = [&]() {
     auto delta =
-        databuf_it(0, 0, 0) -
-        (databuf_it(-1, -1, -1) - databuf_it(0, -1, -1) -
-         databuf_it(-1, 0, -1) - databuf_it(-1, -1, 0) + databuf_it(0, 0, -1) +
-         databuf_it(0, -1, 0) + databuf_it(-1, 0, 0));
+        databuf_it(0, 0, 0) - (databuf_it(-1, -1, -1) - databuf_it(0, -1, -1) -
+                               databuf_it(-1, 0, -1) - databuf_it(-1, -1, 0) +
+                               databuf_it(0, 0, -1) + databuf_it(0, -1, 0) + databuf_it(-1, 0, 0));
     bool quantizable = fabs(delta) < radius;
-    T candidate = delta + radius;
+    T candidate;
+
+    if constexpr (UseZigZag) {
+      candidate = delta;
+      eqbuf_it(0, 0, 0) = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+    }
+    else {
+      candidate = delta + radius;
+      eqbuf_it(0, 0, 0) = quantizable * (EqUInt)candidate;
+    }
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
       outlier->idx(cur_idx) = gid3();
-      outlier->val(cur_idx) = delta;
-      eqbuf_it(0, 0, 0) = 0;
-    }
-    else {
-      eqbuf_it(0, 0, 0) = delta;
+      outlier->val(cur_idx) = candidate;
     }
   };
   auto threadview_store = [&]() {
-    if (check_boundary3()) eq[gid3()] = eqbuf_it(0, 0, 0);
+    if (check_boundary3()) in_eq[gid3()] = eqbuf_it(0, 0, 0);
   };
 
   ////////////////////////////////////////
   data_partition();
 
-  PFOR3_GRID()
-  PFOR3_BLOCK()
+  PARFOR3_GRID()
+  PARFOR3_BLOCK()
   {
     threadview_load();
     threadview_process();
@@ -285,18 +327,26 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
   delete _buf2;
 }
 
-template <typename T, typename EQ = int32_t, typename FP = T, int BLK = 8>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, int BLK = 8>
 void KERNEL_SEQ_x_lorenzo_3d1l(
-    EQ* eq, T* scattered_outlier, psz_dim3 len3, psz_dim3 stride3, int radius,
-    FP ebx2, T* xdata)
+    Eq* in_eq, T* in_outlier, psz_dim3 len3, psz_dim3 stride3, uint16_t radius, f8 ebx2, T* xdata)
 {
   SETUP_ND_CPU_SERIAL;
   SETUP_3D_DATABUF;
+  SETUP_ZIGZAG;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
-    if (check_boundary3())
-      databuf_it(0, 0, 0) = eq[gid3()] + scattered_outlier[gid3()];
+    if (check_boundary3()) {
+      if constexpr (not UseZigZag) {
+        databuf_it(0, 0, 0) = in_outlier[gid3()] + static_cast<T>(in_eq[gid3()]) - radius;
+      }
+      else {
+        auto e = in_eq[gid3()];
+        databuf_it(0, 0, 0) =
+            in_outlier[gid3()] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
+      }
+    }
   };
   auto threadview_partial_sum_x = [&]() {
     if (t.x > 0) databuf_it(0, 0, 0) += databuf_it(-1, 0, 0);
@@ -314,14 +364,13 @@ void KERNEL_SEQ_x_lorenzo_3d1l(
   ////////////////////////////////////////
   data_partition();
 
-  PFOR3_GRID()
-  PFOR3_BLOCK()
+  PARFOR3_GRID()
   {
-    threadview_load();
-    threadview_partial_sum_x();
-    threadview_partial_sum_y();
-    threadview_partial_sum_z();
-    threadview_store();
+    PARFOR3_BLOCK() { threadview_load(); }
+    PARFOR3_BLOCK() { threadview_partial_sum_x(); }
+    PARFOR3_BLOCK() { threadview_partial_sum_y(); }
+    PARFOR3_BLOCK() { threadview_partial_sum_z(); }
+    PARFOR3_BLOCK() { threadview_store(); }
   }
 
   delete _buf1;
@@ -330,13 +379,13 @@ void KERNEL_SEQ_x_lorenzo_3d1l(
 }  // namespace psz
 
 #undef SETUP_1D
-#undef PFOR1_GRID
-#undef PFOR1_BLOCK
+#undef PARFOR1_GRID
+#undef PARFOR1_BLOCK
 #undef SETUP_2D_BASIC
-#undef PFOR2_GRID
-#undef PFOR2_BLOCK
+#undef PARFOR2_GRID
+#undef PARFOR2_BLOCK
 #undef SETUP_3D
-#undef PFOR3_GRID
-#undef PFOR3_BLOCK
+#undef PARFOR3_GRID
+#undef PARFOR3_BLOCK
 
 #endif /* E0B87BA8_BEDC_4CBE_B5EE_C0C5875E07D6 */

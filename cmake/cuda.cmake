@@ -82,11 +82,19 @@ add_library(PSZ::CUDA::stat ALIAS psz_cu_stat)
 add_library(CUSZ::stat ALIAS psz_cu_stat)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
-add_library(psz_cu_core
-  psz/src/kernel/l23.seq.cc
+add_library(psz_seq_core
+  psz/src/kernel/lrz.seq.cc
   psz/src/kernel/hist_generic.seq.cc
-  psz/src/kernel/hist_generic.cu
   psz/src/kernel/histsp.seq.cc
+  psz/src/kernel/spvn.seq.cc
+)
+target_link_libraries(psz_seq_core
+  PUBLIC
+  psz_cu_compile_settings
+)
+
+add_library(psz_cu_core
+  psz/src/kernel/hist_generic.cu
   psz/src/kernel/histsp.cu
   psz/src/kernel/lproto_c.cu
   psz/src/kernel/lproto_x.cu
@@ -270,6 +278,7 @@ endif()
 # install libs
 install(TARGETS psz_cu_compile_settings EXPORT CUSZTargets)
 install(TARGETS
+  psz_seq_core
   psz_cu_core
   psz_cu_stat
   psz_cu_mem

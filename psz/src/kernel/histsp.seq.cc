@@ -11,15 +11,14 @@
 
 #include <cstdint>
 
-#include "module/cxx_module.hh"
+#include "kernel/hist.hh"
 #include "utils/timer.hh"
 
 namespace psz::module {
 
 // There should be no obvious speed up than the normal hist on CPU.
 template <typename E>
-int SEQ_histogram_Cauchy_v1(
-    E* in, size_t const inlen, uint32_t* out_hist, uint16_t const outlen)
+int SEQ_histogram_Cauchy_v1(E* in, size_t const inlen, uint32_t* out_hist, uint16_t const outlen)
 {
   auto radius = outlen / 2;
   E center{0}, neg1{0}, pos1{0};
@@ -44,8 +43,7 @@ int SEQ_histogram_Cauchy_v1(
 
 template <typename E>
 int SEQ_histogram_Cauchy_v2(
-    E* in, size_t const inlen, uint32_t* out_hist, uint16_t const outlen,
-    float* milliseconds)
+    E* in, size_t const inlen, uint32_t* out_hist, uint16_t const outlen, float* milliseconds)
 {
   auto radius = outlen / 2;
   E neg1{0}, pos1{0};

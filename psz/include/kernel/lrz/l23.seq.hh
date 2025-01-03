@@ -5,16 +5,14 @@
 #include "cusz/type.h"
 #include "mem/cxx_sp_cpu.h"
 
-template <
-    typename T, typename EQ, typename FP = T,
-    typename OUTLIER = _portable::compact_seq<T>>
-pszerror psz_comp_l23_seq(
-    T* const data, psz_dim3 const len3, double const eb, int const radius,
-    EQ* const eq, OUTLIER* outlier, float* time_elapsed);
+template <typename T, typename Eq>
+pszerror CPU_c_lorenzo_nd_with_outlier(
+    T* const in_data, psz_dim3 const data_len3, Eq* const out_eq, void* out_outlier, f8 const eb,
+    uint16_t const radius, float* time_elapsed);
 
-template <typename T, typename EQ, typename FP = T>
-pszerror psz_decomp_l23_seq(
-    EQ* eq, psz_dim3 const len3, T* outlier, f8 const eb, int const radius,
-    T* xdata, f4* time_elapsed);
+template <typename T, typename Eq>
+pszerror CPU_x_lorenzo_nd(
+    Eq* const in_eq, T* const in_outlier, T* const out_data, psz_dim3 const data_len3, f8 const eb,
+    uint16_t const radius, f4* time_elapsed);
 
 #endif /* A976A9C2_ACC0_4F3E_9840_E1ABB3AE6E82 */
