@@ -1,4 +1,4 @@
-#include "l23r.cuhip.inl"
+#include "lrz_c.cuhip.inl"
 
 INSTANCIATE_GPU_L23R_1param(f4);
 INSTANCIATE_GPU_L23R_1param(f8);

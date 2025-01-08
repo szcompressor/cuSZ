@@ -25,6 +25,11 @@
   using EqUInt = typename ZigZag::UInt; \
   using EqSInt = typename ZigZag::SInt;
 
+#define Z(LEN3) LEN3[2]
+#define Y(LEN3) LEN3[1]
+#define X(LEN3) LEN3[0]
+#define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
+
 namespace psz {
 
 template <
@@ -282,17 +287,19 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(  //
 
 }  // namespace psz
 
-namespace psz::cuhip {
+namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_x_lorenzo_nd(
-    Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3, f8 const eb,
-    uint16_t const radius, f4* time_elapsed, void* stream)
+    Eq* const in_eq, T* const in_outlier, T* const out_data,
+    std::array<size_t, 3> const _data_len3, f8 const eb, uint16_t const radius, f4* time_elapsed,
+    void* stream)
 {
   using namespace psz::kernelconfig;
 
   // error bound
   auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+  auto data_len3 = TO_DIM3(_data_len3);
   auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
   auto d = lorenzo_utils::ndim(data_len3);
 
@@ -327,12 +334,13 @@ pszerror GPU_x_lorenzo_nd(
   return CUSZ_SUCCESS;
 }
 
-}  // namespace psz::cuhip
+}  // namespace psz::module
 
-#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)                                           \
-  template pszerror psz::cuhip::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(                              \
-      Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3, f8 const eb, \
-      uint16_t const radius, f4* time_elapsed, void* stream);
+#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)                          \
+  template pszerror psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(            \
+      Eq* const in_eq, T* const in_outlier, T* const out_data,                   \
+      std::array<size_t, 3> const data_len3, f8 const eb, uint16_t const radius, \
+      f4* time_elapsed, void* stream);
 
 #define INSTANTIATE_GPU_L23X_2params(T, Eq)   \
   INSTANTIATE_GPU_L23X_3params(T, false, Eq); \

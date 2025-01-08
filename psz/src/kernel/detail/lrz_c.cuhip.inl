@@ -26,6 +26,11 @@
   using EqUInt = typename ZigZag::UInt; \
   using EqSInt = typename ZigZag::SInt;
 
+#define Z(LEN3) LEN3[2]
+#define Y(LEN3) LEN3[1]
+#define X(LEN3) LEN3[0]
+#define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
+
 namespace psz {
 
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
@@ -279,16 +284,17 @@ __global__ void KERNEL_CUHIP_lorenzo_prequant(
 
 }  // namespace psz
 
-namespace psz::cuhip {
+namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const in_data, dim3 const data_len3, Eq* const out_eq, void* out_outlier, f8 const eb,
-    uint16_t const radius, f4* time_elapsed, void* stream)
+    T* const in_data, std::array<size_t, 3> const _data_len3, Eq* const out_eq, void* out_outlier,
+    f8 const eb, uint16_t const radius, f4* time_elapsed, void* stream)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
 
+  auto data_len3 = TO_DIM3(_data_len3);
   auto ot = (Compact*)out_outlier;
   auto d = lorenzo_utils::ndim(data_len3);
 
@@ -352,13 +358,13 @@ pszerror GPU_lorenzo_prequant(
   return CUSZ_SUCCESS;
 }
 
-}  // namespace psz::cuhip
+}  // namespace psz::module
 
 // -----------------------------------------------------------------------------
-#define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                                         \
-  template pszerror psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>(               \
-      T* const in_data, dim3 const data_len3, Eq* const out_eq, void* out_outlier, f8 const eb, \
-      uint16_t const radius, f4* time_elapsed, void* stream);
+#define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                            \
+  template pszerror psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>( \
+      T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq,   \
+      void* out_outlier, f8 const eb, uint16_t const radius, f4* time_elapsed, void* stream);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
   INSTANCIATE_GPU_L23R_3params(T, false, Eq); \
@@ -371,7 +377,7 @@ pszerror GPU_lorenzo_prequant(
 // -----------------------------------------------------------------------------
 
 #define INSTANCIATE_GPU_L23_PREQ_3params(TIN, TOUT, REV)                                         \
-  template pszerror psz::cuhip::GPU_lorenzo_prequant<TIN, TOUT, REV>(                            \
+  template pszerror psz::module::GPU_lorenzo_prequant<TIN, TOUT, REV>(                           \
       TIN* const in, size_t const len, PROPER_EB const eb, TOUT* const out, float* time_elapsed, \
       void* stream);
 

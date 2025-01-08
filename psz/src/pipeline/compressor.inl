@@ -126,27 +126,25 @@ struct Compressor<C>::impl {
   try {
     auto len3 = MAKE_GPU_LEN3(ctx->x, ctx->y, ctx->z);
     auto stride3 = MAKE_GPU_LEN3(1, ctx->x, ctx->x * ctx->y);
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    auto len3_std = MAKE_STD_LEN3(ctx->x, ctx->y, ctx->z);
 
     if (ctx->pred_type == Lorenzo)
-      psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
+      psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred,
+          stream);
     else if (ctx->pred_type == LorenzoZigZag)
-      psz::cuhip::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, len3, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
+      psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred,
+          stream);
     else if (ctx->pred_type == LorenzoProto)
-      psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-          in, len3, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred, stream);
+      psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred,
+          stream);
     else if (ctx->pred_type == Spline)
       psz::cuhip::GPU_predict_spline(
           in, len3, stride3, mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->stride3(),
           mem->anchor(), mem->_anchor->len3(), mem->_anchor->stride3(), (void*)mem->compact,
           ctx->eb, ctx->radius, &time_pred, stream);
-
-#elif defined(PSZ_USE_1API)
-    // TODO
-#endif
 
     /* make outlier count seen on host */
     mem->compact->make_host_accessible((cudaStream_t)stream);
@@ -256,28 +254,26 @@ struct Compressor<C>::impl {
 
     auto len3 = MAKE_GPU_LEN3(header->x, header->y, header->z);
     auto stride3 = MAKE_GPU_LEN3(1, header->x, header->x * header->y);
-
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+    auto len3_std = MAKE_STD_LEN3(header->x, header->y, header->z);
 
     if (header->pred_type == Lorenzo)
-      psz::cuhip::GPU_x_lorenzo_nd<T, false, E>(
-          mem->ectrl(), d_space, d_xdata, len3, header->eb, header->radius, &time_pred, stream);
+      psz::module::GPU_x_lorenzo_nd<T, false, E>(
+          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, &time_pred,
+          stream);
     else if (header->pred_type == LorenzoZigZag)
-      psz::cuhip::GPU_x_lorenzo_nd<T, true, E>(
-          mem->ectrl(), d_space, d_xdata, len3, header->eb, header->radius, &time_pred, stream);
+      psz::module::GPU_x_lorenzo_nd<T, true, E>(
+          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, &time_pred,
+          stream);
     else if (header->pred_type == LorenzoProto)
-      psz::cuhip::GPU_PROTO_x_lorenzo_nd<T, E>(
-          mem->ectrl(), d_space, d_xdata, len3, header->eb, header->radius, &time_pred, stream);
+      psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
+          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, &time_pred,
+          stream);
     else if (header->pred_type == Spline)
       psz::cuhip::GPU_reverse_predict_spline(
           mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->stride3(),  //
           d_anchor, mem->_anchor->len3(), mem->_anchor->stride3(),    //
           d_xdata, len3, stride3,                                     //
           header->eb, header->radius, &time_pred, stream);
-
-#elif defined(PSZ_USE_1API)
-    // TODO
-#endif
   }
 
   void decompress_decode(psz_header* header, BYTE* in, psz_stream_t stream)

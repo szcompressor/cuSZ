@@ -1,8 +1,7 @@
 namespace {
 dim3 div3(dim3 l, dim3 subl)
 {
-  return dim3(
-      (l.x - 1) / subl.x + 1, (l.y - 1) / subl.y + 1, (l.z - 1) / subl.z + 1);
+  return dim3((l.x - 1) / subl.x + 1, (l.y - 1) / subl.y + 1, (l.z - 1) / subl.z + 1);
 };
 }  // namespace
 
@@ -14,6 +13,16 @@ struct lorenzo_utils {
     if (len3.z == 1 and len3.y == 1)
       return 1;
     else if (len3.z == 1 and len3.y != 1)
+      return 2;
+    else
+      return 3;
+  };
+
+  static int ndim(std::array<size_t, 3> len3)
+  {
+    if (len3[2] == 1 and len3[1] == 1)
+      return 1;
+    else if (len3[2] == 1 and len3[1] != 1)
       return 2;
     else
       return 3;

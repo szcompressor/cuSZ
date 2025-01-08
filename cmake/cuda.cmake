@@ -96,11 +96,11 @@ target_link_libraries(psz_seq_core
 add_library(psz_cu_core
   psz/src/kernel/hist_generic.cu
   psz/src/kernel/histsp.cu
-  psz/src/kernel/lproto_c.cu
-  psz/src/kernel/lproto_x.cu
+  psz/src/kernel/proto_lrz_c.cu
+  psz/src/kernel/proto_lrz_x.cu
   psz/src/kernel/spvn.cu
-  psz/src/kernel/l23_c.cu
-  psz/src/kernel/l23_x.cu
+  psz/src/kernel/lrz_c.cu
+  psz/src/kernel/lrz_x.cu
   psz/src/kernel/spline3.cu
 )
 target_link_libraries(psz_cu_core

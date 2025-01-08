@@ -16,6 +16,9 @@
 #include "c_type.h"
 #include "cxx_smart_ptr.h"
 
+#define MAKE_STD_LEN3(X, Y, Z) \
+  std::array<size_t, 3> { X, Y, Z }
+
 #if defined(PSZ_USE_CUDA)
 
 #define GPU_LEN3 dim3
@@ -81,8 +84,7 @@ T* malloc_device(size_t const len, void* stream = nullptr)
   hipMemset(__a, 0, len * sizeof(T));
 #elif defined(PSZ_USE_1API)
   if (not stream)
-    throw std::runtime_error(
-        "[psz::error] SYCL backend does not allow stream to be null.");
+    throw std::runtime_error("[psz::error] SYCL backend does not allow stream to be null.");
   __a = sycl::malloc_device<T>(len, *((sycl::queue*)stream));
   ((sycl::queue*)stream)->wait();
 #endif
@@ -101,8 +103,7 @@ T* malloc_host(size_t const len, void* stream = nullptr)
   memset(__a, 0, len * sizeof(T));
 #elif defined(PSZ_USE_1API)
   if (not stream)
-    throw std::runtime_error(
-        "[psz::error] SYCL backend does not allow stream to be null.");
+    throw std::runtime_error("[psz::error] SYCL backend does not allow stream to be null.");
   __a = sycl::malloc_host<T>(len, *((sycl::queue*)stream));
   ((sycl::queue*)stream)->wait();
 #endif
@@ -121,8 +122,7 @@ T* malloc_unified(size_t const len, void* stream = nullptr)
   hipMallocManaged(&__a, len * sizeof(T));
 #elif defined(PSZ_USE_1API)
   if (not stream)
-    throw std::runtime_error(
-        "[psz::error] SYCL backend does not allow stream to be null.");
+    throw std::runtime_error("[psz::error] SYCL backend does not allow stream to be null.");
   __a = sycl::malloc_unified<T>(len, *((sycl::queue*)stream));
   ((sycl::queue*)stream)->wait();
 #endif
@@ -138,8 +138,7 @@ void free_device(T* __a, void* stream = nullptr)
   hipFree(__a);
 #elif defined(PSZ_USE_1API)
   if (not stream)
-    throw std::runtime_error(
-        "[psz::error] SYCL backend does not allow stream to be null.");
+    throw std::runtime_error("[psz::error] SYCL backend does not allow stream to be null.");
   sycl::free(__a, *((sycl::queue*)stream));
 #endif
 }
@@ -153,8 +152,7 @@ void free_host(T* __a, void* stream = nullptr)
   hipHostFree(__a);
 #elif defined(PSZ_USE_1API)
   if (not stream)
-    throw std::runtime_error(
-        "[psz::error] SYCL backend does not allow stream to be null.");
+    throw std::runtime_error("[psz::error] SYCL backend does not allow stream to be null.");
   sycl::free(__a, *((sycl::queue*)stream));
 #endif
 }
@@ -168,17 +166,14 @@ void free_unified(T* __a, void* stream = nullptr)
 }
 
 template <typename T>
-std::unique_ptr<T, GPU_deleter_device> make_unique_device(
-    size_t const len, void* stream = nullptr)
+std::unique_ptr<T, GPU_deleter_device> make_unique_device(size_t const len, void* stream = nullptr)
 {
   T* ptr = malloc_device<T>(len);
-  return std::unique_ptr<T, GPU_deleter_device>(
-      ptr, GPU_deleter_device(stream));
+  return std::unique_ptr<T, GPU_deleter_device>(ptr, GPU_deleter_device(stream));
 }
 
 template <typename T>
-std::unique_ptr<T, GPU_deleter_host> make_unique_host(
-    size_t const len, void* stream = nullptr)
+std::unique_ptr<T, GPU_deleter_host> make_unique_host(size_t const len, void* stream = nullptr)
 {
   T* ptr = malloc_host<T>(len);
   return std::unique_ptr<T, GPU_deleter_host>(ptr, GPU_deleter_host(stream));
@@ -189,8 +184,7 @@ std::unique_ptr<T, GPU_deleter_unified> make_unique_unified(
     size_t const len, void* stream = nullptr)
 {
   T* ptr = malloc_unified<T>(len);
-  return std::unique_ptr<T, GPU_deleter_unified>(
-      ptr, GPU_deleter_unified(stream));
+  return std::unique_ptr<T, GPU_deleter_unified>(ptr, GPU_deleter_unified(stream));
 }
 
 template <typename T>
@@ -208,8 +202,7 @@ std::shared_ptr<T> make_shared_host(size_t const len, void* stream = nullptr)
 }
 
 template <typename T>
-std::shared_ptr<T> make_shared_unified(
-    size_t const len, void* stream = nullptr)
+std::shared_ptr<T> make_shared_unified(size_t const len, void* stream = nullptr)
 {
   T* ptr = malloc_unified<T>(len);
   return std::shared_ptr<T>(ptr, GPU_deleter_unified(stream));
@@ -218,8 +211,7 @@ std::shared_ptr<T> make_shared_unified(
 template <_portable_mem_control DIR, typename T>
 void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
 {
-  static_assert(
-      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+  static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
 
   constexpr auto direction = _memcpy_direcion<DIR>::direction;
 
@@ -240,11 +232,9 @@ void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
 }
 
 template <_portable_mem_control DIR, typename T>
-void memcpy_allkinds_async(
-    T* dst, T* src, size_t const len, void* stream = nullptr)
+void memcpy_allkinds_async(T* dst, T* src, size_t const len, void* stream = nullptr)
 {
-  static_assert(
-      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+  static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
 
   constexpr auto direction = _memcpy_direcion<DIR>::direction;
 
@@ -260,8 +250,7 @@ void memcpy_allkinds_async(
 template <typename T>
 void memset_device(T* __a, size_t const len, int value = 0)
 {
-  static_assert(
-      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+  static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
 
 #if defined(PSZ_USE_CUDA)
   cudaMemset(__a, value, sizeof(T) * len);
@@ -275,8 +264,7 @@ void memset_device(T* __a, size_t const len, int value = 0)
 template <typename T>
 void memset_host(T* __a, size_t const len, int value = 0)
 {
-  static_assert(
-      std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+  static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
 
   memset(__a, value, sizeof(T) * len);
 }
@@ -304,14 +292,11 @@ void memset_host(T* __a, size_t const len, int value = 0)
 #endif
 
 #if defined(PSZ_USE_CUDA)
-#define destroy_stream(stream) \
-  ([](void* s) { cudaStreamDestroy((cudaStream_t)s); })(stream);
+#define destroy_stream(stream) ([](void* s) { cudaStreamDestroy((cudaStream_t)s); })(stream);
 #elif defined(PSZ_USE_HIP)
-#define destroy_stream(stream) \
-  ([](void* s) { hipStreamDestroy((cudaStream_t)s); })(stream);
+#define destroy_stream(stream) ([](void* s) { hipStreamDestroy((cudaStream_t)s); })(stream);
 #elif defined(PSZ_USE_1API)
-#define destroy_stream(stream) \
-  ([](void* q) { ((dpct::queue_ptr)q)->reset(); })(stream);
+#define destroy_stream(stream) ([](void* q) { ((dpct::queue_ptr)q)->reset(); })(stream);
 #endif
 
 #if defined(PSZ_USE_CUDA)

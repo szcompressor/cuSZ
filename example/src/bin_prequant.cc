@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <string>
 
-#include "kernel/lrz/l23.hh"
+#include "kernel/lrz/lrz.gpu.hh"
 #include "utils/io.hh"
 
 using std::string;
@@ -72,7 +72,7 @@ int main(int argc, char** argv)
 
     float time_prequant;
     {
-      psz::cuhip::GPU_lorenzo_prequant<TIN, TOUT, false>(
+      psz::module::GPU_lorenzo_prequant<TIN, TOUT, false>(
           d_in, len, eb, d_out, &time_prequant, stream);
     }
 

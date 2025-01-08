@@ -19,6 +19,11 @@
 #include "utils/it_cuda.hh"
 #include "utils/timer.hh"
 
+#define Z(LEN3) LEN3[2]
+#define Y(LEN3) LEN3[1]
+#define X(LEN3) LEN3[0]
+#define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
+
 namespace psz {
 
 // easy algorithmic description
@@ -132,13 +137,15 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_3d1l(
 
 }  // namespace psz
 
-namespace psz::cuhip {
+namespace psz::module {
 
 template <typename T, typename Eq = uint16_t>
 pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
-    T* const in_data, dim3 const data_len3, Eq* const out_eq, void* out_outlier, double const eb,
-    uint16_t const radius, float* time_elapsed, void* stream)
+    T* const in_data, std::array<size_t, 3> const _data_len3, Eq* const out_eq, void* out_outlier,
+    double const eb, uint16_t const radius, float* time_elapsed, void* stream)
 {
+  auto data_len3 = TO_DIM3(_data_len3);
+
   auto divide3 = [](dim3 len, dim3 sublen) {
     return dim3(
         (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1);
@@ -195,13 +202,14 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
   return CUSZ_SUCCESS;
 }
 
-}  // namespace psz::cuhip
+}  // namespace psz::module
 
 ////////////////////////////////////////////////////////////////////////////////
-#define INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, Eq)                            \
-  template pszerror psz::cuhip::GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>(        \
-      T* const in_data, dim3 const data_len3, Eq* const out_eq, void* out_outlier, \
-      double const eb, uint16_t const radius, float* time_elapsed, void* stream);
+#define INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, Eq)                               \
+  template pszerror psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>(          \
+      T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq,      \
+      void* out_outlier, double const eb, uint16_t const radius, float* time_elapsed, \
+      void* stream);
 
 #define INSTANTIATIE_LORENZO_PROTO_C_1param(T)     \
   INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, u1); \

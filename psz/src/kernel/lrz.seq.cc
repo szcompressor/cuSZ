@@ -12,7 +12,7 @@
 #include "detail/lrz.seq.inl"
 
 #include "cusz/type.h"
-#include "kernel/lrz/l23.seq.hh"
+#include "kernel/lrz/lrz.seq.hh"
 
 psz_dim3 psz_div3(psz_dim3 len, psz_dim3 sublen)
 {

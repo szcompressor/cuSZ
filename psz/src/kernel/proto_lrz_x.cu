@@ -1,4 +1,4 @@
-#include "detail/lproto_x.cuhip.inl"
+#include "detail/proto_lrz_x.cuhip.inl"
 
 INSTANTIATIE_LORENZO_PROTO_X_1param(f4);
 INSTANTIATIE_LORENZO_PROTO_X_1param(f8);
