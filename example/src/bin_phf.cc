@@ -49,12 +49,12 @@ float time_decode = (float)INT_MAX;
       psz::module::GPU_identical(d_decomp.get(), d_oridata.get(), sizeof(E), len, 0); \
   printf("%s\n", identical ? ">>>>  IDENTICAL" : "!!!!  ERROR: DIFFERENT");
 
-#define MALLOC_BUFFERS                         \
-  auto d_oridata = make_unique_device<E>(len); \
-  auto h_oridata = make_unique_host<E>(len);   \
-  auto d_decomp = make_unique_device<E>(len);  \
-  auto h_decomp = make_unique_host<E>(len);    \
-  auto d_hist = make_unique_device<F>(bklen);
+#define MALLOC_BUFFERS                                                 \
+  auto d_oridata = GPU_make_unique(malloc_d<E>(len), GPU_deleter_d()); \
+  auto h_oridata = GPU_make_unique(malloc_h<E>(len), GPU_deleter_h()); \
+  auto d_decomp = GPU_make_unique(malloc_d<E>(len), GPU_deleter_d());  \
+  auto h_decomp = GPU_make_unique(malloc_h<E>(len), GPU_deleter_h());  \
+  auto d_hist = GPU_make_unique(malloc_d<F>(bklen), GPU_deleter_d());
 
 #define LOAD_FILE                                       \
   utils::fromfile(fname.c_str(), h_oridata.get(), len); \

@@ -1,4 +1,5 @@
 add_compile_definitions(PSZ_USE_1API)
+add_compile_definitions(_PORTABLE_USE_1API)
 
 # DPCPP 2023.2.0:
 # IntelDPCPP Config will be deprecated soon.  Use IntelSYCL config instead!

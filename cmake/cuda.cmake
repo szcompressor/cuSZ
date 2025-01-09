@@ -1,4 +1,5 @@
 add_compile_definitions(PSZ_USE_CUDA)
+add_compile_definitions(_PORTABLE_USE_CUDA)
 
 find_package(CUDAToolkit REQUIRED)
 

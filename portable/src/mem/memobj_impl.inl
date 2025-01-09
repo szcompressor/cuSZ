@@ -25,14 +25,6 @@ struct memobj<Ctype>::impl {
   int ndim;
   double maxval, minval, range;
 
-#if defined(PSZ_USE_CUDA)
-  static const psz_backend BACKEND = CUDA;
-#elif defined(PSZ_USE_HIP)
-  static const psz_backend BACKEND = HIP;
-#elif defined(PSZ_USE_1API)
-  static const psz_backend BACKEND = ONEAPI;
-#endif
-
   void _constructor(u4 _lx, u4 _ly, u4 _lz, const char _name[32] = "<unnamed>")
   {
     this->lx = _lx;

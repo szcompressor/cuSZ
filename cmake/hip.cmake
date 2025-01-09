@@ -1,4 +1,5 @@
 add_compile_definitions(PSZ_USE_HIP)
+add_compile_definitions(_PORTABLE_USE_HIP)
 
 find_package(hip REQUIRED)
 

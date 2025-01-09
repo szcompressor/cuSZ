@@ -74,3 +74,14 @@ target_link_libraries(stat_max_error
   CUDA::cudart
 )
 add_test(test_stat_max_error stat_max_error)
+
+
+add_executable(mem_unique src/test_mem_unique.cu)
+target_link_libraries(mem_unique
+  PRIVATE
+  psz_cu_compile_settings
+  psz_cu_test_compile_settings
+  psz_cu_mem
+  CUDA::cudart
+)
+add_test(test_mem_unique mem_unique)
