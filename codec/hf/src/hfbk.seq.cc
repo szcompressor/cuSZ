@@ -1,19 +1,18 @@
-#include "hfbk.hh"
-
 #include <bitset>
 #include <cstdint>
 
 #include "busyheader.hh"
 #include "cusz/type.h"
+#include "cxx_hfbk.h"
 #include "hfbk_impl.hh"
 #include "hfcanon.hh"
 #include "hfword.hh"
 #include "utils/timer.hh"
 
 template <typename E, typename H>
-void hf_build_and_canonize_book_serial(
-    uint32_t* freq, int const bklen, H* book, uint8_t* revbook,
-    int const revbook_bytes, float* time)
+void phf_CPU_build_canonized_codebook_v1(
+    uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes,
+    float* time)
 {
   using PW4 = HuffmanWord<4>;
   using PW8 = HuffmanWord<8>;
@@ -30,11 +29,13 @@ void hf_build_and_canonize_book_serial(
 
   // part 1
   {
-    f4 t;
-    hf_buildtree_impl1<H>(freq, bklen, book, &t);
-    // hf_buildtree_impl2<H>(freq, bklen, book, &t);
-    // cout << t << endl;
-    *time += t;
+    auto a = hires::now();
+
+    phf_CPU_build_codebook_v1<H>(freq, bklen, book);
+    // phf_CPU_build_codebook_v2<H>(freq, bklen, book);
+
+    auto z = hires::now();
+    *time += static_cast<duration_t>(z - a).count() * 1000;
   }
 
   // print
@@ -77,10 +78,10 @@ void hf_build_and_canonize_book_serial(
   delete space;
 }
 
-template <typename E, typename H = uint32_t>
-void hf_build_and_canonize_book_serial_v2(
-    uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook,
-    int const revbook_bytes, float* time)
+template <typename E, typename H>
+void phf_CPU_build_canonized_codebook_v2(
+    uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook, int const revbook_bytes,
+    float* time)
 {
   using PW4 = HuffmanWord<4>;
   using PW8 = HuffmanWord<8>;
@@ -101,10 +102,15 @@ void hf_build_and_canonize_book_serial_v2(
 
   // part 1
   {
-    f4 t;
-    hf_buildtree_impl1<uint64_t>(freq, bklen, bk8, &t);
-    // hf_buildtree_impl2<uint64_t>(freq, bklen, bk8, &t);
-    *time += t;
+    auto a = hires::now();
+
+    phf_CPU_build_codebook_v1<uint64_t>(freq, bklen, bk8);
+    // phf_CPU_build_codebook_v2<uint64_t>(freq, bklen, bk8);
+
+    auto z = hires::now();
+    auto t1 = static_cast<duration_t>(z - a).count() * 1000;
+    // cout << t1 << endl;
+    *time += t1;
   }
 
   // resolve the issue of being longer than 32 bits
@@ -142,8 +148,8 @@ void hf_build_and_canonize_book_serial_v2(
 
     space->canonize();
 
-    auto b = hires::now();
-    auto t2 = static_cast<duration_t>(b - a).count() * 1000;
+    auto z = hires::now();
+    auto t2 = static_cast<duration_t>(z - a).count() * 1000;
     // cout << t2 << endl;
     *time += t2;
   }
@@ -162,24 +168,19 @@ void hf_build_and_canonize_book_serial_v2(
   delete space;
 }
 
-#define SPECIALIZE(E, H)                                           \
-  template <>                                                      \
-  void psz::hf_buildbook<SEQ, E, H>(                               \
-      uint32_t * freq, int const bklen, H* book, uint8_t* revbook, \
-      int const revbook_bytes, float* time, void* stream)          \
-  {                                                                \
-    hf_build_and_canonize_book_serial_v2<E, H>(                    \
-        freq, bklen, book, revbook, revbook_bytes, time);          \
-  }
+#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                           \
+  template void phf_CPU_build_canonized_codebook_v2<E, H>(                                  \
+      uint32_t * freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
+      float* time);
 
-SPECIALIZE(u1, u4)
-SPECIALIZE(u2, u4)
-SPECIALIZE(u4, u4)
-// SPECIALIZE(u1, u8)
-// SPECIALIZE(u2, u8)
-// SPECIALIZE(u4, u8)
-// SPECIALIZE(u1, ull)
-// SPECIALIZE(u2, ull)
-// SPECIALIZE(u4, ull)
+INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, u4)
+INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u2, u4)
+INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u4, u4)
+// INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, u8)
+// INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u2, u8)
+// INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u4, u8)
+// INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, ull)
+// INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u2, ull)
+// INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u4, ull)
 
-#undef SPECIALIZE
+#undef INSTANTIATE_PHF_CPU_BUILD_CANONICAL

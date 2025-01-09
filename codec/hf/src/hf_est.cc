@@ -14,7 +14,7 @@ void est_impl(uint32_t* freq, int const bklen, double* entropy, double* cr)
 {
   using H = std::conditional_t<HF_SYM_BYTE == 4, uint32_t, uint64_t>;
   auto book = new H[bklen];
-  hf_buildtree_impl2<H>(freq, bklen, book);
+  phf_CPU_build_codebook_v2<H>(freq, bklen, book);
 
   auto all_bits = 0u;
   auto len = 0u;
@@ -51,14 +51,12 @@ void est_impl(uint32_t* freq, int const bklen, double* entropy, double* cr)
 }  // namespace
 
 void pszanalysis_hf_buildtree(
-    uint32_t* freq, int const bklen, double* entropy, double* cr,
-    int const symbol_byte)
+    uint32_t* freq, int const bklen, double* entropy, double* cr, int const symbol_byte)
 {
   if (symbol_byte == 4)
     est_impl<4>(freq, bklen, entropy, cr);
   else if (symbol_byte == 8)
     est_impl<8>(freq, bklen, entropy, cr);
   else
-    throw std::runtime_error(
-        "4 or 8; otherwise not working for this fixed-tree estimation.");
+    throw std::runtime_error("4 or 8; otherwise not working for this fixed-tree estimation.");
 }

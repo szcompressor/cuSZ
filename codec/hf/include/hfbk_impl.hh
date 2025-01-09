@@ -43,32 +43,27 @@ typedef struct alignas(8) hfserial_tree {
 typedef hfserial_tree HuffmanTree;
 
 template <typename H>
-void hf_buildtree_impl1(
-    u4* freq, uint16_t bklen, H* book, float* time = nullptr);
+void phf_CPU_build_codebook_v1(u4* freq, uint16_t bklen, H* book);
 
 // for impl2
 
-struct NodeCxx {
+struct phf_node {
   u4 symbol;
   u4 freq;
-  NodeCxx *left, *right;
+  phf_node *left, *right;
 
-  NodeCxx(
-      u4 symbol, u4 freq, NodeCxx* left = nullptr, NodeCxx* right = nullptr) :
+  phf_node(u4 symbol, u4 freq, phf_node* left = nullptr, phf_node* right = nullptr) :
       symbol(symbol), freq(freq), left(left), right(right)
   {
   }
 };
 
-struct CmpNode {
-  bool operator()(NodeCxx* left, NodeCxx* right)
-  {
-    return left->freq > right->freq;
-  }
+struct phf_cmp_node {
+  bool operator()(phf_node* left, phf_node* right) { return left->freq > right->freq; }
 };
 
 template <class NodeType, int WIDTH>
-class alignas(8) __pszhf_stack {
+class alignas(8) phf_stack {
   static const int MAX_DEPTH = HuffmanWord<WIDTH>::FIELD_CODE;
   NodeType* _a[MAX_DEPTH];
   u8 saved_path[MAX_DEPTH];
@@ -76,21 +71,19 @@ class alignas(8) __pszhf_stack {
   u8 depth = 0;
 
  public:
-  static NodeType* top(__pszhf_stack* s);
+  static NodeType* top(phf_stack* s);
 
   template <typename T>
-  static void push(__pszhf_stack* s, NodeType* n, T path, T len);
+  static void push(phf_stack* s, NodeType* n, T path, T len);
 
   template <typename T>
-  static NodeType* pop(
-      __pszhf_stack* s, T* path_to_restore, T* length_to_restore);
+  static NodeType* pop(phf_stack* s, T* path_to_restore, T* length_to_restore);
 
   template <typename H>
   static void inorder_traverse(NodeType* root, H* book);
 };
 
 template <typename H>
-void hf_buildtree_impl2(
-    u4* freq, size_t const bklen, H* book, float* time = nullptr);
+void phf_CPU_build_codebook_v2(u4* freq, size_t const bklen, H* book);
 
 #endif /* CD5DD212_2C45_4A8C_BDAD_7186A89BB353 */

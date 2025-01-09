@@ -19,18 +19,15 @@
 
 // internal data structure
 
-#define NodeStackTpl template <class NodeType, int Width>
-#define NodeStack __pszhf_stack<NodeType, Width>
+#define NODE_STACK_TPL template <class NodeType, int Width>
+#define NODE_STACK phf_stack<NodeType, Width>
 
-NodeStackTpl NodeType* NodeStack::top(NodeStack* s)
-{
-  return s->_a[s->depth - 1];
-}
+NODE_STACK_TPL NodeType* NODE_STACK::top(NODE_STACK* s) { return s->_a[s->depth - 1]; }
 
-NodeStackTpl template <typename T>
-void NodeStack::push(NodeStack* s, NodeType* n, T path, T len)
+NODE_STACK_TPL template <typename T>
+void NODE_STACK::push(NODE_STACK* s, NodeType* n, T path, T len)
 {
-  if (s->depth + 1 <= NodeStack::MAX_DEPTH) {
+  if (s->depth + 1 <= NODE_STACK::MAX_DEPTH) {
     s->depth += 1;
 
     s->_a[s->depth - 1] = n;
@@ -43,11 +40,10 @@ void NodeStack::push(NodeStack* s, NodeType* n, T path, T len)
         "overflow.");
 }
 
-NodeStackTpl template <typename T>
-NodeType* NodeStack::pop(
-    NodeStack* s, T* path_to_restore, T* length_to_restore)
+NODE_STACK_TPL template <typename T>
+NodeType* NODE_STACK::pop(NODE_STACK* s, T* path_to_restore, T* length_to_restore)
 {
-  auto is_empty = [&](NodeStack* s) -> bool { return (s->depth == 0); };
+  auto is_empty = [&](NODE_STACK* s) -> bool { return (s->depth == 0); };
 
   NodeType* n;
 
@@ -68,14 +64,14 @@ NodeType* NodeStack::pop(
   }
 }
 
-NodeStackTpl template <typename H>
-void NodeStack::inorder_traverse(NodeType* root, H* book)
+NODE_STACK_TPL template <typename H>
+void NODE_STACK::inorder_traverse(NodeType* root, H* book)
 {
-  auto is_empty = [&](NodeStack* s) -> bool { return (s->depth == 0); };
+  auto is_empty = [&](NODE_STACK* s) -> bool { return (s->depth == 0); };
   using PW = HuffmanWord<sizeof(H)>;
   constexpr auto MAX_LEN = PW::FIELD_CODE;
 
-  auto s = new NodeStack();
+  auto s = new NODE_STACK();
   auto p = root;
 
   bool done = 0;
@@ -89,8 +85,7 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
       out1 |= 0u;
       len += 1;
 
-      if (len > MAX_LEN)
-        __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
+      if (len > MAX_LEN) __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
     }
     else {
       u4 symbol = p->symbol;
@@ -104,8 +99,7 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
         out1 |= 1u;
         len += 1;
 
-        if (len > MAX_LEN)
-          __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
+        if (len > MAX_LEN) __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
       }
       else
         done = true;
@@ -116,17 +110,17 @@ void NodeStack::inorder_traverse(NodeType* root, H* book)
   /* end of function */
 }
 
-template class __pszhf_stack<node_t, 4>;
-template void __pszhf_stack<node_t, 4>::inorder_traverse<u4>(node_t*, u4*);
-template class __pszhf_stack<node_t, 8>;
-template void __pszhf_stack<node_t, 8>::inorder_traverse<u8>(node_t*, u8*);
-template void __pszhf_stack<node_t, 8>::inorder_traverse<ull>(node_t*, ull*);
+template class phf_stack<node_t, 4>;
+template void phf_stack<node_t, 4>::inorder_traverse<u4>(node_t*, u4*);
+template class phf_stack<node_t, 8>;
+template void phf_stack<node_t, 8>::inorder_traverse<u8>(node_t*, u8*);
+template void phf_stack<node_t, 8>::inorder_traverse<ull>(node_t*, ull*);
 
-template class __pszhf_stack<NodeCxx, 4>;
-template void __pszhf_stack<NodeCxx, 4>::inorder_traverse<u4>(NodeCxx*, u4*);
-template class __pszhf_stack<NodeCxx, 8>;
-template void __pszhf_stack<NodeCxx, 8>::inorder_traverse<u8>(NodeCxx*, u8*);
-template void __pszhf_stack<NodeCxx, 8>::inorder_traverse<ull>(NodeCxx*, ull*);
+template class phf_stack<phf_node, 4>;
+template void phf_stack<phf_node, 4>::inorder_traverse<u4>(phf_node*, u4*);
+template class phf_stack<phf_node, 8>;
+template void phf_stack<phf_node, 8>::inorder_traverse<u8>(phf_node*, u8*);
+template void phf_stack<phf_node, 8>::inorder_traverse<ull>(phf_node*, ull*);
 
-#undef NodeStackTpl
-#undef NodeStack
+#undef NODE_STACK_TPL
+#undef NODE_STACK

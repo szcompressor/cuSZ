@@ -8,6 +8,8 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+#include "c_type.h"
+
 typedef void* phf_stream_t;
 
 //////// state enumeration
@@ -24,20 +26,6 @@ typedef enum {  //
 typedef phf_error_status phferr;
 
 typedef enum { HF_U1, HF_U2, HF_U4, HF_U8, HF_ULL, HF_INVALID } phf_dtype;
-
-// aliasing
-typedef uint8_t u1;
-typedef uint16_t u2;
-typedef uint32_t u4;
-typedef uint64_t u8;
-typedef unsigned long long ull;
-typedef int8_t i1;
-typedef int16_t i2;
-typedef int32_t i4;
-typedef int64_t i8;
-typedef float f4;
-typedef double f8;
-typedef size_t szt;
 
 #define PHFHEADER_FORCED_ALIGN 128
 #define PHFHEADER_HEADER 0

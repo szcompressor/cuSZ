@@ -23,8 +23,8 @@ void printcode_u4(u4 idx, u4* word)
   using PW = HuffmanWord<4>;
   auto pw = (PW*)word;
   cout << idx << "\t"  //
-       << bitset<PW::FIELD_BITCOUNT>(pw->bitcount) << " (" << pw->bitcount
-       << ")\t" << bitset<PW::FIELD_CODE>(pw->prefix_code) << "\n";
+       << bitset<PW::FIELD_BITCOUNT>(pw->bitcount) << " (" << pw->bitcount << ")\t"
+       << bitset<PW::FIELD_CODE>(pw->prefix_code) << "\n";
 }
 
 void hfbook_serial_reference(string fname, int bklen)
@@ -36,7 +36,7 @@ void hfbook_serial_reference(string fname, int bklen)
   hist->file(fname.c_str(), FromFile);
   memset(book->hptr(), 0xff, sizeof(u4) * bklen);
 
-  hf_buildtree_impl2<u4>(hist->hptr(), bklen, book->hptr());
+  phf_CPU_build_codebook_v2<u4>(hist->hptr(), bklen, book->hptr());
 
   for (auto i = 0; i < bklen; i++) {
     auto res = book->hptr(i);
@@ -69,8 +69,7 @@ void hfbook_serial_integrated(string fname, int bklen)
   hist->file(fname.c_str(), FromFile);
 
   psz::hf_buildbook<SEQ, u4, u4>(
-      hist->hptr(), bklen, book->hptr(), revbook->hptr(), revbook_bytes,
-      nullptr);
+      hist->hptr(), bklen, book->hptr(), revbook->hptr(), revbook_bytes, nullptr);
 
   for (auto i = 0; i < bklen; i++) {
     auto res = book->hptr(i);

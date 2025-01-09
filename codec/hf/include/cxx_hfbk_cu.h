@@ -25,8 +25,7 @@ namespace par_huffman {
 // Codeword length
 template <typename F>
 __global__ void GPU_GenerateCL(
-    F*, F*, int, F*, int*, F*, int*, F*, int*, int*, F*, int*, int*, uint32_t*,
-    int, int);
+    F*, F*, int, F*, int*, F*, int*, F*, int*, int*, F*, int*, int*, uint32_t*, int, int);
 
 // Forward Codebook
 template <typename F, typename H>
@@ -35,14 +34,10 @@ __global__ void GPU_GenerateCW(F* CL, H* CW, H* first, H* entry, int size);
 }  // namespace par_huffman
 
 // Parallel huffman global memory and kernels
-namespace psz {
 
 template <typename T, typename H>
-void hf_buildbook_cu(
-    uint32_t* freq, int const bklen, H* book, uint8_t* revbook,
-    int const revbook_nbyte, float* time, void* = nullptr);
-
-}  // namespace psz
-
+void phf_GPU_build_canonized_codebook(
+    uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_nbyte,
+    float* time, void* = nullptr);
 
 #endif /* BF3B0F28_4F93_423F_8D42_3D999207BE30 */

@@ -20,8 +20,8 @@
 #include <stdexcept>
 #include <type_traits>
 
+#include "cxx_hfbk.h"
 #include "hf_type.h"
-#include "hfbk.hh"
 #include "hfbuf.inl"
 #include "hfclass.hh"
 #include "hfcxx_module.hh"
@@ -87,9 +87,9 @@ struct HuffmanCodec<E, TIMING>::impl {
   {
     this->hist->dptr(freq);
 
-    psz::hf_buildbook<SEQ, E, H4>(
+    phf_CPU_build_canonized_codebook_v2<E, H4>(
         hist->control({D2H})->hptr(), bklen, buf->bk4->hptr(), buf->revbk4->hptr(),
-        revbk4_bytes(bklen), &_time_book, (cudaStream_t)stream);
+        revbk4_bytes(bklen), &_time_book);
     buf->bk4->control({Async_H2D}, (cudaStream_t)stream);
     buf->revbk4->control({Async_H2D}, (cudaStream_t)stream);
   }
