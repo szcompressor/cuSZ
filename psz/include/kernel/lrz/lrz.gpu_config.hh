@@ -1,3 +1,5 @@
+#include <array>
+
 namespace {
 dim3 div3(dim3 l, dim3 subl)
 {

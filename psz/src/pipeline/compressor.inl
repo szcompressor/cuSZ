@@ -367,13 +367,13 @@ Compressor<C>::Compressor() : pimpl{std::make_unique<impl>()} {};
 template <class C>
 Compressor<C>::Compressor(psz_context* ctx, bool debug) : pimpl{std::make_unique<impl>()}
 {
-  pimpl->template init(ctx, true /* comp */, debug);
+  pimpl->template init<psz_context>(ctx, true /* comp */, debug);
 }
 
 template <class C>
 Compressor<C>::Compressor(psz_header* header, bool debug) : pimpl{std::make_unique<impl>()}
 {
-  pimpl->template init(header, false /* decomp */, debug);
+  pimpl->template init<psz_header>(header, false /* decomp */, debug);
 }
 
 template <class C>
