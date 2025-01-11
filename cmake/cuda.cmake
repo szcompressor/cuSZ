@@ -148,6 +148,7 @@ add_library(CUSZ::utils ALIAS psz_cu_utils)
 add_library(psz_cu_phf
   codec/hf/src/hfclass.cc
   codec/hf/src/hf_est.cc
+  codec/hf/src/hfbuf.cc
   codec/hf/src/hfbk_impl1.seq.cc
   codec/hf/src/hfbk_impl2.seq.cc
   codec/hf/src/hfbk_internal.seq.cc

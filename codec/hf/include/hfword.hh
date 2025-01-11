@@ -16,6 +16,16 @@
 
 #include "c_type.h"
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+template <int WIDTH>
+struct HuffmanWord;
+
+using PW4 = HuffmanWord<4>;
+using PW8 = HuffmanWord<8>;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 // clang-format off
 template <int WIDTH> constexpr int FIELD_CODE();
 template <> constexpr int FIELD_CODE<4>() { return 27; }

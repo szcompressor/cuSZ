@@ -25,7 +25,7 @@ int SEQ_histogram_generic(
     out_hist[(int)n] += 1;
   }
   auto t2 = hires::now();
-  *milliseconds = static_cast<duration_t>(t2 - t1).count() * 1000;
+  if (milliseconds) *milliseconds = static_cast<duration_t>(t2 - t1).count() * 1000;
 
   return CUSZ_SUCCESS;
 }

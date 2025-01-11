@@ -95,20 +95,14 @@ struct HuffmanCodec<E, TIMING>::impl {
   }
 #endif
 
-  static int __revbk_bytes(int bklen, int BK_UNIT_BYTES, int SYM_BYTES)
-  {
-    static const int CELL_BITWIDTH = BK_UNIT_BYTES * 8;
-    return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
-  }
-
-  static int revbk4_bytes(int bklen) { return __revbk_bytes(bklen, 4, sizeof(SYM)); }
-  static int revbk8_bytes(int bklen) { return __revbk_bytes(bklen, 8, sizeof(SYM)); }
+  static int revbk4_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 4, sizeof(SYM)); }
+  static int revbk8_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 8, sizeof(SYM)); }
 
   void encode(E* in, size_t const len, uint8_t** out, size_t* outlen, phf_stream_t stream)
   {
     _time_lossless = 0;
 
-    hfpar_description hfpar{sublen, pardeg};
+    phf::par_config hfpar{sublen, pardeg};
 
     {
       phf_module::GPU_coarse_encode_phase1(
@@ -165,10 +159,9 @@ struct HuffmanCodec<E, TIMING>::impl {
 #define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
 
     phf_module::GPU_coarse_decode(
-        {PHF_ACCESSOR(BITSTREAM, H4), 0},
-        {PHF_ACCESSOR(REVBK, PHF_BYTE), (size_t)revbk4_bytes(header.bklen)},
-        {PHF_ACCESSOR(PAR_NBIT, M), (size_t)pardeg}, {PHF_ACCESSOR(PAR_ENTRY, M), (size_t)pardeg},
-        {(size_t)header.sublen, (size_t)header.pardeg}, {out_decoded, 0}, &_time_lossless, stream);
+        PHF_ACCESSOR(BITSTREAM, H4), PHF_ACCESSOR(REVBK, PHF_BYTE), revbk4_bytes(header.bklen),
+        PHF_ACCESSOR(PAR_NBIT, M), PHF_ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg,
+        out_decoded, &_time_lossless, stream);
 
 #undef PHF_ACCESSOR
   }

@@ -5,7 +5,7 @@
 #include "hf.h"
 #include "hf_type.h"
 #include "hfclass.hh"
-#include "hfcxx_array.hh"
+#include "phf_array.hh"
 
 namespace phf {
 

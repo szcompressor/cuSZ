@@ -1,8 +1,9 @@
 #include <cstddef>
 
+#include "hfbuf.h"
 #include "hfclass.hh"
-#include "hfcxx_array.hh"
 #include "mem/cxx_memobj.h"
+#include "phf_array.hh"
 #include "utils/err.hh"
 
 namespace phf {
@@ -61,14 +62,8 @@ struct HuffmanCodec<E, TIMING>::Buf {
   memobj<M>* sp_idx;
   memobj<M>* sp_num;
 
-  static int __revbk_bytes(int bklen, int BK_UNIT_BYTES, int SYM_BYTES)
-  {
-    static const int CELL_BITWIDTH = BK_UNIT_BYTES * 8;
-    return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
-  }
-
-  static int revbk4_bytes(int bklen) { return __revbk_bytes(bklen, 4, sizeof(SYM)); }
-  static int revbk8_bytes(int bklen) { return __revbk_bytes(bklen, 8, sizeof(SYM)); }
+  static int revbk4_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 4, sizeof(SYM)); }
+  static int revbk8_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 8, sizeof(SYM)); }
 
   // auxiliary
   void _debug(const std::string SYM_name, void* VAR, int SYM)
@@ -158,7 +153,7 @@ struct HuffmanCodec<E, TIMING>::Buf {
     return {sp_val->dptr(), sp_idx->dptr(), sp_num->dptr(), sp_num->hptr(), sp_val->len()};
   }
 
-  hfcxx_dense<H> dense_space(size_t n_chunk)
+  phf::dense<H> dense_space(size_t n_chunk)
   {
     return {dn_bitstream->dptr(), dn_bitcount->dptr(), n_chunk};
   }
