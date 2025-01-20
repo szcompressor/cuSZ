@@ -16,8 +16,7 @@ string fname;
 template <typename T>
 void profile_data_range(T* h_input, size_t const len, double& range)
 {
-  range = *std::max_element(h_input, h_input + len) -
-          *std::min_element(h_input, h_input + len);
+  range = *std::max_element(h_input, h_input + len) - *std::min_element(h_input, h_input + len);
 }
 
 int main(int argc, char** argv)

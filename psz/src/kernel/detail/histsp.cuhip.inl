@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include "kernel/hist.hh"
+#include "mem/cxx_backends.h"
 #include "utils/timer.hh"
 
 namespace psz {
@@ -82,12 +83,10 @@ __global__ void KERNEL_CUHIP_histogram_sparse_multiwarp(
 #endif
 
   for (auto i = 0; i < K; i++)
-    if (threadIdx.x % 32 == 31)
-      atomicAdd(&s_hist[(int)offset + i - R], p_hist[i]);
+    if (threadIdx.x % 32 == 31) atomicAdd(&s_hist[(int)offset + i - R], p_hist[i]);
   __syncthreads();
 
-  for (auto i = threadIdx.x; i < hist_len; i += blockDim.x)
-    atomicAdd(out_hist + i, s_hist[i]);
+  for (auto i = threadIdx.x; i < hist_len; i += blockDim.x) atomicAdd(out_hist + i, s_hist[i]);
   __syncthreads();
 }
 
@@ -99,25 +98,15 @@ using FREQ = uint32_t;
 
 template <typename E>
 int GPU_histogram_Cauchy(
-    E* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len,
-    float* milliseconds, void* stream)
+    E* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len, void* stream)
 {
-  auto chunk = 32768;
+  constexpr auto chunk = 32768;
+  constexpr auto num_workers = 256;  // n SIMD-32
   auto num_chunks = (data_len - 1) / chunk + 1;
-  auto num_workers = 256;  // n SIMD-32
-
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(stream);
 
   psz::KERNEL_CUHIP_histogram_sparse_multiwarp<E, FREQ>
-      <<<num_chunks, num_workers, sizeof(FREQ) * hist_len,
-         (cudaStream_t)stream>>>(
+      <<<num_chunks, num_workers, sizeof(FREQ) * hist_len, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
           in_data, data_len, out_hist, hist_len, chunk, hist_len / 2);
-  STOP_GPUEVENT_RECORDING(stream);
-
-  cudaStreamSynchronize((cudaStream_t)stream);
-  TIME_ELAPSED_GPUEVENT(milliseconds);
-  DESTROY_GPUEVENT_PAIR;
 
   return 0;
 }

@@ -100,8 +100,13 @@ void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
 
   capi_phf_coarse_tune(len, &sublen, &pardeg);
 
+  int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
+  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+      len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
+
   psz::module::GPU_histogram_generic<E>(
-      d_oridata.get(), len, d_hist.get(), bklen, &time_hist, stream);
+      d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
+      shmem_use, repeat, stream);
   phf::HuffmanCodec<E> codec(len, bklen, pardeg);
 
   codec.buildbook(d_hist.get(), stream);

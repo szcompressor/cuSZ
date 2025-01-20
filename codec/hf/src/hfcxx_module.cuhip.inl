@@ -8,12 +8,11 @@
 #include "utils/err.hh"
 #include "utils/timer.hh"
 
-#define PHF_MODULE_TPL template <typename E, typename H, bool TIMING>
-#define PHF_MODULE_CLASS phf::cuhip::modules<E, H, TIMING>
+#define PHF_MODULE_TPL template <typename E, typename H>
+#define PHF_MODULE_CLASS phf::cuhip::modules<E, H>
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1(
-    phf::array<E> in, phf::array<H> book, const int numSMs, phf::array<H> out,
-    float* time_lossless, void* stream)
+    phf::array<E> in, phf::array<H> book, const int numSMs, phf::array<H> out, void* stream)
 {
   auto div = [](auto whole, auto part) -> uint32_t {
     if (whole == 0) throw std::runtime_error("Dividend is zero.");
@@ -25,33 +24,14 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1(
   constexpr auto block_dim = BLOCK_DIM_ENCODE;
   auto grid_dim = div(in.len, block_dim);
 
-  if constexpr (TIMING) {
-    CREATE_GPUEVENT_PAIR;
-    START_GPUEVENT_RECORDING(stream);
-
-    phf::KERNEL_CUHIP_encode_phase1_fill<E, H>                             //
-        <<<8 * numSMs, 256, sizeof(H) * book.len, (cudaStream_t)stream>>>  //
-        (in.buf, in.len, book.buf, book.len, out.buf);
-
-    STOP_GPUEVENT_RECORDING(stream);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-
-    float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
-    if (time_lossless) *time_lossless += stage_time;
-  }
-  else {
-    phf::KERNEL_CUHIP_encode_phase1_fill<E, H>                             //
-        <<<8 * numSMs, 256, sizeof(H) * book.len, (cudaStream_t)stream>>>  //
-        (in.buf, in.len, book.buf, book.len, out.buf);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  }
+  phf::KERNEL_CUHIP_encode_phase1_fill<E, H>                             //
+      <<<8 * numSMs, 256, sizeof(H) * book.len, (cudaStream_t)stream>>>  //
+      (in.buf, in.len, book.buf, book.len, out.buf);
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1_collect_metadata(
     phf::array<E> in, phf::array<H> book, const int numSMs, phf::array<H> out,
-    phf::array<M> par_nbit, phf::array<M> par_ncell, phf::par_config hfpar, float* time_lossless,
-    void* stream)
+    phf::array<M> par_nbit, phf::array<M> par_ncell, phf::par_config hfpar, void* stream)
 {
   auto div = [](auto whole, auto part) -> uint32_t {
     if (whole == 0) throw std::runtime_error("Dividend is zero.");
@@ -61,37 +41,18 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1_collect_metadata(
 
   constexpr auto BLOCK_DIM_ENCODE = 256;
   constexpr auto block_dim = BLOCK_DIM_ENCODE;
-
   auto repeat = 10;
   auto grid_dim = div(in.len, repeat * hfpar.sublen);
 
-  if constexpr (TIMING) {
-    CREATE_GPUEVENT_PAIR;
-    START_GPUEVENT_RECORDING(stream);
-
-    phf::experimental::KERNEL_CUHIP_encode_phase1_fill_collect_metadata<E, H>
-        <<<grid_dim, block_dim, sizeof(H) * book.len, (cudaStream_t)stream>>>(
-            in.buf, in.len, book.buf, book.len, hfpar.sublen, hfpar.pardeg, repeat, out.buf,
-            par_nbit.buf, par_ncell.buf);
-    STOP_GPUEVENT_RECORDING(stream);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-
-    float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
-    if (time_lossless) *time_lossless += stage_time;
-  }
-  else {
-    phf::experimental::KERNEL_CUHIP_encode_phase1_fill_collect_metadata<E, H>
-        <<<grid_dim, block_dim, sizeof(H) * book.len, (cudaStream_t)stream>>>(
-            in.buf, in.len, book.buf, book.len, hfpar.sublen, hfpar.pardeg, repeat, out.buf,
-            par_nbit.buf, par_ncell.buf);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  }
+  phf::experimental::KERNEL_CUHIP_encode_phase1_fill_collect_metadata<E, H>
+      <<<grid_dim, block_dim, sizeof(H) * book.len, (cudaStream_t)stream>>>(
+          in.buf, in.len, book.buf, book.len, hfpar.sublen, hfpar.pardeg, repeat, out.buf,
+          par_nbit.buf, par_ncell.buf);
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase2(
     phf::array<H> in, phf::par_config hfpar, phf::array<H> deflated, phf::array<M> par_nbit,
-    phf::array<M> par_ncell, float* time_lossless, void* stream)
+    phf::array<M> par_ncell, void* stream)
 {
   auto div = [](auto whole, auto part) -> uint32_t {
     if (whole == 0) throw std::runtime_error("Dividend is zero.");
@@ -103,30 +64,12 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase2(
   auto block_dim = BLOCK_DIM_DEFLATE;
   auto grid_dim = div(hfpar.pardeg, block_dim);
 
-  if constexpr (TIMING) {
-    CREATE_GPUEVENT_PAIR;
-    START_GPUEVENT_RECORDING(stream);
-
-    phf::KERNEL_CUHIP_encode_phase2_deflate<H>              //
-        <<<grid_dim, block_dim, 0, (cudaStream_t)stream>>>  //
-        (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen, hfpar.pardeg);
-
-    STOP_GPUEVENT_RECORDING(stream);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-
-    float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
-    if (time_lossless) *time_lossless += stage_time;
-  }
-  else {
-    phf::KERNEL_CUHIP_encode_phase2_deflate<H>              //
-        <<<grid_dim, block_dim, 0, (cudaStream_t)stream>>>  //
-        (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen, hfpar.pardeg);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  }
+  phf::KERNEL_CUHIP_encode_phase2_deflate<H>              //
+      <<<grid_dim, block_dim, 0, (cudaStream_t)stream>>>  //
+      (deflated.buf, in.len, par_nbit.buf, par_ncell.buf, hfpar.sublen, hfpar.pardeg);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3_sync(
     phf::array<M> d_par_nbit, phf::array<M> d_par_ncell,
     phf::array<M> d_par_entry,  //
     phf::par_config hfpar,      //
@@ -159,81 +102,36 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3(
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase4(
     phf::array<H> buf, phf::array<M> par_entry, phf::array<M> par_ncell, phf::par_config hfpar,
-    phf::array<H> bitstream, float* time_lossless, void* stream)
+    phf::array<H> bitstream, void* stream)
 {
-  if constexpr (TIMING) {
-    CREATE_GPUEVENT_PAIR;
-    START_GPUEVENT_RECORDING(stream);
-
-    phf::KERNEL_CUHIP_encode_phase4_concatenate<H, M>
-        <<<hfpar.pardeg, 128, 0, (cudaStream_t)stream>>>  //
-        (buf.buf, par_entry.buf, par_ncell.buf, hfpar.sublen, bitstream.buf);
-
-    STOP_GPUEVENT_RECORDING(stream);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-
-    float stage_time;
-    TIME_ELAPSED_GPUEVENT(&stage_time);
-    if (time_lossless) *time_lossless += stage_time;
-  }
-  else {
-    phf::KERNEL_CUHIP_encode_phase4_concatenate<H, M>
-        <<<hfpar.pardeg, 128, 0, (cudaStream_t)stream>>>  //
-        (buf.buf, par_entry.buf, par_ncell.buf, hfpar.sublen, bitstream.buf);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  }
+  phf::KERNEL_CUHIP_encode_phase4_concatenate<H, M>
+      <<<hfpar.pardeg, 128, 0, (cudaStream_t)stream>>>  //
+      (buf.buf, par_entry.buf, par_ncell.buf, hfpar.sublen, bitstream.buf);
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
     H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
-    M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded,
-    float* time_lossless, void* stream)
+    M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded, void* stream)
 {
   auto div = [](auto l, auto subl) { return (l - 1) / subl + 1; };
   auto const block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = div(pardeg, block_dim);
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(stream);
-
   phf::KERNEL_CUHIP_HF_decode<E, H, M>                              //
       <<<grid_dim, block_dim, revbook_len, (cudaStream_t)stream>>>  //
       (in_bitstream, in_revbook, in_par_nbit, in_par_entry, revbook_len, sublen, pardeg,
        out_decoded);
-
-  STOP_GPUEVENT_RECORDING(stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-
-  TIME_ELAPSED_GPUEVENT(time_lossless);
-  DESTROY_GPUEVENT_PAIR;
 }
 
 // TODO ret type (status) and exe_policy
 // duplicate with psz's
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_experimental_scatter(
-    phf::sparse<E> compact, E* out, f4* milliseconds, void* stream)
+    phf::sparse<E> compact, E* out, void* stream)
 {
   auto grid_dim = (*(compact.host_num) - 1) / 128 + 1;
 
-  if constexpr (TIMING) {
-    CREATE_GPUEVENT_PAIR;
-    START_GPUEVENT_RECORDING(stream);
-    phf::experimental::KERNEL_CUHIP_scatter<E, u4><<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
-        compact.val, compact.idx, *(compact.host_num), out);
-    STOP_GPUEVENT_RECORDING(stream);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-
-    auto added_time = new float{0};
-    TIME_ELAPSED_GPUEVENT(added_time);
-
-    *milliseconds += *added_time;
-    DESTROY_GPUEVENT_PAIR;
-  }
-  else {
-    phf::experimental::KERNEL_CUHIP_scatter<E, u4><<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
-        compact.val, compact.idx, *(compact.host_num), out);
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  }
+  phf::experimental::KERNEL_CUHIP_scatter<E, u4><<<grid_dim, 128, 0, (cudaStream_t)stream>>>(
+      compact.val, compact.idx, *(compact.host_num), out);
 
   // return CUSZ_SUCCESS;
 }

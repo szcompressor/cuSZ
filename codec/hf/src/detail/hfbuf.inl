@@ -11,8 +11,8 @@ namespace phf {
 template <typename T>
 using memobj = _portable::memobj<T>;
 
-template <typename E, bool TIMING>
-struct HuffmanCodec<E, TIMING>::Buf {
+template <typename E>
+struct HuffmanCodec<E>::Buf {
   // helper
   typedef struct RC {
     static const int SCRATCH = 0;

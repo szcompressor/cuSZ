@@ -18,7 +18,7 @@
 
 namespace phf {
 
-template <typename E, bool TIMING = true>
+template <typename E>
 class HuffmanCodec {
  private:
   using SYM = E;
@@ -35,9 +35,7 @@ class HuffmanCodec {
   phf_dtype const in_dtype;
 
   // TODO Is specifying inlen when constructing proper?
-  HuffmanCodec(
-      size_t const inlen, int const bklen, int const pardeg,
-      bool debug = false);
+  HuffmanCodec(size_t const inlen, int const bklen, int const pardeg, bool debug = false);
   ~HuffmanCodec();
 
   float time_book() const;

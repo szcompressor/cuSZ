@@ -24,13 +24,13 @@ int GPU_predict_spline(
     E* out_ectrl, dim3 const ectrl_len3, dim3 const ectrl_stride3,     //
     T* out_anchor, dim3 const anchor_len3, dim3 const anchor_stride3,  //
     void* out_outlier,                                                 //
-    double eb, uint32_t radius, float* time, void* stream);
+    double eb, uint32_t radius, void* stream);
 
 template <typename T, typename E, typename FP = T>
 int GPU_reverse_predict_spline(
     E* in_ectrl, dim3 const ectrl_len3, dim3 const ectrl_stride3,     //
     T* in_anchor, dim3 const anchor_len3, dim3 const anchor_stride3,  //
     T* out_xdata, dim3 const xdata_len3, dim3 const xdata_stride3,    //
-    double eb, uint32_t radius, float* time, void* stream);
+    double eb, uint32_t radius, void* stream);
 
 };  // namespace psz::cuhip

@@ -289,7 +289,7 @@ namespace psz::module {
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, std::array<size_t, 3> const _data_len3, Eq* const out_eq, void* out_outlier,
-    f8 const eb, uint16_t const radius, f4* time_elapsed, void* stream)
+    f8 const eb, uint16_t const radius, void* stream)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
@@ -302,33 +302,24 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
   auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
   auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
-
-  if (d == 1) {
+  if (d == 1)
     psz::KERNEL_CUHIP_c_lorenzo_1d1l<
         T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, UseZigZag, Eq>
         <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
-           (cudaStream_t)stream>>>(
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r);
-  }
-  else if (d == 2) {
+  else if (d == 2)
     psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
         <<<c_lorenzo<2>::thread_grid(data_len3), c_lorenzo<2>::thread_block, 0,
-           (cudaStream_t)stream>>>(
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r);
-  }
-  else if (d == 3) {
+  else if (d == 3)
     psz::KERNEL_CUHIP_c_lorenzo_3d1l<T, UseZigZag, Eq>
         <<<c_lorenzo<3>::thread_grid(data_len3), c_lorenzo<3>::thread_block, 0,
-           (cudaStream_t)stream>>>(
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r);
-  }
-
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
+  else
+    return CUSZ_NOT_IMPLEMENTED;
 
   return CUSZ_SUCCESS;
 }
@@ -343,15 +334,15 @@ pszerror GPU_lorenzo_prequant(
   auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
   CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
+  START_GPUEVENT_RECORDING((GPU_BACKEND_SPECIFIC_STREAM)stream);
 
   psz::KERNEL_CUHIP_lorenzo_prequant<
       TIN, TOUT, ReverseProcess, TIN, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>
       <<<c_lorenzo<1>::thread_grid(dim3(len)), c_lorenzo<1>::thread_block, 0,
-         (cudaStream_t)stream>>>(in, len, ebx2_r, ebx2, out);
+         (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(in, len, ebx2_r, ebx2, out);
 
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+  STOP_GPUEVENT_RECORDING((GPU_BACKEND_SPECIFIC_STREAM)stream);
+  CHECK_GPU(cudaStreamSynchronize((GPU_BACKEND_SPECIFIC_STREAM)stream));
   TIME_ELAPSED_GPUEVENT(time_elapsed);
   DESTROY_GPUEVENT_PAIR;
 
@@ -364,7 +355,7 @@ pszerror GPU_lorenzo_prequant(
 #define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                            \
   template pszerror psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>( \
       T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq,   \
-      void* out_outlier, f8 const eb, uint16_t const radius, f4* time_elapsed, void* stream);
+      void* out_outlier, f8 const eb, uint16_t const radius, void* stream);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
   INSTANCIATE_GPU_L23R_3params(T, false, Eq); \

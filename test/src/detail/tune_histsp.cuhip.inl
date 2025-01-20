@@ -47,7 +47,7 @@ bool test1_debug()
   in->control({H2D});
   // float __t;
 
-  float t_histsp_ser, t_histsp_cuda;
+  float t_histsp_ser;
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -55,8 +55,7 @@ bool test1_debug()
   psz::module::SEQ_histogram_Cauchy_v2<T>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
 
-  psz::module::GPU_histogram_Cauchy<T>(
-      in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
+  psz::module::GPU_histogram_Cauchy<T>(in->dptr(), inlen, o_gpusp->dptr(), NSYM, stream);
 
   o_gpusp->control({D2H});
 
@@ -128,15 +127,18 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
 
   in->control({H2D});
-  float t_hist_cuda, t_histsp_ser, t_histsp_cuda;
+  float t_histsp_ser;
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  psz::module::GPU_histogram_Cauchy<T>(
-      in->dptr(), inlen, o_gpusp->dptr(), NSYM, &t_histsp_cuda, stream);
+  int grid_dim, block_dim, shmem_use, r_per_block;
+  psz::module::GPU_histogram_generic_optimizer_on_initialization<T>(
+      inlen, NSYM, grid_dim, block_dim, shmem_use, r_per_block);
   psz::module::GPU_histogram_generic<T>(
-      in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_cuda, stream);
+      in->dptr(), inlen, o_gpu->dptr(), NSYM, grid_dim, block_dim, shmem_use, r_per_block, stream);
+
+  psz::module::GPU_histogram_Cauchy<T>(in->dptr(), inlen, o_gpusp->dptr(), NSYM, stream);
 
   psz::module::SEQ_histogram_Cauchy_v2<T>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
@@ -232,14 +234,17 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
   in->control({H2D});
 
-  float t_hist_gpu, t_histsp_ser;
+  float t_histsp_ser;
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   // run CPU and GPU reference
+  int grid_dim, block_dim, shmem_use, r_per_block;
+  psz::module::GPU_histogram_generic_optimizer_on_initialization<T>(
+      inlen, NSYM, grid_dim, block_dim, shmem_use, r_per_block);
   psz::module::GPU_histogram_generic<T>(
-      in->dptr(), inlen, o_gpu->dptr(), NSYM, &t_hist_gpu, stream);
+      in->dptr(), inlen, o_gpu->dptr(), NSYM, grid_dim, block_dim, shmem_use, r_per_block, stream);
 
   psz::module::SEQ_histogram_Cauchy_v2<T>(
       in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);

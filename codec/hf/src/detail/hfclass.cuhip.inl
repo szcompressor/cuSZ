@@ -28,16 +28,16 @@
 #include "mem/cxx_memobj.h"
 #include "utils/timer.hh"
 
-#define PHF_TPL template <typename E, bool TIMING>
-#define PHF_CLASS HuffmanCodec<E, TIMING>
+#define PHF_TPL template <typename E>
+#define PHF_CLASS HuffmanCodec<E>
 
 namespace phf {
 
-template <typename E, bool TIMING>
-struct HuffmanCodec<E, TIMING>::impl {
+template <typename E>
+struct HuffmanCodec<E>::impl {
   static const bool TimeBreakdown{false};
 
-  using phf_module = phf::cuhip::modules<E, H, TIMING>;
+  using phf_module = phf::cuhip::modules<E, H>;
   using Header = phf_header;
 
   phf_header header;  // TODO combine psz and pszhf headers
@@ -48,6 +48,8 @@ struct HuffmanCodec<E, TIMING>::impl {
   float time_codec() const { return _time_lossless; }
   size_t inlen() const { return len; };
 
+  GPU_EVENT event_start, event_end;
+
   size_t pardeg, sublen;
   int numSMs;
   size_t len, bklen;
@@ -56,7 +58,11 @@ struct HuffmanCodec<E, TIMING>::impl {
   Buf* buf;
 
   impl() = default;
-  ~impl() { delete buf; }
+  ~impl()
+  {
+    delete buf;
+    event_destroy_pair(event_start, event_end);
+  }
 
   // keep ctor short
   void init(size_t const inlen, int const _bklen, int const _pardeg, bool debug)
@@ -71,6 +77,8 @@ struct HuffmanCodec<E, TIMING>::impl {
     // TODO make unique_ptr; modify ctor
     buf = new Buf(inlen, _bklen, _pardeg, true, debug);
     hist = new memobj<u4>(bklen, "phf::hist", {MallocHost});  // dptr from external
+
+    std::tie(event_start, event_end) = event_create_pair();
   }
 
 #ifdef ENABLE_HUFFBK_GPU
@@ -104,37 +112,35 @@ struct HuffmanCodec<E, TIMING>::impl {
 
     phf::par_config hfpar{sublen, pardeg};
 
-    {
-      phf_module::GPU_coarse_encode_phase1(
-          {in, len}, buf->bk4->array1_d(), numSMs, buf->scratch4->array1_d(), &_time_lossless,
-          stream);
+    event_recording_start(event_start, stream);
 
-      if constexpr (TimeBreakdown) { b = hires::now(); }
+    phf_module::GPU_coarse_encode_phase1(
+        {in, len}, buf->bk4->array1_d(), numSMs, buf->scratch4->array1_d(), stream);
 
-      phf_module::GPU_coarse_encode_phase2(
-          buf->scratch4->array1_d(), hfpar, buf->scratch4->array1_d() /* placeholder */,
-          buf->par_nbit->array1_d(), buf->par_ncell->array1_d(), &_time_lossless, stream);
+    phf_module::GPU_coarse_encode_phase2(
+        buf->scratch4->array1_d(), hfpar, buf->scratch4->array1_d() /* placeholder */,
+        buf->par_nbit->array1_d(), buf->par_ncell->array1_d(), stream);
 
-      if constexpr (TimeBreakdown) c = hires::now();
-    }
+    // sync_by_stream(stream);
 
-    phf_module::GPU_coarse_encode_phase3(
+    phf_module::GPU_coarse_encode_phase3_sync(
         buf->par_nbit->array1_d(), buf->par_ncell->array1_d(), buf->par_entry->array1_d(), hfpar,
         buf->par_nbit->array1_h(), buf->par_ncell->array1_h(), buf->par_entry->array1_h(),
         &header.total_nbit, &header.total_ncell, nullptr, stream);
 
-    if constexpr (TimeBreakdown) d = hires::now();
+    // sync_by_stream(stream);
 
     phf_module::GPU_coarse_encode_phase4(
         buf->scratch4->array1_d(), buf->par_entry->array1_d(), buf->par_ncell->array1_d(), hfpar,
-        buf->bitstream4->array1_d(), &_time_lossless, stream);
+        buf->bitstream4->array1_d(), stream);
 
-    if constexpr (TimeBreakdown) e = hires::now();
+    event_recording_stop(event_end, stream);
+    event_time_elapsed(event_start, event_end, &_time_lossless);
+
+    sync_by_stream(stream);
 
     make_metadata();
     buf->memcpy_merge(header, stream);  // TODO externalize/make explicit
-
-    if constexpr (TimeBreakdown) f = hires::now();
 
     if constexpr (TimeBreakdown) {
       cout << "phase1: " << static_cast<duration_t>(b - a).count() * 1e6 << endl;
@@ -158,10 +164,15 @@ struct HuffmanCodec<E, TIMING>::impl {
 
 #define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
 
+    event_recording_start(event_start, stream);
+
     phf_module::GPU_coarse_decode(
         PHF_ACCESSOR(BITSTREAM, H4), PHF_ACCESSOR(REVBK, PHF_BYTE), revbk4_bytes(header.bklen),
         PHF_ACCESSOR(PAR_NBIT, M), PHF_ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg,
-        out_decoded, &_time_lossless, stream);
+        out_decoded, stream);
+
+    event_recording_stop(event_end, stream);
+    event_time_elapsed(event_start, event_end, &_time_lossless);
 
 #undef PHF_ACCESSOR
   }

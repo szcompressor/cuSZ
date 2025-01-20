@@ -292,8 +292,7 @@ namespace psz::module {
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_x_lorenzo_nd(
     Eq* const in_eq, T* const in_outlier, T* const out_data,
-    std::array<size_t, 3> const _data_len3, f8 const eb, uint16_t const radius, f4* time_elapsed,
-    void* stream)
+    std::array<size_t, 3> const _data_len3, f8 const eb, uint16_t const radius, void* stream)
 {
   using namespace psz::kernelconfig;
 
@@ -303,44 +302,34 @@ pszerror GPU_x_lorenzo_nd(
   auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
   auto d = lorenzo_utils::ndim(data_len3);
 
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((cudaStream_t)stream);
-
-  if (d == 1) {
+  if (d == 1)
     psz::KERNEL_CUHIP_x_lorenzo_1d1l<
         T, x_lorenzo<1>::tile.x, x_lorenzo<1>::sequentiality.x, UseZigZag, Eq>
         <<<x_lorenzo<1>::thread_grid(data_len3), x_lorenzo<1>::thread_block, 0,
-           (cudaStream_t)stream>>>(
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len3, data_leap3, radius, (T)ebx2);
-  }
-  else if (d == 2) {
+  else if (d == 2)
     psz::KERNEL_CUHIP_x_lorenzo_2d1l<T, UseZigZag, Eq>
         <<<x_lorenzo<2>::thread_grid(data_len3), x_lorenzo<2>::thread_block, 0,
-           (cudaStream_t)stream>>>(
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len3, data_leap3, radius, (T)ebx2);
-  }
-  else if (d == 3) {
+  else if (d == 3)
     psz::KERNEL_CUHIP_x_lorenzo_3d1l<T, UseZigZag, Eq>
         <<<x_lorenzo<3>::thread_grid(data_len3), x_lorenzo<3>::thread_block, 0,
-           (cudaStream_t)stream>>>(
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len3, data_leap3, radius, (T)ebx2);
-  }
-
-  STOP_GPUEVENT_RECORDING((cudaStream_t)stream);
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
+  else
+    return CUSZ_NOT_IMPLEMENTED;
 
   return CUSZ_SUCCESS;
 }
 
 }  // namespace psz::module
 
-#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)                          \
-  template pszerror psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(            \
-      Eq* const in_eq, T* const in_outlier, T* const out_data,                   \
-      std::array<size_t, 3> const data_len3, f8 const eb, uint16_t const radius, \
-      f4* time_elapsed, void* stream);
+#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)               \
+  template pszerror psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>( \
+      Eq* const in_eq, T* const in_outlier, T* const out_data,        \
+      std::array<size_t, 3> const data_len3, f8 const eb, uint16_t const radius, void* stream);
 
 #define INSTANTIATE_GPU_L23X_2params(T, Eq)   \
   INSTANTIATE_GPU_L23X_3params(T, false, Eq); \

@@ -3,12 +3,8 @@
 
 namespace phf::cuhip {
 
-template class modules<u1, u4, true>;
-template class modules<u2, u4, true>;
-template class modules<u4, u4, true>;
+template class modules<u1, u4>;
+template class modules<u2, u4>;
+template class modules<u4, u4>;
 
-template class modules<u1, u4, false>;
-template class modules<u2, u4, false>;
-template class modules<u4, u4, false>;
-
-}  // namespace phf::coarse
+}  // namespace phf::cuhip

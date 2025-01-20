@@ -36,8 +36,8 @@ namespace psz {
 
 template <typename T>
 __global__ void KERNEL_CUHIP_histogram_naive(
-    T* in_data, size_t const data_len, uint32_t* out_bins,
-    uint16_t const bins_len, uint16_t const repeat)
+    T* in_data, size_t const data_len, uint32_t* out_bins, uint16_t const bins_len,
+    uint16_t const repeat)
 {
   auto i = blockDim.x * blockIdx.x + threadIdx.x;
   auto j = 0u;
@@ -63,16 +63,14 @@ __global__ void KERNEL_CUHIP_p2013Histogram(
   const unsigned int lane = tix % WARP_SIZE;
   const unsigned int warps_block = bdx / WARP_SIZE;
   const unsigned int off_rep = (bins_len + 1) * (tix % repeat);
-  const unsigned int begin =
-      (data_len / warps_block) * warp_id + WARP_SIZE * blockIdx.x + lane;
+  const unsigned int begin = (data_len / warps_block) * warp_id + WARP_SIZE * blockIdx.x + lane;
   unsigned int end = (data_len / warps_block) * (warp_id + 1);
   const unsigned int step = WARP_SIZE * gridDim.x;
 
   // final warp handles data outside of the warps_block partitions
   if (warp_id >= warps_block - 1) end = data_len;
 
-  for (unsigned int pos = tix; pos < (bins_len + 1) * repeat; pos += bdx)
-    Hs[pos] = 0;
+  for (unsigned int pos = tix; pos < (bins_len + 1) * repeat; pos += bdx) Hs[pos] = 0;
   __syncthreads();
 
   for (unsigned int i = begin; i < end; i += step) {
@@ -96,67 +94,54 @@ __global__ void KERNEL_CUHIP_p2013Histogram(
 namespace psz::module {
 
 template <typename T>
-int GPU_histogram_generic(
-    T* in_data, size_t const data_len, uint32_t* out_hist,
-    uint16_t const hist_len, float* milliseconds, void* stream)
+void GPU_histogram_generic_optimizer_on_initialization(
+    size_t const data_len, uint16_t const hist_len, int& grid_dim, int& block_dim, int& shmem_use,
+    int& r_per_block)
 {
   int device_id, max_bytes, num_SMs;
-  int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
+  int items_per_thread;
 
   cudaGetDevice(&device_id);
   cudaDeviceGetAttribute(&num_SMs, cudaDevAttrMultiProcessorCount, device_id);
 
-  auto query_maxbytes = [&]() {
-    int max_bytes_opt_in;
-    cudaDeviceGetAttribute(
-        &max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
+  //  query_maxbytes
+  int max_bytes_opt_in;
+  cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
 
-    // account for opt-in extra shared memory on certain architectures
-    cudaDeviceGetAttribute(
-        &max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
-    max_bytes = std::max(max_bytes, max_bytes_opt_in);
+  // account for opt-in extra shared memory on certain architectures
+  cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
+  max_bytes = std::max(max_bytes, max_bytes_opt_in);
 
-    // config kernel attribute
-    cudaFuncSetAttribute(
-        (void*)KERNEL_CUHIP_p2013Histogram<T, uint32_t>,
-        (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize,
-        max_bytes);
-  };
+  // config kernel attribute
+  cudaFuncSetAttribute(
+      (void*)KERNEL_CUHIP_p2013Histogram<T, uint32_t>,
+      (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
 
-  auto optimize_launch = [&]() {
-    items_per_thread = 1;
-    r_per_block = (max_bytes / sizeof(int)) / (hist_len + 1);
-    grid_dim = num_SMs;
-    // fits to size
-    block_dim =
-        ((((data_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
-    while (block_dim > 1024) {
-      if (r_per_block <= 1) { block_dim = 1024; }
-      else {
-        r_per_block /= 2;
-        grid_dim *= 2;
-        block_dim =
-            ((((data_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
-      }
+  //  optimize_launch
+  items_per_thread = 1;
+  r_per_block = (max_bytes / sizeof(int)) / (hist_len + 1);
+  grid_dim = num_SMs;
+  // fits to size
+  block_dim = ((((data_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+  while (block_dim > 1024) {
+    if (r_per_block <= 1) { block_dim = 1024; }
+    else {
+      r_per_block /= 2;
+      grid_dim *= 2;
+      block_dim = ((((data_len / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
     }
-    shmem_use = ((hist_len + 1) * r_per_block) * sizeof(int);
-  };
+  }
+  shmem_use = ((hist_len + 1) * r_per_block) * sizeof(int);
+}
 
-  query_maxbytes();
-  optimize_launch();
-
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING(stream);
-
-  KERNEL_CUHIP_p2013Histogram<<<
-      grid_dim, block_dim, shmem_use, (cudaStream_t)stream>>>  //
+template <typename T>
+int GPU_histogram_generic(
+    T* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
+    int const grid_dim, int const block_dim, int const shmem_use, int const r_per_block,
+    void* stream)
+{
+  KERNEL_CUHIP_p2013Histogram<<<grid_dim, block_dim, shmem_use, (cudaStream_t)stream>>>  //
       (in_data, data_len, out_hist, hist_len, r_per_block);
-
-  STOP_GPUEVENT_RECORDING(stream);
-
-  cudaStreamSynchronize((cudaStream_t)stream);
-  TIME_ELAPSED_GPUEVENT(milliseconds);
-  DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }

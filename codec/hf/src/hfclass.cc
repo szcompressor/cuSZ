@@ -21,10 +21,6 @@
 // definitions
 #include "detail/hfclass.cuhip.inl"
 
-template class phf::HuffmanCodec<u1, true>;
-template class phf::HuffmanCodec<u2, true>;
-template class phf::HuffmanCodec<u4, true>;
-
-template class phf::HuffmanCodec<u1, false>;
-template class phf::HuffmanCodec<u2, false>;
-template class phf::HuffmanCodec<u4, false>;
+template class phf::HuffmanCodec<u1>;
+template class phf::HuffmanCodec<u2>;
+template class phf::HuffmanCodec<u4>;

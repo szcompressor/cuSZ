@@ -21,6 +21,7 @@
 #include "exception/exception.hh"
 #include "hfclass.hh"
 #include "kernel.hh"
+#include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
@@ -62,13 +63,14 @@ struct Compressor<C>::impl {
   using M = typename C::M;
   using Header = psz_header;
 
+  GPU_EVENT event_start, event_end;
+
   using H = u4;
   using H4 = u4;
   using H8 = u8;
   using TimeRecord = std::vector<std::tuple<const char*, double>>;
   using timerecord_t = TimeRecord*;
 
-  static const int FORCED_ALIGN = 128;
   static const int HEADER = 0;
   static const int ANCHOR = 1;
   static const int ENCODED = 2;
@@ -81,6 +83,7 @@ struct Compressor<C>::impl {
   pszmempool_cxx<T, E, H>* mem;
   std::vector<pszerror> error_list;
   TimeRecord timerecord;
+  int hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat;
 
   float timerecord_v2[STAGE_END];
 
@@ -100,19 +103,31 @@ struct Compressor<C>::impl {
     delete mem;
     if (codec_hf) delete codec_hf;
     if (codec_fzg) delete codec_fzg;
+    event_destroy_pair(event_start, event_end);
   }
 
   template <class CONFIG>
   void init(CONFIG* ctx, bool iscompression, bool debug)
   {
+    // extract context
     const auto radius = ctx->radius;
     const auto pardeg = ctx->vle_pardeg;
     const auto bklen = radius * 2;
     const auto x = ctx->x, y = ctx->y, z = ctx->z;
     len = x * y * z;
 
+    // initialize internal buffers
     mem = new pszmempool_cxx<T, E, H>(x, radius, y, z, iscompression);
 
+    // initialize profiling
+    std::tie(event_start, event_end) = event_create_pair();
+
+    // optimize component(s)
+    psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+        len, radius * 2, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
+        hist_generic_repeat);
+
+    // initialize component(s)
     if (ctx->codec1_type == Huffman)
       codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
     else if (ctx->codec1_type == FZGPUCodec)
@@ -128,26 +143,28 @@ struct Compressor<C>::impl {
     auto stride3 = MAKE_GPU_LEN3(1, ctx->x, ctx->x * ctx->y);
     auto len3_std = MAKE_STD_LEN3(ctx->x, ctx->y, ctx->z);
 
+    event_recording_start(event_start, stream);
+
     if (ctx->pred_type == Lorenzo)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred,
-          stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
     else if (ctx->pred_type == LorenzoZigZag)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred,
-          stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
     else if (ctx->pred_type == LorenzoProto)
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, &time_pred,
-          stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
     else if (ctx->pred_type == Spline)
       psz::cuhip::GPU_predict_spline(
           in, len3, stride3, mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->stride3(),
           mem->anchor(), mem->_anchor->len3(), mem->_anchor->stride3(), (void*)mem->compact,
-          ctx->eb, ctx->radius, &time_pred, stream);
+          ctx->eb, ctx->radius, stream);
+
+    event_recording_stop(event_end, stream);
+    event_time_elapsed(event_start, event_end, &time_pred);
 
     /* make outlier count seen on host */
-    mem->compact->make_host_accessible((cudaStream_t)stream);
+    mem->compact->make_host_accessible((GPU_BACKEND_SPECIFIC_STREAM)stream);
     ctx->splen = mem->compact->num_outliers();
   }
   catch (const psz::exception_outlier_overflow& e) {
@@ -159,18 +176,21 @@ struct Compressor<C>::impl {
 
   void compress_histogram(pszctx* ctx, void* stream)
   {
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
+    event_recording_start(event_start, stream);
 
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
     if (ctx->hist_type == psz_histogramtype::HistogramSparse)
-      psz::module::GPU_histogram_Cauchy<E>(
-          mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
+      psz::module::GPU_histogram_Cauchy<E>(mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
     else if (ctx->hist_type == psz_histogramtype::HistogramGeneric)
       psz::module::GPU_histogram_generic<E>(
-          mem->ectrl(), len, mem->hist(), ctx->dict_size, &time_hist, stream);
-
+          mem->ectrl(), len, mem->hist(), ctx->dict_size, hist_generic_grid_dim,
+          hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat, stream);
 #elif defined(PSZ_USE_HIP)
     // not implemented
 #endif
+
+    event_recording_stop(event_end, stream);
+    event_time_elapsed(event_start, event_end, &time_hist);
   }
 
   void compress_encode(pszctx* ctx, void* stream)
@@ -256,24 +276,26 @@ struct Compressor<C>::impl {
     auto stride3 = MAKE_GPU_LEN3(1, header->x, header->x * header->y);
     auto len3_std = MAKE_STD_LEN3(header->x, header->y, header->z);
 
+    event_recording_start(event_start, stream);
+
     if (header->pred_type == Lorenzo)
       psz::module::GPU_x_lorenzo_nd<T, false, E>(
-          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, &time_pred,
-          stream);
+          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
     else if (header->pred_type == LorenzoZigZag)
       psz::module::GPU_x_lorenzo_nd<T, true, E>(
-          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, &time_pred,
-          stream);
+          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
     else if (header->pred_type == LorenzoProto)
       psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
-          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, &time_pred,
-          stream);
+          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
     else if (header->pred_type == Spline)
       psz::cuhip::GPU_reverse_predict_spline(
           mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->stride3(),  //
           d_anchor, mem->_anchor->len3(), mem->_anchor->stride3(),    //
           d_xdata, len3, stride3,                                     //
-          header->eb, header->radius, &time_pred, stream);
+          header->eb, header->radius, stream);
+
+    event_recording_stop(event_end, stream);
+    event_time_elapsed(event_start, event_end, &time_pred);
   }
 
   void decompress_decode(psz_header* header, BYTE* in, psz_stream_t stream)
