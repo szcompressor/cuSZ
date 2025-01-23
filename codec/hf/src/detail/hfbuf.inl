@@ -1,6 +1,6 @@
 #include <cstddef>
 
-#include "hfbuf.h"
+#include "hf.h"
 #include "hfclass.hh"
 #include "mem/cxx_memobj.h"
 #include "phf_array.hh"
@@ -37,23 +37,34 @@ struct HuffmanCodec<E>::Buf {
   using Header = phf_header;
 
   // vars
-  size_t len;
-  size_t pardeg;
-  size_t sublen;
-  size_t bklen;
-  bool use_HFR;
+  const size_t len;
+  const size_t pardeg;
+  const size_t sublen;
+  const size_t bklen;
+  const bool use_HFR;
+  const size_t revbk4_bytes;
+  const size_t bitstream_max_len;
 
   // array
-  memobj<H4>* scratch4;
-  memobj<PHF_BYTE>* encoded;
-  memobj<H4>* bk4;
-  memobj<PHF_BYTE>* revbk4;
-  memobj<H4>* bitstream4;
+  GPU_unique_dptr<H4[]> d_scratch4;
+  GPU_unique_hptr<H4[]> h_scratch4;
+  PHF_BYTE* d_encoded;
+  PHF_BYTE* h_encoded;
+  GPU_unique_dptr<H4[]> d_bitstream4;
+  GPU_unique_hptr<H4[]> h_bitstream4;
+
+  GPU_unique_dptr<H4[]> d_bk4;
+  GPU_unique_hptr<H4[]> h_bk4;
+  GPU_unique_dptr<PHF_BYTE[]> d_revbk4;
+  GPU_unique_hptr<PHF_BYTE[]> h_revbk4;
 
   // data partition/embarrassingly parallelism description
-  memobj<M>* par_nbit;
-  memobj<M>* par_ncell;
-  memobj<M>* par_entry;
+  GPU_unique_dptr<M[]> d_par_nbit;
+  GPU_unique_hptr<M[]> h_par_nbit;
+  GPU_unique_dptr<M[]> d_par_ncell;
+  GPU_unique_hptr<M[]> h_par_ncell;
+  GPU_unique_dptr<M[]> d_par_entry;
+  GPU_unique_hptr<M[]> h_par_entry;
 
   // dense-sparse
   memobj<H4>* dn_bitstream;
@@ -62,9 +73,11 @@ struct HuffmanCodec<E>::Buf {
   memobj<M>* sp_idx;
   memobj<M>* sp_num;
 
-  static int revbk4_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 4, sizeof(SYM)); }
-  static int revbk8_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 8, sizeof(SYM)); }
+ private:
+  static int _revbk4_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 4, sizeof(SYM)); }
+  static int _revbk8_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 8, sizeof(SYM)); }
 
+ public:
   // auxiliary
   void _debug(const std::string SYM_name, void* VAR, int SYM)
   {
@@ -86,29 +99,37 @@ struct HuffmanCodec<E>::Buf {
     setlocale(LC_NUMERIC, "");
     printf("\nHuffmanCoarse<E, H4, M>::init() debugging:\n");
     printf("CUdeviceptr nbyte: %d\n", (int)sizeof(CUdeviceptr));
-    _debug("SCRATCH", scratch4->dptr(), RC::SCRATCH);
-    _debug("BITSTREAM", bitstream4->dptr(), RC::BITSTREAM);
-    _debug("PAR_NBIT", par_nbit->dptr(), RC::PAR_NBIT);
-    _debug("PAR_NCELL", par_ncell->dptr(), RC::PAR_NCELL);
+    _debug("SCRATCH", d_scratch4.get(), RC::SCRATCH);
+    _debug("BITSTREAM", d_bitstream4.get(), RC::BITSTREAM);
+    _debug("PAR_NBIT", d_par_nbit.get(), RC::PAR_NBIT);
+    _debug("PAR_NCELL", d_par_ncell.get(), RC::PAR_NCELL);
     printf("\n");
   };
 
   // ctor
-  Buf(size_t inlen, size_t _booklen, int _pardeg, bool _use_HFR = false, bool debug = false)
+  Buf(size_t inlen, size_t _bklen, int _pardeg, bool _use_HFR = false, bool debug = false) :
+      len(inlen),
+      bitstream_max_len(inlen / 2),
+      pardeg(_pardeg),
+      sublen((inlen - 1) / _pardeg + 1),
+      bklen(_bklen),
+      use_HFR(_use_HFR),
+      revbk4_bytes(_revbk4_bytes(_bklen))
   {
-    pardeg = _pardeg;
-    bklen = _booklen;
-    len = inlen;
-    use_HFR = _use_HFR;
-
-    encoded = new memobj<PHF_BYTE>(len * sizeof(u4), "hf::out4B");
-    scratch4 = new memobj<H4>(len, "hf::scratch4", {Malloc, MallocHost});
-    bk4 = new memobj<H4>(bklen, "hf::book4", {Malloc, MallocHost});
-    revbk4 = new memobj<PHF_BYTE>(revbk4_bytes(bklen), "hf::revbk4", {Malloc, MallocHost});
-    bitstream4 = new memobj<H4>(len / 2, "hf::enc-buf", {Malloc, MallocHost});
-    par_nbit = new memobj<M>(pardeg, "hf::par_nbit", {Malloc, MallocHost});
-    par_ncell = new memobj<M>(pardeg, "hf::par_ncell", {Malloc, MallocHost});
-    par_entry = new memobj<M>(pardeg, "hf::par_entry", {Malloc, MallocHost});
+    h_scratch4 = MAKE_UNIQUE_HOST(H4, len);
+    d_scratch4 = MAKE_UNIQUE_DEVICE(H4, len);
+    h_bk4 = MAKE_UNIQUE_HOST(H4, bklen);
+    d_bk4 = MAKE_UNIQUE_DEVICE(H4, bklen);
+    h_revbk4 = MAKE_UNIQUE_HOST(PHF_BYTE, revbk4_bytes);
+    d_revbk4 = MAKE_UNIQUE_DEVICE(PHF_BYTE, revbk4_bytes);
+    d_bitstream4 = MAKE_UNIQUE_DEVICE(H4, bitstream_max_len);
+    h_bitstream4 = MAKE_UNIQUE_HOST(H4, bitstream_max_len);
+    h_par_nbit = MAKE_UNIQUE_HOST(M, pardeg);
+    d_par_nbit = MAKE_UNIQUE_DEVICE(M, pardeg);
+    h_par_ncell = MAKE_UNIQUE_HOST(M, pardeg);
+    d_par_ncell = MAKE_UNIQUE_DEVICE(M, pardeg);
+    h_par_entry = MAKE_UNIQUE_HOST(M, pardeg);
+    d_par_entry = MAKE_UNIQUE_DEVICE(M, pardeg);
 
     // HFR: dense-sparse
     if (use_HFR) {
@@ -121,26 +142,14 @@ struct HuffmanCodec<E>::Buf {
     }
 
     // repurpose scratch after several substeps
-    encoded->dptr((u1*)scratch4->dptr())->hptr((u1*)scratch4->hptr());
-    // cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
-
-    sublen = (inlen - 1) / pardeg + 1;
+    d_encoded = (u1*)d_scratch4.get();
+    h_encoded = (u1*)h_scratch4.get();
 
     if (debug) debug_all();
   }
 
   ~Buf()
   {
-    delete bk4;
-    delete revbk4;
-    delete par_nbit;
-    delete par_ncell;
-    delete par_entry;
-
-    delete encoded;
-    delete scratch4;
-    delete bitstream4;
-
     if (use_HFR) {
       delete sp_val;
       delete sp_idx;
@@ -160,15 +169,16 @@ struct HuffmanCodec<E>::Buf {
 
   void memcpy_merge(Header& header, phf_stream_t stream)
   {
-    auto memcpy_start = encoded->dptr();
+    auto memcpy_start = d_encoded;
     auto memcpy_adjust_to_start = 0;
 
-    memcpy_helper _revbk{revbk4->dptr(), revbk4->bytes(), header.entry[PHFHEADER_REVBK]};
-    memcpy_helper _par_nbit{par_nbit->dptr(), par_nbit->bytes(), header.entry[PHFHEADER_PAR_NBIT]};
+    memcpy_helper _revbk{d_revbk4.get(), revbk4_bytes, header.entry[PHFHEADER_REVBK]};
+    memcpy_helper _par_nbit{
+        d_par_nbit.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_NBIT]};
     memcpy_helper _par_entry{
-        par_entry->dptr(), par_entry->bytes(), header.entry[PHFHEADER_PAR_ENTRY]};
+        d_par_entry.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_ENTRY]};
     memcpy_helper _bitstream{
-        bitstream4->dptr(), bitstream4->bytes(), header.entry[PHFHEADER_BITSTREAM]};
+        d_bitstream4.get(), bitstream_max_len * sizeof(H4), header.entry[PHFHEADER_BITSTREAM]};
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
@@ -189,14 +199,13 @@ struct HuffmanCodec<E>::Buf {
 
   void clear_buffer()
   {
-    scratch4->control({ClearDevice});
-    bk4->control({ClearDevice});
-    revbk4->control({ClearDevice});
-    bitstream4->control({ClearDevice});
-
-    par_nbit->control({ClearDevice});
-    par_ncell->control({ClearDevice});
-    par_entry->control({ClearDevice});
+    memset_device(d_scratch4.get(), len);
+    memset_device(d_bk4.get(), bklen);
+    memset_device(d_revbk4.get(), revbk4_bytes);
+    memset_device(d_bitstream4.get(), bitstream_max_len);
+    memset_device(d_par_nbit.get(), pardeg);
+    memset_device(d_par_ncell.get(), pardeg);
+    memset_device(d_par_entry.get(), pardeg);
   }
 };
 

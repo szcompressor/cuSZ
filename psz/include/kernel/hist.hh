@@ -1,6 +1,9 @@
 #ifndef PSZ_MODULE_HIST_HH
 #define PSZ_MODULE_HIST_HH
 
+#include <cstddef>
+#include <cstdint>
+
 #include "cusz/type.h"
 
 namespace psz::module {

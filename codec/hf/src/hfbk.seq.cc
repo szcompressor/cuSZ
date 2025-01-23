@@ -4,6 +4,7 @@
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "cxx_hfbk.h"
+#include "hf.h"
 #include "hfbk_impl.hh"
 #include "hfcanon.hh"
 #include "hfword.hh"
@@ -184,3 +185,14 @@ INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u4, u4)
 // INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u4, ull)
 
 #undef INSTANTIATE_PHF_CPU_BUILD_CANONICAL
+
+size_t phf_reverse_book_bytes(uint16_t bklen, size_t BK_UNIT_BYTES, size_t SYM_BYTES)
+{
+  static const int CELL_BITWIDTH = BK_UNIT_BYTES * 8;
+  return BK_UNIT_BYTES * (2 * CELL_BITWIDTH) + SYM_BYTES * bklen;
+}
+
+uint8_t* phf_allocate_reverse_book(uint16_t bklen, size_t BK_UNIT_BYTES, size_t SYM_BYTES)
+{
+  return new uint8_t[phf_reverse_book_bytes(bklen, BK_UNIT_BYTES, SYM_BYTES)];
+}

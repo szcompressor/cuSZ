@@ -50,11 +50,11 @@ float time_decode = (float)INT_MAX;
   printf("%s\n", identical ? ">>>>  IDENTICAL" : "!!!!  ERROR: DIFFERENT");
 
 #define MALLOC_BUFFERS                                                 \
-  auto d_oridata = GPU_make_unique(malloc_d<E>(len), GPU_deleter_d()); \
-  auto h_oridata = GPU_make_unique(malloc_h<E>(len), GPU_deleter_h()); \
-  auto d_decomp = GPU_make_unique(malloc_d<E>(len), GPU_deleter_d());  \
-  auto h_decomp = GPU_make_unique(malloc_h<E>(len), GPU_deleter_h());  \
-  auto d_hist = GPU_make_unique(malloc_d<F>(bklen), GPU_deleter_d());
+  auto d_oridata = GPU_make_unique(malloc_d<E>(len), GPU_DELETER_D()); \
+  auto h_oridata = GPU_make_unique(malloc_h<E>(len), GPU_DELETER_H()); \
+  auto d_decomp = GPU_make_unique(malloc_d<E>(len), GPU_DELETER_D());  \
+  auto h_decomp = GPU_make_unique(malloc_h<E>(len), GPU_DELETER_H());  \
+  auto d_hist = GPU_make_unique(malloc_d<F>(bklen), GPU_DELETER_D());
 
 #define LOAD_FILE                                       \
   utils::fromfile(fname.c_str(), h_oridata.get(), len); \

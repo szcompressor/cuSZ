@@ -12,24 +12,30 @@
 #ifndef PSZ_MODULE_LRZ_GPU_HH
 #define PSZ_MODULE_LRZ_GPU_HH
 
+#include <array>
 #include <cstdint>
 
-#include "cusz/suint.hh"
 #include "cusz/type.h"
-#include "mem/cxx_sp_gpu.h"
-#include "port.hh"
+
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+#define PROPER_EB f8
+#elif defined(PSZ_USE_1API)
+#define PROPER_EB f4
+#endif
+
+using stdlen3 = std::array<size_t, 3>;
 
 namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq, void* out_outlier,
-    f8 const eb, uint16_t const radius, void* stream);
+    T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier,
+    PROPER_EB const eb, uint16_t const radius, void* stream);
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_x_lorenzo_nd(
-    Eq* const in_eq, T* const in_outlier, T* const out_data, std::array<size_t, 3> const data_len3,
-    f8 const eb, uint16_t const radius, void* stream);
+    Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const data_len3,
+    PROPER_EB const eb, uint16_t const radius, void* stream);
 
 template <typename TIN, typename TOUT, bool ReverseProcess>
 pszerror GPU_lorenzo_prequant(

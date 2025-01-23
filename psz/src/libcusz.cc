@@ -17,6 +17,8 @@
 #include "mem/cxx_memobj.h"
 #include "tehm.hh"
 
+using _portable::memobj;
+
 psz_compressor* capi_psz_create(
     psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
     int const quantizer_radius, psz_codectype const codec)

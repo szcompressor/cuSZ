@@ -5,7 +5,6 @@
 #include "cusz/review.h"
 #include "cusz/type.h"
 #include "header.h"
-#include "mem/layout_cxx.hh"
 #include "port.hh"
 #include "stat/compare.hh"
 #include "tehm.hh"

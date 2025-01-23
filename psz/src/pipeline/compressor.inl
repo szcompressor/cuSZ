@@ -11,19 +11,20 @@
  *
  */
 
-#ifndef A2519F0E_602B_4798_A8EF_9641123095D9
-#define A2519F0E_602B_4798_A8EF_9641123095D9
-
 #include <stdexcept>
 #include <type_traits>
 
+#include "compbuf.hh"
 #include "compressor.hh"
+#include "cusz/type.h"
 #include "exception/exception.hh"
 #include "hfclass.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
+#include "port.hh"
 #include "utils/err.hh"
+#include "utils/io.hh"
 #include "utils/timer.hh"
 
 #define COLLECT_TIME(NAME, TIME) timerecord.push_back({const_cast<const char*>(NAME), TIME});
@@ -80,7 +81,7 @@ struct Compressor<C>::impl {
   // encapsulations
   CodecHF* codec_hf;    // Codecs have standalone internals.
   CodecFZG* codec_fzg;  //
-  pszmempool_cxx<T, E, H>* mem;
+  CompressorBuffer<C>* mem;
   std::vector<pszerror> error_list;
   TimeRecord timerecord;
   int hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat;
@@ -117,7 +118,7 @@ struct Compressor<C>::impl {
     len = x * y * z;
 
     // initialize internal buffers
-    mem = new pszmempool_cxx<T, E, H>(x, radius, y, z, iscompression);
+    mem = new CompressorBuffer<C>(x, y, z, radius, iscompression);
 
     // initialize profiling
     std::tie(event_start, event_end) = event_create_pair();
@@ -132,16 +133,13 @@ struct Compressor<C>::impl {
       codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
     else if (ctx->codec1_type == FZGPUCodec)
       codec_fzg = new CodecFZG(mem->len);
-    else {
-      throw std::runtime_error("[psz] codec other than Huffman or FZGPUCodec is not supported.");
-    }
+    else
+      codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
   }
 
   void compress_predict(pszctx* ctx, T* in, void* stream)
   try {
-    auto len3 = MAKE_GPU_LEN3(ctx->x, ctx->y, ctx->z);
-    auto stride3 = MAKE_GPU_LEN3(1, ctx->x, ctx->x * ctx->y);
-    auto len3_std = MAKE_STD_LEN3(ctx->x, ctx->y, ctx->z);
+    auto len3_std = MAKE_STDLEN3(ctx->x, ctx->y, ctx->z);
 
     event_recording_start(event_start, stream);
 
@@ -155,16 +153,14 @@ struct Compressor<C>::impl {
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
           in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
     else if (ctx->pred_type == Spline)
-      psz::cuhip::GPU_predict_spline(
-          in, len3, stride3, mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->stride3(),
-          mem->anchor(), mem->_anchor->len3(), mem->_anchor->stride3(), (void*)mem->compact,
-          ctx->eb, ctx->radius, stream);
+      psz::module::GPU_predict_spline(
+          in, len3_std, mem->ectrl(), mem->ectrl_len3(), mem->anchor(), mem->anchor_len3(),
+          (void*)mem->compact, ctx->eb, ctx->radius, stream);
 
     event_recording_stop(event_end, stream);
     event_time_elapsed(event_start, event_end, &time_pred);
 
     /* make outlier count seen on host */
-    mem->compact->make_host_accessible((GPU_BACKEND_SPECIFIC_STREAM)stream);
     ctx->splen = mem->compact->num_outliers();
   }
   catch (const psz::exception_outlier_overflow& e) {
@@ -196,7 +192,7 @@ struct Compressor<C>::impl {
   void compress_encode(pszctx* ctx, void* stream)
   {
     if (ctx->codec1_type == Huffman) {
-      codec_hf->buildbook(mem->_hist->dptr(), stream);
+      codec_hf->buildbook(mem->hist(), stream);
       codec_hf->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
     }
     else if (ctx->codec1_type == FZGPUCodec) {
@@ -216,7 +212,7 @@ struct Compressor<C>::impl {
 
     nbyte[HEADER] = sizeof(header);
     nbyte[ENCODED] = sizeof(BYTE) * comp_codec_outlen;
-    nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->_anchor->len() : 0;
+    nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
     nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * splen;
 
     // clang-format off
@@ -271,10 +267,7 @@ struct Compressor<C>::impl {
 
     auto d_anchor = ext_anchor ? ext_anchor : (T*)access(ANCHOR);
     auto d_space = out, d_xdata = out;  // aliases
-
-    auto len3 = MAKE_GPU_LEN3(header->x, header->y, header->z);
-    auto stride3 = MAKE_GPU_LEN3(1, header->x, header->x * header->y);
-    auto len3_std = MAKE_STD_LEN3(header->x, header->y, header->z);
+    auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
 
     event_recording_start(event_start, stream);
 
@@ -288,10 +281,8 @@ struct Compressor<C>::impl {
       psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
           mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
     else if (header->pred_type == Spline)
-      psz::cuhip::GPU_reverse_predict_spline(
-          mem->ectrl(), mem->_ectrl->len3(), mem->_ectrl->stride3(),  //
-          d_anchor, mem->_anchor->len3(), mem->_anchor->stride3(),    //
-          d_xdata, len3, stride3,                                     //
+      psz::module::GPU_reverse_predict_spline(
+          mem->ectrl(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len3_std,
           header->eb, header->radius, stream);
 
     event_recording_stop(event_end, stream);
@@ -467,15 +458,18 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(pszctx* ctx, psz_stream
 
   if (ctx->dump_hist) {
     cudaStreamSynchronize((cudaStream_t)stream);
-    auto& d = pimpl->mem->_hist;
-    // TODO caution! lift hardcoded dtype (hist)
-    d->control({D2H})->file(dump_name("u4", ".hist").c_str(), ToFile);
+    auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<C>::Freq, pimpl->mem->bklen);
+    memcpy_allkinds<D2H>(h_hist.get(), pimpl->mem->hist(), pimpl->mem->bklen, stream);
+    // TODO lift hardcoded dtype (hist)
+    _portable::utils::tofile(dump_name("u4", ".hist"), pimpl->mem->hist(), pimpl->mem->bklen);
   }
   if (ctx->dump_quantcode) {
     cudaStreamSynchronize((cudaStream_t)stream);
-    auto& d = pimpl->mem->_ectrl;
-    d->control({MallocHost, D2H})
-        ->file(dump_name("u" + to_string(sizeof(E)), ".quant").c_str(), ToFile);
+
+    auto h_ectrl = MAKE_UNIQUE_HOST(E, pimpl->len);
+    memcpy_allkinds<D2H>(h_ectrl.get(), pimpl->mem->ectrl(), pimpl->len, stream);
+    _portable::utils::tofile(
+        dump_name("u" + to_string(sizeof(E)), ".quant"), h_ectrl.get(), pimpl->len);
   }
 
   return this;
@@ -514,5 +508,3 @@ Compressor<C>* Compressor<C>::export_timerecord(float* ext_timerecord)
 }  // namespace psz
 
 #undef COLLECT_TIME
-
-#endif /* A2519F0E_602B_4798_A8EF_9641123095D9 */

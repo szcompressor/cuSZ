@@ -9,15 +9,13 @@
  *
  */
 
-#ifndef D1C4C282_1485_4677_BC6B_F3DB79ED853E
-#define D1C4C282_1485_4677_BC6B_F3DB79ED853E
-
 #include "cusz/suint.hh"
 #include "cusz/type.h"
 #include "kernel/predictor.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"
 // #include "subr.cu_hip.inl"
+#include "mem/cxx_backends.h"
 #include "wave32.cuhip.inl"
 
 #define SETUP_ZIGZAG                    \
@@ -291,8 +289,8 @@ namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_x_lorenzo_nd(
-    Eq* const in_eq, T* const in_outlier, T* const out_data,
-    std::array<size_t, 3> const _data_len3, f8 const eb, uint16_t const radius, void* stream)
+    Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const _data_len3, f8 const eb,
+    uint16_t const radius, void* stream)
 {
   using namespace psz::kernelconfig;
 
@@ -326,10 +324,10 @@ pszerror GPU_x_lorenzo_nd(
 
 }  // namespace psz::module
 
-#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)               \
-  template pszerror psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>( \
-      Eq* const in_eq, T* const in_outlier, T* const out_data,        \
-      std::array<size_t, 3> const data_len3, f8 const eb, uint16_t const radius, void* stream);
+#define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)                                 \
+  template pszerror psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(                   \
+      Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const data_len3, \
+      f8 const eb, uint16_t const radius, void* stream);
 
 #define INSTANTIATE_GPU_L23X_2params(T, Eq)   \
   INSTANTIATE_GPU_L23X_3params(T, false, Eq); \
@@ -338,5 +336,3 @@ pszerror GPU_x_lorenzo_nd(
 #define INSTANTIATE_GPU_L23X_1param(T) \
   INSTANTIATE_GPU_L23X_2params(T, u1); \
   INSTANTIATE_GPU_L23X_2params(T, u2);
-
-#endif /* D1C4C282_1485_4677_BC6B_F3DB79ED853E */

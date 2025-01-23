@@ -1,36 +1,26 @@
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
-#include "mem/cxx_memobj.h"
+#include "cusz/type.h"
 
-template <typename T>
-using memobj = _portable::memobj<T>;
+using stdlen3 = std::array<size_t, 3>;
 
-template <typename T, typename E, typename FP = T>
-[[deprecated]] int pszcxx_predict_spline(
-    memobj<T>* data, memobj<T>* anchor, memobj<E>* errctrl, void* _outlier, double eb,
-    uint32_t radius, float* time, void* stream);
-
-template <typename T, typename E, typename FP = T>
-[[deprecated]] int pszcxx_reverse_predict_spline(
-    memobj<T>* anchor, memobj<E>* errctrl, memobj<T>* xdata, double eb, uint32_t radius,
-    float* time, void* stream);
-
-namespace psz::cuhip {
+namespace psz::module {
 
 template <typename T, typename E, typename FP = T>
 int GPU_predict_spline(
-    T* in_data, dim3 const data_len3, dim3 const data_stride3,         //
-    E* out_ectrl, dim3 const ectrl_len3, dim3 const ectrl_stride3,     //
-    T* out_anchor, dim3 const anchor_len3, dim3 const anchor_stride3,  //
-    void* out_outlier,                                                 //
+    T* in_data, stdlen3 const data_len3,       //
+    E* out_ectrl, stdlen3 const ectrl_len3,    //
+    T* out_anchor, stdlen3 const anchor_len3,  //
+    void* out_outlier,                         //
     double eb, uint32_t radius, void* stream);
 
 template <typename T, typename E, typename FP = T>
 int GPU_reverse_predict_spline(
-    E* in_ectrl, dim3 const ectrl_len3, dim3 const ectrl_stride3,     //
-    T* in_anchor, dim3 const anchor_len3, dim3 const anchor_stride3,  //
-    T* out_xdata, dim3 const xdata_len3, dim3 const xdata_stride3,    //
+    E* in_ectrl, stdlen3 const ectrl_len3,    //
+    T* in_anchor, stdlen3 const anchor_len3,  //
+    T* out_xdata, stdlen3 const xdata_len3,   //
     double eb, uint32_t radius, void* stream);
 
-};  // namespace psz::cuhip
+};  // namespace psz::module

@@ -13,6 +13,7 @@
 
 #include "cusz/type.h"
 #include "kernel/lrz/lrz.seq.hh"
+#include "mem/cxx_sp_cpu.h"
 
 psz_dim3 psz_div3(psz_dim3 len, psz_dim3 sublen)
 {

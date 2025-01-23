@@ -38,8 +38,8 @@ int test_cuda_unique_ptr()
 
   /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-  auto d_array_smart = GPU_make_unique(malloc_d<float>(len), GPU_deleter_d());
-  auto h_array_smart = GPU_make_unique(malloc_h<float>(len), GPU_deleter_h());
+  auto d_array_smart = GPU_make_unique(malloc_d<float>(len), GPU_DELETER_D());
+  auto h_array_smart = GPU_make_unique(malloc_h<float>(len), GPU_DELETER_H());
 
   add_scalar<<<grid, block>>>(d_array_smart.get(), len, scalar);
   cudaDeviceSynchronize();

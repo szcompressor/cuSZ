@@ -17,29 +17,33 @@
 #include "cxx_mem_ops.h"
 #include "cxx_smart_ptr.h"
 
-#define MAKE_STD_LEN3(X, Y, Z) \
+#define MAKE_STDLEN3(X, Y, Z) \
   std::array<size_t, 3> { X, Y, Z }
+
+#define XYZ_TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
+#define STDLEN3_TO_DIM3(LEN3) dim3(LEN3[0], LEN3[1], LEN3[2])
+#define STDLEN3_TO_STRIDE3(LEN3) dim3(1, LEN3[0], LEN3[0] * LEN3[1])
 
 #if defined(_PORTABLE_USE_CUDA)
 
-#define GPU_LEN3 dim3
-#define MAKE_GPU_LEN3(X, Y, Z) dim3(X, Y, Z)
+#define GPULEN3 dim3
+#define MAKE_GPULEN3(X, Y, Z) dim3(X, Y, Z)
 #define GPU_BACKEND_SPECIFIC_STREAM cudaStream_t
 #define GPU_EVENT cudaEvent_t
 #define GPU_EVENT_CREATE(e) cudaEventCreate(e);
 
 #elif defined(_PORTABLE_USE_HIP)
 
-#define GPU_LEN3 dim3
-#define MAKE_GPU_LEN3(X, Y, Z) dim3(X, Y, Z)
+#define GPULEN3 dim3
+#define MAKE_GPULEN3(X, Y, Z) dim3(X, Y, Z)
 #define GPU_BACKEND_SPECIFIC_STREAM hipStream_t
 #define GPU_EVENT hipEvent_t
 #define GPU_EVENT_CREATE(e) hipEventCreate(e);
 
 #elif defined(_PORTABLE_USE_1API)
 
-#define GPU_LEN3 sycl::range<3>
-#define MAKE_GPU_LEN3(X, Y, Z) sycl::range<3>(Z, Y, X)
+#define GPULEN3 sycl::range<3>
+#define MAKE_GPULEN3(X, Y, Z) sycl::range<3>(Z, Y, X)
 #define GPU_BACKEND_SPECIFIC_STREAM sycl::queue*
 #define GPU_EVENT sycl::event*
 #define GPU_EVENT_CREATE(e) new sycl::event();

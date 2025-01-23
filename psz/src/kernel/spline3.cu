@@ -14,13 +14,10 @@
 #include "cusz/type.h"
 #include "detail/spline3.inl"
 #include "kernel/spline.hh"
-#include "mem/cxx_memobj.h"
 #include "mem/cxx_sp_gpu.h"
 
-template <typename T>
-using memobj = _portable::memobj<T>;
-
 constexpr int DEFAULT_BLOCK_SIZE = 384;
+constexpr auto BLK = 8;
 
 #define SETUP                                                                                \
   auto div3 = [](dim3 len, dim3 sublen) {                                                    \
@@ -37,25 +34,27 @@ constexpr int DEFAULT_BLOCK_SIZE = 384;
   };
 
 template <typename T, typename E, typename FP>
-int psz::cuhip::GPU_predict_spline(
-    T* in_data, dim3 const data_len3, dim3 const data_stride3, E* out_ectrl, dim3 const ectrl_len3,
-    dim3 const ectrl_stride3, T* out_anchor, dim3 const anchor_len3, dim3 const anchor_stride3,
+int psz::module::GPU_predict_spline(
+    T* in_data, stdlen3 const data_len3,       //
+    E* out_ectrl, stdlen3 const ectrl_len3,    //
+    T* out_anchor, stdlen3 const anchor_len3,  //
     void* _outlier, double eb, uint32_t radius, void* stream)
 {
 #define l3 data_len3
 
-  constexpr auto BLOCK = 8;
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
   auto ebx2 = eb * 2, eb_r = 1 / eb;
-  auto grid_dim = dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
+  auto grid_dim = dim3(div(l3[0], BLK * 4), div(l3[1], BLK), div(l3[2], BLK));
 
   using Compact = _portable::compact_gpu<T>;
   auto ot = (Compact*)_outlier;
 
   cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
       <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-          in_data, data_len3, data_stride3, out_ectrl, ectrl_len3, ectrl_stride3, out_anchor,
-          anchor_stride3, ot->val(), ot->idx(), ot->num(), eb_r, ebx2, radius);
+          in_data, STDLEN3_TO_DIM3(data_len3), STDLEN3_TO_STRIDE3(data_len3),      //
+          out_ectrl, STDLEN3_TO_DIM3(ectrl_len3), STDLEN3_TO_STRIDE3(ectrl_len3),  //
+          out_anchor, STDLEN3_TO_STRIDE3(anchor_len3),                             //
+          ot->val(), ot->idx(), ot->num(), eb_r, ebx2, radius);
 
   return 0;
 
@@ -63,24 +62,24 @@ int psz::cuhip::GPU_predict_spline(
 }
 
 template <typename T, typename E, typename FP>
-int psz::cuhip::GPU_reverse_predict_spline(
-    E* in_ectrl, dim3 const ectrl_len3, dim3 const ectrl_stride3, T* in_anchor,
-    dim3 const anchor_len3, dim3 const anchor_stride3, T* out_xdata, dim3 const xdata_len3,
-    dim3 const xdata_stride3, double eb, uint32_t radius, void* stream)
+int psz::module::GPU_reverse_predict_spline(
+    E* in_ectrl, stdlen3 const ectrl_len3,   //
+    T* in_anchor, stdlen3 anchor_len3,       //
+    T* out_xdata, stdlen3 const xdata_len3,  //
+    double eb, uint32_t radius, void* stream)
 {
 #define l3 xdata_len3
 
-  constexpr auto BLOCK = 8;
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
   auto ebx2 = eb * 2, eb_r = 1 / eb;
-  auto grid_dim = dim3(div(l3.x, BLOCK * 4), div(l3.y, BLOCK), div(l3.z, BLOCK));
+  auto grid_dim = dim3(div(l3[0], BLK * 4), div(l3[1], BLK), div(l3[2], BLK));
 
   cusz::x_spline3d_infprecis_32x8x8data<E*, T*, float, DEFAULT_BLOCK_SIZE>  //
       <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0,
-         (GPU_BACKEND_SPECIFIC_STREAM)stream>>>  //
-      (in_ectrl, ectrl_len3, ectrl_stride3,      //
-       in_anchor, anchor_len3, anchor_stride3,   //
-       out_xdata, xdata_len3, xdata_stride3,     //
+         (GPU_BACKEND_SPECIFIC_STREAM)stream>>>                                   //
+      (in_ectrl, STDLEN3_TO_DIM3(ectrl_len3), STDLEN3_TO_STRIDE3(ectrl_len3),     //
+       in_anchor, STDLEN3_TO_DIM3(anchor_len3), STDLEN3_TO_STRIDE3(anchor_len3),  //
+       out_xdata, STDLEN3_TO_DIM3(xdata_len3), STDLEN3_TO_STRIDE3(xdata_len3),    //
        eb_r, ebx2, radius);
 
   return 0;
@@ -88,15 +87,14 @@ int psz::cuhip::GPU_reverse_predict_spline(
 #undef l3
 }
 
-#define INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, E)                                       \
-  template int psz::cuhip::GPU_predict_spline<T, E>(                                          \
-      T * in_data, dim3 const data_len3, dim3 const data_stride3, E* out_ectrl,               \
-      dim3 const ectrl_len3, dim3 const ectrl_stride3, T* out_anchor, dim3 const anchor_len3, \
-      dim3 const anchor_stride3, void* _outlier, double eb, uint32_t radius, void* stream);   \
-  template int psz::cuhip::GPU_reverse_predict_spline<T, E>(                                  \
-      E * in_ectrl, dim3 const ectrl_len3, dim3 const ectrl_stride3, T* in_anchor,            \
-      dim3 const anchor_len3, dim3 const anchor_stride3, T* out_xdata, dim3 const xdata_len3, \
-      dim3 const xdata_stride3, double eb, uint32_t radius, void* stream);
+#define INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, E)                                     \
+  template int psz::module::GPU_predict_spline<T, E>(                                       \
+      T * in_data, stdlen3 const data_len3, E* out_ectrl, stdlen3 const ectrl_len3,         \
+      T* out_anchor, stdlen3 const anchor_len3, void* _outlier, double eb, uint32_t radius, \
+      void* stream);                                                                        \
+  template int psz::module::GPU_reverse_predict_spline<T, E>(                               \
+      E * in_ectrl, stdlen3 const ectrl_len3, T* in_anchor, stdlen3 const anchor_len3,      \
+      T* out_xdata, stdlen3 const xdata_len3, double eb, uint32_t radius, void* stream);
 
 #define INSTANTIATE_PSZCXX_MODULE_SPLINE__1param(T) \
   INSTANTIATE_PSZCXX_MODULE_SPLINE__2params(T, u1); \

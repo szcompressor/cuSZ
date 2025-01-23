@@ -6,9 +6,13 @@
 
 #include <memory>
 
-#define GPU_deleter_d GPU_deleter_device
-#define GPU_deleter_h GPU_deleter_host
-#define GPU_deleter_u GPU_deleter_unified
+#define GPU_DELETER_D GPU_deleter_device
+#define GPU_DELETER_H GPU_deleter_host
+#define GPU_DELETER_U GPU_deleter_unified
+
+#define MAKE_UNIQUE_HOST(TYPE, LEN) GPU_make_unique(malloc_h<TYPE>(LEN), GPU_DELETER_H())
+#define MAKE_UNIQUE_DEVICE(TYPE, LEN) GPU_make_unique(malloc_d<TYPE>(LEN), GPU_DELETER_D())
+#define MAKE_UNIQUE_UNIFIED(TYPE, LEN) GPU_make_unique(malloc_u<TYPE>(LEN), GPU_DELETER_U())
 
 // smart pointer deleter for on-device buffer
 struct GPU_deleter_device {
@@ -88,5 +92,12 @@ std::shared_ptr<T[]> GPU_make_shared(T* ptr, Deleter d)
 {
   return std::shared_ptr<T[]>(ptr, d);
 }
+
+template <typename T>
+using GPU_unique_dptr = std::unique_ptr<T, GPU_deleter_device>;
+template <typename T>
+using GPU_unique_hptr = std::unique_ptr<T, GPU_deleter_host>;
+template <typename T>
+using GPU_unique_uptr = std::unique_ptr<T, GPU_deleter_unified>;
 
 #endif /* _PORTABLE_MEM_CXX_SMART_PTR_H */

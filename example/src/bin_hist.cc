@@ -13,9 +13,13 @@
 
 #include "ex_utils.hh"
 #include "kernel.hh"
-#include "mem.hh"
+#include "mem/cxx_memobj.h"
+#include "port.hh"
 #include "stat.hh"
 #include "typing.hh"
+
+template <typename T>
+using memobj = _portable::memobj<T>;
 
 #define BASE false
 #define OPTIM true

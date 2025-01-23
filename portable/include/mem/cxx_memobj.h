@@ -84,8 +84,8 @@ class memobj {
   Ctype& uniptr(uint32_t i);
   Ctype& uniat(uint32_t i);
 
-  GPU_LEN3 len3() const;
-  GPU_LEN3 stride3() const;
+  GPULEN3 len3() const;
+  GPULEN3 stride3() const;
 };
 
 #define MEM(T) memobj<T>

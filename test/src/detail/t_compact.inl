@@ -36,24 +36,6 @@ __global__ void test_compaction1(
   // end of kernel
 }
 
-template <typename T, int TileDim = 256, typename Compact = _portable::compact_gpu<T>>
-__global__ void test_compaction2(T* in, uint32_t len, Compact compact)
-{
-  auto id = blockIdx.x * TileDim + threadIdx.x;
-
-  if (id < len) {
-    auto delta = in[id] - (id > 0 ? in[id - 1] : 0) / 1e-3;
-    auto predicate = [&]() { return abs(delta) > 512; };
-
-    if (predicate()) {
-      auto cur_idx = atomicAdd(compact.d_num, 1);
-      compact.d_val[cur_idx] = delta;
-      compact.d_val[cur_idx] = id;
-    }
-  }
-  // end of kernel
-}
-
 template <typename T, typename Compact = _portable::compact_seq<T>>
 void test_compaction_serial(T* in, uint32_t len, Compact out)
 {
@@ -86,25 +68,19 @@ bool f()
   psz::testutils::cu_hip::rand_array(in, len);
 
   compact_gpu out_test1(len / 2);
-  out_test1.malloc().mallochost();
-
   compact_gpu out_test2(len / 2);
-  out_test2.malloc().mallochost();
 
   compact_seq out_ref(len / 2);
   out_ref.malloc();
 
-  test_compaction1<float, TilDim>
-      <<<grid_dim, block_dim>>>(in, len, out_test1.d_val, out_test1.d_idx, out_test1.d_num);
+  test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(
+      in, len, out_test1.d_val.get(), out_test1.d_idx.get(), out_test1.u_num.get());
   cudaDeviceSynchronize();
 
-  test_compaction2<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test2);
-  cudaDeviceSynchronize();
+  // test_compaction2<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test2);
+  // cudaDeviceSynchronize();
 
   cout << endl;
-
-  out_test1.make_host_accessible();
-  out_test2.make_host_accessible();
 
   test_compaction_serial<float>(in, len, out_ref);
 
@@ -113,8 +89,6 @@ bool f()
   cout << "GPU (struct) #outlier:\t" << out_test2.num_outliers() << endl;
 
   cudaFree(in);
-  out_test1.free().freehost();
-  out_test2.free().freehost();
   out_ref.free();
 
   return (out_ref.num_outliers() == out_test1.num_outliers()) and

@@ -15,15 +15,19 @@
 #include <stdint.h>
 
 #include "cusz/type.h"
-#include "mem/cxx_sp_gpu.h"
-#include "port.hh"
+
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+#define PROPER_EB f8
+#elif defined(PSZ_USE_1API)
+#define PROPER_EB f4
+#endif
 
 namespace psz::module {
 
 template <typename T, typename Eq>
 pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
     T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq, void* out_outlier,
-    f8 const eb, uint16_t const radius, void* stream);
+    PROPER_EB const eb, uint16_t const radius, void* stream);
 
 template <typename T, typename Eq>
 pszerror GPU_PROTO_x_lorenzo_nd(

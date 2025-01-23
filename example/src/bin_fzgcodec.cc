@@ -88,10 +88,10 @@ namespace utils = _portable::utils;
   auto len = config.at("len");                                               \
   auto pad_len = config.at("pad_len");                                       \
                                                                              \
-  auto h_in_data = GPU_make_unique(malloc_h<u2>(len), GPU_deleter_h());      \
-  auto d_in_data = GPU_make_unique(malloc_d<u2>(pad_len), GPU_deleter_d());  \
-  auto h_out_data = GPU_make_unique(malloc_h<u2>(len), GPU_deleter_h());     \
-  auto d_out_data = GPU_make_unique(malloc_d<u2>(pad_len), GPU_deleter_d()); \
+  auto h_in_data = GPU_make_unique(malloc_h<u2>(len), GPU_DELETER_H());      \
+  auto d_in_data = GPU_make_unique(malloc_d<u2>(pad_len), GPU_DELETER_D());  \
+  auto h_out_data = GPU_make_unique(malloc_h<u2>(len), GPU_DELETER_H());     \
+  auto d_out_data = GPU_make_unique(malloc_d<u2>(pad_len), GPU_DELETER_D()); \
                                                                              \
   utils::fromfile<uint16_t>(argv[1], h_in_data.get(), data_len);             \
   memcpy_allkinds<H2D>(d_in_data.get(), h_in_data.get(), data_len);

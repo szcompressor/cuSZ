@@ -221,9 +221,9 @@ struct memobj<Ctype>::impl {
   Ctype& uniptr(uint32_t i) { return uni[i]; };
   Ctype& uniat(uint32_t i) { return uni[i]; };
 
-  GPU_LEN3 len3() const { return MAKE_GPU_LEN3(lx, ly, lz); };
+  GPULEN3 len3() const { return MAKE_GPULEN3(lx, ly, lz); };
 
-  GPU_LEN3 stride3() const { return MAKE_GPU_LEN3(1, sty, stz); };
+  GPULEN3 stride3() const { return MAKE_GPULEN3(1, sty, stz); };
 };
 
 //////////////////////////////// back to main class
@@ -433,13 +433,13 @@ Ctype& memobj<Ctype>::uniat(uint32_t i)
 };
 
 template <typename Ctype>
-GPU_LEN3 memobj<Ctype>::len3() const
+GPULEN3 memobj<Ctype>::len3() const
 {
   return pimpl->len3();
 };
 
 template <typename Ctype>
-GPU_LEN3 memobj<Ctype>::stride3() const
+GPULEN3 memobj<Ctype>::stride3() const
 {
   return pimpl->stride3();
 };

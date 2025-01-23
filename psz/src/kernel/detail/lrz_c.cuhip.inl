@@ -9,12 +9,10 @@
  *
  */
 
-#ifndef E3BBDC36_B394_4F63_9E7C_CE601F1C5CA5
-#define E3BBDC36_B394_4F63_9E7C_CE601F1C5CA5
-
 #include <cstdint>
 #include <type_traits>
 
+#include "cusz/suint.hh"
 #include "cusz/type.h"
 #include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
@@ -288,8 +286,8 @@ namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
 pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const in_data, std::array<size_t, 3> const _data_len3, Eq* const out_eq, void* out_outlier,
-    f8 const eb, uint16_t const radius, void* stream)
+    T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, f8 const eb,
+    uint16_t const radius, void* stream)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
@@ -352,10 +350,10 @@ pszerror GPU_lorenzo_prequant(
 }  // namespace psz::module
 
 // -----------------------------------------------------------------------------
-#define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                            \
-  template pszerror psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>( \
-      T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq,   \
-      void* out_outlier, f8 const eb, uint16_t const radius, void* stream);
+#define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                               \
+  template pszerror psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>(    \
+      T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, \
+      f8 const eb, uint16_t const radius, void* stream);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
   INSTANCIATE_GPU_L23R_3params(T, false, Eq); \
@@ -384,5 +382,3 @@ pszerror GPU_lorenzo_prequant(
 //  -----------------------------------------------------------------------------
 
 #undef SETUP_ZIGZAG
-
-#endif /* E3BBDC36_B394_4F63_9E7C_CE601F1C5CA5 */
