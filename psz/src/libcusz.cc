@@ -26,7 +26,7 @@ using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord = std::vector<TimeRecordTuple>;
 using timerecord_t = TimeRecord*;
 
-psz_compressor* capi_psz_create(
+[[deprecated]] psz_compressor* capi_psz_create(
     psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
     int const quantizer_radius, psz_codectype const codec)
 {
@@ -49,7 +49,8 @@ psz_compressor* capi_psz_create(
   return comp;
 }
 
-psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const uncomp_len3)
+[[deprecated]] psz_compressor* capi_psz_create_default(
+    psz_dtype const dtype, psz_len3 const uncomp_len3)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr, .ctx = pszctx_default_values(), .last_error = CUSZ_SUCCESS};
@@ -68,7 +69,8 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
   return comp;
 }
 
-psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_len3)
+[[deprecated]] psz_compressor* capi_psz_create_from_context(
+    pszctx* const ctx, psz_len3 uncomp_len3)
 {
   auto comp = new psz_compressor{.compressor = nullptr, .ctx = ctx, .last_error = CUSZ_SUCCESS};
 
@@ -86,7 +88,7 @@ psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_
   return comp;
 }
 
-psz_compressor* capi_psz_create_from_header(psz_header* const h)
+[[deprecated]] psz_compressor* capi_psz_create_from_header(psz_header* const h)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr, .ctx = pszctx_default_values(), .last_error = CUSZ_SUCCESS};
@@ -102,7 +104,7 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
   return comp;
 }
 
-pszerror capi_psz_release(psz_compressor* comp)
+[[deprecated]] pszerror capi_psz_release(psz_compressor* comp)
 {
   auto dtype = comp->ctx->header->dtype;
   if (dtype == F4)
@@ -116,7 +118,7 @@ pszerror capi_psz_release(psz_compressor* comp)
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_compress(
+[[deprecated]] pszerror capi_psz_compress(
     psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
     uint8_t** comped, size_t* comp_bytes, psz_header* header, void* record, void* stream)
 {
@@ -165,7 +167,7 @@ pszerror capi_psz_compress(
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_decompress(
+[[deprecated]] pszerror capi_psz_decompress(
     psz_compressor* comp, uint8_t* comped, size_t const comp_len, void* decomped,
     psz_len3 const decomp_len, void* record, void* stream)
 {
@@ -193,7 +195,7 @@ pszerror capi_psz_decompress(
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_clear_buffer(psz_compressor* comp)
+[[deprecated]] pszerror capi_psz_clear_buffer(psz_compressor* comp)
 {
   auto dtype = comp->ctx->header->dtype;
   if (dtype == F4) {

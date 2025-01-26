@@ -177,11 +177,11 @@ target_link_libraries(psz_cu_fzg
 add_library(PSZ::CUDA::fzg ALIAS psz_cu_fzg)
 add_library(CUSZ::fzg ALIAS psz_cu_fzg)
 
-add_library(cusz
+add_library(psz_cu_compressor
   psz/src/compressor.cc
-  psz/src/libcusz.cc
 )
-target_link_libraries(cusz
+
+target_link_libraries(psz_cu_compressor
   PUBLIC
   psz_cu_compile_settings
   psz_cu_core
@@ -190,6 +190,16 @@ target_link_libraries(cusz
   psz_cu_utils
   psz_cu_phf
   psz_cu_fzg
+  CUDA::cudart
+)
+
+add_library(cusz
+  psz/src/libcusz.cc
+)
+target_link_libraries(cusz
+  PUBLIC
+  psz_cu_compile_settings
+  psz_cu_compressor
   CUDA::cudart
 )
 add_library(PSZ::CUDA::cusz ALIAS cusz)
@@ -211,65 +221,45 @@ if(BUILD_TESTING)
 endif()
 
 if(PSZ_BUILD_PYBINDING)
-  # make python binding
-  find_package(SWIG REQUIRED)
-  include(${SWIG_USE_FILE})
-  message("[psz::info] $\{SWIG_USE_FILE\}: " ${SWIG_USE_FILE})
 
-  # deprecated as of 3.12; cmake --help-policy CMP0148
-  # find_package(PythonLibs REQUIRED)
-  # message("[psz::info] $\{PYTHON_INCLUDE_DIRS\}: " ${PYTHON_INCLUDE_DIRS})
-  find_package(Python REQUIRED COMPONENTS Development)
+add_compile_definitions(PSZ_GENERATE_PYEXT)
 
-  # include_directories(${Python_INCLUDE_DIRS})
-  message("[psz::info] $\{Python_FOUND\}: " ${Python_FOUND})
-  message("[psz::info] $\{Python_VERSION\}: " ${Python_VERSION})
-  message("[psz::info] $\{Python_INCLUDE_DIRS\}: " ${Python_INCLUDE_DIRS})
-  message("[psz::info] $\{Python_LINK_OPTIONS\}: " ${Python_LINK_OPTIONS})
-  message("[psz::info] $\{Python_LIBRARIES\}: " ${Python_LIBRARIES})
-  message("[psz::info] $\{Python_LIBRARY_DIRS\}: " ${Python_LIBRARY_DIRS})
+set(DEV_MODULE Development.Module)
+find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
-  set(SWIG_INCLUDE_DIRECTORIES
-    ${CMAKE_CURRENT_SOURCE_DIR}/psz/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/hf/include
-    ${Python_INCLUDE_DIRS}
-  )
-  include_directories(${SWIG_INCLUDE_DIRECTORIES})
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
 
-  # -------------------
-  # add the 1st library
-  # -------------------
-  swig_add_library(pycusz
-    LANGUAGE python
-    TYPE SHARED
-    SOURCES py/pycusz.i)
+# Detect the installed nanobind package and import it into CMake
+execute_process(
+  COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+  OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+find_package(nanobind CONFIG REQUIRED)
 
-  target_include_directories(pycusz PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
-  set_target_properties(pycusz PROPERTIES LINKER_LANGUAGE CXX)
-  target_link_libraries(pycusz PRIVATE CUDA::cudart ${PYTHON_LIBRARIES}
-    cusz
-    psz_cu_core
-    psz_cu_stat
-    psz_cu_mem
-    psz_cu_utils
-    psz_cu_phf
-    psz_cu_fzg
-  )
+if (nanobind_FOUND)
+    message(STATUS "Nanobind found at: ${nanobind_ROOT}")
+else()
+    message(FATAL_ERROR "Nanobind not found! Check Python installation.")
+endif()
 
-  # -------------------
-  # add the 2nd library
-  # -------------------
-  swig_add_library(pycuhf
-    LANGUAGE python
-    TYPE SHARED
-    SOURCES py/pycuhf.i)
+nanobind_add_module(my_ext my_ext.cpp)
 
-  target_include_directories(pycuhf PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
-  set_target_properties(pycuhf PROPERTIES LINKER_LANGUAGE CXX)
-  target_link_libraries(pycuhf PRIVATE CUDA::cudart ${PYTHON_LIBRARIES}
-    psz_cu_mem
-    psz_cu_phf
-  )
+nanobind_add_module(pycusz_connector py/pycusz_connector.cc)
+target_link_libraries(pycusz_connector
+  PUBLIC 
+  psz_cu_compile_settings 
+  psz_cu_core
+  psz_cu_stat
+  psz_cu_mem
+  psz_cu_utils
+  psz_cu_phf
+  psz_cu_fzg
+  psz_cu_compressor
+  CUDA::cudart
+)
+
 endif()
 
 # ###############################################################################
@@ -286,6 +276,7 @@ install(TARGETS
   psz_cu_utils
   psz_cu_phf
   psz_cu_fzg
+  psz_cu_compressor
   cusz
   EXPORT CUSZTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -294,6 +285,7 @@ install(TARGETS
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
+
 # install the executable
 install(TARGETS
   cusz-bin
@@ -301,10 +293,14 @@ install(TARGETS
 )
 
 if(PSZ_BUILD_PYBINDING)
-  install(TARGETS
-    pycusz
-    pycuhf
-    EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS
+  pycusz_connector
+  EXPORT CUSZTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 endif()
 
 # install the package
