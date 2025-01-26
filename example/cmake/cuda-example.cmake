@@ -18,3 +18,6 @@ target_link_libraries(bin_hist PRIVATE cusz CUDA::cudart)
 
 add_executable(bin_fzgcodec src/bin_fzgcodec.cc)
 target_link_libraries(bin_fzgcodec PRIVATE cusz CUDA::cudart)
+
+add_executable(batch_run src/batch_run.cc)
+target_link_libraries(batch_run PRIVATE cusz CUDA::cudart)
