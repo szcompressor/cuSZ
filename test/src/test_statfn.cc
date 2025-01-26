@@ -41,12 +41,12 @@ void f(szt len, u4 seed)
 #endif
 
   f4 res_cpu[4], res_thrust[4], res_cuda[4];
-  psz::utils::probe_extrema<SEQ>(in_cpu->hptr(), len, res_cpu);
+  psz::analysis::probe_extrema<SEQ>(in_cpu->hptr(), len, res_cpu);
 #ifdef REACTIVATE_THRUSTGPU
   psz::probe_extrema<THRUST_DPL>(in_thrust->dptr(), len, res_thrust);
 #endif
   // In fact, below is CUDA-HIP compat. Need better indication.
-  psz::utils::probe_extrema<CUDA>(in_cuda->dptr(), len, res_cuda);
+  psz::analysis::probe_extrema<CUDA>(in_cuda->dptr(), len, res_cuda);
 
   printf(
       "CPU\tmin: %6.4f\tmax: %6.4f\tavg: %6.4f\trng: %6.4f\n",  //

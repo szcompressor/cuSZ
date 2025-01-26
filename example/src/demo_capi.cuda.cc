@@ -14,7 +14,6 @@
 #include "cusz.h"
 
 // utilities for demo
-#include "cusz/review.h"
 #include "cusz/type.h"
 #include "utils/io.hh"  // io::read_binary_to_array
 
@@ -34,8 +33,8 @@ void* comp_timerecord;
 void* decomp_timerecord;
 
 void demo_compress(
-    psz_predtype predictor, psz_len3 const interpreted_len3,
-    uint8_t** compressed, psz_header* header, cudaStream_t stream)
+    psz_predtype predictor, psz_len3 const interpreted_len3, uint8_t** compressed,
+    psz_header* header, cudaStream_t stream)
 {
   uint8_t* p_compressed;
   size_t comp_len;
@@ -46,8 +45,8 @@ void demo_compress(
       /* codec */ Huffman);
 
   psz_compress(
-      compressor, d_uncomp, interpreted_len3, eb, mode, &p_compressed,
-      &comp_len, header, comp_timerecord, stream);
+      compressor, d_uncomp, interpreted_len3, eb, mode, &p_compressed, &comp_len, header,
+      comp_timerecord, stream);
 
   cudaMalloc(compressed, comp_len);
   cudaMemcpy(*compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
@@ -55,16 +54,14 @@ void demo_compress(
   psz_release(compressor);
 }
 
-void demo_decompress(
-    uint8_t* compressed, psz_header* header, cudaStream_t stream)
+void demo_decompress(uint8_t* compressed, psz_header* header, cudaStream_t stream)
 {
   auto comp_len = pszheader_filesize(header);
   psz_len3 decomp_len = psz_len3{header->x, header->y, header->z};
 
   auto compressor = psz_create_from_header(header);
   psz_decompress(
-      compressor, compressed, comp_len, d_decomp, decomp_len,
-      decomp_timerecord, stream);
+      compressor, compressed, comp_len, d_decomp, decomp_len, decomp_timerecord, stream);
 
   psz_release(compressor);
 }
@@ -76,7 +73,7 @@ void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
 
   cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
   cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
-  utils::fromfile(fname, &h_uncomp, len);
+  utils::fromfile(fname, h_uncomp, len);
   cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
 
   comp_timerecord = psz_make_timerecord();
@@ -97,8 +94,7 @@ void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
   {
     auto comp_len = pszheader_filesize(&header);
     psz_review_decompression(decomp_timerecord, oribytes);
-    psz_review_evaluated_quality(
-        THRUST_DPL, F4, d_decomp, d_uncomp, len, comp_len, true);
+    psz_review_evaluated_quality(CUDA, F4, d_decomp, d_uncomp, len, comp_len, true);
   }
 
   // clean up
@@ -119,15 +115,11 @@ int main(int argc, char** argv)
     exit(0);
   }
 
-  auto print_dahsed_line = []() {
-    printf("\e[1m\e[31m-------------------------------\e[0m\n");
-  };
+  auto print_dahsed_line = []() { printf("\e[1m\e[31m-------------------------------\e[0m\n"); };
   auto print_dahsed_line_long = []() {
     printf("\e[1m\e[31m---------------------------------------\e[0m\n");
   };
-  auto print_1d_title = []() {
-    printf("\e[1m\e[31minterpret data as 1D: x=6480000\e[0m\n");
-  };
+  auto print_1d_title = []() { printf("\e[1m\e[31minterpret data as 1D: x=6480000\e[0m\n"); };
   auto print_2d_title = []() {
     printf("\e[1m\e[31minterpret data as 2D: (x,y)=(3600,1800)\e[0m\n");
   };

@@ -124,9 +124,10 @@ struct Compressor<C>::impl {
     std::tie(event_start, event_end) = event_create_pair();
 
     // optimize component(s)
-    psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
-        len, radius * 2, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
-        hist_generic_repeat);
+    if (iscompression)
+      psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+          len, radius * 2, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
+          hist_generic_repeat);
 
     // initialize component(s)
     if (ctx->codec1_type == Huffman)
@@ -161,6 +162,7 @@ struct Compressor<C>::impl {
     event_time_elapsed(event_start, event_end, &time_pred);
 
     /* make outlier count seen on host */
+    sync_by_stream(stream);
     ctx->splen = mem->compact->num_outliers();
   }
   catch (const psz::exception_outlier_overflow& e) {
@@ -461,7 +463,7 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(pszctx* ctx, psz_stream
     auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<C>::Freq, pimpl->mem->bklen);
     memcpy_allkinds<D2H>(h_hist.get(), pimpl->mem->hist(), pimpl->mem->bklen, stream);
     // TODO lift hardcoded dtype (hist)
-    _portable::utils::tofile(dump_name("u4", ".hist"), pimpl->mem->hist(), pimpl->mem->bklen);
+    _portable::utils::tofile(dump_name("u4", ".hist"), h_hist.get(), pimpl->mem->bklen);
   }
   if (ctx->dump_quantcode) {
     cudaStreamSynchronize((cudaStream_t)stream);

@@ -49,7 +49,7 @@ int main(int argc, char** argv)
     cudaMalloc(&d_out, len * sizeof(TOUT));
     cudaMallocHost(&h_out, len * sizeof(TOUT));
 
-    utils::fromfile(fname, &h_in, len);
+    utils::fromfile(fname, h_in, len);
 
     printf("(x, y, z) = (%d, %d, %d)\n", x, y, z);
 

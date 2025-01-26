@@ -26,17 +26,15 @@
 using Compressor = cusz::Compressor<cusz::CompoundType<f4>>;
 using BYTE = u1;
 
-#define PRINT_STATUS                                              \
-  {                                                               \
-    printf("\033[1mfname=\033[0m\"%s\"\n", ifn);                  \
-    printf("\033[1m(x, y, z)=\033[0m(%lu, %lu, %lu)\n", x, y, z); \
-    printf(                                                       \
-        "\033[1m(eb, mode, radius)=\033[0m(%lf, %s, %d)\n", eb,   \
-        mode == REL ? "REL" : "ABS", radius);                     \
-    printf(                                                       \
-        "\033[1mpredictor=\033[0m%s\n",                           \
-        Predictor == SPLINE3 ? "spline3" : "lorenzo");            \
-    if (mode == REL) printf("\033[1meb_rel=\033[0m%lf\n", eb);    \
+#define PRINT_STATUS                                                                         \
+  {                                                                                          \
+    printf("\033[1mfname=\033[0m\"%s\"\n", ifn);                                             \
+    printf("\033[1m(x, y, z)=\033[0m(%lu, %lu, %lu)\n", x, y, z);                            \
+    printf(                                                                                  \
+        "\033[1m(eb, mode, radius)=\033[0m(%lf, %s, %d)\n", eb, mode == REL ? "REL" : "ABS", \
+        radius);                                                                             \
+    printf("\033[1mpredictor=\033[0m%s\n", Predictor == SPLINE3 ? "spline3" : "lorenzo");    \
+    if (mode == REL) printf("\033[1meb_rel=\033[0m%lf\n", eb);                               \
   }
 
 string dtype, etype, mode, pred, eb_str;
@@ -64,11 +62,9 @@ void radius_legal(int const radius, int const sizeof_T)
 string suffix(bool compat = false)
 {
   if (not compat)
-    return pred + "_" + string(dtype == "f" ? "f4" : "f8") + etype + "_" +
-           mode + eb_str;
+    return pred + "_" + string(dtype == "f" ? "f4" : "f8") + etype + "_" + mode + eb_str;
   else
-    return pred + "_" + string(dtype == "f" ? "f4" : "f8") + "u4" + "_" +
-           mode + eb_str;
+    return pred + "_" + string(dtype == "f" ? "f4" : "f8") + "u4" + "_" + mode + eb_str;
 }
 
 }  // namespace
@@ -80,8 +76,8 @@ float print_GBps(szt len, float time_in_ms, string fn_name)
   auto GiBps = len * sizeof(T) * 1.0 / B_to_GiB / (time_in_ms / 1000);
   auto title = "[psz::info::res::" + fn_name + "]";
   printf(
-      "%s shortest time (ms): %.6f\thighest throughput (GiB/s): %.2f\n",
-      title.c_str(), time_in_ms, GiBps);
+      "%s shortest time (ms): %.6f\thighest throughput (GiB/s): %.2f\n", title.c_str(), time_in_ms,
+      GiBps);
   return GiBps;
 }
 
@@ -96,10 +92,8 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  auto data = new memobj<f4>(
-      ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
-  auto xdata = new memobj<f4>(
-      ctx->x, ctx->y, ctx->z, "decomp'ed", {MallocHost, Malloc});
+  auto data = new memobj<f4>(ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
+  auto xdata = new memobj<f4>(ctx->x, ctx->y, ctx->z, "decomp'ed", {MallocHost, Malloc});
   auto cmp = new memobj<f4>(ctx->x, ctx->y, ctx->z, "cmp");
 
   data->file(fname, FromFile)->control({H2D});
@@ -119,22 +113,16 @@ void run(pszctx* ctx, string const subcmd, char* fname, char* config_str)
   cor->init(ctx);
 
   if (subcmd == "full") {
-    psz_testframe<f4>::full_compress(
-        ctx, cor, data->dptr(), &d_compressed, &outlen, stream);
+    psz_testframe<f4>::full_compress(ctx, cor, data->dptr(), &d_compressed, &outlen, stream);
     cor->export_header(header);
     psz::TimeRecordViewer::view_cr(header);
-    psz_testframe<f4>::full_decompress(
-        header, cor, d_compressed, xdata->dptr(), stream);
+    psz_testframe<f4>::full_decompress(header, cor, d_compressed, xdata->dptr(), stream);
     psz::view(header, xdata, cmp, fname);
   }
   else if (subcmd == "pred-only") {
-    psz_testframe<f4>::pred_comp_decomp(
-        ctx, cor, data->dptr(), xdata->dptr(), stream);
-    // pszcxx_evaluate_quality_cpu(
-    //     xdata->dptr(), data->dptr(), data->len(), data->bytes());
-    pszcxx_evaluate_quality_cpu(
-        xdata->control({D2H})->hptr(), data->control({D2H})->hptr(),
-        data->len(), data->bytes());
+    psz_testframe<f4>::pred_comp_decomp(ctx, cor, data->dptr(), xdata->dptr(), stream);
+    psz::analysis::CPU_evaluate_quality_and_print(
+        xdata->control({D2H})->hptr(), data->control({D2H})->hptr(), data->len(), data->bytes());
   }
   else if (subcmd == "pred-hist") {
     psz_testframe<f4>::pred_hist_comp(ctx, cor, data->dptr(), stream);

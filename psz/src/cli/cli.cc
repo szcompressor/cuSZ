@@ -96,7 +96,8 @@ void CLI<T>::cli_compress(pszctx* const ctx, void* stream)
       psz_review_comp_time_from_header(&header);
     }
 
-    write_compressed_to_disk(std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
+    if (not ctx->skip_tofile)
+      write_compressed_to_disk(std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
   }
   else {
     printf("\n*** exit on failure.\n");
@@ -142,7 +143,7 @@ void CLI<T>::cli_decompress(pszctx* const ctx, void* stream)
 
   if (ctx->report_time) psz_review_decompression(&timerecord, decomped->bytes());
   psz_review_decomp_time_from_header(header);
-  psz::utils::view(header, decomped, original, ctx->file_compare);
+  psz::analysis::view(header, decomped, original, ctx->file_compare);
 
   if (not ctx->skip_tofile)
     decomped->control({D2H})->file(std::string(basename + ".cuszx").c_str(), ToFile);

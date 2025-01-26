@@ -17,7 +17,6 @@ extern "C" {
 #endif
 
 #include "context.h"
-#include "cusz/review.h"
 #include "cusz/type.h"
 #include "header.h"
 
@@ -25,13 +24,16 @@ extern "C" {
 #define psz_create_default capi_psz_create_default
 #define psz_create_from_context capi_psz_create_from_context
 #define psz_create_from_header capi_psz_create_from_header
-#define psz_load_context_from_header capi_psz_load_context_from_header
 #define psz_release capi_psz_release
-#define psz_compress_init capi_psz_compress_init
-#define psz_decompress_init capi_psz_decompress_init
 #define psz_compress capi_psz_compress
 #define psz_decompress capi_psz_decompress
-#define psz_stage_time capi_psz_stage_time
+#define psz_make_timerecord capi_psz_make_timerecord
+#define psz_review_comp_time_breakdown capi_psz_review_comp_time_breakdown
+#define psz_review_comp_time_from_header capi_psz_review_comp_time_from_header
+#define psz_review_decomp_time_from_header capi_psz_review_decomp_time_from_header
+#define psz_review_compression capi_psz_review_compression
+#define psz_review_decompression capi_psz_review_decompression
+#define psz_review_evaluated_quality capi_psz_review_evaluated_quality
 
 /**
  * @brief create a cuSZ compressor object with detailed specification; used in
@@ -50,6 +52,10 @@ psz_compressor* capi_psz_create(
     /* data */ psz_dtype const dtype, psz_len3 const uncomp_len,  //
     /* config */ psz_predtype const predictor, int const quantizer_radius,
     psz_codectype const codec);
+
+void* capi_psz_create__experimental(
+    psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
+    int const quantizer_radius, psz_codectype const codec);
 
 /**
  * @brief create a cuSZ compressor object with default specificaition; used in
@@ -77,6 +83,8 @@ psz_compressor* capi_psz_create_from_context(pszctx* const, psz_len3 const);
  */
 psz_compressor* capi_psz_create_from_header(psz_header* const);
 
+void* capi_psz_create_from_header__experimental(psz_header* const);
+
 /**
  * @brief release the compressor object
  *
@@ -84,6 +92,8 @@ psz_compressor* capi_psz_create_from_header(psz_header* const);
  * @return pszerror error status
  */
 pszerror capi_psz_release(psz_compressor* comp);
+
+pszerror capi_psz_release__experimental(void* comp);
 
 /**
  * @brief compresses data using the specified runtime parameters.
@@ -105,9 +115,12 @@ pszerror capi_psz_release(psz_compressor* comp);
  * @return pszerror error status
  */
 pszerror capi_psz_compress(
-    psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb,
-    psz_mode const mode, uint8_t** d_compressed, size_t* comp_bytes,
-    psz_header* header, void* record, void* stream);
+    psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
+    uint8_t** d_compressed, size_t* comp_bytes, psz_header* header, void* record, void* stream);
+
+pszerror capi_psz_compress__experimental(
+    void* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
+    uint8_t** d_compressed, size_t* comp_bytes, psz_header* header, void* record, void* stream);
 
 /**
  * @brief decompress data from the archive
@@ -124,13 +137,21 @@ pszerror capi_psz_compress(
  * @return pszerror error status
  */
 pszerror capi_psz_decompress(
-    psz_compressor* comp, uint8_t* d_compressed, size_t const comp_len,
-    void* d_decompressed, psz_len3 const decomp_len, void* record,
-    void* stream);
+    psz_compressor* comp, uint8_t* d_compressed, size_t const comp_len, void* d_decompressed,
+    psz_len3 const decomp_len, void* record, void* stream);
 
 // defined in context.cc
 extern void capi_psz_version();
 extern void capi_psz_versioninfo();
+
+// review
+void* capi_psz_make_timerecord();
+void capi_psz_review_comp_time_breakdown(void* _r, psz_header* h);
+void capi_psz_review_comp_time_from_header(psz_header* h);
+void capi_psz_review_decomp_time_from_header(psz_header* h);
+void capi_psz_review_compression(void* r, psz_header* h);
+void capi_psz_review_decompression(void* r, size_t bytes);
+void capi_psz_review_evaluated_quality(psz_runtime, psz_dtype, void*, void*, size_t, size_t, bool);
 
 #ifdef __cplusplus
 }

@@ -35,7 +35,7 @@ template <typename T>
 using array3 = _portable::array3<T>;
 
 // deps
-namespace psz::utils {
+namespace psz::analysis {
 
 template <typename T>
 void print_metrics_cross(psz_statistics* s, size_t comp_bytes = 0, bool gpu_checker = false);
@@ -45,17 +45,17 @@ void print_metrics_auto(double* lag1_cor, double* lag2_cor);
 template <typename T>
 void view(psz_header* header, memobj<T>* xdata, memobj<T>* cmp, string const& compare);
 
-}  // namespace psz::utils
+}  // namespace psz::analysis
 
-// TODO have not passed test
-template <typename T, psz_runtime P = CUDA>
-pszerror pszcxx_evaluate_quality_gpu(array3<T> xdata, array3<T> odata);
+namespace psz::analysis {
 
 template <typename T, psz_runtime P = CUDA>
-void pszcxx_evaluate_quality_gpu(T* xdata, T* odata, size_t len, size_t comp_bytes = 0);
+void GPU_evaluate_quality_and_print(T* xdata, T* odata, size_t len, size_t comp_bytes = 0);
 
 template <typename T>
-void pszcxx_evaluate_quality_cpu(
+void CPU_evaluate_quality_and_print(
     T* _d1, T* _d2, size_t len, size_t comp_bytes = 0, bool from_device = true);
+
+}  // namespace psz::analysis
 
 #endif /* C6EF99AE_F0D7_485B_ADE4_8F55666CA96C */

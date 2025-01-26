@@ -63,7 +63,7 @@ template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
 
 // clang-format on
 
-namespace psz::utils {
+namespace psz::analysis {
 
 template <psz_runtime P, typename T>
 bool identical(T* d1, T* d2, size_t const len)
@@ -128,6 +128,6 @@ void assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
     throw runtime_error(string(__FUNCTION__) + ": backend not supported.");
 }
 
-}  // namespace psz::utils
+}  // namespace psz::analysis
 
 #endif /* CE05A256_23CB_4243_8839_B1FDA9C540D2 */

@@ -156,7 +156,7 @@ struct memobj<Ctype>::impl {
       Ctype result[4];
       // psz::thrustgpu::GPU_extrema_rawptr<Ctype>((Ctype*)m->d,
       // m->len, result);
-      psz::utils::probe_extrema<CUDA, Ctype>(d, _len, result);
+      psz::analysis::probe_extrema<CUDA, Ctype>(d, _len, result);
 
       min_value = result[0];
       max_value = result[1];

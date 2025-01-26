@@ -18,6 +18,9 @@
 #include "tehm.hh"
 
 using _portable::memobj;
+using TimeRecordTuple = std::tuple<const char*, double>;
+using TimeRecord = std::vector<TimeRecordTuple>;
+using timerecord_t = TimeRecord*;
 
 psz_compressor* capi_psz_create(
     psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
@@ -39,6 +42,13 @@ psz_compressor* capi_psz_create(
     comp->last_error = PSZ_TYPE_UNSUPPORTED;
 
   return comp;
+}
+
+void* capi_psz_create__experimental(
+    psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
+    int const quantizer_radius, psz_codectype const codec)
+{
+  return (void*)capi_psz_create(dtype, uncomp_len3, predictor, quantizer_radius, codec);
 }
 
 psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const uncomp_len3)
@@ -110,6 +120,11 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
   return comp;
 }
 
+void* capi_psz_create_from_header__experimental(psz_header* const h)
+{
+  return (void*)capi_psz_create_from_header(h);
+}
+
 pszerror capi_psz_release(psz_compressor* comp)
 {
   if (comp->type == F4)
@@ -121,6 +136,11 @@ pszerror capi_psz_release(psz_compressor* comp)
 
   delete comp;
   return CUSZ_SUCCESS;
+}
+
+pszerror capi_psz_release__experimental(void* comp)
+{
+  return capi_psz_release((psz_compressor*)comp);
 }
 
 pszerror capi_psz_compress(
@@ -168,6 +188,15 @@ pszerror capi_psz_compress(
   header->pred_type = comp->ctx->pred_type;
 
   return CUSZ_SUCCESS;
+}
+
+pszerror capi_psz_compress__experimental(
+    void* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
+    uint8_t** d_compressed, size_t* comp_bytes, psz_header* header, void* record, void* stream)
+{
+  return capi_psz_compress(
+      (psz_compressor*)comp, d_in, in_len3, eb, mode, d_compressed, comp_bytes, header, record,
+      stream);
 }
 
 pszerror capi_psz_decompress(

@@ -9,7 +9,7 @@ static void pszcxx_evaluate_quality_gpu(
   // cross
   auto stat_x = new psz_statistics;
   psz::dpl::GPU_assess_quality<T>(stat_x, reconstructed, origin, len);
-  psz::utils::print_metrics_cross<T>(stat_x, compressed_bytes, true);
+  psz::analysis::print_metrics_cross<T>(stat_x, compressed_bytes, true);
 
   auto stat_auto_lag1 = new psz_statistics;
   psz::dpl::GPU_assess_quality<T>(stat_auto_lag1, origin, origin + 1, len - 1);
@@ -22,7 +22,7 @@ static void pszcxx_evaluate_quality_gpu(
 }
 
 template <typename T>
-static void pszcxx_evaluate_quality_cpu(
+static void psz::analysis::CPU_evaluate_quality_and_print(
     T* _d1, T* _d2, size_t len, size_t compressed_bytes = 0, bool from_device = true)
 {
   sycl::device dev_ct1;
@@ -42,13 +42,13 @@ static void pszcxx_evaluate_quality_cpu(
     q_ct1.memcpy(reconstructed, _d1, bytes).wait();
     q_ct1.memcpy(origin, _d2, bytes).wait();
   }
-  psz::utils::assess_quality<ONEAPI, T>(stat, reconstructed, origin, len);
-  psz::utils::print_metrics_cross<T>(stat, compressed_bytes, false);
+  psz::analysis::assess_quality<ONEAPI, T>(stat, reconstructed, origin, len);
+  psz::analysis::print_metrics_cross<T>(stat, compressed_bytes, false);
 
   auto stat_auto_lag1 = new psz_statistics;
-  psz::utils::assess_quality<ONEAPI, T>(stat_auto_lag1, origin, origin + 1, len - 1);
+  psz::analysis::assess_quality<ONEAPI, T>(stat_auto_lag1, origin, origin + 1, len - 1);
   auto stat_auto_lag2 = new psz_statistics;
-  psz::utils::assess_quality<ONEAPI, T>(stat_auto_lag2, origin, origin + 2, len - 2);
+  psz::analysis::assess_quality<ONEAPI, T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::utils::print_metrics_auto(&stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
@@ -76,7 +76,8 @@ static void view(psz_header* header, memobj<T>* xdata, memobj<T>* cmp, string co
   auto compare_on_cpu = [&]() {
     cmp->control({MallocHost})->file(compare.c_str(), FromFile);
     xdata->control({D2H});
-    pszcxx_evaluate_quality_cpu(xdata->hptr(), cmp->hptr(), len, compressd_bytes);
+    psz::analysis::CPU_evaluate_quality_and_print(
+        xdata->hptr(), cmp->hptr(), len, compressd_bytes);
     // cmp->control({FreeHost});
   };
 
