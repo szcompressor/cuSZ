@@ -175,6 +175,7 @@ add_library(cusz
   psz/src/compressor.cc
   psz/src/libcusz.cc
 )
+
 target_link_libraries(cusz
   PUBLIC
     psz_cu_compile_settings
@@ -212,67 +213,44 @@ endif()
 # Python binding (SWIG)
 # ------------------------------------------------------------------------------
 
-if(PSZ_BUILD_PYBINDING)
-  find_package(SWIG REQUIRED)
-  include(${SWIG_USE_FILE})
-  message("[psz::info] ${SWIG_USE_FILE}: ${SWIG_USE_FILE}")
+if(PSZ_CMAKE_PYBINDING)
 
-  find_package(Python REQUIRED COMPONENTS Development)
+add_compile_definitions(PSZ_GENERATE_PYEXT)
 
-  message("[psz::info] ${Python_FOUND}: ${Python_FOUND}")
-  message("[psz::info] ${Python_VERSION}: ${Python_VERSION}")
-  message("[psz::info] ${Python_INCLUDE_DIRS}: ${Python_INCLUDE_DIRS}")
-  message("[psz::info] ${Python_LINK_OPTIONS}: ${Python_LINK_OPTIONS}")
-  message("[psz::info] ${Python_LIBRARIES}: ${Python_LIBRARIES}")
-  message("[psz::info] ${Python_LIBRARY_DIRS}: ${Python_LIBRARY_DIRS}")
+# https://nanobind.readthedocs.io/en/latest/building.html
+if (CMAKE_VERSION VERSION_LESS 3.18)
+  set(DEV_MODULE Development)
+else()
+  set(DEV_MODULE Development.Module)
+endif()
+find_package(Python 3.9 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
-  set(SWIG_INCLUDE_DIRECTORIES
-    "${CMAKE_CURRENT_SOURCE_DIR}/psz/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/include"
-    "${Python_INCLUDE_DIRS}"
-  )
-  include_directories(${SWIG_INCLUDE_DIRECTORIES})
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
 
-  # -------------------
-  # add the 1st library
-  # -------------------
-  swig_add_library(pycusz
-    LANGUAGE python
-    TYPE SHARED
-    SOURCES py/pycusz.i
-  )
-  target_include_directories(pycusz PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
-  set_target_properties(pycusz PROPERTIES LINKER_LANGUAGE CXX)
-  target_link_libraries(pycusz
-    PRIVATE
-      CUDA::cudart
-      ${PYTHON_LIBRARIES}
-      cusz
-      psz_cu_core
-      psz_cu_stat
-      psz_cu_mem
-      psz_cu_utils
-      psz_cu_phf
-      psz_cu_fzg
-  )
+# Nanobind is added using git submodule.
+add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/nanobind)
 
-  # -------------------
-  # add the 2nd library
-  # -------------------
-  swig_add_library(pycuhf
-    LANGUAGE python
-    TYPE SHARED
-    SOURCES py/pycuhf.i
-  )
-  target_include_directories(pycuhf PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
-  set_target_properties(pycuhf PROPERTIES LINKER_LANGUAGE CXX)
-  target_link_libraries(pycuhf
-    PRIVATE
-      CUDA::cudart
-      ${PYTHON_LIBRARIES}
-      psz_cu_mem
-      psz_cu_phf
-  )
+if (COMMAND nanobind_add_module)
+  message(STATUS "Nanobind CMake functions loaded.")
+else()
+  message(FATAL_ERROR "Nanobind CMake functions not found. Check git submodule and CMake include.")
+endif()
+
+nanobind_add_module(pycusz_connector py/pycusz_connector.cc)
+
+target_link_libraries(pycusz_connector
+  PUBLIC 
+  psz_cu_core
+  psz_cu_stat
+  psz_cu_mem
+  psz_cu_utils
+  psz_cu_phf
+  psz_cu_fzg
+)
+
 endif()
 
 # ------------------------------------------------------------------------------
@@ -300,13 +278,15 @@ install(TARGETS
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-if(PSZ_BUILD_PYBINDING)
-  install(TARGETS
-    pycusz
-    pycuhf
-    EXPORT CUSZTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  )
+if(PSZ_CMAKE_PYBINDING)
+install(TARGETS
+  pycusz_connector
+  EXPORT CUSZTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 endif()
 
 install(

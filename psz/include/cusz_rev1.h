@@ -22,6 +22,16 @@ int psz_decompress_float(psz_resource* manager, uint8_t* IN_d_compressed, size_t
 int psz_decompress_double(psz_resource* manager, uint8_t* IN_d_compressed, size_t const IN_compressed_len, double* OUT_d_decompressed);
 // clang-format on
 
+#define CAPI_psz_create_resource_manager psz_create_resource_manager
+#define CAPI_psz_create_resource_manager_from_CLI psz_create_resource_manager_from_CLI
+#define CAPI_psz_create_resource_manager_from_header psz_create_resource_manager_from_header
+#define CAPI_psz_modify_resource_manager_from_header psz_modify_resource_manager_from_header
+#define CAPI_psz_release_resource psz_release_resource
+#define CAPI_psz_compress_float psz_compress_float
+#define CAPI_psz_compress_double psz_compress_double
+#define CAPI_psz_decompress_float psz_decompress_float
+#define CAPI_psz_decompress_double psz_decompress_double
+
 #ifdef __cplusplus
 }
 #endif
