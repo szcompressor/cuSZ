@@ -27,6 +27,7 @@ extern "C" {
 #define psz_release capi_psz_release
 #define psz_compress capi_psz_compress
 #define psz_decompress capi_psz_decompress
+#define psz_clear_buffer capi_psz_clear_buffer
 #define psz_make_timerecord capi_psz_make_timerecord
 #define psz_review_comp_time_breakdown capi_psz_review_comp_time_breakdown
 #define psz_review_comp_time_from_header capi_psz_review_comp_time_from_header
@@ -139,6 +140,14 @@ pszerror capi_psz_compress__experimental(
 pszerror capi_psz_decompress(
     psz_compressor* comp, uint8_t* d_compressed, size_t const comp_len, void* d_decompressed,
     psz_len3 const decomp_len, void* record, void* stream);
+
+/**
+ * @brief clear the internal buffer of the compressor object
+ *
+ * @param comp compressor object
+ * @return pszerror error status
+ */
+pszerror capi_psz_clear_buffer(psz_compressor* comp);
 
 // defined in context.cc
 extern void capi_psz_version();

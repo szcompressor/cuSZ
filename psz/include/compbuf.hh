@@ -98,6 +98,7 @@ class CompressorBuffer {
   CompressorBuffer* clear_buffer()
   {
     memset_device(d_ectrl.get(), len);  // TODO FZG padding
+    memset_device(d_hist.get(), bklen);
     memset_device(d_anchor.get(), anchor512_len);
     memset_device(d_compressed.get(), len * 4 / 2);
     // TODO clear compact

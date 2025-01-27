@@ -218,3 +218,18 @@ pszerror capi_psz_decompress(
 
   return CUSZ_SUCCESS;
 }
+
+pszerror capi_psz_clear_buffer(psz_compressor* comp)
+{
+  if (comp->type == F4) {
+    auto cor = (psz::CompressorF4*)(comp->compressor);
+    cor->clear_buffer();
+  }
+  else {
+    // TODO put to log-queue
+    cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
+    return PSZ_TYPE_UNSUPPORTED;
+  }
+
+  return CUSZ_SUCCESS;
+}

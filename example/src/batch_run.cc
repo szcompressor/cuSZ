@@ -189,6 +189,8 @@ int main(int argc, char** argv)
           len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE);
     }
 
+    capi_psz_clear_buffer(compressor);
+
     cudaMemset(d_decomp, 0, oribytes);  // !!!! TODO (root cause?) otherwise wrong in evaluation
   }
 
