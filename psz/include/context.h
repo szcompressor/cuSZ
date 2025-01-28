@@ -62,6 +62,7 @@ struct psz_context {
   char file_prebuilt_hfbk[500];
 
   // str for metadata
+  char char_mode[4];
   char char_meta_eb[16];
   char char_predictor_name[sizeof("lorenzo-zigzag")];
   char char_hist_name[sizeof("histogram-centrality")];
@@ -130,16 +131,15 @@ void pszctx_set_default_values(pszctx*);
  * @return pszctx*
  */
 pszctx* pszctx_minimal_workset(
-    psz_dtype const dtype, psz_predtype const predictor,
-    int const quantizer_radius, psz_codectype const codec);
+    psz_dtype const dtype, psz_predtype const predictor, int const quantizer_radius,
+    psz_codectype const codec);
 
 void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z);
 void pszctx_set_len(pszctx* ctx, psz_len3 len);
 #define get_len3 pszctx_get_len3
 psz_len3 pszctx_get_len3(pszctx* ctx);
 void pszctx_create_from_argv(pszctx* ctx, int const argc, char** const argv);
-void pszctx_create_from_string(
-    pszctx* ctx, const char* in_str, bool dbg_print);
+void pszctx_create_from_string(pszctx* ctx, const char* in_str, bool dbg_print);
 
 #ifdef __cplusplus
 }

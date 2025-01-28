@@ -120,13 +120,28 @@ struct Compressor<C>::impl {
     // initialize internal buffers
     mem = new CompressorBuffer<C>(x, y, z, radius, iscompression);
 
+    if constexpr (std::is_same_v<CONFIG, pszctx>) {
+      // update header::metadata (.w is placeheld.)
+      header.x = ctx->x, header.y = ctx->y, header.z = ctx->z, header.w = 1;
+      // update header::comp_config
+      header.radius = ctx->radius;
+      header.vle_pardeg = ctx->vle_pardeg;
+      // header.eb is left out for compression time
+
+      // update header::atrributes
+      header.dtype = PszType<T>::type;
+      header.pred_type = ctx->pred_type;
+      header.hist_type = ctx->hist_type;
+      header.codec1_type = ctx->codec1_type;
+    }
+
     // initialize profiling
     std::tie(event_start, event_end) = event_create_pair();
 
     // optimize component(s)
     if (iscompression)
       psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
-          len, radius * 2, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
+          len, bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
           hist_generic_repeat);
 
     // initialize component(s)
@@ -164,6 +179,7 @@ struct Compressor<C>::impl {
     /* make outlier count seen on host */
     sync_by_stream(stream);
     ctx->splen = mem->compact->num_outliers();
+    header.splen = ctx->splen;
   }
   catch (const psz::exception_outlier_overflow& e) {
     cerr << e.what() << endl;
@@ -209,13 +225,12 @@ struct Compressor<C>::impl {
 
   void compress_merge_update_header(pszctx* ctx, BYTE** out, szt* outlen, void* stream)
   try {
-    auto splen = mem->compact->num_outliers();
     auto pred_type = ctx->pred_type;
 
     nbyte[HEADER] = sizeof(header);
     nbyte[ENCODED] = sizeof(BYTE) * comp_codec_outlen;
     nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
-    nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * splen;
+    nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * header.splen;
 
     // clang-format off
     header.entry[0] = 0;
@@ -225,21 +240,12 @@ struct Compressor<C>::impl {
 
     concate_memcpy_d2d(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream, __FILE__, __LINE__);
     concate_memcpy_d2d(DST(ENCODED, 0), comp_codec_out, nbyte[ENCODED], stream, __FILE__, __LINE__);
-    concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * splen, stream, __FILE__, __LINE__);
-    concate_memcpy_d2d(DST(SPFMT, sizeof(T) * splen), mem->compact_idx(), sizeof(M) * splen, stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * header.splen, stream, __FILE__, __LINE__);
+    concate_memcpy_d2d(DST(SPFMT, sizeof(T) * header.splen), mem->compact_idx(), sizeof(M) * header.splen, stream, __FILE__, __LINE__);
     // clang-format on
 
-    // update header::metadata (.w is placeheld.)
-    header.x = ctx->x, header.y = ctx->y, header.z = ctx->z, header.w = 1;
-    header.splen = ctx->splen;
     // update header::comp_config
-    header.radius = ctx->radius, header.eb = ctx->eb;
-    header.vle_pardeg = ctx->vle_pardeg;
-    // update header::atrributes
-    header.dtype = PszType<T>::type;
-    header.pred_type = ctx->pred_type;
-    header.hist_type = ctx->hist_type;
-    header.codec1_type = ctx->codec1_type;
+    header.eb = ctx->eb;
 
     /* output of this function */
     *out = mem->compressed();
@@ -327,7 +333,9 @@ struct Compressor<C>::impl {
 
   void clear_buffer()
   {
-    if (codec_hf) codec_hf->clear_buffer(), mem->clear_buffer();
+    if (codec_hf) codec_hf->clear_buffer();
+    if (codec_fzg) codec_fzg->clear_buffer();
+    mem->clear_buffer();
   }
 
   void compress_collect_kerneltime()
@@ -455,15 +463,17 @@ template <class C>
 Compressor<C>* Compressor<C>::dump_compress_intermediate(pszctx* ctx, psz_stream_t stream)
 {
   auto dump_name = [&](string t, string suffix = ".quant") -> string {
-    return string(ctx->file_input) + "." + string(ctx->char_meta_eb) + suffix + "_" + t;
+    return string(ctx->file_input) + "."                               //
+           + string(ctx->char_mode) + "_" + string(ctx->char_meta_eb)  //
+           + "." + "bk_" + to_string(ctx->radius * 2) + "."            //
+           + suffix + "_" + t;
   };
 
   if (ctx->dump_hist) {
     cudaStreamSynchronize((cudaStream_t)stream);
     auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<C>::Freq, pimpl->mem->bklen);
     memcpy_allkinds<D2H>(h_hist.get(), pimpl->mem->hist(), pimpl->mem->bklen, stream);
-    // TODO lift hardcoded dtype (hist)
-    _portable::utils::tofile(dump_name("u4", ".hist"), h_hist.get(), pimpl->mem->bklen);
+    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), pimpl->mem->bklen);
   }
   if (ctx->dump_quantcode) {
     cudaStreamSynchronize((cudaStream_t)stream);
@@ -471,7 +481,7 @@ Compressor<C>* Compressor<C>::dump_compress_intermediate(pszctx* ctx, psz_stream
     auto h_ectrl = MAKE_UNIQUE_HOST(E, pimpl->len);
     memcpy_allkinds<D2H>(h_ectrl.get(), pimpl->mem->ectrl(), pimpl->len, stream);
     _portable::utils::tofile(
-        dump_name("u" + to_string(sizeof(E)), ".quant"), h_ectrl.get(), pimpl->len);
+        dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), pimpl->len);
   }
 
   return this;

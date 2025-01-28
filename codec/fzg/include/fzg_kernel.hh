@@ -48,8 +48,12 @@ class Buf {
   uint16_t* h_out_data;
   uint16_t* d_out_data;
 
+  size_t max_archive_bytes;
+
   Buf(size_t const data_len, bool alloc_test_buf);
   ~Buf();
+
+  void clear_buffer();
 
   void memcpy_merge(Header& header, void* stream);
 
@@ -63,15 +67,13 @@ class Buf {
 
 namespace fzgpu::cuhip {
 int GPU_FZ_encode(
-    uint16_t const* in_data, size_t const data_len,
-    uint32_t* space_offset_counter, uint32_t* out_bitflag_array,
-    uint32_t* out_start_pos, uint8_t* out_comp, uint32_t* comp_len,
+    uint16_t const* in_data, size_t const data_len, uint32_t* space_offset_counter,
+    uint32_t* out_bitflag_array, uint32_t* out_start_pos, uint8_t* out_comp, uint32_t* comp_len,
     cudaStream_t stream);
 
 int GPU_FZ_decode(
-    uint8_t const* in_archive, uint32_t* in_bitflag_array,
-    uint32_t* in_start_pos, uint16_t* out_decoded, size_t const decoded_len,
-    cudaStream_t stream);
+    uint8_t const* in_archive, uint32_t* in_bitflag_array, uint32_t* in_start_pos,
+    uint16_t* out_decoded, size_t const decoded_len, cudaStream_t stream);
 }  // namespace fzgpu::cuhip
 
 #endif /* C6EEF7E5_E411_4155_A85F_52E9EB99FCF6 */

@@ -11,10 +11,12 @@
  *
  */
 
+#include "context.h"
+
 #include <cxxabi.h>
+
 #include <fstream>
 
-#include "context.h"
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "document.inl"
@@ -46,10 +48,7 @@ const int VERSION = 20230928;
 const int COMPATIBILITY = 0;
 }  // namespace psz
 
-void capi_psz_version()
-{
-  printf("\n>>> %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT);
-}
+void capi_psz_version() { printf("\n>>> %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT); }
 
 void capi_psz_versioninfo()
 {
@@ -94,22 +93,17 @@ struct psz_helper {
 
   static double str2fp(std::string s) { return str2fp(s.c_str()); }
 
-  static bool is_kv_pair(std::string s)
-  {
-    return s.find("=") != std::string::npos;
-  }
+  static bool is_kv_pair(std::string s) { return s.find("=") != std::string::npos; }
 
   static std::pair<std::string, std::string> separate_kv(std::string& s)
   {
     std::string delimiter = "=";
 
     if (s.find(delimiter) == std::string::npos)
-      throw std::runtime_error(
-          "\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
+      throw std::runtime_error("\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
 
     std::string k = s.substr(0, s.find(delimiter));
-    std::string v =
-        s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
+    std::string v = s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
 
     return std::make_pair(k, v);
   }
@@ -195,8 +189,7 @@ struct psz_utils {
   static void check_cuszmode(const std::string& val)
   {
     auto legal = (val == "r2r" or val == "rel") or (val == "abs");
-    if (not legal)
-      throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
+    if (not legal) throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
   }
 
   static bool check_dtype(const std::string& val, bool delay_failure = true)
@@ -204,8 +197,7 @@ struct psz_utils {
     auto legal = (val == "f32") or (val == "f4");
     // auto legal = (val == "f32") or (val == "f64");
     if (not legal)
-      if (not delay_failure)
-        throw std::runtime_error("Only `f32`/`f4` is supported temporarily.");
+      if (not delay_failure) throw std::runtime_error("Only `f32`/`f4` is supported temporarily.");
 
     return legal;
   }
@@ -214,14 +206,12 @@ struct psz_utils {
   {
     auto legal = (val == F4);
     if (not legal)
-      if (not delay_failure)
-        throw std::runtime_error("Only `f32` is supported temporarily.");
+      if (not delay_failure) throw std::runtime_error("Only `f32` is supported temporarily.");
 
     return legal;
   }
 
-  static bool check_opt_in_list(
-      std::string const& opt, std::vector<std::string> vs)
+  static bool check_opt_in_list(std::string const& opt, std::vector<std::string> vs)
   {
     for (auto& i : vs) {
       if (opt == i) return true;
@@ -229,8 +219,7 @@ struct psz_utils {
     return false;
   }
 
-  static void parse_length_literal(
-      const char* str, std::vector<std::string>& dims)
+  static void parse_length_literal(const char* str, std::vector<std::string>& dims)
   {
     std::stringstream data_len_ss(str);
     auto data_len_literal = data_len_ss.str();
@@ -256,8 +245,7 @@ struct psz_utils {
 
   static size_t filesize(std::string fname)
   {
-    std::ifstream in(
-        fname.c_str(), std::ifstream::ate | std::ifstream::binary);
+    std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
     return in.tellg();
   }
 
@@ -265,8 +253,7 @@ struct psz_utils {
   static size_t get_npart(T1 size, T2 subsize)
   {
     static_assert(
-        std::numeric_limits<T1>::is_integer and
-            std::numeric_limits<T2>::is_integer,
+        std::numeric_limits<T1>::is_integer and std::numeric_limits<T2>::is_integer,
         "[get_npart] must be plain interger types.");
 
     return (size + subsize - 1) / subsize;
@@ -306,8 +293,7 @@ void pszctx_print_document(bool full_document);
 void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
 void pszctx_parse_length(pszctx* ctx, const char* lenstr);
 void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr);
-void pszctx_parse_control_string(
-    pszctx* ctx, const char* in_str, bool dbg_print);
+void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print);
 void pszctx_validate(pszctx* ctx);
 void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
 void pszctx_set_report(pszctx* ctx, const char* in_str);
@@ -379,15 +365,13 @@ void pszctx_set_datadump(pszctx* ctx, const char* in_str)
  **  "predictor=lorenzo,size=3600x1800"
  **
  **/
-void pszctx_parse_control_string(
-    pszctx* ctx, const char* in_str, bool dbg_print)
+void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print)
 {
   map_t opts;
   psz_helper::parse_strlist_as_kv(in_str, opts);
 
   if (dbg_print) {
-    for (auto kv : opts)
-      printf("%-*s %-s\n", 10, kv.first.c_str(), kv.second.c_str());
+    for (auto kv : opts) printf("%-*s %-s\n", 10, kv.first.c_str(), kv.second.c_str());
     std::cout << "\n";
   }
 
@@ -409,10 +393,13 @@ void pszctx_parse_control_string(
     }
     else if (optmatch({"eb", "errorbound"})) {
       ctx->eb = psz_helper::str2fp(v);
+      strcpy(ctx->char_meta_eb, v.c_str());
     }
     else if (optmatch({"mode"})) {
       psz_utils::check_cuszmode(v);
       ctx->mode = (v == "r2r" or v == "rel") ? Rel : Abs;
+      if (ctx->mode == Rel) ctx->prep_prescan = true;
+      strcpy(ctx->char_mode, v.c_str());
     }
     else if (optmatch({"len", "xyz", "dim3"})) {
       pszctx_parse_length(ctx, v.c_str());
@@ -508,8 +495,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
   int i = 1;
 
   auto check_next = [&]() {
-    if (i + 1 >= argc)
-      throw std::runtime_error("out-of-range at" + std::string(argv[i]));
+    if (i + 1 >= argc) throw std::runtime_error("out-of-range at" + std::string(argv[i]));
   };
 
   std::string opt;
@@ -550,6 +536,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         auto _ = std::string(argv[++i]);
         ctx->mode = (_ == "r2r" or _ == "rel") ? Rel : Abs;
         if (ctx->mode == Rel) ctx->prep_prescan = true;
+        strcpy(ctx->char_mode, _.c_str());
       }
       else if (optmatch({"-e", "--eb", "--error-bound"})) {
         check_next();
@@ -630,9 +617,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-P", "--pre", "--preprocess"})) {
         check_next();
         std::string pre(argv[++i]);
-        if (pre.find("binning") != std::string::npos) {
-          ctx->prep_binning = true;
-        }
+        if (pre.find("binning") != std::string::npos) { ctx->prep_binning = true; }
       }
       else if (optmatch({"-V", "--verbose"})) {
         ctx->verbose = true;
@@ -648,17 +633,12 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-S", "-X", "--skip", "--exclude"})) {
         check_next();
         std::string exclude(argv[++i]);
-        if (exclude.find("huffman") != std::string::npos) {
-          ctx->skip_hf = true;
-        }
-        if (exclude.find("write2disk") != std::string::npos) {
-          ctx->skip_tofile = true;
-        }
+        if (exclude.find("huffman") != std::string::npos) { ctx->skip_hf = true; }
+        if (exclude.find("write2disk") != std::string::npos) { ctx->skip_tofile = true; }
       }
       else if (optmatch({"--opath"})) {
         check_next();
-        throw std::runtime_error(
-            "[23june] Specifying output path is temporarily disabled.");
+        throw std::runtime_error("[23june] Specifying output path is temporarily disabled.");
         auto _ = std::string(argv[++i]);
         strcpy(ctx->opath, _.c_str());
       }
@@ -675,9 +655,7 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         std::vector<std::string> _tokens;
         std::string _token;
         std::istringstream _tokenstream(_);
-        while (std::getline(_tokenstream, _token, ',')) {
-          _tokens.push_back(_token);
-        }
+        while (std::getline(_tokenstream, _token, ',')) { _tokens.push_back(_token); }
 
         strcpy(ctx->file_prebuilt_hist_top1, _tokens[0].c_str());
         strcpy(ctx->file_prebuilt_hfbk, _tokens[1].c_str());
@@ -754,12 +732,11 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
 
   if (not demodata_name.empty()) {
     auto f = dataset_entries.find(demodata_name);
-    if (f == dataset_entries.end())
-      throw std::runtime_error("no such dataset as" + demodata_name);
+    if (f == dataset_entries.end()) throw std::runtime_error("no such dataset as" + demodata_name);
     auto demo_xyzw = f->second;
 
-    ctx->x = demo_xyzw[0], ctx->y = demo_xyzw[1], ctx->z = demo_xyzw[2],
-    ctx->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
+    ctx->x = demo_xyzw[0], ctx->y = demo_xyzw[1], ctx->z = demo_xyzw[2], ctx->w = demo_xyzw[3],
+    ctx->ndim = demo_xyzw[4];
 
     ctx->data_len = ctx->x * ctx->y * ctx->z;
   }
@@ -806,10 +783,8 @@ void pszctx_validate(pszctx* ctx)
       to_abort = true;
     }
   }
-  if (not ctx->task_construct and not ctx->task_reconstruct and
-      not ctx->task_dryrun) {
-    cerr << LOG_ERR << "select compress (-z), decompress (-x) or dryrun (-r)"
-         << endl;
+  if (not ctx->task_construct and not ctx->task_reconstruct and not ctx->task_dryrun) {
+    cerr << LOG_ERR << "select compress (-z), decompress (-x) or dryrun (-r)" << endl;
     to_abort = true;
   }
   if (false == psz_utils::check_dtype(ctx->dtype)) {
@@ -824,22 +799,18 @@ void pszctx_validate(pszctx* ctx)
   // else if (quant_bytewidth == 2)
   //     assert(dict_size <= 65536);
   if (ctx->task_dryrun and ctx->task_construct and ctx->task_reconstruct) {
-    cerr << LOG_WARN
-         << "no need to dryrun, compress and decompress at the same time"
-         << endl;
+    cerr << LOG_WARN << "no need to dryrun, compress and decompress at the same time" << endl;
     cerr << LOG_WARN << "dryrun only" << endl << endl;
     ctx->task_construct = false;
     ctx->task_reconstruct = false;
   }
   else if (ctx->task_dryrun and ctx->task_construct) {
-    cerr << LOG_WARN << "no need to dryrun and compress at the same time"
-         << endl;
+    cerr << LOG_WARN << "no need to dryrun and compress at the same time" << endl;
     cerr << LOG_WARN << "dryrun only" << endl << endl;
     ctx->task_construct = false;
   }
   else if (ctx->task_dryrun and ctx->task_reconstruct) {
-    cerr << LOG_WARN << "no need to dryrun and decompress at the same time"
-         << endl;
+    cerr << LOG_WARN << "no need to dryrun and decompress at the same time" << endl;
     cerr << LOG_WARN << "will dryrun only" << endl << endl;
     ctx->task_reconstruct = false;
   }
@@ -881,21 +852,13 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
   ctx->ndim = ndim;
   ctx->data_len = ctx->x * ctx->y * ctx->z;
 
-  if (ctx->data_len == 1)
-    throw std::runtime_error("Input data length cannot be 1 (linearized).");
-  if (ctx->data_len == 0)
-    throw std::runtime_error("Input data length cannot be 0 (linearized).");
+  if (ctx->data_len == 1) throw std::runtime_error("Input data length cannot be 1 (linearized).");
+  if (ctx->data_len == 0) throw std::runtime_error("Input data length cannot be 0 (linearized).");
 }
 
-void pszctx_set_len(pszctx* ctx, psz_len3 len)
-{
-  pszctx_set_rawlen(ctx, len.x, len.y, len.z);
-}
+void pszctx_set_len(pszctx* ctx, psz_len3 len) { pszctx_set_rawlen(ctx, len.x, len.y, len.z); }
 
-psz_len3 pszctx_get_len3(pszctx* ctx)
-{
-  return psz_len3{ctx->x, ctx->y, ctx->z};
-}
+psz_len3 pszctx_get_len3(pszctx* ctx) { return psz_len3{ctx->x, ctx->y, ctx->z}; }
 
 void pszctx_set_radius(pszctx* ctx, int _)
 {
@@ -974,8 +937,8 @@ void pszctx_set_default_values(pszctx* empty_ctx)
 }
 
 pszctx* pszctx_minimal_workset(
-    psz_dtype const dtype, psz_predtype const predictor,
-    int const quantizer_radius, psz_codectype const codec)
+    psz_dtype const dtype, psz_predtype const predictor, int const quantizer_radius,
+    psz_codectype const codec)
 {
   auto ws = pszctx_default_values();
   ws->dtype = dtype;

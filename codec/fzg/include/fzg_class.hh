@@ -21,14 +21,14 @@ class FzgCodec {
   ~FzgCodec();
 
   FzgCodec* encode(
-      E* in_data, size_t const data_len, uint8_t** out_comp, size_t* comp_len,
-      void* stream);
+      E* in_data, size_t const data_len, uint8_t** out_comp, size_t* comp_len, void* stream);
 
   FzgCodec* decode(
-      uint8_t* in_comp, size_t const comp_len, E* out_data,
-      size_t const data_len, void* stream);
+      uint8_t* in_comp, size_t const comp_len, E* out_data, size_t const data_len, void* stream);
 
   size_t expose_padded_input_len() const;
+
+  void clear_buffer();
 };
 
 }  // namespace psz

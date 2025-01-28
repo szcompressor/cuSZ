@@ -95,9 +95,6 @@ add_library(pszcomp_hip src/compressor.cc)
 target_link_libraries(pszcomp_hip PUBLIC pszcompile_settings pszkernel_hip
                                   pszstat_hip pszhf_hip hip::host)
 
-add_library(psztestframe_hip src/pipeline/testframe.cc)
-target_link_libraries(psztestframe_hip PUBLIC pszcomp_hip pszmem pszutils_seq)
-
 add_library(hipsz src/cusz_lib.cc)
 target_link_libraries(hipsz PUBLIC pszcomp_hip pszhf_hip pszspv_hip pszstat_seq
                                    pszutils_seq pszmem)
@@ -128,7 +125,6 @@ install(TARGETS pszspv_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTAL
 install(TARGETS pszhfbook_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszhf_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszcomp_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psztestframe_hip EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS hipsz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS hipsz-bin EXPORT CUSZTargets)
 

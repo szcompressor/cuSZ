@@ -106,9 +106,6 @@ add_library(pszcomp_dp src/compressor.cc)
 target_link_libraries(pszcomp_dp PUBLIC pszcompile_settings pszkernel_dp
   pszstat_dp pszhf_dp pszkernel_seq)
 
-add_library(psztestframe_dp src/pipeline/testframe.cc)
-target_link_libraries(psztestframe_dp PUBLIC pszcomp_dp pszmem pszutils_seq)
-
 add_library(dpsz src/cusz_lib.cc)
 target_link_libraries(dpsz PUBLIC pszcomp_dp pszhf_dp pszspv_dp pszstat_seq
   pszutils_seq pszmem)
@@ -143,7 +140,6 @@ install(TARGETS pszhfbook_seq EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INS
 
 install(TARGETS pszhf_dp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS pszcomp_dp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(TARGETS psztestframe_dp EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS dpsz EXPORT CUSZTargets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(TARGETS dpsz-bin EXPORT CUSZTargets)
 install(

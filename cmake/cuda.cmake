@@ -178,7 +178,7 @@ add_library(PSZ::CUDA::fzg ALIAS psz_cu_fzg)
 add_library(CUSZ::fzg ALIAS psz_cu_fzg)
 
 add_library(cusz
-  psz/src/pipeline/compressor.cc
+  psz/src/compressor.cc
   psz/src/libcusz.cc
 )
 target_link_libraries(cusz

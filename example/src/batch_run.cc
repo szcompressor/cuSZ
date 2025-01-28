@@ -13,6 +13,7 @@ namespace utils = _portable::utils;
 using T = float;
 
 const auto mode = Abs;  // set compression mode
+const string mode_str("abs");
 const string eb_str("3e0");
 const auto eb = 3.0f;  // set error bound
 const auto width = 5;
@@ -27,23 +28,26 @@ struct Arguments {
   std::string fname_suffix;
   int from_number;
   int to_number;
+  psz_codectype codec_type{Huffman};
   size_t x;
   size_t y;
   size_t z;
+  size_t radius;
 };
 
 void print_help()
 {
-  std::cout << "Usage: batch_run [options]\n"
-            << "Options:\n"
-            << "  --fname-prefix PREFIX   Set the file name prefix\n"
-            << "  --fname-suffix SUFFIX   Set the file name suffix\n"
-            << "  --from NUMBER           Set the start number\n"
-            << "  --to NUMBER             Set the end number\n"
-            << "  -x NUMBER               Set the x value\n"
-            << "  -y NUMBER               Set the y value\n"
-            << "  -z NUMBER               Set the z value\n"
-            << "  --help                  Show this help message\n";
+  std::cout << "usage: batch_run [options]\n"
+            << "options:\n"
+            << "  --fname-prefix PREFIX   file name prefix\n"
+            << "  --fname-suffix SUFFIX   file name suffix\n"
+            << "  --from NUMBER           start number\n"
+            << "  --to NUMBER             end number\n"
+            << "  -x NUMBER               dim x\n"
+            << "  -y NUMBER               dim y\n"
+            << "  -z NUMBER               dim z\n"
+            << "  -r NUMBER               radius\n"
+            << "  --help                  this message\n";
 }
 
 Arguments parse_arguments(int argc, char* argv[])
@@ -56,6 +60,7 @@ Arguments parse_arguments(int argc, char* argv[])
   bool x_set = false;
   bool y_set = false;
   bool z_set = false;
+  bool radius_set = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -86,6 +91,13 @@ Arguments parse_arguments(int argc, char* argv[])
     else if (arg == "-z" and i + 1 < argc) {
       args.z = atoi(argv[++i]);
       z_set = true;
+    }
+    else if (arg == "-r" and i + 1 < argc) {
+      args.radius = atoi(argv[++i]);
+      radius_set = true;
+    }
+    else if (arg == "--codec" and i + 1 < argc) {
+      args.codec_type = string(argv[++i]) == "fzg" ? FZGPUCodec : Huffman;
     }
     else if (arg == "--help") {
       print_help();
@@ -149,32 +161,40 @@ int main(int argc, char** argv)
   psz_len3 uncomp_len3 = {args.x, args.y, args.z};
   psz_len3 decomp_len3 = uncomp_len3;
 
-  auto* compressor = psz_create(F4, uncomp_len3, Lorenzo, 512, Huffman);
-  compressor->ctx->dump_hist = true;
-  // compressor->ctx->dump_quantcode = true;
+  psz_compressor* cor;
+  if (args.codec_type == Huffman) {
+    cout << "using Huffman" << endl;
+    cor = psz_create(F4, uncomp_len3, Lorenzo, args.radius, Huffman);
+    cor->ctx->dump_hist = true;
+  }
+  else {
+    cout << "using FZGPUCodec" << endl;
+    cor = psz_create(F4, uncomp_len3, LorenzoZigZag, args.radius, FZGPUCodec);
+  }
+  // cor->ctx->dump_quantcode = true;
 
   for (const auto& fname : file_names) {
     cout << "\e[34mFNAME\t" + fname + "\e[0m" << endl;
-    strcpy(compressor->ctx->file_input, fname.c_str());
-    strcpy(compressor->ctx->char_meta_eb, eb_str.c_str());
+    strcpy(cor->ctx->file_input, fname.c_str());
+    strcpy(cor->ctx->char_mode, mode_str.c_str());
+    strcpy(cor->ctx->char_meta_eb, eb_str.c_str());
 
     utils::fromfile(fname, h_uncomp, len);
     cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
 
     {  // compresion
       psz_compress(
-          compressor, d_uncomp, uncomp_len3, eb, mode, &p_compressed, &comp_len, &header,
-          comp_timerecord, stream);
+          cor, d_uncomp, uncomp_len3, eb, mode, &p_compressed, &comp_len, &header, comp_timerecord,
+          stream);
       //   psz_review_compression(comp_timerecord, &header);
 
       cudaMemcpy(compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
-      compressor->header = &header;  // !!!! TODO fix header link after compression
+      cor->header = &header;  // !!!! TODO fix header link after compression
     }
 
     {  // decompression
       auto comp_len = pszheader_filesize(&header);
-      psz_decompress(
-          compressor, compressed, comp_len, d_decomp, decomp_len3, decomp_timerecord, stream);
+      psz_decompress(cor, compressed, comp_len, d_decomp, decomp_len3, decomp_timerecord, stream);
     }
 
     {  // evaulation
@@ -189,12 +209,12 @@ int main(int argc, char** argv)
           len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE);
     }
 
-    capi_psz_clear_buffer(compressor);
+    capi_psz_clear_buffer(cor);
 
     cudaMemset(d_decomp, 0, oribytes);  // !!!! TODO (root cause?) otherwise wrong in evaluation
   }
 
-  psz_release(compressor);
+  psz_release(cor);
 
   // clean up
   cudaFree(compressed);
