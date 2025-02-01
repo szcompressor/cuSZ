@@ -288,14 +288,13 @@ __global__ void KERNEL_CUHIP_x_lorenzo_3d1l(  //
 namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
-pszerror GPU_x_lorenzo_nd(
-    Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const _data_len3, f8 const eb,
-    uint16_t const radius, void* stream)
+int GPU_x_lorenzo_nd(
+    Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const _data_len3,
+    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream)
 {
   using namespace psz::kernelconfig;
 
   // error bound
-  auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
   auto data_len3 = TO_DIM3(_data_len3);
   auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
   auto d = lorenzo_utils::ndim(data_len3);
@@ -325,9 +324,9 @@ pszerror GPU_x_lorenzo_nd(
 }  // namespace psz::module
 
 #define INSTANTIATE_GPU_L23X_3params(T, USE_ZIGZAG, Eq)                                 \
-  template pszerror psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(                   \
+  template int psz::module::GPU_x_lorenzo_nd<T, USE_ZIGZAG, Eq>(                        \
       Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const data_len3, \
-      f8 const eb, uint16_t const radius, void* stream);
+      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
 
 #define INSTANTIATE_GPU_L23X_2params(T, Eq)   \
   INSTANTIATE_GPU_L23X_3params(T, false, Eq); \

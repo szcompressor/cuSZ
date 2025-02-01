@@ -25,14 +25,14 @@
 namespace psz::module {
 
 template <typename T, typename Eq>
-pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
+int GPU_PROTO_c_lorenzo_nd_with_outlier(
     T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq, void* out_outlier,
-    PROPER_EB const eb, uint16_t const radius, void* stream);
+    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
 
 template <typename T, typename Eq>
-pszerror GPU_PROTO_x_lorenzo_nd(
-    Eq* in_eq, T* in_outlier, T* out_data, std::array<size_t, 3> const data_len3,
-    PROPER_EB const eb, int const radius, void* stream);
+int GPU_PROTO_x_lorenzo_nd(
+    Eq* in_eq, T* in_outlier, T* out_data, std::array<size_t, 3> const data_len3, f8 const ebx2,
+    f8 const ebx2_r, int const radius, void* stream);
 
 }  // namespace psz::module
 

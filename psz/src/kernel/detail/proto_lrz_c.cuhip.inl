@@ -140,9 +140,9 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_3d1l(
 namespace psz::module {
 
 template <typename T, typename Eq = uint16_t>
-pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
+int GPU_PROTO_c_lorenzo_nd_with_outlier(
     T* const in_data, std::array<size_t, 3> const _data_len3, Eq* const out_eq, void* out_outlier,
-    double const eb, uint16_t const radius, void* stream)
+    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream)
 {
   auto data_len3 = TO_DIM3(_data_len3);
 
@@ -171,7 +171,6 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
        Grid3D = divide3(data_len3, Tile3D);
 
   // error bound
-  auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
   auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
   if (ndim() == 1)
@@ -199,9 +198,9 @@ pszerror GPU_PROTO_c_lorenzo_nd_with_outlier(
 
 ////////////////////////////////////////////////////////////////////////////////
 #define INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, Eq)                          \
-  template pszerror psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>(     \
+  template int psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>(          \
       T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq, \
-      void* out_outlier, double const eb, uint16_t const radius, void* stream);
+      void* out_outlier, f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
 
 #define INSTANTIATIE_LORENZO_PROTO_C_1param(T)     \
   INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, u1); \

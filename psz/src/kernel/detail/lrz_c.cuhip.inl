@@ -285,9 +285,9 @@ __global__ void KERNEL_CUHIP_lorenzo_prequant(
 namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
-pszerror GPU_c_lorenzo_nd_with_outlier(
-    T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, f8 const eb,
-    uint16_t const radius, void* stream)
+int GPU_c_lorenzo_nd_with_outlier(
+    T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, f8 const ebx2,
+    f8 const ebx2_r, uint16_t const radius, void* stream)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
@@ -297,7 +297,6 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
   auto d = lorenzo_utils::ndim(data_len3);
 
   // error bound
-  auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
   auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
   if (d == 1)
@@ -323,26 +322,15 @@ pszerror GPU_c_lorenzo_nd_with_outlier(
 }
 
 template <typename TIN, typename TOUT, bool ReverseProcess>
-pszerror GPU_lorenzo_prequant(
-    TIN* const in, size_t const len, PROPER_EB const eb, TOUT* const out, float* time_elapsed,
-    void* stream)
+int GPU_lorenzo_prequant(
+    TIN* const in, size_t const len, f8 const ebx2, f8 const ebx2_r, TOUT* const out, void* stream)
 {
   using namespace psz::kernelconfig;
-  // error bound
-  auto ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-
-  CREATE_GPUEVENT_PAIR;
-  START_GPUEVENT_RECORDING((GPU_BACKEND_SPECIFIC_STREAM)stream);
 
   psz::KERNEL_CUHIP_lorenzo_prequant<
       TIN, TOUT, ReverseProcess, TIN, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>
       <<<c_lorenzo<1>::thread_grid(dim3(len)), c_lorenzo<1>::thread_block, 0,
          (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(in, len, ebx2_r, ebx2, out);
-
-  STOP_GPUEVENT_RECORDING((GPU_BACKEND_SPECIFIC_STREAM)stream);
-  CHECK_GPU(cudaStreamSynchronize((GPU_BACKEND_SPECIFIC_STREAM)stream));
-  TIME_ELAPSED_GPUEVENT(time_elapsed);
-  DESTROY_GPUEVENT_PAIR;
 
   return CUSZ_SUCCESS;
 }
@@ -351,9 +339,9 @@ pszerror GPU_lorenzo_prequant(
 
 // -----------------------------------------------------------------------------
 #define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                               \
-  template pszerror psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>(    \
+  template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>(         \
       T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, \
-      f8 const eb, uint16_t const radius, void* stream);
+      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
   INSTANCIATE_GPU_L23R_3params(T, false, Eq); \
@@ -365,9 +353,9 @@ pszerror GPU_lorenzo_prequant(
 
 // -----------------------------------------------------------------------------
 
-#define INSTANCIATE_GPU_L23_PREQ_3params(TIN, TOUT, REV)                                         \
-  template pszerror psz::module::GPU_lorenzo_prequant<TIN, TOUT, REV>(                           \
-      TIN* const in, size_t const len, PROPER_EB const eb, TOUT* const out, float* time_elapsed, \
+#define INSTANCIATE_GPU_L23_PREQ_3params(TIN, TOUT, REV)                                \
+  template int psz::module::GPU_lorenzo_prequant<TIN, TOUT, REV>(                       \
+      TIN* const in, size_t const len, f8 const ebx2, f8 const ebx2_r, TOUT* const out, \
       void* stream);
 
 #define INSTANCIATE_GPU_L23_PREQ_2params(TIN, REV)     \

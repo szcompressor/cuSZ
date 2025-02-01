@@ -99,6 +99,8 @@ struct Compressor<C>::impl {
 
   float time_pred, time_hist, time_sp;
 
+  double eb, eb_r, ebx2, ebx2_r;
+
   ~impl()
   {
     delete mem;
@@ -126,7 +128,7 @@ struct Compressor<C>::impl {
       // update header::comp_config
       header.radius = ctx->radius;
       header.vle_pardeg = ctx->vle_pardeg;
-      // header.eb is left out for compression time
+      // header.eb is left out for compression runtime
 
       // update header::atrributes
       header.dtype = PszType<T>::type;
@@ -159,19 +161,24 @@ struct Compressor<C>::impl {
 
     event_recording_start(event_start, stream);
 
+    eb = ctx->eb;
+    ebx2 = eb * 2;
+    eb_r = 1 / eb;
+    ebx2_r = 1 / ebx2;
+
     if (ctx->pred_type == Lorenzo)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->radius, stream);
     else if (ctx->pred_type == LorenzoZigZag)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->radius, stream);
     else if (ctx->pred_type == LorenzoProto)
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ctx->eb, ctx->radius, stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->radius, stream);
     else if (ctx->pred_type == Spline)
       psz::module::GPU_predict_spline(
           in, len3_std, mem->ectrl(), mem->ectrl_len3(), mem->anchor(), mem->anchor_len3(),
-          (void*)mem->compact, ctx->eb, ctx->radius, stream);
+          (void*)mem->compact, ebx2, eb_r, ctx->radius, stream);
 
     event_recording_stop(event_end, stream);
     event_time_elapsed(event_start, event_end, &time_pred);
@@ -277,21 +284,24 @@ struct Compressor<C>::impl {
     auto d_space = out, d_xdata = out;  // aliases
     auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
 
+    eb = header->eb;
+    eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+
     event_recording_start(event_start, stream);
 
     if (header->pred_type == Lorenzo)
       psz::module::GPU_x_lorenzo_nd<T, false, E>(
-          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
+          mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
     else if (header->pred_type == LorenzoZigZag)
       psz::module::GPU_x_lorenzo_nd<T, true, E>(
-          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
+          mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
     else if (header->pred_type == LorenzoProto)
       psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
-          mem->ectrl(), d_space, d_xdata, len3_std, header->eb, header->radius, stream);
+          mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
     else if (header->pred_type == Spline)
       psz::module::GPU_reverse_predict_spline(
-          mem->ectrl(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len3_std,
-          header->eb, header->radius, stream);
+          mem->ectrl(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len3_std, ebx2,
+          eb_r, header->radius, stream);
 
     event_recording_stop(event_end, stream);
     event_time_elapsed(event_start, event_end, &time_pred);

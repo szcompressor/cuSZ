@@ -98,16 +98,35 @@ __global__ void KERNEL_CUHIP_extrema(
   }
   __syncthreads();
 
-  atomicMinFp<T>(&shared_minv, tp_minv);
-  atomicMaxFp<T>(&shared_maxv, tp_maxv);
-  atomicAdd(&shared_sum, tp_sum);
-  __syncthreads();
+  constexpr auto is_FP = std::is_floating_point<T>::value;
+  constexpr auto is_INT = std::is_integral<T>::value;
 
-  if (threadIdx.x == 0) {
-    atomicMinFp<T>(minel, shared_minv);
-    atomicMaxFp<T>(maxel, shared_maxv);
-    atomicAdd(sum, shared_sum);
+  if constexpr (is_FP) {
+    atomicMinFp<T>(&shared_minv, tp_minv);
+    atomicMaxFp<T>(&shared_maxv, tp_maxv);
+    atomicAdd(&shared_sum, tp_sum);
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+      atomicMinFp<T>(minel, shared_minv);
+      atomicMaxFp<T>(maxel, shared_maxv);
+      atomicAdd(sum, shared_sum);
+    }
   }
+  else if constexpr (is_INT) {
+    atomicMin(&shared_minv, tp_minv);
+    atomicMax(&shared_maxv, tp_maxv);
+    atomicAdd(&shared_sum, tp_sum);
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+      atomicMin(minel, shared_minv);
+      atomicMax(maxel, shared_maxv);
+      atomicAdd(sum, shared_sum);
+    }
+  }
+  else
+    static_assert(is_FP || is_INT, "T must be either floating point or integer.");
 }
 
 }  // namespace psz
