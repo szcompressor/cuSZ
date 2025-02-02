@@ -17,55 +17,72 @@
 #include "busyheader.hh"
 #include "context.h"
 #include "cusz/type.h"
+#include "fzg_class.hh"
 #include "header.h"
+#include "hfclass.hh"
 #include "typing.hh"
 
 namespace psz {
 
-template <class C>
+template <typename DType>
 class Compressor {
  private:
   struct impl;
   std::unique_ptr<impl> pimpl;
 
  public:
+  using T = DType;
+  using E = uint16_t;
   using BYTE = uint8_t;
-  using T = typename C::T;
-  using E = typename C::E;
+
+  psz_header* const header_ref;
 
   using TimeRecord = std::vector<std::tuple<const char*, double>>;
   using timerecord_t = TimeRecord*;
 
  public:
-  /**
-   * @brief construct a object, use with init(...)
-   * @deprecated use with-argument ctors
-   */
-  Compressor();
   // comp, ctor(...) + no further init
   Compressor(psz_context*, bool debug = false);
   Compressor(psz_header*, bool debug = false);
   // dtor, releasing
   ~Compressor();
 
-  /**
-   * @brief initialize internal buffer
-   * @deprecated to be an internal function
-   * @tparam CONFIG psz_context of psz_header
-   */
-  template <class CONFIG>
-  Compressor* init(CONFIG* config, bool iscomp = true, bool dbg = false);
-  Compressor* compress(pszctx*, T*, BYTE**, size_t*, psz_stream_t);
-  Compressor* decompress(psz_header*, BYTE*, T*, psz_stream_t);
-  Compressor* dump_compress_intermediate(pszctx*, psz_stream_t);
-  Compressor* clear_buffer();
+  void compress(pszctx*, T*, BYTE**, size_t*, psz_stream_t);
+  void decompress(psz_header*, BYTE*, T*, psz_stream_t);
+  void dump_compress_intermediate(pszctx*, psz_stream_t);
+  void clear_buffer();
 
   // getter
-  Compressor* export_header(psz_header&);
-  Compressor* export_header(psz_header*);
-  Compressor* export_timerecord(TimeRecord*);
-  Compressor* export_timerecord(float*);
+  void export_header(psz_header&);
+  void export_timerecord(TimeRecord*);
+  void export_timerecord(float*);
 };
+
+using TimeRecordTuple = std::tuple<const char*, double>;
+using TimeRecord = std::vector<TimeRecordTuple>;
+using timerecord_t = TimeRecord*;
+
+template <typename Input, bool Fast = true>
+struct CompressorInternalTypes {
+ public:
+  using T = Input;
+  using E2 = uint16_t;
+  using E1 = uint8_t;
+  using FP = T;
+  using M = uint32_t;
+
+  /* lossless codec */
+
+  // TODO: runtime switch
+  using CodecHF_U2 = phf::HuffmanCodec<E2>;
+  using CodecHF_U1 = phf::HuffmanCodec<E1>;
+
+  // The input is mandetory to be u2.
+  using CodecFZG = psz::FzgCodec;
+};
+
+using CompressorF4 = Compressor<f4>;
+using CompressorF8 = Compressor<f8>;
 
 }  // namespace psz
 

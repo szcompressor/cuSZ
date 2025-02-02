@@ -1,3 +1,5 @@
+#include <array>
+
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 
@@ -13,13 +15,13 @@ struct CompressorBufferToggle {
   bool compressed;
 };
 
-template <class C>
+template <typename DType>
 class CompressorBuffer {
  public:
-  using T = typename C::T;
-  using E = typename C::E;
-  using FP = typename C::FP;
-  using M = typename C::M;
+  using T = DType;
+  using E = u2;
+  using FP = T;
+  using M = u4;
   using Freq = u4;
   using B = u1;
   using Compact = _portable::compact_gpu<T>;
@@ -48,12 +50,10 @@ class CompressorBuffer {
     return _div(x, BLK) * _div(y, BLK) * _div(z, BLK);
   }
 
-  static size_t set_len_ectrl_FZG(size_t len) { return ((len - 1) / 4096 + 1) * 4096; }
-
  public:
   CompressorBuffer(
       u4 x, u4 y = 1, u4 z = 1, u2 _radius = 512, bool _is_comp = true,
-      psz_codectype codec_type = Huffman, CompressorBufferToggle* toggle = nullptr) :
+      CompressorBufferToggle* toggle = nullptr) :
       is_comp(_is_comp),
       radius(_radius),
       bklen(2 * radius),
@@ -64,10 +64,8 @@ class CompressorBuffer {
       anchor512_len(set_len_anchor_512(x, y, z))
   {
     if (not toggle) {
-      if (codec_type == FZGPUCodec)  // TODO enable alloc size
-        d_ectrl = MAKE_UNIQUE_DEVICE(E, set_len_ectrl_FZG(len));
-      else
-        d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
+      // align 4Ki for (essentially) FZG
+      d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len));
 
       if (is_comp) {
         compact = new Compact(len / 5);

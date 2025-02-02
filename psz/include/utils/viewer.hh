@@ -22,28 +22,16 @@
 
 #include "cusz/type.h"
 #include "header.h"
-#include "mem/cxx_array.h"
-#include "mem/cxx_memobj.h"
 
 using std::string;
 using std::vector;
 
-template <typename T>
-using memobj = _portable::memobj<T>;
-
-template <typename T>
-using array3 = _portable::array3<T>;
-
-// deps
 namespace psz::analysis {
 
 template <typename T>
 void print_metrics_cross(psz_statistics* s, size_t comp_bytes = 0, bool gpu_checker = false);
 
 void print_metrics_auto(double* lag1_cor, double* lag2_cor);
-
-template <typename T>
-void view(psz_header* header, memobj<T>* xdata, memobj<T>* cmp, string const& compare);
 
 }  // namespace psz::analysis
 

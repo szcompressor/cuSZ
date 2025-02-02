@@ -2,12 +2,12 @@
 
 #include <cstddef>
 
+#include "compressor.hh"
 #include "cusz.h"
 #include "cusz/type.h"
 #include "header.h"
 #include "port.hh"
 #include "stat/compare.hh"
-#include "tehm.hh"
 
 float get_throughput(float milliseconds, size_t nbyte)
 {
@@ -90,12 +90,12 @@ string const psz_report_query_pred(psz_predtype const p)
   return lut.at(p);
 };
 
-string const psz_report_query_hist(psz_histogramtype const h)
+string const psz_report_query_hist(psz_histotype const h)
 {
-  const std::unordered_map<psz_histogramtype const, std::string const> lut = {
-      {psz_histogramtype::HistogramGeneric, "Hist-generic"},
-      {psz_histogramtype::HistogramSparse, "Hist-sparse"},
-      {psz_histogramtype::HistogramNull, "Hist-(null)"},
+  const std::unordered_map<psz_histotype const, std::string const> lut = {
+      {psz_histotype::HistogramGeneric, "Hist-generic"},
+      {psz_histotype::HistogramSparse, "Hist-sparse"},
+      {psz_histotype::NullHistogram, "Hist-(null)"},
   };
   return lut.at(h);
 };
@@ -151,7 +151,7 @@ void capi_psz_review_comp_time_from_header(psz_header* h)
   __print("logging::max", h->logging_max);
   __print("logging::min", h->logging_min);
   __print("logging::range", h->logging_max - h->logging_min);
-  __print("logging::mode", h->logging_mode == Rel ? "Rel" : "Abs");
+  __print("logging::mode", h->mode == Rel ? "Rel" : "Abs");
   __print("logging::input_eb", h->user_input_eb);
   __print("logging::final_eb", h->eb);
   printf("--------------------------------------------------\n");
@@ -332,70 +332,5 @@ void psz::analysis::CPU_evaluate_quality_and_print(
   delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
-template <typename T>
-void psz::analysis::view(
-    psz_header* header, memobj<T>* xdata, memobj<T>* cmp, string const& file_to_compare)
-{
-  auto len = pszheader_uncompressed_len(header);
-  auto compressd_bytes = pszheader_compressed_len(header);
-
-  auto compare_on_gpu = [&]() {
-    cmp->control({MallocHost, Malloc})->file(file_to_compare.c_str(), FromFile)->control({H2D});
-
-    psz::analysis::GPU_evaluate_quality_and_print(
-        xdata->dptr(), cmp->dptr(), len, compressd_bytes);
-  };
-
-  auto compare_on_cpu = [&]() {
-    cmp->control({MallocHost})->file(file_to_compare.c_str(), FromFile);
-    xdata->control({D2H});
-    psz::analysis::CPU_evaluate_quality_and_print(
-        xdata->hptr(), cmp->hptr(), len, compressd_bytes);
-  };
-
-  if (file_to_compare != "") {
-    auto gb = 1.0 * sizeof(T) * len / 1e9;
-    if (gb < 0.8)
-      compare_on_gpu();
-    else
-      compare_on_cpu();
-  }
-}
-
-#define __INSTANTIATE_CPU_VIEWER(T) \
-  template void psz::analysis::view<T>(psz_header*, memobj<T>*, memobj<T>*, string const&);
-
-__INSTANTIATE_CPU_VIEWER(float)
-__INSTANTIATE_CPU_VIEWER(double)
-
-void capi_psz_review_evaluated_quality(
-    psz_runtime p, psz_dtype d, void* xdata, void* odata, size_t len, size_t comp_bytes,
-    bool arrays_on_device)
-{
-  if (d == F4) {
-    auto x = (float*)xdata;
-    auto o = (float*)odata;
-    if (p == SEQ)
-      psz::analysis::CPU_evaluate_quality_and_print<float>(
-          x, o, len, comp_bytes, arrays_on_device);
-    // else if (p == THRUST_DPL)
-    //   psz::analysis::GPU_evaluate_quality_and_print<float, THRUST_DPL>(x, o, len, comp_bytes);
-    else if (p == PROPER_RUNTIME)
-      psz::analysis::GPU_evaluate_quality_and_print<float, PROPER_RUNTIME>(x, o, len, comp_bytes);
-    else
-      printf("psz_review_evaluated_quality: not a valid backend.");
-  }
-  else if (d == F8) {
-    auto x = (double*)xdata;
-    auto o = (double*)odata;
-    if (p == SEQ)
-      psz::analysis::CPU_evaluate_quality_and_print<double>(
-          x, o, len, comp_bytes, arrays_on_device);
-    // else if (p == THRUST_DPL)
-    //   psz::analysis::GPU_evaluate_quality_and_print<double, THRUST_DPL>(x, o, len, comp_bytes);
-    else if (p == PROPER_RUNTIME)
-      psz::analysis::GPU_evaluate_quality_and_print<double, PROPER_RUNTIME>(x, o, len, comp_bytes);
-    else
-      printf("psz_review_evaluated_quality: not a valid backend.");
-  }
-}
+template void psz::analysis::print_metrics_cross<float>(psz_statistics*, size_t, bool);
+template void psz::analysis::print_metrics_cross<double>(psz_statistics*, size_t, bool);

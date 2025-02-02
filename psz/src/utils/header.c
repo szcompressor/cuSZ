@@ -19,12 +19,6 @@ size_t pszheader_filesize(psz_header* h)
   return h->entry[END - 1];
 }
 
-size_t pszheader_uncompressed_len(psz_header* h)
-{
-  return pszheader_linear_len(h);
-}
+size_t pszheader_uncompressed_len(psz_header* h) { return pszheader_linear_len(h); }
 
-size_t pszheader_compressed_len(psz_header* h)
-{
-  return pszheader_filesize(h);
-}
+size_t pszheader_compressed_bytes(psz_header* h) { return pszheader_filesize(h); }

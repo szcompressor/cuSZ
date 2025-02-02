@@ -68,6 +68,12 @@ typedef psz_error_status pszerror;
 typedef uint8_t byte_t;
 typedef size_t szt;
 
+#define DEFAULT_PREDICTOR Lorenzo
+#define DEFAULT_HISTOGRAM HistogramGeneric
+#define DEFAULT_CODEC Huffman
+#define NULL_HISTOGRAM NullHistogram
+#define NULL_CODEC NullCodec
+
 typedef enum { Abs, Rel } psz_mode;
 typedef enum { Lorenzo, LorenzoZigZag, LorenzoProto, Spline } psz_predtype;
 
@@ -78,20 +84,21 @@ typedef enum {
   Binning2x2,
   Binning2x1,
   Binning1x2,
-} psz_preprocestype;
+} _future_psz_preprocestype;
 
 typedef enum {
   Huffman,
   HuffmanRevisit,
   FZGPUCodec,
   RunLength,
+  NullCodec,
 } psz_codectype;
 
 typedef enum {
   HistogramGeneric,
   HistogramSparse,
-  HistogramNull,
-} psz_histogramtype;
+  NullHistogram,
+} psz_histotype;
 
 typedef enum {
   STAGE_PREDICT = 0,
@@ -111,8 +118,6 @@ typedef struct psz_header psz_header;
 typedef struct psz_compressor {
   void* compressor;
   psz_ctx* ctx;
-  psz_header* header;
-  psz_dtype type;
   psz_error_status last_error;
   float stage_time[STAGE_END];
 } psz_compressor;
@@ -128,56 +133,6 @@ typedef struct psz_statistics {
   f8 user_eb;
   size_t len;
 } psz_statistics;
-
-typedef struct psz_capi_array {
-  void* const buf;
-  psz_len3 const len3;
-  psz_dtype dtype;
-} psz_carray;
-
-typedef psz_carray psz_data_input;
-typedef psz_carray psz_input;
-typedef psz_carray psz_in;
-typedef psz_carray* pszarray_mutable;
-
-typedef struct psz_rettype_archive {
-  u1* compressed;
-  size_t* comp_bytes;
-  psz_header* header;
-} psz_archive;
-
-typedef psz_archive psz_data_output;
-typedef psz_archive psz_output;
-typedef psz_archive psz_out;
-
-/**
- * @brief This is an archive description of compaction array rather than
- * runtime one, which deals with host-device residency status.
- *
- */
-typedef struct psz_capi_compact {
-  void* const val;
-  uint32_t* idx;
-  uint32_t* num;
-  uint32_t reserved_len;
-  psz_dtype const dtype;
-} psz_capi_compact;
-
-typedef psz_capi_compact psz_capi_outlier;
-typedef psz_capi_compact psz_compact;
-typedef psz_capi_compact psz_outlier;
-typedef psz_outlier* psz_outlier_mutable;
-
-typedef struct psz_runtime_config {
-  double eb;
-  int radius;
-} psz_runtime_config;
-typedef psz_runtime_config psz_rc;
-
-// forward
-struct psz_profiling;
-
-typedef enum psz_timing_mode { SYNC_BY_STREAM, CPU_BARRIER, GPU_AUTOMONY } psz_timing_mode;
 
 #ifdef __cplusplus
 }

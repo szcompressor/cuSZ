@@ -24,29 +24,26 @@
   __PSZLOG__NEWLINE
 
 template <typename T, typename E, typename H>
-void psz::sanitize<T, E, H>::sanitize_pszctx(
-    pszctx const* const ctx, std::string LOC)
+void psz::sanitize<T, E, H>::sanitize_pszctx(pszctx const* const ctx, std::string LOC)
 {
-  __PSZSANITIZE_VAR(LOC.c_str(), ctx->radius)
+  __PSZSANITIZE_VAR(LOC.c_str(), ctx->header->radius)
   __PSZSANITIZE_VAR(LOC.c_str(), ctx->dict_size)
 }
 
 template <typename T, typename E, typename H>
-void psz::sanitize<T, E, H>::sanitize_quantcode(
-    E const* h_ectrl, szt len, szt bklen)
+void psz::sanitize<T, E, H>::sanitize_quantcode(E const* h_ectrl, szt len, szt bklen)
 {
-  if (not(std::is_same<E, u1>::value or std::is_same<E, u2>::value or
-          std::is_same<E, u4>::value))
+  if (not(std::is_same<E, u1>::value or std::is_same<E, u2>::value or std::is_same<E, u4>::value))
     __PSZDBG__FATAL("E is not valid dtype for histogram input.");
 
-  auto found_ptr = std::find_if(
-      h_ectrl, h_ectrl + len, [&](auto v) { return v >= bklen or v < 0; });
+  auto found_ptr =
+      std::find_if(h_ectrl, h_ectrl + len, [&](auto v) { return v >= bklen or v < 0; });
   if (found_ptr != h_ectrl + len) {
     auto idx = found_ptr - h_ectrl;
 
     __PSZDBG__FATAL(
-        "The first found invalid point (value >= bklen) is quantcode[" +
-        to_string(idx) + "] = " + to_string(h_ectrl[idx]))
+        "The first found invalid point (value >= bklen) is quantcode[" + to_string(idx) +
+        "] = " + to_string(h_ectrl[idx]))
   }
   else {
     __PSZLOG__STATUS_SANITIZE
@@ -55,8 +52,7 @@ void psz::sanitize<T, E, H>::sanitize_quantcode(
 }
 
 template <typename T, typename E, typename H>
-void psz::sanitize<T, E, H>::sanitize_hist_book(
-    M const* h_hist, H const* h_bk, szt bklen)
+void psz::sanitize<T, E, H>::sanitize_hist_book(M const* h_hist, H const* h_bk, szt bklen)
 {
   using PW = HuffmanWord<sizeof(H)>;
 
@@ -70,34 +66,30 @@ void psz::sanitize<T, E, H>::sanitize_hist_book(
           "\e[90m[psz::dbg::(hist,bk)]\e[0m "
           "idx=%4d\tfreq=%u\t",
           i, freq);
-    cout << "packed(bits,word)\t"
-         << std::bitset<PW::FIELD_BITCOUNT>(packed_word->bitcount) << "  ";
+    cout << "packed(bits,word)\t" << std::bitset<PW::FIELD_BITCOUNT>(packed_word->bitcount)
+         << "  ";
     cout << std::bitset<PW::FIELD_BITCOUNT>(packed_word->prefix_code) << endl;
   }
 }
 
 template <typename T, typename E, typename H>
-void psz::sanitize<T, E, H>::sanitize_hist_out(
-    M const* const h_hist, szt bklen)
+void psz::sanitize<T, E, H>::sanitize_hist_out(M const* const h_hist, szt bklen)
 {
-  if (not(std::is_same<M, u1>::value or std::is_same<M, u2>::value or
-          std::is_same<M, u4>::value))
+  if (not(std::is_same<M, u1>::value or std::is_same<M, u2>::value or std::is_same<M, u4>::value))
     __PSZDBG__FATAL("M is not valid dtype for histogram output.");
 
   // TODO warning
-  auto all_zero =
-      std::all_of(h_hist, h_hist + bklen, [](auto i) { return i == 0; });
+  auto all_zero = std::all_of(h_hist, h_hist + bklen, [](auto i) { return i == 0; });
   if (all_zero) __PSZDBG__FATAL("[psz::error] histogram outputs all zeros");
 
   cout << "[psz::dbg::hist::out] printing non-zero frequencies" << endl;
-  std::for_each(
-      h_hist, h_hist + bklen, [quantcode = 0, idx2 = 0](auto freq) mutable {
-        if (freq != 0)
-          printf(
-              "\e[90m[psz::dbg::hist_out]\e[0m quantcode=%4d (nonzero %4d-th)\tfreq=%u\n",
-              quantcode, idx2++, freq);
-        quantcode++;
-      });
+  std::for_each(h_hist, h_hist + bklen, [quantcode = 0, idx2 = 0](auto freq) mutable {
+    if (freq != 0)
+      printf(
+          "\e[90m[psz::dbg::hist_out]\e[0m quantcode=%4d (nonzero %4d-th)\tfreq=%u\n", quantcode,
+          idx2++, freq);
+    quantcode++;
+  });
 }
 
 template struct psz::sanitize<f4, u4, u4>;

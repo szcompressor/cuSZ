@@ -194,19 +194,20 @@ struct psz_utils {
 
   static bool check_dtype(const std::string& val, bool delay_failure = true)
   {
-    auto legal = (val == "f32") or (val == "f4");
-    // auto legal = (val == "f32") or (val == "f64");
+    auto legal = (val == "f32") or (val == "f4") or (val == "f64") or (val == "f8");
     if (not legal)
-      if (not delay_failure) throw std::runtime_error("Only `f32`/`f4` is supported temporarily.");
+      if (not delay_failure)
+        throw std::runtime_error("Only `f32`/`f4` or `f64`/`f8` is supported temporarily.");
 
     return legal;
   }
 
   static bool check_dtype(const psz_dtype& val, bool delay_failure = true)
   {
-    auto legal = (val == F4);
+    auto legal = (val == F4) or (val == F8);
     if (not legal)
-      if (not delay_failure) throw std::runtime_error("Only `f32` is supported temporarily.");
+      if (not delay_failure)
+        throw std::runtime_error("Only `f32`/`f4` or `f64`/`f8` is supported temporarily.");
 
     return legal;
   }
@@ -313,18 +314,18 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
     if (psz_helper::is_kv_pair(o)) {
       auto kv = psz_helper::parse_kv_onoff(o);
 
-      if (kv.first == "cr") ctx->report_cr = kv.second;
+      if (kv.first == "cr") ctx->cli->report_cr = kv.second;
       // else if (kv.first == "cr.est")
-      //   ctx->report_cr_est = kv.second;
+      //   ctx->cli->report_cr_est = kv.second;
       else if (kv.first == "time")
-        ctx->report_time = kv.second;
+        ctx->cli->report_time = kv.second;
     }
     else {
-      if (o == "cr") ctx->report_cr = true;
+      if (o == "cr") ctx->cli->report_cr = true;
       // else if (o == "cr.est")
-      //   ctx->report_cr_est = true;
+      //   ctx->cli->report_cr_est = true;
       else if (o == "time")
-        ctx->report_time = true;
+        ctx->cli->report_time = true;
     }
   }
 }
@@ -339,19 +340,19 @@ void pszctx_set_datadump(pszctx* ctx, const char* in_str)
       auto kv = psz_helper::parse_kv_onoff(o);
 
       if (kv.first == "quantcode" or kv.first == "quant")
-        ctx->dump_quantcode = kv.second;
+        ctx->cli->dump_quantcode = kv.second;
       else if (kv.first == "histogram" or kv.first == "hist")
-        ctx->dump_hist = kv.second;
+        ctx->cli->dump_hist = kv.second;
       else if (kv.first == "full_huffman_binary" or kv.first == "full_hf")
-        ctx->dump_full_hf = kv.second;
+        ctx->cli->dump_full_hf = kv.second;
     }
     else {
       if (o == "quantcode" or o == "quant")
-        ctx->dump_quantcode = true;
+        ctx->cli->dump_quantcode = true;
       else if (o == "histogram" or o == "hist")
-        ctx->dump_hist = true;
+        ctx->cli->dump_hist = true;
       else if (o == "full_huffman_binary" or o == "full_hf")
-        ctx->dump_full_hf = true;
+        ctx->cli->dump_full_hf = true;
     }
   }
 }
@@ -389,17 +390,17 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
 
     if (optmatch({"type", "dtype"})) {
       psz_utils::check_dtype(v, false);
-      ctx->dtype = (v == "f64") or (v == "f8") ? F8 : F4;
+      ctx->header->dtype = (v == "f64") or (v == "f8") ? F8 : F4;
     }
     else if (optmatch({"eb", "errorbound"})) {
-      ctx->eb = psz_helper::str2fp(v);
-      strcpy(ctx->char_meta_eb, v.c_str());
+      ctx->header->eb = psz_helper::str2fp(v);
+      strcpy(ctx->cli->char_meta_eb, v.c_str());
     }
     else if (optmatch({"mode"})) {
       psz_utils::check_cuszmode(v);
-      ctx->mode = (v == "r2r" or v == "rel") ? Rel : Abs;
-      if (ctx->mode == Rel) ctx->prep_prescan = true;
-      strcpy(ctx->char_mode, v.c_str());
+      ctx->header->mode = (v == "r2r" or v == "rel") ? Rel : Abs;
+      if (ctx->header->mode == Rel) ctx->cli->rel_range_scan = true;
+      strcpy(ctx->cli->char_mode, v.c_str());
     }
     else if (optmatch({"len", "xyz", "dim3"})) {
       pszctx_parse_length(ctx, v.c_str());
@@ -407,34 +408,25 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
     else if (optmatch({"math-order", "slowest-to-fastest", "zyx"})) {
       pszctx_parse_length_zyx(ctx, v.c_str());
     }
-    else if (optmatch({"demo"})) {
-      ctx->use_demodata = true;
-      strcpy(ctx->demodata_name, v.c_str());
-      pszctx_load_demo_datasize(ctx, &v);
-    }
     else if (optmatch({"cap", "booklen", "dictsize"})) {
       ctx->dict_size = psz_helper::str2int(v);
-      ctx->radius = ctx->dict_size / 2;
+      ctx->header->radius = ctx->dict_size / 2;
     }
     else if (optmatch({"radius"})) {
-      ctx->radius = psz_helper::str2int(v);
-      ctx->dict_size = ctx->radius * 2;
-    }
-    else if (optmatch({"huffchunk"})) {
-      ctx->vle_sublen = psz_helper::str2int(v);
-      ctx->use_autotune_phf = false;
+      ctx->header->radius = psz_helper::str2int(v);
+      ctx->dict_size = ctx->header->radius * 2;
     }
     else if (optmatch({"pred", "predictor"})) {
-      strcpy(ctx->char_predictor_name, v.c_str());
+      strcpy(ctx->cli->char_predictor_name, v.c_str());
 
       if (v == "spline" or v == "spline3" or v == "spl")
-        ctx->pred_type = psz_predtype::Spline;
+        ctx->header->pred_type = psz_predtype::Spline;
       else if (v == "lorenzo" or v == "lrz")
-        ctx->pred_type = psz_predtype::Lorenzo;
+        ctx->header->pred_type = psz_predtype::Lorenzo;
       else if (v == "lorenzo-zigzag" or v == "lrz-zz")
-        ctx->pred_type = psz_predtype::LorenzoZigZag;
+        ctx->header->pred_type = psz_predtype::LorenzoZigZag;
       else if (v == "lorenzo-proto" or v == "lrz-proto")
-        ctx->pred_type = psz_predtype::LorenzoProto;
+        ctx->header->pred_type = psz_predtype::LorenzoProto;
       else
         printf(
             "[psz::warning::parser] "
@@ -443,33 +435,23 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
             v.c_str());
     }
     else if (optmatch({"hist", "histogram"})) {
-      strcpy(ctx->char_codec1_name, v.c_str());
+      strcpy(ctx->cli->char_codec1_name, v.c_str());
 
       if (v == "generic")
-        ctx->hist_type = psz_histogramtype::HistogramGeneric;
+        ctx->header->hist_type = psz_histotype::HistogramGeneric;
       else if (v == "sparse")
-        ctx->hist_type = psz_histogramtype::HistogramSparse;
+        ctx->header->hist_type = psz_histotype::HistogramSparse;
     }
     else if (optmatch({"codec", "codec1"})) {
-      strcpy(ctx->char_codec1_name, v.c_str());
+      strcpy(ctx->cli->char_codec1_name, v.c_str());
 
       if (v == "huffman" or v == "hf")
-        ctx->codec1_type = psz_codectype::Huffman;
+        ctx->header->codec1_type = psz_codectype::Huffman;
       else if (v == "fzgcodec")
-        ctx->codec1_type = psz_codectype::FZGPUCodec;
-    }
-    else if (optmatch({"density"})) {  // refer to `SparseMethodSetup` in
-                                       // `config.hh`
-      ctx->nz_density = psz_helper::str2fp(v);
-      ctx->nz_density_factor = 1 / ctx->nz_density;
-    }
-    else if (optmatch({"densityfactor"})) {  // refer to `SparseMethodSetup` in
-                                             // `config.hh`
-      ctx->nz_density_factor = psz_helper::str2fp(v);
-      ctx->nz_density = 1 / ctx->nz_density_factor;
+        ctx->header->codec1_type = psz_codectype::FZGPUCodec;
     }
     else if (optmatch({"gpuverify"}) and is_enabled(v)) {
-      ctx->use_gpu_verify = true;
+      ctx->cli->use_gpu_verify = true;
     }
   }
 }
@@ -534,29 +516,29 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-m", "--mode"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        ctx->mode = (_ == "r2r" or _ == "rel") ? Rel : Abs;
-        if (ctx->mode == Rel) ctx->prep_prescan = true;
-        strcpy(ctx->char_mode, _.c_str());
+        ctx->header->mode = (_ == "r2r" or _ == "rel") ? Rel : Abs;
+        if (ctx->header->mode == Rel) ctx->cli->rel_range_scan = true;
+        strcpy(ctx->cli->char_mode, _.c_str());
       }
       else if (optmatch({"-e", "--eb", "--error-bound"})) {
         check_next();
         char* end;
-        ctx->eb = std::strtod(argv[++i], &end);
-        strcpy(ctx->char_meta_eb, argv[i]);
+        ctx->header->eb = std::strtod(argv[++i], &end);
+        strcpy(ctx->cli->char_meta_eb, argv[i]);
       }
       else if (optmatch({"-p", "--pred", "--predictor"})) {
         check_next();
         auto v = std::string(argv[++i]);
-        strcpy(ctx->char_predictor_name, v.c_str());
+        strcpy(ctx->cli->char_predictor_name, v.c_str());
 
         if (v == "spline" or v == "spline3" or v == "spl")
-          ctx->pred_type = psz_predtype::Spline;
+          ctx->header->pred_type = psz_predtype::Spline;
         else if (v == "lorenzo" or v == "lrz")
-          ctx->pred_type = psz_predtype::Lorenzo;
+          ctx->header->pred_type = psz_predtype::Lorenzo;
         else if (v == "lorenzo-zigzag" or v == "lrz-zz")
-          ctx->pred_type = psz_predtype::LorenzoZigZag;
+          ctx->header->pred_type = psz_predtype::LorenzoZigZag;
         else if (v == "lorenzo-proto" or v == "lrz-proto")
-          ctx->pred_type = psz_predtype::LorenzoProto;
+          ctx->header->pred_type = psz_predtype::LorenzoProto;
         else
           printf(
               "[psz::warning::parser] "
@@ -567,35 +549,35 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"--hist", "--histogram"})) {
         check_next();
         auto v = std::string(argv[++i]);
-        strcpy(ctx->char_predictor_name, v.c_str());
+        strcpy(ctx->cli->char_predictor_name, v.c_str());
 
         if (v == "generic")
-          ctx->hist_type = psz_histogramtype::HistogramGeneric;
+          ctx->header->hist_type = psz_histotype::HistogramGeneric;
         else if (v == "sparse")
-          ctx->hist_type = psz_histogramtype::HistogramSparse;
+          ctx->header->hist_type = psz_histotype::HistogramSparse;
       }
       else if (optmatch({"-c1", "--codec", "--codec1"})) {
         check_next();
         auto v = std::string(argv[++i]);
-        strcpy(ctx->char_codec1_name, v.c_str());
+        strcpy(ctx->cli->char_codec1_name, v.c_str());
 
         if (v == "huffman" or v == "hf")
-          ctx->codec1_type = psz_codectype::Huffman;
+          ctx->header->codec1_type = psz_codectype::Huffman;
         else if (v == "fzgcodec")
-          ctx->codec1_type = psz_codectype::FZGPUCodec;
+          ctx->header->codec1_type = psz_codectype::FZGPUCodec;
       }
       else if (optmatch({"-t", "--type", "--dtype"})) {
         check_next();
         std::string s = std::string(std::string(argv[++i]));
         if (s == "f32" or s == "f4")
-          ctx->dtype = F4;
+          ctx->header->dtype = F4;
         else if (s == "f64" or s == "f8")
-          ctx->dtype = F8;
+          ctx->header->dtype = F8;
       }
       else if (optmatch({"-i", "--input"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->file_input, _.c_str());
+        strcpy(ctx->cli->file_input, _.c_str());
       }
       else if (optmatch({"-l", "--len", "--xyz", "--dim3"})) {
         check_next();
@@ -606,62 +588,35 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         pszctx_parse_length_zyx(ctx, argv[++i]);
       }
       else if (optmatch({"-z", "--zip", "--compress"})) {
-        ctx->task_construct = true;
+        ctx->cli->task_construct = true;
       }
       else if (optmatch({"-x", "--unzip", "--decompress"})) {
-        ctx->task_reconstruct = true;
+        ctx->cli->task_reconstruct = true;
       }
-      else if (optmatch({"-r", "--dryrun"})) {
-        ctx->task_dryrun = true;
-      }
-      else if (optmatch({"-P", "--pre", "--preprocess"})) {
-        check_next();
-        std::string pre(argv[++i]);
-        if (pre.find("binning") != std::string::npos) { ctx->prep_binning = true; }
-      }
+      // else if (optmatch({"-P", "--pre", "--preprocess"})) {
+      //   check_next();
+      //   std::string pre(argv[++i]);
+      //   if (pre.find("binning") != std::string::npos) { ctx->prep_binning = true; }
+      // }
       else if (optmatch({"-V", "--verbose"})) {
-        ctx->verbose = true;
-      }
-      else if (optmatch({"--demo"})) {
-        check_next();
-        ctx->use_demodata = true;
-        auto _ = std::string(argv[++i]);
-        strcpy(ctx->demodata_name, _.c_str());
-        // ctx->demodata_name = std::string(argv[++i]);
-        pszctx_load_demo_datasize(ctx, &_);
+        ctx->cli->verbose = true;
       }
       else if (optmatch({"-S", "-X", "--skip", "--exclude"})) {
         check_next();
         std::string exclude(argv[++i]);
-        if (exclude.find("huffman") != std::string::npos) { ctx->skip_hf = true; }
-        if (exclude.find("write2disk") != std::string::npos) { ctx->skip_tofile = true; }
+        if (exclude.find("huffman") != std::string::npos) { ctx->cli->skip_hf = true; }
+        if (exclude.find("write2disk") != std::string::npos) { ctx->cli->skip_tofile = true; }
       }
       else if (optmatch({"--opath"})) {
         check_next();
         throw std::runtime_error("[23june] Specifying output path is temporarily disabled.");
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->opath, _.c_str());
+        strcpy(ctx->cli->opath, _.c_str());
       }
       else if (optmatch({"--origin", "--compare"})) {
         check_next();
         auto _ = std::string(argv[++i]);
-        strcpy(ctx->file_compare, _.c_str());
-      }
-      else if (optmatch({"--import-hfbk"})) {
-        /* --import-hfbk fname,bklen,nbk */
-        check_next();
-        auto _ = std::string(argv[++i]);
-
-        std::vector<std::string> _tokens;
-        std::string _token;
-        std::istringstream _tokenstream(_);
-        while (std::getline(_tokenstream, _token, ',')) { _tokens.push_back(_token); }
-
-        strcpy(ctx->file_prebuilt_hist_top1, _tokens[0].c_str());
-        strcpy(ctx->file_prebuilt_hfbk, _tokens[1].c_str());
-        ctx->prebuilt_bklen = psz_helper::str2int(_tokens[2]);
-        ctx->prebuilt_nbk = psz_helper::str2int(_tokens[3]);
-        ctx->use_prebuilt_hfbk = true;
+        strcpy(ctx->cli->file_compare, _.c_str());
       }
       else if (optmatch({"--sycl-device"})) {
 #if defined(PSZ_USE_1API)
@@ -735,10 +690,10 @@ void pszctx_load_demo_datasize(pszctx* ctx, void* name)
     if (f == dataset_entries.end()) throw std::runtime_error("no such dataset as" + demodata_name);
     auto demo_xyzw = f->second;
 
-    ctx->x = demo_xyzw[0], ctx->y = demo_xyzw[1], ctx->z = demo_xyzw[2], ctx->w = demo_xyzw[3],
-    ctx->ndim = demo_xyzw[4];
+    ctx->header->x = demo_xyzw[0], ctx->header->y = demo_xyzw[1], ctx->header->z = demo_xyzw[2],
+    ctx->header->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
 
-    ctx->data_len = ctx->x * ctx->y * ctx->z;
+    ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z;
   }
 }
 
@@ -747,12 +702,12 @@ void pszctx_parse_length(pszctx* ctx, const char* lenstr)
   std::vector<std::string> dims;
   psz_utils::parse_length_literal(lenstr, dims);
   ctx->ndim = dims.size();
-  ctx->y = ctx->z = ctx->w = 1;
-  ctx->x = psz_helper::str2int(dims[0]);
-  if (ctx->ndim >= 2) ctx->y = psz_helper::str2int(dims[1]);
-  if (ctx->ndim >= 3) ctx->z = psz_helper::str2int(dims[2]);
-  if (ctx->ndim >= 4) ctx->w = psz_helper::str2int(dims[3]);
-  ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+  ctx->header->y = ctx->header->z = ctx->header->w = 1;
+  ctx->header->x = psz_helper::str2int(dims[0]);
+  if (ctx->ndim >= 2) ctx->header->y = psz_helper::str2int(dims[1]);
+  if (ctx->ndim >= 3) ctx->header->z = psz_helper::str2int(dims[2]);
+  if (ctx->ndim >= 4) ctx->header->w = psz_helper::str2int(dims[3]);
+  ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z * ctx->header->w;
 }
 
 void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
@@ -760,66 +715,33 @@ void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
   std::vector<std::string> dims;
   psz_utils::parse_length_literal(lenstr, dims);
   ctx->ndim = dims.size();
-  ctx->y = ctx->z = ctx->w = 1;
-  ctx->x = psz_helper::str2int(dims[ctx->ndim - 1]);
-  if (ctx->ndim >= 2) ctx->y = psz_helper::str2int(dims[ctx->ndim - 2]);
-  if (ctx->ndim >= 3) ctx->z = psz_helper::str2int(dims[ctx->ndim - 3]);
-  if (ctx->ndim >= 4) ctx->w = psz_helper::str2int(dims[ctx->ndim - 4]);
-  ctx->data_len = ctx->x * ctx->y * ctx->z * ctx->w;
+  ctx->header->y = ctx->header->z = ctx->header->w = 1;
+  ctx->header->x = psz_helper::str2int(dims[ctx->ndim - 1]);
+  if (ctx->ndim >= 2) ctx->header->y = psz_helper::str2int(dims[ctx->ndim - 2]);
+  if (ctx->ndim >= 3) ctx->header->z = psz_helper::str2int(dims[ctx->ndim - 3]);
+  if (ctx->ndim >= 4) ctx->header->w = psz_helper::str2int(dims[ctx->ndim - 4]);
+  ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z * ctx->header->w;
 }
 
 void pszctx_validate(pszctx* ctx)
 {
   bool to_abort = false;
-  // if (ctx->file_input.empty()) {
-  if (ctx->file_input[0] == '\0') {
+  // if (ctx->cli->file_input.empty()) {
+  if (ctx->cli->file_input[0] == '\0') {
     cerr << LOG_ERR << "must specify input file" << endl;
     to_abort = true;
   }
 
-  if (ctx->data_len == 1 and not ctx->use_demodata) {
-    if (ctx->task_construct or ctx->task_dryrun) {
-      cerr << LOG_ERR << "wrong input size" << endl;
-      to_abort = true;
-    }
-  }
-  if (not ctx->task_construct and not ctx->task_reconstruct and not ctx->task_dryrun) {
-    cerr << LOG_ERR << "select compress (-z), decompress (-x) or dryrun (-r)" << endl;
+  if (not ctx->cli->task_construct and not ctx->cli->task_reconstruct) {
+    cerr << LOG_ERR << "select compress (-z) or decompress (-x)." << endl;
     to_abort = true;
   }
-  if (false == psz_utils::check_dtype(ctx->dtype)) {
-    if (ctx->task_construct or ctx->task_dryrun) {
-      std::cout << ctx->dtype << endl;
+  if (false == psz_utils::check_dtype(ctx->header->dtype)) {
+    if (ctx->cli->task_construct) {
+      std::cout << ctx->header->dtype << endl;
       cerr << LOG_ERR << "must specify data type" << endl;
       to_abort = true;
     }
-  }
-  // if (quant_bytewidth == 1)
-  //     assert(dict_size <= 256);
-  // else if (quant_bytewidth == 2)
-  //     assert(dict_size <= 65536);
-  if (ctx->task_dryrun and ctx->task_construct and ctx->task_reconstruct) {
-    cerr << LOG_WARN << "no need to dryrun, compress and decompress at the same time" << endl;
-    cerr << LOG_WARN << "dryrun only" << endl << endl;
-    ctx->task_construct = false;
-    ctx->task_reconstruct = false;
-  }
-  else if (ctx->task_dryrun and ctx->task_construct) {
-    cerr << LOG_WARN << "no need to dryrun and compress at the same time" << endl;
-    cerr << LOG_WARN << "dryrun only" << endl << endl;
-    ctx->task_construct = false;
-  }
-  else if (ctx->task_dryrun and ctx->task_reconstruct) {
-    cerr << LOG_WARN << "no need to dryrun and decompress at the same time" << endl;
-    cerr << LOG_WARN << "will dryrun only" << endl << endl;
-    ctx->task_reconstruct = false;
-  }
-
-  // if use prebuilt hfbk
-  if (ctx->use_prebuilt_hfbk) {
-    if (ctx->prebuilt_bklen != ctx->dict_size)
-      throw std::runtime_error("prebuilt-bklen != runtime-bklen");
-    // TODO use filesize to check nbk
   }
 
   if (to_abort) {
@@ -842,15 +764,15 @@ void pszctx_print_document(bool full_document)
 
 void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
 {
-  ctx->x = _x, ctx->y = _y, ctx->z = _z;
+  ctx->header->x = _x, ctx->header->y = _y, ctx->header->z = _z;
 
   auto ndim = 4;
-  if (ctx->w == 1) ctx->ndim = 3;
-  if (ctx->z == 1) ndim = 2;
-  if (ctx->y == 1) ndim = 1;
+  if (ctx->header->w == 1) ctx->ndim = 3;
+  if (ctx->header->z == 1) ndim = 2;
+  if (ctx->header->y == 1) ndim = 1;
 
   ctx->ndim = ndim;
-  ctx->data_len = ctx->x * ctx->y * ctx->z;
+  ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z;
 
   if (ctx->data_len == 1) throw std::runtime_error("Input data length cannot be 1 (linearized).");
   if (ctx->data_len == 0) throw std::runtime_error("Input data length cannot be 0 (linearized).");
@@ -858,73 +780,54 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
 
 void pszctx_set_len(pszctx* ctx, psz_len3 len) { pszctx_set_rawlen(ctx, len.x, len.y, len.z); }
 
-psz_len3 pszctx_get_len3(pszctx* ctx) { return psz_len3{ctx->x, ctx->y, ctx->z}; }
+psz_len3 pszctx_get_len3(pszctx* ctx)
+{
+  return psz_len3{ctx->header->x, ctx->header->y, ctx->header->z};
+}
 
 void pszctx_set_radius(pszctx* ctx, int _)
 {
-  ctx->radius = _;
-  ctx->dict_size = ctx->radius * 2;
-}
-
-void pszctx_set_huffchunk(pszctx* ctx, int _)
-{
-  ctx->vle_sublen = _;
-  ctx->use_autotune_phf = false;
-}
-
-void pszctx_set_densityfactor(pszctx* ctx, int _)
-{
-  if (_ <= 1)
-    throw std::runtime_error(
-        "Density factor for Spcodec must be >1. For example, setting the "
-        "factor as 4 indicates the density "
-        "(the portion of nonzeros) is 25% in an array.");
-  ctx->nz_density_factor = _;
-  ctx->nz_density = 1.0 / _;
+  ctx->header->radius = _;
+  ctx->dict_size = ctx->header->radius * 2;
 }
 
 pszctx* pszctx_default_values()
 {
   return new pszctx{
-      .dtype = F4,
-      .pred_type = Lorenzo,
-      .hist_type = HistogramGeneric,
-      .codec1_type = Huffman,
-      .mode = Rel,
-      .eb = 0.1,
+      .header =
+          new psz_header{
+              .dtype = F4,
+              .pred_type = Lorenzo,
+              .hist_type = HistogramGeneric,
+              .codec1_type = Huffman,
+              .mode = Rel,
+              .eb = 0.1,
+              .radius = 512,
+              .vle_sublen = 512,
+              .vle_pardeg = -1,
+              .x = 1,
+              .y = 1,
+              .z = 1,
+              .w = 1,
+              .splen = 0,
+          },
+      .cli =
+          new psz_cli_config{
+              .dump_quantcode = false,
+              .dump_hist = false,
+              .task_construct = false,
+              .task_reconstruct = false,
+              .rel_range_scan = false,
+              .use_gpu_verify = false,
+              .skip_tofile = false,
+              .skip_hf = false,
+              .report_time = false,
+              .report_cr = false,
+              .verbose = false,
+          },
       .dict_size = 1024,
-      .radius = 512,
-      .prebuilt_bklen = 1024,
-      .prebuilt_nbk = 1000,
-      .nz_density = 0.2,
-      .nz_density_factor = 5,
-      .vle_sublen = 512,
-      .vle_pardeg = -1,
-      .x = 1,
-      .y = 1,
-      .z = 1,
-      .w = 1,
       .data_len = 1,
-      .splen = 0,
       .ndim = -1,
-      .dump_quantcode = false,
-      .dump_hist = false,
-      .task_construct = false,
-      .task_reconstruct = false,
-      .task_dryrun = false,
-      .task_experiment = false,
-      .prep_binning = false,
-      .prep_prescan = false,
-      .use_demodata = false,
-      .use_autotune_phf = true,
-      .use_gpu_verify = false,
-      .use_prebuilt_hfbk = false,
-      .skip_tofile = false,
-      .skip_hf = false,
-      .report_time = false,
-      .report_cr = false,
-      // .report_cr_est = false,
-      .verbose = false,
       .there_is_memerr = false,
   };
 }
@@ -941,10 +844,21 @@ pszctx* pszctx_minimal_workset(
     psz_codectype const codec)
 {
   auto ws = pszctx_default_values();
-  ws->dtype = dtype;
-  ws->pred_type = predictor;
-  ws->codec1_type = codec;
+  ws->header->dtype = dtype;
+  ws->header->pred_type = predictor;
+  ws->header->codec1_type = codec;
   ws->dict_size = quantizer_radius * 2;
-  ws->radius = quantizer_radius;
+  ws->header->radius = quantizer_radius;
   return ws;
 }
+
+unsigned int CLI_x(psz_arguments* args) { return args->header->x; }
+unsigned int CLI_y(psz_arguments* args) { return args->header->y; }
+unsigned int CLI_z(psz_arguments* args) { return args->header->z; }
+unsigned int CLI_w(psz_arguments* args) { return args->header->w; }
+psz_dtype CLI_dtype(psz_arguments* args) { return args->header->dtype; }
+psz_predtype CLI_predtype(psz_arguments* args) { return args->header->pred_type; }
+psz_codectype CLI_codec1(psz_arguments* args) { return args->header->codec1_type; }
+psz_codectype CLI_codec2(psz_arguments* args) { return args->header->_future_codec2_type; }
+psz_mode CLI_mode(psz_arguments* args) { return args->header->mode; }
+double CLI_eb(psz_arguments* args) { return args->header->eb; }

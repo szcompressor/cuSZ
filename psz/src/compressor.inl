@@ -17,7 +17,6 @@
 #include "compbuf.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
-#include "exception/exception.hh"
 #include "hfclass.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
@@ -29,48 +28,40 @@
 
 #define COLLECT_TIME(NAME, TIME) timerecord.push_back({const_cast<const char*>(NAME), TIME});
 
-void concate_memcpy_d2d(
-    void* dst, void* src, size_t nbyte, void* stream, const char* _file_, const int _line_)
-{
-  if (nbyte != 0) {
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    AD_HOC_CHECK_GPU_WITH_LINE(
-        cudaMemcpyAsync(dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream), _file_,
-        _line_);
+
+#define CONCAT_ON_DEVICE(dst, src, nbyte, stream) \
+  if (nbyte != 0) cudaMemcpyAsync(dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
+
 #elif defined(PSZ_USE_1API)
-    ((sycl::queue*)stream)->memcpy(dst(FIELD), src, nbyte);
+
+#define CONCAT_ON_DEVICE(dst, src, nbyte, stream) \
+  if (nbyte != 0) ((sycl::queue*)stream)->memcpy(dst, src, nbyte);
+
 #endif
-  }
-}
 
-#define DST(FIELD, OFFSET) ((void*)(mem->compressed() + header.entry[FIELD] + OFFSET))
-
-#define SKIP_ON_FAILURE \
-  if (not error_list.empty()) return this;
+#define DST(FIELD, OFFSET) ((void*)(mem->compressed() + ctx->header->entry[FIELD] + OFFSET))
 
 namespace psz {
 
-template <class C>
-struct Compressor<C>::impl {
-  using CodecHF = typename C::CodecHF;
-  using CodecFZG = typename C::CodecFZG;
-
-  using BYTE = uint8_t;
+template <typename DType>
+struct Compressor<DType>::impl {
+  using T = DType;
+  using E = u2;
+  using FP = T;
+  using M = u4;
+  using BYTE = u1;
   using B = u1;
-
-  using T = typename C::T;
-  using E = typename C::E;
-  using FP = typename C::FP;
-  using M = typename C::M;
-  using Header = psz_header;
-
-  GPU_EVENT event_start, event_end;
-
   using H = u4;
   using H4 = u4;
   using H8 = u8;
+
+  using CodecHF = phf::HuffmanCodec<E>;
+  using CodecFZG = psz::FzgCodec;
+  using Header = psz_header;
   using TimeRecord = std::vector<std::tuple<const char*, double>>;
   using timerecord_t = TimeRecord*;
+  using Buf = CompressorBuffer<DType>;
 
   static const int HEADER = 0;
   static const int ANCHOR = 1;
@@ -79,9 +70,10 @@ struct Compressor<C>::impl {
   static const int END = 4;
 
   // encapsulations
+  GPU_EVENT event_start, event_end;
   CodecHF* codec_hf;    // Codecs have standalone internals.
   CodecFZG* codec_fzg;  //
-  CompressorBuffer<C>* mem;
+  Buf* mem;
   std::vector<pszerror> error_list;
   TimeRecord timerecord;
   int hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat;
@@ -89,7 +81,6 @@ struct Compressor<C>::impl {
   float timerecord_v2[STAGE_END];
 
   // variables
-  Header header;
   size_t len;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
@@ -109,9 +100,38 @@ struct Compressor<C>::impl {
     event_destroy_pair(event_start, event_end);
   }
 
-  template <class CONFIG>
-  void init(CONFIG* ctx, bool iscompression, bool debug)
+  void compress_init(pszctx* ctx, bool debug)
   {
+    constexpr auto iscompression = true;
+
+    // extract context
+    const auto radius = ctx->header->radius;
+    const auto pardeg = ctx->header->vle_pardeg;
+    const auto bklen = radius * 2;
+    const auto x = ctx->header->x, y = ctx->header->y, z = ctx->header->z;
+    len = x * y * z;
+
+    // initialize internal buffers
+    mem = new CompressorBuffer<DType>(x, y, z, radius, iscompression);
+
+    // initialize profiling
+    std::tie(event_start, event_end) = event_create_pair();
+
+    // optimize component(s)
+    psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+        len, bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
+        hist_generic_repeat);
+
+    // initialize component(s)
+    // TODO decrease memory use
+    codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
+    codec_fzg = new CodecFZG(mem->len);
+  }
+
+  void decompress_init(psz_header* ctx, bool debug)
+  {
+    constexpr auto iscompression = false;
+
     // extract context
     const auto radius = ctx->radius;
     const auto pardeg = ctx->vle_pardeg;
@@ -120,31 +140,10 @@ struct Compressor<C>::impl {
     len = x * y * z;
 
     // initialize internal buffers
-    mem = new CompressorBuffer<C>(x, y, z, radius, iscompression);
-
-    if constexpr (std::is_same_v<CONFIG, pszctx>) {
-      // update header::metadata (.w is placeheld.)
-      header.x = ctx->x, header.y = ctx->y, header.z = ctx->z, header.w = 1;
-      // update header::comp_config
-      header.radius = ctx->radius;
-      header.vle_pardeg = ctx->vle_pardeg;
-      // header.eb is left out for compression runtime
-
-      // update header::atrributes
-      header.dtype = PszType<T>::type;
-      header.pred_type = ctx->pred_type;
-      header.hist_type = ctx->hist_type;
-      header.codec1_type = ctx->codec1_type;
-    }
+    mem = new CompressorBuffer<DType>(x, y, z, radius, iscompression);
 
     // initialize profiling
     std::tie(event_start, event_end) = event_create_pair();
-
-    // optimize component(s)
-    if (iscompression)
-      psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
-          len, bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
-          hist_generic_repeat);
 
     // initialize component(s)
     if (ctx->codec1_type == Huffman)
@@ -155,140 +154,120 @@ struct Compressor<C>::impl {
       codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
   }
 
-  void compress_predict(pszctx* ctx, T* in, void* stream)
-  try {
-    auto len3_std = MAKE_STDLEN3(ctx->x, ctx->y, ctx->z);
+  void compress_data_processing(pszctx* ctx, T* in, void* stream)
+  {
+    auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
 
     event_recording_start(event_start, stream);
 
-    eb = ctx->eb;
-    ebx2 = eb * 2;
-    eb_r = 1 / eb;
-    ebx2_r = 1 / ebx2;
+    eb = ctx->header->eb, eb_r = 1 / eb;
+    ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-    if (ctx->pred_type == Lorenzo)
+    if (ctx->header->pred_type == Lorenzo)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->radius, stream);
-    else if (ctx->pred_type == LorenzoZigZag)
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
+          stream);
+    else if (ctx->header->pred_type == LorenzoZigZag)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->radius, stream);
-    else if (ctx->pred_type == LorenzoProto)
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
+          stream);
+    else if (ctx->header->pred_type == LorenzoProto)
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->radius, stream);
-    else if (ctx->pred_type == Spline)
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
+          stream);
+    else if (ctx->header->pred_type == Spline)
       psz::module::GPU_predict_spline(
           in, len3_std, mem->ectrl(), mem->ectrl_len3(), mem->anchor(), mem->anchor_len3(),
-          (void*)mem->compact, ebx2, eb_r, ctx->radius, stream);
+          (void*)mem->compact, ebx2, eb_r, ctx->header->radius, stream);
 
     event_recording_stop(event_end, stream);
     event_time_elapsed(event_start, event_end, &time_pred);
 
     /* make outlier count seen on host */
     sync_by_stream(stream);
-    ctx->splen = mem->compact->num_outliers();
-    header.splen = ctx->splen;
-  }
-  catch (const psz::exception_outlier_overflow& e) {
-    cerr << e.what() << endl;
-    cerr << "outlier numbers: " << mem->compact->num_outliers() << "\t";
-    cerr << (mem->compact->num_outliers() * 100.0 / len) << "%" << endl;
-    error_list.push_back(PSZ_ERROR_OUTLIER_OVERFLOW);
-  }
+    ctx->header->splen = mem->compact->num_outliers();
 
-  void compress_histogram(pszctx* ctx, void* stream)
-  {
+    if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
+
     event_recording_start(event_start, stream);
 
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_1API)
-    if (ctx->hist_type == psz_histogramtype::HistogramSparse)
+    if (ctx->header->hist_type == psz_histotype::HistogramSparse)
       psz::module::GPU_histogram_Cauchy<E>(mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
-    else if (ctx->hist_type == psz_histogramtype::HistogramGeneric)
+    else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
       psz::module::GPU_histogram_generic<E>(
           mem->ectrl(), len, mem->hist(), ctx->dict_size, hist_generic_grid_dim,
           hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat, stream);
-#elif defined(PSZ_USE_HIP)
-    // not implemented
-#endif
 
     event_recording_stop(event_end, stream);
     event_time_elapsed(event_start, event_end, &time_hist);
-  }
 
-  void compress_encode(pszctx* ctx, void* stream)
-  {
-    if (ctx->codec1_type == Huffman) {
-      codec_hf->buildbook(mem->hist(), stream);
-      codec_hf->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
-    }
-    else if (ctx->codec1_type == FZGPUCodec) {
+  ENCODING_STEP:
+
+    if (ctx->header->codec1_type == Huffman)
+      codec_hf->buildbook(mem->hist(), stream)
+          ->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+    else if (ctx->header->codec1_type == FZGPUCodec)
       codec_fzg->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
-    }
-  }
-
-  void compress_encode_use_prebuilt(pszctx* ctx, void* stream)
-  {
-    throw psz::exception_placeholder();
   }
 
   void compress_merge_update_header(pszctx* ctx, BYTE** out, szt* outlen, void* stream)
-  try {
-    auto pred_type = ctx->pred_type;
+  {
+    auto pred_type = ctx->header->pred_type;
 
-    nbyte[HEADER] = sizeof(header);
+    nbyte[HEADER] = sizeof(psz_header);
     nbyte[ENCODED] = sizeof(BYTE) * comp_codec_outlen;
     nbyte[ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
-    nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * header.splen;
+    nbyte[SPFMT] = (sizeof(T) + sizeof(M)) * ctx->header->splen;
 
     // clang-format off
-    header.entry[0] = 0;
+    ctx->header->entry[0] = 0;
     // *.END + 1; need to know the ending position
-    for (auto i = 1; i < END + 1; i++) header.entry[i] = nbyte[i - 1];
-    for (auto i = 1; i < END + 1; i++) header.entry[i] += header.entry[i - 1];
+    for (auto i = 1; i < END + 1; i++) ctx->header->entry[i] = nbyte[i - 1];
+    for (auto i = 1; i < END + 1; i++) ctx->header->entry[i] += ctx->header->entry[i - 1];
 
-    concate_memcpy_d2d(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream, __FILE__, __LINE__);
-    concate_memcpy_d2d(DST(ENCODED, 0), comp_codec_out, nbyte[ENCODED], stream, __FILE__, __LINE__);
-    concate_memcpy_d2d(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * header.splen, stream, __FILE__, __LINE__);
-    concate_memcpy_d2d(DST(SPFMT, sizeof(T) * header.splen), mem->compact_idx(), sizeof(M) * header.splen, stream, __FILE__, __LINE__);
+    CONCAT_ON_DEVICE(DST(ANCHOR, 0), mem->anchor(), nbyte[ANCHOR], stream);
+    CONCAT_ON_DEVICE(DST(ENCODED, 0), comp_codec_out, nbyte[ENCODED], stream);
+    CONCAT_ON_DEVICE(DST(SPFMT, 0), mem->compact_val(), sizeof(T) * ctx->header->splen, stream);
+    CONCAT_ON_DEVICE(DST(SPFMT, sizeof(T) * ctx->header->splen), mem->compact_idx(), sizeof(M) * ctx->header->splen, stream);
     // clang-format on
-
-    // update header::comp_config
-    header.eb = ctx->eb;
 
     /* output of this function */
     *out = mem->compressed();
-    *outlen = pszheader_filesize(&header);
+    *outlen = pszheader_filesize(ctx->header);
   }
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-  catch (const psz ::exception_gpu_general& e) {
-    std ::cerr << e.what() << std ::endl;
-    error_list.push_back(PSZ_ERROR_GPU_GENERAL);
-  }
-#endif
-#if defined(PSZ_USE_1API)
-  catch (sycl::exception const& exc) {
-    std::cerr << exc.what() << "Exception caught at file:" << __FILE__ << ", line:" << __LINE__
-              << std::endl;
-  }
-#endif
 
-  void decompress_predict(psz_header* header, BYTE* in, T* ext_anchor, T* out, psz_stream_t stream)
+  void decompress_data_processing(psz_header* header, BYTE* in, T* out, psz_stream_t stream)
   {
     auto access = [&](int FIELD, szt offset_nbyte = 0) {
       return (void*)(in + header->entry[FIELD] + offset_nbyte);
     };
 
-    if (in and ext_anchor)
-      throw std::runtime_error("[psz::error] One of external in and ext_anchor must be null.");
-
-    auto d_anchor = ext_anchor ? ext_anchor : (T*)access(ANCHOR);
+    auto d_anchor = (T*)access(ANCHOR);
+    auto d_spval = (T*)access(SPFMT);
+    auto d_spidx = (M*)access(SPFMT, header->splen * sizeof(T));
     auto d_space = out, d_xdata = out;  // aliases
     auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
 
     eb = header->eb;
     eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-    event_recording_start(event_start, stream);
+  STEP_SCATTER:
 
+    if (header->splen != 0)
+      psz::spv_scatter_naive<PROPER_RUNTIME, T, M>(
+          d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+
+  STEP_DECODING:
+
+    if (header->codec1_type == Huffman)
+      codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
+    else if (header->codec1_type == FZGPUCodec)
+      codec_fzg->decode(
+          (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
+
+  STEP_PREDICT:
+
+    event_recording_start(event_start, stream);
     if (header->pred_type == Lorenzo)
       psz::module::GPU_x_lorenzo_nd<T, false, E>(
           mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
@@ -305,47 +284,6 @@ struct Compressor<C>::impl {
 
     event_recording_stop(event_end, stream);
     event_time_elapsed(event_start, event_end, &time_pred);
-  }
-
-  void decompress_decode(psz_header* header, BYTE* in, psz_stream_t stream)
-  {
-    auto access = [&](int FIELD, szt offset_nbyte = 0) {
-      return (void*)(in + header->entry[FIELD] + offset_nbyte);
-    };
-    if (header->codec1_type == Huffman) {
-      codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
-    }
-    else if (header->codec1_type == FZGPUCodec) {
-      codec_fzg->decode(
-          (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
-    }
-    else {
-      throw std::runtime_error("[psz] codec other than Huffman or FZGPUCodec is not supported.");
-    }
-  }
-
-  void decompress_scatter(psz_header* header, BYTE* in, T* d_space, psz_stream_t stream)
-  {
-    auto access = [&](int FIELD, szt offset_nbyte = 0) {
-      return (void*)(in + header->entry[FIELD] + offset_nbyte);
-    };
-
-    // The inputs of components are from `compressed`.
-    auto d_anchor = (T*)access(ANCHOR);
-    auto d_spval = (T*)access(SPFMT);
-    auto d_spidx = (M*)access(SPFMT, header->splen * sizeof(T));
-
-    if (header->splen != 0)
-      psz::spv_scatter_naive<PROPER_RUNTIME, T, M>(
-          d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
-    // return this;
-  }
-
-  void clear_buffer()
-  {
-    if (codec_hf) codec_hf->clear_buffer();
-    if (codec_fzg) codec_fzg->clear_buffer();
-    mem->clear_buffer();
   }
 
   void compress_collect_kerneltime()
@@ -386,145 +324,91 @@ struct Compressor<C>::impl {
 
 //------------------------------------------------------------------------------
 
-template <class C>
-template <class CONFIG>
-Compressor<C>* Compressor<C>::init(CONFIG* ctx, bool iscompression, bool debug)
+template <typename DType>
+Compressor<DType>::Compressor(psz_context* ctx, bool debug) :
+    pimpl{std::make_unique<impl>()}, header_ref(ctx->header)
 {
-  pimpl->template init<CONFIG>(ctx, iscompression, debug);
-  return this;
+  pimpl->compress_init(ctx, debug);
 }
 
-template <class C>
-Compressor<C>::Compressor() : pimpl{std::make_unique<impl>()} {};
-
-template <class C>
-Compressor<C>::Compressor(psz_context* ctx, bool debug) : pimpl{std::make_unique<impl>()}
+template <typename DType>
+Compressor<DType>::Compressor(psz_header* header, bool debug) :
+    pimpl{std::make_unique<impl>()}, header_ref(header)
 {
-  pimpl->template init(ctx, true /* comp */, debug);
+  pimpl->decompress_init(header, debug);
 }
 
-template <class C>
-Compressor<C>::Compressor(psz_header* header, bool debug) : pimpl{std::make_unique<impl>()}
+template <typename DType>
+Compressor<DType>::~Compressor(){};
+
+template <typename DType>
+void Compressor<DType>::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
 {
-  pimpl->template init(header, false /* decomp */, debug);
-}
-
-template <class C>
-Compressor<C>::~Compressor(){};
-
-template <class C>
-Compressor<C>* Compressor<C>::compress(
-    pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
-{
-  pimpl->compress_predict(ctx, in, stream);
-
-  if (ctx->codec1_type == Huffman) pimpl->compress_histogram(ctx, stream);
-
-  if (ctx->use_prebuilt_hfbk)
-    pimpl->compress_encode_use_prebuilt(ctx, stream);
-  else
-    pimpl->compress_encode(ctx, stream);
-
+  pimpl->compress_data_processing(ctx, in, stream);
   pimpl->compress_merge_update_header(ctx, out, outlen, stream);
   pimpl->compress_collect_kerneltime();
-
-  // TODO export or view
-  if (not pimpl->error_list.empty()) ctx->there_is_memerr = true;
-
-  return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::clear_buffer()
+template <typename DType>
+void Compressor<DType>::clear_buffer()
 {
-  pimpl->clear_buffer();
-  return this;
+  if (pimpl->codec_hf) pimpl->codec_hf->clear_buffer();
+  if (pimpl->codec_fzg) pimpl->codec_fzg->clear_buffer();
+  pimpl->mem->clear_buffer();
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::decompress(psz_header* header, BYTE* in, T* out, void* stream)
+template <typename DType>
+void Compressor<DType>::decompress(psz_header* header, BYTE* in, T* out, void* stream)
 {
-  // TODO host having copy of header when compressing
-  if (not header) {
-    header = new psz_header;
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-    CHECK_GPU(cudaMemcpyAsync(
-        header, in, sizeof(psz_header), cudaMemcpyDeviceToHost, (cudaStream_t)stream));
-    CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
-#elif defined(PSZ_USE_1API)
-    ((sycl::queue*)stream)->memcpy(header, in, sizeof(Header));
-    ((sycl::queue*)stream)->wait();
-#endif
-  }
-
-  // wire and alias
-  auto d_space = out, d_xdata = out;
-
-  pimpl->decompress_scatter(header, in, d_space, stream);
-  pimpl->decompress_decode(header, in, stream);
-  pimpl->decompress_predict(header, in, nullptr, d_xdata, stream);
+  pimpl->decompress_data_processing(header, in, out, stream);
   pimpl->decompress_collect_kerneltime();
-
-  return this;
 }
 
 // public getter
-template <class C>
-Compressor<C>* Compressor<C>::dump_compress_intermediate(pszctx* ctx, psz_stream_t stream)
+template <typename DType>
+void Compressor<DType>::dump_compress_intermediate(pszctx* ctx, psz_stream_t stream)
 {
   auto dump_name = [&](string t, string suffix = ".quant") -> string {
-    return string(ctx->file_input) + "."                               //
-           + string(ctx->char_mode) + "_" + string(ctx->char_meta_eb)  //
-           + "." + "bk_" + to_string(ctx->radius * 2) + "."            //
-           + suffix + "_" + t;
+    return string(ctx->cli->file_input)                                                //
+           + "." + string(ctx->cli->char_mode) + "_" + string(ctx->cli->char_meta_eb)  //
+           + "." + "bk_" + to_string(ctx->header->radius * 2)                          //
+           + "." + suffix + "_" + t;
   };
 
-  if (ctx->dump_hist) {
-    cudaStreamSynchronize((cudaStream_t)stream);
-    auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<C>::Freq, pimpl->mem->bklen);
+  cudaStreamSynchronize((cudaStream_t)stream);
+
+  if (ctx->cli->dump_hist) {
+    auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<DType>::Freq, pimpl->mem->bklen);
     memcpy_allkinds<D2H>(h_hist.get(), pimpl->mem->hist(), pimpl->mem->bklen, stream);
     _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), pimpl->mem->bklen);
   }
-  if (ctx->dump_quantcode) {
-    cudaStreamSynchronize((cudaStream_t)stream);
-
+  if (ctx->cli->dump_quantcode) {
     auto h_ectrl = MAKE_UNIQUE_HOST(E, pimpl->len);
     memcpy_allkinds<D2H>(h_ectrl.get(), pimpl->mem->ectrl(), pimpl->len, stream);
     _portable::utils::tofile(
         dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), pimpl->len);
   }
-
-  return this;
 }
 
 // public getter
-template <class C>
-Compressor<C>* Compressor<C>::export_header(psz_header& ext_header)
+template <typename DType>
+void Compressor<DType>::export_header(psz_header& ext_header)
 {
-  ext_header = pimpl->header;
-  return this;
+  // ext_header = pimpl->header;
+  ext_header = *header_ref;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::export_header(psz_header* ext_header)
-{
-  if (ext_header) *ext_header = pimpl->header;
-  return this;
-}
-
-template <class C>
-Compressor<C>* Compressor<C>::export_timerecord(TimeRecord* ext_timerecord)
+template <typename DType>
+void Compressor<DType>::export_timerecord(TimeRecord* ext_timerecord)
 {
   if (ext_timerecord) *ext_timerecord = pimpl->timerecord;
-  return this;
 }
 
-template <class C>
-Compressor<C>* Compressor<C>::export_timerecord(float* ext_timerecord)
+template <typename DType>
+void Compressor<DType>::export_timerecord(float* ext_timerecord)
 {
   if (ext_timerecord)
     for (auto i = 0; i < STAGE_END - 1; i++) ext_timerecord[i] = pimpl->timerecord_v2[i];
-  return this;
 }
 
 }  // namespace psz

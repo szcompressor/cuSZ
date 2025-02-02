@@ -21,40 +21,44 @@ extern "C" {
 
 #include "cusz/type.h"
 
-// originally in-struct staic const int, conflicting with C compiler.
-// also see Compressor::impl
 #define PSZHEADER_HEADER 0
 #define PSZHEADER_ANCHOR 1
 #define PSZHEADER_ENCODED 2
 #define PSZHEADER_SPFMT 3
 #define PSZHEADER_END 4
 
-/**
- * @brief Memory alignment at 128 bytes for GPU if the archive is on device.
- *
- */
+// @brief Memory alignment at 128 bytes for GPU if the archive is on device.
 typedef struct psz_header {
   union {
     struct {
-      uint8_t __[128];
-    };
-    struct {
       psz_dtype dtype;
       psz_predtype pred_type;
-      psz_histogramtype hist_type;
+      psz_histotype hist_type;
       psz_codectype codec1_type;
+      psz_codectype _future_codec2_type;
+
+      // pipeline config
+      psz_mode mode;
+      double eb;
+      uint16_t radius;
+
+      // codec config (coarse-HF)
+      int vle_sublen;
+      int vle_pardeg;
 
       uint32_t entry[PSZHEADER_END + 1];  // segment entries
-      int splen;                          // direct len of sparse part
+
+      // runtime sizes
       uint32_t x, y, z, w;
+      size_t splen;
 
-      // compression config
-      double user_input_eb, eb;
-      uint32_t radius : 16;  //
-      uint32_t vle_pardeg;   // coarse-grained HF
-
+      // internal loggin
+      double user_input_eb;
       double logging_min, logging_max;
-      psz_mode logging_mode;
+    };
+
+    struct {
+      uint8_t __[128];
     };
   };
 } psz_header;
@@ -63,7 +67,7 @@ psz_len3 pszheader_len3(psz_header*);
 size_t pszheader_linear_len(psz_header*);
 size_t pszheader_filesize(psz_header*);
 size_t pszheader_uncompressed_len(psz_header*);
-size_t pszheader_compressed_len(psz_header*);
+size_t pszheader_compressed_bytes(psz_header*);
 
 #ifdef __cplusplus
 }

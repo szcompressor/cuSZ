@@ -1,6 +1,14 @@
 #ifndef _PORTABLE_MEM_CXX_BACKENDS_H
 #define _PORTABLE_MEM_CXX_BACKENDS_H
 
+#define ALIGN_128(len) (((len) + 127) & ~127)
+#define ALIGN_256(len) (((len) + 255) & ~255)
+#define ALIGN_512(len) (((len) + 511) & ~511)
+#define ALIGN_1Ki(len) (((len) + 1023) & ~1023)
+#define ALIGN_2Ki(len) (((len) + 2047) & ~2047)
+#define ALIGN_4Ki(len) (((len) + 4095) & ~4095)
+#define ALIGN_8Ki(len) (((len) + 8191) & ~8191)
+
 #include <cstring>
 #include <stdexcept>
 
