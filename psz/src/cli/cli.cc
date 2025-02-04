@@ -9,200 +9,164 @@
  *
  */
 
-#include "cusz.h"
-#include "tehm.hh"
-// #include "utils/config.hh"
 #include <fstream>
 
+#include "api_v2.h"
+#include "compressor.hh"
+#include "cusz.h"
+#include "mem/cxx_backends.h"
 #include "utils/err.hh"
+#include "utils/io.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
 
-namespace psz {
+using _portable::utils::fromfile;
+using _portable::utils::tofile;
 
-template <typename T>
-using memobj = _portable::memobj<T>;
-
-template <typename T>
-class CLI {
- private:
-  void write_compressed_to_disk(
-      std::string compressed_name, psz_header* header, uint8_t* comped, size_t comp_len);
-
-  void cli_compress(pszctx* const ctx, void* stream);
-  void cli_decompress(pszctx* const ctx, void* stream);
-  [[deprecated]] static void cli_dryrun();
-
- public:
-  CLI() = default;
-
-  void dispatch(pszctx* ctx);
-};
-
-template <typename T>
-void CLI<T>::cli_dryrun()
-{
-  printf("[psz::warn] CLI::dryun is disabled.");
-  exit(0);
-}
-
-template <typename T>
-void CLI<T>::cli_compress(pszctx* const ctx, void* stream)
-{
-  auto write_compressed_to_disk = [](std::string compressed_name, psz_header* header,
-                                     uint8_t* comped, size_t comp_len) {
-    auto file = new memobj<uint8_t>(comp_len, "psz-archive", {MallocHost});
-
-    file->dptr(comped)->control({D2H});
-    memcpy(file->hptr(), header, sizeof(psz_header));  // put on-host header
-    file->file(compressed_name.c_str(), ToFile);
-
-    delete file;
-  };
-
-  auto input = new memobj<T>(ctx->x, ctx->y, ctx->z, "uncomp'ed", {MallocHost, Malloc});
-
-  input->file(ctx->file_input, FromFile)->control({H2D});
-
-  uint8_t* comped;
-  size_t comp_len;
-  psz_header header;
-  auto eb = ctx->eb;
-  auto mode = ctx->mode;
-
-  psz::TimeRecord timerecord;
-
-  // the core of compression
-  auto compressor = psz_create_from_context(ctx, get_len3(ctx));
-  psz_compress(
-      compressor, input->dptr(), get_len3(ctx), eb, mode, &comped, &comp_len, &header,
-      (void*)&timerecord, stream);
-
-  if (not ctx->there_is_memerr) {
-    if (ctx->report_time) {
-      printf(
-          "\n\e[1m\e[31m"
-          "REPORT::COMPRESSION::TIME"
-          "\e[0m"
-          "\n");
-      psz_review_comp_time_breakdown(&timerecord, &header);
-    }
-    if (ctx->report_cr) {
-      printf(
-          "\n\e[1m\e[31m"
-          "REPORT::COMPRESSION::FILE"
-          "\e[0m"
-          "\n");
-      psz_review_comp_time_from_header(&header);
-    }
-
-    if (not ctx->skip_tofile)
-      write_compressed_to_disk(std::string(ctx->file_input) + ".cusza", &header, comped, comp_len);
-  }
-  else {
-    printf("\n*** exit on failure.\n");
-  }
-
-  psz_release(compressor);
-  delete input;
-}
-
-template <typename T>
-void CLI<T>::cli_decompress(pszctx* const ctx, void* stream)
-{
-  // extract basename w/o suffix
-  auto basename = std::string(ctx->file_input);
-  basename = basename.substr(0, basename.rfind('.'));
-
-  // all lengths in metadata
-  auto filesize = [](std::string fname) -> size_t {
-    std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
-    return in.tellg();
-  };
-
-  auto compressed_len = filesize(ctx->file_input);
-
-  auto comped = new memobj<uint8_t>(compressed_len, "comped", {MallocHost, Malloc});
-
-  comped->file(ctx->file_input, FromFile)->control({H2D});
-
-  auto header = (psz_header*)comped->hptr();
-  auto len = pszheader_uncompressed_len(header);
-  auto comp_len = pszheader_filesize(header);
-  auto decomp_len = psz_len3{header->x, header->y, header->z};
-  psz::TimeRecord timerecord;
-
-  auto decomped = new memobj<T>(len, "decomp'ed", {MallocHost, Malloc});
-  auto original = new memobj<T>(len, "original-cmp");
-
-  // the core of decompression
-  auto compressor = psz_create_from_header(header);
-  psz_decompress(
-      compressor, comped->dptr(), comp_len, decomped->dptr(), decomp_len, (void*)&timerecord,
-      stream);
-
-  if (ctx->report_time) psz_review_decompression(&timerecord, decomped->bytes());
+#define REPORT(T)                                                                     \
+  if (args->cli->report_time) psz_review_decompression(&timerecord, sizeof(T) * len); \
   psz_review_decomp_time_from_header(header);
-  psz::analysis::view(header, decomped, original, ctx->file_compare);
 
-  if (not ctx->skip_tofile)
-    decomped->control({D2H})->file(std::string(basename + ".cuszx").c_str(), ToFile);
+#define COMPARE_WITH_ORIGIN(T)                                 \
+  if (string(args->cli->file_compare) != "") {                 \
+    auto d_origin = MAKE_UNIQUE_DEVICE(T, len);                \
+    auto h_origin = MAKE_UNIQUE_HOST(T, len);                  \
+    fromfile(args->cli->file_compare, h_origin.get(), len);    \
+    memcpy_allkinds<H2D>(d_origin.get(), h_origin.get(), len); \
+    psz::analysis::GPU_evaluate_quality_and_print(             \
+        d_decomped.get(), d_origin.get(), len, comp_len);      \
+  }
 
-  psz_release(compressor);
-  delete comped;
-  delete decomped;
-  delete original;
-}
+#define WRITE_TO_DISK(T)                                                                 \
+  if (not args->cli->skip_tofile) {                                                      \
+    auto h_decomped = MAKE_UNIQUE_HOST(T, len);                                          \
+    memcpy_allkinds<D2H>(h_decomped.get(), d_decomped.get(), len);                       \
+    tofile(std::string(basename + ".cuszx").c_str(), h_decomped.get(), sizeof(T) * len); \
+  }
 
-template <typename T>
-void CLI<T>::dispatch(pszctx* ctx)
+int psz_run_from_CLI(int argc, char** argv)
 {
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
   cudaStream_t stream;
-  CHECK_GPU(cudaStreamCreate(&stream));
+  cudaStreamCreate(&stream);
 
-  // TODO enable f8
-  if (ctx->task_dryrun) cli_dryrun();
-  if (ctx->task_construct) cli_compress(ctx, stream);
-  if (ctx->task_reconstruct) cli_decompress(ctx, stream);
-  if (stream) cudaStreamDestroy(stream);
+  auto args = pszctx_default_values();
+  pszctx_create_from_argv(args, argc, argv);
 
-#elif defined(PSZ_USE_1API)
-
-  sycl::queue q;
-  auto plist = sycl::property_list(
-      sycl::property::queue::in_order(), sycl::property::queue::enable_profiling());
-
-  if (ctx->device == CPU)
-    q = sycl::queue(sycl::cpu_selector_v, plist);
-  else if (ctx->device == INTELGPU)
-    q = sycl::queue(sycl::gpu_selector_v, plist);
-  else
-    q = sycl::queue(sycl::default_selector_v, plist);
-
-  if (ctx->task_dryrun) cli_dryrun();
-  if (ctx->task_construct) cli_compress(compressor, &q);
-  if (ctx->task_reconstruct) cli_decompress(compressor, &q);
-
-#endif
-}
-
-}  // namespace psz
-
-int main(int argc, char** argv)
-{
-  auto ctx = pszctx_default_values();
-  pszctx_create_from_argv(ctx, argc, argv);
-
-  if (ctx->verbose) {
+  if (args->cli->verbose) {
     CPU_QUERY;
     GPU_QUERY;
   }
 
-  psz::CLI<float> psz_cli;
-  psz_cli.dispatch(ctx);
+  if (args->cli->task_construct) {
+    auto len = CLI_x(args) * CLI_y(args) * CLI_z(args);
 
-  delete ctx;
+    uint8_t* d_internal_compressed;
+    psz_header header;
+    size_t compressed_len;
+    psz::TimeRecord timerecord;
 
+    psz_resource* m{nullptr};
+
+    if (CLI_dtype(args) == F4) {
+      auto d_in = MAKE_UNIQUE_DEVICE(float, len);
+      auto h_in = MAKE_UNIQUE_HOST(float, len);
+      fromfile(args->cli->file_input, h_in.get(), len);
+      memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
+
+      m = psz_create_resource_manager(F4, CLI_x(args), CLI_y(args), CLI_z(args), stream);
+      psz_compress_float(
+          m,
+          {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
+           CLI_eb(args), 512},
+          d_in.get(), &header, &d_internal_compressed, &compressed_len);
+    }
+    else if (CLI_dtype(args) == F8) {
+      auto d_in = MAKE_UNIQUE_DEVICE(double, len);
+      auto h_in = MAKE_UNIQUE_HOST(double, len);
+      fromfile(args->cli->file_input, h_in.get(), len);
+      memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
+
+      m = psz_create_resource_manager(F8, CLI_x(args), CLI_y(args), CLI_z(args), stream);
+      psz_compress_double(
+          m,
+          {CLI_predictor(m), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
+           CLI_eb(args), 512},
+          d_in.get(), &header, &d_internal_compressed, &compressed_len);
+    }
+
+    if (args->cli->report_time) {
+      printf("\n\e[1m\e[31mREPORT::COMPRESSION::TIME\e[0m\n");
+      // psz_review_comp_time_breakdown(&timerecord, &header);
+    }
+    if (args->cli->report_cr) {
+      printf("\n\e[1m\e[31mREPORT::COMPRESSION::FILE\e[0m\n");
+      psz_review_comp_time_from_header(&header);
+    }
+
+    if (not args->cli->skip_tofile) {
+      auto compressed_name = std::string(args->cli->file_input) + ".cusza";
+      auto file = MAKE_UNIQUE_HOST(uint8_t, compressed_len);
+      memcpy_allkinds<D2H>(file.get(), d_internal_compressed, compressed_len);
+      memcpy(file.get(), &header, sizeof(psz_header));  // put on-host header
+      tofile(compressed_name.c_str(), file.get(), compressed_len);
+    }
+
+    if (m) psz_release_resource(m);
+  }
+  else if (args->cli->task_reconstruct) {
+    // extract basename w/o suffix
+    auto basename = std::string(args->cli->file_input);
+    basename = basename.substr(0, basename.rfind('.'));
+
+    // all lengths in metadata
+    auto filesize = [](std::string fname) -> size_t {
+      std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
+      return in.tellg();
+    };
+
+    auto compressed_len = filesize(args->cli->file_input);
+
+    auto d_comped = MAKE_UNIQUE_DEVICE(uint8_t, compressed_len);
+    auto h_comped = MAKE_UNIQUE_HOST(uint8_t, compressed_len);
+    fromfile(args->cli->file_input, h_comped.get(), compressed_len);
+    memcpy_allkinds<H2D>(d_comped.get(), h_comped.get(), compressed_len);
+
+    auto header = (psz_header*)h_comped.get();
+    auto comp_len = pszheader_filesize(header);
+    auto len = pszheader_uncompressed_len(header);
+    psz::TimeRecord timerecord;
+
+    psz_resource* m = psz_create_resource_manager_from_header(header, stream);
+
+    if (CLI_dtype(m) == F4) {
+      auto d_decomped = MAKE_UNIQUE_DEVICE(float, len);
+      psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
+      REPORT(float);
+      COMPARE_WITH_ORIGIN(float);
+      WRITE_TO_DISK(float);
+    }
+    else if (CLI_dtype(m) == F8) {
+      auto d_decomped = MAKE_UNIQUE_DEVICE(double, len);
+      psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
+      REPORT(double);
+      COMPARE_WITH_ORIGIN(double);
+      WRITE_TO_DISK(double);
+    }
+
+    if (m) psz_release_resource(m);
+  }
+  else {
+    cerr << "No task specified." << endl;
+    exit(1);
+  }
+
+  cudaStreamDestroy(stream);
+
+  return 0;
+}
+
+int main(int argc, char** argv)
+{
+  psz_run_from_CLI(argc, argv);
   return 0;
 }

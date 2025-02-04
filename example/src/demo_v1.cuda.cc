@@ -12,10 +12,9 @@
 #include <cuda_runtime.h>
 
 #include "cusz.h"
-
-// utilities for demo
 #include "cusz/type.h"
-#include "utils/io.hh"  // io::read_binary_to_array
+#include "utils/io.hh"
+#include "utils/viewer.hh"
 
 namespace utils = _portable::utils;
 
@@ -33,20 +32,20 @@ void* comp_timerecord;
 void* decomp_timerecord;
 
 void demo_compress(
-    psz_predtype predictor, psz_len3 const interpreted_len3, uint8_t** compressed,
-    psz_header* header, cudaStream_t stream)
+    psz_predtype predictor, psz_len3 const len3, uint8_t** compressed, psz_header* header,
+    cudaStream_t stream)
 {
   uint8_t* p_compressed;
   size_t comp_len;
 
   auto* compressor = psz_create(
-      /* data */ F4, interpreted_len3, predictor,
+      /* data */ F4, len3, predictor,
       /* quantizer radius */ 512,
       /* codec */ Huffman);
 
   psz_compress(
-      compressor, d_uncomp, interpreted_len3, eb, mode, &p_compressed, &comp_len, header,
-      comp_timerecord, stream);
+      compressor, d_uncomp, len3, eb, mode, &p_compressed, &comp_len, header, comp_timerecord,
+      stream);
 
   cudaMalloc(compressed, comp_len);
   cudaMemcpy(*compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
@@ -66,7 +65,7 @@ void demo_decompress(uint8_t* compressed, psz_header* header, cudaStream_t strea
   psz_release(compressor);
 }
 
-void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
+void demo(std::string fname, psz_len3 len3, psz_predtype predictor)
 {
   psz_header header;
   uint8_t* compressed;
@@ -82,7 +81,7 @@ void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  demo_compress(predictor, interpreted_len3, &compressed, &header, stream);
+  demo_compress(predictor, len3, &compressed, &header, stream);
 
   {
     auto comp_len = pszheader_filesize(&header);
@@ -94,15 +93,13 @@ void demo(std::string fname, psz_len3 interpreted_len3, psz_predtype predictor)
   {
     auto comp_len = pszheader_filesize(&header);
     psz_review_decompression(decomp_timerecord, oribytes);
-    psz_review_evaluated_quality(CUDA, F4, d_decomp, d_uncomp, len, comp_len, true);
+    psz::analysis::GPU_evaluate_quality_and_print(d_decomp, d_uncomp, len, comp_len);
   }
 
   // clean up
   cudaFree(compressed);
-  cudaFree(d_uncomp);
-  cudaFree(d_decomp);
-  cudaFreeHost(h_decomp);
-  cudaFreeHost(h_decomp);
+  cudaFree(d_uncomp), cudaFreeHost(h_uncomp);
+  cudaFree(d_decomp), cudaFreeHost(h_decomp);
 
   cudaStreamDestroy(stream);
 }

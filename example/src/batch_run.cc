@@ -165,19 +165,19 @@ int main(int argc, char** argv)
   if (args.codec_type == Huffman) {
     cout << "using Huffman" << endl;
     cor = psz_create(F4, uncomp_len3, Lorenzo, args.radius, Huffman);
-    cor->ctx->dump_hist = true;
+    cor->ctx->cli->dump_hist = true;
   }
   else {
     cout << "using FZGPUCodec" << endl;
     cor = psz_create(F4, uncomp_len3, LorenzoZigZag, args.radius, FZGPUCodec);
   }
-  // cor->ctx->dump_quantcode = true;
+  // cor->ctx->cli->dump_quantcode = true;
 
   for (const auto& fname : file_names) {
     cout << "\e[34mFNAME\t" + fname + "\e[0m" << endl;
-    strcpy(cor->ctx->file_input, fname.c_str());
-    strcpy(cor->ctx->char_mode, mode_str.c_str());
-    strcpy(cor->ctx->char_meta_eb, eb_str.c_str());
+    strcpy(cor->ctx->cli->file_input, fname.c_str());
+    strcpy(cor->ctx->cli->char_mode, mode_str.c_str());
+    strcpy(cor->ctx->cli->char_meta_eb, eb_str.c_str());
 
     utils::fromfile(fname, h_uncomp, len);
     cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
@@ -189,7 +189,6 @@ int main(int argc, char** argv)
       //   psz_review_compression(comp_timerecord, &header);
 
       cudaMemcpy(compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
-      cor->header = &header;  // !!!! TODO fix header link after compression
     }
 
     {  // decompression

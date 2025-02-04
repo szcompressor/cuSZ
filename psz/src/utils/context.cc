@@ -797,9 +797,9 @@ pszctx* pszctx_default_values()
       .header =
           new psz_header{
               .dtype = F4,
-              .pred_type = Lorenzo,
-              .hist_type = HistogramGeneric,
-              .codec1_type = Huffman,
+              .pred_type = DEFAULT_PREDICTOR,
+              .hist_type = DEFAULT_HISTOGRAM,
+              .codec1_type = DEFAULT_CODEC,
               .mode = Rel,
               .eb = 0.1,
               .radius = 512,
@@ -857,7 +857,8 @@ unsigned int CLI_y(psz_arguments* args) { return args->header->y; }
 unsigned int CLI_z(psz_arguments* args) { return args->header->z; }
 unsigned int CLI_w(psz_arguments* args) { return args->header->w; }
 psz_dtype CLI_dtype(psz_arguments* args) { return args->header->dtype; }
-psz_predtype CLI_predtype(psz_arguments* args) { return args->header->pred_type; }
+psz_predtype CLI_predictor(psz_arguments* args) { return args->header->pred_type; }
+psz_histotype CLI_hist(psz_arguments* args) { return args->header->hist_type; }
 psz_codectype CLI_codec1(psz_arguments* args) { return args->header->codec1_type; }
 psz_codectype CLI_codec2(psz_arguments* args) { return args->header->_future_codec2_type; }
 psz_mode CLI_mode(psz_arguments* args) { return args->header->mode; }
