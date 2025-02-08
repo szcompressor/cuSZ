@@ -7,21 +7,19 @@
 #include "fzg_kernel.hh"
 #include "utils/err.hh"
 
+#define ALIGN_4Ki(len) (((len) + 4095) & ~4095)
+
 fzgpu::config_map const fzgpu::configure_fzgpu(size_t const data_len)
 {
-  constexpr auto UINT32_BIT_LEN = 32;
-  constexpr auto block_size = 16;
-  /* align */ auto data_bytes = data_len * 2;  // how many bytes of data
-  /* align */ data_bytes = (data_bytes - 1) / 4096 + 1;
-  /* align */ data_bytes *= 4096;
-  auto pad_len = data_bytes / 2;
-  int data_chunk_size = data_bytes % (block_size * UINT32_BIT_LEN) == 0
-                            ? data_bytes / (block_size * UINT32_BIT_LEN)
-                            : int(data_bytes / (block_size * UINT32_BIT_LEN)) + 1;
+  constexpr auto U4_BITS = 32;
+  constexpr auto BLOCK_SIZE = 16;
+  auto data_bytes = ALIGN_4Ki(data_len * sizeof(uint16_t));
+  auto pad_len = data_bytes / sizeof(uint16_t);
+  int data_chunk_size = data_bytes / (BLOCK_SIZE * U4_BITS);
 
   return config_map{{"len", data_len},          {"bytes", data_len * sizeof(float)},
                     {"pad_len", pad_len},       {"chunk_size", data_chunk_size},
-                    {"data_bytes", data_bytes}, {"grid_x", floor(data_bytes / 4096)}};
+                    {"data_bytes", data_bytes}, {"grid_x", data_bytes / 4096}};
 }
 
 size_t fzgpu::Buf::padded_len(size_t const data_len)
@@ -30,7 +28,7 @@ size_t fzgpu::Buf::padded_len(size_t const data_len)
   return c.at("pad_len");
 }
 
-void fzgpu::Buf::init(size_t data_len, bool _alloc_test_buf)
+fzgpu::Buf::Buf(size_t const data_len, bool _alloc_test_buf)
 {
   this->alloc_test_buf = _alloc_test_buf;
   this->config = configure_fzgpu(data_len);
@@ -83,8 +81,6 @@ void fzgpu::Buf::init(size_t data_len, bool _alloc_test_buf)
   CHECK_GPU(cudaMemset(d_offset_counter, 0, sizeof(uint32_t)));
   CHECK_GPU(cudaMemset(d_comp_len, 0, sizeof(uint32_t) * grid_x));
 }
-
-fzgpu::Buf::Buf(size_t const data_len, bool alloc_test_buf) { init(data_len, alloc_test_buf); }
 
 fzgpu::Buf::~Buf()
 {
