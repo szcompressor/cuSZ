@@ -223,11 +223,11 @@ psz_resource* psz_create_resource_manager(
       .pred_type = Lorenzo,
       .hist_type = HistogramGeneric,
       .codec1_type = Huffman,
+      .radius = 512,
       .x = x,
       .y = y,
       .z = z,
       .w = 1,
-      .radius = 512,
   };
 
   m->dict_size = m->header->radius * 2;
