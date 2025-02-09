@@ -31,10 +31,10 @@ struct lorenzo_utils {
   };
 };
 
-template <int dim>
+template <int dim, int X = 0, int Y = 0>
 struct c_lorenzo;
 
-template <int dim>
+template <int dim, int X = 0, int Y = 0>
 struct x_lorenzo;
 
 template <>
@@ -51,6 +51,39 @@ struct c_lorenzo<2> {
   static constexpr dim3 sequentiality = dim3(1, 8, 1);  // y-sequentiality == 8
   static constexpr dim3 thread_block = dim3(16, 2, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
+};
+
+template <>
+struct c_lorenzo<2, 32, 32> {
+  static constexpr dim3 tile = dim3(32, 32, 1);
+  static constexpr dim3 sequentiality = dim3(1, 8, 1);  // y-sequentiality == 8
+  static constexpr dim3 thread_block = dim3(32, 4, 1);
+  static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
+
+  static_assert(thread_block.x * sequentiality.x == tile.x);
+  static_assert(thread_block.y * sequentiality.y == tile.y);
+};
+
+template <>
+struct c_lorenzo<2, 64, 32> {                           // for uint16_t
+  static constexpr dim3 tile = dim3(64, 32, 1);         // 2-unit alignment
+  static constexpr dim3 sequentiality = dim3(2, 8, 1);  // y-sequentiality == 8
+  static constexpr dim3 thread_block = dim3(32, 4, 1);
+  static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
+
+  static_assert(thread_block.x * sequentiality.x == tile.x);
+  static_assert(thread_block.y * sequentiality.y == tile.y);
+};
+
+template <>
+struct c_lorenzo<2, 128, 32> {                          // for uint8_t
+  static constexpr dim3 tile = dim3(128, 32, 1);        // 4-unit x-alignment
+  static constexpr dim3 sequentiality = dim3(4, 8, 1);  // y-sequentiality == 8
+  static constexpr dim3 thread_block = dim3(32, 4, 1);
+  static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
+
+  static_assert(thread_block.x * sequentiality.x == tile.x);
+  static_assert(thread_block.y * sequentiality.y == tile.y);
 };
 
 template <>
@@ -74,6 +107,14 @@ struct x_lorenzo<2> {
   static constexpr dim3 tile = dim3(16, 16, 1);
   static constexpr dim3 sequentiality = dim3(1, 8, 1);  // y-sequentiality == 8
   static constexpr dim3 thread_block = dim3(16, 2, 1);
+  static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
+};
+
+template <>
+struct x_lorenzo<2, 32> {
+  static constexpr dim3 tile = dim3(32, 32, 1);
+  static constexpr dim3 sequentiality = dim3(1, 8, 1);  // y-sequentiality == 8
+  static constexpr dim3 thread_block = dim3(32, 4, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 };
 

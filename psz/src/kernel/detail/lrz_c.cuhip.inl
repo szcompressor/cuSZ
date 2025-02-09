@@ -106,7 +106,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 template <
     typename T, bool UseZigZag, typename Eq = uint16_t, typename CompactVal = T,
     typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
+__global__ [[deprecated]] void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
     uint16_t const radius, Fp const ebx2_r)
@@ -156,6 +156,72 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l(
     auto gid = g_id(i - 1);
 
     if (gix < data_len3.x and giy_base + (i - 1) < data_len3.y) {
+      bool quantizable = fabs(center[i]) < radius;
+      T candidate;
+
+      if constexpr (UseZigZag) {
+        candidate = center[i];
+        out_eq[gid] = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+      }
+      else {
+        candidate = center[i] + radius;
+        out_eq[gid] = quantizable * (EqUInt)candidate;
+      }
+
+      if (not quantizable) {
+        auto cur_idx = atomicAdd(out_cn, 1);
+        out_cidx[cur_idx] = gid;
+        out_cval[cur_idx] = candidate;
+      }
+    }
+  }
+
+  // end of kernel
+}
+
+template <
+    typename T, bool UseZigZag, typename Eq = uint16_t, typename CompactVal = T,
+    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
+__global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
+    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
+    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
+    uint16_t const radius, Fp const ebx2_r)
+{
+  SETUP_ZIGZAG;
+  constexpr auto TileDim = 32;
+  constexpr auto Yseq = 8;
+  constexpr auto NumWarps = 4;
+
+  __shared__ T exchange[NumWarps - 1][TileDim + 1];
+
+  T center[Yseq + 1] = {0};
+
+  // BDX == TileDim == 32 (a full warp), BDY * Yseq = TileDim == 32
+  auto gix = blockIdx.x * TileDim + threadIdx.x;
+  auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
+  auto g_id = [&](auto i) { return (giy_base + i) * data_leap3.y + gix; };
+
+// read to private.in_data (center)
+#pragma unroll
+  for (auto iy = 0; iy < Yseq; iy++) {
+    if (gix < data_len3.x and giy_base + iy < data_len3.y)
+      center[iy + 1] = round(in_data[g_id(iy)] * ebx2_r);
+  }
+  if (threadIdx.y < NumWarps - 1) exchange[threadIdx.y][threadIdx.x] = center[Yseq];
+  __syncthreads();
+  if (threadIdx.y > 0) center[0] = exchange[threadIdx.y - 1][threadIdx.x];
+  __syncthreads();
+
+#pragma unroll
+  for (auto i = Yseq; i > 0; i--) {
+    // 1) prediction (apply Lorenzo filter)
+    center[i] -= center[i - 1];
+    auto west = __shfl_up_sync(0xffffffff, center[i], 1, 32);
+    if (threadIdx.x > 0) center[i] -= west;
+
+    // 2) store quant-code
+    auto gid = g_id(i - 1);
+    if (gix < data_len3.x and (giy_base + i - 1) < data_len3.y) {
       bool quantizable = fabs(center[i]) < radius;
       T candidate;
 
@@ -305,11 +371,17 @@ int GPU_c_lorenzo_nd_with_outlier(
         <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r);
-  else if (d == 2)
-    psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
-        <<<c_lorenzo<2>::thread_grid(data_len3), c_lorenzo<2>::thread_block, 0,
+  else if (d == 2) {
+    // psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
+    //     <<<c_lorenzo<2>::thread_grid(data_len3), c_lorenzo<2>::thread_block, 0,
+    //        (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+    //         in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
+    //         (T)ebx2_r);
+    psz::KERNEL_CUHIP_c_lorenzo_2d1l__32x32<T, UseZigZag, Eq>
+        <<<c_lorenzo<2, 32, 32>::thread_grid(data_len3), c_lorenzo<2, 32, 32>::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r);
+  }
   else if (d == 3)
     psz::KERNEL_CUHIP_c_lorenzo_3d1l<T, UseZigZag, Eq>
         <<<c_lorenzo<3>::thread_grid(data_len3), c_lorenzo<3>::thread_block, 0,
