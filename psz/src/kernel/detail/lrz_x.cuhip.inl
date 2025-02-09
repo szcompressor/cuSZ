@@ -263,7 +263,7 @@ __global__ void KERNEL_CUHIP_x_lorenzo_2d1l__32x32(  //
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       for (auto d = 1; d < TileDim; d *= 2) {
-        T n = __shfl_up_sync(0xffffffff, thp_data[i], d, 32);  // half-warp shuffle
+        T n = __shfl_up_sync(0xffffffff, thp_data[i], d, 32);  // full-warp shuffle
         if (threadIdx.x >= d) thp_data[i] += n;
       }
       thp_data[i] *= ebx2;  // scale accordingly

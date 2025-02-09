@@ -39,9 +39,9 @@ struct x_lorenzo;
 
 template <>
 struct c_lorenzo<1> {
-  static constexpr dim3 tile = dim3(256, 1, 1);
+  static constexpr dim3 tile = dim3(1024, 1, 1);
   static constexpr dim3 sequentiality = dim3(4, 1, 1);  // x-sequentiality == 4
-  static constexpr dim3 thread_block = dim3(256 / 4, 1, 1);
+  static constexpr dim3 thread_block = dim3(1024 / 4, 1, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 };
 
@@ -96,9 +96,9 @@ struct c_lorenzo<3> {
 
 template <>
 struct x_lorenzo<1> {
-  static constexpr dim3 tile = dim3(256, 1, 1);
-  static constexpr dim3 sequentiality = dim3(8, 1, 1);  // x-sequentiality == 8
-  static constexpr dim3 thread_block = dim3(256 / 8, 1, 1);
+  static constexpr dim3 tile = dim3(1024, 1, 1);
+  static constexpr dim3 sequentiality = dim3(4, 1, 1);  // x-sequentiality == 8
+  static constexpr dim3 thread_block = dim3(1024 / 4, 1, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 };
 
