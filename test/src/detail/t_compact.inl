@@ -74,7 +74,7 @@ bool f()
   out_ref.malloc();
 
   test_compaction1<float, TilDim><<<grid_dim, block_dim>>>(
-      in, len, out_test1.d_val.get(), out_test1.d_idx.get(), out_test1.u_num.get());
+      in, len, out_test1.d_val.get(), out_test1.d_idx.get(), out_test1.d_num.get());
   cudaDeviceSynchronize();
 
   // test_compaction2<float, TilDim><<<grid_dim, block_dim>>>(in, len, out_test2);
