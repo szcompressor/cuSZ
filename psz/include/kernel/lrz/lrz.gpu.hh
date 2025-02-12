@@ -30,8 +30,8 @@ namespace psz::module {
 
 template <typename T, bool UseZigZag, typename Eq>
 int GPU_c_lorenzo_nd_with_outlier(
-    T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, f8 const ebx2,
-    f8 const ebx2_r, uint16_t const radius, void* stream);
+    T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, uint32_t* top1,
+    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
 
 template <typename T, bool UseZigZag, typename Eq>
 int GPU_x_lorenzo_nd(

@@ -856,6 +856,8 @@ unsigned int CLI_x(psz_arguments* args) { return args->header->x; }
 unsigned int CLI_y(psz_arguments* args) { return args->header->y; }
 unsigned int CLI_z(psz_arguments* args) { return args->header->z; }
 unsigned int CLI_w(psz_arguments* args) { return args->header->w; }
+unsigned short CLI_radius(psz_arguments* args) { return args->header->radius; }
+unsigned short CLI_bklen(psz_arguments* args) { return args->header->radius * 2; }
 psz_dtype CLI_dtype(psz_arguments* args) { return args->header->dtype; }
 psz_predtype CLI_predictor(psz_arguments* args) { return args->header->pred_type; }
 psz_histotype CLI_hist(psz_arguments* args) { return args->header->hist_type; }

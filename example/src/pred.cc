@@ -72,7 +72,8 @@ int run(string fname, size_t x, size_t y, size_t z, double eb, bool use_rel)
   CompressorBuffer<T> buf(x, y, z, 64, true, &toggle);
 
   module::GPU_c_lorenzo_nd_with_outlier<T, false>(
-      d_origin.get(), {x, y, z}, buf.ectrl(), (void*)buf.outlier(), ebx2, ebx2_r, radius, stream);
+      d_origin.get(), {x, y, z}, buf.ectrl(), (void*)buf.outlier(), buf.top1(), ebx2, ebx2_r,
+      radius, stream);
 
   cudaStreamSynchronize(stream);
 

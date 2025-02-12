@@ -1,12 +1,13 @@
 #include <cuda_runtime.h>
 
-#include <iomanip>
 #include <sstream>
 #include <vector>
 
-#include "cusz.h"
+#include "api_v2.h"
+#include "ex_utils2.hh"
+#include "mem/cxx_backends.h"
 #include "stat/compare.hh"
-#include "utils/io.hh"  // io::read_binary_to_array
+#include "utils/io.hh"
 
 namespace utils = _portable::utils;
 
@@ -18,120 +19,11 @@ const string eb_str("3e0");
 const auto eb = 3.0f;  // set error bound
 const auto width = 5;
 
-T *d_decomp, *h_decomp;
-T *d_uncomp, *h_uncomp;
-void* comp_timerecord;
-void* decomp_timerecord;
-
-struct Arguments {
-  std::string fname_prefix;
-  std::string fname_suffix;
-  int from_number;
-  int to_number;
-  psz_codectype codec_type{Huffman};
-  size_t x;
-  size_t y;
-  size_t z;
-  size_t radius;
-};
-
-void print_help()
-{
-  std::cout << "usage: batch_run [options]\n"
-            << "options:\n"
-            << "  --fname-prefix PREFIX   file name prefix\n"
-            << "  --fname-suffix SUFFIX   file name suffix\n"
-            << "  --from NUMBER           start number\n"
-            << "  --to NUMBER             end number\n"
-            << "  -x NUMBER               dim x\n"
-            << "  -y NUMBER               dim y\n"
-            << "  -z NUMBER               dim z\n"
-            << "  -r NUMBER               radius\n"
-            << "  --help                  this message\n";
-}
-
-Arguments parse_arguments(int argc, char* argv[])
-{
-  Arguments args;
-  bool fname_prefix_set = false;
-  bool fname_suffix_set = false;
-  bool from_number_set = false;
-  bool to_number_set = false;
-  bool x_set = false;
-  bool y_set = false;
-  bool z_set = false;
-  bool radius_set = false;
-
-  for (int i = 1; i < argc; ++i) {
-    std::string arg = argv[i];
-    if (arg == "--fname-prefix" and i + 1 < argc) {
-      args.fname_prefix = argv[++i];
-      fname_prefix_set = true;
-    }
-    else if (arg == "--fname-suffix" and i + 1 < argc) {
-      args.fname_suffix = argv[++i];
-      fname_suffix_set = true;
-    }
-    else if (arg == "--from" and i + 1 < argc) {
-      args.from_number = atoi(argv[++i]);
-      from_number_set = true;
-    }
-    else if (arg == "--to" and i + 1 < argc) {
-      args.to_number = atoi(argv[++i]);
-      to_number_set = true;
-    }
-    else if (arg == "-x" and i + 1 < argc) {
-      args.x = atoi(argv[++i]);
-      x_set = true;
-    }
-    else if (arg == "-y" and i + 1 < argc) {
-      args.y = atoi(argv[++i]);
-      y_set = true;
-    }
-    else if (arg == "-z" and i + 1 < argc) {
-      args.z = atoi(argv[++i]);
-      z_set = true;
-    }
-    else if (arg == "-r" and i + 1 < argc) {
-      args.radius = atoi(argv[++i]);
-      radius_set = true;
-    }
-    else if (arg == "--codec" and i + 1 < argc) {
-      args.codec_type = string(argv[++i]) == "fzg" ? FZGPUCodec : Huffman;
-    }
-    else if (arg == "--help") {
-      print_help();
-      exit(0);
-    }
-    else {
-      std::cerr << "Unknown argument: " << arg << std::endl;
-      print_help();
-      exit(1);
-    }
-  }
-
-  if (not fname_prefix_set or not fname_suffix_set or not from_number_set or not to_number_set or
-      not x_set or not y_set or not z_set) {
-    std::cerr << "Error: Missing required arguments." << std::endl;
-    print_help();
-    exit(1);
-  }
-
-  return args;
-}
-
-std::vector<std::string> construct_file_names(
-    const std::string& prefix, const std::string& suffix, int start, int end, int width)
-{
-  std::vector<std::string> file_names;
-  for (int i = start; i < end; ++i) {
-    std::ostringstream oss;
-
-    oss << prefix << "." << std::setw(width) << std::setfill('0') << i << "." + suffix;
-    file_names.push_back(oss.str());
-  }
-  return file_names;
-}
+GPU_unique_hptr<T[]> h_uncomp;
+GPU_unique_dptr<T[]> d_uncomp;
+GPU_unique_hptr<T[]> h_decomp;
+GPU_unique_dptr<T[]> d_decomp;
+GPU_unique_dptr<T[]> d_compressed;
 
 int main(int argc, char** argv)
 {
@@ -144,14 +36,13 @@ int main(int argc, char** argv)
       args.fname_prefix, args.fname_suffix, args.from_number, args.to_number, width);
 
   psz_header header;
-  uint8_t* compressed;
-  cudaMalloc(&compressed, oribytes);
 
-  cudaMalloc(&d_uncomp, oribytes), cudaMallocHost(&h_uncomp, oribytes);
-  cudaMalloc(&d_decomp, oribytes), cudaMallocHost(&h_decomp, oribytes);
+  auto d_uncomp = MAKE_UNIQUE_DEVICE(T, len);
+  auto h_uncomp = MAKE_UNIQUE_HOST(T, len);
+  auto d_decomp = MAKE_UNIQUE_DEVICE(T, len);
+  auto h_decomp = MAKE_UNIQUE_HOST(T, len);
 
-  comp_timerecord = psz_make_timerecord();
-  decomp_timerecord = psz_make_timerecord();
+  auto d_compressed = MAKE_UNIQUE_DEVICE(uint8_t, oribytes);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
@@ -161,67 +52,60 @@ int main(int argc, char** argv)
   psz_len3 uncomp_len3 = {args.x, args.y, args.z};
   psz_len3 decomp_len3 = uncomp_len3;
 
-  psz_compressor* cor;
+  psz_resource* m = psz_create_resource_manager(F4, args.x, args.y, args.z, stream);
+  m->cli = new psz_cli_config;  // TODO mix use the cli and "resource manager"
   if (args.codec_type == Huffman) {
     cout << "using Huffman" << endl;
-    cor = psz_create(F4, uncomp_len3, Lorenzo, args.radius, Huffman);
-    cor->ctx->cli->dump_hist = true;
+    m->cli->dump_hist = true;
   }
   else {
     cout << "using FZGPUCodec" << endl;
-    cor = psz_create(F4, uncomp_len3, LorenzoZigZag, args.radius, FZGPUCodec);
   }
-  // cor->ctx->cli->dump_quantcode = true;
+  // m->cli->dump_quantcode = true;
 
   for (const auto& fname : file_names) {
     cout << "\e[34mFNAME\t" + fname + "\e[0m" << endl;
-    strcpy(cor->ctx->cli->file_input, fname.c_str());
-    strcpy(cor->ctx->cli->char_mode, mode_str.c_str());
-    strcpy(cor->ctx->cli->char_meta_eb, eb_str.c_str());
+    strcpy(m->cli->file_input, fname.c_str());
+    strcpy(m->cli->char_mode, mode_str.c_str());
+    strcpy(m->cli->char_meta_eb, eb_str.c_str());
 
-    utils::fromfile(fname, h_uncomp, len);
-    cudaMemcpy(d_uncomp, h_uncomp, oribytes, cudaMemcpyHostToDevice);
+    utils::fromfile(fname, h_uncomp.get(), len);
+    memcpy_allkinds<H2D>(d_uncomp.get(), h_uncomp.get(), len);
 
     {  // compresion
-      psz_compress(
-          cor, d_uncomp, uncomp_len3, eb, mode, &p_compressed, &comp_len, &header, comp_timerecord,
-          stream);
+      psz_compress_float(
+          m, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, NULL_CODEC, mode, eb, 512},
+          d_uncomp.get(), &header, &p_compressed, &comp_len);
       //   psz_review_compression(comp_timerecord, &header);
 
-      cudaMemcpy(compressed, p_compressed, comp_len, cudaMemcpyDeviceToDevice);
+      memcpy_allkinds<D2D>(d_compressed.get(), p_compressed, comp_len);
     }
 
     {  // decompression
       auto comp_len = pszheader_filesize(&header);
-      psz_decompress(cor, compressed, comp_len, d_decomp, decomp_len3, decomp_timerecord, stream);
+      psz_decompress_float(m, d_compressed.get(), comp_len, d_decomp.get());
     }
 
     {  // evaulation
       auto comp_len = pszheader_filesize(&header);
       //   psz_review_decompression(decomp_timerecord, oribytes);
       auto s = new psz_statistics;
-      psz::cuhip::GPU_assess_quality(s, d_uncomp, d_decomp, len);
+      psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
       printf(
           "CR\t%lf\t"
           "PSNR\t%lf\t"
-          "NRMSE\t%lf\n",
-          len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE);
+          "NRMSE\t%lf\t"
+          "MAX.ABS.EB\t%lf\t"
+          "MAX.REL.EB\t%lf\n",
+          len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE, s->max_err_abs,
+          s->max_err_rel);
     }
 
-    capi_psz_clear_buffer(cor);
-
-    cudaMemset(d_decomp, 0, oribytes);  // !!!! TODO (root cause?) otherwise wrong in evaluation
+    // !!!! TODO (root cause?) otherwise wrong in evaluation
+    memset_device(d_decomp.get(), len, 0);
   }
 
-  psz_release(cor);
-
-  // clean up
-  cudaFree(compressed);
-  cudaFree(d_uncomp);
-  cudaFree(d_decomp);
-  cudaFreeHost(h_decomp);
-  cudaFreeHost(h_decomp);
-
+  psz_release_resource(m);
   cudaStreamDestroy(stream);
 
   return 0;

@@ -77,7 +77,7 @@ int psz_run_from_CLI(int argc, char** argv)
       psz_compress_float(
           m,
           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
-           CLI_eb(args), 512},
+           CLI_eb(args), CLI_radius(args)},
           d_in.get(), &header, &d_internal_compressed, &compressed_len);
     }
     else if (CLI_dtype(args) == F8) {
@@ -90,7 +90,7 @@ int psz_run_from_CLI(int argc, char** argv)
       psz_compress_double(
           m,
           {CLI_predictor(m), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
-           CLI_eb(args), 512},
+           CLI_eb(args), CLI_radius(args)},
           d_in.get(), &header, &d_internal_compressed, &compressed_len);
     }
 

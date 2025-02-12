@@ -1,3 +1,6 @@
+add_library(example_utils2 src/ex_utils2.cc)
+target_link_libraries(example_utils2 PRIVATE cusz)
+
 add_executable(demo_cuda_v1 src/demo_v1.cuda.cc)
 target_link_libraries(demo_cuda_v1 PRIVATE cusz)
 
@@ -20,4 +23,4 @@ add_executable(bin_fzgcodec src/bin_fzgcodec.cc)
 target_link_libraries(bin_fzgcodec PRIVATE cusz CUDA::cudart)
 
 add_executable(batch_run src/batch_run.cc)
-target_link_libraries(batch_run PRIVATE cusz CUDA::cudart)
+target_link_libraries(batch_run PRIVATE cusz example_utils2 CUDA::cudart)
