@@ -165,12 +165,12 @@ struct Compressor<DType>::impl {
 
     if (ctx->header->pred_type == Lorenzo)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
-          stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
+          ctx->header->radius, stream);
     else if (ctx->header->pred_type == LorenzoZigZag)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
-          stream);
+          in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
+          ctx->header->radius, stream);
     else if (ctx->header->pred_type == LorenzoProto)
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
           in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,

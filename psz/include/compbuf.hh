@@ -13,6 +13,7 @@ struct CompressorBufferToggle {
   bool anchor;
   bool histogram;
   bool compressed;
+  bool top1;
 };
 
 template <typename DType>
@@ -31,6 +32,8 @@ class CompressorBuffer {
   GPU_unique_dptr<B[]> d_compressed;
   GPU_unique_hptr<B[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
+  GPU_unique_dptr<Freq[]> d_top1;
+  GPU_unique_hptr<Freq[]> h_top1;
 
   Compact* compact;
   bool const is_comp;
@@ -73,6 +76,8 @@ class CompressorBuffer {
         d_hist = MAKE_UNIQUE_DEVICE(Freq, bklen);
         d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
         h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
+        d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
+        h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
       }
     }
     else {
@@ -83,6 +88,10 @@ class CompressorBuffer {
       if (toggle->compressed) {
         d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
         h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
+      }
+      if (toggle->top1) {
+        d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
+        h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
       }
     }
   }
@@ -103,8 +112,18 @@ class CompressorBuffer {
     return this;
   }
   // getter
-  Freq* hist() const { return d_hist.get(); }
   E* ectrl() const { return d_ectrl.get(); }
+
+  Freq* hist() const { return d_hist.get(); }
+  Freq* top1() const { return d_top1.get(); }
+  Freq* top1_h() const
+  {
+    memcpy_allkinds<D2H>(h_top1.get(), d_top1.get(), 1);
+    return h_top1.get();
+  }
+  // For iterative run, it is useful to clear up.
+  void clear_top1() { memset_device(d_top1.get(), 1); }
+
   stdlen3 ectrl_len3() const { return stdlen3{x, y, z}; }
 
   T* anchor() const { return d_anchor.get(); }
@@ -113,6 +132,7 @@ class CompressorBuffer {
 
   B* compressed() const { return d_compressed.get(); }
   B* compressed_h() const { return d_compressed.get(); }
+
   T* compact_val() const { return compact->val(); }
   M* compact_idx() const { return compact->idx(); }
   M compact_num_outliers() const { return compact->num_outliers(); }
