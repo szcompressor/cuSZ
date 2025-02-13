@@ -17,7 +17,9 @@
 #include "compbuf.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
+#include "cxx_hfbk.h"
 #include "hfclass.hh"
+#include "hfword.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
@@ -161,10 +163,43 @@ struct Compressor<DType>::impl {
     eb = ctx->header->eb, eb_r = 1 / eb;
     ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-    if (ctx->header->pred_type == Lorenzo)
-      psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
-          ctx->header->radius, stream);
+    if (mem->pbk_in_use()) {
+      auto bitcount_of = [](u4* _w) { return reinterpret_cast<HuffmanWord<4>*>(_w)->bitcount; };
+
+      for (auto i = 0; i < mem->PBK_N; i++) {
+        phf_CPU_build_canonized_codebook_v2<E, Hf>(
+            mem->h_pbk_hist.get() + i * mem->PBK_LEN, mem->PBK_LEN,
+            mem->h_pbk_r64.get() + i * mem->PBK_LEN,
+            mem->h_pbk_revbk_r64.get() + i * mem->PBK_REVBK_BYTES, mem->PBK_REVBK_BYTES);
+
+        // for (auto j = 0; j < mem->PBK_LEN; j++) {
+        //   auto freq = mem->h_pbk_hist[i * mem->PBK_LEN + j];
+        //   auto w = mem->h_pbk_r64[i * mem->PBK_LEN + j];
+        //   printf("i: %3u, j: %3u,  w-bc: %4u\n", i, j, bitcount_of(&w));
+        // }
+      }
+
+      memcpy_allkinds<H2D>(mem->d_pbk_r64.get(), mem->h_pbk_r64.get(), mem->PBK_LEN * mem->PBK_N);
+    }
+
+    if (ctx->header->pred_type == Lorenzo) {
+      if (not mem->pbk_in_use())
+        psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E, false>(
+            in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
+            ctx->header->radius, stream);
+      else {
+        // TODO need to override radius
+        ctx->header->radius = mem->PBK_LEN / 2;
+        cout << "override radius: " << ctx->header->radius << endl;
+
+        psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E, true>(  // in-place enc: centered
+                                                                        // distribution
+            in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
+            ctx->header->radius, stream,  //
+            mem->pbk(), mem->pbk_res_tree_IDs(), mem->pbk_res_bitstream(), mem->pbk_res_bits(),
+            mem->pbk_res_entries(), mem->pbk_res_loc());
+      }
+    }
     else if (ctx->header->pred_type == LorenzoZigZag)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
           in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
@@ -184,6 +219,11 @@ struct Compressor<DType>::impl {
     /* make outlier count seen on host */
     sync_by_stream(stream);
     ctx->header->splen = mem->compact->num_outliers();
+
+    if (mem->pbk_in_use()) {
+      mem->pbk_encoding_endloc();
+      exit(0);
+    }
 
     if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
