@@ -31,7 +31,8 @@ void spv_gather_naive(
 
 template <psz_runtime P, typename T, typename M = u4>
 void spv_scatter_naive(
-    T* d_val, M* d_idx, int const nnz, T* decoded, f4* milliseconds, void* stream = nullptr);
+    T* d_val, M* d_idx, int const nnz, T* decoded, f4* milliseconds = nullptr,
+    void* stream = nullptr);
 
 }  // namespace psz
 

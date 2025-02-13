@@ -17,7 +17,9 @@
 #include "compbuf.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
+#include "cxx_hfbk.h"
 #include "hfclass.hh"
+#include "hfword.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
@@ -161,10 +163,26 @@ struct Compressor<DType>::impl {
     eb = ctx->header->eb, eb_r = 1 / eb;
     ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-    if (ctx->header->pred_type == Lorenzo)
-      psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-          in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
-          ctx->header->radius, stream);
+    if (ctx->header->pred_type == Lorenzo) {
+      if (not mem->compress_time_use_pbk())
+        psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E, false>(
+            in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
+            ctx->header->radius, stream);
+      else {
+        // TODO need to override radius
+        ctx->header->radius = mem->PBK_LEN / 2;
+        cout << "override radius: " << ctx->header->radius << endl;
+
+        psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E, true>(  // in-place enc: centered
+                                                                        // distribution
+            in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
+            ctx->header->radius, stream,  //
+            mem->pbk(), mem->pbk_res_tree_IDs(), mem->pbk_res_bitstream(), mem->pbk_res_bits(),
+            mem->pbk_res_entries(), mem->pbk_res_loc(),
+            // breaking handling
+            mem->d_pbk_brval.get(), mem->d_pbk_bridx.get(), mem->d_pbk_brnum.get());
+      }
+    }
     else if (ctx->header->pred_type == LorenzoZigZag)
       psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
           in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
@@ -184,6 +202,12 @@ struct Compressor<DType>::impl {
     /* make outlier count seen on host */
     sync_by_stream(stream);
     ctx->header->splen = mem->compact->num_outliers();
+
+    if (mem->compress_time_use_pbk()) {
+      mem->pbk_encoding_summary();
+      // goto FINISH_COMPRESS_DATA_PROCESSING;
+      exit(0);
+    }
 
     if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
@@ -206,6 +230,8 @@ struct Compressor<DType>::impl {
           ->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
     else if (ctx->header->codec1_type == FZGPUCodec)
       codec_fzg->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+
+    // FINISH_COMPRESS_DATA_PROCESSING:
   }
 
   void compress_merge_update_header(pszctx* ctx, BYTE** out, szt* outlen, void* stream)
@@ -257,11 +283,16 @@ struct Compressor<DType>::impl {
 
   STEP_DECODING:
 
-    if (header->codec1_type == Huffman)
-      codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
-    else if (header->codec1_type == FZGPUCodec)
-      codec_fzg->decode(
-          (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
+    if (not mem->decompress_time_use_pbk()) {
+      if (header->codec1_type == Huffman)
+        codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
+      else if (header->codec1_type == FZGPUCodec)
+        codec_fzg->decode(
+            (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
+    }
+    else {
+      throw std::runtime_error("decompress-time PBK not implemented");
+    }
 
   STEP_PREDICT:
 

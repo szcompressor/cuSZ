@@ -27,6 +27,7 @@ namespace cg = cooperative_groups;
 
 #include "cusz/suint.hh"
 #include "cusz/type.h"
+#include "hfword.hh"
 #include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
 #include "utils/err.hh"
@@ -42,21 +43,42 @@ namespace cg = cooperative_groups;
 #define X(LEN3) LEN3[0]
 #define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
 
-#define CompactVal T
 using CompactIdx = uint32_t;
 using CompactNum = uint32_t;
+#define CompactVal T
+#define CV CompactVal
+#define CI CompactIdx
+#define CN CompactNum
+
+using Hf = u4;
+using W = HuffmanWord<sizeof(Hf)>;
 
 namespace psz {
+
+__device__ __constant__ float probs_lookup[] = {
+    0.9986978877668036, 0.8958236229793216,  0.7240624144538735,  0.5539072788884121,
+    0.4002056851980645, 0.2829302218900982,  0.21690651474233288, 0.17925002959630637,
+    0.1556048834628191, 0.13656879865036847, 0.1197345152387365};
+
+__device__ void find_closest(float prob, volatile u4* closest_index) {}
 
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
 // significantly slowed down the kernel on non-HPC GPU
 template <
     typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T,
-    bool UseLocalStat = true, bool UseGlobalStat = true>
+    bool UseLocalStat = true, bool UseGlobalStat = true, bool EncodeInPlace = false,
+    bool EIP_DBG = true>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    uint16_t const radius, Fp const ebx2_r, uint32_t* top_count = nullptr)
+    T* const in_data, size_t const gx,                         // input
+    Eq* const out_eq,                                          // output: dense
+    CV* const out_cval, CI* const out_cidx, CN* const out_cn,  // output: sparse
+    uint16_t const radius, Fp const ebx2_r,                    // config
+    uint32_t* top_count = nullptr,                             // opt: feature 1
+    Hf* pbk = nullptr,                                         // opt: feature 2
+    u1* pbk_res_tree_IDs = nullptr, u4* pbk_res_bitstream = nullptr, u2* pbk_res_bits = nullptr,
+    u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr,
+    // breaking handling
+    Eq* const brval = nullptr, CI* const bridx = nullptr, CN* const brnum = nullptr)
 {
   constexpr auto NumThreads = TileDim / Seq;
   // constexpr auto NumWarps = NumThreads / 32;
@@ -80,7 +102,10 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len3.x) s_data[threadIdx.x + ix * NumThreads] = round(in_data[id] * ebx2_r);
+    if (id < gx) {
+      auto val = in_data[id];
+      s_data[threadIdx.x + ix * NumThreads] = round(val * ebx2_r);
+    }
   }
   __syncthreads();
 
@@ -99,7 +124,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     bool quantizable = fabs(delta) < radius;
 
     if constexpr (UseLocalStat) {
-      bool is_valid_range = id_base + threadIdx.x * Seq + ix < data_len3.x;
+      bool is_valid_range = id_base + threadIdx.x * Seq + ix < gx;
       COUNT_LOCAL_STAT(delta, is_valid_range);
     }
 
@@ -130,11 +155,182 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       if (threadIdx.x == 0) atomicAdd(top_count, s_top1_counts[0]);
   }
 
+  if constexpr (UseLocalStat and EncodeInPlace) {
+    constexpr auto ChunkSize = TileDim;  // 1D
+    constexpr auto ShardSize = Seq;
+    constexpr auto ReduceTimes = 2u;
+    constexpr auto ShuffleTimes = 8u;
+    constexpr auto BITWIDTH = 32;
+#define s_to_encode s_eq_uint
+
+    static_assert(ShardSize == 1 << ReduceTimes, "Wrong reduce times.");
+    static_assert(ChunkSize == 1 << (ReduceTimes + ShuffleTimes), "Wrong shuffle times.");
+
+    constexpr auto Radius = 64;
+    constexpr auto BkLen = Radius * 2;
+    constexpr auto _INKERNEL_PBK_LEN = 11;
+    __shared__ Hf s_book[BkLen];
+    __shared__ Hf s_reduced[NumThreads];
+    __shared__ u4 s_bitcount[NumThreads];
+    __shared__ u4 s_closest_idx;
+
+    auto bitcount_of = [](Hf* _w) { return reinterpret_cast<W*>(_w)->bitcount; };
+    auto entry = [&]() -> size_t { return ChunkSize * blockIdx.x; };
+    auto allowed_len = [&]() { return min((size_t)ChunkSize, gx - entry()); };
+
+    ////////// find the right book
+    if (threadIdx.x < 32) {
+      float prob = 0.0;
+      if (threadIdx.x == 0) { prob = s_top1_counts[0] * 1.0 / TileDim; }
+      prob = __shfl_sync(0xffffffff, prob, 0);
+      float min_diff = fabsf(probs_lookup[threadIdx.x] - prob);
+      int min_idx = threadIdx.x;
+
+      unsigned mask = __ballot_sync(0xffffffff, threadIdx.x < _INKERNEL_PBK_LEN);
+      for (int offset = 16; offset > 0; offset /= 2) {
+        float shfl_min = __shfl_down_sync(mask, min_diff, offset);
+        int shfl_idx = __shfl_down_sync(mask, min_idx, offset);
+        if (shfl_min < min_diff and threadIdx.x < _INKERNEL_PBK_LEN)
+          min_diff = shfl_min, min_idx = shfl_idx;
+      }
+      if (threadIdx.x == 0) { s_closest_idx = min_idx; }
+    }
+    __syncthreads();
+
+    ////////// load codebook
+    if (threadIdx.x < BkLen) {
+      auto tree_idx = 0u;
+      if (threadIdx.x % 32 == 0) { tree_idx = s_closest_idx; }
+      tree_idx = __shfl_sync(0xffffffff, tree_idx, 0);
+      auto w = pbk[threadIdx.x + tree_idx * BkLen];
+      s_book[threadIdx.x] = w;
+      if (threadIdx.x == 0) pbk_res_tree_IDs[blockIdx.x] = tree_idx;
+    }
+    __syncthreads();
+
+    ////////// start of reduce-merge
+    {
+      auto p_bits{0u};
+      Hf p_reduced{0x0};
+
+      // per-thread loop, merge
+      for (auto i = 0; i < ShardSize; i++) {
+        auto idx = (threadIdx.x * ShardSize) + i;
+        auto p_key = s_to_encode[idx];
+        auto p_val = s_book[p_key];
+        auto sym_bits = bitcount_of(&p_val);
+
+        p_val <<= (BITWIDTH - sym_bits);
+        p_reduced |= (p_val >> p_bits);
+        p_bits += sym_bits * (idx < allowed_len());
+      }
+
+      // breaking handling
+      if (p_bits > BITWIDTH) {
+        p_bits = 0u;      // reset on breaking
+        p_reduced = 0x0;  // reset on breaking, too
+        auto p_val_ref = s_book[radius];
+        auto const sym_bits = bitcount_of(&p_val_ref);
+        auto br_gidx_start = atomicAdd(brnum, ShardSize);
+#pragma unroll
+        for (auto ix = 0u, br_lidx = (threadIdx.x * ShardSize); ix < ShardSize; ix++, br_lidx++) {
+          bridx[br_gidx_start + ix] = id_base + br_lidx;
+          brval[br_gidx_start + ix] = s_to_encode[br_lidx];
+
+          auto p_val = p_val_ref;
+          p_val <<= (BITWIDTH - sym_bits);
+          p_reduced |= (p_val >> p_bits);
+          p_bits += sym_bits * (br_lidx < allowed_len());
+        }
+      }
+
+      // still for this thread only
+      s_reduced[threadIdx.x] = p_reduced;
+      s_bitcount[threadIdx.x] = p_bits;
+
+      if constexpr (EIP_DBG) {
+        // if (p_bits > 32)
+        //   printf(
+        //       "ERROR: bitcount %2u > 32 @threadIdx.x %3u of blockIdx.x %5u\n", p_bits,
+        //       threadIdx.x, blockIdx.x);
+      }
+    }
+    __syncthreads();
+
+    ////////// end of reduce-merge; start of shuffle-merge
+
+    for (auto sf = ShuffleTimes, stride = 1u; sf > 0; sf--, stride *= 2) {
+      auto l = threadIdx.x / (stride * 2) * (stride * 2);
+      auto r = l + stride;
+
+      auto lbc = s_bitcount[l];
+      u4 used__units = lbc / BITWIDTH;
+      u4 used___bits = lbc % BITWIDTH;
+      u4 unused_bits = BITWIDTH - used___bits;
+
+      auto lend = (Hf*)(s_reduced + l + used__units);
+      auto this_point = s_reduced[threadIdx.x];
+      auto lsym = this_point >> used___bits;
+      auto rsym = this_point << unused_bits;
+
+      if (threadIdx.x >= r and threadIdx.x < r + stride)
+        atomicAnd((Hf*)(s_reduced + threadIdx.x), 0x0);
+      __syncthreads();
+
+      if (threadIdx.x >= r and threadIdx.x < r + stride) {
+        atomicOr(lend + (threadIdx.x - r) + 0, lsym);
+        atomicOr(lend + (threadIdx.x - r) + 1, rsym);
+      }
+
+      if (threadIdx.x == l) s_bitcount[l] += s_bitcount[r];
+      __syncthreads();
+    }
+
+    ////////// end of shuffle-merge, start of outputting
+    __shared__ u4 s_wunits;
+    __shared__ u4 s_wloc;
+    ull p_wunits, p_wloc;
+
+    {
+      static_assert(BITWIDTH == 32, "Wrong bitwidth (!=32).");
+      if (threadIdx.x == 0) {
+        u4 p_bc = s_bitcount[0];
+        p_wunits = (p_bc + 31) / 32;
+        p_wloc = atomicAdd((ull*)pbk_res_loc, p_wunits);
+
+        pbk_res_bits[blockIdx.x] = p_bc;
+        pbk_res_entries[blockIdx.x] = p_wloc;
+
+        s_wloc = p_wloc;
+        s_wunits = p_wunits;
+      }
+      __syncthreads();
+
+      if (threadIdx.x % 32 == 0 and threadIdx.x / 32 > 0) {
+        p_wunits = s_wunits;
+        p_wloc = s_wloc;
+      }
+      __syncthreads();
+
+      p_wunits = __shfl_sync(0xffffffff, p_wunits, 0);
+      p_wloc = __shfl_sync(0xffffffff, p_wloc, 0);
+
+      for (auto i = threadIdx.x; i < p_wunits; i += blockDim.x) {
+        // TODO align for coalesce
+        Hf w = s_reduced[i];
+        pbk_res_bitstream[p_wloc + i] = w;
+      }
+    }
+
+    ////////// end of outputting the encoded
+  }
+  else {
 // write from shmem.eq to dram.eq
 #pragma unroll
-  for (auto ix = 0; ix < Seq; ix++) {
-    auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len3.x) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
+    for (auto ix = 0; ix < Seq; ix++) {
+      auto id = id_base + threadIdx.x + ix * NumThreads;
+      if (id < gx) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
+    }
   }
 
   // end of kernel
@@ -431,10 +627,12 @@ __global__ void KERNEL_CUHIP_lorenzo_prequant(
 
 namespace psz::module {
 
-template <typename T, bool UseZigZag, typename Eq>
+template <typename T, bool UseZigZag, typename Eq, bool EncodeInPlace>
 int GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, u4* out_top1,
-    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream)
+    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf* pbk,
+    u1* pbk_res_tree_IDs, Hf* pbk_res_bitstream, u2* pbk_res_bits, u4* pbk_res_entries,
+    size_t* pbk_res_loc, Eq* const brval, uint32_t* const bridx, uint32_t* const brnum)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
@@ -446,13 +644,24 @@ int GPU_c_lorenzo_nd_with_outlier(
   // error bound
   auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
-  if (d == 1)
+  if (d == 1) {
+    if constexpr (EncodeInPlace) {
+      // printf("%s, using PBK\n", __FILE__);
+      // printf("input-pbk\t%x\tlegal? %d\n", pbk, pbk != nullptr);
+      // printf("res-bitstream\t%x\tlegal? %d\n", pbk_res_bitstream, pbk_res_bitstream != nullptr);
+      // printf("res-bits\t%x\tlegal? %d\n", pbk_res_bits, pbk_res_bits != nullptr);
+      // printf("res-blkid\t%x\tlegal? %d\n", pbk_res_entries, pbk_res_entries != nullptr);
+      // printf("res-loc\t\t%x\tlegal? %d\n", pbk_res_loc, pbk_res_loc != nullptr);
+    }
     psz::KERNEL_CUHIP_c_lorenzo_1d1l<
-        T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, UseZigZag, Eq>
+        T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, UseZigZag, Eq, T, true, false,
+        EncodeInPlace>
         <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
-            out_top1);
+            in_data, data_len3.x, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
+            out_top1, pbk, pbk_res_tree_IDs, pbk_res_bitstream, pbk_res_bits, pbk_res_entries,
+            pbk_res_loc, brval, bridx, brnum);
+  }
   else if (d == 2) {
     // psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
     //     <<<c_lorenzo<2>::thread_grid(data_len3), c_lorenzo<2>::thread_block, 0,
@@ -495,9 +704,14 @@ int GPU_lorenzo_prequant(
 
 // -----------------------------------------------------------------------------
 #define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                                         \
-  template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>(                   \
+  template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq, false>(            \
       T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, u4* top1, \
-      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
+      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf*, u1*, Hf*, u2*,  \
+      u4*, size_t*, Eq* const, u4* const, u4* const);                                           \
+  template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq, true>(             \
+      T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, u4* top1, \
+      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf*, u1*, Hf*, u2*,  \
+      u4*, size_t*, Eq* const, u4* const, u4* const);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
   INSTANCIATE_GPU_L23R_3params(T, false, Eq); \
