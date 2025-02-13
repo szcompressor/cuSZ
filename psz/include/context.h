@@ -106,6 +106,8 @@ unsigned int CLI_x(psz_arguments* args);
 unsigned int CLI_y(psz_arguments* args);
 unsigned int CLI_z(psz_arguments* args);
 unsigned int CLI_w(psz_arguments* args);
+unsigned short CLI_radius(psz_arguments* args);
+unsigned short CLI_bklen(psz_arguments* args);
 psz_dtype CLI_dtype(psz_arguments* args);
 psz_predtype CLI_predictor(psz_arguments* args);
 psz_histotype CLI_hist(psz_arguments* args);

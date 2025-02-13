@@ -42,14 +42,17 @@ namespace cg = cooperative_groups;
 #define X(LEN3) LEN3[0]
 #define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
 
+#define CompactVal T
+using CompactIdx = uint32_t;
+using CompactNum = uint32_t;
+
 namespace psz {
 
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
 // significantly slowed down the kernel on non-HPC GPU
 template <
-    typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t,
-    typename CompactVal = T, typename CompactIdx = uint32_t, typename CompactNum = uint32_t,
-    typename Fp = T, bool UseLocalStat = true, bool UseGlobalStat = true>
+    typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T,
+    bool UseLocalStat = true, bool UseGlobalStat = true>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
@@ -137,9 +140,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
   // end of kernel
 }
 
-template <
-    typename T, bool UseZigZag, typename Eq = uint16_t, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
+template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
 __global__ [[deprecated]] void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
@@ -214,9 +215,8 @@ __global__ [[deprecated]] void KERNEL_CUHIP_c_lorenzo_2d1l(
 }
 
 template <
-    typename T, bool UseZigZag, typename Eq = uint16_t, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T,
-    bool UseLocalStat = true, bool UseGlobalStat = true>
+    typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T, bool UseLocalStat = true,
+    bool UseGlobalStat = true>
 __global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
@@ -304,8 +304,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
 }
 
 template <
-    typename T, bool UseZigZag, typename Eq = uint32_t, typename Fp = T, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, bool UseLocalStat = true,
+    typename T, bool UseZigZag, typename Eq = uint32_t, typename Fp = T, bool UseLocalStat = true,
     bool UseGlobalStat = true>
 __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
