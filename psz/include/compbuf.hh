@@ -1,9 +1,14 @@
 #include <array>
+#include <cstdlib>
 
+#include "hf.h"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
+#include "utils/io.hh"
 
 using stdlen3 = std::array<size_t, 3>;
+using _portable::utils::fromfile;
+using _portable::utils::tofile;
 
 namespace psz {
 
@@ -26,6 +31,7 @@ class CompressorBuffer {
   using Freq = u4;
   using B = u1;
   using Compact = _portable::compact_gpu<T>;
+  using Hf = u4;
 
   GPU_unique_dptr<E[]> d_ectrl;
   GPU_unique_dptr<T[]> d_anchor;
@@ -34,6 +40,30 @@ class CompressorBuffer {
   GPU_unique_dptr<Freq[]> d_hist;
   GPU_unique_dptr<Freq[]> d_top1;
   GPU_unique_hptr<Freq[]> h_top1;
+
+  static constexpr auto ChunkSize = 1024;
+  static constexpr auto PBK_LEN = 128;
+  static constexpr auto PBK_N = 11;
+  u4 PBK_REVBK_BYTES;
+  GPU_unique_dptr<Hf[]> d_pbk_hist;
+  GPU_unique_hptr<Hf[]> h_pbk_hist;
+  GPU_unique_dptr<Hf[]> d_pbk_r64;
+  GPU_unique_hptr<Hf[]> h_pbk_r64;
+  GPU_unique_dptr<u1[]> d_pbk_revbk_r64;
+  GPU_unique_hptr<u1[]> h_pbk_revbk_r64;
+  GPU_unique_dptr<u4[]> d_pbk_res_bitstream;
+  GPU_unique_hptr<u4[]> h_pbk_res_bitstream;
+  GPU_unique_dptr<u2[]> d_pbk_res_bits;
+  GPU_unique_hptr<u2[]> h_pbk_res_bits;
+  GPU_unique_dptr<u4[]> d_pbk_res_entries;
+  GPU_unique_hptr<u4[]> h_pbk_res_entries;
+  GPU_unique_dptr<size_t[]> d_pbk_res_loc;
+  GPU_unique_hptr<size_t[]> h_pbk_res_loc;
+  GPU_unique_dptr<u1[]> d_pbk_res_tree_IDs;
+  GPU_unique_hptr<u1[]> h_pbk_res_tree_IDs;
+
+  const char* AD_HOC_PBKHIST_SHELLVAR;
+  u4 num_chunk;
 
   Compact* compact;
   bool const is_comp;
@@ -69,6 +99,37 @@ class CompressorBuffer {
     if (not toggle) {
       // align 4Ki for (essentially) FZG
       d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len));
+
+      // AD HOC
+      AD_HOC_PBKHIST_SHELLVAR = std::getenv("PBK");
+      if (AD_HOC_PBKHIST_SHELLVAR) {
+        std::cout << "PBK: " << AD_HOC_PBKHIST_SHELLVAR << std::endl;
+
+        num_chunk = (len + ChunkSize - 1) / ChunkSize;
+
+        PBK_REVBK_BYTES = phf_reverse_book_bytes(PBK_LEN, 4, sizeof(E));
+
+        d_pbk_hist = MAKE_UNIQUE_DEVICE(Freq, PBK_LEN * PBK_N);
+        h_pbk_hist = MAKE_UNIQUE_HOST(Freq, PBK_LEN * PBK_N);
+        d_pbk_r64 = MAKE_UNIQUE_DEVICE(Hf, PBK_LEN * PBK_N);
+        h_pbk_r64 = MAKE_UNIQUE_HOST(Hf, PBK_LEN * PBK_N);
+        d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
+        h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
+        d_pbk_res_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
+        h_pbk_res_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
+        d_pbk_res_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
+        h_pbk_res_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
+        d_pbk_res_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
+        h_pbk_res_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
+        d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
+        h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
+        d_pbk_res_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
+        h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
+
+        fromfile(AD_HOC_PBKHIST_SHELLVAR, h_pbk_hist.get(), PBK_LEN * PBK_N);
+      }
+      else
+        std::cout << "ENV VAR PBK is not set." << std::endl;
 
       if (is_comp) {
         compact = new Compact(len / 5);
@@ -137,6 +198,46 @@ class CompressorBuffer {
   M* compact_idx() const { return compact->idx(); }
   M compact_num_outliers() const { return compact->num_outliers(); }
   Compact* outlier() { return compact; }
+
+  bool pbk_in_use() const { return AD_HOC_PBKHIST_SHELLVAR != nullptr; }
+  Hf* pbk() const { return d_pbk_r64.get(); }
+  Hf* pbk_res_bitstream() const { return d_pbk_res_bitstream.get(); }
+  u2* pbk_res_bits() const { return d_pbk_res_bits.get(); }
+  u4* pbk_res_entries() const { return d_pbk_res_entries.get(); }
+  u1* pbk_res_tree_IDs() const { return d_pbk_res_tree_IDs.get(); }
+  size_t* pbk_res_loc() const { return d_pbk_res_loc.get(); }
+
+  void pbk_encoding_endloc()
+  {
+    memcpy_allkinds<D2H>(h_pbk_res_loc.get(), d_pbk_res_loc.get(), 1);
+    memcpy_allkinds<D2H>(h_pbk_res_tree_IDs.get(), d_pbk_res_tree_IDs.get(), 1);
+
+    // std::cout << "PBK enc-bytes: " << h_pbk_res_loc[0] * sizeof(T) << std::endl;
+
+    size_t bytes_bitstream = h_pbk_res_loc[0] * sizeof(u4);
+    size_t bytes_tree_IDs = num_chunk * sizeof(u1);
+    size_t bytes_bits = num_chunk * sizeof(u2);
+    size_t bytes_entries = num_chunk * sizeof(u4);
+
+    printf(
+        "output contains:\n"
+        "| segments  |    uints | #byte |    bytes |\n"
+        "| --------- | -------- | ----- | -------- |\n"
+        "| bitstream | %8lu |     %u | %8lu |\n"
+        "| tree IDs  | %8u |     %u | %8lu |\n"
+        "| bits      | %8u |     %u | %8lu |\n"
+        "| entries   | %8u |     %u | %8lu |\n",
+        h_pbk_res_loc[0], (u4)sizeof(u4), bytes_bitstream,  //
+        num_chunk, (u4)sizeof(u1), bytes_tree_IDs,          //
+        num_chunk, (u4)sizeof(u2), bytes_bits,              //
+        num_chunk, (u4)sizeof(u4), bytes_entries            //
+    );
+
+    auto bytes_total = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries;
+    printf("bytes uncompressed  :  %lu\n", sizeof(T) * len);
+    printf("bytes compressed    :  %lu\n", bytes_total);
+    printf("compression ratio   :  %.2fx\n", sizeof(T) * len * 1.0 / bytes_total);
+  }
 };
 
 }  // namespace psz
