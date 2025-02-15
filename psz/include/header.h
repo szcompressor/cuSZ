@@ -63,6 +63,11 @@ typedef struct psz_header {
   };
 } psz_header;
 
+typedef struct psz_singleton_header {
+  uint16_t x, y, z, radius;
+
+} psz_singleton_header;
+
 psz_len3 pszheader_len3(psz_header*);
 size_t pszheader_linear_len(psz_header*);
 size_t pszheader_filesize(psz_header*);

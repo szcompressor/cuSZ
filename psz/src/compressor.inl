@@ -165,27 +165,8 @@ struct Compressor<DType>::impl {
     eb = ctx->header->eb, eb_r = 1 / eb;
     ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-    if (mem->pbk_in_use()) {
-      auto bitcount_of = [](u4* _w) { return reinterpret_cast<HuffmanWord<4>*>(_w)->bitcount; };
-
-      for (auto i = 0; i < mem->PBK_N; i++) {
-        phf_CPU_build_canonized_codebook_v2<E, Hf>(
-            mem->h_pbk_hist.get() + i * mem->PBK_LEN, mem->PBK_LEN,
-            mem->h_pbk_r64.get() + i * mem->PBK_LEN,
-            mem->h_pbk_revbk_r64.get() + i * mem->PBK_REVBK_BYTES, mem->PBK_REVBK_BYTES);
-
-        // for (auto j = 0; j < mem->PBK_LEN; j++) {
-        //   auto freq = mem->h_pbk_hist[i * mem->PBK_LEN + j];
-        //   auto w = mem->h_pbk_r64[i * mem->PBK_LEN + j];
-        //   printf("i: %3u, j: %3u,  w-bc: %4u\n", i, j, bitcount_of(&w));
-        // }
-      }
-
-      memcpy_allkinds<H2D>(mem->d_pbk_r64.get(), mem->h_pbk_r64.get(), mem->PBK_LEN * mem->PBK_N);
-    }
-
     if (ctx->header->pred_type == Lorenzo) {
-      if (not mem->pbk_in_use())
+      if (not mem->compress_time_use_pbk())
         psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E, false>(
             in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
             ctx->header->radius, stream);
@@ -222,8 +203,9 @@ struct Compressor<DType>::impl {
     sync_by_stream(stream);
     ctx->header->splen = mem->compact->num_outliers();
 
-    if (mem->pbk_in_use()) {
+    if (mem->compress_time_use_pbk()) {
       mem->pbk_encoding_endloc();
+      // goto FINISH_COMPRESS_DATA_PROCESSING;
       exit(0);
     }
 
@@ -248,6 +230,8 @@ struct Compressor<DType>::impl {
           ->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
     else if (ctx->header->codec1_type == FZGPUCodec)
       codec_fzg->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+
+    // FINISH_COMPRESS_DATA_PROCESSING:
   }
 
   void compress_merge_update_header(pszctx* ctx, BYTE** out, szt* outlen, void* stream)
