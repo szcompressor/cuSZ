@@ -57,13 +57,16 @@ class CompressorBuffer {
   GPU_unique_hptr<u2[]> h_pbk_res_bits;
   GPU_unique_dptr<u4[]> d_pbk_res_entries;
   GPU_unique_hptr<u4[]> h_pbk_res_entries;
-  GPU_unique_dptr<size_t[]> d_pbk_res_loc;
-  GPU_unique_hptr<size_t[]> h_pbk_res_loc;
   GPU_unique_dptr<u1[]> d_pbk_res_tree_IDs;
   GPU_unique_hptr<u1[]> h_pbk_res_tree_IDs;
+  GPU_unique_dptr<size_t[]> d_pbk_res_loc;
+  GPU_unique_hptr<size_t[]> h_pbk_res_loc;
 
-  const char* AD_HOC_PBKHIST_SHELLVAR;
+  const char* shellvar_pbk_hist;
+  const char* shellvar_pbk_book;
+  const char* shellvar_pbk_rvbk;
   u4 num_chunk;
+  using Toggle = CompressorBufferToggle;
 
   Compact* compact;
   bool const is_comp;
@@ -84,9 +87,80 @@ class CompressorBuffer {
     return _div(x, BLK) * _div(y, BLK) * _div(z, BLK);
   }
 
+  void init_with_toggles(Toggle* toggle)
+  {
+    if (toggle->err_ctrl_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
+    if (toggle->compact_outlier) compact = new Compact(len / 5);
+    if (toggle->anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
+    if (toggle->histogram) d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
+    if (toggle->compressed) {
+      d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
+    }
+    if (toggle->top1) {
+      d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
+      h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
+    }
+  }
+
+  void init_compression_defafult()
+  {
+    d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len));  // align at 4Ki
+
+    compact = new Compact(len / 5);
+
+    d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
+    d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
+    d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
+    h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
+    d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
+    h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
+  }
+
+  void init_decompression_default()
+  {
+    d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len));  // align at 4Ki
+  }
+
+  void init_compression_special_singleton()
+  {
+    compact = new Compact(len / 5);
+
+    num_chunk = (len + ChunkSize - 1) / ChunkSize;
+
+    d_pbk_r64 = MAKE_UNIQUE_DEVICE(Hf, PBK_LEN * PBK_N);
+    h_pbk_r64 = MAKE_UNIQUE_HOST(Hf, PBK_LEN * PBK_N);
+    d_pbk_res_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
+    h_pbk_res_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
+    d_pbk_res_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
+    h_pbk_res_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
+    d_pbk_res_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
+    h_pbk_res_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
+    d_pbk_res_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
+    h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
+    d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
+    h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
+
+    fromfile(shellvar_pbk_book, h_pbk_r64.get(), PBK_LEN * PBK_N);
+    memcpy_allkinds<H2D>(d_pbk_r64.get(), h_pbk_r64.get(), PBK_LEN * PBK_N);
+  }
+
+  void init_decompression_special_singleton()
+  {
+    shellvar_pbk_rvbk = std::getenv("PBK_RVBK");
+    PBK_REVBK_BYTES = phf_reverse_book_bytes(PBK_LEN, 4, sizeof(E));
+    d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
+    h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
+
+    fromfile(shellvar_pbk_rvbk, h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
+    memcpy_allkinds<H2D>(d_pbk_revbk_r64.get(), h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
+  }
+
  public:
-  CompressorBuffer(
-      u4 x, u4 y = 1, u4 z = 1, bool _is_comp = true, CompressorBufferToggle* toggle = nullptr) :
+#define TRY_COMPRESS_TIME_USE_PBK if (shellvar_pbk_book)
+#define TRY_DECOMPRESS_TIME_USE_PBK if (shellvar_pbk_rvbk)
+
+  CompressorBuffer(u4 x, u4 y = 1, u4 z = 1, bool _is_comp = true, Toggle* toggle = nullptr) :
       is_comp(_is_comp),
       x(x),
       y(y),
@@ -95,63 +169,37 @@ class CompressorBuffer {
       anchor512_len(set_len_anchor_512(x, y, z))
   {
     if (not toggle) {
-      // align 4Ki for (essentially) FZG
-      d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len));
-
-      // AD HOC
-      AD_HOC_PBKHIST_SHELLVAR = std::getenv("PBK");
-      if (AD_HOC_PBKHIST_SHELLVAR) {
-        std::cout << "PBK: " << AD_HOC_PBKHIST_SHELLVAR << std::endl;
-
-        num_chunk = (len + ChunkSize - 1) / ChunkSize;
-
-        PBK_REVBK_BYTES = phf_reverse_book_bytes(PBK_LEN, 4, sizeof(E));
-
-        d_pbk_hist = MAKE_UNIQUE_DEVICE(Freq, PBK_LEN * PBK_N);
-        h_pbk_hist = MAKE_UNIQUE_HOST(Freq, PBK_LEN * PBK_N);
-        d_pbk_r64 = MAKE_UNIQUE_DEVICE(Hf, PBK_LEN * PBK_N);
-        h_pbk_r64 = MAKE_UNIQUE_HOST(Hf, PBK_LEN * PBK_N);
-        d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
-        h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
-        d_pbk_res_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
-        h_pbk_res_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
-        d_pbk_res_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
-        h_pbk_res_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
-        d_pbk_res_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
-        h_pbk_res_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
-        d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
-        h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
-        d_pbk_res_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
-        h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
-
-        fromfile(AD_HOC_PBKHIST_SHELLVAR, h_pbk_hist.get(), PBK_LEN * PBK_N);
-      }
-      else
-        std::cout << "ENV VAR PBK is not set." << std::endl;
-
       if (is_comp) {
-        compact = new Compact(len / 5);
-        d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
-        d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
-        d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
-        h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
-        d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
-        h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
+        shellvar_pbk_book = std::getenv("PBK_BOOK");
+        TRY_COMPRESS_TIME_USE_PBK
+        {
+          std::cout << "PBK_BOOK: " << shellvar_pbk_book << std::endl;
+          init_compression_special_singleton();
+        }
+        else
+        {
+          std::cout << "ENV VAR PBK_BOOK is not set. ";
+          std::cout << "fallback to default." << std::endl;
+          init_compression_defafult();
+        }
+      }
+      else {
+        shellvar_pbk_rvbk = std::getenv("PBK_RVBK");
+        TRY_DECOMPRESS_TIME_USE_PBK
+        {
+          std::cout << "loading PBK_RVBK: " << shellvar_pbk_rvbk << std::endl;
+          init_decompression_special_singleton();
+        }
+        else
+        {
+          std::cout << "ENV VAR PBK_RVBK is not set. ";
+          std::cout << "fallback to default." << std::endl;
+          init_decompression_default();
+        }
       }
     }
     else {
-      if (toggle->err_ctrl_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
-      if (toggle->compact_outlier) compact = new Compact(len / 5);
-      if (toggle->anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
-      if (toggle->histogram) d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
-      if (toggle->compressed) {
-        d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
-        h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
-      }
-      if (toggle->top1) {
-        d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
-        h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
-      }
+      init_with_toggles(toggle);
     }
   }
 
@@ -197,7 +245,8 @@ class CompressorBuffer {
   M compact_num_outliers() const { return compact->num_outliers(); }
   Compact* outlier() { return compact; }
 
-  bool pbk_in_use() const { return AD_HOC_PBKHIST_SHELLVAR != nullptr; }
+  bool compress_time_use_pbk() const { return shellvar_pbk_book != nullptr; }
+  bool decompress_time_use_pbk() const { return shellvar_pbk_rvbk != nullptr; }
   Hf* pbk() const { return d_pbk_r64.get(); }
   Hf* pbk_res_bitstream() const { return d_pbk_res_bitstream.get(); }
   u2* pbk_res_bits() const { return d_pbk_res_bits.get(); }
