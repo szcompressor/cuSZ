@@ -202,7 +202,7 @@ struct Compressor<DType>::impl {
     ctx->header->splen = mem->compact->num_outliers();
 
     if (mem->compress_time_use_pbk()) {
-      mem->pbk_encoding_endloc();
+      mem->pbk_encoding_summary();
       // goto FINISH_COMPRESS_DATA_PROCESSING;
       exit(0);
     }
@@ -281,11 +281,16 @@ struct Compressor<DType>::impl {
 
   STEP_DECODING:
 
-    if (header->codec1_type == Huffman)
-      codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
-    else if (header->codec1_type == FZGPUCodec)
-      codec_fzg->decode(
-          (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
+    if (not mem->decompress_time_use_pbk()) {
+      if (header->codec1_type == Huffman)
+        codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
+      else if (header->codec1_type == FZGPUCodec)
+        codec_fzg->decode(
+            (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
+    }
+    else {
+      throw std::runtime_error("decompress-time PBK not implemented");
+    }
 
   STEP_PREDICT:
 

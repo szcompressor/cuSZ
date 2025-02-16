@@ -52,20 +52,41 @@ void build_books()
     fromfile(ifname_pbk_hist, h_pbk_hist.get(), PBK_LEN * PBK_N);
 
     for (auto i = 0; i < PBK_N; i++) {
+      auto this_hist = h_pbk_hist.get() + i * PBK_LEN;
+      auto this_book = h_pbk_r64.get() + i * PBK_LEN;
+      auto this_rvbk = h_pbk_revbk_r64.get() + i * PBK_REVBK_BYTES;
       phf_CPU_build_canonized_codebook_v2<E, Hf>(
-          h_pbk_hist.get() + i * PBK_LEN, PBK_LEN, h_pbk_r64.get() + i * PBK_LEN,
-          h_pbk_revbk_r64.get() + i * PBK_REVBK_BYTES, PBK_REVBK_BYTES);
+          this_hist, PBK_LEN, this_book, this_rvbk, PBK_REVBK_BYTES);
+
+      if constexpr (0) {
+        printf("(pbk_hist2book) tree id: %d\n", i);
+        phf_revbook_view<u2, u4>(
+            h_pbk_revbk_r64.get() + i * PBK_REVBK_BYTES, PBK_LEN, true, true, false);
+        printf("----------------------------------------\n");
+      }
     }
 
     auto ofname_book = OFNAME("_hist_u4", "_book_u4");
     auto ofname_rvbk = OFNAME("_hist_u4", "_rvbk_u1");
 
     std::cout << "(input)  PBK_HIST: " << ifname_pbk_hist << std::endl;
-    std::cout << "(output) PBK_BOOK: " << ofname_book << std::endl;
+    // std::cout << "(output) PBK_BOOK: " << ofname_book << std::endl;
     std::cout << "(output) PBK_RVBK: " << ofname_rvbk << std::endl;
 
-    tofile(ofname_book.c_str(), h_pbk_r64.get(), PBK_LEN * PBK_N);
+    // tofile(ofname_book.c_str(), h_pbk_r64.get(), PBK_LEN * PBK_N);
     tofile(ofname_rvbk.c_str(), h_pbk_revbk_r64.get(), PBK_REVBK_BYTES * PBK_N);
+
+    if constexpr (0) {
+      auto check_rvbk = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
+      fromfile(ofname_rvbk.c_str(), check_rvbk.get(), PBK_REVBK_BYTES * PBK_N);
+
+      for (auto i = 0; i < PBK_N; i++) {
+        printf("(check rvbk) tree id: %d\n", i);
+        phf_revbook_view<u2, u4>(
+            h_pbk_revbk_r64.get() + i * PBK_REVBK_BYTES, PBK_LEN, true, true, false);
+        printf("----------------------------------------\n");
+      }
+    }
   }
 }
 

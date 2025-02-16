@@ -169,10 +169,47 @@ void phf_CPU_build_canonized_codebook_v2(
   delete space;
 }
 
+void phf_book_view(u4* bk, int const bklen)
+{
+  for (auto i = 0; i < bklen; i++) {
+    printf("%3d:\t", i);
+    cout << bitset<32>(bk[i]) << "\t";
+    printf("bitcount:");
+    cout << bitset<5>(bk[i] >> 27);
+    printf(" (%d)\n", bk[i] >> 27);
+  }
+}
+
+template <typename E, typename H>
+void phf_revbook_view(
+    uint8_t* rvbk, int const bklen, bool show_first, bool show_entry, bool show_keys)
+{
+  constexpr auto H_TYPE_BITS = sizeof(H) * 8;
+  auto first = (H*)rvbk;
+  auto entry = first + H_TYPE_BITS;
+  auto keys = (E*)(rvbk + sizeof(H) * (2 * H_TYPE_BITS));
+
+  for (auto i = 0; i < H_TYPE_BITS; i++) {
+    if (show_first and show_entry)
+      printf(
+          "first[%d]: %d\t"
+          "entry[%d]: %d\n",
+          i, first[i], i, entry[i]);
+    else {
+      if (show_first) printf("first[%d]: %d\n", i, first[i]);
+      if (show_entry) printf("entry[%d]: %d\n", i, entry[i]);
+    }
+  }
+
+  if (show_keys)
+    for (auto i = 0; i < bklen; i++) printf("keys[%d]: %d\n", i, keys[i]);
+}
+
 #define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                          \
   template void phf_CPU_build_canonized_codebook_v2<E, H>(                                 \
       uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
-      float* milliseconds);
+      float* milliseconds);                                                                \
+  template void phf_revbook_view<E, H>(uint8_t*, int const, bool, bool, bool);
 
 INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, u4)
 INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u2, u4)

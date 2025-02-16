@@ -19,6 +19,7 @@ struct CompressorBufferToggle {
   bool histogram;
   bool compressed;
   bool top1;
+  bool pbk_all;
 };
 
 template <typename DType>
@@ -66,6 +67,8 @@ class CompressorBuffer {
   const char* shellvar_pbk_book;
   const char* shellvar_pbk_rvbk;
   u4 num_chunk;
+  size_t pbk_bytes;
+
   using Toggle = CompressorBufferToggle;
 
   Compact* compact;
@@ -100,6 +103,36 @@ class CompressorBuffer {
     if (toggle->top1) {
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
+    }
+
+    if (toggle->pbk_all) {
+      shellvar_pbk_book = std::getenv("PBK_BOOK");
+      shellvar_pbk_rvbk = std::getenv("PBK_RVBK");
+
+      num_chunk = (len + ChunkSize - 1) / ChunkSize;
+
+      d_pbk_r64 = MAKE_UNIQUE_DEVICE(Hf, PBK_LEN * PBK_N);
+      h_pbk_r64 = MAKE_UNIQUE_HOST(Hf, PBK_LEN * PBK_N);
+      d_pbk_res_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
+      h_pbk_res_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
+      d_pbk_res_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
+      h_pbk_res_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
+      d_pbk_res_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
+      h_pbk_res_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
+      d_pbk_res_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
+      h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
+      d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
+      h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
+
+      fromfile(shellvar_pbk_book, h_pbk_r64.get(), PBK_LEN * PBK_N);
+      memcpy_allkinds<H2D>(d_pbk_r64.get(), h_pbk_r64.get(), PBK_LEN * PBK_N);
+
+      PBK_REVBK_BYTES = phf_reverse_book_bytes(PBK_LEN, 4, sizeof(E));
+      d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
+      h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
+
+      fromfile(shellvar_pbk_rvbk, h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
+      memcpy_allkinds<H2D>(d_pbk_revbk_r64.get(), h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
     }
   }
 
@@ -147,7 +180,6 @@ class CompressorBuffer {
 
   void init_decompression_special_singleton()
   {
-    shellvar_pbk_rvbk = std::getenv("PBK_RVBK");
     PBK_REVBK_BYTES = phf_reverse_book_bytes(PBK_LEN, 4, sizeof(E));
     d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
     h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
@@ -249,12 +281,21 @@ class CompressorBuffer {
   bool decompress_time_use_pbk() const { return shellvar_pbk_rvbk != nullptr; }
   Hf* pbk() const { return d_pbk_r64.get(); }
   Hf* pbk_res_bitstream() const { return d_pbk_res_bitstream.get(); }
+  Hf* pbk_res_bitstream_h() const { return h_pbk_res_bitstream.get(); }
   u2* pbk_res_bits() const { return d_pbk_res_bits.get(); }
+  u2* pbk_res_bits_h() const { return h_pbk_res_bits.get(); }
   u4* pbk_res_entries() const { return d_pbk_res_entries.get(); }
+  u4* pbk_res_entries_h() const { return h_pbk_res_entries.get(); }
   u1* pbk_res_tree_IDs() const { return d_pbk_res_tree_IDs.get(); }
+  u1* pbk_res_tree_IDs_h() const { return h_pbk_res_tree_IDs.get(); }
   size_t* pbk_res_loc() const { return d_pbk_res_loc.get(); }
 
-  void pbk_encoding_endloc()
+  u1* pbk_revbooks_11() const { return d_pbk_revbk_r64.get(); }
+  u1* pbk_revbooks_11_h() const { return h_pbk_revbk_r64.get(); }
+
+  size_t pbk_encoding_endloc() const { return h_pbk_res_loc[0]; }
+
+  void pbk_encoding_summary()
   {
     memcpy_allkinds<D2H>(h_pbk_res_loc.get(), d_pbk_res_loc.get(), 1);
     memcpy_allkinds<D2H>(h_pbk_res_tree_IDs.get(), d_pbk_res_tree_IDs.get(), 1);
@@ -280,10 +321,10 @@ class CompressorBuffer {
         num_chunk, (u4)sizeof(u4), bytes_entries            //
     );
 
-    auto bytes_total = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries;
+    pbk_bytes = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries;
     printf("bytes uncompressed  :  %lu\n", sizeof(T) * len);
-    printf("bytes compressed    :  %lu\n", bytes_total);
-    printf("compression ratio   :  %.2fx\n", sizeof(T) * len * 1.0 / bytes_total);
+    printf("bytes compressed    :  %lu\n", pbk_bytes);
+    printf("compression ratio   :  %.2fx\n", sizeof(T) * len * 1.0 / pbk_bytes);
   }
 };
 

@@ -222,12 +222,6 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       // simplify: no breaking by default
       s_reduced[threadIdx.x] = p_reduced;
       s_bitcount[threadIdx.x] = p_bits;
-
-      // if (blockIdx.x == 0) {
-      //   printf(
-      //       "i (tix) %3u,  p_bits: %3u, s_bitcount[i]: %3u\n", threadIdx.x, p_bits,
-      //       s_bitcount[threadIdx.x]);
-      // }
     }
     __syncthreads();
 
@@ -260,10 +254,6 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       __syncthreads();
     }
 
-    // if (threadIdx.x == 0) { printf("bix: %u, bc: %u\n", blockIdx.x, s_bitcount[0]); }
-    // __syncthreads();
-    // return;
-
     ////////// end of shuffle-merge, start of outputting
     __shared__ u4 s_wunits;
     __shared__ u4 s_wloc;
@@ -275,11 +265,6 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
         u4 p_bc = s_bitcount[0];
         p_wunits = (p_bc + 31) / 32;
         p_wloc = atomicAdd((ull*)pbk_res_loc, p_wunits);
-
-        // printf(
-        //     "bix: %3u, bc_this_block: %5u, p_wunits: %lu, p_wloc: %lu\n", blockIdx.x, p_bc,
-        //     p_wunits, p_wloc);
-        // printf("bix: %3u, p_wunits: %3lu, p_wloc: %5lu\n", blockIdx.x, p_wunits, p_wloc);
 
         pbk_res_bits[blockIdx.x] = p_bc;
         pbk_res_entries[blockIdx.x] = p_wloc;
@@ -297,11 +282,6 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 
       p_wunits = __shfl_sync(0xffffffff, p_wunits, 0);
       p_wloc = __shfl_sync(0xffffffff, p_wloc, 0);
-
-      // if (threadIdx.x == 0) {
-      //   printf("(later) bix: %3u, p_wunits: %3lu, p_wloc: %5lu\n", blockIdx.x, p_wunits,
-      //   p_wloc);
-      // }
 
       for (auto i = threadIdx.x; i < p_wunits; i += blockDim.x) {
         // TODO align for coalesce
