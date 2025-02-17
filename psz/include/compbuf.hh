@@ -131,8 +131,8 @@ class CompressorBuffer {
       d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
       h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
 
-      fromfile(shellvar_pbk_rvbk, h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
-      memcpy_allkinds<H2D>(d_pbk_revbk_r64.get(), h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
+      fromfile(shellvar_pbk_rvbk, h_pbk_revbk_r64.get(), PBK_REVBK_BYTES * PBK_N);
+      memcpy_allkinds<H2D>(d_pbk_revbk_r64.get(), h_pbk_revbk_r64.get(), PBK_REVBK_BYTES * PBK_N);
     }
   }
 
@@ -184,8 +184,8 @@ class CompressorBuffer {
     d_pbk_revbk_r64 = MAKE_UNIQUE_DEVICE(u1, PBK_REVBK_BYTES * PBK_N);
     h_pbk_revbk_r64 = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
 
-    fromfile(shellvar_pbk_rvbk, h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
-    memcpy_allkinds<H2D>(d_pbk_revbk_r64.get(), h_pbk_revbk_r64.get(), PBK_LEN * PBK_N);
+    fromfile(shellvar_pbk_rvbk, h_pbk_revbk_r64.get(), PBK_REVBK_BYTES * PBK_N);
+    memcpy_allkinds<H2D>(d_pbk_revbk_r64.get(), h_pbk_revbk_r64.get(), PBK_REVBK_BYTES * PBK_N);
   }
 
  public:

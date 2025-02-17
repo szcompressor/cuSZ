@@ -400,17 +400,6 @@ void KERNEL_SERIAL_HF_pbk_decode(
     auto idx_bit = 0, idx_byte = 0, idx_out = 0;
     H bufr = input[idx_byte];
 
-    // if (block_id == 0) {
-    //   auto total_units = (total_bw + H_TYPE_BITS - 1) / H_TYPE_BITS;
-    //   cout << "block_id: " << block_id << "\t";
-    //   cout << "bit_count: " << total_bw << "\t";
-    //   cout << "units: " << total_units << endl;
-
-    //   for (auto i = 0; i < total_units; i++) {
-    //     cout << i << "\t" << std::bitset<32>(input[i]) << endl;
-    //   }
-    // }
-
     auto first = (H*)rvbk;
     auto entry = first + H_TYPE_BITS;
     auto keys = (E*)(rvbk + sizeof(H) * (2 * H_TYPE_BITS));

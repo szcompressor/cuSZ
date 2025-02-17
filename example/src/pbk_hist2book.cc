@@ -76,7 +76,7 @@ void build_books()
     // tofile(ofname_book.c_str(), h_pbk_r64.get(), PBK_LEN * PBK_N);
     tofile(ofname_rvbk.c_str(), h_pbk_revbk_r64.get(), PBK_REVBK_BYTES * PBK_N);
 
-    if constexpr (0) {
+    if constexpr (1) {
       auto check_rvbk = MAKE_UNIQUE_HOST(u1, PBK_REVBK_BYTES * PBK_N);
       fromfile(ofname_rvbk.c_str(), check_rvbk.get(), PBK_REVBK_BYTES * PBK_N);
 
