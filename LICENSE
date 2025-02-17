@@ -1,10 +1,10 @@
-Copyright © 2020, UChicago Argonne, LLC and Washington State University
+Copyright (c) 2020-2022, UChicago Argonne, LLC and Washington State University
+Copyright (c) 2022-2024, UChicago Argonne, LLC and Indiana University 
+Copyright (c) 2024, UChicago Argonne, LLC, University of Kentucky, and Indiana University
 
 All Rights Reserved
 
-Software Name: cuSZ: CUDA-Based Error-Bounded Lossy Compressor for Scientific Data
-
-By: Argonne National Laboratory, Washington State University, Clemson University
+Software Name: pSZ/cuSZ: A GPU-Based Error-Bounded Lossy Compressor for Scientific Data
 
 OPEN SOURCE LICENSE
 
