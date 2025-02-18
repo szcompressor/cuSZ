@@ -29,4 +29,4 @@ add_executable(pbk_hist2book src/pbk_hist2book.cc)
 target_link_libraries(pbk_hist2book PRIVATE cusz CUDA::cudart)
 
 add_executable(pbk_run src/pbk_run.cc)
-target_link_libraries(pbk_run PRIVATE cusz CUDA::cudart)
+target_link_libraries(pbk_run PRIVATE cusz example_utils2 CUDA::cudart)

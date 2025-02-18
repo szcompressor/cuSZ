@@ -5,10 +5,12 @@
 
 #include "compbuf.hh"
 #include "cxx_hfbk.h"
+#include "ex_utils2.hh"
 #include "hfcxx_module.hh"
 #include "kernel/lrz/lrz.gpu.hh"
 #include "kernel/spv.hh"
 #include "mem/cxx_backends.h"
+#include "stat/compare.hh"
 #include "utils/io.hh"
 #include "utils/viewer.hh"
 
@@ -26,6 +28,7 @@ using Hf = Buf::Hf;
 int const radius = 64;
 double eb = 3.0;
 double eb_r, ebx2, ebx2_r;
+const auto width = 5;
 
 GPU_unique_hptr<T[]> h_uncomp;
 GPU_unique_dptr<T[]> d_uncomp;
@@ -37,7 +40,7 @@ std::array<size_t, 3> len3_std;
 Buf* mem;
 cudaStream_t stream;
 
-void run(char* fname, size_t const len)
+void run(const char* fname, size_t const len)
 {
   fromfile(fname, h_uncomp.get(), len);
   memcpy_allkinds<H2D>(d_uncomp.get(), h_uncomp.get(), len);
@@ -105,8 +108,18 @@ void run(char* fname, size_t const len)
       mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, radius, stream);
   cudaStreamSynchronize(stream);
 
-  psz::analysis::GPU_evaluate_quality_and_print(
-      d_decomp.get(), d_uncomp.get(), len, mem->pbk_bytes);
+  auto s = new psz_statistics;
+  psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
+  printf(
+      "CR\t%lf\t"
+      "PSNR\t%lf\t"
+      "NRMSE\t%lf\t"
+      "MAX.ABS.EB\t%lf\t"
+      "MAX.REL.EB\t%lf\n",
+      len * sizeof(T) * 1.0 / mem->pbk_bytes, s->score_PSNR, s->score_NRMSE, s->max_err_abs,
+      s->max_err_rel);
+  // psz::analysis::GPU_evaluate_quality_and_print(
+  //     d_decomp.get(), d_uncomp.get(), len, mem->pbk_bytes);
 
   memcpy_allkinds<D2H>(h_decomp.get(), d_decomp.get(), len);
 
@@ -121,11 +134,8 @@ void run(char* fname, size_t const len)
 
 int main(int argc, char** argv)
 {
-  if (argc != 5) {
-    printf("       0       1      2  3  4\n");
-    printf("usage: pbk_run fname  x  y  z\n");
-    return 1;
-  }
+  Arguments args = parse_arguments(argc, argv);
+  const size_t len = args.x * args.y * args.z;
 
   size_t x = atoi(argv[2]), y = atoi(argv[3]), z = atoi(argv[4]);
   BufToggle toggle{
@@ -134,9 +144,9 @@ int main(int argc, char** argv)
       .anchor = true,
       .pbk_all = true,
   };
-  mem = new Buf(x, y, z, 64, false, &toggle);
-  size_t len = x * y * z;
-  len3_std = MAKE_STDLEN3(x, y, z);
+  mem = new Buf(args.x, args.y, args.z, 64, false, &toggle);
+
+  len3_std = MAKE_STDLEN3(args.x, args.y, args.z);
   h_uncomp = MAKE_UNIQUE_HOST(T, len);
   d_uncomp = MAKE_UNIQUE_DEVICE(T, len);
   h_decomp = MAKE_UNIQUE_HOST(T, len);
@@ -151,7 +161,10 @@ int main(int argc, char** argv)
   //   cout << "--------------------" << endl;
   // }
 
-  run(argv[1], len);
+  auto file_names = construct_file_names(
+      args.fname_prefix, args.fname_suffix, args.from_number, args.to_number, width);
+
+  for (const auto& fname : file_names) run(fname.c_str(), len);
 
   delete mem;
   cudaStreamDestroy(stream);

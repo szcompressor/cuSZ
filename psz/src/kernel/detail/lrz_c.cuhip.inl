@@ -68,12 +68,12 @@ template <
     typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T,
     bool UseLocalStat = true, bool UseGlobalStat = true, bool EnableEncoding = false>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3,  // input
-    Eq* const out_eq,                                               // output: dense
-    CV* const out_cval, CI* const out_cidx, CN* const out_cn,       // output: sparse
-    uint16_t const radius, Fp const ebx2_r,                         // config
-    uint32_t* top_count = nullptr,                                  // opt: feature 1
-    Hf* pbk = nullptr,                                              // opt: feature 2
+    T* const in_data, size_t const gx,                         // input
+    Eq* const out_eq,                                          // output: dense
+    CV* const out_cval, CI* const out_cidx, CN* const out_cn,  // output: sparse
+    uint16_t const radius, Fp const ebx2_r,                    // config
+    uint32_t* top_count = nullptr,                             // opt: feature 1
+    Hf* pbk = nullptr,                                         // opt: feature 2
     u1* pbk_res_tree_IDs = nullptr, u4* pbk_res_bitstream = nullptr, u2* pbk_res_bits = nullptr,
     u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr)
 {
@@ -99,7 +99,10 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len3.x) s_data[threadIdx.x + ix * NumThreads] = round(in_data[id] * ebx2_r);
+    if (id < gx) {
+      auto val = in_data[id];
+      s_data[threadIdx.x + ix * NumThreads] = round(val * ebx2_r);
+    }
   }
   __syncthreads();
 
@@ -118,7 +121,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     bool quantizable = fabs(delta) < radius;
 
     if constexpr (UseLocalStat) {
-      bool is_valid_range = id_base + threadIdx.x * Seq + ix < data_len3.x;
+      bool is_valid_range = id_base + threadIdx.x * Seq + ix < gx;
       COUNT_LOCAL_STAT(delta, is_valid_range);
     }
 
@@ -169,8 +172,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     __shared__ u4 s_closest_idx;
 
     auto bitcount_of = [](Hf* _w) { return reinterpret_cast<W*>(_w)->bitcount; };
-    auto entry = [&]() { return ChunkSize * blockIdx.x; };
-    auto allowed_len = [&]() { return min(ChunkSize, data_len3.x - entry()); };
+    auto entry = [&]() -> size_t { return ChunkSize * blockIdx.x; };
+    auto allowed_len = [&]() { return min((size_t)ChunkSize, gx - entry()); };
 
     ////////// find the right book
     if (threadIdx.x < 32) {
@@ -297,7 +300,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 #pragma unroll
     for (auto ix = 0; ix < Seq; ix++) {
       auto id = id_base + threadIdx.x + ix * NumThreads;
-      if (id < data_len3.x) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
+      if (id < gx) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
     }
   }
 
@@ -626,7 +629,7 @@ int GPU_c_lorenzo_nd_with_outlier(
         EncodeInPlace>
         <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
+            in_data, data_len3.x, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
             out_top1, pbk, pbk_res_tree_IDs, pbk_res_bitstream, pbk_res_bits, pbk_res_entries,
             pbk_res_loc);
   }
