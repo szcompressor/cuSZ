@@ -19,6 +19,12 @@ target_compile_options(
   psz_cu_compile_settings
   INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--extended-lambda
   --expt-relaxed-constexpr -Wno-deprecated-declarations>)
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(
+    psz_cu_compile_settings
+    INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:-lineinfo>
+  )
+endif()
 target_compile_features(psz_cu_compile_settings INTERFACE cxx_std_17 cuda_std_17)
 
 target_include_directories(

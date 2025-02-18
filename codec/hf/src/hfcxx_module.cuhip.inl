@@ -123,6 +123,43 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
        out_decoded);
 }
 
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_pbk_coarse_decode(
+    H* in_pbk_bitstream, size_t const pbk_bitstream_len, uint8_t* in_revbooks_r64_11,
+    size_t const one_revbook_r64_len, uint8_t* pbk_tree_IDs, uint16_t* pbk_bits,
+    uint32_t* pbk_entries, E* out_decoded, size_t const decoded_len, void* stream)
+{
+  constexpr auto ChunkSize = 1024;
+  auto pbk_pardeg = (decoded_len + ChunkSize - 1) / ChunkSize;
+
+  auto div = [](auto l, auto subl) { return (l - 1) / subl + 1; };
+  auto const block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+  auto const grid_dim = div(pbk_pardeg, block_dim);
+
+  phf::KERNEL_CUHIP_HF_pbk_decode<E, H, M>                                       //
+      <<<grid_dim, block_dim, one_revbook_r64_len * 11, (cudaStream_t)stream>>>  //
+      (in_pbk_bitstream, pbk_bitstream_len, in_revbooks_r64_11, one_revbook_r64_len, pbk_tree_IDs,
+       pbk_bits, pbk_entries, pbk_pardeg, out_decoded);
+}
+
+PHF_MODULE_TPL void PHF_MODULE_CLASS::CPU_pbk_coarse_decode(
+    H* in_pbk_bitstream, size_t const pbk_bitstream_len, uint8_t* in_revbooks_r64_11,
+    size_t const one_revbook_r64_len, uint8_t* pbk_tree_IDs, uint16_t* pbk_bits,
+    uint32_t* pbk_entries, E* out_decoded, size_t const decoded_len)
+{
+  constexpr auto ChunkSize = 1024;
+  auto pbk_pardeg = (decoded_len + ChunkSize - 1) / ChunkSize;
+
+  auto div = [](auto l, auto subl) { return (l - 1) / subl + 1; };
+  auto const block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+  auto const grid_dim = div(pbk_pardeg, block_dim);
+
+  for (auto block_id = 0; block_id < pbk_pardeg; block_id++) {
+    phf::KERNEL_SERIAL_HF_pbk_decode<E, H, M>  //
+        (block_id, in_pbk_bitstream, pbk_bitstream_len, in_revbooks_r64_11, one_revbook_r64_len,
+         pbk_tree_IDs, pbk_bits, pbk_entries, pbk_pardeg, out_decoded);
+  }
+}
+
 // TODO ret type (status) and exe_policy
 // duplicate with psz's
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_experimental_scatter(

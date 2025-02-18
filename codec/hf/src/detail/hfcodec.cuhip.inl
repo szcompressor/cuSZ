@@ -14,8 +14,14 @@
 #ifndef CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 #define CUSZ_KERNEL_CODEC_HUFFMAN_CUH
 
+#include <bitset>
 #include <cstdio>
+#include <iostream>
 
+using std::cout;
+using std::endl;
+
+#include "cxx_hfbk.h"
 #include "hfclass.hh"  // contains HuffmanHelper; TODO put in another file
 #include "hfword.hh"
 
@@ -310,6 +316,130 @@ __global__ void KERNEL_CUHIP_HF_decode(
     single_thread_inflate(in + par_entry[gid], out + sublen * gid, par_nbit[gid]);
     __syncthreads();
   }
+}
+
+template <typename E, typename H, typename M>
+__global__ void KERNEL_CUHIP_HF_pbk_decode(
+    H* in_pbk_bitstream, size_t const pbk_bitstream_len, uint8_t* in_revbooks_r64_11,
+    int const revbook_nbyte, uint8_t* pbk_tree_IDs, uint16_t* pbk_bits, uint32_t* pbk_entries,
+    int const pbk_pardeg, E* out_decoded)
+{
+  constexpr auto ChunkSize = 1024;
+  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
+  extern __shared__ uint8_t s_revbook[];
+  // constexpr auto block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+  auto gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  auto single_thread_inflate = [&](H* input, E* out, int const tree_idx, int const total_bw) {
+    int next_bit;
+    auto idx_bit = 0, idx_byte = 0, idx_out = 0;
+    H bufr = input[idx_byte];
+
+    auto first = (H*)(s_revbook + revbook_nbyte * tree_idx);
+    auto entry = first + CELL_BITWIDTH;
+    auto keys = (E*)((s_revbook + revbook_nbyte * tree_idx) + sizeof(H) * (2 * CELL_BITWIDTH));
+
+    H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // Get first bit
+    auto l = 1, i = 0;
+
+    while (i < total_bw) {
+      while (v < first[l]) {
+        ++i;
+        idx_byte = i / CELL_BITWIDTH;
+        idx_bit = i % CELL_BITWIDTH;
+        if (idx_bit == 0) bufr = input[idx_byte];
+
+        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
+        v = (v << 1) | next_bit;
+        ++l;
+      }
+      out[idx_out++] = keys[entry[l] + v - first[l]];
+
+      {
+        ++i;
+        idx_byte = i / CELL_BITWIDTH;
+        idx_bit = i % CELL_BITWIDTH;
+        if (idx_bit == 0) bufr = input[idx_byte];
+
+        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
+        v = 0x0 | next_bit;
+      }
+      l = 1;
+    }
+  };
+
+  // load all revbooks to shared memory
+  for (auto i = threadIdx.x; i < (revbook_nbyte * 11) / 4; i++)
+    ((u4*)(s_revbook))[i] = ((u4*)(in_revbooks_r64_11))[i];
+  __syncthreads();
+
+  if (gid < pbk_pardeg) {
+    auto tree_idx = pbk_tree_IDs[gid];  // select the codebook
+    auto unit_start = pbk_entries[gid];
+    auto bit_count = pbk_bits[gid];
+
+    single_thread_inflate(
+        in_pbk_bitstream + unit_start, out_decoded + ChunkSize * blockIdx.x, tree_idx, bit_count);
+    __syncthreads();
+  }
+}
+
+template <typename E, typename H, typename M>
+void KERNEL_SERIAL_HF_pbk_decode(
+    size_t const block_id, H* in_pbk_bitstream, size_t const pbk_bitstream_len,
+    uint8_t* in_revbooks_r64_11, int const revbook_nbyte, uint8_t* pbk_tree_IDs,
+    uint16_t* pbk_bits, uint32_t* pbk_entries, int const pbk_pardeg, E* out_decoded)
+{
+  constexpr auto ChunkSize = 1024;
+  constexpr auto H_TYPE_BITS = sizeof(H) * 8;
+  // constexpr auto block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+  auto single_thread_inflate = [&](H* input, E* out, uint8_t* rvbk, int const total_bw) {
+    int next_bit;
+    auto idx_bit = 0, idx_byte = 0, idx_out = 0;
+    H bufr = input[idx_byte];
+
+    auto first = (H*)rvbk;
+    auto entry = first + H_TYPE_BITS;
+    auto keys = (E*)(rvbk + sizeof(H) * (2 * H_TYPE_BITS));
+
+    H v = (bufr >> (H_TYPE_BITS - 1)) & 0x1;  // Get first bit
+    auto l = 1, i = 0;
+
+    while (i < total_bw) {
+      while (v < first[l]) {
+        ++i;
+        idx_byte = i / H_TYPE_BITS;
+        idx_bit = i % H_TYPE_BITS;
+        if (idx_bit == 0) bufr = input[idx_byte];
+
+        next_bit = ((bufr >> (H_TYPE_BITS - 1 - idx_bit)) & 0x1);
+        v = (v << 1) | next_bit;
+        ++l;
+      }
+      out[idx_out++] = keys[entry[l] + v - first[l]];
+
+      {
+        ++i;
+        idx_byte = i / H_TYPE_BITS;
+        idx_bit = i % H_TYPE_BITS;
+        if (idx_bit == 0) bufr = input[idx_byte];
+
+        next_bit = ((bufr >> (H_TYPE_BITS - 1 - idx_bit)) & 0x1);
+        v = 0x0 | next_bit;
+      }
+      l = 1;
+    }
+  };
+
+  auto unit_start = pbk_entries[block_id];
+  auto bit_count = pbk_bits[block_id];
+  auto _tree_idx = pbk_tree_IDs[block_id];  // select the codebook
+  auto _rvbk = in_revbooks_r64_11 + _tree_idx * revbook_nbyte;
+
+  single_thread_inflate(
+      in_pbk_bitstream + unit_start, out_decoded + ChunkSize * block_id, _rvbk, bit_count);
 }
 
 }  // namespace phf

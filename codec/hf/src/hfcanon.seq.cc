@@ -11,6 +11,8 @@
 
 #include "hfcanon.hh"
 
+#include <cstdio>
+
 #include "cusz/type.h"
 #include "hfword.hh"
 

@@ -49,6 +49,16 @@ class modules {
       H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
       M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded, void* stream);
 
+  static void GPU_pbk_coarse_decode(
+      H* in_pbk_bitstream, size_t const pbk_bitstream_len, uint8_t* in_revbooks_r64_11,
+      size_t const one_revbook_r64_len, uint8_t* pbk_tree_IDs, uint16_t* pbk_bits,
+      uint32_t* pbk_entries, E* out_decoded, size_t const decoded_len, void* stream);
+
+  static void CPU_pbk_coarse_decode(
+      H* in_pbk_bitstream, size_t const pbk_bitstream_len, uint8_t* in_revbooks_r64_11,
+      size_t const one_revbook_r64_len, uint8_t* pbk_tree_IDs, uint16_t* pbk_bits,
+      uint32_t* pbk_entries, E* out_decoded, size_t const decoded_len);
+
   static void GPU_experimental_scatter(phf::sparse<E> compact, E* out, void* stream);
 };
 
