@@ -103,19 +103,19 @@ phferr capi_phf_release(phf_codec* c)
   return PHF_SUCCESS;
 }
 
-phferr capi_phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t s)
-{
-  if (codec->data_type == HF_U1)
-    static_cast<phf::HuffmanCodec<u1>*>(codec->codec)->buildbook(d_hist, s);
-  else if (codec->data_type == HF_U2)
-    static_cast<phf::HuffmanCodec<u2>*>(codec->codec)->buildbook(d_hist, s);
-  else if (codec->data_type == HF_U4)
-    static_cast<phf::HuffmanCodec<u4>*>(codec->codec)->buildbook(d_hist, s);
-  else
-    return PHF_WRONG_DTYPE;
+// phferr capi_phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t s)
+// {
+//   if (codec->data_type == HF_U1)
+//     static_cast<phf::HuffmanCodec<u1>*>(codec->codec)->buildbook(d_hist, s);
+//   else if (codec->data_type == HF_U2)
+//     static_cast<phf::HuffmanCodec<u2>*>(codec->codec)->buildbook(d_hist, s);
+//   else if (codec->data_type == HF_U4)
+//     static_cast<phf::HuffmanCodec<u4>*>(codec->codec)->buildbook(d_hist, s);
+//   else
+//     return PHF_WRONG_DTYPE;
 
-  return PHF_SUCCESS;
-}
+//   return PHF_SUCCESS;
+// }
 
 phferr capi_phf_encode(
     phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded, size_t* enc_bytes,

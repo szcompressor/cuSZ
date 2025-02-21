@@ -109,7 +109,7 @@ void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
       shmem_use, repeat, stream);
   phf::HuffmanCodec<E> codec(len, bklen, pardeg);
 
-  codec.buildbook(d_hist.get(), stream);
+  codec.buildbook(d_hist.get(), bklen, stream);
   if (dump_book) codec.dump_internal_data("book", fname);
 
   for (auto i = 0; i < 10; i++) {

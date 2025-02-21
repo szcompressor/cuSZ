@@ -38,12 +38,13 @@ class CompressorBuffer {
   Compact* compact;
   bool const is_comp;
 
+  constexpr static size_t BLK = 8;  // for spline
+  constexpr static u2 max_radius = 512;
+  constexpr static u2 max_bklen = max_radius * 2;
+
   u4 const x, y, z;
   size_t const len;
-  u2 const radius;
-  u2 const bklen;
-  constexpr static size_t BLK = 8;  // for spline
-  size_t const anchor512_len;       // for spline
+  size_t const anchor512_len;  // for spline
 
  private:
   static size_t _div(size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
@@ -55,11 +56,8 @@ class CompressorBuffer {
 
  public:
   CompressorBuffer(
-      u4 x, u4 y = 1, u4 z = 1, u2 _radius = 512, bool _is_comp = true,
-      CompressorBufferToggle* toggle = nullptr) :
+      u4 x, u4 y = 1, u4 z = 1, bool _is_comp = true, CompressorBufferToggle* toggle = nullptr) :
       is_comp(_is_comp),
-      radius(_radius),
-      bklen(2 * radius),
       x(x),
       y(y),
       z(z),
@@ -73,7 +71,7 @@ class CompressorBuffer {
       if (is_comp) {
         compact = new Compact(len / 5);
         d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
-        d_hist = MAKE_UNIQUE_DEVICE(Freq, bklen);
+        d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
         d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
         h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
         d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
@@ -84,7 +82,7 @@ class CompressorBuffer {
       if (toggle->err_ctrl_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
       if (toggle->compact_outlier) compact = new Compact(len / 5);
       if (toggle->anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
-      if (toggle->histogram) d_hist = MAKE_UNIQUE_DEVICE(Freq, bklen);
+      if (toggle->histogram) d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       if (toggle->compressed) {
         d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
         h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
@@ -105,7 +103,7 @@ class CompressorBuffer {
   CompressorBuffer* clear_buffer()
   {
     memset_device(d_ectrl.get(), len);  // TODO FZG padding
-    memset_device(d_hist.get(), bklen);
+    memset_device(d_hist.get(), max_bklen);
     memset_device(d_anchor.get(), anchor512_len);
     memset_device(d_compressed.get(), len * 4 / 2);
     // TODO clear compact

@@ -56,7 +56,9 @@ struct HuffmanCodec<E>::impl {
 
   size_t pardeg, sublen;
   int numSMs;
-  size_t len, bklen;
+  size_t len;
+  static constexpr u2 max_bklen = 1024;
+  u2 rt_bklen;
 
   GPU_unique_hptr<u4[]> h_hist;
 
@@ -70,18 +72,17 @@ struct HuffmanCodec<E>::impl {
   }
 
   // keep ctor short
-  void init(size_t const inlen, int const _bklen, int const _pardeg, bool debug)
+  void init(size_t const inlen, int const _pardeg, bool debug)
   {
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
     pardeg = _pardeg;
-    bklen = _bklen;
     len = inlen;
     sublen = (inlen - 1) / pardeg + 1;
 
     // TODO make unique_ptr; modify ctor
-    buf = new Buf(inlen, _bklen, _pardeg, true, debug);
-    h_hist = MAKE_UNIQUE_HOST(u4, bklen);
+    buf = new Buf(inlen, max_bklen, _pardeg, true, debug);
+    h_hist = MAKE_UNIQUE_HOST(u4, max_bklen);
 
     std::tie(event_start, event_end) = event_create_pair();
   }
@@ -96,14 +97,15 @@ struct HuffmanCodec<E>::impl {
   }
 #else
   // build Huffman tree on CPU
-  void buildbook(u4* freq, phf_stream_t stream)
+  void buildbook(u4* freq, u2 const _rt_bklen, phf_stream_t stream)
   {
-    memcpy_allkinds<D2H>(h_hist.get(), freq, bklen);
+    rt_bklen = _rt_bklen;
+    memcpy_allkinds<D2H>(h_hist.get(), freq, rt_bklen);
 
     phf_CPU_build_canonized_codebook_v2<E, H4>(
-        h_hist.get(), bklen, buf->h_bk4.get(), buf->h_revbk4.get(), buf->revbk4_bytes,
+        h_hist.get(), rt_bklen, buf->h_bk4.get(), buf->h_revbk4.get(), buf->revbk4_bytes,
         &_time_book);
-    memcpy_allkinds_async<H2D>(buf->d_bk4.get(), buf->h_bk4.get(), bklen, (cudaStream_t)stream);
+    memcpy_allkinds_async<H2D>(buf->d_bk4.get(), buf->h_bk4.get(), rt_bklen, (cudaStream_t)stream);
     memcpy_allkinds_async<H2D>(
         buf->d_revbk4.get(), buf->h_revbk4.get(), buf->revbk4_bytes, (cudaStream_t)stream);
   }
@@ -118,7 +120,7 @@ struct HuffmanCodec<E>::impl {
     event_recording_start(event_start, stream);
 
     phf_module::GPU_coarse_encode_phase1(
-        {in, len}, {buf->d_bk4.get(), bklen}, numSMs, {buf->d_scratch4.get(), len}, stream);
+        {in, len}, {buf->d_bk4.get(), rt_bklen}, numSMs, {buf->d_scratch4.get(), len}, stream);
 
     phf_module::GPU_coarse_encode_phase2(
         {buf->d_scratch4.get(), len}, hfpar, {buf->d_scratch4.get(), len} /* placeholder */,
@@ -185,7 +187,7 @@ struct HuffmanCodec<E>::impl {
   void make_metadata()
   {
     // header.self_bytes = sizeof(Header);
-    header.bklen = bklen;
+    header.bklen = rt_bklen;
     header.sublen = sublen;
     header.pardeg = pardeg;
     header.original_len = len;
@@ -207,8 +209,7 @@ struct HuffmanCodec<E>::impl {
 
 };  // end of pimpl class
 
-PHF_TPL PHF_CLASS::HuffmanCodec(
-    size_t const inlen, int const bklen, int const pardeg, bool debug) :
+PHF_TPL PHF_CLASS::HuffmanCodec(size_t const inlen, int const pardeg, bool debug) :
     pimpl{std::make_unique<impl>()},
     in_dtype{
         std::is_same_v<E, u1>   ? HF_U1
@@ -216,15 +217,15 @@ PHF_TPL PHF_CLASS::HuffmanCodec(
         : std::is_same_v<E, u4> ? HF_U4
                                 : HF_INVALID}
 {
-  pimpl->init(inlen, bklen, pardeg, debug);
+  pimpl->init(inlen, pardeg, debug);
 };
 
 PHF_TPL PHF_CLASS::~HuffmanCodec(){};
 
 // using CPU huffman
-PHF_TPL PHF_CLASS* PHF_CLASS::buildbook(u4* freq, phf_stream_t stream)
+PHF_TPL PHF_CLASS* PHF_CLASS::buildbook(u4* freq, u2 const rt_bklen, phf_stream_t stream)
 {
-  pimpl->buildbook(freq, stream);
+  pimpl->buildbook(freq, rt_bklen, stream);
   return this;
 }
 
@@ -252,7 +253,7 @@ PHF_TPL PHF_CLASS* PHF_CLASS::clear_buffer()
 PHF_TPL PHF_CLASS* PHF_CLASS::dump_internal_data(string field, string fname)
 {
   auto ofname = fname + ".book_u4";
-  if (field == "book") _portable::utils::tofile(ofname, pimpl->buf->h_bk4.get(), pimpl->bklen);
+  if (field == "book") _portable::utils::tofile(ofname, pimpl->buf->h_bk4.get(), pimpl->rt_bklen);
   return this;
 }
 

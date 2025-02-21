@@ -105,26 +105,26 @@ struct Compressor<DType>::impl {
     constexpr auto iscompression = true;
 
     // extract context
-    const auto radius = ctx->header->radius;
+    // const auto radius = ctx->header->radius;
+    // const auto bklen = radius * 2;
     const auto pardeg = ctx->header->vle_pardeg;
-    const auto bklen = radius * 2;
     const auto x = ctx->header->x, y = ctx->header->y, z = ctx->header->z;
     len = x * y * z;
 
     // initialize internal buffers
-    mem = new CompressorBuffer<DType>(x, y, z, radius, iscompression);
+    mem = new CompressorBuffer<DType>(x, y, z, iscompression);
 
     // initialize profiling
     std::tie(event_start, event_end) = event_create_pair();
 
     // optimize component(s)
     psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
-        len, bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
+        len, mem->max_bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
         hist_generic_repeat);
 
     // initialize component(s)
     // TODO decrease memory use
-    codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
+    codec_hf = new CodecHF(mem->len, pardeg, debug);
     codec_fzg = new CodecFZG(mem->len);
   }
 
@@ -133,25 +133,23 @@ struct Compressor<DType>::impl {
     constexpr auto iscompression = false;
 
     // extract context
-    const auto radius = ctx->radius;
+    // const auto radius = ctx->radius;
+    // const auto bklen = radius * 2;
     const auto pardeg = ctx->vle_pardeg;
-    const auto bklen = radius * 2;
     const auto x = ctx->x, y = ctx->y, z = ctx->z;
     len = x * y * z;
 
     // initialize internal buffers
-    mem = new CompressorBuffer<DType>(x, y, z, radius, iscompression);
+    mem = new CompressorBuffer<DType>(x, y, z, iscompression);
 
     // initialize profiling
     std::tie(event_start, event_end) = event_create_pair();
 
     // initialize component(s)
-    if (ctx->codec1_type == Huffman)
-      codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
-    else if (ctx->codec1_type == FZGPUCodec)
+    if (ctx->codec1_type == FZGPUCodec)
       codec_fzg = new CodecFZG(mem->len);
     else
-      codec_hf = new CodecHF(mem->len, bklen, pardeg, debug);
+      codec_hf = new CodecHF(mem->len, pardeg, debug);
   }
 
   void compress_data_processing(pszctx* ctx, T* in, void* stream)
@@ -204,7 +202,7 @@ struct Compressor<DType>::impl {
   ENCODING_STEP:
 
     if (ctx->header->codec1_type == Huffman)
-      codec_hf->buildbook(mem->hist(), stream)
+      codec_hf->buildbook(mem->hist(), ctx->header->radius * 2, stream)
           ->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
     else if (ctx->header->codec1_type == FZGPUCodec)
       codec_fzg->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
@@ -378,9 +376,9 @@ void Compressor<DType>::dump_compress_intermediate(pszctx* ctx, psz_stream_t str
   cudaStreamSynchronize((cudaStream_t)stream);
 
   if (ctx->cli->dump_hist) {
-    auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<DType>::Freq, pimpl->mem->bklen);
-    memcpy_allkinds<D2H>(h_hist.get(), pimpl->mem->hist(), pimpl->mem->bklen, stream);
-    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), pimpl->mem->bklen);
+    auto h_hist = MAKE_UNIQUE_HOST(typename CompressorBuffer<DType>::Freq, pimpl->mem->max_bklen);
+    memcpy_allkinds<D2H>(h_hist.get(), pimpl->mem->hist(), ctx->header->radius * 2, stream);
+    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), ctx->header->radius * 2);
   }
   if (ctx->cli->dump_quantcode) {
     auto h_ectrl = MAKE_UNIQUE_HOST(E, pimpl->len);

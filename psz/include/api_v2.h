@@ -7,6 +7,8 @@ extern "C" {
 
 #include "context.h"
 
+#define DEFAULT_RADIUS 512
+
 typedef struct psz_runtime_config {
   psz_predtype predictor;
   psz_histotype hist;
@@ -14,7 +16,7 @@ typedef struct psz_runtime_config {
   psz_codectype _future_codec2;
   psz_mode mode;
   double eb;
-  uint16_t _future_radius;
+  uint16_t radius;
 } psz_rc;
 
 // clang-format off

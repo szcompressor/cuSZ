@@ -74,7 +74,7 @@ int main(int argc, char** argv)
 
     {  // compresion
       psz_compress_float(
-          m, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, NULL_CODEC, mode, eb, 512},
+          m, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, NULL_CODEC, mode, eb, args.radius},
           d_uncomp.get(), &header, &p_compressed, &comp_len);
       //   psz_review_compression(comp_timerecord, &header);
 
@@ -92,13 +92,14 @@ int main(int argc, char** argv)
       auto s = new psz_statistics;
       psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
       printf(
+          "R\t%u\t"
           "CR\t%lf\t"
           "PSNR\t%lf\t"
           "NRMSE\t%lf\t"
           "MAX.ABS.EB\t%lf\t"
           "MAX.REL.EB\t%lf\n",
-          len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE, s->max_err_abs,
-          s->max_err_rel);
+          args.radius, len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE,
+          s->max_err_abs, s->max_err_rel);
     }
 
     // !!!! TODO (root cause?) otherwise wrong in evaluation

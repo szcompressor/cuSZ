@@ -148,6 +148,8 @@ void capi_psz_review_comp_time_from_header(psz_header* h)
   __print("logging::predictor", psz_report_query_pred(h->pred_type));
   __print("logging::histogram", psz_report_query_hist(h->hist_type));
   __print("logging::codec1", psz_report_query_codec1(h->codec1_type));
+  __print("logging::radius", h->radius);
+  __print("logging::bklen", h->radius * 2);
   __print("logging::max", h->logging_max);
   __print("logging::min", h->logging_min);
   __print("logging::range", h->logging_max - h->logging_min);
@@ -185,6 +187,8 @@ void psz_review_decomp_time_from_header(psz_header* h)
   println_text_v2("component", "predictor", psz_report_query_pred(h->pred_type));
   println_text_v2("component", "histogram", psz_report_query_hist(h->hist_type));
   println_text_v2("component", "codec1", psz_report_query_codec1(h->codec1_type));
+  println_text_v2("parameter", "radius", to_string(h->radius));
+  println_text_v2("parameter", "bklen", to_string(h->radius * 2));
 }
 
 void capi_psz_review_compression(void* r, psz_header* h)

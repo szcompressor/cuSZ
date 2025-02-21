@@ -11,6 +11,7 @@
  */
 
 #include "api_v2.h"
+#include "compbuf.hh"
 #include "compressor.hh"
 #include "context.h"
 #include "cusz.h"
@@ -223,14 +224,12 @@ psz_resource* psz_create_resource_manager(
       .pred_type = Lorenzo,
       .hist_type = HistogramGeneric,
       .codec1_type = Huffman,
-      .radius = 512,
       .x = x,
       .y = y,
       .z = z,
       .w = 1,
   };
 
-  m->dict_size = m->header->radius * 2;
   m->data_len = x * y * z;
   // m->ndim = 3;
   m->cli = nullptr;
@@ -282,29 +281,40 @@ int psz_release_resource(psz_resource* manager)
   return 0;
 }
 
+#define RUNTIME_SAVE_CONFIG()          \
+  m->header->pred_type = rc.predictor; \
+  m->header->codec1_type = rc.codec1;  \
+  m->header->hist_type = rc.hist;      \
+  m->header->mode = rc.mode;           \
+  m->header->eb = rc.eb;               \
+  m->header->user_input_eb = rc.eb;    \
+  m->header->radius = rc.radius;       \
+  m->dict_size = rc.radius * 2;
+
+#define RUNTIME_CHECK_RADIUS(Type)                           \
+  if (rc.radius > psz::CompressorBuffer<Type>::max_radius) { \
+    rc.radius = psz::CompressorBuffer<Type>::max_radius;     \
+    status = PSZ_WARN_RADIUS_TOO_LARGE;                      \
+  }
+
+#define RUNTIME_SCAN_EXTREMA(Type)                                             \
+  if (rc.mode == Rel) {                                                        \
+    double _max_val, _min_val, _rng;                                           \
+    GPU_probe_extrema<Type>(IN_d_data, m->data_len, _max_val, _min_val, _rng); \
+    m->header->eb *= _rng;                                                     \
+    m->header->logging_max = _max_val;                                         \
+    m->header->logging_min = _min_val;                                         \
+  }
+
 int psz_compress_float(
     psz_resource* m, psz_rc rc, float* IN_d_data, psz_header* OUT_compressed_metadata,
     uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
 
-  m->header->pred_type = rc.predictor;
-  m->header->codec1_type = rc.codec1;
-  m->header->hist_type = rc.hist;
-  m->header->mode = rc.mode;
-  m->header->eb = rc.eb;
-  m->header->user_input_eb = rc.eb;
-
-  // TODO check type
-  auto dtype = m->header->dtype;
-
-  if (rc.mode == Rel) {
-    double _max_val, _min_val, _rng;
-    GPU_probe_extrema<float>(IN_d_data, m->data_len, _max_val, _min_val, _rng);
-    m->header->eb *= _rng;
-    m->header->logging_max = _max_val;
-    m->header->logging_min = _min_val;
-  }
+  RUNTIME_CHECK_RADIUS(float);
+  RUNTIME_SAVE_CONFIG();
+  RUNTIME_SCAN_EXTREMA(float);
 
   auto c = (psz::CompressorF4*)m->compressor;
   c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
@@ -319,21 +329,9 @@ int psz_compress_double(
 {
   int status = PSZ_SUCCESS;
 
-  m->header->pred_type = rc.predictor;
-  m->header->mode = rc.mode;
-  m->header->eb = rc.eb;
-  m->header->user_input_eb = rc.eb;
-
-  // TODO check type
-  auto dtype = m->header->dtype;
-
-  if (rc.mode == Rel) {
-    double _max_val, _min_val, _rng;
-    GPU_probe_extrema<double>(IN_d_data, m->data_len, _max_val, _min_val, _rng);
-    m->header->eb *= _rng;
-    m->header->logging_max = _max_val;
-    m->header->logging_min = _min_val;
-  }
+  RUNTIME_CHECK_RADIUS(double);
+  RUNTIME_SAVE_CONFIG();
+  RUNTIME_SCAN_EXTREMA(double);
 
   auto c = (psz::CompressorF8*)m->compressor;
   c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);

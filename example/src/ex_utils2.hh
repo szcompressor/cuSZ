@@ -12,7 +12,7 @@ struct Arguments {
   size_t x;
   size_t y;
   size_t z;
-  size_t radius;
+  uint16_t radius{512};
 };
 
 void print_help();

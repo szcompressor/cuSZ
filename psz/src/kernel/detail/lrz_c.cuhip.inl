@@ -59,7 +59,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     uint16_t const radius, Fp const ebx2_r, uint32_t* top_count = nullptr)
 {
   constexpr auto NumThreads = TileDim / Seq;
-  constexpr auto NumWarps = NumThreads / 32;
+  // constexpr auto NumWarps = NumThreads / 32;
 
   CHECK_LOCAL_STAT_TOGGLE;
   SETUP_ZIGZAG;
