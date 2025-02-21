@@ -13,6 +13,7 @@ struct Arguments {
   size_t y;
   size_t z;
   uint16_t radius{512};
+  bool verbose{false};
 };
 
 void print_help();

@@ -41,7 +41,7 @@ Arguments parse_arguments(int argc, char* argv[])
       args.fname_suffix = argv[++i];
       fname_suffix_set = true;
     }
-    else if (arg == "--from" and i + 1 < argc) {
+    else if ((arg == "--from" or arg == "--id") and i + 1 < argc) {
       args.from_number = atoi(argv[++i]);
       from_number_set = true;
     }
@@ -68,6 +68,9 @@ Arguments parse_arguments(int argc, char* argv[])
     else if (arg == "--codec" and i + 1 < argc) {
       args.codec_type = std::string(argv[++i]) == "fzg" ? FZGPUCodec : Huffman;
     }
+    else if (arg == "--report") {
+      args.verbose = true;
+    }
     else if (arg == "--help") {
       print_help();
       exit(0);
@@ -79,8 +82,10 @@ Arguments parse_arguments(int argc, char* argv[])
     }
   }
 
-  if (not fname_prefix_set or not fname_suffix_set or not from_number_set or not to_number_set or
-      not x_set or not y_set or not z_set) {
+  if (not to_number_set) { args.to_number = args.from_number + 1; }
+
+  if (not fname_prefix_set or not fname_suffix_set or not x_set or not y_set or not z_set or
+      not from_number_set) {
     std::cerr << "Error: Missing required arguments." << std::endl;
     print_help();
     exit(1);
@@ -92,6 +97,7 @@ Arguments parse_arguments(int argc, char* argv[])
 std::vector<std::string> construct_file_names(
     const std::string& prefix, const std::string& suffix, int start, int end, int width)
 {
+  if (end == -1) end = start + 1;
   std::vector<std::string> file_names;
   for (int i = start; i < end; ++i) {
     std::ostringstream oss;
