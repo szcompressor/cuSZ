@@ -35,7 +35,7 @@
         <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val, idx, nnz, out);      \
     STOP_GPUEVENT_RECORDING(stream);                                           \
     CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));                    \
-    TIME_ELAPSED_GPUEVENT(milliseconds);                                       \
+    if (milliseconds) TIME_ELAPSED_GPUEVENT(milliseconds);                     \
     DESTROY_GPUEVENT_PAIR;                                                     \
   }
 

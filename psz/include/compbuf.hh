@@ -13,13 +13,13 @@ using _portable::utils::tofile;
 namespace psz {
 
 struct CompressorBufferToggle {
-  bool err_ctrl_quant;
-  bool compact_outlier;
-  bool anchor;
-  bool histogram;
-  bool compressed;
-  bool top1;
-  bool pbk_all;
+  bool err_ctrl_quant{true};
+  bool compact_outlier{true};
+  bool anchor{true};
+  bool histogram{false};
+  bool compressed{false};
+  bool top1{false};
+  bool pbk_all{false};
 };
 
 template <typename DType>
@@ -295,18 +295,17 @@ class CompressorBuffer {
 
   size_t pbk_encoding_endloc() const { return h_pbk_res_loc[0]; }
 
-  void pbk_encoding_summary()
+  void pbk_encoding_summary(bool print = true)
   {
     memcpy_allkinds<D2H>(h_pbk_res_loc.get(), d_pbk_res_loc.get(), 1);
-    memcpy_allkinds<D2H>(h_pbk_res_tree_IDs.get(), d_pbk_res_tree_IDs.get(), 1);
-
-    // std::cout << "PBK enc-bytes: " << h_pbk_res_loc[0] * sizeof(T) << std::endl;
 
     size_t bytes_bitstream = h_pbk_res_loc[0] * sizeof(u4);
     size_t bytes_tree_IDs = num_chunk * sizeof(u1);
     size_t bytes_bits = num_chunk * sizeof(u2);
     size_t bytes_entries = num_chunk * sizeof(u4);
+    pbk_bytes = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries;
 
+    if (not print) return;
     printf(
         "output contains:\n"
         "| segments  |    uints | #byte |    bytes |\n"
@@ -321,7 +320,6 @@ class CompressorBuffer {
         num_chunk, (u4)sizeof(u4), bytes_entries            //
     );
 
-    pbk_bytes = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries;
     printf("bytes uncompressed  :  %lu\n", sizeof(T) * len);
     printf("bytes compressed    :  %lu\n", pbk_bytes);
     printf("compression ratio   :  %.2fx\n", sizeof(T) * len * 1.0 / pbk_bytes);
