@@ -66,7 +66,8 @@ __device__ void find_closest(float prob, volatile u4* closest_index) {}
 // significantly slowed down the kernel on non-HPC GPU
 template <
     typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T,
-    bool UseLocalStat = true, bool UseGlobalStat = true, bool EnableEncoding = false>
+    bool UseLocalStat = true, bool UseGlobalStat = true, bool EnableEncoding = false,
+    bool EIP_DBG = true>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* const in_data, size_t const gx,                         // input
     Eq* const out_eq,                                          // output: dense
@@ -225,6 +226,13 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       // simplify: no breaking by default
       s_reduced[threadIdx.x] = p_reduced;
       s_bitcount[threadIdx.x] = p_bits;
+
+      if constexpr (EIP_DBG) {
+        if (p_bits > 32)
+          printf(
+              "ERROR: bitcount %2u > 32 @threadIdx.x %3u of blockIdx.x %5u\n", p_bits, threadIdx.x,
+              blockIdx.x);
+      }
     }
     __syncthreads();
 
