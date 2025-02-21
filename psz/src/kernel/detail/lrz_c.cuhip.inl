@@ -66,7 +66,7 @@ __device__ void find_closest(float prob, volatile u4* closest_index) {}
 // significantly slowed down the kernel on non-HPC GPU
 template <
     typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T,
-    bool UseLocalStat = true, bool UseGlobalStat = true, bool EnableEncoding = false,
+    bool UseLocalStat = true, bool UseGlobalStat = true, bool EncodeInPlace = false,
     bool EIP_DBG = true>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T* const in_data, size_t const gx,                         // input
@@ -153,7 +153,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       if (threadIdx.x == 0) atomicAdd(top_count, s_top1_counts[0]);
   }
 
-  if constexpr (UseLocalStat and EnableEncoding) {
+  if constexpr (UseLocalStat and EncodeInPlace) {
     constexpr auto ChunkSize = TileDim;  // 1D
     constexpr auto ShardSize = Seq;
     constexpr auto ReduceTimes = 2u;
