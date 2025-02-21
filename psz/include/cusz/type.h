@@ -34,34 +34,15 @@ typedef _portable_len3 psz_len3;
 typedef _portable_size3 psz_size3;
 typedef _portable_data_summary psz_data_summary;
 
+#define CUSZ_SUCCESS PSZ_SUCCESS
+#define CUSZ_NOT_IMPLEMENTED PSZ_ABORT_NOT_IMPLEMENTED
+
 typedef enum {
-  CUSZ_SUCCESS,
-  CUSZ_GENERAL_GPU_FAILURE,
-  CUSZ_FAIL_ONDISK_FILE_ERROR,
-  CUSZ_FAIL_DATA_NOT_READY,
-  PSZ_TYPE_UNSUPPORTED,
-  PSZ_ERROR_GPU_GENERAL,
-  PSZ_ERROR_OUTLIER_OVERFLOW,
-  PSZ_ERROR_IO,
-  // specify error when calling CUDA API
-  CUSZ_FAIL_GPU_MALLOC,
-  CUSZ_FAIL_GPU_MEMCPY,
-  CUSZ_FAIL_GPU_ILLEGAL_ACCESS,
-  // specify error related to our own memory manager
-  CUSZ_FAIL_GPU_OUT_OF_MEMORY,
-  // when compression is useless
-  CUSZ_FAIL_INCOMPRESSIABLE,
-  // TODO component related error
-  CUSZ_FAIL_UNSUPPORTED_DATATYPE,
-  CUSZ_FAIL_UNSUPPORTED_QUANTTYPE,
-  CUSZ_FAIL_UNSUPPORTED_PRECISION,
-  CUSZ_FAIL_UNSUPPORTED_PIPELINE,
-  // not-implemented error
-  CUSZ_NOT_IMPLEMENTED,
-  // too many outliers
-  CUSZ_OUTLIER_TOO_MANY,
-  // specified wrong timer
-  PSZ_WRONG_TIMER_SPECIFIED,
+  PSZ_SUCCESS,
+  PSZ_WARN_RADIUS_TOO_LARGE,
+  PSZ_ABORT_TYPE_UNSUPPORTED,
+  PSZ_ABORT_NOT_IMPLEMENTED,
+  PSZ_ABORT_OUTLIER_TOO_MANY,
 } psz_error_status;
 typedef psz_error_status pszerror;
 

@@ -43,7 +43,7 @@ psz_compressor* capi_psz_create(
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
 
   return comp;
 }
@@ -62,7 +62,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
 
   return comp;
 }
@@ -80,7 +80,7 @@ psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
 
   return comp;
 }
@@ -96,7 +96,7 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
     comp->compressor = h->dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                       : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
 
   return comp;
 }
@@ -109,7 +109,7 @@ pszerror capi_psz_release(psz_compressor* comp)
   else if (dtype == F8)
     delete (psz::CompressorF8*)comp->compressor;
   else
-    return PSZ_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_TYPE_UNSUPPORTED;
 
   delete comp;
   return CUSZ_SUCCESS;
@@ -158,7 +158,7 @@ pszerror capi_psz_compress(
   else {
     // TODO put to log-queue
     cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
-    return PSZ_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_TYPE_UNSUPPORTED;
   }
 
   return CUSZ_SUCCESS;
@@ -186,7 +186,7 @@ pszerror capi_psz_decompress(
   else {
     // TODO put to log-queue
     cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
-    return PSZ_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_TYPE_UNSUPPORTED;
   }
 
   return CUSZ_SUCCESS;
@@ -206,7 +206,7 @@ pszerror capi_psz_clear_buffer(psz_compressor* comp)
   else {
     // TODO put to log-queue
     cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
-    return PSZ_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_TYPE_UNSUPPORTED;
   }
 
   return CUSZ_SUCCESS;
@@ -273,7 +273,7 @@ int psz_release_resource(psz_resource* manager)
   else if (dtype == F8)
     delete (psz::CompressorF8*)manager->compressor;
   else
-    return PSZ_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_TYPE_UNSUPPORTED;
 
   if (manager->cli) delete manager->cli;
   if (manager->header) delete manager->header;
@@ -286,6 +286,8 @@ int psz_compress_float(
     psz_resource* m, psz_rc rc, float* IN_d_data, psz_header* OUT_compressed_metadata,
     uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes)
 {
+  int status = PSZ_SUCCESS;
+
   m->header->pred_type = rc.predictor;
   m->header->codec1_type = rc.codec1;
   m->header->hist_type = rc.hist;
@@ -308,13 +310,15 @@ int psz_compress_float(
   c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
   c->export_header(*OUT_compressed_metadata);
 
-  return 0;
+  return status;
 }
 
 int psz_compress_double(
     psz_resource* m, psz_rc rc, double* IN_d_data, psz_header* OUT_compressed_metadata,
     uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes)
 {
+  int status = PSZ_SUCCESS;
+
   m->header->pred_type = rc.predictor;
   m->header->mode = rc.mode;
   m->header->eb = rc.eb;
@@ -335,7 +339,7 @@ int psz_compress_double(
   c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
   c->export_header(*OUT_compressed_metadata);
 
-  return 0;
+  return status;
 }
 
 int psz_decompress_float(
@@ -344,7 +348,7 @@ int psz_decompress_float(
 {
   auto c = (psz::CompressorF4*)m->compressor;
   c->decompress(m->header, IN_d_compressed, OUT_d_decompressed, m->stream);
-  return 0;
+  return PSZ_SUCCESS;
 }
 
 int psz_decompress_double(
@@ -353,5 +357,5 @@ int psz_decompress_double(
 {
   auto c = (psz::CompressorF8*)m->compressor;
   c->decompress(m->header, IN_d_compressed, OUT_d_decompressed, m->stream);
-  return 0;
+  return PSZ_SUCCESS;
 }
