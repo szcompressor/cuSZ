@@ -62,6 +62,11 @@ class CompressorBuffer {
   GPU_unique_hptr<u1[]> h_pbk_res_tree_IDs;
   GPU_unique_dptr<size_t[]> d_pbk_res_loc;
   GPU_unique_hptr<size_t[]> h_pbk_res_loc;
+  // breaking handling
+  GPU_unique_dptr<E[]> d_pbk_brval;
+  GPU_unique_dptr<M[]> d_pbk_bridx;
+  GPU_unique_dptr<M[]> d_pbk_brnum;
+  GPU_unique_hptr<M[]> h_pbk_brnum;
 
   const char* shellvar_pbk_hist;
   const char* shellvar_pbk_book;
@@ -123,6 +128,11 @@ class CompressorBuffer {
       h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
       d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
       h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
+
+      d_pbk_brval = MAKE_UNIQUE_DEVICE(E, 100 + num_chunk);
+      d_pbk_bridx = MAKE_UNIQUE_DEVICE(M, 100 + num_chunk);
+      d_pbk_brnum = MAKE_UNIQUE_DEVICE(M, 1);
+      h_pbk_brnum = MAKE_UNIQUE_HOST(M, 1);
 
       fromfile(shellvar_pbk_book, h_pbk_r64.get(), PBK_LEN * PBK_N);
       memcpy_allkinds<H2D>(d_pbk_r64.get(), h_pbk_r64.get(), PBK_LEN * PBK_N);
@@ -298,12 +308,16 @@ class CompressorBuffer {
   void pbk_encoding_summary(bool print = true)
   {
     memcpy_allkinds<D2H>(h_pbk_res_loc.get(), d_pbk_res_loc.get(), 1);
+    memcpy_allkinds<D2H>(h_pbk_brnum.get(), d_pbk_brnum.get(), 1);
 
     size_t bytes_bitstream = h_pbk_res_loc[0] * sizeof(u4);
     size_t bytes_tree_IDs = num_chunk * sizeof(u1);
     size_t bytes_bits = num_chunk * sizeof(u2);
     size_t bytes_entries = num_chunk * sizeof(u4);
-    pbk_bytes = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries;
+    size_t bytes_T_outlier = (sizeof(T) + sizeof(M)) * compact->h_num[0];
+    size_t bytes_E_outlier = (sizeof(E) + sizeof(M)) * h_pbk_brnum[0];
+    pbk_bytes = bytes_bitstream + bytes_tree_IDs + bytes_bits + bytes_entries + bytes_T_outlier +
+                bytes_E_outlier;
 
     if (not print) return;
     printf(
@@ -313,11 +327,15 @@ class CompressorBuffer {
         "| bitstream | %8lu |     %u | %8lu |\n"
         "| tree IDs  | %8u |     %u | %8lu |\n"
         "| bits      | %8u |     %u | %8lu |\n"
-        "| entries   | %8u |     %u | %8lu |\n",
-        h_pbk_res_loc[0], (u4)sizeof(u4), bytes_bitstream,  //
-        num_chunk, (u4)sizeof(u1), bytes_tree_IDs,          //
-        num_chunk, (u4)sizeof(u2), bytes_bits,              //
-        num_chunk, (u4)sizeof(u4), bytes_entries            //
+        "| entries   | %8u |     %u | %8lu |\n"
+        "| T outlier | %8u |     %u | %8lu |\n"
+        "| E outlier | %8u |     %u | %8lu |\n",
+        h_pbk_res_loc[0], (u4)sizeof(u4), bytes_bitstream,                //
+        num_chunk, (u4)sizeof(u1), bytes_tree_IDs,                        //
+        num_chunk, (u4)sizeof(u2), bytes_bits,                            //
+        num_chunk, (u4)sizeof(u4), bytes_entries,                         //
+        compact->h_num[0], (u4)(sizeof(T) + sizeof(M)), bytes_T_outlier,  //
+        h_pbk_brnum[0], (u4)(sizeof(E) + sizeof(M)), bytes_E_outlier      //
     );
 
     printf("bytes uncompressed  :  %lu\n", sizeof(T) * len);

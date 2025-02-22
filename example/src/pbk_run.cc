@@ -104,10 +104,10 @@ cudaStream_t stream;
       "%lf\e[0m\t"                           \
       "MAX.REL.EB\t" color                   \
       "%lf\e[0m\t"                           \
-      "SPLEN\t" color "%d\e[0m\n",           \
+      "T.SPLEN\t" color "%d\e[0m\t",         \
       radius, cr, s->score_PSNR, s->score_NRMSE, s->max_err_abs, s->max_err_rel, splen)
 
-void driver_program(const char* fname, size_t const len)
+void driver_program(const char* fname, size_t const len, bool EIP_verbose = false)
 {
   fromfile(fname, h_uncomp.get(), len);
   memcpy_allkinds<H2D>(d_uncomp.get(), h_uncomp.get(), len);
@@ -137,6 +137,7 @@ void driver_program(const char* fname, size_t const len)
     auto s = new psz_statistics;
     psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp_ref.get(), len);
     PRINT_STATS("modular ref.", "\e[34m", radius, NAN);
+    printf("\n");
 
     // PRINT_ALL_H_DECOMP();
 
@@ -150,10 +151,11 @@ void driver_program(const char* fname, size_t const len)
         d_uncomp.get(), len3_std, mem_eip->ectrl(), (void*)mem_eip->outlier(), mem_eip->top1(),
         ebx2, ebx2_r, fixed_radius, stream,  //
         mem_eip->pbk(), mem_eip->pbk_res_tree_IDs(), mem_eip->pbk_res_bitstream(),
-        mem_eip->pbk_res_bits(), mem_eip->pbk_res_entries(), mem_eip->pbk_res_loc());
+        mem_eip->pbk_res_bits(), mem_eip->pbk_res_entries(), mem_eip->pbk_res_loc(),  //
+        mem_eip->d_pbk_brval.get(), mem_eip->d_pbk_bridx.get(), mem_eip->d_pbk_brnum.get());
     cudaStreamSynchronize(stream);
 
-    mem_eip->pbk_encoding_summary(false);
+    mem_eip->pbk_encoding_summary(EIP_verbose);
 
     auto splen = mem_eip->compact->num_outliers();
     auto endloc = mem_eip->pbk_encoding_endloc();
@@ -164,6 +166,11 @@ void driver_program(const char* fname, size_t const len)
     memcpy_allkinds<D2H>(mem_eip->h_pbk_res_bits.get(), mem_eip->d_pbk_res_bits.get(), mem_eip->num_chunk);
     memcpy_allkinds<D2H>(mem_eip->h_pbk_res_bitstream.get(), mem_eip->d_pbk_res_bitstream.get(), endloc);
     // clang-format on
+
+    // !!!! TODO implicitly done in summary
+    // memcpy_allkinds<D2H>(mem_eip->h_pbk_brnum.get(), mem_eip->d_pbk_brnum.get(), 1);
+    auto brnum = mem_eip->h_pbk_brnum[0];
+    // if (brnum) printf("There are artificial top symbols.\n");
 
     // PRINT_H_BITSTREAM(100);
 
@@ -178,6 +185,13 @@ void driver_program(const char* fname, size_t const len)
 
     memcpy_allkinds<H2D>(mem_eip->ectrl(), h_ectrl_eip.get(), len);
 
+    // fix ectrl from artificial top symbols
+    if (brnum)
+      psz::spv_scatter_naive<CUDA, E, M>(
+          mem_eip->d_pbk_brval.get(), mem_eip->d_pbk_bridx.get(), brnum, mem_eip->ectrl(), nullptr,
+          stream);
+    cudaStreamSynchronize(stream);
+
     auto d_space = d_decomp_eip.get(), d_xdata = d_decomp_eip.get();  // aliases
     psz::module::GPU_x_lorenzo_nd<T, false, E>(
         mem_eip->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, fixed_radius, stream);
@@ -188,11 +202,16 @@ void driver_program(const char* fname, size_t const len)
     PRINT_STATS(
         "EIP \e[33m(PBK HF)\e[0m", "\e[33m", fixed_radius,
         len * sizeof(T) * 1.0 / mem_eip->pbk_bytes);
+    if (brnum)
+      printf("E/BR.SPLEN\t\e[33m%u\e[0m\n", brnum);
+    else
+      printf("\n");
 
     // PRINT_ALL_H_DECOMP();
 
     // reset status
     memset_device(mem_eip->compact->d_num.get(), 1);
+    memset_device(mem_eip->d_pbk_brnum.get(), 1);
     memset_device(mem_eip->d_pbk_res_loc.get(), 1);
     memset_device(d_decomp_eip.get(), len);
   };
@@ -242,7 +261,7 @@ int main(int argc, char** argv)
 
   for (const auto& fname : file_names) {
     cout << "\n-------------------- " << fname << " --------------------" << endl;
-    driver_program(fname.c_str(), len);
+    driver_program(fname.c_str(), len, args.verbose);
   }
 
   delete mem_eip;

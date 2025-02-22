@@ -76,7 +76,9 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     uint32_t* top_count = nullptr,                             // opt: feature 1
     Hf* pbk = nullptr,                                         // opt: feature 2
     u1* pbk_res_tree_IDs = nullptr, u4* pbk_res_bitstream = nullptr, u2* pbk_res_bits = nullptr,
-    u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr)
+    u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr,
+    // breaking handling
+    Eq* const brval = nullptr, CI* const bridx = nullptr, CN* const brnum = nullptr)
 {
   constexpr auto NumThreads = TileDim / Seq;
   // constexpr auto NumWarps = NumThreads / 32;
@@ -223,15 +225,34 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
         p_bits += sym_bits * (idx < allowed_len());
       }
 
-      // simplify: no breaking by default
+      // breaking handling
+      if (p_bits > BITWIDTH) {
+        p_bits = 0u;      // reset on breaking
+        p_reduced = 0x0;  // reset on breaking, too
+        auto p_val_ref = s_book[radius];
+        auto const sym_bits = bitcount_of(&p_val_ref);
+        auto br_gidx_start = atomicAdd(brnum, ShardSize);
+#pragma unroll
+        for (auto ix = 0u, br_lidx = (threadIdx.x * ShardSize); ix < ShardSize; ix++, br_lidx++) {
+          bridx[br_gidx_start + ix] = id_base + br_lidx;
+          brval[br_gidx_start + ix] = s_to_encode[br_lidx];
+
+          auto p_val = p_val_ref;
+          p_val <<= (BITWIDTH - sym_bits);
+          p_reduced |= (p_val >> p_bits);
+          p_bits += sym_bits * (br_lidx < allowed_len());
+        }
+      }
+
+      // still for this thread only
       s_reduced[threadIdx.x] = p_reduced;
       s_bitcount[threadIdx.x] = p_bits;
 
       if constexpr (EIP_DBG) {
-        if (p_bits > 32)
-          printf(
-              "ERROR: bitcount %2u > 32 @threadIdx.x %3u of blockIdx.x %5u\n", p_bits, threadIdx.x,
-              blockIdx.x);
+        // if (p_bits > 32)
+        //   printf(
+        //       "ERROR: bitcount %2u > 32 @threadIdx.x %3u of blockIdx.x %5u\n", p_bits,
+        //       threadIdx.x, blockIdx.x);
       }
     }
     __syncthreads();
@@ -611,7 +632,7 @@ int GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, u4* out_top1,
     f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf* pbk,
     u1* pbk_res_tree_IDs, Hf* pbk_res_bitstream, u2* pbk_res_bits, u4* pbk_res_entries,
-    size_t* pbk_res_loc)
+    size_t* pbk_res_loc, Eq* const brval, uint32_t* const bridx, uint32_t* const brnum)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
@@ -639,7 +660,7 @@ int GPU_c_lorenzo_nd_with_outlier(
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3.x, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
             out_top1, pbk, pbk_res_tree_IDs, pbk_res_bitstream, pbk_res_bits, pbk_res_entries,
-            pbk_res_loc);
+            pbk_res_loc, brval, bridx, brnum);
   }
   else if (d == 2) {
     // psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
@@ -686,11 +707,11 @@ int GPU_lorenzo_prequant(
   template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq, false>(            \
       T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, u4* top1, \
       f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf*, u1*, Hf*, u2*,  \
-      u4*, size_t*);                                                                            \
+      u4*, size_t*, Eq* const, u4* const, u4* const);                                           \
   template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq, true>(             \
       T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, u4* top1, \
       f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf*, u1*, Hf*, u2*,  \
-      u4*, size_t*);
+      u4*, size_t*, Eq* const, u4* const, u4* const);
 
 #define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
   INSTANCIATE_GPU_L23R_3params(T, false, Eq); \

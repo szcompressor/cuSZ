@@ -34,7 +34,8 @@ int GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, uint32_t* top1,
     f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf* pbk = nullptr,
     u1* pbk_res_tree_IDs = nullptr, Hf* pbk_res_bitstream = nullptr, u2* pbk_res_bit = nullptr,
-    u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr);
+    u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr,  //
+    Eq* const brval = nullptr, u4* const bridx = nullptr, u4* const brnum = nullptr);
 
 template <typename T, bool UseZigZag, typename Eq>
 int GPU_x_lorenzo_nd(

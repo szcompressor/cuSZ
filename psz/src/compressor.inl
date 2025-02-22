@@ -178,7 +178,9 @@ struct Compressor<DType>::impl {
             in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
             ctx->header->radius, stream,  //
             mem->pbk(), mem->pbk_res_tree_IDs(), mem->pbk_res_bitstream(), mem->pbk_res_bits(),
-            mem->pbk_res_entries(), mem->pbk_res_loc());
+            mem->pbk_res_entries(), mem->pbk_res_loc(),
+            // breaking handling
+            mem->d_pbk_brval.get(), mem->d_pbk_bridx.get(), mem->d_pbk_brnum.get());
       }
     }
     else if (ctx->header->pred_type == LorenzoZigZag)

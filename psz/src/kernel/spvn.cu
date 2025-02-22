@@ -39,6 +39,8 @@
     DESTROY_GPUEVENT_PAIR;                                                     \
   }
 
+SPVN_SCATTER(u1, u4)
+SPVN_SCATTER(u2, u4)
 SPVN_SCATTER(f4, u4)
 SPVN_SCATTER(f8, u4)
 

@@ -68,6 +68,9 @@ Arguments parse_arguments(int argc, char* argv[])
     else if (arg == "--codec" and i + 1 < argc) {
       args.codec_type = std::string(argv[++i]) == "fzg" ? FZGPUCodec : Huffman;
     }
+    else if (arg == "--report") {
+      args.verbose = true;
+    }
     else if (arg == "--help") {
       print_help();
       exit(0);
