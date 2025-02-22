@@ -52,16 +52,16 @@ class CompressorBuffer {
   GPU_unique_hptr<Hf[]> h_pbk_r64;
   GPU_unique_dptr<u1[]> d_pbk_revbk_r64;
   GPU_unique_hptr<u1[]> h_pbk_revbk_r64;
-  GPU_unique_dptr<u4[]> d_pbk_res_bitstream;
-  GPU_unique_hptr<u4[]> h_pbk_res_bitstream;
-  GPU_unique_dptr<u2[]> d_pbk_res_bits;
-  GPU_unique_hptr<u2[]> h_pbk_res_bits;
-  GPU_unique_dptr<u4[]> d_pbk_res_entries;
-  GPU_unique_hptr<u4[]> h_pbk_res_entries;
-  GPU_unique_dptr<u1[]> d_pbk_res_tree_IDs;
-  GPU_unique_hptr<u1[]> h_pbk_res_tree_IDs;
-  GPU_unique_dptr<size_t[]> d_pbk_res_loc;
-  GPU_unique_hptr<size_t[]> h_pbk_res_loc;
+  GPU_unique_dptr<u4[]> d_pbk_bitstream;
+  GPU_unique_hptr<u4[]> h_pbk_bitstream;
+  GPU_unique_dptr<u2[]> d_pbk_bits;
+  GPU_unique_hptr<u2[]> h_pbk_bits;
+  GPU_unique_dptr<u4[]> d_pbk_entries;
+  GPU_unique_hptr<u4[]> h_pbk_entries;
+  GPU_unique_dptr<u1[]> d_pbk_tree_IDs;
+  GPU_unique_hptr<u1[]> h_pbk_tree_IDs;
+  GPU_unique_dptr<size_t[]> d_pbk_loc;
+  GPU_unique_hptr<size_t[]> h_pbk_loc;
   // breaking handling
   GPU_unique_dptr<E[]> d_pbk_brval;
   GPU_unique_dptr<M[]> d_pbk_bridx;
@@ -118,16 +118,16 @@ class CompressorBuffer {
 
       d_pbk_r64 = MAKE_UNIQUE_DEVICE(Hf, PBK_LEN * PBK_N);
       h_pbk_r64 = MAKE_UNIQUE_HOST(Hf, PBK_LEN * PBK_N);
-      d_pbk_res_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
-      h_pbk_res_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
-      d_pbk_res_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
-      h_pbk_res_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
-      d_pbk_res_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
-      h_pbk_res_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
-      d_pbk_res_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
-      h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
-      d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
-      h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
+      d_pbk_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
+      h_pbk_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
+      d_pbk_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
+      h_pbk_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
+      d_pbk_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
+      h_pbk_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
+      d_pbk_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
+      h_pbk_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
+      d_pbk_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
+      h_pbk_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
 
       d_pbk_brval = MAKE_UNIQUE_DEVICE(E, 100 + num_chunk);
       d_pbk_bridx = MAKE_UNIQUE_DEVICE(M, 100 + num_chunk);
@@ -173,16 +173,16 @@ class CompressorBuffer {
 
     d_pbk_r64 = MAKE_UNIQUE_DEVICE(Hf, PBK_LEN * PBK_N);
     h_pbk_r64 = MAKE_UNIQUE_HOST(Hf, PBK_LEN * PBK_N);
-    d_pbk_res_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
-    h_pbk_res_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
-    d_pbk_res_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
-    h_pbk_res_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
-    d_pbk_res_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
-    h_pbk_res_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
-    d_pbk_res_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
-    h_pbk_res_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
-    d_pbk_res_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
-    h_pbk_res_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
+    d_pbk_bitstream = MAKE_UNIQUE_DEVICE(u4, len / 2);
+    h_pbk_bitstream = MAKE_UNIQUE_HOST(u4, len / 2);
+    d_pbk_bits = MAKE_UNIQUE_DEVICE(u2, num_chunk);
+    h_pbk_bits = MAKE_UNIQUE_HOST(u2, num_chunk);
+    d_pbk_entries = MAKE_UNIQUE_DEVICE(u4, num_chunk);
+    h_pbk_entries = MAKE_UNIQUE_HOST(u4, num_chunk);
+    d_pbk_tree_IDs = MAKE_UNIQUE_DEVICE(u1, num_chunk);
+    h_pbk_tree_IDs = MAKE_UNIQUE_HOST(u1, num_chunk);
+    d_pbk_loc = MAKE_UNIQUE_DEVICE(size_t, num_chunk);
+    h_pbk_loc = MAKE_UNIQUE_HOST(size_t, num_chunk);
 
     fromfile(shellvar_pbk_book, h_pbk_r64.get(), PBK_LEN * PBK_N);
     memcpy_allkinds<H2D>(d_pbk_r64.get(), h_pbk_r64.get(), PBK_LEN * PBK_N);
@@ -290,27 +290,27 @@ class CompressorBuffer {
   bool compress_time_use_pbk() const { return shellvar_pbk_book != nullptr; }
   bool decompress_time_use_pbk() const { return shellvar_pbk_rvbk != nullptr; }
   Hf* pbk() const { return d_pbk_r64.get(); }
-  Hf* pbk_res_bitstream() const { return d_pbk_res_bitstream.get(); }
-  Hf* pbk_res_bitstream_h() const { return h_pbk_res_bitstream.get(); }
-  u2* pbk_res_bits() const { return d_pbk_res_bits.get(); }
-  u2* pbk_res_bits_h() const { return h_pbk_res_bits.get(); }
-  u4* pbk_res_entries() const { return d_pbk_res_entries.get(); }
-  u4* pbk_res_entries_h() const { return h_pbk_res_entries.get(); }
-  u1* pbk_res_tree_IDs() const { return d_pbk_res_tree_IDs.get(); }
-  u1* pbk_res_tree_IDs_h() const { return h_pbk_res_tree_IDs.get(); }
-  size_t* pbk_res_loc() const { return d_pbk_res_loc.get(); }
+  Hf* pbk_bitstream() const { return d_pbk_bitstream.get(); }
+  Hf* pbk_bitstream_h() const { return h_pbk_bitstream.get(); }
+  u2* pbk_bits() const { return d_pbk_bits.get(); }
+  u2* pbk_bits_h() const { return h_pbk_bits.get(); }
+  u4* pbk_entries() const { return d_pbk_entries.get(); }
+  u4* pbk_entries_h() const { return h_pbk_entries.get(); }
+  u1* pbk_tree_IDs() const { return d_pbk_tree_IDs.get(); }
+  u1* pbk_tree_IDs_h() const { return h_pbk_tree_IDs.get(); }
+  size_t* pbk_loc() const { return d_pbk_loc.get(); }
 
   u1* pbk_revbooks_11() const { return d_pbk_revbk_r64.get(); }
   u1* pbk_revbooks_11_h() const { return h_pbk_revbk_r64.get(); }
 
-  size_t pbk_encoding_endloc() const { return h_pbk_res_loc[0]; }
+  size_t pbk_encoding_endloc() const { return h_pbk_loc[0]; }
 
   void pbk_encoding_summary(bool print = true)
   {
-    memcpy_allkinds<D2H>(h_pbk_res_loc.get(), d_pbk_res_loc.get(), 1);
+    memcpy_allkinds<D2H>(h_pbk_loc.get(), d_pbk_loc.get(), 1);
     memcpy_allkinds<D2H>(h_pbk_brnum.get(), d_pbk_brnum.get(), 1);
 
-    size_t bytes_bitstream = h_pbk_res_loc[0] * sizeof(u4);
+    size_t bytes_bitstream = h_pbk_loc[0] * sizeof(u4);
     size_t bytes_tree_IDs = num_chunk * sizeof(u1);
     size_t bytes_bits = num_chunk * sizeof(u2);
     size_t bytes_entries = num_chunk * sizeof(u4);
@@ -330,7 +330,7 @@ class CompressorBuffer {
         "| entries   | %8u |     %u | %8lu |\n"
         "| T outlier | %8u |     %u | %8lu |\n"
         "| E outlier | %8u |     %u | %8lu |\n",
-        h_pbk_res_loc[0], (u4)sizeof(u4), bytes_bitstream,                //
+        h_pbk_loc[0], (u4)sizeof(u4), bytes_bitstream,                    //
         num_chunk, (u4)sizeof(u1), bytes_tree_IDs,                        //
         num_chunk, (u4)sizeof(u2), bytes_bits,                            //
         num_chunk, (u4)sizeof(u4), bytes_entries,                         //

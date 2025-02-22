@@ -56,7 +56,7 @@ cudaStream_t stream;
 
 #define PRINT_H_BITSTREAM(N)                                          \
   for (auto i = 0; i < N; i++) {                                      \
-    auto val = mem->h_pbk_res_bitstream[i];                           \
+    auto val = mem->h_pbk_bitstream[i];                               \
     cout << i << "\t" << val << "\t" << std::bitset<32>(val) << endl; \
   }
 
@@ -75,18 +75,18 @@ cudaStream_t stream;
     printf("\n");                                                                      \
   }
 
-#define EIP_DECODE_GPU()                                                                          \
-  phf::cuhip::modules<E, Hf>::GPU_pbk_coarse_decode(                                              \
-      mem_eip->pbk_res_bitstream(), endloc, mem_eip->pbk_revbooks_11(), mem_eip->PBK_REVBK_BYTES, \
-      mem_eip->pbk_res_tree_IDs(), mem_eip->pbk_res_bits(), mem_eip->pbk_res_entries(),           \
-      mem_eip->ectrl(), len, stream);                                                             \
+#define EIP_DECODE_GPU()                                                                      \
+  phf::cuhip::modules<E, Hf>::GPU_pbk_coarse_decode(                                          \
+      mem_eip->pbk_bitstream(), endloc, mem_eip->pbk_revbooks_11(), mem_eip->PBK_REVBK_BYTES, \
+      mem_eip->pbk_tree_IDs(), mem_eip->pbk_bits(), mem_eip->pbk_entries(), mem_eip->ectrl(), \
+      len, stream);                                                                           \
   cudaStreamSynchronize(stream);
 
-#define EIP_DECODE_CPU()                                                                  \
-  phf::cuhip::modules<E, Hf>::CPU_pbk_coarse_decode(                                      \
-      mem_eip->pbk_res_bitstream_h(), endloc, mem_eip->pbk_revbooks_11_h(),               \
-      mem_eip->PBK_REVBK_BYTES, mem_eip->pbk_res_tree_IDs_h(), mem_eip->pbk_res_bits_h(), \
-      mem_eip->pbk_res_entries_h(), h_ectrl_eip.get(), len);
+#define EIP_DECODE_CPU()                                                                          \
+  phf::cuhip::modules<E, Hf>::CPU_pbk_coarse_decode(                                              \
+      mem_eip->pbk_bitstream_h(), endloc, mem_eip->pbk_revbooks_11_h(), mem_eip->PBK_REVBK_BYTES, \
+      mem_eip->pbk_tree_IDs_h(), mem_eip->pbk_bits_h(), mem_eip->pbk_entries_h(),                 \
+      h_ectrl_eip.get(), len);
 
 #define PRINT_STATS(type, color, radius, cr) \
   printf(                                    \
@@ -150,8 +150,8 @@ void driver_program(const char* fname, size_t const len, bool EIP_verbose = fals
     psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E, /* uncomp-place enc */ true>(
         d_uncomp.get(), len3_std, mem_eip->ectrl(), (void*)mem_eip->outlier(), mem_eip->top1(),
         ebx2, ebx2_r, fixed_radius, stream,  //
-        mem_eip->pbk(), mem_eip->pbk_res_tree_IDs(), mem_eip->pbk_res_bitstream(),
-        mem_eip->pbk_res_bits(), mem_eip->pbk_res_entries(), mem_eip->pbk_res_loc(),  //
+        mem_eip->pbk(), mem_eip->pbk_tree_IDs(), mem_eip->pbk_bitstream(), mem_eip->pbk_bits(),
+        mem_eip->pbk_entries(), mem_eip->pbk_loc(),  //
         mem_eip->d_pbk_brval.get(), mem_eip->d_pbk_bridx.get(), mem_eip->d_pbk_brnum.get());
     cudaStreamSynchronize(stream);
 
@@ -161,10 +161,10 @@ void driver_program(const char* fname, size_t const len, bool EIP_verbose = fals
     auto endloc = mem_eip->pbk_encoding_endloc();
 
     // clang-format off
-    memcpy_allkinds<D2H>(mem_eip->h_pbk_res_tree_IDs.get(), mem_eip->d_pbk_res_tree_IDs.get(), mem_eip->num_chunk);
-    memcpy_allkinds<D2H>(mem_eip->h_pbk_res_entries.get(), mem_eip->d_pbk_res_entries.get(), mem_eip->num_chunk);
-    memcpy_allkinds<D2H>(mem_eip->h_pbk_res_bits.get(), mem_eip->d_pbk_res_bits.get(), mem_eip->num_chunk);
-    memcpy_allkinds<D2H>(mem_eip->h_pbk_res_bitstream.get(), mem_eip->d_pbk_res_bitstream.get(), endloc);
+    memcpy_allkinds<D2H>(mem_eip->h_pbk_tree_IDs.get(), mem_eip->d_pbk_tree_IDs.get(), mem_eip->num_chunk);
+    memcpy_allkinds<D2H>(mem_eip->h_pbk_entries.get(), mem_eip->d_pbk_entries.get(), mem_eip->num_chunk);
+    memcpy_allkinds<D2H>(mem_eip->h_pbk_bits.get(), mem_eip->d_pbk_bits.get(), mem_eip->num_chunk);
+    memcpy_allkinds<D2H>(mem_eip->h_pbk_bitstream.get(), mem_eip->d_pbk_bitstream.get(), endloc);
     // clang-format on
 
     // !!!! TODO implicitly done in summary
@@ -212,7 +212,7 @@ void driver_program(const char* fname, size_t const len, bool EIP_verbose = fals
     // reset status
     memset_device(mem_eip->compact->d_num.get(), 1);
     memset_device(mem_eip->d_pbk_brnum.get(), 1);
-    memset_device(mem_eip->d_pbk_res_loc.get(), 1);
+    memset_device(mem_eip->d_pbk_loc.get(), 1);
     memset_device(d_decomp_eip.get(), len);
   };
 

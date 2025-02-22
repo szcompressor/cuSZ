@@ -75,8 +75,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     uint16_t const radius, Fp const ebx2_r,                    // config
     uint32_t* top_count = nullptr,                             // opt: feature 1
     Hf* pbk = nullptr,                                         // opt: feature 2
-    u1* pbk_res_tree_IDs = nullptr, u4* pbk_res_bitstream = nullptr, u2* pbk_res_bits = nullptr,
-    u4* pbk_res_entries = nullptr, size_t* pbk_res_loc = nullptr,
+    u1* pbk_tree_IDs = nullptr, u4* pbk_bitstream = nullptr, u2* pbk_bits = nullptr,
+    u4* pbk_entries = nullptr, size_t* pbk_loc = nullptr,
     // breaking handling
     Eq* const brval = nullptr, CI* const bridx = nullptr, CN* const brnum = nullptr)
 {
@@ -204,7 +204,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       tree_idx = __shfl_sync(0xffffffff, tree_idx, 0);
       auto w = pbk[threadIdx.x + tree_idx * BkLen];
       s_book[threadIdx.x] = w;
-      if (threadIdx.x == 0) pbk_res_tree_IDs[blockIdx.x] = tree_idx;
+      if (threadIdx.x == 0) pbk_tree_IDs[blockIdx.x] = tree_idx;
     }
     __syncthreads();
 
@@ -296,10 +296,10 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       if (threadIdx.x == 0) {
         u4 p_bc = s_bitcount[0];
         p_wunits = (p_bc + 31) / 32;
-        p_wloc = atomicAdd((ull*)pbk_res_loc, p_wunits);
+        p_wloc = atomicAdd((ull*)pbk_loc, p_wunits);
 
-        pbk_res_bits[blockIdx.x] = p_bc;
-        pbk_res_entries[blockIdx.x] = p_wloc;
+        pbk_bits[blockIdx.x] = p_bc;
+        pbk_entries[blockIdx.x] = p_wloc;
 
         s_wloc = p_wloc;
         s_wunits = p_wunits;
@@ -318,7 +318,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
       for (auto i = threadIdx.x; i < p_wunits; i += blockDim.x) {
         // TODO align for coalesce
         Hf w = s_reduced[i];
-        pbk_res_bitstream[p_wloc + i] = w;
+        pbk_bitstream[p_wloc + i] = w;
       }
     }
 
@@ -630,9 +630,9 @@ namespace psz::module {
 template <typename T, bool UseZigZag, typename Eq, bool EncodeInPlace>
 int GPU_c_lorenzo_nd_with_outlier(
     T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, u4* out_top1,
-    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf* pbk,
-    u1* pbk_res_tree_IDs, Hf* pbk_res_bitstream, u2* pbk_res_bits, u4* pbk_res_entries,
-    size_t* pbk_res_loc, Eq* const brval, uint32_t* const bridx, uint32_t* const brnum)
+    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream, Hf* pbk, u1* pbk_tree_IDs,
+    Hf* pbk_bitstream, u2* pbk_bits, u4* pbk_entries, size_t* pbk_loc, Eq* const brval,
+    uint32_t* const bridx, uint32_t* const brnum)
 {
   using Compact = _portable::compact_gpu<T>;
   using namespace psz::kernelconfig;
@@ -648,10 +648,10 @@ int GPU_c_lorenzo_nd_with_outlier(
     if constexpr (EncodeInPlace) {
       // printf("%s, using PBK\n", __FILE__);
       // printf("input-pbk\t%x\tlegal? %d\n", pbk, pbk != nullptr);
-      // printf("res-bitstream\t%x\tlegal? %d\n", pbk_res_bitstream, pbk_res_bitstream != nullptr);
-      // printf("res-bits\t%x\tlegal? %d\n", pbk_res_bits, pbk_res_bits != nullptr);
-      // printf("res-blkid\t%x\tlegal? %d\n", pbk_res_entries, pbk_res_entries != nullptr);
-      // printf("res-loc\t\t%x\tlegal? %d\n", pbk_res_loc, pbk_res_loc != nullptr);
+      // printf("res-bitstream\t%x\tlegal? %d\n", pbk_bitstream, pbk_bitstream != nullptr);
+      // printf("res-bits\t%x\tlegal? %d\n", pbk_bits, pbk_bits != nullptr);
+      // printf("res-blkid\t%x\tlegal? %d\n", pbk_entries, pbk_entries != nullptr);
+      // printf("res-loc\t\t%x\tlegal? %d\n", pbk_loc, pbk_loc != nullptr);
     }
     psz::KERNEL_CUHIP_c_lorenzo_1d1l<
         T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, UseZigZag, Eq, T, true, false,
@@ -659,8 +659,8 @@ int GPU_c_lorenzo_nd_with_outlier(
         <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3.x, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
-            out_top1, pbk, pbk_res_tree_IDs, pbk_res_bitstream, pbk_res_bits, pbk_res_entries,
-            pbk_res_loc, brval, bridx, brnum);
+            out_top1, pbk, pbk_tree_IDs, pbk_bitstream, pbk_bits, pbk_entries, pbk_loc, brval,
+            bridx, brnum);
   }
   else if (d == 2) {
     // psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
