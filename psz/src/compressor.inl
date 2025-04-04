@@ -381,6 +381,7 @@ void Compressor<DType>::dump_compress_intermediate(pszctx* ctx, psz_stream_t str
     _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), ctx->header->radius * 2);
   }
   if (ctx->cli->dump_quantcode) {
+    cout << "[psz::dump] dumping quantization codebook to file: " << dump_name("quant") << endl;
     auto h_ectrl = MAKE_UNIQUE_HOST(E, pimpl->len);
     memcpy_allkinds<D2H>(h_ectrl.get(), pimpl->mem->ectrl(), pimpl->len, stream);
     _portable::utils::tofile(

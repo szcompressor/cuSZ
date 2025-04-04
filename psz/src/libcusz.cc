@@ -319,6 +319,7 @@ int psz_compress_float(
   auto c = (psz::CompressorF4*)m->compressor;
   c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
   c->export_header(*OUT_compressed_metadata);
+  c->dump_compress_intermediate(m, m->stream);
 
   return status;
 }
@@ -336,6 +337,7 @@ int psz_compress_double(
   auto c = (psz::CompressorF8*)m->compressor;
   c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
   c->export_header(*OUT_compressed_metadata);
+  c->dump_compress_intermediate(m, m->stream);
 
   return status;
 }
