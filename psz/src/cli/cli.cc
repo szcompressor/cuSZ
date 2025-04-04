@@ -74,6 +74,7 @@ int psz_run_from_CLI(int argc, char** argv)
       memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
 
       m = psz_create_resource_manager(F4, CLI_x(args), CLI_y(args), CLI_z(args), stream);
+      m->cli = args->cli;
       psz_compress_float(
           m,
           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
@@ -87,6 +88,7 @@ int psz_run_from_CLI(int argc, char** argv)
       memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
 
       m = psz_create_resource_manager(F8, CLI_x(args), CLI_y(args), CLI_z(args), stream);
+      m->cli = args->cli;
       psz_compress_double(
           m,
           {CLI_predictor(m), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
