@@ -692,8 +692,8 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
     
     )
 {
-    double alpha=1.75;
-    double beta=3.0;
+    double alpha = 1.25;
+    double beta = 2.0;
     bool interpolators[3]={true,true,true};
     //bool reverse[3]={true,true,true};//{false,true,true};
     bool reverse[3]={false,false,false};
