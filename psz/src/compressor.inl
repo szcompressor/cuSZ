@@ -17,7 +17,7 @@
 #include "compbuf.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
-#include "hfclass.hh"
+#include "hf_ood.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"

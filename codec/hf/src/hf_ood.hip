@@ -18,7 +18,7 @@
 #include "hf/hf.hh"
 #include "hf/hfbk.hh"
 // #include "hf/cxx_hfbk_cu.h"
-#include "hf/hfcodec.hh"
+#include "hf/hf_kernels.hh"
 #include "mem/cxx_memobj.h"
 #include "typing.hh"
 #include "utils/err.hh"

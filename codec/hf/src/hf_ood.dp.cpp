@@ -19,8 +19,8 @@
 
 #include "busyheader.hh"
 #include "hf/hf.hh"
+#include "hf/hf_kernels.hh"
 #include "hf/hfbk.hh"
-#include "hf/hfcodec.hh"
 #include "mem/cxx_memobj.h"
 #include "typing.hh"
 #include "utils/err.hh"

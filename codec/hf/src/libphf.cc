@@ -3,8 +3,8 @@
 #include <cstdio>
 
 #include "hf.h"
+#include "hf_ood.hh"
 #include "hf_type.h"
-#include "hfclass.hh"
 #include "phf_array.hh"
 
 namespace phf {
