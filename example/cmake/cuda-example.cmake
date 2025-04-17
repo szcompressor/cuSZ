@@ -13,8 +13,8 @@ target_link_libraries(prequant PRIVATE cusz CUDA::cudart)
 add_executable(pred src/pred.cc)
 target_link_libraries(pred PRIVATE cusz CUDA::cudart)
 
-add_executable(phf src/bin_phf.cc)
-target_link_libraries(phf PRIVATE cusz CUDA::cudart)
+add_executable(hf src/bin_phf.cc)
+target_link_libraries(hf PRIVATE cusz CUDA::cudart psz_cu_phf)
 
 add_executable(bin_hist src/bin_hist.cc)
 target_link_libraries(bin_hist PRIVATE cusz CUDA::cudart)

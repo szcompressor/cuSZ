@@ -1,5 +1,5 @@
 /**
- * @file hfcodec.cuhip.inl
+ * @file hf_kernels.cuhip.inl
  * @author Jiannan Tian
  * @brief Huffman kernel definitions
  * @version 0.2
@@ -16,8 +16,8 @@
 
 #include <cstdio>
 
-#include "hfclass.hh"  // contains HuffmanHelper; TODO put in another file
-#include "hfword.hh"
+#include "hf_ood.hh"  // contains HuffmanHelper; TODO put in another file
+#include "hf_word.hh"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x
@@ -51,7 +51,6 @@ struct helper {
 }  // namespace
 
 namespace phf::experimental {
-
 // a duplicate from psz
 template <typename T, typename M = u4>
 __global__ void KERNEL_CUHIP_scatter(T* val, M* idx, int const n, T* out)
@@ -61,84 +60,6 @@ __global__ void KERNEL_CUHIP_scatter(T* val, M* idx, int const n, T* out)
   if (tid < n) {
     int dst_idx = idx[tid];
     out[dst_idx] = val[tid];
-  }
-}
-
-// TODO totally disable H (no need to be other than uint32_t)
-// TODO kernel wrapper
-template <typename E, typename H>
-__global__ void KERNEL_CUHIP_encode_phase1_fill_with_filter(
-    /* input */ E* in, size_t const in_len, H* in_bk, int const in_bklen,
-    H const replacement,  //
-    /* output */ H* encoded, E* outlier_val, uint32_t* outlier_idx, uint32_t* outlier_num)
-{
-  auto s_bk = reinterpret_cast<uint32_t*>(__codec_raw);
-
-  // load from global memory
-  for (auto idx = helper::local_tid_1();  //
-       idx < in_bklen;                    //
-       idx += helper::block_stride_1())
-    s_bk[idx] = in_bk[idx];
-
-  __syncthreads();
-
-  for (auto idx = helper::global_tid_1(); idx < in_len; idx += helper::grid_stride_1()) {
-    auto candidate = s_bk[(int)in[idx]];
-    auto pw4 = reinterpret_cast<HuffmanWord<4>*>(&candidate);
-
-    if (pw4->bitcount == pw4->OUTLIER_CUTOFF) {
-      encoded[idx] = replacement;
-      auto atomic_old_loc = atomicAdd(outlier_num, 1);
-      outlier_val[atomic_old_loc] = in[idx];
-      outlier_idx[atomic_old_loc] = idx;
-      printf("inside kernel; hf outlier; atomic_old_loc: %d\n", atomic_old_loc);
-    }
-    else {
-      encoded[idx] = candidate;
-    }
-  }
-}
-
-template <typename E, typename H, typename M = uint32_t>
-__global__ void KERNEL_CUHIP_encode_phase1_fill_collect_metadata(
-    E* in, size_t const in_len, H* in_bk, int const in_bklen, int const sublen, int const pardeg,
-    int const repeat, H* encoded, M* par_nbit, M* par_ncell)
-{
-  using PW = HuffmanWord<sizeof(H)>;
-  auto s_bk = reinterpret_cast<H*>(__codec_raw);
-  // for one sublen of pts
-  __shared__ uint32_t nbit;
-
-  // load codebook
-  for (auto i = threadIdx.x; i < in_bklen; i += blockDim.x) { s_bk[i] = in_bk[i]; }
-  __syncthreads();
-
-  for (auto n = 0; n < repeat; n++) {
-    uint32_t p_nbit{0};
-    if (threadIdx.x == 0) nbit = 0;
-    __syncthreads();
-
-    auto block_base = blockIdx.x * (repeat * sublen);
-    auto part_id = block_base / (n * sublen);
-
-    for (auto i = threadIdx.x; i < sublen; i += blockDim.x) {
-      auto gid = i + (n * sublen) + block_base;
-      auto word = s_bk[(int)in[gid]];
-      encoded[gid] = word;
-      p_nbit += ((PW*)&word)->bitcount;
-    }
-    atomicAdd(&nbit, p_nbit);
-    __syncthreads();
-
-    if (threadIdx.x == 0) {  //
-      auto ncell = (nbit - 1) / (sizeof(H) * 8) + 1;
-      if (part_id < pardeg) {
-        par_nbit[part_id] = nbit;
-        par_ncell[part_id] = ncell;
-      }
-    }
-
-    __syncthreads();
   }
 }
 
@@ -240,6 +161,161 @@ __global__ void KERNEL_CUHIP_encode_phase4_concatenate(
   for (auto i = threadIdx.x; i < n; i += blockDim.x) {  // block-stride
     dst[i] = src[i];
   }
+}
+
+}  // namespace phf
+
+namespace phf {
+
+using CompactIdx = uint32_t;
+using CompactNum = uint32_t;
+#define CompactVal T
+#define CV CompactVal
+#define CI CompactIdx
+#define CN CompactNum
+
+using Hf = uint32_t;
+
+template <typename E, int ChunkSize = 1024, int ShardSize = 4, int MaxBkLen = 1024>
+__global__ void KERNEL_CUHIP_Huffman_ReVISIT_lite(
+    E* in_data, size_t const len, Hf* hf_book, const u4 runtime_bklen, u4* hf_bitstream,
+    u4* hf_bits, u4* hf_cells, const u4 nblock, /* breaking handling */
+    E* hf_brval, CI* hf_bridx, CN* hf_brnum)
+{
+  constexpr auto NumThreads = ChunkSize / ShardSize;
+  // constexpr auto NumWarps = NumThreads / 32;
+
+  __shared__ E s_to_encode[ChunkSize];
+  auto const id_base = blockIdx.x * ChunkSize;
+
+// dram.in_data to shmem.in_data
+#pragma unroll
+  for (auto ix = 0; ix < ShardSize; ix++) {
+    auto id = id_base + threadIdx.x + ix * NumThreads;
+    if (id < len) s_to_encode[threadIdx.x + ix * NumThreads] = in_data[id];
+  }
+  __syncthreads();
+
+  // lite: hardcoded parameters
+  constexpr auto ReduceTimes = 2u;
+  constexpr auto ShuffleTimes = 8u;
+  constexpr auto BITWIDTH = 32;
+
+  static_assert(ShardSize == 1 << ReduceTimes, "Wrong reduce times.");
+  static_assert(ChunkSize == 1 << (ReduceTimes + ShuffleTimes), "Wrong shuffle times.");
+
+  __shared__ Hf s_book[MaxBkLen];
+  __shared__ Hf s_reduced[NumThreads * 2];   // !!!! check types E and Hf
+  __shared__ u4 s_bitcount[NumThreads * 2];  // !!!! check types E and Hf
+
+  auto bitcount_of = [](Hf* _w) { return reinterpret_cast<HuffmanWord<4>*>(_w)->bitcount; };
+  auto entry = [&]() -> size_t { return ChunkSize * blockIdx.x; };
+  auto allowed_len = [&]() { return min((size_t)ChunkSize, len - entry()); };
+
+  ////////// load codebook
+  for (auto i = threadIdx.x; i < runtime_bklen; i += NumThreads) { s_book[i] = hf_book[i]; }
+  __syncthreads();
+
+  ////////// start of reduce-merge
+  {
+    auto p_bits{0u};
+    Hf p_reduced{0x0};
+
+    // per-thread loop, merge
+    for (auto i = 0; i < ShardSize; i++) {
+      auto idx = (threadIdx.x * ShardSize) + i;
+      auto p_key = s_to_encode[idx];
+      auto p_val = s_book[p_key];
+      auto sym_bits = bitcount_of(&p_val);
+
+      p_val <<= (BITWIDTH - sym_bits);
+      p_reduced |= (p_val >> p_bits);
+      p_bits += sym_bits * (idx < allowed_len());
+    }
+
+    // breaking handling
+    if (p_bits > BITWIDTH) {
+      p_bits = 0u;      // reset on breaking
+      p_reduced = 0x0;  // reset on breaking, too
+      auto p_val_ref = s_book[MaxBkLen];
+      auto const sym_bits = bitcount_of(&p_val_ref);
+      auto br_gidx_start = atomicAdd(hf_brnum, ShardSize);
+#pragma unroll
+      for (auto ix = 0u, br_lidx = (threadIdx.x * ShardSize); ix < ShardSize; ix++, br_lidx++) {
+        hf_bridx[br_gidx_start + ix] = id_base + br_lidx;
+        hf_brval[br_gidx_start + ix] = s_to_encode[br_lidx];
+
+        auto p_val = p_val_ref;
+        p_val <<= (BITWIDTH - sym_bits);
+        p_reduced |= (p_val >> p_bits);
+        p_bits += sym_bits * (br_lidx < allowed_len());
+      }
+    }
+
+    // still for this thread only
+    s_reduced[threadIdx.x] = p_reduced;
+    s_bitcount[threadIdx.x] = p_bits;
+  }
+  __syncthreads();
+
+  ////////// end of reduce-merge; start of shuffle-merge
+
+  for (auto sf = ShuffleTimes, stride = 1u; sf > 0; sf--, stride *= 2) {
+    auto l = threadIdx.x / (stride * 2) * (stride * 2);
+    auto r = l + stride;
+
+    auto lbc = s_bitcount[l];
+    u4 used__units = lbc / BITWIDTH;
+    u4 used___bits = lbc % BITWIDTH;
+    u4 unused_bits = BITWIDTH - used___bits;
+
+    auto lend = (Hf*)(s_reduced + l + used__units);
+    auto this_point = s_reduced[threadIdx.x];
+    auto lsym = this_point >> used___bits;
+    auto rsym = this_point << unused_bits;
+
+    if (threadIdx.x >= r and threadIdx.x < r + stride)
+      atomicAnd((Hf*)(s_reduced + threadIdx.x), 0x0);
+    __syncthreads();
+
+    if (threadIdx.x >= r and threadIdx.x < r + stride) {
+      atomicOr(lend + (threadIdx.x - r) + 0, lsym);
+      atomicOr(lend + (threadIdx.x - r) + 1, rsym);
+    }
+
+    if (threadIdx.x == l) s_bitcount[l] += s_bitcount[r];
+    __syncthreads();
+  }
+  ////////// end of shuffle-merge, start of outputting
+
+  __shared__ u4 s_wunits;
+  ull p_wunits;
+
+  static_assert(BITWIDTH == 32, "Wrong bitwidth (!=32).");
+  if (threadIdx.x == 0) {
+    u4 p_bc = s_bitcount[0];
+    p_wunits = (p_bc + 31) / 32;
+
+    hf_bits[blockIdx.x] = p_bc;
+    hf_cells[blockIdx.x] = p_wunits;
+
+    s_wunits = p_wunits;
+  }
+  __syncthreads();
+
+  if (threadIdx.x % 32 == 0 and threadIdx.x / 32 > 0) { p_wunits = s_wunits; }
+  __syncthreads();
+
+  p_wunits = __shfl_sync(0xffffffff, p_wunits, 0);
+
+  for (auto i = threadIdx.x; i < p_wunits; i += blockDim.x) {
+    Hf w = s_reduced[i];
+    hf_bitstream[id_base + i] = w;
+  }
+
+  ////////// end of outputting the encoded
+
+  // end of kernel
 }
 
 }  // namespace phf

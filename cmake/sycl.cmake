@@ -98,7 +98,7 @@ add_library(
   src/hf/hfbk_internal.seq.cc src/hf/hfbk.seq.cc src/hf/hfcanon.seq.cc)
 target_link_libraries(pszhfbook_seq PUBLIC pszcompile_settings)
 
-add_library(pszhf_dp src/hf/hfclass.dp.cpp src/hf/hfcodec.dp.cpp)
+add_library(pszhf_dp src/hf/hfclass.dp.cpp src/hf/hf_kernels.dp.cpp)
 target_link_libraries(pszhf_dp PUBLIC pszcompile_settings pszstat_dp
   pszhfbook_seq)
 

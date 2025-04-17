@@ -12,8 +12,8 @@
 
 #include "busyheader.hh"
 #include "cusz/type.h"
-#include "hfbk_impl.hh"
-#include "hfword.hh"
+#include "hf_bk_impl.hh"
+#include "hf_word.hh"
 #include "utils/timer.hh"
 
 HuffmanTree* create_tree_serial(int state_num)
