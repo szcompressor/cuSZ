@@ -146,14 +146,16 @@ add_library(PSZ::CUDA::utils ALIAS psz_cu_utils)
 add_library(CUSZ::utils ALIAS psz_cu_utils)
 
 add_library(psz_cu_phf
-  codec/hf/src/hfclass.cc
   codec/hf/src/hf_est.cc
-  codec/hf/src/hfbk_impl1.seq.cc
-  codec/hf/src/hfbk_impl2.seq.cc
-  codec/hf/src/hfbk_internal.seq.cc
-  codec/hf/src/hfbk.seq.cc
-  codec/hf/src/hfcanon.seq.cc
-  codec/hf/src/hfcxx_module.cu
+  codec/hf/src/hf_bk_impl1.seq.cc
+  codec/hf/src/hf_bk_impl2.seq.cc
+  codec/hf/src/hf_bk_internal.seq.cc
+  codec/hf/src/hf_bk.seq.cc
+  codec/hf/src/hf_canon.seq.cc
+  codec/hf/src/hf_kernels.cu
+  codec/hf/src/hf_ood.cc
+  codec/hf/src/hf_hl.cc
+  codec/hf/src/hf_buf.cc
   codec/hf/src/libphf.cc
 )
 target_link_libraries(psz_cu_phf

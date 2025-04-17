@@ -19,7 +19,7 @@
 #include "cusz/type.h"
 #include "fzg_class.hh"
 #include "header.h"
-#include "hfclass.hh"
+#include "hf_ood.hh"
 #include "typing.hh"
 
 namespace psz {

@@ -18,7 +18,7 @@
 #include <sycl/sycl.hpp>
 
 #include "busyheader.hh"
-#include "hf/hfcodec.hh"
+#include "hf/hf_kernels.hh"
 #include "hf/hfstruct.h"
 #include "typing.hh"
 #include "utils/config.hh"
@@ -32,37 +32,29 @@
 using BYTE = uint8_t;
 
 struct __helper {
-  __dpct_inline__ static unsigned int local_tid_1(
-      const sycl::nd_item<3>& item_ct1)
+  __dpct_inline__ static unsigned int local_tid_1(const sycl::nd_item<3>& item_ct1)
   {
     return item_ct1.get_local_id(2);
   }
-  __dpct_inline__ static unsigned int global_tid_1(
-      const sycl::nd_item<3>& item_ct1)
+  __dpct_inline__ static unsigned int global_tid_1(const sycl::nd_item<3>& item_ct1)
   {
-    return item_ct1.get_group(2) * item_ct1.get_local_range(2) +
-           item_ct1.get_local_id(2);
+    return item_ct1.get_group(2) * item_ct1.get_local_range(2) + item_ct1.get_local_id(2);
   }
-  __dpct_inline__ static unsigned int block_stride_1(
-      const sycl::nd_item<3>& item_ct1)
+  __dpct_inline__ static unsigned int block_stride_1(const sycl::nd_item<3>& item_ct1)
   {
     return item_ct1.get_local_range(2);
   }
-  __dpct_inline__ static unsigned int grid_stride_1(
-      const sycl::nd_item<3>& item_ct1)
+  __dpct_inline__ static unsigned int grid_stride_1(const sycl::nd_item<3>& item_ct1)
   {
     return item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
   }
   template <int SEQ>
-  __dpct_inline__ static unsigned int global_tid(
-      const sycl::nd_item<3>& item_ct1)
+  __dpct_inline__ static unsigned int global_tid(const sycl::nd_item<3>& item_ct1)
   {
-    return item_ct1.get_group(2) * item_ct1.get_local_range(2) * SEQ +
-           item_ct1.get_local_id(2);
+    return item_ct1.get_group(2) * item_ct1.get_local_range(2) * SEQ + item_ct1.get_local_id(2);
   }
   template <int SEQ>
-  __dpct_inline__ static unsigned int grid_stride(
-      const sycl::nd_item<3>& item_ct1)
+  __dpct_inline__ static unsigned int grid_stride(const sycl::nd_item<3>& item_ct1)
   {
     return item_ct1.get_local_range(2) * item_ct1.get_group_range(2) * SEQ;
   }
@@ -70,9 +62,8 @@ struct __helper {
 
 template <typename E, typename H, typename M>
 void hf_decode_kernel(
-    H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
-    int const revbook_nbyte, int const sublen, int const pardeg, E* out,
-    const sycl::nd_item<3>& item_ct1, uint8_t* dpct_local,
+    H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
+    int const pardeg, E* out, const sycl::nd_item<3>& item_ct1, uint8_t* dpct_local,
     const sycl::stream& to_stdout);
 
 namespace psz {
@@ -80,14 +71,13 @@ namespace detail {
 
 template <typename E, typename H>
 void hf_encode_phase1_fill(
-    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
-    int const in_booklen, H* out_encoded, const sycl::nd_item<3>& item_ct1,
-    char* __codec_huffman_uninitialized);
+    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book, int const in_booklen,
+    H* out_encoded, const sycl::nd_item<3>& item_ct1, char* __codec_huffman_uninitialized);
 
 template <typename H, typename M>
 void hf_encode_phase2_deflate(
-    H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
-    int const sublen, int const pardeg, const sycl::nd_item<3>& item_ct1);
+    H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell, int const sublen,
+    int const pardeg, const sycl::nd_item<3>& item_ct1);
 
 template <typename H, typename M>
 void hf_encode_phase4_concatenate(
@@ -97,8 +87,7 @@ void hf_encode_phase4_concatenate(
 // TODO change size_t to unsigned int
 template <typename H, typename E>
 constexpr void hf_decode_single_thread_inflate(
-    H* input, E* out, int const total_bw, BYTE* revbook,
-    const sycl::stream& to_stdout);
+    H* input, E* out, int const total_bw, BYTE* revbook, const sycl::stream& to_stdout);
 
 }  // namespace detail
 }  // namespace psz
@@ -106,8 +95,7 @@ constexpr void hf_decode_single_thread_inflate(
 // TODO change size_t to unsigned int
 template <typename H, typename E>
 constexpr void psz::detail::phf_decode_single_thread_inflate(
-    H* input, E* out, int const total_bw, BYTE* revbook,
-    const sycl::stream& to_stdout)
+    H* input, E* out, int const total_bw, BYTE* revbook, const sycl::stream& to_stdout)
 {
   constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
 
@@ -158,9 +146,8 @@ constexpr void psz::detail::phf_decode_single_thread_inflate(
 
 template <typename E, typename H>
 void psz::detail::phf_encode_phase1_fill(
-    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book,
-    int const in_booklen, H* out_encoded, const sycl::nd_item<3>& item_ct1,
-    char* __codec_huffman_uninitialized)
+    E* in_uncompressed, size_t const in_uncompressed_len, H* in_book, int const in_booklen,
+    H* out_encoded, const sycl::nd_item<3>& item_ct1, char* __codec_huffman_uninitialized)
 {
   auto shmem_cb = reinterpret_cast<H*>(__codec_huffman_uninitialized);
 
@@ -186,8 +173,8 @@ void psz::detail::phf_encode_phase1_fill(
 
 template <typename H, typename M>
 void psz::detail::phf_encode_phase2_deflate(
-    H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell,
-    int const sublen, int const pardeg, const sycl::nd_item<3>& item_ct1)
+    H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell, int const sublen,
+    int const pardeg, const sycl::nd_item<3>& item_ct1)
 {
   constexpr int CELL_BITWIDTH = sizeof(H) * 8;
 
@@ -205,8 +192,7 @@ void psz::detail::phf_encode_phase2_deflate(
       if (did == len) break;
 
       H packed_word = inout_inplace[tid * sublen + i];
-      auto word_ptr =
-          reinterpret_cast<struct HuffmanWord<sizeof(H)>*>(&packed_word);
+      auto word_ptr = reinterpret_cast<struct HuffmanWord<sizeof(H)>*>(&packed_word);
       word_width = word_ptr->bitcount;
       word_ptr->bitcount = (uint8_t)0x0;
 
@@ -264,9 +250,8 @@ void psz::detail::phf_encode_phase4_concatenate(
 
 template <typename E, typename H, typename M>
 void hf_decode_kernel(
-    H* in, uint8_t* revbook, M* par_nbit, M* par_entry,
-    int const revbook_nbyte, int const sublen, int const pardeg, E* out,
-    const sycl::nd_item<3>& item_ct1, uint8_t* dpct_local,
+    H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
+    int const pardeg, E* out, const sycl::nd_item<3>& item_ct1, uint8_t* dpct_local,
     const sycl::stream& to_stdout)
 {
   auto shmem = (uint8_t*)dpct_local;
@@ -284,8 +269,7 @@ void hf_decode_kernel(
 
   if (gid < pardeg) {
     psz::detail::phf_decode_single_thread_inflate(
-        in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem,
-        to_stdout);
+        in + par_entry[gid], out + sublen * gid, par_nbit[gid], shmem, to_stdout);
 
     // item_ct1.barrier();
   }

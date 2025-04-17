@@ -9,10 +9,10 @@
  *
  */
 
-#include "hfcanon.hh"
+#include "hf_canon.hh"
 
 #include "cusz/type.h"
-#include "hfword.hh"
+#include "hf_word.hh"
 
 template <typename E, typename H>
 int canonize(u1* bin, uint32_t const bklen)

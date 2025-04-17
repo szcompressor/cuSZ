@@ -13,7 +13,7 @@
 #define CD5DD212_2C45_4A8C_BDAD_7186A89BB353
 
 #include "cusz/type.h"
-#include "hfword.hh"
+#include "hf_word.hh"
 
 // for impl1
 
