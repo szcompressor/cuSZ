@@ -59,7 +59,6 @@ class [[deprecated("Moving to non-OOD Huffman encoding.")]] HuffmanCodec {
   HuffmanCodec* buildbook(u4* d_hist_ext, u2 const rt_bklen, phf_stream_t);
   // alternatively, it can force check the input array
   HuffmanCodec* encode(E*, size_t const, PHF_BYTE**, size_t*, phf_stream_t);
-  HuffmanCodec* encode_ReVISIT_lite(E*, size_t const, uint8_t**, size_t*, phf_stream_t);
   HuffmanCodec* decode(PHF_BYTE*, E*, phf_stream_t, bool = true);
   HuffmanCodec* clear_buffer();
   HuffmanCodec* dump_internal_data(std::string, std::string);

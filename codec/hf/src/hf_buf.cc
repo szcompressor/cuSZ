@@ -33,8 +33,8 @@ Buf<E>::Buf(size_t inlen, size_t _bklen, int _pardeg, bool _use_HFR, bool debug)
 {
   cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-  sublen = capi_phf_coarse_tune_sublen(inlen);
-  pardeg = (((inlen - 1) / sublen + 1));
+  sublen = use_HFR ? 1024 : capi_phf_coarse_tune_sublen(inlen);
+  pardeg = (inlen - 1) / sublen + 1;
   // cout << sublen << " " << pardeg << endl;
 
   h_scratch4 = MAKE_UNIQUE_HOST(H4, len);

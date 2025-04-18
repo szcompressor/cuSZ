@@ -48,7 +48,7 @@ class modules {
       size_t* out_total_nbit, size_t* out_total_ncell, void* stream);
 
   static void GPU_fine_encode(
-      E* in_data, size_t data_len, H* in_book, u4 book_len, M pardeg, phf::par_config hfpar,
+      E* in_data, size_t data_len, H* in_book, u4 book_len, phf::par_config hfpar,
       // internal buffers
       H* d_scratch4, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell, M* d_par_entry,
       M* h_par_entry, H* d_bitstream4, size_t bitstream_max_len, E* d_brval, u4* d_bridx,

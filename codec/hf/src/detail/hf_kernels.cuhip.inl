@@ -205,15 +205,15 @@ __global__ void KERNEL_CUHIP_Huffman_ReVISIT_lite(
   static_assert(ChunkSize == 1 << (ReduceTimes + ShuffleTimes), "Wrong shuffle times.");
 
   __shared__ Hf s_book[MaxBkLen];
-  __shared__ Hf s_reduced[NumThreads];
-  __shared__ u4 s_bitcount[NumThreads];
+  __shared__ Hf s_reduced[NumThreads * 2];   // !!!! check types E and Hf
+  __shared__ u4 s_bitcount[NumThreads * 2];  // !!!! check types E and Hf
 
   auto bitcount_of = [](Hf* _w) { return reinterpret_cast<HuffmanWord<4>*>(_w)->bitcount; };
   auto entry = [&]() -> size_t { return ChunkSize * blockIdx.x; };
   auto allowed_len = [&]() { return min((size_t)ChunkSize, len - entry()); };
 
   ////////// load codebook
-  if (threadIdx.x < runtime_bklen) s_book[threadIdx.x] = hf_book[threadIdx.x];
+  for (auto i = threadIdx.x; i < runtime_bklen; i += NumThreads) { s_book[i] = hf_book[i]; }
   __syncthreads();
 
   ////////// start of reduce-merge

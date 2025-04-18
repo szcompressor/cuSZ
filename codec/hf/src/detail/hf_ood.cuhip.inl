@@ -109,40 +109,6 @@ PHF_CLASS* PHF_CLASS::encode(
   return this;
 }
 
-PHF_TPL
-PHF_CLASS* PHF_CLASS::encode_ReVISIT_lite(
-    E* in, size_t const len, uint8_t** out, size_t* outlen, phf_stream_t stream)
-{
-  _time_lossless = 0;
-
-  // override sublen and pardeg for ReVISIT-lite
-  sublen = 1024;
-  pardeg = (len - 1) / sublen + 1;
-  phf::par_config hfpar{sublen, pardeg};
-
-  event_recording_start(event_start, stream);
-
-  phf_module::GPU_fine_encode(
-      in, len, buf->d_bk4.get(), rt_bklen, pardeg, hfpar, buf->d_scratch4.get(),
-      buf->d_par_nbit.get(), buf->h_par_nbit.get(), buf->d_par_ncell.get(), buf->h_par_ncell.get(),
-      buf->d_par_entry.get(), buf->h_par_entry.get(), buf->d_bitstream4.get(),
-      buf->bitstream_max_len, buf->d_brval.get(), buf->d_bridx.get(), buf->d_brnum.get(),
-      &header.total_nbit, &header.total_ncell, stream);
-
-  event_recording_stop(event_end, stream);
-  event_time_elapsed(event_start, event_end, &_time_lossless);
-
-  sync_by_stream(stream);
-
-  make_metadata();
-  buf->memcpy_merge(header, stream);  // TODO externalize/make explicit
-
-  *out = buf->d_encoded;
-  *outlen = phf_encoded_bytes(&header);
-
-  return this;
-}
-
 PHF_TPL PHF_CLASS* PHF_CLASS::decode(
     uint8_t* in_encoded, E* out_decoded, phf_stream_t stream, bool header_on_device)
 {
