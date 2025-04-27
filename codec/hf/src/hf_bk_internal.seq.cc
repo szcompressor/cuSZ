@@ -12,8 +12,7 @@
 #include <queue>
 
 #include "busyheader.hh"
-#include "hf_bk_impl.hh"
-#include "hf_word.hh"
+#include "hf_impl.hh"
 #include "log/dbg.hh"
 #include "utils/timer.hh"
 

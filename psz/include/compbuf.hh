@@ -32,6 +32,7 @@ class CompressorBuffer {
   GPU_unique_dptr<B[]> d_compressed;
   GPU_unique_hptr<B[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
+  GPU_unique_hptr<Freq[]> h_hist;
   GPU_unique_dptr<Freq[]> d_top1;
   GPU_unique_hptr<Freq[]> h_top1;
 
@@ -72,6 +73,7 @@ class CompressorBuffer {
         compact = new Compact(len / 5);
         d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
         d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
+        h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
         d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
         h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
         d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
@@ -82,7 +84,10 @@ class CompressorBuffer {
       if (toggle->err_ctrl_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
       if (toggle->compact_outlier) compact = new Compact(len / 5);
       if (toggle->anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
-      if (toggle->histogram) d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
+      if (toggle->histogram) {
+        d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
+        h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
+      }
       if (toggle->compressed) {
         d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
         h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);

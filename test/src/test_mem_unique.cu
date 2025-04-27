@@ -52,7 +52,8 @@ int test_cuda_unique_ptr()
   for (size_t i = 0; i < len; i++) {
     if (h_array_native[i] != h_array_smart[i]) {
       success = false;
-      printf("(native[%d] = %f) != (smart[%d] = %f)\n", i, h_array_native[i], i, h_array_smart[i]);
+      printf(
+          "(native[%lu] = %f) != (smart[%lu] = %f)\n", i, h_array_native[i], i, h_array_smart[i]);
       break;
     }
   }

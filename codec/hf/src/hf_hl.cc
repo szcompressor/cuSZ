@@ -2,9 +2,8 @@
 
 #include <iostream>
 
-#include "hf_bk.h"
-#include "hf_buf.hh"
-#include "hf_kernels.hh"
+#include "hf_hl.hh"
+#include "hf_impl.hh"
 #include "mem/cxx_backends.h"
 
 using std::cout;

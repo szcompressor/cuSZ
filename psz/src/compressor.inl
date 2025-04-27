@@ -17,7 +17,7 @@
 #include "compbuf.hh"
 #include "compressor.hh"
 #include "cusz/type.h"
-#include "hf_ood.hh"
+#include "hf_hl.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
@@ -56,8 +56,8 @@ struct Compressor<DType>::impl {
   using H4 = u4;
   using H8 = u8;
 
-  using CodecHF = phf::HuffmanCodec<E>;
-  using CodecFZG = psz::FzgCodec;
+  // using CodecHF = phf::HuffmanCodec<E>;
+  // using CodecFZG = psz::FzgCodec;
   using Header = psz_header;
   using TimeRecord = std::vector<std::tuple<const char*, double>>;
   using timerecord_t = TimeRecord*;
@@ -71,8 +71,8 @@ struct Compressor<DType>::impl {
 
   // encapsulations
   GPU_EVENT event_start, event_end;
-  CodecHF* codec_hf;    // Codecs have standalone internals.
-  CodecFZG* codec_fzg;  //
+  // CodecHF* codec_hf;  // Codecs have standalone internals.
+  // CodecFZG* codec_fzg;  //
   Buf* mem;
   std::vector<pszerror> error_list;
   TimeRecord timerecord;
@@ -88,15 +88,16 @@ struct Compressor<DType>::impl {
   // arrays
   uint32_t nbyte[END];
 
+  phf::Buf<E>* buf_hf;
+
   float time_pred, time_hist, time_sp;
 
   double eb, eb_r, ebx2, ebx2_r;
 
   ~impl()
   {
-    delete mem;
-    if (codec_hf) delete codec_hf;
-    if (codec_fzg) delete codec_fzg;
+    if (mem) delete mem;
+    if (buf_hf) delete buf_hf;
     event_destroy_pair(event_start, event_end);
   }
 
@@ -105,8 +106,6 @@ struct Compressor<DType>::impl {
     constexpr auto iscompression = true;
 
     // extract context
-    // const auto radius = ctx->header->radius;
-    // const auto bklen = radius * 2;
     const auto pardeg = ctx->header->vle_pardeg;
     const auto x = ctx->header->x, y = ctx->header->y, z = ctx->header->z;
     len = x * y * z;
@@ -123,9 +122,7 @@ struct Compressor<DType>::impl {
         hist_generic_repeat);
 
     // initialize component(s)
-    // TODO decrease memory use
-    codec_hf = new CodecHF(mem->len, pardeg, debug);
-    codec_fzg = new CodecFZG(mem->len);
+    buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
   }
 
   void decompress_init(psz_header* ctx, bool debug)
@@ -133,8 +130,6 @@ struct Compressor<DType>::impl {
     constexpr auto iscompression = false;
 
     // extract context
-    // const auto radius = ctx->radius;
-    // const auto bklen = radius * 2;
     const auto pardeg = ctx->vle_pardeg;
     const auto x = ctx->x, y = ctx->y, z = ctx->z;
     len = x * y * z;
@@ -146,10 +141,7 @@ struct Compressor<DType>::impl {
     std::tie(event_start, event_end) = event_create_pair();
 
     // initialize component(s)
-    if (ctx->codec1_type == FZGPUCodec)
-      codec_fzg = new CodecFZG(mem->len);
-    else
-      codec_hf = new CodecHF(mem->len, pardeg, debug);
+    buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
   }
 
   void compress_data_processing(pszctx* ctx, T* in, void* stream)
@@ -201,11 +193,12 @@ struct Compressor<DType>::impl {
 
   ENCODING_STEP:
 
-    if (ctx->header->codec1_type == Huffman)
-      codec_hf->buildbook(mem->hist(), ctx->header->radius * 2, stream)
-          ->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
-    else if (ctx->header->codec1_type == FZGPUCodec)
-      codec_fzg->encode(mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, stream);
+    memcpy_allkinds<D2H>(mem->h_hist.get(), mem->d_hist.get(), ctx->dict_size);
+    phf::high_level<E>::build_book(buf_hf, mem->h_hist.get(), ctx->dict_size, stream);
+
+    phf_header dummy_header;
+    phf::high_level<E>::encode(
+        buf_hf, mem->ectrl(), len, &comp_codec_out, &comp_codec_outlen, dummy_header, stream);
   }
 
   void compress_merge_update_header(pszctx* ctx, BYTE** out, szt* outlen, void* stream)
@@ -257,11 +250,9 @@ struct Compressor<DType>::impl {
 
   STEP_DECODING:
 
-    if (header->codec1_type == Huffman)
-      codec_hf->decode((B*)access(ENCODED), mem->ectrl(), stream);
-    else if (header->codec1_type == FZGPUCodec)
-      codec_fzg->decode(
-          (B*)access(ENCODED), pszheader_filesize(header), mem->ectrl(), mem->len, stream);
+    phf_header h;
+    memcpy_allkinds<D2H>((B*)&h, (B*)access(ENCODED), sizeof(phf_header));
+    phf::high_level<E>::decode(buf_hf, h, (B*)access(ENCODED), mem->ectrl(), stream);
 
   STEP_PREDICT:
 
@@ -290,19 +281,7 @@ struct Compressor<DType>::impl {
 
     COLLECT_TIME("predict", time_pred);
 
-    if (codec_hf) {
-      COLLECT_TIME("histogram", time_hist);
-      COLLECT_TIME("book", codec_hf->time_book());
-      COLLECT_TIME("huff-enc", codec_hf->time_lossless());
-    }
-
     timerecord_v2[STAGE_PREDICT] = time_pred;
-
-    if (codec_hf) {
-      timerecord_v2[STAGE_HISTOGRM] = time_hist;
-      timerecord_v2[STAGE_BOOK] = codec_hf->time_book();
-      timerecord_v2[STAGE_HUFFMAN] = codec_hf->time_lossless();
-    }
   }
 
   void decompress_collect_kerneltime()
@@ -311,11 +290,9 @@ struct Compressor<DType>::impl {
 
     COLLECT_TIME("outlier", time_sp);
 
-    if (codec_hf) { COLLECT_TIME("huff-dec", codec_hf->time_lossless()); }
     COLLECT_TIME("predict", time_pred);
 
     timerecord_v2[STAGE_OUTLIER] = time_sp;
-    if (codec_hf) { timerecord_v2[STAGE_HUFFMAN] = codec_hf->time_lossless(); }
     timerecord_v2[STAGE_PREDICT] = time_pred;
   }
 };
@@ -350,8 +327,6 @@ void Compressor<DType>::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen,
 template <typename DType>
 void Compressor<DType>::clear_buffer()
 {
-  if (pimpl->codec_hf) pimpl->codec_hf->clear_buffer();
-  if (pimpl->codec_fzg) pimpl->codec_fzg->clear_buffer();
   pimpl->mem->clear_buffer();
 }
 

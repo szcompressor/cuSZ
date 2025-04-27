@@ -14,8 +14,6 @@
 
 #include "hf.h"
 #include "hf_hl.hh"
-#include "hf_ood.hh"
-#include "hf_type.h"
 #include "mem/cxx_backends.h"
 #include "module/cxx_module.hh"
 #include "stat.hh"

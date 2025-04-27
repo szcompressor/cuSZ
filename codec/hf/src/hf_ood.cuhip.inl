@@ -21,11 +21,9 @@
 #include <stdexcept>
 #include <type_traits>
 
-#include "hf_bk.h"
-#include "hf_buf.hh"
-#include "hf_kernels.hh"
-#include "hf_ood.hh"
-#include "hf_type.h"
+#include "hf.h"
+#include "hf_hl.hh"
+#include "hf_impl.hh"
 #include "mem/cxx_sp_gpu.h"
 #include "utils/io.hh"
 #include "utils/timer.hh"
