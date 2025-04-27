@@ -1,5 +1,4 @@
 
-#include "hf_bk.h"
 
 #include <bitset>
 #include <cstdint>
@@ -7,9 +6,7 @@
 #include "busyheader.hh"
 #include "cusz/type.h"
 #include "hf.h"
-#include "hf_bk_impl.hh"
-#include "hf_canon.hh"
-#include "hf_word.hh"
+#include "hf_impl.hh"
 #include "utils/timer.hh"
 
 template <typename E, typename H>
@@ -171,9 +168,9 @@ void phf_CPU_build_canonized_codebook_v2(
   delete space;
 }
 
-#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                          \
-  template void phf_CPU_build_canonized_codebook_v2<E, H>(                                 \
-      uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
+#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                           \
+  template void phf_CPU_build_canonized_codebook_v2<E, H>(                                  \
+      uint32_t * freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
       float* milliseconds);
 
 INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, u4)

@@ -1,10 +1,16 @@
-#include "hf_est.h"
-
+#include <cassert>
+#include <cmath>
+#include <cstdbool>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <numeric>
 #include <stdexcept>
 
-#include "hf_bk_impl.hh"
-#include "hf_word.hh"
+#include "hf.h"
+#include "hf_impl.hh"
 #include "utils/vis_stat.hh"
 
 namespace {

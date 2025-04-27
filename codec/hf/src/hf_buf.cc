@@ -1,12 +1,9 @@
-#include "hf_buf.hh"
-
 #include <cuda.h>
 
 #include <cstddef>
 
 #include "hf.h"
-#include "hf_ood.hh"
-#include "phf_array.hh"
+#include "hf_hl.hh"
 #include "utils/err.hh"
 
 namespace phf {
