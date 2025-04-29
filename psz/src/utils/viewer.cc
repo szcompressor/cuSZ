@@ -117,8 +117,8 @@ void capi_psz_review_comp_time_from_header(psz_header* h)
     cout << "[psz::error] original length is is zero." << endl;
 
   auto comp_bytes = [&]() {
-    auto END = sizeof(h->entry) / sizeof(h->entry[0]);
-    return h->entry[END - 1];
+    auto ending = sizeof(h->entry) / sizeof(h->entry[0]);
+    return h->entry[ending - 1];
   };
 
   auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
