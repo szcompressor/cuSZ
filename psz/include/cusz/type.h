@@ -100,6 +100,7 @@ typedef struct psz_compressor {
   void* compressor;
   psz_ctx* ctx;
   psz_error_status last_error;
+  void* mem;
   float stage_time[STAGE_END];
 } psz_compressor;
 
