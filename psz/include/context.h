@@ -64,6 +64,7 @@ struct psz_context {
   psz_cli_config* cli;
   void* _future_comp_buf;
   void* compressor;
+  void* compbuf;
   void* stream;
 
   psz_device device;

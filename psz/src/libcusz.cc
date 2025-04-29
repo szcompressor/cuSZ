@@ -143,8 +143,8 @@ pszerror capi_psz_compress(
 
     cor->compress(comp->ctx, (f4*)(d_in), comped, comp_bytes, stream);
     cor->export_header(*header);
-    cor->export_timerecord((psz::TimeRecord*)record);
-    cor->export_timerecord(comp->stage_time);
+    // cor->export_timerecord((psz::TimeRecord*)record);
+    // cor->export_timerecord(comp->stage_time);
     cor->dump_compress_intermediate(comp->ctx, stream);
   }
   else if (dtype == F8) {
@@ -152,8 +152,8 @@ pszerror capi_psz_compress(
 
     cor->compress(comp->ctx, (f8*)(d_in), comped, comp_bytes, stream);
     cor->export_header(*header);
-    cor->export_timerecord((psz::TimeRecord*)record);
-    cor->export_timerecord(comp->stage_time);
+    // cor->export_timerecord((psz::TimeRecord*)record);
+    // cor->export_timerecord(comp->stage_time);
     cor->dump_compress_intermediate(comp->ctx, stream);
   }
   else {
@@ -174,15 +174,15 @@ pszerror capi_psz_decompress(
     auto cor = (psz::CompressorF4*)(comp->compressor);
 
     cor->decompress(comp->ctx->header, comped, (f4*)(decomped), (cudaStream_t)stream);
-    cor->export_timerecord((psz::TimeRecord*)record);
-    cor->export_timerecord(comp->stage_time);
+    // cor->export_timerecord((psz::TimeRecord*)record);
+    // cor->export_timerecord(comp->stage_time);
   }
   else if (dtype == F8) {
     auto cor = (psz::CompressorF8*)(comp->compressor);
 
     cor->decompress(comp->ctx->header, comped, (f8*)(decomped), (cudaStream_t)stream);
-    cor->export_timerecord((psz::TimeRecord*)record);
-    cor->export_timerecord(comp->stage_time);
+    // cor->export_timerecord((psz::TimeRecord*)record);
+    // cor->export_timerecord(comp->stage_time);
   }
   else {
     // TODO put to log-queue
@@ -213,6 +213,9 @@ pszerror capi_psz_clear_buffer(psz_compressor* comp)
   return CUSZ_SUCCESS;
 }
 
+template <typename T, typename E>
+using CP = psz::compression_pipeline<T, E>;
+
 psz_resource* psz_create_resource_manager(
     psz_dtype t, uint32_t x, uint32_t y, uint32_t z, void* stream)
 {
@@ -236,7 +239,8 @@ psz_resource* psz_create_resource_manager(
 
   capi_phf_coarse_tune(m->data_len, &m->header->vle_sublen, &m->header->vle_pardeg);
 
-  m->compressor = t == F4 ? (void*)(new psz::CompressorF4(m)) : (void*)(new psz::CompressorF8(m));
+  m->compbuf = t == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
+
   m->stream = stream;
 
   return m;
@@ -250,8 +254,9 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   m->dict_size = m->header->radius * 2;
   m->data_len = header->x * header->y * header->z;
   m->cli = nullptr;
-  m->compressor =
-      header->dtype == F4 ? (void*)(new psz::CompressorF4(m)) : (void*)(new psz::CompressorF8(m));
+
+  m->compbuf = header->dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
+
   m->stream = stream;
 
   return m;
@@ -267,10 +272,12 @@ void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* 
 int psz_release_resource(psz_resource* manager)
 {
   auto dtype = manager->header->dtype;
-  if (dtype == F4)
-    delete (psz::CompressorF4*)manager->compressor;
-  else if (dtype == F8)
-    delete (psz::CompressorF8*)manager->compressor;
+  if (dtype == F4) {
+    if (manager->compbuf) delete (psz::CompressorBuffer<f4, u2>*)manager->compbuf;
+  }
+  else if (dtype == F8) {
+    if (manager->compbuf) delete (psz::CompressorBuffer<f8, u2>*)manager->compbuf;
+  }
   else
     return PSZ_ABORT_TYPE_UNSUPPORTED;
 
@@ -316,10 +323,11 @@ int psz_compress_float(
   RUNTIME_SAVE_CONFIG();
   RUNTIME_SCAN_EXTREMA(float);
 
-  auto c = (psz::CompressorF4*)m->compressor;
-  c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
-  c->export_header(*OUT_compressed_metadata);
-  c->dump_compress_intermediate(m, m->stream);
+  CP<f4, u2>::compress(
+      m, (psz_buf<f4, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
+      m->stream);
+  *OUT_compressed_metadata = *(m->header);
+  if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->compbuf, m->stream);
 
   return status;
 }
@@ -334,10 +342,11 @@ int psz_compress_double(
   RUNTIME_SAVE_CONFIG();
   RUNTIME_SCAN_EXTREMA(double);
 
-  auto c = (psz::CompressorF8*)m->compressor;
-  c->compress(m, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes, m->stream);
-  c->export_header(*OUT_compressed_metadata);
-  c->dump_compress_intermediate(m, m->stream);
+  CP<f8, u2>::compress(
+      m, (psz_buf<f8, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
+      m->stream);
+  *OUT_compressed_metadata = *(m->header);
+  if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->compbuf, m->stream);
 
   return status;
 }
@@ -346,8 +355,9 @@ int psz_decompress_float(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     float* OUT_d_decompressed)
 {
-  auto c = (psz::CompressorF4*)m->compressor;
-  c->decompress(m->header, IN_d_compressed, OUT_d_decompressed, m->stream);
+  CP<f4, u2>::decompress(
+      m->header, (psz_buf<f4, u2>*)m->compbuf, IN_d_compressed, OUT_d_decompressed, m->stream);
+
   return PSZ_SUCCESS;
 }
 
@@ -355,7 +365,8 @@ int psz_decompress_double(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     double* OUT_d_decompressed)
 {
-  auto c = (psz::CompressorF8*)m->compressor;
-  c->decompress(m->header, IN_d_compressed, OUT_d_decompressed, m->stream);
+  CP<f8, u2>::decompress(
+      m->header, (psz_buf<f8, u2>*)m->compbuf, IN_d_compressed, OUT_d_decompressed, m->stream);
+
   return PSZ_SUCCESS;
 }
