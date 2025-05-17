@@ -1,15 +1,15 @@
 #include "detail/lrz_c.cuhip.inl"
 
-INSTANCIATE_GPU_L23R_1param(f4);
-INSTANCIATE_GPU_L23R_1param(f8);
+using psz::Toggle;
 
-#undef INSTANCIATE_GPU_L23R_1param
-#undef INSTANCIATE_GPU_L23R_2params
-#undef INSTANCIATE_GPU_L23R_3params
+template struct psz::module::GPU_c_lorenzo_nd<
+    float, psz::PredConfig<float, psz::PredFunc<Toggle::ZigZagDisabled>>>;
 
-INSTANCIATE_GPU_L23_PREQ_1param(f4);
-INSTANCIATE_GPU_L23_PREQ_1param(f8);
+template struct psz::module::GPU_c_lorenzo_nd<
+    double, psz::PredConfig<double, psz::PredFunc<Toggle::ZigZagDisabled>>>;
 
-#undef INSTANCIATE_GPU_L23_PREQ_1param
-#undef INSTANCIATE_GPU_L23_PREQ_2params
-#undef INSTANCIATE_GPU_L23_PREQ_3params
+template struct psz::module::GPU_c_lorenzo_nd<
+    float, psz::PredConfig<float, psz::PredFunc<Toggle::ZigZagEnabled>>>;
+
+template struct psz::module::GPU_c_lorenzo_nd<
+    double, psz::PredConfig<double, psz::PredFunc<Toggle::ZigZagEnabled>>>;

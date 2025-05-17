@@ -14,18 +14,30 @@
 #include <stdexcept>
 #include <type_traits>
 
-#include "compbuf.hh"
-#include "compressor.hh"
-#include "context.h"
+#include "cusz/context.h"
 #include "cusz/type.h"
+#include "detail/compbuf.hh"
+#include "detail/composite.hh"
+#include "detail/compressor.hh"
+#include "detail/port.hh"
 #include "hf_hl.hh"
-#include "kernel.hh"
+#include "kernel/hist.hh"
+#include "kernel/predictor.hh"
+#include "kernel/spv.hh"
 #include "mem/cxx_backends.h"
-#include "module/cxx_module.hh"
-#include "port.hh"
 #include "utils/err.hh"
 #include "utils/io.hh"
 #include "utils/timer.hh"
+
+using Toggle = psz::Toggle;
+
+template <typename T, Toggle ZigZag>
+using GPU_c_lorenzo_nd =
+    psz::module::GPU_c_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>>;
+
+template <typename T, Toggle ZigZag>
+using GPU_x_lorenzo_nd =
+    psz::module::GPU_x_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>>;
 
 #define COLLECT_TIME(NAME, TIME) timerecord.push_back({const_cast<const char*>(NAME), TIME});
 
@@ -103,13 +115,13 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
   ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
   if (ctx->header->pred_type == Lorenzo)
-    psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
-        ctx->header->radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
+        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), eb, ctx->header->radius,
+        stream);
   else if (ctx->header->pred_type == LorenzoZigZag)
-    psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
-        ctx->header->radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
+        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), eb, ctx->header->radius,
+        stream);
   else if (ctx->header->pred_type == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
         in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
@@ -207,11 +219,11 @@ STEP_DECODING:
 STEP_PREDICT:
 
   if (header->pred_type == Lorenzo)
-    psz::module::GPU_x_lorenzo_nd<T, false, E>(
-        mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
+    GPU_x_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
+        mem->ectrl(), d_space, d_xdata, len3_std, eb, header->radius, stream);
   else if (header->pred_type == LorenzoZigZag)
-    psz::module::GPU_x_lorenzo_nd<T, true, E>(
-        mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
+    GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
+        mem->ectrl(), d_space, d_xdata, len3_std, eb, header->radius, stream);
   else if (header->pred_type == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
         mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
@@ -313,13 +325,13 @@ void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
   const auto len = mem->len;
 
   if (ctx->header->pred_type == Lorenzo)
-    psz::module::GPU_c_lorenzo_nd_with_outlier<T, false, E>(
-        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
-        ctx->header->radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
+        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), eb, ctx->header->radius,
+        stream);
   else if (ctx->header->pred_type == LorenzoZigZag)
-    psz::module::GPU_c_lorenzo_nd_with_outlier<T, true, E>(
-        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), ebx2, ebx2_r,
-        ctx->header->radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
+        in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), eb, ctx->header->radius,
+        stream);
   else if (ctx->header->pred_type == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
         in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
@@ -426,11 +438,11 @@ STEP_DECODING:
 STEP_PREDICT:
 
   if (header->pred_type == Lorenzo)
-    psz::module::GPU_x_lorenzo_nd<T, false, E>(
-        mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
+    GPU_x_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
+        mem->ectrl(), d_space, d_xdata, len3_std, eb, header->radius, stream);
   else if (header->pred_type == LorenzoZigZag)
-    psz::module::GPU_x_lorenzo_nd<T, true, E>(
-        mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
+    GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
+        mem->ectrl(), d_space, d_xdata, len3_std, eb, header->radius, stream);
   else if (header->pred_type == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
         mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
