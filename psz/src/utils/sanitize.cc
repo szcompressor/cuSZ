@@ -11,7 +11,7 @@
 
 #include "log/sanitize.hh"
 
-#include "context.h"
+#include "cusz/context.h"
 #include "hfword.hh"
 
 // resemble the one defined in dbg_cu.inl

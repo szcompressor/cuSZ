@@ -8,7 +8,6 @@
 #include <limits>
 #include <sycl/sycl.hpp>
 
-#include "typing.hh"
 #include "utils/config.hh"
 #include "utils/timer.hh"
 
@@ -29,11 +28,9 @@ namespace psz {
 
 template <typename T>
 void kernel::KERNEL_CUHIP_histogram_native(
-    T in_data[], int out_freq[], int N, int symbols_per_thread,
-    const sycl::nd_item<3> &item_ct1)
+    T in_data[], int out_freq[], int N, int symbols_per_thread, const sycl::nd_item<3> &item_ct1)
 {
-  unsigned int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                   item_ct1.get_local_id(2);
+  unsigned int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) + item_ct1.get_local_id(2);
   unsigned int j;
   if (i * symbols_per_thread < N) {  // if there is a symbol to count,
     for (j = i * symbols_per_thread; j < (i + 1) * symbols_per_thread; j++) {
@@ -48,8 +45,8 @@ void kernel::KERNEL_CUHIP_histogram_native(
 
 template <typename T, typename FREQ>
 void kernel::KERNEL_CUHIP_p2013Histogram(
-    T *in_data, FREQ *out_freq, size_t N, int nbin, int R,
-    const sycl::nd_item<3> &item_ct1, uint8_t *dpct_local)
+    T *in_data, FREQ *out_freq, size_t N, int nbin, int R, const sycl::nd_item<3> &item_ct1,
+    uint8_t *dpct_local)
 {
   auto Hs = (int *)dpct_local;
 
@@ -76,8 +73,7 @@ void kernel::KERNEL_CUHIP_p2013Histogram(
   for (unsigned int i = begin; i < end; i += step) {
     int d = in_data[i];
     d = d <= 0 and d >= nbin ? nbin / 2 : d;
-    dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
-        &Hs[off_rep + d], 1);
+    dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(&Hs[off_rep + d], 1);
   }
   /*
   DPCT1065:77: Consider replacing sycl::nd_item::barrier() with
@@ -88,11 +84,8 @@ void kernel::KERNEL_CUHIP_p2013Histogram(
 
   for (unsigned int pos = tix; pos < nbin; pos += bdx) {
     int sum = 0;
-    for (int base = 0; base < (nbin + 1) * R; base += nbin + 1) {
-      sum += Hs[base + pos];
-    }
-    dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(
-        out_freq + pos, sum);
+    for (int base = 0; base < (nbin + 1) * R; base += nbin + 1) { sum += Hs[base + pos]; }
+    dpct::atomic_fetch_add<sycl::access::address_space::generic_space>(out_freq + pos, sum);
   }
 }
 
@@ -102,24 +95,21 @@ namespace psz::dpcpp {
 
 template <typename T>
 psz_error_status GPU_histogram_generic(
-    T *in, size_t const inlen, uint32_t *out_hist, int const outlen,
-    float *milliseconds, dpct::queue_ptr queue)
+    T *in, size_t const inlen, uint32_t *out_hist, int const outlen, float *milliseconds,
+    dpct::queue_ptr queue)
 try {
   int device_id, max_bytes, num_SMs;
   int items_per_thread, r_per_block, grid_dim, block_dim, shmem_use;
 
   device_id = dpct::dev_mgr::instance().current_device_id();
-  num_SMs =
-      dpct::dev_mgr::instance().get_device(device_id).get_max_compute_units();
+  num_SMs = dpct::dev_mgr::instance().get_device(device_id).get_max_compute_units();
 
   auto query_maxbytes = [&]() {
     int max_bytes_opt_in;
-    cudaDeviceGetAttribute(
-        &max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
+    cudaDeviceGetAttribute(&max_bytes, cudaDevAttrMaxSharedMemoryPerBlock, device_id);
 
     // account for opt-in extra shared memory on certain architectures
-    cudaDeviceGetAttribute(
-        &max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
+    cudaDeviceGetAttribute(&max_bytes_opt_in, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id);
     max_bytes = std::max(max_bytes, max_bytes_opt_in);
 
     // config kernel attribute
@@ -128,8 +118,7 @@ try {
     */
     cudaFuncSetAttribute(
         (void *)kernel::KERNEL_CUHIP_p2013Histogram<T, uint32_t>,
-        (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize,
-        max_bytes);
+        (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
   };
 
   auto optimize_launch = [&]() {
@@ -137,15 +126,13 @@ try {
     r_per_block = (max_bytes / sizeof(int)) / (outlen + 1);
     grid_dim = num_SMs;
     // fits to size
-    block_dim =
-        ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+    block_dim = ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
     while (block_dim > 1024) {
       if (r_per_block <= 1) { block_dim = 1024; }
       else {
         r_per_block /= 2;
         grid_dim *= 2;
-        block_dim =
-            ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
+        block_dim = ((((inlen / (grid_dim * items_per_thread)) + 1) / 64) + 1) * 64;
       }
     }
     /*
@@ -168,8 +155,7 @@ try {
   Adjust the work-group size if needed.
   */
   queue->submit([&](sycl::handler &cgh) {
-    sycl::local_accessor<uint8_t, 1> dpct_local_acc_ct1(
-        sycl::range<1>(shmem_use), cgh);
+    sycl::local_accessor<uint8_t, 1> dpct_local_acc_ct1(sycl::range<1>(shmem_use), cgh);
 
     cgh.parallel_for(
         sycl::nd_range<3>(
@@ -189,8 +175,8 @@ try {
   return CUSZ_SUCCESS;
 }
 catch (sycl::exception const &exc) {
-  std::cerr << exc.what() << "Exception caught at file:" << __FILE__
-            << ", line:" << __LINE__ << std::endl;
+  std::cerr << exc.what() << "Exception caught at file:" << __FILE__ << ", line:" << __LINE__
+            << std::endl;
   std::exit(1);
 }
 

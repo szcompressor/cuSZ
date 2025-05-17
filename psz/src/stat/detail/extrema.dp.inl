@@ -17,7 +17,7 @@
 #include <type_traits>
 
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 #include "utils/err.hh"
 
 namespace psz {

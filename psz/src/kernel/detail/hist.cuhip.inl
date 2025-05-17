@@ -16,7 +16,6 @@
 #include <limits>
 
 #include "kernel/hist.hh"
-#include "typing.hh"
 #include "utils/timer.hh"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)

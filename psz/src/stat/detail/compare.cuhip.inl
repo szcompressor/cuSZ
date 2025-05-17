@@ -1,4 +1,4 @@
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz::cuhip {
 

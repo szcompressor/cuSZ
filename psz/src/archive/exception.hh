@@ -8,9 +8,7 @@ namespace psz {
 
 struct exception_io : public std::exception {
   std::string err_msg;
-  exception_io(
-      const std::string fname, const char* _file_ = __FILE__,
-      const int _line_ = __LINE__)
+  exception_io(const std::string fname, const char* _file_ = __FILE__, const int _line_ = __LINE__)
   {
     std::stringstream ss;
     ss << _file_ << ':' << _line_ << ": fail to open " << fname << "\n";

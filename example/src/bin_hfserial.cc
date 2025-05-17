@@ -9,8 +9,8 @@
  *
  */
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 #include "hf/hf.hh"
 #include "hf/hfbk.hh"
 #include "hf/hfbk_impl.hh"

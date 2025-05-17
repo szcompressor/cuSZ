@@ -2,12 +2,12 @@
 
 #include <cstddef>
 
-#include "compressor.hh"
 #include "cusz.h"
+#include "cusz/header.h"
 #include "cusz/type.h"
-#include "header.h"
-#include "port.hh"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
+#include "detail/compressor.hh"
+#include "detail/port.hh"
 
 float get_throughput(float milliseconds, size_t nbyte)
 {

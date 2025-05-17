@@ -4,8 +4,8 @@
 #include <oneapi/dpl/execution>
 #include <sycl/sycl.hpp>
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 #include "stat/compare/compare.dpl.hh"
 
 bool psz::dpl_identical(void* d1, void* d2, size_t sizeof_T, size_t const len)
@@ -17,7 +17,6 @@ bool psz::dpl_identical(void* d1, void* d2, size_t sizeof_T, size_t const len)
   //   return thrust::equal(
   //       oneapi::dpl::execution::make_device_policy(dpct::get_default_queue()),
   //       (u1*)d1, (u1*)d1 + sizeof_T * len, (u1*)d2);
-  throw runtime_error(
-      "DPCT1007:90: Migration of thrust::equal is not supported.");
+  throw runtime_error("DPCT1007:90: Migration of thrust::equal is not supported.");
   return false;
 }

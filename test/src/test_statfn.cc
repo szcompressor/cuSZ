@@ -11,11 +11,11 @@
 
 #include <algorithm>
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
+#include "detail/compare.hh"
 #include "mem/cxx_memobj.h"
 #include "rand.hh"
-#include "stat/compare.hh"
 
 template <typename T>
 using memobj = _portable::memobj<T>;

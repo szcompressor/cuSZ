@@ -47,10 +47,10 @@
 
 %
     {
-#include "context.h"
 #include "cusz.h"
+#include "cusz/context.h"
+#include "cusz/header.h"
 #include "cusz/type.h"
-#include "header.h"
         % }
 
     % include "context.h" % include "cusz/type.h" % include "header.h" %
@@ -61,40 +61,34 @@
     // The original names are kept.
     % pythoncode %
 {
-  Ctx = psz_context Header = psz_header Compressor = psz_compressor Len3 =
-      psz_len3 %
+  Ctx = psz_context Header = psz_header Compressor = psz_compressor Len3 = psz_len3 %
 }
 
 extern void capi_psz_version();
 extern void capi_psz_versioninfo();
 extern psz_compressor* capi_psz_create(
-    psz_dtype const, psz_len3 const, psz_predtype const, int const,
-    psz_codectype const);
-extern psz_compressor* capi_psz_create_default(
-    psz_dtype const, psz_len3 const);
-extern psz_compressor* capi_psz_create_from_context(
-    pszctx* const, psz_len3 const);
+    psz_dtype const, psz_len3 const, psz_predtype const, int const, psz_codectype const);
+extern psz_compressor* capi_psz_create_default(psz_dtype const, psz_len3 const);
+extern psz_compressor* capi_psz_create_from_context(pszctx* const, psz_len3 const);
 extern psz_compressor* capi_psz_create_from_header(psz_header* const);
 extern pszerror capi_psz_release(psz_compressor*);
 extern pszerror capi_psz_decompress(
-    psz_compressor*, uint8_t*, size_t const comp_len, void*, psz_len3 const,
-    void* record, void* stream);
+    psz_compressor*, uint8_t*, size_t const comp_len, void*, psz_len3 const, void* record,
+    void* stream);
 
 % inline %
 {
   PyObject* compress(
-      psz_compressor * comp, void* uncompressed, psz_len3 const uncomp_len,
-      double const eb, psz_mode const mode, void* stream)
+      psz_compressor * comp, void* uncompressed, psz_len3 const uncomp_len, double const eb,
+      psz_mode const mode, void* stream)
   {
     uint8_t* compressed;
     size_t comp_bytes;
     psz_header header;
 
     pszerror error_code = capi_psz_compress(
-        comp, uncompressed, uncomp_len, eb, mode, &compressed, &comp_bytes,
-        &header, NULL, stream);
-    PyObject* py_compressed =
-        PyBytes_FromStringAndSize((const char*)compressed, comp_bytes);
+        comp, uncompressed, uncomp_len, eb, mode, &compressed, &comp_bytes, &header, NULL, stream);
+    PyObject* py_compressed = PyBytes_FromStringAndSize((const char*)compressed, comp_bytes);
     PyObject* py_tuple = Py_BuildValue("(iO)", error_code, py_compressed);
     return py_tuple;
   }

@@ -17,7 +17,7 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "busyheader.hh"
+#include "detail/busyheader.hh"
 #include "hf/hf_kernels.hh"
 #include "hf/hfstruct.h"
 #include "typing.hh"

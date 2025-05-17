@@ -10,7 +10,7 @@
  *
  */
 
-#include "cusz/suint.hh"
+#include "detail/composite.hh"
 #include "subr_legacy.cuhip.inl"
 
 namespace psz::legacy {

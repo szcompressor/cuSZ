@@ -10,13 +10,13 @@
  *
  */
 
-#include "api_v2.h"
-#include "compbuf.hh"
-#include "compressor.hh"
-#include "context.h"
 #include "cusz.h"
+#include "cusz/context.h"
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "cusz_rev1.h"
+#include "detail/compare.hh"
+#include "detail/compbuf.hh"
+#include "detail/compressor.hh"
 
 using psz::analysis::CPU_probe_extrema;
 using psz::analysis::GPU_probe_extrema;

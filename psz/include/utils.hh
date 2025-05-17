@@ -1,8 +1,0 @@
-#warning "[psz::warning::compile] This header (utils.hh) may incur unexpectedly longer compilation time due to the circular inclusion."
-#include "utils/analyzer.hh"
-#include "utils/config.hh"
-#include "utils/err.hh"
-#include "utils/format.hh"
-#include "utils/print_arr.hh"
-#include "utils/query.hh"
-#include "utils/viewer.hh"

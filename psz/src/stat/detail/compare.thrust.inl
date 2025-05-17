@@ -14,7 +14,7 @@
 #include <thrust/tuple.h>
 
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz::thrustgpu {
 

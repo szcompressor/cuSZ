@@ -3,10 +3,10 @@
 #include <sstream>
 #include <vector>
 
-#include "api_v2.h"
+#include "cusz_rev1.h"
+#include "detail/compare.hh"
 #include "ex_utils2.hh"
 #include "mem/cxx_backends.h"
-#include "stat/compare.hh"
 #include "utils/io.hh"
 
 namespace utils = _portable::utils;

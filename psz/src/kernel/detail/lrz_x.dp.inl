@@ -12,7 +12,7 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "cusz/suint.hh"
+#include "detail/composite.hh"
 #include "wave32.dp.inl"
 
 namespace psz {
@@ -20,9 +20,8 @@ namespace psz {
 template <typename T, typename Eq, typename FP = T, int BLOCK, int SEQ>
 /* DPCT1110: high register pressure */
 void KERNEL_DPCPP_x_lorenzo_1d1l(  //
-    Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3,
-    int radius, FP ebx2, T *xdata, const sycl::nd_item<3> &item_ct1,
-    T *scratch, Eq *s_eq, T *exch_in, T *exch_out)
+    Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3, int radius, FP ebx2, T *xdata,
+    const sycl::nd_item<3> &item_ct1, T *scratch, Eq *s_eq, T *exch_in, T *exch_out)
 {
   constexpr auto NTHREAD = BLOCK / SEQ;  // equiv. to blockDim.x
 
@@ -35,14 +34,12 @@ void KERNEL_DPCPP_x_lorenzo_1d1l(  //
     for (auto i = 0; i < SEQ; i++) {
       auto local_id = item_ct1.get_local_id(2) + i * NTHREAD;
       auto id = id_base + local_id;
-      if (id < len3[2])
-        scratch[local_id] = outlier[id] + static_cast<T>(eq[id]) - radius;
+      if (id < len3[2]) scratch[local_id] = outlier[id] + static_cast<T>(eq[id]) - radius;
     }
     item_ct1.barrier();
 
 #pragma unroll
-    for (auto i = 0; i < SEQ; i++)
-      thp_data[i] = scratch[item_ct1.get_local_id(2) * SEQ + i];
+    for (auto i = 0; i < SEQ; i++) thp_data[i] = scratch[item_ct1.get_local_id(2) * SEQ + i];
     item_ct1.barrier(sycl::access::fence_space::local_space);
   };
 
@@ -95,9 +92,8 @@ void KERNEL_DPCPP_x_lorenzo_1d1l(  //
 template <typename T, typename Eq, typename FP = T>
 /* DPCT1110: high register pressure */
 void KERNEL_DPCPP_x_lorenzo_2d1l(  //
-    Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3,
-    int radius, FP ebx2, T *xdata, const sycl::nd_item<3> &item_ct1,
-    T *scratch)
+    Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3, int radius, FP ebx2, T *xdata,
+    const sycl::nd_item<3> &item_ct1, T *scratch)
 {
   constexpr auto BLOCK = 16;
   constexpr auto YSEQ = BLOCK / 2;  // sequentiality in y direction
@@ -107,8 +103,8 @@ void KERNEL_DPCPP_x_lorenzo_2d1l(  //
   T thp_data[YSEQ] = {0};
 
   auto gix = item_ct1.get_group(2) * BLOCK + item_ct1.get_local_id(2);
-  auto giy_base = item_ct1.get_group(1) * BLOCK +
-                  item_ct1.get_local_id(1) * YSEQ;  // BDY * YSEQ = BLOCK == 16
+  auto giy_base =
+      item_ct1.get_group(1) * BLOCK + item_ct1.get_local_id(1) * YSEQ;  // BDY * YSEQ = BLOCK == 16
 
   auto get_gid = [&](auto i) { return (giy_base + i) * stride3[1] + gix; };
 
@@ -128,15 +124,13 @@ void KERNEL_DPCPP_x_lorenzo_2d1l(  //
     for (auto i = 1; i < YSEQ; i++) thp_data[i] += thp_data[i - 1];
     // two-pass: store for cross-thread-private update
     // TODO shuffle up by 16 in the same warp
-    if (item_ct1.get_local_id(1) == 0)
-      scratch[item_ct1.get_local_id(2)] = thp_data[YSEQ - 1];
+    if (item_ct1.get_local_id(1) == 0) scratch[item_ct1.get_local_id(2)] = thp_data[YSEQ - 1];
     item_ct1.barrier(sycl::access::fence_space::local_space);
     // broadcast the partial-sum result from a previous segment
     if (item_ct1.get_local_id(1) == 1) {
       auto tmp = scratch[item_ct1.get_local_id(2)];
 #pragma unroll
-      for (auto i = 0; i < YSEQ; i++)
-        thp_data[i] += tmp;  // regression as pointer
+      for (auto i = 0; i < YSEQ; i++) thp_data[i] += tmp;  // regression as pointer
     }
     // implicit sync as there is half-warp divergence
 
@@ -171,9 +165,8 @@ void KERNEL_DPCPP_x_lorenzo_2d1l(  //
 template <typename T, typename Eq, typename FP = T>
 /* DPCT1110: high register pressure */
 void KERNEL_DPCPP_x_lorenzo_3d1l(  //
-    Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3,
-    int radius, FP ebx2, T *xdata, const sycl::nd_item<3> &item_ct1,
-    sycl::local_accessor<T, 3> scratch)
+    Eq *eq, T *outlier, sycl::range<3> len3, sycl::range<3> stride3, int radius, FP ebx2, T *xdata,
+    const sycl::nd_item<3> &item_ct1, sycl::local_accessor<T, 3> scratch)
 {
   constexpr auto BLOCK = 8;
   constexpr auto YSEQ = BLOCK;
@@ -188,17 +181,14 @@ void KERNEL_DPCPP_x_lorenzo_3d1l(  //
   auto giy_base = item_ct1.get_group(1) * BLOCK;
   auto giy = [&](auto y) { return giy_base + y; };
   auto giz = item_ct1.get_group(0) * BLOCK + item_ct1.get_local_id(0);
-  auto gid = [&](auto y) {
-    return giz * stride3[0] + (giy_base + y) * stride3[1] + gix;
-  };
+  auto gid = [&](auto y) { return giz * stride3[0] + (giy_base + y) * stride3[1] + gix; };
 
   auto load_fuse_3d = [&](const sycl::nd_item<3> &item_ct1) {
   // load to thread-private array (fuse at the same time)
 #pragma unroll
     for (auto y = 0; y < YSEQ; y++) {
       if (gix < len3[2] and giy_base + y < len3[1] and giz < len3[0])
-        thread_private[y] =
-            outlier[gid(y)] + static_cast<T>(eq[gid(y)]) - radius;  // fuse
+        thread_private[y] = outlier[gid(y)] + static_cast<T>(eq[gid(y)]) - radius;  // fuse
     }
   };
 

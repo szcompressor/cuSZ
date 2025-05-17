@@ -1,6 +1,6 @@
 #include "cusz/type.h"
-#include "port.hh"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
+#include "detail/port.hh"
 #include "utils/viewer.hh"
 
 namespace psz::analysis {

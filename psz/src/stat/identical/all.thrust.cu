@@ -2,7 +2,7 @@
 #include <thrust/execution_policy.h>
 
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 bool psz::thrustgpu::GPU_identical(
     void* d1, void* d2, size_t sizeof_T, size_t const len, void* stream)

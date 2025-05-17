@@ -11,9 +11,9 @@
 
 #include <queue>
 
-#include "busyheader.hh"
+#include "detail/busyheader.hh"
 #include "hf_impl.hh"
-#include "log/dbg.hh"
+#include "utils/log/dbg.hh"
 #include "utils/timer.hh"
 
 // internal data structure

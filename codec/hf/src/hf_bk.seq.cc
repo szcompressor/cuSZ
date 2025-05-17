@@ -3,8 +3,8 @@
 #include <bitset>
 #include <cstdint>
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 #include "hf.h"
 #include "hf_impl.hh"
 #include "utils/timer.hh"

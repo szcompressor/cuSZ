@@ -11,16 +11,16 @@
  *
  */
 
-#include "context.h"
+#include "cusz/context.h"
 
 #include <cxxabi.h>
 
 #include <fstream>
 
-#include "busyheader.hh"
+#include "cusz/header.h"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 #include "document.inl"
-#include "header.h"
 #include "utils/format.hh"
 #include "utils/verinfo.h"
 

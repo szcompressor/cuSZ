@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz {
 

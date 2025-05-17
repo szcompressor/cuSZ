@@ -11,9 +11,8 @@
  *
  */
 
-#include "cusz/type.h"
 #include "detail/spline3.inl"
-#include "kernel/spline.hh"
+#include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
 
 constexpr int DEFAULT_BLOCK_SIZE = 384;

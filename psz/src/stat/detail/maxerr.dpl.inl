@@ -5,7 +5,7 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz::dpl {
 
