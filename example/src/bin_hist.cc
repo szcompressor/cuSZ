@@ -11,12 +11,11 @@
 
 #include <string>
 
+#include "detail/compare.hh"
+#include "detail/port.hh"
 #include "ex_utils.hh"
-#include "kernel.hh"
+#include "kernel/hist.hh"
 #include "mem/cxx_memobj.h"
-#include "port.hh"
-#include "stat.hh"
-#include "typing.hh"
 
 template <typename T>
 using memobj = _portable::memobj<T>;

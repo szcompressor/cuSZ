@@ -20,8 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "cusz/header.h"
 #include "cusz/type.h"
-#include "header.h"
 
 using std::string;
 using std::vector;

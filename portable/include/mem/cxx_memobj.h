@@ -20,7 +20,7 @@
 #include "cusz/type.h"
 #include "cxx_array.h"
 #include "cxx_backends.h"
-#include "typing.hh"
+#include "detail/typing.hh"
 
 namespace _portable {
 

@@ -1,6 +1,6 @@
 // 24-06-02 by J. Tian
 
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz {
 

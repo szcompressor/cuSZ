@@ -12,10 +12,10 @@
 #ifndef E37962D3_F63F_4392_B670_41E4B31915ED
 #define E37962D3_F63F_4392_B670_41E4B31915ED
 
-#include "dbg/dbg.noarch.hh"
+#include "dbg_noarch.hh"
 
 #if defined(PSZ_USE_CUDA)
-#include "dbg/dbg.cu.hh"
+#include "dbg_cu.hh"
 #elif defined(PSZ_USE_HIP)
 #elif defined(PSZ_USE_1API)
 #endif

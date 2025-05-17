@@ -12,8 +12,8 @@
 #include <bitset>
 #include <iostream>
 
-#include "cusz/suint.hh"
 #include "cusz/type.h"
+#include "detail/composite.hh"
 
 using std::bitset;
 using std::cout;

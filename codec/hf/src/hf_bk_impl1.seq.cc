@@ -10,8 +10,8 @@
  * top-level directory.
  */
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 #include "hf_impl.hh"
 #include "utils/timer.hh"
 

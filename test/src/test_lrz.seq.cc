@@ -9,7 +9,7 @@
  *
  */
 
-#include "busyheader.hh"
+#include "detail/busyheader.hh"
 #include "detail/correctness.inl"
 #include "kernel/detail/lrz.seq.inl"
 #include "kernel/spv.hh"
@@ -19,22 +19,22 @@ using FP = float;
 using Eq = uint16_t;
 
 static const size_t t1_len = 256;
-static const psz_dim3 t1_len3{256, 1, 1};
-static const psz_dim3 t1_leap3{1, 1, 1};
+static const psz_dim3_seq t1_len3{256, 1, 1};
+static const psz_dim3_seq t1_leap3{1, 1, 1};
 
 static const size_t t2_len = 256;
-static const psz_dim3 t2_len3{16, 16, 1};
-static const psz_dim3 t2_leap3{1, 16, 1};
+static const psz_dim3_seq t2_len3{16, 16, 1};
+static const psz_dim3_seq t2_leap3{1, 16, 1};
 
 static const size_t t3_len = 512;
-static const psz_dim3 t3_len3{8, 8, 8};
-static const psz_dim3 t3_leap3{1, 8, 64};
+static const psz_dim3_seq t3_len3{8, 8, 8};
+static const psz_dim3_seq t3_leap3{1, 8, 64};
 
 static const uint16_t radius = 512;
 
 template <typename FUNC>
 bool test1(
-    FUNC func, T* input, size_t len, psz_dim3 len3, psz_dim3 leap3, T const* expected,
+    FUNC func, T* input, size_t len, psz_dim3_seq len3, psz_dim3_seq leap3, T const* expected,
     std::string funcname)
 {
   auto outlier = new _portable::compact_seq<T>(len / 10);
@@ -63,8 +63,8 @@ bool test1(
 
 template <typename FUNC>
 bool test2(
-    FUNC func, Eq* input_no_offset, size_t len, psz_dim3 len3, psz_dim3 leap3, T const* expected,
-    std::string funcname)
+    FUNC func, Eq* input_no_offset, size_t len, psz_dim3_seq len3, psz_dim3_seq leap3,
+    T const* expected, std::string funcname)
 {
   auto xdata = new T[len];
   memset(xdata, 0, sizeof(T) * len);
@@ -92,7 +92,7 @@ bool test2(
 
 template <typename FUNC1, typename FUNC2>
 bool test3(
-    FUNC1 func1, FUNC2 func2, T* input, size_t len, psz_dim3 len3, psz_dim3 leap3,
+    FUNC1 func1, FUNC2 func2, T* input, size_t len, psz_dim3_seq len3, psz_dim3_seq leap3,
     std::string funcname)
 {
   auto outlier = new _portable::compact_seq<T>(len / 10);
@@ -134,8 +134,8 @@ bool test3(
 template <typename T>
 struct Func {
   using Eq = uint16_t;
-  using type_c = std::function<void(T*, psz_dim3, psz_dim3, uint16_t, f8, Eq*, void*)>;
-  using type_x = std::function<void(Eq*, T*, psz_dim3, psz_dim3, uint16_t, f8, T*)>;
+  using type_c = std::function<void(T*, psz_dim3_seq, psz_dim3_seq, uint16_t, f8, Eq*, void*)>;
+  using type_x = std::function<void(Eq*, T*, psz_dim3_seq, psz_dim3_seq, uint16_t, f8, T*)>;
 };
 
 int main()

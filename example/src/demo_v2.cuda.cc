@@ -11,9 +11,9 @@
 
 #include <cuda_runtime.h>
 
-#include "api_v2.h"
 #include "cusz.h"
 #include "cusz/type.h"
+#include "cusz_rev1.h"
 #include "utils/io.hh"
 #include "utils/viewer.hh"
 

@@ -13,7 +13,7 @@
 
 #include <type_traits>
 
-#include "cusz/suint.hh"
+#include "detail/composite.hh"
 #include "mem/cxx_sp_gpu.h"
 
 namespace psz {

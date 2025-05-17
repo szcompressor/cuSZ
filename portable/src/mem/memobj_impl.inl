@@ -7,8 +7,8 @@
 #include <iostream>
 
 #include "c_type.h"
-#include "stat/compare.hh"
-#include "typing.hh"
+#include "detail/compare.hh"
+#include "detail/typing.hh"
 
 namespace _portable {
 

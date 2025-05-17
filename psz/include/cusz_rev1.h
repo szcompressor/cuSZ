@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "context.h"
+#include "cusz/context.h"
 
 #define DEFAULT_RADIUS 512
 
