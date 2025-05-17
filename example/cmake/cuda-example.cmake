@@ -7,12 +7,6 @@ target_link_libraries(demo_cuda_v1 PRIVATE cusz)
 add_executable(demo_cuda_v2 src/demo_v2.cuda.cc)
 target_link_libraries(demo_cuda_v2 PRIVATE cusz)
 
-add_executable(prequant src/bin_prequant.cc)
-target_link_libraries(prequant PRIVATE cusz CUDA::cudart)
-
-add_executable(pred src/pred.cc)
-target_link_libraries(pred PRIVATE cusz CUDA::cudart)
-
 add_executable(hf src/bin_phf.cc)
 target_link_libraries(hf PRIVATE cusz CUDA::cudart psz_cu_phf)
 
