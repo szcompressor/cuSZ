@@ -18,7 +18,7 @@
 
 #include <cooperative_groups.h>
 #include <cuda.h>
-#include "busyheader.hh"
+#include "detail/busyheader.hh"
 #include "hf/hf_bookg.hh"
 #include "par_merge.inl"
 #include "typing.hh"

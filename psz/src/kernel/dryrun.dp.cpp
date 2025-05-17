@@ -2,7 +2,7 @@
 #include "dryrun.hh"
 
 #include "cusz/type.h"
-#include "port.hh"
+#include "detail/port.hh"
 // definitions
 #include "kernel/detail/dryrun.dp.inl"
 

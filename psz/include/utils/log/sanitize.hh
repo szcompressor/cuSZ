@@ -14,7 +14,7 @@
 
 #include <string>
 
-#include "context.h"
+#include "cusz/context.h"
 #include "dbg.hh"
 
 #ifdef PSZ_SANITIZE_ON

@@ -12,7 +12,7 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "busyheader.hh"
+#include "detail/busyheader.hh"
 #include "kernel/detail/histsp.dp.inl"
 #include "mem/cxx_memobj.h"
 #include "module/cxx_module.hh"

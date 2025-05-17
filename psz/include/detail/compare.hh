@@ -15,8 +15,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 
 // clang-format off
 namespace psz::cppstl {

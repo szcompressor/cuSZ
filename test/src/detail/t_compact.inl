@@ -10,8 +10,8 @@
  */
 
 #include "../rand.hh"
-#include "busyheader.hh"
 #include "cusz/type.h"
+#include "detail/busyheader.hh"
 #include "mem/cxx_sp_cpu.h"
 #include "mem/cxx_sp_gpu.h"
 

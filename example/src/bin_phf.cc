@@ -12,11 +12,12 @@
 #include <cstdint>
 #include <string>
 
+#include "detail/compare.hh"
 #include "hf.h"
 #include "hf_hl.hh"
+#include "kernel/hist.hh"
+#include "kernel/predictor.hh"
 #include "mem/cxx_backends.h"
-#include "module/cxx_module.hh"
-#include "stat.hh"
 #include "utils/io.hh"
 #include "utils/print_arr.hh"
 

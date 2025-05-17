@@ -12,7 +12,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz::thrustgpu {
 

@@ -24,8 +24,7 @@
 namespace psz {
 
 template <typename DType>
-class
-    /*[[deprecated("use non-OOD compression pieline instead")]]*/ Compressor {
+class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
  private:
   // struct impl;
   // std::unique_ptr<impl> pimpl;

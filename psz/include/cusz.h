@@ -16,9 +16,9 @@
 extern "C" {
 #endif
 
-#include "context.h"
+#include "cusz/context.h"
+#include "cusz/header.h"
 #include "cusz/type.h"
-#include "header.h"
 
 #define psz_create capi_psz_create
 #define psz_create_default capi_psz_create_default

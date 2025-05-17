@@ -17,7 +17,7 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
-#include "stat/compare.hh"
+#include "detail/compare.hh"
 
 namespace psz::dpl {
 
@@ -29,9 +29,7 @@ static const int RNG = 3;
 template <typename T>
 void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
 {
-  static_assert(
-      std::is_same_v<T, f4>,
-      "No f8 for local GPU; fast fail on sycl::aspects::fp64.");
+  static_assert(std::is_same_v<T, f4>, "No f8 for local GPU; fast fail on sycl::aspects::fp64.");
 
   using tup = std::tuple<T, T>;
 
@@ -43,10 +41,8 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
   psz::probe_extrema<ONEAPI, T>(odata, len, odata_res);
   psz::probe_extrema<ONEAPI, T>(xdata, len, xdata_res);
 
-  auto begin =
-      oneapi::dpl::make_zip_iterator(std::make_tuple(p_odata, p_xdata));
-  auto end = oneapi::dpl::make_zip_iterator(
-      std::make_tuple(p_odata + len, p_xdata + len));
+  auto begin = oneapi::dpl::make_zip_iterator(std::make_tuple(p_odata, p_xdata));
+  auto end = oneapi::dpl::make_zip_iterator(std::make_tuple(p_odata + len, p_xdata + len));
 
   // clang-format off
   auto corr      = [=] (tup t)  { return (std::get<0>(t) - odata[AVGVAL]) * (std::get<1>(t) - xdata[AVGVAL]); };
