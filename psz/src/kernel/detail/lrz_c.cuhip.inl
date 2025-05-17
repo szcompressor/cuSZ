@@ -12,63 +12,41 @@
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
-#define CHECK_LOCAL_STAT_TOGGLE                                 \
-  static_assert(                                                \
-      not((UseLocalStat == false) and (UseGlobalStat == true)), \
-      "UseLocalStat must be true when UseGlobalStat is set to true.");
-
 #define COUNT_LOCAL_STAT(DELTA, IS_VALID_RANGE)           \
   int is_zero = IS_VALID_RANGE ? (DELTA == 0) : 0;        \
   unsigned int mask = __ballot_sync(0xffffffff, is_zero); \
   if (threadIdx.x % 32 == 0) thp_top1_count += __popc(mask);
 
-#include <cstdint>
-#include <type_traits>
-
-#include "cusz/suint.hh"
-#include "cusz/type.h"
+#include "detail/composite.hh"
+#include "kernel/launch.hh"
 #include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
-#include "utils/err.hh"
-#include "utils/timer.hh"
-
-#define SETUP_ZIGZAG                    \
-  using ZigZag = psz::ZigZag<Eq>;       \
-  using EqUInt = typename ZigZag::UInt; \
-  using EqSInt = typename ZigZag::SInt;
 
 #define Z(LEN3) LEN3[2]
 #define Y(LEN3) LEN3[1]
 #define X(LEN3) LEN3[0]
 #define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
 
-#define CompactVal T
-using CompactIdx = uint32_t;
-using CompactNum = uint32_t;
-
 namespace psz {
 
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
 // significantly slowed down the kernel on non-HPC GPU
-template <
-    typename T, int TileDim, int Seq, bool UseZigZag, typename Eq = uint16_t, typename Fp = T,
-    bool UseLocalStat = true, bool UseGlobalStat = true>
-__global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    uint16_t const radius, Fp const ebx2_r, uint32_t* top_count = nullptr)
+template <typename T, class PC, class Perf>
+__global__ void KERNEL_CUHIP_c_lorenzo_1d(
+    T* const in_data, size_t const data_len, typename PC::Eq* const out_eq,
+    typename PC::CV* const out_cval, typename PC::CI* const out_cidx,
+    typename PC::CN* const out_cn, uint16_t const radius, typename PC::Fp const ebx2_r,
+    typename PC::M* top_count = nullptr)
 {
+  constexpr auto TileDim = Perf::TileDim;
+  constexpr auto Seq = Perf::Seq;
   constexpr auto NumThreads = TileDim / Seq;
-  // constexpr auto NumWarps = NumThreads / 32;
-
-  CHECK_LOCAL_STAT_TOGGLE;
-  SETUP_ZIGZAG;
 
   __shared__ uint32_t s_top1_counts[1];
   if (threadIdx.x == 0) s_top1_counts[0] = 0;
 
   __shared__ T s_data[TileDim];
-  __shared__ EqUInt s_eq_uint[TileDim];
+  __shared__ typename PC::EqUInt s_eq_uint[TileDim];
 
   T _thp_data[Seq + 1] = {0};
   auto prev = [&]() -> T& { return _thp_data[0]; };
@@ -80,7 +58,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len3.x) s_data[threadIdx.x + ix * NumThreads] = round(in_data[id] * ebx2_r);
+    if (id < data_len) s_data[threadIdx.x + ix * NumThreads] = round(in_data[id] * ebx2_r);
   }
   __syncthreads();
 
@@ -98,20 +76,21 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
     T delta = thp_data(ix) - thp_data(ix - 1);
     bool quantizable = fabs(delta) < radius;
 
-    if constexpr (UseLocalStat) {
-      bool is_valid_range = id_base + threadIdx.x * Seq + ix < data_len3.x;
+    if constexpr (PC::UseStatLocal == Toggle::StatLocalEnabled) {
+      bool is_valid_range = id_base + threadIdx.x * Seq + ix < data_len;
       COUNT_LOCAL_STAT(delta, is_valid_range);
     }
 
     T candidate;
-    if constexpr (UseZigZag) {
+    if constexpr (PC::UseZigZag == Toggle::ZigZagEnabled) {
       candidate = delta;
       s_eq_uint[threadIdx.x * Seq + ix] =
-          ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+          PC::ZigZag::encode(static_cast<typename PC::EqSInt>(quantizable * candidate));
     }
     else {
       candidate = delta + radius;
-      s_eq_uint[threadIdx.x * Seq + ix] = quantizable * (EqUInt)candidate;
+      s_eq_uint[threadIdx.x * Seq + ix] =
+          quantizable * static_cast<typename PC::EqUInt>(candidate);
     }
 
     if (not quantizable) {
@@ -122,11 +101,11 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
   }
   __syncthreads();
 
-  if constexpr (UseLocalStat) {
+  if constexpr (PC::UseStatLocal == Toggle::StatLocalEnabled) {
     if (threadIdx.x % 32 == 0) atomicAdd(s_top1_counts, thp_top1_count);
     __syncthreads();
 
-    if constexpr (UseGlobalStat)
+    if constexpr (PC::UseGlobalStat == Toggle::StatGlobalEnabled)
       if (threadIdx.x == 0) atomicAdd(top_count, s_top1_counts[0]);
   }
 
@@ -134,7 +113,7 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len3.x) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
+    if (id < data_len) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
   }
 
   // end of kernel
@@ -143,10 +122,12 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d1l(
 template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
 __global__ [[deprecated]] void KERNEL_CUHIP_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    uint16_t const radius, Fp const ebx2_r)
+    T* const out_cval, uint32_t* const out_cidx, uint32_t* const out_cn, uint16_t const radius,
+    Fp const ebx2_r)
 {
-  SETUP_ZIGZAG;
+  using ZigZag = psz::ZigZag<Eq>;
+  using EqUInt = typename ZigZag::UInt;
+  using EqSInt = typename ZigZag::SInt;
   constexpr auto TileDim = 16;
   constexpr auto Yseq = 8;
 
@@ -214,20 +195,17 @@ __global__ [[deprecated]] void KERNEL_CUHIP_c_lorenzo_2d1l(
   // end of kernel
 }
 
-template <
-    typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T, bool UseLocalStat = true,
-    bool UseGlobalStat = true>
-__global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    uint16_t const radius, Fp const ebx2_r, uint32_t* top_count = nullptr)
+template <typename T, class PC, class Perf>
+__global__ void KERNEL_CUHIP_c_lorenzo_2d__32x32(
+    T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
+    uint32_t const data_leapy, typename PC::Eq* const out_eq, typename PC::CV* const out_cval,
+    typename PC::CI* const out_cidx, typename PC::CN* const out_cn, uint16_t const radius,
+    typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
 {
-  constexpr auto TileDim = 32;
-  constexpr auto Yseq = 8;
+  constexpr auto TileDim = Perf::TileDim;
+  constexpr auto Yseq = Perf::SeqY;
   constexpr auto NumWarps = 4;
-
-  CHECK_LOCAL_STAT_TOGGLE;
-  SETUP_ZIGZAG;
+  static_assert(NumWarps == TileDim * TileDim / Yseq / 32, "wrong TileDim");
 
   __shared__ uint32_t s_top1_counts[1];
   if (cg::this_thread_block().thread_rank() == 0) s_top1_counts[0] = 0;
@@ -239,12 +217,12 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
   // BDX == TileDim == 32 (a full warp), BDY * Yseq = TileDim == 32
   auto gix = blockIdx.x * TileDim + threadIdx.x;
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
-  auto g_id = [&](auto i) { return (giy_base + i) * data_leap3.y + gix; };
+  auto g_id = [&](auto i) { return (giy_base + i) * data_leapy + gix; };
 
 // read to private.in_data (center)
 #pragma unroll
   for (auto iy = 0; iy < Yseq; iy++) {
-    if (gix < data_len3.x and giy_base + iy < data_len3.y)
+    if (gix < data_lenx and giy_base + iy < data_leny)
       center[iy + 1] = round(in_data[g_id(iy)] * ebx2_r);
   }
   if (threadIdx.y < NumWarps - 1) exchange[threadIdx.y][threadIdx.x] = center[Yseq];
@@ -265,25 +243,27 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
     auto gid = g_id(i - 1);
 
     bool quantizable = fabs(center[i]) < radius;
+    bool is_valid_range = (gix < data_lenx and (giy_base + i - 1) < data_leny);
 
-    bool is_valid_range = (gix < data_len3.x and (giy_base + i - 1) < data_len3.y);
-
-    if constexpr (UseLocalStat) { COUNT_LOCAL_STAT(center[i], is_valid_range); }
+    if constexpr (PC::UseStatLocal == Toggle::StatLocalEnabled) {
+      COUNT_LOCAL_STAT(center[i], is_valid_range);
+    }
 
     T candidate;
 
-    if constexpr (UseZigZag) {
+    if constexpr (PC::UseZigZag == Toggle::ZigZagEnabled) {
       candidate = center[i];
       if (is_valid_range)
-        out_eq[gid] = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+        out_eq[gid] =
+            PC::ZigZag::encode(static_cast<typename PC::EqSInt>(quantizable * candidate));
     }
     else {
       candidate = center[i] + radius;
-      if (is_valid_range) out_eq[gid] = quantizable * (EqUInt)candidate;
+      if (is_valid_range) out_eq[gid] = quantizable * static_cast<typename PC::EqUInt>(candidate);
     }
 
     if (not quantizable) {
-      if (gix < data_len3.x and (giy_base + i - 1) < data_len3.y) {
+      if (gix < data_lenx and (giy_base + i - 1) < data_leny) {
         auto cur_idx = atomicAdd(out_cn, 1);
         out_cidx[cur_idx] = gid;
         out_cval[cur_idx] = candidate;
@@ -291,11 +271,11 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
     }
   }
 
-  if constexpr (UseLocalStat) {
+  if constexpr (PC::UseStatLocal == Toggle::StatLocalEnabled) {
     if (cg::this_thread_block().thread_rank() % 32 == 0) atomicAdd(s_top1_counts, thp_top1_count);
     __syncthreads();
 
-    if constexpr (UseGlobalStat) {
+    if constexpr (PC::UseGlobalStat == Toggle::StatGlobalEnabled) {
       if (cg::this_thread_block().thread_rank() == 0) atomicAdd(top_count, s_top1_counts[0]);
     }
   }
@@ -303,19 +283,16 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d1l__32x32(
   // end of kernel
 }
 
-template <
-    typename T, bool UseZigZag, typename Eq = uint32_t, typename Fp = T, bool UseLocalStat = true,
-    bool UseGlobalStat = true>
-__global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    uint16_t const radius, Fp const ebx2_r, uint32_t* top_count = nullptr)
+template <typename T, class PC, class Perf>
+__global__ void KERNEL_CUHIP_c_lorenzo_3d(
+    T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
+    uint32_t const data_leapy, uint32_t const data_lenz, uint32_t const data_leapz,
+    typename PC::Eq* const out_eq, typename PC::CV* const out_cval,
+    typename PC::CI* const out_cidx, typename PC::CN* const out_cn, uint16_t const radius,
+    typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
 {
-  constexpr auto TileDim = 8;
+  constexpr auto TileDim = Perf::TileDim;
   // constexpr auto NumWarps = 8;
-
-  CHECK_LOCAL_STAT_TOGGLE;
-  SETUP_ZIGZAG;
 
   __shared__ uint32_t s_top1_counts[1];
   if (cg::this_thread_block().thread_rank() == 0) s_top1_counts[0] = 0;
@@ -327,15 +304,15 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
   const auto gix = blockIdx.x * (TileDim * 4) + threadIdx.x;
   const auto giy = blockIdx.y * TileDim + threadIdx.y;
   const auto giz_base = blockIdx.z * TileDim;
-  const auto base_id = gix + giy * data_leap3.y + giz_base * data_leap3.z;
+  const auto base_id = gix + giy * data_leapy + giz_base * data_leapz;
 
   auto giz = [&](auto z) { return giz_base + z; };
-  auto gid = [&](auto z) { return base_id + z * data_leap3.z; };
+  auto gid = [&](auto z) { return base_id + z * data_leapz; };
 
   auto load_prequant_3d = [&]() {
-    if (gix < data_len3.x and giy < data_len3.y) {
+    if (gix < data_lenx and giy < data_leny) {
       for (auto z = 0; z < TileDim; z++)
-        if (giz(z) < data_len3.z)
+        if (giz(z) < data_lenz)
           delta[z + 1] = round(in_data[gid(z)] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();
@@ -344,16 +321,17 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
   auto quantize_compact_write = [&](T delta, auto x, auto y, auto z, auto gid) {
     bool quantizable = fabs(delta) < radius;
 
-    if (x < data_len3.x and y < data_len3.y and z < data_len3.z) {
+    if (x < data_lenx and y < data_leny and z < data_lenz) {
       T candidate;
 
-      if constexpr (UseZigZag) {
+      if constexpr (PC::UseZigZag == Toggle::ZigZagEnabled) {
         candidate = delta;
-        out_eq[gid] = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
+        out_eq[gid] =
+            PC::ZigZag::encode(static_cast<typename PC::EqSInt>(quantizable * candidate));
       }
       else {
         candidate = delta + radius;
-        out_eq[gid] = quantizable * (EqUInt)candidate;
+        out_eq[gid] = quantizable * static_cast<typename PC::EqUInt>(candidate);
       }
 
       if (not quantizable) {
@@ -385,8 +363,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
 
     delta[z] -= (threadIdx.y > 0) * s[threadIdx.y][threadIdx.x];
 
-    if constexpr (UseLocalStat) {
-      auto is_valid_range = (gix < data_len3.x and giy < data_len3.y and giz(z - 1) < data_len3.z);
+    if constexpr (PC::UseStatLocal == Toggle::StatLocalEnabled) {
+      auto is_valid_range = (gix < data_lenx and giy < data_leny and giz(z - 1) < data_lenz);
       COUNT_LOCAL_STAT(delta[z], is_valid_range);
     }
 
@@ -395,11 +373,11 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d1l(
     __syncthreads();
   }
 
-  if constexpr (UseLocalStat) {
+  if constexpr (PC::UseStatLocal == Toggle::StatLocalEnabled) {
     if (cg::this_thread_block().thread_rank() % 32 == 0) atomicAdd(s_top1_counts, thp_top1_count);
     __syncthreads();
 
-    if constexpr (UseGlobalStat) {
+    if constexpr (PC::UseGlobalStat == Toggle::StatGlobalEnabled) {
       if (cg::this_thread_block().thread_rank() == 0) atomicAdd(top_count, s_top1_counts[0]);
     }
   }
@@ -431,57 +409,11 @@ __global__ void KERNEL_CUHIP_lorenzo_prequant(
 
 namespace psz::module {
 
-template <typename T, bool UseZigZag, typename Eq>
-int GPU_c_lorenzo_nd_with_outlier(
-    T* const in_data, stdlen3 const _data_len3, Eq* const out_eq, void* out_outlier, u4* out_top1,
-    f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream)
-{
-  using Compact = _portable::compact_gpu<T>;
-  using namespace psz::kernelconfig;
-
-  auto data_len3 = TO_DIM3(_data_len3);
-  auto ot = (Compact*)out_outlier;
-  auto d = lorenzo_utils::ndim(data_len3);
-
-  // error bound
-  auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
-
-  if (d == 1)
-    psz::KERNEL_CUHIP_c_lorenzo_1d1l<
-        T, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x, UseZigZag, Eq>
-        <<<c_lorenzo<1>::thread_grid(data_len3), c_lorenzo<1>::thread_block, 0,
-           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
-            out_top1);
-  else if (d == 2) {
-    // psz::KERNEL_CUHIP_c_lorenzo_2d1l<T, UseZigZag, Eq>
-    //     <<<c_lorenzo<2>::thread_grid(data_len3), c_lorenzo<2>::thread_block, 0,
-    //        (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-    //         in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
-    //         (T)ebx2_r);
-    psz::KERNEL_CUHIP_c_lorenzo_2d1l__32x32<T, UseZigZag, Eq>
-        <<<c_lorenzo<2, 32, 32>::thread_grid(data_len3), c_lorenzo<2, 32, 32>::thread_block, 0,
-           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
-            out_top1);
-  }
-  else if (d == 3)
-    psz::KERNEL_CUHIP_c_lorenzo_3d1l<T, UseZigZag, Eq>
-        <<<c_lorenzo<3>::thread_grid(data_len3), c_lorenzo<3>::thread_block, 0,
-           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3, leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
-            out_top1);
-  else
-    return CUSZ_NOT_IMPLEMENTED;
-
-  return CUSZ_SUCCESS;
-}
-
 template <typename TIN, typename TOUT, bool ReverseProcess>
 int GPU_lorenzo_prequant(
     TIN* const in, size_t const len, f8 const ebx2, f8 const ebx2_r, TOUT* const out, void* stream)
 {
-  using namespace psz::kernelconfig;
+  using namespace psz::config;
 
   psz::KERNEL_CUHIP_lorenzo_prequant<
       TIN, TOUT, ReverseProcess, TIN, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>
@@ -491,38 +423,95 @@ int GPU_lorenzo_prequant(
   return CUSZ_SUCCESS;
 }
 
+template <typename T, class PC>
+struct GPU_c_lorenzo_1d {
+  static int kernel(
+      T* const in_data, stdlen3 const data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+      u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
+  {
+    using Compact = _portable::compact_gpu<T>;
+    using lrz1 = config::c_lorenzo<1>;
+    auto ot = (Compact*)out_outlier;
+
+    psz::KERNEL_CUHIP_c_lorenzo_1d<T, PC, lrz1::Perf>
+        <<<lrz1::thread_grid(dim3(data_len3[0], 1, 1)), lrz1::thread_block, 0,
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+            in_data, data_len3[0], out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
+            out_top1);
+
+    return CUSZ_SUCCESS;
+  }
+};
+
+template <typename T, class PC>
+struct GPU_c_lorenzo_2d {
+  static int kernel(
+      T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+      u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
+  {
+    using Compact = _portable::compact_gpu<T>;
+    using lrz2 = config::c_lorenzo<2, 32, 32>;
+
+    auto data_len3 = TO_DIM3(_data_len3);
+    auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
+    auto ot = (Compact*)out_outlier;
+
+    psz::KERNEL_CUHIP_c_lorenzo_2d__32x32<T, PC, lrz2::Perf>
+        <<<lrz2::thread_grid(data_len3), lrz2 ::thread_block, 0,
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+            in_data, data_len3.x, data_len3.y, leap3.y, out_eq, ot->val(), ot->idx(), ot->num(),
+            radius, (T)ebx2_r, out_top1);
+
+    return CUSZ_SUCCESS;
+  }
+};
+
+template <typename T, class PC>
+struct GPU_c_lorenzo_3d {
+  static int kernel(
+      T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+      u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
+  {
+    using Compact = _portable::compact_gpu<T>;
+    using lrz3 = config::c_lorenzo<3>;
+
+    auto data_len3 = TO_DIM3(_data_len3);
+    auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
+    auto ot = (Compact*)out_outlier;
+
+    psz::KERNEL_CUHIP_c_lorenzo_3d<T, PC, lrz3::Perf>
+        <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0,
+           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+            in_data, data_len3.x, data_len3.y, leap3.y, data_len3.z, leap3.z, out_eq, ot->val(),
+            ot->idx(), ot->num(), radius, (T)ebx2_r, out_top1);
+
+    return CUSZ_SUCCESS;
+  }
+};
+
+template <typename T, class PC>
+int GPU_c_lorenzo_nd<T, PC>::kernel(
+    T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+    u4* out_top1, f8 const eb, uint16_t const radius, void* stream)
+{
+  auto data_len3 = TO_DIM3(_data_len3);
+  auto d = psz::config::utils::ndim(data_len3);
+
+  auto eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+
+  if (d == 1)
+    GPU_c_lorenzo_1d<T, PC>::kernel(
+        in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+  else if (d == 2)
+    GPU_c_lorenzo_2d<T, PC>::kernel(
+        in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+  else if (d == 3)
+    GPU_c_lorenzo_3d<T, PC>::kernel(
+        in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+  else
+    return CUSZ_NOT_IMPLEMENTED;
+
+  return CUSZ_SUCCESS;
+}
+
 }  // namespace psz::module
-
-// -----------------------------------------------------------------------------
-#define INSTANCIATE_GPU_L23R_3params(T, USE_ZIGZAG, Eq)                                         \
-  template int psz::module::GPU_c_lorenzo_nd_with_outlier<T, USE_ZIGZAG, Eq>(                   \
-      T* const in_data, stdlen3 const data_len3, Eq* const out_eq, void* out_outlier, u4* top1, \
-      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
-
-#define INSTANCIATE_GPU_L23R_2params(T, Eq)   \
-  INSTANCIATE_GPU_L23R_3params(T, false, Eq); \
-  INSTANCIATE_GPU_L23R_3params(T, true, Eq);
-
-#define INSTANCIATE_GPU_L23R_1param(T) \
-  INSTANCIATE_GPU_L23R_2params(T, u1); \
-  INSTANCIATE_GPU_L23R_2params(T, u2);
-
-// -----------------------------------------------------------------------------
-
-#define INSTANCIATE_GPU_L23_PREQ_3params(TIN, TOUT, REV)                                \
-  template int psz::module::GPU_lorenzo_prequant<TIN, TOUT, REV>(                       \
-      TIN* const in, size_t const len, f8 const ebx2, f8 const ebx2_r, TOUT* const out, \
-      void* stream);
-
-#define INSTANCIATE_GPU_L23_PREQ_2params(TIN, REV)     \
-  INSTANCIATE_GPU_L23_PREQ_3params(TIN, int32_t, REV); \
-  INSTANCIATE_GPU_L23_PREQ_3params(TIN, int16_t, REV); \
-  INSTANCIATE_GPU_L23_PREQ_3params(TIN, int8_t, REV);
-
-#define INSTANCIATE_GPU_L23_PREQ_1param(T)    \
-  INSTANCIATE_GPU_L23_PREQ_2params(T, false); \
-  INSTANCIATE_GPU_L23_PREQ_2params(T, true);
-
-//  -----------------------------------------------------------------------------
-
-#undef SETUP_ZIGZAG

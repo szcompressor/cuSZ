@@ -1,8 +1,15 @@
 #include "detail/lrz_x.cuhip.inl"
 
-INSTANTIATE_GPU_L23X_1param(f4);
-INSTANTIATE_GPU_L23X_1param(f8);
+using psz::Toggle;
 
-#undef INSTANTIATE_GPU_L23X_1param
-#undef INSTANTIATE_GPU_L23X_2params
-#undef INSTANTIATE_GPU_L23X_3params
+template struct psz::module::GPU_x_lorenzo_nd<
+    float, psz::PredConfig<float, psz::PredFunc<Toggle::ZigZagDisabled>>>;
+
+template struct psz::module::GPU_x_lorenzo_nd<
+    double, psz::PredConfig<double, psz::PredFunc<Toggle::ZigZagDisabled>>>;
+
+template struct psz::module::GPU_x_lorenzo_nd<
+    float, psz::PredConfig<float, psz::PredFunc<Toggle::ZigZagEnabled>>>;
+
+template struct psz::module::GPU_x_lorenzo_nd<
+    double, psz::PredConfig<double, psz::PredFunc<Toggle::ZigZagEnabled>>>;
