@@ -323,6 +323,8 @@ int psz_compress_float(
   RUNTIME_SAVE_CONFIG();
   RUNTIME_SCAN_EXTREMA(float);
 
+  if (m->header->eb != rc.eb) m->header->eb = rc.eb;
+
   CP<f4, u2>::compress(
       m, (psz_buf<f4, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
       m->stream);
@@ -341,6 +343,8 @@ int psz_compress_double(
   RUNTIME_CHECK_RADIUS(double);
   RUNTIME_SAVE_CONFIG();
   RUNTIME_SCAN_EXTREMA(double);
+
+  if (m->header->eb != rc.eb) m->header->eb = rc.eb;
 
   CP<f8, u2>::compress(
       m, (psz_buf<f8, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
