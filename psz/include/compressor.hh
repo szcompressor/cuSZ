@@ -10,7 +10,7 @@
 namespace psz {
 
 template <typename T>
-class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
+class Compressor {
  private:
  public:
   using E = u2;

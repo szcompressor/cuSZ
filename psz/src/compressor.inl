@@ -118,10 +118,12 @@ void Compressor<T>::compress_predict_enc1(psz_ctx* ctx, T* in, void* stream)
   else if (predictor == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
         in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
-  else if (predictor == Spline)
-    psz::module::GPU_predict_spline(
-        in, len, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
-        (void*)mem->buf_outlier(), ebx2, eb_r, RC.radius, stream);
+  else if (ctx->header->pipeline.predictor == Spline)
+    if constexpr (std::is_same_v<T, f4>)
+      psz::module::GPU_spline_construct<T, E>::kernel_v1(
+          in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), mem->buf_outlier(), eb,
+          ctx->header->rc.eb, ctx->header->rc.radius, ctx->header->intp_param,
+          mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream);
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
@@ -226,7 +228,9 @@ STEP_PREDICT:
         mem->ectrl_d(), d_space, d_xdata, len, ebx2, ebx2_r, header->rc.radius, stream);
   else if (header->pipeline.predictor == Spline)
     if constexpr (std::is_same_v<T, f4>)
-      psz::module::GPU_spline_reconstruct<T, E>::null(/*     */);
+      psz::module::GPU_spline_reconstruct<T, E>::kernel_v1(
+          mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata, mem->ectrl_len3(), d_xdata,
+          eb, header->rc.radius, header->intp_param, stream);
 }
 
 // public getter
@@ -319,7 +323,10 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
         mem, in, len, eb, radius, stream);
   else if (PIPELINE.predictor == Spline)
     if constexpr (std::is_same_v<T, f4>)
-      psz::module::GPU_spline_construct<T, E>::null(/*       */);
+      psz::module::GPU_spline_construct<T, E>::kernel_v1(
+          in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), mem->buf_outlier(), eb,
+          ctx->header->rc.eb, ctx->header->rc.radius, ctx->header->intp_param,
+          mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream);
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
@@ -357,7 +364,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
           in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
     else if (predictor == Spline) {
       if constexpr (std::is_same_v<T, f4>)
-        psz::module::GPU_spline_construct<T, E>::null(/*       */);
+        psz::module::GPU_spline_construct<T, E>::kernel_v1(
+            in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), mem->buf_outlier(), eb,
+            ctx->header->rc.eb, ctx->header->rc.radius, ctx->header->intp_param,
+            mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(),
+            stream);
     }
     else
       return PSZ_ABORT_NO_SUCH_PREDICTOR;
@@ -494,7 +505,9 @@ STEP_PREDICT:
         mem->ectrl_d(), d_space, d_xdata, len, ebx2, ebx2_r, header->rc.radius, stream);
   else if (header->pipeline.predictor == Spline)
     if constexpr (std::is_same_v<T, f4>)
-      psz::module::GPU_spline_reconstruct<T, E>::null(/*     */);
+      psz::module::GPU_spline_reconstruct<T, E>::kernel_v1(
+          mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata, mem->ectrl_len3(), d_xdata,
+          eb, header->rc.radius, header->intp_param, stream);
 
   return PSZ_SUCCESS;
 }

@@ -58,21 +58,6 @@ struct CPU_x_lorenzo_nd {
       f8 const eb, u2 const radius, f4* time_elapsed);
 };
 
-template <typename T, typename E, typename FP = T>
-int GPU_predict_spline(
-    T* in_data, psz_len const data_len3,       //
-    E* out_ectrl, psz_len const ectrl_len3,    //
-    T* out_anchor, psz_len const anchor_len3,  //
-    void* out_outlier,                         //
-    f8 const ebx2, f8 const eb_r, uint32_t radius, void* stream);
-
-template <typename T, typename E, typename FP = T>
-int GPU_reverse_predict_spline(
-    E* in_ectrl, psz_len const ectrl_len3,    //
-    T* in_anchor, psz_len const anchor_len3,  //
-    T* out_xdata, psz_len const xdata_len3,   //
-    f8 const ebx2, f8 const eb_r, uint32_t radius, void* stream);
-
 template <typename T, typename E, typename Fp = T>
 struct GPU_spline_construct {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
@@ -90,6 +75,6 @@ struct GPU_spline_reconstruct {
       T* outlier_tmp, double eb, uint32_t radius, INTERPOLATION_PARAMS intp_param, void* stream);
 };
 
-};  // namespace psz::module
+}  // namespace psz::module
 
 #endif /* PSZ_KERNEL_PREDITOR_HH */

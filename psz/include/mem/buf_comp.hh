@@ -9,9 +9,17 @@
 #include "mem/cxx_sp_gpu.h"
 
 // segment
+// base
+// #define PSZ_HEADER 0
+// #define PSZ_ANCHOR 1
+// #define PSZ_ENCODED 2
+// #define PSZ_SPFMT 3
+// #define PSZ_END 4
+
+// incoming: spline
 #define PSZ_HEADER 0
-#define PSZ_ANCHOR 1
-#define PSZ_ENCODED 2
+#define PSZ_ENCODED 1
+#define PSZ_ANCHOR 2
 #define PSZ_SPFMT 3
 // #define PSZ_END 4
 #define PSZ_ENC_PASS1_END 4
@@ -49,10 +57,13 @@ struct Buf_Comp {
   struct impl;
   std::unique_ptr<impl> pimpl;
 
-  constexpr static size_t BLK = 8;  // for spline
   constexpr static u2 max_radius = 512;
   constexpr static u2 max_bklen = max_radius * 2;
   constexpr static float OUTLIER_RATIO = 0.1;
+
+  // spline-specific: declare
+  constexpr static int BLK = 16;
+  constexpr static int ERR_HISTO_LEN = 36;
 
   bool is_comp;
   // const u4 x, y, z;
@@ -106,6 +117,11 @@ struct Buf_Comp {
   Buf_Outlier2* buf_outlier2() const;
   void* outlier2_validx_d() const;
   M outlier2_host_get_num() const;
+
+  // extra for profifling
+  T* profiled_errors_d() const;
+  T* profiled_errors_h() const;
+  M profiled_errors_len() const;
 
   Buf_HF* buf_hf() const;
 

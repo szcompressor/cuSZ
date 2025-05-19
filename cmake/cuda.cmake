@@ -143,7 +143,10 @@ add_library(psz_cu_core
   psz/src/kernel/spvn.cu
   psz/src/kernel/lrz_c.cu
   psz/src/kernel/lrz_x.cu
-  psz/src/kernel/spline3.cu
+  psz/src/kernel/spline3_c_u1.cu
+  psz/src/kernel/spline3_c_u2.cu
+  psz/src/kernel/spline3_x_u1.cu
+  psz/src/kernel/spline3_x_u2.cu
 )
 target_link_libraries(psz_cu_core
   PUBLIC
