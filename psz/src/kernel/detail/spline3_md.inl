@@ -568,7 +568,7 @@ __device__ void global2shmem_fuse(E* ectrl, dim3 ectrl_size, dim3 ectrl_leap, T*
     volatile T s_ectrl[AnchorBlockSizeZ * numAnchorBlockZ + (SPLINE_DIM >= 3)]
     [AnchorBlockSizeY * numAnchorBlockY + (SPLINE_DIM >= 2)]
     [AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1)],
-    volatile STRIDE3 grid_leaps[LEVEL + 1],volatile size_t prefix_nums[LEVEL + 1])
+    volatile size_t grid_leaps[LEVEL + 1][2],volatile size_t prefix_nums[LEVEL + 1])
 {
     
     constexpr auto TOTAL = (AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1)) *
@@ -593,10 +593,10 @@ __device__ void global2shmem_fuse(E* ectrl, dim3 ectrl_size, dim3 ectrl_leap, T*
                 gz = gz >> 1;
                 level++;
             }
-            auto gid = gx + gy*grid_leaps[level].y+gz*grid_leaps[level].z;
+            auto gid = gx + gy*grid_leaps[level][0] + gz*grid_leaps[level][1];
 
             if(level < LEVEL){//non-anchor
-                gid += prefix_nums[level] - ((gz + 1) >> 1) * grid_leaps[level + 1].z - (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1].y - (gz % 2 == 0 && gy % 2 == 0) * ((gx + 1) >> 1);
+                gid += prefix_nums[level] - ((gz + 1) >> 1) * grid_leaps[level + 1][1] - (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1][0] - (gz % 2 == 0 && gy % 2 == 0) * ((gx + 1) >> 1);
             }
 
             s_ectrl[z][y][x] = static_cast<T>(ectrl[gid]) + scattered_outlier[data_gid];
@@ -648,7 +648,7 @@ int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void
 shmem2global_data_with_compaction(volatile T1 s_buf[AnchorBlockSizeZ * numAnchorBlockZ + (SPLINE_DIM >= 3)]
 [AnchorBlockSizeY * numAnchorBlockY + (SPLINE_DIM >= 2)]
-[AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1)], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, int radius,volatile STRIDE3 grid_leaps[LEVEL + 1],volatile size_t prefix_nums[LEVEL + 1], T1* dram_compactval = nullptr, uint32_t* dram_compactidx = nullptr, uint32_t* dram_compactnum = nullptr)
+[AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1)], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, int radius,volatile size_t grid_leaps[LEVEL + 1][2], volatile size_t prefix_nums[LEVEL + 1], T1* dram_compactval = nullptr, uint32_t* dram_compactidx = nullptr, uint32_t* dram_compactnum = nullptr)
 {
     auto x_size = AnchorBlockSizeX * numAnchorBlockX + (BIX == GDX - 1) * (SPLINE_DIM >= 1);
     auto y_size = AnchorBlockSizeY * numAnchorBlockY + (BIY == GDY - 1) * (SPLINE_DIM >= 2);
@@ -682,10 +682,10 @@ shmem2global_data_with_compaction(volatile T1 s_buf[AnchorBlockSizeZ * numAnchor
                 gz = gz >> 1;
                 level++;
             }
-            auto gid = gx + gy * grid_leaps[level].y + gz * grid_leaps[level].z;
+            auto gid = gx + gy * grid_leaps[level][0] + gz * grid_leaps[level][1];
 
             if(level < LEVEL){//non-anchor
-                gid += prefix_nums[level]-((gz + 1) >> 1) * grid_leaps[level + 1].z - (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1].y - (gz % 2 == 0 && gy % 2 == 0) * ((gx + 1) >> 1);
+                gid += prefix_nums[level]-((gz + 1) >> 1) * grid_leaps[level + 1][1] - (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1][0] - (gz % 2 == 0 && gy % 2 == 0) * ((gx + 1) >> 1);
             }
 
             // TODO this is for algorithmic demo by reading from shmem
@@ -1815,15 +1815,15 @@ __global__ void cusz::c_spline_profiling_data_2(
 }
 
 
-template <int LEVEL> __forceinline__ __device__ void pre_compute(DIM3 data_size, volatile STRIDE3 grid_leaps[LEVEL + 1], volatile size_t prefix_nums[LEVEL + 1]){
+template <int LEVEL> __forceinline__ __device__ void pre_compute(DIM3 data_size, volatile size_t grid_leaps[LEVEL + 1][2], volatile size_t prefix_nums[LEVEL + 1]){
     if(TIX==0){
         auto d_size = data_size;
         
         int level = 0;
         while(level <= LEVEL){
-            grid_leaps[level].x = 1;
-            grid_leaps[level].y = d_size.x;
-            grid_leaps[level].z = d_size.x * d_size.y;
+            //grid_leaps[level][0] = 1;
+            grid_leaps[level][0] = d_size.x;
+            grid_leaps[level][1] = d_size.x * d_size.y;
             if(level < LEVEL){
                 d_size.x = (d_size.x + 1) >> 1;
                 d_size.y = (d_size.y + 1) >> 1;
@@ -1869,7 +1869,7 @@ __global__ void cusz::c_spline_infprecis_data(
              __shared__ T shmem_ectrl[AnchorBlockSizeZ * numAnchorBlockZ + (SPLINE_DIM >= 3)]
                     [AnchorBlockSizeY * numAnchorBlockY + (SPLINE_DIM >= 2)]
                     [AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1)];
-                __shared__ STRIDE3 shmem_grid_leaps[LEVEL + 1];
+                __shared__ size_t shmem_grid_leaps[LEVEL + 1][2];
                 __shared__ size_t shmem_prefix_nums[LEVEL + 1];
         // } shmem;
 
@@ -1936,7 +1936,7 @@ __global__ void cusz::x_spline_infprecis_data(
     __shared__ T shmem_ectrl[AnchorBlockSizeZ * numAnchorBlockZ + (SPLINE_DIM >= 3)]
            [AnchorBlockSizeY * numAnchorBlockY + (SPLINE_DIM >= 2)]
            [AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1)];
-    __shared__ STRIDE3 shmem_grid_leaps[LEVEL + 1];
+    __shared__ size_t shmem_grid_leaps[LEVEL + 1][2];
     __shared__ size_t shmem_prefix_nums[LEVEL + 1];
 
     pre_compute<LEVEL>(ectrl_size, shmem_grid_leaps, shmem_prefix_nums);
@@ -2348,8 +2348,8 @@ __forceinline__ __device__ void interpolate_stage_md_att(
 
                 pred = 0;
                 auto input_x = x;
-                auto input_BI = BIX;
-                auto input_GD = GDX;
+                //auto input_BI = BIX;
+                //auto input_GD = GDX;
                 auto input_gx = global_x;
                 auto input_gs = data_size.x;
                 auto right_bound = AnchorBlockSizeX * numAnchorBlockX + (SPLINE_DIM >= 1);
@@ -2359,8 +2359,8 @@ __forceinline__ __device__ void interpolate_stage_md_att(
                 int global_start_ = global_starts.x;
                 if (I_Z){
                     input_x = z;
-                    input_BI = BIZ;
-                    input_GD = GDZ;
+                    //input_BI = BIZ;
+                    //input_GD = GDZ;
                     input_gx = global_z;
                     input_gs = data_size.z;
                     global_start_ = global_starts.z;
@@ -2368,8 +2368,8 @@ __forceinline__ __device__ void interpolate_stage_md_att(
                 }
                 else if (I_Y){
                     input_x = y;
-                    input_BI = BIY;
-                    input_GD = GDY;
+                    //input_BI = BIY;
+                    //input_GD = GDY;
                     input_gx = global_y;
                     input_gs = data_size.y;
                     global_start_ = global_starts.y;
