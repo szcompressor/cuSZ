@@ -2,3 +2,6 @@
 	path = third_party/googletest
 	url = https://github.com/google/googletest
 	ignore = dirty
+[submodule "third_party/lc"]
+	path = third_party/lc
+	url = https://github.com/burtscher/LC-framework.git
