@@ -638,7 +638,6 @@ shmem2global_data(volatile T1 s_buf[AnchorBlockSizeZ * numAnchorBlockZ + (SPLINE
 }
 
 
-// dram_outlier should be the same in type with shared memory buf
 template <typename T1, typename T2, int LEVEL = 4,
 int SPLINE_DIM = 2, int AnchorBlockSizeX = 8,
 int AnchorBlockSizeY = 8, int AnchorBlockSizeZ = 8,
