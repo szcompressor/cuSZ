@@ -31,6 +31,7 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/src/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/codec/fzg/src>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
@@ -179,6 +180,25 @@ target_link_libraries(psz_cu_fzg
 add_library(PSZ::CUDA::fzg ALIAS psz_cu_fzg)
 add_library(CUSZ::fzg ALIAS psz_cu_fzg)
 
+if(PSZ_ACTIVATE_LC)
+  add_library(lc_gen 
+    third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu 
+    third_party/lc_gen/comp-bitr.cu third_party/lc_gen/decomp-bitr.cu
+    third_party/lc_gen/comp-rtr.cu  third_party/lc_gen/decomp-rtr.cu
+  )
+  target_compile_options(lc_gen
+    PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-O3 -fmad=false>
+    $<$<COMPILE_LANGUAGE:CXX>:-O3 -march=native -mno-fma>
+  )
+  target_link_libraries(lc_gen 
+    PUBLIC 
+    psz_cu_compile_settings 
+    CUDA::cudart
+  )
+endif()
+
+
 add_library(cusz
   psz/src/compressor.cc
   psz/src/libcusz.cc
@@ -295,6 +315,16 @@ install(TARGETS
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+if(PSZ_ACTIVATE_LC)
+  install(TARGETS
+    lc_gen
+    EXPORT CUSZTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
+endif()
 
 # install the executable
 install(TARGETS

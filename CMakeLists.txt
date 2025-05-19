@@ -25,6 +25,7 @@ include(cmake/logging.cmake)
 # conditionally enable functionality
 option(PSZ_RESEARCH_HUFFBK_CUDA "(CUDA only) build research artifacts: create Huffman codebook on GPU" OFF)
 option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" OFF)
+option(PSZ_ACTIVATE_LC "build LC as a submodule" OFF)
 
 # example and testing
 option(PSZ_BUILD_EXAMPLES "build example codes" ON)
