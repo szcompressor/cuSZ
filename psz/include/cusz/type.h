@@ -71,10 +71,10 @@ typedef enum {
 
 typedef enum {
   Huffman,
-  HuffmanRevisit,
   LC,
-  FZGPUCodec,
-  RunLength,
+  // HuffmanRevisit,// status: not ready
+  FZGPUCodec,  // status: not in use
+  // RunLength,     // status: obsolete
   NullCodec,
 } psz_codectype;
 

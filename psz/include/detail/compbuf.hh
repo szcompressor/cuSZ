@@ -9,12 +9,14 @@
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 
-// segment
+// segment: ANCHOR is contiguous SPFMT.
 #define HEADER 0
-#define ANCHOR 1
-#define ENCODED 2
+#define ENCODED 1
+#define ANCHOR 2
 #define SPFMT 3
 #define END 4
+#define ENC_PASS1_END 4
+#define ENC_PASS2_END 5
 
 using stdlen3 = std::array<size_t, 3>;
 
@@ -24,6 +26,7 @@ struct CompressorBufferToggle {
   bool err_ctrl_quant;
   bool compact_outlier;
   bool anchor;
+  bool profile_error;
   bool histogram;
   bool compressed;
   bool top1;
@@ -46,7 +49,6 @@ class CompressorBuffer {
   using hf_mem_t = phf::Buf<E>;
 
   GPU_unique_dptr<E[]> d_ectrl;
-  GPU_unique_dptr<T[]> d_anchor;
   GPU_unique_dptr<B[]> d_compressed;
   GPU_unique_hptr<B[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
@@ -54,9 +56,15 @@ class CompressorBuffer {
   GPU_unique_dptr<Freq[]> d_top1;
   GPU_unique_hptr<Freq[]> h_top1;
 
-  constexpr static size_t BLK = 8;  // for spline
   constexpr static u2 max_radius = 512;
   constexpr static u2 max_bklen = max_radius * 2;
+
+  // spline-specific: declare
+  constexpr static int BLK = 16;
+  constexpr static int ERR_HISTO_LEN = 36;
+  GPU_unique_dptr<T[]> d_anchor;
+  GPU_unique_dptr<T[]> d_pe;
+  GPU_unique_hptr<T[]> h_pe;
 
   Compact* compact;
   bool is_comp;
@@ -71,7 +79,7 @@ class CompressorBuffer {
   int hist_generic_repeat;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
-  uint32_t nbyte[END];
+  uint32_t nbyte[ENC_PASS1_END];
   [[deprecated]] float time_sp;
   double eb, eb_r, ebx2, ebx2_r;
 
@@ -121,7 +129,6 @@ class CompressorBuffer {
 
     if (is_comp) {
       compact = new Compact(len / 5);
-      d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
       d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
@@ -130,6 +137,11 @@ class CompressorBuffer {
       h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
 
       buf_hf = new phf::Buf<E>(len, max_bklen);
+
+      // spline-specific: allocate
+      d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
+      d_pe = MAKE_UNIQUE_DEVICE(T, ERR_HISTO_LEN);
+      h_pe = MAKE_UNIQUE_HOST(T, ERR_HISTO_LEN);
     }
   }
 
@@ -166,10 +178,6 @@ class CompressorBuffer {
 
   stdlen3 ectrl_len3() const { return stdlen3{x, y, z}; }
 
-  T* anchor() const { return d_anchor.get(); }
-  size_t anchor_len() const { return anchor512_len; }
-  stdlen3 anchor_len3() const { return stdlen3{_div(x, BLK), _div(y, BLK), _div(z, BLK)}; }
-
   B* compressed() const { return d_compressed.get(); }
   B* compressed_h() const { return d_compressed.get(); }
 
@@ -177,6 +185,14 @@ class CompressorBuffer {
   M* compact_idx() const { return compact->idx(); }
   M compact_num_outliers() const { return compact->num_outliers(); }
   Compact* outlier() { return compact; }
+
+  // spline-specific: getter
+  T* anchor() const { return d_anchor.get(); }
+  size_t anchor_len() const { return anchor512_len; }
+  stdlen3 anchor_len3() const { return stdlen3{_div(x, BLK), _div(y, BLK), _div(z, BLK)}; }
+  T* profiled_errors() const { return d_pe.get(); };
+  T* profiled_errors_h() const { return h_pe.get(); };
+  M profiled_errors_len() const { return ERR_HISTO_LEN; };
 };
 
 }  // namespace psz

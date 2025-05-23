@@ -22,10 +22,12 @@ extern "C" {
 #include "cusz/type.h"
 
 #define PSZHEADER_HEADER 0
-#define PSZHEADER_ANCHOR 1
-#define PSZHEADER_ENCODED 2
+#define PSZHEADER_ENCODED 1
+#define PSZHEADER_ANCHOR 2
 #define PSZHEADER_SPFMT 3
 #define PSZHEADER_END 4
+#define PSZHEADER_ENC_PASS1_END 4
+#define PSZHEADER_ENC_PASS2_END 5
 
 // @brief Memory alignment at 128 bytes for GPU if the archive is on device.
 typedef struct psz_header {
@@ -46,7 +48,7 @@ typedef struct psz_header {
       int vle_sublen;
       int vle_pardeg;
 
-      uint32_t entry[PSZHEADER_END + 1];  // segment entries
+      uint32_t entry[PSZHEADER_ENC_PASS2_END + 1];  // segment entries
 
       // runtime sizes
       uint32_t x, y, z, w;

@@ -12,13 +12,6 @@ typedef struct psz_dim3_seq {
 
 psz_dim3_seq psz_div3(psz_dim3_seq len, psz_dim3_seq sublen);
 
-// TODO put f4/f8 clarification in the kernel impl. files
-// #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-// #define PROPER_EB f8
-// #elif defined(PSZ_USE_1API)
-// #define PROPER_EB f4
-// #endif
-
 using stdlen3 = std::array<size_t, 3>;
 
 namespace psz::module {
@@ -74,21 +67,31 @@ pszerror CPU_x_lorenzo_nd(
 
 namespace psz::module {
 
-template <typename T, typename E, typename FP = T>
-int GPU_predict_spline(
-    T* in_data, stdlen3 const data_len3,       //
-    E* out_ectrl, stdlen3 const ectrl_len3,    //
-    T* out_anchor, stdlen3 const anchor_len3,  //
-    void* out_outlier,                         //
-    f8 const ebx2, f8 const eb_r, uint32_t radius, void* stream);
+template <typename T, typename E, typename Fp = T>
+struct GPU_spline_construct {
+  //   static int kernel_v0(
+  //       memobj<T>* data, memobj<T>* anchor, memobj<E>* errctrl, void* _outlier, double eb,
+  //       double rel_eb, uint32_t radius, INTERPOLATION_PARAMS& intp_param, float* time, void*
+  //       stream, memobj<T>* profiling_errors);
 
-template <typename T, typename E, typename FP = T>
-int GPU_reverse_predict_spline(
-    E* in_ectrl, stdlen3 const ectrl_len3,    //
-    T* in_anchor, stdlen3 const anchor_len3,  //
-    T* out_xdata, stdlen3 const xdata_len3,   //
-    f8 const ebx2, f8 const eb_r, uint32_t radius, void* stream);
+  static int kernel_v1(
+      T* data, stdlen3 const data_len3, T* anchor, stdlen3 const anchor_len3, E* ectrl,
+      void* _outlier, double eb, double rel_eb, uint32_t radius, INTERPOLATION_PARAMS& intp_param,
+      float* time, T* d_profiling_errors, T* h_profiling_errors, u4 const pe_len, void* stream);
+};
 
-};  // namespace psz::module
+template <typename T, typename E, typename Fp = T>
+struct GPU_spline_reconstruct {
+  //   static int kernel_v0(
+  //       memobj<T>* anchor, memobj<E>* errctrl, memobj<T>* xdata, T* outlier_tmp, double eb,
+  //       uint32_t radius, INTERPOLATION_PARAMS intp_param, float* time, void* stream);
+
+  static int kernel_v1(
+      T* anchor, stdlen3 const anchor_len3, E* ectrl, T* xdata, stdlen3 const xdata_len3,
+      T* outlier_tmp, double eb, uint32_t radius, INTERPOLATION_PARAMS intp_param, float* time,
+      void* stream);
+};
+
+}  // namespace psz::module
 
 #endif /* PSZ_KERNEL_PREDITOR_HH */
