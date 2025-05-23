@@ -40,12 +40,14 @@ typedef _portable_data_summary psz_data_summary;
 typedef enum {
   PSZ_SUCCESS,
   PSZ_WARN_RADIUS_TOO_LARGE,
-  PSZ_ABORT_TYPE_UNSUPPORTED,
+  PSZ_WARN_OUTLIER_TOO_MANY,
+  PSZ_ABORT_UNSUPPORTED_TYPE,
+  PSZ_ABORT_UNSUPPORTED_DIMENSION,
   PSZ_ABORT_NOT_IMPLEMENTED,
-  PSZ_ABORT_OUTLIER_TOO_MANY,
 } psz_error_status;
 typedef psz_error_status pszerror;
 
+// aliasing
 typedef uint8_t byte_t;
 typedef size_t szt;
 
@@ -55,7 +57,7 @@ typedef size_t szt;
 #define NULL_HISTOGRAM NullHistogram
 #define NULL_CODEC NullCodec
 
-typedef enum { Abs, Rel } psz_mode;
+typedef enum { Abs, Rel, Verbatim } psz_mode;
 typedef enum { Lorenzo, LorenzoZigZag, LorenzoProto, Spline } psz_predtype;
 
 typedef enum {
@@ -70,6 +72,7 @@ typedef enum {
 typedef enum {
   Huffman,
   HuffmanRevisit,
+  LC,
   FZGPUCodec,
   RunLength,
   NullCodec,
@@ -115,6 +118,30 @@ typedef struct psz_statistics {
   f8 user_eb;
   size_t len;
 } psz_statistics;
+
+typedef struct psz_interp_params {
+  double alpha, beta;
+
+  bool use_md[6];
+  bool use_natural[6];
+  bool reverse[6];
+  uint8_t auto_tuning;
+} psz_interp_params;
+
+typedef struct psz_interp_params INTERPOLATION_PARAMS;
+
+// C-style "constructor"
+static inline psz_interp_params make_default_params(void)
+{
+  psz_interp_params p = {
+      .alpha = 1.75,
+      .beta = 4.0,
+      .use_md = {1, 1, 0, 0, 0, 0},
+      .use_natural = {0, 0, 0, 0, 0, 0},
+      .reverse = {0, 0, 0, 0, 0, 0},
+      .auto_tuning = 3};
+  return p;
+}
 
 #ifdef __cplusplus
 }

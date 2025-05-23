@@ -44,7 +44,7 @@ psz_compressor* capi_psz_create(
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_UNSUPPORTED_TYPE;
 
   return comp;
 }
@@ -63,7 +63,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_UNSUPPORTED_TYPE;
 
   return comp;
 }
@@ -81,7 +81,7 @@ psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_UNSUPPORTED_TYPE;
 
   return comp;
 }
@@ -97,7 +97,7 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
     comp->compressor = h->dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                       : (void*)(new psz::CompressorF8(comp->ctx));
   else
-    comp->last_error = PSZ_ABORT_TYPE_UNSUPPORTED;
+    comp->last_error = PSZ_ABORT_UNSUPPORTED_TYPE;
 
   return comp;
 }
@@ -110,7 +110,7 @@ pszerror capi_psz_release(psz_compressor* comp)
   else if (dtype == F8)
     delete (psz::CompressorF8*)comp->compressor;
   else
-    return PSZ_ABORT_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_UNSUPPORTED_TYPE;
 
   delete comp;
   return CUSZ_SUCCESS;
@@ -159,7 +159,7 @@ pszerror capi_psz_compress(
   else {
     // TODO put to log-queue
     cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
-    return PSZ_ABORT_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_UNSUPPORTED_TYPE;
   }
 
   return CUSZ_SUCCESS;
@@ -187,7 +187,7 @@ pszerror capi_psz_decompress(
   else {
     // TODO put to log-queue
     cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
-    return PSZ_ABORT_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_UNSUPPORTED_TYPE;
   }
 
   return CUSZ_SUCCESS;
@@ -207,7 +207,7 @@ pszerror capi_psz_clear_buffer(psz_compressor* comp)
   else {
     // TODO put to log-queue
     cerr << std::string(__FUNCTION__) + ": Type is not supported." << endl;
-    return PSZ_ABORT_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_UNSUPPORTED_TYPE;
   }
 
   return CUSZ_SUCCESS;
@@ -279,7 +279,7 @@ int psz_release_resource(psz_resource* manager)
     if (manager->compbuf) delete (psz::CompressorBuffer<f8, u2>*)manager->compbuf;
   }
   else
-    return PSZ_ABORT_TYPE_UNSUPPORTED;
+    return PSZ_ABORT_UNSUPPORTED_TYPE;
 
   if (manager->cli) delete manager->cli;
   if (manager->header) delete manager->header;

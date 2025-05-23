@@ -55,6 +55,9 @@ typedef struct psz_header {
       // internal loggin
       double user_input_eb;
       double logging_min, logging_max;
+
+      // i/Hi
+      INTERPOLATION_PARAMS intp_param;
     };
 
     struct {

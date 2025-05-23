@@ -357,15 +357,10 @@ void pszctx_set_datadump(pszctx* ctx, const char* in_str)
   }
 }
 
-/**
- **  >>> syntax
- **  comma-separated key-pairs
- **  "key1=val1,key2=val2[,...]"
- **
- **  >>> example
- **  "predictor=lorenzo,size=3600x1800"
- **
- **/
+// >>> syntax
+// comma-separated key-pairs: "key1=val1,key2=val2[,...]"
+// >>> example
+// "predictor=lorenzo,size=3600x1800"
 void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print)
 {
   map_t opts;
@@ -450,9 +445,55 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
       else if (v == "fzgcodec")
         ctx->header->codec1_type = psz_codectype::FZGPUCodec;
     }
-    else if (optmatch({"gpuverify"}) and is_enabled(v)) {
+    else if (optmatch({"gpuverify", "gpu-verify"}) and is_enabled(v)) {
       ctx->cli->use_gpu_verify = true;
     }
+    //// start of Hi configs
+    else if (optmatch({"auto_tuning", "auto-tuning"})) {
+      if (v == "cr-first" or v == "CR-first")
+        CLI_interp_params(ctx)->auto_tuning = 3;
+      else if (v == "rd-first" or v == "RD-first")
+        CLI_interp_params(ctx)->auto_tuning = 6;
+      else {
+        try {
+          CLI_interp_params(ctx)->auto_tuning = static_cast<uint8_t>(psz_helper::str2int(v));
+        }
+        catch (...) {
+          std::cerr << "[Error] Invalid `auto_tuning` value: " << v
+                    << ". Expected cr-first, rd-first, or an integer.\n";
+          exit(1);
+        }
+      }
+    }
+    else if (optmatch({"alpha", "intp-alpha"}))
+      CLI_interp_params(ctx)->alpha = psz_helper::str2fp(v);
+    else if (optmatch({"beta", "intp-beta"}))
+      CLI_interp_params(ctx)->beta = psz_helper::str2fp(v);
+    else if (optmatch({"md_0", "md0"}))
+      CLI_interp_params(ctx)->use_md[0] = psz_helper::str2int(v);
+    else if (optmatch({"md_1", "md1"}))
+      CLI_interp_params(ctx)->use_md[1] = psz_helper::str2int(v);
+    else if (optmatch({"md_2", "md2"}))
+      CLI_interp_params(ctx)->use_md[2] = psz_helper::str2int(v);
+    else if (optmatch({"md_3", "md3"}))
+      CLI_interp_params(ctx)->use_md[3] = psz_helper::str2int(v);
+    else if (optmatch({"nat_0", "nat0"}))
+      CLI_interp_params(ctx)->use_natural[0] = psz_helper::str2int(v);
+    else if (optmatch({"nat_1", "nat1"}))
+      CLI_interp_params(ctx)->use_natural[1] = psz_helper::str2int(v);
+    else if (optmatch({"nat_2", "nat2"}))
+      CLI_interp_params(ctx)->use_natural[2] = psz_helper::str2int(v);
+    else if (optmatch({"nat_3", "nat3"}))
+      CLI_interp_params(ctx)->use_natural[3] = psz_helper::str2int(v);
+    else if (optmatch({"rev_0", "rev0"}))
+      CLI_interp_params(ctx)->reverse[0] = psz_helper::str2int(v);
+    else if (optmatch({"rev_1", "rev1"}))
+      CLI_interp_params(ctx)->reverse[1] = psz_helper::str2int(v);
+    else if (optmatch({"rev_2", "rev2"}))
+      CLI_interp_params(ctx)->reverse[2] = psz_helper::str2int(v);
+    else if (optmatch({"rev_3", "rev3"}))
+      CLI_interp_params(ctx)->reverse[3] = psz_helper::str2int(v);
+    //// end of Hi config
   }
 }
 
@@ -593,11 +634,6 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       else if (optmatch({"-x", "--unzip", "--decompress"})) {
         ctx->cli->task_reconstruct = true;
       }
-      // else if (optmatch({"-P", "--pre", "--preprocess"})) {
-      //   check_next();
-      //   std::string pre(argv[++i]);
-      //   if (pre.find("binning") != std::string::npos) { ctx->prep_binning = true; }
-      // }
       else if (optmatch({"-V", "--verbose"})) {
         ctx->cli->verbose = true;
       }
@@ -617,6 +653,32 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
         check_next();
         auto _ = std::string(argv[++i]);
         strcpy(ctx->cli->file_compare, _.c_str());
+      }
+      else if (optmatch({"-a", "--auto"})) {
+        check_next();
+        std::string at_mode = argv[++i];
+        if (at_mode == "cr-first" or at_mode == "CR-first")
+          CLI_interp_params(ctx)->auto_tuning = 3;
+        else if (at_mode == "rd-first" or at_mode == "RD-first")
+          CLI_interp_params(ctx)->auto_tuning = 6;
+        else {
+          try {
+            CLI_interp_params(ctx)->auto_tuning = static_cast<uint8_t>(std::stoi(at_mode));
+          }
+          catch (...) {
+            std::cerr << "[Error] Unknown auto-tuning mode: " << at_mode
+                      << ". Supported: cr-first, rd-first, or an integer value." << std::endl;
+            exit(1);
+          }
+        }
+      }
+      else if (optmatch({"-s", "--scheme"})) {
+        check_next();
+        auto _ = std::string(argv[++i]);
+        if (_ == "tp" or _ == "TP" or _ == "speed") { ctx->header->codec1_type = LC; }
+        else if (_ == "cr" or _ == "CR") {
+          ctx->header->codec1_type = Huffman;
+        }
       }
       else if (optmatch({"--sycl-device"})) {
 #if defined(PSZ_USE_1API)
@@ -810,6 +872,7 @@ pszctx* pszctx_default_values()
               .z = 1,
               .w = 1,
               .splen = 0,
+              .intp_param = make_default_params(),
           },
       .cli =
           new psz_cli_config{
@@ -865,3 +928,4 @@ psz_codectype CLI_codec1(psz_arguments* args) { return args->header->codec1_type
 psz_codectype CLI_codec2(psz_arguments* args) { return args->header->_future_codec2_type; }
 psz_mode CLI_mode(psz_arguments* args) { return args->header->mode; }
 double CLI_eb(psz_arguments* args) { return args->header->eb; }
+psz_interp_params* CLI_interp_params(pszctx* ctx) { return &ctx->header->intp_param; };
