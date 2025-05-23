@@ -116,6 +116,7 @@ psz_codectype CLI_codec1(psz_arguments* args);
 psz_codectype CLI_codec2(psz_arguments* args);
 psz_mode CLI_mode(psz_arguments* args);
 double CLI_eb(psz_arguments* args);
+psz_interp_params* CLI_interp_params(pszctx* ctx);
 
 #ifdef __cplusplus
 }
