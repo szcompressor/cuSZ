@@ -93,7 +93,7 @@ __global__ void KERNEL_CUHIP_p2013Histogram(
 namespace psz::module {
 
 template <typename T>
-void GPU_histogram_generic_optimizer_on_initialization(
+void GPU_histogram_generic<T>::init(
     size_t const data_len, uint16_t const hist_len, int& grid_dim, int& block_dim, int& shmem_use,
     int& r_per_block)
 {
@@ -134,7 +134,7 @@ void GPU_histogram_generic_optimizer_on_initialization(
 }
 
 template <typename T>
-int GPU_histogram_generic(
+int GPU_histogram_generic<T>::kernel(
     T* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
     int const grid_dim, int const block_dim, int const shmem_use, int const r_per_block,
     void* stream)

@@ -31,14 +31,14 @@ void hist(
     cudaStream_t stream)
 {
   int hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat;
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<T>(
+  psz::module::GPU_histogram_generic<T>::init(
       len, bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
       hist_generic_repeat);
 
   if (optim)
-    psz::module::GPU_histogram_Cauchy<T>(whole_numbers, len, hist, bklen, stream);
+    psz::module::GPU_histogram_Cauchy<T>::kernel(whole_numbers, len, hist, bklen, stream);
   else
-    psz::module::GPU_histogram_generic<T>(
+    psz::module::GPU_histogram_generic<T>::kernel(
         whole_numbers, len, hist, bklen, hist_generic_grid_dim, hist_generic_block_dim,
         hist_generic_shmem_use, hist_generic_repeat, stream);
 }

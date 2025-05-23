@@ -166,9 +166,9 @@ void hf_run_3(std::string fname, size_t const len, size_t const bklen = 1024)
 
   auto buf = new phf::Buf<E>(len, bklen, -1, true);
   int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
-  psz::module::GPU_histogram_generic<E>(
+  psz::module::GPU_histogram_generic<E>::kernel(
       d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
       shmem_use, repeat, stream);
   memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen);
@@ -194,9 +194,9 @@ void hf_run_2(std::string fname, size_t const len, size_t const bklen = 1024)
 
   auto buf = new phf::Buf<E>(len, bklen);
   int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
-  psz::module::GPU_histogram_generic<E>(
+  psz::module::GPU_histogram_generic<E>::kernel(
       d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
       shmem_use, repeat, stream);
   memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen);
@@ -222,10 +222,10 @@ void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
   capi_phf_coarse_tune(len, &sublen, &pardeg);
 
   int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
 
-  psz::module::GPU_histogram_generic<E>(
+  psz::module::GPU_histogram_generic<E>::kernel(
       d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
       shmem_use, repeat, stream);
 

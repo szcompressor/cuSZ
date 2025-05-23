@@ -97,7 +97,7 @@ namespace psz::module {
 using FREQ = uint32_t;
 
 template <typename E>
-int GPU_histogram_Cauchy(
+int GPU_histogram_Cauchy<E>::kernel(
     E* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len, void* stream)
 {
   constexpr auto chunk = 32768;

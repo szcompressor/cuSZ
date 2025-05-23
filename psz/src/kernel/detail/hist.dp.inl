@@ -94,7 +94,7 @@ void kernel::KERNEL_CUHIP_p2013Histogram(
 namespace psz::dpcpp {
 
 template <typename T>
-psz_error_status GPU_histogram_generic(
+int GPU_histogram_generic<T>::kernel(
     T *in, size_t const inlen, uint32_t *out_hist, int const outlen, float *milliseconds,
     dpct::queue_ptr queue)
 try {

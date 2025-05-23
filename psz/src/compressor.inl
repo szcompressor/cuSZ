@@ -68,7 +68,7 @@ Compressor<DType>::Compressor(psz_context* ctx) : header_ref(ctx->header)
   len = x * y * z;
 
   // optimize component(s)
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       len, mem->max_bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
       hist_generic_repeat);
 
@@ -138,9 +138,10 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
   if (ctx->header->hist_type == psz_histotype::HistogramSparse)
-    psz::module::GPU_histogram_Cauchy<E>(mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
+    psz::module::GPU_histogram_Cauchy<E>::kernel(
+        mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
   else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
-    psz::module::GPU_histogram_generic<E>(
+    psz::module::GPU_histogram_generic<E>::kernel(
         mem->ectrl(), len, mem->hist(), ctx->dict_size, hist_generic_grid_dim,
         hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat, stream);
 
@@ -291,7 +292,7 @@ PIPELINE(void*)::compress_init(psz_context* ctx)
   // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
 
   // optimize component(s)
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       mem->len, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
       mem->hist_generic_shmem_use, mem->hist_generic_repeat);
 
@@ -348,9 +349,10 @@ void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
   if (ctx->header->hist_type == psz_histotype::HistogramSparse)
-    psz::module::GPU_histogram_Cauchy<E>(mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
+    psz::module::GPU_histogram_Cauchy<E>::kernel(
+        mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
   else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
-    psz::module::GPU_histogram_generic<E>(
+    psz::module::GPU_histogram_generic<E>::kernel(
         mem->ectrl(), len, mem->hist(), ctx->dict_size, mem->hist_generic_grid_dim,
         mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
         stream);
