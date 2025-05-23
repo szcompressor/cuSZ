@@ -1,7 +1,7 @@
 #include "detail/proto_lrz_x.cuhip.inl"
 
-INSTANTIATIE_LORENZO_PROTO_X_1param(f4);
-INSTANTIATIE_LORENZO_PROTO_X_1param(f8);
+template struct psz::module::GPU_PROTO_x_lorenzo_nd<f4, u1>;
+template struct psz::module::GPU_PROTO_x_lorenzo_nd<f4, u2>;
 
-#undef INSTANTIATIE_LORENZO_PROTO_X_1param
-#undef INSTANTIATIE_LORENZO_PROTO_X_2params
+template struct psz::module::GPU_PROTO_x_lorenzo_nd<f8, u1>;
+template struct psz::module::GPU_PROTO_x_lorenzo_nd<f8, u2>;

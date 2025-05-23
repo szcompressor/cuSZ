@@ -68,7 +68,7 @@ Compressor<DType>::Compressor(psz_context* ctx) : header_ref(ctx->header)
   len = x * y * z;
 
   // optimize component(s)
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       len, mem->max_bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
       hist_generic_repeat);
 
@@ -123,7 +123,7 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
         in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), eb, ctx->header->radius,
         stream);
   else if (ctx->header->pred_type == LorenzoProto)
-    psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
+    psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
         in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
         stream);
   else if (ctx->header->pred_type == Spline)
@@ -138,9 +138,10 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
   if (ctx->header->hist_type == psz_histotype::HistogramSparse)
-    psz::module::GPU_histogram_Cauchy<E>(mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
+    psz::module::GPU_histogram_Cauchy<E>::kernel(
+        mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
   else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
-    psz::module::GPU_histogram_generic<E>(
+    psz::module::GPU_histogram_generic<E>::kernel(
         mem->ectrl(), len, mem->hist(), ctx->dict_size, hist_generic_grid_dim,
         hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat, stream);
 
@@ -225,7 +226,7 @@ STEP_PREDICT:
     GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
         mem->ectrl(), d_space, d_xdata, len3_std, eb, header->radius, stream);
   else if (header->pred_type == LorenzoProto)
-    psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
+    psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
         mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
   else if (header->pred_type == Spline)
     psz::module::GPU_reverse_predict_spline(
@@ -291,7 +292,7 @@ PIPELINE(void*)::compress_init(psz_context* ctx)
   // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
 
   // optimize component(s)
-  psz::module::GPU_histogram_generic_optimizer_on_initialization<E>(
+  psz::module::GPU_histogram_generic<E>::init(
       mem->len, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
       mem->hist_generic_shmem_use, mem->hist_generic_repeat);
 
@@ -333,7 +334,7 @@ void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
         in, len3_std, mem->ectrl(), (void*)mem->outlier(), mem->top1(), eb, ctx->header->radius,
         stream);
   else if (ctx->header->pred_type == LorenzoProto)
-    psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>(
+    psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
         in, len3_std, mem->ectrl(), (void*)mem->outlier(), ebx2, ebx2_r, ctx->header->radius,
         stream);
   else if (ctx->header->pred_type == Spline)
@@ -348,9 +349,10 @@ void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
   if (ctx->header->hist_type == psz_histotype::HistogramSparse)
-    psz::module::GPU_histogram_Cauchy<E>(mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
+    psz::module::GPU_histogram_Cauchy<E>::kernel(
+        mem->ectrl(), len, mem->hist(), ctx->dict_size, stream);
   else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
-    psz::module::GPU_histogram_generic<E>(
+    psz::module::GPU_histogram_generic<E>::kernel(
         mem->ectrl(), len, mem->hist(), ctx->dict_size, mem->hist_generic_grid_dim,
         mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
         stream);
@@ -444,7 +446,7 @@ STEP_PREDICT:
     GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
         mem->ectrl(), d_space, d_xdata, len3_std, eb, header->radius, stream);
   else if (header->pred_type == LorenzoProto)
-    psz::module::GPU_PROTO_x_lorenzo_nd<T, E>(
+    psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
         mem->ectrl(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
   else if (header->pred_type == Spline)
     psz::module::GPU_reverse_predict_spline(

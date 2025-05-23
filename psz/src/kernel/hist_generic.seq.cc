@@ -10,7 +10,6 @@
  */
 
 #include "kernel/hist.hh"
-#include "utils/it_serial.hh"
 #include "utils/timer.hh"
 
 namespace psz::module {

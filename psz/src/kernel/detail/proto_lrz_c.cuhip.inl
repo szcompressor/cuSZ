@@ -14,9 +14,10 @@
 #include <cstddef>
 #include <stdexcept>
 
+#include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
+#include "proto_lrz_helper.hh"
 #include "utils/err.hh"
-#include "utils/it_cuda.hh"
 #include "utils/timer.hh"
 
 #define Z(LEN3) LEN3[2]
@@ -139,8 +140,8 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_3d1l(
 
 namespace psz::module {
 
-template <typename T, typename Eq = uint16_t>
-int GPU_PROTO_c_lorenzo_nd_with_outlier(
+template <typename T, typename Eq>
+int GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>::kernel(
     T* const in_data, std::array<size_t, 3> const _data_len3, Eq* const out_eq, void* out_outlier,
     f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream)
 {
@@ -161,7 +162,6 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier(
   };
 
   using Compact = _portable::compact_gpu<T>;
-
   auto ot = (Compact*)out_outlier;
 
   constexpr auto Tile1D = dim3(256, 1, 1), Tile2D = dim3(16, 16, 1), Tile3D = dim3(8, 8, 8);
@@ -195,13 +195,3 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier(
 }
 
 }  // namespace psz::module
-
-////////////////////////////////////////////////////////////////////////////////
-#define INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, Eq)                          \
-  template int psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>(          \
-      T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq, \
-      void* out_outlier, f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
-
-#define INSTANTIATIE_LORENZO_PROTO_C_1param(T)     \
-  INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, u1); \
-  INSTANTIATIE_GPU_LORENZO_PROTO_C_2params(T, u2);

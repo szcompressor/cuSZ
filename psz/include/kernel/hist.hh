@@ -14,15 +14,16 @@ int SEQ_histogram_generic(
     float* milliseconds);
 
 template <typename E>
-void GPU_histogram_generic_optimizer_on_initialization(
-    size_t const data_len, uint16_t const hist_len, int& grid_dim, int& block_dim, int& shmem_use,
-    int& r_per_block);
+struct GPU_histogram_generic {
+  static void init(
+      size_t const data_len, uint16_t const hist_len, int& grid_dim, int& block_dim,
+      int& shmem_use, int& r_per_block);
 
-template <typename E>
-int GPU_histogram_generic(
-    E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
-    int const grid_dim, int const block_dim, int const shmem_use, int const r_per_block,
-    void* stream);
+  static int kernel(
+      E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
+      int const grid_dim, int const block_dim, int const shmem_use, int const r_per_block,
+      void* stream);
+};
 
 template <typename E>
 int SEQ_histogram_Cauchy_v2(
@@ -30,8 +31,11 @@ int SEQ_histogram_Cauchy_v2(
     float* milliseconds);
 
 template <typename E>
-int GPU_histogram_Cauchy(
-    E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len, void* stream);
+struct GPU_histogram_Cauchy {
+  static int kernel(
+      E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
+      void* stream);
+};
 
 }  // namespace psz::module
 
