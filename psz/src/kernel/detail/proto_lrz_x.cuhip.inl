@@ -14,9 +14,10 @@
 #include <cstddef>
 #include <stdexcept>
 
+#include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
+#include "proto_lrz_helper.hh"
 #include "utils/err.hh"
-#include "utils/it_cuda.hh"
 #include "utils/timer.hh"
 
 #define Z(LEN3) LEN3[2]
@@ -141,8 +142,8 @@ __global__ void KERNEL_CUHIP_prototype_x_lorenzo_3d1l(
 
 namespace psz::module {
 
-template <typename T, typename Eq = uint16_t>
-int GPU_PROTO_x_lorenzo_nd(
+template <typename T, typename Eq>
+int GPU_PROTO_x_lorenzo_nd<T, Eq>::kernel(
     Eq* in_eq, T* in_outlier, T* out_data, std::array<size_t, 3> const _data_len3, f8 const ebx2,
     f8 const ebx2_r, int const radius, void* stream)
 {
@@ -193,13 +194,3 @@ int GPU_PROTO_x_lorenzo_nd(
 }
 
 }  // namespace psz::module
-
-////////////////////////////////////////////////////////////////////////////////
-#define INSTANTIATIE_GPU_LORENZO_PROTO_X_2params(T, Eq)                                \
-  template int psz::module::GPU_PROTO_x_lorenzo_nd<T>(                                 \
-      Eq * in_eq, T * in_outlier, T * out_data, std::array<size_t, 3> const data_len3, \
-      f8 const ebx2, f8 const ebx2_r, int const radius, void* stream);
-
-#define INSTANTIATIE_LORENZO_PROTO_X_1param(T)     \
-  INSTANTIATIE_GPU_LORENZO_PROTO_X_2params(T, u1); \
-  INSTANTIATIE_GPU_LORENZO_PROTO_X_2params(T, u2);
