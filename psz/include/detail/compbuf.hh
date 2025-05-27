@@ -78,6 +78,7 @@ class CompressorBuffer {
   psz_header* header_ref;
 
   hf_mem_t* buf_hf;
+  static constexpr float OUTLIER_RATIO = 0.1;
 
  private:
   static size_t _div(size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
@@ -92,7 +93,7 @@ class CompressorBuffer {
       x(x), y(y), z(z), len(x * y * z), anchor512_len(set_len_anchor_512(x, y, z))
   {
     if (toggle->err_ctrl_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
-    if (toggle->compact_outlier) compact = new Compact(len / 5);
+    if (toggle->compact_outlier) compact = new Compact(len * OUTLIER_RATIO);
     if (toggle->anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
     if (toggle->histogram) {
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
@@ -177,6 +178,8 @@ class CompressorBuffer {
   M* compact_idx() const { return compact->idx(); }
   M compact_num_outliers() const { return compact->num_outliers(); }
   Compact* outlier() { return compact; }
+
+  float outlier_ratio() const { return OUTLIER_RATIO; };
 };
 
 }  // namespace psz

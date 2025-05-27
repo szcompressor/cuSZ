@@ -133,7 +133,9 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
-  ctx->header->splen = mem->compact->num_outliers();
+  [[deprecated("outlier handling not updated in OOD; use non-OOD instead")]] auto _splen =
+      mem->compact->num_outliers();
+  ctx->header->splen = _splen;
 
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 
@@ -345,6 +347,12 @@ void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
   /* make outlier count seen on host */
   sync_by_stream(stream);
   ctx->header->splen = mem->compact->num_outliers();
+  if (ctx->header->splen == mem->compact->max_allowed_num()) {
+    cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
+         << " * input-len) exceeded, returning..." << endl;
+    [[deprecated("need to return status")]] auto status = PSZ_WARN_OUTLIER_TOO_MANY;
+    // return PSZ_WARN_OUTLIER_TOO_MANY;
+  }
 
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
 

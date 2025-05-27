@@ -35,8 +35,8 @@ template <typename T, class PC, class Perf>
 __global__ void KERNEL_CUHIP_c_lorenzo_1d(
     T* const in_data, size_t const data_len, typename PC::Eq* const out_eq,
     typename PC::CV* const out_cval, typename PC::CI* const out_cidx,
-    typename PC::CN* const out_cn, uint16_t const radius, typename PC::Fp const ebx2_r,
-    typename PC::M* top_count = nullptr)
+    typename PC::CN* const out_cn, const size_t cn_max_allowed, uint16_t const radius,
+    typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
 {
   constexpr auto TileDim = Perf::TileDim;
   constexpr auto Seq = Perf::Seq;
@@ -95,8 +95,10 @@ __global__ void KERNEL_CUHIP_c_lorenzo_1d(
 
     if (not quantizable) {
       auto cur_idx = atomicAdd(out_cn, 1);
-      out_cidx[cur_idx] = id_base + threadIdx.x * Seq + ix;
-      out_cval[cur_idx] = candidate;
+      if (cur_idx <= cn_max_allowed) {
+        out_cidx[cur_idx] = id_base + threadIdx.x * Seq + ix;
+        out_cval[cur_idx] = candidate;
+      }
     }
   }
   __syncthreads();
@@ -199,8 +201,8 @@ template <typename T, class PC, class Perf>
 __global__ void KERNEL_CUHIP_c_lorenzo_2d__32x32(
     T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
     uint32_t const data_leapy, typename PC::Eq* const out_eq, typename PC::CV* const out_cval,
-    typename PC::CI* const out_cidx, typename PC::CN* const out_cn, uint16_t const radius,
-    typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
+    typename PC::CI* const out_cidx, typename PC::CN* const out_cn, const size_t cn_max_allowed,
+    uint16_t const radius, typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
 {
   constexpr auto TileDim = Perf::TileDim;
   constexpr auto Yseq = Perf::SeqY;
@@ -265,8 +267,10 @@ __global__ void KERNEL_CUHIP_c_lorenzo_2d__32x32(
     if (not quantizable) {
       if (gix < data_lenx and (giy_base + i - 1) < data_leny) {
         auto cur_idx = atomicAdd(out_cn, 1);
-        out_cidx[cur_idx] = gid;
-        out_cval[cur_idx] = candidate;
+        if (cur_idx <= cn_max_allowed) {
+          out_cidx[cur_idx] = gid;
+          out_cval[cur_idx] = candidate;
+        }
       }
     }
   }
@@ -288,8 +292,8 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d(
     T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
     uint32_t const data_leapy, uint32_t const data_lenz, uint32_t const data_leapz,
     typename PC::Eq* const out_eq, typename PC::CV* const out_cval,
-    typename PC::CI* const out_cidx, typename PC::CN* const out_cn, uint16_t const radius,
-    typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
+    typename PC::CI* const out_cidx, typename PC::CN* const out_cn, const size_t cn_max_allowed,
+    uint16_t const radius, typename PC::Fp const ebx2_r, typename PC::M* top_count = nullptr)
 {
   constexpr auto TileDim = Perf::TileDim;
   // constexpr auto NumWarps = 8;
@@ -336,8 +340,10 @@ __global__ void KERNEL_CUHIP_c_lorenzo_3d(
 
       if (not quantizable) {
         auto cur_idx = atomicAdd(out_cn, 1);
-        out_cidx[cur_idx] = gid;
-        out_cval[cur_idx] = candidate;
+        if (cur_idx <= cn_max_allowed) {
+          out_cidx[cur_idx] = gid;
+          out_cval[cur_idx] = candidate;
+        }
       }
     }
   };
@@ -436,8 +442,8 @@ struct GPU_c_lorenzo_1d {
     psz::KERNEL_CUHIP_c_lorenzo_1d<T, PC, lrz1::Perf>
         <<<lrz1::thread_grid(dim3(data_len3[0], 1, 1)), lrz1::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3[0], out_eq, ot->val(), ot->idx(), ot->num(), radius, (T)ebx2_r,
-            out_top1);
+            in_data, data_len3[0], out_eq, ot->val(), ot->idx(), ot->num(), ot->max_allowed_num(),
+            radius, (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
   }
@@ -460,7 +466,7 @@ struct GPU_c_lorenzo_2d {
         <<<lrz2::thread_grid(data_len3), lrz2 ::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3.x, data_len3.y, leap3.y, out_eq, ot->val(), ot->idx(), ot->num(),
-            radius, (T)ebx2_r, out_top1);
+            ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
   }
@@ -483,7 +489,7 @@ struct GPU_c_lorenzo_3d {
         <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3.x, data_len3.y, leap3.y, data_len3.z, leap3.z, out_eq, ot->val(),
-            ot->idx(), ot->num(), radius, (T)ebx2_r, out_top1);
+            ot->idx(), ot->num(), ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
   }
