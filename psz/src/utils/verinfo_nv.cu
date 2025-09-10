@@ -101,10 +101,20 @@ void CUDA_devices()
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, dev);
 
+    int memClockKHz = 0;
+
+    // From CUDAD 13 onwards, the memoryClockRate field of cudaDeviceProp
+    // is deprecated. Use cudaDeviceGetAttribute() instead.
+    #if CUDART_VERSION >= 13000
+        cudaDeviceGetAttribute(&memClockKHz, cudaDevAttrMemoryClockRate, dev);
+    #else
+        memClockKHz = deviceProp.memoryClockRate;
+    #endif
+
     auto membw_GiBps = membw_base1024(
-        deviceProp.memoryBusWidth, deviceProp.memoryClockRate * 1e3);
-    auto membw_GBps = membw_base1000(
-        deviceProp.memoryBusWidth, deviceProp.memoryClockRate * 1e3);
+        deviceProp.memoryBusWidth, memClockKHz * 1e3);
+    auto membw_GBps  = membw_base1000(
+        deviceProp.memoryBusWidth, memClockKHz * 1e3);
 
     printf("- %s\n", deviceProp.name);
     printf(
