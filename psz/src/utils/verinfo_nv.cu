@@ -101,10 +101,11 @@ void CUDA_devices()
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, dev);
 
-    auto membw_GiBps = membw_base1024(
-        deviceProp.memoryBusWidth, deviceProp.memoryClockRate * 1e3);
-    auto membw_GBps = membw_base1000(
-        deviceProp.memoryBusWidth, deviceProp.memoryClockRate * 1e3);
+    int memoryClockRateKHz;
+    cudaError_t err = cudaDeviceGetAttribute(&memoryClockRateKHz, cudaDevAttrMemoryClockRate, dev);
+
+    auto membw_GiBps = membw_base1024(deviceProp.memoryBusWidth, memoryClockRateKHz * 1e3);
+    auto membw_GBps = membw_base1000(deviceProp.memoryBusWidth, memoryClockRateKHz * 1e3);
 
     printf("- %s\n", deviceProp.name);
     printf(
