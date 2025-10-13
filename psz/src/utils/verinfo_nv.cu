@@ -111,10 +111,8 @@ void CUDA_devices()
         memClockKHz = deviceProp.memoryClockRate;
     #endif
 
-    auto membw_GiBps = membw_base1024(
-        deviceProp.memoryBusWidth, memClockKHz * 1e3);
-    auto membw_GBps  = membw_base1000(
-        deviceProp.memoryBusWidth, memClockKHz * 1e3);
+    auto membw_GiBps = membw_base1024(deviceProp.memoryBusWidth, memClockKHz * 1e3);
+    auto membw_GBps  = membw_base1000(deviceProp.memoryBusWidth, memClockKHz * 1e3);
 
     printf("- %s\n", deviceProp.name);
     printf(
