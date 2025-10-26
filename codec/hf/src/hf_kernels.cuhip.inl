@@ -27,6 +27,9 @@
 #define BIX blockIdx.x
 #define BDX blockDim.x
 
+constexpr int PHF_BLOCK_DIM_ENCODE = 256;
+constexpr int PHF_BLOCK_DIM_DEFLATE = 256;
+
 using BYTE = uint8_t;
 
 extern __shared__ char __codec_raw[];
@@ -331,9 +334,10 @@ __global__ void KERNEL_CUHIP_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
     int const pardeg, E* out)
 {
-  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
   extern __shared__ uint8_t s_revbook[];
-  constexpr auto block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;
+
+  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
+  constexpr auto block_dim = PHF_BLOCK_DIM_DEFLATE;
 
   auto single_thread_inflate = [&](H* input, E* out, int const total_bw) {
     int next_bit;
@@ -408,8 +412,8 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1(
     H* out_bitstream, void* stream)
 {
   SETUP_DIV;
-  constexpr auto BLOCK_DIM_ENCODE = 256;
-  constexpr auto block_dim = BLOCK_DIM_ENCODE;
+
+  constexpr auto block_dim = PHF_BLOCK_DIM_ENCODE;
   auto grid_dim = div(data_len, block_dim);
   phf::KERNEL_CUHIP_encode_phase1_fill<E, H>                             //
       <<<8 * numSMs, 256, sizeof(H) * book_len, (cudaStream_t)stream>>>  //
@@ -421,8 +425,8 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase2(
     M* par_ncell, void* stream)
 {
   SETUP_DIV;
-  constexpr auto BLOCK_DIM_DEFLATE = 256;
-  auto block_dim = BLOCK_DIM_DEFLATE;
+
+  auto block_dim = PHF_BLOCK_DIM_DEFLATE;
   auto grid_dim = div(hfpar.pardeg, block_dim);
   phf::KERNEL_CUHIP_encode_phase2_deflate<H>              //
       <<<grid_dim, block_dim, 0, (cudaStream_t)stream>>>  //
@@ -522,7 +526,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
     M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded, void* stream)
 {
   SETUP_DIV;
-  auto const block_dim = phf::HuffmanHelper::BLOCK_DIM_DEFLATE;  // = deflating
+  auto const block_dim = PHF_BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = div(pardeg, block_dim);
 
   phf::KERNEL_CUHIP_HF_decode<E, H, M>                              //

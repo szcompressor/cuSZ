@@ -3,8 +3,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #include "c_type.h"
+#include "cusz/type.h"
+#include "hf.h"
 #include "mem/cxx_array.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -142,11 +145,6 @@ class alignas(8) phf_stack {
 template <typename H>
 void phf_CPU_build_codebook_v2(u4* freq, size_t const bklen, H* book);
 
-#include <cstdint>
-#include <cstring>
-
-#include "cusz/type.h"
-
 template <typename E, typename H>
 class hf_space {
  public:
@@ -276,9 +274,6 @@ template <typename E, typename H = uint32_t>
 void phf_CPU_build_canonized_codebook_v2(
     uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook, int const revbook_bytes,
     float* time = nullptr);
-
-#include "hf.h"
-#include "hf_impl.hh"
 
 namespace phf::cuhip {
 

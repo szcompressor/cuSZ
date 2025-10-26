@@ -153,7 +153,6 @@ add_library(psz_cu_phf
   codec/hf/src/hf_bk.seq.cc
   codec/hf/src/hf_canon.seq.cc
   codec/hf/src/hf_kernels.cu
-  codec/hf/src/hf_ood.cc
   codec/hf/src/hf_hl.cc
   codec/hf/src/hf_buf.cc
   codec/hf/src/libphf.cc

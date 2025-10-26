@@ -255,7 +255,7 @@ void hf_decode_kernel(
     const sycl::stream& to_stdout)
 {
   auto shmem = (uint8_t*)dpct_local;
-  constexpr auto block_dim = HuffmanHelper::BLOCK_DIM_DEFLATE;
+  constexpr auto block_dim = BLOCK_DIM_DEFLATE;
 
   auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 

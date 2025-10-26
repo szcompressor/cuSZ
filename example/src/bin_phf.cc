@@ -214,38 +214,6 @@ void hf_run_2(std::string fname, size_t const len, size_t const bklen = 1024)
   CLEANUP;
 }
 
-template <typename E, typename H = u4>
-void hf_run(std::string fname, size_t const len, size_t const bklen = 1024)
-{
-  PREPARE;
-
-  capi_phf_coarse_tune(len, &sublen, &pardeg);
-
-  int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
-  psz::module::GPU_histogram_generic<E>::init(
-      len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
-
-  psz::module::GPU_histogram_generic<E>::kernel(
-      d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
-      shmem_use, repeat, stream);
-
-  phf::HuffmanCodec<E> codec(len, pardeg);
-
-  codec.buildbook(d_hist.get(), bklen, stream);
-  if (dump_book) codec.dump_internal_data("book", fname);
-
-  for (auto i = 0; i < 10; i++) {
-    codec.encode(d_oridata.get(), len, &d_compressed, &outlen, stream);
-    time_encode = std::min(time_encode, codec.time_lossless());
-    codec.decode(d_compressed, d_decomp.get(), stream);
-    time_decode = std::min(time_decode, codec.time_lossless());
-  }
-
-  CHECK_INTEGRITY;
-  PRINT_REPORT;
-  CLEANUP;
-}
-
 int main(int argc, char** argv)
 {
   Arguments args;
@@ -254,16 +222,7 @@ int main(int argc, char** argv)
   size_t len = args.total_len();
 
   if (args.which_test == 1) {
-    cout << "HF run version-1, input type: " << args.type << endl;
-
-    if (args.type == "u1")
-      hf_run<uint8_t>(args.fname, len, 256);
-    else if (args.type == "u2")
-      hf_run<uint16_t>(args.fname, len, args.bklen);
-    else if (args.type == "u4")
-      hf_run<uint32_t>(args.fname, len, args.bklen);
-    else
-      fprintf(stderr, "Unknown type: %s\n", args.type.c_str());
+    cout << "HF run version-1 is removed, exiting..." << args.type << endl;
   }
   else if (args.which_test == 2) {
     cout << "HF run version-2, input type: " << args.type << endl;

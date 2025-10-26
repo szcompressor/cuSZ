@@ -24,8 +24,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <sycl/sycl.hpp>
-#define ACCESSOR(SYM, TYPE) \
-  reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
+#define ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_compressed + header.entry[Header::SYM])
 
 #define TPL template <typename E, typename M>
 #define HF_CODEC HuffmanCodec<E, M>
@@ -50,8 +49,7 @@ TPL HF_CODEC::~HuffmanCodec()
   delete hist_view;
 }
 
-TPL HF_CODEC* HF_CODEC::init(
-    size_t const inlen, int const _booklen, int const _pardeg, bool debug)
+TPL HF_CODEC* HF_CODEC::init(size_t const inlen, int const _booklen, int const _pardeg, bool debug)
 {
   auto __debug = [&]() {
     setlocale(LC_NUMERIC, "");
@@ -60,7 +58,7 @@ TPL HF_CODEC* HF_CODEC::init(
     hf_debug("SCRATCH", __scratch->dptr(), RC::SCRATCH);
     // TODO separate 4- and 8- books
     // hf_debug("BK", __bk->dptr(), RC::BK);
-    // hf_debug("REVBK", __revbk->dptr(), RC::REVBK);
+    // hf_debug("RVBK", __revbk->dptr(), RC::RVBK);
     hf_debug("BITSTREAM", __bitstream->dptr(), RC::BITSTREAM);
     hf_debug("PAR_NBIT", par_nbit->dptr(), RC::PAR_NBIT);
     hf_debug("PAR_NCELL", par_ncell->dptr(), RC::PAR_NCELL);
@@ -125,18 +123,15 @@ TPL HF_CODEC* HF_CODEC::init(
     int sublen = (inlen - 1) / pardeg + 1;
 
     book_desc = new hf_book{nullptr, nullptr, bklen};  //
-    chunk_desc_d =
-        new hf_chunk{par_nbit->dptr(), par_ncell->dptr(), par_entry->dptr()};
-    chunk_desc_h =
-        new hf_chunk{par_nbit->hptr(), par_ncell->hptr(), par_entry->hptr()};
-    bitstream_desc = new hf_bitstream{
-        __scratch->dptr(),
-        __bitstream->dptr(),
-        chunk_desc_d,
-        chunk_desc_h,
-        sublen,
-        pardeg,
-        numSMs};
+    chunk_desc_d = new hf_chunk{par_nbit->dptr(), par_ncell->dptr(), par_entry->dptr()};
+    chunk_desc_h = new hf_chunk{par_nbit->hptr(), par_ncell->hptr(), par_entry->hptr()};
+    bitstream_desc = new hf_bitstream{__scratch->dptr(),
+                                      __bitstream->dptr(),
+                                      chunk_desc_d,
+                                      chunk_desc_h,
+                                      sublen,
+                                      pardeg,
+                                      numSMs};
   }
 
   if (debug) __debug();
@@ -145,12 +140,11 @@ TPL HF_CODEC* HF_CODEC::init(
 }
 
 #ifdef ENABLE_HUFFBK_GPU
-TPL HF_CODEC* HF_CODEC::buildbook(
-    uint32_t* freq, int const bklen, void* stream)
+TPL HF_CODEC* HF_CODEC::buildbook(uint32_t* freq, int const bklen, void* stream)
 {
   psz::hf_buildbook<CUDA, E, H4>(
-      freq, bklen, bk4->dptr(), revbk4->dptr(), revbook_bytes(bklen),
-      &_time_book, (cudaStream_t)stream);
+      freq, bklen, bk4->dptr(), revbk4->dptr(), revbook_bytes(bklen), &_time_book,
+      (cudaStream_t)stream);
 
   return this;
 }
@@ -160,8 +154,8 @@ TPL HF_CODEC* HF_CODEC::buildbook(
 TPL HF_CODEC* HF_CODEC::buildbook(MemU4* freq, int const bklen, void* stream)
 {
   psz::hf_buildbook<SEQ, E, H4>(
-      freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(),
-      revbk4_bytes(bklen), &_time_book, (dpct::queue_ptr)stream);
+      freq->control({D2H})->hptr(), bklen, bk4->hptr(), revbk4->hptr(), revbk4_bytes(bklen),
+      &_time_book, (dpct::queue_ptr)stream);
   bk4->control({Async_H2D}, (dpct::queue_ptr)stream);
   revbk4->control({Async_H2D}, (dpct::queue_ptr)stream);
 
@@ -182,12 +176,11 @@ TPL HF_CODEC* HF_CODEC::encode(
   // So far, the enc scheme has been deteremined.
 
   psz::phf_coarse_encode_rev2<E, H4, M>(
-      in, inlen, book_desc, bitstream_desc, &header.total_nbit,
-      &header.total_ncell, &_time_lossless, stream);
+      in, inlen, book_desc, bitstream_desc, &header.total_nbit, &header.total_ncell,
+      &_time_lossless, stream);
 
   phf_memcpy_merge(
-      header, inlen, book_desc->bklen, bitstream_desc->sublen,
-      bitstream_desc->pardeg, stream);
+      header, inlen, book_desc->bklen, bitstream_desc->sublen, bitstream_desc->pardeg, stream);
 
   *out = compressed->dptr();
   *outlen = header.compressed_size();
@@ -196,26 +189,22 @@ TPL HF_CODEC* HF_CODEC::encode(
 }
 
 TPL HF_CODEC* HF_CODEC::decode(
-    uint8_t* in_compressed, E* out_decompressed, void* stream,
-    bool header_on_device)
+    uint8_t* in_compressed, E* out_decompressed, void* stream, bool header_on_device)
 {
   auto queue = (sycl::queue*)stream;
 
   Header header;
-  if (header_on_device)
-    queue->memcpy(&header, in_compressed, sizeof(header)).wait();
+  if (header_on_device) queue->memcpy(&header, in_compressed, sizeof(header)).wait();
 
   psz::phf_coarse_decode<E, H4, M>(
-      ACCESSOR(BITSTREAM, H4), ACCESSOR(REVBK, BYTE),
-      revbk4_bytes(header.bklen), ACCESSOR(PAR_NBIT, M),
-      ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg, out_decompressed,
-      &_time_lossless, stream);
+      ACCESSOR(BITSTREAM, H4), ACCESSOR(RVBK, BYTE), revbk4_bytes(header.bklen),
+      ACCESSOR(PAR_NBIT, M), ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg,
+      out_decompressed, &_time_lossless, stream);
 
   return this;
 }
 
-TPL HF_CODEC* HF_CODEC::dump(
-    std::vector<pszmem_dump> list, char const* basename)
+TPL HF_CODEC* HF_CODEC::dump(std::vector<pszmem_dump> list, char const* basename)
 {
   for (auto& i : list) {
     char __[256];
@@ -262,8 +251,8 @@ TPL HF_CODEC* HF_CODEC::clear_buffer()
 
 // private helper
 TPL void HF_CODEC::phf_memcpy_merge(
-    Header& header, size_t const original_len, int const bklen,
-    int const sublen, int const pardeg, void* stream)
+    Header& header, size_t const original_len, int const bklen, int const sublen, int const pardeg,
+    void* stream)
 try {
   auto queue = (sycl::queue*)stream;
 
@@ -284,30 +273,25 @@ try {
 
   M nbyte[Header::END];
   nbyte[Header::HEADER] = sizeof(Header);
-  nbyte[Header::REVBK] =
-      __encdtype == U4 ? revbk4_bytes(bklen) : revbk8_bytes(bklen);
+  nbyte[Header::RVBK] = __encdtype == U4 ? revbk4_bytes(bklen) : revbk8_bytes(bklen);
   nbyte[Header::PAR_NBIT] = par_nbit->bytes();
   nbyte[Header::PAR_ENTRY] = par_ncell->bytes();
   nbyte[Header::BITSTREAM] = (__encdtype == U4 ? 4 : 8) * header.total_ncell;
 
   header.entry[0] = 0;
   // *.END + 1: need to know the ending position
-  for (auto i = 1; i < Header::END + 1; i++) {
-    header.entry[i] = nbyte[i - 1];
-  }
-  for (auto i = 1; i < Header::END + 1; i++) {
-    header.entry[i] += header.entry[i - 1];
-  }
+  for (auto i = 1; i < Header::END + 1; i++) { header.entry[i] = nbyte[i - 1]; }
+  for (auto i = 1; i < Header::END + 1; i++) { header.entry[i] += header.entry[i - 1]; }
 
   queue->memcpy(compressed->dptr(), &header, sizeof(header)).wait_and_throw();
 
   // /* debug */ BARRIER();
 
   {
-    auto dst = compressed->dptr() + header.entry[Header::REVBK];
+    auto dst = compressed->dptr() + header.entry[Header::RVBK];
     auto src = __encdtype == U4 ? revbk4->dptr() : revbk8->dptr();
 
-    queue->memcpy(dst, src, nbyte[Header::REVBK]);
+    queue->memcpy(dst, src, nbyte[Header::RVBK]);
   }
   {
     auto dst = compressed->dptr() + header.entry[Header::PAR_NBIT];
@@ -326,8 +310,8 @@ try {
   }
 }
 catch (sycl::exception const& exc) {
-  std::cerr << exc.what() << "Exception caught at file:" << __FILE__
-            << ", line:" << __LINE__ << std::endl;
+  std::cerr << exc.what() << "Exception caught at file:" << __FILE__ << ", line:" << __LINE__
+            << std::endl;
   std::exit(1);
 }
 

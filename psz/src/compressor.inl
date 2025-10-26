@@ -298,8 +298,6 @@ PIPELINE(void*)::compress_init(psz_context* ctx)
       mem->len, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
       mem->hist_generic_shmem_use, mem->hist_generic_repeat);
 
-  cout << mem->len << endl;
-
   return mem;
 }
 
