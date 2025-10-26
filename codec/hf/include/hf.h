@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -80,6 +81,9 @@ int capi_phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t);
 int capi_phf_encode(
     phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded, size_t* enc_bytes,
     phf_stream_t);
+int capi_phf_encode_ReVISIT(
+    phf_codec* codec, void* in, bool use_HFR, size_t const inlen, uint8_t** encoded,
+    size_t* enc_bytes, phf_stream_t);
 int capi_phf_decode(phf_codec* codec, uint8_t* encoded, void* decoded, phf_stream_t);
 
 // helpers

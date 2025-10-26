@@ -75,7 +75,6 @@ target_link_libraries(stat_max_error
 )
 add_test(test_stat_max_error stat_max_error)
 
-
 add_executable(mem_unique src/test_mem_unique.cu)
 target_link_libraries(mem_unique
   PRIVATE
@@ -85,3 +84,24 @@ target_link_libraries(mem_unique
   CUDA::cudart
 )
 add_test(test_mem_unique mem_unique)
+
+# 2404
+add_executable(test_hfr src/test_hfr.cc)
+target_link_libraries(test_hfr
+  PRIVATE
+  psz_cu_compile_settings
+  psz_cu_test_compile_settings
+  psz_cu_test_utils
+  psz_cu_phf
+)
+
+add_executable(test_rs_merge src/test_rs_merge.cc)
+target_link_libraries(test_rs_merge
+  PRIVATE
+  psz_cu_compile_settings
+  psz_cu_test_compile_settings
+  psz_cu_test_utils
+  psz_cu_phf
+  psz_cu_mem
+  psz_seq_core
+)

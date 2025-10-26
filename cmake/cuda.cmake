@@ -155,11 +155,17 @@ add_library(psz_cu_phf
   codec/hf/src/hf_hl.cc
   codec/hf/src/hf_buf.cc
   codec/hf/src/libphf.cc
+  codec/hf/src/rs_merge.seq.cc
+  codec/hf/src/rs_merge_r4.cu
+  codec/hf/src/rs_merge_r3.cu
+  codec/hf/src/rs_merge_r2.cu
+  codec/hf/src/rs_merge_r1.cu
 )
 target_link_libraries(psz_cu_phf
   PUBLIC
   psz_cu_compile_settings
   psz_cu_stat
+  psz_cu_mem
   CUDA::cuda_driver
 )
 add_library(PSZ::CUDA::phf ALIAS psz_cu_phf)
