@@ -11,9 +11,9 @@
 
 #include <fstream>
 
+#include "compressor.hh"
 #include "cusz.h"
 #include "cusz_rev1.h"
-#include "detail/compressor.hh"
 #include "mem/cxx_backends.h"
 #include "utils/err.hh"
 #include "utils/io.hh"

@@ -10,13 +10,13 @@
  *
  */
 
+#include "compressor.hh"
 #include "cusz.h"
 #include "cusz/context.h"
 #include "cusz/type.h"
 #include "cusz_rev1.h"
 #include "detail/compare.hh"
-#include "detail/compbuf.hh"
-#include "detail/compressor.hh"
+#include "mem/buf_comp.hh"
 
 using psz::analysis::CPU_probe_extrema;
 using psz::analysis::GPU_probe_extrema;
@@ -273,10 +273,10 @@ int psz_release_resource(psz_resource* manager)
 {
   auto dtype = manager->header->dtype;
   if (dtype == F4) {
-    if (manager->compbuf) delete (psz::CompressorBuffer<f4, u2>*)manager->compbuf;
+    if (manager->compbuf) delete (psz::Buf_Comp<f4, u2>*)manager->compbuf;
   }
   else if (dtype == F8) {
-    if (manager->compbuf) delete (psz::CompressorBuffer<f8, u2>*)manager->compbuf;
+    if (manager->compbuf) delete (psz::Buf_Comp<f8, u2>*)manager->compbuf;
   }
   else
     return PSZ_ABORT_UNSUPPORTED_TYPE;
@@ -298,10 +298,10 @@ int psz_release_resource(psz_resource* manager)
   m->header->radius = rc.radius;       \
   m->dict_size = rc.radius * 2;
 
-#define RUNTIME_CHECK_RADIUS(Type)                           \
-  if (rc.radius > psz::CompressorBuffer<Type>::max_radius) { \
-    rc.radius = psz::CompressorBuffer<Type>::max_radius;     \
-    status = PSZ_WARN_RADIUS_TOO_LARGE;                      \
+#define RUNTIME_CHECK_RADIUS(Type)                   \
+  if (rc.radius > psz::Buf_Comp<Type>::max_radius) { \
+    rc.radius = psz::Buf_Comp<Type>::max_radius;     \
+    status = PSZ_WARN_RADIUS_TOO_LARGE;              \
   }
 
 #define RUNTIME_SCAN_EXTREMA(Type)                                             \

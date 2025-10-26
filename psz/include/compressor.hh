@@ -12,14 +12,11 @@
 #ifndef PSZ_COMPRESSOR_HH
 #define PSZ_COMPRESSOR_HH
 
-#include <memory>
-
 #include "cusz/context.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
-// #include "detail/busyheader.hh"
-#include "detail/compbuf.hh"
 #include "hf_hl.hh"
+#include "mem/buf_comp.hh"
 
 namespace psz {
 
@@ -40,7 +37,7 @@ class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
   using H4 = u4;
   using H8 = u8;
 
-  using Buf = CompressorBuffer<DType>;
+  using Buf = Buf_Comp<DType>;
 
   // encapsulations
   int hist_generic_grid_dim;
@@ -50,7 +47,7 @@ class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
   size_t len;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
-  uint32_t nbyte[END];
+  uint32_t nbyte[PSZ_END];
   float time_sp;
   double eb, eb_r, ebx2, ebx2_r;
   psz_header* const header_ref;
@@ -90,7 +87,7 @@ using CompressorF8 = Compressor<f8>;
 }  // namespace psz
 
 template <typename T, typename E>
-using psz_buf = psz::CompressorBuffer<T, E>;
+using psz_buf = psz::Buf_Comp<T, E>;
 
 #define PSZ_BUF psz_buf<T, E>
 

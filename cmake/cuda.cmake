@@ -180,6 +180,7 @@ add_library(CUSZ::fzg ALIAS psz_cu_fzg)
 
 add_library(cusz
   psz/src/compressor.cc
+  psz/src/mem/buf_comp.cc
   psz/src/libcusz.cc
 )
 target_link_libraries(cusz
