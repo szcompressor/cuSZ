@@ -2,6 +2,7 @@
 #define PSZ_COMPBUF_HH
 
 #include <array>
+#include <cstdint>
 #include <memory>
 
 #include "cusz/type.h"
@@ -43,8 +44,10 @@ struct Buf_Comp {
   using T = _T;
   using E = _E;
   using FP = T;
+  using M = uint32_t;
 
   using Buf_Outlier = _portable::compact_gpu<T>;
+  using Buf_Outlier2 = _portable::compact_GPU_DRAM2<T, M>;
   using Buf_HF = phf::Buf<E>;
 
   struct impl;
@@ -97,9 +100,13 @@ struct Buf_Comp {
   B* compressed_h() const;
 
   Buf_Outlier* buf_outlier() const;
-  T* outlier_val_d() const;
-  M* outlier_idx_d() const;
-  M outlier_num() const;
+  [[deprecated]] T* outlier_val_d() const;
+  [[deprecated]] M* outlier_idx_d() const;
+  [[deprecated]] M outlier_num() const;
+
+  Buf_Outlier2* buf_outlier2() const;
+  void* outlier2_validx_d() const;
+  M outlier2_host_get_num() const;
 
   Buf_HF* buf_hf() const;
 

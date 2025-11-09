@@ -14,66 +14,36 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <vector>
+#include <memory>
 
-#include "c_type.h"
-#include "cusz/type.h"
+#include "sp_interface.h"
 
 namespace _portable {
 
-template <typename T>
-struct compact_seq {
+template <typename T, typename Idx = uint32_t>
+struct compact_CPU {
  public:
-  using type = T;
-  using control_stream_t = std::vector<_portable_mem_control>;
+  using cell = compact_cell<T, Idx>;
 
-  T* _val;
-  uint32_t* _idx;
-  uint32_t _num{0};
-  size_t reserved_len;
+  std::unique_ptr<cell[]> _val_idx;
+  std::unique_ptr<uint32_t[]> _num;
 
-  compact_seq(size_t _reserved_len) : reserved_len(_reserved_len){};
-  ~compact_seq() { free(); }
+  const size_t reserved_len;
 
-  compact_seq& malloc()
+  compact_CPU(size_t _reserved_len) : reserved_len(_reserved_len)
   {
-    _val = new T[reserved_len];
-    _idx = new uint32_t[reserved_len];
-
-    return *this;
-  }
-
-  compact_seq& free()
-  {
-    delete[] _val;
-    delete[] _idx;
-    return *this;
-  }
-
-  compact_seq& control(control_stream_t controls, void* placeholder = nullptr)
-  {
-    for (auto& c : controls) {
-      if (c == Malloc) { malloc(); }
-      else if (c == MallocHost) {
-      }
-      else if (c == Free) {
-        free();
-      }
-      else if (c == FreeHost) {
-      }
-    }
-
-    return *this;
-  }
+    _val_idx = std::make_unique<cell[]>(reserved_len + 10);
+    _num = std::make_unique<uint32_t[]>(1);
+    _num[0] = 0;
+  };
+  ~compact_CPU() {}
 
   // getter
-  uint32_t num_outliers() const { return _num; }
-  T* val() { return _val; }
-  T& val(szt i) { return _val[i]; }
-  uint32_t* idx() { return _idx; }
-  uint32_t& idx(szt i) { return _idx[i]; }
-
-  uint32_t& num() { return _num; }
+  cell* val_idx() { return _val_idx.get(); }
+  cell& val_idx(const size_t i) { return _val_idx[i]; }
+  uint32_t& num() const { return _num[0]; }
+  size_t max_allowed_num() const { return reserved_len; }
+  // uint32_t get_num() { return _num[0]; }
 };
 
 }  // namespace _portable

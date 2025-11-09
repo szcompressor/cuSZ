@@ -21,6 +21,7 @@ struct psz::Buf_Comp<T, E>::impl {
   GPU_unique_hptr<Freq[]> h_top1;
 
   std::unique_ptr<Buf_Outlier> buf_outlier;
+  std::unique_ptr<Buf_Outlier2> buf_outlier2;
   std::unique_ptr<Buf_HF> buf_hf;
 
   constexpr static size_t BLK = 8;  // for spline
@@ -40,7 +41,10 @@ struct psz::Buf_Comp<T, E>::impl {
       x(x), y(y), z(z), len(x * y * z), anchor512_len(set_anchor_len(x, y, z))
   {
     if (toggle->use_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
-    if (toggle->use_outlier) buf_outlier = std::make_unique<Buf_Outlier>(len * OUTLIER_RATIO);
+    if (toggle->use_outlier) {
+      buf_outlier = std::make_unique<Buf_Outlier>(len * OUTLIER_RATIO);
+      buf_outlier2 = std::make_unique<Buf_Outlier2>(len * OUTLIER_RATIO);
+    }
     if (toggle->use_anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
     if (toggle->use_hist) {
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
@@ -71,7 +75,8 @@ struct psz::Buf_Comp<T, E>::impl {
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
 
-      buf_outlier = std::make_unique<Buf_Outlier>(len / 5);
+      buf_outlier = std::make_unique<Buf_Outlier>(len * OUTLIER_RATIO);
+      buf_outlier2 = std::make_unique<Buf_Outlier2>(len * OUTLIER_RATIO);
       buf_hf = std::make_unique<Buf_HF>(len, max_bklen);
     }
   }
@@ -136,6 +141,9 @@ COMPBUF_IMPL(T*)::outlier_val_d() const { return pimpl->buf_outlier->val(); }
 COMPBUF_IMPL(M*)::outlier_idx_d() const { return pimpl->buf_outlier->idx(); }
 COMPBUF_IMPL(M)::outlier_num() const { return pimpl->buf_outlier->num_outliers(); }
 
+COMPBUF_IMPL(void*)::outlier2_validx_d() const { return pimpl->buf_outlier2->val_idx_d(); }
+COMPBUF_IMPL(M)::outlier2_host_get_num() const { return pimpl->buf_outlier2->host_get_num(); }
+
 COMPBUF_IMPL(T*)::anchor_d() const { return pimpl->d_anchor.get(); }
 COMPBUF_IMPL(size_t)::anchor_len() const { return pimpl->anchor512_len; }
 COMPBUF_IMPL(stdlen3)::anchor_len3() const
@@ -147,10 +155,14 @@ COMPBUF_IMPL(stdlen3)::anchor_len3() const
 template <typename T>
 using Buf_Outlier = _portable::compact_gpu<T>;
 
+template <typename T>
+using Buf_Outlier2 = _portable::compact_GPU_DRAM2<T, M>;
+
 template <typename E>
 using Buf_HF = phf::Buf<E>;
 
 COMPBUF_IMPL(Buf_Outlier<T>*)::buf_outlier() const { return pimpl->buf_outlier.get(); }
+COMPBUF_IMPL(Buf_Outlier2<T>*)::buf_outlier2() const { return pimpl->buf_outlier2.get(); }
 
 COMPBUF_IMPL(Buf_HF<E>*)::buf_hf() const { return pimpl->buf_hf.get(); }
 

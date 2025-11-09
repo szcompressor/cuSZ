@@ -1,3 +1,6 @@
+#ifndef PSZ_KERNENL_LAUNCH_HH
+#define PSZ_KERNENL_LAUNCH_HH
+
 #include <cuda_runtime.h>
 
 #include <array>
@@ -162,3 +165,5 @@ struct x_lorenzo<3> {
 };
 
 };  // namespace psz::config
+
+#endif /* PSZ_KERNENL_LAUNCH_HH */

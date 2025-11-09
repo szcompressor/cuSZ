@@ -22,9 +22,11 @@
 #include "hf_hl.hh"
 #include "kernel/hist.hh"
 #include "kernel/predictor.hh"
-#include "kernel/spv.hh"
+#include "kernel/spvn.hh"
 #include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
+#include "mem/cxx_sp_gpu.h"
+#include "mem/sp_interface.h"
 #include "utils/err.hh"
 #include "utils/io.hh"
 #include "utils/timer.hh"
@@ -116,16 +118,16 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
 
   if (ctx->header->pred_type == Lorenzo)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
         ctx->header->radius, stream);
   else if (ctx->header->pred_type == LorenzoZigZag)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
         ctx->header->radius, stream);
   else if (ctx->header->pred_type == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), ebx2, ebx2_r, ctx->header->radius,
-        stream);
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r,
+        ctx->header->radius, stream);
   else if (ctx->header->pred_type == Spline)
     psz::module::GPU_predict_spline(
         in, len3_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
@@ -134,7 +136,7 @@ void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* strea
   /* make outlier count seen on host */
   sync_by_stream(stream);
   [[deprecated("outlier handling not updated in OOD; use non-OOD instead")]] auto _splen =
-      mem->outlier_num();
+      mem->outlier2_host_get_num();
   ctx->header->splen = _splen;
 
   if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
@@ -166,7 +168,8 @@ void Compressor<DType>::compress_merge_update_header(
   nbyte[PSZ_HEADER] = sizeof(psz_header);
   nbyte[PSZ_ENCODED] = sizeof(BYTE) * comp_codec_outlen;
   nbyte[PSZ_ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
-  nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(M)) * ctx->header->splen;
+  // nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(M)) * ctx->header->splen;
+  nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, M>) * ctx->header->splen;
 
   // clang-format off
   ctx->header->entry[0] = 0;
@@ -176,8 +179,7 @@ void Compressor<DType>::compress_merge_update_header(
 
   CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), nbyte[PSZ_ANCHOR], stream);
   CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), comp_codec_out, nbyte[PSZ_ENCODED], stream);
-  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier_val_d(), sizeof(T) * ctx->header->splen, stream);
-  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, sizeof(T) * ctx->header->splen), mem->outlier_idx_d(), sizeof(M) * ctx->header->splen, stream);
+  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), sizeof(T) * ctx->header->splen, stream);
   // clang-format on
 
   /* output of this function */
@@ -198,9 +200,13 @@ void Compressor<DType>::decompress(psz_header* header, BYTE* in, T* out, psz_str
     return (void*)(in + header->entry[FIELD] + offset_nbyte);
   };
 
+  // v1
+  // auto d_spval = (T*)access(PSZ_SPFMT);
+  // auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
+  // v2
+  auto d_spval_idx = (_portable::compact_cell<DType, M>*)access(PSZ_SPFMT);
+
   auto d_anchor = (T*)access(PSZ_ANCHOR);
-  auto d_spval = (T*)access(PSZ_SPFMT);
-  auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
   auto d_space = out, d_xdata = out;  // aliases
   auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
 
@@ -210,8 +216,7 @@ void Compressor<DType>::decompress(psz_header* header, BYTE* in, T* out, psz_str
 STEP_SCATTER:
 
   if (header->splen != 0)
-    psz::spv_scatter_naive<PROPER_RUNTIME, T, M>(
-        d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+    psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
 
 STEP_DECODING:
 
@@ -327,25 +332,25 @@ void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
 
   if (ctx->header->pred_type == Lorenzo)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
         ctx->header->radius, stream);
   else if (ctx->header->pred_type == LorenzoZigZag)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
         ctx->header->radius, stream);
   else if (ctx->header->pred_type == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), ebx2, ebx2_r, ctx->header->radius,
-        stream);
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r,
+        ctx->header->radius, stream);
   else if (ctx->header->pred_type == Spline)
     psz::module::GPU_predict_spline(
         in, len3_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
-        (void*)mem->buf_outlier(), ebx2, eb_r, ctx->header->radius, stream);
+        (void*)mem->buf_outlier2(), ebx2, eb_r, ctx->header->radius, stream);
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
-  ctx->header->splen = mem->outlier_num();
-  if (ctx->header->splen == mem->buf_outlier()->max_allowed_num()) {
+  ctx->header->splen = mem->outlier2_host_get_num();
+  if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
     cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
          << " * input-len) exceeded, returning..." << endl;
     [[deprecated("need to return status")]] auto status = PSZ_WARN_OUTLIER_TOO_MANY;
@@ -383,7 +388,8 @@ void compress_merge_update_header(
   mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
   mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
   mem->nbyte[PSZ_ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
-  mem->nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(psz::M)) * ctx->header->splen;
+  // mem->nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(psz::M)) * ctx->header->splen;
+  mem->nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
 
   // clang-format off
   ctx->header->entry[0] = 0;
@@ -393,8 +399,7 @@ void compress_merge_update_header(
 
   CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), mem->nbyte[PSZ_ANCHOR], stream);
   CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), mem->comp_codec_out, mem->nbyte[PSZ_ENCODED], stream);
-  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier_val_d(), sizeof(T) * ctx->header->splen, stream);
-  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, sizeof(T) * ctx->header->splen), mem->outlier_idx_d(), sizeof(psz::M) * ctx->header->splen, stream);
+  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen, stream);
   // clang-format on
 
   /* output of this function */
@@ -417,8 +422,9 @@ PIPELINE(void)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz
   };
 
   auto d_anchor = (T*)access(PSZ_ANCHOR);
-  auto d_spval = (T*)access(PSZ_SPFMT);
-  auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
+  // auto d_spval = (T*)access(PSZ_SPFMT);
+  // auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
+  auto d_spval_idx = (_portable::compact_cell<T, M>*)access(PSZ_SPFMT);
   auto d_space = out, d_xdata = out;  // aliases
   auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
 
@@ -426,11 +432,10 @@ PIPELINE(void)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz
 
 STEP_SCATTER:
 
-  float time_sp;
+  // float time_sp;
 
   if (header->splen != 0)
-    psz::spv_scatter_naive<PROPER_RUNTIME, T, M>(
-        d_spval, d_spidx, header->splen, d_space, &time_sp, stream);
+    psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
 
 STEP_DECODING:
 

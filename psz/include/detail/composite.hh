@@ -19,6 +19,8 @@
 #include <stdexcept>
 #include <type_traits>
 
+#include "mem/sp_interface.h"
+
 // clang-format off
 namespace psz {
 
@@ -161,6 +163,9 @@ struct PredConfig {
   using CV = CompactVal;
   using CI = CompactIdx;
   using CN = CompactNum;
+
+  using Compact2 = _portable::compact_GPU_DRAM2<CompactVal, M>;
+  using C2VI = _portable::compact_cell<CompactVal, M>;
 
   /* ZigZag setup */
   using ZigZag = psz::ZigZag<Eq>;

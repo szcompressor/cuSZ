@@ -12,7 +12,7 @@
 #include "detail/busyheader.hh"
 #include "detail/correctness.inl"
 #include "kernel/detail/lrz.seq.inl"
-#include "kernel/spv.hh"
+#include "kernel/spvn.hh"
 
 using T = float;
 using FP = float;
@@ -37,8 +37,7 @@ bool test1(
     FUNC func, T* input, size_t len, psz_dim3_seq len3, psz_dim3_seq leap3, T const* expected,
     std::string funcname)
 {
-  auto outlier = new _portable::compact_seq<T>(len / 10);
-  outlier->malloc();
+  auto outlier = new _portable::compact_CPU<T>(len / 10);
 
   auto eq = new Eq[len];
   memset(eq, 0, sizeof(Eq) * len);
@@ -95,8 +94,7 @@ bool test3(
     FUNC1 func1, FUNC2 func2, T* input, size_t len, psz_dim3_seq len3, psz_dim3_seq leap3,
     std::string funcname)
 {
-  auto outlier = new _portable::compact_seq<T>(len / 10);
-  outlier->malloc();
+  auto outlier = new _portable::compact_CPU<T>(len / 10);
 
   auto eq = new Eq[len];
   memset(eq, 0, sizeof(Eq) * len);
@@ -109,8 +107,7 @@ bool test3(
 
   func1(input, len3, leap3, radius, ebx2_r, eq, outlier);
 
-  psz::spv_scatter_naive<SEQ, T, u4>(
-      outlier->val(), outlier->idx(), outlier->num(), input, nullptr);
+  psz::module::CPU_scatter<T, u4>::kernel_v2(outlier->val_idx(), outlier->num(), input);
 
   func2(eq, xdata /* outlier */, len3, leap3, radius, ebx2, xdata);
 

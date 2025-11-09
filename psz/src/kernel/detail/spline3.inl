@@ -19,6 +19,7 @@
 #include "cusz/type.h"
 #include "utils/err.hh"
 #include "utils/timer.hh"
+#include "mem/sp_interface.h"
 
 #define SPLINE3_COMPR true
 #define SPLINE3_DECOMPR false
@@ -64,8 +65,7 @@ template <
     typename EITER,
     typename FP            = float,
     int  LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE, 
-    typename CompactVal = TITER,
-    typename CompactIdx = uint32_t*,
+    typename CompactValIdx = _portable::compact_cell<std::remove_pointer<TITER>, u4>,
     typename CompactNum = uint32_t*>
 __global__ void c_spline3d_infprecis_32x8x8data(
     TITER   data,
@@ -76,8 +76,7 @@ __global__ void c_spline3d_infprecis_32x8x8data(
     STRIDE3 ectrl_leap,
     TITER   anchor,
     STRIDE3 anchor_leap,
-    CompactVal cval,
-    CompactIdx cidx,
+    CompactValIdx cvalidx,
     CompactNum cn,
     FP      eb_r,
     FP      ebx2,
@@ -365,9 +364,9 @@ shmem2global_32x8x8data(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size
 
 
 // dram_outlier should be the same in type with shared memory buf
-template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE, typename CompactValIdx = _portable::compact_cell<T1, u4>>
 __device__ void
-shmem2global_32x8x8data_with_compaction(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, int radius, T1* dram_compactval = nullptr, uint32_t* dram_compactidx = nullptr, uint32_t* dram_compactnum = nullptr)
+shmem2global_32x8x8data_with_compaction(volatile T1 s_buf[9][9][33], T2* dram_buf, DIM3 buf_size, STRIDE3 buf_leap, int radius, CompactValIdx* dram_cvalidx = nullptr, uint32_t* dram_cnum = nullptr)
 {
     auto x_size = BLOCK32 + (BIX == GDX-1);
     auto y_size = BLOCK8 + (BIY == GDY-1);
@@ -392,9 +391,8 @@ shmem2global_32x8x8data_with_compaction(volatile T1 s_buf[9][9][33], T2* dram_bu
             dram_buf[gid] = quantizable * static_cast<T2>(candidate);
 
             if (not quantizable) {
-                auto cur_idx = atomicAdd(dram_compactnum, 1);
-                dram_compactidx[cur_idx] = gid;
-                dram_compactval[cur_idx] = candidate;
+                auto cur_idx = atomicAdd(dram_cnum, 1);
+                dram_cvalidx[cur_idx] = {(float)candidate, gid};
             }
         }
     }
@@ -914,7 +912,7 @@ __device__ void cusz::device_api::spline3d_layout2_interpolate(
  * host API/kernel
  ********************************************************************************/
 
-template <typename TITER, typename EITER, typename FP, int LINEAR_BLOCK_SIZE, typename CompactVal, typename CompactIdx, typename CompactNum>
+template <typename TITER, typename EITER, typename FP, int LINEAR_BLOCK_SIZE, typename CompactValIdx, typename CompactNum>
 __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     TITER   data,
     DIM3    data_size,
@@ -924,8 +922,7 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     STRIDE3 ectrl_leap,
     TITER   anchor,
     STRIDE3 anchor_leap,
-    CompactVal compact_val,
-    CompactIdx compact_idx,
+    CompactValIdx compact_validx,
     CompactNum compact_num,
     FP      eb_r,
     FP      ebx2,
@@ -966,7 +963,7 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
 
         //if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
 
-        shmem2global_32x8x8data_with_compaction<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap, radius, compact_val, compact_idx, compact_num);
+        shmem2global_32x8x8data_with_compaction<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap, radius, compact_validx, compact_num);
 
         // shmem2global_32x8x8data<T, E, LINEAR_BLOCK_SIZE>(shmem.ectrl, ectrl, ectrl_size, ectrl_leap);
 

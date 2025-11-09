@@ -44,15 +44,16 @@ int psz::module::GPU_predict_spline(
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
   auto grid_dim = dim3(div(l3[0], BLK * 4), div(l3[1], BLK), div(l3[2], BLK));
 
-  using Compact = _portable::compact_gpu<T>;
-  auto ot = (Compact*)_outlier;
+  using Compact2 = _portable::compact_GPU_DRAM2<T, u4>;
+  using Compact2_Validx = _portable::compact_cell<T, u4>;
+  auto ot = (Compact2*)_outlier;
 
-  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE>  //
+  cusz::c_spline3d_infprecis_32x8x8data<T*, E*, float, DEFAULT_BLOCK_SIZE, Compact2_Validx*>  //
       <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
           in_data, STDLEN3_TO_DIM3(data_len3), STDLEN3_TO_STRIDE3(data_len3),      //
           out_ectrl, STDLEN3_TO_DIM3(ectrl_len3), STDLEN3_TO_STRIDE3(ectrl_len3),  //
           out_anchor, STDLEN3_TO_STRIDE3(anchor_len3),                             //
-          ot->val(), ot->idx(), ot->num(), eb_r, ebx2, radius);
+          ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius);
 
   return 0;
 

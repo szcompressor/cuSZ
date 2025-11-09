@@ -172,7 +172,7 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
   SETUP_1D_EQBUF;
   SETUP_ZIGZAG;
 
-  auto outlier = (struct _portable::compact_seq<T>*)in_outlier;
+  auto outlier = (struct _portable::compact_CPU<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -194,8 +194,7 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
-      outlier->idx(cur_idx) = gid1();
-      outlier->val(cur_idx) = candidate;
+      outlier->val_idx(cur_idx) = {(float)candidate, gid1()};
     }
   };
   auto threadview_store = [&]() {
@@ -270,7 +269,7 @@ void KERNEL_SEQ_c_lorenzo_2d1l(
   SETUP_2D_EQBUF;
   SETUP_ZIGZAG;
 
-  auto outlier = (struct _portable::compact_seq<T>*)in_outlier;
+  auto outlier = (struct _portable::compact_CPU<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -293,8 +292,7 @@ void KERNEL_SEQ_c_lorenzo_2d1l(
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
-      outlier->idx(cur_idx) = gid2();
-      outlier->val(cur_idx) = candidate;
+      outlier->val_idx(cur_idx) = {(float)candidate, gid2()};
     }
   };
   auto threadview_store = [&]() {
@@ -372,7 +370,7 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
   SETUP_3D_EQBUF;
   SETUP_ZIGZAG;
 
-  auto outlier = (struct _portable::compact_seq<T>*)in_outlier;
+  auto outlier = (struct _portable::compact_CPU<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -397,8 +395,7 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
-      outlier->idx(cur_idx) = gid3();
-      outlier->val(cur_idx) = candidate;
+      outlier->val_idx(cur_idx) = {(float)candidate, gid3()};
     }
   };
   auto threadview_store = [&]() {
