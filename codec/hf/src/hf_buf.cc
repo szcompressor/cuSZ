@@ -4,7 +4,6 @@
 #include "hf_hl.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
-#include "utils/err.hh"
 
 namespace phf {
 
@@ -75,7 +74,7 @@ struct Buf<E>::impl {
   {
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
 
-    sublen = use_HFR ? 1024 : capi_phf_coarse_tune_sublen(inlen);
+    sublen = use_HFR ? 1024 : phf_coarse_tune_sublen(inlen);
     pardeg = (inlen - 1) / sublen + 1;
     // cout << sublen << " " << pardeg << endl;
 
@@ -125,12 +124,11 @@ struct Buf<E>::impl {
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
-      CHECK_GPU(cudaMemcpyAsync(
-          start + var.dst, var.ptr, var.nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream));
+      cudaMemcpyAsync(
+          start + var.dst, var.ptr, var.nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     };
 
-    CHECK_GPU(cudaMemcpyAsync(
-        start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream));
+    cudaMemcpyAsync(start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream);
 
     // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
     d2d_memcpy_merge(_rvbk);

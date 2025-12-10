@@ -38,7 +38,7 @@ psz_compressor* capi_psz_create(
   comp->ctx->header->dtype = dtype;
 
   pszctx_set_len(comp->ctx, uncomp_len3);
-  capi_phf_coarse_tune(
+  phf_coarse_tune(
       comp->ctx->data_len, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
   if (dtype == F4 or dtype == F8)
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
@@ -57,7 +57,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
   comp->ctx->header->dtype = dtype;
 
   pszctx_set_len(comp->ctx, uncomp_len3);
-  capi_phf_coarse_tune(
+  phf_coarse_tune(
       comp->ctx->data_len, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
   if (dtype == F4 or dtype == F8)
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
@@ -75,7 +75,7 @@ psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_
   pszctx_set_len(comp->ctx, uncomp_len3);
   auto dtype = ctx->header->dtype;
 
-  capi_phf_coarse_tune(
+  phf_coarse_tune(
       comp->ctx->data_len, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
   if (dtype == F4 or dtype == F8)
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
@@ -237,7 +237,7 @@ psz_resource* psz_create_resource_manager(
   // m->ndim = 3;
   m->cli = nullptr;
 
-  capi_phf_coarse_tune(m->data_len, &m->header->vle_sublen, &m->header->vle_pardeg);
+  phf_coarse_tune(m->data_len, &m->header->vle_sublen, &m->header->vle_pardeg);
 
   m->compbuf = t == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
 

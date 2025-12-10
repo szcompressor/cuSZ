@@ -10,10 +10,10 @@
  * top-level directory.
  */
 
-#include "cusz/type.h"
-#include "detail/busyheader.hh"
+#include <cstdlib>
+
+#include "c_type.h"
 #include "hf_impl.hh"
-#include "utils/timer.hh"
 
 HuffmanTree* create_tree_serial(int state_num)
 {

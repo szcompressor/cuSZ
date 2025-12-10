@@ -1,8 +1,16 @@
-#ifndef D4543D36_B236_4E84_B7C9_AADFE5E84628
-#define D4543D36_B236_4E84_B7C9_AADFE5E84628
+#ifndef FZG_H
+#define FZG_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stddef.h>
 #include <stdint.h>
+
+#include "c_type.h"
+
+typedef void* fzg_stream_t;
 
 #define FZGHEADER_HEADER 0
 #define FZGHEADER_BITFLAG 1
@@ -20,9 +28,13 @@ typedef struct fzg_header {
 
     struct {
       size_t original_len;
-      uint32_t entry[FZGHEADER_END];
+      uint32_t entry[FZGHEADER_END + 1];
     };
   };
 } fzg_header;
 
-#endif /* D4543D36_B236_4E84_B7C9_AADFE5E84628 */
+#ifdef __cplusplus
+}
+#endif
+
+#endif

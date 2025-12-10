@@ -6,7 +6,6 @@
 #include <cstring>
 
 #include "c_type.h"
-#include "cusz/type.h"
 #include "hf.h"
 #include "mem/cxx_array.h"
 

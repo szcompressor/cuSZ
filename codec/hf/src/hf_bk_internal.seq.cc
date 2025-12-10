@@ -10,14 +10,11 @@
  */
 
 #include <queue>
+#include <stdexcept>
 
-#include "detail/busyheader.hh"
 #include "hf_impl.hh"
-#include "utils/log/dbg.hh"
-#include "utils/timer.hh"
 
 // internal data structure
-
 #define NODE_STACK_TPL template <class NodeType, int Width>
 #define NODE_STACK phf_stack<NodeType, Width>
 
@@ -84,7 +81,7 @@ void NODE_STACK::inorder_traverse(NodeType* root, H* book)
       out1 |= 0u;
       len += 1;
 
-      if (len > MAX_LEN) __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
+      if (len > MAX_LEN) throw std::runtime_error("exceeding max len: " + std::to_string(MAX_LEN));
     }
     else {
       u4 symbol = p->symbol;
@@ -98,7 +95,8 @@ void NODE_STACK::inorder_traverse(NodeType* root, H* book)
         out1 |= 1u;
         len += 1;
 
-        if (len > MAX_LEN) __PSZDBG__FATAL("exceeding max len: " + to_string(MAX_LEN));
+        if (len > MAX_LEN)
+          throw std::runtime_error("exceeding max len: " + std::to_string(MAX_LEN));
       }
       else
         done = true;

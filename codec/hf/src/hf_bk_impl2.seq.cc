@@ -12,7 +12,6 @@
 #include <queue>
 
 #include "hf_impl.hh"
-#include "utils/timer.hh"
 
 // impl2
 

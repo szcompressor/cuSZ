@@ -9,7 +9,7 @@
  *
  */
 
-#include "cusz/type.h"
+#include "c_type.h"
 #include "hf_impl.hh"
 
 template <typename E, typename H>

@@ -6,11 +6,11 @@
 #include "hf_hl.hh"
 #include "hf_impl.hh"
 
-#if defined(PSZ_USE_CUDA)
+#if defined(PHF_USE_CUDA)
 const char* PHF_BACKEND_TEXT = "cuHF";
-#elif defined(PSZ_USE_HIP)
+#elif defined(PHF_USE_HIP)
 const char* PHF_BACKEND_TEXT = "hipHF";
-#elif defined(PSZ_USE_1API)
+#elif defined(PHF_USE_1API)
 const char* PHF_BACKEND_TEXT = "dpHF";
 #endif
 
@@ -23,11 +23,11 @@ constexpr int PHF_DEFLATE_CONSTANT = 4;
 constexpr int BLOCK_DIM_ENCODE = 256;
 constexpr int BLOCK_DIM_DEFLATE = 256;
 
-size_t capi_phf_coarse_tune_sublen(size_t len)
+size_t phf_coarse_tune_sublen(size_t len)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+#if defined(PHF_USE_CUDA) || defined(PHF_USE_HIP)
   // TODO ROCm GPUs should use different constants.
   int current_dev = 0;
   cudaSetDevice(current_dev);
@@ -38,7 +38,7 @@ size_t capi_phf_coarse_tune_sublen(size_t len)
   auto allowed_block_dim = dev_prop.maxThreadsPerBlock;
   auto deflate_nthread = allowed_block_dim * nSM / PHF_DEFLATE_CONSTANT;
 
-#elif defined(PSZ_USE_1API)
+#elif defined(PHF_USE_1API)
   int current_dev = 0;
   /*
   DPCT1093:0: The "current_dev" device may be not the one intended for use.
@@ -62,15 +62,15 @@ size_t capi_phf_coarse_tune_sublen(size_t len)
   return optimal_sublen;
 };
 
-void capi_phf_coarse_tune(size_t len, int* sublen, int* pardeg)
+void phf_coarse_tune(size_t len, int* sublen, int* pardeg)
 {
   auto div = [](auto l, auto subl) { return (l - 1) / subl + 1; };
-  *sublen = capi_phf_coarse_tune_sublen(len);
+  *sublen = phf_coarse_tune_sublen(len);
   *pardeg = div(len, *sublen);
 }
 
-uint32_t capi_phf_encoded_bytes(phf_header* h) { return h->entry[PHFHEADER_END]; }
+uint32_t phf_encoded_bytes(phf_header* h) { return h->entry[PHFHEADER_END]; }
 
-void capi_phf_version() { printf("\n///  %s build: %s\n", PHF_BACKEND_TEXT, PHF_VERSION_TEXT); }
+void phf_version() { printf("\n///  %s build: %s\n", PHF_BACKEND_TEXT, PHF_VERSION_TEXT); }
 
-void capi_phf_versioninfo() { capi_phf_version(); }
+void phf_versioninfo() { phf_version(); }

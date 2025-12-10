@@ -36,7 +36,20 @@ target_include_directories(
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
 )
 
-add_subdirectory(portable)
+find_package(PORTABLE QUIET)
+if(NOT PORTABLE_FOUND)
+  add_subdirectory(portable)
+endif()
+
+find_package(FZG QUIET)
+if(NOT FZG_FOUND)
+  add_subdirectory(codec/fzg)
+endif()
+
+find_package(PHF QUIET)
+if(NOT PHF_FOUND)
+  add_subdirectory(codec/hf)
+endif()
 
 # option(PSZ_RESEARCH_HUFFBK_CUDA
 # "build research artifacts: create Huffman codebook on GPU" OFF)
@@ -81,8 +94,6 @@ target_link_libraries(psz_cu_stat
   PUBLIC
   psz_cu_compile_settings
 )
-add_library(PSZ::CUDA::stat ALIAS psz_cu_stat)
-add_library(CUSZ::stat ALIAS psz_cu_stat)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(psz_seq_core
@@ -112,8 +123,6 @@ target_link_libraries(psz_cu_core
   psz_cu_mem
   CUDA::cudart
 )
-add_library(PSZ::CUDA::core ALIAS psz_cu_core)
-add_library(CUSZ::core ALIAS psz_cu_core)
 
 add_library(psz_cu_mem INTERFACE)
 add_library(CUSZ::mem ALIAS psz_cu_mem)
@@ -122,7 +131,7 @@ target_link_libraries(psz_cu_mem
   INTERFACE
   psz_cu_compile_settings
   psz_cu_stat
-  portable
+  PORTABLE
   CUDA::cudart
 )
 
@@ -141,41 +150,23 @@ target_link_libraries(psz_cu_utils
   psz_cu_compile_settings
   CUDA::cudart CUDA::nvml
 )
-add_library(PSZ::CUDA::utils ALIAS psz_cu_utils)
-add_library(CUSZ::utils ALIAS psz_cu_utils)
 
-add_library(psz_cu_phf
-  codec/hf/src/hf_est.cc
-  codec/hf/src/hf_bk_impl1.seq.cc
-  codec/hf/src/hf_bk_impl2.seq.cc
-  codec/hf/src/hf_bk_internal.seq.cc
-  codec/hf/src/hf_bk.seq.cc
-  codec/hf/src/hf_canon.seq.cc
-  codec/hf/src/hf_kernels.cu
-  codec/hf/src/hf_hl.cc
-  codec/hf/src/hf_buf.cc
-  codec/hf/src/libphf.cc
-)
+add_library(psz_cu_phf INTERFACE)
 target_link_libraries(psz_cu_phf
-  PUBLIC
+  INTERFACE
   psz_cu_compile_settings
   psz_cu_stat
+  phf_cu
   CUDA::cuda_driver
 )
-add_library(PSZ::CUDA::phf ALIAS psz_cu_phf)
-add_library(CUSZ::phf ALIAS psz_cu_phf)
 
-add_library(psz_cu_fzg
-  codec/fzg/src/fzg_kernel.cu
-  codec/fzg/src/fzg_class.cc
-)
+add_library(psz_cu_fzg INTERFACE)
 target_link_libraries(psz_cu_fzg
-  PUBLIC
+  INTERFACE
   psz_cu_compile_settings
   psz_cu_core
+  FZG
 )
-add_library(PSZ::CUDA::fzg ALIAS psz_cu_fzg)
-add_library(CUSZ::fzg ALIAS psz_cu_fzg)
 
 add_library(cusz
   psz/src/compressor.cc
@@ -193,8 +184,6 @@ target_link_libraries(cusz
   psz_cu_fzg
   CUDA::cudart
 )
-add_library(PSZ::CUDA::cusz ALIAS cusz)
-add_library(CUSZ::cusz ALIAS cusz)
 
 # m export binary "cusz"
 add_executable(cusz-bin psz/src/cli/cli.cc)
@@ -232,7 +221,7 @@ if(PSZ_BUILD_PYBINDING)
 
   set(SWIG_INCLUDE_DIRECTORIES
     ${CMAKE_CURRENT_SOURCE_DIR}/psz/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/hf/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/include
     ${Python_INCLUDE_DIRS}
   )
   include_directories(${SWIG_INCLUDE_DIRECTORIES})

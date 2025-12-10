@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace fzgpu {
+namespace fzg {
 
 __global__ void KERNEL_CUHIP_fz_fused_decode(
     uint32_t* in_archive, uint32_t* in_bitflag_array, uint32_t* in_start_pos,
@@ -31,8 +31,7 @@ __global__ void KERNEL_CUHIP_fz_fused_decode(
     bigflag = in_bitflag_array[bid * 8 + threadIdx.x];
 #pragma unroll 32
     for (int tmpInd = 0; tmpInd < 32; tmpInd++) {
-      s_byteflag_array[threadIdx.x * 32 + tmpInd] =
-          (bigflag & (1U << tmpInd)) > 0;
+      s_byteflag_array[threadIdx.x * 32 + tmpInd] = (bigflag & (1U << tmpInd)) > 0;
     }
   }
   __syncthreads();
@@ -79,9 +78,7 @@ __global__ void KERNEL_CUHIP_fz_fused_decode(
   __syncthreads();
 
   // get the start position
-  if (threadIdx.x == 0 and threadIdx.y == 0) {
-    s_start_pos = in_start_pos[bid];
-  }
+  if (threadIdx.x == 0 and threadIdx.y == 0) { s_start_pos = in_start_pos[bid]; }
   __syncthreads();
 
   // write back shuffled data to shared mem
@@ -99,15 +96,13 @@ __global__ void KERNEL_CUHIP_fz_fused_decode(
   // bitshuffle (reverse)
 #pragma unroll 32
   for (auto i = 0; i < 32; i++) {
-    s_data_chunk[threadIdx.y][i] =
-        __ballot_sync(0xFFFFFFFFU, buffer & (1U << i));
+    s_data_chunk[threadIdx.y][i] = __ballot_sync(0xFFFFFFFFU, buffer & (1U << i));
   }
   __syncthreads();
 
   // write back to global memory
   auto gD_id = tid + bid * (blockDim.x * blockDim.y);
-  if (gD_id < decoded_len)
-    out_decoded[gD_id] = s_data_chunk[threadIdx.y][threadIdx.x];
+  if (gD_id < decoded_len) out_decoded[gD_id] = s_data_chunk[threadIdx.y][threadIdx.x];
 }
 
-}  // namespace fzgpu
+}  // namespace fzg

@@ -16,12 +16,11 @@
 
 #include <cstddef>
 #include <cstdio>
+#include <numeric>
+#include <stdexcept>
 
-#include "hf_hl.hh"  // contains HuffmanHelper; TODO put in another file
 #include "hf_impl.hh"
 #include "hf_kernels.cuhip.inl"
-#include "utils/err.hh"
-#include "utils/timer.hh"
 
 #define TIX threadIdx.x
 #define BIX blockIdx.x
@@ -452,13 +451,13 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3_sync(
     M* d_par_entry, M* h_par_entry, size_t* outlen_nbit, size_t* outlen_ncell,
     float* time_cpu_time, void* stream)
 {
-  CHECK_GPU(cudaMemcpyAsync(
+  cudaMemcpyAsync(
       h_par_nbit, d_par_nbit, hfpar.pardeg * sizeof(M), cudaMemcpyDeviceToHost,
-      (cudaStream_t)stream));
-  CHECK_GPU(cudaMemcpyAsync(
+      (cudaStream_t)stream);
+  cudaMemcpyAsync(
       h_par_ncell, d_par_ncell, hfpar.pardeg * sizeof(M), cudaMemcpyDeviceToHost,
-      (cudaStream_t)stream));
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+      (cudaStream_t)stream);
+  cudaStreamSynchronize((cudaStream_t)stream);
 
   memcpy(h_par_entry + 1, h_par_ncell, (hfpar.pardeg - 1) * sizeof(M));
   for (auto i = 1; i < hfpar.pardeg; i++) h_par_entry[i] += h_par_entry[i - 1];  // inclusive scan
@@ -467,10 +466,10 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3_sync(
   if (outlen_ncell)
     *outlen_ncell = std::accumulate(h_par_ncell, h_par_ncell + hfpar.pardeg, (size_t)0);
 
-  CHECK_GPU(cudaMemcpyAsync(
+  cudaMemcpyAsync(
       d_par_entry, h_par_entry, hfpar.pardeg * sizeof(M), cudaMemcpyHostToDevice,
-      (cudaStream_t)stream));
-  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
+      (cudaStream_t)stream);
+  cudaStreamSynchronize((cudaStream_t)stream);
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase4(

@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 
-#include "fzg_class.hh"
-#include "fzg_kernel.hh"
+#include "fzg_hl.hh"
+#include "fzg_impl.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 
@@ -68,8 +68,8 @@ namespace utils = _portable::utils;
 
 #define PREPARE_1                                               \
   auto data_len = atoi(argv[2]);                                \
-  auto config = fzgpu::configure_fzgpu(data_len);               \
-  auto buf = new fzgpu::Buf(data_len, true);                    \
+  auto config = fzg::configure_fzgpu(data_len);                 \
+  auto buf = new fzg::Buf(data_len, true);                      \
                                                                 \
   PRINT_CONFIG_1;                                               \
                                                                 \
@@ -78,11 +78,11 @@ namespace utils = _portable::utils;
 
 #define PREPARE_2                                                            \
   auto data_len = atoi(argv[2]);                                             \
-  auto config = fzgpu::configure_fzgpu(data_len);                            \
+  auto config = fzg::configure_fzgpu(data_len);                              \
                                                                              \
   PRINT_CONFIG_2;                                                            \
                                                                              \
-  uint8_t *d_archive;                                                        \
+  uint8_t* d_archive;                                                        \
   size_t archive_len;                                                        \
                                                                              \
   auto len = config.at("len");                                               \
@@ -96,19 +96,19 @@ namespace utils = _portable::utils;
   utils::fromfile<uint16_t>(argv[1], h_in_data.get(), data_len);             \
   memcpy_allkinds<H2D>(d_in_data.get(), h_in_data.get(), data_len);
 
-int low_level_demo(char **argv)
+int low_level_demo(char** argv)
 {
   PREPARE_1;
   auto stream = create_stream();
   ////////////////////////////////////////////////////////////////
-  fzgpu::cuhip::GPU_FZ_encode(
+  fzg::module::GPU_FZ_encode(
       buf->d_in_data, data_len, buf->d_offset_counter, buf->d_bitflag_array, buf->d_start_pos,
       buf->d_comp_out, buf->d_comp_len, stream);
   sync_by_stream(stream);
 
   PRINT_REPORT_1;
 
-  fzgpu::cuhip::GPU_FZ_decode(
+  fzg::module::GPU_FZ_decode(
       buf->d_comp_out, buf->d_bitflag_array, buf->d_start_pos, buf->d_out_data, data_len, stream);
   sync_by_stream(stream);
 
@@ -118,11 +118,11 @@ int low_level_demo(char **argv)
   return 0;
 }
 
-int high_level_demo(char **argv)
+int high_level_demo(char** argv)
 {
   PREPARE_2;
 
-  auto codec = new psz::FzgCodec(data_len);
+  auto codec = new fzg::FzgCodec(data_len);
   auto stream = create_stream();
   ////////////////////////////////////////////////////////////////
   codec->encode(d_in_data.get(), data_len, &d_archive, &archive_len, stream);
@@ -140,7 +140,7 @@ int high_level_demo(char **argv)
   return 0;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   if (argc < 3) {
     printf("PROG  u2-binary-fname  len\n");

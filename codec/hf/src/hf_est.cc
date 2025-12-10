@@ -11,7 +11,7 @@
 
 #include "hf.h"
 #include "hf_impl.hh"
-#include "utils/vis_stat.hh"
+// #include "utils/vis_stat.hh"
 
 namespace {
 

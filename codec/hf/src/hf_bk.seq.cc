@@ -2,12 +2,14 @@
 
 #include <bitset>
 #include <cstdint>
+#include <iostream>
 
-#include "cusz/type.h"
-#include "detail/busyheader.hh"
+#include "c_type.h"
 #include "hf.h"
 #include "hf_impl.hh"
-#include "utils/timer.hh"
+
+using std::cout;
+using std::endl;
 
 template <typename E, typename H>
 void phf_CPU_build_canonized_codebook_v1(
@@ -29,13 +31,8 @@ void phf_CPU_build_canonized_codebook_v1(
 
   // part 1
   {
-    auto a = hires::now();
-
     phf_CPU_build_codebook_v1<H>(freq, bklen, book);
     // phf_CPU_build_codebook_v2<H>(freq, bklen, book);
-
-    auto z = hires::now();
-    if (milliseconds) *milliseconds += static_cast<duration_t>(z - a).count() * 1000;
   }
 
   // print
@@ -50,14 +47,7 @@ void phf_CPU_build_canonized_codebook_v1(
   space->input_bk() = book;  // external
 
   {  // part 2
-    auto a = hires::now();
-
     space->canonize();
-
-    auto b = hires::now();
-    auto t2 = static_cast<duration_t>(b - a).count() * 1000;
-    // cout << t2 << endl;
-    if (milliseconds) *milliseconds += t2;
   }
 
   // copy to output1
@@ -102,15 +92,8 @@ void phf_CPU_build_canonized_codebook_v2(
 
   // part 1
   {
-    auto a = hires::now();
-
     phf_CPU_build_codebook_v1<uint64_t>(freq, bklen, bk8);
     // phf_CPU_build_codebook_v2<uint64_t>(freq, bklen, bk8);
-
-    auto z = hires::now();
-    auto t1 = static_cast<duration_t>(z - a).count() * 1000;
-    // cout << t1 << endl;
-    if (milliseconds) *milliseconds += t1;
   }
 
   // resolve the issue of being longer than 32 bits
@@ -144,14 +127,7 @@ void phf_CPU_build_canonized_codebook_v2(
   space->input_bk() = bk4;  // external
 
   {  // part 2
-    auto a = hires::now();
-
     space->canonize();
-
-    auto z = hires::now();
-    auto t2 = static_cast<duration_t>(z - a).count() * 1000;
-    // cout << t2 << endl;
-    if (milliseconds) *milliseconds += t2;
   }
 
   // copy to output1
@@ -168,9 +144,9 @@ void phf_CPU_build_canonized_codebook_v2(
   delete space;
 }
 
-#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                           \
-  template void phf_CPU_build_canonized_codebook_v2<E, H>(                                  \
-      uint32_t * freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
+#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                          \
+  template void phf_CPU_build_canonized_codebook_v2<E, H>(                                 \
+      uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
       float* milliseconds);
 
 INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, u4)

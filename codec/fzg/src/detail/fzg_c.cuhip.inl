@@ -4,12 +4,11 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace fzgpu {
+namespace fzg {
 
 __global__ void KERNEL_CUHIP_fz_fused_encode(
-    uint32_t const* __restrict__ in_data, size_t data_len,
-    uint32_t* space_offset_counter, uint32_t* out_bitflag_array,
-    uint32_t* out_start_position, uint32_t* __restrict__ out_comp,
+    uint32_t const* __restrict__ in_data, size_t data_len, uint32_t* space_offset_counter,
+    uint32_t* out_bitflag_array, uint32_t* out_start_position, uint32_t* __restrict__ out_comp,
     uint32_t* comp_len)
 {
   // 32 x 32 data chunk size with one padding for each row, overall 4096 bytes
@@ -42,9 +41,7 @@ __global__ void KERNEL_CUHIP_fz_fused_encode(
   // generate s_byteflag_array
   if (threadIdx.x < 8) {
 #pragma unroll 4
-    for (auto i = 0; i < 4; i++) {
-      byteflag |= s_data_chunk[threadIdx.x * 4 + i][threadIdx.y];
-    }
+    for (auto i = 0; i < 4; i++) { byteflag |= s_data_chunk[threadIdx.x * 4 + i][threadIdx.y]; }
     s_byteflag_array[threadIdx.y * 8 + threadIdx.x] = byteflag > 0;
   }
   __syncthreads();
@@ -59,8 +56,7 @@ __global__ void KERNEL_CUHIP_fz_fused_encode(
 
   // write back bigflag_array to global memory
   if (threadIdx.x < 8 and threadIdx.y == 0) {
-    out_bitflag_array[blockIdx.x * 8 + threadIdx.x] =
-        s_bitflag_array[threadIdx.x];
+    out_bitflag_array[blockIdx.x * 8 + threadIdx.x] = s_bitflag_array[threadIdx.x];
   }
 
   constexpr auto block_size = 256u;
@@ -102,8 +98,7 @@ __global__ void KERNEL_CUHIP_fz_fused_encode(
 
   // use atomicAdd to reserve a space for compressed data chunk
   if (threadIdx.x == 0 and threadIdx.y == 0) {
-    s_start_position =
-        atomicAdd(space_offset_counter, s_byteflag_array[block_size] * 4);
+    s_start_position = atomicAdd(space_offset_counter, s_byteflag_array[block_size] * 4);
     out_start_position[blockIdx.x] = s_start_position;
     comp_len[blockIdx.x] = s_byteflag_array[block_size];
   }
@@ -117,4 +112,4 @@ __global__ void KERNEL_CUHIP_fz_fused_encode(
   }
 }
 
-}  // namespace fzgpu
+}  // namespace fzg
