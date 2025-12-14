@@ -36,6 +36,8 @@ target_include_directories(
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
 )
 
+add_subdirectory(portable)
+
 # option(PSZ_RESEARCH_HUFFBK_CUDA
 # "build research artifacts: create Huffman codebook on GPU" OFF)
 option(PSZ_REACTIVATE_THRUSTGPU
@@ -113,17 +115,14 @@ target_link_libraries(psz_cu_core
 add_library(PSZ::CUDA::core ALIAS psz_cu_core)
 add_library(CUSZ::core ALIAS psz_cu_core)
 
-add_library(psz_cu_mem
-  portable/src/mem/memobj.f.cc
-  portable/src/mem/memobj.i.cc
-  portable/src/mem/memobj.u.cc
-  portable/src/mem/memobj.misc.cc)
+add_library(psz_cu_mem INTERFACE)
 add_library(CUSZ::mem ALIAS psz_cu_mem)
 add_library(PSZ::cu_mem ALIAS psz_cu_mem)
 target_link_libraries(psz_cu_mem
-  PUBLIC
+  INTERFACE
   psz_cu_compile_settings
   psz_cu_stat
+  portable
   CUDA::cudart
 )
 

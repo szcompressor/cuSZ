@@ -17,10 +17,8 @@
 #include <vector>
 
 #include "c_type.h"
-#include "cusz/type.h"
 #include "cxx_array.h"
 #include "cxx_backends.h"
-#include "detail/typing.hh"
 
 namespace _portable {
 
@@ -31,8 +29,6 @@ class memobj {
   std::unique_ptr<impl> pimpl;
   using control_stream_t = std::vector<_portable_mem_control>;
   using control_t = _portable_mem_control;
-
-  const psz_dtype type{PszType<Ctype>::type};
 
  public:
   double maxval, minval, range;
@@ -105,5 +101,8 @@ typedef memobj<f4> memobj_f4;
 typedef memobj<f8> memobj_f8;
 
 }  // namespace _portable
+
+// Include implementation
+#include "../src/mem/memobj_impl.inl"
 
 #endif /* _PORTABLE_MEM_CXX_MEMOBJ_H */
