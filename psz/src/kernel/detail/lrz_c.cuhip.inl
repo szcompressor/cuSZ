@@ -489,8 +489,8 @@ struct GPU_c_lorenzo_3d {
   }
 };
 
-template <typename T, class PC>
-int GPU_c_lorenzo_nd<T, PC>::kernel(
+template <typename T, class PC, class Buf>
+int GPU_c_lorenzo_nd<T, PC, Buf>::kernel(
     T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
     u4* out_top1, f8 const eb, uint16_t const radius, void* stream)
 {
@@ -508,6 +508,34 @@ int GPU_c_lorenzo_nd<T, PC>::kernel(
   else if (d == 3)
     GPU_c_lorenzo_3d<T, PC>::kernel(
         in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+  else
+    return CUSZ_NOT_IMPLEMENTED;
+
+  return CUSZ_SUCCESS;
+}
+
+template <typename T, class PC, class Buf>
+int GPU_c_lorenzo_nd<T, PC, Buf>::compressor_kernel(
+    Buf* buf, T* const in_data, stdlen3 const _data_len3, f8 const eb, uint16_t const radius,
+    void* stream)
+{
+  auto data_len3 = TO_DIM3(_data_len3);
+  auto d = psz::config::utils::ndim(data_len3);
+
+  auto eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+
+  if (d == 1)
+    GPU_c_lorenzo_1d<T, PC>::kernel(
+        in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
+        stream);
+  else if (d == 2)
+    GPU_c_lorenzo_2d<T, PC>::kernel(
+        in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
+        stream);
+  else if (d == 3)
+    GPU_c_lorenzo_3d<T, PC>::kernel(
+        in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
+        stream);
   else
     return CUSZ_NOT_IMPLEMENTED;
 

@@ -23,18 +23,21 @@ using stdlen3 = std::array<size_t, 3>;
 
 namespace psz::module {
 
-template <typename T, class PC>
+template <typename T, class PC, class Buf>
 struct GPU_c_lorenzo_nd {
   static int kernel(
       T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
-      u4* out_top1, f8 const eb, uint16_t const radius, void* stream);
+      u4* out_top1, f8 const eb, u2 const radius, void* stream);
+  static int compressor_kernel(
+      Buf* buf, T* const in_data, stdlen3 const _data_len3, f8 const eb, u2 const radius,
+      void* stream);
 };
 
 template <typename T, class PC>
 struct GPU_x_lorenzo_nd {
   static int kernel(
       typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      stdlen3 const _data_len3, f8 const eb, uint16_t const radius, void* stream);
+      stdlen3 const _data_len3, f8 const eb, u2 const radius, void* stream);
 };
 
 template <typename TIN, typename TOUT, bool ReverseProcess>
@@ -50,7 +53,7 @@ template <typename T, typename Eq>
 struct GPU_PROTO_c_lorenzo_nd_with_outlier {
   static int kernel(
       T* const in_data, std::array<size_t, 3> const data_len3, Eq* const out_eq, void* out_outlier,
-      f8 const ebx2, f8 const ebx2_r, uint16_t const radius, void* stream);
+      f8 const ebx2, f8 const ebx2_r, u2 const radius, void* stream);
 };
 
 template <typename T, typename Eq>
@@ -65,12 +68,12 @@ struct GPU_PROTO_x_lorenzo_nd {
 template <typename T, typename Eq>
 pszerror CPU_c_lorenzo_nd_with_outlier(
     T* const in_data, psz_dim3_seq const data_len3, Eq* const out_eq, void* out_outlier,
-    f8 const eb, uint16_t const radius, float* time_elapsed);
+    f8 const eb, u2 const radius, float* time_elapsed);
 
 template <typename T, typename Eq>
 pszerror CPU_x_lorenzo_nd(
     Eq* const in_eq, T* const in_outlier, T* const out_data, psz_dim3_seq const data_len3,
-    f8 const eb, uint16_t const radius, f4* time_elapsed);
+    f8 const eb, u2 const radius, f4* time_elapsed);
 
 namespace psz::module {
 

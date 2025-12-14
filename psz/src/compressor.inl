@@ -35,7 +35,7 @@ using Toggle = psz::Toggle;
 
 template <typename T, Toggle ZigZag>
 using GPU_c_lorenzo_nd =
-    psz::module::GPU_c_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>>;
+    psz::module::GPU_c_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>, psz::Buf_Comp<T>>;
 
 template <typename T, Toggle ZigZag>
 using GPU_x_lorenzo_nd =
