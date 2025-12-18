@@ -8,7 +8,7 @@ add_executable(demo_cuda_v2 src/demo_v2.cuda.cc)
 target_link_libraries(demo_cuda_v2 PRIVATE cusz)
 
 add_executable(bin_hf src/bin_phf.cc)
-target_link_libraries(bin_hf PRIVATE cusz CUDA::cudart psz_cu_phf)
+target_link_libraries(bin_hf PRIVATE cusz CUDA::cudart)
 
 add_executable(bin_hist src/bin_hist.cc)
 target_link_libraries(bin_hist PRIVATE cusz CUDA::cudart)
