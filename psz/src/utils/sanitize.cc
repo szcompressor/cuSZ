@@ -24,7 +24,7 @@
   __PSZLOG__NEWLINE
 
 template <typename T, typename E, typename H>
-void psz::sanitize<T, E, H>::sanitize_pszctx(pszctx const* const ctx, std::string LOC)
+void psz::sanitize<T, E, H>::sanitize_pszctx(psz_ctx const* const ctx, std::string LOC)
 {
   __PSZSANITIZE_VAR(LOC.c_str(), ctx->header->radius)
   __PSZSANITIZE_VAR(LOC.c_str(), ctx->dict_size)

@@ -21,7 +21,7 @@
 
 #define PSZSANITIZE_PSZCTX(...)                         \
   __PSZLOG__NEWLINE;                                    \
-  __PSZLOG__STATUS_SANITIZE_IN("pszctx");               \
+  __PSZLOG__STATUS_SANITIZE_IN("psz_ctx");              \
   __PSZLOG__WHERE_CALLED;                               \
   psz::sanitize<T, E, H>::sanitize_pszctx(__VA_ARGS__); \
   __PSZLOG__NEWLINE;
@@ -58,7 +58,7 @@ namespace psz {
 template <typename T = f4, typename E = u4, typename H = u4>
 struct sanitize {
   using M = u4;
-  static void sanitize_pszctx(pszctx const* ctx, std::string LOC = "");
+  static void sanitize_pszctx(psz_ctx const* ctx, std::string LOC = "");
   static void sanitize_quantcode(E const* h_ectrl, szt len, szt bklen);
   static void sanitize_hist_book(M const* h_hist, H const* h_ectrl, szt bklen);
   static void sanitize_hist_out(M const* h_hist, szt bklen);

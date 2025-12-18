@@ -1,17 +1,3 @@
-
-/**
- * @file context.h
- * @author Jiannan Tian
- * @brief Argument parser (header).
- * @version 0.1
- * @date 2020-09-20
- * Created on: 20-04-24
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
-
 #ifndef PSZ_CONTEXT_H
 #define PSZ_CONTEXT_H
 
@@ -77,46 +63,45 @@ struct psz_context {
 };
 
 typedef struct psz_context psz_context;
-typedef psz_context pszctx;
+typedef psz_context psz_ctx;
 typedef psz_context psz_manager;
 typedef psz_context psz_resource;
-typedef psz_context psz_arguments;
+typedef psz_context psz_args;
 
 void capi_psz_version();
 void capi_psz_versioninfo();
 
-// Return a pszctx instance with default values.
-pszctx* pszctx_default_values();
+// Return a psz_ctx instance with default values.
+psz_ctx* pszctx_default_values();
 
-// Modify an empty pszctx with default values.
-void pszctx_set_default_values(pszctx*);
+// Modify an empty psz_ctx with default values.
+void pszctx_set_default_values(psz_ctx*);
 
 // Use a minimal workset as the return object.
-pszctx* pszctx_minimal_workset(
+psz_ctx* pszctx_minimal_workset(
     psz_dtype const dtype, psz_predtype const predictor, int const quantizer_radius,
     psz_codectype const codec);
 
-void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z);
-void pszctx_set_len(pszctx* ctx, psz_len3 len);
+void pszctx_set_rawlen(psz_ctx* ctx, size_t _x, size_t _y, size_t _z);
+void pszctx_set_len(psz_ctx* ctx, psz_len3 len);
 #define get_len3 pszctx_get_len3
-psz_len3 pszctx_get_len3(pszctx* ctx);
-void pszctx_create_from_argv(pszctx* ctx, int const argc, char** const argv);
-void pszctx_create_from_string(pszctx* ctx, const char* in_str, bool dbg_print);
+psz_len3 pszctx_get_len3(psz_ctx* ctx);
+void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv);
 
-unsigned int CLI_x(psz_arguments* args);
-unsigned int CLI_y(psz_arguments* args);
-unsigned int CLI_z(psz_arguments* args);
-unsigned int CLI_w(psz_arguments* args);
-unsigned short CLI_radius(psz_arguments* args);
-unsigned short CLI_bklen(psz_arguments* args);
-psz_dtype CLI_dtype(psz_arguments* args);
-psz_predtype CLI_predictor(psz_arguments* args);
-psz_histotype CLI_hist(psz_arguments* args);
-psz_codectype CLI_codec1(psz_arguments* args);
-psz_codectype CLI_codec2(psz_arguments* args);
-psz_mode CLI_mode(psz_arguments* args);
-double CLI_eb(psz_arguments* args);
-psz_interp_params* CLI_interp_params(pszctx* ctx);
+unsigned int CLI_x(psz_args* args);
+unsigned int CLI_y(psz_args* args);
+unsigned int CLI_z(psz_args* args);
+unsigned int CLI_w(psz_args* args);
+unsigned short CLI_radius(psz_args* args);
+unsigned short CLI_bklen(psz_args* args);
+psz_dtype CLI_dtype(psz_args* args);
+psz_predtype CLI_predictor(psz_args* args);
+psz_histotype CLI_hist(psz_args* args);
+psz_codectype CLI_codec1(psz_args* args);
+psz_codectype CLI_codec2(psz_args* args);
+psz_mode CLI_mode(psz_args* args);
+double CLI_eb(psz_args* args);
+psz_interp_params* CLI_interp_params(psz_ctx* ctx);
 
 #ifdef __cplusplus
 }

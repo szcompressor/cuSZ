@@ -33,19 +33,27 @@ using str_list = std::vector<std::string>;
 namespace psz {
 
 #if defined(PSZ_USE_CUDA)
+
 const char* BACKEND_TEXT = "cuSZ";
 const char* VERSION_TEXT = "2025-02-05 (0.16)";
 const int VERSION = 20241218;
+
 #elif defined(PSZ_USE_HIP)
+
 const char* BACKEND_TEXT = "hipSZ";
 const char* VERSION_TEXT = "2023-08-31 (unstable)";
 const int VERSION = 20230831;
+
 #elif defined(PSZ_USE_1API)
+
 const char* BACKEND_TEXT = "dpSZ";
 const char* VERSION_TEXT = "2023-09-28 (unstable)";
 const int VERSION = 20230928;
+
 #endif
+
 const int COMPATIBILITY = 0;
+
 }  // namespace psz
 
 void capi_psz_version() { printf("\n>>> %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT); }
@@ -63,256 +71,274 @@ void capi_psz_versioninfo()
   CUDA_devices();
 }
 
-// TODO placement
-namespace {
+namespace psz {
 
-struct psz_helper {
-  static unsigned int str2int(const char* s)
-  {
-    char* end;
-    auto res = std::strtol(s, &end, 10);
-    if (*end) {
-      const char* notif = "invalid option value, non-convertible part: ";
-      cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
-    }
-    return res;
-  }
-
-  static unsigned int str2int(std::string s) { return str2int(s.c_str()); }
-
-  static double str2fp(const char* s)
-  {
-    char* end;
-    auto res = std::strtod(s, &end);
-    if (*end) {
-      const char* notif = "invalid option value, non-convertible part: ";
-      cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
-    }
-    return res;
-  }
-
-  static double str2fp(std::string s) { return str2fp(s.c_str()); }
-
-  static bool is_kv_pair(std::string s) { return s.find("=") != std::string::npos; }
-
-  static std::pair<std::string, std::string> separate_kv(std::string& s)
-  {
-    std::string delimiter = "=";
-
-    if (s.find(delimiter) == std::string::npos)
-      throw std::runtime_error("\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
-
-    std::string k = s.substr(0, s.find(delimiter));
-    std::string v = s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
-
-    return std::make_pair(k, v);
-  }
-
-  static void parse_strlist_as_kv(const char* in_str, map_t& kv_list)
-  {
-    ss_t ss(in_str);
-    while (ss.good()) {
-      std::string tmp;
-      std::getline(ss, tmp, ',');
-      kv_list.insert(separate_kv(tmp));
-    }
-  }
-
-  static void parse_strlist(const char* in_str, str_list& list)
-  {
-    ss_t ss(in_str);
-    while (ss.good()) {
-      std::string tmp;
-      std::getline(ss, tmp, ',');
-      list.push_back(tmp);
-    }
-  }
-
-  static std::pair<std::string, bool> parse_kv_onoff(std::string in_str)
-  {
-    auto kv_literal = "(.*?)=(on|ON|off|OFF)";
-    std::regex kv_pattern(kv_literal);
-    std::regex onoff_pattern("on|ON|off|OFF");
-
-    bool onoff = false;
-    std::string k, v;
-
-    std::smatch kv_match;
-    if (std::regex_match(in_str, kv_match, kv_pattern)) {
-      // the 1st match: whole string
-      // the 2nd: k, the 3rd: v
-      if (kv_match.size() == 3) {
-        k = kv_match[1].str(), v = kv_match[2].str();
-
-        std::smatch v_match;
-        if (std::regex_match(v, v_match, onoff_pattern)) {  //
-          onoff = (v == "on") or (v == "ON");
-        }
-        else {
-          throw std::runtime_error("not legal (k=v)-syntax");
-        }
-      }
-    }
-    return std::make_pair(k, onoff);
-  }
-
-  static std::string doc_format(const std::string& s)
-  {
-    std::regex gray("%(.*?)%");
-    std::string gray_text("\e[37m$1\e[0m");
-
-    std::regex bful("@(.*?)@");
-    std::string bful_text("\e[1m\e[4m$1\e[0m");
-    std::regex bf("\\*(.*?)\\*");
-    std::string bf_text("\e[1m$1\e[0m");
-    std::regex ul(R"(_((\w|-|\d|\.)+?)_)");
-    std::string ul_text("\e[4m$1\e[0m");
-    std::regex red(R"(\^\^(.*?)\^\^)");
-    std::string red_text("\e[31m$1\e[0m");
-
-    auto a = std::regex_replace(s, bful, bful_text);
-    auto b = std::regex_replace(a, bf, bf_text);
-    auto c = std::regex_replace(b, ul, ul_text);
-    auto d = std::regex_replace(c, red, red_text);
-    auto e = std::regex_replace(d, gray, gray_text);
-
-    return e;
-  }
-};
-
-struct psz_utils {
-  static std::string nnz_percentage(uint32_t nnz, uint32_t data_len)
-  {
-    return "(" + std::to_string(nnz / 1.0 / data_len * 100) + "%)";
-  }
-
-  static void check_cuszmode(const std::string& val)
-  {
-    auto legal = (val == "r2r" or val == "rel") or (val == "abs");
-    if (not legal) throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
-  }
-
-  static bool check_dtype(const std::string& val, bool delay_failure = true)
-  {
-    auto legal = (val == "f32") or (val == "f4") or (val == "f64") or (val == "f8");
-    if (not legal)
-      if (not delay_failure)
-        throw std::runtime_error("Only `f32`/`f4` or `f64`/`f8` is supported temporarily.");
-
-    return legal;
-  }
-
-  static bool check_dtype(const psz_dtype& val, bool delay_failure = true)
-  {
-    auto legal = (val == F4) or (val == F8);
-    if (not legal)
-      if (not delay_failure)
-        throw std::runtime_error("Only `f32`/`f4` or `f64`/`f8` is supported temporarily.");
-
-    return legal;
-  }
-
-  static bool check_opt_in_list(std::string const& opt, std::vector<std::string> vs)
-  {
-    for (auto& i : vs) {
-      if (opt == i) return true;
-    }
-    return false;
-  }
-
-  static void parse_length_literal(const char* str, std::vector<std::string>& dims)
-  {
-    std::stringstream data_len_ss(str);
-    auto data_len_literal = data_len_ss.str();
-    auto checked = false;
-
-    for (auto s : {"x", "*", "-", ",", "m"}) {
-      if (checked) break;
-      char delimiter = s[0];
-
-      if (data_len_literal.find(delimiter) != std::string::npos) {
-        while (data_len_ss.good()) {
-          std::string substr;
-          std::getline(data_len_ss, substr, delimiter);
-          dims.push_back(substr);
-        }
-        checked = true;
-      }
-    }
-
-    // handle 1D
-    if (not checked) { dims.push_back(data_len_literal); }
-  }
-
-  static size_t filesize(std::string fname)
-  {
-    std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
-    return in.tellg();
-  }
-
+struct str_helper {
+  static unsigned int str2int(const char* s);
+  static unsigned int str2int(std::string s);
+  static double str2fp(const char* s);
+  static double str2fp(std::string s);
+  static bool is_kv_pair(std::string s);
+  static std::pair<std::string, std::string> separate_kv(std::string& s);
+  static void parse_strlist_as_kv(const char* in_str, map_t& kv_list);
+  static void parse_strlist(const char* in_str, str_list& list);
+  static std::pair<std::string, bool> parse_kv_onoff(std::string in_str);
+  static std::string doc_format(const std::string& s);
+  static std::string nnz_percentage(uint32_t nnz, uint32_t data_len);
+  static void check_cuszmode(const std::string& val);
+  static bool check_dtype(const std::string& val, bool delay_failure = true);
+  static bool check_dtype(const psz_dtype& val, bool delay_failure = true);
+  static bool check_opt_in_list(std::string const& opt, std::vector<std::string> vs);
+  static void parse_length_literal(const char* str, std::vector<std::string>& dims);
+  static size_t filesize(std::string fname);
   template <typename T1, typename T2>
-  static size_t get_npart(T1 size, T2 subsize)
-  {
-    static_assert(
-        std::numeric_limits<T1>::is_integer and std::numeric_limits<T2>::is_integer,
-        "[get_npart] must be plain interger types.");
-
-    return (size + subsize - 1) / subsize;
-  }
-
+  static size_t get_npart(T1 size, T2 subsize);
   template <typename TRIO>
-  static bool eq(TRIO a, TRIO b)
-  {
-    return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
-  };
-
-  static void print_datasegment_tablehead()
-  {
-    printf(
-        "\ndata segments:\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
-        const_cast<char*>("name"),                                        //
-        const_cast<char*>("nbyte"),                                       //
-        const_cast<char*>("start"),                                       //
-        const_cast<char*>("end"));
-  }
-
-  static std::string demangle(const char* name)
-  {
-    int status = -4;
-    char* res = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-
-    const char* const demangled_name = (status == 0) ? res : name;
-    std::string ret_val(demangled_name);
-    free(res);
-    return ret_val;
-  };
+  static bool eq(TRIO a, TRIO b);
+  static void print_datasegment_tablehead();
+  static std::string demangle(const char* name);
+  static void print_document(bool full_document);
+  static void parse_argv(psz_ctx* ctx, int const argc, char** const argv);
+  static void parse_length(psz_ctx* ctx, const char* lenstr);
+  static void parse_length_zyx(psz_ctx* ctx, const char* lenstr);
+  static void parse_control_string_Hi(psz_ctx* ctx, const char* in_str, bool dbg_print);
+  static void validate_args(psz_ctx* ctx);
+  static void set_report(psz_ctx* ctx, const char* in_str);
+  static void set_datadump(psz_ctx* ctx, const char* in_str);
+  static void set_radius(psz_ctx* ctx, int _);
+  static void set_huffchunk(psz_ctx* ctx, int _);
+  static void set_densityfactor(psz_ctx* ctx, int _);
 };
 
-}  // namespace
+}  // namespace psz
 
-void pszctx_print_document(bool full_document);
-void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv);
-void pszctx_parse_length(pszctx* ctx, const char* lenstr);
-void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr);
-void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print);
-void pszctx_validate(pszctx* ctx);
-void pszctx_load_demo_datasize(pszctx* ctx, void* demodata_name);
-void pszctx_set_report(pszctx* ctx, const char* in_str);
-void pszctx_set_datadump(pszctx* ctx, const char* in_str);
-void pszctx_set_radius(pszctx* ctx, int _);
-// void pszctx_set_huffbyte(pszctx* ctx, int _);
-void pszctx_set_huffchunk(pszctx* ctx, int _);
-void pszctx_set_densityfactor(pszctx* ctx, int _);
+unsigned int psz::str_helper::str2int(const char* s)
+{
+  char* end;
+  auto res = std::strtol(s, &end, 10);
+  if (*end) {
+    const char* notif = "invalid option value, non-convertible part: ";
+    cerr << LOG_ERR << notif << "\e[1m" << s << "\e[0m" << endl;
+  }
+  return res;
+}
 
-void pszctx_set_report(pszctx* ctx, const char* in_str)
+unsigned int psz::str_helper::str2int(std::string s) { return str2int(s.c_str()); }
+
+double psz::str_helper::str2fp(const char* s)
+{
+  char* end;
+  auto res = std::strtod(s, &end);
+  if (*end) {
+    const char* notif = "invalid option value, non-convertible part: ";
+    cerr << LOG_ERR << notif << "\e[1m" << end << "\e[0m" << endl;
+  }
+  return res;
+}
+
+double psz::str_helper::str2fp(std::string s) { return str2fp(s.c_str()); }
+
+bool psz::str_helper::is_kv_pair(std::string s) { return s.find("=") != std::string::npos; }
+
+std::pair<std::string, std::string> psz::str_helper::separate_kv(std::string& s)
+{
+  std::string delimiter = "=";
+
+  if (s.find(delimiter) == std::string::npos)
+    throw std::runtime_error("\e[1mnot a correct key-value syntax, must be \"opt=value\"\e[0m");
+
+  std::string k = s.substr(0, s.find(delimiter));
+  std::string v = s.substr(s.find(delimiter) + delimiter.length(), std::string::npos);
+
+  return std::make_pair(k, v);
+}
+
+void psz::str_helper::parse_strlist_as_kv(const char* in_str, map_t& kv_list)
+{
+  ss_t ss(in_str);
+  while (ss.good()) {
+    std::string tmp;
+    std::getline(ss, tmp, ',');
+    kv_list.insert(separate_kv(tmp));
+  }
+}
+
+void psz::str_helper::parse_strlist(const char* in_str, str_list& list)
+{
+  ss_t ss(in_str);
+  while (ss.good()) {
+    std::string tmp;
+    std::getline(ss, tmp, ',');
+    list.push_back(tmp);
+  }
+}
+
+std::pair<std::string, bool> psz::str_helper::parse_kv_onoff(std::string in_str)
+{
+  auto kv_literal = "(.*?)=(on|ON|off|OFF)";
+  std::regex kv_pattern(kv_literal);
+  std::regex onoff_pattern("on|ON|off|OFF");
+
+  bool onoff = false;
+  std::string k, v;
+
+  std::smatch kv_match;
+  if (std::regex_match(in_str, kv_match, kv_pattern)) {
+    // the 1st match: whole string
+    // the 2nd: k, the 3rd: v
+    if (kv_match.size() == 3) {
+      k = kv_match[1].str(), v = kv_match[2].str();
+
+      std::smatch v_match;
+      if (std::regex_match(v, v_match, onoff_pattern)) {  //
+        onoff = (v == "on") or (v == "ON");
+      }
+      else {
+        throw std::runtime_error("not legal (k=v)-syntax");
+      }
+    }
+  }
+  return std::make_pair(k, onoff);
+}
+
+std::string psz::str_helper::doc_format(const std::string& s)
+{
+  std::regex gray("%(.*?)%");
+  std::string gray_text("\e[37m$1\e[0m");
+
+  std::regex bful("@(.*?)@");
+  std::string bful_text("\e[1m\e[4m$1\e[0m");
+  std::regex bf("\\*(.*?)\\*");
+  std::string bf_text("\e[1m$1\e[0m");
+  std::regex ul(R"(_((\w|-|\d|\.)+?)_)");
+  std::string ul_text("\e[4m$1\e[0m");
+  std::regex red(R"(\^\^(.*?)\^\^)");
+  std::string red_text("\e[31m$1\e[0m");
+
+  auto a = std::regex_replace(s, bful, bful_text);
+  auto b = std::regex_replace(a, bf, bf_text);
+  auto c = std::regex_replace(b, ul, ul_text);
+  auto d = std::regex_replace(c, red, red_text);
+  auto e = std::regex_replace(d, gray, gray_text);
+
+  return e;
+}
+
+std::string psz::str_helper::nnz_percentage(uint32_t nnz, uint32_t data_len)
+{
+  return "(" + std::to_string(nnz / 1.0 / data_len * 100) + "%)";
+}
+
+void psz::str_helper::check_cuszmode(const std::string& val)
+{
+  auto legal = (val == "r2r" or val == "rel") or (val == "abs");
+  if (not legal) throw std::runtime_error("`mode` must be \"r2r\" or \"abs\".");
+}
+
+bool psz::str_helper::check_dtype(const std::string& val, bool delay_failure)
+{
+  auto legal = (val == "f32") or (val == "f4") or (val == "f64") or (val == "f8");
+  if (not legal)
+    if (not delay_failure)
+      throw std::runtime_error("Only `f32`/`f4` or `f64`/`f8` is supported temporarily.");
+
+  return legal;
+}
+
+bool psz::str_helper::check_dtype(const psz_dtype& val, bool delay_failure)
+{
+  auto legal = (val == F4) or (val == F8);
+  if (not legal)
+    if (not delay_failure)
+      throw std::runtime_error("Only `f32`/`f4` or `f64`/`f8` is supported temporarily.");
+
+  return legal;
+}
+
+bool psz::str_helper::check_opt_in_list(std::string const& opt, std::vector<std::string> vs)
+{
+  for (auto& i : vs) {
+    if (opt == i) return true;
+  }
+  return false;
+}
+
+void psz::str_helper::parse_length_literal(const char* str, std::vector<std::string>& dims)
+{
+  std::stringstream data_len_ss(str);
+  auto data_len_literal = data_len_ss.str();
+  auto checked = false;
+
+  for (auto s : {"x", "*", "-", ",", "m"}) {
+    if (checked) break;
+    char delimiter = s[0];
+
+    if (data_len_literal.find(delimiter) != std::string::npos) {
+      while (data_len_ss.good()) {
+        std::string substr;
+        std::getline(data_len_ss, substr, delimiter);
+        dims.push_back(substr);
+      }
+      checked = true;
+    }
+  }
+
+  // handle 1D
+  if (not checked) { dims.push_back(data_len_literal); }
+}
+
+size_t psz::str_helper::filesize(std::string fname)
+{
+  std::ifstream in(fname.c_str(), std::ifstream::ate | std::ifstream::binary);
+  return in.tellg();
+}
+
+template <typename T1, typename T2>
+size_t psz::str_helper::get_npart(T1 size, T2 subsize)
+{
+  static_assert(
+      std::numeric_limits<T1>::is_integer and std::numeric_limits<T2>::is_integer,
+      "[get_npart] must be plain interger types.");
+
+  return (size + subsize - 1) / subsize;
+}
+
+template <typename TRIO>
+bool psz::str_helper::eq(TRIO a, TRIO b)
+{
+  return (a.x == b.x) and (a.y == b.y) and (a.z == b.z);
+}
+
+void psz::str_helper::print_datasegment_tablehead()
+{
+  printf(
+      "\ndata segments:\n  \e[1m\e[31m%-18s\t%12s\t%15s\t%15s\e[0m\n",  //
+      const_cast<char*>("name"),                                        //
+      const_cast<char*>("nbyte"),                                       //
+      const_cast<char*>("start"),                                       //
+      const_cast<char*>("end"));
+}
+
+std::string psz::str_helper::demangle(const char* name)
+{
+  int status = -4;
+  char* res = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+
+  const char* const demangled_name = (status == 0) ? res : name;
+  std::string ret_val(demangled_name);
+  free(res);
+  return ret_val;
+}
+
+void psz::str_helper::set_report(psz_ctx* ctx, const char* in_str)
 {
   str_list opts;
-  psz_helper::parse_strlist(in_str, opts);
+  psz::str_helper::parse_strlist(in_str, opts);
 
   for (auto o : opts) {
     // printf("[psz::dbg::parse] opt: %s\n", o.c_str());
-    if (psz_helper::is_kv_pair(o)) {
-      auto kv = psz_helper::parse_kv_onoff(o);
+    if (psz::str_helper::is_kv_pair(o)) {
+      auto kv = psz::str_helper::parse_kv_onoff(o);
 
       if (kv.first == "cr") ctx->cli->report_cr = kv.second;
       // else if (kv.first == "cr.est")
@@ -330,14 +356,14 @@ void pszctx_set_report(pszctx* ctx, const char* in_str)
   }
 }
 
-void pszctx_set_datadump(pszctx* ctx, const char* in_str)
+void psz::str_helper::set_datadump(psz_ctx* ctx, const char* in_str)
 {
   str_list opts;
-  psz_helper::parse_strlist(in_str, opts);
+  psz::str_helper::parse_strlist(in_str, opts);
 
   for (auto o : opts) {
-    if (psz_helper::is_kv_pair(o)) {
-      auto kv = psz_helper::parse_kv_onoff(o);
+    if (psz::str_helper::is_kv_pair(o)) {
+      auto kv = psz::str_helper::parse_kv_onoff(o);
 
       if (kv.first == "quantcode" or kv.first == "quant")
         ctx->cli->dump_quantcode = kv.second;
@@ -357,14 +383,12 @@ void pszctx_set_datadump(pszctx* ctx, const char* in_str)
   }
 }
 
-// >>> syntax
-// comma-separated key-pairs: "key1=val1,key2=val2[,...]"
-// >>> example
-// "predictor=lorenzo,size=3600x1800"
-void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print)
+// Extra configuration for the cuSZ-Hi variant.
+// Syntax: comma-separated key-pairs: "key1=val1,key2=val2[,...]".
+void psz::str_helper::parse_control_string_Hi(psz_ctx* ctx, const char* in_str, bool dbg_print)
 {
   map_t opts;
-  psz_helper::parse_strlist_as_kv(in_str, opts);
+  psz::str_helper::parse_strlist_as_kv(in_str, opts);
 
   if (dbg_print) {
     for (auto kv : opts) printf("%-*s %-s\n", 10, kv.first.c_str(), kv.second.c_str());
@@ -375,7 +399,7 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
   char* end;
 
   auto optmatch = [&](std::vector<std::string> vs) -> bool {
-    return psz_utils::check_opt_in_list(k, vs);
+    return psz::str_helper::check_opt_in_list(k, vs);
   };
   auto is_enabled = [&](auto& v) -> bool { return v == "on" or v == "ON"; };
 
@@ -383,80 +407,15 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
     k = kv.first;
     v = kv.second;
 
-    if (optmatch({"type", "dtype"})) {
-      psz_utils::check_dtype(v, false);
-      ctx->header->dtype = (v == "f64") or (v == "f8") ? F8 : F4;
-    }
-    else if (optmatch({"eb", "errorbound"})) {
-      ctx->header->eb = psz_helper::str2fp(v);
-      strcpy(ctx->cli->char_meta_eb, v.c_str());
-    }
-    else if (optmatch({"mode"})) {
-      psz_utils::check_cuszmode(v);
-      ctx->header->mode = (v == "r2r" or v == "rel") ? Rel : Abs;
-      if (ctx->header->mode == Rel) ctx->cli->rel_range_scan = true;
-      strcpy(ctx->cli->char_mode, v.c_str());
-    }
-    else if (optmatch({"len", "xyz", "dim3"})) {
-      pszctx_parse_length(ctx, v.c_str());
-    }
-    else if (optmatch({"math-order", "slowest-to-fastest", "zyx"})) {
-      pszctx_parse_length_zyx(ctx, v.c_str());
-    }
-    else if (optmatch({"cap", "booklen", "dictsize"})) {
-      ctx->dict_size = psz_helper::str2int(v);
-      ctx->header->radius = ctx->dict_size / 2;
-    }
-    else if (optmatch({"radius"})) {
-      ctx->header->radius = psz_helper::str2int(v);
-      ctx->dict_size = ctx->header->radius * 2;
-    }
-    else if (optmatch({"pred", "predictor"})) {
-      strcpy(ctx->cli->char_predictor_name, v.c_str());
-
-      if (v == "spline" or v == "spline3" or v == "spl")
-        ctx->header->pred_type = psz_predtype::Spline;
-      else if (v == "lorenzo" or v == "lrz")
-        ctx->header->pred_type = psz_predtype::Lorenzo;
-      else if (v == "lorenzo-zigzag" or v == "lrz-zz")
-        ctx->header->pred_type = psz_predtype::LorenzoZigZag;
-      else if (v == "lorenzo-proto" or v == "lrz-proto")
-        ctx->header->pred_type = psz_predtype::LorenzoProto;
-      else
-        printf(
-            "[psz::warning::parser] "
-            "\"%s\" is not a supported predictor; "
-            "fallback to \"lorenzo\".",
-            v.c_str());
-    }
-    else if (optmatch({"hist", "histogram"})) {
-      strcpy(ctx->cli->char_codec1_name, v.c_str());
-
-      if (v == "generic")
-        ctx->header->hist_type = psz_histotype::HistogramGeneric;
-      else if (v == "sparse")
-        ctx->header->hist_type = psz_histotype::HistogramSparse;
-    }
-    else if (optmatch({"codec", "codec1"})) {
-      strcpy(ctx->cli->char_codec1_name, v.c_str());
-
-      if (v == "huffman" or v == "hf")
-        ctx->header->codec1_type = psz_codectype::Huffman;
-      else if (v == "fzgcodec")
-        ctx->header->codec1_type = psz_codectype::FZGPUCodec;
-    }
-    else if (optmatch({"gpuverify", "gpu-verify"}) and is_enabled(v)) {
-      ctx->cli->use_gpu_verify = true;
-    }
-    //// start of Hi configs
-    else if (optmatch({"auto_tuning", "auto-tuning"})) {
+    //// cuSZ-Hi configs
+    if (optmatch({"auto_tuning", "auto-tuning"})) {
       if (v == "cr-first" or v == "CR-first")
         CLI_interp_params(ctx)->auto_tuning = 3;
       else if (v == "rd-first" or v == "RD-first")
         CLI_interp_params(ctx)->auto_tuning = 6;
       else {
         try {
-          CLI_interp_params(ctx)->auto_tuning = static_cast<uint8_t>(psz_helper::str2int(v));
+          CLI_interp_params(ctx)->auto_tuning = static_cast<uint8_t>(psz::str_helper::str2int(v));
         }
         catch (...) {
           std::cerr << "[Error] Invalid `auto_tuning` value: " << v
@@ -466,54 +425,48 @@ void pszctx_parse_control_string(pszctx* ctx, const char* in_str, bool dbg_print
       }
     }
     else if (optmatch({"alpha", "intp-alpha"}))
-      CLI_interp_params(ctx)->alpha = psz_helper::str2fp(v);
+      CLI_interp_params(ctx)->alpha = psz::str_helper::str2fp(v);
     else if (optmatch({"beta", "intp-beta"}))
-      CLI_interp_params(ctx)->beta = psz_helper::str2fp(v);
+      CLI_interp_params(ctx)->beta = psz::str_helper::str2fp(v);
     else if (optmatch({"md_0", "md0"}))
-      CLI_interp_params(ctx)->use_md[0] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_md[0] = psz::str_helper::str2int(v);
     else if (optmatch({"md_1", "md1"}))
-      CLI_interp_params(ctx)->use_md[1] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_md[1] = psz::str_helper::str2int(v);
     else if (optmatch({"md_2", "md2"}))
-      CLI_interp_params(ctx)->use_md[2] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_md[2] = psz::str_helper::str2int(v);
     else if (optmatch({"md_3", "md3"}))
-      CLI_interp_params(ctx)->use_md[3] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_md[3] = psz::str_helper::str2int(v);
     else if (optmatch({"nat_0", "nat0"}))
-      CLI_interp_params(ctx)->use_natural[0] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_natural[0] = psz::str_helper::str2int(v);
     else if (optmatch({"nat_1", "nat1"}))
-      CLI_interp_params(ctx)->use_natural[1] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_natural[1] = psz::str_helper::str2int(v);
     else if (optmatch({"nat_2", "nat2"}))
-      CLI_interp_params(ctx)->use_natural[2] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_natural[2] = psz::str_helper::str2int(v);
     else if (optmatch({"nat_3", "nat3"}))
-      CLI_interp_params(ctx)->use_natural[3] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->use_natural[3] = psz::str_helper::str2int(v);
     else if (optmatch({"rev_0", "rev0"}))
-      CLI_interp_params(ctx)->reverse[0] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->reverse[0] = psz::str_helper::str2int(v);
     else if (optmatch({"rev_1", "rev1"}))
-      CLI_interp_params(ctx)->reverse[1] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->reverse[1] = psz::str_helper::str2int(v);
     else if (optmatch({"rev_2", "rev2"}))
-      CLI_interp_params(ctx)->reverse[2] = psz_helper::str2int(v);
+      CLI_interp_params(ctx)->reverse[2] = psz::str_helper::str2int(v);
     else if (optmatch({"rev_3", "rev3"}))
-      CLI_interp_params(ctx)->reverse[3] = psz_helper::str2int(v);
-    //// end of Hi config
+      CLI_interp_params(ctx)->reverse[3] = psz::str_helper::str2int(v);
   }
 }
 
-void pszctx_create_from_argv(pszctx* ctx, int const argc, char** const argv)
+void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
 {
   if (argc == 1) {
-    pszctx_print_document(false);
+    psz::str_helper::print_document(false);
     exit(0);
   }
 
-  pszctx_parse_argv(ctx, argc, argv);
-  pszctx_validate(ctx);
+  psz::str_helper::parse_argv(ctx, argc, argv);
+  psz::str_helper::validate_args(ctx);
 }
 
-void pszctx_create_from_string(pszctx* ctx, const char* in_str, bool dbg_print)
-{
-  pszctx_parse_control_string(ctx, in_str, dbg_print);
-}
-
-void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
+void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv)
 {
   int i = 1;
 
@@ -523,27 +476,27 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
 
   std::string opt;
   auto optmatch = [&](std::vector<std::string> vs) -> bool {
-    return psz_utils::check_opt_in_list(opt, vs);
+    return psz::str_helper::check_opt_in_list(opt, vs);
   };
 
   while (i < argc) {
     if (argv[i][0] == '-') {
       opt = std::string(argv[i]);
 
-      if (optmatch({"-c", "--config"})) {
+      if (optmatch({"-c", "--config", "--hi-config"})) {
         check_next();
-        pszctx_parse_control_string(ctx, argv[++i], false);
+        psz::str_helper::parse_control_string_Hi(ctx, argv[++i], false);
       }
       else if (optmatch({"-R", "--report"})) {
         check_next();
-        pszctx_set_report(ctx, argv[++i]);
+        psz::str_helper::set_report(ctx, argv[++i]);
       }
       else if (optmatch({"--dump"})) {
         check_next();
-        pszctx_set_datadump(ctx, argv[++i]);
+        psz::str_helper::set_datadump(ctx, argv[++i]);
       }
       else if (optmatch({"-h", "--help"})) {
-        pszctx_print_document(true);
+        psz::str_helper::print_document(true);
         exit(0);
       }
       else if (optmatch({"-v", "--version"})) {
@@ -622,11 +575,11 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
       }
       else if (optmatch({"-l", "--len", "--xyz", "--dim3"})) {
         check_next();
-        pszctx_parse_length(ctx, argv[++i]);
+        psz::str_helper::parse_length(ctx, argv[++i]);
       }
       else if (optmatch({"--math-order", "--zyx", "--slowest-to-fastest"})) {
         check_next();
-        pszctx_parse_length_zyx(ctx, argv[++i]);
+        psz::str_helper::parse_length_zyx(ctx, argv[++i]);
       }
       else if (optmatch({"-z", "--zip", "--compress"})) {
         ctx->cli->task_construct = true;
@@ -730,62 +683,33 @@ void pszctx_parse_argv(pszctx* ctx, int const argc, char** const argv)
   }
 }
 
-void pszctx_load_demo_datasize(pszctx* ctx, void* name)
-{
-  const std::unordered_map<std::string, std::vector<int>> dataset_entries = {
-      {std::string("hacc"), {280953867, 1, 1, 1}},
-      {std::string("hacc1b"), {1073726487, 1, 1, 1}},
-      {std::string("cesm"), {3600, 1800, 1, 2}},
-      {std::string("hurricane"), {500, 500, 100, 3}},
-      {std::string("nyx-s"), {512, 512, 512, 3}},
-      {std::string("nyx-m"), {1024, 1024, 1024, 3}},
-      {std::string("qmc"), {288, 69, 7935, 3}},
-      {std::string("qmcpre"), {69, 69, 33120, 3}},
-      {std::string("exafel"), {388, 59200, 1, 2}},
-      {std::string("rtm"), {235, 849, 849, 3}},
-      {std::string("parihaka"), {1168, 1126, 922, 3}}};
-
-  auto demodata_name = *(std::string*)name;
-
-  if (not demodata_name.empty()) {
-    auto f = dataset_entries.find(demodata_name);
-    if (f == dataset_entries.end()) throw std::runtime_error("no such dataset as" + demodata_name);
-    auto demo_xyzw = f->second;
-
-    ctx->header->x = demo_xyzw[0], ctx->header->y = demo_xyzw[1], ctx->header->z = demo_xyzw[2],
-    ctx->header->w = demo_xyzw[3], ctx->ndim = demo_xyzw[4];
-
-    ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z;
-  }
-}
-
-void pszctx_parse_length(pszctx* ctx, const char* lenstr)
+void psz::str_helper::parse_length(psz_ctx* ctx, const char* lenstr)
 {
   std::vector<std::string> dims;
-  psz_utils::parse_length_literal(lenstr, dims);
+  psz::str_helper::parse_length_literal(lenstr, dims);
   ctx->ndim = dims.size();
   ctx->header->y = ctx->header->z = ctx->header->w = 1;
-  ctx->header->x = psz_helper::str2int(dims[0]);
-  if (ctx->ndim >= 2) ctx->header->y = psz_helper::str2int(dims[1]);
-  if (ctx->ndim >= 3) ctx->header->z = psz_helper::str2int(dims[2]);
-  if (ctx->ndim >= 4) ctx->header->w = psz_helper::str2int(dims[3]);
+  ctx->header->x = psz::str_helper::str2int(dims[0]);
+  if (ctx->ndim >= 2) ctx->header->y = psz::str_helper::str2int(dims[1]);
+  if (ctx->ndim >= 3) ctx->header->z = psz::str_helper::str2int(dims[2]);
+  if (ctx->ndim >= 4) ctx->header->w = psz::str_helper::str2int(dims[3]);
   ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z * ctx->header->w;
 }
 
-void pszctx_parse_length_zyx(pszctx* ctx, const char* lenstr)
+void psz::str_helper::parse_length_zyx(psz_ctx* ctx, const char* lenstr)
 {
   std::vector<std::string> dims;
-  psz_utils::parse_length_literal(lenstr, dims);
+  psz::str_helper::parse_length_literal(lenstr, dims);
   ctx->ndim = dims.size();
   ctx->header->y = ctx->header->z = ctx->header->w = 1;
-  ctx->header->x = psz_helper::str2int(dims[ctx->ndim - 1]);
-  if (ctx->ndim >= 2) ctx->header->y = psz_helper::str2int(dims[ctx->ndim - 2]);
-  if (ctx->ndim >= 3) ctx->header->z = psz_helper::str2int(dims[ctx->ndim - 3]);
-  if (ctx->ndim >= 4) ctx->header->w = psz_helper::str2int(dims[ctx->ndim - 4]);
+  ctx->header->x = psz::str_helper::str2int(dims[ctx->ndim - 1]);
+  if (ctx->ndim >= 2) ctx->header->y = psz::str_helper::str2int(dims[ctx->ndim - 2]);
+  if (ctx->ndim >= 3) ctx->header->z = psz::str_helper::str2int(dims[ctx->ndim - 3]);
+  if (ctx->ndim >= 4) ctx->header->w = psz::str_helper::str2int(dims[ctx->ndim - 4]);
   ctx->data_len = ctx->header->x * ctx->header->y * ctx->header->z * ctx->header->w;
 }
 
-void pszctx_validate(pszctx* ctx)
+void psz::str_helper::validate_args(psz_ctx* ctx)
 {
   bool to_abort = false;
   // if (ctx->cli->file_input.empty()) {
@@ -798,7 +722,7 @@ void pszctx_validate(pszctx* ctx)
     cerr << LOG_ERR << "select compress (-z) or decompress (-x)." << endl;
     to_abort = true;
   }
-  if (false == psz_utils::check_dtype(ctx->header->dtype)) {
+  if (false == psz::str_helper::check_dtype(ctx->header->dtype)) {
     if (ctx->cli->task_construct) {
       std::cout << ctx->header->dtype << endl;
       cerr << LOG_ERR << "must specify data type" << endl;
@@ -807,24 +731,24 @@ void pszctx_validate(pszctx* ctx)
   }
 
   if (to_abort) {
-    pszctx_print_document(false);
+    psz::str_helper::print_document(false);
     exit(-1);
   }
 }
 
-void pszctx_print_document(bool full_document)
+void psz::str_helper::print_document(bool full_document)
 {
   if (full_document) {
     capi_psz_version();
-    std::cout << "\n" << psz_helper::doc_format(psz_full_doc);
+    std::cout << "\n" << psz::str_helper::doc_format(psz_full_doc);
   }
   else {
     capi_psz_version();
-    std::cout << psz_helper::doc_format(psz_short_doc);
+    std::cout << psz::str_helper::doc_format(psz_short_doc);
   }
 }
 
-void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
+void pszctx_set_rawlen(psz_ctx* ctx, size_t _x, size_t _y, size_t _z)
 {
   ctx->header->x = _x, ctx->header->y = _y, ctx->header->z = _z;
 
@@ -840,22 +764,22 @@ void pszctx_set_rawlen(pszctx* ctx, size_t _x, size_t _y, size_t _z)
   if (ctx->data_len == 0) throw std::runtime_error("Input data length cannot be 0 (linearized).");
 }
 
-void pszctx_set_len(pszctx* ctx, psz_len3 len) { pszctx_set_rawlen(ctx, len.x, len.y, len.z); }
+void pszctx_set_len(psz_ctx* ctx, psz_len3 len) { pszctx_set_rawlen(ctx, len.x, len.y, len.z); }
 
-psz_len3 pszctx_get_len3(pszctx* ctx)
+psz_len3 pszctx_get_len3(psz_ctx* ctx)
 {
   return psz_len3{ctx->header->x, ctx->header->y, ctx->header->z};
 }
 
-void pszctx_set_radius(pszctx* ctx, int _)
+void psz::str_helper::set_radius(psz_ctx* ctx, int _)
 {
   ctx->header->radius = _;
   ctx->dict_size = ctx->header->radius * 2;
 }
 
-pszctx* pszctx_default_values()
+psz_ctx* pszctx_default_values()
 {
-  return new pszctx{
+  return new psz_ctx{
       .header =
           new psz_header{
               .dtype = F4,
@@ -895,14 +819,14 @@ pszctx* pszctx_default_values()
   };
 }
 
-void pszctx_set_default_values(pszctx* empty_ctx)
+void pszctx_set_default_values(psz_ctx* empty_ctx)
 {
   auto default_vals = pszctx_default_values();
-  memcpy(empty_ctx, default_vals, sizeof(pszctx));
+  memcpy(empty_ctx, default_vals, sizeof(psz_ctx));
   delete default_vals;
 }
 
-pszctx* pszctx_minimal_workset(
+psz_ctx* pszctx_minimal_workset(
     psz_dtype const dtype, psz_predtype const predictor, int const quantizer_radius,
     psz_codectype const codec)
 {
@@ -915,17 +839,17 @@ pszctx* pszctx_minimal_workset(
   return ws;
 }
 
-unsigned int CLI_x(psz_arguments* args) { return args->header->x; }
-unsigned int CLI_y(psz_arguments* args) { return args->header->y; }
-unsigned int CLI_z(psz_arguments* args) { return args->header->z; }
-unsigned int CLI_w(psz_arguments* args) { return args->header->w; }
-unsigned short CLI_radius(psz_arguments* args) { return args->header->radius; }
-unsigned short CLI_bklen(psz_arguments* args) { return args->header->radius * 2; }
-psz_dtype CLI_dtype(psz_arguments* args) { return args->header->dtype; }
-psz_predtype CLI_predictor(psz_arguments* args) { return args->header->pred_type; }
-psz_histotype CLI_hist(psz_arguments* args) { return args->header->hist_type; }
-psz_codectype CLI_codec1(psz_arguments* args) { return args->header->codec1_type; }
-psz_codectype CLI_codec2(psz_arguments* args) { return args->header->_future_codec2_type; }
-psz_mode CLI_mode(psz_arguments* args) { return args->header->mode; }
-double CLI_eb(psz_arguments* args) { return args->header->eb; }
-psz_interp_params* CLI_interp_params(pszctx* ctx) { return &ctx->header->intp_param; };
+unsigned int CLI_x(psz_args* args) { return args->header->x; }
+unsigned int CLI_y(psz_args* args) { return args->header->y; }
+unsigned int CLI_z(psz_args* args) { return args->header->z; }
+unsigned int CLI_w(psz_args* args) { return args->header->w; }
+unsigned short CLI_radius(psz_args* args) { return args->header->radius; }
+unsigned short CLI_bklen(psz_args* args) { return args->header->radius * 2; }
+psz_dtype CLI_dtype(psz_args* args) { return args->header->dtype; }
+psz_predtype CLI_predictor(psz_args* args) { return args->header->pred_type; }
+psz_histotype CLI_hist(psz_args* args) { return args->header->hist_type; }
+psz_codectype CLI_codec1(psz_args* args) { return args->header->codec1_type; }
+psz_codectype CLI_codec2(psz_args* args) { return args->header->_future_codec2_type; }
+psz_mode CLI_mode(psz_args* args) { return args->header->mode; }
+double CLI_eb(psz_args* args) { return args->header->eb; }
+psz_interp_params* CLI_interp_params(psz_ctx* ctx) { return &ctx->header->intp_param; };
