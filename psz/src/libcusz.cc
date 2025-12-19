@@ -68,7 +68,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
   return comp;
 }
 
-psz_compressor* capi_psz_create_from_context(pszctx* const ctx, psz_len3 uncomp_len3)
+psz_compressor* capi_psz_create_from_context(psz_ctx* const ctx, psz_len3 uncomp_len3)
 {
   auto comp = new psz_compressor{.compressor = nullptr, .ctx = ctx, .last_error = CUSZ_SUCCESS};
 

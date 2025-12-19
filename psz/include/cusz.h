@@ -60,7 +60,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const);
 // object first; used in setting up compression
 //
 // @return psz_compressor* an object of compressor wrapper for compression
-psz_compressor* capi_psz_create_from_context(pszctx* const, psz_len3 const);
+psz_compressor* capi_psz_create_from_context(psz_ctx* const, psz_len3 const);
 
 // @brief create a cuSZ compressor object with a pSZ header; used in setting up decompression
 //

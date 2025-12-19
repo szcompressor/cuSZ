@@ -13,8 +13,8 @@ struct psz::Buf_Comp<T, E>::impl {
   // arrays
   GPU_unique_dptr<E[]> d_ectrl;
   GPU_unique_dptr<T[]> d_anchor;
-  GPU_unique_dptr<B[]> d_compressed;
-  GPU_unique_hptr<B[]> h_compressed;
+  GPU_unique_dptr<BYTE[]> d_compressed;
+  GPU_unique_hptr<BYTE[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
   GPU_unique_hptr<Freq[]> h_hist;
   GPU_unique_dptr<Freq[]> d_top1;
@@ -51,8 +51,8 @@ struct psz::Buf_Comp<T, E>::impl {
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
     }
     if (toggle->use_compressed) {
-      d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
-      h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len * 4 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(BYTE, len * 4 / 2);
     }
     if (toggle->use_top1) {
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
@@ -70,8 +70,8 @@ struct psz::Buf_Comp<T, E>::impl {
       d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
-      d_compressed = MAKE_UNIQUE_DEVICE(B, len * 4 / 2);
-      h_compressed = MAKE_UNIQUE_HOST(B, len * 4 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len * 4 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(BYTE, len * 4 / 2);
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
 
@@ -123,6 +123,8 @@ COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), 1); }
 // getters: array
 COMPBUF_IMPL(E*)::ectrl_d() const { return pimpl->d_ectrl.get(); }
 COMPBUF_IMPL(stdlen3)::ectrl_len3() const { return stdlen3{x, y, z}; }
+COMPBUF_IMPL(E*)::eq_d() const { return pimpl->d_ectrl.get(); }
+COMPBUF_IMPL(stdlen3)::eq_len3() const { return stdlen3{x, y, z}; }
 
 COMPBUF_IMPL(Freq*)::hist_d() const { return pimpl->d_hist.get(); }
 COMPBUF_IMPL(Freq*)::hist_h() const { return pimpl->h_hist.get(); }
@@ -134,8 +136,8 @@ COMPBUF_IMPL(Freq*)::top1_h() const
   return pimpl->h_top1.get();
 }
 
-COMPBUF_IMPL(B*)::compressed_d() const { return pimpl->d_compressed.get(); }
-COMPBUF_IMPL(B*)::compressed_h() const { return pimpl->h_compressed.get(); }
+COMPBUF_IMPL(BYTE*)::compressed_d() const { return pimpl->d_compressed.get(); }
+COMPBUF_IMPL(BYTE*)::compressed_h() const { return pimpl->h_compressed.get(); }
 
 COMPBUF_IMPL(T*)::outlier_val_d() const { return pimpl->buf_outlier->val(); }
 COMPBUF_IMPL(M*)::outlier_idx_d() const { return pimpl->buf_outlier->idx(); }

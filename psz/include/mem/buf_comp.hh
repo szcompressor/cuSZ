@@ -23,11 +23,8 @@ namespace psz {
 // namespace-wide type aliases
 using M = u4;
 using Freq = u4;
-using B = u1;
 using BYTE = u1;
 using H = u4;
-using H4 = u4;
-using H8 = u8;
 
 struct BufToggle_Comp {
   bool use_quant;
@@ -86,6 +83,8 @@ struct Buf_Comp {
   // getter
   E* ectrl_d() const;
   stdlen3 ectrl_len3() const;
+  E* eq_d() const;
+  stdlen3 eq_len3() const;
 
   Freq* hist_d() const;
   Freq* hist_h() const;
@@ -96,10 +95,10 @@ struct Buf_Comp {
   size_t anchor_len() const;
   stdlen3 anchor_len3() const;
 
-  B* compressed_d() const;
-  B* compressed_h() const;
+  BYTE* compressed_d() const;
+  BYTE* compressed_h() const;
 
-  Buf_Outlier* buf_outlier() const;
+  [[deprecated]] Buf_Outlier* buf_outlier() const;
   [[deprecated]] T* outlier_val_d() const;
   [[deprecated]] M* outlier_idx_d() const;
   [[deprecated]] M outlier_num() const;

@@ -59,8 +59,8 @@ using GPU_x_lorenzo_nd =
 
 namespace psz {
 
-template <typename DType>
-Compressor<DType>::Compressor(psz_context* ctx) : header_ref(ctx->header)
+template <typename T>
+Compressor<T>::Compressor(psz_ctx* ctx) : header_ref(ctx->header)
 {
   constexpr auto iscompression = true;
 
@@ -75,12 +75,12 @@ Compressor<DType>::Compressor(psz_context* ctx) : header_ref(ctx->header)
       hist_generic_repeat);
 
   // initialize internal buffers
-  mem = new Buf_Comp<DType>(x, y, z, iscompression);
+  mem = new Buf_Comp<T>(x, y, z, iscompression);
   buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
 }
 
-template <typename DType>
-Compressor<DType>::Compressor(psz_header* header) : header_ref(header)
+template <typename T>
+Compressor<T>::Compressor(psz_header* header) : header_ref(header)
 {
   constexpr auto iscompression = false;
 
@@ -90,26 +90,26 @@ Compressor<DType>::Compressor(psz_header* header) : header_ref(header)
   len = x * y * z;
 
   // initialize internal buffers
-  mem = new Buf_Comp<DType>(x, y, z, iscompression);
+  mem = new Buf_Comp<T>(x, y, z, iscompression);
   buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
 }
 
-template <typename DType>
-Compressor<DType>::~Compressor()
+template <typename T>
+Compressor<T>::~Compressor()
 {
   if (mem) delete mem;
   if (buf_hf) delete buf_hf;
 };
 
-template <typename DType>
-void Compressor<DType>::compress(pszctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
+template <typename T>
+void Compressor<T>::compress(psz_ctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
 {
   compress_data_processing(ctx, in, stream);
   compress_merge_update_header(ctx, out, outlen, stream);
 }
 
-template <typename DType>
-void Compressor<DType>::compress_data_processing(pszctx* ctx, T* in, void* stream)
+template <typename T>
+void Compressor<T>::compress_data_processing(psz_ctx* ctx, T* in, void* stream)
 {
   auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
 
@@ -159,9 +159,9 @@ ENCODING_STEP:
       buf_hf, mem->ectrl_d(), len, &comp_codec_out, &comp_codec_outlen, dummy_header, stream);
 }
 
-template <typename DType>
-void Compressor<DType>::compress_merge_update_header(
-    pszctx* ctx, BYTE** out, size_t* outlen, void* stream)
+template <typename T>
+void Compressor<T>::compress_merge_update_header(
+    psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream)
 {
   auto pred_type = ctx->header->pred_type;
 
@@ -187,14 +187,14 @@ void Compressor<DType>::compress_merge_update_header(
   *outlen = pszheader_filesize(ctx->header);
 }
 
-template <typename DType>
-void Compressor<DType>::clear_buffer()
+template <typename T>
+void Compressor<T>::clear_buffer()
 {
   mem->clear_buffer();
 }
 
-template <typename DType>
-void Compressor<DType>::decompress(psz_header* header, BYTE* in, T* out, psz_stream_t stream)
+template <typename T>
+void Compressor<T>::decompress(psz_header* header, BYTE* in, T* out, psz_stream_t stream)
 {
   auto access = [&](int FIELD, szt offset_nbyte = 0) {
     return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -204,7 +204,7 @@ void Compressor<DType>::decompress(psz_header* header, BYTE* in, T* out, psz_str
   // auto d_spval = (T*)access(PSZ_SPFMT);
   // auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
   // v2
-  auto d_spval_idx = (_portable::compact_cell<DType, M>*)access(PSZ_SPFMT);
+  auto d_spval_idx = (_portable::compact_cell<T, M>*)access(PSZ_SPFMT);
 
   auto d_anchor = (T*)access(PSZ_ANCHOR);
   auto d_space = out, d_xdata = out;  // aliases
@@ -221,8 +221,8 @@ STEP_SCATTER:
 STEP_DECODING:
 
   phf_header h;
-  memcpy_allkinds<D2H>((B*)&h, (B*)access(PSZ_ENCODED), sizeof(phf_header));
-  phf::high_level<E>::decode(buf_hf, h, (B*)access(PSZ_ENCODED), mem->ectrl_d(), stream);
+  memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
+  phf::high_level<E>::decode(buf_hf, h, (BYTE*)access(PSZ_ENCODED), mem->ectrl_d(), stream);
 
 STEP_PREDICT:
 
@@ -242,8 +242,8 @@ STEP_PREDICT:
 }
 
 // public getter
-template <typename DType>
-void Compressor<DType>::dump_compress_intermediate(pszctx* ctx, psz_stream_t stream)
+template <typename T>
+void Compressor<T>::dump_compress_intermediate(psz_ctx* ctx, psz_stream_t stream)
 {
   auto dump_name = [&](string t, string suffix = ".quant") -> string {
     return string(ctx->cli->file_input)                                                //
@@ -268,8 +268,8 @@ void Compressor<DType>::dump_compress_intermediate(pszctx* ctx, psz_stream_t str
 }
 
 // public getter
-template <typename DType>
-void Compressor<DType>::export_header(psz_header& ext_header)
+template <typename T>
+void Compressor<T>::export_header(psz_header& ext_header)
 {
   ext_header = *header_ref;
 }
@@ -285,7 +285,7 @@ using CP = psz::compression_pipeline<T, E>;
   template <typename T, typename E> \
   RET_TYPE psz::compression_pipeline<T, E>
 
-PIPELINE(void*)::compress_init(psz_context* ctx)
+PIPELINE(void*)::compress_init(psz_ctx* ctx)
 {
   constexpr auto iscompression = true;
 
@@ -323,7 +323,7 @@ PIPELINE(void*)::decompress_init(psz_header* header)
 namespace {
 
 template <typename T, typename E>
-void compress_data_processing(pszctx* ctx, PSZ_BUF* mem, T* in, void* stream)
+void compress_data_processing(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream)
 {
   auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
 
@@ -381,7 +381,7 @@ ENCODING_STEP:
 
 template <typename T, typename E>
 void compress_merge_update_header(
-    pszctx* ctx, PSZ_BUF* mem, u1** out, size_t* outlen, void* stream)
+    psz_ctx* ctx, PSZ_BUF* mem, u1** out, size_t* outlen, void* stream)
 {
   auto pred_type = ctx->header->pred_type;
 
@@ -409,7 +409,7 @@ void compress_merge_update_header(
 
 }  // namespace
 
-PIPELINE(void)::compress(pszctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
+PIPELINE(void)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
 {
   compress_data_processing(ctx, mem, in, stream);
   compress_merge_update_header(ctx, mem, out, outlen, stream);
@@ -422,8 +422,6 @@ PIPELINE(void)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz
   };
 
   auto d_anchor = (T*)access(PSZ_ANCHOR);
-  // auto d_spval = (T*)access(PSZ_SPFMT);
-  // auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
   auto d_spval_idx = (_portable::compact_cell<T, M>*)access(PSZ_SPFMT);
   auto d_space = out, d_xdata = out;  // aliases
   auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
@@ -440,8 +438,8 @@ STEP_SCATTER:
 STEP_DECODING:
 
   phf_header h;
-  memcpy_allkinds<D2H>((B*)&h, (B*)access(PSZ_ENCODED), sizeof(phf_header));
-  phf::high_level<E>::decode(mem->buf_hf(), h, (B*)access(PSZ_ENCODED), mem->ectrl_d(), stream);
+  memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
+  phf::high_level<E>::decode(mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->ectrl_d(), stream);
 
 STEP_PREDICT:
 
@@ -465,7 +463,7 @@ PIPELINE(void)::release(PSZ_BUF* mem)
   if (mem) delete mem;
 }
 
-PIPELINE(void)::compress_dump_internal_buf(pszctx* ctx, PSZ_BUF* mem, psz_stream_t stream)
+PIPELINE(void)::compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_stream_t stream)
 {
   auto dump_name = [&](string t, string suffix = ".quant") -> string {
     return string(ctx->cli->file_input)                                                //
