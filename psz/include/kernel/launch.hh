@@ -1,5 +1,5 @@
-#ifndef PSZ_KERNENL_LAUNCH_HH
-#define PSZ_KERNENL_LAUNCH_HH
+#ifndef PSZ_KERNEL_LRZ_GPU_CONFIG_HH
+#define PSZ_KERNEL_LRZ_GPU_CONFIG_HH
 
 #include <cuda_runtime.h>
 
@@ -166,4 +166,4 @@ struct x_lorenzo<3> {
 
 };  // namespace psz::config
 
-#endif /* PSZ_KERNENL_LAUNCH_HH */
+#endif /* PSZ_KERNEL_LRZ_GPU_CONFIG_HH */

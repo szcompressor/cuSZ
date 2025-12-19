@@ -18,7 +18,7 @@ struct compact_GPU_DRAM2;
 
 template <typename ValT, typename IdxT = u4, outlier_stragegy OS = outlier_stragegy::CONVINIENT>
 struct compact_cell {
-  static_assert(std::is_floating_point_v<ValT>, "ValT must be f4 or f8.");
+  // static_assert(std::is_floating_point_v<ValT>, "ValT must be f4 or f8.");
 
   using OutlierValT = std::conditional_t<OS == outlier_stragegy::CONVINIENT, f4, ValT>;
   OutlierValT val;

@@ -76,6 +76,7 @@ struct compression_pipeline {
   static void* compress_init(psz_ctx* ctx);
   static void* decompress_init(psz_header* header);
   static void compress(psz_ctx*, PSZ_BUF* mem, T*, u1**, size_t*, psz_stream_t);
+  static void compress_analysis(psz_ctx*, PSZ_BUF* mem, T*, u4*, psz_stream_t);
   static void decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream);
   static void release(PSZ_BUF* mem);
   static void compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_stream_t stream);

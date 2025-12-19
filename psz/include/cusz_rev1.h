@@ -27,6 +27,7 @@ void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* 
 int psz_release_resource(psz_resource* manager);
 int psz_compress_float(psz_resource* manager, psz_rc rc, float* IN_d_data, psz_header* OUT_compressed_metadata, uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes);
 int psz_compress_double(psz_resource* manager, psz_rc rc, double* IN_d_data, psz_header* OUT_compressed_metadata, uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes);
+int psz_compress_analyize_float(psz_resource* manager, psz_rc rc, float* IN_d_data, u4* exported_h_hist);
 int psz_decompress_float(psz_resource* manager, uint8_t* IN_d_compressed, size_t const IN_compressed_len, float* OUT_d_decompressed);
 int psz_decompress_double(psz_resource* manager, uint8_t* IN_d_compressed, size_t const IN_compressed_len, double* OUT_d_decompressed);
 // clang-format on

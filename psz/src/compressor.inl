@@ -409,6 +409,38 @@ void compress_merge_update_header(
 
 }  // namespace
 
+PIPELINE(void)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
+{
+  auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
+  auto eb = ctx->header->eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+  const auto len = mem->len;
+
+  if (ctx->header->pred_type == Lorenzo)
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
+        ctx->header->radius, stream);
+  else if (ctx->header->pred_type == LorenzoZigZag)
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
+        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
+        ctx->header->radius, stream);
+  else if (ctx->header->pred_type == Spline)
+    psz::module::GPU_predict_spline(
+        in, len3_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
+        (void*)mem->buf_outlier(), ebx2, eb_r, ctx->header->radius, stream);
+
+  /* make outlier count seen on host */
+  sync_by_stream(stream);
+  ctx->header->splen = mem->outlier_num();
+
+  psz::module::GPU_histogram_Cauchy<E>::kernel(
+      mem->ectrl_d(), len, mem->hist_d(), ctx->dict_size, stream);
+
+  memcpy_allkinds_async<D2H>(h_hist, mem->hist_d(), ctx->dict_size, stream);
+  sync_by_stream(stream);
+
+  memset_device(mem->hist_d(), ctx->dict_size, 0);
+}
+
 PIPELINE(void)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
 {
   compress_data_processing(ctx, mem, in, stream);

@@ -355,6 +355,23 @@ int psz_compress_double(
   return status;
 }
 
+int psz_compress_analyize_float(psz_resource* m, psz_rc rc, float* IN_d_data, u4* exported_h_hist)
+{
+  int status = PSZ_SUCCESS;
+
+  RUNTIME_CHECK_RADIUS(float);
+  RUNTIME_SAVE_CONFIG();
+  RUNTIME_SCAN_EXTREMA(float);
+
+  // TODO redundant
+  m->header->eb = rc.eb;
+
+  CP<f4, u2>::compress_analysis(
+      m, (psz_buf<f4, u2>*)m->compbuf, IN_d_data, exported_h_hist, m->stream);
+
+  return status;
+}
+
 int psz_decompress_float(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     float* OUT_d_decompressed)
