@@ -304,11 +304,12 @@ int psz_release_resource(psz_resource* manager)
     status = PSZ_WARN_RADIUS_TOO_LARGE;              \
   }
 
-#define RUNTIME_SCAN_EXTREMA(Type)                                             \
+#define RUNTIME_CHANGE_EB_IF_REL(Type)                                         \
   if (rc.mode == Rel) {                                                        \
     double _max_val, _min_val, _rng;                                           \
     GPU_probe_extrema<Type>(IN_d_data, m->data_len, _max_val, _min_val, _rng); \
     m->header->eb *= _rng;                                                     \
+    rc.eb = m->header->eb;                                                     \
     m->header->logging_max = _max_val;                                         \
     m->header->logging_min = _min_val;                                         \
   }
@@ -321,9 +322,7 @@ int psz_compress_float(
 
   RUNTIME_CHECK_RADIUS(float);
   RUNTIME_SAVE_CONFIG();
-  RUNTIME_SCAN_EXTREMA(float);
-
-  if (m->header->eb != rc.eb) m->header->eb = rc.eb;
+  RUNTIME_CHANGE_EB_IF_REL(float);
 
   CP<f4, u2>::compress(
       m, (psz_buf<f4, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
@@ -342,9 +341,7 @@ int psz_compress_double(
 
   RUNTIME_CHECK_RADIUS(double);
   RUNTIME_SAVE_CONFIG();
-  RUNTIME_SCAN_EXTREMA(double);
-
-  if (m->header->eb != rc.eb) m->header->eb = rc.eb;
+  RUNTIME_CHANGE_EB_IF_REL(double);
 
   CP<f8, u2>::compress(
       m, (psz_buf<f8, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
@@ -361,7 +358,7 @@ int psz_compress_analyize_float(psz_resource* m, psz_rc rc, float* IN_d_data, u4
 
   RUNTIME_CHECK_RADIUS(float);
   RUNTIME_SAVE_CONFIG();
-  RUNTIME_SCAN_EXTREMA(float);
+  RUNTIME_CHANGE_EB_IF_REL(float);
 
   // TODO redundant
   m->header->eb = rc.eb;
