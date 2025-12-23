@@ -66,17 +66,17 @@ Compressor<T>::Compressor(psz_ctx* ctx) : header_ref(ctx->header)
 
   // extract context
   const auto pardeg = ctx->header->vle_pardeg;
-  const auto x = ctx->header->x, y = ctx->header->y, z = ctx->header->z;
-  len = x * y * z;
+  const auto x = ctx->header->len.x, y = ctx->header->len.y, z = ctx->header->len.z;
+  len_linear = x * y * z;
 
   // optimize component(s)
   psz::module::GPU_histogram_generic<E>::init(
-      len, mem->max_bklen, hist_generic_grid_dim, hist_generic_block_dim, hist_generic_shmem_use,
-      hist_generic_repeat);
+      len_linear, mem->max_bklen, hist_generic_grid_dim, hist_generic_block_dim,
+      hist_generic_shmem_use, hist_generic_repeat);
 
   // initialize internal buffers
   mem = new Buf_Comp<T>(x, y, z, iscompression);
-  buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
+  buf_hf = new phf::Buf<E>(mem->len_linear, mem->max_bklen);
 }
 
 template <typename T>
@@ -86,12 +86,12 @@ Compressor<T>::Compressor(psz_header* header) : header_ref(header)
 
   // extract context
   const auto pardeg = header->vle_pardeg;
-  const auto x = header->x, y = header->y, z = header->z;
-  len = x * y * z;
+  const auto x = header->len.x, y = header->len.y, z = header->len.z;
+  len_linear = x * y * z;
 
   // initialize internal buffers
   mem = new Buf_Comp<T>(x, y, z, iscompression);
-  buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
+  buf_hf = new phf::Buf<E>(mem->len_linear, mem->max_bklen);
 }
 
 template <typename T>
@@ -111,27 +111,29 @@ void Compressor<T>::compress(psz_ctx* ctx, T* in, BYTE** out, size_t* outlen, vo
 template <typename T>
 void Compressor<T>::compress_data_processing(psz_ctx* ctx, T* in, void* stream)
 {
-  auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
+  auto len_std = MAKE_STDLEN3(ctx->header->len.x, ctx->header->len.y, ctx->header->len.z);
 
-  eb = ctx->header->eb, eb_r = 1 / eb;
+  eb = ctx->header->rc.eb, eb_r = 1 / eb;
   ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-  if (ctx->header->pred_type == Lorenzo)
+  const auto predictor = ctx->header->pipeline.predictor;
+
+  if (predictor == Lorenzo)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == LorenzoZigZag)
+        in, len_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
+        ctx->header->rc.radius, stream);
+  else if (predictor == LorenzoZigZag)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == LorenzoProto)
+        in, len_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
+        ctx->header->rc.radius, stream);
+  else if (predictor == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == Spline)
+        in, len_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r,
+        ctx->header->rc.radius, stream);
+  else if (predictor == Spline)
     psz::module::GPU_predict_spline(
-        in, len3_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
-        (void*)mem->buf_outlier(), ebx2, eb_r, ctx->header->radius, stream);
+        in, len_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
+        (void*)mem->buf_outlier(), ebx2, eb_r, ctx->header->rc.radius, stream);
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
@@ -139,14 +141,14 @@ void Compressor<T>::compress_data_processing(psz_ctx* ctx, T* in, void* stream)
       mem->outlier2_host_get_num();
   ctx->header->splen = _splen;
 
-  if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
+  if (ctx->header->pipeline.codec1 != Huffman) goto ENCODING_STEP;
 
-  if (ctx->header->hist_type == psz_histotype::HistogramSparse)
+  if (ctx->header->pipeline.hist == psz_hist::HistogramSparse)
     psz::module::GPU_histogram_Cauchy<E>::kernel(
-        mem->ectrl_d(), len, mem->hist_d(), ctx->dict_size, stream);
-  else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
+        mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
+  else if (ctx->header->pipeline.hist == psz_hist::HistogramGeneric)
     psz::module::GPU_histogram_generic<E>::kernel(
-        mem->ectrl_d(), len, mem->hist_d(), ctx->dict_size, hist_generic_grid_dim,
+        mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, hist_generic_grid_dim,
         hist_generic_block_dim, hist_generic_shmem_use, hist_generic_repeat, stream);
 
 ENCODING_STEP:
@@ -156,18 +158,19 @@ ENCODING_STEP:
 
   phf_header dummy_header;
   phf::high_level<E>::encode(
-      buf_hf, mem->ectrl_d(), len, &comp_codec_out, &comp_codec_outlen, dummy_header, stream);
+      buf_hf, mem->ectrl_d(), len_linear, &comp_codec_out, &comp_codec_outlen, dummy_header,
+      stream);
 }
 
 template <typename T>
 void Compressor<T>::compress_merge_update_header(
     psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream)
 {
-  auto pred_type = ctx->header->pred_type;
+  auto predictor = ctx->header->pipeline.predictor;
 
   nbyte[PSZ_HEADER] = sizeof(psz_header);
   nbyte[PSZ_ENCODED] = sizeof(BYTE) * comp_codec_outlen;
-  nbyte[PSZ_ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
+  nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
   // nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(M)) * ctx->header->splen;
   nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, M>) * ctx->header->splen;
 
@@ -208,9 +211,9 @@ void Compressor<T>::decompress(psz_header* header, BYTE* in, T* out, psz_stream_
 
   auto d_anchor = (T*)access(PSZ_ANCHOR);
   auto d_space = out, d_xdata = out;  // aliases
-  auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
+  auto len_std = MAKE_STDLEN3(header->len.x, header->len.y, header->len.z);
 
-  eb = header->eb;
+  eb = header->rc.eb;
   eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
 STEP_SCATTER:
@@ -226,19 +229,19 @@ STEP_DECODING:
 
 STEP_PREDICT:
 
-  if (header->pred_type == Lorenzo)
+  if (header->pipeline.predictor == Lorenzo)
     GPU_x_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len3_std, eb, header->radius, stream);
-  else if (header->pred_type == LorenzoZigZag)
+        mem->ectrl_d(), d_space, d_xdata, len_std, eb, header->rc.radius, stream);
+  else if (header->pipeline.predictor == LorenzoZigZag)
     GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len3_std, eb, header->radius, stream);
-  else if (header->pred_type == LorenzoProto)
+        mem->ectrl_d(), d_space, d_xdata, len_std, eb, header->rc.radius, stream);
+  else if (header->pipeline.predictor == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
-  else if (header->pred_type == Spline)
+        mem->ectrl_d(), d_space, d_xdata, len_std, ebx2, ebx2_r, header->rc.radius, stream);
+  else if (header->pipeline.predictor == Spline)
     psz::module::GPU_reverse_predict_spline(
-        mem->ectrl_d(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len3_std, ebx2,
-        eb_r, header->radius, stream);
+        mem->ectrl_d(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len_std, ebx2,
+        eb_r, header->rc.radius, stream);
 }
 
 // public getter
@@ -248,7 +251,7 @@ void Compressor<T>::dump_compress_intermediate(psz_ctx* ctx, psz_stream_t stream
   auto dump_name = [&](string t, string suffix = ".quant") -> string {
     return string(ctx->cli->file_input)                                                //
            + "." + string(ctx->cli->char_mode) + "_" + string(ctx->cli->char_meta_eb)  //
-           + "." + "bk_" + to_string(ctx->header->radius * 2)                          //
+           + "." + "bk_" + to_string(ctx->header->rc.radius * 2)                       //
            + "." + suffix + "_" + t;
   };
 
@@ -256,14 +259,15 @@ void Compressor<T>::dump_compress_intermediate(psz_ctx* ctx, psz_stream_t stream
 
   if (ctx->cli->dump_hist) {
     auto h_hist = MAKE_UNIQUE_HOST(Freq, mem->max_bklen);
-    memcpy_allkinds<D2H>(h_hist.get(), mem->hist_d(), ctx->header->radius * 2, stream);
-    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), ctx->header->radius * 2);
+    memcpy_allkinds<D2H>(h_hist.get(), mem->hist_d(), ctx->header->rc.radius * 2, stream);
+    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), ctx->header->rc.radius * 2);
   }
   if (ctx->cli->dump_quantcode) {
     cout << "[psz::dump] dumping quantization codebook to file: " << dump_name("quant") << endl;
-    auto h_ectrl = MAKE_UNIQUE_HOST(E, len);
-    memcpy_allkinds<D2H>(h_ectrl.get(), mem->ectrl_d(), len, stream);
-    _portable::utils::tofile(dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), len);
+    auto h_ectrl = MAKE_UNIQUE_HOST(E, len_linear);
+    memcpy_allkinds<D2H>(h_ectrl.get(), mem->ectrl_d(), len_linear, stream);
+    _portable::utils::tofile(
+        dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), len_linear);
   }
 }
 
@@ -291,7 +295,7 @@ PIPELINE(void*)::compress_init(psz_ctx* ctx)
 
   // extract context
   const auto pardeg = ctx->header->vle_pardeg;
-  const auto x = ctx->header->x, y = ctx->header->y, z = ctx->header->z;
+  const auto x = ctx->header->len.x, y = ctx->header->len.y, z = ctx->header->len.z;
 
   // initialize internal buffers
   auto mem = new Buf_Comp<T, E>(x, y, z, iscompression);
@@ -300,7 +304,7 @@ PIPELINE(void*)::compress_init(psz_ctx* ctx)
 
   // optimize component(s)
   psz::module::GPU_histogram_generic<E>::init(
-      mem->len, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
+      mem->len_linear, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
       mem->hist_generic_shmem_use, mem->hist_generic_repeat);
 
   return mem;
@@ -312,7 +316,7 @@ PIPELINE(void*)::decompress_init(psz_header* header)
 
   // extract context
   const auto pardeg = header->vle_pardeg;
-  const auto x = header->x, y = header->y, z = header->z;
+  const auto x = header->len.x, y = header->len.y, z = header->len.z;
 
   // initialize internal buffers
   auto mem = new Buf_Comp<T, E>(x, y, z, iscompression);
@@ -325,27 +329,27 @@ namespace {
 template <typename T, typename E>
 void compress_data_processing(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream)
 {
-  auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
+  auto eb = ctx->header->rc.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-  auto eb = ctx->header->eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-  const auto len = mem->len;
+  const auto len_std = LEN_TO_STDLEN3(ctx->header->len);
+  const auto len_linear = mem->len_linear;
+  const auto predictor = ctx->header->pipeline.predictor;
+  const auto radius = ctx->header->rc.radius;
 
-  if (ctx->header->pred_type == Lorenzo)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == LorenzoZigZag)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == LorenzoProto)
+  if (predictor == Lorenzo)
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::compressor_kernel(
+        mem, in, len_std, eb, radius, stream);
+  else if (predictor == LorenzoZigZag)
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
+        mem, in, len_std, eb, radius, stream);
+  else if (predictor == LorenzoProto)
     psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == Spline)
+        in, len_std, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r,
+        ctx->header->rc.radius, stream);
+  else if (predictor == Spline)
     psz::module::GPU_predict_spline(
-        in, len3_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
-        (void*)mem->buf_outlier2(), ebx2, eb_r, ctx->header->radius, stream);
+        in, len_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
+        (void*)mem->buf_outlier2(), ebx2, eb_r, ctx->header->rc.radius, stream);
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
@@ -357,14 +361,14 @@ void compress_data_processing(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream)
     // return PSZ_WARN_OUTLIER_TOO_MANY;
   }
 
-  if (ctx->header->codec1_type != Huffman) goto ENCODING_STEP;
+  if (ctx->header->pipeline.codec1 != Huffman) goto ENCODING_STEP;
 
-  if (ctx->header->hist_type == psz_histotype::HistogramSparse)
+  if (ctx->header->pipeline.hist == psz_hist::HistogramSparse)
     psz::module::GPU_histogram_Cauchy<E>::kernel(
-        mem->ectrl_d(), len, mem->hist_d(), ctx->dict_size, stream);
-  else if (ctx->header->hist_type == psz_histotype::HistogramGeneric)
+        mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
+  else if (ctx->header->pipeline.hist == psz_hist::HistogramGeneric)
     psz::module::GPU_histogram_generic<E>::kernel(
-        mem->ectrl_d(), len, mem->hist_d(), ctx->dict_size, mem->hist_generic_grid_dim,
+        mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, mem->hist_generic_grid_dim,
         mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
         stream);
 
@@ -375,7 +379,7 @@ ENCODING_STEP:
 
   phf_header dummy_header;
   phf::high_level<E>::encode(
-      mem->buf_hf(), mem->ectrl_d(), len, &mem->comp_codec_out, &mem->comp_codec_outlen,
+      mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
       dummy_header, stream);
 }
 
@@ -383,11 +387,11 @@ template <typename T, typename E>
 void compress_merge_update_header(
     psz_ctx* ctx, PSZ_BUF* mem, u1** out, size_t* outlen, void* stream)
 {
-  auto pred_type = ctx->header->pred_type;
+  auto predictor = ctx->header->pipeline.predictor;
 
   mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
   mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
-  mem->nbyte[PSZ_ANCHOR] = pred_type == Spline ? sizeof(T) * mem->anchor_len() : 0;
+  mem->nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
   // mem->nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(psz::M)) * ctx->header->splen;
   mem->nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
 
@@ -411,29 +415,30 @@ void compress_merge_update_header(
 
 PIPELINE(void)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
 {
-  auto len3_std = MAKE_STDLEN3(ctx->header->x, ctx->header->y, ctx->header->z);
-  auto eb = ctx->header->eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-  const auto len = mem->len;
+  auto eb = ctx->header->rc.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
-  if (ctx->header->pred_type == Lorenzo)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == LorenzoZigZag)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        in, len3_std, mem->ectrl_d(), (void*)mem->buf_outlier(), mem->top1_d(), eb,
-        ctx->header->radius, stream);
-  else if (ctx->header->pred_type == Spline)
+  const auto len_std = LEN_TO_STDLEN3(ctx->header->len);
+  const auto len_linear = mem->len_linear;
+  const auto predictor = ctx->header->pipeline.predictor;
+  const auto radius = ctx->header->rc.radius;
+
+  if (ctx->header->pipeline.predictor == Lorenzo)
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::compressor_kernel(
+        mem, in, len_std, eb, radius, stream);
+  else if (ctx->header->pipeline.predictor == LorenzoZigZag)
+    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
+        mem, in, len_std, eb, radius, stream);
+  else if (ctx->header->pipeline.predictor == Spline)
     psz::module::GPU_predict_spline(
-        in, len3_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
-        (void*)mem->buf_outlier(), ebx2, eb_r, ctx->header->radius, stream);
+        in, len_std, mem->ectrl_d(), mem->ectrl_len3(), mem->anchor_d(), mem->anchor_len3(),
+        (void*)mem->buf_outlier(), ebx2, eb_r, ctx->header->rc.radius, stream);
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
   ctx->header->splen = mem->outlier_num();
 
   psz::module::GPU_histogram_Cauchy<E>::kernel(
-      mem->ectrl_d(), len, mem->hist_d(), ctx->dict_size, stream);
+      mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
 
   memcpy_allkinds_async<D2H>(h_hist, mem->hist_d(), ctx->dict_size, stream);
   sync_by_stream(stream);
@@ -456,9 +461,9 @@ PIPELINE(void)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz
   auto d_anchor = (T*)access(PSZ_ANCHOR);
   auto d_spval_idx = (_portable::compact_cell<T, M>*)access(PSZ_SPFMT);
   auto d_space = out, d_xdata = out;  // aliases
-  auto len3_std = MAKE_STDLEN3(header->x, header->y, header->z);
+  auto len_std = LEN_TO_STDLEN3(header->len);
 
-  const auto eb = header->eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+  const auto eb = header->rc.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
 STEP_SCATTER:
 
@@ -475,19 +480,19 @@ STEP_DECODING:
 
 STEP_PREDICT:
 
-  if (header->pred_type == Lorenzo)
+  if (header->pipeline.predictor == Lorenzo)
     GPU_x_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len3_std, eb, header->radius, stream);
-  else if (header->pred_type == LorenzoZigZag)
+        mem->ectrl_d(), d_space, d_xdata, len_std, eb, header->rc.radius, stream);
+  else if (header->pipeline.predictor == LorenzoZigZag)
     GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len3_std, eb, header->radius, stream);
-  else if (header->pred_type == LorenzoProto)
+        mem->ectrl_d(), d_space, d_xdata, len_std, eb, header->rc.radius, stream);
+  else if (header->pipeline.predictor == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len3_std, ebx2, ebx2_r, header->radius, stream);
-  else if (header->pred_type == Spline)
+        mem->ectrl_d(), d_space, d_xdata, len_std, ebx2, ebx2_r, header->rc.radius, stream);
+  else if (header->pipeline.predictor == Spline)
     psz::module::GPU_reverse_predict_spline(
-        mem->ectrl_d(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len3_std, ebx2,
-        eb_r, header->radius, stream);
+        mem->ectrl_d(), mem->ectrl_len3(), d_anchor, mem->anchor_len3(), d_xdata, len_std, ebx2,
+        eb_r, header->rc.radius, stream);
 }
 
 PIPELINE(void)::release(PSZ_BUF* mem)
@@ -500,7 +505,7 @@ PIPELINE(void)::compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_strea
   auto dump_name = [&](string t, string suffix = ".quant") -> string {
     return string(ctx->cli->file_input)                                                //
            + "." + string(ctx->cli->char_mode) + "_" + string(ctx->cli->char_meta_eb)  //
-           + "." + "bk_" + to_string(ctx->header->radius * 2)                          //
+           + "." + "bk_" + to_string(ctx->header->rc.radius * 2)                       //
            + "." + suffix + "_" + t;
   };
 
@@ -508,14 +513,15 @@ PIPELINE(void)::compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_strea
 
   if (ctx->cli->dump_hist) {
     auto h_hist = MAKE_UNIQUE_HOST(Freq, mem->max_bklen);
-    memcpy_allkinds<D2H>(h_hist.get(), mem->hist_d(), ctx->header->radius * 2, stream);
-    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), ctx->header->radius * 2);
+    memcpy_allkinds<D2H>(h_hist.get(), mem->hist_d(), ctx->header->rc.radius * 2, stream);
+    _portable::utils::tofile(dump_name("u4", "ht"), h_hist.get(), ctx->header->rc.radius * 2);
   }
   if (ctx->cli->dump_quantcode) {
     cout << "[psz::dump] dumping quantization codebook to file: " << dump_name("quant") << endl;
-    auto h_ectrl = MAKE_UNIQUE_HOST(E, mem->len);
-    memcpy_allkinds<D2H>(h_ectrl.get(), mem->ectrl_d(), mem->len, stream);
-    _portable::utils::tofile(dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), mem->len);
+    auto h_ectrl = MAKE_UNIQUE_HOST(E, mem->len_linear);
+    memcpy_allkinds<D2H>(h_ectrl.get(), mem->ectrl_d(), mem->len_linear, stream);
+    _portable::utils::tofile(
+        dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), mem->len_linear);
   }
 }
 

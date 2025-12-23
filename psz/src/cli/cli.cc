@@ -73,13 +73,13 @@ int psz_run_from_CLI(int argc, char** argv)
       fromfile(args->cli->file_input, h_in.get(), len);
       memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
 
-      m = psz_create_resource_manager(F4, CLI_x(args), CLI_y(args), CLI_z(args), stream);
+      m = psz_create_resource_manager(
+          F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
+          {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
       m->cli = args->cli;
       psz_compress_float(
-          m,
-          {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
-           CLI_eb(args), CLI_radius(args)},
-          d_in.get(), &header, &d_internal_compressed, &compressed_len);
+          m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
+          &d_internal_compressed, &compressed_len);
     }
     else if (CLI_dtype(args) == F8) {
       auto d_in = MAKE_UNIQUE_DEVICE(double, len);
@@ -87,13 +87,13 @@ int psz_run_from_CLI(int argc, char** argv)
       fromfile(args->cli->file_input, h_in.get(), len);
       memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
 
-      m = psz_create_resource_manager(F8, CLI_x(args), CLI_y(args), CLI_z(args), stream);
+      m = psz_create_resource_manager(
+          F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
+          {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
       m->cli = args->cli;
       psz_compress_double(
-          m,
-          {CLI_predictor(m), CLI_hist(args), CLI_codec1(args), NULL_CODEC, CLI_mode(args),
-           CLI_eb(args), CLI_radius(args)},
-          d_in.get(), &header, &d_internal_compressed, &compressed_len);
+          m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
+          &d_internal_compressed, &compressed_len);
     }
 
     if (args->cli->report_time) {

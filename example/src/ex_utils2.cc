@@ -66,7 +66,7 @@ Arguments parse_arguments(int argc, char* argv[])
       radius_set = true;
     }
     else if (arg == "--codec" and i + 1 < argc) {
-      args.codec_type = std::string(argv[++i]) == "fzg" ? FZGPUCodec : Huffman;
+      args.codec_type = std::string(argv[++i]) == "fzg" ? FZCodec : Huffman;
     }
     else if (arg == "--help") {
       print_help();

@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 
+#include "cusz/type.h"
 #include "cusz_rev1.h"
 #include "detail/compare.hh"
 #include "ex_utils2.hh"
@@ -52,7 +53,9 @@ int main(int argc, char** argv)
   psz_len3 uncomp_len3 = {args.x, args.y, args.z};
   psz_len3 decomp_len3 = uncomp_len3;
 
-  psz_resource* m = psz_create_resource_manager(F4, args.x, args.y, args.z, stream);
+  psz_resource* m = psz_create_resource_manager(
+      F4, {args.x, args.y, args.z}, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, NullCodec},
+      stream);
   m->cli = new psz_cli_config;  // TODO mix use the cli and "resource manager"
   if (args.codec_type == Huffman) {
     cout << "using Huffman" << endl;
@@ -74,8 +77,7 @@ int main(int argc, char** argv)
 
     {  // compresion
       psz_compress_float(
-          m, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, NULL_CODEC, mode, eb, args.radius},
-          d_uncomp.get(), &header, &p_compressed, &comp_len);
+          m, {mode, eb, args.radius}, d_uncomp.get(), &header, &p_compressed, &comp_len);
       //   psz_review_compression(comp_timerecord, &header);
 
       memcpy_allkinds<D2D>(d_compressed.get(), p_compressed, comp_len);

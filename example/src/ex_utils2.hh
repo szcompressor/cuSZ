@@ -8,7 +8,7 @@ struct Arguments {
   std::string fname_suffix;
   int from_number;
   int to_number;
-  psz_codectype codec_type{Huffman};
+  psz_codec codec_type{Huffman};
   size_t x;
   size_t y;
   size_t z;

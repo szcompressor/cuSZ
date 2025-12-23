@@ -32,15 +32,8 @@ typedef struct psz_header {
   union {
     struct {
       psz_dtype dtype;
-      psz_predtype pred_type;
-      psz_histotype hist_type;
-      psz_codectype codec1_type;
-      psz_codectype _future_codec2_type;
-
-      // pipeline config
-      psz_mode mode;
-      double eb;
-      uint16_t radius;
+      psz_pipeline pipeline;
+      psz_rc2 rc;
 
       // codec config (coarse-HF)
       int vle_sublen;
@@ -49,25 +42,26 @@ typedef struct psz_header {
       uint32_t entry[PSZHEADER_END + 1];  // segment entries
 
       // runtime sizes
-      uint32_t x, y, z, w;
+      psz_len len;
       size_t splen;
 
       // internal loggin
       double user_input_eb;
-      double logging_min, logging_max;
+      double min_val, max_val;
 
       // i/Hi
       INTERPOLATION_PARAMS intp_param;
     };
 
-    struct {
-      uint8_t __[128];
-    };
+    // struct {
+    //   uint8_t __[128];
+    // };
   };
 } psz_header;
 
-psz_len3 pszheader_len3(psz_header*);
-size_t pszheader_linear_len(psz_header*);
+psz_len pszheader_len(psz_header*);
+size_t pszheader_len_linear(psz_header*);
+size_t pszheader_segments(psz_header*);
 size_t pszheader_filesize(psz_header*);
 size_t pszheader_uncompressed_len(psz_header*);
 size_t pszheader_compressed_bytes(psz_header*);

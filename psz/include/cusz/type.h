@@ -34,8 +34,10 @@ typedef _portable_len3 psz_len3;
 typedef _portable_size3 psz_size3;
 typedef _portable_data_summary psz_data_summary;
 
+// Currently, 3D is the highest supported dimention.
+typedef psz_len3 psz_len;
+
 #define CUSZ_SUCCESS PSZ_SUCCESS
-#define CUSZ_NOT_IMPLEMENTED PSZ_ABORT_NOT_IMPLEMENTED
 
 typedef enum {
   PSZ_SUCCESS,
@@ -44,6 +46,8 @@ typedef enum {
   PSZ_ABORT_UNSUPPORTED_TYPE,
   PSZ_ABORT_UNSUPPORTED_DIMENSION,
   PSZ_ABORT_NOT_IMPLEMENTED,
+  PSZ_ABORT_NO_SUCH_PREDICTOR,
+  PSZ_ABORT_NO_SUCH_CODEC,
 } psz_error_status;
 typedef psz_error_status pszerror;
 
@@ -57,41 +61,26 @@ typedef size_t szt;
 #define NULL_HISTOGRAM NullHistogram
 #define NULL_CODEC NullCodec
 
-typedef enum { Abs, Rel, Verbatim } psz_mode;
-typedef enum { Lorenzo, LorenzoZigZag, LorenzoProto, Spline } psz_predtype;
+// clang-format off
+typedef enum { Abs, Rel } psz_mode;
+typedef enum { Lorenzo, LorenzoZigZag, LorenzoProto, Spline } psz_predictor;
+typedef enum { FP64toFP32, LogTransform, ShiftedLogTransform, Binning2x2, Binning2x1, Binning1x2 } _future_psz_preprocess;
+typedef enum { Huffman, HuffmanRevisit, LC, FZCodec, RunLength, NullCodec } psz_codec;
+typedef enum { HistogramGeneric, HistogramSparse, NullHistogram } psz_hist;
+// clang-format on
 
-typedef enum {
-  FP64toFP32,
-  LogTransform,
-  ShiftedLogTransform,
-  Binning2x2,
-  Binning2x1,
-  Binning1x2,
-} _future_psz_preprocestype;
+typedef struct psz_pipeline {
+  psz_predictor predictor;
+  psz_hist hist;
+  psz_codec codec1;
+  psz_codec codec2;
+} psz_pipeline;
 
-typedef enum {
-  Huffman,
-  HuffmanRevisit,
-  LC,
-  FZGPUCodec,
-  RunLength,
-  NullCodec,
-} psz_codectype;
-
-typedef enum {
-  HistogramGeneric,
-  HistogramSparse,
-  NullHistogram,
-} psz_histotype;
-
-typedef enum {
-  STAGE_PREDICT = 0,
-  STAGE_HISTOGRM = 1,
-  STAGE_BOOK = 3,
-  STAGE_HUFFMAN = 4,
-  STAGE_OUTLIER = 5,
-  STAGE_END = 6
-} psz_time_stage;
+typedef struct psz_runtime_config2 {
+  psz_mode mode;
+  double eb;
+  uint16_t radius;
+} psz_rc2;
 
 struct psz_context;
 typedef struct psz_context psz_ctx;
@@ -104,7 +93,6 @@ typedef struct psz_compressor {
   psz_ctx* ctx;
   psz_error_status last_error;
   void* mem;
-  float stage_time[STAGE_END];
 } psz_compressor;
 
 // nested struct object (rather than ptr) results in Swig creating a `__get`,

@@ -100,7 +100,7 @@ struct psz::Buf_Comp<T, E>::impl {
 namespace psz {
 
 COMPBUF_IMPL()::Buf_Comp(u4 x, u4 y, u4 z, BufToggle_Comp* toggle) :
-    x(x), y(y), z(z), len(x * y * z), pimpl(std::make_unique<impl>(x, y, z, toggle))
+    x(x), y(y), z(z), len_linear(x * y * z), pimpl(std::make_unique<impl>(x, y, z, toggle))
 {
 }
 
@@ -109,7 +109,7 @@ COMPBUF_IMPL()::Buf_Comp(u4 x, u4 y, u4 z, bool _is_comp) :
     x(x),
     y(y),
     z(z),
-    len(x * y * z),
+    len_linear(x * y * z),
     pimpl(std::make_unique<impl>(x, y, z, _is_comp))
 {
 }

@@ -2,15 +2,15 @@
     module pycusz
 
     // The original names are not used.
-    % rename(version) capi_psz_version;
-% rename(versioninfo) capi_psz_versioninfo;
-% rename(create) capi_psz_create;
-% rename(create_default) capi_psz_create_default;
-% rename(create_from_context) capi_psz_create_from_context;
-% rename(create_from_header) capi_psz_create_from_header;
-% rename(release) capi_psz_release;
-% ignore capi_psz_compress;
-% rename(decompress) capi_psz_decompress;
+    % rename(version) psz_version;
+% rename(versioninfo) psz_versioninfo;
+% rename(create) psz_create;
+% rename(create_default) psz_create_default;
+% rename(create_from_context) psz_create_from_context;
+% rename(create_from_header) psz_create_from_header;
+% rename(release) psz_release;
+% ignore psz_compress;
+% rename(decompress) psz_decompress;
 % rename(get_len3) pszctx_get_len3;
 
 // ignore pszctx related (as of now, 2405)
@@ -64,15 +64,15 @@
   Ctx = psz_context Header = psz_header Compressor = psz_compressor Len3 = psz_len3 %
 }
 
-extern void capi_psz_version();
-extern void capi_psz_versioninfo();
-extern psz_compressor* capi_psz_create(
+extern void psz_version();
+extern void psz_versioninfo();
+extern psz_compressor* psz_create(
     psz_dtype const, psz_len3 const, psz_predtype const, int const, psz_codectype const);
-extern psz_compressor* capi_psz_create_default(psz_dtype const, psz_len3 const);
-extern psz_compressor* capi_psz_create_from_context(pszctx* const, psz_len3 const);
-extern psz_compressor* capi_psz_create_from_header(psz_header* const);
-extern pszerror capi_psz_release(psz_compressor*);
-extern pszerror capi_psz_decompress(
+extern psz_compressor* psz_create_default(psz_dtype const, psz_len3 const);
+extern psz_compressor* psz_create_from_context(pszctx* const, psz_len3 const);
+extern psz_compressor* psz_create_from_header(psz_header* const);
+extern pszerror psz_release(psz_compressor*);
+extern pszerror psz_decompress(
     psz_compressor*, uint8_t*, size_t const comp_len, void*, psz_len3 const, void* record,
     void* stream);
 
@@ -86,7 +86,7 @@ extern pszerror capi_psz_decompress(
     size_t comp_bytes;
     psz_header header;
 
-    pszerror error_code = capi_psz_compress(
+    pszerror error_code = psz_compress(
         comp, uncompressed, uncomp_len, eb, mode, &compressed, &comp_bytes, &header, NULL, stream);
     PyObject* py_compressed = PyBytes_FromStringAndSize((const char*)compressed, comp_bytes);
     PyObject* py_tuple = Py_BuildValue("(iO)", error_code, py_compressed);

@@ -509,7 +509,7 @@ int GPU_c_lorenzo_nd<T, PC, Buf>::kernel(
     GPU_c_lorenzo_3d<T, PC>::kernel(
         in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else
-    return CUSZ_NOT_IMPLEMENTED;
+    return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 
   return CUSZ_SUCCESS;
 }
@@ -537,7 +537,7 @@ int GPU_c_lorenzo_nd<T, PC, Buf>::compressor_kernel(
         in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
         stream);
   else
-    return CUSZ_NOT_IMPLEMENTED;
+    return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 
   return CUSZ_SUCCESS;
 }

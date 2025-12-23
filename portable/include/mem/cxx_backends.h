@@ -28,6 +28,9 @@
 #define MAKE_STDLEN3(X, Y, Z) \
   std::array<size_t, 3> { X, Y, Z }
 
+#define LEN_TO_STDLEN3(LEN) \
+  std::array<size_t, 3> { LEN.x, LEN.y, LEN.z }
+
 #define XYZ_TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
 #define STDLEN3_TO_DIM3(LEN3) dim3(LEN3[0], LEN3[1], LEN3[2])
 #define STDLEN3_TO_STRIDE3(LEN3) dim3(1, LEN3[0], LEN3[0] * LEN3[1])

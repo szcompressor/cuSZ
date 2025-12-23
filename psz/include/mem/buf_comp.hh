@@ -57,7 +57,7 @@ struct Buf_Comp {
 
   bool is_comp;
   const u4 x, y, z;
-  const size_t len;
+  const size_t len_linear;
 
   // encapsulations
   int hist_generic_grid_dim;

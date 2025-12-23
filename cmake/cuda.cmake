@@ -91,51 +91,20 @@ if(NOT TARGET PHF::phf_cu AND NOT PHF_FOUND)
 endif()
 
 # ------------------------------------------------------------------------------
-# Options (DEPRECATED options kept for back-compat)
-# ------------------------------------------------------------------------------
-
-# option(PSZ_RESEARCH_HUFFBK_CUDA "build research artifacts: create Huffman codebook on GPU" OFF)
-option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" OFF)
-
-# ------------------------------------------------------------------------------
 # Libraries
 # ------------------------------------------------------------------------------
 
-if(PSZ_REACTIVATE_THRUSTGPU)
-  add_compile_definitions(REACTIVATE_THRUSTGPU)
-
-  add_library(psz_cu_stat
-    psz/src/stat/compare.stl.cc
-    psz/src/stat/identical/all.thrust.cu
-    psz/src/stat/identical/all.cu
-    psz/src/stat/extrema/f4.cu
-    psz/src/stat/extrema/f8.cu
-    psz/src/stat/extrema/f4.thrust.cu
-    psz/src/stat/extrema/f8.thrust.cu
-    psz/src/stat/calcerr/f4.cu
-    psz/src/stat/calcerr/f8.cu
-    psz/src/stat/assess/f4.cu
-    psz/src/stat/assess/f8.cu
-    psz/src/stat/assess/f4.thrust.cu
-    psz/src/stat/assess/f8.thrust.cu
-    psz/src/stat/maxerr/f4.thrust.cu
-    psz/src/stat/maxerr/f8.thrust.cu
-    psz/src/stat/maxerr/max_err.cu
-  )
-else()
-  add_library(psz_cu_stat
-    psz/src/stat/compare.stl.cc
-    psz/src/stat/identical/all.cu
-    psz/src/stat/extrema/f4.cu
-    psz/src/stat/extrema/f8.cu
-    psz/src/stat/calcerr/f4.cu
-    psz/src/stat/calcerr/f8.cu
-    psz/src/stat/assess/f4.cu
-    psz/src/stat/assess/f8.cu
-    psz/src/stat/maxerr/max_err.cu
-  )
-endif()
-
+add_library(psz_cu_stat
+  psz/src/stat/compare.stl.cc
+  psz/src/stat/identical/all.cu
+  psz/src/stat/extrema/f4.cu
+  psz/src/stat/extrema/f8.cu
+  psz/src/stat/calcerr/f4.cu
+  psz/src/stat/calcerr/f8.cu
+  psz/src/stat/assess/f4.cu
+  psz/src/stat/assess/f8.cu
+  psz/src/stat/maxerr/max_err.cu
+)
 target_link_libraries(psz_cu_stat
   PUBLIC
     psz_cu_compile_settings

@@ -24,7 +24,7 @@ class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
   int hist_generic_block_dim;
   int hist_generic_shmem_use;
   int hist_generic_repeat;
-  size_t len;
+  size_t len_linear;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
   uint32_t nbyte[PSZ_END];

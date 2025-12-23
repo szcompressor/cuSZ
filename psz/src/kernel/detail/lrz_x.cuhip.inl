@@ -456,7 +456,7 @@ int GPU_x_lorenzo_nd<T, PC>::kernel(
   else if (d == 3)
     GPU_x_lorenzo_3d<T, PC>::kernel(in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
   else
-    return CUSZ_NOT_IMPLEMENTED;
+    return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 
   return CUSZ_SUCCESS;
 }

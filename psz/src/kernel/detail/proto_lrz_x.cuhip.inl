@@ -188,7 +188,7 @@ int GPU_PROTO_x_lorenzo_nd<T, Eq>::kernel(
             in_eq, in_outlier, out_data, data_len3, data_leap3, radius, ebx2);
   }
   else
-    return CUSZ_NOT_IMPLEMENTED;
+    return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 
   return CUSZ_SUCCESS;
 }

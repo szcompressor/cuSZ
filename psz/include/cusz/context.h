@@ -48,14 +48,12 @@ typedef psz_cli_config psz_cli_config;
 struct psz_context {
   psz_header* header;
   psz_cli_config* cli;
-  void* _future_comp_buf;
-  void* compressor;
-  void* compbuf;
+  void* buf;
   void* stream;
 
   psz_device device;
   uint16_t dict_size;
-  size_t data_len;
+  size_t len_linear;
   int ndim;
   psz_error_status last_error;
   // tracking error status
@@ -68,8 +66,8 @@ typedef psz_context psz_manager;
 typedef psz_context psz_resource;
 typedef psz_context psz_args;
 
-void capi_psz_version();
-void capi_psz_versioninfo();
+void psz_version();
+void psz_versioninfo();
 
 // Return a psz_ctx instance with default values.
 psz_ctx* pszctx_default_values();
@@ -79,8 +77,8 @@ void pszctx_set_default_values(psz_ctx*);
 
 // Use a minimal workset as the return object.
 psz_ctx* pszctx_minimal_workset(
-    psz_dtype const dtype, psz_predtype const predictor, int const quantizer_radius,
-    psz_codectype const codec);
+    psz_dtype const dtype, psz_predictor const predictor, int const quantizer_radius,
+    psz_codec const codec);
 
 void pszctx_set_rawlen(psz_ctx* ctx, size_t _x, size_t _y, size_t _z);
 void pszctx_set_len(psz_ctx* ctx, psz_len3 len);
@@ -95,10 +93,10 @@ unsigned int CLI_w(psz_args* args);
 unsigned short CLI_radius(psz_args* args);
 unsigned short CLI_bklen(psz_args* args);
 psz_dtype CLI_dtype(psz_args* args);
-psz_predtype CLI_predictor(psz_args* args);
-psz_histotype CLI_hist(psz_args* args);
-psz_codectype CLI_codec1(psz_args* args);
-psz_codectype CLI_codec2(psz_args* args);
+psz_predictor CLI_predictor(psz_args* args);
+psz_hist CLI_hist(psz_args* args);
+psz_codec CLI_codec1(psz_args* args);
+psz_codec CLI_codec2(psz_args* args);
 psz_mode CLI_mode(psz_args* args);
 double CLI_eb(psz_args* args);
 psz_interp_params* CLI_interp_params(psz_ctx* ctx);

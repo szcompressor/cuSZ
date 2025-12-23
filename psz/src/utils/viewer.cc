@@ -41,12 +41,12 @@ double get_total_time(psz::timerecord_t r)
   return total;
 }
 
-void* capi_psz_make_timerecord() { return (void*)new psz::TimeRecord; }
+void* psz_make_timerecord() { return (void*)new psz::TimeRecord; }
 
-void capi_psz_review_comp_time_breakdown(void* _r, psz_header* h)
+void psz_review_comp_time_breakdown(void* _r, psz_header* h)
 {
   auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
-  auto uncomp_bytes = h->x * h->y * h->z * sizeof_T();
+  auto uncomp_bytes = h->len.x * h->len.y * h->len.z * sizeof_T();
 
   auto r = (psz::timerecord_t)_r;
 
@@ -79,37 +79,37 @@ void capi_psz_review_comp_time_breakdown(void* _r, psz_header* h)
   for (auto& i : reflow) println_throughput(std::get<0>(i), std::get<1>(i), uncomp_bytes);
 }
 
-string const psz_report_query_pred(psz_predtype const p)
+string const psz_report_query_pred(psz_predictor const p)
 {
-  const std::unordered_map<psz_predtype const, std::string const> lut = {
-      {psz_predtype::Lorenzo, "Lorenzo"},
-      {psz_predtype::LorenzoZigZag, "Lrz-ZigZag"},
-      {psz_predtype::LorenzoProto, "Lrz-Proto"},
-      {psz_predtype::Spline, "Spline"},
+  const std::unordered_map<psz_predictor const, std::string const> lut = {
+      {psz_predictor::Lorenzo, "Lorenzo"},
+      {psz_predictor::LorenzoZigZag, "Lrz-ZigZag"},
+      {psz_predictor::LorenzoProto, "Lrz-Proto"},
+      {psz_predictor::Spline, "Spline"},
   };
   return lut.at(p);
 };
 
-string const psz_report_query_hist(psz_histotype const h)
+string const psz_report_query_hist(psz_hist const h)
 {
-  const std::unordered_map<psz_histotype const, std::string const> lut = {
-      {psz_histotype::HistogramGeneric, "Hist-generic"},
-      {psz_histotype::HistogramSparse, "Hist-sparse"},
-      {psz_histotype::NullHistogram, "Hist-(null)"},
+  const std::unordered_map<psz_hist const, std::string const> lut = {
+      {psz_hist::HistogramGeneric, "Hist-generic"},
+      {psz_hist::HistogramSparse, "Hist-sparse"},
+      {psz_hist::NullHistogram, "Hist-(null)"},
   };
   return lut.at(h);
 };
 
-string const psz_report_query_codec1(psz_codectype const c)
+string const psz_report_query_codec1(psz_codec const c)
 {
-  const std::unordered_map<psz_codectype const, std::string const> lut = {
-      {psz_codectype::Huffman, "Huffman"},
-      {psz_codectype::FZGPUCodec, "FZGPU-Codec"},
+  const std::unordered_map<psz_codec const, std::string const> lut = {
+      {psz_codec::Huffman, "Huffman"},
+      {psz_codec::FZCodec, "FZGPU-Codec"},
   };
   return lut.at(c);
 };
 
-void capi_psz_review_comp_time_from_header(psz_header* h)
+void psz_review_comp_time_from_header(psz_header* h)
 {
   printf("\n");
   // [TODO] put error status
@@ -122,7 +122,7 @@ void capi_psz_review_comp_time_from_header(psz_header* h)
   };
 
   auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
-  auto uncomp_bytes = h->x * h->y * h->z * sizeof_T();
+  auto uncomp_bytes = h->len.x * h->len.y * h->len.z * sizeof_T();
   auto fieldsize = [&](auto FIELD) { return h->entry[FIELD + 1] - h->entry[FIELD]; };
   auto __print = [&](auto str, auto num) {
     // cout << "  ";
@@ -145,17 +145,18 @@ void capi_psz_review_comp_time_from_header(psz_header* h)
 
   auto n_outlier = fieldsize(PSZHEADER_SPFMT) / (sizeof_T() + sizeof(uint32_t));
 
-  __print("logging::predictor", psz_report_query_pred(h->pred_type));
-  __print("logging::histogram", psz_report_query_hist(h->hist_type));
-  __print("logging::codec1", psz_report_query_codec1(h->codec1_type));
-  __print("logging::radius", h->radius);
-  __print("logging::bklen", h->radius * 2);
-  __print("logging::max", h->logging_max);
-  __print("logging::min", h->logging_min);
-  __print("logging::range", h->logging_max - h->logging_min);
-  __print("logging::mode", h->mode == Rel ? "Rel" : "Abs");
+  __print("logging::predictor", psz_report_query_pred(h->pipeline.predictor));
+  __print("logging::histogram", psz_report_query_hist(h->pipeline.hist));
+  __print("logging::codec1", psz_report_query_codec1(h->pipeline.codec1));
+  __print("logging::codec2", psz_report_query_codec1(h->pipeline.codec2));
+  __print("logging::radius", h->rc.radius);
+  __print("logging::bklen", h->rc.radius * 2);
+  __print("logging::max", h->max_val);
+  __print("logging::min", h->min_val);
+  __print("logging::range", h->max_val - h->min_val);
+  __print("logging::mode", h->rc.mode == Rel ? "Rel" : "Abs");
   __print("logging::input_eb", h->user_input_eb);
-  __print("logging::final_eb", h->eb);
+  __print("logging::final_eb", h->rc.eb);
   printf("--------------------------------------------------\n");
   if (comp_bytes() != 0) {
     auto cr = 1.0 * uncomp_bytes / comp_bytes();
@@ -184,21 +185,22 @@ void println_text_v2(string const prefix, string const kw, string const text)
 
 void psz_review_decomp_time_from_header(psz_header* h)
 {
-  println_text_v2("component", "predictor", psz_report_query_pred(h->pred_type));
-  println_text_v2("component", "histogram", psz_report_query_hist(h->hist_type));
-  println_text_v2("component", "codec1", psz_report_query_codec1(h->codec1_type));
-  println_text_v2("parameter", "radius", to_string(h->radius));
-  println_text_v2("parameter", "bklen", to_string(h->radius * 2));
+  println_text_v2("component", "predictor", psz_report_query_pred(h->pipeline.predictor));
+  println_text_v2("component", "histogram", psz_report_query_hist(h->pipeline.hist));
+  println_text_v2("component", "codec1", psz_report_query_codec1(h->pipeline.codec1));
+  // println_text_v2("component", "codec2", psz_report_query_codec2(h->pipeline.codec2));
+  println_text_v2("parameter", "radius", to_string(h->rc.radius));
+  println_text_v2("parameter", "bklen", to_string(h->rc.radius * 2));
 }
 
-void capi_psz_review_compression(void* r, psz_header* h)
+void psz_review_compression(void* r, psz_header* h)
 {
   printf("\n(c) COMPRESSION REPORT\n");
   psz_review_comp_time_from_header(h);
   psz_review_comp_time_breakdown((psz::timerecord_t)r, h);
 }
 
-void capi_psz_review_decompression(void* r, size_t bytes)
+void psz_review_decompression(void* r, size_t bytes)
 {
   printf(
       "\n\e[1m\e[31m"

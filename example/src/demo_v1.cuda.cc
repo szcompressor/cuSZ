@@ -32,7 +32,7 @@ void* comp_timerecord;
 void* decomp_timerecord;
 
 void demo_compress(
-    psz_predtype predictor, psz_len3 const len3, uint8_t** compressed, psz_header* header,
+    psz_predictor predictor, psz_len3 const len3, uint8_t** compressed, psz_header* header,
     cudaStream_t stream)
 {
   uint8_t* p_compressed;
@@ -56,7 +56,7 @@ void demo_compress(
 void demo_decompress(uint8_t* compressed, psz_header* header, cudaStream_t stream)
 {
   auto comp_len = pszheader_filesize(header);
-  psz_len3 decomp_len = psz_len3{header->x, header->y, header->z};
+  psz_len3 decomp_len = header->len;
 
   auto compressor = psz_create_from_header(header);
   psz_decompress(
@@ -65,7 +65,7 @@ void demo_decompress(uint8_t* compressed, psz_header* header, cudaStream_t strea
   psz_release(compressor);
 }
 
-void demo(std::string fname, psz_len3 len3, psz_predtype predictor)
+void demo(std::string fname, psz_len3 len3, psz_predictor predictor)
 {
   psz_header header;
   uint8_t* compressed;

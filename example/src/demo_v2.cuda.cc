@@ -31,15 +31,15 @@ double *f8d_uncomp, *f8h_uncomp;
 double *f8d_decomp, *f8h_decomp;
 
 void f4demo_compress_v2(
-    psz_predtype predictor, psz_len3 const len3, psz_header* header, uint8_t** compressed,
+    psz_predictor predictor, psz_len3 const len3, psz_header* header, uint8_t** compressed,
     size_t* compressed_len, cudaStream_t stream)
 {
   uint8_t* d_internal_compressed{nullptr};
-  auto m = psz_create_resource_manager(F4, len3.x, len3.y, len3.z, stream);
+  auto m = psz_create_resource_manager(
+      F4, len3, {predictor, DEFAULT_HISTOGRAM, Huffman, NullCodec}, stream);
 
   psz_compress_float(
-      m, {predictor, DEFAULT_HISTOGRAM, Huffman, NULL_CODEC, mode, eb, DEFAULT_RADIUS}, f4d_uncomp,
-      header, &d_internal_compressed, compressed_len);
+      m, {mode, eb, DEFAULT_RADIUS}, f4d_uncomp, header, &d_internal_compressed, compressed_len);
 
   // INSTRUCTION: need to copy out becore releasing resource.
   cudaMallocManaged(compressed, *compressed_len);
@@ -49,15 +49,15 @@ void f4demo_compress_v2(
 }
 
 void f8demo_compress_v2(
-    psz_predtype predictor, psz_len3 const len3, psz_header* header, uint8_t** compressed,
+    psz_predictor predictor, psz_len3 const len3, psz_header* header, uint8_t** compressed,
     size_t* compressed_len, cudaStream_t stream)
 {
   uint8_t* d_internal_compressed{nullptr};
-  auto m = psz_create_resource_manager(F8, len3.x, len3.y, len3.z, stream);
+  auto m = psz_create_resource_manager(
+      F8, len3, {predictor, DEFAULT_HISTOGRAM, Huffman, NULL_CODEC}, stream);
 
   psz_compress_double(
-      m, {predictor, DEFAULT_HISTOGRAM, Huffman, NULL_CODEC, mode, eb, DEFAULT_RADIUS}, f8d_uncomp,
-      header, &d_internal_compressed, compressed_len);
+      m, {mode, eb, DEFAULT_RADIUS}, f8d_uncomp, header, &d_internal_compressed, compressed_len);
 
   // INSTRUCTION: need to copy out becore releasing resource.
   cudaMallocManaged(compressed, *compressed_len);
@@ -80,7 +80,7 @@ void f8demo_decompress_v2(psz_header* header, uint8_t* compressed, cudaStream_t 
   psz_release_resource(m);
 }
 
-void f4demo(std::string fname, psz_len3 len3, psz_predtype predictor)
+void f4demo(std::string fname, psz_len3 len3, psz_predictor predictor)
 {
   psz_header header;
   uint8_t* compressed;
@@ -107,7 +107,7 @@ void f4demo(std::string fname, psz_len3 len3, psz_predtype predictor)
   cudaStreamDestroy(stream);
 }
 
-void f8demo(std::string fname, psz_len3 len3, psz_predtype predictor)
+void f8demo(std::string fname, psz_len3 len3, psz_predictor predictor)
 {
   psz_header header;
   uint8_t* compressed;

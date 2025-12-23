@@ -26,9 +26,9 @@ using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord = std::vector<TimeRecordTuple>;
 using timerecord_t = TimeRecord*;
 
-psz_compressor* capi_psz_create(
-    psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predtype const predictor,
-    int const quantizer_radius, psz_codectype const codec)
+psz_compressor* psz_create(
+    psz_dtype const dtype, psz_len3 const uncomp_len3, psz_predictor const predictor,
+    int const quantizer_radius, psz_codec const codec)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr,
@@ -39,7 +39,7 @@ psz_compressor* capi_psz_create(
 
   pszctx_set_len(comp->ctx, uncomp_len3);
   phf_coarse_tune(
-      comp->ctx->data_len, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
+      comp->ctx->len_linear, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
   if (dtype == F4 or dtype == F8)
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
@@ -49,7 +49,7 @@ psz_compressor* capi_psz_create(
   return comp;
 }
 
-psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const uncomp_len3)
+psz_compressor* psz_create_default(psz_dtype const dtype, psz_len3 const uncomp_len3)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr, .ctx = pszctx_default_values(), .last_error = CUSZ_SUCCESS};
@@ -58,7 +58,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
 
   pszctx_set_len(comp->ctx, uncomp_len3);
   phf_coarse_tune(
-      comp->ctx->data_len, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
+      comp->ctx->len_linear, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
   if (dtype == F4 or dtype == F8)
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
@@ -68,7 +68,7 @@ psz_compressor* capi_psz_create_default(psz_dtype const dtype, psz_len3 const un
   return comp;
 }
 
-psz_compressor* capi_psz_create_from_context(psz_ctx* const ctx, psz_len3 uncomp_len3)
+psz_compressor* psz_create_from_context(psz_ctx* const ctx, psz_len3 uncomp_len3)
 {
   auto comp = new psz_compressor{.compressor = nullptr, .ctx = ctx, .last_error = CUSZ_SUCCESS};
 
@@ -76,7 +76,7 @@ psz_compressor* capi_psz_create_from_context(psz_ctx* const ctx, psz_len3 uncomp
   auto dtype = ctx->header->dtype;
 
   phf_coarse_tune(
-      comp->ctx->data_len, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
+      comp->ctx->len_linear, &comp->ctx->header->vle_sublen, &comp->ctx->header->vle_pardeg);
   if (dtype == F4 or dtype == F8)
     comp->compressor = dtype == F4 ? (void*)(new psz::CompressorF4(comp->ctx))
                                    : (void*)(new psz::CompressorF8(comp->ctx));
@@ -86,7 +86,7 @@ psz_compressor* capi_psz_create_from_context(psz_ctx* const ctx, psz_len3 uncomp
   return comp;
 }
 
-psz_compressor* capi_psz_create_from_header(psz_header* const h)
+psz_compressor* psz_create_from_header(psz_header* const h)
 {
   auto comp = new psz_compressor{
       .compressor = nullptr, .ctx = pszctx_default_values(), .last_error = CUSZ_SUCCESS};
@@ -102,7 +102,7 @@ psz_compressor* capi_psz_create_from_header(psz_header* const h)
   return comp;
 }
 
-pszerror capi_psz_release(psz_compressor* comp)
+pszerror psz_release(psz_compressor* comp)
 {
   auto dtype = comp->ctx->header->dtype;
   if (dtype == F4)
@@ -116,12 +116,12 @@ pszerror capi_psz_release(psz_compressor* comp)
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_compress(
+pszerror psz_compress(
     psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
     uint8_t** comped, size_t* comp_bytes, psz_header* header, void* record, void* stream)
 {
-  comp->ctx->header->eb = eb;
-  comp->ctx->header->mode = mode;
+  comp->ctx->header->rc.eb = eb;
+  comp->ctx->header->rc.mode = mode;
   comp->ctx->header->user_input_eb = eb;
   auto len = in_len3.x * in_len3.y * in_len3.z;
   auto dtype = comp->ctx->header->dtype;
@@ -133,9 +133,9 @@ pszerror capi_psz_compress(
     else
       GPU_probe_extrema((f8*)d_in, len, _max_val, _min_val, _rng);
 
-    comp->ctx->header->eb *= _rng;
-    comp->ctx->header->logging_max = _max_val;
-    comp->ctx->header->logging_min = _min_val;
+    comp->ctx->header->rc.eb *= _rng;
+    comp->ctx->header->max_val = _max_val;
+    comp->ctx->header->min_val = _min_val;
   }
 
   if (dtype == F4) {
@@ -165,7 +165,7 @@ pszerror capi_psz_compress(
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_decompress(
+pszerror psz_decompress(
     psz_compressor* comp, uint8_t* comped, size_t const comp_len, void* decomped,
     psz_len3 const decomp_len, void* record, void* stream)
 {
@@ -193,7 +193,7 @@ pszerror capi_psz_decompress(
   return CUSZ_SUCCESS;
 }
 
-pszerror capi_psz_clear_buffer(psz_compressor* comp)
+pszerror psz_clear_buffer(psz_compressor* comp)
 {
   auto dtype = comp->ctx->header->dtype;
   if (dtype == F4) {
@@ -217,30 +217,22 @@ template <typename T, typename E>
 using CP = psz::compression_pipeline<T, E>;
 
 psz_resource* psz_create_resource_manager(
-    psz_dtype t, uint32_t x, uint32_t y, uint32_t z, void* stream)
+    psz_dtype dtype, psz_len len, psz_pipeline pipeline, void* stream)
 {
   auto m = new psz_resource;
 
-  // FUTURE: .radius -> .max_radius; adjust radius in RC
   m->header = new psz_header{
-      .dtype = t,
-      .pred_type = Lorenzo,
-      .hist_type = HistogramGeneric,
-      .codec1_type = Huffman,
-      .x = x,
-      .y = y,
-      .z = z,
-      .w = 1,
+      .dtype = dtype, .pipeline = pipeline, .len = len
+      // .x = (u4)len.x,
+      // .y = (u4)len.y,
+      // .z = (u4)len.z,
+      // .w = 1,
   };
 
-  m->data_len = x * y * z;
-  // m->ndim = 3;
+  m->len_linear = len.x * len.y * len.z;
   m->cli = nullptr;
-
-  phf_coarse_tune(m->data_len, &m->header->vle_sublen, &m->header->vle_pardeg);
-
-  m->compbuf = t == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
-
+  phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
+  m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
   m->stream = stream;
 
   return m;
@@ -251,11 +243,11 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   auto m = new psz_resource;
   m->header = new psz_header;
   memcpy(m->header, header, sizeof(psz_header));
-  m->dict_size = m->header->radius * 2;
-  m->data_len = header->x * header->y * header->z;
+  m->dict_size = m->header->rc.radius * 2;
+  m->len_linear = header->len.x * header->len.y * header->len.z;
   m->cli = nullptr;
 
-  m->compbuf = header->dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
+  m->buf = header->dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
 
   m->stream = stream;
 
@@ -265,18 +257,18 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
 void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* header)
 {
   memcpy(manager->header, header, sizeof(psz_header));
-  manager->dict_size = manager->header->radius * 2;
-  manager->data_len = header->x * header->y * header->z;
+  manager->dict_size = manager->header->rc.radius * 2;
+  manager->len_linear = header->len.x * header->len.y * header->len.z;
 }
 
 int psz_release_resource(psz_resource* manager)
 {
   auto dtype = manager->header->dtype;
   if (dtype == F4) {
-    if (manager->compbuf) delete (psz::Buf_Comp<f4, u2>*)manager->compbuf;
+    if (manager->buf) delete (psz::Buf_Comp<f4, u2>*)manager->buf;
   }
   else if (dtype == F8) {
-    if (manager->compbuf) delete (psz::Buf_Comp<f8, u2>*)manager->compbuf;
+    if (manager->buf) delete (psz::Buf_Comp<f8, u2>*)manager->buf;
   }
   else
     return PSZ_ABORT_UNSUPPORTED_TYPE;
@@ -288,14 +280,9 @@ int psz_release_resource(psz_resource* manager)
   return 0;
 }
 
-#define RUNTIME_SAVE_CONFIG()          \
-  m->header->pred_type = rc.predictor; \
-  m->header->codec1_type = rc.codec1;  \
-  m->header->hist_type = rc.hist;      \
-  m->header->mode = rc.mode;           \
-  m->header->eb = rc.eb;               \
-  m->header->user_input_eb = rc.eb;    \
-  m->header->radius = rc.radius;       \
+#define RUNTIME_SAVE_CONFIG2()      \
+  m->header->rc = rc;               \
+  m->header->user_input_eb = rc.eb; \
   m->dict_size = rc.radius * 2;
 
 #define RUNTIME_CHECK_RADIUS(Type)                   \
@@ -304,67 +291,63 @@ int psz_release_resource(psz_resource* manager)
     status = PSZ_WARN_RADIUS_TOO_LARGE;              \
   }
 
-#define RUNTIME_CHANGE_EB_IF_REL(Type)                                         \
-  if (rc.mode == Rel) {                                                        \
-    double _max_val, _min_val, _rng;                                           \
-    GPU_probe_extrema<Type>(IN_d_data, m->data_len, _max_val, _min_val, _rng); \
-    m->header->eb *= _rng;                                                     \
-    rc.eb = m->header->eb;                                                     \
-    m->header->logging_max = _max_val;                                         \
-    m->header->logging_min = _min_val;                                         \
+#define RUNTIME_CHANGE_EB_IF_REL(Type)                                           \
+  if (rc.mode == Rel) {                                                          \
+    double _max_val, _min_val, _rng;                                             \
+    GPU_probe_extrema<Type>(                                                     \
+        IN_d_data, m->len_linear, m->header->max_val, m->header->min_val, _rng); \
+    m->header->rc.eb *= _rng;                                                    \
   }
 
 int psz_compress_float(
-    psz_resource* m, psz_rc rc, float* IN_d_data, psz_header* OUT_compressed_metadata,
-    uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes)
+    psz_resource* m, psz_rc2 rc, float* IN_d_data, psz_header* OUT_header,
+    uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
 
   RUNTIME_CHECK_RADIUS(float);
-  RUNTIME_SAVE_CONFIG();
+  RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
 
   CP<f4, u2>::compress(
-      m, (psz_buf<f4, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
-      m->stream);
-  *OUT_compressed_metadata = *(m->header);
-  if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->compbuf, m->stream);
+      m, (psz_buf<f4, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+  *OUT_header = *(m->header);
+  // if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
 
   return status;
 }
 
 int psz_compress_double(
-    psz_resource* m, psz_rc rc, double* IN_d_data, psz_header* OUT_compressed_metadata,
-    uint8_t** OUT_dptr_compressed, size_t* OUT_compressed_bytes)
+    psz_resource* m, psz_rc2 rc, double* IN_d_data, psz_header* OUT_header,
+    uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
 
   RUNTIME_CHECK_RADIUS(double);
-  RUNTIME_SAVE_CONFIG();
+  RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(double);
 
   CP<f8, u2>::compress(
-      m, (psz_buf<f8, u2>*)m->compbuf, IN_d_data, OUT_dptr_compressed, OUT_compressed_bytes,
-      m->stream);
-  *OUT_compressed_metadata = *(m->header);
-  if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->compbuf, m->stream);
+      m, (psz_buf<f8, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+  *OUT_header = *(m->header);
+  if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->buf, m->stream);
 
   return status;
 }
 
-int psz_compress_analyize_float(psz_resource* m, psz_rc rc, float* IN_d_data, u4* exported_h_hist)
+int psz_compress_analyize_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u4* exported_h_hist)
 {
   int status = PSZ_SUCCESS;
 
   RUNTIME_CHECK_RADIUS(float);
-  RUNTIME_SAVE_CONFIG();
+  RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
 
   // TODO redundant
-  m->header->eb = rc.eb;
+  m->header->rc.eb = rc.eb;
 
   CP<f4, u2>::compress_analysis(
-      m, (psz_buf<f4, u2>*)m->compbuf, IN_d_data, exported_h_hist, m->stream);
+      m, (psz_buf<f4, u2>*)m->buf, IN_d_data, exported_h_hist, m->stream);
 
   return status;
 }
@@ -374,7 +357,7 @@ int psz_decompress_float(
     float* OUT_d_decompressed)
 {
   CP<f4, u2>::decompress(
-      m->header, (psz_buf<f4, u2>*)m->compbuf, IN_d_compressed, OUT_d_decompressed, m->stream);
+      m->header, (psz_buf<f4, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
 
   return PSZ_SUCCESS;
 }
@@ -384,7 +367,7 @@ int psz_decompress_double(
     double* OUT_d_decompressed)
 {
   CP<f8, u2>::decompress(
-      m->header, (psz_buf<f8, u2>*)m->compbuf, IN_d_compressed, OUT_d_decompressed, m->stream);
+      m->header, (psz_buf<f8, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
 
   return PSZ_SUCCESS;
 }
