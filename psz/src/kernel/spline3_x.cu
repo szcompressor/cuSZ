@@ -2,30 +2,26 @@
 
 #include <cuda_runtime.h>
 
-#include "cusz/type.h"
 #include "detail/spline3_md.inl"
 #include "kernel/predictor.hh"
 #include "mem/cxx_backends.h"
-#include "mem/cxx_sp_gpu.h"
 
-#define BLOCK_DIM_SIZE 384
-#define LEVEL 6
-#define SPLINE_DIM_2 2
-#define SPLINE_DIM_3 3
-#define AnchorBlockSizeX 64
-#define AnchorBlockSizeY 64
-#define AnchorBlockSizeZ 1
-#define numAnchorBlockX 1
-#define numAnchorBlockY 1
-#define numAnchorBlockZ 1
-#define BLOCK16 16
-#define PROFILE_BLOCK_SIZE_X 4
-#define PROFILE_BLOCK_SIZE_Y 4
-#define PROFILE_BLOCK_SIZE_Z 4
-#define PROFILE_NUM_BLOCK_X 4
-#define PROFILE_NUM_BLOCK_Y 4
-#define PROFILE_NUM_BLOCK_Z 4
 constexpr int DEFAULT_BLOCK_SIZE = BLOCK_DIM_SIZE;
+constexpr int LEVEL = 6;
+constexpr int SPLINE_DIM_2 = 2;
+constexpr int SPLINE_DIM_3 = 3;
+constexpr int AnchorBlockSizeX = 64;
+constexpr int AnchorBlockSizeY = 64;
+constexpr int AnchorBlockSizeZ = 1;
+constexpr int numAnchorBlockX = 1;
+constexpr int numAnchorBlockY = 1;
+constexpr int numAnchorBlockZ = 1;
+constexpr int PROFILE_BLOCK_SIZE_X = 4;
+constexpr int PROFILE_BLOCK_SIZE_Y = 4;
+constexpr int PROFILE_BLOCK_SIZE_Z = 4;
+constexpr int PROFILE_NUM_BLOCK_X = 4;
+constexpr int PROFILE_NUM_BLOCK_Y = 4;
+constexpr int PROFILE_NUM_BLOCK_Z = 4;
 
 template <typename T, typename E, typename FP>
 int psz::module::GPU_spline_reconstruct<T, E, FP>::kernel_v1(

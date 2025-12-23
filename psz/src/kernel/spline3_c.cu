@@ -2,30 +2,27 @@
 
 #include <cuda_runtime.h>
 
-#include "cusz/type.h"
 #include "detail/spline3_md.inl"
 #include "kernel/predictor.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 
-#define BLOCK_DIM_SIZE 384
-#define LEVEL 6
-#define SPLINE_DIM_2 2
-#define SPLINE_DIM_3 3
-#define AnchorBlockSizeX 64
-#define AnchorBlockSizeY 64
-#define AnchorBlockSizeZ 1
-#define numAnchorBlockX 1
-#define numAnchorBlockY 1
-#define numAnchorBlockZ 1
-#define BLOCK16 16
-#define PROFILE_BLOCK_SIZE_X 4
-#define PROFILE_BLOCK_SIZE_Y 4
-#define PROFILE_BLOCK_SIZE_Z 4
-#define PROFILE_NUM_BLOCK_X 4
-#define PROFILE_NUM_BLOCK_Y 4
-#define PROFILE_NUM_BLOCK_Z 4
 constexpr int DEFAULT_BLOCK_SIZE = BLOCK_DIM_SIZE;
+constexpr int LEVEL = 6;
+constexpr int SPLINE_DIM_2 = 2;
+constexpr int SPLINE_DIM_3 = 3;
+constexpr int AnchorBlockSizeX = 64;
+constexpr int AnchorBlockSizeY = 64;
+constexpr int AnchorBlockSizeZ = 1;
+constexpr int numAnchorBlockX = 1;
+constexpr int numAnchorBlockY = 1;
+constexpr int numAnchorBlockZ = 1;
+constexpr int PROFILE_BLOCK_SIZE_X = 4;
+constexpr int PROFILE_BLOCK_SIZE_Y = 4;
+constexpr int PROFILE_BLOCK_SIZE_Z = 4;
+constexpr int PROFILE_NUM_BLOCK_X = 4;
+constexpr int PROFILE_NUM_BLOCK_Y = 4;
+constexpr int PROFILE_NUM_BLOCK_Z = 4;
 
 #define SETUP                                                                                \
   auto div3 = [](dim3 len, dim3 sublen) {                                                    \
@@ -45,10 +42,8 @@ template <typename T, typename E, typename FP>
 int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
     T* data, psz_len const data_len3, T* anchor, psz_len const anchor_len3, E* ectrl,
     void* _outlier, double eb, double rel_eb, uint32_t radius, INTERPOLATION_PARAMS& intp_param,
-    T* d_profiling_errors, T* h_profiling_errors, u4 const pe_len, void* stream)
+    T* d_profiled_errors, T* h_profiled_errors, u4 const pe_len, void* stream)
 {
-  [[deprecated("delete this")]] float* time;
-
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   using Compact = _portable::compact_GPU_DRAM<T>;
@@ -88,16 +83,14 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
           T*, SPLINE_DIM_3, PROFILE_BLOCK_SIZE_X, PROFILE_BLOCK_SIZE_Y, PROFILE_BLOCK_SIZE_Z,
           PROFILE_NUM_BLOCK_X, PROFILE_NUM_BLOCK_Y, PROFILE_NUM_BLOCK_Z, DEFAULT_BLOCK_SIZE>  //
           <<<auto_tuning_grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-              data, l3,
-              data_stride3,  //
-              d_profiling_errors);
+              data, l3, data_stride3, d_profiled_errors);
 
       cudaStreamSynchronize((cudaStream_t)stream);
       // TIME_ELAPSED_GPUEVENT(&att_time);
 
       CHECK_GPU(cudaMemcpy(
-          h_profiling_errors, d_profiling_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
-      auto errors = h_profiling_errors;
+          h_profiled_errors, d_profiled_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
+      auto errors = h_profiled_errors;
 
       // printf("host %.4f %.4f\n",errors[0],errors[1]);
       bool do_reverse = (errors[1] > 3 * errors[0]);
@@ -110,14 +103,14 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
             T*, SPLINE_DIM_3, PROFILE_NUM_BLOCK_X, PROFILE_NUM_BLOCK_Y, PROFILE_NUM_BLOCK_Z,
             DEFAULT_BLOCK_SIZE>  //
             <<<auto_tuning_grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-                data, l3, data_stride3, d_profiling_errors);
+                data, l3, data_stride3, d_profiled_errors);
 
         cudaStreamSynchronize((cudaStream_t)stream);
         // TIME_ELAPSED_GPUEVENT(&att_time);
 
         CHECK_GPU(cudaMemcpy(
-            h_profiling_errors, d_profiling_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
-        auto errors = h_profiling_errors;
+            h_profiled_errors, d_profiled_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
+        auto errors = h_profiled_errors;
 
         bool do_nat = errors[0] + errors[2] + errors[4] > errors[1] + errors[3] + errors[5];
         intp_param.use_natural[0] = intp_param.use_natural[1] = intp_param.use_natural[2] =
@@ -132,14 +125,14 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
         cusz::c_spline_profiling_data_2<
             T*, SPLINE_DIM_2, PROFILE_NUM_BLOCK_X, PROFILE_NUM_BLOCK_Y, 1, DEFAULT_BLOCK_SIZE>  //
             <<<auto_tuning_grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-                data, l3, data_stride3, d_profiling_errors);
+                data, l3, data_stride3, d_profiled_errors);
 
         cudaStreamSynchronize((cudaStream_t)stream);
         // TIME_ELAPSED_GPUEVENT(&att_time);
 
         CHECK_GPU(cudaMemcpy(
-            h_profiling_errors, d_profiling_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
-        auto errors = h_profiling_errors;
+            h_profiled_errors, d_profiled_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
+        auto errors = h_profiled_errors;
         bool do_nat = errors[0] + errors[2] > errors[1] + errors[3];
         intp_param.use_natural[0] = intp_param.use_natural[1] = intp_param.use_natural[2] =
             intp_param.use_natural[3] = do_nat;
@@ -161,7 +154,7 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
 
       cusz::
           reset_errors<<<dim3(1, 1, 1), dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-              d_profiling_errors);
+              d_profiled_errors);
 
       auto calc_start_size = [&](auto dim, auto& s_start, auto& s_size, auto BLOCKSIZE) {
         auto mid = dim / 2;
@@ -187,7 +180,7 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
 
       auto block_num = s_size_x * s_size_y * s_size_z;
 
-      auto errors = h_profiling_errors;
+      auto errors = h_profiled_errors;
 
       double best_ave_pre_error[LEVEL];
       auto calcnum = [&](auto N) { return N * (7 * N * N + 9 * N + 3); };
@@ -202,14 +195,14 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
                (cudaStream_t)stream>>>(
                 data, l3, data_stride3, dim3(s_start_x, s_start_y, s_start_z),
                 dim3(s_size_x, s_size_y, s_size_z), dim3(S_STRIDE, S_STRIDE, S_STRIDE), eb_r, ebx2,
-                intp_param, d_profiling_errors, true);
+                intp_param, d_profiled_errors, true);
 
         cudaStreamSynchronize((cudaStream_t)stream);
         // TIME_ELAPSED_GPUEVENT(&temp_time);
 
         att_time += temp_time;
         CHECK_GPU(cudaMemcpy(
-            h_profiling_errors, d_profiling_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
+            h_profiled_errors, d_profiled_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
 
         if (errors[0] > errors[1]) {
           best_error = errors[1];
@@ -285,14 +278,14 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
                (cudaStream_t)stream>>>(
                 data, l3, data_stride3, dim3(s_start_x, s_start_y, s_start_z),
                 dim3(s_size_x, s_size_y, s_size_z), dim3(S_STRIDE, S_STRIDE, S_STRIDE), eb_r, ebx2,
-                intp_param, d_profiling_errors, true);
+                intp_param, d_profiled_errors, true);
 
         cudaStreamSynchronize((cudaStream_t)stream);
         // TIME_ELAPSED_GPUEVENT(&temp_time);
 
         att_time += temp_time;
         CHECK_GPU(cudaMemcpy(
-            h_profiling_errors, d_profiling_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
+            h_profiled_errors, d_profiled_errors, pe_len * sizeof(u4), cudaMemcpyDeviceToHost));
 
         if (errors[0] > errors[1]) {
           best_error = errors[1];
@@ -394,7 +387,7 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
       if (intp_param.auto_tuning == 4) {
         cusz::reset_errors<<<
             dim3(1, 1, 1), dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            d_profiling_errors);
+            d_profiled_errors);
 
         float temp_time = 0;
 
@@ -405,7 +398,7 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
                  (cudaStream_t)stream>>>(
                   data, l3, data_stride3, dim3(s_start_x, s_start_y, s_start_z),
                   dim3(s_size_x, s_size_y, s_size_z), dim3(S_STRIDE, S_STRIDE, S_STRIDE), eb_r,
-                  ebx2, intp_param, d_profiling_errors, false);
+                  ebx2, intp_param, d_profiled_errors, false);
         else
           cusz::pa_spline_infprecis_data<
               T*, float, LEVEL, SPLINE_DIM_2, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
@@ -414,14 +407,14 @@ int psz::module::GPU_spline_construct<T, E, FP>::kernel_v1(
                  (cudaStream_t)stream>>>(
                   data, l3, data_stride3, dim3(s_start_x, s_start_y, s_start_z),
                   dim3(s_size_x, s_size_y, s_size_z), dim3(S_STRIDE, S_STRIDE, S_STRIDE), eb_r,
-                  ebx2, intp_param, d_profiling_errors, false);
+                  ebx2, intp_param, d_profiled_errors, false);
 
         cudaStreamSynchronize((cudaStream_t)stream);
         // TIME_ELAPSED_GPUEVENT(&temp_time);
 
         att_time += temp_time;
 
-        auto errors = h_profiling_errors;
+        auto errors = h_profiled_errors;
         // for(int i = 0; i < 11; i++)
         //   printf("%d %.4e\n", i, errors[i]);
 
