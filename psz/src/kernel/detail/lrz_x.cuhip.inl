@@ -1,28 +1,10 @@
-/**
- * @file l23_x.cuhip.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2022-12-22
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include "cusz/type.h"
 #include "detail/composite.hh"
 #include "kernel/launch.hh"
 #include "kernel/predictor.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
-#include "utils/err.hh"
-#include "utils/timer.hh"
 #include "wave32.cuhip.inl"
-
-#define Z(LEN3) LEN3[2]
-#define Y(LEN3) LEN3[1]
-#define X(LEN3) LEN3[0]
-#define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
 
 namespace psz {
 
@@ -385,9 +367,9 @@ template <typename T, class PC>
 struct GPU_x_lorenzo_1d {
   static int kernel(
       typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      stdlen3 const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
+      psz_len const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
   {
-    auto data_len3 = TO_DIM3(_data_len3);
+    auto data_len3 = LEN_TO_DIM3(_data_len3);
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
     using lrz1 = config::x_lorenzo<1>;
 
@@ -404,9 +386,9 @@ template <typename T, class PC>
 struct GPU_x_lorenzo_2d {
   static int kernel(
       typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      stdlen3 const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
+      psz_len const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
   {
-    auto data_len3 = TO_DIM3(_data_len3);
+    auto data_len3 = LEN_TO_DIM3(_data_len3);
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
     using lrz2 = config::x_lorenzo<2, 32>;
 
@@ -423,9 +405,9 @@ template <typename T, class PC>
 struct GPU_x_lorenzo_3d {
   static int kernel(
       typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      stdlen3 const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
+      psz_len const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
   {
-    auto data_len3 = TO_DIM3(_data_len3);
+    auto data_len3 = LEN_TO_DIM3(_data_len3);
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
     using lrz3 = config::x_lorenzo<3>;
 
@@ -441,10 +423,10 @@ struct GPU_x_lorenzo_3d {
 
 template <typename T, class PC>
 int GPU_x_lorenzo_nd<T, PC>::kernel(
-    typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, stdlen3 const _data_len3,
+    typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const _data_len3,
     f8 const eb, uint16_t const radius, void* stream)
 {
-  auto data_len3 = TO_DIM3(_data_len3);
+  auto data_len3 = LEN_TO_DIM3(_data_len3);
   auto d = psz::config::utils::ndim(data_len3);
 
   auto ebx2 = eb * 2;

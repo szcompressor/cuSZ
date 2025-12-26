@@ -10,15 +10,19 @@
  */
 
 #include <fstream>
+#include <iostream>
 
 #include "compressor.hh"
 #include "cusz.h"
 #include "cusz_rev1.h"
 #include "mem/cxx_backends.h"
-#include "utils/err.hh"
 #include "utils/io.hh"
 #include "utils/query.hh"
 #include "utils/viewer.hh"
+
+using std::cerr;
+using std::cout;
+using std::endl;
 
 using _portable::utils::fromfile;
 using _portable::utils::tofile;

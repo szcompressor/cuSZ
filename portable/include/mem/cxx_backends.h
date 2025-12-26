@@ -25,6 +25,9 @@
 #include "cxx_mem_ops.h"
 #include "cxx_smart_ptr.h"
 
+#define LEN_TO_DIM3(LEN) dim3(LEN.x, LEN.y, LEN.z)
+#define LEN_TO_STRIDE3(LEN) dim3(1, LEN.x, LEN.x* LEN.y)
+
 #define MAKE_STDLEN3(X, Y, Z) \
   std::array<size_t, 3> { X, Y, Z }
 

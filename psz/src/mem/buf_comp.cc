@@ -1,11 +1,12 @@
 #include "mem/buf_comp.hh"
 
+#include "cusz/type.h"
+
 template <typename T, typename E>
 struct psz::Buf_Comp<T, E>::impl {
-  // actually dups in Buf_Comp
-  const u4 x, y, z;
-  const size_t len;
-  const size_t anchor512_len;  // for spline
+  const psz_len len;
+  const size_t len_linear;
+  const size_t len_linear_anchor;  // for spline
 
   // state
   bool is_comp;
@@ -36,23 +37,28 @@ struct psz::Buf_Comp<T, E>::impl {
     return _div(x, BLK) * _div(y, BLK) * _div(z, BLK);
   }
 
- public:
-  impl(u4 x, u4 y, u4 z, BufToggle_Comp* toggle) :
-      x(x), y(y), z(z), len(x * y * z), anchor512_len(set_anchor_len(x, y, z))
+  static size_t set_anchor_len(psz_len len)
   {
-    if (toggle->use_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len);
+    return _div(len.x, BLK) * _div(len.y, BLK) * _div(len.z, BLK);
+  }
+
+ public:
+  impl(psz_len _len, BufToggle_Comp* toggle) :
+      len(_len), len_linear(_len.x * _len.y * _len.z), len_linear_anchor(set_anchor_len(_len))
+  {
+    if (toggle->use_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len_linear);
     if (toggle->use_outlier) {
-      buf_outlier = std::make_unique<Buf_Outlier>(len * OUTLIER_RATIO);
-      buf_outlier2 = std::make_unique<Buf_Outlier2>(len * OUTLIER_RATIO);
+      buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
+      buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
     }
-    if (toggle->use_anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
+    if (toggle->use_anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
     if (toggle->use_hist) {
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
     }
     if (toggle->use_compressed) {
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len * 4 / 2);
-      h_compressed = MAKE_UNIQUE_HOST(BYTE, len * 4 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * 4 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * 4 / 2);
     }
     if (toggle->use_top1) {
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
@@ -60,24 +66,27 @@ struct psz::Buf_Comp<T, E>::impl {
     }
   }
 
-  impl(u4 x, u4 y, u4 z, bool _is_comp) :
-      is_comp(_is_comp), x(x), y(y), z(z), len(x * y * z), anchor512_len(set_anchor_len(x, y, z))
+  impl(psz_len _len, bool _is_comp) :
+      is_comp(_is_comp),
+      len(_len),
+      len_linear(_len.x * _len.y * _len.z),
+      len_linear_anchor(set_anchor_len(_len))
   {
     // align 4Ki for (essentially) FZG
-    d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len));
+    d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
 
     if (is_comp) {
-      d_anchor = MAKE_UNIQUE_DEVICE(T, anchor512_len);
+      d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len * 4 / 2);
-      h_compressed = MAKE_UNIQUE_HOST(BYTE, len * 4 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * 4 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * 4 / 2);
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
 
-      buf_outlier = std::make_unique<Buf_Outlier>(len * OUTLIER_RATIO);
-      buf_outlier2 = std::make_unique<Buf_Outlier2>(len * OUTLIER_RATIO);
-      buf_hf = std::make_unique<Buf_HF>(len, max_bklen);
+      buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
+      buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
+      buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen);
     }
   }
 
@@ -85,10 +94,10 @@ struct psz::Buf_Comp<T, E>::impl {
 
   void clear_buffer()
   {
-    memset_device(d_ectrl.get(), len);
+    memset_device(d_ectrl.get(), len_linear);
     memset_device(d_hist.get(), max_bklen);
-    memset_device(d_anchor.get(), anchor512_len);
-    memset_device(d_compressed.get(), len * 4 / 2);
+    memset_device(d_anchor.get(), len_linear_anchor);
+    memset_device(d_compressed.get(), len_linear * 4 / 2);
     // TODO clear buf_outlier
   }
 };
@@ -99,18 +108,16 @@ struct psz::Buf_Comp<T, E>::impl {
 
 namespace psz {
 
-COMPBUF_IMPL()::Buf_Comp(u4 x, u4 y, u4 z, BufToggle_Comp* toggle) :
-    x(x), y(y), z(z), len_linear(x * y * z), pimpl(std::make_unique<impl>(x, y, z, toggle))
+COMPBUF_IMPL()::Buf_Comp(psz_len _len, BufToggle_Comp* toggle) :
+    len(_len), len_linear(_len.x * _len.y * _len.z), pimpl(std::make_unique<impl>(_len, toggle))
 {
 }
 
-COMPBUF_IMPL()::Buf_Comp(u4 x, u4 y, u4 z, bool _is_comp) :
+COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp) :
     is_comp(_is_comp),
-    x(x),
-    y(y),
-    z(z),
-    len_linear(x * y * z),
-    pimpl(std::make_unique<impl>(x, y, z, _is_comp))
+    len(_len),
+    len_linear(_len.x * _len.y * _len.z),
+    pimpl(std::make_unique<impl>(_len, _is_comp))
 {
 }
 
@@ -122,9 +129,9 @@ COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), 1); }
 
 // getters: array
 COMPBUF_IMPL(E*)::ectrl_d() const { return pimpl->d_ectrl.get(); }
-COMPBUF_IMPL(stdlen3)::ectrl_len3() const { return stdlen3{x, y, z}; }
+COMPBUF_IMPL(psz_len)::ectrl_len3() const { return len; }
 COMPBUF_IMPL(E*)::eq_d() const { return pimpl->d_ectrl.get(); }
-COMPBUF_IMPL(stdlen3)::eq_len3() const { return stdlen3{x, y, z}; }
+COMPBUF_IMPL(psz_len)::eq_len3() const { return len; }
 
 COMPBUF_IMPL(Freq*)::hist_d() const { return pimpl->d_hist.get(); }
 COMPBUF_IMPL(Freq*)::hist_h() const { return pimpl->h_hist.get(); }
@@ -147,11 +154,11 @@ COMPBUF_IMPL(void*)::outlier2_validx_d() const { return pimpl->buf_outlier2->val
 COMPBUF_IMPL(M)::outlier2_host_get_num() const { return pimpl->buf_outlier2->host_get_num(); }
 
 COMPBUF_IMPL(T*)::anchor_d() const { return pimpl->d_anchor.get(); }
-COMPBUF_IMPL(size_t)::anchor_len() const { return pimpl->anchor512_len; }
-COMPBUF_IMPL(stdlen3)::anchor_len3() const
+COMPBUF_IMPL(size_t)::anchor_len() const { return pimpl->len_linear_anchor; }
+COMPBUF_IMPL(psz_len)::anchor_len3() const
 {
   auto _div = [](size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
-  return stdlen3{_div(x, BLK), _div(y, BLK), _div(z, BLK)};
+  return {_div(len.x, BLK), _div(len.y, BLK), _div(len.z, BLK)};
 }
 
 template <typename T>

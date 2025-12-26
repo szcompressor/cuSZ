@@ -1,22 +1,11 @@
-/**
- * @file l23.seq.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-03-13
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
-#ifndef E0B87BA8_BEDC_4CBE_B5EE_C0C5875E07D6
-#define E0B87BA8_BEDC_4CBE_B5EE_C0C5875E07D6
+#ifndef PSZ_LRZ_SEQ_INL
+#define PSZ_LRZ_SEQ_INL
 
 #define SETUP_ND_CPU_SERIAL                                                   \
                                                                               \
   /* fake thread-block setup */                                               \
-  psz_dim3_seq b, t;                /* (fake) threadblock-related indices */  \
-  psz_dim3_seq grid_dim, block_dim; /* threadblock-related dimensions */      \
+  psz_len b, t;                /* (fake) threadblock-related indices */       \
+  psz_len grid_dim, block_dim; /* threadblock-related dimensions */           \
                                                                               \
   /* threadblock-related strides */                                           \
   auto TWy = [&]() { return block_dim.x; };                                   \
@@ -111,8 +100,8 @@ struct psz_buf_seq {
   T& operator()(int x, int y, int z) { return _buf[x + y * stridey + z * stridez]; }
 };
 
-auto div3 = [](psz_dim3_seq len, psz_dim3_seq sublen) {
-  return psz_dim3_seq{
+auto div3 = [](psz_len len, psz_len sublen) {
+  return psz_len{
       (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1};
 };
 
@@ -164,7 +153,7 @@ namespace psz {
 
 template <typename T, bool ZigZagEnabled, typename Eq = uint16_t, int BLK = 256>
 void KERNEL_SEQ_c_lorenzo_1d1l(
-    T* data, psz_dim3_seq len3, psz_dim3_seq stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
+    T* data, psz_len len3, psz_len stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
     void* in_outlier)
 {
   SETUP_ND_CPU_SERIAL;
@@ -194,7 +183,7 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
-      outlier->val_idx(cur_idx) = {(float)candidate, gid1()};
+      outlier->val_idx(cur_idx) = {(float)candidate, (u4)gid1()};
     }
   };
   auto threadview_store = [&]() {
@@ -218,8 +207,7 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
 
 template <typename T, bool ZigZagEnabled, typename Eq = uint16_t, int BLK = 256>
 void KERNEL_SEQ_x_lorenzo_1d1l(
-    Eq* in_eq, T* in_outlier, psz_dim3_seq len3, psz_dim3_seq stride3, uint16_t radius, f8 ebx2,
-    T* xdata)
+    Eq* in_eq, T* in_outlier, psz_len len3, psz_len stride3, uint16_t radius, f8 ebx2, T* xdata)
 {
   SETUP_ND_CPU_SERIAL;
   SETUP_1D_DATABUF;
@@ -261,7 +249,7 @@ void KERNEL_SEQ_x_lorenzo_1d1l(
 
 template <typename T, bool ZigZagEnabled, typename Eq = uint16_t, int BLK = 16>
 void KERNEL_SEQ_c_lorenzo_2d1l(
-    T* data, psz_dim3_seq len3, psz_dim3_seq stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
+    T* data, psz_len len3, psz_len stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
     void* in_outlier)
 {
   SETUP_ND_CPU_SERIAL;
@@ -292,7 +280,7 @@ void KERNEL_SEQ_c_lorenzo_2d1l(
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
-      outlier->val_idx(cur_idx) = {(float)candidate, gid2()};
+      outlier->val_idx(cur_idx) = {(float)candidate, (u4)gid2()};
     }
   };
   auto threadview_store = [&]() {
@@ -316,8 +304,7 @@ void KERNEL_SEQ_c_lorenzo_2d1l(
 
 template <typename T, bool ZigZagEnabled, typename Eq = uint16_t, int BLK = 16>
 void KERNEL_SEQ_x_lorenzo_2d1l(
-    Eq* in_eq, T* in_outlier, psz_dim3_seq len3, psz_dim3_seq stride3, uint16_t radius, f8 ebx2,
-    T* xdata)
+    Eq* in_eq, T* in_outlier, psz_len len3, psz_len stride3, uint16_t radius, f8 ebx2, T* xdata)
 {
   SETUP_ND_CPU_SERIAL;
   SETUP_2D_DATABUF;
@@ -362,7 +349,7 @@ void KERNEL_SEQ_x_lorenzo_2d1l(
 
 template <typename T, bool ZigZagEnabled, typename Eq = uint16_t, int BLK = 8>
 void KERNEL_SEQ_c_lorenzo_3d1l(
-    T* data, psz_dim3_seq len3, psz_dim3_seq stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
+    T* data, psz_len len3, psz_len stride3, uint16_t radius, f8 ebx2_r, Eq* in_eq,
     void* in_outlier)
 {
   SETUP_ND_CPU_SERIAL;
@@ -395,7 +382,7 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
 
     if (not quantizable) {
       auto cur_idx = outlier->num()++;
-      outlier->val_idx(cur_idx) = {(float)candidate, gid3()};
+      outlier->val_idx(cur_idx) = {(float)candidate, (u4)gid3()};
     }
   };
   auto threadview_store = [&]() {
@@ -419,8 +406,7 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
 
 template <typename T, bool ZigZagEnabled, typename Eq = uint16_t, int BLK = 8>
 void KERNEL_SEQ_x_lorenzo_3d1l(
-    Eq* in_eq, T* in_outlier, psz_dim3_seq len3, psz_dim3_seq stride3, uint16_t radius, f8 ebx2,
-    T* xdata)
+    Eq* in_eq, T* in_outlier, psz_len len3, psz_len stride3, uint16_t radius, f8 ebx2, T* xdata)
 {
   SETUP_ND_CPU_SERIAL;
   SETUP_3D_DATABUF;
@@ -479,4 +465,4 @@ void KERNEL_SEQ_x_lorenzo_3d1l(
 #undef PARFOR3_GRID
 #undef PARFOR3_BLOCK
 
-#endif /* E0B87BA8_BEDC_4CBE_B5EE_C0C5875E07D6 */
+#endif /* PSZ_LRZ_SEQ_INL */

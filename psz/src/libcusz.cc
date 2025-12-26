@@ -221,14 +221,7 @@ psz_resource* psz_create_resource_manager(
 {
   auto m = new psz_resource;
 
-  m->header = new psz_header{
-      .dtype = dtype, .pipeline = pipeline, .len = len
-      // .x = (u4)len.x,
-      // .y = (u4)len.y,
-      // .z = (u4)len.z,
-      // .w = 1,
-  };
-
+  m->header = new psz_header{.dtype = dtype, .pipeline = pipeline, .len = len};
   m->len_linear = len.x * len.y * len.z;
   m->cli = nullptr;
   phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);

@@ -1,29 +1,6 @@
-/**
- * @file lorenzo_proto.inl
- * @author Jiannan Tian
- * @brief (prototype) Dual-Eq Lorenzo method.
- * @version 0.2
- * @date 2019-09-23
- * (create) 2019-09-23 (rev) 2023-04-03
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
-
-#include <cstddef>
-#include <stdexcept>
-
 #include "kernel/predictor.hh"
 #include "mem/cxx_sp_gpu.h"
 #include "proto_lrz_helper.hh"
-#include "utils/err.hh"
-#include "utils/timer.hh"
-
-#define Z(LEN3) LEN3[2]
-#define Y(LEN3) LEN3[1]
-#define X(LEN3) LEN3[0]
-#define TO_DIM3(LEN3) dim3(X(LEN3), Y(LEN3), Z(LEN3))
 
 // easy algorithmic description
 namespace psz {
@@ -144,20 +121,18 @@ namespace psz::module {
 
 template <typename T, typename Eq>
 int GPU_PROTO_x_lorenzo_nd<T, Eq>::kernel(
-    Eq* in_eq, T* in_outlier, T* out_data, std::array<size_t, 3> const _data_len3, f8 const ebx2,
-    f8 const ebx2_r, int const radius, void* stream)
+    Eq* in_eq, T* in_outlier, T* out_data, psz_len const len, f8 const ebx2, f8 const ebx2_r,
+    int const radius, void* stream)
 {
-  auto data_len3 = TO_DIM3(_data_len3);
-
-  auto divide3 = [](dim3 len, dim3 sublen) {
+  auto divide3 = [](auto len, auto sublen) {
     return dim3(
         (len.x - 1) / sublen.x + 1, (len.y - 1) / sublen.y + 1, (len.z - 1) / sublen.z + 1);
   };
 
   auto ndim = [&]() {
-    if (data_len3.z == 1 and data_len3.y == 1)
+    if (len.z == 1 and len.y == 1)
       return 1;
-    else if (data_len3.z == 1 and data_len3.y != 1)
+    else if (len.z == 1 and len.y != 1)
       return 2;
     else
       return 3;
@@ -166,26 +141,27 @@ int GPU_PROTO_x_lorenzo_nd<T, Eq>::kernel(
   constexpr auto Tile1D = dim3(256, 1, 1), Tile2D = dim3(16, 16, 1), Tile3D = dim3(8, 8, 8);
   constexpr auto Block1D = dim3(256, 1, 1), Block2D = dim3(16, 16, 1), Block3D = dim3(8, 8, 8);
 
-  auto Grid1D = divide3(data_len3, Tile1D), Grid2D = divide3(data_len3, Tile2D),
-       Grid3D = divide3(data_len3, Tile3D);
+  auto Grid1D = divide3(len, Tile1D), Grid2D = divide3(len, Tile2D), Grid3D = divide3(len, Tile3D);
+
+  auto data_len = LEN_TO_DIM3(len);
 
   // error bound
-  auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
+  auto data_leap3 = dim3(1, len.x, len.x * len.y);
 
   if (ndim() == 1) {
     psz::KERNEL_CUHIP_prototype_x_lorenzo_1d1l<T>
         <<<Grid1D, Block1D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_eq, in_outlier, out_data, data_len3, data_leap3, radius, ebx2);
+            in_eq, in_outlier, out_data, data_len, data_leap3, radius, ebx2);
   }
   else if (ndim() == 2) {
     psz::KERNEL_CUHIP_prototype_x_lorenzo_2d1l<T>
         <<<Grid2D, Block2D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_eq, in_outlier, out_data, data_len3, data_leap3, radius, ebx2);
+            in_eq, in_outlier, out_data, data_len, data_leap3, radius, ebx2);
   }
   else if (ndim() == 3) {
     psz::KERNEL_CUHIP_prototype_x_lorenzo_3d1l<T>
         <<<Grid3D, Block3D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_eq, in_outlier, out_data, data_len3, data_leap3, radius, ebx2);
+            in_eq, in_outlier, out_data, data_len, data_leap3, radius, ebx2);
   }
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;

@@ -1,14 +1,3 @@
-/**
- * @file l23r.cuhip.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-04-04
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
@@ -425,7 +414,7 @@ template <typename TIN, typename TOUT, bool ReverseProcess>
 template <typename T, class PC>
 struct GPU_c_lorenzo_1d {
   static int kernel(
-      T* const in_data, stdlen3 const data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+      T* const in_data, psz_len const len, typename PC::Eq* const out_eq, void* out_outlier,
       u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
   {
     using Compact2 = _portable::compact_GPU_DRAM2<T, u4>;
@@ -433,10 +422,10 @@ struct GPU_c_lorenzo_1d {
     using lrz1 = config::c_lorenzo<1>;
 
     psz::KERNEL_CUHIP_c_lorenzo_1d<T, PC, lrz1::Perf>
-        <<<lrz1::thread_grid(dim3(data_len3[0], 1, 1)), lrz1::thread_block, 0,
+        <<<lrz1::thread_grid(dim3(len.x, 1, 1)), lrz1::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, data_len3[0], out_eq, ot->val_idx_d(), ot->num_d(), ot->max_allowed_num(),
-            radius, (T)ebx2_r, out_top1);
+            in_data, len.x, out_eq, ot->val_idx_d(), ot->num_d(), ot->max_allowed_num(), radius,
+            (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
   }
@@ -445,14 +434,14 @@ struct GPU_c_lorenzo_1d {
 template <typename T, class PC>
 struct GPU_c_lorenzo_2d {
   static int kernel(
-      T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+      T* const in_data, psz_len const len, typename PC::Eq* const out_eq, void* out_outlier,
       u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
   {
     using Compact2 = _portable::compact_GPU_DRAM2<T, u4>;
     auto ot = (Compact2*)out_outlier;
     using lrz2 = config::c_lorenzo<2, 32, 32>;
 
-    auto data_len3 = TO_DIM3(_data_len3);
+    auto data_len3 = LEN_TO_DIM3(len);
     auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
     psz::KERNEL_CUHIP_c_lorenzo_2d__32x32<T, PC, lrz2::Perf>
@@ -468,7 +457,7 @@ struct GPU_c_lorenzo_2d {
 template <typename T, class PC>
 struct GPU_c_lorenzo_3d {
   static int kernel(
-      T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+      T* const in_data, psz_len const len, typename PC::Eq* const out_eq, void* out_outlier,
       u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
   {
     using Compact2 = _portable::compact_GPU_DRAM2<T, u4>;
@@ -476,7 +465,7 @@ struct GPU_c_lorenzo_3d {
 
     using lrz3 = config::c_lorenzo<3>;
 
-    auto data_len3 = TO_DIM3(_data_len3);
+    auto data_len3 = LEN_TO_DIM3(len);
     auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
     psz::KERNEL_CUHIP_c_lorenzo_3d<T, PC, lrz3::Perf>
@@ -491,23 +480,23 @@ struct GPU_c_lorenzo_3d {
 
 template <typename T, class PC, class Buf>
 int GPU_c_lorenzo_nd<T, PC, Buf>::kernel(
-    T* const in_data, stdlen3 const _data_len3, typename PC::Eq* const out_eq, void* out_outlier,
+    T* const in_data, psz_len const len, typename PC::Eq* const out_eq, void* out_outlier,
     u4* out_top1, f8 const eb, uint16_t const radius, void* stream)
 {
-  auto data_len3 = TO_DIM3(_data_len3);
+  auto data_len3 = LEN_TO_DIM3(len);
   auto d = psz::config::utils::ndim(data_len3);
 
   auto eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
   if (d == 1)
     GPU_c_lorenzo_1d<T, PC>::kernel(
-        in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+        in_data, len, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else if (d == 2)
     GPU_c_lorenzo_2d<T, PC>::kernel(
-        in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+        in_data, len, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else if (d == 3)
     GPU_c_lorenzo_3d<T, PC>::kernel(
-        in_data, _data_len3, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+        in_data, len, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 
@@ -516,10 +505,10 @@ int GPU_c_lorenzo_nd<T, PC, Buf>::kernel(
 
 template <typename T, class PC, class Buf>
 int GPU_c_lorenzo_nd<T, PC, Buf>::compressor_kernel(
-    Buf* buf, T* const in_data, stdlen3 const _data_len3, f8 const eb, uint16_t const radius,
+    Buf* buf, T* const in_data, psz_len const _data_len3, f8 const eb, uint16_t const radius,
     void* stream)
 {
-  auto data_len3 = TO_DIM3(_data_len3);
+  auto data_len3 = LEN_TO_DIM3(_data_len3);
   auto d = psz::config::utils::ndim(data_len3);
 
   auto eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;

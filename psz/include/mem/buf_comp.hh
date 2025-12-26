@@ -1,7 +1,6 @@
 #ifndef PSZ_COMPBUF_HH
 #define PSZ_COMPBUF_HH
 
-#include <array>
 #include <cstdint>
 #include <memory>
 
@@ -15,8 +14,6 @@
 #define PSZ_ENCODED 2
 #define PSZ_SPFMT 3
 #define PSZ_END 4
-
-using stdlen3 = std::array<size_t, 3>;
 
 namespace psz {
 
@@ -56,7 +53,8 @@ struct Buf_Comp {
   constexpr static float OUTLIER_RATIO = 0.1;
 
   bool is_comp;
-  const u4 x, y, z;
+  // const u4 x, y, z;
+  const psz_len len;
   const size_t len_linear;
 
   // encapsulations
@@ -71,8 +69,8 @@ struct Buf_Comp {
   psz_header* header_ref;
 
  public:
-  Buf_Comp(u4 x, u4 y, u4 z, BufToggle_Comp* toggle);
-  Buf_Comp(u4 x, u4 y = 1, u4 z = 1, bool _is_comp = true);
+  Buf_Comp(psz_len len, BufToggle_Comp* toggle);
+  Buf_Comp(psz_len len, bool _is_comp = true);
   ~Buf_Comp();
 
   void register_header(psz_header* header) { header_ref = header; }
@@ -82,9 +80,9 @@ struct Buf_Comp {
 
   // getter
   E* ectrl_d() const;
-  stdlen3 ectrl_len3() const;
+  psz_len ectrl_len3() const;
   E* eq_d() const;
-  stdlen3 eq_len3() const;
+  psz_len eq_len3() const;
 
   Freq* hist_d() const;
   Freq* hist_h() const;
@@ -93,7 +91,7 @@ struct Buf_Comp {
 
   T* anchor_d() const;
   size_t anchor_len() const;
-  stdlen3 anchor_len3() const;
+  psz_len anchor_len3() const;
 
   BYTE* compressed_d() const;
   BYTE* compressed_h() const;
