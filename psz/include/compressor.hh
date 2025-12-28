@@ -27,7 +27,7 @@ class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
   size_t len_linear;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
-  uint32_t nbyte[PSZ_END];
+  uint32_t nbyte[PSZ_ENC_PASS2_END];
   float time_sp;
   double eb, eb_r, ebx2, ebx2_r;
   psz_header* const header_ref;
@@ -36,8 +36,8 @@ class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
   phf::Buf<E>* buf_hf;
 
  private:
-  void compress_data_processing(psz_ctx* ctx, T* in, void* stream);
-  void compress_merge_update_header(psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream);
+  void compress_predict_enc1(psz_ctx* ctx, T* in, void* stream);
+  void compress_enc1_wrapup(psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream);
 
  public:
   // comp, ctor(...) + no further init
@@ -75,9 +75,9 @@ template <typename T, typename E>
 struct compression_pipeline {
   static void* compress_init(psz_ctx* ctx);
   static void* decompress_init(psz_header* header);
-  static void compress(psz_ctx*, PSZ_BUF* mem, T*, u1**, size_t*, psz_stream_t);
-  static void compress_analysis(psz_ctx*, PSZ_BUF* mem, T*, u4*, psz_stream_t);
-  static void decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream);
+  static int compress(psz_ctx*, PSZ_BUF* mem, T*, u1**, size_t*, psz_stream_t);
+  static int compress_analysis(psz_ctx*, PSZ_BUF* mem, T*, u4*, psz_stream_t);
+  static int decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream);
   static void release(PSZ_BUF* mem);
   static void compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_stream_t stream);
 };

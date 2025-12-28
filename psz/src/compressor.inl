@@ -95,12 +95,12 @@ Compressor<T>::~Compressor()
 template <typename T>
 void Compressor<T>::compress(psz_ctx* ctx, T* in, BYTE** out, size_t* outlen, void* stream)
 {
-  compress_data_processing(ctx, in, stream);
-  compress_merge_update_header(ctx, out, outlen, stream);
+  compress_predict_enc1(ctx, in, stream);
+  compress_enc1_wrapup(ctx, out, outlen, stream);
 }
 
 template <typename T>
-void Compressor<T>::compress_data_processing(psz_ctx* ctx, T* in, void* stream)
+void Compressor<T>::compress_predict_enc1(psz_ctx* ctx, T* in, void* stream)
 {
   auto len = ctx->header->len;
 
@@ -151,22 +151,20 @@ ENCODING_STEP:
 }
 
 template <typename T>
-void Compressor<T>::compress_merge_update_header(
-    psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream)
+void Compressor<T>::compress_enc1_wrapup(psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream)
 {
   auto predictor = PIPELINE.predictor;
 
   nbyte[PSZ_HEADER] = sizeof(psz_header);
   nbyte[PSZ_ENCODED] = sizeof(BYTE) * comp_codec_outlen;
   nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
-  // nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(M)) * ctx->header->splen;
   nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, M>) * ctx->header->splen;
 
   // clang-format off
   ctx->header->entry[0] = 0;
   // *.END + 1; need to know the ending position
-  for (auto i = 1; i < PSZ_END + 1; i++) ctx->header->entry[i] = nbyte[i - 1];
-  for (auto i = 1; i < PSZ_END + 1; i++) ctx->header->entry[i] += ctx->header->entry[i - 1];
+  for (auto i = 1; i < PSZ_ENC_PASS2_END + 1; i++) ctx->header->entry[i] = nbyte[i - 1];
+  for (auto i = 1; i < PSZ_ENC_PASS2_END + 1; i++) ctx->header->entry[i] += ctx->header->entry[i - 1];
 
   CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), nbyte[PSZ_ANCHOR], stream);
   CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), comp_codec_out, nbyte[PSZ_ENCODED], stream);
@@ -304,94 +302,7 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
   return mem;
 }
 
-namespace {
-
-template <typename T, typename E>
-void compress_data_processing(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream)
-{
-  auto eb = RC.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-
-  const auto len = ctx->header->len;
-  const auto len_linear = mem->len_linear;
-  const auto predictor = PIPELINE.predictor;
-  const auto radius = RC.radius;
-
-  if (predictor == Lorenzo)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::compressor_kernel(
-        mem, in, len, eb, radius, stream);
-  else if (predictor == LorenzoZigZag)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
-        mem, in, len, eb, radius, stream);
-  else if (predictor == LorenzoProto)
-    psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
-        in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
-  else if (predictor == Spline)
-    if constexpr (std::is_same_v<T, f4>)
-      psz::module::GPU_spline_construct<T, E>::null(/*       */);
-
-  /* make outlier count seen on host */
-  sync_by_stream(stream);
-  ctx->header->splen = mem->outlier2_host_get_num();
-  if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
-    cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
-         << " * input-len) exceeded, returning..." << endl;
-    [[deprecated("need to return status")]] auto status = PSZ_WARN_OUTLIER_TOO_MANY;
-    // return PSZ_WARN_OUTLIER_TOO_MANY;
-  }
-
-  if (ctx->header->pipeline.codec1 != Huffman) goto ENCODING_STEP;
-
-  if (ctx->header->pipeline.hist == psz_hist::HistogramSparse)
-    psz::module::GPU_histogram_Cauchy<E>::kernel(
-        mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
-  else if (ctx->header->pipeline.hist == psz_hist::HistogramGeneric)
-    psz::module::GPU_histogram_generic<E>::kernel(
-        mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, mem->hist_generic_grid_dim,
-        mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
-        stream);
-
-ENCODING_STEP:
-
-  memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->dict_size);
-  phf::high_level<E>::build_book(mem->buf_hf(), mem->hist_h(), ctx->dict_size, stream);
-
-  phf_header dummy_header;
-  phf::high_level<E>::encode(
-      mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-      dummy_header, stream);
-}
-
-template <typename T, typename E>
-void compress_merge_update_header(
-    psz_ctx* ctx, PSZ_BUF* mem, u1** out, size_t* outlen, void* stream)
-{
-  auto predictor = PIPELINE.predictor;
-
-  mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
-  mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
-  mem->nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
-  // mem->nbyte[PSZ_SPFMT] = (sizeof(T) + sizeof(psz::M)) * ctx->header->splen;
-  mem->nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
-
-  // clang-format off
-  ctx->header->entry[0] = 0;
-  // *.END + 1; need to know the ending position
-  for (auto i = 1; i < PSZ_END + 1; i++) ctx->header->entry[i] = mem->nbyte[i - 1];
-  for (auto i = 1; i < PSZ_END + 1; i++) ctx->header->entry[i] += ctx->header->entry[i - 1];
-
-  CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), mem->nbyte[PSZ_ANCHOR], stream);
-  CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), mem->comp_codec_out, mem->nbyte[PSZ_ENCODED], stream);
-  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen, stream);
-  // clang-format on
-
-  /* output of this function */
-  *out = mem->compressed_d();
-  *outlen = pszheader_filesize(ctx->header);
-}
-
-}  // namespace
-
-PPL_IMPL(void)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
+PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
 {
   auto eb = RC.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
 
@@ -421,15 +332,132 @@ PPL_IMPL(void)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist,
   sync_by_stream(stream);
 
   memset_device(mem->hist_d(), ctx->dict_size, 0);
+
+  return PSZ_SUCCESS;
 }
 
-PPL_IMPL(void)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
+PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
 {
-  compress_data_processing(ctx, mem, in, stream);
-  compress_merge_update_header(ctx, mem, out, outlen, stream);
+  auto eb = RC.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+
+  const auto len = ctx->header->len;
+  const auto len_linear = mem->len_linear;
+  const auto predictor = PIPELINE.predictor;
+  const auto radius = RC.radius;
+
+  auto compress_predict = [&]() -> int {
+    if (predictor == Lorenzo)
+      GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::compressor_kernel(
+          mem, in, len, eb, radius, stream);
+    else if (predictor == LorenzoZigZag)
+      GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
+          mem, in, len, eb, radius, stream);
+    else if (predictor == LorenzoProto)
+      psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
+          in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
+    else if (predictor == Spline) {
+      if constexpr (std::is_same_v<T, f4>)
+        psz::module::GPU_spline_construct<T, E>::null(/*       */);
+    }
+    else
+      return PSZ_ABORT_NO_SUCH_PREDICTOR;
+
+    /* make outlier count seen on host */
+    sync_by_stream(stream);
+    ctx->header->splen = mem->outlier2_host_get_num();
+    if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
+      cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
+           << " * input-len) exceeded, returning..." << endl;
+      return PSZ_WARN_OUTLIER_TOO_MANY;
+    }
+
+    return PSZ_SUCCESS;
+  };
+
+  auto compress_encode_pass1_Huffman = [&]() -> int {
+    if (PIPELINE.hist == psz_hist::HistogramSparse)
+      psz::module::GPU_histogram_Cauchy<E>::kernel(
+          mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
+    else if (PIPELINE.hist == psz_hist::HistogramGeneric)
+      psz::module::GPU_histogram_generic<E>::kernel(
+          mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, mem->hist_generic_grid_dim,
+          mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
+          stream);
+
+    memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->dict_size);
+    phf::high_level<E>::build_book(mem->buf_hf(), mem->hist_h(), ctx->dict_size, stream);
+
+    phf_header dummy_header;
+    phf::high_level<E>::encode(
+        mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        dummy_header, stream);
+
+    return PSZ_SUCCESS;
+  };
+
+  auto compress_encode_pass1_wrapup = [&]() {
+    mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
+    mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
+    mem->nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
+    mem->nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
+
+    // clang-format off
+  ctx->header->entry[0] = 0;
+  // *.END + 1; need to know the ending position
+  for (auto i = 1; i < PSZ_ENC_PASS2_END + 1; i++) ctx->header->entry[i] = mem->nbyte[i - 1];
+  for (auto i = 1; i < PSZ_ENC_PASS2_END + 1; i++) ctx->header->entry[i] += ctx->header->entry[i - 1];
+
+  CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), mem->nbyte[PSZ_ANCHOR], stream);
+  CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), mem->comp_codec_out, mem->nbyte[PSZ_ENCODED], stream);
+  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen, stream);
+    // clang-format on
+
+    /* output of this function */
+    *out = mem->compressed_d();
+    *outlen = pszheader_filesize(ctx->header);
+  };
+
+  auto compress_encode_pass1_LC_TCMS = [&]() -> int { return PSZ_SUCCESS; };
+  auto compress_encode_pass2_LC_RTR = [&]() -> int { return PSZ_SUCCESS; };
+  auto compress_encode_pass2_LC_BITR = [&]() -> int { return PSZ_SUCCESS; };
+
+  //// pipelines
+
+  auto compress_encode_default = [&]() -> int {
+    auto status = compress_encode_pass1_Huffman();
+    if (status != PSZ_SUCCESS) return status;
+    compress_encode_pass1_wrapup();
+    return PSZ_SUCCESS;
+  };
+
+  auto compress_encode_HiCR = [&]() -> int {
+    auto status1 = compress_encode_pass1_Huffman();
+    if (status1 != PSZ_SUCCESS) return status1;
+    compress_encode_pass1_wrapup();
+    auto status2 = compress_encode_pass2_LC_RTR();
+    return PSZ_SUCCESS;
+  };
+  auto compress_encode_HiTP = [&]() -> int {
+    auto status1 = compress_encode_pass1_LC_TCMS();
+    if (status1 != PSZ_SUCCESS) return status1;
+    compress_encode_pass1_wrapup();
+    auto status2 = compress_encode_pass2_LC_BITR();
+    if (status2 != PSZ_SUCCESS) return status2;
+    return PSZ_SUCCESS;
+  };
+
+  //// execution
+
+  auto status_pred = compress_predict();
+  if (status_pred != PSZ_SUCCESS) return status_pred;
+
+  auto status_encode = compress_encode_default();
+  if (status_encode != PSZ_SUCCESS) return status_encode;
+
+  return PSZ_SUCCESS;
 }
 
-PPL_IMPL(void)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream)
+PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream)
 {
   auto access = [&](int FIELD, szt offset_nbyte = 0) {
     return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -467,6 +495,8 @@ STEP_PREDICT:
   else if (header->pipeline.predictor == Spline)
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_spline_reconstruct<T, E>::null(/*     */);
+
+  return PSZ_SUCCESS;
 }
 
 PPL_IMPL(void)::release(PSZ_BUF* mem)

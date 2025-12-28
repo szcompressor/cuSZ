@@ -1,19 +1,5 @@
-#ifndef CUSZ_HEADER_H
-#define CUSZ_HEADER_H
-
-/**
- * @file header.h
- * @author Jiannan Tian
- * @brief
- * @version 0.2
- * @date 2021-01-22
- * (created) 2020-09-25, (rev.1) 2021-01-22 (rev.2) 2021-09-08 (rev.3)
- * 2022-02-26
- *
- * @copyright (C) 2020 by Washington State University, Argonne National
- * Laboratory See LICENSE in top-level directory
- *
- */
+#ifndef PSZ_HEADER_H
+#define PSZ_HEADER_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,7 +11,9 @@ extern "C" {
 #define PSZHEADER_ANCHOR 1
 #define PSZHEADER_ENCODED 2
 #define PSZHEADER_SPFMT 3
-#define PSZHEADER_END 4
+// #define PSZHEADER_END 4
+#define PSZHEADER_ENC_PASS1_END 4
+#define PSZHEADER_ENC_PASS2_END 5
 
 // @brief Memory alignment at 128 bytes for GPU if the archive is on device.
 typedef struct psz_header {
@@ -39,7 +27,7 @@ typedef struct psz_header {
       int vle_sublen;
       int vle_pardeg;
 
-      uint32_t entry[PSZHEADER_END + 1];  // segment entries
+      uint32_t entry[PSZHEADER_ENC_PASS2_END + 1];  // segment entries
 
       // runtime sizes
       psz_len len;

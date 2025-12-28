@@ -13,7 +13,9 @@
 #define PSZ_ANCHOR 1
 #define PSZ_ENCODED 2
 #define PSZ_SPFMT 3
-#define PSZ_END 4
+// #define PSZ_END 4
+#define PSZ_ENC_PASS1_END 4
+#define PSZ_ENC_PASS2_END 5
 
 namespace psz {
 
@@ -64,7 +66,7 @@ struct Buf_Comp {
   int hist_generic_repeat;
   BYTE* comp_codec_out{nullptr};
   size_t comp_codec_outlen{0};
-  uint32_t nbyte[PSZ_END];
+  uint32_t nbyte[PSZ_ENC_PASS2_END];
 
   psz_header* header_ref;
 
