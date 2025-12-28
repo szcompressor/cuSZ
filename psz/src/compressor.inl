@@ -10,6 +10,7 @@
 #include "kernel/hist.hh"
 #include "kernel/predictor.hh"
 #include "kernel/spvn.hh"
+#include "lc_gen/lc_gen.h"
 #include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
 #include "mem/sp_interface.h"
@@ -109,6 +110,8 @@ void Compressor<T>::compress_predict_enc1(psz_ctx* ctx, T* in, void* stream)
 
   const auto predictor = PIPELINE.predictor;
 
+  memset_device(mem->buf_outlier2()->num_d(), 1);
+
   if (predictor == Lorenzo)
     GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
         in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), mem->top1_d(), eb, RC.radius, stream);
@@ -157,6 +160,7 @@ void Compressor<T>::compress_enc1_wrapup(psz_ctx* ctx, BYTE** out, size_t* outle
 {
   auto predictor = PIPELINE.predictor;
 
+  u4 nbyte[PSZ_ENC_PASS2_END];
   nbyte[PSZ_HEADER] = sizeof(psz_header);
   nbyte[PSZ_ENCODED] = sizeof(BYTE) * comp_codec_outlen;
   nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
@@ -428,12 +432,84 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     *outlen = pszheader_filesize(ctx->header);
   };
 
-  auto compress_encode_pass1_LC_TCMS = [&]() -> int { return PSZ_SUCCESS; };
-  auto compress_encode_pass2_LC_RTR = [&]() -> int { return PSZ_SUCCESS; };
-  auto compress_encode_pass2_LC_BITR = [&]() -> int { return PSZ_SUCCESS; };
+  auto compress_encode_pass1_LC_TCMS = [&]() -> int {
+#ifdef PSZ_USE_LC_FIXED
+    // Hi-TP mode
+    [[deprecated(
+        "TODO: should not be a modified pointer (comp_codec_out) inside TCMS_COMPRESS where an "
+        "allocation happens; also, remove CPU-side time_tcms")]] float time_tcms;
+    if constexpr (std::is_same_v<E, u1>)
+      TCMS_COMPRESS(
+          mem->ectrl_d(), len_linear * sizeof(E), &mem->comp_codec_out, &mem->comp_codec_outlen,
+          &time_tcms, stream);
+
+    return PSZ_SUCCESS;
+#else
+    return PSZ_ABORT_NO_SUCH_CODEC;
+#endif
+  };
+
+  auto compress_encode_pass2_LC_RTR = [&]() -> int {
+#ifdef PSZ_USE_LC_FIXED
+    // 0 HEADER
+    // ---------  ENC2-RTR: start
+    // 1 ENC1-HF
+    // 2 ANCHOR
+    // 3 SPFMT
+    // ---------  ENC2-RTR: end
+    // 4 END
+    [[deprecated("TODO: remove CPU-side time_rtr")]] float time_rtr;
+    [[deprecated(
+        "TODO: should not be a modified pointer inside RTR_COMPRESS where an allocation "
+        "happens")]] byte_t* comp_rtr_out;
+    size_t comp_rtr_outlen;
+
+    RTR_COMPRESS(
+        (uint8_t*)DST(PSZ_ENCODED, 0),
+        mem->nbyte[PSZ_ENCODED] + mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT], &comp_rtr_out,
+        &comp_rtr_outlen, &time_rtr, stream);
+
+    // reuse PSZ_ENCODED buf
+    cudaMemcpyAsync(
+        DST(PSZ_ENCODED, 0), (void*)comp_rtr_out, comp_rtr_outlen, cudaMemcpyDeviceToDevice,
+        (cudaStream_t)stream);
+    sync_by_stream(stream);
+    ctx->header->entry[PSZ_ENC_PASS2_END] = ctx->header->entry[PSZ_ENCODED] + comp_rtr_outlen;
+
+    *out = comp_rtr_out, *outlen = comp_rtr_outlen;
+    return PSZ_SUCCESS;
+#else
+    return PSZ_ABORT_NO_SUCH_CODEC;
+#endif
+  };
+  auto compress_encode_pass2_LC_BITR = [&]() -> int {
+
+#ifdef PSZ_USE_LC_FIXED
+    [[deprecated("TODO: remove CPU-side time_bitr")]] float time_bitr;
+    [[deprecated(
+        "TODO: should not be a modified pointer inside BITR_COMPRESS where an allocation "
+        "happens")]] byte_t* comp_bitr_out;
+    size_t comp_bitr_outlen;
+
+    BITR_COMPRESS(
+        (uint8_t*)DST(PSZ_ANCHOR, 0), mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT],
+        &comp_bitr_out, &comp_bitr_outlen, &time_bitr, stream);
+    cudaMemcpyAsync(
+        DST(PSZ_ANCHOR, 0), (void*)comp_bitr_out, comp_bitr_outlen, cudaMemcpyDeviceToDevice,
+        (cudaStream_t)stream);
+    sync_by_stream(stream);
+    ctx->header->entry[ENC_PASS2_END] = ctx->header->entry[PSZ_ANCHOR] + comp_bitr_outlen;
+
+    *out = comp_bitr_out, *outlen = comp_bitr_outlen;
+    return PSZ_SUCCESS;
+#else
+    return PSZ_ABORT_NO_SUCH_CODEC;
+#endif
+  };
 
   //// pipelines
 
+  // Tian et al. 2020; Tian et al. 2021
   auto compress_encode_default = [&]() -> int {
     auto status = compress_encode_pass1_Huffman();
     if (status != PSZ_SUCCESS) return status;
@@ -441,6 +517,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
+  // Liu, Tian, Wu et al. 2024; Wu and Pan et al. 2025
   auto compress_encode_HiCR = [&]() -> int {
     auto status1 = compress_encode_pass1_Huffman();
     if (status1 != PSZ_SUCCESS) return status1;
@@ -448,6 +525,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     auto status2 = compress_encode_pass2_LC_RTR();
     return PSZ_SUCCESS;
   };
+
+  // Liu, Tian, Wu et al. 2024; Wu and Pan et al. 2025
   auto compress_encode_HiTP = [&]() -> int {
     auto status1 = compress_encode_pass1_LC_TCMS();
     if (status1 != PSZ_SUCCESS) return status1;

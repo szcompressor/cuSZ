@@ -175,7 +175,11 @@ target_link_libraries(psz_cu_utils
     CUDA::cuda_driver
 )
 
-if(PSZ_ACTIVATE_LC)
+if(PSZ_CMAKE_ACTIVATE_LC)
+
+  add_compile_definitions(
+    PSZ_USE_LC_FIXED
+  )
   add_library(lc_gen 
     third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu 
     third_party/lc_gen/comp-bitr.cu third_party/lc_gen/decomp-bitr.cu
@@ -209,6 +213,9 @@ target_link_libraries(cusz
     FZG::fzg_cu
     CUDA::cudart
 )
+if(PSZ_CMAKE_ACTIVATE_LC)
+  target_link_libraries(cusz PUBLIC lc_gen)
+endif()
 
 # ------------------------------------------------------------------------------
 # Executable
@@ -317,7 +324,7 @@ install(TARGETS
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-if(PSZ_ACTIVATE_LC)
+if(PSZ_CMAKE_ACTIVATE_LC)
   install(TARGETS
     lc_gen
     EXPORT CUSZTargets

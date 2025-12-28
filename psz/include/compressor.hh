@@ -12,8 +12,7 @@ namespace psz {
 template <typename T>
 class Compressor {
  private:
- public:
-  using E = u2;
+ public:  using E = u2;
   using M = u4;
   using BYTE = u1;
   using H = u4;
