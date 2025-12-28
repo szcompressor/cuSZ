@@ -10,9 +10,9 @@ pSZ/cuSZ: A GPU-Based Error-Bounded Lossy Compressor for Scientific Data
 
 pSZ/cuSZ (cuSZ for short) is a GPU implementation of the seminal [SZ algorithm](https://github.com/szcompressor/SZ). It is the *first* GPU-practical framework of error-bounded lossy compression on GPU for scientific data (circa 2020), aiming to improve SZ's throughput on heterogeneous HPC systems. pSZ/cuSZ primarily focuses on CUDA backend support, with other GPU-parallel backends in development. pSZ/cuSZ is formerly known as cuSZ, which is also the short form of its current name. 
 
-(C) 2025 by Argonne National Laboratory, University of Kentucky, and Indiana University. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
+(c) 2025 by Argonne National Laboratory and Oakland University. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
 
-- Developers: (primary) Jiannan Tian, (cuSZ-*i*) Jinyang Liu, Shixun Wu, (Huffman coding) Cody Rivera, (deployment) Robert Underwood, (PIs) Sheng Di, Franck Cappello.
+- Developers: (primary/PI) Jiannan Tian, (deployment) Robert Underwood, (cuSZ-*i*/Hi) Jinyang Liu, Shixun Wu, Jinwen Pan, (Huffman coding) Cody Rivera, (administrative PIs) Sheng Di, Franck Cappello.
 - Contributors (alphabetic): Jon Calhoun, Wenyu Gai, Megan Hickman Fulp, Xin Liang, Kai Zhao.
 - Special thanks to Dingwen Tao for advising this project from 2020 to 2024.
 - Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021.
@@ -64,12 +64,12 @@ cuSZ and its variants use variable techniques to balance the need for data-recon
 Notably, cuSZ (Tian et al., '20, '21) as the basic framework provides a balanced compression ratio and quality, while FZ-GPU (Zhang, Tian et al., '23) and SZp-CUDA/GSZ (Huang et al., '23, '24) prioritize data processing speed. cuSZ+ (hi-ratio) is an outcome of data compressibility research to demonstrate that certain methods (e.g., RLE) can work better in highly compressible cases (Tian et al., '21). The latest art, cuSZ-i (Liu, Tian, Wu et al., '24), attempts to utilize the QoZ-like methods (Liu et al., '22) to significantly enhance the data-reconstruction quality and the compression ratio.
 
 ```
-                    prediction &                 statistics          lossless encoding          lossless encoding
+                    prediction &                  statistics         lossless encoding          lossless encoding    
                     quantization                                     passs (1)                  pass (2)
 
-                  +----------------------+      +-----------+      +------------------+       +-----------------+
-CPU-SZ     -----> | predictor {ℓ, lr, S} | ---> | histogram | ---> | ui2 Huffman enc. | ----> | DEFLATE (LZ+HF) |
-'16, '17-ℓ, '18-lr, '21-S, '22-QoZ ------+      +-----------+      +------------------+       +-----------------+
+                  +----------------------+      +-----------+      +------------------+       +-------------------+
+CPU-SZ     -----> | predictor {ℓ, lr, S} | ---> | histogram | ---> | ui2 Huffman enc. | ----> | GZIP (LZ+HF)/Zstd |
+'16, '17-ℓ, '18-lr, '21-S, '22-QoZ ------+      +-----------+      +------------------+       +-------------------+
 (Di and Franck, Tao et al., Liang et al. Zhao et al., Liu et al.)
 
                   +----------------------+      +-----------+      +------------------+
@@ -88,10 +88,16 @@ FZ-GPU '23   ---> | predictor ℓ-(1,2,3)D | ---> ( n/a ) ---------> | de-redund
 SZp-CUDA/GSZ ---> | predictor ℓ-1D   ---------> ( n/a ) --------->   de-redundancy | -------> ( n/a )
 '23, '24          +----------------------------------------------------------------+           
 (Huang et al.)
-
                   +----------------+            +-----------+      +------------------+       +---------------+
 cuSZ-i '24   ---> | predictor S-3D | ---------> | histogram | ---> | ui2 Huffman enc. | ----> | de-redundancy |
 (Liu, Tian, Wu et al.) ------------+            +-----------+      +------------------+       +---------------+
+
+                  +-------------------+         +-----------+      + Hi-CR enc-1 -----+       + Hi-CR enc-2 --+
+cuSZ-Hi '25  ---> | predictor S-2D/3D |---+---> | histogram | ---> | ui2 Huffman enc. | ----> | LC-RTR enc.   |
+(Wu and Pan et al.) ------------------+   |     +-----------+      +------------------+       +---------------+
+                                          |                        + Hi-TP enc-1 -----+       + Hi-TP enc-2 --+
+                                          +----------------------> | LC-TCMS enc.     | ----> | LC-BITR enc.  |
+                                                                   +------------------+       +---------------+
 
 ℓ: Lorenzo predictor; lr: linear-regression predictor; S: spline-interpolative predictor
 ```
