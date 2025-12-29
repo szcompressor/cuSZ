@@ -48,6 +48,8 @@ typedef enum {
   PSZ_ABORT_NOT_IMPLEMENTED,
   PSZ_ABORT_NO_SUCH_PREDICTOR,
   PSZ_ABORT_NO_SUCH_CODEC,
+  PSZ_ABORT_TOO_MANY_UNPREDICTABLE,
+  PSZ_ABORT_TOO_MANY_ENC_BREAK,
 } psz_error_status;
 typedef psz_error_status pszerror;
 

@@ -60,21 +60,27 @@ struct compact_GPU_DRAM2 {
  public:
   using cell = compact_cell<T, Idx>;
 
+ private:
+  static constexpr size_t tile1d_size = 1024;
+  static constexpr size_t padding = tile1d_size;
+
   GPU_unique_dptr<cell[]> d_val_idx;
   GPU_unique_hptr<cell[]> h_val_idx;
   GPU_unique_dptr<uint32_t[]> d_num;
   GPU_unique_hptr<uint32_t[]> h_num;
 
-  const size_t reserved_len;
+  const size_t reserved_len_wanted;
+  const size_t reserved_len_actual;
 
-  compact_GPU_DRAM2(size_t _reserved_len, bool need_host_alloc = false) :
-      reserved_len(_reserved_len)
+ public:
+  compact_GPU_DRAM2(size_t reserved_len, bool need_host_alloc = false) :
+      reserved_len_wanted(reserved_len), reserved_len_actual(reserved_len + padding)
   {
-    d_val_idx = MAKE_UNIQUE_DEVICE(cell, _reserved_len + 10);
+    d_val_idx = MAKE_UNIQUE_DEVICE(cell, reserved_len_actual);
     d_num = MAKE_UNIQUE_DEVICE(uint32_t, 1);
     h_num = MAKE_UNIQUE_HOST(uint32_t, 1);
 
-    if (need_host_alloc) h_val_idx = MAKE_UNIQUE_HOST(cell, _reserved_len + 10);
+    if (need_host_alloc) h_val_idx = MAKE_UNIQUE_HOST(cell, reserved_len_actual);
   }
 
   ~compact_GPU_DRAM2() {}
@@ -90,7 +96,8 @@ struct compact_GPU_DRAM2 {
   cell* val_idx_h() const { return h_val_idx.get(); }
   uint32_t* num_d() const { return d_num.get(); }
   uint32_t* num_h() const { return h_num.get(); }
-  size_t max_allowed_num() const { return reserved_len; }
+  uint32_t num_h(size_t i) const { return h_num[i]; }
+  size_t max_allowed_num() const { return reserved_len_wanted; }
 };
 
 }  // namespace _portable
