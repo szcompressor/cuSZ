@@ -23,7 +23,17 @@ if(NOT TARGET PORTABLE AND NOT TARGET PORTABLE::PORTABLE)
 endif()
 
 # PORTABLE is header-only; extend its interface for PHF
-target_compile_definitions(PORTABLE
+if(TARGET PORTABLE)
+  set(PHF_PORTABLE_TARGET PORTABLE)
+elseif(TARGET PORTABLE::PORTABLE)
+  set(PHF_PORTABLE_TARGET PORTABLE::PORTABLE)
+endif()
+
+if(NOT PHF_PORTABLE_TARGET)
+  message(FATAL_ERROR "PORTABLE target not available after setup")
+endif()
+
+target_compile_definitions(${PHF_PORTABLE_TARGET}
   INTERFACE
     PHF_USE_CUDA
 )
@@ -55,7 +65,7 @@ target_include_directories(phf_cu
 target_link_libraries(phf_cu
   PUBLIC
     CUDA::cudart
-    PORTABLE
+    ${PHF_PORTABLE_TARGET}
 )
 
 set_target_properties(phf_cu

@@ -1,18 +1,7 @@
-/**
- * @file extrema.cuhip.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-08-19
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <cuda_runtime.h>
-#include <math.h>
-#include <stdio.h>
 
+#include <cmath>
+#include <cstdio>
 #include <type_traits>
 
 #include "cusz/type.h"
@@ -38,42 +27,66 @@ struct matchby<8> {
   using ftype = double;
 };
 
-#define __ATOMIC_PLUGIN                                                                  \
-  constexpr auto bytewidth = sizeof(T);                                                  \
-  using itype = typename matchby<bytewidth>::itype;                                      \
-  using utype = typename matchby<bytewidth>::utype;                                      \
-  using ftype = typename matchby<bytewidth>::ftype;                                      \
-  static_assert(std::is_same<T, ftype>::value, "T and ftype don't match.");              \
-  auto fp_as_int = [](T fpval) -> itype { return *reinterpret_cast<itype *>(&fpval); };  \
-  auto fp_as_uint = [](T fpval) -> utype { return *reinterpret_cast<utype *>(&fpval); }; \
-  auto int_as_fp = [](itype ival) -> T { return *reinterpret_cast<T *>(&ival); };        \
-  auto uint_as_fp = [](utype uval) -> T { return *reinterpret_cast<T *>(&uval); };
+#define __ATOMIC_PLUGIN                                                                 \
+  constexpr auto bytewidth = sizeof(T);                                                 \
+  using itype = typename matchby<bytewidth>::itype;                                     \
+  using utype = typename matchby<bytewidth>::utype;                                     \
+  using ftype = typename matchby<bytewidth>::ftype;                                     \
+  static_assert(std::is_same<T, ftype>::value, "T and ftype don't match.");             \
+  auto fp_as_int = [](T fpval) -> itype { return *reinterpret_cast<itype*>(&fpval); };  \
+  auto fp_as_uint = [](T fpval) -> utype { return *reinterpret_cast<utype*>(&fpval); }; \
+  auto int_as_fp = [](itype ival) -> T { return *reinterpret_cast<T*>(&ival); };        \
+  auto uint_as_fp = [](utype uval) -> T { return *reinterpret_cast<T*>(&uval); };
 
 // modifed from https://stackoverflow.com/a/51549250 (CC BY-SA 4.0)
 // https://stackoverflow.com/a/72461459
 template <typename T>
-__device__ __forceinline__ T atomicMinFp(T *addr, T value)
+__device__ __forceinline__ T atomicMinFp(T* addr, T value)
 {
   __ATOMIC_PLUGIN
-  auto old = !signbit(value) ? int_as_fp(atomicMin((itype *)addr, fp_as_int(value)))
-                             : uint_as_fp(atomicMax((utype *)addr, fp_as_uint(value)));
+  auto old = !signbit(value) ? int_as_fp(atomicMin((itype*)addr, fp_as_int(value)))
+                             : uint_as_fp(atomicMax((utype*)addr, fp_as_uint(value)));
   return old;
 }
 
 template <typename T>
-__device__ __forceinline__ T atomicMaxFp(T *addr, T value)
+__device__ __forceinline__ T atomicMaxFp(T* addr, T value)
 {
   __ATOMIC_PLUGIN
-  auto old = !signbit(value) ? int_as_fp(atomicMax((itype *)addr, fp_as_int(value)))
-                             : uint_as_fp(atomicMin((utype *)addr, fp_as_uint(value)));
+  auto old = !signbit(value) ? int_as_fp(atomicMax((itype*)addr, fp_as_int(value)))
+                             : uint_as_fp(atomicMin((utype*)addr, fp_as_uint(value)));
   return old;
+}
+
+template <typename T>
+[[deprecated("ad hoc code snippet; move elsewhere (also dup in calc_err.cuhip.inl)")]]
+__device__ __forceinline__ T atomicAddFp(T* addr, T value)
+{
+  if constexpr (std::is_same<T, float>::value) { return atomicAdd(addr, value); }
+  else if constexpr (std::is_same<T, double>::value) {
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 600)
+    return atomicAdd(addr, value);
+#else
+    auto addr_as_ull = reinterpret_cast<unsigned long long*>(addr);
+    unsigned long long old = *addr_as_ull, assumed;
+    do {
+      assumed = old;
+      double next = __longlong_as_double(assumed) + value;
+      old = atomicCAS(addr_as_ull, assumed, __double_as_longlong(next));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+#endif
+  }
+  else {
+    return atomicAdd(addr, value);
+  }
 }
 
 }  // namespace
 
 template <typename T>
 __global__ void KERNEL_CUHIP_extrema(
-    T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe, int const R)
+    T* in, size_t const len, T* minel, T* maxel, T* sum, T const failsafe, int const R)
 {
   __shared__ T shared_minv, shared_maxv, shared_sum;
   // failsafe; require external setup
@@ -104,13 +117,13 @@ __global__ void KERNEL_CUHIP_extrema(
   if constexpr (is_FP) {
     atomicMinFp<T>(&shared_minv, tp_minv);
     atomicMaxFp<T>(&shared_maxv, tp_maxv);
-    atomicAdd(&shared_sum, tp_sum);
+    atomicAddFp<T>(&shared_sum, tp_sum);
     __syncthreads();
 
     if (threadIdx.x == 0) {
       atomicMinFp<T>(minel, shared_minv);
       atomicMaxFp<T>(maxel, shared_maxv);
-      atomicAdd(sum, shared_sum);
+      atomicAddFp<T>(sum, shared_sum);
     }
   }
   else if constexpr (is_INT) {
@@ -134,7 +147,7 @@ __global__ void KERNEL_CUHIP_extrema(
 namespace psz::module {
 
 template <typename T>
-void GPU_extrema(T *in, size_t len, T res[4])
+void GPU_extrema(T* in, size_t len, T res[4])
 {
   static const int MINVAL = 0;
   static const int MAXVAL = 1;

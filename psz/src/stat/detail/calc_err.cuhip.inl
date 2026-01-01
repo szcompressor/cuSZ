@@ -1,13 +1,39 @@
 // 24-06-02 by J. Tian
 
+#include <type_traits>
+
 #include "detail/compare.hh"
 
 namespace psz {
 
 template <typename T>
+[[deprecated("same function with the one in extrema.cuhip.inl, keep in sync")]]
+__device__ __forceinline__ T atomicAddFp(T* addr, T value)
+{
+  if constexpr (std::is_same<T, float>::value) { return atomicAdd(addr, value); }
+  else if constexpr (std::is_same<T, double>::value) {
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 600)
+    return atomicAdd(addr, value);
+#else
+    auto addr_as_ull = reinterpret_cast<unsigned long long*>(addr);
+    unsigned long long old = *addr_as_ull, assumed;
+    do {
+      assumed = old;
+      double next = __longlong_as_double(assumed) + value;
+      old = atomicCAS(addr_as_ull, assumed, __double_as_longlong(next));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+#endif
+  }
+  else {
+    return atomicAdd(addr, value);
+  }
+}
+
+template <typename T>
 __global__ void KERNEL_CUHIP_calculate_errors(
-    T *odata, T odata_avg, T *xdata, T xdata_avg, size_t len,  //
-    T *sum_corr, T *sum_err_sq, T *sum_var_odata, T *sum_var_xdata, int const R)
+    T* odata, T odata_avg, T* xdata, T xdata_avg, size_t len,  //
+    T* sum_corr, T* sum_err_sq, T* sum_var_odata, T* sum_var_xdata, int const R)
 {
   __shared__ T s_sum_corr;
   __shared__ T s_sum_err_sq;
@@ -38,17 +64,17 @@ __global__ void KERNEL_CUHIP_calculate_errors(
   }
   __syncthreads();
 
-  atomicAdd(&s_sum_corr, p_sum_corr);
-  atomicAdd(&s_sum_err_sq, p_sum_err_sq);
-  atomicAdd(&s_sum_var_odata, p_sum_var_odata);
-  atomicAdd(&s_sum_var_xdata, p_sum_var_xdata);
+  atomicAddFp(&s_sum_corr, p_sum_corr);
+  atomicAddFp(&s_sum_err_sq, p_sum_err_sq);
+  atomicAddFp(&s_sum_var_odata, p_sum_var_odata);
+  atomicAddFp(&s_sum_var_xdata, p_sum_var_xdata);
   __syncthreads();
 
   if (threadIdx.x == 0) {
-    atomicAdd(sum_corr, s_sum_corr);
-    atomicAdd(sum_err_sq, s_sum_err_sq);
-    atomicAdd(sum_var_odata, s_sum_var_odata);
-    atomicAdd(sum_var_xdata, s_sum_var_xdata);
+    atomicAddFp(sum_corr, s_sum_corr);
+    atomicAddFp(sum_err_sq, s_sum_err_sq);
+    atomicAddFp(sum_var_odata, s_sum_var_odata);
+    atomicAddFp(sum_var_xdata, s_sum_var_xdata);
   }
 }
 
@@ -56,7 +82,7 @@ __global__ void KERNEL_CUHIP_calculate_errors(
 
 template <typename T>
 void psz::cuhip::GPU_calculate_errors(
-    T *d_odata, T odata_avg, T *d_xdata, T xdata_avg, size_t len, T h_err[4])
+    T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4])
 {
   constexpr auto SUM_CORR = 0;
   constexpr auto SUM_ERR_SQ = 1;

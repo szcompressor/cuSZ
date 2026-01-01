@@ -1,24 +1,13 @@
-/**
- * @file bin_hist.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-07-25
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+#include <cuda_runtime.h>
 
+#include <cstdio>
 #include <string>
 
 #include "detail/compare.hh"
 #include "detail/port.hh"
-#include "ex_utils.hh"
 #include "kernel/hist.hh"
-#include "mem/cxx_memobj.h"
-
-template <typename T>
-using memobj = _portable::memobj<T>;
+#include "mem/cxx_backends.h"
+#include "utils/io.hh"
 
 #define BASE false
 #define OPTIM true
@@ -46,26 +35,30 @@ void hist(
 template <typename T>
 void real_data_test(size_t len, size_t bklen, string fname)
 {
-  auto wn = new memobj<T>(len, "whole numbers", {Malloc, MallocHost});
-  auto bs = new memobj<u4>(bklen, "base-ser", {Malloc, MallocHost});
-  auto os = new memobj<u4>(bklen, "optim-ser", {Malloc, MallocHost});
-  auto bg = new memobj<u4>(bklen, "base-gpu", {Malloc, MallocHost});
-  auto og = new memobj<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
+  auto wn_h = MAKE_UNIQUE_HOST(T, len);
+  auto wn_d = MAKE_UNIQUE_DEVICE(T, len);
+  auto bs_h = MAKE_UNIQUE_HOST(u4, bklen);
+  auto os_h = MAKE_UNIQUE_HOST(u4, bklen);
+  auto bg_h = MAKE_UNIQUE_HOST(u4, bklen);
+  auto bg_d = MAKE_UNIQUE_DEVICE(u4, bklen);
+  auto og_h = MAKE_UNIQUE_HOST(u4, bklen);
+  auto og_d = MAKE_UNIQUE_DEVICE(u4, bklen);
 
-  wn->file(fname.c_str(), FromFile)->control({H2D});
+  _portable::utils::fromfile(fname, wn_h.get(), len);
+  memcpy_allkinds<H2D>(wn_d.get(), wn_h.get(), len);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   float tbs, tos, tbg, tog;
 
-  hist<SEQ, T>(BASE, wn->hptr(), len, bs->hptr(), bklen, &tbs, stream);
-  hist<SEQ, T>(OPTIM, wn->hptr(), len, os->hptr(), bklen, &tos, stream);
+  hist<SEQ, T>(BASE, wn_h.get(), len, bs_h.get(), bklen, &tbs, stream);
+  hist<SEQ, T>(OPTIM, wn_h.get(), len, os_h.get(), bklen, &tos, stream);
 
-  hist<PROPER_RUNTIME, T>(BASE, wn->dptr(), len, bg->dptr(), bklen, &tbg, stream),
-      bg->control({D2H});
-  hist<PROPER_RUNTIME, T>(OPTIM, wn->dptr(), len, og->dptr(), bklen, &tog, stream),
-      og->control({D2H});
+  hist<PROPER_RUNTIME, T>(BASE, wn_d.get(), len, bg_d.get(), bklen, &tbg, stream);
+  memcpy_allkinds<D2H>(bg_h.get(), bg_d.get(), bklen);
+  hist<PROPER_RUNTIME, T>(OPTIM, wn_d.get(), len, og_d.get(), bklen, &tog, stream);
+  memcpy_allkinds<D2H>(og_h.get(), og_d.get(), bklen);
 
   auto GBps = [&](auto bytes, auto millisec) {
     return 1.0 * bytes / (1024 * 1024 * 1024) / (millisec / 1000);
@@ -95,18 +88,14 @@ void real_data_test(size_t len, size_t bklen, string fname)
         "%-10s %10s %10s %10s %10s\n",  //
         "idx ( rel)", "base-ser", "base-gpu", "optim-ser", "optim-gpu");
     for (auto i = 0; i < bklen; i++) {
-      auto fbs = bs->hptr(i), fbg = bg->hptr(i);
-      auto fos = os->hptr(i), fog = og->hptr(i);
+      auto fbs = bs_h[i], fbg = bg_h[i];
+      auto fos = os_h[i], fog = og_h[i];
       if (fbs != 0 or fos != 0 or fbg != 0 or fog != 0)
         printf(
             "%-4u(%4d) %10u %10u %10u %10u\n",  //
             i, i - (int)bklen / 2, fbs, fbg, fos, fog);
     }
   }
-
-  delete wn;
-  delete bg, delete bs;
-  delete og, delete os;
 
   cudaStreamDestroy(stream);
 }
@@ -117,25 +106,27 @@ void dummy_data_test()
   auto len = 1000000;
   auto bklen = 1024;
 
-  auto wn = new memobj<T>(len, "whole numbers", {Malloc, MallocHost});
-  auto serial = new memobj<u4>(bklen, "optim-ser", {MallocHost});
-  auto gpu = new memobj<u4>(bklen, "optim-gpu", {Malloc, MallocHost});
+  auto wn_h = MAKE_UNIQUE_HOST(T, len);
+  auto wn_d = MAKE_UNIQUE_DEVICE(T, len);
+  auto serial_h = MAKE_UNIQUE_HOST(u4, bklen);
+  auto gpu_h = MAKE_UNIQUE_HOST(u4, bklen);
+  auto gpu_d = MAKE_UNIQUE_DEVICE(u4, bklen);
 
-  for (auto i = 0; i < len; i += 1) wn->hptr(i) = bklen / 2;
+  for (auto i = 0; i < len; i += 1) wn_h[i] = bklen / 2;
   for (auto i = 2; i < len - 10; i += 100) {
-    wn->hptr(i - 1) = bklen / 2 - 1;
-    wn->hptr(i - 2) = bklen / 2 + 1;
+    wn_h[i - 1] = bklen / 2 - 1;
+    wn_h[i - 2] = bklen / 2 + 1;
   }
-  wn->control({H2D});
+  memcpy_allkinds<H2D>(wn_d.get(), wn_h.get(), len);
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
   float tbs, tos, tbg, tog;
 
-  hist<SEQ, T>(OPTIM, wn->hptr(), len, serial->hptr(), bklen, &tos, stream);
-  hist<PROPER_RUNTIME, T>(OPTIM, wn->dptr(), len, gpu->dptr(), bklen, &tog, stream);
-  gpu->control({D2H});
+  hist<SEQ, T>(OPTIM, wn_h.get(), len, serial_h.get(), bklen, &tos, stream);
+  hist<PROPER_RUNTIME, T>(OPTIM, wn_d.get(), len, gpu_d.get(), bklen, &tog, stream);
+  memcpy_allkinds<D2H>(gpu_h.get(), gpu_d.get(), bklen);
 
   // check for error
   cudaError_t error = cudaGetLastError();
@@ -147,13 +138,10 @@ void dummy_data_test()
   {
     printf("%-10s %10s %10s\n", "idx ( rel)", "sp-ser", "sp-gpu");
     for (auto i = 0; i < bklen; i++) {
-      auto f1 = serial->hptr(i), f2 = gpu->hptr(i);
+      auto f1 = serial_h[i], f2 = gpu_h[i];
       if (f1 != 0 or f2 != 0) printf("%-4u(%4d) %10u %10u\n", i, i - bklen / 2, f1, f2);
     }
   }
-
-  delete wn;
-  delete serial, delete gpu;
 
   cudaStreamDestroy(stream);
 }
