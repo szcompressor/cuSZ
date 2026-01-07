@@ -53,41 +53,11 @@ static void psz::analysis::CPU_evaluate_quality_and_print(
   psz::utils::print_metrics_auto(&stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);
 
   if (from_device) {
-    if (reconstructed) sycl::free(reconstructed, q_ct1);
-    if (origin) sycl::free(origin, q_ct1);
+    reconstructed = (T*)sycl::free(reconstructed, q_ct1);
+    origin = (T*)sycl::free(origin, q_ct1);
   }
 
   delete stat, delete stat_auto_lag1, delete stat_auto_lag2;
 }
 
-template <typename T>
-static void view(psz_header* header, memobj<T>* xdata, memobj<T>* cmp, string const& compare)
-{
-  auto len = psz_utils::uncompressed_len(header);
-  auto compressd_bytes = psz_utils::filesize(header);
-
-  auto compare_on_gpu = [&]() {
-    cmp->control({MallocHost, Malloc})->file(compare.c_str(), FromFile)->control({H2D});
-
-    pszcxx_evaluate_quality_gpu(xdata->dptr(), cmp->dptr(), len, compressd_bytes);
-    // cmp->control({FreeHost, Free});
-  };
-
-  auto compare_on_cpu = [&]() {
-    cmp->control({MallocHost})->file(compare.c_str(), FromFile);
-    xdata->control({D2H});
-    psz::analysis::CPU_evaluate_quality_and_print(
-        xdata->hptr(), cmp->hptr(), len, compressd_bytes);
-    // cmp->control({FreeHost});
-  };
-
-  if (compare != "") {
-    auto gb = 1.0 * sizeof(T) * len / 1e9;
-#warning "[psz::dpcpp::todo] DPL impl of quality assessment not working; revert to CPU version"
-    // if (gb < 0.8)
-    //   compare_on_gpu();
-    // else
-    compare_on_cpu();
-  }
-}
 }  // namespace psz

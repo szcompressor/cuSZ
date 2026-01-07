@@ -11,6 +11,8 @@
 #include "utils/io.hh"
 
 namespace utils = _portable::utils;
+using std::cout;
+using std::endl;
 
 using T = float;
 
@@ -91,7 +93,7 @@ int main(int argc, char** argv)
     {  // evaulation
       auto comp_len = pszheader_filesize(&header);
       //   psz_review_decompression(decomp_timerecord, oribytes);
-      auto s = new psz_statistics;
+      auto s = new psz_stats;
       psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
       printf(
           "R\t%u\t"

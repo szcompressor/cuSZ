@@ -38,6 +38,12 @@ endif()
 include(GNUInstallDirs)
 include(CTest)
 
+# Add eval module
+find_package(EVAL QUIET)
+if(NOT TARGET EVAL::utils_headers AND NOT EVAL_FOUND)
+  add_subdirectory(eval)
+endif()
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/cusz_version.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/include/cusz_version.h)
 
@@ -51,17 +57,14 @@ target_include_directories(
   pszcompile_settings
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/utils/include/>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include/>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>)
 
-add_library(pszstat_seq src/stat/compare.stl.cc)
-target_link_libraries(pszstat_seq PUBLIC pszcompile_settings)
-
-add_library(
-  pszstat_hip src/stat/extrema.hip src/stat/cmpg2.hip src/stat/cmpg4_1.hip
-              src/stat/cmpg4_2.hip src/stat/cmpg5_1.hip src/stat/cmpg5_2.hip)
-target_link_libraries(pszstat_hip PUBLIC pszcompile_settings roc::rocthrust)
+# ------------------------------------------------------------------------------
+# Libraries - eval module handles stat library creation
+# ------------------------------------------------------------------------------
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(pszkernel_seq src/kernel/l23.seq.cc src/kernel/hist.seq.cc
@@ -76,8 +79,8 @@ target_link_libraries(pszkernel_hip PUBLIC pszcompile_settings)
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_hip.cc)
 target_link_libraries(pszmem PUBLIC pszcompile_settings hip::host)
 
-add_library(pszutils_seq src/utils/vis_stat.cc src/context.cc)
-target_link_libraries(pszutils_seq PUBLIC pszcompile_settings)
+add_library(pszutils_seq src/context.cc)
+target_link_libraries(pszutils_seq PUBLIC pszcompile_settings UTILS::stat_seq)
 
 add_library(pszspv_hip src/kernel/spv.hip)
 target_link_libraries(pszspv_hip PUBLIC pszcompile_settings ${rocthrust_LIBRARIES})

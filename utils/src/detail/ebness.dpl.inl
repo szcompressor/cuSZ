@@ -1,22 +1,11 @@
-/**
- * @file _compare.cuh
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-08
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #ifndef DC032520_A30F_4F2D_A260_CCE0E88CF40C
 #define DC032520_A30F_4F2D_A260_CCE0E88CF40C
 
-#include <oneapi/dpl/execution>
-#include <oneapi/dpl/algorithm>
-#include <sycl/sycl.hpp>
 #include <dpct/dpct.hpp>
 #include <dpct/dpl_utils.hpp>
+#include <oneapi/dpl/algorithm>
+#include <oneapi/dpl/execution>
+#include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
 
@@ -24,8 +13,7 @@ namespace psz {
 
 template <typename T>
 bool thrustgpu_error_bounded(
-    T* a, T* b, size_t const len, double eb,
-    size_t* first_faulty_idx = nullptr)
+    T* a, T* b, size_t const len, double eb, size_t* first_faulty_idx = nullptr)
 {
   dpct::device_ext& dev_ct1 = dpct::get_current_device();
   sycl::queue& q_ct1 = dev_ct1.default_queue();
@@ -35,13 +23,11 @@ bool thrustgpu_error_bounded(
   using tup = std::tuple<T, T, double>;
 
   auto ab_begin = oneapi::dpl::make_zip_iterator(std::make_tuple(a_, b_, eb_));
-  auto ab_end =
-      oneapi::dpl::make_zip_iterator(std::make_tuple(a_ + len, b_ + len, eb_));
+  auto ab_end = oneapi::dpl::make_zip_iterator(std::make_tuple(a_ + len, b_ + len, eb_));
 
   // Let compiler figure out the type.
   auto iter = oneapi::dpl::find_if(
-      oneapi::dpl::execution::make_device_policy(q_ct1), ab_begin, ab_end,
-      [](tup t) {
+      oneapi::dpl::execution::make_device_policy(q_ct1), ab_begin, ab_end, [](tup t) {
         // debug use
         // if (fabs(thrust::get<1>(t) - thrust::get<0>(t)) > thrust::get<2>(t))
         //     printf("a: %f\tb: %f\teb: %lf\n", (float)thrust::get<1>(t),

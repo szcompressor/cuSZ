@@ -11,9 +11,9 @@
 
 #include "../rand.hh"
 #include "cusz/type.h"
-#include "detail/busyheader.hh"
 #include "mem/cxx_sp_cpu.h"
 #include "mem/cxx_sp_gpu.h"
+#include "utils/busyheader.hh"
 
 using compact_gpu = _portable::compact_GPU_DRAM2<float>;
 using compact_seq = _portable::compact_CPU<float>;

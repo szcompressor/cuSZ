@@ -1,14 +1,3 @@
-/**
- * @file busyheader.hh
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-08-17
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
 #ifndef A4E54262_00A2_4059_BD74_95050FB447CA
 #define A4E54262_00A2_4059_BD74_95050FB447CA
 

@@ -17,10 +17,10 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "detail/busyheader.hh"
 #include "hf/hf_kernels.hh"
 #include "hf/hfstruct.h"
 #include "typing.hh"
+#include "utils/busyheader.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"

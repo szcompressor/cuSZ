@@ -1,18 +1,10 @@
-/**
- * @file print_arr.hh
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-29
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #ifndef AB8F2CD4_0C03_41C5_8FB0_0923DA702486
 #define AB8F2CD4_0C03_41C5_8FB0_0923DA702486
 
-#include "cusz/type.h"
+#include <algorithm>
+#include <cstdio>
+#include <limits>
+#include <stdexcept>
 
 namespace psz {
 
@@ -50,7 +42,5 @@ void peek_data(T* h_arr, size_t num)
 }
 
 }  // namespace psz
-
-
 
 #endif /* AB8F2CD4_0C03_41C5_8FB0_0923DA702486 */

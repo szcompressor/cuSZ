@@ -12,10 +12,10 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "detail/busyheader.hh"
 #include "kernel/detail/histsp.dp.inl"
 #include "mem/cxx_memobj.h"
 #include "module/cxx_module.hh"
+#include "utils/busyheader.hh"
 
 using T = uint32_t;
 using FQ = uint32_t;

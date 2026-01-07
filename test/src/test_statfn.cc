@@ -1,21 +1,10 @@
-/**
- * @file test_statfn.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-08-20
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <algorithm>
 
 #include "cusz/type.h"
-#include "detail/busyheader.hh"
 #include "detail/compare.hh"
 #include "mem/cxx_memobj.h"
 #include "rand.hh"
+#include "utils/busyheader.hh"
 
 template <typename T>
 using memobj = _portable::memobj<T>;

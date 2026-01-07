@@ -9,10 +9,10 @@
  *
  */
 
-#include "detail/busyheader.hh"
 #include "kernel/detail/histsp.cuhip.inl"
 #include "kernel/hist.hh"
 #include "mem/cxx_memobj.h"
+#include "utils/busyheader.hh"
 
 template <typename T>
 using memobj = _portable::memobj<T>;

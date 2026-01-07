@@ -1,14 +1,3 @@
-/**
- * @file extreama.thrust.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-08
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 

@@ -68,11 +68,6 @@ typedef struct _portable_size3 {
   size_t z, y, x;
 } _portable_size3;
 
-// struct for basic data summary
-typedef struct _portable_data_summary {
-  f8 min, max, rng, std, avg;
-} _portable_data_summary;
-
 #ifdef __cplusplus
 }
 #endif

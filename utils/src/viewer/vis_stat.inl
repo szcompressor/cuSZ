@@ -1,24 +1,11 @@
 #ifndef UTILS_VIS_STAT_HH
 #define UTILS_VIS_STAT_HH
 
-/**
- * @file vis_stat.hh
- * @author Jiannan Tian
- * @brief Analysis and visualization of datum.
- * @version 0.1
- * @date 2020-09-20
- * Created on 2020-02-09
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
-
 #include <iomanip>
 #include <tuple>
 #include <unordered_map>
 
-#include "detail/busyheader.hh"
+#include "utils/busyheader.hh"
 #include "utils/vis_stat.hh"
 
 using std::tuple;

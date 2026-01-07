@@ -19,8 +19,8 @@
 
 #include "cusz/header.h"
 #include "cusz/type.h"
-#include "detail/busyheader.hh"
 #include "document.inl"
+#include "utils/busyheader.hh"
 #include "utils/format.hh"
 #include "utils/verinfo.h"
 

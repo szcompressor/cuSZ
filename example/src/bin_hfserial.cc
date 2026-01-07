@@ -10,13 +10,13 @@
  */
 
 #include "cusz/type.h"
-#include "detail/busyheader.hh"
 #include "hf/hf.hh"
 #include "hf/hfbk.hh"
 #include "hf/hfbk_impl.hh"
 #include "hf/hfcanon.hh"
 #include "hf/hfword.hh"
 #include "mem/cxx_memobj.h"
+#include "utils/busyheader.hh"
 
 void printcode_u4(u4 idx, u4* word)
 {

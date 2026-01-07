@@ -2,33 +2,10 @@
 
 #include <type_traits>
 
+#include "atomics.cuhip.inl"
 #include "detail/compare.hh"
 
 namespace psz {
-
-template <typename T>
-[[deprecated("same function with the one in extrema.cuhip.inl, keep in sync")]]
-__device__ __forceinline__ T atomicAddFp(T* addr, T value)
-{
-  if constexpr (std::is_same<T, float>::value) { return atomicAdd(addr, value); }
-  else if constexpr (std::is_same<T, double>::value) {
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 600)
-    return atomicAdd(addr, value);
-#else
-    auto addr_as_ull = reinterpret_cast<unsigned long long*>(addr);
-    unsigned long long old = *addr_as_ull, assumed;
-    do {
-      assumed = old;
-      double next = __longlong_as_double(assumed) + value;
-      old = atomicCAS(addr_as_ull, assumed, __double_as_longlong(next));
-    } while (assumed != old);
-    return __longlong_as_double(old);
-#endif
-  }
-  else {
-    return atomicAdd(addr, value);
-  }
-}
 
 template <typename T>
 __global__ void KERNEL_CUHIP_calculate_errors(

@@ -3,7 +3,7 @@
 #include <random>
 #include <sycl/sycl.hpp>
 
-#include "detail/busyheader.hh"
+#include "utils/busyheader.hh"
 // definitions
 #include "detail/t_histsp.dp.inl"
 

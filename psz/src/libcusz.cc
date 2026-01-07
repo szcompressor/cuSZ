@@ -1,14 +1,4 @@
-/**
- * @file cusz_lib.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-05-01
- * (rev.1) 2023-01-29
- *
- * (C) 2022 by Washington State University, Argonne National Laboratory
- *
- */
+#include <iostream>
 
 #include "compressor.hh"
 #include "cusz.h"
@@ -20,6 +10,8 @@
 
 using psz::analysis::CPU_probe_extrema;
 using psz::analysis::GPU_probe_extrema;
+using std::cerr;
+using std::endl;
 
 // using _portable::memobj;
 using TimeRecordTuple = std::tuple<const char*, double>;

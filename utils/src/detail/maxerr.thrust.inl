@@ -1,14 +1,3 @@
-/**
- * @file maxerr.thrust.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-08
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 
@@ -53,7 +42,7 @@ void GPU_find_max_error(
 
 }  // namespace psz::thrustgpu
 
-#define __INSTANTIATE_THRUST_MAXERR(T)                                                    \
-  template void psz::thrustgpu::GPU_find_max_error<T>(                                    \
-      T * reconstructed, T * original, size_t len, T & maximum_val, size_t & maximum_loc, \
+#define __INSTANTIATE_THRUST_MAXERR(T)                                                  \
+  template void psz::thrustgpu::GPU_find_max_error<T>(                                  \
+      T * reconstructed, T * original, size_t len, T& maximum_val, size_t& maximum_loc, \
       bool destructive);

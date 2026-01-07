@@ -1,27 +1,26 @@
-/**
- * @file compare.hh
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-09
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #ifndef CE05A256_23CB_4243_8839_B1FDA9C540D2
 #define CE05A256_23CB_4243_8839_B1FDA9C540D2
 
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "cusz/type.h"
-#include "detail/busyheader.hh"
+#include <stdexcept>
+#include <string>
+
+// #include "c_type.h"
+#include "../stat.h"
+#include "c_type.h"
+
+using std::runtime_error;
+using std::string;
+
+// Type alias for runtime enum
+using psz_runtime = _portable_runtime;
 
 // clang-format off
 namespace psz::cppstl {
 bool CPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len);
-template <typename T> void CPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len);
+template <typename T> void CPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len);
 template <typename T> void CPU_calculate_errors(T* odata, T odata_avg, T* xdata, T xdata_avg, size_t len, T err[4]);
 template <typename T> void CPU_extrema(T* ptr, size_t len, T res[4]);
 template <typename T> bool CPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
@@ -35,14 +34,14 @@ template <typename T> void GPU_find_max_error(T* a, T* b, size_t const len, T& m
 }
 
 namespace psz::cuhip {
-template <typename T> void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len);
 template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
 template <typename T> bool GPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx = nullptr);
 }  // namespace psz::cuhip
 
 namespace psz::thrustgpu {
 bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len, void* stream = nullptr);
-template <typename T> void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len);
 template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
 template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
 template <typename T> bool GPU_error_bounded(T* a, T* b, size_t const len, double const eb, size_t* first_faulty_idx);
@@ -50,13 +49,13 @@ template <typename T> void GPU_find_max_error(T* xdata, T* original, size_t len,
 }  // namespace psz::thrustgpu
 
 namespace psz::dpcpp {
-template <typename T> void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len);
 template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
 template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
 }  // namespace psz::dpcpp
 
 namespace psz::dpl {
-template <typename T> void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len);
+template <typename T> void GPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len);
 template <typename T> void GPU_calculate_errors(T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4]);
 template <typename T> void GPU_extrema(T* d_ptr, size_t len, T res[4]);
 }  // namespace psz::dpl
@@ -146,7 +145,7 @@ bool error_bounded(
 }
 
 template <psz_runtime P, typename T>
-void assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
+void assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len)
 {
   // [TODO] THRUST_DPL is not activated in the frontend
   if constexpr (P == SEQ)

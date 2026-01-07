@@ -12,7 +12,7 @@
 #include <cuda_runtime.h>
 #include <unistd.h>
 
-#include "detail/busyheader.hh"
+#include "utils/busyheader.hh"
 #include "utils/timer.hh"
 
 __global__ void dummy()

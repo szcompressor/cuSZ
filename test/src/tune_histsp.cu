@@ -1,7 +1,7 @@
 // deps
 #include <random>
 
-#include "detail/busyheader.hh"
+#include "utils/busyheader.hh"
 // definitions
 #include "detail/tune_histsp.cuhip.inl"
 

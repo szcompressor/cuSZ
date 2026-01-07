@@ -1,6 +1,13 @@
 #include "utils/viewer.hh"
 
+#include <cuda_runtime.h>
+
+#include <algorithm>
 #include <cstddef>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 #include "compressor.hh"
 #include "cusz.h"
@@ -8,6 +15,10 @@
 #include "cusz/type.h"
 #include "detail/compare.hh"
 #include "detail/port.hh"
+
+using std::cout;
+using std::endl;
+using std::to_string;
 
 float get_throughput(float milliseconds, size_t nbyte)
 {
@@ -219,7 +230,7 @@ void psz_review_decompression(void* r, size_t bytes)
 
 // TODO revise name
 template <typename T>
-void psz::analysis::print_metrics_cross(psz_statistics* s, size_t comp_bytes, bool gpu_checker)
+void psz::analysis::print_metrics_cross(psz_stats* s, size_t comp_bytes, bool gpu_checker)
 {
   auto checker = (not gpu_checker) ? string("CPU-checker") : string("GPU-checker");
 
@@ -305,7 +316,7 @@ template <typename T>
 void psz::analysis::CPU_evaluate_quality_and_print(
     T* _d1, T* _d2, size_t len, size_t comp_bytes, bool from_device)
 {
-  auto stat = new psz_statistics;
+  auto stat = new psz_stats;
   T* reconstructed;
   T* origin;
   if (not from_device) {
@@ -323,9 +334,9 @@ void psz::analysis::CPU_evaluate_quality_and_print(
   psz::analysis::assess_quality<SEQ, T>(stat, reconstructed, origin, len);
   psz::analysis::print_metrics_cross<T>(stat, comp_bytes, false);
 
-  auto stat_auto_lag1 = new psz_statistics;
+  auto stat_auto_lag1 = new psz_stats;
   psz::analysis::assess_quality<SEQ, T>(stat_auto_lag1, origin, origin + 1, len - 1);
-  auto stat_auto_lag2 = new psz_statistics;
+  auto stat_auto_lag2 = new psz_stats;
   psz::analysis::assess_quality<SEQ, T>(stat_auto_lag2, origin, origin + 2, len - 2);
 
   psz::analysis::print_metrics_auto(&stat_auto_lag1->score_coeff, &stat_auto_lag2->score_coeff);

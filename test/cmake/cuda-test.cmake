@@ -50,6 +50,7 @@ else()
   target_link_libraries(statfn
     PRIVATE psz_cu_test_compile_settings
     psz_cu_test_utils psz_cu_mem
+    UTILS::stat_seq
   )
 endif()
 
@@ -59,7 +60,8 @@ target_link_libraries(stat_identical
   psz_cu_test_compile_settings
   psz_cu_compile_settings
   psz_cu_test_utils
-  psz_cu_stat
+  UTILS::stat_cu
+  UTILS::stat_seq
   CUDA::cudart
 )
 add_test(test_stat_identical stat_identical)
@@ -70,7 +72,8 @@ target_link_libraries(stat_max_error
   psz_cu_test_compile_settings
   psz_cu_compile_settings
   psz_cu_test_utils
-  psz_cu_stat
+  UTILS::stat_cu
+  UTILS::stat_seq
   CUDA::cudart
 )
 add_test(test_stat_max_error stat_max_error)

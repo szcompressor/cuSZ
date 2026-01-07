@@ -1,14 +1,3 @@
-/**
- * @file extrema_g.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-08-19
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <math.h>
 #include <stdio.h>
 
@@ -39,40 +28,44 @@ struct matchby<8> {
   using ftype = double;
 };
 
-#define __ATOMIC_PLUGIN                                                                  \
-  constexpr auto bytewidth = sizeof(T);                                                  \
-  using itype = typename matchby<bytewidth>::itype;                                      \
-  using utype = typename matchby<bytewidth>::utype;                                      \
-  using ftype = typename matchby<bytewidth>::ftype;                                      \
-  static_assert(std::is_same<T, ftype>::value, "T and ftype don't match.");              \
-  auto fp_as_int = [](T fpval) -> itype { return *reinterpret_cast<itype *>(&fpval); };  \
-  auto fp_as_uint = [](T fpval) -> utype { return *reinterpret_cast<utype *>(&fpval); }; \
-  auto int_as_fp = [](itype ival) -> T { return *reinterpret_cast<T *>(&ival); };        \
-  auto uint_as_fp = [](utype uval) -> T { return *reinterpret_cast<T *>(&uval); };
+#define __ATOMIC_PLUGIN                                                                 \
+  constexpr auto bytewidth = sizeof(T);                                                 \
+  using itype = typename matchby<bytewidth>::itype;                                     \
+  using utype = typename matchby<bytewidth>::utype;                                     \
+  using ftype = typename matchby<bytewidth>::ftype;                                     \
+  static_assert(std::is_same<T, ftype>::value, "T and ftype don't match.");             \
+  auto fp_as_int = [](T fpval) -> itype { return *reinterpret_cast<itype*>(&fpval); };  \
+  auto fp_as_uint = [](T fpval) -> utype { return *reinterpret_cast<utype*>(&fpval); }; \
+  auto int_as_fp = [](itype ival) -> T { return *reinterpret_cast<T*>(&ival); };        \
+  auto uint_as_fp = [](utype uval) -> T { return *reinterpret_cast<T*>(&uval); };
 
 // modifed from https://stackoverflow.com/a/51549250 (CC BY-SA 4.0)
 // https://stackoverflow.com/a/72461459
 template <typename T>
-__dpct_inline__ T atomicMinFp(T *addr, T value)
+__dpct_inline__ T atomicMinFp(T* addr, T value)
 {
   __ATOMIC_PLUGIN
   auto old = !sycl::signbit(value)
-                 ? int_as_fp(dpct::atomic_fetch_min<sycl::access::address_space::generic_space>(
-                       (itype *)addr, fp_as_int(value)))
-                 : uint_as_fp(dpct::atomic_fetch_max<sycl::access::address_space::generic_space>(
-                       (utype *)addr, fp_as_uint(value)));
+                 ? int_as_fp(
+                       dpct::atomic_fetch_min<sycl::access::address_space::generic_space>(
+                           (itype*)addr, fp_as_int(value)))
+                 : uint_as_fp(
+                       dpct::atomic_fetch_max<sycl::access::address_space::generic_space>(
+                           (utype*)addr, fp_as_uint(value)));
   return old;
 }
 
 template <typename T>
-__dpct_inline__ T atomicMaxFp(T *addr, T value)
+__dpct_inline__ T atomicMaxFp(T* addr, T value)
 {
   __ATOMIC_PLUGIN
   auto old = !sycl::signbit(value)
-                 ? int_as_fp(dpct::atomic_fetch_max<sycl::access::address_space::generic_space>(
-                       (itype *)addr, fp_as_int(value)))
-                 : uint_as_fp(dpct::atomic_fetch_min<sycl::access::address_space::generic_space>(
-                       (utype *)addr, fp_as_uint(value)));
+                 ? int_as_fp(
+                       dpct::atomic_fetch_max<sycl::access::address_space::generic_space>(
+                           (itype*)addr, fp_as_int(value)))
+                 : uint_as_fp(
+                       dpct::atomic_fetch_min<sycl::access::address_space::generic_space>(
+                           (utype*)addr, fp_as_uint(value)));
   return old;
 }
 
@@ -80,15 +73,15 @@ __dpct_inline__ T atomicMaxFp(T *addr, T value)
 
 template <typename T>
 void KERNEL_DP_extrema(
-    T *in, size_t const len, T *minel, T *maxel, T *sum, T const failsafe, int const R,
-    const sycl::nd_item<3> &item_ct1, T &shared_minv, T &shared_maxv, T &shared_sum)
+    T* in, size_t const len, T* minel, T* maxel, T* sum, T const failsafe, int const R,
+    const sycl::nd_item<3>& item_ct1, T& shared_minv, T& shared_maxv, T& shared_sum)
 {
   // failsafe; require external setup
   T tp_minv{failsafe}, tp_maxv{failsafe}, tp_sum{0};
 
   auto entry =
       (item_ct1.get_local_range(2) * R) * item_ct1.get_group(2) + item_ct1.get_local_id(2);
-  auto _idx = [&](auto r, const sycl::nd_item<3> &item_ct1) {
+  auto _idx = [&](auto r, const sycl::nd_item<3>& item_ct1) {
     return entry + (r * item_ct1.get_local_range(2));
   };
 
@@ -141,11 +134,11 @@ void KERNEL_DP_extrema(
 namespace psz::dpcpp {
 
 template <typename T>
-void GPU_extrema(T *in, size_t len, T res[4])
+void GPU_extrema(T* in, size_t len, T res[4])
 {
   // [TODO] external stream
-  dpct::device_ext &dev_ct1 = dpct::get_current_device();
-  sycl::queue &queue = dev_ct1.default_queue();
+  dpct::device_ext& dev_ct1 = dpct::get_current_device();
+  sycl::queue& queue = dev_ct1.default_queue();
 
   static const int MINVAL = 0;
   static const int MAXVAL = 1;
@@ -161,9 +154,9 @@ void GPU_extrema(T *in, size_t len, T res[4])
   T h_min, h_max, h_sum, failsafe;
   T *d_minel, *d_maxel, *d_sum;
 
-  d_minel = (T *)sycl::malloc_device(sizeof(T), queue);
-  d_maxel = (T *)sycl::malloc_device(sizeof(T), queue);
-  d_sum = (T *)sycl::malloc_device(sizeof(T), queue);
+  d_minel = (T*)sycl::malloc_device(sizeof(T), queue);
+  d_maxel = (T*)sycl::malloc_device(sizeof(T), queue);
+  d_sum = (T*)sycl::malloc_device(sizeof(T), queue);
 
   // failsafe init
   queue.memcpy(&failsafe, in, sizeof(T)).wait();
@@ -179,7 +172,7 @@ void GPU_extrema(T *in, size_t len, T res[4])
   {
     // dpct::has_capability_or_fail(stream->get_device(),
     // {sycl::aspect::fp64});
-    queue.submit([&](sycl::handler &cgh) {
+    queue.submit([&](sycl::handler& cgh) {
       sycl::local_accessor<T, 0> shared_minv(cgh);
       sycl::local_accessor<T, 0> shared_maxv(cgh);
       sycl::local_accessor<T, 0> shared_sum(cgh);

@@ -44,6 +44,7 @@ target_include_directories(psz_cu_compile_settings
   INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/utils/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
@@ -90,25 +91,14 @@ if(NOT TARGET PHF::phf_cu AND NOT PHF_FOUND)
   add_subdirectory(codec/hf)
 endif()
 
+find_package(UTILS QUIET)
+if(NOT TARGET UTILS::utils_headers AND NOT UTILS_FOUND)
+  add_subdirectory(utils)
+endif()
+
 # ------------------------------------------------------------------------------
 # Libraries
 # ------------------------------------------------------------------------------
-
-add_library(psz_cu_stat
-  psz/src/stat/compare.stl.cc
-  psz/src/stat/identical/all.cu
-  psz/src/stat/extrema/f4.cu
-  psz/src/stat/extrema/f8.cu
-  psz/src/stat/calcerr/f4.cu
-  psz/src/stat/calcerr/f8.cu
-  psz/src/stat/assess/f4.cu
-  psz/src/stat/assess/f8.cu
-  psz/src/stat/maxerr/max_err.cu
-)
-target_link_libraries(psz_cu_stat
-  PUBLIC
-    psz_cu_compile_settings
-)
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(psz_seq_core
@@ -128,7 +118,7 @@ add_library(psz_cu_mem
 target_link_libraries(psz_cu_mem
   PUBLIC
     psz_cu_compile_settings
-    psz_cu_stat
+    UTILS::stat_cu
     DEPS::deps
     PHF::phf_cu
     CUDA::cudart
@@ -153,12 +143,9 @@ target_link_libraries(psz_cu_core
 )
 
 add_library(psz_cu_utils
-  psz/src/utils/viewer.cc
-  psz/src/utils/viewer.cu
   psz/src/utils/verinfo.cc
   psz/src/utils/verinfo.cu
   psz/src/utils/verinfo_nv.cu
-  psz/src/utils/vis_stat.cc
   psz/src/utils/context.cc
   psz/src/utils/header.c
 )
@@ -166,6 +153,8 @@ target_link_libraries(psz_cu_utils
   PUBLIC
     psz_cu_compile_settings
     PHF::phf_cu
+    UTILS::stat_seq
+    UTILS::viewer_cu
     CUDA::cudart
     CUDA::nvml
     CUDA::cuda_driver
@@ -179,9 +168,9 @@ target_link_libraries(cusz
   PUBLIC
     psz_cu_compile_settings
     psz_cu_core
-    psz_cu_stat
     psz_cu_mem
     psz_cu_utils
+    UTILS::stat_cu
     PHF::phf_cu
     FZG::fzg_cu
     CUDA::cudart
@@ -249,11 +238,11 @@ if(PSZ_BUILD_PYBINDING)
       ${PYTHON_LIBRARIES}
       cusz
       psz_cu_core
-      psz_cu_stat
       psz_cu_mem
       psz_cu_utils
-      psz_cu_phf
-      psz_cu_fzg
+      UTILS::stat_cu
+      PHF::phf_cu
+      FZG::fzg_cu
   )
 
   # -------------------
@@ -284,10 +273,12 @@ install(TARGETS psz_cu_compile_settings EXPORT CUSZTargets)
 install(TARGETS
   psz_seq_core
   psz_cu_core
-  psz_cu_stat
   psz_cu_mem
   psz_cu_utils
   cusz
+  eval_cu
+  eval_seq
+  eval_viewer_cu
   EXPORT CUSZTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

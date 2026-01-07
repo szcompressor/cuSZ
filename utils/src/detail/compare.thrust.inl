@@ -1,19 +1,7 @@
-/**
- * @file cmpare.thrust.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-08
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/tuple.h>
 
-#include "cusz/type.h"
 #include "detail/compare.hh"
 
 namespace psz::thrustgpu {

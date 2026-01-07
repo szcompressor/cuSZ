@@ -32,7 +32,7 @@ typedef _portable_mem_control psz_mem_control;
 typedef _portable_dtype psz_dtype;
 typedef _portable_len3 psz_len3;
 typedef _portable_size3 psz_size3;
-typedef _portable_data_summary psz_data_summary;
+// psz_data_summary now defined in stat.h
 
 // Currently, 3D is the highest supported dimention.
 typedef psz_len3 psz_len;
@@ -96,18 +96,6 @@ typedef struct psz_compressor {
   psz_error_status last_error;
   void* mem;
 } psz_compressor;
-
-// nested struct object (rather than ptr) results in Swig creating a `__get`,
-// which can be breaking. Used `prefix_` instead.
-typedef struct psz_statistics {
-  psz_data_summary odata, xdata;
-  f8 score_PSNR, score_MSE, score_NRMSE, score_coeff;
-  f8 max_err_abs, max_err_rel, max_err_pwrrel;
-  size_t max_err_idx;
-  f8 autocor_lag_one, autocor_lag_two;
-  f8 user_eb;
-  size_t len;
-} psz_statistics;
 
 typedef struct psz_interp_params {
   double alpha, beta;

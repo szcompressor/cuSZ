@@ -1,14 +1,3 @@
-/**
- * @file bin_hf.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-08-15
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <cstdint>
 #include <string>
 
@@ -22,6 +11,8 @@
 #include "utils/print_arr.hh"
 
 namespace utils = _portable::utils;
+using std::cout;
+using std::endl;
 
 using B = uint8_t;
 using F = u4;

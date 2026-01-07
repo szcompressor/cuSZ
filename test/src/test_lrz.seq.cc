@@ -1,18 +1,7 @@
-/**
- * @file test_l2_serial.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-02-25
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
-
-#include "detail/busyheader.hh"
 #include "detail/correctness.inl"
 #include "kernel/detail/lrz.seq.inl"
 #include "kernel/spvn.hh"
+#include "utils/busyheader.hh"
 
 using T = float;
 using FP = float;

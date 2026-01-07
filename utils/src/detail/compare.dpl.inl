@@ -1,14 +1,3 @@
-/**
- * @file _compare.cuh
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-10-08
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
-
 #include <cmath>
 #include <dpct/dpct.hpp>
 #include <dpct/dpl_utils.hpp>

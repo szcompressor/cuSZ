@@ -1,23 +1,10 @@
-/**
- * @file compare.stl.inl
- * @author Jiannan Tian
- * @brief Verification of decompressed data.
- * @version 0.2
- * @date 2020-09-20
- * Created on: 2019-09-30
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <numeric>
 
-#include "cusz/type.h"
+// #include "cusz/type.h"
 #include "detail/compare.hh"
 
 namespace psz::cppstl {
@@ -68,7 +55,7 @@ void CPU_find_max_error(T* a, T* b, size_t const len, T& maxval, size_t& maxloc)
 }
 
 template <typename T>
-void CPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
+void CPU_assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len)
 {
   double max_odata = odata[0], min_odata = odata[0];
   double max_xdata = xdata[0], min_xdata = xdata[0];
