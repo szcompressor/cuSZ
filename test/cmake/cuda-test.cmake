@@ -78,7 +78,6 @@ target_link_libraries(stat_max_error
 )
 add_test(test_stat_max_error stat_max_error)
 
-
 add_executable(mem_unique src/test_mem_unique.cu)
 target_link_libraries(mem_unique
   PRIVATE
@@ -88,3 +87,6 @@ target_link_libraries(mem_unique
   CUDA::cudart
 )
 add_test(test_mem_unique mem_unique)
+
+# 2404: test_hfr and test_rs_merge use APIs not yet implemented (HuffmanCodec::Buf,
+# phf::sparse, CPU/GPU_HFReVISIT_encode wrappers); excluded until API is stable.

@@ -68,7 +68,7 @@ struct Buf<E>::impl {
   impl(size_t inlen, size_t _bklen, int _pardeg, bool _use_HFR, bool debug) :
       len(inlen),
       bklen(_bklen),
-      bitstream_max_len(inlen / 2),
+      bitstream_max_len(_use_HFR ? inlen : inlen / 2),
       use_HFR(_use_HFR),
       rvbk4_bytes(_rvbk4_bytes(_bklen))
   {
@@ -120,7 +120,8 @@ struct Buf<E>::impl {
     memcpy_helper _par_entry{
         d_par_entry.get(), pardeg * sizeof(M), header.entry[PHFHEADER_PAR_ENTRY]};
     memcpy_helper _bitstream{
-        d_bitstream4.get(), bitstream_max_len * sizeof(H4), header.entry[PHFHEADER_BITSTREAM]};
+        d_bitstream4.get(), (size_t)header.total_ncell * sizeof(H4),
+        header.entry[PHFHEADER_BITSTREAM]};
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
@@ -130,12 +131,20 @@ struct Buf<E>::impl {
 
     cudaMemcpyAsync(start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream);
 
-    // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
     d2d_memcpy_merge(_rvbk);
     d2d_memcpy_merge(_par_nbit);
     d2d_memcpy_merge(_par_entry);
     d2d_memcpy_merge(_bitstream);
-    // /* debug */ CHECK_GPU(cudaStreamSynchronize(stream));
+
+    // HFR: archive sparse (breaking-point) buffers if present.
+    if (header.brnum > 0) {
+      memcpy_helper _sp_val{
+          d_brval.get(), header.brnum * sizeof(E), header.entry[PHFHEADER_SP_VAL]};
+      memcpy_helper _sp_idx{
+          d_bridx.get(), header.brnum * sizeof(u4), header.entry[PHFHEADER_SP_IDX]};
+      d2d_memcpy_merge(_sp_val);
+      d2d_memcpy_merge(_sp_idx);
+    }
   }
 
   void clear_buffer()
@@ -203,6 +212,8 @@ PHF_BUF_DEF(void)::calc_offset(phf_header& header, M* byte_offsets)
   byte_offsets[PHFHEADER_PAR_NBIT] = pimpl->pardeg * sizeof(M);
   byte_offsets[PHFHEADER_PAR_ENTRY] = pimpl->pardeg * sizeof(M);
   byte_offsets[PHFHEADER_BITSTREAM] = 4 * header.total_ncell;
+  byte_offsets[PHFHEADER_SP_VAL] = header.brnum * sizeof(SYM);  // E[brnum]
+  byte_offsets[PHFHEADER_SP_IDX] = header.brnum * sizeof(u4);   // u4[brnum]
 
   header.entry[0] = 0;
   // *.END + 1: need to know the ending position
@@ -214,6 +225,10 @@ PHF_BUF_DEF(void)::calc_offset(phf_header& header, M* byte_offsets)
 PHF_BUF_DEF(void)::register_runtime_bklen(const int _rt_bklen) { pimpl->rt_bklen = _rt_bklen; }
 
 // method, same-name
+PHF_BUF_DEF(E*)::brval_d() const { return pimpl->d_brval.get(); }
+PHF_BUF_DEF(u4*)::bridx_d() const { return pimpl->d_bridx.get(); }
+PHF_BUF_DEF(u4*)::brnum_d() const { return pimpl->d_brnum.get(); }
+
 PHF_BUF_DEF(void)::memcpy_merge(phf_header& header, phf_stream_t stream)
 {
   pimpl->memcpy_merge(header, stream);

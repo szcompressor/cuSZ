@@ -78,6 +78,11 @@ struct Buf {
   PHF_BYTE* encoded_d() const;
   PHF_BYTE* encoded_h() const;
 
+  // HFR breaking-point sparse buffers
+  E*  brval_d() const;
+  u4* bridx_d() const;
+  u4* brnum_d() const;
+
   void update_header(phf_header& header);
   void calc_offset(phf_header& header, M* byte_offsets);
 
@@ -97,6 +102,11 @@ struct high_level {
       PHF_BUF* buf, E* in_data, size_t const data_len, uint8_t** out_encoded, size_t* encoded_len,
       phf_header& header, PHF_STREAM stream);
 
+  static int encode_HFR(
+      PHF_BUF* buf, E* in_data, size_t const data_len, uint8_t** out_encoded, size_t* encoded_len,
+      phf_header& header, PHF_STREAM stream);
+
+  // backward-compat alias
   static int encode_ReVISIT_lite(
       PHF_BUF* buf, E* in_data, size_t const data_len, uint8_t** out_encoded, size_t* encoded_len,
       phf_header& header, PHF_STREAM stream);

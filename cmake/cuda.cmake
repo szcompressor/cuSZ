@@ -87,11 +87,6 @@ if(NOT TARGET FZG::fzg_cu AND NOT FZG_FOUND)
   add_subdirectory(codec/fzg)
 endif()
 
-find_package(PHF QUIET)
-if(NOT TARGET PHF::phf_cu AND NOT PHF_FOUND)
-  add_subdirectory(codec/hf)
-endif()
-
 find_package(UTILS QUIET)
 if(NOT TARGET UTILS::utils_headers AND NOT UTILS_FOUND)
   add_subdirectory(utils)
@@ -100,6 +95,18 @@ endif()
 # ------------------------------------------------------------------------------
 # Libraries
 # ------------------------------------------------------------------------------
+
+find_package(PHF QUIET)
+if(NOT TARGET PHF::phf_cu AND NOT PHF_FOUND)
+  add_subdirectory(codec/hf)
+endif()
+if(TARGET phf_cu AND NOT TARGET PSZ::CUDA::phf)
+  add_library(PSZ::CUDA::phf ALIAS phf_cu)
+  add_library(CUSZ::phf      ALIAS phf_cu)
+elseif(TARGET PHF::phf_cu AND NOT TARGET PSZ::CUDA::phf)
+  add_library(PSZ::CUDA::phf ALIAS PHF::phf_cu)
+  add_library(CUSZ::phf      ALIAS PHF::phf_cu)
+endif()
 
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(psz_seq_core
@@ -165,25 +172,17 @@ target_link_libraries(psz_cu_utils
 )
 
 if(PSZ_CMAKE_ACTIVATE_LC)
-
-  add_compile_definitions(
-    PSZ_USE_LC_FIXED
-  )
-  add_library(lc_gen 
-    third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu 
+  add_compile_definitions(PSZ_USE_LC_FIXED)
+  add_library(lc_gen
+    third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu
     third_party/lc_gen/comp-bitr.cu third_party/lc_gen/decomp-bitr.cu
     third_party/lc_gen/comp-rtr.cu  third_party/lc_gen/decomp-rtr.cu
   )
-  target_compile_options(lc_gen
-    PRIVATE
+  target_compile_options(lc_gen PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-O3 -fmad=false>
     $<$<COMPILE_LANGUAGE:CXX>:-O3 -march=native -mno-fma>
   )
-  target_link_libraries(lc_gen 
-    PUBLIC 
-    psz_cu_compile_settings 
-    CUDA::cudart
-  )
+  target_link_libraries(lc_gen PUBLIC psz_cu_compile_settings CUDA::cudart)
 endif()
 
 
@@ -290,7 +289,7 @@ if(PSZ_BUILD_PYBINDING)
       CUDA::cudart
       ${PYTHON_LIBRARIES}
       psz_cu_mem
-      psz_cu_phf
+      PHF::phf_cu
   )
 endif()
 

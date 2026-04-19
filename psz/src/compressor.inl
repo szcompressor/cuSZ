@@ -418,7 +418,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  auto compress_encode_pass1_Huffman = [&]() -> int {
+  // shared for HF and HFR
+  auto compress_histogram_and_build_book = [&]() {
     memset_device(mem->hist_d(), ctx->dict_size, 0);
 
     if (PIPELINE.hist == psz_hist::HistogramSparse)
@@ -432,9 +433,25 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->dict_size);
     phf::high_level<E>::build_book(mem->buf_hf(), mem->hist_h(), ctx->dict_size, stream);
+  };
+
+  auto compress_encode_pass1_Huffman = [&]() -> int {
+    compress_histogram_and_build_book();
 
     phf_header dummy_header;
     phf::high_level<E>::encode(
+        mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        dummy_header, stream);
+
+    return PSZ_SUCCESS;
+  };
+
+  // HFR: reduce-shuffle-merge + breaking-point handling
+  auto compress_encode_pass1_HFR = [&]() -> int {
+    compress_histogram_and_build_book();
+
+    phf_header dummy_header;
+    phf::high_level<E>::encode_HFR(
         mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream);
 
@@ -553,7 +570,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   // Tian et al. 2020; Tian et al. 2021
   auto compress_encode_default = [&]() -> int {
-    auto status = compress_encode_pass1_Huffman();
+    auto status = (PIPELINE.codec1 == HuffmanRevisit) ? compress_encode_pass1_HFR()
+                                                      : compress_encode_pass1_Huffman();
     if (status != PSZ_SUCCESS) return status;
     compress_encode_pass1_wrapup();
     return PSZ_SUCCESS;

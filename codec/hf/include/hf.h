@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -31,7 +32,9 @@ typedef enum { HF_U1, HF_U2, HF_U4, HF_U8, HF_ULL, HF_INVALID } phf_dtype;
 #define PHFHEADER_PAR_NBIT 2
 #define PHFHEADER_PAR_ENTRY 3
 #define PHFHEADER_BITSTREAM 4
-#define PHFHEADER_END 5
+#define PHFHEADER_SP_VAL 5  // HFR: breaking-point val
+#define PHFHEADER_SP_IDX 6  // HFR: breaking-point idx
+#define PHFHEADER_END 7
 
 typedef uint32_t PHF_METADATA;
 typedef uint8_t PHF_BIN;
@@ -42,6 +45,7 @@ typedef struct {
   int sublen, pardeg;
   size_t original_len;
   size_t total_nbit, total_ncell;  // TODO change to uint32_t
+  uint32_t brnum;                  // HFR: number of sp breaking-point; 0 for HF
   uint32_t entry[PHFHEADER_END + 1];
 } phf_header;
 
@@ -69,6 +73,9 @@ int phf_buildbook(phf_codec* codec, uint32_t* d_hist, phf_stream_t);
 int phf_encode(
     phf_codec* codec, void* in, size_t const inlen, uint8_t** encoded, size_t* enc_bytes,
     phf_stream_t);
+int phf_encode_HFR(
+    phf_codec* codec, void* in, bool use_HFR, size_t const inlen, uint8_t** encoded,
+    size_t* enc_bytes, phf_stream_t);
 int phf_decode(phf_codec* codec, uint8_t* encoded, void* decoded, phf_stream_t);
 
 // helpers

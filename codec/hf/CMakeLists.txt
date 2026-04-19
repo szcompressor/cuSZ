@@ -53,6 +53,10 @@ add_library(phf_cu
   src/hf_hl.cc
   src/hf_kernels.cu
   src/libphf.cc
+  src/rs_merge_r1.cu
+  src/rs_merge_r2.cu
+  src/rs_merge_r3.cu
+  src/rs_merge_r4.cu
 )
 add_library(PHF::phf_cu ALIAS phf_cu)
 

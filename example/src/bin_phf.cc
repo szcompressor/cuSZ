@@ -5,100 +5,30 @@
 #include "hf.h"
 #include "hf_hl.hh"
 #include "kernel/hist.hh"
-#include "kernel/predictor.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 #include "utils/print_arr.hh"
 
 namespace utils = _portable::utils;
-using std::cout;
-using std::endl;
+using std::string;
 
-using B = uint8_t;
 using F = u4;
 
-string fname;
-bool dump_book{false}, use_revisit{false};
-int sublen, pardeg;
-uint8_t* d_compressed;
-float time_hist;
-size_t outlen;
-cudaStream_t stream;
-float time_encode = (float)INT_MAX;
-float time_decode = (float)INT_MAX;
-int which_test = 1;
-phf_header header;
-
-#define PEEK_DATA                        \
-  printf("peeking data, 20 elements\n"); \
-  psz::peek_data<E>(h_oridata, 20), printf("\n");
-
-#define PEEK_XDATA                                                \
-  printf("peeking xdata, 20 elements\n");                         \
-  memcpy_allkinds<E, D2H>(h_decomp, d_decomp, len), printf("\n"); \
-  psz::peek_data<E>(h_decomp, 20), printf("\n");
-
-#define CHECK_INTEGRITY                                                               \
-  auto identical =                                                                    \
-      psz::module::GPU_identical(d_decomp.get(), d_oridata.get(), sizeof(E), len, 0); \
-  printf("%s\n", identical ? ">>>>  IDENTICAL" : "!!!!  ERROR: DIFFERENT");
-
-#define MALLOC_BUFFERS                                                 \
-  auto d_oridata = GPU_make_unique(malloc_d<E>(len), GPU_DELETER_D()); \
-  auto h_oridata = GPU_make_unique(malloc_h<E>(len), GPU_DELETER_H()); \
-  auto d_decomp = GPU_make_unique(malloc_d<E>(len), GPU_DELETER_D());  \
-  auto h_decomp = GPU_make_unique(malloc_h<E>(len), GPU_DELETER_H());  \
-  auto d_hist = GPU_make_unique(malloc_d<F>(bklen), GPU_DELETER_D());  \
-  auto h_hist = GPU_make_unique(malloc_h<F>(bklen), GPU_DELETER_H());
-
-#define LOAD_FILE                                       \
-  utils::fromfile(fname.c_str(), h_oridata.get(), len); \
-  memcpy_allkinds<H2D>(d_oridata.get(), h_oridata.get(), len);
-
-#define PREPARE   \
-  MALLOC_BUFFERS; \
-  LOAD_FILE;      \
-  cudaStreamCreate(&stream);
-
-#define CLEANUP cudaStreamDestroy(stream);
-
-#define PRINT_REPORT                                    \
-  print_GBps<E>(len, time_encode, "hf_encode");         \
-  print_GBps<u1>(outlen, time_decode, "hf_decode");     \
-  printf("Huffman in  bytes:\t%lu\n", len * sizeof(E)); \
-  printf("Huffman out bytes:\t%lu\n", outlen);          \
-  printf("Huffman CR (out/in):\t%.2lf\n", len * sizeof(E) * 1.0 / outlen);
-
-#define PRINT_REPORT_RUN2                               \
-  printf("Huffman in  bytes:\t%lu\n", len * sizeof(E)); \
-  printf("Huffman out bytes:\t%lu\n", outlen);          \
-  printf("Huffman CR (out/in):\t%.2lf\n", len * sizeof(E) * 1.0 / outlen);
-
 namespace {
-void print_tobediscarded_info(float time_in_ms, string fn_name)
-{
-  auto title = "[psz::info::discard::" + fn_name + "]";
-  printf("%s time (ms): %.6f\n", title.c_str(), time_in_ms);
-}
 
 template <typename T>
-float print_GBps(size_t len, float time_in_ms, string fn_name)
+void print_GBps(size_t len, float time_ms, const char* label)
 {
-  auto B_to_GiB = 1.0 * 1024 * 1024 * 1024;
-  auto GiBps = len * sizeof(T) * 1.0 / B_to_GiB / (time_in_ms / 1000);
-  auto title = "[psz::info::res::" + fn_name + "]";
-  printf("%s %.2f GiB/s at %.6f ms\n", title.c_str(), GiBps, time_in_ms);
-  return GiBps;
+  double GBps = (double)len * sizeof(T) / 1e9 / (time_ms * 1e-3);
+  printf("[psz::info::res::%s] %.2f GB/s at %.4f ms\n", label, GBps, time_ms);
 }
 
 struct Arguments {
-  std::string fname;
+  string fname;
   int x = 0, y = 0, z = 0;
-  int bklen = 0;
-  std::string type = "u1";  // default
-  bool use_revisit = false;
-  bool dump_book = false;
-  int which_test = 1;
+  int bklen = 1024;
+  string type = "u2";
+  bool use_hfr = false;
 
   bool parse(int argc, char** argv)
   {
@@ -106,139 +36,135 @@ struct Arguments {
       print_usage(argv[0]);
       return false;
     }
-
     fname = argv[1];
-    x = std::atoi(argv[2]);
-    y = std::atoi(argv[3]);
-    z = std::atoi(argv[4]);
+    x     = std::atoi(argv[2]);
+    y     = std::atoi(argv[3]);
+    z     = std::atoi(argv[4]);
     bklen = std::atoi(argv[5]);
 
     for (int i = 6; i < argc; ++i) {
-      std::string arg = argv[i];
-
-      if (arg == "--fast") { use_revisit = true; }
-      else if (arg == "--dump-book") {
-        dump_book = true;
-      }
-      else if (arg == "--type" and i + 1 < argc) {
+      string arg = argv[i];
+      if (arg == "--hfr")
+        use_hfr = true;
+      else if (arg == "--hf")
+        use_hfr = false;
+      else if (arg == "--type" && i + 1 < argc)
         type = argv[++i];
-      }
-      else if (arg == "--test" and i + 1 < argc) {
-        which_test = std::atoi(argv[++i]);
-      }
       else {
-        printf("Unknown or incomplete argument: %s\n", arg.c_str());
+        printf("unknown argument: %s\n", arg.c_str());
         print_usage(argv[0]);
         return false;
       }
     }
-
     return true;
   }
 
-  size_t total_len() const { return static_cast<size_t>(x) * y * z; }
+  size_t total_len() const { return (size_t)x * y * z; }
 
-  void print_usage(const char* progname) const
+  void print_usage(const char* prog) const
   {
     printf(
-        "usage:\n"
-        "  %s  /path/to/data  X  Y  Z  bklen  "
-        "[--fast true|false]  [--type u1|u2|u4]  [--dump-book true|false]  [--test 1|2]\n",
-        progname);
+        "usage: %s  /path/to/data  X  Y  Z  bklen"
+        "  [--hfr|--hf]  [--type u1|u2|u4]\n",
+        prog);
   }
 };
 
 }  // namespace
 
-template <typename E, typename H = u4>
-void hf_run_3(std::string fname, size_t const len, size_t const bklen = 1024)
+template <typename E>
+void hf_run(const string& fname, size_t len, int bklen, bool use_hfr)
 {
-  PREPARE;
+  printf(
+      "[hf_run] codec=%s  len=%zu  bklen=%d\n",
+      use_hfr ? "HFR" : "HF", len, bklen);
 
-  auto buf = new phf::Buf<E>(len, bklen, -1, true);
-  int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
-  psz::module::GPU_histogram_generic<E>::init(
-      len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
+  auto h_data   = malloc_host<E>(len);
+  auto d_data   = malloc_device<E>(len);
+  auto d_decomp = malloc_device<E>(len);
+  auto d_hist   = malloc_device<F>(bklen);
+  auto h_hist   = malloc_host<F>(bklen);
+
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+
+  utils::fromfile(fname.c_str(), h_data, len);
+  memcpy_allkinds_async<H2D>(d_data, h_data, len, stream);
+  cudaStreamSynchronize(stream);
+
+  int grid_dim, block_dim, shmem_use, repeat;
+  psz::module::GPU_histogram_generic<E>::init(len, bklen, grid_dim, block_dim, shmem_use, repeat);
   psz::module::GPU_histogram_generic<E>::kernel(
-      d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
-      shmem_use, repeat, stream);
-  memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen);
-  sync_by_stream(stream);
+      d_data, len, d_hist, bklen, grid_dim, block_dim, shmem_use, repeat, stream);
+  memcpy_allkinds_async<D2H>(h_hist, d_hist, bklen, stream);
+  cudaStreamSynchronize(stream);
 
-  phf::high_level<E>::build_book(buf, h_hist.get(), bklen, stream);
+  auto buf = new phf::Buf<E>(len, bklen, -1, use_hfr);
+  phf::high_level<E>::build_book(buf, h_hist, bklen, stream);
 
-  for (auto i = 0; i < 10; i++) {
-    phf::high_level<E>::encode_ReVISIT_lite(
-        buf, d_oridata.get(), len, &d_compressed, &outlen, header, stream);
-    phf::high_level<E>::decode(buf, header, d_compressed, d_decomp.get(), stream);
-  }
+  uint8_t* d_encoded = nullptr;
+  size_t   encoded_len = 0;
+  phf_header header{};
 
-  CHECK_INTEGRITY;
-  PRINT_REPORT_RUN2;
-  CLEANUP;
-}
+  cudaEvent_t t0, t1;
+  cudaEventCreate(&t0);
+  cudaEventCreate(&t1);
 
-template <typename E, typename H = u4>
-void hf_run_2(std::string fname, size_t const len, size_t const bklen = 1024)
-{
-  PREPARE;
+  cudaEventRecord(t0, stream);
+  if (use_hfr)
+    phf::high_level<E>::encode_HFR(buf, d_data, len, &d_encoded, &encoded_len, header, stream);
+  else
+    phf::high_level<E>::encode(buf, d_data, len, &d_encoded, &encoded_len, header, stream);
+  cudaEventRecord(t1, stream);
+  cudaStreamSynchronize(stream);
 
-  auto buf = new phf::Buf<E>(len, bklen);
-  int hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat;
-  psz::module::GPU_histogram_generic<E>::init(
-      len, bklen, hist_generic_grid_dim, hist_generic_block_dim, shmem_use, repeat);
-  psz::module::GPU_histogram_generic<E>::kernel(
-      d_oridata.get(), len, d_hist.get(), bklen, hist_generic_grid_dim, hist_generic_block_dim,
-      shmem_use, repeat, stream);
-  memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen);
-  sync_by_stream(stream);
+  float ms_enc = 0;
+  cudaEventElapsedTime(&ms_enc, t0, t1);
 
-  phf::high_level<E>::build_book(buf, h_hist.get(), bklen, stream);
+  cudaEventRecord(t0, stream);
+  phf::high_level<E>::decode(buf, header, d_encoded, d_decomp, stream);
+  cudaEventRecord(t1, stream);
+  cudaStreamSynchronize(stream);
 
-  for (auto i = 0; i < 10; i++) {
-    phf::high_level<E>::encode(buf, d_oridata.get(), len, &d_compressed, &outlen, header, stream);
-    phf::high_level<E>::decode(buf, header, d_compressed, d_decomp.get(), stream);
-  }
+  float ms_dec = 0;
+  cudaEventElapsedTime(&ms_dec, t0, t1);
 
-  CHECK_INTEGRITY;
-  PRINT_REPORT_RUN2;
-  CLEANUP;
+  auto identical =
+      psz::module::GPU_identical((void*)d_decomp, (void*)d_data, sizeof(E), len, stream);
+  printf("%s\n", identical ? ">>>>  IDENTICAL" : "!!!!  ERROR: DIFFERENT");
+
+  print_GBps<E>(len, ms_enc, "hf_encode");
+  print_GBps<u1>(encoded_len, ms_dec, "hf_decode");
+  printf("Huffman in  bytes: %zu\n", len * sizeof(E));
+  printf("Huffman out bytes: %zu\n", encoded_len);
+  printf("Huffman CR (in/out): %.2f\n", (double)(len * sizeof(E)) / encoded_len);
+
+  cudaEventDestroy(t0);
+  cudaEventDestroy(t1);
+  cudaStreamDestroy(stream);
+  delete buf;
+  free_host(h_data);
+  free_device(d_data);
+  free_device(d_decomp);
+  free_device(d_hist);
+  free_host(h_hist);
 }
 
 int main(int argc, char** argv)
 {
   Arguments args;
-  if (not args.parse(argc, argv)) { return 1; }
+  if (!args.parse(argc, argv)) return 1;
 
   size_t len = args.total_len();
 
-  if (args.which_test == 1) {
-    cout << "HF run version-1 is removed, exiting..." << args.type << endl;
-  }
-  else if (args.which_test == 2) {
-    cout << "HF run version-2, input type: " << args.type << endl;
-
-    if (args.type == "u1")
-      hf_run_2<uint8_t>(args.fname, len, 256);
-    else if (args.type == "u2")
-      hf_run_2<uint16_t>(args.fname, len, args.bklen);
-    else if (args.type == "u4")
-      hf_run_2<uint32_t>(args.fname, len, args.bklen);
-    else
-      fprintf(stderr, "Unknown type: %s\n", args.type.c_str());
-  }
-  else {
-    cout << "HF run version-3 (ReVISIT), input type: " << args.type << endl;
-
-    if (args.type == "u1")
-      hf_run_3<uint8_t>(args.fname, len, 256);
-    else if (args.type == "u2")
-      hf_run_3<uint16_t>(args.fname, len, args.bklen);
-    else if (args.type == "u4")
-      hf_run_3<uint32_t>(args.fname, len, args.bklen);
-    else
-      fprintf(stderr, "Unknown type: %s\n", args.type.c_str());
-  }
+  if (args.type == "u1")
+    hf_run<uint8_t>(args.fname, len, 256, args.use_hfr);
+  else if (args.type == "u2")
+    hf_run<uint16_t>(args.fname, len, args.bklen, args.use_hfr);
+  else if (args.type == "u4")
+    hf_run<uint32_t>(args.fname, len, args.bklen, args.use_hfr);
+  else
+    fprintf(stderr, "unknown type: %s\n", args.type.c_str());
 
   return 0;
 }
