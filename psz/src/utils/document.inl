@@ -41,6 +41,7 @@ Format(const std::string& s)
 static const char psz_short_doc[] =
     "\n"
     "usage: cusz [-zxh] [-i file] [-t dtype] [-m mode] [-e eb] [-l x-y-z] "
+    "            (OPTIONAL) [-p predictor] [-a tuning] [-s lossless]"
     "...\n"
     "\n"
     "  z : zip/compress\n"
@@ -52,7 +53,9 @@ static const char psz_short_doc[] =
     "  m mode  : _abs_, _rel_/_r2r_\n"
     "  e eb    : error bound\n"
     "  l size  : _-l [x[-y[-z]]] (1,2,3-D)\n"
-    "  p pred  : predictor: \"lrz\", \"spl\", \"lrz-zz\", \"lrz-proto\"\n"
+    "  p NAME  : predictor: \"lrz\", \"spl\", \"lrz-zz\", \"lrz-proto\"\n"
+    "  a NAME  : auto tuning mode: \"CR-first\", \"RD-first\""
+    "  s NAME  : lossless scheme: \"CR\", \"TP\"/\"speed\""
     "\n"
     // "  config list:\n"
     // "    syntax: opt=v, \"kw1=val1,kw1=val2[,...]\"\n"

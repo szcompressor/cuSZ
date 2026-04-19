@@ -213,8 +213,16 @@ psz_resource* psz_create_resource_manager(
 {
   auto m = new psz_resource;
 
-  m->header = new psz_header{.dtype = dtype, .pipeline = pipeline, .len = len};
+  auto defaults = pszctx_default_values();
+  m->header = new psz_header;
+  memcpy(m->header, defaults->header, sizeof(psz_header));
+  delete defaults;
+
+  m->header->dtype = dtype;
+  m->header->pipeline = pipeline;
+  m->header->len = len;
   m->len_linear = len.x * len.y * len.z;
+  m->dict_size = m->header->rc.radius * 2;
   m->cli = nullptr;
   phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
@@ -232,7 +240,8 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   m->len_linear = header->len.x * header->len.y * header->len.z;
   m->cli = nullptr;
 
-  m->buf = header->dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
+  m->buf = header->dtype == F4 ? CP<f4, u2>::decompress_init(m->header)
+                               : CP<f8, u2>::decompress_init(m->header);
 
   m->stream = stream;
 

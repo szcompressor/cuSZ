@@ -104,9 +104,9 @@ string const psz_report_query_pred(psz_predictor const p)
 string const psz_report_query_hist(psz_hist const h)
 {
   const std::unordered_map<psz_hist const, std::string const> lut = {
-      {psz_hist::HistogramGeneric, "Hist-generic"},
-      {psz_hist::HistogramSparse, "Hist-sparse"},
-      {psz_hist::NullHistogram, "Hist-(null)"},
+      {psz_hist::HistogramGeneric, "Hist"},
+      {psz_hist::HistogramSparse, "Hist-Sparse"},
+      {psz_hist::NullHistogram, "Null"},
   };
   return lut.at(h);
 };
@@ -115,12 +115,42 @@ string const psz_report_query_codec1(psz_codec const c)
 {
   const std::unordered_map<psz_codec const, std::string const> lut = {
       {psz_codec::Huffman, "Huffman"},
+      {psz_codec::HuffmanRevisit, "Huffman-revisit"},
+      {psz_codec::LC, "LC"},
       {psz_codec::FZCodec, "FZGPU-Codec"},
+      {psz_codec::RunLength, "RunLength"},
+      {psz_codec::NullCodec, "N/A"},
   };
-  return lut.at(c);
+  auto it = lut.find(c);
+  return (it != lut.end()) ? it->second : "unknown";
 };
 
+static string psz_pipeline_tag(psz_header* h)
+{
+  auto c2 = psz_report_query_codec1(h->pipeline.codec2);
+  string tag = "[" + psz_report_query_pred(h->pipeline.predictor) + ", " +
+               psz_report_query_hist(h->pipeline.hist) + ", " +
+               psz_report_query_codec1(h->pipeline.codec1);
+  if (c2 != "N/A") tag += ", " + c2;
+  tag += "]";
+  return tag;
+}
+
 void psz_review_comp_time_from_header(psz_header* h)
+{
+  auto comp_bytes = [&]() {
+    auto ending = sizeof(h->entry) / sizeof(h->entry[0]);
+    return h->entry[ending - 1];
+  };
+  auto sizeof_T = [&]() { return (h->dtype == F4 ? 4 : 8); };
+  auto uncomp_bytes = h->len.x * h->len.y * h->len.z * sizeof_T();
+  double cr = comp_bytes() ? 1.0 * uncomp_bytes / comp_bytes() : 0.0;
+  printf(
+      "%s\tCR=%.6g\tmode=%s\tinput_eb=%.6g\tfinal_eb=%.6g\n", psz_pipeline_tag(h).c_str(), cr,
+      h->rc.mode == Rel ? "Rel" : "Abs", h->user_input_eb, h->rc.eb);
+}
+
+void psz_review_comp_time_from_header_verbose(psz_header* h)
 {
   printf("\n");
   // [TODO] put error status
@@ -186,6 +216,15 @@ void psz_review_comp_time_from_header(psz_header* h)
   printf("--------------------------------------------------\n");
   __print("file::anchor:::number", fieldsize(PSZHEADER_ANCHOR) / sizeof_T());
   __print("file::outlier:::number", n_outlier);
+}
+
+void psz_print_concise_quality(psz_header* h, psz_stats* s, size_t comp_bytes)
+{
+  auto bytes = s->len * (h->dtype == F4 ? 4.0 : 8.0);
+  double cr = comp_bytes ? bytes / comp_bytes : 0.0;
+  printf(
+      "%s\tCR=%.6g\tPSNR=%.4f\tmax_error=%.6g\tmax_error_rel=%.6g\n", psz_pipeline_tag(h).c_str(),
+      cr, s->score_PSNR, s->max_err_abs, s->max_err_rel);
 }
 
 void println_text_v2(string const prefix, string const kw, string const text)

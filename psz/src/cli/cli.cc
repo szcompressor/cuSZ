@@ -29,16 +29,20 @@ using _portable::utils::tofile;
 
 #define REPORT(T)                                                                     \
   if (args->cli->report_time) psz_review_decompression(&timerecord, sizeof(T) * len); \
-  psz_review_decomp_time_from_header(header);
+  if (args->cli->verbose) psz_review_decomp_time_from_header(header);
 
-#define COMPARE_WITH_ORIGIN(T)                                 \
-  if (string(args->cli->file_compare) != "") {                 \
-    auto d_origin = MAKE_UNIQUE_DEVICE(T, len);                \
-    auto h_origin = MAKE_UNIQUE_HOST(T, len);                  \
-    fromfile(args->cli->file_compare, h_origin.get(), len);    \
-    memcpy_allkinds<H2D>(d_origin.get(), h_origin.get(), len); \
-    psz::analysis::GPU_evaluate_quality_and_print(             \
-        d_decomped.get(), d_origin.get(), len, comp_len);      \
+#define COMPARE_WITH_ORIGIN(T)                                      \
+  if (string(args->cli->file_compare) != "") {                      \
+    auto d_origin = MAKE_UNIQUE_DEVICE(T, len);                     \
+    auto h_origin = MAKE_UNIQUE_HOST(T, len);                       \
+    fromfile(args->cli->file_compare, h_origin.get(), len);         \
+    memcpy_allkinds<H2D>(d_origin.get(), h_origin.get(), len);      \
+    if (args->cli->verbose)                                         \
+      psz::analysis::GPU_evaluate_quality_and_print(                \
+          d_decomped.get(), d_origin.get(), len, comp_len);         \
+    else                                                            \
+      psz::analysis::GPU_evaluate_quality_and_print_concise(        \
+          d_decomped.get(), d_origin.get(), len, comp_len, header); \
   }
 
 #define WRITE_TO_DISK(T)                                                                 \
@@ -81,6 +85,7 @@ int psz_run_from_CLI(int argc, char** argv)
           F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
       m->cli = args->cli;
+      m->header->pipeline.codec2 = CLI_codec2(args);
       psz_compress_float(
           m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
           &d_internal_compressed, &compressed_len);
@@ -95,6 +100,7 @@ int psz_run_from_CLI(int argc, char** argv)
           F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
       m->cli = args->cli;
+      m->header->pipeline.codec2 = CLI_codec2(args);
       psz_compress_double(
           m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
           &d_internal_compressed, &compressed_len);
@@ -105,8 +111,11 @@ int psz_run_from_CLI(int argc, char** argv)
       // psz_review_comp_time_breakdown(&timerecord, &header);
     }
     if (args->cli->report_cr) {
-      printf("\n\e[1m\e[31mREPORT::COMPRESSION::FILE\e[0m\n");
       psz_review_comp_time_from_header(&header);
+      if (args->cli->verbose) {
+        printf("\n\e[1m\e[31mREPORT::COMPRESSION::FILE\e[0m\n");
+        psz_review_comp_time_from_header_verbose(&header);
+      }
     }
 
     if (not args->cli->skip_tofile) {

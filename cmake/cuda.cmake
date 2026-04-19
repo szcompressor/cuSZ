@@ -45,6 +45,7 @@ target_include_directories(psz_cu_compile_settings
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/utils/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
@@ -132,7 +133,10 @@ add_library(psz_cu_core
   psz/src/kernel/spvn.cu
   psz/src/kernel/lrz_c.cu
   psz/src/kernel/lrz_x.cu
-  psz/src/kernel/spline3.cu
+  psz/src/kernel/spline3_c_u1.cu
+  psz/src/kernel/spline3_c_u2.cu
+  psz/src/kernel/spline3_x_u1.cu
+  psz/src/kernel/spline3_x_u2.cu
 )
 target_link_libraries(psz_cu_core
   PUBLIC
@@ -160,6 +164,29 @@ target_link_libraries(psz_cu_utils
     CUDA::cuda_driver
 )
 
+if(PSZ_CMAKE_ACTIVATE_LC)
+
+  add_compile_definitions(
+    PSZ_USE_LC_FIXED
+  )
+  add_library(lc_gen 
+    third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu 
+    third_party/lc_gen/comp-bitr.cu third_party/lc_gen/decomp-bitr.cu
+    third_party/lc_gen/comp-rtr.cu  third_party/lc_gen/decomp-rtr.cu
+  )
+  target_compile_options(lc_gen
+    PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-O3 -fmad=false>
+    $<$<COMPILE_LANGUAGE:CXX>:-O3 -march=native -mno-fma>
+  )
+  target_link_libraries(lc_gen 
+    PUBLIC 
+    psz_cu_compile_settings 
+    CUDA::cudart
+  )
+endif()
+
+
 add_library(cusz
   psz/src/compressor.cc
   psz/src/libcusz.cc
@@ -175,6 +202,9 @@ target_link_libraries(cusz
     FZG::fzg_cu
     CUDA::cudart
 )
+if(PSZ_CMAKE_ACTIVATE_LC)
+  target_link_libraries(cusz PUBLIC lc_gen)
+endif()
 
 # ------------------------------------------------------------------------------
 # Executable
@@ -285,6 +315,16 @@ install(TARGETS
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+if(PSZ_CMAKE_ACTIVATE_LC)
+  install(TARGETS
+    lc_gen
+    EXPORT CUSZTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
+endif()
 
 install(TARGETS
   cusz-bin

@@ -10,10 +10,9 @@
 namespace psz {
 
 template <typename T>
-class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
+class Compressor {
  private:
- public:
-  using E = u2;
+ public:  using E = u2;
   using M = u4;
   using BYTE = u1;
   using H = u4;
@@ -35,8 +34,10 @@ class [[deprecated("use non-OOD compression pieline instead")]] Compressor {
   Buf* mem;
   phf::Buf<E>* buf_hf;
 
- private:
+ public:
   void compress_predict_enc1(psz_ctx* ctx, T* in, void* stream);
+
+ private:
   void compress_enc1_wrapup(psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream);
 
  public:

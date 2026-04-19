@@ -559,6 +559,14 @@ void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv
           ctx->header->pipeline.codec1 = psz_codec::Huffman;
         else if (v == "fzgcodec")
           ctx->header->pipeline.codec1 = psz_codec::FZCodec;
+        else if (v == "lc" or v == "tcms")
+          ctx->header->pipeline.codec1 = psz_codec::LC;
+      }
+      else if (optmatch({"-c2", "--codec2"})) {
+        check_next();
+        auto v = std::string(argv[++i]);
+        if (v == "lc" or v == "rtr" or v == "bitr" or v == "hi-cr" or v == "hi-tp")
+          ctx->header->pipeline.codec2 = psz_codec::LC;
       }
       else if (optmatch({"-t", "--type", "--dtype"})) {
         check_next();
@@ -732,6 +740,11 @@ void psz::str_helper::validate_args(psz_ctx* ctx)
     psz::str_helper::print_document(false);
     exit(-1);
   }
+
+  // HiTP (codec1=LC, codec2=LC) does not use histogram
+  if (ctx->header->pipeline.codec1 == psz_codec::LC and
+      ctx->header->pipeline.codec2 == psz_codec::LC)
+    ctx->header->pipeline.hist = psz_hist::NullHistogram;
 }
 
 void psz::str_helper::print_document(bool full_document)

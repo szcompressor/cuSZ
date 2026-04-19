@@ -13,7 +13,6 @@ struct psz::Buf_Comp<T, E>::impl {
 
   // arrays
   GPU_unique_dptr<E[]> d_ectrl;
-  GPU_unique_dptr<T[]> d_anchor;
   GPU_unique_dptr<BYTE[]> d_compressed;
   GPU_unique_hptr<BYTE[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
@@ -25,9 +24,13 @@ struct psz::Buf_Comp<T, E>::impl {
   std::unique_ptr<Buf_Outlier2> buf_outlier2;
   std::unique_ptr<Buf_HF> buf_hf;
 
-  constexpr static size_t BLK = 8;  // for spline
   constexpr static u2 max_radius = 512;
   constexpr static u2 max_bklen = max_radius * 2;
+
+  // spline-specific: declare
+  GPU_unique_dptr<T[]> d_anchor;
+  GPU_unique_dptr<T[]> d_pe;
+  GPU_unique_hptr<T[]> h_pe;
 
  private:
   static size_t _div(size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
@@ -74,6 +77,7 @@ struct psz::Buf_Comp<T, E>::impl {
   {
     // align 4Ki for (essentially) FZG
     d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
+    buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen);
 
     if (is_comp) {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
@@ -86,7 +90,9 @@ struct psz::Buf_Comp<T, E>::impl {
 
       buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
       buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
-      buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen);
+
+      d_pe = MAKE_UNIQUE_DEVICE(T, ERR_HISTO_LEN);
+      h_pe = MAKE_UNIQUE_HOST(T, ERR_HISTO_LEN);
     }
   }
 
@@ -160,6 +166,10 @@ COMPBUF_IMPL(psz_len)::anchor_len3() const
   auto _div = [](size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
   return {_div(len.x, BLK), _div(len.y, BLK), _div(len.z, BLK)};
 }
+
+COMPBUF_IMPL(T*)::profiled_errors_d() const { return pimpl->d_pe.get(); };
+COMPBUF_IMPL(T*)::profiled_errors_h() const { return pimpl->h_pe.get(); };
+COMPBUF_IMPL(M)::profiled_errors_len() const { return ERR_HISTO_LEN; };
 
 template <typename T>
 using Buf_Outlier = _portable::compact_gpu<T>;

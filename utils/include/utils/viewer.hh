@@ -25,6 +25,10 @@ namespace psz::analysis {
 template <typename T, psz_runtime P = CUDA>
 void GPU_evaluate_quality_and_print(T* xdata, T* odata, size_t len, size_t comp_bytes = 0);
 
+template <typename T, psz_runtime P = CUDA>
+void GPU_evaluate_quality_and_print_concise(
+    T* xdata, T* odata, size_t len, size_t comp_bytes, psz_header* h);
+
 template <typename T>
 void CPU_evaluate_quality_and_print(
     T* _d1, T* _d2, size_t len, size_t comp_bytes = 0, bool from_device = true);
