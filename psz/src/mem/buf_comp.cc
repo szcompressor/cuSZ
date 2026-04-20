@@ -69,7 +69,7 @@ struct psz::Buf_Comp<T, E>::impl {
     }
   }
 
-  impl(psz_len _len, bool _is_comp) :
+  impl(psz_len _len, bool _is_comp, bool use_HFR = false) :
       is_comp(_is_comp),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
@@ -77,7 +77,7 @@ struct psz::Buf_Comp<T, E>::impl {
   {
     // align 4Ki for (essentially) FZG
     d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
-    buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen);
+    buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen, -1, use_HFR);
 
     if (is_comp) {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
@@ -119,11 +119,11 @@ COMPBUF_IMPL()::Buf_Comp(psz_len _len, BufToggle_Comp* toggle) :
 {
 }
 
-COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp) :
+COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp, bool use_HFR) :
     is_comp(_is_comp),
     len(_len),
     len_linear(_len.x * _len.y * _len.z),
-    pimpl(std::make_unique<impl>(_len, _is_comp))
+    pimpl(std::make_unique<impl>(_len, _is_comp, use_HFR))
 {
 }
 

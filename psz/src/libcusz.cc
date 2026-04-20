@@ -306,7 +306,7 @@ int psz_compress_float(
   CP<f4, u2>::compress(
       m, (psz_buf<f4, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
   *OUT_header = *(m->header);
-  // if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
+  if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
 
   return status;
 }

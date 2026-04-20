@@ -68,7 +68,9 @@ Compressor<T>::Compressor(psz_ctx* ctx) : header_ref(ctx->header)
 
   // initialize internal buffers
   mem = new Buf_Comp<T>(ctx->header->len, iscompression);
-  buf_hf = new phf::Buf<E>(mem->len_linear, mem->max_bklen);
+  buf_hf = new phf::Buf<E>(
+      mem->len_linear, mem->max_bklen, -1,
+      ctx->header->pipeline.codec1 == psz_codec::HuffmanRevisit);
 }
 
 template <typename T>
@@ -138,7 +140,7 @@ void Compressor<T>::compress_predict_enc1(psz_ctx* ctx, T* in, void* stream)
   else
     ctx->header->splen = mem->outlier2_host_get_num();
 
-  if (PIPELINE.codec1 != Huffman) goto ENCODING_STEP;
+  if (PIPELINE.codec1 != Huffman and PIPELINE.codec1 != HuffmanRevisit) goto ENCODING_STEP;
 
   memset_device(mem->hist_d(), ctx->dict_size, 0);
 
@@ -156,9 +158,18 @@ ENCODING_STEP:
   phf::high_level<E>::build_book(buf_hf, mem->hist_h(), ctx->dict_size, stream);
 
   phf_header dummy_header;
-  phf::high_level<E>::encode(
-      buf_hf, mem->ectrl_d(), len_linear, &comp_codec_out, &comp_codec_outlen, dummy_header,
-      stream);
+  if (PIPELINE.codec1 == HuffmanRevisit)
+    phf::high_level<E>::encode_HFR(
+        buf_hf, mem->ectrl_d(), len_linear, &comp_codec_out, &comp_codec_outlen, dummy_header,
+        stream);
+  else
+    phf::high_level<E>::encode(
+        buf_hf, mem->ectrl_d(), len_linear, &comp_codec_out, &comp_codec_outlen, dummy_header,
+        stream);
+
+  // Keep outer archive metadata consistent with the actual PHF partitioning.
+  ctx->header->vle_sublen = dummy_header.sublen;
+  ctx->header->vle_pardeg = dummy_header.pardeg;
 }
 
 template <typename T>
@@ -308,7 +319,8 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
   const auto x = ctx->header->len.x, y = ctx->header->len.y, z = ctx->header->len.z;
 
   // initialize internal buffers
-  auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression);
+  const auto use_HFR = ctx->header->pipeline.codec1 == psz_codec::HuffmanRevisit;
+  auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression, use_HFR);
   mem->register_header(ctx->header);
   // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
 
@@ -322,12 +334,9 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
 
 PPL_IMPL(void*)::decompress_init(psz_header* header)
 {
-  // extract context
-  const auto pardeg = header->vle_pardeg;
-  const auto x = header->len.x, y = header->len.y, z = header->len.z;
-
   // initialize internal buffers
-  auto mem = new Buf_Comp<T, E>(header->len, false);
+  const auto use_HFR = header->pipeline.codec1 == psz_codec::HuffmanRevisit;
+  auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR);
   mem->register_header(header);
   return mem;
 }
@@ -442,11 +451,13 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     phf::high_level<E>::encode(
         mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream);
-
+    ctx->header->vle_sublen = dummy_header.sublen;
+    ctx->header->vle_pardeg = dummy_header.pardeg;
+    sync_by_stream(stream);
     return PSZ_SUCCESS;
   };
 
-  // HFR: reduce-shuffle-merge + breaking-point handling
+  // HFR: reduce-shuffle-merge encode with sparse breaking-point buffer.
   auto compress_encode_pass1_HFR = [&]() -> int {
     compress_histogram_and_build_book();
 
@@ -454,7 +465,9 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     phf::high_level<E>::encode_HFR(
         mem->buf_hf(), mem->ectrl_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream);
-
+    ctx->header->vle_sublen = dummy_header.sublen;
+    ctx->header->vle_pardeg = dummy_header.pardeg;
+    sync_by_stream(stream);
     return PSZ_SUCCESS;
   };
 

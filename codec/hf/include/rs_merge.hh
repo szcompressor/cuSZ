@@ -12,42 +12,49 @@ using u4 = uint32_t;
 // ---------------------------------------------------------------------------
 template <typename _T, int _Magnitude, int _ReduceTimes, typename _Hf = u4>
 struct HFReVISIT_config {
-  using T  = _T;
+  using T = _T;
   using Hf = _Hf;
-  using W  = HuffmanWord<sizeof(Hf)>;
+  using W = HuffmanWord<sizeof(Hf)>;
 
-  static constexpr u4 Magnitude    = _Magnitude;
-  static constexpr u4 ReduceTimes  = _ReduceTimes;
+  static constexpr u4 Magnitude = _Magnitude;
+  static constexpr u4 ReduceTimes = _ReduceTimes;
   static constexpr u4 ShuffleTimes = Magnitude - ReduceTimes;
-  static constexpr u4 ChunkSize    = 1u << Magnitude;   // input elements per block
-  static constexpr u4 ShardSize    = 1u << ReduceTimes; // elements per thread
-  static constexpr u4 NumShards    = 1u << ShuffleTimes;
-  static constexpr u4 BlockDim     = NumShards;          // == threads per block
-  static constexpr u4 BITWIDTH     = sizeof(Hf) * 8;
+  static constexpr u4 ChunkSize = 1u << Magnitude;    // input elements per block
+  static constexpr u4 ShardSize = 1u << ReduceTimes;  // elements per thread
+  static constexpr u4 NumShards = 1u << ShuffleTimes;
+  static constexpr u4 BlockDim = NumShards;  // == threads per block
+  static constexpr u4 BITWIDTH = sizeof(Hf) * 8;
 };
 
 namespace phf {
 
-// ---------------------------------------------------------------------------
-// Build the alternative codeword used to replace a breaking shard.
-// alt_code holds ReduceTimes copies of the center symbol's prefix code
-// (the most-frequent symbol), packed left-aligned from MSB.
-// alt_bitcount tracks total bits consumed.
-// ---------------------------------------------------------------------------
+// Alt. code holds ShardSize (= 2^ReduceTimes) copies of the shortest one.
+// TODO: need revision per EIP reference to decrease the overhead
 template <typename Hf = u4>
 void make_altcode(Hf* bk, u2 bklen, int reduce_times, Hf& alt_code, u4& alt_bitcount)
 {
   using W = HuffmanWord<sizeof(Hf)>;
 
-  auto center     = bk[bklen / 2];
-  auto shortest_w = (W*)(&center);
+  const auto shard_size = 1 << reduce_times;
 
-  if (shortest_w->bitcount * reduce_times > (sizeof(Hf) * 8))
+  // Find the shortest available codeword in the runtime codebook.
+  Hf shortest = bk[0];
+  auto shortest_w = reinterpret_cast<W*>(&shortest);
+  for (u2 i = 1; i < bklen; i++) {
+    auto cand = bk[i];
+    auto cand_w = reinterpret_cast<W*>(&cand);
+    if (cand_w->bitcount < shortest_w->bitcount) {
+      shortest = cand;
+      shortest_w = reinterpret_cast<W*>(&shortest);
+    }
+  }
+
+  if (shortest_w->bitcount * shard_size > (sizeof(Hf) * 8))
     throw std::runtime_error("make_altcode: alt-code would exceed bitwidth.");
 
   alt_bitcount = 0;
-  alt_code     = 0;
-  for (auto i = 0; i < reduce_times; i++) {
+  alt_code = 0;
+  for (auto i = 0; i < shard_size; i++) {
     auto offset = W::BITWIDTH - (i + 1) * shortest_w->bitcount;
     alt_code |= (shortest_w->prefix_code << offset);
     alt_bitcount += shortest_w->bitcount;
@@ -74,11 +81,8 @@ namespace phf::module {
 template <typename T, int Magnitude, int ReduceTimes, bool UseScan = false, typename Hf = u4>
 struct HFReVISIT_encode {
   static int GPU_kernel(
-      T* in, size_t len,
-      Hf* bk, u4 bklen, Hf alt_code, u4 alt_bitcount,
-      Hf* dn_out, u4* dn_bitcount,
-      T* sp_val, u4* sp_idx, u4* sp_count,
-      void* stream);
+      T* in, size_t len, Hf* bk, u4 bklen, Hf alt_code, u4 alt_bitcount, Hf* dn_out,
+      u4* dn_bitcount, T* sp_val, u4* sp_idx, u4* sp_count, void* stream);
 };
 
 }  // namespace phf::module

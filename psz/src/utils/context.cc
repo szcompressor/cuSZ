@@ -555,8 +555,10 @@ void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv
         auto v = std::string(argv[++i]);
         strcpy(ctx->cli->char_codec1_name, v.c_str());
 
-        if (v == "huffman" or v == "hf")
+        if (v == "hf" or v == "huffman")
           ctx->header->pipeline.codec1 = psz_codec::Huffman;
+        else if (v == "hfr" or v == "hf-rev" or v == "huffman-revisit")
+          ctx->header->pipeline.codec1 = psz_codec::HuffmanRevisit;
         else if (v == "fzgcodec")
           ctx->header->pipeline.codec1 = psz_codec::FZCodec;
         else if (v == "lc" or v == "tcms")

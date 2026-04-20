@@ -68,7 +68,8 @@ struct Buf<E>::impl {
   impl(size_t inlen, size_t _bklen, int _pardeg, bool _use_HFR, bool debug) :
       len(inlen),
       bklen(_bklen),
-      bitstream_max_len(_use_HFR ? inlen : inlen / 2),
+      // HFR-chunksize binding: 1024
+      bitstream_max_len(_use_HFR ? (((inlen - 1) / 1024 + 1) * 1024) : inlen / 2),
       use_HFR(_use_HFR),
       rvbk4_bytes(_rvbk4_bytes(_bklen))
   {
@@ -136,7 +137,7 @@ struct Buf<E>::impl {
     d2d_memcpy_merge(_par_entry);
     d2d_memcpy_merge(_bitstream);
 
-    // HFR: archive sparse (breaking-point) buffers if present.
+    // HFR: archive sp breaks if present
     if (header.brnum > 0) {
       memcpy_helper _sp_val{
           d_brval.get(), header.brnum * sizeof(E), header.entry[PHFHEADER_SP_VAL]};
@@ -203,6 +204,7 @@ PHF_BUF_DEF(void)::update_header(phf_header& header)
   header.sublen = pimpl->sublen;
   header.pardeg = pimpl->pardeg;
   header.original_len = pimpl->len;
+  if (not pimpl->use_HFR) header.brnum = 0;  // brnum only meaningful for HFR
 }
 
 PHF_BUF_DEF(void)::calc_offset(phf_header& header, M* byte_offsets)

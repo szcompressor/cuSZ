@@ -155,9 +155,10 @@ int high_level<E>::decode(
       out_decoded, stream);
 
   // HFR: scatter breaking-point values back over the decoded center-symbol placeholders.
-  if (header.brnum > 0)
+  if (header.brnum > 0) {
     phf_module<E>::GPU_scatter(
         PHF_ACCESSOR(SP_VAL, E), PHF_ACCESSOR(SP_IDX, u4), header.brnum, out_decoded, stream);
+  }
 
   return 0;
 }

@@ -32,9 +32,9 @@ typedef enum { HF_U1, HF_U2, HF_U4, HF_U8, HF_ULL, HF_INVALID } phf_dtype;
 #define PHFHEADER_PAR_NBIT 2
 #define PHFHEADER_PAR_ENTRY 3
 #define PHFHEADER_BITSTREAM 4
-#define PHFHEADER_SP_VAL 5  // HFR: breaking-point val
-#define PHFHEADER_SP_IDX 6  // HFR: breaking-point idx
-#define PHFHEADER_END 7
+#define PHFHEADER_SP_VAL    5   /* HFR: sparse breaking-point values (E[])  */
+#define PHFHEADER_SP_IDX    6   /* HFR: sparse breaking-point indices (u4[]) */
+#define PHFHEADER_END       7
 
 typedef uint32_t PHF_METADATA;
 typedef uint8_t PHF_BIN;
@@ -45,11 +45,12 @@ typedef struct {
   int sublen, pardeg;
   size_t original_len;
   size_t total_nbit, total_ncell;  // TODO change to uint32_t
-  uint32_t brnum;                  // HFR: number of sp breaking-point; 0 for HF
+  uint32_t brnum;                  /* HFR: number of sparse (breaking-point) entries; 0 for plain HF */
   uint32_t entry[PHFHEADER_END + 1];
 } phf_header;
 
 uint32_t phf_encoded_bytes(phf_header* h);
+void phf_print_header(const phf_header* h, const char* dtype_str);
 
 typedef struct {
   void* codec;

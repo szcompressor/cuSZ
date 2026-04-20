@@ -83,7 +83,7 @@ struct Buf_Comp {
 
  public:
   Buf_Comp(psz_len len, BufToggle_Comp* toggle);
-  Buf_Comp(psz_len len, bool _is_comp = true);
+  Buf_Comp(psz_len len, bool _is_comp = true, bool use_HFR = false);
   ~Buf_Comp();
 
   void register_header(psz_header* header) { header_ref = header; }

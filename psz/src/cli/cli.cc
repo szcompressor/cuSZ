@@ -33,6 +33,7 @@ using _portable::utils::tofile;
 
 #define COMPARE_WITH_ORIGIN(T)                                      \
   if (string(args->cli->file_compare) != "") {                      \
+    sync_by_stream(stream);                                          \
     auto d_origin = MAKE_UNIQUE_DEVICE(T, len);                     \
     auto h_origin = MAKE_UNIQUE_HOST(T, len);                       \
     fromfile(args->cli->file_compare, h_origin.get(), len);         \
@@ -47,6 +48,7 @@ using _portable::utils::tofile;
 
 #define WRITE_TO_DISK(T)                                                                 \
   if (not args->cli->skip_tofile) {                                                      \
+    sync_by_stream(stream);                                                               \
     auto h_decomped = MAKE_UNIQUE_HOST(T, len);                                          \
     memcpy_allkinds<D2H>(h_decomped.get(), d_decomped.get(), len);                       \
     tofile(std::string(basename + ".cuszx").c_str(), h_decomped.get(), sizeof(T) * len); \
@@ -121,6 +123,7 @@ int psz_run_from_CLI(int argc, char** argv)
     if (not args->cli->skip_tofile) {
       auto compressed_name = std::string(args->cli->file_input) + ".cusza";
       auto file = MAKE_UNIQUE_HOST(uint8_t, compressed_len);
+      sync_by_stream(stream);
       memcpy_allkinds<D2H>(file.get(), d_internal_compressed, compressed_len);
       memcpy(file.get(), &header, sizeof(psz_header));  // put on-host header
       tofile(compressed_name.c_str(), file.get(), compressed_len);
