@@ -1,9 +1,12 @@
 #include <cuda.h>
 
 #include "hf.h"
-#include "hf_hl.hh"
+#include "hf_buf.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
+
+using H4 = u4;
+using M = PHF_METADATA;
 
 namespace phf {
 

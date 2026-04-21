@@ -154,11 +154,11 @@ target_link_libraries(psz_cu_core
 )
 
 add_library(psz_cu_utils
-  psz/src/utils/verinfo.cc
-  psz/src/utils/verinfo.cu
-  psz/src/utils/verinfo_nv.cu
-  psz/src/utils/context.cc
-  psz/src/utils/header.c
+  psz/src/cli/verinfo.cc
+  psz/src/cli/verinfo.cu
+  psz/src/cli/verinfo_nv.cu
+  psz/src/context.cc
+  psz/src/header.c
 )
 target_link_libraries(psz_cu_utils
   PUBLIC

@@ -1,4 +1,4 @@
-#include "utils/verinfo.h"
+#include "cli/verinfo.h"
 
 #include <cstdio>
 

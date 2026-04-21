@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include "utils/verinfo.h"
+#include "cli/verinfo.h"
 
 // REF: https://stackoverflow.com/a/70302416
 int print_NVIDIA_driver()

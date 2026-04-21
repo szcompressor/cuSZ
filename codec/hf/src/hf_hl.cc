@@ -1,5 +1,6 @@
 #include "hf_hl.hh"
 
+#include "hf_buf.hh"
 #include "hf_impl.hh"
 #include "mem/cxx_backends.h"
 #include "rs_merge.hh"
@@ -161,14 +162,6 @@ int high_level<E>::decode(
   }
 
   return 0;
-}
-
-template <typename E>
-int high_level<E>::encode_ReVISIT_lite(
-    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
-    phf_stream_t stream)
-{
-  return encode_HFR(buf, in, len, out, outlen, header, stream);
 }
 
 }  // namespace phf

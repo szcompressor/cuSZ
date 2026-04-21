@@ -6,6 +6,7 @@
 
 #include "cusz/type.h"
 #include "hf_hl.hh"
+#include <../../codec/hf/src/hf_buf.hh>  // needed for Buf instantiation
 #include "mem/cxx_sp_gpu.h"
 
 // segment

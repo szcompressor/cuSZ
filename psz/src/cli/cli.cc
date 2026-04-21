@@ -17,7 +17,7 @@
 #include "cusz_rev1.h"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
-#include "utils/query.hh"
+#include "query.hh"
 #include "utils/viewer.hh"
 
 using std::cerr;

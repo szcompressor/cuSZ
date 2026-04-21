@@ -6,9 +6,6 @@
  * @date 2020-02-13
  * (created) 2020-02-02, (rev1) 2021-02-13, (rev2) 2021-12-29
  *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
  */
 
 #ifndef DPCPP_KERNEL_HFCODEC_INL
@@ -19,7 +16,7 @@
 
 #include "hf/hf_kernels.hh"
 #include "hf/hfstruct.h"
-#include "typing.hh"
+#include "detail/composite.hh"
 #include "utils/busyheader.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"

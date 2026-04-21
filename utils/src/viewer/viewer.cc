@@ -115,7 +115,7 @@ string const psz_report_query_codec1(psz_codec const c)
 {
   const std::unordered_map<psz_codec const, std::string const> lut = {
       {psz_codec::Huffman, "Huffman"},
-      {psz_codec::HuffmanRevisit, "Huffman-revisit"},
+      {psz_codec::HuffmanRevisit, "Huffman-ReVISIT"},
       {psz_codec::LC, "LC"},
       {psz_codec::FZCodec, "FZGPU-Codec"},
       {psz_codec::RunLength, "RunLength"},
@@ -146,7 +146,7 @@ void psz_review_comp_time_from_header(psz_header* h)
   auto uncomp_bytes = h->len.x * h->len.y * h->len.z * sizeof_T();
   double cr = comp_bytes() ? 1.0 * uncomp_bytes / comp_bytes() : 0.0;
   printf(
-      "%s\tCR=%.6g\tmode=%s\tinput_eb=%.6g\tfinal_eb=%.6g\n", psz_pipeline_tag(h).c_str(), cr,
+      "%s\tCR=%.2f\tmode=%s\tinput_eb=%.6e\tfinal_eb=%.6e\n", psz_pipeline_tag(h).c_str(), cr,
       h->rc.mode == Rel ? "Rel" : "Abs", h->user_input_eb, h->rc.eb);
 }
 
@@ -223,7 +223,7 @@ void psz_print_concise_quality(psz_header* h, psz_stats* s, size_t comp_bytes)
   auto bytes = s->len * (h->dtype == F4 ? 4.0 : 8.0);
   double cr = comp_bytes ? bytes / comp_bytes : 0.0;
   printf(
-      "%s\tCR=%.6g\tPSNR=%.4f\tmax_error=%.6g\tmax_error_rel=%.6g\n", psz_pipeline_tag(h).c_str(),
+      "%s\tCR=%.2f\tPSNR=%.1f\tmax_error=%.6e\tmax_error_rel=%.6e\n", psz_pipeline_tag(h).c_str(),
       cr, s->score_PSNR, s->max_err_abs, s->max_err_rel);
 }
 

@@ -11,11 +11,7 @@
 
 #include "kernel/detail/histsp.cuhip.inl"
 #include "kernel/hist.hh"
-#include "mem/cxx_memobj.h"
 #include "utils/busyheader.hh"
-
-template <typename T>
-using memobj = _portable::memobj<T>;
 
 using T = uint32_t;
 using FQ = uint32_t;
@@ -32,37 +28,35 @@ bool test1_debug()
   auto inlen = 256;
   auto NSYM = 1024;
 
-  auto in = new memobj<T>(inlen, "hist-in", {Malloc, MallocHost});
-  auto o_gpusp = new memobj<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
-  auto o_serial = new memobj<FQ>(NSYM, "hist-o_gpusp", {MallocHost});
+  T *d_in, *h_in;
+  FQ *d_gpusp, *h_gpusp, *h_serial;
+  cudaMalloc(&d_in, inlen * sizeof(T));
+  cudaMallocHost(&h_in, inlen * sizeof(T));
+  cudaMalloc(&d_gpusp, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_gpusp, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_serial, NSYM * sizeof(FQ));
 
   for (auto i = 0; i < inlen; i++) {
-    in->hptr(i) = 512;
-    if (i > 1 and i % 5 == 0) in->hptr(i) = 511, in->hptr(i - 1) = 513;
-    if (i > 1 and i % 20 == 0) in->hptr(i) = 510, in->hptr(i - 1) = 514;
-    if (i > 1 and i % 40 == 0) in->hptr(i) = 509, in->hptr(i - 1) = 515;
-    if (i > 1 and i % 50 == 0) in->hptr(i) = 507, in->hptr(i - 1) = 516;
+    h_in[i] = 512;
+    if (i > 1 and i % 5 == 0) h_in[i] = 511, h_in[i - 1] = 513;
+    if (i > 1 and i % 20 == 0) h_in[i] = 510, h_in[i - 1] = 514;
+    if (i > 1 and i % 40 == 0) h_in[i] = 509, h_in[i - 1] = 515;
+    if (i > 1 and i % 50 == 0) h_in[i] = 507, h_in[i - 1] = 516;
   }
 
-  in->control({H2D});
-  // float __t;
+  cudaMemcpy(d_in, h_in, inlen * sizeof(T), cudaMemcpyHostToDevice);
 
   float t_histsp_ser;
-
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  psz::module::SEQ_histogram_Cauchy_v2<T>(
-      in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
+  psz::module::SEQ_histogram_Cauchy_v2<T>(h_in, inlen, h_serial, NSYM, &t_histsp_ser);
+  psz::module::GPU_histogram_Cauchy<T>::kernel(d_in, inlen, d_gpusp, NSYM, stream);
 
-  psz::module::GPU_histogram_Cauchy<T>::kernel(in->dptr(), inlen, o_gpusp->dptr(), NSYM, stream);
+  cudaMemcpy(h_gpusp, d_gpusp, NSYM * sizeof(FQ), cudaMemcpyDeviceToHost);
 
-  o_gpusp->control({D2H});
-
-  // check for error
   cudaError_t error = cudaGetLastError();
   if (error != cudaSuccess) {
-    // print the CUDA error message and exit
     printf("CUDA error: %s\n", cudaGetErrorString(error));
     exit(-1);
   }
@@ -70,33 +64,27 @@ bool test1_debug()
   auto all_eq = true;
   printf("\n\n");
   for (auto i = 0; i < NSYM; i++) {
-    if (o_serial->hptr(i) != 0) {
-      printf(
-          "i: %d\t"
-          "gpusp: %u\t"
-          "serial: %u\n",
-          i, o_gpusp->hptr(i), o_serial->hptr(i));
+    if (h_serial[i] != 0) {
+      printf("i: %d\tgpusp: %u\tserial: %u\n", i, h_gpusp[i], h_serial[i]);
       all_eq = false;
     }
   }
 
   cudaStreamDestroy(stream);
-
-  delete in;
-  delete o_gpusp;
-  delete o_serial;
+  cudaFree(d_in);
+  cudaFreeHost(h_in);
+  cudaFree(d_gpusp);
+  cudaFreeHost(h_gpusp);
+  cudaFreeHost(h_serial);
 
   return all_eq;
 }
 
 void helper_generate_array(T* in, size_t inlen, float dist[], int distlen = 5, int offset = 512)
 {
-  // cout << "offset: " << offset << endl;
-
   auto R = (distlen - 1) / 2;
-
-  std::random_device rd;   // a seed source for the random number engine
-  std::mt19937 gen(rd());  // mersenne_twister_engine seeded with rd()
+  std::random_device rd;
+  std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(0, inlen);
 
   for (auto _ = 0; _ < inlen; _++) { in[_] = offset; }
@@ -106,11 +94,7 @@ void helper_generate_array(T* in, size_t inlen, float dist[], int distlen = 5, i
     else {
       auto N = (int)(inlen * dist[i]);
       auto sym = (i - R) + offset;
-      // printf("sym: %d, num: %d\n", sym, N);
-      for (auto _ = 0; _ < N; _++) {
-        auto loc = distrib(gen);
-        in[loc] = sym;
-      }
+      for (auto _ = 0; _ < N; _++) { in[distrib(gen)] = sym; }
     }
   }
 }
@@ -118,17 +102,21 @@ void helper_generate_array(T* in, size_t inlen, float dist[], int distlen = 5, i
 template <int NSYM = 1024>
 bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
 {
-  auto in = new memobj<T>(inlen, "hist-in", {Malloc, MallocHost});
-  auto o_gpu = new memobj<FQ>(NSYM, "hist-o_gpu", {Malloc, MallocHost});
-  auto o_gpusp = new memobj<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
-  auto o_serial = new memobj<FQ>(NSYM, "hist-o_serial", {MallocHost});
+  T *d_in, *h_in;
+  FQ *d_gpu, *h_gpu, *d_gpusp, *h_gpusp, *h_serial;
 
-  // setup using randgen
-  helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
+  cudaMalloc(&d_in, inlen * sizeof(T));
+  cudaMallocHost(&h_in, inlen * sizeof(T));
+  cudaMalloc(&d_gpu, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_gpu, NSYM * sizeof(FQ));
+  cudaMalloc(&d_gpusp, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_gpusp, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_serial, NSYM * sizeof(FQ));
 
-  in->control({H2D});
+  helper_generate_array(h_in, inlen, gen_dist, distlen, NSYM / 2);
+  cudaMemcpy(d_in, h_in, inlen * sizeof(T), cudaMemcpyHostToDevice);
+
   float t_histsp_ser;
-
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
@@ -136,34 +124,26 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   psz::module::GPU_histogram_generic<T>::init(
       inlen, NSYM, grid_dim, block_dim, shmem_use, r_per_block);
   psz::module::GPU_histogram_generic<T>::kernel(
-      in->dptr(), inlen, o_gpu->dptr(), NSYM, grid_dim, block_dim, shmem_use, r_per_block, stream);
+      d_in, inlen, d_gpu, NSYM, grid_dim, block_dim, shmem_use, r_per_block, stream);
+  psz::module::GPU_histogram_Cauchy<T>::kernel(d_in, inlen, d_gpusp, NSYM, stream);
+  psz::module::SEQ_histogram_Cauchy_v2<T>(h_in, inlen, h_serial, NSYM, &t_histsp_ser);
 
-  psz::module::GPU_histogram_Cauchy<T>::kernel(in->dptr(), inlen, o_gpusp->dptr(), NSYM, stream);
+  cudaMemcpy(h_gpu, d_gpu, NSYM * sizeof(FQ), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_gpusp, d_gpusp, NSYM * sizeof(FQ), cudaMemcpyDeviceToHost);
 
-  psz::module::SEQ_histogram_Cauchy_v2<T>(
-      in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
-
-  o_gpu->control({D2H});
-  o_gpusp->control({D2H});
-
-  // check for error
   cudaError_t error = cudaGetLastError();
   if (error != cudaSuccess) {
-    // print the CUDA error message and exit
     printf("CUDA error: %s\n", cudaGetErrorString(error));
     exit(-1);
   }
 
-  // check correctness
   auto all_eq = true;
-
   for (auto i = 0; i < NSYM; i++) {
-    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and o_gpusp->hptr(i) == o_serial->hptr(i)) { continue; }
+    if (h_gpu[i] == h_gpusp[i] and h_gpusp[i] == h_serial[i]) { continue; }
     else {
       printf(
-          "first not equal\t"
-          "idx: %d\tgpu: %u\tgpusp: %u\tserial: %u\n",  //
-          i, o_gpu->hptr(i), o_gpusp->hptr(i), o_serial->hptr(i));
+          "first not equal\tidx: %d\tgpu: %u\tgpusp: %u\tserial: %u\n", i, h_gpu[i], h_gpusp[i],
+          h_serial[i]);
       all_eq = false;
       break;
     }
@@ -171,48 +151,43 @@ bool test2_fulllen_input(size_t inlen, float gen_dist[], int distlen = K)
   if (all_eq) printf("full-length test: all equal\n");
 
   cudaStreamDestroy(stream);
-
-  delete in;
-  delete o_gpu;
-  delete o_gpusp;
-  delete o_serial;
+  cudaFree(d_in);
+  cudaFreeHost(h_in);
+  cudaFree(d_gpu);
+  cudaFreeHost(h_gpu);
+  cudaFree(d_gpusp);
+  cudaFreeHost(h_gpusp);
+  cudaFreeHost(h_serial);
 
   return all_eq;
 }
 
 template <int NSYM = 1024, int CHUNK = 32768, int NWARP = 8>
 bool perf(
-    memobj<T>* in, memobj<FQ>* o_gpusp,       // for histsp
-    memobj<FQ>* o_gpu, memobj<FQ>* o_serial,  // reference
-    cudaStream_t stream)
+    T* d_in, size_t inlen, FQ* d_gpusp, FQ* h_gpusp, FQ* h_gpu, FQ* h_serial, cudaStream_t stream)
 {
   constexpr auto NTREAD = 32 * NWARP;
 
   psz::KERNEL_CUHIP_histogram_sparse_multiwarp<T, NWARP, CHUNK, FQ>
-      <<<(in->len() - 1) / CHUNK + 1, NTREAD, NSYM * sizeof(FQ), stream>>>(
-          in->dptr(), in->len(), o_gpusp->dptr(), NSYM, NSYM / 2);
+      <<<(inlen - 1) / CHUNK + 1, NTREAD, NSYM * sizeof(FQ), stream>>>(
+          d_in, inlen, d_gpusp, NSYM, NSYM / 2);
 
   cudaStreamSynchronize(stream);
 
-  // check for error
   cudaError_t error = cudaGetLastError();
   if (error != cudaSuccess) {
-    // print the CUDA error message and exit
     printf("NSYM: %d\tCHUNK: %d\tNWARP: %d\n", NSYM, CHUNK, NWARP);
     printf("CUDA error: %s\n", cudaGetErrorString(error));
     exit(-1);
   }
 
-  // check correctness
   auto all_eq = true;
-
   for (auto i = 0; i < NSYM; i++) {
-    if (o_gpu->hptr(i) == o_gpusp->hptr(i) and o_gpusp->hptr(i) == o_serial->hptr(i)) { continue; }
+    if (h_gpu[i] == h_gpusp[i] and h_gpusp[i] == h_serial[i]) { continue; }
     else {
       printf(
-          "first not equal\t"
-          "idx: %d\tgpu: %u\tgpusp: %u\tserial: %u\n",  //
-          i, o_gpu->hptr(i), o_gpusp->hptr(i), o_serial->hptr(i));
+          "first not equal\tidx: %d\tgpu: %u\tgpusp: %u\tserial: %u\n", i, h_gpu[i], h_gpusp[i],
+          h_serial[i]);
       all_eq = false;
       break;
     }
@@ -225,34 +200,34 @@ bool perf(
 template <int NSYM = 1024>
 bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
 {
-  auto in = new memobj<T>(inlen, "hist-in", {Malloc, MallocHost});
-  auto o_gpu = new memobj<FQ>(NSYM, "hist-o_gpu", {Malloc, MallocHost});
-  auto o_gpusp = new memobj<FQ>(NSYM, "hist-o_gpusp", {Malloc, MallocHost});
-  auto o_serial = new memobj<FQ>(NSYM, "hist-o_serial", {MallocHost});
+  T *d_in, *h_in;
+  FQ *d_gpu, *h_gpu, *d_gpusp, *h_gpusp, *h_serial;
 
-  // setup using randgen
-  helper_generate_array(in->hptr(), inlen, gen_dist, distlen, NSYM / 2);
-  in->control({H2D});
+  cudaMalloc(&d_in, inlen * sizeof(T));
+  cudaMallocHost(&h_in, inlen * sizeof(T));
+  cudaMalloc(&d_gpu, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_gpu, NSYM * sizeof(FQ));
+  cudaMalloc(&d_gpusp, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_gpusp, NSYM * sizeof(FQ));
+  cudaMallocHost(&h_serial, NSYM * sizeof(FQ));
+
+  helper_generate_array(h_in, inlen, gen_dist, distlen, NSYM / 2);
+  cudaMemcpy(d_in, h_in, inlen * sizeof(T), cudaMemcpyHostToDevice);
 
   float t_histsp_ser;
-
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  // run CPU and GPU reference
   int grid_dim, block_dim, shmem_use, r_per_block;
   psz::module::GPU_histogram_generic<T>::init(
       inlen, NSYM, grid_dim, block_dim, shmem_use, r_per_block);
   psz::module::GPU_histogram_generic<T>(
-      in->dptr(), inlen, o_gpu->dptr(), NSYM, grid_dim, block_dim, shmem_use, r_per_block, stream);
-
-  psz::module::SEQ_histogram_Cauchy_v2<T>(
-      in->hptr(), inlen, o_serial->hptr(), NSYM, &t_histsp_ser);
+      d_in, inlen, d_gpu, NSYM, grid_dim, block_dim, shmem_use, r_per_block, stream);
+  psz::module::SEQ_histogram_Cauchy_v2<T>(h_in, inlen, h_serial, NSYM, &t_histsp_ser);
   cudaStreamSynchronize(stream);
 
-// start testing & profiling
 #define PERF(NSYM, CHUNK, NWARP) \
-  eq = eq and perf<NSYM, CHUNK, NWARP>(in, o_gpusp, o_gpu, o_serial, stream);
+  eq = eq and perf<NSYM, CHUNK, NWARP>(d_in, inlen, d_gpusp, h_gpusp, h_gpu, h_serial, stream);
 
   auto eq = true;
   PERF(NSYM, 16384, 1);
@@ -261,21 +236,18 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   PERF(NSYM, 16384, 8);
   PERF(NSYM, 16384, 16);
   PERF(NSYM, 16384, 32);
-
   PERF(NSYM, 32768, 1);
   PERF(NSYM, 32768, 2);
   PERF(NSYM, 32768, 4);
   PERF(NSYM, 32768, 8);
   PERF(NSYM, 32768, 16);
   PERF(NSYM, 32768, 32);
-
   PERF(NSYM, 65536, 1);
   PERF(NSYM, 65536, 2);
   PERF(NSYM, 65536, 4);
   PERF(NSYM, 65536, 8);
   PERF(NSYM, 65536, 16);
   PERF(NSYM, 65536, 32);
-
   PERF(NSYM, 65536 * 2, 1);
   PERF(NSYM, 65536 * 2, 2);
   PERF(NSYM, 65536 * 2, 4);
@@ -284,12 +256,14 @@ bool test3_performance_tuning(size_t inlen, float gen_dist[], int distlen = K)
   PERF(NSYM, 65536 * 2, 32);
 
   cudaStreamDestroy(stream);
-  delete in;
-  delete o_gpu;
-  delete o_gpusp;
-  delete o_serial;
+  cudaFree(d_in);
+  cudaFreeHost(h_in);
+  cudaFree(d_gpu);
+  cudaFreeHost(h_gpu);
+  cudaFree(d_gpusp);
+  cudaFreeHost(h_gpusp);
+  cudaFreeHost(h_serial);
 
 #undef PERF
-
   return eq;
 }

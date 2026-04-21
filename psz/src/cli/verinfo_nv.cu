@@ -36,7 +36,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include "utils/verinfo.h"
+#include "cli/verinfo.h"
 
 void print_NVCC_ver()
 {

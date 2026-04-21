@@ -17,12 +17,12 @@
 
 #include <fstream>
 
+#include "cli/document.inl"
+#include "cli/verinfo.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
-#include "document.inl"
 #include "utils/busyheader.hh"
 #include "utils/format.hh"
-#include "utils/verinfo.h"
 
 using std::cerr;
 using std::endl;
@@ -557,7 +557,7 @@ void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv
 
         if (v == "hf" or v == "huffman")
           ctx->header->pipeline.codec1 = psz_codec::Huffman;
-        else if (v == "hfr" or v == "hf-rev" or v == "huffman-revisit")
+        else if (v == "hfr" or v == "huffman-revisit" or v == "huffman-fast")
           ctx->header->pipeline.codec1 = psz_codec::HuffmanRevisit;
         else if (v == "fzgcodec")
           ctx->header->pipeline.codec1 = psz_codec::FZCodec;

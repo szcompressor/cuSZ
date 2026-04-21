@@ -20,11 +20,6 @@
 #include <stdexcept>
 
 #include "hf_impl.hh"
-#include "hf_kernels.cuhip.inl"
-
-#define TIX threadIdx.x
-#define BIX blockIdx.x
-#define BDX blockDim.x
 
 constexpr int PHF_BLOCK_DIM_ENCODE = 256;
 constexpr int PHF_BLOCK_DIM_DEFLATE = 256;
@@ -32,29 +27,6 @@ constexpr int PHF_BLOCK_DIM_DEFLATE = 256;
 using BYTE = uint8_t;
 
 extern __shared__ char __codec_raw[];
-
-namespace {
-struct helper {
-  __device__ __forceinline__ static unsigned int local_tid_1() { return threadIdx.x; }
-  __device__ __forceinline__ static unsigned int global_tid_1()
-  {
-    return blockIdx.x * blockDim.x + threadIdx.x;
-  }
-  __device__ __forceinline__ static unsigned int block_stride_1() { return blockDim.x; }
-  __device__ __forceinline__ static unsigned int grid_stride_1() { return blockDim.x * gridDim.x; }
-  template <int SEQ>
-  __device__ __forceinline__ static unsigned int global_tid()
-  {
-    return blockIdx.x * blockDim.x * SEQ + threadIdx.x;
-  }
-  template <int SEQ>
-  __device__ __forceinline__ static unsigned int grid_stride()
-  {
-    return blockDim.x * gridDim.x * SEQ;
-  }
-};
-
-}  // namespace
 
 namespace phf::experimental {
 // a duplicate from psz
@@ -80,16 +52,16 @@ __global__ void KERNEL_CUHIP_encode_phase1_fill(
   auto s_bk = reinterpret_cast<H*>(__codec_raw);
 
   // load from global memory
-  for (auto idx = helper::local_tid_1();  //
-       idx < in_bklen;                    //
-       idx += helper::block_stride_1())
+  for (auto idx = threadIdx.x;  //
+       idx < in_bklen;          //
+       idx += blockDim.x)
     s_bk[idx] = in_bk[idx];
 
   __syncthreads();
 
-  for (auto idx = helper::global_tid_1();  //
-       idx < in_len;                       //
-       idx += helper::grid_stride_1()      //
+  for (auto idx = blockIdx.x * blockDim.x + threadIdx.x;  //
+       idx < in_len;                                      //
+       idx += blockDim.x * gridDim.x                      //
   )
     out_encoded[idx] = s_bk[(int)in[idx]];
 }
@@ -101,7 +73,7 @@ __global__ void KERNEL_CUHIP_encode_phase2_deflate(
 {
   constexpr int CELL_BITWIDTH = sizeof(H) * 8;
 
-  auto tid = BIX * BDX + TIX;
+  auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid * sublen < len) {
     int residue_bits = CELL_BITWIDTH;
@@ -382,12 +354,12 @@ __global__ void KERNEL_CUHIP_HF_decode(
   auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 
   for (auto i = 0; i < R; i++) {
-    if (TIX + i * block_dim < revbook_nbyte)
-      s_revbook[TIX + i * block_dim] = revbook[TIX + i * block_dim];
+    if (threadIdx.x + i * block_dim < revbook_nbyte)
+      s_revbook[threadIdx.x + i * block_dim] = revbook[threadIdx.x + i * block_dim];
   }
   __syncthreads();
 
-  auto gid = BIX * BDX + TIX;
+  auto gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < pardeg) {
     single_thread_inflate(in + par_entry[gid], out + sublen * gid, par_nbit[gid]);

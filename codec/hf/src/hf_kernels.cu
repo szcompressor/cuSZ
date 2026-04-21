@@ -1,5 +1,5 @@
 // TODO put u? in hf path
-#include "hf_kernels.cuhip.inl"
+#include "detail/hf_kernels.cuhip.inl"
 
 namespace phf::cuhip {
 

@@ -7,6 +7,7 @@
 #include "detail/compare.hh"
 #include "hf.h"
 #include "hf_hl.hh"
+#include "hf_buf.hh"  // needed for Buf instantiation
 #include "kernel/hist.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"

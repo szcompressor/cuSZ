@@ -88,5 +88,19 @@ target_link_libraries(mem_unique
 )
 add_test(test_mem_unique mem_unique)
 
-# 2404: test_hfr and test_rs_merge use APIs not yet implemented (HuffmanCodec::Buf,
-# phf::sparse, CPU/GPU_HFReVISIT_encode wrappers); excluded until API is stable.
+add_executable(test_hfr src/test_hfr.cc)
+target_link_libraries(test_hfr
+  PRIVATE
+  psz_cu_test_compile_settings
+  PSZ::CUDA::phf
+  CUDA::cudart
+)
+add_test(test_hf_revisit_altcode test_hfr)
+
+add_executable(test_hfserial src/test_hfserial.cc)
+target_link_libraries(test_hfserial
+  PRIVATE
+  psz_cu_test_compile_settings
+  PSZ::CUDA::phf
+)
+add_test(test_hf_cpu_serial_codebook test_hfserial)

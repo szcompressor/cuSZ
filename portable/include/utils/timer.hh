@@ -20,7 +20,7 @@ using hires_clock_t = std::chrono::time_point<hires>;
 #define TIME_ELAPSED_CPU_TIMER(PTR_MILLISEC) \
   ms = std::chrono::duration<float, std::milli>(b_ct1 - a_ct1).count();
 
-#if defined(PSZ_USE_CUDA)
+#if defined(_PORTABLE_USE_CUDA)
 
 #define CREATE_GPUEVENT_PAIR \
   cudaEvent_t a, b;          \
@@ -37,7 +37,7 @@ using hires_clock_t = std::chrono::time_point<hires>;
 #define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
   cudaEventElapsedTime(PTR_MILLISEC, a, b);
 
-#elif defined(PSZ_USE_HIP)
+#elif defined(_PORTABLE_USE_HIP)
 
 #define CREATE_GPUEVENT_PAIR \
   hipEvent_t a, b;           \
@@ -54,7 +54,7 @@ using hires_clock_t = std::chrono::time_point<hires>;
 #define TIME_ELAPSED_GPUEVENT(PTR_MILLISEC) \
   hipEventElapsedTime(PTR_MILLISEC, a, b);
 
-#elif defined(PSZ_USE_1API)
+#elif defined(_PORTABLE_USE_1API)
 
 #define SYCL_TIME_DELTA(EVENT, MILLISEC)                                    \
   auto sycl_time_delta = [](sycl::event& e) {                               \
