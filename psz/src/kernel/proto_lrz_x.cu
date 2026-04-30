@@ -1,4 +1,4 @@
-#include "detail/proto_lrz_x.cuhip.inl"
+#include "detail/proto_lrz_x.cu.inl"
 
 template struct psz::module::GPU_PROTO_x_lorenzo_nd<f4, u1>;
 template struct psz::module::GPU_PROTO_x_lorenzo_nd<f4, u2>;

@@ -5,8 +5,6 @@ template <>
 struct _memcpy_direcion<H2D> {
 #if defined(_PORTABLE_USE_CUDA)
   static const cudaMemcpyKind direction = cudaMemcpyHostToHost;
-#elif defined(_PORTABLE_USE_HIP)
-  static const hipMemcpyKind direction = hipMemcpyHostToHost;
 #elif defined(_PORTABLE_USE_1API)
 // no need
 #endif
@@ -16,8 +14,6 @@ template <>
 struct _memcpy_direcion<D2H> {
 #if defined(_PORTABLE_USE_CUDA)
   static const cudaMemcpyKind direction = cudaMemcpyDeviceToHost;
-#elif defined(_PORTABLE_USE_HIP)
-  static const hipMemcpyKind direction = hipMemcpyDeviceToHost;
 #elif defined(_PORTABLE_USE_1API)
 // no need
 #endif

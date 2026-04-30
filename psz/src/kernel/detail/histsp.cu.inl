@@ -1,5 +1,5 @@
 /**
- * @file hist_sp.cuhip.inl
+ * @file hist_sp.cu.inl
  * @author Jiannan Tian
  * @brief
  * @version 0.4
@@ -27,7 +27,7 @@ namespace psz {
 // Multiple warps:the large shmem use (relative to #thread).
 
 template <typename T, typename FREQ = uint32_t, int K = 5>
-__global__ void KERNEL_CUHIP_histogram_sparse_multiwarp(
+__global__ void KERNEL_CU_histogram_sparse_multiwarp(
     T* in_data, size_t const data_len, FREQ* out_hist, uint16_t const hist_len,
     uint32_t const chunk, int offset = 0)
 {
@@ -104,7 +104,7 @@ int GPU_histogram_Cauchy<E>::kernel(
   constexpr auto num_workers = 256;  // n SIMD-32
   auto num_chunks = (data_len - 1) / chunk + 1;
 
-  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<E, FREQ>
+  psz::KERNEL_CU_histogram_sparse_multiwarp<E, FREQ>
       <<<num_chunks, num_workers, sizeof(FREQ) * hist_len, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
           in_data, data_len, out_hist, hist_len, chunk, hist_len / 2);
 

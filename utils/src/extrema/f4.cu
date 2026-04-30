@@ -1,2 +1,2 @@
-#include "../detail/extrema.cuhip.inl"
+#include "../detail/extrema.cu.inl"
 __INSTANTIATE_CUHIP_EXTREMA(float)

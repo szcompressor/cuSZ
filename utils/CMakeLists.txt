@@ -21,7 +21,7 @@ endif()
 
 # Set default backend if not specified
 if(NOT PSZ_BACKEND)
-  set(PSZ_BACKEND "CUDA" CACHE STRING "Select backend: CUDA/cuda, HIP/hip, ONEAPI/oneapi")
+  set(PSZ_BACKEND "CUDA" CACHE STRING "Select backend: CUDA/cuda, ONEAPI/oneapi")
   message("[eval::info] Using default backend: CUDA")
 endif()
 
@@ -67,11 +67,6 @@ if(EVAL_STANDALONE)
       INTERFACE
         $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda;--expt-relaxed-constexpr>
     )
-  elseif(PSZ_BACKEND STREQUAL "HIP" OR PSZ_BACKEND STREQUAL "hip")
-    target_compile_definitions(eval_compile_settings
-      INTERFACE
-        PSZ_USE_HIP
-    )
   elseif(PSZ_BACKEND STREQUAL "ONEAPI" OR PSZ_BACKEND STREQUAL "oneapi" OR PSZ_BACKEND STREQUAL "1api")
     target_compile_definitions(eval_compile_settings
       INTERFACE
@@ -91,11 +86,6 @@ if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
 
   enable_language(CUDA)
   set(EVAL_BACKEND "CUDA")
-
-elseif(PSZ_BACKEND STREQUAL "HIP" OR PSZ_BACKEND STREQUAL "hip")
-
-  enable_language(HIP)
-  set(EVAL_BACKEND "HIP")
 
 elseif(PSZ_BACKEND STREQUAL "ONEAPI" OR PSZ_BACKEND STREQUAL "oneapi" OR PSZ_BACKEND STREQUAL "1api")
 
@@ -179,10 +169,6 @@ if(EVAL_BACKEND STREQUAL "CUDA")
     message("[eval::warn] Use -DEVAL_BUILD_CUDA=ON to enable (requires full psz source tree)")
   endif()
   
-elseif(EVAL_BACKEND STREQUAL "HIP")
-  # HIP backend - TODO: add HIP implementations
-  # add_library(eval_hip ...)
-  
 elseif(EVAL_BACKEND STREQUAL "SYCL")
   # SYCL/DPC++ backend - TODO: add SYCL implementations  
   # add_library(eval_dp ...)
@@ -197,8 +183,8 @@ target_link_libraries(eval_seq
 # Namespace alias (UTILS::stat_seq following UTILS::stat_cu convention)
 add_library(UTILS::stat_seq ALIAS eval_seq)
 
-# Alias for compatibility with existing code (HIP/SYCL)
-if(EVAL_BACKEND STREQUAL "HIP" OR EVAL_BACKEND STREQUAL "SYCL")
+# Alias for compatibility with existing code (SYCL)
+if(EVAL_BACKEND STREQUAL "SYCL")
   add_library(pszstat_seq ALIAS eval_seq)
 endif()
 
@@ -215,9 +201,6 @@ if(TARGET eval_cu)
 endif()
 if(TARGET eval_viewer_cu)
   list(APPEND EVAL_INSTALL_TARGETS eval_viewer_cu)
-endif()
-if(TARGET eval_hip)
-  list(APPEND EVAL_INSTALL_TARGETS eval_hip)
 endif()
 if(TARGET eval_dp)
   list(APPEND EVAL_INSTALL_TARGETS eval_dp)

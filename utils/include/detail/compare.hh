@@ -85,7 +85,7 @@ template <psz_runtime P, typename T>
   else if (P == THRUST_DPL)
     thrustgpu::GPU_extrema(in, len, res);
 #endif
-  else if (P == CUDA or P == ROCM)
+  else if (P == CUDA)
     module::GPU_extrema(in, len, res);
   else if (P == SYCL)
     dpcpp::GPU_extrema(in, len, res);
@@ -113,7 +113,7 @@ void GPU_probe_extrema(T1* in, size_t len, T2& max_value, T2& min_value, T2& ran
 {
   T1 result[4];
 
-  if (R == CUDA or R == ROCM)
+  if (R == CUDA)
     module::GPU_extrema(in, len, result);
   else if (R == SYCL)
     dpcpp::GPU_extrema(in, len, result);

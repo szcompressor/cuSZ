@@ -1,4 +1,4 @@
-#include "detail/hist.cuhip.inl"
+#include "detail/hist.cu.inl"
 
 template struct psz::module::GPU_histogram_generic<u1>;
 template struct psz::module::GPU_histogram_generic<u2>;

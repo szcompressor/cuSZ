@@ -1,4 +1,4 @@
-#include "detail/lrz_c.cuhip.inl"
+#include "detail/lrz_c.cu.inl"
 #include "mem/buf_comp.hh"
 
 using psz::Toggle;

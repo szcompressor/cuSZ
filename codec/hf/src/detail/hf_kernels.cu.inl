@@ -1,5 +1,5 @@
 /**
- * @file hf_kernels.cuhip.inl
+ * @file hf_kernels.cu.inl
  * @author Jiannan Tian
  * @brief Huffman kernel definitions
  * @version 0.2
@@ -31,7 +31,7 @@ extern __shared__ char __codec_raw[];
 namespace phf::experimental {
 // a duplicate from psz
 template <typename T, typename M = u4>
-__global__ void KERNEL_CUHIP_scatter(T* val, M* idx, int const n, T* out)
+__global__ void KERNEL_CU_scatter(T* val, M* idx, int const n, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -46,7 +46,7 @@ __global__ void KERNEL_CUHIP_scatter(T* val, M* idx, int const n, T* out)
 namespace phf {
 
 template <typename E, typename H>
-__global__ void KERNEL_CUHIP_encode_phase1_fill(
+__global__ void KERNEL_CU_encode_phase1_fill(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, H* out_encoded)
 {
   auto s_bk = reinterpret_cast<H*>(__codec_raw);
@@ -67,7 +67,7 @@ __global__ void KERNEL_CUHIP_encode_phase1_fill(
 }
 
 template <typename H, typename M>
-__global__ void KERNEL_CUHIP_encode_phase2_deflate(
+__global__ void KERNEL_CU_encode_phase2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell, int const sublen,
     int const pardeg)
 {
@@ -129,7 +129,7 @@ __global__ void KERNEL_CUHIP_encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-__global__ void KERNEL_CUHIP_encode_phase4_concatenate(
+__global__ void KERNEL_CU_encode_phase4_concatenate(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped)
 {
   auto n = par_ncell[blockIdx.x];
@@ -155,7 +155,7 @@ using CompactNum = uint32_t;
 using Hf = uint32_t;
 
 template <typename E, int ChunkSize = 1024, int ShardSize = 4, int MaxBkLen = 1024>
-__global__ void KERNEL_CUHIP_Huffman_ReVISIT_lite(
+__global__ void KERNEL_CU_Huffman_ReVISIT_lite(
     E* in_data, size_t const len, Hf* hf_book, const u4 runtime_bklen, u4* hf_bitstream,
     u4* hf_bits, u4* hf_cells, const u4 nblock, /* breaking handling */
     E* hf_brval, CI* hf_bridx, CN* hf_brnum)
@@ -301,7 +301,7 @@ __global__ void KERNEL_CUHIP_Huffman_ReVISIT_lite(
 namespace phf {
 
 template <typename E, typename H, typename M>
-__global__ void KERNEL_CUHIP_HF_decode(
+__global__ void KERNEL_CU_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
     int const pardeg, E* out)
 {
@@ -386,7 +386,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1(
 
   constexpr auto block_dim = PHF_BLOCK_DIM_ENCODE;
   auto grid_dim = div(data_len, block_dim);
-  phf::KERNEL_CUHIP_encode_phase1_fill<E, H>                             //
+  phf::KERNEL_CU_encode_phase1_fill<E, H>                             //
       <<<8 * numSMs, 256, sizeof(H) * book_len, (cudaStream_t)stream>>>  //
       (in_data, data_len, in_book, book_len, out_bitstream);
 }
@@ -399,7 +399,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase2(
 
   auto block_dim = PHF_BLOCK_DIM_DEFLATE;
   auto grid_dim = div(hfpar.pardeg, block_dim);
-  phf::KERNEL_CUHIP_encode_phase2_deflate<H>              //
+  phf::KERNEL_CU_encode_phase2_deflate<H>              //
       <<<grid_dim, block_dim, 0, (cudaStream_t)stream>>>  //
       (deflated, data_len, par_nbit, par_ncell, hfpar.sublen, hfpar.pardeg);
 }
@@ -413,7 +413,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_encode_phase1_2(
   constexpr int BlockDim = 256;
   auto grid_dim = div(len, ChunkSize);
 
-  phf::KERNEL_CUHIP_Huffman_ReVISIT_lite<E>              //
+  phf::KERNEL_CU_Huffman_ReVISIT_lite<E>              //
       <<<grid_dim, BlockDim, 0, (cudaStream_t)stream>>>  //
       (in, len, book, bklen, bitstream, par_nbit, par_ncell, nblock, brval, bridx, brnum);
 }
@@ -448,7 +448,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase4(
     H* in_buf, const size_t len, M* par_entry, M* par_ncell, phf::par_config hfpar, H* bitstream,
     const size_t max_bitstream_len, void* stream)
 {
-  phf::KERNEL_CUHIP_encode_phase4_concatenate<H, M>
+  phf::KERNEL_CU_encode_phase4_concatenate<H, M>
       <<<hfpar.pardeg, 128, 0, (cudaStream_t)stream>>>  //
       (in_buf, par_entry, par_ncell, hfpar.sublen, bitstream);
 }
@@ -500,7 +500,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
   auto const block_dim = PHF_BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = div(pardeg, block_dim);
 
-  phf::KERNEL_CUHIP_HF_decode<E, H, M>                              //
+  phf::KERNEL_CU_HF_decode<E, H, M>                              //
       <<<grid_dim, block_dim, revbook_len, (cudaStream_t)stream>>>  //
       (in_bitstream, in_revbook, in_par_nbit, in_par_entry, revbook_len, sublen, pardeg,
        out_decoded);
@@ -511,7 +511,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_scatter(
 {
   SETUP_DIV;
   auto grid_dim = div(h_num, 128);
-  phf::experimental::KERNEL_CUHIP_scatter<E, u4>
+  phf::experimental::KERNEL_CU_scatter<E, u4>
       <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val, idx, h_num, out);
 }
 

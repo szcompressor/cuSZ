@@ -1,5 +1,5 @@
 #include "utils/viewer.hh"
-#include "viewer.cuhip.inl"
+#include "viewer.cu.inl"
 
 #define __INSTANTIATE_CUHIP_VIEWER(T, P)                                                     \
   template void psz::analysis::GPU_evaluate_quality_and_print<T, P>(T*, T*, size_t, size_t); \

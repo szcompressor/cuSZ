@@ -1,5 +1,5 @@
 /**
- * @file rs_merge.cuhip.inl
+ * @file rs_merge.cu.inl
  * @author Jiannan Tian
  * @brief HF-ReVISIT: reduce-shuffle-merge Huffman encoding kernel.
  * @version 0.2
@@ -7,7 +7,7 @@
  *
  * (C) 2020 by Washington State University, Argonne National Laboratory
  *
- * Differences from EIP's eip_c.cuhip.inl:
+ * Differences from EIP's eip_c.cu.inl:
  *  - No blockwise header or prebuilt codebook; uses a single dynamic codebook.
  *  - No random-access archiving; dense output is at a fixed sequential offset
  *    per block (C::ChunkSize * blockIdx.x).
@@ -178,7 +178,7 @@ __forceinline__ __device__ void hfr_data_store(
 // Kernel entry point
 // ---------------------------------------------------------------------------
 template <class C, int return_at = HFReVISIT_disable_trap>
-__global__ void KERNEL_CUHIP_HFReVISIT_encode(
+__global__ void KERNEL_CU_HFReVISIT_encode(
     typename C::T* in, u4 inlen, typename C::Hf* dram_book, u4 bklen, typename C::Hf alt_code,
     u4 alt_bitcount, typename C::Hf* dn_out, u4* dn_bitcount, typename C::T* sp_val, u4* sp_idx,
     u4* sp_count)
@@ -222,7 +222,7 @@ int HFReVISIT_encode<T, Magnitude, ReduceTimes, UseScan, Hf>::GPU_kernel(
   constexpr auto nthread = C::BlockDim;
   const auto nblock = (len - 1) / C::ChunkSize + 1;
 
-  phf::KERNEL_CUHIP_HFReVISIT_encode<C><<<nblock, nthread, 0, (cudaStream_t)stream>>>(
+  phf::KERNEL_CU_HFReVISIT_encode<C><<<nblock, nthread, 0, (cudaStream_t)stream>>>(
       in, (u4)len, bk, bklen, alt_code, alt_bitcount, dn_out, dn_bitcount, sp_val, sp_idx,
       sp_count);
 

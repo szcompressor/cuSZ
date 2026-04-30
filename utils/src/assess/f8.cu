@@ -1,2 +1,2 @@
-#include "../detail/compare.cuhip.inl"
+#include "../detail/compare.cu.inl"
 __INSTANTIATE_CUHIP_ASSESS(double);

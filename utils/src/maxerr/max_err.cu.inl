@@ -6,7 +6,7 @@
 namespace psz {
 
 template <typename T, size_t BlockSize>
-__global__ void KERNEL_CUHIP_find_max_errors(
+__global__ void KERNEL_CU_find_max_errors(
     T* a, T* b, size_t len, T* block_max_errors, size_t* block_max_indices)
 {
   __shared__ T s_errors[BlockSize];
@@ -70,7 +70,7 @@ void GPU_find_max_error(T* a, T* b, size_t const len, T& maxval, size_t& maxloc,
   cudaMallocManaged(&d_max_errors, blocks * sizeof(T));
   cudaMallocManaged(&d_max_indices, blocks * sizeof(size_t));
 
-  psz::KERNEL_CUHIP_find_max_errors<T, threads_per_block>       //
+  psz::KERNEL_CU_find_max_errors<T, threads_per_block>       //
       <<<blocks, threads_per_block, 0, (cudaStream_t)stream>>>  //
       (a, b, len, d_max_errors, d_max_indices);
   cudaStreamSynchronize((cudaStream_t)stream);

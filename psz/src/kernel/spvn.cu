@@ -1,5 +1,5 @@
 #include "c_type.h"
-#include "detail/spvn.cuhip.inl"
+#include "detail/spvn.cu.inl"
 #include "kernel/spvn.hh"
 
 template struct psz::module::GPU_scatter<f4, u4>;

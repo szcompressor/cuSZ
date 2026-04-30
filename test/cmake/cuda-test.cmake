@@ -9,7 +9,7 @@ target_include_directories(
 )
 
 # utils for test
-add_library(psz_cu_test_utils src/utils/rand.seq.cc src/utils/rand.cu_hip.cc)
+add_library(psz_cu_test_utils src/utils/rand.seq.cc src/utils/rand.cu.cc)
 target_link_libraries(psz_cu_test_utils CUDA::cudart CUDA::curand)
 
 # functionality

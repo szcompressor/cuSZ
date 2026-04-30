@@ -7,7 +7,7 @@
 #define CPU_QUERY cpu_diagnostics::get_cpu_properties();
 //
 #if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
-#include "query/query_dev.cu_hip.hh"
+#include "query/query_dev.cu.hh"
 
 #define GPU_QUERY cu_hip_diagnostics::get_device_property();
 

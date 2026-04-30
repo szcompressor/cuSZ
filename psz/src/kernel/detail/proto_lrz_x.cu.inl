@@ -6,7 +6,7 @@
 namespace psz {
 
 template <typename T, int TileDim = 256, typename Eq = uint16_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_prototype_x_lorenzo_1d1l(
+__global__ void KERNEL_CU_prototype_x_lorenzo_1d1l(
     Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
     dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
@@ -34,7 +34,7 @@ __global__ void KERNEL_CUHIP_prototype_x_lorenzo_1d1l(
 }
 
 template <typename T, int TileDim = 16, typename Eq = uint16_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_prototype_x_lorenzo_2d1l(
+__global__ void KERNEL_CU_prototype_x_lorenzo_2d1l(
     Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
     dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
@@ -70,7 +70,7 @@ __global__ void KERNEL_CUHIP_prototype_x_lorenzo_2d1l(
 }
 
 template <typename T, int TileDim = 8, typename Eq = uint16_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_prototype_x_lorenzo_3d1l(
+__global__ void KERNEL_CU_prototype_x_lorenzo_3d1l(
     Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
     dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
@@ -149,17 +149,17 @@ int GPU_PROTO_x_lorenzo_nd<T, Eq>::kernel(
   auto data_leap3 = dim3(1, len.x, len.x * len.y);
 
   if (ndim() == 1) {
-    psz::KERNEL_CUHIP_prototype_x_lorenzo_1d1l<T>
+    psz::KERNEL_CU_prototype_x_lorenzo_1d1l<T>
         <<<Grid1D, Block1D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len, data_leap3, radius, ebx2);
   }
   else if (ndim() == 2) {
-    psz::KERNEL_CUHIP_prototype_x_lorenzo_2d1l<T>
+    psz::KERNEL_CU_prototype_x_lorenzo_2d1l<T>
         <<<Grid2D, Block2D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len, data_leap3, radius, ebx2);
   }
   else if (ndim() == 3) {
-    psz::KERNEL_CUHIP_prototype_x_lorenzo_3d1l<T>
+    psz::KERNEL_CU_prototype_x_lorenzo_3d1l<T>
         <<<Grid3D, Block3D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len, data_leap3, radius, ebx2);
   }

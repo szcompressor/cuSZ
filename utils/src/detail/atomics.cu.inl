@@ -1,5 +1,5 @@
 /**
- * @file atomics.cuhip.inl
+ * @file atomics.cu.inl
  * @brief Common atomic operations for CUDA/HIP backends
  * @date 2024-06-02 (original)
  * @date 2026-01-07 (refactored to common file)

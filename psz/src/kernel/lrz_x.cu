@@ -1,4 +1,4 @@
-#include "detail/lrz_x.cuhip.inl"
+#include "detail/lrz_x.cu.inl"
 
 using psz::Toggle;
 

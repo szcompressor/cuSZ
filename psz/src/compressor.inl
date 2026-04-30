@@ -32,7 +32,7 @@ template <typename T, Toggle ZigZag>
 using GPU_x_lorenzo_nd =
     psz::module::GPU_x_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>>;
 
-#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
+#if defined(PSZ_USE_CUDA)
 
 #define CONCAT_ON_DEVICE(dst, src, nbyte, stream) \
   if (nbyte != 0) cudaMemcpyAsync(dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream);

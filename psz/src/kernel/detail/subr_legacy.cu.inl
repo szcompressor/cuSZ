@@ -1,5 +1,5 @@
 /**
- * @file subr.cu_hip.inl
+ * @file subr.cu.inl
  * @author Jiannan Tian
  * @brief subroutines of kernels
  * @version 0.4

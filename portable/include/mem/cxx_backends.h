@@ -14,8 +14,6 @@
 
 #if defined(_PORTABLE_USE_CUDA)
 #include <cuda_runtime.h>
-#elif defined(_PORTABLE_USE_HIP)
-#include <hip/hip_runtime.h>
 #elif defined(_PORTABLE_USE_1API)
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
@@ -46,14 +44,6 @@
 #define GPU_EVENT cudaEvent_t
 #define GPU_EVENT_CREATE(e) cudaEventCreate(e);
 
-#elif defined(_PORTABLE_USE_HIP)
-
-#define GPULEN3 dim3
-#define MAKE_GPULEN3(X, Y, Z) dim3(X, Y, Z)
-#define GPU_BACKEND_SPECIFIC_STREAM hipStream_t
-#define GPU_EVENT hipEvent_t
-#define GPU_EVENT_CREATE(e) hipEventCreate(e);
-
 #elif defined(_PORTABLE_USE_1API)
 
 #define GPULEN3 sycl::range<3>
@@ -81,24 +71,6 @@
   cudaEventRecord(E2, (cudaStream_t)STREAM); \
   cudaEventSynchronize(E2);
 #define event_time_elapsed(start, end, p_millisec) cudaEventElapsedTime(p_millisec, start, end);
-
-#elif defined(_PORTABLE_USE_HIP)
-
-#define event_create_pair(...)                 \
-  ([]() -> std::pair<hipEvent_t, hipEvent_t> { \
-    hipEvent_t a, b;                           \
-    hipEventCreate(&a);                        \
-    hipEventCreate(&b);                        \
-    return {a, b};                             \
-  })(__VA_ARGS__);
-#define event_destroy_pair(a, b) \
-  hipEventDestroy(a);            \
-  hipEventDestroy(b);
-#define event_recording_start(E1, STREAM) hipEventRecord(E1, (hipStream_t)STREAM);
-#define event_recording_stop(E2, STREAM)   \
-  hipEventRecord(E2, (hipStream_t)STREAM); \
-  hipEventSynchronize(E2);
-#define event_time_elapsed(start, end, p_millisec) hipEventElapsedTime(p_millisec, start, end);
 
 #elif defined(_PORTABLE_USE_1API)
 
@@ -134,16 +106,6 @@
   })(__VA_ARGS__);
 #define destroy_stream(stream) ([](void* s) { cudaStreamDestroy((cudaStream_t)s); })(stream);
 
-#elif defined(_PORTABLE_USE_HIP)
-
-#define create_stream(...)    \
-  ([]() -> hipStream_t {      \
-    hipStream_t stream;       \
-    hipStreamCreate(&stream); \
-    return stream;            \
-  })(__VA_ARGS__);
-#define destroy_stream(stream) ([](void* s) { hipStreamDestroy((hipStream_t)s); })(stream);
-
 #elif defined(_PORTABLE_USE_1API)
 
 #define create_stream(...)                                         \
@@ -159,11 +121,6 @@
 
 #define sync_by_stream(stream) cudaStreamSynchronize((cudaStream_t)stream);
 #define sync_device cudaDeviceSynchronize();
-
-#elif defined(_PORTABLE_USE_HIP)
-
-#define sync_by_stream(stream) hipStreamSynchronize((hipStream_t)stream);
-#define sync_device hipDeviceSynchronize();
 
 #elif defined(_PORTABLE_USE_1API)
 

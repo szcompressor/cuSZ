@@ -9,7 +9,7 @@
  *
  */
 
-#include "kernel/detail/histsp.cuhip.inl"
+#include "kernel/detail/histsp.cu.inl"
 #include "kernel/hist.hh"
 #include "utils/busyheader.hh"
 
@@ -168,7 +168,7 @@ bool perf(
 {
   constexpr auto NTREAD = 32 * NWARP;
 
-  psz::KERNEL_CUHIP_histogram_sparse_multiwarp<T, NWARP, CHUNK, FQ>
+  psz::KERNEL_CU_histogram_sparse_multiwarp<T, NWARP, CHUNK, FQ>
       <<<(inlen - 1) / CHUNK + 1, NTREAD, NSYM * sizeof(FQ), stream>>>(
           d_in, inlen, d_gpusp, NSYM, NSYM / 2);
 

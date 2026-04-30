@@ -10,11 +10,11 @@ extern "C" {
 #include <stdint.h>
 
 // enum for device type
-typedef enum { CPU, NVGPU, AMDGPU, INTELGPU } _portable_device;
+typedef enum { CPU, NVGPU, INTELGPU } _portable_device;
 // enum for runtime type
-typedef enum { SEQ, SIMD, OPENMP, CUDA, ROCM, SYCL, THRUST_DPL } _portable_runtime;
+typedef enum { SEQ, SIMD, OPENMP, CUDA, SYCL, THRUST_DPL } _portable_runtime;
 // enum for toolkit type
-typedef enum { VENDOR_NATIVE, KOKKOS, ONEAPI, HIP } _portable_toolkit;
+typedef enum { VENDOR_NATIVE, KOKKOS, ONEAPI } _portable_toolkit;
 
 // clang-format off
 // enum for memory control

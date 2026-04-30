@@ -1,2 +1,2 @@
-#include "detail/rs_merge.cuhip.inl"
+#include "detail/rs_merge.cu.inl"
 __INSTANTIATE_RSMERGE_1(1)

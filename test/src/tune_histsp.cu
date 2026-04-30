@@ -3,7 +3,7 @@
 
 #include "utils/busyheader.hh"
 // definitions
-#include "detail/tune_histsp.cuhip.inl"
+#include "detail/tune_histsp.cu.inl"
 
 int main()
 {

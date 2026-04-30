@@ -3,13 +3,13 @@
 #include <cmath>
 #include <cstdio>
 
-#include "atomics.cuhip.inl"
+#include "atomics.cu.inl"
 #include "detail/compare.hh"
 
 namespace psz {
 
 template <typename T>
-__global__ void KERNEL_CUHIP_extrema(
+__global__ void KERNEL_CU_extrema(
     T* in, size_t const len, T* minel, T* maxel, T* sum, T const failsafe, int const R)
 {
   __shared__ T shared_minv, shared_maxv, shared_sum;
@@ -103,7 +103,7 @@ void GPU_extrema(T* in, size_t len, T res[4])
 
 // launch
 #if defined(PSZ_USE_CUDA)
-  psz::KERNEL_CUHIP_extrema<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
+  psz::KERNEL_CU_extrema<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
       in, len, d_minel, d_maxel, d_sum, failsafe, R);
 #elif defined(PSZ_USE_HIP)
   if constexpr (std::is_same<T, float>::value) {

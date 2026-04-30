@@ -1,4 +1,4 @@
-#include "max_err.cuhip.inl"
+#include "max_err.cu.inl"
 
 template void psz::module::GPU_find_max_error<float>(
     float* a, float* b, size_t const len, float& maxval, size_t& maxloc, void* stream);

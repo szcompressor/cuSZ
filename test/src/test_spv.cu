@@ -5,7 +5,7 @@
 #include "rand.hh"
 #include "utils/busyheader.hh"
 // definitions
-#include "detail/t_spv.cu_hip.inl"
+#include "detail/t_spv.cu.inl"
 
 int main()
 {

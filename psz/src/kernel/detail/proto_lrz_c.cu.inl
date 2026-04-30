@@ -7,7 +7,7 @@ namespace psz {
 template <
     typename T, int TileDim = 256, typename Eq = u2, typename CompactVal = T,
     typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_prototype_c_lorenzo_1d1l(
+__global__ void KERNEL_CU_prototype_c_lorenzo_1d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
     u2 const radius, Fp const ebx2_r)
@@ -38,7 +38,7 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_1d1l(
 template <
     typename T, int TileDim = 16, typename Eq = u2, typename CompactVal = T,
     typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_prototype_c_lorenzo_2d1l(
+__global__ void KERNEL_CU_prototype_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
     u2 const radius, Fp const ebx2_r)
@@ -74,7 +74,7 @@ __global__ void KERNEL_CUHIP_prototype_c_lorenzo_2d1l(
 template <
     typename T, int TileDim = 8, typename Eq = u2, typename CompactVal = T,
     typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CUHIP_prototype_c_lorenzo_3d1l(
+__global__ void KERNEL_CU_prototype_c_lorenzo_3d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
     u2 const radius, Fp const ebx2_r)
@@ -146,17 +146,17 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>::kernel(
   auto data_leap3 = dim3(1, len.x, len.x * len.y);
 
   if (ndim() == 1)
-    psz::KERNEL_CUHIP_prototype_c_lorenzo_1d1l<T>
+    psz::KERNEL_CU_prototype_c_lorenzo_1d1l<T>
         <<<Grid1D, Block1D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
             ebx2_r);
   else if (ndim() == 2)
-    psz::KERNEL_CUHIP_prototype_c_lorenzo_2d1l<T>
+    psz::KERNEL_CU_prototype_c_lorenzo_2d1l<T>
         <<<Grid2D, Block2D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
             ebx2_r);
   else if (ndim() == 3)
-    psz::KERNEL_CUHIP_prototype_c_lorenzo_3d1l<T>
+    psz::KERNEL_CU_prototype_c_lorenzo_3d1l<T>
         <<<Grid3D, Block3D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
             ebx2_r);
