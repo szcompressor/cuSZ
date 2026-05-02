@@ -1,13 +1,26 @@
 #include <cupti_activity.h>
 
+// CUpti_ActivityKernel* v5 onward uses the same start-end pattern.
+#if CUPTI_API_VERSION >= 18  // CUDA 12.x
+using CUpti_AK = CUpti_ActivityKernel11;
+#elif CUPTI_API_VERSION >= 17  // CUDA 11.6–11.8
+using CUpti_AK = CUpti_ActivityKernel9;
+#elif CUPTI_API_VERSION >= 15  // CUDA 11.0–11.5
+using CUpti_AK = CUpti_ActivityKernel8;
+#elif CUPTI_API_VERSION >= 13  // CUDA 10.x
+using CUpti_AK = CUpti_ActivityKernel6;
+#else
+using CUpti_AK = CUpti_ActivityKernel5;
+#endif
+
 #include <atomic>
 #include <cstdint>
 #include <string>
 
 #include "detail/compare.hh"
 #include "hf.h"
-#include "hf_hl.hh"
 #include "hf_buf.hh"  // needed for Buf instantiation
+#include "hf_hl.hh"
 #include "kernel/hist.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
@@ -34,7 +47,7 @@ static void CUPTIAPI phf_buf_done(CUcontext, uint32_t, uint8_t* buf, size_t, siz
   while (cuptiActivityGetNextRecord(buf, validSz, &rec) == CUPTI_SUCCESS) {
     if (rec->kind == CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL ||
         rec->kind == CUPTI_ACTIVITY_KIND_KERNEL) {
-      auto* k = (CUpti_ActivityKernel11*)rec;
+      auto* k = (CUpti_AK*)rec;
       if (k->start != 0 and k->end >= k->start) s_kernel_ns += k->end - k->start;
     }
   }
