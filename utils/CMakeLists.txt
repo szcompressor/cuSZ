@@ -123,21 +123,21 @@ target_include_directories(utils_headers
 # CPU/Sequential implementation (all backends)
 add_library(eval_seq
   src/compare.stl.cc
-  src/viewer/vis_stat.cc
+  src/vis_stat.cc
 )
 
 if(EVAL_BACKEND STREQUAL "CUDA")
   # CUDA backend
   if(EVAL_BUILD_CUDA)
     add_library(eval_cu
-      src/identical/all.cu
-      src/extrema/f4.cu
-      src/extrema/f8.cu
-      src/calcerr/f4.cu
-      src/calcerr/f8.cu
-      src/assess/f4.cu
-      src/assess/f8.cu
-      src/maxerr/max_err.cu
+      src/identical.cu
+      src/compile/extrema-f4.cu
+      src/compile/extrema-f8.cu
+      src/compile/calcerr-f4.cu
+      src/compile/calcerr-f8.cu
+      src/compile/assess-f4.cu
+      src/compile/assess-f8.cu
+      src/compile/maxerr-all.cu
     )
     
     target_link_libraries(eval_cu
@@ -158,8 +158,8 @@ if(EVAL_BACKEND STREQUAL "CUDA")
     
     # Viewer with CUDA implementation
     add_library(eval_viewer_cu
-      src/viewer/viewer.cc
-      src/viewer/viewer.cu
+      src/viewer.cc
+      src/compile/viewer-all.cu
     )
     target_link_libraries(eval_viewer_cu
       PUBLIC

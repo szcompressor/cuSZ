@@ -9,9 +9,9 @@
  *
  */
 
-#include "detail/lrz.seq.inl"
+#include "lrz.seq.inl"
 
-#include "kernel/predictor.hh"
+#include "kernel.hh"
 #include "mem/cxx_sp_cpu.h"
 
 psz_len psz_div3(psz_len len, psz_len sublen)

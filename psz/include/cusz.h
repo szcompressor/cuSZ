@@ -99,12 +99,11 @@ typedef struct cusz_custom_framework {
 
 #endif
 
-// review
+void psz_print_concise_quality(psz_header* h, psz_stats* s, size_t comp_bytes);
 void* psz_make_timerecord();
 void psz_review_comp_time_breakdown(void* _r, psz_header* h);
 void psz_review_comp_time_from_header(psz_header* h);
 void psz_review_comp_time_from_header_verbose(psz_header* h);
-void psz_print_concise_quality(psz_header* h, psz_stats* s, size_t comp_bytes);
 void psz_review_decomp_time_from_header(psz_header* h);
 void psz_review_compression(void* r, psz_header* h);
 void psz_review_decompression(void* r, size_t bytes);

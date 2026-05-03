@@ -9,8 +9,8 @@
  *
  */
 
-#include "kernel/detail/histsp.cu.inl"
-#include "kernel/hist.hh"
+#include "kernel.hh"
+#include "kernel/histsp.cu.inl"
 #include "utils/busyheader.hh"
 
 using T = uint32_t;

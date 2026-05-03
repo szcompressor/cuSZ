@@ -6,10 +6,8 @@
 #endif
 
 using byte = unsigned char;
-static const int CS =
-    1024 * 16;  // chunk size (in bytes) [must be multiple of 8]
-static const int TPB =
-    512;  // threads per block [must be power of 2 and at least 128]
+static const int CS = 1024 * 16;  // chunk size (in bytes) [must be multiple of 8]
+static const int TPB = 512;       // threads per block [must be power of 2 and at least 128]
 #if defined(__AMDGCN_WAVEFRONT_SIZE) && (__AMDGCN_WAVEFRONT_SIZE == 64)
 #define WS 64
 #else
@@ -21,12 +19,12 @@ static const int TPB =
 
 #include <cassert>
 #include <cmath>
-#include <stdexcept>
 #include <string>
 
 #include "../lc/include/max_scan.h"
 #include "../lc/include/prefix_sum.h"
 #include "../lc/include/sum_reduction.h"
+#include "utils/err.hh"
 //
 #include "../lc/components/d_RRE_4.h"
 #include "../lc/components/d_RZE_1.h"
@@ -36,8 +34,7 @@ static const int TPB =
 // copy (len) bytes from shared memory (source) to global memory (destination)
 // source must we word aligned
 static inline __device__ void s2g(
-    void* const __restrict__ destination,
-    const void* const __restrict__ source, const int len)
+    void* const __restrict__ destination, const void* const __restrict__ source, const int len)
 {
   const int tid = threadIdx.x;
   const byte* const __restrict__ input = (byte*)source;
@@ -66,8 +63,7 @@ static inline __device__ void s2g(
       const int rlen = len - bcnt;
       int* const __restrict__ out_w = (int*)&output[bcnt];
       if (tid < bcnt) output[tid] = input[tid];
-      if (tid < wcnt)
-        out_w[tid] = __funnelshift_r(in_w[tid], in_w[tid + 1], shift);
+      if (tid < wcnt) out_w[tid] = __funnelshift_r(in_w[tid], in_w[tid + 1], shift);
       for (int i = tid + wcnt; i < rlen / 4; i += TPB) {
         out_w[i] = __funnelshift_r(in_w[i], in_w[i + 1], shift);
       }
@@ -81,11 +77,10 @@ static inline __device__ void s2g(
 
 static __device__ int g_chunk_counter;
 
-static __global__ void d_reset() { g_chunk_counter = 0; }
+__global__ void d_reset_rtr_comp() { g_chunk_counter = 0; }
 
 static inline __device__ void propagate_carry(
-    const int value, const int chunkID,
-    volatile int* const __restrict__ fullcarry,
+    const int value, const int chunkID, volatile int* const __restrict__ fullcarry,
     int* const __restrict__ s_fullc)
 {
   if (threadIdx.x == TPB - 1) {  // last thread
@@ -128,14 +123,13 @@ static inline __device__ void propagate_carry(
 }
 
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 800)
-static __global__ __launch_bounds__(TPB, 3)
+__global__ __launch_bounds__(TPB, 3)
 #else
-static __global__ __launch_bounds__(TPB, 2)
+__global__ __launch_bounds__(TPB, 2)
 #endif
     void d_encode_rtr(
-        const byte* const __restrict__ input, const int insize,
-        byte* const __restrict__ output, int* const __restrict__ outsize,
-        int* const __restrict__ fullcarry)
+        const byte* const __restrict__ input, const int insize, byte* const __restrict__ output,
+        int* const __restrict__ outsize, int* const __restrict__ fullcarry)
 {
   // allocate shared memory buffer
   __shared__ long long chunk[3 * (CS / sizeof(long long))];
@@ -170,8 +164,7 @@ static __global__ __launch_bounds__(TPB, 2)
     long long* const out_l = (long long*)out;
     for (int i = tid; i < osize / 8; i += TPB) { out_l[i] = input_l[i]; }
     const int extra = osize % 8;
-    if (tid < extra)
-      out[osize - extra + tid] = input[base + osize - extra + tid];
+    if (tid < extra) out[osize - extra + tid] = input[base + osize - extra + tid];
 
     // encode chunk
     __syncthreads();  // chunk produced, chunk[last] consumed
@@ -210,8 +203,7 @@ static __global__ __launch_bounds__(TPB, 2)
       long long* const out_l = (long long*)out;
       for (int i = tid; i < osize / 8; i += TPB) { out_l[i] = input_l[i]; }
       const int extra = osize % 8;
-      if (tid < extra)
-        out[osize - extra + tid] = input[base + osize - extra + tid];
+      if (tid < extra) out[osize - extra + tid] = input[base + osize - extra + tid];
     }
     __syncthreads();  // "out" done, temp produced
 
@@ -227,86 +219,4 @@ static __global__ __launch_bounds__(TPB, 2)
       *outsize = &data_out[fullcarry[chunkID]] - output;
     }
   } while (true);
-}
-
-struct GPUTimer {
-  cudaEvent_t beg, end;
-  GPUTimer()
-  {
-    cudaEventCreate(&beg);
-    cudaEventCreate(&end);
-  }
-  ~GPUTimer()
-  {
-    cudaEventDestroy(beg);
-    cudaEventDestroy(end);
-  }
-  void start() { cudaEventRecord(beg, 0); }
-  double stop()
-  {
-    cudaEventRecord(end, 0);
-    cudaEventSynchronize(end);
-    float ms;
-    cudaEventElapsedTime(&ms, beg, end);
-    return ms;
-  }
-};
-
-static void CheckCuda(const int line)
-{
-  cudaError_t e;
-  cudaDeviceSynchronize();
-  if (cudaSuccess != (e = cudaGetLastError())) {
-    fprintf(
-        stderr, "CUDA error %d on line %d: %s\n\n", e, line,
-        cudaGetErrorString(e));
-    throw std::runtime_error("LC error");
-  }
-}
-
-void RTR_COMPRESS(
-    uint8_t* input, size_t insize, uint8_t** output, size_t* outsize,
-    float* time, void* stream)
-{
-  // get GPU info
-  cudaSetDevice(0);
-  cudaDeviceProp deviceProp;
-  cudaGetDeviceProperties(&deviceProp, 0);
-  if ((deviceProp.major == 9999) && (deviceProp.minor == 9999)) {
-    fprintf(stderr, "ERROR: no CUDA capable device detected\n\n");
-    throw std::runtime_error("LC error");
-  }
-  const int SMs = deviceProp.multiProcessorCount;
-  const int mTpSM = deviceProp.maxThreadsPerMultiProcessor;
-  const int blocks = SMs * (mTpSM / TPB);
-  const int chunks = (insize + CS - 1) / CS;  // round up
-  CheckCuda(__LINE__);
-  const int maxsize = 3 * sizeof(int) + chunks * sizeof(short) + chunks * CS;
-
-  byte* d_encoded;
-  cudaMalloc((void**)&d_encoded, maxsize);
-  int* d_encsize;
-  cudaMalloc((void**)&d_encsize, sizeof(int));
-  CheckCuda(__LINE__);
-
-  int* d_fullcarry;
-  cudaMalloc((void**)&d_fullcarry, chunks * sizeof(int));
-  d_reset<<<1, 1>>>();
-  cudaMemset(d_fullcarry, 0, chunks * sizeof(int));
-  GPUTimer dtimer;
-  dtimer.start();
-  d_encode_rtr<<<blocks, TPB>>>(
-      input, (int)insize, d_encoded, d_encsize, d_fullcarry);
-  *time = (float)dtimer.stop();
-  cudaFree(d_fullcarry);
-  CheckCuda(__LINE__);
-
-  // get encoded GPU result
-  int dencsize = 0;
-  cudaMemcpy(&dencsize, d_encsize, sizeof(int), cudaMemcpyDeviceToHost);
-
-  *outsize = (size_t)(dencsize);
-  *output = d_encoded;
-
-  CheckCuda(__LINE__);
 }

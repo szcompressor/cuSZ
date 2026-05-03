@@ -3,9 +3,9 @@
 #include <sstream>
 #include <vector>
 
+#include "compare.hh"
 #include "cusz/type.h"
 #include "cusz_rev1.h"
-#include "detail/compare.hh"
 #include "ex_utils2.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 
     {  // evaulation
       auto comp_len = pszheader_filesize(&header);
-      //   psz_review_decompression(decomp_timerecord, oribytes);
+
       auto s = new psz_stats;
       psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
       printf(

@@ -7,6 +7,7 @@
 #include "cusz/type.h"
 #include "hf_hl.hh"
 #include <../../codec/hf/src/hf_buf.hh>  // needed for Buf instantiation
+#include "lc_gen/lc_buf.h"
 #include "mem/cxx_sp_gpu.h"
 
 // segment
@@ -54,6 +55,7 @@ struct Buf_Comp {
   using Buf_Outlier = _portable::compact_gpu<T>;
   using Buf_Outlier2 = _portable::compact_GPU_DRAM2<T, M>;
   using Buf_HF = phf::Buf<E>;
+  using Buf_LC = LC_Buf;
 
   struct impl;
   std::unique_ptr<impl> pimpl;
@@ -125,6 +127,7 @@ struct Buf_Comp {
   M profiled_errors_len() const;
 
   Buf_HF* buf_hf() const;
+  Buf_LC* buf_lc() const;
 
   float outlier_ratio() const { return OUTLIER_RATIO; };
 };

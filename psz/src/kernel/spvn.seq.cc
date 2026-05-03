@@ -1,4 +1,4 @@
-#include "kernel/spvn.hh"
+#include "kernel.hh"
 
 #include "c_type.h"
 

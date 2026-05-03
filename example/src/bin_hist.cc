@@ -3,9 +3,9 @@
 #include <cstdio>
 #include <string>
 
-#include "detail/compare.hh"
+#include "compare.hh"
 #include "detail/port.hh"
-#include "kernel/hist.hh"
+#include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 

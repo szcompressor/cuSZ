@@ -26,8 +26,7 @@
 #include "cusz/type.h"
 #include "cusz_rev1.h"
 #include "detail/composite.hh"
-#include "kernel/predictor.hh"
-#include "kernel/spvn.hh"
+#include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 
@@ -117,7 +116,7 @@ int main(int argc, char** argv)
     if (pred_type == psz_predictor::Spline)
       psz::module::GPU_scatter<float, M>::kernel(
           mem->outlier_val_d(), mem->outlier_idx_d(), manager->header->splen, d_xdata.get(),
-          nullptr, (void*)stream);
+          (void*)stream);
     else
       psz::module::GPU_scatter<float, M>::kernel_v2(
           (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), manager->header->splen,

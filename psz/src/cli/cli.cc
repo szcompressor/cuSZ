@@ -9,6 +9,7 @@
  *
  */
 
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 
@@ -16,9 +17,9 @@
 #include "cusz.h"
 #include "cusz_rev1.h"
 #include "mem/cxx_backends.h"
-#include "utils/io.hh"
 #include "query.hh"
-#include "utils/viewer.hh"
+#include "utils/io.hh"
+#include "viewer.hh"
 
 using std::cerr;
 using std::cout;
@@ -27,13 +28,13 @@ using std::endl;
 using _portable::utils::fromfile;
 using _portable::utils::tofile;
 
-#define REPORT(T)                                                                     \
-  if (args->cli->report_time) psz_review_decompression(&timerecord, sizeof(T) * len); \
+#define REPORT(T)                                                                 \
+  if (args->cli->report_time) psz_review_decompression(nullptr, sizeof(T) * len); \
   if (args->cli->verbose) psz_review_decomp_time_from_header(header);
 
 #define COMPARE_WITH_ORIGIN(T)                                      \
   if (string(args->cli->file_compare) != "") {                      \
-    sync_by_stream(stream);                                          \
+    sync_by_stream(stream);                                         \
     auto d_origin = MAKE_UNIQUE_DEVICE(T, len);                     \
     auto h_origin = MAKE_UNIQUE_HOST(T, len);                       \
     fromfile(args->cli->file_compare, h_origin.get(), len);         \
@@ -48,7 +49,7 @@ using _portable::utils::tofile;
 
 #define WRITE_TO_DISK(T)                                                                 \
   if (not args->cli->skip_tofile) {                                                      \
-    sync_by_stream(stream);                                                               \
+    sync_by_stream(stream);                                                              \
     auto h_decomped = MAKE_UNIQUE_HOST(T, len);                                          \
     memcpy_allkinds<D2H>(h_decomped.get(), d_decomped.get(), len);                       \
     tofile(std::string(basename + ".cuszx").c_str(), h_decomped.get(), sizeof(T) * len); \
@@ -73,7 +74,6 @@ int psz_run_from_CLI(int argc, char** argv)
     uint8_t* d_internal_compressed;
     psz_header header;
     size_t compressed_len;
-    psz::TimeRecord timerecord;
 
     psz_resource* m{nullptr};
 
@@ -109,11 +109,13 @@ int psz_run_from_CLI(int argc, char** argv)
     }
 
     if (args->cli->report_time) {
-      printf("\n\e[1m\e[31mREPORT::COMPRESSION::TIME\e[0m\n");
+      // printf("\n\e[1m\e[31mREPORT::COMPRESSION::TIME\e[0m\n");
       // psz_review_comp_time_breakdown(&timerecord, &header);
+      fprintf(stderr, "Reporting time is disabled/to be updated.\n");
     }
     if (args->cli->report_cr) {
       psz_review_comp_time_from_header(&header);
+
       if (args->cli->verbose) {
         printf("\n\e[1m\e[31mREPORT::COMPRESSION::FILE\e[0m\n");
         psz_review_comp_time_from_header_verbose(&header);
@@ -152,7 +154,6 @@ int psz_run_from_CLI(int argc, char** argv)
     auto header = (psz_header*)h_comped.get();
     auto comp_len = pszheader_filesize(header);
     auto len = pszheader_uncompressed_len(header);
-    psz::TimeRecord timerecord;
 
     psz_resource* m = psz_create_resource_manager_from_header(header, stream);
 

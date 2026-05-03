@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-#include "detail/compare.hh"
+#include "compare.hh"
 
 template <typename T>
 T* allocate_device_memory(const std::vector<T>& host_data)

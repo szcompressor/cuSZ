@@ -5,7 +5,7 @@
 #include <random>
 
 #include "hf_impl.hh"
-#include "kernel/hist.hh"
+#include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "rs_merge.hh"
 

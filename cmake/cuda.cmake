@@ -124,7 +124,7 @@ target_link_libraries(psz_seq_core
 )
 
 add_library(psz_cu_mem
-  psz/src/mem/buf_comp.cc
+  psz/src/buf_comp.cc
 )
 target_link_libraries(psz_cu_mem
   PUBLIC
@@ -136,17 +136,17 @@ target_link_libraries(psz_cu_mem
 )
 
 add_library(psz_cu_core
-  psz/src/kernel/hist_generic.cu
-  psz/src/kernel/histsp.cu
-  psz/src/kernel/proto_lrz_c.cu
-  psz/src/kernel/proto_lrz_x.cu
-  psz/src/kernel/spvn.cu
-  psz/src/kernel/lrz_c.cu
-  psz/src/kernel/lrz_x.cu
-  psz/src/kernel/spline3_c_u1.cu
-  psz/src/kernel/spline3_c_u2.cu
-  psz/src/kernel/spline3_x_u1.cu
-  psz/src/kernel/spline3_x_u2.cu
+  psz/src/compile/hist_generic.cu
+  psz/src/compile/histsp.cu
+  psz/src/compile/proto_lrz_c.cu
+  psz/src/compile/proto_lrz_x.cu
+  psz/src/compile/spvn.cu
+  psz/src/compile/lrz_c.cu
+  psz/src/compile/lrz_x.cu
+  psz/src/compile/spline3_c_u1.cu
+  psz/src/compile/spline3_c_u2.cu
+  psz/src/compile/spline3_x_u1.cu
+  psz/src/compile/spline3_x_u2.cu
 )
 target_link_libraries(psz_cu_core
   PUBLIC
@@ -177,6 +177,7 @@ target_link_libraries(psz_cu_utils
 if(PSZ_CMAKE_ACTIVATE_LC)
   add_compile_definitions(PSZ_USE_LC_FIXED)
   add_library(lc_gen
+    third_party/lc_gen/lc_connector.cu
     third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu
     third_party/lc_gen/comp-bitr.cu third_party/lc_gen/decomp-bitr.cu
     third_party/lc_gen/comp-rtr.cu  third_party/lc_gen/decomp-rtr.cu

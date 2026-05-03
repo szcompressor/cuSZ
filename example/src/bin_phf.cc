@@ -17,11 +17,11 @@ using CUpti_AK = CUpti_ActivityKernel5;
 #include <cstdint>
 #include <string>
 
-#include "detail/compare.hh"
+#include "compare.hh"
 #include "hf.h"
 #include "hf_buf.hh"  // needed for Buf instantiation
 #include "hf_hl.hh"
-#include "kernel/hist.hh"
+#include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 

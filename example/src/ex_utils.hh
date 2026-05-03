@@ -5,8 +5,7 @@
 #include <cstdint>
 
 #include "cusz/type.h"
-#include "kernel/hist.hh"
-#include "kernel/predictor.hh"
+#include "kernel.hh"
 
 template <typename T>
 uint32_t count_outlier(T* in, size_t inlen, int radius, void* stream);

@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 
+#include "compare.hh"
 #include "cusz/type.h"
-#include "detail/compare.hh"
 #include "rand.hh"
 #include "utils/busyheader.hh"
 

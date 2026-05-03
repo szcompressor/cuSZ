@@ -1,4 +1,4 @@
-#include "detail/compare.stl.inl"
+#include "compare.stl.inl"
 
 #define __INSTANTIATE_CPPSTL_COMPARE(T)                                         \
   template bool psz::cppstl::CPU_error_bounded(                                 \

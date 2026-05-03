@@ -1,6 +1,6 @@
 #include "detail/correctness.inl"
-#include "kernel/detail/lrz.seq.inl"
-#include "kernel/spvn.hh"
+#include "kernel.hh"
+#include "kernel/lrz.seq.inl"
 #include "utils/busyheader.hh"
 
 using T = float;

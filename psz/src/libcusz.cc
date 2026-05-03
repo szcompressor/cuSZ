@@ -1,10 +1,10 @@
 #include <iostream>
 
+#include "compare.hh"
 #include "compressor.hh"
 #include "cusz/context.h"
 #include "cusz/type.h"
 #include "cusz_rev1.h"
-#include "detail/compare.hh"
 #include "mem/buf_comp.hh"
 
 using psz::analysis::GPU_probe_extrema;

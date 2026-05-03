@@ -7,9 +7,7 @@
 #include "detail/composite.hh"
 #include "detail/port.hh"
 #include "hf_hl.hh"
-#include "kernel/hist.hh"
-#include "kernel/predictor.hh"
-#include "kernel/spvn.hh"
+#include "kernel.hh"
 #include "lc_gen/lc_gen.h"
 #include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
@@ -250,10 +248,10 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 #ifdef PSZ_USE_LC_FIXED
     // Hi-TP mode: TCMS replaces histogram+Huffman; mark hist as null in header
     ctx->header->pipeline.hist = psz_hist::NullHistogram;
-    float time_tcms;
-    TCMS_COMPRESS(
-        (uint8_t*)mem->ectrl_d(), len_linear * sizeof(E), &mem->comp_codec_out,
-        &mem->comp_codec_outlen, &time_tcms, stream);
+    lc_c::TCMS_COMPRESS(
+        (uint8_t*)mem->ectrl_d(), len_linear * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
+        stream);
+    mem->comp_codec_out = mem->buf_lc()->encoded_d();
     return PSZ_SUCCESS;
 #else
     return PSZ_ABORT_NO_SUCH_CODEC;
@@ -269,21 +267,17 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     // 3 SPFMT
     // ---------  ENC2-RTR: end
     // 4 END
-    [[deprecated("TODO: remove CPU-side time_rtr")]] float time_rtr;
-    [[deprecated(
-        "TODO: should not be a modified pointer inside RTR_COMPRESS where an allocation "
-        "happens")]] byte_t* comp_rtr_out;
     size_t comp_rtr_outlen;
 
-    RTR_COMPRESS(
+    lc_c::RTR_COMPRESS(
         (uint8_t*)DST(PSZ_ENCODED, 0),
-        mem->nbyte[PSZ_ENCODED] + mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT], &comp_rtr_out,
-        &comp_rtr_outlen, &time_rtr, stream);
+        mem->nbyte[PSZ_ENCODED] + mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT], mem->buf_lc(),
+        &comp_rtr_outlen, stream);
 
     // reuse PSZ_ENCODED buf
     cudaMemcpyAsync(
-        DST(PSZ_ENCODED, 0), (void*)comp_rtr_out, comp_rtr_outlen, cudaMemcpyDeviceToDevice,
-        (cudaStream_t)stream);
+        DST(PSZ_ENCODED, 0), (void*)mem->buf_lc()->encoded_d(), comp_rtr_outlen,
+        cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     sync_by_stream(stream);
     ctx->header->entry[PSZ_ENC_PASS2_END] = ctx->header->entry[PSZ_ENCODED] + comp_rtr_outlen;
 
@@ -297,20 +291,14 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   auto compress_encode_pass2_LC_BITR = [&]() -> int {
 
 #ifdef PSZ_USE_LC_FIXED
-    [[deprecated("TODO: remove CPU-side time_bitr")]] float time_bitr;
-    [[deprecated(
-        "TODO: should not be a modified pointer inside BITR_COMPRESS where an allocation "
-        "happens")]] byte_t* comp_bitr_out;
     size_t comp_bitr_outlen;
 
-    // Sync stream: wrapup async-copied anchor/spfmt to compressed_d; BITR uses default stream
-    cudaStreamSynchronize((cudaStream_t)stream);
-    BITR_COMPRESS(
+    lc_c::BITR_COMPRESS(
         (uint8_t*)DST(PSZ_ANCHOR, 0), mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT],
-        &comp_bitr_out, &comp_bitr_outlen, &time_bitr, stream);
+        mem->buf_lc(), &comp_bitr_outlen, stream);
     cudaMemcpyAsync(
-        DST(PSZ_ANCHOR, 0), (void*)comp_bitr_out, comp_bitr_outlen, cudaMemcpyDeviceToDevice,
-        (cudaStream_t)stream);
+        DST(PSZ_ANCHOR, 0), (void*)mem->buf_lc()->encoded_d(), comp_bitr_outlen,
+        cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     sync_by_stream(stream);
     ctx->header->entry[PSZ_ENC_PASS2_END] = ctx->header->entry[PSZ_ANCHOR] + comp_bitr_outlen;
 
@@ -406,27 +394,21 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
 #ifdef PSZ_USE_LC_FIXED
   if (header->pipeline.codec1 == LC and header->pipeline.codec2 != LC) {
     // TCMS-only: ectrl is TCMS-compressed, anchor/spfmt are raw in archive
-    void* decomp_lc1 = nullptr;
-    float time_lc1 = 0;
-    TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), &decomp_lc1, &time_lc1);
+    lc_c::TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
     cudaMemcpyAsync(
-        mem->ectrl_d(), decomp_lc1, len.x * len.y * len.z * sizeof(E), cudaMemcpyDeviceToDevice,
-        (cudaStream_t)stream);
+        mem->ectrl_d(), mem->buf_lc()->decoded_d(), len.x * len.y * len.z * sizeof(E),
+        cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     // d_anchor, d_spval, d_spidx already initialized to access(PSZ_ANCHOR/PSZ_SPFMT)
     if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
     if (header->splen != 0)
-      psz::module::GPU_scatter<T, M>::kernel(
-          d_spval, d_spidx, header->splen, d_space, nullptr, stream);
+      psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
     goto STEP_PREDICT;
   }
   if (header->pipeline.codec2 == LC) {
-    void* decomp_lc1 = nullptr;
-    void* decomp_lc2 = nullptr;
-    float time_lc1 = 0, time_lc2 = 0;
-
     if (header->pipeline.codec1 == Huffman) {
       // HiCR: RTR_DECOMPRESS over [ENCODED][ANCHOR][SPFMT]
-      RTR_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), &decomp_lc1, &time_lc1);
+      lc_c::RTR_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
+      auto decomp_lc1 = mem->buf_lc()->decoded_d();
       // after decompress: decomp_lc1 = [HF][ANCHOR][SPFMT]
       d_anchor =
           (T*)((byte_t*)decomp_lc1 + (header->entry[PSZ_ANCHOR] - header->entry[PSZ_ENCODED]));
@@ -438,24 +420,23 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       // scatter first (ectrl not yet needed), decode after
       if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
       if (header->splen != 0)
-        psz::module::GPU_scatter<T, M>::kernel(
-            d_spval, d_spidx, header->splen, d_space, nullptr, stream);
+        psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
       phf::high_level<E>::decode(mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->ectrl_d(), stream);
     }
     else {
       // HiTP: TCMS_DECOMPRESS ectrl + BITR_DECOMPRESS [ANCHOR][SPFMT]
-      TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), &decomp_lc1, &time_lc1);
+      lc_c::TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
       cudaMemcpyAsync(
-          mem->ectrl_d(), decomp_lc1, len.x * len.y * len.z * sizeof(E), cudaMemcpyDeviceToDevice,
-          (cudaStream_t)stream);
-      BITR_DECOMPRESS((uint8_t*)access(PSZ_ANCHOR), &decomp_lc2, &time_lc2);
+          mem->ectrl_d(), mem->buf_lc()->decoded_d(), len.x * len.y * len.z * sizeof(E),
+          cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
+      lc_c::BITR_DECOMPRESS((uint8_t*)access(PSZ_ANCHOR), mem->buf_lc(), stream);
+      auto decomp_lc2 = mem->buf_lc()->decoded_d();
       d_anchor = (T*)decomp_lc2;
       d_spval = (T*)((byte_t*)decomp_lc2 + (header->entry[PSZ_SPFMT] - header->entry[PSZ_ANCHOR]));
       d_spidx = (M*)(d_spval + header->splen);
       if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
       if (header->splen != 0)
-        psz::module::GPU_scatter<T, M>::kernel(
-            d_spval, d_spidx, header->splen, d_space, nullptr, stream);
+        psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
       // ectrl already placed in mem->ectrl_d() above
     }
 
@@ -469,8 +450,7 @@ STEP_SCATTER:
 
   if (header->splen != 0) {
     if (header->pipeline.predictor == Spline)
-      psz::module::GPU_scatter<T, M>::kernel(
-          d_spval, d_spidx, header->splen, d_space, nullptr, stream);
+      psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
     else
       psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
   }

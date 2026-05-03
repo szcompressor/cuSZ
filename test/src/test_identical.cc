@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-#include "detail/compare.hh"
+#include "compare.hh"
 
 void* allocate_device_memory(const void* host_data, size_t size)
 {

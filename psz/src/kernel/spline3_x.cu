@@ -2,8 +2,8 @@
 
 #include <cuda_runtime.h>
 
-#include "detail/spline3_md.inl"
-#include "kernel/predictor.hh"
+#include "spline3_md.inl"
+#include "kernel.hh"
 #include "mem/cxx_backends.h"
 
 constexpr int DEFAULT_BLOCK_SIZE = BLOCK_DIM_SIZE;

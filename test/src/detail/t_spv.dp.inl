@@ -13,7 +13,7 @@
 #include <sycl/sycl.hpp>
 
 #include "kernel/criteria.gpu.hh"
-#include "kernel/spvn.hh"
+#include "kernel.hh"
 
 template <typename T = float>
 int f()

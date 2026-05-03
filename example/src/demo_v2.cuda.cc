@@ -15,7 +15,7 @@
 #include "cusz/type.h"
 #include "cusz_rev1.h"
 #include "utils/io.hh"
-#include "utils/viewer.hh"
+#include "viewer.hh"
 
 namespace utils = _portable::utils;
 

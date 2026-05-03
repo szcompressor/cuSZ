@@ -6,10 +6,8 @@
 #endif
 
 using byte = unsigned char;
-static const int CS =
-    1024 * 16;  // chunk size (in bytes) [must be multiple of 8]
-static const int TPB =
-    512;  // threads per block [must be power of 2 and at least 128]
+static const int CS = 1024 * 16;  // chunk size (in bytes) [must be multiple of 8]
+static const int TPB = 512;       // threads per block [must be power of 2 and at least 128]
 #if defined(__AMDGCN_WAVEFRONT_SIZE) && (__AMDGCN_WAVEFRONT_SIZE == 64)
 #define WS 64
 #else
@@ -21,12 +19,12 @@ static const int TPB =
 
 #include <cassert>
 #include <cmath>
-#include <stdexcept>
 #include <string>
 
 #include "../lc/include/max_scan.h"
 #include "../lc/include/prefix_sum.h"
 #include "../lc/include/sum_reduction.h"
+#include "utils/err.hh"
 //
 #include "../lc/components/d_RRE_4.h"
 #include "../lc/components/d_RZE_1.h"
@@ -37,8 +35,7 @@ static const int TPB =
 // using separate shared memory buffer (temp) destination and temp must we word
 // aligned, accesses up to CS + 3 bytes in temp
 static inline __device__ void g2s(
-    void* const __restrict__ destination,
-    const void* const __restrict__ source, const int len,
+    void* const __restrict__ destination, const void* const __restrict__ source, const int len,
     void* const __restrict__ temp)
 {
   const int tid = threadIdx.x;
@@ -71,8 +68,7 @@ static inline __device__ void g2s(
       const int* const __restrict__ in_w = (int*)&input[bcnt];
       byte* const __restrict__ buffer = (byte*)temp;
       byte* const __restrict__ buf = (byte*)&buffer[offs];
-      int* __restrict__ buf_w =
-          (int*)&buffer[4];  //(int*)&buffer[(bcnt + 3) & 4];
+      int* __restrict__ buf_w = (int*)&buffer[4];  //(int*)&buffer[(bcnt + 3) & 4];
       if (tid < bcnt) buf[tid] = input[tid];
       if (tid < wcnt) buf_w[tid] = in_w[tid];
       for (int i = tid + wcnt; i < rlen / 4; i += TPB) { buf_w[i] = in_w[i]; }
@@ -91,12 +87,12 @@ static inline __device__ void g2s(
 
 static __device__ int g_chunk_counter;
 
-static __global__ void d_reset() { g_chunk_counter = 0; }
+__global__ void d_reset_rtr_decomp() { g_chunk_counter = 0; }
 
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 800)
-static __global__ __launch_bounds__(TPB, 3)
+__global__ __launch_bounds__(TPB, 3)
 #else
-static __global__ __launch_bounds__(TPB, 2)
+__global__ __launch_bounds__(TPB, 2)
 #endif
     void d_decode_rtr(
         const byte* const __restrict__ input, byte* const __restrict__ output,
@@ -132,12 +128,9 @@ static __global__ __launch_bounds__(TPB, 2)
     // compute sum of all prior csizes (start where left off in previous
     // iteration)
     int sum = 0;
-    for (int i = prevChunkID + tid; i < chunkID; i += TPB) {
-      sum += (int)size_in[i];
-    }
+    for (int i = prevChunkID + tid; i < chunkID; i += TPB) { sum += (int)size_in[i]; }
     int csize = (int)size_in[chunkID];
-    const int offs =
-        prevOffset + block_sum_reduction(sum, (int*)&chunk[last + 1]);
+    const int offs = prevOffset + block_sum_reduction(sum, (int*)&chunk[last + 1]);
     prevChunkID = chunkID;
     prevOffset = offs;
 
@@ -175,97 +168,15 @@ static __global__ __launch_bounds__(TPB, 2)
     }
 
     if (csize != osize) {
-      printf(
-          "ERROR: csize %d doesn't match osize %d in chunk %d\n\n", csize,
-          osize, chunkID);
+      printf("ERROR: csize %d doesn't match osize %d in chunk %d\n\n", csize, osize, chunkID);
       __trap();
     }
     long long* const output_l = (long long*)&output[base];
     long long* const out_l = (long long*)out;
     for (int i = tid; i < osize / 8; i += TPB) { output_l[i] = out_l[i]; }
     const int extra = osize % 8;
-    if (tid < extra)
-      output[base + osize - extra + tid] = out[osize - extra + tid];
+    if (tid < extra) output[base + osize - extra + tid] = out[osize - extra + tid];
   } while (true);
 
   if ((blockIdx.x == 0) && (tid == 0)) { *g_outsize = outsize; }
-}
-
-struct GPUTimer {
-  cudaEvent_t beg, end;
-  GPUTimer()
-  {
-    cudaEventCreate(&beg);
-    cudaEventCreate(&end);
-  }
-  ~GPUTimer()
-  {
-    cudaEventDestroy(beg);
-    cudaEventDestroy(end);
-  }
-  void start() { cudaEventRecord(beg, 0); }
-  double stop()
-  {
-    cudaEventRecord(end, 0);
-    cudaEventSynchronize(end);
-    float ms;
-    cudaEventElapsedTime(&ms, beg, end);
-    return ms;
-  }
-};
-
-static void CheckCuda(const int line)
-{
-  cudaError_t e;
-  cudaDeviceSynchronize();
-  if (cudaSuccess != (e = cudaGetLastError())) {
-    fprintf(
-        stderr, "CUDA error %d on line %d: %s\n\n", e, line,
-        cudaGetErrorString(e));
-    throw std::runtime_error("LC error");
-  }
-}
-
-void RTR_DECOMPRESS(uint8_t* input, void** output, float* time)
-{
-  int pre_size;
-  cudaMemcpy(&pre_size, input, sizeof(int), cudaMemcpyDeviceToHost);
-
-  // get GPU info
-  cudaSetDevice(0);
-  cudaDeviceProp deviceProp;
-  cudaGetDeviceProperties(&deviceProp, 0);
-  if ((deviceProp.major == 9999) && (deviceProp.minor == 9999)) {
-    fprintf(stderr, "ERROR: no CUDA capable device detected\n\n");
-    throw std::runtime_error("LC error");
-  }
-  const int SMs = deviceProp.multiProcessorCount;
-  const int mTpSM = deviceProp.maxThreadsPerMultiProcessor;
-  const int blocks = SMs * (mTpSM / TPB);
-  CheckCuda(__LINE__);
-
-  // allocate GPU memory
-  byte* d_decoded;
-  cudaMalloc((void**)&d_decoded, pre_size);
-  int* d_decsize;
-  cudaMalloc((void**)&d_decsize, sizeof(int));
-  CheckCuda(__LINE__);
-
-  // warm up
-  byte* d_decoded_dummy;
-  cudaMalloc((void**)&d_decoded_dummy, pre_size);
-  int* d_decsize_dummy;
-  cudaMalloc((void**)&d_decsize_dummy, sizeof(int));
-  d_decode_rtr<<<blocks, TPB>>>(input, d_decoded_dummy, d_decsize_dummy);
-  cudaFree(d_decoded_dummy);
-  cudaFree(d_decsize_dummy);
-
-  // time GPU decoding
-  GPUTimer dtimer;
-  dtimer.start();
-  d_reset<<<1, 1>>>();
-  d_decode_rtr<<<blocks, TPB>>>(input, d_decoded, d_decsize);
-  *time = (float)dtimer.stop();
-  CheckCuda(__LINE__);
-  *output = d_decoded;
 }
