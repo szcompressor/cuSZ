@@ -19,89 +19,85 @@ extern "C" {
 #include "cusz/context.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
+#include "cusz_rev1.h"
 #include "stat.h"
-
-// @brief create a cuSZ compressor object with detailed specification
-//
-// @param dtype input data type, select from `F4` (`F8` to be supported)
-// @param uncomp_len3 3D length of uncompressed data
-// @param predictor select from `lorenzo`, `spline`
-// @param quantizer_radius internal quantization range; 512 is recommended
-// @deprecated quantizer_radius This parameter is deprecated and will be removed.
-// @param codec selecto from `Huffman` (more to be supported)
-// @return psz_compressor* an object of compressor wrapper for compression
-psz_compressor* psz_create(
-    /* data */ psz_dtype const dtype, psz_len3 const uncomp_len,  //
-    /* config */ psz_predictor const predictor, int const quantizer_radius, psz_codec const codec);
-
-// @brief create a cuSZ compressor object with default values
-//
-// @param dtype input data type, select from `F4` (`F8` to be supported)
-// @param uncomp_len3 3D length of uncompressed data
-// @return psz_compressor* an object of compressor wrapper for compression
-psz_compressor* psz_create_default(psz_dtype const dtype, psz_len3 const);
-
-// @brief create a cuSZ compressor object with a pSZ context object; need to configure context
-// object first; used in setting up compression
-//
-// @return psz_compressor* an object of compressor wrapper for compression
-psz_compressor* psz_create_from_context(psz_ctx* const, psz_len3 const);
-
-// @brief create a cuSZ compressor object with a pSZ header; used in setting up decompression
-//
-// @return psz_compressor* an object of compressor wrapper for decompression
-psz_compressor* psz_create_from_header(psz_header* const);
-
-// @brief release the compressor object
-//
-// @param comp compressor object
-// @return pszerror error status
-pszerror psz_release(psz_compressor* comp);
-
-// @brief compresses data using the specified runtime parameters.
-//
-// @param comp compressor object
-// @param d_in input: device pointer to the data array to be compressed
-// @param in_len3 input: the 3D length of the input data array
-// @param eb config: user-specified error bound (e.g., 1e-3); used with `mode` (the next param)
-// @param mode config: select form `Abs` or `Rel`
-// @param d_compressed output: pointer to the device pointer to the internal
-// buffer holding the compressed data
-// @param comp_bytes output: number of bytes of `compressed`; changed by the
-// compressor internally
-// @param header output: pointer to the header as part of the internal buffer
-// @param record logging: breakdown time for each kernel; this is not an
-// end-to-end measurement.
-// @param stream the specified GPU stream
-// @return pszerror error status
-pszerror psz_compress(
-    psz_compressor* comp, void* d_in, psz_len3 const in_len3, double const eb, psz_mode const mode,
-    uint8_t** d_compressed, size_t* comp_bytes, psz_header* header, void* record, void* stream);
-
-// @brief decompress data from the archive
-//
-// @param comp compressor object
-// @param d_compressed input: device pointer to the data archive
-// @param comp_len input: the 1D length of the data archive
-// @param d_decompressed output: device pointer to the data buffer to hold the
-// decompressed data; prepared by
-// @param decomp_len the auxillary 3D length of the input data array
-// @param record logging: breakdown time for each kernel; this is not an end-to-end measurement.
-// @param stream the specified GPU stream
-// @return pszerror error status
-pszerror psz_decompress(
-    psz_compressor* comp, uint8_t* d_compressed, size_t const comp_len, void* d_decompressed,
-    psz_len3 const decomp_len, void* record, void* stream);
-
-// @brief clear the internal buffer of the compressor object
-//
-// @param comp compressor object
-// @return pszerror error status
-pszerror psz_clear_buffer(psz_compressor* comp);
 
 // defined in context.cc
 extern void psz_version();
 extern void psz_versioninfo();
+
+/* CUSZ_LEGACY_MACRO_ALIASING: compatibility layer for deprecated OOD connector symbols */
+#ifndef CUSZ_DISABLE_LEGACY_MACROS
+#define CUSZ_LEGACY_MACRO_ALIASING 1
+#define cusz_datatype psz_dtype
+#define cusz_mode psz_mode
+#define cusz_predictortype psz_predictor
+#define cusz_codectype psz_codec
+#define cusz_error_status psz_error_status
+#define cusz_header psz_header
+#define cusz_compressor psz_resource
+#define cusz_config psz_rc2
+#define cusz_len psz_len
+
+#ifndef FP32
+#define FP32 F4
+#endif
+#ifndef FP64
+#define FP64 F8
+#endif
+#ifndef Lorenzo0
+#define Lorenzo0 Lorenzo
+#endif
+#ifndef LorenzoI
+#define LorenzoI Lorenzo
+#endif
+#ifndef LorenzoII
+#define LorenzoII LorenzoZigZag
+#endif
+#ifndef Spline3
+#define Spline3 Spline
+#endif
+
+typedef enum { Auto, Dense, Sparse } cusz_pipelinetype;
+typedef enum { Tree, Canonical } cusz_huffman_booktype;
+typedef enum { Host, Device, None } cusz_executiontype;
+typedef enum { Coarse, Fine } cusz_huffman_codingtype;
+
+typedef struct cusz_custom_predictor {
+  psz_predictor type;
+  bool anchor;
+  bool nondestructive;
+} cusz_custom_predictor;
+
+typedef struct cusz_custom_quantization {
+  int radius;
+  bool delayed;
+} cusz_custom_quantization;
+
+typedef struct cusz_custom_codec {
+  psz_codec type;
+  bool variable_length;
+  float presumed_density;
+} cusz_custom_codec;
+
+typedef struct cusz_custom_huffman_codec {
+  cusz_huffman_booktype book_type;
+  cusz_executiontype execution_type;
+  cusz_huffman_codingtype coding_type;
+  int booklen;
+  int coarse_pardeg;
+} cusz_custom_huffman_codec;
+
+typedef struct cusz_custom_framework {
+  psz_dtype datatype;
+  cusz_pipelinetype pipeline;
+  cusz_custom_predictor predictor;
+  cusz_custom_quantization quantization;
+  cusz_custom_codec codec;
+  cusz_custom_huffman_codec huffman;
+} cusz_custom_framework;
+
+#endif
 
 // review
 void* psz_make_timerecord();

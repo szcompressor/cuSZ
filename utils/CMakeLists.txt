@@ -25,6 +25,12 @@ if(NOT PSZ_BACKEND)
   message("[eval::info] Using default backend: CUDA")
 endif()
 
+set_property(CACHE PSZ_BACKEND PROPERTY STRINGS CUDA HIP ONEAPI)
+string(TOUPPER "${PSZ_BACKEND}" PSZ_BACKEND_UPPER)
+if(PSZ_BACKEND_UPPER STREQUAL "1API")
+  set(PSZ_BACKEND_UPPER "ONEAPI")
+endif()
+
 # Set default build directories for standalone builds
 if(EVAL_STANDALONE)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -35,7 +41,7 @@ else()
 endif()
 
 # Find CUDA if needed
-if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
+if(PSZ_BACKEND_UPPER STREQUAL "CUDA")
   find_package(CUDAToolkit REQUIRED)
 endif()
 
@@ -57,7 +63,7 @@ if(EVAL_STANDALONE)
       cxx_std_17
   )
   
-  if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
+  if(PSZ_BACKEND_UPPER STREQUAL "CUDA")
     target_compile_definitions(eval_compile_settings
       INTERFACE
         PSZ_USE_CUDA
@@ -82,7 +88,7 @@ endif()
 # Backend selection
 # ------------------------------------------------------------------------------
 
-if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")
+if(PSZ_BACKEND_UPPER STREQUAL "CUDA")
 
   enable_language(CUDA)
   set(EVAL_BACKEND "CUDA")
@@ -195,21 +201,20 @@ endif()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-set(EVAL_INSTALL_TARGETS utils_headers eval_seq)
-if(TARGET eval_cu)
-  list(APPEND EVAL_INSTALL_TARGETS eval_cu)
-endif()
-if(TARGET eval_viewer_cu)
-  list(APPEND EVAL_INSTALL_TARGETS eval_viewer_cu)
-endif()
-if(TARGET eval_dp)
-  list(APPEND EVAL_INSTALL_TARGETS eval_dp)
-endif()
-
-install(TARGETS ${EVAL_INSTALL_TARGETS}
+install(TARGETS
+  utils_headers
+  eval_seq
   EXPORT EVALTargets
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+if(TARGET eval_dp)
+  install(TARGETS
+    eval_dp
+    EXPORT EVALTargets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
+endif()
 
 install(DIRECTORY
   include/

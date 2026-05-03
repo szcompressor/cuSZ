@@ -44,11 +44,14 @@ target_include_directories(psz_cu_compile_settings
   INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psz/include/cusz>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/utils/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cusz/include/cusz>
 )
 
 # ------------------------------------------------------------------------------

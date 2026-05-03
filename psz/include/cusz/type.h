@@ -90,13 +90,6 @@ typedef struct psz_context psz_ctx;
 struct psz_header;
 typedef struct psz_header psz_header;
 
-typedef struct psz_compressor {
-  void* compressor;
-  psz_ctx* ctx;
-  psz_error_status last_error;
-  void* mem;
-} psz_compressor;
-
 typedef struct psz_interp_params {
   double alpha, beta;
 

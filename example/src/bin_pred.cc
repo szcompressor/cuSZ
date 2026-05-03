@@ -24,6 +24,7 @@
 #include "cusz.h"
 #include "cusz/context.h"
 #include "cusz/type.h"
+#include "cusz_rev1.h"
 #include "detail/composite.hh"
 #include "kernel/predictor.hh"
 #include "kernel/spvn.hh"
@@ -86,25 +87,25 @@ int main(int argc, char** argv)
   cudaStreamCreate(&stream);
 
   psz_len3 len3{x, y, z};
-  auto comp = psz_create(F4, len3, pred_type, radius, Huffman);
+  auto manager = psz_create_resource_manager(
+      F4, {x, y, z}, {pred_type, HistogramGeneric, Huffman, NullCodec}, (void*)stream);
 
-  comp->ctx->header->rc.eb = abs_eb;
-  comp->ctx->header->rc.mode = Abs;
-  comp->ctx->header->user_input_eb = abs_eb;
+  manager->header->rc.eb = abs_eb;
+  manager->header->rc.mode = Abs;
+  manager->header->user_input_eb = abs_eb;
 
   using E = uint16_t;
   using M = uint32_t;
   using PPL = psz::compression_pipeline<float, E>;
   using Buf = psz_buf<float, E>;
 
-  auto mem = (Buf*)PPL::compress_init(comp->ctx);
-  auto h_hist = MAKE_UNIQUE_HOST(uint32_t, comp->ctx->dict_size);
+  auto mem = (Buf*)manager->buf;
+  auto h_hist = MAKE_UNIQUE_HOST(uint32_t, manager->dict_size);
 
-  auto status = PPL::compress_analysis(comp->ctx, mem, d_data.get(), h_hist.get(), (void*)stream);
+  auto status = PPL::compress_analysis(manager, mem, d_data.get(), h_hist.get(), (void*)stream);
   if (status != PSZ_SUCCESS) {
     printf("[pred-study] predictor-analysis failed, status=%d\n", status);
-    PPL::release(mem);
-    psz_release(comp);
+    psz_release_resource(manager);
     cudaStreamDestroy(stream);
     return 2;
   }
@@ -112,29 +113,29 @@ int main(int argc, char** argv)
 
   // reverse predictor to reconstruct and measure quality
   memset_device(d_xdata.get(), len);
-  if (comp->ctx->header->splen != 0) {
+  if (manager->header->splen != 0) {
     if (pred_type == psz_predictor::Spline)
       psz::module::GPU_scatter<float, M>::kernel(
-          mem->outlier_val_d(), mem->outlier_idx_d(), comp->ctx->header->splen, d_xdata.get(),
+          mem->outlier_val_d(), mem->outlier_idx_d(), manager->header->splen, d_xdata.get(),
           nullptr, (void*)stream);
     else
       psz::module::GPU_scatter<float, M>::kernel_v2(
-          (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), comp->ctx->header->splen,
+          (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), manager->header->splen,
           d_xdata.get(), (void*)stream);
   }
 
   if (pred_type == psz_predictor::Lorenzo)
     GPU_x_lorenzo_nd<float, Toggle::ZigZagDisabled>::kernel(
-        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, comp->ctx->header->rc.radius,
+        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, manager->header->rc.radius,
         (void*)stream);
   else if (pred_type == psz_predictor::LorenzoZigZag)
     GPU_x_lorenzo_nd<float, Toggle::ZigZagEnabled>::kernel(
-        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, comp->ctx->header->rc.radius,
+        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, manager->header->rc.radius,
         (void*)stream);
   else if (pred_type == psz_predictor::Spline)
     psz::module::GPU_spline_reconstruct<float, E>::kernel_v1(
         mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata.get(), mem->ectrl_len3(),
-        d_xdata.get(), abs_eb, comp->ctx->header->rc.radius, comp->ctx->header->intp_param,
+        d_xdata.get(), abs_eb, manager->header->rc.radius, manager->header->intp_param,
         (void*)stream);
 
   cudaStreamSynchronize(stream);
@@ -182,8 +183,8 @@ int main(int argc, char** argv)
       "[pred-study] quality  PSNR=%.8g  NRMSE=%.8g  max_err=%.8g  idx=%zu\n", psnr, nrmse, max_err,
       max_idx);
   printf(
-      "[pred-study] outlier_count=%lu (%.4f%%)\n", comp->ctx->header->splen,
-      100.0 * comp->ctx->header->splen / len);
+      "[pred-study] outlier_count=%lu (%.4f%%)\n", manager->header->splen,
+      100.0 * manager->header->splen / len);
   if (has_nonfinite)
     printf("[pred-study] warning: non-finite value detected in reconstructed data\n");
 
@@ -204,8 +205,7 @@ int main(int argc, char** argv)
     }
   }
 
-  PPL::release(mem);
-  psz_release(comp);
+  psz_release_resource(manager);
   cudaStreamDestroy(stream);
   return 0;
 }

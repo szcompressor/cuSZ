@@ -9,59 +9,9 @@
 
 namespace psz {
 
-template <typename T>
-class Compressor {
- private:
- public:  using E = u2;
-  using M = u4;
-  using BYTE = u1;
-  using H = u4;
-  using Buf = Buf_Comp<T>;
-
-  // encapsulations
-  int hist_generic_grid_dim;
-  int hist_generic_block_dim;
-  int hist_generic_shmem_use;
-  int hist_generic_repeat;
-  size_t len_linear;
-  BYTE* comp_codec_out{nullptr};
-  size_t comp_codec_outlen{0};
-  uint32_t nbyte[PSZ_ENC_PASS2_END];
-  float time_sp;
-  double eb, eb_r, ebx2, ebx2_r;
-  psz_header* const header_ref;
-
-  Buf* mem;
-  phf::Buf<E>* buf_hf;
-
- public:
-  void compress_predict_enc1(psz_ctx* ctx, T* in, void* stream);
-
- private:
-  void compress_enc1_wrapup(psz_ctx* ctx, BYTE** out, size_t* outlen, void* stream);
-
- public:
-  // comp, ctor(...) + no further init
-  Compressor(psz_ctx*);
-  Compressor(psz_header*);
-  // dtor, releasing
-  ~Compressor();
-
-  void compress(psz_ctx*, T*, BYTE**, size_t*, psz_stream_t);
-  void decompress(psz_header*, BYTE*, T*, psz_stream_t);
-  void dump_compress_intermediate(psz_ctx*, psz_stream_t);
-  void clear_buffer();
-
-  // getter
-  void export_header(psz_header&);
-};
-
 using TimeRecordTuple = std::tuple<const char*, double>;
 using TimeRecord = std::vector<TimeRecordTuple>;
 using timerecord_t = TimeRecord*;
-
-using CompressorF4 = Compressor<f4>;
-using CompressorF8 = Compressor<f8>;
 
 }  // namespace psz
 

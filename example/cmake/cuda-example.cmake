@@ -1,9 +1,6 @@
 add_library(example_utils2 src/ex_utils2.cc)
 target_link_libraries(example_utils2 PRIVATE cusz)
 
-add_executable(demo_cuda_v1 src/demo_v1.cuda.cc)
-target_link_libraries(demo_cuda_v1 PRIVATE cusz)
-
 add_executable(demo_cuda_v2 src/demo_v2.cuda.cc)
 target_link_libraries(demo_cuda_v2 PRIVATE cusz)
 
