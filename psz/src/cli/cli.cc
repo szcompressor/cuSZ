@@ -15,7 +15,6 @@
 
 #include "compressor.hh"
 #include "cusz.h"
-#include "cusz_rev1.h"
 #include "mem/cxx_backends.h"
 #include "query.hh"
 #include "utils/io.hh"

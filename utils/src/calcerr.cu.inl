@@ -8,7 +8,7 @@
 namespace psz {
 
 template <typename T>
-__global__ void KERNEL_CU_calculate_errors(
+__global__ void KCU_calculate_errors(
     T* odata, T odata_avg, T* xdata, T xdata_avg, size_t len,  //
     T* sum_corr, T* sum_err_sq, T* sum_var_odata, T* sum_var_xdata, int const R)
 {
@@ -88,7 +88,7 @@ void psz::cuhip::GPU_calculate_errors(
   auto nworker = 128;
   auto R = chunk / nworker;
 
-  psz::KERNEL_CU_calculate_errors<T><<<div(len, chunk), nworker, 0, stream>>>(
+  psz::KCU_calculate_errors<T><<<div(len, chunk), nworker, 0, stream>>>(
       d_odata, odata_avg, d_xdata, xdata_avg, len, d_sum_corr, d_sum_err_sq, d_sum_var_xdata,
       d_sum_var_odata, R);
 

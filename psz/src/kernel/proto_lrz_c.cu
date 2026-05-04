@@ -5,15 +5,16 @@
 namespace psz {
 
 template <
-    typename T, int TileDim = 256, typename Eq = u2, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CU_prototype_c_lorenzo_1d1l(
+    typename T, int TileDim = 256, typename Eq = u2,
+    typename CompactValIdx = _portable::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
+    typename Fp = T>
+__global__ void KCU_prototype_c_lorenzo_1d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    u2 const radius, Fp const ebx2_r)
+    CompactValIdx* const out_val_idx, CompactNum* const out_cn, u2 const radius, Fp const ebx2_r)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[TileDim];
+  using Val = typename CompactValIdx::OutlierValT;
 
   auto id = gid1();
   auto data = [&](auto dx) -> T& { return buf[t().x + dx]; };
@@ -29,21 +30,22 @@ __global__ void KERNEL_CU_prototype_c_lorenzo_1d1l(
     out_eq[id] = quantizable * static_cast<Eq>(candidate);
     if (not quantizable) {
       auto cur_idx = atomicAdd(out_cn, 1);
-      out_cidx[cur_idx] = id;
-      out_cval[cur_idx] = candidate;
+      out_val_idx[cur_idx] = {(Val)candidate, id};
     }
   }
 }
 
 template <
-    typename T, int TileDim = 16, typename Eq = u2, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CU_prototype_c_lorenzo_2d1l(
+    typename T, int TileDim = 16, typename Eq = u2,
+    typename CompactValIdx = _portable::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
+    typename Fp = T>
+__global__ void KCU_prototype_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    u2 const radius, Fp const ebx2_r)
+    CompactValIdx* const out_val_idx, CompactNum* const out_cn, u2 const radius, Fp const ebx2_r)
 {
   SETUP_ND_GPU_CUDA;
+
+  using Val = typename CompactValIdx::OutlierValT;
 
   __shared__ T buf[TileDim][TileDim + 1];
 
@@ -65,22 +67,23 @@ __global__ void KERNEL_CU_prototype_c_lorenzo_2d1l(
     out_eq[id] = quantizable * static_cast<Eq>(candidate);
     if (not quantizable) {
       auto cur_idx = atomicAdd(out_cn, 1);
-      out_cidx[cur_idx] = id;
-      out_cval[cur_idx] = candidate;
+      out_val_idx[cur_idx] = {(Val)candidate, id};
     }
   }
 }
 
 template <
-    typename T, int TileDim = 8, typename Eq = u2, typename CompactVal = T,
-    typename CompactIdx = uint32_t, typename CompactNum = uint32_t, typename Fp = T>
-__global__ void KERNEL_CU_prototype_c_lorenzo_3d1l(
+    typename T, int TileDim = 8, typename Eq = u2,
+    typename CompactValIdx = _portable::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
+    typename Fp = T>
+__global__ void KCU_prototype_c_lorenzo_3d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    CompactVal* const out_cval, CompactIdx* const out_cidx, CompactNum* const out_cn,
-    u2 const radius, Fp const ebx2_r)
+    CompactValIdx* const out_val_idx, CompactNum* const out_cn, u2 const radius, Fp const ebx2_r)
 {
   SETUP_ND_GPU_CUDA;
   __shared__ T buf[TileDim][TileDim][TileDim + 1];
+
+  using Val = typename CompactValIdx::OutlierValT;
 
   auto z = t().z, y = t().y, x = t().x;
   auto data = [&](auto dx, auto dy, auto dz) -> T& {
@@ -105,8 +108,7 @@ __global__ void KERNEL_CU_prototype_c_lorenzo_3d1l(
     out_eq[id] = quantizable * static_cast<Eq>(candidate);
     if (not quantizable) {
       auto cur_idx = atomicAdd(out_cn, 1);
-      out_cidx[cur_idx] = id;
-      out_cval[cur_idx] = candidate;
+      out_val_idx[cur_idx] = {(Val)candidate, id};
     }
   }
 }
@@ -134,7 +136,7 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>::kernel(
       return 3;
   };
 
-  using Compact = _portable::compact_gpu<T>;
+  using Compact = _portable::compact_GPU_DRAM2<T, uint32_t>;
   auto ot = (Compact*)out_outlier;
 
   constexpr auto Tile1D = dim3(256, 1, 1), Tile2D = dim3(16, 16, 1), Tile3D = dim3(8, 8, 8);
@@ -146,19 +148,19 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>::kernel(
   auto data_leap3 = dim3(1, len.x, len.x * len.y);
 
   if (ndim() == 1)
-    psz::KERNEL_CU_prototype_c_lorenzo_1d1l<T>
+    psz::KCU_prototype_c_lorenzo_1d1l<T>
         <<<Grid1D, Block1D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
+            in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val_idx_d(), ot->num_d(), radius,
             ebx2_r);
   else if (ndim() == 2)
-    psz::KERNEL_CU_prototype_c_lorenzo_2d1l<T>
+    psz::KCU_prototype_c_lorenzo_2d1l<T>
         <<<Grid2D, Block2D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
+            in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val_idx_d(), ot->num_d(), radius,
             ebx2_r);
   else if (ndim() == 3)
-    psz::KERNEL_CU_prototype_c_lorenzo_3d1l<T>
+    psz::KCU_prototype_c_lorenzo_3d1l<T>
         <<<Grid3D, Block3D, 0, (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
-            in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val(), ot->idx(), ot->num(), radius,
+            in_data, LEN_TO_DIM3(len), data_leap3, out_eq, ot->val_idx_d(), ot->num_d(), radius,
             ebx2_r);
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;

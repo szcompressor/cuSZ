@@ -6,7 +6,7 @@
 
 namespace fzg {
 
-__global__ void KERNEL_CU_fz_fused_decode(
+__global__ void KCU_fz_fused_decode(
     uint32_t* in_archive, uint32_t* in_bitflag_array, uint32_t* in_start_pos,
     uint32_t* out_decoded, size_t const decoded_len)
 {

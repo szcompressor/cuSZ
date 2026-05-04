@@ -669,7 +669,7 @@ __forceinline__ __device__ void interpolate_stage(
 template <
     typename T1, typename T2, typename FP, int LINEAR_BLOCK_SIZE, bool WORKFLOW,
     bool PROBE_PRED_ERROR>
-__device__ void cusz::device_api::spline3d_layout2_interpolate(
+__device__ void psz::device_api::spline3d_layout2_interpolate(
     volatile T1 s_data[9][9][33], volatile T2 s_ectrl[9][9][33], DIM3 data_size, FP eb_r, FP ebx2,
     int radius
 
@@ -947,7 +947,7 @@ __global__ void cusz::c_spline3d_infprecis_32x8x8data(
     // version 2, use global mem, correct
     c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap);
 
-    cusz::device_api::spline3d_layout2_interpolate<
+    psz::device_api::spline3d_layout2_interpolate<
         T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
         shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius);
     // if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)
@@ -1001,7 +1001,7 @@ __global__ void cusz::x_spline3d_infprecis_32x8x8data(
   // global2shmem_33x9x9data<E, T, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, shmem.ectrl);
   global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(ectrl, ectrl_size, ectrl_leap, data, shmem.ectrl);
 
-  cusz::device_api::spline3d_layout2_interpolate<
+  psz::device_api::spline3d_layout2_interpolate<
       T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
       shmem.data, shmem.ectrl, data_size, eb_r, ebx2, radius);
   // if(TIX==0 and BIX==0 and BIY==0 and BIZ==0)

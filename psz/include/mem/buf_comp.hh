@@ -1,12 +1,12 @@
 #ifndef PSZ_COMPBUF_HH
 #define PSZ_COMPBUF_HH
 
+#include <../../codec/hf/src/hf_buf.hh>  // needed for Buf instantiation
 #include <cstdint>
 #include <memory>
 
 #include "cusz/type.h"
 #include "hf_hl.hh"
-#include <../../codec/hf/src/hf_buf.hh>  // needed for Buf instantiation
 #include "lc_gen/lc_buf.h"
 #include "mem/cxx_sp_gpu.h"
 
@@ -111,11 +111,6 @@ struct Buf_Comp {
 
   BYTE* compressed_d() const;
   BYTE* compressed_h() const;
-
-  [[deprecated]] Buf_Outlier* buf_outlier() const;
-  [[deprecated]] T* outlier_val_d() const;
-  [[deprecated]] M* outlier_idx_d() const;
-  [[deprecated]] M outlier_num() const;
 
   Buf_Outlier2* buf_outlier2() const;
   void* outlier2_validx_d() const;

@@ -14,9 +14,9 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
+#include "detail/composite.hh"
 #include "hf/hf_kernels.hh"
 #include "hf/hfstruct.h"
-#include "detail/composite.hh"
 #include "utils/busyheader.hh"
 #include "utils/config.hh"
 #include "utils/err.hh"
@@ -67,17 +67,17 @@ namespace psz {
 namespace detail {
 
 template <typename E, typename H>
-void hf_encode_phase1_fill(
+void hf_enc_ph1_fill(
     E* in_uncompressed, size_t const in_uncompressed_len, H* in_book, int const in_booklen,
     H* out_encoded, const sycl::nd_item<3>& item_ct1, char* __codec_huffman_uninitialized);
 
 template <typename H, typename M>
-void hf_encode_phase2_deflate(
+void hf_enc_ph2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell, int const sublen,
     int const pardeg, const sycl::nd_item<3>& item_ct1);
 
 template <typename H, typename M>
-void hf_encode_phase4_concatenate(
+void hf_enc_ph4_concatenate(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped,
     const sycl::nd_item<3>& item_ct1);
 
@@ -142,7 +142,7 @@ constexpr void psz::detail::phf_decode_single_thread_inflate(
 }
 
 template <typename E, typename H>
-void psz::detail::phf_encode_phase1_fill(
+void psz::detail::phf_enc_ph1_fill(
     E* in_uncompressed, size_t const in_uncompressed_len, H* in_book, int const in_booklen,
     H* out_encoded, const sycl::nd_item<3>& item_ct1, char* __codec_huffman_uninitialized)
 {
@@ -169,7 +169,7 @@ void psz::detail::phf_encode_phase1_fill(
 }
 
 template <typename H, typename M>
-void psz::detail::phf_encode_phase2_deflate(
+void psz::detail::phf_enc_ph2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell, int const sublen,
     int const pardeg, const sycl::nd_item<3>& item_ct1)
 {
@@ -231,7 +231,7 @@ void psz::detail::phf_encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-void psz::detail::phf_encode_phase4_concatenate(
+void psz::detail::phf_enc_ph4_concatenate(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped,
     const sycl::nd_item<3>& item_ct1)
 {

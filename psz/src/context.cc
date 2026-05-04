@@ -463,6 +463,8 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
 void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv)
 {
   int i = 1;
+  enum class TaskFromSubcommand { None, Compress, Decompress };
+  auto task_from_subcommand = TaskFromSubcommand::None;
 
   auto check_next = [&]() {
     if (i + 1 >= argc) throw std::runtime_error("out-of-range at" + std::string(argv[i]));
@@ -586,10 +588,10 @@ void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv
         psz::str_helper::parse_length_zyx(ctx, argv[++i]);
       }
       else if (optmatch({"-z", "--zip", "--compress"})) {
-        ctx->cli->task_construct = true;
+        if (task_from_subcommand == TaskFromSubcommand::None) ctx->cli->task_construct = true;
       }
       else if (optmatch({"-x", "--unzip", "--decompress"})) {
-        ctx->cli->task_reconstruct = true;
+        if (task_from_subcommand == TaskFromSubcommand::None) ctx->cli->task_reconstruct = true;
       }
       else if (optmatch({"-V", "--verbose"})) {
         ctx->cli->verbose = true;
@@ -669,19 +671,51 @@ void psz::str_helper::parse_argv(psz_ctx* ctx, int const argc, char** const argv
       }
     }
     else {
-      const char* notif_prefix = "invalid option at position ";
-      char* notif;
-      int size = asprintf(&notif, "%d: %s", i, argv[i]);
-      cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
-           << "\e[0m"
-              "\n"
-           << std::string(strlen(LOG_NULL) + strlen(notif_prefix), ' ')  //
-           << "\e[1m"                                                    //
-           << std::string(strlen(notif), '~')                            //
-           << "\e[0m\n";
+      // Support command-style subcommands: "cusz compress", "cusz decompress".
+      if (i == 1) {
+        auto cmd = std::string(argv[i]);
 
-      std::cout << LOG_ERR << "Exiting..." << endl;
-      exit(-1);
+        if (cmd == "compress" or cmd == "comp" or cmd == "zip") {
+          task_from_subcommand = TaskFromSubcommand::Compress;
+          ctx->cli->task_construct = true;
+          ctx->cli->task_reconstruct = false;
+        }
+        else if (cmd == "decompress" or cmd == "decomp" or cmd == "unzip") {
+          task_from_subcommand = TaskFromSubcommand::Decompress;
+          ctx->cli->task_construct = false;
+          ctx->cli->task_reconstruct = true;
+        }
+        else {
+          const char* notif_prefix = "invalid option at position ";
+          char* notif;
+          int size = asprintf(&notif, "%d: %s", i, argv[i]);
+          cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
+               << "\e[0m"
+                  "\n"
+               << std::string(strlen(LOG_NULL) + strlen(notif_prefix), ' ')  //
+               << "\e[1m"                                                    //
+               << std::string(strlen(notif), '~')                            //
+               << "\e[0m\n";
+
+          std::cout << LOG_ERR << "Exiting..." << endl;
+          exit(-1);
+        }
+      }
+      else {
+        const char* notif_prefix = "invalid option at position ";
+        char* notif;
+        int size = asprintf(&notif, "%d: %s", i, argv[i]);
+        cerr << LOG_ERR << notif_prefix << "\e[1m" << notif
+             << "\e[0m"
+                "\n"
+             << std::string(strlen(LOG_NULL) + strlen(notif_prefix), ' ')  //
+             << "\e[1m"                                                    //
+             << std::string(strlen(notif), '~')                            //
+             << "\e[0m\n";
+
+        std::cout << LOG_ERR << "Exiting..." << endl;
+        exit(-1);
+      }
     }
     i++;
   }
@@ -721,7 +755,9 @@ void psz::str_helper::validate_args(psz_ctx* ctx)
   }
 
   if (not ctx->cli->task_construct and not ctx->cli->task_reconstruct) {
-    cerr << LOG_ERR << "select compress (-z) or decompress (-x)." << endl;
+    cerr << LOG_ERR
+         << "select `cusz compress` or `cusz decompress` (or use -z / -x without subcommand)."
+         << endl;
     to_abort = true;
   }
   if (false == psz::str_helper::check_dtype(ctx->header->dtype)) {

@@ -1,11 +1,11 @@
 #include <cuda_runtime.h>
 
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "compare.hh"
-#include "cusz/type.h"
-#include "cusz_rev1.h"
+#include "cusz.h"
 #include "ex_utils2.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
@@ -13,6 +13,7 @@
 namespace utils = _portable::utils;
 using std::cout;
 using std::endl;
+using std::string;
 
 using T = float;
 

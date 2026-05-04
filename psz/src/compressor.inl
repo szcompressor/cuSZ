@@ -98,18 +98,17 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
     GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
         mem, in, len, eb, radius, stream);
   else if (PIPELINE.predictor == Spline) {
-    memset_device(mem->buf_outlier()->num(), 1, 0);
+    memset_device(mem->buf_outlier2()->num_d(), 1, 0);
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_spline_construct<T, E>::kernel_v1(
-          in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), (void*)mem->buf_outlier(),
+          in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), (void*)mem->buf_outlier2(),
           eb, ctx->header->user_input_eb, ctx->header->rc.radius, ctx->header->intp_param,
           mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream);
   }
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
-  ctx->header->splen = (PIPELINE.predictor == Spline) ? mem->buf_outlier()->num_outliers()
-                                                      : mem->outlier2_host_get_num();
+  ctx->header->splen = mem->outlier2_host_get_num();
 
   psz::module::GPU_histogram_Cauchy<E>::kernel(
       mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
@@ -142,11 +141,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
           in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
     else if (predictor == Spline) {
-      memset_device(mem->buf_outlier()->num(), 1, 0);
+      memset_device(mem->buf_outlier2()->num_d(), 1, 0);
       if constexpr (std::is_same_v<T, f4>)
         psz::module::GPU_spline_construct<T, E>::kernel_v1(
             in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(),
-            (void*)mem->buf_outlier(), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
+            (void*)mem->buf_outlier2(), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
             ctx->header->intp_param, mem->profiled_errors_d(), mem->profiled_errors_h(),
             mem->profiled_errors_len(), stream);
     }
@@ -155,14 +154,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     /* make outlier count seen on host */
     sync_by_stream(stream);
-    if (predictor == Spline) { ctx->header->splen = mem->buf_outlier()->num_outliers(); }
-    else {
-      ctx->header->splen = mem->outlier2_host_get_num();
-      if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
-        cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
-             << " * input-len) exceeded, returning..." << endl;
-        return PSZ_WARN_OUTLIER_TOO_MANY;
-      }
+    ctx->header->splen = mem->outlier2_host_get_num();
+    if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
+      cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
+           << " * input-len) exceeded, returning..." << endl;
+      return PSZ_WARN_OUTLIER_TOO_MANY;
     }
 
     return PSZ_SUCCESS;
@@ -217,9 +213,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
     mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
     mem->nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
-    mem->nbyte[PSZ_SPFMT] = predictor == Spline
-                                ? (sizeof(T) + sizeof(u4)) * ctx->header->splen
-                                : sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
+    mem->nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
     mem->nbyte[PSZ_ENC_PASS1_END] = 0;
 
     // clang-format off
@@ -230,13 +224,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), mem->nbyte[PSZ_ANCHOR], stream);
   CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), mem->comp_codec_out, mem->nbyte[PSZ_ENCODED], stream);
-  if (predictor == Spline) {
-    auto splen = ctx->header->splen;
-    CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier_val_d(), sizeof(T) * splen, stream);
-    CONCAT_ON_DEVICE(DST(PSZ_SPFMT, sizeof(T) * splen), mem->outlier_idx_d(), sizeof(u4) * splen, stream);
-  } else {
-    CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), mem->nbyte[PSZ_SPFMT], stream);
-  }
+  CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), mem->nbyte[PSZ_SPFMT], stream);
     // clang-format on
 
     /* output of this function */
@@ -383,8 +371,6 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
 
   auto d_anchor = (T*)access(PSZ_ANCHOR);
   auto d_spval_idx = (_portable::compact_cell<T, M>*)access(PSZ_SPFMT);
-  auto d_spval = (T*)access(PSZ_SPFMT);
-  auto d_spidx = (M*)access(PSZ_SPFMT, header->splen * sizeof(T));
   auto d_space = out, d_xdata = out;  // aliases
   auto len = header->len;
   phf_header h;  // declared early so goto over STEP_DECODING is valid
@@ -398,10 +384,10 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
     cudaMemcpyAsync(
         mem->ectrl_d(), mem->buf_lc()->decoded_d(), len.x * len.y * len.z * sizeof(E),
         cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
-    // d_anchor, d_spval, d_spidx already initialized to access(PSZ_ANCHOR/PSZ_SPFMT)
+    // d_anchor and d_spval_idx already initialized to access(PSZ_ANCHOR/PSZ_SPFMT)
     if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
     if (header->splen != 0)
-      psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
+      psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
     goto STEP_PREDICT;
   }
   if (header->pipeline.codec2 == LC) {
@@ -412,15 +398,15 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       // after decompress: decomp_lc1 = [HF][ANCHOR][SPFMT]
       d_anchor =
           (T*)((byte_t*)decomp_lc1 + (header->entry[PSZ_ANCHOR] - header->entry[PSZ_ENCODED]));
-      d_spval =
-          (T*)((byte_t*)decomp_lc1 + (header->entry[PSZ_SPFMT] - header->entry[PSZ_ENCODED]));
-      d_spidx = (M*)(d_spval + header->splen);
+      d_spval_idx =
+          (_portable::compact_cell<T, M>*)((byte_t*)decomp_lc1 + (header->entry[PSZ_SPFMT] -
+                                                                  header->entry[PSZ_ENCODED]));
       // HF decode from start of decompressed block
       memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)decomp_lc1, sizeof(phf_header));
       // scatter first (ectrl not yet needed), decode after
       if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
       if (header->splen != 0)
-        psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
+        psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
       phf::high_level<E>::decode(mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->ectrl_d(), stream);
     }
     else {
@@ -432,11 +418,12 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       lc_c::BITR_DECOMPRESS((uint8_t*)access(PSZ_ANCHOR), mem->buf_lc(), stream);
       auto decomp_lc2 = mem->buf_lc()->decoded_d();
       d_anchor = (T*)decomp_lc2;
-      d_spval = (T*)((byte_t*)decomp_lc2 + (header->entry[PSZ_SPFMT] - header->entry[PSZ_ANCHOR]));
-      d_spidx = (M*)(d_spval + header->splen);
+      d_spval_idx =
+          (_portable::compact_cell<T, M>*)((byte_t*)decomp_lc2 +
+                                           (header->entry[PSZ_SPFMT] - header->entry[PSZ_ANCHOR]));
       if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
       if (header->splen != 0)
-        psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
+        psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
       // ectrl already placed in mem->ectrl_d() above
     }
 
@@ -448,12 +435,8 @@ STEP_SCATTER:
 
   if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
 
-  if (header->splen != 0) {
-    if (header->pipeline.predictor == Spline)
-      psz::module::GPU_scatter<T, M>::kernel(d_spval, d_spidx, header->splen, d_space, stream);
-    else
-      psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
-  }
+  if (header->splen != 0)
+    psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
 
 STEP_DECODING:
 

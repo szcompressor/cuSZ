@@ -49,7 +49,6 @@
 #include "cusz/context.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
-#include "cusz_rev1.h"
         % }
 
     % include "context.h" % include "cusz/type.h" % include "header.h" % include "cusz.h" %

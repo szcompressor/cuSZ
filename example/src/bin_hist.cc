@@ -1,6 +1,7 @@
 #include <cuda_runtime.h>
 
 #include <cstdio>
+#include <stdexcept>
 #include <string>
 
 #include "compare.hh"
@@ -8,6 +9,8 @@
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
+
+using std::string;
 
 #define BASE false
 #define OPTIM true

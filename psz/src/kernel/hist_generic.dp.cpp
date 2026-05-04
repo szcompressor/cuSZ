@@ -27,7 +27,7 @@ const static unsigned int WARP_SIZE = 32;
 namespace psz {
 
 template <typename T>
-void kernel::KERNEL_CU_histogram_native(
+void kernel::KCU_histogram_native(
     T in_data[], int out_freq[], int N, int symbols_per_thread, const sycl::nd_item<3> &item_ct1)
 {
   unsigned int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) + item_ct1.get_local_id(2);
@@ -44,7 +44,7 @@ void kernel::KERNEL_CU_histogram_native(
 }
 
 template <typename T, typename FREQ>
-void kernel::KERNEL_CU_p2013Histogram(
+void kernel::KCU_p2013Histogram(
     T *in_data, FREQ *out_freq, size_t N, int nbin, int R, const sycl::nd_item<3> &item_ct1,
     uint8_t *dpct_local)
 {
@@ -117,7 +117,7 @@ try {
     DPCT1007:102: Migration of cudaFuncSetAttribute is not supported.
     */
     cudaFuncSetAttribute(
-        (void *)kernel::KERNEL_CU_p2013Histogram<T, uint32_t>,
+        (void *)kernel::KCU_p2013Histogram<T, uint32_t>,
         (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
   };
 
@@ -162,7 +162,7 @@ try {
             sycl::range<3>(1, 1, grid_dim) * sycl::range<3>(1, 1, block_dim),
             sycl::range<3>(1, 1, block_dim)),
         [=](sycl::nd_item<3> item_ct1) {
-          kernel::KERNEL_CU_p2013Histogram(
+          kernel::KCU_p2013Histogram(
               in, out_hist, inlen, outlen, r_per_block, item_ct1,
               dpct_local_acc_ct1.get_pointer());
         });

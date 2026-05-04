@@ -286,24 +286,24 @@ class modules {
   using M = PHF_METADATA;
 
  public:
-  static void GPU_coarse_encode_phase1(
+  static void GPU_coarse_enc_ph1(
       E* in_data, const size_t data_len, H* in_book, const u4 book_len, const int numSMs,
       H* out_bitstream, void* stream);
 
-  static void GPU_coarse_encode_phase2(
+  static void GPU_coarse_enc_ph2(
       H* in_data, const size_t data_len, phf::par_config hfpar, H* deflated, M* par_nbit,
       M* par_ncell, void* stream);
 
-  static void GPU_fine_encode_phase1_2(
+  static void GPU_fine_enc_ph1_2(
       E* in, const size_t len, H* book, const u4 bklen, H* bitstream, M* par_nbit, M* par_ncell,
       const u4 nblock, E* brval, u4* bridx, u4* brnum, void* stream);
 
-  static void GPU_coarse_encode_phase3_sync(
+  static void GPU_coarse_enc_ph3_sync(
       phf::par_config hfpar, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell,
       M* d_par_entry, M* h_par_entry, size_t* outlen_nbit, size_t* outlen_ncell,
       float* time_cpu_time, void* stream);
 
-  static void GPU_coarse_encode_phase4(
+  static void GPU_coarse_enc_ph4(
       H* in_buf, const size_t len, M* par_entry, M* par_ncell, phf::par_config hfpar, H* bitstream,
       const size_t max_bitstream_len, void* stream);
 

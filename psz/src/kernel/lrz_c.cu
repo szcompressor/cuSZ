@@ -21,7 +21,7 @@ namespace psz {
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
 // significantly slowed down the kernel on non-HPC GPU
 template <typename T, class PC, class Perf>
-__global__ void KERNEL_CU_c_lorenzo_1d(
+__global__ void KCU_c_lorenzo_1d(
     T* const in_data, size_t const data_len, typename PC::Eq* const out_eq,
     typename PC::C2VI* const out_cval_cidx, typename PC::CN* const out_cn,
     const size_t cn_max_allowed, uint16_t const radius, typename PC::Fp const ebx2_r,
@@ -109,7 +109,7 @@ __global__ void KERNEL_CU_c_lorenzo_1d(
 }
 
 template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
-__global__ [[deprecated]] void KERNEL_CU_c_lorenzo_2d1l(
+__global__ [[deprecated]] void KCU_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
     T* const out_cval, uint32_t* const out_cidx, uint32_t* const out_cn, uint16_t const radius,
     Fp const ebx2_r)
@@ -185,7 +185,7 @@ __global__ [[deprecated]] void KERNEL_CU_c_lorenzo_2d1l(
 }
 
 template <typename T, class PC, class Perf>
-__global__ void KERNEL_CU_c_lorenzo_2d__32x32(
+__global__ void KCU_c_lorenzo_2d__32x32(
     T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
     uint32_t const data_leapy, typename PC::Eq* const out_eq,
     typename PC::C2VI* const out_cval_cidx, typename PC::CN* const out_cn,
@@ -273,7 +273,7 @@ __global__ void KERNEL_CU_c_lorenzo_2d__32x32(
 }
 
 template <typename T, class PC, class Perf>
-__global__ void KERNEL_CU_c_lorenzo_3d(
+__global__ void KCU_c_lorenzo_3d(
     T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
     uint32_t const data_leapy, uint32_t const data_lenz, uint32_t const data_leapz,
     typename PC::Eq* const out_eq, typename PC::C2VI* const out_cval_cidx,
@@ -374,7 +374,7 @@ __global__ void KERNEL_CU_c_lorenzo_3d(
 template <
     typename TIN, typename TOUT, bool ReverseProcess = false, typename Fp = TIN, int TileDim = 256,
     int Seq = 8>
-__global__ [[deprecated]] void KERNEL_CU_lorenzo_prequant(
+__global__ [[deprecated]] void KCU_lorenzo_prequant(
     TIN* const in, size_t const in_len, Fp const ebx2_r, Fp const ebx2, TOUT* const out)
 {
   constexpr auto NumThreads = TileDim / Seq;
@@ -403,7 +403,7 @@ template <typename TIN, typename TOUT, bool ReverseProcess>
 {
   using namespace psz::config;
 
-  psz::KERNEL_CU_lorenzo_prequant<
+  psz::KCU_lorenzo_prequant<
       TIN, TOUT, ReverseProcess, TIN, c_lorenzo<1>::tile.x, c_lorenzo<1>::sequentiality.x>
       <<<c_lorenzo<1>::thread_grid(dim3(len)), c_lorenzo<1>::thread_block, 0,
          (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(in, len, ebx2_r, ebx2, out);
@@ -421,7 +421,7 @@ struct GPU_c_lorenzo_1d {
     auto ot = (Compact2*)out_outlier;
     using lrz1 = config::c_lorenzo<1>;
 
-    psz::KERNEL_CU_c_lorenzo_1d<T, PC, lrz1::Perf>
+    psz::KCU_c_lorenzo_1d<T, PC, lrz1::Perf>
         <<<lrz1::thread_grid(dim3(len.x, 1, 1)), lrz1::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, len.x, out_eq, ot->val_idx_d(), ot->num_d(), ot->max_allowed_num(), radius,
@@ -444,7 +444,7 @@ struct GPU_c_lorenzo_2d {
     auto data_len3 = LEN_TO_DIM3(len);
     auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
-    psz::KERNEL_CU_c_lorenzo_2d__32x32<T, PC, lrz2::Perf>
+    psz::KCU_c_lorenzo_2d__32x32<T, PC, lrz2::Perf>
         <<<lrz2::thread_grid(data_len3), lrz2 ::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3.x, data_len3.y, leap3.y, out_eq, ot->val_idx_d(), ot->num_d(),
@@ -468,7 +468,7 @@ struct GPU_c_lorenzo_3d {
     auto data_len3 = LEN_TO_DIM3(len);
     auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
 
-    psz::KERNEL_CU_c_lorenzo_3d<T, PC, lrz3::Perf>
+    psz::KCU_c_lorenzo_3d<T, PC, lrz3::Perf>
         <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_data, data_len3.x, data_len3.y, leap3.y, data_len3.z, leap3.z, out_eq,

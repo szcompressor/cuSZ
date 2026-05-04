@@ -6,7 +6,7 @@
 
 namespace fzg {
 
-__global__ void KERNEL_CU_fz_fused_encode(
+__global__ void KCU_fz_fused_encode(
     uint32_t const* __restrict__ in_data, size_t data_len, uint32_t* space_offset_counter,
     uint32_t* out_bitflag_array, uint32_t* out_start_position, uint32_t* __restrict__ out_comp,
     uint32_t* comp_len)

@@ -2,8 +2,8 @@
 #include <string>
 #include <unordered_map>
 
-#include "detail/fzg_c.cu.inl"
-#include "detail/fzg_x.cu.inl"
+#include "fzg_c.cu.inl"
+#include "fzg_x.cu.inl"
 #include "fzg_hl.hh"
 #include "fzg_impl.hh"
 
@@ -33,7 +33,7 @@ int fzg::module::GPU_FZ_encode(
   dim3 grid = dim3(config["grid_x"]);
   dim3 block(32, 32);
 
-  fzg::KERNEL_CU_fz_fused_encode<<<grid, block, 0, (cudaStream_t)stream>>>(
+  fzg::KCU_fz_fused_encode<<<grid, block, 0, (cudaStream_t)stream>>>(
       (uint32_t*)in_data, config["pad_len"] / 2, space_offset_counter, out_bitflag_array,
       out_start_pos, (uint32_t*)out_comp, comp_len);
 
@@ -50,7 +50,7 @@ int fzg::module::GPU_FZ_decode(
   dim3 grid = dim3(config["grid_x"]);
   dim3 block(32, 32);
 
-  fzg::KERNEL_CU_fz_fused_decode<<<grid, block, 0, (cudaStream_t)stream>>>(
+  fzg::KCU_fz_fused_decode<<<grid, block, 0, (cudaStream_t)stream>>>(
       (uint32_t*)in_archive, in_bitflag_array, in_start_pos, (uint32_t*)out_decoded,
       config["pad_len"] / 2);
 

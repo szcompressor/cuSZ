@@ -34,7 +34,7 @@ const static unsigned int WARP_SIZE = 32;
 namespace psz {
 
 template <typename T>
-__global__ void KERNEL_CU_histogram_naive(
+__global__ void KCU_histogram_naive(
     T* in_data, size_t const data_len, uint32_t* out_bins, uint16_t const bins_len,
     uint16_t const repeat)
 {
@@ -52,7 +52,7 @@ __global__ void KERNEL_CU_histogram_naive(
 
 /* Copied from J. Gomez-Luna et al. */
 template <typename T, typename FREQ>
-__global__ void KERNEL_CU_p2013Histogram(
+__global__ void KCU_p2013Histogram(
     T* in_data, size_t const data_len, FREQ* out_bins, uint16_t const bins_len,
     uint16_t const repeat)
 {
@@ -113,7 +113,7 @@ void GPU_histogram_generic<T>::init(
 
   // config kernel attribute
   cudaFuncSetAttribute(
-      (void*)KERNEL_CU_p2013Histogram<T, uint32_t>,
+      (void*)KCU_p2013Histogram<T, uint32_t>,
       (cudaFuncAttribute)cudaFuncAttributeMaxDynamicSharedMemorySize, max_bytes);
 
   //  optimize_launch
@@ -139,7 +139,7 @@ int GPU_histogram_generic<T>::kernel(
     int const grid_dim, int const block_dim, int const shmem_use, int const r_per_block,
     void* stream)
 {
-  KERNEL_CU_p2013Histogram<<<grid_dim, block_dim, shmem_use, (cudaStream_t)stream>>>  //
+  KCU_p2013Histogram<<<grid_dim, block_dim, shmem_use, (cudaStream_t)stream>>>  //
       (in_data, data_len, out_hist, hist_len, r_per_block);
 
   return CUSZ_SUCCESS;

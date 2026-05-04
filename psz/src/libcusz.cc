@@ -2,9 +2,7 @@
 
 #include "compare.hh"
 #include "compressor.hh"
-#include "cusz/context.h"
-#include "cusz/type.h"
-#include "cusz_rev1.h"
+#include "cusz.h"
 #include "mem/buf_comp.hh"
 
 using psz::analysis::GPU_probe_extrema;
@@ -90,12 +88,13 @@ int psz_release_resource(psz_resource* manager)
     status = PSZ_WARN_RADIUS_TOO_LARGE;              \
   }
 
-#define RUNTIME_CHANGE_EB_IF_REL(Type)                                           \
-  if (rc.mode == Rel) {                                                          \
-    double _max_val, _min_val, _rng;                                             \
-    GPU_probe_extrema<Type>(                                                     \
-        IN_d_data, m->len_linear, m->header->max_val, m->header->min_val, _rng); \
-    m->header->rc.eb *= _rng;                                                    \
+#define RUNTIME_CHANGE_EB_IF_REL(Type)                                                         \
+  if (rc.mode == Rel) {                                                                        \
+    auto [min_val, max_val, avg_val, rng] = GPU_probe_extrema<Type>(IN_d_data, m->len_linear); \
+    (void)avg_val;                                                                             \
+    m->header->min_val = min_val;                                                              \
+    m->header->max_val = max_val;                                                              \
+    m->header->rc.eb *= rng;                                                                   \
   }
 
 int psz_compress_float(

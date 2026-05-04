@@ -23,8 +23,6 @@
 #include "compressor.hh"
 #include "cusz.h"
 #include "cusz/context.h"
-#include "cusz/type.h"
-#include "cusz_rev1.h"
 #include "detail/composite.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
@@ -113,14 +111,9 @@ int main(int argc, char** argv)
   // reverse predictor to reconstruct and measure quality
   memset_device(d_xdata.get(), len);
   if (manager->header->splen != 0) {
-    if (pred_type == psz_predictor::Spline)
-      psz::module::GPU_scatter<float, M>::kernel(
-          mem->outlier_val_d(), mem->outlier_idx_d(), manager->header->splen, d_xdata.get(),
-          (void*)stream);
-    else
-      psz::module::GPU_scatter<float, M>::kernel_v2(
-          (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), manager->header->splen,
-          d_xdata.get(), (void*)stream);
+    psz::module::GPU_scatter<float, M>::kernel_v2(
+        (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), manager->header->splen,
+        d_xdata.get(), (void*)stream);
   }
 
   if (pred_type == psz_predictor::Lorenzo)

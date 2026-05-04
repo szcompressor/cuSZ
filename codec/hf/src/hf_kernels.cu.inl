@@ -31,7 +31,7 @@ extern __shared__ char __codec_raw[];
 namespace phf::experimental {
 // a duplicate from psz
 template <typename T, typename M = u4>
-__global__ void KERNEL_CU_scatter(T* val, M* idx, int const n, T* out)
+__global__ void KCU_scatter(T* val, M* idx, int const n, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -46,7 +46,7 @@ __global__ void KERNEL_CU_scatter(T* val, M* idx, int const n, T* out)
 namespace phf {
 
 template <typename E, typename H>
-__global__ void KERNEL_CU_encode_phase1_fill(
+__global__ void KCU_enc_ph1_fill(
     E* in, size_t const in_len, H* in_bk, int const in_bklen, H* out_encoded)
 {
   auto s_bk = reinterpret_cast<H*>(__codec_raw);
@@ -67,7 +67,7 @@ __global__ void KERNEL_CU_encode_phase1_fill(
 }
 
 template <typename H, typename M>
-__global__ void KERNEL_CU_encode_phase2_deflate(
+__global__ void KCU_enc_ph2_deflate(
     H* inout_inplace, size_t const len, M* par_nbit, M* par_ncell, int const sublen,
     int const pardeg)
 {
@@ -129,7 +129,7 @@ __global__ void KERNEL_CU_encode_phase2_deflate(
 }
 
 template <typename H, typename M>
-__global__ void KERNEL_CU_encode_phase4_concatenate(
+__global__ void KCU_enc_ph4_concat(
     H* gapped, M* par_entry, M* par_ncell, int const cfg_sublen, H* non_gapped)
 {
   auto n = par_ncell[blockIdx.x];
@@ -155,7 +155,7 @@ using CompactNum = uint32_t;
 using Hf = uint32_t;
 
 template <typename E, int ChunkSize = 1024, int ShardSize = 4, int MaxBkLen = 1024>
-__global__ void KERNEL_CU_Huffman_ReVISIT_lite(
+__global__ void KCU_Huffman_ReVISIT_lite(
     E* in_data, size_t const len, Hf* hf_book, const u4 runtime_bklen, u4* hf_bitstream,
     u4* hf_bits, u4* hf_cells, const u4 nblock, /* breaking handling */
     E* hf_brval, CI* hf_bridx, CN* hf_brnum)
@@ -301,7 +301,7 @@ __global__ void KERNEL_CU_Huffman_ReVISIT_lite(
 namespace phf {
 
 template <typename E, typename H, typename M>
-__global__ void KERNEL_CU_HF_decode(
+__global__ void KCU_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
     int const pardeg, E* out)
 {
@@ -378,7 +378,7 @@ __global__ void KERNEL_CU_HF_decode(
     return (whole - 1) / part + 1;                                 \
   };
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_enc_ph1(
     E* in_data, const size_t data_len, H* in_book, const u4 book_len, const int numSMs,
     H* out_bitstream, void* stream)
 {
@@ -386,12 +386,12 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase1(
 
   constexpr auto block_dim = PHF_BLOCK_DIM_ENCODE;
   auto grid_dim = div(data_len, block_dim);
-  phf::KERNEL_CU_encode_phase1_fill<E, H>                             //
+  phf::KCU_enc_ph1_fill<E, H>                                            //
       <<<8 * numSMs, 256, sizeof(H) * book_len, (cudaStream_t)stream>>>  //
       (in_data, data_len, in_book, book_len, out_bitstream);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase2(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_enc_ph2(
     H* in_data, const size_t data_len, phf::par_config hfpar, H* deflated, M* par_nbit,
     M* par_ncell, void* stream)
 {
@@ -399,12 +399,12 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase2(
 
   auto block_dim = PHF_BLOCK_DIM_DEFLATE;
   auto grid_dim = div(hfpar.pardeg, block_dim);
-  phf::KERNEL_CU_encode_phase2_deflate<H>              //
+  phf::KCU_enc_ph2_deflate<H>                             //
       <<<grid_dim, block_dim, 0, (cudaStream_t)stream>>>  //
       (deflated, data_len, par_nbit, par_ncell, hfpar.sublen, hfpar.pardeg);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_encode_phase1_2(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_enc_ph1_2(
     E* in, const size_t len, H* book, const u4 bklen, H* bitstream, M* par_nbit, M* par_ncell,
     const u4 nblock, E* brval, u4* bridx, u4* brnum, void* stream)
 {
@@ -413,12 +413,12 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_encode_phase1_2(
   constexpr int BlockDim = 256;
   auto grid_dim = div(len, ChunkSize);
 
-  phf::KERNEL_CU_Huffman_ReVISIT_lite<E>              //
+  phf::KCU_Huffman_ReVISIT_lite<E>                       //
       <<<grid_dim, BlockDim, 0, (cudaStream_t)stream>>>  //
       (in, len, book, bklen, bitstream, par_nbit, par_ncell, nblock, brval, bridx, brnum);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3_sync(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_enc_ph3_sync(
     phf::par_config hfpar, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell,
     M* d_par_entry, M* h_par_entry, size_t* outlen_nbit, size_t* outlen_ncell,
     float* time_cpu_time, void* stream)
@@ -444,12 +444,11 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase3_sync(
   cudaStreamSynchronize((cudaStream_t)stream);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode_phase4(
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_enc_ph4(
     H* in_buf, const size_t len, M* par_entry, M* par_ncell, phf::par_config hfpar, H* bitstream,
     const size_t max_bitstream_len, void* stream)
 {
-  phf::KERNEL_CU_encode_phase4_concatenate<H, M>
-      <<<hfpar.pardeg, 128, 0, (cudaStream_t)stream>>>  //
+  phf::KCU_enc_ph4_concat<H, M><<<hfpar.pardeg, 128, 0, (cudaStream_t)stream>>>  //
       (in_buf, par_entry, par_ncell, hfpar.sublen, bitstream);
 }
 
@@ -461,13 +460,12 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode(
     // output
     size_t* out_total_nbit, size_t* out_total_ncell, void* stream)
 {
-  GPU_coarse_encode_phase1(in_data, data_len, in_book, book_len, numSMs, d_scratch4, stream);
-  GPU_coarse_encode_phase2(
-      d_scratch4, data_len, hfpar, d_scratch4, d_par_nbit, d_par_ncell, stream);
-  GPU_coarse_encode_phase3_sync(
+  GPU_coarse_enc_ph1(in_data, data_len, in_book, book_len, numSMs, d_scratch4, stream);
+  GPU_coarse_enc_ph2(d_scratch4, data_len, hfpar, d_scratch4, d_par_nbit, d_par_ncell, stream);
+  GPU_coarse_enc_ph3_sync(
       hfpar, d_par_nbit, h_par_nbit, d_par_ncell, h_par_ncell, d_par_entry, h_par_entry,
       out_total_nbit, out_total_ncell, nullptr, stream);
-  GPU_coarse_encode_phase4(
+  GPU_coarse_enc_ph4(
       d_scratch4, data_len, d_par_entry, d_par_ncell, hfpar, d_bitstream4, bitstream_max_len,
       stream);
 }
@@ -481,13 +479,13 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_encode(
     // output
     size_t* out_total_nbit, size_t* out_total_ncell, void* stream)
 {
-  GPU_fine_encode_phase1_2(
+  GPU_fine_enc_ph1_2(
       in_data, data_len, in_book, book_len, d_scratch4, d_par_nbit, d_par_ncell, hfpar.pardeg,
       d_brval, d_bridx, d_brnum, stream);
-  GPU_coarse_encode_phase3_sync(
+  GPU_coarse_enc_ph3_sync(
       hfpar, d_par_nbit, h_par_nbit, d_par_ncell, h_par_ncell, d_par_entry, h_par_entry,
       out_total_nbit, out_total_ncell, nullptr, stream);
-  GPU_coarse_encode_phase4(
+  GPU_coarse_enc_ph4(
       d_scratch4, data_len, d_par_entry, d_par_ncell, hfpar, d_bitstream4, bitstream_max_len,
       stream);
 }
@@ -500,7 +498,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
   auto const block_dim = PHF_BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = div(pardeg, block_dim);
 
-  phf::KERNEL_CU_HF_decode<E, H, M>                              //
+  phf::KCU_HF_decode<E, H, M>                                       //
       <<<grid_dim, block_dim, revbook_len, (cudaStream_t)stream>>>  //
       (in_bitstream, in_revbook, in_par_nbit, in_par_entry, revbook_len, sublen, pardeg,
        out_decoded);
@@ -511,7 +509,7 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_scatter(
 {
   SETUP_DIV;
   auto grid_dim = div(h_num, 128);
-  phf::experimental::KERNEL_CU_scatter<E, u4>
+  phf::experimental::KCU_scatter<E, u4>
       <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val, idx, h_num, out);
 }
 

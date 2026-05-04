@@ -170,10 +170,6 @@ COMPBUF_IMPL(Freq*)::top1_h() const
 COMPBUF_IMPL(BYTE*)::compressed_d() const { return pimpl->d_compressed.get(); }
 COMPBUF_IMPL(BYTE*)::compressed_h() const { return pimpl->h_compressed.get(); }
 
-COMPBUF_IMPL(T*)::outlier_val_d() const { return pimpl->buf_outlier->val(); }
-COMPBUF_IMPL(M*)::outlier_idx_d() const { return pimpl->buf_outlier->idx(); }
-COMPBUF_IMPL(M)::outlier_num() const { return pimpl->buf_outlier->num_outliers(); }
-
 COMPBUF_IMPL(void*)::outlier2_validx_d() const { return pimpl->buf_outlier2->val_idx_d(); }
 COMPBUF_IMPL(M)::outlier2_host_get_num() const { return pimpl->buf_outlier2->host_get_num(); }
 
@@ -199,7 +195,6 @@ template <typename E>
 using Buf_HF = phf::Buf<E>;
 using Buf_LC = LC_Buf;
 
-COMPBUF_IMPL(Buf_Outlier<T>*)::buf_outlier() const { return pimpl->buf_outlier.get(); }
 COMPBUF_IMPL(Buf_Outlier2<T>*)::buf_outlier2() const { return pimpl->buf_outlier2.get(); }
 
 COMPBUF_IMPL(Buf_HF<E>*)::buf_hf() const { return pimpl->buf_hf.get(); }

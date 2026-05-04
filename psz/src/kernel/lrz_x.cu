@@ -9,7 +9,7 @@
 namespace psz {
 
 template <typename T, class PC, class Perf>
-__global__ void KERNEL_CU_x_lorenzo_1d(
+__global__ void KCU_x_lorenzo_1d(
     typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, size_t const data_len,
     uint16_t const radius, typename PC::Fp const ebx2)
 {
@@ -96,7 +96,7 @@ __global__ void KERNEL_CU_x_lorenzo_1d(
 //       thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]
 
 template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
-__global__ [[deprecated]] void KERNEL_CU_x_lorenzo_2d1l(  //
+__global__ [[deprecated]] void KCU_x_lorenzo_2d1l(  //
     Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
     dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
 {
@@ -176,7 +176,7 @@ __global__ [[deprecated]] void KERNEL_CU_x_lorenzo_2d1l(  //
 }
 
 template <typename T, class PC, class Perf>
-__global__ void KERNEL_CU_x_lorenzo_2d__32x32(  //
+__global__ void KCU_x_lorenzo_2d__32x32(  //
     typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, uint32_t data_lenx, uint32_t data_leny, uint32_t data_leapy, uint16_t const radius, typename PC::Fp const ebx2)
 {
   constexpr auto TileDim = Perf::TileDim;
@@ -270,7 +270,7 @@ __global__ void KERNEL_CU_x_lorenzo_2d__32x32(  //
 
 // 32x8x8 data block maps to 32x1x8 thread block
 template <typename T, class PC, class Perf>
-__global__ void KERNEL_CU_x_lorenzo_3d(  //
+__global__ void KCU_x_lorenzo_3d(  //
     typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, 
     uint32_t data_lenx, uint32_t data_leny, uint32_t data_leapy, uint32_t data_lenz, uint32_t data_leapz,
     uint16_t const radius, typename PC::Fp const ebx2)
@@ -373,7 +373,7 @@ struct GPU_x_lorenzo_1d {
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
     using lrz1 = config::x_lorenzo<1>;
 
-    psz::KERNEL_CU_x_lorenzo_1d<T, PC, lrz1::Perf>
+    psz::KCU_x_lorenzo_1d<T, PC, lrz1::Perf>
         <<<lrz1::thread_grid(data_len3), lrz1::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len3.x, radius, (T)ebx2);
@@ -392,7 +392,7 @@ struct GPU_x_lorenzo_2d {
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
     using lrz2 = config::x_lorenzo<2, 32>;
 
-    psz::KERNEL_CU_x_lorenzo_2d__32x32<T, PC, lrz2::Perf>
+    psz::KCU_x_lorenzo_2d__32x32<T, PC, lrz2::Perf>
         <<<lrz2::thread_grid(data_len3), lrz2::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len3.x, data_len3.y, data_leap3.y, radius, (T)ebx2);
@@ -411,7 +411,7 @@ struct GPU_x_lorenzo_3d {
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
     using lrz3 = config::x_lorenzo<3>;
 
-    psz::KERNEL_CU_x_lorenzo_3d<T, PC, lrz3::Perf>
+    psz::KCU_x_lorenzo_3d<T, PC, lrz3::Perf>
         <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0,
            (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
             in_eq, in_outlier, out_data, data_len3.x, data_len3.y, data_leap3.y, data_len3.z,

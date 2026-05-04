@@ -9,7 +9,7 @@
 namespace psz {
 
 template <typename T, typename Criterion, typename M = u4>
-__global__ void KERNEL_CU_spvn_gather(
+__global__ void KCU_spvn_gather(
     T* in, szt const in_len, int const radius, T* cval, M* cidx, int* cn, Criterion criteria)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -28,7 +28,7 @@ __global__ void KERNEL_CU_spvn_gather(
 }
 
 template <typename T, typename M = u4>
-__global__ void KERNEL_CU_spvn_scatter(T* val, M* idx, int const nnz, T* out)
+__global__ void KCU_spvn_scatter(T* val, M* idx, int const nnz, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -39,7 +39,7 @@ __global__ void KERNEL_CU_spvn_scatter(T* val, M* idx, int const nnz, T* out)
 }
 
 template <typename T, typename M = u4, typename ValIdx = _portable::compact_cell<T, M>>
-__global__ void KERNEL_CU_spvn_scatter_v2(ValIdx* val_idx, int const nnz, T* out)
+__global__ void KCU_spvn_scatter_v2(ValIdx* val_idx, int const nnz, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -55,7 +55,7 @@ template <typename T, typename M>
 int psz::module::GPU_scatter<T, M>::kernel(T* val, M* idx, int const nnz, T* out, void* stream)
 {
   auto grid_dim = (nnz - 1) / 128 + 1;
-  psz::KERNEL_CU_spvn_scatter<T, M>
+  psz::KCU_spvn_scatter<T, M>
       <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val, idx, nnz, out);
   CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 
@@ -67,7 +67,7 @@ int psz::module::GPU_scatter<T, M>::kernel_v2(
     typename GPU_scatter<T, M>::ValIdx* val_idx, int const nnz, T* out, void* stream)
 {
   auto grid_dim = (nnz - 1) / 128 + 1;
-  psz::KERNEL_CU_spvn_scatter_v2<T, M>
+  psz::KCU_spvn_scatter_v2<T, M>
       <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val_idx, nnz, out);
   CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 

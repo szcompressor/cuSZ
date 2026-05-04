@@ -25,19 +25,17 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
   dpct::device_pointer<T> p_odata = dpct::get_device_pointer(odata);  // origin
   dpct::device_pointer<T> p_xdata = dpct::get_device_pointer(xdata);
 
-  T odata_res[4], xdata_res[4];
-
-  psz::probe_extrema<ONEAPI, T>(odata, len, odata_res);
-  psz::probe_extrema<ONEAPI, T>(xdata, len, xdata_res);
+  auto [odata_min, odata_max, odata_avg, odata_rng] = psz::GPU_probe_extrema<T, SYCL>(odata, len);
+  auto [xdata_min, xdata_max, xdata_avg, xdata_rng] = psz::GPU_probe_extrema<T, SYCL>(xdata, len);
 
   auto begin = oneapi::dpl::make_zip_iterator(std::make_tuple(p_odata, p_xdata));
   auto end = oneapi::dpl::make_zip_iterator(std::make_tuple(p_odata + len, p_xdata + len));
 
   // clang-format off
-  auto corr      = [=] (tup t)  { return (std::get<0>(t) - odata[AVGVAL]) * (std::get<1>(t) - xdata[AVGVAL]); };
+  auto corr      = [=] (tup t)  { return (std::get<0>(t) - odata_avg) * (std::get<1>(t) - xdata_avg); };
   auto err2      = []  (tup t)  { T f = std::get<0>(t) - std::get<1>(t); return f * f; };
-  auto var_odata = [=] (T a) { T f = a - odata[AVGVAL]; return f * f; };
-  auto var_xdata = [=] (T a) { T f = a - xdata[AVGVAL]; return f * f; };
+  auto var_odata = [=] (T a) { T f = a - odata_avg; return f * f; };
+  auto var_xdata = [=] (T a) { T f = a - xdata_avg; return f * f; };
 
   auto sum_err2      = std::transform_reduce(oneapi::dpl::execution::seq, begin, end, 0.0f, std::plus<T>(), err2);
   auto sum_corr      = std::transform_reduce(oneapi::dpl::execution::seq, begin, end, 0.0f, std::plus<T>(), corr);
@@ -57,16 +55,16 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t len)
 
   s->len = len;
 
-  s->odata.max = odata_res[MAXVAL];
-  s->odata.min = odata_res[MINVAL];
-  s->odata.rng = odata_res[MAXVAL] - odata_res[MINVAL];
-  s->odata.avg = odata_res[AVGVAL];
+  s->odata.max = odata_max;
+  s->odata.min = odata_min;
+  s->odata.rng = odata_rng;
+  s->odata.avg = odata_avg;
   s->odata.std = std_odata;
 
-  s->xdata.max = xdata_res[MAXVAL];
-  s->xdata.min = xdata_res[MINVAL];
-  s->xdata.rng = xdata_res[MAXVAL] - xdata_res[MINVAL];
-  s->xdata.avg = xdata_res[AVGVAL];
+  s->xdata.max = xdata_max;
+  s->xdata.min = xdata_min;
+  s->xdata.rng = xdata_rng;
+  s->xdata.avg = xdata_avg;
   s->xdata.std = std_xdata;
 
   s->max_err_idx = max_abserr_index;

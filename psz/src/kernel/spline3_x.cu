@@ -2,9 +2,9 @@
 
 #include <cuda_runtime.h>
 
-#include "spline3_md.inl"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
+#include "spline3_md.inl"
 
 constexpr int DEFAULT_BLOCK_SIZE = BLOCK_DIM_SIZE;
 constexpr int LEVEL = 6;
@@ -44,7 +44,7 @@ int psz::module::GPU_spline_reconstruct<T, E, FP>::kernel_v1(
         div(l3.y, AnchorBlockSizeY * numAnchorBlockY),
         div(l3.z, AnchorBlockSizeZ * numAnchorBlockZ));
 
-    cusz::x_spline_infprecis_data<
+    psz::KCU_x_spl_infprecis_data<
         E*, T*, FP, LEVEL, SPLINE_DIM_2, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         numAnchorBlockX, numAnchorBlockY, numAnchorBlockZ, DEFAULT_BLOCK_SIZE>  //
         <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
@@ -54,7 +54,7 @@ int psz::module::GPU_spline_reconstruct<T, E, FP>::kernel_v1(
   else {
     auto grid_dim = dim3(div(l3.x, BLOCK16), div(l3.y, BLOCK16), div(l3.z, BLOCK16));
 
-    cusz::x_spline_infprecis_data<
+    psz::KCU_x_spl_infprecis_data<
         E*, T*, FP, 4, SPLINE_DIM_3, BLOCK16, BLOCK16, BLOCK16, 1, 1, 1, DEFAULT_BLOCK_SIZE>  //
         <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
             ectrl, l3, data_stride3, anchor, anchor_l3, anchor_stride3, xdata, l3, data_stride3,
