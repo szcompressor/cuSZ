@@ -33,7 +33,7 @@ using Toggle = psz::Toggle;
 
 template <typename T, Toggle ZigZag>
 using GPU_x_lorenzo_nd =
-    psz::module::GPU_x_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>>;
+    psz::module::GPU_x_lorenzo_nd<psz::PredictorTyping<T>, psz::PredictorFeature<ZigZag>>;
 
 int main(int argc, char** argv)
 {
@@ -83,12 +83,13 @@ int main(int argc, char** argv)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  psz_len3 len3{x, y, z};
+  psz_len len3{x, y, z};
   auto manager = psz_create_resource_manager(
       F4, {x, y, z}, {pred_type, HistogramGeneric, Huffman, NullCodec}, (void*)stream);
 
   manager->header->rc.eb = abs_eb;
   manager->header->rc.mode = Abs;
+  manager->header->rc.radius = radius;
   manager->header->user_input_eb = abs_eb;
 
   using E = uint16_t;
@@ -117,13 +118,17 @@ int main(int argc, char** argv)
   }
 
   if (pred_type == psz_predictor::Lorenzo)
-    GPU_x_lorenzo_nd<float, Toggle::ZigZagDisabled>::kernel(
+    GPU_x_lorenzo_nd<float, Toggle::ZigZag_Off>::kernel(
         mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, manager->header->rc.radius,
         (void*)stream);
   else if (pred_type == psz_predictor::LorenzoZigZag)
-    GPU_x_lorenzo_nd<float, Toggle::ZigZagEnabled>::kernel(
+    GPU_x_lorenzo_nd<float, Toggle::ZigZag_On>::kernel(
         mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, manager->header->rc.radius,
         (void*)stream);
+  else if (pred_type == psz_predictor::LorenzoProto)
+    psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
+        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb * 2, 1 / (abs_eb * 2),
+        manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::Spline)
     psz::module::GPU_spline_reconstruct<float, E>::kernel_v1(
         mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata.get(), mem->ectrl_len3(),

@@ -22,13 +22,13 @@ using std::to_string;
 
 using Toggle = psz::Toggle;
 
-template <typename T, Toggle ZigZag>
+template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
 using GPU_c_lorenzo_nd =
-    psz::module::GPU_c_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>, psz::Buf_Comp<T>>;
+    psz::module::GPU_c_lorenzo_nd<psz::PredictorTyping<T>, psz::PredictorFeature<ZigZag>>;
 
-template <typename T, Toggle ZigZag>
+template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
 using GPU_x_lorenzo_nd =
-    psz::module::GPU_x_lorenzo_nd<T, psz::PredConfig<T, psz::PredFunc<ZigZag>>>;
+    psz::module::GPU_x_lorenzo_nd<psz::PredictorTyping<T>, psz::PredictorFeature<ZigZag>>;
 
 #if defined(PSZ_USE_CUDA)
 
@@ -92,11 +92,9 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
   const auto radius = RC.radius;
 
   if (PIPELINE.predictor == Lorenzo)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::compressor_kernel(
-        mem, in, len, eb, radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(mem, in, len, eb, radius, stream);
   else if (PIPELINE.predictor == LorenzoZigZag)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
-        mem, in, len, eb, radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(mem, in, len, eb, radius, stream);
   else if (PIPELINE.predictor == Spline) {
     memset_device(mem->buf_outlier2()->num_d(), 1, 0);
     if constexpr (std::is_same_v<T, f4>)
@@ -132,11 +130,9 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   auto compress_predict = [&]() -> int {
     if (predictor == Lorenzo)
-      GPU_c_lorenzo_nd<T, Toggle::ZigZagDisabled>::compressor_kernel(
-          mem, in, len, eb, radius, stream);
+      GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(mem, in, len, eb, radius, stream);
     else if (predictor == LorenzoZigZag)
-      GPU_c_lorenzo_nd<T, Toggle::ZigZagEnabled>::compressor_kernel(
-          mem, in, len, eb, radius, stream);
+      GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(mem, in, len, eb, radius, stream);
     else if (predictor == LorenzoProto)
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
           in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
@@ -446,10 +442,10 @@ STEP_DECODING:
 STEP_PREDICT:
 
   if (header->pipeline.predictor == Lorenzo)
-    GPU_x_lorenzo_nd<T, Toggle::ZigZagDisabled>::kernel(
+    GPU_x_lorenzo_nd<T, Toggle::ZigZag_Off>::kernel(
         mem->ectrl_d(), d_space, d_xdata, len, eb, header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoZigZag)
-    GPU_x_lorenzo_nd<T, Toggle::ZigZagEnabled>::kernel(
+    GPU_x_lorenzo_nd<T, Toggle::ZigZag_On>::kernel(
         mem->ectrl_d(), d_space, d_xdata, len, eb, header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(

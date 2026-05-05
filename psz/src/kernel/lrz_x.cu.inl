@@ -6,19 +6,29 @@
 #include "mem/cxx_sp_gpu.h"
 #include "wave32.cu.inl"
 
+#define TYPES_SETUP_KERN                \
+  using T = typename Types::T;          \
+  using Eq = typename Types::Eq;        \
+  using ZigZag = psz::ZigZag<Eq>;       \
+  using EqUInt = typename ZigZag::UInt; \
+  using EqSInt = typename ZigZag::SInt;
+
 namespace psz {
 
-template <typename T, class PC, class Perf>
+template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_1d(
-    typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, size_t const data_len,
-    uint16_t const radius, typename PC::Fp const ebx2)
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier,
+    typename Types::T* const out_data, size_t const data_len, uint16_t const radius,
+    typename Types::Fp const ebx2)
 {
+  TYPES_SETUP_KERN;
+
   constexpr auto TileDim = Perf::TileDim;
   constexpr auto Seq = Perf::Seq;
   constexpr auto NTHREAD = TileDim / Seq;  // equiv. to blockDim.x
 
   __shared__ T scratch[TileDim];  // for data and in_outlier
-  __shared__ typename PC::Eq s_eq[TileDim];
+  __shared__ typename Types::Eq s_eq[TileDim];
   __shared__ T exch_in[NTHREAD / 32];
   __shared__ T exch_out[NTHREAD / 32];
 
@@ -33,14 +43,13 @@ __global__ void KCU_x_lorenzo_1d(
       auto id = id_base + local_id;
       if (id < data_len) {
         // fuse outlier and error-quant
-        if constexpr (PC::UseZigZag == Toggle::ZigZagDisabled) {
+        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off) {
           scratch[local_id] = in_outlier[id] + static_cast<T>(in_eq[id]) - radius;
         }
         else {
           auto e = in_eq[id];
           scratch[local_id] =
-              in_outlier[id] +
-              static_cast<T>(PC::ZigZag::decode(static_cast<typename PC::EqUInt>(e)));
+              in_outlier[id] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
         }
       }
     }
@@ -175,10 +184,12 @@ __global__ [[deprecated]] void KCU_x_lorenzo_2d1l(  //
   decomp_write_2d();
 }
 
-template <typename T, class PC, class Perf>
+template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_2d__32x32(  //
-    typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, uint32_t data_lenx, uint32_t data_leny, uint32_t data_leapy, uint16_t const radius, typename PC::Fp const ebx2)
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier, typename Types::T* const out_data, uint32_t data_lenx, uint32_t data_leny, uint32_t data_leapy, uint16_t const radius, typename Types::Fp const ebx2)
 {
+  TYPES_SETUP_KERN;
+
   constexpr auto TileDim = Perf::TileDim;
   constexpr auto NumWarps = 4;
   constexpr auto YSEQ = TileDim / NumWarps;
@@ -198,13 +209,13 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
       auto gid = get_gid(i);
       if (gix < data_lenx and (giy_base + i) < data_leny) {
         // fuse outlier and error-quant
-        if constexpr (PC::UseZigZag == Toggle::ZigZagDisabled) {
+        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off) {
           thp_data[i] = in_outlier[gid] + static_cast<T>(in_eq[gid]) - radius;
         }
         else {
           auto e = in_eq[gid];
           thp_data[i] = in_outlier[gid] +
-                        static_cast<T>(PC::ZigZag::decode(static_cast<typename PC::EqUInt>(e)));
+                        static_cast<T>(ZigZag::decode(static_cast<typename Types::EqUInt>(e)));
         }
       }
     }
@@ -269,12 +280,14 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
 }
 
 // 32x8x8 data block maps to 32x1x8 thread block
-template <typename T, class PC, class Perf>
+template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_3d(  //
-    typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, 
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier, typename Types::T* const out_data, 
     uint32_t data_lenx, uint32_t data_leny, uint32_t data_leapy, uint32_t data_lenz, uint32_t data_leapz,
-    uint16_t const radius, typename PC::Fp const ebx2)
+    uint16_t const radius, typename Types::Fp const ebx2)
 {
+  TYPES_SETUP_KERN;
+
   // TODO check SeqY
   constexpr auto TileDim = 8;
   constexpr auto YSEQ = TileDim;
@@ -297,14 +310,13 @@ __global__ void KCU_x_lorenzo_3d(  //
     for (auto y = 0; y < YSEQ; y++) {
       if (gix < data_lenx and giy_base + y < data_leny and giz < data_lenz) {
         // fuse outlier and error-quant
-        if constexpr (PC::UseZigZag == Toggle::ZigZagDisabled) {
+        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off) {
           thread_private[y] = in_outlier[gid(y)] + static_cast<T>(in_eq[gid(y)]) - radius;
         }
         else {
           auto e = in_eq[gid(y)];
           thread_private[y] =
-              in_outlier[gid(y)] +
-              static_cast<T>(PC::ZigZag::decode(static_cast<typename PC::EqUInt>(e)));
+              in_outlier[gid(y)] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
         }
       }
     }
@@ -363,57 +375,63 @@ __global__ void KCU_x_lorenzo_3d(  //
 
 namespace psz::module {
 
-template <typename T, class PC>
+template <class Types, class Features>
 struct GPU_x_lorenzo_1d {
+  using T = typename Types::T;
+  using Eq = typename Types::Eq;
+  using lrz1 = config::x_lorenzo<1>;
+
   static int kernel(
-      typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      psz_len const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
+      Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const _data_len3,
+      f8 const ebx2, uint16_t const radius, void* stream)
   {
     auto data_len3 = LEN_TO_DIM3(_data_len3);
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
-    using lrz1 = config::x_lorenzo<1>;
 
-    psz::KCU_x_lorenzo_1d<T, PC, lrz1::Perf>
-        <<<lrz1::thread_grid(data_len3), lrz1::thread_block, 0,
-           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+    psz::KCU_x_lorenzo_1d<Types, Features, lrz1::Perf>
+        <<<lrz1::thread_grid(data_len3), lrz1::thread_block, 0, (cudaStream_t)stream>>>(
             in_eq, in_outlier, out_data, data_len3.x, radius, (T)ebx2);
 
     return CUSZ_SUCCESS;
   }
 };
 
-template <typename T, class PC>
+template <class Types, class Features>
 struct GPU_x_lorenzo_2d {
+  using T = typename Types::T;
+  using Eq = typename Types::Eq;
+  using lrz2 = config::x_lorenzo<2, 32>;
+
   static int kernel(
-      typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      psz_len const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
+      Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const _data_len3,
+      f8 const ebx2, uint16_t const radius, void* stream)
   {
     auto data_len3 = LEN_TO_DIM3(_data_len3);
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
-    using lrz2 = config::x_lorenzo<2, 32>;
 
-    psz::KCU_x_lorenzo_2d__32x32<T, PC, lrz2::Perf>
-        <<<lrz2::thread_grid(data_len3), lrz2::thread_block, 0,
-           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+    psz::KCU_x_lorenzo_2d__32x32<Types, Features, lrz2::Perf>
+        <<<lrz2::thread_grid(data_len3), lrz2::thread_block, 0, (cudaStream_t)stream>>>(
             in_eq, in_outlier, out_data, data_len3.x, data_len3.y, data_leap3.y, radius, (T)ebx2);
 
     return CUSZ_SUCCESS;
   }
 };
 
-template <typename T, class PC>
+template <class Types, class Features>
 struct GPU_x_lorenzo_3d {
+  using T = typename Types::T;
+  using Eq = typename Types::Eq;
+  using lrz3 = config::x_lorenzo<3>;
+
   static int kernel(
-      typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data,
-      psz_len const _data_len3, f8 const ebx2, uint16_t const radius, void* stream)
+      Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const _data_len3,
+      f8 const ebx2, uint16_t const radius, void* stream)
   {
     auto data_len3 = LEN_TO_DIM3(_data_len3);
     auto data_leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
-    using lrz3 = config::x_lorenzo<3>;
 
-    psz::KCU_x_lorenzo_3d<T, PC, lrz3::Perf>
-        <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0,
-           (GPU_BACKEND_SPECIFIC_STREAM)stream>>>(
+    psz::KCU_x_lorenzo_3d<Types, Features, lrz3::Perf>
+        <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0, (cudaStream_t)stream>>>(
             in_eq, in_outlier, out_data, data_len3.x, data_len3.y, data_leap3.y, data_len3.z,
             data_leap3.z, radius, (T)ebx2);
 
@@ -421,10 +439,11 @@ struct GPU_x_lorenzo_3d {
   }
 };
 
-template <typename T, class PC>
-int GPU_x_lorenzo_nd<T, PC>::kernel(
-    typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const _data_len3,
-    f8 const eb, uint16_t const radius, void* stream)
+template <class Types, class Features>
+int GPU_x_lorenzo_nd<Types, Features>::kernel(
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier,
+    typename Types::T* const out_data, psz_len const _data_len3, f8 const eb,
+    uint16_t const radius, void* stream)
 {
   auto data_len3 = LEN_TO_DIM3(_data_len3);
   auto d = psz::config::utils::ndim(data_len3);
@@ -432,11 +451,14 @@ int GPU_x_lorenzo_nd<T, PC>::kernel(
   auto ebx2 = eb * 2;
 
   if (d == 1)
-    GPU_x_lorenzo_1d<T, PC>::kernel(in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
+    GPU_x_lorenzo_1d<Types, Features>::kernel(
+        in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
   else if (d == 2)
-    GPU_x_lorenzo_2d<T, PC>::kernel(in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
+    GPU_x_lorenzo_2d<Types, Features>::kernel(
+        in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
   else if (d == 3)
-    GPU_x_lorenzo_3d<T, PC>::kernel(in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
+    GPU_x_lorenzo_3d<Types, Features>::kernel(
+        in_eq, in_outlier, out_data, _data_len3, ebx2, radius, stream);
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 

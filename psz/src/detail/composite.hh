@@ -29,21 +29,10 @@ using PszType = _portable::TypeSym<Ctype>;
 
 namespace psz {
 
-enum class Toggle {
-  ZigZagEnabled,
-  StatLocalEnabled,
-  StatGlobalEnabled,
-  TopKHistEnabled,
-  FutureEIPEnabled,
-  QuantGroupingEnabled,
-  //
-  ZigZagDisabled,
-  StatLocalDisabled,
-  StatGlobalDisabled,
-  TopKHistDisabled,
-  FutureEIPDisabled,
-  QuantGroupingDisabled,
-};
+template <typename _T, typename _E>
+struct Buf_Comp;
+
+enum class Toggle { ZigZag_On, ZigZag_Off, H1L_On, H1L_Off, H1G_On, H1G_Off };
 
 template <
     uint16_t _TileDim, uint8_t _Seq,  // required
@@ -63,40 +52,28 @@ struct PredPerf {
   static_assert(Seq < 16, "Sequentiality must be less than 16.");
 };
 
-template <
-    Toggle _UseZigZag,  //
-    Toggle _UseStatLocal = Toggle::StatLocalDisabled,
-    Toggle _UseStatGlobal = Toggle::StatGlobalDisabled,
-    Toggle _UseQuantGrouping = Toggle::QuantGroupingDisabled,
-    Toggle _UseFutureEIP = Toggle::FutureEIPDisabled>
-struct PredFunc {
+template <Toggle _UseZigZag, Toggle _UseH1L = Toggle::H1L_Off, Toggle _UseH1G = Toggle::H1G_Off>
+struct PredictorFeature {  // dtype-agnostic
   static constexpr Toggle UseZigZag = _UseZigZag;
-  static constexpr Toggle UseStatLocal = _UseStatLocal;
-  static constexpr Toggle UseStatGlobal = _UseStatGlobal;
-  static constexpr Toggle UseQuantGrouping = _UseQuantGrouping;
-  static constexpr Toggle UseFutureEIP = _UseFutureEIP;
+  static constexpr Toggle UseH1L = _UseH1L;
+  static constexpr Toggle UseH1G = _UseH1G;
 
-  static constexpr bool stat_local_disabled = UseStatLocal == Toggle::StatLocalDisabled;
-  static constexpr bool stat_global_enabled = UseStatGlobal == Toggle::StatGlobalEnabled;
-  static_assert(
-      not(stat_local_disabled and stat_global_enabled),
-      "UseLocalStat must be enalbed when UseGlobalStat is enabled.");
+  static constexpr bool h1l_off = (UseH1L == Toggle::H1L_Off);
+  static constexpr bool h1g_on = (UseH1G == Toggle::H1G_On);
+  static_assert(not(h1l_off and h1g_on), "UseH1G-on mandates UseH1L-on.");
 };
 
-template <typename BaseT, typename PF, typename _Eq = uint16_t, typename _Fp = BaseT>
-struct PredConfig {
-  static constexpr Toggle UseZigZag = PF::UseZigZag;
-  static constexpr Toggle UseStatLocal = PF::UseStatLocal;
-  static constexpr Toggle UseStatGlobal = PF::UseStatGlobal;
-  static constexpr Toggle UseQuantGrouping = PF::UseQuantGrouping;
-  static constexpr Toggle UseFutureEIP = PF::UseFutureEIP;
-#define GradientGrouping QuantGrouping
-
+template <typename BaseT, typename _Eq = uint16_t, typename _Fp = BaseT>
+struct PredictorTyping {
   /* typing */
+  using T = BaseT;
   using Eq = _Eq;
   using Fp = _Fp;
   using Metadata = uint32_t;
   using M = Metadata;
+
+  /* Buffer */
+  using Buf_Comp = psz::Buf_Comp<BaseT, _Eq>;
 
   /* sparse parts */
   using CompactVal = BaseT;

@@ -1,16 +1,20 @@
-#include "kernel/lrz_c.cu"
-#include "mem/buf_comp.hh"
+#include "kernel/lrz_c.cu.inl"
 
-using psz::Toggle;
+namespace psz {
 
-template struct psz::module::GPU_c_lorenzo_nd<
-    float, psz::PredConfig<float, psz::PredFunc<Toggle::ZigZagDisabled>>, psz::Buf_Comp<float>>;
+using TypesF4 = PredictorTyping<float>;
+using TypesF8 = PredictorTyping<double>;
 
-template struct psz::module::GPU_c_lorenzo_nd<
-    double, psz::PredConfig<double, psz::PredFunc<Toggle::ZigZagDisabled>>, psz::Buf_Comp<double>>;
+using FeaturesDefault = PredictorFeature<Toggle::ZigZag_Off, Toggle::H1L_Off, Toggle::H1G_Off>;
+using FeaturesZigZag = PredictorFeature<Toggle::ZigZag_On, Toggle::H1L_Off, Toggle::H1G_Off>;
+using FeaturesLean = PredictorFeature<Toggle::ZigZag_Off, Toggle::H1L_On, Toggle::H1G_Off>;
 
-template struct psz::module::GPU_c_lorenzo_nd<
-    float, psz::PredConfig<float, psz::PredFunc<Toggle::ZigZagEnabled>>, psz::Buf_Comp<float>>;
+template struct module::GPU_c_lorenzo_nd<TypesF4, FeaturesDefault>;
+template struct module::GPU_c_lorenzo_nd<TypesF4, FeaturesZigZag>;
+template struct module::GPU_c_lorenzo_nd<TypesF4, FeaturesLean>;
 
-template struct psz::module::GPU_c_lorenzo_nd<
-    double, psz::PredConfig<double, psz::PredFunc<Toggle::ZigZagEnabled>>, psz::Buf_Comp<double>>;
+template struct module::GPU_c_lorenzo_nd<TypesF8, FeaturesDefault>;
+template struct module::GPU_c_lorenzo_nd<TypesF8, FeaturesZigZag>;
+template struct module::GPU_c_lorenzo_nd<TypesF8, FeaturesLean>;
+
+};  // namespace psz

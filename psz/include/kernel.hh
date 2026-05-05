@@ -40,26 +40,29 @@ struct GPU_histogram_Cauchy {
       void* stream);
 };
 
-template <typename T, class PC, class Buf>
+template <class Types, class Features>
 struct GPU_c_lorenzo_nd {
+  using T = typename Types::T;
+  using Eq = typename Types::Eq;
+  using Buf = typename Types::Buf_Comp;
+
   static int kernel(
-      T* const in_data, psz_len const len, typename PC::Eq* const out_eq, void* out_outlier,
-      u4* out_top1, f8 const eb, u2 const radius, void* stream);
+      T* const in_data, psz_len const len, Eq* const out_eq, void* out_outlier, u4* out_top1,
+      f8 const eb, u2 const radius, void* stream);
   static int compressor_kernel(
       Buf* buf, T* const in_data, psz_len const len, f8 const eb, u2 const radius, void* stream);
 };
 
-template <typename T, class PC>
+template <class Types, class Features>
 struct GPU_x_lorenzo_nd {
-  static int kernel(
-      typename PC::Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const len,
-      f8 const eb, u2 const radius, void* stream);
-};
+  using T = typename Types::T;
+  using Eq = typename Types::Eq;
+  using Buf = typename Types::Buf_Comp;
 
-template <typename TIN, typename TOUT, bool ReverseProcess>
-int GPU_lorenzo_prequant(
-    TIN* const in, size_t const len, f8 const ebx2, f8 const ebx2_r, TOUT* const out,
-    void* _stream);
+  static int kernel(
+      Eq* const in_eq, T* const in_outlier, T* const out_data, psz_len const len, f8 const eb,
+      u2 const radius, void* stream);
+};
 
 template <typename T, typename Eq>
 struct GPU_PROTO_c_lorenzo_nd_with_outlier {
