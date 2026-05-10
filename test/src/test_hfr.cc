@@ -1,13 +1,5 @@
-/**
- * @file test_hfr.cc
- * @author Jiannan Tian
- * @brief Test HFReVISIT alt-code encoding path without memobj.
- * @version 0.5
- * @date 2024-04-20
- *
- * (C) 2024 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
+// Test HFReVISIT alt-code encoding path without memobj.
 
 #include <cuda_runtime.h>
 

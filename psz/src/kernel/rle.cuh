@@ -1,17 +1,7 @@
-// modified from thrust example
-// attach the license below when push to master branch
-// https://github.com/NVIDIA/thrust/blob/main/LICENSE
-
-/**
- * @file rle.cuh
- * @author Jiannan Tian
- * @brief
- * @version 0.2
- * @date 2021-04-01
- *
- * (C) 2021 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
+//
+// Modified from a thrust example
+// (https://github.com/NVIDIA/thrust/blob/main/LICENSE).
 
 #ifndef KERNEL_RLE_CUH
 #define KERNEL_RLE_CUH

@@ -1,12 +1,5 @@
-/**
- * @file codec_huffman.cuh
- * @author Jiannan Tian
- * @brief Huffman kernel definitions
- * @version 0.2
- * @date 2020-02-13
- * (created) 2020-02-02, (rev1) 2021-02-13, (rev2) 2021-12-29
- *
- */
+// Author: Jiannan Tian
+// Huffman kernel definitions
 
 #ifndef DPCPP_KERNEL_HFCODEC_INL
 #define DPCPP_KERNEL_HFCODEC_INL

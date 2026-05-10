@@ -1,13 +1,4 @@
-/**
- * @file test_l2_histsp.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-05-20
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include "kernel.hh"
 #include "kernel/histsp.cu.inl"

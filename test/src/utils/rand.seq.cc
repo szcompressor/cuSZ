@@ -1,13 +1,4 @@
-/**
- * @file rand.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-08-25
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include "../rand.hh"
 

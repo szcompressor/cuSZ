@@ -1,17 +1,11 @@
-/**
- * @file bin_pred.cc
- *
- * Run predictor only:
- * - forward predictor + reversed predictor
- * - analysis-only path (no lossless coding)
- *
- * Usage:
- *   PROG data_file x y z abs_eb [predictor] [radius] [EXPORT]
- *   predictor: spline (default), lrz, lrz-zz, lrz-proto
- *   radius:    integer, default 128
- *   EXPORT:    if present, dump ectrl as u2 to data_file.pred_<predictor>.ectrl.u2
- *              and (for Spline) anchor values to data_file.pred_spline.anchor.f4
- */
+// Run predictor only: forward predictor + reversed predictor; analysis-only
+// path (no lossless coding).
+//
+// Usage: PROG data_file x y z abs_eb [predictor] [radius] [EXPORT]
+//   predictor: spline (default), lrz, lrz-zz, lrz-proto
+//   radius:    integer, default 128
+//   EXPORT:    if present, dump ectrl as u2 to data_file.pred_<predictor>.ectrl.u2
+//              and (for Spline) anchor values to data_file.pred_spline.anchor.f4
 
 #include <cmath>
 #include <cstdio>

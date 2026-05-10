@@ -1,13 +1,4 @@
-/**
- * @file compact.seq.hh
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-04-05
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #ifndef _PORTABLE_MEM_CXX_SP_CPU_H
 #define _PORTABLE_MEM_CXX_SP_CPU_H

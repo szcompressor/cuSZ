@@ -1,21 +1,5 @@
-/**
- * @file rs_merge.cu.inl
- * @author Jiannan Tian
- * @brief HF-ReVISIT: reduce-shuffle-merge Huffman encoding kernel.
- * @version 0.2
- * @date 2020-05-30 (created); 2025-10 (revised for psz_cusz merge-HFR)
- *
- * (C) 2020 by Washington State University, Argonne National Laboratory
- *
- * Differences from EIP's eip_c.cu.inl:
- *  - No blockwise header or prebuilt codebook; uses a single dynamic codebook.
- *  - No random-access archiving; dense output is at a fixed sequential offset
- *    per block (C::ChunkSize * blockIdx.x).
- *  - Breaking points are gathered into a sparse (val, idx) buffer and replaced
- *    inline by alt_code (the most-frequent-symbol codeword packed ReduceTimes).
- *    The decoder scatters them back from that buffer.
- *  - No FP16 incompressible fallback.
- */
+// Author: Jiannan Tian
+// HF-ReVISIT: reduce-shuffle-merge Huffman encoding kernel.
 
 #include <cstdio>
 

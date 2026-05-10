@@ -1,13 +1,4 @@
-/**
- * @file ex_common.cuh
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-01-03
- *
- * (C) 2022 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #ifndef EX_COMMON_CUH
 #define EX_COMMON_CUH

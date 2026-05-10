@@ -1,13 +1,4 @@
-/**
- * @file test_l1_compact.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-04-05
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include "../rand.hh"
 #include "cusz/type.h"

@@ -1,13 +1,4 @@
-/**
- * @file exp_precentile10.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2021-12-11
- *
- * (C) 2021 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include "../src/analysis/analyzer.hh"
 #include "../src/common.hh"

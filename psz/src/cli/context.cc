@@ -1,15 +1,5 @@
-/**
- * @file context.cc
- * @author Jiannan Tian
- * @brief context struct with argument parser
- * @version 0.1
- * @date 2020-09-20
- * Created on: 20-04-24
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
+// Author: Jiannan Tian
+// context struct with argument parser
 
 #include "cusz/context.h"
 

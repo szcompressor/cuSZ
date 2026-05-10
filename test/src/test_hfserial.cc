@@ -1,16 +1,5 @@
-/**
- * @file test_hfserial.cc
- * @author Jiannan Tian
- * @brief Integration test for CPU serial Huffman codebook construction.
- *        Revived from example/src/bin_hfserial.cc without memobj.
- *        Standalone: generates a synthetic histogram.
- *        File mode (args: <hist-bin> <bklen>): reads histogram from binary.
- * @version 0.5
- * @date 2024-04-20
- *
- * (C) 2024 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
+// Integration test for CPU serial Huffman codebook construction. Revived from example/src/bin_hfserial.cc without memobj. Standalone: generates a synthetic histogram. File mode (args: <hist-bin> <bklen>): reads histogram from binary.
 
 #include "cusz/type.h"
 #include "hf_impl.hh"

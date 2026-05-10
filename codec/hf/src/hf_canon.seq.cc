@@ -1,8 +1,4 @@
-/**
- * @author Jiannan Tian
- * @date 2023-07-29
- *
- */
+// Author: Jiannan Tian
 
 #include "c_type.h"
 #include "hf_impl.hh"

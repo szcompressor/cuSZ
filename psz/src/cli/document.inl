@@ -1,14 +1,4 @@
-/**
- * @file document.hh
- * @author Jiannan Tian
- * @brief
- * @version 0.16.0
- * @date 2020-09-22
- *
- * @copyright (C) 2020 by Washington State University, Argonne National
- * Laboratory See LICENSE in top-level directory
- *
- */
+// Author: Jiannan Tian
 
 #ifndef ARGUMENT_PARSER_DOCUMENT_HH
 #define ARGUMENT_PARSER_DOCUMENT_HH

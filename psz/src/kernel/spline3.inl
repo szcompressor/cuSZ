@@ -1,14 +1,4 @@
-/**
- * @file spline3.inl
- * @author Jinyang Liu, Shixun Wu, Jiannan Tian
- * @brief
- * @version 0.2
- * @date 2021-05-15
- *
- * (copyright to be updated)
- * (C) 2021 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jinyang Liu, Shixun Wu, Jiannan Tian
 
 #ifndef CUSZ_KERNEL_SPLINE3_CUH
 #define CUSZ_KERNEL_SPLINE3_CUH

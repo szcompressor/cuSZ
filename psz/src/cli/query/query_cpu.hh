@@ -1,14 +1,5 @@
-/**
- * @file query.hh
- * @author Jiannan Tian
- * @brief query machine information
- * @version 0.1.3
- * @date 2020-10-05
- *
- * @copyright (C) 2020 by Washington State University, Argonne National
- * Laboratory See LICENSE in top-level directory
- *
- */
+// Author: Jiannan Tian
+// query machine information
 
 #ifndef E8CDEF97_5136_45C6_A6F2_3FECD549F8A4
 #define E8CDEF97_5136_45C6_A6F2_3FECD549F8A4

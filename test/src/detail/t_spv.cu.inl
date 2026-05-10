@@ -1,13 +1,4 @@
-/**
- * @file test_l3_spv.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-08-24
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include "kernel/criteria.gpu.hh"
 #include "kernel.hh"

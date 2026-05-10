@@ -1,13 +1,5 @@
-/**
- * @file type.h
- * @author Jiannan Tian
- * @brief C-complient type definitions; no methods in this header.
- * @version 0.3
- * @date 2022-04-29
- *
- * (C) 2022 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
+// C-complient type definitions; no methods in this header.
 
 #ifndef PSZ_TYPE_H
 #define PSZ_TYPE_H

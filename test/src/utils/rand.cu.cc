@@ -1,13 +1,4 @@
-/**
- * @file rand_g.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.3
- * @date 2022-11-21
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include <curand.h>
 

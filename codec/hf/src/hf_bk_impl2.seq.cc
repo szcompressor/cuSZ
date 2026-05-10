@@ -1,13 +1,4 @@
-/**
- * @file hfbk_impl2.seq.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-08-17
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include <queue>
 

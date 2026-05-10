@@ -1,13 +1,4 @@
-/**
- * @file exp_small_eb.cc
- * @author Jiannan InputTypeian
- * @brief
- * @version 0.3
- * @date 2021-08-20
- *
- * (C) 2021 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jiannan InputTypeian
 
 #include <omp.h>
 

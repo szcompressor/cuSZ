@@ -1,13 +1,4 @@
-/**
- * @file lorenzo23.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2022-12-22
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>

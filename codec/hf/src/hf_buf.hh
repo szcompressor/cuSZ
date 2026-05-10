@@ -1,7 +1,4 @@
-/**
- * @file hf_buf.hh (PRIVATE)
- * @brief Private full definition of phf::Buf buffer management class
- */
+// PRIVATE — full definition of phf::Buf buffer management class.
 
 #ifndef HF_BUF_HH_PRIVATE
 #define HF_BUF_HH_PRIVATE

@@ -1,9 +1,4 @@
-/**
- * @file atomics.cu.inl
- * @brief Common atomic operations for CUDA/HIP backends
- * @date 2024-06-02 (original)
- * @date 2026-01-07 (refactored to common file)
- */
+// Common atomic operations for CUDA/HIP backends
 
 #ifndef EVAL_DETAIL_ATOMICS_CUHIP_INL
 #define EVAL_DETAIL_ATOMICS_CUHIP_INL

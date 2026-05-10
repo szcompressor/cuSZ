@@ -1,11 +1,8 @@
-/**
- * @file cli.cc
- * @brief CLI shell: pre-flight handling, subcommand dispatch, executor invocation.
- *
- * Owns no compute logic. Decides what to do (help / version / compress /
- * decompress) based on argv, then delegates: context.cc parses argv into ctx,
- * executor.cc runs the actual task.
- */
+// CLI shell: pre-flight handling, subcommand dispatch, executor invocation.
+//
+// Owns no compute logic. Decides what to do (help / version / compress /
+// decompress) based on argv, then delegates: context.cc parses argv into ctx,
+// executor.cc runs the actual task.
 
 #include <cstdio>
 #include <iostream>

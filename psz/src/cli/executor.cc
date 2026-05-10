@@ -1,11 +1,8 @@
-/**
- * @file executor.cc
- * @brief CLI-level task runner: compress/decompress workflows.
- *
- * Owns the cudaStream lifecycle, file I/O, dtype dispatch, and reporting.
- * Reads configuration from psz_args via CLI_* accessors; calls into the
- * library API (psz_compress_*, psz_decompress_*).
- */
+// CLI-level task runner: compress/decompress workflows.
+//
+// Owns the cudaStream lifecycle, file I/O, dtype dispatch, and reporting.
+// Reads configuration from psz_args via CLI_* accessors; calls into the
+// library API (psz_compress_*, psz_decompress_*).
 
 #include "executor.hh"
 

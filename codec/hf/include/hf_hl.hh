@@ -1,7 +1,4 @@
-/**
- * @file hf_hl.hh
- * @brief High-level Huffman encoding/decoding interface
- */
+// High-level Huffman encoding/decoding interface
 
 #ifndef HF_HL_HH
 #define HF_HL_HH

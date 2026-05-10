@@ -1,13 +1,4 @@
-/**
- * @file hist_sp.cu.inl
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-05-18
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include <math.h>
 #include <stdint.h>

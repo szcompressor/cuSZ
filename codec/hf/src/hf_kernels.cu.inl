@@ -1,15 +1,5 @@
-/**
- * @file hf_kernels.cu.inl
- * @author Jiannan Tian
- * @brief Huffman kernel definitions
- * @version 0.2
- * @date 2020-02-13
- * (created) 2020-02-02, (rev1) 2021-02-13, (rev2) 2021-12-29
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
+// Author: Jiannan Tian
+// Huffman kernel definitions
 
 #ifndef HF_KERNEL_INL
 #define HF_KERNEL_INL

@@ -1,13 +1,5 @@
-/**
- * @file subr.cu.inl
- * @author Jiannan Tian
- * @brief subroutines of kernels
- * @version 0.4
- * @date 2022-12-22
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
+// subroutines of kernels
 
 #include <stdint.h>
 

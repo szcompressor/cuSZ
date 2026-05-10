@@ -1,13 +1,5 @@
-/**
- * @file demo_capi.cuda.cc
- * @author Jiannan Tian
- * @brief Also see demo_capi_minimal.cc for a more concise view.
- * @version 0.10
- * @date 2022-05-06
- *
- * (C) 2022 by Washington State University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
+// Also see demo_capi_minimal.cc for a more concise view.
 
 #include <cuda_runtime.h>
 

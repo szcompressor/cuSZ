@@ -1,13 +1,4 @@
-/**
- * @file ex_utils.cu
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-08-13
- *
- * (C) 2023 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include <thrust/copy.h>
 #include <thrust/count.h>

@@ -1,13 +1,4 @@
-/**
- * @file l23.seq.cc
- * @author Jiannan Tian
- * @brief
- * @version 0.4
- * @date 2023-03-16
- *
- * (C) 2022 by Indiana University, Argonne National Laboratory
- *
- */
+// Author: Jiannan Tian
 
 #include "lrz.seq.inl"
 

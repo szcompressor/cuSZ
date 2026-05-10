@@ -1,16 +1,5 @@
-/**
- * @file hist.cu.inl
- * @author Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp
- * (mlhickm@g.clemson.edu)
- * @brief Fast histogramming from [Gómez-Luna et al. 2013]
- * @version 0.1
- * @date 2020-09-20
- * Created on 2020-02-16
- *
- * @copyright (C) 2020 by Washington State University, The University of
- * Alabama, Argonne National Laboratory See LICENSE in top-level directory
- *
- */
+// Author: Cody Rivera (cjrivera1@crimson.ua.edu), Megan Hickman Fulp (mlhickm@g.clemson.edu)
+// Fast histogramming from [Gómez-Luna et al. 2013]
 
 #include <cstdio>
 #include <limits>
