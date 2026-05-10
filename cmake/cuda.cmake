@@ -228,6 +228,20 @@ endif()
 
 if(BUILD_TESTING)
   add_subdirectory(test)
+
+  # `ninja check` (or `make check`) runs the full ctest suite in parallel.
+  # GPU tests carry RESOURCE_LOCK gpu (set in test/cmake/cuda-test.cmake) so
+  # they serialize against each other while CPU-only tests (portable_*,
+  # zigzag, lrz_seq, ...) run concurrently up to N workers.
+  include(ProcessorCount)
+  ProcessorCount(N)
+  if(N EQUAL 0)
+    set(N 8)
+  endif()
+  add_custom_target(check
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --parallel ${N}
+    USES_TERMINAL
+  )
 endif()
 
 # ------------------------------------------------------------------------------

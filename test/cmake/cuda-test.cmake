@@ -104,3 +104,16 @@ target_link_libraries(test_hfserial
   PSZ::CUDA::phf
 )
 add_test(test_hf_cpu_serial_codebook test_hfserial)
+
+# GPU tests serialize via a named resource lock so `ctest -j N` doesn't
+# oversubscribe the device. Tests that touch only the host (zigzag, lrz_seq,
+# test_hf_cpu_serial_codebook) are intentionally omitted and run in parallel.
+set_tests_properties(
+  test_l1_compact
+  test_histsp_cu
+  test_stat_identical
+  test_stat_max_error
+  test_mem_unique
+  test_hf_revisit_altcode
+  PROPERTIES RESOURCE_LOCK gpu
+)

@@ -70,3 +70,14 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/PORTABLEConfigVersion.cmake"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/PORTABLE"
 )
+
+# ------------------------------------------------------------------------------
+# Tests (pure-ctest, no gtest dependency).
+# Each test_<unit> binary uses assert() and exits 0 on pass, non-zero on fail.
+# Enabled when consumer enables BUILD_TESTING (CTest convention).
+# ------------------------------------------------------------------------------
+
+if(BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(test)
+endif()
