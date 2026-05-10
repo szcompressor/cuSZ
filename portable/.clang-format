@@ -1,0 +1,22 @@
+---
+BasedOnStyle: InheritParentConfig
+
+AlignConsecutiveDeclarations:
+  Enabled:           true
+  AcrossEmptyLines:  false
+  AcrossComments:    true
+
+AlignConsecutiveAssignments:
+  Enabled:           true
+  AcrossEmptyLines:  false
+  AcrossComments:    true
+
+AlignConsecutiveBitFields:
+  Enabled:           true
+  AcrossEmptyLines:  false
+  AcrossComments:    true
+
+# Patterns that require // clang-format off/on guards (not automatable):
+#   - Chained method-call argument columns (ArgBuilder / KvBinder declarations)
+#   - Function return-type → name column alignment
+#     clang-format AlignConsecutiveDeclarations covers variables, not functions.

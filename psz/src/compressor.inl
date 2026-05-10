@@ -109,12 +109,12 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
   ctx->header->splen = mem->outlier2_host_get_num();
 
   psz::module::GPU_histogram_Cauchy<E>::kernel(
-      mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
+      mem->ectrl_d(), len_linear, mem->hist_d(), ctx->bklen, stream);
 
-  memcpy_allkinds_async<D2H>(h_hist, mem->hist_d(), ctx->dict_size, stream);
+  memcpy_allkinds_async<D2H>(h_hist, mem->hist_d(), ctx->bklen, stream);
   sync_by_stream(stream);
 
-  memset_device(mem->hist_d(), ctx->dict_size, 0);
+  memset_device(mem->hist_d(), ctx->bklen, 0);
 
   return PSZ_SUCCESS;
 }
@@ -162,19 +162,19 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   // shared for HF and HFR
   auto compress_histogram_and_build_book = [&]() {
-    memset_device(mem->hist_d(), ctx->dict_size, 0);
+    memset_device(mem->hist_d(), ctx->bklen, 0);
 
     if (PIPELINE.hist == psz_hist::HistogramSparse)
       psz::module::GPU_histogram_Cauchy<E>::kernel(
-          mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, stream);
+          mem->ectrl_d(), len_linear, mem->hist_d(), ctx->bklen, stream);
     else if (PIPELINE.hist == psz_hist::HistogramGeneric)
       psz::module::GPU_histogram_generic<E>::kernel(
-          mem->ectrl_d(), len_linear, mem->hist_d(), ctx->dict_size, mem->hist_generic_grid_dim,
+          mem->ectrl_d(), len_linear, mem->hist_d(), ctx->bklen, mem->hist_generic_grid_dim,
           mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
           stream);
 
-    memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->dict_size);
-    phf::high_level<E>::build_book(mem->buf_hf(), mem->hist_h(), ctx->dict_size, stream);
+    memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->bklen);
+    phf::high_level<E>::build_book(mem->buf_hf(), mem->hist_h(), ctx->bklen, stream);
   };
 
   auto compress_encode_pass1_Huffman = [&]() -> int {

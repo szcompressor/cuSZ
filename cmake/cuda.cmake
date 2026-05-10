@@ -160,7 +160,7 @@ add_library(psz_cu_utils
   psz/src/cli/verinfo.cc
   psz/src/cli/verinfo.cu
   psz/src/cli/verinfo_nv.cu
-  psz/src/context.cc
+  psz/src/cli/context.cc
   psz/src/header.c
 )
 target_link_libraries(psz_cu_utils
@@ -213,8 +213,8 @@ endif()
 # Executable
 # ------------------------------------------------------------------------------
 
-add_executable(cusz-bin psz/src/cli/cli.cc)
-set_source_files_properties(psz/src/cli/cli.cc PROPERTIES LANGUAGE CUDA)
+add_executable(cusz-bin psz/src/cli/cli.cc psz/src/cli/executor.cc)
+set_source_files_properties(psz/src/cli/cli.cc psz/src/cli/executor.cc PROPERTIES LANGUAGE CUDA)
 target_link_libraries(cusz-bin PRIVATE cusz)
 set_target_properties(cusz-bin PROPERTIES OUTPUT_NAME cusz)
 

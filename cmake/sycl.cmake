@@ -91,7 +91,7 @@ target_link_libraries(pszkernel_dp PUBLIC pszcompile_settings)
 add_library(pszmem src/mem/memseg.cc src/mem/memseg_dp.cc)
 target_link_libraries(pszmem PUBLIC pszcompile_settings)
 
-add_library(pszutils_seq src/context.cc)
+add_library(pszutils_seq src/cli/context.cc)
 target_link_libraries(pszutils_seq PUBLIC pszcompile_settings UTILS::stat_seq)
 
 add_library(pszspv_dp src/kernel/spv.dp.cpp)

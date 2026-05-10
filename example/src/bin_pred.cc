@@ -98,7 +98,7 @@ int main(int argc, char** argv)
   using Buf = psz_buf<float, E>;
 
   auto mem = (Buf*)manager->buf;
-  auto h_hist = MAKE_UNIQUE_HOST(uint32_t, manager->dict_size);
+  auto h_hist = MAKE_UNIQUE_HOST(uint32_t, manager->bklen);
 
   auto status = PPL::compress_analysis(manager, mem, d_data.get(), h_hist.get(), (void*)stream);
   if (status != PSZ_SUCCESS) {

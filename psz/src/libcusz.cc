@@ -25,7 +25,7 @@ psz_resource* psz_create_resource_manager(
   m->header->pipeline = pipeline;
   m->header->len = len;
   m->len_linear = len.x * len.y * len.z;
-  m->dict_size = m->header->rc.radius * 2;
+  m->bklen = m->header->rc.radius * 2;
   m->cli = nullptr;
   phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
@@ -39,7 +39,7 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   auto m = new psz_resource;
   m->header = new psz_header;
   memcpy(m->header, header, sizeof(psz_header));
-  m->dict_size = m->header->rc.radius * 2;
+  m->bklen = m->header->rc.radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
   m->cli = nullptr;
 
@@ -54,7 +54,7 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
 void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* header)
 {
   memcpy(manager->header, header, sizeof(psz_header));
-  manager->dict_size = manager->header->rc.radius * 2;
+  manager->bklen = manager->header->rc.radius * 2;
   manager->len_linear = header->len.x * header->len.y * header->len.z;
 }
 
@@ -80,7 +80,7 @@ int psz_release_resource(psz_resource* manager)
 #define RUNTIME_SAVE_CONFIG2()      \
   m->header->rc = rc;               \
   m->header->user_input_eb = rc.eb; \
-  m->dict_size = rc.radius * 2;
+  m->bklen = rc.radius * 2;
 
 #define RUNTIME_CHECK_RADIUS(Type)                   \
   if (rc.radius > psz::Buf_Comp<Type>::max_radius) { \

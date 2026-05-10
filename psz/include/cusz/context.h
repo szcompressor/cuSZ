@@ -29,8 +29,8 @@ struct psz_cli_config {
   bool dump_hist;
   bool dump_full_hf;
 
-  bool task_construct;
-  bool task_reconstruct;
+  bool task_reduction;
+  bool task_reconstruction;
 
   bool rel_range_scan;
 
@@ -52,7 +52,7 @@ struct psz_context {
   void* stream;
 
   psz_device device;
-  uint16_t dict_size;
+  uint16_t bklen;
   size_t len_linear;
   int ndim;
   psz_error_status last_error;
@@ -68,12 +68,10 @@ typedef psz_context psz_args;
 
 void psz_version();
 void psz_versioninfo();
+void psz_print_document(bool full);
 
 // Return a psz_ctx instance with default values.
 psz_ctx* pszctx_default_values();
-
-// Modify an empty psz_ctx with default values.
-void pszctx_set_default_values(psz_ctx*);
 
 // Use a minimal workset as the return object.
 psz_ctx* pszctx_minimal_workset(
