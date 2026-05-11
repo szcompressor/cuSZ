@@ -184,6 +184,20 @@ void memset_device(T* __a, size_t const len, int value = 0)
 }
 
 template <typename T>
+void memset_device_async(T* __a, size_t const len, int value = 0, void* stream = nullptr)
+{
+  static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
+
+#if defined(_PORTABLE_USE_CUDA)
+  cudaMemsetAsync(__a, value, sizeof(T) * len, (cudaStream_t)stream);
+#elif defined(_PORTABLE_USE_HIP)
+  hipMemsetAsync(__a, value, sizeof(T) * len, (hipStream_t)stream);
+#elif defined(_PORTABLE_USE_1API)
+  ((sycl::queue*)stream)->memset(__a, value, sizeof(T) * len);
+#endif
+}
+
+template <typename T>
 void memset_host(T* __a, size_t const len, int value = 0)
 {
   static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");

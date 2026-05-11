@@ -95,7 +95,7 @@ struct arg_result {
 //------------------------------------------------------------------------------
 
 class arg_builder {
-public:
+ public:
   explicit arg_builder(const char* prog_name) : prog_name_(prog_name) {}
 
   arg_builder(arg_builder&&)                 = default;
@@ -117,28 +117,28 @@ public:
   }
 
   arg_builder&& integer(
-      const char* name, std::initializer_list<const char*> aliases,
-      i8 default_val, const char* doc = "")
+      const char* name, std::initializer_list<const char*> aliases, i8 default_val,
+      const char* doc = "")
   {
     defs_.push_back(
-        {name, detail::opt_kind::integer, make_aliases(aliases),
-         detail::opt_value{default_val}, doc});
+        {name, detail::opt_kind::integer, make_aliases(aliases), detail::opt_value{default_val},
+         doc});
     return std::move(*this);
   }
 
   arg_builder&& number(
-      const char* name, std::initializer_list<const char*> aliases,
-      f8 default_val, const char* doc = "")
+      const char* name, std::initializer_list<const char*> aliases, f8 default_val,
+      const char* doc = "")
   {
     defs_.push_back(
-        {name, detail::opt_kind::number, make_aliases(aliases),
-         detail::opt_value{default_val}, doc});
+        {name, detail::opt_kind::number, make_aliases(aliases), detail::opt_value{default_val},
+         doc});
     return std::move(*this);
   }
 
   arg_builder&& string(
-      const char* name, std::initializer_list<const char*> aliases,
-      const char* default_val, const char* doc = "")
+      const char* name, std::initializer_list<const char*> aliases, const char* default_val,
+      const char* doc = "")
   {
     defs_.push_back(
         {name, detail::opt_kind::string, make_aliases(aliases),
@@ -151,8 +151,7 @@ public:
   arg_builder&& dim3(
       const char* name, std::initializer_list<const char*> aliases, const char* doc = "")
   {
-    defs_.push_back(
-        {name, detail::opt_kind::dim3, make_aliases(aliases), std::nullopt, doc});
+    defs_.push_back({name, detail::opt_kind::dim3, make_aliases(aliases), std::nullopt, doc});
     return std::move(*this);
   }
 
@@ -160,12 +159,18 @@ public:
   // Throws std::runtime_error on bad/missing input.
   arg_result parse(int argc, char** argv) const
   {
-    if (argc <= 1) { print_help(); exit(0); }
+    if (argc <= 1) {
+      print_help();
+      exit(0);
+    }
 
     std::unordered_map<std::string, std::string> alias_map;
-    int n_positional_defs = 0;
+    int                                          n_positional_defs = 0;
     for (auto& d : defs_) {
-      if (d.kind == detail::opt_kind::positional) { ++n_positional_defs; continue; }
+      if (d.kind == detail::opt_kind::positional) {
+        ++n_positional_defs;
+        continue;
+      }
       for (auto& a : d.aliases) alias_map[a] = d.name;
     }
 
@@ -176,28 +181,45 @@ public:
     }
 
     int positional_idx = 0;
-    int i = 1;
+    int i              = 1;
     while (i < argc) {
       std::string tok(argv[i]);
 
-      if (tok == "-h" or tok == "--help") { print_help(); exit(0); }
+      if (tok == "-h" or tok == "--help") {
+        print_help();
+        exit(0);
+      }
 
       if (tok[0] == '-') {
-        auto it = alias_map.find(tok);
-        if (it == alias_map.end())
-          throw std::runtime_error("unknown option: " + tok);
+        // accept both "--key val" and "--key=val" forms.
+        std::string key = tok;
+        std::string inline_val;
+        bool        has_inline = false;
+        auto        eq         = tok.find('=');
+        if (eq != std::string::npos) {
+          key        = tok.substr(0, eq);
+          inline_val = tok.substr(eq + 1);
+          has_inline = true;
+        }
+
+        auto it = alias_map.find(key);
+        if (it == alias_map.end()) throw std::runtime_error("unknown option: " + key);
 
         const std::string& name = it->second;
-        const auto& def = find_def(name);
+        const auto&        def  = find_def(name);
 
         if (def.kind == detail::opt_kind::flag) {
+          if (has_inline) throw std::runtime_error("flag does not take a value: " + key);
           store.values[name]         = true;
           store.explicitly_set[name] = true;
         }
         else {
-          if (i + 1 >= argc)
-            throw std::runtime_error("option " + tok + " requires an argument");
-          const char* val = argv[++i];
+          const char* val;
+          if (has_inline) { val = inline_val.c_str(); }
+          else {
+            if (i + 1 >= argc) throw std::runtime_error("option " + key + " requires an argument");
+            val = argv[++i];
+          }
 
           switch (def.kind) {
             case detail::opt_kind::integer: {
@@ -212,12 +234,8 @@ public:
               store.values[name] = *v;
               break;
             }
-            case detail::opt_kind::string:
-              store.values[name] = std::string(val);
-              break;
-            case detail::opt_kind::dim3:
-              store.values[name] = detail::parse_xyz(val).len;
-              break;
+            case detail::opt_kind::string: store.values[name] = std::string(val); break;
+            case detail::opt_kind::dim3: store.values[name] = detail::parse_xyz(val).len; break;
             default: break;
           }
           store.explicitly_set[name] = true;
@@ -227,7 +245,7 @@ public:
         if (positional_idx >= n_positional_defs)
           throw std::runtime_error("unexpected positional argument: " + tok);
         store.positionals.push_back(tok);
-        const auto& def = positional_def_at(positional_idx);
+        const auto& def                = positional_def_at(positional_idx);
         store.values[def.name]         = tok;
         store.explicitly_set[def.name] = true;
         ++positional_idx;
@@ -254,7 +272,10 @@ public:
 
     bool has_positionals = false;
     for (auto& d : defs_)
-      if (d.kind == detail::opt_kind::positional) { has_positionals = true; break; }
+      if (d.kind == detail::opt_kind::positional) {
+        has_positionals = true;
+        break;
+      }
 
     if (has_positionals) {
       fprintf(out, "positional arguments:\n");
@@ -300,7 +321,7 @@ public:
     }
   }
 
-private:
+ private:
   static std::vector<std::string> make_aliases(std::initializer_list<const char*> aliases)
   {
     std::vector<std::string> v;
