@@ -4,6 +4,7 @@
 // Jiannan Tian
 // (created) 2019-08-27 (update) 2020-09-20...2024-12-22
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <type_traits>
@@ -31,6 +32,25 @@ int fromfile(const std::string& fname, T* _a, size_t const dtype_len)
   if (ifs.gcount() != expected) return PORTABLE_IFS_SHORT_READ;
 
   return PORTABLE_IO_SUCCESS;
+}
+
+// Convenience wrapper for binaries: exit on failure with a clear message.
+// Use in CLIs/example bins where there is no graceful recovery path; the
+// silent-zero-buffer behavior of the bare `fromfile` masks missing/typo'd
+// file paths and produces nonsensical downstream metrics.
+template <typename T>
+void fromfile_or_die(const std::string& fname, T* _a, size_t const dtype_len)
+{
+  auto rc = fromfile(fname, _a, dtype_len);
+  if (rc == PORTABLE_IO_SUCCESS) return;
+  std::cerr << "[_portable::utils::fromfile] failed to read \"" << fname
+            << "\" (rc=" << rc << ")";
+  if (rc == PORTABLE_IFS_FAIL_TO_OPEN)
+    std::cerr << "  — file does not exist or is not readable";
+  else if (rc == PORTABLE_FAIL_NULLPTR)
+    std::cerr << "  — destination buffer is null";
+  std::cerr << std::endl;
+  std::exit(2);
 }
 
 template <typename T>

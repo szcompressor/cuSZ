@@ -4,8 +4,11 @@ target_link_libraries(example_utils2 PRIVATE cusz)
 add_executable(demo_cuda_v2 src/demo_v2.cuda.cc)
 target_link_libraries(demo_cuda_v2 PRIVATE cusz)
 
-add_executable(bin_pred src/bin_pred.cc)
-target_link_libraries(bin_pred PRIVATE cusz)
+add_executable(bin_pred1 src/bin_pred1.cc)
+target_link_libraries(bin_pred1 PRIVATE cusz)
+
+add_executable(bin_pred2 src/bin_pred2.cc)
+target_link_libraries(bin_pred2 PRIVATE cusz)
 
 add_executable(bin_hf src/bin_phf.cc)
 target_link_libraries(bin_hf PRIVATE cusz CUDA::cudart CUDA::cupti)

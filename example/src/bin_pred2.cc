@@ -1,17 +1,6 @@
-/**
- * @file bin_pred.cc
- *
- * Single-predictor microbench: forward + reverse predictor (analysis-only,
- * no codec), reports PSNR / NRMSE / max_err / outlier_count.
- *
- * The v1<->vN cross-validation lives in `bin_pred_xv` (Phase 3 of the test
- * infra migration; see doc/2026-05-09_test-infra-migration-bin_pred.md).
- *
- * Building blocks live in `test_lib/`:
- *   PredArgs   (pred_args.hh)    — CLI parser, registry resolution
- *   PredRun    (pred_run.hh)     — load + manager init + compress + reconstruct
- *   PredMetrics (pred_metrics.hh) — metric compute + emit-metrics + asserts
- */
+// bin_pred2: test_lib-driven single-predictor microbench (named-options CLI,
+// TOML dataset registry, assert flags). Companion to bin_pred1 which is the
+// minimal positional-args round-trip driver.
 
 #include <cstdio>
 #include <memory>
@@ -56,8 +45,8 @@ int main(int argc, char** argv)
   if (parse_rc == 77) return 77;
   if (parse_rc != 0) { PredArgs::usage(argv[0]); return 2; }
 
-  // bin_pred is the single-predictor microbench. If the user asked for a
-  // spl-vN target with --cross-check, point them at bin_pred_xv (the Phase-3
+  // bin_pred2 is the single-predictor microbench. If the user asked for a
+  // spl-vN target with --cross-check, point them at bin_pred_xv (the
   // dedicated driver that handles the v1↔vN comparison).
   if (args.do_cross_check) {
     fprintf(stderr,
