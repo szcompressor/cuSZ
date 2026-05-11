@@ -1,0 +1,26 @@
+# Sample real-data registry for psz regression/cross-validation tests.
+# Copy to ~/.psz_test_data.toml (or anywhere; point at it via $PSZ_TEST_DATA or --config). 
+
+[RTM.0480]
+path  = "/data/RTM/0480.f32"
+dims  = [235, 449, 449]
+eb    = 1e-4
+class = "3d_seismic"
+
+[HURR.CLOUD48]
+path  = "/data/HURR/CLOUDf48.f4"
+dims  = [500, 500, 100]
+eb    = 1e-3
+class = "3d_climate"
+
+[Nyx.Baryon]
+path  = "/data/NYX/baryon_density.f32"
+dims  = [512, 512, 512]
+eb    = 1e7
+class = "3d_cosmology"
+
+[CESM.CLDHGH]
+path  = "/data/CESM/CLDHGH.f4"
+dims  = [3600, 1800, 1]
+eb    = 1e-3
+class = "2d_climate"
