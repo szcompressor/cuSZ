@@ -376,7 +376,8 @@ __global__ void KCU_c_lorenzo_3d(
     s[threadIdx.y + 1][threadIdx.x] = delta[z];
     __syncthreads();
 
-    delta[z] -= (threadIdx.y > 0) * s[threadIdx.y][threadIdx.x];
+    // ty==0 must NOT read s[0][..]: it is never written; the prior `0*x` idiom NaN-leaked.
+    if (threadIdx.y > 0) delta[z] -= s[threadIdx.y][threadIdx.x];
 
     if constexpr (Features::UseH1L == Toggle::H1L_On) {
       auto is_valid_range = (gix < data_lenx and giy < data_leny and giz(z - 1) < data_lenz);
