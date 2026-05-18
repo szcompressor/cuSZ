@@ -22,6 +22,8 @@ build-*
 .idea
 .vs
 .vscode
+.claude
+.codex
 tags
 .ipynb_checkpoints
 __pycache__

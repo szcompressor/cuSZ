@@ -54,8 +54,8 @@ else()
   )
 endif()
 
-add_executable(stat_identical src/test_identical.cc)
-target_link_libraries(stat_identical
+add_executable(stat_identical1 src/test_identical1.cc)
+target_link_libraries(stat_identical1
   PRIVATE
   psz_cu_test_compile_settings
   psz_cu_compile_settings
@@ -64,7 +64,19 @@ target_link_libraries(stat_identical
   UTILS::stat_seq
   CUDA::cudart
 )
-add_test(test_stat_identical stat_identical)
+add_test(test_stat_identical1 stat_identical1)
+
+add_executable(stat_identical2 src/test_identical2.cu)
+target_link_libraries(stat_identical2
+  PRIVATE
+  psz_cu_test_compile_settings
+  psz_cu_compile_settings
+  psz_cu_test_utils
+  UTILS::stat_cu
+  UTILS::stat_seq
+  CUDA::cudart
+)
+add_test(test_stat_identical2 stat_identical2)
 
 add_executable(stat_max_error src/test_max_error.cc)
 target_link_libraries(stat_max_error
@@ -111,7 +123,8 @@ add_test(test_hf_cpu_serial_codebook test_hfserial)
 set_tests_properties(
   test_l1_compact
   test_histsp_cu
-  test_stat_identical
+  test_stat_identical1
+  test_stat_identical2
   test_stat_max_error
   test_mem_unique
   test_hf_revisit_altcode
