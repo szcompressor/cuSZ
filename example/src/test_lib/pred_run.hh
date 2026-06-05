@@ -1,20 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
-// High-level "run a predictor end-to-end" helper for bin_pred / bin_pred_xv.
-//
-// Usage:
-//   psz_test::PredRun run(args);
-//   if (run.setup() != 0) return run.exit_code;
-//   run.compress();
-//   run.reconstruct_v1_path();        // for plain bin_pred
-//   auto m = run.compute_metrics();
-//
-// The internal state (manager, mem, d_data, d_xdata, anchors, etc.) is left
-// accessible as public members for bin_pred_xv's needs (it has to dig into
-// the per-block packed ectrl after the v2..v4r3 kernel emits it).
-//
-// Includes are heavy because this is the join point for the whole compress
-// pipeline. Keep it inline-only until that becomes a compile-time problem.
-
+// End-to-end predictor-run helper for bin_pred / bin_pred_xv (members public
+// so bin_pred_xv can reach per-block packed ectrl).
 #ifndef PSZ_TEST_LIB_PRED_RUN_HH
 #define PSZ_TEST_LIB_PRED_RUN_HH
 

@@ -104,6 +104,7 @@ struct Buf_Comp {
   Freq* hist_h() const;
   Freq* top1_d() const;
   Freq* top1_h() const;
+  size_t top1_nblk() const;
 
   T* anchor_d() const;
   size_t anchor_len() const;

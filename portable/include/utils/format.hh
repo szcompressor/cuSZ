@@ -46,7 +46,7 @@ void LOGGING(const std::string& log_head, Args... args)
   if (log_head == LOG_DBG) std::cout << "\e[0m";      // finish printing dbg
 }
 
-// Terminal markup → ANSI escape codes.
+// Terminal markup -> ANSI escape codes.
 // Syntax: @bold+ul@  *bold*  _underline_  ^^red^^  %gray%
 // Spaces are intentionally excluded from _underline_ to avoid false positives
 // on underscores in identifiers. Nesting is not supported.

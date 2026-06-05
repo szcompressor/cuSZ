@@ -11,11 +11,11 @@ struct triple {
 
 int main()
 {
-  // Same values → equal
+  // Same values -> equal
   assert(val_eq(triple{1, 2, 3}, triple{1, 2, 3}));
   assert(val_eq(triple{0, 0, 0}, triple{0, 0, 0}));
 
-  // Differs in any field → not equal
+  // Differs in any field -> not equal
   assert(not val_eq(triple{1, 2, 3}, triple{9, 2, 3}));
   assert(not val_eq(triple{1, 2, 3}, triple{1, 9, 3}));
   assert(not val_eq(triple{1, 2, 3}, triple{1, 2, 9}));

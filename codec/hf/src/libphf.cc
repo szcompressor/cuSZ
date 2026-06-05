@@ -73,8 +73,10 @@ uint32_t phf_encoded_bytes(phf_header* h) { return h->entry[PHFHEADER_END]; }
 
 void phf_print_header(const phf_header* h, const char* dtype_str)
 {
-  static const char* const sec_name[] = {"HEADER",    "RVBK",   "PAR_NBIT", "PAR_ENTRY",
-                                         "BITSTREAM", "SP_VAL", "SP_IDX"};
+  static const char* const sec_name[] = {"HEADER",    "RVBK",       "PAR_NBIT",  "PAR_ENTRY",
+                                         "BITSTREAM", "PAR_BRNUM",  "PAR_BROFFSET",
+                                         "SP_BREAKS", "PAR_ENCID",  "PBK_HEADERS",
+                                         "HF_R2_HEADER"};
 
   printf("(bk-len, sub-len, par-deg)=(%d, %d, %d)\n", h->bklen, h->sublen, h->pardeg);
   printf("total (-nbit, -ncell)=(%zu, %zu)\tbr-num=%u\n", h->total_nbit, h->total_ncell, h->brnum);

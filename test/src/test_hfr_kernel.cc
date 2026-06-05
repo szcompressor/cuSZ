@@ -5,9 +5,9 @@
 #include <random>
 
 #include "hf_impl.hh"
+#include "hfr.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
-#include "rs_merge.hh"
 
 using namespace std;
 
@@ -84,7 +84,7 @@ void bake_input(u2* ori_data, size_t len, float sparsity = 0.1)
 template <size_t Magnitude = 6, size_t ReduceTimes = 3>
 int run()
 {
-  using C = HFReVISIT_config<T, Magnitude, ReduceTimes, Hf>;
+  using C = HFR_Config<T, Magnitude, ReduceTimes, Hf>;
 
   // runtime inputs
   auto ori_data = MAKE_UNIQUE_UNIFIED(T, C::ChunkSize);

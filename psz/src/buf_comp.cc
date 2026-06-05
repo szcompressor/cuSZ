@@ -1,12 +1,34 @@
 #include "mem/buf_comp.hh"
 
 #include "cusz/type.h"
+#include "kernel.hh"
+#include "kernel/launch.inl"
+
+// Dummy-kernel launch lives in buf_comp_dummy.cu (CUDA firewall).
+namespace psz::buf_comp_dummy { void launch(); }
+
+namespace {
+
+size_t set_top1_nblk(psz_len len)
+{
+  auto len3 = dim3(len.x, len.y, len.z);
+  auto ndim = psz::config::utils::ndim(len3);
+
+  auto flatten_grid = [](dim3 grid) { return static_cast<size_t>(grid.x) * grid.y * grid.z; };
+
+  if (ndim == 1) return flatten_grid(psz::config::c_lorenzo<1>::thread_grid(dim3(len.x, 1, 1)));
+  if (ndim == 2) return flatten_grid(psz::config::c_lorenzo<2, 32, 32>::thread_grid(len3));
+  return flatten_grid(psz::config::c_lorenzo<3>::thread_grid(len3));
+}
+
+}  // namespace
 
 template <typename T, typename E>
 struct psz::Buf_Comp<T, E>::impl {
   const psz_len len;
   const size_t len_linear;
   const size_t len_linear_anchor;  // for spline
+  const size_t len_top1;
 
   // state
   bool is_comp;
@@ -48,7 +70,10 @@ struct psz::Buf_Comp<T, E>::impl {
 
  public:
   impl(psz_len _len, BufToggle_Comp* toggle) :
-      len(_len), len_linear(_len.x * _len.y * _len.z), len_linear_anchor(set_anchor_len(_len))
+      len(_len),
+      len_linear(_len.x * _len.y * _len.z),
+      len_linear_anchor(set_anchor_len(_len)),
+      len_top1(set_top1_nblk(_len))
   {
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
@@ -74,8 +99,8 @@ struct psz::Buf_Comp<T, E>::impl {
       h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * 4 / 2);
     }
     if (toggle->use_top1) {
-      d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
-      h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
+      d_top1 = MAKE_UNIQUE_DEVICE(Freq, len_top1);
+      h_top1 = MAKE_UNIQUE_HOST(Freq, len_top1);
     }
   }
 
@@ -83,7 +108,8 @@ struct psz::Buf_Comp<T, E>::impl {
       is_comp(_is_comp),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
-      len_linear_anchor(set_anchor_len(_len))
+      len_linear_anchor(set_anchor_len(_len)),
+      len_top1(set_top1_nblk(_len))
   {
     // align 4Ki for (essentially) FZG
     d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
@@ -103,15 +129,24 @@ struct psz::Buf_Comp<T, E>::impl {
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
       d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * 4 / 2);
       h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * 4 / 2);
-      d_top1 = MAKE_UNIQUE_DEVICE(Freq, 1);
-      h_top1 = MAKE_UNIQUE_HOST(Freq, 1);
+      d_top1 = MAKE_UNIQUE_DEVICE(Freq, len_top1);
+      h_top1 = MAKE_UNIQUE_HOST(Freq, len_top1);
 
       buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
       buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
 
       d_pe = MAKE_UNIQUE_DEVICE(T, ERR_HISTO_LEN);
       h_pe = MAKE_UNIQUE_HOST(T, ERR_HISTO_LEN);
+
+      // call dummy during expensive init
+      psz::buf_comp_dummy::launch();
     }
+
+    // Zero d_ectrl tail (len_linear..ALIGN_4Ki(len_linear)) so the HFR/HFR-PBK
+    // encoders can read past `len` up to `padded_len` and see zeros without a
+    // per-encode tail memset. Predictor only writes 0..len-1, so the tail stays
+    // zero across encodes provided len is fixed per buffer instance.
+    memset_device(d_ectrl.get(), ALIGN_4Ki(len_linear));
   }
 
   ~impl() {};
@@ -149,7 +184,7 @@ COMPBUF_IMPL()::~Buf_Comp(){};
 
 COMPBUF_IMPL(void)::clear_buffer() { pimpl->clear_buffer(); }
 
-COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), 1); }
+COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), pimpl->len_top1); }
 
 // getters: array
 COMPBUF_IMPL(E*)::ectrl_d() const { return pimpl->d_ectrl.get(); }
@@ -163,9 +198,11 @@ COMPBUF_IMPL(Freq*)::hist_h() const { return pimpl->h_hist.get(); }
 COMPBUF_IMPL(Freq*)::top1_d() const { return pimpl->d_top1.get(); }
 COMPBUF_IMPL(Freq*)::top1_h() const
 {
-  memcpy_allkinds<D2H>(pimpl->h_top1.get(), pimpl->d_top1.get(), 1);
+  memcpy_allkinds<D2H>(pimpl->h_top1.get(), pimpl->d_top1.get(), pimpl->len_top1);
   return pimpl->h_top1.get();
 }
+
+COMPBUF_IMPL(size_t)::top1_nblk() const { return pimpl->len_top1; }
 
 COMPBUF_IMPL(BYTE*)::compressed_d() const { return pimpl->d_compressed.get(); }
 COMPBUF_IMPL(BYTE*)::compressed_h() const { return pimpl->h_compressed.get(); }

@@ -125,6 +125,7 @@ target_link_libraries(psz_seq_core
 
 add_library(psz_cu_mem
   psz/src/buf_comp.cc
+  psz/src/buf_comp_dummy.cu
 )
 target_link_libraries(psz_cu_mem
   PUBLIC

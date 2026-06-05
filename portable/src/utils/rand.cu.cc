@@ -2,10 +2,10 @@
 
 #include <curand.h>
 
-#include "../rand.hh"
+#include "utils/synth.hh"
 
 template <>
-void psz::testutils::cu_hip::rand_array<float>(
+void _portable::testutils::rand_array_cu<float>(
     float* array_g, size_t len, uint32_t seed)
 {
   curandGenerator_t gen;
@@ -15,7 +15,7 @@ void psz::testutils::cu_hip::rand_array<float>(
 }
 
 template <>
-void psz::testutils::cu_hip::rand_array<double>(
+void _portable::testutils::rand_array_cu<double>(
     double* array_g, size_t len, uint32_t seed)
 {
   curandGenerator_t gen;

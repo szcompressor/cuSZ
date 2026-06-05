@@ -3,15 +3,16 @@
 
 #include <cuda_runtime.h>
 
+#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "cusz/type.h"
 #include "hf_impl.hh"
-#include "rs_merge.hh"
+#include "hfr.hh"
 #include "utils/busyheader.hh"
 
 template <typename T, int Magnitude = 12, int ReduceTimes = 4>
 bool test_hfr_altcode(const char* label)
 {
-  using HFR = HFReVISIT_config<T, Magnitude, ReduceTimes>;
+  using HFR = HFR_Config<T, Magnitude, ReduceTimes>;
   constexpr u4 bklen = 1024;
   constexpr size_t inlen = HFR::ChunkSize;
   constexpr size_t nblocks = 1;
@@ -25,31 +26,35 @@ bool test_hfr_altcode(const char* label)
 
   // derive alt-code from the host codebook
   u4 alt_code = 0, alt_bitcount = 0;
-  phf::make_altcode(h_bk, (u2)bklen, ReduceTimes, alt_code, alt_bitcount);
+  phf::make_altcode_single(h_bk, (u2)bklen, ReduceTimes, alt_code, alt_bitcount);
 
   // input: all-zero quant codes (symbol 0)
   T* d_in;
   cudaMalloc(&d_in, inlen * sizeof(T));
   cudaMemset(d_in, 0, inlen * sizeof(T));
 
-  // output buffers
+  // output buffers (post-breaks_t adoption)
+  using BreakCell = psz::HFR_PBK_Breaks<128>;
   u4 *d_dn_out, *d_dn_bitcount, *h_dn_bitcount;
-  T* d_sp_val;
-  u4 *d_sp_idx, *d_sp_count;
+  BreakCell* d_sp_breaks;
+  u4 *d_sp_count, *d_par_brnum, *d_par_broffset;
+  uint8_t* d_par_encid;
   cudaMalloc(&d_dn_out, inlen * sizeof(u4));
   cudaMalloc(&d_dn_bitcount, nblocks * sizeof(u4));
   cudaMallocHost(&h_dn_bitcount, nblocks * sizeof(u4));
-  cudaMalloc(&d_sp_val, inlen * sizeof(T));
-  cudaMalloc(&d_sp_idx, inlen * sizeof(u4));
+  cudaMalloc(&d_sp_breaks, inlen * sizeof(BreakCell));
   cudaMalloc(&d_sp_count, sizeof(u4));
+  cudaMalloc(&d_par_brnum, nblocks * sizeof(u4));
+  cudaMalloc(&d_par_broffset, nblocks * sizeof(u4));
+  cudaMalloc(&d_par_encid, nblocks * sizeof(uint8_t));
   cudaMemset(d_sp_count, 0, sizeof(u4));
 
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  phf::module::HFReVISIT_encode<T, Magnitude, ReduceTimes, false, u4>::GPU_kernel(
-      d_in, inlen, d_bk, bklen, alt_code, alt_bitcount,
-      d_dn_out, d_dn_bitcount, d_sp_val, d_sp_idx, d_sp_count, stream);
+  phf::module::HFR_encoder<T, Magnitude, ReduceTimes, false, u4>::GPU_kernel_v1(
+      d_in, inlen, d_bk, bklen, alt_code, alt_bitcount, d_dn_out, d_dn_bitcount, d_sp_breaks,
+      d_sp_count, d_par_brnum, d_par_broffset, d_par_encid, stream);
 
   cudaStreamSynchronize(stream);
 
@@ -59,8 +64,8 @@ bool test_hfr_altcode(const char* label)
 
   cudaMemcpy(h_dn_bitcount, d_dn_bitcount, nblocks * sizeof(u4), cudaMemcpyDeviceToHost);
   printf(
-      "[%s] %s  M=%d RT=%d  alt_bitcount=%u  dn_bitcount[0]=%u\n",
-      ok ? "PASS" : "FAIL", label, Magnitude, ReduceTimes, alt_bitcount, h_dn_bitcount[0]);
+      "[%s] %s  M=%d RT=%d  alt_bitcount=%u  dn_bitcount[0]=%u\n", ok ? "PASS" : "FAIL", label,
+      Magnitude, ReduceTimes, alt_bitcount, h_dn_bitcount[0]);
 
   cudaStreamDestroy(stream);
   cudaFreeHost(h_bk);
@@ -69,9 +74,11 @@ bool test_hfr_altcode(const char* label)
   cudaFree(d_dn_out);
   cudaFree(d_dn_bitcount);
   cudaFreeHost(h_dn_bitcount);
-  cudaFree(d_sp_val);
-  cudaFree(d_sp_idx);
+  cudaFree(d_sp_breaks);
   cudaFree(d_sp_count);
+  cudaFree(d_par_brnum);
+  cudaFree(d_par_broffset);
+  cudaFree(d_par_encid);
 
   return ok;
 }

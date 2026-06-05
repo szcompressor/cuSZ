@@ -100,7 +100,7 @@ inline void parse_strlist_as_kv(
     if (not tmp.empty()) kv.insert(separate_kv(tmp));
 }
 
-// Parse "key=(on|ON|off|OFF)" → {key, bool}.  Returns {"", false} on no match.
+// Parse "key=(on|ON|off|OFF)" -> {key, bool}.  Returns {"", false} on no match.
 inline std::pair<std::string, bool> parse_kv_onoff(const std::string& s)
 {
   std::regex  pat(R"((.*?)=(on|ON|off|OFF))");

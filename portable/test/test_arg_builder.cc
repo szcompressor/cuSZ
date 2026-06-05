@@ -20,33 +20,32 @@ struct argv_holder {
     for (auto* s : args) store.emplace_back(s);
     for (auto& s : store) argv.push_back(const_cast<char*>(s.c_str()));
   }
-  int    argc() const { return static_cast<int>(argv.size()); }
+  int argc() const { return static_cast<int>(argv.size()); }
   char** data() { return argv.data(); }
 };
 
 int main()
 {
-  // ── Schema reused across cases ──────────────────────────────────────
-  static const auto cli =
-      arg_builder("test_bin")
-          .positional("input", "input file")
-          .integer("repeat", {"-r", "--repeat"}, 1, "repeats")
-          .number("eb", {"-e", "--eb"}, 1e-3, "error bound")
-          .string("mode", {"-m", "--mode"}, "rel", "mode")
-          .flag("verbose", {"-v", "--verbose"}, "verbose")
-          .dim3("len", {"-l", "--xyz"}, "data dims");
+  // -- Schema reused across cases --------------------------------------
+  static const auto cli = arg_builder("test_bin")
+                              .positional("input", "input file")
+                              .integer("repeat", {"-r", "--repeat"}, 1, "repeats")
+                              .number("eb", {"-e", "--eb"}, 1e-3, "error bound")
+                              .string("mode", {"-m", "--mode"}, "rel", "mode")
+                              .flag("verbose", {"-v", "--verbose"}, "verbose")
+                              .dim3("len", {"-l", "--xyz"}, "data dims");
 
-  // ── Parse: defaults applied, only required (positional + dim3) given ─
+  // -- Parse: defaults applied, only required (positional + dim3) given -
   {
     argv_holder a{"prog", "in.f4", "-l", "3x4x5"};
     auto        r = cli.parse(a.argc(), a.data());
 
     assert(r.get<std::string>("input") == "in.f4");
-    assert(r.get<i8>("repeat") == 1);                   // default
+    assert(r.get<i8>("repeat") == 1);  // default
     auto eb = r.get<f8>("eb");
-    assert(eb > 9e-4 and eb < 1.1e-3);                  // default 1e-3
-    assert(r.get<std::string>("mode") == "rel");        // default
-    assert(r.get<bool>("verbose") == false);            // default
+    assert(eb > 9e-4 and eb < 1.1e-3);            // default 1e-3
+    assert(r.get<std::string>("mode") == "rel");  // default
+    assert(r.get<bool>("verbose") == false);      // default
 
     auto len = r.get<_portable_len3>("len");
     assert(len.x == 3 and len.y == 4 and len.z == 5);
@@ -57,11 +56,11 @@ int main()
     assert(not r.is_set("verbose"));
   }
 
-  // ── Parse: all options explicit + alias variants ────────────────────
+  // -- Parse: all options explicit + alias variants --------------------
   {
-    argv_holder a{
-        "prog", "data.f8", "-r", "10", "--eb", "5e-5", "-m", "abs", "-v", "--xyz", "100x200"};
-    auto r = cli.parse(a.argc(), a.data());
+    argv_holder a{"prog", "data.f8", "-r", "10",    "--eb",   "5e-5",
+                  "-m",   "abs",     "-v", "--xyz", "100x200"};
+    auto        r = cli.parse(a.argc(), a.data());
 
     assert(r.get<std::string>("input") == "data.f8");
     assert(r.get<i8>("repeat") == 10);
@@ -78,7 +77,7 @@ int main()
     assert(r.is_set("verbose"));
   }
 
-  // ── Error: unknown option ───────────────────────────────────────────
+  // -- Error: unknown option -------------------------------------------
   {
     argv_holder a{"prog", "in.f4", "-l", "3x4x5", "--bogus"};
     bool        threw = false;
@@ -91,7 +90,7 @@ int main()
     assert(threw);
   }
 
-  // ── Error: option requiring value gets none ─────────────────────────
+  // -- Error: option requiring value gets none -------------------------
   {
     argv_holder a{"prog", "in.f4", "-l", "3x4x5", "-r"};  // -r at end, no value
     bool        threw = false;
@@ -104,7 +103,7 @@ int main()
     assert(threw);
   }
 
-  // ── Error: invalid integer ──────────────────────────────────────────
+  // -- Error: invalid integer ------------------------------------------
   {
     argv_holder a{"prog", "in.f4", "-l", "3x4x5", "-r", "not_a_number"};
     bool        threw = false;
@@ -117,7 +116,7 @@ int main()
     assert(threw);
   }
 
-  // ── Error: missing required (no positional, no dim3) ────────────────
+  // -- Error: missing required (no positional, no dim3) ----------------
   {
     // dim3 is required (no default) — omit -l to trigger
     argv_holder a{"prog", "in.f4"};
@@ -131,7 +130,7 @@ int main()
     assert(threw);
   }
 
-  // ── get<T>: type mismatch throws ────────────────────────────────────
+  // -- get<T>: type mismatch throws ------------------------------------
   {
     argv_holder a{"prog", "in.f4", "-l", "3x4x5"};
     auto        r     = cli.parse(a.argc(), a.data());

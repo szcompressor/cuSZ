@@ -51,7 +51,7 @@ typedef size_t szt;
 
 #define DEFAULT_PREDICTOR Lorenzo
 #define DEFAULT_HISTOGRAM HistogramGeneric
-#define DEFAULT_CODEC Huffman
+#define DEFAULT_CODEC Huffman_rev2
 #define NULL_HISTOGRAM NullHistogram
 #define NULL_CODEC NullCodec
 
@@ -59,7 +59,12 @@ typedef size_t szt;
 typedef enum { Abs, Rel } psz_mode;
 typedef enum { Lorenzo, LorenzoZigZag, LorenzoProto, Spline } psz_predictor;
 typedef enum { FP64toFP32, LogTransform, ShiftedLogTransform, Binning2x2, Binning2x1, Binning1x2 } _future_psz_preprocess;
-typedef enum { Huffman, HuffmanRevisit, LC, FZCodec, RunLength, NullCodec } psz_codec;
+// HFR-PBK-compat (--codec1 hfr-pbkc) and HFR-PBK-GO (--codec1 hfr-pbkgo):
+// Huffman_rev1: same encoder as Huffman (ph1+ph2) but with LAGO-concat replacing
+// the legacy ph3 (host scan) + ph4 (per-block stride copy).
+// Huffman_rev2: like _r1 but ships per-block metadata as AoS bheader_backport[]
+// (16-bit bits + 32-bit entry) — unifies HF with the bheader-AoS convention.
+typedef enum { Huffman, Huffman_rev1, Huffman_rev2, HFR, HFR_PBK_Compat, HFR_PBK_GO, HFR_PBKF, LC, FZCodec, RunLength, NullCodec } psz_codec;
 typedef enum { HistogramGeneric, HistogramSparse, NullHistogram } psz_hist;
 // clang-format on
 

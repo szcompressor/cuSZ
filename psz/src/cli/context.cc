@@ -135,6 +135,7 @@ static const auto psz_cli = _portable::arg_builder("cusz")
   .string("compare",  {"--origin", "--compare"},                      "",     "reference file for comparison")
   .string("auto",     {"-a", "--auto"},                               "",     "auto-tuning: cr-first, rd-first, int")
   .string("scheme",   {"-s", "--scheme"},                             "",     "shorthand: tp|speed or cr")
+  .string("rmerge_count", {"--rmerge-count"},  "3",  "HFR reduce-merge pass count 2|3|4 (default 3)")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
   .flag("decompress", {"-x", "--unzip", "--decompress"},                      "run decompression")
   .flag("verbose",    {"--verbose"},                                          "verbose output")
@@ -235,8 +236,16 @@ static void psz_cli_bind(const _portable::arg_result& args, psz_ctx* ctx)
       apply_str(_v, ctx->cli->char_codec1_name);
       if (_v == "hf" or _v == "huffman")
         ctx->header->pipeline.codec1 = psz_codec::Huffman;
+      else if (_v == "hf-rev1" or _v == "huffman-r1")
+        ctx->header->pipeline.codec1 = psz_codec::Huffman_rev1;
+      else if (_v == "hf-rev2" or _v == "huffman-r2")
+        ctx->header->pipeline.codec1 = psz_codec::Huffman_rev2;
       else if (_v == "hfr" or _v == "huffman-revisit" or _v == "huffman-fast")
-        ctx->header->pipeline.codec1 = psz_codec::HuffmanRevisit;
+        ctx->header->pipeline.codec1 = psz_codec::HFR;
+      else if (_v == "hfr-pbkc" or _v == "hfr-pbk-compat")
+        ctx->header->pipeline.codec1 = psz_codec::HFR_PBK_Compat;
+      else if (_v == "hfr-pbkgo" or _v == "hfr-pbk-go")
+        ctx->header->pipeline.codec1 = psz_codec::HFR_PBK_GO;
       else if (_v == "fzgcodec")
         ctx->header->pipeline.codec1 = psz_codec::FZCodec;
       else if (_v == "lc" or _v == "tcms")
@@ -291,7 +300,7 @@ static void psz_cli_bind(const _portable::arg_result& args, psz_ctx* ctx)
     if (_v == "tp" or _v == "TP" or _v == "speed")
       ctx->header->pipeline.codec1 = LC;
     else if (_v == "cr" or _v == "CR")
-      ctx->header->pipeline.codec1 = Huffman;
+      ctx->header->pipeline.codec1 = Huffman_rev2;
   }
 
   // task flags (subcommand has priority over -z/-x)
@@ -301,6 +310,25 @@ static void psz_cli_bind(const _portable::arg_result& args, psz_ctx* ctx)
   }
 
   if (args.get<bool>("verbose")) ctx->cli->verbose = true;
+
+  // HFR reduce-merge pass count (--rmerge-count): 2|3|4, default 3; encode-only.
+  {
+    auto const _rc = args.get<string>("rmerge_count");
+    int const v = (_rc == "2") ? 2 : (_rc == "3") ? 3 : (_rc == "4") ? 4 : -1;
+    if (v < 0) {
+      cerr << LOG_ERR << "--rmerge-count must be 2|3|4, got: " << _rc << endl;
+      exit(1);
+    }
+    ctx->cli->hfr_rmerge_count = v;
+  }
+
+  // Post-parse pipeline formation: components that other components imply.
+  // PBK variants bypass the runtime histogram (prebuilt pbk25 book pool), so
+  // record that in the header — otherwise reports show a histogram that didn't
+  // actually run.
+  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_Compat or
+      ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_GO)
+    ctx->header->pipeline.hist = psz_hist::NullHistogram;
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +377,19 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
   if (ctx->header->pipeline.codec1 == psz_codec::LC and
       ctx->header->pipeline.codec2 == psz_codec::LC)
     ctx->header->pipeline.hist = psz_hist::NullHistogram;
+
+  // HFR-PBK-Compat uses the prebuilt pbk25_r128 book (radius=128, dictsize=256).
+  // Force the predictor radius to match; otherwise ectrl values in [256, 2*radius)
+  // index out of book bounds and the encode kernel faults.
+  //
+  // HFR v2 (Cut B1): shares the PBK-shape kernel instantiation (Radius=128) so
+  // it inherits the same clamp until the Radius=512 kernel is instantiated.
+  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_Compat or
+      ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_GO or
+      ctx->header->pipeline.codec1 == psz_codec::HFR) {
+    ctx->header->rc.radius = 128;
+    ctx->bklen             = 256;
+  }
 }
 
 void psz_print_document(bool full)
@@ -417,6 +458,7 @@ psz_ctx* pszctx_default_values()
               .report_time         = false,
               .report_cr           = false,
               .verbose             = false,
+              .hfr_rmerge_count    = 3,
           },
       .bklen           = 1024,
       .len_linear      = 1,

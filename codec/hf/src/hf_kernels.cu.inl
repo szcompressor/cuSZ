@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "hf_impl.hh"
+#include "single_inflate.inl"
 
 constexpr int PHF_BLOCK_DIM_ENCODE = 256;
 constexpr int PHF_BLOCK_DIM_DEFLATE = 256;
@@ -28,6 +29,20 @@ __global__ void KCU_scatter(T* val, M* idx, int const n, T* out)
   if (tid < n) {
     int dst_idx = idx[tid];
     out[dst_idx] = val[tid];
+  }
+}
+
+template <typename T, typename BreakCell, typename M = u4>
+__global__ void KCU_scatter_breaks(
+    BreakCell* sp_breaks, M* par_brnum, M* par_broffset, int const sublen, T* out)
+{
+  auto blk = blockIdx.x;
+  auto count = par_brnum[blk];
+  auto base = par_broffset[blk];
+
+  for (auto i = threadIdx.x; i < count; i += blockDim.x) {
+    auto cell = sp_breaks[base + i];
+    out[(size_t)blk * sublen + cell.idx] = (T)cell.val;
   }
 }
 
@@ -96,10 +111,6 @@ __global__ void KCU_enc_ph2_deflate(
         }
       }
       else {
-        // example: we have 5-bit code 11111 but 3 bits available in (*ptr)
-        // 11111 for the residue 3 bits in (*ptr); 11111 for 2 bits of
-        // (*(++ptr)), starting with MSB
-        // ^^^                                        ^^
         auto l_bits = word_width - residue_bits;
         auto r_bits = CELL_BITWIDTH - l_bits;
 
@@ -201,19 +212,26 @@ __global__ void KCU_Huffman_ReVISIT_lite(
       p_bits += sym_bits * (idx < allowed_len());
     }
 
-    // breaking handling
     if (p_bits > BITWIDTH) {
-      p_bits = 0u;      // reset on breaking
-      p_reduced = 0x0;  // reset on breaking, too
-      auto p_val_ref = s_book[MaxBkLen];
-      auto const sym_bits = bitcount_of(&p_val_ref);
-      auto br_gidx_start = atomicAdd(hf_brnum, ShardSize);
+      p_bits = 0u;
+      p_reduced = 0x0;
+      auto p_val_ref = s_book[runtime_bklen / 2];
+      auto const sym_bits_ref = bitcount_of(&p_val_ref);
+
 #pragma unroll
       for (auto ix = 0u, br_lidx = (threadIdx.x * ShardSize); ix < ShardSize; ix++, br_lidx++) {
-        hf_bridx[br_gidx_start + ix] = id_base + br_lidx;
-        hf_brval[br_gidx_start + ix] = s_to_encode[br_lidx];
+        auto p_key = s_to_encode[br_lidx];
+        auto p_val = s_book[p_key];
+        auto sym_bits = bitcount_of(&p_val);
 
-        auto p_val = p_val_ref;
+        if (sym_bits > (BITWIDTH / ShardSize)) {
+          auto br_gidx = atomicAdd(hf_brnum, 1u);
+          hf_bridx[br_gidx] = id_base + br_lidx;
+          hf_brval[br_gidx] = p_key;
+          p_val = p_val_ref;
+          sym_bits = sym_bits_ref;
+        }
+
         p_val <<= (BITWIDTH - sym_bits);
         p_reduced |= (p_val >> p_bits);
         p_bits += sym_bits * (br_lidx < allowed_len());
@@ -293,54 +311,11 @@ namespace phf {
 template <typename E, typename H, typename M>
 __global__ void KCU_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
-    int const pardeg, E* out)
+    int const pardeg, E* out, uint8_t* par_encid /* nullable: HF coarse path passes nullptr */)
 {
   extern __shared__ uint8_t s_revbook[];
 
-  constexpr auto CELL_BITWIDTH = sizeof(H) * 8;
   constexpr auto block_dim = PHF_BLOCK_DIM_DEFLATE;
-
-  auto single_thread_inflate = [&](H* input, E* out, int const total_bw) {
-    int next_bit;
-    auto idx_bit = 0, idx_byte = 0, idx_out = 0;
-    H bufr = input[idx_byte];
-    auto first = (H*)(s_revbook);
-    auto entry = first + CELL_BITWIDTH;
-    auto keys = (E*)(s_revbook + sizeof(H) * (2 * CELL_BITWIDTH));
-    H v = (bufr >> (CELL_BITWIDTH - 1)) & 0x1;  // get the first bit
-    auto l = 1, i = 0;
-
-    while (i < total_bw) {
-      while (v < first[l]) {  // append next i_cb bit
-        ++i;
-        idx_byte = i / CELL_BITWIDTH;  // [1:exclusive]
-        idx_bit = i % CELL_BITWIDTH;
-        if (idx_bit == 0) {
-          // idx_byte += 1; // [1:exclusive]
-          bufr = input[idx_byte];
-        }
-
-        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
-        v = (v << 1) | next_bit;
-        ++l;
-      }
-      out[idx_out++] = keys[entry[l] + v - first[l]];
-      {
-        ++i;
-        idx_byte = i / CELL_BITWIDTH;  // [2:exclusive]
-        idx_bit = i % CELL_BITWIDTH;
-        if (idx_bit == 0) {
-          // idx_byte += 1; // [2:exclusive]
-          bufr = input[idx_byte];
-        }
-
-        next_bit = ((bufr >> (CELL_BITWIDTH - 1 - idx_bit)) & 0x1);
-        v = 0x0 | next_bit;
-      }
-      l = 1;
-    }
-  };
-
   auto R = (revbook_nbyte - 1 + block_dim) / block_dim;
 
   for (auto i = 0; i < R; i++) {
@@ -352,7 +327,16 @@ __global__ void KCU_HF_decode(
   auto gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < pardeg) {
-    single_thread_inflate(in + par_entry[gid], out + sublen * gid, par_nbit[gid]);
+    if (par_encid != nullptr && par_encid[gid] == 1) {
+      // Incomp block: bitstream slot at par_entry[gid] holds raw E values.
+      auto raw = (E*)(in + par_entry[gid]);
+      auto dst = out + (size_t)sublen * gid;
+      for (int i = 0; i < sublen; i++) dst[i] = raw[i];
+    }
+    else {
+      phf::single_thread_inflate<E, H>(
+          in + par_entry[gid], out + (size_t)sublen * gid, s_revbook, par_nbit[gid]);
+    }
     __syncthreads();
   }
 }
@@ -482,7 +466,8 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_encode(
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
     H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
-    M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded, void* stream)
+    M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded,
+    uint8_t* in_par_encid /* nullptr for plain-HF coarse path */, void* stream)
 {
   SETUP_DIV;
   auto const block_dim = PHF_BLOCK_DIM_DEFLATE;  // = deflating
@@ -491,16 +476,17 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
   phf::KCU_HF_decode<E, H, M>                                       //
       <<<grid_dim, block_dim, revbook_len, (cudaStream_t)stream>>>  //
       (in_bitstream, in_revbook, in_par_nbit, in_par_entry, revbook_len, sublen, pardeg,
-       out_decoded);
+       out_decoded, in_par_encid);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_scatter(
-    E* val, u4* idx, const u4 h_num, E* out, void* stream)
+PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_scatter_breaks(
+    psz::HFR_PBK_Breaks<128>* sp_breaks, u4* par_brnum, u4* par_broffset,
+    int const sublen, int const pardeg, E* out, void* stream)
 {
-  SETUP_DIV;
-  auto grid_dim = div(h_num, 128);
-  phf::experimental::KCU_scatter<E, u4>
-      <<<grid_dim, 128, 0, (cudaStream_t)stream>>>(val, idx, h_num, out);
+  constexpr int block_dim = 128;
+  phf::experimental::KCU_scatter_breaks<E, psz::HFR_PBK_Breaks<128>, u4>
+      <<<pardeg, block_dim, 0, (cudaStream_t)stream>>>(
+          sp_breaks, par_brnum, par_broffset, sublen, out);
 }
 
 #undef PHF_MODULE_TPL

@@ -22,7 +22,7 @@ int main()
   assert(check_in(-1, {-2, -1, 0}, "", false));
   assert(not check_in(1, {-2, -1, 0}, "", false));
 
-  // throw_fail = false → returns bool, no throw
+  // throw_fail = false -> returns bool, no throw
   assert(not check_in(99, {1, 2, 3}, "should not throw", false));
 
   // Different integer type (size_t)

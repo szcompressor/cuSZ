@@ -11,7 +11,7 @@ add_executable(bin_pred2 src/bin_pred2.cc)
 target_link_libraries(bin_pred2 PRIVATE cusz)
 
 add_executable(bin_hf src/bin_phf.cc)
-target_link_libraries(bin_hf PRIVATE cusz CUDA::cudart CUDA::cupti)
+target_link_libraries(bin_hf PRIVATE cusz CUDA::cudart CUDA::cupti PORTABLE::testutils)
 
 add_executable(bin_hist src/bin_hist.cc)
 target_link_libraries(bin_hist PRIVATE cusz CUDA::cudart)

@@ -1,3 +1,9 @@
+# Two test layers coexist:
+#   - Below: per-kernel unit / functional tests (executable per test, asserts
+#     internally). GPU-touching tests carry RESOURCE_LOCK gpu (set at end of
+#     this file) so they serialize under `ctest -j N`.
+#   - test/cmake/cuda-test-bin_hf.cmake: bin_hf-driven matrix that exercises
+#     full codec paths on synthesized data via add_test(... COMMAND bin_hf ...).
 
 add_library(psz_cu_test_compile_settings INTERFACE)
 target_include_directories(
@@ -8,10 +14,6 @@ target_include_directories(
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../psz/src/>
 )
 
-# utils for test
-add_library(psz_cu_test_utils src/utils/rand.seq.cc src/utils/rand.cu.cc)
-target_link_libraries(psz_cu_test_utils CUDA::cudart CUDA::curand)
-
 # functionality
 add_executable(zigzag src/test_zigzag_codec.cc)
 target_link_libraries(zigzag PRIVATE psz_cu_test_compile_settings)
@@ -20,7 +22,7 @@ add_test(test_zigzag zigzag)
 # Level-1 subroutine
 add_executable(l1_compact src/test_l1_compact.cu)
 target_link_libraries(l1_compact PRIVATE psz_cu_compile_settings
-  psz_cu_test_compile_settings psz_cu_test_utils)
+  psz_cu_test_compile_settings PORTABLE::testutils)
 add_test(test_l1_compact l1_compact)
 
 # Level-2 kernel (template; unit tests)
@@ -43,13 +45,13 @@ if(PSZ_REACTIVATE_THRUSTGPU)
   add_executable(statfn src/test_statfn.cc)
   target_link_libraries(statfn
     PRIVATE psz_cu_test_compile_settings
-    psz_cu_test_utils psz_cu_mem
+    PORTABLE::testutils psz_cu_mem
   )
 else()
   add_executable(statfn src/test_statfn.cc)
   target_link_libraries(statfn
     PRIVATE psz_cu_test_compile_settings
-    psz_cu_test_utils psz_cu_mem
+    PORTABLE::testutils psz_cu_mem
     UTILS::stat_seq
   )
 endif()
@@ -59,7 +61,7 @@ target_link_libraries(stat_identical1
   PRIVATE
   psz_cu_test_compile_settings
   psz_cu_compile_settings
-  psz_cu_test_utils
+  PORTABLE::testutils
   UTILS::stat_cu
   UTILS::stat_seq
   CUDA::cudart
@@ -71,7 +73,7 @@ target_link_libraries(stat_identical2
   PRIVATE
   psz_cu_test_compile_settings
   psz_cu_compile_settings
-  psz_cu_test_utils
+  PORTABLE::testutils
   UTILS::stat_cu
   UTILS::stat_seq
   CUDA::cudart
@@ -83,7 +85,7 @@ target_link_libraries(stat_max_error
   PRIVATE
   psz_cu_test_compile_settings
   psz_cu_compile_settings
-  psz_cu_test_utils
+  PORTABLE::testutils
   UTILS::stat_cu
   UTILS::stat_seq
   CUDA::cudart

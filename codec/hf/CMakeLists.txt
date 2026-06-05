@@ -48,15 +48,30 @@ add_library(phf_cu
   src/hf_bk_impl2.seq.cc
   src/hf_bk_internal.seq.cc
   src/hf_buf.cc
+  src/hf_buf_dummy.cu
   src/hf_canon.seq.cc
   src/hf_est.cc
   src/hf_hl.cc
   src/compile/hf_kernels.cu
   src/libphf.cc
-  src/compile/rs_merge_r1.cu
-  src/compile/rs_merge_r2.cu
-  src/compile/rs_merge_r3.cu
-  src/compile/rs_merge_r4.cu
+  src/compile/hfr_r1.cu
+  src/compile/hfr_r2.cu
+  src/compile/hfr_r3.cu
+  src/compile/hfr_r4.cu
+  src/compile/hfr_concat.cu
+  src/compile/hfr_encode_r2.cu
+  src/compile/hfr_encode_r3.cu
+  src/compile/hfr_encode_r4.cu
+  src/compile/hfr-pbkc_r2.cu
+  src/compile/hfr-pbkc_r3.cu
+  src/compile/hfr-pbkc_r4.cu
+  src/compile/hfr-pbkgo_r2.cu
+  src/compile/hfr-pbkgo_r3.cu
+  src/compile/hfr-pbkgo_r4.cu
+  src/hfr-pbkc_x.cc
+  src/hfr-pbkgo_x.cc
+  src/hfr-pbk_decoder.cu
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src/book/pbk25_r128_d.cu
 )
 add_library(PHF::phf_cu ALIAS phf_cu)
 
@@ -64,6 +79,8 @@ target_include_directories(phf_cu
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../psz/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 

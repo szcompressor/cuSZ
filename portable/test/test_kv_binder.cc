@@ -18,24 +18,23 @@ struct config {
 
 int main()
 {
-  static const auto binder =
-      kv_binder<config>()
-          .number({"alpha", "intp-alpha"}, &config::alpha)
-          .number({"beta"}, &config::beta)
-          .flag({"enabled"}, &config::enabled)
-          .flag({"trace", "tr"}, &config::trace)
-          .flag_ref({"arr0"}, [](config& c) -> bool& { return c.arr[0]; })
-          .flag_ref({"arr1"}, [](config& c) -> bool& { return c.arr[1]; })
-          .custom({"mode"}, [](config& c, const std::string& v) {
-            if (v == "fast")
-              c.mode = 1;
-            else if (v == "slow")
-              c.mode = 2;
-            else
-              throw std::runtime_error("bad mode value: " + v);
-          });
+  static const auto binder = kv_binder<config>()
+                                 .number({"alpha", "intp-alpha"}, &config::alpha)
+                                 .number({"beta"}, &config::beta)
+                                 .flag({"enabled"}, &config::enabled)
+                                 .flag({"trace", "tr"}, &config::trace)
+                                 .flag_ref({"arr0"}, [](config& c) -> bool& { return c.arr[0]; })
+                                 .flag_ref({"arr1"}, [](config& c) -> bool& { return c.arr[1]; })
+                                 .custom({"mode"}, [](config& c, const std::string& v) {
+                                   if (v == "fast")
+                                     c.mode = 1;
+                                   else if (v == "slow")
+                                     c.mode = 2;
+                                   else
+                                     throw std::runtime_error("bad mode value: " + v);
+                                 });
 
-  // ── number + flag (bare key = true) ─────────────────────────────────
+  // -- number + flag (bare key = true) ---------------------------------
   {
     config c{};
     binder.bind("alpha=1.5,beta=2.0,enabled", c);
@@ -44,7 +43,7 @@ int main()
     assert(c.enabled == true);
   }
 
-  // ── flag with explicit on/off ───────────────────────────────────────
+  // -- flag with explicit on/off ---------------------------------------
   {
     config c{.enabled = true, .trace = true};
     binder.bind("enabled=off,trace=ON", c);
@@ -52,14 +51,14 @@ int main()
     assert(c.trace == true);  // ON should still mean true
   }
 
-  // ── alias resolution ────────────────────────────────────────────────
+  // -- alias resolution ------------------------------------------------
   {
     config c{};
     binder.bind("intp-alpha=3.14", c);
     assert(c.alpha == 3.14);
   }
 
-  // ── flag_ref into array element ─────────────────────────────────────
+  // -- flag_ref into array element -------------------------------------
   {
     config c{};
     binder.bind("arr0,arr1=off", c);
@@ -69,7 +68,7 @@ int main()
     assert(c.arr[3] == false);
   }
 
-  // ── custom handler ──────────────────────────────────────────────────
+  // -- custom handler --------------------------------------------------
   {
     config c{};
     binder.bind("mode=fast", c);
@@ -78,7 +77,7 @@ int main()
     assert(c.mode == 2);
   }
 
-  // ── custom handler throws on bad value ──────────────────────────────
+  // -- custom handler throws on bad value ------------------------------
   {
     config c{};
     bool   threw = false;
@@ -91,14 +90,14 @@ int main()
     assert(threw);
   }
 
-  // ── Unknown keys are silently ignored (per spec) ────────────────────
+  // -- Unknown keys are silently ignored (per spec) --------------------
   {
     config c{};
     binder.bind("unknown_key=42,alpha=1.0", c);
     assert(c.alpha == 1.0);  // alpha still set
   }
 
-  // ── Empty input is a no-op ──────────────────────────────────────────
+  // -- Empty input is a no-op ------------------------------------------
   {
     config c{.alpha = 99.0};
     binder.bind("", c);

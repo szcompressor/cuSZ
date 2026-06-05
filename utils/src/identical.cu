@@ -2,6 +2,7 @@
 
 #include "compare.hh"
 #include "cusz/type.h"
+#include "mem/cxx_backends.h"  // MAKE_UNIQUE_DEVICE, memcpy_allkinds
 
 namespace psz {
 
@@ -44,9 +45,9 @@ namespace psz::module {
 
 bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len, void* stream)
 {
-  uint32_t* result;
-  cudaMallocManaged(&result, sizeof(uint32_t));
-  *result = true;
+  auto d_result = MAKE_UNIQUE_DEVICE(uint32_t, 1);
+  uint32_t h_result = 1;  // true; kernel clears to 0 on first mismatch
+  memcpy_allkinds<H2D>(d_result.get(), &h_result, 1);
 
   constexpr int block_size = 256;
   auto const num_words = (len * sizeof_T + sizeof(uint32_t) - 1) / sizeof(uint32_t);
@@ -54,15 +55,14 @@ bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len, void* 
   if (grid_size > 65535u) grid_size = 65535u;
 
   GPU_CUHIP_identical<<<(unsigned)grid_size, block_size, 0, (cudaStream_t)stream>>>(
-      d1, d2, sizeof_T, len, result);
+      d1, d2, sizeof_T, len, d_result.get());
   auto launch_err = cudaGetLastError();
   cudaStreamSynchronize((cudaStream_t)stream);
 
-  bool host_result = (bool)*result;
-  cudaFree(result);
+  memcpy_allkinds<D2H>(&h_result, d_result.get(), 1);
 
   if (launch_err != cudaSuccess) return false;
-  return host_result;
+  return (bool)h_result;
 }
 
 }  // namespace psz::module

@@ -2,7 +2,7 @@
 
 #include "compare.hh"
 #include "cusz/type.h"
-#include "rand.hh"
+#include "utils/synth.hh"
 #include "utils/busyheader.hh"
 
 void f(szt len, u4 seed)
@@ -13,7 +13,7 @@ void f(szt len, u4 seed)
   cudaMalloc(&d_in, len * sizeof(f4));
   cudaMallocHost(&h_in, len * sizeof(f4));
 
-  psz::testutils::cu_hip::rand_array(d_in, len, seed);
+  _portable::testutils::rand_array_cu(d_in, len, seed);
   cudaMemcpy(h_in, d_in, len * sizeof(f4), cudaMemcpyDeviceToHost);
 
   auto [cpu_min, cpu_max, cpu_avg, cpu_rng] = psz::analysis::CPU_probe_extrema<f4, SEQ>(h_in, len);

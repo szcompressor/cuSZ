@@ -23,11 +23,11 @@ int f()
   cudaMallocManaged(&d_nnz, sizeof(int));
 
   // determine nnz
-  auto trials = psz::testutils::cpp::randint(len) / 1;
+  auto trials = _portable::testutils::randint(len) / 1;
 
   for (auto i = 0; i < trials; i++) {
-    auto idx = psz::testutils::cpp::randint(len);
-    a[idx] = psz::testutils::cpp::randint(INT32_MAX);
+    auto idx = _portable::testutils::randint(len);
+    a[idx] = _portable::testutils::randint(INT32_MAX);
   }
 
   // CPU counting nnz

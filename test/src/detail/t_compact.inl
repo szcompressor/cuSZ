@@ -1,6 +1,6 @@
 // Author: Jiannan Tian
 
-#include "../rand.hh"
+#include "utils/synth.hh"
 #include "cusz/type.h"
 #include "mem/cxx_sp_cpu.h"
 #include "mem/cxx_sp_gpu.h"
@@ -53,7 +53,7 @@ bool f()
 
   float* in;
   cudaMallocManaged(&in, sizeof(float) * len);
-  psz::testutils::cu_hip::rand_array(in, len);
+  _portable::testutils::rand_array_cu(in, len);
 
   compact_gpu out_test1(len / 2);
   compact_gpu out_test2(len / 2);

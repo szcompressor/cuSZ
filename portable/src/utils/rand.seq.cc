@@ -1,13 +1,12 @@
 // Author: Jiannan Tian
 
-#include "../rand.hh"
+#include "utils/synth.hh"
 
 #include <iostream>
 #include <random>
 
-namespace psz {
+namespace _portable {
 namespace testutils {
-namespace cpp {
 
 int randint(size_t upper_limit)
 {
@@ -30,13 +29,13 @@ T randfp(T upper_limit, T lower_limit)
 }
 
 template <>
-void rand_array<int>(int* array, size_t len)
+void rand_array_cpp<int>(int* array, size_t len)
 {
   for (auto i = 0; i < len; i++) { array[i] = randint(1000); }
 }
 
 template <>
-void rand_array<float>(float* array, size_t len)
+void rand_array_cpp<float>(float* array, size_t len)
 {
   for (auto i = 0; i < len / 2; i++) {
     auto idx = randint(len);
@@ -45,7 +44,7 @@ void rand_array<float>(float* array, size_t len)
 }
 
 template <>
-void rand_array<double>(double* array, size_t len)
+void rand_array_cpp<double>(double* array, size_t len)
 {
   for (auto i = 0; i < len / 5; i++) {
     auto idx = randint(len);
@@ -53,9 +52,8 @@ void rand_array<double>(double* array, size_t len)
   }
 }
 
-}  // namespace cpp
 }  // namespace testutils
-}  // namespace psz
+}  // namespace _portable
 
-template float psz::testutils::cpp::randfp<float>(float, float);
-template double psz::testutils::cpp::randfp<double>(double, double);
+template float _portable::testutils::randfp<float>(float, float);
+template double _portable::testutils::randfp<double>(double, double);

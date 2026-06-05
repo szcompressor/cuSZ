@@ -9,8 +9,12 @@ target_include_directories(
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -std=c++17")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lmkl_sycl -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core")
 
-# utils for test
-add_library(psztest_utils_dp src/utils/rand.seq.cc src/utils/rand.dp.cpp)
+# utils for test (sources relocated to portable/src/utils/)
+add_library(psztest_utils_dp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../portable/src/utils/rand.seq.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/../portable/src/utils/rand.dp.cpp)
+target_include_directories(psztest_utils_dp PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../portable/include)
 target_link_libraries(psztest_utils_dp)
 
 # testing sp vector

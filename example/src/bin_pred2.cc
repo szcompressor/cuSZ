@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 
   // bin_pred2 is the single-predictor microbench. If the user asked for a
   // spl-vN target with --cross-check, point them at bin_pred_xv (the
-  // dedicated driver that handles the v1↔vN comparison).
+  // dedicated driver that handles the v1<->vN comparison).
   if (args.do_cross_check) {
     fprintf(stderr,
             "[pred-study] --cross-check is now bin_pred_xv (a separate driver).\n"

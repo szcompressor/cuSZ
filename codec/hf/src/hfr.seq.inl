@@ -2,9 +2,9 @@
 #include <iostream>
 
 #include "hf_impl.hh"
+#include "hfr.hh"
 #include "mem/cxx_sp_cpu.h"
 #include "mem/cxx_sp_gpu.h"
-#include "rs_merge.hh"
 
 using namespace std;
 
@@ -42,12 +42,12 @@ namespace phf {
 
 template <typename C>
 void KERNEL_SEQ_HFReVISIT_encode(
-    typename C::T* in, u4 inlen,               // input data and length
-    typename C::Hf* dram_book, u4 bklen,       // Huffman codebook and its length
-    typename C::Hf alt_code, u4 alt_bitcount,  // alternative code for breaking points
-    typename C::Hf* dn_out, u4* dn_bitcount,   // dense output and bit counts
-    u4* dn_start_loc, u4* loc_inc,             // dense start locations
-    void* sp_val_idx, u4* sp_count             // sparse outputs
+    typename C::T* in, u4 inlen,                    // input data and length
+    typename C::Hf* dram_book, u4 bklen,            // Huffman codebook and its length
+    typename C::Hf alt_code, u4 alt_bitcount,       // alternative code for breaking points
+    typename C::Hf* dn_bitstream, u4* dn_bitcount,  // dense output and bit counts
+    u4* dn_start_loc, u4* loc_inc,                  // dense start locations
+    void* sp_val_idx, u4* sp_count                  // sparse outputs
 )
 {
   using T = typename C::T;
@@ -114,9 +114,6 @@ void KERNEL_SEQ_HFReVISIT_encode(
           }
           *sp_count += C::ShardSize;
         }
-        //
-        // cout << thread_idx << "\t" << bitset<32>(reduced[thread_idx])
-        //      << "\tbc=" << bitcount[thread_idx] << endl;
       }
       //
     };
@@ -145,10 +142,6 @@ void KERNEL_SEQ_HFReVISIT_encode(
           this_point = reduced[thread_idx];
           lsym = this_point >> used___bits;
           rsym = this_point << unused_bits;
-
-          // if (thread_idx >= r and thread_idx < r + stride)
-          //   std::cout << "CPU Thread idx: " << thread_idx << ", l: " << l << ", r: " << r
-          //             << ", lsym: " << lsym << ", rsym: " << rsym << std::endl;
         }
 
         PARFOR1_BLOCK_RSMERGE()
@@ -185,7 +178,7 @@ void KERNEL_SEQ_HFReVISIT_encode(
         {
           if (thread_idx < n_cell) {
             auto dram_addr = C::ChunkSize * block_idx + thread_idx;
-            dn_out[dram_addr] = reduced[thread_idx];
+            dn_bitstream[dram_addr] = reduced[thread_idx];
           }
         }
         dn_bitcount[block_idx] = bc_this_block;
@@ -198,7 +191,7 @@ void KERNEL_SEQ_HFReVISIT_encode(
         PARFOR1_BLOCK_RSMERGE()
         {
           // ceil(bitcount / bits_of(Hf)) cannot be greater than blockDim.x
-          if (thread_idx < n_cell) dn_out[start_loc + thread_idx] = reduced[thread_idx];
+          if (thread_idx < n_cell) dn_bitstream[start_loc + thread_idx] = reduced[thread_idx];
         }
 
         // TODO change dn_bitcount to uint16_t*
@@ -231,7 +224,7 @@ void CPU_HFReVISIT_encode(
     T* in, const size_t len, phf::book<typename C::Hf> book, phf::dense<typename C::Hf> dn,
     void* _sp)
 {
-  // using C = HFReVISIT_config<T, Magnitude, ReduceTimes, Hf>;
+  // using C = HFR_Config<T, Magnitude, ReduceTimes, Hf>;
 
   constexpr auto nthread = 1 << C::ShuffleTimes;
   auto slab_size = C::ChunkSize;
@@ -250,9 +243,6 @@ void CPU_HFReVISIT_encode(
     printf("dn.out: %p\n", static_cast<void*>(dn.encoded));
     printf("dn.bitcount: %p\n", static_cast<void*>(dn.chunk_nbit));
     printf("dn.start_loc: %p\n", static_cast<void*>(dn.chunk_loc));
-    // printf("sp.val: %p\n", static_cast<void*>(sp->val()));
-    // printf("sp.idx: %p\n", static_cast<void*>(sp->idx()));
-    // printf("sp.num: %p\n", static_cast<void*>(sp->num()));
   }
 
   phf::KERNEL_SEQ_HFReVISIT_encode<C>(
@@ -273,10 +263,6 @@ void CPU_HFReVISIT_encode(
 #undef lsym
 #undef rsym
 
-// #define __INSTANTIATE_RSMERGE_4(T, MAG, RED, SCAN)                    \
-//   template void phf::module::CPU_HFReVISIT_encode<T, MAG, RED, SCAN>( \
-//       phf::array<T> in, phf::book<u4> book, phf::dense<u4> dn, phf::sparse<T> sp);
-
 // // TODO disable u4
 // #define __INSTANTIATE_RSMERGE_3(MAG, RED, SCAN) \
 //   __INSTANTIATE_RSMERGE_4(u4, MAG, RED, SCAN)   \
@@ -293,7 +279,3 @@ void CPU_HFReVISIT_encode(
 //   __INSTANTIATE_RSMERGE_3(7, RED, SCAN)    \
 //   __INSTANTIATE_RSMERGE_3(6, RED, SCAN)    \
 //   __INSTANTIATE_RSMERGE_3(5, RED, SCAN)
-
-// #define __INSTANTIATE_RSMERGE_1(RED)  \
-//   __INSTANTIATE_RSMERGE_2(RED, false) \
-//   __INSTANTIATE_RSMERGE_2(RED, true)

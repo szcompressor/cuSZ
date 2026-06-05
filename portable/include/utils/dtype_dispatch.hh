@@ -14,7 +14,9 @@ namespace _portable::utils {
 
 // Lightweight type tag — C++17 compatible substitute for std::type_identity.
 template <typename T>
-struct type_tag { using type = T; };
+struct type_tag {
+  using type = T;
+};
 
 // Dispatch on _portable_dtype at runtime, invoking the registered handler.
 //
@@ -26,16 +28,16 @@ struct type_tag { using type = T; };
 //
 // T in .on<T, E> is passed as a type_tag to the lambda — use it to
 // derive the concrete type inside the handler without duplicating
-// the enum→type mapping at every call site.
+// the enum->type mapping at every call site.
 
 class dtype_dispatch {
   using fn_t = std::function<void()>;
 
   std::vector<std::pair<_portable_dtype, fn_t>> handlers_;
 
-public:
+ public:
   // Register a handler for dtype enum value E.
-  // T must be a floating-point type matching E (e.g. float ↔ F4).
+  // T must be a floating-point type matching E (e.g. float <-> F4).
   // The lambda receives type_tag<T>{} as its sole argument.
   template <typename T, _portable_dtype E, typename Fn>
   dtype_dispatch&& on(Fn&& fn)
@@ -50,7 +52,10 @@ public:
   bool call(_portable_dtype dtype) const
   {
     for (auto& [e, fn] : handlers_)
-      if (e == dtype) { fn(); return true; }
+      if (e == dtype) {
+        fn();
+        return true;
+      }
     return false;
   }
 };

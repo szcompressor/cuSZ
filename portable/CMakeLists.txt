@@ -31,6 +31,24 @@ target_include_directories(PORTABLE
 )
 
 # ------------------------------------------------------------------------------
+# Compiled test-data utilities (PORTABLE::testutils): rand_array_* (cuRAND) +
+# the Synth generator. Separate from the header-only PORTABLE target.
+# ------------------------------------------------------------------------------
+
+add_library(portable_testutils
+  src/utils/rand.seq.cc
+  src/utils/rand.cu.cc
+  src/utils/synth.cc
+)
+add_library(PORTABLE::testutils ALIAS portable_testutils)
+target_link_libraries(portable_testutils
+  PUBLIC
+    PORTABLE
+    CUDA::cudart
+    CUDA::curand
+)
+
+# ------------------------------------------------------------------------------
 # Installation + package config
 # ------------------------------------------------------------------------------
 

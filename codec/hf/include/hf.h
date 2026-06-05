@@ -32,9 +32,13 @@ typedef enum { HF_U1, HF_U2, HF_U4, HF_U8, HF_ULL, HF_INVALID } phf_dtype;
 #define PHFHEADER_PAR_NBIT 2
 #define PHFHEADER_PAR_ENTRY 3
 #define PHFHEADER_BITSTREAM 4
-#define PHFHEADER_SP_VAL 5  // HFR: sp break val
-#define PHFHEADER_SP_IDX 6  // HFR: sp break idx
-#define PHFHEADER_END 7
+#define PHFHEADER_PAR_BRNUM 5
+#define PHFHEADER_PAR_BROFFSET 6
+#define PHFHEADER_SP_BREAKS 7
+#define PHFHEADER_PAR_ENCID 8
+#define PHFHEADER_PBK_HEADERS 9
+#define PHFHEADER_HF_REV2_HEADER 10
+#define PHFHEADER_END 11
 
 typedef u4 PHF_METADATA;
 typedef u1 PHF_BIN;
@@ -45,7 +49,7 @@ typedef struct {
   int sublen, pardeg;
   size_t original_len;
   size_t total_nbit, total_ncell;  // TODO change to u4
-  u4 brnum;                        // HFR: number of sp break tuples; 0 for HF
+  u4 brnum;
   u4 entry[PHFHEADER_END + 1];
 } phf_header;
 

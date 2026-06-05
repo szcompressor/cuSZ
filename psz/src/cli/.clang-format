@@ -18,5 +18,5 @@ AlignConsecutiveBitFields:
 
 # Patterns that require // clang-format off/on guards (not automatable):
 #   - Chained method-call argument columns (ArgBuilder / KvBinder declarations)
-#   - Function return-type → name column alignment (CLI_x, CLI_y, ... accessors)
+#   - Function return-type -> name column alignment (CLI_x, CLI_y, ... accessors)
 #     clang-format AlignConsecutiveDeclarations covers variables, not functions.

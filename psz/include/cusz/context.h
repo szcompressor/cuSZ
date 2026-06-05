@@ -42,6 +42,9 @@ struct psz_cli_config {
   bool report_time;
   bool report_cr;
   bool verbose;
+
+  // HFR family reduce-merge pass count (--rmerge-count, 2|3|4); encode-only.
+  int hfr_rmerge_count;
 };
 typedef psz_cli_config psz_cli_config;
 

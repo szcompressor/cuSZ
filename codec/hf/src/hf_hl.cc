@@ -1,9 +1,20 @@
 #include "hf_hl.hh"
 
+#include <type_traits>
+#include <vector>
+
 #include "hf_buf.hh"
 #include "hf_impl.hh"
+#include "hfr-pbk.hh"
+#include "hfr-pbk_decoder.hh"
+#include "hfr.hh"
 #include "mem/cxx_backends.h"
-#include "rs_merge.hh"
+
+#define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
+
+// device-side prebuilt {book, reverse}: accessors (pbk25_r128_d.cu).
+extern "C" void* pbk25_r128_book_d_ptr();
+extern "C" void* pbk25_r128_rvbk_d_ptr();
 
 using H4 = u4;
 using M = PHF_METADATA;
@@ -13,6 +24,516 @@ namespace phf {
 template <typename E>
 using phf_module = cuhip::modules<E, H4>;
 
+namespace dispatch {
+
+template <typename E>
+int encode_hf(
+    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream)
+{
+  phf_module<E>::GPU_coarse_encode(
+      in, len, buf->book_d(), buf->rt_bklen(), buf->numSMs(), {buf->sublen(), buf->pardeg()},
+      buf->scratch_d(), buf->par_nbit_d(), buf->par_nbit_h(), buf->par_ncell_d(),
+      buf->par_ncell_h(), buf->par_entry_d(), buf->par_entry_h(), buf->bitstream_d(),
+      buf->bitstream_max_len(), &header.total_nbit, &header.total_ncell, stream);
+
+  sync_by_stream(stream);
+
+  {
+    M nbyte[PHFHEADER_END];
+    buf->update_header(header);
+    buf->calc_offset(header, nbyte);
+  }
+  buf->memcpy_merge(header, stream);
+
+  *out = buf->encoded_d();
+  *outlen = phf_encoded_bytes(&header);
+  return 0;
+}
+
+// Huffman_rev1: same ph1+ph2 as encode_hf, then LAGO-concat replaces ph3+ph4.
+template <typename E>
+int encode_hf_rev1(
+    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream, float* opt_ms_encoder, float* opt_ms_lago)
+{
+  constexpr int ConcatBlockDim = 128;
+  using Concat = phf::concat_via_scatter_ppc<ConcatBlockDim>;
+  const phf::par_config hfpar{buf->sublen(), buf->pardeg()};
+
+  const bool want_timing = opt_ms_encoder or opt_ms_lago;
+  auto e0 = (cudaEvent_t)buf->timing_event(0);
+  auto e1 = (cudaEvent_t)buf->timing_event(1);
+  auto e2 = (cudaEvent_t)buf->timing_event(2);
+  if (want_timing) cudaEventRecord(e0, (cudaStream_t)stream);
+
+  phf_module<E>::GPU_coarse_enc_ph1(
+      in, len, buf->book_d(), buf->rt_bklen(), buf->numSMs(), buf->scratch_d(), stream);
+  phf_module<E>::GPU_coarse_enc_ph2(
+      buf->scratch_d(), len, hfpar, buf->scratch_d(), buf->par_nbit_d(), buf->par_ncell_d(),
+      stream);
+
+  if (want_timing) cudaEventRecord(e1, (cudaStream_t)stream);
+
+  Concat::GPU_kernel(
+      buf->par_ncell_d(), buf->par_entry_d(), (u4 const*)buf->scratch_d(), (u4*)buf->bitstream_d(),
+      (u4)hfpar.sublen, (int)hfpar.pardeg, buf->scan_partial_aggregate_d(),
+      buf->scan_incl_prefix_d(), buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+
+  if (want_timing) cudaEventRecord(e2, (cudaStream_t)stream);
+
+  phf::module::reduce_total_nbit::GPU_kernel(
+      buf->par_nbit_d(), (u4)hfpar.pardeg, buf->total_nbit_d(), stream);
+
+  u4 h_total_ncell = 0, h_total_nbit = 0;
+  memcpy_allkinds_async<D2H>(&h_total_ncell, buf->total_ncell_d(), 1, stream);
+  memcpy_allkinds_async<D2H>(&h_total_nbit, buf->total_nbit_d(), 1, stream);
+  memcpy_allkinds_async<D2H>(buf->par_entry_h(), buf->par_entry_d(), hfpar.pardeg, stream);
+  sync_by_stream(stream);
+
+  header.total_ncell = h_total_ncell;
+  header.total_nbit = h_total_nbit;
+  header.brnum = 0;
+
+  {
+    M nbyte[PHFHEADER_END];
+    buf->update_header(header);
+    buf->calc_offset(header, nbyte);
+  }
+  buf->memcpy_merge(header, stream);
+
+  *out = buf->encoded_d();
+  *outlen = phf_encoded_bytes(&header);
+
+  if (want_timing) {
+    if (opt_ms_encoder) cudaEventElapsedTime(opt_ms_encoder, e0, e1);
+    if (opt_ms_lago) cudaEventElapsedTime(opt_ms_lago, e1, e2);
+  }
+  return 0;
+}
+
+// Huffman_rev2: as _r1, with per-block metadata as AoS bheader_backport[].
+template <typename E>
+int encode_hf_rev2(
+    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream, float* opt_ms_encoder, float* opt_ms_lago)
+{
+  constexpr int ConcatBlockDim = 128;
+  using Concat = phf::concat_via_scatter_ppc<ConcatBlockDim>;
+  const phf::par_config hfpar{buf->sublen(), buf->pardeg()};
+
+  const bool want_timing = opt_ms_encoder or opt_ms_lago;
+  auto e0 = (cudaEvent_t)buf->timing_event(0);
+  auto e1 = (cudaEvent_t)buf->timing_event(1);
+  auto e2 = (cudaEvent_t)buf->timing_event(2);
+  if (want_timing) cudaEventRecord(e0, (cudaStream_t)stream);
+
+  phf_module<E>::GPU_coarse_enc_ph1(
+      in, len, buf->book_d(), buf->rt_bklen(), buf->numSMs(), buf->scratch_d(), stream);
+  phf_module<E>::GPU_coarse_enc_ph2(
+      buf->scratch_d(), len, hfpar, buf->scratch_d(), buf->par_nbit_d(), buf->par_ncell_d(),
+      stream);
+
+  if (want_timing) cudaEventRecord(e1, (cudaStream_t)stream);
+
+  Concat::GPU_kernel(
+      buf->par_ncell_d(), buf->par_entry_d(), (u4 const*)buf->scratch_d(), (u4*)buf->bitstream_d(),
+      (u4)hfpar.sublen, (int)hfpar.pardeg, buf->scan_partial_aggregate_d(),
+      buf->scan_incl_prefix_d(), buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+
+  if (want_timing) cudaEventRecord(e2, (cudaStream_t)stream);
+
+  phf::module::reduce_total_nbit::GPU_kernel(
+      buf->par_nbit_d(), (u4)hfpar.pardeg, buf->total_nbit_d(), stream);
+
+  phf::module::pack_bheader_backport::GPU_kernel(
+      buf->par_nbit_d(), buf->par_entry_d(), buf->hf_rev2_header_d(), (int)hfpar.pardeg,
+      (int)sizeof(H4), stream);
+
+  u4 h_total_ncell = 0, h_total_nbit = 0;
+  memcpy_allkinds_async<D2H>(&h_total_ncell, buf->total_ncell_d(), 1, stream);
+  memcpy_allkinds_async<D2H>(&h_total_nbit, buf->total_nbit_d(), 1, stream);
+  memcpy_allkinds_async<D2H>(buf->par_entry_h(), buf->par_entry_d(), hfpar.pardeg, stream);
+  sync_by_stream(stream);
+
+  header.total_ncell = h_total_ncell;
+  header.total_nbit = h_total_nbit;
+  header.brnum = 0;
+
+  buf->set_use_hf_rev2_header(true);
+
+  {
+    M nbyte[PHFHEADER_END];
+    buf->update_header(header);
+    buf->calc_offset(header, nbyte);
+  }
+  buf->memcpy_merge(header, stream);
+
+  *out = buf->encoded_d();
+  *outlen = phf_encoded_bytes(&header);
+
+  if (want_timing) {
+    if (opt_ms_encoder) cudaEventElapsedTime(opt_ms_encoder, e0, e1);
+    if (opt_ms_lago) cudaEventElapsedTime(opt_ms_lago, e1, e2);
+  }
+  return 0;
+}
+
+template <typename E>
+int decode_hf(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
+{
+  // HFR: dispatch per-block on enc_id (incomp blocks vs standard inflate).
+  uint8_t* par_encid_ptr =
+      (header.entry[PHFHEADER_PAR_ENCID + 1] - header.entry[PHFHEADER_PAR_ENCID] > 0)
+          ? PHF_ACCESSOR(PAR_ENCID, uint8_t)
+          : nullptr;
+  phf_module<E>::GPU_coarse_decode(
+      PHF_ACCESSOR(BITSTREAM, H4), PHF_ACCESSOR(RVBK, PHF_BYTE), buf->rvbk_bytes(),
+      PHF_ACCESSOR(PAR_NBIT, M), PHF_ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg,
+      out_decoded, par_encid_ptr, stream);
+
+  if (header.brnum > 0) {
+    phf_module<E>::GPU_scatter_breaks(
+        PHF_ACCESSOR(SP_BREAKS, psz::HFR_PBK_Breaks<128>), PHF_ACCESSOR(PAR_BRNUM, u4),
+        PHF_ACCESSOR(PAR_BROFFSET, u4), header.sublen, header.pardeg, out_decoded, stream);
+  }
+  return 0;
+}
+
+template <typename E>
+int decode_hf_rev2(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
+{
+  // Unpack AoS bheader_backport[] -> par_nbit / par_entry, then GPU_coarse_decode.
+  auto packed = reinterpret_cast<u4 const*>(in_encoded + header.entry[PHFHEADER_HF_REV2_HEADER]);
+  phf::module::unpack_bheader_backport::GPU_kernel(
+      packed, buf->par_nbit_d(), buf->par_entry_d(), (int)header.pardeg, (int)sizeof(H4), stream);
+
+  phf_module<E>::GPU_coarse_decode(
+      reinterpret_cast<H4*>(in_encoded + header.entry[PHFHEADER_BITSTREAM]),
+      reinterpret_cast<PHF_BYTE*>(in_encoded + header.entry[PHFHEADER_RVBK]), buf->rvbk_bytes(),
+      buf->par_nbit_d(), buf->par_entry_d(), header.sublen, header.pardeg, out_decoded,
+      /*par_encid=*/nullptr, stream);
+  return 0;
+}
+
+}  // namespace dispatch
+
+// Shared encode pipeline for HFR-v2 / PBKC / PBKGO.
+template <typename E, typename LaunchEnc, typename LaunchAggregate>
+static int _HFR_common_enc(
+    Buf<E>* buf, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream, LaunchEnc&& launch_encode, LaunchAggregate&& launch_aggregate,
+    float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr)
+{
+  using K = psz::HFR_PBK_Constants;
+  buf->register_runtime_bklen(K::MaxDictsize);
+
+  const bool want_timing = opt_ms_encoder or opt_ms_lago;
+  auto e0 = (cudaEvent_t)buf->timing_event(0);
+  auto e1 = (cudaEvent_t)buf->timing_event(1);
+  auto e2 = (cudaEvent_t)buf->timing_event(2);
+  if (want_timing) cudaEventRecord(e0, (cudaStream_t)stream);
+
+  launch_encode(buf->pbk_headers_d());
+
+  if (want_timing) cudaEventRecord(e1, (cudaStream_t)stream);
+
+  launch_aggregate();
+
+  if (want_timing) cudaEventRecord(e2, (cudaStream_t)stream);
+
+  u4 h_total_ncell = 0;
+  memcpy_allkinds_async<D2H>(&h_total_ncell, buf->total_ncell_d(), 1, stream);
+  sync_by_stream(stream);
+
+  header.total_ncell = h_total_ncell;
+  header.total_nbit = 0;
+
+  {
+    M nbyte[PHFHEADER_END];
+    buf->update_header(header);
+    buf->calc_offset(header, nbyte);
+  }
+  buf->memcpy_merge(header, stream);
+
+  *out = buf->encoded_d();
+  *outlen = phf_encoded_bytes(&header);
+
+  if (want_timing) {
+    if (opt_ms_encoder) cudaEventElapsedTime(opt_ms_encoder, e0, e1);
+    if (opt_ms_lago) cudaEventElapsedTime(opt_ms_lago, e1, e2);
+  }
+  return 0;
+}
+
+namespace dispatch {
+
+// HFR v2: PBKC-backport, but with single runtime-built book instread of pbk
+template <typename E>
+int encode_hfr_v2(
+    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
+{
+  const int reduce_times = opts.reduce_times;
+  const RMerge rm = opts.rm;
+  const SMerge sm = opts.sm;
+  if constexpr (sizeof(E) > 2) {
+    (void)buf;
+    (void)in;
+    (void)len;
+    (void)out;
+    (void)outlen;
+    (void)header;
+    (void)stream;
+    (void)opt_ms_encoder;
+    (void)opt_ms_lago;
+    (void)reduce_times;
+    (void)rm;
+    (void)sm;
+    return PHF_NOT_IMPLEMENTED;
+  }
+  else {
+    constexpr int ConcatBlockDim = 128;
+    using K = psz::HFR_PBK_Constants;
+    using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
+    buf->set_omit_runtime_rvbk(false);  // HFR ships runtime rvbk in archive.
+    const size_t pardeg = (len - 1) / K::BlockSize + 1;
+    auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* hdrs) {
+      using Enc = phf::module::HFR_encoder<E, K::Magnitude, RT>;
+      Enc::template GPU_kernel_v2<K::Radius>(
+          in, len, buf->book_d(), buf->bitstream_d(), hdrs, stream, rm, sm);
+    };
+    auto launch_aggregate = [&]() {
+      ConcatFuture::GPU_kernel(
+          buf->pbk_headers_d(), buf->par_entry_d(), buf->bitstream_d(), buf->packed_d(),
+          buf->pbk_packed_headers_d(), (u4)sizeof(H4), (u4)K::StridePerBlockWords, (int)pardeg,
+          buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
+          buf->total_ncell_d(), stream);
+    };
+    switch (reduce_times) {
+      case 2:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      case 3:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      case 4:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      default: return PHF_NOT_IMPLEMENTED;
+    }
+  }
+}
+
+template <typename E>
+int encode_hfr_pbkc(
+    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
+{
+  const int reduce_times = opts.reduce_times;
+  const RMerge rm = opts.rm;
+  const SMerge sm = opts.sm;
+  if constexpr (sizeof(E) > 2) {
+    (void)buf;
+    (void)in;
+    (void)len;
+    (void)out;
+    (void)outlen;
+    (void)header;
+    (void)stream;
+    (void)opt_ms_encoder;
+    (void)opt_ms_lago;
+    (void)reduce_times;
+    (void)rm;
+    (void)sm;
+    return PHF_NOT_IMPLEMENTED;
+  }
+  else {
+    constexpr int ConcatBlockDim = 128;
+    using K = psz::HFR_PBK_Constants;
+    using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
+    buf->set_omit_runtime_rvbk(true);
+    const size_t pardeg = (len - 1) / K::BlockSize + 1;
+    auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* hdrs) {
+      using Enc = phf::module::HFR_PBKC_encode<E, K::Magnitude, RT, H4, K::Radius>;
+      Enc::GPU_kernel(
+          in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), hdrs, stream, rm, sm);
+    };
+    auto launch_aggregate = [&]() {
+      ConcatFuture::GPU_kernel(
+          buf->pbk_headers_d(), buf->par_entry_d(), buf->bitstream_d(), buf->packed_d(),
+          buf->pbk_packed_headers_d(), (u4)sizeof(H4), (u4)K::StridePerBlockWords, (int)pardeg,
+          buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
+          buf->total_ncell_d(), stream);
+    };
+    switch (reduce_times) {
+      case 2:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      case 3:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      case 4:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      default: return PHF_NOT_IMPLEMENTED;
+    }
+  }
+}
+
+template <typename E>
+int encode_hfr_pbkgo(
+    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
+    HF_STREAM stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
+{
+  const int reduce_times = opts.reduce_times;
+  const RMerge rm = opts.rm;
+  const SMerge sm = opts.sm;
+  if constexpr (sizeof(E) > 2) {
+    (void)buf;
+    (void)in;
+    (void)len;
+    (void)out;
+    (void)outlen;
+    (void)header;
+    (void)stream;
+    (void)opt_ms_encoder;
+    (void)opt_ms_lago;
+    (void)reduce_times;
+    (void)rm;
+    (void)sm;
+    return PHF_NOT_IMPLEMENTED;
+  }
+  else {
+    using K = psz::HFR_PBK_Constants;
+    buf->set_omit_runtime_rvbk(true);
+    buf->set_use_pbkgo(true);
+    auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* /*unused*/) {
+      using Enc = phf::module::HFR_PBKGO_encode<E, K::Magnitude, RT, H4, K::Radius>;
+      Enc::GPU_kernel(
+          in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), buf->pbk_packed_headers_d(),
+          buf->total_ncell_d(), buf->pbkgo_state_d(), buf->pbkgo_max_resident_blocks(), stream, rm,
+          sm);
+    };
+    auto launch_aggregate = []() { /* no-op: encoder emitted everything */ };
+    switch (reduce_times) {
+      case 2:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      case 3:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      case 4:
+        return _HFR_common_enc(
+            buf, len, out, outlen, header, stream,
+            [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
+            opt_ms_encoder, opt_ms_lago);
+      default: return PHF_NOT_IMPLEMENTED;
+    }
+  }
+}
+
+template <typename E>
+int decode_hfr_pbkc(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
+{
+  if constexpr (sizeof(E) > 2) {
+    (void)buf;
+    (void)header;
+    (void)in_encoded;
+    (void)out_decoded;
+    (void)stream;
+    return PHF_NOT_IMPLEMENTED;
+  }
+  else {
+    using K = psz::HFR_PBK_Constants;
+    // FIXME hoist to HFR_PBK_Constants once decoder side is templated
+    constexpr int RvbkBytesPerBook = 512;
+    using BreakCell = psz::HFR_PBK_Breaks<K::Radius>;
+
+    const size_t pardeg = header.pardeg;
+
+    auto bs_ptr = reinterpret_cast<H4*>(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
+    auto rvbk_ptr = reinterpret_cast<uint8_t*>(pbk25_r128_rvbk_d_ptr());
+    auto packed_headers =
+        reinterpret_cast<uint32_t const*>(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
+    phf::module::HFR_PBK_decoder<E, H4>::GPU_kernel(
+        bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, RvbkBytesPerBook, packed_headers,
+        (int)pardeg, header.original_len, out_decoded, stream);
+
+    if (header.brnum > 0) {
+      auto sp_breaks =
+          reinterpret_cast<BreakCell*>(in_encoded + header.entry[PHFHEADER_SP_BREAKS]);
+      auto par_brnum = reinterpret_cast<u4*>(in_encoded + header.entry[PHFHEADER_PAR_BRNUM]);
+      auto par_broffset = reinterpret_cast<u4*>(in_encoded + header.entry[PHFHEADER_PAR_BROFFSET]);
+      phf_module<E>::GPU_scatter_breaks(
+          sp_breaks, par_brnum, par_broffset, header.sublen, header.pardeg, out_decoded, stream);
+    }
+
+    sync_by_stream(stream);
+    return 0;
+  }
+}
+
+// HFR v2 decode: HFR_PBK_decoder against the runtime rvbk; KStorage=E.
+template <typename E>
+int decode_hfr_v2(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
+{
+  if constexpr (sizeof(E) > 2) {
+    (void)buf;
+    (void)header;
+    (void)in_encoded;
+    (void)out_decoded;
+    (void)stream;
+    return PHF_NOT_IMPLEMENTED;
+  }
+  else {
+    const size_t pardeg = header.pardeg;
+
+    auto bs_ptr = (H4*)(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
+    auto rvbk_ptr = (uint8_t*)(in_encoded + header.entry[PHFHEADER_RVBK]);
+    const int rvbk_bytes = (int)(header.entry[PHFHEADER_RVBK + 1] - header.entry[PHFHEADER_RVBK]);
+    auto packed_headers = (uint32_t const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
+
+    phf::module::HFR_PBK_decoder<E, H4, E>::GPU_kernel(
+        bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, rvbk_bytes, packed_headers, (int)pardeg,
+        header.original_len, out_decoded, stream);
+
+    sync_by_stream(stream);
+    return 0;
+  }
+}
+
+template <typename E>
+int decode_hfr_pbkgo(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
+{
+  return decode_hfr_pbkc<E>(buf, header, in_encoded, out_decoded, stream);
+}
+
+#undef PHF_ACCESSOR
+
+}  // namespace dispatch
+
 template <typename E>
 int high_level<E>::build_book(phf::Buf<E>* buf, u4* h_hist, u2 const rt_bklen, HF_STREAM stream)
 {
@@ -20,148 +541,82 @@ int high_level<E>::build_book(phf::Buf<E>* buf, u4* h_hist, u2 const rt_bklen, H
 
   phf_CPU_build_canonized_codebook_v2<E, H4>(
       h_hist, rt_bklen, buf->book_h(), buf->rvbk_h(), buf->rvbk_bytes());
+  // clang-format off
   memcpy_allkinds_async<H2D>(buf->book_d(), buf->book_h(), rt_bklen, (cudaStream_t)stream);
-
-  // TODO duplicate memory copy
-  memcpy_allkinds_async<H2D>(
-      buf->rvbk_d(), buf->rvbk_h(), buf->rvbk_bytes(), (cudaStream_t)stream);
-
+  memcpy_allkinds_async<H2D>(buf->rvbk_d(), buf->rvbk_h(), buf->rvbk_bytes(), (cudaStream_t)stream);
+  // clang-format on
   return 0;
 }
 
 template <typename E>
-int high_level<E>::encode(
+int high_level<E>::HF_encode(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
-    HF_STREAM stream)
+    HF_STREAM stream, psz_codec variant, float* opt_ms_encoder, float* opt_ms_lago)
 {
-  phf_module<E>::GPU_coarse_encode(
-      in, len, buf->book_d(), buf->rt_bklen(), buf->numSMs(), {buf->sublen(), buf->pardeg()},
-      // internal buffers
-      buf->scratch_d(), buf->par_nbit_d(), buf->par_nbit_h(), buf->par_ncell_d(),
-      buf->par_ncell_h(), buf->par_entry_d(), buf->par_entry_h(), buf->bitstream_d(),
-      buf->bitstream_max_len(),
-      // output
-      &header.total_nbit, &header.total_ncell, stream);
-
-  sync_by_stream(stream);
-
-  {  // make metadata
-    M nbyte[PHFHEADER_END];
-    buf->update_header(header);
-    buf->calc_offset(header, nbyte);
+  switch (variant) {
+    case Huffman:
+      (void)opt_ms_encoder;
+      (void)opt_ms_lago;
+      return dispatch::encode_hf<E>(buf, in, len, out, outlen, header, stream);
+    case Huffman_rev1:
+      return dispatch::encode_hf_rev1<E>(
+          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
+    case Huffman_rev2:
+      return dispatch::encode_hf_rev2<E>(
+          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
+    default: return PHF_NOT_IMPLEMENTED;
   }
-
-  buf->memcpy_merge(header, stream);  // TODO externalize/make explicit
-
-  *out = buf->encoded_d();
-  *outlen = phf_encoded_bytes(&header);
-
-  return 0;
 }
 
 template <typename E>
-int high_level<E>::encode_HFR(
+int high_level<E>::HF_decode(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream,
+    psz_codec variant)
+{
+  // Huffman{,_r1}: same layout, so same decoder
+  switch (variant) {
+    case Huffman:
+    case Huffman_rev1: return dispatch::decode_hf<E>(buf, header, in_encoded, out_decoded, stream);
+    case Huffman_rev2:
+      return dispatch::decode_hf_rev2<E>(buf, header, in_encoded, out_decoded, stream);
+    default: return PHF_NOT_IMPLEMENTED;
+  }
+}
+
+template <typename E>
+int high_level<E>::HFR_encode(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
-    phf_stream_t stream)
+    HF_STREAM stream, psz_codec variant, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  // Default configuration: ChunkSize=1024 (Magnitude=10), ShardSize=4 (ReduceTimes=2).
-  // BlockDim = NumShards = 2^(10-2) = 256 threads.
-  constexpr int Magnitude = 10;
-  constexpr int ReduceTimes = 2;
-  constexpr u4 ChunkSize = 1u << Magnitude;
-  using Mod = phf::module::HFReVISIT_encode<E, Magnitude, ReduceTimes>;
-
-  const size_t pardeg = buf->pardeg();
-
-  // Build alt-code from the current codebook.
-  H4 alt_code{0};
-  u4 alt_bitcount{0};
-  phf::make_altcode<H4>(buf->book_h(), buf->rt_bklen(), ReduceTimes, alt_code, alt_bitcount);
-
-  // Reset sparse-buffer counter.
-  cudaMemsetAsync(buf->brnum_d(), 0, sizeof(u4), (cudaStream_t)stream);
-
-  // Kernel writes dense output at fixed stride: dn_out[ChunkSize * blockIdx.x + threadIdx.x].
-  Mod::GPU_kernel(
-      in, len, buf->book_d(), buf->rt_bklen(), alt_code, alt_bitcount, buf->bitstream_d(),
-      buf->par_nbit_d(), buf->brval_d(), buf->bridx_d(), buf->brnum_d(), stream);
-
-  sync_by_stream(stream);
-
-  // D2H: get per-block bit counts and sparse counter to build compact layout.
-  cudaMemcpy(buf->par_nbit_h(), buf->par_nbit_d(), pardeg * sizeof(M), cudaMemcpyDeviceToHost);
-  u4 h_brnum{0};
-  cudaMemcpy(&h_brnum, buf->brnum_d(), sizeof(u4), cudaMemcpyDeviceToHost);
-  header.brnum = h_brnum;
-
-  M total_ncell = 0;
-  for (size_t i = 0; i < pardeg; i++) {
-    buf->par_ncell_h()[i] = (buf->par_nbit_h()[i] + 31) / 32;
-    buf->par_entry_h()[i] = total_ncell;
-    total_ncell += buf->par_ncell_h()[i];
+  switch (variant) {
+    case HFR:
+      return dispatch::encode_hfr_v2<E>(
+          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
+    case HFR_PBK_Compat:
+      return dispatch::encode_hfr_pbkc<E>(
+          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
+    case HFR_PBK_GO:
+      return dispatch::encode_hfr_pbkgo<E>(
+          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
+    case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
+    default: return PHF_NOT_IMPLEMENTED;
   }
-
-  // Compact the fixed-stride bitstream on the host:
-  //   source block i at [i*ChunkSize, i*ChunkSize + par_ncell[i])
-  //   dest   block i at [par_entry[i], par_entry[i] + par_ncell[i])
-  // Processing blocks in order guarantees dest <= src, so no clobber.
-  cudaMemcpy(
-      buf->bitstream_h(), buf->bitstream_d(), pardeg * ChunkSize * sizeof(H4),
-      cudaMemcpyDeviceToHost);
-
-  for (size_t i = 0; i < pardeg; i++) {
-    if (buf->par_ncell_h()[i] > 0)
-      memmove(
-          buf->bitstream_h() + buf->par_entry_h()[i], buf->bitstream_h() + i * ChunkSize,
-          buf->par_ncell_h()[i] * sizeof(H4));
-  }
-
-  // H2D: upload compact bitstream and corrected per-partition metadata.
-  cudaMemcpy(
-      buf->bitstream_d(), buf->bitstream_h(), total_ncell * sizeof(H4), cudaMemcpyHostToDevice);
-  cudaMemcpyAsync(
-      buf->par_ncell_d(), buf->par_ncell_h(), pardeg * sizeof(M), cudaMemcpyHostToDevice,
-      (cudaStream_t)stream);
-  cudaMemcpyAsync(
-      buf->par_entry_d(), buf->par_entry_h(), pardeg * sizeof(M), cudaMemcpyHostToDevice,
-      (cudaStream_t)stream);
-
-  header.total_nbit = 0;
-  for (size_t i = 0; i < pardeg; i++) header.total_nbit += buf->par_nbit_h()[i];
-  header.total_ncell = total_ncell;
-
-  {
-    M nbyte[PHFHEADER_END];
-    buf->update_header(header);
-    buf->calc_offset(header, nbyte);
-  }
-
-  buf->memcpy_merge(header, stream);
-
-  *out = buf->encoded_d();
-  *outlen = phf_encoded_bytes(&header);
-
-  return 0;
 }
 
-#define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
-
 template <typename E>
-int high_level<E>::decode(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
+int high_level<E>::HFR_decode(
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream,
+    psz_codec variant)
 {
-  phf_module<E>::GPU_coarse_decode(
-      PHF_ACCESSOR(BITSTREAM, H4), PHF_ACCESSOR(RVBK, PHF_BYTE), buf->rvbk_bytes(),
-      PHF_ACCESSOR(PAR_NBIT, M), PHF_ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg,
-      out_decoded, stream);
-
-  // HFR: scatter breaking-point values back over the decoded center-symbol placeholders.
-  if (header.brnum > 0) {
-    phf_module<E>::GPU_scatter(
-        PHF_ACCESSOR(SP_VAL, E), PHF_ACCESSOR(SP_IDX, u4), header.brnum, out_decoded, stream);
+  switch (variant) {
+    case HFR: return dispatch::decode_hfr_v2<E>(buf, header, in_encoded, out_decoded, stream);
+    case HFR_PBK_Compat:
+      return dispatch::decode_hfr_pbkc<E>(buf, header, in_encoded, out_decoded, stream);
+    case HFR_PBK_GO:
+      return dispatch::decode_hfr_pbkgo<E>(buf, header, in_encoded, out_decoded, stream);
+    case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
+    default: return PHF_NOT_IMPLEMENTED;
   }
-
-  return 0;
 }
 
 }  // namespace phf
@@ -169,5 +624,3 @@ int high_level<E>::decode(
 template struct phf::high_level<u1>;
 template struct phf::high_level<u2>;
 template struct phf::high_level<u4>;
-
-#undef PHF_ACCESSOR

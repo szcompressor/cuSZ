@@ -2,7 +2,7 @@
 #include <ctime>
 #include <random>
 
-#include "rand.hh"
+#include "utils/synth.hh"
 #include "utils/busyheader.hh"
 // definitions
 #include "detail/t_spv.dp.inl"

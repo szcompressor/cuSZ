@@ -13,7 +13,7 @@ using _portable::detail::separate_kv;
 
 int main()
 {
-  // ── parse_xyz: 3-D ──────────────────────────────────────────────────
+  // -- parse_xyz: 3-D --------------------------------------------------
   {
     auto r = parse_xyz("3x4x5");
     assert(r.ndim == 3);
@@ -33,28 +33,28 @@ int main()
     assert(r.ndim == 3 and r.len.x == 3 and r.len.y == 4 and r.len.z == 5);
   }
 
-  // ── parse_xyz: 2-D (z=1 implied) ────────────────────────────────────
+  // -- parse_xyz: 2-D (z=1 implied) ------------------------------------
   {
     auto r = parse_xyz("3600x1800");
     assert(r.ndim == 2);
     assert(r.len.x == 3600 and r.len.y == 1800 and r.len.z == 1);
   }
 
-  // ── parse_xyz: 1-D ──────────────────────────────────────────────────
+  // -- parse_xyz: 1-D --------------------------------------------------
   {
     auto r = parse_xyz("100");
     assert(r.ndim == 1);
     assert(r.len.x == 100 and r.len.y == 1 and r.len.z == 1);
   }
 
-  // ── parse_zyx: reversed order ───────────────────────────────────────
+  // -- parse_zyx: reversed order ---------------------------------------
   {
     auto r = parse_zyx("5x4x3");
     assert(r.ndim == 3);
     assert(r.len.x == 3 and r.len.y == 4 and r.len.z == 5);
   }
 
-  // ── is_kv_pair / separate_kv ────────────────────────────────────────
+  // -- is_kv_pair / separate_kv ----------------------------------------
   assert(is_kv_pair("alpha=1.5"));
   assert(not is_kv_pair("bare"));
   assert(not is_kv_pair(""));
@@ -68,7 +68,7 @@ int main()
     assert(kv.first == "blob" and kv.second == "a=b");
   }
 
-  // ── parse_strlist: comma-separated, trimmed ─────────────────────────
+  // -- parse_strlist: comma-separated, trimmed -------------------------
   {
     std::vector<std::string> out;
     parse_strlist("a,b,c", out);

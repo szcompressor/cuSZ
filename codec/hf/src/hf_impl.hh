@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "c_type.h"
 #include "hf.h"
 #include "mem/cxx_array.h"
@@ -35,8 +36,6 @@ namespace {
 // clang-format on
 
 // [psz::caveat] Direct access leads to misaligned GPU addr.
-// MSB | log2(32)=5 | max: 27; var-len prefix-code, right aligned |
-// MSB | log2(64)=6 | max: 58; var-len prefix-code, right aligned |
 template <int WIDTH>
 struct HuffmanWord {
   static constexpr int W = WIDTH;
@@ -231,12 +230,6 @@ class hf_canon_reference {
 
 namespace phf {
 
-// template <typename T>
-// using array = _portable::array1<T>;
-
-// template <typename T>
-// using sparse = _portable::compact_array1<T>;
-
 template <typename Hf>
 struct [[deprecated]] book {
   Hf* bk;
@@ -276,10 +269,7 @@ void phf_CPU_build_canonized_codebook_v2(
 
 namespace phf::cuhip {
 
-// @brief a namespace-like class for batch template instantiations; a rewrite of
-// hf_kernels.{hh,cc}; all the included wrapped kernels/methods are `static`
-// @tparam E input type
-// @tparam H intermediate type for Huffman coding
+// Static-method holder for batch template instantiations (E=input, H=Huffman word).
 template <typename E, typename H>
 class modules {
   // metadata, e.g., saved index for parallel operations
@@ -326,9 +316,12 @@ class modules {
 
   static void GPU_coarse_decode(
       H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
-      M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded, void* stream);
+      M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded,
+      uint8_t* in_par_encid, void* stream);
 
-  static void GPU_scatter(E* val, u4* idx, const u4 h_num, E* out, void* stream);
+  static void GPU_scatter_breaks(
+      psz::HFR_PBK_Breaks<128>* sp_breaks, u4* par_brnum, u4* par_broffset, int const sublen,
+      int const pardeg, E* out, void* stream);
 };
 
 }  // namespace phf::cuhip

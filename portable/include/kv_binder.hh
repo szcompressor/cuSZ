@@ -61,7 +61,7 @@ public:
   }
 
   // Bool field via member pointer.
-  // Bare key or value "on"/"ON" → true; "off"/"OFF" → false.
+  // Bare key or value "on"/"ON" -> true; "off"/"OFF" -> false.
   kv_binder&& flag(std::initializer_list<const char*> keys, bool T::* field)
   {
     return add(keys, [field](T& t, const std::string& v) {

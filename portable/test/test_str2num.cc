@@ -8,7 +8,7 @@ using _portable::detail::str_to_num;
 
 int main()
 {
-  // ── str_to_int: valid ────────────────────────────────────────────────
+  // -- str_to_int: valid ------------------------------------------------
   {
     auto r = str_to_int("42");
     assert(r && *r == 42);
@@ -22,24 +22,24 @@ int main()
     assert(r && *r == 0);
   }
 
-  // ── str_to_int: leading whitespace is accepted (strtoll convention) ──
+  // -- str_to_int: leading whitespace is accepted (strtoll convention) --
   {
     auto r = str_to_int(" 42");
     assert(r && *r == 42);
   }
 
-  // ── str_to_int: invalid ──────────────────────────────────────────────
+  // -- str_to_int: invalid ----------------------------------------------
   assert(not str_to_int(""));
   assert(not str_to_int("abc"));
-  assert(not str_to_int("12abc"));    // trailing garbage
-  assert(not str_to_int("42 "));      // trailing space (after int)
-  assert(not str_to_int("3.14"));     // float, not int
+  assert(not str_to_int("12abc"));  // trailing garbage
+  assert(not str_to_int("42 "));    // trailing space (after int)
+  assert(not str_to_int("3.14"));   // float, not int
   assert(not str_to_int(nullptr));
 
-  // ── str_to_int: overflow ─────────────────────────────────────────────
+  // -- str_to_int: overflow ---------------------------------------------
   assert(not str_to_int("99999999999999999999999"));
 
-  // ── str_to_num: valid ────────────────────────────────────────────────
+  // -- str_to_num: valid ------------------------------------------------
   {
     auto r = str_to_num("3.14");
     assert(r && *r > 3.13 && *r < 3.15);
@@ -57,10 +57,10 @@ int main()
     assert(r && *r == 0.0);
   }
 
-  // ── str_to_num: invalid ──────────────────────────────────────────────
+  // -- str_to_num: invalid ----------------------------------------------
   assert(not str_to_num(""));
   assert(not str_to_num("abc"));
-  assert(not str_to_num("1e"));       // incomplete exponent
+  assert(not str_to_num("1e"));  // incomplete exponent
   assert(not str_to_num(nullptr));
 
   printf("test_str2num: PASS\n");

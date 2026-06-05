@@ -1,4 +1,5 @@
-// Byte-stream regression sweep for psz::module::GPU_identical (sizeof_T ∈ {1,2,4}, sizes straddling the 262144-byte threshold, perturb at head/mid/tail).
+// Byte-stream regression sweep for psz::module::GPU_identical (sizeof_T \in {1,2,4}, sizes
+// straddling the 262144-byte threshold, perturb at head/mid/tail).
 #include <cuda_runtime.h>
 
 #include <cstdint>
@@ -14,10 +15,10 @@ namespace {
 
 struct Case {
   char const* name;
-  size_t      len;
-  size_t      sizeof_T;
-  long long   perturb_byte;
-  bool        expect_identical;
+  size_t len;
+  size_t sizeof_T;
+  long long perturb_byte;
+  bool expect_identical;
 };
 
 bool run_case(Case const& c, cudaStream_t stream)
@@ -43,8 +44,8 @@ bool run_case(Case const& c, cudaStream_t stream)
   bool ok = (got_cpu == c.expect_identical) and (got_gpu == c.expect_identical);
   std::printf(
       "  [%s] %-28s len=%zu sizeof_T=%zu perturb=%lld  cpu=%d gpu=%d expected=%d\n",
-      ok ? "PASS" : "FAIL", c.name, c.len, c.sizeof_T, c.perturb_byte,
-      (int)got_cpu, (int)got_gpu, (int)c.expect_identical);
+      ok ? "PASS" : "FAIL", c.name, c.len, c.sizeof_T, c.perturb_byte, (int)got_cpu, (int)got_gpu,
+      (int)c.expect_identical);
   return ok;
 }
 
@@ -53,19 +54,19 @@ bool run_case(Case const& c, cudaStream_t stream)
 int main()
 {
   Case const cases[] = {
-      {"id-small-u1",        1027,         1, -1,                  true},
-      {"id-small-u2",        1027,         2, -1,                  true},
-      {"id-small-u4",        1027,         4, -1,                  true},
-      {"id-large-u1",        1ull << 20,   1, -1,                  true},
-      {"id-large-u2",        6'480'000ull, 2, -1,                  true},
-      {"id-large-u4",        1ull << 20,   4, -1,                  true},
-      {"diff-small-tail",    1027,         4, 4 * 1025,            false},
-      {"diff-large-u1-head", 1ull << 20,   1, 0,                   false},
-      {"diff-large-u1-mid",  1ull << 20,   1, 1ull << 19,          false},
-      {"diff-large-u1-tail", 1ull << 20,   1, (1ull << 20) - 1,    false},
-      {"diff-large-u2-mid",  6'480'000ull, 2, 6'480'000ull,        false},
-      {"diff-large-u2-tail", 6'480'000ull, 2, 6'480'000ull*2 - 1,  false},
-      {"diff-large-u4-mid",  1ull << 20,   4, 1ull << 21,          false},
+      {"id-small-u1", 1027, 1, -1, true},
+      {"id-small-u2", 1027, 2, -1, true},
+      {"id-small-u4", 1027, 4, -1, true},
+      {"id-large-u1", 1ull << 20, 1, -1, true},
+      {"id-large-u2", 6'480'000ull, 2, -1, true},
+      {"id-large-u4", 1ull << 20, 4, -1, true},
+      {"diff-small-tail", 1027, 4, 4 * 1025, false},
+      {"diff-large-u1-head", 1ull << 20, 1, 0, false},
+      {"diff-large-u1-mid", 1ull << 20, 1, 1ull << 19, false},
+      {"diff-large-u1-tail", 1ull << 20, 1, (1ull << 20) - 1, false},
+      {"diff-large-u2-mid", 6'480'000ull, 2, 6'480'000ull, false},
+      {"diff-large-u2-tail", 6'480'000ull, 2, 6'480'000ull * 2 - 1, false},
+      {"diff-large-u4-mid", 1ull << 20, 4, 1ull << 21, false},
   };
 
   cudaStream_t stream;
