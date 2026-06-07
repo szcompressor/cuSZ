@@ -11,7 +11,7 @@
 
 #include "c_type.h"
 
-namespace _portable::detail {
+namespace _ptb::detail {
 
 inline std::optional<i8> str_to_int(const char* s)
 {
@@ -33,6 +33,6 @@ inline std::optional<f8> str_to_num(const char* s)
   return v;
 }
 
-}  // namespace _portable::detail
+}  // namespace _ptb::detail
 
 #endif  // _PORTABLE_DETAIL_STR2NUM_HH

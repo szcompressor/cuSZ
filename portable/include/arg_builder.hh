@@ -18,7 +18,7 @@
 #include "detail/option_value.hh"
 #include "detail/str2num.hh"
 
-namespace _portable {
+namespace _ptb {
 
 //------------------------------------------------------------------------------
 // arg_result: owns all parsed values; returned by value from arg_builder::parse().
@@ -66,7 +66,7 @@ struct arg_result {
               fprintf(out, "%g\n", val);
             else if constexpr (std::is_same_v<T, std::string>)
               fprintf(out, "%s\n", val.c_str());
-            else if constexpr (std::is_same_v<T, _portable_len3>)
+            else if constexpr (std::is_same_v<T, _ptb_len3>)
               fprintf(out, "%zux%zux%zu\n", val.x, val.y, val.z);
           },
           v);
@@ -80,7 +80,7 @@ struct arg_result {
 // arg_builder: declare options, then call parse() to obtain an arg_result.
 // Designed as a file-scope static — parse() is const and re-entrant.
 //
-//   static const auto cli = _portable::arg_builder("bin_phf")
+//   static const auto cli = _ptb::arg_builder("bin_phf")
 //     .positional("fname",  "input binary file")
 //     .dim3("len",          {"-l", "--xyz"},          "data dimensions")
 //     .number("eb",         {"-e", "--error-bound"},   1e-3, "error bound")
@@ -89,7 +89,7 @@ struct arg_result {
 //     ;
 //   int main(int argc, char** argv) {
 //     auto args = cli.parse(argc, argv);
-//     auto len  = args.get<_portable_len3>("len");
+//     auto len  = args.get<_ptb_len3>("len");
 //     auto eb   = args.get<f8>("eb");
 //   }
 //------------------------------------------------------------------------------
@@ -311,7 +311,7 @@ class arg_builder {
                 fprintf(out, "%g", v);
               else if constexpr (std::is_same_v<T, std::string>)
                 fprintf(out, "%s", v.c_str());
-              else if constexpr (std::is_same_v<T, _portable_len3>)
+              else if constexpr (std::is_same_v<T, _ptb_len3>)
                 fprintf(out, "%zux%zux%zu", v.x, v.y, v.z);
             },
             *d.default_val);
@@ -351,6 +351,6 @@ class arg_builder {
   std::vector<detail::arg_def> defs_;
 };
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif  // _PORTABLE_ARG_BUILDER_HH

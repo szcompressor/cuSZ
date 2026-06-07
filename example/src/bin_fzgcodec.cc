@@ -5,7 +5,7 @@
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 
-namespace utils = _portable::utils;
+namespace utils = _ptb::utils;
 
 #define CHECK_INTEGRITY_1                                                                   \
   memcpy_allkinds<D2H>(buf->h_out_data, buf->d_out_data, data_len);                         \

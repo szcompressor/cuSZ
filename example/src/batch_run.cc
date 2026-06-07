@@ -10,7 +10,7 @@
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 
-namespace utils = _portable::utils;
+namespace utils = _ptb::utils;
 using std::cout;
 using std::endl;
 using std::string;

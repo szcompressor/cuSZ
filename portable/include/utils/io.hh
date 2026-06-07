@@ -9,14 +9,14 @@
 #include <iostream>
 #include <type_traits>
 
-#define PORTABLE_IO_SUCCESS       0
-#define PORTABLE_FAIL_NULLPTR     1
+#define PORTABLE_IO_SUCCESS 0
+#define PORTABLE_FAIL_NULLPTR 1
 #define PORTABLE_IFS_FAIL_TO_OPEN -1
 #define PORTABLE_OFS_FAIL_TO_OPEN -2
-#define PORTABLE_IFS_SHORT_READ   -3
-#define PORTABLE_OFS_WRITE_ERR    -4
+#define PORTABLE_IFS_SHORT_READ -3
+#define PORTABLE_OFS_WRITE_ERR -4
 
-namespace _portable::utils {
+namespace _ptb::utils {
 
 template <typename T>
 int fromfile(const std::string& fname, T* _a, size_t const dtype_len)
@@ -43,8 +43,7 @@ void fromfile_or_die(const std::string& fname, T* _a, size_t const dtype_len)
 {
   auto rc = fromfile(fname, _a, dtype_len);
   if (rc == PORTABLE_IO_SUCCESS) return;
-  std::cerr << "[_portable::utils::fromfile] failed to read \"" << fname
-            << "\" (rc=" << rc << ")";
+  std::cerr << "[_ptb::utils::fromfile] failed to read \"" << fname << "\" (rc=" << rc << ")";
   if (rc == PORTABLE_IFS_FAIL_TO_OPEN)
     std::cerr << "  — file does not exist or is not readable";
   else if (rc == PORTABLE_FAIL_NULLPTR)
@@ -80,6 +79,6 @@ inline size_t filesize(const std::string& fname)
   return pos < 0 ? 0 : static_cast<size_t>(pos);
 }
 
-}  // namespace _portable::utils
+}  // namespace _ptb::utils
 
 #endif /* _PORTABLE_UTILS_IO_HH */

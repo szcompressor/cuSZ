@@ -6,7 +6,7 @@
 
 #include "c_type.h"
 
-namespace _portable {
+namespace _ptb {
 
 enum class outlier_stragegy { CONVINIENT, RIGOROUS };
 
@@ -22,9 +22,9 @@ struct compact_cell {
 
   using OutlierValT = std::conditional_t<OS == outlier_stragegy::CONVINIENT, f4, ValT>;
   OutlierValT val;
-  IdxT idx;
+  IdxT        idx;
 } __attribute__((packed));
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif /* _PORTABLE_MEM_SP_INTERFACE_H */

@@ -52,8 +52,8 @@ struct Buf_Comp {
   using FP = T;
   using M = uint32_t;
 
-  using Buf_Outlier = _portable::compact_gpu<T>;
-  using Buf_Outlier2 = _portable::compact_GPU_DRAM2<T, M>;
+  using Buf_Outlier = _ptb::compact_gpu<T>;
+  using Buf_Outlier2 = _ptb::compact_GPU_DRAM2<T, M>;
   using Buf_HF = phf::Buf<E>;
   using Buf_LC = LC_Buf;
 

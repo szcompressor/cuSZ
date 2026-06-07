@@ -3,7 +3,7 @@
 
 #include "cxx_type.hh"
 
-using _portable::val_eq;
+using _ptb::val_eq;
 
 struct triple {
   int x, y, z;
@@ -20,10 +20,10 @@ int main()
   assert(not val_eq(triple{1, 2, 3}, triple{1, 9, 3}));
   assert(not val_eq(triple{1, 2, 3}, triple{1, 2, 9}));
 
-  // Works on _portable_len3 (the canonical xyz triple)
-  _portable_len3 a{100, 200, 300};
-  _portable_len3 b{100, 200, 300};
-  _portable_len3 c{100, 200, 999};
+  // Works on _ptb_len3 (the canonical xyz triple)
+  _ptb_len3 a{100, 200, 300};
+  _ptb_len3 b{100, 200, 300};
+  _ptb_len3 c{100, 200, 999};
   assert(val_eq(a, b));
   assert(not val_eq(a, c));
 

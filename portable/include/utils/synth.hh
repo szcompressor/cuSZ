@@ -9,7 +9,7 @@
 
 using std::string;
 
-namespace _portable::testutils {
+namespace _ptb::testutils {
 
 int randint(size_t upper_limit);
 
@@ -36,7 +36,7 @@ struct Synth {
   static Synth parse(const std::string& spec);
 
   // fill buf with synthetic symbols
-  void fill(void* buf, std::size_t len, _portable_dtype dt) const;
+  void fill(void* buf, std::size_t len, _ptb_dtype dt) const;
 
   double pmf1() const;
   static double pmf1_from(double gamma);
@@ -47,6 +47,6 @@ struct Synth {
   };
 };
 
-}  // namespace _portable::testutils
+}  // namespace _ptb::testutils
 
 #endif  // _PORTABLE_UTILS_SYNTH_HH

@@ -6,8 +6,8 @@
 
 #include "arg_builder.hh"
 
-using _portable::arg_builder;
-using _portable::arg_result;
+using _ptb::arg_builder;
+using _ptb::arg_result;
 
 // Helper: build a fake argv from a vector<string>. The argv pointers are
 // non-owning views into the strings; the strings vector must outlive the
@@ -47,7 +47,7 @@ int main()
     assert(r.get<std::string>("mode") == "rel");  // default
     assert(r.get<bool>("verbose") == false);      // default
 
-    auto len = r.get<_portable_len3>("len");
+    auto len = r.get<_ptb_len3>("len");
     assert(len.x == 3 and len.y == 4 and len.z == 5);
 
     assert(r.is_set("input"));
@@ -69,7 +69,7 @@ int main()
     assert(r.get<std::string>("mode") == "abs");
     assert(r.get<bool>("verbose") == true);
 
-    auto len = r.get<_portable_len3>("len");
+    auto len = r.get<_ptb_len3>("len");
     assert(len.x == 100 and len.y == 200 and len.z == 1);  // 2-D, z=1
 
     assert(r.is_set("repeat"));

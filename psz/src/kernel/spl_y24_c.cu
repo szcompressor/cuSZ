@@ -21,8 +21,8 @@ int psz::module::GPU_c_spline_y24<T, E, FP>::kernel_v1(
   auto grid = dim3(div(l3.x, BLK8 * 4), div(l3.y, BLK8), div(l3.z, BLK8));
   auto ebx2 = (FP)(eb * 2), eb_r = (FP)(1 / eb);
 
-  using Compact2 = _portable::compact_GPU_DRAM2<T, u4>;
-  using Cell = _portable::compact_cell<T, u4>;
+  using Compact2 = _ptb::compact_GPU_DRAM2<T, u4>;
+  using Cell = _ptb::compact_cell<T, u4>;
   auto ot = (Compact2*)_outlier;
 
   psz::KCU_c_spline3d_infprecis_32x8x8data<T, E, FP, DEFAULT_LINEAR_BLOCK_SIZE, Cell*>  //

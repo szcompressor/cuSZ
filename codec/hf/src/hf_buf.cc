@@ -109,7 +109,7 @@ struct Buf<E>::impl {
   GPU_unique_dptr<u4[]> d_hf_rev2_header;      // bheader_backport[] = 2 u4 / block; HF_rev2 only
 
   // per-buf-lifetime; avoid per-encode create/destroy
-  _portable::gpu_event timing_events[3];
+  _ptb::gpu_event timing_events[3];
 
   // internal functions
   int _rvbk4_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 4, sizeof(SYM)); }
@@ -204,7 +204,7 @@ struct Buf<E>::impl {
         scan_num_tiles_, /*stream*/ 0);
     cudaDeviceSynchronize();
 
-    for (int i = 0; i < 3; ++i) timing_events[i] = _portable::make_gpu_event();
+    for (int i = 0; i < 3; ++i) timing_events[i] = _ptb::make_gpu_event();
   }
 
   // public functions

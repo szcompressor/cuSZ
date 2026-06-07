@@ -38,7 +38,7 @@ __global__ void KCU_spvn_scatter(T* val, M* idx, int const nnz, T* out)
   }
 }
 
-template <typename T, typename M = u4, typename ValIdx = _portable::compact_cell<T, M>>
+template <typename T, typename M = u4, typename ValIdx = _ptb::compact_cell<T, M>>
 __global__ void KCU_spvn_scatter_v2(ValIdx* val_idx, int const nnz, T* out)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;

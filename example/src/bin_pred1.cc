@@ -22,7 +22,7 @@
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"
 
-namespace utils = _portable::utils;
+namespace utils = _ptb::utils;
 using Toggle = psz::Toggle;
 
 template <typename T, Toggle ZigZag>
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
   memset_device(d_xdata.get(), len);
   if (manager->header->splen != 0) {
     psz::module::GPU_scatter<float, M>::kernel_v2(
-        (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), manager->header->splen,
+        (_ptb::compact_cell<float, M>*)mem->outlier2_validx_d(), manager->header->splen,
         d_xdata.get(), (void*)stream);
   }
 

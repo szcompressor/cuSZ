@@ -10,7 +10,7 @@
 
 #include "c_type.h"
 
-namespace _portable::utils {
+namespace _ptb::utils {
 
 // Lightweight type tag — C++17 compatible substitute for std::type_identity.
 template <typename T>
@@ -18,7 +18,7 @@ struct type_tag {
   using type = T;
 };
 
-// Dispatch on _portable_dtype at runtime, invoking the registered handler.
+// Dispatch on _ptb_dtype at runtime, invoking the registered handler.
 //
 // Usage:
 //   dtype_dispatch()
@@ -33,13 +33,13 @@ struct type_tag {
 class dtype_dispatch {
   using fn_t = std::function<void()>;
 
-  std::vector<std::pair<_portable_dtype, fn_t>> handlers_;
+  std::vector<std::pair<_ptb_dtype, fn_t>> handlers_;
 
  public:
   // Register a handler for dtype enum value E.
   // T must be a floating-point type matching E (e.g. float <-> F4).
   // The lambda receives type_tag<T>{} as its sole argument.
-  template <typename T, _portable_dtype E, typename Fn>
+  template <typename T, _ptb_dtype E, typename Fn>
   dtype_dispatch&& on(Fn&& fn)
   {
     static_assert(std::is_floating_point_v<T>, "T must be float or double");
@@ -49,7 +49,7 @@ class dtype_dispatch {
 
   // Invoke the handler registered for dtype.
   // Returns true if a matching handler was found, false otherwise.
-  bool call(_portable_dtype dtype) const
+  bool call(_ptb_dtype dtype) const
   {
     for (auto& [e, fn] : handlers_)
       if (e == dtype) {
@@ -60,6 +60,6 @@ class dtype_dispatch {
   }
 };
 
-}  // namespace _portable::utils
+}  // namespace _ptb::utils
 
 #endif  // _PORTABLE_UTILS_DTYPE_DISPATCH_HH

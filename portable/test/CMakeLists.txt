@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# Pure-ctest unit tests for _portable primitives.
+# Pure-ctest unit tests for _ptb primitives.
 #
 # Each test is a standalone binary that uses assert() and exits 0 on pass.
 # No gtest. Add a new test by adding a portable_add_test(<name>) line plus

@@ -1,16 +1,16 @@
 // Author: Jiannan Tian
 
-#include "utils/synth.hh"
 #include "cusz/type.h"
 #include "mem/cxx_sp_cpu.h"
 #include "mem/cxx_sp_gpu.h"
 #include "utils/busyheader.hh"
+#include "utils/synth.hh"
 
-using compact_gpu = _portable::compact_GPU_DRAM2<float>;
-using compact_seq = _portable::compact_CPU<float>;
+using compact_gpu = _ptb::compact_GPU_DRAM2<float>;
+using compact_seq = _ptb::compact_CPU<float>;
 
 template <
-    typename T, int TileDim = 256, typename CompactValIdx = _portable::compact_GPU_DRAM2<T, u4>,
+    typename T, int TileDim = 256, typename CompactValIdx = _ptb::compact_GPU_DRAM2<T, u4>,
     typename CompactNum = uint32_t>
 __global__ void test_compaction1(T* in, uint32_t len, CompactValIdx* cvalidx, CompactNum* cn)
 {
@@ -53,7 +53,7 @@ bool f()
 
   float* in;
   cudaMallocManaged(&in, sizeof(float) * len);
-  _portable::testutils::rand_array_cu(in, len);
+  _ptb::testutils::rand_array_cu(in, len);
 
   compact_gpu out_test1(len / 2);
   compact_gpu out_test2(len / 2);

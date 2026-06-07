@@ -10,15 +10,15 @@ extern "C" {
 #include <stdint.h>
 
 // enum for device type
-typedef enum { CPU, NVGPU, INTELGPU } _portable_device;
+typedef enum { CPU, NVGPU, INTELGPU } _ptb_device;
 // enum for runtime type
-typedef enum { SEQ, SIMD, OPENMP, CUDA, SYCL, THRUST_DPL } _portable_runtime;
+typedef enum { SEQ, SIMD, OPENMP, CUDA, SYCL, THRUST_DPL } _ptb_runtime;
 // enum for toolkit type
-typedef enum { VENDOR_NATIVE, KOKKOS, ONEAPI } _portable_toolkit;
+typedef enum { VENDOR_NATIVE, KOKKOS, ONEAPI } _ptb_toolkit;
 
 // clang-format off
 // enum for memory control
-typedef enum _portable_mem_control {
+typedef enum _ptb_mem_control {
   Malloc, MallocHost, MallocManaged, MallocShared,
   Free, FreeHost, FreeManaged, FreeShared,
   ClearHost, ClearDevice,
@@ -27,7 +27,7 @@ typedef enum _portable_mem_control {
   ToFile, FromFile,
   ExtremaScan,
   DBG,
-} _portable_mem_control;
+} _ptb_mem_control;
 // clang-format on
 
 // error status instead of int as ret-type
@@ -36,37 +36,37 @@ typedef enum {
   _FAIL_GENERAL,
   _FAIL_UNSUPPORTED_DTYPE,
   _NOT_IMPLIMENTED
-} _portable_error_status;
+} _ptb_error_status;
 
 // symbol of dtypes
-typedef enum { F4, F8, U1, U2, U4, U8, I1, I2, I4, I8, ULL } _portable_dtype;
+typedef enum { F4, F8, U1, U2, U4, U8, I1, I2, I4, I8, ULL } _ptb_dtype;
 
 // type aliasing
-typedef uint8_t u1;
-typedef uint16_t u2;
-typedef uint32_t u4;
-typedef uint64_t u8;
+typedef uint8_t            u1;
+typedef uint16_t           u2;
+typedef uint32_t           u4;
+typedef uint64_t           u8;
 typedef unsigned long long ull;
-typedef int8_t i1;
-typedef int16_t i2;
-typedef int32_t i4;
-typedef int64_t i8;
-typedef float f4;
-typedef double f8;
-typedef size_t szt;
+typedef int8_t             i1;
+typedef int16_t            i2;
+typedef int32_t            i4;
+typedef int64_t            i8;
+typedef float              f4;
+typedef double             f8;
+typedef size_t             szt;
 
-typedef void* _portable_stream_t;
+typedef void* _ptb_stream_t;
 
 //  mirror CUDA dim3: using u4 dtype and x-y-z order
-typedef struct _portable_len3 {
+typedef struct _ptb_len3 {
   size_t x, y, z;
-} _portable_len3;
-typedef _portable_len3 _portable_dim3;
+} _ptb_len3;
+typedef _ptb_len3 _ptb_dim3;
 
 // mirror typical math order: z-y-x
-typedef struct _portable_size3 {
+typedef struct _ptb_size3 {
   size_t z, y, x;
-} _portable_size3;
+} _ptb_size3;
 
 #ifdef __cplusplus
 }

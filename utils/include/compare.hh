@@ -11,7 +11,7 @@
 #include "stat.h"
 
 // Type alias for runtime enum
-using psz_runtime = _portable_runtime;
+using psz_runtime = _ptb_runtime;
 
 // clang-format off
 namespace psz::cppstl {

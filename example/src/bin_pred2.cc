@@ -10,7 +10,7 @@
 #include "test_lib/pred_metrics.hh"
 #include "test_lib/pred_run.hh"
 
-namespace _utils = _portable::utils;
+namespace _utils = _ptb::utils;
 
 using psz_test::PredArgs;
 using psz_test::PredMetrics;
@@ -30,7 +30,8 @@ static void run_export(PredRun& run)
   if (run.pred_type == psz_predictor::Spline) {
     auto anchor_len = run.mem->anchor_len();
     auto h_anchor = std::unique_ptr<float[]>(new float[anchor_len]);
-    cudaMemcpy(h_anchor.get(), run.mem->anchor_d(), sizeof(float) * anchor_len, cudaMemcpyDeviceToHost);
+    cudaMemcpy(
+        h_anchor.get(), run.mem->anchor_d(), sizeof(float) * anchor_len, cudaMemcpyDeviceToHost);
     std::string anc_out = run.args.fname + ".pred_spline.anchor.f4";
     _utils::tofile(anc_out, h_anchor.get(), anchor_len);
     printf("[pred-study] anchor(%zu) written to: %s\n", anchor_len, anc_out.c_str());
@@ -41,18 +42,25 @@ int main(int argc, char** argv)
 {
   PredArgs args;
   int parse_rc = args.parse(argc, argv);
-  if (args.help) { PredArgs::usage(argv[0]); return 0; }
+  if (args.help) {
+    PredArgs::usage(argv[0]);
+    return 0;
+  }
   if (parse_rc == 77) return 77;
-  if (parse_rc != 0) { PredArgs::usage(argv[0]); return 2; }
+  if (parse_rc != 0) {
+    PredArgs::usage(argv[0]);
+    return 2;
+  }
 
   // bin_pred2 is the single-predictor microbench. If the user asked for a
   // spl-vN target with --cross-check, point them at bin_pred_xv (the
   // dedicated driver that handles the v1<->vN comparison).
   if (args.do_cross_check) {
-    fprintf(stderr,
-            "[pred-study] --cross-check is now bin_pred_xv (a separate driver).\n"
-            "             Run:  bin_pred_xv %s\n",
-            args.predictor.c_str());
+    fprintf(
+        stderr,
+        "[pred-study] --cross-check is now bin_pred_xv (a separate driver).\n"
+        "             Run:  bin_pred_xv %s\n",
+        args.predictor.c_str());
     return 2;
   }
 

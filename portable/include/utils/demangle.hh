@@ -16,7 +16,7 @@
 #define _PORTABLE_HAS_CXXABI 1
 #endif
 
-namespace _portable::utils {
+namespace _ptb::utils {
 
 inline std::string demangle(const char* name)
 {
@@ -31,6 +31,6 @@ inline std::string demangle(const char* name)
 #endif
 }
 
-}  // namespace _portable::utils
+}  // namespace _ptb::utils
 
 #endif  // _PORTABLE_UTILS_DEMANGLE_HH

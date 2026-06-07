@@ -17,11 +17,11 @@
 #include "cxx_type.hh"
 #include "detail/str2num.hh"
 
-namespace _portable::detail {
+namespace _ptb::detail {
 
 // ---- dimension parsing --------------------------------------------------
 
-using _portable::xyz_t;
+using _ptb::xyz_t;
 
 inline void parse_strlist(const char* in_str, std::vector<std::string>& out)
 {
@@ -54,8 +54,8 @@ inline xyz_t parse_xyz(const char* str)
   int ndim = static_cast<int>(tokens.size());
   if (ndim > 3) throw std::runtime_error("dimension string has more than 3 components");
 
-  _portable_len3 len{1, 1, 1};
-  auto           at = [&](int i) -> size_t {
+  _ptb_len3 len{1, 1, 1};
+  auto      at = [&](int i) -> size_t {
     auto v = str_to_int(tokens[i].c_str());
     if (not v) throw std::runtime_error("non-integer in dimension: " + tokens[i]);
     return static_cast<size_t>(*v);
@@ -109,6 +109,6 @@ inline std::pair<std::string, bool> parse_kv_onoff(const std::string& s)
   return {m[1].str(), m[2].str() == "on" or m[2].str() == "ON"};
 }
 
-}  // namespace _portable::detail
+}  // namespace _ptb::detail
 
 #endif  // _PORTABLE_DETAIL_KV_PARSE_HH

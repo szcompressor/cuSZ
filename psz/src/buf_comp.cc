@@ -84,7 +84,7 @@ struct psz::Buf_Comp<T, E>::impl {
   {
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
-        std::max(sizeof(T) + sizeof(u4), sizeof(_portable::compact_cell<T, M>)) * outlier_cap;
+        std::max(sizeof(T) + sizeof(u4), sizeof(_ptb::compact_cell<T, M>)) * outlier_cap;
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
     const auto codec_max_bytes = len_linear * 4 / 2;
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
@@ -123,7 +123,7 @@ struct psz::Buf_Comp<T, E>::impl {
     buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen, -1, use_HFR);
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
-        std::max(sizeof(T) + sizeof(u4), sizeof(_portable::compact_cell<T, M>)) * outlier_cap;
+        std::max(sizeof(T) + sizeof(u4), sizeof(_ptb::compact_cell<T, M>)) * outlier_cap;
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
     const auto codec_max_bytes = len_linear * 4 / 2;
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
@@ -237,10 +237,10 @@ COMPBUF_IMPL(T*)::profiled_errors_h() const { return pimpl->h_pe.get(); };
 COMPBUF_IMPL(M)::profiled_errors_len() const { return ERR_HISTO_LEN; };
 
 template <typename T>
-using Buf_Outlier = _portable::compact_gpu<T>;
+using Buf_Outlier = _ptb::compact_gpu<T>;
 
 template <typename T>
-using Buf_Outlier2 = _portable::compact_GPU_DRAM2<T, M>;
+using Buf_Outlier2 = _ptb::compact_GPU_DRAM2<T, M>;
 
 template <typename E>
 using Buf_HF = phf::Buf<E>;

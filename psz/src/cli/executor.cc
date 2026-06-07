@@ -20,8 +20,8 @@
 #include "utils/io.hh"
 #include "viewer.hh"
 
-using _portable::utils::fromfile;
-using _portable::utils::tofile;
+using _ptb::utils::fromfile;
+using _ptb::utils::tofile;
 using std::string;
 
 // ---------------------------------------------------------------------------
@@ -70,8 +70,8 @@ static void write_decomp_to_disk(
 
 void psz_compress_task(psz_args* args)
 {
-  auto stream_owner = _portable::make_gpu_stream();
-  cudaStream_t stream = stream_owner.get();
+  auto         stream_owner = _ptb::make_gpu_stream();
+  cudaStream_t stream       = stream_owner.get();
 
   auto len = CLI_x(args) * CLI_y(args) * CLI_z(args);
 
@@ -80,7 +80,7 @@ void psz_compress_task(psz_args* args)
   size_t        compressed_len;
   psz_resource* m{nullptr};
 
-  _portable::utils::dtype_dispatch()
+  _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
         auto d_in = MAKE_UNIQUE_DEVICE(float, len);
         auto h_in = MAKE_UNIQUE_HOST(float, len);
@@ -152,9 +152,8 @@ static void check_header_or_throw(const psz_header* header, size_t on_disk_size)
   auto reported = pszheader_filesize(const_cast<psz_header*>(header));
   if (reported != on_disk_size)
     throw std::runtime_error(
-        "input does not look like a .cusza archive: header reports " +
-        std::to_string(reported) + " bytes but file is " +
-        std::to_string(on_disk_size));
+        "input does not look like a .cusza archive: header reports " + std::to_string(reported) +
+        " bytes but file is " + std::to_string(on_disk_size));
   if (header->dtype != F4 and header->dtype != F8)
     throw std::runtime_error(
         "input header dtype is invalid (" + std::to_string(header->dtype) +
@@ -167,7 +166,7 @@ static void check_header_or_throw(const psz_header* header, size_t on_disk_size)
 
 void psz_decompress_task(psz_args* args)
 {
-  auto         stream_owner = _portable::make_gpu_stream();
+  auto         stream_owner = _ptb::make_gpu_stream();
   cudaStream_t stream       = stream_owner.get();
 
   // extract basename w/o suffix
@@ -175,7 +174,7 @@ void psz_decompress_task(psz_args* args)
   basename      = basename.substr(0, basename.rfind('.'));
 
   // all lengths in metadata
-  auto compressed_len = _portable::utils::filesize(args->cli->file_input);
+  auto compressed_len = _ptb::utils::filesize(args->cli->file_input);
 
   auto d_comped = MAKE_UNIQUE_DEVICE(uint8_t, compressed_len);
   auto h_comped = MAKE_UNIQUE_HOST(uint8_t, compressed_len);
@@ -191,7 +190,7 @@ void psz_decompress_task(psz_args* args)
 
   psz_resource* m = psz_create_resource_manager_from_header(header, stream);
 
-  _portable::utils::dtype_dispatch()
+  _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(float, len);
         psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());

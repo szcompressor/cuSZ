@@ -5,11 +5,11 @@
 
 #include "detail/kv_parse.hh"
 
-using _portable::detail::is_kv_pair;
-using _portable::detail::parse_strlist;
-using _portable::detail::parse_xyz;
-using _portable::detail::parse_zyx;
-using _portable::detail::separate_kv;
+using _ptb::detail::is_kv_pair;
+using _ptb::detail::parse_strlist;
+using _ptb::detail::parse_xyz;
+using _ptb::detail::parse_zyx;
+using _ptb::detail::separate_kv;
 
 int main()
 {

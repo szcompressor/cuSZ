@@ -5,7 +5,7 @@
 
 #include "kv_binder.hh"
 
-using _portable::kv_binder;
+using _ptb::kv_binder;
 
 struct config {
   double alpha;

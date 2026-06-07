@@ -8,7 +8,7 @@
 #include <initializer_list>
 #include <stdexcept>
 
-namespace _portable::detail {
+namespace _ptb::detail {
 
 // Returns true if val equals any element in legal.
 // If throw_fail is true and val is not found, throws std::runtime_error(error_msg).
@@ -23,6 +23,6 @@ inline bool check_in(
   return false;
 }
 
-}  // namespace _portable::detail
+}  // namespace _ptb::detail
 
 #endif  // _PORTABLE_DETAIL_CHECK_HH

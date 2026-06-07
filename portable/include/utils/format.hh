@@ -9,7 +9,7 @@
 #include <sstream>
 #include <string>
 
-namespace _portable::utils {
+namespace _ptb::utils {
 
 #define LOG_NULL "      "
 #define LOG_INFO "  ::  "
@@ -65,12 +65,12 @@ inline std::string doc_format(const std::string& s)
   static const std::string s_gray("\e[37m$1\e[0m");
 
   auto a = std::regex_replace(s, bful, s_bful);
-  auto b = std::regex_replace(a, bf,   s_bf);
-  auto c = std::regex_replace(b, ul,   s_ul);
-  auto d = std::regex_replace(c, red,  s_red);
-  return   std::regex_replace(d, gray, s_gray);
+  auto b = std::regex_replace(a, bf, s_bf);
+  auto c = std::regex_replace(b, ul, s_ul);
+  auto d = std::regex_replace(c, red, s_red);
+  return std::regex_replace(d, gray, s_gray);
 }
 
-}  // namespace _portable::utils
+}  // namespace _ptb::utils
 
 #endif /* _PORTABLE_UTILS_FORMAT_HH */

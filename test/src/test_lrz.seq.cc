@@ -26,7 +26,7 @@ bool test1(
     FUNC func, T* input, size_t len, psz_len len3, psz_len leap3, T const* expected,
     std::string funcname)
 {
-  auto outlier = new _portable::compact_CPU<T>(len / 10);
+  auto outlier = new _ptb::compact_CPU<T>(len / 10);
 
   auto eq = new Eq[len];
   memset(eq, 0, sizeof(Eq) * len);
@@ -83,7 +83,7 @@ bool test3(
     FUNC1 func1, FUNC2 func2, T* input, size_t len, psz_len len3, psz_len leap3,
     std::string funcname)
 {
-  auto outlier = new _portable::compact_CPU<T>(len / 10);
+  auto outlier = new _ptb::compact_CPU<T>(len / 10);
 
   auto eq = new Eq[len];
   memset(eq, 0, sizeof(Eq) * len);

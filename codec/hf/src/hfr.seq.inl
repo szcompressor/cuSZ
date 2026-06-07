@@ -230,7 +230,7 @@ void CPU_HFReVISIT_encode(
   auto slab_size = C::ChunkSize;
   auto nblock = (len - 1) / slab_size + 1;
 
-  using Compact = _portable::compact_CPU<T>;
+  using Compact = _ptb::compact_CPU<T>;
   auto sp = (Compact*)_sp;
 
   if (false) {

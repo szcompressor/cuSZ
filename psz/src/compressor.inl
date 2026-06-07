@@ -286,7 +286,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
     mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
     mem->nbyte[PSZ_ANCHOR] = predictor == Spline ? sizeof(T) * mem->anchor_len() : 0;
-    mem->nbyte[PSZ_SPFMT] = sizeof(_portable::compact_cell<T, u4>) * ctx->header->splen;
+    mem->nbyte[PSZ_SPFMT] = sizeof(_ptb::compact_cell<T, u4>) * ctx->header->splen;
     mem->nbyte[PSZ_ENC_PASS1_END] = 0;
 
     // clang-format off
@@ -466,7 +466,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
   };
 
   auto d_anchor = (T*)access(PSZ_ANCHOR);
-  auto d_spval_idx = (_portable::compact_cell<T, M>*)access(PSZ_SPFMT);
+  auto d_spval_idx = (_ptb::compact_cell<T, M>*)access(PSZ_SPFMT);
   auto d_space = out, d_xdata = out;  // aliases
   auto len = header->len;
   phf_header h;  // declared early so goto over STEP_DECODING is valid
@@ -495,8 +495,8 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       d_anchor =
           (T*)((byte_t*)decomp_lc1 + (header->entry[PSZ_ANCHOR] - header->entry[PSZ_ENCODED]));
       d_spval_idx =
-          (_portable::compact_cell<T, M>*)((byte_t*)decomp_lc1 + (header->entry[PSZ_SPFMT] -
-                                                                  header->entry[PSZ_ENCODED]));
+          (_ptb::compact_cell<T, M>*)((byte_t*)decomp_lc1 +
+                                      (header->entry[PSZ_SPFMT] - header->entry[PSZ_ENCODED]));
       // HF decode from start of decompressed block
       memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)decomp_lc1, sizeof(phf_header));
       // scatter first (ectrl not yet needed), decode after
@@ -515,9 +515,8 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       lc_c::BITR_DECOMPRESS((uint8_t*)access(PSZ_ANCHOR), mem->buf_lc(), stream);
       auto decomp_lc2 = mem->buf_lc()->decoded_d();
       d_anchor = (T*)decomp_lc2;
-      d_spval_idx =
-          (_portable::compact_cell<T, M>*)((byte_t*)decomp_lc2 +
-                                           (header->entry[PSZ_SPFMT] - header->entry[PSZ_ANCHOR]));
+      d_spval_idx = (_ptb::compact_cell<T, M>*)((byte_t*)decomp_lc2 + (header->entry[PSZ_SPFMT] -
+                                                                       header->entry[PSZ_ANCHOR]));
       if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
       if (header->splen != 0)
         psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
@@ -596,13 +595,13 @@ PPL_IMPL(void)::compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_strea
 
   if (ctx->cli->dump_hist) {
     memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), RC.radius * 2, stream);
-    _portable::utils::tofile(dump_name("u4", "ht"), mem->hist_h(), RC.radius * 2);
+    _ptb::utils::tofile(dump_name("u4", "ht"), mem->hist_h(), RC.radius * 2);
   }
   if (ctx->cli->dump_quantcode) {
     cout << "[psz::dump] dumping quantization codebook to file: " << dump_name("quant") << endl;
     auto h_ectrl = MAKE_UNIQUE_HOST(E, mem->len_linear);
     memcpy_allkinds<D2H>(h_ectrl.get(), mem->ectrl_d(), mem->len_linear, stream);
-    _portable::utils::tofile(
+    _ptb::utils::tofile(
         dump_name("u" + to_string(sizeof(E)), "qt"), h_ectrl.get(), mem->len_linear);
   }
 }

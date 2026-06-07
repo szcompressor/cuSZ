@@ -14,16 +14,16 @@ extern "C" {
 
 #include "c_type.h"
 
-typedef _portable_device psz_device;
-typedef _portable_runtime psz_runtime;
-typedef _portable_runtime psz_backend;
-typedef _portable_toolkit psz_toolkit;
+typedef _ptb_device psz_device;
+typedef _ptb_runtime psz_runtime;
+typedef _ptb_runtime psz_backend;
+typedef _ptb_toolkit psz_toolkit;
 
-typedef _portable_stream_t psz_stream_t;
-typedef _portable_mem_control psz_mem_control;
-typedef _portable_dtype psz_dtype;
-typedef _portable_len3 psz_len3;
-typedef _portable_size3 psz_size3;
+typedef _ptb_stream_t psz_stream_t;
+typedef _ptb_mem_control psz_mem_control;
+typedef _ptb_dtype psz_dtype;
+typedef _ptb_len3 psz_len3;
+typedef _ptb_size3 psz_size3;
 // psz_data_summary now defined in stat.h
 
 // Currently, 3D is the highest supported dimention.

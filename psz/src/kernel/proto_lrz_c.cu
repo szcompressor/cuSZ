@@ -6,7 +6,7 @@ namespace psz {
 
 template <
     typename T, int TileDim = 256, typename Eq = u2,
-    typename CompactValIdx = _portable::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
+    typename CompactValIdx = _ptb::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
     typename Fp = T>
 __global__ void KCU_prototype_c_lorenzo_1d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
@@ -37,7 +37,7 @@ __global__ void KCU_prototype_c_lorenzo_1d1l(
 
 template <
     typename T, int TileDim = 16, typename Eq = u2,
-    typename CompactValIdx = _portable::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
+    typename CompactValIdx = _ptb::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
     typename Fp = T>
 __global__ void KCU_prototype_c_lorenzo_2d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
@@ -74,7 +74,7 @@ __global__ void KCU_prototype_c_lorenzo_2d1l(
 
 template <
     typename T, int TileDim = 8, typename Eq = u2,
-    typename CompactValIdx = _portable::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
+    typename CompactValIdx = _ptb::compact_cell<T, uint32_t>, typename CompactNum = uint32_t,
     typename Fp = T>
 __global__ void KCU_prototype_c_lorenzo_3d1l(
     T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
@@ -136,7 +136,7 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>::kernel(
       return 3;
   };
 
-  using Compact = _portable::compact_GPU_DRAM2<T, uint32_t>;
+  using Compact = _ptb::compact_GPU_DRAM2<T, uint32_t>;
   auto ot = (Compact*)out_outlier;
 
   constexpr auto Tile1D = dim3(256, 1, 1), Tile2D = dim3(16, 16, 1), Tile3D = dim3(8, 8, 8);

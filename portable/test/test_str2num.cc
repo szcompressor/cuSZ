@@ -3,8 +3,8 @@
 
 #include "detail/str2num.hh"
 
-using _portable::detail::str_to_int;
-using _portable::detail::str_to_num;
+using _ptb::detail::str_to_int;
+using _ptb::detail::str_to_num;
 
 int main()
 {

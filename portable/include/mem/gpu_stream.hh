@@ -4,7 +4,7 @@
 // RAII wrapper around cudaStream_t.
 //
 // Usage:
-//   auto stream = _portable::make_gpu_stream();
+//   auto stream = _ptb::make_gpu_stream();
 //   kernel<<<..., stream.get()>>>(...);
 //   // stream is destroyed automatically at scope exit
 //
@@ -17,11 +17,12 @@
 //     asynchronous and reporting destruction errors is rarely actionable.
 //   - assert() compiles out under NDEBUG; a Release build trusts the driver.
 
-#include <cassert>
 #include <cuda_runtime.h>
+
+#include <cassert>
 #include <memory>
 
-namespace _portable {
+namespace _ptb {
 
 struct gpu_stream_deleter {
   void operator()(CUstream_st* s) const noexcept
@@ -34,12 +35,12 @@ using gpu_stream = std::unique_ptr<CUstream_st, gpu_stream_deleter>;
 
 inline gpu_stream make_gpu_stream()
 {
-  cudaStream_t raw = nullptr;
+  cudaStream_t          raw = nullptr;
   [[maybe_unused]] auto err = cudaStreamCreate(&raw);
   assert(err == cudaSuccess && "cudaStreamCreate failed");
   return gpu_stream(raw);
 }
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif  // _PORTABLE_MEM_GPU_STREAM_HH

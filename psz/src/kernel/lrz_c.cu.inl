@@ -24,7 +24,7 @@ namespace cg = cooperative_groups;
   using T = typename Types::T;          \
   using Eq = typename Types::Eq;        \
   using Buf = typename Types::Buf_Comp; \
-  using Compact2 = _portable::compact_GPU_DRAM2<T, u4>;
+  using Compact2 = _ptb::compact_GPU_DRAM2<T, u4>;
 
 namespace psz {
 

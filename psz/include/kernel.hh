@@ -173,7 +173,7 @@ struct CPU_scatter {
   [[deprecated("To be replaced by kernel_v2.")]] static int kernel(
       T* val, M* idx, int nnz, T* out);
 
-  using ValIdx = _portable::compact_cell<T, M>;
+  using ValIdx = _ptb::compact_cell<T, M>;
   static int kernel_v2(ValIdx* val_idx, int nnz, T* out);
 };
 
@@ -181,7 +181,7 @@ template <typename T, typename M>
 struct GPU_scatter {
   static int kernel(T* val, M* idx, int nnz, T* out, void* stream);
 
-  using ValIdx = _portable::compact_cell<T, M>;
+  using ValIdx = _ptb::compact_cell<T, M>;
   static int kernel_v2(ValIdx* val_idx, int nnz, T* out, void* stream);
 };
 

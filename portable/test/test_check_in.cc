@@ -3,7 +3,7 @@
 
 #include "detail/check.hh"
 
-using _portable::detail::check_in;
+using _ptb::detail::check_in;
 
 int main()
 {

@@ -13,19 +13,19 @@
 
 // absorbed from typing.hh
 template <typename T>
-using cuszCOMPAT = _portable::CudaCompat<T>;
+using cuszCOMPAT = _ptb::CudaCompat<T>;
 
 template <bool LARGE>
-using LargeInputTrait = _portable::LargeInputTrait<LARGE>;
+using LargeInputTrait = _ptb::LargeInputTrait<LARGE>;
 
 template <bool FAST>
-using FastLowPrecisionTrait = _portable::FastLowPrecisionTrait<FAST>;
+using FastLowPrecisionTrait = _ptb::FastLowPrecisionTrait<FAST>;
 
 template <psz_dtype T>
-using Ctype = _portable::Ctype<T>;
+using Ctype = _ptb::Ctype<T>;
 
 template <typename Ctype>
-using PszType = _portable::TypeSym<Ctype>;
+using PszType = _ptb::TypeSym<Ctype>;
 
 namespace psz {
 
@@ -83,8 +83,8 @@ struct PredictorTyping {
   using CI = CompactIdx;
   using CN = CompactNum;
 
-  using Compact2 = _portable::compact_GPU_DRAM2<CompactVal, M>;
-  using C2VI = _portable::compact_cell<CompactVal, M>;
+  using Compact2 = _ptb::compact_GPU_DRAM2<CompactVal, M>;
+  using C2VI = _ptb::compact_cell<CompactVal, M>;
 
   /* ZigZag setup */
   using ZigZag = psz::ZigZag<Eq>;

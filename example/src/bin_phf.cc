@@ -20,9 +20,9 @@
 #include "utils/synth.hh"
 
 using std::string;
-namespace utils = _portable::utils;
-using _portable::GiBps;
-using _portable::gpu_timer;
+namespace utils = _ptb::utils;
+using _ptb::GiBps;
+using _ptb::gpu_timer;
 
 using F = u4;
 
@@ -48,8 +48,8 @@ template <typename E>
 void load_input(const string& fname, size_t len, const string& synth_spec, E* out)
 {
   if (not synth_spec.empty()) {
-    auto s = _portable::testutils::Synth::parse(synth_spec);
-    s.fill((void*)out, len, _portable::TypeSym<E>::type);
+    auto s = _ptb::testutils::Synth::parse(synth_spec);
+    s.fill((void*)out, len, _ptb::TypeSym<E>::type);
   }
   else {
     utils::fromfile_or_die(fname.c_str(), out, len);
@@ -89,7 +89,7 @@ constexpr HFVariant PBKGO   = {"HFR-PBKGO",    "hfr-pbkgo", psz_codec::HFR_PBK_G
 }  // namespace hfv
 
 static const auto bin_phf_cli =
-    _portable::arg_builder("bin_phf")
+    _ptb::arg_builder("bin_phf")
         .string ("input",             {"-i", "--input"},       "",       "input binary file (omit when --synth is set)")
         .dim3   ("dim3",              {"-l", "--dim3", "--len"},         "data dimensions: NxMxK or N (1-D)")
         .integer("bklen",             {"--bklen"},             1024,     "Huffman book length")
@@ -161,7 +161,7 @@ struct Arguments {
     try {
       auto a = bin_phf_cli.parse(argc, argv);
       fname = a.get<string>("input");
-      auto d = a.get<_portable_len3>("dim3");
+      auto d = a.get<_ptb_len3>("dim3");
       x = (int)d.x;
       y = (int)d.y;
       z = (int)d.z;
@@ -233,7 +233,7 @@ void hf_run(
   auto d_data = MAKE_UNIQUE_DEVICE(E, d_data_alloc_len);
   auto d_decomp = MAKE_UNIQUE_DEVICE(E, len);
 
-  auto stream_owner = _portable::make_gpu_stream();
+  auto stream_owner = _ptb::make_gpu_stream();
   auto stream = stream_owner.get();
 
   load_or_preload<E>(args.fname, len, args.synth_spec, preloaded_h_data, h_data.get());
@@ -461,7 +461,7 @@ int main(int argc, char** argv)
   Arguments args;
   if (not args.parse(argc, argv)) return 1;
 
-  if (args.use_cupti) _portable::timer_cupti::enable();
+  if (args.use_cupti) _ptb::timer_cupti::enable();
 
   size_t len = args.total_len();
 

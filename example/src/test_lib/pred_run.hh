@@ -21,7 +21,7 @@
 
 namespace psz_test {
 
-namespace _utils = _portable::utils;
+namespace _utils = _ptb::utils;
 using _Toggle = psz::Toggle;
 
 template <typename T, _Toggle ZigZag>
@@ -191,7 +191,7 @@ class PredRun {
     cudaMemset(d_xdata.get(), 0, sizeof(float) * len);
     if (mgr()->header->splen != 0) {
       psz::module::GPU_scatter<float, M>::kernel_v2(
-          (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), mgr()->header->splen,
+          (_ptb::compact_cell<float, M>*)mem->outlier2_validx_d(), mgr()->header->splen,
           d_xdata.get(), (void*)stream);
     }
     if (pred_type == psz_predictor::Lorenzo)

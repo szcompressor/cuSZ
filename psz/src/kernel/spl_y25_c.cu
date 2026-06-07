@@ -46,7 +46,7 @@ int psz::module::GPU_c_spline_y25<T, E, FP>::kernel_v1(
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
-  using Compact = _portable::compact_GPU_DRAM2<T, u4>;
+  using Compact = _ptb::compact_GPU_DRAM2<T, u4>;
   auto ot = (Compact*)_outlier;
 
   auto ebx2 = eb * 2;

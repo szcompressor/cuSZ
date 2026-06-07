@@ -161,7 +161,7 @@ void KERNEL_SEQ_c_lorenzo_1d1l(
   SETUP_1D_EQBUF;
   SETUP_ZIGZAG;
 
-  auto outlier = (struct _portable::compact_CPU<T>*)in_outlier;
+  auto outlier = (struct _ptb::compact_CPU<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -257,7 +257,7 @@ void KERNEL_SEQ_c_lorenzo_2d1l(
   SETUP_2D_EQBUF;
   SETUP_ZIGZAG;
 
-  auto outlier = (struct _portable::compact_CPU<T>*)in_outlier;
+  auto outlier = (struct _ptb::compact_CPU<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {
@@ -357,7 +357,7 @@ void KERNEL_SEQ_c_lorenzo_3d1l(
   SETUP_3D_EQBUF;
   SETUP_ZIGZAG;
 
-  auto outlier = (struct _portable::compact_CPU<T>*)in_outlier;
+  auto outlier = (struct _ptb::compact_CPU<T>*)in_outlier;
 
   // per-thread ("real" kernel)
   auto threadview_load = [&]() {

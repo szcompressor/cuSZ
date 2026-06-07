@@ -1,4 +1,4 @@
-template <_portable_mem_control>
+template <_ptb_mem_control>
 struct _memcpy_direcion;
 
 template <>
@@ -130,7 +130,7 @@ void free_unified(T* __a, void* stream = nullptr)
   free_device(__a, stream);
 }
 
-template <_portable_mem_control DIR, typename T>
+template <_ptb_mem_control DIR, typename T>
 void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
 {
   static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");
@@ -147,13 +147,13 @@ void memcpy_allkinds(T* dst, T* src, size_t const len, void* stream = nullptr)
             "fall back to default queue."
          << endl;
     dpct::device_ext& dev = dpct::get_current_device();
-    sycl::queue& q = dev.default_queue();
+    sycl::queue&      q   = dev.default_queue();
     q.memcpy(dst, src, sizeof(T) * len).wait();
   }
 #endif
 }
 
-template <_portable_mem_control DIR, typename T>
+template <_ptb_mem_control DIR, typename T>
 void memcpy_allkinds_async(T* dst, T* src, size_t const len, void* stream = nullptr)
 {
   static_assert(std::is_trivially_copyable_v<T>, "T must be a trivially copyable type.");

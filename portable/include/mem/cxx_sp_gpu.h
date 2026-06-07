@@ -7,7 +7,7 @@
 #include "mem/cxx_backends.h"
 #include "mem/sp_interface.h"
 
-namespace _portable {
+namespace _ptb {
 
 template <typename T>
 using compact_gpu = compact_GPU_DRAM<T>;
@@ -15,10 +15,10 @@ using compact_gpu = compact_GPU_DRAM<T>;
 template <typename T>
 struct compact_GPU_DRAM {
  public:
-  using control_stream_t = std::vector<_portable_mem_control>;
+  using control_stream_t = std::vector<_ptb_mem_control>;
 
-  GPU_unique_dptr<T[]> d_val;
-  GPU_unique_hptr<T[]> h_val;
+  GPU_unique_dptr<T[]>        d_val;
+  GPU_unique_hptr<T[]>        h_val;
   GPU_unique_dptr<uint32_t[]> d_idx;
   GPU_unique_hptr<uint32_t[]> h_idx;
   GPU_unique_dptr<uint32_t[]> d_num;
@@ -62,10 +62,10 @@ struct compact_GPU_DRAM2 {
 
  private:
   static constexpr size_t tile1d_size = 1024;
-  static constexpr size_t padding = tile1d_size;
+  static constexpr size_t padding     = tile1d_size;
 
-  GPU_unique_dptr<cell[]> d_val_idx;
-  GPU_unique_hptr<cell[]> h_val_idx;
+  GPU_unique_dptr<cell[]>     d_val_idx;
+  GPU_unique_hptr<cell[]>     h_val_idx;
   GPU_unique_dptr<uint32_t[]> d_num;
   GPU_unique_hptr<uint32_t[]> h_num;
 
@@ -77,8 +77,8 @@ struct compact_GPU_DRAM2 {
       reserved_len_wanted(reserved_len), reserved_len_actual(reserved_len + padding)
   {
     d_val_idx = MAKE_UNIQUE_DEVICE(cell, reserved_len_actual);
-    d_num = MAKE_UNIQUE_DEVICE(uint32_t, 1);
-    h_num = MAKE_UNIQUE_HOST(uint32_t, 1);
+    d_num     = MAKE_UNIQUE_DEVICE(uint32_t, 1);
+    h_num     = MAKE_UNIQUE_HOST(uint32_t, 1);
 
     if (need_host_alloc) h_val_idx = MAKE_UNIQUE_HOST(cell, reserved_len_actual);
   }
@@ -100,6 +100,6 @@ struct compact_GPU_DRAM2 {
   size_t max_allowed_num() const { return reserved_len_wanted; }
 };
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif /* _PORTABLE_MEM_CXX_SP_GPU_H */

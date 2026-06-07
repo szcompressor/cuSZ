@@ -9,7 +9,7 @@
 
 #include "sp_interface.h"
 
-namespace _portable {
+namespace _ptb {
 
 template <typename T, typename Idx = uint32_t>
 struct compact_CPU {
@@ -18,9 +18,9 @@ struct compact_CPU {
 
  private:
   static constexpr size_t tile1d_size = 1024;
-  static constexpr size_t padding = tile1d_size;
+  static constexpr size_t padding     = tile1d_size;
 
-  std::unique_ptr<cell[]> _val_idx;
+  std::unique_ptr<cell[]>     _val_idx;
   std::unique_ptr<uint32_t[]> _num;
 
   const size_t reserved_len_wanted;
@@ -31,8 +31,8 @@ struct compact_CPU {
       reserved_len_wanted(_reserved_len), reserved_len_actual(_reserved_len + padding)
   {
     _val_idx = std::make_unique<cell[]>(reserved_len_actual);
-    _num = std::make_unique<uint32_t[]>(1);
-    _num[0] = 0;
+    _num     = std::make_unique<uint32_t[]>(1);
+    _num[0]  = 0;
   };
   ~compact_CPU() {}
 
@@ -44,6 +44,6 @@ struct compact_CPU {
   // uint32_t get_num() { return _num[0]; }
 };
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif /* _PORTABLE_MEM_CXX_SP_CPU_H */

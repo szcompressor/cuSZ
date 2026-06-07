@@ -14,13 +14,13 @@
 #include "detail/kv_parse.hh"
 #include "detail/str2num.hh"
 
-namespace _portable {
+namespace _ptb {
 
 // Binds a comma-separated key=value (or bare-key) string into a typed struct T.
 // Sits on top of detail::parse_strlist + detail::separate_kv.
 //
 // Usage:
-//   static const auto binder = _portable::kv_binder<MyStruct>()
+//   static const auto binder = _ptb::kv_binder<MyStruct>()
 //     .number({"alpha", "intp-alpha"}, &MyStruct::alpha)
 //     .flag({"enabled"},               &MyStruct::enabled)
 //     .flag_ref({"arr_0","a0"}, [](MyStruct& s) -> bool& { return s.arr[0]; })
@@ -48,7 +48,7 @@ class kv_binder {
     return std::move(*this);
   }
 
-public:
+ public:
   // Floating-point field via member pointer.
   template <typename F>
   kv_binder&& number(std::initializer_list<const char*> keys, F T::* field)
@@ -64,17 +64,14 @@ public:
   // Bare key or value "on"/"ON" -> true; "off"/"OFF" -> false.
   kv_binder&& flag(std::initializer_list<const char*> keys, bool T::* field)
   {
-    return add(keys, [field](T& t, const std::string& v) {
-      t.*field = not (v == "off" or v == "OFF");
-    });
+    return add(
+        keys, [field](T& t, const std::string& v) { t.*field = not(v == "off" or v == "OFF"); });
   }
 
   // Bool array element via accessor — member pointer cannot address array elements.
   kv_binder&& flag_ref(std::initializer_list<const char*> keys, bool_ref_fn fn)
   {
-    return add(keys, [fn](T& t, const std::string& v) {
-      fn(t) = not (v == "off" or v == "OFF");
-    });
+    return add(keys, [fn](T& t, const std::string& v) { fn(t) = not(v == "off" or v == "OFF"); });
   }
 
   // Custom handler — full control over parsing and assignment.
@@ -94,8 +91,8 @@ public:
       std::string key, val;
       if (detail::is_kv_pair(tok)) {
         auto kv = detail::separate_kv(tok);
-        key = kv.first;
-        val = kv.second;
+        key     = kv.first;
+        val     = kv.second;
       }
       else {
         key = tok;  // bare key — val stays ""
@@ -104,13 +101,19 @@ public:
       for (auto& e : entries_) {
         bool matched = false;
         for (auto& k : e.keys)
-          if (k == key) { matched = true; break; }
-        if (matched) { e.handler(target, val); break; }
+          if (k == key) {
+            matched = true;
+            break;
+          }
+        if (matched) {
+          e.handler(target, val);
+          break;
+        }
       }
     }
   }
 };
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif  // _PORTABLE_KV_BINDER_HH

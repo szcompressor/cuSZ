@@ -11,7 +11,7 @@
 #include <memory>
 #include <tuple>
 
-namespace _portable {
+namespace _ptb {
 
 // CUDA event zone: RAII ///////////////////////////////////////////////////////
 
@@ -153,6 +153,6 @@ inline double GiBps(size_t len, double ms)  // GiBps
   return gibps;
 }
 
-}  // namespace _portable
+}  // namespace _ptb
 
 #endif  // _PORTABLE_MEM_GPU_EVENT_HH

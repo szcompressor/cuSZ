@@ -13,11 +13,11 @@
 
 #include "c_type.h"
 
-namespace _portable::detail {
+namespace _ptb::detail {
 
 enum class opt_kind { flag, integer, number, string, dim3, positional };
 
-using opt_value = std::variant<bool, i8, f8, std::string, _portable_len3>;
+using opt_value = std::variant<bool, i8, f8, std::string, _ptb_len3>;
 
 struct arg_def {
   std::string              name;
@@ -33,6 +33,6 @@ struct arg_store {
   std::vector<std::string>                   positionals;
 };
 
-}  // namespace _portable::detail
+}  // namespace _ptb::detail
 
 #endif  // _PORTABLE_DETAIL_OPTION_VALUE_HH

@@ -47,7 +47,7 @@ void real_data_test(size_t len, size_t bklen, string fname)
   auto og_h = MAKE_UNIQUE_HOST(u4, bklen);
   auto og_d = MAKE_UNIQUE_DEVICE(u4, bklen);
 
-  _portable::utils::fromfile(fname, wn_h.get(), len);
+  _ptb::utils::fromfile(fname, wn_h.get(), len);
   memcpy_allkinds<H2D>(wn_d.get(), wn_h.get(), len);
 
   cudaStream_t stream;

@@ -7,7 +7,7 @@
 #include "utils/io.hh"
 #include "viewer.hh"
 
-namespace utils = _portable::utils;
+namespace utils = _ptb::utils;
 
 std::string fname;
 size_t f4data_len = 3600 * 1800;

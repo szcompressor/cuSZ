@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace _portable::testutils {
+namespace _ptb::testutils {
 
 uint32_t xorshift32(uint32_t& state)
 {
@@ -70,7 +70,7 @@ void generate(const Synth& s, E* buf, std::size_t len)
 
 }  // namespace
 
-void Synth::fill(void* buf, std::size_t len, _portable_dtype dt) const
+void Synth::fill(void* buf, std::size_t len, _ptb_dtype dt) const
 {
   switch (dt) {
     case U1: generate(*this, (u1*)buf, len); break;
@@ -96,4 +96,4 @@ double Synth::gamma_from(double pmf1)
   return 0.5 / std::tan(pi * pmf1 / 2.0);
 }
 
-}  // namespace _portable::testutils
+}  // namespace _ptb::testutils

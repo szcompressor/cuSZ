@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "arg_builder.hh"   // _portable::arg_builder
+#include "arg_builder.hh"   // _ptb::arg_builder
 #include "pred_metrics.hh"  // AssertConfig
 #include "toml_lite.hh"
 
@@ -93,7 +93,7 @@ struct PredArgs {
     // 2. parse args
     // clang-format off
     auto cli =
-        _portable::arg_builder("bin_pred / bin_pred_xv")
+        _ptb::arg_builder("bin_pred / bin_pred_xv")
             .string ("input",       {"-i", "--input"},               "",       "data file (direct mode)")
             .string ("xyz",         {"-l", "--xyz", "--len"},        "",       "3-D dims NxMxK (direct mode)")
             .number ("eb",          {"-e", "--eb"},                  0.0,      "error bound")
@@ -115,7 +115,7 @@ struct PredArgs {
     // clang-format on
 
     // 3. parse
-    _portable::arg_result r;
+    _ptb::arg_result r;
     try {
       r = cli.parse(new_argc, new_argv);
     }
@@ -164,7 +164,7 @@ struct PredArgs {
     {
       auto xyz_str = r.get<std::string>("xyz");
       if (not xyz_str.empty()) {
-        auto pl = _portable::detail::parse_xyz(xyz_str.c_str()).len;
+        auto pl = _ptb::detail::parse_xyz(xyz_str.c_str()).len;
         x = pl.x, y = pl.y, z = pl.z;
       }
     }

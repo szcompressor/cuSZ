@@ -74,19 +74,19 @@ static void apply_str(const string& src, char (&dst)[N])
   std::memcpy(dst, src.c_str(), src.size() + 1);
 }
 
-static const auto report_binder = _portable::kv_binder<psz_cli_config>()
+static const auto report_binder = _ptb::kv_binder<psz_cli_config>()
                                       .flag({"cr"}, &psz_cli_config::report_cr)
                                       .flag({"time"}, &psz_cli_config::report_time);
 
 // clang-format off
-static const auto dump_binder = _portable::kv_binder<psz_cli_config>()
+static const auto dump_binder = _ptb::kv_binder<psz_cli_config>()
   .flag({"quantcode", "quant"},             &psz_cli_config::dump_quantcode)
   .flag({"histogram", "hist"},              &psz_cli_config::dump_hist)
   .flag({"full_huffman_binary", "full_hf"}, &psz_cli_config::dump_full_hf);
 // clang-format on
 
 // clang-format off
-static const auto hi_binder = _portable::kv_binder<psz_interp_params>()
+static const auto hi_binder = _ptb::kv_binder<psz_interp_params>()
   .number({"alpha", "intp-alpha"}, &psz_interp_params::alpha)
   .number({"beta",  "intp-beta"},  &psz_interp_params::beta)
   .flag_ref({"md_0","md0"},  [](psz_interp_params& p) -> bool& { return p.use_md[0]; })
@@ -105,7 +105,7 @@ static const auto hi_binder = _portable::kv_binder<psz_interp_params>()
     if      (_v == "cr-first" or _v == "CR-first") p.auto_tuning = 3;
     else if (_v == "rd-first" or _v == "RD-first") p.auto_tuning = 6;
     else {
-      auto n = _portable::detail::str_to_int(_v.c_str());
+      auto n = _ptb::detail::str_to_int(_v.c_str());
       if (not n) throw std::runtime_error("invalid auto_tuning value: " + _v);
       p.auto_tuning = static_cast<uint8_t>(*n);
     }
@@ -117,7 +117,7 @@ static const auto hi_binder = _portable::kv_binder<psz_interp_params>()
 // ---------------------------------------------------------------------------
 
 // clang-format off
-static const auto psz_cli = _portable::arg_builder("cusz")
+static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("input",    {"-i", "--input"},                              "",     "input file")
   .string("len",      {"-l", "--len", "--xyz", "--dim3"},             "",     "data dimensions (x,y,z order)")
   .string("len_zyx",  {"--math-order", "--zyx", "--slowest-to-fastest"}, "",  "data dimensions (z,y,x order)")
@@ -146,9 +146,9 @@ static const auto psz_cli = _portable::arg_builder("cusz")
 // Bind a parsed ArgResult into psz_ctx.
 // ---------------------------------------------------------------------------
 
-static void psz_cli_bind(const _portable::arg_result& args, psz_ctx* ctx)
+static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
 {
-  using namespace _portable::detail;
+  using namespace _ptb::detail;
 
   // input file
   apply_str(args.get<string>("input"), ctx->cli->file_input);
@@ -402,8 +402,8 @@ void psz_print_document(bool full)
 {
   psz_version();
   std::cout
-      << (full ? "\n" + _portable::utils::doc_format(psz_full_doc)
-               : _portable::utils::doc_format(psz_short_doc));
+      << (full ? "\n" + _ptb::utils::doc_format(psz_full_doc)
+               : _ptb::utils::doc_format(psz_short_doc));
 }
 
 void pszctx_set_rawlen(psz_ctx* ctx, size_t _x, size_t _y, size_t _z)

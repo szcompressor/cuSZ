@@ -7,12 +7,12 @@
 #include <exception>
 #include <sstream>
 
-namespace _portable {
+namespace _ptb {
 
 struct exception_gpu_general : public std::exception {
   exception_gpu_general(cudaError_t gpu_error_status, const char* _file_, const int _line_)
   {
-    const char* err = cudaGetErrorString(gpu_error_status);
+    const char*       err = cudaGetErrorString(gpu_error_status);
     std::stringstream ss;
     ss << "GPU API failed at \e[31m\e[1m" << _file_ << ':' << _line_;
     ss << "\e[0m with error: " << err << '(' << (int)gpu_error_status << ')';
@@ -22,14 +22,14 @@ struct exception_gpu_general : public std::exception {
   std::string err_msg;
 };
 
-}  // namespace _portable
+}  // namespace _ptb
 
 // proxy: not safe to put throw inside a macro expansion
 static void throw_exception_gpu_general(
     cudaError_t GPU_ERROR_CODE, const char* _file_, const int _line_)
 {
   if (cudaSuccess != GPU_ERROR_CODE) {
-    throw _portable::exception_gpu_general(GPU_ERROR_CODE, _file_, _line_);
+    throw _ptb::exception_gpu_general(GPU_ERROR_CODE, _file_, _line_);
   }
 }
 
@@ -48,7 +48,7 @@ You need to rewrite this code.
 #define cudaGetErrorString(...) \
   "cudaGetErrorString is not supported" /*cudaGetErrorString(__VA_ARGS__)*/
 
-namespace _portable {
+namespace _ptb {
 
 struct exception_gpu_general : public std::exception {
   exception_gpu_general(const char* err, int err_code, const char* file, int line)
@@ -62,7 +62,7 @@ struct exception_gpu_general : public std::exception {
   std::string err_msg;
 };
 
-}  // namespace _portable
+}  // namespace _ptb
 
 static void psz_check_gpu_error_impl(cudaError_t status, const char* file, int line)
 {
@@ -73,7 +73,7 @@ static void psz_check_gpu_error_impl(cudaError_t status, const char* file, int l
     /*
     DPCT1001:0: The statement could not be removed.
     */
-    throw _portable::exception_gpu_general(cudaGetErrorString(status), status, file, line);
+    throw _ptb::exception_gpu_general(cudaGetErrorString(status), status, file, line);
   }
 }
 

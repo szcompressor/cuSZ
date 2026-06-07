@@ -21,7 +21,7 @@ void KERNEL_SYCL_spvn_scatter(
   }
 }
 
-template <typename T, typename M = u4, typename ValIdx = _portable::compact_cell<T, M> >
+template <typename T, typename M = u4, typename ValIdx = _ptb::compact_cell<T, M> >
 void KERNEL_SYCL_spvn_scatter_v2(
     ValIdx* val_idx, int const nnz, T* out, const sycl::nd_item<3>& item_ct1)
 {
