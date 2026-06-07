@@ -26,6 +26,7 @@ psz_resource* psz_create_resource_manager(
   m->header->len = len;
   m->len_linear = len.x * len.y * len.z;
   m->bklen = m->header->rc.radius * 2;
+  m->spline_variant = 0;  // default to y25
   m->cli = nullptr;
   phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
@@ -41,6 +42,7 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   memcpy(m->header, header, sizeof(psz_header));
   m->bklen = m->header->rc.radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
+  m->spline_variant = 0;  // default y25; variant is not (yet) serialized in the header
   m->cli = nullptr;
 
   m->buf = header->dtype == F4 ? CP<f4, u2>::decompress_init(m->header)

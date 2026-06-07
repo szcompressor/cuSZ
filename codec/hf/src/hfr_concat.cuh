@@ -126,14 +126,14 @@ __global__ void KCU_reduce_total_nbit(u4 const* par_nbit, u4 pardeg, u4* total_n
   if (threadIdx.x == 0 and s_partial > 0) atomicAdd(total_nbit, s_partial);
 }
 
-// HF_rev2: pack (par_nbit, par_entry) -> AoS bheader_backport[] (bits:16 + entry:32).
+// HF_rev2: pack (par_nbit, par_entry) -> AoS bheader_backport[] (bits:32 + entry:32).
 __global__ void KCU_pack_bheader_backport(
     u4 const* __restrict__ par_nbit, u4 const* __restrict__ par_entry,
     u4* __restrict__ out_headers, int pardeg, u4 sizeof_Hf)
 {
   const int b = (int)(blockIdx.x * blockDim.x + threadIdx.x);
   if (b >= pardeg) return;
-  out_headers[2 * b + 0] = par_nbit[b] & 0xFFFFu;
+  out_headers[2 * b + 0] = par_nbit[b];
   out_headers[2 * b + 1] = par_entry[b] * sizeof_Hf;
 }
 
@@ -144,7 +144,7 @@ __global__ void KCU_unpack_bheader_backport(
 {
   const int b = (int)(blockIdx.x * blockDim.x + threadIdx.x);
   if (b >= pardeg) return;
-  par_nbit[b] = in_headers[2 * b + 0] & 0xFFFFu;
+  par_nbit[b] = in_headers[2 * b + 0];
   par_entry[b] = in_headers[2 * b + 1] / sizeof_Hf;
 }
 

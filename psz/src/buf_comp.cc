@@ -5,7 +5,9 @@
 #include "kernel/launch.inl"
 
 // Dummy-kernel launch lives in buf_comp_dummy.cu (CUDA firewall).
-namespace psz::buf_comp_dummy { void launch(); }
+namespace psz::buf_comp_dummy {
+void launch();
+}
 
 namespace {
 
@@ -55,17 +57,22 @@ struct psz::Buf_Comp<T, E>::impl {
   GPU_unique_dptr<T[]> d_pe;
   GPU_unique_hptr<T[]> h_pe;
 
+  // spline variant selector (0 = y25/BLK16, 1 = y24/BLK8).
+  int spline_variant = 0;
+  int anchor_blk() const { return spline_variant == 1 ? BLK8 : BLK16; }
+
  private:
   static size_t _div(size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
 
+  // y24 cap for both y24 and y25
   static size_t set_anchor_len(u4 x, u4 y, u4 z)
   {
-    return _div(x, BLK) * _div(y, BLK) * _div(z, BLK);
+    return _div(x, BLK8) * _div(y, BLK8) * _div(z, BLK8);
   }
 
   static size_t set_anchor_len(psz_len len)
   {
-    return _div(len.x, BLK) * _div(len.y, BLK) * _div(len.z, BLK);
+    return _div(len.x, BLK8) * _div(len.y, BLK8) * _div(len.z, BLK8);
   }
 
  public:
@@ -211,12 +218,19 @@ COMPBUF_IMPL(void*)::outlier2_validx_d() const { return pimpl->buf_outlier2->val
 COMPBUF_IMPL(M)::outlier2_host_get_num() const { return pimpl->buf_outlier2->host_get_num(); }
 
 COMPBUF_IMPL(T*)::anchor_d() const { return pimpl->d_anchor.get(); }
-COMPBUF_IMPL(size_t)::anchor_len() const { return pimpl->len_linear_anchor; }
+COMPBUF_IMPL(size_t)::anchor_len() const
+{
+  auto a = anchor_len3();
+  return (size_t)a.x * a.y * a.z;
+}
 COMPBUF_IMPL(psz_len)::anchor_len3() const
 {
   auto _div = [](size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
-  return {_div(len.x, BLK), _div(len.y, BLK), _div(len.z, BLK)};
+  auto blk = pimpl->anchor_blk();
+  return {_div(len.x, blk), _div(len.y, blk), _div(len.z, blk)};
 }
+
+COMPBUF_IMPL(void)::set_spline_variant(int v) { pimpl->spline_variant = v; }
 
 COMPBUF_IMPL(T*)::profiled_errors_d() const { return pimpl->d_pe.get(); };
 COMPBUF_IMPL(T*)::profiled_errors_h() const { return pimpl->h_pe.get(); };

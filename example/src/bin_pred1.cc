@@ -57,12 +57,15 @@ int main(int argc, char** argv)
   }
 
   psz_predictor pred_type = psz_predictor::Spline;
+  int spline_variant = 0;  // 0 = y25 (2D+3D), 1 = y24 (lean 3D)
   if (pred_name == "lrz" or pred_name == "lorenzo")
     pred_type = psz_predictor::Lorenzo;
   else if (pred_name == "lrz-zz" or pred_name == "lorenzo-zigzag")
     pred_type = psz_predictor::LorenzoZigZag;
   else if (pred_name == "lrz-proto" or pred_name == "lorenzo-proto")
     pred_type = psz_predictor::LorenzoProto;
+  else if (pred_name == "spline-y24")
+    spline_variant = 1;
 
   auto h_data = MAKE_UNIQUE_HOST(float, len);
   auto d_data = MAKE_UNIQUE_DEVICE(float, len);
@@ -85,6 +88,7 @@ int main(int argc, char** argv)
   manager->header->rc.mode = Abs;
   manager->header->rc.radius = radius;
   manager->header->user_input_eb = abs_eb;
+  manager->spline_variant = spline_variant;  // 0 = y25, 1 = y24
 
   using E = uint16_t;
   using M = uint32_t;
@@ -124,10 +128,10 @@ int main(int argc, char** argv)
         mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb * 2, 1 / (abs_eb * 2),
         manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::Spline)
-    psz::module::GPU_spline_reconstruct<float, E>::kernel_v1(
+    psz::module::GPU_x_spline<float, E>::kernel_v1(
         mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata.get(), mem->ectrl_len3(),
         d_xdata.get(), abs_eb, manager->header->rc.radius, manager->header->intp_param,
-        (void*)stream);
+        (void*)stream, spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
 
   cudaStreamSynchronize(stream);
   memcpy_allkinds<D2H>(h_xdata.get(), d_xdata.get(), len);

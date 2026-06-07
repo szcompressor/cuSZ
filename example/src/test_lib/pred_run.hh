@@ -15,10 +15,9 @@
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
-#include "utils/io.hh"
-
 #include "pred_args.hh"
 #include "pred_metrics.hh"
+#include "utils/io.hh"
 
 namespace psz_test {
 
@@ -33,15 +32,29 @@ using GPU_x_lorenzo_nd =
 // `out_spline_v` channel is reserved for the spl-vN side-channel used by
 // bin_pred_xv on the spline-evolution branch; on develop it stays 0.
 // Returns false on unknown name.
-inline bool resolve_predictor(
-    const std::string& name, psz_predictor& out_pred, int& out_spline_v)
+inline bool resolve_predictor(const std::string& name, psz_predictor& out_pred, int& out_spline_v)
 {
   out_spline_v = 0;
-  if (name == "lrz" || name == "lorenzo") { out_pred = psz_predictor::Lorenzo; }
-  else if (name == "lrz-zz" || name == "lorenzo-zigzag") { out_pred = psz_predictor::LorenzoZigZag; }
-  else if (name == "lrz-proto" || name == "lorenzo-proto") { out_pred = psz_predictor::LorenzoProto; }
-  else if (name == "spl" || name == "spline") { out_pred = psz_predictor::Spline; }
-  else return false;
+  if (name == "lrz" or name == "lorenzo") { out_pred = psz_predictor::Lorenzo; }
+  else if (name == "lrz-zz" or name == "lorenzo-zigzag") {
+    out_pred = psz_predictor::LorenzoZigZag;
+  }
+  else if (name == "lrz-proto" or name == "lorenzo-proto") {
+    out_pred = psz_predictor::LorenzoProto;
+  }
+  else if (name == "spl" or name == "spline") {
+    out_pred = psz_predictor::Spline;
+  }
+  else if (name == "spl-y24" or name == "spline-y24") {
+    out_pred = psz_predictor::Spline;
+    out_spline_v = 24;
+  }
+  else if (name == "spl-y25" or name == "spline-y25") {
+    out_pred = psz_predictor::Spline;
+    out_spline_v = 25;
+  }
+  else
+    return false;
   return true;
 }
 
@@ -129,23 +142,26 @@ class PredRun {
       }
       double const rng = mx - mn;
       args.eb = user_eb * rng;
-      fprintf(stderr,
-              "[pred-study] rel-mode: range=%.6e (min=%.6e max=%.6e)  "
-              "rel_eb=%.6e -> abs_eb=%.6e\n",
-              rng, mn, mx, user_eb, args.eb);
+      fprintf(
+          stderr,
+          "[pred-study] rel-mode: range=%.6e (min=%.6e max=%.6e)  "
+          "rel_eb=%.6e -> abs_eb=%.6e\n",
+          rng, mn, mx, user_eb, args.eb);
     }
 
     manager_ = psz_create_resource_manager(
-        F4, {args.x, args.y, args.z},
-        {pred_type, HistogramGeneric, Huffman, NullCodec}, (void*)stream);
+        F4, {args.x, args.y, args.z}, {pred_type, HistogramGeneric, Huffman, NullCodec},
+        (void*)stream);
 
     manager_->header->rc.eb = args.eb;
     manager_->header->rc.mode = (args.mode == PredArgs::Mode::Rel) ? Rel : Abs;
     manager_->header->rc.radius = args.radius;
+    manager_->spline_variant = (spline_v_check == 24) ? 1 : 0;  // 1 = y24, 0 = y25
     // Preserve the user's input eb (rel value, if rel-mode) for trace.
     manager_->header->user_input_eb = user_eb;
 
     mem = (Buf*)manager_->buf;
+    mem->set_spline_variant(spline_v_check == 24 ? 1 : 0);  // anchor sizing: BLK8 vs BLK16
     h_hist = std::unique_ptr<uint32_t[]>(new uint32_t[manager_->bklen]);
     return 0;
   }
@@ -156,8 +172,7 @@ class PredRun {
   // -- 2. forward predictor (compress_analysis path). --------------------
   int compress()
   {
-    auto status = PPL::compress_analysis(
-        mgr(), mem, d_data.get(), h_hist.get(), (void*)stream);
+    auto status = PPL::compress_analysis(mgr(), mem, d_data.get(), h_hist.get(), (void*)stream);
     if (status != PSZ_SUCCESS) {
       fprintf(stderr, "[pred-study] predictor-analysis failed, status=%d\n", status);
       return 2;
@@ -176,26 +191,26 @@ class PredRun {
     cudaMemset(d_xdata.get(), 0, sizeof(float) * len);
     if (mgr()->header->splen != 0) {
       psz::module::GPU_scatter<float, M>::kernel_v2(
-          (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(),
-          mgr()->header->splen, d_xdata.get(), (void*)stream);
+          (_portable::compact_cell<float, M>*)mem->outlier2_validx_d(), mgr()->header->splen,
+          d_xdata.get(), (void*)stream);
     }
     if (pred_type == psz_predictor::Lorenzo)
       GPU_x_lorenzo_nd<float, _Toggle::ZigZag_Off>::kernel(
-          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb,
-          mgr()->header->rc.radius, (void*)stream);
+          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb, mgr()->header->rc.radius,
+          (void*)stream);
     else if (pred_type == psz_predictor::LorenzoZigZag)
       GPU_x_lorenzo_nd<float, _Toggle::ZigZag_On>::kernel(
-          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb,
-          mgr()->header->rc.radius, (void*)stream);
+          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb, mgr()->header->rc.radius,
+          (void*)stream);
     else if (pred_type == psz_predictor::LorenzoProto)
       psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
-          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb * 2,
-          1 / (args.eb * 2), mgr()->header->rc.radius, (void*)stream);
+          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb * 2, 1 / (args.eb * 2),
+          mgr()->header->rc.radius, (void*)stream);
     else if (pred_type == psz_predictor::Spline)
-      psz::module::GPU_spline_reconstruct<float, E>::kernel_v1(
-          mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata.get(),
-          mem->ectrl_len3(), d_xdata.get(), args.eb, mgr()->header->rc.radius,
-          mgr()->header->intp_param, (void*)stream);
+      psz::module::GPU_x_spline<float, E>::kernel_v1(
+          mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata.get(), mem->ectrl_len3(),
+          d_xdata.get(), args.eb, mgr()->header->rc.radius, mgr()->header->intp_param,
+          (void*)stream, spline_v_check == 24 ? SplineVariant::y24 : SplineVariant::y25);
     cudaStreamSynchronize(stream);
     cudaMemcpy(h_xdata.get(), d_xdata.get(), sizeof(float) * len, cudaMemcpyDeviceToHost);
   }
@@ -204,8 +219,7 @@ class PredRun {
   PredMetrics compute_metrics() const
   {
     return psz_test::compute_metrics(
-        h_data.get(), h_xdata.get(), len,
-        args.predictor, args.eb, args.radius,
+        h_data.get(), h_xdata.get(), len, args.predictor, args.eb, args.radius,
         mgr()->header->splen);
   }
 };

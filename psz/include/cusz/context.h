@@ -61,6 +61,8 @@ struct psz_context {
   psz_error_status last_error;
   // tracking error status
   bool there_is_memerr;
+
+  int spline_variant;  // 0 = y25/BLK16 (default), 1 = y24/BLK8
 };
 
 typedef struct psz_context psz_context;

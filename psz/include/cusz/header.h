@@ -38,7 +38,7 @@ typedef struct psz_header {
       double min_val, max_val;
 
       // i/Hi
-      INTERPOLATION_PARAMS intp_param;
+      INTERP_PARAMS intp_param;
     };
 
     // struct {

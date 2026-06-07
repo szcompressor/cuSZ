@@ -96,7 +96,7 @@ typedef struct psz_interp_params {
   uint8_t auto_tuning;
 } psz_interp_params;
 
-typedef struct psz_interp_params INTERPOLATION_PARAMS;
+typedef struct psz_interp_params INTERP_PARAMS;
 
 // C-style "constructor"
 static inline psz_interp_params make_default_params(void)

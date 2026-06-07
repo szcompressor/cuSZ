@@ -7,6 +7,8 @@
 #include "cusz/type.h"
 #include "mem/sp_interface.h"
 
+enum class SplineVariant { y24, y25 };
+
 psz_len psz_div3(psz_len len, psz_len sublen);
 
 namespace psz::module {
@@ -39,6 +41,8 @@ struct GPU_histogram_Cauchy {
       E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
       void* stream);
 };
+
+// Lorenzo predictors //////////////////////////////////////////////////////////
 
 template <class Types, class Features>
 struct GPU_c_lorenzo_nd {
@@ -92,21 +96,76 @@ struct CPU_x_lorenzo_nd {
       f8 const eb, u2 const radius, f4* time_elapsed);
 };
 
+// spline-based interpolation //////////////////////////////////////////////////
+// y24: 3D (x32-y8-z8); y25: 2D (x64-y64) and 3D (x16-y16-z16) /////////////////
+
 template <typename T, typename E, typename Fp = T>
-struct GPU_spline_construct {
+struct GPU_c_spline_y25 {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
   static int kernel_v1(
       T* data, psz_len const data_len3, T* anchor, psz_len const anchor_len3, E* ectrl,
-      void* _outlier, double eb, double rel_eb, uint32_t radius, INTERPOLATION_PARAMS& intp_param,
+      void* _outlier, double eb, double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param,
       T* d_profiled_errors, T* h_profiled_errors, u4 const pe_len, void* stream);
 };
 
 template <typename T, typename E, typename Fp = T>
-struct GPU_spline_reconstruct {
+struct GPU_c_spline_y24 {
+  static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
+  static int kernel_v1(
+      T* data, psz_len const data_len3, T* anchor, psz_len const anchor_len3, E* ectrl,
+      void* _outlier, double eb, double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param,
+      T* d_profiled_errors, T* h_profiled_errors, u4 const pe_len, void* stream);
+};
+
+template <typename T, typename E, typename Fp = T>
+struct GPU_c_spline {
+  static int kernel_v1(
+      T* data, psz_len const data_len3, T* anchor, psz_len const anchor_len3, E* ectrl,
+      void* _outlier, double eb, double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param,
+      T* d_profiled_errors, T* h_profiled_errors, u4 const pe_len, void* stream,
+      SplineVariant variant = SplineVariant::y25)
+  {
+    if (variant == SplineVariant::y24)
+      return GPU_c_spline_y24<T, E, Fp>::kernel_v1(
+          data, data_len3, anchor, anchor_len3, ectrl, _outlier, eb, rel_eb, radius, intp_param,
+          d_profiled_errors, h_profiled_errors, pe_len, stream);
+    return GPU_c_spline_y25<T, E, Fp>::kernel_v1(
+        data, data_len3, anchor, anchor_len3, ectrl, _outlier, eb, rel_eb, radius, intp_param,
+        d_profiled_errors, h_profiled_errors, pe_len, stream);
+  }
+};
+
+template <typename T, typename E, typename Fp = T>
+struct GPU_x_spline_y25 {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
   static int kernel_v1(
       T* anchor, psz_len const anchor_len3, E* ectrl, T* xdata, psz_len const xdata_len3,
-      T* outlier_tmp, double eb, uint32_t radius, INTERPOLATION_PARAMS intp_param, void* stream);
+      T* outlier_tmp, double eb, uint32_t radius, INTERP_PARAMS intp_param, void* stream);
+};
+
+template <typename T, typename E, typename Fp = T>
+struct GPU_x_spline_y24 {
+  static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
+  static int kernel_v1(
+      T* anchor, psz_len const anchor_len3, E* ectrl, T* xdata, psz_len const xdata_len3,
+      T* outlier_tmp, double eb, uint32_t radius, INTERP_PARAMS intp_param, void* stream);
+};
+
+template <typename T, typename E, typename Fp = T>
+struct GPU_x_spline {
+  static int kernel_v1(
+      T* anchor, psz_len const anchor_len3, E* ectrl, T* xdata, psz_len const xdata_len3,
+      T* outlier_tmp, double eb, uint32_t radius, INTERP_PARAMS intp_param, void* stream,
+      SplineVariant variant = SplineVariant::y25)
+  {
+    if (variant == SplineVariant::y24)
+      return GPU_x_spline_y24<T, E, Fp>::kernel_v1(
+          anchor, anchor_len3, ectrl, xdata, xdata_len3, outlier_tmp, eb, radius, intp_param,
+          stream);
+    return GPU_x_spline_y25<T, E, Fp>::kernel_v1(
+        anchor, anchor_len3, ectrl, xdata, xdata_len3, outlier_tmp, eb, radius, intp_param,
+        stream);
+  }
 };
 
 template <typename T, typename M>

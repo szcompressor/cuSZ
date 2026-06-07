@@ -64,9 +64,13 @@ struct Buf_Comp {
   constexpr static u2 max_bklen = max_radius * 2;
   constexpr static float OUTLIER_RATIO = 0.1;
 
-  // spline-specific: declare
-  constexpr static int BLK = 16;
+  // spline-specific anchor spacing .
+  constexpr static int BLK16 = 16;  // y25 (2D+3D)
+  constexpr static int BLK8 = 8;    // y24 (lean 3D)
   constexpr static int ERR_HISTO_LEN = 36;
+
+  // selector: (0 = y25/BLK16, 1 = y24/BLK8); does not change Buf_Comp ABI
+  void set_spline_variant(int v);
 
   bool is_comp;
   // const u4 x, y, z;

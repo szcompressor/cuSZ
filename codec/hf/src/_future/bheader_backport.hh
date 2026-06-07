@@ -7,8 +7,8 @@
 namespace phf {
 
 struct bheader_backport {
-  uint32_t bits  : 16;   // par_nbit per partition; sublen ≤ 4096 keeps this < 2^16
-  uint32_t entry : 32;   // post-LAGO byte offset (par_entry * sizeof(H))
+  uint32_t bits;    // par_nbit per partition (full 32-bit; sublen*codeword_len can exceed 2^16)
+  uint32_t entry;   // post-LAGO byte offset (par_entry * sizeof(H))
 };
 
 static_assert(sizeof(bheader_backport) == 8, "bheader_backport must be 8 bytes");

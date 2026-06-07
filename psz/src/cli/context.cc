@@ -207,8 +207,14 @@ static void psz_cli_bind(const _portable::arg_result& args, psz_ctx* ctx)
     auto _v = args.get<string>("pred");
     if (not _v.empty()) {
       apply_str(_v, ctx->cli->char_predictor_name);
-      if (_v == "spline" or _v == "spline3" or _v == "spl")
+      if (_v == "spl-y25" or _v == "spline-y25" or _v == "spl" or _v == "spline") {
         ctx->header->pipeline.predictor = psz_predictor::Spline;
+        ctx->spline_variant             = 0;  // y25 (2D+3D) + ATT
+      }
+      else if (_v == "spl-y24" or _v == "spline-y24") {
+        ctx->header->pipeline.predictor = psz_predictor::Spline;
+        ctx->spline_variant             = 1;  // y24 (3D only)
+      }
       else if (_v == "lorenzo" or _v == "lrz")
         ctx->header->pipeline.predictor = psz_predictor::Lorenzo;
       else if (_v == "lorenzo-zigzag" or _v == "lrz-zz")
@@ -314,7 +320,7 @@ static void psz_cli_bind(const _portable::arg_result& args, psz_ctx* ctx)
   // HFR reduce-merge pass count (--rmerge-count): 2|3|4, default 3; encode-only.
   {
     auto const _rc = args.get<string>("rmerge_count");
-    int const v = (_rc == "2") ? 2 : (_rc == "3") ? 3 : (_rc == "4") ? 4 : -1;
+    int const  v   = (_rc == "2") ? 2 : (_rc == "3") ? 3 : (_rc == "4") ? 4 : -1;
     if (v < 0) {
       cerr << LOG_ERR << "--rmerge-count must be 2|3|4, got: " << _rc << endl;
       exit(1);

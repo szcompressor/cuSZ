@@ -90,6 +90,7 @@ void psz_compress_task(psz_args* args)
             F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
             {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
         m->cli                     = args->cli;
+        m->spline_variant          = args->spline_variant;
         m->header->pipeline.codec2 = CLI_codec2(args);
         psz_compress_float(
             m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
@@ -104,6 +105,7 @@ void psz_compress_task(psz_args* args)
             F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
             {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
         m->cli                     = args->cli;
+        m->spline_variant          = args->spline_variant;
         m->header->pipeline.codec2 = CLI_codec2(args);
         psz_compress_double(
             m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
