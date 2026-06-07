@@ -37,7 +37,7 @@ __device__ __forceinline__ u4 linear_block_idx()
 // significantly slowed down the kernel on non-HPC GPU
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_1d(
-    typename Types::T* const in_data, size_t const data_len, typename Types::Eq* const out_eq,
+    typename Types::T* const in_data, dim3 const extent, typename Types::Eq* const out_eq,
     typename Types::C2VI* const out_cval_cidx, typename Types::CN* const out_cn,
     const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
     typename Types::M* top_count = nullptr)
@@ -64,7 +64,7 @@ __global__ void KCU_c_lorenzo_1d(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len) s_data[threadIdx.x + ix * NumThreads] = round(in_data[id] * ebx2_r);
+    if (id < extent.x) s_data[threadIdx.x + ix * NumThreads] = round(in_data[id] * ebx2_r);
   }
   __syncthreads();
 
@@ -83,7 +83,7 @@ __global__ void KCU_c_lorenzo_1d(
     bool quantizable = fabs(delta) < radius;
 
     if constexpr (Features::UseH1L == Toggle::H1L_On) {
-      bool is_valid_range = id_base + threadIdx.x * Seq + ix < data_len;
+      bool is_valid_range = id_base + threadIdx.x * Seq + ix < extent.x;
       COUNT_LOCAL_STAT(delta, is_valid_range);
     }
 
@@ -122,7 +122,7 @@ __global__ void KCU_c_lorenzo_1d(
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
     auto id = id_base + threadIdx.x + ix * NumThreads;
-    if (id < data_len) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
+    if (id < extent.x) out_eq[id] = s_eq_uint[threadIdx.x + ix * NumThreads];
   }
 
   // end of kernel
@@ -207,11 +207,10 @@ __global__ [[deprecated]] void KCU_c_lorenzo_2d1l(
 
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_2d__32x32(
-    typename Types::T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
-    uint32_t const data_leapy, typename Types::Eq* const out_eq,
-    typename Types::C2VI* const out_cval_cidx, typename Types::CN* const out_cn,
-    const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
-    typename Types::M* top_count = nullptr)
+    typename Types::T* const in_data, dim3 const extent, uint32_t const leapy,
+    typename Types::Eq* const out_eq, typename Types::C2VI* const out_cval_cidx,
+    typename Types::CN* const out_cn, const size_t cn_max_allowed, uint16_t const radius,
+    typename Types::Fp const ebx2_r, typename Types::M* top_count = nullptr)
 {
   TYPES_SETUP_KERN;
 
@@ -230,12 +229,12 @@ __global__ void KCU_c_lorenzo_2d__32x32(
   // BDX == TileDim == 32 (a full warp), BDY * Yseq = TileDim == 32
   auto gix = blockIdx.x * TileDim + threadIdx.x;
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
-  auto g_id = [&](auto i) { return (giy_base + i) * data_leapy + gix; };
+  auto g_id = [&](auto i) { return (giy_base + i) * leapy + gix; };
 
 // read to private.in_data (center)
 #pragma unroll
   for (auto iy = 0; iy < Yseq; iy++) {
-    if (gix < data_lenx and giy_base + iy < data_leny)
+    if (gix < extent.x and giy_base + iy < extent.y)
       center[iy + 1] = round(in_data[g_id(iy)] * ebx2_r);
   }
   if (threadIdx.y < NumWarps - 1) exchange[threadIdx.y][threadIdx.x] = center[Yseq];
@@ -256,7 +255,7 @@ __global__ void KCU_c_lorenzo_2d__32x32(
     auto gid = g_id(i - 1);
 
     bool quantizable = fabs(center[i]) < radius;
-    bool is_valid_range = (gix < data_lenx and (giy_base + i - 1) < data_leny);
+    bool is_valid_range = (gix < extent.x and (giy_base + i - 1) < extent.y);
 
     if constexpr (Features::UseH1L == Toggle::H1L_On) {
       COUNT_LOCAL_STAT(center[i], is_valid_range);
@@ -275,7 +274,7 @@ __global__ void KCU_c_lorenzo_2d__32x32(
     }
 
     if (not quantizable) {
-      if (gix < data_lenx and (giy_base + i - 1) < data_leny) {
+      if (gix < extent.x and (giy_base + i - 1) < extent.y) {
         auto cur_idx = atomicAdd(out_cn, 1);
         if (cur_idx <= cn_max_allowed) out_cval_cidx[cur_idx] = {(float)candidate, gid};
       }
@@ -300,11 +299,11 @@ __global__ void KCU_c_lorenzo_2d__32x32(
 
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_3d(
-    typename Types::T* const in_data, uint32_t const data_lenx, uint32_t const data_leny,
-    uint32_t const data_leapy, uint32_t const data_lenz, uint32_t const data_leapz,
-    typename Types::Eq* const out_eq, typename Types::C2VI* const out_cval_cidx,
-    typename Types::CN* const out_cn, const size_t cn_max_allowed, uint16_t const radius,
-    typename Types::Fp const ebx2_r, typename Types::M* top_count = nullptr)
+    typename Types::T* const in_data, dim3 const extent, uint32_t const leapy,
+    uint32_t const leapz, typename Types::Eq* const out_eq,
+    typename Types::C2VI* const out_cval_cidx, typename Types::CN* const out_cn,
+    const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
+    typename Types::M* top_count = nullptr)
 {
   TYPES_SETUP_KERN;
 
@@ -321,15 +320,15 @@ __global__ void KCU_c_lorenzo_3d(
   const auto gix = blockIdx.x * (TileDim * 4) + threadIdx.x;
   const auto giy = blockIdx.y * TileDim + threadIdx.y;
   const auto giz_base = blockIdx.z * TileDim;
-  const auto base_id = gix + giy * data_leapy + giz_base * data_leapz;
+  const auto base_id = gix + giy * leapy + giz_base * leapz;
 
   auto giz = [&](auto z) { return giz_base + z; };
-  auto gid = [&](auto z) { return base_id + z * data_leapz; };
+  auto gid = [&](auto z) { return base_id + z * leapz; };
 
   auto load_prequant_3d = [&]() {
-    if (gix < data_lenx and giy < data_leny) {
+    if (gix < extent.x and giy < extent.y) {
       for (auto z = 0; z < TileDim; z++)
-        if (giz(z) < data_lenz)
+        if (giz(z) < extent.z)
           delta[z + 1] = round(in_data[gid(z)] * ebx2_r);  // prequant (fp presence)
     }
     __syncthreads();
@@ -338,7 +337,7 @@ __global__ void KCU_c_lorenzo_3d(
   auto quantize_compact_write = [&](T delta, auto x, auto y, auto z, auto gid) {
     bool quantizable = fabs(delta) < radius;
 
-    if (x < data_lenx and y < data_leny and z < data_lenz) {
+    if (x < extent.x and y < extent.y and z < extent.z) {
       T candidate;
 
       if constexpr (Features::UseZigZag == Toggle::ZigZag_On) {
@@ -380,7 +379,7 @@ __global__ void KCU_c_lorenzo_3d(
     if (threadIdx.y > 0) delta[z] -= s[threadIdx.y][threadIdx.x];
 
     if constexpr (Features::UseH1L == Toggle::H1L_On) {
-      auto is_valid_range = (gix < data_lenx and giy < data_leny and giz(z - 1) < data_lenz);
+      auto is_valid_range = (gix < extent.x and giy < extent.y and giz(z - 1) < extent.z);
       COUNT_LOCAL_STAT(delta[z], is_valid_range);
     }
 
@@ -413,15 +412,16 @@ struct GPU_c_lorenzo_1d {
   using lrz1 = config::c_lorenzo<1>;
 
   static int kernel(
-      T* const in_data, psz_len const len, Eq* const out_eq, void* out_outlier, u4* out_top1,
+      host::view<T> in_data, host::view<Eq> out_eq, void* out_outlier, u4* out_top1,
       f8 const ebx2_r, uint16_t const radius, void* stream)
   {
     auto ot = (Compact2*)out_outlier;
+    auto extent = LEN_TO_DIM3(in_data.extent);
 
     KCU_c_lorenzo_1d<Types, Features, lrz1::Perf>
-        <<<lrz1::thread_grid(dim3(len.x, 1, 1)), lrz1::thread_block, 0, (cudaStream_t)stream>>>(
-            in_data, len.x, out_eq, ot->val_idx_d(), ot->num_d(), ot->max_allowed_num(), radius,
-            (T)ebx2_r, out_top1);
+        <<<lrz1::thread_grid(extent), lrz1::thread_block, 0, (cudaStream_t)stream>>>(
+            in_data.ptr, extent, out_eq.ptr, ot->val_idx_d(), ot->num_d(),
+            ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
   }
@@ -433,16 +433,16 @@ struct GPU_c_lorenzo_2d {
   using lrz2 = config::c_lorenzo<2, 32, 32>;
 
   static int kernel(
-      T* const in_data, psz_len const len, Eq* const out_eq, void* out_outlier, u4* out_top1,
+      host::view<T> in_data, host::view<Eq> out_eq, void* out_outlier, u4* out_top1,
       f8 const ebx2_r, uint16_t const radius, void* stream)
   {
     auto ot = (Compact2*)out_outlier;
-    auto data_len3 = LEN_TO_DIM3(len);
-    auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
+    auto extent = LEN_TO_DIM3(in_data.extent);
+    auto leapy = in_data.leap.y;
 
     KCU_c_lorenzo_2d__32x32<Types, Features, lrz2::Perf>
-        <<<lrz2::thread_grid(data_len3), lrz2 ::thread_block, 0, (cudaStream_t)stream>>>(
-            in_data, data_len3.x, data_len3.y, leap3.y, out_eq, ot->val_idx_d(), ot->num_d(),
+        <<<lrz2::thread_grid(extent), lrz2 ::thread_block, 0, (cudaStream_t)stream>>>(
+            in_data.ptr, extent, leapy, out_eq.ptr, ot->val_idx_d(), ot->num_d(),
             ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
@@ -455,17 +455,18 @@ struct GPU_c_lorenzo_3d {
   using lrz3 = config::c_lorenzo<3>;
 
   static int kernel(
-      T* const in_data, psz_len const len, typename Types::Eq* const out_eq, void* out_outlier,
-      u4* out_top1, f8 const ebx2_r, uint16_t const radius, void* stream)
+      host::view<T> in_data, host::view<Eq> out_eq, void* out_outlier, u4* out_top1,
+      f8 const ebx2_r, uint16_t const radius, void* stream)
   {
     auto ot = (Compact2*)out_outlier;
-    auto data_len3 = LEN_TO_DIM3(len);
-    auto leap3 = dim3(1, data_len3.x, data_len3.x * data_len3.y);
+    auto extent = LEN_TO_DIM3(in_data.extent);
+    auto leapy = in_data.leap.y;
+    auto leapz = in_data.leap.z;
 
     KCU_c_lorenzo_3d<Types, Features, lrz3::Perf>
-        <<<lrz3::thread_grid(data_len3), lrz3::thread_block, 0, (cudaStream_t)stream>>>(
-            in_data, data_len3.x, data_len3.y, leap3.y, data_len3.z, leap3.z, out_eq,
-            ot->val_idx_d(), ot->num_d(), ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
+        <<<lrz3::thread_grid(extent), lrz3::thread_block, 0, (cudaStream_t)stream>>>(
+            in_data.ptr, extent, leapy, leapz, out_eq.ptr, ot->val_idx_d(), ot->num_d(),
+            ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
 
     return CUSZ_SUCCESS;
   }
@@ -473,23 +474,22 @@ struct GPU_c_lorenzo_3d {
 
 template <class Types, class Features>
 int GPU_c_lorenzo_nd<Types, Features>::kernel(
-    T* const in_data, psz_len const len, typename Types::Eq* const out_eq, void* out_outlier,
+    host::view<typename Types::T> in_data, host::view<typename Types::Eq> out_eq, void* out_outlier,
     u4* out_top1, f8 const eb, uint16_t const radius, void* stream)
 {
-  auto data_len3 = LEN_TO_DIM3(len);
-  auto d = psz::config::utils::ndim(data_len3);
+  auto d = psz::config::utils::ndim(LEN_TO_DIM3(in_data.extent));
 
-  auto eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
+  auto ebx2_r = 1 / (eb * 2);
 
   if (d == 1)
     GPU_c_lorenzo_1d<Types, Features>::kernel(
-        in_data, len, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+        in_data, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else if (d == 2)
     GPU_c_lorenzo_2d<Types, Features>::kernel(
-        in_data, len, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+        in_data, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else if (d == 3)
     GPU_c_lorenzo_3d<Types, Features>::kernel(
-        in_data, len, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
+        in_data, out_eq, out_outlier, out_top1, ebx2_r, radius, stream);
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 
@@ -498,30 +498,12 @@ int GPU_c_lorenzo_nd<Types, Features>::kernel(
 
 template <class Types, class Features>
 int GPU_c_lorenzo_nd<Types, Features>::compressor_kernel(
-    typename Types::Buf_Comp* buf, typename Types::T* const in_data, psz_len const _data_len3,
-    f8 const eb, uint16_t const radius, void* stream)
+    typename Types::Buf_Comp* buf, host::view<typename Types::T> in_data, f8 const eb,
+    uint16_t const radius, void* stream)
 {
-  auto data_len3 = LEN_TO_DIM3(_data_len3);
-  auto d = psz::config::utils::ndim(data_len3);
-
-  auto eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-
-  if (d == 1)
-    GPU_c_lorenzo_1d<Types, Features>::kernel(
-        in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
-        stream);
-  else if (d == 2)
-    GPU_c_lorenzo_2d<Types, Features>::kernel(
-        in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
-        stream);
-  else if (d == 3)
-    GPU_c_lorenzo_3d<Types, Features>::kernel(
-        in_data, _data_len3, buf->eq_d(), buf->buf_outlier2(), buf->top1_d(), ebx2_r, radius,
-        stream);
-  else
-    return PSZ_ABORT_UNSUPPORTED_DIMENSION;
-
-  return CUSZ_SUCCESS;
+  // eq is a co-located output: same sub-extent and parent strides as in_data.
+  host::view<typename Types::Eq> out_eq{buf->eq_d(), in_data.extent, in_data.leap};
+  return kernel(in_data, out_eq, buf->buf_outlier2(), buf->top1_d(), eb, radius, stream);
 }
 
 }  // namespace psz::module

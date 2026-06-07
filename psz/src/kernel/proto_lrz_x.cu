@@ -146,7 +146,7 @@ int GPU_PROTO_x_lorenzo_nd<T, Eq>::kernel(
   auto data_len = LEN_TO_DIM3(len);
 
   // error bound
-  auto data_leap3 = dim3(1, len.x, len.x * len.y);
+  auto data_leap3 = LEN_TO_DIM3(_ptb::leap_of(len));
 
   if (ndim() == 1) {
     psz::KCU_prototype_x_lorenzo_1d1l<T>

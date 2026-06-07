@@ -117,20 +117,22 @@ int main(int argc, char** argv)
 
   if (pred_type == psz_predictor::Lorenzo)
     GPU_x_lorenzo_nd<float, Toggle::ZigZag_Off>::kernel(
-        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, manager->header->rc.radius,
-        (void*)stream);
+        _ptb::make_view(mem->ectrl_d(), len3), _ptb::make_view(d_xdata.get(), len3),
+        _ptb::make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::LorenzoZigZag)
     GPU_x_lorenzo_nd<float, Toggle::ZigZag_On>::kernel(
-        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb, manager->header->rc.radius,
-        (void*)stream);
+        _ptb::make_view(mem->ectrl_d(), len3), _ptb::make_view(d_xdata.get(), len3),
+        _ptb::make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
         mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb * 2, 1 / (abs_eb * 2),
         manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::Spline)
     psz::module::GPU_x_spline<float, E>::kernel_v1(
-        mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), d_xdata.get(), mem->ectrl_len3(),
-        d_xdata.get(), abs_eb, manager->header->rc.radius, manager->header->intp_param,
+        _ptb::make_view(mem->anchor_d(), mem->anchor_len3()),
+        _ptb::make_view(mem->ectrl_d(), mem->ectrl_len3()),
+        _ptb::make_view(d_xdata.get(), mem->ectrl_len3()), d_xdata.get(), abs_eb,
+        manager->header->rc.radius, manager->header->intp_param,
         (void*)stream, spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
 
   cudaStreamSynchronize(stream);

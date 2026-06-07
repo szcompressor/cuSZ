@@ -252,11 +252,11 @@ template <
     int NumAnchorBlockX, int NumAnchorBlockY, int NumAnchorBlockZ,
     int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void c_gather_anchor(
-    T1* data, dim3 data_size, dim3 data_leap, T1* anchor, dim3 anchor_leap)
+    T1* data, dim3 data_size, dim3 data_leap, T1* anchor, dim3 anchor_leap, dim3 begin)
 {
-  auto ax = BIX;  // 1 is block16 by anchor stride
-  auto ay = BIY;
-  auto az = BIZ;
+  auto ax = begin.x / (AnchorBlockSizeX * NumAnchorBlockX) + BIX;  // global anchor index
+  auto ay = begin.y / (AnchorBlockSizeY * NumAnchorBlockY) + BIY;
+  auto az = begin.z / (AnchorBlockSizeZ * NumAnchorBlockZ) + BIZ;
   // 2d bug may be here!
   auto x = (AnchorBlockSizeX * NumAnchorBlockX) * ax;
   auto y = (AnchorBlockSizeY * NumAnchorBlockY) * ay;
@@ -285,7 +285,7 @@ __device__ void x_reset_scratch_data(
     volatile T2 s_eq[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                     [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                     [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)],
-    T1* anchor, dim3 anchor_size, dim3 anchor_leap)
+    T1* anchor, dim3 anchor_size, dim3 anchor_leap, dim3 begin)
 {
   for (auto _tix = TIX; _tix < (AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)) *
                                    (AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)) *
@@ -304,9 +304,9 @@ __device__ void x_reset_scratch_data(
     if (x % AnchorBlockSizeX == 0 and y % AnchorBlockSizeY == 0 and z % AnchorBlockSizeZ == 0) {
       s_xdata[z][y][x] = 0;
 
-      auto ax = ((x / AnchorBlockSizeX) + BIX * NumAnchorBlockX);
-      auto ay = ((y / AnchorBlockSizeY) + BIY * NumAnchorBlockY);
-      auto az = ((z / AnchorBlockSizeZ) + BIZ * NumAnchorBlockZ);
+      auto ax = (begin.x / AnchorBlockSizeX + (x / AnchorBlockSizeX) + BIX * NumAnchorBlockX);
+      auto ay = (begin.y / AnchorBlockSizeY + (y / AnchorBlockSizeY) + BIY * NumAnchorBlockY);
+      auto az = (begin.z / AnchorBlockSizeZ + (z / AnchorBlockSizeZ) + BIZ * NumAnchorBlockZ);
 
       if (ax < anchor_size.x and ay < anchor_size.y and az < anchor_size.z)
         s_xdata[z][y][x] = anchor[ax + ay * anchor_leap.y + az * anchor_leap.z];
@@ -322,7 +322,7 @@ template <
     int NumAnchorBlockY = 1, int NumAnchorBlockZ = 1,
     int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void global2shmem_data(
-    T1* data, dim3 data_size, dim3 data_leap,
+    T1* data, dim3 data_size, dim3 data_leap, dim3 begin,
     volatile T2 s_data[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                       [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                       [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)])
@@ -337,9 +337,9 @@ __device__ void global2shmem_data(
              (AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2));
     auto z = (_tix / (AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1))) /
              (AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2));
-    auto gx = (x + BIX * (AnchorBlockSizeX * NumAnchorBlockX));
-    auto gy = (y + BIY * (AnchorBlockSizeY * NumAnchorBlockY));
-    auto gz = (z + BIZ * (AnchorBlockSizeZ * NumAnchorBlockZ));
+    auto gx = (begin.x + x + BIX * (AnchorBlockSizeX * NumAnchorBlockX));
+    auto gy = (begin.y + y + BIY * (AnchorBlockSizeY * NumAnchorBlockY));
+    auto gz = (begin.z + z + BIZ * (AnchorBlockSizeZ * NumAnchorBlockZ));
     auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
     if (gx < data_size.x and gy < data_size.y and gz < data_size.z) s_data[z][y][x] = data[gid];
@@ -438,7 +438,7 @@ template <
     int NumAnchorBlockX = 4, int NumAnchorBlockY = 1, int NumAnchorBlockZ = 1,
     int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void global2shmem_fuse(
-    E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier,
+    E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier, dim3 begin,
     volatile T s_eq[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                    [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                    [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)],
@@ -454,9 +454,9 @@ __device__ void global2shmem_fuse(
              (AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2));
     auto z = (_tix / (AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1))) /
              (AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2));
-    auto gx = (x + BIX * (AnchorBlockSizeX * NumAnchorBlockX));
-    auto gy = (y + BIY * (AnchorBlockSizeY * NumAnchorBlockY));
-    auto gz = (z + BIZ * (AnchorBlockSizeZ * NumAnchorBlockZ));
+    auto gx = (begin.x + x + BIX * (AnchorBlockSizeX * NumAnchorBlockX));
+    auto gy = (begin.y + y + BIY * (AnchorBlockSizeY * NumAnchorBlockY));
+    auto gz = (begin.z + z + BIZ * (AnchorBlockSizeZ * NumAnchorBlockZ));
     if (gx < eq_size.x and gy < eq_size.y and gz < eq_size.z) {
       // todo: pre-compute the leaps and their halves
 
@@ -491,7 +491,7 @@ __device__ void shmem2global_data(
     volatile T1 s_buf[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                      [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                      [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)],
-    T2* dram_buf, dim3 buf_size, dim3 buf_leap)
+    T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin)
 {
   auto x_size = AnchorBlockSizeX * NumAnchorBlockX + (BIX == GDX - 1) * (SPLINE_DIM >= 1);
   auto y_size = AnchorBlockSizeY * NumAnchorBlockY + (BIY == GDY - 1) * (SPLINE_DIM >= 2);
@@ -502,9 +502,9 @@ __device__ void shmem2global_data(
     auto x = (_tix % x_size);
     auto y = (_tix / x_size) % y_size;
     auto z = (_tix / x_size) / y_size;
-    auto gx = (x + BIX * AnchorBlockSizeX * NumAnchorBlockX);
-    auto gy = (y + BIY * AnchorBlockSizeY * NumAnchorBlockY);
-    auto gz = (z + BIZ * AnchorBlockSizeZ * NumAnchorBlockZ);
+    auto gx = (begin.x + x + BIX * AnchorBlockSizeX * NumAnchorBlockX);
+    auto gy = (begin.y + y + BIY * AnchorBlockSizeY * NumAnchorBlockY);
+    auto gz = (begin.z + z + BIZ * AnchorBlockSizeZ * NumAnchorBlockZ);
     auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
     if (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z) dram_buf[gid] = s_buf[z][y][x];
@@ -521,7 +521,7 @@ __device__ void shmem2global_data_with_compaction(
     volatile T1 s_buf[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                      [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                      [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)],
-    T2* dram_buf, dim3 buf_size, dim3 buf_leap, int radius,
+    T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin, int radius,
     volatile size_t grid_leaps[LEVEL + 1][2], volatile size_t prefix_nums[LEVEL + 1],
     CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr)
 {
@@ -536,9 +536,9 @@ __device__ void shmem2global_data_with_compaction(
     auto x = (_tix % x_size);
     auto y = (_tix / x_size) % y_size;
     auto z = (_tix / x_size) / y_size;
-    auto gx = (x + BIX * AnchorBlockSizeX * NumAnchorBlockX);
-    auto gy = (y + BIY * AnchorBlockSizeY * NumAnchorBlockY);
-    auto gz = (z + BIZ * AnchorBlockSizeZ * NumAnchorBlockZ);
+    auto gx = (begin.x + x + BIX * AnchorBlockSizeX * NumAnchorBlockX);
+    auto gy = (begin.y + y + BIY * AnchorBlockSizeY * NumAnchorBlockY);
+    auto gz = (begin.z + z + BIZ * AnchorBlockSizeZ * NumAnchorBlockZ);
     // auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
     auto candidate = s_buf[z][y][x];
@@ -1876,6 +1876,9 @@ __global__ void psz::KCU_c_spl_infprecis_data(
     __shared__ size_t shmem_prefix_nums[LEVEL + 1];
     // } shmem;
 
+    dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+    auto sub_extent = data_size;
+
     pre_compute<LEVEL>(eq_size, shmem_grid_leaps, shmem_prefix_nums);
 
     c_reset_scratch_data<
@@ -1885,20 +1888,21 @@ __global__ void psz::KCU_c_spl_infprecis_data(
     global2shmem_data<
         T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
         NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-        data, data_size, data_leap, shmem_data);
+        data, data_size, data_leap, begin, shmem_data);
 
     c_gather_anchor<
         T, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX, NumAnchorBlockY,
-        NumAnchorBlockZ>(data, data_size, data_leap, anchor, anchor_leap);
+        NumAnchorBlockZ>(data, data_size, data_leap, anchor, anchor_leap, begin);
     psz::spline_layout_interpolate<
         T, T, FP, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE, SPLINE3_COMPR,
-        false>(shmem_data, shmem_ectrl, data_size, eb_r, ebx2, radius, intp_param);
+        false>(shmem_data, shmem_ectrl, sub_extent, eb_r, ebx2, radius, intp_param);
 
     shmem2global_data_with_compaction<
         T, E, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-        shmem_ectrl, eq, eq_size, eq_leap, radius, shmem_grid_leaps, shmem_prefix_nums, cvi, cn);
+        shmem_ectrl, eq, eq_size, eq_leap, begin, radius, shmem_grid_leaps, shmem_prefix_nums, cvi,
+        cn);
   }
 }
 
@@ -1941,24 +1945,28 @@ __global__ void psz::KCU_x_spl_infprecis_data(
   __shared__ size_t shmem_grid_leaps[LEVEL + 1][2];
   __shared__ size_t shmem_prefix_nums[LEVEL + 1];
 
+  dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+  auto sub_extent = data_size;
+
   pre_compute<LEVEL>(eq_size, shmem_grid_leaps, shmem_prefix_nums);
 
   x_reset_scratch_data<
       T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
       NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-      shmem_data, shmem_ectrl, anchor, anchor_size, anchor_leap);
+      shmem_data, shmem_ectrl, anchor, anchor_size, anchor_leap, begin);
   global2shmem_fuse<
       T, E, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
       NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-      eq, eq_size, eq_leap, outlier_tmp, shmem_ectrl, shmem_grid_leaps, shmem_prefix_nums);
+      eq, eq_size, eq_leap, outlier_tmp, begin, shmem_ectrl, shmem_grid_leaps, shmem_prefix_nums);
 
   psz::spline_layout_interpolate<
       T, T, FP, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
       NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR,
-      false>(shmem_data, shmem_ectrl, data_size, eb_r, ebx2, radius, intp_param);
+      false>(shmem_data, shmem_ectrl, sub_extent, eb_r, ebx2, radius, intp_param);
   shmem2global_data<
       T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
-      NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(shmem_data, data, data_size, data_leap);
+      NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
+      shmem_data, data, data_size, data_leap, begin);
 }
 
 template <typename T>

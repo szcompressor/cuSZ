@@ -96,16 +96,19 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
   const auto radius = RC.radius;
 
   if (PIPELINE.predictor == Lorenzo)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(mem, in, len, eb, radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(
+        mem, _ptb::make_view(in, len), eb, radius, stream);
   else if (PIPELINE.predictor == LorenzoZigZag)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(mem, in, len, eb, radius, stream);
+    GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(
+        mem, _ptb::make_view(in, len), eb, radius, stream);
   else if (PIPELINE.predictor == Spline) {
     mem->set_spline_variant(ctx->spline_variant);  // anchor sizing before anchor_len3()
     memset_device(mem->buf_outlier2()->num_d(), 1, 0);
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_c_spline<T, E>::kernel_v1(
-          in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(), (void*)mem->buf_outlier2(),
-          eb, ctx->header->user_input_eb, ctx->header->rc.radius, ctx->header->intp_param,
+          _ptb::make_view(in, len), _ptb::make_view(mem->ectrl_d(), len),
+          _ptb::make_view(mem->anchor_d(), mem->anchor_len3()), (void*)mem->buf_outlier2(), eb,
+          ctx->header->user_input_eb, ctx->header->rc.radius, ctx->header->intp_param,
           mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream,
           ctx->spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
   }
@@ -138,9 +141,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   auto compress_predict = [&]() -> int {
     if (predictor == Lorenzo)
-      GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(mem, in, len, eb, radius, stream);
+      GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(
+          mem, _ptb::make_view(in, len), eb, radius, stream);
     else if (predictor == LorenzoZigZag)
-      GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(mem, in, len, eb, radius, stream);
+      GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(
+          mem, _ptb::make_view(in, len), eb, radius, stream);
     else if (predictor == LorenzoProto)
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
           in, len, mem->ectrl_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
@@ -149,10 +154,10 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       memset_device(mem->buf_outlier2()->num_d(), 1, 0);
       if constexpr (std::is_same_v<T, f4>)
         psz::module::GPU_c_spline<T, E>::kernel_v1(
-            in, len, mem->anchor_d(), mem->anchor_len3(), mem->ectrl_d(),
-            (void*)mem->buf_outlier2(), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
-            ctx->header->intp_param, mem->profiled_errors_d(), mem->profiled_errors_h(),
-            mem->profiled_errors_len(), stream,
+            _ptb::make_view(in, len), _ptb::make_view(mem->ectrl_d(), len),
+            _ptb::make_view(mem->anchor_d(), mem->anchor_len3()), (void*)mem->buf_outlier2(), eb,
+            ctx->header->user_input_eb, ctx->header->rc.radius, ctx->header->intp_param,
+            mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream,
             ctx->spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
     }
     else
@@ -561,18 +566,22 @@ STEP_PREDICT:
 
   if (header->pipeline.predictor == Lorenzo)
     GPU_x_lorenzo_nd<T, Toggle::ZigZag_Off>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len, eb, header->rc.radius, stream);
+        _ptb::make_view(mem->ectrl_d(), len), _ptb::make_view(d_space, len),
+        _ptb::make_view(d_xdata, len), eb, header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoZigZag)
     GPU_x_lorenzo_nd<T, Toggle::ZigZag_On>::kernel(
-        mem->ectrl_d(), d_space, d_xdata, len, eb, header->rc.radius, stream);
+        _ptb::make_view(mem->ectrl_d(), len), _ptb::make_view(d_space, len),
+        _ptb::make_view(d_xdata, len), eb, header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
         mem->ectrl_d(), d_space, d_xdata, len, ebx2, ebx2_r, header->rc.radius, stream);
   else if (header->pipeline.predictor == Spline)
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_x_spline<T, E>::kernel_v1(
-          d_anchor, mem->anchor_len3(), mem->ectrl_d(), d_xdata, mem->ectrl_len3(), d_space, eb,
-          header->rc.radius, header->intp_param, stream);
+          _ptb::make_view(d_anchor, mem->anchor_len3()),
+          _ptb::make_view(mem->ectrl_d(), mem->ectrl_len3()),
+          _ptb::make_view(d_xdata, mem->ectrl_len3()), d_space, eb, header->rc.radius,
+          header->intp_param, stream);
 
   return PSZ_SUCCESS;
 }

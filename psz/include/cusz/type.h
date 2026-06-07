@@ -23,7 +23,6 @@ typedef _ptb_stream_t psz_stream_t;
 typedef _ptb_mem_control psz_mem_control;
 typedef _ptb_dtype psz_dtype;
 typedef _ptb_len3 psz_len3;
-typedef _ptb_size3 psz_size3;
 // psz_data_summary now defined in stat.h
 
 // Currently, 3D is the highest supported dimention.

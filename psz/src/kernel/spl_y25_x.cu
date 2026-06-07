@@ -25,40 +25,42 @@ constexpr int PROFILE_NUM_BLOCK_Z = 4;
 
 template <typename T, typename E, typename FP>
 int psz::module::GPU_x_spline_y25<T, E, FP>::kernel_v1(
-    T* anchor, psz_len const anchor_len3, E* ectrl, T* xdata, psz_len const xdata_len3,
-    T* outlier_tmp, double eb, uint32_t radius, INTERP_PARAMS intp_param, void* stream)
+    host::view<T> anchor, host::view<E> ectrl, host::view<T> xdata, T* outlier_tmp, double eb,
+    uint32_t radius, INTERP_PARAMS intp_param, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   auto ebx2 = eb * 2;
   auto eb_r = 1 / eb;
 
-  auto l3 = LEN_TO_DIM3(xdata_len3);
-  auto data_stride3 = LEN_TO_STRIDE3(xdata_len3);
-  auto anchor_l3 = LEN_TO_DIM3(anchor_len3);
-  auto anchor_stride3 = LEN_TO_STRIDE3(anchor_len3);
+  auto l3 = LEN_TO_DIM3(xdata.extent);
+  auto data_stride3 = LEN_TO_DIM3(xdata.leap);
+  auto anchor_l3 = LEN_TO_DIM3(anchor.extent);
+  auto anchor_stride3 = LEN_TO_DIM3(anchor.leap);
+  auto extent = l3;
 
   if (l3.z == 1) {
     auto grid_dim = dim3(
-        div(l3.x, AnchorBlockSizeX * NumAnchorBlockX),
-        div(l3.y, AnchorBlockSizeY * NumAnchorBlockY),
-        div(l3.z, AnchorBlockSizeZ * NumAnchorBlockZ));
-
+        div(extent.x, AnchorBlockSizeX * NumAnchorBlockX),
+        div(extent.y, AnchorBlockSizeY * NumAnchorBlockY),
+        div(extent.z, AnchorBlockSizeZ * NumAnchorBlockZ));
     psz::KCU_x_spl_infprecis_data<
         E, T, FP, LEVEL, SPLINE_DIM_2, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, DEFAULT_BLOCK_SIZE>  //
         <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            ectrl, l3, data_stride3, anchor, anchor_l3, anchor_stride3, xdata, l3, data_stride3,
-            xdata, eb_r, ebx2, radius, intp_param);
+            ectrl.ptr, extent, data_stride3, anchor.ptr, anchor_l3, anchor_stride3,
+            xdata.ptr, extent, data_stride3, xdata.ptr, eb_r, ebx2, radius,
+            intp_param);
   }
   else {
-    auto grid_dim = dim3(div(l3.x, BLOCK16), div(l3.y, BLOCK16), div(l3.z, BLOCK16));
-
+    auto grid_dim =
+        dim3(div(extent.x, BLOCK16), div(extent.y, BLOCK16), div(extent.z, BLOCK16));
     psz::KCU_x_spl_infprecis_data<
         E, T, FP, 4, SPLINE_DIM_3, BLOCK16, BLOCK16, BLOCK16, 1, 1, 1, DEFAULT_BLOCK_SIZE>  //
         <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            ectrl, l3, data_stride3, anchor, anchor_l3, anchor_stride3, xdata, l3, data_stride3,
-            xdata, eb_r, ebx2, radius, intp_param);
+            ectrl.ptr, extent, data_stride3, anchor.ptr, anchor_l3, anchor_stride3,
+            xdata.ptr, extent, data_stride3, xdata.ptr, eb_r, ebx2, radius,
+            intp_param);
   }
 
   cudaStreamSynchronize((cudaStream_t)stream);

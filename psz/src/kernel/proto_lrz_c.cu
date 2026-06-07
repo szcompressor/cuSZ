@@ -145,7 +145,7 @@ int GPU_PROTO_c_lorenzo_nd_with_outlier<T, Eq>::kernel(
   auto Grid1D = divide3(len, Tile1D), Grid2D = divide3(len, Tile2D), Grid3D = divide3(len, Tile3D);
 
   // error bound
-  auto data_leap3 = dim3(1, len.x, len.x * len.y);
+  auto data_leap3 = LEN_TO_DIM3(_ptb::leap_of(len));
 
   if (ndim() == 1)
     psz::KCU_prototype_c_lorenzo_1d1l<T>

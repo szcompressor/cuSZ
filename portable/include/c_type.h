@@ -57,16 +57,16 @@ typedef size_t             szt;
 
 typedef void* _ptb_stream_t;
 
-//  mirror CUDA dim3: using u4 dtype and x-y-z order
-typedef struct _ptb_len3 {
+// mirror CUDA dim3: using u4 dtype and x-y-z order
+typedef struct _ptb_xyz_len3 {
   size_t x, y, z;
 } _ptb_len3;
 typedef _ptb_len3 _ptb_dim3;
 
 // mirror typical math order: z-y-x
-typedef struct _ptb_size3 {
+typedef struct _ptb_zyx_len3 {
   size_t z, y, x;
-} _ptb_size3;
+} _ptb_zyx_len3;
 
 #ifdef __cplusplus
 }

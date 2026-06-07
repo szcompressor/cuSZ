@@ -143,11 +143,11 @@ __device__ void c_reset_scratch_33x9x9data(
 
 template <typename T1, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void c_gather_anchor(
-    T1* data, dim3 data_size, dim3 data_leap, T1* anchor, dim3 anchor_leap)
+    T1* data, dim3 data_size, dim3 data_leap, T1* anchor, dim3 anchor_leap, dim3 begin)
 {
-  auto x = (TIX % 32) + BIX * 32;
-  auto y = (TIX / 32) % 8 + BIY * 8;
-  auto z = (TIX / 32) / 8 + BIZ * 8;
+  auto x = begin.x + (TIX % 32) + BIX * 32;
+  auto y = begin.y + (TIX / 32) % 8 + BIY * 8;
+  auto z = begin.z + (TIX / 32) / 8 + BIZ * 8;
 
   bool pred1 = x % 8 == 0 and y % 8 == 0 and z % 8 == 0;
   bool pred2 = x < data_size.x and y < data_size.y and z < data_size.z;
@@ -163,7 +163,7 @@ __device__ void c_gather_anchor(
 template <typename T1, typename T2 = T1, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void x_reset_scratch_33x9x9data(
     volatile T1 s_xdata[9][9][33], volatile T2 s_eq[9][9][33], T1* anchor, dim3 anchor_size,
-    dim3 anchor_leap)
+    dim3 anchor_leap, dim3 begin)
 {
   for (auto _tix = TIX; _tix < 33 * 9 * 9; _tix += LINEAR_BLOCK_SIZE) {
     auto x = (_tix % 33);
@@ -177,9 +177,9 @@ __device__ void x_reset_scratch_33x9x9data(
     if (x % 8 == 0 and y % 8 == 0 and z % 8 == 0) {
       s_xdata[z][y][x] = 0;
 
-      auto ax = ((x / 8) + BIX * 4);
-      auto ay = ((y / 8) + BIY);
-      auto az = ((z / 8) + BIZ);
+      auto ax = (begin.x / 8 + (x / 8) + BIX * 4);
+      auto ay = (begin.y / 8 + (y / 8) + BIY);
+      auto az = (begin.z / 8 + (z / 8) + BIZ);
 
       if (ax < anchor_size.x and ay < anchor_size.y and az < anchor_size.z)
         s_xdata[z][y][x] = anchor[ax + ay * anchor_leap.y + az * anchor_leap.z];
@@ -195,7 +195,7 @@ __device__ void x_reset_scratch_33x9x9data(
 
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void global2shmem_33x9x9data(
-    T1* data, dim3 data_size, dim3 data_leap, volatile T2 s_data[9][9][33])
+    T1* data, dim3 data_size, dim3 data_leap, dim3 begin, volatile T2 s_data[9][9][33])
 {
   constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -203,9 +203,9 @@ __device__ void global2shmem_33x9x9data(
     auto x = (_tix % 33);
     auto y = (_tix / 33) % 9;
     auto z = (_tix / 33) / 9;
-    auto gx = (x + BIX * BLOCK32);
-    auto gy = (y + BIY * BLOCK8);
-    auto gz = (z + BIZ * BLOCK8);
+    auto gx = (begin.x + x + BIX * BLOCK32);
+    auto gy = (begin.y + y + BIY * BLOCK8);
+    auto gz = (begin.z + z + BIZ * BLOCK8);
     auto gid = gx + gy * data_leap.y + gz * data_leap.z;
 
     if (gx < data_size.x and gy < data_size.y and gz < data_size.z) s_data[z][y][x] = data[gid];
@@ -215,7 +215,7 @@ __device__ void global2shmem_33x9x9data(
 
 template <typename T = float, typename E = u4, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void global2shmem_fuse(
-    E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier, volatile T s_eq[9][9][33])
+    E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier, dim3 begin, volatile T s_eq[9][9][33])
 {
   constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -223,9 +223,9 @@ __device__ void global2shmem_fuse(
     auto x = (_tix % 33);
     auto y = (_tix / 33) % 9;
     auto z = (_tix / 33) / 9;
-    auto gx = (x + BIX * BLOCK32);
-    auto gy = (y + BIY * BLOCK8);
-    auto gz = (z + BIZ * BLOCK8);
+    auto gx = (begin.x + x + BIX * BLOCK32);
+    auto gy = (begin.y + y + BIY * BLOCK8);
+    auto gz = (begin.z + z + BIZ * BLOCK8);
     auto gid = gx + gy * eq_leap.y + gz * eq_leap.z;
 
     if (gx < eq_size.x and gy < eq_size.y and gz < eq_size.z)
@@ -237,7 +237,7 @@ __device__ void global2shmem_fuse(
 // dram_outlier should be the same in type with shared memory buf
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void shmem2global_32x8x8data(
-    volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap)
+    volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin)
 {
   auto x_size = BLOCK32 + (BIX == GDX - 1);
   auto y_size = BLOCK8 + (BIY == GDY - 1);
@@ -249,9 +249,9 @@ __device__ void shmem2global_32x8x8data(
     auto x = (_tix % x_size);
     auto y = (_tix / x_size) % y_size;
     auto z = (_tix / x_size) / y_size;
-    auto gx = (x + BIX * BLOCK32);
-    auto gy = (y + BIY * BLOCK8);
-    auto gz = (z + BIZ * BLOCK8);
+    auto gx = (begin.x + x + BIX * BLOCK32);
+    auto gy = (begin.y + y + BIY * BLOCK8);
+    auto gz = (begin.z + z + BIZ * BLOCK8);
     auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
     if (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z) dram_buf[gid] = s_buf[z][y][x];
@@ -264,7 +264,7 @@ template <
     typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE,
     typename CompactValIdx>
 __device__ void shmem2global_32x8x8data_with_compaction(
-    volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, int radius,
+    volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin, int radius,
     CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr)
 {
   auto x_size = BLOCK32 + (BIX == GDX - 1);
@@ -276,9 +276,9 @@ __device__ void shmem2global_32x8x8data_with_compaction(
     auto x = (_tix % x_size);
     auto y = (_tix / x_size) % y_size;
     auto z = (_tix / x_size) / y_size;
-    auto gx = (x + BIX * BLOCK32);
-    auto gy = (y + BIY * BLOCK8);
-    auto gz = (z + BIZ * BLOCK8);
+    auto gx = (begin.x + x + BIX * BLOCK32);
+    auto gy = (begin.y + y + BIY * BLOCK8);
+    auto gz = (begin.z + z + BIZ * BLOCK8);
     auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
     auto candidate = s_buf[z][y][x];
@@ -759,17 +759,20 @@ __global__ void psz::KCU_c_spline3d_infprecis_32x8x8data(
       T eq[9][9][33];
     } shmem;
 
+    dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+    auto sub_extent = data_size;
+
     c_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, shmem.eq, radius);
 
-    global2shmem_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, shmem.data);
+    global2shmem_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, begin, shmem.data);
 
-    c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap);
+    c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap, begin);
 
     psz::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
-        shmem.data, shmem.eq, data_size, eb_r, ebx2, radius);
+        shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius);
 
     shmem2global_32x8x8data_with_compaction<T, E, LINEAR_BLOCK_SIZE>(
-        shmem.eq, eq, eq_size, eq_leap, radius, cvi, cn);
+        shmem.eq, eq, eq_size, eq_leap, begin, radius, cvi, cn);
   }
 }
 
@@ -795,15 +798,18 @@ __global__ void psz::KCU_x_spline3d_infprecis_32x8x8data(
     T eq[9][9][33];
   } shmem;
 
-  x_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(
-      shmem.data, shmem.eq, anchor, anchor_size, anchor_leap);
+  dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+  auto sub_extent = data_size;
 
-  global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(eq, eq_size, eq_leap, data, shmem.eq);
+  x_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(
+      shmem.data, shmem.eq, anchor, anchor_size, anchor_leap, begin);
+
+  global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(eq, eq_size, eq_leap, data, begin, shmem.eq);
 
   psz::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
-      shmem.data, shmem.eq, data_size, eb_r, ebx2, radius);
+      shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius);
 
-  shmem2global_32x8x8data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap);
+  shmem2global_32x8x8data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap, begin);
 }
 
 #undef TIX
