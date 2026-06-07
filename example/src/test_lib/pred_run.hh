@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: BSD-3-Clause
-// End-to-end predictor-run helper for bin_pred / bin_pred_xv (members public
-// so bin_pred_xv can reach per-block packed ectrl).
 #ifndef PSZ_TEST_LIB_PRED_RUN_HH
 #define PSZ_TEST_LIB_PRED_RUN_HH
 
@@ -10,14 +7,15 @@
 
 #include "compressor.hh"
 #include "cusz.h"
-#include "cusz/context.h"
 #include "detail/composite.hh"
 #include "kernel.hh"
-#include "mem/cxx_backends.h"
-#include "mem/cxx_sp_gpu.h"
+#include "mem/view.hh"
 #include "pred_args.hh"
 #include "pred_metrics.hh"
 #include "utils/io.hh"
+
+using _ptb::make_const_view;
+using _ptb::make_view;
 
 namespace psz_test {
 
@@ -65,9 +63,7 @@ class PredRun {
   using PPL = psz::compression_pipeline<float, E>;
   using Buf = psz_buf<float, E>;
 
-  // -- inputs from PredArgs -----
-  // Held by value because PredRun mutates `args.eb` for rel-mode (scales it
-  // by the data range, mirroring libcusz's RUNTIME_CHANGE_EB_IF_REL macro).
+  // PredRun mutates `args.eb` for rel-mode
   // Downstream readers (bin_pred, bin_pred_xv, pred_xv) see the absolute eb.
   PredArgs args;
   size_t len = 0;
@@ -97,7 +93,6 @@ class PredRun {
   }
 
   // -- 1. resolve args, allocate, load data, initialize manager. ---------
-  // Returns 0 on success; nonzero is a propagated exit code.
   int setup()
   {
     if (!resolve_predictor(args.predictor, pred_type, spline_v_check)) {
@@ -127,11 +122,7 @@ class PredRun {
 
     cudaStreamCreate(&stream);
 
-    // Rel-mode: scale eb by data range now, on the host scan. This mirrors
-    // libcusz.cc's RUNTIME_CHANGE_EB_IF_REL macro (which only fires inside
-    // psz_compress_*_float — we go through PPL::compress_analysis directly,
-    // so we replicate the scaling ourselves). Once scaled, args.eb is
-    // absolute; downstream code is mode-agnostic.
+    // rel-mode
     double const user_eb = args.eb;
     if (args.mode == PredArgs::Mode::Rel) {
       double mn = h_data[0], mx = h_data[0];
@@ -181,11 +172,7 @@ class PredRun {
     return 0;
   }
 
-  // -- 3. reverse predictor on v1's ectrl layout. ------------------------
-  // (For v1 / Lorenzo / LorenzoZigZag / LorenzoProto. spl-vN re-uses this for
-  // its quality measurement against the *v1*-format ectrl that the manager
-  // produces -- the cross-check in bin_pred_xv runs the v2..v4r3 kernel
-  // separately and reconstructs from its un-permuted output.)
+  // -- 3. reverse predictor on v1's eq layout. ------------------------
   void reconstruct_v1_path()
   {
     cudaMemset(d_xdata.get(), 0, sizeof(float) * len);
@@ -196,23 +183,23 @@ class PredRun {
     }
     if (pred_type == psz_predictor::Lorenzo)
       GPU_x_lorenzo_nd<float, _Toggle::ZigZag_Off>::kernel(
-          _ptb::make_view(mem->ectrl_d(), len3), _ptb::make_view(d_xdata.get(), len3),
-          _ptb::make_view(d_xdata.get(), len3), args.eb, mgr()->header->rc.radius, (void*)stream);
+          make_view(mem->eq_d(), len3), make_view(d_xdata.get(), len3),
+          make_view(d_xdata.get(), len3), args.eb, mgr()->header->rc.radius, (void*)stream);
     else if (pred_type == psz_predictor::LorenzoZigZag)
       GPU_x_lorenzo_nd<float, _Toggle::ZigZag_On>::kernel(
-          _ptb::make_view(mem->ectrl_d(), len3), _ptb::make_view(d_xdata.get(), len3),
-          _ptb::make_view(d_xdata.get(), len3), args.eb, mgr()->header->rc.radius, (void*)stream);
+          make_view(mem->eq_d(), len3), make_view(d_xdata.get(), len3),
+          make_view(d_xdata.get(), len3), args.eb, mgr()->header->rc.radius, (void*)stream);
     else if (pred_type == psz_predictor::LorenzoProto)
       psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
-          mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, args.eb * 2, 1 / (args.eb * 2),
+          mem->eq_d(), d_xdata.get(), d_xdata.get(), len3, args.eb * 2, 1 / (args.eb * 2),
           mgr()->header->rc.radius, (void*)stream);
     else if (pred_type == psz_predictor::Spline)
       psz::module::GPU_x_spline<float, E>::kernel_v1(
-          _ptb::make_view(mem->anchor_d(), mem->anchor_len3()),
-          _ptb::make_view(mem->ectrl_d(), mem->ectrl_len3()),
-          _ptb::make_view(d_xdata.get(), mem->ectrl_len3()), d_xdata.get(), args.eb,
-          mgr()->header->rc.radius, mgr()->header->intp_param,
-          (void*)stream, spline_v_check == 24 ? SplineVariant::y24 : SplineVariant::y25);
+          make_view(mem->anchor_d(), mem->anchor_len3()),
+          make_view(mem->eq_d(), mem->eq_len3()),
+          make_view(d_xdata.get(), mem->eq_len3()), d_xdata.get(), args.eb,
+          mgr()->header->rc.radius, mgr()->header->intp_param, (void*)stream,
+          spline_v_check == 24 ? SplineVariant::y24 : SplineVariant::y25);
     cudaStreamSynchronize(stream);
     cudaMemcpy(h_xdata.get(), d_xdata.get(), sizeof(float) * len, cudaMemcpyDeviceToHost);
   }

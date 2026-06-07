@@ -21,11 +21,11 @@ static void run_export(PredRun& run)
 {
   using E = PredRun::E;
   size_t const len = run.len;
-  auto h_ectrl = std::unique_ptr<E[]>(new E[len]);
-  cudaMemcpy(h_ectrl.get(), run.mem->ectrl_d(), sizeof(E) * len, cudaMemcpyDeviceToHost);
-  std::string ectrl_out = run.args.fname + ".pred_" + run.args.predictor + ".ectrl.u2";
-  _utils::tofile(ectrl_out, h_ectrl.get(), len);
-  printf("[pred-study] ectrl written to: %s\n", ectrl_out.c_str());
+  auto h_eq = std::unique_ptr<E[]>(new E[len]);
+  cudaMemcpy(h_eq.get(), run.mem->eq_d(), sizeof(E) * len, cudaMemcpyDeviceToHost);
+  std::string eq_out = run.args.fname + ".pred_" + run.args.predictor + ".ectrl.u2";
+  _utils::tofile(eq_out, h_eq.get(), len);
+  printf("[pred-study] ectrl written to: %s\n", eq_out.c_str());
 
   if (run.pred_type == psz_predictor::Spline) {
     auto anchor_len = run.mem->anchor_len();

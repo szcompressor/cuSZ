@@ -99,8 +99,6 @@ struct Buf_Comp {
   void clear_top1();
 
   // getter
-  E* ectrl_d() const;
-  psz_len ectrl_len3() const;
   E* eq_d() const;
   psz_len eq_len3() const;
 

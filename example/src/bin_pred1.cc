@@ -16,13 +16,14 @@
 
 #include "compressor.hh"
 #include "cusz.h"
-#include "cusz/context.h"
 #include "detail/composite.hh"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
+#include "mem/view.hh"
 #include "utils/io.hh"
 
 namespace utils = _ptb::utils;
+using _ptb::make_view;
 using Toggle = psz::Toggle;
 
 template <typename T, Toggle ZigZag>
@@ -117,23 +118,23 @@ int main(int argc, char** argv)
 
   if (pred_type == psz_predictor::Lorenzo)
     GPU_x_lorenzo_nd<float, Toggle::ZigZag_Off>::kernel(
-        _ptb::make_view(mem->ectrl_d(), len3), _ptb::make_view(d_xdata.get(), len3),
-        _ptb::make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
+        make_view(mem->eq_d(), len3), make_view(d_xdata.get(), len3),
+        make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::LorenzoZigZag)
     GPU_x_lorenzo_nd<float, Toggle::ZigZag_On>::kernel(
-        _ptb::make_view(mem->ectrl_d(), len3), _ptb::make_view(d_xdata.get(), len3),
-        _ptb::make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
+        make_view(mem->eq_d(), len3), make_view(d_xdata.get(), len3),
+        make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
-        mem->ectrl_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb * 2, 1 / (abs_eb * 2),
+        mem->eq_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb * 2, 1 / (abs_eb * 2),
         manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::Spline)
     psz::module::GPU_x_spline<float, E>::kernel_v1(
-        _ptb::make_view(mem->anchor_d(), mem->anchor_len3()),
-        _ptb::make_view(mem->ectrl_d(), mem->ectrl_len3()),
-        _ptb::make_view(d_xdata.get(), mem->ectrl_len3()), d_xdata.get(), abs_eb,
-        manager->header->rc.radius, manager->header->intp_param,
-        (void*)stream, spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
+        make_view(mem->anchor_d(), mem->anchor_len3()),
+        make_view(mem->eq_d(), mem->eq_len3()),
+        make_view(d_xdata.get(), mem->eq_len3()), d_xdata.get(), abs_eb,
+        manager->header->rc.radius, manager->header->intp_param, (void*)stream,
+        spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
 
   cudaStreamSynchronize(stream);
   memcpy_allkinds<D2H>(h_xdata.get(), d_xdata.get(), len);
@@ -186,11 +187,11 @@ int main(int argc, char** argv)
     printf("[pred-study] warning: non-finite value detected in reconstructed data\n");
 
   if (do_export) {
-    auto h_ectrl = MAKE_UNIQUE_HOST(uint16_t, len);
-    memcpy_allkinds<D2H>(h_ectrl.get(), mem->ectrl_d(), len);
-    std::string ectrl_out = fname + ".pred_" + pred_name + ".ectrl.u2";
-    utils::tofile(ectrl_out, h_ectrl.get(), len);
-    printf("[pred-study] ectrl written to: %s\n", ectrl_out.c_str());
+    auto h_eq = MAKE_UNIQUE_HOST(uint16_t, len);
+    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), len);
+    std::string eq_out = fname + ".pred_" + pred_name + ".ectrl.u2";
+    utils::tofile(eq_out, h_eq.get(), len);
+    printf("[pred-study] ectrl written to: %s\n", eq_out.c_str());
 
     if (pred_type == psz_predictor::Spline) {
       auto anchor_len = mem->anchor_len();

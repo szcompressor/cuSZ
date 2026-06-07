@@ -25,7 +25,7 @@ constexpr int PROFILE_NUM_BLOCK_Z = 4;
 
 template <typename T, typename E, typename FP>
 int psz::module::GPU_x_spline_y25<T, E, FP>::kernel_v1(
-    host::view<T> anchor, host::view<E> ectrl, host::view<T> xdata, T* outlier_tmp, double eb,
+    host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
     uint32_t radius, INTERP_PARAMS intp_param, void* stream)
 {
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
@@ -34,9 +34,9 @@ int psz::module::GPU_x_spline_y25<T, E, FP>::kernel_v1(
   auto eb_r = 1 / eb;
 
   auto l3 = LEN_TO_DIM3(xdata.extent);
-  auto data_stride3 = LEN_TO_DIM3(xdata.leap);
+  auto data_leap = LEN_TO_DIM3(xdata.leap);
   auto anchor_l3 = LEN_TO_DIM3(anchor.extent);
-  auto anchor_stride3 = LEN_TO_DIM3(anchor.leap);
+  auto anchor_leap = LEN_TO_DIM3(anchor.leap);
   auto extent = l3;
 
   if (l3.z == 1) {
@@ -48,8 +48,8 @@ int psz::module::GPU_x_spline_y25<T, E, FP>::kernel_v1(
         E, T, FP, LEVEL, SPLINE_DIM_2, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, DEFAULT_BLOCK_SIZE>  //
         <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            ectrl.ptr, extent, data_stride3, anchor.ptr, anchor_l3, anchor_stride3,
-            xdata.ptr, extent, data_stride3, xdata.ptr, eb_r, ebx2, radius,
+            eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap,
+            xdata.ptr, extent, data_leap, xdata.ptr, eb_r, ebx2, radius,
             intp_param);
   }
   else {
@@ -58,8 +58,8 @@ int psz::module::GPU_x_spline_y25<T, E, FP>::kernel_v1(
     psz::KCU_x_spl_infprecis_data<
         E, T, FP, 4, SPLINE_DIM_3, BLOCK16, BLOCK16, BLOCK16, 1, 1, 1, DEFAULT_BLOCK_SIZE>  //
         <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            ectrl.ptr, extent, data_stride3, anchor.ptr, anchor_l3, anchor_stride3,
-            xdata.ptr, extent, data_stride3, xdata.ptr, eb_r, ebx2, radius,
+            eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap,
+            xdata.ptr, extent, data_leap, xdata.ptr, eb_r, ebx2, radius,
             intp_param);
   }
 

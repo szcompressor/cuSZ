@@ -36,7 +36,7 @@ struct psz::Buf_Comp<T, E>::impl {
   bool is_comp;
 
   // arrays
-  GPU_unique_dptr<E[]> d_ectrl;
+  GPU_unique_dptr<E[]> d_eq;
   GPU_unique_dptr<BYTE[]> d_compressed;
   GPU_unique_hptr<BYTE[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
@@ -91,7 +91,7 @@ struct psz::Buf_Comp<T, E>::impl {
     buf_lc = std::make_unique<Buf_LC>(
         len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
 
-    if (toggle->use_quant) d_ectrl = MAKE_UNIQUE_DEVICE(E, len_linear);
+    if (toggle->use_quant) d_eq = MAKE_UNIQUE_DEVICE(E, len_linear);
     if (toggle->use_outlier) {
       buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
       buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
@@ -119,7 +119,7 @@ struct psz::Buf_Comp<T, E>::impl {
       len_top1(set_top1_nblk(_len))
   {
     // align 4Ki for (essentially) FZG
-    d_ectrl = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
+    d_eq = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
     buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen, -1, use_HFR);
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
@@ -149,18 +149,18 @@ struct psz::Buf_Comp<T, E>::impl {
       psz::buf_comp_dummy::launch();
     }
 
-    // Zero d_ectrl tail (len_linear..ALIGN_4Ki(len_linear)) so the HFR/HFR-PBK
+    // Zero d_eq tail (len_linear..ALIGN_4Ki(len_linear)) so the HFR/HFR-PBK
     // encoders can read past `len` up to `padded_len` and see zeros without a
     // per-encode tail memset. Predictor only writes 0..len-1, so the tail stays
     // zero across encodes provided len is fixed per buffer instance.
-    memset_device(d_ectrl.get(), ALIGN_4Ki(len_linear));
+    memset_device(d_eq.get(), ALIGN_4Ki(len_linear));
   }
 
   ~impl() {};
 
   void clear_buffer()
   {
-    memset_device(d_ectrl.get(), len_linear);
+    memset_device(d_eq.get(), len_linear);
     memset_device(d_hist.get(), max_bklen);
     memset_device(d_anchor.get(), len_linear_anchor);
     memset_device(d_compressed.get(), len_linear * 4 / 2);
@@ -194,9 +194,7 @@ COMPBUF_IMPL(void)::clear_buffer() { pimpl->clear_buffer(); }
 COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), pimpl->len_top1); }
 
 // getters: array
-COMPBUF_IMPL(E*)::ectrl_d() const { return pimpl->d_ectrl.get(); }
-COMPBUF_IMPL(psz_len)::ectrl_len3() const { return len; }
-COMPBUF_IMPL(E*)::eq_d() const { return pimpl->d_ectrl.get(); }
+COMPBUF_IMPL(E*)::eq_d() const { return pimpl->d_eq.get(); }
 COMPBUF_IMPL(psz_len)::eq_len3() const { return len; }
 
 COMPBUF_IMPL(Freq*)::hist_d() const { return pimpl->d_hist.get(); }

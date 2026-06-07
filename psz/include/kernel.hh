@@ -106,7 +106,7 @@ template <typename T, typename E, typename Fp = T>
 struct GPU_c_spline_y25 {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
   static int kernel_v1(
-      host::view<T> data, host::view<E> ectrl, host::view<T> anchor, void* _outlier, double eb,
+      host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
       double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
       T* h_profiled_errors, u4 const pe_len, void* stream);
 };
@@ -115,7 +115,7 @@ template <typename T, typename E, typename Fp = T>
 struct GPU_c_spline_y24 {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
   static int kernel_v1(
-      host::view<T> data, host::view<E> ectrl, host::view<T> anchor, void* _outlier, double eb,
+      host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
       double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
       T* h_profiled_errors, u4 const pe_len, void* stream);
 };
@@ -123,16 +123,17 @@ struct GPU_c_spline_y24 {
 template <typename T, typename E, typename Fp = T>
 struct GPU_c_spline {
   static int kernel_v1(
-      host::view<T> data, host::view<E> ectrl, host::view<T> anchor, void* _outlier, double eb,
+      host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
       double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
-      T* h_profiled_errors, u4 const pe_len, void* stream, SplineVariant variant = SplineVariant::y25)
+      T* h_profiled_errors, u4 const pe_len, void* stream,
+      SplineVariant variant = SplineVariant::y25)
   {
     if (variant == SplineVariant::y24)
       return GPU_c_spline_y24<T, E, Fp>::kernel_v1(
-          data, ectrl, anchor, _outlier, eb, rel_eb, radius, intp_param, d_profiled_errors,
+          data, eq, anchor, _outlier, eb, rel_eb, radius, intp_param, d_profiled_errors,
           h_profiled_errors, pe_len, stream);
     return GPU_c_spline_y25<T, E, Fp>::kernel_v1(
-        data, ectrl, anchor, _outlier, eb, rel_eb, radius, intp_param, d_profiled_errors,
+        data, eq, anchor, _outlier, eb, rel_eb, radius, intp_param, d_profiled_errors,
         h_profiled_errors, pe_len, stream);
   }
 };
@@ -141,7 +142,7 @@ template <typename T, typename E, typename Fp = T>
 struct GPU_x_spline_y25 {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
   static int kernel_v1(
-      host::view<T> anchor, host::view<E> ectrl, host::view<T> xdata, T* outlier_tmp, double eb,
+      host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
       uint32_t radius, INTERP_PARAMS intp_param, void* stream);
 };
 
@@ -149,22 +150,22 @@ template <typename T, typename E, typename Fp = T>
 struct GPU_x_spline_y24 {
   static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
   static int kernel_v1(
-      host::view<T> anchor, host::view<E> ectrl, host::view<T> xdata, T* outlier_tmp, double eb,
+      host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
       uint32_t radius, INTERP_PARAMS intp_param, void* stream);
 };
 
 template <typename T, typename E, typename Fp = T>
 struct GPU_x_spline {
   static int kernel_v1(
-      host::view<T> anchor, host::view<E> ectrl, host::view<T> xdata, T* outlier_tmp, double eb,
+      host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
       uint32_t radius, INTERP_PARAMS intp_param, void* stream,
       SplineVariant variant = SplineVariant::y25)
   {
     if (variant == SplineVariant::y24)
       return GPU_x_spline_y24<T, E, Fp>::kernel_v1(
-          anchor, ectrl, xdata, outlier_tmp, eb, radius, intp_param, stream);
+          anchor, eq, xdata, outlier_tmp, eb, radius, intp_param, stream);
     return GPU_x_spline_y25<T, E, Fp>::kernel_v1(
-        anchor, ectrl, xdata, outlier_tmp, eb, radius, intp_param, stream);
+        anchor, eq, xdata, outlier_tmp, eb, radius, intp_param, stream);
   }
 };
 

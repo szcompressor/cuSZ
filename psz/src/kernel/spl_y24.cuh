@@ -78,7 +78,7 @@ __forceinline__ __device__ bool xyz33x9x9_predicate(
 // control block_id3 in function call
 template <typename T, bool PRINT_FP = true, int XEND = 33, int YEND = 9, int ZEND = 9>
 __device__ void spline3d_print_block_from_GPU(
-    T volatile a[9][9][33], int radius = 512, bool compress = true, bool print_ectrl = true)
+    T volatile a[9][9][33], int radius = 512, bool compress = true, bool print_eq = true)
 {
   for (auto z = 0; z < ZEND; z++) {
     printf("\nprint from GPU, z=%d\n", z);
@@ -91,13 +91,13 @@ __device__ void spline3d_print_block_from_GPU(
       for (auto x = 0; x < XEND; x++) {  //
         if constexpr (PRINT_FP) { printf("%.2e\t", (float)a[z][y][x]); }
         else {
-          T c = print_ectrl ? a[z][y][x] - radius : a[z][y][x];
+          T c = print_eq ? a[z][y][x] - radius : a[z][y][x];
           if (compress) {
             if (c == 0) { printf("%3c", '.'); }
             else {
               if (abs(c) >= 10) { printf("%3c", '*'); }
               else {
-                if (print_ectrl) { printf("%3d", c); }
+                if (print_eq) { printf("%3d", c); }
                 else {
                   printf("%4.2f", c);
                 }
@@ -105,7 +105,7 @@ __device__ void spline3d_print_block_from_GPU(
             }
           }
           else {
-            if (print_ectrl) { printf("%3d", c); }
+            if (print_eq) { printf("%3d", c); }
             else {
               printf("%4.2f", c);
             }

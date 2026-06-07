@@ -1869,7 +1869,7 @@ __global__ void psz::KCU_c_spl_infprecis_data(
     __shared__ T shmem_data[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                            [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                            [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)];
-    __shared__ T shmem_ectrl[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
+    __shared__ T shmem_eq[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                             [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                             [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)];
     __shared__ size_t shmem_grid_leaps[LEVEL + 1][2];
@@ -1883,7 +1883,7 @@ __global__ void psz::KCU_c_spl_infprecis_data(
 
     c_reset_scratch_data<
         T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
-        NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(shmem_data, shmem_ectrl, radius);
+        NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(shmem_data, shmem_eq, radius);
 
     global2shmem_data<
         T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
@@ -1896,12 +1896,12 @@ __global__ void psz::KCU_c_spl_infprecis_data(
     psz::spline_layout_interpolate<
         T, T, FP, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE, SPLINE3_COMPR,
-        false>(shmem_data, shmem_ectrl, sub_extent, eb_r, ebx2, radius, intp_param);
+        false>(shmem_data, shmem_eq, sub_extent, eb_r, ebx2, radius, intp_param);
 
     shmem2global_data_with_compaction<
         T, E, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
         NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-        shmem_ectrl, eq, eq_size, eq_leap, begin, radius, shmem_grid_leaps, shmem_prefix_nums, cvi,
+        shmem_eq, eq, eq_size, eq_leap, begin, radius, shmem_grid_leaps, shmem_prefix_nums, cvi,
         cn);
   }
 }
@@ -1939,7 +1939,7 @@ __global__ void psz::KCU_x_spl_infprecis_data(
   __shared__ T shmem_data[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                          [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                          [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)];
-  __shared__ T shmem_ectrl[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
+  __shared__ T shmem_eq[AnchorBlockSizeZ * NumAnchorBlockZ + (SPLINE_DIM >= 3)]
                           [AnchorBlockSizeY * NumAnchorBlockY + (SPLINE_DIM >= 2)]
                           [AnchorBlockSizeX * NumAnchorBlockX + (SPLINE_DIM >= 1)];
   __shared__ size_t shmem_grid_leaps[LEVEL + 1][2];
@@ -1953,16 +1953,16 @@ __global__ void psz::KCU_x_spl_infprecis_data(
   x_reset_scratch_data<
       T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
       NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-      shmem_data, shmem_ectrl, anchor, anchor_size, anchor_leap, begin);
+      shmem_data, shmem_eq, anchor, anchor_size, anchor_leap, begin);
   global2shmem_fuse<
       T, E, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
       NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(
-      eq, eq_size, eq_leap, outlier_tmp, begin, shmem_ectrl, shmem_grid_leaps, shmem_prefix_nums);
+      eq, eq_size, eq_leap, outlier_tmp, begin, shmem_eq, shmem_grid_leaps, shmem_prefix_nums);
 
   psz::spline_layout_interpolate<
       T, T, FP, LEVEL, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
       NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR,
-      false>(shmem_data, shmem_ectrl, sub_extent, eb_r, ebx2, radius, intp_param);
+      false>(shmem_data, shmem_eq, sub_extent, eb_r, ebx2, radius, intp_param);
   shmem2global_data<
       T, T, SPLINE_DIM, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ, NumAnchorBlockX,
       NumAnchorBlockY, NumAnchorBlockZ, LINEAR_BLOCK_SIZE>(

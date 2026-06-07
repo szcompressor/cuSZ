@@ -385,7 +385,7 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
     ctx->header->pipeline.hist = psz_hist::NullHistogram;
 
   // HFR-PBK-Compat uses the prebuilt pbk25_r128 book (radius=128, dictsize=256).
-  // Force the predictor radius to match; otherwise ectrl values in [256, 2*radius)
+  // Force the predictor radius to match; otherwise eq values in [256, 2*radius)
   // index out of book bounds and the encode kernel faults.
   //
   // HFR v2 (Cut B1): shares the PBK-shape kernel instantiation (Radius=128) so
