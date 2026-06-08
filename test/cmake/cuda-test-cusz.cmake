@@ -41,6 +41,36 @@ function(add_cusz_test name codec dtype mode eb dims file)
   )
 endfunction()
 
+function(add_cusz_pred_test name predictor dtype mode eb dims file)
+  add_test(NAME ${name}
+    COMMAND bash -c "
+      set -e
+      [ -f '${file}' ] || exit 77
+      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${file}' \
+             -z -p ${predictor} --codec hf > /tmp/${name}.enc.log 2>&1
+      ./cusz -i '${file}.cusza' -x --compare '${file}' \
+        > /tmp/${name}.dec.log 2>&1
+      mxe=\$(grep -oE 'max_error=[0-9.eE+-]+' /tmp/${name}.dec.log | head -1 | cut -d= -f2)
+      [ -n \"\$mxe\" ] || { cat /tmp/${name}.dec.log; echo 'FAIL: no max_error in compare output'; exit 1; }
+      awk -v m=\"\$mxe\" -v e=${eb} 'BEGIN{exit !(m+0 <= 1.001*(e+0))}' \
+        || { echo \"FAIL: max_error=\$mxe over eb=${eb}\" ; exit 1 ; }
+      rm -f '${file}.cusza'
+    "
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  )
+  set_tests_properties(${name} PROPERTIES
+    LABELS "cusz_cli;predictor_${predictor}"
+    SKIP_RETURN_CODE 77
+  )
+endfunction()
+
+# --- y24 round-trip tests (3D 32x8x8 anchor blocks) -------------------------
+set(RTM_FILE "${CUSZ_TEST_DATA}/RTM/0480.f32")
+set(RTM_DIMS "235-449-449")
+add_cusz_pred_test(cusz__rtm_0480__y24__abs_1e-4 spl-y24 f32 abs 1e-4 ${RTM_DIMS} ${RTM_FILE})
+add_cusz_pred_test(cusz__rtm_0480__y24__abs_1e-3 spl-y24 f32 abs 1e-3 ${RTM_DIMS} ${RTM_FILE})
+add_cusz_pred_test(cusz__rtm_0480__y25__abs_1e-4 spl-y25 f32 abs 1e-4 ${RTM_DIMS} ${RTM_FILE})
+
 # --- codec sweep on HURR Uf48 (100x500x500 f32) -----------------------------
 set(HURR_FILE  "${CUSZ_TEST_DATA}/HURR/Uf48.f4")
 set(HURR_DIMS  "500x500x100")

@@ -39,6 +39,11 @@ typedef struct psz_header {
 
       // i/Hi
       INTERP_PARAMS intp_param;
+
+      // 0 = y25 (2D 64^2 + 3D 16^3)
+      // 1 = y24 (3D 32x8x8),
+      // 2 = y26 (future use)
+      int spline_variant;
     };
 
     // struct {

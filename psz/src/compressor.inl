@@ -55,8 +55,8 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
 
   // initialize internal buffers
   const auto _c1 = ctx->header->pipeline.codec1;
-  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
-                       (_c1 == psz_codec::HFR_PBKGO);
+  const auto use_HFR =
+      (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO);
   auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression, use_HFR);
   mem->register_header(ctx->header);
   // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
@@ -73,8 +73,8 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
 {
   // initialize internal buffers
   const auto _c1 = header->pipeline.codec1;
-  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
-                       (_c1 == psz_codec::HFR_PBKGO);
+  const auto use_HFR =
+      (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO);
   auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR);
   mem->register_header(header);
   return mem;
@@ -96,7 +96,8 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
     GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(
         mem, make_view(in, len), eb, radius, stream);
   else if (PIPELINE.predictor == Spline) {
-    mem->set_spline_variant(ctx->spline_variant);  // anchor sizing before anchor_len3()
+    mem->set_spline_variant(ctx->spline_variant);       // anchor sizing before anchor_len3()
+    ctx->header->spline_variant = ctx->spline_variant;  // persist for decompress dispatch
     memset_device(mem->buf_outlier2()->num_d(), 1, 0);
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_c_spline<T, E>::kernel_v1(
@@ -144,7 +145,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
           in, len, mem->eq_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
     else if (predictor == Spline) {
-      mem->set_spline_variant(ctx->spline_variant);  // anchor sizing before anchor_len3()
+      mem->set_spline_variant(ctx->spline_variant);       // anchor sizing before anchor_len3()
+      ctx->header->spline_variant = ctx->spline_variant;  // persist for decompress dispatch
       memset_device(mem->buf_outlier2()->num_d(), 1, 0);
       if constexpr (std::is_same_v<T, f4>)
         psz::module::GPU_c_spline<T, E>::kernel_v1(
@@ -158,8 +160,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       return PSZ_ABORT_NO_SUCH_PREDICTOR;
 
     // HFR family defers outlier read until after pass1's own sync.
-    const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or
-                                    (PIPELINE.codec1 == HFR_PBKC) or
+    const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
                                     (PIPELINE.codec1 == HFR_PBKGO);
     if (not defer_outlier_read) {
       /* make outlier count seen on host */
@@ -538,8 +539,7 @@ STEP_DECODING:
   memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
   if (header->pipeline.codec1 == HFR_PBKC)
     phf::high_level<E>::HFR_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream,
-        psz_codec::HFR_PBKC);
+        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_PBKC);
   else if (header->pipeline.codec1 == HFR_PBKGO)
     phf::high_level<E>::HFR_decode(
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_PBKGO);
@@ -548,8 +548,7 @@ STEP_DECODING:
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR);
   else if (header->pipeline.codec1 == HFr2)
     phf::high_level<E>::HF_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream,
-        psz_codec::HFr2);
+        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFr2);
   else
     // HF + HFr1 share the same on-disk layout / decoder.
     phf::high_level<E>::HF_decode(
@@ -568,12 +567,14 @@ STEP_PREDICT:
   else if (header->pipeline.predictor == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
         mem->eq_d(), d_space, d_xdata, len, ebx2, ebx2_r, header->rc.radius, stream);
-  else if (header->pipeline.predictor == Spline)
+  else if (header->pipeline.predictor == Spline) {
+    mem->set_spline_variant(header->spline_variant);  // anchor sizing for anchor_len3()
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_x_spline<T, E>::kernel_v1(
           make_view(d_anchor, mem->anchor_len3()), make_view(mem->eq_d(), mem->eq_len3()),
           make_view(d_xdata, mem->eq_len3()), d_space, eb, header->rc.radius, header->intp_param,
-          stream);
+          stream, header->spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
+  }
 
   return PSZ_SUCCESS;
 }
