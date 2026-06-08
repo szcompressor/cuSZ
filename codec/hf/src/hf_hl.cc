@@ -51,7 +51,7 @@ int encode_hf(
   return 0;
 }
 
-// Huffman_rev1: same ph1+ph2 as encode_hf, then LAGO-concat replaces ph3+ph4.
+// HFr1: same ph1+ph2 as encode_hf, then LAGO-concat replaces ph3+ph4.
 template <typename E>
 int encode_hf_rev1(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
@@ -112,7 +112,7 @@ int encode_hf_rev1(
   return 0;
 }
 
-// Huffman_rev2: as _r1, with per-block metadata as AoS bheader_backport[].
+// HFr2: as _r1, with per-block metadata as AoS bheader_backport[].
 template <typename E>
 int encode_hf_rev2(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
@@ -493,7 +493,7 @@ int decode_hfr_pbkc(
   }
 }
 
-// HFR v2 decode: HFR_PBK_decoder against the runtime rvbk; KStorage=E.
+// HFR v2 decode: HFR_PBK_decoder against the runtime rvbk; Storage=E.
 template <typename E>
 int decode_hfr_v2(
     Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream)
@@ -554,14 +554,14 @@ int high_level<E>::HF_encode(
     HF_STREAM stream, psz_codec variant, float* opt_ms_encoder, float* opt_ms_lago)
 {
   switch (variant) {
-    case Huffman:
+    case HF:
       (void)opt_ms_encoder;
       (void)opt_ms_lago;
       return dispatch::encode_hf<E>(buf, in, len, out, outlen, header, stream);
-    case Huffman_rev1:
+    case HFr1:
       return dispatch::encode_hf_rev1<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
-    case Huffman_rev2:
+    case HFr2:
       return dispatch::encode_hf_rev2<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
     default: return PHF_NOT_IMPLEMENTED;
@@ -573,12 +573,11 @@ int high_level<E>::HF_decode(
     Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, HF_STREAM stream,
     psz_codec variant)
 {
-  // Huffman{,_r1}: same layout, so same decoder
+  // HF{,_r1}: same layout, so same decoder
   switch (variant) {
-    case Huffman:
-    case Huffman_rev1: return dispatch::decode_hf<E>(buf, header, in_encoded, out_decoded, stream);
-    case Huffman_rev2:
-      return dispatch::decode_hf_rev2<E>(buf, header, in_encoded, out_decoded, stream);
+    case HF:
+    case HFr1: return dispatch::decode_hf<E>(buf, header, in_encoded, out_decoded, stream);
+    case HFr2: return dispatch::decode_hf_rev2<E>(buf, header, in_encoded, out_decoded, stream);
     default: return PHF_NOT_IMPLEMENTED;
   }
 }
@@ -592,10 +591,10 @@ int high_level<E>::HFR_encode(
     case HFR:
       return dispatch::encode_hfr_v2<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
-    case HFR_PBK_Compat:
+    case HFR_PBKC:
       return dispatch::encode_hfr_pbkc<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
-    case HFR_PBK_GO:
+    case HFR_PBKGO:
       return dispatch::encode_hfr_pbkgo<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago, opts);
     case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
@@ -610,9 +609,9 @@ int high_level<E>::HFR_decode(
 {
   switch (variant) {
     case HFR: return dispatch::decode_hfr_v2<E>(buf, header, in_encoded, out_decoded, stream);
-    case HFR_PBK_Compat:
+    case HFR_PBKC:
       return dispatch::decode_hfr_pbkc<E>(buf, header, in_encoded, out_decoded, stream);
-    case HFR_PBK_GO:
+    case HFR_PBKGO:
       return dispatch::decode_hfr_pbkgo<E>(buf, header, in_encoded, out_decoded, stream);
     case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
     default: return PHF_NOT_IMPLEMENTED;

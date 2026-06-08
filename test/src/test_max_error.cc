@@ -42,7 +42,7 @@ void test_find_max_error()
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  psz::module::GPU_find_max_error(d_a, d_b, len, maxval_gpu, maxloc_gpu, stream);
+  psz::cuda::GPU_find_max_error(d_a, d_b, len, maxval_gpu, maxloc_gpu, stream);
 
   free_device_memory(d_a);
   free_device_memory(d_b);

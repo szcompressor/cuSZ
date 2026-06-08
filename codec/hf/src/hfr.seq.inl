@@ -43,7 +43,7 @@ namespace phf {
 template <typename C>
 void KERNEL_SEQ_HFReVISIT_encode(
     typename C::T* in, u4 inlen,                    // input data and length
-    typename C::Hf* dram_book, u4 bklen,            // Huffman codebook and its length
+    typename C::Hf* dram_book, u4 bklen,            // HF codebook and its length
     typename C::Hf alt_code, u4 alt_bitcount,       // alternative code for breaking points
     typename C::Hf* dn_bitstream, u4* dn_bitcount,  // dense output and bit counts
     u4* dn_start_loc, u4* loc_inc,                  // dense start locations

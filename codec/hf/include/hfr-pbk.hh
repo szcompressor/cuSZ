@@ -8,7 +8,7 @@
 #include <cstring>
 
 #include "c_type.h"
-#include "detail/composite.hh"
+#include "cusz/component.hh"
 #include "hf.h"
 #include "mem/cxx_backends.h"
 
@@ -117,7 +117,7 @@ struct psz::HFR_PBK_Launch {
     return div3(len3, tile);
   };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 namespace psz {

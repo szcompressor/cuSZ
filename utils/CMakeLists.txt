@@ -133,8 +133,8 @@ if(EVAL_BACKEND STREQUAL "CUDA")
       src/identical.cu
       src/compile/extrema-f4.cu
       src/compile/extrema-f8.cu
-      src/compile/calcerr-f4.cu
-      src/compile/calcerr-f8.cu
+      src/compile/calc_err-f4.cu
+      src/compile/calc_err-f8.cu
       src/compile/assess-f4.cu
       src/compile/assess-f8.cu
       src/compile/maxerr-all.cu

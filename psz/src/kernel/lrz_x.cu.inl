@@ -1,5 +1,4 @@
 #include "cusz/type.h"
-#include "detail/composite.hh"
 #include "kernel.hh"
 #include "kernel/launch.inl"
 #include "mem/cxx_backends.h"

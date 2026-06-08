@@ -7,14 +7,6 @@
 #include "hf_hl.hh"
 #include "mem/buf_comp.hh"
 
-namespace psz {
-
-using TimeRecordTuple = std::tuple<const char*, double>;
-using TimeRecord = std::vector<TimeRecordTuple>;
-using timerecord_t = TimeRecord*;
-
-}  // namespace psz
-
 template <typename T, typename E>
 using psz_buf = psz::Buf_Comp<T, E>;
 

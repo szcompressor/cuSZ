@@ -57,7 +57,7 @@ __global__ void KCU_find_max_errors(
 
 }  // namespace psz
 
-namespace psz::module {
+namespace psz::cuda {
 
 template <typename T>
 void GPU_find_max_error(T* a, T* b, size_t const len, T& maxval, size_t& maxloc, void* stream)
@@ -88,4 +88,4 @@ void GPU_find_max_error(T* a, T* b, size_t const len, T& maxval, size_t& maxloc,
   cudaFree(d_max_indices);
 }
 
-}  // namespace psz::module
+}  // namespace psz::cuda

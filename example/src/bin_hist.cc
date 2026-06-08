@@ -5,7 +5,7 @@
 #include <string>
 
 #include "compare.hh"
-#include "detail/port.hh"
+#include "backend.h"
 #include "kernel.hh"
 #include "mem/cxx_backends.h"
 #include "utils/io.hh"

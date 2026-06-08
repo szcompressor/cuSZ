@@ -252,11 +252,6 @@ struct par_config {
 
 }  // namespace phf
 
-template <typename T, typename H>
-void phf_GPU_build_canonized_codebook(
-    uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_nbyte,
-    float* time, void* = nullptr);
-
 template <typename E, typename H = uint32_t>
 [[deprecated("use phf_CPU_build_canonized_codebook_v2")]] void phf_CPU_build_canonized_codebook_v1(
     uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes,
@@ -269,7 +264,7 @@ void phf_CPU_build_canonized_codebook_v2(
 
 namespace phf::cuhip {
 
-// Static-method holder for batch template instantiations (E=input, H=Huffman word).
+// Static-method holder for batch template instantiations (E=input, H=HF word).
 template <typename E, typename H>
 class modules {
   // metadata, e.g., saved index for parallel operations

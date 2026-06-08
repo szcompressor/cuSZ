@@ -2,18 +2,10 @@
 #include <string>
 
 #include "compressor.hh"
-#include "cusz/context.h"
-#include "cusz/type.h"
-#include "detail/composite.hh"
-#include "detail/port.hh"
-#include "hf_hl.hh"
 #include "kernel.hh"
 #include "lc_gen/lc_gen.h"
-#include "mem/buf_comp.hh"
-#include "mem/cxx_backends.h"
-#include "mem/sp_interface.h"
-#include "mem/view.hh"
-#include "utils/io.hh"
+#include "phf.hh"
+#include "ptb.hh"
 
 using std::cerr;
 using std::cout;
@@ -63,8 +55,8 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
 
   // initialize internal buffers
   const auto _c1 = ctx->header->pipeline.codec1;
-  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBK_Compat) or
-                       (_c1 == psz_codec::HFR_PBK_GO);
+  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
+                       (_c1 == psz_codec::HFR_PBKGO);
   auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression, use_HFR);
   mem->register_header(ctx->header);
   // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
@@ -81,8 +73,8 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
 {
   // initialize internal buffers
   const auto _c1 = header->pipeline.codec1;
-  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBK_Compat) or
-                       (_c1 == psz_codec::HFR_PBK_GO);
+  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
+                       (_c1 == psz_codec::HFR_PBKGO);
   auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR);
   mem->register_header(header);
   return mem;
@@ -167,8 +159,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     // HFR family defers outlier read until after pass1's own sync.
     const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or
-                                    (PIPELINE.codec1 == HFR_PBK_Compat) or
-                                    (PIPELINE.codec1 == HFR_PBK_GO);
+                                    (PIPELINE.codec1 == HFR_PBKC) or
+                                    (PIPELINE.codec1 == HFR_PBKGO);
     if (not defer_outlier_read) {
       /* make outlier count seen on host */
       sync_by_stream(stream);
@@ -187,10 +179,10 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   auto compress_histogram_and_build_book = [&]() {
     memset_device(mem->hist_d(), ctx->bklen, 0);
 
-    if (PIPELINE.hist == psz_hist::HistogramSparse)
+    if (PIPELINE.hist == psz_hist::HistSp)
       psz::module::GPU_histogram_Cauchy<E>::kernel(
           mem->eq_d(), len_linear, mem->hist_d(), ctx->bklen, stream);
-    else if (PIPELINE.hist == psz_hist::HistogramGeneric)
+    else if (PIPELINE.hist == psz_hist::HistGeneric)
       psz::module::GPU_histogram_generic<E>::kernel(
           mem->eq_d(), len_linear, mem->hist_d(), ctx->bklen, mem->hist_generic_grid_dim,
           mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
@@ -206,21 +198,21 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     phf_header dummy_header;
     phf::high_level<E>::HF_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::Huffman);
+        dummy_header, stream, psz_codec::HF);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
     return PSZ_SUCCESS;
   };
 
-  // Huffman_rev1: ph1+ph2 same as Huffman; LAGO-concat in place of ph3+ph4.
+  // HFr1: ph1+ph2 same as HF; LAGO-concat in place of ph3+ph4.
   auto compress_encode_pass1_Huffman_rev1 = [&]() -> int {
     compress_histogram_and_build_book();
 
     phf_header dummy_header;
     phf::high_level<E>::HF_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::Huffman_rev1);
+        dummy_header, stream, psz_codec::HFr1);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -229,14 +221,14 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  // Huffman_rev2: same as _r1 but ships per-block metadata as AoS bheader_backport[].
+  // HFr2: same as _r1 but ships per-block metadata as AoS bheader_backport[].
   auto compress_encode_pass1_Huffman_rev2 = [&]() -> int {
     compress_histogram_and_build_book();
 
     phf_header dummy_header;
     phf::high_level<E>::HF_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::Huffman_rev2);
+        dummy_header, stream, psz_codec::HFr2);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -266,7 +258,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::HFR_PBK_Compat, nullptr, nullptr, hfr_opts);
+        dummy_header, stream, psz_codec::HFR_PBKC, nullptr, nullptr, hfr_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -280,7 +272,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::HFR_PBK_GO, nullptr, nullptr, hfr_opts);
+        dummy_header, stream, psz_codec::HFR_PBKGO, nullptr, nullptr, hfr_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -314,8 +306,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   auto compress_encode_pass1_LC_TCMS = [&]() -> int {
 #ifdef PSZ_USE_LC_FIXED
-    // Hi-TP mode: TCMS replaces histogram+Huffman; mark hist as null in header
-    ctx->header->pipeline.hist = psz_hist::NullHistogram;
+    // Hi-TP mode: TCMS replaces histogram+HF; mark hist as null in header
+    ctx->header->pipeline.hist = psz_hist::HistNull;
     lc_c::TCMS_COMPRESS(
         (uint8_t*)mem->eq_d(), len_linear * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
         stream);
@@ -385,21 +377,21 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     int status;
     if (PIPELINE.codec1 == HFR)
       status = compress_encode_pass1_HFR();
-    else if (PIPELINE.codec1 == HFR_PBK_Compat)
+    else if (PIPELINE.codec1 == HFR_PBKC)
       status = compress_encode_pass1_HFR_PBK_Compat();
-    else if (PIPELINE.codec1 == HFR_PBK_GO)
+    else if (PIPELINE.codec1 == HFR_PBKGO)
       status = compress_encode_pass1_HFR_PBK_GO();
-    else if (PIPELINE.codec1 == Huffman_rev1)
+    else if (PIPELINE.codec1 == HFr1)
       status = compress_encode_pass1_Huffman_rev1();
-    else if (PIPELINE.codec1 == Huffman_rev2)
+    else if (PIPELINE.codec1 == HFr2)
       status = compress_encode_pass1_Huffman_rev2();
     else
       status = compress_encode_pass1_Huffman();
     if (status != PSZ_SUCCESS) return status;
 
     // Deferred outlier-count read (pass1 already synced for HFR family).
-    if ((PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBK_Compat) or
-        (PIPELINE.codec1 == HFR_PBK_GO)) {
+    if ((PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
+        (PIPELINE.codec1 == HFR_PBKGO)) {
       ctx->header->splen = mem->outlier2_host_get_num();
       if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
         cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
@@ -455,10 +447,10 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
                        : (PIPELINE.codec1 == LC) ? compress_encode_HiTP_eq()
                                                  : compress_encode_default();
 #else
-  // LC not compiled: fall back to Huffman regardless of requested codec1/codec2.
+  // LC not compiled: fall back to HF regardless of requested codec1/codec2.
   // Correct the header pipeline so the tag and CR reflect what actually ran.
-  ctx->header->pipeline.codec1 = Huffman;
-  ctx->header->pipeline.codec2 = NullCodec;
+  ctx->header->pipeline.codec1 = HF;
+  ctx->header->pipeline.codec2 = CodecNull;
   auto status_encode = compress_encode_default();
 #endif
   if (status_encode != PSZ_SUCCESS) return status_encode;
@@ -494,7 +486,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
     goto STEP_PREDICT;
   }
   if (header->pipeline.codec2 == LC) {
-    if (header->pipeline.codec1 == Huffman) {
+    if (header->pipeline.codec1 == HF) {
       // HiCR: RTR_DECOMPRESS over [ENCODED][ANCHOR][SPFMT]
       lc_c::RTR_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
       auto decomp_lc1 = mem->buf_lc()->decoded_d();
@@ -511,7 +503,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       if (header->splen != 0)
         psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
       phf::high_level<E>::HF_decode(
-          mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->eq_d(), stream, psz_codec::Huffman);
+          mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->eq_d(), stream, psz_codec::HF);
     }
     else {
       // HiTP: TCMS_DECOMPRESS eq + BITR_DECOMPRESS [ANCHOR][SPFMT]
@@ -544,46 +536,44 @@ STEP_SCATTER:
 STEP_DECODING:
 
   memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
-  if (header->pipeline.codec1 == HFR_PBK_Compat)
+  if (header->pipeline.codec1 == HFR_PBKC)
     phf::high_level<E>::HFR_decode(
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream,
-        psz_codec::HFR_PBK_Compat);
-  else if (header->pipeline.codec1 == HFR_PBK_GO)
+        psz_codec::HFR_PBKC);
+  else if (header->pipeline.codec1 == HFR_PBKGO)
     phf::high_level<E>::HFR_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream,
-        psz_codec::HFR_PBK_GO);
+        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_PBKGO);
   else if (header->pipeline.codec1 == HFR)
     phf::high_level<E>::HFR_decode(
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR);
-  else if (header->pipeline.codec1 == Huffman_rev2)
+  else if (header->pipeline.codec1 == HFr2)
     phf::high_level<E>::HF_decode(
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream,
-        psz_codec::Huffman_rev2);
+        psz_codec::HFr2);
   else
-    // Huffman + Huffman_rev1 share the same on-disk layout / decoder.
+    // HF + HFr1 share the same on-disk layout / decoder.
     phf::high_level<E>::HF_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::Huffman);
+        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HF);
 
 STEP_PREDICT:
 
   if (header->pipeline.predictor == Lorenzo)
     GPU_x_lorenzo_nd<T, Toggle::ZigZag_Off>::kernel(
-        make_view(mem->eq_d(), len), make_view(d_space, len),
-        make_view(d_xdata, len), eb, header->rc.radius, stream);
+        make_view(mem->eq_d(), len), make_view(d_space, len), make_view(d_xdata, len), eb,
+        header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoZigZag)
     GPU_x_lorenzo_nd<T, Toggle::ZigZag_On>::kernel(
-        make_view(mem->eq_d(), len), make_view(d_space, len),
-        make_view(d_xdata, len), eb, header->rc.radius, stream);
+        make_view(mem->eq_d(), len), make_view(d_space, len), make_view(d_xdata, len), eb,
+        header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoProto)
     psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
         mem->eq_d(), d_space, d_xdata, len, ebx2, ebx2_r, header->rc.radius, stream);
   else if (header->pipeline.predictor == Spline)
     if constexpr (std::is_same_v<T, f4>)
       psz::module::GPU_x_spline<T, E>::kernel_v1(
-          make_view(d_anchor, mem->anchor_len3()),
-          make_view(mem->eq_d(), mem->eq_len3()),
-          make_view(d_xdata, mem->eq_len3()), d_space, eb, header->rc.radius,
-          header->intp_param, stream);
+          make_view(d_anchor, mem->anchor_len3()), make_view(mem->eq_d(), mem->eq_len3()),
+          make_view(d_xdata, mem->eq_len3()), d_space, eb, header->rc.radius, header->intp_param,
+          stream);
 
   return PSZ_SUCCESS;
 }
@@ -612,8 +602,7 @@ PPL_IMPL(void)::compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_strea
     cout << "[psz::dump] dumping quantization codebook to file: " << dump_name("quant") << endl;
     auto h_eq = MAKE_UNIQUE_HOST(E, mem->len_linear);
     memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), mem->len_linear, stream);
-    _ptb::utils::tofile(
-        dump_name("u" + to_string(sizeof(E)), "qt"), h_eq.get(), mem->len_linear);
+    _ptb::utils::tofile(dump_name("u" + to_string(sizeof(E)), "qt"), h_eq.get(), mem->len_linear);
   }
 }
 

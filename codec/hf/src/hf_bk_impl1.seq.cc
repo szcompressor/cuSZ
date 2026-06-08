@@ -1,14 +1,4 @@
-/**
- *  @file hfbk_impl1.seq.cc
- *  @author Sheng Di
- *  Modified by Jiannan Tian
- *  @date Jan. 7, 2020
- *  Created on Aug., 2016
- *  @brief Customized Huffman Encoding, Compression and Decompression
- * functions. Also modified for GPU prototyping. (C) 2016 by Mathematics and
- * Computer Science (MCS), Argonne National Laboratory. See COPYRIGHT in
- * top-level directory.
- */
+// Author: Sheng Di in 2016; modified by Jiannan Tian on Jan. 7, 2020
 
 #include <cstdlib>
 

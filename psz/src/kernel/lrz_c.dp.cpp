@@ -4,6 +4,7 @@
 
 // deps
 #include "cusz/type.h"
+#include "backend.h"
 #include "kernel/lrz.hh"
 #include "mem/cxx_sp_gpu.h"
 #include "utils/err.hh"

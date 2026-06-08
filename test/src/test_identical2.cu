@@ -1,4 +1,4 @@
-// Byte-stream regression sweep for psz::module::GPU_identical (sizeof_T \in {1,2,4}, sizes
+// Byte-stream regression sweep for psz::cuda::GPU_identical (sizeof_T \in {1,2,4}, sizes
 // straddling the 262144-byte threshold, perturb at head/mid/tail).
 #include <cuda_runtime.h>
 
@@ -39,7 +39,7 @@ bool run_case(Case const& c, cudaStream_t stream)
   memcpy_allkinds<H2D>(d2.get(), h2.get(), bytes);
 
   bool got_cpu = psz::cppstl::CPU_identical(h1.get(), h2.get(), c.sizeof_T, c.len);
-  bool got_gpu = psz::module::GPU_identical(d1.get(), d2.get(), c.sizeof_T, c.len, stream);
+  bool got_gpu = psz::cuda::GPU_identical(d1.get(), d2.get(), c.sizeof_T, c.len, stream);
 
   bool ok = (got_cpu == c.expect_identical) and (got_gpu == c.expect_identical);
   std::printf(

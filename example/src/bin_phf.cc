@@ -8,16 +8,9 @@
 
 #include "arg_builder.hh"
 #include "compare.hh"
-#include "hf_buf.hh"
-#include "hf_hl.hh"
-#include "hfr-pbk.hh"
-#include "hfr.hh"
 #include "kernel.hh"
-#include "mem/cxx_backends.h"
-#include "mem/gpu_event.hh"
-#include "mem/gpu_stream.hh"
-#include "utils/io.hh"
-#include "utils/synth.hh"
+#include "phf.hh"
+#include "ptb.hh"
 
 using std::string;
 namespace utils = _ptb::utils;
@@ -80,12 +73,12 @@ struct HFVariant {
 
 // clang-format off
 namespace hfv {
-constexpr HFVariant HF      = {"Huffman",      "hf",        psz_codec::Huffman,        false, false, false, false};
-constexpr HFVariant HF_REV1 = {"Huffman-rev1", "hf-rev1",   psz_codec::Huffman_rev1,   false, false, false, false};
-constexpr HFVariant HF_REV2 = {"Huffman-rev2", "hf-rev2",   psz_codec::Huffman_rev2,   false, false, false, false};
-constexpr HFVariant HFR     = {"HFR",          "hfr",       psz_codec::HFR,            true,  false, true,  false};
-constexpr HFVariant PBKC    = {"HFR-PBKC",     "hfr-pbkc",  psz_codec::HFR_PBK_Compat, true,  true,  true,  false};
-constexpr HFVariant PBKGO   = {"HFR-PBKGO",    "hfr-pbkgo", psz_codec::HFR_PBK_GO,     true,  true,  true,  true};
+constexpr HFVariant HF      = {"Huffman",      "hf",        psz_codec::HF,        false, false, false, false};
+constexpr HFVariant HF_REV1 = {"Huffman-rev1", "hf-rev1",   psz_codec::HFr1,      false, false, false, false};
+constexpr HFVariant HF_REV2 = {"Huffman-rev2", "hf-rev2",   psz_codec::HFr2,      false, false, false, false};
+constexpr HFVariant HFR     = {"HFR",          "hfr",       psz_codec::HFR,       true,  false, true,  false};
+constexpr HFVariant PBKC    = {"HFR-PBKC",     "hfr-pbkc",  psz_codec::HFR_PBKC,  true,  true,  true,  false};
+constexpr HFVariant PBKGO   = {"HFR-PBKGO",    "hfr-pbkgo", psz_codec::HFR_PBKGO, true,  true,  true,  true};
 }  // namespace hfv
 
 static const auto bin_phf_cli =
@@ -284,7 +277,7 @@ void hf_run(
       ms_encoder_phase = ms_enc_p;
       ms_lago_phase = ms_lago_p;
     }
-    if (v.codec != psz_codec::Huffman) buf->reset(stream);
+    if (v.codec != psz_codec::HF) buf->reset(stream);
   }
 
   double ms_dec = 1e9;
@@ -301,7 +294,7 @@ void hf_run(
     if (this_dec < ms_dec) ms_dec = this_dec;
   }
 
-  auto identical = psz::module::GPU_identical(
+  auto identical = psz::cuda::GPU_identical(
       (void*)d_decomp.get(), (void*)d_data.get(), sizeof(E), len, stream);
   {
     auto h_decomp = MAKE_UNIQUE_HOST(E, len);

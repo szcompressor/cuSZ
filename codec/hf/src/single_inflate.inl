@@ -1,4 +1,4 @@
-// Single-threaded Huffman inflate (CPU + GPU).
+// single-threaded Huffman inflate (CPU + GPU).
 
 #ifndef PHF_SINGLE_INFLATE_INL
 #define PHF_SINGLE_INFLATE_INL
@@ -7,10 +7,6 @@
 
 namespace phf {
 
-// E_storage: in-memory width of the rvbk keys section (defaults to E; set wider
-// when the rvbk was built with a wider symbol than the decode target).
-// max_out caps emitted symbols; the tail block's total_bw can land mid-codeword
-// and otherwise emit one spurious symbol past the block's valid count.
 template <typename E, typename H, typename E_storage = E>
 __host__ __device__ constexpr void single_thread_inflate(
     H* input, E* out, uint8_t* rvbk, int const total_bw, int const max_out = 0x7fffffff)

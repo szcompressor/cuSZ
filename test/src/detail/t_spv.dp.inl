@@ -4,6 +4,7 @@
 #include <sycl/sycl.hpp>
 
 #include "kernel.hh"
+#include "backend.h"
 #include "kernel/criteria.gpu.hh"
 
 template <typename T = float>

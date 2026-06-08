@@ -480,8 +480,8 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_scatter_breaks(
-    psz::HFR_PBK_Breaks<128>* sp_breaks, u4* par_brnum, u4* par_broffset,
-    int const sublen, int const pardeg, E* out, void* stream)
+    psz::HFR_PBK_Breaks<128>* sp_breaks, u4* par_brnum, u4* par_broffset, int const sublen,
+    int const pardeg, E* out, void* stream)
 {
   constexpr int block_dim = 128;
   phf::experimental::KCU_scatter_breaks<E, psz::HFR_PBK_Breaks<128>, u4>

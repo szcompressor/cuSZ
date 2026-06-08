@@ -1,4 +1,4 @@
-// High-level Huffman encoding/decoding interface
+// High-level HF codec interface
 
 #ifndef HF_HL_HH
 #define HF_HL_HH
@@ -25,9 +25,9 @@ struct high_level {
   static int build_book(PHF_BUF* buf, u4* h_hist, u2 const runtime_bklen, PHF_STREAM stream);
 
   // clang-format off
-  // Huffman{,_r1,_r2}
-  static int HF_encode (PHF_BUF* buf, E* in_data, size_t const data_len, u1** out_encoded, size_t* encoded_len, phf_header& header, PHF_STREAM stream, psz_codec variant = Huffman, float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr);
-  static int HF_decode (PHF_BUF* buf, phf_header& header, PHF_BYTE* in_encoded, E* out_decoded, PHF_STREAM stream, psz_codec variant = Huffman);
+  // HF{,_r1,_r2}
+  static int HF_encode (PHF_BUF* buf, E* in_data, size_t const data_len, u1** out_encoded, size_t* encoded_len, phf_header& header, PHF_STREAM stream, psz_codec variant = HF, float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr);
+  static int HF_decode (PHF_BUF* buf, phf_header& header, PHF_BYTE* in_encoded, E* out_decoded, PHF_STREAM stream, psz_codec variant = HF);
   // HFR{,_PBK_Compat,_PBK_GO}
   static int HFR_encode(PHF_BUF* buf, E* in_data, size_t const data_len, u1** out_encoded, size_t* encoded_len, phf_header& header, PHF_STREAM stream, psz_codec variant, float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr, HFR_Opts opts = {});
   static int HFR_decode(PHF_BUF* buf, phf_header& header, PHF_BYTE* in_encoded, E* out_decoded, PHF_STREAM stream, psz_codec variant);

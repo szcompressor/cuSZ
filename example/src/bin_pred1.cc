@@ -7,20 +7,16 @@
 //   EXPORT:    if present, dump ectrl as u2 to data_file.pred_<predictor>.ectrl.u2
 //              and (for Spline) anchor values to data_file.pred_spline.anchor.f4
 
-#include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <string>
 
 #include "compressor.hh"
 #include "cusz.h"
-#include "detail/composite.hh"
 #include "kernel.hh"
-#include "mem/cxx_backends.h"
-#include "mem/view.hh"
-#include "utils/io.hh"
+#include "ptb.hh"
+#include "test_lib/pred_metrics.hh"
 
 namespace utils = _ptb::utils;
 using _ptb::make_view;
@@ -83,7 +79,7 @@ int main(int argc, char** argv)
 
   psz_len len3{x, y, z};
   auto manager = psz_create_resource_manager(
-      F4, {x, y, z}, {pred_type, HistogramGeneric, Huffman, NullCodec}, (void*)stream);
+      F4, {x, y, z}, {pred_type, HistGeneric, HF, CodecNull}, (void*)stream);
 
   manager->header->rc.eb = abs_eb;
   manager->header->rc.mode = Abs;
@@ -139,52 +135,9 @@ int main(int argc, char** argv)
   cudaStreamSynchronize(stream);
   memcpy_allkinds<D2H>(h_xdata.get(), d_xdata.get(), len);
 
-  double o_min = std::numeric_limits<double>::infinity();
-  double o_max = -std::numeric_limits<double>::infinity();
-  for (size_t i = 0; i < len; i++) {
-    const double v = h_data[i];
-    if (v < o_min) o_min = v;
-    if (v > o_max) o_max = v;
-  }
-  const double o_rng = o_max - o_min;
-
-  double mse = 0, max_err = 0;
-  size_t max_idx = 0;
-  bool has_nonfinite = false;
-  for (size_t i = 0; i < len; i++) {
-    const double xv = h_xdata[i], ov = h_data[i];
-    if ((not std::isfinite(xv)) or (not std::isfinite(ov))) {
-      has_nonfinite = true;
-      max_idx = i;
-      break;
-    }
-    const double e = std::fabs(xv - ov);
-    if (e > max_err) {
-      max_err = e;
-      max_idx = i;
-    }
-    mse += e * e;
-  }
-  mse /= static_cast<double>(len);
-
-  const double nrmse = (!has_nonfinite && o_rng > 0) ? (std::sqrt(mse) / o_rng)
-                                                     : std::numeric_limits<double>::quiet_NaN();
-  const double psnr = (!has_nonfinite && mse > 0 && o_rng > 0)
-                          ? (20.0 * std::log10(o_rng) - 10.0 * std::log10(mse))
-                          : (has_nonfinite ? std::numeric_limits<double>::quiet_NaN()
-                                           : std::numeric_limits<double>::infinity());
-
-  printf(
-      "[pred-study] predictor=%s  radius=%d  eb=%.4e  len=%zu\n", pred_name.c_str(), radius,
-      abs_eb, len);
-  printf(
-      "[pred-study] quality  PSNR=%.8g  NRMSE=%.8g  max_err=%.8g  idx=%zu\n", psnr, nrmse, max_err,
-      max_idx);
-  printf(
-      "[pred-study] outlier_count=%lu (%.4f%%)\n", manager->header->splen,
-      100.0 * manager->header->splen / len);
-  if (has_nonfinite)
-    printf("[pred-study] warning: non-finite value detected in reconstructed data\n");
+  auto m = psz_test::compute_metrics(
+      h_data.get(), h_xdata.get(), len, pred_name, abs_eb, radius, manager->header->splen);
+  psz_test::print_human(m);
 
   if (do_export) {
     auto h_eq = MAKE_UNIQUE_HOST(uint16_t, len);

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "cusz/component.hh"
 #include "cusz/type.h"
 #include "mem/sp_interface.h"
 #include "mem/view.hh"

@@ -68,7 +68,7 @@ __global__ void KCU_extrema(
 
 }  // namespace psz
 
-namespace psz::module {
+namespace psz::cuda {
 
 template <typename T>
 void GPU_extrema(T* in, size_t len, T res[4])
@@ -136,7 +136,7 @@ void GPU_extrema(T* in, size_t len, T res[4])
   cudaStreamDestroy(stream);
 }
 
-}  // namespace psz::module
+}  // namespace psz::cuda
 
 #define __INSTANTIATE_CUHIP_EXTREMA(T) \
-  template void psz::module::GPU_extrema<T>(T * in, size_t len, T res[4]);
+  template void psz::cuda::GPU_extrema<T>(T * in, size_t len, T res[4]);

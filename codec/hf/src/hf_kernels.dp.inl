@@ -7,7 +7,6 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "detail/composite.hh"
 #include "hf/hf_kernels.hh"
 #include "hf/hfstruct.h"
 #include "utils/busyheader.hh"

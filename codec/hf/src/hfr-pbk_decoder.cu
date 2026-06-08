@@ -15,7 +15,7 @@ __forceinline__ __device__ u4 unpack_par_entry_words(u4 w1)
   return w1 / (u4)sizeof(H);
 }
 
-template <typename E, typename H, typename KStorage>
+template <typename E, typename H, typename Storage>
 __global__ void KCU_HFR_PBK_decode(
     H* in_pbk_bitstream, size_t const pbk_bitstream_len, u1* in_rvbk_r128_25, int const rvbk_nbyte,
     u4 const* pbk_packed_headers, int const pbk_pardeg, size_t const data_len, E* out_decoded)
@@ -57,7 +57,7 @@ __global__ void KCU_HFR_PBK_decode(
 
   auto rvbk = in_rvbk_r128_25 + tree_idx * rvbk_nbyte;
   auto out_block = out_decoded + block_off;
-  phf::single_thread_inflate<E, H, KStorage>(bs_slot, out_block, rvbk, (int)bit_count, (int)valid);
+  phf::single_thread_inflate<E, H, Storage>(bs_slot, out_block, rvbk, (int)bit_count, (int)valid);
 
   for (u4 k = 0; k < n_breaks; k++) {
     auto cell = br_slot[k];
@@ -69,8 +69,8 @@ __global__ void KCU_HFR_PBK_decode(
 
 namespace phf::module {
 
-template <typename E, typename H, typename KStorage>
-int HFR_PBK_decoder<E, H, KStorage>::GPU_kernel(
+template <typename E, typename H, typename Storage>
+int HFR_PBK_decoder<E, H, Storage>::GPU_kernel(
     H* in_pbk_bitstream, size_t pbk_bitstream_len, u1* in_rvbk_r128_25, int rvbk_nbyte,
     u4 const* pbk_packed_headers, int pbk_pardeg, size_t data_len, E* out_decoded, void* stream)
 {
@@ -78,7 +78,7 @@ int HFR_PBK_decoder<E, H, KStorage>::GPU_kernel(
   constexpr int BlockDim = 128;
   dim3 grid((unsigned)((pbk_pardeg + BlockDim - 1) / BlockDim), 1, 1);
   dim3 block(BlockDim, 1, 1);
-  phf::KCU_HFR_PBK_decode<E, H, KStorage><<<grid, block, 0, (cudaStream_t)stream>>>(
+  phf::KCU_HFR_PBK_decode<E, H, Storage><<<grid, block, 0, (cudaStream_t)stream>>>(
       in_pbk_bitstream, pbk_bitstream_len, in_rvbk_r128_25, rvbk_nbyte, pbk_packed_headers,
       pbk_pardeg, data_len, out_decoded);
   return 0;
@@ -88,7 +88,7 @@ int HFR_PBK_decoder<E, H, KStorage>::GPU_kernel(
 template struct HFR_PBK_decoder<u1, u4, u1>;
 template struct HFR_PBK_decoder<u2, u4, u1>;
 template struct HFR_PBK_decoder<u4, u4, u1>;
-// HFR (runtime rvbk; KStorage = E).
+// HFR (runtime rvbk; Storage = E).
 template struct HFR_PBK_decoder<u2, u4, u2>;
 template struct HFR_PBK_decoder<u4, u4, u4>;
 

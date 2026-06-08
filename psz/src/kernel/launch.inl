@@ -5,7 +5,7 @@
 
 #include <array>
 
-#include "detail/composite.hh"
+#include "cusz/component.hh"
 
 namespace {
 dim3 div3(dim3 l, dim3 subl)
@@ -52,7 +52,7 @@ struct c_lorenzo<1> {
   static constexpr dim3 thread_block = dim3(1024 / 4, 1, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -63,7 +63,7 @@ struct c_lorenzo<2> {
   static constexpr dim3 thread_block = dim3(16, 2, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -77,7 +77,7 @@ struct c_lorenzo<2, 32, 32> {
   static_assert(thread_block.x * sequentiality.x == tile.x);
   static_assert(thread_block.y * sequentiality.y == tile.y);
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -91,7 +91,7 @@ struct c_lorenzo<2, 64, 32> {
   static_assert(thread_block.x * sequentiality.x == tile.x);
   static_assert(thread_block.y * sequentiality.y == tile.y);
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -105,7 +105,7 @@ struct c_lorenzo<2, 128, 32> {
   static_assert(thread_block.x * sequentiality.x == tile.x);
   static_assert(thread_block.y * sequentiality.y == tile.y);
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -116,7 +116,7 @@ struct c_lorenzo<3> {
   static constexpr dim3 thread_block = dim3(32, 8, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<8, seq.x, 8, seq.y, 8, seq.z>;
+  using Perf = psz::PredictorTile<8, seq.x, 8, seq.y, 8, seq.z>;
 };
 
 template <>
@@ -127,7 +127,7 @@ struct x_lorenzo<1> {
   static constexpr dim3 thread_block = dim3(1024 / 4, 1, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -138,7 +138,7 @@ struct x_lorenzo<2> {
   static constexpr dim3 thread_block = dim3(16, 2, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -149,7 +149,7 @@ struct x_lorenzo<2, 32> {
   static constexpr dim3 thread_block = dim3(32, 4, 1);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 template <>
@@ -160,7 +160,7 @@ struct x_lorenzo<3> {
   static constexpr dim3 thread_block = dim3(32, 1, 8);
   static dim3 thread_grid(dim3 len3) { return div3(len3, tile); };
 
-  using Perf = psz::PredPerf<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
+  using Perf = psz::PredictorTile<tile.x, seq.x, tile.y, seq.y, tile.z, seq.z>;
 };
 
 }  // namespace psz::config

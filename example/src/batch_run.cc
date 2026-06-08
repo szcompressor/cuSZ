@@ -57,10 +57,10 @@ int main(int argc, char** argv)
   psz_len3 decomp_len3 = uncomp_len3;
 
   psz_resource* m = psz_create_resource_manager(
-      F4, {args.x, args.y, args.z}, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, NullCodec},
+      F4, {args.x, args.y, args.z}, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, CodecNull},
       stream);
   m->cli = new psz_cli_config;  // TODO mix use the cli and "resource manager"
-  if (args.codec_type == Huffman) {
+  if (args.codec_type == HF) {
     cout << "using Huffman" << endl;
     m->cli->dump_hist = true;
   }
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
       auto comp_len = pszheader_filesize(&header);
 
       auto s = new psz_stats;
-      psz::cuhip::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
+      psz::cuda::GPU_assess_quality(s, d_uncomp.get(), d_decomp.get(), len);
       printf(
           "R\t%u\t"
           "CR\t%lf\t"

@@ -1,4 +1,4 @@
-// Templated CPU/GPU sanity for psz::module::GPU_identical (small len, fixed perturb position).
+// Templated CPU/GPU sanity for psz::cuda::GPU_identical (small len, fixed perturb position).
 #include <cuda_runtime.h>
 
 #include <cstdint>
@@ -24,7 +24,7 @@ bool check(cudaStream_t stream, T test_val, T test_delta)
   memcpy_allkinds<H2D>(d2.get(), (uint8_t*)h2.data(), bytes);
 
   bool cpu_ok = psz::cppstl::CPU_identical(h1.data(), h2.data(), sizeof_T, len);
-  bool gpu_ok = psz::module::GPU_identical(d1.get(), d2.get(), sizeof_T, len, stream);
+  bool gpu_ok = psz::cuda::GPU_identical(d1.get(), d2.get(), sizeof_T, len, stream);
   return cpu_ok == gpu_ok;
 }
 

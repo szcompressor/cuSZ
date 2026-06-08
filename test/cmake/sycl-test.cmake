@@ -79,13 +79,3 @@ target_link_libraries(
     pszmem)
 add_test(test_lrzsp_dp lrzsp_dp)
 
-# if(PSZ_REACTIVATE_THRUSTGPU)
-# add_compile_definitions(REACTIVATE_THRUSTGPU)
-# add_executable(statfn src/test_statfn.cc)
-# target_link_libraries(statfn PRIVATE psztestcompile_dp psz_testutils
-# pszstat_dp pszstat_seq pszmem)
-# else()
-# add_executable(statfn src/test_statfn.cc)
-# target_link_libraries(statfn PRIVATE psztestcompile_dp psz_testutils
-# pszstat_dp pszstat_seq pszmem)
-# endif()

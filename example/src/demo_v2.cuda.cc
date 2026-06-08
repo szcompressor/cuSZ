@@ -26,7 +26,7 @@ void f4demo_compress_v2(
 {
   uint8_t* d_internal_compressed{nullptr};
   auto m = psz_create_resource_manager(
-      F4, len3, {predictor, DEFAULT_HISTOGRAM, Huffman, NullCodec}, stream);
+      F4, len3, {predictor, DEFAULT_HISTOGRAM, HF, CodecNull}, stream);
 
   psz_compress_float(
       m, {mode, eb, DEFAULT_RADIUS}, f4d_uncomp, header, &d_internal_compressed, compressed_len);
@@ -44,7 +44,7 @@ void f8demo_compress_v2(
 {
   uint8_t* d_internal_compressed{nullptr};
   auto m = psz_create_resource_manager(
-      F8, len3, {predictor, DEFAULT_HISTOGRAM, Huffman, NULL_CODEC}, stream);
+      F8, len3, {predictor, DEFAULT_HISTOGRAM, HF, NULL_CODEC}, stream);
 
   psz_compress_double(
       m, {mode, eb, DEFAULT_RADIUS}, f8d_uncomp, header, &d_internal_compressed, compressed_len);

@@ -14,47 +14,10 @@
 #include "compare.hh"
 #include "compressor.hh"
 #include "cusz.h"
-#include "cusz/header.h"
-#include "cusz/type.h"
-#include "detail/port.hh"
 
 using std::cout;
 using std::endl;
 using std::to_string;
-
-float get_throughput(float milliseconds, size_t nbyte)
-{
-  auto GiB = 1.0 * 1024 * 1024 * 1024;
-  auto seconds = milliseconds * 1e-3;
-  return nbyte / GiB / seconds;
-}
-
-void println_throughput(const char* s, float timer, size_t _nbyte)
-{
-  if (timer == 0.0) return;
-  auto t = get_throughput(timer, _nbyte);
-  printf("%-12s %'14f %'11.2f\n", s, timer, t);
-};
-
-void println_throughput_tablehead()
-{
-  printf(
-      "\n\e[1m\e[31m%-12s %14s %11s\e[0m\n",  //
-      const_cast<char*>("kernel"),            //
-      const_cast<char*>("time, ms"),          //
-      const_cast<char*>("GiB/s")              //
-  );
-}
-
-double get_total_time(psz::timerecord_t r)
-{
-  double total = 0.0;
-  std::for_each(
-      r->begin(), r->end(), [&](psz::TimeRecordTuple t) { return total += std::get<1>(t); });
-  return total;
-}
-
-// void* psz_make_timerecord() { return (void*)new psz::TimeRecord; }
 
 void psz_review_comp_time_breakdown(void* _r, psz_header* h)
 {
@@ -75,9 +38,9 @@ string const psz_report_query_pred(psz_predictor const p)
 string const psz_report_query_hist(psz_hist const h)
 {
   const std::unordered_map<psz_hist const, std::string const> lut = {
-      {psz_hist::HistogramGeneric, "Hist"},
-      {psz_hist::HistogramSparse, "Hist-Sparse"},
-      {psz_hist::NullHistogram, "Null"},
+      {psz_hist::HistGeneric, "Hist"},
+      {psz_hist::HistSp, "Hist-Sparse"},
+      {psz_hist::HistNull, "Null"},
   };
   return lut.at(h);
 };
@@ -85,17 +48,17 @@ string const psz_report_query_hist(psz_hist const h)
 string const psz_report_query_codec1(psz_codec const c)
 {
   const std::unordered_map<psz_codec const, std::string const> lut = {
-      {psz_codec::Huffman, "Huffman"},
-      {psz_codec::Huffman_rev1, "Huffman-rev1"},
-      {psz_codec::Huffman_rev2, "Huffman-rev2"},
+      {psz_codec::HF, "HF"},
+      {psz_codec::HFr1, "Huffman-rev1"},
+      {psz_codec::HFr2, "Huffman-rev2"},
       {psz_codec::HFR, "HFR"},
-      {psz_codec::HFR_PBK_Compat, "HFR-PBKC"},
-      {psz_codec::HFR_PBK_GO, "HFR-PBKGO"},
+      {psz_codec::HFR_PBKC, "HFR-PBKC"},
+      {psz_codec::HFR_PBKGO, "HFR-PBKGO"},
       {psz_codec::HFR_PBKF, "HFR-PBKF"},
       {psz_codec::LC, "LC"},
-      {psz_codec::FZCodec, "FZGPU-Codec"},
-      {psz_codec::RunLength, "RunLength"},
-      {psz_codec::NullCodec, "N/A"},
+      {psz_codec::FZG, "FZGPU-Codec"},
+      {psz_codec::RLE, "RunLength"},
+      {psz_codec::CodecNull, "N/A"},
   };
   auto it = lut.find(c);
   return (it != lut.end()) ? it->second : "unknown";
@@ -224,7 +187,7 @@ void psz_review_compression(void* r, psz_header* h)
 {
   printf("\n(c) COMPRESSION REPORT\n");
   psz_review_comp_time_from_header(h);
-  psz_review_comp_time_breakdown((psz::timerecord_t)r, h);
+  psz_review_comp_time_breakdown(r, h);
 }
 
 void psz_review_decompression(void* r, size_t bytes)

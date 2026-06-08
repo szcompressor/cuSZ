@@ -1,6 +1,6 @@
 #include "compare.hh"
 
-namespace psz::cuhip {
+namespace psz::cuda {
 
 constexpr auto MINVAL = 0;
 constexpr auto MAXVAL = 1;
@@ -20,24 +20,21 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
 
   T odata_res[4], xdata_res[4];
 
-  psz::module::GPU_extrema<T>(odata, len, odata_res);
-  psz::module::GPU_extrema<T>(xdata, len, xdata_res);
+  psz::cuda::GPU_extrema<T>(odata, len, odata_res);
+  psz::cuda::GPU_extrema<T>(xdata, len, xdata_res);
 
   T h_err[4];
 
-  psz::cuhip::GPU_calculate_errors<T>(
+  psz::cuda::GPU_calc_errors<T>(
       odata, odata_res[AVGVAL], xdata, xdata_res[AVGVAL], len, h_err);
 
   double std_odata = sqrt(h_err[SUM_VAR_ODATA] / len);
   double std_xdata = sqrt(h_err[SUM_VAR_XDATA] / len);
   double ee = h_err[SUM_CORR] / len;
 
-  // -----------------------------------------------------------------------------
   T max_abserr{0};
   size_t max_abserr_index{0};
-  // psz::thrustgpu::GPU_find_max_error(xdata, odata, len, max_abserr, max_abserr_index, false);
-  psz::module::GPU_find_max_error(xdata, odata, len, max_abserr, max_abserr_index, stream);
-  // -----------------------------------------------------------------------------
+  psz::cuda::GPU_find_max_error(xdata, odata, len, max_abserr, max_abserr_index, stream);
 
   s->len = len;
 
@@ -66,8 +63,8 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
   cudaStreamDestroy(stream);
 }
 
-}  // namespace psz::cuhip
+}  // namespace psz::cuda
 
 #define __INSTANTIATE_CUHIP_ASSESS(T)              \
-  template void psz::cuhip::GPU_assess_quality<T>( \
+  template void psz::cuda::GPU_assess_quality<T>( \
       psz_statistics * s, T * xdata, T * odata, size_t const len);

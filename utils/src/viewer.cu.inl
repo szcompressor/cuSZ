@@ -1,7 +1,5 @@
 #include "compare.hh"
 #include "cusz.h"
-#include "cusz/type.h"
-#include "detail/port.hh"
 #include "viewer.hh"
 
 namespace psz::analysis {

@@ -7,7 +7,6 @@
 
 #include "compressor.hh"
 #include "cusz.h"
-#include "detail/composite.hh"
 #include "kernel.hh"
 #include "mem/view.hh"
 #include "pred_args.hh"
@@ -141,7 +140,7 @@ class PredRun {
     }
 
     manager_ = psz_create_resource_manager(
-        F4, {args.x, args.y, args.z}, {pred_type, HistogramGeneric, Huffman, NullCodec},
+        F4, {args.x, args.y, args.z}, {pred_type, HistGeneric, HF, CodecNull},
         (void*)stream);
 
     manager_->header->rc.eb = args.eb;

@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "cusz/type.h"
-#include "detail/composite.hh"
+#include "kernel/zigzag.hh"
 
 using std::bitset;
 using std::cout;

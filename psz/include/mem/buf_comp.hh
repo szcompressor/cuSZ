@@ -1,7 +1,7 @@
 #ifndef PSZ_COMPBUF_HH
 #define PSZ_COMPBUF_HH
 
-#include <../../codec/hf/src/hf_buf.hh>  // needed for Buf instantiation
+#include <../../codec/hf/include/hf_buf.hh>  // needed for Buf instantiation
 #include <cstdint>
 #include <memory>
 

@@ -1,31 +1,10 @@
-#ifndef PSZ_DETAIL_COMPOSITE_HH
-#define PSZ_DETAIL_COMPOSITE_HH
+#ifndef PSZ_CUSZ_COMPONENT_HH
+#define PSZ_CUSZ_COMPONENT_HH
 
 #include <cstdint>
-#include <cstdlib>
-#include <stdexcept>
-#include <type_traits>
 
-#include "cusz/type.h"
-#include "cxx_typing.h"
+#include "kernel/zigzag.hh"
 #include "mem/sp_interface.h"
-#include "zigzag.hh"
-
-// absorbed from typing.hh
-template <typename T>
-using cuszCOMPAT = _ptb::CudaCompat<T>;
-
-template <bool LARGE>
-using LargeInputTrait = _ptb::LargeInputTrait<LARGE>;
-
-template <bool FAST>
-using FastLowPrecisionTrait = _ptb::FastLowPrecisionTrait<FAST>;
-
-template <psz_dtype T>
-using Ctype = _ptb::Ctype<T>;
-
-template <typename Ctype>
-using PszType = _ptb::TypeSym<Ctype>;
 
 namespace psz {
 
@@ -38,7 +17,7 @@ template <
     uint16_t _TileDim, uint8_t _Seq,  // required
     uint8_t _TileDimY = (uint8_t)_TileDim, uint8_t _SeqY = _Seq,
     uint8_t _TileDimZ = (uint8_t)_TileDim, uint8_t _SeqZ = _Seq>
-struct PredPerf {
+struct PredictorTile {
   static const uint16_t TileDim = _TileDim;
   static const uint16_t TiledimX = TileDim;
   static const uint8_t TiledimY = _TileDimY;
@@ -94,4 +73,4 @@ struct PredictorTyping {
 
 }  // namespace psz
 
-#endif /* PSZ_DETAIL_COMPOSITE_HH */
+#endif /* PSZ_CUSZ_COMPONENT_HH */

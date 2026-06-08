@@ -178,7 +178,7 @@ struct Buf<E>::impl {
       d_scan_tile_status = MAKE_UNIQUE_DEVICE(int, scan_num_tiles_ + 1);
     }
 
-    // total_ncell / total_nbit sinks (1 u4 each; also used by Huffman_rev1).
+    // total_ncell / total_nbit sinks (1 u4 each; also used by HFr1).
     d_total_ncell = MAKE_UNIQUE_DEVICE(u4, 1);
     d_total_nbit = MAKE_UNIQUE_DEVICE(u4, 1);
     // HF_rev2 AoS bheader_backport[] (always allocated; 8 B/block).

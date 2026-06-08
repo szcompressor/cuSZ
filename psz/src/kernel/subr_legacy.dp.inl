@@ -5,7 +5,6 @@
 #include <sycl/sycl.hpp>
 #include <type_traits>
 
-#include "detail/composite.hh"
 #include "mem/cxx_sp_gpu.h"
 
 namespace psz::dpcpp::wave32 {

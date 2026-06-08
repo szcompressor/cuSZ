@@ -8,7 +8,7 @@
 namespace psz {
 
 template <typename T>
-__global__ void KCU_calculate_errors(
+__global__ void KCU_calc_errors(
     T* odata, T odata_avg, T* xdata, T xdata_avg, size_t len,  //
     T* sum_corr, T* sum_err_sq, T* sum_var_odata, T* sum_var_xdata, int const R)
 {
@@ -58,7 +58,7 @@ __global__ void KCU_calculate_errors(
 }  // namespace psz
 
 template <typename T>
-void psz::cuhip::GPU_calculate_errors(
+void psz::cuda::GPU_calc_errors(
     T* d_odata, T odata_avg, T* d_xdata, T xdata_avg, size_t len, T h_err[4])
 {
   constexpr auto SUM_CORR = 0;
@@ -88,7 +88,7 @@ void psz::cuhip::GPU_calculate_errors(
   auto nworker = 128;
   auto R = chunk / nworker;
 
-  psz::KCU_calculate_errors<T><<<div(len, chunk), nworker, 0, stream>>>(
+  psz::KCU_calc_errors<T><<<div(len, chunk), nworker, 0, stream>>>(
       d_odata, odata_avg, d_xdata, xdata_avg, len, d_sum_corr, d_sum_err_sq, d_sum_var_xdata,
       d_sum_var_odata, R);
 
@@ -108,5 +108,5 @@ void psz::cuhip::GPU_calculate_errors(
 }
 
 #define __INSTANTIATE_CUHIP_CALCERRORS(T)            \
-  template void psz::cuhip::GPU_calculate_errors<T>( \
+  template void psz::cuda::GPU_calc_errors<T>( \
       T * d_odata, T odata_avg, T * d_xdata, T xdata_avg, size_t len, T h_err[4]);

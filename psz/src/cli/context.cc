@@ -230,9 +230,9 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   {
     auto _v = args.get<string>("hist");
     if (_v == "generic")
-      ctx->header->pipeline.hist = psz_hist::HistogramGeneric;
+      ctx->header->pipeline.hist = psz_hist::HistGeneric;
     else if (_v == "sparse")
-      ctx->header->pipeline.hist = psz_hist::HistogramSparse;
+      ctx->header->pipeline.hist = psz_hist::HistSp;
   }
 
   // codec1
@@ -241,19 +241,19 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     if (not _v.empty()) {
       apply_str(_v, ctx->cli->char_codec1_name);
       if (_v == "hf" or _v == "huffman")
-        ctx->header->pipeline.codec1 = psz_codec::Huffman;
+        ctx->header->pipeline.codec1 = psz_codec::HF;
       else if (_v == "hf-rev1" or _v == "huffman-r1")
-        ctx->header->pipeline.codec1 = psz_codec::Huffman_rev1;
+        ctx->header->pipeline.codec1 = psz_codec::HFr1;
       else if (_v == "hf-rev2" or _v == "huffman-r2")
-        ctx->header->pipeline.codec1 = psz_codec::Huffman_rev2;
+        ctx->header->pipeline.codec1 = psz_codec::HFr2;
       else if (_v == "hfr" or _v == "huffman-revisit" or _v == "huffman-fast")
         ctx->header->pipeline.codec1 = psz_codec::HFR;
       else if (_v == "hfr-pbkc" or _v == "hfr-pbk-compat")
-        ctx->header->pipeline.codec1 = psz_codec::HFR_PBK_Compat;
+        ctx->header->pipeline.codec1 = psz_codec::HFR_PBKC;
       else if (_v == "hfr-pbkgo" or _v == "hfr-pbk-go")
-        ctx->header->pipeline.codec1 = psz_codec::HFR_PBK_GO;
+        ctx->header->pipeline.codec1 = psz_codec::HFR_PBKGO;
       else if (_v == "fzgcodec")
-        ctx->header->pipeline.codec1 = psz_codec::FZCodec;
+        ctx->header->pipeline.codec1 = psz_codec::FZG;
       else if (_v == "lc" or _v == "tcms")
         ctx->header->pipeline.codec1 = psz_codec::LC;
     }
@@ -306,7 +306,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     if (_v == "tp" or _v == "TP" or _v == "speed")
       ctx->header->pipeline.codec1 = LC;
     else if (_v == "cr" or _v == "CR")
-      ctx->header->pipeline.codec1 = Huffman_rev2;
+      ctx->header->pipeline.codec1 = HFr2;
   }
 
   // task flags (subcommand has priority over -z/-x)
@@ -332,9 +332,9 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   // PBK variants bypass the runtime histogram (prebuilt pbk25 book pool), so
   // record that in the header — otherwise reports show a histogram that didn't
   // actually run.
-  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_Compat or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_GO)
-    ctx->header->pipeline.hist = psz_hist::NullHistogram;
+  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
+      ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO)
+    ctx->header->pipeline.hist = psz_hist::HistNull;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +382,7 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
   // HiTP (codec1=LC, codec2=LC) does not use histogram
   if (ctx->header->pipeline.codec1 == psz_codec::LC and
       ctx->header->pipeline.codec2 == psz_codec::LC)
-    ctx->header->pipeline.hist = psz_hist::NullHistogram;
+    ctx->header->pipeline.hist = psz_hist::HistNull;
 
   // HFR-PBK-Compat uses the prebuilt pbk25_r128 book (radius=128, dictsize=256).
   // Force the predictor radius to match; otherwise eq values in [256, 2*radius)
@@ -390,8 +390,8 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
   //
   // HFR v2 (Cut B1): shares the PBK-shape kernel instantiation (Radius=128) so
   // it inherits the same clamp until the Radius=512 kernel is instantiated.
-  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_Compat or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_PBK_GO or
+  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
+      ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
       ctx->header->pipeline.codec1 == psz_codec::HFR) {
     ctx->header->rc.radius = 128;
     ctx->bklen             = 256;
@@ -433,7 +433,7 @@ psz_ctx* pszctx_default_values()
                   .predictor = DEFAULT_PREDICTOR,
                   .hist      = DEFAULT_HISTOGRAM,
                   .codec1    = DEFAULT_CODEC,
-                  .codec2    = NullCodec,
+                  .codec2    = CodecNull,
               },
               {
                   .mode   = Rel,

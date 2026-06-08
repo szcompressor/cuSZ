@@ -1,6 +1,5 @@
 #include <cooperative_groups.h>
 
-#include "detail/composite.hh"
 #include "kernel.hh"
 #include "kernel/launch.inl"
 #include "mem/buf_comp.hh"

@@ -5,9 +5,9 @@
 
 #include <memory>
 
-#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "c_type.h"
 #include "hf.h"
+#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 
 // fwd-decl, full definition lives in codec/hf/include/hfr-pbk.hh
 namespace psz {
@@ -100,8 +100,7 @@ struct Buf {
   u4* par_brnum_h() const;
   u4* par_broffset_d() const;
   u4* par_broffset_h() const;
-  // Per-block enc_id: 0 = normal Huffman, 1 = incomp (raw symbols inline).
-  u1* par_encid_d() const;
+  u1* par_encid_d() const;  // 0 = HF, 1 = fallback
   u1* par_encid_h() const;
 
   // Decoupled-lookback scan state for LAGO concat (psz::scan_lookback).
@@ -117,8 +116,8 @@ struct Buf {
   u4* total_ncell_d() const;         // 1-word; total compact size from LAGO concat
   u4* total_nbit_d() const;          // 1-word; reduce_total_nbit sink
   u4* pbk_packed_headers_d() const;  // 2 u4 per block; HFR family only
-  u4* pbkgo_state_d() const;  // PBKGO decoupled-lookback state, 1 u4 / block
-  u4* hf_rev2_header_d() const;  // bheader_backport[] = 2 u4 per block; HF_rev2 only
+  u4* pbkgo_state_d() const;         // PBKGO decoupled-lookback state, 1 u4 / block
+  u4* hf_rev2_header_d() const;      // bheader_backport[] = 2 u4 per block; HF_rev2 only
 
   void update_header(phf_header& header);
   void calc_offset(phf_header& header, M* byte_offsets);

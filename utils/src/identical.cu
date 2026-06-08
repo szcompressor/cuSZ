@@ -41,7 +41,7 @@ __global__ void GPU_CUHIP_identical(
 
 }  // namespace psz
 
-namespace psz::module {
+namespace psz::cuda {
 
 bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len, void* stream)
 {
@@ -65,4 +65,4 @@ bool GPU_identical(void* d1, void* d2, size_t sizeof_T, size_t const len, void* 
   return (bool)h_result;
 }
 
-}  // namespace psz::module
+}  // namespace psz::cuda

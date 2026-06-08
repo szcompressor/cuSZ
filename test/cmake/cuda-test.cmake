@@ -40,21 +40,12 @@ target_link_libraries(lrz_seq
   PRIVATE psz_cu_test_compile_settings psz_seq_core)
 add_test(test_lrz_seq lrz_seq)
 
-if(PSZ_REACTIVATE_THRUSTGPU)
-  add_compile_definitions(REACTIVATE_THRUSTGPU)
-  add_executable(statfn src/test_statfn.cc)
-  target_link_libraries(statfn
-    PRIVATE psz_cu_test_compile_settings
-    PORTABLE::testutils psz_cu_mem
-  )
-else()
-  add_executable(statfn src/test_statfn.cc)
-  target_link_libraries(statfn
-    PRIVATE psz_cu_test_compile_settings
-    PORTABLE::testutils psz_cu_mem
-    UTILS::stat_seq
-  )
-endif()
+add_executable(statfn src/test_statfn.cc)
+target_link_libraries(statfn
+  PRIVATE psz_cu_test_compile_settings
+  PORTABLE::testutils psz_cu_mem
+  UTILS::stat_seq
+)
 
 add_executable(stat_identical1 src/test_identical1.cc)
 target_link_libraries(stat_identical1

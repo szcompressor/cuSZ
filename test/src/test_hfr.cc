@@ -3,10 +3,9 @@
 
 #include <cuda_runtime.h>
 
-#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "cusz/type.h"
 #include "hf_impl.hh"
-#include "hfr.hh"
+#include "phf.hh"
 #include "utils/busyheader.hh"
 
 template <typename T, int Magnitude = 12, int ReduceTimes = 4>

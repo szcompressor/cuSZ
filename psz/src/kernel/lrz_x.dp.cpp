@@ -4,6 +4,7 @@
 #include <sycl/sycl.hpp>
 
 #include "cusz/type.h"
+#include "backend.h"
 #include "kernel/lrz.hh"
 #include "utils/err.hh"
 #include "utils/timer.hh"

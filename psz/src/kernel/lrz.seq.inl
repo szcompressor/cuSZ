@@ -69,7 +69,6 @@
 #include <cstring>
 #include <iostream>
 
-#include "detail/composite.hh"
 #include "kernel.hh"
 #include "mem/cxx_sp_cpu.h"
 

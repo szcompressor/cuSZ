@@ -14,8 +14,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 # conditionally enable functionality
-option(PSZ_RESEARCH_HUFFBK_CUDA "(CUDA only) build research artifacts: create Huffman codebook on GPU" OFF)
-# option(PSZ_REACTIVATE_THRUSTGPU "build previously thrust implemented functions" OFF)
 option(PSZ_CMAKE_ACTIVATE_LC "build LC as a submodule" ON)
 
 # example and testing

@@ -3,7 +3,6 @@
 #include <dpct/dpct.hpp>
 #include <sycl/sycl.hpp>
 
-#include "detail/composite.hh"
 #include "wave32.dp.inl"
 
 namespace psz {
