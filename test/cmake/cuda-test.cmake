@@ -44,7 +44,7 @@ add_executable(statfn src/test_statfn.cc)
 target_link_libraries(statfn
   PRIVATE psz_cu_test_compile_settings
   PORTABLE::testutils psz_cu_mem
-  UTILS::stat_seq
+  EVAL::stat_seq
 )
 
 add_executable(stat_identical1 src/test_identical1.cc)
@@ -53,8 +53,8 @@ target_link_libraries(stat_identical1
   psz_cu_test_compile_settings
   psz_cu_compile_settings
   PORTABLE::testutils
-  UTILS::stat_cu
-  UTILS::stat_seq
+  EVAL::stat_cu
+  EVAL::stat_seq
   CUDA::cudart
 )
 add_test(test_stat_identical1 stat_identical1)
@@ -65,8 +65,8 @@ target_link_libraries(stat_identical2
   psz_cu_test_compile_settings
   psz_cu_compile_settings
   PORTABLE::testutils
-  UTILS::stat_cu
-  UTILS::stat_seq
+  EVAL::stat_cu
+  EVAL::stat_seq
   CUDA::cudart
 )
 add_test(test_stat_identical2 stat_identical2)
@@ -77,8 +77,8 @@ target_link_libraries(stat_max_error
   psz_cu_test_compile_settings
   psz_cu_compile_settings
   PORTABLE::testutils
-  UTILS::stat_cu
-  UTILS::stat_seq
+  EVAL::stat_cu
+  EVAL::stat_seq
   CUDA::cudart
 )
 add_test(test_stat_max_error stat_max_error)

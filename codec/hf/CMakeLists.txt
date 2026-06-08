@@ -103,7 +103,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 install(TARGETS phf_cu
-  EXPORT HFTargets
+  EXPORT PHFTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -115,26 +115,26 @@ install(DIRECTORY
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(EXPORT HFTargets
-  FILE HFTargets.cmake
+install(EXPORT PHFTargets
+  FILE PHFTargets.cmake
   NAMESPACE PHF::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/PHF
 )
 
 write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/HFConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/PHFConfigVersion.cmake"
   VERSION "${PROJECT_VERSION}"
   COMPATIBILITY SameMajorVersion
 )
 
 configure_package_config_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/HFConfig.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/HFConfig.cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/PHFConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/PHFConfig.cmake"
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/PHF
 )
 
 install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/HFConfig.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/HFConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/PHFConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/PHFConfigVersion.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/PHF
 )

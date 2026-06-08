@@ -90,8 +90,8 @@ if(NOT TARGET FZG::fzg_cu AND NOT FZG_FOUND)
   add_subdirectory(codec/fzg)
 endif()
 
-find_package(UTILS QUIET)
-if(NOT TARGET UTILS::utils_headers AND NOT UTILS_FOUND)
+find_package(EVAL QUIET)
+if(NOT TARGET EVAL::utils_headers AND NOT EVAL_FOUND)
   add_subdirectory(utils)
 endif()
 
@@ -130,7 +130,7 @@ add_library(psz_cu_mem
 target_link_libraries(psz_cu_mem
   PUBLIC
     psz_cu_compile_settings
-    UTILS::stat_cu
+    EVAL::stat_cu
     DEPS::deps
     PHF::phf_cu
     CUDA::cudart
@@ -172,14 +172,14 @@ target_link_libraries(psz_cu_utils
   PUBLIC
     psz_cu_compile_settings
     PHF::phf_cu
-    UTILS::stat_seq
-    UTILS::viewer_cu
+    EVAL::stat_seq
+    EVAL::viewer_cu
     CUDA::cudart
     CUDA::nvml
     CUDA::cuda_driver
 )
 
-if(PSZ_CMAKE_ACTIVATE_LC)
+if(PSZ_ACTIVATE_LC)
   add_compile_definitions(PSZ_USE_LC_FIXED)
   add_library(lc_gen
     third_party/lc_gen/lc_connector.cu
@@ -205,12 +205,12 @@ target_link_libraries(cusz
     psz_cu_core
     psz_cu_mem
     psz_cu_utils
-    UTILS::stat_cu
+    EVAL::stat_cu
     PHF::phf_cu
     FZG::fzg_cu
     CUDA::cudart
 )
-if(PSZ_CMAKE_ACTIVATE_LC)
+if(PSZ_ACTIVATE_LC)
   target_link_libraries(cusz PUBLIC lc_gen)
 endif()
 
@@ -250,73 +250,6 @@ if(BUILD_TESTING)
 endif()
 
 # ------------------------------------------------------------------------------
-# Python binding (SWIG)
-# ------------------------------------------------------------------------------
-
-if(PSZ_BUILD_PYBINDING)
-  find_package(SWIG REQUIRED)
-  include(${SWIG_USE_FILE})
-  message("[psz::info] ${SWIG_USE_FILE}: ${SWIG_USE_FILE}")
-
-  find_package(Python REQUIRED COMPONENTS Development)
-
-  message("[psz::info] ${Python_FOUND}: ${Python_FOUND}")
-  message("[psz::info] ${Python_VERSION}: ${Python_VERSION}")
-  message("[psz::info] ${Python_INCLUDE_DIRS}: ${Python_INCLUDE_DIRS}")
-  message("[psz::info] ${Python_LINK_OPTIONS}: ${Python_LINK_OPTIONS}")
-  message("[psz::info] ${Python_LIBRARIES}: ${Python_LIBRARIES}")
-  message("[psz::info] ${Python_LIBRARY_DIRS}: ${Python_LIBRARY_DIRS}")
-
-  set(SWIG_INCLUDE_DIRECTORIES
-    "${CMAKE_CURRENT_SOURCE_DIR}/psz/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/codec/hf/include"
-    "${Python_INCLUDE_DIRS}"
-  )
-  include_directories(${SWIG_INCLUDE_DIRECTORIES})
-
-  # -------------------
-  # add the 1st library
-  # -------------------
-  swig_add_library(pycusz
-    LANGUAGE python
-    TYPE SHARED
-    SOURCES py/pycusz.i
-  )
-  target_include_directories(pycusz PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
-  set_target_properties(pycusz PROPERTIES LINKER_LANGUAGE CXX)
-  target_link_libraries(pycusz
-    PRIVATE
-      CUDA::cudart
-      ${PYTHON_LIBRARIES}
-      cusz
-      psz_cu_core
-      psz_cu_mem
-      psz_cu_utils
-      UTILS::stat_cu
-      PHF::phf_cu
-      FZG::fzg_cu
-  )
-
-  # -------------------
-  # add the 2nd library
-  # -------------------
-  swig_add_library(pycuhf
-    LANGUAGE python
-    TYPE SHARED
-    SOURCES py/pycuhf.i
-  )
-  target_include_directories(pycuhf PRIVATE ${SWIG_INCLUDE_DIRECTORIES})
-  set_target_properties(pycuhf PROPERTIES LINKER_LANGUAGE CXX)
-  target_link_libraries(pycuhf
-    PRIVATE
-      CUDA::cudart
-      ${PYTHON_LIBRARIES}
-      psz_cu_mem
-      PHF::phf_cu
-  )
-endif()
-
-# ------------------------------------------------------------------------------
 # Installation (CUSZ:: namespace, back compat)
 # ------------------------------------------------------------------------------
 
@@ -337,7 +270,7 @@ install(TARGETS
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-if(PSZ_CMAKE_ACTIVATE_LC)
+if(PSZ_ACTIVATE_LC)
   install(TARGETS
     lc_gen
     EXPORT CUSZTargets
@@ -353,14 +286,6 @@ install(TARGETS
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-if(PSZ_BUILD_PYBINDING)
-  install(TARGETS
-    pycusz
-    pycuhf
-    EXPORT CUSZTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  )
-endif()
 
 install(
   EXPORT CUSZTargets

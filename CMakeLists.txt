@@ -14,12 +14,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "prefer shared libaries" ON)
 
 # conditionally enable functionality
-option(PSZ_CMAKE_ACTIVATE_LC "build LC as a submodule" ON)
+option(PSZ_ACTIVATE_LC "build LC as a submodule" ON)
 
 # example and testing
 option(PSZ_BUILD_EXAMPLES "build example codes" ON)
 
-# pythhon binding
+# python binding (option reserved for future use; SWIG implementation stripped)
 option(PSZ_BUILD_PYBINDING "enable Python binding for specific backend" OFF)
 
 if(PSZ_BACKEND STREQUAL "CUDA" OR PSZ_BACKEND STREQUAL "cuda")

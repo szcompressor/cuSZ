@@ -35,9 +35,9 @@ endif()
 if(EVAL_STANDALONE)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
   option(BUILD_SHARED_LIBS "prefer shared libraries" ON)
-  option(EVAL_BUILD_CUDA "build CUDA implementations (requires full psz tree)" OFF)
+  option(EVAL "build CUDA eval implementations (requires full psz tree)" OFF)
 else()
-  option(EVAL_BUILD_CUDA "build CUDA implementations (requires full psz tree)" ON)
+  option(EVAL "build CUDA eval implementations (requires full psz tree)" ON)
 endif()
 
 # Find CUDA if needed
@@ -128,7 +128,7 @@ add_library(eval_seq
 
 if(EVAL_BACKEND STREQUAL "CUDA")
   # CUDA backend
-  if(EVAL_BUILD_CUDA)
+  if(EVAL)
     add_library(eval_cu
       src/identical.cu
       src/compile/extrema-f4.cu
@@ -153,8 +153,8 @@ if(EVAL_BACKEND STREQUAL "CUDA")
         $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda;--expt-relaxed-constexpr>
     )
     
-    # Namespace alias for consistency (UTILS::stat_cu following PHF::phf_cu convention)
-    add_library(UTILS::stat_cu ALIAS eval_cu)
+    # Namespace alias for consistency (EVAL::stat_cu following PHF::phf_cu convention)
+    add_library(EVAL::stat_cu ALIAS eval_cu)
     
     # Viewer with CUDA implementation
     add_library(eval_viewer_cu
@@ -169,10 +169,9 @@ if(EVAL_BACKEND STREQUAL "CUDA")
         ${eval_compile_settings}
         CUDA::cudart
     )
-    add_library(UTILS::viewer_cu ALIAS eval_viewer_cu)
+    add_library(EVAL::viewer_cu ALIAS eval_viewer_cu)
   else()
-    message("[eval::warn] EVAL_BUILD_CUDA is OFF. CUDA implementations will not be built.")
-    message("[eval::warn] Use -DEVAL_BUILD_CUDA=ON to enable (requires full psz source tree)")
+    message("[eval::info] EVAL is OFF: CUDA eval implementations skipped (require full psz tree).")
   endif()
   
 elseif(EVAL_BACKEND STREQUAL "SYCL")
@@ -186,8 +185,8 @@ target_link_libraries(eval_seq
     utils_headers
 )
 
-# Namespace alias (UTILS::stat_seq following UTILS::stat_cu convention)
-add_library(UTILS::stat_seq ALIAS eval_seq)
+# Namespace alias (EVAL::stat_seq following EVAL::stat_cu convention)
+add_library(EVAL::stat_seq ALIAS eval_seq)
 
 # Alias for compatibility with existing code (SYCL)
 if(EVAL_BACKEND STREQUAL "SYCL")
@@ -223,7 +222,7 @@ install(DIRECTORY
 
 install(EXPORT EVALTargets
   FILE EVALTargets.cmake
-  NAMESPACE UTILS::
+  NAMESPACE EVAL::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/EVAL
 )
 
