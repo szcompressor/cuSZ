@@ -16,40 +16,41 @@ typedef void* phf_stream_t;
 
 //////// state enumeration
 
-#define PHF_SUCCESS 0
-#define PHF_WRONG_DTYPE 1
-#define PHF_FAIL_GPU_MALLOC 2
-#define PHF_FAIL_GPU_MEMCPY 3
-#define PHF_FAIL_GPU_ILLEGAL_ACCESS 4
-#define PHF_FAIL_GPU_OUT_OF_MEMORY 5
-#define PHF_NOT_IMPLEMENTED 99
+typedef enum {
+  PHF_SUCCESS = 0,                  // should be used
+  PHF_WRONG_DTYPE = 1,              // unused
+  PHF_FAIL_GPU_MALLOC = 2,          // unused
+  PHF_FAIL_GPU_MEMCPY = 3,          // unused
+  PHF_FAIL_GPU_ILLEGAL_ACCESS = 4,  // unused
+  PHF_FAIL_GPU_OUT_OF_MEMORY = 5,   // unused
+  PHF_NOT_IMPLEMENTED = 99,         // used
+} phf_status;
 
 typedef enum { HF_U1, HF_U2, HF_U4, HF_U8, HF_ULL, HF_INVALID } phf_dtype;
 
-#define PHFHEADER_FORCED_ALIGN 128
-#define PHFHEADER_HEADER 0
-#define PHFHEADER_RVBK 1
-#define PHFHEADER_PAR_NBIT 2
-#define PHFHEADER_PAR_ENTRY 3
-#define PHFHEADER_BITSTREAM 4
-#define PHFHEADER_PAR_BRNUM 5
-#define PHFHEADER_PAR_BROFFSET 6
-#define PHFHEADER_SP_BREAKS 7
-#define PHFHEADER_PAR_ENCID 8
-#define PHFHEADER_PBK_HEADERS 9
-#define PHFHEADER_HF_REV2_HEADER 10
-#define PHFHEADER_END 11
+#define PHFHEADER_FORCED_ALIGN 128  // byte alignment of the header section, not a section id
+
+typedef enum {
+  PHFHEADER_HEADER = 0,
+  PHFHEADER_RVBK,
+  PHFHEADER_PAR_NBIT,
+  PHFHEADER_PAR_ENTRY,
+  PHFHEADER_BITSTREAM,
+  PHFHEADER_PBK_HEADERS,
+  PHFHEADER_HF_REV2_HEADER,
+  PHFHEADER_END,
+} phf_header_section;
 
 typedef u4 PHF_METADATA;
 typedef u1 PHF_BIN;
 typedef u1 PHF_BYTE;
 
 typedef struct {
-  int bklen : 16;
-  int sublen, pardeg;
-  size_t original_len;
-  size_t total_nbit, total_ncell;  // TODO change to u4
-  u4 brnum;
+  u1 log_bklen;  // bklen = 1<<log_bklen
+  u1 g_encid;    // HFR-v3 global bkid (real member: offsetof'd by the async header patch)
+  u4 total_ncell;
+  u4 ori_len;
+  int sublen, pardeg;  // pardeg = #blocks; can exceed u2 for large inputs
   u4 entry[PHFHEADER_END + 1];
 } phf_header;
 

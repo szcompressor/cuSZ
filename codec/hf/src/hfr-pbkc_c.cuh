@@ -41,7 +41,7 @@ __global__ void KCU_HFR_PBKC_encode(
   find_proper_book<ChunkSize, NumBooks, Header>(&s_top1_counts, &s_bheader, data_len, blockIdx.x);
   load_proper_book<BookLen, Header>(reduce_times, (volatile u4*)s_book, dram_pbk, &s_bheader);
 
-  constexpr int MaxIters = ShardSize / 2;
+  constexpr int MaxIters = (ShardSize + 1) / 2;  // >=1 so RT=0 (ShardSize=1) holds one word
   u4 r_reduced[MaxIters], r_bits[MaxIters];
   MergeCtx<C> cx{data_len,  (u4)blockIdx.x, reduce_times, (volatile u4*)s_book,
                  p_eq,      s_breaks,       &s_v3_incomp, &s_bheader,

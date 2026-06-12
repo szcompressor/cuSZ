@@ -6,8 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "hfr-pbk.hh"
 #include "hf_impl.hh"
+#include "hfr-pbk.hh"
 
 using u4 = uint32_t;
 
@@ -138,6 +138,11 @@ struct HFR_encoder {
       T* in_eq, size_t len, Hf* runtime_book, Hf* dn_bitstream,
       psz::_future::bheader<T, Radius>* dn_headers, void* stream, RMerge rm, SMerge sm);
 };
+
+// HFR-v3 rep. hist. -> pick PBK & emit ID
+int HFR_pick_pbk(
+    uint32_t const* d_hist, uint32_t bklen, size_t len, uint32_t const* pbk_book, uint32_t* book_d,
+    uint32_t* encid_d, void* stream);
 
 struct pack_bheader_backport {
   static int GPU_kernel(

@@ -1,4 +1,5 @@
 #include <cctype>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -24,7 +25,6 @@ struct RunMetrics {
   double cr = 0.0;
   size_t arch_bytes = 0;
   size_t bs_bytes = 0;
-  size_t brnum = 0;
   size_t incomp_blocks = 0;
   string codec;
   string dtype;
@@ -79,6 +79,7 @@ constexpr HFVariant HF_REV2 = {"Huffman-rev2", "hf-rev2",   psz_codec::HFr2,    
 constexpr HFVariant HFR     = {"HFR",          "hfr",       psz_codec::HFR,       true,  false, true,  false};
 constexpr HFVariant PBKC    = {"HFR-PBKC",     "hfr-pbkc",  psz_codec::HFR_PBKC,  true,  true,  true,  false};
 constexpr HFVariant PBKGO   = {"HFR-PBKGO",    "hfr-pbkgo", psz_codec::HFR_PBKGO, true,  true,  true,  true};
+constexpr HFVariant HF_V3   = {"HFR-v3",        "hfr-v3",    psz_codec::HFR_V3,    true,  false, true,  false};
 }  // namespace hfv
 
 static const auto bin_phf_cli =
@@ -95,7 +96,7 @@ static const auto bin_phf_cli =
         .flag   ("hfr_pbkgo",         {"--hfr-pbkgo"},                   "use HFR-PBK-GO")
         .flag   ("hfr_pbkf",          {"--hfr-pbkf"},                    "use HFR-PBKF (gated; build needs -DPHF_ENABLE_HFR_PBKF=ON)")
         .string ("type",              {"--type", "--dtype"},   "u2",     "u1|u2|u4")
-        .integer("repeat",            {"--repeat"},            1,        "iterations (first is warmup if >1)")
+        .integer("repeat",            {"--repeat"},            5,        "timed iterations (min reported; 10 untimed warmups run first)")
         .string ("reduce",            {"--rmerge-count"},      DefaultReduceStr.c_str(), "r-merge pass count (ReduceTimes), CSV e.g. 2,3,4 for HFR family; default = HFR_PBK_Constants::ReduceTimes")
         .string ("timer",             {"--timer"},             "cupti",  "cupti | event")
         .string ("synth",             {"--synth"},             "",       "synth spec: cauchy:peak=:gamma=:seed= | uniform:max=:seed=")
@@ -103,7 +104,6 @@ static const auto bin_phf_cli =
         .number ("assert_cr_ge",      {"--assert-cr-ge"},      -1.0,     "fail if cr <  X")
         .number ("assert_cr_le",      {"--assert-cr-le"},      -1.0,     "fail if cr >  X")
         .integer("assert_incomp_le",  {"--assert-incomp-le"},  -1,       "fail if incomp > N")
-        .integer("assert_brnum_le",   {"--assert-brnum-le"},   -1,       "fail if brnum  > N")
         ;
 // clang-format on
 
@@ -138,7 +138,7 @@ struct Arguments {
   bool use_hfr_pbk_compat = false;
   bool use_hfr_pbk_go = false;
   bool use_hfr_pbkf = false;
-  int repeat = 1;
+  int repeat = 5;
   std::vector<int> reduce_values{DefaultReduceTimes};
   bool use_cupti = true;
   string synth_spec;
@@ -147,7 +147,6 @@ struct Arguments {
   double assert_cr_ge = -1.0;
   double assert_cr_le = -1.0;
   int64_t assert_incomp_le = -1;
-  int64_t assert_brnum_le = -1;
 
   bool parse(int argc, char** argv)
   {
@@ -167,9 +166,9 @@ struct Arguments {
         auto raw = a.get<string>("reduce");
         for (auto const& s : split_csv(raw.empty() ? DefaultReduceStr : raw)) {
           int v = std::stoi(s);
-          if (v != 2 and v != 3 and v != 4)
+          if (v < 0 or v > 4)
             throw std::runtime_error(
-                "--rmerge-count: each value must be 2|3|4, got: " + std::to_string(v));
+                "--rmerge-count: each value must be 0|1|2|3|4, got: " + std::to_string(v));
           reduce_values.push_back(v);
         }
         if (reduce_values.empty()) reduce_values.push_back(DefaultReduceTimes);
@@ -179,7 +178,6 @@ struct Arguments {
       assert_cr_ge = a.get<f8>("assert_cr_ge");
       assert_cr_le = a.get<f8>("assert_cr_le");
       assert_incomp_le = a.get<i8>("assert_incomp_le");
-      assert_brnum_le = a.get<i8>("assert_brnum_le");
       use_hf_rev1 = a.get<bool>("hf_rev1");
       use_hf_rev2 = a.get<bool>("hf_rev2");
       use_hfr = a.get<bool>("hfr");
@@ -249,16 +247,22 @@ void hf_run(
         stream);
     memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen, stream);
     sync_by_stream(stream);
-    phf::high_level<E>::build_book(buf.get(), h_hist.get(), bklen, stream);
+    if (v.codec == psz_codec::HFR_V3)
+      phf::high_level<E>::HFR_pick_pbk(buf.get(), d_hist.get(), bklen, len, stream);
+    else
+      phf::high_level<E>::HF_build_book(buf.get(), h_hist.get(), bklen, stream);
   }
 
   uint8_t* d_encoded = nullptr;
   size_t encoded_len = 0;
   phf_header header{};
 
+  // Short kernels need several back-to-back launches before GPU clocks boost on
+  // consumer cards; run a fixed warmup batch untimed, then time `repeat` and min.
+  constexpr int kWarmup = 10;
   double ms_enc = 1e9;
   float ms_encoder_phase = 0.0f, ms_lago_phase = 0.0f;
-  for (int iter = 0; iter < repeat; ++iter) {
+  for (int iter = 0; iter < kWarmup + repeat; ++iter) {
     sync_by_stream(stream);
     gpu_timer t;
     t.start(stream);
@@ -272,7 +276,7 @@ void hf_run(
           buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
           &ms_enc_p, &ms_lago_p);
     double this_enc = t.stop_ms(stream);
-    if (this_enc < ms_enc) {
+    if (iter >= kWarmup and this_enc < ms_enc) {
       ms_enc = this_enc;
       ms_encoder_phase = ms_enc_p;
       ms_lago_phase = ms_lago_p;
@@ -280,8 +284,18 @@ void hf_run(
     if (v.codec != psz_codec::HF) buf->reset(stream);
   }
 
+  // HFR-v3 patches the global PBK id into the device archive header (no host sync at encode);
+  // re-read it so this in-memory header matches what a real decode-from-archive would see.
+  if (v.codec == psz_codec::HFR_V3) {
+    memcpy_allkinds_async<D2H>(
+        &header.g_encid,
+        (u1*)((u1*)d_encoded + header.entry[PHFHEADER_HEADER] + offsetof(phf_header, g_encid)), 1,
+        stream);
+    sync_by_stream(stream);
+  }
+
   double ms_dec = 1e9;
-  for (int iter = 0; iter < repeat; ++iter) {
+  for (int iter = 0; iter < kWarmup + repeat; ++iter) {
     sync_by_stream(stream);
     gpu_timer t;
     t.start(stream);
@@ -291,11 +305,11 @@ void hf_run(
     else
       phf::high_level<E>::HF_decode(buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec);
     double this_dec = t.stop_ms(stream);
-    if (this_dec < ms_dec) ms_dec = this_dec;
+    if (iter >= kWarmup and this_dec < ms_dec) ms_dec = this_dec;
   }
 
-  auto identical = psz::cuda::GPU_identical(
-      (void*)d_decomp.get(), (void*)d_data.get(), sizeof(E), len, stream);
+  auto identical =
+      psz::cuda::GPU_identical((void*)d_decomp.get(), (void*)d_data.get(), sizeof(E), len, stream);
   {
     auto h_decomp = MAKE_UNIQUE_HOST(E, len);
     memcpy_allkinds<D2H>(h_decomp.get(), d_decomp.get(), len);
@@ -334,13 +348,14 @@ void hf_run(
     printf("%6.1f GiB/s (%5.3f)  ", GiBps<E>(len, ms_lago_phase), ms_lago_phase);
   else
     printf("           —          ");
-  printf("%6.1f GiB/s (%5.3f)  ", GiBps<u1>(encoded_len, ms_dec), ms_dec);
+  // decode throughput over the decompressed output (len*sizeof(E)), matching the
+  // encode/LAGO columns: not over compressed bytes (that understated it by ~CR).
+  printf("%6.1f GiB/s (%5.3f)  ", GiBps<E>(len, ms_dec), ms_dec);
   printf("—\n");
 
   g_metrics.cr = cr;
   g_metrics.arch_bytes = encoded_len;
   g_metrics.bs_bytes = (size_t)header.total_ncell * 4;
-  g_metrics.brnum = header.brnum;
   g_metrics.lossless = true;
   g_metrics.codec = v.metric_name;
   g_metrics.dtype = (sizeof(E) == 1 ? "u1" : sizeof(E) == 2 ? "u2" : "u4");
@@ -355,6 +370,7 @@ inline HFVariant const* lookup_variant(const string& path)
   if (path == "hfr") return &hfv::HFR;
   if (path == "hfr_pbkc" or path == "hfr-pbkc") return &hfv::PBKC;
   if (path == "hfr_pbkgo" or path == "hfr-pbkgo") return &hfv::PBKGO;
+  if (path == "hfr_v3" or path == "hfr-v3") return &hfv::HF_V3;
   return nullptr;
 }
 
@@ -471,7 +487,6 @@ int main(int argc, char** argv)
     printf("[cr]       %.4f\n", g_metrics.cr);
     printf("[arch]     %zu\n", g_metrics.arch_bytes);
     printf("[bs_bytes] %zu\n", g_metrics.bs_bytes);
-    printf("[brnum]    %zu\n", g_metrics.brnum);
     printf("[incomp]   %zu\n", g_metrics.incomp_blocks);
     printf("[encoder]  %s\n", g_metrics.codec.c_str());
     printf("[dtype]    %s\n", g_metrics.dtype.c_str());
@@ -491,12 +506,6 @@ int main(int argc, char** argv)
     fprintf(
         stderr, "assertion failed: incomp=%zu > incomp_le=%lld\n", g_metrics.incomp_blocks,
         (long long)args.assert_incomp_le);
-    return 3;
-  }
-  if (args.assert_brnum_le >= 0 && (int64_t)g_metrics.brnum > args.assert_brnum_le) {
-    fprintf(
-        stderr, "assertion failed: brnum=%zu > brnum_le=%lld\n", g_metrics.brnum,
-        (long long)args.assert_brnum_le);
     return 3;
   }
 

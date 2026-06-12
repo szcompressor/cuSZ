@@ -6,10 +6,10 @@
 #include <type_traits>
 
 #include "_future/block_scan.cuh"
-#include "hfr-pbk.hh"
 #include "_future/warp_top1.cuh"
 #include "c_type.h"
 #include "hf_impl.hh"
+#include "hfr-pbk.hh"
 
 using Hf = u4;
 using W = HuffmanWord<sizeof(Hf)>;
@@ -196,6 +196,21 @@ struct slot_decoupled_lookback {
 };
 
 // utils: find proper pbk based on tiny histogram
+template <int PbkNumBooks>
+__forceinline__ __device__ int _pbk_argmin(float prob)
+{
+  float min_diff = fabsf(probs_lookup[threadIdx.x] - prob);
+  int min_idx = threadIdx.x;
+  unsigned mask = __ballot_sync(0xffffffff, threadIdx.x < PbkNumBooks);
+  for (int offset = 16; offset > 0; offset /= 2) {
+    float shfl_min = __shfl_down_sync(mask, min_diff, offset);
+    int shfl_idx = __shfl_down_sync(mask, min_idx, offset);
+    if (shfl_min < min_diff and threadIdx.x < PbkNumBooks) min_diff = shfl_min, min_idx = shfl_idx;
+  }
+  return min_idx;  // valid in lane 0
+}
+
+// utils: find proper pbk based on tiny histogram (per-block top-1 prob).
 template <int TileDim, int PbkNumBooks, typename Header_v3>
 __forceinline__ __device__ void find_proper_book(
     volatile u4* s_top1_counts, volatile Header_v3* v3_bheader, size_t data_len, u4 chunk_id)
@@ -207,16 +222,7 @@ __forceinline__ __device__ void find_proper_book(
       prob = *s_top1_counts * 1.0 / valid;
     }
     prob = __shfl_sync(0xffffffff, prob, 0);
-    float min_diff = fabsf(probs_lookup[threadIdx.x] - prob);
-    int min_idx = threadIdx.x;
-
-    unsigned mask = __ballot_sync(0xffffffff, threadIdx.x < PbkNumBooks);
-    for (int offset = 16; offset > 0; offset /= 2) {
-      float shfl_min = __shfl_down_sync(mask, min_diff, offset);
-      int shfl_idx = __shfl_down_sync(mask, min_idx, offset);
-      if (shfl_min < min_diff and threadIdx.x < PbkNumBooks)
-        min_diff = shfl_min, min_idx = shfl_idx;
-    }
+    int min_idx = _pbk_argmin<PbkNumBooks>(prob);
     if (threadIdx.x == 0) v3_bheader->enc_id = min_idx;
   }
   __syncthreads();
@@ -515,8 +521,8 @@ __forceinline__ __device__ void load_eq_and_count_top1_v2(
 {
   constexpr u4 BytesPerThread = ShardSize * (u4)sizeof(T);
   static_assert(
-      BytesPerThread >= 4 and (BytesPerThread & 3) == 0,
-      "fused load: per-thread bytes must be a multiple of 4 and >= 4");
+      BytesPerThread >= 4 ? (BytesPerThread & 3) == 0 : true,
+      "fused load (>=4 bytes/thread) must be a multiple of 4; <4 uses scalar fallback");
 
   u4 thp_top1_count = 0;
 
@@ -536,6 +542,14 @@ __forceinline__ __device__ void load_eq_and_count_top1_v2(
       bool valid = (id < data_len);
       p_eq[ix] = valid ? (int)in_eq[id] : 0;
       psz::warp_top1_count(valid and (p_eq[ix] == Radius), thp_top1_count);
+    }
+  }
+  else if constexpr (BytesPerThread < 4) {  // low-RT (ShardSize*sizeof(T) in {1,2}): scalar
+#pragma unroll
+    for (auto ix = 0; ix < ShardSize; ix++) {
+      auto idx = threadIdx.x * ShardSize + ix;
+      p_eq[ix] = (int)in_eq[(size_t)id_base + idx];
+      psz::warp_top1_count(p_eq[ix] == Radius, thp_top1_count);
     }
   }
   else if constexpr (BytesPerThread == 4) {
@@ -648,16 +662,16 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
 }  // namespace hfr_pbk
 
 // boilerplate
-#define HFR_PBK_USING_HELPERS()                             \
-  using hfr_pbk::find_proper_book;                          \
-  using hfr_pbk::load_proper_book;                          \
-  using hfr_pbk::rmerge_sync__v7_const_shardsize_iter;      \
-  using hfr_pbk::smerge_sync__v7_const_shardsize_iter;      \
-  using hfr_pbk::rmerge__v7_wrapper;                        \
-  using hfr_pbk::smerge__v7_wrapper;                        \
-  using hfr_pbk::MergeCtx;                                  \
-  using hfr_pbk::dispatch_rmerge;                           \
-  using hfr_pbk::dispatch_smerge;                           \
+#define HFR_PBK_USING_HELPERS()                        \
+  using hfr_pbk::find_proper_book;                     \
+  using hfr_pbk::load_proper_book;                     \
+  using hfr_pbk::rmerge_sync__v7_const_shardsize_iter; \
+  using hfr_pbk::smerge_sync__v7_const_shardsize_iter; \
+  using hfr_pbk::rmerge__v7_wrapper;                   \
+  using hfr_pbk::smerge__v7_wrapper;                   \
+  using hfr_pbk::MergeCtx;                             \
+  using hfr_pbk::dispatch_rmerge;                      \
+  using hfr_pbk::dispatch_smerge;                      \
   using hfr_pbk::dispatch_merge_host;
 
 #define HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C)            \
@@ -674,15 +688,16 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
   constexpr auto Radius = C::Radius;                  \
   constexpr auto ShuffleTimes = C::ShuffleTimes;
 
-#define HFR_PBK_SHARED_AND_RESET()                                                  \
-  __shared__ alignas(16) T s_eq_in[ChunkSize];                                      \
-  __shared__ Hf s_book[BookLen];                                                    \
-  __shared__ Hf s_reduced[ChunkSize / 2 + 1]; /* v7: up to ChunkSize/M_min words */ \
-  __shared__ u4 s_bitcount[NumThreads];                                             \
-  __shared__ u4 s_top1_counts;                                                      \
-  __shared__ u4 s_v3_incomp;                                                        \
-  __shared__ Header s_bheader;                                                      \
-  __shared__ BreakCell s_breaks[psz::HFR_PBK_Constants::MaxNumBreaks];              \
-  if (threadIdx.x == 0) s_bheader = {};                                             \
-  if (threadIdx.x == 32) s_top1_counts = 0;                                         \
+#define HFR_PBK_SHARED_AND_RESET()                                          \
+  __shared__ alignas(16) T s_eq_in[ChunkSize];                              \
+  __shared__ Hf s_book[BookLen];                                            \
+  constexpr auto ReducedSize = ChunkSize / (ShardSize >= 2 ? 2 : 1) + 1;    \
+  __shared__ Hf s_reduced[ReducedSize]; /* v7: +1 for lo_word+1 failsafe */ \
+  __shared__ u4 s_bitcount[NumThreads];                                     \
+  __shared__ u4 s_top1_counts;                                              \
+  __shared__ u4 s_v3_incomp;                                                \
+  __shared__ Header s_bheader;                                              \
+  __shared__ BreakCell s_breaks[psz::HFR_PBK_Constants::MaxNumBreaks];      \
+  if (threadIdx.x == 0) s_bheader = {};                                     \
+  if (threadIdx.x == 32) s_top1_counts = 0;                                 \
   if (threadIdx.x == 64 % NumThreads) s_v3_incomp = 0;

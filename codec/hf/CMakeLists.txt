@@ -59,9 +59,14 @@ add_library(phf_cu
   src/compile/hfr_r3.cu
   src/compile/hfr_r4.cu
   src/compile/hfr_concat.cu
+  src/compile/hfr_encode_r0.cu
+  src/compile/hfr_encode_r1.cu
   src/compile/hfr_encode_r2.cu
   src/compile/hfr_encode_r3.cu
   src/compile/hfr_encode_r4.cu
+  src/hfr_pick_book.cu
+  src/compile/hfr-pbkc_r0.cu
+  src/compile/hfr-pbkc_r1.cu
   src/compile/hfr-pbkc_r2.cu
   src/compile/hfr-pbkc_r3.cu
   src/compile/hfr-pbkc_r4.cu

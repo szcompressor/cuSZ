@@ -3,17 +3,12 @@
 #ifndef HF_BUF_HH_PRIVATE
 #define HF_BUF_HH_PRIVATE
 
+#include <cstddef>
 #include <memory>
 
 #include "c_type.h"
 #include "hf.h"
-#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
-
-// fwd-decl, full definition lives in codec/hf/include/hfr-pbk.hh
-namespace psz {
-template <u2 Radius>
-struct HFR_PBK_Breaks;
-}
+#include "hfr-pbk.hh"  // psz::HFR_PBK_Constants, psz::_future::bheader
 
 namespace phf {
 
@@ -53,28 +48,22 @@ struct Buf {
   Buf(size_t inlen, size_t _bklen, int _pardeg = -1, bool _use_HFR = false, bool debug = false);
   ~Buf();
 
-  // setter
-  void register_runtime_bklen(int const rt_bklen);
-
-  // getter: variables
-  u2 rt_bklen() const;
-  int numSMs() const;
-  size_t sublen() const;
-  size_t pardeg() const;
-  size_t bitstream_max_len() const;
-  size_t rvbk_bytes() const;
-  // True when the runtime rvbk needn't ship (PBKC uses the baked-in pbk25_r128).
-  void set_omit_runtime_rvbk(bool v);
-  void set_use_pbkgo(bool v);
-
-  // Reusable cudaEvent_t (idx ∈ {0,1,2}); void* keeps this header CUDA-free.
-  void* timing_event(int idx) const;
-  // Encoder sets this so HF_rev2's AoS bheader_backport[] section goes live.
-  void set_use_hf_rev2_header(bool v);
-
-  // HFR-PBK-GO launch budget; computed at init, 0 for sizeof(SYM) > 2.
-  int pbkgo_max_blocks_per_sm() const;
-  int pbkgo_max_resident_blocks() const;
+  // utils
+  void set_rt_bklen(int const rt_bklen);
+  auto rt_bklen() const -> u2;
+  auto num_sms() const -> int;
+  auto sublen() const -> size_t;
+  auto pardeg() const -> size_t;
+  auto bitstream_max_len() const -> size_t;
+  auto rvbk_bytes() const -> size_t;
+  auto set_use_prebuilt_rvbk(bool v) -> void;
+  auto set_use_pbkgo(bool v) -> void;
+  auto set_use_global_encid(bool v) -> void;  // HFR-v3 uses global PBK ID, async cp'ed to header
+  auto pick_encid_d() const -> u4*;
+  auto timing_event(int idx) const -> void*;    // 3 reusable cudaEvent_t vars
+  auto set_use_hf_rev2_header(bool v) -> void;  // HF_rev2 uses AoS bheader_backport[]
+  auto pbkgo_max_blocks_per_sm() const -> int;  // PBKGO: computed at init, 0 for sizeof(SYM) > 2.
+  auto pbkgo_max_resident_blocks() const -> int;
 
   // getter: arrays
   H4* book_d() const;
@@ -93,15 +82,6 @@ struct Buf {
   H4* bitstream_h() const;
   PHF_BYTE* encoded_d() const;
   PHF_BYTE* encoded_h() const;
-
-  psz::HFR_PBK_Breaks<128>* sp_breaks_d() const;
-  u4* sp_count_d() const;
-  u4* par_brnum_d() const;
-  u4* par_brnum_h() const;
-  u4* par_broffset_d() const;
-  u4* par_broffset_h() const;
-  u1* par_encid_d() const;  // 0 = HF, 1 = fallback
-  u1* par_encid_h() const;
 
   // Decoupled-lookback scan state for LAGO concat (psz::scan_lookback).
   u4* scan_partial_aggregate_d() const;

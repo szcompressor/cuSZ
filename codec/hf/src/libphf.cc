@@ -73,13 +73,12 @@ uint32_t phf_encoded_bytes(phf_header* h) { return h->entry[PHFHEADER_END]; }
 
 void phf_print_header(const phf_header* h, const char* dtype_str)
 {
-  static const char* const sec_name[] = {"HEADER",    "RVBK",       "PAR_NBIT",  "PAR_ENTRY",
-                                         "BITSTREAM", "PAR_BRNUM",  "PAR_BROFFSET",
-                                         "SP_BREAKS", "PAR_ENCID",  "PBK_HEADERS",
+  static const char* const sec_name[] = {"HEADER",      "RVBK",        "PAR_NBIT",
+                                         "PAR_ENTRY",   "BITSTREAM",   "PBK_HEADERS",
                                          "HF_R2_HEADER"};
 
-  printf("(bk-len, sub-len, par-deg)=(%d, %d, %d)\n", h->bklen, h->sublen, h->pardeg);
-  printf("total (-nbit, -ncell)=(%zu, %zu)\tbr-num=%u\n", h->total_nbit, h->total_ncell, h->brnum);
+  printf("(bk-len, sub-len, par-deg)=(%d, %d, %d)\n", 1 << h->log_bklen, h->sublen, h->pardeg);
+  printf("total-ncell=%u\n", h->total_ncell);
 
   auto sizeof_dtype = dtype_str ? ((strcmp(dtype_str, "u1") == 0)   ? 1
                                    : (strcmp(dtype_str, "u2") == 0) ? 2
@@ -88,13 +87,13 @@ void phf_print_header(const phf_header* h, const char* dtype_str)
                                                                     : 0)
                                 : 0;
   auto comp_bytes = h->entry[PHFHEADER_END] * 1.0;
-  auto original_bytes = h->original_len * sizeof_dtype * 1.0;
+  auto original_bytes = h->ori_len * sizeof_dtype * 1.0;
   auto CR = original_bytes / comp_bytes;
   printf(
-      "(ori-len, dtype)=(%zu, %s)\t"
+      "(ori-len, dtype)=(%u, %s)\t"
       "(ori-bytes, comp-bytes)=(%.2f, %.2f)\t"
       "CR=%.2f\n",
-      h->original_len, dtype_str ? dtype_str : "unknown", original_bytes, comp_bytes, CR);
+      h->ori_len, dtype_str ? dtype_str : "unknown", original_bytes, comp_bytes, CR);
 
   printf("\n");
   printf("%-12s  %10s  %10s\n", "field", "offset", "bytes");

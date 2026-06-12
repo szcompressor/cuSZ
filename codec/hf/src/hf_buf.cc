@@ -2,6 +2,7 @@
 
 #include <cuda.h>
 
+#include <cstddef>
 #include <cstdlib>
 
 #include "_future/scan_lookback.hh"
@@ -50,11 +51,12 @@ struct Buf<E>::impl {
   size_t pardeg;
   size_t sublen;
   bool use_HFR;
-  bool omit_runtime_rvbk = false;  // exclude runtime rvbk from the archive
+  bool use_prebuilt_rvbk = false;  // exclude runtime rvbk from the archive
   bool use_hf_rev2_header = false;
   bool use_pbkgo = false;
+  bool use_global_encid = false;  // HFR-v3: patch global PBK id into the archive header
   u2 rt_bklen;
-  int numSMs;
+  int num_sms;
   int pbkgo_max_blocks_per_sm;
   int pbkgo_max_resident_blocks;
 
@@ -79,18 +81,6 @@ struct Buf<E>::impl {
   GPU_unique_dptr<M[]> d_par_entry;
   GPU_unique_hptr<M[]> h_par_entry;
 
-  // ReVISIT break-cell buffers (post-breaks_t adoption)
-  using BreakCell = psz::HFR_PBK_Breaks<128>;
-  GPU_unique_dptr<BreakCell[]> d_sp_breaks;
-  GPU_unique_dptr<u4[]> d_sp_count;  // single-element global atomic counter
-  GPU_unique_hptr<u4[]> h_sp_count;
-  GPU_unique_dptr<u4[]> d_par_brnum;  // per-block break count, size = pardeg
-  GPU_unique_hptr<u4[]> h_par_brnum;
-  GPU_unique_dptr<u4[]> d_par_broffset;  // per-block start offset in d_sp_breaks
-  GPU_unique_hptr<u4[]> h_par_broffset;
-  GPU_unique_dptr<u1[]> d_par_encid;  // per-block enc_id: 0=normal, 1=incomp
-  GPU_unique_hptr<u1[]> h_par_encid;
-
   // scan state for concat.
   GPU_unique_dptr<u4[]> d_scan_partial_aggregate;
   GPU_unique_dptr<u4[]> d_scan_incl_prefix;
@@ -103,6 +93,7 @@ struct Buf<E>::impl {
   GPU_unique_hptr<BHeader[]> h_pbk_headers;
   GPU_unique_dptr<H4[]> d_packed;
   GPU_unique_dptr<u4[]> d_total_ncell;
+  GPU_unique_dptr<u4[]> d_pick_encid;          // HFR-v3: 1-word global PBK id from the pick kernel
   GPU_unique_dptr<u4[]> d_total_nbit;          // reduce_total_nbit sink
   GPU_unique_dptr<u4[]> d_pbk_packed_headers;  // 2 u4 per block; HFR family only
   GPU_unique_dptr<u4[]> d_pbkgo_state;         // 1 u4 / block; PBKGO scan state
@@ -127,14 +118,14 @@ struct Buf<E>::impl {
       use_HFR(_use_HFR),
       rvbk4_bytes(_rvbk4_bytes(_bklen))
   {
-    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
+    cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, 0);
 
     pbkgo_max_blocks_per_sm = 0;
     pbkgo_max_resident_blocks = 0;
     if constexpr (sizeof(SYM) <= 2) {  // pbkgo only instantiated for u1, u2
       pbkgo_max_blocks_per_sm =
           phf::module::HFR_PBKGO_encode<SYM, 10, 2, uint32_t, 128>::max_blocks_per_sm();
-      pbkgo_max_resident_blocks = pbkgo_max_blocks_per_sm * numSMs;
+      pbkgo_max_resident_blocks = pbkgo_max_blocks_per_sm * num_sms;
     }
 
     // call dummy during expensive init
@@ -158,18 +149,6 @@ struct Buf<E>::impl {
     h_par_entry = MAKE_UNIQUE_HOST(M, pardeg);
     d_par_entry = MAKE_UNIQUE_DEVICE(M, pardeg);
 
-    // Break-cell buffers (capacity heuristic ~ len/10).
-    auto sp_cap = 100 + len / 10 + 1;
-    d_sp_breaks = MAKE_UNIQUE_DEVICE(BreakCell, sp_cap);
-    d_sp_count = MAKE_UNIQUE_DEVICE(u4, 1);
-    h_sp_count = MAKE_UNIQUE_HOST(u4, 1);
-    d_par_brnum = MAKE_UNIQUE_DEVICE(u4, pardeg);
-    h_par_brnum = MAKE_UNIQUE_HOST(u4, pardeg);
-    d_par_broffset = MAKE_UNIQUE_DEVICE(u4, pardeg);
-    h_par_broffset = MAKE_UNIQUE_HOST(u4, pardeg);
-    d_par_encid = MAKE_UNIQUE_DEVICE(u1, pardeg);
-    h_par_encid = MAKE_UNIQUE_HOST(u1, pardeg);
-
     {
       using namespace psz::scan_lookback;
       scan_num_tiles_ = (int)(((size_t)pardeg + TILE_SIZE_HOST - 1) / TILE_SIZE_HOST);
@@ -181,6 +160,7 @@ struct Buf<E>::impl {
     // total_ncell / total_nbit sinks (1 u4 each; also used by HFr1).
     d_total_ncell = MAKE_UNIQUE_DEVICE(u4, 1);
     d_total_nbit = MAKE_UNIQUE_DEVICE(u4, 1);
+    d_pick_encid = MAKE_UNIQUE_DEVICE(u4, 1);
     // HF_rev2 AoS bheader_backport[] (always allocated; 8 B/block).
     d_hf_rev2_header = MAKE_UNIQUE_DEVICE(u4, 2 * pardeg);
 
@@ -238,34 +218,27 @@ struct Buf<E>::impl {
 
     cudaMemcpyAsync(start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream);
 
-    // RVBK: omitted for PBKC (uses prebuilt pbk25_r128 constant on decode side).
-    if (not omit_runtime_rvbk) d2d_memcpy_merge(_rvbk);
+    if (use_global_encid)  // HFR-v3
+      cudaMemcpyAsync(
+          start + offsetof(Header, g_encid), d_pick_encid.get(), sizeof(u1),
+          cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
+
+    if (not use_prebuilt_rvbk) d2d_memcpy_merge(_rvbk);  // not applicable for PBK
     d2d_memcpy_merge(_par_nbit);
     d2d_memcpy_merge(_par_entry);
     d2d_memcpy_merge(_bitstream);
 
-    // HF_rev2 — AoS bheader_backport[] in PHFHEADER_HF_REV2_HEADER.
-    if (use_hf_rev2_header) {
+    if (use_hf_rev2_header) {  // HF_rev2 uses AoS bheader_backport[].
       memcpy_helper _hf_rev2_header{
           d_hf_rev2_header.get(), 2 * pardeg * sizeof(u4), header.entry[PHFHEADER_HF_REV2_HEADER]};
       d2d_memcpy_merge(_hf_rev2_header);
     }
 
-    // HFR family — packed per-block headers (brnum sections only if brnum>0).
-    if (use_HFR) {
+    if (use_HFR) {  // HFR family: packed per-block headers.
       memcpy_helper _pbk_headers{
           d_pbk_packed_headers.get(), 2 * pardeg * sizeof(u4),
           header.entry[PHFHEADER_PBK_HEADERS]};
       d2d_memcpy_merge(_pbk_headers);
-      if (header.brnum > 0) {
-        memcpy_helper _par_brnum{
-            d_par_brnum.get(), pardeg * sizeof(u4), header.entry[PHFHEADER_PAR_BRNUM]};
-        memcpy_helper _sp_breaks{
-            d_sp_breaks.get(), header.brnum * sizeof(BreakCell),
-            header.entry[PHFHEADER_SP_BREAKS]};
-        d2d_memcpy_merge(_par_brnum);
-        d2d_memcpy_merge(_sp_breaks);
-      }
     }
   }
 
@@ -295,7 +268,7 @@ PHF_BUF_DEF()::~Buf() {}
 // a series of getters: variables
 PHF_BUF_DEF(size_t)::rvbk_bytes() const { return pimpl->rvbk4_bytes; }
 PHF_BUF_DEF(u2)::rt_bklen() const { return pimpl->rt_bklen; }
-PHF_BUF_DEF(int)::numSMs() const { return pimpl->numSMs; }
+PHF_BUF_DEF(int)::num_sms() const { return pimpl->num_sms; }
 PHF_BUF_DEF(int)::pbkgo_max_blocks_per_sm() const { return pimpl->pbkgo_max_blocks_per_sm; }
 PHF_BUF_DEF(int)::pbkgo_max_resident_blocks() const { return pimpl->pbkgo_max_resident_blocks; }
 PHF_BUF_DEF(size_t)::sublen() const { return pimpl->sublen; }
@@ -331,31 +304,22 @@ PHF_BUF_DEF(int)::scan_num_tiles() const { return pimpl->scan_num_tiles_; }
 // method
 PHF_BUF_DEF(void)::update_header(phf_header& header)
 {
-  header.bklen = pimpl->rt_bklen;
+  header.log_bklen = (u1)__builtin_ctz((unsigned)pimpl->rt_bklen);  // bklen is power-of-2
   header.sublen = pimpl->sublen;
   header.pardeg = pimpl->pardeg;
-  header.original_len = pimpl->len;
-  header.brnum = 0;  // inline-breaks: per-block n_breaks lives in the bheader array.
+  header.ori_len = pimpl->len;
 }
 
 PHF_BUF_DEF(void)::calc_offset(phf_header& header, M* byte_offsets)
 {
   byte_offsets[PHFHEADER_HEADER] = PHFHEADER_FORCED_ALIGN;
   // RVBK omitted for PBKC.
-  byte_offsets[PHFHEADER_RVBK] = pimpl->omit_runtime_rvbk ? 0 : rvbk_bytes();
+  byte_offsets[PHFHEADER_RVBK] = pimpl->use_prebuilt_rvbk ? 0 : rvbk_bytes();
   // PAR_NBIT / PAR_ENTRY: HF / HF-rev1 only.
   const bool _skip_soa_meta = pimpl->use_HFR or pimpl->use_hf_rev2_header;
   byte_offsets[PHFHEADER_PAR_NBIT] = _skip_soa_meta ? 0 : pimpl->pardeg * sizeof(M);
   byte_offsets[PHFHEADER_PAR_ENTRY] = _skip_soa_meta ? 0 : pimpl->pardeg * sizeof(M);
   byte_offsets[PHFHEADER_BITSTREAM] = 4 * header.total_ncell;
-  // brnum-bearing sections: legacy detached-breaks only (brnum>0).
-  // TODO PAR_BROFFSET derivable from PAR_BRNUM; wire up when brnum>0 is exercised.
-  byte_offsets[PHFHEADER_PAR_BRNUM] =
-      (pimpl->use_HFR and header.brnum > 0) ? pimpl->pardeg * sizeof(u4) : 0;
-  byte_offsets[PHFHEADER_PAR_BROFFSET] = 0;
-  byte_offsets[PHFHEADER_SP_BREAKS] =
-      (pimpl->use_HFR and header.brnum > 0) ? header.brnum * sizeof(typename impl::BreakCell) : 0;
-  byte_offsets[PHFHEADER_PAR_ENCID] = 0;  // superseded by PBK_HEADERS
   byte_offsets[PHFHEADER_PBK_HEADERS] = pimpl->use_HFR ? 2 * pimpl->pardeg * sizeof(u4) : 0;
   byte_offsets[PHFHEADER_HF_REV2_HEADER] =
       pimpl->use_hf_rev2_header ? 2 * pimpl->pardeg * sizeof(u4) : 0;
@@ -366,23 +330,15 @@ PHF_BUF_DEF(void)::calc_offset(phf_header& header, M* byte_offsets)
   for (auto i = 1; i < PHFHEADER_END + 1; i++) header.entry[i] += header.entry[i - 1];
 }
 
-PHF_BUF_DEF(void)::set_omit_runtime_rvbk(bool v) { pimpl->omit_runtime_rvbk = v; }
+PHF_BUF_DEF(void)::set_use_prebuilt_rvbk(bool v) { pimpl->use_prebuilt_rvbk = v; }
 PHF_BUF_DEF(void)::set_use_hf_rev2_header(bool v) { pimpl->use_hf_rev2_header = v; }
 PHF_BUF_DEF(void)::set_use_pbkgo(bool v) { pimpl->use_pbkgo = v; }
+PHF_BUF_DEF(void)::set_use_global_encid(bool v) { pimpl->use_global_encid = v; }
+PHF_BUF_DEF(u4*)::pick_encid_d() const { return pimpl->d_pick_encid.get(); }
 PHF_BUF_DEF(void*)::timing_event(int idx) const { return (void*)pimpl->timing_events[idx].get(); }
 
 // method: set internal variable
-PHF_BUF_DEF(void)::register_runtime_bklen(const int _rt_bklen) { pimpl->rt_bklen = _rt_bklen; }
-
-// HFR break-cell accessors
-PHF_BUF_DEF(psz::HFR_PBK_Breaks<128>*)::sp_breaks_d() const { return pimpl->d_sp_breaks.get(); }
-PHF_BUF_DEF(u4*)::sp_count_d() const { return pimpl->d_sp_count.get(); }
-PHF_BUF_DEF(u4*)::par_brnum_d() const { return pimpl->d_par_brnum.get(); }
-PHF_BUF_DEF(u4*)::par_brnum_h() const { return pimpl->h_par_brnum.get(); }
-PHF_BUF_DEF(u4*)::par_broffset_d() const { return pimpl->d_par_broffset.get(); }
-PHF_BUF_DEF(u4*)::par_broffset_h() const { return pimpl->h_par_broffset.get(); }
-PHF_BUF_DEF(u1*)::par_encid_d() const { return pimpl->d_par_encid.get(); }
-PHF_BUF_DEF(u1*)::par_encid_h() const { return pimpl->h_par_encid.get(); }
+PHF_BUF_DEF(void)::set_rt_bklen(const int _rt_bklen) { pimpl->rt_bklen = _rt_bklen; }
 
 PHF_BUF_DEF(void)::memcpy_merge(phf_header& header, phf_stream_t stream)
 {

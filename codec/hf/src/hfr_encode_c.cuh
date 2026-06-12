@@ -41,7 +41,7 @@ __global__ void KCU_HFR_encode(
   for (int i = threadIdx.x; i < BookLen; i += NumThreads) s_book[i] = runtime_book[i];
   __syncthreads();
 
-  constexpr int MaxIters = ShardSize / 2;
+  constexpr int MaxIters = (ShardSize + 1) / 2;  // >=1 so RT=0 (ShardSize=1) holds one word
   u4 r_reduced[MaxIters], r_bits[MaxIters];
   u4 reduce_times = C::ReduceTimes;  // single fixed book: never clamped
   MergeCtx<C> cx{data_len,  (u4)blockIdx.x, reduce_times, (volatile u4*)s_book,

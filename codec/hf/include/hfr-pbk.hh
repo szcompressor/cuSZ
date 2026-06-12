@@ -19,6 +19,9 @@ namespace psz {
 constexpr u4 log2_floor(u4 n);
 constexpr u4 log2_ceil(u4 n);
 
+template <size_t _Magnitude>
+struct _parameterized_hfr_pbk_constants;
+
 struct HFR_PBK_Constants;
 
 template <u2 _Radius, u1 _NumBooks>
@@ -39,13 +42,15 @@ constexpr u4 psz::log2_ceil(u4 n)
   return n == 0 ? throw "n must be > 0" : (n & (n - 1)) == 0 ? log2_floor(n) : 1 + log2_floor(n);
 }
 
-struct psz::HFR_PBK_Constants {
+// The current header can support up to 13 bits.
+// Need to reconcile with other-configured data chunksize.
+template <size_t _Magnitude>
+struct psz::_parameterized_hfr_pbk_constants {
   static constexpr u1 NumBooks = 25;
   static constexpr u1 Radius = 128;
 
-  // Production preset; re-profile if changed.
-  static constexpr size_t Magnitude = 10;
-  static constexpr size_t BlockSize = 1u << Magnitude;  // = 1024
+  static constexpr size_t Magnitude = _Magnitude;
+  static constexpr size_t BlockSize = 1u << Magnitude;
   static constexpr size_t NumCoding = 32;
   static constexpr size_t MaxRadius = 128;
   static constexpr size_t MaxDictsize = MaxRadius * 2;
@@ -63,19 +68,28 @@ struct psz::HFR_PBK_Constants {
   static constexpr size_t BitsMaxNumUnpred = 3;
   static constexpr size_t BitsMaxNumBreaks = 6;
   static constexpr size_t BitsEncId = 5;
+  static constexpr size_t BitsDense =
+      32 - (BitsEncId + BitsMaxNumUnpred + BitsMaxNumBreaks);  // = 18
 
   static constexpr size_t MaxNumUnpred = (1 << BitsMaxNumUnpred) - 1;  // >=7 -> incomp.unpred
   static constexpr size_t MaxNumBreaks = (1 << BitsMaxNumBreaks) - 1;  // >=63 -> incomp.breaks
 
   // Worst-case per-block payload (inline-breaks, Hf=u4, BreakCell=4B).
-  static constexpr size_t StridePerBlockWords = BlockSize + MaxNumBreaks;  // 1024 + 63 = 1087
+  static constexpr size_t StridePerBlockWords = BlockSize + MaxNumBreaks;
   static constexpr size_t StridePerBlockBytes = StridePerBlockWords * sizeof(uint32_t);
   static constexpr size_t CodeIncompUnpred = 31;
   static constexpr size_t CodeIncompBreaks = 30;
+
+  // worst-case payload bit-length (BlockSize x 16-bit codes) must fit bheader.bits
+  static_assert(BlockSize * 16 < (1ull << BitsDense), "Magnitude exceeds bits(18) budget");
+  static_assert(Magnitude <= 16, "block-local idx must fit uint16_t");
 };
 
+// preset-10 in use (deterministic perf); re-profile if changed.
+struct psz::HFR_PBK_Constants : psz::_parameterized_hfr_pbk_constants<10> {};
+
 // Include after HFR_PBK_Constants: the companion's HFR_Opts reads ReduceTimes.
-#include "hfr-pbk_ver.hh"  // RMerge / SMerge / merge_compatible
+#include "hfr-pbk_ver.hh"
 
 namespace psz {
 

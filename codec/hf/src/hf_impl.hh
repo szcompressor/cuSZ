@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "c_type.h"
 #include "hf.h"
+#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "mem/cxx_array.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -272,7 +272,7 @@ class modules {
 
  public:
   static void GPU_coarse_enc_ph1(
-      E* in_data, const size_t data_len, H* in_book, const u4 book_len, const int numSMs,
+      E* in_data, const size_t data_len, H* in_book, const u4 book_len, const int num_SMs,
       H* out_bitstream, void* stream);
 
   static void GPU_coarse_enc_ph2(
@@ -293,7 +293,7 @@ class modules {
       const size_t max_bitstream_len, void* stream);
 
   static void GPU_coarse_encode(
-      E* in_data, size_t data_len, H* in_book, u4 book_len, int numSMs, phf::par_config hfpar,
+      E* in_data, size_t data_len, H* in_book, u4 book_len, int num_SMs, phf::par_config hfpar,
       // internal buffers
       H* d_scratch4, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell, M* d_par_entry,
       M* h_par_entry, H* d_bitstream4, size_t bitstream_max_len,

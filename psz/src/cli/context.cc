@@ -235,19 +235,21 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
       ctx->header->pipeline.hist = psz_hist::HistSp;
   }
 
-  // codec1
+  // codec1: There is no standalone "hfr-v1".
   {
     auto _v = args.get<string>("codec1");
     if (not _v.empty()) {
       apply_str(_v, ctx->cli->char_codec1_name);
       if (_v == "hf" or _v == "huffman")
         ctx->header->pipeline.codec1 = psz_codec::HF;
-      else if (_v == "hf-rev1" or _v == "huffman-r1")
+      else if (_v == "hf-rev1")
         ctx->header->pipeline.codec1 = psz_codec::HFr1;
-      else if (_v == "hf-rev2" or _v == "huffman-r2")
+      else if (_v == "hf-rev2")
         ctx->header->pipeline.codec1 = psz_codec::HFr2;
-      else if (_v == "hfr" or _v == "huffman-revisit" or _v == "huffman-fast")
+      else if (_v == "hfr-v2" or _v == "hfr-conservative")
         ctx->header->pipeline.codec1 = psz_codec::HFR;
+      else if (_v == "hfr-v3" or _v == "hfr-direct")
+        ctx->header->pipeline.codec1 = psz_codec::HFR_V3;
       else if (_v == "hfr-pbkc" or _v == "hfr-pbk-compat")
         ctx->header->pipeline.codec1 = psz_codec::HFR_PBKC;
       else if (_v == "hfr-pbkgo" or _v == "hfr-pbk-go")
@@ -306,7 +308,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     if (_v == "tp" or _v == "TP" or _v == "speed")
       ctx->header->pipeline.codec1 = LC;
     else if (_v == "cr" or _v == "CR")
-      ctx->header->pipeline.codec1 = HFr2;
+      ctx->header->pipeline.codec1 = HFR_V3;
   }
 
   // task flags (subcommand has priority over -z/-x)
@@ -328,10 +330,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     ctx->cli->hfr_rmerge_count = v;
   }
 
-  // Post-parse pipeline formation: components that other components imply.
-  // PBK variants bypass the runtime histogram (prebuilt pbk25 book pool), so
-  // record that in the header — otherwise reports show a histogram that didn't
-  // actually run.
+  // post-parse fixup: PBK variants by passes histogram
   if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
       ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO)
     ctx->header->pipeline.hist = psz_hist::HistNull;
@@ -392,7 +391,8 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
   // it inherits the same clamp until the Radius=512 kernel is instantiated.
   if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
       ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
-      ctx->header->pipeline.codec1 == psz_codec::HFR) {
+      ctx->header->pipeline.codec1 == psz_codec::HFR or
+      ctx->header->pipeline.codec1 == psz_codec::HFR_V3) {
     ctx->header->rc.radius = 128;
     ctx->bklen             = 256;
   }

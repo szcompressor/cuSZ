@@ -353,15 +353,15 @@ __global__ void KCU_HF_decode(
   };
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_enc_ph1(
-    E* in_data, const size_t data_len, H* in_book, const u4 book_len, const int numSMs,
+    E* in_data, const size_t data_len, H* in_book, const u4 book_len, const int num_SMs,
     H* out_bitstream, void* stream)
 {
   SETUP_DIV;
 
   constexpr auto block_dim = PHF_BLOCK_DIM_ENCODE;
   auto grid_dim = div(data_len, block_dim);
-  phf::KCU_enc_ph1_fill<E, H>                                            //
-      <<<8 * numSMs, 256, sizeof(H) * book_len, (cudaStream_t)stream>>>  //
+  phf::KCU_enc_ph1_fill<E, H>                                             //
+      <<<8 * num_SMs, 256, sizeof(H) * book_len, (cudaStream_t)stream>>>  //
       (in_data, data_len, in_book, book_len, out_bitstream);
 }
 
@@ -427,14 +427,14 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_enc_ph4(
 }
 
 PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_encode(
-    E* in_data, size_t data_len, H* in_book, u4 book_len, int numSMs, phf::par_config hfpar,
+    E* in_data, size_t data_len, H* in_book, u4 book_len, int num_SMs, phf::par_config hfpar,
     // internal buffers
     H* d_scratch4, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell, M* d_par_entry,
     M* h_par_entry, H* d_bitstream4, size_t bitstream_max_len,
     // output
     size_t* out_total_nbit, size_t* out_total_ncell, void* stream)
 {
-  GPU_coarse_enc_ph1(in_data, data_len, in_book, book_len, numSMs, d_scratch4, stream);
+  GPU_coarse_enc_ph1(in_data, data_len, in_book, book_len, num_SMs, d_scratch4, stream);
   GPU_coarse_enc_ph2(d_scratch4, data_len, hfpar, d_scratch4, d_par_nbit, d_par_ncell, stream);
   GPU_coarse_enc_ph3_sync(
       hfpar, d_par_nbit, h_par_nbit, d_par_ncell, h_par_ncell, d_par_entry, h_par_entry,

@@ -55,8 +55,8 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
 
   // initialize internal buffers
   const auto _c1 = ctx->header->pipeline.codec1;
-  const auto use_HFR =
-      (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO);
+  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
+                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3);
   auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression, use_HFR);
   mem->register_header(ctx->header);
   // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
@@ -73,8 +73,8 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
 {
   // initialize internal buffers
   const auto _c1 = header->pipeline.codec1;
-  const auto use_HFR =
-      (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO);
+  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
+                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3);
   auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR);
   mem->register_header(header);
   return mem;
@@ -161,7 +161,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     // HFR family defers outlier read until after pass1's own sync.
     const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
-                                    (PIPELINE.codec1 == HFR_PBKGO);
+                                    (PIPELINE.codec1 == HFR_PBKGO) or (PIPELINE.codec1 == HFR_V3);
     if (not defer_outlier_read) {
       /* make outlier count seen on host */
       sync_by_stream(stream);
@@ -176,8 +176,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  // shared for HF and HFR
-  auto compress_histogram_and_build_book = [&]() {
+  // device histogram into mem->hist_d() (shared for HF, HFR, HFR-v3).
+  auto compress_histogram = [&]() {
     memset_device(mem->hist_d(), ctx->bklen, 0);
 
     if (PIPELINE.hist == psz_hist::HistSp)
@@ -188,9 +188,13 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
           mem->eq_d(), len_linear, mem->hist_d(), ctx->bklen, mem->hist_generic_grid_dim,
           mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
           stream);
+  };
 
+  // shared for HF and HFR
+  auto compress_histogram_and_build_book = [&]() {
+    compress_histogram();
     memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->bklen);
-    phf::high_level<E>::build_book(mem->buf_hf(), mem->hist_h(), ctx->bklen, stream);
+    phf::high_level<E>::HF_build_book(mem->buf_hf(), mem->hist_h(), ctx->bklen, stream);
   };
 
   auto compress_encode_pass1_Huffman = [&]() -> int {
@@ -240,12 +244,15 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   // HFR reference (HFReVISIT base): shuffle-merge encode + sparse breaks.
   auto compress_encode_pass1_HFR = [&]() -> int {
+    // low-rmerge preset (same as v3): higher RT -> more merge-breaks -> lower CR.
+    const HFR_Opts v2_opts{/*reduce_times=*/1};
+
     compress_histogram_and_build_book();
 
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::HFR, nullptr, nullptr, hfr_opts);
+        dummy_header, stream, psz_codec::HFR, nullptr, nullptr, v2_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -254,12 +261,14 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  // HFR-PBK-Compat: per-block-keyed encode (prebuilt pbk25_r128 book; no runtime hist/book).
+  // HFR-PBKC; also as alt default codec1
+  // low-rmerge preset: RT=1 (2 pts/thread); 0 = zero-merge (regressed speed).
   auto compress_encode_pass1_HFR_PBK_Compat = [&]() -> int {
+    const HFR_Opts pbkc_opts{/*reduce_times=*/1};
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::HFR_PBKC, nullptr, nullptr, hfr_opts);
+        dummy_header, stream, psz_codec::HFR_PBKC, nullptr, nullptr, pbkc_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -268,12 +277,32 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  // HFR-PBK-GO encode pass (globally-ordered slot claim; no LAGO concat).
+  // HFR-PBKGO: globally-ordered slot; no LAGO concat
   auto compress_encode_pass1_HFR_PBK_GO = [&]() -> int {
+    const HFR_Opts hfr_opts{/*reduce_times=*/1};
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_PBKGO, nullptr, nullptr, hfr_opts);
+    ctx->header->vle_sublen = dummy_header.sublen;
+    ctx->header->vle_pardeg = dummy_header.pardeg;
+    sync_by_stream(stream);
+    mem->buf_hf()->reset_HFR(stream);
+    return PSZ_SUCCESS;
+  };
+
+  // HFR-v3: GPU-picked global PBK book + low-rmerge preset (scalable default).
+  auto compress_encode_pass1_HFR_v3 = [&]() -> int {
+    // low-rmerge preset: 1 = 2 points/thread (balanced); 0 = zero-merge (cruel).
+    const HFR_Opts v3_opts{/*reduce_times=*/1};
+
+    compress_histogram();
+    phf::high_level<E>::HFR_pick_pbk(mem->buf_hf(), mem->hist_d(), ctx->bklen, len_linear, stream);
+
+    phf_header dummy_header;
+    phf::high_level<E>::HFR_encode(
+        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        dummy_header, stream, psz_codec::HFR_V3, nullptr, nullptr, v3_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -382,6 +411,8 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       status = compress_encode_pass1_HFR_PBK_Compat();
     else if (PIPELINE.codec1 == HFR_PBKGO)
       status = compress_encode_pass1_HFR_PBK_GO();
+    else if (PIPELINE.codec1 == HFR_V3)
+      status = compress_encode_pass1_HFR_v3();
     else if (PIPELINE.codec1 == HFr1)
       status = compress_encode_pass1_Huffman_rev1();
     else if (PIPELINE.codec1 == HFr2)
@@ -392,7 +423,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     // Deferred outlier-count read (pass1 already synced for HFR family).
     if ((PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
-        (PIPELINE.codec1 == HFR_PBKGO)) {
+        (PIPELINE.codec1 == HFR_PBKGO) or (PIPELINE.codec1 == HFR_V3)) {
       ctx->header->splen = mem->outlier2_host_get_num();
       if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
         cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
@@ -448,10 +479,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
                        : (PIPELINE.codec1 == LC) ? compress_encode_HiTP_eq()
                                                  : compress_encode_default();
 #else
-  // LC not compiled: fall back to HF regardless of requested codec1/codec2.
-  // Correct the header pipeline so the tag and CR reflect what actually ran.
-  ctx->header->pipeline.codec1 = HF;
-  ctx->header->pipeline.codec2 = CodecNull;
+  // In the case of LC being not compiled --> fallback
+  if (PIPELINE.codec1 == LC or PIPELINE.codec2 == LC) {
+    ctx->header->pipeline.codec1 = DEFAULT_CODEC;
+    ctx->header->pipeline.codec2 = CodecNull;
+  }
   auto status_encode = compress_encode_default();
 #endif
   if (status_encode != PSZ_SUCCESS) return status_encode;
@@ -546,6 +578,9 @@ STEP_DECODING:
   else if (header->pipeline.codec1 == HFR)
     phf::high_level<E>::HFR_decode(
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR);
+  else if (header->pipeline.codec1 == HFR_V3)
+    phf::high_level<E>::HFR_decode(
+        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_V3);
   else if (header->pipeline.codec1 == HFr2)
     phf::high_level<E>::HF_decode(
         mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFr2);
