@@ -141,9 +141,6 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     else if (predictor == LorenzoZigZag)
       GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(
           mem, make_view(in, len), eb, radius, stream);
-    else if (predictor == LorenzoProto)
-      psz::module::GPU_PROTO_c_lorenzo_nd_with_outlier<T, E>::kernel(
-          in, len, mem->eq_d(), (void*)mem->buf_outlier2(), ebx2, ebx2_r, RC.radius, stream);
     else if (predictor == Spline) {
       mem->set_spline_variant(ctx->spline_variant);       // anchor sizing before anchor_len3()
       ctx->header->spline_variant = ctx->spline_variant;  // persist for decompress dispatch
@@ -599,9 +596,6 @@ STEP_PREDICT:
     GPU_x_lorenzo_nd<T, Toggle::ZigZag_On>::kernel(
         make_view(mem->eq_d(), len), make_view(d_space, len), make_view(d_xdata, len), eb,
         header->rc.radius, stream);
-  else if (header->pipeline.predictor == LorenzoProto)
-    psz::module::GPU_PROTO_x_lorenzo_nd<T, E>::kernel(
-        mem->eq_d(), d_space, d_xdata, len, ebx2, ebx2_r, header->rc.radius, stream);
   else if (header->pipeline.predictor == Spline) {
     mem->set_spline_variant(header->spline_variant);  // anchor sizing for anchor_len3()
     if constexpr (std::is_same_v<T, f4>)

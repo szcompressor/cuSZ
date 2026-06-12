@@ -219,8 +219,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
         ctx->header->pipeline.predictor = psz_predictor::Lorenzo;
       else if (_v == "lorenzo-zigzag" or _v == "lrz-zz")
         ctx->header->pipeline.predictor = psz_predictor::LorenzoZigZag;
-      else if (_v == "lorenzo-proto" or _v == "lrz-proto")
-        ctx->header->pipeline.predictor = psz_predictor::LorenzoProto;
       else
         printf("[psz::warning] \"%s\" unknown predictor; fallback to lorenzo.\n", _v.c_str());
     }

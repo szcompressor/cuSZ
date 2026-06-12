@@ -72,20 +72,6 @@ struct GPU_x_lorenzo_nd {
       u2 const radius, void* stream);
 };
 
-template <typename T, typename Eq>
-struct GPU_PROTO_c_lorenzo_nd_with_outlier {
-  static int kernel(
-      T* const in_data, psz_len const len, Eq* const out_eq, void* out_outlier, f8 const ebx2,
-      f8 const ebx2_r, u2 const radius, void* stream);
-};
-
-template <typename T, typename Eq>
-struct GPU_PROTO_x_lorenzo_nd {
-  static int kernel(
-      Eq* in_eq, T* in_outlier, T* out_data, psz_len const len, f8 const ebx2, f8 const ebx2_r,
-      int const radius, void* stream);
-};
-
 template <typename T, bool UseZigZag, typename Eq>
 struct CPU_c_lorenzo_nd_with_outlier {
   static int kernel(

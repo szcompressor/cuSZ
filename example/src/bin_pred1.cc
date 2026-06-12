@@ -2,7 +2,7 @@
 // path (no lossless coding).
 //
 // Usage: PROG data_file x y z abs_eb [predictor] [radius] [EXPORT]
-//   predictor: spline (default), lrz, lrz-zz, lrz-proto
+//   predictor: spline (default), lrz, lrz-zz
 //   radius:    integer, default 128
 //   EXPORT:    if present, dump ectrl as u2 to data_file.pred_<predictor>.ectrl.u2
 //              and (for Spline) anchor values to data_file.pred_spline.anchor.f4
@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 {
   if (argc < 6) {
     printf("USAGE: %s data_file x y z abs_eb [predictor] [radius] [EXPORT]\n", argv[0]);
-    printf("  predictor: spline (default), lrz, lrz-zz, lrz-proto\n");
+    printf("  predictor: spline (default), lrz, lrz-zz\n");
     printf("  EXPORT: dump ectrl (and anchor for Spline) to files\n");
     return 1;
   }
@@ -59,8 +59,6 @@ int main(int argc, char** argv)
     pred_type = psz_predictor::Lorenzo;
   else if (pred_name == "lrz-zz" or pred_name == "lorenzo-zigzag")
     pred_type = psz_predictor::LorenzoZigZag;
-  else if (pred_name == "lrz-proto" or pred_name == "lorenzo-proto")
-    pred_type = psz_predictor::LorenzoProto;
   else if (pred_name == "spline-y24")
     spline_variant = 1;
 
@@ -120,10 +118,6 @@ int main(int argc, char** argv)
     GPU_x_lorenzo_nd<float, Toggle::ZigZag_On>::kernel(
         make_view(mem->eq_d(), len3), make_view(d_xdata.get(), len3),
         make_view(d_xdata.get(), len3), abs_eb, manager->header->rc.radius, (void*)stream);
-  else if (pred_type == psz_predictor::LorenzoProto)
-    psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
-        mem->eq_d(), d_xdata.get(), d_xdata.get(), len3, abs_eb * 2, 1 / (abs_eb * 2),
-        manager->header->rc.radius, (void*)stream);
   else if (pred_type == psz_predictor::Spline)
     psz::module::GPU_x_spline<float, E>::kernel_v1(
         make_view(mem->anchor_d(), mem->anchor_len3()),

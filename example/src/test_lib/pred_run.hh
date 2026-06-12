@@ -36,9 +36,6 @@ inline bool resolve_predictor(const std::string& name, psz_predictor& out_pred, 
   else if (name == "lrz-zz" or name == "lorenzo-zigzag") {
     out_pred = psz_predictor::LorenzoZigZag;
   }
-  else if (name == "lrz-proto" or name == "lorenzo-proto") {
-    out_pred = psz_predictor::LorenzoProto;
-  }
   else if (name == "spl" or name == "spline") {
     out_pred = psz_predictor::Spline;
   }
@@ -188,10 +185,6 @@ class PredRun {
       GPU_x_lorenzo_nd<float, _Toggle::ZigZag_On>::kernel(
           make_view(mem->eq_d(), len3), make_view(d_xdata.get(), len3),
           make_view(d_xdata.get(), len3), args.eb, mgr()->header->rc.radius, (void*)stream);
-    else if (pred_type == psz_predictor::LorenzoProto)
-      psz::module::GPU_PROTO_x_lorenzo_nd<float, E>::kernel(
-          mem->eq_d(), d_xdata.get(), d_xdata.get(), len3, args.eb * 2, 1 / (args.eb * 2),
-          mgr()->header->rc.radius, (void*)stream);
     else if (pred_type == psz_predictor::Spline)
       psz::module::GPU_x_spline<float, E>::kernel_v1(
           make_view(mem->anchor_d(), mem->anchor_len3()),

@@ -29,7 +29,6 @@ string const psz_report_query_pred(psz_predictor const p)
   const std::unordered_map<psz_predictor const, std::string const> lut = {
       {psz_predictor::Lorenzo, "Lorenzo"},
       {psz_predictor::LorenzoZigZag, "Lrz-ZigZag"},
-      {psz_predictor::LorenzoProto, "Lrz-Proto"},
       {psz_predictor::Spline, "Spline"},
   };
   return lut.at(p);

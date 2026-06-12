@@ -139,8 +139,6 @@ target_link_libraries(psz_cu_mem
 add_library(psz_cu_core
   psz/src/compile/hist_generic.cu
   psz/src/compile/histsp.cu
-  psz/src/compile/proto_lrz_c.cu
-  psz/src/compile/proto_lrz_x.cu
   psz/src/compile/spvn.cu
   psz/src/compile/lrz_c.cu
   psz/src/compile/lrz_x.cu
