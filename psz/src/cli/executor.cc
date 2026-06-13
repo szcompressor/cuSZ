@@ -86,9 +86,9 @@ void psz_compress_task(psz_args* args)
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         m = psz_create_resource_manager(
             F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
-            {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
+            {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
+            args->spline_variant, stream);
         m->cli                     = args->cli;
-        m->spline_variant          = args->spline_variant;
         m->header->pipeline.codec2 = CLI_codec2(args);
         psz_compress_float(
             m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
@@ -101,9 +101,9 @@ void psz_compress_task(psz_args* args)
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         m = psz_create_resource_manager(
             F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
-            {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC}, stream);
+            {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
+            args->spline_variant, stream);
         m->cli                     = args->cli;
-        m->spline_variant          = args->spline_variant;
         m->header->pipeline.codec2 = CLI_codec2(args);
         psz_compress_double(
             m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,

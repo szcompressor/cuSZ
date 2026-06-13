@@ -1,4 +1,4 @@
-#include "kernel/lrz_x.cu.inl"
+#include "kernel/lrz_x.cuh"
 
 namespace psz {
 

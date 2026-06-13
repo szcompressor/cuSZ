@@ -10,7 +10,7 @@ extern "C" {
 #define DEFAULT_RADIUS 512
 
 // clang-format off
-psz_resource* psz_create_resource_manager(psz_dtype dtype, psz_len len, psz_pipeline pipeline, void* stream);
+psz_resource* psz_create_resource_manager(psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream);
 psz_resource* psz_create_resource_manager_from_CLI(int argc, char** argv, void* stream);
 psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* stream);
 void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* header);

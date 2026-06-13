@@ -58,7 +58,7 @@ int main(int argc, char** argv)
 
   psz_resource* m = psz_create_resource_manager(
       F4, {args.x, args.y, args.z}, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, CodecNull},
-      stream);
+      0, stream);
   m->cli = new psz_cli_config;  // TODO mix use the cli and "resource manager"
   if (args.codec_type == HF) {
     cout << "using Huffman" << endl;

@@ -3,16 +3,21 @@
 #include <cuda_runtime.h>
 
 #include "kernel.hh"
+#include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
 #include "spl_y24.cuh"
 
-template <typename T, typename E, typename FP>
-int psz::module::GPU_x_spline_y24<T, E, FP>::kernel_v1(
-    host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T*, double eb, uint32_t radius,
-    INTERP_PARAMS, void* stream)
+template <class Types>
+int psz::module::GPU_x_spline_y24<Types>::kernel(
+    Buf* buf, T* anchor_p, host::view<T> xdata, double eb, uint32_t radius, INTERP_PARAMS,
+    void* stream)
 {
+  if (LEN_TO_DIM3(xdata.extent).z == 1) return PSZ_ABORT_UNSUPPORTED_DIMENSION;  // 3D-only
+
+  using FP = typename Types::Fp;
+  auto anchor = _ptb::make_view(anchor_p, buf->anchor_len3());
+  auto eq = _ptb::make_view(buf->eq_d(), xdata.extent);
   auto extent = LEN_TO_DIM3(xdata.extent);
-  if (extent.z == 1) return PSZ_ABORT_UNSUPPORTED_DIMENSION;  // 3D-only
 
   constexpr int BLK8 = 8;
   auto div = [](auto a, auto b) { return (a - 1) / b + 1; };

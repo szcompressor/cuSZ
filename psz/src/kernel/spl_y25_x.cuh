@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 
 #include "kernel.hh"
+#include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
 #include "spl_y25.cuh"
 
@@ -23,11 +24,14 @@ constexpr int PROFILE_NUM_BLOCK_X = 4;
 constexpr int PROFILE_NUM_BLOCK_Y = 4;
 constexpr int PROFILE_NUM_BLOCK_Z = 4;
 
-template <typename T, typename E, typename FP>
-int psz::module::GPU_x_spline_y25<T, E, FP>::kernel_v1(
-    host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
-    uint32_t radius, INTERP_PARAMS intp_param, void* stream)
+template <class Types>
+int psz::module::GPU_x_spline_y25<Types>::kernel(
+    Buf* buf, T* anchor_p, host::view<T> xdata, double eb, uint32_t radius,
+    INTERP_PARAMS intp_param, void* stream)
 {
+  using FP = typename Types::Fp;
+  auto anchor = _ptb::make_view(anchor_p, buf->anchor_len3());
+  auto eq = _ptb::make_view(buf->eq_d(), xdata.extent);
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   auto ebx2 = eb * 2;

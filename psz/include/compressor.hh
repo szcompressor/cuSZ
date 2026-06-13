@@ -4,7 +4,6 @@
 #include "cusz/context.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
-#include "hf_hl.hh"
 #include "mem/buf_comp.hh"
 
 template <typename T, typename E>

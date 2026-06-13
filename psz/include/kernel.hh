@@ -54,11 +54,7 @@ struct GPU_c_lorenzo_nd {
   using Eq = typename Types::Eq;
   using Buf = typename Types::Buf_Comp;
 
-  static int kernel(
-      host::view<T> in_data, host::view<Eq> out_eq, void* out_outlier, u4* out_top1, f8 const eb,
-      u2 const radius, void* stream);
-  static int compressor_kernel(
-      Buf* buf, host::view<T> in_data, f8 const eb, u2 const radius, void* stream);
+  static int kernel(Buf* buf, host::view<T> in_data, f8 const eb, u2 const radius, void* stream);
 };
 
 template <class Types, class Features>
@@ -67,9 +63,7 @@ struct GPU_x_lorenzo_nd {
   using Eq = typename Types::Eq;
   using Buf = typename Types::Buf_Comp;
 
-  static int kernel(
-      host::view<Eq> in_eq, host::view<T> in_outlier, host::view<T> out_data, f8 const eb,
-      u2 const radius, void* stream);
+  static int kernel(Buf* buf, T* out, f8 const eb, u2 const radius, void* stream);
 };
 
 template <typename T, bool UseZigZag, typename Eq>
@@ -89,71 +83,48 @@ struct CPU_x_lorenzo_nd {
 // spline-based interpolation //////////////////////////////////////////////////
 // y24: 3D (x32-y8-z8); y25: 2D (x64-y64) and 3D (x16-y16-z16) /////////////////
 
-template <typename T, typename E, typename Fp = T>
-struct GPU_c_spline_y25 {
-  static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
-  static int kernel_v1(
-      host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
-      double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
-      T* h_profiled_errors, u4 const pe_len, void* stream);
-};
-
-template <typename T, typename E, typename Fp = T>
+template <class Types>
 struct GPU_c_spline_y24 {
-  static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
-  static int kernel_v1(
-      host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
-      double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
-      T* h_profiled_errors, u4 const pe_len, void* stream);
+  using T = typename Types::T;
+  using E = typename Types::Eq;
+  using Buf = typename Types::Buf_Comp;
+
+  static int kernel(
+      Buf* buf, host::view<T> data, double eb, double rel_eb, uint32_t radius,
+      INTERP_PARAMS& intp_param, void* stream);
 };
 
-template <typename T, typename E, typename Fp = T>
-struct GPU_c_spline {
-  static int kernel_v1(
-      host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
-      double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
-      T* h_profiled_errors, u4 const pe_len, void* stream,
-      SplineVariant variant = SplineVariant::y25)
-  {
-    if (variant == SplineVariant::y24)
-      return GPU_c_spline_y24<T, E, Fp>::kernel_v1(
-          data, eq, anchor, _outlier, eb, rel_eb, radius, intp_param, d_profiled_errors,
-          h_profiled_errors, pe_len, stream);
-    return GPU_c_spline_y25<T, E, Fp>::kernel_v1(
-        data, eq, anchor, _outlier, eb, rel_eb, radius, intp_param, d_profiled_errors,
-        h_profiled_errors, pe_len, stream);
-  }
+template <class Types>
+struct GPU_c_spline_y25 {
+  using T = typename Types::T;
+  using E = typename Types::Eq;
+  using Buf = typename Types::Buf_Comp;
+
+  static int kernel(
+      Buf* buf, host::view<T> data, double eb, double rel_eb, uint32_t radius,
+      INTERP_PARAMS& intp_param, void* stream);
 };
 
-template <typename T, typename E, typename Fp = T>
-struct GPU_x_spline_y25 {
-  static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
-  static int kernel_v1(
-      host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
-      uint32_t radius, INTERP_PARAMS intp_param, void* stream);
-};
-
-template <typename T, typename E, typename Fp = T>
+template <class Types>
 struct GPU_x_spline_y24 {
-  static int null() { return PSZ_ABORT_NO_SUCH_PREDICTOR; }
-  static int kernel_v1(
-      host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
-      uint32_t radius, INTERP_PARAMS intp_param, void* stream);
+  using T = typename Types::T;
+  using E = typename Types::Eq;
+  using Buf = typename Types::Buf_Comp;
+
+  static int kernel(
+      Buf* buf, T* anchor, host::view<T> xdata, double eb, uint32_t radius,
+      INTERP_PARAMS intp_param, void* stream);
 };
 
-template <typename T, typename E, typename Fp = T>
-struct GPU_x_spline {
-  static int kernel_v1(
-      host::view<T> anchor, host::view<E> eq, host::view<T> xdata, T* outlier_tmp, double eb,
-      uint32_t radius, INTERP_PARAMS intp_param, void* stream,
-      SplineVariant variant = SplineVariant::y25)
-  {
-    if (variant == SplineVariant::y24)
-      return GPU_x_spline_y24<T, E, Fp>::kernel_v1(
-          anchor, eq, xdata, outlier_tmp, eb, radius, intp_param, stream);
-    return GPU_x_spline_y25<T, E, Fp>::kernel_v1(
-        anchor, eq, xdata, outlier_tmp, eb, radius, intp_param, stream);
-  }
+template <class Types>
+struct GPU_x_spline_y25 {
+  using T = typename Types::T;
+  using E = typename Types::Eq;
+  using Buf = typename Types::Buf_Comp;
+
+  static int kernel(
+      Buf* buf, T* anchor, host::view<T> xdata, double eb, uint32_t radius,
+      INTERP_PARAMS intp_param, void* stream);
 };
 
 template <typename T, typename M>

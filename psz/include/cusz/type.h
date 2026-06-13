@@ -52,13 +52,12 @@ typedef size_t szt;
 #define DEFAULT_HISTOGRAM HistGeneric
 #define DEFAULT_CODEC HFR_V3
 #define DEFAULT_CODEC_ALT HFR_PBKC
-#define NULL_HISTOGRAM HistNull
+#define NULL_HIST HistNull
 #define NULL_CODEC CodecNull
 
 // clang-format off
 typedef enum { Abs, Rel } psz_mode;
 typedef enum { Lorenzo, LorenzoZigZag, Spline } psz_predictor;
-typedef enum { FP64toFP32, LogTransform, ShiftedLogTransform, Binning2x2, Binning2x1, Binning1x2 } _future_psz_preprocess;
 // HFr1: HF (ph1+ph2) + concat replacing legacy ph3 (host scan) + ph4 (copy).
 // HFr2: like HFr1 but ships per-block metadata as AoS bheader_backport[].
 // HFR: Tian et al. 2020, refined.

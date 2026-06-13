@@ -1,6 +1,7 @@
 #include "cusz/type.h"
 #include "kernel.hh"
 #include "kernel/launch.inl"
+#include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 #include "wave32.cu.inl"
@@ -375,83 +376,35 @@ __global__ void KCU_x_lorenzo_3d(  //
 namespace psz::module {
 
 template <class Types, class Features>
-struct GPU_x_lorenzo_1d {
-  using T = typename Types::T;
-  using Eq = typename Types::Eq;
-  using lrz1 = config::x_lorenzo<1>;
+int GPU_x_lorenzo_nd<Types, Features>::kernel(
+    typename Types::Buf_Comp* buf, typename Types::T* out, f8 const eb, u2 const radius,
+    void* stream)
+{
+  auto extent = LEN_TO_DIM3(buf->eq_len3());
+  auto d = psz::config::utils::ndim(extent);
+  auto ebx2 = eb * 2;
+  auto leapy = extent.x;
+  auto leapz = extent.x * extent.y;
+  auto in_eq = buf->eq_d();
 
-  static int kernel(
-      host::view<Eq> in_eq, host::view<T> in_outlier, host::view<T> out_data, f8 const ebx2,
-      uint16_t const radius, void* stream)
-  {
-    auto extent = LEN_TO_DIM3(out_data.extent);
-
+  if (d == 1) {
+    using lrz1 = config::x_lorenzo<1>;
     psz::KCU_x_lorenzo_1d<Types, Features, lrz1::Perf>
         <<<lrz1::thread_grid(extent), lrz1::thread_block, 0, (cudaStream_t)stream>>>(
-            in_eq.ptr, in_outlier.ptr, out_data.ptr, extent, radius, (T)ebx2);
-
-    return CUSZ_SUCCESS;
+            in_eq, out, out, extent, radius, (T)ebx2);
   }
-};
-
-template <class Types, class Features>
-struct GPU_x_lorenzo_2d {
-  using T = typename Types::T;
-  using Eq = typename Types::Eq;
-  using lrz2 = config::x_lorenzo<2, 32>;
-
-  static int kernel(
-      host::view<Eq> in_eq, host::view<T> in_outlier, host::view<T> out_data, f8 const ebx2,
-      uint16_t const radius, void* stream)
-  {
-    auto extent = LEN_TO_DIM3(out_data.extent);
-    auto leapy = out_data.leap.y;
-
+  else if (d == 2) {
+    using lrz2 = config::x_lorenzo<2, 32>;
     psz::KCU_x_lorenzo_2d__32x32<Types, Features, lrz2::Perf>
         <<<lrz2::thread_grid(extent), lrz2::thread_block, 0, (cudaStream_t)stream>>>(
-            in_eq.ptr, in_outlier.ptr, out_data.ptr, extent, leapy, radius, (T)ebx2);
-
-    return CUSZ_SUCCESS;
+            in_eq, out, out, extent, leapy, radius, (T)ebx2);
   }
-};
-
-template <class Types, class Features>
-struct GPU_x_lorenzo_3d {
-  using T = typename Types::T;
-  using Eq = typename Types::Eq;
-  using lrz3 = config::x_lorenzo<3>;
-
-  static int kernel(
-      host::view<Eq> in_eq, host::view<T> in_outlier, host::view<T> out_data, f8 const ebx2,
-      uint16_t const radius, void* stream)
-  {
-    auto extent = LEN_TO_DIM3(out_data.extent);
-    auto leapy = out_data.leap.y;
-    auto leapz = out_data.leap.z;
-
+  else if (d == 3) {
+    using lrz3 = config::x_lorenzo<3>;
     psz::KCU_x_lorenzo_3d<Types, Features, lrz3::Perf>
         <<<lrz3::thread_grid(extent), lrz3::thread_block, 0, (cudaStream_t)stream>>>(
-            in_eq.ptr, in_outlier.ptr, out_data.ptr, extent, leapy, leapz, radius, (T)ebx2);
-
-    return CUSZ_SUCCESS;
+            in_eq, out, out, extent, leapy, leapz, radius, (T)ebx2);
   }
-};
-
-template <class Types, class Features>
-int GPU_x_lorenzo_nd<Types, Features>::kernel(
-    host::view<typename Types::Eq> in_eq, host::view<typename Types::T> in_outlier,
-    host::view<typename Types::T> out_data, f8 const eb, uint16_t const radius, void* stream)
-{
-  auto d = psz::config::utils::ndim(LEN_TO_DIM3(out_data.extent));
-
-  auto ebx2 = eb * 2;
-
-  if (d == 1)
-    GPU_x_lorenzo_1d<Types, Features>::kernel(in_eq, in_outlier, out_data, ebx2, radius, stream);
-  else if (d == 2)
-    GPU_x_lorenzo_2d<Types, Features>::kernel(in_eq, in_outlier, out_data, ebx2, radius, stream);
-  else if (d == 3)
-    GPU_x_lorenzo_3d<Types, Features>::kernel(in_eq, in_outlier, out_data, ebx2, radius, stream);
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;
 

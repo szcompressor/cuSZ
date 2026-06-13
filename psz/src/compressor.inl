@@ -16,13 +16,34 @@ using std::to_string;
 using _ptb::make_view;
 using Toggle = psz::Toggle;
 
-template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
-using GPU_c_lorenzo_nd =
-    psz::module::GPU_c_lorenzo_nd<psz::PredictorTyping<T>, psz::PredictorFeature<ZigZag>>;
+using psz::PredictorFeature;
+using psz::PredictorTyping;
+using psz::module::GPU_c_lorenzo_nd;
+using psz::module::GPU_c_spline_y24;
+using psz::module::GPU_c_spline_y25;
+using psz::module::GPU_x_lorenzo_nd;
+using psz::module::GPU_x_spline_y24;
+using psz::module::GPU_x_spline_y25;
 
 template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
-using GPU_x_lorenzo_nd =
-    psz::module::GPU_x_lorenzo_nd<psz::PredictorTyping<T>, psz::PredictorFeature<ZigZag>>;
+using pred_lrz_c = GPU_c_lorenzo_nd<PredictorTyping<T>, PredictorFeature<ZigZag>>;
+
+template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
+using pred_lrz_x = GPU_x_lorenzo_nd<PredictorTyping<T>, PredictorFeature<ZigZag>>;
+
+template <typename T, typename E>
+using spl_c_y24 = GPU_c_spline_y24<PredictorTyping<T, E>>;
+template <typename T, typename E>
+using spl_c_y25 = GPU_c_spline_y25<PredictorTyping<T, E>>;
+template <typename T, typename E>
+using spl_x_y24 = GPU_x_spline_y24<PredictorTyping<T, E>>;
+template <typename T, typename E>
+using spl_x_y25 = GPU_x_spline_y25<PredictorTyping<T, E>>;
+
+#define c_lrz pred_lrz_c<T, Toggle::ZigZag_Off>::kernel
+#define x_lrz pred_lrz_x<T, Toggle::ZigZag_Off>::kernel
+#define x_lrz_zz pred_lrz_x<T, Toggle::ZigZag_On>::kernel
+#define c_lrz_zz pred_lrz_c<T, Toggle::ZigZag_On>::kernel
 
 #if defined(PSZ_USE_CUDA)
 
@@ -59,7 +80,8 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
                        (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3);
   auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression, use_HFR);
   mem->register_header(ctx->header);
-  // buf_hf = new phf::Buf<E>(mem->len, mem->max_bklen);
+  mem->set_spline_variant(ctx->spline_variant);       // anchor sizing
+  ctx->header->spline_variant = ctx->spline_variant;  // decompress dispatch
 
   // optimize component(s)
   psz::module::GPU_histogram_generic<E>::init(
@@ -90,22 +112,20 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
   const auto radius = RC.radius;
 
   if (PIPELINE.predictor == Lorenzo)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(
-        mem, make_view(in, len), eb, radius, stream);
+    pred_lrz_c<T, Toggle::ZigZag_Off>::kernel(mem, make_view(in, len), eb, radius, stream);
   else if (PIPELINE.predictor == LorenzoZigZag)
-    GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(
-        mem, make_view(in, len), eb, radius, stream);
+    pred_lrz_c<T, Toggle::ZigZag_On>::kernel(mem, make_view(in, len), eb, radius, stream);
   else if (PIPELINE.predictor == Spline) {
-    mem->set_spline_variant(ctx->spline_variant);       // anchor sizing before anchor_len3()
-    ctx->header->spline_variant = ctx->spline_variant;  // persist for decompress dispatch
-    memset_device(mem->buf_outlier2()->num_d(), 1, 0);
-    if constexpr (std::is_same_v<T, f4>)
-      psz::module::GPU_c_spline<T, E>::kernel_v1(
-          make_view(in, len), make_view(mem->eq_d(), len),
-          make_view(mem->anchor_d(), mem->anchor_len3()), (void*)mem->buf_outlier2(), eb,
-          ctx->header->user_input_eb, ctx->header->rc.radius, ctx->header->intp_param,
-          mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream,
-          ctx->spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
+    if constexpr (std::is_same_v<T, f4>) {
+      if (ctx->spline_variant == 1)
+        spl_c_y24<T, E>::kernel(
+            mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
+            ctx->header->intp_param, stream);
+      else
+        spl_c_y25<T, E>::kernel(
+            mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
+            ctx->header->intp_param, stream);
+    }
   }
 
   /* make outlier count seen on host */
@@ -136,22 +156,20 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   auto compress_predict = [&]() -> int {
     if (predictor == Lorenzo)
-      GPU_c_lorenzo_nd<T, Toggle::ZigZag_Off>::compressor_kernel(
-          mem, make_view(in, len), eb, radius, stream);
+      c_lrz(mem, make_view(in, len), eb, radius, stream);
     else if (predictor == LorenzoZigZag)
-      GPU_c_lorenzo_nd<T, Toggle::ZigZag_On>::compressor_kernel(
-          mem, make_view(in, len), eb, radius, stream);
+      c_lrz_zz(mem, make_view(in, len), eb, radius, stream);
     else if (predictor == Spline) {
-      mem->set_spline_variant(ctx->spline_variant);       // anchor sizing before anchor_len3()
-      ctx->header->spline_variant = ctx->spline_variant;  // persist for decompress dispatch
-      memset_device(mem->buf_outlier2()->num_d(), 1, 0);
-      if constexpr (std::is_same_v<T, f4>)
-        psz::module::GPU_c_spline<T, E>::kernel_v1(
-            make_view(in, len), make_view(mem->eq_d(), len),
-            make_view(mem->anchor_d(), mem->anchor_len3()), (void*)mem->buf_outlier2(), eb,
-            ctx->header->user_input_eb, ctx->header->rc.radius, ctx->header->intp_param,
-            mem->profiled_errors_d(), mem->profiled_errors_h(), mem->profiled_errors_len(), stream,
-            ctx->spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
+      if constexpr (std::is_same_v<T, f4>) {
+        if (ctx->spline_variant == 1)
+          spl_c_y24<T, E>::kernel(
+              mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
+              ctx->header->intp_param, stream);
+        else
+          spl_c_y25<T, E>::kernel(
+              mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
+              ctx->header->intp_param, stream);
+      }
     }
     else
       return PSZ_ABORT_NO_SUCH_PREDICTOR;
@@ -589,20 +607,21 @@ STEP_DECODING:
 STEP_PREDICT:
 
   if (header->pipeline.predictor == Lorenzo)
-    GPU_x_lorenzo_nd<T, Toggle::ZigZag_Off>::kernel(
-        make_view(mem->eq_d(), len), make_view(d_space, len), make_view(d_xdata, len), eb,
-        header->rc.radius, stream);
+    x_lrz(mem, d_xdata, eb, header->rc.radius, stream);
   else if (header->pipeline.predictor == LorenzoZigZag)
-    GPU_x_lorenzo_nd<T, Toggle::ZigZag_On>::kernel(
-        make_view(mem->eq_d(), len), make_view(d_space, len), make_view(d_xdata, len), eb,
-        header->rc.radius, stream);
+    x_lrz_zz(mem, d_xdata, eb, header->rc.radius, stream);
   else if (header->pipeline.predictor == Spline) {
-    mem->set_spline_variant(header->spline_variant);  // anchor sizing for anchor_len3()
-    if constexpr (std::is_same_v<T, f4>)
-      psz::module::GPU_x_spline<T, E>::kernel_v1(
-          make_view(d_anchor, mem->anchor_len3()), make_view(mem->eq_d(), mem->eq_len3()),
-          make_view(d_xdata, mem->eq_len3()), d_space, eb, header->rc.radius, header->intp_param,
-          stream, header->spline_variant == 1 ? SplineVariant::y24 : SplineVariant::y25);
+    mem->set_spline_variant(header->spline_variant);  // anchor sizing
+    if constexpr (std::is_same_v<T, f4>) {
+      if (header->spline_variant == 1)
+        spl_x_y24<T, E>::kernel(
+            mem, d_anchor, make_view(d_xdata, len), eb, header->rc.radius, header->intp_param,
+            stream);
+      else
+        spl_x_y25<T, E>::kernel(
+            mem, d_anchor, make_view(d_xdata, len), eb, header->rc.radius, header->intp_param,
+            stream);
+    }
   }
 
   return PSZ_SUCCESS;

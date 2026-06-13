@@ -12,7 +12,7 @@ template <typename T, typename E>
 using CP = psz::compression_pipeline<T, E>;
 
 psz_resource* psz_create_resource_manager(
-    psz_dtype dtype, psz_len len, psz_pipeline pipeline, void* stream)
+    psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream)
 {
   auto m = new psz_resource;
 
@@ -26,7 +26,7 @@ psz_resource* psz_create_resource_manager(
   m->header->len = len;
   m->len_linear = len.x * len.y * len.z;
   m->bklen = m->header->rc.radius * 2;
-  m->spline_variant = 0;  // default to y25
+  m->spline_variant = spline_variant;  // creation-time; compress_init consumes it
   m->cli = nullptr;
   phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);

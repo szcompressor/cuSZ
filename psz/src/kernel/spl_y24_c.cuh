@@ -3,17 +3,29 @@
 #include <cuda_runtime.h>
 
 #include "kernel.hh"
+#include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 #include "spl_y24.cuh"
 
-template <typename T, typename E, typename FP>
-int psz::module::GPU_c_spline_y24<T, E, FP>::kernel_v1(
-    host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb, double,
-    uint32_t radius, INTERP_PARAMS&, T*, T*, u4 const, void* stream)
+template <class Types>
+int psz::module::GPU_c_spline_y24<Types>::kernel(
+    Buf* buf, host::view<T> in, double eb, double, uint32_t radius, INTERP_PARAMS&, void* stream)
 {
+  if (LEN_TO_DIM3(in.extent).z == 1) return PSZ_ABORT_UNSUPPORTED_DIMENSION;  // 3D-only
+
+  using FP = typename Types::Fp;
+  auto data_p = in.ptr;
+  auto eq_p = buf->eq_d();
+  auto anchor_p = buf->anchor_d();
+  auto d_ext = in.extent;
+  auto a_ext = buf->anchor_len3();
+  auto _outlier = (void*)buf->buf_outlier2();
+
+  auto data = _ptb::make_view(data_p, d_ext);
+  auto eq = _ptb::make_view(eq_p, d_ext);
+  auto anchor = _ptb::make_view(anchor_p, a_ext);
   auto extent = LEN_TO_DIM3(data.extent);
-  if (extent.z == 1) return PSZ_ABORT_UNSUPPORTED_DIMENSION;  // 3D-only
 
   constexpr int BLK8 = 8;
   auto div = [](auto a, auto b) { return (a - 1) / b + 1; };

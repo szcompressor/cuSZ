@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 
 #include "kernel.hh"
+#include "mem/buf_comp.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
 #include "spl_y25.cuh"
@@ -38,12 +39,24 @@ constexpr int PROFILE_NUM_BLOCK_Z = 4;
       return 3;                                                                              \
   };
 
-template <typename T, typename E, typename FP>
-int psz::module::GPU_c_spline_y25<T, E, FP>::kernel_v1(
-    host::view<T> data, host::view<E> eq, host::view<T> anchor, void* _outlier, double eb,
-    double rel_eb, uint32_t radius, INTERP_PARAMS& intp_param, T* d_profiled_errors,
-    T* h_profiled_errors, u4 const pe_len, void* stream)
+template <class Types>
+int psz::module::GPU_c_spline_y25<Types>::kernel(
+    Buf* buf, host::view<T> in, double eb, double rel_eb, uint32_t radius,
+    INTERP_PARAMS& intp_param, void* stream)
 {
+  auto data_p = in.ptr;
+  auto eq_p = buf->eq_d();
+  auto anchor_p = buf->anchor_d();
+  auto d_ext = in.extent;
+  auto a_ext = buf->anchor_len3();
+  auto _outlier = (void*)buf->buf_outlier2();
+  auto d_profiled_errors = buf->profiled_errors_d();
+  auto h_profiled_errors = buf->profiled_errors_h();
+  auto pe_len = buf->profiled_errors_len();
+
+  auto data = _ptb::make_view(data_p, d_ext);
+  auto eq = _ptb::make_view(eq_p, d_ext);
+  auto anchor = _ptb::make_view(anchor_p, a_ext);
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
 
   using Compact = _ptb::compact_GPU_DRAM2<T, u4>;
