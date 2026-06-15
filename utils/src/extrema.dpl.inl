@@ -36,7 +36,7 @@ void GPU_extrema_rawptr(T* d_ptr, size_t len, T res[4])
 // commented for better build time
 /*
 template <typename T>
-void GPU_extrema(thrust::device_ptr<T> g_ptr, size_t len, T res[4])
+void GPU_get_extrema(thrust::device_ptr<T> g_ptr, size_t len, T res[4])
 {
     auto minel  = thrust::min_element(g_ptr, g_ptr + len) - g_ptr;
     auto maxel  = thrust::max_element(g_ptr, g_ptr + len) - g_ptr;

@@ -2,6 +2,7 @@
 
 #include "compare.hh"
 #include "cusz/type.h"
+#include "extrema.hh"
 #include "utils/busyheader.hh"
 #include "utils/synth.hh"
 
@@ -16,9 +17,10 @@ void f(szt len, u4 seed)
   _ptb::testutils::rand_array_cu(d_in, len, seed);
   cudaMemcpy(h_in, d_in, len * sizeof(f4), cudaMemcpyDeviceToHost);
 
-  auto [cpu_min, cpu_max, cpu_avg, cpu_rng] = psz::analysis::CPU_probe_extrema<f4, SEQ>(h_in, len);
-  auto [cuda_min, cuda_max, cuda_avg, cuda_rng] =
-      psz::analysis::GPU_probe_extrema<f4, CUDA>(d_in, len);
+  f4 cpu_r[4];
+  psz::cppstl::CPU_extrema(h_in, len, cpu_r);
+  f4 cpu_min = cpu_r[0], cpu_max = cpu_r[1], cpu_avg = cpu_r[2], cpu_rng = cpu_r[3];
+  auto [cuda_min, cuda_max, cuda_avg, cuda_rng] = psz::cuda::GPU_get_extrema<f4>::kernel(d_in, len);
 
   printf(
       "CPU\tmin: %6.4f\tmax: %6.4f\tavg: %6.4f\trng: %6.4f\n", cpu_min, cpu_max, cpu_avg, cpu_rng);

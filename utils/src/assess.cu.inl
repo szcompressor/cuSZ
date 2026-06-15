@@ -1,4 +1,5 @@
 #include "compare.hh"
+#include "extrema.hh"
 
 namespace psz::cuda {
 
@@ -18,15 +19,12 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  T odata_res[4], xdata_res[4];
-
-  psz::cuda::GPU_extrema<T>(odata, len, odata_res);
-  psz::cuda::GPU_extrema<T>(xdata, len, xdata_res);
+  auto [omin, omax, oavg, orng] = psz::cuda::GPU_get_extrema<T>::kernel(odata, len, stream);
+  auto [xmin, xmax, xavg, xrng] = psz::cuda::GPU_get_extrema<T>::kernel(xdata, len, stream);
 
   T h_err[4];
 
-  psz::cuda::GPU_calc_errors<T>(
-      odata, odata_res[AVGVAL], xdata, xdata_res[AVGVAL], len, h_err);
+  psz::cuda::GPU_calc_errors<T>(odata, oavg, xdata, xavg, len, h_err);
 
   double std_odata = sqrt(h_err[SUM_VAR_ODATA] / len);
   double std_xdata = sqrt(h_err[SUM_VAR_XDATA] / len);
@@ -38,16 +36,16 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
 
   s->len = len;
 
-  s->odata.max = odata_res[MAXVAL];
-  s->odata.min = odata_res[MINVAL];
-  s->odata.rng = odata_res[MAXVAL] - odata_res[MINVAL];
-  s->odata.avg = odata_res[AVGVAL];
+  s->odata.max = omax;
+  s->odata.min = omin;
+  s->odata.rng = orng;
+  s->odata.avg = oavg;
   s->odata.std = std_odata;
 
-  s->xdata.max = xdata_res[MAXVAL];
-  s->xdata.min = xdata_res[MINVAL];
-  s->xdata.rng = xdata_res[MAXVAL] - xdata_res[MINVAL];
-  s->xdata.avg = xdata_res[AVGVAL];
+  s->xdata.max = xmax;
+  s->xdata.min = xmin;
+  s->xdata.rng = xrng;
+  s->xdata.avg = xavg;
   s->xdata.std = std_xdata;
 
   s->max_err_idx = max_abserr_index;
@@ -65,6 +63,6 @@ void GPU_assess_quality(psz_statistics* s, T* xdata, T* odata, size_t const len)
 
 }  // namespace psz::cuda
 
-#define __INSTANTIATE_CUHIP_ASSESS(T)              \
+#define __INSTANTIATE_CUHIP_ASSESS(T)             \
   template void psz::cuda::GPU_assess_quality<T>( \
       psz_statistics * s, T * xdata, T * odata, size_t const len);

@@ -131,8 +131,9 @@ if(EVAL_BACKEND STREQUAL "CUDA")
   if(EVAL)
     add_library(eval_cu
       src/identical.cu
-      src/compile/extrema-f4.cu
-      src/compile/extrema-f8.cu
+      src/compile/extrema-si.cu
+      src/compile/extrema-ui.cu
+      src/compile/extrema-fp.cu
       src/compile/calc_err-f4.cu
       src/compile/calc_err-f8.cu
       src/compile/assess-f4.cu

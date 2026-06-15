@@ -2,10 +2,12 @@
 
 #include <type_traits>
 
-#include "atomics.cu.inl"
 #include "compare.hh"
+#include "mem/atomics.cuh"
 
 namespace psz {
+
+using _ptb::atomic_add;
 
 template <typename T>
 __global__ void KCU_calc_errors(
@@ -41,17 +43,17 @@ __global__ void KCU_calc_errors(
   }
   __syncthreads();
 
-  atomicAddFp(&s_sum_corr, p_sum_corr);
-  atomicAddFp(&s_sum_err_sq, p_sum_err_sq);
-  atomicAddFp(&s_sum_var_odata, p_sum_var_odata);
-  atomicAddFp(&s_sum_var_xdata, p_sum_var_xdata);
+  atomic_add(&s_sum_corr, p_sum_corr);
+  atomic_add(&s_sum_err_sq, p_sum_err_sq);
+  atomic_add(&s_sum_var_odata, p_sum_var_odata);
+  atomic_add(&s_sum_var_xdata, p_sum_var_xdata);
   __syncthreads();
 
   if (threadIdx.x == 0) {
-    atomicAddFp(sum_corr, s_sum_corr);
-    atomicAddFp(sum_err_sq, s_sum_err_sq);
-    atomicAddFp(sum_var_odata, s_sum_var_odata);
-    atomicAddFp(sum_var_xdata, s_sum_var_xdata);
+    atomic_add(sum_corr, s_sum_corr);
+    atomic_add(sum_err_sq, s_sum_err_sq);
+    atomic_add(sum_var_odata, s_sum_var_odata);
+    atomic_add(sum_var_xdata, s_sum_var_xdata);
   }
 }
 
@@ -107,6 +109,6 @@ void psz::cuda::GPU_calc_errors(
   cudaStreamDestroy(stream);
 }
 
-#define __INSTANTIATE_CUHIP_CALCERRORS(T)            \
+#define __INSTANTIATE_CUHIP_CALCERRORS(T)      \
   template void psz::cuda::GPU_calc_errors<T>( \
       T * d_odata, T odata_avg, T * d_xdata, T xdata_avg, size_t len, T h_err[4]);

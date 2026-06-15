@@ -134,7 +134,7 @@ void KERNEL_DP_extrema(
 namespace psz::dpcpp {
 
 template <typename T>
-void GPU_extrema(T* in, size_t len, T res[4])
+void GPU_get_extrema(T* in, size_t len, T res[4])
 {
   // [TODO] external stream
   dpct::device_ext& dev_ct1 = dpct::get_current_device();

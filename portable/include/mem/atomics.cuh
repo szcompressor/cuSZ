@@ -1,12 +1,10 @@
-// Common atomic operations for CUDA/HIP backends
-
-#ifndef EVAL_DETAIL_ATOMICS_CUHIP_INL
-#define EVAL_DETAIL_ATOMICS_CUHIP_INL
+#ifndef _PTB_MEM_ATOMICS_CUH
+#define _PTB_MEM_ATOMICS_CUH
 
 #include <cmath>
 #include <type_traits>
 
-namespace psz {
+namespace _ptb {
 
 namespace {
 
@@ -45,8 +43,8 @@ template <typename T>
 __device__ __forceinline__ T atomicMinFp(T* addr, T value)
 {
   __ATOMIC_PLUGIN
-  auto old = !signbit(value) ? int_as_fp(atomicMin((itype*)addr, fp_as_int(value)))
-                             : uint_as_fp(atomicMax((utype*)addr, fp_as_uint(value)));
+  auto old = not signbit(value) ? int_as_fp(atomicMin((itype*)addr, fp_as_int(value)))
+                                : uint_as_fp(atomicMax((utype*)addr, fp_as_uint(value)));
   return old;
 }
 
@@ -54,8 +52,8 @@ template <typename T>
 __device__ __forceinline__ T atomicMaxFp(T* addr, T value)
 {
   __ATOMIC_PLUGIN
-  auto old = !signbit(value) ? int_as_fp(atomicMax((itype*)addr, fp_as_int(value)))
-                             : uint_as_fp(atomicMin((utype*)addr, fp_as_uint(value)));
+  auto old = not signbit(value) ? int_as_fp(atomicMax((itype*)addr, fp_as_int(value)))
+                                : uint_as_fp(atomicMin((utype*)addr, fp_as_uint(value)));
   return old;
 }
 
@@ -84,6 +82,33 @@ __device__ __forceinline__ T atomicAddFp(T* addr, T value)
 
 }  // namespace
 
-}  // namespace psz
+template <typename T>
+__device__ __forceinline__ T atomic_min(T* addr, T value)
+{
+  if constexpr (std::is_floating_point_v<T>)
+    return atomicMinFp(addr, value);
+  else
+    return atomicMin(addr, value);
+}
 
-#endif  // EVAL_DETAIL_ATOMICS_CUHIP_INL
+template <typename T>
+__device__ __forceinline__ T atomic_max(T* addr, T value)
+{
+  if constexpr (std::is_floating_point_v<T>)
+    return atomicMaxFp(addr, value);
+  else
+    return atomicMax(addr, value);
+}
+
+template <typename T>
+__device__ __forceinline__ T atomic_add(T* addr, T value)
+{
+  if constexpr (std::is_floating_point_v<T>)
+    return atomicAddFp(addr, value);
+  else
+    return atomicAdd(addr, value);
+}
+
+}  // namespace _ptb
+
+#endif  // _PTB_MEM_ATOMICS_CUH
