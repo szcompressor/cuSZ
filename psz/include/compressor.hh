@@ -22,6 +22,17 @@ struct compression_pipeline {
   static int decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream);
   static void release(PSZ_BUF* mem);
   static void compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_stream_t stream);
+
+  // -- modular pipeline stages (additive; the public entry points above and
+  //    the analysis-only drivers share these). ----------------------------
+  // Forward predictor dispatch (eq + outlier capture into mem).
+  static int comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, psz_stream_t stream);
+  // Scatter captured outliers into a (Spline-zeroed) reconstruction space.
+  static void decomp_scatter(
+      psz_header* header, _ptb::compact_cell<T, M>* d_spval_idx, T* d_space, psz_stream_t stream);
+  // Reverse predictor dispatch over an already-populated eq layout.
+  static void decomp_predict(
+      psz_header* header, PSZ_BUF* mem, T* d_anchor, T* d_xdata, psz_stream_t stream);
 };
 
 }  // namespace psz

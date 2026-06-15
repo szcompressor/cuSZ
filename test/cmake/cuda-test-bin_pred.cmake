@@ -22,7 +22,7 @@ endif()
 
 function(add_bin_pred_row name dataset predictor)
   add_test(NAME ${name}
-    COMMAND bin_pred2
+    COMMAND bin_pred1
       --config ${PSZ_TEST_DATA_TOML}
       --dataset ${dataset}
       --require-file

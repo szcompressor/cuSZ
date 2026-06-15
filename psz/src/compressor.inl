@@ -102,20 +102,18 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
   return mem;
 }
 
-PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
+PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream)
 {
-  auto eb = RC.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-
+  const auto eb = RC.eb;
   const auto len = ctx->header->len;
-  const auto len_linear = mem->len_linear;
-  const auto predictor = PIPELINE.predictor;
   const auto radius = RC.radius;
+  const auto predictor = PIPELINE.predictor;
 
-  if (PIPELINE.predictor == Lorenzo)
-    pred_lrz_c<T, Toggle::ZigZag_Off>::kernel(mem, make_view(in, len), eb, radius, stream);
-  else if (PIPELINE.predictor == LorenzoZigZag)
-    pred_lrz_c<T, Toggle::ZigZag_On>::kernel(mem, make_view(in, len), eb, radius, stream);
-  else if (PIPELINE.predictor == Spline) {
+  if (predictor == Lorenzo)
+    c_lrz(mem, make_view(in, len), eb, radius, stream);
+  else if (predictor == LorenzoZigZag)
+    c_lrz_zz(mem, make_view(in, len), eb, radius, stream);
+  else if (predictor == Spline) {
     if constexpr (std::is_same_v<T, f4>) {
       if (ctx->spline_variant == 1)
         spl_c_y24<T, E>::kernel(
@@ -127,6 +125,17 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
             ctx->header->intp_param, stream);
     }
   }
+  else
+    return PSZ_ABORT_NO_SUCH_PREDICTOR;
+
+  return PSZ_SUCCESS;
+}
+
+PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
+{
+  const auto len_linear = mem->len_linear;
+
+  if (auto stat = comp_predict(ctx, mem, in, stream); stat != PSZ_SUCCESS) return stat;
 
   /* make outlier count seen on host */
   sync_by_stream(stream);
@@ -145,34 +154,13 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
 
 PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
 {
-  auto eb = RC.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-
-  const auto len = ctx->header->len;
   const auto len_linear = mem->len_linear;
   const auto predictor = PIPELINE.predictor;
-  const auto radius = RC.radius;
   // HFR family reduce-merge pass count from CLI (--rmerge-count); 3 for API callers (no cli).
   const HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 3};
 
   auto compress_predict = [&]() -> int {
-    if (predictor == Lorenzo)
-      c_lrz(mem, make_view(in, len), eb, radius, stream);
-    else if (predictor == LorenzoZigZag)
-      c_lrz_zz(mem, make_view(in, len), eb, radius, stream);
-    else if (predictor == Spline) {
-      if constexpr (std::is_same_v<T, f4>) {
-        if (ctx->spline_variant == 1)
-          spl_c_y24<T, E>::kernel(
-              mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
-              ctx->header->intp_param, stream);
-        else
-          spl_c_y25<T, E>::kernel(
-              mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
-              ctx->header->intp_param, stream);
-      }
-    }
-    else
-      return PSZ_ABORT_NO_SUCH_PREDICTOR;
+    if (auto stat = comp_predict(ctx, mem, in, stream); stat != PSZ_SUCCESS) return stat;
 
     // HFR family defers outlier read until after pass1's own sync.
     const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
@@ -506,6 +494,40 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   return PSZ_SUCCESS;
 }
 
+PPL_IMPL(void)::decomp_scatter(
+    psz_header* header, _ptb::compact_cell<T, M>* d_spval_idx, T* d_space, void* stream)
+{
+  const auto len = header->len;
+  if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
+  if (header->splen != 0)
+    psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
+}
+
+PPL_IMPL(void)::decomp_predict(
+    psz_header* header, PSZ_BUF* mem, T* d_anchor, T* d_xdata, void* stream)
+{
+  const auto eb = header->rc.eb;
+  const auto len = header->len;
+
+  if (header->pipeline.predictor == Lorenzo)
+    x_lrz(mem, d_xdata, eb, header->rc.radius, stream);
+  else if (header->pipeline.predictor == LorenzoZigZag)
+    x_lrz_zz(mem, d_xdata, eb, header->rc.radius, stream);
+  else if (header->pipeline.predictor == Spline) {
+    mem->set_spline_variant(header->spline_variant);  // anchor sizing
+    if constexpr (std::is_same_v<T, f4>) {
+      if (header->spline_variant == 1)
+        spl_x_y24<T, E>::kernel(
+            mem, d_anchor, make_view(d_xdata, len), eb, header->rc.radius, header->intp_param,
+            stream);
+      else
+        spl_x_y25<T, E>::kernel(
+            mem, d_anchor, make_view(d_xdata, len), eb, header->rc.radius, header->intp_param,
+            stream);
+    }
+  }
+}
+
 PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream)
 {
   auto access = [&](int FIELD, szt offset_nbyte = 0) {
@@ -518,8 +540,6 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
   auto len = header->len;
   phf_header h;  // declared early so goto over STEP_DECODING is valid
 
-  const auto eb = header->rc.eb, eb_r = 1 / eb, ebx2 = eb * 2, ebx2_r = 1 / ebx2;
-
 #ifdef PSZ_USE_LC_FIXED
   if (header->pipeline.codec1 == LC and header->pipeline.codec2 != LC) {
     // TCMS-only: eq is TCMS-compressed, anchor/spfmt are raw in archive
@@ -528,9 +548,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
         mem->eq_d(), mem->buf_lc()->decoded_d(), len.x * len.y * len.z * sizeof(E),
         cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     // d_anchor and d_spval_idx already initialized to access(PSZ_ANCHOR/PSZ_SPFMT)
-    if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
-    if (header->splen != 0)
-      psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
+    decomp_scatter(header, d_spval_idx, d_space, stream);
     goto STEP_PREDICT;
   }
   if (header->pipeline.codec2 == LC) {
@@ -547,9 +565,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       // HF decode from start of decompressed block
       memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)decomp_lc1, sizeof(phf_header));
       // scatter first (eq not yet needed), decode after
-      if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
-      if (header->splen != 0)
-        psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
+      decomp_scatter(header, d_spval_idx, d_space, stream);
       phf::high_level<E>::HF_decode(
           mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->eq_d(), stream, psz_codec::HF);
     }
@@ -564,9 +580,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
       d_anchor = (T*)decomp_lc2;
       d_spval_idx = (_ptb::compact_cell<T, M>*)((byte_t*)decomp_lc2 + (header->entry[PSZ_SPFMT] -
                                                                        header->entry[PSZ_ANCHOR]));
-      if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
-      if (header->splen != 0)
-        psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
+      decomp_scatter(header, d_spval_idx, d_space, stream);
       // eq already placed in mem->eq_d() above
     }
 
@@ -576,10 +590,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
 
 STEP_SCATTER:
 
-  if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
-
-  if (header->splen != 0)
-    psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
+  decomp_scatter(header, d_spval_idx, d_space, stream);
 
 STEP_DECODING:
 
@@ -606,23 +617,7 @@ STEP_DECODING:
 
 STEP_PREDICT:
 
-  if (header->pipeline.predictor == Lorenzo)
-    x_lrz(mem, d_xdata, eb, header->rc.radius, stream);
-  else if (header->pipeline.predictor == LorenzoZigZag)
-    x_lrz_zz(mem, d_xdata, eb, header->rc.radius, stream);
-  else if (header->pipeline.predictor == Spline) {
-    mem->set_spline_variant(header->spline_variant);  // anchor sizing
-    if constexpr (std::is_same_v<T, f4>) {
-      if (header->spline_variant == 1)
-        spl_x_y24<T, E>::kernel(
-            mem, d_anchor, make_view(d_xdata, len), eb, header->rc.radius, header->intp_param,
-            stream);
-      else
-        spl_x_y25<T, E>::kernel(
-            mem, d_anchor, make_view(d_xdata, len), eb, header->rc.radius, header->intp_param,
-            stream);
-    }
-  }
+  decomp_predict(header, mem, d_anchor, d_xdata, stream);
 
   return PSZ_SUCCESS;
 }
