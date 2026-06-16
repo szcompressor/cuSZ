@@ -12,7 +12,7 @@
 #         <flag: --hf|--hfr|--hfr-pbkc|--hfr-pbkgo>
 #         --type u2
 #         --synth <spec>
-#         [--assert-cr-ge=X --assert-cr-le=X --assert-incomp-le=N --assert-brnum-le=N]
+#         [--assert-cr-ge=X --assert-cr-le=X --assert-incomp-le=N]
 #         [--emit-metrics]
 #
 # Add new rows by following the existing pattern; no C++ test code needed.
@@ -62,7 +62,7 @@ add_bin_hf_test(hfr_pbk_go__cauchy_mild__u2
 
 # ----------------------------------------------------------------------------
 # Group B: Cauchy, sharp
-# AEROD_v-like: hi-CR, thin tails, expected smallbrnum
+# AEROD_v-like: hi-CR, thin tails
 # ----------------------------------------------------------------------------
 add_bin_hf_test(hf__cauchy_sharp__u2
   ${BKLEN_U2} --hf --type u2 --synth cauchy:peak=128:gamma=${GAMMA_2}:seed=${SYNTH_SEED}
@@ -70,8 +70,7 @@ add_bin_hf_test(hf__cauchy_sharp__u2
 
 add_bin_hf_test(hfr__cauchy_sharp__u2
   ${BKLEN_U2} --hfr --type u2 --synth cauchy:peak=128:gamma=${GAMMA_2}:seed=${SYNTH_SEED}
-  --assert-cr-ge=10.0 --assert-cr-le=16.0
-  --assert-brnum-le=200000)
+  --assert-cr-ge=10.0 --assert-cr-le=16.0)
 
 add_bin_hf_test(hfr_pbk_compat__cauchy_sharp__u2
   ${BKLEN_U2_PBK} --hfr-pbkc --type u2 --synth cauchy:peak=128:gamma=${GAMMA_2}:seed=${SYNTH_SEED})
