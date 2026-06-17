@@ -215,19 +215,6 @@ struct HFR_PBKC_encode {
 };
 
 template <
-    typename T, int Magnitude = 10, int ReduceTimes = 2, typename Hf = uint32_t,
-    uint16_t Radius = 128>
-struct HFR_PBKC_decode {
-  using header_t = psz::_future::bheader<T, Radius>;
-  using break_t = psz::HFR_PBK_Breaks<Radius>;
-
-  static void CPU_kernel(
-      Hf const* in_bitstream, break_t const* in_breaks, header_t const* in_headers, size_t nblock,
-      uint8_t const* revbooks, size_t one_revbook_nbyte, T* out_eq, size_t out_len,
-      int* opt_n_incomp_blocks = nullptr);
-};
-
-template <
     typename T, int Magnitude, int ReduceTimes, typename Hf = uint32_t, uint16_t Radius = 128>
 struct HFR_PBKGO_encode {
   using header_t = psz::_future::bheader<T, Radius>;
@@ -240,19 +227,6 @@ struct HFR_PBKGO_encode {
       T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, uint32_t* dn_packed_headers,
       uint32_t* d_total_cells, uint32_t* d_state, int max_resident_blocks, void* stream, RMerge rm,
       SMerge sm);
-};
-
-template <
-    typename T, int Magnitude = 10, int ReduceTimes = 2, typename Hf = uint32_t,
-    uint16_t Radius = 128>
-struct HFR_PBKGO_decode {
-  using header_t = psz::_future::bheader<T, Radius>;
-  using break_t = psz::HFR_PBK_Breaks<Radius>;
-
-  static void CPU_kernel(
-      Hf const* in_bitstream, break_t const* in_breaks, header_t const* in_headers, size_t nblock,
-      uint8_t const* revbooks, size_t one_revbook_nbyte, T* out_eq, size_t out_len,
-      int* opt_n_incomp_blocks = nullptr);
 };
 
 }  // namespace phf::module

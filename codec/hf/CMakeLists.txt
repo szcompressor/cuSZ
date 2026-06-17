@@ -73,8 +73,6 @@ add_library(phf_cu
   src/compile/hfr-pbkgo_r2.cu
   src/compile/hfr-pbkgo_r3.cu
   src/compile/hfr-pbkgo_r4.cu
-  src/hfr-pbkc_x.cc
-  src/hfr-pbkgo_x.cc
   src/hfr-pbk_decoder.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src/book/pbk25_r128_d.cu
 )
