@@ -1,4 +1,6 @@
-// Synced from bleeding-edge @ 93f248bb (2026-05-17).
+// (2026-05-17) Synced from bleeding-edge @ 93f248bb.
+// (2026-06-17) The decoded is type Eout so that HFR_* can write eq directly to f4/f8 output buffer.
+
 #include <cstdint>
 
 #include "hfr-pbk.hh"
@@ -15,10 +17,10 @@ __forceinline__ __device__ u4 unpack_par_entry_words(u4 w1)
   return w1 / (u4)sizeof(H);
 }
 
-template <typename E, typename H, typename Storage>
+template <typename Ein, typename H, typename Storage, typename Eout = Ein>
 __global__ void KCU_HFR_PBK_decode(
     H* in_pbk_bitstream, size_t const pbk_bitstream_len, u1* in_rvbk_r128_25, int const rvbk_nbyte,
-    u4 const* pbk_packed_headers, int const pbk_pardeg, size_t const data_len, E* out_decoded)
+    u4 const* pbk_packed_headers, int const pbk_pardeg, size_t const data_len, Eout* out_decoded)
 {
   using BreakCell = psz::HFR_PBK_Breaks<psz::HFR_PBK_Constants::Radius>;
   constexpr auto ChunkSize = 1024;
@@ -37,9 +39,9 @@ __global__ void KCU_HFR_PBK_decode(
 
   // Pass-through fallback: enc_id >= NumBooks -> raw E[ChunkSize] in the slot.
   if (tree_idx >= (u4)NumBooks) {
-    auto raw = reinterpret_cast<E*>(in_pbk_bitstream + unit_start);
+    auto raw = reinterpret_cast<Ein*>(in_pbk_bitstream + unit_start);
     auto dst = out_decoded + block_off;
-    for (u4 i = 0; i < valid; i++) dst[i] = raw[i];
+    for (u4 i = 0; i < valid; i++) dst[i] = (Eout)raw[i];
     return;
   }
 
@@ -57,11 +59,12 @@ __global__ void KCU_HFR_PBK_decode(
 
   auto rvbk = in_rvbk_r128_25 + tree_idx * rvbk_nbyte;
   auto out_block = out_decoded + block_off;
-  phf::single_thread_inflate<E, H, Storage>(bs_slot, out_block, rvbk, (int)bit_count, (int)valid);
+  phf::single_thread_inflate<Ein, H, Storage, Eout>(
+      bs_slot, out_block, rvbk, (int)bit_count, (int)valid);
 
   for (u4 k = 0; k < n_breaks; k++) {
     auto cell = br_slot[k];
-    if (cell.idx < valid) out_block[cell.idx] = (E)cell.val;
+    if (cell.idx < valid) out_block[cell.idx] = (Eout)cell.val;
   }
 }
 
@@ -70,15 +73,16 @@ __global__ void KCU_HFR_PBK_decode(
 namespace phf::module {
 
 template <typename E, typename H, typename Storage>
+template <typename Eout>
 int HFR_PBK_decoder<E, H, Storage>::GPU_kernel(
     H* in_pbk_bitstream, size_t pbk_bitstream_len, u1* in_rvbk_r128_25, int rvbk_nbyte,
-    u4 const* pbk_packed_headers, int pbk_pardeg, size_t data_len, E* out_decoded, void* stream)
+    u4 const* pbk_packed_headers, int pbk_pardeg, size_t data_len, Eout* out_decoded, void* stream)
 {
   if (pbk_pardeg <= 0) return 0;
   constexpr int BlockDim = 128;
   dim3 grid((unsigned)((pbk_pardeg + BlockDim - 1) / BlockDim), 1, 1);
   dim3 block(BlockDim, 1, 1);
-  phf::KCU_HFR_PBK_decode<E, H, Storage><<<grid, block, 0, (cudaStream_t)stream>>>(
+  phf::KCU_HFR_PBK_decode<E, H, Storage, Eout><<<grid, block, 0, (cudaStream_t)stream>>>(
       in_pbk_bitstream, pbk_bitstream_len, in_rvbk_r128_25, rvbk_nbyte, pbk_packed_headers,
       pbk_pardeg, data_len, out_decoded);
   return 0;
@@ -91,5 +95,19 @@ template struct HFR_PBK_decoder<u4, u4, u1>;
 // HFR (runtime rvbk; Storage = E).
 template struct HFR_PBK_decoder<u2, u4, u2>;
 template struct HFR_PBK_decoder<u4, u4, u4>;
+
+template int HFR_PBK_decoder<u2, u4, u1>::GPU_kernel<u2>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u2*, void*);
+template int HFR_PBK_decoder<u2, u4, u2>::GPU_kernel<u2>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u2*, void*);
+
+template int HFR_PBK_decoder<u2, u4, u1>::GPU_kernel<f4>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, void*);
+template int HFR_PBK_decoder<u2, u4, u1>::GPU_kernel<f8>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, void*);
+template int HFR_PBK_decoder<u2, u4, u2>::GPU_kernel<f4>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, void*);
+template int HFR_PBK_decoder<u2, u4, u2>::GPU_kernel<f8>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, void*);
 
 }  // namespace phf::module

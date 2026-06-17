@@ -63,7 +63,7 @@ struct PredictorTyping {
   using CN = CompactNum;
 
   using Compact2 = _ptb::compact_GPU_DRAM2<CompactVal, M>;
-  using C2VI = _ptb::compact_cell<CompactVal, M>;
+  using CompactValIdx = _ptb::compact_cell<CompactVal, M>;
 
   /* ZigZag setup */
   using ZigZag = psz::ZigZag<Eq>;

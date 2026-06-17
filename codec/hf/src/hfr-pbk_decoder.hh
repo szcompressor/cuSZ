@@ -11,10 +11,11 @@ namespace phf::module {
 template <typename E, typename H = uint32_t, typename Storage = uint8_t>
 struct HFR_PBK_decoder {
   // pbk_packed_headers: 2 u4 per block (w0 packs nbit|encid, w1 = entry).
+  template <typename Eout = E>
   static int GPU_kernel(
       H* in_pbk_bitstream, size_t pbk_bitstream_len, uint8_t* in_revbooks_r128_25,
       int revbook_nbyte, uint32_t const* pbk_packed_headers, int pbk_pardeg, size_t data_len,
-      E* out_decoded, void* stream);
+      Eout* out_decoded, void* stream);
 };
 
 }  // namespace phf::module

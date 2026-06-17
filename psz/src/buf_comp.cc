@@ -111,15 +111,16 @@ struct psz::Buf_Comp<T, E>::impl {
     }
   }
 
-  impl(psz_len _len, bool _is_comp, bool use_HFR = false) :
+  impl(psz_len _len, bool _is_comp, bool use_HFR = false, bool alloc_eq = true) :
       is_comp(_is_comp),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
       len_linear_anchor(set_anchor_len(_len)),
       len_top1(set_top1_nblk(_len))
   {
-    // align 4Ki for (essentially) FZG
-    d_eq = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
+    // align 4Ki for (essentially) FZG; on decompress only spline-y25 needs d_eq (alloc_eq) --
+    // lorenzo and spline-y24 decode eq straight into the output buffer.
+    if (is_comp or alloc_eq) d_eq = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
     buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen, -1, use_HFR);
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
@@ -153,7 +154,7 @@ struct psz::Buf_Comp<T, E>::impl {
     // encoders can read past `len` up to `padded_len` and see zeros without a
     // per-encode tail memset. Predictor only writes 0..len-1, so the tail stays
     // zero across encodes provided len is fixed per buffer instance.
-    memset_device(d_eq.get(), ALIGN_4Ki(len_linear));
+    if (d_eq) memset_device(d_eq.get(), ALIGN_4Ki(len_linear));
   }
 
   ~impl() {};
@@ -179,11 +180,11 @@ COMPBUF_IMPL()::Buf_Comp(psz_len _len, BufToggle_Comp* toggle) :
 {
 }
 
-COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp, bool use_HFR) :
+COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp, bool use_HFR, bool alloc_eq) :
     is_comp(_is_comp),
     len(_len),
     len_linear(_len.x * _len.y * _len.z),
-    pimpl(std::make_unique<impl>(_len, _is_comp, use_HFR))
+    pimpl(std::make_unique<impl>(_len, _is_comp, use_HFR, alloc_eq))
 {
 }
 

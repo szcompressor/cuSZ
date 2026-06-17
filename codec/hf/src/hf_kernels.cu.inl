@@ -308,10 +308,10 @@ __global__ void KCU_Huffman_ReVISIT_lite(
 
 namespace phf {
 
-template <typename E, typename H, typename M>
+template <typename Ein, typename H, typename M, typename Eout = Ein>
 __global__ void KCU_HF_decode(
     H* in, uint8_t* revbook, M* par_nbit, M* par_entry, int const revbook_nbyte, int const sublen,
-    int const pardeg, E* out, uint8_t* par_encid /* nullable: HF coarse path passes nullptr */)
+    int const pardeg, Eout* out, uint8_t* par_encid /* nullable: HF coarse path passes nullptr */)
 {
   extern __shared__ uint8_t s_revbook[];
 
@@ -327,14 +327,14 @@ __global__ void KCU_HF_decode(
   auto gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (gid < pardeg) {
-    if (par_encid != nullptr && par_encid[gid] == 1) {
-      // Incomp block: bitstream slot at par_entry[gid] holds raw E values.
-      auto raw = (E*)(in + par_entry[gid]);
+    if (par_encid != nullptr and par_encid[gid] == 1) {
+      // Incomp block: bitstream slot at par_entry[gid] holds raw Ein values.
+      auto raw = (Ein*)(in + par_entry[gid]);
       auto dst = out + (size_t)sublen * gid;
-      for (int i = 0; i < sublen; i++) dst[i] = raw[i];
+      for (int i = 0; i < sublen; i++) dst[i] = (Eout)raw[i];
     }
     else {
-      phf::single_thread_inflate<E, H>(
+      phf::single_thread_inflate<Ein, H, Ein, Eout>(
           in + par_entry[gid], out + (size_t)sublen * gid, s_revbook, par_nbit[gid]);
     }
     __syncthreads();
@@ -464,16 +464,17 @@ PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_fine_encode(
       stream);
 }
 
-PHF_MODULE_TPL void PHF_MODULE_CLASS::GPU_coarse_decode(
+PHF_MODULE_TPL template <typename Eout>
+void PHF_MODULE_CLASS::GPU_coarse_decode(
     H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
-    M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded,
+    M* in_par_entry, size_t const sublen, size_t const pardeg, Eout* out_decoded,
     uint8_t* in_par_encid /* nullptr for plain-HF coarse path */, void* stream)
 {
   SETUP_DIV;
   auto const block_dim = PHF_BLOCK_DIM_DEFLATE;  // = deflating
   auto const grid_dim = div(pardeg, block_dim);
 
-  phf::KCU_HF_decode<E, H, M>                                       //
+  phf::KCU_HF_decode<E, H, M, Eout>                                 //
       <<<grid_dim, block_dim, revbook_len, (cudaStream_t)stream>>>  //
       (in_bitstream, in_revbook, in_par_nbit, in_par_entry, revbook_len, sublen, pardeg,
        out_decoded, in_par_encid);

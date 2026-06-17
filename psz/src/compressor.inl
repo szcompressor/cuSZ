@@ -97,7 +97,11 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
   const auto _c1 = header->pipeline.codec1;
   const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
                        (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3);
-  auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR);
+  // only spline-y25 still decodes eq into d_eq (its eq is recorded by interpolation level, not
+  // data order); lorenzo and spline-y24 decode eq straight into the output buffer.
+  const auto _pred = header->pipeline.predictor;
+  const auto alloc_eq = (_pred == psz_predictor::Spline) and (header->spline_variant == 0);
+  auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR, alloc_eq);
   mem->register_header(header);
   return mem;
 }
@@ -498,9 +502,12 @@ PPL_IMPL(void)::decomp_scatter(
     psz_header* header, _ptb::compact_cell<T, M>* d_spval_idx, T* d_space, void* stream)
 {
   const auto len = header->len;
-  if (header->pipeline.predictor == Spline) memset_device(d_space, len.x * len.y * len.z);
+  // spline-y25 keeps eq in eq_d, so the output buffer must start at zero (outliers only);
+  // lorenzo and spline-y24 already hold the decoded eq in the output buffer.
+  if (header->pipeline.predictor == Spline and header->spline_variant == 0)
+    memset_device(d_space, len.x * len.y * len.z);
   if (header->splen != 0)
-    psz::module::GPU_scatter<T, M>::kernel_v2(d_spval_idx, header->splen, d_space, stream);
+    psz::module::GPU_scatter<T, M>::kernel_v3_fuse(d_spval_idx, header->splen, d_space, stream);
 }
 
 PPL_IMPL(void)::decomp_predict(
@@ -588,32 +595,43 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
   }
 #endif
 
-STEP_SCATTER:
-
-  decomp_scatter(header, d_spval_idx, d_space, stream);
-
 STEP_DECODING:
 
   memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
-  if (header->pipeline.codec1 == HFR_PBKC)
-    phf::high_level<E>::HFR_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_PBKC);
-  else if (header->pipeline.codec1 == HFR_PBKGO)
-    phf::high_level<E>::HFR_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_PBKGO);
-  else if (header->pipeline.codec1 == HFR)
-    phf::high_level<E>::HFR_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR);
-  else if (header->pipeline.codec1 == HFR_V3)
-    phf::high_level<E>::HFR_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFR_V3);
-  else if (header->pipeline.codec1 == HFr2)
-    phf::high_level<E>::HF_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HFr2);
-  else
-    // HF + HFr1 share the same on-disk layout / decoder.
-    phf::high_level<E>::HF_decode(
-        mem->buf_hf(), h, (BYTE*)access(PSZ_ENCODED), mem->eq_d(), stream, psz_codec::HF);
+  {
+    auto enc = (BYTE*)access(PSZ_ENCODED);
+    auto decode_eq = [&](auto* dst) {
+      using Eout = std::remove_pointer_t<decltype(dst)>;
+      auto c = header->pipeline.codec1;
+      if (c == HFR_PBKC)
+        phf::high_level<E>::template HFR_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, HFR_PBKC);
+      else if (c == HFR_PBKGO)
+        phf::high_level<E>::template HFR_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, HFR_PBKGO);
+      else if (c == HFR)
+        phf::high_level<E>::template HFR_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFR);
+      else if (c == HFR_V3)
+        phf::high_level<E>::template HFR_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFR_V3);
+      else if (c == HFr2)
+        phf::high_level<E>::template HF_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFr2);
+      else  // HF + HFr1 share the same on-disk layout / decoder.
+        phf::high_level<E>::template HF_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HF);
+    };
+    // Lorenzo and spline-y24 have data-ordered eq, so eq is decoded straight into the output
+    // buffer (cast to T) and the fuse below adds outliers on top -> the predictor reads one
+    // buffer. Spline-y25 records eq by interpolation level (not data order), so it keeps eq_d.
+    bool const eq_in_out =
+        (header->pipeline.predictor != Spline) or (header->spline_variant != 0 /* not y25 */);
+    if (eq_in_out)
+      decode_eq(d_space);
+    else
+      decode_eq(mem->eq_d());
+  }
+
+STEP_SCATTER:
+
+  decomp_scatter(header, d_spval_idx, d_space, stream);
 
 STEP_PREDICT:
 

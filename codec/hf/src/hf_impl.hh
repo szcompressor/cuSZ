@@ -309,9 +309,10 @@ class modules {
       // output
       size_t* out_total_nbit, size_t* out_total_ncell, void* stream);
 
+  template <typename Eout = E>
   static void GPU_coarse_decode(
       H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
-      M* in_par_entry, size_t const sublen, size_t const pardeg, E* out_decoded,
+      M* in_par_entry, size_t const sublen, size_t const pardeg, Eout* out_decoded,
       uint8_t* in_par_encid, void* stream);
 
   static void GPU_scatter_breaks(

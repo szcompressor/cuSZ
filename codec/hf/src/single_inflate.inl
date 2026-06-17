@@ -7,9 +7,9 @@
 
 namespace phf {
 
-template <typename E, typename H, typename E_storage = E>
+template <typename Ein, typename H, typename E_storage = Ein, typename Eout = Ein>
 __host__ __device__ constexpr void single_thread_inflate(
-    H* input, E* out, uint8_t* rvbk, int const total_bw, int const max_out = 0x7fffffff)
+    H* input, Eout* out, uint8_t* rvbk, int const total_bw, int const max_out = 0x7fffffff)
 {
   constexpr auto H_TYPE_BITS = sizeof(H) * 8;
 
@@ -35,7 +35,7 @@ __host__ __device__ constexpr void single_thread_inflate(
       v = (v << 1) | next_bit;
       ++l;
     }
-    out[idx_out++] = (E)keys[entry[l] + v - first[l]];
+    out[idx_out++] = (Eout)keys[entry[l] + v - first[l]];
 
     {
       ++i;

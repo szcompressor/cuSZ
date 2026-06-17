@@ -229,7 +229,7 @@ __device__ void global2shmem_fuse(
     auto gid = gx + gy * eq_leap.y + gz * eq_leap.z;
 
     if (gx < eq_size.x and gy < eq_size.y and gz < eq_size.z)
-      s_eq[z][y][x] = static_cast<T>(eq[gid]) + scattered_outlier[gid];
+      s_eq[z][y][x] = scattered_outlier[gid];  // out already holds (T)eq + outlier
   }
   __syncthreads();
 }

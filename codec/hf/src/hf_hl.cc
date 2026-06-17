@@ -169,27 +169,27 @@ int encode_hf_rev2(
   return 0;
 }
 
-template <typename E>
+template <typename Ein, typename Eout = Ein>
 int decode_hf(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream)
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
 {
-  phf_module<E>::GPU_coarse_decode(
+  phf_module<Ein>::template GPU_coarse_decode<Eout>(
       PHF_ACCESSOR(BITSTREAM, H4), PHF_ACCESSOR(RVBK, PHF_BYTE), buf->rvbk_bytes(),
       PHF_ACCESSOR(PAR_NBIT, M), PHF_ACCESSOR(PAR_ENTRY, M), header.sublen, header.pardeg,
       out_decoded, /*par_encid=*/nullptr, stream);
   return 0;
 }
 
-template <typename E>
+template <typename Ein, typename Eout = Ein>
 int decode_hf_rev2(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream)
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
 {
   // Unpack AoS bheader_backport[] -> par_nbit / par_entry, then GPU_coarse_decode.
   auto packed = reinterpret_cast<u4 const*>(in_encoded + header.entry[PHFHEADER_HF_REV2_HEADER]);
   phf::module::unpack_bheader_backport::GPU_kernel(
       packed, buf->par_nbit_d(), buf->par_entry_d(), (int)header.pardeg, (int)sizeof(H4), stream);
 
-  phf_module<E>::GPU_coarse_decode(
+  phf_module<Ein>::template GPU_coarse_decode<Eout>(
       reinterpret_cast<H4*>(in_encoded + header.entry[PHFHEADER_BITSTREAM]),
       reinterpret_cast<PHF_BYTE*>(in_encoded + header.entry[PHFHEADER_RVBK]), buf->rvbk_bytes(),
       buf->par_nbit_d(), buf->par_entry_d(), header.sublen, header.pardeg, out_decoded,
@@ -523,11 +523,11 @@ int encode_hfr_pbkgo(
   }
 }
 
-template <typename E>
+template <typename Ein, typename Eout = Ein>
 int decode_hfr_pbkc(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream)
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
 {
-  if constexpr (sizeof(E) > 2) {
+  if constexpr (sizeof(Ein) > 2) {
     (void)buf;
     (void)header;
     (void)in_encoded;
@@ -545,7 +545,7 @@ int decode_hfr_pbkc(
     auto rvbk_ptr = reinterpret_cast<uint8_t*>(pbk25_r128_rvbk_d_ptr());
     auto packed_headers =
         reinterpret_cast<uint32_t const*>(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
-    phf::module::HFR_PBK_decoder<E, H4>::GPU_kernel(
+    phf::module::HFR_PBK_decoder<Ein, H4>::template GPU_kernel<Eout>(
         bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, RvbkBytesPerBook, packed_headers,
         (int)pardeg, header.ori_len, out_decoded, stream);
 
@@ -555,11 +555,11 @@ int decode_hfr_pbkc(
 }
 
 // HFR v2 decode: HFR_PBK_decoder against the runtime rvbk; Storage=E.
-template <typename E>
+template <typename Ein, typename Eout = Ein>
 int decode_hfr_v2(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream)
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
 {
-  if constexpr (sizeof(E) > 2) {
+  if constexpr (sizeof(Ein) > 2) {
     (void)buf;
     (void)header;
     (void)in_encoded;
@@ -575,7 +575,7 @@ int decode_hfr_v2(
     const int rvbk_bytes = (int)(header.entry[PHFHEADER_RVBK + 1] - header.entry[PHFHEADER_RVBK]);
     auto packed_headers = (uint32_t const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
 
-    phf::module::HFR_PBK_decoder<E, H4, E>::GPU_kernel(
+    phf::module::HFR_PBK_decoder<Ein, H4, Ein>::template GPU_kernel<Eout>(
         bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, rvbk_bytes, packed_headers, (int)pardeg,
         header.ori_len, out_decoded, stream);
 
@@ -585,11 +585,11 @@ int decode_hfr_v2(
 }
 
 // HFR v3 decode: use pbk25_r128's rvbk; bkid is known from header.
-template <typename E>
+template <typename Ein, typename Eout = Ein>
 int decode_hfr_v3(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream)
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
 {
-  if constexpr (sizeof(E) > 2) {
+  if constexpr (sizeof(Ein) > 2) {
     (void)buf;
     (void)header;
     (void)in_encoded;
@@ -606,7 +606,7 @@ int decode_hfr_v3(
     auto rvbk_ptr = (uint8_t*)pbk25_r128_rvbk_d_ptr() + (size_t)header.g_encid * RvbkBytesPerBook;
     auto packed_headers = (uint32_t const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
 
-    phf::module::HFR_PBK_decoder<E, H4, u1>::GPU_kernel(
+    phf::module::HFR_PBK_decoder<Ein, H4, u1>::template GPU_kernel<Eout>(
         bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, RvbkBytesPerBook, packed_headers,
         (int)pardeg, header.ori_len, out_decoded, stream);
 
@@ -615,11 +615,11 @@ int decode_hfr_v3(
   }
 }
 
-template <typename E>
+template <typename Ein, typename Eout = Ein>
 int decode_hfr_pbkgo(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream)
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
 {
-  return decode_hfr_pbkc<E>(buf, header, in_encoded, out_decoded, stream);
+  return decode_hfr_pbkc<Ein, Eout>(buf, header, in_encoded, out_decoded, stream);
 }
 
 #undef PHF_ACCESSOR
@@ -676,15 +676,17 @@ int high_level<E>::HF_encode(
 }
 
 template <typename E>
+template <typename Eout>
 int high_level<E>::HF_decode(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream,
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream,
     psz_codec variant)
 {
   // HF{,_r1}: same layout, so same decoder
   switch (variant) {
     case HF:
-    case HFr1: return dispatch::decode_hf<E>(buf, header, in_encoded, out_decoded, stream);
-    case HFr2: return dispatch::decode_hf_rev2<E>(buf, header, in_encoded, out_decoded, stream);
+    case HFr1: return dispatch::decode_hf<E, Eout>(buf, header, in_encoded, out_decoded, stream);
+    case HFr2:
+      return dispatch::decode_hf_rev2<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     default: return PHF_NOT_IMPLEMENTED;
   }
 }
@@ -714,17 +716,20 @@ int high_level<E>::HFR_encode(
 }
 
 template <typename E>
+template <typename Eout>
 int high_level<E>::HFR_decode(
-    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, E* out_decoded, hf_stream_t stream,
+    Buf<E>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream,
     psz_codec variant)
 {
   switch (variant) {
-    case HFR: return dispatch::decode_hfr_v2<E>(buf, header, in_encoded, out_decoded, stream);
+    case HFR:
+      return dispatch::decode_hfr_v2<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFR_PBKC:
-      return dispatch::decode_hfr_pbkc<E>(buf, header, in_encoded, out_decoded, stream);
+      return dispatch::decode_hfr_pbkc<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFR_PBKGO:
-      return dispatch::decode_hfr_pbkgo<E>(buf, header, in_encoded, out_decoded, stream);
-    case HFR_V3: return dispatch::decode_hfr_v3<E>(buf, header, in_encoded, out_decoded, stream);
+      return dispatch::decode_hfr_pbkgo<E, Eout>(buf, header, in_encoded, out_decoded, stream);
+    case HFR_V3:
+      return dispatch::decode_hfr_v3<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
     default: return PHF_NOT_IMPLEMENTED;
   }
@@ -735,3 +740,17 @@ int high_level<E>::HFR_decode(
 template struct phf::high_level<u1>;
 template struct phf::high_level<u2>;
 template struct phf::high_level<u4>;
+
+template int phf::high_level<u2>::HF_decode<u2>(
+    phf::Buf<u2>*, phf_header&, uint8_t*, u2*, hf_stream_t, psz_codec);
+template int phf::high_level<u2>::HFR_decode<u2>(
+    phf::Buf<u2>*, phf_header&, uint8_t*, u2*, hf_stream_t, psz_codec);
+
+template int phf::high_level<u2>::HF_decode<f4>(
+    phf::Buf<u2>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec);
+template int phf::high_level<u2>::HF_decode<f8>(
+    phf::Buf<u2>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec);
+template int phf::high_level<u2>::HFR_decode<f4>(
+    phf::Buf<u2>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec);
+template int phf::high_level<u2>::HFR_decode<f8>(
+    phf::Buf<u2>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec);

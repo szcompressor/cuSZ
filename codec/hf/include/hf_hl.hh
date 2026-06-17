@@ -27,10 +27,10 @@ struct high_level {
 
   // HF{,_r1,_r2}
   static int HF_encode (BUF* buf, E* in_data, size_t const data_len, u1** out_encoded, size_t* encoded_len, phf_header& header, hf_stream_t s, psz_codec variant = HF, float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr);
-  static int HF_decode (BUF* buf, phf_header& header, PHF_BYTE* in_encoded, E* out_decoded, hf_stream_t s, psz_codec variant = HF);
+  template <typename Eout = E> static int HF_decode (BUF* buf, phf_header& header, PHF_BYTE* in_encoded, Eout* out_decoded, hf_stream_t s, psz_codec variant = HF);
   // HFR{,_PBK_Compat,_PBK_GO}
   static int HFR_encode(BUF* buf, E* in_data, size_t const data_len, u1** out_encoded, size_t* encoded_len, phf_header& header, hf_stream_t s, psz_codec variant, float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr, HFR_Opts opts = {});
-  static int HFR_decode(BUF* buf, phf_header& header, PHF_BYTE* in_encoded, E* out_decoded, hf_stream_t s, psz_codec variant);
+  template <typename Eout = E> static int HFR_decode(BUF* buf, phf_header& header, PHF_BYTE* in_encoded, Eout* out_decoded, hf_stream_t s, psz_codec variant);
   // clang-format on
 };
 

@@ -42,15 +42,10 @@ __global__ void KCU_x_lorenzo_1d(
       auto local_id = threadIdx.x + i * NTHREAD;
       auto id = id_base + local_id;
       if (id < extent.x) {
-        // fuse outlier and error-quant
-        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off) {
-          scratch[local_id] = in_outlier[id] + static_cast<T>(in_eq[id]) - radius;
-        }
-        else {
-          auto e = in_eq[id];
-          scratch[local_id] =
-              in_outlier[id] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
-        }
+        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off)
+          scratch[local_id] = in_outlier[id] - radius;
+        else
+          scratch[local_id] = in_outlier[id];
       }
     }
     __syncthreads();
@@ -208,15 +203,10 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
     for (auto i = 0; i < YSEQ; i++) {
       auto gid = get_gid(i);
       if (gix < extent.x and (giy_base + i) < extent.y) {
-        // fuse outlier and error-quant
-        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off) {
-          thp_data[i] = in_outlier[gid] + static_cast<T>(in_eq[gid]) - radius;
-        }
-        else {
-          auto e = in_eq[gid];
-          thp_data[i] = in_outlier[gid] +
-                        static_cast<T>(ZigZag::decode(static_cast<typename Types::EqUInt>(e)));
-        }
+        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off)
+          thp_data[i] = in_outlier[gid] - radius;
+        else
+          thp_data[i] = in_outlier[gid];
       }
     }
   };
@@ -309,15 +299,10 @@ __global__ void KCU_x_lorenzo_3d(  //
 #pragma unroll
     for (auto y = 0; y < YSEQ; y++) {
       if (gix < extent.x and giy_base + y < extent.y and giz < extent.z) {
-        // fuse outlier and error-quant
-        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off) {
-          thread_private[y] = in_outlier[gid(y)] + static_cast<T>(in_eq[gid(y)]) - radius;
-        }
-        else {
-          auto e = in_eq[gid(y)];
-          thread_private[y] =
-              in_outlier[gid(y)] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
-        }
+        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off)
+          thread_private[y] = in_outlier[gid(y)] - radius;
+        else
+          thread_private[y] = in_outlier[gid(y)];
       }
     }
   };

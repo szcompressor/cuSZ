@@ -37,7 +37,7 @@ __device__ __forceinline__ u4 linear_block_idx()
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_1d(
     typename Types::T* const in_data, dim3 const extent, typename Types::Eq* const out_eq,
-    typename Types::C2VI* const out_cval_cidx, typename Types::CN* const out_cn,
+    typename Types::CompactValIdx* const out_cval_cidx, typename Types::CN* const out_cn,
     const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
     typename Types::M* top_count = nullptr)
 {
@@ -207,7 +207,7 @@ __global__ [[deprecated]] void KCU_c_lorenzo_2d1l(
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_2d__32x32(
     typename Types::T* const in_data, dim3 const extent, uint32_t const leapy,
-    typename Types::Eq* const out_eq, typename Types::C2VI* const out_cval_cidx,
+    typename Types::Eq* const out_eq, typename Types::CompactValIdx* const out_cval_cidx,
     typename Types::CN* const out_cn, const size_t cn_max_allowed, uint16_t const radius,
     typename Types::Fp const ebx2_r, typename Types::M* top_count = nullptr)
 {
@@ -300,7 +300,7 @@ template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_3d(
     typename Types::T* const in_data, dim3 const extent, uint32_t const leapy,
     uint32_t const leapz, typename Types::Eq* const out_eq,
-    typename Types::C2VI* const out_cval_cidx, typename Types::CN* const out_cn,
+    typename Types::CompactValIdx* const out_cval_cidx, typename Types::CN* const out_cn,
     const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
     typename Types::M* top_count = nullptr)
 {
