@@ -254,25 +254,15 @@ int encode_hfr_v2(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  const int reduce_times = opts.reduce_times;
-  const RMerge rm = opts.rm;
-  const SMerge sm = opts.sm;
   if constexpr (sizeof(E) > 2) {
-    (void)buf;
-    (void)in;
-    (void)len;
-    (void)out;
-    (void)outlen;
-    (void)header;
-    (void)stream;
-    (void)opt_ms_encoder;
-    (void)opt_ms_lago;
-    (void)reduce_times;
-    (void)rm;
-    (void)sm;
+    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
+        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
     return PHF_NOT_IMPLEMENTED;
   }
   else {
+    const int reduce_times = opts.reduce_times;
+    const RMerge rm = opts.rm;
+    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
@@ -327,25 +317,15 @@ int encode_hfr_v3(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  const int reduce_times = opts.reduce_times;
-  const RMerge rm = opts.rm;
-  const SMerge sm = opts.sm;
   if constexpr (sizeof(E) > 2) {
-    (void)buf;
-    (void)in;
-    (void)len;
-    (void)out;
-    (void)outlen;
-    (void)header;
-    (void)stream;
-    (void)opt_ms_encoder;
-    (void)opt_ms_lago;
-    (void)reduce_times;
-    (void)rm;
-    (void)sm;
+    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
+        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
     return PHF_NOT_IMPLEMENTED;
   }
   else {
+    const int reduce_times = opts.reduce_times;
+    const RMerge rm = opts.rm;
+    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
@@ -400,25 +380,15 @@ int encode_hfr_pbkc(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  const int reduce_times = opts.reduce_times;
-  const RMerge rm = opts.rm;
-  const SMerge sm = opts.sm;
   if constexpr (sizeof(E) > 2) {
-    (void)buf;
-    (void)in;
-    (void)len;
-    (void)out;
-    (void)outlen;
-    (void)header;
-    (void)stream;
-    (void)opt_ms_encoder;
-    (void)opt_ms_lago;
-    (void)reduce_times;
-    (void)rm;
-    (void)sm;
+    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
+        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
     return PHF_NOT_IMPLEMENTED;
   }
   else {
+    const int reduce_times = opts.reduce_times;
+    const RMerge rm = opts.rm;
+    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
@@ -472,25 +442,15 @@ int encode_hfr_pbkgo(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  const int reduce_times = opts.reduce_times;
-  const RMerge rm = opts.rm;
-  const SMerge sm = opts.sm;
   if constexpr (sizeof(E) > 2) {
-    (void)buf;
-    (void)in;
-    (void)len;
-    (void)out;
-    (void)outlen;
-    (void)header;
-    (void)stream;
-    (void)opt_ms_encoder;
-    (void)opt_ms_lago;
-    (void)reduce_times;
-    (void)rm;
-    (void)sm;
+    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
+        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
     return PHF_NOT_IMPLEMENTED;
   }
   else {
+    const int reduce_times = opts.reduce_times;
+    const RMerge rm = opts.rm;
+    const SMerge sm = opts.sm;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);
     buf->set_use_pbkgo(true);
@@ -523,103 +483,45 @@ int encode_hfr_pbkgo(
   }
 }
 
+// Unified HFR-family decode: one GPU_kernel; variant picks (Storage, reverse-book source).
 template <typename Ein, typename Eout = Ein>
-int decode_hfr_pbkc(
-    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
+int decode_hfr(
+    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream,
+    psz_codec variant)
 {
   if constexpr (sizeof(Ein) > 2) {
-    (void)buf;
-    (void)header;
-    (void)in_encoded;
-    (void)out_decoded;
-    (void)stream;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
-    // FIXME hoist to HFR_PBK_Constants once decoder side is templated
-    constexpr int RvbkBytesPerBook = 512;
-
-    const size_t pardeg = header.pardeg;
-
-    auto bs_ptr = reinterpret_cast<H4*>(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
-    auto rvbk_ptr = reinterpret_cast<uint8_t*>(pbk25_r128_rvbk_d_ptr());
-    auto packed_headers =
-        reinterpret_cast<uint32_t const*>(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
-    phf::module::HFR_PBK_decoder<Ein, H4>::template GPU_kernel<Eout>(
-        bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, RvbkBytesPerBook, packed_headers,
-        (int)pardeg, header.ori_len, out_decoded, stream);
-
-    sync_by_stream(stream);
-    return 0;
-  }
-}
-
-// HFR v2 decode: HFR_PBK_decoder against the runtime rvbk; Storage=E.
-template <typename Ein, typename Eout = Ein>
-int decode_hfr_v2(
-    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
-{
-  if constexpr (sizeof(Ein) > 2) {
-    (void)buf;
-    (void)header;
-    (void)in_encoded;
-    (void)out_decoded;
-    (void)stream;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
-    const size_t pardeg = header.pardeg;
-
-    auto bs_ptr = (H4*)(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
-    auto rvbk_ptr = (uint8_t*)(in_encoded + header.entry[PHFHEADER_RVBK]);
-    const int rvbk_bytes = (int)(header.entry[PHFHEADER_RVBK + 1] - header.entry[PHFHEADER_RVBK]);
-    auto packed_headers = (uint32_t const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
-
-    phf::module::HFR_PBK_decoder<Ein, H4, Ein>::template GPU_kernel<Eout>(
-        bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, rvbk_bytes, packed_headers, (int)pardeg,
-        header.ori_len, out_decoded, stream);
-
-    sync_by_stream(stream);
-    return 0;
-  }
-}
-
-// HFR v3 decode: use pbk25_r128's rvbk; bkid is known from header.
-template <typename Ein, typename Eout = Ein>
-int decode_hfr_v3(
-    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
-{
-  if constexpr (sizeof(Ein) > 2) {
-    (void)buf;
-    (void)header;
-    (void)in_encoded;
-    (void)out_decoded;
-    (void)stream;
+    (void)buf, (void)header, (void)in_encoded, (void)out_decoded, (void)stream, (void)variant;
     return PHF_NOT_IMPLEMENTED;
   }
   else {
     using K = psz::HFR_PBK_Constants;
     constexpr int RvbkBytesPerBook = (int)K::RvbkBytesPerBook;  // 512
-    const size_t pardeg = header.pardeg;
 
     auto bs_ptr = (H4*)(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
-    auto rvbk_ptr = (uint8_t*)pbk25_r128_rvbk_d_ptr() + (size_t)header.g_encid * RvbkBytesPerBook;
     auto packed_headers = (uint32_t const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
+    const auto bs_bytes = header.total_ncell * sizeof(H4);
+    const int pardeg = (int)header.pardeg;
 
-    phf::module::HFR_PBK_decoder<Ein, H4, u1>::template GPU_kernel<Eout>(
-        bs_ptr, header.total_ncell * sizeof(H4), rvbk_ptr, RvbkBytesPerBook, packed_headers,
-        (int)pardeg, header.ori_len, out_decoded, stream);
+    if (variant == HFR) {
+      // runtime-built reverse book (Storage=Ein), one book for all blocks.
+      auto rvbk = (uint8_t*)(in_encoded + header.entry[PHFHEADER_RVBK]);
+      const int rvbk_bytes = (int)(header.entry[PHFHEADER_RVBK + 1] - header.entry[PHFHEADER_RVBK]);
+      phf::module::HFR_PBK_decoder<Ein, H4, Ein>::template GPU_kernel<Eout>(
+          bs_ptr, bs_bytes, rvbk, rvbk_bytes, packed_headers, pardeg, header.ori_len, out_decoded,
+          stream);
+    }
+    else {
+      // prebuilt pbk25_r128 pool (Storage=u1); V3 offsets to its single g_encid book.
+      auto rvbk = (uint8_t*)pbk25_r128_rvbk_d_ptr() +
+                  (variant == HFR_V3 ? (size_t)header.g_encid * RvbkBytesPerBook : 0);
+      phf::module::HFR_PBK_decoder<Ein, H4, u1>::template GPU_kernel<Eout>(
+          bs_ptr, bs_bytes, rvbk, RvbkBytesPerBook, packed_headers, pardeg, header.ori_len,
+          out_decoded, stream);
+    }
 
     sync_by_stream(stream);
     return 0;
   }
-}
-
-template <typename Ein, typename Eout = Ein>
-int decode_hfr_pbkgo(
-    Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream)
-{
-  return decode_hfr_pbkc<Ein, Eout>(buf, header, in_encoded, out_decoded, stream);
 }
 
 #undef PHF_ACCESSOR
@@ -723,13 +625,10 @@ int high_level<E>::HFR_decode(
 {
   switch (variant) {
     case HFR:
-      return dispatch::decode_hfr_v2<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFR_PBKC:
-      return dispatch::decode_hfr_pbkc<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFR_PBKGO:
-      return dispatch::decode_hfr_pbkgo<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFR_V3:
-      return dispatch::decode_hfr_v3<E, Eout>(buf, header, in_encoded, out_decoded, stream);
+      return dispatch::decode_hfr<E, Eout>(buf, header, in_encoded, out_decoded, stream, variant);
     case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
     default: return PHF_NOT_IMPLEMENTED;
   }
