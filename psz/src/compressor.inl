@@ -284,9 +284,9 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  // HFR-PBKGO: globally-ordered slot; no LAGO concat
+  // exclude RT=1
   auto compress_encode_pass1_HFR_PBK_GO = [&]() -> int {
-    const HFR_Opts hfr_opts{/*reduce_times=*/1};
+    const HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 2};
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
