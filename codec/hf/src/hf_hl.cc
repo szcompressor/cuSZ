@@ -1,5 +1,6 @@
 #include "hf_hl.hh"
 
+#include <cstdio>
 #include <type_traits>
 #include <vector>
 
@@ -492,6 +493,11 @@ int encode_hfr_pbkgo(
   }
   else {
     using K = psz::HFR_PBK_Constants;
+    int rt = reduce_times;
+    if (rt < 2) {
+      fprintf(stderr, "[phf::warn] HFR-PBKGO falls back to rmerge-count >=2.\n", rt);
+      rt = 2;
+    }
     buf->set_use_prebuilt_rvbk(true);
     buf->set_use_pbkgo(true);
     auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* /*unused*/) {
@@ -502,7 +508,7 @@ int encode_hfr_pbkgo(
           sm);
     };
     auto launch_aggregate = []() { /* no-op: encoder emitted everything */ };
-    switch (reduce_times) {
+    switch (rt) {
       case 2:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
