@@ -160,23 +160,6 @@ struct reduce_total_nbit {
   static int GPU_kernel(u4 const* par_nbit, u4 pardeg, u4* total_nbit, void* stream);
 };
 
-template <typename E>
-struct pack_pbk_metadata {
-  using bheader_t = psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius>;
-  static int GPU_kernel(
-      bheader_t const* pbk_headers, u4 pardeg, u4* par_nbit, u4* par_ncell, uint8_t* par_encid,
-      void* stream);
-};
-
-// Pack bheader[] -> 2-word AoS headers (for paths that bypass LAGO concat).
-template <typename E>
-struct pack_packed_headers {
-  using bheader_t = psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius>;
-  static int GPU_kernel(
-      bheader_t const* pbk_headers, uint32_t* out_headers, uint32_t sizeof_Hf, int pardeg,
-      void* stream);
-};
-
 }  // namespace phf::module
 
 namespace phf {

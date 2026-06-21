@@ -99,86 +99,6 @@ __global__ void KCU_x_lorenzo_1d(
 //  (y)  |            |            |            |
 //       thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]  thp(1,0)[7]
 
-template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
-__global__ [[deprecated]] void KCU_x_lorenzo_2d1l(  //
-    Eq* const in_eq, T* const in_outlier, T* const out_data, dim3 const data_len3,
-    dim3 const data_leap3, uint16_t const radius, Fp const ebx2)
-{
-  using ZigZag = psz::ZigZag<Eq>;
-  using EqUInt = typename ZigZag::UInt;
-  using EqSInt = typename ZigZag::SInt;
-
-  constexpr auto TileDim = 16;
-  constexpr auto YSEQ = TileDim / 2;  // sequentiality in y direction
-  static_assert(TileDim == 16, "In one case, we need TileDim for 2D == 16");
-
-  __shared__ T scratch[TileDim];  // TODO use warp shuffle to eliminate this
-  T thp_data[YSEQ] = {0};
-
-  auto gix = blockIdx.x * TileDim + threadIdx.x;
-  auto giy_base = blockIdx.y * TileDim + threadIdx.y * YSEQ;  // BDY * YSEQ = TileDim == 16
-
-  auto get_gid = [&](auto i) { return (giy_base + i) * data_leap3.y + gix; };
-
-  auto load_fuse_2d = [&]() {
-
-#pragma unroll
-    for (auto i = 0; i < YSEQ; i++) {
-      auto gid = get_gid(i);
-      if (gix < data_len3.x and (giy_base + i) < data_len3.y) {
-        // fuse outlier and error-quant
-        if constexpr (not UseZigZag) {
-          thp_data[i] = in_outlier[gid] + static_cast<T>(in_eq[gid]) - radius;
-        }
-        else {
-          auto e = in_eq[gid];
-          thp_data[i] = in_outlier[gid] + static_cast<T>(ZigZag::decode(static_cast<EqUInt>(e)));
-        }
-      }
-    }
-  };
-
-  // partial-sum along y-axis, sequantially
-  // then, in-warp partial-sum along x-axis
-  auto block_scan_2d = [&]() {
-    for (auto i = 1; i < YSEQ; i++) thp_data[i] += thp_data[i - 1];
-    // two-pass: store for cross-thread-private update
-    // TODO shuffle up by 16 in the same warp
-    if (threadIdx.y == 0) scratch[threadIdx.x] = thp_data[YSEQ - 1];
-    __syncthreads();
-    // broadcast the partial-sum result from a previous segment
-    if (threadIdx.y == 1) {
-      auto tmp = scratch[threadIdx.x];
-#pragma unroll
-      for (auto i = 0; i < YSEQ; i++) thp_data[i] += tmp;  // regression as pointer
-    }
-    // implicit sync as there is half-warp divergence
-
-#pragma unroll
-    for (auto i = 0; i < YSEQ; i++) {
-      for (auto d = 1; d < TileDim; d *= 2) {
-        T n = __shfl_up_sync(0xffffffff, thp_data[i], d, 16);  // half-warp shuffle
-        if (threadIdx.x >= d) thp_data[i] += n;
-      }
-      thp_data[i] *= ebx2;  // scale accordingly
-    }
-  };
-
-  auto decomp_write_2d = [&]() {
-#pragma unroll
-    for (auto i = 0; i < YSEQ; i++) {
-      auto gid = get_gid(i);
-      if (gix < data_len3.x and (giy_base + i) < data_len3.y) out_data[gid] = thp_data[i];
-    }
-  };
-
-  /*-----------*/
-
-  load_fuse_2d();
-  block_scan_2d();
-  decomp_write_2d();
-}
-
 template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_2d__32x32(  //
     typename Types::Eq* const in_eq, typename Types::T* const in_outlier, typename Types::T* const out_data, dim3 const extent, uint32_t leapy, uint16_t const radius, typename Types::Fp const ebx2)
@@ -187,7 +107,7 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
 
   constexpr auto TileDim = Perf::TileDim;
   constexpr auto NumWarps = 4;
-  constexpr auto YSEQ = TileDim / NumWarps;
+  constexpr auto YSEQ = TileDim / NumWarps;  // sequentiality in y direction
 
   static_assert(Perf::SeqY == YSEQ, "wrong SeqY");
 
@@ -199,6 +119,7 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
   auto get_gid = [&](auto i) { return (giy_base + i) * leapy + gix; };
 
   auto load_fuse_2d = [&]() {
+    // fuse outlier and error-quant
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       auto gid = get_gid(i);
@@ -212,6 +133,7 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
   };
 
   auto block_scan_2d = [&]() {
+    // partial-sum along y-axis, sequantially
     for (auto i = 1; i < YSEQ; i++) thp_data[i] += thp_data[i - 1];
 
     // 0, 1, 2
@@ -244,6 +166,7 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
     }
     __syncthreads();
 
+    // then, in-warp partial-sum along x-axis
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       for (auto d = 1; d < TileDim; d *= 2) {

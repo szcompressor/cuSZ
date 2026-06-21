@@ -12,63 +12,6 @@ using std::cout;
 using std::endl;
 
 template <typename E, typename H>
-void phf_CPU_build_canonized_codebook_v1(
-    uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes,
-    float* milliseconds)
-{
-  using PW4 = HuffmanWord<4>;
-  using PW8 = HuffmanWord<8>;
-
-  constexpr auto TYPE_BITS = sizeof(H) * 8;
-  auto bk_bytes = sizeof(H) * bklen;
-  auto space_bytes = hf_space<E, H>::space_bytes(bklen);
-  auto revbook_ofst = hf_space<E, H>::revbook_offset(bklen);
-  auto space = new hf_canon_reference<E, H>(bklen);
-  if (milliseconds) *milliseconds = 0;
-
-  // mask the codebook to 0xff
-  memset(book, 0xff, bk_bytes);
-
-  // part 1
-  {
-    phf_CPU_build_codebook_v1<H>(freq, bklen, book);
-    // phf_CPU_build_codebook_v2<H>(freq, bklen, book);
-  }
-
-  // print
-  // for (auto i = 0; i < bklen; i++) {
-  //   auto pw4 = reinterpret_cast<PW4*>(book + i);
-  //   cout << "old-" << i << "\t";
-  //   cout << bitset<PW4::FIELD_BITCOUNT>(pw4->bitcount) << "\t";
-  //   cout << pw4->bitcount << "\t";
-  //   cout << bitset<PW4::FIELD_CODE>(pw4->prefix_code) << "\n";
-  // }
-
-  space->input_bk() = book;  // external
-
-  {  // part 2
-    space->canonize();
-  }
-
-  // copy to output1
-  memcpy(book, space->output_bk(), bk_bytes);
-
-  // copy to output2
-  auto offset = 0;
-  memcpy(revbook, space->first(), sizeof(int) * TYPE_BITS);
-  offset += sizeof(int) * TYPE_BITS;
-  memcpy(revbook + offset, space->entry(), sizeof(int) * TYPE_BITS);
-  offset += sizeof(int) * TYPE_BITS;
-  memcpy(revbook + offset, space->keys(), sizeof(E) * bklen);
-
-  // memcpy(space, book, bk_bytes);  // copy in
-  // canonize<E, H>(space, bklen);
-  // memcpy(book, space + bk_bytes, bk_bytes);              // copy out
-  // memcpy(revbook, space + revbook_ofst, revbook_bytes);  // copy out
-  delete space;
-}
-
-template <typename E, typename H>
 void phf_CPU_build_canonized_codebook_v2(
     uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook, int const revbook_bytes,
     float* milliseconds)

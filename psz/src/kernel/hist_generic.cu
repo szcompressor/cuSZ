@@ -22,23 +22,6 @@ const static unsigned int WARP_SIZE = 32;
 
 namespace psz {
 
-template <typename T>
-__global__ void KCU_histogram_naive(
-    T* in_data, size_t const data_len, uint32_t* out_bins, uint16_t const bins_len,
-    uint16_t const repeat)
-{
-  auto i = blockDim.x * blockIdx.x + threadIdx.x;
-  auto j = 0u;
-  if (i * repeat < data_len) {  // if there is a symbol to count,
-    for (j = i * repeat; j < (i + 1) * repeat; j++) {
-      if (j < data_len) {
-        auto item = in_data[j];         // symbol to count
-        atomicAdd(&out_bins[item], 1);  // update bin count by 1
-      }
-    }
-  }
-}
-
 /* Copied from J. Gomez-Luna et al. */
 template <typename T, typename FREQ>
 __global__ void KCU_p2013Histogram(

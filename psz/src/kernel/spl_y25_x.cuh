@@ -7,22 +7,21 @@
 #include "mem/cxx_backends.h"
 #include "spl_y25.cuh"
 
-constexpr int DEFAULT_BLOCK_SIZE = BLOCK_DIM_SIZE;
 constexpr int LEVEL = 6;
-constexpr int SPLINE_DIM_2 = 2;
-constexpr int SPLINE_DIM_3 = 3;
-constexpr int AnchorBlockSizeX = 64;
-constexpr int AnchorBlockSizeY = 64;
-constexpr int AnchorBlockSizeZ = 1;
-constexpr int NumAnchorBlockX = 1;
-constexpr int NumAnchorBlockY = 1;
-constexpr int NumAnchorBlockZ = 1;
-constexpr int PROFILE_BLOCK_SIZE_X = 4;
-constexpr int PROFILE_BLOCK_SIZE_Y = 4;
-constexpr int PROFILE_BLOCK_SIZE_Z = 4;
-constexpr int PROFILE_NUM_BLOCK_X = 4;
-constexpr int PROFILE_NUM_BLOCK_Y = 4;
-constexpr int PROFILE_NUM_BLOCK_Z = 4;
+constexpr int SplDim2 = 2;
+constexpr int SplDim3 = 3;
+constexpr int AncBlkSzX = 64;
+constexpr int AncBlkSzY = 64;
+constexpr int AncBlkSzZ = 1;
+constexpr int NAncBlkX = 1;
+constexpr int NAncBlkY = 1;
+constexpr int NAncBlkZ = 1;
+constexpr int ProfBlkSzX = 4;
+constexpr int ProfBlkSzY = 4;
+constexpr int ProfBlkSzZ = 4;
+constexpr int ProfNBlkX = 4;
+constexpr int ProfNBlkY = 4;
+constexpr int ProfNBlkZ = 4;
 
 template <class Types>
 int psz::module::GPU_x_spline_y25<Types>::kernel(
@@ -45,26 +44,22 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
 
   if (l3.z == 1) {
     auto grid_dim = dim3(
-        div(extent.x, AnchorBlockSizeX * NumAnchorBlockX),
-        div(extent.y, AnchorBlockSizeY * NumAnchorBlockY),
-        div(extent.z, AnchorBlockSizeZ * NumAnchorBlockZ));
+        div(extent.x, AncBlkSzX * NAncBlkX), div(extent.y, AncBlkSzY * NAncBlkY),
+        div(extent.z, AncBlkSzZ * NAncBlkZ));
     psz::KCU_x_spl_infprecis_data<
-        E, T, FP, LEVEL, SPLINE_DIM_2, AnchorBlockSizeX, AnchorBlockSizeY, AnchorBlockSizeZ,
-        NumAnchorBlockX, NumAnchorBlockY, NumAnchorBlockZ, DEFAULT_BLOCK_SIZE>  //
-        <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap,
-            xdata.ptr, extent, data_leap, xdata.ptr, eb_r, ebx2, radius,
-            intp_param);
+        E, T, FP, LEVEL, SplDim2, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ,
+        DefaultLinBlkSz>  //
+        <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
+            eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap, xdata.ptr, extent,
+            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param);
   }
   else {
-    auto grid_dim =
-        dim3(div(extent.x, BLOCK16), div(extent.y, BLOCK16), div(extent.z, BLOCK16));
+    auto grid_dim = dim3(div(extent.x, Blk16), div(extent.y, Blk16), div(extent.z, Blk16));
     psz::KCU_x_spl_infprecis_data<
-        E, T, FP, 4, SPLINE_DIM_3, BLOCK16, BLOCK16, BLOCK16, 1, 1, 1, DEFAULT_BLOCK_SIZE>  //
-        <<<grid_dim, dim3(DEFAULT_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-            eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap,
-            xdata.ptr, extent, data_leap, xdata.ptr, eb_r, ebx2, radius,
-            intp_param);
+        E, T, FP, 4, SplDim3, Blk16, Blk16, Blk16, 1, 1, 1, DefaultLinBlkSz>  //
+        <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
+            eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap, xdata.ptr, extent,
+            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param);
   }
 
   cudaStreamSynchronize((cudaStream_t)stream);

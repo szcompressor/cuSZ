@@ -1,17 +1,10 @@
 #include "hfr_concat.cuh"
 
-__INSTANTIATE_PHF_CONCAT_VIA_SCATTER_PPC(32)
-__INSTANTIATE_PHF_CONCAT_VIA_SCATTER_PPC(64)
-__INSTANTIATE_PHF_CONCAT_VIA_SCATTER_PPC(128)
-__INSTANTIATE_PHF_CONCAT_VIA_SCATTER_PPC(256)
+template struct phf::concat_via_scatter_ppc<32>;
+template struct phf::concat_via_scatter_ppc<64>;
+template struct phf::concat_via_scatter_ppc<128>;
+template struct phf::concat_via_scatter_ppc<256>;
 
-__INSTANTIATE_PHF_PACK_PBK_METADATA(uint8_t)
-__INSTANTIATE_PHF_PACK_PBK_METADATA(uint16_t)
-__INSTANTIATE_PHF_PACK_PBK_METADATA(uint32_t)
-
-__INSTANTIATE_PHF_PACK_PACKED_HEADERS(uint8_t)
-__INSTANTIATE_PHF_PACK_PACKED_HEADERS(uint16_t)
-
-__INSTANTIATE_PHF_FUTURE_CONCAT_VIA_SCATTER(uint8_t, 128)
-__INSTANTIATE_PHF_FUTURE_CONCAT_VIA_SCATTER(uint16_t, 128)
-__INSTANTIATE_PHF_FUTURE_CONCAT_VIA_SCATTER(uint32_t, 128)
+template struct phf::_future_concat_via_scatter<u1, 128>;
+template struct phf::_future_concat_via_scatter<u2, 128>;
+template struct phf::_future_concat_via_scatter<u4, 128>;

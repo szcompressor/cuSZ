@@ -80,37 +80,6 @@ struct LoadNcellFromBheader {
   }
 };
 
-// Pack bheader[] -> 2-word AoS packed headers (same format as concat_via_scatter).
-template <typename E>
-__global__ void KCU_pack_packed_headers(
-    psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius> const* __restrict__ hdrs,
-    u4* __restrict__ out_headers, u4 sizeof_Hf, int pardeg)
-{
-  int b = blockIdx.x * blockDim.x + threadIdx.x;
-  if (b >= pardeg) return;
-  auto const h = hdrs[b];
-  u4 const bits = (u4)h.bits;
-  u4 const enc_id = (u4)h.enc_id;
-  u4 const entry = (u4)h.entry / sizeof_Hf;  // bytes -> cells
-  out_headers[2 * b + 0] = (bits << 14) | (enc_id << 9);
-  out_headers[2 * b + 1] = entry * sizeof_Hf;  // matches PBKC's emit verbatim
-}
-
-template <typename E>
-__global__ void KCU_pack_pbk_metadata(
-    psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius> const* __restrict__ hdrs, u4 pardeg,
-    u4* __restrict__ par_nbit, u4* __restrict__ par_ncell, u1* __restrict__ par_encid)
-{
-  auto i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i >= pardeg) return;
-  auto bits = hdrs[i].bits;
-  auto n_breaks = (u4)hdrs[i].n_breaks;
-  par_nbit[i] = bits;
-  // ncell = bitstream_words + breaks_words (BreakCell = 1 H4 for Radius ≤ 128).
-  par_ncell[i] = (bits + 31) / 32 + n_breaks;
-  par_encid[i] = (u1)hdrs[i].enc_id;
-}
-
 // Sum par_nbit[0..pardeg) -> *total_nbit via per-block atomics.
 template <int BlockDim>
 __global__ void KCU_reduce_total_nbit(u4 const* par_nbit, u4 pardeg, u4* total_nbit)
@@ -151,31 +120,6 @@ __global__ void KCU_unpack_bheader_backport(
 }  // namespace phf
 
 namespace phf::module {
-
-template <typename E>
-int pack_pbk_metadata<E>::GPU_kernel(
-    bheader_t const* pbk_headers, u4 pardeg, u4* par_nbit, u4* par_ncell, u1* par_encid,
-    void* stream)
-{
-  if (pardeg == 0) return 0;
-  constexpr int BlockDim = 128;
-  dim3 grid((pardeg + BlockDim - 1) / BlockDim);
-  phf::KCU_pack_pbk_metadata<E><<<grid, BlockDim, 0, (cudaStream_t)stream>>>(
-      pbk_headers, pardeg, par_nbit, par_ncell, par_encid);
-  return 0;
-}
-
-template <typename E>
-int pack_packed_headers<E>::GPU_kernel(
-    bheader_t const* pbk_headers, u4* out_headers, u4 sizeof_Hf, int pardeg, void* stream)
-{
-  if (pardeg <= 0) return 0;
-  constexpr int BlockDim = 256;
-  dim3 grid((unsigned)((pardeg + BlockDim - 1) / BlockDim));
-  phf::KCU_pack_packed_headers<E>
-      <<<grid, BlockDim, 0, (cudaStream_t)stream>>>(pbk_headers, out_headers, sizeof_Hf, pardeg);
-  return 0;
-}
 
 int reduce_total_nbit::GPU_kernel(u4 const* par_nbit, u4 pardeg, u4* total_nbit, void* stream)
 {
@@ -279,8 +223,5 @@ void launch_init_host(
 
 #define __INSTANTIATE_PHF_CONCAT_VIA_SCATTER_PPC(BD) \
   template struct phf::concat_via_scatter_ppc<BD>;
-#define __INSTANTIATE_PHF_PACK_PBK_METADATA(E) template struct phf::module::pack_pbk_metadata<E>;
-#define __INSTANTIATE_PHF_PACK_PACKED_HEADERS(E) \
-  template struct phf::module::pack_packed_headers<E>;
 #define __INSTANTIATE_PHF_FUTURE_CONCAT_VIA_SCATTER(E, BD) \
   template struct phf::_future_concat_via_scatter<E, BD>;

@@ -7,17 +7,18 @@
 
 namespace cg = cooperative_groups;
 
-#define COUNT_LOCAL_STAT(DELTA, IS_VALID_RANGE)           \
-  int is_zero = IS_VALID_RANGE ? (DELTA == 0) : 0;        \
-  unsigned int mask = __ballot_sync(0xffffffff, is_zero); \
-  if (threadIdx.x % 32 == 0) thp_top1_count += __popc(mask);
-
-#define TYPES_SETUP_KERN                \
-  using T = typename Types::T;          \
-  using Eq = typename Types::Eq;        \
+#define TYPES_SETUP_ZIGZAG()            \
   using ZigZag = psz::ZigZag<Eq>;       \
   using EqUInt = typename ZigZag::UInt; \
   using EqSInt = typename ZigZag::SInt;
+
+#define TYPES_SETUP_KERN                                               \
+  using T = typename Types::T;                                         \
+  using Eq = typename Types::Eq;                                       \
+  TYPES_SETUP_ZIGZAG();                                                \
+  constexpr auto UseZigZag = Features::UseZigZag == Toggle::ZigZag_On; \
+  constexpr auto UseH1L = Features::UseH1L == Toggle::H1L_On;          \
+  constexpr auto UseH1G = Features::UseH1G == Toggle::H1G_On;
 
 #define TYPES_SETUP_MODULE              \
   using T = typename Types::T;          \
@@ -32,14 +33,61 @@ __device__ __forceinline__ u4 linear_block_idx()
   return blockIdx.x + gridDim.x * (blockIdx.y + gridDim.y * blockIdx.z);
 }
 
+// quantize and separate normal eq and outlier
+template <bool UseZigZag, typename T, typename Eq>
+__device__ __forceinline__ T
+lrz_quantize_normal(T residual, u2 radius, bool quantizable, Eq& eq_out)
+{
+  using ZigZag = psz::ZigZag<Eq>;
+  using SInt = typename ZigZag::SInt;
+  using UInt = typename ZigZag::UInt;
+
+  T candidate;
+  if constexpr (UseZigZag) {
+    candidate = residual;
+    eq_out = ZigZag::encode(static_cast<SInt>(quantizable * candidate));
+  }
+  else {
+    candidate = residual + radius;
+    eq_out = quantizable * static_cast<UInt>(candidate);
+  }
+  return candidate;
+}
+
+// count in-range hist1
+template <typename T>
+__device__ __forceinline__ void count_local_stat(T delta, bool is_valid_range, u4& p_top1_count)
+{
+  int is_zero = is_valid_range ? (delta == 0) : 0;
+  unsigned int mask = __ballot_sync(0xffffffff, is_zero);
+  if (threadIdx.x % 32 == 0) p_top1_count += __popc(mask);
+}
+
+// finalize hist1
+template <bool UseH1L, bool UseH1G, typename M>
+__device__ __forceinline__ void get_hist1(u4 p_top1_count, u4* s_top1_counts, M* top_count)
+{
+  if constexpr (UseH1L) {
+    auto rank = cg::this_thread_block().thread_rank();
+    if (rank % 32 == 0) atomicAdd(s_top1_counts, p_top1_count);
+    __syncthreads();
+    if constexpr (UseH1G) {
+      if (rank == 0) atomicAdd(top_count, s_top1_counts[0]);
+    }
+    else {
+      if (rank == 0) top_count[linear_block_idx()] = s_top1_counts[0];
+    }
+  }
+}
+
 // TODO (241024) the necessity to keep Fp=T, which triggered double type that
 // significantly slowed down the kernel on non-HPC GPU
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_1d(
     typename Types::T* const in_data, dim3 const extent, typename Types::Eq* const out_eq,
-    typename Types::CompactValIdx* const out_cval_cidx, typename Types::CN* const out_cn,
-    const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
-    typename Types::M* top_count = nullptr)
+    uint16_t const radius, typename Types::Fp const ebx2_r,
+    typename Types::CompactValIdx* _compat_out_cvi, typename Types::CN* _compat_out_cn,
+    size_t _compat_cn_max_allowed, typename Types::M* top_count = nullptr)
 {
   TYPES_SETUP_KERN;
 
@@ -51,11 +99,11 @@ __global__ void KCU_c_lorenzo_1d(
   if (threadIdx.x == 0) s_top1_counts[0] = 0;
 
   __shared__ T s_data[TileDim];
-  __shared__ typename Types::EqUInt s_eq_uint[TileDim];
+  __shared__ EqUInt s_eq_uint[TileDim];
 
   T _thp_data[Seq + 1] = {0};
   auto prev = [&]() -> T& { return _thp_data[0]; };
-  auto thp_data = [&](auto i) -> T& { return _thp_data[i + 1]; };
+  auto p_data = [&](auto i) -> T& { return _thp_data[i + 1]; };
 
   auto const id_base = blockIdx.x * TileDim;
 
@@ -69,53 +117,34 @@ __global__ void KCU_c_lorenzo_1d(
 
 // shmem.in_data to private.in_data
 #pragma unroll
-  for (auto ix = 0; ix < Seq; ix++) thp_data(ix) = s_data[threadIdx.x * Seq + ix];
+  for (auto ix = 0; ix < Seq; ix++) p_data(ix) = s_data[threadIdx.x * Seq + ix];
   if (threadIdx.x > 0) prev() = s_data[threadIdx.x * Seq - 1];  // from last thread
   __syncthreads();
 
-  u4 thp_top1_count{0};
+  u4 p_top1_count{0};
 
   // quantize & write back to shmem.eq
 #pragma unroll
   for (auto ix = 0; ix < Seq; ix++) {
-    T delta = thp_data(ix) - thp_data(ix - 1);
-    bool quantizable = fabs(delta) < radius;
+    T delta = p_data(ix) - p_data(ix - 1);
+    const bool quantizable = fabs(delta) < radius;
+    auto gid = id_base + threadIdx.x * Seq + ix;
+    const bool is_valid_range = gid < extent.x;
 
-    if constexpr (Features::UseH1L == Toggle::H1L_On) {
-      bool is_valid_range = id_base + threadIdx.x * Seq + ix < extent.x;
-      COUNT_LOCAL_STAT(delta, is_valid_range);
-    }
+    if constexpr (UseH1L) count_local_stat(delta, is_valid_range, p_top1_count);
 
-    T candidate;
-    if constexpr (Features::UseZigZag == Toggle::ZigZag_On) {
-      candidate = delta;
-      s_eq_uint[threadIdx.x * Seq + ix] =
-          ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
-    }
-    else {
-      candidate = delta + radius;
-      s_eq_uint[threadIdx.x * Seq + ix] = quantizable * static_cast<EqUInt>(candidate);
-    }
+    Eq eq;
+    T candidate = lrz_quantize_normal<UseZigZag>(delta, radius, quantizable, eq);
+    s_eq_uint[threadIdx.x * Seq + ix] = eq;
 
-    if (not quantizable) {
-      auto cur_idx = atomicAdd(out_cn, 1);
-      if (cur_idx <= cn_max_allowed)
-        out_cval_cidx[cur_idx] = {(float)candidate, id_base + threadIdx.x * Seq + ix};
+    if (not quantizable and is_valid_range) {
+      auto cur_idx = atomicAdd(_compat_out_cn, 1);
+      if (cur_idx <= _compat_cn_max_allowed) _compat_out_cvi[cur_idx] = {(float)candidate, gid};
     }
   }
   __syncthreads();
 
-  if constexpr (Features::UseH1L == Toggle::H1L_On) {
-    if (threadIdx.x % 32 == 0) atomicAdd(s_top1_counts, thp_top1_count);
-    __syncthreads();
-
-    if constexpr (Features::UseH1G == Toggle::H1G_On) {
-      if (threadIdx.x == 0) atomicAdd(top_count, s_top1_counts[0]);
-    }
-    else {
-      if (threadIdx.x == 0) top_count[linear_block_idx()] = s_top1_counts[0];
-    }
-  }
+  get_hist1<UseH1L, UseH1G>(p_top1_count, s_top1_counts, top_count);
 
 // write from shmem.eq to dram.eq
 #pragma unroll
@@ -127,89 +156,12 @@ __global__ void KCU_c_lorenzo_1d(
   // end of kernel
 }
 
-template <typename T, bool UseZigZag, typename Eq = uint16_t, typename Fp = T>
-__global__ [[deprecated]] void KCU_c_lorenzo_2d1l(
-    T* const in_data, dim3 const data_len3, dim3 const data_leap3, Eq* const out_eq,
-    T* const out_cval, uint32_t* const out_cidx, uint32_t* const out_cn, uint16_t const radius,
-    Fp const ebx2_r)
-{
-  using ZigZag = psz::ZigZag<Eq>;
-  using EqUInt = typename ZigZag::UInt;
-  using EqSInt = typename ZigZag::SInt;
-
-  constexpr auto TileDim = 16;
-  constexpr auto Yseq = 8;
-
-  // NW  N       first el <- 0
-  //  W  center
-  T center[Yseq + 1] = {0};
-  // auto prev = [&]() -> T& { return _center[0]; };
-  // auto center = [&](auto i) -> T& { return _center[i + 1]; };
-  // auto last = [&]() -> T& { return _center[Yseq]; };
-
-  // BDX == TileDim == 16, BDY * Yseq = TileDim == 16
-  auto gix = blockIdx.x * TileDim + threadIdx.x;
-  auto giy_base = blockIdx.y * TileDim + threadIdx.y * Yseq;
-  auto g_id = [&](auto i) { return (giy_base + i) * data_leap3.y + gix; };
-
-  // use a warp as two half-warps
-  // block_dim = (16, 2, 1) makes a full warp internally
-
-// read to private.in_data (center)
-#pragma unroll
-  for (auto iy = 0; iy < Yseq; iy++) {
-    if (gix < data_len3.x and giy_base + iy < data_len3.y)
-      center[iy + 1] = round(in_data[g_id(iy)] * ebx2_r);
-  }
-  // same-warp, next-16
-  auto tmp = __shfl_up_sync(0xffffffff, center[Yseq], 16, 32);
-  if (threadIdx.y == 1) center[0] = tmp;
-
-// prediction (apply Lorenzo filter)
-#pragma unroll
-  for (auto i = Yseq; i > 0; i--) {
-    // with center[i-1] intact in this iteration
-    center[i] -= center[i - 1];
-    // within a halfwarp (32/2)
-    auto west = __shfl_up_sync(0xffffffff, center[i], 1, 16);
-    if (threadIdx.x > 0) center[i] -= west;  // delta
-  }
-  __syncthreads();
-
-#pragma unroll
-  for (auto i = 1; i < Yseq + 1; i++) {
-    auto gid = g_id(i - 1);
-
-    if (gix < data_len3.x and giy_base + (i - 1) < data_len3.y) {
-      bool quantizable = fabs(center[i]) < radius;
-      T candidate;
-
-      if constexpr (UseZigZag) {
-        candidate = center[i];
-        out_eq[gid] = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
-      }
-      else {
-        candidate = center[i] + radius;
-        out_eq[gid] = quantizable * (EqUInt)candidate;
-      }
-
-      if (not quantizable) {
-        auto cur_idx = atomicAdd(out_cn, 1);
-        out_cidx[cur_idx] = gid;
-        out_cval[cur_idx] = candidate;
-      }
-    }
-  }
-
-  // end of kernel
-}
-
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_2d__32x32(
     typename Types::T* const in_data, dim3 const extent, uint32_t const leapy,
-    typename Types::Eq* const out_eq, typename Types::CompactValIdx* const out_cval_cidx,
-    typename Types::CN* const out_cn, const size_t cn_max_allowed, uint16_t const radius,
-    typename Types::Fp const ebx2_r, typename Types::M* top_count = nullptr)
+    typename Types::Eq* const out_eq, uint16_t const radius, typename Types::Fp const ebx2_r,
+    typename Types::CompactValIdx* _compat_out_cvi, typename Types::CN* _compat_out_cn,
+    size_t _compat_cn_max_allowed, typename Types::M* top_count = nullptr)
 {
   TYPES_SETUP_KERN;
 
@@ -241,7 +193,7 @@ __global__ void KCU_c_lorenzo_2d__32x32(
   if (threadIdx.y > 0) center[0] = exchange[threadIdx.y - 1][threadIdx.x];
   __syncthreads();
 
-  u4 thp_top1_count{0};
+  u4 p_top1_count{0};
 
 #pragma unroll
   for (auto i = Yseq; i > 0; i--) {
@@ -251,47 +203,23 @@ __global__ void KCU_c_lorenzo_2d__32x32(
     if (threadIdx.x > 0) center[i] -= west;
 
     // 2) store quant-code
-    auto gid = g_id(i - 1);
+    const auto gid = g_id(i - 1);
+    const bool quantizable = fabs(center[i]) < radius;
+    const bool is_valid_range = (gix < extent.x and (giy_base + i - 1) < extent.y);
 
-    bool quantizable = fabs(center[i]) < radius;
-    bool is_valid_range = (gix < extent.x and (giy_base + i - 1) < extent.y);
+    if constexpr (UseH1L) count_local_stat(center[i], is_valid_range, p_top1_count);
 
-    if constexpr (Features::UseH1L == Toggle::H1L_On) {
-      COUNT_LOCAL_STAT(center[i], is_valid_range);
-    }
+    Eq eq;
+    T candidate = lrz_quantize_normal<UseZigZag>(center[i], radius, quantizable, eq);
+    if (is_valid_range) out_eq[gid] = eq;
 
-    T candidate;
-
-    if constexpr (Features::UseZigZag == Toggle::ZigZag_On) {
-      candidate = center[i];
-      if (is_valid_range)
-        out_eq[gid] = ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
-    }
-    else {
-      candidate = center[i] + radius;
-      if (is_valid_range) out_eq[gid] = quantizable * static_cast<EqUInt>(candidate);
-    }
-
-    if (not quantizable) {
-      if (gix < extent.x and (giy_base + i - 1) < extent.y) {
-        auto cur_idx = atomicAdd(out_cn, 1);
-        if (cur_idx <= cn_max_allowed) out_cval_cidx[cur_idx] = {(float)candidate, gid};
-      }
+    if (not quantizable and is_valid_range) {
+      auto cur_idx = atomicAdd(_compat_out_cn, 1);
+      if (cur_idx <= _compat_cn_max_allowed) _compat_out_cvi[cur_idx] = {(float)candidate, gid};
     }
   }
 
-  if constexpr (Features::UseH1L == Toggle::H1L_On) {
-    if (cg::this_thread_block().thread_rank() % 32 == 0) atomicAdd(s_top1_counts, thp_top1_count);
-    __syncthreads();
-
-    if constexpr (Features::UseH1G == Toggle::H1G_On) {
-      if (cg::this_thread_block().thread_rank() == 0) atomicAdd(top_count, s_top1_counts[0]);
-    }
-    else {
-      if (cg::this_thread_block().thread_rank() == 0)
-        top_count[linear_block_idx()] = s_top1_counts[0];
-    }
-  }
+  get_hist1<UseH1L, UseH1G>(p_top1_count, s_top1_counts, top_count);
 
   // end of kernel
 }
@@ -299,10 +227,9 @@ __global__ void KCU_c_lorenzo_2d__32x32(
 template <class Types, class Features, class Perf>
 __global__ void KCU_c_lorenzo_3d(
     typename Types::T* const in_data, dim3 const extent, uint32_t const leapy,
-    uint32_t const leapz, typename Types::Eq* const out_eq,
-    typename Types::CompactValIdx* const out_cval_cidx, typename Types::CN* const out_cn,
-    const size_t cn_max_allowed, uint16_t const radius, typename Types::Fp const ebx2_r,
-    typename Types::M* top_count = nullptr)
+    uint32_t const leapz, typename Types::Eq* const out_eq, uint16_t const radius,
+    typename Types::Fp const ebx2_r, typename Types::CompactValIdx* _compat_out_cvi,
+    typename Types::CN* _compat_out_cn, size_t _compat_cn_max_allowed, typename Types::M* top_count = nullptr)
 {
   TYPES_SETUP_KERN;
 
@@ -333,25 +260,16 @@ __global__ void KCU_c_lorenzo_3d(
     __syncthreads();
   };
 
-  auto quantize_compact_write = [&](T delta, auto x, auto y, auto z, auto gid) {
-    bool quantizable = fabs(delta) < radius;
+  auto quantize_compact_write = [&](T delta, bool is_valid_range, auto gid) {
+    const bool quantizable = fabs(delta) < radius;
 
-    if (x < extent.x and y < extent.y and z < extent.z) {
-      T candidate;
+    Eq eq;
+    T candidate = lrz_quantize_normal<UseZigZag>(delta, radius, quantizable, eq);
+    if (is_valid_range) out_eq[gid] = eq;
 
-      if constexpr (Features::UseZigZag == Toggle::ZigZag_On) {
-        candidate = delta;
-        out_eq[gid] = Types::ZigZag::encode(static_cast<EqSInt>(quantizable * candidate));
-      }
-      else {
-        candidate = delta + radius;
-        out_eq[gid] = quantizable * static_cast<EqUInt>(candidate);
-      }
-
-      if (not quantizable) {
-        auto cur_idx = atomicAdd(out_cn, 1);
-        if (cur_idx <= cn_max_allowed) out_cval_cidx[cur_idx] = {(float)candidate, gid};
-      }
+    if (not quantizable and is_valid_range) {
+      auto cur_idx = atomicAdd(_compat_out_cn, 1);
+      if (cur_idx <= _compat_cn_max_allowed) _compat_out_cvi[cur_idx] = {(float)candidate, gid};
     }
   };
 
@@ -359,7 +277,7 @@ __global__ void KCU_c_lorenzo_3d(
 
   load_prequant_3d();
 
-  u4 thp_top1_count{0};
+  u4 p_top1_count{0};
 
   for (auto z = TileDim; z > 0; z--) {
     // z-direction
@@ -377,28 +295,16 @@ __global__ void KCU_c_lorenzo_3d(
     // ty==0 must NOT read s[0][..]: it is never written; the prior `0*x` idiom NaN-leaked.
     if (threadIdx.y > 0) delta[z] -= s[threadIdx.y][threadIdx.x];
 
-    if constexpr (Features::UseH1L == Toggle::H1L_On) {
-      auto is_valid_range = (gix < extent.x and giy < extent.y and giz(z - 1) < extent.z);
-      COUNT_LOCAL_STAT(delta[z], is_valid_range);
-    }
+    const bool is_valid_range = (gix < extent.x and giy < extent.y and giz(z - 1) < extent.z);
+
+    if constexpr (UseH1L) count_local_stat(delta[z], is_valid_range, p_top1_count);
 
     // now delta[z] is delta
-    quantize_compact_write(delta[z], gix, giy, giz(z - 1), gid(z - 1));
+    quantize_compact_write(delta[z], is_valid_range, gid(z - 1));
     __syncthreads();
   }
 
-  if constexpr (Features::UseH1L == Toggle::H1L_On) {
-    if (cg::this_thread_block().thread_rank() % 32 == 0) atomicAdd(s_top1_counts, thp_top1_count);
-    __syncthreads();
-
-    if constexpr (Features::UseH1G == Toggle::H1G_On) {
-      if (cg::this_thread_block().thread_rank() == 0) atomicAdd(top_count, s_top1_counts[0]);
-    }
-    else {
-      if (cg::this_thread_block().thread_rank() == 0)
-        top_count[linear_block_idx()] = s_top1_counts[0];
-    }
-  }
+  get_hist1<UseH1L, UseH1G>(p_top1_count, s_top1_counts, top_count);
 }
 
 }  // namespace psz
@@ -424,22 +330,22 @@ int GPU_c_lorenzo_nd<Types, Features>::kernel(
     using lrz1 = config::c_lorenzo<1>;
     KCU_c_lorenzo_1d<Types, Features, lrz1::Perf>
         <<<lrz1::thread_grid(extent), lrz1::thread_block, 0, (cudaStream_t)stream>>>(
-            in_data.ptr, extent, out_eq, ot->val_idx_d(), ot->num_d(), ot->max_allowed_num(),
-            radius, (T)ebx2_r, out_top1);
+            in_data.ptr, extent, out_eq, radius, (T)ebx2_r, ot->val_idx_d(), ot->num_d(),
+            ot->max_allowed_num(), out_top1);
   }
   else if (d == 2) {
     using lrz2 = config::c_lorenzo<2, 32, 32>;
     KCU_c_lorenzo_2d__32x32<Types, Features, lrz2::Perf>
         <<<lrz2::thread_grid(extent), lrz2 ::thread_block, 0, (cudaStream_t)stream>>>(
-            in_data.ptr, extent, leapy, out_eq, ot->val_idx_d(), ot->num_d(),
-            ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
+            in_data.ptr, extent, leapy, out_eq, radius, (T)ebx2_r, ot->val_idx_d(), ot->num_d(),
+            ot->max_allowed_num(), out_top1);
   }
   else if (d == 3) {
     using lrz3 = config::c_lorenzo<3>;
     KCU_c_lorenzo_3d<Types, Features, lrz3::Perf>
         <<<lrz3::thread_grid(extent), lrz3::thread_block, 0, (cudaStream_t)stream>>>(
-            in_data.ptr, extent, leapy, leapz, out_eq, ot->val_idx_d(), ot->num_d(),
-            ot->max_allowed_num(), radius, (T)ebx2_r, out_top1);
+            in_data.ptr, extent, leapy, leapz, out_eq, radius, (T)ebx2_r, ot->val_idx_d(),
+            ot->num_d(), ot->max_allowed_num(), out_top1);
   }
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;

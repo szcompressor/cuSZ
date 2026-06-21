@@ -138,9 +138,6 @@ struct CPU_scatter {
 
 template <typename T, typename M>
 struct GPU_scatter {
-  [[deprecated("Superseded by kernel_v3_fuse.")]] static int kernel(
-      T* val, M* idx, int nnz, T* out, void* stream);
-
   using ValIdx = _ptb::compact_cell<T, M>;
   // fuse the compact outliers onto the decoded eq
   static int kernel_v3_fuse(ValIdx* val_idx, int nnz, T* out, void* stream);

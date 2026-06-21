@@ -27,34 +27,7 @@ using phf_module = cuhip::modules<E, H4>;
 
 namespace dispatch {
 
-template <typename E>
-int encode_hf(
-    Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
-    hf_stream_t stream)
-{
-  size_t _total_nbit = 0, _total_ncell = 0;  // wrapper writes size_t; header keeps u4 ncell
-  phf_module<E>::GPU_coarse_encode(
-      in, len, buf->book_d(), buf->rt_bklen(), buf->num_sms(), {buf->sublen(), buf->pardeg()},
-      buf->scratch_d(), buf->par_nbit_d(), buf->par_nbit_h(), buf->par_ncell_d(),
-      buf->par_ncell_h(), buf->par_entry_d(), buf->par_entry_h(), buf->bitstream_d(),
-      buf->bitstream_max_len(), &_total_nbit, &_total_ncell, stream);
-
-  sync_by_stream(stream);
-  header.total_ncell = (u4)_total_ncell;
-
-  {
-    M nbyte[PHFHEADER_END];
-    buf->update_header(header);
-    buf->calc_offset(header, nbyte);
-  }
-  buf->memcpy_merge(header, stream);
-
-  *out = buf->encoded_d();
-  *outlen = phf_encoded_bytes(&header);
-  return 0;
-}
-
-// HFr1: same ph1+ph2 as encode_hf, then LAGO-concat replaces ph3+ph4.
+// HFr1: same ph1+ph2 as HFr2, then LAGO-concat replaces ph3+ph4.
 template <typename E>
 int encode_hf_rev1(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
@@ -569,10 +542,9 @@ int high_level<E>::HF_encode(
     hf_stream_t stream, psz_codec variant, float* opt_ms_encoder, float* opt_ms_lago)
 {
   switch (variant) {
-    case HF:
-      (void)opt_ms_encoder;
-      (void)opt_ms_lago;
-      return dispatch::encode_hf<E>(buf, in, len, out, outlen, header, stream);
+    case HF:  // HF SoA path retired; route to HFr2.
+      return dispatch::encode_hf_rev2<E>(
+          buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
     case HFr1:
       return dispatch::encode_hf_rev1<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
@@ -589,9 +561,9 @@ int high_level<E>::HF_decode(
     Buf<E>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream,
     psz_codec variant)
 {
-  // HF{,_r1}: same layout, so same decoder
   switch (variant) {
-    case HF:
+    case HF:  // HF SoA path retired; decodes via the HFr2 layout.
+      return dispatch::decode_hf_rev2<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFr1: return dispatch::decode_hf<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     case HFr2:
       return dispatch::decode_hf_rev2<E, Eout>(buf, header, in_encoded, out_decoded, stream);

@@ -253,11 +253,6 @@ struct par_config {
 }  // namespace phf
 
 template <typename E, typename H = uint32_t>
-[[deprecated("use phf_CPU_build_canonized_codebook_v2")]] void phf_CPU_build_canonized_codebook_v1(
-    uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes,
-    float* time);
-
-template <typename E, typename H = uint32_t>
 void phf_CPU_build_canonized_codebook_v2(
     uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook, int const revbook_bytes,
     float* time = nullptr);
@@ -279,45 +274,11 @@ class modules {
       H* in_data, const size_t data_len, phf::par_config hfpar, H* deflated, M* par_nbit,
       M* par_ncell, void* stream);
 
-  static void GPU_fine_enc_ph1_2(
-      E* in, const size_t len, H* book, const u4 bklen, H* bitstream, M* par_nbit, M* par_ncell,
-      const u4 nblock, E* brval, u4* bridx, u4* brnum, void* stream);
-
-  static void GPU_coarse_enc_ph3_sync(
-      phf::par_config hfpar, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell,
-      M* d_par_entry, M* h_par_entry, size_t* outlen_nbit, size_t* outlen_ncell,
-      float* time_cpu_time, void* stream);
-
-  static void GPU_coarse_enc_ph4(
-      H* in_buf, const size_t len, M* par_entry, M* par_ncell, phf::par_config hfpar, H* bitstream,
-      const size_t max_bitstream_len, void* stream);
-
-  static void GPU_coarse_encode(
-      E* in_data, size_t data_len, H* in_book, u4 book_len, int num_SMs, phf::par_config hfpar,
-      // internal buffers
-      H* d_scratch4, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell, M* d_par_entry,
-      M* h_par_entry, H* d_bitstream4, size_t bitstream_max_len,
-      // output
-      size_t* out_total_nbit, size_t* out_total_ncell, void* stream);
-
-  static void GPU_fine_encode(
-      E* in_data, size_t data_len, H* in_book, u4 book_len, phf::par_config hfpar,
-      // internal buffers
-      H* d_scratch4, M* d_par_nbit, M* h_par_nbit, M* d_par_ncell, M* h_par_ncell, M* d_par_entry,
-      M* h_par_entry, H* d_bitstream4, size_t bitstream_max_len, E* d_brval, u4* d_bridx,
-      u4* d_brnum,
-      // output
-      size_t* out_total_nbit, size_t* out_total_ncell, void* stream);
-
   template <typename Eout = E>
   static void GPU_coarse_decode(
       H* in_bitstream, uint8_t* in_revbook, size_t const revbook_len, M* in_par_nbit,
       M* in_par_entry, size_t const sublen, size_t const pardeg, Eout* out_decoded,
       uint8_t* in_par_encid, void* stream);
-
-  static void GPU_scatter_breaks(
-      psz::HFR_PBK_Breaks<128>* sp_breaks, u4* par_brnum, u4* par_broffset, int const sublen,
-      int const pardeg, E* out, void* stream);
 };
 
 }  // namespace phf::cuhip
