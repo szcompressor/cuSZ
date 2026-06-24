@@ -1,4 +1,6 @@
-// HFR-PBK_Compat: blockwise, globally ordering resolved in one kernel
+#ifndef PHF_HFR_PBKGO_C_CUH
+#define PHF_HFR_PBKGO_C_CUH
+
 #include <cuda_runtime.h>
 
 #include <cstddef>
@@ -6,8 +8,9 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "_future/hfr-pbk.cuh"   // shared LUTs + find_proper_book / load_proper_book
-#include "_future/warp_top1.cuh"  // psz::warp_top1_count
+#include "_future/hfr-pbk.cuh"
+#include "_future/hfr_incomp_fb.cuh"
+#include "_future/warp_top1.cuh"
 #include "hf_impl.hh"
 #include "hfr.hh"
 
@@ -23,42 +26,8 @@ using hfr_pbk::_router_inline_breaks;
 using hfr_pbk::slot_decoupled_lookback;
 using hfr_pbk::slot_lago_ticket;
 using hfr_pbk::write_pbk_bitstream_v2;
+using phf::hfr_helpers::blk_incomp_fb;
 
-// Write raw payload when this block is incompressible.
-template <
-    typename T, int ChunkSize, int ShardSize, int NumThreads, typename Hf, typename Header,
-    typename Slot>
-__forceinline__ __device__ void handle_incomp_pbkgo(
-    u4 b, volatile Header* bheader, Hf* dn_bitstream, T* in_eq, size_t const data_len,
-    u4 const id_base, Slot slot)
-{
-  __shared__ u4 s_start_off;
-  __shared__ u4 s_wunits;
-
-  if (threadIdx.x == 0) {
-    bheader->enc_id = (u4)psz::HFR_PBK_Constants::CodeIncompBreaks;
-    bheader->n_breaks = 0;
-    bheader->bits = ChunkSize * sizeof(T) * 8;
-    s_wunits = (bheader->bits + 31u) >> 5;
-  }
-  __syncthreads();
-
-  slot.reserve(b, s_wunits * sizeof(Hf), &s_start_off, bheader);
-
-  auto bs_base = (Hf*)((u1*)dn_bitstream + s_start_off);
-  auto base = (T*)bs_base;
-
-#pragma unroll
-  for (auto ix = 0; ix < ShardSize; ix++) {
-    auto l_id = threadIdx.x + ix * NumThreads;
-    auto id = id_base + l_id;
-    if (id < data_len) base[l_id] = in_eq[id];
-  }
-
-  slot.commit(b);
-}
-
-// min-blocks/SM launch hint: 8 on server tiers (sm_70/80/90), 6 elsewhere.
 #if __CUDA_ARCH__ == 700 || __CUDA_ARCH__ == 800 || __CUDA_ARCH__ == 900
 #define PBKGO_MIN_BLOCKS_PER_SM 8
 #else
@@ -74,8 +43,9 @@ __forceinline__ __device__ void emit_packed_and_total(
   if (threadIdx.x != 0) return;
   u4 const bits_v = bheader->bits;
   u4 const enc_id_v = bheader->enc_id;
+  u4 const n_unpred_v = bheader->n_unpred;
   u4 const entry_v = bheader->entry;  // byte offset
-  dn_packed_headers[2 * b + 0] = (bits_v << 14) | (enc_id_v << 9);
+  dn_packed_headers[2 * b + 0] = (bits_v << 14) | (enc_id_v << 9) | (n_unpred_v & 0x7u);
   dn_packed_headers[2 * b + 1] = entry_v;
   if (b == nblock - 1) *d_total_cells = (entry_v + p_wbytes) / (u4)sizeof(Hf);
 }
@@ -83,6 +53,8 @@ __forceinline__ __device__ void emit_packed_and_total(
 template <class C, RMerge RM = RMerge::v7, SMerge SM = SMerge::v7>
 __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_PBKGO_encode(
     typename C::T* in_eq, size_t data_len, typename C::Hf* dram_pbk, typename C::Hf* dn_bitstream,
+    psz::_future::bheader<typename C::T, C::Radius>* dn_headers,
+    _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp,
     u4* dn_packed_headers, u4* d_total_cells, u4* d_state)
 {
   static_assert(merge_compatible(RM, SM), "RMerge/SMerge data-handoff contract mismatch");
@@ -96,6 +68,25 @@ __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_
   const u4 b = (u4)blockIdx.x;
   if (b >= nblock) return;
   auto const id_base = b * ChunkSize;
+  __shared__ u4 s_pre_encid;
+  // keep predictor unpred + pre-set enc_id (unpred-incomp flag).
+  if (threadIdx.x == 0) {
+    s_bheader.n_unpred = dn_headers[b].n_unpred;
+    s_pre_encid = dn_headers[b].enc_id;
+  }
+  __syncthreads();
+
+  // unpred-incomp: enc_id=31 + staged f4 candidates in incomp_data; bypass Huffman.
+  if (s_pre_encid == (u4)psz::HFR_PBK_Constants::CodeIncompUnpred) {
+    blk_incomp_fb<T, ChunkSize, ShardSize, NumThreads>(
+        &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot,
+        (u4)psz::HFR_PBK_Constants::CodeIncompUnpred, incomp_data, nullptr, incomp);
+    u4 const p_wbytes = ((s_bheader.bits + 31u) >> 5) * (u4)sizeof(Hf);
+    if (threadIdx.x == 0) dn_headers[b] = s_bheader;
+    emit_packed_and_total<Header, Hf>(
+        b, nblock, &s_bheader, p_wbytes, dn_packed_headers, d_total_cells);
+    return;
+  }
 
   int p_eq[ShardSize];
   hfr_pbk::load_eq_and_count_top1_v2<T, ChunkSize, ShardSize, NumThreads, Radius>(
@@ -117,9 +108,13 @@ __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_
     __syncthreads();
     p_incomp = __shfl_sync(0xffffffff, p_incomp, 0);
     if (p_incomp) {
-      handle_incomp_pbkgo<T, ChunkSize, ShardSize, NumThreads>(
-          b, &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot);
-      u4 const p_wbytes = ((s_bheader.bits + 31u) >> 5) * (u4)sizeof(Hf);
+      blk_incomp_fb<T, ChunkSize, ShardSize, NumThreads>(
+          &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot,
+          (u4)psz::HFR_PBK_Constants::CodeIncompBreaks, nullptr, block_outliers);
+      u4 const p_wbytes = ((s_bheader.bits + 31u) >> 5) * (u4)sizeof(Hf) +
+                          psz::pbk_unpred_bytes((u4)s_bheader.n_unpred);
+      if (threadIdx.x == 0)
+        dn_headers[b] = s_bheader;  // uniform bheader output (entry don't-care)
       emit_packed_and_total<Header, Hf>(
           b, nblock, &s_bheader, p_wbytes, dn_packed_headers, d_total_cells);
       return;
@@ -129,9 +124,11 @@ __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_
   dispatch_smerge<SM>(cx);
   write_pbk_bitstream_v2(
       b, s_bitcount, s_reduced, (u1*)dn_bitstream, &s_bheader, s_breaks, slot,
-      _router_inline_breaks<BreakCell, u4>{});
+      _router_inline_breaks<BreakCell, u4>{}, block_outliers);
   u4 const p_wbytes = ((s_bheader.bits + 31u) >> 5) * (u4)sizeof(Hf) +
-                      (u4)s_bheader.n_breaks * (u4)sizeof(BreakCell);
+                      (u4)s_bheader.n_breaks * (u4)sizeof(BreakCell) +
+                      psz::pbk_unpred_bytes((u4)s_bheader.n_unpred);
+  if (threadIdx.x == 0) dn_headers[b] = s_bheader;  // uniform bheader output (entry don't-care)
   emit_packed_and_total<Header, Hf>(
       b, nblock, &s_bheader, p_wbytes, dn_packed_headers, d_total_cells);
 }
@@ -152,9 +149,10 @@ int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::max_blocks_per_sm()
 
 template <typename T, int Magnitude, int ReduceTimes, typename Hf, uint16_t Radius>
 int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
-    T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, uint32_t* dn_packed_headers,
-    uint32_t* d_total_cells, uint32_t* d_state, int max_resident_blocks, void* stream, RMerge rm,
-    SMerge sm)
+    T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream,
+    psz::_future::bheader<T, Radius>* dn_headers, _ptb::compact_cell<f4, u2>* block_outliers,
+    f4* incomp_data, IncompRedo incomp, uint32_t* dn_packed_headers, uint32_t* d_total_cells,
+    uint32_t* d_state, int max_resident_blocks, void* stream, RMerge rm, SMerge sm)
 {
   using C = phf::HFR_PBKGO_Config<T, Magnitude, ReduceTimes, Hf, Radius>;
 
@@ -168,18 +166,12 @@ int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
     constexpr RMerge RM = decltype(rm_tag)::value;
     constexpr SMerge SM = decltype(sm_tag)::value;
     phf::KCU_HFR_PBKGO_encode<C, RM, SM><<<grid, block, 0, (cudaStream_t)stream>>>(
-        in_eq, len, dram_pbk, dn_bitstream, dn_packed_headers, d_total_cells, d_state);
+        in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers, incomp_data, incomp,
+        dn_packed_headers, d_total_cells, d_state);
   });
   return 0;
 }
 
 }  // namespace phf::module
 
-// Instantiation macros — caller TUs invoke; this .inl alone instantiates nothing.
-#define __INSTANTIATE_HFR_PBKGO(T, MAG, RED, RAD) \
-  template struct phf::module::HFR_PBKGO_encode<T, MAG, RED, uint32_t, RAD>;
-
-// 1-arg form: fan out u1/u2 at canonical MAG=10, RAD=128 (mirrors __INSTANTIATE_RSMERGE_1).
-#define __INSTANTIATE_HFR_PBKGO_1(RED)           \
-  __INSTANTIATE_HFR_PBKGO(uint8_t, 10, RED, 128) \
-  __INSTANTIATE_HFR_PBKGO(uint16_t, 10, RED, 128)
+#endif /* PHF_HFR_PBKGO_C_CUH */

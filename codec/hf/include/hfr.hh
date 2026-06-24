@@ -1,5 +1,5 @@
-#ifndef AF64552A_247F_47E8_BFFA_EFC88E0491EF
-#define AF64552A_247F_47E8_BFFA_EFC88E0491EF
+#ifndef PHF_HFR_HH
+#define PHF_HFR_HH
 
 // HFR family interface declarations (encode/decode entry points + LAGO-concat helpers).
 
@@ -33,6 +33,7 @@ struct _HFR_PBK_Config_Base : HFR_Config<_T, _Magnitude, _ReduceTimes, _Hf> {
   static constexpr uint16_t Radius = _Radius;
   static constexpr uint16_t BookLen = _Radius * 2;
   static constexpr uint8_t NumBooks = 25;
+  using bheader_t = psz::_future::bheader<_T, _Radius>;
 };
 
 namespace phf {
@@ -128,15 +129,17 @@ namespace phf::module {
 
 template <typename T, int Magnitude, int ReduceTimes, bool UseScan = false, typename Hf = u4>
 struct HFR_encoder {
+  using bheader_t = psz::_future::bheader<T, 128>;
+
   static int GPU_kernel_v1(
       T* in, size_t len, Hf* bk, u4 bklen, Hf alt_code, u4 alt_bitcount, Hf* dn_bitstream,
       u4* dn_bitcount, psz::HFR_PBK_Breaks<128>* sp_breaks, u4* sp_count, u4* par_brnum,
       u4* par_broffset, uint8_t* par_encid, void* stream);
 
-  template <uint16_t Radius = 128>
   static int GPU_kernel_v2(
-      T* in_eq, size_t len, Hf* runtime_book, Hf* dn_bitstream,
-      psz::_future::bheader<T, Radius>* dn_headers, void* stream, RMerge rm, SMerge sm);
+      T* in_eq, size_t len, Hf* runtime_book, Hf* dn_bitstream, bheader_t* dn_headers,
+      _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp, void* stream,
+      RMerge rm, SMerge sm);
 };
 
 // HFR-v3 rep. hist. -> pick PBK & emit ID
@@ -154,10 +157,6 @@ struct unpack_bheader_backport {
   static int GPU_kernel(
       uint32_t const* in_headers, uint32_t* par_nbit, uint32_t* par_entry, int pardeg,
       int sizeof_Hf, void* stream);
-};
-
-struct reduce_total_nbit {
-  static int GPU_kernel(u4 const* par_nbit, u4 pardeg, u4* total_nbit, void* stream);
 };
 
 }  // namespace phf::module
@@ -193,7 +192,21 @@ struct HFR_PBKC_encode {
   using break_t = psz::HFR_PBK_Breaks<Radius>;
 
   static int GPU_kernel(
-      T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers, void* stream,
+      T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
+      _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp, void* stream,
+      RMerge rm, SMerge sm);
+};
+
+// HFR-v4: almost PBKC, but single-book
+template <
+    typename T, int Magnitude, int ReduceTimes, typename Hf = uint32_t, uint16_t Radius = 128>
+struct HFR_V4_encode {
+  using header_t = psz::_future::bheader<T, Radius>;
+  using break_t = psz::HFR_PBK_Breaks<Radius>;
+
+  static int GPU_kernel(
+      T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
+      _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp, void* stream,
       RMerge rm, SMerge sm);
 };
 
@@ -205,13 +218,13 @@ struct HFR_PBKGO_encode {
 
   static int max_blocks_per_sm();
 
-  // Needs a caller-owned, pre-zeroed d_state buffer (pardeg u4 words).
   static int GPU_kernel(
-      T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, uint32_t* dn_packed_headers,
-      uint32_t* d_total_cells, uint32_t* d_state, int max_resident_blocks, void* stream, RMerge rm,
-      SMerge sm);
+      T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
+      _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp,
+      uint32_t* dn_packed_headers, uint32_t* d_total_cells, uint32_t* d_state,
+      int max_resident_blocks, void* stream, RMerge rm, SMerge sm);
 };
 
 }  // namespace phf::module
 
-#endif /* AF64552A_247F_47E8_BFFA_EFC88E0491EF */
+#endif /* PHF_HFR_HH */

@@ -50,7 +50,7 @@ typedef size_t szt;
 
 #define DEFAULT_PREDICTOR Lorenzo
 #define DEFAULT_HISTOGRAM HistGeneric
-#define DEFAULT_CODEC HFR_V3
+#define DEFAULT_CODEC HFR_V4
 #define DEFAULT_CODEC_ALT HFR_PBKC
 #define NULL_HIST HistNull
 #define NULL_CODEC CodecNull
@@ -58,12 +58,12 @@ typedef size_t szt;
 // clang-format off
 typedef enum { Abs, Rel } psz_mode;
 typedef enum { Lorenzo, LorenzoZigZag, Spline } psz_predictor;
-// HFr1: HF (ph1+ph2) + concat replacing legacy ph3 (host scan) + ph4 (copy).
-// HFr2: like HFr1 but ships per-block metadata as AoS bheader_backport[].
+// HFr2: HF (ph1+ph2) + LAGO concat (replaces legacy ph3 host-scan + ph4 copy) + AoS bheader_backport[].
 // HFR: Tian et al. 2020, refined.
 // HFR-PBKC: --codec1 hfr-pbkc. HFR-PBKGO: --codec1 hfr-pbkgo.
-// HFR_V3: global single PBK book (GPU-picked, 1 of 25) + low reduce-times; --codec1 hfr-v3.
-typedef enum { HF, HFr1, HFr2, HFR, HFR_PBKC, HFR_PBKGO, HFR_PBKF, LC, FZG, RLE, HFR_V3, CodecNull } psz_codec;
+// HFR_V3: DEPRECATED (kept for bin_hf + reading old archives); superseded by HFR_V4. --codec1 hfr-v3.
+// HFR_V4: default. v3 book pick, but on the HFR-PBKC kernel in single-book mode; --codec1 hfr-v4.
+typedef enum { HF, HFr2, HFR, HFR_PBKC, HFR_PBKGO, HFR_PBKF, LC, FZG, RLE, HFR_V3, HFR_V4, CodecNull } psz_codec;
 typedef enum { HistGeneric, HistSp, HistNull } psz_hist;
 // clang-format on
 

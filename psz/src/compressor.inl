@@ -217,22 +217,6 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
-  // HFr1: ph1+ph2 same as HF; LAGO-concat in place of ph3+ph4.
-  auto compress_encode_pass1_Huffman_rev1 = [&]() -> int {
-    compress_histogram_and_build_book();
-
-    phf_header dummy_header;
-    phf::high_level<E>::HF_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::HFr1);
-    ctx->header->vle_sublen = dummy_header.sublen;
-    ctx->header->vle_pardeg = dummy_header.pardeg;
-    sync_by_stream(stream);
-    // Post-encode scan-state reset (LAGO pay-forward).
-    mem->buf_hf()->reset(stream);
-    return PSZ_SUCCESS;
-  };
-
   // HFr2: same as _r1 but ships per-block metadata as AoS bheader_backport[].
   auto compress_encode_pass1_Huffman_rev2 = [&]() -> int {
     compress_histogram_and_build_book();
@@ -420,8 +404,6 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       status = compress_encode_pass1_HFR_PBK_GO();
     else if (PIPELINE.codec1 == HFR_V3)
       status = compress_encode_pass1_HFR_v3();
-    else if (PIPELINE.codec1 == HFr1)
-      status = compress_encode_pass1_Huffman_rev1();
     else if (PIPELINE.codec1 == HFr2)
       status = compress_encode_pass1_Huffman_rev2();
     else

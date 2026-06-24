@@ -11,6 +11,7 @@ struct HFR_Opts {
   int reduce_times = (int)psz::HFR_PBK_Constants::ReduceTimes;
   RMerge rm = RMerge::v7;
   SMerge sm = SMerge::v7;
+  IncompRedo incomp = {};
 };
 
 #if defined(__CUDACC__)

@@ -14,6 +14,20 @@
 
 using Hf = u4;
 
+enum class IncompPredKind : u1 { None = 0, Lorenzo1D, Lorenzo2D, Lorenzo3D };
+
+struct IncompRedo {
+  void const* in_data = nullptr;
+  float ebx2_r = 0;
+  u2 radius = 0;
+  u4 leapy = 0, leapz = 0;
+  u4 dimy = 0, dimz = 0;  // extent.y/.z, for the tile-order boundary guard (partial tiles)
+  IncompPredKind kind = IncompPredKind::None;
+  // eq is tile-ordered (2D/3D HFR-family): map the in-tile offset back to the
+  // linear gid before recomputing. linear eq (1D, HFr2) leaves this false.
+  bool nd_tile = false;
+};
+
 namespace psz {
 
 constexpr u4 log2_floor(u4 n);
@@ -74,13 +88,18 @@ struct psz::_parameterized_hfr_pbk_constants {
   static constexpr size_t MaxNumUnpred = (1 << BitsMaxNumUnpred) - 1;  // >=7 -> incomp.unpred
   static constexpr size_t MaxNumBreaks = (1 << BitsMaxNumBreaks) - 1;  // >=63 -> incomp.breaks
 
-  // Worst-case per-block payload (inline-breaks, Hf=u4, BreakCell=4B).
-  static constexpr size_t StridePerBlockWords = BlockSize + MaxNumBreaks;
+  // up to MaxNumUnpred cells (compact_cell<f4,u2>=6B), word-padded.
+  static constexpr size_t OutlierCellBytes = sizeof(_ptb::compact_cell<f4, u2>);  // 6B
+  static constexpr size_t MaxUnpredBytes = (MaxNumUnpred * OutlierCellBytes + 3) & ~size_t(3);
+  static constexpr size_t MaxUnpredWords = MaxUnpredBytes / sizeof(u4);
+
+  // Worst-case per-block: (breaks, Hf=u4, BreakCell=4B) + outliers
+  static constexpr size_t StridePerBlockWords = BlockSize + MaxNumBreaks + MaxUnpredWords;
   static constexpr size_t StridePerBlockBytes = StridePerBlockWords * sizeof(uint32_t);
   static constexpr size_t CodeIncompUnpred = 31;
   static constexpr size_t CodeIncompBreaks = 30;
 
-  // worst-case payload bit-length (BlockSize x 16-bit codes) must fit bheader.bits
+  // worst-case bitstream
   static_assert(BlockSize * 16 < (1ull << BitsDense), "Magnitude exceeds bits(18) budget");
   static_assert(Magnitude <= 16, "block-local idx must fit uint16_t");
 };
@@ -92,6 +111,17 @@ struct psz::HFR_PBK_Constants : psz::_parameterized_hfr_pbk_constants<10> {};
 #include "hfr-pbk_ver.hh"
 
 namespace psz {
+
+// n_unpred 6B-compact_cell<f4, u2>, 4B-aligned
+__host__ __device__ __forceinline__ u4 pbk_unpred_bytes(u4 n_unpred)
+{
+  return (n_unpred * (u4)sizeof(_ptb::compact_cell<f4, u2>) + 3u) & ~3u;
+}
+
+__host__ __device__ __forceinline__ u4 pbk_unpred_words(u4 n_unpred)
+{
+  return pbk_unpred_bytes(n_unpred) / 4u;  // H4 words
+}
 
 // RT-parameterized constants (adds shard-fan-out fields).
 template <int _RT>
@@ -153,17 +183,17 @@ struct HFR_PBK_Breaks {
 
 namespace psz::_future {
 
-// Packed block header: word0 = n_unpred(3)|n_breaks(6)|enc_id(5)|bits(18), word1 = entry.
 template <typename T, u2 Radius>
 struct bheader {
+  using C = HFR_PBK_Constants;
+
   union {
     u4 _tuple4;
     struct {
-      u4 n_unpred : HFR_PBK_Constants::BitsMaxNumUnpred;
-      u4 n_breaks : HFR_PBK_Constants::BitsMaxNumBreaks;
-      u4 enc_id : HFR_PBK_Constants::BitsEncId;
-      u4 bits : 32 - (HFR_PBK_Constants::BitsEncId + HFR_PBK_Constants::BitsMaxNumUnpred +
-                      HFR_PBK_Constants::BitsMaxNumBreaks);
+      u4 n_unpred : C::BitsMaxNumUnpred;
+      u4 n_breaks : C::BitsMaxNumBreaks;
+      u4 enc_id : C::BitsEncId;
+      u4 bits : 32 - (C::BitsEncId + C::BitsMaxNumUnpred + C::BitsMaxNumBreaks);
     };
   };
   u4 entry : 32;  // larger scale

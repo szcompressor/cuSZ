@@ -74,7 +74,6 @@ struct HFVariant {
 // clang-format off
 namespace hfv {
 constexpr HFVariant HF      = {"Huffman",      "hf",        psz_codec::HF,        false, false, false, false};
-constexpr HFVariant HF_REV1 = {"Huffman-rev1", "hf-rev1",   psz_codec::HFr1,      false, false, false, false};
 constexpr HFVariant HF_REV2 = {"Huffman-rev2", "hf-rev2",   psz_codec::HFr2,      false, false, false, false};
 constexpr HFVariant HFR     = {"HFR",          "hfr",       psz_codec::HFR,       true,  false, true,  false};
 constexpr HFVariant PBKC    = {"HFR-PBKC",     "hfr-pbkc",  psz_codec::HFR_PBKC,  true,  true,  true,  false};
@@ -87,10 +86,9 @@ static const auto bin_phf_cli =
         .string ("input",             {"-i", "--input"},       "",       "input binary file (omit when --synth is set)")
         .dim3   ("dim3",              {"-l", "--dim3", "--len"},         "data dimensions: NxMxK or N (1-D)")
         .integer("bklen",             {"--bklen"},             1024,     "Huffman book length")
-        .string ("path",              {"--path"},              "",       "comma-separated pipelines; load once, test all (e.g. hf,hf_rev1,hf_rev2,hfr,hfr_pbkc)")
+        .string ("path",              {"--path"},              "",       "comma-separated pipelines; load once, test all (e.g. hf,hf_rev2,hfr,hfr_pbkc)")
         .flag   ("hf",                {"--hf"},                          "plain Huffman (default)")
-        .flag   ("hf_rev1",           {"--hf-rev1"},                     "Huffman rev.1: ph1+ph2 + concat")
-        .flag   ("hf_rev2",           {"--hf-rev2"},                     "Huffman rev.2: rev.1 + AoS bheader_backport[]")
+        .flag   ("hf_rev2",           {"--hf-rev2"},                     "Huffman rev.2: ph1+ph2 + concat + AoS bheader_backport[]")
         .flag   ("hfr",               {"--hfr"},                         "use HFR")
         .flag   ("hfr_pbkc",          {"--hfr-pbkc"},                    "use HFR-PBK-compat")
         .flag   ("hfr_pbkgo",         {"--hfr-pbkgo"},                   "use HFR-PBK-GO")
@@ -132,7 +130,6 @@ struct Arguments {
   int x = 0, y = 0, z = 0;
   int bklen = 1024;
   string type = "u2";
-  bool use_hf_rev1 = false;
   bool use_hf_rev2 = false;
   bool use_hfr = false;
   bool use_hfr_pbk_compat = false;
@@ -178,13 +175,12 @@ struct Arguments {
       assert_cr_ge = a.get<f8>("assert_cr_ge");
       assert_cr_le = a.get<f8>("assert_cr_le");
       assert_incomp_le = a.get<i8>("assert_incomp_le");
-      use_hf_rev1 = a.get<bool>("hf_rev1");
       use_hf_rev2 = a.get<bool>("hf_rev2");
       use_hfr = a.get<bool>("hfr");
       use_hfr_pbk_compat = a.get<bool>("hfr_pbkc");
       use_hfr_pbk_go = a.get<bool>("hfr_pbkgo");
       use_hfr_pbkf = a.get<bool>("hfr_pbkf");
-      // --path hf,hf_rev1,...: comma-separated list. Trim whitespace, drop empties.
+      // --path hf,hf_rev2,...: comma-separated list. Trim whitespace, drop empties.
       paths = split_csv(a.get<string>("path"));
 
       auto timer = a.get<string>("timer");
@@ -234,7 +230,8 @@ void hf_run(
   memcpy_allkinds_async<H2D>(d_data.get(), h_data.get(), len, stream);
   sync_by_stream(stream);
 
-  auto buf = std::make_unique<phf::Buf<E>>(len, bklen, -1, v.use_HFR_buf);
+  auto buf =
+      std::make_unique<phf::Buf<E>>(len, bklen, -1, v.use_HFR_buf, false, v.codec == psz_codec::HFr2);
 
   if (not v.skip_hist_and_book) {
     auto d_hist = MAKE_UNIQUE_DEVICE(F, bklen);
@@ -365,7 +362,6 @@ void hf_run(
 inline HFVariant const* lookup_variant(const string& path)
 {
   if (path == "hf") return &hfv::HF;
-  if (path == "hf_rev1" or path == "hf-rev1") return &hfv::HF_REV1;
   if (path == "hf_rev2" or path == "hf-rev2") return &hfv::HF_REV2;
   if (path == "hfr") return &hfv::HFR;
   if (path == "hfr_pbkc" or path == "hfr-pbkc") return &hfv::PBKC;
@@ -439,7 +435,6 @@ int choose_pipeline(Arguments const& args, size_t len)
                            : args.use_hfr_pbk_go   ? &hfv::PBKGO
                            : args.use_hfr          ? &hfv::HFR
                            : args.use_hf_rev2      ? &hfv::HF_REV2
-                           : args.use_hf_rev1      ? &hfv::HF_REV1
                                                    : &hfv::HF;
       hf_run<E>(args, len, *v, args.reduce_values[0]);
     }
@@ -455,7 +450,6 @@ int choose_pipeline(Arguments const& args, size_t len)
                              : args.use_hfr_pbkf     ? "hfr_pbkf"
                              : args.use_hfr          ? "hfr"
                              : args.use_hf_rev2      ? "hf-rev2"
-                             : args.use_hf_rev1      ? "hf-rev1"
                                                      : "hf");
       printf("[dtype]    %s\n", args.type.c_str());
       printf("[len]      %zu\n", len);

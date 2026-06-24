@@ -48,10 +48,10 @@ string const psz_report_query_codec1(psz_codec const c)
 {
   const std::unordered_map<psz_codec const, std::string const> lut = {
       {psz_codec::HF, "HF"},
-      {psz_codec::HFr1, "Huffman-rev1"},
       {psz_codec::HFr2, "Huffman-rev2"},
       {psz_codec::HFR, "HF-fast1"},
       {psz_codec::HFR_V3, "HF-fast2"},
+      {psz_codec::HFR_V4, "HFR-v4"},
       {psz_codec::HFR_PBKC, "HFR-PBKC"},
       {psz_codec::HFR_PBKGO, "HFR-PBKGO"},
       {psz_codec::HFR_PBKF, "HFR-PBKF"},

@@ -1,9 +1,8 @@
-
 #include <cstdio>
 
-#include "hfr-pbk.hh"  // psz::HFR_PBK_Breaks<128>
 #include "auxiliary.inl"
 #include "hf_impl.hh"
+#include "hfr-pbk.hh"
 #include "hfr.hh"
 
 using u4 = uint32_t;
@@ -251,24 +250,24 @@ int HFR_encoder<T, Magnitude, ReduceTimes, UseScan, Hf>::GPU_kernel_v1(
 
 }  // namespace phf::module
 
-#define __INSTANTIATE_HFR(T, MAG, RED, SCAN) \
+#define __INSTANT_HFR(T, MAG, RED, SCAN) \
   template struct phf::module::HFR_encoder<T, MAG, RED, SCAN, u4>;
 
-#define __INSTANTIATE_HFR_TYPES(MAG, RED, SCAN) \
-  __INSTANTIATE_HFR(u4, MAG, RED, SCAN)         \
-  __INSTANTIATE_HFR(u2, MAG, RED, SCAN)         \
-  __INSTANTIATE_HFR(u1, MAG, RED, SCAN)
+#define __INSTANT_HFR_TYPES(MAG, RED, SCAN) \
+  __INSTANT_HFR(u4, MAG, RED, SCAN)         \
+  __INSTANT_HFR(u2, MAG, RED, SCAN)         \
+  __INSTANT_HFR(u1, MAG, RED, SCAN)
 
-#define __INSTANTIATE_HFR_MAGS(RED, SCAN) \
-  __INSTANTIATE_HFR_TYPES(12, RED, SCAN)  \
-  __INSTANTIATE_HFR_TYPES(11, RED, SCAN)  \
-  __INSTANTIATE_HFR_TYPES(10, RED, SCAN)  \
-  __INSTANTIATE_HFR_TYPES(9, RED, SCAN)   \
-  __INSTANTIATE_HFR_TYPES(8, RED, SCAN)   \
-  __INSTANTIATE_HFR_TYPES(7, RED, SCAN)   \
-  __INSTANTIATE_HFR_TYPES(6, RED, SCAN)   \
-  __INSTANTIATE_HFR_TYPES(5, RED, SCAN)
+#define __INSTANT_HFR_MAGS(RED, SCAN) \
+  __INSTANT_HFR_TYPES(12, RED, SCAN)  \
+  __INSTANT_HFR_TYPES(11, RED, SCAN)  \
+  __INSTANT_HFR_TYPES(10, RED, SCAN)  \
+  __INSTANT_HFR_TYPES(9, RED, SCAN)   \
+  __INSTANT_HFR_TYPES(8, RED, SCAN)   \
+  __INSTANT_HFR_TYPES(7, RED, SCAN)   \
+  __INSTANT_HFR_TYPES(6, RED, SCAN)   \
+  __INSTANT_HFR_TYPES(5, RED, SCAN)
 
 #define __INSTANTIATE_RSMERGE_1(RED) \
-  __INSTANTIATE_HFR_MAGS(RED, false) \
-  __INSTANTIATE_HFR_MAGS(RED, true)
+  __INSTANT_HFR_MAGS(RED, false)     \
+  __INSTANT_HFR_MAGS(RED, true)

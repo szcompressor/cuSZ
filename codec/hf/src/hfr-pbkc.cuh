@@ -1,11 +1,10 @@
-// HFR-PBK_Compat: blockwise, otherwise compat with HFR; global ordering via concat
 #include <cuda_runtime.h>
 
 #include <cstddef>
 #include <cstdint>
 
 #include "_future/hfr-pbk.cuh"
-#include "_future/hfr_handle_incomp.cuh"
+#include "_future/hfr_incomp_fb.cuh"
 #include "_future/warp_top1.cuh"
 #include "hf_impl.hh"
 #include "hfr.hh"
@@ -16,30 +15,57 @@ HFR_PBK_USING_HELPERS()
 using hfr_pbk::_router_inline_breaks;
 using hfr_pbk::slot_fixed_stride;
 using hfr_pbk::write_pbk_bitstream_v2;
-using phf::hfr_helpers::handle_incomp_block;
+using phf::hfr_helpers::blk_incomp_fb;
 
-template <class C, RMerge RM = RMerge::v7, SMerge SM = SMerge::v7>
+// extended for HFR-v4 (single-book)
+template <class C, RMerge RM = RMerge::v7, SMerge SM = SMerge::v7, bool SingleBook = false>
 __global__ void KCU_HFR_PBKC_encode(
     typename C::T* in_eq, size_t data_len, typename C::Hf* dram_pbk, typename C::Hf* dn_bitstream,
-    psz::_future::bheader<typename C::T, C::Radius>* dn_headers)
+    psz::_future::bheader<typename C::T, C::Radius>* dn_headers,
+    _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp = {})
 {
   static_assert(merge_compatible(RM, SM), "RMerge/SMerge data-handoff contract mismatch");
   HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C);
   HFR_PBK_SHARED_AND_RESET();
 
-  constexpr u4 MaxBytesPerBlock = ChunkSize * (u4)sizeof(Hf) +
-                                  (u4)psz::HFR_PBK_Constants::MaxNumBreaks * (u4)sizeof(BreakCell);
+  constexpr u4 MaxBytesPerBlock =
+      ChunkSize * (u4)sizeof(Hf) +
+      (u4)psz::HFR_PBK_Constants::MaxNumBreaks * (u4)sizeof(BreakCell) +
+      (u4)psz::HFR_PBK_Constants::MaxUnpredBytes;
   slot_fixed_stride slot{MaxBytesPerBlock};
 
   auto const id_base = (u4)blockIdx.x * ChunkSize;
+  __shared__ u4 s_pre_encid;
+  // keep predictor unpred + pre-set enc_id
+  if (threadIdx.x == 0) {
+    s_bheader.n_unpred = dn_headers[blockIdx.x].n_unpred;
+    s_pre_encid = dn_headers[blockIdx.x].enc_id;
+  }
+  __syncthreads();
+
+  // unpred-incomp: enc_id=31 + f4 candidates (incomp); bypass Huffman.
+  if (s_pre_encid == (u4)psz::HFR_PBK_Constants::CodeIncompUnpred) {
+    blk_incomp_fb<T, ChunkSize, ShardSize, NumThreads>(
+        &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot,
+        (u4)psz::HFR_PBK_Constants::CodeIncompUnpred, incomp_data, nullptr, incomp);
+    if (threadIdx.x == 0) dn_headers[blockIdx.x] = s_bheader;
+    return;
+  }
 
   int p_eq[ShardSize];
   hfr_pbk::load_eq_and_count_top1_v2<T, ChunkSize, ShardSize, NumThreads, Radius>(
       in_eq, data_len, id_base, p_eq, &s_top1_counts);
 
   u4 reduce_times = C::ReduceTimes;
-  find_proper_book<ChunkSize, NumBooks, Header>(&s_top1_counts, &s_bheader, data_len, blockIdx.x);
-  load_proper_book<BookLen, Header>(reduce_times, (volatile u4*)s_book, dram_pbk, &s_bheader);
+  if constexpr (SingleBook) {
+    if (threadIdx.x == 0) s_bheader.enc_id = 0; // placeholder for single-book
+    for (int i = threadIdx.x; i < BookLen; i += NumThreads) s_book[i] = dram_pbk[i];
+    __syncthreads();
+  }
+  else {
+    find_proper_book<ChunkSize, NumBooks, Header>(&s_top1_counts, &s_bheader, data_len, blockIdx.x);
+    load_proper_book<BookLen, Header>(reduce_times, (volatile u4*)s_book, dram_pbk, &s_bheader);
+  }
 
   constexpr int MaxIters = (ShardSize + 1) / 2;  // >=1 so RT=0 (ShardSize=1) holds one word
   u4 r_reduced[MaxIters], r_bits[MaxIters];
@@ -54,8 +80,9 @@ __global__ void KCU_HFR_PBKC_encode(
     __syncthreads();
     p_incomp = __shfl_sync(0xffffffff, p_incomp, 0);
     if (p_incomp) {
-      handle_incomp_block<T, ChunkSize, ShardSize, NumThreads>(
-          &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot);
+      blk_incomp_fb<T, ChunkSize, ShardSize, NumThreads>(
+          &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot,
+          (u4)psz::HFR_PBK_Constants::CodeIncompBreaks, nullptr, block_outliers);
       if (threadIdx.x == 0) dn_headers[blockIdx.x] = s_bheader;
       return;
     }
@@ -64,7 +91,7 @@ __global__ void KCU_HFR_PBKC_encode(
   dispatch_smerge<SM>(cx);
   write_pbk_bitstream_v2(
       blockIdx.x, s_bitcount, s_reduced, (u1*)dn_bitstream, &s_bheader, s_breaks, slot,
-      _router_inline_breaks<BreakCell, u4>{});
+      _router_inline_breaks<BreakCell, u4>{}, block_outliers);
   if (threadIdx.x == 0) dn_headers[blockIdx.x] = s_bheader;
 }
 
@@ -74,8 +101,9 @@ namespace phf::module {
 
 template <typename T, int Magnitude, int ReduceTimes, typename Hf, uint16_t Radius>
 int HFR_PBKC_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
-    T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers, void* stream,
-    RMerge rm, SMerge sm)
+    T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
+    _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp,
+    void* stream, RMerge rm, SMerge sm)
 {
   using C = phf::HFR_PBKC_Config<T, Magnitude, ReduceTimes, Hf, Radius>;
 
@@ -86,19 +114,33 @@ int HFR_PBKC_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
     constexpr RMerge RM = decltype(rm_tag)::value;
     constexpr SMerge SM = decltype(sm_tag)::value;
     phf::KCU_HFR_PBKC_encode<C, RM, SM><<<nblock, nthread, 0, (cudaStream_t)stream>>>(
-        in_eq, len, dram_pbk, dn_bitstream, dn_headers);
+        in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers, incomp_data, incomp);
+  });
+
+  return 0;
+}
+
+// HFR-v4: PBKC but single-book
+template <typename T, int Magnitude, int ReduceTimes, typename Hf, uint16_t Radius>
+int HFR_V4_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
+    T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
+    _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp,
+    void* stream, RMerge rm, SMerge sm)
+{
+  using C = phf::HFR_PBKC_Config<T, Magnitude, ReduceTimes, Hf, Radius>;
+
+  constexpr auto nthread = C::BlockDim;
+  const auto nblock = (u4)((len - 1) / C::ChunkSize + 1);
+
+  dispatch_merge_host(rm, sm, [&](auto rm_tag, auto sm_tag) {
+    constexpr RMerge RM = decltype(rm_tag)::value;
+    constexpr SMerge SM = decltype(sm_tag)::value;
+    phf::KCU_HFR_PBKC_encode<C, RM, SM, /*SingleBook=*/true>
+        <<<nblock, nthread, 0, (cudaStream_t)stream>>>(
+            in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers, incomp_data, incomp);
   });
 
   return 0;
 }
 
 }  // namespace phf::module
-
-// Instantiation macros — caller TUs invoke; this .inl alone instantiates nothing.
-#define __INSTANTIATE_HFR_PBK_COMPAT(T, MAG, RED, RAD) \
-  template struct phf::module::HFR_PBKC_encode<T, MAG, RED, uint32_t, RAD>;
-
-// 1-arg form: fan out u1/u2 at canonical MAG=10, RAD=128 (mirrors __INSTANTIATE_RSMERGE_1).
-#define __INSTANTIATE_HFR_PBKC_1(RED)                 \
-  __INSTANTIATE_HFR_PBK_COMPAT(uint8_t, 10, RED, 128) \
-  __INSTANTIATE_HFR_PBK_COMPAT(uint16_t, 10, RED, 128)

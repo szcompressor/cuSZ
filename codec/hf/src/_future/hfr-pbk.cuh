@@ -44,7 +44,7 @@ template <SMerge V, class C>        __forceinline__ __device__ void dispatch_sme
 template <class Launch>             __host__ void dispatch_merge_host(RMerge rm, SMerge sm, Launch&& launch);
 
 // block/bitstream write
-template <typename Slot, typename BreaksRouter, typename Hf, typename Header, typename BreakCell>       __forceinline__ __device__ void write_pbk_bitstream_v2(u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader, volatile BreakCell* s_breaks, Slot slot, BreaksRouter router);
+template <typename Slot, typename BreaksRouter, typename Hf, typename Header, typename BreakCell>       __forceinline__ __device__ void write_pbk_bitstream_v2(u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader, volatile BreakCell* s_breaks, Slot slot, BreaksRouter router, _ptb::compact_cell<f4, u2> const* block_outliers = nullptr);
 
 // incomp fallback
 template <typename bheader_v3_t, typename T, int TileDim, int Seq, int NumThreads, size_t SymCodec> __device__ __forceinline__ void _handle_incomp_non_final                (volatile bheader_v3_t* s_v3_bheader, u1* pbk_bs_v3, size_t stride_bytes, volatile T* s_data, size_t const data_len, u4 const id_base);
@@ -629,9 +629,11 @@ struct _router_inline_breaks {
 template <typename Slot, typename BreaksRouter, typename Hf, typename Header, typename BreakCell>
 __forceinline__ __device__ void write_pbk_bitstream_v2(
     u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader,
-    volatile BreakCell* s_breaks, Slot slot, BreaksRouter router)
+    volatile BreakCell* s_breaks, Slot slot, BreaksRouter router,
+    _ptb::compact_cell<f4, u2> const* block_outliers)
 {
   using Off = typename BreaksRouter::offset_t;
+  using OutlierCell = _ptb::compact_cell<f4, u2>;
   __shared__ u4 s_wunits;
   __shared__ Off s_wloc;
 
@@ -643,18 +645,27 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
   __syncthreads();
 
   Off breaks_bytes_ = router.breaks_bytes(bheader->n_breaks);
-  Off p_wbytes = (Off)s_wunits * sizeof(Hf) + breaks_bytes_;
+  u4 const n_unpred = block_outliers ? bheader->n_unpred : 0u;
+  // unpred trails the bitstream; pad the section to a word so the next block's entry stays aligned.
+  Off unpred_bytes_ = ((Off)n_unpred * (Off)sizeof(OutlierCell) + 3u) & ~(Off)3u;
+  Off p_wbytes = (Off)s_wunits * sizeof(Hf) + breaks_bytes_ + unpred_bytes_;
   slot.reserve(b, p_wbytes, &s_wloc, bheader);
 
   auto block_entry = dn_base + s_wloc;
   auto breaks_base = router.breaks_base(block_entry);
   auto bs_base = (Hf*)router.bitstream_base(block_entry, breaks_bytes_);
+  // [breaks | bitstream | unpred]
+  auto unpred_base = (OutlierCell*)((u1*)bs_base + (Off)s_wunits * sizeof(Hf));
 
   if (threadIdx.x < bheader->n_breaks)
     breaks_base[threadIdx.x] = const_cast<BreakCell*>(s_breaks)[threadIdx.x];
 
 #pragma unroll
   for (auto i = threadIdx.x; i < s_wunits; i += blockDim.x) bs_base[i] = (Hf)s_reduced[i];
+
+  if (threadIdx.x < n_unpred)
+    unpred_base[threadIdx.x] =
+        block_outliers[(size_t)b * psz::HFR_PBK_Constants::MaxNumUnpred + threadIdx.x];
 
   slot.commit(b);
 }

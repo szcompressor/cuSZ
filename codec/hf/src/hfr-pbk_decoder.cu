@@ -11,6 +11,7 @@ namespace phf {
 
 __forceinline__ __device__ u4 unpack_par_nbit(u4 w0) { return w0 >> 14; }
 __forceinline__ __device__ u4 unpack_par_encid(u4 w0) { return (w0 >> 9) & 0x1Fu; }
+__forceinline__ __device__ u4 unpack_par_nunpred(u4 w0) { return w0 & 0x7u; }
 template <typename H>
 __forceinline__ __device__ u4 unpack_par_entry_words(u4 w1)
 {
@@ -20,7 +21,8 @@ __forceinline__ __device__ u4 unpack_par_entry_words(u4 w1)
 template <typename Ein, typename H, typename Storage, typename Eout = Ein>
 __global__ void KCU_HFR_PBK_decode(
     H* in_pbk_bitstream, size_t const pbk_bitstream_len, u1* in_rvbk_r128_25, int const rvbk_nbyte,
-    u4 const* pbk_packed_headers, int const pbk_pardeg, size_t const data_len, Eout* out_decoded)
+    u4 const* pbk_packed_headers, int const pbk_pardeg, size_t const data_len, Eout* out_decoded,
+    u1* out_incomp_flag)
 {
   using BreakCell = psz::HFR_PBK_Breaks<psz::HFR_PBK_Constants::Radius>;
   constexpr auto ChunkSize = 1024;
@@ -37,22 +39,45 @@ __global__ void KCU_HFR_PBK_decode(
   u4 const tree_idx = unpack_par_encid(w0);
   u4 const unit_start = unpack_par_entry_words<H>(w1);
 
-  // Pass-through fallback: enc_id >= NumBooks -> raw E[ChunkSize] in the slot.
+  // self-clearing decode message: 1 only for unpred-incomp (so x_lrz skips the recurrence).
+  using OutlierCell = _ptb::compact_cell<f4, u2>;
+  bool const is_incomp_unpred = (tree_idx == (u4)psz::HFR_PBK_Constants::CodeIncompUnpred);
+  if (out_incomp_flag) out_incomp_flag[gid] = is_incomp_unpred ? 1u : 0u;
+
+  // Pass-through fallback: enc_id >= NumBooks -> raw slot content.
   if (tree_idx >= (u4)NumBooks) {
-    auto raw = reinterpret_cast<Ein*>(in_pbk_bitstream + unit_start);
     auto dst = out_decoded + block_off;
-    for (u4 i = 0; i < valid; i++) dst[i] = (Eout)raw[i];
+    if (is_incomp_unpred) {
+      // unpred-incomp: slot holds f4(prequant); emit prequant, x_lrz dequants + skips recurrence.
+      auto raw = reinterpret_cast<f4 const*>(in_pbk_bitstream + unit_start);
+      for (u4 i = 0; i < valid; i++) dst[i] = (Eout)raw[i];
+    }
+    else {  // breaks-incomp (30): raw eq codes, then restore the appended per-block outlier cells.
+      auto raw = reinterpret_cast<Ein*>(in_pbk_bitstream + unit_start);
+      for (u4 i = 0; i < valid; i++) dst[i] = (Eout)raw[i];
+      u4 const n_unpred = unpack_par_nunpred(w0);
+      u4 const content_words = (unpack_par_nbit(w0) + 31u) / 32u;  // raw eq words
+      auto cells =
+          reinterpret_cast<OutlierCell const*>(in_pbk_bitstream + unit_start + content_words);
+      for (u4 k = 0; k < n_unpred; k++) {
+        auto cell = cells[k];
+        if (cell.idx < valid) dst[cell.idx] = (Eout)cell.val;
+      }
+    }
     return;
   }
 
-  // Recover n_breaks from par_entry delta; per-block layout [breaks | bitstream].
+  // Recover n_breaks from par_entry delta; per-block layout [breaks | bitstream | unpred].
   u4 const bit_count = unpack_par_nbit(w0);
+  u4 const n_unpred = unpack_par_nunpred(w0);
   u4 const total_words =
       (gid + 1 < pbk_pardeg)
           ? (unpack_par_entry_words<H>(pbk_packed_headers[2 * (gid + 1) + 1]) - unit_start)
           : ((u4)(pbk_bitstream_len / sizeof(H)) - unit_start);
   u4 const bs_words = (bit_count + 31) / 32;
-  u4 const n_breaks = total_words - bs_words;
+  // unpred cells trail the bitstream, word-padded (matches write_pbk_bitstream_v2).
+  u4 const unpred_words = ((n_unpred * (u4)sizeof(OutlierCell) + 3u) & ~3u) / (u4)sizeof(H);
+  u4 const n_breaks = total_words - bs_words - unpred_words;
   auto const block_slot = in_pbk_bitstream + unit_start;
   auto const br_slot = reinterpret_cast<BreakCell const*>(block_slot);
   auto const bs_slot = block_slot + n_breaks;
@@ -66,6 +91,13 @@ __global__ void KCU_HFR_PBK_decode(
     auto cell = br_slot[k];
     if (cell.idx < valid) out_block[cell.idx] = (Eout)cell.val;
   }
+
+  // per-block outliers to replace eq
+  auto const up_slot = reinterpret_cast<OutlierCell const*>(bs_slot + bs_words);
+  for (u4 k = 0; k < n_unpred; k++) {
+    auto cell = up_slot[k];
+    if (cell.idx < valid) out_block[cell.idx] = (Eout)cell.val;
+  }
 }
 
 }  // namespace phf
@@ -76,7 +108,8 @@ template <typename E, typename H, typename Storage>
 template <typename Eout>
 int HFR_PBK_decoder<E, H, Storage>::GPU_kernel(
     H* in_pbk_bitstream, size_t pbk_bitstream_len, u1* in_rvbk_r128_25, int rvbk_nbyte,
-    u4 const* pbk_packed_headers, int pbk_pardeg, size_t data_len, Eout* out_decoded, void* stream)
+    u4 const* pbk_packed_headers, int pbk_pardeg, size_t data_len, Eout* out_decoded,
+    u1* out_incomp_flag, void* stream)
 {
   if (pbk_pardeg <= 0) return 0;
   constexpr int BlockDim = 128;
@@ -84,7 +117,7 @@ int HFR_PBK_decoder<E, H, Storage>::GPU_kernel(
   dim3 block(BlockDim, 1, 1);
   phf::KCU_HFR_PBK_decode<E, H, Storage, Eout><<<grid, block, 0, (cudaStream_t)stream>>>(
       in_pbk_bitstream, pbk_bitstream_len, in_rvbk_r128_25, rvbk_nbyte, pbk_packed_headers,
-      pbk_pardeg, data_len, out_decoded);
+      pbk_pardeg, data_len, out_decoded, out_incomp_flag);
   return 0;
 }
 
@@ -97,17 +130,17 @@ template struct HFR_PBK_decoder<u2, u4, u2>;
 template struct HFR_PBK_decoder<u4, u4, u4>;
 
 template int HFR_PBK_decoder<u2, u4, u1>::GPU_kernel<u2>(
-    u4*, size_t, u1*, int, u4 const*, int, size_t, u2*, void*);
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u2*, u1*, void*);
 template int HFR_PBK_decoder<u2, u4, u2>::GPU_kernel<u2>(
-    u4*, size_t, u1*, int, u4 const*, int, size_t, u2*, void*);
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u2*, u1*, void*);
 
 template int HFR_PBK_decoder<u2, u4, u1>::GPU_kernel<f4>(
-    u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, void*);
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, u1*, void*);
 template int HFR_PBK_decoder<u2, u4, u1>::GPU_kernel<f8>(
-    u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, void*);
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, u1*, void*);
 template int HFR_PBK_decoder<u2, u4, u2>::GPU_kernel<f4>(
-    u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, void*);
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, u1*, void*);
 template int HFR_PBK_decoder<u2, u4, u2>::GPU_kernel<f8>(
-    u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, void*);
+    u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, u1*, void*);
 
 }  // namespace phf::module
