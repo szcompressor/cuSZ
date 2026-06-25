@@ -5,8 +5,14 @@
 #define E8CDEF97_5136_45C6_A6F2_3FECD549F8A4
 
 #include <memory>
+#include <vector>
 
 #include "cusz/type.h"
+
+#if defined(_WIN32)
+#define popen _popen
+#define pclose _pclose
+#endif
 
 struct cpu_diagnostics {
   static std::string exec_shellcmd(const char* cmd)

@@ -12,7 +12,7 @@ extern "C" {
 // enum for device type
 typedef enum { CPU, NVGPU, INTELGPU } _ptb_device;
 // enum for runtime type
-typedef enum { SEQ, SIMD, OPENMP, CUDA, SYCL, THRUST_DPL } _ptb_runtime;
+typedef enum { SEQ, SIMD, OPENMP, CUDA, HIP, SYCL, THRUST_DPL } _ptb_runtime;
 // enum for toolkit type
 typedef enum { VENDOR_NATIVE, KOKKOS, ONEAPI } _ptb_toolkit;
 

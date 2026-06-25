@@ -1,12 +1,20 @@
 
 cmake_minimum_required(VERSION 3.18)
 
-project(FZG
-  VERSION 0.1.0
-  LANGUAGES CXX CUDA
-)
+if(NOT PSZ_BACKEND)
+  set(PSZ_BACKEND "CUDA")
+endif()
+string(TOUPPER "${PSZ_BACKEND}" FZG_BACKEND_UPPER)
 
-find_package(CUDAToolkit REQUIRED)
+if(FZG_BACKEND_UPPER STREQUAL "HIP")
+  project(FZG VERSION 0.1.0 LANGUAGES CXX HIP)
+  find_package(hip REQUIRED)
+  set(_FZG_GPU_RT hip::device)
+else()
+  project(FZG VERSION 0.1.0 LANGUAGES CXX CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  set(_FZG_GPU_RT CUDA::cudart)
+endif()
 
 # ------------------------------------------------------------------------------
 # Dependency: PORTABLE (installed or fallback)
@@ -39,6 +47,16 @@ add_library(fzg_cu
 
 add_library(FZG::fzg_cu ALIAS fzg_cu)
 
+if(FZG_BACKEND_UPPER STREQUAL "HIP")
+  set_source_files_properties(src/fzg_kernel.cu PROPERTIES LANGUAGE HIP)
+  target_compile_definitions(fzg_cu PRIVATE FZG_USE_HIP _PORTABLE_USE_HIP)
+  # Host .cc TUs (fzg_hl.cc, fzg_buf.cc) and the HIP kernel TU all need the
+  # CUDA->HIP translation prelude and the cuda_runtime.h shim.
+  target_include_directories(fzg_cu PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/hip-compat)
+  target_compile_options(fzg_cu PRIVATE
+    -include ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/hip-compat/psz_hip_compat.h)
+endif()
+
 target_include_directories(fzg_cu
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -47,7 +65,7 @@ target_include_directories(fzg_cu
 
 target_link_libraries(fzg_cu
   PUBLIC
-    CUDA::cudart
+    ${_FZG_GPU_RT}
     PORTABLE
 )
 

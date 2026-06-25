@@ -24,7 +24,7 @@ template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = 
 using GPU_x_lorenzo_nd =
     psz::module::GPU_x_lorenzo_nd<psz::PredictorTyping<T>, psz::PredictorFeature<ZigZag>>;
 
-#if defined(PSZ_USE_CUDA)
+#if defined(PSZ_USE_CUDA) || defined(PSZ_USE_HIP)
 
 #define CONCAT_ON_DEVICE(dst, src, nbyte, stream) \
   if (nbyte != 0) cudaMemcpyAsync(dst, src, nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
