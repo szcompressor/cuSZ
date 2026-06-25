@@ -49,7 +49,11 @@ template <> struct TypeSym<u1> { static const _ptb_dtype type = U1; static const
 template <> struct TypeSym<u2> { static const _ptb_dtype type = U2; static const int width = sizeof(u2); };
 template <> struct TypeSym<u4> { static const _ptb_dtype type = U4; static const int width = sizeof(u4); };
 template <> struct TypeSym<u8> { static const _ptb_dtype type = U8; static const int width = sizeof(u8); };
+#if !defined(_WIN32)
+// On Windows (MSVC/LLP64) uint64_t and unsigned long long are the same type, so a
+// separate TypeSym<ull> would redefine TypeSym<u8>; on LP64 they are distinct.
 template <> struct TypeSym<ull> { static const _ptb_dtype type = ULL; static const int width = sizeof(ull); };
+#endif
 // clang-format on
 
 }  // namespace _ptb

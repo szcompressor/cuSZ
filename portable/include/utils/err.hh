@@ -1,8 +1,12 @@
 #ifndef AE6DCA2E_F19B_41DB_80CB_11230E548F92
 #define AE6DCA2E_F19B_41DB_80CB_11230E548F92
 
+#if defined(_PORTABLE_USE_CUDA) || defined(_PORTABLE_USE_HIP)
 #if defined(_PORTABLE_USE_CUDA)
 #include <cuda_runtime.h>
+#else
+#include <hip/hip_runtime.h>
+#endif
 
 #include <exception>
 #include <sstream>

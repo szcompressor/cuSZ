@@ -32,6 +32,12 @@ const char* BACKEND_TEXT = "cuSZ";
 const char* VERSION_TEXT = "2025-02-05 (0.16)";
 const int   VERSION      = 20241218;
 
+#elif defined(PSZ_USE_HIP)
+
+const char* BACKEND_TEXT = "hipSZ";
+const char* VERSION_TEXT = "2025-02-05 (0.16)";
+const int   VERSION      = 20241218;
+
 #elif defined(PSZ_USE_1API)
 
 const char* BACKEND_TEXT = "dpSZ";

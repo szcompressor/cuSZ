@@ -14,7 +14,14 @@
 
 namespace {
 struct phf_eager_module_loading_init {
-  phf_eager_module_loading_init() { setenv("CUDA_MODULE_LOADING", "EAGER", /*overwrite=*/0); }
+  phf_eager_module_loading_init()
+  {
+#if defined(_WIN32)
+    if (not std::getenv("CUDA_MODULE_LOADING")) _putenv_s("CUDA_MODULE_LOADING", "EAGER");
+#else
+    setenv("CUDA_MODULE_LOADING", "EAGER", /*overwrite=*/0);
+#endif
+  }
 };
 phf_eager_module_loading_init _phf_eager_module_loading_init_singleton;
 }  // namespace

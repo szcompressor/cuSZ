@@ -45,3 +45,15 @@
 #define cudaGetLastError(...) hipGetLastError(__VA_ARGS__)
 
 #define cudaDeviceReset(...) hipDeviceReset(__VA_ARGS__)
+
+#define cudaMemsetAsync(...) hipMemsetAsync(__VA_ARGS__)
+#define cudaGetSymbolAddress(...) hipGetSymbolAddress(__VA_ARGS__)
+#define cudaOccupancyMaxActiveBlocksPerMultiprocessor(...) \
+  hipOccupancyMaxActiveBlocksPerMultiprocessor(__VA_ARGS__)
+
+#define cudaEvent_t hipEvent_t
+#define cudaEventCreate(...) hipEventCreate(__VA_ARGS__)
+#define cudaEventDestroy(...) hipEventDestroy(__VA_ARGS__)
+#define cudaEventRecord(...) hipEventRecord(__VA_ARGS__)
+#define cudaEventSynchronize(...) hipEventSynchronize(__VA_ARGS__)
+#define cudaEventElapsedTime(...) hipEventElapsedTime(__VA_ARGS__)

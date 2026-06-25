@@ -58,10 +58,15 @@ __global__ void KCU_histogram_sparse_multiwarp(
   __syncthreads();
 
 #ifdef __HIP_PLATFORM_AMD__
+  // 32-lane logical-warp inclusive scan; the result is consumed below at the
+  // lane-31 leader (threadIdx.x % 32 == 31). Pin the shuffle width to 32 so the
+  // scan domain matches that leader on both wave32 (RDNA) and wave64 (CDNA): the
+  // earlier wave64-only form (width 64, threadIdx.x % 64) lost the upper half of
+  // the scan on a 32-lane wavefront, corrupting the per-warp histogram.
   for (auto& sum : p_hist) {
-    for (auto d = 1; d < 64; d *= 2) {
-      auto n = __shfl_up(sum, d, 64);
-      if (threadIdx.x % 64 >= d) sum += n;
+    for (auto d = 1; d < 32; d *= 2) {
+      auto n = __shfl_up(sum, d, 32);
+      if (threadIdx.x % 32 >= d) sum += n;
     }
   }
 #else

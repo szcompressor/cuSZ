@@ -19,6 +19,16 @@ using std::cout;
 using std::endl;
 using std::to_string;
 
+// MSVC STL has no std::hash<const T> specialization, so a const-qualified
+// unordered_map key fails to compile; on libstdc++ the const form is accepted.
+// Keep the Linux key type byte-identical (so device objects and exported symbols
+// are unchanged there) and drop the const only on Windows.
+#if defined(_WIN32)
+#define PSZ_MAP_KEY(T) T
+#else
+#define PSZ_MAP_KEY(T) T const
+#endif
+
 void psz_review_comp_time_breakdown(void* _r, psz_header* h)
 {
   std::runtime_error("psz_review_comp_time_breakdown is to be updated.");
@@ -26,7 +36,7 @@ void psz_review_comp_time_breakdown(void* _r, psz_header* h)
 
 string const psz_report_query_pred(psz_predictor const p)
 {
-  const std::unordered_map<psz_predictor const, std::string const> lut = {
+  const std::unordered_map<PSZ_MAP_KEY(psz_predictor), std::string const> lut = {
       {psz_predictor::Lorenzo, "Lorenzo"},
       {psz_predictor::LorenzoZigZag, "Lrz-ZigZag"},
       {psz_predictor::LorenzoProto, "Lrz-Proto"},
@@ -37,7 +47,7 @@ string const psz_report_query_pred(psz_predictor const p)
 
 string const psz_report_query_hist(psz_hist const h)
 {
-  const std::unordered_map<psz_hist const, std::string const> lut = {
+  const std::unordered_map<PSZ_MAP_KEY(psz_hist), std::string const> lut = {
       {psz_hist::HistGeneric, "Hist"},
       {psz_hist::HistSp, "Hist-Sparse"},
       {psz_hist::HistNull, "Null"},
@@ -47,7 +57,7 @@ string const psz_report_query_hist(psz_hist const h)
 
 string const psz_report_query_codec1(psz_codec const c)
 {
-  const std::unordered_map<psz_codec const, std::string const> lut = {
+  const std::unordered_map<PSZ_MAP_KEY(psz_codec), std::string const> lut = {
       {psz_codec::HF, "HF"},
       {psz_codec::HFr1, "Huffman-rev1"},
       {psz_codec::HFr2, "Huffman-rev2"},

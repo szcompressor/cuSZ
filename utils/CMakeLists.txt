@@ -40,9 +40,11 @@ else()
   option(EVAL "build CUDA eval implementations (requires full psz tree)" ON)
 endif()
 
-# Find CUDA if needed
+# Find GPU toolkit if needed
 if(PSZ_BACKEND_UPPER STREQUAL "CUDA")
   find_package(CUDAToolkit REQUIRED)
+elseif(PSZ_BACKEND_UPPER STREQUAL "HIP")
+  find_package(hip REQUIRED)
 endif()
 
 # Find portable headers
@@ -73,6 +75,17 @@ if(EVAL_STANDALONE)
       INTERFACE
         $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda;--expt-relaxed-constexpr>
     )
+  elseif(PSZ_BACKEND_UPPER STREQUAL "HIP")
+    target_compile_definitions(eval_compile_settings
+      INTERFACE
+        PSZ_USE_HIP
+        _PORTABLE_USE_HIP
+    )
+    target_include_directories(eval_compile_settings
+      INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/hip-compat)
+    target_compile_options(eval_compile_settings
+      INTERFACE
+        $<$<COMPILE_LANGUAGE:HIP>:-include;${CMAKE_CURRENT_SOURCE_DIR}/../cmake/hip-compat/psz_hip_compat.h>)
   elseif(PSZ_BACKEND STREQUAL "ONEAPI" OR PSZ_BACKEND STREQUAL "oneapi" OR PSZ_BACKEND STREQUAL "1api")
     target_compile_definitions(eval_compile_settings
       INTERFACE
@@ -92,6 +105,11 @@ if(PSZ_BACKEND_UPPER STREQUAL "CUDA")
 
   enable_language(CUDA)
   set(EVAL_BACKEND "CUDA")
+
+elseif(PSZ_BACKEND_UPPER STREQUAL "HIP")
+
+  enable_language(HIP)
+  set(EVAL_BACKEND "HIP")
 
 elseif(PSZ_BACKEND STREQUAL "ONEAPI" OR PSZ_BACKEND STREQUAL "oneapi" OR PSZ_BACKEND STREQUAL "1api")
 
@@ -173,7 +191,51 @@ if(EVAL_BACKEND STREQUAL "CUDA")
   else()
     message("[eval::info] EVAL is OFF: CUDA eval implementations skipped (require full psz tree).")
   endif()
-  
+
+elseif(EVAL_BACKEND STREQUAL "HIP")
+  # HIP reuses the same .cu/.cc sources as CUDA, marked LANGUAGE HIP; the
+  # CUDA->HIP translation prelude is supplied by ${eval_compile_settings}
+  # (psz_cu_compile_settings in the in-tree build).
+  if(EVAL)
+    set(_eval_hip_sources
+      src/identical.cu
+      src/compile/extrema-f4.cu
+      src/compile/extrema-f8.cu
+      src/compile/calc_err-f4.cu
+      src/compile/calc_err-f8.cu
+      src/compile/assess-f4.cu
+      src/compile/assess-f8.cu
+      src/compile/maxerr-all.cu
+    )
+    set_source_files_properties(${_eval_hip_sources} PROPERTIES LANGUAGE HIP)
+    add_library(eval_cu ${_eval_hip_sources})
+    target_link_libraries(eval_cu
+      PUBLIC
+        utils_headers
+        ${eval_compile_settings}
+        hip::device
+    )
+    add_library(EVAL::stat_cu ALIAS eval_cu)
+
+    set(_eval_viewer_hip_sources
+      src/viewer.cc
+      src/compile/viewer-all.cu
+    )
+    set_source_files_properties(src/compile/viewer-all.cu PROPERTIES LANGUAGE HIP)
+    add_library(eval_viewer_cu ${_eval_viewer_hip_sources})
+    target_link_libraries(eval_viewer_cu
+      PUBLIC
+        utils_headers
+        eval_seq
+        eval_cu
+        ${eval_compile_settings}
+        hip::device
+    )
+    add_library(EVAL::viewer_cu ALIAS eval_viewer_cu)
+  else()
+    message("[eval::info] EVAL is OFF: HIP eval implementations skipped (require full psz tree).")
+  endif()
+
 elseif(EVAL_BACKEND STREQUAL "SYCL")
   # SYCL/DPC++ backend - TODO: add SYCL implementations  
   # add_library(eval_dp ...)

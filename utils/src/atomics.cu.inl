@@ -64,7 +64,9 @@ __device__ __forceinline__ T atomicAddFp(T* addr, T value)
 {
   if constexpr (std::is_same<T, float>::value) { return atomicAdd(addr, value); }
   else if constexpr (std::is_same<T, double>::value) {
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 600)
+#if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 600)) || defined(__HIP_DEVICE_COMPILE__)
+    // CUDA SM6.0+ and HIP/ROCm provide a native double atomicAdd; the CAS loop
+    // below is the portable fallback for older CUDA device targets only.
     return atomicAdd(addr, value);
 #else
     auto addr_as_ull = reinterpret_cast<unsigned long long*>(addr);

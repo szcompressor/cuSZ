@@ -53,12 +53,13 @@ template <typename T, psz_runtime R = CUDA>
 std::tuple<T, T, T, T> GPU_probe_extrema(T* in, size_t len)
 {
   T r[4];
-  if constexpr (R == CUDA)
+  if constexpr (R == CUDA or R == HIP)
     cuda::GPU_extrema(in, len, r);
   else if constexpr (R == SYCL)
     dpcpp::GPU_extrema(in, len, r);
   else
-    static_assert(R == CUDA or R == SYCL, "GPU_probe_extrema supports CUDA / SYCL.");
+    static_assert(
+        R == CUDA or R == HIP or R == SYCL, "GPU_probe_extrema supports CUDA / HIP / SYCL.");
   return {r[0], r[1], r[2], r[3]};
 }
 
@@ -67,12 +68,13 @@ void assess_quality(psz_stats* s, T* xdata, T* odata, size_t const len)
 {
   if constexpr (P == SEQ)
     cppstl::CPU_assess_quality(s, xdata, odata, len);
-  else if constexpr (P == CUDA)
+  else if constexpr (P == CUDA or P == HIP)
     cuda::GPU_assess_quality<T>(s, xdata, odata, len);
   else if constexpr (P == SYCL)
     dpcpp::GPU_assess_quality(s, xdata, odata, len);
   else
-    static_assert(P == SEQ or P == CUDA or P == SYCL, "assess_quality: unsupported backend.");
+    static_assert(
+        P == SEQ or P == CUDA or P == HIP or P == SYCL, "assess_quality: unsupported backend.");
 }
 
 }  // namespace psz::analysis

@@ -54,7 +54,8 @@ template <
     typename T1, typename T2, typename FP, int LINEAR_BLOCK_SIZE, bool WORKFLOW = SPLINE3_COMPR,
     bool PROBE_PRED_ERROR = false>
 __device__ void spline3d_layout2_interpolate(
-    volatile T1 s_data[9][9][33], volatile T2 s_eq[9][9][33], FP eb_r, FP ebx2, int radius);
+    volatile T1 s_data[9][9][33], volatile T2 s_eq[9][9][33], dim3 data_size, FP eb_r, FP ebx2,
+    int radius);
 }  // namespace psz
 
 namespace {

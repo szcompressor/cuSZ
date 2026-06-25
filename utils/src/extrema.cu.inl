@@ -101,21 +101,9 @@ void GPU_extrema(T* in, size_t len, T res[4])
   cudaMemcpy(d_minel, in, sizeof(T), cudaMemcpyDeviceToDevice);  // init min el
   cudaMemcpy(d_maxel, in, sizeof(T), cudaMemcpyDeviceToDevice);  // init max el
 
-// launch
-#if defined(PSZ_USE_CUDA)
+  // launch: the same KCU_extrema kernel is used on CUDA and HIP.
   psz::KCU_extrema<T><<<div(len, chunk), nworker, sizeof(T) * 2, stream>>>(
       in, len, d_minel, d_maxel, d_sum, failsafe, R);
-#elif defined(PSZ_USE_HIP)
-  if constexpr (std::is_same<T, float>::value) {
-    psz::extrema_kernel<float><<<div(len, chunk), nworker, sizeof(float) * 2, stream>>>(
-        in, len, d_minel, d_maxel, d_sum, failsafe, R);
-  }
-  else {
-    throw std::runtime_error(
-        "As of now (5.5.30202), HIP does not support 64-bit integer atomic "
-        "operation.");
-  }
-#endif
 
   cudaStreamSynchronize(stream);
 

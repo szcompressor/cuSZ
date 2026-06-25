@@ -2,7 +2,9 @@
 #define _PORTABLE_MEM_GPU_EVENT_HH
 
 #include <cuda_runtime.h>
+#if !defined(_PORTABLE_USE_HIP)
 #include <cupti_activity.h>
+#endif
 
 #include <atomic>
 #include <cassert>
@@ -10,19 +12,22 @@
 #include <cstdlib>
 #include <memory>
 #include <tuple>
+#include <type_traits>
 
 namespace _ptb {
 
 // CUDA event zone: RAII ///////////////////////////////////////////////////////
 
+using _gpu_event_elem = std::remove_pointer<cudaEvent_t>::type;
+
 struct _gpu_event_deleter {
-  void operator()(CUevent_st* e) const noexcept
+  void operator()(_gpu_event_elem* e) const noexcept
   {
     if (e) cudaEventDestroy(e);
   }
 };
 
-using gpu_event = std::unique_ptr<CUevent_st, _gpu_event_deleter>;
+using gpu_event = std::unique_ptr<_gpu_event_elem, _gpu_event_deleter>;
 
 inline gpu_event make_gpu_event()
 {
@@ -50,6 +55,24 @@ struct timer_cuevent {
 };
 
 // CUPTI zone //////////////////////////////////////////////////////////////////
+
+#if defined(_PORTABLE_USE_HIP)
+
+// ROCm has no CUPTI; the optional per-kernel profiling timer is unavailable, so
+// provide an inert stub with the same interface. It never activates, so
+// gpu_timer always falls back to the hipEvent wall-clock path.
+struct timer_cupti {
+  static inline bool active = false;
+  static void enable() {}
+  void start(cudaStream_t) {}
+  double stop_ms(cudaStream_t s)
+  {
+    cudaStreamSynchronize(s);
+    return 0.0;
+  }
+};
+
+#else
 
 // CUPTI kernel timing: sum of on-device kernel durations (vs cudaEvent wall-clock).
 // Buffers are app-owned (request=malloc, complete=parse+free).
@@ -111,6 +134,8 @@ struct timer_cupti {
     return kernel_ns.load() * 1e-6;
   }
 };
+
+#endif  // _PORTABLE_USE_HIP
 
 // user zone //////////////////////////////////////////////////////////////////
 

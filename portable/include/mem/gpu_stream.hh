@@ -21,17 +21,20 @@
 
 #include <cassert>
 #include <memory>
+#include <type_traits>
 
 namespace _ptb {
 
+using _gpu_stream_elem = std::remove_pointer<cudaStream_t>::type;
+
 struct gpu_stream_deleter {
-  void operator()(CUstream_st* s) const noexcept
+  void operator()(_gpu_stream_elem* s) const noexcept
   {
     if (s) cudaStreamDestroy(s);
   }
 };
 
-using gpu_stream = std::unique_ptr<CUstream_st, gpu_stream_deleter>;
+using gpu_stream = std::unique_ptr<_gpu_stream_elem, gpu_stream_deleter>;
 
 inline gpu_stream make_gpu_stream()
 {

@@ -1,12 +1,22 @@
 
 cmake_minimum_required(VERSION 3.18)
 
-project(PHF
-  VERSION 0.1.0
-  LANGUAGES CXX CUDA
-)
+if(NOT PSZ_BACKEND)
+  set(PSZ_BACKEND "CUDA")
+endif()
+string(TOUPPER "${PSZ_BACKEND}" PHF_BACKEND_UPPER)
 
-find_package(CUDAToolkit REQUIRED)
+if(PHF_BACKEND_UPPER STREQUAL "HIP")
+  project(PHF VERSION 0.1.0 LANGUAGES CXX HIP)
+  find_package(hip REQUIRED)
+  set(_PHF_GPU_RT hip::device)
+  set(_PHF_GPU_DEFINE PHF_USE_HIP)
+else()
+  project(PHF VERSION 0.1.0 LANGUAGES CXX CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  set(_PHF_GPU_RT CUDA::cudart)
+  set(_PHF_GPU_DEFINE PHF_USE_CUDA)
+endif()
 
 find_package(PORTABLE QUIET)
 if(NOT TARGET PORTABLE AND NOT TARGET PORTABLE::PORTABLE)
@@ -35,7 +45,7 @@ endif()
 
 target_compile_definitions(${PHF_PORTABLE_TARGET}
   INTERFACE
-    PHF_USE_CUDA
+    ${_PHF_GPU_DEFINE}
 )
 
 # ------------------------------------------------------------------------------
@@ -80,6 +90,19 @@ add_library(phf_cu
 )
 add_library(PHF::phf_cu ALIAS phf_cu)
 
+if(PHF_BACKEND_UPPER STREQUAL "HIP")
+  get_target_property(_phf_sources phf_cu SOURCES)
+  foreach(_src ${_phf_sources})
+    if(_src MATCHES "\\.cu$")
+      set_source_files_properties(${_src} PROPERTIES LANGUAGE HIP)
+    endif()
+  endforeach()
+  target_compile_definitions(phf_cu PRIVATE PHF_USE_HIP _PORTABLE_USE_HIP)
+  target_include_directories(phf_cu PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/hip-compat)
+  target_compile_options(phf_cu PRIVATE
+    -include ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/hip-compat/psz_hip_compat.h)
+endif()
+
 target_include_directories(phf_cu
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -91,7 +114,7 @@ target_include_directories(phf_cu
 
 target_link_libraries(phf_cu
   PUBLIC
-    CUDA::cudart
+    ${_PHF_GPU_RT}
     ${PHF_PORTABLE_TARGET}
 )
 

@@ -1,12 +1,25 @@
 
 cmake_minimum_required(VERSION 3.18)
 
-project(PORTABLE
-  VERSION 0.1.0
-  LANGUAGES CXX CUDA
-)
+if(NOT PSZ_BACKEND)
+  set(PSZ_BACKEND "CUDA")
+endif()
+string(TOUPPER "${PSZ_BACKEND}" PORTABLE_BACKEND_UPPER)
 
-find_package(CUDAToolkit REQUIRED)
+if(PORTABLE_BACKEND_UPPER STREQUAL "HIP")
+  project(PORTABLE VERSION 0.1.0 LANGUAGES CXX HIP)
+  find_package(hip REQUIRED)
+  find_package(hiprand REQUIRED)
+  set(_PORTABLE_GPU_DEFINE _PORTABLE_USE_HIP)
+  set(_PORTABLE_GPU_RT hip::host)
+  set(_PORTABLE_GPU_RAND hip::hiprand)
+else()
+  project(PORTABLE VERSION 0.1.0 LANGUAGES CXX CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  set(_PORTABLE_GPU_DEFINE _PORTABLE_USE_CUDA)
+  set(_PORTABLE_GPU_RT CUDA::cudart)
+  set(_PORTABLE_GPU_RAND CUDA::curand)
+endif()
 
 # ------------------------------------------------------------------------------
 # Header-only interface target
@@ -21,7 +34,7 @@ target_compile_features(PORTABLE
 
 target_compile_definitions(PORTABLE
   INTERFACE
-    _PORTABLE_USE_CUDA
+    ${_PORTABLE_GPU_DEFINE}
 )
 
 target_include_directories(PORTABLE
@@ -41,11 +54,17 @@ add_library(portable_testutils
   src/utils/synth.cc
 )
 add_library(PORTABLE::testutils ALIAS portable_testutils)
+if(PORTABLE_BACKEND_UPPER STREQUAL "HIP")
+  # rand.cu.cc is compiled as host C++ and includes <curand.h>; the hip-compat
+  # shim maps it onto hipRAND.
+  target_include_directories(portable_testutils
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/hip-compat)
+endif()
 target_link_libraries(portable_testutils
   PUBLIC
     PORTABLE
-    CUDA::cudart
-    CUDA::curand
+    ${_PORTABLE_GPU_RT}
+    ${_PORTABLE_GPU_RAND}
 )
 
 # ------------------------------------------------------------------------------
