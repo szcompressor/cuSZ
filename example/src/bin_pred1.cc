@@ -102,6 +102,17 @@ int main(int argc, char** argv)
   }
   cudaStreamSynchronize(stream);
 
+  // use CodecNull to skip codec
+  // FIXME y25 still keeps extra eq pointer
+  bool const eq_in_out = (pred_type != psz_predictor::Spline) or (spline_variant != 0);
+  if (eq_in_out) {
+    auto h_eq = MAKE_UNIQUE_HOST(uint16_t, len);
+    auto h_space = MAKE_UNIQUE_HOST(float, len);
+    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), len);
+    for (size_t i = 0; i < len; ++i) h_space[i] = (float)h_eq[i];
+    memcpy_allkinds<H2D>(d_xdata.get(), h_space.get(), len);
+  }
+
   // reverse predictor
   PPL::decomp_scatter(
       manager->header, (_ptb::compact_cell<float, M>*)mem->outlier2_validx_d(), d_xdata.get(),
@@ -130,6 +141,12 @@ int main(int argc, char** argv)
     std::string eq_out = fname + ".pred_" + pred_name + ".ectrl.u2";
     utils::tofile(eq_out, h_eq.get(), len);
     printf("[pred-study] ectrl written to: %s\n", eq_out.c_str());
+
+    auto h_xdata = MAKE_UNIQUE_HOST(float, len);
+    memcpy_allkinds<D2H>(h_xdata.get(), d_xdata.get(), len);
+    std::string rec_out = fname + ".pred_" + pred_name + ".rec.f4";
+    utils::tofile(rec_out, h_xdata.get(), len);
+    printf("[pred-study] reconstructed written to: %s\n", rec_out.c_str());
 
     if (pred_type == psz_predictor::Spline) {
       auto anchor_len = mem->anchor_len();

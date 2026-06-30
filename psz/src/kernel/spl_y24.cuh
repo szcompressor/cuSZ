@@ -40,11 +40,10 @@ __global__ void KCU_c_spline3d_infprecis_32x8x8data(
     T* data, dim3 data_size, dim3 data_leap, E* eq, dim3 eq_size, dim3 eq_leap, T* anchor,
     dim3 anchor_leap, CompactValIdx cvi, CompactNum cn, FP eb_r, FP ebx2, int radius);
 
-template <
-    typename E, typename T, typename FP = float, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+template <typename T, typename FP = float, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __global__ void KCU_x_spline3d_infprecis_32x8x8data(
-    E* eq, dim3 eq_size, dim3 eq_leap, T* anchor, dim3 anchor_size, dim3 anchor_leap, T* data,
-    dim3 data_size, dim3 data_leap, FP eb_r, FP ebx2, int radius);
+    T* anchor, dim3 anchor_size, dim3 anchor_leap, T* data, dim3 data_size, dim3 data_leap,
+    FP eb_r, FP ebx2, int radius);
 
 }  // namespace psz
 
@@ -213,9 +212,9 @@ __device__ void global2shmem_33x9x9data(
   __syncthreads();
 }
 
-template <typename T = float, typename E = u4, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+template <typename T = float, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void global2shmem_fuse(
-    E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier, dim3 begin, volatile T s_eq[9][9][33])
+    T* scattered_outlier, dim3 out_size, dim3 out_leap, dim3 begin, volatile T s_eq[9][9][33])
 {
   constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -226,9 +225,9 @@ __device__ void global2shmem_fuse(
     auto gx = (begin.x + x + BIX * BLOCK32);
     auto gy = (begin.y + y + BIY * BLOCK8);
     auto gz = (begin.z + z + BIZ * BLOCK8);
-    auto gid = gx + gy * eq_leap.y + gz * eq_leap.z;
+    auto gid = gx + gy * out_leap.y + gz * out_leap.z;
 
-    if (gx < eq_size.x and gy < eq_size.y and gz < eq_size.z)
+    if (gx < out_size.x and gy < out_size.y and gz < out_size.z)
       s_eq[z][y][x] = scattered_outlier[gid];  // out already holds (T)eq + outlier
   }
   __syncthreads();
@@ -264,8 +263,8 @@ template <
     typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE,
     typename CompactValIdx>
 __device__ void shmem2global_32x8x8data_with_compaction(
-    volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin, int radius,
-    CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr)
+    volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin,
+    int radius, CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr)
 {
   auto x_size = BLOCK32 + (BIX == GDX - 1);
   auto y_size = BLOCK8 + (BIY == GDY - 1);
@@ -764,7 +763,8 @@ __global__ void psz::KCU_c_spline3d_infprecis_32x8x8data(
 
     c_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, shmem.eq, radius);
 
-    global2shmem_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, begin, shmem.data);
+    global2shmem_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(
+        data, data_size, data_leap, begin, shmem.data);
 
     c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap, begin);
 
@@ -777,16 +777,13 @@ __global__ void psz::KCU_c_spline3d_infprecis_32x8x8data(
 }
 
 template <
-    typename E, typename T, typename FP,
+    typename T, typename FP,
     int LINEAR_BLOCK_SIZE>
 __global__ void psz::KCU_x_spline3d_infprecis_32x8x8data(
-    E* eq,             // input 1
-    dim3 eq_size,      //
-    dim3 eq_leap,      //
-    T* anchor,         // input 2
+    T* anchor,         // input: anchor
     dim3 anchor_size,  //
     dim3 anchor_leap,  //
-    T* data,           // output
+    T* data,           // externally handled output buffer, also the fused input
     dim3 data_size,    //
     dim3 data_leap,    //
     FP eb_r, FP ebx2, int radius)
@@ -804,7 +801,7 @@ __global__ void psz::KCU_x_spline3d_infprecis_32x8x8data(
   x_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(
       shmem.data, shmem.eq, anchor, anchor_size, anchor_leap, begin);
 
-  global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(eq, eq_size, eq_leap, data, begin, shmem.eq);
+  global2shmem_fuse<T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, begin, shmem.eq);
 
   psz::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
       shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius);
