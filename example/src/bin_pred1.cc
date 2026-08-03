@@ -102,21 +102,33 @@ int main(int argc, char** argv)
   }
   cudaStreamSynchronize(stream);
 
-  // use CodecNull to skip codec
-  // FIXME y25 still keeps extra eq pointer
-  bool const eq_in_out = (pred_type != psz_predictor::Spline) or (spline_variant != 0);
-  if (eq_in_out) {
-    auto h_eq = MAKE_UNIQUE_HOST(uint16_t, len);
-    auto h_space = MAKE_UNIQUE_HOST(float, len);
-    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), len);
-    for (size_t i = 0; i < len; ++i) h_space[i] = (float)h_eq[i];
-    memcpy_allkinds<H2D>(d_xdata.get(), h_space.get(), len);
+  // use CodecNull to skip codec: bridge (f4)eq into the fused source the x-side reads.
+  auto const _l = manager->header->len;
+  bool const tile_nd = (_l.y > 1);  // 2D/3D predictors tile; 1D is linear == tile
+  size_t const n_fused = tile_nd ? mem->eq_len() : len;
+  {
+    auto h_eq = MAKE_UNIQUE_HOST(uint16_t, n_fused);
+    auto h_space = MAKE_UNIQUE_HOST(float, n_fused);
+    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), n_fused);
+    for (size_t i = 0; i < n_fused; ++i) h_space[i] = (float)h_eq[i];
+    if (tile_nd) {
+      mem->alloc_decode_fused();
+      memcpy_allkinds<H2D>(mem->decode_fused_d(), h_space.get(), n_fused);
+    }
+    else
+      memcpy_allkinds<H2D>(d_xdata.get(), h_space.get(), n_fused);
   }
 
-  // reverse predictor
-  PPL::decomp_scatter(
-      manager->header, (_ptb::compact_cell<float, M>*)mem->outlier2_validx_d(), d_xdata.get(),
-      (void*)stream);
+  // reverse predictor. overflow outliers carry tile gids -> scatter into the
+  // fused source pre-x (mirrors the codec decode); linear keeps the pre-x scatter into out.
+  if (tile_nd)
+    psz::module::GPU_scatter<float, M>::kernel_v3_fuse(
+        (_ptb::compact_cell<float, M>*)mem->outlier2_validx_d(), (int)manager->header->splen,
+        mem->decode_fused_d(), (void*)stream);
+  else
+    PPL::decomp_scatter(
+        manager->header, (_ptb::compact_cell<float, M>*)mem->outlier2_validx_d(), d_xdata.get(),
+        (void*)stream);
   PPL::decomp_predict(manager->header, mem, mem->anchor_d(), d_xdata.get(), (void*)stream);
 
   cudaStreamSynchronize(stream);

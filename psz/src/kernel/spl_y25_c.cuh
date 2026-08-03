@@ -38,10 +38,10 @@ constexpr int ProfNBlkZ = 4;
       return 3;                                                                              \
   };
 
-template <class Types>
-int psz::module::GPU_c_spline_y25<Types>::kernel(
+template <class Types, class Features>
+int psz::module::GPU_c_spline_y25<Types, Features>::kernel(
     Buf* buf, host::view<T> in, double eb, double rel_eb, uint32_t radius,
-    INTERP_PARAMS& intp_param, void* stream)
+    INTERP_PARAMS& intp_param, bool enable_global, void* stream)
 {
   auto data_p = in.ptr;
   auto eq_p = buf->eq_d();
@@ -49,6 +49,8 @@ int psz::module::GPU_c_spline_y25<Types>::kernel(
   auto d_ext = in.extent;
   auto a_ext = buf->anchor_len3();
   auto _outlier = (void*)buf->buf_outlier2();
+  auto out_bheader = buf->buf_hf() ? (uint32_t*)buf->buf_hf()->pbk_headers_d() : nullptr;
+  auto out_block_outliers = buf->block_outliers_d();
   auto d_profiled_errors = buf->profiled_errors_d();
   auto h_profiled_errors = buf->profiled_errors_h();
   auto pe_len = buf->profiled_errors_len();
@@ -403,25 +405,38 @@ int psz::module::GPU_c_spline_y25<Types>::kernel(
     }
   }
 
-  if (l3.z == 1) {
-    auto grid_dim = dim3(
-        div(extent.x, AncBlkSzX * NAncBlkX), div(extent.y, AncBlkSzY * NAncBlkY),
-        div(extent.z, AncBlkSzZ * NAncBlkZ));
-    psz::KCU_c_spl_infprecis_data<
-        T, E, float, LEVEL, SplDim2, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ,
-        DefaultLinBlkSz>  //
-        <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
-            data.ptr, extent, data_leap, eq.ptr, extent, data_leap, anchor.ptr, anchor_leap,
-            ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius, intp_param);
-  }
-  else {
-    auto grid_dim = dim3(div(extent.x, Blk16), div(extent.y, Blk16), div(extent.z, Blk16));
-    psz::KCU_c_spl_infprecis_data<
-        T, E, float, 4, SplDim3, Blk16, Blk16, Blk16, 1, 1, 1, DefaultLinBlkSz>  //
-        <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
-            data.ptr, extent, data_leap, eq.ptr, extent, data_leap, anchor.ptr, anchor_leap,
-            ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius, intp_param);
-  }
+  auto go = [&](auto global_const) {
+    constexpr bool Global = decltype(global_const)::value;
+    using F = psz::PredictorFeature<
+        Features::UseZigZag, Features::UseH1GL,
+        (Global ? 0b10 : 0b00) | (Features::UnpredIncomp & 0b01)>;
+    if (l3.z == 1) {
+      auto grid_dim = dim3(
+          div(extent.x, AncBlkSzX * NAncBlkX), div(extent.y, AncBlkSzY * NAncBlkY),
+          div(extent.z, AncBlkSzZ * NAncBlkZ));
+      psz::KCU_c_spl_infprecis_data<
+          T, E, float, LEVEL, SplDim2, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY,
+          NAncBlkZ, DefaultLinBlkSz, decltype(ot->val_idx_d()), uint32_t*, F>
+          <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
+              data.ptr, extent, data_leap, eq.ptr, extent, data_leap, anchor.ptr, anchor_leap,
+              ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius, intp_param, out_bheader,
+              out_block_outliers, ot->max_allowed_num());
+    }
+    else {
+      auto grid_dim = dim3(div(extent.x, Blk16), div(extent.y, Blk16), div(extent.z, Blk16));
+      psz::KCU_c_spl_infprecis_data<
+          T, E, float, 4, SplDim3, Blk16, Blk16, Blk16, 1, 1, 1, DefaultLinBlkSz,
+          decltype(ot->val_idx_d()), uint32_t*, F>
+          <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
+              data.ptr, extent, data_leap, eq.ptr, extent, data_leap, anchor.ptr, anchor_leap,
+              ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius, intp_param, out_bheader,
+              out_block_outliers, ot->max_allowed_num());
+    }
+  };
+  if (enable_global)
+    go(std::integral_constant<bool, true>{});
+  else
+    go(std::integral_constant<bool, false>{});
 
   cudaStreamSynchronize((cudaStream_t)stream);
 

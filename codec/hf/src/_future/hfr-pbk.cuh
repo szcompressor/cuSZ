@@ -34,8 +34,8 @@ template <int ChunkSize, int BitWidth, int Radius, int BaseSeq, int MergeSize, t
 template <int ChunkSize, int BitWidth, int Radius, int BaseRT, typename Header_v3, int RT>            __forceinline__ __device__ void rmerge__v7_wrapper                  (u4 const reduce_times, size_t const data_len, u4 const chunk_id, volatile u4* s_book, int* p_eq, psz::HFR_PBK_Breaks<Radius>* br2_val_idx, volatile u4* s_v3_incomp, volatile Header_v3* v3_bheader, u4* r_reduced, u4* r_bits);
 
 // shuffle-merge
-template <int BitWidth, int BaseSeq, int MergeSize> __forceinline__ __device__ void smerge_sync__v7_const_shardsize_iter(volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits);
-template <int BitWidth, int BaseRT, int RT>         __forceinline__ __device__ void smerge__v7_wrapper                  (u4 const reduce_times, volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits);
+template <int ChunkSize, int BitWidth, int BaseSeq, int MergeSize> __forceinline__ __device__ void smerge_sync__v7_const_shardsize_iter(volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits);
+template <int ChunkSize, int BitWidth, int BaseRT, int RT>         __forceinline__ __device__ void smerge__v7_wrapper                  (u4 const reduce_times, volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits);
 
 // version dispatch (state bundled in MergeCtx<C>)
 template <class C> struct MergeCtx;
@@ -44,7 +44,7 @@ template <SMerge V, class C>        __forceinline__ __device__ void dispatch_sme
 template <class Launch>             __host__ void dispatch_merge_host(RMerge rm, SMerge sm, Launch&& launch);
 
 // block/bitstream write
-template <typename Slot, typename BreaksRouter, typename Hf, typename Header, typename BreakCell>       __forceinline__ __device__ void write_pbk_bitstream_v2(u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader, volatile BreakCell* s_breaks, Slot slot, BreaksRouter router, _ptb::compact_cell<f4, u2> const* block_outliers = nullptr);
+template <typename Slot, typename BreaksRouter, typename Hf, typename Header, typename BreakCell>       __forceinline__ __device__ void write_pbk_bitstream_v2(u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader, volatile BreakCell* s_breaks, Slot slot, BreaksRouter router, psz::OutlierCell const* block_outliers = nullptr);
 
 // incomp fallback
 template <typename bheader_v3_t, typename T, int TileDim, int Seq, int NumThreads, size_t SymCodec> __device__ __forceinline__ void _handle_incomp_non_final                (volatile bheader_v3_t* s_v3_bheader, u1* pbk_bs_v3, size_t stride_bytes, volatile T* s_data, size_t const data_len, u4 const id_base);
@@ -273,7 +273,7 @@ __forceinline__ __device__ void rmerge_sync__v7_const_shardsize_iter(
       const size_t idx = (size_t)threadIdx.x * BaseSeq + wbase + j;
       // valid eq is < 2*Radius (book domain)
       // restrict s_book in-range on malformed input
-      auto p_val = s_book[min(p_eq[wbase + j], 2 * Radius - 1)];
+      auto p_val = s_book[max(min(p_eq[wbase + j], 2 * Radius - 1), 0)];
       const auto sym_bits = bitcount_of(&p_val);
       r_code[j] = p_val << (BitWidth - sym_bits);
       r_width[j] = sym_bits;
@@ -293,7 +293,7 @@ __forceinline__ __device__ void rmerge_sync__v7_const_shardsize_iter(
 #pragma unroll
     for (int j = 0; j < MergeSize; j++) p_reduced |= (r_code[j] >> r_offset[j]);
 
-    if (p_bits > BitWidth) {
+  if (p_bits > BitWidth) {
       p_bits = 0u;
       p_reduced = 0x0;
       auto p_val_ref = s_book[Radius];
@@ -301,12 +301,13 @@ __forceinline__ __device__ void rmerge_sync__v7_const_shardsize_iter(
 #pragma unroll
       for (int j = 0; j < MergeSize; j++) {
         const u4 br_lidx = (u4)((size_t)threadIdx.x * BaseSeq + wbase + j);
-        auto p_val = s_book[min(p_eq[wbase + j], 2 * Radius - 1)];
+        auto p_val = s_book[max(min(p_eq[wbase + j], 2 * Radius - 1), 0)];
         auto sym_bits = bitcount_of(&p_val);
         if (sym_bits > (BitWidth / MergeSize)) {
           auto _l_br_idx = atomicAdd(const_cast<u4*>(s_v3_incomp), 1 << 16);
           auto l_br_idx = (_l_br_idx & Constants::MASK_BREAKS) >> 16;
-          if (l_br_idx < Constants::MaxNumBreaks) {
+          constexpr u4 MaxNumBreaks = ChunkSize / 16 - 1;  // runtime; FIXME: conslidate with outer HFR_PBK_C*::MaxNumBreaks
+          if (l_br_idx < MaxNumBreaks) {
             br2_val_idx[l_br_idx] = {(u2)p_eq[wbase + j], (u2)br_lidx};
             p_val = p_val_ref;
             sym_bits = sym_bits_ref;
@@ -330,18 +331,18 @@ __forceinline__ __device__ void rmerge_sync__v7_const_shardsize_iter(
       v3_bheader->n_breaks = (s_v3_incomp[0] & Constants::MASK_BREAKS) >> 16;
 }
 
-// Concatenate the Iters words/thread into the block bitstream (Iters==1 == v2).
-// Caller must size s_reduced >= ChunkSize/MergeSize + 1.
-template <int BitWidth, int BaseSeq, int MergeSize>
+// concatenate bitstream (v2: Iters=1 only).
+// s_reduced >= ChunkSize/MergeSize + 1.
+template <int ChunkSize, int BitWidth, int BaseSeq, int MergeSize>
 __forceinline__ __device__ void smerge_sync__v7_const_shardsize_iter(
     volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits)
 {
   static_assert(BitWidth == 32, "assumes BitWidth = 32 (u4 words).");
   static_assert(BaseSeq % MergeSize == 0, "BaseSeq must be a multiple of MergeSize.");
   constexpr int Iters = BaseSeq / MergeSize;
-  constexpr int NumThreads = (1 << (int)Constants::Magnitude) / BaseSeq;
+  constexpr int NumThreads = ChunkSize / BaseSeq;
   constexpr int NumWarps = NumThreads / 32;
-  constexpr int MaxWords = (1 << (int)Constants::Magnitude) / MergeSize;  // words this M can touch
+  constexpr int MaxWords = ChunkSize / MergeSize;  // words this M can touch
 
   __shared__ u4 s_warp_totals[NumWarps];
 
@@ -392,16 +393,16 @@ __forceinline__ __device__ void rmerge__v7_wrapper(
         r_reduced, r_bits);
 }
 
-template <int BitWidth, int BaseRT, int RT = BaseRT>
+template <int ChunkSize, int BitWidth, int BaseRT, int RT = BaseRT>
 __forceinline__ __device__ void smerge__v7_wrapper(
     u4 const reduce_times, volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced,
     u4* r_bits)
 {
   if (reduce_times == (u4)RT)
-    smerge_sync__v7_const_shardsize_iter<BitWidth, (1 << BaseRT), (1 << RT)>(
+    smerge_sync__v7_const_shardsize_iter<ChunkSize, BitWidth, (1 << BaseRT), (1 << RT)>(
         s_reduced, s_bitcount, r_reduced, r_bits);
   else if constexpr (RT > 1)
-    smerge__v7_wrapper<BitWidth, BaseRT, RT - 1>(
+    smerge__v7_wrapper<ChunkSize, BitWidth, BaseRT, RT - 1>(
         reduce_times, s_reduced, s_bitcount, r_reduced, r_bits);
 }
 
@@ -409,7 +410,7 @@ __forceinline__ __device__ void smerge__v7_wrapper(
 // bundled context for per-block merge + a version tag.
 template <class C>
 struct MergeCtx {
-  using Header = psz::_future::bheader<typename C::T, C::Radius>;
+  using Header = typename C::bheader_t;
   using BreakCell = psz::HFR_PBK_Breaks<C::Radius>;
   size_t data_len;
   u4 chunk_id;
@@ -431,11 +432,13 @@ __forceinline__ __device__ void dispatch_rmerge(MergeCtx<C> cx)
   constexpr int ChunkSize = C::ChunkSize;
   constexpr int BitWidth = C::BITWIDTH;
   constexpr int Radius = C::Radius;
-  constexpr int RT = C::ReduceTimes;
+  // BaseSeq = 1<<BaseRT; runtime reduce_times selects MergeSize.
+  // Iters = BaseSeq/MergeSize = 1 << IterLog
+  constexpr int BaseRT = (int)C::ReduceTimes + (int)C::IterLog;
   using Header = typename MergeCtx<C>::Header;
   static_assert(V == RMerge::v7, "release build: v7 only");
 
-  rmerge__v7_wrapper<ChunkSize, BitWidth, Radius, RT, Header>(
+  rmerge__v7_wrapper<ChunkSize, BitWidth, Radius, BaseRT, Header>(
       cx.reduce_times, cx.data_len, cx.chunk_id, cx.s_book, cx.p_eq, cx.s_breaks, cx.s_v3_incomp,
       cx.bheader, cx.r_reduced, cx.r_bits);
 }
@@ -443,10 +446,11 @@ __forceinline__ __device__ void dispatch_rmerge(MergeCtx<C> cx)
 template <SMerge V, class C>
 __forceinline__ __device__ void dispatch_smerge(MergeCtx<C> cx)
 {
+  constexpr int ChunkSize = C::ChunkSize;
   constexpr int BitWidth = C::BITWIDTH;
-  constexpr int RT = C::ReduceTimes;
+  constexpr int BaseRT = (int)C::ReduceTimes + (int)C::IterLog;
   static_assert(V == SMerge::v7, "release build: v7 only");
-  smerge__v7_wrapper<BitWidth, RT>(
+  smerge__v7_wrapper<ChunkSize, BitWidth, BaseRT>(
       cx.reduce_times, cx.s_reduced, cx.s_bitcount, cx.r_reduced, cx.r_bits);
 }
 
@@ -473,7 +477,7 @@ __device__ __forceinline__ void _handle_incomp_non_final(
     s_v3_bheader->enc_id = SymCodec;
     s_v3_bheader->n_unpred = 0;
     s_v3_bheader->n_breaks = 0;
-    s_v3_bheader->bits = TileDim * sizeof(incomp_eq_t) * 8;
+    s_v3_bheader->dense = (TileDim * sizeof(incomp_eq_t) * 8) >> 5;  // words
     s_loc_thisblk = (size_t)blockIdx.x * stride_bytes;
     s_v3_bheader->entry = s_loc_thisblk;
   }
@@ -630,17 +634,17 @@ template <typename Slot, typename BreaksRouter, typename Hf, typename Header, ty
 __forceinline__ __device__ void write_pbk_bitstream_v2(
     u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader,
     volatile BreakCell* s_breaks, Slot slot, BreaksRouter router,
-    _ptb::compact_cell<f4, u2> const* block_outliers)
+    psz::OutlierCell const* block_outliers)
 {
   using Off = typename BreaksRouter::offset_t;
-  using OutlierCell = _ptb::compact_cell<f4, u2>;
+  using psz::OutlierCell;
   __shared__ u4 s_wunits;
   __shared__ Off s_wloc;
 
   if (threadIdx.x == 0) {
     u4 p_bc = s_bitcount[0];
-    bheader->bits = p_bc;
-    s_wunits = (p_bc + 31u) >> 5;  // bits -> 32-bit words
+    bheader->dense = (p_bc + 31u) >> 5;  // bits -> 32-bit words
+    s_wunits = bheader->dense;
   }
   __syncthreads();
 
@@ -657,15 +661,16 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
   // [breaks | bitstream | unpred]
   auto unpred_base = (OutlierCell*)((u1*)bs_base + (Off)s_wunits * sizeof(Hf));
 
-  if (threadIdx.x < bheader->n_breaks)
-    breaks_base[threadIdx.x] = const_cast<BreakCell*>(s_breaks)[threadIdx.x];
+  // breaks cap can exceed blockDim (4Ki: 255 vs 128 threads) -> strided copy
+  for (u4 i = threadIdx.x; i < (u4)bheader->n_breaks; i += blockDim.x)
+    breaks_base[i] = const_cast<BreakCell*>(s_breaks)[i];
 
 #pragma unroll
   for (auto i = threadIdx.x; i < s_wunits; i += blockDim.x) bs_base[i] = (Hf)s_reduced[i];
 
   if (threadIdx.x < n_unpred)
     unpred_base[threadIdx.x] =
-        block_outliers[(size_t)b * psz::HFR_PBK_Constants::MaxNumUnpred + threadIdx.x];
+        block_outliers[(size_t)b * Header::C::MaxNumUnpred + threadIdx.x];
 
   slot.commit(b);
 }
@@ -685,18 +690,19 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
   using hfr_pbk::dispatch_smerge;                      \
   using hfr_pbk::dispatch_merge_host;
 
-#define HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C)            \
-  using T = typename C::T;                            \
-  using Hf = typename C::Hf;                          \
-  using Header = psz::_future::bheader<T, C::Radius>; \
-  using BreakCell = psz::HFR_PBK_Breaks<C::Radius>;   \
-  constexpr auto ChunkSize = C::ChunkSize;            \
-  constexpr auto ShardSize = C::ShardSize;            \
-  constexpr auto NumThreads = C::BlockDim;            \
-  constexpr auto BitWidth = C::BITWIDTH;              \
-  constexpr auto BookLen = C::BookLen;                \
-  constexpr auto NumBooks = C::NumBooks;              \
-  constexpr auto Radius = C::Radius;                  \
+#define HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C)                                     \
+  using T = typename C::T;                                                     \
+  using Hf = typename C::Hf;                                                   \
+  using KC = psz::_parameterized_hfr_pbk_constants<(size_t)C::Magnitude>;      \
+  using Header = psz::_future::bheader<T, C::Radius, (size_t)C::Magnitude>;    \
+  using BreakCell = psz::HFR_PBK_Breaks<C::Radius>;                            \
+  constexpr auto ChunkSize = C::ChunkSize;                                     \
+  constexpr auto ShardSize = C::ShardSize;                                     \
+  constexpr auto NumThreads = C::BlockDim;                                     \
+  constexpr auto BitWidth = C::BITWIDTH;                                       \
+  constexpr auto BookLen = C::BookLen;                                         \
+  constexpr auto NumBooks = C::NumBooks;                                       \
+  constexpr auto Radius = C::Radius;                                           \
   constexpr auto ShuffleTimes = C::ShuffleTimes;
 
 #define HFR_PBK_SHARED_AND_RESET()                                          \
@@ -708,7 +714,7 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
   __shared__ u4 s_top1_counts;                                              \
   __shared__ u4 s_v3_incomp;                                                \
   __shared__ Header s_bheader;                                              \
-  __shared__ BreakCell s_breaks[psz::HFR_PBK_Constants::MaxNumBreaks];      \
+  __shared__ BreakCell s_breaks[KC::MaxNumBreaks];                          \
   if (threadIdx.x == 0) s_bheader = {};                                     \
   if (threadIdx.x == 32) s_top1_counts = 0;                                 \
   if (threadIdx.x == 64 % NumThreads) s_v3_incomp = 0;

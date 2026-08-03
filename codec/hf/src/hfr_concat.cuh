@@ -37,27 +37,34 @@ __global__ void KCU_concat_via_scatter_packed(
 }
 
 // scatter + inline 2-word header/block.
-template <typename E, int BlockDim>
+template <typename E, int BlockDim, int Magnitude = 10>
 __global__ void KCU_concat_via_scatter(
-    psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius> const* __restrict__ bheaders,
+    psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius, (size_t)Magnitude> const* __restrict__
+        bheaders,
     u4 const* __restrict__ par_entry, u4 const* __restrict__ dn_in, u4* __restrict__ dn_out,
     u4* __restrict__ out_headers, u4 sizeof_Hf, u4 ChunkSize, int pardeg)
 {
   const int b = (int)blockIdx.x;
   if (b >= pardeg) return;
 
+  using KC = psz::_parameterized_hfr_pbk_constants<(size_t)Magnitude>;
+  constexpr u4 EncIdShift = (u4)(KC::BitsMaxNumUnpred + KC::BitsMaxNumBreaks);
+  constexpr u4 DenseShift = EncIdShift + (u4)KC::BitsEncId;
+  constexpr u4 UnpredMask = (1u << KC::BitsMaxNumUnpred) - 1u;
+
   __shared__ u4 s_ncell;
   __shared__ u4 s_entry;
   if (threadIdx.x == 0) {
     auto const h = bheaders[b];
-    u4 const bits = h.bits;
+    u4 const dense = h.dense;  // words
     u4 const n_breaks = (u4)h.n_breaks;
     u4 const enc_id = (u4)h.enc_id;
-    s_ncell = (bits + 31u) / 32u + n_breaks + psz::pbk_unpred_words((u4)h.n_unpred);
+    s_ncell = dense + n_breaks + psz::pbk_unpred_words((u4)h.n_unpred);
     u4 const entry = par_entry[b];
     s_entry = entry;
-    // Emit 2-word header inline (n_unpred: low 3 bits).
-    out_headers[2 * b + 0] = (bits << 14) | (enc_id << 9) | ((u4)h.n_unpred & 0x7u);
+    // Emit 2-word header inline (n_unpred in the low bits).
+    out_headers[2 * b + 0] =
+        (dense << DenseShift) | (enc_id << EncIdShift) | ((u4)h.n_unpred & UnpredMask);
     out_headers[2 * b + 1] = entry * sizeof_Hf;
   }
   __syncthreads();
@@ -68,14 +75,14 @@ __global__ void KCU_concat_via_scatter(
   for (u4 i = threadIdx.x; i < ncell; i += BlockDim) dn_out[dst_base + i] = dn_in[src_base + i];
 }
 
-// load per-block ncell from bheader[i].{bits, n_breaks}.
-template <typename E>
+// load per-block ncell from bheader[i].{dense, n_breaks}.
+template <typename E, int Magnitude = 10>
 struct LoadNcellFromBheader {
-  psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius> const* __restrict__ p;
+  psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius, (size_t)Magnitude> const* __restrict__ p;
   __device__ __forceinline__ u4 operator()(int i) const
   {
     auto const h = p[i];
-    return (h.bits + 31u) / 32u + (u4)h.n_breaks + psz::pbk_unpred_words((u4)h.n_unpred);
+    return h.dense + (u4)h.n_breaks + psz::pbk_unpred_words((u4)h.n_unpred);
   }
 };
 
@@ -88,7 +95,7 @@ __global__ void KCU_pack_bheader_backport(  // HF-rev2: par_nbit/par_entry -> fu
   const int b = (int)(blockIdx.x * blockDim.x + threadIdx.x);
   if (b >= pardeg) return;
   bheader_hfr2 bh{};
-  bh.bits = par_nbit[b];
+  bh.dense = par_nbit[b];  // HF-rev2: bit count (see bheader field note)
   bh.entry = par_entry[b] * sizeof_Hf;
   reinterpret_cast<bheader_hfr2*>(out_headers)[b] = bh;
 }
@@ -100,7 +107,7 @@ __global__ void KCU_unpack_bheader_backport(  // HF-rev2: future-bheader AoS -> 
   const int b = (int)(blockIdx.x * blockDim.x + threadIdx.x);
   if (b >= pardeg) return;
   auto const bh = reinterpret_cast<bheader_hfr2 const*>(in_headers)[b];
-  par_nbit[b] = bh.bits;
+  par_nbit[b] = bh.dense;
   par_entry[b] = bh.entry / sizeof_Hf;
 }
 
@@ -161,8 +168,8 @@ int concat_via_scatter_ppc<BlockDim>::GPU_kernel(
   return 0;
 }
 
-template <typename E, int BlockDim>
-int _future_concat_via_scatter<E, BlockDim>::GPU_kernel(
+template <typename E, int BlockDim, int Magnitude>
+int _future_concat_via_scatter<E, BlockDim, Magnitude>::GPU_kernel(
     bheader_t const* bheaders, u4* par_entry, u4 const* dn_in, u4* dn_out, u4* out_packed_headers,
     u4 sizeof_Hf, u4 ChunkSize, int pardeg, u4* scan_partial_aggregate, u4* scan_incl_prefix,
     int* scan_tile_status, u4* opt_d_total_words, void* stream)
@@ -172,13 +179,13 @@ int _future_concat_via_scatter<E, BlockDim>::GPU_kernel(
 
   // pass-1: scan reads ncell
   psz::scan_lookback::launch_scan_typed(
-      phf::LoadNcellFromBheader<E>{bheaders}, par_entry, pardeg, scan_partial_aggregate,
-      scan_incl_prefix, scan_tile_status, opt_d_total_words, cstream);
+      phf::LoadNcellFromBheader<E, Magnitude>{bheaders}, par_entry, pardeg,
+      scan_partial_aggregate, scan_incl_prefix, scan_tile_status, opt_d_total_words, cstream);
 
   // pass-2: fused scatter
   dim3 grid2((unsigned)pardeg, 1, 1);
   dim3 block2((unsigned)BlockDim, 1, 1);
-  phf::KCU_concat_via_scatter<E, BlockDim><<<grid2, block2, 0, cstream>>>(
+  phf::KCU_concat_via_scatter<E, BlockDim, Magnitude><<<grid2, block2, 0, cstream>>>(
       bheaders, par_entry, dn_in, dn_out, out_packed_headers, sizeof_Hf, ChunkSize, pardeg);
 
   return 0;

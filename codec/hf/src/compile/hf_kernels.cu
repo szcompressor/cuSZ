@@ -15,4 +15,11 @@ template void modules<u2, u4>::GPU_coarse_decode<f4>(
 template void modules<u2, u4>::GPU_coarse_decode<f8>(
     u4*, uint8_t*, size_t const, u4*, u4*, size_t const, size_t const, f8*, uint8_t*, void*);
 
+template void modules<u4, u4>::GPU_coarse_decode<u4>(
+    u4*, uint8_t*, size_t const, u4*, u4*, size_t const, size_t const, u4*, uint8_t*, void*);
+template void modules<u4, u4>::GPU_coarse_decode<f4>(
+    u4*, uint8_t*, size_t const, u4*, u4*, size_t const, size_t const, f4*, uint8_t*, void*);
+template void modules<u4, u4>::GPU_coarse_decode<f8>(
+    u4*, uint8_t*, size_t const, u4*, u4*, size_t const, size_t const, f8*, uint8_t*, void*);
+
 }  // namespace phf::cuhip

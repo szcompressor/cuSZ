@@ -90,8 +90,6 @@ struct Buf<E>::impl {
   using BHeader = psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius>;
   GPU_unique_dptr<BHeader[]> d_pbk_headers;
   GPU_unique_hptr<BHeader[]> h_pbk_headers;
-  using BlockOutlierCell = _ptb::compact_cell<f4, u2>;
-  GPU_unique_dptr<BlockOutlierCell[]> d_block_outliers;
   GPU_unique_dptr<u1[]> d_incomp_flag;  // [pardeg] decode message: 1 = unpred-incomp block
   GPU_unique_dptr<H4[]> d_packed;
   GPU_unique_dptr<u4[]> d_total_ncell;
@@ -110,23 +108,21 @@ struct Buf<E>::impl {
   impl(size_t inlen, size_t _bklen, int _pardeg, bool _use_HFR, bool debug, bool use_sublen_1ki) :
       len(inlen),
       bklen(_bklen),
-      // HFR-PBK: per-block stride = BlockSize + MaxNumBreaks words.
+      // per-block staging stride, padded to the M12 worst case (E=u4 dense ~= 1 word/symbol).
       bitstream_max_len(
           _use_HFR ? (((inlen - 1) / psz::HFR_PBK_Constants::BlockSize + 1) *
-                      psz::HFR_PBK_Constants::StridePerBlockWords)
+                          psz::HFR_PBK_Constants::StridePerBlockWords +
+                      ((inlen - 1) / psz::HFR_PBK_Constants::BlockSize + 1) *
+                          (psz::HFR_PBK_C12::MaxUnpredWords + psz::HFR_PBK_C12::MaxNumBreaks))
                    : inlen / 2),
       use_HFR(_use_HFR),
       rvbk4_bytes(_rvbk4_bytes(_bklen))
   {
     cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, 0);
 
-    pbkgo_max_blocks_per_sm = 0;
-    pbkgo_max_resident_blocks = 0;
-    if constexpr (sizeof(SYM) <= 2) {  // pbkgo only instantiated for u1, u2
-      pbkgo_max_blocks_per_sm =
-          phf::module::HFR_PBKGO_encode<SYM, 10, 2, uint32_t, 128>::max_blocks_per_sm();
-      pbkgo_max_resident_blocks = pbkgo_max_blocks_per_sm * num_sms;
-    }
+    pbkgo_max_blocks_per_sm =
+        phf::module::HFR_PBKGO_encode<SYM, 10, 2, uint32_t, 128>::max_blocks_per_sm();
+    pbkgo_max_resident_blocks = pbkgo_max_blocks_per_sm * num_sms;
 
     // call dummy during expensive init
     phf::_dummy::launch();
@@ -134,8 +130,11 @@ struct Buf<E>::impl {
     sublen = (use_HFR or use_sublen_1ki) ? 1024 : phf_coarse_tune_sublen(inlen);
     pardeg = (inlen - 1) / sublen + 1;
 
-    h_scratch4 = MAKE_UNIQUE_HOST(H4, len);
-    d_scratch4 = MAKE_UNIQUE_DEVICE(H4, len);
+    const size_t hfr_incomp_pad =
+        use_HFR ? pardeg * (psz::HFR_PBK_C12::MaxUnpredWords + psz::HFR_PBK_C12::MaxNumBreaks) : 0;
+
+    h_scratch4 = MAKE_UNIQUE_HOST(H4, len + hfr_incomp_pad);
+    d_scratch4 = MAKE_UNIQUE_DEVICE(H4, len + hfr_incomp_pad);
     h_book4 = MAKE_UNIQUE_HOST(H4, bklen);
     d_book4 = MAKE_UNIQUE_DEVICE(H4, bklen);
     h_rvbk4 = MAKE_UNIQUE_HOST(PHF_BYTE, rvbk4_bytes);
@@ -169,10 +168,9 @@ struct Buf<E>::impl {
     if (use_HFR) {
       using K = psz::HFR_PBK_Constants;
       h_pbk_headers = MAKE_UNIQUE_HOST(BHeader, pardeg);
-      d_block_outliers = MAKE_UNIQUE_DEVICE(BlockOutlierCell, pardeg * K::MaxNumUnpred);
       d_incomp_flag = MAKE_UNIQUE_DEVICE(u1, pardeg);
       memset_device(d_incomp_flag.get(), pardeg);  // 0 = normal; 1 = use incomp-31
-      d_packed = MAKE_UNIQUE_DEVICE(H4, pardeg * K::BlockSize);
+      d_packed = MAKE_UNIQUE_DEVICE(H4, pardeg * K::BlockSize + hfr_incomp_pad);
       d_pbk_packed_headers = MAKE_UNIQUE_DEVICE(u4, 2 * pardeg);  // two u4 per block
       d_pbkgo_state = MAKE_UNIQUE_DEVICE(u4, pardeg);             // init to 0 (INVALID)
       memset_device(d_pbkgo_state.get(), pardeg);
@@ -227,16 +225,17 @@ struct Buf<E>::impl {
     d2d_memcpy_merge(_par_entry);
     d2d_memcpy_merge(_bitstream);
 
+    // header.pardeg, not the buf's: 2Ki+ PBKC encodes fewer blocks than the 1Ki default.
     if (not use_HFR) {  // HF / HFr2 ship the per-block header as bheader AoS.
       memcpy_helper _hf_rev2_header{
-          (u4*)d_pbk_headers.get(), 2 * pardeg * sizeof(u4),
+          (u4*)d_pbk_headers.get(), 2 * (size_t)header.pardeg * sizeof(u4),
           header.entry[PHFHEADER_HF_REV2_HEADER]};
       d2d_memcpy_merge(_hf_rev2_header);
     }
 
     if (use_HFR) {  // HFR family: packed per-block headers.
       memcpy_helper _pbk_headers{
-          d_pbk_packed_headers.get(), 2 * pardeg * sizeof(u4),
+          d_pbk_packed_headers.get(), 2 * (size_t)header.pardeg * sizeof(u4),
           header.entry[PHFHEADER_PBK_HEADERS]};
       d2d_memcpy_merge(_pbk_headers);
     }
@@ -295,9 +294,7 @@ PHF_BUF_DEF(PHF_BYTE*)::encoded_d() const { return pimpl->d_encoded; }
 PHF_BUF_DEF(PHF_BYTE*)::encoded_h() const { return pimpl->h_encoded; }
 
 PHF_BUF_DEF(u4*)::scan_partial_aggregate_d() const
-{
-  return pimpl->d_scan_partial_aggregate.get();
-}
+{ return pimpl->d_scan_partial_aggregate.get(); }
 PHF_BUF_DEF(u4*)::scan_incl_prefix_d() const { return pimpl->d_scan_incl_prefix.get(); }
 PHF_BUF_DEF(int*)::scan_tile_status_d() const { return pimpl->d_scan_tile_status.get(); }
 PHF_BUF_DEF(int)::scan_num_tiles() const { return pimpl->scan_num_tiles_; }
@@ -320,8 +317,8 @@ PHF_BUF_DEF(void)::calc_offset(phf_header& header, M* byte_offsets)
   byte_offsets[PHFHEADER_PAR_NBIT] = 0;
   byte_offsets[PHFHEADER_PAR_ENTRY] = 0;
   byte_offsets[PHFHEADER_BITSTREAM] = 4 * header.total_ncell;
-  byte_offsets[PHFHEADER_PBK_HEADERS] = pimpl->use_HFR ? 2 * pimpl->pardeg * sizeof(u4) : 0;
-  byte_offsets[PHFHEADER_HF_REV2_HEADER] = not pimpl->use_HFR ? 2 * pimpl->pardeg * sizeof(u4) : 0;
+  byte_offsets[PHFHEADER_PBK_HEADERS] = pimpl->use_HFR ? 2 * header.pardeg * sizeof(u4) : 0;
+  byte_offsets[PHFHEADER_HF_REV2_HEADER] = not pimpl->use_HFR ? 2 * header.pardeg * sizeof(u4) : 0;
 
   header.entry[0] = 0;
   // *.END + 1: need to know the ending position
@@ -339,9 +336,7 @@ PHF_BUF_DEF(void*)::timing_event(int idx) const { return (void*)pimpl->timing_ev
 PHF_BUF_DEF(void)::set_rt_bklen(const int _rt_bklen) { pimpl->rt_bklen = _rt_bklen; }
 
 PHF_BUF_DEF(void)::memcpy_merge(phf_header& header, phf_stream_t stream)
-{
-  pimpl->memcpy_merge(header, stream);
-}
+{ pimpl->memcpy_merge(header, stream); }
 
 // method, same-name
 PHF_BUF_DEF(void)::clear_buffer() { pimpl->clear_buffer(); }
@@ -367,20 +362,12 @@ PHF_BUF_DEF(void)::reset_HFR(phf_stream_t stream)
 }
 
 PHF_BUF_DEF(psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius>*)::pbk_headers_d() const
-{
-  return pimpl->d_pbk_headers.get();
-}
+{ return pimpl->d_pbk_headers.get(); }
 PHF_BUF_DEF(psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius>*)::pbk_headers_h() const
-{
-  return pimpl->h_pbk_headers.get();
-}
+{ return pimpl->h_pbk_headers.get(); }
 PHF_BUF_DEF(u4*)::packed_d() const { return pimpl->d_packed.get(); }
 PHF_BUF_DEF(u4*)::total_ncell_d() const { return pimpl->d_total_ncell.get(); }
 PHF_BUF_DEF(u4*)::pbk_packed_headers_d() const { return pimpl->d_pbk_packed_headers.get(); }
-PHF_BUF_DEF(_ptb::compact_cell<f4, u2>*)::block_outliers_d() const
-{
-  return pimpl->d_block_outliers.get();
-}
 PHF_BUF_DEF(u1*)::incomp_flag_d() const { return pimpl->d_incomp_flag.get(); }
 PHF_BUF_DEF(u4*)::pbkgo_state_d() const { return pimpl->d_pbkgo_state.get(); }
 

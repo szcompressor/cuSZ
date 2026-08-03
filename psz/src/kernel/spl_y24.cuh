@@ -6,7 +6,9 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "cusz/component.hh"
 #include "cusz/type.h"
+#include "kernel/blk_fb.cuh"
 #include "utils/err.hh"
 
 constexpr auto SPLINE3_COMPR = true;
@@ -40,10 +42,11 @@ __global__ void KCU_c_spline3d_infprecis_32x8x8data(
     T* data, dim3 data_size, dim3 data_leap, E* eq, dim3 eq_size, dim3 eq_leap, T* anchor,
     dim3 anchor_leap, CompactValIdx cvi, CompactNum cn, FP eb_r, FP ebx2, int radius);
 
-template <typename T, typename FP = float, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+template <
+    typename E, typename T, typename FP = float, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __global__ void KCU_x_spline3d_infprecis_32x8x8data(
-    T* anchor, dim3 anchor_size, dim3 anchor_leap, T* data, dim3 data_size, dim3 data_leap,
-    FP eb_r, FP ebx2, int radius);
+    E* eq, dim3 eq_size, dim3 eq_leap, T* anchor, dim3 anchor_size, dim3 anchor_leap, T* data,
+    dim3 data_size, dim3 data_leap, FP eb_r, FP ebx2, int radius);
 
 }  // namespace psz
 
@@ -212,9 +215,13 @@ __device__ void global2shmem_33x9x9data(
   __syncthreads();
 }
 
-template <typename T = float, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
+// y24 eq layout helper; declared after spline_y24_eq_gid for the tile-order branch below.
+__device__ __forceinline__ size_t spline_y24_eq_gid(u4, u4, u4, dim3);
+
+template <typename T = float, typename E = u4, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void global2shmem_fuse(
-    T* scattered_outlier, dim3 out_size, dim3 out_leap, dim3 begin, volatile T s_eq[9][9][33])
+    E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier, dim3 begin, volatile T s_eq[9][9][33],
+    volatile T s_data[9][9][33] = nullptr, u1 const* incomp_flag = nullptr)
 {
   constexpr auto TOTAL = 33 * 9 * 9;
 
@@ -225,15 +232,29 @@ __device__ void global2shmem_fuse(
     auto gx = (begin.x + x + BIX * BLOCK32);
     auto gy = (begin.y + y + BIY * BLOCK8);
     auto gz = (begin.z + z + BIZ * BLOCK8);
-    auto gid = gx + gy * out_leap.y + gz * out_leap.z;
+    // the +1 halo at (x==32 / y==8 / z==8) addresses the neighbor tile's slab.
+    size_t gid = spline_y24_eq_gid(gx, gy, gz, eq_leap);
 
-    if (gx < out_size.x and gy < out_size.y and gz < out_size.z)
-      s_eq[z][y][x] = scattered_outlier[gid];  // out already holds (T)eq + outlier
+    if (gx < eq_size.x and gy < eq_size.y and gz < eq_size.z) {
+      // incomp tile (flag indexed by 2Ki HF block): raw f4 reconstruction -> s_data.
+      if (incomp_flag and incomp_flag[gid / 2048u] and s_data)
+        s_data[z][y][x] = scattered_outlier[gid];
+      else
+        s_eq[z][y][x] = scattered_outlier[gid];  // out already holds (T)eq + outlier
+    }
   }
   __syncthreads();
 }
 
-// dram_outlier should be the same in type with shared memory buf
+// external: 32x8x8 tile == one 2Ki HF block 
+// internal: two 16x8x8 slabs, splint on x (by shmem2global and global2shmem)
+__device__ __forceinline__ size_t spline_y24_eq_gid(u4 gx, u4 gy, u4 gz, dim3 buf_leap)
+{
+  u4 xl = gx & 31u, yl = gy & 7u, zl = gz & 7u;  // local in the 32x8x8 tile
+  size_t tile = (gx >> 5) + (size_t)GDX * ((gy >> 3) + (size_t)GDY * (gz >> 3));
+  return tile * 2048u + (size_t)(xl >> 4) * 1024u + (zl * 128u + yl * 16u + (xl & 15u));
+}
+
 template <typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE>
 __device__ void shmem2global_32x8x8data(
     volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin)
@@ -261,15 +282,24 @@ __device__ void shmem2global_32x8x8data(
 // dram_outlier should be the same in type with shared memory buf
 template <
     typename T1, typename T2, int LINEAR_BLOCK_SIZE = DEFAULT_LINEAR_BLOCK_SIZE,
-    typename CompactValIdx>
+    class Features = psz::PredictorFeature<0b0>, typename CompactValIdx>
 __device__ void shmem2global_32x8x8data_with_compaction(
     volatile T1 s_buf[9][9][33], T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin,
-    int radius, CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr)
+    int radius, uint32_t* out_bheader, CompactValIdx* dram_compact = nullptr,
+    uint32_t* dram_compactnum = nullptr,
+    psz::OutlierCell* out_block_outliers = nullptr,
+    volatile T1 s_recon[9][9][33] = nullptr, bool enable_global = false, u4* s_nout = nullptr,
+    size_t max_allowed = 0)
 {
+  using KC = psz::HFR_PBK_Constants;
+  using KC11 = psz::HFR_PBK_C11;
   auto x_size = BLOCK32 + (BIX == GDX - 1);
   auto y_size = BLOCK8 + (BIY == GDY - 1);
   auto z_size = BLOCK8 + (BIZ == GDZ - 1);
   auto TOTAL = x_size * y_size * z_size;
+
+  if (TIX == 0) *s_nout = 0;
+  __syncthreads();
 
   for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
     auto x = (_tix % x_size);
@@ -278,24 +308,60 @@ __device__ void shmem2global_32x8x8data_with_compaction(
     auto gx = (begin.x + x + BIX * BLOCK32);
     auto gy = (begin.y + y + BIY * BLOCK8);
     auto gz = (begin.z + z + BIZ * BLOCK8);
-    auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
     auto candidate = s_buf[z][y][x];
     bool quantizable = (candidate >= 0) and (candidate < 2 * radius);
+    bool valid = (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z);
 
-    if (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z) {
-      // TODO this is for algorithmic demo by reading from shmem
-      // For performance purpose, it can be inlined in quantization
-      dram_buf[gid] = quantizable * static_cast<T2>(candidate);
-
-      if (not quantizable) {
+    if (x < 32 and y < 8 and z < 8) {
+      size_t to_gid = spline_y24_eq_gid(gx, gy, gz, buf_leap);
+      dram_buf[to_gid] =
+          valid ? quantizable * static_cast<T2>(candidate) : static_cast<T2>(radius);
+      if (valid and not quantizable) {
         using Val = typename CompactValIdx::OutlierValT;
-        auto cur_idx = atomicAdd(dram_compactnum, 1);
-        dram_compact[cur_idx] = {(Val)candidate, gid};
+        // HF-rev2 / analysis: every outlier rides the global compact at its tile gid.
+        if constexpr (Features::UnpredIncomp == 0b10)
+          psz::fb_overflow_global(
+              dram_compact, dram_compactnum, max_allowed, (Val)candidate, (u4)to_gid);
+        else {  // route the outlier to its 2Ki tile's cells; past cap: count only.
+          size_t tile = to_gid >> 11;
+          u4 local = atomicAdd(s_nout, 1u);
+          if (out_block_outliers and local < KC11::MaxNumUnpred)  // fits: record in this cell
+            out_block_outliers[tile * KC11::MaxNumUnpred + local] = {
+                (f4)candidate, (u2)(to_gid & 2047u)};
+        }
       }
     }
   }
   __syncthreads();
+
+  // T2 must fit (2B) or (4B).
+  constexpr bool EqFitsIncomp = sizeof(T2) == 2 or sizeof(T2) == 4;
+  size_t tile = BIX + (size_t)GDX * (BIY + (size_t)GDY * BIZ);
+  constexpr auto EncIdShift11 = (u4)(KC11::BitsMaxNumUnpred + KC11::BitsMaxNumBreaks);
+  bool incomp = EqFitsIncomp and (*s_nout > KC11::MaxNumUnpred);
+  if (TIX == 0) {
+    out_bheader[2u * tile] =
+        incomp ? ((u4)KC11::CodeIncompUnpred << EncIdShift11) : (*s_nout & (u4)KC11::MaxNumUnpred);
+  }
+
+  if constexpr (EqFitsIncomp) {  // M11 incomp
+    if (incomp) {
+      for (auto _tix = TIX; _tix < TOTAL; _tix += LINEAR_BLOCK_SIZE) {
+        auto x = (_tix % x_size);
+        auto y = (_tix / x_size) % y_size;
+        auto z = (_tix / x_size) / y_size;
+        auto gx = (begin.x + x + BIX * BLOCK32);
+        auto gy = (begin.y + y + BIY * BLOCK8);
+        auto gz = (begin.z + z + BIZ * BLOCK8);
+        bool valid = (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z);
+        if (x < 32 and y < 8 and z < 8) {
+          size_t to_gid = spline_y24_eq_gid(gx, gy, gz, buf_leap);
+          dram_buf[to_gid] = psz::incomp_pack<T2>(valid ? (f4)s_recon[z][y][x] : (f4)0);
+        }
+      }
+    }
+  }
 }
 
 template <
@@ -304,7 +370,8 @@ template <
     bool COARSEN, int BLOCK_DIMZ, bool BORDER_INCLUSIVE, bool WORKFLOW>
 __forceinline__ __device__ void interpolate_stage(
     volatile T1 s_data[9][9][33], volatile T2 s_eq[9][9][33], dim3 data_size, LAMBDAX xmap,
-    LAMBDAY ymap, LAMBDAZ zmap, int unit, FP eb_r, FP ebx2, int radius, bool cubic)
+    LAMBDAY ymap, LAMBDAZ zmap, int unit, FP eb_r, FP ebx2, int radius, bool cubic,
+    u1 const* incomp_flag = nullptr)
 {
   static_assert(BLOCK_DIMX * BLOCK_DIMY * (COARSEN ? 1 : BLOCK_DIMZ) <= 384, "block oversized");
   static_assert((BLUE or YELLOW or HOLLOW) == true, "must be one hot");
@@ -489,8 +556,15 @@ __forceinline__ __device__ void interpolate_stage(
         s_data[z][y][x] = pred + (code - radius) * ebx2;
       }
       else {  // TODO == DECOMPRESSS and static_assert
-        auto code = s_eq[z][y][x];
-        s_data[z][y][x] = pred + (code - radius) * ebx2;
+        // incomp tile: flag indexed by 2Ki HF block.
+        auto _gid = (size_t)global_x + (size_t)global_y * data_size.x +
+                    (size_t)global_z * data_size.x * data_size.y;
+        size_t chunk = spline_y24_eq_gid(global_x, global_y, global_z, dim3{}) / 2048u;
+        bool inc = incomp_flag and incomp_flag[chunk];
+        if (not inc) {
+          auto code = s_eq[z][y][x];
+          s_data[z][y][x] = pred + (code - radius) * ebx2;
+        }
       }
     }
   };
@@ -532,7 +606,7 @@ template <
     bool PROBE_PRED_ERROR>
 __device__ void psz::spline3d_layout2_interpolate(
     volatile T1 s_data[9][9][33], volatile T2 s_eq[9][9][33], dim3 data_size, FP eb_r, FP ebx2,
-    int radius
+    int radius, u1 const* incomp_flag
 
 )
 {
@@ -601,38 +675,38 @@ __device__ void psz::spline3d_layout2_interpolate(
         decltype(zhollow_reverse),  //
         false, false, true, LINEAR_BLOCK_SIZE, 4, 2, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[2]);
+        cur_ebx2, radius, interpolators[2], incomp_flag);
 
     interpolate_stage<
         T1, T2, FP, decltype(xyellow_reverse), decltype(yyellow_reverse),
         decltype(zyellow_reverse),  //
         false, true, false, LINEAR_BLOCK_SIZE, 9, 1, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[2]);
+        cur_ebx2, radius, interpolators[2], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xblue_reverse), decltype(yblue_reverse), decltype(zblue_reverse),  //
         true, false, false, LINEAR_BLOCK_SIZE, 9, 3, NO_COARSEN, 1, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[2]);
+        cur_ebx2, radius, interpolators[2], incomp_flag);
   }
   else {
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, LINEAR_BLOCK_SIZE, 5, 2, NO_COARSEN, 1, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[2]);
+        interpolators[2], incomp_flag);
 
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, LINEAR_BLOCK_SIZE, 5, 1, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[2]);
+        interpolators[2], incomp_flag);
 
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, LINEAR_BLOCK_SIZE, 4, 3, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[2]);
+        interpolators[2], incomp_flag);
   }
 
   unit = 2;
@@ -645,35 +719,35 @@ __device__ void psz::spline3d_layout2_interpolate(
         decltype(zhollow_reverse),  //
         false, false, true, LINEAR_BLOCK_SIZE, 8, 3, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[1]);
+        cur_ebx2, radius, interpolators[1], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow_reverse), decltype(yyellow_reverse),
         decltype(zyellow_reverse),  //
         false, true, false, LINEAR_BLOCK_SIZE, 17, 2, NO_COARSEN, 3, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[1]);
+        cur_ebx2, radius, interpolators[1], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xblue_reverse), decltype(yblue_reverse), decltype(zblue_reverse),  //
         true, false, false, LINEAR_BLOCK_SIZE, 17, 5, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[1]);
+        cur_ebx2, radius, interpolators[1], incomp_flag);
   }
   else {
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, LINEAR_BLOCK_SIZE, 9, 3, NO_COARSEN, 2, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[1]);
+        interpolators[1], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, LINEAR_BLOCK_SIZE, 9, 2, NO_COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[1]);
+        interpolators[1], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, LINEAR_BLOCK_SIZE, 8, 5, NO_COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[1]);
+        interpolators[1], incomp_flag);
   }
   unit = 1;
   calc_eb(unit);
@@ -685,36 +759,36 @@ __device__ void psz::spline3d_layout2_interpolate(
         decltype(zhollow_reverse),  //
         false, false, true, LINEAR_BLOCK_SIZE, 16, 5, COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xhollow_reverse, yhollow_reverse, zhollow_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[0]);
+        cur_ebx2, radius, interpolators[0], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow_reverse), decltype(yyellow_reverse),
         decltype(zyellow_reverse),  //
         false, true, false, LINEAR_BLOCK_SIZE, 33, 4, COARSEN, 5, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xyellow_reverse, yyellow_reverse, zyellow_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[0]);
+        cur_ebx2, radius, interpolators[0], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xblue_reverse), decltype(yblue_reverse), decltype(zblue_reverse),  //
         true, false, false, LINEAR_BLOCK_SIZE, 33, 9, COARSEN, 4, BORDER_EXCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xblue_reverse, yblue_reverse, zblue_reverse, unit, cur_eb_r,
-        cur_ebx2, radius, interpolators[0]);
+        cur_ebx2, radius, interpolators[0], incomp_flag);
   }
   else {
     interpolate_stage<
         T1, T2, FP, decltype(xblue), decltype(yblue), decltype(zblue),  //
         true, false, false, LINEAR_BLOCK_SIZE, 17, 5, COARSEN, 4, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xblue, yblue, zblue, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[0]);
+        interpolators[0], incomp_flag);
     interpolate_stage<
         T1, T2, FP, decltype(xyellow), decltype(yyellow), decltype(zyellow),  //
         false, true, false, LINEAR_BLOCK_SIZE, 17, 4, COARSEN, 9, BORDER_INCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xyellow, yyellow, zyellow, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[0]);
+        interpolators[0], incomp_flag);
 
     interpolate_stage<
         T1, T2, FP, decltype(xhollow), decltype(yhollow), decltype(zhollow),  //
         false, false, true, LINEAR_BLOCK_SIZE, 16, 9, COARSEN, 9, BORDER_EXCLUSIVE, WORKFLOW>(
         s_data, s_eq, data_size, xhollow, yhollow, zhollow, unit, cur_eb_r, cur_ebx2, radius,
-        interpolators[0]);
+        interpolators[0], incomp_flag);
   }
   //  if(TIX==0 and TIY==0 and TIZ==0 and BIX==0 and BIY==0 and BIZ==0)
   // printf("lv1\n");
@@ -745,10 +819,12 @@ __device__ void psz::spline3d_layout2_interpolate(
 
 template <
     typename T, typename E, typename FP, int LINEAR_BLOCK_SIZE, typename CompactValIdx,
-    typename CompactNum>
+    typename CompactNum, class Features = psz::PredictorFeature<0b0>>
 __global__ void psz::KCU_c_spline3d_infprecis_32x8x8data(
     T* data, dim3 data_size, dim3 data_leap, E* eq, dim3 eq_size, dim3 eq_leap, T* anchor,
-    dim3 anchor_leap, CompactValIdx cvi, CompactNum cn, FP eb_r, FP ebx2, int radius)
+    dim3 anchor_leap, CompactValIdx cvi, CompactNum cn, FP eb_r, FP ebx2, int radius,
+    uint32_t* out_bheader, psz::OutlierCell* out_block_outliers = nullptr,
+    bool enable_global = false, size_t max_allowed = 0)
 {
   // compile time variables
 
@@ -757,8 +833,9 @@ __global__ void psz::KCU_c_spline3d_infprecis_32x8x8data(
       T data[9][9][33];
       T eq[9][9][33];
     } shmem;
+    __shared__ u4 s_nout;  // tile-order per-tile outlier count (2Ki tile == one HF block)
 
-    dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+    dim3 begin{0, 0, 0};  // always zero: data/eq/anchor pointers are pre-offset by the caller
     auto sub_extent = data_size;
 
     c_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, shmem.eq, radius);
@@ -769,24 +846,28 @@ __global__ void psz::KCU_c_spline3d_infprecis_32x8x8data(
     c_gather_anchor<T>(data, data_size, data_leap, anchor, anchor_leap, begin);
 
     psz::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_COMPR, false>(
-        shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius);
+        shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius, nullptr);
 
-    shmem2global_32x8x8data_with_compaction<T, E, LINEAR_BLOCK_SIZE>(
-        shmem.eq, eq, eq_size, eq_leap, begin, radius, cvi, cn);
+    shmem2global_32x8x8data_with_compaction<T, E, LINEAR_BLOCK_SIZE, Features>(
+        shmem.eq, eq, eq_size, eq_leap, begin, radius, out_bheader, cvi, cn, out_block_outliers,
+        shmem.data, enable_global, &s_nout, max_allowed);
   }
 }
 
 template <
-    typename T, typename FP,
+    typename E, typename T, typename FP,
     int LINEAR_BLOCK_SIZE>
 __global__ void psz::KCU_x_spline3d_infprecis_32x8x8data(
-    T* anchor,         // input: anchor
+    E* eq,             // input 1
+    dim3 eq_size,      //
+    dim3 eq_leap,      //
+    T* anchor,         // input 2
     dim3 anchor_size,  //
     dim3 anchor_leap,  //
-    T* data,           // externally handled output buffer, also the fused input
+    T* data,           // output
     dim3 data_size,    //
     dim3 data_leap,    //
-    FP eb_r, FP ebx2, int radius)
+    FP eb_r, FP ebx2, int radius, u1 const* incomp_flag = nullptr, T* fused_src = nullptr)
 {
   // compile time variables
 
@@ -795,16 +876,20 @@ __global__ void psz::KCU_x_spline3d_infprecis_32x8x8data(
     T eq[9][9][33];
   } shmem;
 
-  dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+  dim3 begin{0, 0, 0};  // always zero: data/eq/anchor pointers are pre-offset by the caller
   auto sub_extent = data_size;
+  // fsrc = where decode left the merged (eq + scattered outliers + raw incomp) content:
+  // tile-order -> the per-tile scratch (decode_fused_d); linear -> the output buffer itself.
+  auto fsrc = fused_src;
 
   x_reset_scratch_33x9x9data<T, T, LINEAR_BLOCK_SIZE>(
       shmem.data, shmem.eq, anchor, anchor_size, anchor_leap, begin);
 
-  global2shmem_fuse<T, LINEAR_BLOCK_SIZE>(data, data_size, data_leap, begin, shmem.eq);
+  global2shmem_fuse<T, E, LINEAR_BLOCK_SIZE>(
+      eq, eq_size, eq_leap, fsrc, begin, shmem.eq, shmem.data, incomp_flag);
 
   psz::spline3d_layout2_interpolate<T, T, FP, LINEAR_BLOCK_SIZE, SPLINE3_DECOMPR, false>(
-      shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius);
+      shmem.data, shmem.eq, sub_extent, eb_r, ebx2, radius, incomp_flag);
 
   shmem2global_32x8x8data<T, T, LINEAR_BLOCK_SIZE>(shmem.data, data, data_size, data_leap, begin);
 }

@@ -37,6 +37,8 @@ struct psz::Buf_Comp<T, E>::impl {
 
   // arrays
   GPU_unique_dptr<E[]> d_eq;
+  GPU_unique_dptr<T[]> d_decode_fused;  // tile-order decode (2D HFR-family) scratch
+  size_t eq_len_ = 0;                   // padded eq length (tile-order) or aligned linear
   GPU_unique_dptr<BYTE[]> d_compressed;
   GPU_unique_hptr<BYTE[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
@@ -64,16 +66,49 @@ struct psz::Buf_Comp<T, E>::impl {
  private:
   static size_t _div(size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
 
-  // y24 cap for both y24 and y25
-  static size_t set_anchor_len(u4 x, u4 y, u4 z)
+  // 1Ki: lrz2d: 32x32
+  // 2Ki: lrz3d/spl-y24: 32x8x8
+  // 4Ki: spl-y25: 16x16x16 or 64x64 (four 16x8x8 chunks).
+  // 1D cases are trivially linear.
+  static size_t set_eq_padded(psz_len l, bool y25 = false)
   {
-    return _div(x, BLK8) * _div(y, BLK8) * _div(z, BLK8);
+    size_t linear = (size_t)l.x * l.y * l.z;
+    size_t aligned = ALIGN_4Ki(linear);
+    if (y25) {  // 4Ki
+      size_t padded = (l.z > 1) ? _div(l.x, 16) * _div(l.y, 16) * _div(l.z, 16) * 4096
+                                : _div(l.x, 64) * _div(l.y, 64) * 4096;
+      return aligned > padded ? aligned : padded;
+    }
+    if (l.z > 1) {  // 3D: 32x8x8, 2Ki
+      size_t padded3d = _div(l.x, 32) * _div(l.y, 8) * _div(l.z, 8) * 2048;
+      return aligned > padded3d ? aligned : padded3d;
+    }
+    if (l.y > 1) {  // 2D: 32x32, 1Ki
+      size_t padded2d = _div(l.x, 32) * _div(l.y, 32) * 1024;
+      return aligned > padded2d ? aligned : padded2d;
+    }
+    return aligned;
   }
 
-  static size_t set_anchor_len(psz_len len)
+  // element count to append past eq_len for per-tile outlier-cell staging (blk_cells_tail).
+  static size_t set_outlier_tail_elems(psz_len l, bool y25, size_t eq_len)
   {
-    return _div(len.x, BLK8) * _div(len.y, BLK8) * _div(len.z, BLK8);
+    size_t chunk = y25 ? 4096 : (l.z > 1 ? 2048 : 1024);  // 1D/2D share the 1Ki chunk
+    size_t magnitude = y25 ? 12 : (l.z > 1 ? 11 : 10);
+    size_t cap = magnitude == 12   ? psz::HFR_PBK_C12::MaxNumUnpred
+                 : magnitude == 11 ? psz::HFR_PBK_C11::MaxNumUnpred
+                                   : psz::HFR_PBK_C10::MaxNumUnpred;
+    size_t n_tiles = eq_len / chunk;
+    size_t tail_bytes = n_tiles * cap * sizeof(psz::OutlierCell);
+    return (tail_bytes + sizeof(E) - 1) / sizeof(E);
   }
+
+  // y24 cap for both y24 and y25
+  static size_t set_anchor_len(u4 x, u4 y, u4 z)
+  { return _div(x, BLK8) * _div(y, BLK8) * _div(z, BLK8); }
+
+  static size_t set_anchor_len(psz_len len)
+  { return _div(len.x, BLK8) * _div(len.y, BLK8) * _div(len.z, BLK8); }
 
  public:
   impl(psz_len _len, BufToggle_Comp* toggle) :
@@ -86,7 +121,7 @@ struct psz::Buf_Comp<T, E>::impl {
     const auto spfmt_max_bytes =
         std::max(sizeof(T) + sizeof(u4), sizeof(_ptb::compact_cell<T, M>)) * outlier_cap;
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
-    const auto codec_max_bytes = len_linear * 4 / 2;
+    const auto codec_max_bytes = len_linear * sizeof(E);
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
     buf_lc = std::make_unique<Buf_LC>(
         len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
@@ -102,8 +137,8 @@ struct psz::Buf_Comp<T, E>::impl {
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
     }
     if (toggle->use_compressed) {
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * 4 / 2);
-      h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * 4 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * sizeof(E) * 3 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * sizeof(E) * 3 / 2);
     }
     if (toggle->use_top1) {
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, len_top1);
@@ -111,22 +146,35 @@ struct psz::Buf_Comp<T, E>::impl {
     }
   }
 
-  impl(psz_len _len, bool _is_comp, bool use_HFR = false, bool alloc_eq = true) :
+  impl(
+      psz_len _len, bool _is_comp, bool use_HFR = false, bool alloc_eq = true,
+      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false) :
       is_comp(_is_comp),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
       len_linear_anchor(set_anchor_len(_len)),
       len_top1(set_top1_nblk(_len))
   {
-    // align 4Ki for (essentially) FZG; on decompress only spline-y25 needs d_eq (alloc_eq) --
-    // lorenzo and spline-y24 decode eq straight into the output buffer.
-    if (is_comp or alloc_eq) d_eq = MAKE_UNIQUE_DEVICE(E, ALIGN_4Ki(len_linear));
-    buf_hf = std::make_unique<Buf_HF>(len_linear, max_bklen, -1, use_HFR);
+    // 4Ki, maximum according to spl-y25
+    size_t const eq_len = tile_order ? set_eq_padded(_len, y25_tile) : ALIGN_4Ki(len_linear);
+    eq_len_ = eq_len;
+    // FIXME: compat mode FZG
+    // spl-y25 requires d_eq for decompression due to per-level clustering.
+    // lrz and spl-y24 decode eq directly to output buffer
+    // 1D is not tile-ordered but its HFR-family cells also ride the eq tail (blk_cells_tail).
+    size_t const outlier_tail =
+        (tile_order or use_HFR) ? set_outlier_tail_elems(_len, y25_tile, eq_len) : 0;
+    if (is_comp or alloc_eq) d_eq = MAKE_UNIQUE_DEVICE(E, eq_len + outlier_tail);
+    // HF decodes eq + scattered outliers into tiles.
+    if (not is_comp and tile_order) d_decode_fused = MAKE_UNIQUE_DEVICE(T, eq_len);
+    // HF encodes/decodes every 1Ki/2Ki/4Ki.
+    size_t hf_len = tile_order ? eq_len : len_linear;
+    buf_hf = std::make_unique<Buf_HF>(hf_len, max_bklen, -1, use_HFR, false, use_sublen_1ki);
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
         std::max(sizeof(T) + sizeof(u4), sizeof(_ptb::compact_cell<T, M>)) * outlier_cap;
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
-    const auto codec_max_bytes = len_linear * 4 / 2;
+    const auto codec_max_bytes = len_linear * sizeof(E);
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
     buf_lc = std::make_unique<Buf_LC>(
         len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
@@ -135,8 +183,8 @@ struct psz::Buf_Comp<T, E>::impl {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * 4 / 2);
-      h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * 4 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * sizeof(E) * 3 / 2);
+      h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * sizeof(E) * 3 / 2);
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, len_top1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, len_top1);
 
@@ -150,11 +198,7 @@ struct psz::Buf_Comp<T, E>::impl {
       psz::buf_comp_dummy::launch();
     }
 
-    // Zero d_eq tail (len_linear..ALIGN_4Ki(len_linear)) so the HFR/HFR-PBK
-    // encoders can read past `len` up to `padded_len` and see zeros without a
-    // per-encode tail memset. Predictor only writes 0..len-1, so the tail stays
-    // zero across encodes provided len is fixed per buffer instance.
-    if (d_eq) memset_device(d_eq.get(), ALIGN_4Ki(len_linear));
+    if (d_eq) memset_device(d_eq.get(), eq_len);
   }
 
   ~impl() {};
@@ -164,7 +208,7 @@ struct psz::Buf_Comp<T, E>::impl {
     memset_device(d_eq.get(), len_linear);
     memset_device(d_hist.get(), max_bklen);
     memset_device(d_anchor.get(), len_linear_anchor);
-    memset_device(d_compressed.get(), len_linear * 4 / 2);
+    memset_device(d_compressed.get(), len_linear * sizeof(E) * 3 / 2);
     // TODO clear buf_outlier
   }
 };
@@ -180,11 +224,15 @@ COMPBUF_IMPL()::Buf_Comp(psz_len _len, BufToggle_Comp* toggle) :
 {
 }
 
-COMPBUF_IMPL()::Buf_Comp(psz_len _len, bool _is_comp, bool use_HFR, bool alloc_eq) :
+COMPBUF_IMPL()::Buf_Comp(
+    psz_len _len, bool _is_comp, bool use_HFR, bool alloc_eq, bool use_sublen_1ki, bool tile_order,
+    bool y25_tile) :
     is_comp(_is_comp),
     len(_len),
     len_linear(_len.x * _len.y * _len.z),
-    pimpl(std::make_unique<impl>(_len, _is_comp, use_HFR, alloc_eq))
+    pimpl(
+        std::make_unique<impl>(
+            _len, _is_comp, use_HFR, alloc_eq, use_sublen_1ki, tile_order, y25_tile))
 {
 }
 
@@ -197,6 +245,18 @@ COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), pimpl->len
 // getters: array
 COMPBUF_IMPL(E*)::eq_d() const { return pimpl->d_eq.get(); }
 COMPBUF_IMPL(psz_len)::eq_len3() const { return len; }
+COMPBUF_IMPL(T*)::decode_fused_d() const { return pimpl->d_decode_fused.get(); }
+COMPBUF_IMPL(size_t)::eq_len() const { return pimpl->eq_len_; }
+COMPBUF_IMPL(void)::alloc_decode_fused()  // FIXME: bin_pred reconstructs on a compress-side buf.
+{
+  if (not pimpl->d_decode_fused) pimpl->d_decode_fused = MAKE_UNIQUE_DEVICE(T, pimpl->eq_len_);
+}
+using psz::OutlierCell;
+COMPBUF_IMPL(OutlierCell*)::block_outliers_d() const
+{
+  if (not pimpl->d_eq) return nullptr;
+  return (OutlierCell*)(pimpl->d_eq.get() + pimpl->eq_len_);
+}
 
 COMPBUF_IMPL(Freq*)::hist_d() const { return pimpl->d_hist.get(); }
 COMPBUF_IMPL(Freq*)::hist_h() const { return pimpl->h_hist.get(); }
@@ -215,6 +275,8 @@ COMPBUF_IMPL(BYTE*)::compressed_h() const { return pimpl->h_compressed.get(); }
 
 COMPBUF_IMPL(void*)::outlier2_validx_d() const { return pimpl->buf_outlier2->val_idx_d(); }
 COMPBUF_IMPL(M)::outlier2_host_get_num() const { return pimpl->buf_outlier2->host_get_num(); }
+COMPBUF_IMPL(size_t)::outlier2_max_allowed_num() const
+{ return pimpl->buf_outlier2->max_allowed_num(); }
 
 COMPBUF_IMPL(T*)::anchor_d() const { return pimpl->d_anchor.get(); }
 COMPBUF_IMPL(size_t)::anchor_len() const
@@ -255,5 +317,7 @@ COMPBUF_IMPL(Buf_LC*)::buf_lc() const { return pimpl->buf_lc.get(); }
 // instantiation
 template class psz::Buf_Comp<f4, u1>;
 template class psz::Buf_Comp<f4, u2>;
+template class psz::Buf_Comp<f4, u4>;
 template class psz::Buf_Comp<f8, u1>;
 template class psz::Buf_Comp<f8, u2>;
+template class psz::Buf_Comp<f8, u4>;

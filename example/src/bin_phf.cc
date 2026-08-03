@@ -96,6 +96,8 @@ static const auto bin_phf_cli =
         .string ("type",              {"--type", "--dtype"},   "u2",     "u1|u2|u4")
         .integer("repeat",            {"--repeat"},            5,        "timed iterations (min reported; 10 untimed warmups run first)")
         .string ("reduce",            {"--rmerge-count"},      DefaultReduceStr.c_str(), "r-merge pass count (ReduceTimes), CSV e.g. 2,3,4 for HFR family; default = HFR_PBK_Constants::ReduceTimes")
+        .integer("magnitude",         {"--magnitude"},         10,       "HFR block-size magnitude: 10=1Ki (default), 11=2Ki, 12=4Ki (HFR-PBKC only)")
+        .integer("blockdim",          {"--blockdim"},          128,      "HFR-PBKC threadblock at 4Ki: 128 (Iters=4) | 256 (Iters=2)")
         .string ("timer",             {"--timer"},             "cupti",  "cupti | event")
         .string ("synth",             {"--synth"},             "",       "synth spec: cauchy:peak=:gamma=:seed= | uniform:max=:seed=")
         .flag   ("emit_metrics",      {"--emit-metrics"},                "machine-readable metrics")
@@ -137,6 +139,8 @@ struct Arguments {
   bool use_hfr_pbkf = false;
   int repeat = 5;
   std::vector<int> reduce_values{DefaultReduceTimes};
+  int magnitude = 10;
+  int blockdim = 128;
   bool use_cupti = true;
   string synth_spec;
   std::vector<string> paths;  // populated by --path; empty -> single-flag mode
@@ -170,6 +174,8 @@ struct Arguments {
         }
         if (reduce_values.empty()) reduce_values.push_back(DefaultReduceTimes);
       }
+      magnitude = (int)a.get<i8>("magnitude");
+      blockdim = (int)a.get<i8>("blockdim");
       synth_spec = a.get<string>("synth");
       emit_metrics = a.get<bool>("emit_metrics");
       assert_cr_ge = a.get<f8>("assert_cr_ge");
@@ -267,7 +273,7 @@ void hf_run(
     if (v.is_hfr_family)
       phf::high_level<E>::HFR_encode(
           buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
-          &ms_enc_p, &ms_lago_p, HFR_Opts{reduce, rm, sm});
+          &ms_enc_p, &ms_lago_p, HFR_Opts{reduce, rm, sm, args.magnitude, args.blockdim});
     else
       phf::high_level<E>::HF_encode(
           buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
@@ -298,12 +304,44 @@ void hf_run(
     t.start(stream);
     if (v.is_hfr_family)
       phf::high_level<E>::HFR_decode(
-          buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec);
+          buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec, args.magnitude);
     else
       phf::high_level<E>::HF_decode(buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec);
     double this_dec = t.stop_ms(stream);
     if (iter >= kWarmup and this_dec < ms_dec) ms_dec = this_dec;
   }
+
+  size_t incomp_blocks = 0;
+  if (v.use_HFR_buf and header.pardeg > 0) {
+    auto h_incomp_flag = MAKE_UNIQUE_HOST(u1, header.pardeg);
+    memcpy_allkinds<D2H>(h_incomp_flag.get(), buf->incomp_flag_d(), header.pardeg);
+    for (size_t i = 0; i < header.pardeg; i++)
+      if (h_incomp_flag[i]) ++incomp_blocks;
+  }
+
+  // Diagnostic split: unpack enc_id straight from the archived per-block headers
+  // to tell CodeIncompBreaks(30, encoder-side escape overflow) apart from
+  // CodeIncompUnpred(31, predictor-side outlier overflow).
+  size_t breaks_blocks = 0, unpred_blocks_direct = 0;
+  if (v.is_hfr_family and header.pardeg > 0) {
+    auto h_packed = MAKE_UNIQUE_HOST(u4, 2 * (size_t)header.pardeg);
+    memcpy_allkinds<D2H>(
+        h_packed.get(), (u4*)(d_encoded + header.entry[PHFHEADER_PBK_HEADERS]),
+        2 * (size_t)header.pardeg);
+    const u4 bits_unpred = (u4)args.magnitude - 7u;
+    const u4 bits_breaks = (u4)args.magnitude - 4u;
+    const u4 bits_encid = 5u;
+    for (int i = 0; i < header.pardeg; i++) {
+      u4 w0 = h_packed[2 * i];
+      u4 enc_id = (w0 >> (bits_unpred + bits_breaks)) & ((1u << bits_encid) - 1u);
+      if (enc_id == 30) ++breaks_blocks;
+      if (enc_id == 31) ++unpred_blocks_direct;
+    }
+  }
+  if (args.emit_metrics)
+    fprintf(
+        stderr, "[diag] pardeg=%d breaks30=%zu unpred31=%zu (decode-flag unpred=%zu)\n",
+        header.pardeg, breaks_blocks, unpred_blocks_direct, incomp_blocks);
 
   auto identical =
       psz::cuda::GPU_identical((void*)d_decomp.get(), (void*)d_data.get(), sizeof(E), len, stream);
@@ -353,6 +391,7 @@ void hf_run(
   g_metrics.cr = cr;
   g_metrics.arch_bytes = encoded_len;
   g_metrics.bs_bytes = (size_t)header.total_ncell * 4;
+  g_metrics.incomp_blocks = incomp_blocks;
   g_metrics.lossless = true;
   g_metrics.codec = v.metric_name;
   g_metrics.dtype = (sizeof(E) == 1 ? "u1" : sizeof(E) == 2 ? "u2" : "u4");

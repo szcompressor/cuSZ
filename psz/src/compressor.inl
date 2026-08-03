@@ -14,7 +14,6 @@ using std::string;
 using std::to_string;
 
 using _ptb::make_view;
-using Toggle = psz::Toggle;
 
 using psz::PredictorFeature;
 using psz::PredictorTyping;
@@ -25,25 +24,25 @@ using psz::module::GPU_x_lorenzo_nd;
 using psz::module::GPU_x_spline_y24;
 using psz::module::GPU_x_spline_y25;
 
-template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
-using pred_lrz_c = GPU_c_lorenzo_nd<PredictorTyping<T>, PredictorFeature<ZigZag>>;
+template <typename T, typename E, int ZigZag>
+using pred_lrz_c = GPU_c_lorenzo_nd<PredictorTyping<T, E>, PredictorFeature<ZigZag>>;
 
-template <typename T, Toggle ZigZag, Toggle H1L = Toggle::H1L_Off, Toggle H1G = Toggle::H1G_Off>
-using pred_lrz_x = GPU_x_lorenzo_nd<PredictorTyping<T>, PredictorFeature<ZigZag>>;
+template <typename T, typename E, int ZigZag>
+using pred_lrz_x = GPU_x_lorenzo_nd<PredictorTyping<T, E>, PredictorFeature<ZigZag>>;
 
 template <typename T, typename E>
-using spl_c_y24 = GPU_c_spline_y24<PredictorTyping<T, E>>;
+using spl_c_y24 = GPU_c_spline_y24<PredictorTyping<T, E>, PredictorFeature<0b0>>;
 template <typename T, typename E>
-using spl_c_y25 = GPU_c_spline_y25<PredictorTyping<T, E>>;
+using spl_c_y25 = GPU_c_spline_y25<PredictorTyping<T, E>, PredictorFeature<0b0>>;
 template <typename T, typename E>
 using spl_x_y24 = GPU_x_spline_y24<PredictorTyping<T, E>>;
 template <typename T, typename E>
 using spl_x_y25 = GPU_x_spline_y25<PredictorTyping<T, E>>;
 
-#define c_lrz pred_lrz_c<T, Toggle::ZigZag_Off>::kernel
-#define x_lrz pred_lrz_x<T, Toggle::ZigZag_Off>::kernel
-#define x_lrz_zz pred_lrz_x<T, Toggle::ZigZag_On>::kernel
-#define c_lrz_zz pred_lrz_c<T, Toggle::ZigZag_On>::kernel
+#define c_lrz pred_lrz_c<T, E, 0b0>::kernel
+#define x_lrz pred_lrz_x<T, E, 0b0>::kernel
+#define x_lrz_zz pred_lrz_x<T, E, 0b1>::kernel
+#define c_lrz_zz pred_lrz_c<T, E, 0b1>::kernel
 
 #if defined(PSZ_USE_CUDA)
 
@@ -74,11 +73,21 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
   const auto pardeg = ctx->header->vle_pardeg;
   const auto x = ctx->header->len.x, y = ctx->header->len.y, z = ctx->header->len.z;
 
-  // initialize internal buffers
+  // init internal buffers
   const auto _c1 = ctx->header->pipeline.codec1;
   const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
-                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3);
-  auto mem = new Buf_Comp<T, E>(ctx->header->len, iscompression, use_HFR);
+                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3) or
+                       (_c1 == psz_codec::HFR_V4);
+  auto const _pred = ctx->header->pipeline.predictor;
+  int const _nd = (z > 1) ? 3 : (y > 1) ? 2 : 1;
+  bool const y25_tile = _pred == psz_predictor::Spline and ctx->spline_variant == 0 and _nd >= 2;
+  bool const tile_order =
+      (_nd >= 2 and (_pred == psz_predictor::Lorenzo or _pred == psz_predictor::LorenzoZigZag or
+                     (_pred == psz_predictor::Spline and ctx->spline_variant == 1))) or
+      y25_tile;
+  auto mem = new Buf_Comp<T, E>(
+      ctx->header->len, iscompression, use_HFR, true, _c1 == psz_codec::HFr2, tile_order,
+      y25_tile);
   mem->register_header(ctx->header);
   mem->set_spline_variant(ctx->spline_variant);       // anchor sizing
   ctx->header->spline_variant = ctx->spline_variant;  // decompress dispatch
@@ -93,40 +102,54 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
 
 PPL_IMPL(void*)::decompress_init(psz_header* header)
 {
-  // initialize internal buffers
   const auto _c1 = header->pipeline.codec1;
   const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
-                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3);
-  // only spline-y25 still decodes eq into d_eq (its eq is recorded by interpolation level, not
-  // data order); lorenzo and spline-y24 decode eq straight into the output buffer.
+                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3) or
+                       (_c1 == psz_codec::HFR_V4);
+  // Spl-y25 decodes into d_eq (by interp level); Lrz and Spl-y24 decode into the output buffer.
   const auto _pred = header->pipeline.predictor;
   const auto alloc_eq = (_pred == psz_predictor::Spline) and (header->spline_variant == 0);
-  auto mem = new Buf_Comp<T, E>(header->len, false, use_HFR, alloc_eq);
+  auto const _l = header->len;
+  int const _nd = (_l.z > 1) ? 3 : (_l.y > 1) ? 2 : 1;
+  bool const y25_tile =
+      _pred == psz_predictor::Spline and header->spline_variant == 0 and _nd >= 2;
+  bool const tile_order =
+      (_nd >= 2 and (_pred == psz_predictor::Lorenzo or _pred == psz_predictor::LorenzoZigZag or
+                     (_pred == psz_predictor::Spline and header->spline_variant == 1))) or
+      y25_tile;
+  auto mem = new Buf_Comp<T, E>(
+      header->len, false, use_HFR, alloc_eq, _c1 == psz_codec::HFr2, tile_order, y25_tile);
   mem->register_header(header);
   return mem;
 }
 
-PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream)
+PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream, bool force_global)
 {
   const auto eb = RC.eb;
   const auto len = ctx->header->len;
   const auto radius = RC.radius;
   const auto predictor = PIPELINE.predictor;
+  // unpred-incomp (enc_id=31) in (use_HFR) encoder.
+  const bool enable_incomp = (PIPELINE.codec1 == HFR_PBKC) or (PIPELINE.codec1 == HFR_PBKGO) or
+                             (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_V3) or
+                             (PIPELINE.codec1 == HFR_V4);
+  // HF-rev2 currently reuses the global compact (decomp_scatter) for outliers.
+  const bool enable_global = (PIPELINE.codec1 == HFr2) or force_global;
 
   if (predictor == Lorenzo)
-    c_lrz(mem, make_view(in, len), eb, radius, stream);
+    c_lrz(mem, make_view(in, len), eb, radius, enable_incomp, enable_global, stream);
   else if (predictor == LorenzoZigZag)
-    c_lrz_zz(mem, make_view(in, len), eb, radius, stream);
+    c_lrz_zz(mem, make_view(in, len), eb, radius, enable_incomp, enable_global, stream);
   else if (predictor == Spline) {
     if constexpr (std::is_same_v<T, f4>) {
       if (ctx->spline_variant == 1)
         spl_c_y24<T, E>::kernel(
             mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
-            ctx->header->intp_param, stream);
+            ctx->header->intp_param, enable_global, stream);
       else
         spl_c_y25<T, E>::kernel(
             mem, make_view(in, len), eb, ctx->header->user_input_eb, ctx->header->rc.radius,
-            ctx->header->intp_param, stream);
+            ctx->header->intp_param, enable_global, stream);
     }
   }
   else
@@ -139,9 +162,10 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
 {
   const auto len_linear = mem->len_linear;
 
-  if (auto stat = comp_predict(ctx, mem, in, stream); stat != PSZ_SUCCESS) return stat;
+  // predictor-only analysis: force the global compact so decomp_scatter restores outliers.
+  if (auto stat = comp_predict(ctx, mem, in, stream, /*force_global=*/true); stat != PSZ_SUCCESS)
+    return stat;
 
-  /* make outlier count seen on host */
   sync_by_stream(stream);
   ctx->header->splen = mem->outlier2_host_get_num();
 
@@ -163,21 +187,45 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   // HFR family reduce-merge pass count from CLI (--rmerge-count); 3 for API callers (no cli).
   const HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 3};
 
+  // 2D/3D HFR-family stores eq tile-ordered: each tile is whole 1Ki chunk(s) (lorenzo 2D 32x32 =
+  // 1Ki; lorenzo 3D / spline-y24 32x8x8 = 2Ki; spline-y25-3D 16x16x16 = 4Ki), so the HF histogram
+  // + encode see the padded eq length and nblock == #(1Ki chunks).
+  auto const l3 = ctx->header->len;
+  int const nd = (l3.z > 1) ? 3 : (l3.y > 1) ? 2 : 1;
+  auto const c1 = PIPELINE.codec1;
+  bool const is_hfr_family =
+      (c1 == HFR or c1 == HFR_PBKC or c1 == HFR_PBKGO or c1 == HFR_V3 or c1 == HFR_V4);
+  bool const y25_tile_nd = nd >= 2 and predictor == Spline and ctx->spline_variant == 0;
+  bool const tile_order_nd =
+      (y25_tile_nd or (nd >= 2 and (predictor == Lorenzo or predictor == LorenzoZigZag or
+                                    (predictor == Spline and ctx->spline_variant == 1))));
+  auto const cdiv = [](u4 v, u4 d) -> size_t { return (v + d - 1u) / d; };
+  size_t len_eq = len_linear;
+  if (tile_order_nd)
+    len_eq = y25_tile_nd ? (nd == 3 ? cdiv(l3.x, 16) * cdiv(l3.y, 16) * cdiv(l3.z, 16) * 4096
+                                    : cdiv(l3.x, 64) * cdiv(l3.y, 64) * 4096)  // y25 2D = 64x64
+             : (nd == 3) ? cdiv(l3.x, 32) * cdiv(l3.y, 8) * cdiv(l3.z, 8) * 2048
+                         : cdiv(l3.x, 32) * cdiv(l3.y, 32) * 1024;
+  // predictor chunksize == encoder chunksize: one bheader per tile (1Ki/2Ki/4Ki).
+  int const magnitude = not tile_order_nd                  ? 10
+                        : y25_tile_nd                      ? 12
+                        : (nd == 3 or predictor == Spline) ? 11
+                                                           : 10;
+
+  // Predictors stage the unpred-incomp f4 content themselves (blockwise builds); the
+  // encoder consumes incomp_data directly, so no recompute message is threaded anymore.
+
   auto compress_predict = [&]() -> int {
     if (auto stat = comp_predict(ctx, mem, in, stream); stat != PSZ_SUCCESS) return stat;
 
     // HFR family defers outlier read until after pass1's own sync.
     const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
-                                    (PIPELINE.codec1 == HFR_PBKGO) or (PIPELINE.codec1 == HFR_V3);
+                                    (PIPELINE.codec1 == HFR_PBKGO) or
+                                    (PIPELINE.codec1 == HFR_V3) or (PIPELINE.codec1 == HFR_V4);
     if (not defer_outlier_read) {
-      /* make outlier count seen on host */
+      // HF-rev2 keeps the global compact (PSZ_SPFMT); other non-HFR codecs drop outliers.
       sync_by_stream(stream);
-      ctx->header->splen = mem->outlier2_host_get_num();
-      if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
-        cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
-             << " * input-len) exceeded, returning..." << endl;
-        return PSZ_WARN_OUTLIER_TOO_MANY;
-      }
+      ctx->header->splen = (PIPELINE.codec1 == HFr2) ? mem->outlier2_host_get_num() : 0;
     }
 
     return PSZ_SUCCESS;
@@ -189,10 +237,10 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     if (PIPELINE.hist == psz_hist::HistSp)
       psz::module::GPU_histogram_Cauchy<E>::kernel(
-          mem->eq_d(), len_linear, mem->hist_d(), ctx->bklen, stream);
+          mem->eq_d(), len_eq, mem->hist_d(), ctx->bklen, stream);
     else if (PIPELINE.hist == psz_hist::HistGeneric)
       psz::module::GPU_histogram_generic<E>::kernel(
-          mem->eq_d(), len_linear, mem->hist_d(), ctx->bklen, mem->hist_generic_grid_dim,
+          mem->eq_d(), len_eq, mem->hist_d(), ctx->bklen, mem->hist_generic_grid_dim,
           mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
           stream);
   };
@@ -204,26 +252,13 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     phf::high_level<E>::HF_build_book(mem->buf_hf(), mem->hist_h(), ctx->bklen, stream);
   };
 
-  auto compress_encode_pass1_Huffman = [&]() -> int {
-    compress_histogram_and_build_book();
-
-    phf_header dummy_header;
-    phf::high_level<E>::HF_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
-        dummy_header, stream, psz_codec::HF);
-    ctx->header->vle_sublen = dummy_header.sublen;
-    ctx->header->vle_pardeg = dummy_header.pardeg;
-    sync_by_stream(stream);
-    return PSZ_SUCCESS;
-  };
-
   // HFr2: same as _r1 but ships per-block metadata as AoS bheader_backport[].
   auto compress_encode_pass1_Huffman_rev2 = [&]() -> int {
     compress_histogram_and_build_book();
 
     phf_header dummy_header;
     phf::high_level<E>::HF_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFr2);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
@@ -236,13 +271,15 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   // HFR reference (HFReVISIT base): shuffle-merge encode + sparse breaks.
   auto compress_encode_pass1_HFR = [&]() -> int {
     // low-rmerge preset (same as v3): higher RT -> more merge-breaks -> lower CR.
-    const HFR_Opts v2_opts{/*reduce_times=*/1};
+    HFR_Opts v2_opts{/*reduce_times=*/1};
+    v2_opts.magnitude = magnitude;
+    v2_opts.block_outliers = mem->block_outliers_d();
 
     compress_histogram_and_build_book();
 
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR, nullptr, nullptr, v2_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
@@ -255,10 +292,12 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   // HFR-PBKC; also as alt default codec1
   // low-rmerge preset: RT=1 (2 pts/thread); 0 = zero-merge (regressed speed).
   auto compress_encode_pass1_HFR_PBK_Compat = [&]() -> int {
-    const HFR_Opts pbkc_opts{/*reduce_times=*/1};
+    HFR_Opts pbkc_opts{/*reduce_times=*/1};
+    pbkc_opts.magnitude = magnitude;
+    pbkc_opts.block_outliers = mem->block_outliers_d();
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_PBKC, nullptr, nullptr, pbkc_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
@@ -270,10 +309,12 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   // exclude RT=1
   auto compress_encode_pass1_HFR_PBK_GO = [&]() -> int {
-    const HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 2};
+    HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 2};
+    hfr_opts.magnitude = magnitude;
+    hfr_opts.block_outliers = mem->block_outliers_d();
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_PBKGO, nullptr, nullptr, hfr_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
@@ -285,15 +326,36 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   // HFR-v3: GPU-picked global PBK book + low-rmerge preset (scalable default).
   auto compress_encode_pass1_HFR_v3 = [&]() -> int {
     // low-rmerge preset: 1 = 2 points/thread (balanced); 0 = zero-merge (cruel).
-    const HFR_Opts v3_opts{/*reduce_times=*/1};
+    HFR_Opts v3_opts{/*reduce_times=*/1};
+    v3_opts.magnitude = magnitude;
+    v3_opts.block_outliers = mem->block_outliers_d();
 
     compress_histogram();
-    phf::high_level<E>::HFR_pick_pbk(mem->buf_hf(), mem->hist_d(), ctx->bklen, len_linear, stream);
+    phf::high_level<E>::HFR_pick_pbk(mem->buf_hf(), mem->hist_d(), ctx->bklen, len_eq, stream);
 
     phf_header dummy_header;
     phf::high_level<E>::HFR_encode(
-        mem->buf_hf(), mem->eq_d(), len_linear, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_V3, nullptr, nullptr, v3_opts);
+    ctx->header->vle_sublen = dummy_header.sublen;
+    ctx->header->vle_pardeg = dummy_header.pardeg;
+    sync_by_stream(stream);
+    mem->buf_hf()->reset_HFR(stream);
+    return PSZ_SUCCESS;
+  };
+
+  auto compress_encode_pass1_HFR_v4 = [&]() -> int {  // PBKC but single-book
+    HFR_Opts v4_opts{/*reduce_times=*/1};
+    v4_opts.magnitude = magnitude;
+    v4_opts.block_outliers = mem->block_outliers_d();
+
+    compress_histogram();
+    phf::high_level<E>::HFR_pick_pbk(mem->buf_hf(), mem->hist_d(), ctx->bklen, len_eq, stream);
+
+    phf_header dummy_header;
+    phf::high_level<E>::HFR_encode(
+        mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
+        dummy_header, stream, psz_codec::HFR_V4, nullptr, nullptr, v4_opts);
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
@@ -404,22 +466,29 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       status = compress_encode_pass1_HFR_PBK_GO();
     else if (PIPELINE.codec1 == HFR_V3)
       status = compress_encode_pass1_HFR_v3();
-    else if (PIPELINE.codec1 == HFr2)
+    else if (PIPELINE.codec1 == HFR_V4)
+      status = compress_encode_pass1_HFR_v4();
+    else  // HFr2, and HF (now an alias for HFr2)
       status = compress_encode_pass1_Huffman_rev2();
-    else
-      status = compress_encode_pass1_Huffman();
     if (status != PSZ_SUCCESS) return status;
 
-    // Deferred outlier-count read (pass1 already synced for HFR family).
-    if ((PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
-        (PIPELINE.codec1 == HFR_PBKGO) or (PIPELINE.codec1 == HFR_V3)) {
-      ctx->header->splen = mem->outlier2_host_get_num();
-      if (ctx->header->splen == mem->buf_outlier2()->max_allowed_num()) {
-        cerr << "[psz::warning::pipeline] max allowed num-outlier (" << mem->outlier_ratio()
-             << " * input-len) exceeded, returning..." << endl;
-        return PSZ_WARN_OUTLIER_TOO_MANY;
-      }
+    // HF-rev2 still uses a shared outlier buffer. Tile-order predictors (lorenzo / y24 / y25) may
+    // route per-block outlier overflow to that same global compact when their EnableGlobal policy
+    // is on; splen reflects whatever the encode actually wrote (0 when EnableGlobal=false), so
+    // reading the count for the whole HFR family is behavior-neutral for the blockwise-incomp
+    // builds.
+    const bool hfr_fam =
+        (PIPELINE.codec1 == HFR_PBKC or PIPELINE.codec1 == HFR_PBKGO or PIPELINE.codec1 == HFR or
+         PIPELINE.codec1 == HFR_V3 or PIPELINE.codec1 == HFR_V4);
+    const bool keep_global = (PIPELINE.codec1 == HFr2) or hfr_fam;
+    if (keep_global) {
+      sync_by_stream(stream);
+      // cap at the compact capacity: the atomic overshoots once full (overflow then rides incomp).
+      ctx->header->splen =
+          std::min<size_t>(mem->outlier2_host_get_num(), mem->outlier2_max_allowed_num());
     }
+    else
+      ctx->header->splen = 0;
 
     compress_encode_pass1_wrapup();
     return PSZ_SUCCESS;
@@ -427,7 +496,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   // Liu, Tian, Wu et al. 2024; Wu and Pan et al. 2025
   auto compress_encode_HiCR = [&]() -> int {
-    auto status1 = compress_encode_pass1_Huffman();
+    auto status1 = compress_encode_pass1_Huffman_rev2();
     if (status1 != PSZ_SUCCESS) return status1;
     compress_encode_pass1_wrapup();
     auto status2 = compress_encode_pass2_LC_RTR();
@@ -484,8 +553,8 @@ PPL_IMPL(void)::decomp_scatter(
     psz_header* header, _ptb::compact_cell<T, M>* d_spval_idx, T* d_space, void* stream)
 {
   const auto len = header->len;
-  // spline-y25 keeps eq in eq_d, so the output buffer must start at zero (outliers only);
-  // lorenzo and spline-y24 already hold the decoded eq in the output buffer.
+  // spl-y25 keeps eq in eq_d: output buffer start at zero
+  // lrz and spl-y24: decode eq in the output buffer.
   if (header->pipeline.predictor == Spline and header->spline_variant == 0)
     memset_device(d_space, len.x * len.y * len.z);
   if (header->splen != 0)
@@ -528,6 +597,17 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
   auto d_space = out, d_xdata = out;  // aliases
   auto len = header->len;
   phf_header h;  // declared early so goto over STEP_DECODING is valid
+
+  // 2D/3D lorenzo under an HFR-family codec stores eq tile-ordered (each tile is
+  // whole 1Ki chunk(s)); the fused predict-input is decoded into a per-tile
+  // scratch and x_lorenzo un-tiles it into the (linear) output.
+  int const nd = (len.z > 1) ? 3 : (len.y > 1) ? 2 : 1;
+  auto const c1 = header->pipeline.codec1;
+  bool const is_hfr_family =
+      (c1 == HFR or c1 == HFR_PBKC or c1 == HFR_PBKGO or c1 == HFR_V3 or c1 == HFR_V4);
+  bool const y25_tile_nd =
+      nd >= 2 and header->pipeline.predictor == Spline and header->spline_variant == 0;
+  bool const tile_nd = (nd >= 2);  // tile-order is the only 2D/3D eq layout
 
 #ifdef PSZ_USE_LC_FIXED
   if (header->pipeline.codec1 == LC and header->pipeline.codec2 != LC) {
@@ -582,30 +662,44 @@ STEP_DECODING:
   memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
   {
     auto enc = (BYTE*)access(PSZ_ENCODED);
+    // predictor chunksize == encoder chunksize (same mapping as the encode side).
+    auto const _pd = header->pipeline.predictor;
+    int const _nd = (len.z > 1) ? 3 : (len.y > 1) ? 2 : 1;
+    bool const _y25t = _nd >= 2 and _pd == Spline and header->spline_variant == 0;
+    bool const _tile = _y25t or (_nd >= 2 and (_pd == Lorenzo or _pd == LorenzoZigZag or
+                                               (_pd == Spline and header->spline_variant == 1)));
+    int const magnitude = not _tile ? 10 : _y25t ? 12 : (_nd == 3 or _pd == Spline) ? 11 : 10;
     auto decode_eq = [&](auto* dst) {
       using Eout = std::remove_pointer_t<decltype(dst)>;
       auto c = header->pipeline.codec1;
       if (c == HFR_PBKC)
         phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR_PBKC);
+            mem->buf_hf(), h, enc, dst, stream, HFR_PBKC, magnitude);
       else if (c == HFR_PBKGO)
         phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR_PBKGO);
+            mem->buf_hf(), h, enc, dst, stream, HFR_PBKGO, magnitude);
       else if (c == HFR)
-        phf::high_level<E>::template HFR_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFR);
+        phf::high_level<E>::template HFR_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, HFR, magnitude);
       else if (c == HFR_V3)
-        phf::high_level<E>::template HFR_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFR_V3);
+        phf::high_level<E>::template HFR_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, HFR_V3, magnitude);
+      else if (c == HFR_V4)
+        phf::high_level<E>::template HFR_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, HFR_V4, magnitude);
       else if (c == HFr2)
         phf::high_level<E>::template HF_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFr2);
-      else  // HF + HFr1 share the same on-disk layout / decoder.
+      else  // HF on-disk layout / decoder.
         phf::high_level<E>::template HF_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HF);
     };
-    // Lorenzo and spline-y24 have data-ordered eq, so eq is decoded straight into the output
-    // buffer (cast to T) and the fuse below adds outliers on top -> the predictor reads one
-    // buffer. Spline-y25 records eq by interpolation level (not data order), so it keeps eq_d.
+    // tile-order (lorenzo, spline-y24, spline-y25-3D): the fused eq+outliers decode into a
+    // per-tile scratch. Else lorenzo/spline-y24 decode into the output; linear spline-y25 into
+    // d_eq.
     bool const eq_in_out =
         (header->pipeline.predictor != Spline) or (header->spline_variant != 0 /* not y25 */);
-    if (eq_in_out)
+    if (tile_nd)
+      decode_eq(mem->decode_fused_d());
+    else if (eq_in_out)
       decode_eq(d_space);
     else
       decode_eq(mem->eq_d());
@@ -613,7 +707,11 @@ STEP_DECODING:
 
 STEP_SCATTER:
 
-  decomp_scatter(header, d_spval_idx, d_space, stream);
+  if (tile_nd and header->splen != 0)
+    psz::module::GPU_scatter<T, M>::kernel_v3_fuse(
+        d_spval_idx, header->splen, mem->decode_fused_d(), stream);
+  else
+    decomp_scatter(header, d_spval_idx, d_space, stream);
 
 STEP_PREDICT:
 

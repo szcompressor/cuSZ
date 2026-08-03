@@ -17,8 +17,9 @@ namespace psz {
 
 template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_1d(
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier,
     typename Types::T* const out_data, dim3 const extent, uint16_t const radius,
-    typename Types::Fp const ebx2)
+    typename Types::Fp const ebx2, uint8_t const* incomp_flag = nullptr)
 {
   TYPES_SETUP_KERN;
 
@@ -26,7 +27,7 @@ __global__ void KCU_x_lorenzo_1d(
   constexpr auto Seq = Perf::Seq;
   constexpr auto NTHREAD = TileDim / Seq;  // equiv. to blockDim.x
 
-  __shared__ T scratch[TileDim];  // for fused candidates
+  __shared__ T scratch[TileDim];  // for data and in_outlier
   __shared__ typename Types::Eq s_eq[TileDim];
   __shared__ T exch_in[NTHREAD / 32];
   __shared__ T exch_out[NTHREAD / 32];
@@ -41,10 +42,10 @@ __global__ void KCU_x_lorenzo_1d(
       auto local_id = threadIdx.x + i * NTHREAD;
       auto id = id_base + local_id;
       if (id < extent.x) {
-        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off)
-          scratch[local_id] = out_data[id] - radius;
+        if constexpr (Features::UseZigZag == 0b0)
+          scratch[local_id] = in_outlier[id] - radius;
         else
-          scratch[local_id] = out_data[id];
+          scratch[local_id] = in_outlier[id];
       }
     }
     __syncthreads();
@@ -75,6 +76,10 @@ __global__ void KCU_x_lorenzo_1d(
 
   /*-----------*/
 
+  // unpred-incomp blocks now ship the residual (delta+radius) like 2D/3D and
+  // decode through the normal recurrence (in_outlier - radius -> inverse Lorenzo).
+  (void)incomp_flag;
+
   load_fuse_1d();
   block_scan_1d();
   write_1d();
@@ -100,7 +105,7 @@ __global__ void KCU_x_lorenzo_1d(
 
 template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_2d__32x32(  //
-    typename Types::T* const out_data, dim3 const extent, uint32_t leapy, uint16_t const radius, typename Types::Fp const ebx2)
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier, typename Types::T* const out_data, dim3 const extent, uint32_t leapy, uint16_t const radius, typename Types::Fp const ebx2)
 {
   TYPES_SETUP_KERN;
 
@@ -116,17 +121,21 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
   auto gix = blockIdx.x * TileDim + threadIdx.x;
   auto giy_base = blockIdx.y * TileDim + threadIdx.y * YSEQ;
   auto get_gid = [&](auto i) { return (giy_base + i) * leapy + gix; };
+  // the fused predict-input is laid out per-tile (tile == 1Ki chunk).
+  auto tile_base =
+      (size_t)(blockIdx.x + gridDim.x * (blockIdx.y + gridDim.y * blockIdx.z)) * (TileDim * TileDim);
 
   auto load_fuse_2d = [&]() {
-  // fuse outlier + eq
+    // fuse outlier and error-quant
 #pragma unroll
     for (auto i = 0; i < YSEQ; i++) {
       auto gid = get_gid(i);
       if (gix < extent.x and (giy_base + i) < extent.y) {
-        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off)
-          thp_data[i] = out_data[gid] - radius;
+        auto src = in_outlier[tile_base + (threadIdx.y * YSEQ + i) * TileDim + threadIdx.x];
+        if constexpr (Features::UseZigZag == 0b0)
+          thp_data[i] = src - radius;
         else
-          thp_data[i] = out_data[gid];
+          thp_data[i] = src;
       }
     }
   };
@@ -194,7 +203,8 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
 // 32x8x8 data block maps to 32x1x8 thread block
 template <class Types, class Features, class Perf>
 __global__ void KCU_x_lorenzo_3d(  //
-    typename Types::T* const out_data, dim3 const extent, uint32_t leapy, uint32_t leapz,
+    typename Types::Eq* const in_eq, typename Types::T* const in_outlier, typename Types::T* const out_data,
+    dim3 const extent, uint32_t leapy, uint32_t leapz,
     uint16_t const radius, typename Types::Fp const ebx2)
 {
   TYPES_SETUP_KERN;
@@ -214,16 +224,21 @@ __global__ void KCU_x_lorenzo_3d(  //
   auto giy = [&](auto y) { return giy_base + y; };
   auto giz = blockIdx.z * TileDim + threadIdx.z;
   auto gid = [&](auto y) { return giz * leapz + (giy_base + y) * leapy + gix; };
+  // the 32x8x8 CTA == one 2Ki per-tile slab; in-tile offset is
+  // local_z*256 + local_y*32 + local_x (the encode's slab order, local_x fast).
+  auto tile_base =
+      (size_t)(blockIdx.x + gridDim.x * (blockIdx.y + gridDim.y * blockIdx.z)) * 2048u;
 
   auto load_fuse_3d = [&]() {
   // load to thread-private array (fuse at the same time)
 #pragma unroll
     for (auto y = 0; y < YSEQ; y++) {
       if (gix < extent.x and giy_base + y < extent.y and giz < extent.z) {
-        if constexpr (Features::UseZigZag == Toggle::ZigZag_Off)
-          thread_private[y] = out_data[gid(y)] - radius;
+        auto src = in_outlier[tile_base + threadIdx.z * 256u + y * 32u + threadIdx.x];
+        if constexpr (Features::UseZigZag == 0b0)
+          thread_private[y] = src - radius;
         else
-          thread_private[y] = out_data[gid(y)];
+          thread_private[y] = src;
       }
     }
   };
@@ -291,24 +306,29 @@ int GPU_x_lorenzo_nd<Types, Features>::kernel(
   auto ebx2 = eb * 2;
   auto leapy = extent.x;
   auto leapz = extent.x * extent.y;
+  auto in_eq = buf->eq_d();
+  // 2D/3D: the fused predict-input lives in the per-tile scratch (1D stays in-place linear).
+  auto in_fused = buf->decode_fused_d();
+  // per-block unpred-incomp message from the HF decoder (null for non-HFR / non-PBK paths).
+  auto incomp_flag = buf->buf_hf() ? buf->buf_hf()->incomp_flag_d() : nullptr;
 
   if (d == 1) {
     using lrz1 = config::x_lorenzo<1>;
     psz::KCU_x_lorenzo_1d<Types, Features, lrz1::Perf>
         <<<lrz1::thread_grid(extent), lrz1::thread_block, 0, (cudaStream_t)stream>>>(
-            out, extent, radius, (T)ebx2);
+            in_eq, out, out, extent, radius, (T)ebx2, incomp_flag);
   }
   else if (d == 2) {
     using lrz2 = config::x_lorenzo<2, 32>;
     psz::KCU_x_lorenzo_2d__32x32<Types, Features, lrz2::Perf>
         <<<lrz2::thread_grid(extent), lrz2::thread_block, 0, (cudaStream_t)stream>>>(
-            out, extent, leapy, radius, (T)ebx2);
+            in_eq, in_fused, out, extent, leapy, radius, (T)ebx2);
   }
   else if (d == 3) {
     using lrz3 = config::x_lorenzo<3>;
     psz::KCU_x_lorenzo_3d<Types, Features, lrz3::Perf>
         <<<lrz3::thread_grid(extent), lrz3::thread_block, 0, (cudaStream_t)stream>>>(
-            out, extent, leapy, leapz, radius, (T)ebx2);
+            in_eq, in_fused, out, extent, leapy, leapz, radius, (T)ebx2);
   }
   else
     return PSZ_ABORT_UNSUPPORTED_DIMENSION;

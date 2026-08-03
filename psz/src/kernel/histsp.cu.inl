@@ -48,8 +48,8 @@ __global__ void KCU_histogram_sparse_multiwarp(
         //  4   2  0  2  4 <- 2 * abs(sym)
         p_hist[sym + R] += 1;  // more possible
       }
-      else {
-        // resume the original input
+      else if (ori >= 0 and ori < (int)hist_len) {
+        // resume the original input; skip out-of-domain values (e.g. incomp raw fallback bits).
         atomicAdd(&s_hist[ori], 1);  // less possible
       }
     }

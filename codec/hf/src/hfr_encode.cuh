@@ -22,17 +22,16 @@ template <class C, RMerge RM = RMerge::v7, SMerge SM = SMerge::v7>
 __global__ void KCU_HFR_encode(
     typename C::T* in_eq, size_t data_len, typename C::Hf* runtime_book,
     typename C::Hf* dn_bitstream, typename C::bheader_t* dn_headers,
-    _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp = {})
+    psz::OutlierCell* block_outliers)
 {
   static_assert(merge_compatible(RM, SM), "RMerge/SMerge data-handoff contract mismatch");
   HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C);
   HFR_PBK_SHARED_AND_RESET();
 
   // fixed per-block stride
-  constexpr u4 MaxBytesPerBlock =
-      ChunkSize * (u4)sizeof(Hf) +
-      (u4)psz::HFR_PBK_Constants::MaxNumBreaks * (u4)sizeof(BreakCell) +
-      (u4)psz::HFR_PBK_Constants::MaxUnpredBytes;
+  constexpr u4 MaxBytesPerBlock = ChunkSize * (u4)sizeof(Hf) +
+                                  (u4)KC::MaxNumBreaks * (u4)sizeof(BreakCell) +
+                                  (u4)KC::MaxUnpredBytes;
   slot_fixed_stride slot{MaxBytesPerBlock};
 
   auto const id_base = (u4)blockIdx.x * ChunkSize;
@@ -44,11 +43,11 @@ __global__ void KCU_HFR_encode(
   }
   __syncthreads();
 
-  // unpred-incomp: enc_id=31 + f4 candidates in incomp_data; bypass Huffman.
+  // unpred-incomp: enc_id=31, eq already carries the raw candidate bits; bypass Huffman.
   if (s_pre_encid == (u4)psz::HFR_PBK_Constants::CodeIncompUnpred) {
     blk_incomp_fb<T, ChunkSize, ShardSize, NumThreads>(
         &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot,
-        (u4)psz::HFR_PBK_Constants::CodeIncompUnpred, incomp_data, nullptr, incomp);
+        (u4)psz::HFR_PBK_Constants::CodeIncompUnpred);
     if (threadIdx.x == 0) dn_headers[blockIdx.x] = s_bheader;
     return;
   }
@@ -78,7 +77,7 @@ __global__ void KCU_HFR_encode(
     if (p_incomp) {
       blk_incomp_fb<T, ChunkSize, ShardSize, NumThreads>(
           &s_bheader, dn_bitstream, in_eq, data_len, id_base, slot,
-          (u4)psz::HFR_PBK_Constants::CodeIncompBreaks, nullptr, block_outliers);
+          (u4)psz::HFR_PBK_Constants::CodeIncompBreaks, block_outliers);
       if (threadIdx.x == 0) dn_headers[blockIdx.x] = s_bheader;
       return;
     }
@@ -98,8 +97,7 @@ namespace phf::module {
 template <typename T, int Magnitude, int ReduceTimes, bool UseScan, typename Hf>
 int HFR_encoder<T, Magnitude, ReduceTimes, UseScan, Hf>::GPU_kernel_v2(
     T* in_eq, size_t len, Hf* runtime_book, Hf* dn_bitstream, bheader_t* dn_headers,
-    _ptb::compact_cell<f4, u2>* block_outliers, f4* incomp_data, IncompRedo incomp,
-    void* stream, RMerge rm, SMerge sm)
+    psz::OutlierCell* block_outliers, void* stream, RMerge rm, SMerge sm)
 {
   using C = phf::HFR_PBKC_Config<T, Magnitude, ReduceTimes, Hf>;
 
@@ -110,7 +108,7 @@ int HFR_encoder<T, Magnitude, ReduceTimes, UseScan, Hf>::GPU_kernel_v2(
     constexpr RMerge RM = decltype(rm_tag)::value;
     constexpr SMerge SM = decltype(sm_tag)::value;
     phf::KCU_HFR_encode<C, RM, SM><<<nblock, nthread, 0, (cudaStream_t)stream>>>(
-        in_eq, len, runtime_book, dn_bitstream, dn_headers, block_outliers, incomp_data, incomp);
+        in_eq, len, runtime_book, dn_bitstream, dn_headers, block_outliers);
   });
 
   return 0;

@@ -144,12 +144,16 @@ add_library(psz_cu_core
   psz/src/compile/lrz_x.cu
   psz/src/compile/spl_y24_c_u1.cu
   psz/src/compile/spl_y24_c_u2.cu
+  psz/src/compile/spl_y24_c_u4.cu
   psz/src/compile/spl_y24_x_u1.cu
   psz/src/compile/spl_y24_x_u2.cu
+  psz/src/compile/spl_y24_x_u4.cu
   psz/src/compile/spl_y25_c_u1.cu
   psz/src/compile/spl_y25_c_u2.cu
+  psz/src/compile/spl_y25_c_u4.cu
   psz/src/compile/spl_y25_x_u1.cu
   psz/src/compile/spl_y25_x_u2.cu
+  psz/src/compile/spl_y25_x_u4.cu
 )
 target_link_libraries(psz_cu_core
   PUBLIC

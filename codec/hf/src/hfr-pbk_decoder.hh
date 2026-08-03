@@ -8,7 +8,7 @@ namespace phf::module {
 
 // per-block GPU Huffman inflate (naive).
 // u1 for PBK25_R128 pool, u2 for runtime-built rvbk on E=u2
-template <typename E, typename H = uint32_t, typename Storage = uint8_t>
+template <typename E, typename H = uint32_t, typename Storage = uint8_t, int Magnitude = 10>
 struct HFR_PBK_decoder {
   // pbk_packed_headers: 2 u4 per block (w0 packs nbit|encid, w1 = entry).
   template <typename Eout = E>

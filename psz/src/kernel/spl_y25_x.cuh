@@ -32,6 +32,9 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
   auto anchor = _ptb::make_view(anchor_p, buf->anchor_len3());
   auto eq = _ptb::make_view(buf->eq_d(), xdata.extent);
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
+  // per-block incomp message + the per-tile fused eq+outlier scratch (else null).
+  auto incomp_flag = buf->buf_hf() ? buf->buf_hf()->incomp_flag_d() : nullptr;
+  auto fused_src = buf->decode_fused_d();
 
   auto ebx2 = eb * 2;
   auto eb_r = 1 / eb;
@@ -51,7 +54,7 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
         DefaultLinBlkSz>  //
         <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
             eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap, xdata.ptr, extent,
-            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param);
+            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param, incomp_flag, fused_src);
   }
   else {
     auto grid_dim = dim3(div(extent.x, Blk16), div(extent.y, Blk16), div(extent.z, Blk16));
@@ -59,7 +62,7 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
         E, T, FP, 4, SplDim3, Blk16, Blk16, Blk16, 1, 1, 1, DefaultLinBlkSz>  //
         <<<grid_dim, dim3(DefaultLinBlkSz, 1, 1), 0, (cudaStream_t)stream>>>(
             eq.ptr, extent, data_leap, anchor.ptr, anchor_l3, anchor_leap, xdata.ptr, extent,
-            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param);
+            data_leap, xdata.ptr, eb_r, ebx2, radius, intp_param, incomp_flag, fused_src);
   }
 
   cudaStreamSynchronize((cudaStream_t)stream);

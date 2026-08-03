@@ -90,7 +90,9 @@ struct Buf_Comp {
 
  public:
   Buf_Comp(psz_len len, BufToggle_Comp* toggle);
-  Buf_Comp(psz_len len, bool _is_comp = true, bool use_HFR = false, bool alloc_eq = true);
+  Buf_Comp(
+      psz_len len, bool _is_comp = true, bool use_HFR = false, bool alloc_eq = true,
+      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false);
   ~Buf_Comp();
 
   void register_header(psz_header* header) { header_ref = header; }
@@ -101,6 +103,10 @@ struct Buf_Comp {
   // getter
   E* eq_d() const;
   psz_len eq_len3() const;
+  T* decode_fused_d() const;
+  size_t eq_len() const;
+  void alloc_decode_fused();
+  OutlierCell* block_outliers_d() const;
 
   Freq* hist_d() const;
   Freq* hist_h() const;
@@ -118,6 +124,7 @@ struct Buf_Comp {
   Buf_Outlier2* buf_outlier2() const;
   void* outlier2_validx_d() const;
   M outlier2_host_get_num() const;
+  size_t outlier2_max_allowed_num() const;
 
   // extra for profifling
   T* profiled_errors_d() const;

@@ -84,7 +84,7 @@ void psz_compress_task(psz_args* args)
         auto h_in = MAKE_UNIQUE_HOST(float, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m = psz_create_resource_manager(
+        m = psz_create_resource_manager_eq4(
             F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
             {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
             args->spline_variant, stream);
@@ -99,7 +99,7 @@ void psz_compress_task(psz_args* args)
         auto h_in = MAKE_UNIQUE_HOST(double, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m = psz_create_resource_manager(
+        m = psz_create_resource_manager_eq4(
             F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
             {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
             args->spline_variant, stream);
@@ -186,7 +186,8 @@ void psz_decompress_task(psz_args* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  psz_resource* m = psz_create_resource_manager_from_header(header, stream);
+  // CLI archives are eq4 (see psz_compress_task); width is not yet serialized in the header.
+  psz_resource* m = psz_create_resource_manager_from_header_eq4(header, stream);
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {

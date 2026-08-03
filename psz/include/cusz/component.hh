@@ -11,7 +11,6 @@ namespace psz {
 template <typename _T, typename _E>
 struct Buf_Comp;
 
-enum class Toggle { ZigZag_On, ZigZag_Off, H1L_On, H1L_Off, H1G_On, H1G_Off };
 
 template <
     uint16_t _TileDim, uint8_t _Seq,  // required
@@ -31,15 +30,20 @@ struct PredictorTile {
   static_assert(Seq < 16, "Sequentiality must be less than 16.");
 };
 
-template <Toggle _UseZigZag, Toggle _UseH1L = Toggle::H1L_Off, Toggle _UseH1G = Toggle::H1G_Off>
+template <int _UseZigZag, int _UseH1GL = 0b00, int _UnpredIncomp = 0b00>
 struct PredictorFeature {  // dtype-agnostic
-  static constexpr Toggle UseZigZag = _UseZigZag;
-  static constexpr Toggle UseH1L = _UseH1L;
-  static constexpr Toggle UseH1G = _UseH1G;
+  static constexpr int UseZigZag = _UseZigZag;  // 0b1 = zigzag encode
 
-  static constexpr bool h1l_off = (UseH1L == Toggle::H1L_Off);
-  static constexpr bool h1g_on = (UseH1G == Toggle::H1G_On);
-  static_assert(not(h1l_off and h1g_on), "UseH1G-on mandates UseH1L-on.");
+  // top-1 histogram: bit1 = H1G (global commit), bit0 = H1L (local count)
+  // 10: illegal (H1G-on mandates H1L-on)
+  static constexpr int UseH1GL = _UseH1GL;
+  static_assert(UseH1GL != 0b10, "UseH1G-on mandates UseH1L-on.");
+
+  // 00: Global off, Local off ("compatible" with old design)
+  // 01: Global off, Local on  ("quick", future default)
+  // 10: Global on,  Local off (impossible/illegal)
+  // 11: Global on,  Local on  ("quick" + global spill)
+  static constexpr int UnpredIncomp = _UnpredIncomp;
 };
 
 template <typename BaseT, typename _Eq = uint16_t, typename _Fp = BaseT>
@@ -64,6 +68,7 @@ struct PredictorTyping {
 
   using Compact2 = _ptb::compact_GPU_DRAM2<CompactVal, M>;
   using CompactValIdx = _ptb::compact_cell<CompactVal, M>;
+  using CVI = CompactValIdx;
 
   /* ZigZag setup */
   using ZigZag = psz::ZigZag<Eq>;

@@ -28,8 +28,35 @@ psz_resource* psz_create_resource_manager(
   m->bklen = m->header->rc.radius * 2;
   m->spline_variant = spline_variant;  // creation-time; compress_init consumes it
   m->cli = nullptr;
+  m->use_eq4 = false;
   phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
+  m->stream = stream;
+
+  return m;
+}
+
+// eq/SYM width = u4 (f4/f8 raw incomp fallback, exact); mirrors psz_create_resource_manager.
+psz_resource* psz_create_resource_manager_eq4(
+    psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream)
+{
+  auto m = new psz_resource;
+
+  auto defaults = pszctx_default_values();
+  m->header = new psz_header;
+  memcpy(m->header, defaults->header, sizeof(psz_header));
+  delete defaults;
+
+  m->header->dtype = dtype;
+  m->header->pipeline = pipeline;
+  m->header->len = len;
+  m->len_linear = len.x * len.y * len.z;
+  m->bklen = m->header->rc.radius * 2;
+  m->spline_variant = spline_variant;
+  m->cli = nullptr;
+  m->use_eq4 = true;
+  phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
+  m->buf = dtype == F4 ? CP<f4, u4>::compress_init(m) : CP<f8, u4>::compress_init(m);
   m->stream = stream;
 
   return m;
@@ -44,9 +71,31 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   m->len_linear = header->len.x * header->len.y * header->len.z;
   m->spline_variant = 0;  // default y25; variant is not (yet) serialized in the header
   m->cli = nullptr;
+  m->use_eq4 = false;  // eq width is not (yet) serialized in the header
 
   m->buf = header->dtype == F4 ? CP<f4, u2>::decompress_init(m->header)
                                : CP<f8, u2>::decompress_init(m->header);
+
+  m->stream = stream;
+
+  return m;
+}
+
+// eq/SYM width = u4; mirrors psz_create_resource_manager_from_header. Caller must know the
+// archive was produced with eq_bytes=4 (not yet serialized in the header).
+psz_resource* psz_create_resource_manager_from_header_eq4(psz_header* header, void* stream)
+{
+  auto m = new psz_resource;
+  m->header = new psz_header;
+  memcpy(m->header, header, sizeof(psz_header));
+  m->bklen = m->header->rc.radius * 2;
+  m->len_linear = header->len.x * header->len.y * header->len.z;
+  m->spline_variant = 0;
+  m->cli = nullptr;
+  m->use_eq4 = true;
+
+  m->buf = header->dtype == F4 ? CP<f4, u4>::decompress_init(m->header)
+                               : CP<f8, u4>::decompress_init(m->header);
 
   m->stream = stream;
 
@@ -63,11 +112,16 @@ void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* 
 int psz_release_resource(psz_resource* manager)
 {
   auto dtype = manager->header->dtype;
+  auto eq4 = manager->use_eq4;
   if (dtype == F4) {
-    if (manager->buf) delete (psz::Buf_Comp<f4, u2>*)manager->buf;
+    if (manager->buf)
+      eq4 ? delete (psz::Buf_Comp<f4, u4>*)manager->buf
+          : delete (psz::Buf_Comp<f4, u2>*)manager->buf;
   }
   else if (dtype == F8) {
-    if (manager->buf) delete (psz::Buf_Comp<f8, u2>*)manager->buf;
+    if (manager->buf)
+      eq4 ? delete (psz::Buf_Comp<f8, u4>*)manager->buf
+          : delete (psz::Buf_Comp<f8, u2>*)manager->buf;
   }
   else
     return PSZ_ABORT_UNSUPPORTED_TYPE;
@@ -109,10 +163,18 @@ int psz_compress_float(
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
 
-  CP<f4, u2>::compress(
-      m, (psz_buf<f4, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
-  *OUT_header = *(m->header);
-  if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
+  if (m->use_eq4) {
+    CP<f4, u4>::compress(
+        m, (psz_buf<f4, u4>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    *OUT_header = *(m->header);
+    if (m->cli) CP<f4, u4>::compress_dump_internal_buf(m, (psz_buf<f4, u4>*)m->buf, m->stream);
+  }
+  else {
+    CP<f4, u2>::compress(
+        m, (psz_buf<f4, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    *OUT_header = *(m->header);
+    if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
+  }
 
   return status;
 }
@@ -127,10 +189,18 @@ int psz_compress_double(
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(double);
 
-  CP<f8, u2>::compress(
-      m, (psz_buf<f8, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
-  *OUT_header = *(m->header);
-  if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->buf, m->stream);
+  if (m->use_eq4) {
+    CP<f8, u4>::compress(
+        m, (psz_buf<f8, u4>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    *OUT_header = *(m->header);
+    if (m->cli) CP<f8, u4>::compress_dump_internal_buf(m, (psz_buf<f8, u4>*)m->buf, m->stream);
+  }
+  else {
+    CP<f8, u2>::compress(
+        m, (psz_buf<f8, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    *OUT_header = *(m->header);
+    if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->buf, m->stream);
+  }
 
   return status;
 }
@@ -146,8 +216,12 @@ int psz_compress_analyize_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u
   // TODO redundant
   m->header->rc.eb = rc.eb;
 
-  CP<f4, u2>::compress_analysis(
-      m, (psz_buf<f4, u2>*)m->buf, IN_d_data, exported_h_hist, m->stream);
+  if (m->use_eq4)
+    CP<f4, u4>::compress_analysis(
+        m, (psz_buf<f4, u4>*)m->buf, IN_d_data, exported_h_hist, m->stream);
+  else
+    CP<f4, u2>::compress_analysis(
+        m, (psz_buf<f4, u2>*)m->buf, IN_d_data, exported_h_hist, m->stream);
 
   return status;
 }
@@ -156,8 +230,12 @@ int psz_decompress_float(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     float* OUT_d_decompressed)
 {
-  CP<f4, u2>::decompress(
-      m->header, (psz_buf<f4, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
+  if (m->use_eq4)
+    CP<f4, u4>::decompress(
+        m->header, (psz_buf<f4, u4>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
+  else
+    CP<f4, u2>::decompress(
+        m->header, (psz_buf<f4, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
 
   return PSZ_SUCCESS;
 }
@@ -166,8 +244,12 @@ int psz_decompress_double(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     double* OUT_d_decompressed)
 {
-  CP<f8, u2>::decompress(
-      m->header, (psz_buf<f8, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
+  if (m->use_eq4)
+    CP<f8, u4>::decompress(
+        m->header, (psz_buf<f8, u4>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
+  else
+    CP<f8, u2>::decompress(
+        m->header, (psz_buf<f8, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
 
   return PSZ_SUCCESS;
 }

@@ -7,11 +7,14 @@
 #include <cstdio>
 #include <tuple>
 
+#include "cusz/component.hh"
 #include "cusz/type.h"
+#include "kernel/blk_fb.cuh"
 #include "utils/err.hh"
 
 constexpr auto Spl3_Comp = true;
 constexpr auto Spl3_Decomp = false;
+constexpr float SplIncompSentinel = -1e30f;
 constexpr auto Spl3_PredAtt = true;
 constexpr auto Spl3_AbAtt = false;
 
@@ -47,10 +50,12 @@ template <
     typename T, typename E, typename FP = float, int LEVEL = 4, int SplDim = 2, int AncBlkSzX = 8,
     int AncBlkSzY = 8, int AncBlkSzZ = 1, int NAncBlkX = 4, int NAncBlkY = 1, int NAncBlkZ = 1,
     int LinBlkSz = DefaultLinBlkSz, typename CompactValIdx = void*,
-    typename CompactNum = uint32_t*>
+    typename CompactNum = uint32_t*,
+    class Features = psz::PredictorFeature<0b0>>
 __global__ void KCU_c_spl_infprecis_data(
     T*, dim3, dim3, E*, dim3, dim3, T*, dim3, CompactValIdx, CompactNum, FP, FP, int,
-    INTERP_PARAMS);
+    INTERP_PARAMS, uint32_t* out_bheader = nullptr,
+    psz::OutlierCell* out_block_outliers = nullptr, size_t max_allowed = 0);
 
 template <
     typename E, typename T, typename FP = float, int LEVEL = 4, int SplDim = 2, int AncBlkSzX = 8,
@@ -59,7 +64,7 @@ template <
 __global__ void KCU_x_spl_infprecis_data(
     E* eq, dim3 eq_size, dim3 eq_leap, T* anchor, dim3 anchor_size, dim3 anchor_leap, T* data,
     dim3 data_size, dim3 data_leap, T* outlier_tmp, FP eb_r, FP ebx2, int radius,
-    INTERP_PARAMS intp_param);
+    INTERP_PARAMS intp_param, u1 const* incomp_flag = nullptr, T* fused_src = nullptr);
 
 template <typename T>
 __global__ void reset_errors(T* errors);
@@ -390,6 +395,44 @@ __device__ void global2shmem_profiling_data_2(
   __syncthreads();
 }
 
+// by-level slot order (level-0 points first, then level-1, ...); spline_eq_gid_subblock's inner helper.
+template <int LEVEL>
+__device__ __forceinline__ size_t spline_eq_gid_bylevel(
+    u4 gx, u4 gy, u4 gz, size_t grid_leaps[LEVEL + 1][2], size_t prefix_nums[LEVEL + 1])
+{
+  int level = 0;
+  while (gx % 2 == 0 and gy % 2 == 0 and gz % 2 == 0 and level < LEVEL) {
+    gx = gx >> 1, gy = gy >> 1, gz = gz >> 1, level++;
+  }
+  size_t gid = gx + gy * grid_leaps[level][0] + gz * grid_leaps[level][1];
+  if (level < LEVEL)  // non-anchor
+    gid += prefix_nums[level] - ((gz + 1) >> 1) * grid_leaps[level + 1][1] -
+           (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1][0] -
+           (gz % 2 == 0 and gy % 2 == 0) * ((gx + 1) >> 1);
+  return gid;
+}
+
+// y25 eq layout (shared by encode + decode): tile == 4Ki HF block == four by-level-ordered sub-slabs.
+template <int LEVEL, int SplDim = 3>
+__device__ __forceinline__ size_t spline_eq_gid_subblock(
+    u4 gx, u4 gy, u4 gz, size_t sub_leaps[LEVEL + 1][2], size_t sub_prefix[LEVEL + 1])
+{
+  if constexpr (SplDim == 3) {
+    u4 ly = gy & 15u, lz = gz & 15u;
+    u4 sb = (ly >> 3) * 2u + (lz >> 3);  // four 16x8x8 sub-blocks (split on y,z)
+    size_t block = (gx >> 4) + (size_t)GDX * ((gy >> 4) + (size_t)GDY * (gz >> 4));
+    return (block * 4u + sb) * 1024u +
+           spline_eq_gid_bylevel<LEVEL>(gx & 15u, ly & 7u, lz & 7u, sub_leaps, sub_prefix);
+  }
+  else {
+    u4 lx = gx & 63u, ly = gy & 63u;
+    u4 sb = (lx >> 5) * 2u + (ly >> 5);  // four 32x32 sub-blocks (split on x,y)
+    size_t block = (gx >> 6) + (size_t)GDX * (gy >> 6);
+    return (block * 4u + sb) * 1024u +
+           spline_eq_gid_bylevel<LEVEL>(gx & 31u, gy & 31u, 0u, sub_leaps, sub_prefix);
+  }
+}
+
 template <
     typename T = float, typename E = u4, int LEVEL = 4, int SplDim = 2, int AncBlkSzX = 8,
     int AncBlkSzY = 8, int AncBlkSzZ = 8, int NAncBlkX = 4, int NAncBlkY = 1, int NAncBlkZ = 1,
@@ -398,7 +441,11 @@ __device__ void global2shmem_fuse(
     E* eq, dim3 eq_size, dim3 eq_leap, T* scattered_outlier, dim3 begin,
     T s_eq[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
           [AncBlkSzX * NAncBlkX + (SplDim >= 1)],
-    size_t grid_leaps[LEVEL + 1][2], size_t prefix_nums[LEVEL + 1])
+    size_t grid_leaps[LEVEL + 1][2], size_t prefix_nums[LEVEL + 1],
+    T s_data[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
+            [AncBlkSzX * NAncBlkX + (SplDim >= 1)] = nullptr,
+    u1 const* incomp_flag = nullptr, size_t sub_leaps[LEVEL + 1][2] = nullptr,
+    size_t sub_prefix[LEVEL + 1] = nullptr)
 {
   constexpr auto TOTAL = (AncBlkSzX * NAncBlkX + (SplDim >= 1)) *
                          (AncBlkSzY * NAncBlkY + (SplDim >= 2)) *
@@ -414,25 +461,14 @@ __device__ void global2shmem_fuse(
     auto gy = (begin.y + y + BIY * (AncBlkSzY * NAncBlkY));
     auto gz = (begin.z + z + BIZ * (AncBlkSzZ * NAncBlkZ));
     if (gx < eq_size.x and gy < eq_size.y and gz < eq_size.z) {
-      // todo: pre-compute the leaps and their halves
-
-      int level = 0;
-      auto data_gid = gx + gy * eq_leap.y + gz * eq_leap.z;
-      while (gx % 2 == 0 and gy % 2 == 0 and gz % 2 == 0 and level < LEVEL) {
-        gx = gx >> 1;
-        gy = gy >> 1;
-        gz = gz >> 1;
-        level++;
+      // incomp tile's slot is a raw reconstruction, not a code (see SplIncompSentinel).
+      size_t to_gid = spline_eq_gid_subblock<LEVEL, SplDim>(gx, gy, gz, sub_leaps, sub_prefix);
+      if (incomp_flag and incomp_flag[to_gid / 4096u] and s_data) {
+        s_data[z][y][x] = scattered_outlier[to_gid];  // raw recon
+        s_eq[z][y][x] = (T)SplIncompSentinel;          // tell the reconstruct to keep it
       }
-      auto gid = gx + gy * grid_leaps[level][0] + gz * grid_leaps[level][1];
-
-      if (level < LEVEL) {  // non-anchor
-        gid += prefix_nums[level] - ((gz + 1) >> 1) * grid_leaps[level + 1][1] -
-               (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1][0] -
-               (gz % 2 == 0 && gy % 2 == 0) * ((gx + 1) >> 1);
-      }
-
-      s_eq[z][y][x] = static_cast<T>(eq[gid]) + scattered_outlier[data_gid];
+      else
+        s_eq[z][y][x] = scattered_outlier[to_gid];
     }
   }
   __syncthreads();
@@ -469,20 +505,31 @@ __device__ void shmem2global_data(
 template <
     typename T1, typename T2, int LEVEL = 4, int SplDim = 2, int AncBlkSzX = 8, int AncBlkSzY = 8,
     int AncBlkSzZ = 8, int NAncBlkX = 4, int NAncBlkY = 1, int NAncBlkZ = 1,
-    int LinBlkSz = DefaultLinBlkSz, typename CompactValIdx>
+    int LinBlkSz = DefaultLinBlkSz,
+    class Features = psz::PredictorFeature<0b0>, typename CompactValIdx>
 __device__ void shmem2global_data_with_compaction(
     T1 s_buf[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
             [AncBlkSzX * NAncBlkX + (SplDim >= 1)],
     T2* dram_buf, dim3 buf_size, dim3 buf_leap, dim3 begin, int radius,
     size_t grid_leaps[LEVEL + 1][2], size_t prefix_nums[LEVEL + 1],
-    CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr)
+    CompactValIdx* dram_compact = nullptr, uint32_t* dram_compactnum = nullptr,
+    size_t sub_leaps[LEVEL + 1][2] = nullptr, size_t sub_prefix[LEVEL + 1] = nullptr,
+    uint32_t* out_bheader = nullptr, psz::OutlierCell* out_block_outliers = nullptr,
+    T1 s_recon[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
+              [AncBlkSzX * NAncBlkX + (SplDim >= 1)] = nullptr,
+    u4* s_nout = nullptr, size_t max_allowed = 0)
 {
   using Val = typename CompactValIdx::OutlierValT;
+  using KC = psz::HFR_PBK_Constants;
+  using KC12 = psz::HFR_PBK_C12;
 
   auto x_size = AncBlkSzX * NAncBlkX + (BIX == GDX - 1) * (SplDim >= 1);
   auto y_size = AncBlkSzY * NAncBlkY + (BIY == GDY - 1) * (SplDim >= 2);
   auto z_size = AncBlkSzZ * NAncBlkZ + (BIZ == GDZ - 1) * (SplDim >= 3);
   auto TOTAL = x_size * y_size * z_size;
+
+  if (TIX == 0) s_nout[0] = 0;
+  __syncthreads();
 
   for (auto _tix = TIX; _tix < TOTAL; _tix += LinBlkSz) {
     auto x = (_tix % x_size);
@@ -491,36 +538,63 @@ __device__ void shmem2global_data_with_compaction(
     auto gx = (begin.x + x + BIX * AncBlkSzX * NAncBlkX);
     auto gy = (begin.y + y + BIY * AncBlkSzY * NAncBlkY);
     auto gz = (begin.z + z + BIZ * AncBlkSzZ * NAncBlkZ);
-    // auto gid = gx + gy * buf_leap.y + gz * buf_leap.z;
 
     auto candidate = s_buf[z][y][x];
     bool quantizable = (candidate >= 0) and (candidate < 2 * radius);
+    bool valid = (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z);
 
-    if (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z) {
-      if (not quantizable) {
-        auto data_gid = [&]() { return gx + gy * buf_leap.y + gz * buf_leap.z; };
-        auto cur_idx = atomicAdd(dram_compactnum, 1);
-        dram_compact[cur_idx] = {(Val)candidate, data_gid()};
+    // pad = `radius` (zero-delta code), never 0: a 0 spans the per-block book window and
+    // forces partial boundary tiles to ship raw (incomp.breaks), costing CR.
+    constexpr int TileX = AncBlkSzX * NAncBlkX, TileY = AncBlkSzY * NAncBlkY,
+                  TileZ = AncBlkSzZ * NAncBlkZ;
+    if (x < TileX and y < TileY and z < TileZ) {
+      size_t to_gid = spline_eq_gid_subblock<LEVEL, SplDim>(gx, gy, gz, sub_leaps, sub_prefix);
+      dram_buf[to_gid] = valid ? quantizable * static_cast<T2>(candidate) : (T2)radius;
+      if (valid and not quantizable) {
+        // HF-rev2 / analysis: every outlier rides the global compact at its tile gid.
+        if constexpr (Features::UnpredIncomp == 0b10)
+          psz::fb_overflow_global(
+              dram_compact, dram_compactnum, max_allowed, (Val)candidate, (u4)to_gid);
+        else {  // 4 Ki
+          size_t tile = to_gid >> 12;  // in-tile offset == to_gid % 4096
+          u4 local = atomicAdd(&s_nout[0], 1u);
+          if (out_block_outliers and local < KC12::MaxNumUnpred)  // fits: record in this cell
+            out_block_outliers[tile * KC12::MaxNumUnpred + local] = {
+                (f4)candidate, (u2)(to_gid & 4095u)};
+        }
       }
-      int level = 0;
-      // todo: pre-compute the leaps and their halves
-      while (gx % 2 == 0 and gy % 2 == 0 and gz % 2 == 0 and level < LEVEL) {
-        gx = gx >> 1;
-        gy = gy >> 1;
-        gz = gz >> 1;
-        level++;
-      }
-      auto gid = gx + gy * grid_leaps[level][0] + gz * grid_leaps[level][1];
+    }
+  }
 
-      if (level < LEVEL) {  // non-anchor
-        gid += prefix_nums[level] - ((gz + 1) >> 1) * grid_leaps[level + 1][1] -
-               (gz % 2 == 0) * ((gy + 1) >> 1) * grid_leaps[level + 1][0] -
-               (gz % 2 == 0 && gy % 2 == 0) * ((gx + 1) >> 1);
-      }
+  __syncthreads();  
 
-      // TODO this is for algorithmic demo by reading from shmem
-      // For performance purpose, it can be inlined in quantization
-      dram_buf[gid] = quantizable * static_cast<T2>(candidate);
+  // see y24
+  constexpr bool EqFitsIncomp = sizeof(T2) == 2 or sizeof(T2) == 4;
+  size_t block = BIX + (size_t)GDX * (BIY + (size_t)GDY * BIZ);
+  constexpr auto EncIdShift12 = (u4)(KC12::BitsMaxNumUnpred + KC12::BitsMaxNumBreaks);
+  bool do_incomp = EqFitsIncomp and (s_nout[0] > KC12::MaxNumUnpred);
+  if (TIX == 0) {
+    out_bheader[2u * block] = do_incomp ? ((u4)KC12::CodeIncompUnpred << EncIdShift12)
+                                        : (s_nout[0] & (u4)KC12::MaxNumUnpred);
+  }
+
+  if constexpr (EqFitsIncomp) {
+    if (do_incomp) {
+      constexpr int TileX = AncBlkSzX * NAncBlkX, TileY = AncBlkSzY * NAncBlkY,
+                    TileZ = AncBlkSzZ * NAncBlkZ;
+      for (auto _tix = TIX; _tix < TOTAL; _tix += LinBlkSz) {
+        auto x = (_tix % x_size);
+        auto y = (_tix / x_size) % y_size;
+        auto z = (_tix / x_size) / y_size;
+        auto gx = (begin.x + x + BIX * AncBlkSzX * NAncBlkX);
+        auto gy = (begin.y + y + BIY * AncBlkSzY * NAncBlkY);
+        auto gz = (begin.z + z + BIZ * AncBlkSzZ * NAncBlkZ);
+        bool valid = (gx < buf_size.x and gy < buf_size.y and gz < buf_size.z);
+        if (x < TileX and y < TileY and z < TileZ) {
+          size_t to_gid = spline_eq_gid_subblock<LEVEL, SplDim>(gx, gy, gz, sub_leaps, sub_prefix);
+          dram_buf[to_gid] = psz::incomp_pack<T2>(valid ? (f4)s_recon[z][y][x] : (f4)0);
+        }
+      }
     }
   }
 }
@@ -655,7 +729,8 @@ __forceinline__ __device__ void interpolate_stage(
       }
       else {  // TODO == DECOMPRESSS and static_assert
         auto code = s_eq[z][y][x];
-        s_data[z][y][x] = pred + (code - radius) * ebx2;
+        // reconstruct from the code; a sentinel slot keeps its fuse-loaded raw value.
+        if (code != (T2)SplIncompSentinel) s_data[z][y][x] = pred + (code - radius) * ebx2;
       }
     }
   };
@@ -999,7 +1074,8 @@ __forceinline__ __device__ void interpolate_stage_md(
       else {  // TODO == DECOMPRESSS and static_assert
 
         auto code = s_eq[z][y][x];
-        s_data[z][y][x] = pred + (code - radius) * ebx2;
+        // reconstruct from the code; a sentinel slot keeps its fuse-loaded raw value.
+        if (code != (T2)SplIncompSentinel) s_data[z][y][x] = pred + (code - radius) * ebx2;
       }
     }
   };
@@ -1624,12 +1700,16 @@ __forceinline__ __device__ void pre_compute(
 template <
     typename T, typename E, typename FP, int LEVEL, int SplDim, int AncBlkSzX, int AncBlkSzY,
     int AncBlkSzZ, int NAncBlkX, int NAncBlkY, int NAncBlkZ, int LinBlkSz, typename CompactValIdx,
-    typename CompactNum>
+    typename CompactNum, class Features>
 __global__ void psz::KCU_c_spl_infprecis_data(
     T* data, dim3 data_size, dim3 data_leap, E* eq, dim3 eq_size, dim3 eq_leap, T* anchor,
     dim3 anchor_leap, CompactValIdx cvi, CompactNum cn, FP eb_r, FP ebx2, int radius,
-    INTERP_PARAMS intp_param)
+    INTERP_PARAMS intp_param, uint32_t* out_bheader, psz::OutlierCell* out_block_outliers,
+    size_t max_allowed)
 {
+  __shared__ size_t s_sub_leaps[LEVEL + 1][2];  // 16x8x8 sub-block by-level layout
+  __shared__ size_t s_sub_prefix[LEVEL + 1];
+  __shared__ u4 s_nout[1];  // tile-order per-tile outlier count (4Ki tile == one HF block)
   __shared__ T s_data[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
                      [AncBlkSzX * NAncBlkX + (SplDim >= 1)];
   __shared__ T s_eq[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
@@ -1637,10 +1717,12 @@ __global__ void psz::KCU_c_spl_infprecis_data(
   __shared__ size_t s_grid_leaps[LEVEL + 1][2];
   __shared__ size_t s_prefix_nums[LEVEL + 1];
 
-  dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+  dim3 begin{0, 0, 0};  // always zero: data/eq/anchor pointers are pre-offset by the caller
   auto sub_extent = data_size;
 
   pre_compute<LEVEL>(eq_size, s_grid_leaps, s_prefix_nums);
+  // tile-order eq is binned into 16x8x8 sub-block chunks; precompute that grid's by-level map.
+  pre_compute<LEVEL>(SplDim == 3 ? dim3(16, 8, 8) : dim3(32, 32, 1), s_sub_leaps, s_sub_prefix);
 
   c_reset_scratch_data<
       T, T, SplDim, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ, LinBlkSz>(
@@ -1658,7 +1740,9 @@ __global__ void psz::KCU_c_spl_infprecis_data(
 
   shmem2global_data_with_compaction<
       T, E, LEVEL, SplDim, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ,
-      LinBlkSz>(s_eq, eq, eq_size, eq_leap, begin, radius, s_grid_leaps, s_prefix_nums, cvi, cn);
+      LinBlkSz, Features>(s_eq, eq, eq_size, eq_leap, begin, radius, s_grid_leaps, s_prefix_nums, cvi, cn,
+               s_sub_leaps, s_sub_prefix, out_bheader, out_block_outliers, s_data,
+               s_nout, max_allowed);
 }
 
 template <
@@ -1675,7 +1759,8 @@ __global__ void psz::KCU_x_spl_infprecis_data(
     T* data,           // output
     dim3 data_size,    //
     dim3 data_leap,    //
-    T* outlier_tmp, FP eb_r, FP ebx2, int radius, INTERP_PARAMS intp_param)
+    T* outlier_tmp, FP eb_r, FP ebx2, int radius, INTERP_PARAMS intp_param,
+    u1 const* incomp_flag, T* fused_src)
 {
   __shared__ T s_data[AncBlkSzZ * NAncBlkZ + (SplDim >= 3)][AncBlkSzY * NAncBlkY + (SplDim >= 2)]
                      [AncBlkSzX * NAncBlkX + (SplDim >= 1)];
@@ -1683,18 +1768,25 @@ __global__ void psz::KCU_x_spl_infprecis_data(
                    [AncBlkSzX * NAncBlkX + (SplDim >= 1)];
   __shared__ size_t s_grid_leaps[LEVEL + 1][2];
   __shared__ size_t s_prefix_nums[LEVEL + 1];
+  __shared__ size_t s_sub_leaps[LEVEL + 1][2];  // 16x8x8 sub-block by-level layout
+  __shared__ size_t s_sub_prefix[LEVEL + 1];
 
-  dim3 begin{0, 0, 0};  // local frame; the offset lives in the (pre-offset) pointers
+  dim3 begin{0, 0, 0};  // always zero: data/eq/anchor pointers are pre-offset by the caller
   auto sub_extent = data_size;
+  // fsrc = where decode left the merged (eq + scattered outliers + raw incomp) content:
+  // tile-order -> the per-tile scratch (decode_fused_d); else the global-compact target.
+  auto fsrc = fused_src;
 
   pre_compute<LEVEL>(eq_size, s_grid_leaps, s_prefix_nums);
+  pre_compute<LEVEL>(SplDim == 3 ? dim3(16, 8, 8) : dim3(32, 32, 1), s_sub_leaps, s_sub_prefix);
 
   x_reset_scratch_data<
       T, T, SplDim, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ, LinBlkSz>(
       s_data, s_eq, anchor, anchor_size, anchor_leap, begin);
   global2shmem_fuse<
       T, E, LEVEL, SplDim, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ,
-      LinBlkSz>(eq, eq_size, eq_leap, outlier_tmp, begin, s_eq, s_grid_leaps, s_prefix_nums);
+      LinBlkSz>(eq, eq_size, eq_leap, fsrc, begin, s_eq, s_grid_leaps, s_prefix_nums, s_data,
+               incomp_flag, s_sub_leaps, s_sub_prefix);
 
   psz::spline_layout_interpolate<
       T, T, FP, LEVEL, SplDim, AncBlkSzX, AncBlkSzY, AncBlkSzZ, NAncBlkX, NAncBlkY, NAncBlkZ,

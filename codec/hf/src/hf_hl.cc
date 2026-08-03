@@ -110,7 +110,7 @@ template <typename E, typename LaunchEnc, typename LaunchAggregate>
 static int _HFR_common_enc(
     Buf<E>* buf, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, LaunchEnc&& launch_encode, LaunchAggregate&& launch_aggregate,
-    float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr)
+    float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr, int pardeg_override = 0)
 {
   using K = psz::HFR_PBK_Constants;
   buf->set_rt_bklen(K::MaxDictsize);
@@ -138,6 +138,8 @@ static int _HFR_common_enc(
   {
     M nbyte[PHFHEADER_END];
     buf->update_header(header);
+    // reconcile cases other than 1Ki
+    if (pardeg_override > 0) header.pardeg = pardeg_override;
     buf->calc_offset(header, nbyte);
   }
   buf->memcpy_merge(header, stream);
@@ -160,59 +162,87 @@ int encode_hfr_v2(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  if constexpr (sizeof(E) > 2) {
-    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
-        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
-    const int reduce_times = opts.reduce_times;
+  {
+    const int magnitude = opts.magnitude;
+    // failsafe: block has no greater than 1024 threads.
+    const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
+                             : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
+                                               : opts.reduce_times;
     const RMerge rm = opts.rm;
     const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
-    using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
     buf->set_use_prebuilt_rvbk(false);  // HFR ships runtime rvbk in archive.
-    const size_t pardeg = (len - 1) / K::BlockSize + 1;
+    const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
+    const u4 stride_words = (magnitude >= 12)   ? (u4)psz::HFR_PBK_C12::StridePerBlockWords
+                            : (magnitude >= 11) ? (u4)psz::HFR_PBK_C11::StridePerBlockWords
+                                                : (u4)K::StridePerBlockWords;
     auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* hdrs) {
+      if (magnitude >= 12) {
+        if constexpr (RT >= 2) {
+          using Enc = phf::module::HFR_encoder<E, 12, RT>;
+          Enc::GPU_kernel_v2(
+              in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
+              opts.block_outliers, stream, rm, sm);
+        }
+        return;
+      }
+      if (magnitude >= 11) {
+        if constexpr (RT >= 1) {
+          using Enc = phf::module::HFR_encoder<E, 11, RT>;
+          Enc::GPU_kernel_v2(
+              in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
+              opts.block_outliers, stream, rm, sm);
+        }
+        return;
+      }
       using Enc = phf::module::HFR_encoder<E, K::Magnitude, RT>;
       Enc::GPU_kernel_v2(
-          in, len, buf->book_d(), buf->bitstream_d(), hdrs, buf->block_outliers_d(),
-          (f4*)buf->packed_d(), opts.incomp, stream, rm, sm);
+          in, len, buf->book_d(), buf->bitstream_d(), hdrs, opts.block_outliers,
+          stream, rm, sm);
     };
     auto launch_aggregate = [&]() {
-      ConcatFuture::GPU_kernel(
-          buf->pbk_headers_d(), buf->par_entry_d(), buf->bitstream_d(), buf->packed_d(),
-          buf->pbk_packed_headers_d(), (u4)sizeof(H4), (u4)K::StridePerBlockWords, (int)pardeg,
-          buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
-          buf->total_ncell_d(), stream);
+      auto concat = [&]<int M>(std::integral_constant<int, M>) {
+        using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
+        Concat::GPU_kernel(
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->par_entry_d(),
+            buf->bitstream_d(), buf->packed_d(), buf->pbk_packed_headers_d(), (u4)sizeof(H4),
+            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
+            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+      };
+      if (magnitude >= 12)
+        concat(std::integral_constant<int, 12>{});
+      else if (magnitude >= 11)
+        concat(std::integral_constant<int, 11>{});
+      else
+        concat(std::integral_constant<int, 10>{});
     };
     switch (reduce_times) {
       case 0:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 0>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 1:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 1>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 2:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 3:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 4:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       default: return PHF_NOT_IMPLEMENTED;
     }
   }
@@ -224,60 +254,89 @@ int encode_hfr_v3(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  if constexpr (sizeof(E) > 2) {
-    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
-        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
-    const int reduce_times = opts.reduce_times;
+  {
+    const int magnitude = opts.magnitude;
+    // BlockDim = 2^(magnitude - RT): clamp RT so the launch stays <= 1024 threads.
+    const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
+                             : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
+                                               : opts.reduce_times;
     const RMerge rm = opts.rm;
     const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
-    using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
     buf->set_use_prebuilt_rvbk(true);  // rvbk stays baked-in; decode indexes it by global id.
     buf->set_use_global_encid(true);   // patch the picked book id into the archive header.
-    const size_t pardeg = (len - 1) / K::BlockSize + 1;
+    const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
+    const u4 stride_words =
+        (magnitude >= 12)   ? (u4)psz::HFR_PBK_C12::StridePerBlockWords
+        : (magnitude >= 11) ? (u4)psz::HFR_PBK_C11::StridePerBlockWords
+                            : (u4)K::StridePerBlockWords;
     auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* hdrs) {
+      if (magnitude >= 12) {
+        if constexpr (RT >= 2) {
+          using Enc = phf::module::HFR_encoder<E, 12, RT>;
+          Enc::GPU_kernel_v2(
+              in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
+              opts.block_outliers, stream, rm, sm);
+        }
+        return;
+      }
+      if (magnitude >= 11) {
+        if constexpr (RT >= 1) {
+          using Enc = phf::module::HFR_encoder<E, 11, RT>;
+          Enc::GPU_kernel_v2(
+              in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
+              opts.block_outliers, stream, rm, sm);
+        }
+        return;
+      }
       using Enc = phf::module::HFR_encoder<E, K::Magnitude, RT>;
       Enc::GPU_kernel_v2(
-          in, len, buf->book_d(), buf->bitstream_d(), hdrs, buf->block_outliers_d(),
-          (f4*)buf->packed_d(), opts.incomp, stream, rm, sm);
+          in, len, buf->book_d(), buf->bitstream_d(), hdrs, opts.block_outliers,
+          stream, rm, sm);
     };
     auto launch_aggregate = [&]() {
-      ConcatFuture::GPU_kernel(
-          buf->pbk_headers_d(), buf->par_entry_d(), buf->bitstream_d(), buf->packed_d(),
-          buf->pbk_packed_headers_d(), (u4)sizeof(H4), (u4)K::StridePerBlockWords, (int)pardeg,
-          buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
-          buf->total_ncell_d(), stream);
+      auto concat = [&]<int M>(std::integral_constant<int, M>) {
+        using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
+        Concat::GPU_kernel(
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->par_entry_d(),
+            buf->bitstream_d(), buf->packed_d(), buf->pbk_packed_headers_d(), (u4)sizeof(H4),
+            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
+            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+      };
+      if (magnitude >= 12)
+        concat(std::integral_constant<int, 12>{});
+      else if (magnitude >= 11)
+        concat(std::integral_constant<int, 11>{});
+      else
+        concat(std::integral_constant<int, 10>{});
     };
     switch (reduce_times) {
       case 0:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 0>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 1:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 1>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 2:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 3:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 4:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       default: return PHF_NOT_IMPLEMENTED;
     }
   }
@@ -289,60 +348,89 @@ int encode_hfr_v4(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  if constexpr (sizeof(E) > 2) {
-    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
-        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
-    const int reduce_times = opts.reduce_times;
+  {
+    const int magnitude = opts.magnitude;
+    // BlockDim = 2^(magnitude - RT): clamp RT so the launch stays <= 1024 threads.
+    const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
+                             : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
+                                               : opts.reduce_times;
     const RMerge rm = opts.rm;
     const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
-    using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
     buf->set_use_prebuilt_rvbk(true);  // rvbk stays baked-in; decode indexes it by global id.
     buf->set_use_global_encid(true);   // patch the picked book id into the archive header.
-    const size_t pardeg = (len - 1) / K::BlockSize + 1;
+    const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
+    const u4 stride_words =
+        (magnitude >= 12)   ? (u4)psz::HFR_PBK_C12::StridePerBlockWords
+        : (magnitude >= 11) ? (u4)psz::HFR_PBK_C11::StridePerBlockWords
+                            : (u4)K::StridePerBlockWords;
     auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* hdrs) {
+      if (magnitude >= 12) {
+        if constexpr (RT >= 2) {
+          using Enc = phf::module::HFR_V4_encode<E, 12, RT, H4, K::Radius>;
+          Enc::GPU_kernel(
+              in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::header_t*)hdrs,
+              opts.block_outliers, stream, rm, sm);
+        }
+        return;
+      }
+      if (magnitude >= 11) {
+        if constexpr (RT >= 1) {
+          using Enc = phf::module::HFR_V4_encode<E, 11, RT, H4, K::Radius>;
+          Enc::GPU_kernel(
+              in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::header_t*)hdrs,
+              opts.block_outliers, stream, rm, sm);
+        }
+        return;
+      }
       using Enc = phf::module::HFR_V4_encode<E, K::Magnitude, RT, H4, K::Radius>;
       Enc::GPU_kernel(
-          in, len, buf->book_d(), buf->bitstream_d(), hdrs, buf->block_outliers_d(),
-          (f4*)buf->packed_d(), opts.incomp, stream, rm, sm);
+          in, len, buf->book_d(), buf->bitstream_d(), hdrs, opts.block_outliers,
+          stream, rm, sm);
     };
     auto launch_aggregate = [&]() {
-      ConcatFuture::GPU_kernel(
-          buf->pbk_headers_d(), buf->par_entry_d(), buf->bitstream_d(), buf->packed_d(),
-          buf->pbk_packed_headers_d(), (u4)sizeof(H4), (u4)K::StridePerBlockWords, (int)pardeg,
-          buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
-          buf->total_ncell_d(), stream);
+      auto concat = [&]<int M>(std::integral_constant<int, M>) {
+        using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
+        Concat::GPU_kernel(
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->par_entry_d(),
+            buf->bitstream_d(), buf->packed_d(), buf->pbk_packed_headers_d(), (u4)sizeof(H4),
+            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
+            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+      };
+      if (magnitude >= 12)
+        concat(std::integral_constant<int, 12>{});
+      else if (magnitude >= 11)
+        concat(std::integral_constant<int, 11>{});
+      else
+        concat(std::integral_constant<int, 10>{});
     };
     switch (reduce_times) {
       case 0:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 0>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 1:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 1>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 2:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 3:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 4:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       default: return PHF_NOT_IMPLEMENTED;
     }
   }
@@ -353,59 +441,89 @@ int encode_hfr_pbkc(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  if constexpr (sizeof(E) > 2) {
-    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
-        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
+  {
     const int reduce_times = opts.reduce_times;
     const RMerge rm = opts.rm;
     const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
-    using ConcatFuture = phf::_future_concat_via_scatter<E, ConcatBlockDim>;
     buf->set_use_prebuilt_rvbk(true);
-    const size_t pardeg = (len - 1) / K::BlockSize + 1;
+    const int magnitude = opts.magnitude;  // 10 = 1Ki (default), 11 = 2Ki, 12 = 4Ki
+    const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
+    const u4 stride_words =
+        (magnitude >= 12)   ? (u4)psz::HFR_PBK_C12::StridePerBlockWords
+        : (magnitude >= 11) ? (u4)psz::HFR_PBK_C11::StridePerBlockWords
+                            : (u4)K::StridePerBlockWords;
     auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* hdrs) {
-      using Enc = phf::module::HFR_PBKC_encode<E, K::Magnitude, RT, H4, K::Radius>;
-      Enc::GPU_kernel(
-          in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), hdrs, buf->block_outliers_d(),
-          (f4*)buf->packed_d(), opts.incomp, stream, rm, sm);
+      if (magnitude >= 12) {
+        using Enc4kA = phf::module::HFR_PBKC_encode<E, 12, RT, H4, K::Radius, /*IterLog=*/2>;
+        // blockdim 256 doubles the threadblock (IterLog=1); r0 stays on 128 (2048 > launch cap).
+        if constexpr (RT >= 1) {
+          using Enc4kB = phf::module::HFR_PBKC_encode<E, 12, RT, H4, K::Radius, /*IterLog=*/1>;
+          if (opts.blockdim >= 256) {
+            Enc4kB::GPU_kernel(
+                in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
+                (typename Enc4kB::header_t*)hdrs, opts.block_outliers, stream, rm, sm);
+            return;
+          }
+        }
+        Enc4kA::GPU_kernel(
+            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
+            (typename Enc4kA::header_t*)hdrs, opts.block_outliers, stream, rm, sm);
+      }
+      else if (magnitude >= 11) {
+        using Enc2k = phf::module::HFR_PBKC_encode<E, 11, RT, H4, K::Radius, /*IterLog=*/1>;
+        Enc2k::GPU_kernel(
+            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
+            (typename Enc2k::header_t*)hdrs, opts.block_outliers, stream, rm, sm);
+      }
+      else
+        phf::module::HFR_PBKC_encode<E, K::Magnitude, RT, H4, K::Radius>::GPU_kernel(
+            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), hdrs,
+            opts.block_outliers, stream, rm, sm);
     };
     auto launch_aggregate = [&]() {
-      ConcatFuture::GPU_kernel(
-          buf->pbk_headers_d(), buf->par_entry_d(), buf->bitstream_d(), buf->packed_d(),
-          buf->pbk_packed_headers_d(), (u4)sizeof(H4), (u4)K::StridePerBlockWords, (int)pardeg,
-          buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
-          buf->total_ncell_d(), stream);
+      auto concat = [&]<int M>(std::integral_constant<int, M>) {
+        using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
+        Concat::GPU_kernel(
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->par_entry_d(),
+            buf->bitstream_d(), buf->packed_d(), buf->pbk_packed_headers_d(), (u4)sizeof(H4),
+            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
+            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+      };
+      if (magnitude >= 12)
+        concat(std::integral_constant<int, 12>{});
+      else if (magnitude >= 11)
+        concat(std::integral_constant<int, 11>{});
+      else
+        concat(std::integral_constant<int, 10>{});
     };
     switch (reduce_times) {
       case 0:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 0>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 1:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 1>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 2:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 3:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 4:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       default: return PHF_NOT_IMPLEMENTED;
     }
   }
@@ -416,13 +534,10 @@ int encode_hfr_pbkgo(
     Buf<E>* buf, E* in, size_t const len, uint8_t** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago, HFR_Opts opts)
 {
-  if constexpr (sizeof(E) > 2) {
-    (void)buf, (void)in, (void)len, (void)out, (void)outlen, (void)header, (void)stream,
-        (void)opt_ms_encoder, (void)opt_ms_lago, (void)opts;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
+  {
+    const int magnitude = opts.magnitude;
     const int reduce_times = opts.reduce_times;
+    const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
     const RMerge rm = opts.rm;
     const SMerge sm = opts.sm;
     using K = psz::HFR_PBK_Constants;
@@ -434,12 +549,20 @@ int encode_hfr_pbkgo(
     buf->set_use_prebuilt_rvbk(true);
     buf->set_use_pbkgo(true);
     auto launch_enc = [&]<int RT>(std::integral_constant<int, RT>, auto* /*unused*/) {
-      using Enc = phf::module::HFR_PBKGO_encode<E, K::Magnitude, RT, H4, K::Radius>;
-      Enc::GPU_kernel(
-          in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), buf->pbk_headers_d(),
-          buf->block_outliers_d(), (f4*)buf->packed_d(), opts.incomp, buf->pbk_packed_headers_d(),
-          buf->total_ncell_d(), buf->pbkgo_state_d(), buf->pbkgo_max_resident_blocks(), stream, rm,
-          sm);
+      auto go = [&]<int M>(std::integral_constant<int, M>) {
+        using Enc = phf::module::HFR_PBKGO_encode<E, M, RT, H4, K::Radius>;
+        Enc::GPU_kernel(
+            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
+            (typename Enc::header_t*)buf->pbk_headers_d(), opts.block_outliers,
+            buf->pbk_packed_headers_d(), buf->total_ncell_d(),
+            buf->pbkgo_state_d(), buf->pbkgo_max_resident_blocks(), stream, rm, sm);
+      };
+      if (magnitude >= 12)
+        go(std::integral_constant<int, 12>{});
+      else if (magnitude >= 11)
+        go(std::integral_constant<int, 11>{});
+      else
+        go(std::integral_constant<int, 10>{});
     };
     auto launch_aggregate = []() { /* no-op: encoder emitted everything */ };
     switch (rt) {
@@ -447,17 +570,17 @@ int encode_hfr_pbkgo(
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 2>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 3:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 3>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       case 4:
         return _HFR_common_enc(
             buf, len, out, outlen, header, stream,
             [&](auto* h) { launch_enc(std::integral_constant<int, 4>{}, h); }, launch_aggregate,
-            opt_ms_encoder, opt_ms_lago);
+            opt_ms_encoder, opt_ms_lago, (int)pardeg);
       default: return PHF_NOT_IMPLEMENTED;
     }
   }
@@ -467,13 +590,9 @@ int encode_hfr_pbkgo(
 template <typename Ein, typename Eout = Ein>
 int decode_hfr(
     Buf<Ein>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream,
-    psz_codec variant)
+    psz_codec variant, int magnitude = 10)
 {
-  if constexpr (sizeof(Ein) > 2) {
-    (void)buf, (void)header, (void)in_encoded, (void)out_decoded, (void)stream, (void)variant;
-    return PHF_NOT_IMPLEMENTED;
-  }
-  else {
+  {
     using K = psz::HFR_PBK_Constants;
     constexpr int RvbkBytesPerBook = (int)K::RvbkBytesPerBook;  // 512
 
@@ -487,18 +606,37 @@ int decode_hfr(
       auto rvbk = (uint8_t*)(in_encoded + header.entry[PHFHEADER_RVBK]);
       const int rvbk_bytes =
           (int)(header.entry[PHFHEADER_RVBK + 1] - header.entry[PHFHEADER_RVBK]);
-      phf::module::HFR_PBK_decoder<Ein, H4, Ein>::template GPU_kernel<Eout>(
-          bs_ptr, bs_bytes, rvbk, rvbk_bytes, packed_headers, pardeg, header.ori_len, out_decoded,
-          buf->incomp_flag_d(), stream);
+      if (magnitude >= 12)
+        phf::module::HFR_PBK_decoder<Ein, H4, Ein, 12>::template GPU_kernel<Eout>(
+            bs_ptr, bs_bytes, rvbk, rvbk_bytes, packed_headers, pardeg, header.ori_len,
+            out_decoded, buf->incomp_flag_d(), stream);
+      else if (magnitude >= 11)
+        phf::module::HFR_PBK_decoder<Ein, H4, Ein, 11>::template GPU_kernel<Eout>(
+            bs_ptr, bs_bytes, rvbk, rvbk_bytes, packed_headers, pardeg, header.ori_len,
+            out_decoded, buf->incomp_flag_d(), stream);
+      else
+        phf::module::HFR_PBK_decoder<Ein, H4, Ein>::template GPU_kernel<Eout>(
+            bs_ptr, bs_bytes, rvbk, rvbk_bytes, packed_headers, pardeg, header.ori_len,
+            out_decoded, buf->incomp_flag_d(), stream);
     }
     else {
       // prebuilt pbk25_r128 pool (Storage=u1); V3/V4 offset to their single g_encid book.
-      auto rvbk = (uint8_t*)pbk25_r128_rvbk_d_ptr() +
-                  ((variant == HFR_V3 or variant == HFR_V4) ? (size_t)header.g_encid * RvbkBytesPerBook
-                                                            : 0);
-      phf::module::HFR_PBK_decoder<Ein, H4, u1>::template GPU_kernel<Eout>(
-          bs_ptr, bs_bytes, rvbk, RvbkBytesPerBook, packed_headers, pardeg, header.ori_len,
-          out_decoded, buf->incomp_flag_d(), stream);
+      auto rvbk =
+          (uint8_t*)pbk25_r128_rvbk_d_ptr() + ((variant == HFR_V3 or variant == HFR_V4)
+                                                   ? (size_t)header.g_encid * RvbkBytesPerBook
+                                                   : 0);
+      if (magnitude >= 12)
+        phf::module::HFR_PBK_decoder<Ein, H4, u1, 12>::template GPU_kernel<Eout>(
+            bs_ptr, bs_bytes, rvbk, RvbkBytesPerBook, packed_headers, pardeg, header.ori_len,
+            out_decoded, buf->incomp_flag_d(), stream);
+      else if (magnitude >= 11)
+        phf::module::HFR_PBK_decoder<Ein, H4, u1, 11>::template GPU_kernel<Eout>(
+            bs_ptr, bs_bytes, rvbk, RvbkBytesPerBook, packed_headers, pardeg, header.ori_len,
+            out_decoded, buf->incomp_flag_d(), stream);
+      else
+        phf::module::HFR_PBK_decoder<Ein, H4, u1>::template GPU_kernel<Eout>(
+            bs_ptr, bs_bytes, rvbk, RvbkBytesPerBook, packed_headers, pardeg, header.ori_len,
+            out_decoded, buf->incomp_flag_d(), stream);
     }
 
     sync_by_stream(stream);
@@ -532,10 +670,9 @@ int high_level<E>::HFR_pick_pbk(
     phf::Buf<E>* buf, u4* hist_d, u2 const bklen, size_t const len, hf_stream_t stream)
 {
   buf->set_rt_bklen(psz::HFR_PBK_Constants::MaxDictsize);
-  if constexpr (sizeof(E) <= 2)
-    phf::module::HFR_pick_pbk(
-        hist_d, (u4)bklen, len, (u4*)pbk25_r128_book_d_ptr(), buf->book_d(), buf->pick_encid_d(),
-        stream);
+  phf::module::HFR_pick_pbk(
+      hist_d, (u4)bklen, len, (u4*)pbk25_r128_book_d_ptr(), buf->book_d(), buf->pick_encid_d(),
+      stream);
   return 0;
 }
 
@@ -600,7 +737,7 @@ template <typename E>
 template <typename Eout>
 int high_level<E>::HFR_decode(
     Buf<E>* buf, phf_header& header, uint8_t* in_encoded, Eout* out_decoded, hf_stream_t stream,
-    psz_codec variant)
+    psz_codec variant, int magnitude)
 {
   switch (variant) {
     case HFR:
@@ -608,7 +745,8 @@ int high_level<E>::HFR_decode(
     case HFR_PBKGO:
     case HFR_V3:
     case HFR_V4:
-      return dispatch::decode_hfr<E, Eout>(buf, header, in_encoded, out_decoded, stream, variant);
+      return dispatch::decode_hfr<E, Eout>(
+          buf, header, in_encoded, out_decoded, stream, variant, magnitude);
     case HFR_PBKF: return PHF_NOT_IMPLEMENTED;
     default: return PHF_NOT_IMPLEMENTED;
   }
@@ -623,13 +761,27 @@ template struct phf::high_level<u4>;
 template int phf::high_level<u2>::HF_decode<u2>(
     phf::Buf<u2>*, phf_header&, uint8_t*, u2*, hf_stream_t, psz_codec);
 template int phf::high_level<u2>::HFR_decode<u2>(
-    phf::Buf<u2>*, phf_header&, uint8_t*, u2*, hf_stream_t, psz_codec);
+    phf::Buf<u2>*, phf_header&, uint8_t*, u2*, hf_stream_t, psz_codec, int);
 
 template int phf::high_level<u2>::HF_decode<f4>(
     phf::Buf<u2>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec);
 template int phf::high_level<u2>::HF_decode<f8>(
     phf::Buf<u2>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec);
 template int phf::high_level<u2>::HFR_decode<f4>(
-    phf::Buf<u2>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec);
+    phf::Buf<u2>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec, int);
 template int phf::high_level<u2>::HFR_decode<f8>(
-    phf::Buf<u2>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec);
+    phf::Buf<u2>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec, int);
+
+template int phf::high_level<u4>::HF_decode<u4>(
+    phf::Buf<u4>*, phf_header&, uint8_t*, u4*, hf_stream_t, psz_codec);
+template int phf::high_level<u4>::HFR_decode<u4>(
+    phf::Buf<u4>*, phf_header&, uint8_t*, u4*, hf_stream_t, psz_codec, int);
+
+template int phf::high_level<u4>::HF_decode<f4>(
+    phf::Buf<u4>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec);
+template int phf::high_level<u4>::HF_decode<f8>(
+    phf::Buf<u4>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec);
+template int phf::high_level<u4>::HFR_decode<f4>(
+    phf::Buf<u4>*, phf_header&, uint8_t*, f4*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u4>::HFR_decode<f8>(
+    phf::Buf<u4>*, phf_header&, uint8_t*, f8*, hf_stream_t, psz_codec, int);

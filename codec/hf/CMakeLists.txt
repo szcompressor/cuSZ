@@ -70,6 +70,14 @@ add_library(phf_cu
   src/compile/hfr-pbkc_r2.cu
   src/compile/hfr-pbkc_r3.cu
   src/compile/hfr-pbkc_r4.cu
+  src/compile/hfr-pbkc_2k.cu
+  src/compile/hfr-pbkc_4k.cu
+  src/compile/hfr_encode_2k.cu
+  src/compile/hfr_encode_4k.cu
+  src/compile/hfr-v4_2k.cu
+  src/compile/hfr-v4_4k.cu
+  src/compile/hfr-pbkgo_2k.cu
+  src/compile/hfr-pbkgo_4k.cu
   src/compile/hfr-v4_r0.cu
   src/compile/hfr-v4_r1.cu
   src/compile/hfr-v4_r2.cu

@@ -41,7 +41,6 @@ struct Buf {
   using M = PHF_METADATA;
   using Header = phf_header;
   using BHeader = psz::_future::bheader<E, Radius>;
-  using BlockOutlierCell = _ptb::compact_cell<f4, u2>;
 
   // ctor/dtor
   Buf(size_t inlen, size_t _bklen, int _pardeg = -1, bool _use_HFR = false, bool debug = false,
@@ -61,7 +60,7 @@ struct Buf {
   auto set_use_global_encid(bool v) -> void;  // HFR-v3 uses global PBK ID, async cp'ed to header
   auto pick_encid_d() const -> u4*;
   auto timing_event(int idx) const -> void*;    // 3 reusable cudaEvent_t vars
-  auto pbkgo_max_blocks_per_sm() const -> int;  // PBKGO: computed at init, 0 for sizeof(SYM) > 2.
+  auto pbkgo_max_blocks_per_sm() const -> int;  // PBKGO: occupancy, computed at init.
   auto pbkgo_max_resident_blocks() const -> int;
 
   // getter: arrays
@@ -94,7 +93,6 @@ struct Buf {
   H4* packed_d() const;
   u4* total_ncell_d() const;
   u4* pbk_packed_headers_d() const;  // 2 u4 per block; HFR family only
-  BlockOutlierCell* block_outliers_d() const;
   u1* incomp_flag_d() const;
   u4* pbkgo_state_d() const;
 

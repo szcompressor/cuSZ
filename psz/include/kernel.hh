@@ -54,7 +54,9 @@ struct GPU_c_lorenzo_nd {
   using Eq = typename Types::Eq;
   using Buf = typename Types::Buf_Comp;
 
-  static int kernel(Buf* buf, host::view<T> in_data, f8 const eb, u2 const radius, void* stream);
+  static int kernel(
+      Buf* buf, host::view<T> in_data, f8 const eb, u2 const radius, bool enable_incomp,
+      bool enable_global, void* stream);
 };
 
 template <class Types, class Features>
@@ -83,7 +85,7 @@ struct CPU_x_lorenzo_nd {
 // spline-based interpolation //////////////////////////////////////////////////
 // y24: 3D (x32-y8-z8); y25: 2D (x64-y64) and 3D (x16-y16-z16) /////////////////
 
-template <class Types>
+template <class Types, class Features>
 struct GPU_c_spline_y24 {
   using T = typename Types::T;
   using E = typename Types::Eq;
@@ -91,10 +93,10 @@ struct GPU_c_spline_y24 {
 
   static int kernel(
       Buf* buf, host::view<T> data, double eb, double rel_eb, uint32_t radius,
-      INTERP_PARAMS& intp_param, void* stream);
+      INTERP_PARAMS& intp_param, bool enable_global, void* stream);
 };
 
-template <class Types>
+template <class Types, class Features>
 struct GPU_c_spline_y25 {
   using T = typename Types::T;
   using E = typename Types::Eq;
@@ -102,7 +104,7 @@ struct GPU_c_spline_y25 {
 
   static int kernel(
       Buf* buf, host::view<T> data, double eb, double rel_eb, uint32_t radius,
-      INTERP_PARAMS& intp_param, void* stream);
+      INTERP_PARAMS& intp_param, bool enable_global, void* stream);
 };
 
 template <class Types>

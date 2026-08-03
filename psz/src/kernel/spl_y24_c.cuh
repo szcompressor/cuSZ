@@ -8,9 +8,10 @@
 #include "mem/cxx_sp_gpu.h"
 #include "spl_y24.cuh"
 
-template <class Types>
-int psz::module::GPU_c_spline_y24<Types>::kernel(
-    Buf* buf, host::view<T> in, double eb, double, uint32_t radius, INTERP_PARAMS&, void* stream)
+template <class Types, class Features>
+int psz::module::GPU_c_spline_y24<Types, Features>::kernel(
+    Buf* buf, host::view<T> in, double eb, double, uint32_t radius, INTERP_PARAMS&,
+    bool enable_global, void* stream)
 {
   if (LEN_TO_DIM3(in.extent).z == 1) return PSZ_ABORT_UNSUPPORTED_DIMENSION;  // 3D-only
 
@@ -38,10 +39,23 @@ int psz::module::GPU_c_spline_y24<Types>::kernel(
   using Cell = _ptb::compact_cell<T, u4>;
   auto ot = (Compact2*)_outlier;
 
-  psz::KCU_c_spline3d_infprecis_32x8x8data<T, E, FP, DEFAULT_LINEAR_BLOCK_SIZE, Cell*>  //
-      <<<grid, dim3(DEFAULT_LINEAR_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
-          data.ptr, extent, data_leap, eq.ptr, extent, data_leap, anchor.ptr, anchor_leap,
-          ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius);
+  auto out_bheader = buf->buf_hf() ? (uint32_t*)buf->buf_hf()->pbk_headers_d() : nullptr;
+  auto out_block_outliers = buf->block_outliers_d();
+  auto go = [&](auto global_const) {
+    constexpr bool Global = decltype(global_const)::value;
+    using F = psz::PredictorFeature<
+        Features::UseZigZag, Features::UseH1GL,
+        (Global ? 0b10 : 0b00) | (Features::UnpredIncomp & 0b01)>;
+    psz::KCU_c_spline3d_infprecis_32x8x8data<T, E, FP, DEFAULT_LINEAR_BLOCK_SIZE, Cell*, uint32_t*, F>
+        <<<grid, dim3(DEFAULT_LINEAR_BLOCK_SIZE, 1, 1), 0, (cudaStream_t)stream>>>(
+            data.ptr, extent, data_leap, eq.ptr, extent, data_leap, anchor.ptr, anchor_leap,
+            ot->val_idx_d(), ot->num_d(), eb_r, ebx2, radius, out_bheader, out_block_outliers,
+            enable_global, ot->max_allowed_num());
+  };
+  if (enable_global)
+    go(std::integral_constant<bool, true>{});
+  else
+    go(std::integral_constant<bool, false>{});
 
   return CUSZ_SUCCESS;
 }

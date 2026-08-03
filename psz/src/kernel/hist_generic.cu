@@ -46,7 +46,8 @@ __global__ void KCU_p2013Histogram(
 
   for (unsigned int i = begin; i < end; i += step) {
     int d = in_data[i];
-    d = d <= 0 and d >= bins_len ? bins_len / 2 : d;
+    // skip out-of-domain values (e.g. an incomp tile's raw fallback bits, not a quant code).
+    if (d < 0 or d >= (int)bins_len) continue;
     atomicAdd(&Hs[off_rep + d], 1);
   }
   __syncthreads();

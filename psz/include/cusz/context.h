@@ -63,6 +63,7 @@ struct psz_context {
   bool there_is_memerr;
 
   int spline_variant;  // 0 = y25/BLK16 (default), 1 = y24/BLK8
+  bool use_eq4;        // eq/SYM width: false = u2 (default), true = u4
 };
 
 typedef struct psz_context psz_context;
