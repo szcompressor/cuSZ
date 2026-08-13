@@ -216,7 +216,7 @@ struct Arguments {
 template <typename E>
 void hf_run(
     Arguments const& args, size_t len, HFVariant const& v, int reduce,
-    E const* preloaded_h_data = nullptr, RMerge rm = RMerge::v7, SMerge sm = SMerge::v7)
+    E const* preloaded_h_data = nullptr)
 {
   const int bklen = args.bklen;
   const int repeat = args.repeat;
@@ -273,7 +273,7 @@ void hf_run(
     if (v.is_hfr_family)
       phf::high_level<E>::HFR_encode(
           buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
-          &ms_enc_p, &ms_lago_p, HFR_Opts{reduce, rm, sm, args.magnitude, args.blockdim});
+          &ms_enc_p, &ms_lago_p, HFR_Opts{reduce, args.magnitude, args.blockdim});
     else
       phf::high_level<E>::HF_encode(
           buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
@@ -415,11 +415,10 @@ inline HFVariant const* lookup_variant(const string& path)
 
 template <typename E>
 void run_one_path(
-    Arguments const& args, size_t len, const string& path, E const* h_raw, int reduce,
-    RMerge rm = RMerge::v7, SMerge sm = SMerge::v7)
+    Arguments const& args, size_t len, const string& path, E const* h_raw, int reduce)
 {
   if (auto const* v = lookup_variant(path)) {
-    hf_run<E>(args, len, *v, reduce, h_raw, rm, sm);
+    hf_run<E>(args, len, *v, reduce, h_raw);
     return;
   }
   if (path == "hfr_pbkf" or path == "hfr-pbkf") {

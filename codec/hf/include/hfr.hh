@@ -142,7 +142,7 @@ struct HFR_encoder {
 
   static int GPU_kernel_v2(
       T* in_eq, size_t len, Hf* runtime_book, Hf* dn_bitstream, bheader_t* dn_headers,
-      psz::OutlierCell* block_outliers, void* stream, RMerge rm, SMerge sm);
+      psz::OutlierCell* block_outliers, void* stream);
 };
 
 // HFR-v3 rep. hist. -> pick PBK & emit ID
@@ -197,7 +197,7 @@ struct HFR_PBKC_encode {
 
   static int GPU_kernel(
       T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
-      psz::OutlierCell* block_outliers, void* stream, RMerge rm, SMerge sm);
+      psz::OutlierCell* block_outliers, void* stream);
 };
 
 // HFR-v4: almost PBKC, but single-book
@@ -208,7 +208,7 @@ struct HFR_V4_encode {
 
   static int GPU_kernel(
       T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
-      psz::OutlierCell* block_outliers, void* stream, RMerge rm, SMerge sm);
+      psz::OutlierCell* block_outliers, void* stream);
 };
 
 template <typename T, int Magnitude, int ReduceTimes, typename Hf = uint32_t, u2 Radius = 128>
@@ -220,9 +220,8 @@ struct HFR_PBKGO_encode {
 
   static int GPU_kernel(
       T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
-      psz::OutlierCell* block_outliers,
-      uint32_t* dn_packed_headers, uint32_t* d_total_cells, uint32_t* d_state,
-      int max_resident_blocks, void* stream, RMerge rm, SMerge sm);
+      psz::OutlierCell* block_outliers, uint32_t* dn_packed_headers, uint32_t* d_total_cells,
+      uint32_t* d_state, int max_resident_blocks, void* stream);
 };
 
 }  // namespace phf::module

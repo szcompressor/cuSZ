@@ -55,14 +55,13 @@ __forceinline__ __device__ void emit_packed_and_total(
   if (b == nblock - 1) *d_total_cells = (entry_v + p_wbytes) / (u4)sizeof(Hf);
 }
 
-template <class C, RMerge RM = RMerge::v7, SMerge SM = SMerge::v7>
+template <class C>
 __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_PBKGO_encode(
     typename C::T* in_eq, size_t data_len, typename C::Hf* dram_pbk, typename C::Hf* dn_bitstream,
     typename C::bheader_t* dn_headers,
     psz::OutlierCell* block_outliers,
     u4* dn_packed_headers, u4* d_total_cells, u4* d_state)
 {
-  static_assert(merge_compatible(RM, SM), "RMerge/SMerge data-handoff contract mismatch");
   HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C);
   HFR_PBK_SHARED_AND_RESET();
   __syncthreads();
@@ -103,9 +102,9 @@ __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_
 
   constexpr int MaxIters = ShardSize / 2;
   u4 r_reduced[MaxIters], r_bits[MaxIters];
-  MergeCtx<C> cx{data_len,     b,          reduce_times, (volatile u4*)s_book, p_eq,      s_breaks,
-                 &s_v3_incomp, &s_bheader, s_reduced,    s_bitcount,           r_reduced, r_bits};
-  dispatch_rmerge<RM>(cx);
+  _merge_ctx<C> cx{data_len,     b,          reduce_times, (volatile u4*)s_book, p_eq,      s_breaks,
+                   &s_v3_incomp, &s_bheader, s_reduced,    s_bitcount,           r_reduced, r_bits};
+  dispatch_rmerge<'b'>(cx);
 
   {
     u4 p_incomp = 0;
@@ -126,7 +125,7 @@ __global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_
     }
   }
 
-  dispatch_smerge<SM>(cx);
+  dispatch_smerge<'b'>(cx);
   write_pbk_bitstream_v2(
       b, s_bitcount, s_reduced, (u1*)dn_bitstream, &s_bheader, s_breaks, slot,
       _router_inline_breaks<BreakCell, u4>{}, block_outliers);
@@ -157,7 +156,7 @@ int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
     T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
     psz::OutlierCell* block_outliers,
     uint32_t* dn_packed_headers, uint32_t* d_total_cells, uint32_t* d_state,
-    int max_resident_blocks, void* stream, RMerge rm, SMerge sm)
+    int max_resident_blocks, void* stream)
 {
   using C = phf::HFR_PBKGO_Config<T, Magnitude, ReduceTimes, Hf, Radius>;
 
@@ -167,13 +166,9 @@ int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
   const dim3 grid(nblock, 1, 1);
   const dim3 block((u4)nthread, 1, 1);
 
-  dispatch_merge_host(rm, sm, [&](auto rm_tag, auto sm_tag) {
-    constexpr RMerge RM = decltype(rm_tag)::value;
-    constexpr SMerge SM = decltype(sm_tag)::value;
-    phf::KCU_HFR_PBKGO_encode<C, RM, SM><<<grid, block, 0, (cudaStream_t)stream>>>(
-        in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers,
-        dn_packed_headers, d_total_cells, d_state);
-  });
+  phf::KCU_HFR_PBKGO_encode<C><<<grid, block, 0, (cudaStream_t)stream>>>(
+      in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers,
+      dn_packed_headers, d_total_cells, d_state);
   return 0;
 }
 

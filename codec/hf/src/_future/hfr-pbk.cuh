@@ -37,11 +37,10 @@ template <int ChunkSize, int BitWidth, int Radius, int BaseRT, typename Header_v
 template <int ChunkSize, int BitWidth, int BaseSeq, int MergeSize> __forceinline__ __device__ void smerge_sync__v7_const_shardsize_iter(volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits);
 template <int ChunkSize, int BitWidth, int BaseRT, int RT>         __forceinline__ __device__ void smerge__v7_wrapper                  (u4 const reduce_times, volatile u4* s_reduced, volatile u4* s_bitcount, u4* r_reduced, u4* r_bits);
 
-// version dispatch (state bundled in MergeCtx<C>)
-template <class C> struct MergeCtx;
-template <RMerge V, class C>        __forceinline__ __device__ void dispatch_rmerge(MergeCtx<C> cx);
-template <SMerge V, class C>        __forceinline__ __device__ void dispatch_smerge(MergeCtx<C> cx);
-template <class Launch>             __host__ void dispatch_merge_host(RMerge rm, SMerge sm, Launch&& launch);
+// version dispatch (state bundled in _merge_ctx<C>)
+template <class C> struct _merge_ctx;
+template <char Preset, class C>     __forceinline__ __device__ void dispatch_rmerge(_merge_ctx<C> ctx);
+template <char Preset, class C>     __forceinline__ __device__ void dispatch_smerge(_merge_ctx<C> ctx);
 
 // block/bitstream write
 template <typename Slot, typename BreaksRouter, typename Hf, typename Header, typename BreakCell>       __forceinline__ __device__ void write_pbk_bitstream_v2(u4 b, volatile u4* s_bitcount, volatile Hf* s_reduced, u1* dn_base, volatile Header* bheader, volatile BreakCell* s_breaks, Slot slot, BreaksRouter router, psz::OutlierCell const* block_outliers = nullptr);
@@ -406,10 +405,9 @@ __forceinline__ __device__ void smerge__v7_wrapper(
         reduce_times, s_reduced, s_bitcount, r_reduced, r_bits);
 }
 
-// RMerge/SMerge symbols are hfr-pbk_ver.hh.
-// bundled context for per-block merge + a version tag.
+// bundled context for per-block merge.
 template <class C>
-struct MergeCtx {
+struct _merge_ctx {
   using Header = typename C::bheader_t;
   using BreakCell = psz::HFR_PBK_Breaks<C::Radius>;
   size_t data_len;
@@ -426,8 +424,8 @@ struct MergeCtx {
   u4* r_bits;
 };
 
-template <RMerge V, class C>
-__forceinline__ __device__ void dispatch_rmerge(MergeCtx<C> cx)
+template <char Preset, class C>
+__forceinline__ __device__ void dispatch_rmerge(_merge_ctx<C> ctx)
 {
   constexpr int ChunkSize = C::ChunkSize;
   constexpr int BitWidth = C::BITWIDTH;
@@ -435,32 +433,23 @@ __forceinline__ __device__ void dispatch_rmerge(MergeCtx<C> cx)
   // BaseSeq = 1<<BaseRT; runtime reduce_times selects MergeSize.
   // Iters = BaseSeq/MergeSize = 1 << IterLog
   constexpr int BaseRT = (int)C::ReduceTimes + (int)C::IterLog;
-  using Header = typename MergeCtx<C>::Header;
-  static_assert(V == RMerge::v7, "release build: v7 only");
+  using Header = typename _merge_ctx<C>::Header;
+  static_assert(Preset == 'b', "release build: v7 ('b') only");
 
   rmerge__v7_wrapper<ChunkSize, BitWidth, Radius, BaseRT, Header>(
-      cx.reduce_times, cx.data_len, cx.chunk_id, cx.s_book, cx.p_eq, cx.s_breaks, cx.s_v3_incomp,
-      cx.bheader, cx.r_reduced, cx.r_bits);
+      ctx.reduce_times, ctx.data_len, ctx.chunk_id, ctx.s_book, ctx.p_eq, ctx.s_breaks,
+      ctx.s_v3_incomp, ctx.bheader, ctx.r_reduced, ctx.r_bits);
 }
 
-template <SMerge V, class C>
-__forceinline__ __device__ void dispatch_smerge(MergeCtx<C> cx)
+template <char Preset, class C>
+__forceinline__ __device__ void dispatch_smerge(_merge_ctx<C> ctx)
 {
   constexpr int ChunkSize = C::ChunkSize;
   constexpr int BitWidth = C::BITWIDTH;
   constexpr int BaseRT = (int)C::ReduceTimes + (int)C::IterLog;
-  static_assert(V == SMerge::v7, "release build: v7 only");
+  static_assert(Preset == 'b', "release build: v7 ('b') only");
   smerge__v7_wrapper<ChunkSize, BitWidth, BaseRT>(
-      cx.reduce_times, cx.s_reduced, cx.s_bitcount, cx.r_reduced, cx.r_bits);
-}
-
-template <class Launch>
-__host__ void dispatch_merge_host(RMerge rm, SMerge sm, Launch&& launch)
-{
-  (void)rm;
-  (void)sm;
-  launch(
-      std::integral_constant<RMerge, RMerge::v7>{}, std::integral_constant<SMerge, SMerge::v7>{});
+      ctx.reduce_times, ctx.s_reduced, ctx.s_bitcount, ctx.r_reduced, ctx.r_bits);
 }
 
 namespace {
@@ -685,10 +674,9 @@ __forceinline__ __device__ void write_pbk_bitstream_v2(
   using hfr_pbk::smerge_sync__v7_const_shardsize_iter; \
   using hfr_pbk::rmerge__v7_wrapper;                   \
   using hfr_pbk::smerge__v7_wrapper;                   \
-  using hfr_pbk::MergeCtx;                             \
+  using hfr_pbk::_merge_ctx;                           \
   using hfr_pbk::dispatch_rmerge;                      \
-  using hfr_pbk::dispatch_smerge;                      \
-  using hfr_pbk::dispatch_merge_host;
+  using hfr_pbk::dispatch_smerge;
 
 #define HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C)                                     \
   using T = typename C::T;                                                     \

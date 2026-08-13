@@ -168,8 +168,6 @@ int encode_hfr_v2(
     const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
                              : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
                                                : opts.reduce_times;
-    const RMerge rm = opts.rm;
-    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(false);  // HFR ships runtime rvbk in archive.
@@ -183,7 +181,7 @@ int encode_hfr_v2(
           using Enc = phf::module::HFR_encoder<E, 12, RT>;
           Enc::GPU_kernel_v2(
               in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
-              opts.block_outliers, stream, rm, sm);
+              opts.block_outliers, stream);
         }
         return;
       }
@@ -192,14 +190,14 @@ int encode_hfr_v2(
           using Enc = phf::module::HFR_encoder<E, 11, RT>;
           Enc::GPU_kernel_v2(
               in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
-              opts.block_outliers, stream, rm, sm);
+              opts.block_outliers, stream);
         }
         return;
       }
       using Enc = phf::module::HFR_encoder<E, K::Magnitude, RT>;
       Enc::GPU_kernel_v2(
           in, len, buf->book_d(), buf->bitstream_d(), hdrs, opts.block_outliers,
-          stream, rm, sm);
+          stream);
     };
     auto launch_aggregate = [&]() {
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
@@ -260,8 +258,6 @@ int encode_hfr_v3(
     const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
                              : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
                                                : opts.reduce_times;
-    const RMerge rm = opts.rm;
-    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);  // rvbk stays baked-in; decode indexes it by global id.
@@ -277,7 +273,7 @@ int encode_hfr_v3(
           using Enc = phf::module::HFR_encoder<E, 12, RT>;
           Enc::GPU_kernel_v2(
               in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
-              opts.block_outliers, stream, rm, sm);
+              opts.block_outliers, stream);
         }
         return;
       }
@@ -286,14 +282,14 @@ int encode_hfr_v3(
           using Enc = phf::module::HFR_encoder<E, 11, RT>;
           Enc::GPU_kernel_v2(
               in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::bheader_t*)hdrs,
-              opts.block_outliers, stream, rm, sm);
+              opts.block_outliers, stream);
         }
         return;
       }
       using Enc = phf::module::HFR_encoder<E, K::Magnitude, RT>;
       Enc::GPU_kernel_v2(
           in, len, buf->book_d(), buf->bitstream_d(), hdrs, opts.block_outliers,
-          stream, rm, sm);
+          stream);
     };
     auto launch_aggregate = [&]() {
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
@@ -354,8 +350,6 @@ int encode_hfr_v4(
     const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
                              : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
                                                : opts.reduce_times;
-    const RMerge rm = opts.rm;
-    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);  // rvbk stays baked-in; decode indexes it by global id.
@@ -371,7 +365,7 @@ int encode_hfr_v4(
           using Enc = phf::module::HFR_V4_encode<E, 12, RT, H4, K::Radius>;
           Enc::GPU_kernel(
               in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::header_t*)hdrs,
-              opts.block_outliers, stream, rm, sm);
+              opts.block_outliers, stream);
         }
         return;
       }
@@ -380,14 +374,14 @@ int encode_hfr_v4(
           using Enc = phf::module::HFR_V4_encode<E, 11, RT, H4, K::Radius>;
           Enc::GPU_kernel(
               in, len, buf->book_d(), buf->bitstream_d(), (typename Enc::header_t*)hdrs,
-              opts.block_outliers, stream, rm, sm);
+              opts.block_outliers, stream);
         }
         return;
       }
       using Enc = phf::module::HFR_V4_encode<E, K::Magnitude, RT, H4, K::Radius>;
       Enc::GPU_kernel(
           in, len, buf->book_d(), buf->bitstream_d(), hdrs, opts.block_outliers,
-          stream, rm, sm);
+          stream);
     };
     auto launch_aggregate = [&]() {
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
@@ -443,8 +437,6 @@ int encode_hfr_pbkc(
 {
   {
     const int reduce_times = opts.reduce_times;
-    const RMerge rm = opts.rm;
-    const SMerge sm = opts.sm;
     constexpr int ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);
@@ -463,24 +455,24 @@ int encode_hfr_pbkc(
           if (opts.blockdim >= 256) {
             Enc4kB::GPU_kernel(
                 in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
-                (typename Enc4kB::header_t*)hdrs, opts.block_outliers, stream, rm, sm);
+                (typename Enc4kB::header_t*)hdrs, opts.block_outliers, stream);
             return;
           }
         }
         Enc4kA::GPU_kernel(
             in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
-            (typename Enc4kA::header_t*)hdrs, opts.block_outliers, stream, rm, sm);
+            (typename Enc4kA::header_t*)hdrs, opts.block_outliers, stream);
       }
       else if (magnitude >= 11) {
         using Enc2k = phf::module::HFR_PBKC_encode<E, 11, RT, H4, K::Radius, /*IterLog=*/1>;
         Enc2k::GPU_kernel(
             in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
-            (typename Enc2k::header_t*)hdrs, opts.block_outliers, stream, rm, sm);
+            (typename Enc2k::header_t*)hdrs, opts.block_outliers, stream);
       }
       else
         phf::module::HFR_PBKC_encode<E, K::Magnitude, RT, H4, K::Radius>::GPU_kernel(
             in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), hdrs,
-            opts.block_outliers, stream, rm, sm);
+            opts.block_outliers, stream);
     };
     auto launch_aggregate = [&]() {
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
@@ -538,8 +530,6 @@ int encode_hfr_pbkgo(
     const int magnitude = opts.magnitude;
     const int reduce_times = opts.reduce_times;
     const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
-    const RMerge rm = opts.rm;
-    const SMerge sm = opts.sm;
     using K = psz::HFR_PBK_Constants;
     int rt = reduce_times;
     if (rt < 2) {
@@ -555,7 +545,7 @@ int encode_hfr_pbkgo(
             in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
             (typename Enc::header_t*)buf->pbk_headers_d(), opts.block_outliers,
             buf->pbk_packed_headers_d(), buf->total_ncell_d(),
-            buf->pbkgo_state_d(), buf->pbkgo_max_resident_blocks(), stream, rm, sm);
+            buf->pbkgo_state_d(), buf->pbkgo_max_resident_blocks(), stream);
       };
       if (magnitude >= 12)
         go(std::integral_constant<int, 12>{});

@@ -18,13 +18,12 @@ using hfr_pbk::slot_fixed_stride;
 using hfr_pbk::write_pbk_bitstream_v2;
 using phf::hfr_helpers::blk_incomp_fb;
 
-template <class C, RMerge RM = RMerge::v7, SMerge SM = SMerge::v7>
+template <class C>
 __global__ void KCU_HFR_encode(
     typename C::T* in_eq, size_t data_len, typename C::Hf* runtime_book,
     typename C::Hf* dn_bitstream, typename C::bheader_t* dn_headers,
     psz::OutlierCell* block_outliers)
 {
-  static_assert(merge_compatible(RM, SM), "RMerge/SMerge data-handoff contract mismatch");
   HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C);
   HFR_PBK_SHARED_AND_RESET();
 
@@ -64,10 +63,10 @@ __global__ void KCU_HFR_encode(
   constexpr int MaxIters = (ShardSize + 1) / 2;  // >=1 so RT=0 (ShardSize=1) holds one word
   u4 r_reduced[MaxIters], r_bits[MaxIters];
   u4 reduce_times = C::ReduceTimes;  // single fixed book: never clamped
-  MergeCtx<C> cx{data_len,  (u4)blockIdx.x, reduce_times, (volatile u4*)s_book,
-                 p_eq,      s_breaks,       &s_v3_incomp, &s_bheader,
-                 s_reduced, s_bitcount,     r_reduced,    r_bits};
-  dispatch_rmerge<RM>(cx);
+  _merge_ctx<C> cx{data_len,  (u4)blockIdx.x, reduce_times, (volatile u4*)s_book,
+                   p_eq,      s_breaks,       &s_v3_incomp, &s_bheader,
+                   s_reduced, s_bitcount,     r_reduced,    r_bits};
+  dispatch_rmerge<'b'>(cx);
 
   {
     u4 p_incomp = 0;
@@ -83,7 +82,7 @@ __global__ void KCU_HFR_encode(
     }
   }
 
-  dispatch_smerge<SM>(cx);
+  dispatch_smerge<'b'>(cx);
   write_pbk_bitstream_v2(
       blockIdx.x, s_bitcount, s_reduced, (u1*)dn_bitstream, &s_bheader, s_breaks, slot,
       _router_inline_breaks<BreakCell, u4>{}, block_outliers);
@@ -97,19 +96,15 @@ namespace phf::module {
 template <typename T, int Magnitude, int ReduceTimes, bool UseScan, typename Hf>
 int HFR_encoder<T, Magnitude, ReduceTimes, UseScan, Hf>::GPU_kernel_v2(
     T* in_eq, size_t len, Hf* runtime_book, Hf* dn_bitstream, bheader_t* dn_headers,
-    psz::OutlierCell* block_outliers, void* stream, RMerge rm, SMerge sm)
+    psz::OutlierCell* block_outliers, void* stream)
 {
   using C = phf::HFR_PBKC_Config<T, Magnitude, ReduceTimes, Hf>;
 
   constexpr auto nthread = C::BlockDim;
   const auto nblock = (u4)((len - 1) / C::ChunkSize + 1);
 
-  dispatch_merge_host(rm, sm, [&](auto rm_tag, auto sm_tag) {
-    constexpr RMerge RM = decltype(rm_tag)::value;
-    constexpr SMerge SM = decltype(sm_tag)::value;
-    phf::KCU_HFR_encode<C, RM, SM><<<nblock, nthread, 0, (cudaStream_t)stream>>>(
-        in_eq, len, runtime_book, dn_bitstream, dn_headers, block_outliers);
-  });
+  phf::KCU_HFR_encode<C><<<nblock, nthread, 0, (cudaStream_t)stream>>>(
+      in_eq, len, runtime_book, dn_bitstream, dn_headers, block_outliers);
 
   return 0;
 }
