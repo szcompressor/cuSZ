@@ -28,10 +28,12 @@ using hfr_pbk::slot_lago_ticket;
 using hfr_pbk::write_pbk_bitstream_v2;
 using phf::hfr_helpers::blk_incomp_fb;
 
-#if __CUDA_ARCH__ == 700 || __CUDA_ARCH__ == 800 || __CUDA_ARCH__ == 900
+#if __CUDA_ARCH__ == 700 or __CUDA_ARCH__ == 800 or __CUDA_ARCH__ == 900
 #define PBKGO_MIN_BLOCKS_PER_SM 8
+#define PBKGO_MAX_THREADS_PER_SM 2048
 #else
 #define PBKGO_MIN_BLOCKS_PER_SM 6
+#define PBKGO_MAX_THREADS_PER_SM 1536
 #endif
 
 // last logical block also publishes total_cells, thread-0-only.
@@ -56,7 +58,10 @@ __forceinline__ __device__ void emit_packed_and_total(
 }
 
 template <class C>
-__global__ __launch_bounds__(C::BlockDim, PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_PBKGO_encode(
+__global__ __launch_bounds__(
+    C::BlockDim, PBKGO_MAX_THREADS_PER_SM / C::BlockDim < PBKGO_MIN_BLOCKS_PER_SM
+                     ? PBKGO_MAX_THREADS_PER_SM / C::BlockDim
+                     : PBKGO_MIN_BLOCKS_PER_SM) void KCU_HFR_PBKGO_encode(
     typename C::T* in_eq, size_t data_len, typename C::Hf* dram_pbk, typename C::Hf* dn_bitstream,
     typename C::bheader_t* dn_headers,
     psz::OutlierCell* block_outliers,

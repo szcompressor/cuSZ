@@ -1,6 +1,6 @@
 #include "hfr-pbkgo.cuh"
 
-// 4Ki (Magnitude=12): BlockDim = 2^(12-RT); PBKGO runs r2+ (r2 -> 1024 threads).
+// 4Ki (Magnitude=12): BlockDim = 2^(12-RT-IterLog); PBKGO runs r2+ (r2 -> 512 threads).
 template struct phf::module::HFR_PBKGO_encode<u1, 12, 2, u4, 128>;
 template struct phf::module::HFR_PBKGO_encode<u2, 12, 2, u4, 128>;
 template struct phf::module::HFR_PBKGO_encode<u4, 12, 2, u4, 128>;

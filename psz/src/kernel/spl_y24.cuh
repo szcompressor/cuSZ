@@ -557,8 +557,8 @@ __forceinline__ __device__ void interpolate_stage(
       }
       else {  // TODO == DECOMPRESSS and static_assert
         // incomp tile: flag indexed by 2Ki HF block.
-        auto _gid = (size_t)global_x + (size_t)global_y * data_size.x +
-                    (size_t)global_z * data_size.x * data_size.y;
+        // auto _gid = (size_t)global_x + (size_t)global_y * data_size.x +
+        //             (size_t)global_z * data_size.x * data_size.y;
         size_t chunk = spline_y24_eq_gid(global_x, global_y, global_z, dim3{}) / 2048u;
         bool inc = incomp_flag and incomp_flag[chunk];
         if (not inc) {

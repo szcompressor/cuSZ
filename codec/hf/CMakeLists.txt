@@ -54,38 +54,22 @@ add_library(phf_cu
   src/hf_hl.cc
   src/compile/hf_kernels.cu
   src/libphf.cc
-  src/compile/hfr_r1.cu
-  src/compile/hfr_r2.cu
-  src/compile/hfr_r3.cu
-  src/compile/hfr_r4.cu
+  src/compile/hfr_1ki.cu
   src/compile/hfr_concat.cu
-  src/compile/hfr_encode_r0.cu
-  src/compile/hfr_encode_r1.cu
-  src/compile/hfr_encode_r2.cu
-  src/compile/hfr_encode_r3.cu
-  src/compile/hfr_encode_r4.cu
+  src/compile/hfr_encode_1ki.cu
   src/hfr_pick_book.cu
-  src/compile/hfr-pbkc_r0.cu
-  src/compile/hfr-pbkc_r1.cu
-  src/compile/hfr-pbkc_r2.cu
-  src/compile/hfr-pbkc_r3.cu
-  src/compile/hfr-pbkc_r4.cu
-  src/compile/hfr-pbkc_2k.cu
-  src/compile/hfr-pbkc_4k.cu
-  src/compile/hfr_encode_2k.cu
-  src/compile/hfr_encode_4k.cu
-  src/compile/hfr-v4_2k.cu
-  src/compile/hfr-v4_4k.cu
-  src/compile/hfr-pbkgo_2k.cu
-  src/compile/hfr-pbkgo_4k.cu
-  src/compile/hfr-v4_r0.cu
-  src/compile/hfr-v4_r1.cu
-  src/compile/hfr-v4_r2.cu
-  src/compile/hfr-v4_r3.cu
-  src/compile/hfr-v4_r4.cu
-  src/compile/hfr-pbkgo_r2.cu
-  src/compile/hfr-pbkgo_r3.cu
-  src/compile/hfr-pbkgo_r4.cu
+  src/compile/hfr-pbkc_1ki.cu
+  src/compile/hfr-pbkc_2ki.cu
+  src/compile/hfr-pbkc_4ki_a.cu
+  src/compile/hfr-pbkc_4ki_b.cu
+  src/compile/hfr_encode_2ki.cu
+  src/compile/hfr_encode_4ki.cu
+  src/compile/hfr-v4_1ki.cu
+  src/compile/hfr-v4_2ki.cu
+  src/compile/hfr-v4_4ki.cu
+  src/compile/hfr-pbkgo_1ki.cu
+  src/compile/hfr-pbkgo_2ki.cu
+  src/compile/hfr-pbkgo_4ki.cu
   src/hfr-pbk_decoder.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src/book/pbk25_r128_d.cu
 )
