@@ -46,7 +46,7 @@ __global__ void KCU_HFR_PBK_decode(
   auto gid = blockIdx.x * blockDim.x + threadIdx.x;
   if (gid >= pbk_pardeg) return;
 
-  // valid count for this block; the last block is partial when data_len % ChunkSize != 0.
+  // valid count for this block (padding fine)
   size_t const block_off = (size_t)ChunkSize * gid;
   u4 const valid = (u4)(data_len - block_off < (size_t)ChunkSize ? data_len - block_off : ChunkSize);
 
@@ -55,21 +55,18 @@ __global__ void KCU_HFR_PBK_decode(
   u4 const tree_idx = unpack_par_encid<Magnitude>(w0);
   u4 const unit_start = unpack_par_entry_words<H>(w1);
 
-  // self-clearing decode message: 1 only for unpred-incomp (so x_lrz skips the recurrence).
   using psz::OutlierCell;
   bool const is_incomp_unpred = (tree_idx == (u4)psz::HFR_PBK_Constants::CodeIncompUnpred);
   if (out_incomp_flag) out_incomp_flag[gid] = is_incomp_unpred ? 1u : 0u;
 
-  // Pass-through fallback: enc_id >= NumBooks -> raw slot content.
+  // pass-through: copy raw value
   if (tree_idx >= (u4)NumBooks) {
     auto dst = out_decoded + block_off;
     if (is_incomp_unpred) {
-      // unpred-incomp: slot holds the predictor's incomp_pack bits (__half for 2B eq, f4 for
-      // 4B eq); unpack symmetrically, x_lrz dequants + skips recurrence.
       auto raw = reinterpret_cast<Ein const*>(in_pbk_bitstream + unit_start);
       for (u4 i = 0; i < valid; i++) dst[i] = (Eout)psz::incomp_unpack<Ein>(raw[i]);
     }
-    else {  // breaks-incomp (30): raw eq codes, then restore the appended per-block outlier cells.
+    else {  // breaks-incomp (30)
       auto raw = reinterpret_cast<Ein*>(in_pbk_bitstream + unit_start);
       for (u4 i = 0; i < valid; i++) dst[i] = (Eout)raw[i];
       u4 const n_unpred = unpack_par_nunpred<Magnitude>(w0);
@@ -84,14 +81,14 @@ __global__ void KCU_HFR_PBK_decode(
     return;
   }
 
-  // Recover n_breaks from par_entry delta; per-block layout [breaks | bitstream | unpred].
+  // per-block layout [breaks | bitstream | unpred].
   u4 const bs_words = unpack_par_dense<Magnitude>(w0);
   u4 const n_unpred = unpack_par_nunpred<Magnitude>(w0);
   u4 const total_words =
       (gid + 1 < pbk_pardeg)
           ? (unpack_par_entry_words<H>(pbk_packed_headers[2 * (gid + 1) + 1]) - unit_start)
           : ((u4)(pbk_bitstream_len / sizeof(H)) - unit_start);
-  // unpred cells trail the bitstream, word-padded (matches write_pbk_bitstream_v2).
+  // (matche write_pbk_bitstream_v2).
   u4 const unpred_words = ((n_unpred * (u4)sizeof(OutlierCell) + 3u) & ~3u) / (u4)sizeof(H);
   u4 const n_breaks = total_words - bs_words - unpred_words;
   auto const block_slot = in_pbk_bitstream + unit_start;
@@ -100,7 +97,6 @@ __global__ void KCU_HFR_PBK_decode(
 
   auto rvbk = in_rvbk_r128_25 + tree_idx * rvbk_nbyte;
   auto out_block = out_decoded + block_off;
-  // word-granular bound; inflate stops at `valid` symbols, so the padding bits are never read.
   phf::single_thread_inflate<Ein, H, Storage, Eout>(
       bs_slot, out_block, rvbk, (int)(bs_words * 32u), (int)valid);
 
@@ -173,6 +169,10 @@ template int HFR_PBK_decoder<u4, u4, u4>::GPU_kernel<f4>(
 template int HFR_PBK_decoder<u4, u4, u4>::GPU_kernel<f8>(
     u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, u1*, void*);
 
+// u1 byte-symbol profile (struct is instantiated in the PBKC block above).
+template int HFR_PBK_decoder<u1, u4, u1>::GPU_kernel<u1>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u1*, u1*, void*);
+
 // 2Ki (Magnitude=11): PBKC round-trip (bin_hf uses Eout=u2; f4/f8 for the pipeline).
 template struct HFR_PBK_decoder<u2, u4, u1, 11>;
 template int HFR_PBK_decoder<u2, u4, u1, 11>::GPU_kernel<u2>(
@@ -206,6 +206,14 @@ template int HFR_PBK_decoder<u4, u4, u1, 12>::GPU_kernel<f4>(
     u4*, size_t, u1*, int, u4 const*, int, size_t, f4*, u1*, void*);
 template int HFR_PBK_decoder<u4, u4, u1, 12>::GPU_kernel<f8>(
     u4*, size_t, u1*, int, u4 const*, int, size_t, f8*, u1*, void*);
+
+// u1 byte-symbol profile at 2Ki / 4Ki.
+template struct HFR_PBK_decoder<u1, u4, u1, 11>;
+template int HFR_PBK_decoder<u1, u4, u1, 11>::GPU_kernel<u1>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u1*, u1*, void*);
+template struct HFR_PBK_decoder<u1, u4, u1, 12>;
+template int HFR_PBK_decoder<u1, u4, u1, 12>::GPU_kernel<u1>(
+    u4*, size_t, u1*, int, u4 const*, int, size_t, u1*, u1*, void*);
 
 // HFR (runtime rvbk; Storage = E) at 2Ki / 4Ki.
 template struct HFR_PBK_decoder<u2, u4, u2, 11>;

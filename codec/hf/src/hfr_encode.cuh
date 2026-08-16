@@ -28,7 +28,11 @@ __global__ void KCU_HFR_encode(
   HFR_PBK_SHARED_AND_RESET();
 
   // fixed per-block stride
-  constexpr u4 MaxBytesPerBlock = ChunkSize * (u4)sizeof(Hf) +
+  // Dense words hold ShardSize symbols per Hf cell, so a block's dense output
+  // is bounded by ChunkSize * sizeof(T), not ChunkSize * sizeof(Hf); the raw
+  // incomp fallback writes exactly ChunkSize * sizeof(T). Sized to match the
+  // buffer (hf_buf.cc); identical to the old value when sizeof(T)==sizeof(Hf).
+  constexpr u4 MaxBytesPerBlock = ChunkSize * (u4)sizeof(T) +
                                   (u4)KC::MaxNumBreaks * (u4)sizeof(BreakCell) +
                                   (u4)KC::MaxUnpredBytes;
   slot_fixed_stride slot{MaxBytesPerBlock};

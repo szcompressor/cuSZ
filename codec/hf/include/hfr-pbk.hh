@@ -31,15 +31,18 @@ using incomp_eq_t = std::conditional_t<sizeof(E) == 2, __half, f4>;
 template <typename E>
 __host__ __device__ __forceinline__ E incomp_pack(f4 v)
 {
-  static_assert(sizeof(E) == 2 or sizeof(E) == 4, "incomp_eq_t defined for 2- or 4-byte E only.");
-  if constexpr (sizeof(E) == 2) {
+  static_assert(
+      sizeof(E) == 1 or sizeof(E) == 2 or sizeof(E) == 4, "Eq is 1-, 2- or 4-byte only.");
+  // FIXME: 1-byte is somewhat UB.
+  if constexpr (sizeof(E) == 1) { return (E)(int)v; }
+  else if constexpr (sizeof(E) == 2) {
     __half h = __float2half_rn(v);
-    uint16_t bits;
+    u2 bits;
     memcpy(&bits, &h, sizeof(bits));
     return (E)bits;
   }
   else {
-    uint32_t bits;
+    u4 bits;
     memcpy(&bits, &v, sizeof(bits));
     return (E)bits;
   }
@@ -48,8 +51,11 @@ __host__ __device__ __forceinline__ E incomp_pack(f4 v)
 template <typename E>
 __host__ __device__ __forceinline__ f4 incomp_unpack(E bits)
 {
-  static_assert(sizeof(E) == 2 or sizeof(E) == 4, "incomp_eq_t defined for 2- or 4-byte E only.");
-  if constexpr (sizeof(E) == 2) {
+  static_assert(
+      sizeof(E) == 1 or sizeof(E) == 2 or sizeof(E) == 4,
+      "incomp_eq_t defined for 1-, 2- or 4-byte E only.");
+  if constexpr (sizeof(E) == 1) { return (f4)(int)bits; }
+  else if constexpr (sizeof(E) == 2) {
     uint16_t raw = (uint16_t)bits;
     __half h;
     memcpy(&h, &raw, sizeof(h));

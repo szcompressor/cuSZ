@@ -100,6 +100,16 @@ struct Buf<E>::impl {
   // per-buf-lifetime; avoid per-encode create/destroy
   _ptb::gpu_event timing_events[3];
 
+  // FIXME: may duplicate somewhere.
+  static size_t archive_max_words(size_t len, size_t rvbk_bytes)
+  {
+    const size_t nblock = (len - 1) / psz::HFR_PBK_Constants::BlockSize + 1;
+    return (sizeof(Header) + rvbk_bytes + sizeof(H4) - 1) / sizeof(H4) +
+           (nblock * psz::HFR_PBK_Constants::StridePerBlockWords * sizeof(SYM) + sizeof(H4) - 1) /
+               sizeof(H4) +
+           1;
+  }
+
   // internal functions
   int _rvbk4_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 4, sizeof(SYM)); }
   int _rvbk8_bytes(int bklen) { return phf_reverse_book_bytes(bklen, 8, sizeof(SYM)); }
@@ -133,17 +143,16 @@ struct Buf<E>::impl {
     const size_t hfr_incomp_pad =
         use_HFR ? pardeg * (psz::HFR_PBK_C12::MaxUnpredWords + psz::HFR_PBK_C12::MaxNumBreaks) : 0;
 
-    h_scratch4 = MAKE_UNIQUE_HOST(H4, len + hfr_incomp_pad);
-    d_scratch4 = MAKE_UNIQUE_DEVICE(H4, len + hfr_incomp_pad);
+    const size_t scratch_bytes = use_HFR ? archive_max_words(len, rvbk4_bytes) * sizeof(H4)
+                                         : sizeof(SYM) * (len + hfr_incomp_pad);
+    d_scratch4 = MAKE_UNIQUE_DEVICE(H4, (scratch_bytes + sizeof(H4) - 1) / sizeof(H4));
     h_book4 = MAKE_UNIQUE_HOST(H4, bklen);
     d_book4 = MAKE_UNIQUE_DEVICE(H4, bklen);
     h_rvbk4 = MAKE_UNIQUE_HOST(PHF_BYTE, rvbk4_bytes);
     d_rvbk4 = MAKE_UNIQUE_DEVICE(PHF_BYTE, rvbk4_bytes);
-    d_bitstream4 = MAKE_UNIQUE_DEVICE(H4, bitstream_max_len);
-    h_bitstream4 = MAKE_UNIQUE_HOST(H4, bitstream_max_len);
-    h_par_nbit = MAKE_UNIQUE_HOST(M, pardeg);
+    const size_t bitstream_bytes = sizeof(SYM) * bitstream_max_len;
+    d_bitstream4 = MAKE_UNIQUE_DEVICE(H4, (bitstream_bytes + sizeof(H4) - 1) / sizeof(H4));
     d_par_nbit = MAKE_UNIQUE_DEVICE(M, pardeg);
-    h_par_ncell = MAKE_UNIQUE_HOST(M, pardeg);
     d_par_ncell = MAKE_UNIQUE_DEVICE(M, pardeg);
     h_par_entry = MAKE_UNIQUE_HOST(M, pardeg);
     d_par_entry = MAKE_UNIQUE_DEVICE(M, pardeg);
@@ -167,10 +176,10 @@ struct Buf<E>::impl {
 
     if (use_HFR) {
       using K = psz::HFR_PBK_Constants;
-      h_pbk_headers = MAKE_UNIQUE_HOST(BHeader, pardeg);
       d_incomp_flag = MAKE_UNIQUE_DEVICE(u1, pardeg);
       memset_device(d_incomp_flag.get(), pardeg);  // 0 = normal; 1 = use incomp-31
-      d_packed = MAKE_UNIQUE_DEVICE(H4, pardeg * K::BlockSize + hfr_incomp_pad);
+      const size_t packed_bytes = sizeof(SYM) * (pardeg * K::BlockSize + hfr_incomp_pad);
+      d_packed = MAKE_UNIQUE_DEVICE(H4, (packed_bytes + sizeof(H4) - 1) / sizeof(H4));
       d_pbk_packed_headers = MAKE_UNIQUE_DEVICE(u4, 2 * pardeg);  // two u4 per block
       d_pbkgo_state = MAKE_UNIQUE_DEVICE(u4, pardeg);             // init to 0 (INVALID)
       memset_device(d_pbkgo_state.get(), pardeg);
@@ -178,7 +187,7 @@ struct Buf<E>::impl {
 
     // repurpose scratch after several substeps
     d_encoded = (u1*)d_scratch4.get();
-    h_encoded = (u1*)h_scratch4.get();
+    h_encoded = nullptr;  // no pinned mirror; encoded_h() has no callers
 
     // Init scan state once at buf init (per-encode init is the caller's reset()).
     psz::scan_lookback::launch_init_host(
