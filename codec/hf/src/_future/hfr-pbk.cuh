@@ -304,7 +304,8 @@ __forceinline__ __device__ void rmerge_sync__v7_const_shardsize_iter(
         auto sym_bits = bitcount_of(&p_val);
         if (sym_bits > (BitWidth / MergeSize)) {
           auto _l_br_idx = atomicAdd(const_cast<u4*>(s_v3_incomp), 1 << 16);
-          auto l_br_idx = (_l_br_idx & Constants::MASK_BREAKS) >> 16;
+          // unmasked count: the 8-bit field wraps past 255 and would reuse slots
+          auto l_br_idx = _l_br_idx >> 16;
           constexpr u4 MaxNumBreaks = ChunkSize / 16 - 1;  // runtime; FIXME: conslidate with outer HFR_PBK_C*::MaxNumBreaks
           if (l_br_idx < MaxNumBreaks) {
             br2_val_idx[l_br_idx] = {(u2)p_eq[wbase + j], (u2)br_lidx};
