@@ -156,7 +156,8 @@ struct psz::Buf_Comp<T, E>::impl {
       len_top1(set_top1_nblk(_len))
   {
     // 4Ki, maximum according to spl-y25
-    size_t const eq_len = tile_order ? set_eq_padded(_len, y25_tile) : ALIGN_4Ki(len_linear);
+    // 2D/3D kernels write eq tiled even when tile_order is false: always size for tiled.
+    size_t const eq_len = set_eq_padded(_len, y25_tile);
     eq_len_ = eq_len;
     // FIXME: compat mode FZG
     // spl-y25 requires d_eq for decompression due to per-level clustering.
