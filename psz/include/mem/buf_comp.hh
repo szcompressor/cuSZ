@@ -42,6 +42,9 @@ struct BufToggle_Comp {
   bool use_hist;
   bool use_compressed;
   bool use_top1;
+  // LC-framework buffers: only the bitstream-packing stages touch these, never
+  // comp_predict / decomp_scatter / decomp_predict
+  bool use_lc;
 };
 
 template <typename _T, typename _E = u2>

@@ -123,15 +123,25 @@ struct psz::Buf_Comp<T, E>::impl {
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
     const auto codec_max_bytes = len_linear * sizeof(E);
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
-    buf_lc = std::make_unique<Buf_LC>(
-        len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
+    if (toggle->use_lc)
+      buf_lc = std::make_unique<Buf_LC>(
+          len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
+    // spline profiles interpolation direction whatever the predictor, and this is
+    // ERR_HISTO_LEN elements: too small to gate
+    d_pe = MAKE_UNIQUE_DEVICE(T, ERR_HISTO_LEN);
+    h_pe = MAKE_UNIQUE_HOST(T, ERR_HISTO_LEN);
 
     if (toggle->use_quant) d_eq = MAKE_UNIQUE_DEVICE(E, len_linear);
     if (toggle->use_outlier) {
       buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
       buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
     }
-    if (toggle->use_anchor) d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
+    if (toggle->use_anchor) {
+      d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
+      // the spline encoder writes only the anchor slots its own grid covers; an
+      // unzeroed slot outside it makes the first reconstruction differ from later ones
+      memset_device(d_anchor.get(), len_linear_anchor);
+    }
     if (toggle->use_hist) {
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);

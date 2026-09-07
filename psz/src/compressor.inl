@@ -65,7 +65,7 @@ using spl_x_y25 = GPU_x_spline_y25<PredictorTyping<T, E>>;
   template <typename T, typename E> \
   RET_TYPE psz::compression_pipeline<T, E>
 
-PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
+PPL_IMPL(void*)::compress_init(psz_ctx* ctx, bool skip_hf)
 {
   constexpr auto iscompression = true;
 
@@ -85,9 +85,19 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx)
       (_nd >= 2 and (_pred == psz_predictor::Lorenzo or _pred == psz_predictor::LorenzoZigZag or
                      (_pred == psz_predictor::Spline and ctx->spline_variant == 1))) or
       y25_tile;
-  auto mem = new Buf_Comp<T, E>(
-      ctx->header->len, iscompression, use_HFR, true, _c1 == psz_codec::HFr2, tile_order,
-      y25_tile);
+  Buf_Comp<T, E>* mem;
+  if (skip_hf) {
+    BufToggle_Comp toggle{
+        /*use_quant=*/true, /*use_outlier=*/true,     /*use_anchor=*/true,
+        /*use_hist=*/true,  /*use_compressed=*/false, /*use_top1=*/true,
+        /*use_lc=*/true};
+    mem = new Buf_Comp<T, E>(ctx->header->len, &toggle);
+  }
+  else {
+    mem = new Buf_Comp<T, E>(
+        ctx->header->len, iscompression, use_HFR, true, _c1 == psz_codec::HFr2, tile_order,
+        y25_tile);
+  }
   mem->register_header(ctx->header);
   mem->set_spline_variant(ctx->spline_variant);       // anchor sizing
   ctx->header->spline_variant = ctx->spline_variant;  // decompress dispatch
