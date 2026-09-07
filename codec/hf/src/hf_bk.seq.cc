@@ -2,18 +2,20 @@
 
 #include <bitset>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 
 #include "c_type.h"
 #include "hf.h"
 #include "hf_impl.hh"
 
+using std::cerr;
 using std::cout;
 using std::endl;
 
 template <typename E, typename H>
 void phf_CPU_build_canonized_codebook_v2(
-    uint32_t* freq, int const bklen, uint32_t* bk4, uint8_t* revbook, int const revbook_bytes,
+    u4* freq, int const bklen, u4* bk4, uint8_t* revbook, int const revbook_bytes,
     float* milliseconds)
 {
   using PW4 = HuffmanWord<4>;
@@ -30,33 +32,41 @@ void phf_CPU_build_canonized_codebook_v2(
   memset(bk4, 0xff, bk_bytes);
 
   // internal buffer
-  auto bk8 = new uint64_t[bklen];
-  memset(bk8, 0xff, sizeof(uint64_t) * bklen);
+  auto bk8 = new u8[bklen];
 
-  // part 1
-  {
-    phf_CPU_build_codebook_v1<uint64_t>(freq, bklen, bk8);
-    // phf_CPU_build_codebook_v2<uint64_t>(freq, bklen, bk8);
+  // Halve-and-retry the histogram until every code fits PW4::FIELD_CODE.
+  auto local_freq = new u4[bklen];
+  memcpy(local_freq, freq, sizeof(u4) * bklen);
+  for (;;) {
+    memset(bk8, 0xff, sizeof(u8) * bklen);
+    phf_CPU_build_codebook_v1<u8>(local_freq, bklen, bk8);
+    int max_bitcount = 0;
+    for (auto i = 0; i < bklen; i++) {
+      if (bk8[i] == ~(u8)0x0) continue;
+      auto bitcount = reinterpret_cast<PW8*>(bk8 + i)->bitcount;
+      if ((int)bitcount > max_bitcount) max_bitcount = (int)bitcount;
+    }
+    if (max_bitcount <= PW4::FIELD_CODE) break;
+    for (auto i = 0; i < bklen; i++)
+      if (local_freq[i] > 0) local_freq[i] = local_freq[i] > 1 ? local_freq[i] >> 1 : 1;
   }
+  delete[] local_freq;
 
-  // resolve the issue of being longer than 32 bits
+  // narrow to PW4; the rescale loop above guarantees every code now fits
   for (auto i = 0; i < bklen; i++) {
     auto pw8 = reinterpret_cast<PW8*>(bk8 + i);
     auto pw4 = reinterpret_cast<PW4*>(bk4 + i);
 
-    if (*(bk8 + i) == ~((uint64_t)0x0)) {
-      //   // not meaningful
+    if (*(bk8 + i) == ~((u8)0x0)) {
+      // not meaningful
     }
     else {
       if (pw8->bitcount > pw4->FIELD_CODE) {
-        pw4->bitcount = pw4->OUTLIER_CUTOFF;
-        pw4->prefix_code = 0;  // not meaningful
-        cout << i << "\tlarger than FIELD_CODE" << endl;
+        cerr << "phf_CPU_build_canonized_codebook_v2: rescale invariant broken at " << i << endl;
+        abort();
       }
-      else {
-        pw4->bitcount = pw8->bitcount;
-        pw4->prefix_code = pw8->prefix_code;
-      }
+      pw4->bitcount = pw8->bitcount;
+      pw4->prefix_code = pw8->prefix_code;
     }
   }
   // for (auto i = 0; i < bklen; i++) {
@@ -87,9 +97,9 @@ void phf_CPU_build_canonized_codebook_v2(
   delete space;
 }
 
-#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                          \
-  template void phf_CPU_build_canonized_codebook_v2<E, H>(                                 \
-      uint32_t* freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
+#define INSTANTIATE_PHF_CPU_BUILD_CANONICAL(E, H)                                     \
+  template void phf_CPU_build_canonized_codebook_v2<E, H>(                            \
+      u4 * freq, int const bklen, H* book, uint8_t* revbook, int const revbook_bytes, \
       float* milliseconds);
 
 INSTANTIATE_PHF_CPU_BUILD_CANONICAL(u1, u4)
@@ -111,6 +121,4 @@ size_t phf_reverse_book_bytes(uint16_t bklen, size_t BK_UNIT_BYTES, size_t SYM_B
 }
 
 uint8_t* phf_allocate_reverse_book(uint16_t bklen, size_t BK_UNIT_BYTES, size_t SYM_BYTES)
-{
-  return new uint8_t[phf_reverse_book_bytes(bklen, BK_UNIT_BYTES, SYM_BYTES)];
-}
+{ return new uint8_t[phf_reverse_book_bytes(bklen, BK_UNIT_BYTES, SYM_BYTES)]; }

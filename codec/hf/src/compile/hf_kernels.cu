@@ -7,6 +7,9 @@ template class modules<u1, u4>;
 template class modules<u2, u4>;
 template class modules<u4, u4>;
 
+template void modules<u1, u4>::GPU_coarse_decode<u1>(
+    u4*, uint8_t*, size_t const, u4*, u4*, size_t const, size_t const, u1*, uint8_t*, void*);
+
 template void modules<u2, u4>::GPU_coarse_decode<u2>(
     u4*, uint8_t*, size_t const, u4*, u4*, size_t const, size_t const, u2*, uint8_t*, void*);
 

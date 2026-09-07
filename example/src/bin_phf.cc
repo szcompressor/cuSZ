@@ -9,6 +9,7 @@
 
 #include "arg_builder.hh"
 #include "compare.hh"
+#include "hfd26.hh"
 #include "kernel.hh"
 #include "phf.hh"
 #include "ptb.hh"
@@ -59,6 +60,104 @@ void load_or_preload(
     load_input<E>(fname, len, synth_spec, out);
 }
 
+extern "C" void* pbk25_r128_rvbk_d_ptr();
+
+// flag: PHF_SELFSYNC_PROBE; offline self-sync verification with PBK
+namespace selfsync_probe {
+
+constexpr int NumBooks = (int)psz::HFR_PBK_Constants::NumBooks;
+constexpr int RvbkBytesPerBook = (int)psz::HFR_PBK_Constants::RvbkBytesPerBook;
+constexpr int Budget = 128;  // codewords; well past any plausible convergence
+
+struct BookStats {
+  size_t chunks = 0, tests = 0, sum_syms = 0, max_syms = 0, fails = 0;
+};
+
+using phf::cpu_ref::walk_n;
+
+template <int Magnitude>
+void run(
+    u4 const* h_bitstream, size_t bitstream_words, u4 const* h_packed, int pardeg,
+    u1 const* h_rvbk_pool, BookStats* stats /* [NumBooks] */)
+{
+  for (int gid = 0; gid < pardeg; ++gid) {
+    u4 const w0 = h_packed[2 * gid];
+    u4 const tree_idx = psz::unpack_par_encid<Magnitude>(w0);
+    if (tree_idx >= (u4)NumBooks) continue;  // pass-through chunk
+
+    u4 const unit_start = psz::unpack_par_entry_words<u4>(h_packed, gid);
+    u4 const dense_words = psz::unpack_par_dense<Magnitude>(w0);
+    u4 const n_unpred = psz::unpack_par_nunpred<Magnitude>(w0);
+
+    // Slot layout [breaks | bitstream | unpred], same as the kernel.
+    u4 const total_words =
+        psz::unpack_par_end_words<u4>(h_packed, gid, pardeg, bitstream_words * sizeof(u4)) -
+        unit_start;
+    u4 const n_breaks = total_words - dense_words - psz::pbk_unpred_words(n_unpred);
+    u4 const* bs = h_bitstream + unit_start + n_breaks;
+    int const bit_end = (int)(dense_words * 32u);
+    if (bit_end <= 0) continue;
+
+    u4 const* first = reinterpret_cast<u4 const*>(h_rvbk_pool + tree_idx * RvbkBytesPerBook);
+
+    // Ground truth: every true codeword boundary from bit 0.
+    auto truth = MAKE_UNIQUE_HOST(int, (size_t)bit_end + 1);
+    int truth_n = 0;
+    {
+      int i = 0;
+      while (i < bit_end) {
+        int const next = walk_n(bs, first, i, bit_end, 1);
+        if (next == i) break;  // no progress; malformed tail
+        truth[truth_n++] = next;
+        i = next;
+      }
+    }
+    if (truth_n == 0) continue;
+    auto is_true = MAKE_UNIQUE_HOST(u1, (size_t)bit_end + 1);  // malloc_host zeroes it
+    for (int k = 0; k < truth_n; ++k) {
+      int const t = truth[k];
+      if (t <= bit_end) is_true[t] = 1;
+    }
+
+    BookStats& st = stats[tree_idx];
+    ++st.chunks;
+
+    for (int off = 1; off <= 31 and off < bit_end; ++off) {
+      ++st.tests;
+      int i = off;
+      bool synced = false;
+      for (int step = 1; step <= Budget; ++step) {
+        int const next = walk_n(bs, first, i, bit_end, 1);
+        if (next == i) break;  // malformed; stop
+        i = next;
+        if (i <= bit_end and is_true[i]) {
+          st.sum_syms += step;
+          if ((size_t)step > st.max_syms) st.max_syms = step;
+          synced = true;
+          break;
+        }
+      }
+      if (not synced) ++st.fails;
+    }
+    (void)n_unpred;
+  }
+}
+
+void report(BookStats const* stats)
+{
+  fprintf(stderr, "[selfsync-probe] book chunks tests mean_syms max_syms fails\n");
+  for (int b = 0; b < NumBooks; ++b) {
+    BookStats const& st = stats[b];
+    if (st.chunks == 0) continue;
+    double const mean = st.tests ? (double)st.sum_syms / (double)st.tests : 0.0;
+    fprintf(
+        stderr, "[selfsync-probe] %2d %6zu %6zu %8.2f %8zu %5zu\n", b, st.chunks, st.tests, mean,
+        st.max_syms, st.fails);
+  }
+}
+
+}  // namespace selfsync_probe
+
 namespace {
 
 struct HFVariant {
@@ -69,6 +168,7 @@ struct HFVariant {
   bool skip_hist_and_book;
   bool use_HFR_buf;
   bool suppress_lago_col;
+  bool use_hfd26 = false;  // route decode through HFD26_decode
 };
 
 // clang-format off
@@ -79,6 +179,9 @@ constexpr HFVariant HFR     = {"HFR",          "hfr",       psz_codec::HFR,     
 constexpr HFVariant PBKC    = {"HFR-PBKC",     "hfr-pbkc",  psz_codec::HFR_PBKC,  true,  true,  true,  false};
 constexpr HFVariant PBKGO   = {"HFR-PBKGO",    "hfr-pbkgo", psz_codec::HFR_PBKGO, true,  true,  true,  true};
 constexpr HFVariant HF_V3   = {"HFR-v3",        "hfr-v3",    psz_codec::HFR_V3,    true,  false, true,  false};
+constexpr HFVariant HFD26       = {"HFD26",       "hfd26",       psz_codec::HFR,       true, false, true, false, true};
+constexpr HFVariant HFD26_PBKC  = {"HFD26-PBKC",  "hfd26-pbkc",  psz_codec::HFR_PBKC,  true, true,  true, false, true};
+constexpr HFVariant HFD26_PBKGO = {"HFD26-PBKGO", "hfd26-pbkgo", psz_codec::HFR_PBKGO, true, true,  true, true,  true};
 }  // namespace hfv
 
 static const auto bin_phf_cli =
@@ -93,9 +196,10 @@ static const auto bin_phf_cli =
         .flag   ("hfr_pbkc",          {"--hfr-pbkc"},                    "use HFR-PBK-compat")
         .flag   ("hfr_pbkgo",         {"--hfr-pbkgo"},                   "use HFR-PBK-GO")
         .flag   ("hfr_pbkf",          {"--hfr-pbkf"},                    "use HFR-PBKF (gated; build needs -DPHF_ENABLE_HFR_PBKF=ON)")
+        .flag   ("hfd26",             {"--hfd26"},                       "decode HFR with HFD26 instead of HFR_decode")
         .string ("type",              {"--type", "--dtype"},   "u2",     "u1|u2|u4")
         .integer("repeat",            {"--repeat"},            5,        "timed iterations (min reported; 10 untimed warmups run first)")
-        .string ("reduce",            {"--rmerge-count"},      DefaultReduceStr.c_str(), "r-merge pass count (ReduceTimes), CSV e.g. 2,3,4 for HFR family; default = HFR_PBK_Constants::ReduceTimes")
+        .string ("reduce",            {"--rmerge-count"},      DefaultReduceStr.c_str(), "r-merge pass count (ReduceTimes), CSV e.g. 2,3,4 | auto or 0 (predict from book) | best (measure each) for HFR family; default = HFR_PBK_Constants::ReduceTimes")
         .integer("magnitude",         {"--magnitude"},         10,       "HFR block-size magnitude: 10=1Ki (default), 11=2Ki, 12=4Ki (HFR-PBKC only)")
         .integer("blockdim",          {"--blockdim"},          128,      "HFR-PBKC threadblock at 4Ki: 128 (Iters=4) | 256 (Iters=2)")
         .string ("timer",             {"--timer"},             "cupti",  "cupti | event")
@@ -137,6 +241,7 @@ struct Arguments {
   bool use_hfr_pbk_compat = false;
   bool use_hfr_pbk_go = false;
   bool use_hfr_pbkf = false;
+  bool use_hfd26 = false;
   int repeat = 5;
   std::vector<int> reduce_values{DefaultReduceTimes};
   int magnitude = 10;
@@ -166,10 +271,18 @@ struct Arguments {
         reduce_values.clear();
         auto raw = a.get<string>("reduce");
         for (auto const& s : split_csv(raw.empty() ? DefaultReduceStr : raw)) {
+          if (s == "auto" or s == "0") {
+            reduce_values.push_back(-1);  // predict RT from avg code length (hist x book)
+            continue;
+          }
+          if (s == "best") {
+            reduce_values.push_back(-2);  // measure candidate RTs, pick smallest encoded_len
+            continue;
+          }
           int v = std::stoi(s);
-          if (v < 0 or v > 4)
+          if (v < 1 or v > 4)
             throw std::runtime_error(
-                "--rmerge-count: each value must be 0|1|2|3|4, got: " + std::to_string(v));
+                "--rmerge-count: each value must be auto|best|0(=auto)|1|2|3|4, got: " + s);
           reduce_values.push_back(v);
         }
         if (reduce_values.empty()) reduce_values.push_back(DefaultReduceTimes);
@@ -186,6 +299,7 @@ struct Arguments {
       use_hfr_pbk_compat = a.get<bool>("hfr_pbkc");
       use_hfr_pbk_go = a.get<bool>("hfr_pbkgo");
       use_hfr_pbkf = a.get<bool>("hfr_pbkf");
+      use_hfd26 = a.get<bool>("hfd26");
       // --path hf,hf_rev2,...: comma-separated list. Trim whitespace, drop empties.
       paths = split_csv(a.get<string>("path"));
 
@@ -236,8 +350,8 @@ void hf_run(
   memcpy_allkinds_async<H2D>(d_data.get(), h_data.get(), len, stream);
   sync_by_stream(stream);
 
-  auto buf =
-      std::make_unique<phf::Buf<E>>(len, bklen, -1, v.use_HFR_buf, false, v.codec == psz_codec::HFr2);
+  auto buf = std::make_unique<phf::Buf<E>>(
+      len, bklen, -1, v.use_HFR_buf, false, v.codec == psz_codec::HFr2);
 
   if (not v.skip_hist_and_book) {
     auto d_hist = MAKE_UNIQUE_DEVICE(F, bklen);
@@ -252,20 +366,81 @@ void hf_run(
     sync_by_stream(stream);
     if (v.codec == psz_codec::HFR_V3)
       phf::high_level<E>::HFR_pick_pbk(buf.get(), d_hist.get(), bklen, len, stream);
-    else
+    else {
+      // force runtime Radius to the book's minimum depth
+      if (v.is_hfr_family and bklen > psz::HFR_PBK_Constants::Radius) {
+        F maxf = 0;
+        for (int i = 0; i < bklen; i++) maxf = h_hist[i] > maxf ? h_hist[i] : maxf;
+        auto& f_ref = h_hist[psz::HFR_PBK_Constants::Radius];
+        if (f_ref < maxf) f_ref = maxf;
+      }
       phf::high_level<E>::HF_build_book(buf.get(), h_hist.get(), bklen, stream);
-  }
 
-  uint8_t* d_encoded = nullptr;
+      // reduce==-1 is the --rmerge-count auto sentinel: predict RT from the built book.
+      int const mag_min = args.magnitude >= 12 ? 2 : args.magnitude >= 11 ? 1 : 0;
+      if (reduce == -1 and v.is_hfr_family) {
+        using PW = HuffmanWord<4>;
+        auto bk = buf->book_h();
+        double wsum = 0, n = 0;
+        double mass_gt[33] = {0};  // occurrence mass with code length > t
+        for (int i = 0; i < bklen; i++) {
+          if (h_hist[i] == 0 or bk[i] == ~(u4)0x0) continue;
+          int l = (int)reinterpret_cast<PW*>(&bk[i])->bitcount;
+          wsum += (double)h_hist[i] * l;
+          n += (double)h_hist[i];
+          for (int t = 0; t < l and t <= 32; t++) mass_gt[t] += (double)h_hist[i];
+        }
+        double const avg = n > 0 ? wsum / n : 32.0;
+        reduce = 1;
+        for (int rt = 3; rt >= 1; rt--) {
+          int const thr = 32 >> rt;
+          if ((double)(1 << rt) * avg <= 32.0 and mass_gt[thr] / n <= 0.01) {
+            reduce = rt;
+            break;
+          }
+        }
+        if (reduce < mag_min) reduce = mag_min;
+        fprintf(
+            stderr, "[auto-rmerge] avg_bits=%.3f mass>%db=%.4f%% mass>%db=%.4f%% -> r%d\n", avg,
+            32 >> 3, 100.0 * mass_gt[32 >> 3] / n, 32 >> 2, 100.0 * mass_gt[32 >> 2] / n, reduce);
+      }
+
+      // reduce==-2 is --rmerge-count best: trial-encode each candidate RT, keep the smallest encoded_len.
+      if (reduce == -2 and v.is_hfr_family) {
+        int const best_rt_floor = mag_min > 1 ? mag_min : 1;
+        size_t best_len = (size_t)-1;
+        int best_rt = best_rt_floor;
+        for (int rt = best_rt_floor; rt <= 3; rt++) {
+          u1* t_encoded = nullptr;
+          size_t t_len = 0;
+          phf_header t_header{};
+          float t_enc = 0.0f, t_lago = 0.0f;
+          phf::high_level<E>::HFR_encode(
+              buf.get(), d_data.get(), len, &t_encoded, &t_len, t_header, stream, v.codec, &t_enc,
+              &t_lago, HFR_Opts{rt, args.magnitude, args.blockdim});
+          sync_by_stream(stream);
+          fprintf(stderr, "[best-rmerge] r%d encoded_len=%zu\n", rt, t_len);
+          if (t_len < best_len) {
+            best_len = t_len;
+            best_rt = rt;
+          }
+        }
+        reduce = best_rt;
+        fprintf(stderr, "[best-rmerge] -> r%d\n", reduce);
+      }
+    }
+  }
+  if (reduce < 0) reduce = DefaultReduceTimes;  // auto/best without a runtime book
+
+  u1* d_encoded = nullptr;
   size_t encoded_len = 0;
   phf_header header{};
 
-  // Short kernels need several back-to-back launches before GPU clocks boost on
-  // consumer cards; run a fixed warmup batch untimed, then time `repeat` and min.
-  constexpr int kWarmup = 10;
+  // repeat on short kernels
+  constexpr int TimesWarmup = 10;
   double ms_enc = 1e9;
   float ms_encoder_phase = 0.0f, ms_lago_phase = 0.0f;
-  for (int iter = 0; iter < kWarmup + repeat; ++iter) {
+  for (int iter = 0; iter < TimesWarmup + repeat; ++iter) {
     sync_by_stream(stream);
     gpu_timer t;
     t.start(stream);
@@ -279,7 +454,7 @@ void hf_run(
           buf.get(), d_data.get(), len, &d_encoded, &encoded_len, header, stream, v.codec,
           &ms_enc_p, &ms_lago_p);
     double this_enc = t.stop_ms(stream);
-    if (iter >= kWarmup and this_enc < ms_enc) {
+    if (iter >= TimesWarmup and this_enc < ms_enc) {
       ms_enc = this_enc;
       ms_encoder_phase = ms_enc_p;
       ms_lago_phase = ms_lago_p;
@@ -287,8 +462,7 @@ void hf_run(
     if (v.codec != psz_codec::HF) buf->reset(stream);
   }
 
-  // HFR-v3 patches the global PBK id into the device archive header (no host sync at encode);
-  // re-read it so this in-memory header matches what a real decode-from-archive would see.
+  // HFR-v3: patch sole PBK ID into the device archive header
   if (v.codec == psz_codec::HFR_V3) {
     memcpy_allkinds_async<D2H>(
         &header.g_encid,
@@ -298,17 +472,20 @@ void hf_run(
   }
 
   double ms_dec = 1e9;
-  for (int iter = 0; iter < kWarmup + repeat; ++iter) {
+  for (int iter = 0; iter < TimesWarmup + repeat; ++iter) {
     sync_by_stream(stream);
     gpu_timer t;
     t.start(stream);
-    if (v.is_hfr_family)
+    if (v.use_hfd26)
+      phf::high_level<E>::HFD26_decode(
+          buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec, args.magnitude);
+    else if (v.is_hfr_family)
       phf::high_level<E>::HFR_decode(
           buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec, args.magnitude);
     else
       phf::high_level<E>::HF_decode(buf.get(), header, d_encoded, d_decomp.get(), stream, v.codec);
     double this_dec = t.stop_ms(stream);
-    if (iter >= kWarmup and this_dec < ms_dec) ms_dec = this_dec;
+    if (iter >= TimesWarmup and this_dec < ms_dec) ms_dec = this_dec;
   }
 
   size_t incomp_blocks = 0;
@@ -319,9 +496,7 @@ void hf_run(
       if (h_incomp_flag[i]) ++incomp_blocks;
   }
 
-  // Diagnostic split: unpack enc_id straight from the archived per-block headers
-  // to tell CodeIncompBreaks(30, encoder-side escape overflow) apart from
-  // CodeIncompUnpred(31, predictor-side outlier overflow).
+  // diagnostic split: CodeIncompBreaks vs CodeIncompUnpred
   size_t breaks_blocks = 0, unpred_blocks_direct = 0;
   if (v.is_hfr_family and header.pardeg > 0) {
     auto h_packed = MAKE_UNIQUE_HOST(u4, 2 * (size_t)header.pardeg);
@@ -342,6 +517,35 @@ void hf_run(
     fprintf(
         stderr, "[diag] pardeg=%d breaks30=%zu unpred31=%zu (decode-flag unpred=%zu)\n",
         header.pardeg, breaks_blocks, unpred_blocks_direct, incomp_blocks);
+
+  if (getenv("PHF_SELFSYNC_PROBE") and
+      (v.codec == psz_codec::HFR_PBKC or v.codec == psz_codec::HFR_PBKGO) and header.pardeg > 0) {
+    auto h_packed = MAKE_UNIQUE_HOST(u4, 2 * (size_t)header.pardeg);
+    memcpy_allkinds<D2H>(
+        h_packed.get(), (u4*)(d_encoded + header.entry[PHFHEADER_PBK_HEADERS]),
+        2 * (size_t)header.pardeg);
+    size_t const bs_words = header.total_ncell;
+    auto h_bitstream = MAKE_UNIQUE_HOST(u4, bs_words);
+    memcpy_allkinds<D2H>(
+        h_bitstream.get(), (u4*)(d_encoded + header.entry[PHFHEADER_BITSTREAM]), bs_words);
+    constexpr int RvbkBytesPerBook = (int)psz::HFR_PBK_Constants::RvbkBytesPerBook;
+    constexpr int NumBooks = (int)psz::HFR_PBK_Constants::NumBooks;
+    auto h_rvbk = MAKE_UNIQUE_HOST(u1, (size_t)RvbkBytesPerBook * NumBooks);
+    memcpy_allkinds<D2H>(
+        h_rvbk.get(), (u1*)pbk25_r128_rvbk_d_ptr(), (size_t)RvbkBytesPerBook * NumBooks);
+
+    selfsync_probe::BookStats stats[NumBooks];
+    if (args.magnitude >= 12)
+      selfsync_probe::run<12>(
+          h_bitstream.get(), bs_words, h_packed.get(), header.pardeg, h_rvbk.get(), stats);
+    else if (args.magnitude >= 11)
+      selfsync_probe::run<11>(
+          h_bitstream.get(), bs_words, h_packed.get(), header.pardeg, h_rvbk.get(), stats);
+    else
+      selfsync_probe::run<10>(
+          h_bitstream.get(), bs_words, h_packed.get(), header.pardeg, h_rvbk.get(), stats);
+    selfsync_probe::report(stats);
+  }
 
   auto identical =
       psz::cuda::GPU_identical((void*)d_decomp.get(), (void*)d_data.get(), sizeof(E), len, stream);
@@ -383,8 +587,7 @@ void hf_run(
     printf("%6.1f GiB/s (%5.3f)  ", GiBps<E>(len, ms_lago_phase), ms_lago_phase);
   else
     printf("           —          ");
-  // decode throughput over the decompressed output (len*sizeof(E)), matching the
-  // encode/LAGO columns: not over compressed bytes (that understated it by ~CR).
+
   printf("%6.1f GiB/s (%5.3f)  ", GiBps<E>(len, ms_dec), ms_dec);
   printf("—\n");
 
@@ -406,6 +609,9 @@ inline HFVariant const* lookup_variant(const string& path)
   if (path == "hfr_pbkc" or path == "hfr-pbkc") return &hfv::PBKC;
   if (path == "hfr_pbkgo" or path == "hfr-pbkgo") return &hfv::PBKGO;
   if (path == "hfr_v3" or path == "hfr-v3") return &hfv::HF_V3;
+  if (path == "hfd26") return &hfv::HFD26;
+  if (path == "hfd26-pbkc") return &hfv::HFD26_PBKC;
+  if (path == "hfd26-pbkgo") return &hfv::HFD26_PBKGO;
   return nullptr;
 }
 
@@ -436,7 +642,7 @@ void run_one_path(
   throw std::runtime_error("unknown --path entry: '" + path + "'");
 }
 
-template <typename E = uint16_t>
+template <typename E = u2>
 int choose_pipeline(Arguments const& args, size_t len)
 {
   try {
@@ -469,11 +675,14 @@ int choose_pipeline(Arguments const& args, size_t len)
 #endif
     }
     else {
-      HFVariant const* v = args.use_hfr_pbk_compat ? &hfv::PBKC
-                           : args.use_hfr_pbk_go   ? &hfv::PBKGO
-                           : args.use_hfr          ? &hfv::HFR
-                           : args.use_hf_rev2      ? &hfv::HF_REV2
-                                                   : &hfv::HF;
+      HFVariant const* v = args.use_hfd26            ? (args.use_hfr_pbk_compat ? &hfv::HFD26_PBKC
+                                                        : args.use_hfr_pbk_go   ? &hfv::HFD26_PBKGO
+                                                                                : &hfv::HFD26)
+                           : args.use_hfr_pbk_compat ? &hfv::PBKC
+                           : args.use_hfr_pbk_go     ? &hfv::PBKGO
+                           : args.use_hfr            ? &hfv::HFR
+                           : args.use_hf_rev2        ? &hfv::HF_REV2
+                                                     : &hfv::HF;
       hf_run<E>(args, len, *v, args.reduce_values[0]);
     }
   }
@@ -506,11 +715,22 @@ int main(int argc, char** argv)
 
   size_t len = args.total_len();
 
-  if (args.type != "u2") {
-    fprintf(stderr, "bin_phf currently only tests --type u2 (got %s)\n", args.type.c_str());
+  // HFR* enforces 2*Radius=256 regardless of --bklen
+  if (args.type == "u1" and args.bklen > 256) {
+    fprintf(stderr, "--type u1: clamping --bklen %d to 256 (u1's full range)\n", args.bklen);
+    args.bklen = 256;
+  }
+
+  int rc;
+  if (args.type == "u1")
+    rc = choose_pipeline<u1>(args, len);
+  else if (args.type == "u2")
+    rc = choose_pipeline<u2>(args, len);
+  else {
+    fprintf(stderr, "bin_phf currently tests --type u1|u2 (got %s)\n", args.type.c_str());
     return 2;
   }
-  if (int rc = choose_pipeline<uint16_t>(args, len); rc != 0) return rc;
+  if (rc != 0) return rc;
 
   // Emit machine-readable metrics block (after the human-friendly output).
   if (args.emit_metrics) {

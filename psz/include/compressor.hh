@@ -19,23 +19,18 @@ struct compression_pipeline {
   static void* decompress_init(psz_header* header);
   static int compress(psz_ctx*, PSZ_BUF* mem, T*, u1**, size_t*, psz_stream_t);
   static int compress_analysis(psz_ctx*, PSZ_BUF* mem, T*, u4*, psz_stream_t);
-  static int decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream);
+  static int decompress(
+      psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream,
+      bool use_hfd_coarse = false);
   static void release(PSZ_BUF* mem);
   static void compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_stream_t stream);
 
-  // -- modular pipeline stages (additive; the public entry points above and
-  //    the analysis-only drivers share these). ----------------------------
-  // Forward predictor dispatch (eq + outlier capture into mem). force_global makes the
-  // predictor-only analysis path keep the global compact (no codec to do blockwise outliers).
   static int comp_predict(
       psz_ctx* ctx, PSZ_BUF* mem, T* in, psz_stream_t stream, bool force_global = false);
-  // Scatter captured outliers into a (Spline-zeroed) reconstruction space.
   static void decomp_scatter(
       psz_header* header, _ptb::compact_cell<T, M>* d_spval_idx, T* d_space, psz_stream_t stream);
-  // Reverse predictor dispatch over an already-populated eq layout.
   static void decomp_predict(
-      psz_header* header, PSZ_BUF* mem, T* d_anchor, T* d_xdata,
-      psz_stream_t stream);
+      psz_header* header, PSZ_BUF* mem, T* d_anchor, T* d_xdata, psz_stream_t stream);
 };
 
 }  // namespace psz

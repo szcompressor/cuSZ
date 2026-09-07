@@ -6,6 +6,7 @@
 
 #include "hf_buf.hh"
 #include "hf_impl.hh"
+#include "hfd26.hh"
 #include "hfr-pbk.hh"
 #include "hfr-pbk_decoder.hh"
 #include "hfr.hh"
@@ -13,7 +14,6 @@
 
 #define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
 
-// device-side prebuilt {book, reverse}: accessors (pbk25_r128_d.cu).
 extern "C" void* pbk25_r128_book_d_ptr();
 extern "C" void* pbk25_r128_rvbk_d_ptr();
 
@@ -50,7 +50,7 @@ int encode_hf_rev2(
     Buf<E>* buf, E* in, size_t const len, u1** out, size_t* outlen, phf_header& header,
     hf_stream_t stream, float* opt_ms_encoder, float* opt_ms_lago)
 {
-  constexpr int ConcatBlockDim = 128;
+  constexpr auto ConcatBlockDim = 128;
   using Concat = phf::concat_via_scatter_ppc<ConcatBlockDim>;
   const phf::par_config hfpar{buf->sublen(), buf->pardeg()};
 
@@ -185,7 +185,7 @@ int encode_hfr_v2(
     const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
                              : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
                                                : opts.reduce_times;
-    constexpr int ConcatBlockDim = 128;
+    constexpr auto ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(false);  // HFR ships runtime rvbk in archive.
     const size_t pardeg = (len - 1) / ((size_t)1u << magnitude) + 1;
@@ -272,7 +272,7 @@ int encode_hfr_v3(
     const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
                              : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
                                                : opts.reduce_times;
-    constexpr int ConcatBlockDim = 128;
+    constexpr auto ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);
     buf->set_use_global_encid(true);
@@ -360,7 +360,7 @@ int encode_hfr_v4(
     const int reduce_times = magnitude >= 12   ? (opts.reduce_times < 2 ? 2 : opts.reduce_times)
                              : magnitude >= 11 ? (opts.reduce_times < 1 ? 1 : opts.reduce_times)
                                                : opts.reduce_times;
-    constexpr int ConcatBlockDim = 128;
+    constexpr auto ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);
     buf->set_use_global_encid(true);
@@ -443,7 +443,7 @@ int encode_hfr_pbkc(
 {
   {
     const int reduce_times = opts.reduce_times;
-    constexpr int ConcatBlockDim = 128;
+    constexpr auto ConcatBlockDim = 128;
     using K = psz::HFR_PBK_Constants;
     buf->set_use_prebuilt_rvbk(true);
     const int magnitude = opts.magnitude;  // 10 = 1Ki (default), 11 = 2Ki, 12 = 4Ki
@@ -587,7 +587,7 @@ int decode_hfr(
 {
   {
     using K = psz::HFR_PBK_Constants;
-    constexpr int RvbkBytesPerBook = (int)K::RvbkBytesPerBook;  // 512
+    constexpr auto RvbkBytesPerBook = (int)K::RvbkBytesPerBook;  // 512
 
     auto bs_ptr = (H4*)(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
     auto packed_headers = (uint32_t const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
@@ -655,8 +655,7 @@ int high_level<E>::HF_build_book(
   return 0;
 }
 
-// HFR-v3 book source: pick one global PBK book from the histogram (GPU-only),
-// replacing the CPU canonical-book build of HF_build_book().
+// HFR-v3 book source: pick one global PBK book from the histogram, on the GPU.
 template <typename E>
 int high_level<E>::HFR_pick_pbk(
     phf::Buf<E>* buf, u4* hist_d, u2 const bklen, size_t const len, hf_stream_t stream)
@@ -744,6 +743,71 @@ int high_level<E>::HFR_decode(
   }
 }
 
+// FIXME: E and Eout inflate the binary
+template <typename E>
+template <typename Eout>
+int high_level<E>::HFD26_decode(
+    Buf<E>* buf, phf_header& header, u1* in_encoded, Eout* out_decoded, hf_stream_t stream,
+    psz_codec variant, int magnitude)
+{
+  {
+    const size_t pardeg = header.pardeg;
+    auto bs_ptr = (H4*)(in_encoded + header.entry[PHFHEADER_BITSTREAM]);
+    auto packed_headers = (u4 const*)(in_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
+    const size_t bs_bytes = header.total_ncell * sizeof(H4);
+
+    auto lut_d = buf->lut_d();
+    const bool build_lut = not buf->lut_ready();
+    auto incomp_flag = buf->incomp_flag_d();
+
+    auto launch = [&]<typename Storage>(u1* rvbk, int rvbk_bytes) {
+      auto go = [&]<int Mag>(std::integral_constant<int, Mag>) {
+        phf::module::HFD26<E, H4, Storage, Mag>::template decode_fused<Eout>(
+            bs_ptr, bs_bytes, rvbk, rvbk_bytes, packed_headers, lut_d, (int)pardeg, header.ori_len,
+            out_decoded, incomp_flag, stream);
+      };
+      if (magnitude >= 12)
+        go(std::integral_constant<int, 12>{});
+      else if (magnitude >= 11)
+        go(std::integral_constant<int, 11>{});
+      else
+        go(std::integral_constant<int, 10>{});
+    };
+
+    switch (variant) {
+      case HFR: {
+        auto rvbk_ptr = (u1*)(in_encoded + header.entry[PHFHEADER_RVBK]);
+        const int rvbk_bytes =
+            (int)(header.entry[PHFHEADER_RVBK + 1] - header.entry[PHFHEADER_RVBK]);
+        if (build_lut)
+          phf::module::HFD26<E, H4, E>::build_lut(rvbk_ptr, rvbk_bytes, 1, lut_d, stream);
+        launch.template operator()<E>(rvbk_ptr, rvbk_bytes);
+        break;
+      }
+      case HFR_PBKC:
+      case HFR_PBKGO: {
+        constexpr auto RvbkBytesPerBook = psz::HFR_PBK_Constants::RvbkBytesPerBook;
+        launch.template operator()<u1>((u1*)pbk25_r128_rvbk_d_ptr(), RvbkBytesPerBook);
+        break;
+      }
+      case HFR_V3:
+      case HFR_V4: {
+        // ensure no silent/wrong-book decode
+        constexpr auto RvbkBytesPerBook = psz::HFR_PBK_Constants::RvbkBytesPerBook;
+        constexpr auto LutEntries = 256;
+        auto rvbk_ptr = (u1*)pbk25_r128_rvbk_d_ptr() + (size_t)header.g_encid * RvbkBytesPerBook;
+        lut_d = buf->lut_d() + (size_t)header.g_encid * LutEntries;
+        launch.template operator()<u1>(rvbk_ptr, RvbkBytesPerBook);
+        break;
+      }
+      default: return PHF_NOT_IMPLEMENTED;
+    }
+    if (build_lut) buf->lut_ready(true);
+    sync_by_stream(stream);
+    return 0;
+  }
+}
+
 }  // namespace phf
 
 template struct phf::high_level<u1>;
@@ -753,6 +817,24 @@ template struct phf::high_level<u4>;
 template int phf::high_level<u1>::HFR_decode<u1>(
     phf::Buf<u1>*, phf_header&, u1*, u1*, hf_stream_t, psz_codec, int);
 
+// HFD26: 1- and 2-byte Eq decode; the u4 cells resolve to the stub.
+template int phf::high_level<u1>::HFD26_decode<u1>(
+    phf::Buf<u1>*, phf_header&, u1*, u1*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u2>::HFD26_decode<u2>(
+    phf::Buf<u2>*, phf_header&, u1*, u2*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u2>::HFD26_decode<f4>(
+    phf::Buf<u2>*, phf_header&, u1*, f4*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u2>::HFD26_decode<f8>(
+    phf::Buf<u2>*, phf_header&, u1*, f8*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u4>::HFD26_decode<u4>(
+    phf::Buf<u4>*, phf_header&, u1*, u4*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u4>::HFD26_decode<f4>(
+    phf::Buf<u4>*, phf_header&, u1*, f4*, hf_stream_t, psz_codec, int);
+template int phf::high_level<u4>::HFD26_decode<f8>(
+    phf::Buf<u4>*, phf_header&, u1*, f8*, hf_stream_t, psz_codec, int);
+
+template int phf::high_level<u1>::HF_decode<u1>(
+    phf::Buf<u1>*, phf_header&, u1*, u1*, hf_stream_t, psz_codec);
 template int phf::high_level<u2>::HF_decode<u2>(
     phf::Buf<u2>*, phf_header&, u1*, u2*, hf_stream_t, psz_codec);
 template int phf::high_level<u2>::HFR_decode<u2>(

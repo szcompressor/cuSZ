@@ -102,6 +102,16 @@ target_link_libraries(test_hfr
 )
 add_test(test_hf_revisit_altcode test_hfr)
 
+add_executable(test_hfd26_fused src/test_hfd26_fused.cc)
+target_link_libraries(test_hfd26_fused
+  PRIVATE
+  psz_cu_test_compile_settings
+  PSZ::CUDA::phf
+  PORTABLE::testutils
+  CUDA::cudart
+)
+add_test(test_hfd26_fused_vs_two_kernel test_hfd26_fused)
+
 add_executable(test_hfserial src/test_hfserial.cc)
 target_link_libraries(test_hfserial
   PRIVATE
@@ -121,5 +131,6 @@ set_tests_properties(
   test_stat_max_error
   test_mem_unique
   test_hf_revisit_altcode
+  test_hfd26_fused_vs_two_kernel
   PROPERTIES RESOURCE_LOCK gpu
 )

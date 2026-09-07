@@ -188,18 +188,23 @@ void psz_decompress_task(psz_args* args)
 
   // CLI archives are eq4 (see psz_compress_task); width is not yet serialized in the header.
   psz_resource* m = psz_create_resource_manager_from_header_eq4(header, stream);
+  m->cli = args->cli;
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(float, len);
-        psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
+        auto stat = psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
+        if (stat != PSZ_SUCCESS)
+          throw std::runtime_error("decompress failed with status " + std::to_string(stat));
         report_decomp<float>(args, header, len);
         compare_with_origin<float>(args, stream, d_decomped.get(), len, comp_len, header);
         write_decomp_to_disk<float>(args, stream, d_decomped.get(), len, basename);
       })
       .on<double, F8>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(double, len);
-        psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
+        auto stat = psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
+        if (stat != PSZ_SUCCESS)
+          throw std::runtime_error("decompress failed with status " + std::to_string(stat));
         report_decomp<double>(args, header, len);
         compare_with_origin<double>(args, stream, d_decomped.get(), len, comp_len, header);
         write_decomp_to_disk<double>(args, stream, d_decomped.get(), len, basename);

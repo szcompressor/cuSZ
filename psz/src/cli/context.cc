@@ -139,6 +139,8 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
   .flag("decompress", {"-x", "--unzip", "--decompress"},                      "run decompression")
   .flag("verbose",    {"--verbose"},                                          "verbose output")
+  .flag("hfd26",      {"--hfd26"},                "decode HFR-family archives with HFD26 (the default; stating it is a no-op)")
+  .flag("hfd_coarse",  {"--hfd-coarse"},            "force the coarse one-thread-per-chunk decoder (HFR_coarse); HF and HF-rev2 are always coarse")
   ;
 // clang-format on
 
@@ -318,6 +320,12 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   }
 
   if (args.get<bool>("verbose")) ctx->cli->verbose = true;
+  if (args.get<bool>("hfd26")) ctx->cli->use_hfd26 = true;
+  if (args.get<bool>("hfd_coarse")) ctx->cli->use_hfd_coarse = true;
+  if (ctx->cli->use_hfd26 and ctx->cli->use_hfd_coarse) {
+    cerr << LOG_ERR << "--hfd26 and --hfd-coarse select different decoders; pass at most one" << endl;
+    exit(1);
+  }
 
   // HFR reduce-merge pass count (--rmerge-count): 2|3|4, default 3; encode-only.
   {
@@ -465,6 +473,8 @@ psz_ctx* pszctx_default_values()
               .report_time         = false,
               .report_cr           = false,
               .verbose             = false,
+              .use_hfd26           = false,
+              .use_hfd_coarse       = false,
               .hfr_rmerge_count    = 3,
           },
       .bklen           = 1024,

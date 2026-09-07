@@ -586,7 +586,13 @@ PPL_IMPL(void)::decomp_predict(
   }
 }
 
-PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream)
+// The two one-thread-per-chunk decoders --hfd-coarse selects between, named so
+// the dispatch says which one an archive lands on. HF_coarse is what the
+// codebase already calls coarse (GPU_coarse_decode / phf_coarse_tune).
+enum coarse_decoder { HF_coarse, HFR_coarse };
+
+PPL_IMPL(int)::decompress(
+    psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream, bool use_hfd_coarse)
 {
   auto access = [&](int FIELD, szt offset_nbyte = 0) {
     return (void*)(in + header->entry[FIELD] + offset_nbyte);
@@ -598,9 +604,7 @@ PPL_IMPL(int)::decompress(psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_
   auto len = header->len;
   phf_header h;  // declared early so goto over STEP_DECODING is valid
 
-  // 2D/3D lorenzo under an HFR-family codec stores eq tile-ordered (each tile is
-  // whole 1Ki chunk(s)); the fused predict-input is decoded into a per-tile
-  // scratch and x_lorenzo un-tiles it into the (linear) output.
+  // One chunk (non-1Ki) can contain multiple ND tiles.
   int const nd = (len.z > 1) ? 3 : (len.y > 1) ? 2 : 1;
   auto const c1 = header->pipeline.codec1;
   bool const is_hfr_family =
@@ -662,47 +666,39 @@ STEP_DECODING:
   memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
   {
     auto enc = (BYTE*)access(PSZ_ENCODED);
-    // predictor chunksize == encoder chunksize (same mapping as the encode side).
+    // predictor chunksize == encoder chunksize
     auto const _pd = header->pipeline.predictor;
     int const _nd = (len.z > 1) ? 3 : (len.y > 1) ? 2 : 1;
     bool const _y25t = _nd >= 2 and _pd == Spline and header->spline_variant == 0;
     bool const _tile = _y25t or (_nd >= 2 and (_pd == Lorenzo or _pd == LorenzoZigZag or
                                                (_pd == Spline and header->spline_variant == 1)));
     int const magnitude = not _tile ? 10 : _y25t ? 12 : (_nd == 3 or _pd == Spline) ? 11 : 10;
-    auto decode_eq = [&](auto* dst) {
+    // HFD26 implements the HFR family and nothing else (HFD26_decode's switch
+    // returns PHF_NOT_IMPLEMENTED for HF and HFr2), so it is the default there
+    // and --hfd-coarse opts out. An HF_coarse archive has no fine-grained
+    // decoder to opt out of, which is why the flag cannot change its outcome.
+    auto decode_eq = [&](auto* dst) -> int {
       using Eout = std::remove_pointer_t<decltype(dst)>;
-      auto c = header->pipeline.codec1;
-      if (c == HFR_PBKC)
-        phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR_PBKC, magnitude);
-      else if (c == HFR_PBKGO)
-        phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR_PBKGO, magnitude);
-      else if (c == HFR)
-        phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR, magnitude);
-      else if (c == HFR_V3)
-        phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR_V3, magnitude);
-      else if (c == HFR_V4)
-        phf::high_level<E>::template HFR_decode<Eout>(
-            mem->buf_hf(), h, enc, dst, stream, HFR_V4, magnitude);
-      else if (c == HFr2)
-        phf::high_level<E>::template HF_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HFr2);
-      else  // HF on-disk layout / decoder.
-        phf::high_level<E>::template HF_decode<Eout>(mem->buf_hf(), h, enc, dst, stream, HF);
+      auto const c = header->pipeline.codec1;
+      auto const coarse =
+          (c == HFR or c == HFR_PBKC or c == HFR_PBKGO or c == HFR_V3 or c == HFR_V4) ? HFR_coarse
+                                                                                      : HF_coarse;
+      if (coarse == HFR_coarse and not use_hfd_coarse)
+        return phf::high_level<E>::template HFD26_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, c, magnitude);
+      if (coarse == HFR_coarse)
+        return phf::high_level<E>::template HFR_decode<Eout>(
+            mem->buf_hf(), h, enc, dst, stream, c, magnitude);
+      return phf::high_level<E>::template HF_decode<Eout>(
+          mem->buf_hf(), h, enc, dst, stream, (c == HFr2) ? HFr2 : HF);
     };
-    // tile-order (lorenzo, spline-y24, spline-y25-3D): the fused eq+outliers decode into a
-    // per-tile scratch. Else lorenzo/spline-y24 decode into the output; linear spline-y25 into
-    // d_eq.
+    // FIXME: working but messy
     bool const eq_in_out =
         (header->pipeline.predictor != Spline) or (header->spline_variant != 0 /* not y25 */);
-    if (tile_nd)
-      decode_eq(mem->decode_fused_d());
-    else if (eq_in_out)
-      decode_eq(d_space);
-    else
-      decode_eq(mem->eq_d());
+    int const decode_stat = tile_nd     ? decode_eq(mem->decode_fused_d())
+                            : eq_in_out ? decode_eq(d_space)
+                                        : decode_eq(mem->eq_d());
+    if (decode_stat != PHF_SUCCESS) return PSZ_ABORT_NO_SUCH_CODEC;
   }
 
 STEP_SCATTER:

@@ -9,30 +9,11 @@
 
 namespace phf {
 
-// w0 layout scales with Magnitude: [dense | encid:5 | breaks | unpred] (see bheader).
-template <int Magnitude>
-__forceinline__ __device__ u4 unpack_par_dense(u4 w0)
-{
-  using KC = psz::_parameterized_hfr_pbk_constants<(size_t)Magnitude>;
-  return w0 >> (KC::BitsMaxNumUnpred + KC::BitsMaxNumBreaks + KC::BitsEncId);
-}
-template <int Magnitude>
-__forceinline__ __device__ u4 unpack_par_encid(u4 w0)
-{
-  using KC = psz::_parameterized_hfr_pbk_constants<(size_t)Magnitude>;
-  return (w0 >> (KC::BitsMaxNumUnpred + KC::BitsMaxNumBreaks)) & ((1u << KC::BitsEncId) - 1u);
-}
-template <int Magnitude>
-__forceinline__ __device__ u4 unpack_par_nunpred(u4 w0)
-{
-  using KC = psz::_parameterized_hfr_pbk_constants<(size_t)Magnitude>;
-  return w0 & ((1u << KC::BitsMaxNumUnpred) - 1u);
-}
-template <typename H>
-__forceinline__ __device__ u4 unpack_par_entry_words(u4 w1)
-{
-  return w1 / (u4)sizeof(H);
-}
+using psz::unpack_par_dense;
+using psz::unpack_par_encid;
+using psz::unpack_par_end_words;
+using psz::unpack_par_entry_words;
+using psz::unpack_par_nunpred;
 
 template <typename Ein, typename H, typename Storage, typename Eout = Ein, int Magnitude = 10>
 __global__ void KCU_HFR_PBK_decode(
@@ -51,9 +32,8 @@ __global__ void KCU_HFR_PBK_decode(
   u4 const valid = (u4)(data_len - block_off < (size_t)ChunkSize ? data_len - block_off : ChunkSize);
 
   u4 const w0 = pbk_packed_headers[2 * gid + 0];
-  u4 const w1 = pbk_packed_headers[2 * gid + 1];
   u4 const tree_idx = unpack_par_encid<Magnitude>(w0);
-  u4 const unit_start = unpack_par_entry_words<H>(w1);
+  u4 const unit_start = unpack_par_entry_words<H>(pbk_packed_headers, gid);
 
   using psz::OutlierCell;
   bool const is_incomp_unpred = (tree_idx == (u4)psz::HFR_PBK_Constants::CodeIncompUnpred);
@@ -85,9 +65,7 @@ __global__ void KCU_HFR_PBK_decode(
   u4 const bs_words = unpack_par_dense<Magnitude>(w0);
   u4 const n_unpred = unpack_par_nunpred<Magnitude>(w0);
   u4 const total_words =
-      (gid + 1 < pbk_pardeg)
-          ? (unpack_par_entry_words<H>(pbk_packed_headers[2 * (gid + 1) + 1]) - unit_start)
-          : ((u4)(pbk_bitstream_len / sizeof(H)) - unit_start);
+      unpack_par_end_words<H>(pbk_packed_headers, gid, pbk_pardeg, pbk_bitstream_len) - unit_start;
   // (matche write_pbk_bitstream_v2).
   u4 const unpred_words = ((n_unpred * (u4)sizeof(OutlierCell) + 3u) & ~3u) / (u4)sizeof(H);
   u4 const n_breaks = total_words - bs_words - unpred_words;

@@ -144,13 +144,14 @@ int psz_release_resource(psz_resource* manager)
     status = PSZ_WARN_RADIUS_TOO_LARGE;              \
   }
 
-#define RUNTIME_CHANGE_EB_IF_REL(Type)                                                         \
-  if (rc.mode == Rel) {                                                                        \
-    auto [min_val, max_val, avg_val, rng] = psz::cuda::GPU_get_extrema<Type>::kernel(IN_d_data, m->len_linear); \
-    (void)avg_val;                                                                             \
-    m->header->min_val = min_val;                                                              \
-    m->header->max_val = max_val;                                                              \
-    m->header->rc.eb *= rng;                                                                   \
+#define RUNTIME_CHANGE_EB_IF_REL(Type)                                      \
+  if (rc.mode == Rel) {                                                     \
+    auto [min_val, max_val, avg_val, rng] =                                 \
+        psz::cuda::GPU_get_extrema<Type>::kernel(IN_d_data, m->len_linear); \
+    (void)avg_val;                                                          \
+    m->header->min_val = min_val;                                           \
+    m->header->max_val = max_val;                                           \
+    m->header->rc.eb *= rng;                                                \
   }
 
 int psz_compress_float(
@@ -230,26 +231,24 @@ int psz_decompress_float(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     float* OUT_d_decompressed)
 {
-  if (m->use_eq4)
-    CP<f4, u4>::decompress(
-        m->header, (psz_buf<f4, u4>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
-  else
-    CP<f4, u2>::decompress(
-        m->header, (psz_buf<f4, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
-
-  return PSZ_SUCCESS;
+  bool const use_hfd_coarse = m->cli and m->cli->use_hfd_coarse;
+  return m->use_eq4 ? CP<f4, u4>::decompress(
+                          m->header, (psz_buf<f4, u4>*)m->buf, IN_d_compressed, OUT_d_decompressed,
+                          m->stream, use_hfd_coarse)
+                    : CP<f4, u2>::decompress(
+                          m->header, (psz_buf<f4, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed,
+                          m->stream, use_hfd_coarse);
 }
 
 int psz_decompress_double(
     psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     double* OUT_d_decompressed)
 {
-  if (m->use_eq4)
-    CP<f8, u4>::decompress(
-        m->header, (psz_buf<f8, u4>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
-  else
-    CP<f8, u2>::decompress(
-        m->header, (psz_buf<f8, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed, m->stream);
-
-  return PSZ_SUCCESS;
+  bool const use_hfd_coarse = m->cli and m->cli->use_hfd_coarse;
+  return m->use_eq4 ? CP<f8, u4>::decompress(
+                          m->header, (psz_buf<f8, u4>*)m->buf, IN_d_compressed, OUT_d_decompressed,
+                          m->stream, use_hfd_coarse)
+                    : CP<f8, u2>::decompress(
+                          m->header, (psz_buf<f8, u2>*)m->buf, IN_d_compressed, OUT_d_decompressed,
+                          m->stream, use_hfd_coarse);
 }

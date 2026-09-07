@@ -10,6 +10,8 @@
 
 namespace phf {
 
+struct LutEntry;  // full def in hfd26.hh
+
 template <typename E>
 struct Buf {
   struct impl;
@@ -92,9 +94,13 @@ struct Buf {
   BHeader* pbk_headers_h() const;
   H4* packed_d() const;
   u4* total_ncell_d() const;
-  u4* pbk_packed_headers_d() const;  // 2 u4 per block; HFR family only
+  u4* pbk_packed_headers_d() const;  // HFR family only
   u1* incomp_flag_d() const;
   u4* pbkgo_state_d() const;
+
+  phf::LutEntry* lut_d() const;
+  bool lut_ready() const;  // can be reset
+  void lut_ready(bool v);
 
   void update_header(phf_header& header);
   void calc_offset(phf_header& header, M* byte_offsets);

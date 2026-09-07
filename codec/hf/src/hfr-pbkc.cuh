@@ -26,7 +26,7 @@ __global__ void KCU_HFR_PBKC_encode(
   HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C);
   HFR_PBK_SHARED_AND_RESET();
 
-  constexpr u4 MaxBytesPerBlock = ChunkSize * (u4)sizeof(Hf) +
+  constexpr u4 MaxBytesPerBlock = ChunkSize * (u4)sizeof(T) + // for incomp bypass
                                   (u4)KC::MaxNumBreaks * (u4)sizeof(BreakCell) +
                                   (u4)KC::MaxUnpredBytes;
   slot_fixed_stride slot{MaxBytesPerBlock};

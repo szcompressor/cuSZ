@@ -49,7 +49,7 @@ int canonize(u1* bin, uint32_t const bklen)
 
   first[max_l] = 0;
   for (int l = max_l - 1; l >= 1; l--) {
-    first[l] = static_cast<int>((first[l + 1] + numl[l + 1]) / 2.0 + 0.5);
+    first[l] = (first[l + 1] + numl[l + 1]) / 2;
   }
   first[0] = 0xff;  // no off-by-one error
 
@@ -121,7 +121,7 @@ int hf_canon_reference<E, H>::canonize()
 
   first(max_l) = 0;
   for (int l = max_l - 1; l >= 1; l--) {
-    first(l) = static_cast<int>((first(l + 1) + numl(l + 1)) / 2.0 + 0.5);
+    first(l) = (first(l + 1) + numl(l + 1)) / 2;
   }
   first(0) = 0xff;  // no off-by-one error
 

@@ -35,7 +35,7 @@ endif()
 
 target_compile_definitions(${PHF_PORTABLE_TARGET}
   INTERFACE
-    PHF_USE_CUDA
+  PHF_USE_CUDA
 )
 
 # ------------------------------------------------------------------------------
@@ -71,28 +71,30 @@ add_library(phf_cu
   src/compile/hfr-pbkgo_2ki.cu
   src/compile/hfr-pbkgo_4ki.cu
   src/hfr-pbk_decoder.cu
+  src/hfd26.cu
+  src/hfd26_ref.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src/book/pbk25_r128_d.cu
 )
 add_library(PHF::phf_cu ALIAS phf_cu)
 
 target_include_directories(phf_cu
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../psz/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../psz/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../psz/src>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_link_libraries(phf_cu
   PUBLIC
-    CUDA::cudart
-    ${PHF_PORTABLE_TARGET}
+  CUDA::cudart
+  ${PHF_PORTABLE_TARGET}
 )
 
 set_target_properties(phf_cu
   PROPERTIES
-    LINKER_LANGUAGE CXX
+  LINKER_LANGUAGE CXX
 )
 
 # ------------------------------------------------------------------------------

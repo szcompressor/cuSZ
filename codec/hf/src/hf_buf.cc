@@ -7,6 +7,7 @@
 
 #include "_future/scan_lookback.hh"
 #include "hf.h"
+#include "hfd26.hh"
 #include "hfr.hh"
 #include "mem/cxx_backends.h"
 #include "mem/cxx_sp_gpu.h"
@@ -21,6 +22,8 @@ phf_eager_module_loading_init _phf_eager_module_loading_init_singleton;
 
 using H4 = u4;
 using M = PHF_METADATA;
+
+extern "C" void* pbk25_r128_rvbk_d_ptr();  // pbk25_r128_d.cu
 
 namespace phf::_dummy {
 void launch();
@@ -51,9 +54,10 @@ struct Buf<E>::impl {
   size_t pardeg;
   size_t sublen;
   bool use_HFR;
-  bool use_prebuilt_rvbk = false;  // exclude runtime rvbk from the archive
+  bool use_prebuilt_rvbk = false;  // exclude runtime RVBK from the archive
   bool use_pbkgo = false;
-  bool use_global_encid = false;  // HFR-v3: patch global PBK id into the archive header
+  bool use_global_encid = false;  // HFR-v3: record global PBK ID
+  bool lut_ready = false;         // HFD26 LUT cache
   u2 rt_bklen;
   int num_sms;
   int pbkgo_max_blocks_per_sm;
@@ -96,6 +100,7 @@ struct Buf<E>::impl {
   GPU_unique_dptr<u4[]> d_pick_encid;          // HFR-v3: 1-word global PBK id from the pick kernel
   GPU_unique_dptr<u4[]> d_pbk_packed_headers;  // two u4 per block
   GPU_unique_dptr<u4[]> d_pbkgo_state;         // one u4 per block
+  GPU_unique_dptr<phf::LutEntry[]> d_lut;  // HFD26: NumBooks x 256 LutEntry
 
   // per-buf-lifetime; avoid per-encode create/destroy
   _ptb::gpu_event timing_events[3];
@@ -144,7 +149,7 @@ struct Buf<E>::impl {
         use_HFR ? pardeg * (psz::HFR_PBK_C12::MaxUnpredWords + psz::HFR_PBK_C12::MaxNumBreaks) : 0;
 
     const size_t scratch_bytes = use_HFR ? archive_max_words(len, rvbk4_bytes) * sizeof(H4)
-                                         : sizeof(SYM) * (len + hfr_incomp_pad);
+                                         : sizeof(H4) * (len + hfr_incomp_pad);
     d_scratch4 = MAKE_UNIQUE_DEVICE(H4, (scratch_bytes + sizeof(H4) - 1) / sizeof(H4));
     h_book4 = MAKE_UNIQUE_HOST(H4, bklen);
     d_book4 = MAKE_UNIQUE_DEVICE(H4, bklen);
@@ -172,17 +177,20 @@ struct Buf<E>::impl {
     // bheader AoS: nblock_1ki per-block for the HFR family, pardeg per-chunk for HF / HF-rev2.
     const auto n_bheaders = nblock_1ki > pardeg ? nblock_1ki : pardeg;
     d_pbk_headers = MAKE_UNIQUE_DEVICE(BHeader, n_bheaders);
-    memset_device(d_pbk_headers.get(), n_bheaders);
 
     if (use_HFR) {
       using K = psz::HFR_PBK_Constants;
-      d_incomp_flag = MAKE_UNIQUE_DEVICE(u1, pardeg);
-      memset_device(d_incomp_flag.get(), pardeg);  // 0 = normal; 1 = use incomp-31
+      d_incomp_flag = MAKE_UNIQUE_DEVICE(u1, pardeg);  // 0 = normal; 1 = use incomp-31
       const size_t packed_bytes = sizeof(SYM) * (pardeg * K::BlockSize + hfr_incomp_pad);
       d_packed = MAKE_UNIQUE_DEVICE(H4, (packed_bytes + sizeof(H4) - 1) / sizeof(H4));
       d_pbk_packed_headers = MAKE_UNIQUE_DEVICE(u4, 2 * pardeg);  // two u4 per block
       d_pbkgo_state = MAKE_UNIQUE_DEVICE(u4, pardeg);             // init to 0 (INVALID)
-      memset_device(d_pbkgo_state.get(), pardeg);
+
+      d_lut = MAKE_UNIQUE_DEVICE(phf::LutEntry, K::NumBooks * 256);
+
+      phf::module::HFD26<SYM, u4, u1>::build_lut(
+          (u1*)pbk25_r128_rvbk_d_ptr(), (int)K::RvbkBytesPerBook, (int)K::NumBooks,
+          d_lut.get(), /*stream*/ 0);
     }
 
     // repurpose scratch after several substeps
@@ -217,7 +225,7 @@ struct Buf<E>::impl {
 
     auto start = ((uint8_t*)memcpy_start + memcpy_adjust_to_start);
     auto d2d_memcpy_merge = [&](memcpy_helper& var) {
-      if (var.nbyte == 0) return;  // skip dead sections (PBKC's rvbk, brnum=0 sections)
+      if (var.nbyte == 0) return;  // skip dead sections (PBKC's RVBK, brnum=0 sections)
       cudaMemcpyAsync(
           start + var.dst, var.ptr, var.nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     };
@@ -353,6 +361,7 @@ PHF_BUF_DEF(void)::clear_buffer() { pimpl->clear_buffer(); }
 // Per-encode reset: scan-state init for LAGO.
 PHF_BUF_DEF(void)::reset(phf_stream_t stream)
 {
+  pimpl->lut_ready = false;  // new encode -> LUT is stale
   psz::scan_lookback::launch_init_host(
       pimpl->d_scan_partial_aggregate.get(), pimpl->d_scan_incl_prefix.get(),
       pimpl->d_scan_tile_status.get(), pimpl->scan_num_tiles_, stream);
@@ -379,6 +388,9 @@ PHF_BUF_DEF(u4*)::total_ncell_d() const { return pimpl->d_total_ncell.get(); }
 PHF_BUF_DEF(u4*)::pbk_packed_headers_d() const { return pimpl->d_pbk_packed_headers.get(); }
 PHF_BUF_DEF(u1*)::incomp_flag_d() const { return pimpl->d_incomp_flag.get(); }
 PHF_BUF_DEF(u4*)::pbkgo_state_d() const { return pimpl->d_pbkgo_state.get(); }
+PHF_BUF_DEF(phf::LutEntry*)::lut_d() const { return pimpl->d_lut.get(); }
+PHF_BUF_DEF(bool)::lut_ready() const { return pimpl->lut_ready; }
+PHF_BUF_DEF(void)::lut_ready(bool v) { pimpl->lut_ready = v; }
 
 }  // namespace phf
 

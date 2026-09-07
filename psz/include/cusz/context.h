@@ -43,6 +43,11 @@ struct psz_cli_config {
   bool report_cr;
   bool verbose;
 
+  // HFD26 decodes the HFR family by default; --hfd-coarse selects HFR_decode,
+  // and --hfd26 states the default explicitly.
+  bool use_hfd26;
+  bool use_hfd_coarse;
+
   // HFR family reduce-merge pass count (--rmerge-count, 2|3|4); encode-only.
   int hfr_rmerge_count;
 };

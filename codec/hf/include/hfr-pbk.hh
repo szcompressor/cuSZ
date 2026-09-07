@@ -160,10 +160,48 @@ __host__ __device__ __forceinline__ u4 pbk_unpred_words(u4 n_unpred)
   return pbk_unpred_bytes(n_unpred) / 4u;  // H4 words
 }
 
+// bit budget scaled with Magnitude
+template <int Magnitude>
+__host__ __device__ __forceinline__ u4 unpack_par_dense(u4 w0)
+{
+  using C = _parameterized_hfr_pbk_constants<Magnitude>;
+  return w0 >> (C::BitsMaxNumUnpred + C::BitsMaxNumBreaks + C::BitsEncId);
+}
+template <int Magnitude>
+__host__ __device__ __forceinline__ u4 unpack_par_encid(u4 w0)
+{
+  using C = _parameterized_hfr_pbk_constants<Magnitude>;
+  return (w0 >> (C::BitsMaxNumUnpred + C::BitsMaxNumBreaks)) & ((1u << C::BitsEncId) - 1u);
+}
+template <int Magnitude>
+__host__ __device__ __forceinline__ u4 unpack_par_nunpred(u4 w0)
+{
+  using C = _parameterized_hfr_pbk_constants<Magnitude>;
+  return w0 & ((1u << C::BitsMaxNumUnpred) - 1u);
+}
+template <typename H>
+__host__ __device__ __forceinline__ u4 unpack_par_entry_words(u4 w1)
+{ return w1 / (u4)sizeof(H); }
+
+// chunk k's first word
+template <typename H>
+__host__ __device__ __forceinline__ u4 unpack_par_entry_words(u4 const* bheaders, int k)
+{ return unpack_par_entry_words<H>(bheaders[2 * k + 1]); }
+
+// chunk k ends where k+1 starts; the last one runs to the end of the bitstream.
+// bitstream_len stays a byte count so the divide is skipped on the common path.
+template <typename H>
+__host__ __device__ __forceinline__ u4 unpack_par_end_words(
+    u4 const* bheaders, int k, int pardeg, size_t bitstream_len)
+{
+  return (k + 1 < pardeg) ? unpack_par_entry_words<H>(bheaders, k + 1)
+                          : (u4)(bitstream_len / sizeof(H));
+}
+
 // RT-parameterized constants (adds shard-fan-out fields).
 template <int _RT>
 struct HFR_PBK_Constants_RT : public HFR_PBK_Constants {
-  static constexpr size_t ReduceTimes = (size_t)_RT;
+  static constexpr size_t ReduceTimes = _RT;
   static constexpr size_t ShardSize = 1u << ReduceTimes;           // points per thread
   static constexpr size_t NumShards = BlockSize / ShardSize;       // threads per block
   static constexpr size_t ShuffleTimes = Magnitude - ReduceTimes;  // log2(NumShards)
