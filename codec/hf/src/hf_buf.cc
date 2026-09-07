@@ -100,7 +100,7 @@ struct Buf<E>::impl {
   GPU_unique_dptr<u4[]> d_pick_encid;          // HFR-v3: 1-word global PBK id from the pick kernel
   GPU_unique_dptr<u4[]> d_pbk_packed_headers;  // two u4 per block
   GPU_unique_dptr<u4[]> d_pbkgo_state;         // one u4 per block
-  GPU_unique_dptr<phf::LutEntry[]> d_lut;  // HFD26: NumBooks x 256 LutEntry
+  GPU_unique_dptr<phf::LutEntry[]> d_lut;      // HFD26: NumBooks x 256 LutEntry
 
   // per-buf-lifetime; avoid per-encode create/destroy
   _ptb::gpu_event timing_events[3];
@@ -123,13 +123,12 @@ struct Buf<E>::impl {
   impl(size_t inlen, size_t _bklen, int _pardeg, bool _use_HFR, bool debug, bool use_sublen_1ki) :
       len(inlen),
       bklen(_bklen),
-      // per-block staging stride, padded to the M12 worst case (E=u4 dense ~= 1 word/symbol).
-      bitstream_max_len(
+      bitstream_max_len( // worse case: CR ~ 1.0x input bytes
           _use_HFR ? (((inlen - 1) / psz::HFR_PBK_Constants::BlockSize + 1) *
                           psz::HFR_PBK_Constants::StridePerBlockWords +
                       ((inlen - 1) / psz::HFR_PBK_Constants::BlockSize + 1) *
                           (psz::HFR_PBK_C12::MaxUnpredWords + psz::HFR_PBK_C12::MaxNumBreaks))
-                   : inlen / 2),
+                   : inlen),
       use_HFR(_use_HFR),
       rvbk4_bytes(_rvbk4_bytes(_bklen))
   {
@@ -189,8 +188,8 @@ struct Buf<E>::impl {
       d_lut = MAKE_UNIQUE_DEVICE(phf::LutEntry, K::NumBooks * 256);
 
       phf::module::HFD26<SYM, u4, u1>::build_lut(
-          (u1*)pbk25_r128_rvbk_d_ptr(), (int)K::RvbkBytesPerBook, (int)K::NumBooks,
-          d_lut.get(), /*stream*/ 0);
+          (u1*)pbk25_r128_rvbk_d_ptr(), (int)K::RvbkBytesPerBook, (int)K::NumBooks, d_lut.get(),
+          /*stream*/ 0);
     }
 
     // repurpose scratch after several substeps
