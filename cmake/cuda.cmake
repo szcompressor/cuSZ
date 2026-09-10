@@ -190,6 +190,7 @@ if(PSZ_ACTIVATE_LC)
     third_party/lc_gen/comp-tcms.cu third_party/lc_gen/decomp-tcms.cu
     third_party/lc_gen/comp-bitr.cu third_party/lc_gen/decomp-bitr.cu
     third_party/lc_gen/comp-rtr.cu  third_party/lc_gen/decomp-rtr.cu
+    third_party/lc_gen/comp-drh.cu  third_party/lc_gen/decomp-drh.cu
   )
   target_compile_options(lc_gen PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-O3 -fmad=false>

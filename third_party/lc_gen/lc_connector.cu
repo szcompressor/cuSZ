@@ -70,6 +70,11 @@ void RTR_COMPRESS(uint8_t* input, size_t insize, psz::LC_Buf* buf, size_t* outsi
   compress_impl(d_reset_rtr_comp, d_encode_rtr, false, input, insize, buf, outsize, stream);
 }
 
+void DRH_COMPRESS(uint8_t* input, size_t insize, psz::LC_Buf* buf, size_t* outsize, void* stream)
+{
+  compress_impl(d_reset_drh_comp, d_encode_drh, true, input, insize, buf, outsize, stream);
+}
+
 void BITR_DECOMPRESS(uint8_t* input, psz::LC_Buf* buf, void* stream)
 {
   decompress_impl(d_reset_bitr_decomp, d_decode_bitr, input, buf, stream);
@@ -83,6 +88,11 @@ void TCMS_DECOMPRESS(uint8_t* input, psz::LC_Buf* buf, void* stream)
 void RTR_DECOMPRESS(uint8_t* input, psz::LC_Buf* buf, void* stream)
 {
   decompress_impl(d_reset_rtr_decomp, d_decode_rtr, input, buf, stream);
+}
+
+void DRH_DECOMPRESS(uint8_t* input, psz::LC_Buf* buf, void* stream)
+{
+  decompress_impl(d_reset_drh_decomp, d_decode_drh, input, buf, stream);
 }
 
 }  // namespace LC_Connector
