@@ -2,6 +2,7 @@
 #include <string>
 
 #include "compressor.hh"
+#include "fzg_hl.hh"
 #include "kernel.hh"
 #include "lc_gen/lc_gen.h"
 #include "phf.hh"
@@ -78,6 +79,7 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx, bool skip_hf)
   const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
                        (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3) or
                        (_c1 == psz_codec::HFR_V4);
+  const auto use_FZG = (_c1 == psz_codec::FZG);
   auto const _pred = ctx->header->pipeline.predictor;
   int const _nd = (z > 1) ? 3 : (y > 1) ? 2 : 1;
   bool const y25_tile = _pred == psz_predictor::Spline and ctx->spline_variant == 0 and _nd >= 2;
@@ -96,7 +98,7 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx, bool skip_hf)
   else {
     mem = new Buf_Comp<T, E>(
         ctx->header->len, iscompression, use_HFR, true, _c1 == psz_codec::HFr2, tile_order,
-        y25_tile);
+        y25_tile, use_FZG);
   }
   mem->register_header(ctx->header);
   mem->set_spline_variant(ctx->spline_variant);       // anchor sizing
@@ -128,7 +130,8 @@ PPL_IMPL(void*)::decompress_init(psz_header* header)
                      (_pred == psz_predictor::Spline and header->spline_variant == 1))) or
       y25_tile;
   auto mem = new Buf_Comp<T, E>(
-      header->len, false, use_HFR, alloc_eq, _c1 == psz_codec::HFr2, tile_order, y25_tile);
+      header->len, false, use_HFR, alloc_eq, _c1 == psz_codec::HFr2, tile_order, y25_tile,
+      _c1 == psz_codec::FZG);
   mem->register_header(header);
   return mem;
 }
@@ -143,8 +146,9 @@ PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream, boo
   const bool enable_incomp = (PIPELINE.codec1 == HFR_PBKC) or (PIPELINE.codec1 == HFR_PBKGO) or
                              (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_V3) or
                              (PIPELINE.codec1 == HFR_V4);
-  // HF-rev2 currently reuses the global compact (decomp_scatter) for outliers.
-  const bool enable_global = (PIPELINE.codec1 == HFr2) or force_global;
+  // HF, HF-rev2, and FZG all reuse the global compact (decomp_scatter) for outliers.
+  const bool enable_global = (PIPELINE.codec1 == HF) or (PIPELINE.codec1 == HFr2) or
+                             (PIPELINE.codec1 == FZG) or force_global;
 
   if (predictor == Lorenzo)
     c_lrz(mem, make_view(in, len), eb, radius, enable_incomp, enable_global, stream);
@@ -373,6 +377,22 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     return PSZ_SUCCESS;
   };
 
+  // Zhang, Tian, et al. 2023
+  auto compress_encode_pass1_FZG = [&]() -> int {
+    // fzg::E fixed at u2
+    if constexpr (std::is_same_v<E, u2>) {
+      if (predictor != LorenzoZigZag) return PSZ_ABORT_NO_SUCH_PREDICTOR;
+      fzg_header dummy_header{};
+      auto status = fzg::high_level::encode(
+          mem->buf_fzg(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
+          dummy_header, stream);
+      sync_by_stream(stream);
+      return status == 0 ? PSZ_SUCCESS : PSZ_ABORT_NO_SUCH_CODEC;
+    }
+    else
+      return PSZ_ABORT_NO_SUCH_CODEC;
+  };
+
   auto compress_encode_pass1_wrapup = [&]() {
     memset(mem->nbyte, 0, sizeof(mem->nbyte));
     mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
@@ -478,22 +498,23 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       status = compress_encode_pass1_HFR_v3();
     else if (PIPELINE.codec1 == HFR_V4)
       status = compress_encode_pass1_HFR_v4();
+    else if (PIPELINE.codec1 == FZG)
+      status = compress_encode_pass1_FZG();
     else  // HFr2, and HF (now an alias for HFr2)
       status = compress_encode_pass1_Huffman_rev2();
     if (status != PSZ_SUCCESS) return status;
 
-    // HF-rev2 still uses a shared outlier buffer. Tile-order predictors (lorenzo / y24 / y25) may
-    // route per-block outlier overflow to that same global compact when their EnableGlobal policy
-    // is on; splen reflects whatever the encode actually wrote (0 when EnableGlobal=false), so
-    // reading the count for the whole HFR family is behavior-neutral for the blockwise-incomp
-    // builds.
+    if (PIPELINE.codec1 == FZG)  // just in case for the next round
+      memset_device_async(mem->buf_fzg()->offset_counter_d(), 1, 0, stream);
+
+    // HF-rev2 still uses a shared outlier buffer
     const bool hfr_fam =
         (PIPELINE.codec1 == HFR_PBKC or PIPELINE.codec1 == HFR_PBKGO or PIPELINE.codec1 == HFR or
          PIPELINE.codec1 == HFR_V3 or PIPELINE.codec1 == HFR_V4);
-    const bool keep_global = (PIPELINE.codec1 == HFr2) or hfr_fam;
+    const bool keep_global = (PIPELINE.codec1 == HFr2) or (PIPELINE.codec1 == HF) or
+                             (PIPELINE.codec1 == FZG) or hfr_fam;
     if (keep_global) {
       sync_by_stream(stream);
-      // cap at the compact capacity: the atomic overshoots once full (overflow then rides incomp).
       ctx->header->splen =
           std::min<size_t>(mem->outlier2_host_get_num(), mem->outlier2_max_allowed_num());
     }
@@ -596,9 +617,7 @@ PPL_IMPL(void)::decomp_predict(
   }
 }
 
-// The two one-thread-per-chunk decoders --hfd-coarse selects between, named so
-// the dispatch says which one an archive lands on. HF_coarse is what the
-// codebase already calls coarse (GPU_coarse_decode / phf_coarse_tune).
+// `--hfd-coarse` to select fallback coarse HFD
 enum coarse_decoder { HF_coarse, HFR_coarse };
 
 PPL_IMPL(int)::decompress(
@@ -674,7 +693,24 @@ PPL_IMPL(int)::decompress(
 STEP_DECODING:
 
   memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)access(PSZ_ENCODED), sizeof(phf_header));
-  {
+  if (header->pipeline.codec1 == FZG) {
+    if constexpr (std::is_same_v<E, u2>) {
+      bool const eq_in_out =
+          (header->pipeline.predictor != Spline) or (header->spline_variant != 0);
+      fzg_header h_fzg;
+      fzg::high_level::decode(
+          mem->buf_fzg(), h_fzg, (uint8_t*)access(PSZ_ENCODED), 0, mem->fzg_scratch_d(),
+          mem->eq_len(), stream);
+      if (tile_nd)
+        psz::module::GPU_widen<T, E>::kernel(
+            mem->fzg_scratch_d(), mem->decode_fused_d(), mem->eq_len(), stream);
+      else if (eq_in_out)
+        psz::module::GPU_widen<T, E>::kernel(mem->fzg_scratch_d(), d_space, mem->eq_len(), stream);
+      else
+        memcpy_allkinds<D2D>(mem->eq_d(), mem->fzg_scratch_d(), mem->eq_len());
+    }
+  }
+  else {
     auto enc = (BYTE*)access(PSZ_ENCODED);
     // predictor chunksize == encoder chunksize
     auto const _pd = header->pipeline.predictor;
@@ -683,10 +719,7 @@ STEP_DECODING:
     bool const _tile = _y25t or (_nd >= 2 and (_pd == Lorenzo or _pd == LorenzoZigZag or
                                                (_pd == Spline and header->spline_variant == 1)));
     int const magnitude = not _tile ? 10 : _y25t ? 12 : (_nd == 3 or _pd == Spline) ? 11 : 10;
-    // HFD26 implements the HFR family and nothing else (HFD26_decode's switch
-    // returns PHF_NOT_IMPLEMENTED for HF and HFr2), so it is the default there
-    // and --hfd-coarse opts out. An HF_coarse archive has no fine-grained
-    // decoder to opt out of, which is why the flag cannot change its outcome.
+    // HFD26 works with HFR family
     auto decode_eq = [&](auto* dst) -> int {
       using Eout = std::remove_pointer_t<decltype(dst)>;
       auto const c = header->pipeline.codec1;

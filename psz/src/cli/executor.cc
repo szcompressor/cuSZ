@@ -1,8 +1,4 @@
-// CLI-level task runner: compress/decompress workflows.
-//
-// Owns the cudaStream lifecycle, file I/O, dtype dispatch, and reporting.
-// Reads configuration from psz_args via CLI_* accessors; calls into the
-// library API (psz_compress_*, psz_decompress_*).
+// CLI task runner
 
 #include "executor.hh"
 
@@ -23,7 +19,7 @@ using _ptb::utils::tofile;
 using std::string;
 
 // ---------------------------------------------------------------------------
-// dtype-templated helpers (replace REPORT / COMPARE_WITH_ORIGIN / WRITE_TO_DISK macros)
+// dtype-templated helpers
 // ---------------------------------------------------------------------------
 
 template <typename T>
@@ -34,9 +30,8 @@ static void report_decomp(psz_args* args, psz_header* header, size_t len)
 }
 
 template <typename T>
-static void compare_with_origin(
-    psz_args* args, cudaStream_t stream, T* d_decomped, size_t len, size_t comp_len,
-    psz_header* header)
+static void compare_with_origin(psz_args* args, cudaStream_t stream, T* d_decomped, size_t len,
+                                size_t comp_len, psz_header* header)
 {
   if (string(args->cli->file_compare).empty()) return;
   sync_by_stream(stream);
@@ -47,13 +42,13 @@ static void compare_with_origin(
   if (args->cli->verbose)
     psz::analysis::GPU_evaluate_quality_and_print(d_decomped, d_origin.get(), len, comp_len);
   else
-    psz::analysis::GPU_evaluate_quality_and_print_concise(
-        d_decomped, d_origin.get(), len, comp_len, header);
+    psz::analysis::GPU_evaluate_quality_and_print_concise(d_decomped, d_origin.get(), len,
+                                                          comp_len, header);
 }
 
 template <typename T>
-static void write_decomp_to_disk(
-    psz_args* args, cudaStream_t stream, T* d_decomped, size_t len, const string& basename)
+static void write_decomp_to_disk(psz_args* args, cudaStream_t stream, T* d_decomped, size_t len,
+                                 const string& basename)
 {
   if (args->cli->skip_tofile) return;
   sync_by_stream(stream);
@@ -84,30 +79,44 @@ void psz_compress_task(psz_args* args)
         auto h_in = MAKE_UNIQUE_HOST(float, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m = psz_create_resource_manager_eq4(
-            F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
-            {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
-            args->spline_variant, stream);
-        m->cli                     = args->cli;
+        m      = (CLI_codec1(args) == FZG)  // u2 for legacy FZG
+                     ? psz_create_resource_manager(
+                           F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
+                           args->spline_variant, stream)
+                     : psz_create_resource_manager_eq4(
+                           F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
+                           args->spline_variant, stream);
+        m->cli = args->cli;
         m->header->pipeline.codec2 = CLI_codec2(args);
-        psz_compress_float(
-            m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
-            &d_internal_compressed, &compressed_len);
+        auto stat =
+            psz_compress_float(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
+                               &header, &d_internal_compressed, &compressed_len);
+        if (stat != PSZ_SUCCESS)
+          throw std::runtime_error("compress failed with status " + std::to_string(stat));
       })
       .on<double, F8>([&](auto) {
         auto d_in = MAKE_UNIQUE_DEVICE(double, len);
         auto h_in = MAKE_UNIQUE_HOST(double, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m = psz_create_resource_manager_eq4(
-            F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
-            {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
-            args->spline_variant, stream);
-        m->cli                     = args->cli;
+        m      = (CLI_codec1(args) == FZG)  // FZG: u2
+                     ? psz_create_resource_manager(
+                           F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
+                           args->spline_variant, stream)
+                     : psz_create_resource_manager_eq4(
+                           F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
+                           args->spline_variant, stream);
+        m->cli = args->cli;
         m->header->pipeline.codec2 = CLI_codec2(args);
-        psz_compress_double(
-            m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(), &header,
-            &d_internal_compressed, &compressed_len);
+        auto stat =
+            psz_compress_double(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
+                                &header, &d_internal_compressed, &compressed_len);
+        if (stat != PSZ_SUCCESS)
+          throw std::runtime_error("compress failed with status " + std::to_string(stat));
       })
       .call(CLI_dtype(args));
 
@@ -130,32 +139,21 @@ void psz_compress_task(psz_args* args)
     tofile(compressed_name.c_str(), file.get(), compressed_len);
   }
 
-  // Sync before unique_ptr destructors run; see note in psz_decompress_task.
   sync_by_stream(stream);
 
   if (m) psz_release_resource(m);
 }
 
-// ---------------------------------------------------------------------------
-// Header sanity check: rejects garbage inputs before they cause OOM/UB
-// downstream. There is no magic number in psz_header (yet), so we cross-check:
-//   1) on-disk file size matches the header's self-reported size
-//   2) dtype is one of the supported values
-// Catches the common cases: wrong file passed to decompress, truncated archive,
-// version mismatch where struct layout has shifted.
-// ---------------------------------------------------------------------------
-
 static void check_header_or_throw(const psz_header* header, size_t on_disk_size)
 {
   auto reported = pszheader_filesize(const_cast<psz_header*>(header));
   if (reported != on_disk_size)
-    throw std::runtime_error(
-        "input does not look like a .cusza archive: header reports " + std::to_string(reported) +
-        " bytes but file is " + std::to_string(on_disk_size));
+    throw std::runtime_error("input does not look like a .cusza archive: header reports " +
+                             std::to_string(reported) + " bytes but file is " +
+                             std::to_string(on_disk_size));
   if (header->dtype != F4 and header->dtype != F8)
-    throw std::runtime_error(
-        "input header dtype is invalid (" + std::to_string(header->dtype) +
-        "); file may be corrupt or from an incompatible version");
+    throw std::runtime_error("input header dtype is invalid (" + std::to_string(header->dtype) +
+                             "); file may be corrupt or from an incompatible version");
 }
 
 // ---------------------------------------------------------------------------
@@ -186,14 +184,15 @@ void psz_decompress_task(psz_args* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  // CLI archives are eq4 (see psz_compress_task); width is not yet serialized in the header.
-  psz_resource* m = psz_create_resource_manager_from_header_eq4(header, stream);
-  m->cli = args->cli;
+  psz_resource* m = (header->pipeline.codec1 == FZG)  // FIXME: ad hoc
+                        ? psz_create_resource_manager_from_header(header, stream)
+                        : psz_create_resource_manager_from_header_eq4(header, stream);
+  m->cli          = args->cli;
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(float, len);
-        auto stat = psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
+        auto stat       = psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error("decompress failed with status " + std::to_string(stat));
         report_decomp<float>(args, header, len);
@@ -202,7 +201,7 @@ void psz_decompress_task(psz_args* args)
       })
       .on<double, F8>([&](auto) {
         auto d_decomped = MAKE_UNIQUE_DEVICE(double, len);
-        auto stat = psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
+        auto stat       = psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error("decompress failed with status " + std::to_string(stat));
         report_decomp<double>(args, header, len);
@@ -211,9 +210,6 @@ void psz_decompress_task(psz_args* args)
       })
       .call(CLI_dtype(m));
 
-  // Sync before any unique_ptr destructors run, so we don't free GPU buffers
-  // while the stream still has pending work. (cudaStreamDestroy syncs too,
-  // but with RAII it runs LAST, after the buffers are gone.)
   sync_by_stream(stream);
 
   if (m) psz_release_resource(m);

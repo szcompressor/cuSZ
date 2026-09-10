@@ -145,6 +145,13 @@ struct GPU_scatter {
   static int kernel_v3_fuse(ValIdx* val_idx, int nnz, T* out, void* stream);
 };
 
+template <typename T, typename E>
+struct GPU_widen {
+  // FIXME ad hoc, aligning data types among buffers
+  // side effect after eq changed from u2 to u4
+  static int kernel(E const* src, T* dst, size_t n, void* stream);
+};
+
 }  // namespace psz::module
 
 #endif

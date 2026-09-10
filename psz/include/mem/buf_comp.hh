@@ -1,7 +1,8 @@
 #ifndef PSZ_COMPBUF_HH
 #define PSZ_COMPBUF_HH
 
-#include <../../codec/hf/include/hf_buf.hh>  // needed for Buf instantiation
+#include <../../codec/fzg/include/fzg_hl.hh>
+#include <../../codec/hf/include/hf_buf.hh>
 #include <cstdint>
 #include <memory>
 
@@ -59,6 +60,7 @@ struct Buf_Comp {
   using Buf_Outlier2 = _ptb::compact_GPU_DRAM2<T, M>;
   using Buf_HF = phf::Buf<E>;
   using Buf_LC = LC_Buf;
+  using Buf_FZG = fzg::Buf2;
 
   struct impl;
   std::unique_ptr<impl> pimpl;
@@ -95,7 +97,8 @@ struct Buf_Comp {
   Buf_Comp(psz_len len, BufToggle_Comp* toggle);
   Buf_Comp(
       psz_len len, bool _is_comp = true, bool use_HFR = false, bool alloc_eq = true,
-      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false);
+      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false,
+      bool use_FZG = false);
   ~Buf_Comp();
 
   void register_header(psz_header* header) { header_ref = header; }
@@ -136,6 +139,8 @@ struct Buf_Comp {
 
   Buf_HF* buf_hf() const;
   Buf_LC* buf_lc() const;
+  Buf_FZG* buf_fzg() const;
+  E* fzg_scratch_d() const;  // patched for FZG-decode
 
   float outlier_ratio() const { return OUTLIER_RATIO; };
 };

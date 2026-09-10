@@ -38,7 +38,8 @@ struct psz::Buf_Comp<T, E>::impl {
   // arrays
   GPU_unique_dptr<E[]> d_eq;
   GPU_unique_dptr<T[]> d_decode_fused;  // tile-order decode (2D HFR-family) scratch
-  size_t eq_len_ = 0;                   // padded eq length (tile-order) or aligned linear
+  GPU_unique_dptr<E[]> d_fzg_scratch;
+  size_t eq_len_ = 0;  // padded/aligned
   GPU_unique_dptr<BYTE[]> d_compressed;
   GPU_unique_hptr<BYTE[]> h_compressed;
   GPU_unique_dptr<Freq[]> d_hist;
@@ -50,6 +51,7 @@ struct psz::Buf_Comp<T, E>::impl {
   std::unique_ptr<Buf_Outlier2> buf_outlier2;
   std::unique_ptr<Buf_HF> buf_hf;
   std::unique_ptr<Buf_LC> buf_lc;
+  std::unique_ptr<Buf_FZG> buf_fzg;
 
   constexpr static u2 max_radius = 512;
   constexpr static u2 max_bklen = max_radius * 2;
@@ -90,7 +92,6 @@ struct psz::Buf_Comp<T, E>::impl {
     return aligned;
   }
 
-  // element count to append past eq_len for per-tile outlier-cell staging (blk_cells_tail).
   static size_t set_outlier_tail_elems(psz_len l, bool y25, size_t eq_len)
   {
     size_t chunk = y25 ? 4096 : (l.z > 1 ? 2048 : 1024);  // 1D/2D share the 1Ki chunk
@@ -126,8 +127,6 @@ struct psz::Buf_Comp<T, E>::impl {
     if (toggle->use_lc)
       buf_lc = std::make_unique<Buf_LC>(
           len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
-    // spline profiles interpolation direction whatever the predictor, and this is
-    // ERR_HISTO_LEN elements: too small to gate
     d_pe = MAKE_UNIQUE_DEVICE(T, ERR_HISTO_LEN);
     h_pe = MAKE_UNIQUE_HOST(T, ERR_HISTO_LEN);
 
@@ -136,12 +135,7 @@ struct psz::Buf_Comp<T, E>::impl {
       buf_outlier = std::make_unique<Buf_Outlier>(len_linear * OUTLIER_RATIO);
       buf_outlier2 = std::make_unique<Buf_Outlier2>(len_linear * OUTLIER_RATIO);
     }
-    if (toggle->use_anchor) {
-      d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
-      // the spline encoder writes only the anchor slots its own grid covers; an
-      // unzeroed slot outside it makes the first reconstruction differ from later ones
-      memset_device(d_anchor.get(), len_linear_anchor);
-    }
+    if (toggle->use_anchor) { d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor); }
     if (toggle->use_hist) {
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
@@ -158,7 +152,8 @@ struct psz::Buf_Comp<T, E>::impl {
 
   impl(
       psz_len _len, bool _is_comp, bool use_HFR = false, bool alloc_eq = true,
-      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false) :
+      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false,
+      bool use_FZG = false) :
       is_comp(_is_comp),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
@@ -172,7 +167,6 @@ struct psz::Buf_Comp<T, E>::impl {
     // FIXME: compat mode FZG
     // spl-y25 requires d_eq for decompression due to per-level clustering.
     // lrz and spl-y24 decode eq directly to output buffer
-    // 1D is not tile-ordered but its HFR-family cells also ride the eq tail (blk_cells_tail).
     size_t const outlier_tail =
         (tile_order or use_HFR) ? set_outlier_tail_elems(_len, y25_tile, eq_len) : 0;
     if (is_comp or alloc_eq) d_eq = MAKE_UNIQUE_DEVICE(E, eq_len + outlier_tail);
@@ -181,6 +175,10 @@ struct psz::Buf_Comp<T, E>::impl {
     // HF encodes/decodes every 1Ki/2Ki/4Ki.
     size_t hf_len = tile_order ? eq_len : len_linear;
     buf_hf = std::make_unique<Buf_HF>(hf_len, max_bklen, -1, use_HFR, false, use_sublen_1ki);
+    if (use_FZG) {
+      buf_fzg = std::make_unique<Buf_FZG>(eq_len);
+      d_fzg_scratch = MAKE_UNIQUE_DEVICE(E, eq_len);
+    }
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
         std::max(sizeof(T) + sizeof(u4), sizeof(_ptb::compact_cell<T, M>)) * outlier_cap;
@@ -208,8 +206,6 @@ struct psz::Buf_Comp<T, E>::impl {
       // call dummy during expensive init
       psz::buf_comp_dummy::launch();
     }
-
-    if (d_eq) memset_device(d_eq.get(), eq_len);
   }
 
   ~impl() {};
@@ -237,13 +233,13 @@ COMPBUF_IMPL()::Buf_Comp(psz_len _len, BufToggle_Comp* toggle) :
 
 COMPBUF_IMPL()::Buf_Comp(
     psz_len _len, bool _is_comp, bool use_HFR, bool alloc_eq, bool use_sublen_1ki, bool tile_order,
-    bool y25_tile) :
+    bool y25_tile, bool use_FZG) :
     is_comp(_is_comp),
     len(_len),
     len_linear(_len.x * _len.y * _len.z),
     pimpl(
         std::make_unique<impl>(
-            _len, _is_comp, use_HFR, alloc_eq, use_sublen_1ki, tile_order, y25_tile))
+            _len, _is_comp, use_HFR, alloc_eq, use_sublen_1ki, tile_order, y25_tile, use_FZG))
 {
 }
 
@@ -317,11 +313,14 @@ using Buf_Outlier2 = _ptb::compact_GPU_DRAM2<T, M>;
 template <typename E>
 using Buf_HF = phf::Buf<E>;
 using Buf_LC = LC_Buf;
+using Buf_FZG = fzg::Buf2;
 
 COMPBUF_IMPL(Buf_Outlier2<T>*)::buf_outlier2() const { return pimpl->buf_outlier2.get(); }
 
 COMPBUF_IMPL(Buf_HF<E>*)::buf_hf() const { return pimpl->buf_hf.get(); }
 COMPBUF_IMPL(Buf_LC*)::buf_lc() const { return pimpl->buf_lc.get(); }
+COMPBUF_IMPL(Buf_FZG*)::buf_fzg() const { return pimpl->buf_fzg.get(); }
+COMPBUF_IMPL(E*)::fzg_scratch_d() const { return pimpl->d_fzg_scratch.get(); }
 
 }  // namespace psz
 

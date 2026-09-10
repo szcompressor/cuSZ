@@ -338,9 +338,10 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     ctx->cli->hfr_rmerge_count = v;
   }
 
-  // post-parse fixup: PBK variants by passes histogram
+  // post-parse fixup: PBK variants and FZG bypass histogram
   if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO)
+      ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
+      ctx->header->pipeline.codec1 == psz_codec::FZG)
     ctx->header->pipeline.hist = psz_hist::HistNull;
 }
 

@@ -45,7 +45,7 @@ __global__ void KCU_x_lorenzo_1d(
         if constexpr (Features::UseZigZag == 0b0)
           scratch[local_id] = in_outlier[id] - radius;
         else
-          scratch[local_id] = in_outlier[id];
+          scratch[local_id] = static_cast<T>(ZigZag::decode(static_cast<EqUInt>(in_outlier[id])));
       }
     }
     __syncthreads();
@@ -135,7 +135,7 @@ __global__ void KCU_x_lorenzo_2d__32x32(  //
         if constexpr (Features::UseZigZag == 0b0)
           thp_data[i] = src - radius;
         else
-          thp_data[i] = src;
+          thp_data[i] = static_cast<T>(ZigZag::decode(static_cast<EqUInt>(src)));
       }
     }
   };
@@ -238,7 +238,7 @@ __global__ void KCU_x_lorenzo_3d(  //
         if constexpr (Features::UseZigZag == 0b0)
           thread_private[y] = src - radius;
         else
-          thread_private[y] = src;
+          thread_private[y] = static_cast<T>(ZigZag::decode(static_cast<EqUInt>(src)));
       }
     }
   };

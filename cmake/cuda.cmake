@@ -133,6 +133,7 @@ target_link_libraries(psz_cu_mem
     EVAL::stat_cu
     DEPS::deps
     PHF::phf_cu
+    FZG::fzg_cu
     CUDA::cudart
 )
 
@@ -140,6 +141,7 @@ add_library(psz_cu_core
   psz/src/compile/hist_generic.cu
   psz/src/compile/histsp.cu
   psz/src/compile/spvn.cu
+  psz/src/compile/widen.cu
   psz/src/compile/lrz_c.cu
   psz/src/compile/lrz_x.cu
   psz/src/compile/spl_y24_c_u1.cu

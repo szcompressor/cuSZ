@@ -165,14 +165,16 @@ int psz_compress_float(
   RUNTIME_CHANGE_EB_IF_REL(float);
 
   if (m->use_eq4) {
-    CP<f4, u4>::compress(
+    status = CP<f4, u4>::compress(
         m, (psz_buf<f4, u4>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
     if (m->cli) CP<f4, u4>::compress_dump_internal_buf(m, (psz_buf<f4, u4>*)m->buf, m->stream);
   }
   else {
-    CP<f4, u2>::compress(
+    status = CP<f4, u2>::compress(
         m, (psz_buf<f4, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
     if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
   }
@@ -191,14 +193,16 @@ int psz_compress_double(
   RUNTIME_CHANGE_EB_IF_REL(double);
 
   if (m->use_eq4) {
-    CP<f8, u4>::compress(
+    status = CP<f8, u4>::compress(
         m, (psz_buf<f8, u4>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
     if (m->cli) CP<f8, u4>::compress_dump_internal_buf(m, (psz_buf<f8, u4>*)m->buf, m->stream);
   }
   else {
-    CP<f8, u2>::compress(
+    status = CP<f8, u2>::compress(
         m, (psz_buf<f8, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
     if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->buf, m->stream);
   }

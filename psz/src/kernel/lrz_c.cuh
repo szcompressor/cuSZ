@@ -54,8 +54,8 @@ lrz_quantize_normal(T residual, u2 radius, bool quantizable, Eq& eq_out)
 
   T candidate;
   if constexpr (UseZigZag) {
-    candidate = residual;
-    eq_out = ZigZag::encode(static_cast<SInt>(quantizable * candidate));
+    candidate = static_cast<T>(ZigZag::encode(static_cast<SInt>(residual)));
+    eq_out = ZigZag::encode(static_cast<SInt>(quantizable * residual));
   }
   else {
     candidate = residual + radius;
