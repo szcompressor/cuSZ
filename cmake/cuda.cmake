@@ -141,7 +141,7 @@ add_library(psz_cu_core
   psz/src/compile/hist_generic.cu
   psz/src/compile/histsp.cu
   psz/src/compile/spvn.cu
-  psz/src/compile/widen.cu
+  psz/src/compile/cast.cu
   psz/src/compile/lrz_c.cu
   psz/src/compile/lrz_x.cu
   psz/src/compile/spl_y24_c_u1.cu

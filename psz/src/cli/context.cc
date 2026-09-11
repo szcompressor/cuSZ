@@ -69,8 +69,8 @@ static void apply_str(const string& src, char (&dst)[N])
 {
   if (src.empty()) return;
   if (src.size() >= N)
-    throw std::runtime_error(
-        "value '" + src + "' exceeds destination buffer size " + std::to_string(N));
+    throw std::runtime_error("value '" + src + "' exceeds destination buffer size " +
+                             std::to_string(N));
   std::memcpy(dst, src.c_str(), src.size() + 1);
 }
 
@@ -258,7 +258,9 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
         ctx->header->pipeline.codec1 = psz_codec::HFR_PBKGO;
       else if (_v == "fzgcodec")
         ctx->header->pipeline.codec1 = psz_codec::FZG;
-      else if (_v == "lc" or _v == "tcms")
+      else if (_v == "drh" or _v == "lc-drh")
+        ctx->header->pipeline.codec1 = psz_codec::LC_DRH;
+      else if (_v == "tcms" or _v == "lc-tcms" or _v == "lc")  // "lc" is a legacy alias for "tcms"
         ctx->header->pipeline.codec1 = psz_codec::LC;
     }
   }
@@ -308,7 +310,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   {
     auto _v = args.get<string>("scheme");
     if (_v == "tp" or _v == "TP" or _v == "speed")
-      ctx->header->pipeline.codec1 = LC;
+      ctx->header->pipeline.codec1 = LC_DRH;
     else if (_v == "cr" or _v == "CR")
       ctx->header->pipeline.codec1 = HFR_V4;
   }
@@ -323,7 +325,8 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   if (args.get<bool>("hfd26")) ctx->cli->use_hfd26 = true;
   if (args.get<bool>("hfd_coarse")) ctx->cli->use_hfd_coarse = true;
   if (ctx->cli->use_hfd26 and ctx->cli->use_hfd_coarse) {
-    cerr << LOG_ERR << "--hfd26 and --hfd-coarse select different decoders; pass at most one" << endl;
+    cerr << LOG_ERR << "--hfd26 and --hfd-coarse select different decoders; pass at most one"
+         << endl;
     exit(1);
   }
 
@@ -339,9 +342,11 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   }
 
   // post-parse fixup: PBK variants and FZG bypass histogram
-  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
-      ctx->header->pipeline.codec1 == psz_codec::FZG)
+  // codec2==LC routes codec1 through plain Huffman_rev2
+  if ((ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
+       ctx->header->pipeline.codec1 == psz_codec::FZG) and
+      ctx->header->pipeline.codec2 != psz_codec::LC)
     ctx->header->pipeline.hist = psz_hist::HistNull;
 }
 
@@ -387,22 +392,18 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
     }
   }
 
-  // HiTP (codec1=LC, codec2=LC) does not use histogram
-  if (ctx->header->pipeline.codec1 == psz_codec::LC and
+  // HiTP (codec1=LC/LC_DRH, codec2=LC) does not use histogram
+  if ((ctx->header->pipeline.codec1 == psz_codec::LC or
+       ctx->header->pipeline.codec1 == psz_codec::LC_DRH) and
       ctx->header->pipeline.codec2 == psz_codec::LC)
     ctx->header->pipeline.hist = psz_hist::HistNull;
 
-  // HFR-PBK-Compat uses the prebuilt pbk25_r128 book (radius=128, dictsize=256).
-  // Force the predictor radius to match; otherwise eq values in [256, 2*radius)
-  // index out of book bounds and the encode kernel faults.
-  //
-  // HFR v2 (Cut B1): shares the PBK-shape kernel instantiation (Radius=128) so
-  // it inherits the same clamp until the Radius=512 kernel is instantiated.
-  if (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
-      ctx->header->pipeline.codec1 == psz_codec::HFR or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_V3 or
-      ctx->header->pipeline.codec1 == psz_codec::HFR_V4) {
+  if ((ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
+       ctx->header->pipeline.codec1 == psz_codec::HFR or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_V3 or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_V4) and
+      ctx->header->pipeline.codec2 != psz_codec::LC) {
     ctx->header->rc.radius = 128;
     ctx->bklen             = 256;
   }
@@ -411,9 +412,8 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
 void psz_print_document(bool full)
 {
   psz_version();
-  std::cout
-      << (full ? "\n" + _ptb::utils::doc_format(psz_full_doc)
-               : _ptb::utils::doc_format(psz_short_doc));
+  std::cout << (full ? "\n" + _ptb::utils::doc_format(psz_full_doc)
+                     : _ptb::utils::doc_format(psz_short_doc));
 }
 
 void pszctx_set_rawlen(psz_ctx* ctx, size_t _x, size_t _y, size_t _z)
@@ -475,7 +475,7 @@ psz_ctx* pszctx_default_values()
               .report_cr           = false,
               .verbose             = false,
               .use_hfd26           = false,
-              .use_hfd_coarse       = false,
+              .use_hfd_coarse      = false,
               .hfr_rmerge_count    = 3,
           },
       .bklen           = 1024,
@@ -485,9 +485,8 @@ psz_ctx* pszctx_default_values()
   };
 }
 
-psz_ctx* pszctx_minimal_workset(
-    psz_dtype const dtype, psz_predictor const predictor, int const quantizer_radius,
-    psz_codec const codec)
+psz_ctx* pszctx_minimal_workset(psz_dtype const dtype, psz_predictor const predictor,
+                                int const quantizer_radius, psz_codec const codec)
 {
   auto ws                        = pszctx_default_values();
   ws->header->dtype              = dtype;

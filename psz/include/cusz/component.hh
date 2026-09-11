@@ -41,8 +41,8 @@ struct PredictorFeature {  // dtype-agnostic
 
   // 00: Global off, Local off ("compatible" with old design)
   // 01: Global off, Local on  ("quick", future default)
-  // 10: Global on,  Local off (impossible/illegal)
-  // 11: Global on,  Local on  ("quick" + global spill)
+  // 10: Global on,  Local off
+  // 11: Global on,  Local on  ("quick" + global spill), not implemented
   static constexpr int UnpredIncomp = _UnpredIncomp;
 };
 

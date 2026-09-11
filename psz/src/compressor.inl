@@ -76,9 +76,11 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx, bool skip_hf)
 
   // init internal buffers
   const auto _c1 = ctx->header->pipeline.codec1;
-  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
-                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3) or
-                       (_c1 == psz_codec::HFR_V4);
+  // codec2==LC precedes HF_rev2: Buf_HF takes the generic chunk size
+  const auto use_HFR =
+      (ctx->header->pipeline.codec2 != psz_codec::LC) and
+      ((_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO) or
+       (_c1 == psz_codec::HFR_V3) or (_c1 == psz_codec::HFR_V4));
   const auto use_FZG = (_c1 == psz_codec::FZG);
   auto const _pred = ctx->header->pipeline.predictor;
   int const _nd = (z > 1) ? 3 : (y > 1) ? 2 : 1;
@@ -115,9 +117,10 @@ PPL_IMPL(void*)::compress_init(psz_ctx* ctx, bool skip_hf)
 PPL_IMPL(void*)::decompress_init(psz_header* header)
 {
   const auto _c1 = header->pipeline.codec1;
-  const auto use_HFR = (_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or
-                       (_c1 == psz_codec::HFR_PBKGO) or (_c1 == psz_codec::HFR_V3) or
-                       (_c1 == psz_codec::HFR_V4);
+  const auto use_HFR =
+      (header->pipeline.codec2 != psz_codec::LC) and
+      ((_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO) or
+       (_c1 == psz_codec::HFR_V3) or (_c1 == psz_codec::HFR_V4));
   // Spl-y25 decodes into d_eq (by interp level); Lrz and Spl-y24 decode into the output buffer.
   const auto _pred = header->pipeline.predictor;
   const auto alloc_eq = (_pred == psz_predictor::Spline) and (header->spline_variant == 0);
@@ -142,13 +145,17 @@ PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream, boo
   const auto len = ctx->header->len;
   const auto radius = RC.radius;
   const auto predictor = PIPELINE.predictor;
-  // unpred-incomp (enc_id=31) in (use_HFR) encoder.
-  const bool enable_incomp = (PIPELINE.codec1 == HFR_PBKC) or (PIPELINE.codec1 == HFR_PBKGO) or
-                             (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_V3) or
-                             (PIPELINE.codec1 == HFR_V4);
-  // HF, HF-rev2, and FZG all reuse the global compact (decomp_scatter) for outliers.
+  // unpred-incomp (enc_id=31) in (use_HFR) encoder
+  const bool enable_incomp =
+      (PIPELINE.codec2 != LC) and
+      ((PIPELINE.codec1 == HFR_PBKC) or (PIPELINE.codec1 == HFR_PBKGO) or
+       (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_V3) or (PIPELINE.codec1 == HFR_V4));
+  // HF and HF-rev2, FZG, and LC (TCMS/HiCR/HiTP) codecs use the global compact.
+  // TCMS is not compat with HFR for now.
   const bool enable_global = (PIPELINE.codec1 == HF) or (PIPELINE.codec1 == HFr2) or
-                             (PIPELINE.codec1 == FZG) or force_global;
+                             (PIPELINE.codec1 == FZG) or (PIPELINE.codec1 == LC) or
+                             (PIPELINE.codec1 == LC_DRH) or (PIPELINE.codec2 == LC) or
+                             force_global;
 
   if (predictor == Lorenzo)
     c_lrz(mem, make_view(in, len), eb, radius, enable_incomp, enable_global, stream);
@@ -198,12 +205,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 {
   const auto len_linear = mem->len_linear;
   const auto predictor = PIPELINE.predictor;
-  // HFR family reduce-merge pass count from CLI (--rmerge-count); 3 for API callers (no cli).
+  // pass `--rmerge-count` (internal tuning use)
   const HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 3};
 
-  // 2D/3D HFR-family stores eq tile-ordered: each tile is whole 1Ki chunk(s) (lorenzo 2D 32x32 =
-  // 1Ki; lorenzo 3D / spline-y24 32x8x8 = 2Ki; spline-y25-3D 16x16x16 = 4Ki), so the HF histogram
-  // + encode see the padded eq length and nblock == #(1Ki chunks).
+  // lrz-1/2D: 1Ki; lrz-3D/spl-y24: 2Ki; spl-y25-3D: 4Ki
+  // Codecs subsequently sees paddded eq and several nblock of (1Ki).
   auto const l3 = ctx->header->len;
   int const nd = (l3.z > 1) ? 3 : (l3.y > 1) ? 2 : 1;
   auto const c1 = PIPELINE.codec1;
@@ -220,26 +226,29 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
                                     : cdiv(l3.x, 64) * cdiv(l3.y, 64) * 4096)  // y25 2D = 64x64
              : (nd == 3) ? cdiv(l3.x, 32) * cdiv(l3.y, 8) * cdiv(l3.z, 8) * 2048
                          : cdiv(l3.x, 32) * cdiv(l3.y, 32) * 1024;
-  // predictor chunksize == encoder chunksize: one bheader per tile (1Ki/2Ki/4Ki).
+
   int const magnitude = not tile_order_nd                  ? 10
                         : y25_tile_nd                      ? 12
                         : (nd == 3 or predictor == Spline) ? 11
                                                            : 10;
 
-  // Predictors stage the unpred-incomp f4 content themselves (blockwise builds); the
-  // encoder consumes incomp_data directly, so no recompute message is threaded anymore.
-
   auto compress_predict = [&]() -> int {
     if (auto stat = comp_predict(ctx, mem, in, stream); stat != PSZ_SUCCESS) return stat;
 
-    // HFR family defers outlier read until after pass1's own sync.
-    const auto defer_outlier_read = (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
-                                    (PIPELINE.codec1 == HFR_PBKGO) or
-                                    (PIPELINE.codec1 == HFR_V3) or (PIPELINE.codec1 == HFR_V4);
+    const auto defer_outlier_read =
+        (PIPELINE.codec2 != LC) and ((PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_PBKC) or
+                                     (PIPELINE.codec1 == HFR_PBKGO) or
+                                     (PIPELINE.codec1 == HFR_V3) or (PIPELINE.codec1 == HFR_V4));
     if (not defer_outlier_read) {
-      // HF-rev2 keeps the global compact (PSZ_SPFMT); other non-HFR codecs drop outliers.
+      // HF/HF-rev2 ~ LC path: use global compact
+      const bool keep_global = (PIPELINE.codec1 == HF) or (PIPELINE.codec1 == HFr2) or
+                               (PIPELINE.codec1 == LC) or (PIPELINE.codec1 == LC_DRH) or
+                               (PIPELINE.codec2 == LC);
       sync_by_stream(stream);
-      ctx->header->splen = (PIPELINE.codec1 == HFr2) ? mem->outlier2_host_get_num() : 0;
+      ctx->header->splen =
+          keep_global
+              ? std::min<size_t>(mem->outlier2_host_get_num(), mem->outlier2_max_allowed_num())
+              : 0;
     }
 
     return PSZ_SUCCESS;
@@ -316,7 +325,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     ctx->header->vle_sublen = dummy_header.sublen;
     ctx->header->vle_pardeg = dummy_header.pardeg;
     sync_by_stream(stream);
-    // Post-encode scan-state reset; for future multistream coordination.
+    // Post-encode scan-state reset
     mem->buf_hf()->reset_HFR(stream);
     return PSZ_SUCCESS;
   };
@@ -419,11 +428,17 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
   auto compress_encode_pass1_LC_TCMS = [&]() -> int {
 #ifdef PSZ_USE_LC_FIXED
-    // Hi-TP mode: TCMS replaces histogram+HF; mark hist as null in header
+    // Hi-TP mode: TCMS (cuSZ-Hi), or DRH for an ad hoc fix
     ctx->header->pipeline.hist = psz_hist::HistNull;
-    lc_c::TCMS_COMPRESS(
-        (uint8_t*)mem->eq_d(), len_linear * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
-        stream);
+    size_t const lc_eq_n = tile_order_nd ? len_eq : len_linear;
+    if (PIPELINE.codec1 == LC_DRH)
+      lc_c::DRH_COMPRESS(
+          (uint8_t*)mem->eq_d(), lc_eq_n * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
+          stream);
+    else
+      lc_c::TCMS_COMPRESS(
+          (uint8_t*)mem->eq_d(), lc_eq_n * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
+          stream);
     mem->comp_codec_out = mem->buf_lc()->encoded_d();
     return PSZ_SUCCESS;
 #else
@@ -464,15 +479,17 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   auto compress_encode_pass2_LC_BITR = [&]() -> int {
 
 #ifdef PSZ_USE_LC_FIXED
-    size_t comp_bitr_outlen;
+    size_t comp_bitr_outlen = 0;
+    size_t const bitr_in_n = mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT];
 
-    lc_c::BITR_COMPRESS(
-        (uint8_t*)DST(PSZ_ANCHOR, 0), mem->nbyte[PSZ_ANCHOR] + mem->nbyte[PSZ_SPFMT],
-        mem->buf_lc(), &comp_bitr_outlen, stream);
-    cudaMemcpyAsync(
-        DST(PSZ_ANCHOR, 0), (void*)mem->buf_lc()->encoded_d(), comp_bitr_outlen,
-        cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
-    sync_by_stream(stream);
+    if (bitr_in_n != 0) {
+      lc_c::BITR_COMPRESS(
+          (uint8_t*)DST(PSZ_ANCHOR, 0), bitr_in_n, mem->buf_lc(), &comp_bitr_outlen, stream);
+      cudaMemcpyAsync(
+          DST(PSZ_ANCHOR, 0), (void*)mem->buf_lc()->encoded_d(), comp_bitr_outlen,
+          cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
+      sync_by_stream(stream);
+    }
     ctx->header->entry[PSZ_ENC_PASS2_END] = ctx->header->entry[PSZ_ANCHOR] + comp_bitr_outlen;
 
     *out = mem->compressed_d();
@@ -507,11 +524,11 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     if (PIPELINE.codec1 == FZG)  // just in case for the next round
       memset_device_async(mem->buf_fzg()->offset_counter_d(), 1, 0, stream);
 
-    // HF-rev2 still uses a shared outlier buffer
+    // HF/HF-rev2, FZG and LC are separeted from HFR* + HFD26.
     const bool hfr_fam =
         (PIPELINE.codec1 == HFR_PBKC or PIPELINE.codec1 == HFR_PBKGO or PIPELINE.codec1 == HFR or
          PIPELINE.codec1 == HFR_V3 or PIPELINE.codec1 == HFR_V4);
-    const bool keep_global = (PIPELINE.codec1 == HFr2) or (PIPELINE.codec1 == HF) or
+    const bool keep_global = (PIPELINE.codec1 == HF) or (PIPELINE.codec1 == HFr2) or
                              (PIPELINE.codec1 == FZG) or hfr_fam;
     if (keep_global) {
       sync_by_stream(stream);
@@ -563,13 +580,14 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   // HiCR:     default + RTR(full block)
   // HiTP:     TCMS(ec-quant) + BITR(anchor/spfmt)
   // fallback: TCMS(ec-quant) + raw(anchor/spfmt)
-  auto status_encode = (PIPELINE.codec2 == LC) ? ((PIPELINE.codec1 == LC) ? compress_encode_HiTP()
-                                                                          : compress_encode_HiCR())
-                       : (PIPELINE.codec1 == LC) ? compress_encode_HiTP_eq()
-                                                 : compress_encode_default();
+  const bool codec1_is_lc_eq = (PIPELINE.codec1 == LC) or (PIPELINE.codec1 == LC_DRH);
+  auto status_encode = (PIPELINE.codec2 == LC)
+                           ? (codec1_is_lc_eq ? compress_encode_HiTP() : compress_encode_HiCR())
+                       : codec1_is_lc_eq ? compress_encode_HiTP_eq()
+                                         : compress_encode_default();
 #else
   // In the case of LC being not compiled --> fallback
-  if (PIPELINE.codec1 == LC or PIPELINE.codec2 == LC) {
+  if (PIPELINE.codec1 == LC or PIPELINE.codec1 == LC_DRH or PIPELINE.codec2 == LC) {
     ctx->header->pipeline.codec1 = DEFAULT_CODEC;
     ctx->header->pipeline.codec2 = CodecNull;
   }
@@ -641,20 +659,40 @@ PPL_IMPL(int)::decompress(
   bool const y25_tile_nd =
       nd >= 2 and header->pipeline.predictor == Spline and header->spline_variant == 0;
   bool const tile_nd = (nd >= 2);  // tile-order is the only 2D/3D eq layout
+  // spl-y25 needs mem->eq_d() (per-level clustering);
+  // lrz*, and spl-y24 decode in place (to output directly)
+  bool const eq_in_out =
+      (header->pipeline.predictor != Spline) or (header->spline_variant != 0 /* not y25 */);
 
 #ifdef PSZ_USE_LC_FIXED
-  if (header->pipeline.codec1 == LC and header->pipeline.codec2 != LC) {
-    // TCMS-only: eq is TCMS-compressed, anchor/spfmt are raw in archive
-    lc_c::TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
-    cudaMemcpyAsync(
-        mem->eq_d(), mem->buf_lc()->decoded_d(), len.x * len.y * len.z * sizeof(E),
-        cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
+  if ((header->pipeline.codec1 == LC or header->pipeline.codec1 == LC_DRH) and
+      header->pipeline.codec2 != LC) {
+    // TCMS/DRH-only: eq is LC-compressed, anchor/spfmt are raw in archive
+    if (header->pipeline.codec1 == LC_DRH)
+      lc_c::DRH_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
+    else
+      lc_c::TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
+    // compat with spl-y25's mem->eq_d()
+    size_t const lc_eq_n = tile_nd ? mem->eq_len() : (size_t)len.x * len.y * len.z;
+    auto lc_eq_decoded = (E*)mem->buf_lc()->decoded_d();
+    if (tile_nd)
+      psz::module::GPU_cast<E, T>::kernel(lc_eq_decoded, mem->decode_fused_d(), lc_eq_n, stream);
+    else if (eq_in_out)
+      psz::module::GPU_cast<E, T>::kernel(lc_eq_decoded, d_space, lc_eq_n, stream);
+    else
+      cudaMemcpyAsync(
+          mem->eq_d(), lc_eq_decoded, lc_eq_n * sizeof(E), cudaMemcpyDeviceToDevice,
+          (cudaStream_t)stream);
     // d_anchor and d_spval_idx already initialized to access(PSZ_ANCHOR/PSZ_SPFMT)
-    decomp_scatter(header, d_spval_idx, d_space, stream);
+    if (tile_nd and header->splen != 0)
+      psz::module::GPU_scatter<T, M>::kernel_v3_fuse(
+          d_spval_idx, header->splen, mem->decode_fused_d(), stream);
+    else
+      decomp_scatter(header, d_spval_idx, d_space, stream);
     goto STEP_PREDICT;
   }
   if (header->pipeline.codec2 == LC) {
-    if (header->pipeline.codec1 == HF) {
+    if (header->pipeline.codec1 != LC and header->pipeline.codec1 != LC_DRH) {
       // HiCR: RTR_DECOMPRESS over [ENCODED][ANCHOR][SPFMT]
       lc_c::RTR_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
       auto decomp_lc1 = mem->buf_lc()->decoded_d();
@@ -666,24 +704,53 @@ PPL_IMPL(int)::decompress(
                                       (header->entry[PSZ_SPFMT] - header->entry[PSZ_ENCODED]));
       // HF decode from start of decompressed block
       memcpy_allkinds<D2H>((BYTE*)&h, (BYTE*)decomp_lc1, sizeof(phf_header));
-      // scatter first (eq not yet needed), decode after
-      decomp_scatter(header, d_spval_idx, d_space, stream);
-      phf::high_level<E>::HF_decode(
-          mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->eq_d(), stream, psz_codec::HF);
+      // eq must be resolved before scatter
+      if (tile_nd)
+        phf::high_level<E>::HF_decode(
+            mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->decode_fused_d(), stream, psz_codec::HF);
+      else if (eq_in_out)
+        phf::high_level<E>::HF_decode(
+            mem->buf_hf(), h, (BYTE*)decomp_lc1, d_space, stream, psz_codec::HF);
+      else
+        phf::high_level<E>::HF_decode(
+            mem->buf_hf(), h, (BYTE*)decomp_lc1, mem->eq_d(), stream, psz_codec::HF);
+      if (tile_nd and header->splen != 0)
+        psz::module::GPU_scatter<T, M>::kernel_v3_fuse(
+            d_spval_idx, header->splen, mem->decode_fused_d(), stream);
+      else
+        decomp_scatter(header, d_spval_idx, d_space, stream);
     }
     else {
-      // HiTP: TCMS_DECOMPRESS eq + BITR_DECOMPRESS [ANCHOR][SPFMT]
-      lc_c::TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
-      cudaMemcpyAsync(
-          mem->eq_d(), mem->buf_lc()->decoded_d(), len.x * len.y * len.z * sizeof(E),
-          cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
-      lc_c::BITR_DECOMPRESS((uint8_t*)access(PSZ_ANCHOR), mem->buf_lc(), stream);
-      auto decomp_lc2 = mem->buf_lc()->decoded_d();
-      d_anchor = (T*)decomp_lc2;
-      d_spval_idx = (_ptb::compact_cell<T, M>*)((byte_t*)decomp_lc2 + (header->entry[PSZ_SPFMT] -
-                                                                       header->entry[PSZ_ANCHOR]));
-      decomp_scatter(header, d_spval_idx, d_space, stream);
-      // eq already placed in mem->eq_d() above
+      // HiTP: TCMS/DRH_DECOMPRESS eq + BITR_DECOMPRESS [ANCHOR][SPFMT]
+      if (header->pipeline.codec1 == LC_DRH)
+        lc_c::DRH_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
+      else
+        lc_c::TCMS_DECOMPRESS((uint8_t*)access(PSZ_ENCODED), mem->buf_lc(), stream);
+      size_t const lc_eq_n = tile_nd ? mem->eq_len() : (size_t)len.x * len.y * len.z;
+      auto lc_eq_decoded = (E*)mem->buf_lc()->decoded_d();
+      if (tile_nd)
+        psz::module::GPU_cast<E, T>::kernel(lc_eq_decoded, mem->decode_fused_d(), lc_eq_n, stream);
+      else if (eq_in_out)
+        psz::module::GPU_cast<E, T>::kernel(lc_eq_decoded, d_space, lc_eq_n, stream);
+      else
+        cudaMemcpyAsync(
+            mem->eq_d(), lc_eq_decoded, lc_eq_n * sizeof(E), cudaMemcpyDeviceToDevice,
+            (cudaStream_t)stream);
+      // A zero-byte anchor+spfmt region was never BITR-encoded.
+      if (header->entry[PSZ_ENC_PASS2_END] != header->entry[PSZ_ANCHOR]) {
+        lc_c::BITR_DECOMPRESS((uint8_t*)access(PSZ_ANCHOR), mem->buf_lc(), stream);
+        auto decomp_lc2 = mem->buf_lc()->decoded_d();
+        d_anchor = (T*)decomp_lc2;
+        d_spval_idx =
+            (_ptb::compact_cell<T, M>*)((byte_t*)decomp_lc2 +
+                                        (header->entry[PSZ_SPFMT] - header->entry[PSZ_ANCHOR]));
+      }
+      if (tile_nd and header->splen != 0)
+        psz::module::GPU_scatter<T, M>::kernel_v3_fuse(
+            d_spval_idx, header->splen, mem->decode_fused_d(), stream);
+      else
+        decomp_scatter(header, d_spval_idx, d_space, stream);
+      // eq already placed above
     }
 
     goto STEP_PREDICT;
@@ -702,10 +769,10 @@ STEP_DECODING:
           mem->buf_fzg(), h_fzg, (uint8_t*)access(PSZ_ENCODED), 0, mem->fzg_scratch_d(),
           mem->eq_len(), stream);
       if (tile_nd)
-        psz::module::GPU_widen<T, E>::kernel(
+        psz::module::GPU_cast<E, T>::kernel(
             mem->fzg_scratch_d(), mem->decode_fused_d(), mem->eq_len(), stream);
       else if (eq_in_out)
-        psz::module::GPU_widen<T, E>::kernel(mem->fzg_scratch_d(), d_space, mem->eq_len(), stream);
+        psz::module::GPU_cast<E, T>::kernel(mem->fzg_scratch_d(), d_space, mem->eq_len(), stream);
       else
         memcpy_allkinds<D2D>(mem->eq_d(), mem->fzg_scratch_d(), mem->eq_len());
     }
@@ -735,9 +802,6 @@ STEP_DECODING:
       return phf::high_level<E>::template HF_decode<Eout>(
           mem->buf_hf(), h, enc, dst, stream, (c == HFr2) ? HFr2 : HF);
     };
-    // FIXME: working but messy
-    bool const eq_in_out =
-        (header->pipeline.predictor != Spline) or (header->spline_variant != 0 /* not y25 */);
     int const decode_stat = tile_nd     ? decode_eq(mem->decode_fused_d())
                             : eq_in_out ? decode_eq(d_space)
                                         : decode_eq(mem->eq_d());

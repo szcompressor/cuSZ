@@ -18,6 +18,15 @@ using _ptb::utils::fromfile;
 using _ptb::utils::tofile;
 using std::string;
 
+// HFR variants need u4-wide eq for fallback;
+// u2-wide creates a divergence.
+static bool codec1_needs_eq4(psz_codec c1, psz_codec c2)
+{
+  return c1 != psz_codec::FZG and c2 != psz_codec::LC and
+         (c1 == psz_codec::HFR or c1 == psz_codec::HFR_PBKC or c1 == psz_codec::HFR_PBKGO or
+          c1 == psz_codec::HFR_V3 or c1 == psz_codec::HFR_V4);
+}
+
 // ---------------------------------------------------------------------------
 // dtype-templated helpers
 // ---------------------------------------------------------------------------
@@ -79,16 +88,16 @@ void psz_compress_task(psz_args* args)
         auto h_in = MAKE_UNIQUE_HOST(float, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m      = (CLI_codec1(args) == FZG)  // u2 for legacy FZG
-                     ? psz_create_resource_manager(
-                           F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
-                           args->spline_variant, stream)
-                     : psz_create_resource_manager_eq4(
-                           F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
-                           args->spline_variant, stream);
-        m->cli = args->cli;
+        m = codec1_needs_eq4(CLI_codec1(args), CLI_codec2(args))
+                ? psz_create_resource_manager_eq4(
+                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
+                      args->spline_variant, stream)
+                : psz_create_resource_manager(
+                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
+                      args->spline_variant, stream);
+        m->cli                     = args->cli;
         m->header->pipeline.codec2 = CLI_codec2(args);
         auto stat =
             psz_compress_float(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
@@ -101,16 +110,16 @@ void psz_compress_task(psz_args* args)
         auto h_in = MAKE_UNIQUE_HOST(double, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m      = (CLI_codec1(args) == FZG)  // FZG: u2
-                     ? psz_create_resource_manager(
-                           F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
-                           args->spline_variant, stream)
-                     : psz_create_resource_manager_eq4(
-                           F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                           {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), NULL_CODEC},
-                           args->spline_variant, stream);
-        m->cli = args->cli;
+        m = codec1_needs_eq4(CLI_codec1(args), CLI_codec2(args))
+                ? psz_create_resource_manager_eq4(
+                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
+                      args->spline_variant, stream)
+                : psz_create_resource_manager(
+                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
+                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
+                      args->spline_variant, stream);
+        m->cli                     = args->cli;
         m->header->pipeline.codec2 = CLI_codec2(args);
         auto stat =
             psz_compress_double(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
@@ -184,9 +193,9 @@ void psz_decompress_task(psz_args* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  psz_resource* m = (header->pipeline.codec1 == FZG)  // FIXME: ad hoc
-                        ? psz_create_resource_manager_from_header(header, stream)
-                        : psz_create_resource_manager_from_header_eq4(header, stream);
+  psz_resource* m = codec1_needs_eq4(header->pipeline.codec1, header->pipeline.codec2)
+                        ? psz_create_resource_manager_from_header_eq4(header, stream)
+                        : psz_create_resource_manager_from_header(header, stream);
   m->cli          = args->cli;
 
   _ptb::utils::dtype_dispatch()

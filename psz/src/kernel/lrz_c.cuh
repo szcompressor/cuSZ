@@ -493,6 +493,8 @@ int GPU_c_lorenzo_nd<Types, Features>::kernel(
   };
   if (d < 1 or d > 3) return PSZ_ABORT_UNSUPPORTED_DIMENSION;
   int const ui = (enable_global ? 0b10 : 0b00) | (enable_incomp ? 0b01 : 0b00);
+  // 0b11 (local + global spill) is not implemented; it would drop every outlier silently.
+  if (ui == 0b11) return PSZ_ABORT_NOT_IMPLEMENTED;
   if (ui == 0b10)
     go(std::integral_constant<int, 0b10>{});
   else if (ui == 0b01)

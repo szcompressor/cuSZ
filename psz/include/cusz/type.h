@@ -58,12 +58,20 @@ typedef size_t szt;
 // clang-format off
 typedef enum { Abs, Rel } psz_mode;
 typedef enum { Lorenzo, LorenzoZigZag, Spline } psz_predictor;
-// HFr2: HF (ph1+ph2) + LAGO concat (replaces legacy ph3 host-scan + ph4 copy) + AoS bheader_backport[].
-// HFR: Tian et al. 2020, refined.
-// HFR-PBKC: --codec1 hfr-pbkc. HFR-PBKGO: --codec1 hfr-pbkgo.
-// HFR_V3: DEPRECATED (kept for bin_hf + reading old archives); superseded by HFR_V4. --codec1 hfr-v3.
-// HFR_V4: default. v3 book pick, but on the HFR-PBKC kernel in single-book mode; --codec1 hfr-v4.
-typedef enum { HF, HFr2, HFR, HFR_PBKC, HFR_PBKGO, HFR_PBKF, LC, FZG, RLE, HFR_V3, HFR_V4, CodecNull } psz_codec;
+
+// HFr2:      -c1 hf-rev2
+// HFR V2:    -c1 hfr-v2            Tian et al. 2020, refined.
+// HFR_V4:    -c1 hfr-v4 (default). backporting HFR-PBKC under single-book mode. 
+// HFR-PBKC:  -c1 hfr-pbkc
+// HFR-PBKGO: -c1 hfr-pbkgo
+typedef enum {
+  HF = 0, HFr2 = 1,
+  HFR = 2, HFR_V2 = 3, HFR_V3 = 4, HFR_V4 = 5,
+  HFR_PBKC = 6, HFR_PBKGO = 7, HFR_PBKF = 8,
+  LC = 9, LC_DRH = 10,
+  FZG = 11,
+  CodecNull = 12
+} psz_codec;
 typedef enum { HistGeneric, HistSp, HistNull } psz_hist;
 // clang-format on
 

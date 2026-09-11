@@ -50,14 +50,15 @@ string const psz_report_query_codec1(psz_codec const c)
       {psz_codec::HF, "HF"},
       {psz_codec::HFr2, "Huffman-rev2"},
       {psz_codec::HFR, "HF-fast1"},
+      {psz_codec::HFR_V2, "HFR-v2"},
       {psz_codec::HFR_V3, "HF-fast2"},
       {psz_codec::HFR_V4, "HFR-v4"},
       {psz_codec::HFR_PBKC, "HFR-PBKC"},
       {psz_codec::HFR_PBKGO, "HFR-PBKGO"},
       {psz_codec::HFR_PBKF, "HFR-PBKF"},
       {psz_codec::LC, "LC"},
+      {psz_codec::LC_DRH, "LC-DRH"},
       {psz_codec::FZG, "FZGPU-Codec"},
-      {psz_codec::RLE, "RunLength"},
       {psz_codec::CodecNull, "N/A"},
   };
   auto it = lut.find(c);

@@ -183,10 +183,10 @@ struct psz::Buf_Comp<T, E>::impl {
     const auto spfmt_max_bytes =
         std::max(sizeof(T) + sizeof(u4), sizeof(_ptb::compact_cell<T, M>)) * outlier_cap;
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
-    const auto codec_max_bytes = len_linear * sizeof(E);
+    const auto codec_max_bytes = hf_len * sizeof(E);  // use (padded) hf_len for TCMS
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
     buf_lc = std::make_unique<Buf_LC>(
-        len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
+        codec_max_bytes, bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
 
     if (is_comp) {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
