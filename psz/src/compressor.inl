@@ -279,7 +279,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   auto compress_encode_pass1_Huffman_rev2 = [&]() -> int {
     compress_histogram_and_build_book();
 
-    phf_header dummy_header;
+    phf_header dummy_header{};
     phf::high_level<E>::HF_encode(
         mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFr2);
@@ -300,7 +300,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
 
     compress_histogram_and_build_book();
 
-    phf_header dummy_header;
+    phf_header dummy_header{};
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR, nullptr, nullptr, v2_opts);
@@ -318,7 +318,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     HFR_Opts pbkc_opts{/*reduce_times=*/1};
     pbkc_opts.magnitude = magnitude;
     pbkc_opts.block_outliers = mem->block_outliers_d();
-    phf_header dummy_header;
+    phf_header dummy_header{};
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_PBKC, nullptr, nullptr, pbkc_opts);
@@ -335,7 +335,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     HFR_Opts hfr_opts{ctx->cli ? ctx->cli->hfr_rmerge_count : 2};
     hfr_opts.magnitude = magnitude;
     hfr_opts.block_outliers = mem->block_outliers_d();
-    phf_header dummy_header;
+    phf_header dummy_header{};
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_PBKGO, nullptr, nullptr, hfr_opts);
@@ -356,7 +356,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     compress_histogram();
     phf::high_level<E>::HFR_pick_pbk(mem->buf_hf(), mem->hist_d(), ctx->bklen, len_eq, stream);
 
-    phf_header dummy_header;
+    phf_header dummy_header{};
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_V3, nullptr, nullptr, v3_opts);
@@ -375,7 +375,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     compress_histogram();
     phf::high_level<E>::HFR_pick_pbk(mem->buf_hf(), mem->hist_d(), ctx->bklen, len_eq, stream);
 
-    phf_header dummy_header;
+    phf_header dummy_header{};
     phf::high_level<E>::HFR_encode(
         mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
         dummy_header, stream, psz_codec::HFR_V4, nullptr, nullptr, v4_opts);
@@ -402,7 +402,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
       return PSZ_ABORT_NO_SUCH_CODEC;
   };
 
-  auto compress_encode_pass1_wrapup = [&]() {
+  auto compress_encode_pass1_wrapup = [&]() -> int {
     memset(mem->nbyte, 0, sizeof(mem->nbyte));
     mem->nbyte[PSZ_HEADER] = sizeof(psz_header);
     mem->nbyte[PSZ_ENCODED] = sizeof(u1) * mem->comp_codec_outlen;
@@ -416,6 +416,12 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   for (auto i = 1; i < PSZ_ENC_PASS2_END + 1; i++) ctx->header->entry[i] = mem->nbyte[i - 1];
   for (auto i = 1; i < PSZ_ENC_PASS2_END + 1; i++) ctx->header->entry[i] += ctx->header->entry[i - 1];
 
+  if (pszheader_filesize(ctx->header) > mem->compressed_max_bytes()) {
+    cerr << "[psz::error::pipeline] compressed size (" << pszheader_filesize(ctx->header)
+         << " B) exceeds buffer (" << mem->compressed_max_bytes() << " B), returning..." << endl;
+    return PSZ_ABORT_COMPRESSED_TOO_LARGE;
+  }
+
   CONCAT_ON_DEVICE(DST(PSZ_ANCHOR, 0), mem->anchor_d(), mem->nbyte[PSZ_ANCHOR], stream);
   CONCAT_ON_DEVICE(DST(PSZ_ENCODED, 0), mem->comp_codec_out, mem->nbyte[PSZ_ENCODED], stream);
   CONCAT_ON_DEVICE(DST(PSZ_SPFMT, 0), mem->outlier2_validx_d(), mem->nbyte[PSZ_SPFMT], stream);
@@ -424,6 +430,7 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     /* output of this function */
     *out = mem->compressed_d();
     *outlen = pszheader_filesize(ctx->header);
+    return PSZ_SUCCESS;
   };
 
   auto compress_encode_pass1_LC_TCMS = [&]() -> int {
@@ -538,15 +545,14 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
     else
       ctx->header->splen = 0;
 
-    compress_encode_pass1_wrapup();
-    return PSZ_SUCCESS;
+    return compress_encode_pass1_wrapup();
   };
 
   // Liu, Tian, Wu et al. 2024; Wu and Pan et al. 2025
   auto compress_encode_HiCR = [&]() -> int {
     auto status1 = compress_encode_pass1_Huffman_rev2();
     if (status1 != PSZ_SUCCESS) return status1;
-    compress_encode_pass1_wrapup();
+    if (auto s = compress_encode_pass1_wrapup(); s != PSZ_SUCCESS) return s;
     auto status2 = compress_encode_pass2_LC_RTR();
     return PSZ_SUCCESS;
   };
@@ -556,15 +562,14 @@ PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* out
   auto compress_encode_HiTP_eq = [&]() -> int {
     auto status1 = compress_encode_pass1_LC_TCMS();
     if (status1 != PSZ_SUCCESS) return status1;
-    compress_encode_pass1_wrapup();
-    return PSZ_SUCCESS;
+    return compress_encode_pass1_wrapup();
   };
 
   // Liu, Tian, Wu et al. 2024; Wu and Pan et al. 2025
   auto compress_encode_HiTP = [&]() -> int {
     auto status1 = compress_encode_pass1_LC_TCMS();
     if (status1 != PSZ_SUCCESS) return status1;
-    compress_encode_pass1_wrapup();
+    if (auto s = compress_encode_pass1_wrapup(); s != PSZ_SUCCESS) return s;
     auto status2 = compress_encode_pass2_LC_BITR();
     if (status2 != PSZ_SUCCESS) return status2;
     return PSZ_SUCCESS;
@@ -649,7 +654,7 @@ PPL_IMPL(int)::decompress(
   auto d_spval_idx = (_ptb::compact_cell<T, M>*)access(PSZ_SPFMT);
   auto d_space = out, d_xdata = out;  // aliases
   auto len = header->len;
-  phf_header h;  // declared early so goto over STEP_DECODING is valid
+  phf_header h{};  // declared early so goto over STEP_DECODING is valid
 
   // One chunk (non-1Ki) can contain multiple ND tiles.
   int const nd = (len.z > 1) ? 3 : (len.y > 1) ? 2 : 1;

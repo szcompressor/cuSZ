@@ -112,6 +112,8 @@ struct psz::Buf_Comp<T, E>::impl {
   { return _div(len.x, BLK8) * _div(len.y, BLK8) * _div(len.z, BLK8); }
 
  public:
+  size_t compressed_max_bytes() const { return len_linear * sizeof(E) * 3 / 2; }
+
   impl(psz_len _len, BufToggle_Comp* toggle) :
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
@@ -141,7 +143,7 @@ struct psz::Buf_Comp<T, E>::impl {
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
     }
     if (toggle->use_compressed) {
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * sizeof(E) * 3 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, compressed_max_bytes());
       h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * sizeof(E) * 3 / 2);
     }
     if (toggle->use_top1) {
@@ -192,7 +194,7 @@ struct psz::Buf_Comp<T, E>::impl {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
       d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
       h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, len_linear * sizeof(E) * 3 / 2);
+      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, compressed_max_bytes());
       h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * sizeof(E) * 3 / 2);
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, len_top1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, len_top1);
@@ -279,6 +281,7 @@ COMPBUF_IMPL(size_t)::top1_nblk() const { return pimpl->len_top1; }
 
 COMPBUF_IMPL(BYTE*)::compressed_d() const { return pimpl->d_compressed.get(); }
 COMPBUF_IMPL(BYTE*)::compressed_h() const { return pimpl->h_compressed.get(); }
+COMPBUF_IMPL(size_t)::compressed_max_bytes() const { return pimpl->compressed_max_bytes(); }
 
 COMPBUF_IMPL(void*)::outlier2_validx_d() const { return pimpl->buf_outlier2->val_idx_d(); }
 COMPBUF_IMPL(M)::outlier2_host_get_num() const { return pimpl->buf_outlier2->host_get_num(); }

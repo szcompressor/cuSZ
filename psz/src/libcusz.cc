@@ -17,7 +17,7 @@ psz_resource* psz_create_resource_manager(
   auto m = new psz_resource;
 
   auto defaults = pszctx_default_values();
-  m->header = new psz_header;
+  m->header = new psz_header();
   memcpy(m->header, defaults->header, sizeof(psz_header));
   delete defaults;
 
@@ -43,7 +43,7 @@ psz_resource* psz_create_resource_manager_eq4(
   auto m = new psz_resource;
 
   auto defaults = pszctx_default_values();
-  m->header = new psz_header;
+  m->header = new psz_header();
   memcpy(m->header, defaults->header, sizeof(psz_header));
   delete defaults;
 
@@ -65,7 +65,7 @@ psz_resource* psz_create_resource_manager_eq4(
 psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* stream)
 {
   auto m = new psz_resource;
-  m->header = new psz_header;
+  m->header = new psz_header();
   memcpy(m->header, header, sizeof(psz_header));
   m->bklen = m->header->rc.radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
@@ -86,7 +86,7 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
 psz_resource* psz_create_resource_manager_from_header_eq4(psz_header* header, void* stream)
 {
   auto m = new psz_resource;
-  m->header = new psz_header;
+  m->header = new psz_header();
   memcpy(m->header, header, sizeof(psz_header));
   m->bklen = m->header->rc.radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
@@ -134,7 +134,9 @@ int psz_release_resource(psz_resource* manager)
 }
 
 #define RUNTIME_SAVE_CONFIG2()      \
-  m->header->rc = rc;               \
+  m->header->rc.mode = rc.mode;     \
+  m->header->rc.eb = rc.eb;         \
+  m->header->rc.radius = rc.radius; \
   m->header->user_input_eb = rc.eb; \
   m->bklen = rc.radius * 2;
 

@@ -229,7 +229,12 @@ struct Buf<E>::impl {
           start + var.dst, var.ptr, var.nbyte, cudaMemcpyDeviceToDevice, (cudaStream_t)stream);
     };
 
-    cudaMemcpyAsync(start, &header, sizeof(header), cudaMemcpyHostToDevice, (cudaStream_t)stream);
+    static_assert(sizeof(Header) <= PHFHEADER_FORCED_ALIGN, "phf_header exceeds its aligned slot");
+    PHF_BYTE header_padded[PHFHEADER_FORCED_ALIGN] = {};
+    memcpy(header_padded, &header, sizeof(header));
+    cudaMemcpyAsync(
+        start, header_padded, PHFHEADER_FORCED_ALIGN, cudaMemcpyHostToDevice,
+        (cudaStream_t)stream);
 
     if (use_global_encid)  // HFR-v3
       cudaMemcpyAsync(

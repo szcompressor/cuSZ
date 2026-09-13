@@ -49,7 +49,7 @@ __forceinline__ __device__ void blk_incomp_fb(
   for (auto ix = 0; ix < ShardSize; ix++) {
     auto l_id = threadIdx.x + ix * NumThreads;
     auto id = id_base + l_id;
-    if (id < data_len) ((T*)bs_base)[l_id] = in_eq[id];
+    ((T*)bs_base)[l_id] = (id < data_len) ? in_eq[id] : (T)0;
   }
 
   // breaks: append the per-block outliers after raw eq

@@ -343,6 +343,19 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
 
   // post-parse fixup: PBK variants and FZG bypass histogram
   // codec2==LC routes codec1 through plain Huffman_rev2
+  if (ctx->header->pipeline.predictor == psz_predictor::LorenzoZigZag and
+      (ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_V3 or
+       ctx->header->pipeline.codec1 == psz_codec::HFR_V4 or
+       ctx->header->pipeline.codec1 == psz_codec::HFR)) {
+    cerr << LOG_ERR
+         << "-p lrz-zz cannot pair with an HFR codec (hfr-v2, hfr-pbkc, hfr-pbkgo, hfr-v3, "
+            "hfr-v4 [default]); use -p lrz, or --codec hf"
+         << endl;
+    exit(1);
+  }
+
   if ((ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
        ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
        ctx->header->pipeline.codec1 == psz_codec::FZG) and

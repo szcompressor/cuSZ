@@ -41,6 +41,7 @@ typedef enum {
   PSZ_ABORT_NO_SUCH_CODEC,
   PSZ_ABORT_TOO_MANY_UNPREDICTABLE,
   PSZ_ABORT_TOO_MANY_ENC_BREAK,
+  PSZ_ABORT_COMPRESSED_TOO_LARGE,
 } psz_error_status;
 typedef psz_error_status pszerror;
 

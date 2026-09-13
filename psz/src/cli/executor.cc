@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -17,6 +18,12 @@
 using _ptb::utils::fromfile;
 using _ptb::utils::tofile;
 using std::string;
+
+static void check_file_readable_or_throw(const string& fname)
+{
+  if (not std::ifstream(fname.c_str()).good())
+    throw std::runtime_error("input file does not exist or is not readable: " + fname);
+}
 
 // HFR variants need u4-wide eq for fallback;
 // u2-wide creates a divergence.
@@ -72,6 +79,8 @@ static void write_decomp_to_disk(psz_args* args, cudaStream_t stream, T* d_decom
 
 void psz_compress_task(psz_args* args)
 {
+  check_file_readable_or_throw(args->cli->file_input);
+
   auto         stream_owner = _ptb::make_gpu_stream();
   cudaStream_t stream       = stream_owner.get();
 
@@ -171,6 +180,8 @@ static void check_header_or_throw(const psz_header* header, size_t on_disk_size)
 
 void psz_decompress_task(psz_args* args)
 {
+  check_file_readable_or_throw(args->cli->file_input);
+
   auto         stream_owner = _ptb::make_gpu_stream();
   cudaStream_t stream       = stream_owner.get();
 

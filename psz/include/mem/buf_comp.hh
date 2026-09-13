@@ -126,6 +126,7 @@ struct Buf_Comp {
 
   BYTE* compressed_d() const;
   BYTE* compressed_h() const;
+  size_t compressed_max_bytes() const;
 
   Buf_Outlier2* buf_outlier2() const;
   void* outlier2_validx_d() const;
