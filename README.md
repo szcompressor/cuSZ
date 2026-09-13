@@ -8,14 +8,14 @@ pSZ/cuSZ: A GPU-Based Error-Bounded Lossy Compressor for Scientific Data
 <a href="./LICENSE"><img src="https://img.shields.io/badge/License-BSD%203--Clause-blue.svg"></a>
 </p>
 
-pSZ/cuSZ (cuSZ for short) is a GPU implementation of the seminal [SZ algorithm](https://github.com/szcompressor/SZ). It is the *first* GPU-practical framework of error-bounded lossy compression on GPU for scientific data (circa 2020), aiming to improve SZ's throughput on heterogeneous HPC systems. pSZ/cuSZ primarily focuses on CUDA backend support, with other GPU-parallel backends in development. pSZ/cuSZ is formerly known as cuSZ, which is also the short form of its current name. 
+pSZ/cuSZ is a GPU implementation of the seminal [SZ algorithm](https://github.com/szcompressor/SZ). It is the *first* GPU-practical framework of error-bounded lossy compression on GPU for scientific data (c. 2020), aiming to improve SZ's throughput on heterogeneous HPC systems. pSZ/cuSZ primarily focuses on CUDA backend support, with other GPU-parallel backends in development. pSZ/cuSZ is formerly known as cuSZ, which is also the short form of its current name. 
 
-(c) 2025 by Argonne National Laboratory and Oakland University. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in top-level directory.
+(c) 2025 by Argonne National Laboratory and Oakland University. See [COPYRIGHT](https://github.com/szcompressor/cuSZ/blob/master/LICENSE) in the top-level directory.
 
 - Developers: (primary/PI) Jiannan Tian, (deployment) Robert Underwood, (cuSZ-*i*/Hi) Jinyang Liu, Shixun Wu, Jinwen Pan, (Huffman coding) Cody Rivera, (administrative PIs) Sheng Di, Franck Cappello.
 - Contributors (alphabetic): Jon Calhoun, Wenyu Gai, Megan Hickman Fulp, Xin Liang, Kai Zhao.
 - Special thanks to Dingwen Tao for advising this project from 2020 to 2024.
-- Special thanks to Dominique LaSalle (NVIDIA) for serving as Mentor in Argonne GPU Hackaton 2021.
+- Special thanks to Dominique LaSalle (NVIDIA) for serving as a Mentor in the Argonne GPU Hackathon 2021.
 
 <br>
 
@@ -27,14 +27,12 @@ pSZ/cuSZ (cuSZ for short) is a GPU implementation of the seminal [SZ algorithm](
 <a href="https://github.com/szcompressor/cuSZ/wiki/API"><b>API reference</b></a>
 </p>
 
-<!-- <br> -->
-
 <p align="center">
 Kindly note: If you mention pSZ/cuSZ in your paper, please refer to <a href="#citing-cusz">the detail below</a>.
 </p>
 
 
-# FAQ
+### FAQ
 
 There are technical differences between CPU-SZ and pSZ/cuSZ, please refer to our academic papers for more information.  
 
@@ -43,12 +41,12 @@ There are technical differences between CPU-SZ and pSZ/cuSZ, please refer to our
 How do SZ and pSZ/cuSZ work?
 </summary>
 
-Prediction-based SZ algorithm comprises four major parts,
+The prediction-based SZ algorithm comprises four major parts,
 
 0. User specifies error-mode (e.g., absolute value (`abs`), or relative to data value magnitude (`r2r`) and error-bound.
 1. Prediction errors are quantized in units of input error-bound (*quant-code*). Range-limited quant-codes are stored, whereas the out-of-range codes are otherwise gathered as *outlier*.
-3. The in-range quant-codes are fed into Huffman encoder. A Huffman symbol may be represented in multiple bytes.
-4. (CPU-only) additional DEFLATE method is applied to exploit repeated patterns. As of CLUSTER '21 cuSZ+ work, an RLE method performs a similar pattern-exploiting.
+3. The in-range quant-codes are fed into a Huffman encoder. A Huffman symbol may be represented in multiple bytes.
+4. (CPU-only) An additional DEFLATE method is applied to exploit repeated patterns. As of CLUSTER '21 cuSZ+ work, an RLE method performs a similar pattern-exploiting.
 
 </details>
 
@@ -56,7 +54,7 @@ Prediction-based SZ algorithm comprises four major parts,
 
 <details>
 <summary>
-How does cuSZ evolve over years?
+How does cuSZ evolve over the years?
 </summary>
 
 cuSZ and its variants use variable techniques to balance the need for data-reconstruction quality, compression ratio, and data-processing speed. A quick comparison is given below.
@@ -65,7 +63,7 @@ Notably, cuSZ (Tian et al., '20, '21) as the basic framework provides a balanced
 
 ```
                     prediction &                  statistics         lossless encoding          lossless encoding    
-                    quantization                                     passs (1)                  pass (2)
+                    quantization                                     pass (1)                   pass (2)
 
                   +----------------------+      +-----------+      +------------------+       +-------------------+
 CPU-SZ     -----> | predictor {ℓ, lr, S} | ---> | histogram | ---> | ui2 Huffman enc. | ----> | GZIP (LZ+HF)/Zstd |
@@ -126,45 +124,51 @@ We provide three small sample data in `data` by executing the script there. To d
 </details>
 
 
-# cite cuSZ
+### Cite pSZ/cuSZ
 
-Our published papers cover the essential design and implementation. If you mention cuSZ in your paper, please kindly cite using `\cite{tian2020cusz,tian2021cuszplus,liu_tian_wu2024cuszi}` and the BibTeX entries below (or standalone [`.bib` file](doc/psz-cusz.bib)).
+Our published papers cover the essential design and implementation. If you mention cuSZ in your paper, please kindly cite using `\cite{tian2020cusz,tian2021cuszplus,liu_tian_wu2024cuszi,wu_pan2025cuszhi}` and the BibTeX entries below (or standalone [`.bib` file](doc/psz-cusz.bib)).
 
 1. The **PACT '20: cuSZ** paper ( [local copy](doc/20_PACT_cuSZ.pdf) | [ACM](https://dl.acm.org/doi/10.1145/3410463.3414624) | [arXiv](https://arxiv.org/abs/2007.09625) ) covers
-    - basic framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
+    - Basic framework: (fine-grained) *N*-D prediction-based error-controling "construction" + (coarse-grained) lossless encoding
 2. The **CLUSTER '21: cuSZ+** paper ( [local copy](doc/21_CLUSTER_cuSZ+.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}) | [arXiv](https://arxiv.org/abs/2105.12912) ) covers
-    - optimization in throughput, featuring fine-grained *N*-D "reconstruction"
-    - optimization in compression ratio, when data is deemed as "smooth"
+    - Optimization in throughput, featuring fine-grained *N*-D "reconstruction"
+    - Optimization in compression ratio, when data is deemed as "smooth"
 3. The **SC '24: cuSZ-_i_** paper ( [local copy](doc/24_SC_cuSZ-i.pdf) | [IEEE](https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019) | [arXiv](https://arxiv.org/abs/2312.05492) ) covers
-    - spline-interpolation-based high-ratio data compression and high-quality data reconstruction
-    - compresion ratio boost from incorporating the synergetic lossless encoding
+    - Spline-interpolation-based high-ratio data compression and high-quality data reconstruction
+    - Compresion-ratio boost from incorporating the synergetic lossless encoding
+4. The **SC '25: cuSZ-Hi** work ([ACM](https://dl.acm.org/doi/10.1145/3712285.3759798) | [arxiv](https://arxiv.org/abs/2507.11165) covers)
+    - The improved compression ratio by utilizing the [LC framework](https://github.com/burtscher/LC-framework), a lossless codec composer authored by the [research team led by Dr. Martin Burtscher](https://userweb.cs.txstate.edu/~burtscher/).
+    - HiTP and HiCR modes are provided to further push the boundary of achievable rate-distortion on top of cuSZ-_i_.
 
 ```bibtex
 @inproceedings{tian2020cusz,
-      title = {{{\textsc cuSZ}: An efficient GPU-based error-bounded lossy compression framework for scientific data}},
+      title = {{\textsc cuSZ}: An efficient GPU-based error-bounded lossy compression framework for scientific data},
      author = {Tian, Jiannan and Di, Sheng and Zhao, Kai and Rivera, Cody and Fulp, Megan Hickman and Underwood, Robert and Jin, Sian and Liang, Xin and Calhoun, Jon and Tao, Dingwen and Cappello, Franck},
-       year = {2020}, month = {10}, doi = {10.1145/3410463.3414624}, isbn = {9781450380751},
-  booktitle = {Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques},
-     series = {PACT '20}, address = {Atlanta (virtual event), GA, USA}}
+       year = {2020}, month = {10}, url = {https://doi.org/10.1145/3410463.3414624}, address = {Atlanta (virtual event), GA, USA},
+  booktitle = {PACT '20: Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques}}
 
 @inproceedings{tian2021cuszplus,
       title = {Optimizing error-bounded lossy compression for scientific data on GPUs},
      author = {Tian, Jiannan and Di, Sheng and Yu, Xiaodong and Rivera, Cody and Zhao, Kai and Jin, Sian and Feng, Yunhe and Liang, Xin and Tao, Dingwen and Cappello, Franck},
-       year = {2021}, month = {09}, doi = {10.1109/Cluster48925.2021.00047},
-  booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)},
-     series = {CLUSTER '21}, address = {Portland (virtual event), OR, USA}}
+       year = {2021}, month = {09}, url = {https://doi.ieeecomputersociety.org/10.1109/Cluster48925.2021.00047}, series = {CLUSTER '21}, address = {Portland (virtual event), OR, USA},
+  booktitle = {2021 IEEE International Conference on Cluster Computing (CLUSTER)}}
 
 @inproceedings{liu_tian_wu2024cuszi,
-      title = {{{\scshape cuSZ}-{\itshape i}: High-Ratio scientific lossy compression on
-             GPUs with optimized multi-level interpolation}},
+      title = {{\scshape cuSZ}-{\itshape i}: High-ratio scientific lossy compression on GPUs with optimized multi-level interpolation},
      author = {Liu, Jinyang and Tian, Jiannan and Wu, Shixun and Di, Sheng and Zhang, Boyuan and Underwood, Robert and Huang, Yafan and Huang, Jiajun and Zhao, Kai and Li, Guanpeng and Tao, Dingwen and Chen, Zizhong and Cappello, Franck},
-       year = {2024}, month = {11}, isbn = {979-8-3503-5291-7}, url = {https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019}, 
-       note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu},
+       year = {2024}, month = {11}, url = {https://doi.ieeecomputersociety.org/10.1109/SC41406.2024.00019}, address = {Atlanta, GA, USA},
   booktitle = {SC '24: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
-     series = {SC '24}, address = {Atlanta, GA, USA}}
+       note = {Co-first authors: Jinyang Liu, Jiannan Tian, and Shixun Wu}}
+
+@inproceedings{wu_pan2025cuszhi,
+      title = {Boosting Scientific Error-Bounded Lossy Compression through Optimized Synergistic Lossy-Lossless Orchestration},
+     author = {Wu, Shixun and Pan, Jinwen and Liu, Jinyang and Tian, Jiannan and Qiu, Ziwei and Huang, Jiajun and Zhao, Kai and Liang, Xin and Di, Sheng and Chen, Zizhong and Cappello, Franck},
+       year = {2025}, month = {11}, url = {https://doi.org/10.1145/3712285.3759798}, address = {St. Louis, MO, USA},
+  booktitle = {SC '25: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+       note = {Co-first authors: Shixun Wu and Jinwen Pan}}
 ```
 
-# acknowledgements
+### Acknowledgements
 
 This R&D is supported by the Exascale Computing Project (ECP), Project Number: 17-SC-20-SC, a collaborative effort of two DOE organizations – the Office of Science and the National Nuclear Security Administration, responsible for the planning and preparation of a capable exascale ecosystem. This repository is based upon work supported by the U.S. Department of Energy, Office of Science, under contract DE-AC02-06CH11357, and also supported by the National Science Foundation under Grants [CSSI/OAC #2104023](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2104023)/[#2247080](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2247080), [OAC #2247060](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2247060&HistoricalAwards=false), and [CSSI/OAC #2311875](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2311875)/[#2311876](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2311876&HistoricalAwards=false).
 
