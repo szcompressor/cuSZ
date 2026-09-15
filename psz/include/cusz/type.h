@@ -54,8 +54,8 @@ typedef size_t szt;
 
 #define DEFAULT_PREDICTOR Lorenzo
 #define DEFAULT_HISTOGRAM HistGeneric
-#define DEFAULT_CODEC HFR_V4
-#define DEFAULT_CODEC_ALT HFR_PBKC
+#define DEFAULT_CODEC HFR_PBKC
+#define DEFAULT_CODEC_ALT HFR_V4
 #define NULL_HIST HistNull
 #define NULL_CODEC CodecNull
 
@@ -65,8 +65,8 @@ typedef enum { Lorenzo = 0, LorenzoZigZag = 1, SplineY25 = 2, SplineY24 = 3 } ps
 
 // HF_r2:      -c1 hf-rev2
 // HFR V2:    -c1 hfr-v2            Tian et al. 2020, refined.
-// HFR_V4:    -c1 hfr-v4 (default). backporting HFR-PBKC under single-book mode. 
-// HFR-PBKC:  -c1 hfr-pbkc
+// HFR_V4:    -c1 hfr-v4            backporting HFR-PBKC under single-book mode.
+// HFR-PBKC:  -c1 hfr-pbkc (default)
 // HFR-PBKGO: -c1 hfr-pbkgo
 typedef enum {
   HF = 0, HF_r2 = 1,

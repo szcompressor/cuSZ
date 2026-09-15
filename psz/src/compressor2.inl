@@ -1,7 +1,6 @@
 #ifndef PSZ_COMPRESSOR2_INL
 #define PSZ_COMPRESSOR2_INL
 
-#include "pipeline.h"
 #include <type_traits>
 
 #include "compressor.hh"
@@ -10,6 +9,7 @@
 #include "lc_gen/lc_gen.h"
 #include "module.hh"
 #include "phf.hh"
+#include "pipeline.h"
 #include "ptb.hh"
 
 namespace psz {
@@ -298,6 +298,8 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
     return nbyte;
   }
 
+  static size_t pad8(size_t n) { return (n + 7) & ~(size_t)7; }
+
   static size_t anchor_nbyte(Buf* mem) { return spline ? sizeof(T) * mem->anchor_len() : 0; }
   static size_t spfmt_nbyte(psz_ctx* ctx)
   { return sizeof(_ptb::compact_cell<T, u4>) * ctx->header->splen; }
@@ -310,13 +312,21 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
     mem->nbyte[seg_spfmt] = spfmt_nbyte(ctx);
     mem->nbyte[seg_pass1_end] = 0;
 
+    // Every stage starts 8-aligned.
     ctx->header->entry[0] = 0;
     for (auto i = 1; i <= seg_pass2_end; i++)
-      ctx->header->entry[i] = ctx->header->entry[i - 1] + mem->nbyte[i - 1];
+      ctx->header->entry[i] = ctx->header->entry[i - 1] + pad8(mem->nbyte[i - 1]);
 
     if (pszheader_filesize(ctx->header) > mem->compressed_max_bytes())
       return PSZ_ABORT_COMPRESSED_TOO_LARGE;
     return PSZ_SUCCESS;
+  }
+
+  // pad to 8 bytes for each archive segment
+  static void clear_pad(psz_ctx* ctx, Buf* mem, Segment seg, void* stream)
+  {
+    auto const gap = pad8(mem->nbyte[seg]) - mem->nbyte[seg];
+    if (gap != 0) memset_device_async(archive_at(ctx, mem, seg) + mem->nbyte[seg], gap, 0, stream);
   }
 
   static void concat_segments(psz_ctx* ctx, Buf* mem, void* stream)
@@ -328,6 +338,10 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
           archive_at(ctx, mem, seg_encoded), mem->comp_codec_out, mem->nbyte[seg_encoded], stream);
     concat_on_device(
         archive_at(ctx, mem, seg_spfmt), mem->outlier2_validx_d(), mem->nbyte[seg_spfmt], stream);
+
+    clear_pad(ctx, mem, seg_encoded, stream);
+    clear_pad(ctx, mem, seg_anchor, stream);
+    clear_pad(ctx, mem, seg_spfmt, stream);
   }
 
   // spl-y25 keeps eq in its own buffer; every other predictor decodes into the

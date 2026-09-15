@@ -138,11 +138,11 @@ struct CodecEdge {
 };
 
 constexpr CodecEdge _codec_edges[] = {
-    {HF, true, true, true},         {HF_r2, true, true, true},      {HFR, false, true, true},
-    {HFR_V2, false, true, true},    {HFR_V3, false, true, true},    {HFR_V4, false, true, true},
-    {HFR_PBKC, false, true, true},  {HFR_PBKGO, false, true, true}, {HFR_PBKF, false, true, true},
-    {LC_TCMS, true, true, true},    {LC_DRH, true, true, true},     {FZG, true, false, false},
-    {LC_BITR, false, false, false}, {LC_RTR, false, false, false},
+    {HF, true, true, true},        {HF_r2, true, true, true},      {HFR, false, true, true},
+    {HFR_V2, false, true, true},   {HFR_V3, false, true, true},    {HFR_V4, false, true, true},
+    {HFR_PBKC, false, true, true}, {HFR_PBKGO, false, true, true}, {HFR_PBKF, false, true, true},
+    {LC_TCMS, true, true, true},   {LC_DRH, true, true, true},     {LC_BITR, false, false, false},
+    {LC_RTR, false, false, false}, {FZG, true, false, false},
 };
 
 constexpr CodecEdge _egress_edge(psz_codec c)
@@ -178,12 +178,14 @@ struct Pipeline {
   static constexpr bool legacy = not modern;
 };
 
-// historical pipelines (_r1 is an ad hoc test)
 // clang-format off
+// historical pipelines (_r1 is an ad hoc test)
 using PresetLrzFZG  = Pipeline<ModuleLorenzo<PredictorFeature<1>>, ModuleCodec1<FZG>>;
-using PresetHiCR    = Pipeline<ModuleSplineY25<>, ModuleCodec1<HF_r2>,    ModuleCodec2<LC_RTR>>;
+using PresetHiCR    = Pipeline<ModuleSplineY25<>, ModuleCodec1<HF_r2>,   ModuleCodec2<LC_RTR>>;
 using PresetHiTP    = Pipeline<ModuleSplineY25<>, ModuleCodec1<LC_TCMS>, ModuleCodec2<LC_BITR>>;
 using PresetHiTP_r1 = Pipeline<ModuleSplineY25<>, ModuleCodec1<LC_DRH>,  ModuleCodec2<LC_BITR>>;
+// alias
+using PresetDefault = Pipeline<ModuleLorenzo<>, ModuleCodec1<HFR_PBKC>>;
 // clang-format on
 
 template <class... Stage>

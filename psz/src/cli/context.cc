@@ -137,7 +137,7 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("auto",     {"-a", "--auto"},                               "",     "auto-tuning: cr-first, rd-first, int")
   .string("scheme",   {"-s", "--scheme"},                             "",     "shorthand: tp|speed or cr")
   .string("preset",   {"--preset"},                                   "",     "whole pipeline by name: fzg|hicr|hitp|hitp_r1")
-  .string("pipeline", {"--pipeline"},                                 "",     "whole pipeline by stage: p1,c1[,c2]")
+  .string("pipeline", {"--pipeline"},                                 "",     "p1,c1[,c2] (_ per stage for the default), or preset:<name>")
   .string("rmerge_count", {"--rmerge-count"},  "",   "HFR reduce-merge pass count 2|3|4; default is per codec")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
   .flag("decompress", {"-x", "--unzip", "--decompress"},                      "run decompression")
@@ -153,7 +153,9 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
 
 static bool predictor_from_name(string const& v, psz_predictor& out)
 {
-  if (v == "spl-y25" or v == "spline-y25" or v == "spl" or v == "spline")
+  if (v == "_" or v == "*" or v == "default")
+    out = DEFAULT_PREDICTOR;
+  else if (v == "spl-y25" or v == "spline-y25" or v == "spl" or v == "spline")
     out = psz_predictor::SplineY25;  // 2D+3D, ATT
   else if (v == "spl-y24" or v == "spline-y24")
     out = psz_predictor::SplineY24;  // 3D only
@@ -166,15 +168,38 @@ static bool predictor_from_name(string const& v, psz_predictor& out)
   return true;
 }
 
-// "lc" names the pass-1 TCMS chain, and in a pass-2 slot it asks compose to pick the chain
+static bool preset_from_name(string const& v, psz_preset& out)
+{
+  if (v == "fzg" or v == "lrz-zz-fzg")
+    out = PSZ_PRESET_LRZZZ_FZG;
+  else if (v == "hicr" or v == "hi-cr")
+    out = PSZ_PRESET_HICR;
+  else if (v == "hitp" or v == "hi-tp")
+    out = PSZ_PRESET_HITP;
+  else if (v == "hitp_r1" or v == "hitp-r1")
+    out = PSZ_PRESET_HITP_R1;
+  else
+    return false;
+  return true;
+}
+
+static void apply_preset(psz_ctx* ctx, psz_preset preset)
+{
+  ctx->header->pipeline = pszpreset_pipeline(preset);
+  ctx->header->radius = pszpreset_radius(preset);
+  ctx->bklen = ctx->header->radius * 2;
+}
+
 static bool codec_from_name(string const& v, psz_codec& out)
 {
-  if (v == "hf" or v == "huffman" or v == "hf-rev2")
+  if (v == "_" or v == "*" or v == "default")
+    out = DEFAULT_CODEC;
+  else if (v == "hf" or v == "huffman" or v == "hf-rev2")
     out = psz_codec::HF_r2;  // HF_r2 supersedes HF
   else if (v == "hfr-v2" or v == "hfr-conservative")
     out = psz_codec::HFR;
   else if (v == "hfr-v3" or v == "hfr-direct") {
-    cerr << LOG_WARN << "hfr-v3 is deprecated; use hfr-v4 (the default)." << endl;
+    cerr << LOG_WARN << "hfr-v3 is deprecated; use hfr-v4." << endl;
     out = psz_codec::HFR_V3;
   }
   else if (v == "hfr-v4")
@@ -185,13 +210,13 @@ static bool codec_from_name(string const& v, psz_codec& out)
     out = psz_codec::HFR_PBKGO;
   else if (v == "fzgcodec" or v == "fzg")
     out = psz_codec::FZG;
-  else if (v == "drh" or v == "lc-drh")
+  else if (v == "lc-drh")
     out = psz_codec::LC_DRH;
-  else if (v == "tcms" or v == "lc-tcms" or v == "lc")
+  else if (v == "lc-tcms")
     out = psz_codec::LC_TCMS;
-  else if (v == "bitr" or v == "lc-bitr")
+  else if (v == "lc-bitr")
     out = psz_codec::LC_BITR;
-  else if (v == "rtr" or v == "lc-rtr")
+  else if (v == "lc-rtr")
     out = psz_codec::LC_RTR;
   else
     return false;
@@ -221,10 +246,10 @@ static char const* codec_name(psz_codec c)
     case psz_codec::HFR_PBKC: return "hfr-pbkc";
     case psz_codec::HFR_PBKGO: return "hfr-pbkgo";
     case psz_codec::HFR_PBKF: return "hfr-pbkf";
-    case psz_codec::LC_TCMS: return "tcms";
-    case psz_codec::LC_DRH: return "drh";
-    case psz_codec::LC_BITR: return "bitr";
-    case psz_codec::LC_RTR: return "rtr";
+    case psz_codec::LC_TCMS: return "lc-tcms";
+    case psz_codec::LC_DRH: return "lc-drh";
+    case psz_codec::LC_BITR: return "lc-bitr";
+    case psz_codec::LC_RTR: return "lc-rtr";
     case psz_codec::FZG: return "fzg";
     case psz_codec::CodecNull: return "none";
     default: return "?";
@@ -316,7 +341,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   // codec2
   {
     auto _v = args.get<string>("codec2");
-    if (_v == "lc" or _v == "rtr" or _v == "bitr" or _v == "hi-cr" or _v == "hi-tp")
+    if (_v == "lc-rtr" or _v == "lc-bitr" or _v == "hi-cr" or _v == "hi-tp")
       ctx->header->pipeline.codec2 = psz_codec::LC_TCMS;
   }
 
@@ -373,33 +398,48 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
       }
 
       std::vector<string> stage;
-      for (size_t b = 0, e = 0; b <= _v.size(); b = e + 1) {
-        e = _v.find_first_of(",;", b);
-        if (e == string::npos) e = _v.size();
-        stage.push_back(_v.substr(b, e - b));
-      }
+      parse_strlist(_v.c_str(), stage);
 
-      if (stage.size() < 2 or stage.size() > 3) {
-        cerr << LOG_ERR << "--pipeline takes 2 or 3 stages: p1,c1[,c2]" << endl;
+      if (stage.size() == 1 and stage[0].rfind("preset:", 0) == 0) {
+        auto const name = stage[0].substr(7);
+        psz_preset preset;
+        if (name == "_" or name == "*" or name == "default")
+          ctx->header->pipeline =
+              pszppl_compose(DEFAULT_PREDICTOR, DEFAULT_CODEC, psz_codec::CodecNull);
+        else if (preset_from_name(name, preset))
+          apply_preset(ctx, preset);
+        else {
+          cerr << LOG_ERR << "no such preset: " << name << endl;
+          exit(1);
+        }
+      }
+      else if (stage.size() == 2 or stage.size() == 3) {
+        psz_predictor p1;
+        psz_codec c1, c2 = psz_codec::CodecNull;
+        if (not predictor_from_name(stage[0], p1)) {
+          cerr << LOG_ERR << "no such predictor: " << stage[0] << endl;
+          exit(1);
+        }
+        if (not codec_from_name(stage[1], c1)) {
+          cerr << LOG_ERR << "no such codec: " << stage[1] << endl;
+          exit(1);
+        }
+        if (stage.size() == 3) {
+          if (stage[2] == "_" or stage[2] == "*" or stage[2] == "default") {
+            cerr << LOG_ERR << "no default pass 2; name lc-bitr or lc-rtr" << endl;
+            exit(1);
+          }
+          if (not codec_from_name(stage[2], c2)) {
+            cerr << LOG_ERR << "no such codec: " << stage[2] << endl;
+            exit(1);
+          }
+        }
+        ctx->header->pipeline = pszppl_compose(p1, c1, c2);
+      }
+      else {
+        cerr << LOG_ERR << "--pipeline takes p1,c1[,c2] or preset:<name>" << endl;
         exit(1);
       }
-
-      psz_predictor p1;
-      psz_codec c1, c2 = psz_codec::CodecNull;
-      if (not predictor_from_name(stage[0], p1)) {
-        cerr << LOG_ERR << "no such predictor: " << stage[0] << endl;
-        exit(1);
-      }
-      if (not codec_from_name(stage[1], c1)) {
-        cerr << LOG_ERR << "no such codec: " << stage[1] << endl;
-        exit(1);
-      }
-      if (stage.size() == 3 and not codec_from_name(stage[2], c2)) {
-        cerr << LOG_ERR << "no such codec: " << stage[2] << endl;
-        exit(1);
-      }
-
-      ctx->header->pipeline = pszppl_compose(p1, c1, c2);
     }
   }
 
@@ -407,24 +447,9 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   {
     auto _v = args.get<string>("preset");
     if (not _v.empty()) {
-      psz_preset preset = PSZ_PRESET_HICR;
-      bool known = true;
-      if (_v == "fzg" or _v == "lrz-zz-fzg")
-        preset = PSZ_PRESET_LRZZZ_FZG;
-      else if (_v == "hicr" or _v == "hi-cr")
-        preset = PSZ_PRESET_HICR;
-      else if (_v == "hitp" or _v == "hi-tp")
-        preset = PSZ_PRESET_HITP;
-      else if (_v == "hitp_r1" or _v == "hitp-r1")
-        preset = PSZ_PRESET_HITP_R1;
-      else
-        known = false;
-
-      if (known) {
-        ctx->header->pipeline = pszpreset_pipeline(preset);
-        ctx->header->radius = pszpreset_radius(preset);
-        ctx->bklen = ctx->header->radius * 2;
-      }
+      psz_preset preset;
+      if (preset_from_name(_v, preset))
+        apply_preset(ctx, preset);
       else
         printf("[psz::warning] \"%s\" unknown preset; ignored.\n", _v.c_str());
     }
@@ -466,8 +491,8 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
        ctx->header->pipeline.codec1 == psz_codec::HFR_V4 or
        ctx->header->pipeline.codec1 == psz_codec::HFR)) {
     cerr << LOG_ERR
-         << "-p lrz-zz cannot pair with an HFR codec (hfr-v2, hfr-pbkc, hfr-pbkgo, hfr-v3, "
-            "hfr-v4 [default]); use -p lrz, or --codec hf"
+         << "-p lrz-zz cannot pair with an HFR codec (hfr-v2, hfr-pbkc [default], hfr-pbkgo, "
+            "hfr-v3, hfr-v4); use -p lrz, or --codec hf"
          << endl;
     exit(1);
   }
