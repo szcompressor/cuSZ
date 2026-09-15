@@ -126,19 +126,15 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("dtype",    {"-t", "--type", "--dtype"},                    "",     "f32/f4 or f64/f8")
   .string("eb",       {"-e", "--eb", "--error-bound"},                "0.1",  "error bound")
   .string("mode",     {"-m", "--mode"},                               "r2r",  "r2r (relative) or abs")
-  .string("pred",     {"-p", "--pred", "--predictor"},                "",     "predictor")
   .string("hist",     {"--hist", "--histogram"},                      "",     "histogram type")
-  .string("codec1",   {"-c1", "--codec", "--codec1"},                 "",     "primary codec")
-  .string("codec2",   {"-c2", "--codec2"},                            "",     "secondary codec")
   .string("config",   {"--hi-config"},                                "",     "Hi-mode config key=val pairs")
   .string("report",   {"-R", "--report"},                             "",     "report options")
   .string("dump",     {"--dump"},                                     "",     "dump options")
   .string("skip",     {"-S", "-X", "--skip", "--exclude"},            "",     "skip: huffman, write2disk")
   .string("compare",  {"--origin", "--compare"},                      "",     "reference file for comparison")
   .string("auto",     {"-a", "--auto"},                               "",     "auto-tuning: cr-first, rd-first, int")
-  .string("scheme",   {"-s", "--scheme"},                             "",     "shorthand: tp|speed or cr")
   .string("preset",   {"--preset"},                                   "",     "whole pipeline by name: fzg|hicr|hitp|hitp_r1")
-  .string("pipeline", {"--pipeline"},                                 "",     "p1,c1[,c2] (_ per stage for the default), or preset:<name>")
+  .string("pipeline", {"-p", "--pipeline"},                           "",     "p1,c1[,c2]; \"..\" defaults the rest; or preset:<name>")
   .string("rmerge_count", {"--rmerge-count"},  "",   "HFR reduce-merge pass count 2|3|4; default is per codec")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
   .flag("decompress", {"-x", "--unzip", "--decompress"},                      "run decompression")
@@ -193,7 +189,9 @@ static void apply_preset(psz_ctx* ctx, psz_preset preset)
 
 static bool codec_from_name(string const& v, psz_codec& out)
 {
-  if (v == "_" or v == "*" or v == "default")
+  if (v == "none")
+    out = psz_codec::CodecNull;
+  else if (v == "_" or v == "*" or v == "default")
     out = DEFAULT_CODEC;
   else if (v == "hf" or v == "huffman" or v == "hf-rev2")
     out = psz_codec::HF_r2;  // HF_r2 supersedes HF
@@ -310,16 +308,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     }
   }
 
-  // predictor
-  {
-    auto _v = args.get<string>("pred");
-    if (not _v.empty()) {
-      apply_str(_v, ctx->cli->char_predictor_name);
-      if (not predictor_from_name(_v, ctx->header->pipeline.predictor))
-        printf("[psz::warning] \"%s\" unknown predictor; fallback to lorenzo.\n", _v.c_str());
-    }
-  }
-
   // histogram
   {
     auto _v = args.get<string>("hist");
@@ -327,23 +315,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
       ctx->header->pipeline.hist = psz_hist::HistGeneric;
     else if (_v == "sparse")
       ctx->header->pipeline.hist = psz_hist::HistSp;
-  }
-
-  // codec1: There is no standalone "hfr-v1".
-  {
-    auto _v = args.get<string>("codec1");
-    if (not _v.empty()) {
-      apply_str(_v, ctx->cli->char_codec1_name);
-      if (not codec_from_name(_v, ctx->header->pipeline.codec1))
-        printf("[psz::warning] \"%s\" unknown codec; keeping the default.\n", _v.c_str());
-    }
-  }
-
-  // codec2
-  {
-    auto _v = args.get<string>("codec2");
-    if (_v == "lc-rtr" or _v == "lc-bitr" or _v == "hi-cr" or _v == "hi-tp")
-      ctx->header->pipeline.codec2 = psz_codec::LC_TCMS;
   }
 
   // Hi-mode config (--hi-config key=val,...)
@@ -380,16 +351,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     }
   }
 
-  // scheme shorthand
-  {
-    auto _v = args.get<string>("scheme");
-    if (_v == "tp" or _v == "TP" or _v == "speed")
-      ctx->header->pipeline.codec1 = LC_DRH;
-    else if (_v == "cr" or _v == "CR")
-      ctx->header->pipeline.codec1 = HFR_V4;
-  }
-
-  // pipeline: a whole pipeline by stage; overrides -p, -c1 and -c2
+  // the pipeline, by stage or by preset name
   {
     auto _v = args.get<string>("pipeline");
     if (not _v.empty()) {
@@ -398,8 +360,24 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
         exit(1);
       }
 
+      // a trailing ".." says the stages not named take their defaults, so a
+      // caller can give just the predictor without knowing what follows it
+      bool const rest_default = _v.size() > 2 and _v.compare(_v.size() - 2, 2, "..") == 0;
+      if (rest_default) _v.erase(_v.size() - 2);
+
       std::vector<string> stage;
       parse_strlist(_v.c_str(), stage);
+
+      if (rest_default and not stage.empty() and stage[0].rfind("preset:", 0) == 0) {
+        cerr << LOG_ERR << "a preset already names every stage; drop the \"..\"" << endl;
+        exit(1);
+      }
+
+      // ".." fills the stages left unnamed
+      if (rest_default) {
+        if (stage.size() == 1) stage.push_back("_");
+        if (stage.size() == 2) stage.push_back("none");
+      }
 
       if (stage.size() == 1 and stage[0].rfind("preset:", 0) == 0) {
         auto const name = stage[0].substr(7);
@@ -426,7 +404,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
           exit(1);
         }
         if (stage.size() == 3) {
-          if (stage[2] == "_" or stage[2] == "*" or stage[2] == "default") {
+          if (stage[2] == "_" or stage[2] == "*" or stage[2] == "default") {  // no default pass 2
             cerr << LOG_ERR << "no default pass 2; name lc-bitr or lc-rtr" << endl;
             exit(1);
           }
@@ -444,7 +422,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     }
   }
 
-  // preset: a whole pipeline by name; overrides -p, -c1 and -c2
+  // preset: a whole pipeline by name
   {
     auto _v = args.get<string>("preset");
     if (not _v.empty()) {
