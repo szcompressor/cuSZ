@@ -57,7 +57,7 @@ int main(int argc, char** argv)
   psz_len3 uncomp_len3 = {args.x, args.y, args.z};
   psz_len3 decomp_len3 = uncomp_len3;
 
-  psz_resource* m = psz_create_resource_manager(
+  psz_ctx* m = psz_init(
       F4, {args.x, args.y, args.z}, {Lorenzo, DEFAULT_HISTOGRAM, args.codec_type, CodecNull},
       stream);
   m->cli = new psz_cli_config;  // TODO mix use the cli and "resource manager"
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
     memset_device(d_decomp.get(), len, 0);
   }
 
-  psz_release_resource(m);
+  psz_free(m);
   cudaStreamDestroy(stream);
 
   return 0;

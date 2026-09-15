@@ -1,11 +1,14 @@
 #ifndef PSZ_CONTEXT_IMPL_H
 #define PSZ_CONTEXT_IMPL_H
 
-#include "cusz/context.h"
+#include "cusz/header.h"
+#include "cusz/type.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct psz_cli_config psz_cli_config;
 
 struct psz_cli_config {
   char opath[200];
@@ -68,19 +71,19 @@ void pszctx_set_len(psz_ctx* ctx, psz_len3 len);
 psz_len3 pszctx_get_len3(psz_ctx* ctx);
 void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv);
 
-unsigned int CLI_x(psz_args* args);
-unsigned int CLI_y(psz_args* args);
-unsigned int CLI_z(psz_args* args);
-unsigned int CLI_w(psz_args* args);
-unsigned short CLI_radius(psz_args* args);
-unsigned short CLI_bklen(psz_args* args);
-psz_dtype CLI_dtype(psz_args* args);
-psz_predictor CLI_predictor(psz_args* args);
-psz_ppl CLI_pipeline(psz_args* args);
-psz_codec CLI_codec1(psz_args* args);
-psz_codec CLI_codec2(psz_args* args);
-psz_mode CLI_mode(psz_args* args);
-double CLI_eb(psz_args* args);
+unsigned int CLI_x(psz_ctx* args);
+unsigned int CLI_y(psz_ctx* args);
+unsigned int CLI_z(psz_ctx* args);
+unsigned int CLI_w(psz_ctx* args);
+unsigned short CLI_radius(psz_ctx* args);
+unsigned short CLI_bklen(psz_ctx* args);
+psz_dtype CLI_dtype(psz_ctx* args);
+psz_predictor CLI_predictor(psz_ctx* args);
+psz_ppl CLI_pipeline(psz_ctx* args);
+psz_codec CLI_codec1(psz_ctx* args);
+psz_codec CLI_codec2(psz_ctx* args);
+psz_mode CLI_mode(psz_ctx* args);
+double CLI_eb(psz_ctx* args);
 psz_interp_params* CLI_interp_params(psz_ctx* ctx);
 
 

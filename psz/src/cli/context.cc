@@ -2,8 +2,8 @@
 // context struct with argument parser
 
 #include "context_impl.h"
+#include "cusz_rev1.h"
 #include "pipeline.h"
-#include "cusz/context.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -628,17 +628,17 @@ psz_ctx* pszctx_minimal_workset(psz_dtype const dtype, psz_predictor const predi
 }
 
 // clang-format off
-unsigned int       CLI_x(psz_args* args)            { return args->header->len.x; }
-unsigned int       CLI_y(psz_args* args)            { return args->header->len.y; }
-unsigned int       CLI_z(psz_args* args)            { return args->header->len.z; }
-unsigned short     CLI_radius(psz_args* args)       { return args->header->radius; }
-unsigned short     CLI_bklen(psz_args* args)        { return args->header->radius * 2; }
-psz_dtype          CLI_dtype(psz_args* args)        { return args->header->dtype; }
-psz_predictor      CLI_predictor(psz_args* args)    { return args->header->pipeline.predictor; }
-psz_ppl       CLI_pipeline(psz_args* args)     { return args->header->pipeline; }
-psz_codec          CLI_codec1(psz_args* args)       { return args->header->pipeline.codec1; }
-psz_codec          CLI_codec2(psz_args* args)       { return args->header->pipeline.codec2; }
-psz_mode           CLI_mode(psz_args* args)         { return args->cli->rel_range_scan ? Rel : Abs; }
-double             CLI_eb(psz_args* args)           { return args->header->eb; }
+unsigned int       CLI_x(psz_ctx* args)            { return args->header->len.x; }
+unsigned int       CLI_y(psz_ctx* args)            { return args->header->len.y; }
+unsigned int       CLI_z(psz_ctx* args)            { return args->header->len.z; }
+unsigned short     CLI_radius(psz_ctx* args)       { return args->header->radius; }
+unsigned short     CLI_bklen(psz_ctx* args)        { return args->header->radius * 2; }
+psz_dtype          CLI_dtype(psz_ctx* args)        { return args->header->dtype; }
+psz_predictor      CLI_predictor(psz_ctx* args)    { return args->header->pipeline.predictor; }
+psz_ppl       CLI_pipeline(psz_ctx* args)     { return args->header->pipeline; }
+psz_codec          CLI_codec1(psz_ctx* args)       { return args->header->pipeline.codec1; }
+psz_codec          CLI_codec2(psz_ctx* args)       { return args->header->pipeline.codec2; }
+psz_mode           CLI_mode(psz_ctx* args)         { return args->cli->rel_range_scan ? Rel : Abs; }
+double             CLI_eb(psz_ctx* args)           { return args->header->eb; }
 psz_interp_params* CLI_interp_params(psz_ctx* ctx)  { return &ctx->header->intp_param; }
 // clang-format on

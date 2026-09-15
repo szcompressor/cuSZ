@@ -19,7 +19,7 @@ static thread_local psz_error_status last_error = PSZ_SUCCESS;
 
 psz_error_status psz_last_error() { return last_error; }
 
-static psz_resource* fail(psz_error_status status)
+static psz_ctx* fail(psz_error_status status)
 {
   last_error = status;
   return nullptr;
@@ -27,12 +27,12 @@ static psz_resource* fail(psz_error_status status)
 
 // eq/SYM width follows the pipeline: the HFR encoders quantize into u4, everything
 // else into u2, so a caller never has to know which width its pipeline implies.
-static psz_resource* make_manager(
+static psz_ctx* make_manager(
     psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
 {
   if (not pszppl_supported(pipeline)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
 
-  auto m = new psz_resource;
+  auto m = new psz_ctx;
 
   auto defaults = pszctx_default_values();
   m->header = new psz_header();
@@ -56,7 +56,7 @@ static psz_resource* make_manager(
   return m;
 }
 
-psz_resource* psz_create_resource_manager(
+psz_ctx* psz_init(
     psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
 {
   return make_manager(dtype, len, pipeline, stream);
@@ -65,15 +65,15 @@ psz_resource* psz_create_resource_manager(
 // Stages rather than a filled-in psz_ppl: compose derives hist from codec1
 // and resolves a pass-2 request into the chain that fits, so the caller names
 // only what it actually chooses.
-psz_resource* psz_create_resource_manager_from_stages(
+psz_ctx* psz_init_from_stages(
     psz_dtype dtype, psz_len len, psz_predictor p1, psz_codec c1, psz_codec optional_c2,
     void* stream)
 {
   return make_manager(dtype, len, pszppl_compose(p1, c1, optional_c2), stream);
 }
 
-// A preset fixes what psz_create_resource_manager takes piecemeal: the pipeline.
-psz_resource* psz_create_resource_manager_from_preset(
+// A preset fixes what psz_init takes piecemeal: the pipeline.
+psz_ctx* psz_init_from_preset(
     psz_dtype dtype, psz_len len, psz_preset preset, void* stream)
 {
   // a generic preset names a shape, not a pipeline
@@ -82,11 +82,11 @@ psz_resource* psz_create_resource_manager_from_preset(
   return make_manager(dtype, len, pszpreset_pipeline(preset), stream);
 }
 
-psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* stream)
+psz_ctx* psz_init_from_header(psz_header* header, void* stream)
 {
   if (not pszppl_supported(header->pipeline)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
 
-  auto m = new psz_resource;
+  auto m = new psz_ctx;
   last_error = PSZ_SUCCESS;
   m->header = new psz_header();
   memcpy(m->header, header, sizeof(psz_header));
@@ -105,7 +105,7 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   return m;
 }
 
-int psz_release_resource(psz_resource* manager)
+int psz_free(psz_ctx* manager)
 {
   auto dtype = manager->header->dtype;
   auto eq4 = manager->use_eq4;
@@ -146,7 +146,7 @@ int psz_release_resource(psz_resource* manager)
   }
 
 int psz_compress_float(
-    psz_resource* m, psz_rc2 rc, float* IN_d_data, psz_header* OUT_header,
+    psz_ctx* m, psz_rc2 rc, float* IN_d_data, psz_header* OUT_header,
     uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
@@ -176,7 +176,7 @@ int psz_compress_float(
 }
 
 int psz_compress_double(
-    psz_resource* m, psz_rc2 rc, double* IN_d_data, psz_header* OUT_header,
+    psz_ctx* m, psz_rc2 rc, double* IN_d_data, psz_header* OUT_header,
     uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
@@ -205,7 +205,7 @@ int psz_compress_double(
   return status;
 }
 
-int psz_compress_analyze_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u4* exported_h_hist)
+int psz_compress_analyze_float(psz_ctx* m, psz_rc2 rc, float* IN_d_data, u4* exported_h_hist)
 {
   int status = PSZ_SUCCESS;
 
@@ -226,7 +226,7 @@ int psz_compress_analyze_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u4
 }
 
 int psz_decompress_float(
-    psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
+    psz_ctx* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     float* OUT_d_decompressed)
 {
   bool const use_hfd_coarse = m->cli and m->cli->use_hfd_coarse;
@@ -239,7 +239,7 @@ int psz_decompress_float(
 }
 
 int psz_decompress_double(
-    psz_resource* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
+    psz_ctx* m, uint8_t* IN_d_compressed, size_t const IN_compressed_len,
     double* OUT_d_decompressed)
 {
   bool const use_hfd_coarse = m->cli and m->cli->use_hfd_coarse;

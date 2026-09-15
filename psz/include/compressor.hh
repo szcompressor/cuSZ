@@ -1,7 +1,7 @@
 #ifndef PSZ_COMPRESSOR_HH
 #define PSZ_COMPRESSOR_HH
 
-#include "cusz/context.h"
+#include "cusz/type.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
 #include "mem/buf_comp.hh"

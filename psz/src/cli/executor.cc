@@ -35,14 +35,14 @@ static void check_file_readable_or_throw(const string& fname)
 // ---------------------------------------------------------------------------
 
 template <typename T>
-static void report_decomp(psz_args* args, psz_header* header, size_t len)
+static void report_decomp(psz_ctx* args, psz_header* header, size_t len)
 {
   if (args->cli->report_time) psz_review_decompression(nullptr, sizeof(T) * len);
   if (args->cli->verbose) psz_review_decomp_time_from_header(header);
 }
 
 template <typename T>
-static void compare_with_origin(psz_args* args, cudaStream_t stream, T* d_decomped, size_t len,
+static void compare_with_origin(psz_ctx* args, cudaStream_t stream, T* d_decomped, size_t len,
                                 size_t comp_len, psz_header* header)
 {
   if (string(args->cli->file_compare).empty()) return;
@@ -59,7 +59,7 @@ static void compare_with_origin(psz_args* args, cudaStream_t stream, T* d_decomp
 }
 
 template <typename T>
-static void write_decomp_to_disk(psz_args* args, cudaStream_t stream, T* d_decomped, size_t len,
+static void write_decomp_to_disk(psz_ctx* args, cudaStream_t stream, T* d_decomped, size_t len,
                                  const string& basename)
 {
   if (args->cli->skip_tofile) return;
@@ -73,7 +73,7 @@ static void write_decomp_to_disk(psz_args* args, cudaStream_t stream, T* d_decom
 // Compression task
 // ---------------------------------------------------------------------------
 
-void psz_compress_task(psz_args* args)
+void psz_compress_task(psz_ctx* args)
 {
   check_file_readable_or_throw(args->cli->file_input);
 
@@ -85,7 +85,7 @@ void psz_compress_task(psz_args* args)
   uint8_t*      d_internal_compressed;
   psz_header    header;
   size_t        compressed_len;
-  psz_resource* m{nullptr};
+  psz_ctx* m{nullptr};
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
@@ -94,7 +94,7 @@ void psz_compress_task(psz_args* args)
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m = psz_create_resource_manager(
+        m = psz_init(
             F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
         m->cli = args->cli;
         auto stat =
@@ -109,7 +109,7 @@ void psz_compress_task(psz_args* args)
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m = psz_create_resource_manager(
+        m = psz_init(
             F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
         m->cli = args->cli;
         auto stat =
@@ -141,7 +141,7 @@ void psz_compress_task(psz_args* args)
 
   sync_by_stream(stream);
 
-  if (m) psz_release_resource(m);
+  if (m) psz_free(m);
 }
 
 static void check_header_or_throw(const psz_header* header, size_t on_disk_size)
@@ -160,7 +160,7 @@ static void check_header_or_throw(const psz_header* header, size_t on_disk_size)
 // Decompression task
 // ---------------------------------------------------------------------------
 
-void psz_decompress_task(psz_args* args)
+void psz_decompress_task(psz_ctx* args)
 {
   check_file_readable_or_throw(args->cli->file_input);
 
@@ -186,7 +186,7 @@ void psz_decompress_task(psz_args* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  psz_resource* m = psz_create_resource_manager_from_header(header, stream);
+  psz_ctx* m = psz_init_from_header(header, stream);
   m->cli          = args->cli;
 
   _ptb::utils::dtype_dispatch()
@@ -212,5 +212,5 @@ void psz_decompress_task(psz_args* args)
 
   sync_by_stream(stream);
 
-  if (m) psz_release_resource(m);
+  if (m) psz_free(m);
 }

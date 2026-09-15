@@ -25,7 +25,7 @@ void f4demo_compress_v2(
     size_t* compressed_len, cudaStream_t stream)
 {
   uint8_t* d_internal_compressed{nullptr};
-  auto m = psz_create_resource_manager(
+  auto m = psz_init(
       F4, len3, {predictor, DEFAULT_HISTOGRAM, HF, CodecNull}, stream);
 
   psz_compress_float(
@@ -35,7 +35,7 @@ void f4demo_compress_v2(
   cudaMallocManaged(compressed, *compressed_len);
   cudaMemcpy(*compressed, d_internal_compressed, *compressed_len, cudaMemcpyDeviceToDevice);
 
-  psz_release_resource(m);
+  psz_free(m);
 }
 
 void f8demo_compress_v2(
@@ -43,7 +43,7 @@ void f8demo_compress_v2(
     size_t* compressed_len, cudaStream_t stream)
 {
   uint8_t* d_internal_compressed{nullptr};
-  auto m = psz_create_resource_manager(
+  auto m = psz_init(
       F8, len3, {predictor, DEFAULT_HISTOGRAM, HF, NULL_CODEC}, stream);
 
   psz_compress_double(
@@ -53,21 +53,21 @@ void f8demo_compress_v2(
   cudaMallocManaged(compressed, *compressed_len);
   cudaMemcpy(*compressed, d_internal_compressed, *compressed_len, cudaMemcpyDeviceToDevice);
 
-  psz_release_resource(m);
+  psz_free(m);
 }
 
 void f4demo_decompress_v2(psz_header* header, uint8_t* compressed, cudaStream_t stream)
 {
-  auto m = psz_create_resource_manager_from_header(header, stream);
+  auto m = psz_init_from_header(header, stream);
   psz_decompress_float(m, compressed, pszheader_compressed_bytes(header), f4d_decomp);
-  psz_release_resource(m);
+  psz_free(m);
 }
 
 void f8demo_decompress_v2(psz_header* header, uint8_t* compressed, cudaStream_t stream)
 {
-  auto m = psz_create_resource_manager_from_header(header, stream);
+  auto m = psz_init_from_header(header, stream);
   psz_decompress_double(m, compressed, pszheader_compressed_bytes(header), f8d_decomp);
-  psz_release_resource(m);
+  psz_free(m);
 }
 
 void f4demo(std::string fname, psz_len3 len3, psz_predictor predictor)

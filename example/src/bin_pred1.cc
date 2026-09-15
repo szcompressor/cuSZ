@@ -77,7 +77,7 @@ int main(int argc, char** argv)
   cudaStream_t stream;
   cudaStreamCreate(&stream);
 
-  auto manager = psz_create_resource_manager(
+  auto manager = psz_init(
       F4, {x, y, z}, {pred_type, HistGeneric, HF, CodecNull}, (void*)stream);
 
   manager->header->eb = abs_eb;
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
   auto status = PPL::compress_analysis(manager, mem, d_data.get(), h_hist.get(), (void*)stream);
   if (status != PSZ_SUCCESS) {
     printf("[pred-study] predictor-analysis failed, status=%d\n", status);
-    psz_release_resource(manager);
+    psz_free(manager);
     cudaStreamDestroy(stream);
     return 2;
   }
@@ -215,7 +215,7 @@ int main(int argc, char** argv)
     }
   }
 
-  psz_release_resource(manager);
+  psz_free(manager);
   cudaStreamDestroy(stream);
   return assert_rc;
 }

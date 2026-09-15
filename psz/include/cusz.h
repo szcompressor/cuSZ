@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-#include "cusz/context.h"
+#include "cusz/type.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
 #include "cusz_rev1.h"
@@ -35,7 +35,7 @@ extern void psz_versioninfo();
 #define cusz_codectype psz_codec
 #define cusz_error_status psz_error_status
 #define cusz_header psz_header
-#define cusz_compressor psz_resource
+#define cusz_compressor psz_ctx
 #define cusz_config psz_rc2
 #define cusz_len psz_len
 
