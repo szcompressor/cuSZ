@@ -1,3 +1,4 @@
+#include "context_impl.h"
 #include "pipeline.h"
 #include <cstdio>
 #include <cstring>

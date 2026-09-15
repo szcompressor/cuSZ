@@ -1,6 +1,7 @@
 // Author: Jiannan Tian
 // context struct with argument parser
 
+#include "context_impl.h"
 #include "pipeline.h"
 #include "cusz/context.h"
 
@@ -199,8 +200,8 @@ static bool codec_from_name(string const& v, psz_codec& out)
   else if (v == "hfr-v2" or v == "hfr-conservative")
     out = psz_codec::HFR;
   else if (v == "hfr-v3" or v == "hfr-direct") {
-    cerr << LOG_WARN << "hfr-v3 is deprecated; use hfr-v4." << endl;
-    out = psz_codec::HFR_V3;
+    cerr << LOG_ERR << "hfr-v3 is not selectable; use hfr-v4" << endl;
+    exit(1);
   }
   else if (v == "hfr-v4")
     out = psz_codec::HFR_V4;

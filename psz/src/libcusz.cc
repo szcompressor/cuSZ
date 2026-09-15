@@ -1,3 +1,4 @@
+#include "context_impl.h"
 #include "pipeline.h"
 #include <iostream>
 
@@ -12,122 +13,96 @@ using std::endl;
 template <typename T, typename E>
 using CP = psz::compression_pipeline<T, E>;
 
+// why the last creator returned NULL; per-thread, so concurrent creation on
+// separate streams does not overwrite one another's reason
+static thread_local psz_error_status last_error = PSZ_SUCCESS;
+
+psz_error_status psz_last_error() { return last_error; }
+
+static psz_resource* fail(psz_error_status status)
+{
+  last_error = status;
+  return nullptr;
+}
+
+// eq/SYM width follows the pipeline: the HFR encoders quantize into u4, everything
+// else into u2, so a caller never has to know which width its pipeline implies.
+static psz_resource* make_manager(
+    psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
+{
+  if (not pszppl_supported(pipeline)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
+
+  auto m = new psz_resource;
+
+  auto defaults = pszctx_default_values();
+  m->header = new psz_header();
+  memcpy(m->header, defaults->header, sizeof(psz_header));
+  delete defaults;
+
+  m->header->dtype = dtype;
+  m->header->pipeline = pipeline;
+  m->header->len = len;
+  m->len_linear = len.x * len.y * len.z;
+  m->header->radius = pszppl_radius(pipeline);  // HFR books assume 128
+  m->bklen = m->header->radius * 2;
+  m->cli = nullptr;
+  m->use_eq4 = pszppl_needs_eq4(pipeline) != 0;
+  m->buf = m->use_eq4
+               ? (dtype == F4 ? CP<f4, u4>::compress_init(m) : CP<f8, u4>::compress_init(m))
+               : (dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m));
+  m->stream = stream;
+
+  last_error = PSZ_SUCCESS;
+  return m;
+}
+
 psz_resource* psz_create_resource_manager(
     psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
 {
-  auto m = new psz_resource;
-
-  auto defaults = pszctx_default_values();
-  m->header = new psz_header();
-  memcpy(m->header, defaults->header, sizeof(psz_header));
-  delete defaults;
-
-  m->header->dtype = dtype;
-  m->header->pipeline = pipeline;
-  m->header->len = len;
-  m->len_linear = len.x * len.y * len.z;
-  m->bklen = m->header->radius * 2;
-  m->cli = nullptr;
-  m->use_eq4 = false;
-  m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
-  m->stream = stream;
-
-  return m;
+  return make_manager(dtype, len, pipeline, stream);
 }
 
-// A preset fixes what psz_create_resource_manager takes piecemeal: the pipeline,
-// the radius the HFR prebuilt books assume, and the eq width those encoders quantize into.
+// Stages rather than a filled-in psz_ppl: compose derives hist from codec1
+// and resolves a pass-2 request into the chain that fits, so the caller names
+// only what it actually chooses.
+psz_resource* psz_create_resource_manager_from_stages(
+    psz_dtype dtype, psz_len len, psz_predictor p1, psz_codec c1, psz_codec optional_c2,
+    void* stream)
+{
+  return make_manager(dtype, len, pszppl_compose(p1, c1, optional_c2), stream);
+}
+
+// A preset fixes what psz_create_resource_manager takes piecemeal: the pipeline.
 psz_resource* psz_create_resource_manager_from_preset(
     psz_dtype dtype, psz_len len, psz_preset preset, void* stream)
 {
-  if (pszpreset_is_generic(preset)) return nullptr;
+  // a generic preset names a shape, not a pipeline
+  if (pszpreset_is_generic(preset)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
 
-  auto const pipeline = pszpreset_pipeline(preset);
-
-  auto m = pszpreset_needs_eq4(preset)
-               ? psz_create_resource_manager_eq4(dtype, len, pipeline, stream)
-               : psz_create_resource_manager(dtype, len, pipeline, stream);
-  m->header->radius = pszpreset_radius(preset);
-  m->bklen = m->header->radius * 2;
-  return m;
-}
-
-// eq/SYM width = u4 (f4/f8 raw incomp fallback, exact); mirrors psz_create_resource_manager.
-psz_resource* psz_create_resource_manager_eq4(
-    psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
-{
-  auto m = new psz_resource;
-
-  auto defaults = pszctx_default_values();
-  m->header = new psz_header();
-  memcpy(m->header, defaults->header, sizeof(psz_header));
-  delete defaults;
-
-  m->header->dtype = dtype;
-  m->header->pipeline = pipeline;
-  m->header->len = len;
-  m->len_linear = len.x * len.y * len.z;
-  m->bklen = m->header->radius * 2;
-  m->cli = nullptr;
-  m->use_eq4 = true;
-  m->buf = dtype == F4 ? CP<f4, u4>::compress_init(m) : CP<f8, u4>::compress_init(m);
-  m->stream = stream;
-
-  return m;
-}
-
-// Picks the eq width the archive's pipeline implies, so a caller decompressing
-// what a preset produced does not have to know which of the two creators to call.
-psz_resource* psz_create_resource_manager_for_archive(psz_header* header, void* stream)
-{
-  return pszppl_needs_eq4(header->pipeline)
-             ? psz_create_resource_manager_from_header_eq4(header, stream)
-             : psz_create_resource_manager_from_header(header, stream);
+  return make_manager(dtype, len, pszpreset_pipeline(preset), stream);
 }
 
 psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* stream)
 {
+  if (not pszppl_supported(header->pipeline)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
+
   auto m = new psz_resource;
+  last_error = PSZ_SUCCESS;
   m->header = new psz_header();
   memcpy(m->header, header, sizeof(psz_header));
   m->bklen = m->header->radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
   m->cli = nullptr;
-  m->use_eq4 = false;  // eq width is not (yet) serialized in the header
+  m->use_eq4 = pszppl_needs_eq4(header->pipeline) != 0;
 
-  m->buf = header->dtype == F4 ? CP<f4, u2>::decompress_init(m->header)
-                               : CP<f8, u2>::decompress_init(m->header);
-
-  m->stream = stream;
-
-  return m;
-}
-
-// eq/SYM width = u4; mirrors psz_create_resource_manager_from_header. Caller must know the
-// archive was produced with eq_bytes=4 (not yet serialized in the header).
-psz_resource* psz_create_resource_manager_from_header_eq4(psz_header* header, void* stream)
-{
-  auto m = new psz_resource;
-  m->header = new psz_header();
-  memcpy(m->header, header, sizeof(psz_header));
-  m->bklen = m->header->radius * 2;
-  m->len_linear = header->len.x * header->len.y * header->len.z;
-  m->cli = nullptr;
-  m->use_eq4 = true;
-
-  m->buf = header->dtype == F4 ? CP<f4, u4>::decompress_init(m->header)
-                               : CP<f8, u4>::decompress_init(m->header);
+  m->buf = m->use_eq4 ? (header->dtype == F4 ? CP<f4, u4>::decompress_init(m->header)
+                                             : CP<f8, u4>::decompress_init(m->header))
+                      : (header->dtype == F4 ? CP<f4, u2>::decompress_init(m->header)
+                                             : CP<f8, u2>::decompress_init(m->header));
 
   m->stream = stream;
 
   return m;
-}
-
-void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* header)
-{
-  memcpy(manager->header, header, sizeof(psz_header));
-  manager->bklen = manager->header->radius * 2;
-  manager->len_linear = header->len.x * header->len.y * header->len.z;
 }
 
 int psz_release_resource(psz_resource* manager)
@@ -156,20 +131,10 @@ int psz_release_resource(psz_resource* manager)
 
 #define RUNTIME_SAVE_CONFIG2()      \
   m->header->eb = rc.eb;         \
-  m->header->radius = rc.radius; \
   m->header->user_input_eb = rc.eb; \
-  m->bklen = rc.radius * 2;
+  m->bklen = m->header->radius * 2;
 
 // radius 0 means the radius the manager was created with
-#define RUNTIME_RADIUS_FROM_MANAGER() \
-  if (rc.radius == 0) rc.radius = m->header->radius;
-
-#define RUNTIME_CHECK_RADIUS(Type)                   \
-  if (rc.radius > psz::Buf_Comp<Type>::max_radius) { \
-    rc.radius = psz::Buf_Comp<Type>::max_radius;     \
-    status = PSZ_WARN_RADIUS_TOO_LARGE;              \
-  }
-
 #define RUNTIME_CHANGE_EB_IF_REL(Type)                                      \
   if (rc.mode == Rel) {                                                     \
     auto [min_val, max_val, avg_val, rng] =                                 \
@@ -186,8 +151,6 @@ int psz_compress_float(
 {
   int status = PSZ_SUCCESS;
 
-  RUNTIME_RADIUS_FROM_MANAGER();
-  RUNTIME_CHECK_RADIUS(float);
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
 
@@ -218,8 +181,6 @@ int psz_compress_double(
 {
   int status = PSZ_SUCCESS;
 
-  RUNTIME_RADIUS_FROM_MANAGER();
-  RUNTIME_CHECK_RADIUS(double);
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(double);
 
@@ -244,12 +205,10 @@ int psz_compress_double(
   return status;
 }
 
-int psz_compress_analyize_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u4* exported_h_hist)
+int psz_compress_analyze_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u4* exported_h_hist)
 {
   int status = PSZ_SUCCESS;
 
-  RUNTIME_RADIUS_FROM_MANAGER();
-  RUNTIME_CHECK_RADIUS(float);
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
 

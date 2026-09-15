@@ -81,6 +81,8 @@ typedef enum { HistGeneric, HistSp, HistNull } psz_hist;
 
 typedef struct psz_pipeline {
   psz_predictor predictor;
+  // DEPRECATED: needs_book(codec1) and _compose set psz_hist value.
+  // TODO drop once HistSp vs HistGeneric settles.
   psz_hist hist;
   psz_codec codec1;
   psz_codec codec2;
@@ -101,7 +103,6 @@ typedef enum {
 typedef struct psz_runtime_config2 {
   psz_mode mode;
   double eb;
-  uint16_t radius;
 } psz_rc2;
 
 struct psz_context;

@@ -1,5 +1,6 @@
 // CLI task runner
 
+#include "context_impl.h"
 #include "pipeline.h"
 #include "executor.hh"
 
@@ -93,14 +94,11 @@ void psz_compress_task(psz_args* args)
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m = pszppl_needs_eq4(ppl)
-                ? psz_create_resource_manager_eq4(
-                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream)
-                : psz_create_resource_manager(
-                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        m = psz_create_resource_manager(
+            F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
         m->cli = args->cli;
         auto stat =
-            psz_compress_float(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
+            psz_compress_float(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(),
                                &header, &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
@@ -111,14 +109,11 @@ void psz_compress_task(psz_args* args)
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m = pszppl_needs_eq4(ppl)
-                ? psz_create_resource_manager_eq4(
-                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream)
-                : psz_create_resource_manager(
-                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        m = psz_create_resource_manager(
+            F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
         m->cli = args->cli;
         auto stat =
-            psz_compress_double(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
+            psz_compress_double(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(),
                                 &header, &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
@@ -191,7 +186,7 @@ void psz_decompress_task(psz_args* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  psz_resource* m = psz_create_resource_manager_for_archive(header, stream);
+  psz_resource* m = psz_create_resource_manager_from_header(header, stream);
   m->cli          = args->cli;
 
   _ptb::utils::dtype_dispatch()

@@ -1,6 +1,7 @@
 #ifndef PSZ_COMPRESSOR2_INL
 #define PSZ_COMPRESSOR2_INL
 
+#include "context_impl.h"
 #include <type_traits>
 
 #include "compressor.hh"

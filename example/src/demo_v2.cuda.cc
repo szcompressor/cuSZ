@@ -29,7 +29,7 @@ void f4demo_compress_v2(
       F4, len3, {predictor, DEFAULT_HISTOGRAM, HF, CodecNull}, stream);
 
   psz_compress_float(
-      m, {mode, eb, DEFAULT_RADIUS}, f4d_uncomp, header, &d_internal_compressed, compressed_len);
+      m, {mode, eb}, f4d_uncomp, header, &d_internal_compressed, compressed_len);
 
   // INSTRUCTION: need to copy out becore releasing resource.
   cudaMallocManaged(compressed, *compressed_len);
@@ -47,7 +47,7 @@ void f8demo_compress_v2(
       F8, len3, {predictor, DEFAULT_HISTOGRAM, HF, NULL_CODEC}, stream);
 
   psz_compress_double(
-      m, {mode, eb, DEFAULT_RADIUS}, f8d_uncomp, header, &d_internal_compressed, compressed_len);
+      m, {mode, eb}, f8d_uncomp, header, &d_internal_compressed, compressed_len);
 
   // INSTRUCTION: need to copy out becore releasing resource.
   cudaMallocManaged(compressed, *compressed_len);

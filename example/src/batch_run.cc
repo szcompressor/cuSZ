@@ -1,3 +1,4 @@
+#include "context_impl.h"
 #include <cuda_runtime.h>
 
 #include <sstream>
@@ -80,7 +81,7 @@ int main(int argc, char** argv)
 
     {  // compresion
       psz_compress_float(
-          m, {mode, eb, args.radius}, d_uncomp.get(), &header, &p_compressed, &comp_len);
+          m, {mode, eb}, d_uncomp.get(), &header, &p_compressed, &comp_len);
       //   psz_review_compression(comp_timerecord, &header);
 
       memcpy_allkinds<D2D>(d_compressed.get(), p_compressed, comp_len);
@@ -103,7 +104,7 @@ int main(int argc, char** argv)
           "NRMSE\t%lf\t"
           "MAX.ABS.EB\t%lf\t"
           "MAX.REL.EB\t%lf\n",
-          args.radius, len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE,
+          header.radius, len * sizeof(T) * 1.0 / comp_len, s->score_PSNR, s->score_NRMSE,
           s->max_err_abs, s->max_err_rel);
     }
 
