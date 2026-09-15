@@ -174,7 +174,7 @@ struct HFVariant {
 // clang-format off
 namespace hfv {
 constexpr HFVariant HF      = {"Huffman",      "hf",        psz_codec::HF,        false, false, false, false};
-constexpr HFVariant HF_REV2 = {"Huffman-rev2", "hf-rev2",   psz_codec::HFr2,      false, false, false, false};
+constexpr HFVariant HF_REV2 = {"Huffman-rev2", "hf-rev2",   psz_codec::HF_r2,      false, false, false, false};
 constexpr HFVariant HFR     = {"HFR",          "hfr",       psz_codec::HFR,       true,  false, true,  false};
 constexpr HFVariant PBKC    = {"HFR-PBKC",     "hfr-pbkc",  psz_codec::HFR_PBKC,  true,  true,  true,  false};
 constexpr HFVariant PBKGO   = {"HFR-PBKGO",    "hfr-pbkgo", psz_codec::HFR_PBKGO, true,  true,  true,  true};
@@ -351,7 +351,7 @@ void hf_run(
   sync_by_stream(stream);
 
   auto buf = std::make_unique<phf::Buf<E>>(
-      len, bklen, -1, v.use_HFR_buf, false, v.codec == psz_codec::HFr2);
+      len, bklen, -1, v.use_HFR_buf, false, v.codec == psz_codec::HF_r2);
 
   if (not v.skip_hist_and_book) {
     auto d_hist = MAKE_UNIQUE_DEVICE(F, bklen);

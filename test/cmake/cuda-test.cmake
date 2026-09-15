@@ -19,6 +19,10 @@ add_executable(zigzag src/test_zigzag_codec.cc)
 target_link_libraries(zigzag PRIVATE psz_cu_test_compile_settings)
 add_test(test_zigzag zigzag)
 
+add_executable(module src/test_module.cc ../psz/src/pipeline.cc)
+target_link_libraries(module PRIVATE psz_cu_test_compile_settings)
+add_test(test_module module)
+
 # Level-1 subroutine
 add_executable(l1_compact src/test_l1_compact.cu)
 target_link_libraries(l1_compact PRIVATE psz_cu_compile_settings

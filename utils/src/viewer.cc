@@ -29,7 +29,8 @@ string const psz_report_query_pred(psz_predictor const p)
   const std::unordered_map<psz_predictor const, std::string const> lut = {
       {psz_predictor::Lorenzo, "Lorenzo"},
       {psz_predictor::LorenzoZigZag, "Lrz-ZigZag"},
-      {psz_predictor::Spline, "Spline"},
+      {psz_predictor::SplineY25, "SplineY25"},
+      {psz_predictor::SplineY24, "SplineY24"},
   };
   return lut.at(p);
 };
@@ -48,7 +49,7 @@ string const psz_report_query_codec1(psz_codec const c)
 {
   const std::unordered_map<psz_codec const, std::string const> lut = {
       {psz_codec::HF, "HF"},
-      {psz_codec::HFr2, "Huffman-rev2"},
+      {psz_codec::HF_r2, "Huffman-rev2"},
       {psz_codec::HFR, "HF-fast1"},
       {psz_codec::HFR_V2, "HFR-v2"},
       {psz_codec::HFR_V3, "HF-fast2"},
@@ -56,8 +57,8 @@ string const psz_report_query_codec1(psz_codec const c)
       {psz_codec::HFR_PBKC, "HFR-PBKC"},
       {psz_codec::HFR_PBKGO, "HFR-PBKGO"},
       {psz_codec::HFR_PBKF, "HFR-PBKF"},
-      {psz_codec::LC, "LC"},
-      {psz_codec::LC_DRH, "LC-DRH"},
+      {psz_codec::LC_TCMS, "LC_TCMS"},
+      {psz_codec::LC_DRH, "LC_TCMS-DRH"},
       {psz_codec::FZG, "FZGPU-Codec"},
       {psz_codec::CodecNull, "N/A"},
   };
@@ -88,7 +89,7 @@ void psz_review_comp_time_from_header(psz_header* h)
 
   printf(
       "%s\tCR=%.2f\tmode=%s\tinput_eb=%.6e\tfinal_eb=%.6e\n", psz_pipeline_tag(h).c_str(), cr,
-      h->rc.mode == Rel ? "Rel" : "Abs", h->user_input_eb, h->rc.eb);
+      h->user_input_eb != h->eb ? "Rel" : "Abs", h->user_input_eb, h->eb);
 }
 
 void psz_review_comp_time_from_header_verbose(psz_header* h)
@@ -131,14 +132,14 @@ void psz_review_comp_time_from_header_verbose(psz_header* h)
   __print("logging::histogram", psz_report_query_hist(h->pipeline.hist));
   __print("logging::codec1", psz_report_query_codec1(h->pipeline.codec1));
   __print("logging::codec2", psz_report_query_codec1(h->pipeline.codec2));
-  __print("logging::radius", h->rc.radius);
-  __print("logging::bklen", h->rc.radius * 2);
+  __print("logging::radius", h->radius);
+  __print("logging::bklen", h->radius * 2);
   __print("logging::max", h->max_val);
   __print("logging::min", h->min_val);
   __print("logging::range", h->max_val - h->min_val);
-  __print("logging::mode", h->rc.mode == Rel ? "Rel" : "Abs");
+  __print("logging::mode", h->user_input_eb != h->eb ? "Rel" : "Abs");
   __print("logging::input_eb", h->user_input_eb);
-  __print("logging::final_eb", h->rc.eb);
+  __print("logging::final_eb", h->eb);
   printf("--------------------------------------------------\n");
   if (comp_bytes() != 0) {
     auto cr = 1.0 * uncomp_bytes / comp_bytes();
@@ -180,8 +181,8 @@ void psz_review_decomp_time_from_header(psz_header* h)
   println_text_v2("component", "histogram", psz_report_query_hist(h->pipeline.hist));
   println_text_v2("component", "codec1", psz_report_query_codec1(h->pipeline.codec1));
   // println_text_v2("component", "codec2", psz_report_query_codec2(h->pipeline.codec2));
-  println_text_v2("parameter", "radius", to_string(h->rc.radius));
-  println_text_v2("parameter", "bklen", to_string(h->rc.radius * 2));
+  println_text_v2("parameter", "radius", to_string(h->radius));
+  println_text_v2("parameter", "bklen", to_string(h->radius * 2));
 }
 
 void psz_review_compression(void* r, psz_header* h)

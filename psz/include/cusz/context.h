@@ -59,16 +59,10 @@ struct psz_context {
   void* buf;
   void* stream;
 
-  psz_device device;
   uint16_t bklen;
   size_t len_linear;
-  int ndim;
-  psz_error_status last_error;
-  // tracking error status
-  bool there_is_memerr;
 
-  int spline_variant;  // 0 = y25/BLK16 (default), 1 = y24/BLK8
-  bool use_eq4;        // eq/SYM width: false = u2 (default), true = u4
+  bool use_eq4;  // eq/SYM width: false = u2 (default), true = u4
 };
 
 typedef struct psz_context psz_context;
@@ -103,7 +97,7 @@ unsigned short CLI_radius(psz_args* args);
 unsigned short CLI_bklen(psz_args* args);
 psz_dtype CLI_dtype(psz_args* args);
 psz_predictor CLI_predictor(psz_args* args);
-psz_hist CLI_hist(psz_args* args);
+psz_ppl CLI_pipeline(psz_args* args);
 psz_codec CLI_codec1(psz_args* args);
 psz_codec CLI_codec2(psz_args* args);
 psz_mode CLI_mode(psz_args* args);

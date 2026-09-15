@@ -15,7 +15,7 @@ size_t pszheader_segments(psz_header* h)
   printf("sizeof(psz_header): %lu\n", sizeof(psz_header));
   printf("sizeof(psz_interp_params): %lu\n", sizeof(psz_interp_params));
   printf("sizeof(psz_rc2): %lu\n", sizeof(psz_rc2));
-  printf("sizeof(psz_pipeline): %lu\n", sizeof(psz_pipeline));
+  printf("sizeof(psz_ppl): %lu\n", sizeof(psz_ppl));
   return sizeof(psz_header);
 }
 

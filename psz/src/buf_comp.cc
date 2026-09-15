@@ -47,6 +47,8 @@ struct psz::Buf_Comp<T, E>::impl {
   GPU_unique_dptr<Freq[]> d_top1;
   GPU_unique_hptr<Freq[]> h_top1;
 
+  bool use_HFR = false;
+
   std::unique_ptr<Buf_Outlier> buf_outlier;
   std::unique_ptr<Buf_Outlier2> buf_outlier2;
   std::unique_ptr<Buf_HF> buf_hf;
@@ -62,8 +64,8 @@ struct psz::Buf_Comp<T, E>::impl {
   GPU_unique_hptr<T[]> h_pe;
 
   // spline variant selector (0 = y25/BLK16, 1 = y24/BLK8).
-  int spline_variant = 0;
-  int anchor_blk() const { return spline_variant == 1 ? BLK8 : BLK16; }
+  psz_predictor predictor = SplineY25;
+  int anchor_blk() const { return predictor == SplineY24 ? BLK8 : BLK16; }
 
  private:
   static size_t _div(size_t _l, size_t _subl) { return (_l - 1) / _subl + 1; };
@@ -155,12 +157,14 @@ struct psz::Buf_Comp<T, E>::impl {
   impl(
       psz_len _len, bool _is_comp, bool use_HFR = false, bool alloc_eq = true,
       bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false,
-      bool use_FZG = false) :
+      bool use_FZG = false, psz_codec codec1 = psz_codec::CodecNull,
+      psz_codec codec2 = psz_codec::CodecNull) :
       is_comp(_is_comp),
       len(_len),
       len_linear(_len.x * _len.y * _len.z),
       len_linear_anchor(set_anchor_len(_len)),
-      len_top1(set_top1_nblk(_len))
+      len_top1(set_top1_nblk(_len)),
+      use_HFR(use_HFR)
   {
     // 4Ki, maximum according to spl-y25
     // 2D/3D kernels write eq tiled even when tile_order is false: always size for tiled.
@@ -187,8 +191,20 @@ struct psz::Buf_Comp<T, E>::impl {
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
     const auto codec_max_bytes = hf_len * sizeof(E);  // use (padded) hf_len for TCMS
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
-    buf_lc = std::make_unique<Buf_LC>(
-        codec_max_bytes, bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
+    const bool lc_pass1 = codec1 == psz_codec::LC_TCMS or codec1 == psz_codec::LC_DRH;
+    // LC_TCMS in the codec2 slot predates the chains being named
+    psz_codec const chain = codec2 != psz_codec::LC_TCMS ? codec2
+                            : lc_pass1                   ? psz_codec::LC_BITR
+                                                         : psz_codec::LC_RTR;
+    const bool lc_bitr = chain == psz_codec::LC_BITR;
+    const bool lc_rtr = chain == psz_codec::LC_RTR;
+    const bool lc_pass2 = lc_bitr or lc_rtr;
+    if (lc_pass1 or lc_pass2)
+      buf_lc = std::make_unique<Buf_LC>(
+          (not is_comp or lc_pass1) ? codec_max_bytes : 0,
+          (not is_comp or lc_bitr) ? bitr_input_max_bytes : 0,
+          (not is_comp or lc_rtr) ? rtr_input_max_bytes : 0,
+          is_comp ? 0 : rtr_input_max_bytes);
 
     if (is_comp) {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
@@ -235,19 +251,37 @@ COMPBUF_IMPL()::Buf_Comp(psz_len _len, BufToggle_Comp* toggle) :
 
 COMPBUF_IMPL()::Buf_Comp(
     psz_len _len, bool _is_comp, bool use_HFR, bool alloc_eq, bool use_sublen_1ki, bool tile_order,
-    bool y25_tile, bool use_FZG) :
+    bool y25_tile, bool use_FZG, psz_codec codec1, psz_codec codec2) :
     is_comp(_is_comp),
     len(_len),
     len_linear(_len.x * _len.y * _len.z),
     pimpl(
         std::make_unique<impl>(
-            _len, _is_comp, use_HFR, alloc_eq, use_sublen_1ki, tile_order, y25_tile, use_FZG))
+            _len, _is_comp, use_HFR, alloc_eq, use_sublen_1ki, tile_order, y25_tile, use_FZG,
+            codec1, codec2))
 {
 }
 
 COMPBUF_IMPL()::~Buf_Comp(){};
 
 COMPBUF_IMPL(void)::clear_buffer() { pimpl->clear_buffer(); }
+COMPBUF_IMPL(void)::reset(void* stream)
+{
+  memset_device_async(pimpl->d_hist.get(), max_bklen, 0, stream);
+  pimpl->buf_outlier2->reset_num(stream);
+  if (pimpl->buf_fzg) memset_device_async(pimpl->buf_fzg->offset_counter_d(), 1, 0, stream);
+  if (pimpl->buf_hf) {
+    if (pimpl->use_HFR)
+      pimpl->buf_hf->reset_HFR(stream);
+    else
+      pimpl->buf_hf->reset(stream);
+  }
+}
+
+COMPBUF_IMPL(void)::lc_wire_encoded(BYTE* external)
+{
+  if (pimpl->buf_lc) pimpl->buf_lc->wire_encoded(external);
+}
 
 COMPBUF_IMPL(void)::clear_top1() { memset_device(pimpl->d_top1.get(), pimpl->len_top1); }
 
@@ -301,7 +335,7 @@ COMPBUF_IMPL(psz_len)::anchor_len3() const
   return {_div(len.x, blk), _div(len.y, blk), _div(len.z, blk)};
 }
 
-COMPBUF_IMPL(void)::set_spline_variant(int v) { pimpl->spline_variant = v; }
+COMPBUF_IMPL(void)::set_predictor(psz_predictor p) { pimpl->predictor = p; }
 
 COMPBUF_IMPL(T*)::profiled_errors_d() const { return pimpl->d_pe.get(); };
 COMPBUF_IMPL(T*)::profiled_errors_h() const { return pimpl->h_pe.get(); };

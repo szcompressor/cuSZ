@@ -42,8 +42,11 @@ typedef enum {
   PSZ_ABORT_TOO_MANY_UNPREDICTABLE,
   PSZ_ABORT_TOO_MANY_ENC_BREAK,
   PSZ_ABORT_COMPRESSED_TOO_LARGE,
+  PSZ_ABORT_UNSUPPORTED_PIPELINE,
 } psz_error_status;
 typedef psz_error_status pszerror;
+
+const char* psz_error_string(int e);
 
 // aliasing
 typedef uint8_t byte_t;
@@ -58,20 +61,20 @@ typedef size_t szt;
 
 // clang-format off
 typedef enum { Abs, Rel } psz_mode;
-typedef enum { Lorenzo, LorenzoZigZag, Spline } psz_predictor;
+typedef enum { Lorenzo = 0, LorenzoZigZag = 1, SplineY25 = 2, SplineY24 = 3 } psz_predictor;
 
-// HFr2:      -c1 hf-rev2
+// HF_r2:      -c1 hf-rev2
 // HFR V2:    -c1 hfr-v2            Tian et al. 2020, refined.
 // HFR_V4:    -c1 hfr-v4 (default). backporting HFR-PBKC under single-book mode. 
 // HFR-PBKC:  -c1 hfr-pbkc
 // HFR-PBKGO: -c1 hfr-pbkgo
 typedef enum {
-  HF = 0, HFr2 = 1,
+  HF = 0, HF_r2 = 1,
   HFR = 2, HFR_V2 = 3, HFR_V3 = 4, HFR_V4 = 5,
   HFR_PBKC = 6, HFR_PBKGO = 7, HFR_PBKF = 8,
-  LC = 9, LC_DRH = 10,
+  LC_TCMS = 9, LC_DRH = 10, LC_BITR = 13, LC_RTR = 14,
   FZG = 11,
-  CodecNull = 12
+  CodecNull = 99
 } psz_codec;
 typedef enum { HistGeneric, HistSp, HistNull } psz_hist;
 // clang-format on
@@ -81,7 +84,19 @@ typedef struct psz_pipeline {
   psz_hist hist;
   psz_codec codec1;
   psz_codec codec2;
-} psz_pipeline;
+} psz_ppl;
+
+typedef enum {
+  // generic
+  PSZ_PRESET_P1_C1,
+  PSZ_PRESET_P1_C1_C2,
+
+  // fixed, historical
+  PSZ_PRESET_LRZZZ_FZG,
+  PSZ_PRESET_HICR,     // spline, HF_r2, LC-(1)
+  PSZ_PRESET_HITP,     // spline, LC_TCMS, LC_BITR
+  PSZ_PRESET_HITP_R1,  // spline, LC_DRH, LC_BITR
+} psz_preset;
 
 typedef struct psz_runtime_config2 {
   psz_mode mode;

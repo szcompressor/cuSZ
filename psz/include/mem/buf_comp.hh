@@ -75,7 +75,7 @@ struct Buf_Comp {
   constexpr static int ERR_HISTO_LEN = 36;
 
   // selector: (0 = y25/BLK16, 1 = y24/BLK8); does not change Buf_Comp ABI
-  void set_spline_variant(int v);
+  void set_predictor(psz_predictor p);
 
   bool is_comp;
   // const u4 x, y, z;
@@ -98,13 +98,16 @@ struct Buf_Comp {
   Buf_Comp(
       psz_len len, bool _is_comp = true, bool use_HFR = false, bool alloc_eq = true,
       bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false,
-      bool use_FZG = false);
+      bool use_FZG = false, psz_codec codec1 = psz_codec::CodecNull,
+      psz_codec codec2 = psz_codec::CodecNull);
   ~Buf_Comp();
 
   void register_header(psz_header* header) { header_ref = header; }
 
   void clear_buffer();
+  void reset(void* stream = nullptr);
   void clear_top1();
+  void lc_wire_encoded(BYTE* external);
 
   // getter
   E* eq_d() const;

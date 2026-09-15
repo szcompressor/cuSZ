@@ -10,7 +10,7 @@
 #include <type_traits>
 
 #include "c_type.h"
-#include "cusz/component.hh"
+#include "component.hh"
 #include "hf.h"
 #include "mem/cxx_backends.h"
 

@@ -1,3 +1,4 @@
+#include "pipeline.h"
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -39,12 +40,10 @@ int main(int argc, char** argv)
   }
 
   psz_predictor pred_type;
-  int spline_v = 0;
-  if (not psz_test::resolve_predictor(args.predictor, pred_type, spline_v)) {
+  if (not psz_test::resolve_predictor(args.predictor, pred_type)) {
     fprintf(stderr, "[pred-study] unknown predictor: %s\n", args.predictor.c_str());
     return 2;
   }
-  int spline_variant = (spline_v == 24) ? 1 : 0;  // 0 = y25 (2D+3D), 1 = y24 (lean 3D)
 
   std::string const& fname = args.fname;
   std::string const& pred_name = args.predictor;
@@ -78,11 +77,10 @@ int main(int argc, char** argv)
   cudaStreamCreate(&stream);
 
   auto manager = psz_create_resource_manager(
-      F4, {x, y, z}, {pred_type, HistGeneric, HF, CodecNull}, spline_variant, (void*)stream);
+      F4, {x, y, z}, {pred_type, HistGeneric, HF, CodecNull}, (void*)stream);
 
-  manager->header->rc.eb = abs_eb;
-  manager->header->rc.mode = (args.mode == psz_test::PredArgs::Mode::Rel) ? Rel : Abs;
-  manager->header->rc.radius = radius;
+  manager->header->eb = abs_eb;
+  manager->header->radius = radius;
   manager->header->user_input_eb = user_eb;
 
   using E = uint16_t;
@@ -160,7 +158,7 @@ int main(int argc, char** argv)
     utils::tofile(rec_out, h_xdata.get(), len);
     printf("[pred-study] reconstructed written to: %s\n", rec_out.c_str());
 
-    if (pred_type == psz_predictor::Spline) {
+    if (pszpredictor_is_spline(pred_type)) {
       auto anchor_len = mem->anchor_len();
       auto h_anchor = MAKE_UNIQUE_HOST(float, anchor_len);
       memcpy_allkinds<D2H>(h_anchor.get(), mem->anchor_d(), anchor_len);

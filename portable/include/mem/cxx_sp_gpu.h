@@ -86,6 +86,12 @@ struct compact_GPU_DRAM2 {
   ~compact_GPU_DRAM2() {}
 
  public:
+  void reset_num(void* stream = nullptr)
+  {
+    memset_device_async(d_num.get(), 1, 0, stream);
+  }
+
+ public:
   // accessor
   uint32_t host_get_num() const
   {

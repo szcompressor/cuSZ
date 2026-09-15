@@ -4,12 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "cusz/component.hh"
+#include "component.hh"
 #include "cusz/type.h"
 #include "mem/sp_interface.h"
 #include "mem/view.hh"
-
-enum class SplineVariant { y24, y25 };
 
 psz_len psz_div3(psz_len len, psz_len sublen);
 
@@ -55,7 +53,7 @@ struct GPU_c_lorenzo_nd {
   using Buf = typename Types::Buf_Comp;
 
   static int kernel(
-      Buf* buf, host::view<T> in_data, f8 const eb, u2 const radius, bool enable_incomp,
+      Buf* buf, host::view<T> in_data, f8 const eb, u2 const radius, bool enable_localized,
       bool enable_global, void* stream);
 };
 

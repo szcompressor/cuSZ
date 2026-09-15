@@ -19,6 +19,7 @@ struct LC_Buf {
   size_t max_chunks_;
 
   GPU_unique_dptr<byte_t[]> d_encoded_;
+  byte_t* wired_encoded_ = nullptr;
   GPU_unique_dptr<byte_t[]> d_decoded_;
   GPU_unique_dptr<int[]> d_size_;
   GPU_unique_dptr<int[]> d_fullcarry_;
@@ -47,7 +48,7 @@ struct LC_Buf {
          chunk_count(decoded_bytes_max)});
 
     d_encoded_ = MAKE_UNIQUE_DEVICE(byte_t, encoded_bytes_);
-    d_decoded_ = MAKE_UNIQUE_DEVICE(byte_t, decoded_bytes_);
+    if (decoded_bytes_ > 0) d_decoded_ = MAKE_UNIQUE_DEVICE(byte_t, decoded_bytes_);
     d_size_ = MAKE_UNIQUE_DEVICE(int, 1);
     d_fullcarry_ = MAKE_UNIQUE_DEVICE(int, max_chunks_);
     h_size_ = MAKE_UNIQUE_HOST(int, 1);
@@ -55,7 +56,8 @@ struct LC_Buf {
 
   ~LC_Buf() = default;
 
-  byte_t* encoded_d() const { return d_encoded_.get(); }
+  void wire_encoded(byte_t* external) { wired_encoded_ = external; }
+  byte_t* encoded_d() const { return wired_encoded_ ? wired_encoded_ : d_encoded_.get(); }
   byte_t* decoded_d() const { return d_decoded_.get(); }
   int* size_d() const { return d_size_.get(); }
   int* fullcarry_d() const { return d_fullcarry_.get(); }

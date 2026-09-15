@@ -171,6 +171,7 @@ add_library(psz_cu_utils
   psz/src/cli/verinfo_nv.cu
   psz/src/cli/context.cc
   psz/src/header.c
+  psz/src/pipeline.cc
 )
 target_link_libraries(psz_cu_utils
   PUBLIC

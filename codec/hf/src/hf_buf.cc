@@ -247,7 +247,7 @@ struct Buf<E>::impl {
     d2d_memcpy_merge(_bitstream);
 
     // header.pardeg, not the buf's: 2Ki+ PBKC encodes fewer blocks than the 1Ki default.
-    if (not use_HFR) {  // HF / HFr2 ship the per-block header as bheader AoS.
+    if (not use_HFR) {  // HF / HF_r2 ship the per-block header as bheader AoS.
       memcpy_helper _hf_rev2_header{
           (u4*)d_pbk_headers.get(), 2 * (size_t)header.pardeg * sizeof(u4),
           header.entry[PHFHEADER_HF_REV2_HEADER]};

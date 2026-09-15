@@ -35,23 +35,17 @@ struct AssertConfig {
   double max_err_rel_le = -1.0;  // max_err / orig_range ceiling
 };
 
-inline bool resolve_predictor(const std::string& name, psz_predictor& out_pred, int& out_spline_v)
+inline bool resolve_predictor(const std::string& name, psz_predictor& out_pred)
 {
-  out_spline_v = 0;
   if (name == "lrz" or name == "lorenzo") { out_pred = psz_predictor::Lorenzo; }
   else if (name == "lrz-zz" or name == "lorenzo-zigzag") {
     out_pred = psz_predictor::LorenzoZigZag;
   }
-  else if (name == "spl" or name == "spline") {
-    out_pred = psz_predictor::Spline;
+  else if (name == "spl" or name == "spline" or name == "spl-y25" or name == "spline-y25") {
+    out_pred = psz_predictor::SplineY25;
   }
   else if (name == "spl-y24" or name == "spline-y24") {
-    out_pred = psz_predictor::Spline;
-    out_spline_v = 24;
-  }
-  else if (name == "spl-y25" or name == "spline-y25") {
-    out_pred = psz_predictor::Spline;
-    out_spline_v = 25;
+    out_pred = psz_predictor::SplineY24;
   }
   else
     return false;

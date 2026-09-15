@@ -1,6 +1,7 @@
 // Author: Jiannan Tian
 // context struct with argument parser
 
+#include "pipeline.h"
 #include "cusz/context.h"
 
 #include <cstring>
@@ -135,7 +136,9 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("compare",  {"--origin", "--compare"},                      "",     "reference file for comparison")
   .string("auto",     {"-a", "--auto"},                               "",     "auto-tuning: cr-first, rd-first, int")
   .string("scheme",   {"-s", "--scheme"},                             "",     "shorthand: tp|speed or cr")
-  .string("rmerge_count", {"--rmerge-count"},  "3",  "HFR reduce-merge pass count 2|3|4 (default 3)")
+  .string("preset",   {"--preset"},                                   "",     "whole pipeline by name: fzg|hicr|hitp|hitp_r1")
+  .string("pipeline", {"--pipeline"},                                 "",     "whole pipeline by stage: p1,c1[,c2]")
+  .string("rmerge_count", {"--rmerge-count"},  "",   "HFR reduce-merge pass count 2|3|4; default is per codec")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
   .flag("decompress", {"-x", "--unzip", "--decompress"},                      "run decompression")
   .flag("verbose",    {"--verbose"},                                          "verbose output")
@@ -148,6 +151,86 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
 // Bind a parsed ArgResult into psz_ctx.
 // ---------------------------------------------------------------------------
 
+static bool predictor_from_name(string const& v, psz_predictor& out)
+{
+  if (v == "spl-y25" or v == "spline-y25" or v == "spl" or v == "spline")
+    out = psz_predictor::SplineY25;  // 2D+3D, ATT
+  else if (v == "spl-y24" or v == "spline-y24")
+    out = psz_predictor::SplineY24;  // 3D only
+  else if (v == "lorenzo" or v == "lrz")
+    out = psz_predictor::Lorenzo;
+  else if (v == "lorenzo-zigzag" or v == "lrz-zz")
+    out = psz_predictor::LorenzoZigZag;
+  else
+    return false;
+  return true;
+}
+
+// "lc" names the pass-1 TCMS chain, and in a pass-2 slot it asks compose to pick the chain
+static bool codec_from_name(string const& v, psz_codec& out)
+{
+  if (v == "hf" or v == "huffman" or v == "hf-rev2")
+    out = psz_codec::HF_r2;  // HF_r2 supersedes HF
+  else if (v == "hfr-v2" or v == "hfr-conservative")
+    out = psz_codec::HFR;
+  else if (v == "hfr-v3" or v == "hfr-direct") {
+    cerr << LOG_WARN << "hfr-v3 is deprecated; use hfr-v4 (the default)." << endl;
+    out = psz_codec::HFR_V3;
+  }
+  else if (v == "hfr-v4")
+    out = psz_codec::HFR_V4;
+  else if (v == "hfr-pbkc" or v == "hfr-pbk-compat" or v == "pbkc")
+    out = psz_codec::HFR_PBKC;
+  else if (v == "hfr-pbkgo" or v == "hfr-pbk-go" or v == "pbkgo")
+    out = psz_codec::HFR_PBKGO;
+  else if (v == "fzgcodec" or v == "fzg")
+    out = psz_codec::FZG;
+  else if (v == "drh" or v == "lc-drh")
+    out = psz_codec::LC_DRH;
+  else if (v == "tcms" or v == "lc-tcms" or v == "lc")
+    out = psz_codec::LC_TCMS;
+  else if (v == "bitr" or v == "lc-bitr")
+    out = psz_codec::LC_BITR;
+  else if (v == "rtr" or v == "lc-rtr")
+    out = psz_codec::LC_RTR;
+  else
+    return false;
+  return true;
+}
+
+static char const* predictor_name(psz_predictor p)
+{
+  switch (p) {
+    case psz_predictor::Lorenzo: return "lrz";
+    case psz_predictor::LorenzoZigZag: return "lrz-zz";
+    case psz_predictor::SplineY24: return "spl-y24";
+    case psz_predictor::SplineY25: return "spl-y25";
+    default: return "?";
+  }
+}
+
+static char const* codec_name(psz_codec c)
+{
+  switch (c) {
+    case psz_codec::HF: return "hf";
+    case psz_codec::HF_r2: return "hf-rev2";
+    case psz_codec::HFR: return "hfr-v2";
+    case psz_codec::HFR_V2: return "hfr-v2-raw";
+    case psz_codec::HFR_V3: return "hfr-v3";
+    case psz_codec::HFR_V4: return "hfr-v4";
+    case psz_codec::HFR_PBKC: return "hfr-pbkc";
+    case psz_codec::HFR_PBKGO: return "hfr-pbkgo";
+    case psz_codec::HFR_PBKF: return "hfr-pbkf";
+    case psz_codec::LC_TCMS: return "tcms";
+    case psz_codec::LC_DRH: return "drh";
+    case psz_codec::LC_BITR: return "bitr";
+    case psz_codec::LC_RTR: return "rtr";
+    case psz_codec::FZG: return "fzg";
+    case psz_codec::CodecNull: return "none";
+    default: return "?";
+  }
+}
+
 static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
 {
   using namespace _ptb::detail;
@@ -158,7 +241,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   // dimensions (xyz order)
   if (args.is_set("len")) {
     auto r             = parse_xyz(args.get<string>("len").c_str());
-    ctx->ndim          = r.ndim;
     ctx->header->len.x = r.len.x;
     ctx->header->len.y = r.len.y;
     ctx->header->len.z = r.len.z;
@@ -168,7 +250,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   // dimensions (zyx order)
   if (args.is_set("len_zyx")) {
     auto r             = parse_zyx(args.get<string>("len_zyx").c_str());
-    ctx->ndim          = r.ndim;
     ctx->header->len.x = r.len.x;
     ctx->header->len.y = r.len.y;
     ctx->header->len.z = r.len.z;
@@ -189,7 +270,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     auto _v = args.get<string>("eb");
     auto n  = str_to_num(_v.c_str());
     if (n) {
-      ctx->header->rc.eb = *n;
+      ctx->header->eb = *n;
       apply_str(_v, ctx->cli->char_meta_eb);
     }
   }
@@ -198,8 +279,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   {
     auto _v = args.get<string>("mode");
     if (not _v.empty()) {
-      ctx->header->rc.mode = (_v == "r2r" or _v == "rel") ? Rel : Abs;
-      if (ctx->header->rc.mode == Rel) ctx->cli->rel_range_scan = true;
+      ctx->cli->rel_range_scan = (_v == "r2r" or _v == "rel");
       apply_str(_v, ctx->cli->char_mode);
     }
   }
@@ -209,19 +289,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     auto _v = args.get<string>("pred");
     if (not _v.empty()) {
       apply_str(_v, ctx->cli->char_predictor_name);
-      if (_v == "spl-y25" or _v == "spline-y25" or _v == "spl" or _v == "spline") {
-        ctx->header->pipeline.predictor = psz_predictor::Spline;
-        ctx->spline_variant             = 0;  // y25 (2D+3D) + ATT
-      }
-      else if (_v == "spl-y24" or _v == "spline-y24") {
-        ctx->header->pipeline.predictor = psz_predictor::Spline;
-        ctx->spline_variant             = 1;  // y24 (3D only)
-      }
-      else if (_v == "lorenzo" or _v == "lrz")
-        ctx->header->pipeline.predictor = psz_predictor::Lorenzo;
-      else if (_v == "lorenzo-zigzag" or _v == "lrz-zz")
-        ctx->header->pipeline.predictor = psz_predictor::LorenzoZigZag;
-      else
+      if (not predictor_from_name(_v, ctx->header->pipeline.predictor))
         printf("[psz::warning] \"%s\" unknown predictor; fallback to lorenzo.\n", _v.c_str());
     }
   }
@@ -240,28 +308,8 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     auto _v = args.get<string>("codec1");
     if (not _v.empty()) {
       apply_str(_v, ctx->cli->char_codec1_name);
-      if (_v == "hf" or _v == "huffman")
-        ctx->header->pipeline.codec1 = psz_codec::HF;
-      else if (_v == "hf-rev2")
-        ctx->header->pipeline.codec1 = psz_codec::HFr2;
-      else if (_v == "hfr-v2" or _v == "hfr-conservative")
-        ctx->header->pipeline.codec1 = psz_codec::HFR;
-      else if (_v == "hfr-v3" or _v == "hfr-direct") {
-        cerr << LOG_WARN << "hfr-v3 is deprecated; use hfr-v4 (the default)." << endl;
-        ctx->header->pipeline.codec1 = psz_codec::HFR_V3;
-      }
-      else if (_v == "hfr-v4")
-        ctx->header->pipeline.codec1 = psz_codec::HFR_V4;
-      else if (_v == "hfr-pbkc" or _v == "hfr-pbk-compat")
-        ctx->header->pipeline.codec1 = psz_codec::HFR_PBKC;
-      else if (_v == "hfr-pbkgo" or _v == "hfr-pbk-go")
-        ctx->header->pipeline.codec1 = psz_codec::HFR_PBKGO;
-      else if (_v == "fzgcodec")
-        ctx->header->pipeline.codec1 = psz_codec::FZG;
-      else if (_v == "drh" or _v == "lc-drh")
-        ctx->header->pipeline.codec1 = psz_codec::LC_DRH;
-      else if (_v == "tcms" or _v == "lc-tcms" or _v == "lc")  // "lc" is a legacy alias for "tcms"
-        ctx->header->pipeline.codec1 = psz_codec::LC;
+      if (not codec_from_name(_v, ctx->header->pipeline.codec1))
+        printf("[psz::warning] \"%s\" unknown codec; keeping the default.\n", _v.c_str());
     }
   }
 
@@ -269,7 +317,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   {
     auto _v = args.get<string>("codec2");
     if (_v == "lc" or _v == "rtr" or _v == "bitr" or _v == "hi-cr" or _v == "hi-tp")
-      ctx->header->pipeline.codec2 = psz_codec::LC;
+      ctx->header->pipeline.codec2 = psz_codec::LC_TCMS;
   }
 
   // Hi-mode config (--hi-config key=val,...)
@@ -315,6 +363,73 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
       ctx->header->pipeline.codec1 = HFR_V4;
   }
 
+  // pipeline: a whole pipeline by stage; overrides -p, -c1 and -c2
+  {
+    auto _v = args.get<string>("pipeline");
+    if (not _v.empty()) {
+      if (not args.get<string>("preset").empty()) {
+        cerr << LOG_ERR << "--pipeline and --preset are mutually exclusive" << endl;
+        exit(1);
+      }
+
+      std::vector<string> stage;
+      for (size_t b = 0, e = 0; b <= _v.size(); b = e + 1) {
+        e = _v.find_first_of(",;", b);
+        if (e == string::npos) e = _v.size();
+        stage.push_back(_v.substr(b, e - b));
+      }
+
+      if (stage.size() < 2 or stage.size() > 3) {
+        cerr << LOG_ERR << "--pipeline takes 2 or 3 stages: p1,c1[,c2]" << endl;
+        exit(1);
+      }
+
+      psz_predictor p1;
+      psz_codec c1, c2 = psz_codec::CodecNull;
+      if (not predictor_from_name(stage[0], p1)) {
+        cerr << LOG_ERR << "no such predictor: " << stage[0] << endl;
+        exit(1);
+      }
+      if (not codec_from_name(stage[1], c1)) {
+        cerr << LOG_ERR << "no such codec: " << stage[1] << endl;
+        exit(1);
+      }
+      if (stage.size() == 3 and not codec_from_name(stage[2], c2)) {
+        cerr << LOG_ERR << "no such codec: " << stage[2] << endl;
+        exit(1);
+      }
+
+      ctx->header->pipeline = pszppl_compose(p1, c1, c2);
+    }
+  }
+
+  // preset: a whole pipeline by name; overrides -p, -c1 and -c2
+  {
+    auto _v = args.get<string>("preset");
+    if (not _v.empty()) {
+      psz_preset preset = PSZ_PRESET_HICR;
+      bool known = true;
+      if (_v == "fzg" or _v == "lrz-zz-fzg")
+        preset = PSZ_PRESET_LRZZZ_FZG;
+      else if (_v == "hicr" or _v == "hi-cr")
+        preset = PSZ_PRESET_HICR;
+      else if (_v == "hitp" or _v == "hi-tp")
+        preset = PSZ_PRESET_HITP;
+      else if (_v == "hitp_r1" or _v == "hitp-r1")
+        preset = PSZ_PRESET_HITP_R1;
+      else
+        known = false;
+
+      if (known) {
+        ctx->header->pipeline = pszpreset_pipeline(preset);
+        ctx->header->radius = pszpreset_radius(preset);
+        ctx->bklen = ctx->header->radius * 2;
+      }
+      else
+        printf("[psz::warning] \"%s\" unknown preset; ignored.\n", _v.c_str());
+    }
+  }
+
   // task flags (subcommand has priority over -z/-x)
   if (not ctx->cli->task_reduction and not ctx->cli->task_reconstruction) {
     if (args.get<bool>("compress")) ctx->cli->task_reduction = true;
@@ -330,10 +445,11 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     exit(1);
   }
 
-  // HFR reduce-merge pass count (--rmerge-count): 2|3|4, default 3; encode-only.
+  // HFR reduce-merge pass count (--rmerge-count): 2|3|4; encode-only.
+  // 0 means the flag was not given, and each codec keeps its own default.
   {
     auto const _rc = args.get<string>("rmerge_count");
-    int const  v   = (_rc == "2") ? 2 : (_rc == "3") ? 3 : (_rc == "4") ? 4 : -1;
+    int const  v   = _rc.empty() ? 0 : (_rc == "2") ? 2 : (_rc == "3") ? 3 : (_rc == "4") ? 4 : -1;
     if (v < 0) {
       cerr << LOG_ERR << "--rmerge-count must be 2|3|4, got: " << _rc << endl;
       exit(1);
@@ -358,8 +474,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
 
   if ((ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
        ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
-       ctx->header->pipeline.codec1 == psz_codec::FZG) and
-      ctx->header->pipeline.codec2 != psz_codec::LC)
+       ctx->header->pipeline.codec1 == psz_codec::FZG))
     ctx->header->pipeline.hist = psz_hist::HistNull;
 }
 
@@ -405,19 +520,29 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
     }
   }
 
-  // HiTP (codec1=LC/LC_DRH, codec2=LC) does not use histogram
-  if ((ctx->header->pipeline.codec1 == psz_codec::LC or
-       ctx->header->pipeline.codec1 == psz_codec::LC_DRH) and
-      ctx->header->pipeline.codec2 == psz_codec::LC)
+
+  ctx->header->pipeline = pszppl_compose(
+      ctx->header->pipeline.predictor, ctx->header->pipeline.codec1,
+      ctx->header->pipeline.codec2);
+
+  if (not pszppl_supported(ctx->header->pipeline)) {
+    cerr << LOG_ERR << "unsupported pipeline: "
+         << predictor_name(ctx->header->pipeline.predictor) << ","
+         << codec_name(ctx->header->pipeline.codec1) << ","
+         << codec_name(ctx->header->pipeline.codec2) << endl;
+    exit(1);
+  }
+
+  if (ctx->header->pipeline.codec1 == psz_codec::LC_TCMS or
+      ctx->header->pipeline.codec1 == psz_codec::LC_DRH)
     ctx->header->pipeline.hist = psz_hist::HistNull;
 
   if ((ctx->header->pipeline.codec1 == psz_codec::HFR_PBKC or
        ctx->header->pipeline.codec1 == psz_codec::HFR_PBKGO or
        ctx->header->pipeline.codec1 == psz_codec::HFR or
        ctx->header->pipeline.codec1 == psz_codec::HFR_V3 or
-       ctx->header->pipeline.codec1 == psz_codec::HFR_V4) and
-      ctx->header->pipeline.codec2 != psz_codec::LC) {
-    ctx->header->rc.radius = 128;
+       ctx->header->pipeline.codec1 == psz_codec::HFR_V4)) {
+    ctx->header->radius = 128;
     ctx->bklen             = 256;
   }
 }
@@ -433,11 +558,6 @@ void pszctx_set_rawlen(psz_ctx* ctx, size_t _x, size_t _y, size_t _z)
 {
   ctx->header->len.x = _x, ctx->header->len.y = _y, ctx->header->len.z = _z;
 
-  auto ndim = 3;
-  if (ctx->header->len.z == 1) ndim = 2;
-  if (ctx->header->len.y == 1) ndim = 1;
-
-  ctx->ndim       = ndim;
   ctx->len_linear = ctx->header->len.x * ctx->header->len.y * ctx->header->len.z;
 
   if (ctx->len_linear == 1)
@@ -458,13 +578,8 @@ psz_ctx* pszctx_default_values()
                   .codec1    = DEFAULT_CODEC,
                   .codec2    = CodecNull,
               },
-              {
-                  .mode   = Rel,
-                  .eb     = 0.1,
-                  .radius = 512,
-              },
-              .vle_sublen = 512,
-              .vle_pardeg = -1,
+              .eb     = 0.1,
+              .radius = 512,
               .len =
                   {
                       .x = 1,
@@ -489,12 +604,10 @@ psz_ctx* pszctx_default_values()
               .verbose             = false,
               .use_hfd26           = false,
               .use_hfd_coarse      = false,
-              .hfr_rmerge_count    = 3,
+              .hfr_rmerge_count    = 0,
           },
-      .bklen           = 1024,
-      .len_linear      = 1,
-      .ndim            = -1,
-      .there_is_memerr = false,
+      .bklen      = 1024,
+      .len_linear = 1,
   };
 }
 
@@ -506,7 +619,7 @@ psz_ctx* pszctx_minimal_workset(psz_dtype const dtype, psz_predictor const predi
   ws->header->pipeline.predictor = predictor;
   ws->header->pipeline.codec1    = codec;
   ws->bklen                      = quantizer_radius * 2;
-  ws->header->rc.radius          = quantizer_radius;
+  ws->header->radius          = quantizer_radius;
   return ws;
 }
 
@@ -514,14 +627,14 @@ psz_ctx* pszctx_minimal_workset(psz_dtype const dtype, psz_predictor const predi
 unsigned int       CLI_x(psz_args* args)            { return args->header->len.x; }
 unsigned int       CLI_y(psz_args* args)            { return args->header->len.y; }
 unsigned int       CLI_z(psz_args* args)            { return args->header->len.z; }
-unsigned short     CLI_radius(psz_args* args)       { return args->header->rc.radius; }
-unsigned short     CLI_bklen(psz_args* args)        { return args->header->rc.radius * 2; }
+unsigned short     CLI_radius(psz_args* args)       { return args->header->radius; }
+unsigned short     CLI_bklen(psz_args* args)        { return args->header->radius * 2; }
 psz_dtype          CLI_dtype(psz_args* args)        { return args->header->dtype; }
 psz_predictor      CLI_predictor(psz_args* args)    { return args->header->pipeline.predictor; }
-psz_hist           CLI_hist(psz_args* args)         { return args->header->pipeline.hist; }
+psz_ppl       CLI_pipeline(psz_args* args)     { return args->header->pipeline; }
 psz_codec          CLI_codec1(psz_args* args)       { return args->header->pipeline.codec1; }
 psz_codec          CLI_codec2(psz_args* args)       { return args->header->pipeline.codec2; }
-psz_mode           CLI_mode(psz_args* args)         { return args->header->rc.mode; }
-double             CLI_eb(psz_args* args)           { return args->header->rc.eb; }
+psz_mode           CLI_mode(psz_args* args)         { return args->cli->rel_range_scan ? Rel : Abs; }
+double             CLI_eb(psz_args* args)           { return args->header->eb; }
 psz_interp_params* CLI_interp_params(psz_ctx* ctx)  { return &ctx->header->intp_param; }
 // clang-format on

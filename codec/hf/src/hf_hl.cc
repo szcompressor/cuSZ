@@ -44,7 +44,7 @@ static u4 hfr_stride_words(int magnitude)
 
 namespace dispatch {
 
-// HFr2: as _r1, with per-block metadata as AoS bheader_backport[].
+// HF_r2: as _r1, with per-block metadata as AoS bheader_backport[].
 template <typename E>
 int encode_hf_rev2(
     Buf<E>* buf, E* in, size_t const len, u1** out, size_t* outlen, phf_header& header,
@@ -660,7 +660,6 @@ template <typename E>
 int high_level<E>::HFR_pick_pbk(
     phf::Buf<E>* buf, u4* hist_d, u2 const bklen, size_t const len, hf_stream_t stream)
 {
-  buf->set_rt_bklen(psz::HFR_PBK_Constants::MaxDictsize);
   phf::module::HFR_pick_pbk(
       hist_d, (u4)bklen, len, (u4*)pbk25_r128_book_d_ptr(), buf->book_d(), buf->pick_encid_d(),
       stream);
@@ -673,9 +672,9 @@ int high_level<E>::HF_encode(
     hf_stream_t stream, psz_codec variant, float* opt_ms_encoder, float* opt_ms_lago)
 {
   switch (variant) {
-    // HF is an alias for HFr2; the legacy SoA + ph3/ph4 host-scan path is retired.
+    // HF is an alias for HF_r2; the legacy SoA + ph3/ph4 host-scan path is retired.
     case HF:
-    case HFr2:
+    case HF_r2:
       return dispatch::encode_hf_rev2<E>(
           buf, in, len, out, outlen, header, stream, opt_ms_encoder, opt_ms_lago);
     default: return PHF_NOT_IMPLEMENTED;
@@ -691,7 +690,7 @@ int high_level<E>::HF_decode(
   // HF{,_r1}: same layout, so same decoder
   switch (variant) {
     case HF:
-    case HFr2:
+    case HF_r2:
       return dispatch::decode_hf_rev2<E, Eout>(buf, header, in_encoded, out_decoded, stream);
     default: return PHF_NOT_IMPLEMENTED;
   }

@@ -13,7 +13,7 @@ using psz_buf = psz::Buf_Comp<T, E>;
 
 namespace psz {
 
-template <typename T, typename E>
+template <typename T, typename E, class PPL = void>
 struct compression_pipeline {
   // skip_hf: drop the Huffman and packed-bytes buffers, for a caller that only
   // runs comp_predict / decomp_predict and never reaches an encoded bitstream

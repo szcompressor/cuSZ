@@ -44,6 +44,8 @@ static const char psz_short_doc[] =
     "  e eb    : error bound\n"
     "  l size  : _-l [x[-y[-z]]] (1,2,3-D)\n"
     "  p NAME  : predictor: \"lrz\", \"spl\", \"lrz-zz\"\n"
+    "  --preset NAME : whole pipeline, no -p/-c1/-c2: \"fzg\", \"hicr\", \"hitp\", \"hitp_r1\"\n"
+    "  --pipeline p1,c1[,c2] : whole pipeline by stage, e.g. \"spl-y25,hf,lc\"\n"
     "  a NAME  : auto tuning mode: \"CR-first\", \"RD-first\""
     "  s NAME  : lossless scheme: \"CR\", \"TP\"/\"speed\""
     "\n"

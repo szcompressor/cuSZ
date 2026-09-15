@@ -55,7 +55,7 @@ extern void psz_versioninfo();
 #define LorenzoII LorenzoZigZag
 #endif
 #ifndef Spline3
-#define Spline3 Spline
+#define Spline3 SplineY25
 #endif
 
 typedef enum { Auto, Dense, Sparse } cusz_pipelinetype;

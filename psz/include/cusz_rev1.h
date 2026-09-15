@@ -9,14 +9,21 @@ extern "C" {
 
 #define DEFAULT_RADIUS 512
 
+// psz_rc2.radius = 0 asks for the radius the manager was created with. A preset
+// sets that radius, and an HFR pipeline accepts no other: its books assume 128.
+#define PSZ_RADIUS_FROM_MANAGER 0
+
 // clang-format off
-psz_resource* psz_create_resource_manager(psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream);
-psz_resource* psz_create_resource_manager_eq4(psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream);
+psz_resource* psz_create_resource_manager(psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream);
+psz_resource* psz_create_resource_manager_eq4(psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream);
+psz_resource* psz_create_resource_manager_from_preset(psz_dtype dtype, psz_len len, psz_preset preset, void* stream);
 psz_resource* psz_create_resource_manager_from_CLI(int argc, char** argv, void* stream);
 psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* stream);
 psz_resource* psz_create_resource_manager_from_header_eq4(psz_header* header, void* stream);
+psz_resource* psz_create_resource_manager_for_archive(psz_header* header, void* stream);
 void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* header);
 int psz_release_resource(psz_resource* manager);
+// OUT_d_compressed carries its own psz_header, so it can be written out as it stands.
 int psz_compress_float(psz_resource* manager, psz_rc2 rc, float* IN_d_data, psz_header* OUT_header, uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes);
 int psz_compress_double(psz_resource* manager, psz_rc2 rc, double* IN_d_data, psz_header* OUT_header, uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes);
 int psz_compress_analyize_float(psz_resource* manager, psz_rc2 rc, float* IN_d_data, u4* exported_h_hist);

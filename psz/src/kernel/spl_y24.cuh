@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "cusz/component.hh"
+#include "component.hh"
 #include "cusz/type.h"
 #include "kernel/blk_fb.cuh"
 #include "utils/err.hh"

@@ -453,7 +453,7 @@ namespace psz::module {
 template <class Types, class Features>
 int GPU_c_lorenzo_nd<Types, Features>::kernel(
     typename Types::Buf_Comp* buf, host::view<typename Types::T> in_data, f8 const eb,
-    uint16_t const radius, bool enable_incomp, bool enable_global, void* stream)
+    uint16_t const radius, bool enable_localized, bool enable_global, void* stream)
 {
   using Compact2 = _ptb::compact_GPU_DRAM2<T, u4>;
   auto extent = LEN_TO_DIM3(in_data.extent);
@@ -492,7 +492,7 @@ int GPU_c_lorenzo_nd<Types, Features>::kernel(
     }
   };
   if (d < 1 or d > 3) return PSZ_ABORT_UNSUPPORTED_DIMENSION;
-  int const ui = (enable_global ? 0b10 : 0b00) | (enable_incomp ? 0b01 : 0b00);
+  int const ui = (enable_global ? 0b10 : 0b00) | (enable_localized ? 0b01 : 0b00);
   // 0b11 (local + global spill) is not implemented; it would drop every outlier silently.
   if (ui == 0b11) return PSZ_ABORT_NOT_IMPLEMENTED;
   if (ui == 0b10)

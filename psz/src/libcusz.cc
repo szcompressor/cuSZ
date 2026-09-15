@@ -1,3 +1,4 @@
+#include "pipeline.h"
 #include <iostream>
 
 #include "compare.hh"
@@ -12,7 +13,7 @@ template <typename T, typename E>
 using CP = psz::compression_pipeline<T, E>;
 
 psz_resource* psz_create_resource_manager(
-    psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream)
+    psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
 {
   auto m = new psz_resource;
 
@@ -25,20 +26,35 @@ psz_resource* psz_create_resource_manager(
   m->header->pipeline = pipeline;
   m->header->len = len;
   m->len_linear = len.x * len.y * len.z;
-  m->bklen = m->header->rc.radius * 2;
-  m->spline_variant = spline_variant;  // creation-time; compress_init consumes it
+  m->bklen = m->header->radius * 2;
   m->cli = nullptr;
   m->use_eq4 = false;
-  phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u2>::compress_init(m) : CP<f8, u2>::compress_init(m);
   m->stream = stream;
 
   return m;
 }
 
+// A preset fixes what psz_create_resource_manager takes piecemeal: the pipeline,
+// the radius the HFR prebuilt books assume, and the eq width those encoders quantize into.
+psz_resource* psz_create_resource_manager_from_preset(
+    psz_dtype dtype, psz_len len, psz_preset preset, void* stream)
+{
+  if (pszpreset_is_generic(preset)) return nullptr;
+
+  auto const pipeline = pszpreset_pipeline(preset);
+
+  auto m = pszpreset_needs_eq4(preset)
+               ? psz_create_resource_manager_eq4(dtype, len, pipeline, stream)
+               : psz_create_resource_manager(dtype, len, pipeline, stream);
+  m->header->radius = pszpreset_radius(preset);
+  m->bklen = m->header->radius * 2;
+  return m;
+}
+
 // eq/SYM width = u4 (f4/f8 raw incomp fallback, exact); mirrors psz_create_resource_manager.
 psz_resource* psz_create_resource_manager_eq4(
-    psz_dtype dtype, psz_len len, psz_pipeline pipeline, int spline_variant, void* stream)
+    psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
 {
   auto m = new psz_resource;
 
@@ -51,15 +67,22 @@ psz_resource* psz_create_resource_manager_eq4(
   m->header->pipeline = pipeline;
   m->header->len = len;
   m->len_linear = len.x * len.y * len.z;
-  m->bklen = m->header->rc.radius * 2;
-  m->spline_variant = spline_variant;
+  m->bklen = m->header->radius * 2;
   m->cli = nullptr;
   m->use_eq4 = true;
-  phf_coarse_tune(m->len_linear, &m->header->vle_sublen, &m->header->vle_pardeg);
   m->buf = dtype == F4 ? CP<f4, u4>::compress_init(m) : CP<f8, u4>::compress_init(m);
   m->stream = stream;
 
   return m;
+}
+
+// Picks the eq width the archive's pipeline implies, so a caller decompressing
+// what a preset produced does not have to know which of the two creators to call.
+psz_resource* psz_create_resource_manager_for_archive(psz_header* header, void* stream)
+{
+  return pszppl_needs_eq4(header->pipeline)
+             ? psz_create_resource_manager_from_header_eq4(header, stream)
+             : psz_create_resource_manager_from_header(header, stream);
 }
 
 psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* stream)
@@ -67,9 +90,8 @@ psz_resource* psz_create_resource_manager_from_header(psz_header* header, void* 
   auto m = new psz_resource;
   m->header = new psz_header();
   memcpy(m->header, header, sizeof(psz_header));
-  m->bklen = m->header->rc.radius * 2;
+  m->bklen = m->header->radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
-  m->spline_variant = 0;  // default y25; variant is not (yet) serialized in the header
   m->cli = nullptr;
   m->use_eq4 = false;  // eq width is not (yet) serialized in the header
 
@@ -88,9 +110,8 @@ psz_resource* psz_create_resource_manager_from_header_eq4(psz_header* header, vo
   auto m = new psz_resource;
   m->header = new psz_header();
   memcpy(m->header, header, sizeof(psz_header));
-  m->bklen = m->header->rc.radius * 2;
+  m->bklen = m->header->radius * 2;
   m->len_linear = header->len.x * header->len.y * header->len.z;
-  m->spline_variant = 0;
   m->cli = nullptr;
   m->use_eq4 = true;
 
@@ -105,7 +126,7 @@ psz_resource* psz_create_resource_manager_from_header_eq4(psz_header* header, vo
 void psz_modify_resource_manager_from_header(psz_resource* manager, psz_header* header)
 {
   memcpy(manager->header, header, sizeof(psz_header));
-  manager->bklen = manager->header->rc.radius * 2;
+  manager->bklen = manager->header->radius * 2;
   manager->len_linear = header->len.x * header->len.y * header->len.z;
 }
 
@@ -134,11 +155,14 @@ int psz_release_resource(psz_resource* manager)
 }
 
 #define RUNTIME_SAVE_CONFIG2()      \
-  m->header->rc.mode = rc.mode;     \
-  m->header->rc.eb = rc.eb;         \
-  m->header->rc.radius = rc.radius; \
+  m->header->eb = rc.eb;         \
+  m->header->radius = rc.radius; \
   m->header->user_input_eb = rc.eb; \
   m->bklen = rc.radius * 2;
+
+// radius 0 means the radius the manager was created with
+#define RUNTIME_RADIUS_FROM_MANAGER() \
+  if (rc.radius == 0) rc.radius = m->header->radius;
 
 #define RUNTIME_CHECK_RADIUS(Type)                   \
   if (rc.radius > psz::Buf_Comp<Type>::max_radius) { \
@@ -153,7 +177,7 @@ int psz_release_resource(psz_resource* manager)
     (void)avg_val;                                                          \
     m->header->min_val = min_val;                                           \
     m->header->max_val = max_val;                                           \
-    m->header->rc.eb *= rng;                                                \
+    m->header->eb *= rng;                                                \
   }
 
 int psz_compress_float(
@@ -162,6 +186,7 @@ int psz_compress_float(
 {
   int status = PSZ_SUCCESS;
 
+  RUNTIME_RADIUS_FROM_MANAGER();
   RUNTIME_CHECK_RADIUS(float);
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
@@ -171,13 +196,16 @@ int psz_compress_float(
         m, (psz_buf<f4, u4>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
     if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
+    memcpy_allkinds<H2D>((u1*)*OUT_d_compressed, (u1*)m->header, sizeof(psz_header));
     if (m->cli) CP<f4, u4>::compress_dump_internal_buf(m, (psz_buf<f4, u4>*)m->buf, m->stream);
   }
   else {
     status = CP<f4, u2>::compress(
         m, (psz_buf<f4, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    ((psz_buf<f4, u2>*)m->buf)->reset(m->stream);
     if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
+    memcpy_allkinds<H2D>((u1*)*OUT_d_compressed, (u1*)m->header, sizeof(psz_header));
     if (m->cli) CP<f4, u2>::compress_dump_internal_buf(m, (psz_buf<f4, u2>*)m->buf, m->stream);
   }
 
@@ -190,6 +218,7 @@ int psz_compress_double(
 {
   int status = PSZ_SUCCESS;
 
+  RUNTIME_RADIUS_FROM_MANAGER();
   RUNTIME_CHECK_RADIUS(double);
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(double);
@@ -199,13 +228,16 @@ int psz_compress_double(
         m, (psz_buf<f8, u4>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
     if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
+    memcpy_allkinds<H2D>((u1*)*OUT_d_compressed, (u1*)m->header, sizeof(psz_header));
     if (m->cli) CP<f8, u4>::compress_dump_internal_buf(m, (psz_buf<f8, u4>*)m->buf, m->stream);
   }
   else {
     status = CP<f8, u2>::compress(
         m, (psz_buf<f8, u2>*)m->buf, IN_d_data, OUT_d_compressed, OUT_compressed_bytes, m->stream);
+    ((psz_buf<f8, u2>*)m->buf)->reset(m->stream);
     if (status != PSZ_SUCCESS) return status;
     *OUT_header = *(m->header);
+    memcpy_allkinds<H2D>((u1*)*OUT_d_compressed, (u1*)m->header, sizeof(psz_header));
     if (m->cli) CP<f8, u2>::compress_dump_internal_buf(m, (psz_buf<f8, u2>*)m->buf, m->stream);
   }
 
@@ -216,12 +248,13 @@ int psz_compress_analyize_float(psz_resource* m, psz_rc2 rc, float* IN_d_data, u
 {
   int status = PSZ_SUCCESS;
 
+  RUNTIME_RADIUS_FROM_MANAGER();
   RUNTIME_CHECK_RADIUS(float);
   RUNTIME_SAVE_CONFIG2();
   RUNTIME_CHANGE_EB_IF_REL(float);
 
   // TODO redundant
-  m->header->rc.eb = rc.eb;
+  m->header->eb = rc.eb;
 
   if (m->use_eq4)
     CP<f4, u4>::compress_analysis(

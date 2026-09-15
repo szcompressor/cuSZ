@@ -1,5 +1,6 @@
 // CLI task runner
 
+#include "pipeline.h"
 #include "executor.hh"
 
 #include <cstdio>
@@ -27,12 +28,6 @@ static void check_file_readable_or_throw(const string& fname)
 
 // HFR variants need u4-wide eq for fallback;
 // u2-wide creates a divergence.
-static bool codec1_needs_eq4(psz_codec c1, psz_codec c2)
-{
-  return c1 != psz_codec::FZG and c2 != psz_codec::LC and
-         (c1 == psz_codec::HFR or c1 == psz_codec::HFR_PBKC or c1 == psz_codec::HFR_PBKGO or
-          c1 == psz_codec::HFR_V3 or c1 == psz_codec::HFR_V4);
-}
 
 // ---------------------------------------------------------------------------
 // dtype-templated helpers
@@ -97,44 +92,36 @@ void psz_compress_task(psz_args* args)
         auto h_in = MAKE_UNIQUE_HOST(float, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m = codec1_needs_eq4(CLI_codec1(args), CLI_codec2(args))
+        auto const ppl = CLI_pipeline(args);
+        m = pszppl_needs_eq4(ppl)
                 ? psz_create_resource_manager_eq4(
-                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
-                      args->spline_variant, stream)
+                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream)
                 : psz_create_resource_manager(
-                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
-                      args->spline_variant, stream);
-        m->cli                     = args->cli;
-        m->header->pipeline.codec2 = CLI_codec2(args);
+                      F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        m->cli = args->cli;
         auto stat =
             psz_compress_float(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
                                &header, &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
-          throw std::runtime_error("compress failed with status " + std::to_string(stat));
+          throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
       })
       .on<double, F8>([&](auto) {
         auto d_in = MAKE_UNIQUE_DEVICE(double, len);
         auto h_in = MAKE_UNIQUE_HOST(double, len);
         fromfile(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
-        m = codec1_needs_eq4(CLI_codec1(args), CLI_codec2(args))
+        auto const ppl = CLI_pipeline(args);
+        m = pszppl_needs_eq4(ppl)
                 ? psz_create_resource_manager_eq4(
-                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
-                      args->spline_variant, stream)
+                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream)
                 : psz_create_resource_manager(
-                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)},
-                      {CLI_predictor(args), CLI_hist(args), CLI_codec1(args), CLI_codec2(args)},
-                      args->spline_variant, stream);
-        m->cli                     = args->cli;
-        m->header->pipeline.codec2 = CLI_codec2(args);
+                      F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        m->cli = args->cli;
         auto stat =
             psz_compress_double(m, {CLI_mode(args), CLI_eb(args), CLI_radius(args)}, d_in.get(),
                                 &header, &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
-          throw std::runtime_error("compress failed with status " + std::to_string(stat));
+          throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
       })
       .call(CLI_dtype(args));
 
@@ -204,9 +191,7 @@ void psz_decompress_task(psz_args* args)
   auto comp_len = pszheader_filesize(header);
   auto len      = pszheader_uncompressed_len(header);
 
-  psz_resource* m = codec1_needs_eq4(header->pipeline.codec1, header->pipeline.codec2)
-                        ? psz_create_resource_manager_from_header_eq4(header, stream)
-                        : psz_create_resource_manager_from_header(header, stream);
+  psz_resource* m = psz_create_resource_manager_for_archive(header, stream);
   m->cli          = args->cli;
 
   _ptb::utils::dtype_dispatch()
@@ -214,7 +199,7 @@ void psz_decompress_task(psz_args* args)
         auto d_decomped = MAKE_UNIQUE_DEVICE(float, len);
         auto stat       = psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
-          throw std::runtime_error("decompress failed with status " + std::to_string(stat));
+          throw std::runtime_error(std::string("decompress failed: ") + psz_error_string(stat));
         report_decomp<float>(args, header, len);
         compare_with_origin<float>(args, stream, d_decomped.get(), len, comp_len, header);
         write_decomp_to_disk<float>(args, stream, d_decomped.get(), len, basename);
@@ -223,7 +208,7 @@ void psz_decompress_task(psz_args* args)
         auto d_decomped = MAKE_UNIQUE_DEVICE(double, len);
         auto stat       = psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
-          throw std::runtime_error("decompress failed with status " + std::to_string(stat));
+          throw std::runtime_error(std::string("decompress failed: ") + psz_error_string(stat));
         report_decomp<double>(args, header, len);
         compare_with_origin<double>(args, stream, d_decomped.get(), len, comp_len, header);
         write_decomp_to_disk<double>(args, stream, d_decomped.get(), len, basename);
