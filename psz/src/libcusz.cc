@@ -1,20 +1,18 @@
-#include "context_impl.h"
-#include "pipeline.h"
 #include <iostream>
 
 #include "compare.hh"
 #include "compressor.hh"
+#include "context_impl.h"
 #include "cusz.h"
 #include "extrema.hh"
 #include "mem/buf_comp.hh"
+#include "pipeline.h"
 
 using std::cerr;
 using std::endl;
 template <typename T, typename E>
 using CP = psz::compression_pipeline<T, E>;
 
-// why the last creator returned NULL; per-thread, so concurrent creation on
-// separate streams does not overwrite one another's reason
 static thread_local psz_error_status last_error = PSZ_SUCCESS;
 
 psz_error_status psz_last_error() { return last_error; }
@@ -25,10 +23,7 @@ static psz_ctx* fail(psz_error_status status)
   return nullptr;
 }
 
-// eq/SYM width follows the pipeline: the HFR encoders quantize into u4, everything
-// else into u2, so a caller never has to know which width its pipeline implies.
-static psz_ctx* make_manager(
-    psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
+static psz_ctx* make_manager(psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
 {
   if (not pszppl_supported(pipeline)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
 
@@ -56,27 +51,16 @@ static psz_ctx* make_manager(
   return m;
 }
 
-psz_ctx* psz_init(
-    psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
-{
-  return make_manager(dtype, len, pipeline, stream);
-}
+psz_ctx* psz_init(psz_dtype dtype, psz_len len, psz_ppl pipeline, void* stream)
+{ return make_manager(dtype, len, pipeline, stream); }
 
-// Stages rather than a filled-in psz_ppl: compose derives hist from codec1
-// and resolves a pass-2 request into the chain that fits, so the caller names
-// only what it actually chooses.
 psz_ctx* psz_init_from_stages(
     psz_dtype dtype, psz_len len, psz_predictor p1, psz_codec c1, psz_codec optional_c2,
     void* stream)
-{
-  return make_manager(dtype, len, pszppl_compose(p1, c1, optional_c2), stream);
-}
+{ return make_manager(dtype, len, pszppl_compose(p1, c1, optional_c2), stream); }
 
-// A preset fixes what psz_init takes piecemeal: the pipeline.
-psz_ctx* psz_init_from_preset(
-    psz_dtype dtype, psz_len len, psz_preset preset, void* stream)
+psz_ctx* psz_init_from_preset(psz_dtype dtype, psz_len len, psz_preset preset, void* stream)
 {
-  // a generic preset names a shape, not a pipeline
   if (pszpreset_is_generic(preset)) return fail(PSZ_ABORT_UNSUPPORTED_PIPELINE);
 
   return make_manager(dtype, len, pszpreset_pipeline(preset), stream);
@@ -130,11 +114,10 @@ int psz_free(psz_ctx* manager)
 }
 
 #define RUNTIME_SAVE_CONFIG2()      \
-  m->header->eb = rc.eb;         \
+  m->header->eb = rc.eb;            \
   m->header->user_input_eb = rc.eb; \
   m->bklen = m->header->radius * 2;
 
-// radius 0 means the radius the manager was created with
 #define RUNTIME_CHANGE_EB_IF_REL(Type)                                      \
   if (rc.mode == Rel) {                                                     \
     auto [min_val, max_val, avg_val, rng] =                                 \
@@ -142,12 +125,12 @@ int psz_free(psz_ctx* manager)
     (void)avg_val;                                                          \
     m->header->min_val = min_val;                                           \
     m->header->max_val = max_val;                                           \
-    m->header->eb *= rng;                                                \
+    m->header->eb *= rng;                                                   \
   }
 
 int psz_compress_float(
-    psz_ctx* m, psz_rc2 rc, float* IN_d_data, psz_header* OUT_header,
-    uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes)
+    psz_ctx* m, psz_rc2 rc, float* IN_d_data, psz_header* OUT_header, uint8_t** OUT_d_compressed,
+    size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
 
@@ -176,8 +159,8 @@ int psz_compress_float(
 }
 
 int psz_compress_double(
-    psz_ctx* m, psz_rc2 rc, double* IN_d_data, psz_header* OUT_header,
-    uint8_t** OUT_d_compressed, size_t* OUT_compressed_bytes)
+    psz_ctx* m, psz_rc2 rc, double* IN_d_data, psz_header* OUT_header, uint8_t** OUT_d_compressed,
+    size_t* OUT_compressed_bytes)
 {
   int status = PSZ_SUCCESS;
 
