@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "c_type.h"
+#include "cusz/type.h"
 #include "hf.h"
 #include "hfr-pbk.hh"
 
@@ -45,9 +46,20 @@ struct Buf {
   using BHeader = psz::_future::bheader<E, Radius>;
 
   // ctor/dtor
-  Buf(size_t inlen, size_t _bklen, int _pardeg = -1, bool _use_HFR = false, bool debug = false,
-      bool use_sublen_1ki = false);
-  ~Buf();
+  Buf(size_t inlen, size_t bklen, bool use_sublen_1ki = false, bool is_comp = true);
+  virtual ~Buf();
+
+ protected:
+  Buf(size_t inlen, size_t bklen, bool use_sublen_1ki, bool is_comp, bool use_HFR,
+      void* archive_dst);
+
+ public:
+  void init();
+  bool set_inlen(size_t inlen, bool use_sublen_1ki);
+
+  size_t planned_data_bytes() const;
+  size_t planned_state_bytes() const;
+  void attach(void* d_data, void* d_state);
 
   // utils
   void set_rt_bklen(int const rt_bklen);
@@ -56,11 +68,14 @@ struct Buf {
   auto sublen() const -> size_t;
   auto pardeg() const -> size_t;
   auto bitstream_max_len() const -> size_t;
+  static auto archive_max_words(size_t inlen, size_t bklen, bool use_HFR) -> size_t;
   auto rvbk_bytes() const -> size_t;
   auto set_use_prebuilt_rvbk(bool v) -> void;
   auto set_use_pbkgo(bool v) -> void;
   auto set_use_global_encid(bool v) -> void;  // HFR-v3 uses global PBK ID, async cp'ed to header
   auto pick_encid_d() const -> u4*;
+  auto hist_d() const -> u4*;
+  auto hist_h() const -> u4*;
   auto timing_event(int idx) const -> void*;    // 3 reusable cudaEvent_t vars
   auto pbkgo_max_blocks_per_sm() const -> int;  // PBKGO: occupancy, computed at init.
   auto pbkgo_max_resident_blocks() const -> int;
@@ -92,9 +107,8 @@ struct Buf {
   // HFR-PBK family (allocated on use_HFR=true).
   BHeader* pbk_headers_d() const;
   BHeader* pbk_headers_h() const;
-  H4* packed_d() const;
   u4* total_ncell_d() const;
-  u4* pbk_packed_headers_d() const;  // HFR family only
+  u1* archive_bitstream_d() const;
   u1* incomp_flag_d() const;
   u4* pbkgo_state_d() const;
 
@@ -107,9 +121,17 @@ struct Buf {
 
   // misc. methods
   void memcpy_merge(phf_header& header, phf_stream_t stream);
-  void clear_buffer();
+  [[deprecated]] void clear_buffer();
   void reset(phf_stream_t stream);      // per-encode clear of scan state
   void reset_HFR(phf_stream_t stream);  // per-encode clear ofor HFR*
+};
+
+template <typename E>
+struct Buf_HFR : Buf<E> {
+  Buf_HFR(
+      size_t inlen, size_t bklen, bool use_sublen_1ki = false, bool is_comp = true,
+      void* archive_dst = nullptr);
+  ~Buf_HFR() override;
 };
 
 }  // namespace phf

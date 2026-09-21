@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "lc_buf.h"
+#include "mem/buf_lc.hh"
 
 #if defined(__CUDACC__)
 __global__ void d_reset_tcms_comp();

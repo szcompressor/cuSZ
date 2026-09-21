@@ -146,14 +146,13 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
 
   static void build_runtime_book(psz_ctx* ctx, Buf* mem, void* stream)
   {
-    memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->bklen);
-    phf::high_level<E>::HF_build_book(mem->buf_hf(), mem->hist_h(), ctx->bklen, stream);
+    phf::high_level<E>::HF_build_book(mem->buf_hf(), ctx->bklen, stream);
   }
 
   static void pick_pbk(psz_ctx* ctx, Buf* mem, void* stream)
   {
     phf::high_level<E>::HFR_pick_pbk(
-        mem->buf_hf(), mem->hist_d(), ctx->bklen, eq_len(ctx->header->len), stream);
+        mem->buf_hf(), ctx->bklen, eq_len(ctx->header->len), stream);
   }
 
   static size_t eq_len(psz_len len)

@@ -1,4 +1,4 @@
-#include "kernel/hist_generic.cu"
+#include "../hist_generic.dp.cpp"
 
 template struct psz::module::GPU_histogram_generic<u1>;
 template struct psz::module::GPU_histogram_generic<u2>;

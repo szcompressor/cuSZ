@@ -37,7 +37,9 @@ bool run_case(size_t len, int bklen, char const* synth_spec, char const* label)
   sync_by_stream(stream);
 
   // HFR-PBKGO: prebuilt PBK25_R128 codebook; no histogram/book build needed.
-  auto buf_enc = std::make_unique<phf::Buf<E>>(len, bklen, -1, /*use_HFR=*/true);
+  auto buf_enc = std::make_unique<phf::Buf_HFR<E>>(
+      len, bklen, false, true, nullptr);
+  buf_enc->init();
 
   u1* d_encoded = nullptr;
   size_t encoded_len = 0;
@@ -61,7 +63,9 @@ bool run_case(size_t len, int bklen, char const* synth_spec, char const* label)
 
   auto d_decomp_fused = MAKE_UNIQUE_DEVICE(Eout, len);
 
-  auto buf_fused = std::make_unique<phf::Buf<E>>(len, bklen, -1, /*use_HFR=*/true);
+  auto buf_fused = std::make_unique<phf::Buf_HFR<E>>(
+      len, bklen, false, true, nullptr);
+  buf_fused->init();
   phf::module::HFD26<E, H, Storage, Mag>::template decode_fused<Eout>(
       bs_ptr, bs_bytes, rvbk_ptr, rvbk_bytes, packed_headers, buf_fused->lut_d(), pardeg,
       header.ori_len, d_decomp_fused.get(), buf_fused->incomp_flag_d(), stream);

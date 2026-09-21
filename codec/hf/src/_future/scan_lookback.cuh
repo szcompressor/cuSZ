@@ -36,15 +36,20 @@ __global__ void k_scan_init(
   }
 }
 
-// Identity load: backwards-compat for callers that already have a flat u4* per-block ncell.
 struct LoadFromU4 {
   u4 const* __restrict__ p;
   __device__ __forceinline__ u4 operator()(int i) const { return p[i]; }
 };
 
-template <typename Load>
+
+struct StoreToU4 {
+  u4* p;
+  __device__ __forceinline__ void operator()(int i, u4 v) const { p[i] = v; }
+};
+
+template <typename Load, typename Store>
 __global__ void k_scan_lookback_typed(
-    Load load, u4* __restrict__ par_entry, int num_items, volatile u4* d_partial_aggregate,
+    Load load, Store store, int num_items, volatile u4* d_partial_aggregate,
     volatile u4* d_incl_prefix, volatile int* d_tile_status, u4* opt_d_total)
 {
   const int tile_id = (int)blockIdx.x;
@@ -145,23 +150,22 @@ __global__ void k_scan_lookback_typed(
     int idx = base + i;
     if (idx < num_items) {
       u4 elem_excl = thread_excl_in_tile + (thread_incl[i] - items[i]);
-      par_entry[idx] = elem_excl;
+      store(idx, elem_excl);
     }
   }
 }
 
-template <typename Load>
+template <typename Load, typename Store>
 inline int launch_scan_typed(
-    Load load, u4* d_par_entry, int num_items, volatile u4* d_partial_aggregate,
+    Load load, Store store, int num_items, volatile u4* d_partial_aggregate,
     volatile u4* d_incl_prefix, volatile int* d_tile_status, u4* opt_d_total, cudaStream_t stream)
 {
   if (num_items <= 0) return 0;
   int num_tiles = (num_items + TILE_SIZE - 1) / TILE_SIZE;
 
   // Caller pre-inits scan state (buf-init + post-encode reset).
-  k_scan_lookback_typed<Load><<<num_tiles, BLOCK_THREADS, 0, stream>>>(
-      load, d_par_entry, num_items, d_partial_aggregate, d_incl_prefix, d_tile_status,
-      opt_d_total);
+  k_scan_lookback_typed<Load, Store><<<num_tiles, BLOCK_THREADS, 0, stream>>>(
+      load, store, num_items, d_partial_aggregate, d_incl_prefix, d_tile_status, opt_d_total);
 
   return 0;
 }
@@ -172,8 +176,8 @@ inline int launch_scan(
     volatile u4* d_incl_prefix, volatile int* d_tile_status, u4* opt_d_total, cudaStream_t stream)
 {
   return launch_scan_typed(
-      LoadFromU4{d_par_ncell}, d_par_entry, num_items, d_partial_aggregate, d_incl_prefix,
-      d_tile_status, opt_d_total, stream);
+      LoadFromU4{d_par_ncell}, StoreToU4{d_par_entry}, num_items, d_partial_aggregate,
+      d_incl_prefix, d_tile_status, opt_d_total, stream);
 }
 
 inline int launch_init(

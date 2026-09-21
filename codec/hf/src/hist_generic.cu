@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <limits>
 
-#include "kernel.hh"
+#include "hist.hh"
 #include "utils/timer.hh"
 
 #define MIN(a, b) ((a) < (b)) ? (a) : (b)

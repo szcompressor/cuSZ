@@ -23,8 +23,16 @@ struct fzg::Buf2 {
   using E = uint16_t;
   using InputT = uint16_t;
 
-  Buf2(size_t data_len);
+  Buf2(size_t data_len, bool is_comp);
   ~Buf2();
+
+  void init();
+  void reset(void* stream);
+
+  size_t planned_data_bytes() const;
+  size_t planned_state_bytes() const;
+  void set_base(void* d_data, void* d_state);
+  void attach(void* d_data, void* d_state);
 
   size_t len() const;
   size_t pad_len() const;
@@ -32,6 +40,7 @@ struct fzg::Buf2 {
   size_t chunk_size() const;
   size_t grid_x() const;
   size_t archive_bytes() const;
+  static size_t archive_bytes(size_t data_len);
 
   uint32_t* bitflag_d() const;
   uint32_t* start_pos_d() const;
@@ -48,8 +57,6 @@ struct fzg::Buf2 {
 
   void clear_buffer();
   void memcpy_merge(Header& header, void* stream);
-
-  static size_t padded_len(size_t data_len);
 
   uint32_t h_offset_sum = 0;
 };

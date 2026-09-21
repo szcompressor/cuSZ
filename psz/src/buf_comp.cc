@@ -1,5 +1,6 @@
 #include "mem/buf_comp.hh"
 
+#include "cusz/header.h"
 #include "cusz/type.h"
 #include "kernel.hh"
 #include "kernel/launch.inl"
@@ -42,8 +43,11 @@ struct psz::Buf_Comp<T, E>::impl {
   size_t eq_len_ = 0;  // padded/aligned
   GPU_unique_dptr<BYTE[]> d_compressed;
   GPU_unique_hptr<BYTE[]> h_compressed;
-  GPU_unique_dptr<Freq[]> d_hist;
+  GPU_unique_dptr<Freq[]> d_hist;  // psz_compress_analyze_float alone: it builds no codec buf
   GPU_unique_hptr<Freq[]> h_hist;
+
+  Freq* hist() const { return buf_hf ? (Freq*)buf_hf->hist_d() : d_hist.get(); }
+  Freq* hist_host() const { return buf_hf ? (Freq*)buf_hf->hist_h() : h_hist.get(); }
   GPU_unique_dptr<Freq[]> d_top1;
   GPU_unique_hptr<Freq[]> h_top1;
 
@@ -128,9 +132,12 @@ struct psz::Buf_Comp<T, E>::impl {
     const auto bitr_input_max_bytes = len_linear_anchor * sizeof(T) + spfmt_max_bytes;
     const auto codec_max_bytes = len_linear * sizeof(E);
     const auto rtr_input_max_bytes = codec_max_bytes + bitr_input_max_bytes;
-    if (toggle->use_lc)
+    if (toggle->use_lc) {
       buf_lc = std::make_unique<Buf_LC>(
-          len_linear * sizeof(E), bitr_input_max_bytes, rtr_input_max_bytes, rtr_input_max_bytes);
+          psz_codec::LC_RTR, rtr_input_max_bytes,
+          std::max(rtr_input_max_bytes, len_linear * sizeof(E)), rtr_input_max_bytes);
+      buf_lc->init();
+    }
     d_pe = MAKE_UNIQUE_DEVICE(T, ERR_HISTO_LEN);
     h_pe = MAKE_UNIQUE_HOST(T, ERR_HISTO_LEN);
 
@@ -178,12 +185,24 @@ struct psz::Buf_Comp<T, E>::impl {
     if (is_comp or alloc_eq) d_eq = MAKE_UNIQUE_DEVICE(E, eq_len + outlier_tail);
     // HF decodes eq + scattered outliers into tiles.
     if (not is_comp and tile_order) d_decode_fused = MAKE_UNIQUE_DEVICE(T, eq_len);
-    // HF encodes/decodes every 1Ki/2Ki/4Ki.
+    if (is_comp) d_compressed = MAKE_UNIQUE_DEVICE(BYTE, compressed_max_bytes());
+    void* const hf_archive_dst =
+        is_comp ? (void*)(d_compressed.get() + ((sizeof(psz_header) + 7) & ~(size_t)7)) : nullptr;
+
     size_t hf_len = tile_order ? eq_len : len_linear;
-    buf_hf = std::make_unique<Buf_HF>(hf_len, max_bklen, -1, use_HFR, false, use_sublen_1ki);
+    buf_hf = use_HFR ? std::unique_ptr<Buf_HF>(
+                           new phf::Buf_HFR<E>(
+                               hf_len, max_bklen, use_sublen_1ki, is_comp, hf_archive_dst))
+                     : std::make_unique<Buf_HF>(hf_len, max_bklen, use_sublen_1ki, is_comp);
+    buf_hf->init();
     if (use_FZG) {
-      buf_fzg = std::make_unique<Buf_FZG>(eq_len);
-      d_fzg_scratch = MAKE_UNIQUE_DEVICE(E, eq_len);
+      // FIXME: encoding uses extra buffer; decoding is somehow not symmetric.
+      if (is_comp) {
+        buf_fzg = std::make_unique<Buf_FZG>(eq_len, is_comp);
+        buf_fzg->init();
+      }
+      else
+        d_fzg_scratch = MAKE_UNIQUE_DEVICE(E, eq_len);
     }
     const auto outlier_cap = static_cast<size_t>(len_linear * OUTLIER_RATIO);
     const auto spfmt_max_bytes =
@@ -199,18 +218,20 @@ struct psz::Buf_Comp<T, E>::impl {
     const bool lc_bitr = chain == psz_codec::LC_BITR;
     const bool lc_rtr = chain == psz_codec::LC_RTR;
     const bool lc_pass2 = lc_bitr or lc_rtr;
-    if (lc_pass1 or lc_pass2)
+    if (lc_pass1 or lc_pass2) {
+      size_t const encoded_in = not is_comp ? 0
+                                : lc_bitr    ? bitr_input_max_bytes
+                                : lc_rtr     ? rtr_input_max_bytes
+                                             : 0;
+      size_t const pass1_in = (is_comp and lc_pass1) ? codec_max_bytes : 0;
       buf_lc = std::make_unique<Buf_LC>(
-          (not is_comp or lc_pass1) ? codec_max_bytes : 0,
-          (not is_comp or lc_bitr) ? bitr_input_max_bytes : 0,
-          (not is_comp or lc_rtr) ? rtr_input_max_bytes : 0,
+          chain, encoded_in, std::max(encoded_in, pass1_in),
           is_comp ? 0 : rtr_input_max_bytes);
+      buf_lc->init();
+    }
 
     if (is_comp) {
       d_anchor = MAKE_UNIQUE_DEVICE(T, len_linear_anchor);
-      d_hist = MAKE_UNIQUE_DEVICE(Freq, max_bklen);
-      h_hist = MAKE_UNIQUE_HOST(Freq, max_bklen);
-      d_compressed = MAKE_UNIQUE_DEVICE(BYTE, compressed_max_bytes());
       h_compressed = MAKE_UNIQUE_HOST(BYTE, len_linear * sizeof(E) * 3 / 2);
       d_top1 = MAKE_UNIQUE_DEVICE(Freq, len_top1);
       h_top1 = MAKE_UNIQUE_HOST(Freq, len_top1);
@@ -231,7 +252,7 @@ struct psz::Buf_Comp<T, E>::impl {
   void clear_buffer()
   {
     memset_device(d_eq.get(), len_linear);
-    memset_device(d_hist.get(), max_bklen);
+    memset_device(hist(), max_bklen);
     memset_device(d_anchor.get(), len_linear_anchor);
     memset_device(d_compressed.get(), len_linear * sizeof(E) * 3 / 2);
     // TODO clear buf_outlier
@@ -267,9 +288,9 @@ COMPBUF_IMPL()::~Buf_Comp(){};
 COMPBUF_IMPL(void)::clear_buffer() { pimpl->clear_buffer(); }
 COMPBUF_IMPL(void)::reset(void* stream)
 {
-  memset_device_async(pimpl->d_hist.get(), max_bklen, 0, stream);
+  if (pimpl->hist()) memset_device_async(pimpl->hist(), max_bklen, 0, stream);
   pimpl->buf_outlier2->reset_num(stream);
-  if (pimpl->buf_fzg) memset_device_async(pimpl->buf_fzg->offset_counter_d(), 1, 0, stream);
+  if (pimpl->buf_fzg) pimpl->buf_fzg->reset(stream);
   if (pimpl->buf_hf) {
     if (pimpl->use_HFR)
       pimpl->buf_hf->reset_HFR(stream);
@@ -301,8 +322,8 @@ COMPBUF_IMPL(OutlierCell*)::block_outliers_d() const
   return (OutlierCell*)(pimpl->d_eq.get() + pimpl->eq_len_);
 }
 
-COMPBUF_IMPL(Freq*)::hist_d() const { return pimpl->d_hist.get(); }
-COMPBUF_IMPL(Freq*)::hist_h() const { return pimpl->h_hist.get(); }
+COMPBUF_IMPL(Freq*)::hist_d() const { return pimpl->hist(); }
+COMPBUF_IMPL(Freq*)::hist_h() const { return pimpl->hist_host(); }
 
 COMPBUF_IMPL(Freq*)::top1_d() const { return pimpl->d_top1.get(); }
 COMPBUF_IMPL(Freq*)::top1_h() const

@@ -191,8 +191,8 @@ __host__ __device__ __forceinline__ u4 unpack_par_entry_words(u4 const* bheaders
 // chunk k ends where k+1 starts; the last one runs to the end of the bitstream.
 // bitstream_len stays a byte count so the divide is skipped on the common path.
 template <typename H>
-__host__ __device__ __forceinline__ u4 unpack_par_end_words(
-    u4 const* bheaders, int k, int pardeg, size_t bitstream_len)
+__host__ __device__ __forceinline__ u4
+unpack_par_end_words(u4 const* bheaders, int k, int pardeg, size_t bitstream_len)
 {
   return (k + 1 < pardeg) ? unpack_par_entry_words<H>(bheaders, k + 1)
                           : (u4)(bitstream_len / sizeof(H));
@@ -247,6 +247,25 @@ struct HFR_PBK_Breaks {
   uint16_t val;
   uint16_t idx;
 } __attribute__((packed));
+
+// [breaks | dense | unpred] or raw
+// FIXME: need to converge the layout across variants
+template <typename E, typename KC>
+constexpr size_t _hfr_stride_words()
+{
+  using BreakCell = HFR_PBK_Breaks<HFR_PBK_Constants::Radius>;
+  return (KC::BlockSize * sizeof(E) + KC::MaxNumBreaks * sizeof(BreakCell) + KC::MaxUnpredBytes +
+          sizeof(u4) - 1) /
+         sizeof(u4);
+}
+
+template <typename E>
+constexpr size_t hfr_stride_words(int magnitude)
+{
+  if (magnitude >= 12) return _hfr_stride_words<E, HFR_PBK_C12>();
+  if (magnitude >= 11) return _hfr_stride_words<E, HFR_PBK_C11>();
+  return _hfr_stride_words<E, HFR_PBK_C10>();
+}
 
 }  // namespace psz
 

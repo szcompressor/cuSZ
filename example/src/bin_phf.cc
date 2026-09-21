@@ -350,8 +350,12 @@ void hf_run(
   memcpy_allkinds_async<H2D>(d_data.get(), h_data.get(), len, stream);
   sync_by_stream(stream);
 
-  auto buf = std::make_unique<phf::Buf<E>>(
-      len, bklen, -1, v.use_HFR_buf, false, v.codec == psz_codec::HF_r2);
+  auto buf = v.use_HFR_buf
+                 ? std::unique_ptr<phf::Buf<E>>(
+                       new phf::Buf_HFR<E>(len, bklen, false, true, nullptr))
+                 : std::make_unique<phf::Buf<E>>(
+                       len, bklen, v.codec == psz_codec::HF_r2);
+  buf->init();
 
   if (not v.skip_hist_and_book) {
     auto d_hist = MAKE_UNIQUE_DEVICE(F, bklen);
@@ -365,7 +369,8 @@ void hf_run(
     memcpy_allkinds_async<D2H>(h_hist.get(), d_hist.get(), bklen, stream);
     sync_by_stream(stream);
     if (v.codec == psz_codec::HFR_V3)
-      phf::high_level<E>::HFR_pick_pbk(buf.get(), d_hist.get(), bklen, len, stream);
+      memcpy_allkinds_async<D2D>(buf->hist_d(), d_hist.get(), bklen, stream),
+          phf::high_level<E>::HFR_pick_pbk(buf.get(), bklen, len, stream);
     else {
       // force runtime Radius to the book's minimum depth
       if (v.is_hfr_family and bklen > psz::HFR_PBK_Constants::Radius) {
@@ -374,7 +379,7 @@ void hf_run(
         auto& f_ref = h_hist[psz::HFR_PBK_Constants::Radius];
         if (f_ref < maxf) f_ref = maxf;
       }
-      phf::high_level<E>::HF_build_book(buf.get(), h_hist.get(), bklen, stream);
+      phf::high_level<E>::HF_build_book(buf.get(), bklen, stream, h_hist.get());
 
       // reduce==-1 is the --rmerge-count auto sentinel: predict RT from the built book.
       int const mag_min = args.magnitude >= 12 ? 2 : args.magnitude >= 11 ? 1 : 0;

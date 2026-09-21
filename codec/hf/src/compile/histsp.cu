@@ -1,4 +1,4 @@
-#include "kernel/histsp.dp.cpp"
+#include "../histsp.cu.inl"
 
 template struct psz::module::GPU_histogram_Cauchy<u1>;
 template struct psz::module::GPU_histogram_Cauchy<u2>;

@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "component.hh"
+#include <../../codec/hf/include/hist.hh>
 #include "cusz/type.h"
 #include "mem/sp_interface.h"
 #include "mem/view.hh"
@@ -14,35 +15,6 @@ psz_len psz_div3(psz_len len, psz_len sublen);
 namespace host = _ptb::host;
 
 namespace psz::module {
-
-template <typename E>
-int SEQ_histogram_generic(
-    E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
-    float* milliseconds);
-
-template <typename E>
-struct GPU_histogram_generic {
-  static void init(
-      size_t const data_len, uint16_t const hist_len, int& grid_dim, int& block_dim,
-      int& shmem_use, int& r_per_block);
-
-  static int kernel(
-      E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
-      int const grid_dim, int const block_dim, int const shmem_use, int const r_per_block,
-      void* stream);
-};
-
-template <typename E>
-int SEQ_histogram_Cauchy_v2(
-    E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
-    float* milliseconds);
-
-template <typename E>
-struct GPU_histogram_Cauchy {
-  static int kernel(
-      E* in_data, size_t const data_len, uint32_t* out_hist, uint16_t const hist_len,
-      void* stream);
-};
 
 // Lorenzo predictors //////////////////////////////////////////////////////////
 

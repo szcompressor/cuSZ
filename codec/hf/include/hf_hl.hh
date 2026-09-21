@@ -22,8 +22,8 @@ using hf_stream_t = void*;
 template <typename E>
 struct high_level {
   // clang-format off
-  static int HF_build_book(BUF* buf, u4* h_hist, u2 const runtime_bklen, hf_stream_t s);
-  static int HFR_pick_pbk(BUF* buf, u4* d_hist, u2 const bklen, size_t const len, hf_stream_t s);
+  static int HF_build_book(BUF* buf, u2 const runtime_bklen, hf_stream_t s, u4* h_hist = nullptr);
+  static int HFR_pick_pbk(BUF* buf, u2 const bklen, size_t const len, hf_stream_t s);
 
   // HF{,_r1,_r2}
   static int HF_encode (BUF* buf, E* in_data, size_t const data_len, u1** out_encoded, size_t* encoded_len, phf_header& header, hf_stream_t s, psz_codec variant = HF, float* opt_ms_encoder = nullptr, float* opt_ms_lago = nullptr);

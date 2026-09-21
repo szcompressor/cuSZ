@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "kernel.hh"
+#include "hist.hh"
 #include "mem/cxx_backends.h"
 #include "utils/timer.hh"
 

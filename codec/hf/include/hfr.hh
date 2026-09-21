@@ -178,8 +178,8 @@ template <typename E, int BlockDim, int Magnitude = 10>
 struct _future_concat_via_scatter {
   using bheader_t = psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius, (size_t)Magnitude>;
   static int GPU_kernel(
-      bheader_t const* bheaders, uint32_t* par_entry, uint32_t const* dn_in, uint32_t* dn_out,
-      uint32_t* out_packed_headers, uint32_t sizeof_Hf, uint32_t ChunkSize, int pardeg,
+      bheader_t* bheaders, uint32_t const* dn_in, uint32_t* dn_out, uint32_t sizeof_Hf,
+      uint32_t ChunkSize, int pardeg,
       uint32_t* scan_partial_aggregate, uint32_t* scan_incl_prefix, int* scan_tile_status,
       uint32_t* opt_d_total_words, void* stream);
 };
@@ -220,7 +220,7 @@ struct HFR_PBKGO_encode {
 
   static int GPU_kernel(
       T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
-      psz::OutlierCell* block_outliers, uint32_t* dn_packed_headers, uint32_t* d_total_cells,
+      psz::OutlierCell* block_outliers, uint32_t* d_total_cells,
       uint32_t* d_state, int max_resident_blocks, void* stream);
 };
 

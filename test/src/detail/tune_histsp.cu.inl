@@ -1,7 +1,7 @@
 // Author: Jiannan Tian
 
 #include "kernel.hh"
-#include "kernel/histsp.cu.inl"
+#include <../../codec/hf/src/histsp.cu.inl>
 #include "utils/busyheader.hh"
 
 using T = uint32_t;

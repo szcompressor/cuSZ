@@ -34,7 +34,7 @@ int fzg::module::GPU_FZ_encode(
   dim3 block(32, 32);
 
   fzg::KCU_fz_fused_encode<<<grid, block, 0, (cudaStream_t)stream>>>(
-      (uint32_t*)in_data, config["pad_len"] / 2, space_offset_counter, out_bitflag_array,
+      (uint32_t*)in_data, (data_len + 1) / 2, space_offset_counter, out_bitflag_array,
       out_start_pos, (uint32_t*)out_comp, comp_len);
 
   cudaStreamSynchronize((cudaStream_t)stream);

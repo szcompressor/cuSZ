@@ -43,6 +43,10 @@ target_compile_definitions(${PHF_PORTABLE_TARGET}
 # ------------------------------------------------------------------------------
 
 add_library(phf_cu
+  src/compile/hist_generic.cu
+  src/compile/histsp.cu
+  src/hist_generic.seq.cc
+  src/histsp.seq.cc
   src/hf_bk.seq.cc
   src/hf_bk_impl1.seq.cc
   src/hf_bk_impl2.seq.cc

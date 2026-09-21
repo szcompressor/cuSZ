@@ -36,25 +36,12 @@ using phf::hfr_helpers::blk_incomp_fb;
 #define PBKGO_MAX_THREADS_PER_SM 1536
 #endif
 
-// last logical block also publishes total_cells, thread-0-only.
 template <typename Header, typename Hf>
-__forceinline__ __device__ void emit_packed_and_total(
-    u4 b, u4 nblock, volatile Header const* bheader, u4 p_wbytes, u4* dn_packed_headers,
-    u4* d_total_cells)
+__forceinline__ __device__ void emit_total(
+    u4 b, u4 nblock, volatile Header const* bheader, u4 p_wbytes, u4* d_total_cells)
 {
   if (threadIdx.x != 0) return;
-  using KC = typename Header::C;
-  constexpr u4 EncIdShift = (u4)(KC::BitsMaxNumUnpred + KC::BitsMaxNumBreaks);
-  constexpr u4 DenseShift = EncIdShift + (u4)KC::BitsEncId;
-  constexpr u4 UnpredMask = (1u << KC::BitsMaxNumUnpred) - 1u;
-  u4 const dense_v = bheader->dense;  // words
-  u4 const enc_id_v = bheader->enc_id;
-  u4 const n_unpred_v = bheader->n_unpred;
-  u4 const entry_v = bheader->entry;  // byte offset
-  dn_packed_headers[2 * b + 0] =
-      (dense_v << DenseShift) | (enc_id_v << EncIdShift) | (n_unpred_v & UnpredMask);
-  dn_packed_headers[2 * b + 1] = entry_v;
-  if (b == nblock - 1) *d_total_cells = (entry_v + p_wbytes) / (u4)sizeof(Hf);
+  if (b == nblock - 1) *d_total_cells = (bheader->entry + p_wbytes) / (u4)sizeof(Hf);
 }
 
 template <class C>
@@ -65,7 +52,7 @@ __global__ __launch_bounds__(
     typename C::T* in_eq, size_t data_len, typename C::Hf* dram_pbk, typename C::Hf* dn_bitstream,
     typename C::bheader_t* dn_headers,
     psz::OutlierCell* block_outliers,
-    u4* dn_packed_headers, u4* d_total_cells, u4* d_state)
+    u4* d_total_cells, u4* d_state)
 {
   HFR_PBK_TYPEDEFS_AND_CONSTEXPRS(C);
   HFR_PBK_SHARED_AND_RESET();
@@ -92,8 +79,8 @@ __global__ __launch_bounds__(
         (u4)psz::HFR_PBK_Constants::CodeIncompUnpred);
     u4 const p_wbytes = s_bheader.dense * (u4)sizeof(Hf);
     if (threadIdx.x == 0) dn_headers[b] = s_bheader;
-    emit_packed_and_total<Header, Hf>(
-        b, nblock, &s_bheader, p_wbytes, dn_packed_headers, d_total_cells);
+    emit_total<Header, Hf>(
+        b, nblock, &s_bheader, p_wbytes, d_total_cells);
     return;
   }
 
@@ -124,8 +111,8 @@ __global__ __launch_bounds__(
           s_bheader.dense * (u4)sizeof(Hf) + psz::pbk_unpred_bytes((u4)s_bheader.n_unpred);
       if (threadIdx.x == 0)
         dn_headers[b] = s_bheader;  // uniform bheader output (entry don't-care)
-      emit_packed_and_total<Header, Hf>(
-          b, nblock, &s_bheader, p_wbytes, dn_packed_headers, d_total_cells);
+      emit_total<Header, Hf>(
+          b, nblock, &s_bheader, p_wbytes, d_total_cells);
       return;
     }
   }
@@ -138,8 +125,8 @@ __global__ __launch_bounds__(
                       (u4)s_bheader.n_breaks * (u4)sizeof(BreakCell) +
                       psz::pbk_unpred_bytes((u4)s_bheader.n_unpred);
   if (threadIdx.x == 0) dn_headers[b] = s_bheader;  // uniform bheader output (entry don't-care)
-  emit_packed_and_total<Header, Hf>(
-      b, nblock, &s_bheader, p_wbytes, dn_packed_headers, d_total_cells);
+  emit_total<Header, Hf>(
+      b, nblock, &s_bheader, p_wbytes, d_total_cells);
 }
 
 }  // namespace phf
@@ -160,7 +147,7 @@ template <typename T, int Magnitude, int ReduceTimes, typename Hf, uint16_t Radi
 int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
     T* in_eq, size_t len, Hf* dram_pbk, Hf* dn_bitstream, header_t* dn_headers,
     psz::OutlierCell* block_outliers,
-    uint32_t* dn_packed_headers, uint32_t* d_total_cells, uint32_t* d_state,
+    uint32_t* d_total_cells, uint32_t* d_state,
     int max_resident_blocks, void* stream)
 {
   using C = phf::HFR_PBKGO_Config<T, Magnitude, ReduceTimes, Hf, Radius>;
@@ -172,8 +159,7 @@ int HFR_PBKGO_encode<T, Magnitude, ReduceTimes, Hf, Radius>::GPU_kernel(
   const dim3 block((u4)nthread, 1, 1);
 
   phf::KCU_HFR_PBKGO_encode<C><<<grid, block, 0, (cudaStream_t)stream>>>(
-      in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers,
-      dn_packed_headers, d_total_cells, d_state);
+      in_eq, len, dram_pbk, dn_bitstream, dn_headers, block_outliers, d_total_cells, d_state);
   return 0;
 }
 

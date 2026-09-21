@@ -8,7 +8,7 @@
 
 #include "cusz/type.h"
 #include "hf_hl.hh"
-#include "lc_gen/lc_buf.h"
+#include "mem/buf_lc.hh"
 #include "mem/cxx_sp_gpu.h"
 
 // segment

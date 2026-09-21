@@ -1,6 +1,6 @@
 // Author: Jiannan Tian
 
-#include "kernel.hh"
+#include "hist.hh"
 #include "utils/timer.hh"
 
 namespace psz::module {

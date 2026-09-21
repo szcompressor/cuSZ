@@ -114,8 +114,6 @@ endif()
 # FUNC={core,api}, BACKEND={serial,cuda,...}
 add_library(psz_seq_core
   psz/src/kernel/lrz.seq.cc
-  psz/src/kernel/hist_generic.seq.cc
-  psz/src/kernel/histsp.seq.cc
   psz/src/kernel/spvn.seq.cc
 )
 target_link_libraries(psz_seq_core
@@ -138,8 +136,6 @@ target_link_libraries(psz_cu_mem
 )
 
 add_library(psz_cu_core
-  psz/src/compile/hist_generic.cu
-  psz/src/compile/histsp.cu
   psz/src/compile/spvn.cu
   psz/src/compile/cast.cu
   psz/src/compile/lrz_c.cu

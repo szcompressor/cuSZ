@@ -41,8 +41,8 @@ template <typename E, int BlockDim, int Magnitude = 10>
 __global__ void KCU_concat_via_scatter(
     psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius, (size_t)Magnitude> const* __restrict__
         bheaders,
-    u4 const* __restrict__ par_entry, u4 const* __restrict__ dn_in, u4* __restrict__ dn_out,
-    u4* __restrict__ out_headers, u4 sizeof_Hf, u4 ChunkSize, int pardeg)
+    u4 const* __restrict__ dn_in, u4* __restrict__ dn_out, u4 sizeof_Hf, u4 ChunkSize,
+    int pardeg)
 {
   const int b = (int)blockIdx.x;
   if (b >= pardeg) return;
@@ -60,12 +60,7 @@ __global__ void KCU_concat_via_scatter(
     u4 const n_breaks = (u4)h.n_breaks;
     u4 const enc_id = (u4)h.enc_id;
     s_ncell = dense + n_breaks + psz::pbk_unpred_words((u4)h.n_unpred);
-    u4 const entry = par_entry[b];
-    s_entry = entry;
-    // Emit 2-word header inline (n_unpred in the low bits).
-    out_headers[2 * b + 0] =
-        (dense << DenseShift) | (enc_id << EncIdShift) | ((u4)h.n_unpred & UnpredMask);
-    out_headers[2 * b + 1] = entry * sizeof_Hf;
+    s_entry = h.entry / sizeof_Hf;  // stored as bytes; the scatter indexes words
   }
   __syncthreads();
 
@@ -74,6 +69,13 @@ __global__ void KCU_concat_via_scatter(
   u4 const dst_base = s_entry;
   for (u4 i = threadIdx.x; i < ncell; i += BlockDim) dn_out[dst_base + i] = dn_in[src_base + i];
 }
+
+template <typename E, int Magnitude = 10>
+struct StoreToBheaderEntry {
+  psz::_future::bheader<E, psz::HFR_PBK_Constants::Radius, (size_t)Magnitude>* p;
+  u4 sizeof_Hf;
+  __device__ __forceinline__ void operator()(int i, u4 v) const { p[i].entry = v * sizeof_Hf; }
+};
 
 // load per-block ncell from bheader[i].{dense, n_breaks}.
 template <typename E, int Magnitude = 10>
@@ -170,23 +172,24 @@ int concat_via_scatter_ppc<BlockDim>::GPU_kernel(
 
 template <typename E, int BlockDim, int Magnitude>
 int _future_concat_via_scatter<E, BlockDim, Magnitude>::GPU_kernel(
-    bheader_t const* bheaders, u4* par_entry, u4 const* dn_in, u4* dn_out, u4* out_packed_headers,
-    u4 sizeof_Hf, u4 ChunkSize, int pardeg, u4* scan_partial_aggregate, u4* scan_incl_prefix,
-    int* scan_tile_status, u4* opt_d_total_words, void* stream)
+    bheader_t* bheaders, u4 const* dn_in, u4* dn_out, u4 sizeof_Hf, u4 ChunkSize, int pardeg,
+    u4* scan_partial_aggregate, u4* scan_incl_prefix, int* scan_tile_status,
+    u4* opt_d_total_words, void* stream)
 {
   if (pardeg <= 0) return 0;
   auto cstream = (cudaStream_t)stream;
 
   // pass-1: scan reads ncell
   psz::scan_lookback::launch_scan_typed(
-      phf::LoadNcellFromBheader<E, Magnitude>{bheaders}, par_entry, pardeg,
-      scan_partial_aggregate, scan_incl_prefix, scan_tile_status, opt_d_total_words, cstream);
+      phf::LoadNcellFromBheader<E, Magnitude>{bheaders},
+      phf::StoreToBheaderEntry<E, Magnitude>{bheaders, sizeof_Hf}, pardeg, scan_partial_aggregate,
+      scan_incl_prefix, scan_tile_status, opt_d_total_words, cstream);
 
   // pass-2: fused scatter
   dim3 grid2((unsigned)pardeg, 1, 1);
   dim3 block2((unsigned)BlockDim, 1, 1);
   phf::KCU_concat_via_scatter<E, BlockDim, Magnitude><<<grid2, block2, 0, cstream>>>(
-      bheaders, par_entry, dn_in, dn_out, out_packed_headers, sizeof_Hf, ChunkSize, pardeg);
+      bheaders, dn_in, dn_out, sizeof_Hf, ChunkSize, pardeg);
 
   return 0;
 }
