@@ -20,9 +20,7 @@ using std::endl;
 using std::to_string;
 
 void psz_review_comp_time_breakdown(void* _r, psz_header* h)
-{
-  std::runtime_error("psz_review_comp_time_breakdown is to be updated.");
-}
+{ std::runtime_error("psz_review_comp_time_breakdown is to be updated."); }
 
 string const psz_report_query_pred(psz_predictor const p)
 {
@@ -49,10 +47,10 @@ string const psz_report_query_codec1(psz_codec const c)
 {
   const std::unordered_map<psz_codec const, std::string const> lut = {
       {psz_codec::HF, "HF"},
-      {psz_codec::HF_r2, "Huffman-rev2"},
-      {psz_codec::HFR, "HF-fast1"},
+      {psz_codec::HF_r2, "HF"},
+      {psz_codec::HFR, "HFR-v1"},
       {psz_codec::HFR_V2, "HFR-v2"},
-      {psz_codec::HFR_V3, "HF-fast2"},
+      {psz_codec::HFR_V3, "HFR-v3"},
       {psz_codec::HFR_V4, "HFR-v4"},
       {psz_codec::HFR_PBKC, "HFR-PBKC"},
       {psz_codec::HFR_PBKGO, "HFR-PBKGO"},
@@ -68,10 +66,11 @@ string const psz_report_query_codec1(psz_codec const c)
 
 static string psz_pipeline_tag(psz_header* h)
 {
+  auto c1 = psz_report_query_codec1(h->pipeline.codec1);
+  if (h->pipeline.hist != psz_hist::HistNull)
+    c1 = psz_report_query_hist(h->pipeline.hist) + "+" + c1;
   auto c2 = psz_report_query_codec1(h->pipeline.codec2);
-  string tag = "[" + psz_report_query_pred(h->pipeline.predictor) + ", " +
-               psz_report_query_hist(h->pipeline.hist) + ", " +
-               psz_report_query_codec1(h->pipeline.codec1);
+  string tag = "[" + psz_report_query_pred(h->pipeline.predictor) + ", " + c1;
   if (c2 != "N/A") tag += ", " + c2;
   tag += "]";
   return tag;
@@ -193,9 +192,7 @@ void psz_review_compression(void* r, psz_header* h)
 }
 
 void psz_review_decompression(void* r, size_t bytes)
-{
-  throw std::runtime_error("psz_review_decompression is to be updated.");
-}
+{ throw std::runtime_error("psz_review_decompression is to be updated."); }
 
 // TODO revise name
 template <typename T>

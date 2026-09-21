@@ -1,10 +1,6 @@
 // Author: Jiannan Tian
 // context struct with argument parser
 
-#include "context_impl.h"
-#include "cusz_rev1.h"
-#include "pipeline.h"
-
 #include <cstring>
 #include <stdexcept>
 #include <vector>
@@ -12,12 +8,15 @@
 #include "arg_builder.hh"
 #include "cli/document.inl"
 #include "cli/verinfo.h"
+#include "context_impl.h"
 #include "cusz/header.h"
 #include "cusz/type.h"
+#include "cusz_rev1.h"
 #include "detail/check.hh"
 #include "detail/kv_parse.hh"
 #include "detail/str2num.hh"
 #include "kv_binder.hh"
+#include "pipeline.h"
 #include "utils/busyheader.hh"
 #include "utils/demangle.hh"
 #include "utils/format.hh"
@@ -31,8 +30,8 @@ namespace psz {
 #if defined(PSZ_USE_CUDA)
 
 const char* BACKEND_TEXT = "cuSZ";
-const char* VERSION_TEXT = "2025-02-05 (0.16)";
-const int   VERSION      = 20241218;
+const char* VERSION_TEXT = "2026-09-17 (0.19)";
+const int   VERSION      = 20260917;
 
 #elif defined(PSZ_USE_1API)
 
@@ -46,7 +45,7 @@ const int COMPATIBILITY = 0;
 
 }  // namespace psz
 
-void psz_version() { printf("\n>>> %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT); }
+void psz_version() { printf(">>> %s build: %s\n", psz::BACKEND_TEXT, psz::VERSION_TEXT); }
 
 void psz_versioninfo()
 {
@@ -61,11 +60,7 @@ void psz_versioninfo()
   CUDA_devices();
 }
 
-// ---------------------------------------------------------------------------
-// Bounded string copy: writes src into a fixed-size char[N] buffer; throws
-// (rather than overflow) if src is too long.  N is inferred from the array.
-// ---------------------------------------------------------------------------
-
+// fixed-size char[N] buffer
 template <size_t N>
 static void apply_str(const string& src, char (&dst)[N])
 {
@@ -114,10 +109,7 @@ static const auto hi_binder = _ptb::kv_binder<psz_interp_params>()
   });
 // clang-format on
 
-// ---------------------------------------------------------------------------
-// CLI schema — declared once, shared across all parse calls.
-// ---------------------------------------------------------------------------
-
+// full CLI list
 // clang-format off
 static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("input",    {"-i", "--input"},                              "",     "input file")
@@ -130,24 +122,21 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("config",   {"--hi-config"},                                "",     "Hi-mode config key=val pairs")
   .string("report",   {"-R", "--report"},                             "",     "report options")
   .string("dump",     {"--dump"},                                     "",     "dump options")
-  .string("skip",     {"-S", "-X", "--skip", "--exclude"},            "",     "skip: huffman, write2disk")
-  .string("compare",  {"--origin", "--compare"},                      "",     "reference file for comparison")
+  .string("skip",     {"--skip"},                                     "",     "skip: huffman, write2disk")
+  .string("compare",  {"--compare"},                                  "",     "reference file for comparison")
   .string("auto",     {"-a", "--auto"},                               "",     "auto-tuning: cr-first, rd-first, int")
   .string("preset",   {"--preset"},                                   "",     "whole pipeline by name: fzg|hicr|hitp|hitp_r1")
   .string("pipeline", {"-p", "--pipeline"},                           "",     "p1,c1[,c2]; \"..\" defaults the rest; or preset:<name>")
   .string("rmerge_count", {"--rmerge-count"},  "",   "HFR reduce-merge pass count 2|3|4; default is per codec")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
-  .flag("decompress", {"-x", "--unzip", "--decompress"},                      "run decompression")
+  .flag("decompress", {"-x", "--unzip", "--decompress", "--extract"},         "run decompression")
   .flag("verbose",    {"--verbose"},                                          "verbose output")
-  .flag("hfd26",      {"--hfd26"},                "decode HFR-family archives with HFD26 (the default; stating it is a no-op)")
-  .flag("hfd_coarse",  {"--hfd-coarse"},            "force the coarse one-thread-per-chunk decoder (HFR_coarse); HF and HF-rev2 are always coarse")
+  .flag("hfd26",      {"--hfd26"},                   "decode HFR-family archives with HFD26 (the default; stating it is a no-op)")
+  .flag("hfd_coarse", {"--hfd-coarse"},              "force the coarse one-thread-per-chunk decoder (HFR_coarse); HF and HF-rev2 are always coarse")
   ;
 // clang-format on
 
-// ---------------------------------------------------------------------------
-// Bind a parsed ArgResult into psz_ctx.
-// ---------------------------------------------------------------------------
-
+// defaults
 static bool predictor_from_name(string const& v, psz_predictor& out)
 {
   if (v == "_" or v == "*" or v == "default")
@@ -183,8 +172,8 @@ static bool preset_from_name(string const& v, psz_preset& out)
 static void apply_preset(psz_ctx* ctx, psz_preset preset)
 {
   ctx->header->pipeline = pszpreset_pipeline(preset);
-  ctx->header->radius = pszpreset_radius(preset);
-  ctx->bklen = ctx->header->radius * 2;
+  ctx->header->radius   = pszpreset_radius(preset);
+  ctx->bklen            = ctx->header->radius * 2;
 }
 
 static bool codec_from_name(string const& v, psz_codec& out)
@@ -321,7 +310,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   if (args.is_set("config"))
     hi_binder.bind(args.get<string>("config").c_str(), *CLI_interp_params(ctx));
 
-  // report / dump flags
+  // report and dump flags
   if (args.is_set("report")) report_binder.bind(args.get<string>("report").c_str(), *ctx->cli);
   if (args.is_set("dump")) dump_binder.bind(args.get<string>("dump").c_str(), *ctx->cli);
 
@@ -332,7 +321,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     if (_v.find("write2disk") != string::npos) ctx->cli->skip_tofile = true;
   }
 
-  // compare / reference file
+  // compare
   apply_str(args.get<string>("compare"), ctx->cli->file_compare);
 
   // auto-tuning
@@ -394,7 +383,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
       }
       else if (stage.size() == 2 or stage.size() == 3) {
         psz_predictor p1;
-        psz_codec c1, c2 = psz_codec::CodecNull;
+        psz_codec     c1, c2 = psz_codec::CodecNull;
         if (not predictor_from_name(stage[0], p1)) {
           cerr << LOG_ERR << "no such predictor: " << stage[0] << endl;
           exit(1);
@@ -482,13 +471,9 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
     ctx->header->pipeline.hist = psz_hist::HistNull;
 }
 
-// ---------------------------------------------------------------------------
-// Public entry point.
-// ---------------------------------------------------------------------------
-
 void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
 {
-  // Detect optional subcommand at argv[1], build adjusted argv without it.
+  // detect optional subcommand at argv[1], build adjusted argv without it.
   int start = 1;
   if (argc > 1) {
     string first(argv[1]);
@@ -524,15 +509,12 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
     }
   }
 
-
   ctx->header->pipeline = pszppl_compose(
-      ctx->header->pipeline.predictor, ctx->header->pipeline.codec1,
-      ctx->header->pipeline.codec2);
+      ctx->header->pipeline.predictor, ctx->header->pipeline.codec1, ctx->header->pipeline.codec2);
 
   if (not pszppl_supported(ctx->header->pipeline)) {
-    cerr << LOG_ERR << "unsupported pipeline: "
-         << predictor_name(ctx->header->pipeline.predictor) << ","
-         << codec_name(ctx->header->pipeline.codec1) << ","
+    cerr << LOG_ERR << "unsupported pipeline: " << predictor_name(ctx->header->pipeline.predictor)
+         << "," << codec_name(ctx->header->pipeline.codec1) << ","
          << codec_name(ctx->header->pipeline.codec2) << endl;
     exit(1);
   }
@@ -547,7 +529,7 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
        ctx->header->pipeline.codec1 == psz_codec::HFR_V3 or
        ctx->header->pipeline.codec1 == psz_codec::HFR_V4)) {
     ctx->header->radius = 128;
-    ctx->bklen             = 256;
+    ctx->bklen          = 256;
   }
 }
 
@@ -623,7 +605,7 @@ psz_ctx* pszctx_minimal_workset(psz_dtype const dtype, psz_predictor const predi
   ws->header->pipeline.predictor = predictor;
   ws->header->pipeline.codec1    = codec;
   ws->bklen                      = quantizer_radius * 2;
-  ws->header->radius          = quantizer_radius;
+  ws->header->radius             = quantizer_radius;
   return ws;
 }
 
@@ -635,10 +617,10 @@ unsigned short     CLI_radius(psz_ctx* args)       { return args->header->radius
 unsigned short     CLI_bklen(psz_ctx* args)        { return args->header->radius * 2; }
 psz_dtype          CLI_dtype(psz_ctx* args)        { return args->header->dtype; }
 psz_predictor      CLI_predictor(psz_ctx* args)    { return args->header->pipeline.predictor; }
-psz_ppl       CLI_pipeline(psz_ctx* args)     { return args->header->pipeline; }
+psz_ppl            CLI_pipeline(psz_ctx* args)     { return args->header->pipeline; }
 psz_codec          CLI_codec1(psz_ctx* args)       { return args->header->pipeline.codec1; }
 psz_codec          CLI_codec2(psz_ctx* args)       { return args->header->pipeline.codec2; }
 psz_mode           CLI_mode(psz_ctx* args)         { return args->cli->rel_range_scan ? Rel : Abs; }
 double             CLI_eb(psz_ctx* args)           { return args->header->eb; }
-psz_interp_params* CLI_interp_params(psz_ctx* ctx)  { return &ctx->header->intp_param; }
+psz_interp_params* CLI_interp_params(psz_ctx* ctx) { return &ctx->header->intp_param; }
 // clang-format on

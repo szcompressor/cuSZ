@@ -237,13 +237,13 @@ if(PSZ_BUILD_EXAMPLES)
   add_subdirectory(example)
 endif()
 
+if(PSZ_BUILD_PYBINDING)
+  add_subdirectory(py_ext)
+endif()
+
 if(BUILD_TESTING)
   add_subdirectory(test)
 
-  # `ninja check` (or `make check`) runs the full ctest suite in parallel.
-  # GPU tests carry RESOURCE_LOCK gpu (set in test/cmake/cuda-test.cmake) so
-  # they serialize against each other while CPU-only tests (portable_*,
-  # zigzag, lrz_seq, ...) run concurrently up to N workers.
   include(ProcessorCount)
   ProcessorCount(N)
   if(N EQUAL 0)
@@ -261,15 +261,14 @@ endif()
 
 install(TARGETS psz_cu_compile_settings EXPORT CUSZTargets)
 
+# only exist locally when EVAL wasn't resolved via find_package above
+set(_cusz_install_targets psz_seq_core psz_cu_core psz_cu_mem psz_cu_utils cusz)
+if(NOT TARGET EVAL::utils_headers AND NOT EVAL_FOUND)
+  list(APPEND _cusz_install_targets eval_cu eval_seq eval_viewer_cu)
+endif()
+
 install(TARGETS
-  psz_seq_core
-  psz_cu_core
-  psz_cu_mem
-  psz_cu_utils
-  cusz
-  eval_cu
-  eval_seq
-  eval_viewer_cu
+  ${_cusz_install_targets}
   EXPORT CUSZTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
