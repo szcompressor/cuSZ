@@ -174,7 +174,7 @@ __device__ __forceinline__ int hfd26_decode_until(
 
 // self-sync-like
 template <typename H, int NumSegs>
-__device__ __forceinline__ void hfd26_staircase_sync(
+__device__ __forceinline__ bool hfd26_staircase_sync(
     H const* bs, H const* first, LutEntry const* lut, int const seg_bits, int const bit_end,
     int const l_id, const bool is_worker, u2* s_end, u2* s_syms, int* s_unsynced)
 {
@@ -196,20 +196,22 @@ __device__ __forceinline__ void hfd26_staircase_sync(
       if (cs < NumSegs and not synced) {
         const auto limit = min((cs + 1) * seg_bits, bit_end);
         const auto end_bit = hfd26_decode_until(bs, first, lut, cur_i, limit, bit_end, n_syms);
+        s_syms[cs] = (u2)n_syms;
         if ((u2)end_bit == s_end[cs]) {
           synced = true;
           atomicSub(s_unsynced, 1);
         }
         else {
           s_end[cs] = (u2)end_bit;
-          s_syms[cs] = (u2)n_syms;
         }
         cur_i = end_bit;
       }
     }
     __syncthreads();
-    if (*s_unsynced == 0) break;
+
+    if (*s_unsynced == 1) return true;
   }
+  return false;
 }
 
 // search s_prefix for the segment owning it
@@ -373,17 +375,19 @@ __launch_bounds__(hfd26_geometry<Mag, sizeof(Ein)>::ShardsPerChunk) void KCU_hfd
     const auto bit_end = dn_words * 32u;
 
     const auto seg_bits = (bit_end + NumSegs - 1) / NumSegs;
-    hfd26_staircase_sync<H, NumSegs>(
+    const bool syms_ready = hfd26_staircase_sync<H, NumSegs>(
         bs, first, s_lut, seg_bits, bit_end, l_id, is_worker, s_end, s_syms, &s_unsynced);
 
     auto val = 0;
     const auto lane = l_id & 31, warp_id = l_id >> 5;
     {
       if (is_worker) {
-        // s_syms is refreshed regardless
-        const auto seg_start = (l_id == 0) ? 0 : s_end[l_id - 1];
-        hfd26_decode_until(bs, first, s_lut, seg_start, s_end[l_id], bit_end, val);
-        s_syms[l_id] = (u2)val;
+        if (syms_ready) { val = s_syms[l_id]; }
+        else {
+          const auto seg_start = (l_id == 0) ? 0 : s_end[l_id - 1];
+          hfd26_decode_until(bs, first, s_lut, seg_start, s_end[l_id], bit_end, val);
+          s_syms[l_id] = (u2)val;
+        }
         val = block_scan::warp_incl_scan_u32(val);
         if (lane == 31) s_warp_totals[warp_id] = val;
       }
