@@ -52,6 +52,45 @@ template <> struct TypeSym<u8> { static const _ptb_dtype type = U8; static const
 template <> struct TypeSym<ull> { static const _ptb_dtype type = ULL; static const int width = sizeof(ull); };
 // clang-format on
 
+template <typename T>
+struct _dtype_of;
+// clang-format off
+template <> struct _dtype_of<f4>  { static constexpr _ptb_dtype value = F4;  };
+template <> struct _dtype_of<f8>  { static constexpr _ptb_dtype value = F8;  };
+template <> struct _dtype_of<u1>  { static constexpr _ptb_dtype value = U1;  };
+template <> struct _dtype_of<u2>  { static constexpr _ptb_dtype value = U2;  };
+template <> struct _dtype_of<u4>  { static constexpr _ptb_dtype value = U4;  };
+template <> struct _dtype_of<u8>  { static constexpr _ptb_dtype value = U8;  };
+template <> struct _dtype_of<i1>  { static constexpr _ptb_dtype value = I1;  };
+template <> struct _dtype_of<i2>  { static constexpr _ptb_dtype value = I2;  };
+template <> struct _dtype_of<i4>  { static constexpr _ptb_dtype value = I4;  };
+template <> struct _dtype_of<i8>  { static constexpr _ptb_dtype value = I8;  };
+// clang-format on
+
+template <typename T>
+constexpr _ptb_dtype dtype_of()
+{
+  return _dtype_of<T>::value;
+}
+
+inline size_t dtype_width(_ptb_dtype t)
+{
+  switch (t) {
+    case F4: return sizeof(f4);
+    case F8: return sizeof(f8);
+    case U1: return sizeof(u1);
+    case U2: return sizeof(u2);
+    case U4: return sizeof(u4);
+    case U8: return sizeof(u8);
+    case I1: return sizeof(i1);
+    case I2: return sizeof(i2);
+    case I4: return sizeof(i4);
+    case I8: return sizeof(i8);
+    case ULL: return sizeof(ull);
+  }
+  return 0;
+}
+
 }  // namespace _ptb
 
 #endif

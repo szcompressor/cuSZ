@@ -36,7 +36,7 @@ typedef enum {
   _FAIL_GENERAL,
   _FAIL_UNSUPPORTED_DTYPE,
   _NOT_IMPLIMENTED
-} _ptb_error_status;
+} _ptb_errno;
 
 // symbol of dtypes
 typedef enum { F4, F8, U1, U2, U4, U8, I1, I2, I4, I8, ULL } _ptb_dtype;

@@ -10,9 +10,6 @@ namespace _ptb {
 
 enum class outlier_stragegy { CONVINIENT, RIGOROUS };
 
-template <typename T>
-struct compact_GPU_DRAM;
-
 template <typename T, typename Idx>
 struct compact_GPU_DRAM2;
 
