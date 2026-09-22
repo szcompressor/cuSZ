@@ -30,10 +30,10 @@ int psz::module::GPU_x_spline_y25<Types>::kernel(
 {
   using FP = typename Types::Fp;
   auto anchor = _ptb::make_view(anchor_p, buf->anchor_len3());
-  auto eq = _ptb::make_view(buf->eq_d(), xdata.extent);
+  auto eq = _ptb::make_view(buf->template eq_d<typename Types::Eq>(), xdata.extent);
   auto div = [](auto _l, auto _subl) { return (_l - 1) / _subl + 1; };
   // per-block incomp message + the per-tile fused eq+outlier scratch (else null).
-  auto incomp_flag = buf->buf_hf() ? buf->buf_hf()->incomp_flag_d() : nullptr;
+  auto incomp_flag = buf->template incomp_flag_d<typename Types::Eq>();
   auto fused_src = buf->decode_fused_d();
 
   auto ebx2 = eb * 2;

@@ -9,7 +9,7 @@
 
 namespace psz {
 
-template <typename _T, typename _E>
+template <typename _T>
 struct Buf_Comp;
 
 
@@ -57,7 +57,7 @@ struct PredictorTyping {
   using M = Metadata;
 
   /* Buffer */
-  using Buf_Comp = psz::Buf_Comp<BaseT, _Eq>;
+  using Buf_Comp = psz::Buf_Comp<BaseT>;
 
   /* sparse parts */
   using CompactVal = BaseT;

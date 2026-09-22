@@ -17,7 +17,7 @@ int psz::module::GPU_c_spline_y24<Types, Features>::kernel(
 
   using FP = typename Types::Fp;
   auto data_p = in.ptr;
-  auto eq_p = buf->eq_d();
+  auto eq_p = buf->template eq_d<typename Types::Eq>();
   auto anchor_p = buf->anchor_d();
   auto d_ext = in.extent;
   auto a_ext = buf->anchor_len3();
@@ -39,8 +39,8 @@ int psz::module::GPU_c_spline_y24<Types, Features>::kernel(
   using Cell = _ptb::compact_cell<T, u4>;
   auto ot = (Compact2*)_outlier;
 
-  auto out_bheader = buf->buf_hf() ? (uint32_t*)buf->buf_hf()->pbk_headers_d() : nullptr;
-  auto out_block_outliers = buf->block_outliers_d();
+  auto out_bheader = buf->template pbk_headers_d<typename Types::Eq>();
+  auto out_block_outliers = buf->template block_outliers_d<typename Types::Eq>();
   auto go = [&](auto global_const) {
     constexpr bool Global = decltype(global_const)::value;
     using F = psz::PredictorFeature<

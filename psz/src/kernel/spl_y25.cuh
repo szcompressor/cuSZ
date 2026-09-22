@@ -573,7 +573,7 @@ __device__ void shmem2global_data_with_compaction(
   size_t block = BIX + (size_t)GDX * (BIY + (size_t)GDY * BIZ);
   constexpr auto EncIdShift12 = (u4)(KC12::BitsMaxNumUnpred + KC12::BitsMaxNumBreaks);
   bool do_incomp = EqFitsIncomp and (s_nout[0] > KC12::MaxNumUnpred);
-  if (TIX == 0) {
+  if (TIX == 0 and out_bheader) {
     out_bheader[2u * block] = do_incomp ? ((u4)KC12::CodeIncompUnpred << EncIdShift12)
                                         : (s_nout[0] & (u4)KC12::MaxNumUnpred);
   }

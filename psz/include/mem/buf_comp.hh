@@ -36,29 +36,16 @@ using Freq = u4;
 using BYTE = u1;
 using H = u4;
 
-struct BufToggle_Comp {
-  bool use_quant;
-  bool use_outlier;
-  bool use_anchor;
-  bool use_hist;
-  bool use_compressed;
-  bool use_top1;
-  // LC-framework buffers: only the bitstream-packing stages touch these, never
-  // comp_predict / decomp_scatter / decomp_predict
-  bool use_lc;
-};
-
-template <typename _T, typename _E = u2>
+template <typename _T>
 struct Buf_Comp {
  public:
   using T = _T;
-  using E = _E;
   using FP = T;
   using M = uint32_t;
 
-  using Buf_Outlier = _ptb::compact_gpu<T>;
   using Buf_Outlier2 = _ptb::compact_GPU_DRAM2<T, M>;
-  using Buf_HF = phf::Buf<E>;
+  using Buf_HF = phf::Buf<u2>;
+  using Buf_HFR = phf::Buf_HFR<u4>;
   using Buf_LC = LC_Buf;
   using Buf_FZG = fzg::Buf2;
 
@@ -68,11 +55,6 @@ struct Buf_Comp {
   constexpr static u2 max_radius = 512;
   constexpr static u2 max_bklen = max_radius * 2;
   constexpr static float OUTLIER_RATIO = 0.1;
-
-  // spline-specific anchor spacing .
-  constexpr static int BLK16 = 16;  // y25 (2D+3D)
-  constexpr static int BLK8 = 8;    // y24 (lean 3D)
-  constexpr static int ERR_HISTO_LEN = 36;
 
   // selector: (0 = y25/BLK16, 1 = y24/BLK8); does not change Buf_Comp ABI
   void set_predictor(psz_predictor p);
@@ -94,31 +76,29 @@ struct Buf_Comp {
   psz_header* header_ref;
 
  public:
-  Buf_Comp(psz_len len, BufToggle_Comp* toggle);
   Buf_Comp(
-      psz_len len, bool _is_comp = true, bool use_HFR = false, bool alloc_eq = true,
-      bool use_sublen_1ki = false, bool tile_order = false, bool y25_tile = false,
-      bool use_FZG = false, psz_codec codec1 = psz_codec::CodecNull,
-      psz_codec codec2 = psz_codec::CodecNull);
+      psz_len len, bool _is_comp = true, BYTE* external_archive = nullptr, int nstage = 2,
+      bool eq4 = true);
   ~Buf_Comp();
+
+  bool select(psz_ppl ppl);
 
   void register_header(psz_header* header) { header_ref = header; }
 
-  void clear_buffer();
   void reset(void* stream = nullptr);
   void clear_top1();
   void lc_wire_encoded(BYTE* external);
 
   // getter
+  template <typename E>
   E* eq_d() const;
   psz_len eq_len3() const;
   T* decode_fused_d() const;
   size_t eq_len() const;
   void alloc_decode_fused();
+  template <typename E>
   OutlierCell* block_outliers_d() const;
 
-  Freq* hist_d() const;
-  Freq* hist_h() const;
   Freq* top1_d() const;
   Freq* top1_h() const;
   size_t top1_nblk() const;
@@ -130,6 +110,7 @@ struct Buf_Comp {
   BYTE* compressed_d() const;
   BYTE* compressed_h() const;
   size_t compressed_max_bytes() const;
+  static size_t compressed_max_bytes(psz_len len, int nstage, bool eq4);
 
   Buf_Outlier2* buf_outlier2() const;
   void* outlier2_validx_d() const;
@@ -142,9 +123,14 @@ struct Buf_Comp {
   M profiled_errors_len() const;
 
   Buf_HF* buf_hf() const;
-  Buf_LC* buf_lc() const;
+  Buf_HFR* buf_hfr() const;
+  template <typename E>
+  u4* pbk_headers_d() const;
+  template <typename E>
+  u1* incomp_flag_d() const;
+  Buf_LC* buf_lc1() const;
+  Buf_LC* buf_lc2() const;
   Buf_FZG* buf_fzg() const;
-  E* fzg_scratch_d() const;  // patched for FZG-decode
 
   float outlier_ratio() const { return OUTLIER_RATIO; };
 };

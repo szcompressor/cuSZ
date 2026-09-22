@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include "cusz/header.h"
 #include "cusz/type.h"
 
@@ -18,6 +21,10 @@ psz_ctx* psz_init_from_stages(psz_dtype dtype, psz_len len, psz_predictor p1, ps
 psz_ctx* psz_init_from_preset(psz_dtype dtype, psz_len len, psz_preset preset, void* stream);
 psz_ctx* psz_init_from_argv(int argc, char** argv, void* stream);
 psz_ctx* psz_init_from_header(psz_header* header, void* stream);
+// bytes the caller must provide to psz_init_with_archive; shape and pipeline decide it.
+size_t psz_archive_capacity(psz_dtype dtype, psz_len len, psz_predictor p1, psz_codec c1, psz_codec optional_c2);
+// d_archive non-null: the caller owns the output archive, so only predict and encode are reserved.
+psz_ctx* psz_init_with_archive(psz_dtype dtype, psz_len len, psz_predictor p1, psz_codec c1, psz_codec optional_c2, uint8_t* d_archive, size_t archive_capacity, void* stream);
 int psz_free(psz_ctx* ctx);
 // why the last creator on this thread returned NULL; psz_error_string names it.
 psz_error_status psz_last_error();

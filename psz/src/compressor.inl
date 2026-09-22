@@ -9,7 +9,6 @@
 #include "lc_gen/lc_gen.h"
 #include "module.hh"
 #include "phf.hh"
-#include "pipeline.h"
 #include "ptb.hh"
 
 namespace psz {
@@ -57,21 +56,21 @@ struct predicts_y25<P, true> {
 
 namespace pipeline_routine {
 
-template <typename T, typename E>
-void histogram(psz_ctx* ctx, Buf_Comp<T, E>* mem, size_t len_eq, void* stream)
+template <typename E, typename T>
+void histogram(psz_ctx* ctx, Buf_Comp<T>* mem, u4* hist, size_t len_eq, void* stream)
 {
   if (ctx->header->pipeline.hist == HistSp)
     psz::module::GPU_histogram_Cauchy<E>::kernel(
-        mem->eq_d(), len_eq, mem->hist_d(), ctx->bklen, stream);
+        mem->template eq_d<E>(), len_eq, hist, ctx->bklen, stream);
   else
     psz::module::GPU_histogram_generic<E>::kernel(
-        mem->eq_d(), len_eq, mem->hist_d(), ctx->bklen, mem->hist_generic_grid_dim,
+        mem->template eq_d<E>(), len_eq, hist, ctx->bklen, mem->hist_generic_grid_dim,
         mem->hist_generic_block_dim, mem->hist_generic_shmem_use, mem->hist_generic_repeat,
         stream);
 }
 
-template <typename T, typename E>
-int set_splen(psz_ctx* ctx, Buf_Comp<T, E>* mem, void* stream)
+template <typename T>
+int set_splen(psz_ctx* ctx, Buf_Comp<T>* mem, void* stream)
 {
   sync_by_stream(stream);
   ctx->header->splen = mem->outlier2_host_get_num();
@@ -80,8 +79,8 @@ int set_splen(psz_ctx* ctx, Buf_Comp<T, E>* mem, void* stream)
   return PSZ_SUCCESS;
 }
 
-template <typename T, typename E>
-void publish(psz_ctx* ctx, Buf_Comp<T, E>* mem, u1** out, size_t* outlen)
+template <typename T>
+void publish(psz_ctx* ctx, Buf_Comp<T>* mem, u1** out, size_t* outlen)
 {
   *out = mem->compressed_d();
   *outlen = pszheader_filesize(ctx->header);
@@ -93,14 +92,14 @@ template <typename T, typename E, class P, class C1, class C2>
 struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
   static_assert(Pipeline<P, C1, C2>::valid, "this pipeline has no walk through the machine");
 
-  using Buf = Buf_Comp<T, E>;
+  using Buf = Buf_Comp<T>;
   using Lorenzo_c = psz::module::GPU_c_lorenzo_nd<PredictorTyping<T, E>, typename P::Features>;
   using Lorenzo_x = psz::module::GPU_x_lorenzo_nd<PredictorTyping<T, E>, typename P::Features>;
   using Spline_c = typename spline_kernels<P, T, E>::c;
   using Spline_x = typename spline_kernels<P, T, E>::x;
 
   static constexpr bool spline = P::spline;
-  static constexpr bool lc_pass2 = (C2::kind == LC_BITR or C2::kind == LC_RTR);
+  static constexpr bool has_codec2 = (C2::kind != CodecNull);
   static constexpr psz_codec pass1 = C1::kind;
   static constexpr bool hfr = is_hfr(pass1);
   static constexpr bool enable_localized = unpred_localized(pass1);
@@ -108,24 +107,6 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
 
   static u1* archive_at(psz_ctx* ctx, Buf* mem, Segment seg)
   { return mem->compressed_d() + ctx->header->entry[seg]; }
-
-  static void* compress_init(psz_ctx* ctx)
-  {
-    auto mem = new Buf(ctx->header->len, true, hfr);
-    mem->register_header(ctx->header);
-    if (ctx->header->pipeline.hist == HistGeneric)
-      psz::module::GPU_histogram_generic<E>::init(
-          mem->len_linear, Buf::max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
-          mem->hist_generic_shmem_use, mem->hist_generic_repeat);
-    return mem;
-  }
-
-  static void* decompress_init(psz_header* header)
-  {
-    auto mem = new Buf(header->len, false, hfr);
-    mem->register_header(header);
-    return mem;
-  }
 
   static void predict(psz_ctx* ctx, Buf* mem, T* in, void* stream)
   {
@@ -146,13 +127,16 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
 
   static void build_runtime_book(psz_ctx* ctx, Buf* mem, void* stream)
   {
-    phf::high_level<E>::HF_build_book(mem->buf_hf(), ctx->bklen, stream);
+    if constexpr (hfr)
+      phf::high_level<E>::HF_build_book(mem->buf_hfr(), ctx->bklen, stream);
+    else
+      phf::high_level<E>::HF_build_book(mem->buf_hf(), ctx->bklen, stream);
   }
 
   static void pick_pbk(psz_ctx* ctx, Buf* mem, void* stream)
   {
     phf::high_level<E>::HFR_pick_pbk(
-        mem->buf_hf(), ctx->bklen, eq_len(ctx->header->len), stream);
+        mem->buf_hfr(), ctx->bklen, eq_len(ctx->header->len), stream);
   }
 
   static size_t eq_len(psz_len len)
@@ -189,7 +173,10 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
   static void make_book(psz_ctx* ctx, Buf* mem, size_t len_eq, void* stream)
   {
     if constexpr (needs_book(pass1)) {
-      pipeline_routine::histogram(ctx, mem, len_eq, stream);
+      if constexpr (hfr)
+        pipeline_routine::histogram<E>(ctx, mem, mem->buf_hfr()->hist_d(), len_eq, stream);
+      else
+        pipeline_routine::histogram<E>(ctx, mem, mem->buf_hf()->hist_d(), len_eq, stream);
       if constexpr (pass1 == HFR_V3 or pass1 == HFR_V4)
         pick_pbk(ctx, mem, stream);
       else
@@ -205,7 +192,7 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
     if (ctx->cli and ctx->cli->hfr_rmerge_count > 0)
       opts.reduce_times = ctx->cli->hfr_rmerge_count;
     opts.magnitude = block_magnitude(ctx->header->len);
-    opts.block_outliers = mem->block_outliers_d();
+    opts.block_outliers = mem->template block_outliers_d<E>();
     return opts;
   }
 
@@ -213,24 +200,24 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
   {
     const auto len_eq = eq_len(ctx->header->len);
 
-    if constexpr (is_lc_pass1(pass1)) {
+    if constexpr (is_lc(pass1)) {
       mem->lc_wire_encoded(mem->compressed_d() + sizeof(psz_header));
       if constexpr (pass1 == LC_DRH)
         lc_c::DRH_COMPRESS(
-            (uint8_t*)mem->eq_d(), len_eq * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
+            (uint8_t*)mem->template eq_d<E>(), len_eq * sizeof(E), mem->buf_lc1(), &mem->comp_codec_outlen,
             stream);
       else
         lc_c::TCMS_COMPRESS(
-            (uint8_t*)mem->eq_d(), len_eq * sizeof(E), mem->buf_lc(), &mem->comp_codec_outlen,
+            (uint8_t*)mem->template eq_d<E>(), len_eq * sizeof(E), mem->buf_lc1(), &mem->comp_codec_outlen,
             stream);
-      mem->comp_codec_out = mem->buf_lc()->encoded_d();
+      mem->comp_codec_out = mem->buf_lc1()->encoded_d();
       mem->lc_wire_encoded(nullptr);
     }
     else if constexpr (pass1 == FZG) {
       if constexpr (std::is_same_v<E, u2>) {  // fzg::E is fixed at u2
         fzg_header dummy_header{};
         auto const status = fzg::high_level::encode(
-            mem->buf_fzg(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
+            mem->buf_fzg(), mem->template eq_d<E>(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
             dummy_header, stream);
         sync_by_stream(stream);
         return status == 0 ? PSZ_SUCCESS : PSZ_ABORT_NO_SUCH_CODEC;
@@ -244,11 +231,11 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
       phf_header dummy_header{};
       if constexpr (hfr)
         phf::high_level<E>::HFR_encode(
-            mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
+            mem->buf_hfr(), mem->template eq_d<E>(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
             dummy_header, stream, pass1, nullptr, nullptr, encode_opts(ctx, mem));
       else
         phf::high_level<E>::HF_encode(
-            mem->buf_hf(), mem->eq_d(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
+            mem->buf_hf(), mem->template eq_d<E>(), len_eq, &mem->comp_codec_out, &mem->comp_codec_outlen,
             dummy_header, stream, pass1);
     }
     return PSZ_SUCCESS;
@@ -271,7 +258,7 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
 
     concat_segments(ctx, mem, stream);
 
-    if constexpr (lc_pass2)
+    if constexpr (has_codec2)
       ctx->header->entry[seg_pass2_end] =
           ctx->header->entry[pass2_head(C2::kind)] + encode_pass2(ctx, mem, stream);
     sync_by_stream(stream);
@@ -288,15 +275,13 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
 
     size_t nbyte;
     if constexpr (C2::kind == LC_BITR)
-      lc_c::BITR_COMPRESS(span, span_nbyte, mem->buf_lc(), &nbyte, stream);
+      lc_c::BITR_COMPRESS(span, span_nbyte, mem->buf_lc2(), &nbyte, stream);
     else
-      lc_c::RTR_COMPRESS(span, span_nbyte, mem->buf_lc(), &nbyte, stream);
+      lc_c::RTR_COMPRESS(span, span_nbyte, mem->buf_lc2(), &nbyte, stream);
 
-    concat_on_device((void*)span, mem->buf_lc()->encoded_d(), nbyte, stream);
+    concat_on_device((void*)span, mem->buf_lc2()->encoded_d(), nbyte, stream);
     return nbyte;
   }
-
-  static size_t pad8(size_t n) { return (n + 7) & ~(size_t)7; }
 
   static size_t anchor_nbyte(Buf* mem) { return spline ? sizeof(T) * mem->anchor_len() : 0; }
   static size_t spfmt_nbyte(psz_ctx* ctx)
@@ -368,29 +353,29 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
       else if constexpr (eq_in_out)
         psz::module::GPU_cast<E, T>::kernel(src, d_space, n, stream);
       else
-        concat_on_device(mem->eq_d(), src, n * sizeof(E), stream);
+        concat_on_device(mem->template eq_d<E>(), src, n * sizeof(E), stream);
     };
 
     auto encoded = (BYTE*)access(seg_encoded);
 
-    if constexpr (is_lc_pass1(pass1)) {
+    if constexpr (is_lc(pass1)) {
       if constexpr (pass1 == LC_DRH)
-        lc_c::DRH_DECOMPRESS((uint8_t*)access(seg_encoded), mem->buf_lc(), stream);
+        lc_c::DRH_DECOMPRESS((uint8_t*)access(seg_encoded), mem->buf_lc1(), stream);
       else
-        lc_c::TCMS_DECOMPRESS((uint8_t*)access(seg_encoded), mem->buf_lc(), stream);
-      place_eq((E*)mem->buf_lc()->decoded_d(), tile_nd ? mem->eq_len() : len_linear);
+        lc_c::TCMS_DECOMPRESS((uint8_t*)access(seg_encoded), mem->buf_lc1(), stream);
+      place_eq((E*)mem->buf_lc1()->decoded_d(), tile_nd ? mem->eq_len() : len_linear);
     }
 
     // a zero-byte span was never encoded
-    if constexpr (lc_pass2) {
+    if constexpr (has_codec2) {
       constexpr auto head = pass2_head(C2::kind);
       if (header->entry[seg_pass2_end] != header->entry[head]) {
         if constexpr (C2::kind == LC_BITR)
-          lc_c::BITR_DECOMPRESS((uint8_t*)access(head), mem->buf_lc(), stream);
+          lc_c::BITR_DECOMPRESS((uint8_t*)access(head), mem->buf_lc2(), stream);
         else
-          lc_c::RTR_DECOMPRESS((uint8_t*)access(head), mem->buf_lc(), stream);
+          lc_c::RTR_DECOMPRESS((uint8_t*)access(head), mem->buf_lc2(), stream);
 
-        auto staged = (byte_t*)mem->buf_lc()->decoded_d();
+        auto staged = (byte_t*)mem->buf_lc2()->decoded_d();
         auto decoded = [&](Segment seg) {
           return staged + (header->entry[seg] - header->entry[head]);
         };
@@ -404,12 +389,12 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
       if constexpr (std::is_same_v<E, u2>) {
         fzg_header h_fzg;
         fzg::high_level::decode(
-            mem->buf_fzg(), h_fzg, (uint8_t*)encoded, 0, mem->fzg_scratch_d(), mem->eq_len(),
+            mem->buf_fzg(), h_fzg, (uint8_t*)encoded, 0, mem->buf_fzg()->out_d(), mem->eq_len(),
             stream);
-        place_eq(mem->fzg_scratch_d(), mem->eq_len());
+        place_eq(mem->buf_fzg()->out_d(), mem->eq_len());
       }
     }
-    else if constexpr (not is_lc_pass1(pass1)) {
+    else if constexpr (not is_lc(pass1)) {
       phf_header hdr{};
       memcpy_allkinds<D2H>((BYTE*)&hdr, encoded, sizeof(phf_header));
 
@@ -419,9 +404,9 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
           auto const magnitude = block_magnitude(len);
           if (not use_hfd_coarse)
             return phf::high_level<E>::template HFD26_decode<Eout>(
-                mem->buf_hf(), hdr, encoded, dst, stream, pass1, magnitude);
+                mem->buf_hfr(), hdr, encoded, dst, stream, pass1, magnitude);
           return phf::high_level<E>::template HFR_decode<Eout>(
-              mem->buf_hf(), hdr, encoded, dst, stream, pass1, magnitude);
+              mem->buf_hfr(), hdr, encoded, dst, stream, pass1, magnitude);
         }
         else  // HF_r2 fully supersedes HF.
           return phf::high_level<E>::template HF_decode<Eout>(
@@ -434,7 +419,7 @@ struct compression_pipeline<T, E, Pipeline<P, C1, C2>> {
       else if constexpr (eq_in_out)
         stat = decode_eq(d_space);
       else
-        stat = decode_eq(mem->eq_d());
+        stat = decode_eq(mem->template eq_d<E>());
       if (stat != PHF_SUCCESS) return PSZ_ABORT_NO_SUCH_CODEC;
     }
 
@@ -454,14 +439,13 @@ namespace _2609 {
 
 template <typename T, typename E>
 struct dispatch {
-  static bool pipeline_supported(psz_ppl const& p) { return pszppl_supported(p); }
-
   template <class P, class C1, class F>
   static bool route_codec2(psz_ppl const& p, F&& f)
   {
     // a pipeline the machine cannot walk is never instantiated
     auto go = [&f](auto ppl) {
-      if constexpr (decltype(ppl)::valid) {
+      using PPL = decltype(ppl);
+      if constexpr (PPL::valid and is_hfr(PPL::Codec1::kind) == (sizeof(E) == 4)) {
         f(ppl);
         return true;
       }
@@ -575,70 +559,26 @@ using spl_x_y25 = GPU_x_spline_y25<PredictorTyping<T, E>>;
   template <typename T, typename E, class PPL> \
   RET_TYPE psz::compression_pipeline<T, E, PPL>
 
-PPL_IMPL(void*)::compress_init(psz_ctx* ctx, bool skip_hf)
+PPL_IMPL(void*)::compress_init(psz_ctx* ctx, u1* archive, int nstage, bool eq4)
 {
-  constexpr auto iscompression = true;
-
-  // extract context
-  const auto x = ctx->header->len.x, y = ctx->header->len.y, z = ctx->header->len.z;
-
-  // init internal buffers
-  const auto _c1 = ctx->header->pipeline.codec1;
-  // codec2==LC precedes HF_rev2: Buf_HF takes the generic chunk size
-  const auto use_HFR =
-      ((_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO) or
-       (_c1 == psz_codec::HFR_V3) or (_c1 == psz_codec::HFR_V4));
-  const auto use_FZG = (_c1 == psz_codec::FZG);
-  auto const _pred = ctx->header->pipeline.predictor;
-  int const _nd = (z > 1) ? 3 : (y > 1) ? 2 : 1;
-  bool const y25_tile = _pred == psz_predictor::SplineY25 and _nd >= 2;
-  bool const tile_order =
-      (_nd >= 2 and (_pred == psz_predictor::Lorenzo or _pred == psz_predictor::LorenzoZigZag or
-                     _pred == psz_predictor::SplineY24)) or
-      y25_tile;
-  Buf_Comp<T, E>* mem;
-  if (skip_hf) {
-    BufToggle_Comp toggle{
-        /*use_quant=*/true, /*use_outlier=*/true,     /*use_anchor=*/true,
-        /*use_hist=*/true,  /*use_compressed=*/false, /*use_top1=*/true,
-        /*use_lc=*/true};
-    mem = new Buf_Comp<T, E>(ctx->header->len, &toggle);
-  }
-  else {
-    mem = new Buf_Comp<T, E>(
-        ctx->header->len, iscompression, use_HFR, true, _c1 == psz_codec::HF_r2, tile_order,
-        y25_tile, use_FZG, _c1, ctx->header->pipeline.codec2);
-  }
+  auto mem =
+      new Buf_Comp<T>(ctx->header->len, true, archive ? archive : ctx->d_archive, nstage, eq4);
   mem->register_header(ctx->header);
-  mem->set_predictor(_pred);  // anchor sizing
 
   // optimize component(s)
-  psz::module::GPU_histogram_generic<E>::init(
+  psz::module::GPU_histogram_generic<u2>::init(
+      mem->len_linear, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
+      mem->hist_generic_shmem_use, mem->hist_generic_repeat);
+  psz::module::GPU_histogram_generic<u4>::init(
       mem->len_linear, mem->max_bklen, mem->hist_generic_grid_dim, mem->hist_generic_block_dim,
       mem->hist_generic_shmem_use, mem->hist_generic_repeat);
 
   return mem;
 }
 
-PPL_IMPL(void*)::decompress_init(psz_header* header)
+PPL_IMPL(void*)::decompress_init(psz_header* header, int nstage, bool eq4)
 {
-  const auto _c1 = header->pipeline.codec1;
-  const auto use_HFR =
-      ((_c1 == psz_codec::HFR) or (_c1 == psz_codec::HFR_PBKC) or (_c1 == psz_codec::HFR_PBKGO) or
-       (_c1 == psz_codec::HFR_V3) or (_c1 == psz_codec::HFR_V4));
-  // Spl-y25 decodes into d_eq (by interp level); Lrz and Spl-y24 decode into the output buffer.
-  const auto _pred = header->pipeline.predictor;
-  const auto alloc_eq = (_pred == psz_predictor::SplineY25);
-  auto const _l = header->len;
-  int const _nd = (_l.z > 1) ? 3 : (_l.y > 1) ? 2 : 1;
-  bool const y25_tile = _pred == psz_predictor::SplineY25 and _nd >= 2;
-  bool const tile_order =
-      (_nd >= 2 and (_pred == psz_predictor::Lorenzo or _pred == psz_predictor::LorenzoZigZag or
-                     _pred == psz_predictor::SplineY24)) or
-      y25_tile;
-  auto mem = new Buf_Comp<T, E>(
-      header->len, false, use_HFR, alloc_eq, _c1 == psz_codec::HF_r2, tile_order, y25_tile,
-      _c1 == psz_codec::FZG, _c1, header->pipeline.codec2);
+  auto mem = new Buf_Comp<T>(header->len, false, nullptr, nstage, eq4);
   mem->register_header(header);
   return mem;
 }
@@ -651,21 +591,21 @@ PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream, boo
   const auto predictor = PIPELINE.predictor;
   // unpred-incomp (enc_id=31) in (use_HFR) encoder
   const bool enable_localized =
-      (not pszcodec_is_pass2(PIPELINE.codec2)) and
+      (PIPELINE.codec2 == CodecNull) and
       ((PIPELINE.codec1 == HFR_PBKC) or (PIPELINE.codec1 == HFR_PBKGO) or
        (PIPELINE.codec1 == HFR) or (PIPELINE.codec1 == HFR_V3) or (PIPELINE.codec1 == HFR_V4));
   // HF and HF-rev2, FZG, and LC (TCMS/HiCR/HiTP) codecs use the global compact.
   // TCMS is not compat with HFR for now.
   const bool enable_global = (PIPELINE.codec1 == HF) or (PIPELINE.codec1 == HF_r2) or
                              (PIPELINE.codec1 == FZG) or (PIPELINE.codec1 == LC_TCMS) or
-                             (PIPELINE.codec1 == LC_DRH) or pszcodec_is_pass2(PIPELINE.codec2) or
+                             (PIPELINE.codec1 == LC_DRH) or (PIPELINE.codec2 != CodecNull) or
                              force_global;
 
   if (predictor == Lorenzo)
     c_lrz(mem, make_view(in, len), eb, radius, enable_localized, enable_global, stream);
   else if (predictor == LorenzoZigZag)
     c_lrz_zz(mem, make_view(in, len), eb, radius, enable_localized, enable_global, stream);
-  else if (pszpredictor_is_spline(predictor)) {
+  else if (is_spline(predictor)) {
     if constexpr (std::is_same_v<T, f4>) {
       if (predictor == SplineY24)
         spl_c_y24<T, E>::kernel(
@@ -685,6 +625,7 @@ PPL_IMPL(int)::comp_predict(psz_ctx* ctx, PSZ_BUF* mem, T* in, void* stream, boo
 
 PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, void* stream)
 {
+  if (not mem->select(PIPELINE)) return PSZ_ABORT_UNSUPPORTED_PIPELINE;
   const auto len_linear = mem->len_linear;
 
   // predictor-only analysis: force the global compact so decomp_scatter restores outliers.
@@ -694,20 +635,20 @@ PPL_IMPL(int)::compress_analysis(psz_ctx* ctx, PSZ_BUF* mem, T* in, u4* h_hist, 
   sync_by_stream(stream);
   ctx->header->splen = mem->outlier2_host_get_num();
 
+  auto d_hist = MAKE_UNIQUE_DEVICE(u4, ctx->bklen);
   psz::module::GPU_histogram_Cauchy<E>::kernel(
-      mem->eq_d(), len_linear, mem->hist_d(), ctx->bklen, stream);
+      mem->template eq_d<E>(), len_linear, d_hist.get(), ctx->bklen, stream);
 
-  memcpy_allkinds_async<D2H>(h_hist, mem->hist_d(), ctx->bklen, stream);
+  memcpy_allkinds_async<D2H>(h_hist, d_hist.get(), ctx->bklen, stream);
   sync_by_stream(stream);
-
-  memset_device(mem->hist_d(), ctx->bklen, 0);
 
   return PSZ_SUCCESS;
 }
 
 PPL_IMPL(int)::compress(psz_ctx* ctx, PSZ_BUF* mem, T* in, u1** out, size_t* outlen, void* stream)
 {
-  if (not dispatch<T, E>::pipeline_supported(PIPELINE)) return PSZ_ABORT_UNSUPPORTED_PIPELINE;
+  if (not valid(PIPELINE)) return PSZ_ABORT_UNSUPPORTED_PIPELINE;
+  if (not mem->select(PIPELINE)) return PSZ_ABORT_UNSUPPORTED_PIPELINE;
 
   int routed_status;
   if (dispatch<T, E>::route_predictor(PIPELINE, [&](auto ppl) {
@@ -739,7 +680,7 @@ PPL_IMPL(void)::decomp_predict(
     x_lrz(mem, d_xdata, eb, header->radius, stream);
   else if (header->pipeline.predictor == LorenzoZigZag)
     x_lrz_zz(mem, d_xdata, eb, header->radius, stream);
-  else if (pszpredictor_is_spline(header->pipeline.predictor)) {
+  else if (is_spline(header->pipeline.predictor)) {
     mem->set_predictor(header->pipeline.predictor);  // anchor sizing
     if constexpr (std::is_same_v<T, f4>) {
       if (header->pipeline.predictor == SplineY24)
@@ -760,8 +701,8 @@ enum coarse_decoder { HF_coarse, HFR_coarse };
 PPL_IMPL(int)::decompress(
     psz_header* header, PSZ_BUF* mem, u1* in, T* out, psz_stream_t stream, bool use_hfd_coarse)
 {
-  if (not dispatch<T, E>::pipeline_supported(header->pipeline))
-    return PSZ_ABORT_UNSUPPORTED_PIPELINE;
+  if (not valid(header->pipeline)) return PSZ_ABORT_UNSUPPORTED_PIPELINE;
+  if (not mem->select(header->pipeline)) return PSZ_ABORT_UNSUPPORTED_PIPELINE;
 
   int routed_status;
   if (dispatch<T, E>::route_predictor(header->pipeline, [&](auto ppl) {
@@ -783,14 +724,19 @@ PPL_IMPL(void)::compress_dump_internal_buf(psz_ctx* ctx, PSZ_BUF* mem, psz_strea
 
   sync_by_stream(stream);
 
-  if (ctx->cli->dump_hist) {
-    memcpy_allkinds<D2H>(mem->hist_h(), mem->hist_d(), ctx->header->radius * 2, stream);
-    _ptb::utils::tofile(dump_name("u4", "ht"), mem->hist_h(), ctx->header->radius * 2);
+  phf::Buf<E>* hf = nullptr;
+  if constexpr (sizeof(E) == 4)
+    hf = mem->buf_hfr();
+  else
+    hf = mem->buf_hf();
+  if (ctx->cli->dump_hist and hf) {
+    memcpy_allkinds<D2H>(hf->hist_h(), hf->hist_d(), ctx->header->radius * 2, stream);
+    _ptb::utils::tofile(dump_name("u4", "ht"), hf->hist_h(), ctx->header->radius * 2);
   }
   if (ctx->cli->dump_quantcode) {
     cout << "[psz::dump] dumping quantization codebook to file: " << dump_name("quant") << endl;
     auto h_eq = MAKE_UNIQUE_HOST(E, mem->len_linear);
-    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), mem->len_linear, stream);
+    memcpy_allkinds<D2H>(h_eq.get(), mem->template eq_d<E>(), mem->len_linear, stream);
     _ptb::utils::tofile(dump_name("u" + to_string(sizeof(E)), "qt"), h_eq.get(), mem->len_linear);
   }
 }

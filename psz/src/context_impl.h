@@ -34,7 +34,6 @@ struct psz_cli_config {
   bool use_gpu_verify;
 
   bool skip_tofile;
-  bool skip_hf;
 
   bool report_time;
   bool report_cr;
@@ -56,6 +55,9 @@ struct psz_context {
   size_t len_linear;
 
   bool use_eq4;
+
+  uint8_t* d_archive = nullptr;
+  size_t archive_capacity = 0;
 };
 
 

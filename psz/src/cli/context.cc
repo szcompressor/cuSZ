@@ -1,6 +1,7 @@
 // Author: Jiannan Tian
 // context struct with argument parser
 
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include <vector>
@@ -16,11 +17,12 @@
 #include "detail/kv_parse.hh"
 #include "detail/str2num.hh"
 #include "kv_binder.hh"
-#include "pipeline.h"
+#include "module.hh"
 #include "utils/busyheader.hh"
 #include "utils/demangle.hh"
 #include "utils/format.hh"
 
+using psz::_2609::compose;
 using std::cerr;
 using std::endl;
 using std::string;
@@ -122,7 +124,7 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .string("config",   {"--hi-config"},                                "",     "Hi-mode config key=val pairs")
   .string("report",   {"-R", "--report"},                             "",     "report options")
   .string("dump",     {"--dump"},                                     "",     "dump options")
-  .string("skip",     {"--skip"},                                     "",     "skip: huffman, write2disk")
+  .string("skip",     {"--skip"},                                     "",     "skip: write2disk")
   .string("compare",  {"--compare"},                                  "",     "reference file for comparison")
   .string("auto",     {"-a", "--auto"},                               "",     "auto-tuning: cr-first, rd-first, int")
   .string("preset",   {"--preset"},                                   "",     "whole pipeline by name: fzg|hicr|hitp|hitp_r1")
@@ -131,6 +133,7 @@ static const auto psz_cli = _ptb::arg_builder("cusz")
   .flag("compress",   {"-z", "--zip", "--compress"},                          "run compression")
   .flag("decompress", {"-x", "--unzip", "--decompress", "--extract"},         "run decompression")
   .flag("verbose",    {"--verbose"},                                          "verbose output")
+  .flag("dbg",        {"--dbg"})
   .flag("hfd26",      {"--hfd26"},                   "decode HFR-family archives with HFD26 (the default; stating it is a no-op)")
   .flag("hfd_coarse", {"--hfd-coarse"},              "force the coarse one-thread-per-chunk decoder (HFR_coarse); HF and HF-rev2 are always coarse")
   ;
@@ -171,8 +174,8 @@ static bool preset_from_name(string const& v, psz_preset& out)
 
 static void apply_preset(psz_ctx* ctx, psz_preset preset)
 {
-  ctx->header->pipeline = pszpreset_pipeline(preset);
-  ctx->header->radius   = pszpreset_radius(preset);
+  ctx->header->pipeline = psz::_2609::pipeline_of(preset);
+  ctx->header->radius   = psz::_2609::radius_of(preset);
   ctx->bklen            = ctx->header->radius * 2;
 }
 
@@ -317,7 +320,6 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   // skip
   {
     auto _v = args.get<string>("skip");
-    if (_v.find("huffman") != string::npos) ctx->cli->skip_hf = true;
     if (_v.find("write2disk") != string::npos) ctx->cli->skip_tofile = true;
   }
 
@@ -373,7 +375,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
         psz_preset preset;
         if (name == "_" or name == "*" or name == "default")
           ctx->header->pipeline =
-              pszppl_compose(DEFAULT_PREDICTOR, DEFAULT_CODEC, psz_codec::CodecNull);
+              compose(DEFAULT_PREDICTOR, DEFAULT_CODEC, psz_codec::CodecNull);
         else if (preset_from_name(name, preset))
           apply_preset(ctx, preset);
         else {
@@ -402,7 +404,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
             exit(1);
           }
         }
-        ctx->header->pipeline = pszppl_compose(p1, c1, c2);
+        ctx->header->pipeline = compose(p1, c1, c2);
       }
       else {
         cerr << LOG_ERR << "--pipeline takes p1,c1[,c2] or preset:<name>" << endl;
@@ -430,6 +432,7 @@ static void psz_cli_bind(const _ptb::arg_result& args, psz_ctx* ctx)
   }
 
   if (args.get<bool>("verbose")) ctx->cli->verbose = true;
+  if (args.get<bool>("dbg")) setenv("PSZ_DBG", "1", 1);
   if (args.get<bool>("hfd26")) ctx->cli->use_hfd26 = true;
   if (args.get<bool>("hfd_coarse")) ctx->cli->use_hfd_coarse = true;
   if (ctx->cli->use_hfd26 and ctx->cli->use_hfd_coarse) {
@@ -509,10 +512,10 @@ void pszctx_create_from_argv(psz_ctx* ctx, int const argc, char** const argv)
     }
   }
 
-  ctx->header->pipeline = pszppl_compose(
+  ctx->header->pipeline = compose(
       ctx->header->pipeline.predictor, ctx->header->pipeline.codec1, ctx->header->pipeline.codec2);
 
-  if (not pszppl_supported(ctx->header->pipeline)) {
+  if (not psz::_2609::valid(ctx->header->pipeline)) {
     cerr << LOG_ERR << "unsupported pipeline: " << predictor_name(ctx->header->pipeline.predictor)
          << "," << codec_name(ctx->header->pipeline.codec1) << ","
          << codec_name(ctx->header->pipeline.codec2) << endl;
@@ -584,7 +587,6 @@ psz_ctx* pszctx_default_values()
               .rel_range_scan      = false,
               .use_gpu_verify      = false,
               .skip_tofile         = false,
-              .skip_hf             = false,
               .report_time         = false,
               .report_cr           = false,
               .verbose             = false,

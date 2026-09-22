@@ -5,8 +5,8 @@
 # (codec, dataset, eb) combo. Pass/fail = round-trip lossless within eb.
 #
 # Recipe (per row):
-#   cusz -z -p _,<C> -t f32 -m abs -e <EB> -l <DIMS> -i <FILE>
-#   cusz -x --compare <FILE> -i <FILE>.cusza
+#   cusz -z -p _,<C> -t f32 -m abs -e <EB> -l <DIMS> -i cusz_cli/<TEST>/<NAME>
+#   cusz -x --compare <FILE> -i cusz_cli/<TEST>/<NAME>.cusza
 #   (compare exit 0 + PSNR > threshold = pass)
 #
 # Test data is expected at paths under $CUSZ_TEST_DATA (env var) or the
@@ -27,19 +27,25 @@ function(add_cusz_test name codec dtype mode eb dims file)
   else()
     set(metric "max_error_rel")
   endif()
+  get_filename_component(src ${file} ABSOLUTE BASE_DIR ${CMAKE_BINARY_DIR})
+  get_filename_component(fname ${file} NAME)
+  set(dir ${CMAKE_BINARY_DIR}/cusz_cli/${name})
   add_test(NAME ${name}
     COMMAND bash -c "
       set -e
       [ -f '${file}' ] || exit 77
-      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${file}' -z -p _,${codec} \
+      rm -rf '${dir}'
+      mkdir -p '${dir}'
+      ln -s '${src}' '${dir}/${fname}'
+      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${dir}/${fname}' -z -p _,${codec} \
         > /tmp/${name}.enc.log 2>&1
-      ./cusz -i '${file}.cusza' -x --compare '${file}' \
+      ./cusz -i '${dir}/${fname}.cusza' -x --compare '${file}' \
         > /tmp/${name}.dec.log 2>&1
       mxe=\$(grep -oE '${metric}=[0-9.eE+-]+' /tmp/${name}.dec.log | head -1 | cut -d= -f2)
       [ -n \"\$mxe\" ] || { cat /tmp/${name}.dec.log; echo 'FAIL: no ${metric} in compare output'; exit 1; }
       awk -v m=\"\$mxe\" -v e=${eb} 'BEGIN{exit !(m+0 <= 1.001*(e+0))}' \
         || { echo \"FAIL: ${metric}=\$mxe over eb=${eb}\"; exit 1; }
-      rm -f '${file}.cusza'
+      rm -rf '${dir}'
     "
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
@@ -50,19 +56,25 @@ function(add_cusz_test name codec dtype mode eb dims file)
 endfunction()
 
 function(add_cusz_pred_test name predictor codec dtype mode eb dims file)
+  get_filename_component(src ${file} ABSOLUTE BASE_DIR ${CMAKE_BINARY_DIR})
+  get_filename_component(fname ${file} NAME)
+  set(dir ${CMAKE_BINARY_DIR}/cusz_cli/${name})
   add_test(NAME ${name}
     COMMAND bash -c "
       set -e
       [ -f '${file}' ] || exit 77
-      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${file}' \
+      rm -rf '${dir}'
+      mkdir -p '${dir}'
+      ln -s '${src}' '${dir}/${fname}'
+      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${dir}/${fname}' \
              -z -p ${predictor},${codec} > /tmp/${name}.enc.log 2>&1
-      ./cusz -i '${file}.cusza' -x --compare '${file}' \
+      ./cusz -i '${dir}/${fname}.cusza' -x --compare '${file}' \
         > /tmp/${name}.dec.log 2>&1
       mxe=\$(grep -oE 'max_error=[0-9.eE+-]+' /tmp/${name}.dec.log | head -1 | cut -d= -f2)
       [ -n \"\$mxe\" ] || { cat /tmp/${name}.dec.log; echo 'FAIL: no max_error in compare output'; exit 1; }
       awk -v m=\"\$mxe\" -v e=${eb} 'BEGIN{exit !(m+0 <= 1.001*(e+0))}' \
         || { echo \"FAIL: max_error=\$mxe over eb=${eb}\" ; exit 1 ; }
-      rm -f '${file}.cusza'
+      rm -rf '${dir}'
     "
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
@@ -74,19 +86,25 @@ endfunction()
 
 # Same as add_cusz_pred_test, but names a pass 2 as well (HiCR / HiTP archive shapes).
 function(add_cusz_dualcodec_pred_test name predictor codec1 codec2 dtype mode eb dims file)
+  get_filename_component(src ${file} ABSOLUTE BASE_DIR ${CMAKE_BINARY_DIR})
+  get_filename_component(fname ${file} NAME)
+  set(dir ${CMAKE_BINARY_DIR}/cusz_cli/${name})
   add_test(NAME ${name}
     COMMAND bash -c "
       set -e
       [ -f '${file}' ] || exit 77
-      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${file}' \
+      rm -rf '${dir}'
+      mkdir -p '${dir}'
+      ln -s '${src}' '${dir}/${fname}'
+      ./cusz -t ${dtype} -m ${mode} -e ${eb} -l ${dims} -i '${dir}/${fname}' \
              -z -p ${predictor},${codec1},${codec2} > /tmp/${name}.enc.log 2>&1
-      ./cusz -i '${file}.cusza' -x --compare '${file}' \
+      ./cusz -i '${dir}/${fname}.cusza' -x --compare '${file}' \
         > /tmp/${name}.dec.log 2>&1
       mxe=\$(grep -oE 'max_error=[0-9.eE+-]+' /tmp/${name}.dec.log | head -1 | cut -d= -f2)
       [ -n \"\$mxe\" ] || { cat /tmp/${name}.dec.log; echo 'FAIL: no max_error in compare output'; exit 1; }
       awk -v m=\"\$mxe\" -v e=${eb} 'BEGIN{exit !(m+0 <= 1.001*(e+0))}' \
         || { echo \"FAIL: max_error=\$mxe over eb=${eb}\" ; exit 1 ; }
-      rm -f '${file}.cusza'
+      rm -rf '${dir}'
     "
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )

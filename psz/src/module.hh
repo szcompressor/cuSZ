@@ -20,25 +20,16 @@ constexpr bool is_hfr(psz_codec c)
   }
 }
 
-constexpr bool is_lc_pass1(psz_codec c)
+constexpr bool is_lc(psz_codec c)
 {
   switch (c) {
     case LC_TCMS:
-    case LC_DRH: return true;
-    default: return false;
-  }
-}
-
-constexpr bool is_lc_pass2(psz_codec c)
-{
-  switch (c) {
+    case LC_DRH:
     case LC_BITR:
     case LC_RTR: return true;
     default: return false;
   }
 }
-
-constexpr bool is_lc(psz_codec c) { return is_lc_pass1(c) or is_lc_pass2(c); }
 
 constexpr bool is_spline(psz_predictor p) { return p == SplineY24 or p == SplineY25; }
 
@@ -87,6 +78,8 @@ enum Segment : int {
   seg_pass2_end,
 };
 
+constexpr size_t pad8(size_t n) { return (n + 7) & ~(size_t)7; }
+
 constexpr Segment pass2_head(psz_codec codec2)
 { return codec2 == LC_RTR ? seg_encoded : seg_anchor; }
 
@@ -134,22 +127,26 @@ struct CodecEdge {
   psz_codec codec;
   bool after_zigzag;  // may follow lrz-zz
   bool after_plain;   // may follow lrz, spl-y24, spl-y25
-  bool before_pass2;  // may be followed by an LC pass 2
+  bool before_codec2;  // may be followed by a second codec
+  bool as_codec2;      // may occupy codec 2
 };
 
 constexpr CodecEdge _codec_edges[] = {
-    {HF, true, true, true},        {HF_r2, true, true, true},      {HFR, false, true, true},
-    {HFR_V2, false, true, true},   {HFR_V3, false, true, true},    {HFR_V4, false, true, true},
-    {HFR_PBKC, false, true, true}, {HFR_PBKGO, false, true, true}, {HFR_PBKF, false, true, true},
-    {LC_TCMS, true, true, true},   {LC_DRH, true, true, true},     {LC_BITR, false, false, false},
-    {LC_RTR, false, false, false}, {FZG, true, false, false},
+    {HF, true, true, true, false},        {HF_r2, true, true, true, false},
+    {HFR, false, true, true, false},      {HFR_V2, false, true, true, false},
+    {HFR_V3, false, true, true, false},   {HFR_V4, false, true, true, false},
+    {HFR_PBKC, false, true, true, false}, {HFR_PBKGO, false, true, true, false},
+    {HFR_PBKF, false, true, true, false}, {LC_TCMS, true, true, true, false},
+    {LC_DRH, true, true, true, false},    {LC_BITR, false, false, false, true},
+    {LC_RTR, false, false, false, true},  {FZG, true, false, false, false},
+    {CodecNull, true, true, false, false},
 };
 
 constexpr CodecEdge _egress_edge(psz_codec c)
 {
   for (auto const& e : _codec_edges)
     if (e.codec == c) return e;
-  return {c, false, false, false};
+  return {c, false, false, false, false};
 }
 
 constexpr bool _p1_to_c1(psz_predictor p1, psz_codec c1)
@@ -161,9 +158,79 @@ constexpr bool _p1_to_c1(psz_predictor p1, psz_codec c1)
 constexpr bool _c1_to_c2(psz_codec c1, psz_codec c2)
 {
   if (c2 == CodecNull) return true;
-  if (not is_lc_pass2(c2)) return false;
-  return _egress_edge(c1).before_pass2;
+  return _egress_edge(c2).as_codec2 and _egress_edge(c1).before_codec2;
 }
+
+constexpr bool valid(psz_ppl p)
+{ return _p1_to_c1(p.predictor, p.codec1) and _c1_to_c2(p.codec1, p.codec2); }
+
+constexpr psz_ppl compose(psz_predictor p1, psz_codec c1, psz_codec optional_c2)
+{
+  psz_ppl ppl{};
+  ppl.predictor = p1;
+  ppl.codec1 = c1;
+  ppl.codec2 = optional_c2;
+
+  if (optional_c2 == LC_TCMS) ppl.codec2 = is_lc(c1) ? LC_BITR : LC_RTR;
+
+  ppl.hist = needs_book(ppl.codec1) ? HistGeneric : HistNull;
+
+  return ppl;
+}
+
+constexpr psz_preset preset_of(psz_ppl p)
+{
+  if (p.codec1 == FZG) return PSZ_PRESET_LRZZZ_FZG;
+  if (is_spline(p.predictor) and p.codec2 != CodecNull) {
+    if (p.codec1 == LC_TCMS) return PSZ_PRESET_HITP;
+    if (p.codec1 == LC_DRH) return PSZ_PRESET_HITP_R1;
+    return PSZ_PRESET_HICR;
+  }
+  return p.codec2 != CodecNull ? PSZ_PRESET_P1_C1_C2 : PSZ_PRESET_P1_C1;
+}
+
+constexpr bool is_generic(psz_preset p) { return p == PSZ_PRESET_P1_C1 or p == PSZ_PRESET_P1_C1_C2; }
+
+constexpr psz_ppl pipeline_of(psz_preset p)
+{
+  psz_ppl ppl{};
+
+  ppl.predictor = (p == PSZ_PRESET_LRZZZ_FZG) ? LorenzoZigZag : SplineY25;
+  ppl.hist = (p == PSZ_PRESET_HICR) ? HistGeneric : HistNull;
+
+  switch (p) {
+    case PSZ_PRESET_LRZZZ_FZG: ppl.codec1 = FZG; break;
+    case PSZ_PRESET_HITP: ppl.codec1 = LC_TCMS; break;
+    case PSZ_PRESET_HITP_R1: ppl.codec1 = LC_DRH; break;
+    default: ppl.codec1 = HF_r2; break;  // HF_r2 supersedes HF
+  }
+
+  if (p == PSZ_PRESET_HICR)
+    ppl.codec2 = LC_RTR;
+  else if (p == PSZ_PRESET_HITP or p == PSZ_PRESET_HITP_R1)
+    ppl.codec2 = LC_BITR;
+  else
+    ppl.codec2 = CodecNull;
+  return ppl;
+}
+
+constexpr bool needs_eq4(psz_ppl p)
+{
+  switch (p.codec1) {
+    case HFR:
+    case HFR_PBKC:
+    case HFR_PBKGO:
+    case HFR_V3:
+    case HFR_V4: return true;
+    default: return false;
+  }
+}
+
+constexpr int radius_of(psz_ppl p) { return needs_eq4(p) ? 128 : 512; }
+
+constexpr int radius_of(psz_preset p) { return radius_of(pipeline_of(p)); }
+
+constexpr int nstage_of(psz_ppl p) { return p.codec1 == CodecNull ? 1 : p.codec2 == CodecNull ? 2 : 3; }
 
 template <class _Predictor, class _Codec1, class _Codec2 = ModuleCodec2<>>
 struct Pipeline {

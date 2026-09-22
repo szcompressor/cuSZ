@@ -1,7 +1,5 @@
 // CLI task runner
 
-#include "context_impl.h"
-#include "pipeline.h"
 #include "executor.hh"
 
 #include <cstdio>
@@ -12,9 +10,11 @@
 #include <string>
 
 #include "compressor.hh"
+#include "context_impl.h"
 #include "cusz.h"
 #include "ptb.hh"
 #include "utils/dtype_dispatch.hh"
+#include "utils/err.hh"
 #include "viewer.hh"
 
 using _ptb::utils::fromfile;
@@ -25,6 +25,28 @@ static void check_file_readable_or_throw(const string& fname)
 {
   if (not std::ifstream(fname.c_str()).good())
     throw std::runtime_error("input file does not exist or is not readable: " + fname);
+}
+
+static void check_gpu_or_throw(cudaStream_t stream)
+{
+  CHECK_GPU(cudaStreamSynchronize(stream));
+  CHECK_GPU(cudaGetLastError());
+}
+
+template <typename T>
+static void fromfile_or_throw(const string& fname, T* dst, size_t len)
+{
+  if (fromfile(fname, dst, len) != PORTABLE_IO_SUCCESS)
+    throw std::runtime_error("cannot read " + std::to_string(sizeof(T) * len) + " bytes from " +
+                             fname);
+}
+
+template <typename T>
+static void tofile_or_throw(const string& fname, T* src, size_t len)
+{
+  if (tofile(fname, src, len) != PORTABLE_IO_SUCCESS)
+    throw std::runtime_error("cannot write " + std::to_string(sizeof(T) * len) + " bytes to " +
+                             fname);
 }
 
 // HFR variants need u4-wide eq for fallback;
@@ -49,8 +71,10 @@ static void compare_with_origin(psz_ctx* args, cudaStream_t stream, T* d_decompe
   sync_by_stream(stream);
   auto d_origin = MAKE_UNIQUE_DEVICE(T, len);
   auto h_origin = MAKE_UNIQUE_HOST(T, len);
-  fromfile(args->cli->file_compare, h_origin.get(), len);
+  check_gpu_or_throw(stream);
+  fromfile_or_throw(args->cli->file_compare, h_origin.get(), len);
   memcpy_allkinds<H2D>(d_origin.get(), h_origin.get(), len);
+  check_gpu_or_throw(stream);
   if (args->cli->verbose)
     psz::analysis::GPU_evaluate_quality_and_print(d_decomped, d_origin.get(), len, comp_len);
   else
@@ -66,7 +90,8 @@ static void write_decomp_to_disk(psz_ctx* args, cudaStream_t stream, T* d_decomp
   sync_by_stream(stream);
   auto h_decomped = MAKE_UNIQUE_HOST(T, len);
   memcpy_allkinds<D2H>(h_decomped.get(), d_decomped, len);
-  tofile((basename + ".cuszx").c_str(), h_decomped.get(), sizeof(T) * len);
+  check_gpu_or_throw(stream);
+  tofile_or_throw(basename + ".cuszx", h_decomped.get(), len);
 }
 
 // ---------------------------------------------------------------------------
@@ -82,43 +107,43 @@ void psz_compress_task(psz_ctx* args)
 
   auto len = CLI_x(args) * CLI_y(args) * CLI_z(args);
 
-  uint8_t*      d_internal_compressed;
-  psz_header    header;
-  size_t        compressed_len;
-  psz_ctx* m{nullptr};
+  uint8_t*   d_internal_compressed;
+  psz_header header;
+  size_t     compressed_len;
+  psz_ctx*   m{nullptr};
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
         auto d_in = MAKE_UNIQUE_DEVICE(float, len);
         auto h_in = MAKE_UNIQUE_HOST(float, len);
-        fromfile(args->cli->file_input, h_in.get(), len);
+        check_gpu_or_throw(stream);
+        fromfile_or_throw(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m = psz_init(
-            F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
-        m->cli = args->cli;
-        auto stat =
-            psz_compress_float(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(),
-                               &header, &d_internal_compressed, &compressed_len);
+        m              = psz_init(F4, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        m->cli         = args->cli;
+        auto stat      = psz_compress_float(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(), &header,
+                                            &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
       })
       .on<double, F8>([&](auto) {
         auto d_in = MAKE_UNIQUE_DEVICE(double, len);
         auto h_in = MAKE_UNIQUE_HOST(double, len);
-        fromfile(args->cli->file_input, h_in.get(), len);
+        check_gpu_or_throw(stream);
+        fromfile_or_throw(args->cli->file_input, h_in.get(), len);
         memcpy_allkinds<H2D>(d_in.get(), h_in.get(), len);
         auto const ppl = CLI_pipeline(args);
-        m = psz_init(
-            F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
-        m->cli = args->cli;
-        auto stat =
-            psz_compress_double(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(),
-                                &header, &d_internal_compressed, &compressed_len);
+        m              = psz_init(F8, {CLI_x(args), CLI_y(args), CLI_z(args)}, ppl, stream);
+        m->cli         = args->cli;
+        auto stat = psz_compress_double(m, {CLI_mode(args), CLI_eb(args)}, d_in.get(), &header,
+                                        &d_internal_compressed, &compressed_len);
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("compress failed: ") + psz_error_string(stat));
       })
       .call(CLI_dtype(args));
+
+  check_gpu_or_throw(stream);
 
   if (args->cli->report_time) fprintf(stderr, "Reporting time is disabled/to be updated.\n");
 
@@ -135,8 +160,9 @@ void psz_compress_task(psz_ctx* args)
     auto file            = MAKE_UNIQUE_HOST(uint8_t, compressed_len);
     sync_by_stream(stream);
     memcpy_allkinds<D2H>(file.get(), d_internal_compressed, compressed_len);
+    check_gpu_or_throw(stream);
     memcpy(file.get(), &header, sizeof(psz_header));  // put on-host header
-    tofile(compressed_name.c_str(), file.get(), compressed_len);
+    tofile_or_throw(compressed_name, file.get(), compressed_len);
   }
 
   sync_by_stream(stream);
@@ -173,10 +199,15 @@ void psz_decompress_task(psz_ctx* args)
 
   // all lengths in metadata
   auto compressed_len = _ptb::utils::filesize(args->cli->file_input);
+  if (compressed_len < sizeof(psz_header))
+    throw std::runtime_error("input does not look like a .cusza archive: file is " +
+                             std::to_string(compressed_len) + " bytes, shorter than the " +
+                             std::to_string(sizeof(psz_header)) + "-byte header");
 
   auto d_comped = MAKE_UNIQUE_DEVICE(uint8_t, compressed_len);
   auto h_comped = MAKE_UNIQUE_HOST(uint8_t, compressed_len);
-  fromfile(args->cli->file_input, h_comped.get(), compressed_len);
+  check_gpu_or_throw(stream);
+  fromfile_or_throw(args->cli->file_input, h_comped.get(), compressed_len);
 
   auto header = (psz_header*)h_comped.get();
   check_header_or_throw(header, compressed_len);
@@ -187,7 +218,7 @@ void psz_decompress_task(psz_ctx* args)
   auto len      = pszheader_uncompressed_len(header);
 
   psz_ctx* m = psz_init_from_header(header, stream);
-  m->cli          = args->cli;
+  m->cli     = args->cli;
 
   _ptb::utils::dtype_dispatch()
       .on<float, F4>([&](auto) {
@@ -195,6 +226,7 @@ void psz_decompress_task(psz_ctx* args)
         auto stat       = psz_decompress_float(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("decompress failed: ") + psz_error_string(stat));
+        check_gpu_or_throw(stream);
         report_decomp<float>(args, header, len);
         compare_with_origin<float>(args, stream, d_decomped.get(), len, comp_len, header);
         write_decomp_to_disk<float>(args, stream, d_decomped.get(), len, basename);
@@ -204,6 +236,7 @@ void psz_decompress_task(psz_ctx* args)
         auto stat       = psz_decompress_double(m, d_comped.get(), comp_len, d_decomped.get());
         if (stat != PSZ_SUCCESS)
           throw std::runtime_error(std::string("decompress failed: ") + psz_error_string(stat));
+        check_gpu_or_throw(stream);
         report_decomp<double>(args, header, len);
         compare_with_origin<double>(args, stream, d_decomped.get(), len, comp_len, header);
         write_decomp_to_disk<double>(args, stream, d_decomped.get(), len, basename);

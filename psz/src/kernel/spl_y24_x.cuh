@@ -16,7 +16,7 @@ int psz::module::GPU_x_spline_y24<Types>::kernel(
 
   using FP = typename Types::Fp;
   auto anchor = _ptb::make_view(anchor_p, buf->anchor_len3());
-  auto eq = _ptb::make_view(buf->eq_d(), xdata.extent);
+  auto eq = _ptb::make_view(buf->template eq_d<typename Types::Eq>(), xdata.extent);
   auto extent = LEN_TO_DIM3(xdata.extent);
 
   constexpr int BLK8 = 8;
@@ -26,7 +26,7 @@ int psz::module::GPU_x_spline_y24<Types>::kernel(
   auto grid = dim3(div(extent.x, BLK8 * 4), div(extent.y, BLK8), div(extent.z, BLK8));
   auto ebx2 = (FP)(eb * 2), eb_r = (FP)(1 / eb);
   // per-block unpred-incomp message from the HF decoder (null for non-PBK paths).
-  auto incomp_flag = buf->buf_hf() ? buf->buf_hf()->incomp_flag_d() : nullptr;
+  auto incomp_flag = buf->template incomp_flag_d<typename Types::Eq>();
   // HF decoded the fused eq+outliers into a per-tile scratch (un-tiled here).
   auto fused_src = buf->decode_fused_d();
 

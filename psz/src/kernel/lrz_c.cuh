@@ -167,8 +167,9 @@ __global__ void KCU_c_lorenzo_1d(
   if (threadIdx.x == 0) {
     u4 nout = s_nout;
     s_incomp = UseIncompL and (nout > C::MaxNumUnpred);
-    out_bheader[2u * blockIdx.x] =
-        s_incomp ? ((u4)C::CodeIncompUnpred << EncIdShift) : (nout & (u4)C::MaxNumUnpred);
+    if (out_bheader)
+      out_bheader[2u * blockIdx.x] =
+          s_incomp ? ((u4)C::CodeIncompUnpred << EncIdShift) : (nout & (u4)C::MaxNumUnpred);
   }
   __syncthreads();
 
@@ -286,7 +287,7 @@ __global__ void KCU_c_lorenzo_2d__32x32(
   __syncthreads();
 
   bool incomp = UseIncompL and (s_nout > C::MaxNumUnpred);
-  if (cg::this_thread_block().thread_rank() == 0) {
+  if (cg::this_thread_block().thread_rank() == 0 and out_bheader) {
     out_bheader[2u * linear_block_idx()] =
         incomp ? ((u4)C::CodeIncompUnpred << EncIdShift) : (s_nout & 0x7u);
   }
@@ -417,7 +418,7 @@ __global__ void KCU_c_lorenzo_3d(
   // M11 unpred-incomp (pre)
   constexpr auto EncIdShift11 = (u4)(KC11::BitsMaxNumUnpred + KC11::BitsMaxNumBreaks);
   bool incomp = UseIncompL and (s_nout > KC11::MaxNumUnpred);
-  if (cg::this_thread_block().thread_rank() == 0) {
+  if (cg::this_thread_block().thread_rank() == 0 and out_bheader) {
     out_bheader[2u * linear_block_idx()] =
         incomp ? ((u4)KC11::CodeIncompUnpred << EncIdShift11) : (s_nout & (u4)KC11::MaxNumUnpred);
   }
@@ -462,9 +463,9 @@ int GPU_c_lorenzo_nd<Types, Features>::kernel(
   auto leapy = extent.x;
   auto leapz = extent.x * extent.y;
   auto ot = (Compact2*)buf->buf_outlier2();
-  auto out_eq = buf->eq_d();
+  auto out_eq = buf->template eq_d<typename Types::Eq>();
   auto out_top1 = buf->top1_d();
-  auto out_bheader = buf->buf_hf() ? (u4*)buf->buf_hf()->pbk_headers_d() : nullptr;
+  auto out_bheader = buf->template pbk_headers_d<typename Types::Eq>();
 
   auto go = [&](auto ui_const) {
     constexpr int UI = decltype(ui_const)::value;

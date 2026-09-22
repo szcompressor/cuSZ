@@ -3,6 +3,8 @@
 #include <numeric>
 #include <type_traits>
 
+#include "utils/err.hh"
+
 namespace psz {
 
 template <typename T, size_t BlockSize>
@@ -65,15 +67,15 @@ void GPU_find_max_error(T* a, T* b, size_t const len, T& maxval, size_t& maxloc,
   constexpr size_t threads_per_block = 256;
   const size_t blocks = (len + threads_per_block - 1) / threads_per_block;
 
-  T* d_max_errors;
-  size_t* d_max_indices;
-  cudaMallocManaged(&d_max_errors, blocks * sizeof(T));
-  cudaMallocManaged(&d_max_indices, blocks * sizeof(size_t));
+  T* d_max_errors = nullptr;
+  size_t* d_max_indices = nullptr;
+  CHECK_GPU(cudaMallocManaged(&d_max_errors, blocks * sizeof(T)));
+  CHECK_GPU(cudaMallocManaged(&d_max_indices, blocks * sizeof(size_t)));
 
   psz::KCU_find_max_errors<T, threads_per_block>       //
       <<<blocks, threads_per_block, 0, (cudaStream_t)stream>>>  //
       (a, b, len, d_max_errors, d_max_indices);
-  cudaStreamSynchronize((cudaStream_t)stream);
+  CHECK_GPU(cudaStreamSynchronize((cudaStream_t)stream));
 
   maxval = std::numeric_limits<T>::lowest();
   maxloc = 0;

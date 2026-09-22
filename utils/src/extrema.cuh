@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 
 #include "extrema.hh"
@@ -17,7 +18,7 @@ using _ptb::atomic_add;
 using _ptb::atomic_max;
 using _ptb::atomic_min;
 
-template <typename T>
+template <typename T, bool SIMD>
 __global__ void KCU_get_extrema(
     T* in, size_t const len, T* minel, T* maxel, T* sum, T const failsafe)
 {
@@ -27,7 +28,7 @@ __global__ void KCU_get_extrema(
   if (threadIdx.x == 0) s_min = failsafe, s_max = failsafe, s_sum = 0;
   __syncthreads();
 
-  size_t regular_count = len / N;
+  size_t regular_count = SIMD ? len / N : 0;
   const auto stride = (size_t)gridDim.x * blockDim.x;
   const auto entry = blockIdx.x * blockDim.x;
   for (size_t i = entry + threadIdx.x; i < regular_count; i += stride) {
@@ -39,7 +40,7 @@ __global__ void KCU_get_extrema(
       tp_sum += v[j];
     }
   }
-  // tail/boundary handling
+
   for (size_t i = regular_count * N + entry + threadIdx.x; i < len; i += stride) {
     T v = in[i];
     tp_min = min(tp_min, v);
@@ -81,13 +82,15 @@ auto GPU_get_extrema<T>::kernel(T* in, size_t len, void* stream) -> std::tuple<T
   auto d_maxel = MAKE_UNIQUE_DEVICE(T, 1);
   auto d_sum = MAKE_UNIQUE_DEVICE(T, 1);  // malloc_device zero-inits the sum
 
-  // failsafe/min/max seed from in
   T h_min, h_max, h_sum, failsafe;
   memcpy_allkinds<D2H>(&failsafe, in, 1);
   memcpy_allkinds<D2D>(d_minel.get(), in, 1);
   memcpy_allkinds<D2D>(d_maxel.get(), in, 1);
 
-  psz::KCU_get_extrema<T><<<grid, block, 0, (cudaStream_t)stream>>>(
+  auto const kernel = reinterpret_cast<uintptr_t>(in) % alignof(_ptb::_128b<T>) == 0
+                          ? psz::KCU_get_extrema<T, true>
+                          : psz::KCU_get_extrema<T, false>;
+  kernel<<<grid, block, 0, (cudaStream_t)stream>>>(
       in, len, d_minel.get(), d_maxel.get(), d_sum.get(), failsafe);
   sync_by_stream(stream);
 

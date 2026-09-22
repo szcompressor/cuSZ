@@ -5,17 +5,18 @@
 #include "cusz/type.h"
 #include "mem/buf_comp.hh"
 
-template <typename T, typename E>
-using psz_buf = psz::Buf_Comp<T, E>;
+template <typename T>
+using psz_buf = psz::Buf_Comp<T>;
 
-#define PSZ_BUF psz_buf<T, E>
+#define PSZ_BUF psz_buf<T>
 
 namespace psz {
 
 template <typename T, typename E, class PPL = void>
 struct compression_pipeline {
-  static void* compress_init(psz_ctx* ctx, bool skip_hf = false);
-  static void* decompress_init(psz_header* header);
+  static void* compress_init(
+      psz_ctx* ctx, u1* archive = nullptr, int nstage = 2, bool eq4 = true);
+  static void* decompress_init(psz_header* header, int nstage = 2, bool eq4 = true);
   static int compress(psz_ctx*, PSZ_BUF* mem, T*, u1**, size_t*, psz_stream_t);
   static int compress_analysis(psz_ctx*, PSZ_BUF* mem, T*, u4*, psz_stream_t);
   static int decompress(

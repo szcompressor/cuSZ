@@ -19,7 +19,7 @@ add_executable(zigzag src/test_zigzag_codec.cc)
 target_link_libraries(zigzag PRIVATE psz_cu_test_compile_settings)
 add_test(test_zigzag zigzag)
 
-add_executable(module src/test_module.cc ../psz/src/pipeline.cc)
+add_executable(module src/test_module.cc)
 target_link_libraries(module PRIVATE psz_cu_test_compile_settings)
 add_test(test_module module)
 
@@ -105,6 +105,17 @@ target_link_libraries(test_hfr
   CUDA::cudart
 )
 add_test(test_hf_revisit_altcode test_hfr)
+
+add_executable(test_iterative_reuse src/test_iterative_reuse.cc)
+set_source_files_properties(src/test_iterative_reuse.cc PROPERTIES LANGUAGE CUDA)
+target_link_libraries(test_iterative_reuse
+  PRIVATE
+  psz_cu_test_compile_settings
+  cusz
+  CUDA::cudart
+)
+add_test(test_iterative_reuse test_iterative_reuse)
+set_tests_properties(test_iterative_reuse PROPERTIES RESOURCE_LOCK gpu)
 
 add_executable(test_hfd26_fused src/test_hfd26_fused.cc)
 target_link_libraries(test_hfd26_fused

@@ -340,7 +340,7 @@ __device__ void shmem2global_32x8x8data_with_compaction(
   size_t tile = BIX + (size_t)GDX * (BIY + (size_t)GDY * BIZ);
   constexpr auto EncIdShift11 = (u4)(KC11::BitsMaxNumUnpred + KC11::BitsMaxNumBreaks);
   bool incomp = EqFitsIncomp and (*s_nout > KC11::MaxNumUnpred);
-  if (TIX == 0) {
+  if (TIX == 0 and out_bheader) {
     out_bheader[2u * tile] =
         incomp ? ((u4)KC11::CodeIncompUnpred << EncIdShift11) : (*s_nout & (u4)KC11::MaxNumUnpred);
   }

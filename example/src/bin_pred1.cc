@@ -1,5 +1,5 @@
 #include "context_impl.h"
-#include "pipeline.h"
+#include "module.hh"
 #include <cstdio>
 #include <cstring>
 #include <limits>
@@ -78,7 +78,7 @@ int main(int argc, char** argv)
   cudaStreamCreate(&stream);
 
   auto manager = psz_init(
-      F4, {x, y, z}, {pred_type, HistGeneric, HF, CodecNull}, (void*)stream);
+      F4, {x, y, z}, {pred_type, HistGeneric, CodecNull, CodecNull}, (void*)stream);
 
   manager->header->eb = abs_eb;
   manager->header->radius = radius;
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
   using E = uint16_t;
   using M = uint32_t;
   using PPL = psz::compression_pipeline<float, E>;
-  using Buf = psz_buf<float, E>;
+  using Buf = psz_buf<float>;
 
   auto mem = (Buf*)manager->buf;
   auto h_hist = MAKE_UNIQUE_HOST(uint32_t, manager->bklen);
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
   {
     auto h_eq = MAKE_UNIQUE_HOST(uint16_t, n_fused);
     auto h_space = MAKE_UNIQUE_HOST(float, n_fused);
-    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), n_fused);
+    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d<E>(), n_fused);
     for (size_t i = 0; i < n_fused; ++i) h_space[i] = (float)h_eq[i];
     if (tile_nd) {
       mem->alloc_decode_fused();
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
 
   if (do_export) {
     auto h_eq = MAKE_UNIQUE_HOST(uint16_t, len);
-    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d(), len);
+    memcpy_allkinds<D2H>(h_eq.get(), mem->eq_d<E>(), len);
     std::string eq_out = fname + ".pred_" + pred_name + ".ectrl.u2";
     utils::tofile(eq_out, h_eq.get(), len);
     printf("[pred-study] ectrl written to: %s\n", eq_out.c_str());
@@ -159,7 +159,7 @@ int main(int argc, char** argv)
     utils::tofile(rec_out, h_xdata.get(), len);
     printf("[pred-study] reconstructed written to: %s\n", rec_out.c_str());
 
-    if (pszpredictor_is_spline(pred_type)) {
+    if (psz::_2609::is_spline(pred_type)) {
       auto anchor_len = mem->anchor_len();
       auto h_anchor = MAKE_UNIQUE_HOST(float, anchor_len);
       memcpy_allkinds<D2H>(h_anchor.get(), mem->anchor_d(), anchor_len);

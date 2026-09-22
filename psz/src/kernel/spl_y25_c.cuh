@@ -44,13 +44,13 @@ int psz::module::GPU_c_spline_y25<Types, Features>::kernel(
     INTERP_PARAMS& intp_param, bool enable_global, void* stream)
 {
   auto data_p = in.ptr;
-  auto eq_p = buf->eq_d();
+  auto eq_p = buf->template eq_d<typename Types::Eq>();
   auto anchor_p = buf->anchor_d();
   auto d_ext = in.extent;
   auto a_ext = buf->anchor_len3();
   auto _outlier = (void*)buf->buf_outlier2();
-  auto out_bheader = buf->buf_hf() ? (uint32_t*)buf->buf_hf()->pbk_headers_d() : nullptr;
-  auto out_block_outliers = buf->block_outliers_d();
+  auto out_bheader = buf->template pbk_headers_d<typename Types::Eq>();
+  auto out_block_outliers = buf->template block_outliers_d<typename Types::Eq>();
   auto d_profiled_errors = buf->profiled_errors_d();
   auto h_profiled_errors = buf->profiled_errors_h();
   auto pe_len = buf->profiled_errors_len();
@@ -411,6 +411,7 @@ int psz::module::GPU_c_spline_y25<Types, Features>::kernel(
         Features::UseZigZag, Features::UseH1GL,
         (Global ? 0b10 : 0b00) | (Features::UnpredIncomp & 0b01)>;
     if (l3.z == 1) {
+      memset_device_async(anchor_p, buf->anchor_len(), 0, stream);
       auto grid_dim = dim3(
           div(extent.x, AncBlkSzX * NAncBlkX), div(extent.y, AncBlkSzY * NAncBlkY),
           div(extent.z, AncBlkSzZ * NAncBlkZ));

@@ -306,11 +306,11 @@ int GPU_x_lorenzo_nd<Types, Features>::kernel(
   auto ebx2 = eb * 2;
   auto leapy = extent.x;
   auto leapz = extent.x * extent.y;
-  auto in_eq = buf->eq_d();
+  auto in_eq = buf->template eq_d<typename Types::Eq>();
   // 2D/3D: the fused predict-input lives in the per-tile scratch (1D stays in-place linear).
   auto in_fused = buf->decode_fused_d();
   // per-block unpred-incomp message from the HF decoder (null for non-HFR / non-PBK paths).
-  auto incomp_flag = buf->buf_hf() ? buf->buf_hf()->incomp_flag_d() : nullptr;
+  auto incomp_flag = buf->template incomp_flag_d<typename Types::Eq>();
 
   if (d == 1) {
     using lrz1 = config::x_lorenzo<1>;
