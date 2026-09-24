@@ -6,6 +6,10 @@ __constant__ unsigned char PBK25_R128_RVBK_d[] = {
 #include "pbk25_r128_rvbk.inc"
 };
 
+__device__ __align__(16) unsigned char PBK25_R128_LUT_d[] = {
+#include "pbk25_r128_lut.inc"
+};
+
 // Host-side accessors: resolve __constant__ addresses within this TU
 // (cudaGetSymbolAddress cannot cross TU boundaries without -rdc)
 extern "C" void* pbk25_r128_book_d_ptr()
@@ -19,6 +23,13 @@ extern "C" void* pbk25_r128_rvbk_d_ptr()
 {
   void* ptr = nullptr;
   cudaGetSymbolAddress(&ptr, PBK25_R128_RVBK_d);
+  return ptr;
+}
+
+extern "C" void* pbk25_r128_lut_d_ptr()
+{
+  void* ptr = nullptr;
+  cudaGetSymbolAddress(&ptr, PBK25_R128_LUT_d);
   return ptr;
 }
 

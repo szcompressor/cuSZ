@@ -113,8 +113,9 @@ struct Buf {
   u4* pbkgo_state_d() const;
 
   phf::LutEntry* lut_d() const;
-  bool lut_ready() const;  // can be reset
-  void lut_ready(bool v);
+  H4* pbk_book_d() const;
+  u1* pbk_rvbk_d() const;
+  phf::LutEntry* pbk_lut_d() const;
 
   void update_header(phf_header& header);
   void calc_offset(phf_header& header, M* byte_offsets);

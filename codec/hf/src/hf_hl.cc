@@ -14,9 +14,6 @@
 
 #define PHF_ACCESSOR(SYM, TYPE) reinterpret_cast<TYPE*>(in_encoded + header.entry[PHFHEADER_##SYM])
 
-extern "C" void* pbk25_r128_book_d_ptr();
-extern "C" void* pbk25_r128_rvbk_d_ptr();
-
 using H4 = u4;
 using M = PHF_METADATA;
 
@@ -202,9 +199,10 @@ int encode_hfr_v2(
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
         using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
         Concat::GPU_kernel(
-            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(), (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4),
-            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
-            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(),
+            (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4), stride_words, (int)pardeg,
+            buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
+            buf->total_ncell_d(), stream);
       };
       if (magnitude >= 12)
         concat(std::integral_constant<int, 12>{});
@@ -289,9 +287,10 @@ int encode_hfr_v3(
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
         using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
         Concat::GPU_kernel(
-            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(), (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4),
-            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
-            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(),
+            (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4), stride_words, (int)pardeg,
+            buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
+            buf->total_ncell_d(), stream);
       };
       if (magnitude >= 12)
         concat(std::integral_constant<int, 12>{});
@@ -376,9 +375,10 @@ int encode_hfr_v4(
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
         using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
         Concat::GPU_kernel(
-            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(), (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4),
-            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
-            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(),
+            (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4), stride_words, (int)pardeg,
+            buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
+            buf->total_ncell_d(), stream);
       };
       if (magnitude >= 12)
         concat(std::integral_constant<int, 12>{});
@@ -439,33 +439,33 @@ int encode_hfr_pbkc(
           using Enc4kB = phf::module::HFR_PBKC_encode<E, 12, RT, H4, K::Radius, /*IterLog=*/1>;
           if (opts.blockdim >= 256) {
             Enc4kB::GPU_kernel(
-                in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
-                (typename Enc4kB::header_t*)hdrs, opts.block_outliers, stream);
+                in, len, buf->pbk_book_d(), buf->bitstream_d(), (typename Enc4kB::header_t*)hdrs,
+                opts.block_outliers, stream);
             return;
           }
         }
         Enc4kA::GPU_kernel(
-            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
-            (typename Enc4kA::header_t*)hdrs, opts.block_outliers, stream);
+            in, len, buf->pbk_book_d(), buf->bitstream_d(), (typename Enc4kA::header_t*)hdrs,
+            opts.block_outliers, stream);
       }
       else if (magnitude >= 11) {
         using Enc2k = phf::module::HFR_PBKC_encode<E, 11, RT, H4, K::Radius, /*IterLog=*/1>;
         Enc2k::GPU_kernel(
-            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
-            (typename Enc2k::header_t*)hdrs, opts.block_outliers, stream);
+            in, len, buf->pbk_book_d(), buf->bitstream_d(), (typename Enc2k::header_t*)hdrs,
+            opts.block_outliers, stream);
       }
       else
         phf::module::HFR_PBKC_encode<E, K::Magnitude, RT, H4, K::Radius>::GPU_kernel(
-            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(), hdrs, opts.block_outliers,
-            stream);
+            in, len, buf->pbk_book_d(), buf->bitstream_d(), hdrs, opts.block_outliers, stream);
     };
     auto launch_aggregate = [&]() {
       auto concat = [&]<int M>(std::integral_constant<int, M>) {
         using Concat = phf::_future_concat_via_scatter<E, ConcatBlockDim, M>;
         Concat::GPU_kernel(
-            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(), (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4),
-            stride_words, (int)pardeg, buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(),
-            buf->scan_tile_status_d(), buf->total_ncell_d(), stream);
+            (typename Concat::bheader_t*)buf->pbk_headers_d(), buf->bitstream_d(),
+            (u4*)buf->archive_bitstream_d(), (u4)sizeof(H4), stride_words, (int)pardeg,
+            buf->scan_partial_aggregate_d(), buf->scan_incl_prefix_d(), buf->scan_tile_status_d(),
+            buf->total_ncell_d(), stream);
       };
       if (magnitude >= 12)
         concat(std::integral_constant<int, 12>{});
@@ -526,10 +526,9 @@ int encode_hfr_pbkgo(
       auto go = [&]<int M>(std::integral_constant<int, M>) {
         using Enc = phf::module::HFR_PBKGO_encode<E, M, RT, H4, K::Radius>;
         Enc::GPU_kernel(
-            in, len, (H4*)pbk25_r128_book_d_ptr(), buf->bitstream_d(),
+            in, len, buf->pbk_book_d(), buf->bitstream_d(),
             (typename Enc::header_t*)buf->pbk_headers_d(), opts.block_outliers,
-            buf->total_ncell_d(), buf->pbkgo_state_d(),
-            buf->pbkgo_max_resident_blocks(), stream);
+            buf->total_ncell_d(), buf->pbkgo_state_d(), buf->pbkgo_max_resident_blocks(), stream);
       };
       if (magnitude >= 12)
         go(std::integral_constant<int, 12>{});
@@ -595,9 +594,9 @@ int decode_hfr(
     }
     else {
       // prebuilt pbk25_r128 pool (Storage=u1); V3/V4 offset to their single g_encid book.
-      auto rvbk = (u1*)pbk25_r128_rvbk_d_ptr() + ((variant == HFR_V3 or variant == HFR_V4)
-                                                      ? (size_t)header.g_encid * RvbkBytesPerBook
-                                                      : 0);
+      auto rvbk = buf->pbk_rvbk_d() + ((variant == HFR_V3 or variant == HFR_V4)
+                                           ? (size_t)header.g_encid * RvbkBytesPerBook
+                                           : 0);
       if (magnitude >= 12)
         phf::module::HFR_PBK_decoder<Ein, H4, u1, 12>::template GPU_kernel<Eout>(
             bs_ptr, bs_bytes, rvbk, RvbkBytesPerBook, packed_headers, pardeg, header.ori_len,
@@ -647,8 +646,8 @@ int high_level<E>::HFR_pick_pbk(
     phf::Buf<E>* buf, u2 const bklen, size_t const len, hf_stream_t stream)
 {
   phf::module::HFR_pick_pbk(
-      buf->hist_d(), (u4)bklen, len, (u4*)pbk25_r128_book_d_ptr(), buf->book_d(),
-      buf->pick_encid_d(), stream);
+      buf->hist_d(), (u4)bklen, len, buf->pbk_book_d(), buf->book_d(), buf->pick_encid_d(),
+      stream);
   return 0;
 }
 
@@ -746,7 +745,6 @@ int high_level<E>::HFD26_decode(
     const size_t bs_bytes = header.total_ncell * sizeof(H4);
 
     auto lut_d = buf->lut_d();
-    const bool build_lut = not buf->lut_ready();
     auto incomp_flag = buf->incomp_flag_d();
 
     auto launch = [&]<typename Storage>(u1* rvbk, int rvbk_bytes) {
@@ -775,7 +773,8 @@ int high_level<E>::HFD26_decode(
       case HFR_PBKC:
       case HFR_PBKGO: {
         constexpr auto RvbkBytesPerBook = psz::HFR_PBK_Constants::RvbkBytesPerBook;
-        launch.template operator()<u1>((u1*)pbk25_r128_rvbk_d_ptr(), RvbkBytesPerBook);
+        lut_d = buf->pbk_lut_d();
+        launch.template operator()<u1>(buf->pbk_rvbk_d(), RvbkBytesPerBook);
         break;
       }
       case HFR_V3:
@@ -783,14 +782,13 @@ int high_level<E>::HFD26_decode(
         // ensure no silent/wrong-book decode
         constexpr auto RvbkBytesPerBook = psz::HFR_PBK_Constants::RvbkBytesPerBook;
         constexpr auto LutEntries = 256;
-        auto rvbk_ptr = (u1*)pbk25_r128_rvbk_d_ptr() + (size_t)header.g_encid * RvbkBytesPerBook;
-        lut_d = buf->lut_d() + (size_t)header.g_encid * LutEntries;
+        auto rvbk_ptr = buf->pbk_rvbk_d() + (size_t)header.g_encid * RvbkBytesPerBook;
+        lut_d = buf->pbk_lut_d() + (size_t)header.g_encid * LutEntries;
         launch.template operator()<u1>(rvbk_ptr, RvbkBytesPerBook);
         break;
       }
       default: return PHF_NOT_IMPLEMENTED;
     }
-    if (build_lut) buf->lut_ready(true);
     sync_by_stream(stream);
     return 0;
   }

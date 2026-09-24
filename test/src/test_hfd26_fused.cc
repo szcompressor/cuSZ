@@ -1,6 +1,7 @@
 // Correctness check: KCU_hfd26_fused decode vs. the original quant codes, exact element match.
 
 #include <cstdio>
+#include <cstring>
 #include <memory>
 
 #include "cxx_typing.h"
@@ -14,6 +15,7 @@ using H = u4;
 using Storage = u1;
 
 extern "C" void* pbk25_r128_rvbk_d_ptr();
+extern "C" void* pbk25_r128_lut_d_ptr();
 
 constexpr int DefaultReduceTimes = (int)psz::HFR_PBK_Constants::ReduceTimes;
 
@@ -37,8 +39,7 @@ bool run_case(size_t len, int bklen, char const* synth_spec, char const* label)
   sync_by_stream(stream);
 
   // HFR-PBKGO: prebuilt PBK25_R128 codebook; no histogram/book build needed.
-  auto buf_enc = std::make_unique<phf::Buf_HFR<E>>(
-      len, bklen, false, true, nullptr);
+  auto buf_enc = std::make_unique<phf::Buf_HFR<E>>(len, bklen, false, true, nullptr);
   buf_enc->init();
 
   u1* d_encoded = nullptr;
@@ -57,17 +58,16 @@ bool run_case(size_t len, int bklen, char const* synth_spec, char const* label)
   auto packed_headers = (u4 const*)(d_encoded + header.entry[PHFHEADER_PBK_HEADERS]);
   size_t const bs_bytes = (size_t)header.total_ncell * sizeof(H);
   constexpr auto RvbkBytesPerBook = psz::HFR_PBK_Constants::RvbkBytesPerBook;
-  auto rvbk_ptr = (u1*)pbk25_r128_rvbk_d_ptr();
+  auto rvbk_ptr = buf_enc->pbk_rvbk_d();
   int const rvbk_bytes = (int)RvbkBytesPerBook;
   int const pardeg = (int)header.pardeg;
 
   auto d_decomp_fused = MAKE_UNIQUE_DEVICE(Eout, len);
 
-  auto buf_fused = std::make_unique<phf::Buf_HFR<E>>(
-      len, bklen, false, true, nullptr);
+  auto buf_fused = std::make_unique<phf::Buf_HFR<E>>(len, bklen, false, true, nullptr);
   buf_fused->init();
   phf::module::HFD26<E, H, Storage, Mag>::template decode_fused<Eout>(
-      bs_ptr, bs_bytes, rvbk_ptr, rvbk_bytes, packed_headers, buf_fused->lut_d(), pardeg,
+      bs_ptr, bs_bytes, rvbk_ptr, rvbk_bytes, packed_headers, buf_fused->pbk_lut_d(), pardeg,
       header.ori_len, d_decomp_fused.get(), buf_fused->incomp_flag_d(), stream);
 
   sync_by_stream(stream);
@@ -100,14 +100,34 @@ bool run_case(size_t len, int bklen, char const* synth_spec, char const* label)
   }
 
   printf(
-      "[%s] PASS: %zu elements identical (Mag=%d, pardeg=%d, bklen=%d)\n", label, len, Mag,
-      pardeg, bklen);
+      "[%s] PASS: %zu elements identical (Mag=%d, pardeg=%d, bklen=%d)\n", label, len, Mag, pardeg,
+      bklen);
   return true;
+}
+
+bool shipped_lut_matches_rvbk()
+{
+  using K = psz::HFR_PBK_Constants;
+  size_t const n = (size_t)K::NumBooks * 256;
+  auto d_built = MAKE_UNIQUE_DEVICE(u4, n);
+  phf::module::HFD26<E, H, Storage>::build_lut(
+      (u1 const*)pbk25_r128_rvbk_d_ptr(), (int)K::RvbkBytesPerBook, (int)K::NumBooks,
+      (phf::LutEntry*)d_built.get(), nullptr);
+  auto h_built = MAKE_UNIQUE_HOST(u4, n);
+  auto h_shipped = MAKE_UNIQUE_HOST(u4, n);
+  memcpy_allkinds<D2H>(h_built.get(), d_built.get(), n);
+  memcpy_allkinds<D2H>(h_shipped.get(), (u4*)pbk25_r128_lut_d_ptr(), n);
+  bool const same = std::memcmp(h_built.get(), h_shipped.get(), n * sizeof(u4)) == 0;
+  printf(
+      "[shipped PBK LUT] %s\n", same ? "PASS: matches build_lut" : "FAIL: differs from build_lut");
+  return same;
 }
 
 int main()
 {
   bool ok = true;
+
+  ok &= shipped_lut_matches_rvbk();
 
   constexpr size_t Len = 6480000;  // matches the bin_hf ctest matrix scale
   int const bklen = 256;           // HFR-PBK family: radius=128 -> bklen 256

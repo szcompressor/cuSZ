@@ -62,7 +62,6 @@ namespace phf::module {
 
 template <typename E, typename H = u4, typename Storage = u1, int Magnitude = 10>
 struct HFD26 {
-  // during init
   static int build_lut(
       u1 const* rvbks_g, int rvbk_nbyte, int num_books, phf::LutEntry* lut_d, void* stream);
 

@@ -25,7 +25,9 @@ phf_eager_module_loading_init _phf_eager_module_loading_init_singleton;
 using H4 = u4;
 using M = PHF_METADATA;
 
-extern "C" void* pbk25_r128_rvbk_d_ptr();  // pbk25_r128_d.cu
+extern "C" void* pbk25_r128_book_d_ptr();
+extern "C" void* pbk25_r128_rvbk_d_ptr();
+extern "C" void* pbk25_r128_lut_d_ptr();
 
 namespace phf::_dummy {
 void launch();
@@ -60,10 +62,12 @@ struct Buf<E>::impl : _ptb::buf_base {
   bool use_HFR;
   bool is_comp;
   PHF_BYTE* archive_dst = nullptr;
+  H4* pbk_book = nullptr;
+  PHF_BYTE* pbk_rvbk = nullptr;
+  phf::LutEntry* pbk_lut = nullptr;
   bool use_prebuilt_rvbk = false;  // exclude runtime RVBK from the archive
   bool use_pbkgo = false;
   bool use_global_encid = false;  // HFR-v3: record global PBK ID
-  bool lut_ready = false;         // HFD26 LUT cache
   u2 rt_bklen;
   int num_sms;
   int pbkgo_max_blocks_per_sm;
@@ -164,7 +168,7 @@ struct Buf<E>::impl : _ptb::buf_base {
          {PBK_HEADERS, U1, enc(nblock_1ki * sizeof(BHeader))},
          {INCOMP_FLAG, U1, pardeg},
          {PBKGO_STATE, U4, enc(pardeg)},
-         {LUT, U1, K::NumBooks * 256 * sizeof(phf::LutEntry)}}};
+         {LUT, U1, is_comp ? 0 : 256 * sizeof(phf::LutEntry)}}};
   }
 
   static size_t pardeg_of(size_t inlen, bool use_HFR, bool use_sublen_1ki)
@@ -212,6 +216,12 @@ struct Buf<E>::impl : _ptb::buf_base {
     h_encoded = nullptr;  // no pinned mirror; encoded_h() has no callers
 
     for (int i = 0; i < 3; ++i) timing_events[i] = _ptb::make_gpu_event();
+
+    if (use_HFR) {
+      pbk_book = (H4*)pbk25_r128_book_d_ptr();
+      pbk_rvbk = (PHF_BYTE*)pbk25_r128_rvbk_d_ptr();
+      pbk_lut = (phf::LutEntry*)pbk25_r128_lut_d_ptr();
+    }
   }
 
   bool set_inlen(size_t inlen, bool _use_sublen_1ki)
@@ -277,21 +287,14 @@ struct Buf<E>::impl : _ptb::buf_base {
 
   void init_state() override
   {
-    if (use_HFR)
-      phf::module::HFD26<SYM, u4, u1>::build_lut(
-          (u1*)pbk25_r128_rvbk_d_ptr(), (int)psz::HFR_PBK_Constants::RvbkBytesPerBook,
-          (int)psz::HFR_PBK_Constants::NumBooks, lut(), /*stream*/ 0);
-
     if (scan_partial())
       psz::scan_lookback::launch_init_host(
           scan_partial(), scan_incl(), scan_status(), scan_num_tiles_, /*stream*/ 0);
     cudaDeviceSynchronize();
   }
 
-  // the LUT is built once and must not be cleared.
   void reset(void* stream) override
   {
-    lut_ready = false;
     if (not is_comp) return;  // a decode buf declares none of the frames below
     if (scan_partial())
       psz::scan_lookback::launch_init_host(
@@ -527,8 +530,9 @@ PHF_BUF_DEF(u4*)::total_ncell_d() const { return pimpl->total_ncell(); }
 PHF_BUF_DEF(u1*)::incomp_flag_d() const { return pimpl->incomp_flag(); }
 PHF_BUF_DEF(u4*)::pbkgo_state_d() const { return pimpl->pbkgo_state(); }
 PHF_BUF_DEF(phf::LutEntry*)::lut_d() const { return pimpl->lut(); }
-PHF_BUF_DEF(bool)::lut_ready() const { return pimpl->lut_ready; }
-PHF_BUF_DEF(void)::lut_ready(bool v) { pimpl->lut_ready = v; }
+PHF_BUF_DEF(H4*)::pbk_book_d() const { return pimpl->pbk_book; }
+PHF_BUF_DEF(u1*)::pbk_rvbk_d() const { return pimpl->pbk_rvbk; }
+PHF_BUF_DEF(phf::LutEntry*)::pbk_lut_d() const { return pimpl->pbk_lut; }
 
 }  // namespace phf
 
