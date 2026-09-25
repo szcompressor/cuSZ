@@ -1,0 +1,23 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "psz"
+version = "0.19.0"
+description = "High-level pSZ/cuSZ pipelines using nanobind and CuPy"
+requires-python = ">=3.9"
+dependencies = ["numpy"]
+
+[tool.scikit-build]
+cmake.source-dir = ".."
+build-dir = "../build-psz_py"
+wheel.packages = ["psz"]
+editable.rebuild = false
+
+[tool.scikit-build.cmake.define]
+PSZ_BUILD_PYBINDING = "ON"
+CMAKE_DISABLE_FIND_PACKAGE_EVAL = "ON"
+CMAKE_DISABLE_FIND_PACKAGE_PORTABLE = "ON"
+CMAKE_DISABLE_FIND_PACKAGE_FZG = "ON"
+CMAKE_DISABLE_FIND_PACKAGE_PHF = "ON"
